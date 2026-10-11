@@ -16,12 +16,10 @@
       <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
       Recharger
     </button>
-    @if (!creating() && !editingId()) {
-      <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
-        <i class="bi bi-plus-lg" aria-hidden="true"></i>
-        Nouvelle règle
-      </button>
-    }
+    <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i>
+      Nouvelle règle
+    </button>
   </div>
 </div>
 
@@ -45,111 +43,6 @@
 } @else if (catalog.value(); as data) {
   @for (issue of data.load_errors; track issue) {
     <div class="alert alert-warning py-2" role="status">{{ issue }}</div>
-  }
-
-  @if (creating() || editingId()) {
-    <form class="card rule-editor mb-3" (submit)="save($event)" novalidate>
-      <div class="card-header d-flex align-items-center">
-        <h2 class="h6 mb-0">{{ editingId() ? 'Modifier la règle' : 'Nouvelle règle' }}</h2>
-        <button
-          type="button"
-          class="btn btn-sm btn-outline-secondary ms-auto"
-          aria-label="Fermer le formulaire"
-          (click)="cancelEdit()"
-        >
-          <i class="bi bi-x-lg" aria-hidden="true"></i>
-        </button>
-      </div>
-      <div class="card-body">
-        <div class="row g-3">
-          <div class="col-md-4">
-            <label class="form-label" for="rule-id">Identifiant</label>
-            @if (editingId()) {
-              <input
-                id="rule-id"
-                class="form-control font-monospace"
-                [value]="formModel().id"
-                readonly
-              />
-            } @else {
-              <input id="rule-id" class="form-control font-monospace" [formField]="ruleForm.id" />
-            }
-          </div>
-          <div class="col-md-5">
-            <label class="form-label" for="rule-title">Titre</label>
-            <input id="rule-title" class="form-control" [formField]="ruleForm.title" />
-          </div>
-          <div class="col-md-3">
-            <label class="form-label" for="rule-severity">Sévérité</label>
-            <select id="rule-severity" class="form-select" [formField]="ruleForm.severity">
-              <option value="">Choisir…</option>
-              @for (severity of severities; track severity) {
-                <option [value]="severity">{{ severity }}</option>
-              }
-            </select>
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="rule-languages">Langages</label>
-            <input
-              id="rule-languages"
-              class="form-control"
-              placeholder="python, java ou *"
-              [formField]="ruleForm.languages"
-            />
-          </div>
-          <div class="col-md-6">
-            <label class="form-label" for="rule-cwe">CWE</label>
-            <input
-              id="rule-cwe"
-              class="form-control"
-              placeholder="CWE-89"
-              [formField]="ruleForm.cwe"
-            />
-          </div>
-          <div class="col-12">
-            <label class="form-label" for="rule-pattern">Expression régulière</label>
-            <textarea
-              id="rule-pattern"
-              class="form-control font-monospace pattern"
-              rows="3"
-              spellcheck="false"
-              [formField]="ruleForm.pattern"
-            ></textarea>
-          </div>
-          <div class="col-12">
-            <label class="form-label" for="rule-advice">Conseil</label>
-            <textarea
-              id="rule-advice"
-              class="form-control"
-              rows="2"
-              [formField]="ruleForm.advice"
-            ></textarea>
-          </div>
-          <div class="col-12">
-            <div class="form-check">
-              <input
-                id="rule-ignore-case"
-                class="form-check-input"
-                type="checkbox"
-                [formField]="ruleForm.ignore_case"
-              />
-              <label class="form-check-label" for="rule-ignore-case">Ignorer la casse</label>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="card-footer d-flex justify-content-end gap-2">
-        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEdit()">
-          Annuler
-        </button>
-        <button type="submit" class="btn btn-sm btn-primary" [disabled]="saving()">
-          @if (saving()) {
-            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-          }
-          Enregistrer
-        </button>
-      </div>
-    </form>
   }
 
   <div class="card">
@@ -257,3 +150,123 @@
     }
   </div>
 }
+
+<dialog
+  #editorDialog
+  class="rule-dialog shadow"
+  aria-labelledby="rule-dialog-title"
+  (close)="onEditorClosed()"
+>
+  @if (creating() || editingId()) {
+    <form class="card rule-editor" (submit)="save($event)" novalidate>
+      <div class="card-header d-flex align-items-center">
+        <h2 id="rule-dialog-title" class="h6 mb-0">
+          {{ editingId() ? 'Modifier la règle' : 'Nouvelle règle' }}
+        </h2>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary ms-auto"
+          aria-label="Fermer le formulaire"
+          (click)="cancelEdit()"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        @if (formError(); as message) {
+          <div class="alert alert-danger py-2" role="alert">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+            {{ message }}
+          </div>
+        }
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label" for="rule-id">Identifiant</label>
+            @if (editingId()) {
+              <input
+                id="rule-id"
+                class="form-control font-monospace"
+                [value]="formModel().id"
+                readonly
+              />
+            } @else {
+              <input id="rule-id" class="form-control font-monospace" [formField]="ruleForm.id" />
+            }
+          </div>
+          <div class="col-md-5">
+            <label class="form-label" for="rule-title">Titre</label>
+            <input id="rule-title" class="form-control" [formField]="ruleForm.title" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="rule-severity">Sévérité</label>
+            <select id="rule-severity" class="form-select" [formField]="ruleForm.severity">
+              <option value="">Choisir…</option>
+              @for (severity of severities; track severity) {
+                <option [value]="severity">{{ severity }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="rule-languages">Langages</label>
+            <input
+              id="rule-languages"
+              class="form-control"
+              placeholder="python, java ou *"
+              [formField]="ruleForm.languages"
+            />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="rule-cwe">CWE</label>
+            <input
+              id="rule-cwe"
+              class="form-control"
+              placeholder="CWE-89"
+              [formField]="ruleForm.cwe"
+            />
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="rule-pattern">Expression régulière</label>
+            <textarea
+              id="rule-pattern"
+              class="form-control font-monospace pattern"
+              rows="3"
+              spellcheck="false"
+              [formField]="ruleForm.pattern"
+            ></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="rule-advice">Conseil</label>
+            <textarea
+              id="rule-advice"
+              class="form-control"
+              rows="2"
+              [formField]="ruleForm.advice"
+            ></textarea>
+          </div>
+          <div class="col-12">
+            <div class="form-check">
+              <input
+                id="rule-ignore-case"
+                class="form-check-input"
+                type="checkbox"
+                [formField]="ruleForm.ignore_case"
+              />
+              <label class="form-check-label" for="rule-ignore-case">Ignorer la casse</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEdit()">
+          Annuler
+        </button>
+        <button type="submit" class="btn btn-sm btn-primary" [disabled]="saving()">
+          @if (saving()) {
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          }
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  }
+</dialog>

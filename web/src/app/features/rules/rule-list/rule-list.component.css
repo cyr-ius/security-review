@@ -1,5 +1,23 @@
+.rule-dialog {
+  inline-size: min(64rem, calc(100vw - 2rem));
+  max-block-size: calc(100dvh - 2rem);
+  padding: 0;
+  border: 0;
+  border-radius: var(--bs-border-radius-lg);
+  background: transparent;
+  color: var(--bs-body-color);
+}
+
+.rule-dialog::backdrop {
+  background: rgb(0 0 0 / 50%);
+}
+
 .rule-editor {
-  max-width: 64rem;
+  max-block-size: calc(100dvh - 2rem);
+}
+
+.rule-editor .card-body {
+  overflow-y: auto;
 }
 
 .pattern {
