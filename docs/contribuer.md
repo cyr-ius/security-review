@@ -9,6 +9,14 @@ uv run ruff check . && uv run ruff format --check .
 pre-commit install          # facultatif : mêmes contrôles avant chaque commit
 ```
 
+## Définition de « terminé »
+
+Une contribution, humaine ou produite par un agent IA, n'est terminée que si elle comprend des
+tests, que la documentation `docs/` est à jour et que le `README.md`, qui reste un résumé, l'est
+aussi. Les règles détaillées (conventions, invariants de sécurité, correspondance code → pages
+de doc) sont dans `AGENTS.md` à la racine du dépôt ; `CLAUDE.md` et
+`.github/copilot-instructions.md` y renvoient.
+
 ## Structure du code
 
 ```
@@ -61,9 +69,20 @@ Le workflow `.github/workflows/docs.yml` :
 Activation unique dans le dépôt GitHub : **Settings → Pages → Build and deployment → Source :
 GitHub Actions**.
 
+## Branches
+
+- **`dev`** : branche de développement, on y code par défaut.
+- **`feat/<sujet>`** : seulement pour une grosse rupture (refonte, changement d'API ou de
+  schéma), créée depuis `dev` et fusionnée dans `dev` par pull request.
+- **`master`** : branche de production, alimentée uniquement par des fusions de `dev`.
+
 ## Publication d'une version
 
-1. Mettez à jour `version` dans `pyproject.toml` (par ex. `uv version 1.3.0`).
-2. Poussez un tag correspondant : `git tag v1.3.0 && git push origin v1.3.0`.
-3. Le workflow `publish.yml` lance lint et tests, vérifie que le tag correspond à la version,
-   publie sur PyPI puis crée la release GitHub.
+Une version correspond à un tag poussé sur `master` :
+
+1. Sur `dev`, mettez à jour `version` dans `pyproject.toml` (par ex. `uv version 1.3.0`) et
+   commitez.
+2. Fusionnez `dev` dans `master`.
+3. Sur `master`, poussez le tag correspondant : `git tag v1.3.0 && git push origin v1.3.0`.
+4. Le push du tag déclenche `publish.yml` : lint et tests, vérification que le tag correspond à
+   la version, publication sur PyPI puis création de la release GitHub.
