@@ -3,7 +3,7 @@
 import pytest
 from starlette.testclient import TestClient
 
-from security_review_mcp import http_server, server, services, web_api
+from security_review_mcp import http_server, registry, server, services, web_api
 from security_review_mcp.http_server import parse_tokens
 from security_review_mcp.models import FindingCreate, Severity
 
@@ -11,6 +11,7 @@ TOKENS = {
     "reader": "r" * 32,
     "triager": "t" * 32,
     "mcp": "m" * 32,
+    "admin": "a" * 32,
 }
 
 
@@ -122,6 +123,101 @@ def test_update_finding_status(client, reports):
     assert response.json()["status"] == "accepted"
     assert client.patch("/api/v1/findings/1", json={"status": "bogus"}).status_code == 422
     assert client.patch("/api/v1/findings/999", json={"status": "fixed"}).status_code == 404
+
+
+def test_custom_rule_lifecycle(client, rules_dir):
+    pack = rules_dir / "company.toml"
+    pack.write_text(
+        '# Preserve this note\n\n[[rules]]\nid = "ACME-001"\ntitle = "Unsafe eval"\n'
+        'severity = "high"\nlanguages = ["python"]\npattern = "eval\\\\("\n',
+        encoding="utf-8",
+    )
+
+    listed = client.get("/api/v1/rules").json()
+    assert listed["rules"][0]["source"] == "company.toml"
+    assert listed["rules"][0]["enabled"] is True
+
+    changed = {
+        "id": "ACME-001",
+        "title": "Unsafe eval call",
+        "severity": "critical",
+        "languages": ["python"],
+        "pattern": "eval\\(",
+        "advice": "Use a safe parser.",
+    }
+    response = client.put("/api/v1/rules/ACME-001", json=changed)
+    assert response.status_code == 200
+    assert "Preserve this note" in pack.read_text(encoding="utf-8")
+    assert "Unsafe eval call" in pack.read_text(encoding="utf-8")
+    assert any(hit["rule_id"] == "ACME-001" for hit in registry.scan("eval(x)", "python")[0])
+
+    response = client.patch("/api/v1/rules/ACME-001/enabled", json={"enabled": False})
+    assert response.status_code == 200
+    assert client.get("/api/v1/rules").json()["rules"][0]["enabled"] is False
+    assert not any(hit["rule_id"] == "ACME-001" for hit in registry.scan("eval(x)", "python")[0])
+
+    assert client.patch("/api/v1/rules/ACME-001/enabled", json={"enabled": True}).status_code == 200
+    assert any(hit["rule_id"] == "ACME-001" for hit in registry.scan("eval(x)", "python")[0])
+
+    assert (
+        client.patch("/api/v1/rules/ACME-001/enabled", json={"enabled": False}).status_code == 200
+    )
+    assert client.delete("/api/v1/rules/ACME-001").status_code == 204
+    assert client.get("/api/v1/rules").json()["rules"] == []
+    assert not any(hit["rule_id"] == "ACME-001" for hit in registry.scan("eval(x)", "python")[0])
+    assert "ACME-001" not in registry.snapshot().disabled_rule_ids
+
+
+def test_rule_creation_and_reload(client, rules_dir):
+    response = client.post(
+        "/api/v1/rules",
+        json={
+            "id": "ACME-002",
+            "title": "Unsafe dynamic execution",
+            "severity": "high",
+            "languages": ["python"],
+            "pattern": "exec\\(",
+            "advice": "Avoid dynamic execution.",
+        },
+    )
+    assert response.status_code == 201
+    assert (rules_dir / "web-managed.toml").is_file()
+    assert any(hit["rule_id"] == "ACME-002" for hit in registry.scan("exec(x)", "python")[0])
+
+    (rules_dir / "external.toml").write_text(
+        '[[rules]]\nid = "ACME-003"\ntitle = "External"\nseverity = "low"\n'
+        'languages = ["python"]\npattern = "compile"\n',
+        encoding="utf-8",
+    )
+    response = client.post("/api/v1/rules/reload")
+    assert response.status_code == 200
+    assert any(hit["rule_id"] == "ACME-003" for hit in registry.scan("compile(x)", "python")[0])
+
+
+def test_rule_validation_and_admin_permissions(client, secured, rules_dir):
+    invalid = client.post(
+        "/api/v1/rules",
+        json={
+            "id": "ACME-004",
+            "title": "Backtracking",
+            "severity": "high",
+            "languages": ["python"],
+            "pattern": "(a+)+$",
+        },
+    )
+    assert invalid.status_code == 422
+    assert not (rules_dir / "web-managed.toml").exists()
+
+    payload = {
+        "id": "ACME-004",
+        "title": "Safe pattern",
+        "severity": "high",
+        "languages": ["python"],
+        "pattern": "safe_call\\(",
+    }
+    assert secured.post("/api/v1/rules", json=payload, headers=auth("triager")).status_code == 403
+    assert secured.get("/api/v1/rules", headers=auth("reader")).status_code == 403
+    assert secured.post("/api/v1/rules", json=payload, headers=auth("admin")).status_code == 201
 
 
 # ── Permissions ──────────────────────────────────────────────────────────────

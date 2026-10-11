@@ -1,7 +1,7 @@
 # Règles internes
 
 Vos équipes sécurité peuvent ajouter des règles de scan et des items de checklist **sans toucher
-au code**, avec des fichiers TOML (aucune dépendance supplémentaire) :
+au code**, avec des fichiers TOML :
 
 ```bash
 export SECREVIEW_RULES_DIR=/etc/security-review-mcp/rules.d
@@ -39,6 +39,13 @@ cwe = "CWE-639"
 - Une entrée invalide est **ignorée et signalée** (outil `list_rules`, champ `load_errors`) :
   un fichier cassé n'empêche jamais le démarrage.
 - Après modification, appelez `reload_rules` : pas de redémarrage nécessaire.
+- Dans l'interface web, le rôle `admin` peut aussi créer, modifier, supprimer et activer ou
+  désactiver les règles personnalisées. Les nouvelles règles sont écrites dans
+  `web-managed.toml`; une règle existante est mise à jour dans son fichier source, et sa
+  suppression la retire de tous les packs. Les commentaires TOML sont conservés lors des mises
+  à jour. Chaque mutation recharge automatiquement le registre; le bouton **Recharger** prend
+  en compte les modifications faites directement sur disque. Configurez `SECREVIEW_RULES_DIR`
+  pour activer cette gestion. Les règles intégrées restent en lecture seule dans l'interface.
 - Les motifs avec quantificateurs imbriqués (`(a+)+`), trop longs ou qui matchent la chaîne vide
   sont refusés. Les lignes de plus de 2000 caractères sont tronquées avant analyse.
 

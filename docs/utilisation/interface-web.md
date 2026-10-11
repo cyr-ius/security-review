@@ -28,6 +28,9 @@ security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 - **Rapport** : résumé, contexte (dépôt, branche, commit), findings avec emplacement, CWE,
   extrait de code et recommandation ; téléchargement Markdown et SARIF. Les utilisateurs qui ont
   le rôle `triager` ou `admin` changent le statut d'un finding directement depuis cet écran.
+- **Règles** : les administrateurs créent, modifient, suppriment, activent ou désactivent les
+  règles personnalisées des packs TOML et peuvent recharger les fichiers modifiés hors de l'UI.
+  L'écran nécessite `SECREVIEW_RULES_DIR` et ne modifie pas les règles intégrées.
 
 ## Rôles
 
@@ -41,7 +44,8 @@ Chaque jeton porte un rôle, qui détermine les endpoints accessibles :
 | `admin` | ✅ | ✅ | ✅ |
 
 Un jeton créé sans rôle reste `mcp` : les jetons existants des agents et de la CI gardent leur
-accès mais ne peuvent pas utiliser l'interface web. Générez un jeton par personne :
+accès mais ne peuvent pas utiliser l'interface web. Seul le rôle `admin` peut gérer les règles
+TOML; `triager` conserve uniquement le triage des findings. Générez un jeton par personne :
 
 ```bash
 security-review-mcp token --label alice --role triager

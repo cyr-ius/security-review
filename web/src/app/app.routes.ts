@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
   {
@@ -36,6 +37,15 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/reports/report-list/report-list.component').then(
             (m) => m.ReportListComponent,
+          ),
+      },
+      {
+        path: 'rules',
+        title: 'Règles · Security Review',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/rules/rule-list/rule-list.component').then(
+            (m) => m.RuleListComponent,
           ),
       },
       {

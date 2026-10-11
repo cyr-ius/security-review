@@ -11,6 +11,11 @@
       <li class="nav-item">
         <a class="nav-link" routerLink="/reports" routerLinkActive="active">Rapports</a>
       </li>
+      @if (auth.identity()?.role === 'admin') {
+        <li class="nav-item">
+          <a class="nav-link" routerLink="/rules" routerLinkActive="active">Règles</a>
+        </li>
+      }
     </ul>
     <div class="d-flex align-items-center gap-2">
       <span class="small text-body-secondary d-none d-md-inline" [title]="roleLabel()">

@@ -37,6 +37,41 @@ export interface Identity {
   version: string;
 }
 
+/** A validated rule loaded from an internal TOML pack. */
+export interface CustomRule {
+  id: string;
+  title: string;
+  severity: Severity;
+  cwe: string;
+  languages: string[];
+  pattern: string;
+  advice: string;
+  ignore_case: boolean;
+  enabled: boolean;
+  source: string;
+}
+
+/** GET /api/v1/rules */
+export interface CustomRuleCatalog {
+  available: boolean;
+  sources: string[];
+  load_errors: string[];
+  rules: CustomRule[];
+}
+
+/** Input accepted by POST and PUT /api/v1/rules. */
+export type CustomRuleWrite = Pick<
+  CustomRule,
+  'id' | 'title' | 'severity' | 'languages' | 'pattern'
+> &
+  Partial<Pick<CustomRule, 'cwe' | 'advice' | 'ignore_case'>>;
+
+/** Summary returned after reloading TOML rule packs. */
+export interface RuleReloadResult {
+  loaded_rules: number;
+  load_errors: string[];
+}
+
 /** GET /api/v1/projects */
 export interface ProjectSummary {
   project: string;

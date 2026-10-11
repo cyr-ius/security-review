@@ -9,19 +9,21 @@ The services are synchronous (SQLModel sessions), so every call runs in the thre
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Scope
 
-from . import __version__, services, trends
+from . import __version__, registry, rules_loader, services, trends
 from .config import get_settings
 from .http_server import LOOPBACK_HOSTS, TRIAGE_ROLES, Role
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
@@ -64,6 +66,25 @@ class FindingStatusUpdate(BaseModel):
     """Body of PATCH /findings/{id}."""
 
     status: FindingStatus
+
+
+class RuleWrite(BaseModel):
+    """A custom scan rule sent to the web API."""
+
+    id: str = Field(min_length=3, max_length=50)
+    title: str = Field(min_length=1, max_length=300)
+    severity: Severity
+    cwe: str = Field(default="", max_length=20)
+    languages: list[Annotated[str, Field(max_length=32)]] = Field(min_length=1, max_length=32)
+    pattern: str = Field(min_length=1, max_length=rules_loader.MAX_PATTERN_CHARS)
+    advice: str = Field(default="", max_length=5000)
+    ignore_case: bool = True
+
+
+class RuleEnabledUpdate(BaseModel):
+    """Enabled state of a custom scan rule."""
+
+    enabled: bool
 
 
 class ProjectSummary(BaseModel):
@@ -120,6 +141,57 @@ def require_triage(identity: CurrentIdentity) -> Identity:
             detail=f"Role '{identity.role}' cannot change finding status",
         )
     return identity
+
+
+def require_admin(identity: CurrentIdentity) -> Identity:
+    """Only administrators may change rule packs."""
+    if identity.role != Role.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{identity.role}' cannot manage rules",
+        )
+    return identity
+
+
+def _rule_catalog() -> dict:
+    """Return valid custom rules and pack load diagnostics for the management screen."""
+    directory = get_settings().rules_dir
+    if not directory:
+        return {
+            "available": False,
+            "sources": [],
+            "load_errors": ["SECREVIEW_RULES_DIR is not configured"],
+            "rules": [],
+        }
+    loaded = rules_loader.load_rules_dir(directory)
+    rules = []
+    for rule in loaded.rules:
+        rules.append(
+            {
+                "id": rule.id,
+                "title": rule.title,
+                "severity": rule.severity.value,
+                "cwe": rule.cwe,
+                "languages": sorted(rule.languages),
+                "pattern": rule.pattern.pattern,
+                "advice": rule.advice,
+                "ignore_case": bool(rule.pattern.flags & re.IGNORECASE),
+                "enabled": rule.id not in loaded.disabled_rules,
+                "source": loaded.rule_sources[rule.id],
+            }
+        )
+    return {
+        "available": True,
+        "sources": loaded.sources,
+        "load_errors": loaded.errors,
+        "rules": rules,
+    }
+
+
+async def _refresh_rules() -> dict:
+    """Reload the active registry and return its diagnostics."""
+    snapshot = await run_in_threadpool(registry.reload)
+    return {"loaded_rules": len(snapshot.custom_rule_ids), "load_errors": list(snapshot.errors)}
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -225,6 +297,86 @@ async def update_finding(
     finding = await run_in_threadpool(services.update_finding_status, finding_id, body.status)
     logger.info("Finding %s set to %s by %s", finding_id, body.status, identity.client)
     return finding
+
+
+@router.get("/rules")
+async def list_custom_rules(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+    """List the valid rules loaded from TOML packs."""
+    return await run_in_threadpool(_rule_catalog)
+
+
+@router.post("/rules/reload")
+async def reload_custom_rules(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+    """Reload TOML packs after changes made outside the web interface."""
+    logger.info("Rule packs reloaded by %s", identity.client)
+    return await _refresh_rules()
+
+
+@router.post("/rules", status_code=status.HTTP_201_CREATED)
+async def create_custom_rule(
+    body: RuleWrite, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict:
+    """Create a rule in the web-managed TOML pack."""
+    try:
+        await run_in_threadpool(
+            rules_loader.create_rule, get_settings().rules_dir, body.model_dump(mode="json")
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Rule %s created by %s", body.id, identity.client)
+    return await _refresh_rules()
+
+
+@router.put("/rules/{rule_id}")
+async def update_custom_rule(
+    rule_id: Annotated[str, APIPath(min_length=3, max_length=50)],
+    body: RuleWrite,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict:
+    """Update a custom rule while keeping its stable id."""
+    try:
+        await run_in_threadpool(
+            rules_loader.update_rule,
+            get_settings().rules_dir,
+            rule_id,
+            body.model_dump(mode="json"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Rule %s updated by %s", rule_id, identity.client)
+    return await _refresh_rules()
+
+
+@router.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_custom_rule(
+    rule_id: Annotated[str, APIPath(min_length=3, max_length=50)],
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> Response:
+    """Delete a custom rule from its TOML packs."""
+    try:
+        await run_in_threadpool(rules_loader.delete_rule, get_settings().rules_dir, rule_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    await _refresh_rules()
+    logger.info("Rule %s deleted by %s", rule_id, identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/rules/{rule_id}/enabled")
+async def set_custom_rule_enabled(
+    rule_id: Annotated[str, APIPath(min_length=3, max_length=50)],
+    body: RuleEnabledUpdate,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict:
+    """Enable or disable a custom rule through the pack's disabled_rules list."""
+    try:
+        await run_in_threadpool(
+            rules_loader.set_rule_enabled, get_settings().rules_dir, rule_id, body.enabled
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Rule %s enabled=%s by %s", rule_id, body.enabled, identity.client)
+    return await _refresh_rules()
 
 
 # ── Static files ─────────────────────────────────────────────────────────────
