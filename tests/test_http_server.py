@@ -381,6 +381,15 @@ def test_token_create_list_revoke(capsys):
     _, scoped = run_cli(capsys, "list", "--project", "shop-api")
     assert [token["label"] for token in scoped] == ["shop"]
 
+    code, multi = run_cli(
+        capsys, "create", "--label", "multi", "--project", "shop-api", "--project", "billing"
+    )
+    assert code == cli.EXIT_PASSED and multi["projects"] == ["shop-api", "billing"]
+    assert STORE.lookup(hash_token(multi["token"])).projects == {"shop-api", "billing"}
+    _, scoped = run_cli(capsys, "list", "--project", "billing")
+    assert [token["label"] for token in scoped] == ["multi"]
+    assert cli.run(["token", "revoke", "multi"]) == cli.EXIT_PASSED
+
     assert cli.run(["token", "revoke", "ci"]) == cli.EXIT_PASSED
     assert capsys.readouterr().err == ""
     assert cli.run(["token", "revoke", reader["id"]]) == cli.EXIT_PASSED
@@ -421,6 +430,26 @@ def test_token_approve_and_reject_enrollment_requests(capsys):
 
     assert cli.run(["token", "approve", first["label"]]) == cli.EXIT_ERROR
     assert "not found" in json.loads(capsys.readouterr().err)["error"]
+
+
+def test_token_approve_complementary_enrollment_requests(capsys):
+    created = token_store.create_token("ci", Role.MCP, "shop-api")
+    billing = token_store.request_additional_project(created["id"], "billing")
+    token_store.request_additional_project(created["id"], "crm")
+
+    code, pending = run_cli(capsys, "list", "--pending")
+    assert [(item["kind"], item["project"]) for item in pending] == [
+        ("additional", "billing"),
+        ("additional", "crm"),
+    ]
+    # Two requests for the same token: the label is ambiguous, the request id is not
+    assert cli.run(["token", "approve", "ci"]) == cli.EXIT_ERROR
+    assert "several pending requests" in json.loads(capsys.readouterr().err)["error"]
+    code, approved = run_cli(capsys, "approve", billing["id"])
+    assert code == cli.EXIT_PASSED and approved["projects"] == ["shop-api", "billing"]
+    code, rejected = run_cli(capsys, "reject", "ci")
+    assert code == cli.EXIT_PASSED and rejected["project"] == "crm"
+    assert STORE.lookup(hash_token(created["token"])).projects == {"shop-api", "billing"}
 
 
 def test_revoking_the_last_active_token_warns_despite_pending_requests(capsys):

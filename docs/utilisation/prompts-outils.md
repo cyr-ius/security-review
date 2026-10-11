@@ -30,12 +30,14 @@ Chaque prompt se termine par l'instruction d'appeler `save_security_report` une 
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste / lockfile : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `request_enrollment` | Demande un jeton restreint à un projet, actif après approbation par un administrateur ([enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton)) |
+| `request_enrollment` | Demande un jeton pour un premier projet ou l'ajout d'un projet au jeton présenté, après approbation par un administrateur ([enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton)) |
 | `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](regles.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
-Sur le transport HTTP, un jeton restreint à un projet ne peut utiliser les outils de rapports
-que sur ce projet ; `reload_rules` lui est refusé (voir
+Sur le transport HTTP, un jeton restreint ne peut utiliser les outils de rapports que sur ses
+projets autorisés ; `reload_rules` lui est refusé (voir
 [jetons restreints à un projet](../demarrage/http.md#jetons-restreints-a-un-projet)).
+Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux ;
+`request_enrollment` demande l'ajout au jeton courant sans créer ni révéler un nouveau secret.
 
 ### Serveur d'enrôlement
 

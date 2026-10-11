@@ -268,7 +268,7 @@ def test_project_token_cannot_reach_other_projects(http_app, two_projects):
     is_error, text = client.call(
         "save_security_report", {"project": "billing", "summary": "Fake", "findings": []}
     )
-    assert is_error and "only save reports for project 'shop-api'" in text
+    assert is_error and "only save reports for 'shop-api'" in text
     assert client.call("reload_rules")[0] is True
     resource = client.request("resources/read", {"uri": f"report://{billing['report_id']}"})
     assert "error" in resource and "billing review" not in json.dumps(resource)
@@ -318,8 +318,9 @@ async def test_request_enrollment_tool_creates_a_pending_project_token():
     )
     assert created["requested_by"] == "alice"
     assert "token approve" in created["next_steps"]
-    (listed,) = token_store.list_tokens(pending=True)
-    assert listed["id"] == created["id"] and created["token"] not in json.dumps(listed)
+    (listed,) = token_store.list_enrollments()
+    assert (listed["id"], listed["token_id"]) == (created["request_id"], created["id"])
+    assert created["token"] not in json.dumps(listed)
 
 
 async def test_request_enrollment_errors(monkeypatch):
@@ -373,7 +374,7 @@ async def test_client_without_token_enrolls_over_http(enrolling_app):
     assert not is_error and json.loads(text)["status"] == "pending"
     is_error, text = pending.call("request_enrollment", {"project": "other"})
     assert is_error and "waiting for approval" in text
-    assert len(token_store.list_tokens(pending=True)) == 1
+    assert len(token_store.list_enrollments()) == 1
 
     token_store.approve_enrollment(created["label"])
     approved = McpOverHttp(enrolling_app, created["token"])
@@ -384,7 +385,76 @@ async def test_client_without_token_enrolls_over_http(enrolling_app):
     is_error, text = approved.call(
         "save_security_report", {"project": "billing", "summary": "Review", "findings": []}
     )
-    assert is_error and "only save reports for project 'shop-api'" in text
+    assert is_error and "only save reports for 'shop-api'" in text
+
+
+def test_token_with_several_projects_reaches_only_them(http_app, two_projects):
+    services.save_report("crm", "crm review", [])
+    token = token_store.create_token("ci", "mcp", ["shop-api", "billing"])["token"]
+    client = McpOverHttp(http_app, token)
+
+    assert client.projects_listed() == {"shop-api", "billing"}
+    for project in ("shop-api", "billing"):
+        assert client.call("check_project_gate", {"project": project})[0] is False
+    is_error, text = client.call("get_project_security_posture", {"project": "crm"})
+    assert is_error and "not found" in text
+    is_error, text = client.call(
+        "save_security_report", {"project": "crm", "summary": "Review", "findings": []}
+    )
+    assert is_error and "'billing', 'shop-api'" in text
+
+
+def test_complementary_enrollment_over_mcp(http_app):
+    created = token_store.create_token("shop-ci", "mcp", "shop-api")
+    client = McpOverHttp(http_app, created["token"])
+    save_billing = {"project": "billing", "summary": "Review", "findings": []}
+
+    is_error, text = client.call(
+        "request_enrollment", {"project": "billing", "requested_by": "alice"}
+    )
+
+    assert not is_error, text
+    request = json.loads(text)
+    assert (request["kind"], request["token_id"], request["project"]) == (
+        "additional",
+        created["id"],
+        "billing",
+    )
+    assert "token" not in request and "No new token" in request["next_steps"]
+    assert request["requested_from"] == "testclient"
+    # Waiting for approval: the first project still works, the new one not yet
+    assert client.call("save_security_report", save_billing)[0] is True
+    is_error, text = client.call(
+        "save_security_report", {"project": "shop-api", "summary": "Review", "findings": []}
+    )
+    assert not is_error
+    is_error, text = client.call("get_enrollment_status")
+    assert not is_error
+    assert json.loads(text)["pending_projects"] == ["billing"]
+    is_error, text = client.call("request_enrollment", {"project": "billing"})
+    assert is_error and "already waiting" in text
+
+    token_store.approve_enrollment(request["id"])
+
+    assert client.call("save_security_report", save_billing)[0] is False
+    assert client.projects_listed() == {"shop-api", "billing"}
+    status = json.loads(client.call("get_enrollment_status")[1])
+    assert (status["projects"], status["pending_projects"]) == (["shop-api", "billing"], [])
+
+
+def test_unrestricted_token_needs_no_complementary_enrollment(http_app):
+    client = McpOverHttp(http_app, token_store.create_token("ci", "mcp")["token"])
+
+    is_error, text = client.call("request_enrollment", {"project": "billing"})
+
+    assert is_error and "already reaches every project" in text
+    assert token_store.list_enrollments() == []
+
+
+async def test_get_enrollment_status_without_token():
+    async with Client(mcp) as client:
+        status = await client.call_tool("get_enrollment_status", {})
+    assert json.loads(text_of(status)) == {"status": "not_enrolled"}
 
 
 async def test_wrong_token_is_rejected_even_with_enrollment(enrolling_app):

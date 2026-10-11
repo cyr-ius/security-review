@@ -1,4 +1,5 @@
-"""Client side of the enrollment: request a project token from a shared server.
+"""Client side of the enrollment: request a project token, or one more project for an
+existing token (complementary enrollment), from a shared server.
 
 Used by ``security-review-mcp enroll``. This is the only place where the package opens an
 outgoing connection, and only to the server URL the operator gives on the command line: the
@@ -65,19 +66,24 @@ def request_enrollment(
     cafile: str | None = None,
     allow_http: bool = False,
     timeout: float = DEFAULT_TIMEOUT,
+    token: str | None = None,
 ) -> dict:
-    """Send an enrollment request to a shared server and return its answer (with the token).
+    """Send an enrollment request to a shared server and return its answer.
+
+    Without ``token`` the answer carries a new token. With the token of a client restricted to
+    other projects, the project is requested for that token (no new secret); the token is only
+    sent to the enrollment URL, which refuses plain HTTP and redirects like any request.
 
     Raises:
         ValueError: Invalid URL, unreachable server or request refused by the server.
     """
     url = enrollment_url(server_url, allow_http)
     payload = {"project": project, "label": label, "requested_by": requested_by}
+    headers = {"Content-Type": "application/json", "Accept": "application/json"}
+    if token is not None:
+        headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(
-        url,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={"Content-Type": "application/json", "Accept": "application/json"},
-        method="POST",
+        url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
     )
     context = ssl.create_default_context(cafile=cafile)
     opener = urllib.request.build_opener(
@@ -96,6 +102,7 @@ def request_enrollment(
         answer = json.loads(body)
     except ValueError as exc:
         raise ValueError(f"Unexpected answer from {url}") from exc
-    if not isinstance(answer, dict) or "token" not in answer:
+    expected = "status" if token is not None else "token"
+    if not isinstance(answer, dict) or expected not in answer:
         raise ValueError(f"Unexpected answer from {url}")
     return answer

@@ -42,8 +42,10 @@ start a structured review, and `codebase-review` to review a whole repository (n
 - At the end of a review, call `save_security_report` once to store the report in the \
 database. Use `list_security_reports`, `get_security_report` and \
 `get_project_security_posture` to read stored results.
-- If `save_security_report` refuses the project because the token is restricted to another \
-project, call `request_enrollment` to ask an administrator for a token for this project.
+- If `save_security_report` refuses the project because the token is restricted to other \
+projects, call `request_enrollment` to ask an administrator to add this project to the token \
+(complementary enrollment: the token keeps working for its other projects), then \
+`get_enrollment_status` to know whether it was approved.
 """
 
 ENROLLMENT_INSTRUCTIONS = """\
@@ -107,21 +109,19 @@ def _resource_errors(func: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
-def _caller(ctx: Context) -> tuple[str | None, str | None]:
-    """Project and role of the bearer token behind this request (HTTP transport).
-
-    The HTTP middleware stores them in the ASGI scope; with stdio, or without authentication,
-    there is no restriction and both are None.
-    """
+def _auth_state(ctx: Context) -> dict:
+    """Identity stored in the ASGI scope by the HTTP middleware (empty with stdio)."""
     request = ctx.request_context.request
     scope = getattr(request, "scope", None) or {}
-    state = scope.get("state") or {}
-    return state.get("auth_project"), state.get("auth_role")
+    return scope.get("state") or {}
 
 
-def _caller_project(ctx: Context) -> str | None:
-    """Project the caller's token is restricted to, or None."""
-    return _caller(ctx)[0]
+def _caller_projects(ctx: Context) -> frozenset[str] | None:
+    """Projects the caller's token is restricted to, or None.
+
+    With stdio, or without authentication, there is no restriction.
+    """
+    return _auth_state(ctx).get("auth_projects")
 
 
 def _caller_address(ctx: Context) -> str | None:
@@ -258,7 +258,7 @@ def triage_report(ctx: Context, report_id: int, context: str = "") -> str:
         context: Optional deployment context to re-assess severity.
     """
     try:
-        services.check_report_scope(_caller_project(ctx), report_id)
+        services.check_report_scope(_caller_projects(ctx), report_id)
         report = services.get_report(report_id)
     except services.NotFoundError as exc:
         raise MCPError(code=INVALID_PARAMS, message=str(exc)) from exc
@@ -334,8 +334,8 @@ def list_rules(
 def reload_rules(ctx: Context) -> dict:
     """Re-read the internal rules from the database now (changes are otherwise seen within
     a few seconds)."""
-    if _caller_project(ctx) is not None:
-        raise ValueError("A token restricted to a project cannot reload the rules")
+    if _caller_projects(ctx) is not None:
+        raise ValueError("A token restricted to projects cannot reload the rules")
     current = registry.reload()
     return {
         "rules_active": len(current.rules),
@@ -371,11 +371,12 @@ def save_security_report(
     Call this once at the end of a review. Secrets in free-text fields are masked before
     storage. Returns the report id, the overall risk level and the finding counts.
     """
-    allowed = _caller_project(ctx)
-    if allowed is not None and project != allowed:
+    allowed = _caller_projects(ctx)
+    if allowed is not None and project not in allowed:
+        reachable = ", ".join(f"'{name}'" for name in sorted(allowed)) or "no project yet"
         raise ValueError(
-            f"This token can only save reports for project '{allowed}'; call "
-            "request_enrollment to request a token for this project"
+            f"This token can only save reports for {reachable}; call request_enrollment to "
+            "ask an administrator to add this project to the token"
         )
     return services.save_report(
         project=project,
@@ -398,7 +399,7 @@ def get_security_report(
     format: Literal["json", "markdown"] = "markdown",
 ) -> dict | str:
     """Return a stored report with its findings, as Markdown (default) or JSON."""
-    services.check_report_scope(_caller_project(ctx), report_id)
+    services.check_report_scope(_caller_projects(ctx), report_id)
     report = services.get_report(report_id)
     if format == "markdown":
         return services.render_report_markdown(report)
@@ -415,11 +416,10 @@ def list_security_reports(
     offset: Annotated[int, Field(ge=0)] = 0,
 ) -> list[dict]:
     """List stored reports, newest first, optionally filtered by project or risk level."""
-    allowed = _caller_project(ctx)
-    if allowed is not None:
-        services.check_project_scope(allowed, project or allowed)
-        project = allowed
-    return services.list_reports(project, risk_level, limit, offset)
+    allowed = _caller_projects(ctx)
+    if allowed is not None and project:
+        services.check_project_scope(allowed, project)
+    return services.list_reports(project, risk_level, limit, offset, allowed)
 
 
 @mcp.tool(annotations=WRITE)
@@ -430,7 +430,7 @@ def update_finding_status(
     status: Annotated[FindingStatus, Field(description="open, fixed, accepted, false_positive")],
 ) -> dict:
     """Change the status of a finding after triage or a fix."""
-    services.check_finding_scope(_caller_project(ctx), finding_id)
+    services.check_finding_scope(_caller_projects(ctx), finding_id)
     return services.update_finding_status(finding_id, status).model_dump(mode="json")
 
 
@@ -441,7 +441,7 @@ def get_project_security_posture(ctx: Context, project: str) -> dict:
 
     Useful as a CI/CD gate: fail the pipeline when the worst open severity is too high.
     """
-    services.check_project_scope(_caller_project(ctx), project)
+    services.check_project_scope(_caller_projects(ctx), project)
     return services.project_posture(project)
 
 
@@ -456,7 +456,7 @@ def check_project_gate(
     report_id: Annotated[int | None, Field(description="Check one report only")] = None,
 ) -> dict:
     """Security gate: `passed` is false while an open finding reaches the `fail_on` severity."""
-    allowed = _caller_project(ctx)
+    allowed = _caller_projects(ctx)
     services.check_project_scope(allowed, project)
     if report_id is not None:
         services.check_report_scope(allowed, report_id)
@@ -481,7 +481,7 @@ def export_sarif(
     By default only open findings are exported. For a project, a finding reported several times
     appears once (latest report). Findings without a file path only get a logical location.
     """
-    allowed = _caller_project(ctx)
+    allowed = _caller_projects(ctx)
     if report_id is not None:
         services.check_report_scope(allowed, report_id)
     if project is not None:
@@ -500,7 +500,7 @@ def get_trend_report(
     format: Literal["markdown", "json"] = "markdown",
 ) -> dict | str:
     """Trend of a project: new and fixed findings, open backlog, risk score and time to fix."""
-    services.check_project_scope(_caller_project(ctx), project)
+    services.check_project_scope(_caller_projects(ctx), project)
     trend = trends.get_trend(project, days, granularity)
     return trends.render_trend_markdown(trend) if format == "markdown" else trend
 
@@ -550,7 +550,7 @@ def report_resource(report_id: str, ctx: Context) -> str:
     """Expose a stored report as a Markdown resource."""
     if not report_id.isdigit():
         raise ValueError("report_id must be a number")
-    services.check_report_scope(_caller_project(ctx), int(report_id))
+    services.check_report_scope(_caller_projects(ctx), int(report_id))
     return services.render_report_markdown(services.get_report(int(report_id)))
 
 
@@ -584,7 +584,7 @@ RequestedByArg = Annotated[
 def _request_enrollment(
     ctx: Context, project: str, label: str | None, requested_by: str | None
 ) -> dict:
-    """Store an enrollment request and explain to the model what the user must do next."""
+    """Store a first enrollment request and explain to the model what the user must do next."""
     if not get_settings().enrollment:
         raise ValueError("Enrollment is disabled on this server; ask an administrator for a token")
     created = token_store.request_enrollment(project, label, requested_by, _caller_address(ctx))
@@ -599,7 +599,34 @@ def _request_enrollment(
             "Show the token to the user once: it is not displayed again. They add it to the MCP "
             "client configuration as 'Authorization: Bearer <token>'. It works after an "
             "administrator approves the request (web interface, Jetons screen, or "
-            f"`security-review-mcp token approve {created['label']}`)."
+            f"`security-review-mcp token approve {created['request_id']}`)."
+        )
+    }
+
+
+def _request_additional_project(
+    ctx: Context, token_id: str, project: str, requested_by: str | None
+) -> dict:
+    """Store a complementary enrollment request for the caller's token."""
+    if not get_settings().enrollment:
+        raise ValueError(
+            "Enrollment is disabled on this server; ask an administrator to add the project"
+        )
+    created = token_store.request_additional_project(
+        token_id, project, requested_by, _caller_address(ctx)
+    )
+    logger.info(
+        "Complementary enrollment requested for project %s (%s) from %s",
+        created["project"],
+        created["label"],
+        created["requested_from"] or "unknown",
+    )
+    return created | {
+        "next_steps": (
+            "No new token: the current token keeps working for its other projects and reaches "
+            "this project once an administrator approves the request (web interface, Jetons "
+            f"screen, or `security-review-mcp token approve {created['id']}`). Call "
+            "get_enrollment_status to check."
         )
     }
 
@@ -612,12 +639,30 @@ def request_enrollment(
     label: LabelArg = None,
     requested_by: RequestedByArg = None,
 ) -> dict:
-    """Request a bearer token restricted to one project, to be approved by an administrator.
+    """Request access to a project, to be approved by an administrator.
 
-    Use it when the current token cannot save reports for this project. The returned token is
-    shown once and works only after approval.
+    Use it when the current token cannot save reports for this project. With a token already
+    restricted to other projects, this is a complementary enrollment: the project is added to
+    the same token once approved (no new token, ``label`` is ignored). Without a token, a new
+    token is returned once and works only after approval.
     """
+    state = _auth_state(ctx)
+    token_id = state.get("auth_token_id")
+    if token_id is not None:
+        if state.get("auth_projects") is None:
+            raise ValueError("This token is not restricted: it already reaches every project")
+        return _request_additional_project(ctx, token_id, project, requested_by)
     return _request_enrollment(ctx, project, label, requested_by)
+
+
+@mcp.tool(name="get_enrollment_status", annotations=READ_ONLY)
+@_tool_errors
+def token_enrollment_status(ctx: Context) -> dict:
+    """Projects the current token reaches and those waiting for an administrator's approval.
+
+    ``not_enrolled`` means the client sends no token (stdio, or no authentication).
+    """
+    return token_store.enrollment_status(_auth_state(ctx).get("auth_token_id"))
 
 
 @enrollment_mcp.tool(name="request_enrollment", annotations=WRITE)
@@ -641,9 +686,7 @@ def enrollment_request(
 
 def _enrollment_token_id(ctx: Context) -> str | None:
     """Id of the pending token presented by the client of the enrollment server, or None."""
-    request = ctx.request_context.request
-    state = (getattr(request, "scope", None) or {}).get("state") or {}
-    return state.get("enrollment_token_id")
+    return _auth_state(ctx).get("enrollment_token_id")
 
 
 @enrollment_mcp.tool(name="get_enrollment_status", annotations=READ_ONLY)

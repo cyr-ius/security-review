@@ -6,6 +6,7 @@ export type FindingStatus = 'open' | 'fixed' | 'accepted' | 'false_positive';
 
 /** Role attached to the bearer token. */
 export type Role = 'mcp' | 'reader' | 'triager' | 'admin';
+export type ProjectTokenRole = Exclude<Role, 'admin'>;
 
 export const SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 
@@ -43,15 +44,25 @@ export interface ProjectToken {
   id: string;
   label: string;
   role: Role;
-  project: string;
+  project: string | null;
+  projects: string[] | null;
+  pending_projects: string[];
   status: 'active' | 'pending';
   created_at: string;
 }
 
 /** A project token requested by a client (enrollment), waiting for an administrator. */
-export interface EnrollmentRequest extends ProjectToken {
+export interface EnrollmentRequest {
+  id: string;
+  token_id: string;
+  label: string;
+  role: Role;
+  project: string;
+  kind: 'new' | 'additional';
+  status: 'pending';
   requested_by: string | null;
   requested_from: string | null;
+  created_at: string;
 }
 
 /** Response returned once when a project-scoped token is created. */

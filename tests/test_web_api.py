@@ -299,7 +299,7 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, reports, dat
     shop_report_id, billing_report_id = reports
     created_response = secured.post(
         "/api/v1/project-tokens",
-        json={"label": "shop-ci", "project": "shop-api"},
+        json={"label": "shop-ci", "projects": ["shop-api"]},
         headers=auth("admin"),
     )
 
@@ -314,15 +314,13 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, reports, dat
 
     listed = secured.get("/api/v1/project-tokens", headers=auth("admin"))
     assert listed.status_code == 200
-    assert listed.json() == [
-        {key: created[key] for key in ("id", "label", "role", "project", "status", "created_at")}
-    ]
+    assert listed.json() == [{key: value for key, value in created.items() if key != "token"}]
     assert token not in listed.text
     assert "sha256" not in listed.text
     assert (
         secured.post(
             "/api/v1/project-tokens",
-            json={"label": "denied", "project": "shop-api"},
+            json={"label": "denied", "projects": ["shop-api"]},
             headers=auth("reader"),
         ).status_code
         == 403
@@ -330,9 +328,9 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, reports, dat
 
     project_headers = {"Authorization": f"Bearer {token}"}
     identity = secured.get("/api/v1/me", headers=project_headers).json()
-    assert (identity["role"], identity["project"], identity["can_triage"]) == (
+    assert (identity["role"], identity["projects"], identity["can_triage"]) == (
         "reader",
-        "shop-api",
+        ["shop-api"],
         False,
     )
     assert [
@@ -415,10 +413,10 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, reports, dat
 
 
 def test_project_token_errors(secured, reports):
-    def create(label: str, project: str = "shop-api"):
+    def create(label: str, *projects: str):
         return secured.post(
             "/api/v1/project-tokens",
-            json={"label": label, "project": project},
+            json={"label": label, "projects": list(projects or ["shop-api"])},
             headers=auth("admin"),
         )
 
@@ -427,10 +425,39 @@ def test_project_token_errors(secured, reports):
     assert create("ci").status_code == 422
     assert create("triager").status_code == 422
     assert create("other", "unknown-project").status_code == 404
+    assert create("other", "shop-api", "unknown-project").status_code == 404
+    assert (
+        secured.post(
+            "/api/v1/project-tokens", json={"label": "other", "projects": []}, headers=auth("admin")
+        ).status_code
+        == 422
+    )
     assert create("x" * 65).status_code == 422
     deleted = secured.delete("/api/v1/project-tokens/unknown", headers=auth("admin"))
     assert deleted.status_code == 404
     assert secured.get("/api/v1/project-tokens", headers=auth("triager")).status_code == 403
+
+
+@pytest.mark.parametrize("role", ["mcp", "reader", "triager"])
+def test_admin_creates_project_token_with_selected_role(secured, reports, role):
+    response = secured.post(
+        "/api/v1/project-tokens",
+        json={"label": f"{role}-client", "role": role, "projects": ["shop-api"]},
+        headers=auth("admin"),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["role"] == role
+
+
+def test_project_token_creation_rejects_admin_role(secured, reports):
+    response = secured.post(
+        "/api/v1/project-tokens",
+        json={"label": "admin-client", "role": "admin", "projects": ["shop-api"]},
+        headers=auth("admin"),
+    )
+
+    assert response.status_code == 422
 
 
 def test_bootstrap_admin_cannot_be_revoked_as_a_project_token(secured):
@@ -465,7 +492,8 @@ def test_public_enrollment_then_admin_approval(secured):
 
     listed = secured.get("/api/v1/enrollments", headers=auth("admin"))
     assert listed.status_code == 200
-    assert [item["id"] for item in listed.json()] == [created["id"]]
+    assert [item["id"] for item in listed.json()] == [created["request_id"]]
+    assert (listed.json()[0]["token_id"], listed.json()[0]["kind"]) == (created["id"], "new")
     assert listed.json()[0]["requested_by"] == "alice@example.com"
     assert created["token"] not in listed.text
     # Pending requests are not listed with the active project tokens
@@ -530,6 +558,116 @@ def test_enrollment_endpoint_errors(secured, client, monkeypatch):
     assert too_many.status_code == 422 and "Too many" in too_many.json()["detail"]
     monkeypatch.setattr(web_api.get_settings(), "enrollment", False)
     assert secured.post("/api/v1/enroll", json={"project": "p"}).status_code == 404
+
+
+def test_token_with_several_projects_in_the_web_interface(secured, reports, database):
+    shop_report_id, billing_report_id = reports
+    services.save_report("crm", "Hidden review", [])
+    created = secured.post(
+        "/api/v1/project-tokens",
+        json={"label": "multi", "projects": ["shop-api", "billing"]},
+        headers=auth("admin"),
+    ).json()
+    headers = {"Authorization": f"Bearer {created['token']}"}
+
+    assert created["projects"] == ["shop-api", "billing"]
+    assert secured.get("/api/v1/me", headers=headers).json()["projects"] == [
+        "billing",
+        "shop-api",
+    ]
+    listed = secured.get("/api/v1/projects", headers=headers).json()
+    assert sorted(item["project"] for item in listed) == ["billing", "shop-api"]
+    reports_listed = secured.get("/api/v1/reports", headers=headers).json()
+    assert {item["project"] for item in reports_listed} == {"billing", "shop-api"}
+    for project in ("shop-api", "billing"):
+        assert (
+            secured.get("/api/v1/posture", params={"project": project}, headers=headers).status_code
+            == 200
+        )
+    for report_id in (shop_report_id, billing_report_id):
+        assert secured.get(f"/api/v1/reports/{report_id}", headers=headers).status_code == 200
+    assert (
+        secured.get("/api/v1/posture", params={"project": "crm"}, headers=headers).status_code
+        == 404
+    )
+    # Several projects: the SARIF export needs to know which one
+    assert secured.get("/api/v1/sarif", headers=headers).status_code == 422
+    assert (
+        secured.get("/api/v1/sarif", params={"project": "billing"}, headers=headers).status_code
+        == 200
+    )
+
+
+def test_complementary_enrollment_over_rest(secured):
+    created = token_store.create_token("shop-ci", Role.MCP, "shop-api")
+    headers = {"Authorization": f"Bearer {created['token']}"}
+
+    response = secured.post(
+        "/api/v1/enroll",
+        json={"project": "billing", "label": "ignored", "requested_by": "bob"},
+        headers=headers,
+    )
+
+    assert response.status_code == 201
+    request = response.json()
+    assert (request["kind"], request["token_id"], request["label"]) == (
+        "additional",
+        created["id"],
+        "shop-ci",
+    )
+    assert "token" not in request
+    duplicate = secured.post("/api/v1/enroll", json={"project": "billing"}, headers=headers)
+    assert duplicate.status_code == 422 and "already waiting" in duplicate.json()["detail"]
+    (listed,) = secured.get("/api/v1/enrollments", headers=auth("admin")).json()
+    assert (listed["id"], listed["kind"], listed["project"]) == (
+        request["id"],
+        "additional",
+        "billing",
+    )
+
+    approved = secured.post(f"/api/v1/enrollments/{request['id']}/approve", headers=auth("admin"))
+
+    assert approved.status_code == 200
+    assert approved.json()["projects"] == ["shop-api", "billing"]
+    info = token_store.DatabaseTokenStore().lookup(http_server.hash_token(created["token"]))
+    assert info.projects == {"shop-api", "billing"}
+
+    # A rejected complementary request leaves the token as it was
+    other = secured.post("/api/v1/enroll", json={"project": "crm"}, headers=headers).json()
+    assert (
+        secured.delete(f"/api/v1/enrollments/{other['id']}", headers=auth("admin")).status_code
+        == 204
+    )
+    info = token_store.DatabaseTokenStore().lookup(http_server.hash_token(created["token"]))
+    assert info.projects == {"shop-api", "billing"}
+
+
+def test_complementary_enrollment_needs_a_valid_restricted_token(secured, monkeypatch):
+    def enroll(token: str):
+        return secured.post(
+            "/api/v1/enroll",
+            json={"project": "billing"},
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+    unknown = enroll("not-a-token")
+    assert unknown.status_code == 401 and "WWW-Authenticate" in unknown.headers
+    assert (
+        secured.post(
+            "/api/v1/enroll", json={"project": "p"}, headers={"Authorization": "Basic abc"}
+        ).status_code
+        == 401
+    )
+    pending = token_store.request_enrollment("shop-api")
+    assert enroll(pending["token"]).status_code == 403
+    unrestricted = enroll(TOKENS["admin"])
+    assert unrestricted.status_code == 422
+    assert "every project" in unrestricted.json()["detail"]
+    # Nothing was created by the refused requests
+    assert [item["id"] for item in token_store.list_enrollments()] == [pending["request_id"]]
+    monkeypatch.setattr(web_api.get_settings(), "enrollment", False)
+    restricted = token_store.create_token("shop-ci", Role.MCP, "shop-api")
+    assert enroll(restricted["token"]).status_code == 404
 
 
 def test_enrollment_is_pointless_without_authentication(client):
