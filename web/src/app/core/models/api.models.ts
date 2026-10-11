@@ -42,8 +42,16 @@ export interface Identity {
 export interface ProjectToken {
   id: string;
   label: string;
+  role: Role;
   project: string;
+  status: 'active' | 'pending';
   created_at: string;
+}
+
+/** A project token requested by a client (enrollment), waiting for an administrator. */
+export interface EnrollmentRequest extends ProjectToken {
+  requested_by: string | null;
+  requested_from: string | null;
 }
 
 /** Response returned once when a project-scoped token is created. */

@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # Docker image).
     auth_bootstrap_admin: bool = False
 
+    # Enrollment (streamable-http only, once a token exists): a client without a token reaches
+    # a restricted MCP server that only lets it request a project token, and POST /api/v1/enroll
+    # accepts the same request. The token works once an administrator approves it.
+    enrollment: bool = True
+
     # Optional TLS served by uvicorn (streamable-http only), enabled by tls_certfile.
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).
     tls_certfile: str | None = None

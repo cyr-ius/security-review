@@ -42,12 +42,32 @@ start a structured review, and `codebase-review` to review a whole repository (n
 - At the end of a review, call `save_security_report` once to store the report in the \
 database. Use `list_security_reports`, `get_security_report` and \
 `get_project_security_posture` to read stored results.
+- If `save_security_report` refuses the project because the token is restricted to another \
+project, call `request_enrollment` to ask an administrator for a token for this project.
+"""
+
+ENROLLMENT_INSTRUCTIONS = """\
+Security code-review server, enrollment mode: the client has no approved bearer token yet, so \
+the review tools are not available.
+- Call `get_enrollment_status` to know whether a request is already waiting for approval.
+- Otherwise call `request_enrollment` once with the project name (usually the repository \
+name). Give the returned token to the user: they add it to the MCP client configuration as \
+`Authorization: Bearer <token>`. It works once an administrator approves the request.
+- The review prompts (`security-review`...) explain these steps.
 """
 
 mcp = MCPServer(
     "security-review",
     title="Security Review",
     instructions=INSTRUCTIONS,
+    version=__version__,
+)
+
+# Served by the HTTP transport to the clients that have no approved token (see http_server)
+enrollment_mcp = MCPServer(
+    "security-review",
+    title="Security Review (enrollment)",
+    instructions=ENROLLMENT_INSTRUCTIONS,
     version=__version__,
 )
 
@@ -102,6 +122,13 @@ def _caller(ctx: Context) -> tuple[str | None, str | None]:
 def _caller_project(ctx: Context) -> str | None:
     """Project the caller's token is restricted to, or None."""
     return _caller(ctx)[0]
+
+
+def _caller_address(ctx: Context) -> str | None:
+    """Client address of the HTTP request (None with stdio), stored with enrollment requests."""
+    request = ctx.request_context.request
+    client = getattr(request, "client", None)
+    return client.host if client else None
 
 
 # ── Prompts ──────────────────────────────────────────────────────────────────
@@ -346,7 +373,10 @@ def save_security_report(
     """
     allowed = _caller_project(ctx)
     if allowed is not None and project != allowed:
-        raise ValueError(f"This token can only save reports for project '{allowed}'")
+        raise ValueError(
+            f"This token can only save reports for project '{allowed}'; call "
+            "request_enrollment to request a token for this project"
+        )
     return services.save_report(
         project=project,
         summary=summary,
@@ -536,6 +566,120 @@ def checklist_resource(domain: str) -> str:
     return registry.render_checklist_markdown(domain)
 
 
+# ── Enrollment ───────────────────────────────────────────────────────────────
+
+ProjectArg = Annotated[
+    str, Field(description="Project the token is requested for (usually the repository name)")
+]
+LabelArg = Annotated[
+    str | None,
+    Field(description="Optional token name (default: the project); a random suffix is added"),
+]
+RequestedByArg = Annotated[
+    str | None,
+    Field(description="Who asks for access (name, email or team), shown to the administrator"),
+]
+
+
+def _request_enrollment(
+    ctx: Context, project: str, label: str | None, requested_by: str | None
+) -> dict:
+    """Store an enrollment request and explain to the model what the user must do next."""
+    if not get_settings().enrollment:
+        raise ValueError("Enrollment is disabled on this server; ask an administrator for a token")
+    created = token_store.request_enrollment(project, label, requested_by, _caller_address(ctx))
+    logger.info(
+        "Enrollment requested for project %s (%s) from %s",
+        created["project"],
+        created["label"],
+        created["requested_from"] or "stdio",
+    )
+    return created | {
+        "next_steps": (
+            "Show the token to the user once: it is not displayed again. They add it to the MCP "
+            "client configuration as 'Authorization: Bearer <token>'. It works after an "
+            "administrator approves the request (web interface, Jetons screen, or "
+            f"`security-review-mcp token approve {created['label']}`)."
+        )
+    }
+
+
+@mcp.tool(annotations=WRITE)
+@_tool_errors
+def request_enrollment(
+    ctx: Context,
+    project: ProjectArg,
+    label: LabelArg = None,
+    requested_by: RequestedByArg = None,
+) -> dict:
+    """Request a bearer token restricted to one project, to be approved by an administrator.
+
+    Use it when the current token cannot save reports for this project. The returned token is
+    shown once and works only after approval.
+    """
+    return _request_enrollment(ctx, project, label, requested_by)
+
+
+@enrollment_mcp.tool(name="request_enrollment", annotations=WRITE)
+@_tool_errors
+def enrollment_request(
+    ctx: Context,
+    project: ProjectArg,
+    label: LabelArg = None,
+    requested_by: RequestedByArg = None,
+) -> dict:
+    """Request a bearer token for one project; it works once an administrator approves it.
+
+    The returned token is shown once: give it to the user for the MCP client configuration.
+    """
+    if _enrollment_token_id(ctx) is not None:
+        raise ValueError(
+            "This client already uses a token waiting for approval; call get_enrollment_status"
+        )
+    return _request_enrollment(ctx, project, label, requested_by)
+
+
+def _enrollment_token_id(ctx: Context) -> str | None:
+    """Id of the pending token presented by the client of the enrollment server, or None."""
+    request = ctx.request_context.request
+    state = (getattr(request, "scope", None) or {}).get("state") or {}
+    return state.get("enrollment_token_id")
+
+
+@enrollment_mcp.tool(name="get_enrollment_status", annotations=READ_ONLY)
+@_tool_errors
+def enrollment_status(ctx: Context) -> dict:
+    """Tell whether the token presented by this client is waiting for approval.
+
+    ``not_enrolled`` means the client sends no token: call request_enrollment.
+    """
+    return token_store.enrollment_status(_enrollment_token_id(ctx))
+
+
+def _enrollment_prompt(project: str = "") -> str:
+    """Explain the enrollment steps instead of starting a review.
+
+    Args:
+        project: Optional project name (usually the repository name).
+    """
+    return prompts.build_enrollment_prompt(project)
+
+
+# The review prompts keep their names, so that the first review starts the enrollment
+for _name, _title in (
+    ("security-review", "Security code review"),
+    ("api-security-review", "REST API security review"),
+    ("configuration-review", "Configuration security review"),
+    ("codebase-review", "Whole codebase security review"),
+    ("dependency-review", "Dependency and supply-chain review"),
+):
+    enrollment_mcp.prompt(
+        name=_name,
+        title=f"{_title} (enrollment required)",
+        description="This server needs an approved token: request one before reviewing.",
+    )(_enrollment_prompt)
+
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 
@@ -587,7 +731,16 @@ def main(argv: list[str] | None = None) -> None:
             logger.warning(
                 "Initial Web UI administrator password (shown once): %s", bootstrap_password
             )
-        http_server.run(mcp, args.host, args.port, store, tls, settings.log_level, web_app)
+        http_server.run(
+            mcp,
+            args.host,
+            args.port,
+            store,
+            tls,
+            settings.log_level,
+            web_app,
+            enrollment_mcp if settings.enrollment else None,
+        )
     else:
         mcp.run("stdio")
 

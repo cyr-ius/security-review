@@ -25,7 +25,7 @@ from starlette.types import Scope
 
 from . import __version__, registry, rule_store, rules_loader, services, token_store, trends
 from .config import get_settings
-from .http_server import LOOPBACK_HOSTS, TRIAGE_ROLES, Role
+from .http_server import ENROLL_PATH, LOOPBACK_HOSTS, TRIAGE_ROLES, Role
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
 from .sarif import build_sarif
 
@@ -93,6 +93,14 @@ class ProjectTokenCreate(BaseModel):
 
     label: str = Field(min_length=1, max_length=64)
     project: str = Field(min_length=1, max_length=200)
+
+
+class EnrollmentRequest(BaseModel):
+    """Body of the public POST /enroll: a project token requested without credentials."""
+
+    project: str = Field(min_length=1, max_length=token_store.MAX_PROJECT_CHARS)
+    label: str | None = Field(default=None, max_length=token_store.MAX_LABEL_CHARS)  # + suffix
+    requested_by: str | None = Field(default=None, max_length=token_store.MAX_REQUESTED_BY_CHARS)
 
 
 class ProjectSummary(BaseModel):
@@ -429,6 +437,75 @@ async def delete_project_token(
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     logger.info("Project token %s revoked by %s", token_id, identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(ENROLL_PATH.removeprefix("/api/v1"), status_code=status.HTTP_201_CREATED)
+async def enroll(body: EnrollmentRequest, request: Request) -> dict[str, str | None]:
+    """Request a project token without credentials (public endpoint).
+
+    The token is returned once and works only after an administrator approves the request.
+    """
+    if not get_settings().enrollment:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Enrollment is disabled")
+    if not await run_in_threadpool(token_store.DatabaseTokenStore().has_tokens):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Authentication is not configured: no token is needed"
+        )
+    address = request.client.host if request.client else None
+    try:
+        created = await run_in_threadpool(
+            token_store.request_enrollment, body.project, body.label, body.requested_by, address
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info(
+        "Enrollment requested for project %s (%s) from %s",
+        created["project"],
+        created["label"],
+        address or "unknown",
+    )
+    return created
+
+
+@router.get("/enrollments")
+async def enrollments(
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> list[dict[str, str | None]]:
+    """List the enrollment requests waiting for approval (never their secret)."""
+    return await run_in_threadpool(token_store.list_tokens, None, True)
+
+
+@router.post("/enrollments/{token_id}/approve")
+async def approve_enrollment(
+    token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict[str, str | None]:
+    """Approve an enrollment request: its token works from the next request."""
+    try:
+        approved = await run_in_threadpool(token_store.approve_enrollment, token_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    logger.info(
+        "Enrollment %s for %s approved by %s",
+        approved["label"],
+        approved["project"],
+        identity.client,
+    )
+    return approved
+
+
+@router.delete("/enrollments/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def reject_enrollment(
+    token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> Response:
+    """Reject an enrollment request: its token is deleted."""
+    try:
+        rejected = await run_in_threadpool(token_store.reject_enrollment, token_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    logger.info("Enrollment %s rejected by %s", rejected["label"], identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

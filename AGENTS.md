@@ -85,11 +85,11 @@ l'utiliser.
 | Moteur de scan, masquage des secrets | `scanner.py` |
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
-| CLI (`gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`) | `cli.py`, `codescan.py` |
+| CLI (`gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`, `enroll`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`) |
 | Dépendances et avis OSV | `dependencies.py`, `depscan.py`, `advisories.py`, `versions.py` |
 | Persistance | `models.py`, `services.py`, `database.py` |
 | Export et tendances | `sarif.py`, `trends.py` |
-| Transport HTTP, auth (jetons et rôles), TLS | `http_server.py` ; stockage des jetons en base : `token_store.py` |
+| Transport HTTP, auth (jetons et rôles), TLS | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` |
 | Interface web : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
 | Paramètres `SECREVIEW_*` | `config.py` |
 
@@ -137,6 +137,7 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   renvoyés. Ne journalisez jamais un jeton, un mot de passe ou une URL de base avec identifiants.
 - **SQL uniquement via l'ORM** (SQLModel, paramètres liés), jamais de SQL construit par chaîne.
 - **Aucun appel réseau sortant** : la base de vulnérabilités est importée hors ligne par la CLI.
+  Seule exception : la commande CLI `enroll`, qui contacte l'URL donnée par l'opérateur.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
   imbriqués) ; `rules_loader` les valide pour les règles internes.
 - Jetons Bearer : seules les empreintes SHA-256 sont conservées, comparaison en temps constant.

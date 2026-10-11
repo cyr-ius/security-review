@@ -11,6 +11,7 @@ le répertoire courant (voir `.env.example`).
 | `SECREVIEW_HOST` | `127.0.0.1` | Adresse d'écoute (HTTP) |
 | `SECREVIEW_PORT` | `8000` | Port d'écoute (HTTP) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Génère le mot de passe admin initial, stocké en base (empreinte uniquement) |
+| `SECREVIEW_ENROLLMENT` | `true` | [Enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton) : un client sans jeton peut demander un jeton de projet (serveur MCP restreint, `POST /api/v1/enroll`), actif après approbation |
 | `SECREVIEW_TLS_CERTFILE` | — | Certificat : active le TLS |
 | `SECREVIEW_TLS_KEYFILE` | — | Clé privée |
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | Mot de passe de la clé privée |

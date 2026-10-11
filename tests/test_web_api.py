@@ -315,7 +315,7 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, reports, dat
     listed = secured.get("/api/v1/project-tokens", headers=auth("admin"))
     assert listed.status_code == 200
     assert listed.json() == [
-        {key: created[key] for key in ("id", "label", "role", "project", "created_at")}
+        {key: created[key] for key in ("id", "label", "role", "project", "status", "created_at")}
     ]
     assert token not in listed.text
     assert "sha256" not in listed.text
@@ -441,6 +441,102 @@ def test_bootstrap_admin_cannot_be_revoked_as_a_project_token(secured):
 
     assert response.status_code == 404
     assert "bootstrap-admin" in {row.label for row in _stored_tokens()}
+
+
+# ── Enrollment ───────────────────────────────────────────────────────────────
+
+
+def test_public_enrollment_then_admin_approval(secured):
+    response = secured.post(
+        "/api/v1/enroll", json={"project": "new-service", "requested_by": "alice@example.com"}
+    )
+
+    assert response.status_code == 201
+    created = response.json()
+    assert (created["project"], created["role"], created["status"]) == (
+        "new-service",
+        "mcp",
+        "pending",
+    )
+    assert created["requested_from"] == "testclient"
+    pending_headers = {"Authorization": f"Bearer {created['token']}"}
+    refused = secured.get("/api/v1/me", headers=pending_headers)
+    assert refused.status_code == 403 and refused.json()["error"] == "enrollment_pending"
+
+    listed = secured.get("/api/v1/enrollments", headers=auth("admin"))
+    assert listed.status_code == 200
+    assert [item["id"] for item in listed.json()] == [created["id"]]
+    assert listed.json()[0]["requested_by"] == "alice@example.com"
+    assert created["token"] not in listed.text
+    # Pending requests are not listed with the active project tokens
+    assert secured.get("/api/v1/project-tokens", headers=auth("admin")).json() == []
+    for role in ("reader", "triager", "mcp"):
+        assert secured.get("/api/v1/enrollments", headers=auth(role)).status_code == 403
+        assert (
+            secured.post(
+                f"/api/v1/enrollments/{created['id']}/approve", headers=auth(role)
+            ).status_code
+            == 403
+        )
+
+    approved = secured.post(f"/api/v1/enrollments/{created['id']}/approve", headers=auth("admin"))
+
+    assert approved.status_code == 200 and approved.json()["status"] == "active"
+    assert secured.get("/api/v1/enrollments", headers=auth("admin")).json() == []
+    assert [
+        item["id"] for item in secured.get("/api/v1/project-tokens", headers=auth("admin")).json()
+    ] == [created["id"]]
+    # The approved token is an MCP token: it reaches /mcp, not the REST API
+    assert secured.get("/api/v1/me", headers=pending_headers).status_code == 403
+    assert secured.get("/api/v1/me", headers=pending_headers).json()["error"] == (
+        "insufficient_scope"
+    )
+    assert (
+        secured.post(f"/api/v1/enrollments/{created['id']}/approve", headers=auth("admin"))
+    ).status_code == 404
+
+
+def test_admin_rejects_enrollment(secured):
+    created = secured.post("/api/v1/enroll", json={"project": "new-service"}).json()
+
+    assert secured.delete("/api/v1/enrollments/unknown", headers=auth("admin")).status_code == 404
+    assert (
+        secured.delete(f"/api/v1/enrollments/{created['id']}", headers=auth("reader")).status_code
+        == 403
+    )
+    rejected = secured.delete(f"/api/v1/enrollments/{created['id']}", headers=auth("admin"))
+
+    assert rejected.status_code == 204
+    pending_headers = {"Authorization": f"Bearer {created['token']}"}
+    assert secured.get("/api/v1/me", headers=pending_headers).status_code == 401
+    # Active tokens cannot be deleted as enrollment requests
+    (admin_id,) = [row.id for row in _stored_tokens() if row.label == "admin"]
+    response = secured.delete(f"/api/v1/enrollments/{admin_id}", headers=auth("admin"))
+    assert response.status_code == 404
+
+
+def test_enrollment_endpoint_errors(secured, client, monkeypatch):
+    assert secured.post("/api/v1/enroll", json={"project": ""}).status_code == 422
+    assert secured.post("/api/v1/enroll", json={"project": "p" * 201}).status_code == 422
+    assert (
+        secured.post("/api/v1/enroll", json={"project": "p", "label": "x" * 65}).status_code == 422
+    )
+    # An existing label is not revealed: the requested one gets a random suffix
+    taken = secured.post("/api/v1/enroll", json={"project": "p", "label": "admin"})
+    assert taken.status_code == 201 and taken.json()["label"].startswith("admin-")
+    monkeypatch.setattr(token_store, "MAX_PENDING_ENROLLMENTS", 2)
+    assert secured.post("/api/v1/enroll", json={"project": "p"}).status_code == 201
+    too_many = secured.post("/api/v1/enroll", json={"project": "q"})
+    assert too_many.status_code == 422 and "Too many" in too_many.json()["detail"]
+    monkeypatch.setattr(web_api.get_settings(), "enrollment", False)
+    assert secured.post("/api/v1/enroll", json={"project": "p"}).status_code == 404
+
+
+def test_enrollment_is_pointless_without_authentication(client):
+    response = client.post("/api/v1/enroll", json={"project": "p"})
+
+    assert response.status_code == 409
+    assert token_store.list_tokens() == []
 
 
 def _stored_tokens() -> list[ApiToken]:

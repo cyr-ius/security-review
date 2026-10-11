@@ -25,6 +25,9 @@ security-review-mcp token list [--project shop-api]             # jamais le secr
 security-review-mcp token revoke ci                              # par label ou par id
 ```
 
+Les projets peuvent aussi demander eux-mêmes leur jeton : voir
+[l'enrôlement](#enrolement-un-projet-demande-son-jeton).
+
 - Donnez `token` au client ; le `label`, unique, apparaît dans les journaux.
 - `--role` vaut `mcp` par défaut : voir les [rôles](../utilisation/interface-web.md#roles) pour
   donner accès à l'interface web.
@@ -76,6 +79,55 @@ fois dans les logs. Il donne accès à la Web UI et à `/mcp`. S'il est perdu, r
 security-review-mcp token reset-admin
 ```
 
+### Enrôlement : un projet demande son jeton
+
+Plutôt que de créer chaque jeton à l'avance, laissez les projets **demander** le leur, puis
+validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès qu'un jeton existe.
+
+1. **Demande.** Le client obtient tout de suite un jeton de rôle `mcp`, restreint au projet
+   demandé, mais **en attente** : il ne donne encore accès à rien. Son label (le nom du projet
+   par défaut) reçoit un suffixe aléatoire. Trois façons de demander :
+    - **Depuis l'agent, à la première revue.** Un client MCP qui se connecte **sans** en-tête
+      `Authorization` n'est pas rejeté : il atteint un serveur MCP restreint (même nom
+      `security-review`) qui n'expose que les outils `request_enrollment` et
+      `get_enrollment_status`, et des prompts du même nom que les revues (`security-review`,
+      `codebase-review`…) qui expliquent la marche à suivre. L'agent appelle
+      `request_enrollment` avec le nom du projet et remet le jeton à l'utilisateur.
+    - **En ligne de commande**, depuis le poste du développeur ou la CI :
+
+        ```bash
+        security-review-mcp enroll --url https://secreview.example.internal:8443 \
+            --project shop-api --requested-by "alice (équipe shop)"
+        # {"id": "…", "label": "shop-api-enroll-3fa9c1", "status": "pending", "token": "UJB7…", …}
+        ```
+
+    - **Par l'API** : `POST /api/v1/enroll` (sans jeton) avec `{"project": "shop-api"}`.
+2. **Configuration.** L'utilisateur place aussitôt le jeton dans la
+   [configuration de l'hôte](hote.md#obtenir-un-jeton-enrolement). Tant qu'il est en attente, le client
+   reste sur le serveur d'enrôlement (`get_enrollment_status` répond `pending`) et l'API web
+   répond `403 enrollment_pending`.
+3. **Validation.** Un administrateur approuve ou refuse la demande dans l'écran **Jetons** de
+   l'[interface web](../utilisation/interface-web.md), ou en CLI :
+
+    ```bash
+    security-review-mcp token list --pending           # demandeur, adresse, date
+    security-review-mcp token approve shop-api-enroll-3fa9c1
+    security-review-mcp token reject shop-api-enroll-3fa9c1
+    ```
+
+    Une fois approuvé, le jeton fonctionne dès la requête suivante, sans reconfiguration.
+
+Un agent qui a déjà un jeton restreint à un autre projet peut aussi appeler
+`request_enrollment` (outil du serveur principal) : `save_security_report` le lui suggère quand
+il refuse le projet.
+
+Garde-fous : au plus 20 demandes en attente à la fois, une demande non traitée expire au bout de
+7 jours, un jeton avec un secret invalide reste refusé (`401`) et les demandes en attente
+n'activent jamais l'authentification d'un serveur ouvert. Vérifiez le demandeur avant
+d'approuver : n'importe quel client qui atteint le serveur peut déposer une demande. Pour
+désactiver l'enrôlement : `SECREVIEW_ENROLLMENT=false` (les clients sans jeton reçoivent alors
+`401`).
+
 !!! tip
     Les commandes `token` s'exécutent sur le serveur (ou dans son conteneur), avec la même
     `SECREVIEW_DATABASE_URL` que lui. Les jetons ne passent jamais en argument de ligne de
@@ -112,6 +164,9 @@ VS Code, avec un jeton demandé à l'utilisateur :
   ]
 }
 ```
+
+Pour Claude et pour obtenir un jeton par enrôlement depuis l'hôte, voir
+[Configuration de l'hôte](hote.md#obtenir-un-jeton-enrolement).
 
 ## Derrière un reverse proxy
 

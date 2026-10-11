@@ -14,6 +14,19 @@
   pas de limitation de débit. Chaque jeton porte un [rôle](../utilisation/interface-web.md#roles)
   (`mcp`, `reader`, `triager`, `admin`) ; un jeton `mcp` sans projet accède à tous les outils
   MCP et à tous les projets.
+- **Enrôlement** (actif par défaut, `SECREVIEW_ENROLLMENT`) : un client sans jeton atteint un
+  serveur MCP restreint qui ne permet que de déposer une demande, et `POST /api/v1/enroll` est
+  public. Une demande est un jeton `mcp` restreint au projet, **en attente** : il ne donne accès
+  à rien avant l'approbation d'un administrateur, et les demandes en attente n'activent jamais
+  l'authentification d'un serveur ouvert. Le nombre de demandes en attente est borné (20) et
+  une demande non traitée expire après 7 jours ; le texte libre du demandeur est masqué et
+  tronqué. N'importe quel client qui atteint le serveur peut déposer une demande : vérifiez le
+  demandeur et l'adresse affichés avant d'approuver, ou désactivez l'enrôlement. Voir
+  [l'enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton).
+- **Appels réseau sortants** : le serveur n'en fait aucun. Seule la commande
+  `security-review-mcp enroll` contacte, à la demande de l'opérateur, l'URL qu'il indique ; elle
+  refuse HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
+  redirections.
 - **Interface web** : l'API REST exige toujours un jeton de rôle web; sans configuration, elle
   répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
   le statut d'un finding (action journalisée avec le label du jeton). Pages servies avec une CSP

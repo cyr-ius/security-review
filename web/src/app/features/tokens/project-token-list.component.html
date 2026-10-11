@@ -1,9 +1,9 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
     <h1 class="h3 mb-0">Jetons de projet</h1>
-    <p class="text-body-secondary mb-0">Accès en lecture limité à un seul projet</p>
+    <p class="text-body-secondary mb-0">Accès limité à un seul projet</p>
   </div>
-  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="tokens.reload()">
+  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="reload()">
     <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
     Actualiser
   </button>
@@ -29,8 +29,75 @@
   </section>
 }
 
+<section class="mb-4" aria-labelledby="enrollments-title">
+  <h2 id="enrollments-title" class="h5">
+    Demandes en attente
+    @if ((enrollments.value() ?? []).length; as count) {
+      <span class="badge text-bg-warning align-middle">{{ count }}</span>
+    }
+  </h2>
+  <p class="text-body-secondary small">
+    Jetons demandés par un client (outil MCP <code>request_enrollment</code> ou commande
+    <code>enroll</code>). Vérifiez le demandeur avant d'approuver : le jeton donne l'accès MCP au
+    projet.
+  </p>
+  @if (enrollments.error()) {
+    <div class="alert alert-danger" role="alert">Impossible de charger les demandes.</div>
+  } @else if ((enrollments.value() ?? []).length) {
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th scope="col">Label</th>
+            <th scope="col">Projet</th>
+            <th scope="col">Demandeur</th>
+            <th scope="col">Adresse</th>
+            <th scope="col">Demandé le</th>
+            <th scope="col" class="text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (request of enrollments.value() ?? []; track request.id) {
+            <tr>
+              <td>{{ request.label }}</td>
+              <td>{{ request.project }}</td>
+              <td>{{ request.requested_by ?? '—' }}</td>
+              <td class="font-monospace">{{ request.requested_from ?? '—' }}</td>
+              <td>{{ request.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td class="text-end text-nowrap">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-success me-1"
+                  [disabled]="busy()"
+                  [attr.aria-label]="'Approuver la demande ' + request.label"
+                  (click)="approve(request.id, request.label, request.project)"
+                >
+                  <i class="bi bi-check-lg" aria-hidden="true"></i>
+                  Approuver
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-danger"
+                  [disabled]="busy()"
+                  [attr.aria-label]="'Refuser la demande ' + request.label"
+                  (click)="reject(request.id, request.label)"
+                >
+                  <i class="bi bi-x-lg" aria-hidden="true"></i>
+                  Refuser
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (!enrollments.isLoading()) {
+    <p class="text-body-secondary">Aucune demande en attente.</p>
+  }
+</section>
+
 <section class="mb-4" aria-labelledby="create-token-title">
-  <h2 id="create-token-title" class="h5">Créer un jeton</h2>
+  <h2 id="create-token-title" class="h5">Créer un jeton en lecture</h2>
   <form class="row g-2 align-items-end" (submit)="create($event)">
     <div class="col-sm-4">
       <label for="token-label" class="form-label">Label</label>
@@ -88,6 +155,7 @@
           <tr>
             <th scope="col">Label</th>
             <th scope="col">Projet</th>
+            <th scope="col">Rôle</th>
             <th scope="col">Créé le</th>
             <th scope="col" class="text-end">Action</th>
           </tr>
@@ -97,6 +165,7 @@
             <tr>
               <td>{{ token.label }}</td>
               <td>{{ token.project }}</td>
+              <td>{{ token.role }}</td>
               <td>{{ token.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
               <td class="text-end">
                 <button
