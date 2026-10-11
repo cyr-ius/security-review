@@ -34,7 +34,68 @@ export interface Identity {
   role: Role;
   can_triage: boolean;
   auth_enabled: boolean;
+  project: string | null;
   version: string;
+}
+
+/** Metadata returned for a project-scoped token; the raw secret is only returned at creation. */
+export interface ProjectToken {
+  id: string;
+  label: string;
+  role: Role;
+  project: string;
+  status: 'active' | 'pending';
+  created_at: string;
+}
+
+/** A project token requested by a client (enrollment), waiting for an administrator. */
+export interface EnrollmentRequest extends ProjectToken {
+  requested_by: string | null;
+  requested_from: string | null;
+}
+
+/** Response returned once when a project-scoped token is created. */
+export interface ProjectTokenCreated extends ProjectToken {
+  token: string;
+}
+
+/** Origin of a stored rule: shipped default (seeded on the first run) or custom. */
+export type RuleOrigin = 'builtin' | 'custom';
+
+/** A scan rule stored in the database (default or custom). */
+export interface CustomRule {
+  id: string;
+  title: string;
+  severity: Severity;
+  cwe: string;
+  languages: string[];
+  pattern: string;
+  advice: string;
+  ignore_case: boolean;
+  origin: RuleOrigin;
+  /** True for a default rule edited by an administrator. */
+  modified: boolean;
+  enabled: boolean;
+  updated_at: string;
+}
+
+/** GET /api/v1/rules */
+export interface CustomRuleCatalog {
+  load_errors: string[];
+  rules: CustomRule[];
+}
+
+/** Input accepted by POST and PUT /api/v1/rules. */
+export type CustomRuleWrite = Pick<
+  CustomRule,
+  'id' | 'title' | 'severity' | 'languages' | 'pattern'
+> &
+  Partial<Pick<CustomRule, 'cwe' | 'advice' | 'ignore_case'>>;
+
+/** Summary returned after a rule change or a reload. */
+export interface RuleReloadResult {
+  loaded_rules: number;
+  load_errors: string[];
 }
 
 /** GET /api/v1/projects */

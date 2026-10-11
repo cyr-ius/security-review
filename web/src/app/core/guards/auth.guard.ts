@@ -6,9 +6,7 @@ import { ApiService } from '../services/api.service';
 import { AuthService } from '../services/auth.service';
 
 /**
- * Let the user in once /api/v1/me answers.
- *
- * Without configured tokens the server answers without a token, so no login is needed.
+ * Require a configured, authenticated identity before entering the application.
  */
 export const authGuard: CanActivateFn = (_route, state) => {
   const auth = inject(AuthService);
@@ -20,6 +18,12 @@ export const authGuard: CanActivateFn = (_route, state) => {
   }
   return api.me().pipe(
     map((identity) => {
+      if (!identity.auth_enabled) {
+        auth.logout();
+        return router.createUrlTree(['/login'], {
+          queryParams: { returnUrl: state.url, authRequired: 1 },
+        });
+      }
       auth.identity.set(identity);
       return true;
     }),
@@ -28,6 +32,10 @@ export const authGuard: CanActivateFn = (_route, state) => {
         // Valid token whose role cannot use the web interface (e.g. an MCP token)
         auth.logout();
         return of(router.createUrlTree(['/login'], { queryParams: { forbidden: 1 } }));
+      }
+      if (error instanceof HttpErrorResponse && error.status === 503) {
+        auth.logout();
+        return of(router.createUrlTree(['/login'], { queryParams: { authRequired: 1 } }));
       }
       // A stored token that is no longer accepted has expired or been revoked
       const expired = auth.token() !== null ? 1 : null;

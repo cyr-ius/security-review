@@ -13,17 +13,19 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, status
+from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.security import HTTPBearer
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Scope
 
-from . import __version__, services, trends
+from . import __version__, registry, rule_store, rules_loader, services, token_store, trends
 from .config import get_settings
-from .http_server import LOOPBACK_HOSTS, TRIAGE_ROLES, Role
+from .http_server import ENROLL_PATH, LOOPBACK_HOSTS, TRIAGE_ROLES, Role
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
 from .sarif import build_sarif
 
@@ -57,6 +59,7 @@ class Identity(BaseModel):
     role: Role
     can_triage: bool
     auth_enabled: bool
+    project: str | None = None
     version: str
 
 
@@ -64,6 +67,40 @@ class FindingStatusUpdate(BaseModel):
     """Body of PATCH /findings/{id}."""
 
     status: FindingStatus
+
+
+class RuleWrite(BaseModel):
+    """A custom scan rule sent to the web API."""
+
+    id: str = Field(min_length=3, max_length=rules_loader.MAX_ID_CHARS)
+    title: str = Field(min_length=1, max_length=rules_loader.MAX_TITLE_CHARS)
+    severity: Severity
+    cwe: str = Field(default="", max_length=20)
+    languages: list[Annotated[str, Field(max_length=32)]] = Field(min_length=1, max_length=32)
+    pattern: str = Field(min_length=1, max_length=rules_loader.MAX_PATTERN_CHARS)
+    advice: str = Field(default="", max_length=rules_loader.MAX_TEXT_CHARS)
+    ignore_case: bool = True
+
+
+class RuleEnabledUpdate(BaseModel):
+    """Enabled state of a custom scan rule."""
+
+    enabled: bool
+
+
+class ProjectTokenCreate(BaseModel):
+    """A read-only token scoped to one project."""
+
+    label: str = Field(min_length=1, max_length=64)
+    project: str = Field(min_length=1, max_length=200)
+
+
+class EnrollmentRequest(BaseModel):
+    """Body of the public POST /enroll: a project token requested without credentials."""
+
+    project: str = Field(min_length=1, max_length=token_store.MAX_PROJECT_CHARS)
+    label: str | None = Field(default=None, max_length=token_store.MAX_LABEL_CHARS)  # + suffix
+    requested_by: str | None = Field(default=None, max_length=token_store.MAX_REQUESTED_BY_CHARS)
 
 
 class ProjectSummary(BaseModel):
@@ -105,6 +142,7 @@ def current_identity(request: Request) -> Identity:
         role=role,
         can_triage=role in TRIAGE_ROLES,
         auth_enabled=auth_enabled,
+        project=state.get("auth_project"),
         version=__version__,
     )
 
@@ -122,10 +160,49 @@ def require_triage(identity: CurrentIdentity) -> Identity:
     return identity
 
 
+def require_admin(identity: CurrentIdentity) -> Identity:
+    """Only web administrators may change rule packs."""
+    if identity.role != Role.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{identity.role}' cannot manage rules",
+        )
+    return identity
+
+
+def _scoped_project(identity: Identity, requested: str | None = None) -> str | None:
+    """Restrict project tokens to their assigned project without disclosing other projects."""
+    if identity.project is not None:
+        if requested is not None and requested != identity.project:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+        return identity.project
+    return requested
+
+
+def _ensure_report_scope(identity: Identity, report: SecurityReportPublic) -> None:
+    """Hide reports outside a project token's scope."""
+    if identity.project is not None and report.project != identity.project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+
+def _rule_catalog() -> dict:
+    """Return the rules stored in the database (default and custom) and the diagnostics."""
+    return {
+        "rules": rule_store.list_rules(),
+        "load_errors": list(registry.snapshot().errors),
+    }
+
+
+async def _refresh_rules() -> dict:
+    """Reload the active registry and return its diagnostics."""
+    snapshot = await run_in_threadpool(registry.reload)
+    return {"loaded_rules": len(snapshot.custom_rule_ids), "load_errors": list(snapshot.errors)}
+
+
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 
-router = APIRouter(prefix="/api/v1")
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(HTTPBearer(auto_error=False))])
 
 
 @router.get("/health")
@@ -141,39 +218,58 @@ async def me(identity: CurrentIdentity) -> Identity:
 
 
 @router.get("/projects")
-async def projects() -> list[ProjectSummary]:
+async def projects(identity: CurrentIdentity) -> list[ProjectSummary]:
     """List the projects with their open findings, latest activity first."""
-    return await run_in_threadpool(services.list_projects)
+    projects = await run_in_threadpool(services.list_projects)
+    return [
+        item for item in projects if identity.project is None or item["project"] == identity.project
+    ]
 
 
 @router.get("/posture")
-async def posture(project: Annotated[str, Query(min_length=1, max_length=200)]) -> dict:
+async def posture(
+    project: Annotated[str, Query(min_length=1, max_length=200)], identity: CurrentIdentity
+) -> dict:
     """Open findings of a project across all its reports."""
-    return await run_in_threadpool(services.project_posture, project)
+    return await run_in_threadpool(services.project_posture, _scoped_project(identity, project))
 
 
 @router.get("/trend")
 async def trend(
     project: Annotated[str, Query(min_length=1, max_length=200)],
+    identity: CurrentIdentity,
     days: Annotated[int, Query(ge=1, le=1095)] = 90,
     granularity: Literal["day", "week", "month"] = "week",
 ) -> dict:
     """Evolution of the security posture of a project."""
     try:
-        return await run_in_threadpool(trends.get_trend, project, days, granularity)
+        return await run_in_threadpool(
+            trends.get_trend, _scoped_project(identity, project), days, granularity
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
 
 @router.get("/sarif")
 async def sarif(
+    identity: CurrentIdentity,
     project: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
     report_id: Annotated[int | None, Query(ge=1)] = None,
     include_resolved: bool = False,
 ) -> Response:
     """Download the findings of a project or of a report as SARIF 2.1.0."""
     try:
+        if identity.project is not None:
+            if project is not None and project != identity.project:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+            if report_id is not None:
+                scoped_report = await run_in_threadpool(services.get_report, report_id)
+                _ensure_report_scope(identity, scoped_report)
+            else:
+                project = identity.project
         name, items = await run_in_threadpool(services.collect_sarif_items, report_id, project)
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     document = build_sarif(items, name, include_resolved)
@@ -187,6 +283,7 @@ async def sarif(
 
 @router.get("/reports")
 async def reports(
+    identity: CurrentIdentity,
     project: Annotated[str | None, Query(max_length=200)] = None,
     risk_level: Severity | None = None,
     limit: Annotated[int, Query(ge=1)] = 20,
@@ -194,20 +291,23 @@ async def reports(
 ) -> list[ReportSummary]:
     """List reports, newest first (limit is capped by SECREVIEW_MAX_LIST_LIMIT)."""
     return await run_in_threadpool(
-        services.list_reports, project or None, risk_level, limit, offset
+        services.list_reports, _scoped_project(identity, project or None), risk_level, limit, offset
     )
 
 
 @router.get("/reports/{report_id}")
-async def report(report_id: int) -> SecurityReportPublic:
+async def report(report_id: int, identity: CurrentIdentity) -> SecurityReportPublic:
     """Return a report with its findings."""
-    return await run_in_threadpool(services.get_report, report_id)
+    stored = await run_in_threadpool(services.get_report, report_id)
+    _ensure_report_scope(identity, stored)
+    return stored
 
 
 @router.get("/reports/{report_id}/markdown", response_class=PlainTextResponse)
-async def report_markdown(report_id: int) -> PlainTextResponse:
+async def report_markdown(report_id: int, identity: CurrentIdentity) -> PlainTextResponse:
     """Download a report as Markdown."""
     stored = await run_in_threadpool(services.get_report, report_id)
+    _ensure_report_scope(identity, stored)
     return PlainTextResponse(
         services.render_report_markdown(stored),
         media_type="text/markdown; charset=utf-8",
@@ -222,9 +322,191 @@ async def update_finding(
     identity: Annotated[Identity, Depends(require_triage)],
 ) -> FindingPublic:
     """Change the status of a finding (triage). The change is logged with the caller."""
+    await run_in_threadpool(services.check_finding_scope, identity.project, finding_id)
     finding = await run_in_threadpool(services.update_finding_status, finding_id, body.status)
     logger.info("Finding %s set to %s by %s", finding_id, body.status, identity.client)
     return finding
+
+
+@router.get("/rules")
+async def list_custom_rules(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+    """List the rules stored in the database (default and custom)."""
+    return await run_in_threadpool(_rule_catalog)
+
+
+@router.post("/rules/reload")
+async def reload_custom_rules(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+    """Reload the internal rules now (after a change made with the CLI)."""
+    logger.info("Internal rules reloaded by %s", identity.client)
+    return await _refresh_rules()
+
+
+@router.post("/rules", status_code=status.HTTP_201_CREATED)
+async def create_custom_rule(
+    body: RuleWrite, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict:
+    """Create a custom rule in the database."""
+    try:
+        await run_in_threadpool(rule_store.create_rule, body.model_dump(mode="json"))
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Rule %s created by %s", body.id, identity.client)
+    return await _refresh_rules()
+
+
+@router.put("/rules/{rule_id}")
+async def update_custom_rule(
+    rule_id: Annotated[str, APIPath(min_length=3, max_length=50)],
+    body: RuleWrite,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict:
+    """Update a stored rule (default or custom) while keeping its stable id."""
+    try:
+        await run_in_threadpool(rule_store.update_rule, rule_id, body.model_dump(mode="json"))
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Rule %s updated by %s", rule_id, identity.client)
+    return await _refresh_rules()
+
+
+@router.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_custom_rule(
+    rule_id: Annotated[str, APIPath(min_length=3, max_length=50)],
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> Response:
+    """Delete a custom rule from the database (default rules can only be disabled)."""
+    try:
+        await run_in_threadpool(rule_store.delete_entries, [rule_id], False)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    await _refresh_rules()
+    logger.info("Rule %s deleted by %s", rule_id, identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.patch("/rules/{rule_id}/enabled")
+async def set_custom_rule_enabled(
+    rule_id: Annotated[str, APIPath(min_length=3, max_length=50)],
+    body: RuleEnabledUpdate,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict:
+    """Enable or disable a default or custom rule."""
+    try:
+        await run_in_threadpool(rule_store.set_enabled, [rule_id], body.enabled)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Rule %s enabled=%s by %s", rule_id, body.enabled, identity.client)
+    return await _refresh_rules()
+
+
+@router.get("/project-tokens")
+async def project_tokens(
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> list[dict[str, str | None]]:
+    """List project-token metadata without returning hashes or token values."""
+    return await run_in_threadpool(token_store.list_project_tokens)
+
+
+@router.post("/project-tokens", status_code=status.HTTP_201_CREATED)
+async def create_project_token(
+    body: ProjectTokenCreate,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict[str, str | None]:
+    """Create a project-scoped reader token and return its secret exactly once."""
+    projects = await run_in_threadpool(services.list_projects)
+    if not any(project["project"] == body.project for project in projects):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
+    try:
+        created = await run_in_threadpool(
+            token_store.create_project_token, body.label, body.project
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Project token %s created for %s by %s", body.label, body.project, identity.client)
+    return created
+
+
+@router.delete("/project-tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project_token(
+    token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> Response:
+    """Revoke a project token: the next request presenting it is rejected."""
+    try:
+        await run_in_threadpool(token_store.revoke_project_token, token_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    logger.info("Project token %s revoked by %s", token_id, identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(ENROLL_PATH.removeprefix("/api/v1"), status_code=status.HTTP_201_CREATED)
+async def enroll(body: EnrollmentRequest, request: Request) -> dict[str, str | None]:
+    """Request a project token without credentials (public endpoint).
+
+    The token is returned once and works only after an administrator approves the request.
+    """
+    if not get_settings().enrollment:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Enrollment is disabled")
+    if not await run_in_threadpool(token_store.DatabaseTokenStore().has_tokens):
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Authentication is not configured: no token is needed"
+        )
+    address = request.client.host if request.client else None
+    try:
+        created = await run_in_threadpool(
+            token_store.request_enrollment, body.project, body.label, body.requested_by, address
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info(
+        "Enrollment requested for project %s (%s) from %s",
+        created["project"],
+        created["label"],
+        address or "unknown",
+    )
+    return created
+
+
+@router.get("/enrollments")
+async def enrollments(
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> list[dict[str, str | None]]:
+    """List the enrollment requests waiting for approval (never their secret)."""
+    return await run_in_threadpool(token_store.list_tokens, None, True)
+
+
+@router.post("/enrollments/{token_id}/approve")
+async def approve_enrollment(
+    token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict[str, str | None]:
+    """Approve an enrollment request: its token works from the next request."""
+    try:
+        approved = await run_in_threadpool(token_store.approve_enrollment, token_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    logger.info(
+        "Enrollment %s for %s approved by %s",
+        approved["label"],
+        approved["project"],
+        identity.client,
+    )
+    return approved
+
+
+@router.delete("/enrollments/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def reject_enrollment(
+    token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> Response:
+    """Reject an enrollment request: its token is deleted."""
+    try:
+        rejected = await run_in_threadpool(token_store.reject_enrollment, token_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    logger.info("Enrollment %s rejected by %s", rejected["label"], identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ── Static files ─────────────────────────────────────────────────────────────

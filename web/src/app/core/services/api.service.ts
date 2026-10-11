@@ -4,11 +4,17 @@ import { Observable } from 'rxjs';
 import {
   Finding,
   FindingStatus,
+  CustomRuleCatalog,
+  CustomRuleWrite,
+  EnrollmentRequest,
   Identity,
   ProjectSummary,
+  ProjectToken,
+  ProjectTokenCreated,
   Report,
   ReportQuery,
   ReportSummary,
+  RuleReloadResult,
   Trend,
 } from '../models/api.models';
 
@@ -24,8 +30,61 @@ export class ApiService {
     return this.http.get<Identity>(`${API_URL}/me`);
   }
 
+  customRules(): Observable<CustomRuleCatalog> {
+    return this.http.get<CustomRuleCatalog>(`${API_URL}/rules`);
+  }
+
+  createCustomRule(rule: CustomRuleWrite): Observable<RuleReloadResult> {
+    return this.http.post<RuleReloadResult>(`${API_URL}/rules`, rule);
+  }
+
+  updateCustomRule(id: string, rule: CustomRuleWrite): Observable<RuleReloadResult> {
+    return this.http.put<RuleReloadResult>(`${API_URL}/rules/${encodeURIComponent(id)}`, rule);
+  }
+
+  deleteCustomRule(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/rules/${encodeURIComponent(id)}`);
+  }
+
+  setCustomRuleEnabled(id: string, enabled: boolean): Observable<RuleReloadResult> {
+    return this.http.patch<RuleReloadResult>(`${API_URL}/rules/${encodeURIComponent(id)}/enabled`, {
+      enabled,
+    });
+  }
+
+  reloadCustomRules(): Observable<RuleReloadResult> {
+    return this.http.post<RuleReloadResult>(`${API_URL}/rules/reload`, {});
+  }
+
   projects(): Observable<ProjectSummary[]> {
     return this.http.get<ProjectSummary[]>(`${API_URL}/projects`);
+  }
+
+  projectTokens(): Observable<ProjectToken[]> {
+    return this.http.get<ProjectToken[]>(`${API_URL}/project-tokens`);
+  }
+
+  createProjectToken(label: string, project: string): Observable<ProjectTokenCreated> {
+    return this.http.post<ProjectTokenCreated>(`${API_URL}/project-tokens`, { label, project });
+  }
+
+  deleteProjectToken(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/project-tokens/${encodeURIComponent(id)}`);
+  }
+
+  enrollments(): Observable<EnrollmentRequest[]> {
+    return this.http.get<EnrollmentRequest[]>(`${API_URL}/enrollments`);
+  }
+
+  approveEnrollment(id: string): Observable<EnrollmentRequest> {
+    return this.http.post<EnrollmentRequest>(
+      `${API_URL}/enrollments/${encodeURIComponent(id)}/approve`,
+      {},
+    );
+  }
+
+  rejectEnrollment(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/enrollments/${encodeURIComponent(id)}`);
   }
 
   reports(query: ReportQuery): Observable<ReportSummary[]> {

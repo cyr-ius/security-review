@@ -1,19 +1,33 @@
 """Command line helpers for pipelines and administrators (no MCP client or agent needed).
 
-Commands: ``gate``, ``sarif``, ``trend``, ``advisories``, ``deps``, ``code`` and ``token``. Exit
-codes follow the same convention everywhere: 0 success, 1 blocked (gate / findings found), 2 usage
-or data error.
+Commands: ``gate``, ``sarif``, ``trend``, ``advisories``, ``deps``, ``code``, ``rules``,
+``token`` and ``enroll``. Exit codes follow the same convention everywhere: 0 success, 1 blocked
+(gate / findings found), 2 usage or data error.
 """
 
 import argparse
 import json
-import secrets
 import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from . import advisories, codescan, depscan, http_server, sarif, services, trends
+from sqlalchemy.exc import SQLAlchemyError
+
+from . import (
+    advisories,
+    codescan,
+    depscan,
+    enrollment,
+    http_server,
+    registry,
+    rule_store,
+    rules_loader,
+    sarif,
+    services,
+    token_store,
+    trends,
+)
 from .config import get_settings
 from .database import init_db
 from .models import SEVERITY_RANK, Severity
@@ -368,11 +382,16 @@ def code_command(argv: list[str]) -> int:
         return _fail("--save requires --project")
 
     try:
-        result = codescan.scan_tree(args.path, args.exclude, args.max_file_bytes, not args.no_git)
-        saved = None
-        if args.save:  # the database is only needed to store the report
+        # Internal rules live in the database; without it, only the built-in rules apply
+        try:
             init_db()
-            saved = _save_code_scan(args, result)
+        except SQLAlchemyError:
+            if args.save:
+                raise
+        for message in registry.snapshot().errors:
+            print(f"warning: {message}", file=sys.stderr)
+        result = codescan.scan_tree(args.path, args.exclude, args.max_file_bytes, not args.no_git)
+        saved = _save_code_scan(args, result) if args.save else None
     except (ValueError, OSError) as exc:
         return _fail(str(exc))
 
@@ -417,31 +436,207 @@ def code_command(argv: list[str]) -> int:
 
 
 def token_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp token``: generate a bearer token for the HTTP transport."""
+    """Run ``security-review-mcp token``: manage the bearer tokens stored in the database."""
     parser = argparse.ArgumentParser(
         prog="security-review-mcp token",
-        description="Generate a bearer token and the hashed entry to put in the configuration.",
+        description="Manage the bearer tokens of the HTTP transport (stored as SHA-256 digests).",
     )
-    parser.add_argument("--label", default=None, help="name of the client (shown in the logs)")
-    parser.add_argument(
+    actions = parser.add_subparsers(dest="action", required=True)
+    creator = actions.add_parser("create", help="create a token and print its secret once")
+    creator.add_argument("--label", required=True, help="unique name of the client (in the logs)")
+    creator.add_argument(
         "--role",
         choices=[role.value for role in http_server.Role],
-        default=None,
+        default=http_server.DEFAULT_ROLE.value,
         help="mcp (default): MCP endpoint; reader/triager: web interface; admin: both",
     )
+    creator.add_argument(
+        "--project", help="restrict the token to one project (MCP tools and web interface)"
+    )
+    lister = actions.add_parser("list", help="list the tokens (never their secret or hash)")
+    lister.add_argument("--project", help="only the tokens restricted to this project")
+    lister.add_argument(
+        "--pending", action="store_true", help="only the enrollment requests waiting for approval"
+    )
+    revoker = actions.add_parser("revoke", help="delete a token by id or label")
+    revoker.add_argument("token", help="token id or label")
+    approver = actions.add_parser("approve", help="approve a pending enrollment request")
+    approver.add_argument("token", help="request id or label")
+    rejecter = actions.add_parser("reject", help="reject (delete) a pending enrollment request")
+    rejecter.add_argument("token", help="request id or label")
+    actions.add_parser("reset-admin", help="replace the bootstrap administrator password")
     args = parser.parse_args(argv)
-    if args.label is not None and (not args.label.strip() or set(args.label) & {":", ","}):
-        return _fail("--label must be non-empty and contain neither ':' nor ','")
-    if args.role and not args.label:
-        return _fail("--role needs --label")
 
-    token = secrets.token_urlsafe(32)
-    entry = http_server.hash_token(token)
-    if args.role:
-        entry = f"{args.role}:{entry}"
-    if args.label:
-        entry = f"{args.label.strip()}:{entry}"
-    print(json.dumps({"token": token, "config_entry": entry}, indent=2))
+    try:
+        init_db()
+        if args.action == "create":
+            result: object = token_store.create_token(args.label, args.role, args.project)
+        elif args.action == "list":
+            result = token_store.list_tokens(args.project, args.pending)
+        elif args.action == "approve":
+            result = token_store.approve_enrollment(args.token)
+        elif args.action == "reject":
+            result = token_store.reject_enrollment(args.token)
+        elif args.action == "revoke":
+            result = token_store.revoke_token(args.token)
+            if not token_store.DatabaseTokenStore().has_tokens():
+                # Without any token the HTTP transport no longer requires authentication
+                print(
+                    json.dumps({"warning": "No token left: the MCP endpoint is now open"}),
+                    file=sys.stderr,
+                )
+        else:
+            password = token_store.reset_bootstrap_admin()
+            result = {"label": token_store.BOOTSTRAP_LABEL, "token": password}
+    except ValueError as exc:
+        return _fail(str(exc))
+    print(json.dumps(result, indent=2))
+    return EXIT_PASSED
+
+
+# ── enroll ───────────────────────────────────────────────────────────────────
+
+
+def enroll_command(argv: list[str]) -> int:
+    """Run ``security-review-mcp enroll``: request a project token from a shared server."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-mcp enroll",
+        description="Request a token restricted to one project from a shared server. The token "
+        "is printed once and works after an administrator approves the request.",
+    )
+    parser.add_argument(
+        "--url", required=True, help="server URL, for example https://secreview.example.com"
+    )
+    parser.add_argument("--project", required=True, help="project name used for the reports")
+    parser.add_argument(
+        "--label", help="name of the token (default: the project); a random suffix is added"
+    )
+    parser.add_argument("--requested-by", help="who asks (name, email or team), for the admin")
+    parser.add_argument("--cafile", help="CA bundle used to verify the server certificate")
+    parser.add_argument(
+        "--allow-http",
+        action="store_true",
+        help="allow plain HTTP to a non-loopback server (the token would travel in clear)",
+    )
+    args = parser.parse_args(argv)
+    try:
+        result = enrollment.request_enrollment(
+            args.url,
+            args.project,
+            label=args.label,
+            requested_by=args.requested_by,
+            cafile=args.cafile,
+            allow_http=args.allow_http,
+        )
+    except ValueError as exc:
+        return _fail(str(exc))
+    print(json.dumps(result, indent=2))
+    return EXIT_PASSED
+
+
+# ── rules ────────────────────────────────────────────────────────────────────
+
+
+def _read_pack(path: Path) -> tuple[str, str]:
+    """Read one rule pack chosen by the operator; symbolic links are not followed."""
+    if path.is_symlink():
+        raise ValueError(f"Refusing to read a symbolic link: {path}")
+    if not path.is_file():
+        raise ValueError(f"File not found: {path}")
+    if path.stat().st_size > rules_loader.MAX_PACK_BYTES:
+        raise ValueError(f"Rule pack larger than {rules_loader.MAX_PACK_BYTES} bytes: {path}")
+    return path.name, path.read_text(encoding="utf-8")
+
+
+def _collect_packs(names: list[str]) -> list[tuple[str, str]]:
+    """Read the given packs; a directory contributes its ``*.toml`` files in name order."""
+    packs: list[tuple[str, str]] = []
+    for name in names:
+        path = Path(name)
+        if path.is_dir() and not path.is_symlink():
+            files = sorted(path.glob("*.toml"))
+            if not files:
+                raise ValueError(f"No *.toml rule pack in {path}")
+            for file in files:
+                if file.is_symlink():
+                    print(f"skipped: {file} (symbolic link)", file=sys.stderr)
+                    continue
+                packs.append(_read_pack(file))
+        else:
+            packs.append(_read_pack(path))
+    return packs
+
+
+def _print_rules_text(rows: list[dict]) -> None:
+    """Print one line per rule: id, severity, origin (builtin, modified, custom), state, title."""
+    for row in rows:
+        state = "enabled" if row["enabled"] else "disabled"
+        origin = "modified" if row["modified"] else row["origin"]
+        print(f"{row['id']:<12} {row['severity']:<8} {origin:<8} {state:<8} {row['title']}")
+    disabled = sum(1 for row in rows if not row["enabled"])
+    print(f"{len(rows)} rule(s), {disabled} disabled")
+
+
+def rules_command(argv: list[str]) -> int:
+    """Run ``security-review-mcp rules``: manage the internal rules stored in the database."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-mcp rules",
+        description="Manage the internal scan rules and checklist items stored in the database.",
+    )
+    actions = parser.add_subparsers(dest="action", required=True)
+    lister = actions.add_parser("list", help="list every rule (default and custom) and its state")
+    lister.add_argument("--language", help="only the rules that apply to this language")
+    lister.add_argument("--custom", action="store_true", help="only the custom rules")
+    lister.add_argument("--format", choices=["text", "json"], default="text")
+    importer = actions.add_parser("import", help="import TOML rule packs (files or directories)")
+    importer.add_argument("paths", nargs="+", metavar="PATH")
+    importer.add_argument(
+        "--replace",
+        action="store_true",
+        help="first reset the stored rules, checklist items and disabled states to the defaults",
+    )
+    exporter = actions.add_parser("export", help="export the stored content as a TOML pack")
+    exporter.add_argument("--output", "-o", help="file to write (default: standard output)")
+    for action, text in (("enable", "enable"), ("disable", "disable")):
+        toggler = actions.add_parser(action, help=f"{text} default or custom rules")
+        toggler.add_argument("ids", nargs="+", metavar="ID")
+    remover = actions.add_parser(
+        "delete", help="delete custom rules or checklist items (default ones cannot be deleted)"
+    )
+    remover.add_argument("ids", nargs="+", metavar="ID")
+    args = parser.parse_args(argv)
+
+    try:
+        init_db()
+        if args.action == "list":
+            current = registry.reload()  # always the current state of the database
+            rows = registry.describe_rules(args.language, include_disabled=True)
+            if args.custom:
+                rows = [row for row in rows if row["origin"] == "custom"]
+            for message in current.errors:
+                print(f"warning: {message}", file=sys.stderr)
+            if args.format == "text":
+                _print_rules_text(rows)
+                return EXIT_PASSED
+            result: object = rows
+        elif args.action == "import":
+            result = rule_store.import_packs(_collect_packs(args.paths), args.replace)
+        elif args.action == "export":
+            text = rule_store.export_pack()
+            if not args.output:
+                print(text, end="")
+                return EXIT_PASSED
+            Path(args.output).write_text(text, encoding="utf-8")
+            print(f"Internal rules written to {args.output}", file=sys.stderr)
+            return EXIT_PASSED
+        elif args.action in ("enable", "disable"):
+            changed = rule_store.set_enabled(args.ids, args.action == "enable")
+            result = {f"{args.action}d": changed}
+        else:
+            result = rule_store.delete_entries(args.ids)
+    except (ValueError, OSError, UnicodeDecodeError) as exc:
+        return _fail(str(exc))
+    print(json.dumps(result, indent=2))
     return EXIT_PASSED
 
 
@@ -452,7 +647,9 @@ COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "advisories": advisories_command,
     "deps": deps_command,
     "code": code_command,
+    "rules": rules_command,
     "token": token_command,
+    "enroll": enroll_command,
 }
 
 

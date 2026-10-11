@@ -6,8 +6,7 @@ from pathlib import Path
 import pytest
 from mcp.client import Client
 
-from security_review_mcp import cli, registry, services
-from security_review_mcp.config import get_settings
+from security_review_mcp import cli, registry, rule_store, services
 from security_review_mcp.models import FindingCreate, FindingStatus, Severity
 from security_review_mcp.server import mcp
 
@@ -68,10 +67,9 @@ def test_cli_exit_codes(capsys):
     assert cli.gate_command(["--project", "shop", "--report-id", "999"]) == cli.EXIT_ERROR
 
 
-def test_shipped_example_pack_is_valid(monkeypatch):
-    example = Path(__file__).resolve().parent.parent / "examples" / "rules"
-    monkeypatch.setattr(get_settings(), "rules_dir", str(example))
-    registry.reset()
+def test_shipped_example_pack_is_valid(import_pack):
+    example = Path(__file__).resolve().parent.parent / "examples" / "rules" / "company.toml"
+    import_pack(example.read_text(encoding="utf-8"), example.name)
     snapshot = registry.snapshot()
     assert snapshot.errors == ()
     assert {"ACME-001", "ACME-002", "ACME-003", "ACME-004"} <= snapshot.custom_rule_ids
@@ -81,10 +79,15 @@ def test_shipped_example_pack_is_valid(monkeypatch):
 
 
 @pytest.mark.anyio
-async def test_new_tools_over_mcp(rules_dir):
-    (rules_dir / "p.toml").write_text(
-        '[[rules]]\nid = "ACME-9"\ntitle = "t"\nseverity = "low"\n'
-        'languages = ["python"]\npattern = "foo_bar"\n'
+async def test_new_tools_over_mcp():
+    rule_store.import_packs(
+        [
+            (
+                "p.toml",
+                '[[rules]]\nid = "ACME-9"\ntitle = "t"\nseverity = "low"\n'
+                'languages = ["python"]\npattern = "foo_bar"\n',
+            )
+        ]
     )
     async with Client(mcp) as client:
         names = {t.name for t in (await client.list_tools()).tools}

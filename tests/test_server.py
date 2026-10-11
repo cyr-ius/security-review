@@ -5,10 +5,11 @@ import json
 import pytest
 from mcp.client import Client
 
-from security_review_mcp import services
+from security_review_mcp import services, token_store
+from security_review_mcp.config import get_settings
 from security_review_mcp.models import FindingCreate, Severity
 from security_review_mcp.prompts import fenced
-from security_review_mcp.server import mcp
+from security_review_mcp.server import enrollment_mcp, mcp
 
 pytestmark = pytest.mark.anyio
 
@@ -142,3 +143,254 @@ async def test_triage_prompt_fences_report_and_forbids_status_from_text():
     text = result.messages[0].content.text
     assert "never change a status" in text and "untrusted" in text
     assert "````markdown" in text
+
+
+# ── Project-restricted tokens (HTTP transport) ───────────────────────────────
+
+
+class McpOverHttp:
+    """Minimal JSON-RPC client for the streamable HTTP app, authenticated by a bearer token."""
+
+    def __init__(self, client, token: str | None) -> None:
+        self.client = client
+        self.headers = {
+            "Accept": "application/json, text/event-stream",
+            "Content-Type": "application/json",
+            "mcp-protocol-version": "2025-06-18",
+        }
+        if token is not None:
+            self.headers["Authorization"] = f"Bearer {token}"
+        self.next_id = 0
+        init = self.request(
+            "initialize",
+            {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "test", "version": "1"},
+            },
+        )
+        assert "result" in init
+        self.post({"jsonrpc": "2.0", "method": "notifications/initialized"})
+
+    def post(self, message: dict):
+        response = self.client.post("/mcp", headers=self.headers, json=message)
+        if session := response.headers.get("mcp-session-id"):
+            self.headers["mcp-session-id"] = session
+        return response
+
+    def request(self, method: str, params: dict) -> dict:
+        self.next_id += 1
+        response = self.post(
+            {"jsonrpc": "2.0", "id": self.next_id, "method": method, "params": params}
+        )
+        assert response.status_code == 200, response.text
+        if response.headers["content-type"].startswith("application/json"):
+            return response.json()
+        (data,) = [line[5:] for line in response.text.splitlines() if line.startswith("data:")]
+        return json.loads(data)
+
+    def call(self, name: str, arguments: dict | None = None) -> tuple[bool, str]:
+        """Call a tool and return (is_error, text)."""
+        result = self.request("tools/call", {"name": name, "arguments": arguments or {}})
+        result = result["result"]
+        return result.get("isError", False), "".join(b.get("text", "") for b in result["content"])
+
+    def projects_listed(self) -> set[str]:
+        """Projects of the reports returned by list_security_reports."""
+        result = self.request("tools/call", {"name": "list_security_reports", "arguments": {}})
+        assert not result["result"].get("isError")
+        return {report["project"] for report in result["result"]["structuredContent"]["result"]}
+
+
+@pytest.fixture
+def http_app():
+    """The HTTP app (MCP endpoint only) with its lifespan running."""
+    from starlette.testclient import TestClient
+
+    from security_review_mcp import http_server, token_store
+
+    app = http_server.build_app(mcp, "127.0.0.1", token_store.DatabaseTokenStore())
+    with TestClient(app, base_url="http://127.0.0.1:8000") as client:
+        yield client
+
+
+@pytest.fixture
+def enrolling_app():
+    """The HTTP app with the enrollment server, once an administrator token exists."""
+    from starlette.testclient import TestClient
+
+    from security_review_mcp import http_server, token_store
+
+    token_store.create_token("ops", "admin")
+    app = http_server.build_app(
+        mcp, "127.0.0.1", token_store.DatabaseTokenStore(), enrollment_server=enrollment_mcp
+    )
+    with TestClient(app, base_url="http://127.0.0.1:8000") as client:
+        yield client
+
+
+@pytest.fixture
+def two_projects() -> dict[str, dict]:
+    """One report with one finding in each of two projects."""
+    finding = FindingCreate(title="SQL injection", severity=Severity.HIGH, description="Query")
+    return {
+        name: services.save_report(name, f"{name} review", [finding])
+        for name in ("shop-api", "billing")
+    }
+
+
+def finding_id_of(report: dict) -> int:
+    return services.get_report(report["report_id"]).findings[0].id
+
+
+def test_project_token_cannot_reach_other_projects(http_app, two_projects):
+    from security_review_mcp import token_store
+
+    token = token_store.create_token("shop-ci", "mcp", "shop-api")["token"]
+    shop, billing = two_projects["shop-api"], two_projects["billing"]
+    client = McpOverHttp(http_app, token)
+
+    # Outside the scope: every access fails as if the project or object did not exist
+    for name, arguments in [
+        ("get_security_report", {"report_id": billing["report_id"]}),
+        ("list_security_reports", {"project": "billing"}),
+        ("update_finding_status", {"finding_id": finding_id_of(billing), "status": "accepted"}),
+        ("get_project_security_posture", {"project": "billing"}),
+        ("check_project_gate", {"project": "billing"}),
+        ("check_project_gate", {"project": "shop-api", "report_id": billing["report_id"]}),
+        ("get_trend_report", {"project": "billing"}),
+        ("export_sarif", {"report_id": billing["report_id"]}),
+        ("export_sarif", {"project": "billing"}),
+    ]:
+        is_error, text = client.call(name, arguments)
+        assert is_error and "not found" in text, (name, text)
+        assert "billing review" not in text
+    is_error, text = client.call(
+        "save_security_report", {"project": "billing", "summary": "Fake", "findings": []}
+    )
+    assert is_error and "only save reports for project 'shop-api'" in text
+    assert client.call("reload_rules")[0] is True
+    resource = client.request("resources/read", {"uri": f"report://{billing['report_id']}"})
+    assert "error" in resource and "billing review" not in json.dumps(resource)
+    arguments = {"report_id": str(billing["report_id"])}
+    prompt = client.request("prompts/get", {"name": "triage-report", "arguments": arguments})
+    assert "error" in prompt and "billing review" not in json.dumps(prompt)
+    assert services.get_report(billing["report_id"]).findings[0].status == "open"
+
+    # Inside the scope: unchanged behaviour
+    assert client.projects_listed() == {"shop-api"}
+    assert client.call("get_security_report", {"report_id": shop["report_id"]})[0] is False
+    is_error, _ = client.call(
+        "update_finding_status", {"finding_id": finding_id_of(shop), "status": "fixed"}
+    )
+    assert not is_error
+    assert client.call("check_project_gate", {"project": "shop-api"})[0] is False
+    is_error, text = client.call(
+        "save_security_report", {"project": "shop-api", "summary": "New review", "findings": []}
+    )
+    assert not is_error
+
+
+def test_unrestricted_token_reaches_every_project(http_app, two_projects):
+    from security_review_mcp import token_store
+
+    client = McpOverHttp(http_app, token_store.create_token("ci", "mcp")["token"])
+
+    assert client.projects_listed() == {"shop-api", "billing"}
+    billing = two_projects["billing"]
+    assert client.call("get_security_report", {"report_id": billing["report_id"]})[0] is False
+    assert client.call("reload_rules")[0] is False
+
+
+# ── Enrollment ───────────────────────────────────────────────────────────────
+
+
+async def test_request_enrollment_tool_creates_a_pending_project_token():
+    async with Client(mcp) as client:
+        result = await client.call_tool(
+            "request_enrollment", {"project": "shop-api", "requested_by": "alice"}
+        )
+    created = json.loads(text_of(result))
+    assert (created["project"], created["role"], created["status"]) == (
+        "shop-api",
+        "mcp",
+        "pending",
+    )
+    assert created["requested_by"] == "alice"
+    assert "token approve" in created["next_steps"]
+    (listed,) = token_store.list_tokens(pending=True)
+    assert listed["id"] == created["id"] and created["token"] not in json.dumps(listed)
+
+
+async def test_request_enrollment_errors(monkeypatch):
+    async with Client(mcp) as client:
+        blank = await client.call_tool("request_enrollment", {"project": "  "})
+        monkeypatch.setattr(get_settings(), "enrollment", False)
+        disabled = await client.call_tool("request_enrollment", {"project": "shop-api"})
+    assert blank.is_error and "between 1 and 200" in text_of(blank)
+    assert disabled.is_error and "Enrollment is disabled" in text_of(disabled)
+    assert token_store.list_tokens() == []
+
+
+async def test_save_report_outside_token_project_suggests_enrollment(http_app):
+    token = token_store.create_token("shop-ci", "mcp", "shop-api")["token"]
+    session = McpOverHttp(http_app, token)
+
+    is_error, text = session.call(
+        "save_security_report", {"project": "billing", "summary": "Review", "findings": []}
+    )
+
+    assert is_error and "request_enrollment" in text
+
+
+async def test_enrollment_server_only_exposes_enrollment():
+    async with Client(enrollment_mcp) as client:
+        tools = {t.name for t in (await client.list_tools()).tools}
+        prompts = {p.name for p in (await client.list_prompts()).prompts}
+        prompt = await client.get_prompt("security-review", {"project": "shop-api"})
+        status = await client.call_tool("get_enrollment_status", {})
+    assert tools == {"request_enrollment", "get_enrollment_status"}
+    assert {"security-review", "codebase-review", "dependency-review"} <= prompts
+    text = prompt.messages[0].content.text
+    assert "request_enrollment" in text and "Authorization: Bearer" in text
+    assert "```\nshop-api\n```" in text and "untrusted" in text
+    assert json.loads(text_of(status)) == {"status": "not_enrolled"}
+
+
+async def test_client_without_token_enrolls_over_http(enrolling_app):
+    anonymous = McpOverHttp(enrolling_app, None)
+    is_error, text = anonymous.call("request_enrollment", {"project": "shop-api"})
+    assert not is_error, text
+    created = json.loads(text)
+    assert created["requested_from"] == "testclient"
+    # The review tools stay out of reach of an anonymous client
+    hidden = anonymous.request("tools/call", {"name": "list_security_reports", "arguments": {}})
+    assert hidden["result"]["isError"] is True
+
+    # The pending token still only reaches the enrollment server
+    pending = McpOverHttp(enrolling_app, created["token"])
+    is_error, text = pending.call("get_enrollment_status")
+    assert not is_error and json.loads(text)["status"] == "pending"
+    is_error, text = pending.call("request_enrollment", {"project": "other"})
+    assert is_error and "waiting for approval" in text
+    assert len(token_store.list_tokens(pending=True)) == 1
+
+    token_store.approve_enrollment(created["label"])
+    approved = McpOverHttp(enrolling_app, created["token"])
+    is_error, _ = approved.call(
+        "save_security_report", {"project": "shop-api", "summary": "Review", "findings": []}
+    )
+    assert not is_error
+    is_error, text = approved.call(
+        "save_security_report", {"project": "billing", "summary": "Review", "findings": []}
+    )
+    assert is_error and "only save reports for project 'shop-api'" in text
+
+
+async def test_wrong_token_is_rejected_even_with_enrollment(enrolling_app):
+    response = enrolling_app.post(
+        "/mcp",
+        headers={"Authorization": "Bearer wrong", "Accept": "application/json"},
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+    )
+    assert response.status_code == 401

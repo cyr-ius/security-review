@@ -1,0 +1,17 @@
+.rule-editor {
+  max-width: 64rem;
+}
+
+.pattern {
+  resize: vertical;
+}
+
+.rule-name {
+  min-width: 14rem;
+}
+
+.action-button {
+  inline-size: 2rem;
+  block-size: 2rem;
+  padding: 0;
+}

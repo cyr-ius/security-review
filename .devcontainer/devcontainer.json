@@ -67,6 +67,7 @@
     }
   },
   "mounts": [
-    "source=${env:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached"
+    "source=${env:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached",
+    "source=${env:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind,consistency=cached"
   ]
 }

@@ -163,3 +163,84 @@ class AdvisoryAffected(SQLModel, table=True):
     ranges: str = Field(default="[]")  # JSON: OSV ranges
     versions: str = Field(default="[]")  # JSON: explicit affected versions
     fixed: str = Field(default="[]")  # JSON: versions that fix the issue
+
+
+# ── Bearer tokens ────────────────────────────────────────────────────────────
+
+
+class ApiToken(SQLModel, table=True):
+    """Bearer token of the HTTP transport (CLI, bootstrap admin, web project tokens).
+
+    Only the SHA-256 digest of the secret is stored. An enrollment request is a token whose
+    status is ``pending``: it authenticates nothing until an administrator approves it.
+    """
+
+    id: str = Field(primary_key=True, max_length=64)
+    label: str = Field(unique=True, index=True, max_length=64)
+    role: str = Field(max_length=20)
+    project: str | None = Field(default=None, index=True, max_length=200)
+    token_hash: str = Field(unique=True, index=True, max_length=64)  # hex SHA-256
+    created_at: datetime = Field(default_factory=utcnow)
+    # "active" or "pending"; None (rows created before enrollment existed) means active
+    status: str | None = Field(default=None, max_length=20)
+    # Who asked for the token (free text given by the requester) and from which address
+    requested_by: str | None = Field(default=None, max_length=200)
+    requested_from: str | None = Field(default=None, max_length=64)
+
+
+# ── Rules (managed with `security-review-mcp rules` and the web interface) ──
+# The tables keep their historical "custom" names: they also hold the default content seeded
+# from default_rules.toml on the first run.
+
+
+class CustomRule(SQLModel, table=True):
+    """Stored scan rule: a default rule (seeded, possibly edited) or a custom one."""
+
+    id: str = Field(primary_key=True, max_length=50)
+    title: str = Field(max_length=300)
+    severity: str = Field(max_length=10)
+    cwe: str = Field(default="", max_length=20)
+    languages: str = Field(default='["*"]')  # JSON list
+    pattern: str = Field(max_length=500)
+    advice: str = Field(default="")
+    ignore_case: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class CustomCheckItem(SQLModel, table=True):
+    """Stored checklist item; the ``company`` domain is added to every review prompt."""
+
+    domain: str = Field(primary_key=True, max_length=31)
+    id: str = Field(primary_key=True, max_length=50)
+    title: str = Field(max_length=300)
+    what_to_look_for: str
+    cwe: str = Field(default="", max_length=20)
+
+
+class DisabledRule(SQLModel, table=True):
+    """A switched-off rule id (default or custom)."""
+
+    rule_id: str = Field(primary_key=True, max_length=50)
+    disabled_at: datetime = Field(default_factory=utcnow)
+
+
+class RuleSetRevision(SQLModel, table=True):
+    """Single-row counter bumped by every rule change, so that each server instance reloads."""
+
+    id: int = Field(default=1, primary_key=True)
+    revision: int = Field(default=0)
+
+
+class DefaultSeed(SQLModel, table=True):
+    """A default rule or checklist item already copied from default_rules.toml.
+
+    ``digest`` fingerprints the default content that was seeded: a newer default replaces the
+    stored entry only while it still has this fingerprint (not modified by an administrator),
+    and a deleted default entry is not seeded again.
+    """
+
+    kind: str = Field(primary_key=True, max_length=10)  # "rule" or "checklist"
+    key: str = Field(primary_key=True, max_length=90)  # rule id, or "domain/item id"
+    digest: str = Field(max_length=64)  # hex SHA-256
+    seeded_at: datetime = Field(default_factory=utcnow)

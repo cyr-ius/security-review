@@ -263,3 +263,32 @@ def build_codebase_review_prompt(
         f"## Scan results\n{fenced(results, 'json')}" if results else "",
     ]
     return "\n\n".join(s for s in sections if s)
+
+
+_ENROLLMENT = """\
+# Enrollment required
+
+This security-review server needs a bearer token and the MCP client is connected without one \
+(or with a token whose enrollment is not approved yet). The review cannot start before access \
+is granted. Do this instead:
+
+1. Call `get_enrollment_status`. If a request is already `pending`, tell the user that an \
+administrator still has to approve it, and stop.
+2. Otherwise call `request_enrollment` once, with the project name used for the reports \
+(usually the repository name, or the one given under "Project" below). Pass in \
+`requested_by` who is asking (the user's name or team) if you know it.
+3. Show the user the returned `token` (it is displayed only once) and ask them to add it to \
+the MCP client configuration as the header `Authorization: Bearer <token>`, then to reconnect.
+4. Explain that the token works as soon as an administrator approves the request (web \
+interface, **Jetons** screen, or `security-review-mcp token approve <label>`). Then they can \
+run the review again.
+
+Do not try to review the code with this server: its other tools are not available.
+"""
+
+
+def build_enrollment_prompt(project: str) -> str:
+    """Prompt served instead of a review when the client has no approved token yet."""
+    if not project.strip():
+        return _ENROLLMENT
+    return f"{_ENROLLMENT}\n## Project\n{_UNTRUSTED_RULE}\n{fenced(project.strip())}\n"

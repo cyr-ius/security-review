@@ -1,0 +1,259 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Règles de scan</h1>
+    <p class="text-body-secondary mb-0">
+      Règles par défaut (chargées au premier lancement) et personnalisées, stockées en base ; import
+      et export avec <code>security-review-mcp rules</code>
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-secondary"
+      [disabled]="reloading()"
+      (click)="reload()"
+    >
+      <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+      Recharger
+    </button>
+    @if (!creating() && !editingId()) {
+      <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        Nouvelle règle
+      </button>
+    }
+  </div>
+</div>
+
+@if (error(); as message) {
+  <div class="alert alert-danger py-2" role="alert">
+    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+    {{ message }}
+  </div>
+}
+@if (notice(); as message) {
+  <div class="alert alert-success py-2" role="status">{{ message }}</div>
+}
+
+@if (catalog.error()) {
+  <div class="alert alert-danger" role="alert">Impossible de charger les règles.</div>
+} @else if (catalog.isLoading() && !catalog.hasValue()) {
+  <div class="text-center my-5">
+    <span class="spinner-border text-secondary" aria-hidden="true"></span>
+    <span class="visually-hidden">Chargement…</span>
+  </div>
+} @else if (catalog.value(); as data) {
+  @for (issue of data.load_errors; track issue) {
+    <div class="alert alert-warning py-2" role="status">{{ issue }}</div>
+  }
+
+  @if (creating() || editingId()) {
+    <form class="card rule-editor mb-3" (submit)="save($event)" novalidate>
+      <div class="card-header d-flex align-items-center">
+        <h2 class="h6 mb-0">{{ editingId() ? 'Modifier la règle' : 'Nouvelle règle' }}</h2>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary ms-auto"
+          aria-label="Fermer le formulaire"
+          (click)="cancelEdit()"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label" for="rule-id">Identifiant</label>
+            @if (editingId()) {
+              <input
+                id="rule-id"
+                class="form-control font-monospace"
+                [value]="formModel().id"
+                readonly
+              />
+            } @else {
+              <input id="rule-id" class="form-control font-monospace" [formField]="ruleForm.id" />
+            }
+          </div>
+          <div class="col-md-5">
+            <label class="form-label" for="rule-title">Titre</label>
+            <input id="rule-title" class="form-control" [formField]="ruleForm.title" />
+          </div>
+          <div class="col-md-3">
+            <label class="form-label" for="rule-severity">Sévérité</label>
+            <select id="rule-severity" class="form-select" [formField]="ruleForm.severity">
+              <option value="">Choisir…</option>
+              @for (severity of severities; track severity) {
+                <option [value]="severity">{{ severity }}</option>
+              }
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="rule-languages">Langages</label>
+            <input
+              id="rule-languages"
+              class="form-control"
+              placeholder="python, java ou *"
+              [formField]="ruleForm.languages"
+            />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="rule-cwe">CWE</label>
+            <input
+              id="rule-cwe"
+              class="form-control"
+              placeholder="CWE-89"
+              [formField]="ruleForm.cwe"
+            />
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="rule-pattern">Expression régulière</label>
+            <textarea
+              id="rule-pattern"
+              class="form-control font-monospace pattern"
+              rows="3"
+              spellcheck="false"
+              [formField]="ruleForm.pattern"
+            ></textarea>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="rule-advice">Conseil</label>
+            <textarea
+              id="rule-advice"
+              class="form-control"
+              rows="2"
+              [formField]="ruleForm.advice"
+            ></textarea>
+          </div>
+          <div class="col-12">
+            <div class="form-check">
+              <input
+                id="rule-ignore-case"
+                class="form-check-input"
+                type="checkbox"
+                [formField]="ruleForm.ignore_case"
+              />
+              <label class="form-check-label" for="rule-ignore-case">Ignorer la casse</label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEdit()">
+          Annuler
+        </button>
+        <button type="submit" class="btn btn-sm btn-primary" [disabled]="saving()">
+          @if (saving()) {
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          }
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  }
+
+  <div class="card">
+    <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+      <span class="fw-semibold">{{ visibleRules().length }} règle(s)</span>
+      <label class="visually-hidden" for="rule-origin-filter">Origine</label>
+      <select
+        id="rule-origin-filter"
+        class="form-select form-select-sm w-auto ms-auto"
+        [value]="originFilter()"
+        (change)="setOriginFilter($any($event.target).value)"
+      >
+        <option value="">Toutes les origines</option>
+        <option value="builtin">Par défaut</option>
+        <option value="custom">Personnalisées</option>
+      </select>
+    </div>
+    @if (visibleRules().length > 0) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col">Règle</th>
+              <th scope="col">Sévérité</th>
+              <th scope="col">Langages</th>
+              <th scope="col">Modifiée le</th>
+              <th scope="col">État</th>
+              <th scope="col" class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (rule of visibleRules(); track rule.id) {
+              <tr>
+                <td class="rule-name">
+                  <code>{{ rule.id }}</code>
+                  @if (rule.origin === 'custom') {
+                    <span class="badge text-bg-info ms-1">Personnalisée</span>
+                  } @else if (rule.modified) {
+                    <span class="badge text-bg-warning ms-1">Par défaut, modifiée</span>
+                  } @else {
+                    <span class="badge text-bg-light border ms-1">Par défaut</span>
+                  }
+                  <div class="fw-semibold">{{ rule.title }}</div>
+                  @if (rule.cwe) {
+                    <span class="small text-body-secondary">{{ rule.cwe }}</span>
+                  }
+                </td>
+                <td>{{ rule.severity }}</td>
+                <td>{{ rule.languages.join(', ') }}</td>
+                <td class="text-nowrap">{{ rule.updated_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>
+                  <span
+                    class="badge"
+                    [class.text-bg-success]="rule.enabled"
+                    [class.text-bg-secondary]="!rule.enabled"
+                  >
+                    {{ rule.enabled ? 'Active' : 'Désactivée' }}
+                  </span>
+                </td>
+                <td class="text-end text-nowrap">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary action-button"
+                    [attr.aria-label]="
+                      rule.enabled ? 'Désactiver ' + rule.id : 'Activer ' + rule.id
+                    "
+                    [title]="rule.enabled ? 'Désactiver' : 'Activer'"
+                    (click)="toggle(rule)"
+                  >
+                    <i
+                      class="bi"
+                      [class.bi-pause-fill]="rule.enabled"
+                      [class.bi-play-fill]="!rule.enabled"
+                      aria-hidden="true"
+                    ></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary action-button ms-1"
+                    [attr.aria-label]="'Modifier ' + rule.id"
+                    title="Modifier"
+                    (click)="startEdit(rule)"
+                  >
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                  </button>
+                  @if (rule.origin === 'custom') {
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger action-button ms-1"
+                      [attr.aria-label]="'Supprimer ' + rule.id"
+                      title="Supprimer"
+                      (click)="remove(rule)"
+                    >
+                      <i class="bi bi-trash" aria-hidden="true"></i>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary text-center my-4">Aucune règle.</p>
+    }
+  </div>
+}

@@ -26,11 +26,16 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
 
-    # Built-in bearer authentication (streamable-http only), disabled when no token is set.
-    # Comma-separated entries "[label:]token" or "[label:]sha256:<hex>"; the file holds one
-    # entry per line (# for comments). Generate entries with `security-review-mcp token`.
-    auth_tokens: str | None = None
-    auth_tokens_file: str | None = None
+    # Built-in bearer authentication (streamable-http only). Tokens are stored in the database
+    # (SHA-256 digests only) and managed with `security-review-mcp token create|list|revoke`.
+    # This generates a one-time administrator password on the first HTTP start (enabled in the
+    # Docker image).
+    auth_bootstrap_admin: bool = False
+
+    # Enrollment (streamable-http only, once a token exists): a client without a token reaches
+    # a restricted MCP server that only lets it request a project token, and POST /api/v1/enroll
+    # accepts the same request. The token works once an administrator approves it.
+    enrollment: bool = True
 
     # Optional TLS served by uvicorn (streamable-http only), enabled by tls_certfile.
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).
@@ -45,9 +50,6 @@ class Settings(BaseSettings):
     web_ui_dir: str | None = None
 
     log_level: str = "INFO"
-
-    # Directory holding internal rule packs (*.toml). Keep it writable by administrators only.
-    rules_dir: str | None = None
 
     # Hard limits to protect the server and the database
     max_content_chars: int = 200_000

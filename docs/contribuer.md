@@ -9,6 +9,10 @@ uv run ruff check . && uv run ruff format --check .
 pre-commit install          # facultatif : mêmes contrôles avant chaque commit
 ```
 
+Dans VS Code, la configuration **MCP server (streamable-http)** de `launch.json` lance au
+préalable la tâche **Build security_review_mcp**, qui synchronise l'environnement avec
+`uv sync --extra dev --extra docs`.
+
 ### Devcontainer
 
 Le dépôt fournit un devcontainer (`.devcontainer/`) avec Python, uv, Node.js et un démon Docker
@@ -47,14 +51,17 @@ relus avec lui (le projet se relit lui-même) et le rapport est enregistré. Les
 src/security_review_mcp/
 ├── server.py      # prompts, outils, ressources, point d'entrée
 ├── http_server.py # transport HTTP : jetons Bearer et rôles, TLS, lancement d'uvicorn
+├── token_store.py # jetons Bearer en base : création, révocation, enrôlement, admin initial
+├── enrollment.py  # client de `enroll` : demande de jeton à un serveur partagé
 ├── web_api.py     # interface web : API REST /api/v1 et fichiers de l'application (/ui)
 ├── prompts.py     # construction des prompts
-├── checklists.py  # checklists intégrées par domaine
-├── scanner.py     # règles de scan, suppression inline, masquage des secrets
-├── rules_platform.py  # règles GitLab CI, Jenkins, Spring, FastAPI
-├── rules_loader.py    # chargement et validation des packs TOML internes
-├── registry.py    # règles/checklists actives (intégrées + internes), rechargement
-├── cli.py         # commandes gate, sarif, trend, advisories, deps, code, token
+├── default_rules.toml  # règles et checklists par défaut, copiées en base au premier lancement
+├── checklists.py  # structure d'un item de checklist
+├── scanner.py     # moteur de scan, suppression inline, masquage des secrets
+├── rules_loader.py    # validation des règles, lecture des packs TOML et du fichier par défaut
+├── rule_store.py  # règles en base : amorçage, import/export, activation, suppression
+├── registry.py    # règles/checklists actives (lues en base), rechargement
+├── cli.py         # commandes gate, sarif, trend, advisories, deps, code, rules, token
 ├── codescan.py    # scan du code complet (liste des fichiers, langage, findings)
 ├── sarif.py       # export SARIF 2.1.0
 ├── trends.py      # rapport de tendance

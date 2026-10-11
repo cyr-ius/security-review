@@ -13,10 +13,11 @@ rapports (SQLite ou PostgreSQL) exploitable en pipeline.
 |---|---|
 | **Prompts** | `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review`, `triage-report` |
 | **Outils** | checklists, `scan_code`, `scan_dependencies`, enregistrement / lecture / triage des rapports, posture et gate projet, export SARIF, tendances, gestion des règles |
-| **CLI** | `gate`, `sarif`, `trend`, `code scan`, `deps scan`, `advisories`, `token` (codes de sortie 0 / 1 / 2) |
-| **Règles** | Python, Java, Angular, configuration, GitLab CI, Jenkins, Spring, FastAPI, plus vos [règles internes](https://cyr-ius.github.io/security-review-mcp/utilisation/regles/) en TOML |
-| **Transport** | stdio ou HTTP, avec jetons Bearer et TLS (mutuel) facultatifs |
-| **Interface web** | tableau de bord des projets, rapports, tendances et triage des findings dans le navigateur, avec des [rôles par jeton](https://cyr-ius.github.io/security-review-mcp/utilisation/interface-web/) |
+| **CLI** | `gate`, `sarif`, `trend`, `code scan`, `deps scan`, `advisories`, `rules`, `token`, `enroll` (codes de sortie 0 / 1 / 2) |
+| **Règles** | Python, Java, Angular, configuration, GitLab CI, Jenkins, Spring, FastAPI, copiées en base au premier lancement, plus vos [règles internes](https://cyr-ius.github.io/security-review-mcp/utilisation/regles/) (import/export TOML) |
+| **Transport** | stdio ou HTTP, avec jetons Bearer stockés en base (CLI `token`) et TLS (mutuel) facultatifs |
+| **Enrôlement** | un projet [demande son jeton](https://cyr-ius.github.io/security-review-mcp/demarrage/http/#enrolement-un-projet-demande-son-jeton) dès sa première revue (outil MCP `request_enrollment` ou CLI `enroll`), un administrateur le valide |
+| **Interface web** | tableau de bord, triage, [règles internes et jetons projet](https://cyr-ius.github.io/security-review-mcp/utilisation/interface-web/), mot de passe admin initial dans les logs Docker |
 
 Détail : [prompts et outils](https://cyr-ius.github.io/security-review-mcp/utilisation/prompts-outils/),
 [scan du code complet](https://cyr-ius.github.io/security-review-mcp/utilisation/code-scan/),
@@ -52,7 +53,7 @@ Configuration de l'hôte (VS Code, `.vscode/mcp.json`) :
 Autres cas : [installation hors ligne](https://cyr-ius.github.io/security-review-mcp/demarrage/installation/),
 [Claude et autres hôtes](https://cyr-ius.github.io/security-review-mcp/demarrage/hote/),
 [HTTP, authentification et TLS](https://cyr-ius.github.io/security-review-mcp/demarrage/http/),
-[Docker](https://cyr-ius.github.io/security-review-mcp/demarrage/docker/),
+[Docker et Docker Compose avec PostgreSQL](https://cyr-ius.github.io/security-review-mcp/demarrage/docker/),
 [variables `SECREVIEW_*`](https://cyr-ius.github.io/security-review-mcp/reference/configuration/).
 
 ## Limites

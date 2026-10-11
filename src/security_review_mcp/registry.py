@@ -1,18 +1,23 @@
-"""Active rules and checklists: built-in content merged with the internal rule packs."""
+"""Active rules and checklists, read from the database (seeded from default_rules.toml)."""
 
+import logging
 import threading
+import time
 from dataclasses import dataclass
 
-from .checklists import CHECKLISTS, CheckItem
-from .config import get_settings
-from .rules_loader import LoadResult, load_rules_dir
-from .rules_platform import PLATFORM_RULES
-from .scanner import RULES, Rule, scan_content_detailed
+from sqlalchemy.exc import SQLAlchemyError
+
+from . import rule_store
+from .checklists import CheckItem
+from .rules_loader import LoadResult, default_content, rule_entry
+from .scanner import Rule, scan_content_detailed
+
+logger = logging.getLogger(__name__)
 
 # Checklist domain appended to every review prompt (company-wide requirements)
 COMPANY_DOMAIN = "company"
-
-BUILTIN_RULES: tuple[Rule, ...] = RULES + PLATFORM_RULES
+# How often a cached snapshot checks the database revision (changes made by another process)
+REFRESH_SECONDS = 5.0
 
 
 @dataclass(frozen=True)
@@ -20,52 +25,93 @@ class Snapshot:
     """An immutable view of the merged content (swapped atomically on reload)."""
 
     rules: tuple[Rule, ...]
+    catalog: tuple[Rule, ...]
     custom_rule_ids: frozenset[str]
+    modified_rule_ids: frozenset[str]
     disabled_rule_ids: frozenset[str]
     checklists: dict[str, tuple[CheckItem, ...]]
-    sources: tuple[str, ...]
     errors: tuple[str, ...]
+    revision: int | None
 
 
 _lock = threading.Lock()
 _snapshot: Snapshot | None = None
+_checked_at = 0.0
 
 
-def _build(loaded: LoadResult) -> Snapshot:
-    """Merge built-in and custom content: a custom id replaces a built-in one."""
-    custom_ids = {rule.id for rule in loaded.rules}
-    merged = [r for r in BUILTIN_RULES if r.id not in custom_ids] + loaded.rules
-    active = tuple(r for r in merged if r.id not in loaded.disabled_rules)
-
-    checklists = {domain: list(items) for domain, items in CHECKLISTS.items()}
-    for domain, items in loaded.checklist.items():
-        existing = checklists.setdefault(domain, [])
-        replaced = {item.id for item in items}
-        existing[:] = [item for item in existing if item.id not in replaced] + items
-
+def _build(loaded: LoadResult, revision: int | None) -> Snapshot:
+    """Build the snapshot of the loaded content; disabled rules stay in the catalog only."""
+    defaults = rule_store.default_rules()
+    catalog = tuple(loaded.rules)
     return Snapshot(
-        rules=active,
-        custom_rule_ids=frozenset(custom_ids),
+        rules=tuple(r for r in catalog if r.id not in loaded.disabled_rules),
+        catalog=catalog,
+        custom_rule_ids=frozenset(r.id for r in catalog if r.id not in defaults),
+        modified_rule_ids=frozenset(
+            r.id for r in catalog if rule_store.is_modified_default(rule_entry(r))
+        ),
         disabled_rule_ids=frozenset(loaded.disabled_rules),
-        checklists={domain: tuple(items) for domain, items in checklists.items()},
-        sources=tuple(loaded.sources),
+        checklists={domain: tuple(items) for domain, items in loaded.checklist.items()},
         errors=tuple(loaded.errors),
+        revision=revision,
     )
 
 
+def _defaults(message: str, disabled: set[str] | None = None) -> LoadResult:
+    """Return the default content of default_rules.toml, with the reason for using it."""
+    defaults = default_content()
+    checklist = {domain: list(items) for domain, items in defaults.checklist.items()}
+    return LoadResult(list(defaults.rules), checklist, disabled or set(), [message])
+
+
+def _load() -> tuple[LoadResult, int | None]:
+    """Read the stored rules; fall back to the default content rather than scan without rules.
+
+    The fallback applies when the database is unavailable, and when it holds no rule at all:
+    default rules cannot be deleted, so an empty table means the database was never seeded.
+    """
+    try:
+        loaded, revision = rule_store.load()
+    except SQLAlchemyError as exc:
+        # The message may contain the database URL: only the error type is reported
+        message = (
+            f"stored rules unavailable: database error ({type(exc).__name__}); "
+            "using the default rules"
+        )
+        loaded, revision = _defaults(message), None
+    else:
+        if not loaded.rules and not loaded.errors:
+            message = "no rule stored in the database (not initialized); using the default rules"
+            loaded = _defaults(message, loaded.disabled_rules)
+    for message in loaded.errors:
+        logger.warning("Internal rules problem: %s", message)
+    return loaded, revision
+
+
 def reload() -> Snapshot:
-    """(Re)read the rules directory and publish a new snapshot."""
-    global _snapshot
-    snapshot = _build(load_rules_dir(get_settings().rules_dir))
+    """(Re)read the rules from the database and publish a new snapshot."""
+    global _snapshot, _checked_at
+    snapshot = _build(*_load())
     with _lock:
         _snapshot = snapshot
+        _checked_at = time.monotonic()
     return snapshot
 
 
 def snapshot() -> Snapshot:
-    """Return the current snapshot, loading it on first use."""
+    """Return the current snapshot, reloading it when another process changed the rules."""
+    global _checked_at
     current = _snapshot
-    return current if current is not None else reload()
+    if current is None:
+        return reload()
+    if time.monotonic() - _checked_at < REFRESH_SECONDS:
+        return current
+    _checked_at = time.monotonic()
+    try:
+        latest = rule_store.revision()
+    except SQLAlchemyError:
+        return current
+    return reload() if latest != current.revision else current
 
 
 def reset() -> None:
@@ -83,11 +129,11 @@ def scan(content: str, language: str, max_matches: int = 200) -> tuple[list[dict
     return scan_content_detailed(content, language, snapshot().rules, max_matches)
 
 
-def describe_rules(language: str | None = None) -> list[dict]:
-    """List the active rules with their origin (builtin or custom)."""
+def describe_rules(language: str | None = None, include_disabled: bool = False) -> list[dict]:
+    """List the active rules (or every rule) with their origin and state."""
     current = snapshot()
     rows = []
-    for rule in current.rules:
+    for rule in current.catalog if include_disabled else current.rules:
         if language and "*" not in rule.languages and language.lower() not in rule.languages:
             continue
         rows.append(
@@ -98,6 +144,8 @@ def describe_rules(language: str | None = None) -> list[dict]:
                 "cwe": rule.cwe,
                 "languages": sorted(rule.languages),
                 "origin": "custom" if rule.id in current.custom_rule_ids else "builtin",
+                "modified": rule.id in current.modified_rule_ids,
+                "enabled": rule.id not in current.disabled_rule_ids,
             }
         )
     return rows
@@ -107,7 +155,7 @@ def describe_rules(language: str | None = None) -> list[dict]:
 
 
 def domains() -> tuple[str, ...]:
-    """Return every checklist domain (built-in and custom)."""
+    """Return every checklist domain (default and custom)."""
     return tuple(snapshot().checklists)
 
 

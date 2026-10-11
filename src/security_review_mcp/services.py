@@ -433,3 +433,61 @@ def collect_sarif_items(
             for finding, report in session.exec(statement).all()
         ]
     return str(project), (dedupe_latest(items) if report_id is None else items)
+
+
+# ── Project scope of a caller ────────────────────────────────────────────────
+
+
+def report_project(report_id: int) -> str:
+    """Return the project of a report.
+
+    Raises:
+        NotFoundError: If the report does not exist.
+    """
+    with session_scope() as session:
+        report = session.get(SecurityReport, report_id)
+        if report is None:
+            raise NotFoundError(f"Report {report_id} not found")
+        return report.project
+
+
+def finding_project(finding_id: int) -> str:
+    """Return the project of the report that holds a finding.
+
+    Raises:
+        NotFoundError: If the finding does not exist.
+    """
+    with session_scope() as session:
+        project = session.exec(
+            select(SecurityReport.project)
+            .join(Finding, col(Finding.report_id) == col(SecurityReport.id))
+            .where(Finding.id == finding_id)
+        ).first()
+        if project is None:
+            raise NotFoundError(f"Finding {finding_id} not found")
+        return project
+
+
+def check_project_scope(allowed: str | None, project: str) -> None:
+    """Refuse a project outside the scope of a project-restricted caller.
+
+    ``allowed`` is the project of the caller's token (None: no restriction). The error is the
+    same as for a missing project, so a restricted caller cannot learn which projects exist.
+
+    Raises:
+        NotFoundError: If ``allowed`` is set and differs from ``project``.
+    """
+    if allowed is not None and project != allowed:
+        raise NotFoundError(f"Project '{project}' not found")
+
+
+def check_report_scope(allowed: str | None, report_id: int) -> None:
+    """Refuse a report outside the scope of a project-restricted caller (as if missing)."""
+    if allowed is not None and report_project(report_id) != allowed:
+        raise NotFoundError(f"Report {report_id} not found")
+
+
+def check_finding_scope(allowed: str | None, finding_id: int) -> None:
+    """Refuse a finding outside the scope of a project-restricted caller (as if missing)."""
+    if allowed is not None and finding_project(finding_id) != allowed:
+        raise NotFoundError(f"Finding {finding_id} not found")

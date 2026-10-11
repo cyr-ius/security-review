@@ -82,13 +82,14 @@ l'utiliser.
 | Zone | Fichiers |
 |---|---|
 | Prompts, outils, ressources MCP, point d'entrée | `server.py`, `prompts.py` |
-| Règles de scan, masquage des secrets | `scanner.py`, `rules_platform.py` |
-| Règles internes TOML, registre actif | `rules_loader.py`, `registry.py`, `checklists.py` |
-| CLI (`gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `token`) | `cli.py`, `codescan.py` |
+| Moteur de scan, masquage des secrets | `scanner.py` |
+| Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
+| Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
+| CLI (`gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`, `enroll`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`) |
 | Dépendances et avis OSV | `dependencies.py`, `depscan.py`, `advisories.py`, `versions.py` |
 | Persistance | `models.py`, `services.py`, `database.py` |
 | Export et tendances | `sarif.py`, `trends.py` |
-| Transport HTTP, auth (jetons et rôles), TLS | `http_server.py` |
+| Transport HTTP, auth (jetons et rôles), TLS | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` |
 | Interface web : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
 | Paramètres `SECREVIEW_*` | `config.py` |
 
@@ -136,8 +137,9 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   renvoyés. Ne journalisez jamais un jeton, un mot de passe ou une URL de base avec identifiants.
 - **SQL uniquement via l'ORM** (SQLModel, paramètres liés), jamais de SQL construit par chaîne.
 - **Aucun appel réseau sortant** : la base de vulnérabilités est importée hors ligne par la CLI.
+  Seule exception : la commande CLI `enroll`, qui contacte l'URL donnée par l'opérateur.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
-  imbriqués) ; `rules_loader` les valide pour les packs internes.
+  imbriqués) ; `rules_loader` les valide pour les règles internes.
 - Jetons Bearer : seules les empreintes SHA-256 sont conservées, comparaison en temps constant.
 
 ### Paramètres
@@ -153,6 +155,11 @@ Identifiants `PRÉFIXE-NNN` par famille : `PY`, `JV`, `NG` (Angular), `CFG`, `GE
 dépendances). Ne réutilisez et ne renumérotez jamais un identifiant existant : les utilisateurs
 les citent dans `secreview:ignore` et `disabled_rules`. Indiquez la CWE quand elle existe.
 
+Les règles et checklists par défaut sont dans `src/security_review_mcp/default_rules.toml`,
+jamais dans le code Python. Elles sont copiées en base au premier lancement
+(`rule_store.seed_defaults`, appelé par `init_db`). Une règle ajoutée ou corrigée dans ce
+fichier atteint les bases existantes au démarrage suivant, sauf si un administrateur l'a modifiée.
+
 ### CLI
 
 Codes de sortie identiques partout : `0` succès, `1` bloqué (gate / findings au-dessus du
@@ -167,8 +174,8 @@ fonctionnalité sans test n'est pas terminée ; une correction de bug commence p
 - Un fichier par module : `tests/test_<module>.py`. Ajoutez au fichier existant plutôt que d'en
   créer un nouveau.
 - `tests/conftest.py` fournit automatiquement une base SQLite en mémoire et un registre de
-  règles vide par test : n'utilisez pas la base réelle ni `SECREVIEW_RULES_DIR` de la machine.
-  Utilisez la fixture `rules_dir` pour tester des packs TOML, `tmp_path` pour les fichiers.
+  règles vide par test : n'utilisez pas la base réelle. Utilisez la fixture `import_pack` pour
+  charger des règles internes (pack TOML importé en base), `tmp_path` pour les fichiers.
 - Outils, prompts et ressources MCP : test de bout en bout avec `mcp.client.Client(mcp)` (voir
   `tests/test_server.py`, `pytestmark = pytest.mark.anyio`), y compris le cas d'erreur
   (`ToolError` attendu).
@@ -213,7 +220,7 @@ utilisateurs. Mettez-la à jour dans le même changement que le code :
 | Si vous modifiez... | Mettez à jour |
 |---|---|
 | Un prompt ou un outil MCP (nom, argument, comportement) | `docs/utilisation/prompts-outils.md` |
-| Une règle de scan ou une checklist intégrée | `docs/utilisation/regles.md` (et `code-scan.md` si le scan du dépôt change) |
+| Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/utilisation/regles.md` (et `code-scan.md` si le scan du dépôt change) |
 | Le format des packs TOML internes | `docs/utilisation/regles.md`, `examples/rules/company.toml` |
 | L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/utilisation/dependances.md` |
 | Une commande ou option CLI, un code de sortie | `docs/reference/cli.md` + la page d'usage concernée (`ci-cd/*.md`, `code-scan.md`...) |

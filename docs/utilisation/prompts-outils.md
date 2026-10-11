@@ -30,7 +30,26 @@ Chaque prompt se termine par l'instruction d'appeler `save_security_report` une 
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste / lockfile : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `list_rules` / `reload_rules` | Règles actives (intégrées + internes), erreurs de chargement, rechargement à chaud |
+| `request_enrollment` | Demande un jeton restreint à un projet, actif après approbation par un administrateur ([enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton)) |
+| `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](regles.md), stockées en base), erreurs de chargement, rechargement immédiat |
+
+Sur le transport HTTP, un jeton restreint à un projet ne peut utiliser les outils de rapports
+que sur ce projet ; `reload_rules` lui est refusé (voir
+[jetons restreints à un projet](../demarrage/http.md#jetons-restreints-a-un-projet)).
+
+### Serveur d'enrôlement
+
+Sur le transport HTTP, un client qui se connecte **sans jeton** (ou avec un jeton dont
+l'enrôlement n'est pas encore approuvé) atteint un serveur restreint, du même nom, qui
+n'expose que :
+
+| Élément | Rôle |
+|---|---|
+| `request_enrollment` | Dépose la demande pour un projet et renvoie le jeton (affiché une fois) |
+| `get_enrollment_status` | `pending` si le jeton présenté attend l'approbation, `not_enrolled` sans jeton |
+| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Argument `project` facultatif ; expliquent à l'agent comment demander l'accès au lieu de lancer la revue |
+
+Voir [l'enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton).
 
 ## Ressources
 
