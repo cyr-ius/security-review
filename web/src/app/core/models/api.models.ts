@@ -34,7 +34,21 @@ export interface Identity {
   role: Role;
   can_triage: boolean;
   auth_enabled: boolean;
+  project: string | null;
   version: string;
+}
+
+/** Metadata returned for a project-scoped token; the raw secret is only returned at creation. */
+export interface ProjectToken {
+  id: string;
+  label: string;
+  project: string;
+  created_at: string;
+}
+
+/** Response returned once when a project-scoped token is created. */
+export interface ProjectTokenCreated extends ProjectToken {
+  token: string;
 }
 
 /** A validated rule loaded from an internal TOML pack. */

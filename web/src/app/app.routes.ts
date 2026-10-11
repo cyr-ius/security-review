@@ -49,6 +49,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'tokens',
+        title: 'Jetons · Security Review',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/tokens/project-token-list.component').then(
+            (m) => m.ProjectTokenListComponent,
+          ),
+      },
+      {
         path: 'reports/:id',
         title: 'Rapport · Security Review',
         loadComponent: () =>

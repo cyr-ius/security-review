@@ -53,12 +53,15 @@ docker run -d --name security-review-mcp -p 8443:8443 \
 ```
 
 Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Gardez
-le volume `secreview-data` : au premier démarrage HTTP, un mot de passe aléatoire pour
-`web-admin` est généré et affiché une seule fois dans les logs du conteneur. Seule son empreinte
-est conservée dans `/data/admin-token`. Récupérez-le avec `docker logs security-review-mcp` puis
-connectez-vous sur `https://<hôte>:8443/ui/`. Le compte admin web gère les règles et le triage,
-mais n'a pas accès à `/mcp`. Ajoutez ensuite des jetons individuels `reader` ou `triager` pour
-les équipes (voir les [rôles](../utilisation/interface-web.md#roles)).
+le volume `secreview-data` : au premier démarrage HTTP, un mot de passe aléatoire pour le rôle
+`admin` est généré et affiché une seule fois dans les logs du conteneur. Seule son empreinte est
+conservée dans `/data/admin-token`. Récupérez-le avec `docker logs security-review-mcp` puis
+connectez-vous sur `https://<hôte>:8443/ui/`. Ce rôle gère les règles et le triage et donne aussi
+accès à `/mcp`. Ajoutez ensuite des jetons individuels `reader` ou `triager` pour les équipes
+(voir les [rôles](../utilisation/interface-web.md#roles)).
+
+Les jetons projet créés depuis l'écran **Jetons** sont stockés sous forme d'empreinte dans
+`/data/project-tokens.json`; conservez le même volume `/data` pour les garder après redémarrage.
 
 !!! warning "Protégez les journaux"
   Le mot de passe initial est un secret: limitez l'accès aux logs Docker et à leur collecte

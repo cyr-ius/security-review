@@ -29,15 +29,21 @@ Une entrée vaut `[label[:rôle]:]jeton` ou `[label[:rôle]:]sha256:<hex>` ; un 
 faire au moins 24 caractères. Le rôle (`--role` de la commande `token`) vaut `mcp` par défaut :
 voir les [rôles](../utilisation/interface-web.md#roles) pour donner accès à l'interface web.
 
-Dès qu'un jeton est configuré, toute requête sans `Authorization: Bearer <jeton>` valide reçoit
-un `401`. Le label du client apparaît dans les journaux.
+Dès qu'un jeton est configuré, les endpoints MCP et les routes applicatives protégées exigent
+`Authorization: Bearer <jeton>` ; les fichiers statiques de `/ui/` et la documentation Swagger
+(`/api/docs`, schéma `/api/openapi.json`) restent accessibles sans jeton. Le label du client
+apparaît dans les journaux.
 
 L'image Docker configure `SECREVIEW_AUTH_BOOTSTRAP_FILE=/data/admin-token`. Au premier démarrage
-en transport HTTP avec l'interface activée, un mot de passe aléatoire `web-admin` est créé et
-affiché une seule fois dans les logs du conteneur. Seule son empreinte est conservée dans le
-volume `/data`; gardez ce volume pour conserver le compte au redémarrage. Ce rôle admin est
-limité à la Web UI et ne peut pas appeler `/mcp`. Les jetons d'équipe configurés restent valides
-en parallèle.
+en transport HTTP avec l'interface activée, un mot de passe aléatoire de rôle `admin` est créé
+et affiché une seule fois dans les logs du conteneur. Seule son empreinte est conservée dans le
+volume `/data`; gardez ce volume pour conserver le compte au redémarrage. Ce rôle donne accès à
+la Web UI et à `/mcp`. Les jetons d'équipe configurés restent valides en parallèle.
+
+L'interface admin permet également de créer des jetons de lecture rattachés à un projet et de les
+révoquer. Seule l'empreinte est stockée dans le fichier indiqué par
+`SECREVIEW_AUTH_MANAGED_TOKENS_FILE`; le jeton brut n'est renvoyé qu'à sa création. Le fichier
+doit être conservé et accessible en écriture par le serveur.
 
 !!! tip
     Les jetons ne passent jamais en argument de ligne de commande : utilisez les variables

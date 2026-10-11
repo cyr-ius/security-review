@@ -9,7 +9,7 @@ MCP. Elle est servie par le transport `streamable-http`, sur le même port que l
 | `/mcp` | Endpoint MCP (agents, CI/CD) |
 | `/ui/` | Application web (Angular) |
 | `/api/v1/…` | API REST utilisée par l'application |
-| `/api/docs` | Documentation OpenAPI de l'API REST |
+| `/api/docs` | Documentation OpenAPI de l'API REST (publique, sans données) |
 
 ```bash
 security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
@@ -31,6 +31,10 @@ security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 - **Règles** : les administrateurs créent, modifient, suppriment, activent ou désactivent les
   règles personnalisées des packs TOML et peuvent recharger les fichiers modifiés hors de l'UI.
   L'écran nécessite `SECREVIEW_RULES_DIR` et ne modifie pas les règles intégrées.
+- **Jetons** : les administrateurs créent et révoquent des jetons en lecture limités à un projet.
+  Le secret n'est montré qu'une fois; seule son empreinte est enregistrée dans un fichier dédié.
+| `SECREVIEW_AUTH_BOOTSTRAP_FILE` | — | Fichier du mot de passe admin initial; défini à `/data/admin-token` dans Docker |
+| `SECREVIEW_AUTH_MANAGED_TOKENS_FILE` | — | Fichier des empreintes des jetons projet; défini dans Docker et le profil VS Code |
 
 ## Rôles
 
@@ -41,14 +45,12 @@ Chaque jeton porte un rôle, qui détermine les endpoints accessibles :
 | `mcp` (défaut) | ✅ | — | — |
 | `reader` | — | ✅ | — |
 | `triager` | — | ✅ | ✅ |
-| `web-admin` | — | ✅ | ✅ |
 | `admin` | ✅ | ✅ | ✅ |
 
-Dans l'image Docker, un mot de passe `web-admin` est généré au premier démarrage HTTP et affiché
+Dans l'image Docker, un mot de passe `admin` est généré au premier démarrage HTTP et affiché
 une seule fois dans les logs. Son empreinte est persistée dans `/data/admin-token` : conservez le
 volume `/data` pour garder ce compte et son mot de passe après redémarrage. Ce rôle peut gérer les
-règles TOML et trier les findings, mais n'accède pas à `/mcp`. Le rôle `admin` existant conserve
-l'accès à l'interface web et à MCP. Un jeton créé sans rôle reste `mcp` : les jetons des agents
+règles TOML, trier les findings et accéder à `/mcp`. Un jeton créé sans rôle reste `mcp` : les jetons des agents
 et de la CI gardent leur accès mais ne peuvent pas utiliser l'interface web. Le rôle `triager`
 conserve uniquement le triage des findings. Générez un jeton par personne :
 
@@ -78,7 +80,8 @@ INFO security_review_mcp.web: Finding 42 set to accepted by alice
 ## Sécurité
 
 - Les fichiers statiques de `/ui/` sont publics (ils ne contiennent aucune donnée) ; l'API
-  exige un jeton `reader`, `triager` ou `admin`.
+  `/api/v1/` exige un jeton `reader`, `triager` ou `admin`. La documentation Swagger (`/api/docs`)
+  et son schéma (`/api/openapi.json`) sont publics et ne donnent accès à aucune donnée.
 - Le jeton est envoyé dans l'en-tête `Authorization` : pas de cookie, donc pas de CSRF.
 - Il est conservé dans le `sessionStorage` de l'onglet et disparaît à sa fermeture.
 - Les pages sont servies avec une CSP stricte (`script-src 'self'`, aucune ressource externe),

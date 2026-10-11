@@ -4,6 +4,7 @@ import pytest
 from starlette.testclient import TestClient
 
 from security_review_mcp import http_server, registry, server, services, web_api
+from security_review_mcp.config import Settings
 from security_review_mcp.http_server import parse_tokens
 from security_review_mcp.models import FindingCreate, Severity
 
@@ -11,7 +12,6 @@ TOKENS = {
     "reader": "r" * 32,
     "triager": "t" * 32,
     "mcp": "m" * 32,
-    "web-admin": "w" * 32,
     "admin": "a" * 32,
 }
 
@@ -218,7 +218,7 @@ def test_rule_validation_and_admin_permissions(client, secured, rules_dir):
     }
     assert secured.post("/api/v1/rules", json=payload, headers=auth("triager")).status_code == 403
     assert secured.get("/api/v1/rules", headers=auth("reader")).status_code == 403
-    assert secured.post("/api/v1/rules", json=payload, headers=auth("web-admin")).status_code == 201
+    assert secured.post("/api/v1/rules", json=payload, headers=auth("admin")).status_code == 201
 
 
 # ── Permissions ──────────────────────────────────────────────────────────────
@@ -244,6 +244,162 @@ def test_triager_can_change_status(secured, reports):
 def test_mcp_token_cannot_use_the_api(secured):
     assert secured.get("/api/v1/projects", headers=auth("mcp")).status_code == 403
     assert secured.get("/api/v1/projects").status_code == 401
+
+
+def test_openapi_marks_api_operations_as_bearer_protected(secured):
+    response = secured.get("/api/openapi.json")
+
+    assert response.status_code == 200
+    schema = response.json()
+    assert schema["components"]["securitySchemes"]["HTTPBearer"] == {
+        "type": "http",
+        "scheme": "bearer",
+    }
+    operations = [
+        operation
+        for path, methods in schema["paths"].items()
+        if path.startswith("/api/v1/")
+        for method, operation in methods.items()
+        if method in {"get", "post", "put", "patch", "delete"}
+    ]
+    assert operations
+    assert all({"HTTPBearer": []} in operation.get("security", []) for operation in operations)
+    assert secured.get("/api/v1/projects").status_code == 401
+
+
+def test_admin_creates_project_token_scoped_to_one_project(secured, reports, tmp_path, monkeypatch):
+    token_file = tmp_path / "project-tokens.json"
+    monkeypatch.setattr(
+        web_api,
+        "get_settings",
+        lambda: Settings(_env_file=None, auth_managed_tokens_file=str(token_file)),
+    )
+    shop_report_id, billing_report_id = reports
+    created_response = secured.post(
+        "/api/v1/project-tokens",
+        json={"label": "shop-ci", "project": "shop-api"},
+        headers=auth("admin"),
+    )
+
+    assert created_response.status_code == 201
+    created = created_response.json()
+    token = created["token"]
+    stored = token_file.read_text(encoding="utf-8")
+    assert token not in stored
+    assert http_server.hash_token(token).removeprefix("sha256:") in stored
+
+    listed = secured.get("/api/v1/project-tokens", headers=auth("admin"))
+    assert listed.status_code == 200
+    assert listed.json() == [
+        {key: created[key] for key in ("id", "label", "project", "created_at")}
+    ]
+    assert token not in listed.text
+    assert "sha256" not in listed.text
+    assert (
+        secured.post(
+            "/api/v1/project-tokens",
+            json={"label": "denied", "project": "shop-api"},
+            headers=auth("reader"),
+        ).status_code
+        == 403
+    )
+
+    project_headers = {"Authorization": f"Bearer {token}"}
+    identity = secured.get("/api/v1/me", headers=project_headers).json()
+    assert (identity["role"], identity["project"], identity["can_triage"]) == (
+        "reader",
+        "shop-api",
+        False,
+    )
+    assert [
+        item["project"] for item in secured.get("/api/v1/projects", headers=project_headers).json()
+    ] == ["shop-api"]
+    assert all(
+        report["project"] == "shop-api"
+        for report in secured.get("/api/v1/reports", headers=project_headers).json()
+    )
+    assert (
+        secured.get(f"/api/v1/reports/{shop_report_id}", headers=project_headers).status_code == 200
+    )
+    assert (
+        secured.get(
+            f"/api/v1/reports/{shop_report_id}/markdown", headers=project_headers
+        ).status_code
+        == 200
+    )
+    assert (
+        secured.get(
+            "/api/v1/posture", params={"project": "shop-api"}, headers=project_headers
+        ).status_code
+        == 200
+    )
+    assert (
+        secured.get(
+            "/api/v1/trend", params={"project": "shop-api"}, headers=project_headers
+        ).status_code
+        == 200
+    )
+    assert secured.get("/api/v1/sarif", headers=project_headers).status_code == 200
+    assert (
+        secured.get(f"/api/v1/reports/{billing_report_id}", headers=project_headers).status_code
+        == 404
+    )
+    assert (
+        secured.get(
+            "/api/v1/reports", params={"project": "billing"}, headers=project_headers
+        ).status_code
+        == 404
+    )
+    assert (
+        secured.get(
+            "/api/v1/posture", params={"project": "billing"}, headers=project_headers
+        ).status_code
+        == 404
+    )
+    assert (
+        secured.get(
+            "/api/v1/trend", params={"project": "billing"}, headers=project_headers
+        ).status_code
+        == 404
+    )
+    assert (
+        secured.get(
+            "/api/v1/sarif", params={"report_id": billing_report_id}, headers=project_headers
+        ).status_code
+        == 404
+    )
+    assert (
+        secured.get(
+            "/api/v1/sarif", params={"project": "billing"}, headers=project_headers
+        ).status_code
+        == 404
+    )
+    assert secured.get("/mcp", headers=project_headers).status_code == 403
+    assert (
+        secured.patch(
+            "/api/v1/findings/1",
+            json={"status": "fixed"},
+            headers=project_headers,
+        ).status_code
+        == 403
+    )
+
+    revoked = secured.delete(f"/api/v1/project-tokens/{created['id']}", headers=auth("admin"))
+    assert revoked.status_code == 204
+    assert secured.get("/api/v1/me", headers=project_headers).status_code == 401
+    assert token not in token_file.read_text(encoding="utf-8")
+
+
+def test_project_token_management_requires_a_configured_file(secured, reports, monkeypatch):
+    monkeypatch.setattr(web_api, "get_settings", lambda: Settings(_env_file=None))
+
+    assert secured.get("/api/v1/project-tokens", headers=auth("admin")).status_code == 503
+    response = secured.post(
+        "/api/v1/project-tokens",
+        json={"label": "ci", "project": "shop-api"},
+        headers=auth("admin"),
+    )
+    assert response.status_code == 503
 
 
 # ── Static files ─────────────────────────────────────────────────────────────

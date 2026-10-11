@@ -8,6 +8,8 @@ import {
   CustomRuleWrite,
   Identity,
   ProjectSummary,
+  ProjectToken,
+  ProjectTokenCreated,
   Report,
   ReportQuery,
   ReportSummary,
@@ -56,6 +58,18 @@ export class ApiService {
 
   projects(): Observable<ProjectSummary[]> {
     return this.http.get<ProjectSummary[]>(`${API_URL}/projects`);
+  }
+
+  projectTokens(): Observable<ProjectToken[]> {
+    return this.http.get<ProjectToken[]>(`${API_URL}/project-tokens`);
+  }
+
+  createProjectToken(label: string, project: string): Observable<ProjectTokenCreated> {
+    return this.http.post<ProjectTokenCreated>(`${API_URL}/project-tokens`, { label, project });
+  }
+
+  deleteProjectToken(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/project-tokens/${encodeURIComponent(id)}`);
   }
 
   reports(query: ReportQuery): Observable<ReportSummary[]> {

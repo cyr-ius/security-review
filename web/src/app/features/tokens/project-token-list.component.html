@@ -1,0 +1,121 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Jetons de projet</h1>
+    <p class="text-body-secondary mb-0">Accès en lecture limité à un seul projet</p>
+  </div>
+  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="tokens.reload()">
+    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+    Actualiser
+  </button>
+</div>
+
+@if (error(); as text) {
+  <div class="alert alert-danger py-2" role="alert">{{ text }}</div>
+}
+@if (message(); as text) {
+  <div class="alert alert-success py-2" role="status">{{ text }}</div>
+}
+@if (createdToken(); as token) {
+  <section class="alert alert-warning" aria-label="Nouveau jeton">
+    <h2 class="h6">Copiez ce jeton maintenant</h2>
+    <p class="mb-2">Il ne sera plus affiché après avoir quitté cette page.</p>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <code class="token-value font-monospace">{{ token }}</code>
+      <button type="button" class="btn btn-sm btn-outline-dark" (click)="copyToken()">
+        <i class="bi bi-copy" aria-hidden="true"></i>
+        Copier
+      </button>
+    </div>
+  </section>
+}
+
+<section class="mb-4" aria-labelledby="create-token-title">
+  <h2 id="create-token-title" class="h5">Créer un jeton</h2>
+  <form class="row g-2 align-items-end" (submit)="create($event)">
+    <div class="col-sm-4">
+      <label for="token-label" class="form-label">Label</label>
+      <input
+        id="token-label"
+        class="form-control"
+        required
+        maxlength="64"
+        autocomplete="off"
+        [value]="label()"
+        (input)="label.set($any($event.target).value)"
+      />
+    </div>
+    <div class="col-sm-5">
+      <label for="token-project" class="form-label">Projet</label>
+      <select
+        id="token-project"
+        class="form-select"
+        required
+        [value]="project()"
+        (change)="onProjectChange($event)"
+      >
+        <option value="">Choisir un projet…</option>
+        @for (item of projects.value() ?? []; track item.project) {
+          <option [value]="item.project">{{ item.project }}</option>
+        }
+      </select>
+    </div>
+    <div class="col-sm-3">
+      <button
+        type="submit"
+        class="btn btn-primary w-100"
+        [disabled]="busy() || !label().trim() || !project()"
+      >
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        Créer
+      </button>
+    </div>
+  </form>
+</section>
+
+<section aria-labelledby="tokens-title">
+  <h2 id="tokens-title" class="h5">Jetons actifs</h2>
+  @if (tokens.error()) {
+    <div class="alert alert-danger" role="alert">Impossible de charger les jetons.</div>
+  } @else if (tokens.isLoading() && !tokens.hasValue()) {
+    <div class="text-center my-4">
+      <span class="spinner-border text-secondary" aria-hidden="true"></span>
+      <span class="visually-hidden">Chargement…</span>
+    </div>
+  } @else if ((tokens.value() ?? []).length) {
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th scope="col">Label</th>
+            <th scope="col">Projet</th>
+            <th scope="col">Créé le</th>
+            <th scope="col" class="text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (token of tokens.value() ?? []; track token.id) {
+            <tr>
+              <td>{{ token.label }}</td>
+              <td>{{ token.project }}</td>
+              <td>{{ token.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td class="text-end">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-danger"
+                  [disabled]="busy()"
+                  [attr.aria-label]="'Révoquer le jeton ' + token.label"
+                  (click)="revoke(token.id, token.label)"
+                >
+                  <i class="bi bi-trash3" aria-hidden="true"></i>
+                  Révoquer
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <p class="text-body-secondary">Aucun jeton de projet.</p>
+  }
+</section>

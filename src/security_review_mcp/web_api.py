@@ -17,13 +17,14 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, 
 from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
+from fastapi.security import HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Scope
 
-from . import __version__, registry, rules_loader, services, trends
+from . import __version__, http_server, registry, rules_loader, services, trends
 from .config import get_settings
 from .http_server import LOOPBACK_HOSTS, TRIAGE_ROLES, Role
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
@@ -59,6 +60,7 @@ class Identity(BaseModel):
     role: Role
     can_triage: bool
     auth_enabled: bool
+    project: str | None = None
     version: str
 
 
@@ -85,6 +87,13 @@ class RuleEnabledUpdate(BaseModel):
     """Enabled state of a custom scan rule."""
 
     enabled: bool
+
+
+class ProjectTokenCreate(BaseModel):
+    """A read-only token scoped to one project."""
+
+    label: str = Field(min_length=1, max_length=64)
+    project: str = Field(min_length=1, max_length=200)
 
 
 class ProjectSummary(BaseModel):
@@ -126,6 +135,7 @@ def current_identity(request: Request) -> Identity:
         role=role,
         can_triage=role in TRIAGE_ROLES,
         auth_enabled=auth_enabled,
+        project=state.get("auth_project"),
         version=__version__,
     )
 
@@ -145,12 +155,50 @@ def require_triage(identity: CurrentIdentity) -> Identity:
 
 def require_admin(identity: CurrentIdentity) -> Identity:
     """Only web administrators may change rule packs."""
-    if identity.role not in (Role.ADMIN, Role.WEB_ADMIN):
+    if identity.role != Role.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Role '{identity.role}' cannot manage rules",
         )
     return identity
+
+
+def _scoped_project(identity: Identity, requested: str | None = None) -> str | None:
+    """Restrict project tokens to their assigned project without disclosing other projects."""
+    if identity.project is not None:
+        if requested is not None and requested != identity.project:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+        return identity.project
+    return requested
+
+
+def _ensure_report_scope(identity: Identity, report: SecurityReportPublic) -> None:
+    """Hide reports outside a project token's scope."""
+    if identity.project is not None and report.project != identity.project:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+
+
+def _active_tokens(request: Request) -> dict[bytes, http_server.TokenInfo]:
+    """Get the shared live token registry installed by the HTTP middleware."""
+    state = request.scope.get("state") or {}
+    tokens = state.get("auth_tokens")
+    if not isinstance(tokens, dict):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Token management is unavailable",
+        )
+    return tokens
+
+
+def _managed_tokens_path() -> str:
+    """Return the configured writable token-store path or a service-unavailable error."""
+    path = get_settings().auth_managed_tokens_file
+    if not path:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Project token storage is not configured",
+        )
+    return path
 
 
 def _rule_catalog() -> dict:
@@ -197,7 +245,7 @@ async def _refresh_rules() -> dict:
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 
-router = APIRouter(prefix="/api/v1")
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(HTTPBearer(auto_error=False))])
 
 
 @router.get("/health")
@@ -213,39 +261,58 @@ async def me(identity: CurrentIdentity) -> Identity:
 
 
 @router.get("/projects")
-async def projects() -> list[ProjectSummary]:
+async def projects(identity: CurrentIdentity) -> list[ProjectSummary]:
     """List the projects with their open findings, latest activity first."""
-    return await run_in_threadpool(services.list_projects)
+    projects = await run_in_threadpool(services.list_projects)
+    return [
+        item for item in projects if identity.project is None or item["project"] == identity.project
+    ]
 
 
 @router.get("/posture")
-async def posture(project: Annotated[str, Query(min_length=1, max_length=200)]) -> dict:
+async def posture(
+    project: Annotated[str, Query(min_length=1, max_length=200)], identity: CurrentIdentity
+) -> dict:
     """Open findings of a project across all its reports."""
-    return await run_in_threadpool(services.project_posture, project)
+    return await run_in_threadpool(services.project_posture, _scoped_project(identity, project))
 
 
 @router.get("/trend")
 async def trend(
     project: Annotated[str, Query(min_length=1, max_length=200)],
+    identity: CurrentIdentity,
     days: Annotated[int, Query(ge=1, le=1095)] = 90,
     granularity: Literal["day", "week", "month"] = "week",
 ) -> dict:
     """Evolution of the security posture of a project."""
     try:
-        return await run_in_threadpool(trends.get_trend, project, days, granularity)
+        return await run_in_threadpool(
+            trends.get_trend, _scoped_project(identity, project), days, granularity
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
 
 
 @router.get("/sarif")
 async def sarif(
+    identity: CurrentIdentity,
     project: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
     report_id: Annotated[int | None, Query(ge=1)] = None,
     include_resolved: bool = False,
 ) -> Response:
     """Download the findings of a project or of a report as SARIF 2.1.0."""
     try:
+        if identity.project is not None:
+            if project is not None and project != identity.project:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+            if report_id is not None:
+                scoped_report = await run_in_threadpool(services.get_report, report_id)
+                _ensure_report_scope(identity, scoped_report)
+            else:
+                project = identity.project
         name, items = await run_in_threadpool(services.collect_sarif_items, report_id, project)
+    except HTTPException:
+        raise
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     document = build_sarif(items, name, include_resolved)
@@ -259,6 +326,7 @@ async def sarif(
 
 @router.get("/reports")
 async def reports(
+    identity: CurrentIdentity,
     project: Annotated[str | None, Query(max_length=200)] = None,
     risk_level: Severity | None = None,
     limit: Annotated[int, Query(ge=1)] = 20,
@@ -266,20 +334,23 @@ async def reports(
 ) -> list[ReportSummary]:
     """List reports, newest first (limit is capped by SECREVIEW_MAX_LIST_LIMIT)."""
     return await run_in_threadpool(
-        services.list_reports, project or None, risk_level, limit, offset
+        services.list_reports, _scoped_project(identity, project or None), risk_level, limit, offset
     )
 
 
 @router.get("/reports/{report_id}")
-async def report(report_id: int) -> SecurityReportPublic:
+async def report(report_id: int, identity: CurrentIdentity) -> SecurityReportPublic:
     """Return a report with its findings."""
-    return await run_in_threadpool(services.get_report, report_id)
+    stored = await run_in_threadpool(services.get_report, report_id)
+    _ensure_report_scope(identity, stored)
+    return stored
 
 
 @router.get("/reports/{report_id}/markdown", response_class=PlainTextResponse)
-async def report_markdown(report_id: int) -> PlainTextResponse:
+async def report_markdown(report_id: int, identity: CurrentIdentity) -> PlainTextResponse:
     """Download a report as Markdown."""
     stored = await run_in_threadpool(services.get_report, report_id)
+    _ensure_report_scope(identity, stored)
     return PlainTextResponse(
         services.render_report_markdown(stored),
         media_type="text/markdown; charset=utf-8",
@@ -377,6 +448,58 @@ async def set_custom_rule_enabled(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     logger.info("Rule %s enabled=%s by %s", rule_id, body.enabled, identity.client)
     return await _refresh_rules()
+
+
+@router.get("/project-tokens")
+async def project_tokens(
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> list[dict[str, str]]:
+    """List project-token metadata without returning hashes or token values."""
+    try:
+        return await run_in_threadpool(http_server.list_project_tokens, _managed_tokens_path())
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+
+
+@router.post("/project-tokens", status_code=status.HTTP_201_CREATED)
+async def create_project_token(
+    body: ProjectTokenCreate,
+    request: Request,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict[str, str]:
+    """Create a project-scoped reader token and return its secret exactly once."""
+    projects = await run_in_threadpool(services.list_projects)
+    if not any(project["project"] == body.project for project in projects):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
+    try:
+        return await run_in_threadpool(
+            http_server.create_project_token,
+            _managed_tokens_path(),
+            _active_tokens(request),
+            body.label,
+            body.project,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+
+
+@router.delete("/project-tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_project_token(
+    token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
+    request: Request,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> Response:
+    """Revoke a project token and remove it from the active token registry."""
+    try:
+        await run_in_threadpool(
+            http_server.revoke_project_token,
+            _managed_tokens_path(),
+            _active_tokens(request),
+            token_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ── Static files ─────────────────────────────────────────────────────────────

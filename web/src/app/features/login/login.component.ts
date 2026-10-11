@@ -52,7 +52,7 @@ export class LoginComponent {
       return "L'authentification de l'interface n'est pas configurée sur ce serveur.";
     }
     if (query.has('forbidden')) {
-      return "Ce secret n'a pas accès à l'interface web (rôle web-admin, reader, triager ou admin requis).";
+      return "Ce secret n'a pas accès à l'interface web (rôle reader, triager ou admin requis).";
     }
     if (query.has('expired')) {
       return 'Session expirée ou token révoqué : reconnectez-vous.';
@@ -67,7 +67,7 @@ function describeError(err: unknown): string {
       return 'Mot de passe ou jeton invalide.';
     }
     if (err.status === 403) {
-      return "Ce secret n'a pas accès à l'interface web (rôle web-admin, reader, triager ou admin requis).";
+      return "Ce secret n'a pas accès à l'interface web (rôle reader, triager ou admin requis).";
     }
     if (err.status === 0) {
       return 'Serveur injoignable.';

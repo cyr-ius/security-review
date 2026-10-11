@@ -533,6 +533,14 @@ def main(argv: list[str] | None = None) -> None:
                     settings.auth_bootstrap_file
                 )
                 tokens.update(bootstrap_tokens)
+            managed_tokens = (
+                http_server.load_project_tokens(settings.auth_managed_tokens_file)
+                if settings.web_ui
+                else {}
+            )
+            if tokens.keys() & managed_tokens.keys():
+                raise ValueError("Project token hash conflicts with an existing auth token")
+            tokens.update(managed_tokens)
             tls = http_server.tls_options(settings)
             web_app = web_api.create_app(args.host) if settings.web_ui else None
         except ValueError as exc:

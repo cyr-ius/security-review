@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     auth_tokens_file: str | None = None
     # Optional file for the one-time web administrator credential (Docker: /data/admin-token).
     auth_bootstrap_file: str | None = None
+    # Writable file for project-scoped web tokens created in the UI.
+    auth_managed_tokens_file: str | None = None
 
     # Optional TLS served by uvicorn (streamable-http only), enabled by tls_certfile.
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).

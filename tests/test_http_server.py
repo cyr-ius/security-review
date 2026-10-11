@@ -38,7 +38,13 @@ def whoami(request: Request) -> PlainTextResponse:
 
 def protected_client(tokens: dict[bytes, TokenInfo], web: bool = False) -> TestClient:
     app = Starlette(
-        routes=[Route("/mcp", whoami), Route("/api/v1/me", whoami), Route("/ui/", whoami)]
+        routes=[
+            Route("/mcp", whoami),
+            Route("/api/v1/me", whoami),
+            Route("/api/docs", whoami),
+            Route("/api/openapi.json", whoami),
+            Route("/ui/", whoami),
+        ]
     )
     return TestClient(BearerAuthMiddleware(app, tokens, web=web))
 
@@ -104,13 +110,13 @@ def test_bootstrap_admin_token_is_generated_once_and_persisted_as_hash(tmp_path)
     tokens, password = http_server.ensure_bootstrap_admin_token(path)
 
     assert password is not None
-    assert tokens == parse_tokens([f"bootstrap-admin:web-admin:{hash_token(password)}"])
+    assert tokens == parse_tokens([f"bootstrap-admin:admin:{hash_token(password)}"])
     assert password not in path.read_text(encoding="utf-8")
     assert path.stat().st_mode & 0o777 == 0o600
     client = protected_client(tokens, web=True)
     headers = {"Authorization": f"Bearer {password}"}
     assert client.get("/api/v1/me", headers=headers).status_code == 200
-    assert client.get("/mcp", headers=headers).status_code == 403
+    assert client.get("/mcp", headers=headers).status_code == 200
 
     restarted_tokens, restarted_password = http_server.ensure_bootstrap_admin_token(path)
     assert restarted_tokens == tokens
@@ -123,6 +129,61 @@ def test_bootstrap_admin_token_rejects_empty_existing_file(tmp_path):
 
     with pytest.raises(ValueError, match="file is empty"):
         http_server.ensure_bootstrap_admin_token(path)
+
+
+def test_bootstrap_admin_token_migrates_legacy_role_without_changing_password(tmp_path):
+    path = tmp_path / "admin-token"
+    password = "legacy-bootstrap-password-123456"
+    path.write_text(f"bootstrap-admin:web-admin:{hash_token(password)}\n", encoding="utf-8")
+
+    tokens, initial_password = http_server.ensure_bootstrap_admin_token(path)
+
+    assert initial_password is None
+    assert list(tokens.values()) == [TokenInfo("bootstrap-admin", Role.ADMIN)]
+    assert path.read_text(encoding="utf-8") == (f"bootstrap-admin:admin:{hash_token(password)}\n")
+    assert (
+        protected_client(tokens, web=True)
+        .get("/mcp", headers={"Authorization": f"Bearer {password}"})
+        .status_code
+        == 200
+    )
+
+
+def test_project_tokens_persist_only_hash_and_revoke_immediately(tmp_path):
+    path = tmp_path / "project-tokens.json"
+    active_tokens = parse_tokens([f"admin:admin:{TOKEN}"])
+
+    created = http_server.create_project_token(path, active_tokens, "ci", "shop-api")
+
+    assert created["token"] not in path.read_text(encoding="utf-8")
+    assert (
+        created["token"] not in json.loads(path.read_text(encoding="utf-8"))["tokens"][0]["sha256"]
+    )
+    assert path.stat().st_mode & 0o777 == 0o600
+    token_info = http_server.load_project_tokens(path)
+    assert list(token_info.values()) == [
+        TokenInfo("ci", Role.READER, project="shop-api", token_id=created["id"])
+    ]
+    assert http_server.list_project_tokens(path) == [
+        {key: created[key] for key in ("id", "label", "project", "created_at")}
+    ]
+    assert created["token"] not in str(http_server.list_project_tokens(path))
+
+    active_tokens.update(token_info)
+    http_server.revoke_project_token(path, active_tokens, created["id"])
+    assert created["id"] not in str(http_server.list_project_tokens(path))
+    assert token_info.keys().isdisjoint(active_tokens.keys())
+
+
+def test_project_tokens_reject_duplicate_labels_and_missing_store(tmp_path):
+    path = tmp_path / "project-tokens.json"
+    active_tokens: dict[bytes, TokenInfo] = {}
+    http_server.create_project_token(path, active_tokens, "ci", "shop-api")
+
+    with pytest.raises(ValueError, match="already exists"):
+        http_server.create_project_token(path, active_tokens, "ci", "billing")
+    with pytest.raises(ValueError, match="must be configured"):
+        http_server.create_project_token(None, active_tokens, "ci", "shop-api")
 
 
 # ── Middleware ───────────────────────────────────────────────────────────────
@@ -156,7 +217,6 @@ def test_missing_or_wrong_token_is_rejected(headers):
         ("mcp", 200, 403),
         ("reader", 403, 200),
         ("triager", 403, 200),
-        ("web-admin", 403, 200),
         ("admin", 200, 200),
     ],
 )
@@ -176,6 +236,8 @@ def test_web_ui_files_are_public_but_not_the_api():
     client = protected_client(parse_tokens([TOKEN]), web=True)
     assert client.get("/ui/").status_code == 200
     assert client.get("/api/v1/me").status_code == 401
+    assert client.get("/api/docs").status_code == 200
+    assert client.get("/api/openapi.json").status_code == 200
     # Without the web interface, every path needs a token
     assert protected_client(parse_tokens([TOKEN])).get("/ui/").status_code == 401
 
@@ -295,6 +357,26 @@ def test_main_logs_bootstrap_password_only_when_created(
 
     assert not any(
         "Initial Web UI administrator password" in record.message for record in caplog.records
+    )
+
+
+def test_main_loads_project_tokens_from_configured_file(tmp_path, monkeypatch, captured_run):
+    path = tmp_path / "project-tokens.json"
+    active_tokens: dict[bytes, TokenInfo] = {}
+    created = http_server.create_project_token(path, active_tokens, "ci", "shop-api")
+    monkeypatch.setattr(
+        server,
+        "get_settings",
+        lambda: make_settings(auth_managed_tokens_file=str(path)),
+    )
+
+    server.main(["--transport", "streamable-http"])
+
+    (call,) = captured_run
+    assert isinstance(call["app"], BearerAuthMiddleware)
+    token_digest = bytes.fromhex(hash_token(created["token"]).removeprefix("sha256:"))
+    assert call["app"].tokens[token_digest] == TokenInfo(
+        "ci", Role.READER, project="shop-api", token_id=created["id"]
     )
 
 

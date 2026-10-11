@@ -15,8 +15,12 @@ import logging
 import os
 import secrets
 import ssl
+import tempfile
+import threading
+import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
@@ -32,27 +36,29 @@ logger = logging.getLogger("security_review_mcp.http")
 
 HASH_PREFIX = "sha256:"
 MIN_TOKEN_LENGTH = 24
+MAX_PROJECT_TOKENS = 500
+MAX_PROJECT_TOKEN_FILE_BYTES = 1_000_000
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+_managed_tokens_lock = threading.Lock()
 
 
 class Role(StrEnum):
     """What a token may do.
 
-    ``mcp`` (default) only reaches the MCP endpoint; ``reader``, ``triager`` and ``web-admin``
-    only reach the web API; ``admin`` reaches both MCP and the web API.
+    ``mcp`` (default) only reaches the MCP endpoint; ``reader`` and ``triager`` only reach the
+    web API; ``admin`` reaches both MCP and the web API.
     """
 
     MCP = "mcp"
     READER = "reader"
     TRIAGER = "triager"
-    WEB_ADMIN = "web-admin"
     ADMIN = "admin"
 
 
 DEFAULT_ROLE = Role.MCP
 MCP_ROLES = frozenset({Role.MCP, Role.ADMIN})
-WEB_ROLES = frozenset({Role.READER, Role.TRIAGER, Role.WEB_ADMIN, Role.ADMIN})
-TRIAGE_ROLES = frozenset({Role.TRIAGER, Role.WEB_ADMIN, Role.ADMIN})
+WEB_ROLES = frozenset({Role.READER, Role.TRIAGER, Role.ADMIN})
+TRIAGE_ROLES = frozenset({Role.TRIAGER, Role.ADMIN})
 
 # Paths served by the web interface; everything else goes to the MCP app
 API_PREFIX = "/api/"
@@ -65,6 +71,8 @@ class TokenInfo:
 
     label: str
     role: Role = DEFAULT_ROLE
+    project: str | None = None
+    token_id: str | None = None
 
 
 # ── Tokens ───────────────────────────────────────────────────────────────────
@@ -143,21 +151,47 @@ def load_tokens(settings: Settings) -> dict[bytes, TokenInfo]:
 
 
 def ensure_bootstrap_admin_token(path: str | Path) -> tuple[dict[bytes, TokenInfo], str | None]:
-    """Create or load the web-only administrator token, storing only its SHA-256 digest."""
+    """Create or load the administrator token, storing only its SHA-256 digest."""
     token_path = Path(path)
     token_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         descriptor = os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except FileExistsError:
-        tokens = load_tokens(Settings(_env_file=None, auth_tokens_file=str(token_path)))
+        try:
+            contents = token_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise ValueError(f"Cannot read bootstrap admin token file {token_path}: {exc}") from exc
+        migrated_contents = contents.replace("bootstrap-admin:web-admin:", "bootstrap-admin:admin:")
+        entries = [
+            line for line in migrated_contents.splitlines() if not line.lstrip().startswith("#")
+        ]
+        tokens = parse_tokens(entries)
         if not tokens:
             raise ValueError(f"Bootstrap admin token file is empty: {token_path}") from None
+        if migrated_contents != contents:
+            temporary_path = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", dir=token_path.parent, delete=False
+                ) as stream:
+                    stream.write(migrated_contents)
+                    stream.flush()
+                    os.fsync(stream.fileno())
+                    temporary_path = Path(stream.name)
+                os.chmod(temporary_path, 0o600)
+                os.replace(temporary_path, token_path)
+            except OSError as exc:
+                if temporary_path:
+                    temporary_path.unlink(missing_ok=True)
+                raise ValueError(
+                    f"Cannot migrate bootstrap admin token file {token_path}: {exc}"
+                ) from exc
         return tokens, None
     except OSError as exc:
         raise ValueError(f"Cannot create bootstrap admin token file {token_path}: {exc}") from exc
 
     token = secrets.token_urlsafe(32)
-    entry = f"bootstrap-admin:web-admin:{hash_token(token)}\n"
+    entry = f"bootstrap-admin:admin:{hash_token(token)}\n"
     try:
         with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
             stream.write(entry)
@@ -167,12 +201,185 @@ def ensure_bootstrap_admin_token(path: str | Path) -> tuple[dict[bytes, TokenInf
     return parse_tokens([entry]), token
 
 
+def _read_project_token_entries(path: str | Path) -> list[dict[str, str]]:
+    """Read and validate the project-token JSON file; hashes never enter SQL storage."""
+    token_path = Path(path)
+    if token_path.is_symlink():
+        raise ValueError(f"Refusing to read symlinked project token file: {token_path}")
+    try:
+        if token_path.stat().st_size > MAX_PROJECT_TOKEN_FILE_BYTES:
+            raise ValueError(f"Project token file exceeds {MAX_PROJECT_TOKEN_FILE_BYTES} bytes")
+        document = json.loads(token_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return []
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Cannot read project token file {token_path}: {exc}") from exc
+    if not isinstance(document, dict) or document.get("version") != 1:
+        raise ValueError(f"Unsupported project token file format: {token_path}")
+    entries = document.get("tokens")
+    if not isinstance(entries, list) or len(entries) > MAX_PROJECT_TOKENS:
+        raise ValueError(f"Invalid project token list in {token_path}")
+
+    identifiers: set[str] = set()
+    labels: set[str] = set()
+    hashes: set[str] = set()
+    validated: list[dict[str, str]] = []
+    for entry in entries:
+        if not isinstance(entry, dict):
+            raise ValueError(f"Invalid project token entry in {token_path}")
+        token_id = entry.get("id")
+        label = entry.get("label")
+        project = entry.get("project")
+        token_hash = entry.get("sha256")
+        created_at = entry.get("created_at")
+        if (
+            not isinstance(token_id, str)
+            or not token_id
+            or len(token_id) > 64
+            or not isinstance(label, str)
+            or not 1 <= len(label) <= 64
+            or not isinstance(project, str)
+            or not 1 <= len(project) <= 200
+            or not isinstance(token_hash, str)
+            or len(token_hash) != 64
+            or not isinstance(created_at, str)
+            or len(created_at) > 64
+        ):
+            raise ValueError(f"Invalid project token entry in {token_path}")
+        try:
+            digest = bytes.fromhex(token_hash)
+        except ValueError as exc:
+            raise ValueError(f"Invalid project token hash in {token_path}") from exc
+        if len(digest) != hashlib.sha256().digest_size:
+            raise ValueError(f"Invalid project token hash in {token_path}")
+        if token_id in identifiers or label in labels or token_hash in hashes:
+            raise ValueError(f"Duplicate project token entry in {token_path}")
+        identifiers.add(token_id)
+        labels.add(label)
+        hashes.add(token_hash)
+        validated.append(
+            {
+                "id": token_id,
+                "label": label,
+                "project": project,
+                "sha256": token_hash.lower(),
+                "created_at": created_at,
+            }
+        )
+    return validated
+
+
+def load_project_tokens(path: str | Path | None) -> dict[bytes, TokenInfo]:
+    """Load project-scoped reader tokens from their dedicated local file."""
+    if not path:
+        return {}
+    tokens: dict[bytes, TokenInfo] = {}
+    for entry in _read_project_token_entries(path):
+        digest = bytes.fromhex(entry["sha256"])
+        tokens[digest] = TokenInfo(
+            entry["label"], Role.READER, project=entry["project"], token_id=entry["id"]
+        )
+    return tokens
+
+
+def list_project_tokens(path: str | Path | None) -> list[dict[str, str]]:
+    """Return project token metadata without exposing the stored hashes."""
+    if not path:
+        raise ValueError("SECREVIEW_AUTH_MANAGED_TOKENS_FILE must be configured")
+    return [
+        {key: entry[key] for key in ("id", "label", "project", "created_at")}
+        for entry in _read_project_token_entries(path)
+    ]
+
+
+def create_project_token(
+    path: str | Path | None,
+    active_tokens: dict[bytes, TokenInfo],
+    label: str,
+    project: str,
+) -> dict[str, str]:
+    """Create a project-scoped reader token and persist only its digest in a local file."""
+    if not path:
+        raise ValueError("SECREVIEW_AUTH_MANAGED_TOKENS_FILE must be configured")
+    label, project = label.strip(), project.strip()
+    if not 1 <= len(label) <= 64:
+        raise ValueError("Token label must contain between 1 and 64 characters")
+    if not 1 <= len(project) <= 200:
+        raise ValueError("Project must contain between 1 and 200 characters")
+
+    with _managed_tokens_lock:
+        entries = _read_project_token_entries(path)
+        if len(entries) >= MAX_PROJECT_TOKENS:
+            raise ValueError(f"The limit of {MAX_PROJECT_TOKENS} project tokens has been reached")
+        if any(entry["label"] == label for entry in entries) or any(
+            info.label == label for info in active_tokens.values()
+        ):
+            raise ValueError(f"A project token named '{label}' already exists")
+        token = secrets.token_urlsafe(32)
+        digest = hashlib.sha256(token.encode("utf-8")).digest()
+        if digest in active_tokens:
+            raise ValueError("Generated token collision; retry the request")
+        entry = {
+            "id": str(uuid.uuid4()),
+            "label": label,
+            "project": project,
+            "sha256": digest.hex(),
+            "created_at": datetime.now(UTC).isoformat(),
+        }
+        _write_project_token_entries(path, [*entries, entry])
+        active_tokens[digest] = TokenInfo(label, Role.READER, project=project, token_id=entry["id"])
+    return {key: entry[key] for key in ("id", "label", "project", "created_at")} | {"token": token}
+
+
+def revoke_project_token(
+    path: str | Path | None, active_tokens: dict[bytes, TokenInfo], token_id: str
+) -> None:
+    """Revoke a managed project token and remove it from the active middleware registry."""
+    if not path:
+        raise ValueError("SECREVIEW_AUTH_MANAGED_TOKENS_FILE must be configured")
+    with _managed_tokens_lock:
+        entries = _read_project_token_entries(path)
+        kept = [entry for entry in entries if entry["id"] != token_id]
+        if len(kept) == len(entries):
+            raise ValueError(f"Project token '{token_id}' was not found")
+        _write_project_token_entries(path, kept)
+        for digest, info in list(active_tokens.items()):
+            if info.token_id == token_id:
+                del active_tokens[digest]
+
+
+def _write_project_token_entries(path: str | Path, entries: list[dict[str, str]]) -> None:
+    """Atomically write project token metadata with owner-only file permissions."""
+    token_path = Path(path)
+    if token_path.is_symlink():
+        raise ValueError(f"Refusing to write symlinked project token file: {token_path}")
+    token_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=token_path.parent, delete=False
+        ) as stream:
+            json.dump({"version": 1, "tokens": entries}, stream, indent=2)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+            temporary_path = Path(stream.name)
+        os.chmod(temporary_path, 0o600)
+        os.replace(temporary_path, token_path)
+    except OSError as exc:
+        if temporary_path:
+            temporary_path.unlink(missing_ok=True)
+        raise ValueError(f"Cannot write project token file {token_path}: {exc}") from exc
+
+
 # ── Middleware ───────────────────────────────────────────────────────────────
 
 
 def is_public_path(path: str) -> bool:
-    """Static files of the web interface: no token needed to load the login page."""
-    return path in ("/", UI_PREFIX) or path.startswith(UI_PREFIX + "/")
+    """Paths that expose only the web UI shell or API documentation without a token."""
+    return path in ("/", UI_PREFIX, "/api/docs", "/api/openapi.json") or path.startswith(
+        UI_PREFIX + "/"
+    )
 
 
 def is_web_path(path: str) -> bool:
@@ -205,7 +412,9 @@ class BearerAuthMiddleware:
         presented = hashlib.sha256(credentials.encode("utf-8")).digest()
         info = None
         # Compare against every token so the timing does not reveal which one matched
-        for digest, candidate in self.tokens.items():
+        with _managed_tokens_lock:
+            candidates = tuple(self.tokens.items())
+        for digest, candidate in candidates:
             if hmac.compare_digest(presented, digest):
                 info = candidate
         return info
@@ -257,6 +466,8 @@ class BearerAuthMiddleware:
         state = scope.setdefault("state", {})
         state["auth_client"] = info.label
         state["auth_role"] = info.role
+        state["auth_project"] = info.project
+        state["auth_tokens"] = self.tokens
         await self.app(scope, receive, send)
 
 
