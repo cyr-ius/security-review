@@ -12,8 +12,9 @@ pre-commit install          # facultatif : mêmes contrôles avant chaque commit
 ### Devcontainer
 
 Le dépôt fournit un devcontainer (`.devcontainer/`) avec Python, uv, Node.js et un démon Docker
-dédié (feature *docker-in-docker*). Ce démon permet de construire et de lancer l'image du
-[Dockerfile](demarrage/docker.md) sans quitter le conteneur :
+dédié (feature *docker-in-docker*). À sa création, il installe les hooks `prek` et l'environnement
+complet (`uv sync --extra dev --extra docs`). Le démon Docker permet de construire et de lancer
+l'image du [Dockerfile](demarrage/docker.md) sans quitter le conteneur :
 
 ```bash
 docker build -t security-review-mcp .
