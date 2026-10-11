@@ -1,0 +1,77 @@
+# Example internal rule pack. Copy it to the directory pointed to by SECREVIEW_RULES_DIR
+# and adapt it to your own standards. The ACME names are placeholders.
+#
+# Reload without restarting the server with the `reload_rules` tool.
+
+# Built-in rules you do not want (for example too noisy for your code base)
+disabled_rules = []
+
+# ── Scan rules ───────────────────────────────────────────────────────────────
+
+[[rules]]
+id = "ACME-001"
+title = "Direct JDBC connection instead of the pooled DataSource"
+severity = "medium"
+cwe = "CWE-400"
+languages = ["java"]
+pattern = '''DriverManager\.getConnection\s*\('''
+advice = "Inject the managed DataSource; direct connections bypass pooling and credential rotation."
+
+[[rules]]
+id = "ACME-002"
+title = "Public package registry used instead of the internal mirror"
+severity = "high"
+cwe = "CWE-829"
+languages = ["config", "yaml", "docker", "gitlab-ci", "jenkins"]
+pattern = '''(registry\.npmjs\.org|pypi\.org/simple|files\.pythonhosted\.org|repo1\.maven\.org)'''
+advice = "Resolve dependencies through the internal Nexus/Artifactory mirror only."
+
+[[rules]]
+id = "ACME-003"
+title = "Token or password written to the browser console"
+severity = "low"
+cwe = "CWE-532"
+languages = ["typescript", "javascript", "angular"]
+pattern = '''console\.(log|debug|info)\s*\([^)]*(token|password|secret)'''
+advice = "Remove the statement; console output is readable by anyone using the browser."
+
+[[rules]]
+id = "ACME-004"
+title = "Sensitive value printed instead of logged through the audit logger"
+severity = "medium"
+cwe = "CWE-532"
+languages = ["python"]
+pattern = '''\bprint\s*\([^)]*(token|password|secret)'''
+advice = "Use the structured logger with the redaction filter."
+
+# ── Checklist ────────────────────────────────────────────────────────────────
+# The "company" domain is appended to every review prompt.
+
+[[checklist]]
+domain = "company"
+id = "ACME-CL-01"
+title = "Tenant isolation"
+what_to_look_for = "Every query and cache key is scoped by tenant id taken from the token, never from the request body."
+cwe = "CWE-639"
+
+[[checklist]]
+domain = "company"
+id = "ACME-CL-02"
+title = "Personal data handling"
+what_to_look_for = "Personal data is not logged, is minimised in API responses, and has a retention rule."
+cwe = "CWE-359"
+
+[[checklist]]
+domain = "company"
+id = "ACME-CL-03"
+title = "Audit trail"
+what_to_look_for = "Authentication, authorization failures and administrative actions produce an audit event."
+cwe = "CWE-778"
+
+# A brand-new domain, usable with get_review_checklist("payments")
+[[checklist]]
+domain = "payments"
+id = "ACME-PAY-01"
+title = "Idempotency"
+what_to_look_for = "Payment-changing endpoints require an idempotency key and reject replays."
+cwe = "CWE-841"

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "security-review-mcp"
+version = "1.0.0"
+description = "MCP server for security code review: prompts, checklists, quick scans and persistent security reports"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=2,<3",
+    "sqlmodel>=0.0.22",
+    "pydantic-settings>=2.2",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg2-binary>=2.9"]
+dev = ["pytest>=8", "ruff>=0.5"]
+
+[project.scripts]
+security-review-mcp = "security_review_mcp.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "C4", "UP"]
