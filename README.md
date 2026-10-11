@@ -52,7 +52,7 @@ Configuration de l'hôte (VS Code, `.vscode/mcp.json`) :
 Autres cas : [installation hors ligne](https://cyr-ius.github.io/security-review-mcp/demarrage/installation/),
 [Claude et autres hôtes](https://cyr-ius.github.io/security-review-mcp/demarrage/hote/),
 [HTTP, authentification et TLS](https://cyr-ius.github.io/security-review-mcp/demarrage/http/),
-[Docker](https://cyr-ius.github.io/security-review-mcp/demarrage/docker/),
+[Docker et Docker Compose avec PostgreSQL](https://cyr-ius.github.io/security-review-mcp/demarrage/docker/),
 [variables `SECREVIEW_*`](https://cyr-ius.github.io/security-review-mcp/reference/configuration/).
 
 ## Limites

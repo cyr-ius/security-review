@@ -68,6 +68,38 @@ Les jetons projet créés depuis l'écran **Jetons** sont stockés sous forme d'
   centralisée. Si vous le perdez, arrêtez le serveur, supprimez `/data/admin-token`, puis
   redémarrez pour en générer un nouveau.
 
+## Docker Compose avec PostgreSQL
+
+Le fichier `docker-compose.yml` à la racine du dépôt démarre le serveur HTTP (MCP sur `/mcp`,
+interface web sur `/ui/`) avec une base PostgreSQL :
+
+```bash
+echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env
+docker compose up -d --build
+docker compose logs security-review-mcp   # mot de passe admin initial
+```
+
+- L'image est construite avec l'extra `postgres` (`security-review-mcp:pg`) et ne démarre
+  qu'une fois la base prête (`pg_isready`). Les tables sont créées au premier démarrage.
+- `POSTGRES_PASSWORD` est obligatoire et lu depuis `.env` (jamais commité). Il est inséré tel
+  quel dans `SECREVIEW_DATABASE_URL` : utilisez des caractères hexadécimaux, ou encodez les
+  caractères spéciaux (`@`, `:`, `/`...).
+- PostgreSQL n'est pas publié sur l'hôte : il n'est joignable que par le serveur, sur le réseau
+  interne `backend`.
+- Le serveur écoute sur `127.0.0.1:8000` (port modifiable avec `SECREVIEW_PORT` dans `.env`).
+  Pour l'exposer, activez le [TLS intégré](http.md) ou placez-le derrière un reverse proxy.
+- Le conteneur du serveur tourne en système de fichiers en lecture seule, sans capacité Linux.
+  Deux volumes : `secreview-pg` (rapports) et `secreview-data` (empreinte du mot de passe admin
+  et jetons projet). Sauvegardez les deux.
+
+Pour ajouter des jetons, le TLS ou des règles internes, complétez `environment` et `volumes`
+du service `security-review-mcp` comme dans les exemples ci-dessus. Les commandes CLI
+s'exécutent dans le conteneur :
+
+```bash
+docker compose exec security-review-mcp security-review-mcp gate --project portal --fail-on high
+```
+
 ## Règles internes et CLI
 
 Monter un dossier de [règles internes](../utilisation/regles.md) :
