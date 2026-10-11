@@ -209,6 +209,51 @@ def update_finding_status(finding_id: int, status: FindingStatus) -> FindingPubl
         return FindingPublic.model_validate(finding, from_attributes=True)
 
 
+def list_projects() -> list[dict]:
+    """List the projects that have reports, with their open findings by severity.
+
+    Sorted by the date of the latest report, most recent first.
+    """
+    with session_scope() as session:
+        report_rows = session.exec(
+            select(
+                SecurityReport.project,
+                func.count(),
+                func.max(SecurityReport.created_at),
+            ).group_by(SecurityReport.project)  # type: ignore[arg-type]
+        ).all()
+        finding_rows = session.exec(
+            select(SecurityReport.project, Finding.severity, func.count())
+            .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+            .where(Finding.status == FindingStatus.OPEN)
+            .group_by(SecurityReport.project, Finding.severity)  # type: ignore[arg-type]
+        ).all()
+
+    open_counts: dict[str, dict[str, int]] = {
+        name: {severity.value: 0 for severity in Severity} for name, _, _ in report_rows
+    }
+    for name, severity, number in finding_rows:
+        open_counts[name][severity.value] = number
+
+    projects = []
+    for name, reports_total, last_report_at in report_rows:
+        by_severity = open_counts[name]
+        open_total = sum(by_severity.values())
+        worst = compute_risk_level([Severity(k) for k, v in by_severity.items() if v > 0])
+        projects.append(
+            {
+                "project": name,
+                "reports_total": reports_total,
+                "last_report_at": last_report_at.isoformat(),
+                "open_findings_total": open_total,
+                "open_findings_by_severity": by_severity,
+                "worst_open_severity": worst.value if open_total else None,
+            }
+        )
+    projects.sort(key=lambda p: p["last_report_at"], reverse=True)
+    return projects
+
+
 def project_posture(project: str) -> dict:
     """Summarize open findings of a project across all its reports (useful as a CI gate)."""
     with session_scope() as session:

@@ -158,3 +158,25 @@ def test_blank_project_or_summary_is_rejected():
         services.save_report("  ", "A valid summary", [])
     with pytest.raises(ValueError):
         services.save_report("project", "ab", [])
+
+
+def test_list_projects():
+    assert services.list_projects() == []
+    services.save_report("shop", "First", [make_finding(Severity.HIGH), make_finding(Severity.LOW)])
+    clean = services.save_report("billing", "Clean", [])
+    report = services.get_report(services.list_reports(project="shop")[0]["report_id"])
+    services.update_finding_status(report.findings[0].id, FindingStatus.FIXED)
+
+    projects = {p["project"]: p for p in services.list_projects()}
+    assert list(projects) == ["billing", "shop"]  # latest report first
+    shop = projects["shop"]
+    assert shop["reports_total"] == 1
+    assert shop["open_findings_total"] == 1
+    assert shop["open_findings_by_severity"]["low"] == 1
+    assert shop["worst_open_severity"] == "low"
+    billing = projects["billing"]
+    assert billing["open_findings_total"] == 0
+    assert billing["worst_open_severity"] is None
+    assert (
+        billing["last_report_at"] == services.get_report(clean["report_id"]).created_at.isoformat()
+    )

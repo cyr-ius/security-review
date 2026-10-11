@@ -25,5 +25,10 @@ wheels
 
 tests
 examples
+
+# The web interface is built inside the image
+web/node_modules
+web/.angular
+src/security_review_mcp/webui
 Dockerfile
 .dockerignore

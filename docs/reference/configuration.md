@@ -16,6 +16,8 @@ le répertoire courant (voir `.env.example`).
 | `SECREVIEW_TLS_KEYFILE` | — | Clé privée |
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | Mot de passe de la clé privée |
 | `SECREVIEW_TLS_CLIENT_CA` | — | CA cliente : active le TLS mutuel |
+| `SECREVIEW_WEB_UI` | `true` | Active l'[interface web](../utilisation/interface-web.md) et l'API REST (HTTP) |
+| `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'interface web |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | Niveau de journalisation (sur stderr) |
 | `SECREVIEW_RULES_DIR` | — | Dossier des [règles internes](../utilisation/regles.md) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Taille maximale du contenu passé à `scan_code` |

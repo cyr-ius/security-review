@@ -1,0 +1,118 @@
+<div class="d-flex justify-content-between align-items-center mb-2">
+  <h3 class="h6 mb-0">Findings ouverts en fin de période</h3>
+  <button
+    type="button"
+    class="btn btn-sm btn-outline-secondary"
+    (click)="showTable.set(!showTable())"
+    [attr.aria-pressed]="showTable()"
+  >
+    <i class="bi" [class]="showTable() ? 'bi-graph-up' : 'bi-table'" aria-hidden="true"></i>
+    {{ showTable() ? 'Graphique' : 'Tableau' }}
+  </button>
+</div>
+
+<div class="chart" #container>
+  @if (showTable()) {
+    <div class="table-responsive">
+      <table class="table table-sm align-middle mb-0">
+        <thead>
+          <tr>
+            <th scope="col">Période</th>
+            <th scope="col" class="text-end">Ouverts</th>
+            <th scope="col" class="text-end">Nouveaux</th>
+            <th scope="col" class="text-end">Corrigés</th>
+            <th scope="col" class="text-end">Écartés</th>
+            <th scope="col" class="text-end">Rapports</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (period of periods(); track period.period) {
+            <tr>
+              <td>{{ period.period }}</td>
+              <td class="text-end fw-semibold">{{ period.open_total }}</td>
+              <td class="text-end">{{ period.new_total }}</td>
+              <td class="text-end">{{ period.fixed_total }}</td>
+              <td class="text-end">{{ period.dismissed_total }}</td>
+              <td class="text-end">{{ period.reports }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <svg
+      [attr.width]="width()"
+      [attr.height]="height"
+      role="img"
+      aria-label="Findings ouverts en fin de période. Flèches gauche et droite pour parcourir."
+      tabindex="0"
+      (pointermove)="onPointerMove($event)"
+      (pointerleave)="active.set(null)"
+      (keydown)="onKeydown($event)"
+      (blur)="active.set(null)"
+    >
+      @for (tick of yTicks(); track tick.value) {
+        <line
+          class="grid"
+          [attr.x1]="margin.left"
+          [attr.x2]="width() - margin.right"
+          [attr.y1]="tick.y"
+          [attr.y2]="tick.y"
+        />
+        <text
+          class="axis"
+          [attr.x]="margin.left - 8"
+          [attr.y]="tick.y"
+          dy="0.32em"
+          text-anchor="end"
+        >
+          {{ tick.value }}
+        </text>
+      }
+      @for (label of xLabels(); track label.x) {
+        <text
+          class="axis"
+          [attr.x]="label.x"
+          [attr.y]="height - 8"
+          [attr.text-anchor]="label.anchor"
+        >
+          {{ label.label }}
+        </text>
+      }
+
+      <path class="line" [attr.d]="linePath()" />
+
+      @if (activePoint(); as point) {
+        <line
+          class="crosshair"
+          [attr.x1]="point.x"
+          [attr.x2]="point.x"
+          [attr.y1]="margin.top"
+          [attr.y2]="height - margin.bottom"
+        />
+        <circle class="marker" [attr.cx]="point.x" [attr.cy]="point.y" r="5" />
+      }
+    </svg>
+
+    @if (activePoint(); as point) {
+      <div
+        class="chart-tooltip"
+        [class.flipped]="tooltipFlipped()"
+        [style.left.px]="tooltipLeft()"
+        [style.top.px]="margin.top"
+        role="status"
+      >
+        <div class="text-body-secondary small">{{ point.period.period }}</div>
+        <div class="tooltip-row">
+          <span class="key" aria-hidden="true"></span>
+          <strong>{{ point.period.open_total }}</strong>
+          <span class="text-body-secondary">ouverts</span>
+        </div>
+        <div class="small text-body-secondary">
+          +{{ point.period.new_total }} nouveaux · {{ point.period.fixed_total }} corrigés ·
+          {{ point.period.dismissed_total }} écartés
+        </div>
+      </div>
+    }
+  }
+</div>

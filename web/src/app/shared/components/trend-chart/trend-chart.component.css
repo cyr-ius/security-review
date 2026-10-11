@@ -1,0 +1,77 @@
+.chart {
+  position: relative;
+  width: 100%;
+}
+
+svg {
+  display: block;
+  touch-action: pan-y;
+}
+
+svg:focus-visible {
+  outline: 2px solid var(--bs-focus-ring-color);
+  outline-offset: 2px;
+}
+
+/* Recessive grid and axes */
+.grid {
+  stroke: var(--bs-border-color-translucent);
+  stroke-width: 1;
+}
+
+.axis {
+  fill: var(--bs-secondary-color);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Single series: 2px line in the first categorical hue */
+.line {
+  fill: none;
+  stroke: var(--series-1);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.crosshair {
+  stroke: var(--bs-secondary-color);
+  stroke-width: 1;
+}
+
+/* 2px surface ring so the marker stays visible on the line */
+.marker {
+  fill: var(--series-1);
+  stroke: var(--bs-body-bg);
+  stroke-width: 2;
+}
+
+.chart-tooltip {
+  position: absolute;
+  pointer-events: none;
+  min-width: 11rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+  box-shadow: var(--bs-box-shadow-sm);
+}
+
+.chart-tooltip.flipped {
+  transform: translateX(-100%);
+}
+
+.tooltip-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+/* Line key, not a filled box */
+.key {
+  display: inline-block;
+  width: 12px;
+  height: 2px;
+  align-self: center;
+  background: var(--series-1);
+}

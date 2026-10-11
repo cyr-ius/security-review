@@ -28,3 +28,21 @@ jobs:
         run: uv run ruff check --output-format=github .
       - name: Ruff format
         run: uv run ruff format --check --diff .
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Prettier
+        run: npx prettier --check "src/**/*.{ts,html,css}"
+      - name: Build
+        run: npm run build

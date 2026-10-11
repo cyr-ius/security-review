@@ -1,0 +1,41 @@
+/* Global styles. Bootstrap and Bootstrap Icons are loaded from angular.json. */
+
+/*
+ * Severity colors: the status palette of the dataviz reference (critical, serious, warning),
+ * then neutral steps. A color always comes with an icon and a name, never alone.
+ */
+:root {
+  --series-1: #2a78d6;
+}
+
+[data-bs-theme='dark'] {
+  --series-1: #3987e5;
+}
+
+.sev-critical {
+  --sev-color: #d03b3b;
+}
+
+.sev-high {
+  --sev-color: #ec835a;
+}
+
+.sev-medium {
+  --sev-color: #fab219;
+}
+
+.sev-low {
+  --sev-color: #7d8a99;
+}
+
+.sev-info {
+  --sev-color: #b4b2ab;
+}
+
+body {
+  background: var(--bs-body-bg);
+}
+
+.breadcrumb {
+  font-size: 0.875rem;
+}

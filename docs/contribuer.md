@@ -22,7 +22,8 @@ de doc) sont dans `AGENTS.md` à la racine du dépôt ; `CLAUDE.md` et
 ```
 src/security_review_mcp/
 ├── server.py      # prompts, outils, ressources, point d'entrée
-├── http_server.py # transport HTTP : jetons Bearer, TLS, lancement d'uvicorn
+├── http_server.py # transport HTTP : jetons Bearer et rôles, TLS, lancement d'uvicorn
+├── web_api.py     # interface web : API REST /api/v1 et fichiers de l'application (/ui)
 ├── prompts.py     # construction des prompts
 ├── checklists.py  # checklists intégrées par domaine
 ├── scanner.py     # règles de scan, suppression inline, masquage des secrets
@@ -42,7 +43,24 @@ src/security_review_mcp/
 ├── database.py    # moteur et sessions
 └── config.py      # paramètres (SECREVIEW_*)
 tests/             # pytest (scanner, services, client MCP de bout en bout)
+web/               # application Angular (compilée dans src/security_review_mcp/webui/)
 ```
+
+## Interface web
+
+L'application Angular 21 (signaux, zoneless, Bootstrap 5) est dans `web/`. Sa build est écrite
+dans `src/security_review_mcp/webui/`, d'où le serveur la sert sur `/ui/` et le wheel l'embarque.
+
+```bash
+cd web
+npm ci
+npm run build                 # build de production (à refaire avant uv build)
+npm start                     # serveur de dev sur http://localhost:4200/ui/
+npm run format                # Prettier
+```
+
+`npm start` redirige `/api` vers `http://127.0.0.1:8000` (`web/proxy.conf.json`) : lancez le
+serveur en parallèle avec `security-review-mcp --transport streamable-http`.
 
 ## Documentation
 

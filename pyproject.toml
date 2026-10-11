@@ -12,6 +12,7 @@ dependencies = [
     "mcp>=2,<3",
     "sqlmodel>=0.0.22",
     "pydantic-settings>=2.2",
+    "fastapi>=0.135",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +25,10 @@ security-review-mcp = "security_review_mcp.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+# Built Angular application (web/, `npm run build`), served on /ui
+[tool.setuptools.package-data]
+security_review_mcp = ["webui/*", "webui/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
