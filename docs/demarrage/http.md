@@ -1,8 +1,8 @@
 # Serveur HTTP, authentification et TLS
 
-Le transport `streamable-http` sert un serveur partagé (équipe, CI/CD). L'authentification et
-le TLS sont **facultatifs** et indépendants ; ils ne concernent que ce transport (en stdio,
-l'hôte lance lui-même le processus).
+Le transport `streamable-http` sert un serveur partagé (équipe, CI/CD). L'authentification MCP
+et le TLS sont **facultatifs** et indépendants ; l'API de la Web UI exige toujours un jeton.
+En stdio, l'hôte lance lui-même le processus.
 
 ```bash
 security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000

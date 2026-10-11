@@ -190,7 +190,7 @@ class BearerAuthMiddleware:
     """
 
     def __init__(self, app: ASGIApp, tokens: dict[bytes, TokenInfo], web: bool = False) -> None:
-        if not tokens:
+        if not tokens and not web:
             raise ValueError("BearerAuthMiddleware needs at least one token")
         self.app = app
         self.tokens = tokens
@@ -224,6 +224,18 @@ class BearerAuthMiddleware:
         path = scope.get("path", "")
         if self.web and is_public_path(path):
             await self.app(scope, receive, send)
+            return
+
+        if self.web and not self.tokens:
+            if path.startswith(API_PREFIX):
+                await _send_error(
+                    send,
+                    503,
+                    "authentication_not_configured",
+                    "Configure a web authentication token before using the web interface",
+                )
+            else:
+                await self.app(scope, receive, send)
             return
 
         client = scope.get("client")
@@ -341,7 +353,7 @@ def build_app(
     app: ASGIApp = server.streamable_http_app(host=host)
     if web_app is not None:
         app = PathDispatcher(app, web_app)
-    return BearerAuthMiddleware(app, tokens, web=web_app is not None) if tokens else app
+    return BearerAuthMiddleware(app, tokens, web=web_app is not None) if tokens or web_app else app
 
 
 def run(

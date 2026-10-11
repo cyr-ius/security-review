@@ -69,11 +69,11 @@ le label du jeton :
 INFO security_review_mcp.web: Finding 42 set to accepted by alice
 ```
 
-!!! warning "Sans jeton configuré, tout le monde est administrateur"
-    Hors image Docker, si aucun jeton ni fichier de bootstrap n'est configuré, l'interface est
-    accessible sans connexion, avec tous les droits. Ne le faites qu'en local
-    (`--host 127.0.0.1`), où les requêtes dont l'en-tête `Host` n'est pas `localhost` sont
-    rejetées (protection contre le DNS rebinding).
+!!! warning "Authentification requise pour la Web UI"
+  L'API de l'interface refuse les requêtes avec le statut `503` si aucun jeton n'est configuré;
+  la mire de connexion reste affichée et indique que l'authentification doit être configurée.
+  Configurez `SECREVIEW_AUTH_TOKENS` ou `SECREVIEW_AUTH_TOKENS_FILE`. Cette restriction
+  concerne la Web UI; l'authentification MCP reste indépendante.
 
 ## Sécurité
 

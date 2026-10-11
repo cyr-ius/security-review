@@ -180,6 +180,16 @@ def test_web_ui_files_are_public_but_not_the_api():
     assert protected_client(parse_tokens([TOKEN])).get("/ui/").status_code == 401
 
 
+def test_web_ui_requires_configured_authentication_but_keeps_login_assets_public():
+    client = protected_client({}, web=True)
+
+    assert client.get("/ui/").status_code == 200
+    response = client.get("/api/v1/me")
+    assert response.status_code == 503
+    assert response.json()["error"] == "authentication_not_configured"
+    assert client.get("/mcp").status_code == 200
+
+
 def test_path_dispatcher_routes_web_paths():
     def app_named(name: str) -> Starlette:
         return Starlette(routes=[Route("/{path:path}", lambda _: PlainTextResponse(name))])
@@ -195,10 +205,12 @@ def test_path_dispatcher_routes_web_paths():
     assert client.get("/uix").text == "mcp"
 
 
-def test_build_app_without_tokens_is_unprotected():
+def test_build_app_without_tokens_protects_web_api_only():
     assert not isinstance(http_server.build_app(server.mcp, "127.0.0.1", {}), BearerAuthMiddleware)
     protected = http_server.build_app(server.mcp, "127.0.0.1", parse_tokens([TOKEN]))
     assert isinstance(protected, BearerAuthMiddleware)
+    web_protected = http_server.build_app(server.mcp, "127.0.0.1", {}, web_app=Starlette())
+    assert isinstance(web_protected, BearerAuthMiddleware)
 
 
 # ── TLS ──────────────────────────────────────────────────────────────────────

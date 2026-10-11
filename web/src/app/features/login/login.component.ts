@@ -48,6 +48,9 @@ export class LoginComponent {
 
   private initialMessage(): string | null {
     const query = this.route.snapshot.queryParamMap;
+    if (query.has('authRequired')) {
+      return "L'authentification de l'interface n'est pas configurée sur ce serveur.";
+    }
     if (query.has('forbidden')) {
       return "Ce secret n'a pas accès à l'interface web (rôle web-admin, reader, triager ou admin requis).";
     }
