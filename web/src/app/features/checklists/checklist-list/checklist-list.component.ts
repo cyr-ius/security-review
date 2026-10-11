@@ -3,10 +3,7 @@ import { Component, ElementRef, computed, inject, signal, viewChild } from '@ang
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import {
-  ChecklistItem,
-  ChecklistItemWrite,
-} from '../../../core/models/api.models';
+import { ChecklistItem, ChecklistItemWrite } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 
 interface ChecklistFormModel {
