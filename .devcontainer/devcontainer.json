@@ -21,7 +21,7 @@
   "portsAttributes": {
     "8000": { "label": "security-review-mcp (HTTP)", "onAutoForward": "notify" }
   },
-  "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && prek install --overwrite && uv pip install -e \".[dev]\" --link-mode=copy  && uv sync --group dev --link-mode=copy",
+  "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && prek install --overwrite && uv sync --extra dev --extra docs --link-mode=copy",
   "customizations": {
     "vscode": {
       "extensions": [
