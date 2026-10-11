@@ -31,6 +31,8 @@ class Settings(BaseSettings):
     # entry per line (# for comments). Generate entries with `security-review-mcp token`.
     auth_tokens: str | None = None
     auth_tokens_file: str | None = None
+    # Optional file for the one-time web administrator credential (Docker: /data/admin-token).
+    auth_bootstrap_file: str | None = None
 
     # Optional TLS served by uvicorn (streamable-http only), enabled by tls_certfile.
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).

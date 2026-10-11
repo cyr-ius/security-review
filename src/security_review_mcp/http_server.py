@@ -12,6 +12,8 @@ import hashlib
 import hmac
 import json
 import logging
+import os
+import secrets
 import ssl
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -36,20 +38,21 @@ LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 class Role(StrEnum):
     """What a token may do.
 
-    ``mcp`` (default) only reaches the MCP endpoint; ``reader`` and ``triager`` only reach the
-    web API (read, and read + change finding status); ``admin`` reaches everything.
+    ``mcp`` (default) only reaches the MCP endpoint; ``reader``, ``triager`` and ``web-admin``
+    only reach the web API; ``admin`` reaches both MCP and the web API.
     """
 
     MCP = "mcp"
     READER = "reader"
     TRIAGER = "triager"
+    WEB_ADMIN = "web-admin"
     ADMIN = "admin"
 
 
 DEFAULT_ROLE = Role.MCP
 MCP_ROLES = frozenset({Role.MCP, Role.ADMIN})
-WEB_ROLES = frozenset({Role.READER, Role.TRIAGER, Role.ADMIN})
-TRIAGE_ROLES = frozenset({Role.TRIAGER, Role.ADMIN})
+WEB_ROLES = frozenset({Role.READER, Role.TRIAGER, Role.WEB_ADMIN, Role.ADMIN})
+TRIAGE_ROLES = frozenset({Role.TRIAGER, Role.WEB_ADMIN, Role.ADMIN})
 
 # Paths served by the web interface; everything else goes to the MCP app
 API_PREFIX = "/api/"
@@ -137,6 +140,31 @@ def load_tokens(settings: Settings) -> dict[bytes, TokenInfo]:
             raise ValueError(f"Cannot read the auth tokens file {path}: {exc}") from exc
         entries.extend(line for line in lines if not line.lstrip().startswith("#"))
     return parse_tokens(entries)
+
+
+def ensure_bootstrap_admin_token(path: str | Path) -> tuple[dict[bytes, TokenInfo], str | None]:
+    """Create or load the web-only administrator token, storing only its SHA-256 digest."""
+    token_path = Path(path)
+    token_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        descriptor = os.open(token_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    except FileExistsError:
+        tokens = load_tokens(Settings(_env_file=None, auth_tokens_file=str(token_path)))
+        if not tokens:
+            raise ValueError(f"Bootstrap admin token file is empty: {token_path}") from None
+        return tokens, None
+    except OSError as exc:
+        raise ValueError(f"Cannot create bootstrap admin token file {token_path}: {exc}") from exc
+
+    token = secrets.token_urlsafe(32)
+    entry = f"bootstrap-admin:web-admin:{hash_token(token)}\n"
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(entry)
+    except OSError as exc:
+        token_path.unlink(missing_ok=True)
+        raise ValueError(f"Cannot write bootstrap admin token file {token_path}: {exc}") from exc
+    return parse_tokens([entry]), token
 
 
 # ── Middleware ───────────────────────────────────────────────────────────────

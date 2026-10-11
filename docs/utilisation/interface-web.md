@@ -41,11 +41,20 @@ Chaque jeton porte un rôle, qui détermine les endpoints accessibles :
 | `mcp` (défaut) | ✅ | — | — |
 | `reader` | — | ✅ | — |
 | `triager` | — | ✅ | ✅ |
+| `web-admin` | — | ✅ | ✅ |
 | `admin` | ✅ | ✅ | ✅ |
 
-Un jeton créé sans rôle reste `mcp` : les jetons existants des agents et de la CI gardent leur
-accès mais ne peuvent pas utiliser l'interface web. Seul le rôle `admin` peut gérer les règles
-TOML; `triager` conserve uniquement le triage des findings. Générez un jeton par personne :
+Dans l'image Docker, un mot de passe `web-admin` est généré au premier démarrage HTTP et affiché
+une seule fois dans les logs. Son empreinte est persistée dans `/data/admin-token` : conservez le
+volume `/data` pour garder ce compte et son mot de passe après redémarrage. Ce rôle peut gérer les
+règles TOML et trier les findings, mais n'accède pas à `/mcp`. Le rôle `admin` existant conserve
+l'accès à l'interface web et à MCP. Un jeton créé sans rôle reste `mcp` : les jetons des agents
+et de la CI gardent leur accès mais ne peuvent pas utiliser l'interface web. Le rôle `triager`
+conserve uniquement le triage des findings. Générez un jeton par personne :
+
+Le mot de passe affiché dans les logs doit être traité comme un secret: restreignez l'accès aux
+journaux. S'il est perdu, arrêtez le serveur, supprimez le fichier bootstrap et redémarrez pour
+en générer un nouveau.
 
 ```bash
 security-review-mcp token --label alice --role triager
@@ -61,9 +70,10 @@ INFO security_review_mcp.web: Finding 42 set to accepted by alice
 ```
 
 !!! warning "Sans jeton configuré, tout le monde est administrateur"
-    Si aucun jeton n'est configuré, l'interface est accessible sans connexion, avec tous les
-    droits. Ne le faites qu'en local (`--host 127.0.0.1`), où les requêtes dont l'en-tête `Host`
-    n'est pas `localhost` sont rejetées (protection contre le DNS rebinding).
+    Hors image Docker, si aucun jeton ni fichier de bootstrap n'est configuré, l'interface est
+    accessible sans connexion, avec tous les droits. Ne le faites qu'en local
+    (`--host 127.0.0.1`), où les requêtes dont l'en-tête `Host` n'est pas `localhost` sont
+    rejetées (protection contre le DNS rebinding).
 
 ## Sécurité
 
@@ -82,6 +92,7 @@ INFO security_review_mcp.web: Finding 42 set to accepted by alice
 |---|---|---|
 | `SECREVIEW_WEB_UI` | `true` | Active l'API REST et l'interface sur le transport HTTP |
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
+| `SECREVIEW_AUTH_BOOTSTRAP_FILE` | — | Fichier du mot de passe admin initial; défini à `/data/admin-token` dans Docker |
 
 Le paquet publié et l'image Docker contiennent l'application déjà compilée. Si vous installez
 depuis les sources sans la compiler, seule l'API REST est servie et un avertissement est

@@ -42,6 +42,7 @@ charge) :
 
 ```bash
 docker run -d --name security-review-mcp -p 8443:8443 \
+  -v secreview-data:/data \
     -e SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@db:5432/secreview \
     -v ./tokens:/run/secrets/secreview-tokens:ro \
     -e SECREVIEW_AUTH_TOKENS_FILE=/run/secrets/secreview-tokens \
@@ -51,9 +52,18 @@ docker run -d --name security-review-mcp -p 8443:8443 \
     security-review-mcp:pg --transport streamable-http --host 0.0.0.0 --port 8443
 ```
 
-Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`).
-L'interface web est alors sur `https://<hôte>:8443/ui/` : donnez aux équipes sécurité des jetons
-de rôle `reader` ou `triager` (voir les [rôles](../utilisation/interface-web.md#roles)).
+Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Gardez
+le volume `secreview-data` : au premier démarrage HTTP, un mot de passe aléatoire pour
+`web-admin` est généré et affiché une seule fois dans les logs du conteneur. Seule son empreinte
+est conservée dans `/data/admin-token`. Récupérez-le avec `docker logs security-review-mcp` puis
+connectez-vous sur `https://<hôte>:8443/ui/`. Le compte admin web gère les règles et le triage,
+mais n'a pas accès à `/mcp`. Ajoutez ensuite des jetons individuels `reader` ou `triager` pour
+les équipes (voir les [rôles](../utilisation/interface-web.md#roles)).
+
+!!! warning "Protégez les journaux"
+  Le mot de passe initial est un secret: limitez l'accès aux logs Docker et à leur collecte
+  centralisée. Si vous le perdez, arrêtez le serveur, supprimez `/data/admin-token`, puis
+  redémarrez pour en générer un nouveau.
 
 ## Règles internes et CLI
 

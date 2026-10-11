@@ -144,8 +144,8 @@ def require_triage(identity: CurrentIdentity) -> Identity:
 
 
 def require_admin(identity: CurrentIdentity) -> Identity:
-    """Only administrators may change rule packs."""
-    if identity.role != Role.ADMIN:
+    """Only web administrators may change rule packs."""
+    if identity.role not in (Role.ADMIN, Role.WEB_ADMIN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Role '{identity.role}' cannot manage rules",

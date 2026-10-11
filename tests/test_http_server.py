@@ -99,6 +99,32 @@ def test_no_token_means_no_auth():
     assert http_server.load_tokens(make_settings()) == {}
 
 
+def test_bootstrap_admin_token_is_generated_once_and_persisted_as_hash(tmp_path):
+    path = tmp_path / "admin-token"
+    tokens, password = http_server.ensure_bootstrap_admin_token(path)
+
+    assert password is not None
+    assert tokens == parse_tokens([f"bootstrap-admin:web-admin:{hash_token(password)}"])
+    assert password not in path.read_text(encoding="utf-8")
+    assert path.stat().st_mode & 0o777 == 0o600
+    client = protected_client(tokens, web=True)
+    headers = {"Authorization": f"Bearer {password}"}
+    assert client.get("/api/v1/me", headers=headers).status_code == 200
+    assert client.get("/mcp", headers=headers).status_code == 403
+
+    restarted_tokens, restarted_password = http_server.ensure_bootstrap_admin_token(path)
+    assert restarted_tokens == tokens
+    assert restarted_password is None
+
+
+def test_bootstrap_admin_token_rejects_empty_existing_file(tmp_path):
+    path = tmp_path / "admin-token"
+    path.touch()
+
+    with pytest.raises(ValueError, match="file is empty"):
+        http_server.ensure_bootstrap_admin_token(path)
+
+
 # ── Middleware ───────────────────────────────────────────────────────────────
 
 
@@ -126,7 +152,13 @@ def test_missing_or_wrong_token_is_rejected(headers):
 
 @pytest.mark.parametrize(
     "role, mcp_status, api_status",
-    [("mcp", 200, 403), ("reader", 403, 200), ("triager", 403, 200), ("admin", 200, 200)],
+    [
+        ("mcp", 200, 403),
+        ("reader", 403, 200),
+        ("triager", 403, 200),
+        ("web-admin", 403, 200),
+        ("admin", 200, 200),
+    ],
 )
 def test_roles_select_the_endpoints(role, mcp_status, api_status):
     client = protected_client(parse_tokens([f"user:{role}:{TOKEN}"]), web=True)
@@ -232,6 +264,26 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     assert isinstance(call["app"], BearerAuthMiddleware)
     assert (call["host"], call["port"]) == ("0.0.0.0", 8443)
     assert (call["ssl_certfile"], call["ssl_keyfile"]) == (str(cert), str(key))
+
+
+def test_main_logs_bootstrap_password_only_when_created(
+    tmp_path, monkeypatch, caplog, captured_run
+):
+    path = tmp_path / "admin-token"
+    monkeypatch.setattr(
+        server, "get_settings", lambda: make_settings(auth_bootstrap_file=str(path))
+    )
+
+    with caplog.at_level("WARNING", logger="security_review_mcp"):
+        server.main(["--transport", "streamable-http"])
+        messages = [record.message for record in caplog.records]
+        assert sum("Initial Web UI administrator password" in message for message in messages) == 1
+        caplog.clear()
+        server.main(["--transport", "streamable-http"])
+
+    assert not any(
+        "Initial Web UI administrator password" in record.message for record in caplog.records
+    )
 
 
 @pytest.mark.parametrize("web", [True, False])

@@ -6,7 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 
-/** Login page: the user pastes the bearer token issued by the administrator. */
+/** Login page: the user enters a bootstrap password or a bearer token. */
 @Component({
   selector: 'app-login',
   imports: [FormField],
@@ -25,7 +25,7 @@ export class LoginComponent {
   readonly loginModel = signal({ token: '' });
 
   readonly loginForm = form(this.loginModel, (path) => {
-    required(path.token, { message: 'Le token est obligatoire' });
+    required(path.token, { message: 'Le mot de passe ou jeton est obligatoire' });
   });
 
   onSubmit(event: Event): void {
@@ -49,7 +49,7 @@ export class LoginComponent {
   private initialMessage(): string | null {
     const query = this.route.snapshot.queryParamMap;
     if (query.has('forbidden')) {
-      return "Ce token n'a pas accès à l'interface web (rôle reader, triager ou admin requis).";
+      return "Ce secret n'a pas accès à l'interface web (rôle web-admin, reader, triager ou admin requis).";
     }
     if (query.has('expired')) {
       return 'Session expirée ou token révoqué : reconnectez-vous.';
@@ -61,10 +61,10 @@ export class LoginComponent {
 function describeError(err: unknown): string {
   if (err instanceof HttpErrorResponse) {
     if (err.status === 401) {
-      return 'Token invalide.';
+      return 'Mot de passe ou jeton invalide.';
     }
     if (err.status === 403) {
-      return "Ce token n'a pas accès à l'interface web (rôle reader, triager ou admin requis).";
+      return "Ce secret n'a pas accès à l'interface web (rôle web-admin, reader, triager ou admin requis).";
     }
     if (err.status === 0) {
       return 'Serveur injoignable.';

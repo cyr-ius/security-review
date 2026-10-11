@@ -82,7 +82,8 @@ COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    SECREVIEW_DATABASE_URL=sqlite:////data/security_reports.db
+    SECREVIEW_DATABASE_URL=sqlite:////data/security_reports.db \
+    SECREVIEW_AUTH_BOOTSTRAP_FILE=/data/admin-token
 
 # Reports database (SQLite) lives in the volume; rules can be mounted read-only, e.g.
 #   -v ./rules.d:/etc/security-review-mcp/rules.d:ro -e SECREVIEW_RULES_DIR=/etc/security-review-mcp/rules.d

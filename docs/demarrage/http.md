@@ -32,6 +32,13 @@ voir les [rôles](../utilisation/interface-web.md#roles) pour donner accès à l
 Dès qu'un jeton est configuré, toute requête sans `Authorization: Bearer <jeton>` valide reçoit
 un `401`. Le label du client apparaît dans les journaux.
 
+L'image Docker configure `SECREVIEW_AUTH_BOOTSTRAP_FILE=/data/admin-token`. Au premier démarrage
+en transport HTTP avec l'interface activée, un mot de passe aléatoire `web-admin` est créé et
+affiché une seule fois dans les logs du conteneur. Seule son empreinte est conservée dans le
+volume `/data`; gardez ce volume pour conserver le compte au redémarrage. Ce rôle admin est
+limité à la Web UI et ne peut pas appeler `/mcp`. Les jetons d'équipe configurés restent valides
+en parallèle.
+
 !!! tip
     Les jetons ne passent jamais en argument de ligne de commande : utilisez les variables
     d'environnement ou le fichier de jetons.

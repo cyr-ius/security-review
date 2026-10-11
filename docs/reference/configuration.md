@@ -12,6 +12,7 @@ le répertoire courant (voir `.env.example`).
 | `SECREVIEW_PORT` | `8000` | Port d'écoute (HTTP) |
 | `SECREVIEW_AUTH_TOKENS` | — | Jetons Bearer, séparés par des virgules |
 | `SECREVIEW_AUTH_TOKENS_FILE` | — | Fichier de jetons, un par ligne |
+| `SECREVIEW_AUTH_BOOTSTRAP_FILE` | — | Fichier persistant du mot de passe initial web-admin (empreinte uniquement) |
 | `SECREVIEW_TLS_CERTFILE` | — | Certificat : active le TLS |
 | `SECREVIEW_TLS_KEYFILE` | — | Clé privée |
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | Mot de passe de la clé privée |

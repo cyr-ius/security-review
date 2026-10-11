@@ -527,10 +527,20 @@ def main(argv: list[str] | None = None) -> None:
     if args.transport == "streamable-http":
         try:
             tokens = http_server.load_tokens(settings)
+            bootstrap_password = None
+            if settings.auth_bootstrap_file and settings.web_ui:
+                bootstrap_tokens, bootstrap_password = http_server.ensure_bootstrap_admin_token(
+                    settings.auth_bootstrap_file
+                )
+                tokens.update(bootstrap_tokens)
             tls = http_server.tls_options(settings)
             web_app = web_api.create_app(args.host) if settings.web_ui else None
         except ValueError as exc:
             parser.error(str(exc))
+        if bootstrap_password:
+            logger.warning(
+                "Initial Web UI administrator password (shown once): %s", bootstrap_password
+            )
         http_server.run(mcp, args.host, args.port, tokens, tls, settings.log_level, web_app)
     else:
         mcp.run("stdio")

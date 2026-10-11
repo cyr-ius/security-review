@@ -11,6 +11,7 @@ TOKENS = {
     "reader": "r" * 32,
     "triager": "t" * 32,
     "mcp": "m" * 32,
+    "web-admin": "w" * 32,
     "admin": "a" * 32,
 }
 
@@ -217,7 +218,7 @@ def test_rule_validation_and_admin_permissions(client, secured, rules_dir):
     }
     assert secured.post("/api/v1/rules", json=payload, headers=auth("triager")).status_code == 403
     assert secured.get("/api/v1/rules", headers=auth("reader")).status_code == 403
-    assert secured.post("/api/v1/rules", json=payload, headers=auth("admin")).status_code == 201
+    assert secured.post("/api/v1/rules", json=payload, headers=auth("web-admin")).status_code == 201
 
 
 # ── Permissions ──────────────────────────────────────────────────────────────

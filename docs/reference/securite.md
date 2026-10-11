@@ -7,8 +7,8 @@
   des jetons sont gardées en mémoire, comparées en temps constant. Si l'écoute n'est pas sur
   localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../utilisation/interface-web.md#roles)
-  (`mcp`, `reader`, `triager`, `admin`) ; un jeton `mcp` accède à tous les outils MCP.
-- **Interface web** : l'API REST exige un jeton de rôle web, seuls `triager` et `admin` changent
+  (`mcp`, `reader`, `triager`, `web-admin`, `admin`) ; un jeton `mcp` accède à tous les outils MCP.
+- **Interface web** : l'API REST exige un jeton de rôle web, seuls `triager`, `web-admin` et `admin` changent
   le statut d'un finding (action journalisée avec le label du jeton). Pages servies avec une CSP
   stricte et les en-têtes anti-clickjacking ; jeton gardé dans le `sessionStorage` de l'onglet.
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le

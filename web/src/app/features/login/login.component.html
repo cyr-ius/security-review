@@ -15,13 +15,13 @@
       }
 
       <form (submit)="onSubmit($event)" novalidate>
-        <label for="token" class="form-label">Token d'accès</label>
+        <label for="token" class="form-label">Mot de passe ou jeton d'accès</label>
         <div class="input-group mb-1">
           <input
             id="token"
             class="form-control font-monospace"
             [type]="reveal() ? 'text' : 'password'"
-            autocomplete="off"
+            autocomplete="current-password"
             spellcheck="false"
             [formField]="loginForm.token"
             [class.is-invalid]="loginForm.token().touched() && loginForm.token().invalid()"
@@ -30,7 +30,7 @@
             type="button"
             class="btn btn-outline-secondary"
             (click)="reveal.set(!reveal())"
-            [attr.aria-label]="reveal() ? 'Masquer le token' : 'Afficher le token'"
+            [attr.aria-label]="reveal() ? 'Masquer le secret' : 'Afficher le secret'"
           >
             <i class="bi" [class]="reveal() ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true"></i>
           </button>
@@ -41,8 +41,8 @@
           }
         }
         <div class="form-text mb-3">
-          Fourni par l'administrateur (<code>security-review-mcp token --role reader</code>). Il
-          reste dans cet onglet et disparaît à sa fermeture.
+          Mot de passe initial affiché dans les journaux du conteneur, ou jeton fourni par votre
+          administrateur. Le secret reste dans cet onglet et disparaît à sa fermeture.
         </div>
         <button type="submit" class="btn btn-primary w-100" [disabled]="loginForm().submitting()">
           @if (loginForm().submitting()) {
