@@ -27,9 +27,10 @@ security-review-mcp = "security_review_mcp.server:main"
 [tool.setuptools.packages.find]
 where = ["src"]
 
-# Built Angular application (web/, `npm run build`), served on /ui
+# Default rules seeded into the database, and the built Angular application (web/,
+# `npm run build`) served on /ui
 [tool.setuptools.package-data]
-security_review_mcp = ["webui/*", "webui/**/*"]
+security_review_mcp = ["default_rules.toml", "webui/*", "webui/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,6 +1,8 @@
 """Validate internal rules and parse rule packs (TOML) imported into the database.
 
-A rule pack is the TOML exchange format of ``security-review-mcp rules import|export``::
+A rule pack is the TOML exchange format of ``security-review-mcp rules import|export``. The
+default rules and checklists shipped with the package (``default_rules.toml``, see
+``default_content``) use the same format::
 
     disabled_rules = ["PY-008"]            # rules to switch off (built-in or custom)
 
@@ -21,19 +23,22 @@ A rule pack is the TOML exchange format of ``security-review-mcp rules import|ex
     what_to_look_for = "Every query is filtered by tenant id."
     cwe = "CWE-639"
 
-A rule with the id of a built-in rule replaces it. Invalid entries are reported in
+A rule with the id of a default rule replaces it. Invalid entries are reported in
 ``LoadResult.errors``. Rules are trusted administrator content: a pathological regex can slow
 the scanner down, so patterns with nested quantifiers are rejected.
 """
 
+import functools
 import re
 import tomllib
 from dataclasses import dataclass, field
+from importlib import resources
 
 from .checklists import CheckItem
 from .models import Severity
 from .scanner import SUPPORTED_LANGUAGES, Rule
 
+DEFAULT_RULES_FILE = "default_rules.toml"
 MAX_PACK_BYTES = 256 * 1024
 MAX_PATTERN_CHARS = 500
 MAX_ID_CHARS = 50
@@ -48,7 +53,7 @@ _NESTED_QUANTIFIER_RE = re.compile(r"\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)\s*
 
 @dataclass
 class LoadResult:
-    """Custom content read from a rule pack or from the database."""
+    """Content read from a rule pack or from the database."""
 
     rules: list[Rule] = field(default_factory=list)
     checklist: dict[str, list[CheckItem]] = field(default_factory=dict)
@@ -200,4 +205,18 @@ def parse_pack(text: str, name: str) -> LoadResult:
         items = result.checklist.setdefault(domain, [])
         items[:] = [existing for existing in items if existing.id != item.id]
         items.append(item)
+    return result
+
+
+@functools.cache
+def default_content() -> LoadResult:
+    """Return the default rules and checklists shipped with the package (``default_rules.toml``).
+
+    Raises:
+        RuntimeError: If the shipped file is invalid (a packaging error, never user input).
+    """
+    text = resources.files(__package__).joinpath(DEFAULT_RULES_FILE).read_text(encoding="utf-8")
+    result = parse_pack(text, DEFAULT_RULES_FILE)
+    if result.errors:
+        raise RuntimeError("Invalid default rules: " + "; ".join(result.errors[:5]))
     return result

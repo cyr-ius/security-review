@@ -1,8 +1,9 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
-    <h1 class="h3 mb-0">Règles personnalisées</h1>
+    <h1 class="h3 mb-0">Règles de scan</h1>
     <p class="text-body-secondary mb-0">
-      Stockées en base ; import et export avec <code>security-review-mcp rules</code>
+      Règles par défaut (chargées au premier lancement) et personnalisées, stockées en base ; import
+      et export avec <code>security-review-mcp rules</code>
     </p>
   </div>
   <div class="d-flex gap-2">
@@ -64,7 +65,12 @@
           <div class="col-md-4">
             <label class="form-label" for="rule-id">Identifiant</label>
             @if (editingId()) {
-              <input id="rule-id" class="form-control font-monospace" [value]="formModel().id" readonly />
+              <input
+                id="rule-id"
+                class="form-control font-monospace"
+                [value]="formModel().id"
+                readonly
+              />
             } @else {
               <input id="rule-id" class="form-control font-monospace" [formField]="ruleForm.id" />
             }
@@ -93,7 +99,12 @@
           </div>
           <div class="col-md-6">
             <label class="form-label" for="rule-cwe">CWE</label>
-            <input id="rule-cwe" class="form-control" placeholder="CWE-89" [formField]="ruleForm.cwe" />
+            <input
+              id="rule-cwe"
+              class="form-control"
+              placeholder="CWE-89"
+              [formField]="ruleForm.cwe"
+            />
           </div>
           <div class="col-12">
             <label class="form-label" for="rule-pattern">Expression régulière</label>
@@ -116,7 +127,12 @@
           </div>
           <div class="col-12">
             <div class="form-check">
-              <input id="rule-ignore-case" class="form-check-input" type="checkbox" [formField]="ruleForm.ignore_case" />
+              <input
+                id="rule-ignore-case"
+                class="form-check-input"
+                type="checkbox"
+                [formField]="ruleForm.ignore_case"
+              />
               <label class="form-check-label" for="rule-ignore-case">Ignorer la casse</label>
             </div>
           </div>
@@ -138,9 +154,20 @@
 
   <div class="card">
     <div class="card-header d-flex flex-wrap gap-2 align-items-center">
-      <span class="fw-semibold">{{ data.rules.length }} règle(s)</span>
+      <span class="fw-semibold">{{ visibleRules().length }} règle(s)</span>
+      <label class="visually-hidden" for="rule-origin-filter">Origine</label>
+      <select
+        id="rule-origin-filter"
+        class="form-select form-select-sm w-auto ms-auto"
+        [value]="originFilter()"
+        (change)="setOriginFilter($any($event.target).value)"
+      >
+        <option value="">Toutes les origines</option>
+        <option value="builtin">Par défaut</option>
+        <option value="custom">Personnalisées</option>
+      </select>
     </div>
-    @if (data.rules.length > 0) {
+    @if (visibleRules().length > 0) {
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
           <thead>
@@ -154,10 +181,17 @@
             </tr>
           </thead>
           <tbody>
-            @for (rule of data.rules; track rule.id) {
+            @for (rule of visibleRules(); track rule.id) {
               <tr>
                 <td class="rule-name">
                   <code>{{ rule.id }}</code>
+                  @if (rule.origin === 'custom') {
+                    <span class="badge text-bg-info ms-1">Personnalisée</span>
+                  } @else if (rule.modified) {
+                    <span class="badge text-bg-warning ms-1">Par défaut, modifiée</span>
+                  } @else {
+                    <span class="badge text-bg-light border ms-1">Par défaut</span>
+                  }
                   <div class="fw-semibold">{{ rule.title }}</div>
                   @if (rule.cwe) {
                     <span class="small text-body-secondary">{{ rule.cwe }}</span>
@@ -167,7 +201,11 @@
                 <td>{{ rule.languages.join(', ') }}</td>
                 <td class="text-nowrap">{{ rule.updated_at | date: 'dd/MM/yyyy HH:mm' }}</td>
                 <td>
-                  <span class="badge" [class.text-bg-success]="rule.enabled" [class.text-bg-secondary]="!rule.enabled">
+                  <span
+                    class="badge"
+                    [class.text-bg-success]="rule.enabled"
+                    [class.text-bg-secondary]="!rule.enabled"
+                  >
                     {{ rule.enabled ? 'Active' : 'Désactivée' }}
                   </span>
                 </td>
@@ -175,11 +213,18 @@
                   <button
                     type="button"
                     class="btn btn-sm btn-outline-secondary action-button"
-                    [attr.aria-label]="rule.enabled ? 'Désactiver ' + rule.id : 'Activer ' + rule.id"
+                    [attr.aria-label]="
+                      rule.enabled ? 'Désactiver ' + rule.id : 'Activer ' + rule.id
+                    "
                     [title]="rule.enabled ? 'Désactiver' : 'Activer'"
                     (click)="toggle(rule)"
                   >
-                    <i class="bi" [class.bi-pause-fill]="rule.enabled" [class.bi-play-fill]="!rule.enabled" aria-hidden="true"></i>
+                    <i
+                      class="bi"
+                      [class.bi-pause-fill]="rule.enabled"
+                      [class.bi-play-fill]="!rule.enabled"
+                      aria-hidden="true"
+                    ></i>
                   </button>
                   <button
                     type="button"
@@ -190,15 +235,17 @@
                   >
                     <i class="bi bi-pencil" aria-hidden="true"></i>
                   </button>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-danger action-button ms-1"
-                    [attr.aria-label]="'Supprimer ' + rule.id"
-                    title="Supprimer"
-                    (click)="remove(rule)"
-                  >
-                    <i class="bi bi-trash" aria-hidden="true"></i>
-                  </button>
+                  @if (rule.origin === 'custom') {
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger action-button ms-1"
+                      [attr.aria-label]="'Supprimer ' + rule.id"
+                      title="Supprimer"
+                      (click)="remove(rule)"
+                    >
+                      <i class="bi bi-trash" aria-hidden="true"></i>
+                    </button>
+                  }
                 </td>
               </tr>
             }
@@ -206,7 +253,7 @@
         </table>
       </div>
     } @else {
-      <p class="text-body-secondary text-center my-4">Aucune règle personnalisée chargée.</p>
+      <p class="text-body-secondary text-center my-4">Aucune règle.</p>
     }
   </div>
 }

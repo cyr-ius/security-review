@@ -3,7 +3,7 @@
 import pytest
 
 from security_review_mcp import prompts, registry, rule_store
-from security_review_mcp.rules_loader import parse_pack
+from security_review_mcp.rules_loader import default_content, parse_pack
 
 VALID_PACK = """
 disabled_rules = ["PY-008"]
@@ -116,14 +116,47 @@ def test_broken_pack_is_reported():
     assert parse_pack('disabled_rules = ["not an id"]', "p.toml").errors
 
 
-def test_unreadable_database_keeps_builtin_rules(database):
+def test_unreadable_database_falls_back_to_the_default_rules(database):
     database.dispose()
     from sqlmodel import SQLModel
 
     SQLModel.metadata.drop_all(database)
     snapshot = registry.reload()
     assert snapshot.errors and "database error (OperationalError)" in snapshot.errors[0]
-    assert len(snapshot.rules) > 0  # built-in rules still work
+    defaults = default_content()
+    assert [rule.id for rule in snapshot.rules] == [rule.id for rule in defaults.rules]
+    assert set(registry.domains()) == set(defaults.checklist)
+    # The scanner never runs without rules: the default file is read directly
+    assert any(m["rule_id"] == "PY-001" for m in registry.scan("eval(user_input)", "python")[0])
+
+
+def test_unseeded_database_falls_back_to_the_default_rules(database):
+    from sqlmodel import Session, delete
+
+    from security_review_mcp.models import CustomCheckItem, CustomRule, DefaultSeed
+
+    with Session(database) as session:  # tables created, defaults never seeded
+        for model in (CustomRule, CustomCheckItem, DefaultSeed):
+            session.exec(delete(model))
+        session.commit()
+    snapshot = registry.reload()
+    assert any("not initialized" in error for error in snapshot.errors)
+    assert len(snapshot.rules) == len(default_content().rules)
+
+    rule_store.seed_defaults()  # once seeded, the stored rules are used again
+    assert registry.reload().errors == ()
+
+
+def test_default_rules_file_is_valid_and_complete():
+    defaults = default_content()
+    ids = [rule.id for rule in defaults.rules]
+    assert len(ids) == len(set(ids)) >= 60
+    families = {"PY", "JV", "NG", "CFG", "GEN", "GL", "JK", "CI", "SP", "FA"}
+    assert {rule_id.split("-")[0] for rule_id in ids} <= families
+    # The review prompts rely on these checklist domains
+    assert {"python", "java", "angular", "api", "config", "cicd", "dependencies"} <= set(
+        defaults.checklist
+    )
 
 
 def test_reload_picks_up_changes():

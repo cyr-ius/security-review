@@ -516,10 +516,11 @@ def _collect_packs(names: list[str]) -> list[tuple[str, str]]:
 
 
 def _print_rules_text(rows: list[dict]) -> None:
-    """Print one line per rule: id, severity, origin, state and title."""
+    """Print one line per rule: id, severity, origin (builtin, modified, custom), state, title."""
     for row in rows:
         state = "enabled" if row["enabled"] else "disabled"
-        print(f"{row['id']:<12} {row['severity']:<8} {row['origin']:<7} {state:<8} {row['title']}")
+        origin = "modified" if row["modified"] else row["origin"]
+        print(f"{row['id']:<12} {row['severity']:<8} {origin:<8} {state:<8} {row['title']}")
     disabled = sum(1 for row in rows if not row["enabled"])
     print(f"{len(rows)} rule(s), {disabled} disabled")
 
@@ -531,7 +532,7 @@ def rules_command(argv: list[str]) -> int:
         description="Manage the internal scan rules and checklist items stored in the database.",
     )
     actions = parser.add_subparsers(dest="action", required=True)
-    lister = actions.add_parser("list", help="list every rule (built-in and custom) and its state")
+    lister = actions.add_parser("list", help="list every rule (default and custom) and its state")
     lister.add_argument("--language", help="only the rules that apply to this language")
     lister.add_argument("--custom", action="store_true", help="only the custom rules")
     lister.add_argument("--format", choices=["text", "json"], default="text")
@@ -540,14 +541,16 @@ def rules_command(argv: list[str]) -> int:
     importer.add_argument(
         "--replace",
         action="store_true",
-        help="first delete every stored rule, checklist item and disabled state",
+        help="first reset the stored rules, checklist items and disabled states to the defaults",
     )
     exporter = actions.add_parser("export", help="export the stored content as a TOML pack")
     exporter.add_argument("--output", "-o", help="file to write (default: standard output)")
     for action, text in (("enable", "enable"), ("disable", "disable")):
-        toggler = actions.add_parser(action, help=f"{text} built-in or custom rules")
+        toggler = actions.add_parser(action, help=f"{text} default or custom rules")
         toggler.add_argument("ids", nargs="+", metavar="ID")
-    remover = actions.add_parser("delete", help="delete custom rules or checklist items")
+    remover = actions.add_parser(
+        "delete", help="delete custom rules or checklist items (default ones cannot be deleted)"
+    )
     remover.add_argument("ids", nargs="+", metavar="ID")
     args = parser.parse_args(argv)
 

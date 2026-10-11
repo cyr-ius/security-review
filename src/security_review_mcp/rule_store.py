@@ -1,12 +1,16 @@
-"""Internal rules stored in the database: custom rules, checklist items and disabled rule ids.
+"""Rules stored in the database: scan rules, checklist items and disabled rule ids.
 
-The database is the only source of internal content. Administrators manage it with
-``security-review-mcp rules import|export|enable|disable|delete`` and the web interface. Every
-change bumps ``RuleSetRevision`` so that each server instance sharing the database reloads its
-registry (see ``registry.snapshot``).
+The database is the source of the active content. On the first run, ``seed_defaults`` copies
+the default rules and checklists of ``default_rules.toml`` into it; later runs add the new
+defaults and update the ones an administrator has not modified (see ``DefaultSeed``).
+Administrators manage the content with ``security-review-mcp rules
+import|export|enable|disable|delete`` and the web interface. Every change bumps
+``RuleSetRevision`` so that each server instance sharing the database reloads its registry
+(see ``registry.snapshot``).
 """
 
 import functools
+import hashlib
 import json
 from collections.abc import Callable
 from typing import Any
@@ -18,23 +22,57 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, select
 
 from .database import session_scope
-from .models import CustomCheckItem, CustomRule, DisabledRule, RuleSetRevision, utcnow
+from .models import (
+    CustomCheckItem,
+    CustomRule,
+    DefaultSeed,
+    DisabledRule,
+    RuleSetRevision,
+    utcnow,
+)
 from .rules_loader import (
     LoadResult,
+    default_content,
     parse_check_item,
     parse_pack,
     parse_rule,
     rule_entry,
     validate_id,
 )
-from .rules_platform import PLATFORM_RULES
-from .scanner import RULES
 
 MAX_CUSTOM_RULES = 1000
 MAX_CHECK_ITEMS = 1000
 MAX_IDS_PER_CALL = 200
 
-BUILTIN_RULE_IDS = frozenset(rule.id for rule in RULES + PLATFORM_RULES)
+
+# ── Default content ──────────────────────────────────────────────────────────
+
+
+def digest(entry: dict) -> str:
+    """Fingerprint the pack fields of a rule or checklist item (to detect modifications)."""
+    return hashlib.sha256(json.dumps(entry, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+@functools.cache
+def default_rules() -> dict[str, dict]:
+    """Return the pack fields of the default rules, by id."""
+    return {rule.id: rule_entry(rule) for rule in default_content().rules}
+
+
+@functools.cache
+def default_check_items() -> dict[tuple[str, str], dict]:
+    """Return the fields of the default checklist items, by ``(domain, id)``."""
+    return {
+        (domain, item.id): _item_entry(domain, item.id, item.title, item.what_to_look_for, item.cwe)
+        for domain, items in default_content().checklist.items()
+        for item in items
+    }
+
+
+def is_modified_default(entry: dict) -> bool:
+    """Tell whether a stored rule is a default rule changed by an administrator."""
+    default = default_rules().get(entry["id"])
+    return default is not None and digest(default) != digest(entry)
 
 
 def _conflicts_as_errors(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -72,6 +110,11 @@ def revision() -> int:
 
 
 # ── Reading ──────────────────────────────────────────────────────────────────
+
+
+def _item_entry(domain: str, item_id: str, title: str, what: str, cwe: str) -> dict:
+    """Return the pack fields of a checklist item."""
+    return {"domain": domain, "id": item_id, "title": title, "what_to_look_for": what, "cwe": cwe}
 
 
 def _row_entry(row: CustomRule) -> dict:
@@ -115,16 +158,108 @@ def load() -> tuple[LoadResult, int]:
         return result, current.revision if current else 0
 
 
-def list_custom_rules() -> list[dict]:
-    """Return the stored rules with their state, for the web interface and the CLI."""
+def list_rules() -> list[dict]:
+    """Return the stored rules with their origin and state, for the web interface."""
     with session_scope() as session:
         disabled = set(session.exec(select(DisabledRule.rule_id)).all())
         rows = session.exec(select(CustomRule).order_by(col(CustomRule.id))).all()
-        return [
-            _row_entry(row)
-            | {"enabled": row.id not in disabled, "updated_at": row.updated_at.isoformat()}
-            for row in rows
-        ]
+        result = []
+        for row in rows:
+            entry = _row_entry(row)
+            result.append(
+                entry
+                | {
+                    "origin": "builtin" if row.id in default_rules() else "custom",
+                    "modified": is_modified_default(entry),
+                    "enabled": row.id not in disabled,
+                    "updated_at": row.updated_at.isoformat(),
+                }
+            )
+        return result
+
+
+# ── Seeding ──────────────────────────────────────────────────────────────────
+
+
+def _seed_entry(
+    session: Session,
+    seeds: dict[tuple[str, str], DefaultSeed],
+    kind: str,
+    key: str,
+    default: dict,
+    stored: dict | None,
+    write: Callable[[], None],
+) -> bool:
+    """Seed or upgrade one default entry; return True when the stored entry was written.
+
+    ``stored`` holds the fields of the stored entry (None when absent) and ``write`` stores
+    the default. An entry modified or deleted by an administrator is left untouched.
+    """
+    new_digest = digest(default)
+    seed = seeds.get((kind, key))
+    if seed is not None and seed.digest == new_digest:
+        return False
+    if seed is None:
+        # First seeding: add the entry unless one with that id already exists (kept as is)
+        replace = stored is None
+        session.add(DefaultSeed(kind=kind, key=key, digest=new_digest))
+    else:
+        # Newer default: replace the entry only if it still is the previously seeded default
+        replace = stored is not None and digest(stored) == seed.digest
+        seed.digest, seed.seeded_at = new_digest, utcnow()
+        session.add(seed)
+    if replace and stored != default:
+        write()
+        return True
+    return False
+
+
+def _seed(session: Session) -> int:
+    """Copy the missing or updated default content; return the number of entries written."""
+    seeds = {(seed.kind, seed.key): seed for seed in session.exec(select(DefaultSeed)).all()}
+    written = 0
+    for rule_id, default in default_rules().items():
+        row = session.get(CustomRule, rule_id)
+        written += _seed_entry(
+            session,
+            seeds,
+            "rule",
+            rule_id,
+            default,
+            _row_entry(row) if row else None,
+            functools.partial(_store_rule, session, default, row),
+        )
+    for (domain, item_id), default in default_check_items().items():
+        item = session.get(CustomCheckItem, (domain, item_id))
+        written += _seed_entry(
+            session,
+            seeds,
+            "checklist",
+            f"{domain}/{item_id}",
+            default,
+            item.model_dump() if item else None,
+            functools.partial(_store_item, session, default, item),
+        )
+    return written
+
+
+def seed_defaults() -> int:
+    """Copy the default rules and checklists into the database (first run and upgrades).
+
+    Idempotent; returns the number of entries written. Several instances may start at the
+    same time: the loser of a concurrent insert retries once and finds the work done.
+    """
+    for attempt in range(2):
+        try:
+            with session_scope() as session:
+                written = _seed(session)
+                if written:
+                    _bump(session)
+            return written
+        except IntegrityError:
+            if attempt:
+                raise
+    return 0
 
 
 # ── Rules ────────────────────────────────────────────────────────────────────
@@ -143,20 +278,33 @@ def _store_rule(session: Session, entry: dict, row: CustomRule | None = None) ->
     session.add(row)
 
 
+def _store_item(session: Session, entry: dict, row: CustomCheckItem | None = None) -> None:
+    """Insert a validated checklist item, or update ``row`` in place."""
+    row = row or CustomCheckItem(
+        domain=entry["domain"], id=entry["id"], title="", what_to_look_for=""
+    )
+    row.title, row.what_to_look_for, row.cwe = (
+        entry["title"],
+        entry["what_to_look_for"],
+        entry["cwe"],
+    )
+    session.add(row)
+
+
 def _check_limits(session: Session) -> None:
     """Refuse a change that would exceed the number of stored rules or checklist items."""
     session.flush()
     rules = session.exec(select(func.count()).select_from(CustomRule)).one()
     items = session.exec(select(func.count()).select_from(CustomCheckItem)).one()
     if rules > MAX_CUSTOM_RULES:
-        raise ValueError(f"The limit of {MAX_CUSTOM_RULES} custom rules has been reached")
+        raise ValueError(f"The limit of {MAX_CUSTOM_RULES} stored rules has been reached")
     if items > MAX_CHECK_ITEMS:
         raise ValueError(f"The limit of {MAX_CHECK_ITEMS} checklist items has been reached")
 
 
 @_conflicts_as_errors
 def create_rule(entry: dict) -> None:
-    """Add a new custom rule; an existing id is refused."""
+    """Add a new custom rule; an existing id (default or custom) is refused."""
     with session_scope() as session:
         rule_id = str(entry.get("id", ""))
         if session.get(CustomRule, rule_id) is not None:
@@ -168,13 +316,13 @@ def create_rule(entry: dict) -> None:
 
 @_conflicts_as_errors
 def update_rule(rule_id: str, entry: dict) -> None:
-    """Replace the fields of a custom rule without changing its id."""
+    """Replace the fields of a stored rule (default or custom) without changing its id."""
     if str(entry.get("id", "")) != rule_id:
         raise ValueError("A rule id cannot be changed")
     with session_scope() as session:
         row = session.get(CustomRule, rule_id)
         if row is None:
-            raise ValueError(f"Custom rule {rule_id} was not found")
+            raise ValueError(f"Rule {rule_id} was not found")
         _store_rule(session, entry, row)
         _bump(session)
 
@@ -190,9 +338,9 @@ def _bounded_ids(rule_ids: list[str]) -> list[str]:
 
 @_conflicts_as_errors
 def delete_entries(ids: list[str], checklist: bool = True) -> dict[str, list[str]]:
-    """Delete custom rules (and checklist items) by id; built-in rules can only be disabled.
+    """Delete custom rules (and checklist items) by id; default content cannot be deleted.
 
-    Every id must match something, otherwise nothing is deleted.
+    Every id must match a custom entry, otherwise nothing is deleted.
     """
     ids = _bounded_ids(ids)
     with session_scope() as session:
@@ -205,15 +353,22 @@ def delete_entries(ids: list[str], checklist: bool = True) -> dict[str, list[str
         found = {row.id for row in rules} | {item.id for item in items}
         missing = [item for item in ids if item not in found]
         if missing:
-            builtin = set(missing) & BUILTIN_RULE_IDS
-            hint = " (built-in rules can only be disabled)" if builtin else ""
-            raise ValueError(f"Not found: {', '.join(missing)}{hint}")
+            raise ValueError(f"Not found: {', '.join(missing)}")
+        defaults = sorted(
+            {row.id for row in rules if row.id in default_rules()}
+            | {item.id for item in items if (item.domain, item.id) in default_check_items()}
+        )
+        if defaults:
+            raise ValueError(
+                f"Default content cannot be deleted: {', '.join(defaults)} "
+                "(disable or edit it instead)"
+            )
         for row in [*rules, *items]:
             session.delete(row)
-        # The state of a deleted custom rule goes with it, unless it also names a built-in rule
-        orphans = [row.id for row in rules if row.id not in BUILTIN_RULE_IDS]
-        if orphans:
-            session.exec(sql_delete(DisabledRule).where(col(DisabledRule.rule_id).in_(orphans)))
+        # The state of a deleted rule goes with it
+        if rules:
+            deleted = [row.id for row in rules]
+            session.exec(sql_delete(DisabledRule).where(col(DisabledRule.rule_id).in_(deleted)))
         _bump(session)
     return {
         "deleted_rules": sorted(row.id for row in rules),
@@ -223,11 +378,11 @@ def delete_entries(ids: list[str], checklist: bool = True) -> dict[str, list[str
 
 @_conflicts_as_errors
 def set_enabled(ids: list[str], enabled: bool) -> list[str]:
-    """Enable or disable built-in or custom rules; an unknown id changes nothing."""
+    """Enable or disable stored rules (default or custom); an unknown id changes nothing."""
     ids = _bounded_ids(ids)
     with session_scope() as session:
-        custom = set(session.exec(select(CustomRule.id).where(col(CustomRule.id).in_(ids))).all())
-        missing = [item for item in ids if item not in custom and item not in BUILTIN_RULE_IDS]
+        stored = set(session.exec(select(CustomRule.id).where(col(CustomRule.id).in_(ids))).all())
+        missing = [item for item in ids if item not in stored]
         if missing:
             raise ValueError(f"Unknown rule: {', '.join(missing)}")
         disabled = set(
@@ -251,7 +406,8 @@ def import_packs(packs: list[tuple[str, str]], replace: bool = False) -> dict:
     """Import TOML packs given as ``(name, text)``, all or nothing.
 
     Rules and checklist items are added or replaced by id, and ``disabled_rules`` are added.
-    With ``replace``, the stored content is first cleared so that the database matches the packs.
+    With ``replace``, the stored content is first reset to the default content, so that the
+    database matches the defaults plus the packs.
 
     Raises:
         ValueError: Listing every invalid entry; nothing is imported then.
@@ -273,15 +429,16 @@ def import_packs(packs: list[tuple[str, str]], replace: bool = False) -> dict:
     disabled = {rule_id for result in parsed for rule_id in result.disabled_rules}
     with session_scope() as session:
         if replace:
-            for model in (CustomRule, CustomCheckItem, DisabledRule):
+            for model in (CustomRule, CustomCheckItem, DisabledRule, DefaultSeed):
                 session.exec(sql_delete(model))
+            session.flush()
+            _seed(session)
+            session.flush()
         for rule in rules.values():
             _store_rule(session, rule_entry(rule), session.get(CustomRule, rule.id))
         for (domain, _), item in items.items():
-            row = session.get(CustomCheckItem, (domain, item.id))
-            row = row or CustomCheckItem(domain=domain, id=item.id, title="", what_to_look_for="")
-            row.title, row.what_to_look_for, row.cwe = item.title, item.what_to_look_for, item.cwe
-            session.add(row)
+            entry = _item_entry(domain, item.id, item.title, item.what_to_look_for, item.cwe)
+            _store_item(session, entry, session.get(CustomCheckItem, (domain, item.id)))
         session.flush()
         known = set(session.exec(select(DisabledRule.rule_id)).all())
         for rule_id in sorted(disabled - known):
@@ -298,16 +455,23 @@ def import_packs(packs: list[tuple[str, str]], replace: bool = False) -> dict:
 
 
 def export_pack() -> str:
-    """Return the stored content as a TOML pack accepted by ``import_packs``."""
+    """Return the stored content as a TOML pack accepted by ``import_packs``.
+
+    Unmodified default rules and checklist items are left out: the pack holds what differs
+    from the defaults (custom and modified entries, disabled rules).
+    """
+    defaults = {digest(entry) for entry in default_rules().values()}
+    defaults |= {digest(entry) for entry in default_check_items().values()}
     with session_scope() as session:
         rules = [
-            _row_entry(row)
+            entry
             for row in session.exec(select(CustomRule).order_by(col(CustomRule.id))).all()
+            if digest(entry := _row_entry(row)) not in defaults
         ]
         items = session.exec(
             select(CustomCheckItem).order_by(col(CustomCheckItem.domain), col(CustomCheckItem.id))
         ).all()
-        checklist = [item.model_dump() for item in items]
+        checklist = [entry for item in items if digest(entry := item.model_dump()) not in defaults]
         disabled = sorted(session.exec(select(DisabledRule.rule_id)).all())
 
     document = tomlkit.document()

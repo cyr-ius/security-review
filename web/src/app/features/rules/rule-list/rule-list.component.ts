@@ -1,10 +1,16 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { CustomRule, CustomRuleWrite, SEVERITIES, Severity } from '../../../core/models/api.models';
+import {
+  CustomRule,
+  CustomRuleWrite,
+  RuleOrigin,
+  SEVERITIES,
+  Severity,
+} from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 
 interface RuleFormModel {
@@ -29,7 +35,7 @@ const EMPTY_RULE: RuleFormModel = {
   ignore_case: true,
 };
 
-/** Admin view for the custom scan rules stored in the database. */
+/** Admin view for the scan rules stored in the database (default and custom). */
 @Component({
   selector: 'app-rule-list',
   imports: [DatePipe, FormField],
@@ -41,6 +47,13 @@ export class RuleListComponent {
 
   readonly severities = SEVERITIES;
   readonly catalog = rxResource({ stream: () => this.api.customRules() });
+  /** Origin filter of the table ('' shows every rule). */
+  readonly originFilter = signal<RuleOrigin | ''>('');
+  readonly visibleRules = computed(() => {
+    const rules = this.catalog.value()?.rules ?? [];
+    const origin = this.originFilter();
+    return origin ? rules.filter((rule) => rule.origin === origin) : rules;
+  });
   readonly formModel = signal<RuleFormModel>({ ...EMPTY_RULE });
   readonly ruleForm = form(this.formModel, (path) => {
     required(path.id, { message: "L'identifiant est obligatoire" });
@@ -102,7 +115,10 @@ export class RuleListComponent {
       title: model.title.trim(),
       severity: model.severity as Severity,
       cwe: model.cwe.trim(),
-      languages: model.languages.split(',').map((item) => item.trim()).filter(Boolean),
+      languages: model.languages
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
       pattern: model.pattern,
       advice: model.advice,
       ignore_case: model.ignore_case,
@@ -138,6 +154,10 @@ export class RuleListComponent {
     }
   }
 
+  setOriginFilter(value: string): void {
+    this.originFilter.set(value === 'builtin' || value === 'custom' ? value : '');
+  }
+
   async remove(rule: CustomRule): Promise<void> {
     if (!window.confirm(`Supprimer définitivement la règle ${rule.id} ?`)) {
       return;
@@ -160,7 +180,7 @@ export class RuleListComponent {
     this.clearMessages();
     try {
       const result = await firstValueFrom(this.api.reloadCustomRules());
-      this.notice.set(`${result.loaded_rules} règle(s) personnalisée(s) rechargée(s).`);
+      this.notice.set(`Règles rechargées (${result.loaded_rules} personnalisée(s)).`);
       this.catalog.reload();
     } catch (error: unknown) {
       this.error.set(describeError(error));

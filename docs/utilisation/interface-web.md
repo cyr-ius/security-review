@@ -28,10 +28,12 @@ security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 - **Rapport** : résumé, contexte (dépôt, branche, commit), findings avec emplacement, CWE,
   extrait de code et recommandation ; téléchargement Markdown et SARIF. Les utilisateurs qui ont
   le rôle `triager` ou `admin` changent le statut d'un finding directement depuis cet écran.
-- **Règles** : les administrateurs créent, modifient, suppriment, activent ou désactivent les
-  [règles internes](regles.md) stockées en base ; le bouton **Recharger** applique
-  immédiatement un changement fait avec la CLI `security-review-mcp rules`. Les règles intégrées
-  se désactivent avec `rules disable` ou `PATCH /api/v1/rules/{id}/enabled`.
+- **Règles** : les administrateurs consultent toutes les [règles](regles.md) stockées en base,
+  filtrables par origine (par défaut ou personnalisée). Ils créent, modifient, activent ou
+  désactivent les règles, et suppriment les règles personnalisées. Une règle par défaut peut être
+  modifiée (badge « Par défaut, modifiée ») ou désactivée, mais pas supprimée. Le bouton
+  **Recharger** applique immédiatement un changement fait avec la CLI
+  `security-review-mcp rules`.
 - **Jetons** : les administrateurs créent et révoquent des jetons en lecture limités à un projet.
   Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
   données. Une révocation prend effet à la requête suivante.

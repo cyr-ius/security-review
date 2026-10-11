@@ -1,4 +1,4 @@
-"""Shared fixtures: an isolated in-memory database and a clean rule registry per test."""
+"""Shared fixtures: an isolated in-memory database (with the default rules) and a clean registry."""
 
 import pytest
 from sqlmodel import SQLModel, StaticPool, create_engine
@@ -9,7 +9,7 @@ from security_review_mcp.database import set_engine
 
 @pytest.fixture(autouse=True)
 def database():
-    """Provide a fresh in-memory SQLite database to each test."""
+    """Provide a fresh in-memory SQLite database, seeded with the default rules, to each test."""
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
@@ -17,6 +17,7 @@ def database():
     )
     SQLModel.metadata.create_all(engine)
     set_engine(engine)
+    rule_store.seed_defaults()
     yield engine
     set_engine(None)
     engine.dispose()
@@ -24,7 +25,7 @@ def database():
 
 @pytest.fixture(autouse=True)
 def clean_registry():
-    """Start every test without internal rules and drop what it loaded."""
+    """Start every test with an unloaded registry and drop what it loaded."""
     registry.reset()
     yield
     registry.reset()
