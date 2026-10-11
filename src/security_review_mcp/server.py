@@ -18,6 +18,7 @@ from . import (
     advisories,
     cli,
     depscan,
+    http_server,
     prompts,
     registry,
     sarif,
@@ -502,7 +503,16 @@ def main(argv: list[str] | None = None) -> None:
     )
     parser.add_argument("--host", default=settings.host)
     parser.add_argument("--port", type=int, default=settings.port)
+    parser.add_argument("--tls-certfile", help="enable TLS (overrides SECREVIEW_TLS_CERTFILE)")
+    parser.add_argument("--tls-keyfile", help="private key (overrides SECREVIEW_TLS_KEYFILE)")
     args = parser.parse_args(arguments)
+    if args.tls_certfile or args.tls_keyfile:
+        settings = settings.model_copy(
+            update={
+                "tls_certfile": args.tls_certfile or settings.tls_certfile,
+                "tls_keyfile": args.tls_keyfile or settings.tls_keyfile,
+            }
+        )
 
     # Logs go to stderr: stdout is reserved for the MCP protocol with the stdio transport
     logging.basicConfig(
@@ -514,13 +524,12 @@ def main(argv: list[str] | None = None) -> None:
     registry.reload()
 
     if args.transport == "streamable-http":
-        if args.host not in ("127.0.0.1", "localhost", "::1"):
-            logger.warning(
-                "Listening on %s without built-in authentication: put the server behind a "
-                "reverse proxy that enforces authentication and TLS.",
-                args.host,
-            )
-        mcp.run("streamable-http", host=args.host, port=args.port)
+        try:
+            tokens = http_server.load_tokens(settings)
+            tls = http_server.tls_options(settings)
+        except ValueError as exc:
+            parser.error(str(exc))
+        http_server.run(mcp, args.host, args.port, tokens, tls, settings.log_level)
     else:
         mcp.run("stdio")
 

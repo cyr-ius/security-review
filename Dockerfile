@@ -8,7 +8,9 @@
 # stdio (developer workstation, the MCP host starts the container itself):
 #   docker run -i --rm -v secreview-data:/data security-review-mcp
 #
-# Streamable HTTP (shared server, behind a reverse proxy with TLS and authentication):
+# Streamable HTTP (shared server). Enable the built-in bearer authentication and TLS
+# (SECREVIEW_AUTH_TOKENS_FILE, SECREVIEW_TLS_CERTFILE, SECREVIEW_TLS_KEYFILE) or put the
+# server behind a reverse proxy that enforces them:
 #   docker run -d -p 127.0.0.1:8000:8000 -v secreview-data:/data security-review-mcp \
 #       --transport streamable-http --host 0.0.0.0 --port 8000
 
