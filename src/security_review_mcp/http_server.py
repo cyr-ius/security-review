@@ -341,14 +341,14 @@ def run(
         )
     if tls:
         logger.info("TLS enabled%s", " with client certificates" if tls.client_ca else "")
-    if web_app is not None:
-        logger.info("Web interface enabled on /ui (REST API on /api/v1)")
     elif exposed:
         logger.warning(
             "Listening on %s without TLS: set SECREVIEW_TLS_CERTFILE and SECREVIEW_TLS_KEYFILE, "
             "or terminate TLS on a reverse proxy.",
             host,
         )
+    if web_app is not None:
+        logger.info("Web interface enabled on /ui (REST API on /api/v1)")
 
     uvicorn.run(
         build_app(server, host, tokens, web_app),

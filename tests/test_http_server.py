@@ -234,6 +234,25 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     assert (call["ssl_certfile"], call["ssl_keyfile"]) == (str(cert), str(key))
 
 
+@pytest.mark.parametrize("web", [True, False])
+@pytest.mark.parametrize(
+    ("host", "with_tls", "warned"),
+    [("0.0.0.0", False, True), ("0.0.0.0", True, False), ("127.0.0.1", False, False)],
+)
+def test_run_warns_without_tls_only_when_exposed(
+    tmp_path, caplog, captured_run, host, with_tls, warned, web
+):
+    """The missing-TLS warning depends on the host and TLS, not on the web interface."""
+    tls = http_server.TLSOptions(certfile=str(tmp_path / "cert.pem")) if with_tls else None
+    web_app = Starlette() if web else None
+
+    with caplog.at_level("WARNING", logger="security_review_mcp"):
+        http_server.run(server.mcp, host, 8000, {}, tls, web_app=web_app)
+
+    assert len(captured_run) == 1
+    assert any("without TLS" in record.message for record in caplog.records) is warned
+
+
 def test_main_rejects_invalid_auth_configuration(monkeypatch, captured_run):
     monkeypatch.setattr(server, "get_settings", lambda: make_settings(auth_tokens="short"))
     with pytest.raises(SystemExit) as exc:
