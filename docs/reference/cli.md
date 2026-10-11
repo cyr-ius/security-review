@@ -7,8 +7,10 @@ pipelines et à l'administration.
 |---|---|---|
 | `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP | [Installation](../demarrage/installation.md#lancement) |
 | `token create --label NOM [--role ROLE] [--project P]` | Crée un jeton Bearer en base et affiche son secret une fois | [Jetons Bearer](../demarrage/http.md#jetons-bearer), [rôles](../utilisation/interface-web.md#roles) |
-| `token list [--project P]` / `token revoke ID\|LABEL` | Liste ou révoque les jetons | [Jetons Bearer](../demarrage/http.md#jetons-bearer) |
+| `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Liste (ou seulement les demandes d'enrôlement en attente) ou révoque les jetons | [Jetons Bearer](../demarrage/http.md#jetons-bearer) |
+| `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approuve ou refuse une demande d'enrôlement | [Enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton) |
 | `token reset-admin` | Remplace le mot de passe admin initial et l'affiche | [Mot de passe initial](../demarrage/http.md#mot-de-passe-administrateur-initial) |
+| `enroll --url URL --project P [--label L] [--requested-by QUI] [--cafile CA] [--allow-http]` | Demande à un serveur partagé un jeton restreint au projet (actif après approbation) et l'affiche une fois ; un suffixe aléatoire est ajouté au label | [Enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton) |
 | `code scan [PATH]` | Scan du dépôt complet | [Scan du code complet](../utilisation/code-scan.md) |
 | `rules list` / `rules import PATH…` / `rules export` | Liste, importe (packs TOML) ou exporte les règles stockées en base | [Règles internes](../utilisation/regles.md#commande-rules) |
 | `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Active, désactive (règles par défaut ou personnalisées) ou supprime des règles personnalisées | [Règles internes](../utilisation/regles.md#commande-rules) |
@@ -28,7 +30,7 @@ Les commandes de contrôle (`code scan`, `deps scan`, `gate`) partagent la même
 | `1` | Bloqué : au moins un finding atteint le seuil `--fail-on` |
 | `2` | Erreur (projet ou rapport introuvable, fichier illisible…) |
 
-Les commandes d'administration (`token`, `rules`, `advisories`) renvoient `0` en cas de succès
+Les commandes d'administration (`token`, `enroll`, `rules`, `advisories`) renvoient `0` en cas de succès
 et `2` en cas d'erreur (identifiant inconnu, pack invalide…), avec l'erreur en JSON sur stderr.
 
 Chaque commande accepte `--help` pour la liste complète de ses options.

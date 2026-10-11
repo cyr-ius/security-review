@@ -32,17 +32,24 @@ def whoami(request: Request) -> PlainTextResponse:
     return PlainTextResponse(f"{state.get('auth_client')}/{state.get('auth_role')}")
 
 
-def protected_client(web: bool = False) -> TestClient:
+def enrollment_echo(request: Request) -> PlainTextResponse:
+    """Stand-in for the enrollment server: echo the pending token id it receives."""
+    return PlainTextResponse(f"enroll/{request.scope['state']['enrollment_token_id']}")
+
+
+def protected_client(web: bool = False, enrollment: bool = False) -> TestClient:
     app = Starlette(
         routes=[
             Route("/mcp", whoami),
             Route("/api/v1/me", whoami),
+            Route("/api/v1/enroll", whoami, methods=["POST"]),
             Route("/api/docs", whoami),
             Route("/api/openapi.json", whoami),
             Route("/ui/", whoami),
         ]
     )
-    return TestClient(BearerAuthMiddleware(app, STORE, web=web))
+    enrollment_app = Starlette(routes=[Route("/mcp", enrollment_echo)]) if enrollment else None
+    return TestClient(BearerAuthMiddleware(app, STORE, web=web, enrollment_app=enrollment_app))
 
 
 # ── Middleware ───────────────────────────────────────────────────────────────
@@ -113,6 +120,49 @@ def test_without_any_token_mcp_is_open_and_the_web_api_not_configured():
     assert response.json()["error"] == "authentication_not_configured"
     assert client.get("/mcp").status_code == 200
     assert protected_client().get("/mcp").status_code == 200
+
+
+def test_enrollment_app_receives_mcp_clients_without_an_approved_token():
+    token_store.create_token("ops", Role.ADMIN)
+    request = token_store.request_enrollment("shop-api")
+    client = protected_client(web=True, enrollment=True)
+
+    assert client.get("/mcp").text == "enroll/None"
+    # Hosts send an empty bearer value when the token input or variable is left empty
+    for empty in ("Bearer ", "Bearer    ", "bearer"):
+        assert client.get("/mcp", headers={"Authorization": empty}).text == "enroll/None"
+    assert client.get("/mcp", headers=bearer(request["token"])).text == f"enroll/{request['id']}"
+    # A wrong token is still an error, and the REST API never falls back to enrollment
+    assert client.get("/mcp", headers=bearer("x" * 40)).status_code == 401
+    assert client.get("/api/v1/me").status_code == 401
+    response = client.get("/api/v1/me", headers=bearer(request["token"]))
+    assert response.status_code == 403
+    assert response.json()["error"] == "enrollment_pending"
+    # The enrollment endpoint itself is public
+    assert client.post("/api/v1/enroll").status_code == 200
+
+    token_store.approve_enrollment(request["id"])
+    assert client.get("/mcp", headers=bearer(request["token"])).text == f"{request['label']}/mcp"
+
+
+def test_pending_token_is_refused_without_enrollment_app():
+    token_store.create_token("ops", Role.ADMIN)
+    request = token_store.request_enrollment("shop-api")
+    client = protected_client()
+
+    assert client.get("/mcp").status_code == 401
+    response = client.get("/mcp", headers=bearer(request["token"]))
+    assert response.status_code == 403
+    assert response.json()["error"] == "enrollment_pending"
+
+
+def test_pending_requests_do_not_close_an_open_server():
+    token_store.request_enrollment("shop-api")
+
+    client = protected_client(web=True, enrollment=True)
+
+    assert client.get("/mcp").text == "None/None"
+    assert client.get("/api/v1/me").status_code == 503
 
 
 def test_tokens_are_checked_in_the_database_on_each_request():
@@ -204,7 +254,9 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     cert.write_text("x", encoding="utf-8")
     key.write_text("x", encoding="utf-8")
     token_store.create_token("ci", Role.MCP)
-    monkeypatch.setattr(server, "get_settings", lambda: make_settings(web_ui=False))
+    monkeypatch.setattr(
+        server, "get_settings", lambda: make_settings(web_ui=False, enrollment=False)
+    )
 
     server.main(
         [
@@ -218,6 +270,28 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     assert (call["host"], call["port"]) == ("0.0.0.0", 8443)
     assert (call["ssl_certfile"], call["ssl_keyfile"]) == (str(cert), str(key))
     assert TestClient(call["app"]).get("/mcp").status_code == 401
+
+
+@pytest.mark.parametrize("enabled", [True, False])
+def test_main_serves_the_enrollment_server_when_enabled(monkeypatch, captured_run, enabled):
+    token_store.create_token("ops", Role.ADMIN)
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings(enrollment=enabled))
+
+    server.main(["--transport", "streamable-http"])
+
+    (call,) = captured_run
+    assert (call["app"].enrollment_app is not None) is enabled
+    with TestClient(call["app"], base_url="http://127.0.0.1:8000") as client:
+        response = client.post(
+            "/mcp",
+            headers={"Accept": "application/json, text/event-stream"},
+            json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        )
+    if enabled:
+        tools = {tool["name"] for tool in response.json()["result"]["tools"]}
+        assert tools == {"request_enrollment", "get_enrollment_status"}
+    else:
+        assert response.status_code == 401
 
 
 def test_main_logs_bootstrap_password_only_when_created(monkeypatch, caplog, captured_run):
@@ -325,6 +399,36 @@ def test_token_create_list_revoke(capsys):
 def test_token_command_errors(capsys, argv, message):
     assert cli.run(["token", *argv]) == cli.EXIT_ERROR
     assert message in json.loads(capsys.readouterr().err)["error"]
+
+
+def test_token_approve_and_reject_enrollment_requests(capsys):
+    first = token_store.request_enrollment("shop-api", label="shop-dev")
+    second = token_store.request_enrollment("billing")
+
+    code, pending = run_cli(capsys, "list", "--pending")
+    assert code == cli.EXIT_PASSED
+    assert [item["label"] for item in pending] == [first["label"], second["label"]]
+    assert first["token"] not in json.dumps(pending)
+
+    code, approved = run_cli(capsys, "approve", first["label"])
+    assert code == cli.EXIT_PASSED and approved["status"] == "active"
+    assert STORE.lookup(hash_token(first["token"])).pending is False
+
+    code, rejected = run_cli(capsys, "reject", second["id"])
+    assert code == cli.EXIT_PASSED and rejected["label"] == second["label"]
+    assert STORE.lookup(hash_token(second["token"])) is None
+    assert run_cli(capsys, "list", "--pending")[1] == []
+
+    assert cli.run(["token", "approve", first["label"]]) == cli.EXIT_ERROR
+    assert "not found" in json.loads(capsys.readouterr().err)["error"]
+
+
+def test_revoking_the_last_active_token_warns_despite_pending_requests(capsys):
+    token_store.request_enrollment("shop-api")
+    token_store.create_token("ci", Role.MCP)
+
+    assert cli.run(["token", "revoke", "ci"]) == cli.EXIT_PASSED
+    assert "No token left" in capsys.readouterr().err
 
 
 def test_token_create_rejects_duplicate_labels(capsys):

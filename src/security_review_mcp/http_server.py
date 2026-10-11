@@ -7,12 +7,17 @@ uvicorn directly.
 
 The same server can also expose the web interface (REST API under ``/api`` and the Angular
 application under ``/ui``). Each token carries a role that decides which part it may use.
+
+With enrollment, an MCP client that presents no token (or a token still waiting for approval)
+is not rejected but sent to a restricted MCP server that only lets it request a project token.
 """
 
 import hashlib
 import json
 import logging
 import ssl
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -21,6 +26,7 @@ from typing import Any, Protocol
 import anyio.to_thread
 import uvicorn
 from mcp.server.mcpserver import MCPServer
+from starlette.applications import Starlette
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -52,16 +58,22 @@ TRIAGE_ROLES = frozenset({Role.TRIAGER, Role.ADMIN})
 # Paths served by the web interface; everything else goes to the MCP app
 API_PREFIX = "/api/"
 UI_PREFIX = "/ui"
+# Public REST endpoint where a client without a token requests one (see web_api)
+ENROLL_PATH = "/api/v1/enroll"
 
 
 @dataclass(frozen=True)
 class TokenInfo:
-    """Identity attached to a token: a label for the logs and a role."""
+    """Identity attached to a token: a label for the logs and a role.
+
+    ``pending`` marks an enrollment request not approved yet: it grants no access.
+    """
 
     label: str
     role: Role = DEFAULT_ROLE
     project: str | None = None
     token_id: str | None = None
+    pending: bool = False
 
 
 class TokenStore(Protocol):
@@ -83,15 +95,26 @@ def hash_token(token: str) -> bytes:
 
 
 def is_public_path(path: str) -> bool:
-    """Paths that expose only the web UI shell or API documentation without a token."""
-    return path in ("/", UI_PREFIX, "/api/docs", "/api/openapi.json") or path.startswith(
-        UI_PREFIX + "/"
+    """Paths reachable without a token: the web UI shell, the API documentation and the
+    enrollment endpoint (which checks itself whether enrollment is enabled)."""
+    return path in ("/", UI_PREFIX, "/api/docs", "/api/openapi.json", ENROLL_PATH) or (
+        path.startswith(UI_PREFIX + "/")
     )
 
 
 def is_web_path(path: str) -> bool:
     """True for the paths of the web interface (REST API, Angular application, root)."""
     return path.startswith(API_PREFIX) or is_public_path(path)
+
+
+def has_credentials(authorization: str) -> bool:
+    """False for a missing header or an empty ``Bearer`` value.
+
+    MCP hosts send ``Authorization: Bearer `` when the token input or variable is left empty:
+    such a client has no token yet and is treated like one that sends no header.
+    """
+    scheme, _, credentials = authorization.strip().partition(" ")
+    return bool(scheme) and not (scheme.lower() == "bearer" and not credentials.strip())
 
 
 class BearerAuthMiddleware:
@@ -103,12 +126,24 @@ class BearerAuthMiddleware:
     interface are public, the REST API needs a web role and the MCP endpoint an MCP role.
     While ``store`` holds no token at all, the MCP endpoint is open and the REST API answers
     503 (authentication not configured).
+
+    ``enrollment_app`` receives the MCP requests sent without an ``Authorization`` header (or
+    with an empty bearer value) or with a pending enrollment token;
+    ``scope["state"]["enrollment_token_id"]`` then holds the id of that pending token (None
+    without a token). Without it they get 401 / 403.
     """
 
-    def __init__(self, app: ASGIApp, store: TokenStore, web: bool = False) -> None:
+    def __init__(
+        self,
+        app: ASGIApp,
+        store: TokenStore,
+        web: bool = False,
+        enrollment_app: ASGIApp | None = None,
+    ) -> None:
         self.app = app
         self.store = store
         self.web = web
+        self.enrollment_app = enrollment_app
 
     async def identify(self, authorization: str) -> TokenInfo | None:
         """Return the identity of the presented bearer token, or None."""
@@ -152,10 +187,26 @@ class BearerAuthMiddleware:
 
         client = scope.get("client")
         address = client[0] if client else "unknown"
-        info = await self.identify(Headers(scope=scope).get("authorization", ""))
+        authorization = Headers(scope=scope).get("authorization", "")
+        is_mcp = not (self.web and path.startswith(API_PREFIX))
+        if is_mcp and self.enrollment_app is not None and not has_credentials(authorization):
+            await self.enroll(scope, receive, send, None)
+            return
+        info = await self.identify(authorization)
         if info is None:
             logger.warning("Rejected unauthenticated request from %s to %s", address, path)
             await _send_error(send, 401, "invalid_token", "Missing or invalid bearer token")
+            return
+        if info.pending:
+            if is_mcp and self.enrollment_app is not None:
+                await self.enroll(scope, receive, send, info.token_id)
+                return
+            await _send_error(
+                send,
+                403,
+                "enrollment_pending",
+                "This token is waiting for an administrator to approve its enrollment",
+            )
             return
         if info.role not in self.allowed_roles(path):
             logger.warning(
@@ -171,6 +222,16 @@ class BearerAuthMiddleware:
         state["auth_role"] = info.role
         state["auth_project"] = info.project
         await self.app(scope, receive, send)
+
+    async def enroll(
+        self, scope: Scope, receive: Receive, send: Send, token_id: str | None
+    ) -> None:
+        """Forward a request to the enrollment MCP server, with the pending token id if any."""
+        if self.enrollment_app is None:
+            raise RuntimeError("Enrollment is not enabled")
+        state = scope.setdefault("state", {})
+        state["enrollment_token_id"] = token_id
+        await self.enrollment_app(scope, receive, send)
 
 
 async def _send_error(send: Send, status: int, error: str, description: str) -> None:
@@ -253,20 +314,45 @@ def tls_options(settings: Settings) -> TLSOptions | None:
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 
+def _enrollment_app(main: Starlette, enrollment_server: MCPServer, host: str) -> Starlette:
+    """Build the enrollment MCP app and run its session manager with the main one.
+
+    Lifespan events only reach the main MCP app, so its lifespan also starts the session
+    manager of the enrollment server. That server keeps no session (stateless, JSON answers).
+    """
+    app = enrollment_server.streamable_http_app(host=host, stateless_http=True, json_response=True)
+    manager = enrollment_server.session_manager
+    main_lifespan = main.router.lifespan_context
+
+    @asynccontextmanager
+    async def lifespan(application: Starlette) -> AsyncIterator[Any]:
+        async with manager.run(), main_lifespan(application) as state:
+            yield state
+
+    main.router.lifespan_context = lifespan
+    return app
+
+
 def build_app(
     server: MCPServer,
     host: str,
     store: TokenStore,
     web_app: ASGIApp | None = None,
+    enrollment_server: MCPServer | None = None,
 ) -> ASGIApp:
     """Build the streamable HTTP app, protected by the bearer tokens of ``store``.
 
     ``web_app`` (see web_api.create_app) is served next to MCP under ``/api`` and ``/ui``.
+    ``enrollment_server`` answers the MCP clients that have no token yet.
     """
-    app: ASGIApp = server.streamable_http_app(host=host)
+    main = server.streamable_http_app(host=host)
+    enrollment_app = (
+        _enrollment_app(main, enrollment_server, host) if enrollment_server is not None else None
+    )
+    app: ASGIApp = main
     if web_app is not None:
         app = PathDispatcher(app, web_app)
-    return BearerAuthMiddleware(app, store, web=web_app is not None)
+    return BearerAuthMiddleware(app, store, web=web_app is not None, enrollment_app=enrollment_app)
 
 
 def run(
@@ -277,6 +363,7 @@ def run(
     tls: TLSOptions | None,
     log_level: str = "INFO",
     web_app: ASGIApp | None = None,
+    enrollment_server: MCPServer | None = None,
 ) -> None:
     """Serve the MCP server over streamable HTTP, with optional authentication and TLS.
 
@@ -303,9 +390,11 @@ def run(
         )
     if web_app is not None:
         logger.info("Web interface enabled on /ui (REST API on /api/v1)")
+    if enrollment_server is not None:
+        logger.info("Enrollment enabled: clients without a token may request one")
 
     uvicorn.run(
-        build_app(server, host, store, web_app),
+        build_app(server, host, store, web_app, enrollment_server),
         host=host,
         port=port,
         log_level=log_level.lower(),

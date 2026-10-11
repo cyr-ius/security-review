@@ -6,6 +6,7 @@ import {
   FindingStatus,
   CustomRuleCatalog,
   CustomRuleWrite,
+  EnrollmentRequest,
   Identity,
   ProjectSummary,
   ProjectToken,
@@ -46,10 +47,9 @@ export class ApiService {
   }
 
   setCustomRuleEnabled(id: string, enabled: boolean): Observable<RuleReloadResult> {
-    return this.http.patch<RuleReloadResult>(
-      `${API_URL}/rules/${encodeURIComponent(id)}/enabled`,
-      { enabled },
-    );
+    return this.http.patch<RuleReloadResult>(`${API_URL}/rules/${encodeURIComponent(id)}/enabled`, {
+      enabled,
+    });
   }
 
   reloadCustomRules(): Observable<RuleReloadResult> {
@@ -70,6 +70,21 @@ export class ApiService {
 
   deleteProjectToken(id: string): Observable<void> {
     return this.http.delete<void>(`${API_URL}/project-tokens/${encodeURIComponent(id)}`);
+  }
+
+  enrollments(): Observable<EnrollmentRequest[]> {
+    return this.http.get<EnrollmentRequest[]>(`${API_URL}/enrollments`);
+  }
+
+  approveEnrollment(id: string): Observable<EnrollmentRequest> {
+    return this.http.post<EnrollmentRequest>(
+      `${API_URL}/enrollments/${encodeURIComponent(id)}/approve`,
+      {},
+    );
+  }
+
+  rejectEnrollment(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/enrollments/${encodeURIComponent(id)}`);
   }
 
   reports(query: ReportQuery): Observable<ReportSummary[]> {

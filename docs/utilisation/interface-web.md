@@ -36,7 +36,10 @@ security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
   `security-review-mcp rules`.
 - **Jetons** : les administrateurs créent et révoquent des jetons en lecture limités à un projet.
   Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
-  données. Une révocation prend effet à la requête suivante.
+  données. Une révocation prend effet à la requête suivante. La section **Demandes en attente**
+  liste les jetons demandés par les projets ([enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton)) avec le
+  demandeur, son adresse et la date : **Approuver** active le jeton (rôle `mcp`, restreint au
+  projet), **Refuser** le supprime. Les jetons approuvés rejoignent la liste des jetons actifs.
 
 ## Rôles
 
@@ -88,6 +91,10 @@ INFO security_review_mcp.web: Finding 42 set to accepted by alice
 - Les fichiers statiques de `/ui/` sont publics (ils ne contiennent aucune donnée) ; l'API
   `/api/v1/` exige un jeton `reader`, `triager` ou `admin`. La documentation Swagger (`/api/docs`)
   et son schéma (`/api/openapi.json`) sont publics et ne donnent accès à aucune donnée.
+- `POST /api/v1/enroll` est public quand l'[enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton) est actif : il
+  crée seulement une demande en attente, sans aucun accès tant qu'un administrateur ne l'a pas
+  approuvée (`GET /api/v1/enrollments`, `POST /api/v1/enrollments/{id}/approve`,
+  `DELETE /api/v1/enrollments/{id}`, rôle `admin`).
 - Le jeton est envoyé dans l'en-tête `Authorization` : pas de cookie, donc pas de CSRF.
 - Il est conservé dans le `sessionStorage` de l'onglet et disparaît à sa fermeture.
 - Les pages sont servies avec une CSP stricte (`script-src 'self'`, aucune ressource externe),
@@ -102,6 +109,7 @@ INFO security_review_mcp.web: Finding 42 set to accepted by alice
 | `SECREVIEW_WEB_UI` | `true` | Active l'API REST et l'interface sur le transport HTTP |
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Génère le mot de passe admin initial (stocké en base) ; `true` dans Docker |
+| `SECREVIEW_ENROLLMENT` | `true` | Demandes de jetons par les projets, validées dans l'écran **Jetons** |
 
 Le paquet publié et l'image Docker contiennent l'application déjà compilée. Si vous installez
 depuis les sources sans la compiler, seule l'API REST est servie et un avertissement est

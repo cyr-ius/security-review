@@ -13,9 +13,10 @@ rapports (SQLite ou PostgreSQL) exploitable en pipeline.
 |---|---|
 | **Prompts** | `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review`, `triage-report` |
 | **Outils** | checklists, `scan_code`, `scan_dependencies`, enregistrement / lecture / triage des rapports, posture et gate projet, export SARIF, tendances, gestion des règles |
-| **CLI** | `gate`, `sarif`, `trend`, `code scan`, `deps scan`, `advisories`, `rules`, `token` (codes de sortie 0 / 1 / 2) |
+| **CLI** | `gate`, `sarif`, `trend`, `code scan`, `deps scan`, `advisories`, `rules`, `token`, `enroll` (codes de sortie 0 / 1 / 2) |
 | **Règles** | Python, Java, Angular, configuration, GitLab CI, Jenkins, Spring, FastAPI, copiées en base au premier lancement, plus vos [règles internes](https://cyr-ius.github.io/security-review-mcp/utilisation/regles/) (import/export TOML) |
 | **Transport** | stdio ou HTTP, avec jetons Bearer stockés en base (CLI `token`) et TLS (mutuel) facultatifs |
+| **Enrôlement** | un projet [demande son jeton](https://cyr-ius.github.io/security-review-mcp/demarrage/http/#enrolement-un-projet-demande-son-jeton) dès sa première revue (outil MCP `request_enrollment` ou CLI `enroll`), un administrateur le valide |
 | **Interface web** | tableau de bord, triage, [règles internes et jetons projet](https://cyr-ius.github.io/security-review-mcp/utilisation/interface-web/), mot de passe admin initial dans les logs Docker |
 
 Détail : [prompts et outils](https://cyr-ius.github.io/security-review-mcp/utilisation/prompts-outils/),

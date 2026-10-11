@@ -171,7 +171,8 @@ class AdvisoryAffected(SQLModel, table=True):
 class ApiToken(SQLModel, table=True):
     """Bearer token of the HTTP transport (CLI, bootstrap admin, web project tokens).
 
-    Only the SHA-256 digest of the secret is stored.
+    Only the SHA-256 digest of the secret is stored. An enrollment request is a token whose
+    status is ``pending``: it authenticates nothing until an administrator approves it.
     """
 
     id: str = Field(primary_key=True, max_length=64)
@@ -180,6 +181,11 @@ class ApiToken(SQLModel, table=True):
     project: str | None = Field(default=None, index=True, max_length=200)
     token_hash: str = Field(unique=True, index=True, max_length=64)  # hex SHA-256
     created_at: datetime = Field(default_factory=utcnow)
+    # "active" or "pending"; None (rows created before enrollment existed) means active
+    status: str | None = Field(default=None, max_length=20)
+    # Who asked for the token (free text given by the requester) and from which address
+    requested_by: str | None = Field(default=None, max_length=200)
+    requested_from: str | None = Field(default=None, max_length=64)
 
 
 # ── Rules (managed with `security-review-mcp rules` and the web interface) ──

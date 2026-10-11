@@ -1,8 +1,8 @@
 """Command line helpers for pipelines and administrators (no MCP client or agent needed).
 
-Commands: ``gate``, ``sarif``, ``trend``, ``advisories``, ``deps``, ``code``, ``rules`` and
-``token``. Exit codes follow the same convention everywhere: 0 success, 1 blocked (gate / findings
-found), 2 usage or data error.
+Commands: ``gate``, ``sarif``, ``trend``, ``advisories``, ``deps``, ``code``, ``rules``,
+``token`` and ``enroll``. Exit codes follow the same convention everywhere: 0 success, 1 blocked
+(gate / findings found), 2 usage or data error.
 """
 
 import argparse
@@ -18,6 +18,7 @@ from . import (
     advisories,
     codescan,
     depscan,
+    enrollment,
     http_server,
     registry,
     rule_store,
@@ -454,8 +455,15 @@ def token_command(argv: list[str]) -> int:
     )
     lister = actions.add_parser("list", help="list the tokens (never their secret or hash)")
     lister.add_argument("--project", help="only the tokens restricted to this project")
+    lister.add_argument(
+        "--pending", action="store_true", help="only the enrollment requests waiting for approval"
+    )
     revoker = actions.add_parser("revoke", help="delete a token by id or label")
     revoker.add_argument("token", help="token id or label")
+    approver = actions.add_parser("approve", help="approve a pending enrollment request")
+    approver.add_argument("token", help="request id or label")
+    rejecter = actions.add_parser("reject", help="reject (delete) a pending enrollment request")
+    rejecter.add_argument("token", help="request id or label")
     actions.add_parser("reset-admin", help="replace the bootstrap administrator password")
     args = parser.parse_args(argv)
 
@@ -464,10 +472,14 @@ def token_command(argv: list[str]) -> int:
         if args.action == "create":
             result: object = token_store.create_token(args.label, args.role, args.project)
         elif args.action == "list":
-            result = token_store.list_tokens(args.project)
+            result = token_store.list_tokens(args.project, args.pending)
+        elif args.action == "approve":
+            result = token_store.approve_enrollment(args.token)
+        elif args.action == "reject":
+            result = token_store.reject_enrollment(args.token)
         elif args.action == "revoke":
             result = token_store.revoke_token(args.token)
-            if not token_store.list_tokens():
+            if not token_store.DatabaseTokenStore().has_tokens():
                 # Without any token the HTTP transport no longer requires authentication
                 print(
                     json.dumps({"warning": "No token left: the MCP endpoint is now open"}),
@@ -476,6 +488,46 @@ def token_command(argv: list[str]) -> int:
         else:
             password = token_store.reset_bootstrap_admin()
             result = {"label": token_store.BOOTSTRAP_LABEL, "token": password}
+    except ValueError as exc:
+        return _fail(str(exc))
+    print(json.dumps(result, indent=2))
+    return EXIT_PASSED
+
+
+# ── enroll ───────────────────────────────────────────────────────────────────
+
+
+def enroll_command(argv: list[str]) -> int:
+    """Run ``security-review-mcp enroll``: request a project token from a shared server."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-mcp enroll",
+        description="Request a token restricted to one project from a shared server. The token "
+        "is printed once and works after an administrator approves the request.",
+    )
+    parser.add_argument(
+        "--url", required=True, help="server URL, for example https://secreview.example.com"
+    )
+    parser.add_argument("--project", required=True, help="project name used for the reports")
+    parser.add_argument(
+        "--label", help="name of the token (default: the project); a random suffix is added"
+    )
+    parser.add_argument("--requested-by", help="who asks (name, email or team), for the admin")
+    parser.add_argument("--cafile", help="CA bundle used to verify the server certificate")
+    parser.add_argument(
+        "--allow-http",
+        action="store_true",
+        help="allow plain HTTP to a non-loopback server (the token would travel in clear)",
+    )
+    args = parser.parse_args(argv)
+    try:
+        result = enrollment.request_enrollment(
+            args.url,
+            args.project,
+            label=args.label,
+            requested_by=args.requested_by,
+            cafile=args.cafile,
+            allow_http=args.allow_http,
+        )
     except ValueError as exc:
         return _fail(str(exc))
     print(json.dumps(result, indent=2))
@@ -597,6 +649,7 @@ COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "code": code_command,
     "rules": rules_command,
     "token": token_command,
+    "enroll": enroll_command,
 }
 
 
