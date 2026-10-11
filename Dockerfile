@@ -8,9 +8,9 @@
 # stdio (developer workstation, the MCP host starts the container itself):
 #   docker run -i --rm -v secreview-data:/data security-review-mcp
 #
-# Streamable HTTP (shared server, MCP on /mcp and web interface on /ui). Enable the built-in
-# bearer authentication and TLS (SECREVIEW_AUTH_TOKENS_FILE, SECREVIEW_TLS_CERTFILE,
-# SECREVIEW_TLS_KEYFILE) or put the server behind a reverse proxy that enforces them:
+# Streamable HTTP (shared server, MCP on /mcp and web interface on /ui). Bearer tokens are
+# stored in the database (`security-review-mcp token create`); enable TLS (SECREVIEW_TLS_CERTFILE,
+# SECREVIEW_TLS_KEYFILE) or put the server behind a reverse proxy that enforces it:
 #   docker run -d -p 127.0.0.1:8000:8000 -v secreview-data:/data security-review-mcp \
 #       --transport streamable-http --host 0.0.0.0 --port 8000
 
@@ -83,8 +83,9 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     SECREVIEW_DATABASE_URL=sqlite:////data/security_reports.db \
-    SECREVIEW_AUTH_BOOTSTRAP_FILE=/data/admin-token \
-    SECREVIEW_AUTH_MANAGED_TOKENS_FILE=/data/project-tokens.json
+    SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true
+
+# The admin password hash and the project tokens are stored in the database
 
 # Reports database (SQLite) lives in the volume; rules can be mounted read-only, e.g.
 #   -v ./rules.d:/etc/security-review-mcp/rules.d:ro -e SECREVIEW_RULES_DIR=/etc/security-review-mcp/rules.d

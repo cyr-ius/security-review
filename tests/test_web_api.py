@@ -1,19 +1,16 @@
 """Web interface: REST API, permissions and static files."""
 
 import pytest
+from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
-from security_review_mcp import http_server, registry, server, services, web_api
-from security_review_mcp.config import Settings
-from security_review_mcp.http_server import parse_tokens
-from security_review_mcp.models import FindingCreate, Severity
+from security_review_mcp import http_server, registry, server, services, token_store, web_api
+from security_review_mcp.database import session_scope
+from security_review_mcp.http_server import Role
+from security_review_mcp.models import ApiToken, FindingCreate, Severity
 
-TOKENS = {
-    "reader": "r" * 32,
-    "triager": "t" * 32,
-    "mcp": "m" * 32,
-    "admin": "a" * 32,
-}
+# Raw secret of one token per role, created in the database by the ``secured`` fixture
+TOKENS: dict[str, str] = {}
 
 
 def make_finding(severity: Severity = Severity.HIGH, **kwargs) -> FindingCreate:
@@ -38,10 +35,15 @@ def client(ui_dir) -> TestClient:
 
 @pytest.fixture
 def secured(ui_dir) -> TestClient:
-    """The full HTTP app (MCP + web) protected by role tokens."""
-    tokens = parse_tokens(f"{role}:{role}:{token}" for role, token in TOKENS.items())
+    """The full HTTP app (MCP + web) protected by one token per role."""
+    TOKENS.clear()
+    for role in Role:
+        TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
     app = http_server.build_app(
-        server.mcp, "127.0.0.1", tokens, web_api.create_app(ui_dir=str(ui_dir))
+        server.mcp,
+        "127.0.0.1",
+        token_store.DatabaseTokenStore(),
+        web_api.create_app(ui_dir=str(ui_dir)),
     )
     return TestClient(app, base_url="http://127.0.0.1")
 
@@ -267,13 +269,7 @@ def test_openapi_marks_api_operations_as_bearer_protected(secured):
     assert secured.get("/api/v1/projects").status_code == 401
 
 
-def test_admin_creates_project_token_scoped_to_one_project(secured, reports, tmp_path, monkeypatch):
-    token_file = tmp_path / "project-tokens.json"
-    monkeypatch.setattr(
-        web_api,
-        "get_settings",
-        lambda: Settings(_env_file=None, auth_managed_tokens_file=str(token_file)),
-    )
+def test_admin_creates_project_token_scoped_to_one_project(secured, reports, database):
     shop_report_id, billing_report_id = reports
     created_response = secured.post(
         "/api/v1/project-tokens",
@@ -284,14 +280,16 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, reports, tmp
     assert created_response.status_code == 201
     created = created_response.json()
     token = created["token"]
-    stored = token_file.read_text(encoding="utf-8")
-    assert token not in stored
-    assert http_server.hash_token(token).removeprefix("sha256:") in stored
+    with Session(database) as session:
+        row = session.exec(select(ApiToken).where(ApiToken.label == "shop-ci")).one()
+    assert (row.label, row.role, row.project) == ("shop-ci", "reader", "shop-api")
+    assert row.token_hash == http_server.hash_token(token).hex()
+    assert token not in row.model_dump_json()
 
     listed = secured.get("/api/v1/project-tokens", headers=auth("admin"))
     assert listed.status_code == 200
     assert listed.json() == [
-        {key: created[key] for key in ("id", "label", "project", "created_at")}
+        {key: created[key] for key in ("id", "label", "role", "project", "created_at")}
     ]
     assert token not in listed.text
     assert "sha256" not in listed.text
@@ -387,19 +385,44 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, reports, tmp
     revoked = secured.delete(f"/api/v1/project-tokens/{created['id']}", headers=auth("admin"))
     assert revoked.status_code == 204
     assert secured.get("/api/v1/me", headers=project_headers).status_code == 401
-    assert token not in token_file.read_text(encoding="utf-8")
+    assert secured.get("/api/v1/project-tokens", headers=auth("admin")).json() == []
 
 
-def test_project_token_management_requires_a_configured_file(secured, reports, monkeypatch):
-    monkeypatch.setattr(web_api, "get_settings", lambda: Settings(_env_file=None))
+def test_project_token_errors(secured, reports):
+    def create(label: str, project: str = "shop-api"):
+        return secured.post(
+            "/api/v1/project-tokens",
+            json={"label": label, "project": project},
+            headers=auth("admin"),
+        )
 
-    assert secured.get("/api/v1/project-tokens", headers=auth("admin")).status_code == 503
-    response = secured.post(
-        "/api/v1/project-tokens",
-        json={"label": "ci", "project": "shop-api"},
-        headers=auth("admin"),
-    )
-    assert response.status_code == 503
+    assert create("ci").status_code == 201
+    # Labels are unique among all the tokens
+    assert create("ci").status_code == 422
+    assert create("triager").status_code == 422
+    assert create("other", "unknown-project").status_code == 404
+    assert create("x" * 65).status_code == 422
+    deleted = secured.delete("/api/v1/project-tokens/unknown", headers=auth("admin"))
+    assert deleted.status_code == 404
+    assert secured.get("/api/v1/project-tokens", headers=auth("triager")).status_code == 403
+
+
+def test_bootstrap_admin_cannot_be_revoked_as_a_project_token(secured):
+    token_store.ensure_bootstrap_admin()
+    (row_id,) = [row.id for row in _stored_tokens() if row.label == "bootstrap-admin"]
+
+    response = secured.delete(f"/api/v1/project-tokens/{row_id}", headers=auth("admin"))
+
+    assert response.status_code == 404
+    assert "bootstrap-admin" in {row.label for row in _stored_tokens()}
+
+
+def _stored_tokens() -> list[ApiToken]:
+    with session_scope() as session:
+        rows = session.exec(select(ApiToken)).all()
+        for row in rows:
+            session.expunge(row)
+        return list(rows)
 
 
 # ── Static files ─────────────────────────────────────────────────────────────
@@ -428,3 +451,23 @@ def test_loopback_server_rejects_foreign_host(ui_dir):
     app = web_api.create_app(host="127.0.0.1", ui_dir=str(ui_dir))
     for base_url, expected in (("http://evil.example", 400), ("http://localhost:8000", 200)):
         assert TestClient(app, base_url=base_url).get("/api/v1/health").status_code == expected
+
+
+def test_project_triager_only_changes_findings_of_its_project(secured, reports):
+    shop_report_id, _ = reports
+    billing = services.save_report("billing", "Billing review", [make_finding()])
+    billing_finding = services.get_report(billing["report_id"]).findings[0].id
+    shop_finding = services.get_report(shop_report_id).findings[0].id
+    token = token_store.create_token("shop-triage", Role.TRIAGER, "shop-api")["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = secured.patch(
+        f"/api/v1/findings/{billing_finding}", json={"status": "accepted"}, headers=headers
+    )
+    assert response.status_code == 404
+    assert services.get_report(billing["report_id"]).findings[0].status == "open"
+    response = secured.patch(
+        f"/api/v1/findings/{shop_finding}", json={"status": "fixed"}, headers=headers
+    )
+    assert response.status_code == 200
+    assert secured.get("/mcp", headers=headers).status_code == 403

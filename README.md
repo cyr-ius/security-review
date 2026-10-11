@@ -15,7 +15,7 @@ rapports (SQLite ou PostgreSQL) exploitable en pipeline.
 | **Outils** | checklists, `scan_code`, `scan_dependencies`, enregistrement / lecture / triage des rapports, posture et gate projet, export SARIF, tendances, gestion des règles |
 | **CLI** | `gate`, `sarif`, `trend`, `code scan`, `deps scan`, `advisories`, `token` (codes de sortie 0 / 1 / 2) |
 | **Règles** | Python, Java, Angular, configuration, GitLab CI, Jenkins, Spring, FastAPI, plus vos [règles internes](https://cyr-ius.github.io/security-review-mcp/utilisation/regles/) en TOML |
-| **Transport** | stdio ou HTTP, avec jetons Bearer et TLS (mutuel) facultatifs |
+| **Transport** | stdio ou HTTP, avec jetons Bearer stockés en base (CLI `token`) et TLS (mutuel) facultatifs |
 | **Interface web** | tableau de bord, triage, [règles TOML et jetons projet](https://cyr-ius.github.io/security-review-mcp/utilisation/interface-web/), mot de passe admin initial dans les logs Docker |
 
 Détail : [prompts et outils](https://cyr-ius.github.io/security-review-mcp/utilisation/prompts-outils/),

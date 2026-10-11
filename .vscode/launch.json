@@ -11,8 +11,7 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
-        "SECREVIEW_AUTH_BOOTSTRAP_FILE": "${workspaceFolder}/.venv/admin-token",
-        "SECREVIEW_AUTH_MANAGED_TOKENS_FILE": "${workspaceFolder}/.venv/project-tokens.json",
+        "SECREVIEW_AUTH_BOOTSTRAP_ADMIN": "true",
         "SECREVIEW_RULES_DIR": "${workspaceFolder}/.venv/rules",
         "SECREVIEW_LOG_LEVEL": "DEBUG"
       },

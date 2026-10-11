@@ -10,24 +10,20 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from security_review_mcp import cli, http_server, server
+from security_review_mcp import cli, http_server, server, token_store
 from security_review_mcp.config import Settings
-from security_review_mcp.http_server import (
-    BearerAuthMiddleware,
-    PathDispatcher,
-    Role,
-    TokenInfo,
-    hash_token,
-    parse_tokens,
-)
+from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
 
-TOKEN = "a" * 32
-OTHER = "b" * 32
+STORE = token_store.DatabaseTokenStore()
 
 
 def make_settings(**values) -> Settings:
     """Settings that ignore the developer's .env file."""
     return Settings(_env_file=None, **values)
+
+
+def bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
 
 
 def whoami(request: Request) -> PlainTextResponse:
@@ -36,7 +32,7 @@ def whoami(request: Request) -> PlainTextResponse:
     return PlainTextResponse(f"{state.get('auth_client')}/{state.get('auth_role')}")
 
 
-def protected_client(tokens: dict[bytes, TokenInfo], web: bool = False) -> TestClient:
+def protected_client(web: bool = False) -> TestClient:
     app = Starlette(
         routes=[
             Route("/mcp", whoami),
@@ -46,166 +42,31 @@ def protected_client(tokens: dict[bytes, TokenInfo], web: bool = False) -> TestC
             Route("/ui/", whoami),
         ]
     )
-    return TestClient(BearerAuthMiddleware(app, tokens, web=web))
-
-
-def labels(tokens: dict[bytes, TokenInfo]) -> list[str]:
-    return sorted(info.label for info in tokens.values())
-
-
-# ── Tokens ───────────────────────────────────────────────────────────────────
-
-
-def test_parse_tokens_plain_hashed_and_labelled():
-    tokens = parse_tokens([TOKEN, f"ci:{hash_token(OTHER)}", "  ", hash_token("c" * 30)])
-    assert labels(tokens) == ["ci", "token-1", "token-3"]
-    assert {info.role for info in tokens.values()} == {Role.MCP}
-
-
-def test_parse_tokens_with_roles():
-    tokens = parse_tokens(
-        [f"alice:triager:{TOKEN}", f"bob:Reader:{hash_token(OTHER)}", f"ops:admin:{'c' * 30}"]
-    )
-    assert {info.label: info.role for info in tokens.values()} == {
-        "alice": Role.TRIAGER,
-        "bob": Role.READER,
-        "ops": Role.ADMIN,
-    }
-
-
-@pytest.mark.parametrize(
-    "entries, message",
-    [
-        (["short"], "too short"),
-        (["sha256:abcd"], "not a valid sha256"),
-        ([f":{TOKEN}"], "empty label"),
-        ([f"ci:{TOKEN}", f"ci:{OTHER}"], "Duplicate"),
-        ([f"ci:boss:{TOKEN}"], "unknown role"),
-    ],
-)
-def test_parse_tokens_rejects_invalid_entries(entries, message):
-    with pytest.raises(ValueError, match=message):
-        parse_tokens(entries)
-
-
-def test_load_tokens_from_env_and_file(tmp_path):
-    path = tmp_path / "tokens"
-    path.write_text(f"# CI runners\nci:{hash_token(OTHER)}\n\n", encoding="utf-8")
-    settings = make_settings(auth_tokens=f"dev:{TOKEN}", auth_tokens_file=str(path))
-    assert labels(http_server.load_tokens(settings)) == ["ci", "dev"]
-
-
-def test_load_tokens_missing_file(tmp_path):
-    settings = make_settings(auth_tokens_file=str(tmp_path / "missing"))
-    with pytest.raises(ValueError, match="Cannot read"):
-        http_server.load_tokens(settings)
-
-
-def test_no_token_means_no_auth():
-    assert http_server.load_tokens(make_settings()) == {}
-
-
-def test_bootstrap_admin_token_is_generated_once_and_persisted_as_hash(tmp_path):
-    path = tmp_path / "admin-token"
-    tokens, password = http_server.ensure_bootstrap_admin_token(path)
-
-    assert password is not None
-    assert tokens == parse_tokens([f"bootstrap-admin:admin:{hash_token(password)}"])
-    assert password not in path.read_text(encoding="utf-8")
-    assert path.stat().st_mode & 0o777 == 0o600
-    client = protected_client(tokens, web=True)
-    headers = {"Authorization": f"Bearer {password}"}
-    assert client.get("/api/v1/me", headers=headers).status_code == 200
-    assert client.get("/mcp", headers=headers).status_code == 200
-
-    restarted_tokens, restarted_password = http_server.ensure_bootstrap_admin_token(path)
-    assert restarted_tokens == tokens
-    assert restarted_password is None
-
-
-def test_bootstrap_admin_token_rejects_empty_existing_file(tmp_path):
-    path = tmp_path / "admin-token"
-    path.touch()
-
-    with pytest.raises(ValueError, match="file is empty"):
-        http_server.ensure_bootstrap_admin_token(path)
-
-
-def test_bootstrap_admin_token_migrates_legacy_role_without_changing_password(tmp_path):
-    path = tmp_path / "admin-token"
-    password = "legacy-bootstrap-password-123456"
-    path.write_text(f"bootstrap-admin:web-admin:{hash_token(password)}\n", encoding="utf-8")
-
-    tokens, initial_password = http_server.ensure_bootstrap_admin_token(path)
-
-    assert initial_password is None
-    assert list(tokens.values()) == [TokenInfo("bootstrap-admin", Role.ADMIN)]
-    assert path.read_text(encoding="utf-8") == (f"bootstrap-admin:admin:{hash_token(password)}\n")
-    assert (
-        protected_client(tokens, web=True)
-        .get("/mcp", headers={"Authorization": f"Bearer {password}"})
-        .status_code
-        == 200
-    )
-
-
-def test_project_tokens_persist_only_hash_and_revoke_immediately(tmp_path):
-    path = tmp_path / "project-tokens.json"
-    active_tokens = parse_tokens([f"admin:admin:{TOKEN}"])
-
-    created = http_server.create_project_token(path, active_tokens, "ci", "shop-api")
-
-    assert created["token"] not in path.read_text(encoding="utf-8")
-    assert (
-        created["token"] not in json.loads(path.read_text(encoding="utf-8"))["tokens"][0]["sha256"]
-    )
-    assert path.stat().st_mode & 0o777 == 0o600
-    token_info = http_server.load_project_tokens(path)
-    assert list(token_info.values()) == [
-        TokenInfo("ci", Role.READER, project="shop-api", token_id=created["id"])
-    ]
-    assert http_server.list_project_tokens(path) == [
-        {key: created[key] for key in ("id", "label", "project", "created_at")}
-    ]
-    assert created["token"] not in str(http_server.list_project_tokens(path))
-
-    active_tokens.update(token_info)
-    http_server.revoke_project_token(path, active_tokens, created["id"])
-    assert created["id"] not in str(http_server.list_project_tokens(path))
-    assert token_info.keys().isdisjoint(active_tokens.keys())
-
-
-def test_project_tokens_reject_duplicate_labels_and_missing_store(tmp_path):
-    path = tmp_path / "project-tokens.json"
-    active_tokens: dict[bytes, TokenInfo] = {}
-    http_server.create_project_token(path, active_tokens, "ci", "shop-api")
-
-    with pytest.raises(ValueError, match="already exists"):
-        http_server.create_project_token(path, active_tokens, "ci", "billing")
-    with pytest.raises(ValueError, match="must be configured"):
-        http_server.create_project_token(None, active_tokens, "ci", "shop-api")
+    return TestClient(BearerAuthMiddleware(app, STORE, web=web))
 
 
 # ── Middleware ───────────────────────────────────────────────────────────────
 
 
 def test_valid_token_is_accepted_and_labelled():
-    client = protected_client(parse_tokens([f"dev:{TOKEN}", f"ci:{hash_token(OTHER)}"]))
-    assert client.get("/mcp", headers={"Authorization": f"Bearer {TOKEN}"}).text == "dev/mcp"
-    assert client.get("/mcp", headers={"Authorization": f"bearer {OTHER}"}).text == "ci/mcp"
+    dev = token_store.create_token("dev", Role.MCP)["token"]
+    client = protected_client()
+    assert client.get("/mcp", headers=bearer(dev)).text == "dev/mcp"
+    assert client.get("/mcp", headers={"Authorization": f"bearer {dev}"}).text == "dev/mcp"
 
 
 @pytest.mark.parametrize(
     "headers",
     [
         {},
-        {"Authorization": f"Basic {TOKEN}"},
+        {"Authorization": "Basic abc"},
         {"Authorization": "Bearer "},
-        {"Authorization": f"Bearer {OTHER}"},
+        {"Authorization": f"Bearer {'x' * 40}"},
     ],
 )
 def test_missing_or_wrong_token_is_rejected(headers):
-    response = protected_client(parse_tokens([TOKEN])).get("/mcp", headers=headers)
+    token_store.create_token("dev", Role.MCP)
+    response = protected_client().get("/mcp", headers=headers)
     assert response.status_code == 401
     assert response.headers["www-authenticate"].startswith("Bearer")
     assert response.json()["error"] == "invalid_token"
@@ -221,10 +82,10 @@ def test_missing_or_wrong_token_is_rejected(headers):
     ],
 )
 def test_roles_select_the_endpoints(role, mcp_status, api_status):
-    client = protected_client(parse_tokens([f"user:{role}:{TOKEN}"]), web=True)
-    headers = {"Authorization": f"Bearer {TOKEN}"}
-    assert client.get("/mcp", headers=headers).status_code == mcp_status
-    response = client.get("/api/v1/me", headers=headers)
+    token = token_store.create_token("user", role)["token"]
+    client = protected_client(web=True)
+    assert client.get("/mcp", headers=bearer(token)).status_code == mcp_status
+    response = client.get("/api/v1/me", headers=bearer(token))
     assert response.status_code == api_status
     if api_status == 403:
         assert response.json()["error"] == "insufficient_scope"
@@ -233,23 +94,41 @@ def test_roles_select_the_endpoints(role, mcp_status, api_status):
 
 
 def test_web_ui_files_are_public_but_not_the_api():
-    client = protected_client(parse_tokens([TOKEN]), web=True)
+    token_store.create_token("dev", Role.MCP)
+    client = protected_client(web=True)
     assert client.get("/ui/").status_code == 200
     assert client.get("/api/v1/me").status_code == 401
     assert client.get("/api/docs").status_code == 200
     assert client.get("/api/openapi.json").status_code == 200
     # Without the web interface, every path needs a token
-    assert protected_client(parse_tokens([TOKEN])).get("/ui/").status_code == 401
+    assert protected_client().get("/ui/").status_code == 401
 
 
-def test_web_ui_requires_configured_authentication_but_keeps_login_assets_public():
-    client = protected_client({}, web=True)
+def test_without_any_token_mcp_is_open_and_the_web_api_not_configured():
+    client = protected_client(web=True)
 
     assert client.get("/ui/").status_code == 200
     response = client.get("/api/v1/me")
     assert response.status_code == 503
     assert response.json()["error"] == "authentication_not_configured"
     assert client.get("/mcp").status_code == 200
+    assert protected_client().get("/mcp").status_code == 200
+
+
+def test_tokens_are_checked_in_the_database_on_each_request():
+    client = protected_client(web=True)
+    password = token_store.ensure_bootstrap_admin()
+    created = token_store.create_project_token("ci", "shop-api")
+    reader = bearer(created["token"])
+    assert client.get("/api/v1/me", headers=bearer(password)).text == "bootstrap-admin/admin"
+    assert client.get("/mcp", headers=bearer(password)).status_code == 200
+    assert client.get("/api/v1/me", headers=reader).text == "ci/reader"
+    assert client.get("/mcp", headers=reader).status_code == 403
+    assert client.get("/mcp").status_code == 401
+
+    # A revocation (from this or another instance) applies to the next request
+    token_store.revoke_token("ci")
+    assert client.get("/api/v1/me", headers=reader).status_code == 401
 
 
 def test_path_dispatcher_routes_web_paths():
@@ -267,12 +146,11 @@ def test_path_dispatcher_routes_web_paths():
     assert client.get("/uix").text == "mcp"
 
 
-def test_build_app_without_tokens_protects_web_api_only():
-    assert not isinstance(http_server.build_app(server.mcp, "127.0.0.1", {}), BearerAuthMiddleware)
-    protected = http_server.build_app(server.mcp, "127.0.0.1", parse_tokens([TOKEN]))
-    assert isinstance(protected, BearerAuthMiddleware)
-    web_protected = http_server.build_app(server.mcp, "127.0.0.1", {}, web_app=Starlette())
-    assert isinstance(web_protected, BearerAuthMiddleware)
+def test_build_app_is_always_protected_by_the_store():
+    app = http_server.build_app(server.mcp, "127.0.0.1", STORE)
+    assert isinstance(app, BearerAuthMiddleware) and not app.web
+    web_app = http_server.build_app(server.mcp, "127.0.0.1", STORE, web_app=Starlette())
+    assert isinstance(web_app, BearerAuthMiddleware) and web_app.web
 
 
 # ── TLS ──────────────────────────────────────────────────────────────────────
@@ -325,7 +203,8 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     cert, key = tmp_path / "cert.pem", tmp_path / "key.pem"
     cert.write_text("x", encoding="utf-8")
     key.write_text("x", encoding="utf-8")
-    monkeypatch.setattr(server, "get_settings", lambda: make_settings(auth_tokens=TOKEN))
+    token_store.create_token("ci", Role.MCP)
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings(web_ui=False))
 
     server.main(
         [
@@ -338,15 +217,11 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     assert isinstance(call["app"], BearerAuthMiddleware)
     assert (call["host"], call["port"]) == ("0.0.0.0", 8443)
     assert (call["ssl_certfile"], call["ssl_keyfile"]) == (str(cert), str(key))
+    assert TestClient(call["app"]).get("/mcp").status_code == 401
 
 
-def test_main_logs_bootstrap_password_only_when_created(
-    tmp_path, monkeypatch, caplog, captured_run
-):
-    path = tmp_path / "admin-token"
-    monkeypatch.setattr(
-        server, "get_settings", lambda: make_settings(auth_bootstrap_file=str(path))
-    )
+def test_main_logs_bootstrap_password_only_when_created(monkeypatch, caplog, captured_run):
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings(auth_bootstrap_admin=True))
 
     with caplog.at_level("WARNING", logger="security_review_mcp"):
         server.main(["--transport", "streamable-http"])
@@ -358,26 +233,20 @@ def test_main_logs_bootstrap_password_only_when_created(
     assert not any(
         "Initial Web UI administrator password" in record.message for record in caplog.records
     )
+    (password,) = [
+        message.rsplit(" ", 1)[1] for message in messages if "administrator password" in message
+    ]
+    client = TestClient(captured_run[-1]["app"], base_url="http://127.0.0.1")
+    identity = client.get("/api/v1/me", headers=bearer(password)).json()
+    assert identity["role"] == "admin"
 
 
-def test_main_loads_project_tokens_from_configured_file(tmp_path, monkeypatch, captured_run):
-    path = tmp_path / "project-tokens.json"
-    active_tokens: dict[bytes, TokenInfo] = {}
-    created = http_server.create_project_token(path, active_tokens, "ci", "shop-api")
-    monkeypatch.setattr(
-        server,
-        "get_settings",
-        lambda: make_settings(auth_managed_tokens_file=str(path)),
-    )
+def test_main_without_bootstrap_setting_creates_no_admin(monkeypatch, captured_run):
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings())
 
     server.main(["--transport", "streamable-http"])
 
-    (call,) = captured_run
-    assert isinstance(call["app"], BearerAuthMiddleware)
-    token_digest = bytes.fromhex(hash_token(created["token"]).removeprefix("sha256:"))
-    assert call["app"].tokens[token_digest] == TokenInfo(
-        "ci", Role.READER, project="shop-api", token_id=created["id"]
-    )
+    assert STORE.has_tokens() is False
 
 
 @pytest.mark.parametrize("web", [True, False])
@@ -393,37 +262,83 @@ def test_run_warns_without_tls_only_when_exposed(
     web_app = Starlette() if web else None
 
     with caplog.at_level("WARNING", logger="security_review_mcp"):
-        http_server.run(server.mcp, host, 8000, {}, tls, web_app=web_app)
+        http_server.run(server.mcp, host, 8000, STORE, tls, web_app=web_app)
 
     assert len(captured_run) == 1
     assert any("without TLS" in record.message for record in caplog.records) is warned
 
 
-def test_main_rejects_invalid_auth_configuration(monkeypatch, captured_run):
-    monkeypatch.setattr(server, "get_settings", lambda: make_settings(auth_tokens="short"))
-    with pytest.raises(SystemExit) as exc:
-        server.main(["--transport", "streamable-http"])
-    assert exc.value.code == 2
-    assert captured_run == []
+@pytest.mark.parametrize("has_token", [True, False])
+def test_run_warns_without_authentication_only_when_no_token(caplog, captured_run, has_token):
+    if has_token:
+        token_store.create_token("ci", Role.MCP)
+
+    with caplog.at_level("WARNING", logger="security_review_mcp"):
+        http_server.run(server.mcp, "0.0.0.0", 8000, STORE, None)
+
+    warned = any("without authentication" in record.message for record in caplog.records)
+    assert warned is not has_token
 
 
-def test_token_command(capsys):
-    assert cli.run(["token", "--label", "ci"]) == cli.EXIT_PASSED
-    output = json.loads(capsys.readouterr().out)
-    label, entry = output["config_entry"].split(":", 1)
-    assert label == "ci"
-    assert entry == hash_token(output["token"])
-    assert list(parse_tokens([output["config_entry"]]).values()) == [TokenInfo("ci")]
+# ── CLI ──────────────────────────────────────────────────────────────────────
 
 
-def test_token_command_with_role(capsys):
-    assert cli.run(["token", "--label", "alice", "--role", "triager"]) == cli.EXIT_PASSED
-    output = json.loads(capsys.readouterr().out)
-    assert output["config_entry"].startswith("alice:triager:sha256:")
-    (info,) = parse_tokens([output["config_entry"]]).values()
-    assert info == TokenInfo("alice", Role.TRIAGER)
+def run_cli(capsys, *argv: str) -> tuple[int, object]:
+    """Run ``security-review-mcp token ...`` and decode its JSON output (None on error)."""
+    code = cli.run(["token", *argv])
+    out = capsys.readouterr().out
+    return code, json.loads(out) if out else None
 
 
-def test_token_command_rejects_bad_label():
-    assert cli.run(["token", "--label", "a:b"]) == cli.EXIT_ERROR
-    assert cli.run(["token", "--role", "reader"]) == cli.EXIT_ERROR
+def test_token_create_list_revoke(capsys):
+    code, created = run_cli(capsys, "create", "--label", "ci")
+    assert code == cli.EXIT_PASSED
+    assert (created["label"], created["role"], created["project"]) == ("ci", "mcp", None)
+    assert STORE.lookup(hash_token(created["token"])).label == "ci"
+
+    code, reader = run_cli(
+        capsys, "create", "--label", "shop", "--role", "reader", "--project", "shop-api"
+    )
+    assert code == cli.EXIT_PASSED and reader["project"] == "shop-api"
+
+    code, listed = run_cli(capsys, "list")
+    assert [token["label"] for token in listed] == ["ci", "shop"]
+    assert created["token"] not in json.dumps(listed) and "hash" not in json.dumps(listed)
+    _, scoped = run_cli(capsys, "list", "--project", "shop-api")
+    assert [token["label"] for token in scoped] == ["shop"]
+
+    assert cli.run(["token", "revoke", "ci"]) == cli.EXIT_PASSED
+    assert capsys.readouterr().err == ""
+    assert cli.run(["token", "revoke", reader["id"]]) == cli.EXIT_PASSED
+    assert "No token left" in capsys.readouterr().err
+    assert STORE.has_tokens() is False
+
+
+@pytest.mark.parametrize(
+    "argv, message",
+    [
+        (["create", "--label", "x", "--role", "admin", "--project", "p"], "cannot be restricted"),
+        (["create", "--label", " "], "between 1 and 64"),
+        (["revoke", "unknown"], "not found"),
+    ],
+)
+def test_token_command_errors(capsys, argv, message):
+    assert cli.run(["token", *argv]) == cli.EXIT_ERROR
+    assert message in json.loads(capsys.readouterr().err)["error"]
+
+
+def test_token_create_rejects_duplicate_labels(capsys):
+    assert run_cli(capsys, "create", "--label", "ci")[0] == cli.EXIT_PASSED
+    assert run_cli(capsys, "create", "--label", "ci")[0] == cli.EXIT_ERROR
+
+
+def test_token_reset_admin(capsys):
+    first = token_store.ensure_bootstrap_admin()
+
+    code, output = run_cli(capsys, "reset-admin")
+
+    assert code == cli.EXIT_PASSED
+    assert output["label"] == "bootstrap-admin"
+    assert STORE.lookup(hash_token(first)) is None
+    info = STORE.lookup(hash_token(output["token"]))
+    assert (info.label, info.role) == ("bootstrap-admin", Role.ADMIN)

@@ -51,6 +51,7 @@ relus avec lui (le projet se relit lui-même) et le rapport est enregistré. Les
 src/security_review_mcp/
 ├── server.py      # prompts, outils, ressources, point d'entrée
 ├── http_server.py # transport HTTP : jetons Bearer et rôles, TLS, lancement d'uvicorn
+├── token_store.py # jetons Bearer en base : création, révocation, admin initial
 ├── web_api.py     # interface web : API REST /api/v1 et fichiers de l'application (/ui)
 ├── prompts.py     # construction des prompts
 ├── checklists.py  # checklists intégrées par domaine

@@ -32,9 +32,8 @@ security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
   règles personnalisées des packs TOML et peuvent recharger les fichiers modifiés hors de l'UI.
   L'écran nécessite `SECREVIEW_RULES_DIR` et ne modifie pas les règles intégrées.
 - **Jetons** : les administrateurs créent et révoquent des jetons en lecture limités à un projet.
-  Le secret n'est montré qu'une fois; seule son empreinte est enregistrée dans un fichier dédié.
-| `SECREVIEW_AUTH_BOOTSTRAP_FILE` | — | Fichier du mot de passe admin initial; défini à `/data/admin-token` dans Docker |
-| `SECREVIEW_AUTH_MANAGED_TOKENS_FILE` | — | Fichier des empreintes des jetons projet; défini dans Docker et le profil VS Code |
+  Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
+  données. Une révocation prend effet à la requête suivante.
 
 ## Rôles
 
@@ -47,24 +46,27 @@ Chaque jeton porte un rôle, qui détermine les endpoints accessibles :
 | `triager` | — | ✅ | ✅ |
 | `admin` | ✅ | ✅ | ✅ |
 
+Un jeton `mcp`, `reader` ou `triager` créé avec `--project` ne voit et ne trie que ce projet
+(voir [jetons restreints à un projet](../demarrage/http.md#jetons-restreints-a-un-projet)).
+
 Dans l'image Docker, un mot de passe `admin` est généré au premier démarrage HTTP et affiché
-une seule fois dans les logs. Son empreinte est persistée dans `/data/admin-token` : conservez le
-volume `/data` pour garder ce compte et son mot de passe après redémarrage. Ce rôle peut gérer les
+une seule fois dans les logs. Son empreinte est enregistrée dans la base de données, comme celle
+de tous les jetons (voir [jetons Bearer](../demarrage/http.md#jetons-bearer)). Ce rôle peut gérer les
 règles TOML, trier les findings et accéder à `/mcp`. Un jeton créé sans rôle reste `mcp` : les jetons des agents
 et de la CI gardent leur accès mais ne peuvent pas utiliser l'interface web. Le rôle `triager`
 conserve uniquement le triage des findings. Générez un jeton par personne :
 
 Le mot de passe affiché dans les logs doit être traité comme un secret: restreignez l'accès aux
-journaux. S'il est perdu, arrêtez le serveur, supprimez le fichier bootstrap et redémarrez pour
-en générer un nouveau.
+journaux. S'il est perdu, générez-en un nouveau (l'ancien est aussitôt invalidé) :
+`security-review-mcp token reset-admin`.
 
 ```bash
-security-review-mcp token --label alice --role triager
-# {"token": "UJB7…", "config_entry": "alice:triager:sha256:1f91…"}
+security-review-mcp token create --label alice --role triager
+# {"id": "…", "label": "alice", "role": "triager", "project": null, "created_at": "…", "token": "UJB7…"}
 ```
 
-Ajoutez `config_entry` au fichier `SECREVIEW_AUTH_TOKENS_FILE` et transmettez `token` à la
-personne, qui le colle sur la page de connexion. Chaque changement de statut est journalisé avec
+Transmettez `token` à la personne, qui le colle sur la page de connexion. Révoquez-le avec
+`security-review-mcp token revoke alice`. Chaque changement de statut est journalisé avec
 le label du jeton :
 
 ```
@@ -74,7 +76,8 @@ INFO security_review_mcp.web: Finding 42 set to accepted by alice
 !!! warning "Authentification requise pour la Web UI"
   L'API de l'interface refuse les requêtes avec le statut `503` si aucun jeton n'est configuré;
   la mire de connexion reste affichée et indique que l'authentification doit être configurée.
-  Configurez `SECREVIEW_AUTH_TOKENS` ou `SECREVIEW_AUTH_TOKENS_FILE`. Cette restriction
+  Créez un jeton avec `security-review-mcp token create` ou activez
+  `SECREVIEW_AUTH_BOOTSTRAP_ADMIN`. Cette restriction
   concerne la Web UI; l'authentification MCP reste indépendante.
 
 ## Sécurité
@@ -95,7 +98,7 @@ INFO security_review_mcp.web: Finding 42 set to accepted by alice
 |---|---|---|
 | `SECREVIEW_WEB_UI` | `true` | Active l'API REST et l'interface sur le transport HTTP |
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
-| `SECREVIEW_AUTH_BOOTSTRAP_FILE` | — | Fichier du mot de passe admin initial; défini à `/data/admin-token` dans Docker |
+| `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Génère le mot de passe admin initial (stocké en base) ; `true` dans Docker |
 
 Le paquet publié et l'image Docker contiennent l'application déjà compilée. Si vous installez
 depuis les sources sans la compiler, seule l'API REST est servie et un avertissement est

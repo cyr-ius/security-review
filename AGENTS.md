@@ -88,7 +88,7 @@ l'utiliser.
 | Dépendances et avis OSV | `dependencies.py`, `depscan.py`, `advisories.py`, `versions.py` |
 | Persistance | `models.py`, `services.py`, `database.py` |
 | Export et tendances | `sarif.py`, `trends.py` |
-| Transport HTTP, auth (jetons et rôles), TLS | `http_server.py` |
+| Transport HTTP, auth (jetons et rôles), TLS | `http_server.py` ; stockage des jetons en base : `token_store.py` |
 | Interface web : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
 | Paramètres `SECREVIEW_*` | `config.py` |
 

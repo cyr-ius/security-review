@@ -26,15 +26,11 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
 
-    # Built-in bearer authentication (streamable-http only), disabled when no token is set.
-    # Comma-separated entries "[label:]token" or "[label:]sha256:<hex>"; the file holds one
-    # entry per line (# for comments). Generate entries with `security-review-mcp token`.
-    auth_tokens: str | None = None
-    auth_tokens_file: str | None = None
-    # Optional file for the one-time web administrator credential (Docker: /data/admin-token).
-    auth_bootstrap_file: str | None = None
-    # Writable file for project-scoped web tokens created in the UI.
-    auth_managed_tokens_file: str | None = None
+    # Built-in bearer authentication (streamable-http only). Tokens are stored in the database
+    # (SHA-256 digests only) and managed with `security-review-mcp token create|list|revoke`.
+    # This generates a one-time administrator password on the first HTTP start (enabled in the
+    # Docker image).
+    auth_bootstrap_admin: bool = False
 
     # Optional TLS served by uvicorn (streamable-http only), enabled by tls_certfile.
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).

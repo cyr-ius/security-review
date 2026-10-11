@@ -32,6 +32,10 @@ Chaque prompt se termine par l'instruction d'appeler `save_security_report` une 
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
 | `list_rules` / `reload_rules` | Règles actives (intégrées + internes), erreurs de chargement, rechargement à chaud |
 
+Sur le transport HTTP, un jeton restreint à un projet ne peut utiliser les outils de rapports
+que sur ce projet ; `reload_rules` lui est refusé (voir
+[jetons restreints à un projet](../demarrage/http.md#jetons-restreints-a-un-projet)).
+
 ## Ressources
 
 - `report://{report_id}` : un rapport enregistré ;

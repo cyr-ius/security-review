@@ -3,12 +3,17 @@
 ## Sécurité du serveur lui-même
 
 - **Transport HTTP** : authentification MCP par jeton Bearer et TLS intégrés mais facultatifs (voir
-  [Serveur HTTP, authentification et TLS](../demarrage/http.md)). Les empreintes SHA-256 sont
-  persistées dans les fichiers de jetons configurés, jamais en base, puis comparées en temps
-  constant en mémoire. Les jetons projet restent limités à leur projet et au rôle lecture. Si l'écoute n'est pas sur
+  [Serveur HTTP, authentification et TLS](../demarrage/http.md)). Les jetons sont stockés en
+  base et seules leurs empreintes SHA-256 sont conservées. Chaque requête recherche l'empreinte
+  du jeton présenté, ce qui ne révèle rien d'exploitable sans préimage, puis la vérifie en temps
+  constant : une révocation est donc immédiate sur toutes les instances. Un jeton créé avec
+  `--project` est limité à ce projet dans les outils MCP et l'API web : tout autre projet,
+  rapport ou finding est traité comme inexistant (voir
+  [jetons restreints à un projet](../demarrage/http.md#jetons-restreints-a-un-projet)). Si l'écoute n'est pas sur
   localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../utilisation/interface-web.md#roles)
-  (`mcp`, `reader`, `triager`, `admin`) ; un jeton `mcp` accède à tous les outils MCP.
+  (`mcp`, `reader`, `triager`, `admin`) ; un jeton `mcp` sans projet accède à tous les outils
+  MCP et à tous les projets.
 - **Interface web** : l'API REST exige toujours un jeton de rôle web; sans configuration, elle
   répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
   le statut d'un finding (action journalisée avec le label du jeton). Pages servies avec une CSP

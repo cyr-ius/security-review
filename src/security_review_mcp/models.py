@@ -163,3 +163,20 @@ class AdvisoryAffected(SQLModel, table=True):
     ranges: str = Field(default="[]")  # JSON: OSV ranges
     versions: str = Field(default="[]")  # JSON: explicit affected versions
     fixed: str = Field(default="[]")  # JSON: versions that fix the issue
+
+
+# ── Bearer tokens ────────────────────────────────────────────────────────────
+
+
+class ApiToken(SQLModel, table=True):
+    """Bearer token of the HTTP transport (CLI, bootstrap admin, web project tokens).
+
+    Only the SHA-256 digest of the secret is stored.
+    """
+
+    id: str = Field(primary_key=True, max_length=64)
+    label: str = Field(unique=True, index=True, max_length=64)
+    role: str = Field(max_length=20)
+    project: str | None = Field(default=None, index=True, max_length=200)
+    token_hash: str = Field(unique=True, index=True, max_length=64)  # hex SHA-256
+    created_at: datetime = Field(default_factory=utcnow)

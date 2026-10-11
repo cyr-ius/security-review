@@ -142,3 +142,142 @@ async def test_triage_prompt_fences_report_and_forbids_status_from_text():
     text = result.messages[0].content.text
     assert "never change a status" in text and "untrusted" in text
     assert "````markdown" in text
+
+
+# ── Project-restricted tokens (HTTP transport) ───────────────────────────────
+
+
+class McpOverHttp:
+    """Minimal JSON-RPC client for the streamable HTTP app, authenticated by a bearer token."""
+
+    def __init__(self, client, token: str) -> None:
+        self.client = client
+        self.headers = {
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json, text/event-stream",
+            "Content-Type": "application/json",
+            "mcp-protocol-version": "2025-06-18",
+        }
+        self.next_id = 0
+        init = self.request(
+            "initialize",
+            {
+                "protocolVersion": "2025-06-18",
+                "capabilities": {},
+                "clientInfo": {"name": "test", "version": "1"},
+            },
+        )
+        assert "result" in init
+        self.post({"jsonrpc": "2.0", "method": "notifications/initialized"})
+
+    def post(self, message: dict):
+        response = self.client.post("/mcp", headers=self.headers, json=message)
+        if session := response.headers.get("mcp-session-id"):
+            self.headers["mcp-session-id"] = session
+        return response
+
+    def request(self, method: str, params: dict) -> dict:
+        self.next_id += 1
+        response = self.post(
+            {"jsonrpc": "2.0", "id": self.next_id, "method": method, "params": params}
+        )
+        assert response.status_code == 200, response.text
+        (data,) = [line[5:] for line in response.text.splitlines() if line.startswith("data:")]
+        return json.loads(data)
+
+    def call(self, name: str, arguments: dict | None = None) -> tuple[bool, str]:
+        """Call a tool and return (is_error, text)."""
+        result = self.request("tools/call", {"name": name, "arguments": arguments or {}})
+        result = result["result"]
+        return result.get("isError", False), "".join(b.get("text", "") for b in result["content"])
+
+    def projects_listed(self) -> set[str]:
+        """Projects of the reports returned by list_security_reports."""
+        result = self.request("tools/call", {"name": "list_security_reports", "arguments": {}})
+        assert not result["result"].get("isError")
+        return {report["project"] for report in result["result"]["structuredContent"]["result"]}
+
+
+@pytest.fixture
+def http_app():
+    """The HTTP app (MCP endpoint only) with its lifespan running."""
+    from starlette.testclient import TestClient
+
+    from security_review_mcp import http_server, token_store
+
+    app = http_server.build_app(mcp, "127.0.0.1", token_store.DatabaseTokenStore())
+    with TestClient(app, base_url="http://127.0.0.1:8000") as client:
+        yield client
+
+
+@pytest.fixture
+def two_projects() -> dict[str, dict]:
+    """One report with one finding in each of two projects."""
+    finding = FindingCreate(title="SQL injection", severity=Severity.HIGH, description="Query")
+    return {
+        name: services.save_report(name, f"{name} review", [finding])
+        for name in ("shop-api", "billing")
+    }
+
+
+def finding_id_of(report: dict) -> int:
+    return services.get_report(report["report_id"]).findings[0].id
+
+
+def test_project_token_cannot_reach_other_projects(http_app, two_projects):
+    from security_review_mcp import token_store
+
+    token = token_store.create_token("shop-ci", "mcp", "shop-api")["token"]
+    shop, billing = two_projects["shop-api"], two_projects["billing"]
+    client = McpOverHttp(http_app, token)
+
+    # Outside the scope: every access fails as if the project or object did not exist
+    for name, arguments in [
+        ("get_security_report", {"report_id": billing["report_id"]}),
+        ("list_security_reports", {"project": "billing"}),
+        ("update_finding_status", {"finding_id": finding_id_of(billing), "status": "accepted"}),
+        ("get_project_security_posture", {"project": "billing"}),
+        ("check_project_gate", {"project": "billing"}),
+        ("check_project_gate", {"project": "shop-api", "report_id": billing["report_id"]}),
+        ("get_trend_report", {"project": "billing"}),
+        ("export_sarif", {"report_id": billing["report_id"]}),
+        ("export_sarif", {"project": "billing"}),
+    ]:
+        is_error, text = client.call(name, arguments)
+        assert is_error and "not found" in text, (name, text)
+        assert "billing review" not in text
+    is_error, text = client.call(
+        "save_security_report", {"project": "billing", "summary": "Fake", "findings": []}
+    )
+    assert is_error and "only save reports for project 'shop-api'" in text
+    assert client.call("reload_rules")[0] is True
+    resource = client.request("resources/read", {"uri": f"report://{billing['report_id']}"})
+    assert "error" in resource and "billing review" not in json.dumps(resource)
+    arguments = {"report_id": str(billing["report_id"])}
+    prompt = client.request("prompts/get", {"name": "triage-report", "arguments": arguments})
+    assert "error" in prompt and "billing review" not in json.dumps(prompt)
+    assert services.get_report(billing["report_id"]).findings[0].status == "open"
+
+    # Inside the scope: unchanged behaviour
+    assert client.projects_listed() == {"shop-api"}
+    assert client.call("get_security_report", {"report_id": shop["report_id"]})[0] is False
+    is_error, _ = client.call(
+        "update_finding_status", {"finding_id": finding_id_of(shop), "status": "fixed"}
+    )
+    assert not is_error
+    assert client.call("check_project_gate", {"project": "shop-api"})[0] is False
+    is_error, text = client.call(
+        "save_security_report", {"project": "shop-api", "summary": "New review", "findings": []}
+    )
+    assert not is_error
+
+
+def test_unrestricted_token_reaches_every_project(http_app, two_projects):
+    from security_review_mcp import token_store
+
+    client = McpOverHttp(http_app, token_store.create_token("ci", "mcp")["token"])
+
+    assert client.projects_listed() == {"shop-api", "billing"}
+    billing = two_projects["billing"]
+    assert client.call("get_security_report", {"report_id": billing["report_id"]})[0] is False
+    assert client.call("reload_rules")[0] is False

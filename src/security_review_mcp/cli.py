@@ -7,13 +7,12 @@ or data error.
 
 import argparse
 import json
-import secrets
 import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from . import advisories, codescan, depscan, http_server, sarif, services, trends
+from . import advisories, codescan, depscan, http_server, sarif, services, token_store, trends
 from .config import get_settings
 from .database import init_db
 from .models import SEVERITY_RANK, Severity
@@ -417,31 +416,50 @@ def code_command(argv: list[str]) -> int:
 
 
 def token_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp token``: generate a bearer token for the HTTP transport."""
+    """Run ``security-review-mcp token``: manage the bearer tokens stored in the database."""
     parser = argparse.ArgumentParser(
         prog="security-review-mcp token",
-        description="Generate a bearer token and the hashed entry to put in the configuration.",
+        description="Manage the bearer tokens of the HTTP transport (stored as SHA-256 digests).",
     )
-    parser.add_argument("--label", default=None, help="name of the client (shown in the logs)")
-    parser.add_argument(
+    actions = parser.add_subparsers(dest="action", required=True)
+    creator = actions.add_parser("create", help="create a token and print its secret once")
+    creator.add_argument("--label", required=True, help="unique name of the client (in the logs)")
+    creator.add_argument(
         "--role",
         choices=[role.value for role in http_server.Role],
-        default=None,
+        default=http_server.DEFAULT_ROLE.value,
         help="mcp (default): MCP endpoint; reader/triager: web interface; admin: both",
     )
+    creator.add_argument(
+        "--project", help="restrict the token to one project (MCP tools and web interface)"
+    )
+    lister = actions.add_parser("list", help="list the tokens (never their secret or hash)")
+    lister.add_argument("--project", help="only the tokens restricted to this project")
+    revoker = actions.add_parser("revoke", help="delete a token by id or label")
+    revoker.add_argument("token", help="token id or label")
+    actions.add_parser("reset-admin", help="replace the bootstrap administrator password")
     args = parser.parse_args(argv)
-    if args.label is not None and (not args.label.strip() or set(args.label) & {":", ","}):
-        return _fail("--label must be non-empty and contain neither ':' nor ','")
-    if args.role and not args.label:
-        return _fail("--role needs --label")
 
-    token = secrets.token_urlsafe(32)
-    entry = http_server.hash_token(token)
-    if args.role:
-        entry = f"{args.role}:{entry}"
-    if args.label:
-        entry = f"{args.label.strip()}:{entry}"
-    print(json.dumps({"token": token, "config_entry": entry}, indent=2))
+    try:
+        init_db()
+        if args.action == "create":
+            result: object = token_store.create_token(args.label, args.role, args.project)
+        elif args.action == "list":
+            result = token_store.list_tokens(args.project)
+        elif args.action == "revoke":
+            result = token_store.revoke_token(args.token)
+            if not token_store.list_tokens():
+                # Without any token the HTTP transport no longer requires authentication
+                print(
+                    json.dumps({"warning": "No token left: the MCP endpoint is now open"}),
+                    file=sys.stderr,
+                )
+        else:
+            password = token_store.reset_bootstrap_admin()
+            result = {"label": token_store.BOOTSTRAP_LABEL, "token": password}
+    except ValueError as exc:
+        return _fail(str(exc))
+    print(json.dumps(result, indent=2))
     return EXIT_PASSED
 
 

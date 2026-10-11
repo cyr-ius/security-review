@@ -46,9 +46,6 @@ services:
       SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
     ports:
       - "127.0.0.1:${SECREVIEW_PORT:-8000}:8000"
-    volumes:
-      # Admin password hash and project tokens (the reports are in PostgreSQL)
-      - secreview-data:/data
     networks:
       - backend
     read_only: true
@@ -61,7 +58,6 @@ services:
 
 volumes:
   secreview-pg:
-  secreview-data:
 
 networks:
   backend:

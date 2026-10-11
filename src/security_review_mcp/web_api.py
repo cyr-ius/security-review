@@ -24,7 +24,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Scope
 
-from . import __version__, http_server, registry, rules_loader, services, trends
+from . import __version__, registry, rules_loader, services, token_store, trends
 from .config import get_settings
 from .http_server import LOOPBACK_HOSTS, TRIAGE_ROLES, Role
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
@@ -176,29 +176,6 @@ def _ensure_report_scope(identity: Identity, report: SecurityReportPublic) -> No
     """Hide reports outside a project token's scope."""
     if identity.project is not None and report.project != identity.project:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-
-
-def _active_tokens(request: Request) -> dict[bytes, http_server.TokenInfo]:
-    """Get the shared live token registry installed by the HTTP middleware."""
-    state = request.scope.get("state") or {}
-    tokens = state.get("auth_tokens")
-    if not isinstance(tokens, dict):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Token management is unavailable",
-        )
-    return tokens
-
-
-def _managed_tokens_path() -> str:
-    """Return the configured writable token-store path or a service-unavailable error."""
-    path = get_settings().auth_managed_tokens_file
-    if not path:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Project token storage is not configured",
-        )
-    return path
 
 
 def _rule_catalog() -> dict:
@@ -365,6 +342,7 @@ async def update_finding(
     identity: Annotated[Identity, Depends(require_triage)],
 ) -> FindingPublic:
     """Change the status of a finding (triage). The change is logged with the caller."""
+    await run_in_threadpool(services.check_finding_scope, identity.project, finding_id)
     finding = await run_in_threadpool(services.update_finding_status, finding_id, body.status)
     logger.info("Finding %s set to %s by %s", finding_id, body.status, identity.client)
     return finding
@@ -453,52 +431,41 @@ async def set_custom_rule_enabled(
 @router.get("/project-tokens")
 async def project_tokens(
     identity: Annotated[Identity, Depends(require_admin)],
-) -> list[dict[str, str]]:
+) -> list[dict[str, str | None]]:
     """List project-token metadata without returning hashes or token values."""
-    try:
-        return await run_in_threadpool(http_server.list_project_tokens, _managed_tokens_path())
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, str(exc)) from exc
+    return await run_in_threadpool(token_store.list_project_tokens)
 
 
 @router.post("/project-tokens", status_code=status.HTTP_201_CREATED)
 async def create_project_token(
     body: ProjectTokenCreate,
-    request: Request,
     identity: Annotated[Identity, Depends(require_admin)],
-) -> dict[str, str]:
+) -> dict[str, str | None]:
     """Create a project-scoped reader token and return its secret exactly once."""
     projects = await run_in_threadpool(services.list_projects)
     if not any(project["project"] == body.project for project in projects):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
     try:
-        return await run_in_threadpool(
-            http_server.create_project_token,
-            _managed_tokens_path(),
-            _active_tokens(request),
-            body.label,
-            body.project,
+        created = await run_in_threadpool(
+            token_store.create_project_token, body.label, body.project
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Project token %s created for %s by %s", body.label, body.project, identity.client)
+    return created
 
 
 @router.delete("/project-tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project_token(
     token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
-    request: Request,
     identity: Annotated[Identity, Depends(require_admin)],
 ) -> Response:
-    """Revoke a project token and remove it from the active token registry."""
+    """Revoke a project token: the next request presenting it is rejected."""
     try:
-        await run_in_threadpool(
-            http_server.revoke_project_token,
-            _managed_tokens_path(),
-            _active_tokens(request),
-            token_id,
-        )
+        await run_in_threadpool(token_store.revoke_project_token, token_id)
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    logger.info("Project token %s revoked by %s", token_id, identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
