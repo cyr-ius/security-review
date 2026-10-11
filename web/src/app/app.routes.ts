@@ -44,9 +44,7 @@ export const routes: Routes = [
         title: 'Règles · Security Review',
         canActivate: [adminGuard],
         loadComponent: () =>
-          import('./features/rules/rule-list/rule-list.component').then(
-            (m) => m.RuleListComponent,
-          ),
+          import('./features/rules/rule-list/rule-list.component').then((m) => m.RuleListComponent),
       },
       {
         path: 'tokens',
