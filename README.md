@@ -14,6 +14,7 @@ Il fournit à l'hôte (VS Code, Copilot, Claude, agent CI/CD) :
 | `security-review` | Revue générale Python / Java / Angular | `language`, `code`, `context`, `focus` |
 | `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus` |
 | `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus` |
+| `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus` |
 | `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context` |
 | `triage-report` | Re-qualifier les findings d'un rapport stocké | `report_id`, `context` |
 
@@ -226,6 +227,37 @@ Sans identifiant, toutes les règles de la ligne sont ignorées. Les suppression
 cachées** : `scan_code` les renvoie dans `suppressed`, et les prompts demandent à l'agent de
 signaler toute suppression injustifiée (un auteur de MR pourrait sinon masquer une faille).
 
+## Scan du code complet
+
+Les prompts de revue travaillent sur ce que l'agent leur donne, souvent le diff d'une MR, et
+`scan_code` est limité à `SECREVIEW_MAX_CONTENT_CHARS` par appel. Pour couvrir **tout** le dépôt :
+
+```bash
+security-review-mcp code scan .                               # résumé texte, code de sortie 0/1/2
+security-review-mcp code scan . --format json -o scan.json    # pour le prompt codebase-review
+security-review-mcp code scan . --format sarif -o code.sarif  # GitHub code scanning, Jenkins...
+security-review-mcp code scan . --save --project portal --commit "$CI_COMMIT_SHA"
+```
+
+- Les fichiers viennent de `git ls-files` (suivis + non suivis non ignorés : `.gitignore` est
+  respecté). Hors dépôt git, ou avec `--no-git`, l'arborescence est parcourue en ignorant
+  `node_modules`, `.venv`, `dist`, `build`, `target`, etc.
+- Le langage est déduit du nom : `.py`, `.java`, `.ts`, `.js`, `.html` (templates Angular),
+  `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`, `.gitlab-ci.yml`.
+  Les lockfiles, `*.min.js` et `*.d.ts` sont ignorés.
+- Fichiers ignorés et signalés : `--exclude GLOB` (répétable, ex. `--exclude tests/`), au-delà de
+  `--max-file-bytes` (1 Mio par défaut), binaires, liens symboliques.
+- `--fail-on` (défaut `high`) fixe le seuil de blocage ; les règles internes et les marqueurs
+  `secreview:ignore` s'appliquent comme pour `scan_code`.
+- `--save` enregistre les correspondances comme findings (au plus
+  `SECREVIEW_MAX_FINDINGS_PER_REPORT`, les plus sévères d'abord) et la liste des fichiers non
+  analysés dans `scope`. Ce sont des **pistes** : triez-les (`triage-report`) avant de faire
+  dépendre une gate de ce rapport, sinon les faux positifs la bloqueront.
+
+Ensuite, le prompt `codebase-review` (argument `scan_results` = le JSON, éventuellement filtré)
+guide l'agent : inventaire, priorisation des points d'entrée, traçage des flux entre fichiers,
+checklists, et une section **couverture** qui dit ce qui n'a pas été relu.
+
 ## Gate CI/CD
 
 Sans agent ni client MCP, un job Jenkins ou GitLab peut bloquer un déploiement tant que des
@@ -329,7 +361,9 @@ complexes en production, ajouter Alembic.
   derrière un reverse proxy qui impose TLS et authentification. Un avertissement est journalisé
   si l'écoute n'est pas sur localhost.
 - `scan_code` travaille uniquement sur le **contenu fourni** : le serveur ne lit aucun fichier
-  du disque, ce qui évite les traversées de chemin.
+  du disque, ce qui évite les traversées de chemin. Le scan du dépôt complet est réservé à la CLI
+  (`code scan`), lancée par l'opérateur sur un dossier qu'il choisit ; elle ne suit pas les liens
+  symboliques.
 - Les requêtes SQL passent par l'ORM (paramètres liés) ; les tailles d'entrée, le nombre de
   findings et la pagination sont bornés.
 - Les journaux vont sur **stderr** (stdout est réservé au protocole en stdio).
@@ -347,7 +381,8 @@ src/security_review_mcp/
 ├── rules_platform.py  # règles GitLab CI, Jenkins, Spring, FastAPI
 ├── rules_loader.py    # chargement et validation des packs TOML internes
 ├── registry.py    # règles/checklists actives (intégrées + internes), rechargement
-├── cli.py         # commandes gate, sarif, trend, advisories, deps
+├── cli.py         # commandes gate, sarif, trend, advisories, deps, code
+├── codescan.py    # scan du code complet (liste des fichiers, langage, findings)
 ├── sarif.py       # export SARIF 2.1.0
 ├── trends.py      # rapport de tendance
 ├── versions.py    # comparaison de versions

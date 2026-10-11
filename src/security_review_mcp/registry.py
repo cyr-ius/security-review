@@ -78,9 +78,9 @@ def reset() -> None:
 # ── Scanning ─────────────────────────────────────────────────────────────────
 
 
-def scan(content: str, language: str) -> tuple[list[dict], list[dict]]:
+def scan(content: str, language: str, max_matches: int = 200) -> tuple[list[dict], list[dict]]:
     """Scan with the active rules; returns ``(matches, suppressed)``."""
-    return scan_content_detailed(content, language, snapshot().rules)
+    return scan_content_detailed(content, language, snapshot().rules, max_matches)
 
 
 def describe_rules(language: str | None = None) -> list[dict]:

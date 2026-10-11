@@ -1,16 +1,18 @@
 """Command line helpers for pipelines and administrators (no MCP client or agent needed).
 
-Commands: ``gate``, ``sarif``, ``trend``, ``advisories`` and ``deps``. Exit codes follow the same
-convention everywhere: 0 success, 1 blocked (gate / vulnerabilities found), 2 usage or data error.
+Commands: ``gate``, ``sarif``, ``trend``, ``advisories``, ``deps`` and ``code``. Exit codes follow
+the same convention everywhere: 0 success, 1 blocked (gate / findings found), 2 usage or data error.
 """
 
 import argparse
 import json
 import sys
 from collections.abc import Callable
+from datetime import UTC, datetime
 from pathlib import Path
 
-from . import advisories, depscan, sarif, services, trends
+from . import advisories, codescan, depscan, sarif, services, trends
+from .config import get_settings
 from .database import init_db
 from .models import SEVERITY_RANK, Severity
 from .services import NotFoundError
@@ -274,12 +276,148 @@ def deps_command(argv: list[str]) -> int:
     return EXIT_BLOCKED if blocked else EXIT_PASSED
 
 
+# ── code ─────────────────────────────────────────────────────────────────────
+
+
+def _print_code_text(result: dict, blocked: int, fail_on: str) -> None:
+    """Print a short human-readable summary of the codebase scan."""
+    for entry in result["files"]:
+        for match in entry["matches"]:
+            print(
+                f"{entry['file']}:{match['line']} [{match['severity'].upper()}] "
+                f"{match['rule_id']} {match['title']}"
+            )
+    for entry in result["skipped"]:
+        if entry["reason"] != "excluded":
+            print(f"skipped: {entry['file']} ({entry['reason']})", file=sys.stderr)
+    counts = ", ".join(f"{k}: {v}" for k, v in result["by_severity"].items() if v)
+    print(
+        f"{result['files_scanned']} file(s) scanned ({result['lines_scanned']} lines, listed with "
+        f"{result['listing']}), {result['files_skipped']} skipped, "
+        f"{result['matches_count']} match(es){f' ({counts})' if counts else ''}, "
+        f"{result['suppressed_count']} suppressed"
+    )
+    verdict = f"BLOCKED ({blocked} match(es) >= {fail_on})" if blocked else "OK"
+    print(f"RESULT: {verdict}")
+
+
+def _save_code_scan(args: argparse.Namespace, result: dict) -> dict:
+    """Store the matches as a report; keep the most severe ones when there are too many."""
+    findings = codescan.to_findings(result)
+    limit = get_settings().max_findings_per_report
+    summary = (
+        f"Pattern scan of the whole codebase: {result['files_scanned']} file(s), "
+        f"{result['matches_count']} match(es) to verify, {result['suppressed_count']} suppressed."
+    )
+    if len(findings) > limit:
+        summary += f" Only the {limit} most severe matches are stored."
+        findings = findings[:limit]
+    skipped = [s["file"] for s in result["skipped"] if s["reason"] != "excluded"]
+    scope = f"Codebase {args.path} ({result['files_scanned']} files scanned)"
+    if skipped:
+        scope += f"; not scanned: {', '.join(skipped[:50])}"
+        scope += f" and {len(skipped) - 50} more" if len(skipped) > 50 else ""
+    return services.save_report(
+        project=args.project,
+        summary=summary,
+        findings=findings,
+        repository=args.repository,
+        branch=args.branch,
+        commit_sha=args.commit,
+        reviewer="security-review-mcp code scan",
+        scope=scope,
+    )
+
+
+def code_command(argv: list[str]) -> int:
+    """Run ``security-review-mcp code scan``: pattern-scan every file of a codebase."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-mcp code",
+        description="Pattern-scan a whole codebase (leads to verify, not a full SAST).",
+    )
+    parser.add_argument("action", choices=["scan"])
+    parser.add_argument("path", nargs="?", default=".", help="directory to scan (default: .)")
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        metavar="GLOB",
+        help="file or directory glob to skip, relative to the path; repeat the option",
+    )
+    parser.add_argument(
+        "--max-file-bytes",
+        type=int,
+        default=codescan.DEFAULT_MAX_FILE_BYTES,
+        help="skip larger files (default: 1 MiB)",
+    )
+    parser.add_argument(
+        "--no-git", action="store_true", help="walk the tree instead of using git ls-files"
+    )
+    parser.add_argument("--fail-on", choices=_SEVERITY_CHOICES, default=Severity.HIGH.value)
+    parser.add_argument("--format", choices=["text", "json", "sarif"], default="text")
+    parser.add_argument("--output", "-o", help="file to write (default: standard output)")
+    parser.add_argument("--project", help="project name (required with --save)")
+    parser.add_argument("--save", action="store_true", help="store the matches as a report")
+    parser.add_argument("--repository")
+    parser.add_argument("--branch")
+    parser.add_argument("--commit")
+    args = parser.parse_args(argv)
+    if args.save and not args.project:
+        return _fail("--save requires --project")
+
+    try:
+        result = codescan.scan_tree(args.path, args.exclude, args.max_file_bytes, not args.no_git)
+        saved = None
+        if args.save:  # the database is only needed to store the report
+            init_db()
+            saved = _save_code_scan(args, result)
+    except (ValueError, OSError) as exc:
+        return _fail(str(exc))
+
+    blocked = codescan.blocking_count(result, Severity(args.fail_on))
+    if args.format == "text":
+        _print_code_text(result, blocked, args.fail_on)
+        if saved:
+            print(f"Report #{saved['report_id']} saved for project {args.project}")
+        return EXIT_BLOCKED if blocked else EXIT_PASSED
+
+    if args.format == "sarif":
+        if saved:
+            name, items = services.collect_sarif_items(saved["report_id"], None)
+        else:
+            name = args.project or Path(result["root"]).name
+            now = datetime.now(UTC)
+            items = [
+                sarif.SarifItem(f, 0, name, args.repository, args.branch, args.commit, now)
+                for f in codescan.to_public(codescan.to_findings(result))
+            ]
+        document = sarif.build_sarif(items, name)
+    else:
+        document = {
+            "blocked": blocked > 0,
+            "blocking_findings": blocked,
+            "saved_report": saved,
+            **result,
+        }
+    text = json.dumps(document, indent=2)
+    if args.output:
+        try:
+            Path(args.output).write_text(text + "\n", encoding="utf-8")
+        except OSError as exc:
+            return _fail(str(exc))
+        print(f"{result['matches_count']} match(es) written to {args.output}", file=sys.stderr)
+    else:
+        print(text)
+    return EXIT_BLOCKED if blocked else EXIT_PASSED
+
+
 COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "gate": gate_command,
     "sarif": sarif_command,
     "trend": trend_command,
     "advisories": advisories_command,
     "deps": deps_command,
+    "code": code_command,
 }
 
 

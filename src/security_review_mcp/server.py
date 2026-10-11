@@ -34,7 +34,7 @@ logger = logging.getLogger("security_review_mcp")
 INSTRUCTIONS = """\
 Security code-review server.
 - Use the prompts `security-review`, `api-security-review` and `configuration-review` to \
-start a structured review.
+start a structured review, and `codebase-review` to review a whole repository (not only a diff).
 - Use `get_review_checklist` and `scan_code` while reviewing.
 - At the end of a review, call `save_security_report` once to store the report in the \
 database. Use `list_security_reports`, `get_security_report` and \
@@ -151,6 +151,35 @@ def configuration_review(
         focus: Optional areas to emphasize.
     """
     return prompts.build_config_review_prompt(config_type, content, context, focus)
+
+
+@mcp.prompt(
+    name="codebase-review",
+    title="Whole codebase security review",
+    description="Review a whole repository, not only a diff, starting from codebase scan results.",
+)
+def codebase_review(
+    languages: str = "",
+    scan_results: str = "",
+    context: str = "",
+    focus: str = "",
+) -> str:
+    """Build the whole-codebase review prompt.
+
+    Args:
+        languages: Main languages, for example "python, angular" (selects the checklists).
+        scan_results: Optional output of `security-review-mcp code scan . --format json`.
+        context: Optional context (exposure, data sensitivity, authentication model...).
+        focus: Optional areas to emphasize.
+    """
+    limit = get_settings().max_content_chars
+    if len(scan_results) > limit:
+        raise MCPError(
+            code=INVALID_PARAMS,
+            message=f"scan_results too large ({len(scan_results)} chars); the limit is {limit}. "
+            "Filter it, for example with --exclude or --fail-on, or use --save and triage-report.",
+        )
+    return prompts.build_codebase_review_prompt(languages, scan_results, context, focus)
 
 
 @mcp.prompt(
