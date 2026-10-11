@@ -184,6 +184,61 @@ def test_custom_rule_lifecycle(client, import_pack):
     assert client.delete("/api/v1/rules/PY-001").status_code == 422
 
 
+def test_checklist_item_lifecycle(client, import_pack):
+    import_pack(
+        '[[checklist]]\ndomain = "payments"\nid = "ACME-CL-01"\n'
+        'title = "Tenant isolation"\nwhat_to_look_for = "Every query is tenant-scoped."\n'
+    )
+    existing = client.get("/api/v1/checklists").json()["checklist_items"]
+    assert any(item["domain"] == "payments" and item["id"] == "ACME-CL-01" for item in existing)
+
+    payload = {
+        "domain": "payments",
+        "id": "ACME-CL-02",
+        "title": "Authorization checks",
+        "what_to_look_for": "Check authorization before accessing each resource.",
+        "cwe": "CWE-862",
+    }
+    created = client.post("/api/v1/checklists", json=payload)
+    assert created.status_code == 201
+    assert created.json()["loaded_checklist_items"] > 0
+    assert "ACME-CL-02" in registry.render_checklist_markdown("payments")
+
+    payload["title"] = "Consistent authorization checks"
+    updated = client.put("/api/v1/checklists/payments/ACME-CL-02", json=payload)
+    assert updated.status_code == 200
+    assert "Consistent authorization checks" in registry.render_checklist_markdown("payments")
+    assert client.put("/api/v1/checklists/payments/ACME-CL-404", json=payload).status_code == 422
+
+    assert client.delete("/api/v1/checklists/payments/ACME-CL-02").status_code == 204
+    assert "ACME-CL-02" not in registry.render_checklist_markdown("payments")
+    assert client.delete("/api/v1/checklists/python/PY-01").status_code == 422
+
+
+def test_default_checklist_item_can_be_updated_but_not_deleted(client):
+    listed = client.get("/api/v1/checklists").json()["checklist_items"]
+    item = next(item for item in listed if item["domain"] == "python" and item["id"] == "PY-01")
+    assert item["origin"] == "builtin"
+
+    payload = item | {"title": "Updated default checklist item"}
+    response = client.put("/api/v1/checklists/python/PY-01", json=payload)
+    assert response.status_code == 200
+    updated = next(
+        item
+        for item in client.get("/api/v1/checklists").json()["checklist_items"]
+        if item["domain"] == "python" and item["id"] == "PY-01"
+    )
+    assert updated["origin"] == "builtin"
+    assert updated["modified"] is True
+    assert updated["title"] == "Updated default checklist item"
+    assert client.delete("/api/v1/checklists/python/PY-01").status_code == 422
+
+
+def test_checklist_management_requires_admin(secured):
+    assert secured.get("/api/v1/checklists", headers=auth("reader")).status_code == 403
+    assert secured.get("/api/v1/checklists", headers=auth("admin")).status_code == 200
+
+
 def test_builtin_rule_can_be_disabled(client):
     response = client.patch("/api/v1/rules/PY-001/enabled", json={"enabled": False})
     assert response.status_code == 200

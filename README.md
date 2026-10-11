@@ -17,7 +17,7 @@ rapports (SQLite ou PostgreSQL) exploitable en pipeline.
 | **Règles** | Python, Java, Angular, configuration, GitLab CI, Jenkins, Spring, FastAPI, copiées en base au premier lancement, plus vos [règles internes](https://cyr-ius.github.io/security-review-mcp/utilisation/regles/) (import/export TOML) |
 | **Transport** | stdio ou HTTP, avec jetons Bearer stockés en base (CLI `token`) et TLS (mutuel) facultatifs |
 | **Enrôlement** | un projet [demande son jeton ou un accès supplémentaire](https://cyr-ius.github.io/security-review-mcp/demarrage/http/#enrolement-un-projet-demande-son-jeton) (outil MCP `request_enrollment` ou CLI `enroll`), un administrateur valide la demande |
-| **Interface web** | tableau de bord, triage, [règles internes et jetons projet](https://cyr-ius.github.io/security-review-mcp/utilisation/interface-web/), mot de passe admin initial dans les logs Docker |
+| **Interface web** | tableau de bord, triage, gestion des [règles, checklists et jetons projet](https://cyr-ius.github.io/security-review-mcp/utilisation/interface-web/), mot de passe admin initial dans les logs Docker |
 
 Détail : [prompts et outils](https://cyr-ius.github.io/security-review-mcp/utilisation/prompts-outils/),
 [scan du code complet](https://cyr-ius.github.io/security-review-mcp/utilisation/code-scan/),

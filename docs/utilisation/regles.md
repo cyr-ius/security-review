@@ -5,9 +5,10 @@ les instances du serveur qui partagent la base appliquent les mêmes règles. Vo
 peuvent ajouter des règles de scan et des items de checklist, modifier les règles par défaut et
 activer ou désactiver n'importe quelle règle, **sans toucher au code**.
 
-On les gère avec la commande `security-review-mcp rules` (import et export de packs TOML,
-activation, désactivation, suppression) ou depuis l'écran **Règles** de
-l'[interface web](interface-web.md).
+Les règles se gèrent avec la commande `security-review-mcp rules` (import et export de packs
+TOML, activation, désactivation, suppression) ou depuis l'écran **Règles** de
+l'[interface web](interface-web.md). Les items de checklist se gèrent depuis l'écran
+**Checklists** de cette interface, ou avec les packs TOML de la commande `rules`.
 
 ## Règles par défaut
 
@@ -93,7 +94,8 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 - Un nouveau `domain` est immédiatement utilisable avec `get_review_checklist`.
 - Une modification (CLI, interface web) est prise en compte par chaque serveur en cours
   d'exécution **en quelques secondes**, sans redémarrage ; l'outil `reload_rules` et le bouton
-  **Recharger** de l'interface l'appliquent immédiatement.
+  **Recharger** de l'écran Règles l'appliquent immédiatement. Les changements effectués dans
+  l'écran Checklists rechargent immédiatement le registre.
 - Une règle stockée qui ne passe plus la validation est **ignorée et signalée** (outil
   `list_rules`, champ `load_errors`) ; si la base est inaccessible, les règles par défaut du
   fichier `default_rules.toml` s'appliquent.

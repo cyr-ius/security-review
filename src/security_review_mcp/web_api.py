@@ -96,6 +96,16 @@ class RuleEnabledUpdate(BaseModel):
     enabled: bool
 
 
+class ChecklistItemWrite(BaseModel):
+    """A checklist item sent to the web API."""
+
+    domain: str = Field(min_length=1, max_length=31)
+    id: str = Field(min_length=3, max_length=rules_loader.MAX_ID_CHARS)
+    title: str = Field(min_length=1, max_length=rules_loader.MAX_TITLE_CHARS)
+    what_to_look_for: str = Field(min_length=1, max_length=rules_loader.MAX_TEXT_CHARS)
+    cwe: str = Field(default="", max_length=20)
+
+
 class ProjectTokenCreate(BaseModel):
     """A role-specific token scoped to one or several projects."""
 
@@ -215,6 +225,13 @@ async def _refresh_rules() -> dict:
     """Reload the active registry and return its diagnostics."""
     snapshot = await run_in_threadpool(registry.reload)
     return {"loaded_rules": len(snapshot.custom_rule_ids), "load_errors": list(snapshot.errors)}
+
+
+async def _refresh_checklists() -> dict:
+    """Reload the active registry and return checklist-specific diagnostics."""
+    snapshot = await run_in_threadpool(registry.reload)
+    count = sum(len(items) for items in snapshot.checklists.values())
+    return {"loaded_checklist_items": count, "load_errors": list(snapshot.errors)}
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -350,6 +367,62 @@ async def update_finding(
 async def list_custom_rules(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
     """List the rules stored in the database (default and custom)."""
     return await run_in_threadpool(_rule_catalog)
+
+
+@router.get("/checklists")
+async def list_checklist_items(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+    """List the checklist items stored in the database (default and custom)."""
+    return {
+        "checklist_items": await run_in_threadpool(rule_store.list_checklist_items),
+        "load_errors": list(registry.snapshot().errors),
+    }
+
+
+@router.post("/checklists", status_code=status.HTTP_201_CREATED)
+async def create_checklist_item(
+    body: ChecklistItemWrite, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict:
+    """Create a custom checklist item."""
+    try:
+        await run_in_threadpool(rule_store.create_check_item, body.model_dump(mode="json"))
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Checklist item %s/%s created by %s", body.domain, body.id, identity.client)
+    return await _refresh_checklists()
+
+
+@router.put("/checklists/{domain}/{item_id}")
+async def update_checklist_item(
+    domain: Annotated[str, APIPath(min_length=1, max_length=31)],
+    item_id: Annotated[str, APIPath(min_length=3, max_length=rules_loader.MAX_ID_CHARS)],
+    body: ChecklistItemWrite,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict:
+    """Update a checklist item without changing its domain or id."""
+    try:
+        await run_in_threadpool(
+            rule_store.update_check_item, domain, item_id, body.model_dump(mode="json")
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Checklist item %s/%s updated by %s", domain, item_id, identity.client)
+    return await _refresh_checklists()
+
+
+@router.delete("/checklists/{domain}/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_checklist_item(
+    domain: Annotated[str, APIPath(min_length=1, max_length=31)],
+    item_id: Annotated[str, APIPath(min_length=3, max_length=rules_loader.MAX_ID_CHARS)],
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> Response:
+    """Delete one custom checklist item."""
+    try:
+        await run_in_threadpool(rule_store.delete_check_item, domain, item_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    await _refresh_checklists()
+    logger.info("Checklist item %s/%s deleted by %s", domain, item_id, identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/rules/reload")

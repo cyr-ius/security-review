@@ -47,6 +47,15 @@ export const routes: Routes = [
           import('./features/rules/rule-list/rule-list.component').then((m) => m.RuleListComponent),
       },
       {
+        path: 'checklists',
+        title: 'Checklists · Security Review',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/checklists/checklist-list/checklist-list.component').then(
+            (m) => m.ChecklistListComponent,
+          ),
+      },
+      {
         path: 'tokens',
         title: 'Jetons · Security Review',
         canActivate: [adminGuard],

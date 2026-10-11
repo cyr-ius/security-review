@@ -1,0 +1,35 @@
+.checklist-dialog {
+  inline-size: min(54rem, calc(100vw - 2rem));
+  max-block-size: calc(100dvh - 2rem);
+  padding: 0;
+  border: 0;
+  border-radius: var(--bs-border-radius-lg);
+  background: transparent;
+  color: var(--bs-body-color);
+}
+
+.checklist-dialog::backdrop {
+  background: rgb(0 0 0 / 50%);
+}
+
+.checklist-editor {
+  max-block-size: calc(100dvh - 2rem);
+}
+
+.checklist-editor .card-body {
+  overflow-y: auto;
+}
+
+.checklist-key {
+  min-width: 9rem;
+}
+
+.checklist-description {
+  min-width: 20rem;
+}
+
+.action-button {
+  inline-size: 2rem;
+  block-size: 2rem;
+  padding: 0;
+}
