@@ -6,7 +6,11 @@
   [Serveur HTTP, authentification et TLS](../demarrage/http.md)). Seules les empreintes SHA-256
   des jetons sont gardées en mémoire, comparées en temps constant. Si l'écoute n'est pas sur
   localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Il n'y a
-  ni limitation de débit ni gestion fine des droits : tout jeton valide accède à tous les outils.
+  pas de limitation de débit. Chaque jeton porte un [rôle](../utilisation/interface-web.md#roles)
+  (`mcp`, `reader`, `triager`, `admin`) ; un jeton `mcp` accède à tous les outils MCP.
+- **Interface web** : l'API REST exige un jeton de rôle web, seuls `triager` et `admin` changent
+  le statut d'un finding (action journalisée avec le label du jeton). Pages servies avec une CSP
+  stricte et les en-têtes anti-clickjacking ; jeton gardé dans le `sessionStorage` de l'onglet.
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
   serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Le scan du dépôt
   complet est réservé à la CLI (`code scan`), lancée par l'opérateur sur un dossier qu'il

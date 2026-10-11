@@ -25,6 +25,7 @@ from . import (
     scanner,
     services,
     trends,
+    web_api,
 )
 from .config import get_settings
 from .database import init_db
@@ -527,9 +528,10 @@ def main(argv: list[str] | None = None) -> None:
         try:
             tokens = http_server.load_tokens(settings)
             tls = http_server.tls_options(settings)
+            web_app = web_api.create_app(args.host) if settings.web_ui else None
         except ValueError as exc:
             parser.error(str(exc))
-        http_server.run(mcp, args.host, args.port, tokens, tls, settings.log_level)
+        http_server.run(mcp, args.host, args.port, tokens, tls, settings.log_level, web_app)
     else:
         mcp.run("stdio")
 

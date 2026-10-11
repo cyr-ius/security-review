@@ -16,6 +16,8 @@ CI/CD (gate, SARIF, tendances) et transport HTTP avec jetons Bearer / TLS.
    (voir [Documentation](#documentation)).
 4. **Le `README.md` est à jour, en restant synthétique** (voir [README](#readme)).
 5. `.env.example` est à jour si un paramètre `SECREVIEW_*` a été ajouté ou modifié.
+6. **Une revue de sécurité des changements a été faite avec le serveur MCP `security-review`**
+   s'il est opérationnel (voir [Revue de sécurité](#revue-de-sécurité)).
 
 Si l'une de ces étapes est volontairement omise (ex. refactorisation interne sans effet visible
 sur la doc), dites-le explicitement dans votre réponse ou dans la description de PR, avec la
@@ -58,6 +60,23 @@ et commitez `uv.lock`.
   demande explicite** : publier une version est irréversible (PyPI refuse de republier une
   version).
 
+### Opérations GitHub
+
+La CLI `gh` **n'est pas installée** dans l'environnement de développement : n'essayez pas de
+l'utiliser.
+
+- **git (push, fetch, pull)** : passez par **SSH**. Le remote `origin` est en HTTPS, sans
+  identifiants : utilisez l'URL SSH, par ex.
+  `git push git@github.com:cyr-ius/security-review-mcp.git dev`
+  (ou `git remote set-url --push origin git@github.com:cyr-ius/security-review-mcp.git`).
+- **API GitHub (pull requests, issues, revues, commentaires, releases)** : passez par le
+  **connecteur GitHub MCP**.
+- Si SSH est indisponible, le connecteur peut aussi pousser des fichiers (`push_files`). Il crée
+  alors un autre commit : vérifiez avec `git fetch` puis `git diff HEAD origin/<branche>` que le
+  contenu est identique, puis réalignez la branche locale sur `origin/<branche>`.
+- Si git n'a pas d'identité configurée, reprenez celle des commits précédents pour ce commit
+  seulement (`git -c user.name=... -c user.email=... commit`), sans modifier la configuration.
+
 ## Carte du code
 
 | Zone | Fichiers |
@@ -69,10 +88,12 @@ et commitez `uv.lock`.
 | Dépendances et avis OSV | `dependencies.py`, `depscan.py`, `advisories.py`, `versions.py` |
 | Persistance | `models.py`, `services.py`, `database.py` |
 | Export et tendances | `sarif.py`, `trends.py` |
-| Transport HTTP, auth, TLS | `http_server.py` |
+| Transport HTTP, auth (jetons et rôles), TLS | `http_server.py` |
+| Interface web : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
 | Paramètres `SECREVIEW_*` | `config.py` |
 
-Tous les modules sont dans `src/security_review_mcp/`. La logique métier va dans les modules
+Tous les modules sont dans `src/security_review_mcp/`. L'application Angular (`web/`) est
+compilée par `npm run build` dans `src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules
 (`services.py`, `scanner.py`...) ; `server.py` et `cli.py` restent des couches minces qui
 valident les entrées et appellent ces modules.
 
@@ -160,6 +181,30 @@ fonctionnalité sans test n'est pas terminée ; une correction de bug commence p
 - Pas de réseau, pas de `sleep`, pas de dépendance à l'ordre des tests. Les clés et jetons de
   test sont factices.
 
+## Revue de sécurité
+
+Ce projet utilise son propre serveur MCP pour se relire. **Si le serveur MCP `security-review`
+est connecté et répond** (ses prompts et outils apparaissent dans votre session), une revue de
+sécurité des changements est **systématique** avant de déclarer une tâche terminée ou d'ouvrir
+une PR, quelle que soit la taille du changement :
+
+1. Lancez le prompt `security-review` (ou `api-security-review` pour l'API REST,
+   `configuration-review` pour Dockerfile / workflows / YAML, `dependency-review` si
+   `pyproject.toml`, `uv.lock` ou `package.json` changent) sur les fichiers modifiés, avec le
+   diff comme contexte. Pour un changement très étendu, utilisez `codebase-review`.
+2. Appuyez-vous sur `scan_code` et `get_review_checklist` pendant la revue.
+3. Enregistrez le résultat **une seule fois** avec `save_security_report` (`project` :
+   `security-review-mcp`, plus `branch` et `commit_sha` quand ils sont connus).
+4. Corrigez les findings `critical` et `high` avant de terminer, avec un test qui couvre la
+   correction. Pour les autres, corrigez-les ou justifiez-les, et mettez leur statut à jour avec
+   `update_finding_status` (`fixed`, `accepted`, `false_positive`).
+5. Résumez la revue (identifiant du rapport, findings et suite donnée) dans votre réponse et dans
+   la description de PR.
+
+Si le serveur n'est pas connecté ou ne répond pas, dites-le explicitement : ne prétendez pas
+avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt
+(`uv run security-review-mcp code scan . --exclude tests/`) et signalez ses résultats.
+
 ## Documentation
 
 `docs/` (MkDocs Material, en français) est la **source de vérité complète** pour les
@@ -174,6 +219,7 @@ utilisateurs. Mettez-la à jour dans le même changement que le code :
 | Une commande ou option CLI, un code de sortie | `docs/reference/cli.md` + la page d'usage concernée (`ci-cd/*.md`, `code-scan.md`...) |
 | Un paramètre `SECREVIEW_*` | `docs/reference/configuration.md`, `.env.example` |
 | Transport HTTP, authentification, TLS | `docs/demarrage/http.md`, `docs/reference/securite.md` |
+| L'interface web, l'API REST ou les rôles | `docs/utilisation/interface-web.md` |
 | Installation, image Docker | `docs/demarrage/installation.md`, `docs/demarrage/docker.md` |
 | Une garantie ou limite de sécurité | `docs/reference/securite.md` |
 | La structure du code, l'outillage de dev | `docs/contribuer.md` |

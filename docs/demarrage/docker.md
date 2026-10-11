@@ -7,6 +7,9 @@ docker build -t security-review-mcp .
 docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # pilote PostgreSQL
 ```
 
+Le build compile aussi l'[interface web](../utilisation/interface-web.md) (étape Node.js) ;
+elle est servie sur `/ui/` avec le transport HTTP.
+
 L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. La
 base SQLite est dans le volume `/data`. Le fichier `.env` n'est **pas** copié dans l'image :
 passez la configuration avec `-e` ou `--env-file`.
@@ -49,6 +52,8 @@ docker run -d --name security-review-mcp -p 8443:8443 \
 ```
 
 Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`).
+L'interface web est alors sur `https://<hôte>:8443/ui/` : donnez aux équipes sécurité des jetons
+de rôle `reader` ou `triager` (voir les [rôles](../utilisation/interface-web.md#roles)).
 
 ## Règles internes et CLI
 

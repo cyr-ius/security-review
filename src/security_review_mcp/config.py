@@ -39,6 +39,11 @@ class Settings(BaseSettings):
     tls_keyfile_password: str | None = None
     tls_client_ca: str | None = None
 
+    # Web interface (streamable-http only): REST API on /api/v1 and Angular application on /ui.
+    # web_ui_dir overrides the directory of the built application (default: bundled files).
+    web_ui: bool = True
+    web_ui_dir: str | None = None
+
     log_level: str = "INFO"
 
     # Directory holding internal rule packs (*.toml). Keep it writable by administrators only.

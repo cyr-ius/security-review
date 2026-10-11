@@ -10,5 +10,6 @@
 - [ ] `README.md` mis à jour si une capacité visible change (rester synthétique, lien vers la doc)
 - [ ] `.env.example` mis à jour si un paramètre `SECREVIEW_*` change
 - [ ] Invariants de sécurité de `AGENTS.md` respectés
+- [ ] Revue de sécurité faite avec le serveur MCP `security-review` (n° de rapport : …), findings `critical` / `high` corrigés
 
 <!-- Si une case est volontairement non cochée, expliquez pourquoi. -->

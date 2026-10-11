@@ -16,6 +16,7 @@ rapports (SQLite ou PostgreSQL) exploitable en pipeline.
 | **CLI** | `gate`, `sarif`, `trend`, `code scan`, `deps scan`, `advisories`, `token` (codes de sortie 0 / 1 / 2) |
 | **Règles** | Python, Java, Angular, configuration, GitLab CI, Jenkins, Spring, FastAPI, plus vos [règles internes](https://cyr-ius.github.io/security-review-mcp/utilisation/regles/) en TOML |
 | **Transport** | stdio ou HTTP, avec jetons Bearer et TLS (mutuel) facultatifs |
+| **Interface web** | tableau de bord des projets, rapports, tendances et triage des findings dans le navigateur, avec des [rôles par jeton](https://cyr-ius.github.io/security-review-mcp/utilisation/interface-web/) |
 
 Détail : [prompts et outils](https://cyr-ius.github.io/security-review-mcp/utilisation/prompts-outils/),
 [scan du code complet](https://cyr-ius.github.io/security-review-mcp/utilisation/code-scan/),
@@ -30,7 +31,7 @@ Détail : [prompts et outils](https://cyr-ius.github.io/security-review-mcp/util
 pip install security-review-mcp        # Python ≥ 3.11 ; extra [postgres] pour PostgreSQL
 
 security-review-mcp                    # stdio : lancé par l'hôte
-security-review-mcp --transport streamable-http --port 8000   # serveur partagé : /mcp
+security-review-mcp --transport streamable-http --port 8000   # serveur partagé : /mcp et /ui
 security-review-mcp gate --project portal --fail-on high      # bloquer un pipeline
 ```
 

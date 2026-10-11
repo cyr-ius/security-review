@@ -423,12 +423,22 @@ def token_command(argv: list[str]) -> int:
         description="Generate a bearer token and the hashed entry to put in the configuration.",
     )
     parser.add_argument("--label", default=None, help="name of the client (shown in the logs)")
+    parser.add_argument(
+        "--role",
+        choices=[role.value for role in http_server.Role],
+        default=None,
+        help="mcp (default): MCP endpoint; reader/triager: web interface; admin: both",
+    )
     args = parser.parse_args(argv)
     if args.label is not None and (not args.label.strip() or set(args.label) & {":", ","}):
         return _fail("--label must be non-empty and contain neither ':' nor ','")
+    if args.role and not args.label:
+        return _fail("--role needs --label")
 
     token = secrets.token_urlsafe(32)
     entry = http_server.hash_token(token)
+    if args.role:
+        entry = f"{args.role}:{entry}"
     if args.label:
         entry = f"{args.label.strip()}:{entry}"
     print(json.dumps({"token": token, "config_entry": entry}, indent=2))

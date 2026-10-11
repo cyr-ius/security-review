@@ -21,14 +21,23 @@ cp .env.example .env
 pytest && ruff check .
 ```
 
+L'[interface web](../utilisation/interface-web.md) est une application Angular à compiler
+(Node.js 20 ou plus) ; sans elle, le serveur ne sert que l'API REST :
+
+```bash
+cd web && npm ci && npm run build   # écrit dans src/security_review_mcp/webui/
+```
+
 ## Installation hors ligne
 
 Pour un environnement sans accès Internet, préparez les wheels sur une machine connectée,
 avec **la même version de Python que la cible** (ici 3.12) :
 
 ```bash
+(cd web && npm ci && npm run build)   # interface web, embarquée dans la wheel
 python3.12 -m pip wheel --no-deps -w wheels .
-python3.12 -m pip download -d wheels "mcp>=2,<3" "sqlmodel>=0.0.22" "pydantic-settings>=2.2"
+python3.12 -m pip download -d wheels "mcp>=2,<3" "sqlmodel>=0.0.22" "pydantic-settings>=2.2" \
+    "fastapi>=0.135"
 # PostgreSQL uniquement : python3.12 -m pip download -d wheels psycopg2-binary
 ```
 
@@ -54,6 +63,7 @@ security-review-mcp
 # HTTP : serveur partagé (CI/CD)
 security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 # endpoint : http://127.0.0.1:8000/mcp
+# interface web : http://127.0.0.1:8000/ui/
 ```
 
 Pour exposer le serveur HTTP au-delà de localhost, activez
