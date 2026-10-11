@@ -1,0 +1,15 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build security_review_mcp",
+      "type": "process",
+      "command": "uv",
+      "args": ["sync", "--extra", "dev", "--extra", "docs"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

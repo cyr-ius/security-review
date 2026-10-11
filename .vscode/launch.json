@@ -9,6 +9,7 @@
       "args": ["--transport", "streamable-http", "--host", "127.0.0.1", "--port", "8000"],
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/.venv/bin/python",
+      "preLaunchTask": "Build security_review_mcp",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
         "SECREVIEW_LOG_LEVEL": "DEBUG"

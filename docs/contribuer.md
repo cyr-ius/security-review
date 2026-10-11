@@ -9,6 +9,10 @@ uv run ruff check . && uv run ruff format --check .
 pre-commit install          # facultatif : mêmes contrôles avant chaque commit
 ```
 
+Dans VS Code, la configuration **MCP server (streamable-http)** de `launch.json` lance au
+préalable la tâche **Build security_review_mcp**, qui synchronise l'environnement avec
+`uv sync --extra dev --extra docs`.
+
 ### Devcontainer
 
 Le dépôt fournit un devcontainer (`.devcontainer/`) avec Python, uv, Node.js et un démon Docker
