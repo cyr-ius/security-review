@@ -12,7 +12,14 @@ from starlette.testclient import TestClient
 
 from security_review_mcp import cli, http_server, server
 from security_review_mcp.config import Settings
-from security_review_mcp.http_server import BearerAuthMiddleware, hash_token, parse_tokens
+from security_review_mcp.http_server import (
+    BearerAuthMiddleware,
+    PathDispatcher,
+    Role,
+    TokenInfo,
+    hash_token,
+    parse_tokens,
+)
 
 TOKEN = "a" * 32
 OTHER = "b" * 32
@@ -24,13 +31,20 @@ def make_settings(**values) -> Settings:
 
 
 def whoami(request: Request) -> PlainTextResponse:
-    """Echo the label stored by the middleware."""
-    return PlainTextResponse(request.scope["state"]["auth_client"])
+    """Echo the label and role stored by the middleware."""
+    state = request.scope.get("state", {})
+    return PlainTextResponse(f"{state.get('auth_client')}/{state.get('auth_role')}")
 
 
-def protected_client(tokens: dict[bytes, str]) -> TestClient:
-    app = Starlette(routes=[Route("/mcp", whoami)])
-    return TestClient(BearerAuthMiddleware(app, tokens))
+def protected_client(tokens: dict[bytes, TokenInfo], web: bool = False) -> TestClient:
+    app = Starlette(
+        routes=[Route("/mcp", whoami), Route("/api/v1/me", whoami), Route("/ui/", whoami)]
+    )
+    return TestClient(BearerAuthMiddleware(app, tokens, web=web))
+
+
+def labels(tokens: dict[bytes, TokenInfo]) -> list[str]:
+    return sorted(info.label for info in tokens.values())
 
 
 # ── Tokens ───────────────────────────────────────────────────────────────────
@@ -38,7 +52,19 @@ def protected_client(tokens: dict[bytes, str]) -> TestClient:
 
 def test_parse_tokens_plain_hashed_and_labelled():
     tokens = parse_tokens([TOKEN, f"ci:{hash_token(OTHER)}", "  ", hash_token("c" * 30)])
-    assert sorted(tokens.values()) == ["ci", "token-1", "token-3"]
+    assert labels(tokens) == ["ci", "token-1", "token-3"]
+    assert {info.role for info in tokens.values()} == {Role.MCP}
+
+
+def test_parse_tokens_with_roles():
+    tokens = parse_tokens(
+        [f"alice:triager:{TOKEN}", f"bob:Reader:{hash_token(OTHER)}", f"ops:admin:{'c' * 30}"]
+    )
+    assert {info.label: info.role for info in tokens.values()} == {
+        "alice": Role.TRIAGER,
+        "bob": Role.READER,
+        "ops": Role.ADMIN,
+    }
 
 
 @pytest.mark.parametrize(
@@ -48,6 +74,7 @@ def test_parse_tokens_plain_hashed_and_labelled():
         (["sha256:abcd"], "not a valid sha256"),
         ([f":{TOKEN}"], "empty label"),
         ([f"ci:{TOKEN}", f"ci:{OTHER}"], "Duplicate"),
+        ([f"ci:boss:{TOKEN}"], "unknown role"),
     ],
 )
 def test_parse_tokens_rejects_invalid_entries(entries, message):
@@ -59,7 +86,7 @@ def test_load_tokens_from_env_and_file(tmp_path):
     path = tmp_path / "tokens"
     path.write_text(f"# CI runners\nci:{hash_token(OTHER)}\n\n", encoding="utf-8")
     settings = make_settings(auth_tokens=f"dev:{TOKEN}", auth_tokens_file=str(path))
-    assert sorted(http_server.load_tokens(settings).values()) == ["ci", "dev"]
+    assert labels(http_server.load_tokens(settings)) == ["ci", "dev"]
 
 
 def test_load_tokens_missing_file(tmp_path):
@@ -77,8 +104,8 @@ def test_no_token_means_no_auth():
 
 def test_valid_token_is_accepted_and_labelled():
     client = protected_client(parse_tokens([f"dev:{TOKEN}", f"ci:{hash_token(OTHER)}"]))
-    assert client.get("/mcp", headers={"Authorization": f"Bearer {TOKEN}"}).text == "dev"
-    assert client.get("/mcp", headers={"Authorization": f"bearer {OTHER}"}).text == "ci"
+    assert client.get("/mcp", headers={"Authorization": f"Bearer {TOKEN}"}).text == "dev/mcp"
+    assert client.get("/mcp", headers={"Authorization": f"bearer {OTHER}"}).text == "ci/mcp"
 
 
 @pytest.mark.parametrize(
@@ -95,6 +122,45 @@ def test_missing_or_wrong_token_is_rejected(headers):
     assert response.status_code == 401
     assert response.headers["www-authenticate"].startswith("Bearer")
     assert response.json()["error"] == "invalid_token"
+
+
+@pytest.mark.parametrize(
+    "role, mcp_status, api_status",
+    [("mcp", 200, 403), ("reader", 403, 200), ("triager", 403, 200), ("admin", 200, 200)],
+)
+def test_roles_select_the_endpoints(role, mcp_status, api_status):
+    client = protected_client(parse_tokens([f"user:{role}:{TOKEN}"]), web=True)
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+    assert client.get("/mcp", headers=headers).status_code == mcp_status
+    response = client.get("/api/v1/me", headers=headers)
+    assert response.status_code == api_status
+    if api_status == 403:
+        assert response.json()["error"] == "insufficient_scope"
+    else:
+        assert response.text == f"user/{role}"
+
+
+def test_web_ui_files_are_public_but_not_the_api():
+    client = protected_client(parse_tokens([TOKEN]), web=True)
+    assert client.get("/ui/").status_code == 200
+    assert client.get("/api/v1/me").status_code == 401
+    # Without the web interface, every path needs a token
+    assert protected_client(parse_tokens([TOKEN])).get("/ui/").status_code == 401
+
+
+def test_path_dispatcher_routes_web_paths():
+    def app_named(name: str) -> Starlette:
+        return Starlette(routes=[Route("/{path:path}", lambda _: PlainTextResponse(name))])
+
+    client = TestClient(PathDispatcher(app_named("mcp"), app_named("web")))
+    assert [client.get(path).text for path in ("/mcp", "/api/v1/me", "/ui", "/ui/x", "/")] == [
+        "mcp",
+        "web",
+        "web",
+        "web",
+        "web",
+    ]
+    assert client.get("/uix").text == "mcp"
 
 
 def test_build_app_without_tokens_is_unprotected():
@@ -182,8 +248,17 @@ def test_token_command(capsys):
     label, entry = output["config_entry"].split(":", 1)
     assert label == "ci"
     assert entry == hash_token(output["token"])
-    assert list(parse_tokens([output["config_entry"]]).values()) == ["ci"]
+    assert list(parse_tokens([output["config_entry"]]).values()) == [TokenInfo("ci")]
+
+
+def test_token_command_with_role(capsys):
+    assert cli.run(["token", "--label", "alice", "--role", "triager"]) == cli.EXIT_PASSED
+    output = json.loads(capsys.readouterr().out)
+    assert output["config_entry"].startswith("alice:triager:sha256:")
+    (info,) = parse_tokens([output["config_entry"]]).values()
+    assert info == TokenInfo("alice", Role.TRIAGER)
 
 
 def test_token_command_rejects_bad_label():
     assert cli.run(["token", "--label", "a:b"]) == cli.EXIT_ERROR
+    assert cli.run(["token", "--role", "reader"]) == cli.EXIT_ERROR

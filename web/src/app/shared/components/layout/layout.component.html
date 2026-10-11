@@ -1,0 +1,44 @@
+<nav class="navbar navbar-expand border-bottom bg-body-tertiary">
+  <div class="container-xl">
+    <a class="navbar-brand fw-semibold" routerLink="/" aria-label="Security Review">
+      <i class="bi bi-shield-lock" aria-hidden="true"></i>
+      <span class="d-none d-sm-inline">Security Review</span>
+    </a>
+    <ul class="navbar-nav me-auto">
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/projects" routerLinkActive="active">Projets</a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" routerLink="/reports" routerLinkActive="active">Rapports</a>
+      </li>
+    </ul>
+    <div class="d-flex align-items-center gap-2">
+      <span class="small text-body-secondary d-none d-md-inline" [title]="roleLabel()">
+        <i class="bi bi-person-badge" aria-hidden="true"></i>
+        {{ roleLabel() }}
+      </span>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        (click)="theme.toggle()"
+        [attr.aria-label]="theme.theme() === 'dark' ? 'Thème clair' : 'Thème sombre'"
+      >
+        <i
+          class="bi"
+          [class]="theme.theme() === 'dark' ? 'bi-sun' : 'bi-moon-stars'"
+          aria-hidden="true"
+        ></i>
+      </button>
+      @if (auth.identity()?.auth_enabled) {
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="logout()">
+          <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+          <span class="d-none d-sm-inline">Déconnexion</span>
+        </button>
+      }
+    </div>
+  </div>
+</nav>
+
+<main class="container-xl py-4">
+  <router-outlet />
+</main>

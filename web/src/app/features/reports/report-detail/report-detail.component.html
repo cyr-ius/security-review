@@ -1,0 +1,191 @@
+@if (notFound()) {
+  <div class="alert alert-warning" role="alert">
+    Le rapport #{{ id() }} n'existe pas. <a routerLink="/reports">Retour aux rapports</a>
+  </div>
+} @else if (report.error()) {
+  <div class="alert alert-danger" role="alert">
+    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+    Impossible de charger le rapport.
+  </div>
+} @else if (report.value(); as data) {
+  <nav aria-label="Fil d'Ariane">
+    <ol class="breadcrumb">
+      <li class="breadcrumb-item"><a routerLink="/projects">Projets</a></li>
+      <li class="breadcrumb-item">
+        <a [routerLink]="['/projects', data.project]">{{ data.project }}</a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page">Rapport #{{ data.id }}</li>
+    </ol>
+  </nav>
+
+  <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
+    <div>
+      <h1 class="h3 mb-1">Rapport #{{ data.id }}</h1>
+      <div class="d-flex flex-wrap align-items-center gap-2 text-body-secondary small">
+        <app-severity-badge [severity]="data.risk_level" />
+        <span>{{ data.created_at | date: 'dd/MM/yyyy HH:mm' }}</span>
+        <span>· {{ openCount() }} ouvert(s) sur {{ findings().length }}</span>
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="downloadMarkdown()">
+        <i class="bi bi-markdown" aria-hidden="true"></i>
+        Markdown
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" (click)="downloadSarif()">
+        <i class="bi bi-download" aria-hidden="true"></i>
+        SARIF
+      </button>
+    </div>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-lg-8">
+      <div class="card h-100">
+        <div class="card-header fw-semibold">Résumé</div>
+        <div class="card-body prewrap">{{ data.summary }}</div>
+      </div>
+    </div>
+    <div class="col-lg-4">
+      <div class="card h-100">
+        <div class="card-header fw-semibold">Contexte</div>
+        <dl class="card-body meta mb-0">
+          @if (data.repository) {
+            <dt>Dépôt</dt>
+            <dd class="text-break">{{ data.repository }}</dd>
+          }
+          @if (data.branch) {
+            <dt>Branche</dt>
+            <dd>{{ data.branch }}</dd>
+          }
+          @if (data.commit_sha) {
+            <dt>Commit</dt>
+            <dd>
+              <code>{{ data.commit_sha }}</code>
+            </dd>
+          }
+          @if (data.reviewer) {
+            <dt>Relecteur</dt>
+            <dd>{{ data.reviewer }}</dd>
+          }
+          @if (data.scope) {
+            <dt>Périmètre</dt>
+            <dd class="prewrap">{{ data.scope }}</dd>
+          }
+        </dl>
+      </div>
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <h2 class="h5 mb-0 me-auto">Findings</h2>
+    <select
+      class="form-select form-select-sm filter"
+      aria-label="Filtrer par sévérité"
+      (change)="onSeverityFilter($event)"
+    >
+      <option value="">Toutes les sévérités</option>
+      @for (severity of severities; track severity) {
+        <option [value]="severity">{{ severityMeta[severity].label }}</option>
+      }
+    </select>
+    <select
+      class="form-select form-select-sm filter"
+      aria-label="Filtrer par statut"
+      (change)="onStatusFilter($event)"
+    >
+      <option value="">Tous les statuts</option>
+      @for (status of statuses; track status) {
+        <option [value]="status">{{ statusMeta[status].label }}</option>
+      }
+    </select>
+  </div>
+
+  @if (triageError(); as message) {
+    <div class="alert alert-danger alert-dismissible py-2" role="alert">
+      {{ message }}
+      <button
+        type="button"
+        class="btn-close"
+        aria-label="Fermer"
+        (click)="triageError.set(null)"
+      ></button>
+    </div>
+  }
+
+  @for (finding of visibleFindings(); track finding.id) {
+    <article class="card finding mb-3" [class]="'sev-' + finding.severity">
+      <div class="card-header d-flex flex-wrap align-items-center gap-2">
+        <app-severity-badge [severity]="finding.severity" />
+        <h3 class="h6 mb-0 me-auto">{{ finding.title }}</h3>
+        @if (auth.canTriage()) {
+          <select
+            class="form-select form-select-sm status-select"
+            [attr.aria-label]="'Statut du finding #' + finding.id"
+            [disabled]="saving().has(finding.id)"
+            (change)="changeStatus(finding, $event)"
+          >
+            @for (status of statuses; track status) {
+              <option [value]="status" [selected]="status === finding.status">
+                {{ statusMeta[status].label }}
+              </option>
+            }
+          </select>
+        } @else {
+          <app-status-badge [status]="finding.status" />
+        }
+      </div>
+      <div class="card-body">
+        <div class="d-flex flex-wrap gap-3 small text-body-secondary mb-2">
+          <span>#{{ finding.id }}</span>
+          @if (location(finding); as loc) {
+            <span
+              ><i class="bi bi-file-earmark-code" aria-hidden="true"></i>
+              <code>{{ loc }}</code></span
+            >
+          }
+          @if (finding.rule_id) {
+            <span><i class="bi bi-tag" aria-hidden="true"></i> {{ finding.rule_id }}</span>
+          }
+          @if (finding.cwe) {
+            @if (cweUrl(finding.cwe); as url) {
+              <a [href]="url" target="_blank" rel="noopener noreferrer">{{ finding.cwe }}</a>
+            } @else {
+              <span>{{ finding.cwe }}</span>
+            }
+          }
+          @if (finding.owasp) {
+            <span>OWASP {{ finding.owasp }}</span>
+          }
+          <span>{{ finding.category }}</span>
+          @if (finding.status !== 'open' && finding.status_changed_at) {
+            <span>
+              {{ statusMeta[finding.status].label }} le
+              {{ finding.status_changed_at | date: 'dd/MM/yyyy' }}
+            </span>
+          }
+        </div>
+        <p class="prewrap mb-2">{{ finding.description }}</p>
+        @if (finding.evidence) {
+          <pre class="evidence"><code>{{ finding.evidence }}</code></pre>
+        }
+        @if (finding.recommendation) {
+          <div class="recommendation">
+            <i class="bi bi-lightbulb" aria-hidden="true"></i>
+            <div class="prewrap">{{ finding.recommendation }}</div>
+          </div>
+        }
+      </div>
+    </article>
+  } @empty {
+    <p class="text-body-secondary text-center my-4">
+      <i class="bi bi-check2-circle" aria-hidden="true"></i>
+      Aucun finding{{ severityFilter() || statusFilter() ? ' pour ces filtres' : '' }}.
+    </p>
+  }
+} @else {
+  <div class="text-center my-5">
+    <span class="spinner-border text-secondary" aria-hidden="true"></span>
+    <span class="visually-hidden">Chargement…</span>
+  </div>
+}

@@ -1,0 +1,10 @@
+.numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.summary {
+  max-width: 28rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

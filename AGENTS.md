@@ -69,10 +69,12 @@ et commitez `uv.lock`.
 | Dépendances et avis OSV | `dependencies.py`, `depscan.py`, `advisories.py`, `versions.py` |
 | Persistance | `models.py`, `services.py`, `database.py` |
 | Export et tendances | `sarif.py`, `trends.py` |
-| Transport HTTP, auth, TLS | `http_server.py` |
+| Transport HTTP, auth (jetons et rôles), TLS | `http_server.py` |
+| Interface web : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
 | Paramètres `SECREVIEW_*` | `config.py` |
 
-Tous les modules sont dans `src/security_review_mcp/`. La logique métier va dans les modules
+Tous les modules sont dans `src/security_review_mcp/`. L'application Angular (`web/`) est
+compilée par `npm run build` dans `src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules
 (`services.py`, `scanner.py`...) ; `server.py` et `cli.py` restent des couches minces qui
 valident les entrées et appellent ces modules.
 
@@ -174,6 +176,7 @@ utilisateurs. Mettez-la à jour dans le même changement que le code :
 | Une commande ou option CLI, un code de sortie | `docs/reference/cli.md` + la page d'usage concernée (`ci-cd/*.md`, `code-scan.md`...) |
 | Un paramètre `SECREVIEW_*` | `docs/reference/configuration.md`, `.env.example` |
 | Transport HTTP, authentification, TLS | `docs/demarrage/http.md`, `docs/reference/securite.md` |
+| L'interface web, l'API REST ou les rôles | `docs/utilisation/interface-web.md` |
 | Installation, image Docker | `docs/demarrage/installation.md`, `docs/demarrage/docker.md` |
 | Une garantie ou limite de sécurité | `docs/reference/securite.md` |
 | La structure du code, l'outillage de dev | `docs/contribuer.md` |

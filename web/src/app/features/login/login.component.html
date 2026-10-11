@@ -1,0 +1,56 @@
+<div class="login-page">
+  <div class="card shadow-sm login-card">
+    <div class="card-body p-4">
+      <h1 class="h4 mb-1">
+        <i class="bi bi-shield-lock" aria-hidden="true"></i>
+        Security Review
+      </h1>
+      <p class="text-body-secondary mb-4">Rapports de revue de sécurité des projets</p>
+
+      @if (error(); as message) {
+        <div class="alert alert-danger py-2" role="alert">
+          <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+          {{ message }}
+        </div>
+      }
+
+      <form (submit)="onSubmit($event)" novalidate>
+        <label for="token" class="form-label">Token d'accès</label>
+        <div class="input-group mb-1">
+          <input
+            id="token"
+            class="form-control font-monospace"
+            [type]="reveal() ? 'text' : 'password'"
+            autocomplete="off"
+            spellcheck="false"
+            [formField]="loginForm.token"
+            [class.is-invalid]="loginForm.token().touched() && loginForm.token().invalid()"
+          />
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            (click)="reveal.set(!reveal())"
+            [attr.aria-label]="reveal() ? 'Masquer le token' : 'Afficher le token'"
+          >
+            <i class="bi" [class]="reveal() ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true"></i>
+          </button>
+        </div>
+        @if (loginForm.token().touched() && loginForm.token().invalid()) {
+          @for (err of loginForm.token().errors(); track err.kind) {
+            <div class="invalid-feedback d-block">{{ err.message }}</div>
+          }
+        }
+        <div class="form-text mb-3">
+          Fourni par l'administrateur (<code>security-review-mcp token --role reader</code>). Il
+          reste dans cet onglet et disparaît à sa fermeture.
+        </div>
+        <button type="submit" class="btn btn-primary w-100" [disabled]="loginForm().submitting()">
+          @if (loginForm().submitting()) {
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          }
+          Se connecter
+        </button>
+      </form>
+    </div>
+  </div>
+</div>

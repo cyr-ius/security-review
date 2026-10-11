@@ -1,0 +1,106 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Projets</h1>
+    <p class="text-body-secondary mb-0">Findings ouverts sur l'ensemble des rapports</p>
+  </div>
+  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="projects.reload()">
+    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+    Actualiser
+  </button>
+</div>
+
+@if (projects.error()) {
+  <div class="alert alert-danger" role="alert">
+    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+    Impossible de charger les projets.
+  </div>
+} @else if (projects.isLoading() && !projects.hasValue()) {
+  <div class="text-center my-5">
+    <span class="spinner-border text-secondary" aria-hidden="true"></span>
+    <span class="visually-hidden">Chargement…</span>
+  </div>
+} @else {
+  <section class="mb-4" aria-label="Findings ouverts, tous projets">
+    <app-severity-counts [counts]="totals()" />
+  </section>
+
+  <div class="card">
+    <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+      <div class="input-group input-group-sm filter">
+        <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+        <input
+          type="search"
+          class="form-control"
+          placeholder="Filtrer les projets…"
+          aria-label="Filtrer les projets"
+          [value]="search()"
+          (input)="onSearch($event)"
+        />
+      </div>
+      <select
+        class="form-select form-select-sm sort"
+        aria-label="Trier"
+        [value]="sort()"
+        (change)="onSort($event)"
+      >
+        <option value="risk">Trier par risque</option>
+        <option value="activity">Trier par activité</option>
+        <option value="name">Trier par nom</option>
+      </select>
+      <span class="ms-auto small text-body-secondary">{{ visible().length }} projet(s)</span>
+    </div>
+
+    @if (visible().length > 0) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col">Projet</th>
+              <th scope="col">Pire finding ouvert</th>
+              @for (severity of severities; track severity) {
+                <th scope="col" class="text-end">{{ severityMeta[severity].label }}</th>
+              }
+              <th scope="col" class="text-end">Rapports</th>
+              <th scope="col">Dernier rapport</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (project of visible(); track project.project) {
+              <tr>
+                <td>
+                  <a class="fw-semibold" [routerLink]="['/projects', project.project]">
+                    {{ project.project }}
+                  </a>
+                </td>
+                <td>
+                  @if (project.worst_open_severity; as worst) {
+                    <app-severity-badge [severity]="worst" />
+                  } @else {
+                    <span class="text-body-secondary">
+                      <i class="bi bi-check-circle" aria-hidden="true"></i> Aucun
+                    </span>
+                  }
+                </td>
+                @for (severity of severities; track severity) {
+                  <td
+                    class="text-end numeric"
+                    [class.text-body-tertiary]="project.open_findings_by_severity[severity] === 0"
+                  >
+                    {{ project.open_findings_by_severity[severity] }}
+                  </td>
+                }
+                <td class="text-end numeric">{{ project.reports_total }}</td>
+                <td class="text-nowrap">{{ project.last_report_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary text-center my-4">
+        <i class="bi bi-inbox" aria-hidden="true"></i>
+        Aucun projet.
+      </p>
+    }
+  </div>
+}

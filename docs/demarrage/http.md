@@ -7,6 +7,7 @@ l'hôte lance lui-même le processus).
 ```bash
 security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 # endpoint : http://127.0.0.1:8000/mcp
+# interface web : http://127.0.0.1:8000/ui/
 ```
 
 ## Jetons Bearer
@@ -24,8 +25,9 @@ security-review-mcp token --label ci
   `SECREVIEW_AUTH_TOKENS_FILE` (une entrée par ligne, `#` pour les commentaires — pratique avec
   les secrets Docker / Kubernetes).
 
-Une entrée vaut `[label:]jeton` ou `[label:]sha256:<hex>` ; un jeton en clair doit faire au
-moins 24 caractères.
+Une entrée vaut `[label[:rôle]:]jeton` ou `[label[:rôle]:]sha256:<hex>` ; un jeton en clair doit
+faire au moins 24 caractères. Le rôle (`--role` de la commande `token`) vaut `mcp` par défaut :
+voir les [rôles](../utilisation/interface-web.md#roles) pour donner accès à l'interface web.
 
 Dès qu'un jeton est configuré, toute requête sans `Authorization: Bearer <jeton>` valide reçoit
 un `401`. Le label du client apparaît dans les journaux.
@@ -73,4 +75,5 @@ laissez ces variables vides.
 
 !!! warning
     Si le serveur écoute ailleurs que sur localhost sans authentification ou sans TLS, un
-    avertissement est journalisé. Tout jeton valide donne accès à **tous** les outils.
+    avertissement est journalisé. Tout jeton de rôle `mcp` ou `admin` donne accès à **tous** les
+    outils.

@@ -1,0 +1,17 @@
+/* Text keeps the body color: the colored icon and border carry the severity */
+.severity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--bs-border-color);
+  border-left: 4px solid var(--sev-color);
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.severity .bi {
+  color: var(--sev-color);
+}

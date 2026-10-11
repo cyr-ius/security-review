@@ -6,7 +6,7 @@ pipelines et à l'administration.
 | Commande | Rôle | Page |
 |---|---|---|
 | `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP | [Installation](../demarrage/installation.md#lancement) |
-| `token --label NOM` | Génère un jeton Bearer et son entrée de configuration | [HTTP](../demarrage/http.md#jetons-bearer) |
+| `token --label NOM [--role ROLE]` | Génère un jeton Bearer et son entrée de configuration | [HTTP](../demarrage/http.md#jetons-bearer), [rôles](../utilisation/interface-web.md#roles) |
 | `code scan [PATH]` | Scan du dépôt complet | [Scan du code complet](../utilisation/code-scan.md) |
 | `deps scan FICHIER…` | Analyse de manifestes / lockfiles | [Dépendances](../utilisation/dependances.md) |
 | `advisories import PATH` / `advisories status` | Gestion de la base OSV hors ligne | [Dépendances](../utilisation/dependances.md#base-de-vulnerabilites-hors-ligne-format-osv) |

@@ -45,6 +45,7 @@ l'agent relit le code, s'appuie sur les checklists et enregistre son rapport en 
 | Connaître les prompts et outils exposés | [Prompts et outils](utilisation/prompts-outils.md) |
 | Bloquer un déploiement sur des findings ouverts | [Gate](ci-cd/gate.md) |
 | Ajouter les règles de mon entreprise | [Règles internes](utilisation/regles.md) |
+| Consulter et trier les rapports dans un navigateur | [Interface web](utilisation/interface-web.md) |
 
 !!! warning "Ce n'est pas un SAST"
     Le scan par motifs produit des **pistes** et des faux positifs. Il ne remplace ni un SAST,

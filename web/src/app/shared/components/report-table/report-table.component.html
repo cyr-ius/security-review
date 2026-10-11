@@ -1,0 +1,52 @@
+@if (reports().length > 0) {
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead>
+        <tr>
+          <th scope="col">#</th>
+          <th scope="col">Date</th>
+          @if (showProject()) {
+            <th scope="col">Projet</th>
+          }
+          <th scope="col">Risque</th>
+          <th scope="col" class="text-end">Ouverts / total</th>
+          <th scope="col">Branche</th>
+          <th scope="col">Résumé</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (report of reports(); track report.report_id) {
+          <tr>
+            <td>
+              <a [routerLink]="['/reports', report.report_id]">#{{ report.report_id }}</a>
+            </td>
+            <td class="text-nowrap">{{ report.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+            @if (showProject()) {
+              <td>
+                <a [routerLink]="['/projects', report.project]">{{ report.project }}</a>
+              </td>
+            }
+            <td><app-severity-badge [severity]="report.risk_level" /></td>
+            <td class="text-end numeric">
+              <strong>{{ report.findings_open }}</strong> / {{ report.findings_total }}
+            </td>
+            <td class="text-nowrap">
+              @if (report.branch) {
+                <i class="bi bi-git" aria-hidden="true"></i> {{ report.branch }}
+              }
+              @if (report.commit_sha) {
+                <code class="ms-1">{{ report.commit_sha | slice: 0 : 8 }}</code>
+              }
+            </td>
+            <td class="summary text-body-secondary">{{ report.summary }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+} @else {
+  <p class="text-body-secondary text-center my-4">
+    <i class="bi bi-inbox" aria-hidden="true"></i>
+    Aucun rapport.
+  </p>
+}

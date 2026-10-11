@@ -64,6 +64,7 @@ nav:
       - Scan du code complet: utilisation/code-scan.md
       - Analyse des dépendances: utilisation/dependances.md
       - Règles internes: utilisation/regles.md
+      - Interface web: utilisation/interface-web.md
   - CI/CD:
       - Gate: ci-cd/gate.md
       - Export SARIF: ci-cd/sarif.md

@@ -1,0 +1,70 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <h1 class="h3 mb-0">Rapports</h1>
+  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="reports.reload()">
+    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+    Actualiser
+  </button>
+</div>
+
+<div class="card">
+  <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+    <select
+      class="form-select form-select-sm filter"
+      aria-label="Projet"
+      (change)="onProject($event)"
+    >
+      <option value="">Tous les projets</option>
+      @for (p of projects.value() ?? []; track p.project) {
+        <option [value]="p.project" [selected]="p.project === project()">{{ p.project }}</option>
+      }
+    </select>
+    <select
+      class="form-select form-select-sm filter"
+      aria-label="Niveau de risque"
+      (change)="onRisk($event)"
+    >
+      <option value="">Tous les niveaux de risque</option>
+      @for (severity of severities; track severity) {
+        <option [value]="severity" [selected]="severity === riskLevel()">
+          {{ severityMeta[severity].label }}
+        </option>
+      }
+    </select>
+  </div>
+
+  @if (reports.error()) {
+    <div class="card-body text-danger">
+      <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+      Impossible de charger les rapports.
+    </div>
+  } @else if (reports.isLoading() && !reports.hasValue()) {
+    <div class="text-center my-4">
+      <span class="spinner-border text-secondary" aria-hidden="true"></span>
+      <span class="visually-hidden">Chargement…</span>
+    </div>
+  } @else {
+    <app-report-table [reports]="rows()" />
+  }
+
+  @if (pageNumber() > 1 || hasNext()) {
+    <div class="card-footer d-flex justify-content-between align-items-center">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        [disabled]="pageNumber() <= 1"
+        (click)="goToPage(pageNumber() - 1)"
+      >
+        <i class="bi bi-chevron-left" aria-hidden="true"></i> Précédent
+      </button>
+      <span class="small text-body-secondary">Page {{ pageNumber() }}</span>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        [disabled]="!hasNext()"
+        (click)="goToPage(pageNumber() + 1)"
+      >
+        Suivant <i class="bi bi-chevron-right" aria-hidden="true"></i>
+      </button>
+    </div>
+  }
+</div>

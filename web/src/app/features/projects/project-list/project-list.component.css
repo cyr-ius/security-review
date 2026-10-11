@@ -1,0 +1,11 @@
+.filter {
+  max-width: 20rem;
+}
+
+.sort {
+  width: auto;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+}

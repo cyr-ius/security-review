@@ -8,13 +8,29 @@
 # stdio (developer workstation, the MCP host starts the container itself):
 #   docker run -i --rm -v secreview-data:/data security-review-mcp
 #
-# Streamable HTTP (shared server). Enable the built-in bearer authentication and TLS
-# (SECREVIEW_AUTH_TOKENS_FILE, SECREVIEW_TLS_CERTFILE, SECREVIEW_TLS_KEYFILE) or put the
-# server behind a reverse proxy that enforces them:
+# Streamable HTTP (shared server, MCP on /mcp and web interface on /ui). Enable the built-in
+# bearer authentication and TLS (SECREVIEW_AUTH_TOKENS_FILE, SECREVIEW_TLS_CERTFILE,
+# SECREVIEW_TLS_KEYFILE) or put the server behind a reverse proxy that enforces them:
 #   docker run -d -p 127.0.0.1:8000:8000 -v secreview-data:/data security-review-mcp \
 #       --transport streamable-http --host 0.0.0.0 --port 8000
 
 ARG PYTHON_VERSION=3.12
+ARG NODE_VERSION=24
+
+# ---------------------------------------------------------------------------
+# Web stage: build the Angular interface (served on /ui with streamable-http)
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION}-slim AS web
+
+WORKDIR /web/web
+
+# Dependencies first: this layer is reused as long as package-lock.json does not change
+COPY web/package.json web/package-lock.json ./
+RUN --mount=type=cache,target=/root/.npm npm ci --no-audit --no-fund
+
+# The build writes into ../src/security_review_mcp/webui (see web/angular.json)
+COPY web/ ./
+RUN npm run build
 
 # ---------------------------------------------------------------------------
 # Build stage: resolve dependencies from uv.lock into a self-contained venv
@@ -42,6 +58,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Then the project itself (README.md is required by the setuptools build)
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
+COPY --from=web /web/src/security_review_mcp/webui ./src/security_review_mcp/webui
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --locked --no-editable ${EXTRAS:+--extra "$EXTRAS"}
 

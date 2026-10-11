@@ -41,7 +41,18 @@ jobs:
             exit 1
           fi
 
+      # The wheel ships the built web interface
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build the web interface
+        working-directory: web
+        run: npm ci --no-audit --no-fund && npm run build
       - run: uv build
+      - name: Check the web interface is in the wheel
+        run: unzip -l dist/*.whl | grep -q "security_review_mcp/webui/index.html"
       - name: Check distributions
         run: uvx twine check --strict dist/*
       - uses: actions/upload-artifact@v7
