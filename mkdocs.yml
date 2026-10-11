@@ -1,0 +1,75 @@
+site_name: security-review-mcp
+site_description: Serveur MCP pour la revue de code orientée sécurité
+site_url: https://cyr-ius.github.io/security-review-mcp/
+repo_url: https://github.com/cyr-ius/security-review-mcp
+repo_name: cyr-ius/security-review-mcp
+edit_uri: edit/master/docs/
+copyright: security-review-mcp
+
+theme:
+  name: material
+  language: fr
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - navigation.indexes
+    - search.highlight
+    - content.code.copy
+    - content.action.edit
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      toggle:
+        icon: material/weather-night
+        name: Thème sombre
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Thème clair
+
+plugins:
+  - search:
+      lang: fr
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+validation:
+  links:
+    anchors: warn
+
+nav:
+  - Accueil: index.md
+  - Démarrage:
+      - Installation: demarrage/installation.md
+      - Configuration de l'hôte: demarrage/hote.md
+      - Serveur HTTP, authentification et TLS: demarrage/http.md
+      - Docker: demarrage/docker.md
+  - Utilisation:
+      - Prompts et outils: utilisation/prompts-outils.md
+      - Scan du code complet: utilisation/code-scan.md
+      - Analyse des dépendances: utilisation/dependances.md
+      - Règles internes: utilisation/regles.md
+  - CI/CD:
+      - Gate: ci-cd/gate.md
+      - Export SARIF: ci-cd/sarif.md
+      - Rapport de tendance: ci-cd/tendances.md
+  - Référence:
+      - Configuration: reference/configuration.md
+      - Ligne de commande: reference/cli.md
+      - Sécurité et limites: reference/securite.md
+  - Contribuer: contribuer.md
