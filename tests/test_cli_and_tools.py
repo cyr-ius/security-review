@@ -7,7 +7,7 @@ from mcp.client import Client
 from sqlalchemy import inspect, text
 from test_advisories import osv
 
-from security_review_mcp import cli, rule_store, rules_loader, server, services
+from security_review_mcp import cli, rule_store, rules_loader, server, services, token_store
 from security_review_mcp.config import get_settings
 from security_review_mcp.database import get_engine, init_db
 from security_review_mcp.models import FindingCreate, Severity
@@ -326,3 +326,19 @@ def test_init_db_adds_missing_columns_and_keeps_data():
     assert {"rule_id", "status_changed_at"} <= names
     report = services.list_reports(project="demo")
     assert len(report) == 1
+
+
+def test_init_db_moves_legacy_project_tokens():
+    with get_engine().begin() as conn:
+        conn.execute(
+            text(
+                "INSERT INTO apitoken (id, label, role, project, token_hash, created_at) "
+                "VALUES ('t1', 'old', 'reader', 'shop-api', :digest, CURRENT_TIMESTAMP)"
+            ),
+            {"digest": "ab" * 32},
+        )
+
+    init_db()
+
+    (token,) = token_store.list_tokens("shop-api")
+    assert (token["label"], token["projects"]) == ("old", ["shop-api"])

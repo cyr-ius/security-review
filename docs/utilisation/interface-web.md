@@ -35,12 +35,15 @@ security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
   modifiée (badge « Par défaut, modifiée ») ou désactivée, mais pas supprimée. Le bouton
   **Recharger** applique immédiatement un changement fait avec la CLI
   `security-review-mcp rules`.
-- **Jetons** : les administrateurs créent et révoquent des jetons en lecture limités à un projet.
-  Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
-  données. Une révocation prend effet à la requête suivante. La section **Demandes en attente**
-  liste les jetons demandés par les projets ([enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton)) avec le
-  demandeur, son adresse et la date : **Approuver** active le jeton (rôle `mcp`, restreint au
-  projet), **Refuser** le supprime. Les jetons approuvés rejoignent la liste des jetons actifs.
+- **Jetons** : les administrateurs créent et révoquent des jetons de rôle `reader`, `triager` ou
+  `mcp`, limités à un ou plusieurs projets. Le rôle `admin` reste non restreint et se crée par la
+  CLI. Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
+  données. Une révocation prend effet à la requête suivante. La section
+  **Demandes en attente** distingue les nouveaux jetons des demandes d'accès à un projet
+  supplémentaire ([enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton)) :
+  **Approuver** active le nouveau jeton ou ajoute le projet au jeton existant ; **Refuser** ne
+  supprime que la demande. Les projets autorisés et les ajouts encore en attente sont affichés
+  pour chaque jeton.
 
 ## Rôles
 
@@ -53,8 +56,9 @@ Chaque jeton porte un rôle, qui détermine les endpoints accessibles :
 | `triager` | — | ✅ | ✅ |
 | `admin` | ✅ | ✅ | ✅ |
 
-Un jeton `mcp`, `reader` ou `triager` créé avec `--project` ne voit et ne trie que ce projet
-(voir [jetons restreints à un projet](../demarrage/http.md#jetons-restreints-a-un-projet)).
+Un jeton `mcp`, `reader` ou `triager` restreint avec `--project` ne voit et ne trie que les
+projets autorisés ; l'option peut être répétée (voir
+[jetons restreints à un projet](../demarrage/http.md#jetons-restreints-a-un-projet)).
 
 Dans l'image Docker, un mot de passe `admin` est généré au premier démarrage HTTP et affiché
 une seule fois dans les logs. Son empreinte est enregistrée dans la base de données, comme celle

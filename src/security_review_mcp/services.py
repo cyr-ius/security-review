@@ -2,6 +2,7 @@
 
 import logging
 from collections import Counter
+from collections.abc import Collection
 
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
@@ -140,8 +141,12 @@ def list_reports(
     risk_level: Severity | None = None,
     limit: int = 20,
     offset: int = 0,
+    projects: Collection[str] | None = None,
 ) -> list[dict]:
-    """List reports, newest first, with their number of open findings."""
+    """List reports, newest first, with their number of open findings.
+
+    ``projects`` (the scope of a restricted caller) keeps only the reports of these projects.
+    """
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
     offset = max(0, offset)
@@ -150,6 +155,8 @@ def list_reports(
         statement = select(SecurityReport)
         if project:
             statement = statement.where(SecurityReport.project == project)
+        if projects is not None:
+            statement = statement.where(col(SecurityReport.project).in_(list(projects)))
         if risk_level:
             statement = statement.where(SecurityReport.risk_level == risk_level)
         statement = (
@@ -468,26 +475,26 @@ def finding_project(finding_id: int) -> str:
         return project
 
 
-def check_project_scope(allowed: str | None, project: str) -> None:
+def check_project_scope(allowed: Collection[str] | None, project: str) -> None:
     """Refuse a project outside the scope of a project-restricted caller.
 
-    ``allowed`` is the project of the caller's token (None: no restriction). The error is the
-    same as for a missing project, so a restricted caller cannot learn which projects exist.
+    ``allowed`` holds the projects of the caller's token (None: no restriction). The error is
+    the same as for a missing project, so a restricted caller cannot learn which projects exist.
 
     Raises:
-        NotFoundError: If ``allowed`` is set and differs from ``project``.
+        NotFoundError: If ``allowed`` is set and does not contain ``project``.
     """
-    if allowed is not None and project != allowed:
+    if allowed is not None and project not in allowed:
         raise NotFoundError(f"Project '{project}' not found")
 
 
-def check_report_scope(allowed: str | None, report_id: int) -> None:
+def check_report_scope(allowed: Collection[str] | None, report_id: int) -> None:
     """Refuse a report outside the scope of a project-restricted caller (as if missing)."""
-    if allowed is not None and report_project(report_id) != allowed:
+    if allowed is not None and report_project(report_id) not in allowed:
         raise NotFoundError(f"Report {report_id} not found")
 
 
-def check_finding_scope(allowed: str | None, finding_id: int) -> None:
+def check_finding_scope(allowed: Collection[str] | None, finding_id: int) -> None:
     """Refuse a finding outside the scope of a project-restricted caller (as if missing)."""
-    if allowed is not None and finding_project(finding_id) != allowed:
+    if allowed is not None and finding_project(finding_id) not in allowed:
         raise NotFoundError(f"Finding {finding_id} not found")

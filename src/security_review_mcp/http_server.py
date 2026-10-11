@@ -66,12 +66,13 @@ ENROLL_PATH = "/api/v1/enroll"
 class TokenInfo:
     """Identity attached to a token: a label for the logs and a role.
 
+    ``projects`` lists the projects a restricted token reaches (None: every project).
     ``pending`` marks an enrollment request not approved yet: it grants no access.
     """
 
     label: str
     role: Role = DEFAULT_ROLE
-    project: str | None = None
+    projects: frozenset[str] | None = None
     token_id: str | None = None
     pending: bool = False
 
@@ -121,11 +122,11 @@ class BearerAuthMiddleware:
     """Reject HTTP requests that do not carry a valid bearer token.
 
     Pure ASGI (no response buffering) so that streamed MCP responses are not affected.
-    The label and role of the accepted token are stored in ``scope["state"]["auth_client"]``
-    and ``scope["state"]["auth_role"]``. With ``web=True`` the static files of the web
-    interface are public, the REST API needs a web role and the MCP endpoint an MCP role.
-    While ``store`` holds no token at all, the MCP endpoint is open and the REST API answers
-    503 (authentication not configured).
+    The label, role, projects and id of the accepted token are stored in ``scope["state"]``
+    (``auth_client``, ``auth_role``, ``auth_projects``, ``auth_token_id``). With ``web=True``
+    the static files of the web interface are public, the REST API needs a web role and the
+    MCP endpoint an MCP role. While ``store`` holds no token at all, the MCP endpoint is open
+    and the REST API answers 503 (authentication not configured).
 
     ``enrollment_app`` receives the MCP requests sent without an ``Authorization`` header (or
     with an empty bearer value) or with a pending enrollment token;
@@ -220,7 +221,8 @@ class BearerAuthMiddleware:
         state = scope.setdefault("state", {})
         state["auth_client"] = info.label
         state["auth_role"] = info.role
-        state["auth_project"] = info.project
+        state["auth_projects"] = info.projects
+        state["auth_token_id"] = info.token_id
         await self.app(scope, receive, send)
 
     async def enroll(

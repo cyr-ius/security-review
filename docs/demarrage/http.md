@@ -31,7 +31,8 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
 - Donnez `token` au client ; le `label`, unique, apparaît dans les journaux.
 - `--role` vaut `mcp` par défaut : voir les [rôles](../utilisation/interface-web.md#roles) pour
   donner accès à l'interface web.
-- `--project` limite le jeton à un seul projet, pour les outils MCP comme pour l'interface web
+- `--project` limite le jeton à un ou plusieurs projets (répétez l'option), pour les outils MCP
+  comme pour l'interface web
   (rôles `mcp`, `reader` et `triager` ; refusé pour `admin`). Voir
   [jetons restreints à un projet](#jetons-restreints-a-un-projet). Les administrateurs peuvent
   aussi créer et révoquer des jetons `reader` restreints depuis l'écran **Jetons**.
@@ -117,9 +118,31 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
 
     Une fois approuvé, le jeton fonctionne dès la requête suivante, sans reconfiguration.
 
-Un agent qui a déjà un jeton restreint à un autre projet peut aussi appeler
-`request_enrollment` (outil du serveur principal) : `save_security_report` le lui suggère quand
-il refuse le projet.
+### Enrôlement complémentaire
+
+Un hôte qui possède déjà un jeton actif restreint à un ou plusieurs projets peut demander un
+projet supplémentaire avec **le même jeton**. Celui-ci continue de fonctionner pour ses projets
+actuels pendant l'attente ; aucun nouveau secret n'est créé. Après approbation, le projet est
+ajouté à ses droits.
+
+- **Depuis un agent MCP** : connecté avec le jeton existant, appelez `request_enrollment` pour le
+  nouveau projet. `save_security_report` suggère cet appel si le projet demandé n'est pas
+  autorisé.
+- **En ligne de commande** : transmettez le jeton sur stdin, jamais comme argument :
+
+    ```bash
+    printf '%s\n' "$SECURITY_REVIEW_TOKEN" | security-review-mcp enroll \
+        --url https://secreview.example.internal:8443 --project billing \
+        --requested-by "alice (équipe billing)" --token-stdin
+    ```
+
+  La réponse confirme la demande en attente sans afficher de nouveau jeton. Un administrateur
+  l'approuve ou la refuse dans l'interface web ou avec `security-review-mcp token approve ID` /
+  `security-review-mcp token reject ID`. La commande `token list --pending` affiche le projet
+  demandé et le jeton concerné.
+
+Un jeton sans restriction atteint déjà tous les projets : il ne peut pas faire d'enrôlement
+complémentaire. Créez un jeton restreint si vous devez limiter ses accès.
 
 Garde-fous : au plus 20 demandes en attente à la fois, une demande non traitée expire au bout de
 7 jours, un jeton avec un secret invalide reste refusé (`401`) et les demandes en attente

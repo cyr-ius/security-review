@@ -72,19 +72,22 @@ def add_missing_columns(engine: Engine) -> list[str]:
 
 
 def init_db() -> None:
-    """Create the tables, upgrade older schemas and seed the default rules.
+    """Create the tables, upgrade older schemas (columns, project tokens) and seed the rules.
 
     On the first run the default rules and checklists (``default_rules.toml``) are copied into
     the database; later runs add the new defaults (see ``rule_store.seed_defaults``).
     """
     # Import here so that the table models are registered on the metadata
-    # (and because rule_store depends on this module)
-    from . import models, rule_store  # noqa: F401
+    # (and because rule_store and token_store depend on this module)
+    from . import models, rule_store, token_store  # noqa: F401
 
     engine = get_engine()
     SQLModel.metadata.create_all(engine)
     for name in add_missing_columns(engine):
         logger.info("Schema upgraded: added column %s", name)
+    migrated = token_store.migrate_legacy_projects()
+    if migrated:
+        logger.info("Schema upgraded: %d project token(s) moved to multi-project storage", migrated)
     written = rule_store.seed_defaults()
     if written:
         logger.info("Default rules seeded: %d rule(s) or checklist item(s) written", written)
