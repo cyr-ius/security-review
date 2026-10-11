@@ -10,7 +10,10 @@ unique pour tous les agents. En résumé, un changement n'est terminé que si :
 - le **README** est à jour mais reste **synthétique** : une ligne par capacité et un lien vers
   la doc, jamais de détail qui n'existe pas déjà dans `docs/` ;
 - les invariants de sécurité sont respectés (rien sur stdout côté serveur, pas de lecture disque
-  depuis un outil MCP, entrées bornées, secrets masqués, SQL via l'ORM, aucun appel réseau).
+  depuis un outil MCP, entrées bornées, secrets masqués, SQL via l'ORM, aucun appel réseau) ;
+- si le serveur MCP `security-review` est opérationnel, une **revue de sécurité** des
+  changements a été faite avec lui et enregistrée (`save_security_report`), findings
+  `critical` / `high` corrigés.
 
 Branches : on code sur `dev` (branche `feat/<sujet>` depuis `dev` seulement pour une grosse
 rupture) ; `master` est la production. Une version se publie en poussant un tag `vX.Y.Z` sur

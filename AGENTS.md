@@ -16,6 +16,8 @@ CI/CD (gate, SARIF, tendances) et transport HTTP avec jetons Bearer / TLS.
    (voir [Documentation](#documentation)).
 4. **Le `README.md` est à jour, en restant synthétique** (voir [README](#readme)).
 5. `.env.example` est à jour si un paramètre `SECREVIEW_*` a été ajouté ou modifié.
+6. **Une revue de sécurité des changements a été faite avec le serveur MCP `security-review`**
+   s'il est opérationnel (voir [Revue de sécurité](#revue-de-sécurité)).
 
 Si l'une de ces étapes est volontairement omise (ex. refactorisation interne sans effet visible
 sur la doc), dites-le explicitement dans votre réponse ou dans la description de PR, avec la
@@ -161,6 +163,30 @@ fonctionnalité sans test n'est pas terminée ; une correction de bug commence p
   refusée, 401 sans jeton...).
 - Pas de réseau, pas de `sleep`, pas de dépendance à l'ordre des tests. Les clés et jetons de
   test sont factices.
+
+## Revue de sécurité
+
+Ce projet utilise son propre serveur MCP pour se relire. **Si le serveur MCP `security-review`
+est connecté et répond** (ses prompts et outils apparaissent dans votre session), une revue de
+sécurité des changements est **systématique** avant de déclarer une tâche terminée ou d'ouvrir
+une PR, quelle que soit la taille du changement :
+
+1. Lancez le prompt `security-review` (ou `api-security-review` pour l'API REST,
+   `configuration-review` pour Dockerfile / workflows / YAML, `dependency-review` si
+   `pyproject.toml`, `uv.lock` ou `package.json` changent) sur les fichiers modifiés, avec le
+   diff comme contexte. Pour un changement très étendu, utilisez `codebase-review`.
+2. Appuyez-vous sur `scan_code` et `get_review_checklist` pendant la revue.
+3. Enregistrez le résultat **une seule fois** avec `save_security_report` (`project` :
+   `security-review-mcp`, plus `branch` et `commit_sha` quand ils sont connus).
+4. Corrigez les findings `critical` et `high` avant de terminer, avec un test qui couvre la
+   correction. Pour les autres, corrigez-les ou justifiez-les, et mettez leur statut à jour avec
+   `update_finding_status` (`fixed`, `accepted`, `false_positive`).
+5. Résumez la revue (identifiant du rapport, findings et suite donnée) dans votre réponse et dans
+   la description de PR.
+
+Si le serveur n'est pas connecté ou ne répond pas, dites-le explicitement : ne prétendez pas
+avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt
+(`uv run security-review-mcp code scan . --exclude tests/`) et signalez ses résultats.
 
 ## Documentation
 

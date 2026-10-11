@@ -13,9 +13,10 @@ pre-commit install          # facultatif : mêmes contrôles avant chaque commit
 
 Une contribution, humaine ou produite par un agent IA, n'est terminée que si elle comprend des
 tests, que la documentation `docs/` est à jour et que le `README.md`, qui reste un résumé, l'est
-aussi. Les règles détaillées (conventions, invariants de sécurité, correspondance code → pages
-de doc) sont dans `AGENTS.md` à la racine du dépôt ; `CLAUDE.md` et
-`.github/copilot-instructions.md` y renvoient.
+aussi. Quand le serveur MCP `security-review` est opérationnel, les changements sont en outre
+relus avec lui (le projet se relit lui-même) et le rapport est enregistré. Les règles détaillées
+(conventions, invariants de sécurité, correspondance code → pages de doc) sont dans `AGENTS.md`
+à la racine du dépôt ; `CLAUDE.md` et `.github/copilot-instructions.md` y renvoient.
 
 ## Structure du code
 
