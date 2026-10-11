@@ -136,6 +136,11 @@ def test_update_finding_status(client, reports):
     assert client.patch("/api/v1/findings/999", json={"status": "fixed"}).status_code == 404
 
 
+def custom_rules(client) -> list[dict]:
+    """Return the custom rules listed by the API (the default rules are listed too)."""
+    return [row for row in client.get("/api/v1/rules").json()["rules"] if row["origin"] == "custom"]
+
+
 def test_custom_rule_lifecycle(client, import_pack):
     import_pack(
         '[[rules]]\nid = "ACME-001"\ntitle = "Unsafe eval"\n'
@@ -143,8 +148,8 @@ def test_custom_rule_lifecycle(client, import_pack):
     )
 
     listed = client.get("/api/v1/rules").json()
-    assert listed["rules"][0]["id"] == "ACME-001"
-    assert listed["rules"][0]["enabled"] is True
+    assert custom_rules(client)[0]["id"] == "ACME-001"
+    assert custom_rules(client)[0]["enabled"] is True
     assert listed["load_errors"] == []
 
     changed = {
@@ -157,12 +162,12 @@ def test_custom_rule_lifecycle(client, import_pack):
     }
     response = client.put("/api/v1/rules/ACME-001", json=changed)
     assert response.status_code == 200
-    assert client.get("/api/v1/rules").json()["rules"][0]["title"] == "Unsafe eval call"
+    assert custom_rules(client)[0]["title"] == "Unsafe eval call"
     assert any(hit["rule_id"] == "ACME-001" for hit in registry.scan("eval(x)", "python")[0])
 
     response = client.patch("/api/v1/rules/ACME-001/enabled", json={"enabled": False})
     assert response.status_code == 200
-    assert client.get("/api/v1/rules").json()["rules"][0]["enabled"] is False
+    assert custom_rules(client)[0]["enabled"] is False
     assert not any(hit["rule_id"] == "ACME-001" for hit in registry.scan("eval(x)", "python")[0])
 
     assert client.patch("/api/v1/rules/ACME-001/enabled", json={"enabled": True}).status_code == 200
@@ -172,7 +177,7 @@ def test_custom_rule_lifecycle(client, import_pack):
         client.patch("/api/v1/rules/ACME-001/enabled", json={"enabled": False}).status_code == 200
     )
     assert client.delete("/api/v1/rules/ACME-001").status_code == 204
-    assert client.get("/api/v1/rules").json()["rules"] == []
+    assert custom_rules(client) == []
     assert not any(hit["rule_id"] == "ACME-001" for hit in registry.scan("eval(x)", "python")[0])
     assert "ACME-001" not in registry.snapshot().disabled_rule_ids
     assert client.delete("/api/v1/rules/ACME-001").status_code == 422
@@ -230,7 +235,7 @@ def test_rule_validation_and_admin_permissions(client, secured):
         },
     )
     assert invalid.status_code == 422
-    assert rule_store.list_custom_rules() == []
+    assert "ACME-004" not in {row["id"] for row in rule_store.list_rules()}
 
     payload = {
         "id": "ACME-004",

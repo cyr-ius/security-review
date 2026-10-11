@@ -24,10 +24,10 @@ security-review-mcp code scan . --save --project portal --commit "$CI_COMMIT_SHA
 
 ## Seuil et enregistrement
 
-- `--fail-on` (défaut `high`) fixe le seuil de blocage ; les [règles internes](regles.md) de la
-  base (`SECREVIEW_DATABASE_URL`) et les marqueurs `secreview:ignore` s'appliquent comme pour
-  `scan_code`. Si la base est inaccessible, seules les règles intégrées s'appliquent et un
-  avertissement est écrit sur stderr.
+- `--fail-on` (défaut `high`) fixe le seuil de blocage ; les [règles](regles.md) de la base
+  (`SECREVIEW_DATABASE_URL`) et les marqueurs `secreview:ignore` s'appliquent comme pour
+  `scan_code`. Si la base est inaccessible, les règles par défaut (`default_rules.toml`)
+  s'appliquent et un avertissement est écrit sur stderr.
 - `--save` enregistre les correspondances comme findings (au plus
   `SECREVIEW_MAX_FINDINGS_PER_REPORT`, les plus sévères d'abord) et la liste des fichiers non
   analysés dans `scope`.

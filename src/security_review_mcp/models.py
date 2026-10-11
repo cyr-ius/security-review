@@ -182,11 +182,13 @@ class ApiToken(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
-# ── Custom rules (managed with `security-review-mcp rules` and the web interface) ──
+# ── Rules (managed with `security-review-mcp rules` and the web interface) ──
+# The tables keep their historical "custom" names: they also hold the default content seeded
+# from default_rules.toml on the first run.
 
 
 class CustomRule(SQLModel, table=True):
-    """Internal scan rule; an id equal to a built-in rule replaces that rule."""
+    """Stored scan rule: a default rule (seeded, possibly edited) or a custom one."""
 
     id: str = Field(primary_key=True, max_length=50)
     title: str = Field(max_length=300)
@@ -201,7 +203,7 @@ class CustomRule(SQLModel, table=True):
 
 
 class CustomCheckItem(SQLModel, table=True):
-    """Internal checklist item; the ``company`` domain is added to every review prompt."""
+    """Stored checklist item; the ``company`` domain is added to every review prompt."""
 
     domain: str = Field(primary_key=True, max_length=31)
     id: str = Field(primary_key=True, max_length=50)
@@ -211,7 +213,7 @@ class CustomCheckItem(SQLModel, table=True):
 
 
 class DisabledRule(SQLModel, table=True):
-    """A switched-off rule id (built-in or custom)."""
+    """A switched-off rule id (default or custom)."""
 
     rule_id: str = Field(primary_key=True, max_length=50)
     disabled_at: datetime = Field(default_factory=utcnow)
@@ -222,3 +224,17 @@ class RuleSetRevision(SQLModel, table=True):
 
     id: int = Field(default=1, primary_key=True)
     revision: int = Field(default=0)
+
+
+class DefaultSeed(SQLModel, table=True):
+    """A default rule or checklist item already copied from default_rules.toml.
+
+    ``digest`` fingerprints the default content that was seeded: a newer default replaces the
+    stored entry only while it still has this fingerprint (not modified by an administrator),
+    and a deleted default entry is not seeded again.
+    """
+
+    kind: str = Field(primary_key=True, max_length=10)  # "rule" or "checklist"
+    key: str = Field(primary_key=True, max_length=90)  # rule id, or "domain/item id"
+    digest: str = Field(max_length=64)  # hex SHA-256
+    seeded_at: datetime = Field(default_factory=utcnow)

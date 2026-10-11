@@ -26,6 +26,11 @@
   choisit ; elle ne suit pas les liens symboliques.
 - **Base de données** : les requêtes SQL passent par l'ORM (paramètres liés) ; les tailles
   d'entrée, le nombre de findings et la pagination sont bornés.
+- **Règles de scan** : les règles par défaut (`default_rules.toml`) sont copiées en base au
+  premier lancement. Si la base est inaccessible ou n'a jamais été initialisée, le serveur
+  applique directement ce fichier : le scan ne tourne jamais sans règles. Une règle par défaut
+  peut être modifiée ou désactivée par un administrateur, mais pas supprimée
+  (voir [Règles internes](../utilisation/regles.md#regles-par-defaut)).
 - **Journaux** sur stderr (stdout est réservé au protocole en stdio).
 
 !!! warning "Protégez la base"

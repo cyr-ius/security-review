@@ -179,6 +179,14 @@ def test_rules_import_export_round_trip(tmp_path, capsys):
     assert json.loads(capsys.readouterr().out)["replaced"] is True
 
 
+def test_rules_list_shows_modified_default_rules(capsys):
+    rule_store.update_rule("PY-001", rule_store.default_rules()["PY-001"] | {"title": "Edited"})
+    assert cli.run(["rules", "list", "--language", "python"]) == cli.EXIT_PASSED
+    lines = capsys.readouterr().out.splitlines()
+    assert any(line.startswith("PY-001") and " modified " in line for line in lines)
+    assert any(line.startswith("PY-002") and " builtin " in line for line in lines)
+
+
 def test_rules_list_enable_disable_delete(capsys):
     assert cli.run(["rules", "disable", "PY-001", "PY-004"]) == cli.EXIT_PASSED
     assert json.loads(capsys.readouterr().out) == {"disabled": ["PY-001", "PY-004"]}
@@ -207,7 +215,7 @@ def test_rules_errors(tmp_path, capsys):
     assert cli.run(["rules", "disable", "ACME-404"]) == cli.EXIT_ERROR
     assert "Unknown rule" in json.loads(capsys.readouterr().err)["error"]
     assert cli.run(["rules", "delete", "PY-001"]) == cli.EXIT_ERROR
-    assert "only be disabled" in capsys.readouterr().err
+    assert "cannot be deleted" in capsys.readouterr().err
 
     bad = tmp_path / "bad.toml"
     bad.write_text('[[rules]]\nid = "ACME-1"\ntitle = "t"\nseverity = "low"\npattern = "a*"')

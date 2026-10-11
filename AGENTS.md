@@ -82,8 +82,9 @@ l'utiliser.
 | Zone | Fichiers |
 |---|---|
 | Prompts, outils, ressources MCP, point d'entrée | `server.py`, `prompts.py` |
-| Règles de scan, masquage des secrets | `scanner.py`, `rules_platform.py` |
-| Règles internes (en base, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
+| Moteur de scan, masquage des secrets | `scanner.py` |
+| Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
+| Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
 | CLI (`gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`) | `cli.py`, `codescan.py` |
 | Dépendances et avis OSV | `dependencies.py`, `depscan.py`, `advisories.py`, `versions.py` |
 | Persistance | `models.py`, `services.py`, `database.py` |
@@ -153,6 +154,11 @@ Identifiants `PRÉFIXE-NNN` par famille : `PY`, `JV`, `NG` (Angular), `CFG`, `GE
 dépendances). Ne réutilisez et ne renumérotez jamais un identifiant existant : les utilisateurs
 les citent dans `secreview:ignore` et `disabled_rules`. Indiquez la CWE quand elle existe.
 
+Les règles et checklists par défaut sont dans `src/security_review_mcp/default_rules.toml`,
+jamais dans le code Python. Elles sont copiées en base au premier lancement
+(`rule_store.seed_defaults`, appelé par `init_db`). Une règle ajoutée ou corrigée dans ce
+fichier atteint les bases existantes au démarrage suivant, sauf si un administrateur l'a modifiée.
+
 ### CLI
 
 Codes de sortie identiques partout : `0` succès, `1` bloqué (gate / findings au-dessus du
@@ -213,7 +219,7 @@ utilisateurs. Mettez-la à jour dans le même changement que le code :
 | Si vous modifiez... | Mettez à jour |
 |---|---|
 | Un prompt ou un outil MCP (nom, argument, comportement) | `docs/utilisation/prompts-outils.md` |
-| Une règle de scan ou une checklist intégrée | `docs/utilisation/regles.md` (et `code-scan.md` si le scan du dépôt change) |
+| Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/utilisation/regles.md` (et `code-scan.md` si le scan du dépôt change) |
 | Le format des packs TOML internes | `docs/utilisation/regles.md`, `examples/rules/company.toml` |
 | L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/utilisation/dependances.md` |
 | Une commande ou option CLI, un code de sortie | `docs/reference/cli.md` + la page d'usage concernée (`ci-cd/*.md`, `code-scan.md`...) |

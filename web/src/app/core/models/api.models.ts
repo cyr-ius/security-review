@@ -51,7 +51,10 @@ export interface ProjectTokenCreated extends ProjectToken {
   token: string;
 }
 
-/** A custom scan rule stored in the database. */
+/** Origin of a stored rule: shipped default (seeded on the first run) or custom. */
+export type RuleOrigin = 'builtin' | 'custom';
+
+/** A scan rule stored in the database (default or custom). */
 export interface CustomRule {
   id: string;
   title: string;
@@ -61,6 +64,9 @@ export interface CustomRule {
   pattern: string;
   advice: string;
   ignore_case: boolean;
+  origin: RuleOrigin;
+  /** True for a default rule edited by an administrator. */
+  modified: boolean;
   enabled: boolean;
   updated_at: string;
 }

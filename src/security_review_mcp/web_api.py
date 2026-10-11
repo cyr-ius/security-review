@@ -178,9 +178,9 @@ def _ensure_report_scope(identity: Identity, report: SecurityReportPublic) -> No
 
 
 def _rule_catalog() -> dict:
-    """Return the custom rules stored in the database and the registry diagnostics."""
+    """Return the rules stored in the database (default and custom) and the diagnostics."""
     return {
-        "rules": rule_store.list_custom_rules(),
+        "rules": rule_store.list_rules(),
         "load_errors": list(registry.snapshot().errors),
     }
 
@@ -322,7 +322,7 @@ async def update_finding(
 
 @router.get("/rules")
 async def list_custom_rules(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
-    """List the custom rules stored in the database."""
+    """List the rules stored in the database (default and custom)."""
     return await run_in_threadpool(_rule_catalog)
 
 
@@ -352,7 +352,7 @@ async def update_custom_rule(
     body: RuleWrite,
     identity: Annotated[Identity, Depends(require_admin)],
 ) -> dict:
-    """Update a custom rule while keeping its stable id."""
+    """Update a stored rule (default or custom) while keeping its stable id."""
     try:
         await run_in_threadpool(rule_store.update_rule, rule_id, body.model_dump(mode="json"))
     except ValueError as exc:
@@ -366,7 +366,7 @@ async def delete_custom_rule(
     rule_id: Annotated[str, APIPath(min_length=3, max_length=50)],
     identity: Annotated[Identity, Depends(require_admin)],
 ) -> Response:
-    """Delete a custom rule from the database."""
+    """Delete a custom rule from the database (default rules can only be disabled)."""
     try:
         await run_in_threadpool(rule_store.delete_entries, [rule_id], False)
     except ValueError as exc:
@@ -382,7 +382,7 @@ async def set_custom_rule_enabled(
     body: RuleEnabledUpdate,
     identity: Annotated[Identity, Depends(require_admin)],
 ) -> dict:
-    """Enable or disable a built-in or custom rule."""
+    """Enable or disable a default or custom rule."""
     try:
         await run_in_threadpool(rule_store.set_enabled, [rule_id], body.enabled)
     except ValueError as exc:
