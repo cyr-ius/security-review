@@ -11,6 +11,7 @@ import {
   ProjectSummary,
   ProjectToken,
   ProjectTokenCreated,
+  ProjectTokenRole,
   Report,
   ReportQuery,
   ReportSummary,
@@ -64,8 +65,16 @@ export class ApiService {
     return this.http.get<ProjectToken[]>(`${API_URL}/project-tokens`);
   }
 
-  createProjectToken(label: string, project: string): Observable<ProjectTokenCreated> {
-    return this.http.post<ProjectTokenCreated>(`${API_URL}/project-tokens`, { label, project });
+  createProjectToken(
+    label: string,
+    projects: string[],
+    role: ProjectTokenRole,
+  ): Observable<ProjectTokenCreated> {
+    return this.http.post<ProjectTokenCreated>(`${API_URL}/project-tokens`, {
+      label,
+      projects,
+      role,
+    });
   }
 
   deleteProjectToken(id: string): Observable<void> {

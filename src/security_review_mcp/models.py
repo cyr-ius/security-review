@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import field_validator
+from sqlalchemy import UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -173,17 +174,40 @@ class ApiToken(SQLModel, table=True):
 
     Only the SHA-256 digest of the secret is stored. An enrollment request is a token whose
     status is ``pending``: it authenticates nothing until an administrator approves it.
+    The projects a restricted token reaches are in ApiTokenProject.
     """
 
     id: str = Field(primary_key=True, max_length=64)
     label: str = Field(unique=True, index=True, max_length=64)
     role: str = Field(max_length=20)
+    # First project of a restricted token (None: every project). The full list is in
+    # ApiTokenProject; this column stays filled so that an older version reading the database
+    # still sees the token as restricted.
     project: str | None = Field(default=None, index=True, max_length=200)
     token_hash: str = Field(unique=True, index=True, max_length=64)  # hex SHA-256
     created_at: datetime = Field(default_factory=utcnow)
     # "active" or "pending"; None (rows created before enrollment existed) means active
     status: str | None = Field(default=None, max_length=20)
     # Who asked for the token (free text given by the requester) and from which address
+    requested_by: str | None = Field(default=None, max_length=200)
+    requested_from: str | None = Field(default=None, max_length=64)
+
+
+class ApiTokenProject(SQLModel, table=True):
+    """A project reached by a restricted token.
+
+    A ``pending`` row is an enrollment request for that project: the request that created the
+    token, or a complementary request of an active token that needs one more project. Only
+    ``active`` rows grant access.
+    """
+
+    __table_args__ = (UniqueConstraint("token_id", "project"),)
+
+    id: str = Field(primary_key=True, max_length=64)
+    token_id: str = Field(foreign_key="apitoken.id", index=True, max_length=64)
+    project: str = Field(index=True, max_length=200)
+    status: str = Field(default="active", index=True, max_length=20)  # "active" or "pending"
+    created_at: datetime = Field(default_factory=utcnow)
     requested_by: str | None = Field(default=None, max_length=200)
     requested_from: str | None = Field(default=None, max_length=64)
 

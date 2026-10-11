@@ -10,7 +10,7 @@ The services are synchronous (SQLModel sessions), so every call runs in the thre
 import json
 import logging
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi import Path as APIPath
@@ -25,7 +25,14 @@ from starlette.types import Scope
 
 from . import __version__, registry, rule_store, rules_loader, services, token_store, trends
 from .config import get_settings
-from .http_server import ENROLL_PATH, LOOPBACK_HOSTS, TRIAGE_ROLES, Role
+from .http_server import (
+    ENROLL_PATH,
+    LOOPBACK_HOSTS,
+    TRIAGE_ROLES,
+    Role,
+    has_credentials,
+    hash_token,
+)
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
 from .sarif import build_sarif
 
@@ -59,7 +66,8 @@ class Identity(BaseModel):
     role: Role
     can_triage: bool
     auth_enabled: bool
-    project: str | None = None
+    # Projects a restricted token reaches; None: every project
+    projects: list[str] | None = None
     version: str
 
 
@@ -89,14 +97,21 @@ class RuleEnabledUpdate(BaseModel):
 
 
 class ProjectTokenCreate(BaseModel):
-    """A read-only token scoped to one project."""
+    """A role-specific token scoped to one or several projects."""
 
     label: str = Field(min_length=1, max_length=64)
-    project: str = Field(min_length=1, max_length=200)
+    role: Literal["mcp", "reader", "triager"] = "reader"
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
 
 
 class EnrollmentRequest(BaseModel):
-    """Body of the public POST /enroll: a project token requested without credentials."""
+    """Body of the public POST /enroll.
+
+    Without credentials it requests a new project token; with the bearer token of a client
+    already restricted to other projects it requests one more project for that token.
+    """
 
     project: str = Field(min_length=1, max_length=token_store.MAX_PROJECT_CHARS)
     label: str | None = Field(default=None, max_length=token_store.MAX_LABEL_CHARS)  # + suffix
@@ -142,7 +157,7 @@ def current_identity(request: Request) -> Identity:
         role=role,
         can_triage=role in TRIAGE_ROLES,
         auth_enabled=auth_enabled,
-        project=state.get("auth_project"),
+        projects=None if state.get("auth_projects") is None else sorted(state["auth_projects"]),
         version=__version__,
     )
 
@@ -170,18 +185,21 @@ def require_admin(identity: CurrentIdentity) -> Identity:
     return identity
 
 
-def _scoped_project(identity: Identity, requested: str | None = None) -> str | None:
-    """Restrict project tokens to their assigned project without disclosing other projects."""
-    if identity.project is not None:
-        if requested is not None and requested != identity.project:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-        return identity.project
+def _in_scope(identity: Identity, project: str) -> bool:
+    """True when the caller may see this project (always for an unrestricted token)."""
+    return identity.projects is None or project in identity.projects
+
+
+def _scoped_project(identity: Identity, requested: str) -> str:
+    """Refuse a project outside a project token's scope without disclosing other projects."""
+    if not _in_scope(identity, requested):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
     return requested
 
 
 def _ensure_report_scope(identity: Identity, report: SecurityReportPublic) -> None:
     """Hide reports outside a project token's scope."""
-    if identity.project is not None and report.project != identity.project:
+    if not _in_scope(identity, report.project):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
 
 
@@ -221,9 +239,7 @@ async def me(identity: CurrentIdentity) -> Identity:
 async def projects(identity: CurrentIdentity) -> list[ProjectSummary]:
     """List the projects with their open findings, latest activity first."""
     projects = await run_in_threadpool(services.list_projects)
-    return [
-        item for item in projects if identity.project is None or item["project"] == identity.project
-    ]
+    return [item for item in projects if _in_scope(identity, item["project"])]
 
 
 @router.get("/posture")
@@ -259,14 +275,14 @@ async def sarif(
 ) -> Response:
     """Download the findings of a project or of a report as SARIF 2.1.0."""
     try:
-        if identity.project is not None:
-            if project is not None and project != identity.project:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+        if identity.projects is not None:
+            if project is not None:
+                _scoped_project(identity, project)
             if report_id is not None:
                 scoped_report = await run_in_threadpool(services.get_report, report_id)
                 _ensure_report_scope(identity, scoped_report)
-            else:
-                project = identity.project
+            elif project is None and len(identity.projects) == 1:
+                project = identity.projects[0]
         name, items = await run_in_threadpool(services.collect_sarif_items, report_id, project)
     except HTTPException:
         raise
@@ -290,8 +306,10 @@ async def reports(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[ReportSummary]:
     """List reports, newest first (limit is capped by SECREVIEW_MAX_LIST_LIMIT)."""
+    if project:
+        _scoped_project(identity, project)
     return await run_in_threadpool(
-        services.list_reports, _scoped_project(identity, project or None), risk_level, limit, offset
+        services.list_reports, project or None, risk_level, limit, offset, identity.projects
     )
 
 
@@ -322,7 +340,7 @@ async def update_finding(
     identity: Annotated[Identity, Depends(require_triage)],
 ) -> FindingPublic:
     """Change the status of a finding (triage). The change is logged with the caller."""
-    await run_in_threadpool(services.check_finding_scope, identity.project, finding_id)
+    await run_in_threadpool(services.check_finding_scope, identity.projects, finding_id)
     finding = await run_in_threadpool(services.update_finding_status, finding_id, body.status)
     logger.info("Finding %s set to %s by %s", finding_id, body.status, identity.client)
     return finding
@@ -402,7 +420,7 @@ async def set_custom_rule_enabled(
 @router.get("/project-tokens")
 async def project_tokens(
     identity: Annotated[Identity, Depends(require_admin)],
-) -> list[dict[str, str | None]]:
+) -> list[dict[str, Any]]:
     """List project-token metadata without returning hashes or token values."""
     return await run_in_threadpool(token_store.list_project_tokens)
 
@@ -411,18 +429,24 @@ async def project_tokens(
 async def create_project_token(
     body: ProjectTokenCreate,
     identity: Annotated[Identity, Depends(require_admin)],
-) -> dict[str, str | None]:
-    """Create a project-scoped reader token and return its secret exactly once."""
-    projects = await run_in_threadpool(services.list_projects)
-    if not any(project["project"] == body.project for project in projects):
+) -> dict[str, Any]:
+    """Create a scoped token for existing projects and return its secret exactly once."""
+    known = {item["project"] for item in await run_in_threadpool(services.list_projects)}
+    if not set(body.projects) <= known:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
     try:
         created = await run_in_threadpool(
-            token_store.create_project_token, body.label, body.project
+            token_store.create_project_token, body.label, body.projects, body.role
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    logger.info("Project token %s created for %s by %s", body.label, body.project, identity.client)
+    logger.info(
+        "Project token %s (%s) created for %s by %s",
+        body.label,
+        body.role,
+        ", ".join(created["projects"]),
+        identity.client,
+    )
     return created
 
 
@@ -440,11 +464,41 @@ async def delete_project_token(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post(ENROLL_PATH.removeprefix("/api/v1"), status_code=status.HTTP_201_CREATED)
-async def enroll(body: EnrollmentRequest, request: Request) -> dict[str, str | None]:
-    """Request a project token without credentials (public endpoint).
+async def _enrolled_token(request: Request) -> str | None:
+    """Id of the active token presented to the public enrollment endpoint, or None without one.
 
-    The token is returned once and works only after an administrator approves the request.
+    The endpoint is public (the middleware does not authenticate it), so the token is checked
+    here: a complementary enrollment must come from the holder of the token.
+    """
+    authorization = request.headers.get("authorization", "")
+    if not has_credentials(authorization):
+        return None
+    scheme, _, credentials = authorization.strip().partition(" ")
+    info = None
+    if scheme.lower() == "bearer":
+        lookup = token_store.DatabaseTokenStore().lookup
+        info = await run_in_threadpool(lookup, hash_token(credentials.strip()))
+    if info is None:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            "Missing or invalid bearer token",
+            headers={"WWW-Authenticate": 'Bearer realm="security-review-mcp"'},
+        )
+    if info.pending:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "This token is waiting for an administrator to approve its enrollment",
+        )
+    return info.token_id
+
+
+@router.post(ENROLL_PATH.removeprefix("/api/v1"), status_code=status.HTTP_201_CREATED)
+async def enroll(body: EnrollmentRequest, request: Request) -> dict[str, Any]:
+    """Request access to a project (public endpoint).
+
+    Without credentials a new token is returned once; it works only after an administrator
+    approves the request. With the bearer token of a client restricted to other projects, the
+    project is requested for that token (complementary enrollment, no new secret).
     """
     if not get_settings().enrollment:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Enrollment is disabled")
@@ -453,14 +507,29 @@ async def enroll(body: EnrollmentRequest, request: Request) -> dict[str, str | N
             status.HTTP_409_CONFLICT, "Authentication is not configured: no token is needed"
         )
     address = request.client.host if request.client else None
+    token_id = await _enrolled_token(request)
     try:
-        created = await run_in_threadpool(
-            token_store.request_enrollment, body.project, body.label, body.requested_by, address
-        )
+        if token_id is None:
+            created = await run_in_threadpool(
+                token_store.request_enrollment,
+                body.project,
+                body.label,
+                body.requested_by,
+                address,
+            )
+        else:
+            created = await run_in_threadpool(
+                token_store.request_additional_project,
+                token_id,
+                body.project,
+                body.requested_by,
+                address,
+            )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     logger.info(
-        "Enrollment requested for project %s (%s) from %s",
+        "Enrollment (%s) requested for project %s (%s) from %s",
+        created["kind"],
         created["project"],
         created["label"],
         address or "unknown",
@@ -471,19 +540,23 @@ async def enroll(body: EnrollmentRequest, request: Request) -> dict[str, str | N
 @router.get("/enrollments")
 async def enrollments(
     identity: Annotated[Identity, Depends(require_admin)],
-) -> list[dict[str, str | None]]:
-    """List the enrollment requests waiting for approval (never their secret)."""
-    return await run_in_threadpool(token_store.list_tokens, None, True)
+) -> list[dict[str, Any]]:
+    """List the enrollment requests waiting for approval (never a secret).
+
+    ``kind`` is ``new`` for a first enrollment (new token) and ``additional`` for a
+    complementary one (one more project for an active token).
+    """
+    return await run_in_threadpool(token_store.list_enrollments)
 
 
-@router.post("/enrollments/{token_id}/approve")
+@router.post("/enrollments/{request_id}/approve")
 async def approve_enrollment(
-    token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
+    request_id: Annotated[str, APIPath(min_length=1, max_length=64)],
     identity: Annotated[Identity, Depends(require_admin)],
-) -> dict[str, str | None]:
-    """Approve an enrollment request: its token works from the next request."""
+) -> dict[str, Any]:
+    """Approve an enrollment request: the project is reachable from the next request."""
     try:
-        approved = await run_in_threadpool(token_store.approve_enrollment, token_id)
+        approved = await run_in_threadpool(token_store.approve_enrollment, request_id)
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     logger.info(
@@ -495,17 +568,22 @@ async def approve_enrollment(
     return approved
 
 
-@router.delete("/enrollments/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/enrollments/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def reject_enrollment(
-    token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
+    request_id: Annotated[str, APIPath(min_length=1, max_length=64)],
     identity: Annotated[Identity, Depends(require_admin)],
 ) -> Response:
-    """Reject an enrollment request: its token is deleted."""
+    """Reject an enrollment request: a new token is deleted, an additional project dropped."""
     try:
-        rejected = await run_in_threadpool(token_store.reject_enrollment, token_id)
+        rejected = await run_in_threadpool(token_store.reject_enrollment, request_id)
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
-    logger.info("Enrollment %s rejected by %s", rejected["label"], identity.client)
+    logger.info(
+        "Enrollment %s for %s rejected by %s",
+        rejected["label"],
+        rejected["project"],
+        identity.client,
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

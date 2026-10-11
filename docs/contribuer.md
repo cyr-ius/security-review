@@ -79,7 +79,7 @@ web/               # application Angular (compilée dans src/security_review_mcp
 
 ## Interface web
 
-L'application Angular 21 (signaux, zoneless, Bootstrap 5) est dans `web/`. Sa build est écrite
+L'application Angular 22 (signaux, zoneless, Bootstrap 5) est dans `web/`. Sa build est écrite
 dans `src/security_review_mcp/webui/`, d'où le serveur la sert sur `/ui/` et le wheel l'embarque.
 
 ```bash

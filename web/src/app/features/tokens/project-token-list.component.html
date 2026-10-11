@@ -1,7 +1,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
     <h1 class="h3 mb-0">Jetons de projet</h1>
-    <p class="text-body-secondary mb-0">Accès limité à un seul projet</p>
+    <p class="text-body-secondary mb-0">Accès limité aux projets sélectionnés</p>
   </div>
   <button type="button" class="btn btn-sm btn-outline-secondary" (click)="reload()">
     <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
@@ -49,6 +49,7 @@
         <thead>
           <tr>
             <th scope="col">Label</th>
+            <th scope="col">Type</th>
             <th scope="col">Projet</th>
             <th scope="col">Demandeur</th>
             <th scope="col">Adresse</th>
@@ -60,6 +61,9 @@
           @for (request of enrollments.value() ?? []; track request.id) {
             <tr>
               <td>{{ request.label }}</td>
+              <td>
+                {{ request.kind === 'additional' ? 'Projet supplémentaire' : 'Nouveau jeton' }}
+              </td>
               <td>{{ request.project }}</td>
               <td>{{ request.requested_by ?? '—' }}</td>
               <td class="font-monospace">{{ request.requested_from ?? '—' }}</td>
@@ -70,7 +74,7 @@
                   class="btn btn-sm btn-success me-1"
                   [disabled]="busy()"
                   [attr.aria-label]="'Approuver la demande ' + request.label"
-                  (click)="approve(request.id, request.label, request.project)"
+                  (click)="approve(request)"
                 >
                   <i class="bi bi-check-lg" aria-hidden="true"></i>
                   Approuver
@@ -97,9 +101,9 @@
 </section>
 
 <section class="mb-4" aria-labelledby="create-token-title">
-  <h2 id="create-token-title" class="h5">Créer un jeton en lecture</h2>
+  <h2 id="create-token-title" class="h5">Créer un jeton projet</h2>
   <form class="row g-2 align-items-end" (submit)="create($event)">
-    <div class="col-sm-4">
+    <div class="col-md-3">
       <label for="token-label" class="form-label">Label</label>
       <input
         id="token-label"
@@ -111,26 +115,42 @@
         (input)="label.set($any($event.target).value)"
       />
     </div>
-    <div class="col-sm-5">
-      <label for="token-project" class="form-label">Projet</label>
-      <select
-        id="token-project"
-        class="form-select"
-        required
-        [value]="project()"
-        (change)="onProjectChange($event)"
-      >
-        <option value="">Choisir un projet…</option>
-        @for (item of projects.value() ?? []; track item.project) {
-          <option [value]="item.project">{{ item.project }}</option>
-        }
+    <div class="col-md-3">
+      <label for="token-role" class="form-label">Rôle</label>
+      <select id="token-role" class="form-select" [value]="role()" (change)="onRoleChange($event)">
+        <option value="reader">Lecture web</option>
+        <option value="triager">Triage web</option>
+        <option value="mcp">Outils MCP</option>
       </select>
     </div>
-    <div class="col-sm-3">
+    <fieldset class="col-md-4">
+      <legend class="form-label">Projets autorisés</legend>
+      @if ((projects.value() ?? []).length) {
+        <div class="d-flex flex-wrap gap-3">
+          @for (item of projects.value() ?? []; track item.project) {
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [id]="'token-project-' + item.project"
+                [checked]="selectedProjects().includes(item.project)"
+                (change)="toggleProject(item.project, $event)"
+              />
+              <label class="form-check-label" [for]="'token-project-' + item.project">
+                {{ item.project }}
+              </label>
+            </div>
+          }
+        </div>
+      } @else if (!projects.isLoading()) {
+        <span class="text-body-secondary">Aucun projet disponible.</span>
+      }
+    </fieldset>
+    <div class="col-md-2">
       <button
         type="submit"
         class="btn btn-primary w-100"
-        [disabled]="busy() || !label().trim() || !project()"
+        [disabled]="busy() || !label().trim() || !selectedProjects().length"
       >
         <i class="bi bi-plus-lg" aria-hidden="true"></i>
         Créer
@@ -154,7 +174,7 @@
         <thead>
           <tr>
             <th scope="col">Label</th>
-            <th scope="col">Projet</th>
+            <th scope="col">Projets autorisés</th>
             <th scope="col">Rôle</th>
             <th scope="col">Créé le</th>
             <th scope="col" class="text-end">Action</th>
@@ -164,7 +184,14 @@
           @for (token of tokens.value() ?? []; track token.id) {
             <tr>
               <td>{{ token.label }}</td>
-              <td>{{ token.project }}</td>
+              <td>
+                {{ token.projects === null ? 'Tous les projets' : token.projects.join(', ') }}
+                @if (token.pending_projects.length) {
+                  <div class="small text-body-secondary">
+                    En attente : {{ token.pending_projects.join(', ') }}
+                  </div>
+                }
+              </td>
               <td>{{ token.role }}</td>
               <td>{{ token.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
               <td class="text-end">

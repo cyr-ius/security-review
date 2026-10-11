@@ -22,7 +22,7 @@ pytest && ruff check .
 ```
 
 L'[interface web](../utilisation/interface-web.md) est une application Angular à compiler
-(Node.js 20 ou plus) ; sans elle, le serveur ne sert que l'API REST :
+(Node.js 22.22.3+ ou 24.15+, requis par Angular 22) ; sans elle, le serveur ne sert que l'API REST :
 
 ```bash
 cd web && npm ci && npm run build   # écrit dans src/security_review_mcp/webui/

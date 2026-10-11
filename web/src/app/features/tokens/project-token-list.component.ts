@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
+import { EnrollmentRequest, ProjectTokenRole } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 
 /**
@@ -22,21 +23,30 @@ export class ProjectTokenListComponent {
   readonly tokens = rxResource({ stream: () => this.api.projectTokens() });
   readonly enrollments = rxResource({ stream: () => this.api.enrollments() });
   readonly label = signal('');
-  readonly project = signal('');
+  readonly role = signal<ProjectTokenRole>('reader');
+  readonly selectedProjects = signal<string[]>([]);
   readonly createdToken = signal<string | null>(null);
   readonly message = signal<string | null>(null);
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
 
-  onProjectChange(event: Event): void {
-    this.project.set((event.target as HTMLSelectElement).value);
+  onRoleChange(event: Event): void {
+    this.role.set((event.target as HTMLSelectElement).value as ProjectTokenRole);
+  }
+
+  toggleProject(project: string, event: Event): void {
+    const checked = (event.target as HTMLInputElement).checked;
+    this.selectedProjects.update((selected) =>
+      checked ? [...selected, project] : selected.filter((item) => item !== project),
+    );
   }
 
   async create(event: Event): Promise<void> {
     event.preventDefault();
     const label = this.label().trim();
-    const project = this.project();
-    if (!label || !project || this.busy()) {
+    const role = this.role();
+    const projects = this.selectedProjects();
+    if (!label || !projects.length || this.busy()) {
       return;
     }
     this.busy.set(true);
@@ -44,10 +54,14 @@ export class ProjectTokenListComponent {
     this.message.set(null);
     this.createdToken.set(null);
     try {
-      const created = await firstValueFrom(this.api.createProjectToken(label, project));
+      const created = await firstValueFrom(this.api.createProjectToken(label, projects, role));
       this.createdToken.set(created.token);
       this.label.set('');
-      this.message.set(`Jeton « ${created.label} » créé pour ${created.project}.`);
+      this.role.set('reader');
+      this.selectedProjects.set([]);
+      this.message.set(
+        `Jeton « ${created.label} » (${created.role}) créé pour ${projects.join(', ')}.`,
+      );
       this.tokens.reload();
     } catch (error: unknown) {
       this.error.set(describeError(error));
@@ -58,17 +72,21 @@ export class ProjectTokenListComponent {
 
   /** Reload every list of the page. */
   reload(): void {
+    this.projects.reload();
     this.tokens.reload();
     this.enrollments.reload();
   }
 
-  async approve(id: string, label: string, project: string): Promise<void> {
+  async approve(request: EnrollmentRequest): Promise<void> {
+    const { id, label, project, kind } = request;
     if (this.busy() || !window.confirm(`Approuver la demande « ${label} » pour ${project} ?`)) {
       return;
     }
     await this.decide(
       () => firstValueFrom(this.api.approveEnrollment(id)),
-      `Demande « ${label} » approuvée : le jeton est actif.`,
+      kind === 'additional'
+        ? `Accès au projet ${project} ajouté au jeton « ${label} ».`
+        : `Demande « ${label} » approuvée : le jeton est actif.`,
     );
   }
 

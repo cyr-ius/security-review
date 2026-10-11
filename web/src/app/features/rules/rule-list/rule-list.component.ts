@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
@@ -44,6 +44,8 @@ const EMPTY_RULE: RuleFormModel = {
 })
 export class RuleListComponent {
   private readonly api = inject(ApiService);
+  /** Modal dialog hosting the create / edit form. */
+  private readonly editorDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editorDialog');
 
   readonly severities = SEVERITIES;
   readonly catalog = rxResource({ stream: () => this.api.customRules() });
@@ -73,6 +75,8 @@ export class RuleListComponent {
   readonly saving = signal(false);
   readonly reloading = signal(false);
   readonly error = signal<string | null>(null);
+  /** Error raised while saving, shown inside the modal. */
+  readonly formError = signal<string | null>(null);
   readonly notice = signal<string | null>(null);
 
   startCreate(): void {
@@ -80,6 +84,7 @@ export class RuleListComponent {
     this.editingId.set(null);
     this.formModel.set({ ...EMPTY_RULE });
     this.creating.set(true);
+    this.openEditor();
   }
 
   startEdit(rule: CustomRule): void {
@@ -96,11 +101,24 @@ export class RuleListComponent {
       advice: rule.advice,
       ignore_case: rule.ignore_case,
     });
+    this.openEditor();
   }
 
+  /** Closes the modal; the dialog `close` event then resets the editor state. */
   cancelEdit(): void {
+    const dialog = this.editorDialog().nativeElement;
+    if (dialog.open) {
+      dialog.close();
+    } else {
+      this.onEditorClosed();
+    }
+  }
+
+  /** Resets the editor state when the modal closes (buttons, Escape key or save). */
+  onEditorClosed(): void {
     this.creating.set(false);
     this.editingId.set(null);
+    this.formError.set(null);
   }
 
   async save(event: Event): Promise<void> {
@@ -125,6 +143,7 @@ export class RuleListComponent {
     };
     this.saving.set(true);
     this.clearMessages();
+    this.formError.set(null);
     try {
       const id = this.editingId();
       if (id) {
@@ -137,7 +156,7 @@ export class RuleListComponent {
       this.cancelEdit();
       this.catalog.reload();
     } catch (error: unknown) {
-      this.error.set(describeError(error));
+      this.formError.set(describeError(error));
     } finally {
       this.saving.set(false);
     }
@@ -186,6 +205,14 @@ export class RuleListComponent {
       this.error.set(describeError(error));
     } finally {
       this.reloading.set(false);
+    }
+  }
+
+  private openEditor(): void {
+    this.formError.set(null);
+    const dialog = this.editorDialog().nativeElement;
+    if (!dialog.open) {
+      dialog.showModal();
     }
   }
 

@@ -451,19 +451,26 @@ def token_command(argv: list[str]) -> int:
         help="mcp (default): MCP endpoint; reader/triager: web interface; admin: both",
     )
     creator.add_argument(
-        "--project", help="restrict the token to one project (MCP tools and web interface)"
+        "--project",
+        action="append",
+        help="restrict the token to this project (MCP tools and web interface); repeat it to "
+        "give several projects",
     )
     lister = actions.add_parser("list", help="list the tokens (never their secret or hash)")
-    lister.add_argument("--project", help="only the tokens restricted to this project")
+    lister.add_argument("--project", help="only the tokens that reach this project")
     lister.add_argument(
         "--pending", action="store_true", help="only the enrollment requests waiting for approval"
     )
     revoker = actions.add_parser("revoke", help="delete a token by id or label")
     revoker.add_argument("token", help="token id or label")
     approver = actions.add_parser("approve", help="approve a pending enrollment request")
-    approver.add_argument("token", help="request id or label")
-    rejecter = actions.add_parser("reject", help="reject (delete) a pending enrollment request")
-    rejecter.add_argument("token", help="request id or label")
+    approver.add_argument(
+        "token", help="request id, or token id or label when the token has one request"
+    )
+    rejecter = actions.add_parser("reject", help="reject a pending enrollment request")
+    rejecter.add_argument(
+        "token", help="request id, or token id or label when the token has one request"
+    )
     actions.add_parser("reset-admin", help="replace the bootstrap administrator password")
     args = parser.parse_args(argv)
 
@@ -472,7 +479,11 @@ def token_command(argv: list[str]) -> int:
         if args.action == "create":
             result: object = token_store.create_token(args.label, args.role, args.project)
         elif args.action == "list":
-            result = token_store.list_tokens(args.project, args.pending)
+            result = (
+                token_store.list_enrollments()
+                if args.pending
+                else token_store.list_tokens(args.project)
+            )
         elif args.action == "approve":
             result = token_store.approve_enrollment(args.token)
         elif args.action == "reject":
@@ -498,11 +509,13 @@ def token_command(argv: list[str]) -> int:
 
 
 def enroll_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp enroll``: request a project token from a shared server."""
+    """Run ``security-review-mcp enroll``: request access to a project from a shared server."""
     parser = argparse.ArgumentParser(
         prog="security-review-mcp enroll",
         description="Request a token restricted to one project from a shared server. The token "
-        "is printed once and works after an administrator approves the request.",
+        "is printed once and works after an administrator approves the request. With "
+        "--token-stdin, ask instead for one more project on an existing token (complementary "
+        "enrollment).",
     )
     parser.add_argument(
         "--url", required=True, help="server URL, for example https://secreview.example.com"
@@ -512,6 +525,12 @@ def enroll_command(argv: list[str]) -> int:
         "--label", help="name of the token (default: the project); a random suffix is added"
     )
     parser.add_argument("--requested-by", help="who asks (name, email or team), for the admin")
+    parser.add_argument(
+        "--token-stdin",
+        action="store_true",
+        help="read an existing token on stdin and request the project for it (complementary "
+        "enrollment)",
+    )
     parser.add_argument("--cafile", help="CA bundle used to verify the server certificate")
     parser.add_argument(
         "--allow-http",
@@ -519,6 +538,12 @@ def enroll_command(argv: list[str]) -> int:
         help="allow plain HTTP to a non-loopback server (the token would travel in clear)",
     )
     args = parser.parse_args(argv)
+    token = None
+    if args.token_stdin:
+        # Never on the command line: it would show in the process list and the shell history
+        token = sys.stdin.readline().strip()
+        if not token:
+            return _fail("--token-stdin: no token read on stdin")
     try:
         result = enrollment.request_enrollment(
             args.url,
@@ -527,6 +552,7 @@ def enroll_command(argv: list[str]) -> int:
             requested_by=args.requested_by,
             cafile=args.cafile,
             allow_http=args.allow_http,
+            token=token,
         )
     except ValueError as exc:
         return _fail(str(exc))
