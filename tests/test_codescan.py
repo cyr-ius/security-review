@@ -6,7 +6,7 @@ import subprocess
 import pytest
 from mcp.client import Client
 
-from security_review_mcp import cli, codescan, services
+from security_review_mcp import cli, codescan, rule_store, services
 from security_review_mcp.config import get_settings
 from security_review_mcp.models import Severity
 from security_review_mcp.server import mcp
@@ -189,6 +189,24 @@ def test_code_scan_sarif_without_save(tmp_path):
     assert results and results[0]["level"] in ("error", "warning", "note")
     uris = {r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] for r in results}
     assert "app/views.py" in uris
+
+
+def test_code_scan_applies_internal_rules(tmp_path, capsys):
+    rule_store.import_packs(
+        [
+            (
+                "p.toml",
+                'disabled_rules = ["PY-001"]\n[[rules]]\nid = "ACME-001"\ntitle = "Legacy"\n'
+                'severity = "high"\nlanguages = ["python"]\npattern = "LegacyCrypto"\n',
+            )
+        ]
+    )
+    (tmp_path / "app.py").write_text("LegacyCrypto.encrypt(x)\neval(y)\n", encoding="utf-8")
+    assert cli.run(["code", "scan", str(tmp_path), "--no-git", "--format", "json"]) == 1
+    result = json.loads(capsys.readouterr().out)
+    found = {match["rule_id"] for entry in result["files"] for match in entry["matches"]}
+    assert "ACME-001" in found
+    assert "PY-001" not in found
 
 
 def test_code_scan_errors(tmp_path):

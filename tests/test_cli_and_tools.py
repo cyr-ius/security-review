@@ -7,7 +7,7 @@ from mcp.client import Client
 from sqlalchemy import inspect, text
 from test_advisories import osv
 
-from security_review_mcp import cli, server, services
+from security_review_mcp import cli, rule_store, rules_loader, server, services
 from security_review_mcp.config import get_settings
 from security_review_mcp.database import get_engine, init_db
 from security_review_mcp.models import FindingCreate, Severity
@@ -138,6 +138,113 @@ def test_main_dispatches_cli_commands():
     with pytest.raises(SystemExit) as stop:
         server.main(["advisories", "status"])
     assert stop.value.code == 0
+
+
+# ── rules ────────────────────────────────────────────────────────────────────
+
+RULE_PACK = """
+disabled_rules = ["PY-008"]
+
+[[rules]]
+id = "ACME-001"
+title = "Legacy crypto helper"
+severity = "high"
+languages = ["python"]
+pattern = "LegacyCrypto"
+
+[[checklist]]
+domain = "company"
+id = "ACME-CL-01"
+title = "Tenant isolation"
+what_to_look_for = "Queries are scoped by tenant."
+"""
+
+
+def test_rules_import_export_round_trip(tmp_path, capsys):
+    packs = tmp_path / "rules.d"
+    packs.mkdir()
+    (packs / "company.toml").write_text(RULE_PACK, encoding="utf-8")
+    (packs / "notes.txt").write_text("ignored", encoding="utf-8")
+    assert cli.run(["rules", "import", str(packs)]) == cli.EXIT_PASSED
+    stats = json.loads(capsys.readouterr().out)
+    assert (stats["files"], stats["rules"], stats["checklist_items"]) == (["company.toml"], 1, 1)
+
+    exported = tmp_path / "export.toml"
+    assert cli.run(["rules", "export", "-o", str(exported)]) == cli.EXIT_PASSED
+    assert "ACME-001" in exported.read_text(encoding="utf-8")
+    assert cli.run(["rules", "export"]) == cli.EXIT_PASSED
+    assert capsys.readouterr().out == exported.read_text(encoding="utf-8")
+
+    assert cli.run(["rules", "import", "--replace", str(exported)]) == cli.EXIT_PASSED
+    assert json.loads(capsys.readouterr().out)["replaced"] is True
+
+
+def test_rules_list_enable_disable_delete(capsys):
+    assert cli.run(["rules", "disable", "PY-001", "PY-004"]) == cli.EXIT_PASSED
+    assert json.loads(capsys.readouterr().out) == {"disabled": ["PY-001", "PY-004"]}
+
+    assert cli.run(["rules", "list", "--language", "python", "--format", "json"]) == 0
+    rows = {row["id"]: row for row in json.loads(capsys.readouterr().out)}
+    assert rows["PY-001"]["enabled"] is False
+    assert rows["PY-002"]["enabled"] is True
+
+    assert cli.run(["rules", "list", "--language", "python"]) == cli.EXIT_PASSED
+    out = capsys.readouterr().out
+    assert any(line.startswith("PY-001") and "disabled" in line for line in out.splitlines())
+    assert "2 disabled" in out
+
+    assert cli.run(["rules", "enable", "PY-001"]) == cli.EXIT_PASSED
+    assert json.loads(capsys.readouterr().out) == {"enabled": ["PY-001"]}
+
+    rule_store.import_packs([("p.toml", RULE_PACK)])  # changed by another process
+    assert cli.run(["rules", "list", "--custom", "--format", "json"]) == cli.EXIT_PASSED
+    assert [row["id"] for row in json.loads(capsys.readouterr().out)] == ["ACME-001"]
+    assert cli.run(["rules", "delete", "ACME-001", "ACME-CL-01"]) == cli.EXIT_PASSED
+    assert json.loads(capsys.readouterr().out)["deleted_rules"] == ["ACME-001"]
+
+
+def test_rules_errors(tmp_path, capsys):
+    assert cli.run(["rules", "disable", "ACME-404"]) == cli.EXIT_ERROR
+    assert "Unknown rule" in json.loads(capsys.readouterr().err)["error"]
+    assert cli.run(["rules", "delete", "PY-001"]) == cli.EXIT_ERROR
+    assert "only be disabled" in capsys.readouterr().err
+
+    bad = tmp_path / "bad.toml"
+    bad.write_text('[[rules]]\nid = "ACME-1"\ntitle = "t"\nseverity = "low"\npattern = "a*"')
+    assert cli.run(["rules", "import", str(bad)]) == cli.EXIT_ERROR
+    assert "empty string" in capsys.readouterr().err
+    assert cli.run(["rules", "import", str(tmp_path / "missing.toml")]) == cli.EXIT_ERROR
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert cli.run(["rules", "import", str(empty)]) == cli.EXIT_ERROR
+    with pytest.raises(SystemExit):
+        cli.run(["rules", "bogus"])
+
+
+def test_rules_import_does_not_follow_symlinks(tmp_path, capsys):
+    target = tmp_path / "outside.toml"
+    target.write_text(RULE_PACK, encoding="utf-8")
+    packs = tmp_path / "rules.d"
+    packs.mkdir()
+    (packs / "link.toml").symlink_to(target)
+    (packs / "real.toml").write_text(
+        '[[rules]]\nid = "ACME-002"\ntitle = "t"\nseverity = "low"\npattern = "x"',
+        encoding="utf-8",
+    )
+    assert cli.run(["rules", "import", str(packs / "link.toml")]) == cli.EXIT_ERROR
+    assert "symbolic link" in capsys.readouterr().err
+    assert cli.run(["rules", "import", str(packs)]) == cli.EXIT_PASSED
+    captured = capsys.readouterr()
+    assert json.loads(captured.out)["files"] == ["real.toml"]
+    assert "skipped" in captured.err
+
+
+def test_rules_import_rejects_oversized_pack(tmp_path, capsys, monkeypatch):
+    monkeypatch.setattr(rules_loader, "MAX_PACK_BYTES", 10)
+    pack = tmp_path / "big.toml"
+    pack.write_text(RULE_PACK, encoding="utf-8")
+    assert cli.run(["rules", "import", str(pack)]) == cli.EXIT_ERROR
+    assert "larger than" in capsys.readouterr().err
 
 
 # ── MCP tools and prompt ─────────────────────────────────────────────────────

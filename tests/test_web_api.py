@@ -4,7 +4,15 @@ import pytest
 from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
-from security_review_mcp import http_server, registry, server, services, token_store, web_api
+from security_review_mcp import (
+    http_server,
+    registry,
+    rule_store,
+    server,
+    services,
+    token_store,
+    web_api,
+)
 from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
 from security_review_mcp.models import ApiToken, FindingCreate, Severity
@@ -128,17 +136,16 @@ def test_update_finding_status(client, reports):
     assert client.patch("/api/v1/findings/999", json={"status": "fixed"}).status_code == 404
 
 
-def test_custom_rule_lifecycle(client, rules_dir):
-    pack = rules_dir / "company.toml"
-    pack.write_text(
-        '# Preserve this note\n\n[[rules]]\nid = "ACME-001"\ntitle = "Unsafe eval"\n'
-        'severity = "high"\nlanguages = ["python"]\npattern = "eval\\\\("\n',
-        encoding="utf-8",
+def test_custom_rule_lifecycle(client, import_pack):
+    import_pack(
+        '[[rules]]\nid = "ACME-001"\ntitle = "Unsafe eval"\n'
+        'severity = "high"\nlanguages = ["python"]\npattern = "eval\\\\("\n'
     )
 
     listed = client.get("/api/v1/rules").json()
-    assert listed["rules"][0]["source"] == "company.toml"
+    assert listed["rules"][0]["id"] == "ACME-001"
     assert listed["rules"][0]["enabled"] is True
+    assert listed["load_errors"] == []
 
     changed = {
         "id": "ACME-001",
@@ -150,8 +157,7 @@ def test_custom_rule_lifecycle(client, rules_dir):
     }
     response = client.put("/api/v1/rules/ACME-001", json=changed)
     assert response.status_code == 200
-    assert "Preserve this note" in pack.read_text(encoding="utf-8")
-    assert "Unsafe eval call" in pack.read_text(encoding="utf-8")
+    assert client.get("/api/v1/rules").json()["rules"][0]["title"] == "Unsafe eval call"
     assert any(hit["rule_id"] == "ACME-001" for hit in registry.scan("eval(x)", "python")[0])
 
     response = client.patch("/api/v1/rules/ACME-001/enabled", json={"enabled": False})
@@ -169,9 +175,19 @@ def test_custom_rule_lifecycle(client, rules_dir):
     assert client.get("/api/v1/rules").json()["rules"] == []
     assert not any(hit["rule_id"] == "ACME-001" for hit in registry.scan("eval(x)", "python")[0])
     assert "ACME-001" not in registry.snapshot().disabled_rule_ids
+    assert client.delete("/api/v1/rules/ACME-001").status_code == 422
+    assert client.delete("/api/v1/rules/PY-001").status_code == 422
 
 
-def test_rule_creation_and_reload(client, rules_dir):
+def test_builtin_rule_can_be_disabled(client):
+    response = client.patch("/api/v1/rules/PY-001/enabled", json={"enabled": False})
+    assert response.status_code == 200
+    assert "PY-001" in registry.snapshot().disabled_rule_ids
+    unknown = client.patch("/api/v1/rules/ACME-404/enabled", json={"enabled": False})
+    assert unknown.status_code == 422
+
+
+def test_rule_creation_and_reload(client):
     response = client.post(
         "/api/v1/rules",
         json={
@@ -184,20 +200,25 @@ def test_rule_creation_and_reload(client, rules_dir):
         },
     )
     assert response.status_code == 201
-    assert (rules_dir / "web-managed.toml").is_file()
+    assert response.json() == {"loaded_rules": 1, "load_errors": []}
     assert any(hit["rule_id"] == "ACME-002" for hit in registry.scan("exec(x)", "python")[0])
 
-    (rules_dir / "external.toml").write_text(
-        '[[rules]]\nid = "ACME-003"\ntitle = "External"\nseverity = "low"\n'
-        'languages = ["python"]\npattern = "compile"\n',
-        encoding="utf-8",
+    # A change made by the CLI in another process is applied by the reload button
+    rule_store.import_packs(
+        [
+            (
+                "external.toml",
+                '[[rules]]\nid = "ACME-003"\ntitle = "External"\nseverity = "low"\n'
+                'languages = ["python"]\npattern = "compile"\n',
+            )
+        ]
     )
     response = client.post("/api/v1/rules/reload")
     assert response.status_code == 200
     assert any(hit["rule_id"] == "ACME-003" for hit in registry.scan("compile(x)", "python")[0])
 
 
-def test_rule_validation_and_admin_permissions(client, secured, rules_dir):
+def test_rule_validation_and_admin_permissions(client, secured):
     invalid = client.post(
         "/api/v1/rules",
         json={
@@ -209,7 +230,7 @@ def test_rule_validation_and_admin_permissions(client, secured, rules_dir):
         },
     )
     assert invalid.status_code == 422
-    assert not (rules_dir / "web-managed.toml").exists()
+    assert rule_store.list_custom_rules() == []
 
     payload = {
         "id": "ACME-004",

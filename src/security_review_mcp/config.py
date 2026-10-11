@@ -46,9 +46,6 @@ class Settings(BaseSettings):
 
     log_level: str = "INFO"
 
-    # Directory holding internal rule packs (*.toml). Keep it writable by administrators only.
-    rules_dir: str | None = None
-
     # Hard limits to protect the server and the database
     max_content_chars: int = 200_000
     max_findings_per_report: int = 500

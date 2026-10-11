@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
@@ -28,10 +29,10 @@ const EMPTY_RULE: RuleFormModel = {
   ignore_case: true,
 };
 
-/** Admin view for TOML-backed custom scan rules. */
+/** Admin view for the custom scan rules stored in the database. */
 @Component({
   selector: 'app-rule-list',
-  imports: [FormField],
+  imports: [DatePipe, FormField],
   templateUrl: './rule-list.component.html',
   styleUrl: './rule-list.component.css',
 })
@@ -159,7 +160,7 @@ export class RuleListComponent {
     this.clearMessages();
     try {
       const result = await firstValueFrom(this.api.reloadCustomRules());
-      this.notice.set(`${result.loaded_rules} règle(s) TOML rechargée(s).`);
+      this.notice.set(`${result.loaded_rules} règle(s) personnalisée(s) rechargée(s).`);
       this.catalog.reload();
     } catch (error: unknown) {
       this.error.set(describeError(error));

@@ -2,8 +2,8 @@
 
 import pytest
 
-from security_review_mcp import prompts, registry
-from security_review_mcp.rules_loader import load_rules_dir
+from security_review_mcp import prompts, registry, rule_store
+from security_review_mcp.rules_loader import parse_pack
 
 VALID_PACK = """
 disabled_rules = ["PY-008"]
@@ -37,11 +37,11 @@ def ids(matches: list[dict]) -> set[str]:
     return {m["rule_id"] for m in matches}
 
 
-# ── Rule packs ───────────────────────────────────────────────────────────────
+# ── Internal rules (database) ────────────────────────────────────────────────
 
 
-def test_valid_pack_adds_rules_and_checklists(rules_dir):
-    (rules_dir / "company.toml").write_text(VALID_PACK)
+def test_valid_pack_adds_rules_and_checklists(import_pack):
+    import_pack(VALID_PACK)
     matches, _ = registry.scan("x = LegacyCrypto.encrypt(data)", "python")
     assert ids(matches) == {"ACME-001"}
     assert "company" in registry.domains()
@@ -50,15 +50,15 @@ def test_valid_pack_adds_rules_and_checklists(rules_dir):
     assert registry.snapshot().errors == ()
 
 
-def test_pack_can_disable_a_builtin_rule(rules_dir):
-    (rules_dir / "company.toml").write_text(VALID_PACK)
+def test_pack_can_disable_a_builtin_rule(import_pack):
+    import_pack(VALID_PACK)
     matches, _ = registry.scan("v = random.randint(1, 9)", "python")
     assert "PY-008" not in ids(matches)
     assert "PY-008" in registry.snapshot().disabled_rule_ids
 
 
-def test_custom_rule_replaces_builtin_with_same_id(rules_dir):
-    (rules_dir / "override.toml").write_text(
+def test_custom_rule_replaces_builtin_with_same_id(import_pack):
+    import_pack(
         """
 [[rules]]
 id = "PY-006"
@@ -74,8 +74,8 @@ pattern = 'verify\\s*=\\s*False'
     assert hit["severity"] == "critical"
 
 
-def test_company_checklist_is_added_to_review_prompts(rules_dir):
-    (rules_dir / "company.toml").write_text(VALID_PACK)
+def test_company_checklist_is_added_to_review_prompts(import_pack):
+    import_pack(VALID_PACK)
     text = prompts.build_security_review_prompt("python", "x = 1", "", "")
     assert "ACME-CL-01" in text
     assert "ACME-CL-01" in prompts.build_api_review_prompt("FastAPI", "", "", "")
@@ -100,45 +100,58 @@ def test_without_pack_there_is_no_company_section():
             "unknown",
         ),
         ('id = "A-1"\ntitle = "t"\nseverity = "low"', "missing pattern"),
+        (f'id = "A-1"\ntitle = "{"t" * 301}"\nseverity = "low"\npattern = "x"', "longer than"),
+        (f'id = "A-{"1" * 60}"\ntitle = "t"\nseverity = "low"\npattern = "x"', "invalid id"),
     ],
 )
-def test_invalid_rules_are_skipped_and_reported(rules_dir, entry, fragment):
-    (rules_dir / "bad.toml").write_text(f"[[rules]]\n{entry}\n")
-    result = load_rules_dir(rules_dir)
+def test_invalid_rules_are_reported(entry, fragment):
+    result = parse_pack(f"[[rules]]\n{entry}\n", "bad.toml")
     assert result.rules == []
-    assert any(fragment in error for error in result.errors), result.errors
+    assert any(fragment in error and "bad.toml" in error for error in result.errors), result.errors
 
 
-def test_broken_file_does_not_block_valid_ones(rules_dir):
-    (rules_dir / "a_broken.toml").write_text("this is [not valid toml")
-    (rules_dir / "b_good.toml").write_text(VALID_PACK)
+def test_broken_pack_is_reported():
+    result = parse_pack("this is [not valid toml", "broken.toml")
+    assert result.errors and "broken.toml" in result.errors[0]
+    assert parse_pack('disabled_rules = ["not an id"]', "p.toml").errors
+
+
+def test_unreadable_database_keeps_builtin_rules(database):
+    database.dispose()
+    from sqlmodel import SQLModel
+
+    SQLModel.metadata.drop_all(database)
     snapshot = registry.reload()
-    assert "ACME-001" in snapshot.custom_rule_ids
-    assert any("a_broken.toml" in error for error in snapshot.errors)
-
-
-def test_missing_directory_is_reported_not_fatal(tmp_path, monkeypatch):
-    from security_review_mcp.config import get_settings
-
-    monkeypatch.setattr(get_settings(), "rules_dir", str(tmp_path / "nope"))
-    registry.reset()
-    snapshot = registry.snapshot()
-    assert snapshot.errors and "not found" in snapshot.errors[0]
+    assert snapshot.errors and "database error (OperationalError)" in snapshot.errors[0]
     assert len(snapshot.rules) > 0  # built-in rules still work
 
 
-def test_reload_picks_up_changes(rules_dir):
+def test_reload_picks_up_changes():
     assert "ACME-001" not in registry.snapshot().custom_rule_ids
-    (rules_dir / "company.toml").write_text(VALID_PACK)
+    rule_store.import_packs([("company.toml", VALID_PACK)])
     assert "ACME-001" in registry.reload().custom_rule_ids
 
 
-def test_describe_rules_marks_origin(rules_dir):
-    (rules_dir / "company.toml").write_text(VALID_PACK)
+def test_snapshot_follows_changes_made_by_another_process(monkeypatch):
+    assert "ACME-001" not in registry.snapshot().custom_rule_ids
+    rule_store.import_packs([("company.toml", VALID_PACK)])  # e.g. the CLI, no reload here
+    assert "ACME-001" not in registry.snapshot().custom_rule_ids  # cached
+    monkeypatch.setattr(registry, "REFRESH_SECONDS", 0.0)
+    assert "ACME-001" in registry.snapshot().custom_rule_ids
+    revision = registry.snapshot().revision
+    assert registry.snapshot().revision == revision  # unchanged revision: no reload
+
+
+def test_describe_rules_marks_origin_and_state(import_pack):
+    import_pack(VALID_PACK)
     rows = {row["id"]: row for row in registry.describe_rules("python")}
     assert rows["ACME-001"]["origin"] == "custom"
     assert rows["PY-001"]["origin"] == "builtin"
     assert "JV-001" not in rows
+    assert "PY-008" not in rows
+    every = {row["id"]: row for row in registry.describe_rules("python", include_disabled=True)}
+    assert every["PY-008"]["enabled"] is False
+    assert every["PY-001"]["enabled"] is True
 
 
 # ── Platform rules ───────────────────────────────────────────────────────────

@@ -1,16 +1,24 @@
-"""Active rules and checklists: built-in content merged with the internal rule packs."""
+"""Active rules and checklists: built-in content merged with the internal rules of the database."""
 
+import logging
 import threading
+import time
 from dataclasses import dataclass
 
+from sqlalchemy.exc import SQLAlchemyError
+
+from . import rule_store
 from .checklists import CHECKLISTS, CheckItem
-from .config import get_settings
-from .rules_loader import LoadResult, load_rules_dir
+from .rules_loader import LoadResult
 from .rules_platform import PLATFORM_RULES
 from .scanner import RULES, Rule, scan_content_detailed
 
+logger = logging.getLogger(__name__)
+
 # Checklist domain appended to every review prompt (company-wide requirements)
 COMPANY_DOMAIN = "company"
+# How often a cached snapshot checks the database revision (changes made by another process)
+REFRESH_SECONDS = 5.0
 
 BUILTIN_RULES: tuple[Rule, ...] = RULES + PLATFORM_RULES
 
@@ -20,21 +28,23 @@ class Snapshot:
     """An immutable view of the merged content (swapped atomically on reload)."""
 
     rules: tuple[Rule, ...]
+    catalog: tuple[Rule, ...]
     custom_rule_ids: frozenset[str]
     disabled_rule_ids: frozenset[str]
     checklists: dict[str, tuple[CheckItem, ...]]
-    sources: tuple[str, ...]
     errors: tuple[str, ...]
+    revision: int | None
 
 
 _lock = threading.Lock()
 _snapshot: Snapshot | None = None
+_checked_at = 0.0
 
 
-def _build(loaded: LoadResult) -> Snapshot:
+def _build(loaded: LoadResult, revision: int | None) -> Snapshot:
     """Merge built-in and custom content: a custom id replaces a built-in one."""
     custom_ids = {rule.id for rule in loaded.rules}
-    merged = [r for r in BUILTIN_RULES if r.id not in custom_ids] + loaded.rules
+    merged = tuple(r for r in BUILTIN_RULES if r.id not in custom_ids) + tuple(loaded.rules)
     active = tuple(r for r in merged if r.id not in loaded.disabled_rules)
 
     checklists = {domain: list(items) for domain, items in CHECKLISTS.items()}
@@ -45,27 +55,53 @@ def _build(loaded: LoadResult) -> Snapshot:
 
     return Snapshot(
         rules=active,
+        catalog=merged,
         custom_rule_ids=frozenset(custom_ids),
         disabled_rule_ids=frozenset(loaded.disabled_rules),
         checklists={domain: tuple(items) for domain, items in checklists.items()},
-        sources=tuple(loaded.sources),
         errors=tuple(loaded.errors),
+        revision=revision,
     )
 
 
+def _load() -> tuple[LoadResult, int | None]:
+    """Read the internal rules; an unavailable database leaves the built-in rules only."""
+    try:
+        loaded, revision = rule_store.load()
+    except SQLAlchemyError as exc:
+        # The message may contain the database URL: only the error type is reported
+        message = f"internal rules unavailable: database error ({type(exc).__name__})"
+        logger.warning("%s", message)
+        loaded, revision = LoadResult(errors=[message]), None
+    for message in loaded.errors:
+        logger.warning("Internal rules problem: %s", message)
+    return loaded, revision
+
+
 def reload() -> Snapshot:
-    """(Re)read the rules directory and publish a new snapshot."""
-    global _snapshot
-    snapshot = _build(load_rules_dir(get_settings().rules_dir))
+    """(Re)read the internal rules from the database and publish a new snapshot."""
+    global _snapshot, _checked_at
+    snapshot = _build(*_load())
     with _lock:
         _snapshot = snapshot
+        _checked_at = time.monotonic()
     return snapshot
 
 
 def snapshot() -> Snapshot:
-    """Return the current snapshot, loading it on first use."""
+    """Return the current snapshot, reloading it when another process changed the rules."""
+    global _checked_at
     current = _snapshot
-    return current if current is not None else reload()
+    if current is None:
+        return reload()
+    if time.monotonic() - _checked_at < REFRESH_SECONDS:
+        return current
+    _checked_at = time.monotonic()
+    try:
+        latest = rule_store.revision()
+    except SQLAlchemyError:
+        return current
+    return reload() if latest != current.revision else current
 
 
 def reset() -> None:
@@ -83,11 +119,11 @@ def scan(content: str, language: str, max_matches: int = 200) -> tuple[list[dict
     return scan_content_detailed(content, language, snapshot().rules, max_matches)
 
 
-def describe_rules(language: str | None = None) -> list[dict]:
-    """List the active rules with their origin (builtin or custom)."""
+def describe_rules(language: str | None = None, include_disabled: bool = False) -> list[dict]:
+    """List the active rules (or every rule) with their origin and state."""
     current = snapshot()
     rows = []
-    for rule in current.rules:
+    for rule in current.catalog if include_disabled else current.rules:
         if language and "*" not in rule.languages and language.lower() not in rule.languages:
             continue
         rows.append(
@@ -98,6 +134,7 @@ def describe_rules(language: str | None = None) -> list[dict]:
                 "cwe": rule.cwe,
                 "languages": sorted(rule.languages),
                 "origin": "custom" if rule.id in current.custom_rule_ids else "builtin",
+                "enabled": rule.id not in current.disabled_rule_ids,
             }
         )
     return rows

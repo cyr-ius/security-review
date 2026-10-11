@@ -180,3 +180,45 @@ class ApiToken(SQLModel, table=True):
     project: str | None = Field(default=None, index=True, max_length=200)
     token_hash: str = Field(unique=True, index=True, max_length=64)  # hex SHA-256
     created_at: datetime = Field(default_factory=utcnow)
+
+
+# ── Custom rules (managed with `security-review-mcp rules` and the web interface) ──
+
+
+class CustomRule(SQLModel, table=True):
+    """Internal scan rule; an id equal to a built-in rule replaces that rule."""
+
+    id: str = Field(primary_key=True, max_length=50)
+    title: str = Field(max_length=300)
+    severity: str = Field(max_length=10)
+    cwe: str = Field(default="", max_length=20)
+    languages: str = Field(default='["*"]')  # JSON list
+    pattern: str = Field(max_length=500)
+    advice: str = Field(default="")
+    ignore_case: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
+class CustomCheckItem(SQLModel, table=True):
+    """Internal checklist item; the ``company`` domain is added to every review prompt."""
+
+    domain: str = Field(primary_key=True, max_length=31)
+    id: str = Field(primary_key=True, max_length=50)
+    title: str = Field(max_length=300)
+    what_to_look_for: str
+    cwe: str = Field(default="", max_length=20)
+
+
+class DisabledRule(SQLModel, table=True):
+    """A switched-off rule id (built-in or custom)."""
+
+    rule_id: str = Field(primary_key=True, max_length=50)
+    disabled_at: datetime = Field(default_factory=utcnow)
+
+
+class RuleSetRevision(SQLModel, table=True):
+    """Single-row counter bumped by every rule change, so that each server instance reloads."""
+
+    id: int = Field(default=1, primary_key=True)
+    revision: int = Field(default=0)

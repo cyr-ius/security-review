@@ -87,8 +87,8 @@ ENV PATH="/app/.venv/bin:${PATH}" \
 
 # The admin password hash and the project tokens are stored in the database
 
-# Reports database (SQLite) lives in the volume; rules can be mounted read-only, e.g.
-#   -v ./rules.d:/etc/security-review-mcp/rules.d:ro -e SECREVIEW_RULES_DIR=/etc/security-review-mcp/rules.d
+# Reports database (SQLite) lives in the volume, with the internal rules imported with
+#   docker run --rm -v secreview-data:/data -v ./rules.d:/rules:ro IMAGE rules import /rules
 WORKDIR /data
 VOLUME ["/data"]
 

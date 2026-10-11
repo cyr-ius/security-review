@@ -51,7 +51,7 @@ export interface ProjectTokenCreated extends ProjectToken {
   token: string;
 }
 
-/** A validated rule loaded from an internal TOML pack. */
+/** A custom scan rule stored in the database. */
 export interface CustomRule {
   id: string;
   title: string;
@@ -62,13 +62,11 @@ export interface CustomRule {
   advice: string;
   ignore_case: boolean;
   enabled: boolean;
-  source: string;
+  updated_at: string;
 }
 
 /** GET /api/v1/rules */
 export interface CustomRuleCatalog {
-  available: boolean;
-  sources: string[];
   load_errors: string[];
   rules: CustomRule[];
 }
@@ -80,7 +78,7 @@ export type CustomRuleWrite = Pick<
 > &
   Partial<Pick<CustomRule, 'cwe' | 'advice' | 'ignore_case'>>;
 
-/** Summary returned after reloading TOML rule packs. */
+/** Summary returned after a rule change or a reload. */
 export interface RuleReloadResult {
   loaded_rules: number;
   load_errors: string[];

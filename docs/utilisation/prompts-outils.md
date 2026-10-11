@@ -30,7 +30,7 @@ Chaque prompt se termine par l'instruction d'appeler `save_security_report` une 
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste / lockfile : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `list_rules` / `reload_rules` | Règles actives (intégrées + internes), erreurs de chargement, rechargement à chaud |
+| `list_rules` / `reload_rules` | Règles actives (intégrées + [internes](regles.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
 Sur le transport HTTP, un jeton restreint à un projet ne peut utiliser les outils de rapports
 que sur ce projet ; `reload_rules` lui est refusé (voir

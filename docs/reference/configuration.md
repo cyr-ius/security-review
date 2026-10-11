@@ -18,7 +18,6 @@ le répertoire courant (voir `.env.example`).
 | `SECREVIEW_WEB_UI` | `true` | Active l'[interface web](../utilisation/interface-web.md) et l'API REST (HTTP) |
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'interface web |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | Niveau de journalisation (sur stderr) |
-| `SECREVIEW_RULES_DIR` | — | Dossier des [règles internes](../utilisation/regles.md) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Taille maximale du contenu passé à `scan_code` |
 | `SECREVIEW_MAX_FINDINGS_PER_REPORT` | `500` | Nombre maximal de findings par rapport |
 | `SECREVIEW_MAX_DEPENDENCY_CHARS` | `1000000` | Taille maximale d'un manifeste passé à `scan_dependencies` |
@@ -26,6 +25,8 @@ le répertoire courant (voir `.env.example`).
 
 Les jetons Bearer ne se configurent pas par variable : ils sont stockés en base et gérés avec
 `security-review-mcp token` (voir [Serveur HTTP, authentification et TLS](../demarrage/http.md)).
+Les règles internes non plus : elles sont stockées en base et gérées avec
+`security-review-mcp rules` (voir [Règles internes](../utilisation/regles.md)).
 
 ## Base de données
 

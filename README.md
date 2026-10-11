@@ -13,10 +13,10 @@ rapports (SQLite ou PostgreSQL) exploitable en pipeline.
 |---|---|
 | **Prompts** | `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review`, `triage-report` |
 | **Outils** | checklists, `scan_code`, `scan_dependencies`, enregistrement / lecture / triage des rapports, posture et gate projet, export SARIF, tendances, gestion des règles |
-| **CLI** | `gate`, `sarif`, `trend`, `code scan`, `deps scan`, `advisories`, `token` (codes de sortie 0 / 1 / 2) |
-| **Règles** | Python, Java, Angular, configuration, GitLab CI, Jenkins, Spring, FastAPI, plus vos [règles internes](https://cyr-ius.github.io/security-review-mcp/utilisation/regles/) en TOML |
+| **CLI** | `gate`, `sarif`, `trend`, `code scan`, `deps scan`, `advisories`, `rules`, `token` (codes de sortie 0 / 1 / 2) |
+| **Règles** | Python, Java, Angular, configuration, GitLab CI, Jenkins, Spring, FastAPI, plus vos [règles internes](https://cyr-ius.github.io/security-review-mcp/utilisation/regles/) stockées en base (import/export TOML) |
 | **Transport** | stdio ou HTTP, avec jetons Bearer stockés en base (CLI `token`) et TLS (mutuel) facultatifs |
-| **Interface web** | tableau de bord, triage, [règles TOML et jetons projet](https://cyr-ius.github.io/security-review-mcp/utilisation/interface-web/), mot de passe admin initial dans les logs Docker |
+| **Interface web** | tableau de bord, triage, [règles internes et jetons projet](https://cyr-ius.github.io/security-review-mcp/utilisation/interface-web/), mot de passe admin initial dans les logs Docker |
 
 Détail : [prompts et outils](https://cyr-ius.github.io/security-review-mcp/utilisation/prompts-outils/),
 [scan du code complet](https://cyr-ius.github.io/security-review-mcp/utilisation/code-scan/),

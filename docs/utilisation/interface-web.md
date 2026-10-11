@@ -29,8 +29,9 @@ security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
   extrait de code et recommandation ; téléchargement Markdown et SARIF. Les utilisateurs qui ont
   le rôle `triager` ou `admin` changent le statut d'un finding directement depuis cet écran.
 - **Règles** : les administrateurs créent, modifient, suppriment, activent ou désactivent les
-  règles personnalisées des packs TOML et peuvent recharger les fichiers modifiés hors de l'UI.
-  L'écran nécessite `SECREVIEW_RULES_DIR` et ne modifie pas les règles intégrées.
+  [règles internes](regles.md) stockées en base ; le bouton **Recharger** applique
+  immédiatement un changement fait avec la CLI `security-review-mcp rules`. Les règles intégrées
+  se désactivent avec `rules disable` ou `PATCH /api/v1/rules/{id}/enabled`.
 - **Jetons** : les administrateurs créent et révoquent des jetons en lecture limités à un projet.
   Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
   données. Une révocation prend effet à la requête suivante.
@@ -52,7 +53,7 @@ Un jeton `mcp`, `reader` ou `triager` créé avec `--project` ne voit et ne trie
 Dans l'image Docker, un mot de passe `admin` est généré au premier démarrage HTTP et affiché
 une seule fois dans les logs. Son empreinte est enregistrée dans la base de données, comme celle
 de tous les jetons (voir [jetons Bearer](../demarrage/http.md#jetons-bearer)). Ce rôle peut gérer les
-règles TOML, trier les findings et accéder à `/mcp`. Un jeton créé sans rôle reste `mcp` : les jetons des agents
+règles internes, trier les findings et accéder à `/mcp`. Un jeton créé sans rôle reste `mcp` : les jetons des agents
 et de la CI gardent leur accès mais ne peuvent pas utiliser l'interface web. Le rôle `triager`
 conserve uniquement le triage des findings. Générez un jeton par personne :
 

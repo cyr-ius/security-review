@@ -3,8 +3,7 @@
 import pytest
 from sqlmodel import SQLModel, StaticPool, create_engine
 
-from security_review_mcp import models, registry  # noqa: F401  (register the tables)
-from security_review_mcp.config import get_settings
+from security_review_mcp import models, registry, rule_store  # noqa: F401  (register the tables)
 from security_review_mcp.database import set_engine
 
 
@@ -24,20 +23,23 @@ def database():
 
 
 @pytest.fixture(autouse=True)
-def clean_registry(monkeypatch):
-    """Start every test without internal rule packs and drop what it loaded."""
-    monkeypatch.setattr(get_settings(), "rules_dir", None)
+def clean_registry():
+    """Start every test without internal rules and drop what it loaded."""
     registry.reset()
     yield
     registry.reset()
 
 
 @pytest.fixture
-def rules_dir(tmp_path, monkeypatch):
-    """Point the server at an empty temporary rules directory."""
-    monkeypatch.setattr(get_settings(), "rules_dir", str(tmp_path))
-    registry.reset()
-    return tmp_path
+def import_pack():
+    """Return a function that imports a TOML rule pack into the test database and reloads."""
+
+    def _import(text: str, name: str = "pack.toml", replace: bool = False) -> dict:
+        stats = rule_store.import_packs([(name, text)], replace)
+        registry.reload()
+        return stats
+
+    return _import
 
 
 @pytest.fixture

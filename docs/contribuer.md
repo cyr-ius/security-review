@@ -57,9 +57,10 @@ src/security_review_mcp/
 ├── checklists.py  # checklists intégrées par domaine
 ├── scanner.py     # règles de scan, suppression inline, masquage des secrets
 ├── rules_platform.py  # règles GitLab CI, Jenkins, Spring, FastAPI
-├── rules_loader.py    # chargement et validation des packs TOML internes
+├── rules_loader.py    # validation des règles internes, lecture des packs TOML
+├── rule_store.py  # règles internes en base : import/export, activation, suppression
 ├── registry.py    # règles/checklists actives (intégrées + internes), rechargement
-├── cli.py         # commandes gate, sarif, trend, advisories, deps, code, token
+├── cli.py         # commandes gate, sarif, trend, advisories, deps, code, rules, token
 ├── codescan.py    # scan du code complet (liste des fichiers, langage, findings)
 ├── sarif.py       # export SARIF 2.1.0
 ├── trends.py      # rapport de tendance

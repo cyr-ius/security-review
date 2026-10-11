@@ -100,11 +100,12 @@ docker compose exec security-review-mcp security-review-mcp gate --project porta
 
 ## Règles internes et CLI
 
-Monter un dossier de [règles internes](../utilisation/regles.md) :
+Les [règles internes](../utilisation/regles.md) sont stockées dans la base : importez un
+dossier de packs TOML avec la CLI (le serveur en cours d'exécution les applique en quelques
+secondes) :
 
 ```bash
--v ./rules.d:/etc/security-review-mcp/rules.d:ro \
--e SECREVIEW_RULES_DIR=/etc/security-review-mcp/rules.d
+docker run --rm -v secreview-data:/data -v ./rules.d:/rules:ro security-review-mcp rules import /rules
 ```
 
 Les commandes CLI passent aussi :

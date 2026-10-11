@@ -83,8 +83,8 @@ l'utiliser.
 |---|---|
 | Prompts, outils, ressources MCP, point d'entrée | `server.py`, `prompts.py` |
 | Règles de scan, masquage des secrets | `scanner.py`, `rules_platform.py` |
-| Règles internes TOML, registre actif | `rules_loader.py`, `registry.py`, `checklists.py` |
-| CLI (`gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `token`) | `cli.py`, `codescan.py` |
+| Règles internes (en base, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
+| CLI (`gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`) | `cli.py`, `codescan.py` |
 | Dépendances et avis OSV | `dependencies.py`, `depscan.py`, `advisories.py`, `versions.py` |
 | Persistance | `models.py`, `services.py`, `database.py` |
 | Export et tendances | `sarif.py`, `trends.py` |
@@ -137,7 +137,7 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - **SQL uniquement via l'ORM** (SQLModel, paramètres liés), jamais de SQL construit par chaîne.
 - **Aucun appel réseau sortant** : la base de vulnérabilités est importée hors ligne par la CLI.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
-  imbriqués) ; `rules_loader` les valide pour les packs internes.
+  imbriqués) ; `rules_loader` les valide pour les règles internes.
 - Jetons Bearer : seules les empreintes SHA-256 sont conservées, comparaison en temps constant.
 
 ### Paramètres
@@ -167,8 +167,8 @@ fonctionnalité sans test n'est pas terminée ; une correction de bug commence p
 - Un fichier par module : `tests/test_<module>.py`. Ajoutez au fichier existant plutôt que d'en
   créer un nouveau.
 - `tests/conftest.py` fournit automatiquement une base SQLite en mémoire et un registre de
-  règles vide par test : n'utilisez pas la base réelle ni `SECREVIEW_RULES_DIR` de la machine.
-  Utilisez la fixture `rules_dir` pour tester des packs TOML, `tmp_path` pour les fichiers.
+  règles vide par test : n'utilisez pas la base réelle. Utilisez la fixture `import_pack` pour
+  charger des règles internes (pack TOML importé en base), `tmp_path` pour les fichiers.
 - Outils, prompts et ressources MCP : test de bout en bout avec `mcp.client.Client(mcp)` (voir
   `tests/test_server.py`, `pytestmark = pytest.mark.anyio`), y compris le cas d'erreur
   (`ToolError` attendu).

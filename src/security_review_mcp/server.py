@@ -293,12 +293,11 @@ def scan_code(
 def list_rules(
     language: Annotated[str | None, Field(description="Only rules for this language")] = None,
 ) -> dict:
-    """List the active scan rules (built-in and internal) and any rule pack loading problem."""
+    """List the active scan rules (built-in and internal) and any internal rule loading problem."""
     current = registry.snapshot()
     return {
         "rules": registry.describe_rules(language),
         "disabled_rules": sorted(current.disabled_rule_ids),
-        "rule_packs": list(current.sources),
         "load_errors": list(current.errors),
     }
 
@@ -306,14 +305,14 @@ def list_rules(
 @mcp.tool(annotations=WRITE)
 @_tool_errors
 def reload_rules(ctx: Context) -> dict:
-    """Re-read the internal rule packs from disk (after an administrator edited them)."""
+    """Re-read the internal rules from the database now (changes are otherwise seen within
+    a few seconds)."""
     if _caller_project(ctx) is not None:
         raise ValueError("A token restricted to a project cannot reload the rules")
     current = registry.reload()
     return {
         "rules_active": len(current.rules),
         "custom_rules": len(current.custom_rule_ids),
-        "rule_packs": list(current.sources),
         "load_errors": list(current.errors),
     }
 

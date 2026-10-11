@@ -9,7 +9,6 @@ The services are synchronous (SQLModel sessions), so every call runs in the thre
 
 import json
 import logging
-import re
 from pathlib import Path
 from typing import Annotated, Literal
 
@@ -24,7 +23,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Scope
 
-from . import __version__, registry, rules_loader, services, token_store, trends
+from . import __version__, registry, rule_store, rules_loader, services, token_store, trends
 from .config import get_settings
 from .http_server import LOOPBACK_HOSTS, TRIAGE_ROLES, Role
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
@@ -73,13 +72,13 @@ class FindingStatusUpdate(BaseModel):
 class RuleWrite(BaseModel):
     """A custom scan rule sent to the web API."""
 
-    id: str = Field(min_length=3, max_length=50)
-    title: str = Field(min_length=1, max_length=300)
+    id: str = Field(min_length=3, max_length=rules_loader.MAX_ID_CHARS)
+    title: str = Field(min_length=1, max_length=rules_loader.MAX_TITLE_CHARS)
     severity: Severity
     cwe: str = Field(default="", max_length=20)
     languages: list[Annotated[str, Field(max_length=32)]] = Field(min_length=1, max_length=32)
     pattern: str = Field(min_length=1, max_length=rules_loader.MAX_PATTERN_CHARS)
-    advice: str = Field(default="", max_length=5000)
+    advice: str = Field(default="", max_length=rules_loader.MAX_TEXT_CHARS)
     ignore_case: bool = True
 
 
@@ -179,37 +178,10 @@ def _ensure_report_scope(identity: Identity, report: SecurityReportPublic) -> No
 
 
 def _rule_catalog() -> dict:
-    """Return valid custom rules and pack load diagnostics for the management screen."""
-    directory = get_settings().rules_dir
-    if not directory:
-        return {
-            "available": False,
-            "sources": [],
-            "load_errors": ["SECREVIEW_RULES_DIR is not configured"],
-            "rules": [],
-        }
-    loaded = rules_loader.load_rules_dir(directory)
-    rules = []
-    for rule in loaded.rules:
-        rules.append(
-            {
-                "id": rule.id,
-                "title": rule.title,
-                "severity": rule.severity.value,
-                "cwe": rule.cwe,
-                "languages": sorted(rule.languages),
-                "pattern": rule.pattern.pattern,
-                "advice": rule.advice,
-                "ignore_case": bool(rule.pattern.flags & re.IGNORECASE),
-                "enabled": rule.id not in loaded.disabled_rules,
-                "source": loaded.rule_sources[rule.id],
-            }
-        )
+    """Return the custom rules stored in the database and the registry diagnostics."""
     return {
-        "available": True,
-        "sources": loaded.sources,
-        "load_errors": loaded.errors,
-        "rules": rules,
+        "rules": rule_store.list_custom_rules(),
+        "load_errors": list(registry.snapshot().errors),
     }
 
 
@@ -350,14 +322,14 @@ async def update_finding(
 
 @router.get("/rules")
 async def list_custom_rules(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
-    """List the valid rules loaded from TOML packs."""
+    """List the custom rules stored in the database."""
     return await run_in_threadpool(_rule_catalog)
 
 
 @router.post("/rules/reload")
 async def reload_custom_rules(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
-    """Reload TOML packs after changes made outside the web interface."""
-    logger.info("Rule packs reloaded by %s", identity.client)
+    """Reload the internal rules now (after a change made with the CLI)."""
+    logger.info("Internal rules reloaded by %s", identity.client)
     return await _refresh_rules()
 
 
@@ -365,11 +337,9 @@ async def reload_custom_rules(identity: Annotated[Identity, Depends(require_admi
 async def create_custom_rule(
     body: RuleWrite, identity: Annotated[Identity, Depends(require_admin)]
 ) -> dict:
-    """Create a rule in the web-managed TOML pack."""
+    """Create a custom rule in the database."""
     try:
-        await run_in_threadpool(
-            rules_loader.create_rule, get_settings().rules_dir, body.model_dump(mode="json")
-        )
+        await run_in_threadpool(rule_store.create_rule, body.model_dump(mode="json"))
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     logger.info("Rule %s created by %s", body.id, identity.client)
@@ -384,12 +354,7 @@ async def update_custom_rule(
 ) -> dict:
     """Update a custom rule while keeping its stable id."""
     try:
-        await run_in_threadpool(
-            rules_loader.update_rule,
-            get_settings().rules_dir,
-            rule_id,
-            body.model_dump(mode="json"),
-        )
+        await run_in_threadpool(rule_store.update_rule, rule_id, body.model_dump(mode="json"))
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     logger.info("Rule %s updated by %s", rule_id, identity.client)
@@ -401,9 +366,9 @@ async def delete_custom_rule(
     rule_id: Annotated[str, APIPath(min_length=3, max_length=50)],
     identity: Annotated[Identity, Depends(require_admin)],
 ) -> Response:
-    """Delete a custom rule from its TOML packs."""
+    """Delete a custom rule from the database."""
     try:
-        await run_in_threadpool(rules_loader.delete_rule, get_settings().rules_dir, rule_id)
+        await run_in_threadpool(rule_store.delete_entries, [rule_id], False)
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     await _refresh_rules()
@@ -417,11 +382,9 @@ async def set_custom_rule_enabled(
     body: RuleEnabledUpdate,
     identity: Annotated[Identity, Depends(require_admin)],
 ) -> dict:
-    """Enable or disable a custom rule through the pack's disabled_rules list."""
+    """Enable or disable a built-in or custom rule."""
     try:
-        await run_in_threadpool(
-            rules_loader.set_rule_enabled, get_settings().rules_dir, rule_id, body.enabled
-        )
+        await run_in_threadpool(rule_store.set_enabled, [rule_id], body.enabled)
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     logger.info("Rule %s enabled=%s by %s", rule_id, body.enabled, identity.client)

@@ -1,9 +1,8 @@
-# Example internal rule pack. Copy it to the directory pointed to by SECREVIEW_RULES_DIR
-# and adapt it to your own standards. The ACME names are placeholders.
-#
-# Reload without restarting the server with the `reload_rules` tool.
+# Example internal rule pack. Adapt it to your own standards, then import it into the database:
+#   security-review-mcp rules import examples/rules/company.toml
+# The ACME names are placeholders. Running servers apply the change within a few seconds.
 
-# Built-in rules you do not want (for example too noisy for your code base)
+# Rules you do not want (for example built-in rules too noisy for your code base)
 disabled_rules = []
 
 # ── Scan rules ───────────────────────────────────────────────────────────────
