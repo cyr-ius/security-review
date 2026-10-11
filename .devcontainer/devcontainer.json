@@ -8,7 +8,18 @@
     "ghcr.io/devcontainers-extra/features/prek:1": {},
     "ghcr.io/devcontainers-extra/features/uv:1": {},
     "ghcr.io/devcontainers/features/node:1": {},
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
+    // Dedicated Docker daemon to build and run the project Dockerfile. Preferred over
+    // docker-outside-of-docker: the host socket would give tools running here (including AI
+    // agents) root access to the host. Docker CE rather than Moby, packaged for Debian trixie.
+    "ghcr.io/devcontainers/features/docker-in-docker:4": {
+      "moby": false
+    }
+  },
+  // HTTP transport of the image (MCP on /mcp, web interface on /ui, REST API on /api/v1)
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": { "label": "security-review-mcp (HTTP)", "onAutoForward": "notify" }
   },
   "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && prek install --overwrite && uv pip install -e \".[dev]\" --link-mode=copy  && uv sync --group dev --link-mode=copy",
   "customizations": {
