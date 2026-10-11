@@ -33,7 +33,7 @@ jobs:
       - run: uv sync --locked --extra docs
       # --strict turns broken links and nav warnings into errors
       - run: uv run mkdocs build --strict
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         if: github.event_name != 'pull_request'
         with:
           path: site/
