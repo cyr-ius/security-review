@@ -60,6 +60,23 @@ et commitez `uv.lock`.
   demande explicite** : publier une version est irréversible (PyPI refuse de republier une
   version).
 
+### Opérations GitHub
+
+La CLI `gh` **n'est pas installée** dans l'environnement de développement : n'essayez pas de
+l'utiliser.
+
+- **git (push, fetch, pull)** : passez par **SSH**. Le remote `origin` est en HTTPS, sans
+  identifiants : utilisez l'URL SSH, par ex.
+  `git push git@github.com:cyr-ius/security-review-mcp.git dev`
+  (ou `git remote set-url --push origin git@github.com:cyr-ius/security-review-mcp.git`).
+- **API GitHub (pull requests, issues, revues, commentaires, releases)** : passez par le
+  **connecteur GitHub MCP**.
+- Si SSH est indisponible, le connecteur peut aussi pousser des fichiers (`push_files`). Il crée
+  alors un autre commit : vérifiez avec `git fetch` puis `git diff HEAD origin/<branche>` que le
+  contenu est identique, puis réalignez la branche locale sur `origin/<branche>`.
+- Si git n'a pas d'identité configurée, reprenez celle des commits précédents pour ce commit
+  seulement (`git -c user.name=... -c user.email=... commit`), sans modifier la configuration.
+
 ## Carte du code
 
 | Zone | Fichiers |
