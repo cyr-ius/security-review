@@ -1,17 +1,19 @@
 """Command line helpers for pipelines and administrators (no MCP client or agent needed).
 
-Commands: ``gate``, ``sarif``, ``trend``, ``advisories``, ``deps`` and ``code``. Exit codes follow
-the same convention everywhere: 0 success, 1 blocked (gate / findings found), 2 usage or data error.
+Commands: ``gate``, ``sarif``, ``trend``, ``advisories``, ``deps``, ``code`` and ``token``. Exit
+codes follow the same convention everywhere: 0 success, 1 blocked (gate / findings found), 2 usage
+or data error.
 """
 
 import argparse
 import json
+import secrets
 import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
-from . import advisories, codescan, depscan, sarif, services, trends
+from . import advisories, codescan, depscan, http_server, sarif, services, trends
 from .config import get_settings
 from .database import init_db
 from .models import SEVERITY_RANK, Severity
@@ -411,6 +413,28 @@ def code_command(argv: list[str]) -> int:
     return EXIT_BLOCKED if blocked else EXIT_PASSED
 
 
+# ── token ────────────────────────────────────────────────────────────────────
+
+
+def token_command(argv: list[str]) -> int:
+    """Run ``security-review-mcp token``: generate a bearer token for the HTTP transport."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-mcp token",
+        description="Generate a bearer token and the hashed entry to put in the configuration.",
+    )
+    parser.add_argument("--label", default=None, help="name of the client (shown in the logs)")
+    args = parser.parse_args(argv)
+    if args.label is not None and (not args.label.strip() or set(args.label) & {":", ","}):
+        return _fail("--label must be non-empty and contain neither ':' nor ','")
+
+    token = secrets.token_urlsafe(32)
+    entry = http_server.hash_token(token)
+    if args.label:
+        entry = f"{args.label.strip()}:{entry}"
+    print(json.dumps({"token": token, "config_entry": entry}, indent=2))
+    return EXIT_PASSED
+
+
 COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "gate": gate_command,
     "sarif": sarif_command,
@@ -418,6 +442,7 @@ COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "advisories": advisories_command,
     "deps": deps_command,
     "code": code_command,
+    "token": token_command,
 }
 
 

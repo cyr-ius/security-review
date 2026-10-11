@@ -26,6 +26,19 @@ class Settings(BaseSettings):
     host: str = "127.0.0.1"
     port: int = 8000
 
+    # Built-in bearer authentication (streamable-http only), disabled when no token is set.
+    # Comma-separated entries "[label:]token" or "[label:]sha256:<hex>"; the file holds one
+    # entry per line (# for comments). Generate entries with `security-review-mcp token`.
+    auth_tokens: str | None = None
+    auth_tokens_file: str | None = None
+
+    # Optional TLS served by uvicorn (streamable-http only), enabled by tls_certfile.
+    # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).
+    tls_certfile: str | None = None
+    tls_keyfile: str | None = None
+    tls_keyfile_password: str | None = None
+    tls_client_ca: str | None = None
+
     log_level: str = "INFO"
 
     # Directory holding internal rule packs (*.toml). Keep it writable by administrators only.

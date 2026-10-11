@@ -97,6 +97,57 @@ security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 # endpoint : http://127.0.0.1:8000/mcp
 ```
 
+### Authentification et TLS (transport HTTP)
+
+Les deux sont **facultatifs** et indépendants ; ils ne concernent que `streamable-http`
+(en stdio, l'hôte lance lui-même le processus).
+
+**Jetons Bearer.** Générez un jeton par client :
+
+```bash
+security-review-mcp token --label ci
+# {"token": "UJB7…", "config_entry": "ci:sha256:1f91…"}
+```
+
+Donnez `token` au client et mettez `config_entry` (seule l'empreinte SHA-256 est stockée) dans
+`SECREVIEW_AUTH_TOKENS` (entrées séparées par des virgules) ou, mieux, dans le fichier désigné
+par `SECREVIEW_AUTH_TOKENS_FILE` (une entrée par ligne, `#` pour les commentaires — pratique avec
+les secrets Docker / Kubernetes). Une entrée vaut `[label:]jeton` ou `[label:]sha256:<hex>` ;
+un jeton en clair doit faire au moins 24 caractères. Dès qu'un jeton est configuré, toute
+requête sans `Authorization: Bearer <jeton>` valide reçoit un `401` ; le label du client
+apparaît dans les journaux. Les jetons ne passent jamais en argument de ligne de commande.
+
+**TLS.** Uvicorn sert directement en HTTPS quand un certificat est fourni :
+
+```bash
+security-review-mcp --transport streamable-http --host 0.0.0.0 --port 8443 \
+    --tls-certfile /etc/secreview/tls/cert.pem --tls-keyfile /etc/secreview/tls/key.pem
+# ou SECREVIEW_TLS_CERTFILE / SECREVIEW_TLS_KEYFILE (+ SECREVIEW_TLS_KEYFILE_PASSWORD)
+```
+
+`SECREVIEW_TLS_CLIENT_CA` active en plus le **TLS mutuel** : seuls les clients présentant un
+certificat signé par cette CA peuvent se connecter.
+
+Configuration client (VS Code) :
+
+```json
+{
+  "servers": {
+    "security-review": {
+      "type": "http",
+      "url": "https://secreview.example.internal:8443/mcp",
+      "headers": { "Authorization": "Bearer ${input:secreview-token}" }
+    }
+  },
+  "inputs": [
+    { "id": "secreview-token", "type": "promptString", "description": "Jeton", "password": true }
+  ]
+}
+```
+
+Un reverse proxy (TLS, SSO, limitation de débit) reste une option valable : dans ce cas, laissez
+ces variables vides.
+
 ### Configuration de l'hôte
 
 VS Code / GitHub Copilot (`.vscode/mcp.json`) :
@@ -154,13 +205,21 @@ Poste développeur (stdio, l'hôte lance le container) — `.vscode/mcp.json` :
 `-i` est indispensable (le protocole passe par stdin) ; ne mettez pas `-t`. Pour Claude
 (`.mcp.json`), même `command` / `args` sous `mcpServers`.
 
-Serveur partagé (HTTP), à placer derrière un reverse proxy TLS + authentification :
+Serveur partagé (HTTP), avec l'authentification et le TLS intégrés (ou derrière un reverse
+proxy qui s'en charge) :
 
 ```bash
-docker run -d --name security-review-mcp -p 127.0.0.1:8000:8000 \
+docker run -d --name security-review-mcp -p 8443:8443 \
     -e SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@db:5432/secreview \
-    security-review-mcp:pg --transport streamable-http --host 0.0.0.0 --port 8000
+    -v ./tokens:/run/secrets/secreview-tokens:ro \
+    -e SECREVIEW_AUTH_TOKENS_FILE=/run/secrets/secreview-tokens \
+    -v ./tls:/etc/secreview/tls:ro \
+    -e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
+    -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
+    security-review-mcp:pg --transport streamable-http --host 0.0.0.0 --port 8443
 ```
+
+Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`).
 
 Règles internes : `-v ./rules.d:/etc/security-review-mcp/rules.d:ro -e SECREVIEW_RULES_DIR=/etc/security-review-mcp/rules.d`.
 Les commandes CLI passent aussi : `docker run --rm -v secreview-data:/data security-review-mcp gate --project portal --fail-on high`.
@@ -347,8 +406,9 @@ URL / VCS, HTTP, index supplémentaire, `--trusted-host`, etc.).
 ## Configuration
 
 Variables d'environnement préfixées `SECREVIEW_` (voir `.env.example`) :
-`DATABASE_URL`, `TRANSPORT`, `HOST`, `PORT`, `LOG_LEVEL`, `RULES_DIR`, `MAX_CONTENT_CHARS`,
-`MAX_FINDINGS_PER_REPORT`, `MAX_DEPENDENCY_CHARS`, `MAX_LIST_LIMIT`.
+`DATABASE_URL`, `TRANSPORT`, `HOST`, `PORT`, `AUTH_TOKENS`, `AUTH_TOKENS_FILE`,
+`TLS_CERTFILE`, `TLS_KEYFILE`, `TLS_KEYFILE_PASSWORD`, `TLS_CLIENT_CA`, `LOG_LEVEL`, `RULES_DIR`,
+`MAX_CONTENT_CHARS`, `MAX_FINDINGS_PER_REPORT`, `MAX_DEPENDENCY_CHARS`, `MAX_LIST_LIMIT`.
 
 PostgreSQL : `SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview`.
 Les tables sont créées au démarrage (`create_all`) et les colonnes facultatives ajoutées par les
@@ -357,9 +417,12 @@ complexes en production, ajouter Alembic.
 
 ## Sécurité du serveur lui-même
 
-- **Pas d'authentification intégrée** sur le transport HTTP : ne l'exposez qu'en local ou
-  derrière un reverse proxy qui impose TLS et authentification. Un avertissement est journalisé
-  si l'écoute n'est pas sur localhost.
+- Transport HTTP : **authentification par jeton Bearer** et **TLS** intégrés mais facultatifs
+  (voir [Authentification et TLS](#authentification-et-tls-transport-http)). Seules les empreintes
+  SHA-256 des jetons sont gardées en mémoire, comparées en temps constant. Si l'écoute n'est pas
+  sur localhost, un avertissement est journalisé quand l'authentification ou le TLS manque.
+  Il n'y a ni limitation de débit ni gestion fine des droits : tout jeton valide accède à tous
+  les outils.
 - `scan_code` travaille uniquement sur le **contenu fourni** : le serveur ne lit aucun fichier
   du disque, ce qui évite les traversées de chemin. Le scan du dépôt complet est réservé à la CLI
   (`code scan`), lancée par l'opérateur sur un dossier qu'il choisit ; elle ne suit pas les liens
@@ -375,13 +438,14 @@ complexes en production, ajouter Alembic.
 ```
 src/security_review_mcp/
 ├── server.py      # prompts, outils, ressources, point d'entrée
+├── http_server.py # transport HTTP : jetons Bearer, TLS, lancement d'uvicorn
 ├── prompts.py     # construction des prompts
 ├── checklists.py  # checklists intégrées par domaine
 ├── scanner.py     # règles de scan, suppression inline, masquage des secrets
 ├── rules_platform.py  # règles GitLab CI, Jenkins, Spring, FastAPI
 ├── rules_loader.py    # chargement et validation des packs TOML internes
 ├── registry.py    # règles/checklists actives (intégrées + internes), rechargement
-├── cli.py         # commandes gate, sarif, trend, advisories, deps, code
+├── cli.py         # commandes gate, sarif, trend, advisories, deps, code, token
 ├── codescan.py    # scan du code complet (liste des fichiers, langage, findings)
 ├── sarif.py       # export SARIF 2.1.0
 ├── trends.py      # rapport de tendance
