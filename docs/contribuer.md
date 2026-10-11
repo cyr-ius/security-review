@@ -9,6 +9,28 @@ uv run ruff check . && uv run ruff format --check .
 pre-commit install          # facultatif : mêmes contrôles avant chaque commit
 ```
 
+### Devcontainer
+
+Le dépôt fournit un devcontainer (`.devcontainer/`) avec Python, uv, Node.js et un démon Docker
+dédié (feature *docker-in-docker*). Ce démon permet de construire et de lancer l'image du
+[Dockerfile](demarrage/docker.md) sans quitter le conteneur :
+
+```bash
+docker build -t security-review-mcp .
+docker run --rm -p 8000:8000 -v secreview-data:/data security-review-mcp \
+    --transport streamable-http --host 0.0.0.0 --port 8000
+```
+
+Le port 8000 est redirigé vers le poste : l'interface web est sur `http://localhost:8000/ui/`
+et l'API REST sur `/api/v1`. Images et volumes sont conservés dans des volumes propres au
+devcontainer : ils ne se mélangent pas avec ceux de l'hôte.
+
+!!! note "Pourquoi pas le socket Docker de l'hôte ?"
+    Monter `/var/run/docker.sock` donnerait à tout outil du devcontainer, agents IA compris, un
+    accès équivalent à root sur l'hôte. Le démon dédié exige un conteneur `privileged`, mais
+    reste isolé du démon de l'hôte. Après l'ajout de la feature, reconstruisez le conteneur
+    (*Dev Containers: Rebuild Container*).
+
 ## Définition de « terminé »
 
 Une contribution, humaine ou produite par un agent IA, n'est terminée que si elle comprend des
