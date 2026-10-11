@@ -7,6 +7,8 @@ Il fournit à l'hôte (VS Code, Copilot, Claude, agent CI/CD) :
 - des **outils** : checklists, scan rapide par motifs, enregistrement et consultation de rapports ;
 - une **base de données** (SQLite par défaut, PostgreSQL possible) qui stocke les rapports et leurs findings.
 
+Documentation complète : <https://cyr-ius.github.io/security-review-mcp/>
+
 ## Prompts
 
 | Prompt | Usage | Arguments |
