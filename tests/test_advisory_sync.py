@@ -10,8 +10,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from test_advisories import osv
 
-from security_review_mcp import advisories, advisory_sync, cli
+from security_review_mcp import advisories, advisory_sync, app_settings, cli
 from security_review_mcp.config import Settings
+from security_review_mcp.database import session_scope
+from security_review_mcp.models import AdvisoryUpdate
 
 PROXY = "http://alice:s3cr3t@proxy.internal:3128"
 
@@ -318,3 +320,138 @@ def test_cli_update_refuses_an_unknown_ecosystem(opener, capsys):
     assert cli.run(["advisories", "update", "--ecosystem", "Go"]) == cli.EXIT_ERROR
     assert "SECREVIEW_OSV_ECOSYSTEMS" in json.loads(capsys.readouterr().err)["error"]
     assert opener.requests == []
+
+
+# ── proxy set in the web interface ───────────────────────────────────────────
+
+
+def test_opener_uses_the_proxy_set_in_the_web_interface(monkeypatch):
+    monkeypatch.setenv("HTTPS_PROXY", "http://other:8080")
+    app_settings.set_osv_proxy("custom", "http://web-proxy:3128", "admin")
+
+    opener = advisory_sync.build_opener(make_settings(osv_proxy=PROXY))
+
+    assert proxies_of(opener) == {"http": "http://web-proxy:3128", "https": "http://web-proxy:3128"}
+
+
+def test_opener_connects_directly_when_the_web_interface_says_so(monkeypatch):
+    monkeypatch.setenv("HTTPS_PROXY", "http://corporate:8080")
+    app_settings.set_osv_proxy("none", None, "admin")
+
+    opener = advisory_sync.build_opener(make_settings(osv_proxy=PROXY))
+
+    # An empty ProxyHandler replaces the default one (which reads HTTPS_PROXY) and opens nothing
+    assert not [h for h in opener.handlers if isinstance(h, urllib.request.ProxyHandler)]
+
+
+# ── history ──────────────────────────────────────────────────────────────────
+
+
+def test_run_update_records_a_successful_update(opener):
+    opener.bodies = {url_of("PyPI"): osv_zip(osv("GHSA-1"))}
+
+    advisory_sync.run_update(make_settings(osv_ecosystems="PyPI"), "cli")
+
+    (entry,) = advisory_sync.list_updates()
+    assert entry["trigger"] == "cli" and entry["status"] == "success"
+    assert entry["finished_at"] is not None
+    assert entry["results"]["PyPI"]["imported"] == 1
+
+
+def test_run_update_records_partial_and_failed_updates(opener):
+    opener.bodies = {
+        url_of("PyPI"): osv_zip(osv("GHSA-1")),
+        url_of("npm"): urllib.error.URLError("timed out"),
+    }
+    advisory_sync.run_update(make_settings(osv_ecosystems="PyPI,npm"), "schedule")
+    advisory_sync.run_update(make_settings(osv_ecosystems="npm"), "schedule")
+
+    failed, partial = advisory_sync.list_updates()
+    assert partial["status"] == "partial" and "timed out" in partial["results"]["npm"]["error"]
+    assert failed["status"] == "failed"
+
+
+def test_run_update_hides_the_proxy_credentials_in_the_errors(opener):
+    opener.bodies = {url_of("PyPI"): urllib.error.URLError(f"cannot reach {PROXY}")}
+
+    advisory_sync.run_update(make_settings(osv_ecosystems="PyPI", osv_proxy=PROXY), "cli")
+
+    error = advisory_sync.list_updates()[0]["results"]["PyPI"]["error"]
+    assert "s3cr3t" not in error and "proxy.internal:3128" in error
+
+
+def test_run_update_records_an_unexpected_error(monkeypatch):
+    def broken(settings):
+        raise RuntimeError("database is gone")
+
+    monkeypatch.setattr(advisory_sync, "update_advisories", broken)
+
+    with pytest.raises(RuntimeError):
+        advisory_sync.run_update(make_settings(), "cli")
+    (entry,) = advisory_sync.list_updates()
+    assert entry["status"] == "failed" and "database is gone" in entry["results"]["error"]
+
+
+def test_invalid_settings_are_not_recorded(opener):
+    with pytest.raises(ValueError):
+        advisory_sync.run_update(make_settings(osv_ecosystems="Go"), "cli")
+    assert advisory_sync.list_updates() == []
+
+
+def test_history_keeps_the_latest_updates(opener, monkeypatch):
+    monkeypatch.setattr(advisory_sync, "HISTORY_SIZE", 3)
+    opener.bodies = {url_of("PyPI"): osv_zip(osv("GHSA-1"))}
+    for _ in range(5):
+        advisory_sync.run_update(make_settings(osv_ecosystems="PyPI"), "cli")
+
+    assert len(advisory_sync.list_updates(50)) == 3
+
+
+def test_only_one_update_runs_at_a_time(opener):
+    with advisory_sync._lock, pytest.raises(advisory_sync.UpdateInProgress):
+        advisory_sync.run_update(make_settings(), "cli")
+    assert opener.requests == []
+
+
+def test_old_running_update_is_shown_as_interrupted():
+    with session_scope() as session:
+        session.add(
+            AdvisoryUpdate(trigger="schedule", started_at=datetime.now(UTC) - timedelta(hours=7))
+        )
+    assert advisory_sync.list_updates()[0]["status"] == "interrupted"
+    assert advisory_sync.running_update() is None
+
+
+# ── update started from the web interface ────────────────────────────────────
+
+
+def test_web_update_runs_in_the_background_and_is_recorded(opener):
+    opener.bodies = {url_of("npm"): osv_zip(osv("GHSA-1", package="lodash", ecosystem="npm"))}
+    settings = make_settings(osv_auto_update=True, osv_ecosystems="npm")
+
+    update_id = advisory_sync.start_web_update(settings, "web-admin")
+    advisory_sync._web_worker.join(timeout=10)
+
+    (entry,) = advisory_sync.list_updates()
+    assert entry["id"] == update_id
+    assert (entry["trigger"], entry["triggered_by"], entry["status"]) == (
+        "web",
+        "web-admin",
+        "success",
+    )
+    assert not advisory_sync._lock.locked()
+
+
+def test_web_update_is_refused_while_the_download_is_disabled(opener):
+    with pytest.raises(advisory_sync.DownloadDisabled):
+        advisory_sync.start_web_update(make_settings(), "web-admin")
+    assert advisory_sync.list_updates() == [] and opener.requests == []
+
+
+def test_web_update_is_refused_while_another_replica_updates(opener):
+    with session_scope() as session:
+        session.add(AdvisoryUpdate(trigger="schedule"))
+
+    with pytest.raises(advisory_sync.UpdateInProgress):
+        advisory_sync.start_web_update(make_settings(osv_auto_update=True), "web-admin")
+    assert not advisory_sync._lock.locked() and opener.requests == []

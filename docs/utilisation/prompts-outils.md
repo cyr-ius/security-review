@@ -18,9 +18,11 @@ Chaque prompt se termine par l'instruction d'appeler `save_security_report` une 
 
 `report_language` fixe la langue de la réponse de l'agent et des champs rédigés du rapport
 enregistré (résumé, périmètre, titres, descriptions, recommandations), par exemple `French`,
-`fr` ou `pt-BR`. Sans cet argument, le prompt reprend
-[`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md) ; si elle est vide aussi, l'agent
-choisit (en général la langue de la conversation).
+`fr` ou `pt-BR`. Sans cet argument, le prompt reprend la langue choisie par un administrateur
+dans l'écran [**Paramètres**](interface-web.md#ecrans) de l'interface web, sinon
+[`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md) ; si aucune n'est définie, l'agent
+choisit (en général la langue de la conversation). L'écran peut aussi imposer « l'agent
+choisit » malgré la variable.
 
 Le code, les extraits, les chemins, les identifiants de règles, les références CWE / OWASP et
 les valeurs fixes attendues par les outils (sévérité, catégorie, statut) restent inchangés :

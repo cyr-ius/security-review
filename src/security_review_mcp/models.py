@@ -268,3 +268,33 @@ class DefaultSeed(SQLModel, table=True):
     key: str = Field(primary_key=True, max_length=90)  # rule id, or "domain/item id"
     digest: str = Field(max_length=64)  # hex SHA-256
     seeded_at: datetime = Field(default_factory=utcnow)
+
+
+# ── Settings changed in the web interface and history of the OSV updates ─────
+
+
+class AppSetting(SQLModel, table=True):
+    """A setting changed by an administrator in the web interface.
+
+    It overrides the matching ``SECREVIEW_*`` variable for both processes (see app_settings);
+    a missing row means the variable applies.
+    """
+
+    key: str = Field(primary_key=True, max_length=50)
+    value: str = Field(default="", max_length=500)
+    updated_at: datetime = Field(default_factory=utcnow)
+    updated_by: str | None = Field(default=None, max_length=64)
+
+
+class AdvisoryUpdate(SQLModel, table=True):
+    """One download of the OSV exports by the controller (scheduled, CLI or web)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    trigger: str = Field(max_length=20)  # "schedule", "cli" or "web"
+    triggered_by: str | None = Field(default=None, max_length=64)
+    # "running", "success", "partial" (some ecosystems failed) or "failed"
+    status: str = Field(default="running", index=True, max_length=20)
+    source: str = Field(default="", max_length=500)
+    started_at: datetime = Field(default_factory=utcnow, index=True)
+    finished_at: datetime | None = Field(default=None)
+    results: str = Field(default="{}")  # JSON: counters or error of each ecosystem

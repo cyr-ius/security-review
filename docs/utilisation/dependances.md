@@ -58,6 +58,13 @@ SECREVIEW_OSV_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
 - Un écosystème en échec (réseau, taille, archive invalide) n'empêche pas les autres ; il est
   journalisé et une nouvelle tentative a lieu une heure plus tard.
 
+Le proxy peut aussi être choisi par un administrateur dans l'écran
+[**Paramètres**](interface-web.md#ecrans) de l'interface web : proxy défini ici ou connexion
+directe, prioritaires sur `SECREVIEW_OSV_PROXY` et `HTTPS_PROXY`. Le même écran affiche l'état de
+la base, l'historique des mises à jour (planifiées, CLI ou web) et un bouton **Mettre à jour
+maintenant** (lancement en arrière-plan, une mise à jour à la fois), disponible seulement quand
+`SECREVIEW_OSV_AUTO_UPDATE=true`.
+
 Pour déclencher une mise à jour à la demande (ou depuis un `CronJob` plutôt que depuis le
 contrôleur), avec les mêmes paramètres :
 

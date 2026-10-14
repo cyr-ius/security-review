@@ -32,6 +32,7 @@ export class LayoutComponent {
     { path: '/rules', label: 'Règles', icon: 'bi-sliders' },
     { path: '/checklists', label: 'Checklists', icon: 'bi-list-check' },
     { path: '/tokens', label: 'Jetons', icon: 'bi-key' },
+    { path: '/settings', label: 'Paramètres', icon: 'bi-gear' },
   ];
 
   /** Sidebar shown as a drawer on small screens. */

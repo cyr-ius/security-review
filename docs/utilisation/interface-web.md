@@ -20,7 +20,7 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 ## Écrans
 
 Les écrans sont accessibles depuis la barre latérale : **Supervision** (projets, rapports) pour
-tous les rôles, **Administration** (règles, checklists, jetons) pour le rôle `admin`. Le bas de
+tous les rôles, **Administration** (règles, checklists, jetons, paramètres) pour le rôle `admin`. Le bas de
 la barre affiche le client connecté, son rôle et la version, avec le bouton de déconnexion ; sur
 petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
 à droite, y compris sur la page de connexion, et reste mémorisé dans le navigateur.
@@ -55,6 +55,22 @@ petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre
   **Approuver** active le nouveau jeton ou ajoute le projet au jeton existant ; **Refuser** ne
   supprime que la demande. Les projets autorisés et les ajouts encore en attente sont affichés
   pour chaque jeton.
+- **Paramètres** : réglages enregistrés en base, prioritaires sur les variables d'environnement
+  et partagés par le serveur MCP et le contrôleur.
+    - **Langue des rapports** : variable `SECREVIEW_REPORT_LANGUAGE`, choix laissé à l'agent ou
+      langue définie ici (`French`, `fr`, `pt-BR`…). Elle s'applique aux prochains prompts de
+      revue ; l'argument `report_language` d'un prompt reste prioritaire
+      ([langue des rapports](prompts-outils.md#langue-des-rapports)).
+    - **Proxy du téléchargement OSV** : proxy de l'environnement du contrôleur
+      (`SECREVIEW_OSV_PROXY`, sinon `HTTPS_PROXY` / `NO_PROXY`, affichés en lecture seule),
+      proxy défini ici, ou connexion directe. Le proxy appliqué et son origine sont affichés.
+      Les mots de passe ne sont jamais réaffichés (`***`) : renvoyer `***` conserve celui
+      enregistré.
+    - **Base de vulnérabilités OSV** : nombre d'avis par écosystème, date et âge du dernier
+      import, configuration du téléchargement, historique des 50 dernières mises à jour
+      (planifiée, CLI ou interface web, avec statut, durée et résultat par écosystème) et bouton
+      **Mettre à jour maintenant**, disponible seulement si `SECREVIEW_OSV_AUTO_UPDATE=true`
+      ([mise à jour par le contrôleur](dependances.md#mise-a-jour-automatique-par-le-controleur)).
 
 ## Rôles
 

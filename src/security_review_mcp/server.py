@@ -16,6 +16,7 @@ from pydantic import Field
 from . import (
     __version__,
     advisories,
+    app_settings,
     cli,
     depscan,
     enrollment_api,
@@ -135,9 +136,9 @@ def _caller_address(ctx: Context) -> str | None:
 
 
 def _report_language(requested: str) -> str:
-    """Resolve the report language: the prompt argument, else SECREVIEW_REPORT_LANGUAGE."""
+    """Resolve the report language: prompt argument, web interface, SECREVIEW_REPORT_LANGUAGE."""
     try:
-        return check_report_language(requested) or get_settings().report_language
+        return check_report_language(requested) or app_settings.report_language()
     except ValueError as exc:
         raise MCPError(code=INVALID_PARAMS, message=str(exc)) from exc
 

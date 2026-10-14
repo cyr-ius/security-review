@@ -2,12 +2,17 @@
 
 When ``SECREVIEW_OSV_AUTO_UPDATE`` is enabled, ``security-review-controller serve`` downloads
 the per-ecosystem ``all.zip`` archives published by osv.dev (or a mirror) once a day and imports
-them with advisories.import_advisories; ``security-review-controller advisories update`` does
-the same on demand. This is the only outgoing connection of the controller: the MCP server
-never makes one. The download goes through an optional HTTP proxy, only over HTTPS, and its size
-is bounded by ``SECREVIEW_OSV_MAX_DOWNLOAD_MB``.
+them with advisories.import_advisories, and an administrator may start an update from the web
+interface; ``security-review-controller advisories update`` does the same on demand. This is the
+only outgoing connection of the controller: the MCP server never makes one. The download goes
+through an optional HTTP proxy (app_settings.proxy_choice), only over HTTPS, and its size is
+bounded by ``SECREVIEW_OSV_MAX_DOWNLOAD_MB``.
+
+Every update is recorded in the ``advisoryupdate`` table (history shown in the web interface).
+One update at a time runs in a controller process.
 """
 
+import json
 import logging
 import ssl
 import tempfile
@@ -15,12 +20,16 @@ import threading
 import urllib.error
 import urllib.request
 import zipfile
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import quote, urlsplit
 
-from . import __version__, advisories
+from sqlmodel import col, select
+
+from . import __version__, advisories, app_settings
 from .config import Settings, get_settings
+from .database import session_scope
+from .models import AdvisoryUpdate, utcnow
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +37,24 @@ DOWNLOAD_TIMEOUT = 60
 CHUNK_BYTES = 1024 * 1024
 # Delay before trying again when an update failed or imported nothing
 RETRY_SECONDS = 3600
+# Updates kept in the history
+HISTORY_SIZE = 50
+# A "running" update older than this was interrupted (controller stopped during the download)
+RUNNING_TIMEOUT = timedelta(hours=6)
+MAX_ERROR_CHARS = 500
+
+# One update at a time in this process (daily thread, web interface)
+_lock = threading.Lock()
+# Thread of the last update started from the web interface (joined by the tests)
+_web_worker: threading.Thread | None = None
+
+
+class UpdateInProgress(RuntimeError):
+    """An OSV update is already running."""
+
+
+class DownloadDisabled(RuntimeError):
+    """The OSV download is disabled (SECREVIEW_OSV_AUTO_UPDATE=false)."""
 
 
 class _HttpsRedirectOnly(urllib.request.HTTPRedirectHandler):
@@ -84,19 +111,22 @@ def validate_settings(settings: Settings) -> None:
 
 
 def build_opener(settings: Settings) -> urllib.request.OpenerDirector:
-    """Build the HTTPS opener: CA bundle, HTTPS-only redirects and the optional proxy.
+    """Build the HTTPS opener: CA bundle, HTTPS-only redirects and the proxy.
 
-    Without ``SECREVIEW_OSV_PROXY``, urllib applies the standard ``HTTPS_PROXY`` and
-    ``NO_PROXY`` environment variables.
+    The proxy set in the web interface comes first, then ``SECREVIEW_OSV_PROXY``; without
+    either, urllib applies the standard ``HTTPS_PROXY`` and ``NO_PROXY`` environment variables,
+    unless the web interface asks for a direct connection.
     """
     context = ssl.create_default_context(cafile=settings.osv_cafile)
     handlers: list[urllib.request.BaseHandler] = [
         urllib.request.HTTPSHandler(context=context),
         _HttpsRedirectOnly(),
     ]
-    if settings.osv_proxy:
-        proxies = {"http": settings.osv_proxy, "https": settings.osv_proxy}
-        handlers.append(urllib.request.ProxyHandler(proxies))
+    choice = app_settings.proxy_choice(settings)
+    if choice.url:
+        handlers.append(urllib.request.ProxyHandler({"http": choice.url, "https": choice.url}))
+    elif choice.source == "none":
+        handlers.append(urllib.request.ProxyHandler({}))
     return urllib.request.build_opener(*handlers)
 
 
@@ -139,8 +169,11 @@ def update_advisories(
     wanted = ecosystems or ecosystems_of(settings)
     opener = build_opener(settings)
     max_bytes = settings.osv_max_download_mb * 1024 * 1024
-    if settings.osv_proxy:
-        logger.info("OSV download through the proxy %s", safe_url(settings.osv_proxy))
+    choice = app_settings.proxy_choice(settings)
+    if choice.url:
+        logger.info("OSV download through the proxy %s (%s)", safe_url(choice.url), choice.source)
+    elif choice.source == "none":
+        logger.info("OSV download without proxy (set in the web interface)")
     results: dict[str, dict] = {}
     with tempfile.TemporaryDirectory(prefix="secreview-osv-") as directory:
         for ecosystem in wanted:
@@ -157,6 +190,160 @@ def update_advisories(
             finally:
                 archive.unlink(missing_ok=True)
     return {"source": settings.osv_url, "ecosystems": results}
+
+
+# ── Recorded updates (history) ───────────────────────────────────────────────
+
+
+def _scrub(text: str, settings: Settings) -> str:
+    """Remove the proxy credentials from an error message and bound its length."""
+    for url in (settings.osv_proxy, app_settings.proxy_choice(settings).url):
+        if url:
+            text = text.replace(url, safe_url(url))
+    return text[:MAX_ERROR_CHARS]
+
+
+def _begin(settings: Settings, trigger: str, triggered_by: str | None) -> int:
+    """Record the start of an update and drop the oldest entries of the history."""
+    with session_scope() as session:
+        entry = AdvisoryUpdate(
+            trigger=trigger,
+            triggered_by=triggered_by[:64] if triggered_by else None,
+            source=settings.osv_url[:500],
+        )
+        session.add(entry)
+        session.flush()
+        old = session.exec(
+            select(AdvisoryUpdate)
+            .order_by(col(AdvisoryUpdate.started_at).desc(), col(AdvisoryUpdate.id).desc())
+            .offset(HISTORY_SIZE)
+        ).all()
+        for row in old:
+            session.delete(row)
+        return entry.id  # type: ignore[return-value]
+
+
+def _finish(update_id: int, status: str, results: dict) -> None:
+    """Record the end of an update."""
+    with session_scope() as session:
+        entry = session.get(AdvisoryUpdate, update_id)
+        if entry is None:  # dropped from the history meanwhile
+            return
+        entry.status = status
+        entry.finished_at = utcnow()
+        entry.results = json.dumps(results)
+        session.add(entry)
+
+
+def _execute(update_id: int, settings: Settings) -> dict:
+    """Run a recorded update and store its outcome; an unexpected error is stored and raised."""
+    try:
+        result = update_advisories(settings)
+    except Exception as exc:
+        _finish(update_id, "failed", {"error": _scrub(f"{type(exc).__name__}: {exc}", settings)})
+        raise
+    ecosystems = result["ecosystems"]
+    for stats in ecosystems.values():
+        if "error" in stats:
+            stats["error"] = _scrub(stats["error"], settings)
+    failed = sum("error" in stats for stats in ecosystems.values())
+    status = "success" if not failed else "failed" if failed == len(ecosystems) else "partial"
+    _finish(update_id, status, ecosystems)
+    return result
+
+
+def run_update(settings: Settings, trigger: str, triggered_by: str | None = None) -> dict:
+    """Download and import the OSV exports now, and record the update in the history.
+
+    Raises:
+        ValueError: If the download settings are invalid (nothing is recorded).
+        UpdateInProgress: If another update runs in this process.
+    """
+    validate_settings(settings)
+    if not _lock.acquire(blocking=False):
+        raise UpdateInProgress("an OSV update is already running")
+    try:
+        return _execute(_begin(settings, trigger, triggered_by), settings)
+    finally:
+        _lock.release()
+
+
+def running_update() -> AdvisoryUpdate | None:
+    """Return the update in progress (any controller replica), if any."""
+    since = utcnow() - RUNNING_TIMEOUT
+    with session_scope() as session:
+        return session.exec(
+            select(AdvisoryUpdate)
+            .where(AdvisoryUpdate.status == "running", AdvisoryUpdate.started_at >= since)
+            .order_by(col(AdvisoryUpdate.started_at).desc())
+        ).first()
+
+
+def start_web_update(settings: Settings, triggered_by: str) -> int:
+    """Start an update in a background thread on behalf of an administrator; return its id.
+
+    Raises:
+        DownloadDisabled: If SECREVIEW_OSV_AUTO_UPDATE is false.
+        ValueError: If the download settings are invalid.
+        UpdateInProgress: If an update already runs (in this process or another replica).
+    """
+    global _web_worker
+    if not settings.osv_auto_update:
+        raise DownloadDisabled("the OSV download is disabled (SECREVIEW_OSV_AUTO_UPDATE=false)")
+    validate_settings(settings)
+    if not _lock.acquire(blocking=False):
+        raise UpdateInProgress("an OSV update is already running")
+    try:
+        if running_update() is not None:
+            raise UpdateInProgress("an OSV update is already running")
+        update_id = _begin(settings, "web", triggered_by)
+    except BaseException:
+        _lock.release()
+        raise
+
+    def work() -> None:
+        """Run the update, then let the next one start."""
+        try:
+            _execute(update_id, settings)
+            logger.info("OSV update %d started by %s finished", update_id, triggered_by)
+        except Exception:
+            logger.exception("OSV update %d failed", update_id)
+        finally:
+            _lock.release()
+
+    _web_worker = threading.Thread(target=work, name="osv-web-update", daemon=True)
+    _web_worker.start()
+    return update_id
+
+
+def _public(entry: AdvisoryUpdate, now: datetime) -> dict:
+    """An entry of the history as returned by the API."""
+    started = entry.started_at if entry.started_at.tzinfo else entry.started_at.replace(tzinfo=UTC)
+    status = entry.status
+    if status == "running" and now - started > RUNNING_TIMEOUT:
+        status = "interrupted"
+    return {
+        "id": entry.id,
+        "trigger": entry.trigger,
+        "triggered_by": entry.triggered_by,
+        "status": status,
+        "source": entry.source,
+        "started_at": entry.started_at.isoformat(),
+        "finished_at": entry.finished_at.isoformat() if entry.finished_at else None,
+        "results": json.loads(entry.results or "{}"),
+    }
+
+
+def list_updates(limit: int = 20) -> list[dict]:
+    """Return the most recent updates, newest first."""
+    now = utcnow()
+    with session_scope() as session:
+        rows = session.exec(
+            select(AdvisoryUpdate)
+            .order_by(col(AdvisoryUpdate.started_at).desc(), col(AdvisoryUpdate.id).desc())
+            .limit(max(1, min(limit, HISTORY_SIZE)))
+        ).all()
+        return [_public(row, now) for row in rows]
 
 
 # ── Daily update in the controller ───────────────────────────────────────────
@@ -200,13 +387,16 @@ class AdvisoryUpdater:
             delay = RETRY_SECONDS
         while not self._stop.wait(delay):
             try:
-                result = update_advisories(self.settings)
+                result = run_update(self.settings, "schedule")
                 failed = sorted(e for e, stats in result["ecosystems"].items() if "error" in stats)
                 if failed:
                     logger.warning("OSV update incomplete, failed ecosystems: %s", failed)
                 else:
                     logger.info("OSV advisories updated")
                 delay = max(self.next_delay(), RETRY_SECONDS)
+            except UpdateInProgress:
+                logger.info("OSV update already running; next check in 1 hour")
+                delay = RETRY_SECONDS
             except Exception:
                 logger.exception("OSV update failed; next attempt in 1 hour")
                 delay = RETRY_SECONDS

@@ -19,7 +19,7 @@ rapports (SQLite ou PostgreSQL) exploitable en pipeline.
 | **Transport** | stdio ou HTTP, avec jetons Bearer stockés en base (CLI `token`) et TLS (mutuel ou auto-signé) facultatifs |
 | **Déploiement** | serveur MCP et contrôleur (API REST, interface web) [séparés](https://cyr-ius.github.io/security-review-mcp/demarrage/kubernetes/) sur une base partagée, migrations Alembic, exemples Docker Compose et Kubernetes |
 | **Enrôlement** | un projet [demande son jeton ou un accès supplémentaire](https://cyr-ius.github.io/security-review-mcp/demarrage/http/#enrolement-un-projet-demande-son-jeton) (outil MCP `request_enrollment` ou CLI `enroll`), un administrateur valide la demande |
-| **Interface web** | tableau de bord, triage, gestion des [règles, checklists et jetons projet](https://cyr-ius.github.io/security-review-mcp/utilisation/interface-web/), mot de passe admin initial dans les logs Docker |
+| **Interface web** | tableau de bord, triage, gestion des [règles, checklists, jetons projet, langue des rapports, proxy et mises à jour OSV](https://cyr-ius.github.io/security-review-mcp/utilisation/interface-web/), mot de passe admin initial dans les logs Docker |
 
 Détail : [prompts et outils](https://cyr-ius.github.io/security-review-mcp/utilisation/prompts-outils/),
 [scan du code complet](https://cyr-ius.github.io/security-review-mcp/utilisation/code-scan/),

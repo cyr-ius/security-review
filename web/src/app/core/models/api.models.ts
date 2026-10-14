@@ -243,3 +243,75 @@ export interface ReportQuery {
   limit: number;
   offset: number;
 }
+
+/** How the controller reaches the OSV exports. */
+export type ProxyMode = 'env' | 'custom' | 'none';
+
+/** GET /api/v1/settings (proxy passwords are replaced by ***) */
+export interface AppSettings {
+  report_language: {
+    /** Set in the web interface: null inherits SECREVIEW_REPORT_LANGUAGE, '' lets the agent choose. */
+    value: string | null;
+    env: string;
+    effective: string;
+  };
+  osv_proxy: {
+    mode: ProxyMode;
+    url: string | null;
+    env: {
+      secreview_osv_proxy: string | null;
+      https_proxy: string | null;
+      http_proxy: string | null;
+      no_proxy: string | null;
+    };
+    effective: {
+      url: string | null;
+      source: 'web' | 'none' | 'SECREVIEW_OSV_PROXY' | 'environment';
+    };
+  };
+  osv: {
+    download_enabled: boolean;
+    update_interval_hours: number;
+    url: string;
+    ecosystems: string;
+    cafile: string | null;
+    max_download_mb: number;
+  };
+}
+
+/** Outcome of one ecosystem in an OSV update. */
+export interface AdvisoryEcosystemResult {
+  downloaded_bytes?: number;
+  read?: number;
+  imported?: number;
+  skipped?: number;
+  error?: string;
+}
+
+/** One OSV update of the history. */
+export interface AdvisoryUpdate {
+  id: number;
+  trigger: 'schedule' | 'cli' | 'web';
+  triggered_by: string | null;
+  status: 'running' | 'success' | 'partial' | 'failed' | 'interrupted';
+  source: string;
+  started_at: string;
+  finished_at: string | null;
+  /** Per ecosystem, or { error } when the whole update failed. */
+  results: Record<string, AdvisoryEcosystemResult | string>;
+}
+
+/** GET /api/v1/advisories */
+export interface AdvisoryOverview {
+  database: {
+    loaded: boolean;
+    advisories: number;
+    by_ecosystem: Record<string, number>;
+    last_imported_at: string | null;
+    age_days: number | null;
+    stale: boolean;
+  };
+  download_enabled: boolean;
+  running: boolean;
+  updates: AdvisoryUpdate[];
+}

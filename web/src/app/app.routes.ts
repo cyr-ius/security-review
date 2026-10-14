@@ -65,6 +65,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'settings',
+        title: 'Paramètres · Security Review',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/settings/settings.component').then((m) => m.SettingsComponent),
+      },
+      {
         path: 'reports/:id',
         title: 'Rapport · Security Review',
         loadComponent: () =>

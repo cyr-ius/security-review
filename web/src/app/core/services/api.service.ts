@@ -2,6 +2,8 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  AdvisoryOverview,
+  AppSettings,
   Finding,
   FindingStatus,
   ChecklistCatalog,
@@ -15,6 +17,7 @@ import {
   ProjectToken,
   ProjectTokenCreated,
   ProjectTokenRole,
+  ProxyMode,
   Report,
   ReportQuery,
   ReportSummary,
@@ -164,6 +167,27 @@ export class ApiService {
         ? params.set('project', target.project)
         : params.set('report_id', target.report_id);
     return this.http.get(`${API_URL}/sarif`, { params, responseType: 'blob' });
+  }
+
+  appSettings(): Observable<AppSettings> {
+    return this.http.get<AppSettings>(`${API_URL}/settings`);
+  }
+
+  /** '' lets the agent choose, null restores SECREVIEW_REPORT_LANGUAGE. */
+  setReportLanguage(value: string | null): Observable<AppSettings> {
+    return this.http.put<AppSettings>(`${API_URL}/settings/report-language`, { value });
+  }
+
+  setOsvProxy(mode: ProxyMode, url: string | null): Observable<AppSettings> {
+    return this.http.put<AppSettings>(`${API_URL}/settings/osv-proxy`, { mode, url });
+  }
+
+  advisories(): Observable<AdvisoryOverview> {
+    return this.http.get<AdvisoryOverview>(`${API_URL}/advisories`);
+  }
+
+  startAdvisoryUpdate(): Observable<{ id: number }> {
+    return this.http.post<{ id: number }>(`${API_URL}/advisories/update`, {});
   }
 }
 

@@ -25,8 +25,19 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Scope
 
-from . import __version__, registry, rule_store, rules_loader, services, token_store, trends
-from .config import get_settings
+from . import (
+    __version__,
+    advisories,
+    advisory_sync,
+    app_settings,
+    registry,
+    rule_store,
+    rules_loader,
+    services,
+    token_store,
+    trends,
+)
+from .config import REPORT_LANGUAGE_MAX_CHARS, get_settings
 from .http_server import BEARER_CHALLENGE, HEALTH_PATH, LOOPBACK_HOSTS, TRIAGE_ROLES, Role
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
 from .sarif import build_sarif
@@ -116,6 +127,25 @@ class ProjectTokenCreate(BaseModel):
     projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
         min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
     )
+
+
+class ReportLanguageUpdate(BaseModel):
+    """Body of PUT /settings/report-language: "" lets the agent choose, null restores the
+    SECREVIEW_REPORT_LANGUAGE variable."""
+
+    value: str | None = Field(default=None, max_length=REPORT_LANGUAGE_MAX_CHARS)
+
+
+class OsvProxyUpdate(BaseModel):
+    """Body of PUT /settings/osv-proxy.
+
+    ``env`` applies SECREVIEW_OSV_PROXY then HTTPS_PROXY / NO_PROXY, ``custom`` uses ``url``,
+    ``none`` connects directly. A password sent back as returned by the API (``***``) keeps the
+    stored one.
+    """
+
+    mode: app_settings.ProxyMode
+    url: str | None = Field(default=None, max_length=app_settings.MAX_PROXY_URL_CHARS)
 
 
 class ProjectSummary(BaseModel):
@@ -592,6 +622,80 @@ async def reject_enrollment(
         identity.client,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/settings")
+async def get_app_settings(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+    """Return the settings of the web interface, the variables and the effective values.
+
+    Passwords of proxy URLs are replaced by ``***``.
+    """
+    return await run_in_threadpool(app_settings.describe)
+
+
+@router.put("/settings/report-language")
+async def set_report_language(
+    body: ReportLanguageUpdate, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict:
+    """Set the language of the review reports (used by the MCP server for the next prompts)."""
+    try:
+        await run_in_threadpool(app_settings.set_report_language, body.value, identity.client)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Report language set to %r by %s", body.value, identity.client)
+    return await run_in_threadpool(app_settings.describe)
+
+
+@router.put("/settings/osv-proxy")
+async def set_osv_proxy(
+    body: OsvProxyUpdate, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict:
+    """Set the proxy of the OSV download (the URL is never logged with its credentials)."""
+    try:
+        await run_in_threadpool(app_settings.set_osv_proxy, body.mode, body.url, identity.client)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("OSV proxy mode set to %s by %s", body.mode, identity.client)
+    return await run_in_threadpool(app_settings.describe)
+
+
+def _advisory_overview(limit: int) -> dict:
+    """State of the advisory database and history of its updates."""
+    settings = get_settings()
+    return {
+        "database": advisories.advisory_status(),
+        "download_enabled": settings.osv_auto_update,
+        "running": advisory_sync.running_update() is not None,
+        "updates": advisory_sync.list_updates(limit),
+    }
+
+
+@router.get("/advisories")
+async def advisory_overview(
+    identity: Annotated[Identity, Depends(require_admin)],
+    limit: Annotated[int, Query(ge=1, le=advisory_sync.HISTORY_SIZE)] = 20,
+) -> dict:
+    """Return the state of the advisory database and the latest OSV updates."""
+    return await run_in_threadpool(_advisory_overview, limit)
+
+
+@router.post("/advisories/update", status_code=status.HTTP_202_ACCEPTED)
+async def start_advisory_update(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+    """Start downloading the OSV exports in the background; follow it with GET /advisories.
+
+    Refused (409) when the download is disabled (SECREVIEW_OSV_AUTO_UPDATE=false) or an update
+    is already running.
+    """
+    try:
+        update_id = await run_in_threadpool(
+            advisory_sync.start_web_update, get_settings(), identity.client
+        )
+    except (advisory_sync.DownloadDisabled, advisory_sync.UpdateInProgress) as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("OSV update %d started by %s", update_id, identity.client)
+    return {"id": update_id}
 
 
 # ── Static files ─────────────────────────────────────────────────────────────

@@ -194,7 +194,7 @@ def _advisories_update(names: list[str] | None) -> int:
     settings = get_settings()
     if names:
         settings = settings.model_copy(update={"osv_ecosystems": ",".join(names)})
-    result = advisory_sync.update_advisories(settings)
+    result = advisory_sync.run_update(settings, "cli")
     print(json.dumps(result, indent=2))
     failed = any("error" in stats for stats in result["ecosystems"].values())
     return EXIT_ERROR if failed else EXIT_PASSED

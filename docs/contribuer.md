@@ -102,7 +102,8 @@ src/security_review_mcp/
 ├── trends.py      # rapport de tendance
 ├── versions.py    # comparaison de versions
 ├── advisories.py  # import OSV, correspondance des versions
-├── advisory_sync.py  # téléchargement OSV par le contrôleur (proxy, mise à jour quotidienne)
+├── advisory_sync.py  # téléchargement OSV par le contrôleur (proxy, mise à jour quotidienne, historique)
+├── app_settings.py    # réglages de l'écran Paramètres (langue des rapports, proxy OSV), en base
 ├── dependencies.py    # analyseurs de manifestes / lockfiles, hygiène
 ├── depscan.py     # scan de dépendances et conversion en findings
 ├── services.py    # logique de persistance des rapports

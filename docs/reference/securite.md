@@ -39,7 +39,12 @@
   (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
-  journalisés. Voir la
+  journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (rôle `admin`) n'est
+  accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Un proxy défini dans l'interface web est
+  enregistré en base **avec ses identifiants, en clair** : l'API ne les renvoie jamais (mot de
+  passe remplacé par `***`) et les messages d'erreur de l'historique en sont expurgés, mais
+  préférez `SECREVIEW_OSV_PROXY` (secret Kubernetes) si la base n'est pas protégée comme un
+  secret. Voir la
   [mise à jour automatique](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur).
 - **Interface web** (contrôleur) : l'API REST exige toujours un jeton de rôle web ; sans configuration, elle
   répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent

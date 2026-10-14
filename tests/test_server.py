@@ -7,7 +7,7 @@ from mcp.client import Client
 from mcp.shared.exceptions import MCPError
 from pydantic import ValidationError
 
-from security_review_mcp import services, token_store
+from security_review_mcp import app_settings, services, token_store
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.models import FindingCreate, Severity
 from security_review_mcp.prompts import fenced
@@ -147,6 +147,19 @@ async def test_review_prompts_set_the_report_language(monkeypatch):
         overridden = await client.get_prompt("security-review", {"report_language": "es"})
     assert "in **German**" in configured.messages[0].content.text
     assert "in **es**" in overridden.messages[0].content.text
+
+
+async def test_report_language_set_in_the_web_interface_overrides_the_variable(monkeypatch):
+    monkeypatch.setattr(get_settings(), "report_language", "German")
+    app_settings.set_report_language("Italian", "admin")
+    async with Client(mcp) as client:
+        stored = await client.get_prompt("security-review", {})
+        argument = await client.get_prompt("security-review", {"report_language": "es"})
+        app_settings.set_report_language("", "admin")  # the agent chooses
+        free = await client.get_prompt("security-review", {})
+    assert "in **Italian**" in stored.messages[0].content.text
+    assert "in **es**" in argument.messages[0].content.text
+    assert "Report language" not in free.messages[0].content.text
 
 
 async def test_triage_prompt_sets_the_report_language():
