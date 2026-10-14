@@ -18,7 +18,10 @@ import {
   ProjectToken,
   ProjectTokenCreated,
   ProjectTokenRole,
+  MappedRole,
   ProxyMode,
+  RoleMapping,
+  RoleMappingCatalog,
   Report,
   ReportQuery,
   ReportSummary,
@@ -194,6 +197,31 @@ export class ApiService {
 
   startAdvisoryUpdate(): Observable<{ id: number }> {
     return this.http.post<{ id: number }>(`${API_URL}/advisories/update`, {});
+  }
+
+  roleMappings(): Observable<RoleMappingCatalog> {
+    return this.http.get<RoleMappingCatalog>(`${API_URL}/oidc/role-mappings`);
+  }
+
+  /** An empty project list reaches every project. */
+  createRoleMapping(
+    claimValue: string,
+    role: MappedRole,
+    projects: string[],
+  ): Observable<RoleMapping> {
+    return this.http.post<RoleMapping>(`${API_URL}/oidc/role-mappings`, {
+      claim_value: claimValue,
+      role,
+      projects,
+    });
+  }
+
+  updateRoleMapping(id: number, projects: string[]): Observable<RoleMapping> {
+    return this.http.put<RoleMapping>(`${API_URL}/oidc/role-mappings/${id}`, { projects });
+  }
+
+  deleteRoleMapping(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/oidc/role-mappings/${id}`);
   }
 }
 

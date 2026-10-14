@@ -65,6 +65,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'role-mappings',
+        title: 'Rôles SSO · Security Review',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/role-mappings/role-mapping-list.component').then(
+            (m) => m.RoleMappingListComponent,
+          ),
+      },
+      {
         path: 'settings',
         title: 'Paramètres · Security Review',
         canActivate: [adminGuard],

@@ -1,0 +1,224 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Rôles SSO</h1>
+    <p class="text-body-secondary mb-0">
+      Rôle et projets accordés aux groupes du fournisseur d'identité (OpenID Connect)
+    </p>
+  </div>
+  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="catalog.reload()">
+    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+    Actualiser
+  </button>
+</div>
+
+@if (catalog.value(); as data) {
+  @if (!data.oidc_enabled) {
+    <div class="alert alert-info py-2" role="status">
+      <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+      La connexion SSO n'est pas activée sur ce contrôleur (<code>SECREVIEW_OIDC_ENABLED</code>) :
+      les associations s'appliqueront dès son activation.
+    </div>
+  }
+  <p class="text-body-secondary small">
+    Claim lu : <code>{{ data.roles_claim }}</code
+    >. Le rôle le plus élevé parmi les groupes de l'utilisateur l'emporte ; ses projets sont l'union
+    des associations de ce rôle (tous si l'une d'elles n'est pas restreinte). Sans association :
+    @if (data.default_role; as role) {
+      rôle {{ roleLabels[role] }} sur tous les projets.
+    } @else {
+      connexion refusée.
+    }
+    Un changement s'applique à la prochaine connexion de l'utilisateur.
+  </p>
+}
+
+@if (error(); as text) {
+  <div class="alert alert-danger py-2" role="alert">{{ text }}</div>
+}
+@if (message(); as text) {
+  <div class="alert alert-success py-2" role="status">{{ text }}</div>
+}
+
+<section class="mb-4" aria-labelledby="mapping-form-title">
+  <h2 id="mapping-form-title" class="h5">
+    {{ editing() ? 'Modifier les projets' : 'Ajouter une association' }}
+  </h2>
+  <form class="row g-2 align-items-start" (submit)="submit($event)">
+    <div class="col-md-3">
+      <label for="mapping-group" class="form-label">Groupe ou rôle</label>
+      <input
+        id="mapping-group"
+        class="form-control"
+        required
+        maxlength="200"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="ex. secreview-admins"
+        [disabled]="editing() !== null"
+        [value]="claimValue()"
+        (input)="claimValue.set($any($event.target).value)"
+      />
+    </div>
+    <div class="col-md-2">
+      <label for="mapping-role" class="form-label">Rôle web</label>
+      <select
+        id="mapping-role"
+        class="form-select"
+        [disabled]="editing() !== null"
+        [value]="role()"
+        (change)="onRoleChange($event)"
+      >
+        <option value="reader">Lecture</option>
+        <option value="triager">Triage</option>
+        <option value="admin">Administration</option>
+      </select>
+    </div>
+    <fieldset class="col-md-5">
+      <legend class="form-label">Projets</legend>
+      <div class="form-check form-check-inline">
+        <input
+          class="form-check-input"
+          type="radio"
+          name="mapping-scope"
+          id="mapping-scope-all"
+          [checked]="allProjects() || projectsLocked()"
+          (change)="allProjects.set(true)"
+        />
+        <label class="form-check-label" for="mapping-scope-all">Tous les projets</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input
+          class="form-check-input"
+          type="radio"
+          name="mapping-scope"
+          id="mapping-scope-some"
+          [disabled]="projectsLocked()"
+          [checked]="!allProjects() && !projectsLocked()"
+          (change)="allProjects.set(false)"
+        />
+        <label class="form-check-label" for="mapping-scope-some">Projets sélectionnés</label>
+      </div>
+      @if (projectsLocked()) {
+        <div class="form-text">Le rôle administration accède toujours à tous les projets.</div>
+      } @else if (!allProjects()) {
+        @if (projectChoices().length) {
+          <div class="d-flex flex-wrap gap-3 mt-2">
+            @for (project of projectChoices(); track project) {
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  [id]="'mapping-project-' + project"
+                  [checked]="selectedProjects().includes(project)"
+                  (change)="toggleProject(project, $event)"
+                />
+                <label class="form-check-label" [for]="'mapping-project-' + project">
+                  {{ project }}
+                </label>
+              </div>
+            }
+          </div>
+        } @else if (!projects.isLoading()) {
+          <div class="form-text">Aucun projet disponible.</div>
+        }
+      }
+    </fieldset>
+    <div class="col-md-2 d-flex flex-column gap-2 pt-md-4">
+      <button type="submit" class="btn btn-primary w-100" [disabled]="!canSubmit()">
+        <i class="bi" [class]="editing() ? 'bi-check-lg' : 'bi-plus-lg'" aria-hidden="true"></i>
+        {{ editing() ? 'Enregistrer' : 'Ajouter' }}
+      </button>
+      @if (editing()) {
+        <button type="button" class="btn btn-outline-secondary w-100" (click)="resetForm()">
+          Annuler
+        </button>
+      }
+    </div>
+  </form>
+</section>
+
+<section aria-labelledby="mappings-title">
+  <h2 id="mappings-title" class="h5">Associations</h2>
+  @if (catalog.error()) {
+    <div class="alert alert-danger" role="alert">Impossible de charger les associations.</div>
+  } @else if (catalog.isLoading() && !catalog.hasValue()) {
+    <div class="text-center my-4">
+      <span class="spinner-border text-secondary" aria-hidden="true"></span>
+      <span class="visually-hidden">Chargement…</span>
+    </div>
+  } @else if (catalog.value(); as data) {
+    @if (data.mappings.length || data.static_mappings.length) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th scope="col">Groupe ou rôle</th>
+              <th scope="col">Rôle web</th>
+              <th scope="col">Projets</th>
+              <th scope="col">Origine</th>
+              <th scope="col" class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (mapping of data.static_mappings; track mapping.role + mapping.claim_value) {
+              <tr>
+                <td class="claim-value font-monospace">{{ mapping.claim_value }}</td>
+                <td>{{ roleLabels[mapping.role] }}</td>
+                <td>Tous les projets</td>
+                <td>
+                  <span class="badge text-bg-secondary">Variable d'environnement</span>
+                </td>
+                <td class="text-end text-body-secondary small">Lecture seule</td>
+              </tr>
+            }
+            @for (mapping of data.mappings; track mapping.id) {
+              <tr>
+                <td class="claim-value font-monospace">{{ mapping.claim_value }}</td>
+                <td>{{ roleLabels[mapping.role] }}</td>
+                <td>
+                  {{ mapping.projects === null ? 'Tous les projets' : mapping.projects.join(', ') }}
+                </td>
+                <td class="small">
+                  {{ mapping.created_by ?? '—' }}
+                  @if (mapping.created_at) {
+                    <span class="text-body-secondary">
+                      · {{ mapping.created_at | date: 'dd/MM/yyyy HH:mm' }}
+                    </span>
+                  }
+                </td>
+                <td class="text-end text-nowrap">
+                  @if (mapping.role !== 'admin') {
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary me-1"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'Modifier les projets de ' + mapping.claim_value"
+                      (click)="edit(mapping)"
+                    >
+                      <i class="bi bi-pencil" aria-hidden="true"></i>
+                      Projets
+                    </button>
+                  }
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'Supprimer l\'association ' + mapping.claim_value"
+                    (click)="remove(mapping)"
+                  >
+                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                    Supprimer
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary">
+        Aucune association : sans rôle par défaut, aucun utilisateur SSO ne peut se connecter.
+      </p>
+    }
+  }
+</section>

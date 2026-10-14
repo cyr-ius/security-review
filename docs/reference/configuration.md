@@ -30,10 +30,10 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_OIDC_REDIRECT_URI` | — | Contrôleur | URL publique de `/api/v1/auth/oidc/callback`, déclarée chez le fournisseur |
 | `SECREVIEW_OIDC_SCOPES` | `openid profile email` | Contrôleur | Scopes demandés (doit contenir `openid`) |
 | `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Contrôleur | Claim des groupes ou rôles, chemin pointé accepté (`realm_access.roles`) |
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `admin`, séparés par des virgules |
-| `SECREVIEW_OIDC_TRIAGER_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `triager` |
-| `SECREVIEW_OIDC_READER_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `reader` |
-| `SECREVIEW_OIDC_DEFAULT_ROLE` | — | Contrôleur | Rôle sans groupe correspondant : `reader`, `triager` ou vide (connexion refusée) |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `admin` sur tous les projets, séparés par des virgules, en plus des associations du [role mapping](../utilisation/interface-web.md#role-mapping) gérées dans l'interface |
+| `SECREVIEW_OIDC_TRIAGER_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `triager` (tous les projets) |
+| `SECREVIEW_OIDC_READER_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `reader` (tous les projets) |
+| `SECREVIEW_OIDC_DEFAULT_ROLE` | — | Contrôleur | Rôle (tous les projets) sans aucune association correspondante : `reader`, `triager` ou vide (connexion refusée) |
 | `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Contrôleur | Claim du label de session `oidc:<valeur>` (à défaut `email`, puis `sub`) |
 | `SECREVIEW_OIDC_SESSION_HOURS` | `8` | Contrôleur | Durée d'une session (1 à 24 heures) |
 | `SECREVIEW_OIDC_SESSION_SECRET` | — | Contrôleur | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques ; sans lui, aléatoire à chaque démarrage |

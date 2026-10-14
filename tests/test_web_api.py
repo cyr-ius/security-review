@@ -1,5 +1,7 @@
 """Web interface: REST API, permissions and static files."""
 
+import logging
+
 import pytest
 from sqlmodel import Session, select
 from starlette.testclient import TestClient
@@ -399,6 +401,64 @@ def test_openapi_marks_api_operations_as_bearer_protected(secured):
     for path in login_routes:
         assert "security" not in schema["paths"][path]["get"]
     assert secured.get("/api/v1/projects").status_code == 401
+
+
+def test_role_mappings_are_managed_by_administrators(secured, caplog):
+    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    url = "/api/v1/oidc/role-mappings"
+    body = {"claim_value": "payments", "role": "triager", "projects": ["billing"]}
+    for role in ("reader", "triager"):
+        assert secured.get(url, headers=auth(role)).status_code == 403
+        assert secured.post(url, json=body, headers=auth(role)).status_code == 403
+    assert secured.get(url).status_code == 401
+
+    created = secured.post(url, json=body, headers=auth("admin"))
+    assert created.status_code == 201
+    mapping = created.json()
+    assert (mapping["claim_value"], mapping["role"], mapping["projects"]) == (
+        "payments",
+        "triager",
+        ["billing"],
+    )
+    assert mapping["created_by"] == "admin"
+    assert "Role mapping payments -> triager (billing) created by admin" in caplog.text
+
+    listed = secured.get(url, headers=auth("admin")).json()
+    assert listed["oidc_enabled"] is False
+    assert listed["roles_claim"] == "groups"
+    assert [item["id"] for item in listed["mappings"]] == [mapping["id"]]
+
+    updated = secured.put(f"{url}/{mapping['id']}", json={"projects": []}, headers=auth("admin"))
+    assert updated.json()["projects"] is None
+    assert (
+        secured.put(f"{url}/999", json={"projects": []}, headers=auth("admin")).status_code == 404
+    )
+
+    assert secured.delete(f"{url}/{mapping['id']}", headers=auth("reader")).status_code == 403
+    assert secured.delete(f"{url}/{mapping['id']}", headers=auth("admin")).status_code == 204
+    assert secured.delete(f"{url}/{mapping['id']}", headers=auth("admin")).status_code == 404
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"claim_value": "devs", "role": "mcp"},
+        {"claim_value": "", "role": "reader"},
+        {"claim_value": "devs", "role": "admin", "projects": ["shop-api"]},
+        {"claim_value": "devs", "role": "reader", "projects": [f"p{i}" for i in range(51)]},
+    ],
+)
+def test_invalid_role_mappings_are_refused(secured, body):
+    response = secured.post("/api/v1/oidc/role-mappings", json=body, headers=auth("admin"))
+    assert response.status_code == 422
+
+
+def test_duplicate_role_mapping_is_refused(secured):
+    body = {"claim_value": "devs", "role": "reader"}
+    url = "/api/v1/oidc/role-mappings"
+    assert secured.post(url, json=body, headers=auth("admin")).status_code == 201
+    response = secured.post(url, json=body, headers=auth("admin"))
+    assert response.status_code == 422 and "already mapped" in response.json()["detail"]
 
 
 def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, reports, database):

@@ -9,7 +9,8 @@ flow with PKCE:
 2. ``GET /api/v1/auth/oidc/callback`` checks the state, exchanges the code at the token endpoint
    (server to server), validates the ID token (signature from the provider JWKS, issuer,
    audience, expiry, nonce) and maps its groups or roles claim to a web role;
-3. the controller then issues a **session token**: a JWT signed with a key derived from
+3. the role and projects come from the role mapping (see role_mapping), then the controller
+   issues a **session token**: a JWT signed with a key derived from
    ``SECREVIEW_OIDC_SESSION_SECRET``, valid ``SECREVIEW_OIDC_SESSION_HOURS``, handed to the web
    application in the URL fragment of ``/ui/login``. The application sends it as a bearer token,
    like a token of the database; the bearer middleware of the controller verifies it (see
@@ -38,7 +39,7 @@ from typing import Any
 
 import jwt
 
-from . import __version__
+from . import __version__, role_mapping
 from .config import Settings
 from .http_server import AUTH_PREFIX, LOOPBACK_HOSTS, WEB_ROLES, Role, TokenInfo
 
@@ -136,7 +137,7 @@ def validate_settings(settings: Settings) -> None:
         )
 
 
-# ── Role mapping ─────────────────────────────────────────────────────────────
+# ── Claims ─────────────────────────────────────────────────────────────
 
 
 def claim_values(claims: dict[str, Any], path: str) -> set[str]:
@@ -154,19 +155,6 @@ def claim_values(claims: dict[str, Any], path: str) -> set[str]:
     if isinstance(value, list):
         return {item for item in value if isinstance(item, str)}
     return set()
-
-
-def role_from_claims(claims: dict[str, Any], settings: Settings) -> Role | None:
-    """Return the highest web role granted by the groups or roles of the user, or None."""
-    values = claim_values(claims, settings.oidc_roles_claim)
-    for role, groups in (
-        (Role.ADMIN, settings.oidc_admin_groups),
-        (Role.TRIAGER, settings.oidc_triager_groups),
-        (Role.READER, settings.oidc_reader_groups),
-    ):
-        if values & _split(groups):
-            return role
-    return Role(settings.oidc_default_role) if settings.oidc_default_role else None
 
 
 def user_label(claims: dict[str, Any], settings: Settings) -> str:
@@ -222,8 +210,8 @@ class SessionSigner:
         self._state_key = hmac.new(master, b"secreview-oidc-state", hashlib.sha256).digest()
         self.session_seconds = session_hours * 3600
 
-    def issue_session(self, label: str, role: Role) -> str:
-        """Return a session token for a web role."""
+    def issue_session(self, label: str, role: Role, projects: frozenset[str] | None = None) -> str:
+        """Return a session token for a web role, restricted to ``projects`` (None: all)."""
         if role not in WEB_ROLES:
             raise ValueError(f"Role '{role}' cannot use the web interface")
         now = int(time.time())
@@ -232,6 +220,7 @@ class SessionSigner:
             "aud": SESSION_AUDIENCE,
             "sub": label,
             "role": role.value,
+            "projects": None if projects is None else sorted(projects),
             "iat": now,
             "exp": now + self.session_seconds,
         }
@@ -256,9 +245,19 @@ class SessionSigner:
             role = Role(payload.get("role"))
         except jwt.InvalidTokenError, ValueError:
             return None
+        projects = payload.get("projects")
         if role not in WEB_ROLES or not isinstance(payload["sub"], str):
             return None
-        return TokenInfo(label=payload["sub"][:MAX_LABEL_CHARS], role=role)
+        # A restricted session never becomes unrestricted: anything but a list of names fails
+        if projects is not None and not (
+            isinstance(projects, list) and all(isinstance(name, str) for name in projects)
+        ):
+            return None
+        return TokenInfo(
+            label=payload["sub"][:MAX_LABEL_CHARS],
+            role=role,
+            projects=None if projects is None else frozenset(projects),
+        )
 
     def sign_state(self, data: dict[str, str]) -> str:
         """Return the signed state cookie of a login in progress."""
@@ -300,6 +299,7 @@ class LoginResult:
     session_token: str
     label: str
     role: Role
+    projects: frozenset[str] | None
     return_url: str
 
 
@@ -453,16 +453,24 @@ class OidcLogin:
         claims = self.validate_id_token(id_token, str(saved["nonce"]))
         if not claim_values(claims, self.settings.oidc_roles_claim):
             claims = {**self.userinfo(tokens.get("access_token"), claims["sub"]), **claims}
-        role = role_from_claims(claims, self.settings)
         label = user_label(claims, self.settings)
-        if role is None:
-            logger.warning("OIDC login refused for %s: no web role in its groups", label)
+        try:
+            access = role_mapping.resolve(
+                claim_values(claims, self.settings.oidc_roles_claim), self.settings
+            )
+        except ValueError as exc:
+            logger.warning("OIDC login refused for %s: %s", label, exc)
+            raise OidcError("forbidden", str(exc)) from None
+        if access is None:
+            logger.warning("OIDC login refused for %s: no role mapping matches its groups", label)
             raise OidcError("forbidden", "No web role granted to this user")
-        logger.info("OIDC login of %s with role %s", label, role)
+        scope = "every project" if access.projects is None else f"{len(access.projects)} project(s)"
+        logger.info("OIDC login of %s with role %s on %s", label, access.role, scope)
         return LoginResult(
-            session_token=self.signer.issue_session(label, role),
+            session_token=self.signer.issue_session(label, access.role, access.projects),
             label=label,
-            role=role,
+            role=access.role,
+            projects=access.projects,
             return_url=safe_return_url(saved.get("return_url")),
         )
 

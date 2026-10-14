@@ -62,8 +62,11 @@
   state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
   ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
   uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Le rôle vient des
-  groupes de l'utilisateur ; sans groupe reconnu, la connexion est refusée par défaut, et ni le
-  rôle `admin` par défaut ni le rôle `mcp` ne sont possibles. La session est un jeton signé
+  groupes de l'utilisateur ([role mapping](../utilisation/interface-web.md#role-mapping), géré
+  par les administrateurs, éventuellement restreint à des projets) ; sans association, la
+  connexion est refusée par défaut, et ni le rôle `admin` par défaut ni le rôle `mcp` ne sont
+  possibles. Une session restreinte à des projets l'est comme un jeton `--project`, et une liste
+  de projets malformée dans une session invalide la session au lieu de l'élargir. La session est un jeton signé
   (HMAC-SHA256, clé dérivée de `SECREVIEW_OIDC_SESSION_SECRET`), accepté par le contrôleur
   seulement, jamais par le serveur MCP, et révocable uniquement par son expiration ou un
   changement du secret. L'URL de retour après connexion est limitée aux chemins locaux. Codes,

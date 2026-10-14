@@ -298,3 +298,23 @@ class AdvisoryUpdate(SQLModel, table=True):
     started_at: datetime = Field(default_factory=utcnow, index=True)
     finished_at: datetime | None = Field(default=None)
     results: str = Field(default="{}")  # JSON: counters or error of each ecosystem
+
+
+# ── OIDC role mapping (web interface, see role_mapping) ──────────────────────
+
+
+class OidcRoleMapping(SQLModel, table=True):
+    """Web role granted to the OIDC users whose groups or roles claim holds ``claim_value``.
+
+    ``projects`` is the JSON list of the projects a ``reader`` or ``triager`` mapping is limited
+    to; an empty list means every project (always the case for ``admin``).
+    """
+
+    __table_args__ = (UniqueConstraint("claim_value", "role"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    claim_value: str = Field(index=True, max_length=200)
+    role: str = Field(max_length=20)
+    projects: str = Field(default="[]")
+    created_at: datetime = Field(default_factory=utcnow)
+    created_by: str | None = Field(default=None, max_length=64)

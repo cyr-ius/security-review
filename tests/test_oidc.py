@@ -10,7 +10,15 @@ import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
 from starlette.testclient import TestClient
 
-from security_review_mcp import http_server, oidc, server, token_store, web_api
+from security_review_mcp import (
+    http_server,
+    oidc,
+    role_mapping,
+    server,
+    services,
+    token_store,
+    web_api,
+)
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import Role
 
@@ -168,25 +176,23 @@ def test_without_a_session_secret_a_warning_is_logged(caplog):
 
 
 @pytest.mark.parametrize(
-    ("claims", "role"),
+    ("claims", "values"),
     [
-        ({"groups": ["qa", "secreview-admins"]}, Role.ADMIN),
-        ({"groups": ["developers", "secreview-triagers"]}, Role.TRIAGER),
-        ({"groups": "qa"}, Role.READER),
-        ({"groups": ["marketing"]}, None),
-        ({}, None),
-        ({"groups": [{"name": "secreview-admins"}]}, None),
+        ({"groups": ["qa", "dev"]}, {"qa", "dev"}),
+        ({"groups": "qa, dev"}, {"qa", "dev"}),
+        ({"groups": [{"name": "x"}, "qa"]}, {"qa"}),
+        ({"realm_access": {"roles": ["admin"]}}, set()),
+        ({}, set()),
     ],
 )
-def test_highest_role_of_the_groups_wins(claims, role):
-    assert oidc.role_from_claims(claims, make_settings()) == role
+def test_claim_values(claims, values):
+    assert oidc.claim_values(claims, "groups") == values
 
 
-def test_roles_claim_may_be_a_dotted_path_and_a_default_role_applies():
-    settings = make_settings(oidc_roles_claim="realm_access.roles", oidc_default_role="reader")
+def test_claim_values_follow_a_dotted_path():
     claims = {"realm_access": {"roles": ["secreview-admins"]}}
-    assert oidc.role_from_claims(claims, settings) == Role.ADMIN
-    assert oidc.role_from_claims({"realm_access": "x"}, settings) == Role.READER
+    assert oidc.claim_values(claims, "realm_access.roles") == {"secreview-admins"}
+    assert oidc.claim_values({"realm_access": "x"}, "realm_access.roles") == set()
 
 
 @pytest.mark.parametrize(
@@ -238,6 +244,30 @@ def test_session_token_expires():
         algorithm="HS256",
     )
     assert signer.verify_session(expired) is None
+
+
+def test_session_token_keeps_its_projects():
+    signer = oidc.SessionSigner(SECRET)
+    token = signer.issue_session("oidc:bob", Role.READER, frozenset({"shop-api", "billing"}))
+    info = signer.verify_session(token)
+    assert info.projects == frozenset({"shop-api", "billing"})
+
+    # A malformed project list never turns into an unrestricted session
+    now = int(time.time())
+    forged = jwt.encode(
+        {
+            "iss": oidc.SESSION_ISSUER,
+            "aud": oidc.SESSION_AUDIENCE,
+            "sub": "x",
+            "role": "reader",
+            "projects": "shop-api",
+            "iat": now,
+            "exp": now + 60,
+        },
+        signer._session_key,
+        algorithm="HS256",
+    )
+    assert signer.verify_session(forged) is None
 
 
 def test_session_tokens_never_carry_the_mcp_role():
@@ -360,6 +390,34 @@ def test_admin_group_and_userinfo_groups(controller, provider):
     )
     me = controller.get("/api/v1/me", headers={"Authorization": f"Bearer {session}"}).json()
     assert (me["client"], me["role"]) == ("oidc:bob", "admin")
+
+
+def test_stored_role_mapping_restricts_the_session_to_its_projects(controller, provider):
+    for project in ("shop-api", "billing"):
+        services.save_report(project, "Review", [])
+    role_mapping.create_mapping("payments-team", Role.TRIAGER, ["billing"])
+    provider.claims = {"preferred_username": "carol", "groups": ["payments-team"]}
+    state = start_login(controller, provider)
+    session = session_of(
+        controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
+    )
+    headers = {"Authorization": f"Bearer {session}"}
+
+    me = controller.get("/api/v1/me", headers=headers).json()
+    assert (me["role"], me["projects"]) == ("triager", ["billing"])
+    projects = controller.get("/api/v1/projects", headers=headers).json()
+    assert [item["project"] for item in projects] == ["billing"]
+    assert controller.get("/api/v1/posture?project=shop-api", headers=headers).status_code == 404
+
+
+def test_login_granting_too_many_projects_is_refused(controller, provider, monkeypatch):
+    monkeypatch.setattr(role_mapping, "MAX_SESSION_PROJECTS", 1)
+    role_mapping.create_mapping("team-a", Role.READER, ["a"])
+    role_mapping.create_mapping("team-b", Role.READER, ["b"])
+    provider.claims = {"groups": ["team-a", "team-b"]}
+    state = start_login(controller, provider)
+    response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
+    assert error_of(response) == "forbidden"
 
 
 def test_userinfo_about_another_user_is_refused(controller, provider):

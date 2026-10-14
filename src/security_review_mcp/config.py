@@ -84,8 +84,9 @@ class Settings(BaseSettings):
     # disabled by default. oidc_redirect_uri is the public URL of /api/v1/auth/oidc/callback,
     # registered at the provider. oidc_client_secret is empty for a public client. The values of
     # oidc_roles_claim (dotted path allowed, e.g. realm_access.roles) are matched against the
-    # comma-separated groups below (highest role wins); without a match, oidc_default_role ("",
-    # "reader" or "triager") applies, and an empty one refuses the login. Sessions are tokens
+    # role mappings stored in the database (web interface) and the comma-separated groups below
+    # (every project; highest role wins, see role_mapping); without a match, oidc_default_role
+    # ("", "reader" or "triager") applies, and an empty one refuses the login. Sessions are tokens
     # signed with oidc_session_secret (at least 32 characters; random per start when unset),
     # valid oidc_session_hours. oidc_cafile replaces the system CA bundle for the provider.
     oidc_enabled: bool = False

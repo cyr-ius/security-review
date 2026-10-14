@@ -33,6 +33,7 @@ from . import (
     app_settings,
     oidc,
     registry,
+    role_mapping,
     rule_store,
     rules_loader,
     services,
@@ -119,6 +120,25 @@ class ChecklistItemWrite(BaseModel):
     title: str = Field(min_length=1, max_length=rules_loader.MAX_TITLE_CHARS)
     what_to_look_for: str = Field(min_length=1, max_length=rules_loader.MAX_TEXT_CHARS)
     cwe: str = Field(default="", max_length=20)
+
+
+class RoleMappingCreate(BaseModel):
+    """An identity provider group or role mapped to a web role (and projects)."""
+
+    claim_value: str = Field(min_length=1, max_length=role_mapping.MAX_CLAIM_VALUE_CHARS)
+    role: Literal["reader", "triager", "admin"]
+    # Empty: every project (always for admin)
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
+
+
+class RoleMappingUpdate(BaseModel):
+    """New projects of a role mapping (empty: every project)."""
+
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
 
 
 class ProjectTokenCreate(BaseModel):
@@ -803,6 +823,76 @@ async def start_advisory_update(identity: Annotated[Identity, Depends(require_ad
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     logger.info("OSV update %d started by %s", update_id, identity.client)
     return {"id": update_id}
+
+
+@router.get("/oidc/role-mappings")
+async def role_mappings(
+    request: Request, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict[str, Any]:
+    """List the OIDC role mappings: stored ones and those of the SECREVIEW_OIDC_* variables."""
+    settings = get_settings()
+    return {
+        "oidc_enabled": getattr(request.app.state, "oidc", None) is not None,
+        "roles_claim": settings.oidc_roles_claim,
+        "default_role": settings.oidc_default_role or None,
+        "mappings": await run_in_threadpool(role_mapping.list_mappings),
+        "static_mappings": role_mapping.static_mappings(settings),
+    }
+
+
+@router.post("/oidc/role-mappings", status_code=status.HTTP_201_CREATED)
+async def create_role_mapping(
+    body: RoleMappingCreate, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict[str, Any]:
+    """Map a group or role of the identity provider to a web role, optionally per project."""
+    try:
+        created = await run_in_threadpool(
+            role_mapping.create_mapping,
+            body.claim_value,
+            body.role,
+            body.projects,
+            identity.client,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info(
+        "Role mapping %s -> %s (%s) created by %s",
+        created["claim_value"],
+        created["role"],
+        ", ".join(created["projects"] or ["every project"]),
+        identity.client,
+    )
+    return created
+
+
+@router.put("/oidc/role-mappings/{mapping_id}")
+async def update_role_mapping(
+    mapping_id: int,
+    body: RoleMappingUpdate,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict[str, Any]:
+    """Replace the projects of a role mapping (applies at the next login of its users)."""
+    try:
+        updated = await run_in_threadpool(role_mapping.update_mapping, mapping_id, body.projects)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Role mapping %s updated by %s", mapping_id, identity.client)
+    return updated
+
+
+@router.delete("/oidc/role-mappings/{mapping_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_role_mapping(
+    mapping_id: int, identity: Annotated[Identity, Depends(require_admin)]
+) -> Response:
+    """Delete a role mapping (open sessions keep their role until they expire)."""
+    deleted = await run_in_threadpool(role_mapping.delete_mapping, mapping_id)
+    logger.info(
+        "Role mapping %s -> %s deleted by %s",
+        deleted["claim_value"],
+        deleted["role"],
+        identity.client,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 # ── Static files ─────────────────────────────────────────────────────────────

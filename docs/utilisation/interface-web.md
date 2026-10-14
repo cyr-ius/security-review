@@ -20,7 +20,7 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 ## Écrans
 
 Les écrans sont accessibles depuis la barre latérale : **Supervision** (projets, rapports) pour
-tous les rôles, **Administration** (règles, checklists, jetons, paramètres) pour le rôle `admin`. Le bas de
+tous les rôles, **Administration** (règles, checklists, jetons, rôles SSO, paramètres) pour le rôle `admin`. Le bas de
 la barre affiche le client connecté, son rôle et la version, avec le bouton de déconnexion ; sur
 petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
 à droite, y compris sur la page de connexion, et reste mémorisé dans le navigateur.
@@ -55,6 +55,10 @@ petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre
   **Approuver** active le nouveau jeton ou ajoute le projet au jeton existant ; **Refuser** ne
   supprime que la demande. Les projets autorisés et les ajouts encore en attente sont affichés
   pour chaque jeton.
+- **Rôles SSO** : les administrateurs associent les groupes ou rôles du fournisseur d'identité
+  à un rôle web et, pour `reader` et `triager`, à une liste de projets
+  (voir [role mapping](#role-mapping)). Les groupes des variables `SECREVIEW_OIDC_*_GROUPS`
+  sont affichés en lecture seule.
 - **Paramètres** : réglages enregistrés en base, prioritaires sur les variables d'environnement
   et partagés par le serveur MCP et le contrôleur.
     - **Langue des rapports** : variable `SECREVIEW_REPORT_LANGUAGE`, choix laissé à l'agent ou
@@ -166,14 +170,60 @@ son document `/.well-known/openid-configuration` doit annoncer le même `issuer`
 fournisseur utilise une CA interne, indiquez-la avec `SECREVIEW_OIDC_CAFILE` ; un proxy sortant
 se configure avec `HTTPS_PROXY` / `NO_PROXY`.
 
-### Rôles
+### Role mapping
 
-Les valeurs du claim `SECREVIEW_OIDC_ROLES_CLAIM` (liste ou chaîne, chemin pointé accepté) sont
-comparées aux listes `SECREVIEW_OIDC_ADMIN_GROUPS`, `..._TRIAGER_GROUPS` et `..._READER_GROUPS`
-(séparées par des virgules) : le rôle le plus élevé l'emporte. Sans correspondance,
-`SECREVIEW_OIDC_DEFAULT_ROLE` s'applique (`reader` ou `triager`) ; vide (défaut), la connexion
-est **refusée**. Le rôle `admin` ne peut pas être attribué par défaut, et le rôle `mcp` jamais :
-une session OIDC n'ouvre que l'interface web, pas `/mcp`. Une session voit tous les projets.
+Le *role mapping* décide du rôle web, et des projets, d'un utilisateur SSO à partir des valeurs
+du claim `SECREVIEW_OIDC_ROLES_CLAIM` (liste ou chaîne, chemin pointé accepté, comparaison
+exacte, sensible à la casse). Une **association** relie une de ces valeurs (un groupe ou un
+rôle du fournisseur) à :
+
+- un rôle web : `reader`, `triager` ou `admin` (jamais `mcp` : une session OIDC n'ouvre que
+  l'interface web, pas `/mcp`) ;
+- pour `reader` et `triager`, une liste facultative de projets (50 au plus) ; sans liste, tous
+  les projets. Une association `admin` porte toujours sur tous les projets.
+
+Les associations ont deux origines :
+
+| Origine | Gestion | Projets |
+|---|---|---|
+| Base de données | Écran **Rôles SSO** ou API `/api/v1/oidc/role-mappings` (rôle `admin`) | Tous ou une liste |
+| Variables `SECREVIEW_OIDC_ADMIN_GROUPS`, `..._TRIAGER_GROUPS`, `..._READER_GROUPS` | Configuration du contrôleur (lecture seule dans l'interface) | Tous |
+
+Les variables servent surtout à désigner le premier administrateur, qui crée ensuite les autres
+associations dans l'interface.
+
+À la connexion :
+
+1. le **rôle le plus élevé** parmi les associations qui correspondent aux groupes de
+   l'utilisateur l'emporte (`admin` > `triager` > `reader`) ;
+2. la session voit **tous les projets** si l'une des associations de ce rôle n'est pas
+   restreinte ; sinon l'**union** de leurs projets (200 au plus : au-delà, la connexion est
+   refusée). Les projets des associations d'un rôle
+   inférieur ne sont pas ajoutés : un utilisateur `triager` sur `shop-api` et `reader` sur
+   `billing` est `triager` sur `shop-api` seulement ;
+3. sans aucune association, `SECREVIEW_OIDC_DEFAULT_ROLE` s'applique (`reader` ou `triager`,
+   tous les projets) ; vide (défaut), la connexion est **refusée**. Le rôle `admin` ne peut pas
+   être attribué par défaut.
+
+Une session restreinte se comporte comme un
+[jeton restreint à un projet](../demarrage/http.md#jetons-restreints-a-un-projet) : les autres
+projets, leurs rapports et leurs findings sont traités comme inexistants. Un projet peut être
+cité avant d'exister (l'écran propose les projets connus). Un changement d'association
+s'applique à la **prochaine connexion** de l'utilisateur ; les sessions ouvertes gardent leurs
+droits jusqu'à leur expiration (voir [Sessions](#sessions)). Chaque création, modification ou
+suppression est journalisée avec le label de l'administrateur :
+
+```
+INFO security_review_mcp.web: Role mapping payments -> triager (billing) created by oidc:alice
+```
+
+Exemple avec l'API :
+
+```bash
+curl -X POST https://secreview.example.com/api/v1/oidc/role-mappings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"claim_value": "payments-team", "role": "triager", "projects": ["billing"]}'
+```
 
 Le label d'une session est `oidc:<identifiant>` (claim `SECREVIEW_OIDC_USERNAME_CLAIM`, sinon
 `email`, sinon `sub`) : c'est lui qui apparaît dans les journaux et l'historique du triage.

@@ -321,3 +321,28 @@ export interface AdvisoryOverview {
   running: boolean;
   updates: AdvisoryUpdate[];
 }
+
+/** Web role an OIDC role mapping may grant. */
+export type MappedRole = 'reader' | 'triager' | 'admin';
+
+/** An identity provider group or role mapped to a web role (and projects). */
+export interface RoleMapping {
+  /** Absent for the mappings of the SECREVIEW_OIDC_*_GROUPS variables. */
+  id?: number;
+  claim_value: string;
+  role: MappedRole;
+  /** null: every project. */
+  projects: string[] | null;
+  source: 'database' | 'environment';
+  created_at?: string;
+  created_by?: string | null;
+}
+
+/** GET /api/v1/oidc/role-mappings */
+export interface RoleMappingCatalog {
+  oidc_enabled: boolean;
+  roles_claim: string;
+  default_role: 'reader' | 'triager' | null;
+  mappings: RoleMapping[];
+  static_mappings: RoleMapping[];
+}
