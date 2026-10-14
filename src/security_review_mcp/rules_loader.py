@@ -1,6 +1,6 @@
 """Validate internal rules and parse rule packs (TOML) imported into the database.
 
-A rule pack is the TOML exchange format of ``security-review-mcp rules import|export``. The
+A rule pack is the TOML exchange format of ``security-review-controller rules import|export``. The
 default rules and checklists shipped with the package (``default_rules.toml``, see
 ``default_content``) use the same format::
 

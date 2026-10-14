@@ -1,28 +1,83 @@
 <div class="login-page">
-  <div class="card shadow-sm login-card">
-    <div class="card-body p-4">
-      <h1 class="h4 mb-1">
-        <i class="bi bi-shield-lock" aria-hidden="true"></i>
-        Security Review
-      </h1>
-      <p class="text-body-secondary mb-4">Rapports de revue de sécurité des projets</p>
+  <!-- Brand panel, hidden on small screens -->
+  <section class="hero" aria-hidden="true">
+    <div class="hero-glow"></div>
+    <div class="hero-inner">
+      <div class="d-flex align-items-center gap-3">
+        <span class="brand-mark lg"><i class="bi bi-shield-lock-fill"></i></span>
+        <span class="hero-brand">Security Review</span>
+      </div>
+
+      <div>
+        <h2 class="hero-title">
+          La sécurité de votre code,<br />
+          <span class="gradient-text">sous contrôle.</span>
+        </h2>
+        <p class="hero-lead">
+          Revues assistées par IA, scan de motifs et de dépendances, suivi des findings et des
+          tendances de risque, projet par projet.
+        </p>
+        <ul class="features">
+          @for (feature of features; track feature.icon) {
+            <li>
+              <span class="feature-icon"><i class="bi" [class]="feature.icon"></i></span>
+              <span>
+                <strong>{{ feature.title }}</strong>
+                <span class="d-block">{{ feature.text }}</span>
+              </span>
+            </li>
+          }
+        </ul>
+      </div>
+
+      <p class="hero-foot">
+        <i class="bi bi-lock-fill"></i>
+        Hébergé chez vous · aucun appel réseau sortant
+      </p>
+    </div>
+  </section>
+
+  <!-- Login form -->
+  <section class="panel">
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-secondary theme-toggle"
+      (click)="theme.toggle()"
+      [attr.aria-label]="theme.theme() === 'dark' ? 'Thème clair' : 'Thème sombre'"
+    >
+      <i
+        class="bi"
+        [class]="theme.theme() === 'dark' ? 'bi-sun' : 'bi-moon-stars'"
+        aria-hidden="true"
+      ></i>
+    </button>
+
+    <div class="login-box">
+      <span class="brand-mark lg mb-4 d-lg-none" aria-hidden="true">
+        <i class="bi bi-shield-lock-fill"></i>
+      </span>
+      <h1 class="h3 mb-1">Connexion</h1>
+      <p class="text-body-secondary mb-4">Accédez à la console de supervision Security Review.</p>
 
       @if (error(); as message) {
-        <div class="alert alert-danger py-2" role="alert">
-          <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-          {{ message }}
+        <div class="alert alert-danger d-flex gap-2 py-2" role="alert">
+          <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+          <span>{{ message }}</span>
         </div>
       }
 
       <form (submit)="onSubmit($event)" novalidate>
         <label for="token" class="form-label">Mot de passe ou jeton d'accès</label>
-        <div class="input-group mb-1">
+        <div class="input-group input-group-lg secret-group mb-1">
+          <span class="input-group-text"><i class="bi bi-key" aria-hidden="true"></i></span>
           <input
             id="token"
             class="form-control font-monospace"
             [type]="reveal() ? 'text' : 'password'"
             autocomplete="current-password"
             spellcheck="false"
+            placeholder="Collez votre secret…"
+            autofocus
             [formField]="loginForm.token"
             [class.is-invalid]="loginForm.token().touched() && loginForm.token().invalid()"
           />
@@ -31,6 +86,7 @@
             class="btn btn-outline-secondary"
             (click)="reveal.set(!reveal())"
             [attr.aria-label]="reveal() ? 'Masquer le secret' : 'Afficher le secret'"
+            [attr.aria-pressed]="reveal()"
           >
             <i class="bi" [class]="reveal() ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true"></i>
           </button>
@@ -40,17 +96,31 @@
             <div class="invalid-feedback d-block">{{ err.message }}</div>
           }
         }
-        <div class="form-text mb-3">
-          Mot de passe initial affiché dans les journaux du conteneur, ou jeton fourni par votre
-          administrateur. Le secret reste dans cet onglet et disparaît à sa fermeture.
-        </div>
-        <button type="submit" class="btn btn-primary w-100" [disabled]="loginForm().submitting()">
+
+        <button
+          type="submit"
+          class="btn btn-primary btn-lg w-100 mt-4"
+          [disabled]="loginForm().submitting()"
+        >
           @if (loginForm().submitting()) {
-            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+            Vérification…
+          } @else {
+            Se connecter
+            <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
           }
-          Se connecter
         </button>
       </form>
+
+      <div class="help mt-4">
+        <i class="bi bi-info-circle" aria-hidden="true"></i>
+        <p class="mb-0">
+          Mot de passe initial affiché dans les journaux du conteneur, ou jeton fourni par votre
+          administrateur. Le secret reste dans cet onglet et disparaît à sa fermeture.
+        </p>
+      </div>
     </div>
-  </div>
+
+    <p class="panel-foot">Security Review MCP · revue de code orientée sécurité</p>
+  </section>
 </div>

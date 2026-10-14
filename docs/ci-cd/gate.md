@@ -4,7 +4,7 @@ Sans agent ni client MCP, un job Jenkins, GitLab ou GitHub peut bloquer un dépl
 des findings critiques restent ouverts :
 
 ```bash
-security-review-mcp gate --project portal --fail-on high
+security-review-controller gate --project portal --fail-on high
 # code de sortie : 0 = passe, 1 = bloqué, 2 = erreur (projet/rapport introuvable)
 # options : --report-id N pour ne juger qu'un rapport
 ```
@@ -16,7 +16,7 @@ security-review-mcp gate --project portal --fail-on high
     security-gate:
       stage: test
       script:
-        - security-review-mcp gate --project "$CI_PROJECT_PATH_SLUG" --fail-on high
+        - security-review-controller gate --project "$CI_PROJECT_PATH_SLUG" --fail-on high
       variables:
         SECREVIEW_DATABASE_URL: $SECREVIEW_DATABASE_URL   # variable masquée et protégée
     ```
@@ -25,7 +25,7 @@ security-review-mcp gate --project portal --fail-on high
 
     ```yaml
     - name: Security gate
-      run: security-review-mcp gate --project "${{ github.event.repository.name }}" --fail-on high
+      run: security-review-controller gate --project "${{ github.event.repository.name }}" --fail-on high
       env:
         SECREVIEW_DATABASE_URL: ${{ secrets.SECREVIEW_DATABASE_URL }}
     ```

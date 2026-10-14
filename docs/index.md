@@ -42,6 +42,7 @@ l'agent relit le code, s'appuie sur les checklists et enregistre son rapport en 
 | Installer le serveur, y compris hors ligne | [Installation](demarrage/installation.md) |
 | Le brancher sur VS Code ou Claude | [Configuration de l'hôte](demarrage/hote.md) |
 | Monter un serveur partagé sécurisé | [Serveur HTTP, authentification et TLS](demarrage/http.md) |
+| Déployer le serveur MCP et le contrôleur séparément (Docker, Kubernetes) | [Architecture et déploiement](demarrage/kubernetes.md) |
 | Connaître les prompts et outils exposés | [Prompts et outils](utilisation/prompts-outils.md) |
 | Bloquer un déploiement sur des findings ouverts | [Gate](ci-cd/gate.md) |
 | Ajouter les règles de mon entreprise | [Règles internes](utilisation/regles.md) |

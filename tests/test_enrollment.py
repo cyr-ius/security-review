@@ -7,7 +7,7 @@ import urllib.error
 import pytest
 from starlette.testclient import TestClient
 
-from security_review_mcp import cli, enrollment, http_server, server, token_store, web_api
+from security_review_mcp import cli, enrollment, enrollment_api, http_server, server, token_store
 from security_review_mcp.http_server import Role
 
 
@@ -31,14 +31,14 @@ class FakeOpener:
 
 @pytest.fixture
 def opener(monkeypatch, tmp_path) -> FakeOpener:
-    """The full HTTP app, reached through a fake urllib opener."""
-    (tmp_path / "index.html").write_text("<html></html>", encoding="utf-8")
+    """The MCP server app (public enrollment endpoint), reached through a fake urllib opener."""
     token_store.create_token("ops", Role.ADMIN)
-    app = http_server.build_app(
+    app = http_server.build_mcp_app(
         server.mcp,
         "127.0.0.1",
         token_store.DatabaseTokenStore(),
-        web_api.create_app(ui_dir=str(tmp_path)),
+        server.enrollment_mcp,
+        enrollment_api.create_app(),
     )
     fake = FakeOpener(TestClient(app, base_url="http://127.0.0.1"))
     monkeypatch.setattr(enrollment.urllib.request, "build_opener", lambda *handlers: fake)

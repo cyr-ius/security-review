@@ -3,7 +3,7 @@
 The database is the source of the active content. On the first run, ``seed_defaults`` copies
 the default rules and checklists of ``default_rules.toml`` into it; later runs add the new
 defaults and update the ones an administrator has not modified (see ``DefaultSeed``).
-Administrators manage the content with ``security-review-mcp rules
+Administrators manage the content with ``security-review-controller rules
 import|export|enable|disable|delete`` and the web interface. Every change bumps
 ``RuleSetRevision`` so that each server instance sharing the database reloads its registry
 (see ``registry.snapshot``).
@@ -540,8 +540,10 @@ def export_pack() -> str:
         disabled = sorted(session.exec(select(DisabledRule.rule_id)).all())
 
     document = tomlkit.document()
-    document.add(tomlkit.comment("Internal rules exported by `security-review-mcp rules export`."))
-    document.add(tomlkit.comment("Import with `security-review-mcp rules import FILE`."))
+    document.add(
+        tomlkit.comment("Internal rules exported by `security-review-controller rules export`.")
+    )
+    document.add(tomlkit.comment("Import with `security-review-controller rules import FILE`."))
     document["disabled_rules"] = disabled
     for key, entries in (("rules", rules), ("checklist", checklist)):
         tables = tomlkit.aot()

@@ -1,7 +1,7 @@
 # Export SARIF
 
 ```bash
-security-review-mcp sarif --project mon-projet -o results.sarif      # ou --report-id N
+security-review-controller sarif --project mon-projet -o results.sarif      # ou --report-id N
 ```
 
 Le fichier produit est du SARIF 2.1.0 (validé contre le schéma officiel).
@@ -24,7 +24,7 @@ Le fichier produit est du SARIF 2.1.0 (validé contre le schéma officiel).
 Exemple GitHub Actions :
 
 ```yaml
-- run: security-review-mcp code scan . --format sarif -o code.sarif
+- run: security-review-controller code scan . --format sarif -o code.sarif
   continue-on-error: true
 - uses: github/codeql-action/upload-sarif@v4
   with:

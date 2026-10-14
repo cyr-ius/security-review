@@ -4,16 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "security-review-mcp"
-version = "1.1.0"
+version = "1.0.0"
 description = "MCP server for security code review: prompts, checklists, quick scans and persistent security reports"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.14"
 dependencies = [
     "mcp>=2,<3",
     "sqlmodel>=0.0.22",
     "pydantic-settings>=2.2",
     "fastapi>=0.135",
     "tomlkit>=0.13",
+    "alembic>=1.13",
 ]
 
 [project.optional-dependencies]
@@ -23,6 +24,7 @@ docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9.5"]
 
 [project.scripts]
 security-review-mcp = "security_review_mcp.server:main"
+security-review-controller = "security_review_mcp.controller:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -30,7 +32,7 @@ where = ["src"]
 # Default rules seeded into the database, and the built Angular application (web/,
 # `npm run build`) served on /ui
 [tool.setuptools.package-data]
-security_review_mcp = ["default_rules.toml", "webui/*", "webui/**/*"]
+security_review_mcp = ["default_rules.toml", "migrations/script.py.mako", "webui/*", "webui/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -38,7 +40,7 @@ pythonpath = ["src"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "C4", "UP"]

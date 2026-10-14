@@ -1,8 +1,10 @@
-"""Web interface: REST API (``/api/v1``) and the bundled Angular application (``/ui``).
+"""Controller: REST API (``/api/v1``) and the bundled Angular application (``/ui``).
 
-Served next to the MCP endpoint by the streamable HTTP transport (see http_server). The bearer
-middleware authenticates the requests and stores the token label and role in the ASGI scope;
-this module only checks the permission to change a finding status.
+Served by ``security-review-controller serve``, in its own process, apart from the MCP server
+(see http_server). The bearer middleware authenticates the requests and stores the token label
+and role in the ASGI scope; this module checks the permissions of each route. The public
+enrollment endpoint is served by the MCP server (see enrollment_api); approving or rejecting
+the requests is done here.
 
 The services are synchronous (SQLModel sessions), so every call runs in the thread pool.
 """
@@ -16,7 +18,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, 
 from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
-from fastapi.security import HTTPBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -25,21 +27,20 @@ from starlette.types import Scope
 
 from . import __version__, registry, rule_store, rules_loader, services, token_store, trends
 from .config import get_settings
-from .http_server import (
-    ENROLL_PATH,
-    LOOPBACK_HOSTS,
-    TRIAGE_ROLES,
-    Role,
-    has_credentials,
-    hash_token,
-)
+from .http_server import BEARER_CHALLENGE, HEALTH_PATH, LOOPBACK_HOSTS, TRIAGE_ROLES, Role
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
 from .sarif import build_sarif
 
 logger = logging.getLogger("security_review_mcp.web")
 
 BUNDLED_UI_DIR = Path(__file__).parent / "webui"
-ANONYMOUS = "anonymous"
+
+# Declares the bearer scheme in the OpenAPI document (Swagger "Authorize" button). The token
+# itself is validated by the bearer middleware: auto_error=False leaves the 401 to
+# current_identity, which also covers an app served without that middleware.
+bearer_scheme = HTTPBearer(
+    auto_error=False, description="API token (`security-review-controller token create`)"
+)
 
 # The Angular build loads no inline script and no external resource. Component styles are
 # injected as <style> elements at runtime, hence 'unsafe-inline' for styles only.
@@ -65,6 +66,7 @@ class Identity(BaseModel):
     client: str
     role: Role
     can_triage: bool
+    # Always true: the API answers authenticated requests only (kept for API compatibility)
     auth_enabled: bool
     # Projects a restricted token reaches; None: every project
     projects: list[str] | None = None
@@ -116,18 +118,6 @@ class ProjectTokenCreate(BaseModel):
     )
 
 
-class EnrollmentRequest(BaseModel):
-    """Body of the public POST /enroll.
-
-    Without credentials it requests a new project token; with the bearer token of a client
-    already restricted to other projects it requests one more project for that token.
-    """
-
-    project: str = Field(min_length=1, max_length=token_store.MAX_PROJECT_CHARS)
-    label: str | None = Field(default=None, max_length=token_store.MAX_LABEL_CHARS)  # + suffix
-    requested_by: str | None = Field(default=None, max_length=token_store.MAX_REQUESTED_BY_CHARS)
-
-
 class ProjectSummary(BaseModel):
     """One project with its open findings."""
 
@@ -157,16 +147,32 @@ class ReportSummary(BaseModel):
 # ── Dependencies ─────────────────────────────────────────────────────────────
 
 
-def current_identity(request: Request) -> Identity:
-    """Identity set by the bearer middleware; without configured tokens everyone is admin."""
+def current_identity(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Identity:
+    """Identity set by the bearer middleware once it has validated the token.
+
+    Fails closed: a request that reaches a route without an identity in its scope (app served
+    without BearerAuthMiddleware, or a public path mistakenly routed here) gets 401, never an
+    implicit administrator.
+    """
     state = request.scope.get("state") or {}
-    auth_enabled = "auth_role" in state
-    role = Role(state["auth_role"]) if auth_enabled else Role.ADMIN
+    if "auth_role" not in state:
+        logger.warning(
+            "Rejected API request without an authenticated identity: %s", request.url.path
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid bearer token",
+            headers={"WWW-Authenticate": BEARER_CHALLENGE},
+        )
+    role = Role(state["auth_role"])
     return Identity(
-        client=state.get("auth_client", ANONYMOUS),
+        client=state["auth_client"],
         role=role,
         can_triage=role in TRIAGE_ROLES,
-        auth_enabled=auth_enabled,
+        auth_enabled=True,
         projects=None if state.get("auth_projects") is None else sorted(state["auth_projects"]),
         version=__version__,
     )
@@ -237,7 +243,8 @@ async def _refresh_checklists() -> dict:
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 
-router = APIRouter(prefix="/api/v1", dependencies=[Depends(HTTPBearer(auto_error=False))])
+# Every route needs an authenticated identity, even those that do not use it (health)
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(current_identity)])
 
 
 @router.get("/health")
@@ -537,79 +544,6 @@ async def delete_project_token(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-async def _enrolled_token(request: Request) -> str | None:
-    """Id of the active token presented to the public enrollment endpoint, or None without one.
-
-    The endpoint is public (the middleware does not authenticate it), so the token is checked
-    here: a complementary enrollment must come from the holder of the token.
-    """
-    authorization = request.headers.get("authorization", "")
-    if not has_credentials(authorization):
-        return None
-    scheme, _, credentials = authorization.strip().partition(" ")
-    info = None
-    if scheme.lower() == "bearer":
-        lookup = token_store.DatabaseTokenStore().lookup
-        info = await run_in_threadpool(lookup, hash_token(credentials.strip()))
-    if info is None:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED,
-            "Missing or invalid bearer token",
-            headers={"WWW-Authenticate": 'Bearer realm="security-review-mcp"'},
-        )
-    if info.pending:
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            "This token is waiting for an administrator to approve its enrollment",
-        )
-    return info.token_id
-
-
-@router.post(ENROLL_PATH.removeprefix("/api/v1"), status_code=status.HTTP_201_CREATED)
-async def enroll(body: EnrollmentRequest, request: Request) -> dict[str, Any]:
-    """Request access to a project (public endpoint).
-
-    Without credentials a new token is returned once; it works only after an administrator
-    approves the request. With the bearer token of a client restricted to other projects, the
-    project is requested for that token (complementary enrollment, no new secret).
-    """
-    if not get_settings().enrollment:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Enrollment is disabled")
-    if not await run_in_threadpool(token_store.DatabaseTokenStore().has_tokens):
-        raise HTTPException(
-            status.HTTP_409_CONFLICT, "Authentication is not configured: no token is needed"
-        )
-    address = request.client.host if request.client else None
-    token_id = await _enrolled_token(request)
-    try:
-        if token_id is None:
-            created = await run_in_threadpool(
-                token_store.request_enrollment,
-                body.project,
-                body.label,
-                body.requested_by,
-                address,
-            )
-        else:
-            created = await run_in_threadpool(
-                token_store.request_additional_project,
-                token_id,
-                body.project,
-                body.requested_by,
-                address,
-            )
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    logger.info(
-        "Enrollment (%s) requested for project %s (%s) from %s",
-        created["kind"],
-        created["project"],
-        created["label"],
-        address or "unknown",
-    )
-    return created
-
-
 @router.get("/enrollments")
 async def enrollments(
     identity: Annotated[Identity, Depends(require_admin)],
@@ -693,8 +627,10 @@ def resolve_ui_dir(configured: str | None) -> Path | None:
 # ── Application ──────────────────────────────────────────────────────────────
 
 
-def create_app(host: str = "127.0.0.1", ui_dir: str | None = None) -> FastAPI:
-    """Build the web application (REST API and, when it is built, the Angular application).
+def create_app(host: str = "127.0.0.1", ui_dir: str | None = None, ui: bool = True) -> FastAPI:
+    """Build the controller app (REST API and, when it is built, the Angular application).
+
+    ``ui=False`` (SECREVIEW_WEB_UI=false) serves the REST API only.
 
     Raises:
         ValueError: If ``ui_dir`` (SECREVIEW_WEB_UI_DIR) is set but holds no application.
@@ -709,18 +645,24 @@ def create_app(host: str = "127.0.0.1", ui_dir: str | None = None) -> FastAPI:
     )
     app.include_router(router)
 
+    @app.get(HEALTH_PATH, include_in_schema=False)
+    async def healthz() -> dict[str, str]:
+        """Public liveness probe (containers, Kubernetes)."""
+        return {"status": "ok"}
+
     @app.exception_handler(services.NotFoundError)
     async def not_found(_: Request, exc: services.NotFoundError) -> JSONResponse:
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": str(exc)})
 
-    directory = resolve_ui_dir(ui_dir if ui_dir is not None else settings.web_ui_dir)
+    configured = ui_dir if ui_dir is not None else settings.web_ui_dir
+    directory = resolve_ui_dir(configured) if ui else None
     if directory is not None:
         app.mount("/ui", SinglePageApp(directory=directory, html=True), name="ui")
 
         @app.get("/", include_in_schema=False)
         async def root() -> RedirectResponse:
             return RedirectResponse("/ui/")
-    else:
+    elif ui:
         logger.warning("Web interface not built: only the REST API is served (/api/v1)")
 
     if host in LOOPBACK_HOSTS:

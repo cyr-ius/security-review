@@ -88,7 +88,7 @@ class Finding(FindingBase, table=True):
     report_id: int = Field(foreign_key="securityreport.id", index=True)
     status: FindingStatus = Field(default=FindingStatus.OPEN, index=True)
     status_changed_at: datetime | None = Field(default=None)
-    report: "SecurityReport" = Relationship(back_populates="findings")
+    report: SecurityReport = Relationship(back_populates="findings")
 
 
 class FindingCreate(FindingBase):
@@ -212,7 +212,7 @@ class ApiTokenProject(SQLModel, table=True):
     requested_from: str | None = Field(default=None, max_length=64)
 
 
-# ── Rules (managed with `security-review-mcp rules` and the web interface) ──
+# ── Rules (managed with `security-review-controller rules` and the web interface) ──
 # The tables keep their historical "custom" names: they also hold the default content seeded
 # from default_rules.toml on the first run.
 

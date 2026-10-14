@@ -1,38 +1,105 @@
-<nav class="navbar navbar-expand border-bottom bg-body-tertiary">
-  <div class="container-xl">
-    <a class="navbar-brand fw-semibold" routerLink="/" aria-label="Security Review">
-      <i class="bi bi-shield-lock" aria-hidden="true"></i>
-      <span class="d-none d-sm-inline">Security Review</span>
+<div class="shell" [class.menu-open]="menuOpen()">
+  <aside class="sidebar" id="app-sidebar" aria-label="Navigation principale">
+    <a class="brand" routerLink="/" (click)="closeMenu()">
+      <span class="brand-mark" aria-hidden="true"><i class="bi bi-shield-lock-fill"></i></span>
+      <span class="brand-text">
+        <span class="brand-name">Security Review</span>
+        <span class="brand-sub">Console de supervision</span>
+      </span>
     </a>
-    <ul class="navbar-nav me-auto">
-      <li class="nav-item">
-        <a class="nav-link" routerLink="/projects" routerLinkActive="active">Projets</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" routerLink="/reports" routerLinkActive="active">Rapports</a>
-      </li>
-      @if (auth.identity()?.role === 'admin') {
-        <li class="nav-item">
-          <a class="nav-link" routerLink="/rules" routerLinkActive="active">Règles</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" routerLink="/checklists" routerLinkActive="active">Checklists</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" routerLink="/tokens" routerLinkActive="active">Jetons</a>
-        </li>
+
+    <nav class="nav-scroll">
+      <p class="nav-section">Supervision</p>
+      <ul class="nav-list">
+        @for (item of mainNav; track item.path) {
+          <li>
+            <a
+              class="nav-entry"
+              [routerLink]="item.path"
+              routerLinkActive="active"
+              ariaCurrentWhenActive="page"
+              (click)="closeMenu()"
+            >
+              <i class="bi" [class]="item.icon" aria-hidden="true"></i>
+              {{ item.label }}
+            </a>
+          </li>
+        }
+      </ul>
+
+      @if (isAdmin()) {
+        <p class="nav-section">Administration</p>
+        <ul class="nav-list">
+          @for (item of adminNav; track item.path) {
+            <li>
+              <a
+                class="nav-entry"
+                [routerLink]="item.path"
+                routerLinkActive="active"
+                ariaCurrentWhenActive="page"
+                (click)="closeMenu()"
+              >
+                <i class="bi" [class]="item.icon" aria-hidden="true"></i>
+                {{ item.label }}
+              </a>
+            </li>
+          }
+        </ul>
       }
-    </ul>
-    <div class="d-flex align-items-center gap-2">
-      <span class="small text-body-secondary d-none d-md-inline" [title]="roleLabel()">
-        <i class="bi bi-person-badge" aria-hidden="true"></i>
-        {{ roleLabel() }}
+    </nav>
+
+    @if (auth.identity(); as identity) {
+      <div class="user-card">
+        <span class="avatar" aria-hidden="true">{{ initials() }}</span>
+        <span class="user-text">
+          <span class="user-name" [title]="identity.client">{{ identity.client }}</span>
+          <span class="user-role">
+            <i class="bi" [class]="role().icon" aria-hidden="true"></i>
+            {{ role().label }}
+          </span>
+        </span>
+        <button
+          type="button"
+          class="icon-btn"
+          (click)="logout()"
+          aria-label="Déconnexion"
+          title="Déconnexion"
+        >
+          <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+        </button>
+      </div>
+      <p class="version">v{{ identity.version }}</p>
+    }
+  </aside>
+
+  <div class="backdrop" (click)="closeMenu()" aria-hidden="true"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary d-lg-none"
+        (click)="menuOpen.set(!menuOpen())"
+        aria-controls="app-sidebar"
+        [attr.aria-expanded]="menuOpen()"
+        aria-label="Menu"
+      >
+        <i class="bi bi-list" aria-hidden="true"></i>
+      </button>
+      <span class="brand-mark small-mark d-lg-none" aria-hidden="true">
+        <i class="bi bi-shield-lock-fill"></i>
+      </span>
+      <span class="ms-auto"></span>
+      <span class="status-pill d-none d-md-inline-flex">
+        <span class="dot" aria-hidden="true"></span>
+        Connecté
       </span>
       <button
         type="button"
         class="btn btn-sm btn-outline-secondary"
         (click)="theme.toggle()"
         [attr.aria-label]="theme.theme() === 'dark' ? 'Thème clair' : 'Thème sombre'"
+        [title]="theme.theme() === 'dark' ? 'Thème clair' : 'Thème sombre'"
       >
         <i
           class="bi"
@@ -40,16 +107,10 @@
           aria-hidden="true"
         ></i>
       </button>
-      @if (auth.identity()?.auth_enabled) {
-        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="logout()">
-          <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
-          <span class="d-none d-sm-inline">Déconnexion</span>
-        </button>
-      }
-    </div>
-  </div>
-</nav>
+    </header>
 
-<main class="container-xl py-4">
-  <router-outlet />
-</main>
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>

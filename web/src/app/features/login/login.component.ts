@@ -5,6 +5,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { ThemeService } from '../../core/services/theme.service';
 
 /** Login page: the user enters a bootstrap password or a bearer token. */
 @Component({
@@ -18,6 +19,26 @@ export class LoginComponent {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+  readonly theme = inject(ThemeService);
+
+  /** Highlights shown on the brand panel. */
+  readonly features = [
+    {
+      icon: 'bi-robot',
+      title: 'Revues assistées par IA',
+      text: 'Prompts et checklists exposés à votre assistant via MCP.',
+    },
+    {
+      icon: 'bi-bug',
+      title: 'Scan de code et de dépendances',
+      text: 'Règles par motifs et avis de vulnérabilité OSV importés hors ligne.',
+    },
+    {
+      icon: 'bi-graph-down-arrow',
+      title: 'Suivi et tendances',
+      text: 'Triage des findings, gate CI/CD, export SARIF.',
+    },
+  ] as const;
 
   readonly error = signal<string | null>(this.initialMessage());
   readonly reveal = signal(false);

@@ -1,13 +1,39 @@
-# security-review-mcp shared server (streamable HTTP, web interface on /ui) with PostgreSQL.
+# security-review-mcp shared server with PostgreSQL: the MCP server and the controller (REST
+# API, web interface on /ui) run in two containers sharing the database.
 #
 #   echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env
 #   docker compose up -d --build
-#   docker compose logs security-review-mcp   # one-time admin password, shown at first start
+#   docker compose logs controller   # one-time admin password, shown at first start
 #
-# The server listens on 127.0.0.1:8000 only: enable TLS (SECREVIEW_TLS_*) or put it behind a
-# reverse proxy before exposing it. PostgreSQL is not published on the host.
+# The migrate service migrates the schema (Alembic) before the two servers start.
+# The MCP server listens on 127.0.0.1:8000 and the controller on 127.0.0.1:8080 only: enable TLS
+# (SECREVIEW_TLS_*) or put them behind a reverse proxy before exposing them. The controller
+# exposes no unauthenticated write endpoint: it can stay on an internal network.
+# PostgreSQL is not published on the host.
 
 name: security-review-mcp
+
+x-secreview: &secreview
+  build:
+    context: .
+    args:
+      EXTRAS: postgres
+  image: security-review-mcp:pg
+  environment:
+    # The password is inserted as is in the URL: use URL-safe characters (e.g. hex)
+    SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
+    SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
+    # The migrate service is the only one that changes the schema
+    SECREVIEW_DB_AUTO_UPGRADE: "false"
+  networks:
+    - backend
+  read_only: true
+  tmpfs:
+    - /tmp
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
 
 services:
   db:
@@ -29,32 +55,35 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  security-review-mcp:
-    build:
-      context: .
-      args:
-        EXTRAS: postgres
-    image: security-review-mcp:pg
-    restart: unless-stopped
+  migrate:
+    <<: *secreview
+    restart: "no"
     depends_on:
       db:
         condition: service_healthy
+    entrypoint: ["security-review-controller"]
+    command: ["db", "upgrade"]
+
+  controller:
+    <<: *secreview
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    entrypoint: ["security-review-controller"]
+    command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "127.0.0.1:${SECREVIEW_CONTROLLER_PORT:-8080}:8000"
+
+  mcp:
+    <<: *secreview
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     command: ["--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
-    environment:
-      # The password is inserted as is in the URL: use URL-safe characters (e.g. hex)
-      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
-      SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
     ports:
       - "127.0.0.1:${SECREVIEW_PORT:-8000}:8000"
-    networks:
-      - backend
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
 
 volumes:
   secreview-pg:

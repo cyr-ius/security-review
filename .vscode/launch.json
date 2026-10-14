@@ -1,8 +1,25 @@
 {
   "version": "0.2.0",
+  "compounds": [
+    {
+      // Migrates the schema once, then starts both processes on the same database
+      // (PostgreSQL of the devcontainer: SECREVIEW_DATABASE_URL set in .devcontainer/compose.yaml)
+      "name": "MCP server + controller",
+      "configurations": ["Controller (web UI and API, port 8080)", "MCP server (HTTP, port 8000)"],
+      "preLaunchTask": "Database upgrade",
+      "stopAll": true
+    },
+    {
+      // Python controller and Angular app under the debugger, with live reload on save
+      "name": "Controller + web UI (Angular, port 4200)",
+      "configurations": ["Controller (web UI and API, port 8080)", "Web UI (Angular dev server only)"],
+      "stopAll": true
+    }
+  ],
   "configurations": [
     {
-      "name": "MCP server (streamable-http)",
+      // Needs a migrated database: run the "Database upgrade" task (or the controller) first
+      "name": "MCP server (HTTP, port 8000)",
       "type": "debugpy",
       "request": "launch",
       "module": "security_review_mcp",
@@ -11,12 +28,62 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
-        "SECREVIEW_AUTH_BOOTSTRAP_ADMIN": "true",
-        "SECREVIEW_RULES_DIR": "${workspaceFolder}/.venv/rules",
         "SECREVIEW_LOG_LEVEL": "DEBUG"
       },
       "console": "integratedTerminal",
       "justMyCode": false
+    },
+    {
+      // Migrates the schema at start; prints the bootstrap admin password on the first start
+      "name": "Controller (web UI and API, port 8080)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "security_review_mcp.controller",
+      "args": ["serve", "--host", "127.0.0.1", "--port", "8080"],
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "SECREVIEW_AUTH_BOOTSTRAP_ADMIN": "true",
+        "SECREVIEW_LOG_LEVEL": "DEBUG"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      // Any controller command, e.g. db status, token list --pending, rules list
+      "name": "Controller CLI (prompt for arguments)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "security_review_mcp.controller",
+      "args": "${input:controllerArgs}",
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "env": { "PYTHONPATH": "${workspaceFolder}/src" },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      // Starts the controller (API on port 8080) and ng serve (live reload, HMR of styles and
+      // templates), then opens Chrome with the TypeScript breakpoints mapped
+      "name": "Web UI + API (Angular dev server, port 4200)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:4200/ui/",
+      "webRoot": "${workspaceFolder}/web",
+      "preLaunchTask": "Web UI + API: dev servers",
+      "sourceMaps": true
+    },
+    {
+      // Used by the compound, which starts the controller itself under debugpy
+      "name": "Web UI (Angular dev server only)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:4200/ui/",
+      "webRoot": "${workspaceFolder}/web",
+      "preLaunchTask": "Web UI: dev server (port 4200)",
+      "sourceMaps": true,
+      "presentation": { "hidden": true }
     },
     {
       "name": "MCP server (attach stdio, port 5678)",
@@ -38,6 +105,14 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "console": "integratedTerminal",
       "justMyCode": false
+    }
+  ],
+  "inputs": [
+    {
+      "id": "controllerArgs",
+      "type": "promptString",
+      "description": "security-review-controller arguments",
+      "default": "db status"
     }
   ]
 }

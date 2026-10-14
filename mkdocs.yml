@@ -59,6 +59,7 @@ nav:
       - Configuration de l'hôte: demarrage/hote.md
       - Serveur HTTP, authentification et TLS: demarrage/http.md
       - Docker: demarrage/docker.md
+      - Architecture et déploiement: demarrage/kubernetes.md
   - Utilisation:
       - Prompts et outils: utilisation/prompts-outils.md
       - Scan du code complet: utilisation/code-scan.md

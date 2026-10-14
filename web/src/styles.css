@@ -1,17 +1,79 @@
 /* Global styles. Bootstrap and Bootstrap Icons are loaded from angular.json. */
 
 /*
- * Severity colors: the status palette of the dataviz reference (critical, serious, warning),
- * then neutral steps. A color always comes with an icon and a name, never alone.
+ * Design tokens. Bootstrap variables are overridden here so that every component (buttons,
+ * links, focus rings, cards, tables) shares one palette in light and dark mode. Fonts come
+ * from the system stack: the CSP only allows fonts served by the application itself.
  */
-:root {
+:root,
+[data-bs-theme='light'] {
+  --app-font:
+    'Inter', 'Segoe UI Variable', 'Segoe UI', system-ui, -apple-system, Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --app-accent: #4f46e5;
+  --app-accent-rgb: 79, 70, 229;
+  --app-accent-hover: #4338ca;
+  --app-accent-2: #0ea5e9;
+  --app-surface: #ffffff;
+  --app-canvas: #f4f6fb;
+  --app-sidebar-bg: #0f172a;
+  --app-sidebar-fg: #cbd5e1;
+  --app-sidebar-muted: #64748b;
+  --app-sidebar-active: rgb(99 102 241 / 18%);
+  --app-shadow: 0 1px 2px rgb(15 23 42 / 4%), 0 4px 16px rgb(15 23 42 / 6%);
+  --app-shadow-lg: 0 10px 40px rgb(15 23 42 / 12%);
+
+  --bs-body-font-family: var(--app-font);
+  --bs-body-bg: var(--app-canvas);
+  --bs-body-bg-rgb: 244, 246, 251;
+  --bs-tertiary-bg: #eef1f7;
+  --bs-border-color: #e3e7ef;
+  --bs-border-color-translucent: rgb(15 23 42 / 8%);
+  --bs-primary: var(--app-accent);
+  --bs-primary-rgb: var(--app-accent-rgb);
+  --bs-primary-bg-subtle: #eef2ff;
+  --bs-primary-text-emphasis: #3730a3;
+  --bs-link-color: var(--app-accent);
+  --bs-link-color-rgb: var(--app-accent-rgb);
+  --bs-link-hover-color: var(--app-accent-hover);
+  --bs-link-hover-color-rgb: 67, 56, 202;
+  --bs-focus-ring-color: rgba(var(--app-accent-rgb), 0.25);
+  --bs-border-radius: 0.5rem;
+  --bs-border-radius-sm: 0.375rem;
+  --bs-border-radius-lg: 0.875rem;
+  --bs-box-shadow-sm: var(--app-shadow);
+
   --series-1: #2a78d6;
 }
 
 [data-bs-theme='dark'] {
+  --app-accent: #818cf8;
+  --app-accent-rgb: 129, 140, 248;
+  --app-accent-hover: #a5b4fc;
+  --app-surface: #111827;
+  --app-canvas: #0b1120;
+  --app-sidebar-bg: #070b16;
+  --app-sidebar-active: rgb(129 140 248 / 16%);
+  --app-shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 4px 16px rgb(0 0 0 / 25%);
+  --app-shadow-lg: 0 10px 40px rgb(0 0 0 / 50%);
+
+  --bs-body-bg: var(--app-canvas);
+  --bs-body-bg-rgb: 11, 17, 32;
+  --bs-secondary-bg: #1f2937;
+  --bs-tertiary-bg: #172033;
+  --bs-border-color: #243045;
+  --bs-border-color-translucent: rgb(255 255 255 / 8%);
+  --bs-primary-bg-subtle: rgb(129 140 248 / 15%);
+  --bs-primary-text-emphasis: #c7d2fe;
+  --bs-link-hover-color-rgb: 165, 180, 252;
+
   --series-1: #3987e5;
 }
 
+/*
+ * Severity colors: the status palette of the dataviz reference (critical, serious, warning),
+ * then neutral steps. A color always comes with an icon and a name, never alone.
+ */
 .sev-critical {
   --sev-color: #d03b3b;
 }
@@ -34,8 +96,201 @@
 
 body {
   background: var(--bs-body-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+.h1,
+.h2,
+.h3 {
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .breadcrumb {
   font-size: 0.875rem;
+}
+
+::selection {
+  background: rgba(var(--app-accent-rgb), 0.25);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+
+.btn {
+  --bs-btn-font-weight: 500;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.05s ease;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--app-accent);
+  --bs-btn-border-color: var(--app-accent);
+  --bs-btn-hover-bg: var(--app-accent-hover);
+  --bs-btn-hover-border-color: var(--app-accent-hover);
+  --bs-btn-active-bg: var(--app-accent-hover);
+  --bs-btn-active-border-color: var(--app-accent-hover);
+  --bs-btn-disabled-bg: var(--app-accent);
+  --bs-btn-disabled-border-color: var(--app-accent);
+  --bs-btn-focus-shadow-rgb: var(--app-accent-rgb);
+  box-shadow: 0 1px 2px rgba(var(--app-accent-rgb), 0.3);
+}
+
+[data-bs-theme='dark'] .btn-primary {
+  --bs-btn-bg: #6366f1;
+  --bs-btn-border-color: #6366f1;
+  --bs-btn-hover-bg: #4f46e5;
+  --bs-btn-hover-border-color: #4f46e5;
+  --bs-btn-active-bg: #4f46e5;
+  --bs-btn-active-border-color: #4f46e5;
+  --bs-btn-disabled-bg: #6366f1;
+  --bs-btn-disabled-border-color: #6366f1;
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--bs-body-color);
+  --bs-btn-bg: var(--app-surface);
+  --bs-btn-border-color: var(--bs-border-color);
+  --bs-btn-hover-color: var(--bs-body-color);
+  --bs-btn-hover-bg: var(--bs-tertiary-bg);
+  --bs-btn-hover-border-color: var(--bs-border-color);
+  --bs-btn-active-color: var(--bs-body-color);
+  --bs-btn-active-bg: var(--bs-tertiary-bg);
+  --bs-btn-active-border-color: var(--bs-border-color);
+}
+
+/* ── Forms ───────────────────────────────────────────────────────────────── */
+
+.form-control,
+.form-select,
+.input-group-text {
+  border-color: var(--bs-border-color);
+}
+
+.form-control,
+.form-select {
+  background-color: var(--app-surface);
+}
+
+.form-control:focus,
+.form-select:focus,
+.form-check-input:focus {
+  border-color: rgba(var(--app-accent-rgb), 0.6);
+  box-shadow: 0 0 0 0.2rem var(--bs-focus-ring-color);
+}
+
+.form-check-input:checked {
+  background-color: var(--app-accent);
+  border-color: var(--app-accent);
+}
+
+.form-label {
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+/* ── Cards, lists, tables ────────────────────────────────────────────────── */
+
+.card {
+  --bs-card-bg: var(--app-surface);
+  --bs-card-border-color: var(--bs-border-color);
+  --bs-card-cap-bg: transparent;
+  --bs-card-cap-padding-y: 0.85rem;
+  box-shadow: var(--app-shadow);
+}
+
+.card-header {
+  border-bottom-color: var(--bs-border-color);
+}
+
+.list-group {
+  --bs-list-group-bg: var(--app-surface);
+  --bs-list-group-border-color: var(--bs-border-color);
+}
+
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-border-color: var(--bs-border-color);
+  --bs-table-hover-bg: rgba(var(--app-accent-rgb), 0.04);
+}
+
+.table > thead th {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+  background: var(--bs-tertiary-bg);
+  white-space: nowrap;
+}
+
+.card > .table-responsive:last-child .table,
+.card > .table:last-child {
+  margin-bottom: 0;
+}
+
+.badge {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.alert {
+  border-width: 0 0 0 4px;
+  box-shadow: var(--app-shadow);
+}
+
+code {
+  color: var(--bs-primary-text-emphasis);
+}
+
+/* Native dialogs (rule and checklist editors) */
+dialog::backdrop {
+  backdrop-filter: blur(3px);
+}
+
+/* Discreet scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bs-border-color) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* ── Brand mark (sidebar and login page) ─────────────────────────────────── */
+
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  color: #fff;
+  font-size: 1.15rem;
+  background: linear-gradient(135deg, #6366f1 0%, #0ea5e9 100%);
+  box-shadow:
+    0 4px 14px rgb(99 102 241 / 40%),
+    inset 0 1px 0 rgb(255 255 255 / 25%);
+}
+
+.brand-mark.lg {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.875rem;
+  font-size: 1.5rem;
 }

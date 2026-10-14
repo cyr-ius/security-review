@@ -1,0 +1,42 @@
+# Development container (app) and its PostgreSQL database (db), started by devcontainer.json.
+#
+# The database is reachable from the app container only (host name "db"), with development
+# credentials: it is not published on the host (VS Code forwards it, see forwardPorts).
+# Its data lives in the secreview-dev-pg volume, kept across container rebuilds.
+
+name: security-review-mcp-dev
+
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/python:3-3.14-trixie
+    # Keep the container running: VS Code attaches to it
+    command: sleep infinity
+    volumes:
+      - ..:/workspaces/security-review-mcp:cached
+      - ${HOME}/.claude:/home/vscode/.claude:cached
+      - ${HOME}/.claude.json:/home/vscode/.claude.json:cached
+    environment:
+      # Used by the MCP server, the controller and the CLI (tests use an in-memory database).
+      # Development-only credentials of the db service below.
+      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:secreview@db:5432/secreview
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: secreview
+      POSTGRES_USER: secreview
+      POSTGRES_PASSWORD: secreview
+    volumes:
+      - secreview-dev-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secreview -d secreview"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  secreview-dev-pg:

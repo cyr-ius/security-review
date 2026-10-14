@@ -1,8 +1,9 @@
 """Command line helpers for pipelines and administrators (no MCP client or agent needed).
 
-Commands: ``gate``, ``sarif``, ``trend``, ``advisories``, ``deps``, ``code``, ``rules``,
-``token`` and ``enroll``. Exit codes follow the same convention everywhere: 0 success, 1 blocked
-(gate / findings found), 2 usage or data error.
+``security-review-controller`` runs ``db``, ``gate``, ``sarif``, ``trend``, ``advisories``,
+``deps``, ``code``, ``rules`` and ``token`` (CONTROLLER_COMMANDS); ``security-review-mcp`` runs
+``enroll`` (MCP_COMMANDS). Exit codes follow the same convention everywhere: 0 success,
+1 blocked (gate / findings found, schema not up to date), 2 usage or data error.
 """
 
 import argparse
@@ -29,7 +30,7 @@ from . import (
     trends,
 )
 from .config import get_settings
-from .database import init_db
+from .database import SchemaError, init_db, schema_status, upgrade_db
 from .models import SEVERITY_RANK, Severity
 from .services import NotFoundError
 
@@ -60,9 +61,9 @@ def _read_text(path: Path) -> str:
 
 
 def gate_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp gate``: fail when open findings reach a severity threshold."""
+    """Run ``security-review-controller gate``: fail when open findings reach a threshold."""
     parser = argparse.ArgumentParser(
-        prog="security-review-mcp gate",
+        prog="security-review-controller gate",
         description="Fail when open findings reach a severity threshold.",
     )
     parser.add_argument("--project", required=True)
@@ -90,9 +91,9 @@ def gate_command(argv: list[str]) -> int:
 
 
 def sarif_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp sarif``: export stored findings as SARIF 2.1.0."""
+    """Run ``security-review-controller sarif``: export stored findings as SARIF 2.1.0."""
     parser = argparse.ArgumentParser(
-        prog="security-review-mcp sarif", description="Export findings as a SARIF 2.1.0 log."
+        prog="security-review-controller sarif", description="Export findings as a SARIF 2.1.0 log."
     )
     target = parser.add_mutually_exclusive_group(required=True)
     target.add_argument("--project")
@@ -123,9 +124,9 @@ def sarif_command(argv: list[str]) -> int:
 
 
 def trend_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp trend``: print the trend report of a project."""
+    """Run ``security-review-controller trend``: print the trend report of a project."""
     parser = argparse.ArgumentParser(
-        prog="security-review-mcp trend", description="Trend report of a project."
+        prog="security-review-controller trend", description="Trend report of a project."
     )
     parser.add_argument("--project", required=True)
     parser.add_argument("--days", type=int, default=90)
@@ -149,9 +150,10 @@ def trend_command(argv: list[str]) -> int:
 
 
 def advisories_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp advisories``: import or inspect the OSV database."""
+    """Run ``security-review-controller advisories``: import or inspect the OSV database."""
     parser = argparse.ArgumentParser(
-        prog="security-review-mcp advisories", description="Manage the offline advisory database."
+        prog="security-review-controller advisories",
+        description="Manage the offline advisory database.",
     )
     actions = parser.add_subparsers(dest="action", required=True)
     importer = actions.add_parser("import", help="import OSV records (.json, directory or .zip)")
@@ -209,9 +211,10 @@ def _print_text(results: list[dict], blocked: int, fail_on: str) -> None:
 
 
 def deps_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp deps scan``: scan dependency files of a workspace."""
+    """Run ``security-review-controller deps scan``: scan dependency files of a workspace."""
     parser = argparse.ArgumentParser(
-        prog="security-review-mcp deps", description="Scan dependency manifests and lockfiles."
+        prog="security-review-controller deps",
+        description="Scan dependency manifests and lockfiles.",
     )
     parser.add_argument("action", choices=["scan"])
     parser.add_argument("files", nargs="+", help="manifests or lockfiles")
@@ -268,7 +271,7 @@ def deps_command(argv: list[str]) -> int:
             repository=args.repository,
             branch=args.branch,
             commit_sha=args.commit,
-            reviewer="security-review-mcp deps scan",
+            reviewer="security-review-controller deps scan",
             scope=", ".join(r["file"] for r in results),
         )
 
@@ -340,15 +343,15 @@ def _save_code_scan(args: argparse.Namespace, result: dict) -> dict:
         repository=args.repository,
         branch=args.branch,
         commit_sha=args.commit,
-        reviewer="security-review-mcp code scan",
+        reviewer="security-review-controller code scan",
         scope=scope,
     )
 
 
 def code_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp code scan``: pattern-scan every file of a codebase."""
+    """Run ``security-review-controller code scan``: pattern-scan every file of a codebase."""
     parser = argparse.ArgumentParser(
-        prog="security-review-mcp code",
+        prog="security-review-controller code",
         description="Pattern-scan a whole codebase (leads to verify, not a full SAST).",
     )
     parser.add_argument("action", choices=["scan"])
@@ -436,9 +439,9 @@ def code_command(argv: list[str]) -> int:
 
 
 def token_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp token``: manage the bearer tokens stored in the database."""
+    """Run ``security-review-controller token``: manage the bearer tokens stored in the database."""
     parser = argparse.ArgumentParser(
-        prog="security-review-mcp token",
+        prog="security-review-controller token",
         description="Manage the bearer tokens of the HTTP transport (stored as SHA-256 digests).",
     )
     actions = parser.add_subparsers(dest="action", required=True)
@@ -604,9 +607,9 @@ def _print_rules_text(rows: list[dict]) -> None:
 
 
 def rules_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp rules``: manage the internal rules stored in the database."""
+    """Run ``security-review-controller rules``: manage the internal rules in the database."""
     parser = argparse.ArgumentParser(
-        prog="security-review-mcp rules",
+        prog="security-review-controller rules",
         description="Manage the internal scan rules and checklist items stored in the database.",
     )
     actions = parser.add_subparsers(dest="action", required=True)
@@ -666,7 +669,31 @@ def rules_command(argv: list[str]) -> int:
     return EXIT_PASSED
 
 
-COMMANDS: dict[str, Callable[[list[str]], int]] = {
+# ── db ───────────────────────────────────────────────────────────────────────
+
+
+def db_command(argv: list[str]) -> int:
+    """Run ``security-review-controller db``: migrate the schema or show its revision."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-controller db", description="Manage the database schema."
+    )
+    actions = parser.add_subparsers(dest="action", required=True)
+    actions.add_parser("upgrade", help="migrate the schema to this version and seed the rules")
+    actions.add_parser("status", help="show the schema revision (exit code 1 when outdated)")
+    args = parser.parse_args(argv)
+    try:
+        if args.action == "upgrade":
+            upgrade_db()
+        status = schema_status()
+    except SQLAlchemyError as exc:
+        return _fail(f"Database error: {type(exc).__name__}")
+    print(json.dumps(status, indent=2))
+    return EXIT_PASSED if status["up_to_date"] else EXIT_BLOCKED
+
+
+# Commands of security-review-controller (database, administration and pipelines)
+CONTROLLER_COMMANDS: dict[str, Callable[[list[str]], int]] = {
+    "db": db_command,
     "gate": gate_command,
     "sarif": sarif_command,
     "trend": trend_command,
@@ -675,10 +702,15 @@ COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "code": code_command,
     "rules": rules_command,
     "token": token_command,
-    "enroll": enroll_command,
 }
+# Commands of security-review-mcp (client side of a shared MCP server)
+MCP_COMMANDS: dict[str, Callable[[list[str]], int]] = {"enroll": enroll_command}
+COMMANDS = CONTROLLER_COMMANDS | MCP_COMMANDS
 
 
 def run(argv: list[str]) -> int:
     """Run the command named by ``argv[0]`` and return its exit code."""
-    return COMMANDS[argv[0]](argv[1:])
+    try:
+        return COMMANDS[argv[0]](argv[1:])
+    except SchemaError as exc:
+        return _fail(str(exc))

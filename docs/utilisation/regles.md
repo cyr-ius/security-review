@@ -5,7 +5,7 @@ les instances du serveur qui partagent la base appliquent les mêmes règles. Vo
 peuvent ajouter des règles de scan et des items de checklist, modifier les règles par défaut et
 activer ou désactiver n'importe quelle règle, **sans toucher au code**.
 
-Les règles se gèrent avec la commande `security-review-mcp rules` (import et export de packs
+Les règles se gèrent avec la commande `security-review-controller rules` (import et export de packs
 TOML, activation, désactivation, suppression) ou depuis l'écran **Règles** de
 l'[interface web](interface-web.md). Les items de checklist se gèrent depuis l'écran
 **Checklists** de cette interface, ou avec les packs TOML de la commande `rules`.
@@ -28,8 +28,8 @@ Le serveur est livré avec un jeu de règles et de checklists par défaut, décr
 - Pour revenir aux règles par défaut, utilisez `rules import --replace` (voir plus bas).
 
 ```bash
-security-review-mcp rules import examples/rules/company.toml   # importer un pack
-security-review-mcp rules list --custom                        # vérifier
+security-review-controller rules import examples/rules/company.toml   # importer un pack
+security-review-controller rules list --custom                        # vérifier
 ```
 
 ## Commande `rules`
@@ -55,9 +55,9 @@ security-review-mcp rules list --custom                        # vérifier
 - La commande ne suit pas les liens symboliques ; un pack est limité à 256 Kio.
 
 ```bash
-security-review-mcp rules disable PY-008            # règle par défaut trop bruyante
-security-review-mcp rules export -o rules.toml      # sauvegarde ou revue
-security-review-mcp rules import --replace rules.toml
+security-review-controller rules disable PY-008            # règle par défaut trop bruyante
+security-review-controller rules export -o rules.toml      # sauvegarde ou revue
+security-review-controller rules import --replace rules.toml
 ```
 
 ## Format d'un pack
