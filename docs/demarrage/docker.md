@@ -112,6 +112,12 @@ docker compose logs controller   # mot de passe admin initial
 - Les ports ne sont publiés que sur `127.0.0.1`. Pour les exposer, activez le
   [TLS intégré](http.md) ou placez-les derrière un reverse proxy. Le contrôleur n'expose aucune
   route d'écriture sans jeton : il peut rester interne.
+- Pour un essai en HTTPS sans fichier à monter, ajoutez `SECREVIEW_TLS_SELF_SIGNED=true` et
+  `SECREVIEW_TLS_SELF_SIGNED_HOSTS` (l'adresse ou le nom par lequel les clients joignent l'hôte
+  Docker) dans `.env` : le fichier Compose transmet ces variables aux deux serveurs, qui génèrent un
+  [certificat auto-signé](http.md#certificat-auto-signe) à chaque démarrage (dans le `tmpfs`
+  `/tmp`). Les autres variables de `.env` ne servent qu'à Compose : ajoutez-les sous
+  `environment` pour qu'elles atteignent les conteneurs.
 - Les conteneurs tournent en système de fichiers en lecture seule, sans capacité Linux. Le
   volume `secreview-pg` contient les rapports et les jetons gérés (mot de passe admin et
   jetons projet) : sauvegardez-le.

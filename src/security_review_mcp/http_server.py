@@ -22,6 +22,7 @@ import ipaddress
 import json
 import logging
 import os
+import re
 import shutil
 import signal
 import socket
@@ -337,11 +338,34 @@ class TLSOptions:
         return options
 
 
-def _subject_alt_names(host: str) -> list[x509.GeneralName]:
-    """Names the self-signed certificate is valid for: loopback, this machine and ``host``."""
+# One DNS label (no wildcard): letters, digits and inner hyphens, 63 characters at most
+DNS_LABEL_PATTERN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?")
+MAX_SELF_SIGNED_HOSTS = 20
+
+
+def self_signed_hosts(value: str | None) -> list[str]:
+    """Parse SECREVIEW_TLS_SELF_SIGNED_HOSTS: extra DNS names or IP addresses, comma-separated."""
+    names = [name.strip() for name in (value or "").split(",") if name.strip()]
+    if len(names) > MAX_SELF_SIGNED_HOSTS:
+        raise ValueError(f"SECREVIEW_TLS_SELF_SIGNED_HOSTS: at most {MAX_SELF_SIGNED_HOSTS} names")
+    for name in names:
+        try:
+            ipaddress.ip_address(name)
+        except ValueError:
+            labels = name.split(".")
+            if len(name) > 253 or not all(DNS_LABEL_PATTERN.fullmatch(label) for label in labels):
+                raise ValueError(
+                    f"SECREVIEW_TLS_SELF_SIGNED_HOSTS: invalid DNS name or IP address: {name!r}"
+                ) from None
+    return names
+
+
+def _subject_alt_names(host: str, extra_hosts: list[str]) -> list[x509.GeneralName]:
+    """Names the certificate is valid for: loopback, this machine, ``host`` and ``extra_hosts``."""
     names = ["localhost", socket.gethostname(), "127.0.0.1", "::1"]
     if host and host not in ("0.0.0.0", "::"):
         names.append(host)
+    names.extend(extra_hosts)
     alt_names: list[x509.GeneralName] = []
     for name in dict.fromkeys(names):
         try:
@@ -351,13 +375,17 @@ def _subject_alt_names(host: str) -> list[x509.GeneralName]:
     return alt_names
 
 
-def generate_self_signed(host: str, directory: Path) -> tuple[Path, Path, str]:
+def generate_self_signed(
+    host: str, directory: Path, extra_hosts: list[str] | None = None
+) -> tuple[Path, Path, str]:
     """Write a self-signed certificate and its private key (EC P-256) into ``directory``.
 
+    ``extra_hosts`` (see self_signed_hosts) are the names the clients use to reach the server.
     Returns the certificate path, the key path and the SHA-256 fingerprint of the certificate.
     The key file is created with mode 0600 and is never logged.
     """
     key = ec.generate_private_key(ec.SECP256R1())
+    alt_names = x509.SubjectAlternativeName(_subject_alt_names(host, extra_hosts or []))
     name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "security-review-mcp")])
     now = datetime.datetime.now(datetime.UTC)
     certificate = (
@@ -368,7 +396,7 @@ def generate_self_signed(host: str, directory: Path) -> tuple[Path, Path, str]:
         .serial_number(x509.random_serial_number())
         .not_valid_before(now - datetime.timedelta(minutes=5))
         .not_valid_after(now + SELF_SIGNED_VALIDITY)
-        .add_extension(x509.SubjectAlternativeName(_subject_alt_names(host)), critical=False)
+        .add_extension(alt_names, critical=False)
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
         .sign(key, hashes.SHA256())
@@ -390,8 +418,9 @@ def generate_self_signed(host: str, directory: Path) -> tuple[Path, Path, str]:
 
 def _self_signed_options(settings: Settings, host: str) -> TLSOptions:
     """Generate a certificate in a private temporary directory (mode 0700), removed by serve."""
+    extra_hosts = self_signed_hosts(settings.tls_self_signed_hosts)
     directory = Path(tempfile.mkdtemp(prefix="secreview-tls-"))
-    certfile, keyfile, fingerprint = generate_self_signed(host, directory)
+    certfile, keyfile, fingerprint = generate_self_signed(host, directory, extra_hosts)
     return TLSOptions(
         certfile=str(certfile),
         keyfile=str(keyfile),

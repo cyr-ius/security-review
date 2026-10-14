@@ -202,7 +202,11 @@ security-review-controller serve --host 0.0.0.0 --port 9443 --tls-self-signed
 ```
 
 - Le certificat couvre `localhost`, `127.0.0.1`, `::1`, le nom de la machine et l'adresse
-  `--host` (sauf `0.0.0.0` / `::`).
+  `--host` (sauf `0.0.0.0` / `::`). Ajoutez dans `SECREVIEW_TLS_SELF_SIGNED_HOSTS` les noms et
+  adresses IP **utilisés par les clients**, séparés par des virgules (par exemple
+  `192.168.1.1,secreview.lan`) : sinon, même un client qui fait confiance au certificat refuse
+  la connexion (nom non couvert). C'est indispensable en conteneur, où le nom de la machine est
+  celui du conteneur.
 - Il est écrit dans un dossier temporaire privé (clé en mode `0600`), supprimé à l'arrêt : **une
   nouvelle clé est générée à chaque démarrage**. Son empreinte SHA-256 est journalisée pour que
   les clients puissent la vérifier.
@@ -210,10 +214,26 @@ security-review-controller serve --host 0.0.0.0 --port 9443 --tls-self-signed
   `SECREVIEW_TLS_CLIENT_CA` (TLS mutuel) reste utilisable.
 
 !!! warning
-    Les clients ne font pas confiance à ce certificat : ils doivent désactiver la vérification
-    ou l'ajouter explicitement (et le réajouter à chaque redémarrage). Réservez-le aux tests et
-    aux réseaux internes ; en production, fournissez un certificat signé par une CA ou
-    terminez le TLS sur un reverse proxy.
+    Les clients ne font pas confiance à ce certificat : il faut l'ajouter explicitement à leur
+    configuration (voir [Configuration de l'hôte](hote.md#serveur-https-auto-signe-ou-ca-interne)),
+    et le réajouter à chaque redémarrage. Réservez-le aux tests et aux réseaux internes ; en
+    production, fournissez un certificat signé par une CA ou terminez le TLS sur un reverse proxy.
+
+### Certificat stable
+
+Pour ne faire accepter le certificat qu'une seule fois, générez-le une fois pour toutes et
+fournissez-le avec `SECREVIEW_TLS_CERTFILE` / `SECREVIEW_TLS_KEYFILE`. Indiquez dans
+`subjectAltName` les noms et adresses utilisés par les clients :
+
+```bash
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 825 \
+    -keyout key.pem -out cert.pem -subj "/CN=security-review-mcp" \
+    -addext "subjectAltName=DNS:secreview.lan,IP:192.168.1.1,DNS:localhost,IP:127.0.0.1" \
+    -addext "basicConstraints=critical,CA:FALSE" -addext "extendedKeyUsage=serverAuth"
+chmod 600 key.pem
+```
+
+`cert.pem` est alors le fichier à distribuer aux clients ; `key.pem` ne quitte pas le serveur.
 
 ## Configuration du client
 

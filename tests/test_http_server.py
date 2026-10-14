@@ -296,6 +296,37 @@ def test_generate_self_signed_certificate(tmp_path):
     context.load_cert_chain(certfile, keyfile)
 
 
+def test_self_signed_certificate_covers_the_extra_hosts(tmp_path):
+    settings = make_settings(
+        tls_self_signed=True, tls_self_signed_hosts="192.168.1.1, secreview.lan"
+    )
+
+    tls = http_server.tls_options(settings, "0.0.0.0")
+
+    certificate = x509.load_pem_x509_certificate(Path(tls.certfile).read_bytes())
+    names = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+    assert "secreview.lan" in names.get_values_for_type(x509.DNSName)
+    assert "192.168.1.1" in {str(ip) for ip in names.get_values_for_type(x509.IPAddress)}
+
+
+@pytest.mark.parametrize(
+    "hosts",
+    [
+        "bad name",
+        "evil.example/path",
+        "*",
+        "*.example.com",
+        "a..b",
+        "-x.lan",
+        "x" * 64,
+        ",".join(["h"] * 21),
+    ],
+)
+def test_self_signed_hosts_are_validated(hosts):
+    with pytest.raises(ValueError, match="SECREVIEW_TLS_SELF_SIGNED_HOSTS"):
+        http_server.tls_options(make_settings(tls_self_signed=True, tls_self_signed_hosts=hosts))
+
+
 def test_tls_self_signed_only_without_certificate(tmp_path):
     assert http_server.tls_options(make_settings(tls_self_signed=False)) is None
 
