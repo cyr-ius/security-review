@@ -148,11 +148,17 @@ def scan_content(content: str, language: str, max_matches: int = 200) -> list[di
 # ── Secret redaction ─────────────────────────────────────────────────────────
 
 _REDACTION_PATTERNS: tuple[re.Pattern[str], ...] = (
-    # key = "value" assignments for sensitive-looking names
+    # key = "value" assignments for sensitive-looking names (also "key": "v" and ["KEY"] = "v")
     re.compile(
-        r"(?i)((?:password|passwd|pwd|secret|api[_-]?key|token|authorization)\s*[:=]\s*[\"']?"
-        r"(?:(?:bearer|basic)\s+)?)"
+        r"(?i)((?:password|passwd|pwd|secret(?:[_-]?key)?|api[_-]?key|token|authorization)"
+        r"[\"']?\]?\s*[:=]\s*[\"']?(?:(?:bearer|basic)\s+)?)"
         r"([^\"'\s,;]{4,})"
+    ),
+    # Tokens with a known service prefix (GitHub, GitLab, Slack, Google, Stripe, npm)
+    re.compile(
+        r"()\b(gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,}"
+        r"|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|(?:sk|rk)_live_[0-9A-Za-z]{20,}"
+        r"|npm_[A-Za-z0-9]{36})"
     ),
     # Bearer tokens
     re.compile(r"(?i)(bearer\s+)([A-Za-z0-9._~+/=-]{12,})"),
@@ -160,7 +166,7 @@ _REDACTION_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"()\b((?:AKIA|ASIA)[0-9A-Z]{16})\b"),
     # JWT-looking values
     re.compile(r"()\b(eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*)"),
-    # Credentials embedded in URLs: scheme://user:pass@host
+    # Credentials embedded in URLs: scheme://user:pass@host  # secreview:ignore GEN-007 (example)
     re.compile(r"(://[^:/\s@]+:)([^@\s]+)(?=@)"),
 )
 

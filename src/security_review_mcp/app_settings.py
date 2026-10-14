@@ -110,7 +110,7 @@ def check_proxy_url(url: str) -> str:
 def _keep_password(url: str, previous: str | None) -> str:
     """Put back the stored password when ``url`` carries PASSWORD_MASK for the same proxy."""
     parts = urlsplit(url)
-    if parts.password != PASSWORD_MASK:
+    if parts.password != PASSWORD_MASK:  # secreview:ignore PY-025 compared with the mask constant
         return url
     old = urlsplit(previous) if previous else None
     same_proxy = old is not None and (old.username, old.hostname, old.port) == (

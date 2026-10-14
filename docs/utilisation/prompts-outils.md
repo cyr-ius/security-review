@@ -89,5 +89,6 @@ Le **niveau de risque** du rapport est calculé (sévérité maximale des findin
 
 !!! info "Masquage des secrets"
     Les secrets présents dans `summary`, `description`, `evidence` et `recommendation`
-    (mots de passe, tokens, clés AWS, JWT, clés privées, identifiants dans les URL) sont masqués
+    (mots de passe, tokens, `SECRET_KEY`, clés AWS, jetons GitHub, GitLab, Slack, Google, Stripe
+    et npm, JWT, clés privées, identifiants dans les URL) sont masqués
     avant stockage. C'est un filet de sécurité : l'agent doit aussi éviter de les recopier.

@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     )
 
     # SQLite by default (zero setup).
-    # PostgreSQL example: postgresql+psycopg2://user:pass@host:5432/secreview
+    # PostgreSQL: postgresql+psycopg2://user:pass@host:5432/db  # secreview:ignore GEN-007
     database_url: str = "sqlite:///./security_reports.db"
     database_echo: bool = False
     # Migrate the schema (Alembic) when the controller, the stdio MCP server or a CLI command
