@@ -178,6 +178,27 @@ def list_rules() -> list[dict]:
         return result
 
 
+def list_checklist_items() -> list[dict]:
+    """Return the stored checklist items with their origin and modification state."""
+    defaults = default_check_items()
+    with session_scope() as session:
+        rows = session.exec(
+            select(CustomCheckItem).order_by(col(CustomCheckItem.domain), col(CustomCheckItem.id))
+        ).all()
+        result = []
+        for row in rows:
+            entry = row.model_dump()
+            default = defaults.get((row.domain, row.id))
+            result.append(
+                entry
+                | {
+                    "origin": "builtin" if default is not None else "custom",
+                    "modified": default is not None and digest(entry) != digest(default),
+                }
+            )
+        return result
+
+
 # ── Seeding ──────────────────────────────────────────────────────────────────
 
 
@@ -324,6 +345,50 @@ def update_rule(rule_id: str, entry: dict) -> None:
         if row is None:
             raise ValueError(f"Rule {rule_id} was not found")
         _store_rule(session, entry, row)
+        _bump(session)
+
+
+@_conflicts_as_errors
+def create_check_item(entry: dict) -> None:
+    """Add a checklist item; an existing ``(domain, id)`` pair is refused."""
+    domain, item = parse_check_item(entry)
+    normalized = _item_entry(domain, item.id, item.title, item.what_to_look_for, item.cwe)
+    with session_scope() as session:
+        if session.get(CustomCheckItem, (domain, item.id)) is not None:
+            raise ValueError(f"Checklist item {domain}/{item.id} already exists")
+        _store_item(session, normalized)
+        _check_limits(session)
+        _bump(session)
+
+
+@_conflicts_as_errors
+def update_check_item(domain: str, item_id: str, entry: dict) -> None:
+    """Replace a checklist item's fields without changing its domain or id."""
+    stored_domain, item = parse_check_item(entry)
+    if (stored_domain, item.id) != (domain, item_id):
+        raise ValueError("A checklist item domain and id cannot be changed")
+    with session_scope() as session:
+        row = session.get(CustomCheckItem, (domain, item_id))
+        if row is None:
+            raise ValueError(f"Checklist item {domain}/{item_id} was not found")
+        _store_item(
+            session,
+            _item_entry(domain, item.id, item.title, item.what_to_look_for, item.cwe),
+            row,
+        )
+        _bump(session)
+
+
+@_conflicts_as_errors
+def delete_check_item(domain: str, item_id: str) -> None:
+    """Delete one custom checklist item; default items cannot be deleted."""
+    with session_scope() as session:
+        row = session.get(CustomCheckItem, (domain, item_id))
+        if row is None:
+            raise ValueError(f"Checklist item {domain}/{item_id} was not found")
+        if (domain, item_id) in default_check_items():
+            raise ValueError(f"Default checklist item {domain}/{item_id} cannot be deleted")
+        session.delete(row)
         _bump(session)
 
 

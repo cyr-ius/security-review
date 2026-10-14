@@ -28,6 +28,10 @@ security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 - **Rapport** : résumé, contexte (dépôt, branche, commit), findings avec emplacement, CWE,
   extrait de code et recommandation ; téléchargement Markdown et SARIF. Les utilisateurs qui ont
   le rôle `triager` ou `admin` changent le statut d'un finding directement depuis cet écran.
+- **Checklists** : les administrateurs consultent les items de contrôle par domaine, filtrent la
+  liste et créent, modifient ou suppriment les items personnalisés. Les items par défaut peuvent
+  être modifiés, mais pas supprimés. Toute modification est rechargée immédiatement par le serveur
+  et intégrée aux prompts de revue.
 - **Règles** : les administrateurs consultent toutes les [règles](regles.md) stockées en base,
   filtrables par origine (par défaut ou personnalisée). Ils créent, modifient (dans une fenêtre
   modale, sans quitter la position dans la liste), activent ou désactivent les règles, et

@@ -4,6 +4,9 @@ import { Observable } from 'rxjs';
 import {
   Finding,
   FindingStatus,
+  ChecklistCatalog,
+  ChecklistItemWrite,
+  ChecklistReloadResult,
   CustomRuleCatalog,
   CustomRuleWrite,
   EnrollmentRequest,
@@ -33,6 +36,31 @@ export class ApiService {
 
   customRules(): Observable<CustomRuleCatalog> {
     return this.http.get<CustomRuleCatalog>(`${API_URL}/rules`);
+  }
+
+  checklistItems(): Observable<ChecklistCatalog> {
+    return this.http.get<ChecklistCatalog>(`${API_URL}/checklists`);
+  }
+
+  createChecklistItem(item: ChecklistItemWrite): Observable<ChecklistReloadResult> {
+    return this.http.post<ChecklistReloadResult>(`${API_URL}/checklists`, item);
+  }
+
+  updateChecklistItem(
+    domain: string,
+    id: string,
+    item: ChecklistItemWrite,
+  ): Observable<ChecklistReloadResult> {
+    return this.http.put<ChecklistReloadResult>(
+      `${API_URL}/checklists/${encodeURIComponent(domain)}/${encodeURIComponent(id)}`,
+      item,
+    );
+  }
+
+  deleteChecklistItem(domain: string, id: string): Observable<void> {
+    return this.http.delete<void>(
+      `${API_URL}/checklists/${encodeURIComponent(domain)}/${encodeURIComponent(id)}`,
+    );
   }
 
   createCustomRule(rule: CustomRuleWrite): Observable<RuleReloadResult> {

@@ -1,0 +1,219 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Checklists de revue</h1>
+    <p class="text-body-secondary mb-0">
+      Points de contrôle manuels, organisés par domaine et intégrés aux prompts de revue.
+    </p>
+  </div>
+  <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
+    <i class="bi bi-plus-lg" aria-hidden="true"></i>
+    Nouvel item
+  </button>
+</div>
+
+@if (error(); as message) {
+  <div class="alert alert-danger py-2" role="alert">
+    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+    {{ message }}
+  </div>
+}
+@if (notice(); as message) {
+  <div class="alert alert-success py-2" role="status">{{ message }}</div>
+}
+
+@if (catalog.error()) {
+  <div class="alert alert-danger" role="alert">Impossible de charger les checklists.</div>
+} @else if (catalog.isLoading() && !catalog.hasValue()) {
+  <div class="text-center my-5">
+    <span class="spinner-border text-secondary" aria-hidden="true"></span>
+    <span class="visually-hidden">Chargement…</span>
+  </div>
+} @else if (catalog.value(); as data) {
+  @for (issue of data.load_errors; track issue) {
+    <div class="alert alert-warning py-2" role="status">{{ issue }}</div>
+  }
+
+  <div class="card">
+    <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+      <span class="fw-semibold">{{ visibleItems().length }} item(s)</span>
+      <label class="visually-hidden" for="checklist-domain-filter">Domaine</label>
+      <select
+        id="checklist-domain-filter"
+        class="form-select form-select-sm w-auto ms-auto"
+        [value]="domainFilter()"
+        (change)="setDomainFilter($any($event.target).value)"
+      >
+        <option value="">Tous les domaines</option>
+        @for (domain of domains(); track domain) {
+          <option [value]="domain">{{ domain }}</option>
+        }
+      </select>
+    </div>
+    @if (visibleItems().length > 0) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col">Domaine / ID</th>
+              <th scope="col">Point de contrôle</th>
+              <th scope="col">CWE</th>
+              <th scope="col">Origine</th>
+              <th scope="col" class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of visibleItems(); track item.domain + '/' + item.id) {
+              <tr>
+                <td class="checklist-key">
+                  <span class="d-block text-body-secondary">{{ item.domain }}</span>
+                  <code>{{ item.id }}</code>
+                </td>
+                <td class="checklist-description">
+                  <div class="fw-semibold">{{ item.title }}</div>
+                  <div class="small text-body-secondary">{{ item.what_to_look_for }}</div>
+                </td>
+                <td class="text-nowrap">{{ item.cwe || '—' }}</td>
+                <td class="text-nowrap">
+                  @if (item.origin === 'custom') {
+                    <span class="badge text-bg-info">Personnalisée</span>
+                  } @else if (item.modified) {
+                    <span class="badge text-bg-warning">Par défaut, modifiée</span>
+                  } @else {
+                    <span class="badge text-bg-light border">Par défaut</span>
+                  }
+                </td>
+                <td class="text-end text-nowrap">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary action-button"
+                    [attr.aria-label]="'Modifier ' + item.domain + '/' + item.id"
+                    title="Modifier"
+                    (click)="startEdit(item)"
+                  >
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                  </button>
+                  @if (item.origin === 'custom') {
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger action-button ms-1"
+                      [attr.aria-label]="'Supprimer ' + item.domain + '/' + item.id"
+                      title="Supprimer"
+                      (click)="remove(item)"
+                    >
+                      <i class="bi bi-trash" aria-hidden="true"></i>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary text-center my-4">Aucun item de checklist.</p>
+    }
+  </div>
+}
+
+<dialog
+  #editorDialog
+  class="checklist-dialog shadow"
+  aria-labelledby="checklist-dialog-title"
+  (close)="onEditorClosed()"
+>
+  @if (creating() || editingItem()) {
+    <form class="card checklist-editor" (submit)="save($event)" novalidate>
+      <div class="card-header d-flex align-items-center">
+        <h2 id="checklist-dialog-title" class="h6 mb-0">
+          {{ editingItem() ? "Modifier l'item" : 'Nouvel item de checklist' }}
+        </h2>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary ms-auto"
+          aria-label="Fermer le formulaire"
+          (click)="cancelEdit()"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        @if (formError(); as message) {
+          <div class="alert alert-danger py-2" role="alert">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+            {{ message }}
+          </div>
+        }
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label" for="checklist-domain">Domaine</label>
+            @if (editingItem()) {
+              <input
+                id="checklist-domain"
+                class="form-control font-monospace"
+                [value]="formModel().domain"
+                readonly
+              />
+            } @else {
+              <input
+                id="checklist-domain"
+                class="form-control font-monospace"
+                placeholder="company"
+                [formField]="itemForm.domain"
+              />
+            }
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="checklist-id">Identifiant</label>
+            @if (editingItem()) {
+              <input
+                id="checklist-id"
+                class="form-control font-monospace"
+                [value]="formModel().id"
+                readonly
+              />
+            } @else {
+              <input
+                id="checklist-id"
+                class="form-control font-monospace"
+                [formField]="itemForm.id"
+              />
+            }
+          </div>
+          <div class="col-md-4">
+            <label class="form-label" for="checklist-cwe">CWE</label>
+            <input
+              id="checklist-cwe"
+              class="form-control"
+              placeholder="CWE-862"
+              [formField]="itemForm.cwe"
+            />
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="checklist-title">Titre</label>
+            <input id="checklist-title" class="form-control" [formField]="itemForm.title" />
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="checklist-what">Point de contrôle</label>
+            <textarea
+              id="checklist-what"
+              class="form-control"
+              rows="4"
+              [formField]="itemForm.what_to_look_for"
+            ></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEdit()">
+          Annuler
+        </button>
+        <button type="submit" class="btn btn-sm btn-primary" [disabled]="saving()">
+          @if (saving()) {
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          }
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  }
+</dialog>

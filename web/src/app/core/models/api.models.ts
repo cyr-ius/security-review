@@ -109,6 +109,39 @@ export interface RuleReloadResult {
   load_errors: string[];
 }
 
+/** Origin of a stored checklist item. */
+export type ChecklistItemOrigin = 'builtin' | 'custom';
+
+/** One stored verification point belonging to a checklist domain. */
+export interface ChecklistItem {
+  domain: string;
+  id: string;
+  title: string;
+  what_to_look_for: string;
+  cwe: string;
+  origin: ChecklistItemOrigin;
+  modified: boolean;
+}
+
+/** GET /api/v1/checklists */
+export interface ChecklistCatalog {
+  checklist_items: ChecklistItem[];
+  load_errors: string[];
+}
+
+/** Input accepted by POST and PUT /api/v1/checklists. */
+export type ChecklistItemWrite = Pick<
+  ChecklistItem,
+  'domain' | 'id' | 'title' | 'what_to_look_for'
+> &
+  Partial<Pick<ChecklistItem, 'cwe'>>;
+
+/** Summary returned after a checklist item change. */
+export interface ChecklistReloadResult {
+  loaded_checklist_items: number;
+  load_errors: string[];
+}
+
 /** GET /api/v1/projects */
 export interface ProjectSummary {
   project: string;
