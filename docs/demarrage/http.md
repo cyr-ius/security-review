@@ -191,6 +191,30 @@ security-review-controller serve --host 0.0.0.0 --port 9443 \
 `SECREVIEW_TLS_CLIENT_CA` active en plus le **TLS mutuel** : seuls les clients présentant un
 certificat signé par cette CA peuvent se connecter.
 
+### Certificat auto-signé
+
+Sans certificat fourni, `--tls-self-signed` (ou `SECREVIEW_TLS_SELF_SIGNED=true`) fait générer au
+démarrage un certificat auto-signé et sa clé (EC P-256, valable un an) :
+
+```bash
+security-review-mcp --transport streamable-http --host 0.0.0.0 --port 8443 --tls-self-signed
+security-review-controller serve --host 0.0.0.0 --port 9443 --tls-self-signed
+```
+
+- Le certificat couvre `localhost`, `127.0.0.1`, `::1`, le nom de la machine et l'adresse
+  `--host` (sauf `0.0.0.0` / `::`).
+- Il est écrit dans un dossier temporaire privé (clé en mode `0600`), supprimé à l'arrêt : **une
+  nouvelle clé est générée à chaque démarrage**. Son empreinte SHA-256 est journalisée pour que
+  les clients puissent la vérifier.
+- Un certificat fourni (`SECREVIEW_TLS_CERTFILE`) est toujours prioritaire ;
+  `SECREVIEW_TLS_CLIENT_CA` (TLS mutuel) reste utilisable.
+
+!!! warning
+    Les clients ne font pas confiance à ce certificat : ils doivent désactiver la vérification
+    ou l'ajouter explicitement (et le réajouter à chaque redémarrage). Réservez-le aux tests et
+    aux réseaux internes ; en production, fournissez un certificat signé par une CA ou
+    terminez le TLS sur un reverse proxy.
+
 ## Configuration du client
 
 VS Code, avec un jeton demandé à l'utilisateur :

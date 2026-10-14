@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     tls_keyfile: str | None = None
     tls_keyfile_password: str | None = None
     tls_client_ca: str | None = None
+    # Without tls_certfile, serve HTTPS with a self-signed certificate generated at start-up
+    # (new key on every start, for tests or an internal network; not trusted by clients).
+    tls_self_signed: bool = False
 
     # Controller: REST API on /api/v1 and, with web_ui, the Angular application on /ui.
     # web_ui_dir overrides the directory of the built application (default: bundled files).

@@ -53,7 +53,7 @@ def serve(argv: list[str]) -> None:
     try:
         init_db()
         store = token_store.DatabaseTokenStore()
-        tls = http_server.tls_options(settings)
+        tls = http_server.tls_options(settings, args.host)
         web_app = web_api.create_app(args.host, ui=settings.web_ui)
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))

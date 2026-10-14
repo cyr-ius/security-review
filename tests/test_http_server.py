@@ -2,8 +2,10 @@
 
 import json
 import ssl
+from pathlib import Path
 
 import pytest
+from cryptography import x509
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
@@ -270,10 +272,51 @@ def test_tls_options(tmp_path):
 
 
 def test_tls_options_errors(tmp_path):
-    with pytest.raises(ValueError, match="need SECREVIEW_TLS_CERTFILE"):
+    with pytest.raises(ValueError, match="needs SECREVIEW_TLS_CERTFILE"):
         http_server.tls_options(make_settings(tls_keyfile="key.pem"))
+    with pytest.raises(ValueError, match="needs SECREVIEW_TLS_CERTFILE or"):
+        http_server.tls_options(make_settings(tls_client_ca="ca.pem"))
     with pytest.raises(ValueError, match="file not found"):
         http_server.tls_options(make_settings(tls_certfile=str(tmp_path / "missing.pem")))
+
+
+def test_generate_self_signed_certificate(tmp_path):
+    certfile, keyfile, fingerprint = http_server.generate_self_signed(
+        "secreview.internal", tmp_path
+    )
+
+    certificate = x509.load_pem_x509_certificate(certfile.read_bytes())
+    names = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+    assert {"localhost", "secreview.internal"} <= set(names.get_values_for_type(x509.DNSName))
+    assert certificate.issuer == certificate.subject
+    assert fingerprint.count(":") == 31
+    # The private key is readable by the owner only and matches the certificate
+    assert keyfile.stat().st_mode & 0o777 == 0o600
+    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    context.load_cert_chain(certfile, keyfile)
+
+
+def test_tls_self_signed_only_without_certificate(tmp_path):
+    assert http_server.tls_options(make_settings(tls_self_signed=False)) is None
+
+    tls = http_server.tls_options(make_settings(tls_self_signed=True), "0.0.0.0")
+    assert tls.fingerprint and tls.keyfile_password is None
+    assert Path(tls.certfile).is_file() and Path(tls.keyfile).is_file()
+
+    # A configured certificate wins over the self-signed one
+    cert = tmp_path / "cert.pem"
+    cert.write_text("x", encoding="utf-8")
+    own = http_server.tls_options(make_settings(tls_certfile=str(cert), tls_self_signed=True))
+    assert own.certfile == str(cert) and own.fingerprint is None
+
+
+def test_tls_self_signed_keeps_mutual_tls(tmp_path):
+    ca = tmp_path / "ca.pem"
+    ca.write_text("x", encoding="utf-8")
+
+    tls = http_server.tls_options(make_settings(tls_self_signed=True, tls_client_ca=str(ca)))
+
+    assert tls.uvicorn_kwargs()["ssl_cert_reqs"] == ssl.CERT_REQUIRED
 
 
 # ── Start-up ─────────────────────────────────────────────────────────────────
@@ -312,6 +355,29 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     assert client.get("/mcp").status_code == 401
     # The web interface is served by the controller only
     assert client.get("/ui/").status_code == 401
+
+
+def test_main_serves_https_with_a_self_signed_certificate(caplog, monkeypatch, captured_run):
+    served: list[x509.Certificate] = []
+
+    def run(app, **kwargs) -> None:
+        """Read the certificate while it exists, as uvicorn does when it starts."""
+        served.append(x509.load_pem_x509_certificate(Path(kwargs["ssl_certfile"]).read_bytes()))
+        captured_run.append(kwargs)
+
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings(enrollment=False))
+    monkeypatch.setattr(http_server.uvicorn, "run", run)
+
+    with caplog.at_level("WARNING", logger="security_review_mcp"):
+        server.main(["--transport", "streamable-http", "--tls-self-signed"])
+
+    (certificate,) = served
+    assert certificate.issuer == certificate.subject
+    assert any("fingerprint" in record.message for record in caplog.records)
+    # The private key is never logged
+    assert all("PRIVATE KEY" not in record.getMessage() for record in caplog.records)
+    # The generated files are deleted when the server stops
+    assert not Path(captured_run[0]["ssl_keyfile"]).parent.exists()
 
 
 @pytest.mark.parametrize("enabled", [True, False])
