@@ -1,5 +1,12 @@
 {
   "version": "0.2.0",
+  "compounds": [
+    {
+      "name": "MCP server + controller",
+      "configurations": ["Controller (web UI and API, port 8080)", "MCP server (streamable-http)"],
+      "preLaunchTask": "Build security_review_mcp"
+    }
+  ],
   "configurations": [
     {
       "name": "MCP server (streamable-http)",
@@ -11,8 +18,23 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
-        "SECREVIEW_AUTH_BOOTSTRAP_ADMIN": "true",
         "SECREVIEW_RULES_DIR": "${workspaceFolder}/.venv/rules",
+        "SECREVIEW_LOG_LEVEL": "DEBUG"
+      },
+      "console": "integratedTerminal",
+      "justMyCode": false
+    },
+    {
+      "name": "Controller (web UI and API, port 8080)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "security_review_mcp.controller",
+      "args": ["serve", "--host", "127.0.0.1", "--port", "8080"],
+      "cwd": "${workspaceFolder}",
+      "python": "${workspaceFolder}/.venv/bin/python",
+      "env": {
+        "PYTHONPATH": "${workspaceFolder}/src",
+        "SECREVIEW_AUTH_BOOTSTRAP_ADMIN": "true",
         "SECREVIEW_LOG_LEVEL": "DEBUG"
       },
       "console": "integratedTerminal",

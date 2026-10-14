@@ -14,7 +14,7 @@ def _check_state(parsed: Parsed, status: dict) -> tuple[str, list[str]]:
     if not status["loaded"]:
         notes.append(
             "No advisory database is loaded: vulnerable versions CANNOT be detected. Only hygiene "
-            "checks ran. Import OSV advisories with `security-review-mcp advisories import`."
+            "checks ran. Import OSV advisories with `security-review-controller advisories import`."
         )
         return "skipped_no_advisory_database", notes
     if status["by_ecosystem"].get(parsed.ecosystem, 0) == 0:

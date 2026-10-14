@@ -1,0 +1,210 @@
+# security-review-mcp on Kubernetes: the MCP server and the controller in two Deployments
+# sharing a PostgreSQL database (not included: use your managed or operator-backed instance).
+#
+#   kubectl create namespace secreview
+#   kubectl -n secreview create secret generic secreview-db \
+#       --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
+#   kubectl -n secreview apply -f examples/kubernetes/security-review.yaml
+#   kubectl -n secreview logs deploy/secreview-controller   # one-time admin password
+#
+# The image must be built with the PostgreSQL driver (--build-arg EXTRAS=postgres) and pushed
+# to your registry: replace the image below.
+#
+# The controller migrates the schema in an init container (one replica, Recreate strategy: a
+# single migration at a time). The MCP pods only check the schema: they restart until the
+# controller has migrated it. Expose the MCP Service to the agents and CI (Ingress with TLS);
+# keep the controller internal (port-forward, VPN or an Ingress restricted to administrators).
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: secreview-config
+data:
+  SECREVIEW_LOG_LEVEL: INFO
+  # Only the init container of the controller migrates the schema
+  SECREVIEW_DB_AUTO_UPGRADE: "false"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secreview-controller
+  labels:
+    app.kubernetes.io/name: security-review-mcp
+    app.kubernetes.io/component: controller
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: security-review-mcp
+      app.kubernetes.io/component: controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: security-review-mcp
+        app.kubernetes.io/component: controller
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      initContainers:
+        - name: migrate
+          image: registry.example.com/security-review-mcp:pg
+          command: ["security-review-controller", "db", "upgrade"]
+          envFrom: &env
+            - configMapRef:
+                name: secreview-config
+            - secretRef:
+                name: secreview-db
+          securityContext: &container-security
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts: &mounts
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: controller
+          image: registry.example.com/security-review-mcp:pg
+          command: ["security-review-controller", "serve", "--host", "0.0.0.0", "--port", "8000"]
+          envFrom: *env
+          env:
+            - name: SECREVIEW_AUTH_BOOTSTRAP_ADMIN
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe: &probe
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe: *probe
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext: *container-security
+          volumeMounts: *mounts
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: secreview-controller
+spec:
+  selector:
+    app.kubernetes.io/name: security-review-mcp
+    app.kubernetes.io/component: controller
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: secreview-mcp
+  labels:
+    app.kubernetes.io/name: security-review-mcp
+    app.kubernetes.io/component: mcp
+spec:
+  # MCP sessions live in the memory of a pod: before adding replicas, make the Ingress route
+  # each session to the same pod (affinity on the Mcp-Session-Id header)
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: security-review-mcp
+      app.kubernetes.io/component: mcp
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: security-review-mcp
+        app.kubernetes.io/component: mcp
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      automountServiceAccountToken: false
+      containers:
+        - name: mcp
+          image: registry.example.com/security-review-mcp:pg
+          args: ["--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
+          envFrom:
+            - configMapRef:
+                name: secreview-config
+            - secretRef:
+                name: secreview-db
+          ports:
+            - name: http
+              containerPort: 8000
+          readinessProbe: &probe
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+          livenessProbe: *probe
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: secreview-mcp
+spec:
+  selector:
+    app.kubernetes.io/name: security-review-mcp
+    app.kubernetes.io/component: mcp
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+---
+# Only the pods of the namespace (and the ingress controller, adjust its label) reach the
+# controller; the MCP server stays reachable for the agents through its own Ingress.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: secreview-controller
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: security-review-mcp
+      app.kubernetes.io/component: controller
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector: {}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - port: 8000

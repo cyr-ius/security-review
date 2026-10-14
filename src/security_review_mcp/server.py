@@ -18,6 +18,7 @@ from . import (
     advisories,
     cli,
     depscan,
+    enrollment_api,
     http_server,
     prompts,
     registry,
@@ -26,10 +27,9 @@ from . import (
     services,
     token_store,
     trends,
-    web_api,
 )
-from .config import get_settings
-from .database import init_db
+from .config import configure_logging, get_settings
+from .database import SchemaError, check_db, init_db
 from .models import FindingCreate, FindingStatus, Severity
 
 logger = logging.getLogger("security_review_mcp")
@@ -215,7 +215,7 @@ def codebase_review(
 
     Args:
         languages: Main languages, for example "python, angular" (selects the checklists).
-        scan_results: Optional output of `security-review-mcp code scan . --format json`.
+        scan_results: Optional output of `security-review-controller code scan . --format json`.
         context: Optional context (exposure, data sensitivity, authentication model...).
         focus: Optional areas to emphasize.
     """
@@ -524,7 +524,7 @@ def scan_dependencies(
     if len(content) > limit:
         raise ValueError(
             f"File too large for a tool call ({len(content)} chars, limit {limit}): run "
-            "`security-review-mcp deps scan <file>` in the pipeline instead"
+            "`security-review-controller deps scan <file>` in the pipeline instead"
         )
     return depscan.scan_dependencies(content, filename)
 
@@ -599,7 +599,7 @@ def _request_enrollment(
             "Show the token to the user once: it is not displayed again. They add it to the MCP "
             "client configuration as 'Authorization: Bearer <token>'. It works after an "
             "administrator approves the request (web interface, Jetons screen, or "
-            f"`security-review-mcp token approve {created['request_id']}`)."
+            f"`security-review-controller token approve {created['request_id']}`)."
         )
     }
 
@@ -625,7 +625,7 @@ def _request_additional_project(
         "next_steps": (
             "No new token: the current token keeps working for its other projects and reaches "
             "this project once an administrator approves the request (web interface, Jetons "
-            f"screen, or `security-review-mcp token approve {created['id']}`). Call "
+            f"screen, or `security-review-controller token approve {created['id']}`). Call "
             "get_enrollment_status to check."
         )
     }
@@ -727,65 +727,66 @@ for _name, _title in (
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Run the server (stdio by default, streamable HTTP for shared/CI usage)."""
+    """Run the MCP server (stdio by default, streamable HTTP for a shared server).
+
+    The web interface, the REST API and the administration commands belong to the controller
+    (see controller.main), which runs in its own process and shares the database.
+    """
     settings = get_settings()
     arguments = list(sys.argv[1:] if argv is None else argv)
-    if arguments[:1] and arguments[0] in cli.COMMANDS:
+    if arguments[:1] and arguments[0] in cli.MCP_COMMANDS:
+        sys.exit(cli.run(arguments))
+    if arguments[:1] and arguments[0] in cli.CONTROLLER_COMMANDS:
+        # Kept for one major version: these commands moved to the controller CLI
+        print(
+            f"warning: `security-review-mcp {arguments[0]}` is deprecated, "
+            f"use `security-review-controller {arguments[0]}`",
+            file=sys.stderr,
+        )
         sys.exit(cli.run(arguments))
 
-    parser = argparse.ArgumentParser(description="Security review MCP server")
+    parser = argparse.ArgumentParser(
+        prog="security-review-mcp",
+        description="Security review MCP server (administration: security-review-controller)",
+    )
     parser.add_argument(
         "--transport", choices=["stdio", "streamable-http"], default=settings.transport
     )
-    parser.add_argument("--host", default=settings.host)
-    parser.add_argument("--port", type=int, default=settings.port)
-    parser.add_argument("--tls-certfile", help="enable TLS (overrides SECREVIEW_TLS_CERTFILE)")
-    parser.add_argument("--tls-keyfile", help="private key (overrides SECREVIEW_TLS_KEYFILE)")
+    http_server.add_listen_arguments(parser, settings)
     args = parser.parse_args(arguments)
-    if args.tls_certfile or args.tls_keyfile:
-        settings = settings.model_copy(
-            update={
-                "tls_certfile": args.tls_certfile or settings.tls_certfile,
-                "tls_keyfile": args.tls_keyfile or settings.tls_keyfile,
-            }
-        )
+    settings = http_server.with_tls_arguments(settings, args)
+    configure_logging(settings.log_level)
 
-    # Logs go to stderr: stdout is reserved for the MCP protocol with the stdio transport
-    logging.basicConfig(
-        level=settings.log_level.upper(),
-        stream=sys.stderr,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    )
-    init_db()
+    try:
+        if args.transport == "stdio":
+            # Local server: it prepares its own database (SECREVIEW_DB_AUTO_UPGRADE)
+            init_db()
+        else:
+            # Shared server: the controller (or a dedicated job) migrates the schema
+            check_db()
+    except SchemaError as exc:
+        parser.error(str(exc))
     registry.reload()
 
-    if args.transport == "streamable-http":
-        try:
-            # Bearer tokens live in the database (hashes only)
-            store = token_store.DatabaseTokenStore()
-            bootstrap_password = (
-                token_store.ensure_bootstrap_admin() if settings.auth_bootstrap_admin else None
-            )
-            tls = http_server.tls_options(settings)
-            web_app = web_api.create_app(args.host) if settings.web_ui else None
-        except ValueError as exc:
-            parser.error(str(exc))
-        if bootstrap_password:
-            logger.warning(
-                "Initial Web UI administrator password (shown once): %s", bootstrap_password
-            )
-        http_server.run(
-            mcp,
-            args.host,
-            args.port,
-            store,
-            tls,
-            settings.log_level,
-            web_app,
-            enrollment_mcp if settings.enrollment else None,
-        )
-    else:
+    if args.transport == "stdio":
         mcp.run("stdio")
+        return
+    try:
+        # Bearer tokens live in the database (hashes only)
+        store = token_store.DatabaseTokenStore()
+        tls = http_server.tls_options(settings)
+    except ValueError as exc:
+        parser.error(str(exc))
+    if settings.enrollment:
+        logger.info("Enrollment enabled: clients without a token may request one")
+    app = http_server.build_mcp_app(
+        mcp,
+        args.host,
+        store,
+        enrollment_mcp if settings.enrollment else None,
+        enrollment_api.create_app(args.host) if settings.enrollment else None,
+    )
+    http_server.serve(app, args.host, args.port, store, tls, settings.log_level)
 
 
 if __name__ == "__main__":

@@ -1,16 +1,22 @@
-"""Database engine and session management."""
+"""Database engine, session management and schema migrations (Alembic)."""
 
 import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
+from pathlib import Path
 
-from sqlalchemy import inspect, text
-from sqlalchemy.engine import Engine
-from sqlmodel import Session, SQLModel, create_engine
+from alembic import command
+from alembic.config import Config
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
+from sqlalchemy.engine import Connection, Engine
+from sqlmodel import Session, create_engine
 
 from .config import get_settings
 
 logger = logging.getLogger(__name__)
+
+MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 
 _engine: Engine | None = None
 
@@ -39,58 +45,87 @@ def set_engine(engine: Engine | None) -> None:
     _engine = engine
 
 
-def add_missing_columns(engine: Engine) -> list[str]:
-    """Add columns introduced by newer versions to tables that already exist.
+class SchemaError(RuntimeError):
+    """The database schema is missing or older than this version expects."""
 
-    ``create_all`` creates missing tables but never alters existing ones, so a database
-    created by an older version would miss the new columns. Only nullable columns can be
-    added safely; the list of ``table.column`` names that were added is returned.
+
+def alembic_config(connection: Connection | None = None) -> Config:
+    """Alembic configuration built in code (the package ships no alembic.ini).
+
+    ``connection`` is the connection the migrations run on (see migrations/env.py).
     """
-    inspector = inspect(engine)
-    preparer = engine.dialect.identifier_preparer
-    added: list[str] = []
-    for table in SQLModel.metadata.sorted_tables:
-        if not inspector.has_table(table.name):
-            continue
-        existing = {column["name"] for column in inspector.get_columns(table.name)}
-        for column in table.columns:
-            if column.name in existing:
-                continue
-            if not column.nullable:
-                raise RuntimeError(
-                    f"Cannot add required column {table.name}.{column.name} automatically; "
-                    "migrate the database manually."
-                )
-            ddl = (
-                f"ALTER TABLE {preparer.quote(table.name)} "
-                f"ADD COLUMN {preparer.quote(column.name)} {column.type.compile(engine.dialect)}"
-            )
-            with engine.begin() as connection:
-                connection.execute(text(ddl))
-            added.append(f"{table.name}.{column.name}")
-    return added
+    config = Config()
+    config.set_main_option("script_location", str(MIGRATIONS_DIR))
+    config.attributes["connection"] = connection
+    return config
 
 
-def init_db() -> None:
-    """Create the tables, upgrade older schemas (columns, project tokens) and seed the rules.
+def head_revision() -> str:
+    """Revision of the schema this version of the package expects."""
+    head = ScriptDirectory.from_config(alembic_config()).get_current_head()
+    if head is None:
+        raise RuntimeError("No database migration found")
+    return head
 
-    On the first run the default rules and checklists (``default_rules.toml``) are copied into
-    the database; later runs add the new defaults (see ``rule_store.seed_defaults``).
+
+def current_revision() -> str | None:
+    """Revision of the schema stored in the database, or None before the first migration."""
+    with get_engine().connect() as connection:
+        return MigrationContext.configure(connection).get_current_revision()
+
+
+def schema_status() -> dict[str, str | bool | None]:
+    """Compare the revision of the database with the one this version expects."""
+    current, head = current_revision(), head_revision()
+    return {"current": current, "head": head, "up_to_date": current == head}
+
+
+def upgrade_db() -> None:
+    """Migrate the schema to the latest revision, then seed the default rules.
+
+    An empty database is created and a database created by version 1.x (no revision yet) is
+    completed by the baseline revision. On the first run the default rules and checklists
+    (``default_rules.toml``) are copied into the database; later runs add the new defaults
+    (see ``rule_store.seed_defaults``).
     """
-    # Import here so that the table models are registered on the metadata
-    # (and because rule_store and token_store depend on this module)
-    from . import models, rule_store, token_store  # noqa: F401
+    # Import here because rule_store depends on this module
+    from . import rule_store
 
-    engine = get_engine()
-    SQLModel.metadata.create_all(engine)
-    for name in add_missing_columns(engine):
-        logger.info("Schema upgraded: added column %s", name)
-    migrated = token_store.migrate_legacy_projects()
-    if migrated:
-        logger.info("Schema upgraded: %d project token(s) moved to multi-project storage", migrated)
+    before = current_revision()
+    with get_engine().begin() as connection:
+        command.upgrade(alembic_config(connection), "head")
+    after = current_revision()
+    if after != before:
+        logger.info("Database schema migrated from %s to %s", before or "nothing", after)
     written = rule_store.seed_defaults()
     if written:
         logger.info("Default rules seeded: %d rule(s) or checklist item(s) written", written)
+
+
+def check_db() -> None:
+    """Refuse to serve a database whose schema is not at the expected revision.
+
+    Raises:
+        SchemaError: If the database was not migrated (or was migrated by a newer version).
+    """
+    status = schema_status()
+    if not status["up_to_date"]:
+        raise SchemaError(
+            f"Database schema is at revision {status['current'] or 'none'}, this version needs "
+            f"{status['head']}: run `security-review-controller db upgrade` first"
+        )
+
+
+def init_db() -> None:
+    """Prepare the database for a command: migrate it (SECREVIEW_DB_AUTO_UPGRADE) or check it.
+
+    Raises:
+        SchemaError: If automatic upgrades are disabled and the schema is not up to date.
+    """
+    if get_settings().db_auto_upgrade:
+        upgrade_db()
+    else:
+        check_db()
 
 
 @contextmanager

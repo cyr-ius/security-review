@@ -6,6 +6,7 @@ from datetime import timedelta
 import pytest
 from sqlmodel import Session, select
 
+from security_review_mcp import database as database_module
 from security_review_mcp import token_store
 from security_review_mcp.http_server import Role, TokenInfo, hash_token
 from security_review_mcp.models import ApiToken, ApiTokenProject
@@ -385,8 +386,9 @@ def test_legacy_project_tokens_are_migrated(database):
 
     # Before the migration a legacy token stays restricted to its project
     assert STORE.lookup(bytes.fromhex("ab" * 32)).projects == {"shop-api"}
-    assert token_store.migrate_legacy_projects() == 2
-    assert token_store.migrate_legacy_projects() == 0
+    # The baseline migration completes a database created by version 1.x
+    database_module.upgrade_db()
+    database_module.upgrade_db()  # already at the latest revision: nothing is copied twice
 
     links = {link.token_id: (link.project, link.status) for link in link_rows(database)}
     assert links == {"t1": ("shop-api", "active"), "t3": ("billing", "pending")}

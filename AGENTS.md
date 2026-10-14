@@ -5,8 +5,12 @@ qui modifie ce dépôt. `CLAUDE.md` et `.github/copilot-instructions.md` ne font
 modifiez les règles ici, pas là-bas.
 
 `security-review-mcp` est un serveur MCP de revue de code orientée sécurité : prompts,
-checklists, scan par motifs, analyse de dépendances, rapports persistés (SQLModel), CLI pour la
-CI/CD (gate, SARIF, tendances) et transport HTTP avec jetons Bearer / TLS.
+checklists, scan par motifs, analyse de dépendances, rapports persistés (SQLModel, migrations
+Alembic), CLI pour la CI/CD (gate, SARIF, tendances) et transport HTTP avec jetons Bearer / TLS.
+
+Deux processus partagent la base et ne s'appellent jamais : le **serveur MCP**
+(`security-review-mcp`, endpoint `/mcp` et enrôlement public) et le **contrôleur**
+(`security-review-controller` : API REST, interface web, migrations, administration).
 
 ## Une tâche n'est terminée que si
 
@@ -81,16 +85,18 @@ l'utiliser.
 
 | Zone | Fichiers |
 |---|---|
-| Prompts, outils, ressources MCP, point d'entrée | `server.py`, `prompts.py` |
+| Prompts, outils, ressources MCP, point d'entrée du serveur MCP | `server.py`, `prompts.py` |
+| Point d'entrée du contrôleur (`serve`, `db`, commandes d'administration) | `controller.py` |
 | Moteur de scan, masquage des secrets | `scanner.py` |
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
-| CLI (`gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`, `enroll`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`) |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`) et `MCP_COMMANDS` (`enroll`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`) |
 | Dépendances et avis OSV | `dependencies.py`, `depscan.py`, `advisories.py`, `versions.py` |
-| Persistance | `models.py`, `services.py`, `database.py` |
+| Persistance, schéma | `models.py`, `services.py`, `database.py`, `migrations/` (Alembic) |
 | Export et tendances | `sarif.py`, `trends.py` |
-| Transport HTTP, auth (jetons et rôles), TLS | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` |
-| Interface web : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
+| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` |
+| Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
+| Contrôleur : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
 | Paramètres `SECREVIEW_*` | `config.py` |
 
 Tous les modules sont dans `src/security_review_mcp/`. L'application Angular (`web/`) est
@@ -136,6 +142,13 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - **Les secrets sont masqués** (`scanner.redact_secrets`) avant stockage et dans les extraits
   renvoyés. Ne journalisez jamais un jeton, un mot de passe ou une URL de base avec identifiants.
 - **SQL uniquement via l'ORM** (SQLModel, paramètres liés), jamais de SQL construit par chaîne.
+- **Schéma via Alembic uniquement** : toute modification d'un modèle de table s'accompagne d'une
+  nouvelle révision dans `migrations/versions/` (jamais de modification d'une révision publiée) ;
+  `tests/test_database.py` vérifie que les migrations produisent exactement les modèles. Le
+  serveur MCP HTTP ne migre jamais le schéma.
+- **Séparation MCP / contrôleur** : le serveur MCP n'expose que `/mcp`, l'enrôlement public et
+  `/healthz` ; le contrôleur n'expose aucune route d'écriture sans jeton. N'ajoutez pas de route
+  web au serveur MCP ni d'endpoint MCP au contrôleur.
 - **Aucun appel réseau sortant** : la base de vulnérabilités est importée hors ligne par la CLI.
   Seule exception : la commande CLI `enroll`, qui contacte l'URL donnée par l'opérateur.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
@@ -210,7 +223,7 @@ une PR, quelle que soit la taille du changement :
 
 Si le serveur n'est pas connecté ou ne répond pas, dites-le explicitement : ne prétendez pas
 avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt
-(`uv run security-review-mcp code scan . --exclude tests/`) et signalez ses résultats.
+(`uv run security-review-controller code scan . --exclude tests/`) et signalez ses résultats.
 
 ## Documentation
 
@@ -226,6 +239,7 @@ utilisateurs. Mettez-la à jour dans le même changement que le code :
 | Une commande ou option CLI, un code de sortie | `docs/reference/cli.md` + la page d'usage concernée (`ci-cd/*.md`, `code-scan.md`...) |
 | Un paramètre `SECREVIEW_*` | `docs/reference/configuration.md`, `.env.example` |
 | Transport HTTP, authentification, TLS | `docs/demarrage/http.md`, `docs/reference/securite.md` |
+| Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/demarrage/kubernetes.md`, `docker-compose.yml`, `examples/kubernetes/` |
 | L'interface web, l'API REST ou les rôles | `docs/utilisation/interface-web.md` |
 | Installation, image Docker | `docs/demarrage/installation.md`, `docs/demarrage/docker.md` |
 | Une garantie ou limite de sécurité | `docs/reference/securite.md` |

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Image of the security-review-mcp server.
+# Image of security-review-mcp: one image, two processes sharing the database.
 #
 #   docker build -t security-review-mcp .
 #   docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # PostgreSQL driver
@@ -8,17 +8,23 @@
 # stdio (developer workstation, the MCP host starts the container itself):
 #   docker run -i --rm -v secreview-data:/data security-review-mcp
 #
-# Streamable HTTP (shared server, MCP on /mcp and web interface on /ui). Bearer tokens are
-# stored in the database (`security-review-mcp token create`); enable TLS (SECREVIEW_TLS_CERTFILE,
-# SECREVIEW_TLS_KEYFILE) or put the server behind a reverse proxy that enforces it:
+# Shared server (see docker-compose.yml): the MCP server (default entrypoint, MCP on /mcp) and
+# the controller (REST API on /api/v1, web interface on /ui, administration commands) run in
+# two containers. Enable TLS (SECREVIEW_TLS_CERTFILE, SECREVIEW_TLS_KEYFILE) or put them behind
+# a reverse proxy that enforces it:
+#   docker run --rm -v secreview-data:/data --entrypoint security-review-controller \
+#       security-review-mcp db upgrade
+#   docker run -d -p 127.0.0.1:8080:8000 -v secreview-data:/data \
+#       --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
 #   docker run -d -p 127.0.0.1:8000:8000 -v secreview-data:/data security-review-mcp \
 #       --transport streamable-http --host 0.0.0.0 --port 8000
+# (SQLite in a shared volume is for a single host only: use PostgreSQL otherwise.)
 
 ARG PYTHON_VERSION=3.12
 ARG NODE_VERSION=24
 
 # ---------------------------------------------------------------------------
-# Web stage: build the Angular interface (served on /ui with streamable-http)
+# Web stage: build the Angular interface (served on /ui by the controller)
 # ---------------------------------------------------------------------------
 FROM node:${NODE_VERSION}-slim AS web
 
@@ -85,17 +91,21 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     SECREVIEW_DATABASE_URL=sqlite:////data/security_reports.db \
     SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true
 
-# The admin password hash and the project tokens are stored in the database
+# The admin password hash and the project tokens are stored in the database; the controller
+# shows the bootstrap administrator password once, at its first start
 
 # Reports database (SQLite) lives in the volume, with the internal rules imported with
-#   docker run --rm -v secreview-data:/data -v ./rules.d:/rules:ro IMAGE rules import /rules
+#   docker run --rm -v secreview-data:/data -v ./rules.d:/rules:ro \
+#       --entrypoint security-review-controller IMAGE rules import /rules
 WORKDIR /data
 VOLUME ["/data"]
 
 USER secreview
 
-# Only used with --transport streamable-http
+# MCP server (--transport streamable-http) or controller (serve)
 EXPOSE 8000
 
-# Arguments are passed through: transport options or CLI commands (gate, sarif, trend, deps...)
+# MCP server by default: arguments are its transport options (or `enroll`). The controller and
+# its commands (serve, db, token, rules, gate, sarif...) use
+# --entrypoint security-review-controller (Docker) or command: (Compose, Kubernetes).
 ENTRYPOINT ["security-review-mcp"]
