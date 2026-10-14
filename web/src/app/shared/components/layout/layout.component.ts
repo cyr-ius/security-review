@@ -31,6 +31,7 @@ export class LayoutComponent {
   readonly adminNav: readonly NavItem[] = [
     { path: '/rules', label: 'Règles', icon: 'bi-sliders' },
     { path: '/checklists', label: 'Checklists', icon: 'bi-list-check' },
+    { path: '/users', label: 'Utilisateurs', icon: 'bi-people' },
     { path: '/tokens', label: 'Jetons', icon: 'bi-key' },
     { path: '/role-mappings', label: 'Rôles SSO', icon: 'bi-person-badge' },
     { path: '/settings', label: 'Paramètres', icon: 'bi-gear' },

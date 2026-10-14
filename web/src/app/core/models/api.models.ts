@@ -36,13 +36,47 @@ export interface Identity {
   can_triage: boolean;
   auth_enabled: boolean;
   project: string | null;
+  /** True for a web user logged in with a password (who may change it). */
+  local_account?: boolean;
   version: string;
 }
 
-/** GET /api/v1/auth/config: single sign-on (OIDC) offered on the login page. */
+/** GET /api/v1/auth/config: login methods offered on the login page. */
 export interface AuthConfig {
+  /** Username and password of a web user. */
+  password?: boolean;
   oidc: boolean;
   oidc_display_name: string | null;
+}
+
+/** Session returned by POST /api/v1/auth/login and PUT /api/v1/me/password. */
+export interface LoginSession {
+  session: string;
+  expires_in: number;
+  username: string;
+  role: Role;
+}
+
+/** Web role of a web user. */
+export type WebUserRole = 'reader' | 'triager' | 'admin';
+
+/** A web user (username and password login); the hash is never returned. */
+export interface WebUser {
+  id: number;
+  username: string;
+  role: WebUserRole;
+  /** null: every project. */
+  projects: string[] | null;
+  created_at: string;
+  updated_at: string;
+  password_changed_at: string;
+  last_login_at: string | null;
+  created_by: string | null;
+}
+
+/** A web user just created or reset: ``password`` is set when it was generated (shown once). */
+export interface WebUserWithPassword extends WebUser {
+  password?: string;
 }
 
 /** Metadata returned for a project-scoped token; the raw secret is only returned at creation. */

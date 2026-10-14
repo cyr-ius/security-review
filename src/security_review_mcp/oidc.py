@@ -10,11 +10,12 @@ flow with PKCE:
    (server to server), validates the ID token (signature from the provider JWKS, issuer,
    audience, expiry, nonce) and maps its groups or roles claim to a web role;
 3. the role and projects come from the role mapping (see role_mapping), then the controller
-   issues a **session token**: a JWT signed with a key derived from
-   ``SECREVIEW_OIDC_SESSION_SECRET``, valid ``SECREVIEW_OIDC_SESSION_HOURS``, handed to the web
-   application in the URL fragment of ``/ui/login``. The application sends it as a bearer token,
-   like a token of the database; the bearer middleware of the controller verifies it (see
-   http_server.BearerAuthMiddleware). It never reaches the MCP server.
+   issues a **session token**: a JWT signed with a key derived from ``SECREVIEW_SESSION_SECRET``,
+   valid ``SECREVIEW_SESSION_HOURS``, handed to the web application in the URL fragment of
+   ``/ui/login``. The application sends it as a bearer token, like a token of the database; the
+   bearer middleware of the controller verifies it (see http_server.BearerAuthMiddleware). It
+   never reaches the MCP server. The password login of the web users (see web_users) issues the
+   same session tokens, with the id of the user.
 
 Nothing is stored in the database. The provider is contacted only by the controller, over HTTPS
 (plain HTTP is accepted for a provider on the loopback interface, for development), with
@@ -119,14 +120,6 @@ def validate_settings(settings: Settings) -> None:
         raise ValueError("SECREVIEW_OIDC_SCOPES must include openid")
     if settings.oidc_default_role not in DEFAULT_ROLES:
         raise ValueError("SECREVIEW_OIDC_DEFAULT_ROLE must be empty, reader or triager")
-    if not 1 <= settings.oidc_session_hours <= 24:
-        raise ValueError("SECREVIEW_OIDC_SESSION_HOURS must be between 1 and 24")
-    secret = settings.oidc_session_secret
-    if secret is not None and len(secret) < MIN_SESSION_SECRET_CHARS:
-        raise ValueError(
-            "SECREVIEW_OIDC_SESSION_SECRET must hold at least "
-            f"{MIN_SESSION_SECRET_CHARS} characters"
-        )
     if settings.oidc_cafile and not Path(settings.oidc_cafile).is_file():
         raise ValueError(f"SECREVIEW_OIDC_CAFILE: file not found: {settings.oidc_cafile}")
     if not settings.oidc_roles_claim.strip():
@@ -208,12 +201,38 @@ def pkce_challenge(verifier: str) -> str:
     return _b64url(hashlib.sha256(verifier.encode("ascii")).digest())
 
 
+def validate_session_settings(settings: Settings) -> None:
+    """Check SECREVIEW_SESSION_HOURS and SECREVIEW_SESSION_SECRET; raise ValueError."""
+    if not 1 <= settings.session_hours <= 24:
+        raise ValueError("SECREVIEW_SESSION_HOURS must be between 1 and 24")
+    secret = settings.session_secret
+    if secret is not None and len(secret) < MIN_SESSION_SECRET_CHARS:
+        raise ValueError(
+            f"SECREVIEW_SESSION_SECRET must hold at least {MIN_SESSION_SECRET_CHARS} characters"
+        )
+
+
+def session_signer(settings: Settings) -> SessionSigner:
+    """Return the signer of the web sessions of the controller (password and OIDC logins).
+
+    Raises:
+        ValueError: If ``SECREVIEW_SESSION_HOURS`` or ``SECREVIEW_SESSION_SECRET`` is invalid.
+    """
+    validate_session_settings(settings)
+    if not settings.session_secret:
+        logger.warning(
+            "SECREVIEW_SESSION_SECRET is not set: web sessions end when the controller "
+            "restarts and are not shared between replicas"
+        )
+    return SessionSigner(settings.session_secret, settings.session_hours)
+
+
 class SessionSigner:
     """Sign and verify the session tokens and the state cookies of the login flow.
 
     Two keys are derived from the secret, so that a state cookie can never be used as a session
     token. Without a configured secret a random one is generated: sessions then end when the
-    controller restarts, and replicas must share ``SECREVIEW_OIDC_SESSION_SECRET``.
+    controller restarts, and replicas must share ``SECREVIEW_SESSION_SECRET``.
     """
 
     def __init__(self, secret: str | None, session_hours: int = 8) -> None:
@@ -222,12 +241,24 @@ class SessionSigner:
         self._state_key = hmac.new(master, b"secreview-oidc-state", hashlib.sha256).digest()
         self.session_seconds = session_hours * 3600
 
-    def issue_session(self, label: str, role: Role, projects: frozenset[str] | None = None) -> str:
-        """Return a session token for a web role, restricted to ``projects`` (None: all)."""
+    def issue_session(
+        self,
+        label: str,
+        role: Role,
+        projects: frozenset[str] | None = None,
+        user_id: int | None = None,
+        user_version: int = 0,
+    ) -> str:
+        """Return a session token for a web role, restricted to ``projects`` (None: all).
+
+        ``user_id`` (password login) names the web user, whose current role and projects are
+        read from the database at each request instead of the claims (see web_users);
+        ``user_version`` is its session version, raised by a password change.
+        """
         if role not in WEB_ROLES:
             raise ValueError(f"Role '{role}' cannot use the web interface")
         now = int(time.time())
-        payload = {
+        payload: dict[str, Any] = {
             "iss": SESSION_ISSUER,
             "aud": SESSION_AUDIENCE,
             "sub": label,
@@ -236,6 +267,9 @@ class SessionSigner:
             "iat": now,
             "exp": now + self.session_seconds,
         }
+        if user_id is not None:
+            payload["uid"] = user_id
+            payload["uver"] = user_version
         return jwt.encode(payload, self._session_key, algorithm="HS256")
 
     @staticmethod
@@ -243,8 +277,8 @@ class SessionSigner:
         """True when a bearer value looks like a JWT (database tokens contain no dot)."""
         return credentials.startswith("eyJ") and credentials.count(".") == 2
 
-    def verify_session(self, credentials: str) -> TokenInfo | None:
-        """Return the identity of a valid, unexpired session token, or None."""
+    def decode_session(self, credentials: str) -> dict[str, Any] | None:
+        """Return the claims of a valid, unexpired session token, or None."""
         try:
             payload = jwt.decode(
                 credentials,
@@ -254,8 +288,24 @@ class SessionSigner:
                 issuer=SESSION_ISSUER,
                 options={"require": ["exp", "iat", "sub"]},
             )
+        except jwt.InvalidTokenError:
+            return None
+        for claim in ("uid", "uver"):
+            value = payload.get(claim)
+            if value is not None and (not isinstance(value, int) or isinstance(value, bool)):
+                return None
+        if (payload.get("uid") is None) != (payload.get("uver") is None):
+            return None
+        return payload
+
+    def verify_session(self, credentials: str) -> TokenInfo | None:
+        """Return the identity written in a valid, unexpired session token, or None."""
+        payload = self.decode_session(credentials)
+        if payload is None:
+            return None
+        try:
             role = Role(payload.get("role"))
-        except jwt.InvalidTokenError, ValueError:
+        except ValueError:
             return None
         projects = payload.get("projects")
         if role not in WEB_ROLES or not isinstance(payload["sub"], str):
@@ -269,6 +319,7 @@ class SessionSigner:
             label=payload["sub"][:MAX_LABEL_CHARS],
             role=role,
             projects=None if projects is None else frozenset(projects),
+            user_id=payload.get("uid"),
         )
 
     def sign_state(self, data: dict[str, str]) -> str:
@@ -331,14 +382,15 @@ class OidcLogin:
     """The login flow with one identity provider, configured by the ``SECREVIEW_OIDC_*``
     settings (validated by validate_settings).
 
-    The discovery document and the JWKS are downloaded on first use and cached.
+    The discovery document and the JWKS are downloaded on first use and cached. ``signer`` is
+    shared with the password login (see session_signer); a random one is used without it.
     """
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, signer: SessionSigner | None = None) -> None:
         self.settings = settings
         self.issuer = settings.oidc_issuer.rstrip("/")
         self.display_name = settings.oidc_display_name.strip()
-        self.signer = SessionSigner(settings.oidc_session_secret, settings.oidc_session_hours)
+        self.signer = signer or SessionSigner(settings.session_secret, settings.session_hours)
         # The state cookie is only sent back to the callback (path as seen by the browser)
         self.secure_cookie = settings.oidc_redirect_uri.startswith("https://")
         self.cookie_path = urllib.parse.urlsplit(settings.oidc_redirect_uri).path or "/"
@@ -569,8 +621,10 @@ def _path_of(url: str) -> str:
     return f"{parts.hostname}{parts.path}"
 
 
-def from_settings(settings: Settings) -> OidcLogin | None:
+def from_settings(settings: Settings, signer: SessionSigner | None = None) -> OidcLogin | None:
     """Return the configured login flow, or None when OIDC is disabled.
+
+    ``signer`` signs the sessions (see session_signer, shared with the password login).
 
     Raises:
         ValueError: If a ``SECREVIEW_OIDC_*`` setting is invalid.
@@ -578,9 +632,4 @@ def from_settings(settings: Settings) -> OidcLogin | None:
     if not settings.oidc_enabled:
         return None
     validate_settings(settings)
-    if not settings.oidc_session_secret:
-        logger.warning(
-            "SECREVIEW_OIDC_SESSION_SECRET is not set: web sessions end when the controller "
-            "restarts and are not shared between replicas"
-        )
-    return OidcLogin(settings)
+    return OidcLogin(settings, signer)

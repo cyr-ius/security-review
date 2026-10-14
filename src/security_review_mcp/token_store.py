@@ -1,9 +1,9 @@
 """Bearer tokens of the HTTP transport, stored in the database (SHA-256 digests only).
 
-Every token lives in the ``ApiToken`` table: the bootstrap administrator password, the tokens
-created with ``security-review-controller token create`` and the project tokens created in the web
-interface. Every server instance sharing the database sees a creation or a revocation
-immediately.
+Every token lives in the ``ApiToken`` table: the tokens created with
+``security-review-controller token create``, the project tokens created in the web interface and
+the enrollment requests. Every server instance sharing the database sees a creation or a
+revocation immediately. The web users, who log in with a password, are in web_users.
 
 A token restricted to projects lists them in ``ApiTokenProject``; a token without project rows
 (and without ``ApiToken.project``) reaches every project.
@@ -27,10 +27,9 @@ from sqlmodel import Session, col, func, or_, select
 
 from .database import session_scope
 from .http_server import Role, TokenInfo, hash_token
-from .models import ApiToken, ApiTokenProject, utcnow
+from .models import ApiToken, ApiTokenProject, WebUser, utcnow
 from .scanner import redact_secrets
 
-BOOTSTRAP_LABEL = "bootstrap-admin"
 MAX_TOKENS = 500
 MAX_LABEL_CHARS = 64
 MAX_PROJECT_CHARS = 200
@@ -135,7 +134,14 @@ def _request(link: ApiTokenProject, row: ApiToken) -> dict[str, Any]:
 
 
 class DatabaseTokenStore:
-    """Token lookup used by http_server.BearerAuthMiddleware (one or two queries a request)."""
+    """Token lookup used by http_server.BearerAuthMiddleware (one or two queries a request).
+
+    ``include_users`` (controller) counts the web users as credentials in has_tokens: the web
+    API then requires a login as soon as a user exists, even without any token.
+    """
+
+    def __init__(self, include_users: bool = False) -> None:
+        self.include_users = include_users
 
     def lookup(self, digest: bytes) -> TokenInfo | None:
         """Return the identity of the stored token with this SHA-256 digest, or None.
@@ -156,9 +162,10 @@ class DatabaseTokenStore:
         not switch on authentication for a server that has none.
         """
         with session_scope() as session:
+            if session.exec(select(ApiToken.id).where(_active_clause()).limit(1)).first():
+                return True
             return (
-                session.exec(select(ApiToken.id).where(_active_clause()).limit(1)).first()
-                is not None
+                self.include_users and session.exec(select(WebUser.id).limit(1)).first() is not None
             )
 
 
@@ -590,29 +597,3 @@ def enrollment_status(token_id: str | None) -> dict[str, Any]:
                     "requested_at": row.created_at.isoformat(),
                 }
     return {"status": "not_enrolled"}
-
-
-# ── Bootstrap administrator ──────────────────────────────────────────────────
-
-
-def ensure_bootstrap_admin() -> str | None:
-    """Create the bootstrap administrator password once; return it only when created."""
-    with session_scope() as session:
-        exists = session.exec(select(ApiToken.id).where(ApiToken.label == BOOTSTRAP_LABEL)).first()
-    if exists is not None:
-        return None
-    try:
-        _, _, password = _insert(BOOTSTRAP_LABEL, Role.ADMIN)
-    except ValueError:
-        # Another instance sharing the database created it first
-        return None
-    return password
-
-
-def reset_bootstrap_admin() -> str:
-    """Replace the bootstrap administrator password and return the new one."""
-    with session_scope() as session:
-        for row in session.exec(select(ApiToken).where(ApiToken.label == BOOTSTRAP_LABEL)).all():
-            _delete_token(session, row)
-    _, _, password = _insert(BOOTSTRAP_LABEL, Role.ADMIN)
-    return password

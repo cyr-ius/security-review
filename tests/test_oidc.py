@@ -18,6 +18,7 @@ from security_review_mcp import (
     services,
     token_store,
     web_api,
+    web_users,
 )
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import Role
@@ -39,7 +40,7 @@ def make_settings(**values) -> Settings:
         "oidc_admin_groups": "secreview-admins",
         "oidc_triager_groups": "secreview-triagers",
         "oidc_reader_groups": "developers, qa",
-        "oidc_session_secret": SECRET,
+        "session_secret": SECRET,
     }
     return Settings(_env_file=None, **{**defaults, **values})
 
@@ -108,7 +109,10 @@ def controller(provider, tmp_path) -> TestClient:
     (tmp_path / "index.html").write_text("<html>app</html>", encoding="utf-8")
     app = web_api.create_app("0.0.0.0", ui_dir=str(tmp_path), oidc_login=provider)
     secured = http_server.build_controller_app(
-        app, token_store.DatabaseTokenStore(), provider.signer
+        app,
+        token_store.DatabaseTokenStore(include_users=True),
+        web_users.SessionVerifier(provider.signer),
+        require_auth=True,
     )
     return TestClient(secured, base_url="https://secreview.example.com", follow_redirects=False)
 
@@ -153,8 +157,6 @@ def test_from_settings_is_none_when_disabled():
         ({"oidc_redirect_uri": "javascript:alert(1)"}, "SECREVIEW_OIDC_REDIRECT_URI must be"),
         ({"oidc_scopes": "profile email"}, "must include openid"),
         ({"oidc_default_role": "admin"}, "SECREVIEW_OIDC_DEFAULT_ROLE"),
-        ({"oidc_session_hours": 0}, "SECREVIEW_OIDC_SESSION_HOURS"),
-        ({"oidc_session_secret": "short"}, "at least 32"),
         ({"oidc_cafile": "/nonexistent/ca.pem"}, "SECREVIEW_OIDC_CAFILE"),
         ({"oidc_display_name": " "}, "SECREVIEW_OIDC_DISPLAY_NAME"),
     ],
@@ -169,10 +171,29 @@ def test_plain_http_issuer_is_accepted_on_localhost_only():
     assert login is not None and login.issuer == "http://localhost:8080/realms/dev"
 
 
+@pytest.mark.parametrize(
+    ("values", "message"),
+    [
+        ({"session_hours": 0}, "SECREVIEW_SESSION_HOURS"),
+        ({"session_hours": 25}, "SECREVIEW_SESSION_HOURS"),
+        ({"session_secret": "short"}, "at least 32"),
+    ],
+)
+def test_invalid_session_settings_are_refused(values, message):
+    with pytest.raises(ValueError, match=message):
+        oidc.session_signer(make_settings(**values))
+
+
 def test_without_a_session_secret_a_warning_is_logged(caplog):
     with caplog.at_level(logging.WARNING, logger="security_review_mcp.oidc"):
-        assert oidc.from_settings(make_settings(oidc_session_secret=None)) is not None
-    assert "SECREVIEW_OIDC_SESSION_SECRET is not set" in caplog.text
+        assert oidc.session_signer(make_settings(session_secret=None)) is not None
+    assert "SECREVIEW_SESSION_SECRET is not set" in caplog.text
+
+
+def test_the_oidc_login_uses_the_shared_signer():
+    signer = oidc.session_signer(make_settings())
+    login = oidc.from_settings(make_settings(), signer)
+    assert login is not None and login.signer is signer
 
 
 @pytest.mark.parametrize(
@@ -293,10 +314,14 @@ def test_session_tokens_never_carry_the_mcp_role():
 
 def test_auth_config_is_public(controller, tmp_path):
     response = controller.get("/api/v1/auth/config")
-    assert response.json() == {"oidc": True, "oidc_display_name": "SSO"}
+    assert response.json() == {"password": True, "oidc": True, "oidc_display_name": "SSO"}
 
     disabled = TestClient(web_api.create_app(ui_dir=str(tmp_path)), base_url="http://127.0.0.1")
-    assert disabled.get("/api/v1/auth/config").json() == {"oidc": False, "oidc_display_name": None}
+    assert disabled.get("/api/v1/auth/config").json() == {
+        "password": True,
+        "oidc": False,
+        "oidc_display_name": None,
+    }
     assert disabled.get("/api/v1/auth/oidc/login").status_code == 404
 
 

@@ -1,0 +1,88 @@
+<div class="mb-3">
+  <h1 class="h3 mb-0">Mon compte</h1>
+  @if (auth.identity(); as identity) {
+    <p class="text-body-secondary mb-0">
+      {{ identity.client }} ·
+      <i class="bi" [class]="role().icon" aria-hidden="true"></i>
+      {{ role().label }}
+    </p>
+  }
+</div>
+
+@if (auth.identity()?.local_account) {
+  <section class="col-lg-6" aria-labelledby="password-title">
+    <h2 id="password-title" class="h5">Changer de mot de passe</h2>
+
+    @if (error(); as text) {
+      <div class="alert alert-danger py-2" role="alert">{{ text }}</div>
+    }
+    @if (message(); as text) {
+      <div class="alert alert-success py-2" role="status">{{ text }}</div>
+    }
+
+    <form (submit)="submit($event)" novalidate>
+      <!-- Lets password managers associate the new password with the account -->
+      <input
+        type="text"
+        class="d-none"
+        autocomplete="username"
+        [value]="auth.identity()?.client ?? ''"
+        readonly
+        aria-hidden="true"
+        tabindex="-1"
+      />
+      <div class="mb-3">
+        <label for="current-password" class="form-label">Mot de passe actuel</label>
+        <input
+          id="current-password"
+          class="form-control"
+          type="password"
+          maxlength="256"
+          autocomplete="current-password"
+          [value]="current()"
+          (input)="current.set($any($event.target).value)"
+        />
+      </div>
+      <div class="mb-3">
+        <label for="new-password" class="form-label">Nouveau mot de passe</label>
+        <input
+          id="new-password"
+          class="form-control"
+          type="password"
+          maxlength="256"
+          autocomplete="new-password"
+          [value]="next()"
+          (input)="next.set($any($event.target).value)"
+        />
+        <div class="form-text">{{ minPassword }} caractères au moins.</div>
+      </div>
+      <div class="mb-3">
+        <label for="confirm-password" class="form-label">Confirmation</label>
+        <input
+          id="confirm-password"
+          class="form-control"
+          type="password"
+          maxlength="256"
+          autocomplete="new-password"
+          [class.is-invalid]="mismatch()"
+          [value]="confirmation()"
+          (input)="confirmation.set($any($event.target).value)"
+        />
+        @if (mismatch()) {
+          <div class="invalid-feedback">Les deux mots de passe diffèrent.</div>
+        }
+      </div>
+      <button type="submit" class="btn btn-primary" [disabled]="!canSubmit()">
+        @if (busy()) {
+          <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+        }
+        Changer le mot de passe
+      </button>
+    </form>
+  </section>
+} @else {
+  <div class="alert alert-info py-2" role="status">
+    <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+    Vous êtes connecté avec un jeton d'accès ou par SSO : aucun mot de passe n'est géré ici.
+  </div>
+}

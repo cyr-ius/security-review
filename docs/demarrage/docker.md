@@ -71,11 +71,12 @@ docker run -d --name secreview-mcp -p 8443:8443 \
 
 Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Le
 serveur MCP refuse de démarrer tant que le schéma n'est pas migré. Au premier démarrage du
-contrôleur, un mot de passe aléatoire pour le rôle `admin` est généré et affiché une seule fois
-dans ses logs. Seule son empreinte est conservée, dans la base de données. Récupérez-le avec
-`docker logs secreview-controller` puis connectez-vous sur l'interface (`/ui/`). Ce rôle gère
-les règles et le triage et donne aussi accès à `/mcp`. Ajoutez ensuite des jetons individuels
-`reader` ou `triager` pour les équipes (voir les [rôles](../utilisation/interface-web.md#roles)).
+contrôleur, le compte `admin` est créé avec un mot de passe aléatoire affiché une seule fois
+dans ses logs ; seule son empreinte est conservée, dans la base de données. Récupérez-le avec
+`docker logs secreview-controller`, connectez-vous sur l'interface (`/ui/`) avec l'identifiant
+`admin`, puis changez le mot de passe depuis **Mon compte**. Créez ensuite un compte par
+personne dans l'écran **Utilisateurs** (voir les
+[comptes utilisateurs](../utilisation/interface-web.md#comptes-utilisateurs)).
 
 Les jetons projet créés depuis l'écran **Jetons** sont eux aussi stockés sous forme d'empreinte
 dans la base, comme tous les jetons (voir [jetons Bearer](http.md#jetons-bearer)).
@@ -83,7 +84,7 @@ dans la base, comme tous les jetons (voir [jetons Bearer](http.md#jetons-bearer)
 !!! warning "Protégez les journaux"
     Le mot de passe initial est un secret : limitez l'accès aux logs Docker et à leur collecte
     centralisée. Si vous le perdez, générez-en un nouveau (l'ancien est aussitôt invalidé) :
-    `docker exec secreview-controller security-review-controller token reset-admin`.
+    `docker exec secreview-controller security-review-controller user reset-password admin`.
 
 ## Docker Compose avec PostgreSQL
 
@@ -126,8 +127,8 @@ docker compose logs controller   # mot de passe admin initial
   controller` ou dans les paramètres de l'interface web. Sans accès Internet, importez une
   archive avec `advisories import` (voir [Dépendances](../utilisation/dependances.md)).
 - Les conteneurs tournent en système de fichiers en lecture seule, sans capacité Linux. Le
-  volume `secreview-pg` contient les rapports et les jetons gérés (mot de passe admin et
-  jetons projet) : sauvegardez-le.
+  volume `secreview-pg` contient les rapports, les comptes de l'interface web et les jetons :
+  sauvegardez-le.
 
 Pour ajouter le TLS ou des règles internes, complétez `environment` et `volumes` du service
 concerné. Les commandes CLI s'exécutent dans le conteneur du contrôleur :

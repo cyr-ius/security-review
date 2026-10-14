@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from starlette.testclient import TestClient
 
-from security_review_mcp import cli, controller, database, http_server, token_store
+from security_review_mcp import cli, controller, database, http_server, token_store, web_users
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware
 
@@ -88,25 +88,58 @@ def test_serve_logs_bootstrap_password_only_when_created(settings, caplog, captu
     with caplog.at_level("WARNING", logger="security_review_mcp"):
         controller.main(["serve"])
         messages = [record.message for record in caplog.records]
-        assert sum("Initial Web UI administrator password" in message for message in messages) == 1
+        assert sum("Initial Web UI administrator created" in message for message in messages) == 1
         caplog.clear()
         controller.main(["serve"])
 
     assert not any(
-        "Initial Web UI administrator password" in record.message for record in caplog.records
+        "Initial Web UI administrator created" in record.message for record in caplog.records
     )
     (password,) = [
-        message.rsplit(" ", 1)[1] for message in messages if "administrator password" in message
+        message.rsplit(" ", 1)[1] for message in messages if "administrator created" in message
     ]
     client = TestClient(captured_run[-1]["app"], base_url="http://127.0.0.1")
-    identity = client.get("/api/v1/me", headers={"Authorization": f"Bearer {password}"}).json()
-    assert identity["role"] == "admin"
+    login = client.post("/api/v1/auth/login", json={"username": "admin", "password": password})
+    assert login.status_code == 200
+    headers = {"Authorization": f"Bearer {login.json()['session']}"}
+    identity = client.get("/api/v1/me", headers=headers).json()
+    assert (identity["client"], identity["role"], identity["local_account"]) == (
+        "admin",
+        "admin",
+        True,
+    )
+    # The password is not a bearer token
+    assert (
+        client.get("/api/v1/me", headers={"Authorization": f"Bearer {password}"}).status_code == 401
+    )
 
 
 def test_serve_without_bootstrap_setting_creates_no_admin(settings, captured_run, ui_dir):
     controller.main(["serve"])
 
     assert STORE.has_tokens() is False
+    assert web_users.has_users() is False
+
+
+def test_serve_requires_a_login_once_a_web_user_exists(settings, captured_run, ui_dir):
+    controller.main(["serve"])
+    client = TestClient(captured_run[0]["app"], base_url="http://127.0.0.1")
+    assert client.get("/api/v1/me").status_code == 503
+
+    web_users.create_user("alice", "correct horse battery", "reader")
+
+    assert client.get("/api/v1/me").status_code == 401
+    assert STORE.has_tokens() is False
+
+
+def test_serve_refuses_an_invalid_session_secret(settings, captured_run, capsys):
+    settings(session_secret="short")
+
+    with pytest.raises(SystemExit) as exc:
+        controller.main(["serve"])
+
+    assert exc.value.code == 2 and not captured_run
+    assert "SECREVIEW_SESSION_SECRET" in capsys.readouterr().err
 
 
 def test_serve_without_web_ui_serves_the_api_only(settings, captured_run, ui_dir):
@@ -124,7 +157,7 @@ OIDC_SETTINGS = {
     "oidc_issuer": "https://idp.example.com",
     "oidc_client_id": "secreview",
     "oidc_redirect_uri": "https://secreview.example.com/api/v1/auth/oidc/callback",
-    "oidc_session_secret": "s" * 40,
+    "session_secret": "s" * 40,
 }
 
 

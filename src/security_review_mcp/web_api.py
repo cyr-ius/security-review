@@ -39,6 +39,7 @@ from . import (
     services,
     token_store,
     trends,
+    web_users,
 )
 from .config import REPORT_LANGUAGE_MAX_CHARS, get_settings
 from .http_server import BEARER_CHALLENGE, HEALTH_PATH, LOOPBACK_HOSTS, TRIAGE_ROLES, Role
@@ -84,6 +85,8 @@ class Identity(BaseModel):
     auth_enabled: bool
     # Projects a restricted token reaches; None: every project
     projects: list[str] | None = None
+    # True for a web user logged in with a password (who may change it)
+    local_account: bool = False
     version: str
 
 
@@ -155,6 +158,50 @@ class UserGrantUpdate(BaseModel):
 
     projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
         min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
+
+
+class WebUserCreate(BaseModel):
+    """A web user; without ``password`` a random one is generated and returned once."""
+
+    username: str = Field(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)
+    password: str | None = Field(
+        default=None,
+        min_length=web_users.MIN_PASSWORD_CHARS,
+        max_length=web_users.MAX_PASSWORD_CHARS,
+    )
+    role: Literal["reader", "triager", "admin"] = "reader"
+    # Empty: every project (always for admin)
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
+
+
+class WebUserUpdate(BaseModel):
+    """New role and projects of a web user (empty projects: every project)."""
+
+    role: Literal["reader", "triager", "admin"]
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
+
+
+class PasswordReset(BaseModel):
+    """New password of a web user, set by an administrator (null: generate one)."""
+
+    password: str | None = Field(
+        default=None,
+        min_length=web_users.MIN_PASSWORD_CHARS,
+        max_length=web_users.MAX_PASSWORD_CHARS,
+    )
+
+
+class PasswordChange(BaseModel):
+    """Body of PUT /me/password: the current password and the new one."""
+
+    current_password: str = Field(min_length=1, max_length=web_users.MAX_PASSWORD_CHARS)
+    new_password: str = Field(
+        min_length=web_users.MIN_PASSWORD_CHARS, max_length=web_users.MAX_PASSWORD_CHARS
     )
 
 
@@ -249,6 +296,7 @@ def current_identity(
         can_triage=role in TRIAGE_ROLES,
         auth_enabled=True,
         projects=None if state.get("auth_projects") is None else sorted(state["auth_projects"]),
+        local_account=state.get("auth_user_id") is not None,
         version=__version__,
     )
 
@@ -327,10 +375,28 @@ LOGIN_HEADERS = {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"}
 
 
 class AuthConfig(BaseModel):
-    """Login methods offered by the login page, besides the password or token."""
+    """Login methods offered by the login page, besides the access token."""
 
+    # Username and password of a web user (always offered by the controller)
+    password: bool = True
     oidc: bool
     oidc_display_name: str | None = None
+
+
+class PasswordLogin(BaseModel):
+    """Body of POST /auth/login."""
+
+    username: str = Field(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)
+    password: str = Field(min_length=1, max_length=web_users.MAX_PASSWORD_CHARS)
+
+
+class LoginSession(BaseModel):
+    """Session opened by a password login, sent back as a bearer token."""
+
+    session: str
+    expires_in: int
+    username: str
+    role: Role
 
 
 def _oidc_login(request: Request) -> oidc.OidcLogin:
@@ -360,8 +426,54 @@ async def auth_config(request: Request) -> AuthConfig:
     """Tell the login page whether single sign-on (OIDC) is available."""
     login = getattr(request.app.state, "oidc", None)
     return AuthConfig(
-        oidc=login is not None, oidc_display_name=login.display_name if login else None
+        password=True,
+        oidc=login is not None,
+        oidc_display_name=login.display_name if login else None,
     )
+
+
+def _client_address(request: Request) -> str:
+    """Address of the caller, for the login throttling and the logs."""
+    return request.client.host if request.client else "unknown"
+
+
+def _log_name(username: str) -> str:
+    """Username as written in the logs: only a valid one, never arbitrary input."""
+    try:
+        return web_users.clean_username(username)
+    except ValueError:
+        return "<invalid username>"
+
+
+@auth_router.post("/login")
+async def password_login(request: Request, body: PasswordLogin) -> JSONResponse:
+    """Log a web user in with a username and a password; return a session token.
+
+    Failed attempts are throttled per username and address (429 once the limit is reached);
+    the answer never tells whether the username exists.
+    """
+    signer: oidc.SessionSigner = request.app.state.signer
+    throttle: web_users.LoginThrottle = request.app.state.login_throttle
+    address = _client_address(request)
+    username = body.username.strip()
+    if throttle.blocked(username, address):
+        logger.warning(
+            "Web login of %s from %s refused: too many failures", _log_name(username), address
+        )
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many failed logins: try again later",
+            headers={"Retry-After": str(int(throttle.window))},
+        )
+    user = await run_in_threadpool(web_users.authenticate, username, body.password)
+    if user is None:
+        throttle.failed(username, address)
+        logger.warning("Failed web login of %s from %s", _log_name(username), address)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
+    throttle.succeeded(username, address)
+    result = LoginSession(**await run_in_threadpool(web_users.new_session, signer, user["id"]))
+    logger.info("Web login of %s (role %s) from %s", result.username, result.role, address)
+    return JSONResponse(result.model_dump(mode="json"), headers=LOGIN_HEADERS)
 
 
 @auth_router.get("/oidc/login", response_class=RedirectResponse, status_code=302)
@@ -437,6 +549,41 @@ async def health() -> dict[str, str]:
 async def me(identity: CurrentIdentity) -> Identity:
     """Return the identity and permissions of the caller."""
     return identity
+
+
+@router.put("/me/password")
+async def change_password(
+    request: Request, body: PasswordChange, identity: CurrentIdentity
+) -> JSONResponse:
+    """Change the password of the logged-in web user and return a new session.
+
+    The other sessions of the user end. Wrong current passwords count as failed logins.
+    """
+    user_id = (request.scope.get("state") or {}).get("auth_user_id")
+    if user_id is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Only a web user logged in with a password has one"
+        )
+    throttle: web_users.LoginThrottle = request.app.state.login_throttle
+    address = _client_address(request)
+    if throttle.blocked(identity.client, address):
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many failed attempts: try again later",
+            headers={"Retry-After": str(int(throttle.window))},
+        )
+    try:
+        user = await run_in_threadpool(
+            web_users.change_own_password, user_id, body.current_password, body.new_password
+        )
+    except ValueError as exc:
+        if "current password" in str(exc):
+            throttle.failed(identity.client, address)
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    signer: oidc.SessionSigner = request.app.state.signer
+    result = LoginSession(**await run_in_threadpool(web_users.new_session, signer, user["id"]))
+    logger.info("Password of web user %s changed by the user", user["username"])
+    return JSONResponse(result.model_dump(mode="json"), headers=LOGIN_HEADERS)
 
 
 @router.get("/projects")
@@ -993,6 +1140,76 @@ async def delete_user_grant(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+@router.get("/users")
+async def users(identity: Annotated[Identity, Depends(require_admin)]) -> list[dict[str, Any]]:
+    """List the web users (never their password hash)."""
+    return await run_in_threadpool(web_users.list_users)
+
+
+@router.post("/users", status_code=status.HTTP_201_CREATED)
+async def create_user(
+    body: WebUserCreate, identity: Annotated[Identity, Depends(require_admin)]
+) -> JSONResponse:
+    """Create a web user; a generated password is returned once in ``password``."""
+    try:
+        created = await run_in_threadpool(
+            web_users.create_user,
+            body.username,
+            body.password,
+            body.role,
+            body.projects,
+            identity.client,
+        )
+    except ValueError as exc:
+        code = status.HTTP_409_CONFLICT if "already exists" in str(exc) else 422
+        raise HTTPException(code, str(exc)) from exc
+    logger.info(
+        "Web user %s (%s) created by %s", created["username"], created["role"], identity.client
+    )
+    return JSONResponse(created, status_code=status.HTTP_201_CREATED, headers=LOGIN_HEADERS)
+
+
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: int, body: WebUserUpdate, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict[str, Any]:
+    """Replace the role and projects of a web user (applies to its sessions at once)."""
+    try:
+        updated = await run_in_threadpool(web_users.update_user, user_id, body.role, body.projects)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info(
+        "Web user %s set to %s by %s", updated["username"], updated["role"], identity.client
+    )
+    return updated
+
+
+@router.post("/users/{user_id}/password")
+async def reset_user_password(
+    user_id: int, body: PasswordReset, identity: Annotated[Identity, Depends(require_admin)]
+) -> JSONResponse:
+    """Replace the password of a web user (generated when not given) and end its sessions."""
+    try:
+        updated = await run_in_threadpool(web_users.set_password, user_id, body.password)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Password of web user %s reset by %s", updated["username"], identity.client)
+    return JSONResponse(updated, headers=LOGIN_HEADERS)
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: int, identity: Annotated[Identity, Depends(require_admin)]
+) -> Response:
+    """Delete a web user (its sessions stop at once); the last administrator is kept."""
+    try:
+        deleted = await run_in_threadpool(web_users.delete_user, user_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    logger.info("Web user %s deleted by %s", deleted["username"], identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 # ── Static files ─────────────────────────────────────────────────────────────
 
 
@@ -1031,11 +1248,13 @@ def create_app(
     ui_dir: str | None = None,
     ui: bool = True,
     oidc_login: oidc.OidcLogin | None = None,
+    signer: oidc.SessionSigner | None = None,
 ) -> FastAPI:
     """Build the controller app (REST API and, when it is built, the Angular application).
 
     ``ui=False`` (SECREVIEW_WEB_UI=false) serves the REST API only. ``oidc_login`` (see
-    oidc.from_settings) enables the single sign-on routes under ``/api/v1/auth/oidc``; its
+    oidc.from_settings) enables the single sign-on routes under ``/api/v1/auth/oidc``.
+    ``signer`` (see oidc.session_signer) signs the sessions of the password login; the
     session tokens are checked by the bearer middleware (build_controller_app).
 
     Raises:
@@ -1050,6 +1269,12 @@ def create_app(
         openapi_url="/api/openapi.json",
     )
     app.state.oidc = oidc_login
+    app.state.signer = signer or (
+        oidc_login.signer
+        if oidc_login
+        else oidc.SessionSigner(settings.session_secret, settings.session_hours)
+    )
+    app.state.login_throttle = web_users.LoginThrottle()
     app.include_router(auth_router)
     app.include_router(router)
 

@@ -50,14 +50,29 @@
   (`SECREVIEW_OIDC_ENABLED`, désactivée par défaut), le contrôleur contacte aussi le fournisseur
   d'identité configuré : HTTPS uniquement (HTTP seulement sur localhost), redirections limitées
   à HTTPS, réponses bornées à 1 Mio, délai de 10 secondes.
-- **Interface web** (contrôleur) : l'API REST exige toujours un jeton de rôle web ; sans configuration, elle
-  répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
+- **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton de rôle web ;
+  sans utilisateur ni jeton, elle répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
   le statut d'un finding (action journalisée avec le label du jeton). Pages servies avec une CSP
   stricte et les en-têtes anti-clickjacking ; jeton gardé dans le `sessionStorage` de l'onglet.
   La documentation Swagger et son schéma OpenAPI sont publics, mais les routes de données
   restent protégées. Le contrôle est fait deux fois : par le middleware Bearer, puis par
   chaque route de l'API, qui refuse (`401`) toute requête sans identité authentifiée. Ainsi,
   l'API ne donne jamais de droits par défaut, même si elle est servie sans le middleware.
+- **Comptes utilisateurs** ([identifiant et mot de passe](../utilisation/interface-web.md#comptes-utilisateurs)) :
+  seule une empreinte **scrypt** salée (N=2¹⁴, r=8, p=5, sel aléatoire de 16 octets) est
+  stockée ; une empreinte stockée aux paramètres hors bornes est refusée au lieu d'épuiser la
+  mémoire. Mots de passe de 12 à 256 caractères, identifiants limités à `[A-Za-z0-9._@-]`. La
+  vérification coûte le même temps que l'identifiant existe ou non (empreinte factice), et
+  l'échec renvoie toujours le même `401`. Les échecs sont limités en mémoire (5 par identifiant
+  et adresse, 20 par adresse, sur 15 minutes, puis `429`) ; seuls les identifiants valides sont
+  journalisés, jamais les mots de passe. La session est un jeton signé avec
+  `SECREVIEW_SESSION_SECRET`, comme celle du SSO, mais le compte est **relu en base à chaque
+  requête** : suppression, nouveau rôle ou nouveaux projets s'appliquent immédiatement, et un
+  changement de mot de passe tire une nouvelle version de session aléatoire qui invalide toutes
+  les sessions précédentes. La session doit aussi porter l'identifiant du compte : elle n'ouvre
+  jamais un compte recréé sous le même numéro interne. Le dernier administrateur ne peut être ni supprimé ni rétrogradé. Le mot de passe
+  du compte `admin` initial apparaît une fois dans les journaux du contrôleur : protégez-les et
+  changez-le dès la première connexion.
 - **Connexion SSO (OpenID Connect)**, facultative : flux *authorization code* avec PKCE `S256`,
   state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
   ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
@@ -72,7 +87,7 @@
   chez le fournisseur, et vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant
   de lui donner cet accès. Une session restreinte à des projets l'est comme un jeton `--project`, et une liste
   de projets malformée dans une session invalide la session au lieu de l'élargir. La session est un jeton signé
-  (HMAC-SHA256, clé dérivée de `SECREVIEW_OIDC_SESSION_SECRET`), accepté par le contrôleur
+  (HMAC-SHA256, clé dérivée de `SECREVIEW_SESSION_SECRET`), accepté par le contrôleur
   seulement, jamais par le serveur MCP, et révocable uniquement par son expiration ou un
   changement du secret. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
   jetons et secrets ne sont jamais journalisés par le contrôleur ; le code d'autorisation

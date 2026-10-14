@@ -7,7 +7,7 @@ import pytest
 from sqlmodel import Session, select
 
 from security_review_mcp import database as database_module
-from security_review_mcp import token_store
+from security_review_mcp import token_store, web_users
 from security_review_mcp.http_server import Role, TokenInfo, hash_token
 from security_review_mcp.models import ApiToken, ApiTokenProject
 
@@ -87,18 +87,13 @@ def test_unknown_token_is_rejected():
     assert STORE.lookup(digest_of("z" * 40)) is None
 
 
-# ── Bootstrap administrator ──────────────────────────────────────────────────
+def test_admin_token_is_not_a_project_token(database):
+    password = token_store.create_token("ops", Role.ADMIN)["token"]
 
-
-def test_bootstrap_admin_is_created_once(database):
-    password = token_store.ensure_bootstrap_admin()
-
-    assert password is not None
-    assert token_store.ensure_bootstrap_admin() is None
     (row,) = stored_rows(database)
     assert password not in row.model_dump_json()
     info = STORE.lookup(digest_of(password))
-    assert (info.label, info.role, info.projects) == ("bootstrap-admin", Role.ADMIN, None)
+    assert (info.label, info.role, info.projects) == ("ops", Role.ADMIN, None)
     # The administrator is not a project token: it is not listed nor revocable as one
     assert token_store.list_project_tokens() == []
     with pytest.raises(ValueError, match="not found"):
@@ -128,12 +123,11 @@ def test_list_tokens_filters_by_project_and_hides_hashes(database):
     assert stored_rows(database)[0].token_hash not in str(token_store.list_tokens())
 
 
-def test_reset_bootstrap_admin_replaces_the_password():
-    first = token_store.ensure_bootstrap_admin()
-    second = token_store.reset_bootstrap_admin()
+def test_web_users_count_as_credentials_of_the_controller_only():
+    web_users.create_user("alice", "correct horse battery", "reader")
 
-    assert STORE.lookup(digest_of(first)) is None
-    assert STORE.lookup(digest_of(second)).role == Role.ADMIN
+    assert STORE.has_tokens() is False
+    assert token_store.DatabaseTokenStore(include_users=True).has_tokens() is True
 
 
 # ── Enrollment requests ──────────────────────────────────────────────────────

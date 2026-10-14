@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormField, form, required, submit } from '@angular/forms/signals';
+import { FormField, form, maxLength, required, submit } from '@angular/forms/signals';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { API_URL, ApiService } from '../../core/services/api.service';
@@ -17,9 +17,12 @@ const OIDC_ERRORS: Record<string, string> = {
   provider: "Fournisseur d'identité injoignable ou mal configuré.",
 };
 
+/** Login method chosen on the page. */
+export type LoginMode = 'account' | 'token';
+
 /**
- * Login page: the user enters a bootstrap password or a bearer token, or signs in with the
- * identity provider (OIDC) when the controller offers it.
+ * Login page: the user enters a username and a password (web user), or an access token, or
+ * signs in with the identity provider (OIDC) when the controller offers it.
  */
 @Component({
   selector: 'app-login',
@@ -55,6 +58,7 @@ export class LoginComponent implements OnInit {
 
   readonly error = signal<string | null>(this.initialMessage());
   readonly reveal = signal(false);
+  readonly mode = signal<LoginMode>('account');
 
   /** Label of the single sign-on button; null when OIDC is not enabled. */
   readonly ssoName = signal<string | null>(null);
@@ -82,8 +86,23 @@ export class LoginComponent implements OnInit {
   readonly loginModel = signal({ token: '' });
 
   readonly loginForm = form(this.loginModel, (path) => {
-    required(path.token, { message: 'Le mot de passe ou jeton est obligatoire' });
+    required(path.token, { message: "Le jeton d'accès est obligatoire" });
   });
+
+  readonly accountModel = signal({ username: '', password: '' });
+
+  readonly accountForm = form(this.accountModel, (path) => {
+    required(path.username, { message: "L'identifiant est obligatoire" });
+    maxLength(path.username, 64, { message: "L'identifiant ne dépasse pas 64 caractères" });
+    required(path.password, { message: 'Le mot de passe est obligatoire' });
+    maxLength(path.password, 256, { message: 'Le mot de passe ne dépasse pas 256 caractères' });
+  });
+
+  setMode(mode: LoginMode): void {
+    this.mode.set(mode);
+    this.error.set(null);
+    this.reveal.set(false);
+  }
 
   onSubmit(event: Event): void {
     event.preventDefault();
@@ -92,7 +111,22 @@ export class LoginComponent implements OnInit {
     });
   }
 
-  /** Check a secret (password, token or OIDC session) and open the requested page. */
+  onAccountSubmit(event: Event): void {
+    event.preventDefault();
+    submit(this.accountForm, async (fields) => {
+      this.error.set(null);
+      try {
+        const login = await firstValueFrom(
+          this.api.login(fields.username().value().trim(), fields.password().value()),
+        );
+        await this.enter(login.session);
+      } catch (err: unknown) {
+        this.error.set(describeAccountError(err));
+      }
+    });
+  }
+
+  /** Check a secret (token or session) and open the requested page. */
   private async enter(secret: string): Promise<void> {
     this.error.set(null);
     this.auth.login(secret);
@@ -141,16 +175,34 @@ export class LoginComponent implements OnInit {
       return "Ce secret n'a pas accès à l'interface web (rôle reader, triager ou admin requis).";
     }
     if (query.has('expired')) {
-      return 'Session expirée ou token révoqué : reconnectez-vous.';
+      return 'Session expirée, compte supprimé ou jeton révoqué : reconnectez-vous.';
     }
     return null;
   }
 }
 
+function describeAccountError(err: unknown): string {
+  if (err instanceof HttpErrorResponse) {
+    if (err.status === 401) {
+      return 'Identifiant ou mot de passe incorrect.';
+    }
+    if (err.status === 429) {
+      return 'Trop de tentatives échouées : réessayez dans quelques minutes.';
+    }
+    if (err.status === 422) {
+      return 'Identifiant ou mot de passe trop long.';
+    }
+    if (err.status === 0) {
+      return 'Serveur injoignable.';
+    }
+  }
+  return 'La connexion a échoué.';
+}
+
 function describeError(err: unknown): string {
   if (err instanceof HttpErrorResponse) {
     if (err.status === 401) {
-      return 'Mot de passe ou jeton invalide.';
+      return 'Jeton invalide ou session expirée.';
     }
     if (err.status === 403) {
       return "Ce secret n'a pas accès à l'interface web (rôle reader, triager ou admin requis).";

@@ -15,6 +15,7 @@ import {
   EnrollmentApproved,
   EnrollmentRequest,
   Identity,
+  LoginSession,
   ProjectSummary,
   ProjectToken,
   ProjectTokenCreated,
@@ -29,6 +30,9 @@ import {
   RuleReloadResult,
   Trend,
   UserGrant,
+  WebUser,
+  WebUserRole,
+  WebUserWithPassword,
 } from '../models/api.models';
 
 /** Base path of the REST API (served by the same origin as the application). */
@@ -43,9 +47,54 @@ export class ApiService {
     return this.http.get<Identity>(`${API_URL}/me`);
   }
 
-  /** Login methods offered besides the password or token (public route). */
+  /** Login methods offered besides the access token (public route). */
   authConfig(): Observable<AuthConfig> {
     return this.http.get<AuthConfig>(`${API_URL}/auth/config`);
+  }
+
+  /** Log a web user in; the returned session is used as a bearer token (public route). */
+  login(username: string, password: string): Observable<LoginSession> {
+    return this.http.post<LoginSession>(`${API_URL}/auth/login`, { username, password });
+  }
+
+  /** Change the password of the logged-in web user; returns a new session. */
+  changePassword(currentPassword: string, newPassword: string): Observable<LoginSession> {
+    return this.http.put<LoginSession>(`${API_URL}/me/password`, {
+      current_password: currentPassword,
+      new_password: newPassword,
+    });
+  }
+
+  users(): Observable<WebUser[]> {
+    return this.http.get<WebUser[]>(`${API_URL}/users`);
+  }
+
+  /** Create a web user; without password, a generated one is returned once. */
+  createUser(
+    username: string,
+    role: WebUserRole,
+    projects: string[],
+    password: string | null,
+  ): Observable<WebUserWithPassword> {
+    return this.http.post<WebUserWithPassword>(`${API_URL}/users`, {
+      username,
+      role,
+      projects,
+      password,
+    });
+  }
+
+  updateUser(id: number, role: WebUserRole, projects: string[]): Observable<WebUser> {
+    return this.http.put<WebUser>(`${API_URL}/users/${id}`, { role, projects });
+  }
+
+  /** Replace the password of a web user (generated when null) and end its sessions. */
+  resetUserPassword(id: number, password: string | null): Observable<WebUserWithPassword> {
+    return this.http.post<WebUserWithPassword>(`${API_URL}/users/${id}/password`, { password });
+  }
+
+  deleteUser(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/users/${id}`);
   }
 
   customRules(): Observable<CustomRuleCatalog> {

@@ -56,6 +56,19 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'account',
+        title: 'Mon compte · Security Review',
+        loadComponent: () =>
+          import('./features/account/account.component').then((m) => m.AccountComponent),
+      },
+      {
+        path: 'users',
+        title: 'Utilisateurs · Security Review',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/users/user-list.component').then((m) => m.UserListComponent),
+      },
+      {
         path: 'tokens',
         title: 'Jetons · Security Review',
         canActivate: [adminGuard],

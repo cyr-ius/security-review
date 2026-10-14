@@ -196,10 +196,10 @@ def test_pending_requests_do_not_close_an_open_server():
 
 def test_tokens_are_checked_in_the_database_on_each_request():
     mcp_client, web_client = protected_client(), protected_client(web=True)
-    password = token_store.ensure_bootstrap_admin()
+    password = token_store.create_token("ops", Role.ADMIN)["token"]
     created = token_store.create_project_token("ci", "shop-api")
     reader = bearer(created["token"])
-    assert web_client.get("/api/v1/me", headers=bearer(password)).text == "bootstrap-admin/admin"
+    assert web_client.get("/api/v1/me", headers=bearer(password)).text == "ops/admin"
     assert mcp_client.get("/mcp", headers=bearer(password)).status_code == 200
     assert web_client.get("/api/v1/me", headers=reader).text == "ci/reader"
     assert mcp_client.get("/mcp", headers=reader).status_code == 403
@@ -640,13 +640,8 @@ def test_token_create_rejects_duplicate_labels(capsys):
     assert run_cli(capsys, "create", "--label", "ci")[0] == cli.EXIT_ERROR
 
 
-def test_token_reset_admin(capsys):
-    first = token_store.ensure_bootstrap_admin()
+def test_token_reset_admin_is_replaced_by_the_user_command(capsys):
+    with pytest.raises(SystemExit) as exc:
+        run_cli(capsys, "reset-admin")
 
-    code, output = run_cli(capsys, "reset-admin")
-
-    assert code == cli.EXIT_PASSED
-    assert output["label"] == "bootstrap-admin"
-    assert STORE.lookup(hash_token(first)) is None
-    info = STORE.lookup(hash_token(output["token"]))
-    assert (info.label, info.role) == ("bootstrap-admin", Role.ADMIN)
+    assert exc.value.code == cli.EXIT_ERROR

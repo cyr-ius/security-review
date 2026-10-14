@@ -1,0 +1,4 @@
+.user-name,
+.secret-value {
+  overflow-wrap: anywhere;
+}

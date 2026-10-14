@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import field_validator
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import BigInteger, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -170,7 +170,7 @@ class AdvisoryAffected(SQLModel, table=True):
 
 
 class ApiToken(SQLModel, table=True):
-    """Bearer token of the HTTP transport (CLI, bootstrap admin, web project tokens).
+    """Bearer token of the HTTP transport (CLI, web project tokens, enrollment requests).
 
     Only the SHA-256 digest of the secret is stored. An enrollment request is a token whose
     status is ``pending``: it authenticates nothing until an administrator approves it.
@@ -334,4 +334,29 @@ class OidcUserGrant(SQLModel, table=True):
     projects: str = Field(default="[]")
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
+    created_by: str | None = Field(default=None, max_length=64)
+
+
+# ── Web users (username and password login, see web_users) ───────────────────
+
+
+class WebUser(SQLModel, table=True):
+    """Account of the web interface: a username, a password and a web role.
+
+    Only a scrypt hash of the password is stored. ``projects`` is the JSON list of the projects a
+    ``reader`` or ``triager`` reaches; an empty list means every project (always for ``admin``).
+    ``session_version`` is drawn at random at creation and at each password change: the sessions
+    issued with another version are refused.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    username: str = Field(unique=True, index=True, max_length=64)
+    role: str = Field(max_length=20)
+    projects: str = Field(default="[]")
+    password_hash: str = Field(max_length=255)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+    password_changed_at: datetime = Field(default_factory=utcnow)
+    session_version: int = Field(default=0, sa_type=BigInteger)
+    last_login_at: datetime | None = Field(default=None)
     created_by: str | None = Field(default=None, max_length=64)

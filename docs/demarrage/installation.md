@@ -87,5 +87,6 @@ La version 2 sépare le serveur MCP et le contrôleur, et gère le schéma avec 
 3. Remplacez `security-review-mcp token|rules|gate|sarif|trend|advisories|deps|code` par
    `security-review-controller …` dans vos scripts et pipelines. Les anciennes formes
    fonctionnent encore pendant la version 2, avec un avertissement.
-4. Le mot de passe administrateur initial (`SECREVIEW_AUTH_BOOTSTRAP_ADMIN`) est désormais
-   créé par le contrôleur.
+4. Le compte administrateur initial (`SECREVIEW_AUTH_BOOTSTRAP_ADMIN`) est désormais
+   créé par le contrôleur : c'est le [compte `admin`](../utilisation/interface-web.md#premier-administrateur)
+   de l'interface web, et non plus un jeton `bootstrap-admin`.

@@ -20,9 +20,9 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 ## Écrans
 
 Les écrans sont accessibles depuis la barre latérale : **Supervision** (projets, rapports) pour
-tous les rôles, **Administration** (règles, checklists, jetons, rôles SSO, paramètres) pour le rôle `admin`. Le bas de
-la barre affiche le client connecté, son rôle et la version, avec le bouton de déconnexion ; sur
-petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
+tous les rôles, **Administration** (règles, checklists, utilisateurs, jetons, rôles SSO,
+paramètres) pour le rôle `admin`. Le bas de la barre affiche le client connecté, son rôle et la
+version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
 à droite, y compris sur la page de connexion, et reste mémorisé dans le navigateur.
 
 - **Projets** : tous les projets avec leurs findings ouverts par sévérité, triés par risque,
@@ -46,6 +46,14 @@ petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre
   modifiée (badge « Par défaut, modifiée ») ou désactivée, mais pas supprimée. Le bouton
   **Recharger** applique immédiatement un changement fait avec la CLI
   `security-review-controller rules`.
+- **Utilisateurs** : les administrateurs créent les [comptes](#comptes-utilisateurs)
+  (identifiant, rôle `reader`, `triager` ou `admin`, projets pour `reader` et `triager`), en
+  saisissant le mot de passe ou en le laissant générer (affiché une seule fois). Ils changent le
+  rôle et les projets d'un compte, réinitialisent son mot de passe ou le suppriment ; le dernier
+  administrateur ne peut être ni supprimé ni rétrogradé.
+- **Mon compte** : un utilisateur connecté avec son identifiant change son mot de passe (ses
+  autres sessions sont fermées). Avec un jeton ou par SSO, la page indique seulement l'identité
+  connectée.
 - **Jetons** : les administrateurs créent et révoquent des jetons de rôle `reader`, `triager` ou
   `mcp`, limités à un ou plusieurs projets. Le rôle `admin` reste non restreint et se crée par la
   CLI. Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
@@ -95,23 +103,19 @@ Un jeton `mcp`, `reader` ou `triager` restreint avec `--project` ne voit et ne t
 projets autorisés ; l'option peut être répétée (voir
 [jetons restreints à un projet](../demarrage/http.md#jetons-restreints-a-un-projet)).
 
-Dans l'image Docker, un mot de passe `admin` est généré au premier démarrage du contrôleur et
-affiché une seule fois dans ses logs. Son empreinte est enregistrée dans la base de données, comme celle
-de tous les jetons (voir [jetons Bearer](../demarrage/http.md#jetons-bearer)). Ce rôle peut gérer les
-règles internes, trier les findings et accéder à `/mcp`. Un jeton créé sans rôle reste `mcp` : les jetons des agents
-et de la CI gardent leur accès mais ne peuvent pas utiliser l'interface web. Le rôle `triager`
-conserve uniquement le triage des findings. Générez un jeton par personne :
-
-Le mot de passe affiché dans les logs doit être traité comme un secret: restreignez l'accès aux
-journaux. S'il est perdu, générez-en un nouveau (l'ancien est aussitôt invalidé) :
-`security-review-controller token reset-admin`.
+Les personnes se connectent de préférence avec un [compte utilisateur](#comptes-utilisateurs)
+(identifiant et mot de passe) ou par [SSO](#connexion-sso-openid-connect) ; les comptes et les
+sessions SSO portent les rôles `reader`, `triager` ou `admin`, jamais `mcp`. Un jeton créé sans
+rôle reste `mcp` : les jetons des agents et de la CI gardent leur accès mais ne peuvent pas
+utiliser l'interface web. Le rôle `triager` conserve uniquement le triage des findings. Un jeton
+de rôle web reste possible, par exemple pour un script qui lit l'API REST :
 
 ```bash
 security-review-controller token create --label alice --role triager
 # {"id": "…", "label": "alice", "role": "triager", "project": null, "created_at": "…", "token": "UJB7…"}
 ```
 
-Transmettez `token` à la personne, qui le colle sur la page de connexion. Révoquez-le avec
+Le jeton se colle dans l'onglet **Jeton d'accès** de la page de connexion. Révoquez-le avec
 `security-review-controller token revoke alice`. Chaque changement de statut est journalisé avec
 le label du jeton :
 
@@ -120,13 +124,91 @@ INFO security_review_mcp.web: Finding 42 set to accepted by alice
 ```
 
 !!! warning "Authentification requise pour la Web UI"
-  L'API de l'interface refuse les requêtes avec le statut `503` si aucun jeton n'est configuré;
-  la mire de connexion reste affichée et indique que l'authentification doit être configurée.
-  Créez un jeton avec `security-review-controller token create` ou activez
-  `SECREVIEW_AUTH_BOOTSTRAP_ADMIN`. Cette restriction
-  concerne la Web UI; l'authentification MCP reste indépendante.
-  Avec la [connexion SSO](#connexion-sso-openid-connect), l'API demande une connexion (`401`)
-  même sans jeton en base.
+    L'API de l'interface refuse les requêtes avec le statut `503` tant qu'aucun utilisateur ni
+    jeton n'existe ; la mire de connexion reste affichée et indique que l'authentification doit
+    être configurée. Activez `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` (c'est le cas dans l'image Docker),
+    ou créez un compte avec `security-review-controller user create`. Cette restriction concerne
+    la Web UI ; l'authentification MCP reste indépendante (un compte utilisateur n'ouvre jamais
+    `/mcp`). Avec la [connexion SSO](#connexion-sso-openid-connect), l'API demande une connexion
+    (`401`) même sans utilisateur ni jeton en base.
+
+## Comptes utilisateurs
+
+Un compte associe un **identifiant** (lettres, chiffres et `. _ @ -`, 64 caractères au plus), un
+**mot de passe** et un rôle web : `reader`, `triager` ou `admin`. Un compte `reader` ou `triager`
+peut être limité à une liste de projets ; un compte `admin` voit tous les projets. Les comptes se
+gèrent dans l'écran **Utilisateurs**, par l'API REST `/api/v1/users` (rôle `admin`) ou par la
+[CLI](../reference/cli.md#security-review-controller) :
+
+```bash
+security-review-controller user create alice --role triager --project shop-api
+# {"id": 2, "username": "alice", "role": "triager", "projects": ["shop-api"], …, "password": "q3V…"}
+printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
+security-review-controller user list
+security-review-controller user set-role alice --role reader
+security-review-controller user reset-password alice   # nouveau mot de passe, sessions fermées
+security-review-controller user delete alice
+```
+
+Sans `--password-stdin` (ou sans mot de passe dans l'interface), un mot de passe aléatoire de 24
+caractères est généré et affiché **une seule fois**. Un mot de passe choisi compte 12 à 256
+caractères.
+
+### Premier administrateur
+
+Avec `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (c'est le cas dans l'image Docker), le contrôleur crée
+au premier démarrage l'utilisateur **`admin`**, de rôle `admin`, tant qu'aucun compte n'existe.
+Son mot de passe est affiché une seule fois dans les journaux du contrôleur :
+
+```
+WARNING security_review_mcp.controller: Initial Web UI administrator created: user 'admin', password (shown once): …
+```
+
+Traitez ce mot de passe comme un secret : restreignez l'accès aux journaux, connectez-vous avec
+`admin` et changez-le depuis **Mon compte**. S'il est perdu, générez-en un nouveau (l'ancien est
+aussitôt invalidé) : `security-review-controller user reset-password admin`.
+
+!!! note "Mise à jour depuis le jeton `bootstrap-admin`"
+    Les versions précédentes créaient un **jeton** `bootstrap-admin` à la place du compte. Sur une
+    base existante, ce jeton reste valable ; le compte `admin` est créé au démarrage suivant s'il
+    n'existe aucun compte. Une fois connecté avec le compte, révoquez l'ancien jeton :
+    `security-review-controller token revoke bootstrap-admin`.
+
+### Connexion et sessions
+
+La page de connexion propose l'onglet **Compte** (identifiant et mot de passe) et l'onglet
+**Jeton d'accès**. `POST /api/v1/auth/login` vérifie le mot de passe et renvoie un **jeton de
+session** signé, valable `SECREVIEW_SESSION_HOURS` heures (8 par défaut), que l'onglet utilise
+comme un jeton Bearer :
+
+```bash
+curl -s -X POST https://secreview.example.com/api/v1/auth/login \
+  -H 'Content-Type: application/json' -d '{"username": "alice", "password": "…"}'
+# {"session": "eyJ…", "expires_in": 28800, "username": "alice", "role": "triager"}
+```
+
+À chaque requête, le contrôleur relit le compte en base :
+
+- un changement de **rôle ou de projets** s'applique immédiatement aux sessions ouvertes ;
+- une **suppression** ou un **nouveau mot de passe** (changé par l'utilisateur ou réinitialisé
+  par un administrateur) ferme toutes les sessions du compte ; `PUT /api/v1/me/password` remet une
+  nouvelle session à l'onglet qui a changé le mot de passe.
+
+Les sessions sont signées avec `SECREVIEW_SESSION_SECRET` (32 caractères au moins), partagé par
+toutes les répliques du contrôleur ; sans lui, un secret aléatoire est tiré à chaque démarrage et
+les sessions se terminent au redémarrage (un avertissement est journalisé).
+
+Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour un identifiant
+depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
+connexion est refusée (`429`, en-tête `Retry-After`), même avec le bon mot de passe. Le compteur
+est tenu en mémoire par chaque réplique. Derrière un reverse proxy, l'adresse vue est celle du
+proxy : la limite s'applique alors à tous les clients du proxy. Chaque connexion et chaque échec
+sont journalisés, sans le mot de passe :
+
+```
+INFO security_review_mcp.web: Web login of alice (role triager) from 10.0.0.12
+WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
+```
 
 ## Connexion SSO (OpenID Connect)
 
@@ -142,7 +224,7 @@ Le flux utilisé est le *authorization code* avec PKCE (`S256`), state et nonce 
    (appel serveur à serveur), vérifie l'ID token (signature par les clés JWKS du fournisseur,
    émetteur, audience, expiration, nonce) et en déduit un rôle à partir des groupes ;
 3. il remet à l'interface un **jeton de session** signé, valable
-   `SECREVIEW_OIDC_SESSION_HOURS` heures, que l'onglet utilise comme un jeton Bearer.
+   `SECREVIEW_SESSION_HOURS` heures, que l'onglet utilise comme un jeton Bearer.
 
 ### Déclarer le client chez le fournisseur
 
@@ -165,7 +247,7 @@ SECREVIEW_OIDC_ROLES_CLAIM=realm_access.roles   # "groups" par défaut
 SECREVIEW_OIDC_ADMIN_GROUPS=secreview-admins
 SECREVIEW_OIDC_TRIAGER_GROUPS=secreview-triagers
 SECREVIEW_OIDC_READER_GROUPS=developers,qa
-SECREVIEW_OIDC_SESSION_SECRET=$(openssl rand -base64 48)
+SECREVIEW_SESSION_SECRET=$(openssl rand -base64 48)
 SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
 ```
 
@@ -274,12 +356,13 @@ INFO security_review_mcp.web: Web reader access to shop-api granted to oidc user
 ### Sessions
 
 - Rien n'est stocké en base : le jeton de session est signé (HMAC-SHA256) avec une clé dérivée
-  de `SECREVIEW_OIDC_SESSION_SECRET` (32 caractères au moins). Toutes les répliques du
-  contrôleur doivent partager ce secret ; sans lui, un secret aléatoire est tiré à chaque
-  démarrage et les sessions se terminent au redémarrage (un avertissement est journalisé).
+  de `SECREVIEW_SESSION_SECRET` (32 caractères au moins), comme celui des
+  [comptes utilisateurs](#connexion-et-sessions). Toutes les répliques du contrôleur doivent
+  partager ce secret ; sans lui, un secret aléatoire est tiré à chaque démarrage et les sessions
+  se terminent au redémarrage (un avertissement est journalisé).
 - Un changement de groupe chez le fournisseur ne s'applique qu'à la connexion suivante. Pour
-  couper toutes les sessions avant leur expiration, changez `SECREVIEW_OIDC_SESSION_SECRET` et
-  redémarrez le contrôleur.
+  couper toutes les sessions avant leur expiration, changez `SECREVIEW_SESSION_SECRET` et
+  redémarrez le contrôleur (les sessions des comptes utilisateurs sont coupées aussi).
 - **Se déconnecter** efface la session de l'onglet, pas celle du fournisseur d'identité.
 
 En cas d'échec, la page de connexion indique la cause (accès refusé chez le fournisseur, aucun
@@ -289,7 +372,11 @@ par le contrôleur, sans code ni jeton.
 ## Sécurité
 
 - Les fichiers statiques de `/ui/` sont publics (ils ne contiennent aucune donnée) ; l'API
-  `/api/v1/` exige un jeton `reader`, `triager` ou `admin`. La documentation Swagger (`/api/docs`)
+  `/api/v1/` exige une session ou un jeton `reader`, `triager` ou `admin`. Seules les routes de
+  connexion (`/api/v1/auth/…`) sont publiques.
+- Les mots de passe des comptes ne sont jamais stockés : seule une empreinte **scrypt** salée
+  (N=2¹⁴, r=8, p=5) est enregistrée et aucune réponse de l'API ne la renvoie. La vérification
+  prend le même temps que l'identifiant existe ou non, et la réponse d'échec est identique. La documentation Swagger (`/api/docs`)
   et son schéma (`/api/openapi.json`) sont publics et ne donnent accès à aucune donnée.
   Dans Swagger, le cadenas d'une route indique qu'elle exige un jeton : il reste **ouvert**
   tant que vous n'avez pas saisi de jeton avec **Authorize**, et ne veut pas dire que la route
@@ -317,7 +404,9 @@ par le contrôleur, sans code ni jeton.
 |---|---|---|
 | `SECREVIEW_WEB_UI` | `true` | Sert l'interface sur `/ui` ; à `false`, le contrôleur ne sert que l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
-| `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Génère le mot de passe admin initial (stocké en base) au démarrage du contrôleur ; `true` dans Docker |
+| `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Crée le compte `admin` au premier démarrage du contrôleur, tant qu'aucun compte n'existe ; `true` dans Docker |
+| `SECREVIEW_SESSION_SECRET` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques |
+| `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session (1 à 24 heures), connexion par compte ou SSO |
 | `SECREVIEW_ENROLLMENT` | `true` | Demandes de jetons par les projets (sur le serveur MCP), validées dans l'écran **Jetons** |
 | `SECREVIEW_OIDC_*` | — | [Connexion SSO](#connexion-sso-openid-connect), voir la [référence](../reference/configuration.md) |
 

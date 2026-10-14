@@ -86,13 +86,15 @@ stdio, il n'y a pas de jeton, donc pas de restriction.
 
 ### Mot de passe administrateur initial
 
-Avec `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (c'est le cas dans l'image Docker), un jeton aléatoire
-de rôle `admin` (label `bootstrap-admin`) est créé au premier démarrage **du contrôleur** et
-affiché une seule fois dans ses logs. Il donne accès à la Web UI et à `/mcp`. S'il est perdu, remplacez-le
-(l'ancien est aussitôt invalidé) :
+Avec `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (c'est le cas dans l'image Docker), le **contrôleur**
+crée au premier démarrage le [compte](../utilisation/interface-web.md#comptes-utilisateurs)
+`admin` de l'interface web, avec un mot de passe aléatoire affiché une seule fois dans ses logs.
+Ce compte n'ouvre que l'interface web et l'API REST, jamais `/mcp` : pour un agent, créez un
+jeton (`token create`). S'il est perdu, remplacez le mot de passe (l'ancien est aussitôt
+invalidé) :
 
 ```bash
-security-review-controller token reset-admin
+security-review-controller user reset-password admin
 ```
 
 ### Enrôlement : un projet demande son jeton

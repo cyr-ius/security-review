@@ -13,7 +13,9 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_TRANSPORT` | `stdio` | MCP | `stdio` ou `streamable-http` |
 | `SECREVIEW_HOST` | `127.0.0.1` | les deux | Adresse d'écoute (HTTP) |
 | `SECREVIEW_PORT` | `8000` | les deux | Port d'écoute (HTTP) |
-| `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Contrôleur | Génère le mot de passe admin initial, stocké en base (empreinte uniquement) |
+| `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Contrôleur | Crée le [compte `admin`](../utilisation/interface-web.md#premier-administrateur) au premier démarrage, tant qu'aucun compte n'existe ; son mot de passe aléatoire est journalisé une fois (empreinte scrypt seule en base) |
+| `SECREVIEW_SESSION_SECRET` | — | Contrôleur | Secret de signature des sessions de l'interface web (comptes et SSO), 32 caractères au moins, identique sur toutes les répliques ; sans lui, aléatoire à chaque démarrage |
+| `SECREVIEW_SESSION_HOURS` | `8` | Contrôleur | Durée d'une session de l'interface web (1 à 24 heures) |
 | `SECREVIEW_ENROLLMENT` | `true` | MCP | [Enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton) : un client sans jeton peut demander un jeton de projet (serveur MCP restreint, `POST /api/v1/enroll`), actif après approbation sur le contrôleur |
 | `SECREVIEW_TLS_CERTFILE` | — | les deux | Certificat : active le TLS |
 | `SECREVIEW_TLS_KEYFILE` | — | les deux | Clé privée |
@@ -35,8 +37,6 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_OIDC_READER_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `reader` (tous les projets) |
 | `SECREVIEW_OIDC_DEFAULT_ROLE` | — | Contrôleur | Rôle (tous les projets) sans aucune association correspondante : `reader`, `triager` ou vide (connexion refusée) |
 | `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Contrôleur | Claim du label de session `oidc:<valeur>` (à défaut `email`, puis `sub`) |
-| `SECREVIEW_OIDC_SESSION_HOURS` | `8` | Contrôleur | Durée d'une session (1 à 24 heures) |
-| `SECREVIEW_OIDC_SESSION_SECRET` | — | Contrôleur | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques ; sans lui, aléatoire à chaque démarrage |
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `SSO` | Contrôleur | Nom affiché sur le bouton de connexion (40 caractères au plus) |
 | `SECREVIEW_OIDC_CAFILE` | — | Contrôleur | Bundle de CA pour joindre le fournisseur (CA interne) ; un proxy se configure avec `HTTPS_PROXY` / `NO_PROXY` |
 | `SECREVIEW_OSV_AUTO_UPDATE` | `false` | Contrôleur | [Mise à jour quotidienne](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur) de la base OSV par `serve` (seule connexion sortante) |

@@ -52,9 +52,15 @@ class Settings(BaseSettings):
 
     # Bearer authentication of the HTTP MCP server and of the controller. Tokens are stored in
     # the database (SHA-256 digests only) and managed with `security-review-controller token`.
-    # This makes the controller generate a one-time administrator password on its first start
-    # (enabled in the Docker image).
+    # This makes the controller create the web user "admin" with a random password, logged once,
+    # on its first start while no web user exists (enabled in the Docker image).
     auth_bootstrap_admin: bool = False
+
+    # Controller only: sessions of the web interface (password and OIDC logins), tokens signed
+    # with session_secret (at least 32 characters, shared by the replicas; random per start when
+    # unset) and valid session_hours (1 to 24).
+    session_secret: str | None = None
+    session_hours: int = 8
 
     # Enrollment (HTTP MCP server, once a token exists): a client without a token reaches a
     # restricted MCP server that only lets it request a project token, and POST /api/v1/enroll
@@ -86,9 +92,8 @@ class Settings(BaseSettings):
     # oidc_roles_claim (dotted path allowed, e.g. realm_access.roles) are matched against the
     # role mappings stored in the database (web interface) and the comma-separated groups below
     # (every project; highest role wins, see role_mapping); without a match, oidc_default_role
-    # ("", "reader" or "triager") applies, and an empty one refuses the login. Sessions are tokens
-    # signed with oidc_session_secret (at least 32 characters; random per start when unset),
-    # valid oidc_session_hours. oidc_cafile replaces the system CA bundle for the provider.
+    # ("", "reader" or "triager") applies, and an empty one refuses the login. Sessions use
+    # session_secret and session_hours. oidc_cafile replaces the system CA bundle for the provider.
     oidc_enabled: bool = False
     oidc_issuer: str = ""
     oidc_client_id: str = ""
@@ -101,8 +106,6 @@ class Settings(BaseSettings):
     oidc_reader_groups: str = ""
     oidc_default_role: str = ""
     oidc_username_claim: str = "preferred_username"
-    oidc_session_hours: int = 8
-    oidc_session_secret: str | None = None
     oidc_display_name: str = "SSO"
     oidc_cafile: str | None = None
 

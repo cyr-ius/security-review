@@ -90,6 +90,7 @@ class TokenInfo:
 
     ``projects`` lists the projects a restricted token reaches (None: every project).
     ``pending`` marks an enrollment request not approved yet: it grants no access.
+    ``user_id`` is set for the session of a web user (see web_users), None otherwise.
     """
 
     label: str
@@ -97,6 +98,7 @@ class TokenInfo:
     projects: frozenset[str] | None = None
     token_id: str | None = None
     pending: bool = False
+    user_id: int | None = None
 
 
 class TokenStore(Protocol):
@@ -110,7 +112,8 @@ class TokenStore(Protocol):
 
 
 class SessionVerifier(Protocol):
-    """Verifier of the web sessions issued after an OIDC login (see oidc.SessionSigner)."""
+    """Verifier of the web sessions issued after a password or OIDC login (see
+    web_users.SessionVerifier)."""
 
     def owns(self, credentials: str) -> bool:
         """True when the bearer value is a session token (not a database token)."""
@@ -150,7 +153,8 @@ class BearerAuthMiddleware:
 
     Pure ASGI (no response buffering) so that streamed MCP responses are not affected.
     The label, role, projects and id of the accepted token are stored in ``scope["state"]``
-    (``auth_client``, ``auth_role``, ``auth_projects``, ``auth_token_id``).
+    (``auth_client``, ``auth_role``, ``auth_projects``, ``auth_token_id``, and ``auth_user_id``
+    for the session of a web user).
 
     With ``web=False`` (MCP server) every path needs an MCP role, except ``public_paths``.
     With ``web=True`` (controller) the static files of the web interface are public and the
@@ -162,8 +166,9 @@ class BearerAuthMiddleware:
     ``scope["state"]["enrollment_token_id"]`` then holds the id of that pending token (None
     without a token). Without it they get 401 / 403.
 
-    ``sessions`` (controller only) also accepts the session tokens issued after an OIDC login;
-    the web API then works even while the store holds no token.
+    ``sessions`` (controller only) also accepts the session tokens issued after a login.
+    ``require_auth`` (controller with OIDC) asks for credentials even while the store holds no
+    token, instead of answering 503.
     """
 
     def __init__(
@@ -174,6 +179,7 @@ class BearerAuthMiddleware:
         enrollment_app: ASGIApp | None = None,
         public_paths: frozenset[str] = frozenset(),
         sessions: SessionVerifier | None = None,
+        require_auth: bool = False,
     ) -> None:
         self.app = app
         self.store = store
@@ -181,6 +187,7 @@ class BearerAuthMiddleware:
         self.enrollment_app = None if web else enrollment_app
         self.public_paths = public_paths
         self.sessions = sessions if web else None
+        self.require_auth = require_auth and web
 
     async def identify(self, authorization: str) -> TokenInfo | None:
         """Return the identity of the presented bearer token, or None."""
@@ -189,7 +196,8 @@ class BearerAuthMiddleware:
         if scheme.lower() != "bearer" or not credentials:
             return None
         if self.sessions is not None and self.sessions.owns(credentials):
-            return self.sessions.verify_session(credentials)
+            # The session of a web user is checked against the database
+            return await anyio.to_thread.run_sync(self.sessions.verify_session, credentials)
         return await anyio.to_thread.run_sync(self.store.lookup, hash_token(credentials))
 
     async def has_tokens(self) -> bool:
@@ -215,7 +223,7 @@ class BearerAuthMiddleware:
             await self.app(scope, receive, send)
             return
 
-        if self.sessions is None and not await self.has_tokens():
+        if not self.require_auth and not await self.has_tokens():
             if self.web:
                 await _send_error(
                     send,
@@ -263,6 +271,7 @@ class BearerAuthMiddleware:
         state["auth_role"] = info.role
         state["auth_projects"] = info.projects
         state["auth_token_id"] = info.token_id
+        state["auth_user_id"] = info.user_id
         await self.app(scope, receive, send)
 
     async def enroll(
@@ -551,11 +560,19 @@ def build_mcp_app(
 
 
 def build_controller_app(
-    web_app: ASGIApp, store: TokenStore, sessions: SessionVerifier | None = None
+    web_app: ASGIApp,
+    store: TokenStore,
+    sessions: SessionVerifier | None = None,
+    require_auth: bool = False,
 ) -> ASGIApp:
     """Build the HTTP app of the controller (see web_api.create_app), protected by ``store``
-    and, with OIDC, by the session tokens of ``sessions``."""
-    return BearerAuthMiddleware(web_app, store, web=True, sessions=sessions)
+    and by the session tokens of ``sessions`` (password and OIDC logins).
+
+    ``require_auth`` (OIDC enabled) asks for a login even while no token nor user is stored.
+    """
+    return BearerAuthMiddleware(
+        web_app, store, web=True, sessions=sessions, require_auth=require_auth
+    )
 
 
 def _log_exposure(host: str, store: TokenStore, tls: TLSOptions | None) -> None:

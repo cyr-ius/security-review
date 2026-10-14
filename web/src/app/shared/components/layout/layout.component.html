@@ -58,6 +58,15 @@
             {{ role().label }}
           </span>
         </span>
+        <a
+          class="icon-btn"
+          routerLink="/account"
+          (click)="closeMenu()"
+          aria-label="Mon compte"
+          title="Mon compte"
+        >
+          <i class="bi bi-person-gear" aria-hidden="true"></i>
+        </a>
         <button
           type="button"
           class="icon-btn"

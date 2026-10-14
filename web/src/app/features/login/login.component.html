@@ -79,61 +79,153 @@
           <i class="bi bi-person-badge me-1" aria-hidden="true"></i>
           Se connecter avec {{ name }}
         </a>
-        <div class="separator my-4"><span>ou avec un mot de passe ou jeton</span></div>
+        <div class="separator my-4"><span>ou avec un compte ou un jeton</span></div>
       }
 
-      <form (submit)="onSubmit($event)" novalidate>
-        <label for="token" class="form-label">Mot de passe ou jeton d'accès</label>
-        <div class="input-group input-group-lg secret-group mb-1">
-          <span class="input-group-text"><i class="bi bi-key" aria-hidden="true"></i></span>
-          <input
-            id="token"
-            class="form-control font-monospace"
-            [type]="reveal() ? 'text' : 'password'"
-            autocomplete="current-password"
-            spellcheck="false"
-            placeholder="Collez votre secret…"
-            autofocus
-            [formField]="loginForm.token"
-            [class.is-invalid]="loginForm.token().touched() && loginForm.token().invalid()"
-          />
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            (click)="reveal.set(!reveal())"
-            [attr.aria-label]="reveal() ? 'Masquer le secret' : 'Afficher le secret'"
-            [attr.aria-pressed]="reveal()"
-          >
-            <i class="bi" [class]="reveal() ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true"></i>
-          </button>
-        </div>
-        @if (loginForm.token().touched() && loginForm.token().invalid()) {
-          @for (err of loginForm.token().errors(); track err.kind) {
-            <div class="invalid-feedback d-block">{{ err.message }}</div>
-          }
-        }
-
+      <div class="btn-group w-100 mb-4" role="group" aria-label="Méthode de connexion">
         <button
-          type="submit"
-          class="btn btn-primary btn-lg w-100 mt-4"
-          [disabled]="loginForm().submitting()"
+          type="button"
+          class="btn"
+          [class.btn-secondary]="mode() === 'account'"
+          [class.btn-outline-secondary]="mode() !== 'account'"
+          [attr.aria-pressed]="mode() === 'account'"
+          (click)="setMode('account')"
         >
-          @if (loginForm().submitting()) {
-            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-            Vérification…
-          } @else {
-            Se connecter
-            <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
-          }
+          <i class="bi bi-person me-1" aria-hidden="true"></i>
+          Compte
         </button>
-      </form>
+        <button
+          type="button"
+          class="btn"
+          [class.btn-secondary]="mode() === 'token'"
+          [class.btn-outline-secondary]="mode() !== 'token'"
+          [attr.aria-pressed]="mode() === 'token'"
+          (click)="setMode('token')"
+        >
+          <i class="bi bi-key me-1" aria-hidden="true"></i>
+          Jeton d'accès
+        </button>
+      </div>
+
+      @if (mode() === 'account') {
+        <form (submit)="onAccountSubmit($event)" novalidate>
+          <label for="username" class="form-label">Identifiant</label>
+          <div class="input-group input-group-lg mb-3">
+            <span class="input-group-text"><i class="bi bi-person" aria-hidden="true"></i></span>
+            <input
+              id="username"
+              class="form-control"
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+              autofocus
+              [formField]="accountForm.username"
+              [class.is-invalid]="
+                accountForm.username().touched() && accountForm.username().invalid()
+              "
+            />
+          </div>
+          <label for="password" class="form-label">Mot de passe</label>
+          <div class="input-group input-group-lg secret-group mb-1">
+            <span class="input-group-text"><i class="bi bi-lock" aria-hidden="true"></i></span>
+            <input
+              id="password"
+              class="form-control"
+              [type]="reveal() ? 'text' : 'password'"
+              autocomplete="current-password"
+              spellcheck="false"
+              [formField]="accountForm.password"
+              [class.is-invalid]="
+                accountForm.password().touched() && accountForm.password().invalid()
+              "
+            />
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              (click)="reveal.set(!reveal())"
+              [attr.aria-label]="reveal() ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+              [attr.aria-pressed]="reveal()"
+            >
+              <i class="bi" [class]="reveal() ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true"></i>
+            </button>
+          </div>
+          @for (field of [accountForm.username, accountForm.password]; track $index) {
+            @if (field().touched() && field().invalid()) {
+              @for (err of field().errors(); track err.kind) {
+                <div class="invalid-feedback d-block">{{ err.message }}</div>
+              }
+            }
+          }
+
+          <button
+            type="submit"
+            class="btn btn-primary btn-lg w-100 mt-4"
+            [disabled]="accountForm().submitting()"
+          >
+            @if (accountForm().submitting()) {
+              <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              Vérification…
+            } @else {
+              Se connecter
+              <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
+            }
+          </button>
+        </form>
+      } @else {
+        <form (submit)="onSubmit($event)" novalidate>
+          <label for="token" class="form-label">Jeton d'accès</label>
+          <div class="input-group input-group-lg secret-group mb-1">
+            <span class="input-group-text"><i class="bi bi-key" aria-hidden="true"></i></span>
+            <input
+              id="token"
+              class="form-control font-monospace"
+              [type]="reveal() ? 'text' : 'password'"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Collez votre jeton…"
+              autofocus
+              [formField]="loginForm.token"
+              [class.is-invalid]="loginForm.token().touched() && loginForm.token().invalid()"
+            />
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              (click)="reveal.set(!reveal())"
+              [attr.aria-label]="reveal() ? 'Masquer le jeton' : 'Afficher le jeton'"
+              [attr.aria-pressed]="reveal()"
+            >
+              <i class="bi" [class]="reveal() ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true"></i>
+            </button>
+          </div>
+          @if (loginForm.token().touched() && loginForm.token().invalid()) {
+            @for (err of loginForm.token().errors(); track err.kind) {
+              <div class="invalid-feedback d-block">{{ err.message }}</div>
+            }
+          }
+
+          <button
+            type="submit"
+            class="btn btn-primary btn-lg w-100 mt-4"
+            [disabled]="loginForm().submitting()"
+          >
+            @if (loginForm().submitting()) {
+              <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              Vérification…
+            } @else {
+              Se connecter
+              <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
+            }
+          </button>
+        </form>
+      }
 
       <div class="help mt-4">
         <i class="bi bi-info-circle" aria-hidden="true"></i>
         <p class="mb-0">
-          Mot de passe initial affiché dans les journaux du conteneur, ou jeton fourni par votre
-          administrateur{{ ssoName() ? ", ou votre compte d'entreprise via le SSO" : '' }}. Le
-          secret ou la session reste dans cet onglet et disparaît à sa fermeture.
+          Compte créé par votre administrateur (au premier démarrage : utilisateur
+          <code>admin</code>, mot de passe affiché dans les journaux du contrôleur), ou jeton
+          d'accès{{ ssoName() ? ", ou votre compte d'entreprise via le SSO" : '' }}. La session
+          reste dans cet onglet et disparaît à sa fermeture.
         </p>
       </div>
     </div>

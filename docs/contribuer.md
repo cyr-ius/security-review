@@ -15,7 +15,7 @@ Dans VS Code (`.vscode/`) :
 |---|---|
 | **MCP server + controller** | Lance la tâche **Database upgrade**, puis les deux processus sur la même base |
 | **MCP server (HTTP, port 8000)** | Serveur MCP seul ; la base doit déjà être migrée |
-| **Controller (web UI and API, port 8080)** | Contrôleur seul ; migre la base et affiche le mot de passe admin initial au premier démarrage |
+| **Controller (web UI and API, port 8080)** | Contrôleur seul ; migre la base et affiche le mot de passe du compte `admin` initial au premier démarrage |
 | **Controller CLI (prompt for arguments)** | Une commande du contrôleur (`db status`, `token list --pending`…) sous le débogueur |
 | **Controller + web UI (Angular, port 4200)** | Contrôleur et application Angular sous le débogueur, rechargement à chaud |
 | **Web UI + API (Angular dev server, port 4200)** | Lance la tâche **Web UI + API: dev servers** (contrôleur sur 8080 et `ng serve`), attend qu'ils soient prêts, puis ouvre Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript |
@@ -87,7 +87,8 @@ src/security_review_mcp/
 ├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
 ├── oidc.py        # connexion SSO OpenID Connect à l'interface web (contrôleur)
 ├── role_mapping.py # role mapping OIDC : groupes du fournisseur → rôle web et projets
-├── token_store.py # jetons Bearer en base : création, révocation, enrôlement, admin initial
+├── token_store.py # jetons Bearer en base : création, révocation, enrôlement
+├── web_users.py   # comptes de l'interface web : mots de passe scrypt, sessions, admin initial
 ├── enrollment.py  # client de `enroll` : demande de jeton à un serveur partagé
 ├── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP
 ├── web_api.py     # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)

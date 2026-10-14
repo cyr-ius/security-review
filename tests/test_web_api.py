@@ -11,6 +11,7 @@ from security_review_mcp import (
     app_settings,
     enrollment_api,
     http_server,
+    oidc,
     registry,
     role_mapping,
     rule_store,
@@ -18,6 +19,7 @@ from security_review_mcp import (
     services,
     token_store,
     web_api,
+    web_users,
 )
 from security_review_mcp.config import get_settings
 from security_review_mcp.database import session_scope
@@ -400,7 +402,8 @@ def test_openapi_marks_api_operations_as_bearer_protected(secured):
     login_routes = [path for path in schema["paths"] if path.startswith("/api/v1/auth/")]
     assert login_routes
     for path in login_routes:
-        assert "security" not in schema["paths"][path]["get"]
+        for operation in schema["paths"][path].values():
+            assert "security" not in operation
     assert secured.get("/api/v1/projects").status_code == 401
 
 
@@ -663,14 +666,14 @@ def test_project_token_creation_rejects_admin_role(secured, reports):
     assert response.status_code == 422
 
 
-def test_bootstrap_admin_cannot_be_revoked_as_a_project_token(secured):
-    token_store.ensure_bootstrap_admin()
-    (row_id,) = [row.id for row in _stored_tokens() if row.label == "bootstrap-admin"]
+def test_admin_token_cannot_be_revoked_as_a_project_token(secured):
+    token_store.create_token("ops", "admin")
+    (row_id,) = [row.id for row in _stored_tokens() if row.label == "ops"]
 
     response = secured.delete(f"/api/v1/project-tokens/{row_id}", headers=auth("admin"))
 
     assert response.status_code == 404
-    assert "bootstrap-admin" in {row.label for row in _stored_tokens()}
+    assert "ops" in {row.label for row in _stored_tokens()}
 
 
 # ── Enrollment ───────────────────────────────────────────────────────────────
@@ -1048,3 +1051,180 @@ def test_advisory_update_is_refused_while_one_runs(client, monkeypatch):
     with advisory_sync._lock:
         response = client.post("/api/v1/advisories/update")
     assert response.status_code == 409
+
+
+# ── Web users ────────────────────────────────────────────────────────────────
+
+USER_PASSWORD = "correct horse battery"
+
+
+@pytest.fixture
+def accounts(ui_dir) -> TestClient:
+    """The controller app with the password login, as served by `serve` (no token stored)."""
+    signer = oidc.SessionSigner("s" * 40)
+    app = http_server.build_controller_app(
+        web_api.create_app(ui_dir=str(ui_dir), signer=signer),
+        token_store.DatabaseTokenStore(include_users=True),
+        web_users.SessionVerifier(signer),
+    )
+    return TestClient(app, base_url="http://127.0.0.1")
+
+
+def login(client: TestClient, username: str, password: str = USER_PASSWORD):
+    return client.post("/api/v1/auth/login", json={"username": username, "password": password})
+
+
+def session_headers(client: TestClient, username: str, password: str = USER_PASSWORD) -> dict:
+    response = login(client, username, password)
+    assert response.status_code == 200, response.text
+    return {"Authorization": f"Bearer {response.json()['session']}"}
+
+
+def test_password_login_opens_a_session(accounts, caplog):
+    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    web_users.create_user("alice", USER_PASSWORD, "reader", ["shop-api"])
+
+    response = login(accounts, "alice")
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    body = response.json()
+    assert (body["username"], body["role"], body["expires_in"]) == ("alice", "reader", 8 * 3600)
+    identity = accounts.get(
+        "/api/v1/me", headers={"Authorization": f"Bearer {body['session']}"}
+    ).json()
+    assert (identity["client"], identity["projects"], identity["local_account"]) == (
+        "alice",
+        ["shop-api"],
+        True,
+    )
+    assert "Web login of alice (role reader)" in caplog.text
+    assert USER_PASSWORD not in caplog.text
+
+
+def test_password_login_failures_do_not_reveal_the_username(accounts, caplog):
+    web_users.create_user("alice", USER_PASSWORD, "reader")
+
+    wrong_password = login(accounts, "alice", "not the password")
+    unknown_user = login(accounts, "nobody", USER_PASSWORD)
+
+    assert wrong_password.status_code == unknown_user.status_code == 401
+    assert wrong_password.json() == unknown_user.json()
+    assert "not the password" not in caplog.text
+    # Arbitrary input is never written to the logs
+    login(accounts, "evil\nINFO forged", USER_PASSWORD)
+    assert "forged" not in caplog.text
+
+
+def test_password_login_is_throttled(accounts):
+    web_users.create_user("alice", USER_PASSWORD, "reader")
+
+    for _ in range(5):
+        assert login(accounts, "alice", "not the password").status_code == 401
+    response = login(accounts, "alice")
+
+    # Even the right password is refused while locked
+    assert response.status_code == 429
+    assert int(response.headers["retry-after"]) > 0
+
+
+def test_password_login_bounds_its_input(accounts):
+    response = accounts.post(
+        "/api/v1/auth/login", json={"username": "alice", "password": "x" * 1000}
+    )
+
+    assert response.status_code == 422
+
+
+def test_sessions_follow_the_stored_user(accounts):
+    web_users.create_user("root", USER_PASSWORD, "admin")
+    alice = web_users.create_user("alice", USER_PASSWORD, "reader")
+    headers = session_headers(accounts, "alice")
+
+    assert accounts.get("/api/v1/rules", headers=headers).status_code == 403
+    web_users.update_user(alice["id"], "admin")
+    assert accounts.get("/api/v1/rules", headers=headers).status_code == 200
+    web_users.update_user(alice["id"], "reader")
+    web_users.delete_user(alice["id"])
+    assert accounts.get("/api/v1/me", headers=headers).status_code == 401
+
+
+def test_users_are_managed_by_administrators(accounts, caplog):
+    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    web_users.create_user("root", USER_PASSWORD, "admin")
+    web_users.create_user("reader", USER_PASSWORD, "reader")
+    admin, reader = session_headers(accounts, "root"), session_headers(accounts, "reader")
+    body = {"username": "bob", "role": "triager", "projects": ["shop-api"]}
+
+    assert accounts.get("/api/v1/users", headers=reader).status_code == 403
+    assert accounts.post("/api/v1/users", json=body, headers=reader).status_code == 403
+    created = accounts.post("/api/v1/users", json=body, headers=admin)
+    assert created.status_code == 201
+    assert created.headers["cache-control"] == "no-store"
+    bob = created.json()
+    assert len(bob["password"]) >= 24 and bob["created_by"] == "root"
+    assert accounts.post("/api/v1/users", json=body, headers=admin).status_code == 409
+    listed = accounts.get("/api/v1/users", headers=admin).json()
+    assert [user["username"] for user in listed] == ["bob", "reader", "root"]
+    assert all("password" not in user and "password_hash" not in user for user in listed)
+
+    updated = accounts.put(
+        f"/api/v1/users/{bob['id']}", json={"role": "admin", "projects": []}, headers=admin
+    )
+    assert (updated.status_code, updated.json()["role"]) == (200, "admin")
+    invalid = accounts.put(
+        f"/api/v1/users/{bob['id']}", json={"role": "admin", "projects": ["x"]}, headers=admin
+    )
+    assert invalid.status_code == 422
+
+    bob_session = session_headers(accounts, "bob", bob["password"])
+    reset = accounts.post(f"/api/v1/users/{bob['id']}/password", json={}, headers=admin)
+    assert reset.status_code == 200 and reset.json()["password"] != bob["password"]
+    # The reset ends the sessions opened before it
+    assert accounts.get("/api/v1/me", headers=bob_session).status_code == 401
+    assert login(accounts, "bob", reset.json()["password"]).status_code == 200
+
+    assert accounts.delete(f"/api/v1/users/{bob['id']}", headers=admin).status_code == 204
+    assert accounts.delete(f"/api/v1/users/{bob['id']}", headers=admin).status_code == 404
+    assert "Web user bob (triager) created by root" in caplog.text
+    assert bob["password"] not in caplog.text
+
+
+def test_last_administrator_cannot_be_deleted_from_the_api(accounts):
+    root = web_users.create_user("root", USER_PASSWORD, "admin")
+    admin = session_headers(accounts, "root")
+
+    assert accounts.delete(f"/api/v1/users/{root['id']}", headers=admin).status_code == 409
+    demote = accounts.put(f"/api/v1/users/{root['id']}", json={"role": "reader"}, headers=admin)
+    assert demote.status_code == 422
+
+
+def test_users_change_their_own_password(accounts):
+    web_users.create_user("alice", USER_PASSWORD, "reader")
+    headers = session_headers(accounts, "alice")
+    body = {"current_password": USER_PASSWORD, "new_password": "another long secret"}
+
+    wrong = accounts.put(
+        "/api/v1/me/password", json={**body, "current_password": "nope"}, headers=headers
+    )
+    assert wrong.status_code == 422
+    changed = accounts.put("/api/v1/me/password", json=body, headers=headers)
+
+    assert changed.status_code == 200
+    new_headers = {"Authorization": f"Bearer {changed.json()['session']}"}
+    assert accounts.get("/api/v1/me", headers=new_headers).status_code == 200
+    assert login(accounts, "alice").status_code == 401
+    assert login(accounts, "alice", "another long secret").status_code == 200
+
+
+def test_a_token_has_no_password_to_change(accounts):
+    secret = token_store.create_token("ops", "admin")["token"]
+    body = {"current_password": "x", "new_password": "another long secret"}
+
+    response = accounts.put(
+        "/api/v1/me/password", json=body, headers={"Authorization": f"Bearer {secret}"}
+    )
+
+    assert response.status_code == 403
+    me = accounts.get("/api/v1/me", headers={"Authorization": f"Bearer {secret}"}).json()
+    assert me["local_account"] is False

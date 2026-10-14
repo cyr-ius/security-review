@@ -1,9 +1,10 @@
 """Command line helpers for pipelines and administrators (no MCP client or agent needed).
 
 ``security-review-controller`` runs ``db``, ``gate``, ``sarif``, ``trend``, ``advisories``,
-``deps``, ``code``, ``rules`` and ``token`` (CONTROLLER_COMMANDS); ``security-review-mcp`` runs
-``enroll`` (MCP_COMMANDS). Exit codes follow the same convention everywhere: 0 success,
-1 blocked (gate / findings found, schema not up to date), 2 usage or data error.
+``deps``, ``code``, ``rules``, ``token`` and ``user`` (CONTROLLER_COMMANDS);
+``security-review-mcp`` runs ``enroll`` (MCP_COMMANDS). Exit codes follow the same convention
+everywhere: 0 success, 1 blocked (gate / findings found, schema not up to date), 2 usage or data
+error.
 """
 
 import argparse
@@ -30,6 +31,7 @@ from . import (
     services,
     token_store,
     trends,
+    web_users,
 )
 from .config import get_settings
 from .database import SchemaError, init_db, schema_status, upgrade_db
@@ -502,7 +504,6 @@ def token_command(argv: list[str]) -> int:
     rejecter.add_argument(
         "token", help="request id, or token id or label when the token has one request"
     )
-    actions.add_parser("reset-admin", help="replace the bootstrap administrator password")
     args = parser.parse_args(argv)
 
     try:
@@ -526,7 +527,7 @@ def token_command(argv: list[str]) -> int:
                 )
         elif args.action == "reject":
             result = token_store.reject_enrollment(args.token)
-        elif args.action == "revoke":
+        else:
             result = token_store.revoke_token(args.token)
             if not token_store.DatabaseTokenStore().has_tokens():
                 # Without any token the HTTP transport no longer requires authentication
@@ -534,10 +535,87 @@ def token_command(argv: list[str]) -> int:
                     json.dumps({"warning": "No token left: the MCP endpoint is now open"}),
                     file=sys.stderr,
                 )
-        else:
-            password = token_store.reset_bootstrap_admin()
-            result = {"label": token_store.BOOTSTRAP_LABEL, "token": password}
     except ValueError as exc:
+        return _fail(str(exc))
+    print(json.dumps(result, indent=2))
+    return EXIT_PASSED
+
+
+# ── user ─────────────────────────────────────────────────────────────────────
+
+
+def _read_password(from_stdin: bool) -> str | None:
+    """Password read on the first line of stdin with --password-stdin; None: generate one."""
+    if not from_stdin:
+        return None
+    password = sys.stdin.readline().rstrip("\r\n")
+    if not password:
+        raise ValueError("--password-stdin: no password read on stdin")
+    return password
+
+
+def user_command(argv: list[str]) -> int:
+    """Run ``security-review-controller user``: manage the web users (password login)."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-controller user",
+        description="Manage the web users, who log in to the web interface with a username and "
+        "a password (stored as scrypt hashes). Without --password-stdin, a random password is "
+        "generated and printed once.",
+    )
+    actions = parser.add_subparsers(dest="action", required=True)
+    creator = actions.add_parser("create", help="create a web user")
+    creator.add_argument("username", help="login name (letters, digits and . _ @ -)")
+    creator.add_argument(
+        "--role",
+        choices=[role.value for role in web_users.USER_ROLES],
+        default=http_server.Role.READER.value,
+        help="reader (default): read; triager: also change finding status; admin: everything",
+    )
+    creator.add_argument(
+        "--project",
+        action="append",
+        help="restrict a reader or triager to this project; repeat it to give several projects",
+    )
+    creator.add_argument("--password-stdin", action="store_true", help="read the password on stdin")
+    actions.add_parser("list", help="list the web users (never their password hash)")
+    updater = actions.add_parser("set-role", help="replace the role and projects of a user")
+    updater.add_argument("username", help="username or id")
+    updater.add_argument("--role", choices=[role.value for role in web_users.USER_ROLES])
+    updater.add_argument("--project", action="append", help="project (repeatable; none: all)")
+    resetter = actions.add_parser(
+        "reset-password", help="replace the password of a user and end its sessions"
+    )
+    resetter.add_argument("username", help="username or id")
+    resetter.add_argument(
+        "--password-stdin", action="store_true", help="read the password on stdin"
+    )
+    deleter = actions.add_parser("delete", help="delete a user (the last admin is kept)")
+    deleter.add_argument("username", help="username or id")
+    args = parser.parse_args(argv)
+    if args.action == "set-role" and args.role is None:
+        parser.error("set-role: --role is required")
+
+    try:
+        init_db()
+        if args.action == "create":
+            result: object = web_users.create_user(
+                args.username,
+                _read_password(args.password_stdin),
+                args.role,
+                args.project,
+                "cli",
+            )
+        elif args.action == "list":
+            result = web_users.list_users()
+        else:
+            user_id = web_users.find_user(args.username)["id"]
+            if args.action == "set-role":
+                result = web_users.update_user(user_id, args.role, args.project)
+            elif args.action == "reset-password":
+                result = web_users.set_password(user_id, _read_password(args.password_stdin))
+            else:
+                result = web_users.delete_user(user_id)
+    except (ValueError, NotFoundError) as exc:
         return _fail(str(exc))
     print(json.dumps(result, indent=2))
     return EXIT_PASSED
@@ -737,6 +815,7 @@ CONTROLLER_COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "code": code_command,
     "rules": rules_command,
     "token": token_command,
+    "user": user_command,
 }
 # Commands of security-review-mcp (client side of a shared MCP server)
 MCP_COMMANDS: dict[str, Callable[[list[str]], int]] = {"enroll": enroll_command}
