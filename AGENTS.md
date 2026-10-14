@@ -91,7 +91,7 @@ l'utiliser.
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
 | CLI : `CONTROLLER_COMMANDS` (`db`, `gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`) et `MCP_COMMANDS` (`enroll`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`) |
-| Dépendances et avis OSV | `dependencies.py`, `depscan.py`, `advisories.py`, `versions.py` |
+| Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` |
 | Persistance, schéma | `models.py`, `services.py`, `database.py`, `migrations/` (Alembic) |
 | Export et tendances | `sarif.py`, `trends.py` |
 | HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` |
@@ -149,8 +149,10 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - **Séparation MCP / contrôleur** : le serveur MCP n'expose que `/mcp`, l'enrôlement public et
   `/healthz` ; le contrôleur n'expose aucune route d'écriture sans jeton. N'ajoutez pas de route
   web au serveur MCP ni d'endpoint MCP au contrôleur.
-- **Aucun appel réseau sortant** : la base de vulnérabilités est importée hors ligne par la CLI.
-  Seule exception : la commande CLI `enroll`, qui contacte l'URL donnée par l'opérateur.
+- **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
+  CLI. Exceptions : la commande CLI `enroll`, qui contacte l'URL donnée par l'opérateur, et le
+  téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
+  uniquement, taille bornée, proxy facultatif jamais journalisé avec ses identifiants.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
   imbriqués) ; `rules_loader` les valide pour les règles internes.
 - Jetons Bearer : seules les empreintes SHA-256 sont conservées, comparaison en temps constant.

@@ -17,6 +17,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from . import (
     advisories,
+    advisory_sync,
     codescan,
     depscan,
     enrollment,
@@ -164,6 +165,14 @@ def advisories_command(argv: list[str]) -> int:
         help="ecosystem to keep (PyPI, npm, Maven); repeat the option; default: all three",
     )
     actions.add_parser("status", help="show the size and age of the database")
+    updater = actions.add_parser(
+        "update", help="download the OSV exports (SECREVIEW_OSV_URL) and import them"
+    )
+    updater.add_argument(
+        "--ecosystem",
+        action="append",
+        help="ecosystem to download; repeat the option; default: SECREVIEW_OSV_ECOSYSTEMS",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -171,11 +180,24 @@ def advisories_command(argv: list[str]) -> int:
         if args.action == "import":
             stats = advisories.import_advisories(args.path, set(args.ecosystem or []) or None)
             print(json.dumps(stats, indent=2))
+        elif args.action == "update":
+            return _advisories_update(args.ecosystem)
         else:
             print(json.dumps(advisories.advisory_status(), indent=2))
     except (ValueError, OSError) as exc:
         return _fail(str(exc))
     return EXIT_PASSED
+
+
+def _advisories_update(names: list[str] | None) -> int:
+    """Download and import the OSV exports; exit 2 when an ecosystem could not be updated."""
+    settings = get_settings()
+    if names:
+        settings = settings.model_copy(update={"osv_ecosystems": ",".join(names)})
+    result = advisory_sync.update_advisories(settings)
+    print(json.dumps(result, indent=2))
+    failed = any("error" in stats for stats in result["ecosystems"].values())
+    return EXIT_ERROR if failed else EXIT_PASSED
 
 
 # ── deps ─────────────────────────────────────────────────────────────────────

@@ -178,3 +178,53 @@ def test_help(capsys):
 
     out = capsys.readouterr().out
     assert all(command in out for command in ("serve", *cli.CONTROLLER_COMMANDS))
+
+
+class FakeUpdater:
+    """Records how the controller drives the OSV updater."""
+
+    instances: list[FakeUpdater] = []
+
+    def __init__(self, settings) -> None:
+        """Remember the settings."""
+        self.settings = settings
+        self.events: list[str] = []
+        FakeUpdater.instances.append(self)
+
+    def start(self) -> None:
+        """Record the start."""
+        self.events.append("start")
+
+    def stop(self) -> None:
+        """Record the stop."""
+        self.events.append("stop")
+
+
+@pytest.fixture
+def fake_updater(monkeypatch):
+    """Replace the OSV updater of the controller."""
+    FakeUpdater.instances = []
+    monkeypatch.setattr(controller.advisory_sync, "AdvisoryUpdater", FakeUpdater)
+    return FakeUpdater.instances
+
+
+def test_serve_runs_the_osv_updater_only_when_enabled(settings, captured_run, ui_dir, fake_updater):
+    controller.main(["serve"])
+    assert fake_updater == []
+
+    settings(osv_auto_update=True, osv_proxy="http://proxy.internal:3128")
+    controller.main(["serve"])
+
+    (updater,) = fake_updater
+    assert updater.events == ["start", "stop"]
+    assert updater.settings.osv_proxy == "http://proxy.internal:3128"
+
+
+def test_serve_refuses_an_invalid_osv_setting(settings, captured_run, ui_dir, capsys):
+    settings(osv_auto_update=True, osv_url="http://osv.example")
+
+    with pytest.raises(SystemExit) as exc:
+        controller.main(["serve"])
+
+    assert exc.value.code == 2 and not captured_run
+    assert "SECREVIEW_OSV_URL" in capsys.readouterr().err

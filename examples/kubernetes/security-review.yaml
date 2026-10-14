@@ -77,6 +77,12 @@ spec:
           env:
             - name: SECREVIEW_AUTH_BOOTSTRAP_ADMIN
               value: "true"
+            # Daily download of the OSV advisories (needs egress to osv.dev or a mirror);
+            # put credentials of the proxy in the Secret rather than here
+            # - name: SECREVIEW_OSV_AUTO_UPDATE
+            #   value: "true"
+            # - name: SECREVIEW_OSV_PROXY
+            #   value: http://proxy.example.com:3128
           ports:
             - name: http
               containerPort: 8000

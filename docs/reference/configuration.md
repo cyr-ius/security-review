@@ -22,6 +22,13 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_TLS_SELF_SIGNED` | `false` | les deux | Sans certificat fourni, sert en HTTPS avec un [certificat auto-signé](../demarrage/http.md#certificat-auto-signe) généré à chaque démarrage |
 | `SECREVIEW_WEB_UI` | `true` | Contrôleur | Sert l'[interface web](../utilisation/interface-web.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Contrôleur | Dossier d'une autre build de l'interface web |
+| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | Contrôleur | [Mise à jour quotidienne](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur) de la base OSV par `serve` (seule connexion sortante) |
+| `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Contrôleur | Âge de la base au-delà duquel `serve` la met à jour (minimum `1`) |
+| `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Contrôleur | Source des exports `<URL>/<écosystème>/all.zip` (HTTPS uniquement, miroir possible) |
+| `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven` | Contrôleur | Écosystèmes téléchargés, séparés par des virgules |
+| `SECREVIEW_OSV_PROXY` | — | Contrôleur | Proxy HTTP du téléchargement (`http://[utilisateur:mot de passe@]hôte:port`) ; sans lui, `HTTPS_PROXY` / `NO_PROXY` s'appliquent |
+| `SECREVIEW_OSV_CAFILE` | — | Contrôleur | Bundle de CA utilisé à la place de celui du système (miroir interne, proxy qui inspecte le TLS) |
+| `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Contrôleur | Taille maximale d'une archive téléchargée |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | les deux | Niveau de journalisation (sur stderr) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | MCP | Taille maximale du contenu passé à `scan_code` |
 | `SECREVIEW_MAX_FINDINGS_PER_REPORT` | `500` | les deux | Nombre maximal de findings par rapport |

@@ -38,6 +38,7 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Active, désactive (règles par défaut ou personnalisées) ou supprime des règles personnalisées | [Règles internes](../utilisation/regles.md#commande-rules) |
 | `deps scan FICHIER…` | Analyse de manifestes / lockfiles | [Dépendances](../utilisation/dependances.md) |
 | `advisories import PATH` / `advisories status` | Gestion de la base OSV hors ligne | [Dépendances](../utilisation/dependances.md#base-de-vulnerabilites-hors-ligne-format-osv) |
+| `advisories update [--ecosystem E …]` | Télécharge les exports OSV (`SECREVIEW_OSV_*`, proxy facultatif) et les importe ; code `2` si un écosystème échoue | [Mise à jour automatique](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur) |
 | `gate --project P --fail-on SEV` | Gate de déploiement | [Gate](../ci-cd/gate.md) |
 | `sarif --project P` / `--report-id N` | Export SARIF 2.1.0 | [SARIF](../ci-cd/sarif.md) |
 | `trend --project P` | Rapport de tendance | [Tendances](../ci-cd/tendances.md) |

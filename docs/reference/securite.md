@@ -32,10 +32,15 @@
   tronqué. N'importe quel client qui atteint le serveur peut déposer une demande : vérifiez le
   demandeur et l'adresse affichés avant d'approuver, ou désactivez l'enrôlement. Voir
   [l'enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton).
-- **Appels réseau sortants** : le serveur n'en fait aucun. Seule la commande
+- **Appels réseau sortants** : le serveur MCP n'en fait aucun. La commande
   `security-review-mcp enroll` contacte, à la demande de l'opérateur, l'URL qu'il indique ; elle
   refuse HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
-  redirections.
+  redirections. Le contrôleur ne télécharge les avis OSV que si un administrateur l'active
+  (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
+  en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
+  (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
+  journalisés. Voir la
+  [mise à jour automatique](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur).
 - **Interface web** (contrôleur) : l'API REST exige toujours un jeton de rôle web ; sans configuration, elle
   répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
   le statut d'un finding (action journalisée avec le label du jeton). Pages servies avec une CSP

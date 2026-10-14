@@ -60,6 +60,19 @@ class Settings(BaseSettings):
     web_ui: bool = True
     web_ui_dir: str | None = None
 
+    # Controller only: download the OSV exports (all.zip of each ecosystem) from osv_url and
+    # import them every osv_update_interval_hours. Disabled by default: it is the only outgoing
+    # connection of the controller (the MCP server never makes one). osv_proxy is an HTTP proxy
+    # (http://[user:password@]host:port; without it, HTTPS_PROXY / NO_PROXY apply), osv_cafile a
+    # CA bundle used instead of the system one (mirror or TLS-inspecting proxy).
+    osv_auto_update: bool = False
+    osv_update_interval_hours: int = 24
+    osv_url: str = "https://osv-vulnerabilities.storage.googleapis.com"
+    osv_ecosystems: str = "PyPI,npm,Maven"
+    osv_proxy: str | None = None
+    osv_cafile: str | None = None
+    osv_max_download_mb: int = 1024
+
     log_level: str = "INFO"
 
     # Hard limits to protect the server and the database
