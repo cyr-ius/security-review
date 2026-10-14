@@ -28,7 +28,7 @@ from . import (
     token_store,
     trends,
 )
-from .config import configure_logging, get_settings
+from .config import check_report_language, configure_logging, get_settings
 from .database import SchemaError, check_db, init_db
 from .models import FindingCreate, FindingStatus, Severity
 
@@ -134,6 +134,14 @@ def _caller_address(ctx: Context) -> str | None:
 # ── Prompts ──────────────────────────────────────────────────────────────────
 
 
+def _report_language(requested: str) -> str:
+    """Resolve the report language: the prompt argument, else SECREVIEW_REPORT_LANGUAGE."""
+    try:
+        return check_report_language(requested) or get_settings().report_language
+    except ValueError as exc:
+        raise MCPError(code=INVALID_PARAMS, message=str(exc)) from exc
+
+
 @mcp.prompt(
     name="security-review",
     title="Security code review",
@@ -144,6 +152,7 @@ def security_review(
     code: str = "",
     context: str = "",
     focus: str = "",
+    report_language: str = "",
 ) -> str:
     """Build the general security-review prompt.
 
@@ -152,8 +161,12 @@ def security_review(
         code: Code or diff to review (leave empty to review the workspace files).
         context: Optional context (exposure, data sensitivity, authentication model...).
         focus: Optional areas to emphasize (for example "authentication, file upload").
+        report_language: Language of the reply and of the stored report, for example French
+            (default: SECREVIEW_REPORT_LANGUAGE).
     """
-    return prompts.build_security_review_prompt(language, code, context, focus)
+    return prompts.build_security_review_prompt(
+        language, code, context, focus, _report_language(report_language)
+    )
 
 
 @mcp.prompt(
@@ -166,6 +179,7 @@ def api_security_review(
     code: str = "",
     context: str = "",
     focus: str = "",
+    report_language: str = "",
 ) -> str:
     """Build the REST API review prompt.
 
@@ -174,8 +188,11 @@ def api_security_review(
         code: Controllers, routes, DTOs or diff to review.
         context: Optional context (public API, internal, consumers...).
         focus: Optional areas to emphasize.
+        report_language: Language of the reply and of the stored report.
     """
-    return prompts.build_api_review_prompt(framework, code, context, focus)
+    return prompts.build_api_review_prompt(
+        framework, code, context, focus, _report_language(report_language)
+    )
 
 
 @mcp.prompt(
@@ -188,6 +205,7 @@ def configuration_review(
     content: str = "",
     context: str = "",
     focus: str = "",
+    report_language: str = "",
 ) -> str:
     """Build the configuration review prompt.
 
@@ -196,8 +214,11 @@ def configuration_review(
         content: Configuration content to review.
         context: Optional context (environment, exposure...).
         focus: Optional areas to emphasize.
+        report_language: Language of the reply and of the stored report.
     """
-    return prompts.build_config_review_prompt(config_type, content, context, focus)
+    return prompts.build_config_review_prompt(
+        config_type, content, context, focus, _report_language(report_language)
+    )
 
 
 @mcp.prompt(
@@ -210,6 +231,7 @@ def codebase_review(
     scan_results: str = "",
     context: str = "",
     focus: str = "",
+    report_language: str = "",
 ) -> str:
     """Build the whole-codebase review prompt.
 
@@ -218,7 +240,9 @@ def codebase_review(
         scan_results: Optional output of `security-review-controller code scan . --format json`.
         context: Optional context (exposure, data sensitivity, authentication model...).
         focus: Optional areas to emphasize.
+        report_language: Language of the reply and of the stored report.
     """
+    language = _report_language(report_language)
     limit = get_settings().max_content_chars
     if len(scan_results) > limit:
         raise MCPError(
@@ -226,7 +250,7 @@ def codebase_review(
             message=f"scan_results too large ({len(scan_results)} chars); the limit is {limit}. "
             "Filter it, for example with --exclude or --fail-on, or use --save and triage-report.",
         )
-    return prompts.build_codebase_review_prompt(languages, scan_results, context, focus)
+    return prompts.build_codebase_review_prompt(languages, scan_results, context, focus, language)
 
 
 @mcp.prompt(
@@ -234,15 +258,20 @@ def codebase_review(
     title="Dependency and supply-chain review",
     description="Check manifests and lockfiles for vulnerable versions and risky practices.",
 )
-def dependency_review(ecosystem: str = "", files: str = "", context: str = "") -> str:
+def dependency_review(
+    ecosystem: str = "", files: str = "", context: str = "", report_language: str = ""
+) -> str:
     """Build the dependency review prompt.
 
     Args:
         ecosystem: PyPI, npm or Maven (leave empty for all).
         files: Dependency files with their names (leave empty to read the workspace files).
         context: Optional context (exposure, runtime vs dev usage...).
+        report_language: Language of the reply and of the stored report.
     """
-    return prompts.build_dependency_review_prompt(ecosystem, files, context)
+    return prompts.build_dependency_review_prompt(
+        ecosystem, files, context, _report_language(report_language)
+    )
 
 
 @mcp.prompt(
@@ -250,19 +279,23 @@ def dependency_review(ecosystem: str = "", files: str = "", context: str = "") -
     title="Triage a security report",
     description="Re-assess the findings of a stored report and update their status.",
 )
-def triage_report(ctx: Context, report_id: int, context: str = "") -> str:
+def triage_report(
+    ctx: Context, report_id: int, context: str = "", report_language: str = ""
+) -> str:
     """Build a triage prompt from a stored report.
 
     Args:
         report_id: Identifier returned by save_security_report.
         context: Optional deployment context to re-assess severity.
+        report_language: Language of the reply.
     """
+    language = _report_language(report_language)
     try:
         services.check_report_scope(_caller_projects(ctx), report_id)
         report = services.get_report(report_id)
     except services.NotFoundError as exc:
         raise MCPError(code=INVALID_PARAMS, message=str(exc)) from exc
-    return prompts.build_triage_prompt(services.render_report_markdown(report), context)
+    return prompts.build_triage_prompt(services.render_report_markdown(report), context, language)
 
 
 # ── Tools: knowledge and scanning ────────────────────────────────────────────

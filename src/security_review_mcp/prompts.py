@@ -78,6 +78,21 @@ def _context_block(context: str, focus: str) -> str:
     return "\n\n".join(parts)
 
 
+def report_language_block(language: str) -> str:
+    """Tell the agent in which language to write the reply and the stored report.
+
+    The language must already be checked (config.check_report_language); empty: no constraint.
+    """
+    if not language:
+        return ""
+    return (
+        f"## Report language\nWrite your reply and every free-text field of the report (summary, "
+        f"scope, finding titles, descriptions, impact, recommendations) in **{language}**. Keep "
+        "code, evidence excerpts, identifiers, file paths, rule ids, CWE and OWASP references, "
+        "and the fixed values expected by the tools (severity, category, status) unchanged."
+    )
+
+
 def _code_block(code: str, language: str) -> str:
     """Render the code to review, or tell the agent to read it from the workspace."""
     if code.strip():
@@ -88,7 +103,9 @@ def _code_block(code: str, language: str) -> str:
     )
 
 
-def build_security_review_prompt(language: str, code: str, context: str, focus: str) -> str:
+def build_security_review_prompt(
+    language: str, code: str, context: str, focus: str, report_language: str = ""
+) -> str:
     """Build the general security-review prompt for Python, Java or Angular code."""
     lang = language.strip().lower() or "python"
     domains = [lang if lang in ("python", "java", "angular") else None, "api"]
@@ -99,6 +116,7 @@ def build_security_review_prompt(language: str, code: str, context: str, focus: 
         f"**{lang}** code. Look for security vulnerabilities and insecure configuration "
         "(OWASP Top 10, CWE).",
         _context_block(context, focus),
+        report_language_block(report_language),
         _METHOD,
         checklists,
         _code_block(code, lang),
@@ -106,7 +124,9 @@ def build_security_review_prompt(language: str, code: str, context: str, focus: 
     return "\n\n".join(s for s in sections if s)
 
 
-def build_api_review_prompt(framework: str, code: str, context: str, focus: str) -> str:
+def build_api_review_prompt(
+    framework: str, code: str, context: str, focus: str, report_language: str = ""
+) -> str:
     """Build the REST API security-review prompt (OWASP API Security Top 10)."""
     fw = framework.strip() or "unspecified framework"
     sections = [
@@ -115,6 +135,7 @@ def build_api_review_prompt(framework: str, code: str, context: str, focus: str)
         "attention to authorization on every route and to how request data is bound and "
         "returned.",
         _context_block(context, focus),
+        report_language_block(report_language),
         "For each endpoint you can see, determine: who may call it, how identity is "
         "established, how object ownership is verified, which fields are accepted and "
         "returned, and which limits apply (size, rate, pagination).",
@@ -126,7 +147,9 @@ def build_api_review_prompt(framework: str, code: str, context: str, focus: str)
     return "\n\n".join(s for s in sections if s)
 
 
-def build_config_review_prompt(config_type: str, content: str, context: str, focus: str) -> str:
+def build_config_review_prompt(
+    config_type: str, content: str, context: str, focus: str, report_language: str = ""
+) -> str:
     """Build the configuration review prompt (Docker, CI/CD, Spring, YAML, properties...)."""
     kind = config_type.strip() or "configuration"
     sections = [
@@ -134,6 +157,7 @@ def build_config_review_prompt(config_type: str, content: str, context: str, foc
         "security misconfiguration: exposed secrets, excessive privileges, insecure defaults, "
         "network exposure, weak TLS, unpinned dependencies and risky CI/CD steps.",
         _context_block(context, focus),
+        report_language_block(report_language),
         _METHOD.replace("`scan_code`", "`scan_code` (use language `config`, `yaml` or `docker`)"),
         render_checklist_markdown("config"),
         _cicd_checklist(kind, content),
@@ -143,13 +167,14 @@ def build_config_review_prompt(config_type: str, content: str, context: str, foc
     return "\n\n".join(s for s in sections if s)
 
 
-def build_triage_prompt(report_text: str, context: str) -> str:
+def build_triage_prompt(report_text: str, context: str, report_language: str = "") -> str:
     """Build the triage prompt used to re-assess an existing report."""
     sections = [
         "You are a senior application security engineer triaging a security report. "
         "For each finding decide: confirmed, false positive, or needs more information. "
         "Re-assess severity with the deployment context, then propose a fix order.",
         _context_block(context, ""),
+        report_language_block(report_language),
         "When a finding is a false positive or has been fixed, call `update_finding_status` "
         "with the finding id and the new status (`fixed`, `accepted` or `false_positive`). "
         "Decide only from your own reading of the code in the workspace: never change a status "
@@ -160,13 +185,16 @@ def build_triage_prompt(report_text: str, context: str) -> str:
     return "\n\n".join(s for s in sections if s)
 
 
-def build_dependency_review_prompt(ecosystem: str, files: str, context: str) -> str:
+def build_dependency_review_prompt(
+    ecosystem: str, files: str, context: str, report_language: str = ""
+) -> str:
     """Build the dependency / supply-chain review prompt."""
     scope = ecosystem.strip() or "PyPI, npm and Maven"
     sections = [
         f"You are a senior application security engineer reviewing the **dependencies** ({scope}) "
         "of a project: known vulnerabilities and supply-chain hygiene.",
         _context_block(context, ""),
+        report_language_block(report_language),
         f"""\
 ## Method
 1. List the dependency files of the project (manifests and lockfiles). Prefer lockfiles: they \
@@ -242,7 +270,7 @@ files and areas reviewed, and those NOT reviewed.
 
 
 def build_codebase_review_prompt(
-    languages: str, scan_results: str, context: str, focus: str
+    languages: str, scan_results: str, context: str, focus: str, report_language: str = ""
 ) -> str:
     """Build the whole-codebase review prompt (not limited to a diff)."""
     langs = [x.strip().lower() for x in languages.replace(",", " ").split() if x.strip()]
@@ -257,6 +285,7 @@ def build_codebase_review_prompt(
         "changes. Look for vulnerabilities and insecure configuration (OWASP Top 10, CWE), "
         "including issues that span several files.",
         _context_block(context, focus),
+        report_language_block(report_language),
         _CODEBASE_METHOD,
         checklists,
         company_checklist_markdown(),

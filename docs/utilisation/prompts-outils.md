@@ -4,15 +4,30 @@
 
 | Prompt | Usage | Arguments |
 |---|---|---|
-| `security-review` | Revue générale Python / Java / Angular | `language`, `code`, `context`, `focus` |
-| `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus` |
-| `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus` |
-| `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus` |
-| `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context` |
-| `triage-report` | Re-qualifier les findings d'un rapport stocké | `report_id`, `context` |
+| `security-review` | Revue générale Python / Java / Angular | `language`, `code`, `context`, `focus`, `report_language` |
+| `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
+| `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
+| `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
+| `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
+| `triage-report` | Re-qualifier les findings d'un rapport stocké | `report_id`, `context`, `report_language` |
 
 Si `code` est vide, le prompt demande à l'agent de relire les fichiers de son espace de travail.
 Chaque prompt se termine par l'instruction d'appeler `save_security_report` une seule fois.
+
+### Langue des rapports
+
+`report_language` fixe la langue de la réponse de l'agent et des champs rédigés du rapport
+enregistré (résumé, périmètre, titres, descriptions, recommandations), par exemple `French`,
+`fr` ou `pt-BR`. Sans cet argument, le prompt reprend
+[`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md) ; si elle est vide aussi, l'agent
+choisit (en général la langue de la conversation).
+
+Le code, les extraits, les chemins, les identifiants de règles, les références CWE / OWASP et
+les valeurs fixes attendues par les outils (sévérité, catégorie, statut) restent inchangés :
+le gate, l'export SARIF et les tendances fonctionnent quelle que soit la langue.
+
+La valeur n'accepte que des lettres, espaces, `-`, `_` et parenthèses (40 caractères au plus),
+pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refusé.
 
 ## Outils
 

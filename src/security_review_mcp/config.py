@@ -4,7 +4,24 @@ import logging
 import sys
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Language name or code given to the agent (for example "French", "fr", "pt-BR"): letters,
+# spaces, hyphens, underscores and parentheses only, so that it cannot carry instructions.
+REPORT_LANGUAGE_MAX_CHARS = 40
+
+
+def check_report_language(value: str) -> str:
+    """Return the stripped report language, or raise ValueError if it is not a plain name."""
+    language = value.strip()
+    if len(language) > REPORT_LANGUAGE_MAX_CHARS:
+        raise ValueError(f"report language too long (max {REPORT_LANGUAGE_MAX_CHARS} chars)")
+    if not all(c.isalpha() or c in " -_()" for c in language):
+        raise ValueError(
+            "report language must be a language name or code, for example French, fr or pt-BR"
+        )
+    return language
 
 
 class Settings(BaseSettings):
@@ -76,6 +93,11 @@ class Settings(BaseSettings):
     osv_cafile: str | None = None
     osv_max_download_mb: int = 1024
 
+    # Language of the review reports (reply and free-text fields of save_security_report), for
+    # example "French". Empty: the agent chooses. The `report_language` argument of the review
+    # prompts overrides it. Severities, categories, statuses and rule ids stay in English.
+    report_language: str = ""
+
     log_level: str = "INFO"
 
     # Hard limits to protect the server and the database
@@ -83,6 +105,12 @@ class Settings(BaseSettings):
     max_findings_per_report: int = 500
     max_dependency_chars: int = 1_000_000
     max_list_limit: int = 100
+
+    @field_validator("report_language")
+    @classmethod
+    def _check_report_language(cls, value: str) -> str:
+        """Reject a report language that is not a plain language name or code."""
+        return check_report_language(value)
 
 
 @lru_cache
