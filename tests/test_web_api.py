@@ -387,12 +387,17 @@ def test_openapi_marks_api_operations_as_bearer_protected(secured):
     operations = [
         operation
         for path, methods in schema["paths"].items()
-        if path.startswith("/api/v1/")
+        if path.startswith("/api/v1/") and not path.startswith("/api/v1/auth/")
         for method, operation in methods.items()
         if method in {"get", "post", "put", "patch", "delete"}
     ]
     assert operations
     assert all({"HTTPBearer": []} in operation.get("security", []) for operation in operations)
+    # The login routes are public: they never read an identity
+    login_routes = [path for path in schema["paths"] if path.startswith("/api/v1/auth/")]
+    assert login_routes
+    for path in login_routes:
+        assert "security" not in schema["paths"][path]["get"]
     assert secured.get("/api/v1/projects").status_code == 401
 
 

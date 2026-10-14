@@ -66,6 +66,22 @@
         </div>
       }
 
+      @if (ssoPending()) {
+        <div class="alert alert-info d-flex gap-2 py-2" role="status">
+          <span class="spinner-border spinner-border-sm mt-1" aria-hidden="true"></span>
+          <span>Connexion en cours…</span>
+        </div>
+      }
+
+      @if (ssoName(); as name) {
+        <!-- Full-page navigation: the controller redirects to the identity provider -->
+        <a class="btn btn-outline-primary btn-lg w-100" [href]="ssoUrl()">
+          <i class="bi bi-person-badge me-1" aria-hidden="true"></i>
+          Se connecter avec {{ name }}
+        </a>
+        <div class="separator my-4"><span>ou avec un mot de passe ou jeton</span></div>
+      }
+
       <form (submit)="onSubmit($event)" novalidate>
         <label for="token" class="form-label">Mot de passe ou jeton d'accès</label>
         <div class="input-group input-group-lg secret-group mb-1">
@@ -116,7 +132,8 @@
         <i class="bi bi-info-circle" aria-hidden="true"></i>
         <p class="mb-0">
           Mot de passe initial affiché dans les journaux du conteneur, ou jeton fourni par votre
-          administrateur. Le secret reste dans cet onglet et disparaît à sa fermeture.
+          administrateur{{ ssoName() ? ", ou votre compte d'entreprise via le SSO" : '' }}. Le
+          secret ou la session reste dans cet onglet et disparaît à sa fermeture.
         </p>
       </div>
     </div>

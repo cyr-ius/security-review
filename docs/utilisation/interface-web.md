@@ -117,6 +117,81 @@ INFO security_review_mcp.web: Finding 42 set to accepted by alice
   Créez un jeton avec `security-review-controller token create` ou activez
   `SECREVIEW_AUTH_BOOTSTRAP_ADMIN`. Cette restriction
   concerne la Web UI; l'authentification MCP reste indépendante.
+  Avec la [connexion SSO](#connexion-sso-openid-connect), l'API demande une connexion (`401`)
+  même sans jeton en base.
+
+## Connexion SSO (OpenID Connect)
+
+Le contrôleur peut déléguer la connexion à l'interface à un fournisseur d'identité OpenID
+Connect (Keycloak, Microsoft Entra ID, Okta, Authentik, Dex...). La page de connexion affiche
+alors un bouton **Se connecter avec SSO** à côté du champ mot de passe ou jeton, qui reste
+disponible (mot de passe admin initial, jetons personnels).
+
+Le flux utilisé est le *authorization code* avec PKCE (`S256`), state et nonce :
+
+1. `GET /api/v1/auth/oidc/login` redirige le navigateur vers le fournisseur ;
+2. le fournisseur renvoie sur `GET /api/v1/auth/oidc/callback` ; le contrôleur échange le code
+   (appel serveur à serveur), vérifie l'ID token (signature par les clés JWKS du fournisseur,
+   émetteur, audience, expiration, nonce) et en déduit un rôle à partir des groupes ;
+3. il remet à l'interface un **jeton de session** signé, valable
+   `SECREVIEW_OIDC_SESSION_HOURS` heures, que l'onglet utilise comme un jeton Bearer.
+
+### Déclarer le client chez le fournisseur
+
+Créez un client OIDC *confidentiel* (ou public, sans secret : PKCE suffit) avec :
+
+- **URL de redirection** : `https://<contrôleur>/api/v1/auth/oidc/callback`, l'URL publique
+  exacte vue par le navigateur (derrière un reverse proxy, celle du proxy) ;
+- un claim contenant les groupes ou rôles de l'utilisateur dans l'ID token (ou, à défaut, dans
+  la réponse *userinfo*, que le contrôleur consulte quand l'ID token ne le contient pas).
+
+Exemple avec Keycloak (rôles de realm) :
+
+```bash
+SECREVIEW_OIDC_ENABLED=true
+SECREVIEW_OIDC_ISSUER=https://sso.example.com/realms/acme
+SECREVIEW_OIDC_CLIENT_ID=security-review
+SECREVIEW_OIDC_CLIENT_SECRET=...            # vide pour un client public
+SECREVIEW_OIDC_REDIRECT_URI=https://secreview.example.com/api/v1/auth/oidc/callback
+SECREVIEW_OIDC_ROLES_CLAIM=realm_access.roles   # "groups" par défaut
+SECREVIEW_OIDC_ADMIN_GROUPS=secreview-admins
+SECREVIEW_OIDC_TRIAGER_GROUPS=secreview-triagers
+SECREVIEW_OIDC_READER_GROUPS=developers,qa
+SECREVIEW_OIDC_SESSION_SECRET=$(openssl rand -base64 48)
+SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
+```
+
+L'émetteur doit être en HTTPS (HTTP n'est accepté que sur `localhost`, pour le développement) ;
+son document `/.well-known/openid-configuration` doit annoncer le même `issuer`. Si le
+fournisseur utilise une CA interne, indiquez-la avec `SECREVIEW_OIDC_CAFILE` ; un proxy sortant
+se configure avec `HTTPS_PROXY` / `NO_PROXY`.
+
+### Rôles
+
+Les valeurs du claim `SECREVIEW_OIDC_ROLES_CLAIM` (liste ou chaîne, chemin pointé accepté) sont
+comparées aux listes `SECREVIEW_OIDC_ADMIN_GROUPS`, `..._TRIAGER_GROUPS` et `..._READER_GROUPS`
+(séparées par des virgules) : le rôle le plus élevé l'emporte. Sans correspondance,
+`SECREVIEW_OIDC_DEFAULT_ROLE` s'applique (`reader` ou `triager`) ; vide (défaut), la connexion
+est **refusée**. Le rôle `admin` ne peut pas être attribué par défaut, et le rôle `mcp` jamais :
+une session OIDC n'ouvre que l'interface web, pas `/mcp`. Une session voit tous les projets.
+
+Le label d'une session est `oidc:<identifiant>` (claim `SECREVIEW_OIDC_USERNAME_CLAIM`, sinon
+`email`, sinon `sub`) : c'est lui qui apparaît dans les journaux et l'historique du triage.
+
+### Sessions
+
+- Rien n'est stocké en base : le jeton de session est signé (HMAC-SHA256) avec une clé dérivée
+  de `SECREVIEW_OIDC_SESSION_SECRET` (32 caractères au moins). Toutes les répliques du
+  contrôleur doivent partager ce secret ; sans lui, un secret aléatoire est tiré à chaque
+  démarrage et les sessions se terminent au redémarrage (un avertissement est journalisé).
+- Un changement de groupe chez le fournisseur ne s'applique qu'à la connexion suivante. Pour
+  couper toutes les sessions avant leur expiration, changez `SECREVIEW_OIDC_SESSION_SECRET` et
+  redémarrez le contrôleur.
+- **Se déconnecter** efface la session de l'onglet, pas celle du fournisseur d'identité.
+
+En cas d'échec, la page de connexion indique la cause (accès refusé chez le fournisseur, aucun
+groupe autorisé, état expiré, jeton invalide, fournisseur injoignable) ; le détail est journalisé
+par le contrôleur, sans code ni jeton.
 
 ## Sécurité
 
@@ -132,6 +207,11 @@ INFO security_review_mcp.web: Finding 42 set to accepted by alice
   (`GET /api/v1/enrollments`, `POST /api/v1/enrollments/{id}/approve`,
   `DELETE /api/v1/enrollments/{id}`, rôle `admin`). Il peut donc rester sur un réseau interne.
 - Le jeton est envoyé dans l'en-tête `Authorization` : pas de cookie, donc pas de CSRF.
+  Seule la [connexion SSO](#connexion-sso-openid-connect) pose un cookie, `HttpOnly`,
+  `SameSite=Lax`, `Secure` en HTTPS, limité à l'URL de retour et valable 10 minutes : il lie le
+  retour du fournisseur au navigateur qui a lancé la connexion (protection contre le *login
+  CSRF*). Le jeton de session est remis dans le fragment d'URL (`#session=...`), jamais envoyé à
+  un serveur, et l'interface l'efface aussitôt de la barre d'adresse et de l'historique.
 - Il est conservé dans le `sessionStorage` de l'onglet et disparaît à sa fermeture.
 - Les pages sont servies avec une CSP stricte (`script-src 'self'`, aucune ressource externe),
   `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` et `Referrer-Policy: no-referrer`.
@@ -146,6 +226,7 @@ INFO security_review_mcp.web: Finding 42 set to accepted by alice
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Génère le mot de passe admin initial (stocké en base) au démarrage du contrôleur ; `true` dans Docker |
 | `SECREVIEW_ENROLLMENT` | `true` | Demandes de jetons par les projets (sur le serveur MCP), validées dans l'écran **Jetons** |
+| `SECREVIEW_OIDC_*` | — | [Connexion SSO](#connexion-sso-openid-connect), voir la [référence](../reference/configuration.md) |
 
 Le paquet publié et l'image Docker contiennent l'application déjà compilée. Si vous installez
 depuis les sources sans la compiler, le contrôleur ne sert que l'API REST et un avertissement est

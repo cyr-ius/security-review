@@ -85,6 +85,7 @@ src/security_review_mcp/
 ├── server.py      # prompts, outils, ressources, point d'entrée du serveur MCP
 ├── controller.py  # point d'entrée du contrôleur (serve, db et commandes d'administration)
 ├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
+├── oidc.py        # connexion SSO OpenID Connect à l'interface web (contrôleur)
 ├── token_store.py # jetons Bearer en base : création, révocation, enrôlement, admin initial
 ├── enrollment.py  # client de `enroll` : demande de jeton à un serveur partagé
 ├── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP

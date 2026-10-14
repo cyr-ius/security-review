@@ -119,6 +119,38 @@ def test_serve_without_web_ui_serves_the_api_only(settings, captured_run, ui_dir
     assert client.get("/healthz").status_code == 200
 
 
+OIDC_SETTINGS = {
+    "oidc_enabled": True,
+    "oidc_issuer": "https://idp.example.com",
+    "oidc_client_id": "secreview",
+    "oidc_redirect_uri": "https://secreview.example.com/api/v1/auth/oidc/callback",
+    "oidc_session_secret": "s" * 40,
+}
+
+
+def test_serve_enables_the_oidc_login(settings, captured_run, ui_dir):
+    settings(**OIDC_SETTINGS)
+
+    controller.main(["serve"])
+
+    app = captured_run[0]["app"]
+    assert app.sessions is not None
+    client = TestClient(app, base_url="http://127.0.0.1")
+    assert client.get("/api/v1/auth/config").json()["oidc"] is True
+    # No token in the database: the API asks for credentials instead of answering 503
+    assert client.get("/api/v1/me").status_code == 401
+
+
+def test_serve_refuses_invalid_oidc_settings(settings, captured_run, capsys):
+    settings(**{**OIDC_SETTINGS, "oidc_redirect_uri": ""})
+
+    with pytest.raises(SystemExit) as exc:
+        controller.main(["serve"])
+
+    assert exc.value.code == 2 and not captured_run
+    assert "SECREVIEW_OIDC_REDIRECT_URI" in capsys.readouterr().err
+
+
 def test_serve_only_checks_the_schema_without_auto_upgrade(settings, captured_run, capsys):
     settings(db_auto_upgrade=False)
 

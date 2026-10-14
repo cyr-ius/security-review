@@ -80,6 +80,31 @@ class Settings(BaseSettings):
     web_ui: bool = True
     web_ui_dir: str | None = None
 
+    # Controller only: OpenID Connect login to the web interface (authorization code + PKCE),
+    # disabled by default. oidc_redirect_uri is the public URL of /api/v1/auth/oidc/callback,
+    # registered at the provider. oidc_client_secret is empty for a public client. The values of
+    # oidc_roles_claim (dotted path allowed, e.g. realm_access.roles) are matched against the
+    # comma-separated groups below (highest role wins); without a match, oidc_default_role ("",
+    # "reader" or "triager") applies, and an empty one refuses the login. Sessions are tokens
+    # signed with oidc_session_secret (at least 32 characters; random per start when unset),
+    # valid oidc_session_hours. oidc_cafile replaces the system CA bundle for the provider.
+    oidc_enabled: bool = False
+    oidc_issuer: str = ""
+    oidc_client_id: str = ""
+    oidc_client_secret: str | None = None
+    oidc_redirect_uri: str = ""
+    oidc_scopes: str = "openid profile email"
+    oidc_roles_claim: str = "groups"
+    oidc_admin_groups: str = ""
+    oidc_triager_groups: str = ""
+    oidc_reader_groups: str = ""
+    oidc_default_role: str = ""
+    oidc_username_claim: str = "preferred_username"
+    oidc_session_hours: int = 8
+    oidc_session_secret: str | None = None
+    oidc_display_name: str = "SSO"
+    oidc_cafile: str | None = None
+
     # Controller only: download the OSV exports (all.zip of each ecosystem) from osv_url and
     # import them every osv_update_interval_hours. Disabled by default: it is the only outgoing
     # connection of the controller (the MCP server never makes one). osv_proxy is an HTTP proxy

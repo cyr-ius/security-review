@@ -46,6 +46,7 @@ def protected_client(web: bool = False, enrollment: bool = False) -> TestClient:
             Route("/mcp", whoami),
             Route("/api/v1/me", whoami),
             Route("/api/v1/enroll", whoami, methods=["POST"]),
+            Route("/api/v1/auth/config", whoami),
             Route("/api/docs", whoami),
             Route("/api/openapi.json", whoami),
             Route("/ui/", whoami),
@@ -130,6 +131,9 @@ def test_web_ui_files_are_public_but_not_the_api():
     assert mcp_client.get("/api/docs").status_code == 401
     assert mcp_client.get("/healthz").status_code == 200
     assert mcp_client.post("/api/v1/enroll").status_code == 200
+    # The login routes are public on the controller only
+    assert client.get("/api/v1/auth/config").status_code == 200
+    assert mcp_client.get("/api/v1/auth/config").status_code == 401
 
 
 def test_without_any_token_mcp_is_open_and_the_web_api_not_configured():

@@ -11,7 +11,7 @@ import argparse
 import logging
 import sys
 
-from . import advisory_sync, cli, http_server, registry, token_store, web_api
+from . import advisory_sync, cli, http_server, oidc, registry, token_store, web_api
 from .config import configure_logging, get_settings
 from .database import SchemaError, init_db
 
@@ -54,7 +54,8 @@ def serve(argv: list[str]) -> None:
         init_db()
         store = token_store.DatabaseTokenStore()
         tls = http_server.tls_options(settings, args.host)
-        web_app = web_api.create_app(args.host, ui=settings.web_ui)
+        oidc_login = oidc.from_settings(settings)
+        web_app = web_api.create_app(args.host, ui=settings.web_ui, oidc_login=oidc_login)
         if settings.osv_auto_update:
             advisory_sync.validate_settings(settings)
     except (ValueError, SchemaError) as exc:
@@ -67,12 +68,16 @@ def serve(argv: list[str]) -> None:
         logger.warning("Initial Web UI administrator password (shown once): %s", bootstrap_password)
     if settings.web_ui:
         logger.info("Web interface enabled on /ui (REST API on /api/v1)")
+    if oidc_login:
+        logger.info("OIDC login enabled with %s", oidc_login.issuer)
     updater = advisory_sync.AdvisoryUpdater(settings) if settings.osv_auto_update else None
     if updater:
         updater.start()
     try:
         http_server.serve(
-            http_server.build_controller_app(web_app, store),
+            http_server.build_controller_app(
+                web_app, store, oidc_login.signer if oidc_login else None
+            ),
             args.host,
             args.port,
             store,

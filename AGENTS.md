@@ -94,7 +94,7 @@ l'utiliser.
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` |
 | Persistance, schéma | `models.py`, `services.py`, `database.py`, `migrations/` (Alembic) |
 | Export et tendances | `sarif.py`, `trends.py` |
-| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` |
+| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; connexion SSO OIDC du contrôleur : `oidc.py` |
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
 | Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy OSV) | `config.py` ; `app_settings.py` |
@@ -152,7 +152,9 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
   CLI. Exceptions : la commande CLI `enroll`, qui contacte l'URL donnée par l'opérateur, et le
   téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
-  uniquement, taille bornée, proxy facultatif jamais journalisé avec ses identifiants.
+  uniquement, taille bornée, proxy facultatif jamais journalisé avec ses identifiants, et la
+  connexion SSO du contrôleur (`oidc`), **désactivée par défaut**, qui ne contacte que le
+  fournisseur d'identité configuré, en HTTPS, réponses bornées.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
   imbriqués) ; `rules_loader` les valide pour les règles internes.
 - Jetons Bearer : seules les empreintes SHA-256 sont conservées, comparaison en temps constant.

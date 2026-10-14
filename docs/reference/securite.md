@@ -46,6 +46,10 @@
   préférez `SECREVIEW_OSV_PROXY` (secret Kubernetes) si la base n'est pas protégée comme un
   secret. Voir la
   [mise à jour automatique](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur).
+  Avec la [connexion SSO](../utilisation/interface-web.md#connexion-sso-openid-connect)
+  (`SECREVIEW_OIDC_ENABLED`, désactivée par défaut), le contrôleur contacte aussi le fournisseur
+  d'identité configuré : HTTPS uniquement (HTTP seulement sur localhost), redirections limitées
+  à HTTPS, réponses bornées à 1 Mio, délai de 10 secondes.
 - **Interface web** (contrôleur) : l'API REST exige toujours un jeton de rôle web ; sans configuration, elle
   répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
   le statut d'un finding (action journalisée avec le label du jeton). Pages servies avec une CSP
@@ -54,6 +58,18 @@
   restent protégées. Le contrôle est fait deux fois : par le middleware Bearer, puis par
   chaque route de l'API, qui refuse (`401`) toute requête sans identité authentifiée. Ainsi,
   l'API ne donne jamais de droits par défaut, même si elle est servie sans le middleware.
+- **Connexion SSO (OpenID Connect)**, facultative : flux *authorization code* avec PKCE `S256`,
+  state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
+  ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
+  uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Le rôle vient des
+  groupes de l'utilisateur ; sans groupe reconnu, la connexion est refusée par défaut, et ni le
+  rôle `admin` par défaut ni le rôle `mcp` ne sont possibles. La session est un jeton signé
+  (HMAC-SHA256, clé dérivée de `SECREVIEW_OIDC_SESSION_SECRET`), accepté par le contrôleur
+  seulement, jamais par le serveur MCP, et révocable uniquement par son expiration ou un
+  changement du secret. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
+  jetons et secrets ne sont jamais journalisés par le contrôleur ; le code d'autorisation
+  apparaît toutefois dans les journaux d'accès d'un reverse proxy ou d'uvicorn, ce qui est
+  sans danger : il est à usage unique et inutilisable sans le vérificateur PKCE du cookie.
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
   serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Le scan du dépôt
   complet est réservé à la CLI (`code scan`), lancée par l'opérateur sur un dossier qu'il

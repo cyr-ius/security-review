@@ -78,6 +78,8 @@ UI_PREFIX = "/ui"
 ENROLL_PATH = "/api/v1/enroll"
 # Public liveness endpoint of both processes (container and Kubernetes probes)
 HEALTH_PATH = "/healthz"
+# Public login routes of the controller (OpenID Connect, see oidc)
+AUTH_PREFIX = "/api/v1/auth/"
 # Value of WWW-Authenticate on a 401 / 403 (an error="..." parameter may follow)
 BEARER_CHALLENGE = 'Bearer realm="security-review-mcp"'
 
@@ -107,6 +109,16 @@ class TokenStore(Protocol):
         """True when at least one token is stored."""
 
 
+class SessionVerifier(Protocol):
+    """Verifier of the web sessions issued after an OIDC login (see oidc.SessionSigner)."""
+
+    def owns(self, credentials: str) -> bool:
+        """True when the bearer value is a session token (not a database token)."""
+
+    def verify_session(self, credentials: str) -> TokenInfo | None:
+        """Return the identity of a valid, unexpired session token, or None."""
+
+
 def hash_token(token: str) -> bytes:
     """Return the SHA-256 digest of a raw token: the only form that is ever stored."""
     return hashlib.sha256(token.encode("utf-8")).digest()
@@ -116,10 +128,10 @@ def hash_token(token: str) -> bytes:
 
 
 def is_controller_public_path(path: str) -> bool:
-    """Controller paths reachable without a token: the web UI shell, the API documentation and
-    the health check."""
+    """Controller paths reachable without a token: the web UI shell, the API documentation,
+    the health check and the login routes."""
     return path in ("/", UI_PREFIX, "/api/docs", "/api/openapi.json", HEALTH_PATH) or (
-        path.startswith(UI_PREFIX + "/")
+        path.startswith((UI_PREFIX + "/", AUTH_PREFIX))
     )
 
 
@@ -149,6 +161,9 @@ class BearerAuthMiddleware:
     with an empty bearer value) or with a pending enrollment token;
     ``scope["state"]["enrollment_token_id"]`` then holds the id of that pending token (None
     without a token). Without it they get 401 / 403.
+
+    ``sessions`` (controller only) also accepts the session tokens issued after an OIDC login;
+    the web API then works even while the store holds no token.
     """
 
     def __init__(
@@ -158,12 +173,14 @@ class BearerAuthMiddleware:
         web: bool = False,
         enrollment_app: ASGIApp | None = None,
         public_paths: frozenset[str] = frozenset(),
+        sessions: SessionVerifier | None = None,
     ) -> None:
         self.app = app
         self.store = store
         self.web = web
         self.enrollment_app = None if web else enrollment_app
         self.public_paths = public_paths
+        self.sessions = sessions if web else None
 
     async def identify(self, authorization: str) -> TokenInfo | None:
         """Return the identity of the presented bearer token, or None."""
@@ -171,6 +188,8 @@ class BearerAuthMiddleware:
         credentials = credentials.strip()
         if scheme.lower() != "bearer" or not credentials:
             return None
+        if self.sessions is not None and self.sessions.owns(credentials):
+            return self.sessions.verify_session(credentials)
         return await anyio.to_thread.run_sync(self.store.lookup, hash_token(credentials))
 
     async def has_tokens(self) -> bool:
@@ -196,7 +215,7 @@ class BearerAuthMiddleware:
             await self.app(scope, receive, send)
             return
 
-        if not await self.has_tokens():
+        if self.sessions is None and not await self.has_tokens():
             if self.web:
                 await _send_error(
                     send,
@@ -531,9 +550,12 @@ def build_mcp_app(
     )
 
 
-def build_controller_app(web_app: ASGIApp, store: TokenStore) -> ASGIApp:
-    """Build the HTTP app of the controller (see web_api.create_app), protected by ``store``."""
-    return BearerAuthMiddleware(web_app, store, web=True)
+def build_controller_app(
+    web_app: ASGIApp, store: TokenStore, sessions: SessionVerifier | None = None
+) -> ASGIApp:
+    """Build the HTTP app of the controller (see web_api.create_app), protected by ``store``
+    and, with OIDC, by the session tokens of ``sessions``."""
+    return BearerAuthMiddleware(web_app, store, web=True, sessions=sessions)
 
 
 def _log_exposure(host: str, store: TokenStore, tls: TLSOptions | None) -> None:

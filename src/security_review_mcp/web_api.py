@@ -13,6 +13,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Annotated, Any, Literal
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi import Path as APIPath
@@ -30,6 +31,7 @@ from . import (
     advisories,
     advisory_sync,
     app_settings,
+    oidc,
     registry,
     rule_store,
     rules_loader,
@@ -268,6 +270,111 @@ async def _refresh_checklists() -> dict:
     snapshot = await run_in_threadpool(registry.reload)
     count = sum(len(items) for items in snapshot.checklists.values())
     return {"loaded_checklist_items": count, "load_errors": list(snapshot.errors)}
+
+
+# ── Login (public) ───────────────────────────────────────────────────────────
+
+
+# Public routes of the login flow: the bearer middleware lets them through without a token
+# (http_server.AUTH_PREFIX), so they never read the identity of the caller.
+auth_router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+# The callback URL holds the authorization code, the redirect the session token
+LOGIN_HEADERS = {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"}
+
+
+class AuthConfig(BaseModel):
+    """Login methods offered by the login page, besides the password or token."""
+
+    oidc: bool
+    oidc_display_name: str | None = None
+
+
+def _oidc_login(request: Request) -> oidc.OidcLogin:
+    """Return the OIDC login flow of the app; 404 when OIDC is disabled."""
+    login = getattr(request.app.state, "oidc", None)
+    if login is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OIDC is not enabled")
+    return login
+
+
+def _to_login_page(login: oidc.OidcLogin, query: dict[str, str], fragment: str = "") -> Response:
+    """Redirect to the login page of the web application and drop the state cookie."""
+    url = f"{oidc.UI_LOGIN_PATH}?{urlencode(query)}" + (f"#{fragment}" if fragment else "")
+    response = RedirectResponse(url, status_code=status.HTTP_303_SEE_OTHER, headers=LOGIN_HEADERS)
+    response.delete_cookie(
+        oidc.STATE_COOKIE,
+        path=login.cookie_path,
+        secure=login.secure_cookie,
+        httponly=True,
+        samesite="lax",
+    )
+    return response
+
+
+@auth_router.get("/config")
+async def auth_config(request: Request) -> AuthConfig:
+    """Tell the login page whether single sign-on (OIDC) is available."""
+    login = getattr(request.app.state, "oidc", None)
+    return AuthConfig(
+        oidc=login is not None, oidc_display_name=login.display_name if login else None
+    )
+
+
+@auth_router.get("/oidc/login", response_class=RedirectResponse, status_code=302)
+async def oidc_login(
+    request: Request,
+    return_url: Annotated[str | None, Query(max_length=oidc.MAX_RETURN_URL_CHARS)] = None,
+) -> Response:
+    """Start an OIDC login: redirect to the identity provider (code flow with PKCE)."""
+    login = _oidc_login(request)
+    try:
+        started = await run_in_threadpool(login.start, return_url)
+    except oidc.OidcError as exc:
+        return _to_login_page(login, {"oidcError": exc.code})
+    response = RedirectResponse(
+        started.authorization_url, status_code=status.HTTP_302_FOUND, headers=LOGIN_HEADERS
+    )
+    response.set_cookie(
+        oidc.STATE_COOKIE,
+        started.state_cookie,
+        max_age=oidc.STATE_TTL_SECONDS,
+        path=login.cookie_path,
+        secure=login.secure_cookie,
+        httponly=True,
+        # Lax: the cookie comes back with the top-level redirect from the provider
+        samesite="lax",
+    )
+    return response
+
+
+@auth_router.get("/oidc/callback", response_class=RedirectResponse, status_code=303)
+async def oidc_callback(
+    request: Request,
+    code: Annotated[str | None, Query(max_length=4096)] = None,
+    state: Annotated[str | None, Query(max_length=512)] = None,
+    error: Annotated[str | None, Query(max_length=100)] = None,
+) -> Response:
+    """End an OIDC login: hand a session token to the web application, or an error code.
+
+    The token goes in the URL fragment of the login page, which the browser never sends to a
+    server; the page removes it from the address bar and keeps it in the tab only.
+    """
+    login = _oidc_login(request)
+    if error or not code or not state:
+        reason = "".join(c for c in (error or "missing code or state") if c.isprintable())
+        logger.warning("OIDC login not completed: %s", reason)
+        return _to_login_page(login, {"oidcError": "denied" if error else "state"})
+    try:
+        result = await run_in_threadpool(
+            login.finish, code, state, request.cookies.get(oidc.STATE_COOKIE)
+        )
+    except oidc.OidcError as exc:
+        logger.warning("OIDC login failed: %s", exc)
+        return _to_login_page(login, {"oidcError": exc.code})
+    return _to_login_page(
+        login, {"returnUrl": result.return_url}, urlencode({"session": result.session_token})
+    )
 
 
 # ── Routes ───────────────────────────────────────────────────────────────────
@@ -731,10 +838,17 @@ def resolve_ui_dir(configured: str | None) -> Path | None:
 # ── Application ──────────────────────────────────────────────────────────────
 
 
-def create_app(host: str = "127.0.0.1", ui_dir: str | None = None, ui: bool = True) -> FastAPI:
+def create_app(
+    host: str = "127.0.0.1",
+    ui_dir: str | None = None,
+    ui: bool = True,
+    oidc_login: oidc.OidcLogin | None = None,
+) -> FastAPI:
     """Build the controller app (REST API and, when it is built, the Angular application).
 
-    ``ui=False`` (SECREVIEW_WEB_UI=false) serves the REST API only.
+    ``ui=False`` (SECREVIEW_WEB_UI=false) serves the REST API only. ``oidc_login`` (see
+    oidc.from_settings) enables the single sign-on routes under ``/api/v1/auth/oidc``; its
+    session tokens are checked by the bearer middleware (build_controller_app).
 
     Raises:
         ValueError: If ``ui_dir`` (SECREVIEW_WEB_UI_DIR) is set but holds no application.
@@ -747,6 +861,8 @@ def create_app(host: str = "127.0.0.1", ui_dir: str | None = None, ui: bool = Tr
         redoc_url=None,
         openapi_url="/api/openapi.json",
     )
+    app.state.oidc = oidc_login
+    app.include_router(auth_router)
     app.include_router(router)
 
     @app.get(HEALTH_PATH, include_in_schema=False)

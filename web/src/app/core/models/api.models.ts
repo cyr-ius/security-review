@@ -39,6 +39,12 @@ export interface Identity {
   version: string;
 }
 
+/** GET /api/v1/auth/config: single sign-on (OIDC) offered on the login page. */
+export interface AuthConfig {
+  oidc: boolean;
+  oidc_display_name: string | null;
+}
+
 /** Metadata returned for a project-scoped token; the raw secret is only returned at creation. */
 export interface ProjectToken {
   id: string;

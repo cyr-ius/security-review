@@ -23,6 +23,22 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_TLS_SELF_SIGNED_HOSTS` | — | les deux | Noms DNS (sans joker `*`) et adresses IP supplémentaires du certificat auto-signé, séparés par des virgules (ceux qu'utilisent les clients, 20 au plus) |
 | `SECREVIEW_WEB_UI` | `true` | Contrôleur | Sert l'[interface web](../utilisation/interface-web.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Contrôleur | Dossier d'une autre build de l'interface web |
+| `SECREVIEW_OIDC_ENABLED` | `false` | Contrôleur | Active la [connexion SSO OpenID Connect](../utilisation/interface-web.md#connexion-sso-openid-connect) à l'interface web |
+| `SECREVIEW_OIDC_ISSUER` | — | Contrôleur | URL de l'émetteur (HTTPS ; HTTP seulement sur localhost), dont `/.well-known/openid-configuration` est lu |
+| `SECREVIEW_OIDC_CLIENT_ID` | — | Contrôleur | Identifiant du client déclaré chez le fournisseur |
+| `SECREVIEW_OIDC_CLIENT_SECRET` | — | Contrôleur | Secret du client ; vide pour un client public (PKCE seul) |
+| `SECREVIEW_OIDC_REDIRECT_URI` | — | Contrôleur | URL publique de `/api/v1/auth/oidc/callback`, déclarée chez le fournisseur |
+| `SECREVIEW_OIDC_SCOPES` | `openid profile email` | Contrôleur | Scopes demandés (doit contenir `openid`) |
+| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Contrôleur | Claim des groupes ou rôles, chemin pointé accepté (`realm_access.roles`) |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `admin`, séparés par des virgules |
+| `SECREVIEW_OIDC_TRIAGER_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `triager` |
+| `SECREVIEW_OIDC_READER_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `reader` |
+| `SECREVIEW_OIDC_DEFAULT_ROLE` | — | Contrôleur | Rôle sans groupe correspondant : `reader`, `triager` ou vide (connexion refusée) |
+| `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Contrôleur | Claim du label de session `oidc:<valeur>` (à défaut `email`, puis `sub`) |
+| `SECREVIEW_OIDC_SESSION_HOURS` | `8` | Contrôleur | Durée d'une session (1 à 24 heures) |
+| `SECREVIEW_OIDC_SESSION_SECRET` | — | Contrôleur | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques ; sans lui, aléatoire à chaque démarrage |
+| `SECREVIEW_OIDC_DISPLAY_NAME` | `SSO` | Contrôleur | Nom affiché sur le bouton de connexion (40 caractères au plus) |
+| `SECREVIEW_OIDC_CAFILE` | — | Contrôleur | Bundle de CA pour joindre le fournisseur (CA interne) ; un proxy se configure avec `HTTPS_PROXY` / `NO_PROXY` |
 | `SECREVIEW_OSV_AUTO_UPDATE` | `false` | Contrôleur | [Mise à jour quotidienne](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur) de la base OSV par `serve` (seule connexion sortante) |
 | `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Contrôleur | Âge de la base au-delà duquel `serve` la met à jour (minimum `1`) |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Contrôleur | Source des exports `<URL>/<écosystème>/all.zip` (HTTPS uniquement, miroir possible) |

@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import {
   AdvisoryOverview,
   AppSettings,
+  AuthConfig,
   Finding,
   FindingStatus,
   ChecklistCatalog,
@@ -35,6 +36,11 @@ export class ApiService {
 
   me(): Observable<Identity> {
     return this.http.get<Identity>(`${API_URL}/me`);
+  }
+
+  /** Login methods offered besides the password or token (public route). */
+  authConfig(): Observable<AuthConfig> {
+    return this.http.get<AuthConfig>(`${API_URL}/auth/config`);
   }
 
   customRules(): Observable<CustomRuleCatalog> {
