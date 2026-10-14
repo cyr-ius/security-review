@@ -1,4 +1,4 @@
-import { FindingStatus, Severity } from '../models/api.models';
+import { FindingStatus, Role, Severity } from '../models/api.models';
 
 /** Display name and icon of each severity (color is never the only cue). */
 export const SEVERITY_META: Record<Severity, { label: string; icon: string }> = {
@@ -23,4 +23,12 @@ export const DIRECTION_META: Record<string, { label: string; icon: string }> = {
   worsening: { label: 'En dégradation', icon: 'bi-arrow-up-right' },
   stable: { label: 'Stable', icon: 'bi-arrow-right' },
   insufficient_data: { label: 'Pas assez de données', icon: 'bi-dash' },
+};
+
+/** Display name of each token role. */
+export const ROLE_META: Record<Role, { label: string; icon: string }> = {
+  admin: { label: 'Administrateur', icon: 'bi-shield-fill-check' },
+  triager: { label: 'Triage', icon: 'bi-funnel-fill' },
+  reader: { label: 'Lecture', icon: 'bi-eye-fill' },
+  mcp: { label: 'MCP', icon: 'bi-plug-fill' },
 };

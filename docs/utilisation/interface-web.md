@@ -19,6 +19,12 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 
 ## Écrans
 
+Les écrans sont accessibles depuis la barre latérale : **Supervision** (projets, rapports) pour
+tous les rôles, **Administration** (règles, checklists, jetons) pour le rôle `admin`. Le bas de
+la barre affiche le client connecté, son rôle et la version, avec le bouton de déconnexion ; sur
+petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
+à droite, y compris sur la page de connexion, et reste mémorisé dans le navigateur.
+
 - **Projets** : tous les projets avec leurs findings ouverts par sévérité, triés par risque,
   activité ou nom.
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai

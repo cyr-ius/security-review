@@ -1,12 +1,175 @@
 .login-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
 }
 
-.login-card {
+/* ── Brand panel ── */
+.hero {
+  position: relative;
+  overflow: hidden;
+  color: #e2e8f0;
+  background: linear-gradient(160deg, #0f172a 0%, #1e1b4b 55%, #0c4a6e 100%);
+}
+
+/* Faint grid, faded towards the edges */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgb(255 255 255 / 5%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 5%) 1px, transparent 1px);
+  background-size: 2.5rem 2.5rem;
+  mask-image: radial-gradient(ellipse at 30% 40%, #000 20%, transparent 75%);
+}
+
+.hero-glow {
+  position: absolute;
+  top: -10rem;
+  right: -8rem;
+  width: 32rem;
+  height: 32rem;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(99 102 241 / 45%), transparent 65%);
+  filter: blur(20px);
+}
+
+.hero-inner {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 3rem;
+  height: 100%;
+  padding: clamp(2rem, 5vw, 4rem);
+}
+
+.hero-brand {
+  color: #fff;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.hero-title {
+  max-width: 32rem;
+  color: #fff;
+  font-size: clamp(2rem, 3.4vw, 3rem);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+}
+
+.gradient-text {
+  background: linear-gradient(90deg, #a5b4fc, #38bdf8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-lead {
+  max-width: 30rem;
+  margin: 1.25rem 0 2rem;
+  color: #94a3b8;
+  font-size: 1.05rem;
+}
+
+.features {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.9rem;
+  color: #94a3b8;
+}
+
+.features li {
+  display: flex;
+  gap: 0.875rem;
+}
+
+.features strong {
+  color: #e2e8f0;
+  font-weight: 600;
+}
+
+.feature-icon {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid rgb(255 255 255 / 10%);
+  border-radius: 0.625rem;
+  color: #a5b4fc;
+  background: rgb(255 255 255 / 6%);
+}
+
+.hero-foot {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+/* ── Form panel ── */
+.panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.5rem 2rem;
+  background: var(--app-surface);
+}
+
+.theme-toggle {
+  position: absolute;
+  top: 1.25rem;
+  right: 1.25rem;
+}
+
+.login-box {
   width: 100%;
-  max-width: 26rem;
+  max-width: 24rem;
+  margin: auto 0;
+  animation: rise 0.4s ease-out both;
+}
+
+.secret-group .form-control {
+  font-size: 1rem;
+}
+
+.help {
+  display: flex;
+  gap: 0.625rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--bs-border-color);
+  border-radius: var(--bs-border-radius);
+  font-size: 0.8125rem;
+  color: var(--bs-secondary-color);
+  background: var(--bs-tertiary-bg);
+}
+
+.panel-foot {
+  margin: 2rem 0 0;
+  font-size: 0.75rem;
+  color: var(--bs-secondary-color);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (max-width: 991.98px) {
+  .login-page {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    display: none;
+  }
 }
