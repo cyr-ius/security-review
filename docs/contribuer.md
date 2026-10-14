@@ -17,6 +17,8 @@ Dans VS Code (`.vscode/`) :
 | **MCP server (HTTP, port 8000)** | Serveur MCP seul ; la base doit déjà être migrée |
 | **Controller (web UI and API, port 8080)** | Contrôleur seul ; migre la base et affiche le mot de passe admin initial au premier démarrage |
 | **Controller CLI (prompt for arguments)** | Une commande du contrôleur (`db status`, `token list --pending`…) sous le débogueur |
+| **Controller + web UI (Angular, port 4200)** | Contrôleur et application Angular sous le débogueur, rechargement à chaud |
+| **Web UI + API (Angular dev server, port 4200)** | Lance la tâche **Web UI + API: dev servers** (contrôleur sur 8080 et `ng serve`), attend qu'ils soient prêts, puis ouvre Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript |
 | **Pytest (current file)** | Tests du fichier ouvert |
 
 | Tâche de `tasks.json` | Commande |
@@ -25,6 +27,7 @@ Dans VS Code (`.vscode/`) :
 | **Database upgrade** | `uv run security-review-controller db upgrade` (après **Build**) |
 | **Tests** / **Lint** | `pytest`, puis ruff et `mkdocs build --strict` |
 | **Web UI: build** / **Web UI: dev server (port 4200)** | Build Angular servie par le contrôleur, ou `ng serve` avec `/api` redirigé vers le port 8080 |
+| **API: controller (port 8080)** / **Web UI + API: dev servers** | Contrôleur seul hors débogueur (`security-review-controller serve`), ou contrôleur et `ng serve` en parallèle |
 | **Docs: serve (port 8001)** | `mkdocs serve` |
 | **Docker: compose up** / **down** | Pile `docker-compose.yml` de l'image, avec sa propre base PostgreSQL (mêmes ports 8000 et 8080 : arrêtez les configurations de debug avant) |
 
@@ -124,7 +127,12 @@ npm run format                # Prettier
 ```
 
 `npm start` redirige `/api` vers `http://127.0.0.1:8080` (`web/proxy.conf.json`) : lancez le
-contrôleur en parallèle avec `security-review-controller serve --port 8080`.
+contrôleur en parallèle avec `security-review-controller serve --port 8080`, ou utilisez la
+configuration VS Code **Web UI + API (Angular dev server, port 4200)**, qui démarre les deux
+(**Controller + web UI (Angular, port 4200)** si vous voulez aussi déboguer le Python) : chaque enregistrement d'un
+fichier de `web/src/` recharge la page (styles et templates sans rechargement complet), et les
+points d'arrêt posés dans les fichiers `.ts` sont pris en compte. Dans le devcontainer, Chrome
+est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
 
 ## Migrations du schéma
 

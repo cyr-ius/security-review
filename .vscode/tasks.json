@@ -52,6 +52,43 @@
       "script": "start",
       "path": "web",
       "isBackground": true,
+      // Lets a launch configuration wait for the first build (and each rebuild) to finish
+      "problemMatcher": {
+        "owner": "angular",
+        "pattern": { "regexp": "^\\s*(?:✘\\s*)?\\[ERROR\\]\\s+(.*)$", "message": 1 },
+        "background": {
+          "activeBegin": true,
+          "beginsPattern": "Changes detected",
+          "endsPattern": "Application bundle generation (complete|failed)"
+        }
+      }
+    },
+    {
+      "label": "API: controller (port 8080)",
+      "detail": "security-review-controller serve (migrates the schema, REST API proxied by ng serve)",
+      "type": "process",
+      "command": "uv",
+      "args": ["run", "security-review-controller", "serve", "--host", "127.0.0.1", "--port", "8080"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": { "SECREVIEW_AUTH_BOOTSTRAP_ADMIN": "true", "SECREVIEW_LOG_LEVEL": "DEBUG" }
+      },
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "controller",
+        "pattern": { "regexp": "^ERROR:\\s+(.*)$", "message": 1 },
+        "background": {
+          "activeBegin": true,
+          "beginsPattern": "Started server process",
+          "endsPattern": "Uvicorn running on"
+        }
+      }
+    },
+    {
+      "label": "Web UI + API: dev servers",
+      "detail": "Controller on port 8080 and ng serve on port 4200, side by side",
+      "dependsOn": ["API: controller (port 8080)", "Web UI: dev server (port 4200)"],
+      "dependsOrder": "parallel",
       "problemMatcher": []
     },
     {
