@@ -1,7 +1,7 @@
 // For format details, see https://aka.ms/devcontainer.json. For config options, see the
 // README at: https://github.com/devcontainers/templates/tree/main/src/python
 {
-  "name": "Python 3",
+  "name": "security-review-mcp",
   // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
   "image": "mcr.microsoft.com/devcontainers/python:3-3.14-trixie",
   "features": {
@@ -16,12 +16,16 @@
       "moby": false
     }
   },
-  // HTTP transport of the image (MCP on /mcp, web interface on /ui, REST API on /api/v1)
-  "forwardPorts": [8000],
+  // Same ports for the VS Code launch configurations and for docker compose
+  "forwardPorts": [8000, 8080, 4200, 8001],
   "portsAttributes": {
-    "8000": { "label": "security-review-mcp (HTTP)", "onAutoForward": "notify" }
+    "8000": { "label": "MCP server (/mcp)", "onAutoForward": "notify" },
+    "8080": { "label": "Controller (/ui, /api/v1)", "onAutoForward": "notify" },
+    "4200": { "label": "Angular dev server", "onAutoForward": "silent" },
+    "8001": { "label": "Docs (mkdocs serve)", "onAutoForward": "silent" }
   },
-  "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && prek install --overwrite && uv sync --extra dev --extra docs --link-mode=copy",
+  // Also migrates the local SQLite database, so that the HTTP MCP server can start right away
+  "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && prek install --overwrite && uv sync --extra dev --extra docs --link-mode=copy && uv run security-review-controller db upgrade",
   "customizations": {
     "vscode": {
       "extensions": [

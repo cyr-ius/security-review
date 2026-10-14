@@ -9,17 +9,31 @@ uv run ruff check . && uv run ruff format --check .
 pre-commit install          # facultatif : mêmes contrôles avant chaque commit
 ```
 
-Dans VS Code, `launch.json` fournit **MCP server (streamable-http)** (port 8000),
-**Controller (web UI and API, port 8080)** et le composé **MCP server + controller**, qui lance
-au préalable la tâche **Build security_review_mcp** (`uv sync --extra dev --extra docs`). Le
-serveur MCP HTTP ne migre pas la base : lancez une fois `uv run security-review-controller db
-upgrade` (ou le contrôleur) avant de le démarrer.
+Dans VS Code (`.vscode/`) :
+
+| Configuration de `launch.json` | Rôle |
+|---|---|
+| **MCP server + controller** | Lance la tâche **Database upgrade**, puis les deux processus sur la même base SQLite |
+| **MCP server (HTTP, port 8000)** | Serveur MCP seul ; la base doit déjà être migrée |
+| **Controller (web UI and API, port 8080)** | Contrôleur seul ; migre la base et affiche le mot de passe admin initial au premier démarrage |
+| **Controller CLI (prompt for arguments)** | Une commande du contrôleur (`db status`, `token list --pending`…) sous le débogueur |
+| **Pytest (current file)** | Tests du fichier ouvert |
+
+| Tâche de `tasks.json` | Commande |
+|---|---|
+| **Build security_review_mcp** | `uv sync --extra dev --extra docs` |
+| **Database upgrade** | `uv run security-review-controller db upgrade` (après **Build**) |
+| **Tests** / **Lint** | `pytest`, puis ruff et `mkdocs build --strict` |
+| **Web UI: build** / **Web UI: dev server (port 4200)** | Build Angular servie par le contrôleur, ou `ng serve` avec `/api` redirigé vers le port 8080 |
+| **Docs: serve (port 8001)** | `mkdocs serve` |
+| **Docker: compose up** / **down** | Pile `docker-compose.yml` (même ports 8000 et 8080 : arrêtez les configurations de debug avant) |
 
 ### Devcontainer
 
 Le dépôt fournit un devcontainer (`.devcontainer/`) avec Python, uv, Node.js et un démon Docker
 dédié (feature *docker-in-docker*). À sa création, il installe les hooks `prek` et l'environnement
-complet (`uv sync --extra dev --extra docs`). Le démon Docker permet de construire et de lancer
+complet (`uv sync --extra dev --extra docs`), puis migre la base SQLite locale. Il redirige les
+ports 8000 (serveur MCP), 8080 (contrôleur), 4200 (serveur de dev Angular) et 8001 (doc). Le démon Docker permet de construire et de lancer
 l'image du [Dockerfile](demarrage/docker.md) sans quitter le conteneur :
 
 ```bash
