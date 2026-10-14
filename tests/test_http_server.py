@@ -1,4 +1,4 @@
-"""Streamable HTTP transport: bearer authentication, TLS options and start-up wiring."""
+"""HTTP serving: bearer authentication, TLS options and start-up of the MCP server."""
 
 import json
 import ssl
@@ -10,7 +10,7 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from security_review_mcp import cli, http_server, server, token_store
+from security_review_mcp import cli, database, http_server, server, token_store
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
 
@@ -38,6 +38,7 @@ def enrollment_echo(request: Request) -> PlainTextResponse:
 
 
 def protected_client(web: bool = False, enrollment: bool = False) -> TestClient:
+    """The middleware of the MCP server (``web=False``) or of the controller (``web=True``)."""
     app = Starlette(
         routes=[
             Route("/mcp", whoami),
@@ -46,10 +47,16 @@ def protected_client(web: bool = False, enrollment: bool = False) -> TestClient:
             Route("/api/docs", whoami),
             Route("/api/openapi.json", whoami),
             Route("/ui/", whoami),
+            Route("/healthz", whoami),
         ]
     )
     enrollment_app = Starlette(routes=[Route("/mcp", enrollment_echo)]) if enrollment else None
-    return TestClient(BearerAuthMiddleware(app, STORE, web=web, enrollment_app=enrollment_app))
+    public = frozenset({"/api/v1/enroll", "/healthz"})
+    return TestClient(
+        BearerAuthMiddleware(
+            app, STORE, web=web, enrollment_app=enrollment_app, public_paths=public
+        )
+    )
 
 
 # ── Middleware ───────────────────────────────────────────────────────────────
@@ -88,11 +95,10 @@ def test_missing_or_wrong_token_is_rejected(headers):
         ("admin", 200, 200),
     ],
 )
-def test_roles_select_the_endpoints(role, mcp_status, api_status):
+def test_roles_select_the_process(role, mcp_status, api_status):
     token = token_store.create_token("user", role)["token"]
-    client = protected_client(web=True)
-    assert client.get("/mcp", headers=bearer(token)).status_code == mcp_status
-    response = client.get("/api/v1/me", headers=bearer(token))
+    assert protected_client().get("/mcp", headers=bearer(token)).status_code == mcp_status
+    response = protected_client(web=True).get("/api/v1/me", headers=bearer(token))
     assert response.status_code == api_status
     if api_status == 403:
         assert response.json()["error"] == "insufficient_scope"
@@ -100,15 +106,28 @@ def test_roles_select_the_endpoints(role, mcp_status, api_status):
         assert response.text == f"user/{role}"
 
 
+def test_controller_needs_a_web_role_on_every_private_path():
+    token = token_store.create_token("dev", Role.MCP)["token"]
+    # An MCP token reaches nothing on the controller, not even an unknown path
+    assert protected_client(web=True).get("/mcp", headers=bearer(token)).status_code == 403
+
+
 def test_web_ui_files_are_public_but_not_the_api():
     token_store.create_token("dev", Role.MCP)
     client = protected_client(web=True)
     assert client.get("/ui/").status_code == 200
+    assert client.get("/healthz").status_code == 200
     assert client.get("/api/v1/me").status_code == 401
     assert client.get("/api/docs").status_code == 200
     assert client.get("/api/openapi.json").status_code == 200
-    # Without the web interface, every path needs a token
-    assert protected_client().get("/ui/").status_code == 401
+    # The controller does not serve the public enrollment endpoint
+    assert client.post("/api/v1/enroll").status_code == 401
+    # On the MCP server, only the public paths it declares are open
+    mcp_client = protected_client()
+    assert mcp_client.get("/ui/").status_code == 401
+    assert mcp_client.get("/api/docs").status_code == 401
+    assert mcp_client.get("/healthz").status_code == 200
+    assert mcp_client.post("/api/v1/enroll").status_code == 200
 
 
 def test_without_any_token_mcp_is_open_and_the_web_api_not_configured():
@@ -118,31 +137,37 @@ def test_without_any_token_mcp_is_open_and_the_web_api_not_configured():
     response = client.get("/api/v1/me")
     assert response.status_code == 503
     assert response.json()["error"] == "authentication_not_configured"
-    assert client.get("/mcp").status_code == 200
     assert protected_client().get("/mcp").status_code == 200
 
 
 def test_enrollment_app_receives_mcp_clients_without_an_approved_token():
     token_store.create_token("ops", Role.ADMIN)
     request = token_store.request_enrollment("shop-api")
-    client = protected_client(web=True, enrollment=True)
+    client = protected_client(enrollment=True)
 
     assert client.get("/mcp").text == "enroll/None"
     # Hosts send an empty bearer value when the token input or variable is left empty
     for empty in ("Bearer ", "Bearer    ", "bearer"):
         assert client.get("/mcp", headers={"Authorization": empty}).text == "enroll/None"
     assert client.get("/mcp", headers=bearer(request["token"])).text == f"enroll/{request['id']}"
-    # A wrong token is still an error, and the REST API never falls back to enrollment
+    # A wrong token is still an error
     assert client.get("/mcp", headers=bearer("x" * 40)).status_code == 401
-    assert client.get("/api/v1/me").status_code == 401
-    response = client.get("/api/v1/me", headers=bearer(request["token"]))
-    assert response.status_code == 403
-    assert response.json()["error"] == "enrollment_pending"
     # The enrollment endpoint itself is public
     assert client.post("/api/v1/enroll").status_code == 200
 
     token_store.approve_enrollment(request["id"])
     assert client.get("/mcp", headers=bearer(request["token"])).text == f"{request['label']}/mcp"
+
+
+def test_controller_never_falls_back_to_enrollment():
+    token_store.create_token("ops", Role.ADMIN)
+    request = token_store.request_enrollment("shop-api")
+    client = protected_client(web=True, enrollment=True)
+
+    assert client.get("/api/v1/me").status_code == 401
+    response = client.get("/api/v1/me", headers=bearer(request["token"]))
+    assert response.status_code == 403
+    assert response.json()["error"] == "enrollment_pending"
 
 
 def test_pending_token_is_refused_without_enrollment_app():
@@ -159,48 +184,64 @@ def test_pending_token_is_refused_without_enrollment_app():
 def test_pending_requests_do_not_close_an_open_server():
     token_store.request_enrollment("shop-api")
 
-    client = protected_client(web=True, enrollment=True)
-
-    assert client.get("/mcp").text == "None/None"
-    assert client.get("/api/v1/me").status_code == 503
+    assert protected_client(enrollment=True).get("/mcp").text == "None/None"
+    assert protected_client(web=True).get("/api/v1/me").status_code == 503
 
 
 def test_tokens_are_checked_in_the_database_on_each_request():
-    client = protected_client(web=True)
+    mcp_client, web_client = protected_client(), protected_client(web=True)
     password = token_store.ensure_bootstrap_admin()
     created = token_store.create_project_token("ci", "shop-api")
     reader = bearer(created["token"])
-    assert client.get("/api/v1/me", headers=bearer(password)).text == "bootstrap-admin/admin"
-    assert client.get("/mcp", headers=bearer(password)).status_code == 200
-    assert client.get("/api/v1/me", headers=reader).text == "ci/reader"
-    assert client.get("/mcp", headers=reader).status_code == 403
-    assert client.get("/mcp").status_code == 401
+    assert web_client.get("/api/v1/me", headers=bearer(password)).text == "bootstrap-admin/admin"
+    assert mcp_client.get("/mcp", headers=bearer(password)).status_code == 200
+    assert web_client.get("/api/v1/me", headers=reader).text == "ci/reader"
+    assert mcp_client.get("/mcp", headers=reader).status_code == 403
+    assert mcp_client.get("/mcp").status_code == 401
 
-    # A revocation (from this or another instance) applies to the next request
+    # A revocation (from the controller or another instance) applies to the next request
     token_store.revoke_token("ci")
-    assert client.get("/api/v1/me", headers=reader).status_code == 401
+    assert web_client.get("/api/v1/me", headers=reader).status_code == 401
 
 
-def test_path_dispatcher_routes_web_paths():
+def test_path_dispatcher_routes_exact_paths():
     def app_named(name: str) -> Starlette:
         return Starlette(routes=[Route("/{path:path}", lambda _: PlainTextResponse(name))])
 
-    client = TestClient(PathDispatcher(app_named("mcp"), app_named("web")))
-    assert [client.get(path).text for path in ("/mcp", "/api/v1/me", "/ui", "/ui/x", "/")] == [
+    client = TestClient(PathDispatcher(app_named("mcp"), {"/healthz": app_named("health")}))
+    assert [client.get(path).text for path in ("/mcp", "/healthz", "/healthz/x", "/")] == [
         "mcp",
-        "web",
-        "web",
-        "web",
-        "web",
+        "health",
+        "mcp",
+        "mcp",
     ]
-    assert client.get("/uix").text == "mcp"
 
 
-def test_build_app_is_always_protected_by_the_store():
-    app = http_server.build_app(server.mcp, "127.0.0.1", STORE)
+def test_mcp_app_serves_health_and_enrollment_but_not_the_web_interface():
+    token_store.create_token("ops", Role.ADMIN)
+    endpoint = Starlette(routes=[Route("/api/v1/enroll", whoami, methods=["POST"])])
+    app = http_server.build_mcp_app(server.mcp, "127.0.0.1", STORE, enroll_endpoint=endpoint)
     assert isinstance(app, BearerAuthMiddleware) and not app.web
-    web_app = http_server.build_app(server.mcp, "127.0.0.1", STORE, web_app=Starlette())
-    assert isinstance(web_app, BearerAuthMiddleware) and web_app.web
+    client = TestClient(app, base_url="http://127.0.0.1")
+
+    health = client.get("/healthz")
+    assert (health.status_code, health.json()) == (200, {"status": "ok"})
+    assert client.post("/api/v1/enroll").status_code == 200
+    assert client.get("/ui/").status_code == 401
+    assert client.get("/api/v1/me").status_code == 401
+
+
+def test_mcp_app_without_enrollment_keeps_the_enrollment_path_private():
+    token_store.create_token("ops", Role.ADMIN)
+    app = http_server.build_mcp_app(server.mcp, "127.0.0.1", STORE)
+    client = TestClient(app, base_url="http://127.0.0.1")
+    assert client.post("/api/v1/enroll").status_code == 401
+    assert client.get("/healthz").status_code == 200
+
+
+def test_controller_app_is_protected_by_the_store():
+    app = http_server.build_controller_app(Starlette(), STORE)
+    assert isinstance(app, BearerAuthMiddleware) and app.web and app.enrollment_app is None
 
 
 # ── TLS ──────────────────────────────────────────────────────────────────────
@@ -240,9 +281,9 @@ def test_tls_options_errors(tmp_path):
 
 @pytest.fixture
 def captured_run(monkeypatch):
-    """Capture the uvicorn.run call instead of starting a server."""
+    """Capture the uvicorn.run call instead of starting a server (schema migrated)."""
+    database.upgrade_db()
     calls: list[dict] = []
-    monkeypatch.setattr(server, "init_db", lambda: None)
     monkeypatch.setattr(
         http_server.uvicorn, "run", lambda app, **kwargs: calls.append({"app": app, **kwargs})
     )
@@ -254,9 +295,7 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     cert.write_text("x", encoding="utf-8")
     key.write_text("x", encoding="utf-8")
     token_store.create_token("ci", Role.MCP)
-    monkeypatch.setattr(
-        server, "get_settings", lambda: make_settings(web_ui=False, enrollment=False)
-    )
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings(enrollment=False))
 
     server.main(
         [
@@ -266,10 +305,13 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     )  # fmt: skip
 
     (call,) = captured_run
-    assert isinstance(call["app"], BearerAuthMiddleware)
+    assert isinstance(call["app"], BearerAuthMiddleware) and not call["app"].web
     assert (call["host"], call["port"]) == ("0.0.0.0", 8443)
     assert (call["ssl_certfile"], call["ssl_keyfile"]) == (str(cert), str(key))
-    assert TestClient(call["app"]).get("/mcp").status_code == 401
+    client = TestClient(call["app"])
+    assert client.get("/mcp").status_code == 401
+    # The web interface is served by the controller only
+    assert client.get("/ui/").status_code == 401
 
 
 @pytest.mark.parametrize("enabled", [True, False])
@@ -287,68 +329,81 @@ def test_main_serves_the_enrollment_server_when_enabled(monkeypatch, captured_ru
             headers={"Accept": "application/json, text/event-stream"},
             json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
         )
+        enroll = client.post("/api/v1/enroll", json={"project": "shop-api"})
     if enabled:
         tools = {tool["name"] for tool in response.json()["result"]["tools"]}
         assert tools == {"request_enrollment", "get_enrollment_status"}
+        assert enroll.status_code == 201
     else:
         assert response.status_code == 401
+        assert enroll.status_code == 401
 
 
-def test_main_logs_bootstrap_password_only_when_created(monkeypatch, caplog, captured_run):
-    monkeypatch.setattr(server, "get_settings", lambda: make_settings(auth_bootstrap_admin=True))
-
-    with caplog.at_level("WARNING", logger="security_review_mcp"):
-        server.main(["--transport", "streamable-http"])
-        messages = [record.message for record in caplog.records]
-        assert sum("Initial Web UI administrator password" in message for message in messages) == 1
-        caplog.clear()
-        server.main(["--transport", "streamable-http"])
-
-    assert not any(
-        "Initial Web UI administrator password" in record.message for record in caplog.records
-    )
-    (password,) = [
-        message.rsplit(" ", 1)[1] for message in messages if "administrator password" in message
-    ]
-    client = TestClient(captured_run[-1]["app"], base_url="http://127.0.0.1")
-    identity = client.get("/api/v1/me", headers=bearer(password)).json()
-    assert identity["role"] == "admin"
-
-
-def test_main_without_bootstrap_setting_creates_no_admin(monkeypatch, captured_run):
+def test_http_mcp_server_refuses_a_database_that_was_not_migrated(monkeypatch, capsys):
     monkeypatch.setattr(server, "get_settings", lambda: make_settings())
+    started = []
+    monkeypatch.setattr(http_server.uvicorn, "run", lambda app, **kwargs: started.append(app))
+
+    with pytest.raises(SystemExit) as exc:
+        server.main(["--transport", "streamable-http"])
+
+    assert exc.value.code == 2 and not started
+    assert "security-review-controller db upgrade" in capsys.readouterr().err
+    assert database.current_revision() is None  # the MCP server never migrates
+
+
+def test_http_mcp_server_creates_no_bootstrap_admin(monkeypatch, captured_run):
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings(auth_bootstrap_admin=True))
 
     server.main(["--transport", "streamable-http"])
 
     assert STORE.has_tokens() is False
 
 
-@pytest.mark.parametrize("web", [True, False])
+def test_stdio_server_migrates_its_own_database(monkeypatch):
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings())
+    started = []
+    monkeypatch.setattr(server.mcp, "run", lambda transport: started.append(transport))
+
+    server.main([])
+
+    assert started == ["stdio"]
+    assert database.current_revision() == database.head_revision()
+
+
+def test_moved_commands_still_run_from_the_mcp_cli_with_a_warning(capsys):
+    with pytest.raises(SystemExit) as exc:
+        server.main(["db", "status"])
+
+    assert exc.value.code == cli.EXIT_BLOCKED  # not migrated yet
+    captured = capsys.readouterr()
+    assert "use `security-review-controller db`" in captured.err
+    assert json.loads(captured.out)["up_to_date"] is False
+
+
 @pytest.mark.parametrize(
     ("host", "with_tls", "warned"),
     [("0.0.0.0", False, True), ("0.0.0.0", True, False), ("127.0.0.1", False, False)],
 )
-def test_run_warns_without_tls_only_when_exposed(
-    tmp_path, caplog, captured_run, host, with_tls, warned, web
+def test_serve_warns_without_tls_only_when_exposed(
+    tmp_path, caplog, captured_run, host, with_tls, warned
 ):
-    """The missing-TLS warning depends on the host and TLS, not on the web interface."""
     tls = http_server.TLSOptions(certfile=str(tmp_path / "cert.pem")) if with_tls else None
-    web_app = Starlette() if web else None
 
     with caplog.at_level("WARNING", logger="security_review_mcp"):
-        http_server.run(server.mcp, host, 8000, STORE, tls, web_app=web_app)
+        http_server.serve(Starlette(), host, 8000, STORE, tls)
 
     assert len(captured_run) == 1
     assert any("without TLS" in record.message for record in caplog.records) is warned
 
 
 @pytest.mark.parametrize("has_token", [True, False])
-def test_run_warns_without_authentication_only_when_no_token(caplog, captured_run, has_token):
+def test_serve_warns_without_authentication_only_when_no_token(caplog, captured_run, has_token):
     if has_token:
         token_store.create_token("ci", Role.MCP)
 
     with caplog.at_level("WARNING", logger="security_review_mcp"):
-        http_server.run(server.mcp, "0.0.0.0", 8000, STORE, None)
+        http_server.serve(Starlette(), "0.0.0.0", 8000, STORE, None)
 
     warned = any("without authentication" in record.message for record in caplog.records)
     assert warned is not has_token

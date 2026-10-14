@@ -13,10 +13,10 @@ d'osv.dev (`https://osv-vulnerabilities.storage.googleapis.com/PyPI/all.zip`, id
 `Maven`), transférez-les, puis importez-les (opération réservée à la CLI, idempotente) :
 
 ```bash
-security-review-mcp advisories import PyPI.zip      # .json, dossier ou .zip
-security-review-mcp advisories import npm.zip
-security-review-mcp advisories import Maven.zip --ecosystem Maven   # filtre facultatif
-security-review-mcp advisories status
+security-review-controller advisories import PyPI.zip      # .json, dossier ou .zip
+security-review-controller advisories import npm.zip
+security-review-controller advisories import Maven.zip --ecosystem Maven   # filtre facultatif
+security-review-controller advisories status
 ```
 
 ## Scan en pipeline
@@ -25,7 +25,7 @@ Pour les gros lockfiles, préférez la CLI à l'outil MCP, limité à
 `SECREVIEW_MAX_DEPENDENCY_CHARS` :
 
 ```bash
-security-review-mcp deps scan package-lock.json requirements.txt \
+security-review-controller deps scan package-lock.json requirements.txt \
     --fail-on high --require-database --project mon-projet --save
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur
 ```

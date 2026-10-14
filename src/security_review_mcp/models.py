@@ -212,7 +212,7 @@ class ApiTokenProject(SQLModel, table=True):
     requested_from: str | None = Field(default=None, max_length=64)
 
 
-# ── Rules (managed with `security-review-mcp rules` and the web interface) ──
+# ── Rules (managed with `security-review-controller rules` and the web interface) ──
 # The tables keep their historical "custom" names: they also hold the default content seeded
 # from default_rules.toml on the first run.
 

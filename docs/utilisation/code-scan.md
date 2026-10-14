@@ -5,10 +5,10 @@ Les prompts de revue travaillent sur ce que l'agent leur donne, souvent le diff 
 dépôt, utilisez la CLI :
 
 ```bash
-security-review-mcp code scan .                               # résumé texte, code de sortie 0/1/2
-security-review-mcp code scan . --format json -o scan.json    # pour le prompt codebase-review
-security-review-mcp code scan . --format sarif -o code.sarif  # GitHub code scanning, Jenkins...
-security-review-mcp code scan . --save --project portal --commit "$CI_COMMIT_SHA"
+security-review-controller code scan .                               # résumé texte, code de sortie 0/1/2
+security-review-controller code scan . --format json -o scan.json    # pour le prompt codebase-review
+security-review-controller code scan . --format sarif -o code.sarif  # GitHub code scanning, Jenkins...
+security-review-controller code scan . --save --project portal --commit "$CI_COMMIT_SHA"
 ```
 
 ## Sélection des fichiers

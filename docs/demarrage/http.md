@@ -1,14 +1,28 @@
 # Serveur HTTP, authentification et TLS
 
-Le transport `streamable-http` sert un serveur partagé (équipe, CI/CD). L'authentification MCP
-et le TLS sont **facultatifs** et indépendants ; l'API de la Web UI exige toujours un jeton.
-En stdio, l'hôte lance lui-même le processus.
+Un serveur partagé (équipe, CI/CD) se compose de **deux processus** qui partagent la même base
+de données (voir [Architecture et déploiement](kubernetes.md)) :
+
+- le **serveur MCP** (`security-review-mcp --transport streamable-http`) : endpoint `/mcp`,
+  enrôlement public (`/api/v1/enroll`) et sonde `/healthz` ; c'est lui qu'on expose aux agents et
+  à la CI ;
+- le **contrôleur** (`security-review-controller serve`) : API REST `/api/v1`, interface web
+  `/ui/` et sonde `/healthz` ; il peut rester sur un réseau interne.
+
+L'authentification MCP et le TLS sont **facultatifs** et indépendants ; l'API du contrôleur
+exige toujours un jeton. En stdio, l'hôte lance lui-même le processus et le contrôleur n'est pas
+nécessaire.
 
 ```bash
+security-review-controller db upgrade                        # crée ou migre le schéma
+security-review-controller serve --host 127.0.0.1 --port 8080
+# interface web : http://127.0.0.1:8080/ui/
 security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
-# endpoint : http://127.0.0.1:8000/mcp
-# interface web : http://127.0.0.1:8000/ui/
+# endpoint MCP : http://127.0.0.1:8000/mcp
 ```
+
+Avec SQLite, les deux processus doivent tourner sur la même machine (même fichier) ; utilisez
+PostgreSQL dès qu'ils sont sur des machines ou des pods différents.
 
 ## Jetons Bearer
 
@@ -17,12 +31,12 @@ SHA-256 est conservée, le secret n'est affiché qu'une fois, à la création. G
 commande `token` (voir la [CLI](../reference/cli.md)) :
 
 ```bash
-security-review-mcp token create --label ci                      # rôle mcp par défaut
-security-review-mcp token create --label alice --role triager
-security-review-mcp token create --label shop-ci --role reader --project shop-api
+security-review-controller token create --label ci                      # rôle mcp par défaut
+security-review-controller token create --label alice --role triager
+security-review-controller token create --label shop-ci --role reader --project shop-api
 # {"id": "6f1c…", "label": "ci", "role": "mcp", "project": null, "created_at": "…", "token": "UJB7…"}
-security-review-mcp token list [--project shop-api]             # jamais le secret ni l'empreinte
-security-review-mcp token revoke ci                              # par label ou par id
+security-review-controller token list [--project shop-api]             # jamais le secret ni l'empreinte
+security-review-controller token revoke ci                              # par label ou par id
 ```
 
 Les projets peuvent aussi demander eux-mêmes leur jeton : voir
@@ -39,11 +53,12 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
 - Le serveur consulte la base à chaque requête : une création ou une révocation s'applique
   immédiatement, y compris aux autres instances qui partagent la même base PostgreSQL.
 
-Dès qu'un jeton existe en base, les endpoints MCP et les routes applicatives protégées exigent
-`Authorization: Bearer <jeton>` ; les fichiers statiques de `/ui/` et la documentation Swagger
-(`/api/docs`, schéma `/api/openapi.json`) restent accessibles sans jeton. Tant qu'aucun jeton
-n'existe, `/mcp` est ouvert (un avertissement est journalisé si l'écoute n'est pas sur
-localhost) et l'API de la Web UI répond `503`. `token revoke` avertit sur stderr quand il
+Dès qu'un jeton existe en base, l'endpoint MCP et l'API du contrôleur exigent
+`Authorization: Bearer <jeton>`. Restent publics : `/healthz` sur les deux processus,
+`/api/v1/enroll` sur le serveur MCP, et sur le contrôleur les fichiers statiques de `/ui/` et la
+documentation Swagger (`/api/docs`, schéma `/api/openapi.json`). Tant qu'aucun jeton n'existe,
+`/mcp` est ouvert (un avertissement est journalisé si l'écoute n'est pas sur localhost) et l'API
+du contrôleur répond `503`. `token revoke` avertit sur stderr quand il
 supprime le dernier jeton.
 
 ### Jetons restreints à un projet
@@ -52,8 +67,8 @@ Sur un serveur partagé par plusieurs équipes, donnez à chaque pipeline un jet
 projet :
 
 ```bash
-security-review-mcp token create --label shop-ci --project shop-api            # rôle mcp
-security-review-mcp token create --label shop-triage --role triager --project shop-api
+security-review-controller token create --label shop-ci --project shop-api            # rôle mcp
+security-review-controller token create --label shop-triage --role triager --project shop-api
 ```
 
 Un jeton sans `--project` accède à tous les projets. Un jeton restreint :
@@ -72,12 +87,12 @@ stdio, il n'y a pas de jeton, donc pas de restriction.
 ### Mot de passe administrateur initial
 
 Avec `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (c'est le cas dans l'image Docker), un jeton aléatoire
-de rôle `admin` (label `bootstrap-admin`) est créé au premier démarrage HTTP et affiché une seule
-fois dans les logs. Il donne accès à la Web UI et à `/mcp`. S'il est perdu, remplacez-le
+de rôle `admin` (label `bootstrap-admin`) est créé au premier démarrage **du contrôleur** et
+affiché une seule fois dans ses logs. Il donne accès à la Web UI et à `/mcp`. S'il est perdu, remplacez-le
 (l'ancien est aussitôt invalidé) :
 
 ```bash
-security-review-mcp token reset-admin
+security-review-controller token reset-admin
 ```
 
 ### Enrôlement : un projet demande son jeton
@@ -102,7 +117,9 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
         # {"id": "…", "label": "shop-api-enroll-3fa9c1", "status": "pending", "token": "UJB7…", …}
         ```
 
-    - **Par l'API** : `POST /api/v1/enroll` (sans jeton) avec `{"project": "shop-api"}`.
+    - **Par l'API du serveur MCP** : `POST /api/v1/enroll` (sans jeton) avec
+      `{"project": "shop-api"}`. Le contrôleur ne sert pas cet endpoint : il n'expose aucune
+      route d'écriture sans authentification.
 2. **Configuration.** L'utilisateur place aussitôt le jeton dans la
    [configuration de l'hôte](hote.md#obtenir-un-jeton-enrolement). Tant qu'il est en attente, le client
    reste sur le serveur d'enrôlement (`get_enrollment_status` répond `pending`) et l'API web
@@ -111,9 +128,9 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
    l'[interface web](../utilisation/interface-web.md), ou en CLI :
 
     ```bash
-    security-review-mcp token list --pending           # demandeur, adresse, date
-    security-review-mcp token approve shop-api-enroll-3fa9c1
-    security-review-mcp token reject shop-api-enroll-3fa9c1
+    security-review-controller token list --pending           # demandeur, adresse, date
+    security-review-controller token approve shop-api-enroll-3fa9c1
+    security-review-controller token reject shop-api-enroll-3fa9c1
     ```
 
     Une fois approuvé, le jeton fonctionne dès la requête suivante, sans reconfiguration.
@@ -137,8 +154,8 @@ ajouté à ses droits.
     ```
 
   La réponse confirme la demande en attente sans afficher de nouveau jeton. Un administrateur
-  l'approuve ou la refuse dans l'interface web ou avec `security-review-mcp token approve ID` /
-  `security-review-mcp token reject ID`. La commande `token list --pending` affiche le projet
+  l'approuve ou la refuse dans l'interface web ou avec `security-review-controller token approve ID` /
+  `security-review-controller token reject ID`. La commande `token list --pending` affiche le projet
   demandé et le jeton concerné.
 
 Un jeton sans restriction atteint déjà tous les projets : il ne peut pas faire d'enrôlement
@@ -151,17 +168,22 @@ d'approuver : n'importe quel client qui atteint le serveur peut déposer une dem
 désactiver l'enrôlement : `SECREVIEW_ENROLLMENT=false` (les clients sans jeton reçoivent alors
 `401`).
 
+`--url` est l'URL du **serveur MCP** (avec ou sans `/mcp`) : c'est lui qui reçoit les demandes.
+
 !!! tip
-    Les commandes `token` s'exécutent sur le serveur (ou dans son conteneur), avec la même
+    Les commandes `token` s'exécutent côté contrôleur (ou dans son conteneur), avec la même
     `SECREVIEW_DATABASE_URL` que lui. Les jetons ne passent jamais en argument de ligne de
     commande.
 
 ## TLS
 
-Uvicorn sert directement en HTTPS quand un certificat est fourni :
+Uvicorn sert directement en HTTPS quand un certificat est fourni, pour le serveur MCP comme pour
+le contrôleur (mêmes options, mêmes variables) :
 
 ```bash
 security-review-mcp --transport streamable-http --host 0.0.0.0 --port 8443 \
+    --tls-certfile /etc/secreview/tls/cert.pem --tls-keyfile /etc/secreview/tls/key.pem
+security-review-controller serve --host 0.0.0.0 --port 9443 \
     --tls-certfile /etc/secreview/tls/cert.pem --tls-keyfile /etc/secreview/tls/key.pem
 # ou SECREVIEW_TLS_CERTFILE / SECREVIEW_TLS_KEYFILE (+ SECREVIEW_TLS_KEYFILE_PASSWORD)
 ```

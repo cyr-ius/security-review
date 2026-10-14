@@ -209,7 +209,7 @@ def http_app():
 
     from security_review_mcp import http_server, token_store
 
-    app = http_server.build_app(mcp, "127.0.0.1", token_store.DatabaseTokenStore())
+    app = http_server.build_mcp_app(mcp, "127.0.0.1", token_store.DatabaseTokenStore())
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:
         yield client
 
@@ -222,7 +222,7 @@ def enrolling_app():
     from security_review_mcp import http_server, token_store
 
     token_store.create_token("ops", "admin")
-    app = http_server.build_app(
+    app = http_server.build_mcp_app(
         mcp, "127.0.0.1", token_store.DatabaseTokenStore(), enrollment_server=enrollment_mcp
     )
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:

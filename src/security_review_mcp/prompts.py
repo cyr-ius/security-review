@@ -173,7 +173,7 @@ def build_dependency_review_prompt(ecosystem: str, files: str, context: str) -> 
 contain the exact resolved versions, including transitive dependencies.
 2. For each file call the `scan_dependencies` tool with its content and its file name. Large \
 lockfiles do not fit in a tool call: tell the user to run \
-`security-review-mcp deps scan <file> --project <name> --save` in the pipeline instead.
+`security-review-controller deps scan <file> --project <name> --save` in the pipeline instead.
 3. Read `vulnerability_check` first. If it is not `performed`, say clearly that vulnerable \
 versions could NOT be checked: never report "no vulnerability" in that case.
 4. Read `advisory_database`: report its age; a stale database means recent issues may be missing.
@@ -211,9 +211,9 @@ _CODEBASE_METHOD = f"""\
 vendored dependencies and build output). Identify the languages, frameworks, entry points \
 (HTTP routes, CLI, message consumers, scheduled jobs) and the configuration and CI/CD files.
 2. **Leads.** If scan results are given below, start from them. Otherwise ask the user to run \
-`security-review-mcp code scan . --format json` (it scans every file without the size limit of \
-a tool call) and paste the output, or call `scan_code` file by file on the files you read. \
-A match is a lead, not a finding: confirm each one by reading the surrounding code.
+`security-review-controller code scan . --format json` (it scans every file without the size \
+limit of a tool call) and paste the output, or call `scan_code` file by file on the files you \
+read. A match is a lead, not a finding: confirm each one by reading the surrounding code.
 3. **Prioritize.** Read first what an attacker can reach: entry points, authentication and \
 authorization, input parsing and validation, database access, file and process handling, \
 deserialization, outbound requests, cryptography and secrets, then configuration and pipelines.
@@ -280,8 +280,8 @@ administrator still has to approve it, and stop.
 3. Show the user the returned `token` (it is displayed only once) and ask them to add it to \
 the MCP client configuration as the header `Authorization: Bearer <token>`, then to reconnect.
 4. Explain that the token works as soon as an administrator approves the request (web \
-interface, **Jetons** screen, or `security-review-mcp token approve <label>`). Then they can \
-run the review again.
+interface, **Jetons** screen, or `security-review-controller token approve <label>`). Then they \
+can run the review again.
 
 Do not try to review the code with this server: its other tools are not available.
 """

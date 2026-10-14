@@ -1,7 +1,7 @@
 """Bearer tokens of the HTTP transport, stored in the database (SHA-256 digests only).
 
 Every token lives in the ``ApiToken`` table: the bootstrap administrator password, the tokens
-created with ``security-review-mcp token create`` and the project tokens created in the web
+created with ``security-review-controller token create`` and the project tokens created in the web
 interface. Every server instance sharing the database sees a creation or a revocation
 immediately.
 
@@ -590,31 +590,6 @@ def enrollment_status(token_id: str | None) -> dict[str, Any]:
                     "requested_at": row.created_at.isoformat(),
                 }
     return {"status": "not_enrolled"}
-
-
-def migrate_legacy_projects() -> int:
-    """Copy the project of the tokens created before multi-project tokens into ApiTokenProject.
-
-    Idempotent; returns the number of tokens migrated.
-    """
-    with session_scope() as session:
-        rows = session.exec(
-            select(ApiToken).where(
-                col(ApiToken.project).is_not(None),
-                ~col(ApiToken.id).in_(select(ApiTokenProject.token_id)),
-            )
-        ).all()
-        for row in rows:
-            link = _new_link(
-                row.id,
-                str(row.project),
-                PENDING if _is_pending(row) else ACTIVE,
-                requested_by=row.requested_by,
-                requested_from=row.requested_from,
-            )
-            link.created_at = row.created_at
-            session.add(link)
-        return len(rows)
 
 
 # ── Bootstrap administrator ──────────────────────────────────────────────────

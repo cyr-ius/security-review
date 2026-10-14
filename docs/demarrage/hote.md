@@ -141,7 +141,7 @@ lancez votre première revue. Le jeton est demandé au passage, puis validé par
 4. **Attendez l'approbation.** Prévenez l'administrateur en lui donnant le label du jeton. Tant
    que la demande est en attente, l'hôte reste sur le serveur d'enrôlement : l'outil
    `get_enrollment_status` répond `pending`. Dès que l'administrateur l'approuve (écran
-   **Jetons** de l'interface web, ou `security-review-mcp token approve <label>`), le même
+   **Jetons** de l'interface web, ou `security-review-controller token approve <label>`), le même
    jeton donne accès aux outils de revue. Il suffit de relancer la revue, sans rien
    reconfigurer.
 
@@ -152,4 +152,4 @@ lui propose quand il refuse le projet.
 
 !!! note
     Si l'administrateur a désactivé l'enrôlement (`SECREVIEW_ENROLLMENT=false`), un hôte sans
-    jeton reçoit `401` : demandez-lui un jeton créé avec `security-review-mcp token create`.
+    jeton reçoit `401` : demandez-lui un jeton créé avec `security-review-controller token create`.

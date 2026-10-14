@@ -1,7 +1,7 @@
 # Rapport de tendance
 
 ```bash
-security-review-mcp trend --project mon-projet --days 90 --granularity week --format markdown
+security-review-controller trend --project mon-projet --days 90 --granularity week --format markdown
 ```
 
 Options : `--granularity day|week|month` (défaut `week`), `--format markdown|json`

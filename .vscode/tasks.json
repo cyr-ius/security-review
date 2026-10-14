@@ -3,12 +3,81 @@
   "tasks": [
     {
       "label": "Build security_review_mcp",
+      "detail": "uv sync --extra dev --extra docs --extra postgres",
       "type": "process",
       "command": "uv",
-      "args": ["sync", "--extra", "dev", "--extra", "docs"],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
+      "args": ["sync", "--extra", "dev", "--extra", "docs", "--extra", "postgres"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Database upgrade",
+      "detail": "security-review-controller db upgrade (the HTTP MCP server never migrates)",
+      "type": "process",
+      "command": "uv",
+      "args": ["run", "security-review-controller", "db", "upgrade"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "dependsOn": "Build security_review_mcp",
+      "problemMatcher": []
+    },
+    {
+      "label": "Tests",
+      "type": "process",
+      "command": "uv",
+      "args": ["run", "pytest", "-q"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "Lint",
+      "type": "shell",
+      "command": "uv run ruff check . && uv run ruff format --check . && uv run mkdocs build --strict",
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Web UI: build",
+      "detail": "npm ci && npm run build (served on /ui by the controller)",
+      "type": "shell",
+      "command": "npm ci && npm run build",
+      "options": { "cwd": "${workspaceFolder}/web" },
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "Web UI: dev server (port 4200)",
+      "detail": "ng serve, /api proxied to the controller on port 8080",
+      "type": "npm",
+      "script": "start",
+      "path": "web",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Docs: serve (port 8001)",
+      "type": "process",
+      "command": "uv",
+      "args": ["run", "mkdocs", "serve", "-a", "127.0.0.1:8001"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: compose up",
+      "detail": "Image test: its own PostgreSQL + migrate + controller (8080) + MCP server (8000); needs POSTGRES_PASSWORD in .env",
+      "type": "process",
+      "command": "docker",
+      "args": ["compose", "up", "-d", "--build"],
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Docker: compose down",
+      "type": "process",
+      "command": "docker",
+      "args": ["compose", "down"],
+      "options": { "cwd": "${workspaceFolder}" },
       "problemMatcher": []
     }
   ]

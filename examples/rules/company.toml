@@ -1,5 +1,5 @@
 # Example internal rule pack. Adapt it to your own standards, then import it into the database:
-#   security-review-mcp rules import examples/rules/company.toml
+#   security-review-controller rules import examples/rules/company.toml
 # The ACME names are placeholders. Running servers apply the change within a few seconds.
 
 # Rules you do not want (for example default rules too noisy for your code base)

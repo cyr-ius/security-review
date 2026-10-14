@@ -1,5 +1,7 @@
 """Application settings loaded from environment variables."""
 
+import logging
+import sys
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,31 +22,37 @@ class Settings(BaseSettings):
     # PostgreSQL example: postgresql+psycopg2://user:pass@host:5432/secreview
     database_url: str = "sqlite:///./security_reports.db"
     database_echo: bool = False
+    # Migrate the schema (Alembic) when the controller, the stdio MCP server or a CLI command
+    # starts. Set it to false when a dedicated job runs `security-review-controller db upgrade`
+    # (Kubernetes): they then only check the schema. The HTTP MCP server never migrates.
+    db_auto_upgrade: bool = True
 
-    # Transport: "stdio" (local host such as VS Code) or "streamable-http" (CI/CD, shared server)
+    # MCP server transport: "stdio" (local host such as VS Code) or "streamable-http" (shared
+    # server). host and port are used by the HTTP MCP server and by the controller.
     transport: str = "stdio"
     host: str = "127.0.0.1"
     port: int = 8000
 
-    # Built-in bearer authentication (streamable-http only). Tokens are stored in the database
-    # (SHA-256 digests only) and managed with `security-review-mcp token create|list|revoke`.
-    # This generates a one-time administrator password on the first HTTP start (enabled in the
-    # Docker image).
+    # Bearer authentication of the HTTP MCP server and of the controller. Tokens are stored in
+    # the database (SHA-256 digests only) and managed with `security-review-controller token`.
+    # This makes the controller generate a one-time administrator password on its first start
+    # (enabled in the Docker image).
     auth_bootstrap_admin: bool = False
 
-    # Enrollment (streamable-http only, once a token exists): a client without a token reaches
-    # a restricted MCP server that only lets it request a project token, and POST /api/v1/enroll
-    # accepts the same request. The token works once an administrator approves it.
+    # Enrollment (HTTP MCP server, once a token exists): a client without a token reaches a
+    # restricted MCP server that only lets it request a project token, and POST /api/v1/enroll
+    # on the MCP server accepts the same request. The token works once an administrator
+    # approves it on the controller.
     enrollment: bool = True
 
-    # Optional TLS served by uvicorn (streamable-http only), enabled by tls_certfile.
+    # Optional TLS served by uvicorn (HTTP MCP server and controller), enabled by tls_certfile.
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).
     tls_certfile: str | None = None
     tls_keyfile: str | None = None
     tls_keyfile_password: str | None = None
     tls_client_ca: str | None = None
 
-    # Web interface (streamable-http only): REST API on /api/v1 and Angular application on /ui.
+    # Controller: REST API on /api/v1 and, with web_ui, the Angular application on /ui.
     # web_ui_dir overrides the directory of the built application (default: bundled files).
     web_ui: bool = True
     web_ui_dir: str | None = None
@@ -62,3 +70,12 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """Return the cached settings instance."""
     return Settings()
+
+
+def configure_logging(level: str) -> None:
+    """Send the logs to stderr: stdout is reserved for the MCP protocol with stdio."""
+    logging.basicConfig(
+        level=level.upper(),
+        stream=sys.stderr,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )

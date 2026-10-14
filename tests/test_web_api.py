@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
 from security_review_mcp import (
+    enrollment_api,
     http_server,
     registry,
     rule_store,
@@ -43,15 +44,25 @@ def client(ui_dir) -> TestClient:
 
 @pytest.fixture
 def secured(ui_dir) -> TestClient:
-    """The full HTTP app (MCP + web) protected by one token per role."""
+    """The controller app protected by one token per role."""
     TOKENS.clear()
     for role in Role:
         TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
-    app = http_server.build_app(
+    app = http_server.build_controller_app(
+        web_api.create_app(ui_dir=str(ui_dir)), token_store.DatabaseTokenStore()
+    )
+    return TestClient(app, base_url="http://127.0.0.1")
+
+
+@pytest.fixture
+def mcp_server(secured) -> TestClient:
+    """The MCP server app (MCP endpoint and public enrollment), sharing the tokens of secured."""
+    app = http_server.build_mcp_app(
         server.mcp,
         "127.0.0.1",
         token_store.DatabaseTokenStore(),
-        web_api.create_app(ui_dir=str(ui_dir)),
+        server.enrollment_mcp,
+        enrollment_api.create_app(),
     )
     return TestClient(app, base_url="http://127.0.0.1")
 
@@ -350,7 +361,7 @@ def test_openapi_marks_api_operations_as_bearer_protected(secured):
     assert secured.get("/api/v1/projects").status_code == 401
 
 
-def test_admin_creates_project_token_scoped_to_one_project(secured, reports, database):
+def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, reports, database):
     shop_report_id, billing_report_id = reports
     created_response = secured.post(
         "/api/v1/project-tokens",
@@ -451,7 +462,7 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, reports, dat
         ).status_code
         == 404
     )
-    assert secured.get("/mcp", headers=project_headers).status_code == 403
+    assert mcp_server.get("/mcp", headers=project_headers).status_code == 403
     assert (
         secured.patch(
             "/api/v1/findings/1",
@@ -528,8 +539,8 @@ def test_bootstrap_admin_cannot_be_revoked_as_a_project_token(secured):
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 
-def test_public_enrollment_then_admin_approval(secured):
-    response = secured.post(
+def test_public_enrollment_then_admin_approval(secured, mcp_server):
+    response = mcp_server.post(
         "/api/v1/enroll", json={"project": "new-service", "requested_by": "alice@example.com"}
     )
 
@@ -579,8 +590,8 @@ def test_public_enrollment_then_admin_approval(secured):
     ).status_code == 404
 
 
-def test_admin_rejects_enrollment(secured):
-    created = secured.post("/api/v1/enroll", json={"project": "new-service"}).json()
+def test_admin_rejects_enrollment(secured, mcp_server):
+    created = mcp_server.post("/api/v1/enroll", json={"project": "new-service"}).json()
 
     assert secured.delete("/api/v1/enrollments/unknown", headers=auth("admin")).status_code == 404
     assert (
@@ -596,23 +607,6 @@ def test_admin_rejects_enrollment(secured):
     (admin_id,) = [row.id for row in _stored_tokens() if row.label == "admin"]
     response = secured.delete(f"/api/v1/enrollments/{admin_id}", headers=auth("admin"))
     assert response.status_code == 404
-
-
-def test_enrollment_endpoint_errors(secured, client, monkeypatch):
-    assert secured.post("/api/v1/enroll", json={"project": ""}).status_code == 422
-    assert secured.post("/api/v1/enroll", json={"project": "p" * 201}).status_code == 422
-    assert (
-        secured.post("/api/v1/enroll", json={"project": "p", "label": "x" * 65}).status_code == 422
-    )
-    # An existing label is not revealed: the requested one gets a random suffix
-    taken = secured.post("/api/v1/enroll", json={"project": "p", "label": "admin"})
-    assert taken.status_code == 201 and taken.json()["label"].startswith("admin-")
-    monkeypatch.setattr(token_store, "MAX_PENDING_ENROLLMENTS", 2)
-    assert secured.post("/api/v1/enroll", json={"project": "p"}).status_code == 201
-    too_many = secured.post("/api/v1/enroll", json={"project": "q"})
-    assert too_many.status_code == 422 and "Too many" in too_many.json()["detail"]
-    monkeypatch.setattr(web_api.get_settings(), "enrollment", False)
-    assert secured.post("/api/v1/enroll", json={"project": "p"}).status_code == 404
 
 
 def test_token_with_several_projects_in_the_web_interface(secured, reports, database):
@@ -653,11 +647,11 @@ def test_token_with_several_projects_in_the_web_interface(secured, reports, data
     )
 
 
-def test_complementary_enrollment_over_rest(secured):
+def test_complementary_enrollment_over_rest(secured, mcp_server):
     created = token_store.create_token("shop-ci", Role.MCP, "shop-api")
     headers = {"Authorization": f"Bearer {created['token']}"}
 
-    response = secured.post(
+    response = mcp_server.post(
         "/api/v1/enroll",
         json={"project": "billing", "label": "ignored", "requested_by": "bob"},
         headers=headers,
@@ -671,7 +665,7 @@ def test_complementary_enrollment_over_rest(secured):
         "shop-ci",
     )
     assert "token" not in request
-    duplicate = secured.post("/api/v1/enroll", json={"project": "billing"}, headers=headers)
+    duplicate = mcp_server.post("/api/v1/enroll", json={"project": "billing"}, headers=headers)
     assert duplicate.status_code == 422 and "already waiting" in duplicate.json()["detail"]
     (listed,) = secured.get("/api/v1/enrollments", headers=auth("admin")).json()
     assert (listed["id"], listed["kind"], listed["project"]) == (
@@ -688,48 +682,13 @@ def test_complementary_enrollment_over_rest(secured):
     assert info.projects == {"shop-api", "billing"}
 
     # A rejected complementary request leaves the token as it was
-    other = secured.post("/api/v1/enroll", json={"project": "crm"}, headers=headers).json()
+    other = mcp_server.post("/api/v1/enroll", json={"project": "crm"}, headers=headers).json()
     assert (
         secured.delete(f"/api/v1/enrollments/{other['id']}", headers=auth("admin")).status_code
         == 204
     )
     info = token_store.DatabaseTokenStore().lookup(http_server.hash_token(created["token"]))
     assert info.projects == {"shop-api", "billing"}
-
-
-def test_complementary_enrollment_needs_a_valid_restricted_token(secured, monkeypatch):
-    def enroll(token: str):
-        return secured.post(
-            "/api/v1/enroll",
-            json={"project": "billing"},
-            headers={"Authorization": f"Bearer {token}"},
-        )
-
-    unknown = enroll("not-a-token")
-    assert unknown.status_code == 401 and "WWW-Authenticate" in unknown.headers
-    assert (
-        secured.post(
-            "/api/v1/enroll", json={"project": "p"}, headers={"Authorization": "Basic abc"}
-        ).status_code
-        == 401
-    )
-    pending = token_store.request_enrollment("shop-api")
-    assert enroll(pending["token"]).status_code == 403
-    unrestricted = enroll(TOKENS["admin"])
-    assert unrestricted.status_code == 422
-    assert "every project" in unrestricted.json()["detail"]
-    # Nothing was created by the refused requests
-    assert [item["id"] for item in token_store.list_enrollments()] == [pending["request_id"]]
-    monkeypatch.setattr(web_api.get_settings(), "enrollment", False)
-    restricted = token_store.create_token("shop-ci", Role.MCP, "shop-api")
-    assert enroll(restricted["token"]).status_code == 404
-
-
-def test_enrollment_is_pointless_without_authentication(client):
-    response = client.post("/api/v1/enroll", json={"project": "p"})
-
-    assert response.status_code == 409
-    assert token_store.list_tokens() == []
 
 
 def _stored_tokens() -> list[ApiToken]:
@@ -768,7 +727,7 @@ def test_loopback_server_rejects_foreign_host(ui_dir):
         assert TestClient(app, base_url=base_url).get("/api/v1/health").status_code == expected
 
 
-def test_project_triager_only_changes_findings_of_its_project(secured, reports):
+def test_project_triager_only_changes_findings_of_its_project(secured, mcp_server, reports):
     shop_report_id, _ = reports
     billing = services.save_report("billing", "Billing review", [make_finding()])
     billing_finding = services.get_report(billing["report_id"]).findings[0].id
@@ -785,4 +744,4 @@ def test_project_triager_only_changes_findings_of_its_project(secured, reports):
         f"/api/v1/findings/{shop_finding}", json={"status": "fixed"}, headers=headers
     )
     assert response.status_code == 200
-    assert secured.get("/mcp", headers=headers).status_code == 403
+    assert mcp_server.get("/mcp", headers=headers).status_code == 403

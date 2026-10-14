@@ -1,17 +1,21 @@
-"""Streamable HTTP transport: optional built-in bearer-token authentication and TLS.
+"""HTTP serving of the two processes: bearer-token authentication, TLS and health checks.
 
 The MCP SDK starts uvicorn without TLS options and its own auth expects an OAuth authorization
 server. For a shared server we only need API tokens, stored in the database (see token_store),
-so the Starlette app built by the SDK is wrapped in a small ASGI middleware and served by
-uvicorn directly.
+so the apps are wrapped in a small ASGI middleware and served by uvicorn directly.
 
-The same server can also expose the web interface (REST API under ``/api`` and the Angular
-application under ``/ui``). Each token carries a role that decides which part it may use.
+Two apps are built, meant to run in separate processes (containers, pods) sharing the database:
 
-With enrollment, an MCP client that presents no token (or a token still waiting for approval)
-is not rejected but sent to a restricted MCP server that only lets it request a project token.
+- the MCP server (``build_mcp_app``): the MCP endpoint, the public enrollment endpoint and
+  ``/healthz``. With enrollment, an MCP client that presents no token (or a token still waiting
+  for approval) is sent to a restricted MCP server that only lets it request a project token;
+- the controller (``build_controller_app``): the REST API under ``/api`` and the Angular
+  application under ``/ui`` (see web_api).
+
+Each token carries a role that decides which of the two it may use.
 """
 
+import argparse
 import hashlib
 import json
 import logging
@@ -55,11 +59,13 @@ MCP_ROLES = frozenset({Role.MCP, Role.ADMIN})
 WEB_ROLES = frozenset({Role.READER, Role.TRIAGER, Role.ADMIN})
 TRIAGE_ROLES = frozenset({Role.TRIAGER, Role.ADMIN})
 
-# Paths served by the web interface; everything else goes to the MCP app
 API_PREFIX = "/api/"
 UI_PREFIX = "/ui"
-# Public REST endpoint where a client without a token requests one (see web_api)
+# Public endpoint of the MCP server where a client without a token requests one
+# (see enrollment_api)
 ENROLL_PATH = "/api/v1/enroll"
+# Public liveness endpoint of both processes (container and Kubernetes probes)
+HEALTH_PATH = "/healthz"
 
 
 @dataclass(frozen=True)
@@ -95,17 +101,12 @@ def hash_token(token: str) -> bytes:
 # ── Middleware ───────────────────────────────────────────────────────────────
 
 
-def is_public_path(path: str) -> bool:
-    """Paths reachable without a token: the web UI shell, the API documentation and the
-    enrollment endpoint (which checks itself whether enrollment is enabled)."""
-    return path in ("/", UI_PREFIX, "/api/docs", "/api/openapi.json", ENROLL_PATH) or (
+def is_controller_public_path(path: str) -> bool:
+    """Controller paths reachable without a token: the web UI shell, the API documentation and
+    the health check."""
+    return path in ("/", UI_PREFIX, "/api/docs", "/api/openapi.json", HEALTH_PATH) or (
         path.startswith(UI_PREFIX + "/")
     )
-
-
-def is_web_path(path: str) -> bool:
-    """True for the paths of the web interface (REST API, Angular application, root)."""
-    return path.startswith(API_PREFIX) or is_public_path(path)
 
 
 def has_credentials(authorization: str) -> bool:
@@ -123,10 +124,12 @@ class BearerAuthMiddleware:
 
     Pure ASGI (no response buffering) so that streamed MCP responses are not affected.
     The label, role, projects and id of the accepted token are stored in ``scope["state"]``
-    (``auth_client``, ``auth_role``, ``auth_projects``, ``auth_token_id``). With ``web=True``
-    the static files of the web interface are public, the REST API needs a web role and the
-    MCP endpoint an MCP role. While ``store`` holds no token at all, the MCP endpoint is open
-    and the REST API answers 503 (authentication not configured).
+    (``auth_client``, ``auth_role``, ``auth_projects``, ``auth_token_id``).
+
+    With ``web=False`` (MCP server) every path needs an MCP role, except ``public_paths``.
+    With ``web=True`` (controller) the static files of the web interface are public and the
+    REST API needs a web role. While ``store`` holds no token at all, the MCP server is open
+    and the controller API answers 503 (authentication not configured).
 
     ``enrollment_app`` receives the MCP requests sent without an ``Authorization`` header (or
     with an empty bearer value) or with a pending enrollment token;
@@ -140,11 +143,13 @@ class BearerAuthMiddleware:
         store: TokenStore,
         web: bool = False,
         enrollment_app: ASGIApp | None = None,
+        public_paths: frozenset[str] = frozenset(),
     ) -> None:
         self.app = app
         self.store = store
         self.web = web
-        self.enrollment_app = enrollment_app
+        self.enrollment_app = None if web else enrollment_app
+        self.public_paths = public_paths
 
     async def identify(self, authorization: str) -> TokenInfo | None:
         """Return the identity of the presented bearer token, or None."""
@@ -158,11 +163,14 @@ class BearerAuthMiddleware:
         """True when at least one token is stored."""
         return await anyio.to_thread.run_sync(self.store.has_tokens)
 
-    def allowed_roles(self, path: str) -> frozenset[Role]:
-        """Roles accepted for a path."""
-        if self.web and path.startswith(API_PREFIX):
-            return WEB_ROLES
-        return MCP_ROLES
+    def is_public(self, path: str) -> bool:
+        """True for the paths reachable without a token."""
+        return is_controller_public_path(path) if self.web else path in self.public_paths
+
+    @property
+    def allowed_roles(self) -> frozenset[Role]:
+        """Roles accepted by this process."""
+        return WEB_ROLES if self.web else MCP_ROLES
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -170,12 +178,12 @@ class BearerAuthMiddleware:
             return
 
         path = scope.get("path", "")
-        if self.web and is_public_path(path):
+        if self.is_public(path):
             await self.app(scope, receive, send)
             return
 
         if not await self.has_tokens():
-            if self.web and path.startswith(API_PREFIX):
+            if self.web:
                 await _send_error(
                     send,
                     503,
@@ -189,8 +197,7 @@ class BearerAuthMiddleware:
         client = scope.get("client")
         address = client[0] if client else "unknown"
         authorization = Headers(scope=scope).get("authorization", "")
-        is_mcp = not (self.web and path.startswith(API_PREFIX))
-        if is_mcp and self.enrollment_app is not None and not has_credentials(authorization):
+        if self.enrollment_app is not None and not has_credentials(authorization):
             await self.enroll(scope, receive, send, None)
             return
         info = await self.identify(authorization)
@@ -199,7 +206,7 @@ class BearerAuthMiddleware:
             await _send_error(send, 401, "invalid_token", "Missing or invalid bearer token")
             return
         if info.pending:
-            if is_mcp and self.enrollment_app is not None:
+            if self.enrollment_app is not None:
                 await self.enroll(scope, receive, send, info.token_id)
                 return
             await _send_error(
@@ -209,7 +216,7 @@ class BearerAuthMiddleware:
                 "This token is waiting for an administrator to approve its enrollment",
             )
             return
-        if info.role not in self.allowed_roles(path):
+        if info.role not in self.allowed_roles:
             logger.warning(
                 "Rejected request from %s (%s, role %s) to %s", address, info.label, info.role, path
             )
@@ -255,17 +262,33 @@ async def _send_error(send: Send, status: int, error: str, description: str) -> 
 
 
 class PathDispatcher:
-    """Send web-interface paths to the web app and everything else (and lifespan) to MCP."""
+    """Send the HTTP requests of a few exact paths to their app, everything else (and the
+    lifespan events) to the main app."""
 
-    def __init__(self, mcp_app: ASGIApp, web_app: ASGIApp) -> None:
-        self.mcp_app = mcp_app
-        self.web_app = web_app
+    def __init__(self, main_app: ASGIApp, routes: dict[str, ASGIApp]) -> None:
+        self.main_app = main_app
+        self.routes = routes
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] == "http" and is_web_path(scope.get("path", "")):
-            await self.web_app(scope, receive, send)
-        else:
-            await self.mcp_app(scope, receive, send)
+        app = self.routes.get(scope.get("path", "")) if scope["type"] == "http" else None
+        await (app or self.main_app)(scope, receive, send)
+
+
+async def health_app(scope: Scope, receive: Receive, send: Send) -> None:
+    """Liveness probe: answers ``{"status": "ok"}`` without touching the database."""
+    body = b'{"status":"ok"}'
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 200,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode("ascii")),
+                (b"cache-control", b"no-store"),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": body})
 
 
 # ── TLS ──────────────────────────────────────────────────────────────────────
@@ -313,6 +336,26 @@ def tls_options(settings: Settings) -> TLSOptions | None:
     )
 
 
+def add_listen_arguments(parser: argparse.ArgumentParser, settings: Settings) -> None:
+    """Add the --host, --port and TLS options shared by the MCP server and the controller."""
+    parser.add_argument("--host", default=settings.host)
+    parser.add_argument("--port", type=int, default=settings.port)
+    parser.add_argument("--tls-certfile", help="enable TLS (overrides SECREVIEW_TLS_CERTFILE)")
+    parser.add_argument("--tls-keyfile", help="private key (overrides SECREVIEW_TLS_KEYFILE)")
+
+
+def with_tls_arguments(settings: Settings, args: argparse.Namespace) -> Settings:
+    """Return the settings with the TLS files given on the command line, if any."""
+    if not (args.tls_certfile or args.tls_keyfile):
+        return settings
+    return settings.model_copy(
+        update={
+            "tls_certfile": args.tls_certfile or settings.tls_certfile,
+            "tls_keyfile": args.tls_keyfile or settings.tls_keyfile,
+        }
+    )
+
+
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 
@@ -335,51 +378,48 @@ def _enrollment_app(main: Starlette, enrollment_server: MCPServer, host: str) ->
     return app
 
 
-def build_app(
+def build_mcp_app(
     server: MCPServer,
     host: str,
     store: TokenStore,
-    web_app: ASGIApp | None = None,
     enrollment_server: MCPServer | None = None,
+    enroll_endpoint: ASGIApp | None = None,
 ) -> ASGIApp:
-    """Build the streamable HTTP app, protected by the bearer tokens of ``store``.
+    """Build the HTTP app of the MCP server, protected by the bearer tokens of ``store``.
 
-    ``web_app`` (see web_api.create_app) is served next to MCP under ``/api`` and ``/ui``.
-    ``enrollment_server`` answers the MCP clients that have no token yet.
+    ``enrollment_server`` answers the MCP clients that have no token yet and
+    ``enroll_endpoint`` (see enrollment_api.create_app) serves the public ``ENROLL_PATH``.
     """
     main = server.streamable_http_app(host=host)
     enrollment_app = (
         _enrollment_app(main, enrollment_server, host) if enrollment_server is not None else None
     )
-    app: ASGIApp = main
-    if web_app is not None:
-        app = PathDispatcher(app, web_app)
-    return BearerAuthMiddleware(app, store, web=web_app is not None, enrollment_app=enrollment_app)
+    routes: dict[str, ASGIApp] = {HEALTH_PATH: health_app}
+    if enroll_endpoint is not None:
+        routes[ENROLL_PATH] = enroll_endpoint
+    return BearerAuthMiddleware(
+        PathDispatcher(main, routes),
+        store,
+        enrollment_app=enrollment_app,
+        public_paths=frozenset(routes),
+    )
 
 
-def run(
-    server: MCPServer,
-    host: str,
-    port: int,
-    store: TokenStore,
-    tls: TLSOptions | None,
-    log_level: str = "INFO",
-    web_app: ASGIApp | None = None,
-    enrollment_server: MCPServer | None = None,
-) -> None:
-    """Serve the MCP server over streamable HTTP, with optional authentication and TLS.
+def build_controller_app(web_app: ASGIApp, store: TokenStore) -> ASGIApp:
+    """Build the HTTP app of the controller (see web_api.create_app), protected by ``store``."""
+    return BearerAuthMiddleware(web_app, store, web=True)
 
-    ``tls`` comes from tls_options (validated beforehand).
-    """
+
+def _log_exposure(host: str, store: TokenStore, tls: TLSOptions | None) -> None:
+    """Warn when the server listens on a public address without authentication or TLS."""
     exposed = host not in LOOPBACK_HOSTS
-
     if store.has_tokens():
         logger.info("Bearer authentication enabled (tokens stored in the database)")
     elif exposed and not (tls and tls.client_ca):
         logger.warning(
             "Listening on %s without authentication: create a token with "
-            "`security-review-mcp token create`, or put the server behind a reverse proxy "
-            "that enforces authentication.",
+            "`security-review-controller token create`, or put the server behind a reverse "
+            "proxy that enforces authentication.",
             host,
         )
     if tls:
@@ -390,13 +430,23 @@ def run(
             "or terminate TLS on a reverse proxy.",
             host,
         )
-    if web_app is not None:
-        logger.info("Web interface enabled on /ui (REST API on /api/v1)")
-    if enrollment_server is not None:
-        logger.info("Enrollment enabled: clients without a token may request one")
 
+
+def serve(
+    app: ASGIApp,
+    host: str,
+    port: int,
+    store: TokenStore,
+    tls: TLSOptions | None,
+    log_level: str = "INFO",
+) -> None:
+    """Serve an app built by build_mcp_app or build_controller_app with uvicorn.
+
+    ``tls`` comes from tls_options (validated beforehand).
+    """
+    _log_exposure(host, store, tls)
     uvicorn.run(
-        build_app(server, host, store, web_app, enrollment_server),
+        app,
         host=host,
         port=port,
         log_level=log_level.lower(),
