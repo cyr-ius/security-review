@@ -118,6 +118,13 @@ docker compose logs controller   # mot de passe admin initial
   [certificat auto-signé](http.md#certificat-auto-signe) à chaque démarrage (dans le `tmpfs`
   `/tmp`). Les autres variables de `.env` ne servent qu'à Compose : ajoutez-les sous
   `environment` pour qu'elles atteignent les conteneurs.
+- La base d'avis de vulnérabilités est **vide** au premier démarrage : l'analyse de dépendances
+  répond alors qu'aucune base n'est chargée. Pour que le contrôleur la télécharge au démarrage
+  puis toutes les 24 h, ajoutez `SECREVIEW_OSV_AUTO_UPDATE=true` dans `.env` (et, si besoin,
+  `SECREVIEW_OSV_ECOSYSTEMS` et `SECREVIEW_OSV_PROXY`), que le fichier Compose transmet au seul
+  contrôleur, puis `docker compose up -d`. Suivez l'import avec `docker compose logs -f
+  controller` ou dans les paramètres de l'interface web. Sans accès Internet, importez une
+  archive avec `advisories import` (voir [Dépendances](../utilisation/dependances.md)).
 - Les conteneurs tournent en système de fichiers en lecture seule, sans capacité Linux. Le
   volume `secreview-pg` contient les rapports et les jetons gérés (mot de passe admin et
   jetons projet) : sauvegardez-le.
