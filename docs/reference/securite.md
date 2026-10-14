@@ -38,7 +38,9 @@
   le statut d'un finding (action journalisée avec le label du jeton). Pages servies avec une CSP
   stricte et les en-têtes anti-clickjacking ; jeton gardé dans le `sessionStorage` de l'onglet.
   La documentation Swagger et son schéma OpenAPI sont publics, mais les routes de données
-  restent protégées.
+  restent protégées. Le contrôle est fait deux fois : par le middleware Bearer, puis par
+  chaque route de l'API, qui refuse (`401`) toute requête sans identité authentifiée. Ainsi,
+  l'API ne donne jamais de droits par défaut, même si elle est servie sans le middleware.
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
   serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Le scan du dépôt
   complet est réservé à la CLI (`code scan`), lancée par l'opérateur sur un dossier qu'il

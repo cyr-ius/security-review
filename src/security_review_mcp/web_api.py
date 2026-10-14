@@ -18,7 +18,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, 
 from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
-from fastapi.security import HTTPBearer
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -27,14 +27,20 @@ from starlette.types import Scope
 
 from . import __version__, registry, rule_store, rules_loader, services, token_store, trends
 from .config import get_settings
-from .http_server import HEALTH_PATH, LOOPBACK_HOSTS, TRIAGE_ROLES, Role
+from .http_server import BEARER_CHALLENGE, HEALTH_PATH, LOOPBACK_HOSTS, TRIAGE_ROLES, Role
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
 from .sarif import build_sarif
 
 logger = logging.getLogger("security_review_mcp.web")
 
 BUNDLED_UI_DIR = Path(__file__).parent / "webui"
-ANONYMOUS = "anonymous"
+
+# Declares the bearer scheme in the OpenAPI document (Swagger "Authorize" button). The token
+# itself is validated by the bearer middleware: auto_error=False leaves the 401 to
+# current_identity, which also covers an app served without that middleware.
+bearer_scheme = HTTPBearer(
+    auto_error=False, description="API token (`security-review-controller token create`)"
+)
 
 # The Angular build loads no inline script and no external resource. Component styles are
 # injected as <style> elements at runtime, hence 'unsafe-inline' for styles only.
@@ -60,6 +66,7 @@ class Identity(BaseModel):
     client: str
     role: Role
     can_triage: bool
+    # Always true: the API answers authenticated requests only (kept for API compatibility)
     auth_enabled: bool
     # Projects a restricted token reaches; None: every project
     projects: list[str] | None = None
@@ -140,16 +147,32 @@ class ReportSummary(BaseModel):
 # ── Dependencies ─────────────────────────────────────────────────────────────
 
 
-def current_identity(request: Request) -> Identity:
-    """Identity set by the bearer middleware; without configured tokens everyone is admin."""
+def current_identity(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Identity:
+    """Identity set by the bearer middleware once it has validated the token.
+
+    Fails closed: a request that reaches a route without an identity in its scope (app served
+    without BearerAuthMiddleware, or a public path mistakenly routed here) gets 401, never an
+    implicit administrator.
+    """
     state = request.scope.get("state") or {}
-    auth_enabled = "auth_role" in state
-    role = Role(state["auth_role"]) if auth_enabled else Role.ADMIN
+    if "auth_role" not in state:
+        logger.warning(
+            "Rejected API request without an authenticated identity: %s", request.url.path
+        )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid bearer token",
+            headers={"WWW-Authenticate": BEARER_CHALLENGE},
+        )
+    role = Role(state["auth_role"])
     return Identity(
-        client=state.get("auth_client", ANONYMOUS),
+        client=state["auth_client"],
         role=role,
         can_triage=role in TRIAGE_ROLES,
-        auth_enabled=auth_enabled,
+        auth_enabled=True,
         projects=None if state.get("auth_projects") is None else sorted(state["auth_projects"]),
         version=__version__,
     )
@@ -220,7 +243,8 @@ async def _refresh_checklists() -> dict:
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 
-router = APIRouter(prefix="/api/v1", dependencies=[Depends(HTTPBearer(auto_error=False))])
+# Every route needs an authenticated identity, even those that do not use it (health)
+router = APIRouter(prefix="/api/v1", dependencies=[Depends(current_identity)])
 
 
 @router.get("/health")

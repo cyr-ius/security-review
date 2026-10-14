@@ -107,6 +107,9 @@ INFO security_review_mcp.web: Finding 42 set to accepted by alice
 - Les fichiers statiques de `/ui/` sont publics (ils ne contiennent aucune donnée) ; l'API
   `/api/v1/` exige un jeton `reader`, `triager` ou `admin`. La documentation Swagger (`/api/docs`)
   et son schéma (`/api/openapi.json`) sont publics et ne donnent accès à aucune donnée.
+  Dans Swagger, le cadenas d'une route indique qu'elle exige un jeton : il reste **ouvert**
+  tant que vous n'avez pas saisi de jeton avec **Authorize**, et ne veut pas dire que la route
+  est accessible sans jeton.
 - Le contrôleur n'expose aucune route d'écriture sans jeton. Les demandes
   d'[enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton) sont déposées sur
   le **serveur MCP** (`POST /api/v1/enroll`, public) ; le contrôleur les liste et les traite

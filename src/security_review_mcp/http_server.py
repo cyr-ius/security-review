@@ -66,6 +66,8 @@ UI_PREFIX = "/ui"
 ENROLL_PATH = "/api/v1/enroll"
 # Public liveness endpoint of both processes (container and Kubernetes probes)
 HEALTH_PATH = "/healthz"
+# Value of WWW-Authenticate on a 401 / 403 (an error="..." parameter may follow)
+BEARER_CHALLENGE = 'Bearer realm="security-review-mcp"'
 
 
 @dataclass(frozen=True)
@@ -246,7 +248,7 @@ class BearerAuthMiddleware:
 async def _send_error(send: Send, status: int, error: str, description: str) -> None:
     """Send a 401/403 response with a JSON body and a WWW-Authenticate challenge."""
     body = json.dumps({"error": error, "error_description": description}).encode("utf-8")
-    challenge = f'Bearer realm="security-review-mcp", error="{error}"'.encode("ascii")
+    challenge = f'{BEARER_CHALLENGE}, error="{error}"'.encode("ascii")
     await send(
         {
             "type": "http.response.start",

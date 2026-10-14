@@ -36,10 +36,23 @@ def ui_dir(tmp_path):
     return tmp_path
 
 
+def as_admin(app):
+    """Wrap an app like the bearer middleware does after accepting an admin token."""
+
+    async def wrapped(scope, receive, send):
+        if scope["type"] == "http":
+            scope.setdefault("state", {}).update(
+                auth_client="test-admin", auth_role=Role.ADMIN, auth_projects=None
+            )
+        await app(scope, receive, send)
+
+    return wrapped
+
+
 @pytest.fixture
 def client(ui_dir) -> TestClient:
-    """The web app without authentication (everyone is admin)."""
-    return TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+    """The web app called by an administrator, without the token lookup."""
+    return TestClient(as_admin(web_api.create_app(ui_dir=str(ui_dir))), base_url="http://127.0.0.1")
 
 
 @pytest.fixture
@@ -85,12 +98,33 @@ def reports() -> tuple[int, int]:
 # ── Read endpoints ───────────────────────────────────────────────────────────
 
 
-def test_me_without_authentication(client):
+def test_me(client):
     body = client.get("/api/v1/me").json()
-    assert body["client"] == "anonymous"
+    assert body["client"] == "test-admin"
     assert body["role"] == "admin"
     assert body["can_triage"] is True
-    assert body["auth_enabled"] is False
+    assert body["auth_enabled"] is True
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("GET", "/api/v1/health"),
+        ("GET", "/api/v1/me"),
+        ("GET", "/api/v1/projects"),
+        ("PATCH", "/api/v1/findings/1"),
+    ],
+)
+def test_api_without_middleware_fails_closed(ui_dir, method, path):
+    # Defense in depth: served without the bearer middleware, the API refuses every request
+    # instead of treating the caller as an administrator
+    bare = TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+    response = bare.request(method, path, json={"status": "accepted"})
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"].startswith("Bearer ")
+    # The public paths stay reachable
+    assert bare.get("/healthz").status_code == 200
+    assert bare.get("/api/openapi.json").status_code == 200
 
 
 def test_projects(client, reports):
@@ -345,10 +379,8 @@ def test_openapi_marks_api_operations_as_bearer_protected(secured):
 
     assert response.status_code == 200
     schema = response.json()
-    assert schema["components"]["securitySchemes"]["HTTPBearer"] == {
-        "type": "http",
-        "scheme": "bearer",
-    }
+    scheme = schema["components"]["securitySchemes"]["HTTPBearer"]
+    assert (scheme["type"], scheme["scheme"]) == ("http", "bearer")
     operations = [
         operation
         for path, methods in schema["paths"].items()
@@ -724,7 +756,7 @@ def test_missing_ui_build(tmp_path):
 def test_loopback_server_rejects_foreign_host(ui_dir):
     app = web_api.create_app(host="127.0.0.1", ui_dir=str(ui_dir))
     for base_url, expected in (("http://evil.example", 400), ("http://localhost:8000", 200)):
-        assert TestClient(app, base_url=base_url).get("/api/v1/health").status_code == expected
+        assert TestClient(app, base_url=base_url).get("/healthz").status_code == expected
 
 
 def test_project_triager_only_changes_findings_of_its_project(secured, mcp_server, reports):
