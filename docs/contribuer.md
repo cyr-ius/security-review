@@ -13,7 +13,7 @@ Dans VS Code (`.vscode/`) :
 
 | Configuration de `launch.json` | Rôle |
 |---|---|
-| **MCP server + controller** | Lance la tâche **Database upgrade**, puis les deux processus sur la même base SQLite |
+| **MCP server + controller** | Lance la tâche **Database upgrade**, puis les deux processus sur la même base |
 | **MCP server (HTTP, port 8000)** | Serveur MCP seul ; la base doit déjà être migrée |
 | **Controller (web UI and API, port 8080)** | Contrôleur seul ; migre la base et affiche le mot de passe admin initial au premier démarrage |
 | **Controller CLI (prompt for arguments)** | Une commande du contrôleur (`db status`, `token list --pending`…) sous le débogueur |
@@ -21,19 +21,31 @@ Dans VS Code (`.vscode/`) :
 
 | Tâche de `tasks.json` | Commande |
 |---|---|
-| **Build security_review_mcp** | `uv sync --extra dev --extra docs` |
+| **Build security_review_mcp** | `uv sync --extra dev --extra docs --extra postgres` |
 | **Database upgrade** | `uv run security-review-controller db upgrade` (après **Build**) |
 | **Tests** / **Lint** | `pytest`, puis ruff et `mkdocs build --strict` |
 | **Web UI: build** / **Web UI: dev server (port 4200)** | Build Angular servie par le contrôleur, ou `ng serve` avec `/api` redirigé vers le port 8080 |
 | **Docs: serve (port 8001)** | `mkdocs serve` |
-| **Docker: compose up** / **down** | Pile `docker-compose.yml` (même ports 8000 et 8080 : arrêtez les configurations de debug avant) |
+| **Docker: compose up** / **down** | Pile `docker-compose.yml` de l'image, avec sa propre base PostgreSQL (mêmes ports 8000 et 8080 : arrêtez les configurations de debug avant) |
 
 ### Devcontainer
 
-Le dépôt fournit un devcontainer (`.devcontainer/`) avec Python, uv, Node.js et un démon Docker
-dédié (feature *docker-in-docker*). À sa création, il installe les hooks `prek` et l'environnement
-complet (`uv sync --extra dev --extra docs`), puis migre la base SQLite locale. Il redirige les
-ports 8000 (serveur MCP), 8080 (contrôleur), 4200 (serveur de dev Angular) et 8001 (doc). Le démon Docker permet de construire et de lancer
+Le dépôt fournit un devcontainer (`.devcontainer/`) avec Python, uv, Node.js, un démon Docker
+dédié (feature *docker-in-docker*) et une base **PostgreSQL 17**. `compose.yaml` décrit deux
+services : `app`, le conteneur de développement, et `db`, la base, joignable depuis `app` sous
+le nom `db` et conservée dans le volume `secreview-dev-pg` entre deux reconstructions.
+`SECREVIEW_DATABASE_URL` y pointe par défaut : le serveur MCP, le contrôleur et la CLI utilisent
+PostgreSQL. Les tests, eux, utilisent toujours une base SQLite en mémoire.
+
+À sa création, le devcontainer installe le client `psql`, les hooks `prek` et l'environnement
+complet (`uv sync --extra dev --extra docs --extra postgres`), puis migre la base. Il redirige les
+ports 8000 (serveur MCP), 8080 (contrôleur), 4200 (serveur de dev Angular), 8001 (doc) et 5432
+(PostgreSQL, identifiants de développement `secreview` / `secreview`).
+
+```bash
+psql -h db -U secreview secreview                     # mot de passe : secreview
+SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp   # revenir ponctuellement à SQLite
+``` Le démon Docker permet de construire et de lancer
 l'image du [Dockerfile](demarrage/docker.md) sans quitter le conteneur :
 
 ```bash

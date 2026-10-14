@@ -2,7 +2,8 @@
   "version": "0.2.0",
   "compounds": [
     {
-      // Migrates the schema once, then starts both processes on the same SQLite file
+      // Migrates the schema once, then starts both processes on the same database
+      // (PostgreSQL of the devcontainer: SECREVIEW_DATABASE_URL set in .devcontainer/compose.yaml)
       "name": "MCP server + controller",
       "configurations": ["Controller (web UI and API, port 8080)", "MCP server (HTTP, port 8000)"],
       "preLaunchTask": "Database upgrade",

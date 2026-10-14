@@ -2,30 +2,33 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/python
 {
   "name": "security-review-mcp",
-  // Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-  "image": "mcr.microsoft.com/devcontainers/python:3-3.14-trixie",
+  // Development container (app) and its PostgreSQL database (db): see compose.yaml
+  "dockerComposeFile": "compose.yaml",
+  "service": "app",
+  "runServices": ["app", "db"],
+  "workspaceFolder": "/workspaces/security-review-mcp",
+  "shutdownAction": "stopCompose",
   "features": {
     "ghcr.io/devcontainers-extra/features/prek:1": {},
     "ghcr.io/devcontainers-extra/features/uv:1": {},
-    "ghcr.io/devcontainers/features/node:1": {},
+    "ghcr.io/devcontainers/features/node:2.1.1": {},
     "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
-    // Dedicated Docker daemon to build and run the project Dockerfile. Preferred over
-    // docker-outside-of-docker: the host socket would give tools running here (including AI
-    // agents) root access to the host. Docker CE rather than Moby, packaged for Debian trixie.
     "ghcr.io/devcontainers/features/docker-in-docker:4": {
       "moby": false
     }
   },
   // Same ports for the VS Code launch configurations and for docker compose
-  "forwardPorts": [8000, 8080, 4200, 8001],
+  "forwardPorts": [8000, 8080, 4200, 8001, "db:5432"],
   "portsAttributes": {
+    "db:5432": { "label": "PostgreSQL (secreview / secreview)", "onAutoForward": "silent" },
     "8000": { "label": "MCP server (/mcp)", "onAutoForward": "notify" },
     "8080": { "label": "Controller (/ui, /api/v1)", "onAutoForward": "notify" },
     "4200": { "label": "Angular dev server", "onAutoForward": "silent" },
     "8001": { "label": "Docs (mkdocs serve)", "onAutoForward": "silent" }
   },
-  // Also migrates the local SQLite database, so that the HTTP MCP server can start right away
-  "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && prek install --overwrite && uv sync --extra dev --extra docs --link-mode=copy && uv run security-review-controller db upgrade",
+  // psql client, PostgreSQL driver (extra postgres), then migration of the db service, so that
+  // the HTTP MCP server can start right away
+  "postCreateCommand": "git config --global --add safe.directory ${containerWorkspaceFolder} && sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends postgresql-client && prek install --overwrite && uv sync --extra dev --extra docs --extra postgres --link-mode=copy && uv run security-review-controller db upgrade",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -69,9 +72,5 @@
         "files.trimTrailingWhitespace": true
       }
     }
-  },
-  "mounts": [
-    "source=${env:HOME}/.claude,target=/home/vscode/.claude,type=bind,consistency=cached",
-    "source=${env:HOME}/.claude.json,target=/home/vscode/.claude.json,type=bind,consistency=cached"
-  ]
+  }
 }

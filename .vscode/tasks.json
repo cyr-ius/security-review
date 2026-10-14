@@ -3,10 +3,10 @@
   "tasks": [
     {
       "label": "Build security_review_mcp",
-      "detail": "uv sync --extra dev --extra docs",
+      "detail": "uv sync --extra dev --extra docs --extra postgres",
       "type": "process",
       "command": "uv",
-      "args": ["sync", "--extra", "dev", "--extra", "docs"],
+      "args": ["sync", "--extra", "dev", "--extra", "docs", "--extra", "postgres"],
       "options": { "cwd": "${workspaceFolder}" },
       "problemMatcher": []
     },
@@ -65,7 +65,7 @@
     },
     {
       "label": "Docker: compose up",
-      "detail": "PostgreSQL + migrate + controller (8080) + MCP server (8000); needs POSTGRES_PASSWORD in .env",
+      "detail": "Image test: its own PostgreSQL + migrate + controller (8080) + MCP server (8000); needs POSTGRES_PASSWORD in .env",
       "type": "process",
       "command": "docker",
       "args": ["compose", "up", "-d", "--build"],
