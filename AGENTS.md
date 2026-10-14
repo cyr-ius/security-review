@@ -37,7 +37,7 @@ uv run ruff check --fix . && uv run ruff format .
 uv run mkdocs build --strict       # ce que fait la CI : un lien cassé fait échouer le build
 ```
 
-La CI (`.github/workflows/`) lance ruff et pytest sur Python 3.11, 3.12 et 3.13 avec
+La CI (`.github/workflows/`) lance ruff et pytest sur Python 3.14 et 3.15 avec
 `uv sync --locked` : après un changement de dépendances dans `pyproject.toml`, lancez `uv lock`
 et commitez `uv.lock`.
 
@@ -106,7 +106,7 @@ valident les entrées et appellent ces modules.
 
 ## Conventions de code
 
-- Python ≥ 3.11, annotations de type partout, ruff (longueur 100, règles `E F W I B C4 UP`).
+- Python ≥ 3.14, annotations de type partout, ruff (longueur 100, règles `E F W I B C4 UP`).
 - **Code, docstrings, commentaires, messages d'erreur et logs en anglais.** Chaque module et
   chaque fonction a une docstring. La documentation utilisateur (`docs/`, README) est en
   **français**.

@@ -88,7 +88,7 @@ class Finding(FindingBase, table=True):
     report_id: int = Field(foreign_key="securityreport.id", index=True)
     status: FindingStatus = Field(default=FindingStatus.OPEN, index=True)
     status_changed_at: datetime | None = Field(default=None)
-    report: "SecurityReport" = Relationship(back_populates="findings")
+    report: SecurityReport = Relationship(back_populates="findings")
 
 
 class FindingCreate(FindingBase):

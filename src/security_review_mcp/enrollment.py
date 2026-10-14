@@ -49,7 +49,7 @@ def _error_detail(error: urllib.error.HTTPError) -> str:
     """Extract the error message of a FastAPI answer (``detail``), bounded."""
     try:
         body = json.loads(error.read(MAX_RESPONSE_BYTES))
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return error.reason or "no detail"
     detail = body.get("detail") if isinstance(body, dict) else None
     if isinstance(detail, list):

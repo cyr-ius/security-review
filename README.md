@@ -30,7 +30,7 @@ Détail : [prompts et outils](https://cyr-ius.github.io/security-review-mcp/util
 ## Démarrage rapide
 
 ```bash
-pip install security-review-mcp        # Python ≥ 3.11 ; extra [postgres] pour PostgreSQL
+pip install security-review-mcp        # Python ≥ 3.14 ; extra [postgres] pour PostgreSQL
 
 security-review-mcp                    # stdio : lancé par l'hôte
 

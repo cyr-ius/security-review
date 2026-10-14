@@ -20,7 +20,7 @@
 #       --transport streamable-http --host 0.0.0.0 --port 8000
 # (SQLite in a shared volume is for a single host only: use PostgreSQL otherwise.)
 
-ARG PYTHON_VERSION=3.12
+ARG PYTHON_VERSION=3.14
 ARG NODE_VERSION=24
 
 # ---------------------------------------------------------------------------
