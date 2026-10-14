@@ -410,6 +410,47 @@ def test_stored_role_mapping_restricts_the_session_to_its_projects(controller, p
     assert controller.get("/api/v1/posture?project=shop-api", headers=headers).status_code == 404
 
 
+def test_user_grant_lets_an_enrolled_developer_read_its_projects(controller, provider):
+    for project in ("shop-api", "billing"):
+        services.save_report(project, "Review", [])
+    role_mapping.grant_user_projects("dave", ["shop-api"])
+    # No group of dave is mapped and there is no default role: only the grant applies
+    provider.claims = {"preferred_username": "dave", "groups": ["unmapped"]}
+    state = start_login(controller, provider)
+    session = session_of(
+        controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
+    )
+    headers = {"Authorization": f"Bearer {session}"}
+
+    me = controller.get("/api/v1/me", headers=headers).json()
+    assert (me["client"], me["role"], me["projects"]) == ("oidc:dave", "reader", ["shop-api"])
+    projects = controller.get("/api/v1/projects", headers=headers).json()
+    assert [item["project"] for item in projects] == ["shop-api"]
+
+
+@pytest.mark.parametrize(
+    "claims",
+    [
+        {"preferred_username": "mallory", "email": "dave"},
+        # No fallback to email or sub: only the configured claim names the user
+        {"email": "dave"},
+        # The subject of the fake provider is "user-123", also granted below
+        {},
+        # Invisible or control characters are not stripped into another user's name
+        {"preferred_username": "da\u200bve"},
+        {"preferred_username": "dave\n"},
+        {"preferred_username": ["dave"]},
+    ],
+)
+def test_user_grant_of_another_user_does_not_apply(controller, provider, claims):
+    role_mapping.grant_user_projects("dave", ["shop-api"])
+    role_mapping.grant_user_projects("user-123", ["shop-api"])
+    provider.claims = {**claims, "groups": []}
+    state = start_login(controller, provider)
+    response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
+    assert error_of(response) == "forbidden"
+
+
 def test_login_granting_too_many_projects_is_refused(controller, provider, monkeypatch):
     monkeypatch.setattr(role_mapping, "MAX_SESSION_PROJECTS", 1)
     role_mapping.create_mapping("team-a", Role.READER, ["a"])

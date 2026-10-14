@@ -1,3 +1,9 @@
 .claim-value {
   overflow-wrap: anywhere;
 }
+
+.btn-close-sm {
+  width: 0.5em;
+  height: 0.5em;
+  font-size: 0.6rem;
+}

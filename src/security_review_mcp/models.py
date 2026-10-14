@@ -318,3 +318,20 @@ class OidcRoleMapping(SQLModel, table=True):
     projects: str = Field(default="[]")
     created_at: datetime = Field(default_factory=utcnow)
     created_by: str | None = Field(default=None, max_length=64)
+
+
+class OidcUserGrant(SQLModel, table=True):
+    """Projects an OIDC user reads in the web interface, granted by name (``reader``).
+
+    Usually created when an administrator approves an enrollment request: the developer who
+    enrolled a project for the MCP tools reads its reports in the web interface. ``username`` is
+    compared exactly with the ``SECREVIEW_OIDC_USERNAME_CLAIM`` claim of the login; ``projects``
+    is the JSON list of the projects (never empty).
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    username: str = Field(unique=True, index=True, max_length=200)
+    projects: str = Field(default="[]")
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+    created_by: str | None = Field(default=None, max_length=64)

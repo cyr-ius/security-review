@@ -141,6 +141,29 @@ class RoleMappingUpdate(BaseModel):
     )
 
 
+class UserGrantCreate(BaseModel):
+    """Reader access given by name to an OIDC user, on some projects."""
+
+    username: str = Field(min_length=1, max_length=role_mapping.MAX_USERNAME_CHARS)
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
+
+
+class UserGrantUpdate(BaseModel):
+    """New projects of a user grant (at least one: delete the grant to remove the access)."""
+
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
+
+
+class EnrollmentApproval(BaseModel):
+    """Optional body of an approval: the OIDC user who also reads the project on the web."""
+
+    portal_user: str | None = Field(default=None, max_length=role_mapping.MAX_USERNAME_CHARS)
+
+
 class ProjectTokenCreate(BaseModel):
     """A role-specific token scoped to one or several projects."""
 
@@ -717,8 +740,19 @@ async def enrollments(
 async def approve_enrollment(
     request_id: Annotated[str, APIPath(min_length=1, max_length=64)],
     identity: Annotated[Identity, Depends(require_admin)],
+    body: EnrollmentApproval | None = None,
 ) -> dict[str, Any]:
-    """Approve an enrollment request: the project is reachable from the next request."""
+    """Approve an enrollment request: the project is reachable from the next request.
+
+    With ``portal_user``, that OIDC user also gets ``reader`` on the project in the web
+    interface (user grant, from its next login).
+    """
+    portal_user = body.portal_user if body is not None else None
+    if portal_user is not None:
+        try:
+            portal_user = await run_in_threadpool(role_mapping.check_user_grant, portal_user)
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     try:
         approved = await run_in_threadpool(token_store.approve_enrollment, request_id)
     except ValueError as exc:
@@ -729,7 +763,24 @@ async def approve_enrollment(
         approved["project"],
         identity.client,
     )
-    return approved
+    if portal_user is None:
+        return approved
+    try:
+        grant = await run_in_threadpool(
+            role_mapping.grant_user_projects, portal_user, [approved["project"]], identity.client
+        )
+    except ValueError as exc:
+        # Checked before the approval: only a concurrent change gets here
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, f"Enrollment approved, web access not granted: {exc}"
+        ) from exc
+    logger.info(
+        "Web reader access to %s granted to oidc user %s by %s",
+        approved["project"],
+        grant["username"],
+        identity.client,
+    )
+    return approved | {"portal_grant": grant}
 
 
 @router.delete("/enrollments/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -835,8 +886,10 @@ async def role_mappings(
         "oidc_enabled": getattr(request.app.state, "oidc", None) is not None,
         "roles_claim": settings.oidc_roles_claim,
         "default_role": settings.oidc_default_role or None,
+        "username_claim": settings.oidc_username_claim,
         "mappings": await run_in_threadpool(role_mapping.list_mappings),
         "static_mappings": role_mapping.static_mappings(settings),
+        "user_grants": await run_in_threadpool(role_mapping.list_user_grants),
     }
 
 
@@ -892,6 +945,51 @@ async def delete_role_mapping(
         deleted["role"],
         identity.client,
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/oidc/user-grants", status_code=status.HTTP_201_CREATED)
+async def create_user_grant(
+    body: UserGrantCreate, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict[str, Any]:
+    """Give reader access to projects to an OIDC user (added to the projects it already reads)."""
+    try:
+        grant = await run_in_threadpool(
+            role_mapping.grant_user_projects, body.username, body.projects, identity.client
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info(
+        "Web reader access to %s granted to oidc user %s by %s",
+        ", ".join(body.projects),
+        grant["username"],
+        identity.client,
+    )
+    return grant
+
+
+@router.put("/oidc/user-grants/{grant_id}")
+async def update_user_grant(
+    grant_id: int,
+    body: UserGrantUpdate,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict[str, Any]:
+    """Replace the projects of a user grant (applies at the next login of the user)."""
+    try:
+        updated = await run_in_threadpool(role_mapping.update_user_grant, grant_id, body.projects)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("User grant %s updated by %s", grant_id, identity.client)
+    return updated
+
+
+@router.delete("/oidc/user-grants/{grant_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user_grant(
+    grant_id: int, identity: Annotated[Identity, Depends(require_admin)]
+) -> Response:
+    """Delete a user grant (open sessions keep their access until they expire)."""
+    deleted = await run_in_threadpool(role_mapping.delete_user_grant, grant_id)
+    logger.info("User grant of %s deleted by %s", deleted["username"], identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

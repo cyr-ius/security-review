@@ -12,7 +12,7 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from security_review_mcp import cli, database, http_server, server, token_store
+from security_review_mcp import cli, database, http_server, role_mapping, server, token_store
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
 
@@ -586,6 +586,25 @@ def test_token_approve_and_reject_enrollment_requests(capsys):
 
     assert cli.run(["token", "approve", first["label"]]) == cli.EXIT_ERROR
     assert "not found" in json.loads(capsys.readouterr().err)["error"]
+
+
+def test_token_approve_can_give_web_read_access(capsys):
+    first = token_store.request_enrollment("shop-api", label="shop-dev")
+    # An invalid user name is refused before the approval
+    assert cli.run(["token", "approve", first["label"], "--portal-user", " "]) == cli.EXIT_ERROR
+    assert "between 1 and" in json.loads(capsys.readouterr().err)["error"]
+    assert STORE.lookup(hash_token(first["token"])).pending is True
+
+    code, approved = run_cli(capsys, "approve", first["label"], "--portal-user", "alice")
+
+    assert code == cli.EXIT_PASSED and approved["status"] == "active"
+    grant = approved["portal_grant"]
+    assert (grant["username"], grant["projects"], grant["created_by"]) == (
+        "alice",
+        ["shop-api"],
+        "cli",
+    )
+    assert [item["username"] for item in role_mapping.list_user_grants()] == ["alice"]
 
 
 def test_token_approve_complementary_enrollment_requests(capsys):

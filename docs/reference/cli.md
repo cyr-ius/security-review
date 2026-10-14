@@ -31,7 +31,7 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | `db upgrade` / `db status` | Migre le schéma (Alembic) et amorce les règles par défaut, ou affiche la révision | [Architecture et déploiement](../demarrage/kubernetes.md#migrations-du-schema) |
 | `token create --label NOM [--role ROLE] [--project P …]` | Crée un jeton Bearer, éventuellement limité à plusieurs projets, et affiche son secret une fois | [Jetons Bearer](../demarrage/http.md#jetons-bearer), [rôles](../utilisation/interface-web.md#roles) |
 | `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Liste (ou seulement les demandes d'enrôlement en attente) ou révoque les jetons | [Jetons Bearer](../demarrage/http.md#jetons-bearer) |
-| `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approuve ou refuse une demande d'enrôlement | [Enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton) |
+| `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approuve ou refuse une demande d'enrôlement ; `approve --portal-user NOM` donne aussi à cet utilisateur SSO la lecture du projet dans le portail | [Enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton), [accès nominatifs](../utilisation/interface-web.md#acces-nominatifs-enrolement) |
 | `token reset-admin` | Remplace le mot de passe admin initial et l'affiche | [Mot de passe initial](../demarrage/http.md#mot-de-passe-administrateur-initial) |
 | `code scan [PATH]` | Scan du dépôt complet | [Scan du code complet](../utilisation/code-scan.md) |
 | `rules list` / `rules import PATH…` / `rules export` | Liste, importe (packs TOML) ou exporte les règles stockées en base | [Règles internes](../utilisation/regles.md#commande-rules) |

@@ -23,6 +23,7 @@ from . import (
     enrollment,
     http_server,
     registry,
+    role_mapping,
     rule_store,
     rules_loader,
     sarif,
@@ -492,6 +493,11 @@ def token_command(argv: list[str]) -> int:
     approver.add_argument(
         "token", help="request id, or token id or label when the token has one request"
     )
+    approver.add_argument(
+        "--portal-user",
+        help="also give this OIDC user (username claim) read access to the project in the web "
+        "interface",
+    )
     rejecter = actions.add_parser("reject", help="reject a pending enrollment request")
     rejecter.add_argument(
         "token", help="request id, or token id or label when the token has one request"
@@ -510,7 +516,14 @@ def token_command(argv: list[str]) -> int:
                 else token_store.list_tokens(args.project)
             )
         elif args.action == "approve":
+            portal_user = (
+                role_mapping.check_user_grant(args.portal_user) if args.portal_user else None
+            )
             result = token_store.approve_enrollment(args.token)
+            if portal_user is not None:
+                result["portal_grant"] = role_mapping.grant_user_projects(
+                    portal_user, [result["project"]], "cli"
+                )
         elif args.action == "reject":
             result = token_store.reject_enrollment(args.token)
         elif args.action == "revoke":

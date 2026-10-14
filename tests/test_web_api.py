@@ -12,6 +12,7 @@ from security_review_mcp import (
     enrollment_api,
     http_server,
     registry,
+    role_mapping,
     rule_store,
     server,
     services,
@@ -439,6 +440,42 @@ def test_role_mappings_are_managed_by_administrators(secured, caplog):
     assert secured.delete(f"{url}/{mapping['id']}", headers=auth("admin")).status_code == 404
 
 
+def test_user_grants_are_managed_by_administrators(secured, caplog):
+    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    url = "/api/v1/oidc/user-grants"
+    body = {"username": "alice", "projects": ["billing"]}
+    for role in ("reader", "triager"):
+        assert secured.post(url, json=body, headers=auth(role)).status_code == 403
+    assert secured.post(url, json=body).status_code == 401
+
+    created = secured.post(url, json=body, headers=auth("admin"))
+    assert created.status_code == 201
+    grant = created.json()
+    assert (grant["username"], grant["role"], grant["projects"]) == ("alice", "reader", ["billing"])
+    assert "Web reader access to billing granted to oidc user alice by admin" in caplog.text
+    catalog = secured.get("/api/v1/oidc/role-mappings", headers=auth("admin")).json()
+    assert catalog["username_claim"] == "preferred_username"
+    assert [item["id"] for item in catalog["user_grants"]] == [grant["id"]]
+
+    updated = secured.put(f"{url}/{grant['id']}", json={"projects": ["crm"]}, headers=auth("admin"))
+    assert updated.json()["projects"] == ["crm"]
+    for projects in ([], ["bad\x00project"]):
+        response = secured.put(
+            f"{url}/{grant['id']}", json={"projects": projects}, headers=auth("admin")
+        )
+        assert response.status_code == 422
+    assert (
+        secured.put(f"{url}/999", json={"projects": ["crm"]}, headers=auth("admin")).status_code
+        == 404
+    )
+    for invalid in ({"username": "", "projects": ["crm"]}, {"username": "bob", "projects": []}):
+        assert secured.post(url, json=invalid, headers=auth("admin")).status_code == 422
+
+    assert secured.delete(f"{url}/{grant['id']}", headers=auth("triager")).status_code == 403
+    assert secured.delete(f"{url}/{grant['id']}", headers=auth("admin")).status_code == 204
+    assert secured.delete(f"{url}/{grant['id']}", headers=auth("admin")).status_code == 404
+
+
 @pytest.mark.parametrize(
     "body",
     [
@@ -688,6 +725,64 @@ def test_public_enrollment_then_admin_approval(secured, mcp_server):
     assert (
         secured.post(f"/api/v1/enrollments/{created['id']}/approve", headers=auth("admin"))
     ).status_code == 404
+
+
+def test_approval_can_give_web_read_access_to_the_developer(secured, mcp_server, caplog):
+    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    created = mcp_server.post(
+        "/api/v1/enroll", json={"project": "new-service", "requested_by": "alice"}
+    ).json()
+    url = f"/api/v1/enrollments/{created['request_id']}/approve"
+
+    # An invalid user name is refused before the approval: the request stays pending
+    response = secured.post(url, json={"portal_user": "alice\nadmin"}, headers=auth("admin"))
+    assert response.status_code == 422
+    assert len(secured.get("/api/v1/enrollments", headers=auth("admin")).json()) == 1
+
+    approved = secured.post(url, json={"portal_user": " alice "}, headers=auth("admin"))
+
+    assert approved.status_code == 200 and approved.json()["status"] == "active"
+    grant = approved.json()["portal_grant"]
+    assert (grant["username"], grant["projects"], grant["created_by"]) == (
+        "alice",
+        ["new-service"],
+        "admin",
+    )
+    assert "Web reader access to new-service granted to oidc user alice by admin" in caplog.text
+    assert role_mapping.resolve(set(), get_settings(), "alice") == role_mapping.Access(
+        Role.READER, frozenset({"new-service"})
+    )
+
+    # A complementary enrollment adds the project to the same user
+    headers = {"Authorization": f"Bearer {created['token']}"}
+    extra = mcp_server.post("/api/v1/enroll", json={"project": "billing"}, headers=headers).json()
+    approved = secured.post(
+        f"/api/v1/enrollments/{extra['id']}/approve",
+        json={"portal_user": "alice"},
+        headers=auth("admin"),
+    )
+    assert approved.json()["portal_grant"]["projects"] == ["new-service", "billing"]
+
+
+def test_approval_without_portal_user_grants_no_web_access(secured, mcp_server):
+    created = mcp_server.post(
+        "/api/v1/enroll", json={"project": "new-service", "requested_by": "alice"}
+    ).json()
+    approved = secured.post(
+        f"/api/v1/enrollments/{created['request_id']}/approve",
+        json={"portal_user": None},
+        headers=auth("admin"),
+    )
+    assert approved.status_code == 200 and "portal_grant" not in approved.json()
+    assert role_mapping.list_user_grants() == []
+
+
+def test_failed_approval_grants_no_web_access(secured):
+    response = secured.post(
+        "/api/v1/enrollments/unknown/approve", json={"portal_user": "alice"}, headers=auth("admin")
+    )
+    assert response.status_code == 404
+    assert role_mapping.list_user_grants() == []
 
 
 def test_admin_rejects_enrollment(secured, mcp_server):

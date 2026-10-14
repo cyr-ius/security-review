@@ -71,6 +71,13 @@ export interface EnrollmentRequest {
   created_at: string;
 }
 
+/** Response of an approval; portal_grant is present when an OIDC user got web access. */
+export interface EnrollmentApproved extends Omit<EnrollmentRequest, 'status'> {
+  status: 'active';
+  projects: string[];
+  portal_grant?: UserGrant;
+}
+
 /** Response returned once when a project-scoped token is created. */
 export interface ProjectTokenCreated extends ProjectToken {
   token: string;
@@ -338,11 +345,25 @@ export interface RoleMapping {
   created_by?: string | null;
 }
 
+/** Read access given by name to an OIDC user, usually when approving its enrollment. */
+export interface UserGrant {
+  id: number;
+  /** Exact value of the username claim of the identity provider. */
+  username: string;
+  role: 'reader';
+  projects: string[];
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+}
+
 /** GET /api/v1/oidc/role-mappings */
 export interface RoleMappingCatalog {
   oidc_enabled: boolean;
   roles_claim: string;
+  username_claim: string;
   default_role: 'reader' | 'triager' | null;
   mappings: RoleMapping[];
   static_mappings: RoleMapping[];
+  user_grants: UserGrant[];
 }

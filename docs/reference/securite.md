@@ -65,7 +65,12 @@
   groupes de l'utilisateur ([role mapping](../utilisation/interface-web.md#role-mapping), géré
   par les administrateurs, éventuellement restreint à des projets) ; sans association, la
   connexion est refusée par défaut, et ni le rôle `admin` par défaut ni le rôle `mcp` ne sont
-  possibles. Une session restreinte à des projets l'est comme un jeton `--project`, et une liste
+  possibles. Un [accès nominatif](../utilisation/interface-web.md#acces-nominatifs-enrolement)
+  ne donne que `reader`, sur des projets listés, à l'identifiant exact du claim
+  `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si elle
+  contient un caractère de contrôle ou invisible) : choisissez un claim que l'utilisateur ne peut pas modifier
+  chez le fournisseur, et vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant
+  de lui donner cet accès. Une session restreinte à des projets l'est comme un jeton `--project`, et une liste
   de projets malformée dans une session invalide la session au lieu de l'élargir. La session est un jeton signé
   (HMAC-SHA256, clé dérivée de `SECREVIEW_OIDC_SESSION_SECRET`), accepté par le contrôleur
   seulement, jamais par le serveur MCP, et révocable uniquement par son expiration ou un

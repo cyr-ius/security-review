@@ -164,6 +164,18 @@ def user_label(claims: dict[str, Any], settings: Settings) -> str:
     return f"oidc:{printable}"[:MAX_LABEL_CHARS]
 
 
+def grant_name(claims: dict[str, Any], settings: Settings) -> str | None:
+    """Name matched by the user grants: the raw username claim, or None.
+
+    Unlike the label, there is no fallback to ``email`` or ``sub`` and nothing is stripped: a
+    value with control or invisible characters would otherwise match the name of another user.
+    """
+    value = claims.get(settings.oidc_username_claim)
+    if isinstance(value, str) and value and value.isprintable():
+        return value
+    return None
+
+
 def safe_return_url(value: str | None) -> str:
     """Keep only a local path of the web application (no open redirect)."""
     if (
@@ -456,13 +468,17 @@ class OidcLogin:
         label = user_label(claims, self.settings)
         try:
             access = role_mapping.resolve(
-                claim_values(claims, self.settings.oidc_roles_claim), self.settings
+                claim_values(claims, self.settings.oidc_roles_claim),
+                self.settings,
+                grant_name(claims, self.settings),
             )
         except ValueError as exc:
             logger.warning("OIDC login refused for %s: %s", label, exc)
             raise OidcError("forbidden", str(exc)) from None
         if access is None:
-            logger.warning("OIDC login refused for %s: no role mapping matches its groups", label)
+            logger.warning(
+                "OIDC login refused for %s: no role mapping or user grant matches it", label
+            )
             raise OidcError("forbidden", "No web role granted to this user")
         scope = "every project" if access.projects is None else f"{len(access.projects)} project(s)"
         logger.info("OIDC login of %s with role %s on %s", label, access.role, scope)

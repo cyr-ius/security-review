@@ -54,11 +54,15 @@ petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre
   supplémentaire ([enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton)) :
   **Approuver** active le nouveau jeton ou ajoute le projet au jeton existant ; **Refuser** ne
   supprime que la demande. Les projets autorisés et les ajouts encore en attente sont affichés
-  pour chaque jeton.
+  pour chaque jeton. Avec la [connexion SSO](#connexion-sso-openid-connect), la colonne
+  **Lecture dans le portail** permet de donner en même temps au développeur la lecture du projet
+  dans l'interface web (voir [accès nominatifs](#acces-nominatifs-enrolement)).
 - **Rôles SSO** : les administrateurs associent les groupes ou rôles du fournisseur d'identité
   à un rôle web et, pour `reader` et `triager`, à une liste de projets
   (voir [role mapping](#role-mapping)). Les groupes des variables `SECREVIEW_OIDC_*_GROUPS`
-  sont affichés en lecture seule.
+  sont affichés en lecture seule. La section **Accès nominatifs en lecture** liste les
+  utilisateurs SSO qui lisent des projets à titre individuel ; on peut en ajouter, retirer un
+  projet ou supprimer l'accès.
 - **Paramètres** : réglages enregistrés en base, prioritaires sur les variables d'environnement
   et partagés par le serveur MCP et le contrôleur.
     - **Langue des rapports** : variable `SECREVIEW_REPORT_LANGUAGE`, choix laissé à l'agent ou
@@ -201,9 +205,10 @@ associations dans l'interface.
    refusée). Les projets des associations d'un rôle
    inférieur ne sont pas ajoutés : un utilisateur `triager` sur `shop-api` et `reader` sur
    `billing` est `triager` sur `shop-api` seulement ;
-3. sans aucune association, `SECREVIEW_OIDC_DEFAULT_ROLE` s'applique (`reader` ou `triager`,
-   tous les projets) ; vide (défaut), la connexion est **refusée**. Le rôle `admin` ne peut pas
-   être attribué par défaut.
+3. sans aucune association de groupe, `SECREVIEW_OIDC_DEFAULT_ROLE` s'applique (`reader` ou
+   `triager`, tous les projets) ; vide (défaut), seul un
+   [accès nominatif](#acces-nominatifs-enrolement) permet encore la connexion, sinon elle est
+   **refusée**. Le rôle `admin` ne peut pas être attribué par défaut.
 
 Une session restreinte se comporte comme un
 [jeton restreint à un projet](../demarrage/http.md#jetons-restreints-a-un-projet) : les autres
@@ -227,6 +232,44 @@ curl -X POST https://secreview.example.com/api/v1/oidc/role-mappings \
 
 Le label d'une session est `oidc:<identifiant>` (claim `SECREVIEW_OIDC_USERNAME_CLAIM`, sinon
 `email`, sinon `sub`) : c'est lui qui apparaît dans les journaux et l'historique du triage.
+
+### Accès nominatifs (enrôlement)
+
+Un **accès nominatif** donne le rôle `reader` sur une liste de projets (50 au plus) à **un**
+utilisateur SSO, désigné par son identifiant : la valeur du claim
+`SECREVIEW_OIDC_USERNAME_CLAIM`, comparée exactement, casse comprise. Contrairement au label de
+session, il n'y a pas de repli sur `email` ou `sub` : sans ce claim (ou avec un caractère de
+contrôle ou invisible), aucun accès nominatif ne s'applique. Il sert surtout à l'[enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton) :
+le développeur qui a demandé un jeton MCP pour un projet en consulte aussi les rapports dans le
+portail.
+
+- **À l'approbation** d'une demande (écran **Jetons de projet**), la case **Lecture dans le
+  portail** est cochée et l'identifiant prérempli avec le demandeur (`requested_by`) quand il est
+  renseigné. Ce champ est déclaré par le client et **n'est pas vérifié** : contrôlez-le ou
+  corrigez-le avant d'approuver, ou décochez la case. Une demande complémentaire approuvée pour
+  le même utilisateur ajoute le projet à son accès.
+- **À la main**, section **Accès nominatifs en lecture** de l'écran **Rôles SSO**, ou par l'API
+  `/api/v1/oidc/user-grants` (rôle `admin`).
+
+À la connexion, ces projets s'ajoutent à ceux des associations `reader` de l'utilisateur, et au
+rôle par défaut s'il s'applique. Comme pour les associations, le **rôle le plus élevé**
+l'emporte : un utilisateur que ses groupes rendent `triager` sur `billing` reste `triager` sur
+`billing` seulement, sans lire les projets de son accès nominatif. L'accès est indépendant du
+jeton MCP : révoquer le jeton ne le supprime pas.
+
+```bash
+# Approuver une demande en donnant la lecture du projet à l'utilisateur SSO « alice »
+curl -X POST https://secreview.example.com/api/v1/enrollments/$REQUEST_ID/approve \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"portal_user": "alice"}'
+```
+
+La réponse contient alors `portal_grant`. Un identifiant invalide est refusé (`422`) avant
+l'approbation : la demande reste en attente. Le journal du contrôleur trace l'accès :
+
+```
+INFO security_review_mcp.web: Web reader access to shop-api granted to oidc user alice by admin
+```
 
 ### Sessions
 

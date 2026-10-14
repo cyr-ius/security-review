@@ -222,3 +222,127 @@
     }
   }
 </section>
+
+<section class="mt-4" aria-labelledby="user-grants-title">
+  <h2 id="user-grants-title" class="h5">Accès nominatifs en lecture</h2>
+  <p class="text-body-secondary small">
+    Lecture de projets donnée à un utilisateur SSO précis, en général à l'approbation de son
+    enrôlement (page Jetons de projet). L'identifiant est comparé exactement au claim
+    @if (catalog.value(); as data) {
+      <code>{{ data.username_claim }}</code
+      >.
+    } @else {
+      d'identifiant.
+    }
+    Ces projets s'ajoutent à ceux des groupes de rôle Lecture ; un rôle plus élevé donné par un
+    groupe l'emporte.
+  </p>
+  <form class="row g-2 align-items-start mb-3" (submit)="addGrant($event)">
+    <div class="col-md-3">
+      <label for="grant-user" class="form-label">Identifiant SSO</label>
+      <input
+        id="grant-user"
+        class="form-control"
+        required
+        maxlength="200"
+        autocomplete="off"
+        spellcheck="false"
+        placeholder="ex. alice"
+        [value]="grantUser()"
+        (input)="grantUser.set($any($event.target).value)"
+      />
+    </div>
+    <fieldset class="col-md-7">
+      <legend class="form-label">Projets</legend>
+      @if ((projects.value() ?? []).length) {
+        <div class="d-flex flex-wrap gap-3">
+          @for (item of projects.value() ?? []; track item.project) {
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [id]="'grant-project-' + item.project"
+                [checked]="grantProjects().includes(item.project)"
+                (change)="toggleGrantProject(item.project, $event)"
+              />
+              <label class="form-check-label" [for]="'grant-project-' + item.project">
+                {{ item.project }}
+              </label>
+            </div>
+          }
+        </div>
+      } @else if (!projects.isLoading()) {
+        <div class="form-text">Aucun projet disponible.</div>
+      }
+    </fieldset>
+    <div class="col-md-2 pt-md-4">
+      <button
+        type="submit"
+        class="btn btn-primary w-100"
+        [disabled]="busy() || !grantUser().trim() || !grantProjects().length"
+      >
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        Ajouter
+      </button>
+    </div>
+  </form>
+  @if (catalog.value(); as data) {
+    @if (data.user_grants.length) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th scope="col">Utilisateur</th>
+              <th scope="col">Projets en lecture</th>
+              <th scope="col">Accordé par</th>
+              <th scope="col" class="text-end">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (grant of data.user_grants; track grant.id) {
+              <tr>
+                <td class="claim-value font-monospace">{{ grant.username }}</td>
+                <td>
+                  <div class="d-flex flex-wrap gap-1">
+                    @for (project of grant.projects; track project) {
+                      <span class="badge text-bg-light border d-inline-flex align-items-center">
+                        {{ project }}
+                        <button
+                          type="button"
+                          class="btn-close btn-close-sm ms-1"
+                          [disabled]="busy()"
+                          [attr.aria-label]="'Retirer ' + project + ' à ' + grant.username"
+                          (click)="removeGrantProject(grant, project)"
+                        ></button>
+                      </span>
+                    }
+                  </div>
+                </td>
+                <td class="small">
+                  {{ grant.created_by ?? '—' }}
+                  <span class="text-body-secondary">
+                    · {{ grant.updated_at | date: 'dd/MM/yyyy HH:mm' }}
+                  </span>
+                </td>
+                <td class="text-end">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'Supprimer l\'accès de ' + grant.username"
+                    (click)="removeGrant(grant)"
+                  >
+                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                    Supprimer
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary">Aucun accès nominatif.</p>
+    }
+  }
+</section>

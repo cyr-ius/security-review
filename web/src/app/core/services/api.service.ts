@@ -12,6 +12,7 @@ import {
   ChecklistReloadResult,
   CustomRuleCatalog,
   CustomRuleWrite,
+  EnrollmentApproved,
   EnrollmentRequest,
   Identity,
   ProjectSummary,
@@ -27,6 +28,7 @@ import {
   ReportSummary,
   RuleReloadResult,
   Trend,
+  UserGrant,
 } from '../models/api.models';
 
 /** Base path of the REST API (served by the same origin as the application). */
@@ -125,10 +127,11 @@ export class ApiService {
     return this.http.get<EnrollmentRequest[]>(`${API_URL}/enrollments`);
   }
 
-  approveEnrollment(id: string): Observable<EnrollmentRequest> {
-    return this.http.post<EnrollmentRequest>(
+  /** With portalUser, that OIDC user also gets read access to the project in the web UI. */
+  approveEnrollment(id: string, portalUser: string | null = null): Observable<EnrollmentApproved> {
+    return this.http.post<EnrollmentApproved>(
       `${API_URL}/enrollments/${encodeURIComponent(id)}/approve`,
-      {},
+      { portal_user: portalUser },
     );
   }
 
@@ -222,6 +225,19 @@ export class ApiService {
 
   deleteRoleMapping(id: number): Observable<void> {
     return this.http.delete<void>(`${API_URL}/oidc/role-mappings/${id}`);
+  }
+
+  /** Add projects to the read access of an OIDC user (created when missing). */
+  createUserGrant(username: string, projects: string[]): Observable<UserGrant> {
+    return this.http.post<UserGrant>(`${API_URL}/oidc/user-grants`, { username, projects });
+  }
+
+  updateUserGrant(id: number, projects: string[]): Observable<UserGrant> {
+    return this.http.put<UserGrant>(`${API_URL}/oidc/user-grants/${id}`, { projects });
+  }
+
+  deleteUserGrant(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/oidc/user-grants/${id}`);
   }
 }
 
