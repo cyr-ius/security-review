@@ -212,6 +212,36 @@ export interface ChecklistReloadResult {
   load_errors: string[];
 }
 
+/** One development standard as listed by GET /api/v1/standards (no content). */
+export interface DevStandardSummary {
+  slug: string;
+  title: string;
+  description: string;
+  technologies: string[];
+  file_patterns: string[];
+  enabled: boolean;
+  content_chars: number;
+  updated_at: string;
+  updated_by: string | null;
+}
+
+/** GET /api/v1/standards/{slug}: a development standard with its Markdown content. */
+export interface DevStandard extends DevStandardSummary {
+  content: string;
+  created_at: string;
+}
+
+/** GET /api/v1/standards */
+export interface DevStandardCatalog {
+  standards: DevStandardSummary[];
+}
+
+/** Input accepted by POST and PUT /api/v1/standards. */
+export type DevStandardWrite = Pick<
+  DevStandard,
+  'slug' | 'title' | 'description' | 'technologies' | 'file_patterns' | 'content' | 'enabled'
+>;
+
 /** GET /api/v1/projects */
 export interface ProjectSummary {
   project: string;

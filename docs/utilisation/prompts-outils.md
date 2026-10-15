@@ -10,9 +10,11 @@
 | `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
 | `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
 | `triage-report` | Re-qualifier les findings d'un rapport stocké | `report_id`, `context`, `report_language` |
+| `development-standards` | Donne à l'assistant les [normes de développement](normes.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
 
 Si `code` est vide, le prompt demande à l'agent de relire les fichiers de son espace de travail.
-Chaque prompt se termine par l'instruction d'appeler `save_security_report` une seule fois.
+Chaque prompt de revue se termine par l'instruction d'appeler `save_security_report` une seule
+fois ; `development-standards` n'enregistre rien.
 
 ### Langue des rapports
 
@@ -48,6 +50,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `scan_dependencies` | Analyse d'un manifeste / lockfile : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
 | `request_enrollment` | Demande un jeton pour un premier projet ou l'ajout d'un projet au jeton présenté, après approbation par un administrateur ([enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton)) |
+| `list_development_standards` / `get_development_standards` | [Normes de développement](normes.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
 | `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](regles.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
 Sur le transport HTTP, un jeton restreint ne peut utiliser les outils de rapports que sur ses
@@ -73,7 +76,9 @@ Voir [l'enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton
 ## Ressources
 
 - `report://{report_id}` : un rapport enregistré ;
-- `checklist://{domain}` : la checklist d'un domaine.
+- `checklist://{domain}` : la checklist d'un domaine ;
+- `standards://catalog` : le catalogue des [normes de développement](normes.md) ;
+- `standard://{slug}` : une norme de développement.
 
 ## Rapport enregistré
 

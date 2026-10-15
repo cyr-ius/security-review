@@ -1,0 +1,293 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Normes de développement</h1>
+    <p class="text-body-secondary mb-0">
+      Conventions par technologie transmises à l'assistant IA du développeur via MCP (prompt
+      <code>development-standards</code>).
+    </p>
+  </div>
+  @if (isAdmin()) {
+    <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i>
+      Nouvelle norme
+    </button>
+  }
+</div>
+
+@if (error(); as message) {
+  <div class="alert alert-danger py-2" role="alert">
+    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+    {{ message }}
+  </div>
+}
+@if (notice(); as message) {
+  <div class="alert alert-success py-2" role="status">{{ message }}</div>
+}
+
+@if (catalog.error()) {
+  <div class="alert alert-danger" role="alert">Impossible de charger les normes.</div>
+} @else if (catalog.isLoading() && !catalog.hasValue()) {
+  <div class="text-center my-5">
+    <span class="spinner-border text-secondary" aria-hidden="true"></span>
+    <span class="visually-hidden">Chargement…</span>
+  </div>
+} @else if (catalog.hasValue()) {
+  <div class="card">
+    <div class="card-header d-flex flex-wrap gap-2 align-items-center">
+      <span class="fw-semibold">{{ visibleStandards().length }} norme(s)</span>
+      <label class="visually-hidden" for="standard-search">Rechercher</label>
+      <input
+        id="standard-search"
+        type="search"
+        class="form-control form-control-sm w-auto ms-auto"
+        placeholder="Rechercher une technologie…"
+        [value]="query()"
+        (input)="setQuery($any($event.target).value)"
+      />
+    </div>
+    @if (visibleStandards().length > 0) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col">Norme</th>
+              <th scope="col">Technologies</th>
+              <th scope="col">Fichiers</th>
+              <th scope="col">État</th>
+              <th scope="col" class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of visibleStandards(); track item.slug) {
+              <tr>
+                <td class="standard-description">
+                  <div class="fw-semibold">{{ item.title }}</div>
+                  <code class="small">{{ item.slug }}</code>
+                  @if (item.description) {
+                    <div class="small text-body-secondary">{{ item.description }}</div>
+                  }
+                </td>
+                <td>
+                  @for (tech of item.technologies; track tech) {
+                    <span class="badge text-bg-light border me-1">{{ tech }}</span>
+                  } @empty {
+                    <span class="text-body-secondary">—</span>
+                  }
+                </td>
+                <td class="small font-monospace">
+                  {{ item.file_patterns.join(', ') || '—' }}
+                </td>
+                <td class="text-nowrap">
+                  @if (item.enabled) {
+                    <span class="badge text-bg-success">Active</span>
+                  } @else {
+                    <span class="badge text-bg-secondary">Désactivée</span>
+                  }
+                </td>
+                <td class="text-end text-nowrap">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary action-button"
+                    [attr.aria-label]="'Lire ' + item.slug"
+                    title="Lire"
+                    (click)="view(item)"
+                  >
+                    <i class="bi bi-eye" aria-hidden="true"></i>
+                  </button>
+                  @if (isAdmin()) {
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary action-button ms-1"
+                      [attr.aria-label]="'Modifier ' + item.slug"
+                      title="Modifier"
+                      (click)="startEdit(item)"
+                    >
+                      <i class="bi bi-pencil" aria-hidden="true"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger action-button ms-1"
+                      [attr.aria-label]="'Supprimer ' + item.slug"
+                      title="Supprimer"
+                      (click)="remove(item)"
+                    >
+                      <i class="bi bi-trash" aria-hidden="true"></i>
+                    </button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary text-center my-4">Aucune norme de développement.</p>
+    }
+  </div>
+}
+
+<dialog #viewerDialog class="standard-dialog shadow" aria-labelledby="standard-viewer-title">
+  @if (viewed(); as standard) {
+    <div class="card standard-editor">
+      <div class="card-header d-flex align-items-center gap-2">
+        <h2 id="standard-viewer-title" class="h6 mb-0">
+          {{ standard.title }} <code class="small">{{ standard.slug }}</code>
+        </h2>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary ms-auto"
+          aria-label="Fermer"
+          (click)="closeViewer()"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        @if (standard.description) {
+          <p class="text-body-secondary">{{ standard.description }}</p>
+        }
+        <pre class="standard-content border rounded p-3 mb-2">{{ standard.content }}</pre>
+        <p class="small text-body-secondary mb-0">
+          Modifiée le {{ standard.updated_at.slice(0, 10) }}
+          @if (standard.updated_by) {
+            par {{ standard.updated_by }}
+          }
+        </p>
+      </div>
+    </div>
+  }
+</dialog>
+
+<dialog
+  #editorDialog
+  class="standard-dialog shadow"
+  aria-labelledby="standard-dialog-title"
+  (close)="onEditorClosed()"
+>
+  @if (creating() || editingSlug()) {
+    <form class="card standard-editor" (submit)="save($event)" novalidate>
+      <div class="card-header d-flex align-items-center">
+        <h2 id="standard-dialog-title" class="h6 mb-0">
+          {{ editingSlug() ? 'Modifier la norme' : 'Nouvelle norme de développement' }}
+        </h2>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary ms-auto"
+          aria-label="Fermer le formulaire"
+          (click)="cancelEdit()"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        @if (formError(); as message) {
+          <div class="alert alert-danger py-2" role="alert">
+            <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+            {{ message }}
+          </div>
+        }
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label class="form-label" for="standard-slug">Identifiant</label>
+            @if (editingSlug()) {
+              <input
+                id="standard-slug"
+                class="form-control font-monospace"
+                [value]="formModel().slug"
+                readonly
+              />
+            } @else {
+              <input
+                id="standard-slug"
+                class="form-control font-monospace"
+                placeholder="python"
+                [formField]="standardForm.slug"
+              />
+            }
+          </div>
+          <div class="col-md-8">
+            <label class="form-label" for="standard-title">Titre</label>
+            <input
+              id="standard-title"
+              class="form-control"
+              placeholder="Normes Python"
+              [formField]="standardForm.title"
+            />
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="standard-description">Description courte</label>
+            <input
+              id="standard-description"
+              class="form-control"
+              [formField]="standardForm.description"
+            />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="standard-technologies">Technologies</label>
+            <input
+              id="standard-technologies"
+              class="form-control"
+              placeholder="python, fastapi"
+              aria-describedby="standard-technologies-help"
+              [formField]="standardForm.technologies"
+            />
+            <div id="standard-technologies-help" class="form-text">
+              Noms et alias séparés par des virgules (l'identifiant est toujours reconnu).
+            </div>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="standard-patterns">Motifs de fichiers</label>
+            <input
+              id="standard-patterns"
+              class="form-control font-monospace"
+              placeholder="*.py, pyproject.toml"
+              aria-describedby="standard-patterns-help"
+              [formField]="standardForm.file_patterns"
+            />
+            <div id="standard-patterns-help" class="form-text">
+              Globs séparés par des virgules, pour reconnaître la technologie à partir des fichiers.
+            </div>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="standard-content">Contenu (Markdown)</label>
+            <textarea
+              id="standard-content"
+              class="form-control font-monospace"
+              rows="14"
+              [formField]="standardForm.content"
+            ></textarea>
+            <div class="form-text">
+              {{ formModel().content.length }} / 50 000 caractères. Ce texte est donné tel quel à
+              l'assistant IA : rédigez des règles claires et vérifiables.
+            </div>
+          </div>
+          <div class="col-12">
+            <div class="form-check form-switch">
+              <input
+                id="standard-enabled"
+                class="form-check-input"
+                type="checkbox"
+                role="switch"
+                [formField]="standardForm.enabled"
+              />
+              <label class="form-check-label" for="standard-enabled">
+                Active (servie aux assistants IA)
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card-footer d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEdit()">
+          Annuler
+        </button>
+        <button type="submit" class="btn btn-sm btn-primary" [disabled]="saving()">
+          @if (saving()) {
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+          }
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  }
+</dialog>

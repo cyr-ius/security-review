@@ -11,10 +11,11 @@ rapports (SQLite ou PostgreSQL) exploitable en pipeline.
 
 | | |
 |---|---|
-| **Prompts** | `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review`, `triage-report` |
+| **Prompts** | `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review`, `triage-report`, `development-standards` |
 | **Outils** | checklists, `scan_code`, `scan_dependencies`, enregistrement / lecture / triage des rapports, posture et gate projet, export SARIF, tendances, gestion des règles |
 | **CLI** | `security-review-mcp` (serveur MCP, `enroll`) et `security-review-controller` (`serve`, `db`, `gate`, `sarif`, `trend`, `code scan`, `deps scan`, `advisories`, `rules`, `token`, `user`), codes de sortie 0 / 1 / 2 |
 | **Règles** | Plus de 120 règles et plus de 75 items de checklist : Python, Java, Angular / Node.js, Docker, Kubernetes, configuration, GitLab CI, Jenkins, Spring, FastAPI, copiés en base au premier lancement, plus vos [règles internes](https://cyr-ius.github.io/security-review-mcp/utilisation/regles/) (import/export TOML) |
+| **Normes de développement** | [conventions par technologie](https://cyr-ius.github.io/security-review-mcp/utilisation/normes/) gérées dans l'interface web et transmises à l'assistant IA avant qu'il code (prompt, outils `get_development_standards` / `list_development_standards`, ressources) |
 | **Vulnérabilités** | base OSV (PyPI, npm, Maven) importée hors ligne ou [mise à jour chaque jour par le contrôleur](https://cyr-ius.github.io/security-review-mcp/utilisation/dependances/#mise-a-jour-automatique-par-le-controleur), proxy facultatif |
 | **Transport** | stdio ou HTTP, avec jetons Bearer stockés en base (CLI `token`) et TLS (mutuel ou auto-signé) facultatifs |
 | **Déploiement** | serveur MCP et contrôleur (API REST, interface web) [séparés](https://cyr-ius.github.io/security-review-mcp/demarrage/kubernetes/) sur une base partagée, migrations Alembic, exemples Docker Compose et Kubernetes |

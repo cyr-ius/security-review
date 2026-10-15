@@ -13,6 +13,9 @@ import {
   ChecklistReloadResult,
   CustomRuleCatalog,
   CustomRuleWrite,
+  DevStandard,
+  DevStandardCatalog,
+  DevStandardWrite,
   EnrollmentApproved,
   EnrollmentRequest,
   Identity,
@@ -140,6 +143,26 @@ export class ApiService {
     return this.http.delete<void>(
       `${API_URL}/checklists/${encodeURIComponent(domain)}/${encodeURIComponent(id)}`,
     );
+  }
+
+  devStandards(): Observable<DevStandardCatalog> {
+    return this.http.get<DevStandardCatalog>(`${API_URL}/standards`);
+  }
+
+  devStandard(slug: string): Observable<DevStandard> {
+    return this.http.get<DevStandard>(`${API_URL}/standards/${encodeURIComponent(slug)}`);
+  }
+
+  createDevStandard(standard: DevStandardWrite): Observable<DevStandard> {
+    return this.http.post<DevStandard>(`${API_URL}/standards`, standard);
+  }
+
+  updateDevStandard(slug: string, standard: DevStandardWrite): Observable<DevStandard> {
+    return this.http.put<DevStandard>(`${API_URL}/standards/${encodeURIComponent(slug)}`, standard);
+  }
+
+  deleteDevStandard(slug: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/standards/${encodeURIComponent(slug)}`);
   }
 
   createCustomRule(rule: CustomRuleWrite): Observable<RuleReloadResult> {

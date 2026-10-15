@@ -1298,3 +1298,88 @@ def test_a_token_has_no_password_to_change(accounts):
     assert response.status_code == 403
     me = accounts.get("/api/v1/me", headers={"Authorization": f"Bearer {secret}"}).json()
     assert me["local_account"] is False
+
+
+STANDARD = {
+    "slug": "angular",
+    "title": "Angular standard",
+    "description": "Front-end conventions",
+    "technologies": ["angular", "typescript"],
+    "file_patterns": ["angular.json", "*.ts"],
+    "content": "- Standalone components only.",
+}
+
+
+def test_development_standard_lifecycle(client, caplog):
+    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    created = client.post("/api/v1/standards", json=STANDARD)
+    assert created.status_code == 201
+    assert created.json()["updated_by"] == "test-admin"
+    assert client.post("/api/v1/standards", json=STANDARD).status_code == 409
+
+    listed = client.get("/api/v1/standards").json()["standards"]
+    assert [item["slug"] for item in listed] == ["angular"]
+    assert "content" not in listed[0]
+    assert client.get("/api/v1/standards/angular").json()["content"].startswith("- Standalone")
+
+    changed = STANDARD | {"content": "- Signals for state.", "enabled": False}
+    updated = client.put("/api/v1/standards/angular", json=changed)
+    assert updated.status_code == 200
+    assert updated.json()["enabled"] is False
+    assert client.get("/api/v1/standards").json()["standards"][0]["enabled"] is False
+    missing = changed | {"slug": "react"}
+    assert client.put("/api/v1/standards/react", json=missing).status_code == 404
+    renamed = client.put("/api/v1/standards/angular", json=STANDARD | {"slug": "vue"})
+    assert renamed.status_code == 422
+
+    assert client.delete("/api/v1/standards/angular").status_code == 204
+    assert client.get("/api/v1/standards/angular").status_code == 404
+    assert client.delete("/api/v1/standards/angular").status_code == 404
+    assert "Development standard angular deleted by test-admin" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"slug": "Bad Slug"},
+        {"content": ""},
+        {"technologies": ["<b>"]},
+        {"file_patterns": ["x" * 101]},
+        {"content": "x" * 50_001},
+    ],
+)
+def test_invalid_development_standards_are_refused(client, changes):
+    assert client.post("/api/v1/standards", json=STANDARD | changes).status_code == 422
+    assert client.get("/api/v1/standards").json()["standards"] == []
+
+
+def test_development_standards_are_read_by_all_and_written_by_admins(secured):
+    assert secured.post("/api/v1/standards", json=STANDARD).status_code == 401
+    assert secured.get("/api/v1/standards").status_code == 401
+    created = secured.post("/api/v1/standards", json=STANDARD, headers=auth("admin"))
+    assert created.status_code == 201
+    secured.post(
+        "/api/v1/standards",
+        json=STANDARD | {"slug": "draft", "enabled": False},
+        headers=auth("admin"),
+    )
+
+    for role in ("reader", "triager"):
+        listed = secured.get("/api/v1/standards", headers=auth(role)).json()["standards"]
+        assert [item["slug"] for item in listed] == ["angular"]  # no disabled standard
+        assert secured.get("/api/v1/standards/draft", headers=auth(role)).status_code == 404
+        read = secured.get("/api/v1/standards/angular", headers=auth(role))
+        assert read.status_code == 200
+        assert "updated_by" not in read.json()
+        assert "updated_by" not in listed[0]
+        for method, path in (
+            ("post", "/api/v1/standards"),
+            ("put", "/api/v1/standards/angular"),
+            ("delete", "/api/v1/standards/angular"),
+        ):
+            kwargs = {"json": STANDARD} if method != "delete" else {}
+            response = getattr(secured, method)(path, headers=auth(role), **kwargs)
+            assert response.status_code == 403
+    admin_list = secured.get("/api/v1/standards", headers=auth("admin")).json()["standards"]
+    assert [item["slug"] for item in admin_list] == ["angular", "draft"]
+    assert admin_list[0]["updated_by"] == "admin"

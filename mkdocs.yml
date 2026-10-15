@@ -65,6 +65,7 @@ nav:
       - Scan du code complet: utilisation/code-scan.md
       - Analyse des dépendances: utilisation/dependances.md
       - Règles internes: utilisation/regles.md
+      - Normes de développement: utilisation/normes.md
       - Interface web: utilisation/interface-web.md
   - CI/CD:
       - Gate: ci-cd/gate.md

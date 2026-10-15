@@ -56,6 +56,14 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'standards',
+        title: 'Normes · Security Review',
+        loadComponent: () =>
+          import('./features/standards/standard-list/standard-list.component').then(
+            (m) => m.StandardListComponent,
+          ),
+      },
+      {
         path: 'account',
         title: 'Mon compte · Security Review',
         loadComponent: () =>

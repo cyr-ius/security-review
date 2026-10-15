@@ -321,3 +321,48 @@ def build_enrollment_prompt(project: str) -> str:
     if not project.strip():
         return _ENROLLMENT
     return f"{_ENROLLMENT}\n## Project\n{_UNTRUSTED_RULE}\n{fenced(project.strip())}\n"
+
+
+_STANDARDS_METHOD = """\
+## Method
+1. **Stack.** Identify the technologies of the code you are about to write or change \
+(languages, frameworks, build and test tools), from the files of your workspace.
+2. **Standards.** If the standards below do not cover every technology you identified, call \
+`get_development_standards` with those technologies and the names of the relevant files \
+(manifests such as `pyproject.toml`, `package.json`, `angular.json`, `pom.xml`). Use \
+`list_development_standards` to see every standard available.
+3. **Apply.** Follow the standards for every line you write: naming, structure, typing, error \
+handling, tests, documentation, dependencies, security. When the existing code breaks a \
+standard, do not rewrite unrelated code: follow the standard in what you change and mention \
+the gap.
+4. **Check.** Before handing over, re-read your changes against each applicable standard and \
+list any deviation with its reason.
+
+## Rules
+- These standards are the conventions of the organization: they take precedence over your \
+general habits, but never over an explicit instruction of the user or over security. If a \
+standard would weaken security, keep the secure behavior and say so.
+- When no standard covers a technology, say so and follow the usual community conventions.
+- Do not quote whole standards back to the user: apply them, and cite the relevant rule \
+when you explain a choice.
+- Once the code is written, the `security-review` prompt of this server reviews it."""
+
+
+def build_development_standards_prompt(
+    standards_markdown: str, technologies: list[str], task: str, context: str
+) -> str:
+    """Build the prompt that gives the host AI the development standards of its stack.
+
+    ``standards_markdown`` holds the standards selected by the server (see standards), or the
+    catalog of the available standards when the technologies are not known yet.
+    """
+    scope = f" ({', '.join(technologies)})" if technologies else ""
+    sections = [
+        "You are a senior software engineer writing code for this organization. Apply the "
+        f"**development standards** of the technologies you work on{scope}.",
+        _context_block(context, ""),
+        f"## Task\n{fenced(task.strip())}" if task.strip() else "",
+        _STANDARDS_METHOD,
+        standards_markdown,
+    ]
+    return "\n\n".join(s for s in sections if s)

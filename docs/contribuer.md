@@ -93,6 +93,7 @@ src/security_review_mcp/
 ├── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP
 ├── web_api.py     # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
 ├── prompts.py     # construction des prompts
+├── standards.py   # normes de développement : stockage, recherche par technologie / fichier, rendu
 ├── default_rules.toml  # règles et checklists par défaut, copiées en base au premier lancement
 ├── checklists.py  # structure d'un item de checklist
 ├── scanner.py     # moteur de scan, suppression inline, masquage des secrets

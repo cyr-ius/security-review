@@ -242,6 +242,26 @@ class CustomCheckItem(SQLModel, table=True):
     cwe: str = Field(default="", max_length=20)
 
 
+class DevStandard(SQLModel, table=True):
+    """Development standard of a technology, served to the developer's AI (see standards).
+
+    ``technologies`` (JSON list of lowercase names and aliases) and ``file_patterns`` (JSON list
+    of file name globs) select the standard; ``content`` holds the guidance, in Markdown.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    slug: str = Field(unique=True, index=True, max_length=50)
+    title: str = Field(max_length=200)
+    description: str = Field(default="", max_length=500)
+    technologies: str = Field(default="[]")
+    file_patterns: str = Field(default="[]")
+    content: str = Field(default="")
+    enabled: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+    updated_by: str | None = Field(default=None, max_length=64)
+
+
 class DisabledRule(SQLModel, table=True):
     """A switched-off rule id (default or custom)."""
 

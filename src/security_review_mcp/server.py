@@ -26,6 +26,7 @@ from . import (
     sarif,
     scanner,
     services,
+    standards,
     token_store,
     trends,
 )
@@ -47,6 +48,8 @@ database. Use `list_security_reports`, `get_security_report` and \
 projects, call `request_enrollment` to ask an administrator to add this project to the token \
 (complementary enrollment: the token keeps working for its other projects), then \
 `get_enrollment_status` to know whether it was approved.
+- Before writing code, use the prompt `development-standards` (or the tool \
+`get_development_standards`) to get the development standards of the technologies you work on.
 """
 
 ENROLLMENT_INSTRUCTIONS = """\
@@ -299,6 +302,45 @@ def triage_report(
     return prompts.build_triage_prompt(services.render_report_markdown(report), context, language)
 
 
+def _split_list(value: str) -> list[str]:
+    """Split a prompt argument given as a comma or newline separated list."""
+    return [item.strip() for item in value.replace("\n", ",").split(",") if item.strip()]
+
+
+@mcp.prompt(
+    name="development-standards",
+    title="Development standards",
+    description="Get the development standards of the technologies you work on before coding.",
+)
+def development_standards(
+    technologies: str = "", files: str = "", task: str = "", context: str = ""
+) -> str:
+    """Build the prompt that applies the development standards to a coding task.
+
+    Args:
+        technologies: Technologies of the code, for example "python, fastapi, angular" (leave
+            empty to let the assistant detect them from the workspace).
+        files: Optional file names that reveal the stack, comma or newline separated (for
+            example "pyproject.toml, angular.json").
+        task: Optional description of what is to be written or changed.
+        context: Optional context (project, constraints...).
+    """
+    wanted, paths = _split_list(technologies), _split_list(files)
+    limit = get_settings().max_content_chars
+    if len(task) + len(context) > limit:
+        raise MCPError(
+            code=INVALID_PARAMS, message=f"task and context too large; the limit is {limit}"
+        )
+    try:
+        if wanted or paths:
+            markdown = standards.render_lookup_markdown(standards.find_standards(wanted, paths))
+        else:
+            markdown = standards.render_catalog_markdown(standards.list_standards())
+    except ValueError as exc:
+        raise MCPError(code=INVALID_PARAMS, message=str(exc)) from exc
+    return prompts.build_development_standards_prompt(markdown, wanted, task, context)
+
+
 # ── Tools: knowledge and scanning ────────────────────────────────────────────
 
 
@@ -376,6 +418,55 @@ def reload_rules(ctx: Context) -> dict:
         "custom_rules": len(current.custom_rule_ids),
         "load_errors": list(current.errors),
     }
+
+
+# ── Tools: development standards ─────────────────────────────────────────────
+
+
+# Fields of a standard listed to the model (no content, no audit fields)
+_STANDARD_FIELDS = ("slug", "title", "description", "technologies", "file_patterns")
+
+
+@mcp.tool(annotations=READ_ONLY)
+@_tool_errors
+def list_development_standards() -> list[dict]:
+    """List the development standards defined by the administrators (without their content).
+
+    Each entry gives the slug, the title, the technologies it applies to and the file name
+    patterns that reveal them. Read one with get_development_standards.
+    """
+    return [{key: item[key] for key in _STANDARD_FIELDS} for item in standards.list_standards()]
+
+
+@mcp.tool(annotations=READ_ONLY)
+@_tool_errors
+def get_development_standards(
+    technologies: Annotated[
+        list[Annotated[str, Field(max_length=standards.MAX_KEYWORD_CHARS)]],
+        Field(
+            description="Technologies, frameworks or standard slugs, e.g. ['python', 'angular']",
+            max_length=standards.MAX_QUERY_TECHNOLOGIES,
+        ),
+    ] = [],  # noqa: B006  (the SDK copies the default)
+    files: Annotated[
+        list[Annotated[str, Field(max_length=standards.MAX_QUERY_FILE_CHARS)]],
+        Field(
+            description="File names or paths of the workspace that reveal the stack, "
+            "e.g. ['pyproject.toml', 'src/app/app.ts']",
+            max_length=standards.MAX_QUERY_FILES,
+        ),
+    ] = [],  # noqa: B006
+    format: Literal["markdown", "json"] = "markdown",
+) -> dict | str:
+    """Return the development standards to follow for technologies or files, before coding.
+
+    A standard is selected by its technologies or by a file matching its patterns. The answer
+    also names the technologies no standard covers.
+    """
+    if not technologies and not files:
+        raise ValueError("Give at least one technology or file name")
+    found = standards.find_standards(technologies, files)
+    return standards.render_lookup_markdown(found) if format == "markdown" else found
 
 
 # ── Tools: reports ───────────────────────────────────────────────────────────
@@ -598,6 +689,30 @@ def report_resource(report_id: str, ctx: Context) -> str:
 def checklist_resource(domain: str) -> str:
     """Expose a checklist as a Markdown resource."""
     return registry.render_checklist_markdown(domain)
+
+
+@mcp.resource(
+    "standards://catalog",
+    name="development-standards",
+    description="The list of the development standards",
+    mime_type="text/markdown",
+)
+@_resource_errors
+def standards_catalog_resource() -> str:
+    """Expose the list of the development standards as a Markdown resource."""
+    return standards.render_catalog_markdown(standards.list_standards())
+
+
+@mcp.resource(
+    "standard://{slug}",
+    name="development-standard",
+    description="The development standard of a technology",
+    mime_type="text/markdown",
+)
+@_resource_errors
+def standard_resource(slug: str) -> str:
+    """Expose one development standard as a Markdown resource."""
+    return standards.render_standard_markdown(standards.get_standard(standards.validate_slug(slug)))
 
 
 # ── Enrollment ───────────────────────────────────────────────────────────────

@@ -97,6 +97,7 @@ l'utiliser.
 | HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et SSO, seuls à ouvrir l'interface (mot de passe, création SSO à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py`, role mapping : `role_mapping.py` |
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
+| Normes de développement par technologie (prompt `development-standards`, écran « Normes ») | `standards.py` |
 | Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy OSV) | `config.py` ; `app_settings.py` |
 
 Tous les modules sont dans `src/security_review_mcp/`. L'application Angular (`web/`) est
@@ -244,6 +245,7 @@ utilisateurs. Mettez-la à jour dans le même changement que le code :
 | Un paramètre `SECREVIEW_*` | `docs/reference/configuration.md`, `.env.example` |
 | Transport HTTP, authentification, TLS | `docs/demarrage/http.md`, `docs/reference/securite.md` |
 | Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/demarrage/kubernetes.md`, `docker-compose.yml`, `examples/kubernetes/` |
+| Les normes de développement (prompt, outils, ressources, écran) | `docs/utilisation/normes.md` (+ `prompts-outils.md`) |
 | L'interface web, l'API REST ou les rôles | `docs/utilisation/interface-web.md` |
 | Installation, image Docker | `docs/demarrage/installation.md`, `docs/demarrage/docker.md` |
 | Une garantie ou limite de sécurité | `docs/reference/securite.md` |

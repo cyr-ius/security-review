@@ -26,6 +26,7 @@ export class LayoutComponent {
   readonly mainNav: readonly NavItem[] = [
     { path: '/projects', label: 'Projets', icon: 'bi-grid-1x2' },
     { path: '/reports', label: 'Rapports', icon: 'bi-file-earmark-text' },
+    { path: '/standards', label: 'Normes', icon: 'bi-journal-code' },
   ];
 
   readonly adminNav: readonly NavItem[] = [

@@ -109,6 +109,12 @@
   applique directement ce fichier : le scan ne tourne jamais sans règles. Une règle par défaut
   peut être modifiée ou désactivée par un administrateur, mais pas supprimée
   (voir [Règles internes](../utilisation/regles.md#regles-par-defaut)).
+- **Normes de développement** : leur contenu est transmis tel quel à l'assistant IA comme
+  consignes ; seuls les administrateurs du contrôleur les écrivent (champs validés et bornés,
+  200 normes de 50 000 caractères au plus). Le serveur MCP les lit seulement, et la tâche
+  fournie au prompt `development-standards` est encadrée pour ne pas pouvoir en sortir. Le prompt
+  rappelle qu'une norme ne prime jamais sur la sécurité (voir
+  [Normes de développement](../utilisation/normes.md)).
 - **Journaux** sur stderr (stdout est réservé au protocole en stdio).
 
 !!! warning "Protégez la base"

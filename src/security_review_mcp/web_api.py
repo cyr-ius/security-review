@@ -37,6 +37,7 @@ from . import (
     rule_store,
     rules_loader,
     services,
+    standards,
     token_store,
     trends,
     web_users,
@@ -125,6 +126,22 @@ class ChecklistItemWrite(BaseModel):
     title: str = Field(min_length=1, max_length=rules_loader.MAX_TITLE_CHARS)
     what_to_look_for: str = Field(min_length=1, max_length=rules_loader.MAX_TEXT_CHARS)
     cwe: str = Field(default="", max_length=20)
+
+
+class StandardWrite(BaseModel):
+    """A development standard sent to the web API (validated again by standards.normalize)."""
+
+    slug: str = Field(min_length=1, max_length=50)
+    title: str = Field(min_length=1, max_length=standards.MAX_TITLE_CHARS)
+    description: str = Field(default="", max_length=standards.MAX_DESCRIPTION_CHARS)
+    technologies: list[Annotated[str, Field(max_length=standards.MAX_KEYWORD_CHARS)]] = Field(
+        default_factory=list, max_length=standards.MAX_KEYWORDS
+    )
+    file_patterns: list[Annotated[str, Field(max_length=standards.MAX_PATTERN_CHARS)]] = Field(
+        default_factory=list, max_length=standards.MAX_KEYWORDS
+    )
+    content: str = Field(min_length=1, max_length=standards.MAX_CONTENT_CHARS)
+    enabled: bool = True
 
 
 class RoleMappingCreate(BaseModel):
@@ -747,6 +764,72 @@ async def delete_checklist_item(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     await _refresh_checklists()
     logger.info("Checklist item %s/%s deleted by %s", domain, item_id, identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+SlugPath = Annotated[str, APIPath(min_length=1, max_length=50)]
+
+
+def _standard_view(standard: dict, admin: bool) -> dict:
+    """Hide who changed a standard (an administrator's name) from the other web roles."""
+    if admin:
+        return standard
+    return {key: value for key, value in standard.items() if key != "updated_by"}
+
+
+@router.get("/standards")
+async def list_standards(identity: CurrentIdentity) -> dict:
+    """List the development standards (without content); disabled ones for administrators."""
+    admin = identity.role == Role.ADMIN
+    listed = await run_in_threadpool(standards.list_standards, admin)
+    return {"standards": [_standard_view(item, admin) for item in listed]}
+
+
+@router.get("/standards/{slug}")
+async def get_standard(slug: SlugPath, identity: CurrentIdentity) -> dict:
+    """Return one development standard with its content."""
+    admin = identity.role == Role.ADMIN
+    return _standard_view(await run_in_threadpool(standards.get_standard, slug, admin), admin)
+
+
+@router.post("/standards", status_code=status.HTTP_201_CREATED)
+async def create_standard(
+    body: StandardWrite, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict:
+    """Create a development standard."""
+    try:
+        created = await run_in_threadpool(
+            standards.create_standard, body.model_dump(), identity.client
+        )
+    except ValueError as exc:
+        code = status.HTTP_409_CONFLICT if "already exists" in str(exc) else 422
+        raise HTTPException(code, str(exc)) from exc
+    logger.info("Development standard %s created by %s", created["slug"], identity.client)
+    return created
+
+
+@router.put("/standards/{slug}")
+async def update_standard(
+    slug: SlugPath, body: StandardWrite, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict:
+    """Replace a development standard without changing its slug."""
+    try:
+        updated = await run_in_threadpool(
+            standards.update_standard, slug, body.model_dump(), identity.client
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Development standard %s updated by %s", updated["slug"], identity.client)
+    return updated
+
+
+@router.delete("/standards/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_standard(
+    slug: SlugPath, identity: Annotated[Identity, Depends(require_admin)]
+) -> Response:
+    """Delete a development standard."""
+    await run_in_threadpool(standards.delete_standard, slug)
+    logger.info("Development standard %s deleted by %s", slug, identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
