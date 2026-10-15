@@ -86,7 +86,7 @@
                       [attr.aria-label]="
                         'Donner la lecture du projet ' + request.project + ' dans le portail'
                       "
-                      (change)="setPortalAccess(request, { enabled: $any($event.target).checked })"
+                      (change)="onPortalEnabledChange(request, $event)"
                     />
                   </div>
                   <input
@@ -98,7 +98,7 @@
                     [disabled]="!portalAccess(request).enabled"
                     [value]="portalAccess(request).user"
                     [attr.aria-label]="'Utilisateur web du développeur pour ' + request.label"
-                    (input)="setPortalAccess(request, { user: $any($event.target).value })"
+                    (input)="onPortalUserInput(request, $event)"
                   />
                 </div>
               </td>
@@ -142,34 +142,20 @@
       <input
         id="token-label"
         class="form-control"
-        required
-        maxlength="64"
         autocomplete="off"
-        [value]="label()"
-        (input)="label.set($any($event.target).value)"
+        [formField]="tokenForm.label"
       />
     </div>
     <div class="col-md-2">
       <label for="token-usage" class="form-label">Usage</label>
-      <select
-        id="token-usage"
-        class="form-select"
-        [value]="usage()"
-        (change)="onUsageChange($event)"
-      >
+      <select id="token-usage" class="form-select" [formField]="tokenForm.usage">
         <option value="mcp">MCP</option>
         <option value="api">API REST</option>
       </select>
     </div>
     <div class="col-md-2">
       <label for="token-api-role" class="form-label">Droits API</label>
-      <select
-        id="token-api-role"
-        class="form-select"
-        [value]="apiRole()"
-        [disabled]="usage() !== 'api'"
-        (change)="onApiRoleChange($event)"
-      >
+      <select id="token-api-role" class="form-select" [formField]="tokenForm.apiRole">
         <option value="reader">Lecture seule</option>
         <option value="triager">Lecture et triage</option>
       </select>
@@ -201,7 +187,7 @@
       <button
         type="submit"
         class="btn btn-primary w-100"
-        [disabled]="busy() || !label().trim() || !selectedProjects().length"
+        [disabled]="busy() || tokenForm().invalid() || !selectedProjects().length"
       >
         <i class="bi bi-plus-lg" aria-hidden="true"></i>
         Créer
