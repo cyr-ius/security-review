@@ -27,6 +27,26 @@
         }
       </ul>
 
+      @if (referenceNav().length) {
+        <p class="nav-section">Référentiel</p>
+        <ul class="nav-list">
+          @for (item of referenceNav(); track item.path) {
+            <li>
+              <a
+                class="nav-entry"
+                [routerLink]="item.path"
+                routerLinkActive="active"
+                ariaCurrentWhenActive="page"
+                (click)="closeMenu()"
+              >
+                <i class="bi" [class]="item.icon" aria-hidden="true"></i>
+                {{ item.label }}
+              </a>
+            </li>
+          }
+        </ul>
+      }
+
       @if (isAdmin()) {
         <p class="nav-section">Administration</p>
         <ul class="nav-list">

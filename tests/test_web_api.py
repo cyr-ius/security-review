@@ -1377,7 +1377,7 @@ def test_invalid_development_standards_are_refused(client, changes):
     assert client.get("/api/v1/standards").json()["standards"] == []
 
 
-def test_development_standards_are_read_by_all_and_written_by_admins(secured):
+def test_development_standards_are_read_and_written_by_admins_only(secured):
     assert secured.post("/api/v1/standards", json=STANDARD).status_code == 401
     assert secured.get("/api/v1/standards").status_code == 401
     created = secured.post("/api/v1/standards", json=STANDARD, headers=auth("admin"))
@@ -1388,25 +1388,23 @@ def test_development_standards_are_read_by_all_and_written_by_admins(secured):
         headers=auth("admin"),
     )
 
+    # Like the rules and checklists: the other web roles neither read nor write them
     for role in ("reader", "triager"):
-        listed = secured.get("/api/v1/standards", headers=auth(role)).json()["standards"]
-        assert [item["slug"] for item in listed] == ["angular"]  # no disabled standard
-        assert secured.get("/api/v1/standards/draft", headers=auth(role)).status_code == 404
-        read = secured.get("/api/v1/standards/angular", headers=auth(role))
-        assert read.status_code == 200
-        assert "updated_by" not in read.json()
-        assert "updated_by" not in listed[0]
         for method, path in (
+            ("get", "/api/v1/standards"),
+            ("get", "/api/v1/standards/angular"),
             ("post", "/api/v1/standards"),
             ("put", "/api/v1/standards/angular"),
             ("delete", "/api/v1/standards/angular"),
         ):
-            kwargs = {"json": STANDARD} if method != "delete" else {}
+            kwargs = {"json": STANDARD} if method in ("post", "put") else {}
             response = getattr(secured, method)(path, headers=auth(role), **kwargs)
             assert response.status_code == 403
     admin_list = secured.get("/api/v1/standards", headers=auth("admin")).json()["standards"]
     assert [item["slug"] for item in admin_list] == ["angular", "draft"]
     assert admin_list[0]["updated_by"] == "admin"
+    draft = secured.get("/api/v1/standards/draft", headers=auth("admin"))
+    assert draft.status_code == 200 and draft.json()["enabled"] is False
 
 
 # ── SSO settings ─────────────────────────────────────────────────────────────

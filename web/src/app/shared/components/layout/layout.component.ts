@@ -9,6 +9,8 @@ interface NavItem {
   path: string;
   label: string;
   icon: string;
+  /** Shown to administrators only (the route has the admin guard). */
+  adminOnly?: boolean;
 }
 
 /** Application shell: sidebar navigation, top bar and the routed page. */
@@ -26,12 +28,16 @@ export class LayoutComponent {
   readonly mainNav: readonly NavItem[] = [
     { path: '/projects', label: 'Projets', icon: 'bi-grid-1x2' },
     { path: '/reports', label: 'Rapports', icon: 'bi-file-earmark-text' },
-    { path: '/standards', label: 'Normes', icon: 'bi-journal-code' },
+  ];
+
+  /** What the reviews rely on: scan rules, checklists and development standards. */
+  private readonly referenceItems: readonly NavItem[] = [
+    { path: '/rules', label: 'Règles', icon: 'bi-sliders', adminOnly: true },
+    { path: '/checklists', label: 'Checklists', icon: 'bi-list-check', adminOnly: true },
+    { path: '/standards', label: 'Normes', icon: 'bi-journal-code', adminOnly: true },
   ];
 
   readonly adminNav: readonly NavItem[] = [
-    { path: '/rules', label: 'Règles', icon: 'bi-sliders' },
-    { path: '/checklists', label: 'Checklists', icon: 'bi-list-check' },
     { path: '/users', label: 'Utilisateurs', icon: 'bi-people' },
     { path: '/tokens', label: 'Jetons', icon: 'bi-key' },
     { path: '/role-mappings', label: 'Rôles SSO', icon: 'bi-person-badge' },
@@ -42,6 +48,11 @@ export class LayoutComponent {
   readonly menuOpen = signal(false);
 
   readonly isAdmin = computed(() => this.auth.identity()?.role === 'admin');
+
+  /** Entries of the Référentiel section the current user may open. */
+  readonly referenceNav = computed(() =>
+    this.referenceItems.filter((item) => !item.adminOnly || this.isAdmin()),
+  );
 
   readonly role = computed(() => ROLE_META[this.auth.identity()?.role ?? 'reader']);
 

@@ -57,6 +57,7 @@ export const routes: Routes = [
       },
       {
         path: 'standards',
+        canActivate: [adminGuard],
         title: 'Normes · Security Review',
         loadComponent: () =>
           import('./features/standards/standard-list/standard-list.component').then(

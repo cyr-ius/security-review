@@ -849,26 +849,23 @@ async def delete_checklist_item(
 SlugPath = Annotated[str, APIPath(min_length=1, max_length=50)]
 
 
-def _standard_view(standard: dict, admin: bool) -> dict:
-    """Hide who changed a standard (an administrator's name) from the other web roles."""
-    if admin:
-        return standard
-    return {key: value for key, value in standard.items() if key != "updated_by"}
-
-
 @router.get("/standards")
-async def list_standards(identity: CurrentIdentity) -> dict:
-    """List the development standards (without content); disabled ones for administrators."""
-    admin = identity.role == Role.ADMIN
-    listed = await run_in_threadpool(standards.list_standards, admin)
-    return {"standards": [_standard_view(item, admin) for item in listed]}
+async def list_standards(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+    """List the development standards (without content), disabled ones included.
+
+    Administrators only, like the rules and checklists; the MCP tools serve the enabled
+    standards to the assistants.
+    """
+    listed = await run_in_threadpool(standards.list_standards, True)
+    return {"standards": listed}
 
 
 @router.get("/standards/{slug}")
-async def get_standard(slug: SlugPath, identity: CurrentIdentity) -> dict:
-    """Return one development standard with its content."""
-    admin = identity.role == Role.ADMIN
-    return _standard_view(await run_in_threadpool(standards.get_standard, slug, admin), admin)
+async def get_standard(
+    slug: SlugPath, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict:
+    """Return one development standard with its content (administrators only)."""
+    return await run_in_threadpool(standards.get_standard, slug, True)
 
 
 @router.post("/standards", status_code=status.HTTP_201_CREATED)
