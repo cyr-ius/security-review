@@ -84,12 +84,14 @@ services:
     environment:
       <<: *secreview-env
       # Download the OSV advisories at start-up (empty database), then every 24 h. Disabled by
-      # default: it is the only outgoing connection. Without it, the dependency analysis has
+      # default (the MCP server never connects anywhere). Without it, the dependency analysis has
       # no advisory database (import one with `advisories import`).
       SECREVIEW_OSV_AUTO_UPDATE: ${SECREVIEW_OSV_AUTO_UPDATE:-false}
       SECREVIEW_OSV_ECOSYSTEMS: ${SECREVIEW_OSV_ECOSYSTEMS:-PyPI,npm,Maven}
-      # http://[user:password@]host:port; can also be set in the web interface
-      SECREVIEW_OSV_PROXY: ${SECREVIEW_OSV_PROXY:-}
+      # Proxy of the OSV download and of the SSO provider: http://[user:password@]host:port and
+      # the hosts reached without it; can also be set in the web interface
+      SECREVIEW_PROXY: ${SECREVIEW_PROXY:-}
+      SECREVIEW_NO_PROXY: ${SECREVIEW_NO_PROXY:-}
     ports:
       - "127.0.0.1:${SECREVIEW_CONTROLLER_PORT:-8080}:8000"
 

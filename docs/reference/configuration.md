@@ -39,12 +39,13 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Contrôleur | Claim qui nomme le [compte SSO](../utilisation/interface-web.md#comptes-sso) (comparaison exacte, sans repli) ; label de session `oidc:<valeur>` |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Contrôleur | Crée le compte SSO à sa première connexion si ses groupes lui donnent un rôle ; à `false`, un administrateur crée chaque compte SSO dans **Utilisateurs** |
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `SSO` | Contrôleur | Nom affiché sur le bouton de connexion (40 caractères au plus) |
-| `SECREVIEW_OIDC_CAFILE` | — | Contrôleur | Bundle de CA pour joindre le fournisseur (CA interne) ; un proxy se configure avec `HTTPS_PROXY` / `NO_PROXY` |
-| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | Contrôleur | [Mise à jour quotidienne](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur) de la base OSV par `serve` (seule connexion sortante) |
+| `SECREVIEW_OIDC_CAFILE` | — | Contrôleur | Bundle de CA pour joindre le fournisseur (CA interne) ; le proxy est celui de `SECREVIEW_PROXY` |
+| `SECREVIEW_PROXY` | — | Contrôleur | Proxy HTTP des connexions sortantes du contrôleur, téléchargement OSV et fournisseur SSO (`http://[utilisateur:mot de passe@]hôte:port`) ; sans lui, `HTTPS_PROXY` / `NO_PROXY` s'appliquent. Remplacé par le proxy choisi dans l'écran [Paramètres](../utilisation/interface-web.md#ecrans) (ou la connexion directe) |
+| `SECREVIEW_NO_PROXY` | — | Contrôleur | [Hôtes joints sans `SECREVIEW_PROXY`](../utilisation/dependances.md#hotes-sans-proxy), séparés par des virgules : domaines (sous-domaines compris), adresses IP, plages CIDR (`10.0.0.0/8`, `fd00::/8`), `*` ; la boucle locale est toujours directe. Remplacé par la liste de l'écran Paramètres |
+| `SECREVIEW_OSV_AUTO_UPDATE` | `false` | Contrôleur | [Mise à jour quotidienne](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur) de la base OSV par `serve` |
 | `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Contrôleur | Âge de la base au-delà duquel `serve` la met à jour (minimum `1`) |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Contrôleur | Source des exports `<URL>/<écosystème>/all.zip` (HTTPS uniquement, miroir possible) |
 | `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven` | Contrôleur | Écosystèmes téléchargés, séparés par des virgules |
-| `SECREVIEW_OSV_PROXY` | — | Contrôleur | Proxy HTTP du téléchargement (`http://[utilisateur:mot de passe@]hôte:port`) ; sans lui, `HTTPS_PROXY` / `NO_PROXY` s'appliquent. Remplacé par le proxy choisi dans l'écran [Paramètres](../utilisation/interface-web.md#ecrans) |
 | `SECREVIEW_OSV_CAFILE` | — | Contrôleur | Bundle de CA utilisé à la place de celui du système (miroir interne, proxy qui inspecte le TLS) |
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Contrôleur | Taille maximale d'une archive téléchargée |
 | `SECREVIEW_REPORT_LANGUAGE` | — | MCP | [Langue des rapports](../utilisation/prompts-outils.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent et qu'aucune langue n'est choisie dans l'écran [Paramètres](../utilisation/interface-web.md#ecrans) ; vide : l'agent choisit |

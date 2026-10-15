@@ -344,8 +344,12 @@ export interface ReportQuery {
   offset: number;
 }
 
-/** How the controller reaches the OSV exports. */
-export type ProxyMode = 'env' | 'custom' | 'none';
+/** Body of PUT /api/v1/settings/proxy: a field left out is unchanged, null restores the variable. */
+export interface ProxyUpdate {
+  /** '' connects directly, despite the variables. */
+  url?: string | null;
+  no_proxy?: string | null;
+}
 
 /** GET /api/v1/settings (proxy passwords are replaced by ***) */
 export interface AppSettings {
@@ -355,18 +359,21 @@ export interface AppSettings {
     env: string;
     effective: string;
   };
-  osv_proxy: {
-    mode: ProxyMode;
-    url: string | null;
-    env: {
-      secreview_osv_proxy: string | null;
+  /** Proxy of the outgoing connections of the controller (OSV download, SSO provider). */
+  proxy: {
+    /** value: set in the web interface (null: SECREVIEW_PROXY applies, '': direct connection). */
+    url: { value: string | null; env: string | null };
+    no_proxy: { value: string | null; env: string | null };
+    /** Standard variables, applied by urllib when no proxy is configured. */
+    environment: {
       https_proxy: string | null;
       http_proxy: string | null;
       no_proxy: string | null;
     };
     effective: {
       url: string | null;
-      source: 'web' | 'none' | 'SECREVIEW_OSV_PROXY' | 'environment';
+      no_proxy: string | null;
+      source: 'web' | 'none' | 'SECREVIEW_PROXY' | 'environment';
     };
   };
   osv: {

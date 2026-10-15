@@ -1,7 +1,9 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
     <h1 class="h3 mb-0">Paramètres</h1>
-    <p class="text-body-secondary mb-0">Langue des rapports et base de vulnérabilités OSV</p>
+    <p class="text-body-secondary mb-0">
+      Langue des rapports, proxy sortant et base de vulnérabilités OSV
+    </p>
   </div>
   <app-refresh-button [loading]="settings.isLoading()" (refresh)="reload()" />
 </div>
@@ -90,17 +92,33 @@
     <div class="card-body">
       <h2 id="proxy-title" class="h5">
         <i class="bi bi-hdd-network" aria-hidden="true"></i>
-        Proxy du téléchargement OSV
+        Proxy sortant du contrôleur
       </h2>
+      <p class="text-body-secondary small">
+        Utilisé par le téléchargement OSV et par la connexion SSO (fournisseur d'identité). Chaque
+        valeur définie ici remplace sa variable ; elle s'applique au prochain téléchargement et à la
+        prochaine connexion, sans redémarrage.
+      </p>
       <p class="mb-3">
         Proxy appliqué :
-        <strong class="font-monospace">{{ current.osv_proxy.effective.url ?? 'aucun' }}</strong>
+        <strong class="font-monospace">{{ current.proxy.effective.url ?? 'aucun' }}</strong>
         <span class="text-body-secondary">({{ proxySource() }})</span>
+        @if (current.proxy.effective.no_proxy; as bypass) {
+          <br />
+          Sans proxy : <span class="font-monospace">{{ bypass }}</span>
+        }
       </p>
 
       <form (submit)="saveProxy($event)">
         <fieldset class="mb-3">
-          <legend class="form-label">Mode</legend>
+          <legend class="form-label">
+            URL du proxy
+            @if (current.proxy.url.value !== null) {
+              <span class="badge text-bg-primary ms-1">Interface web</span>
+            } @else {
+              <span class="badge text-bg-secondary ms-1">Variable</span>
+            }
+          </legend>
           <div class="form-check">
             <input
               class="form-check-input"
@@ -111,7 +129,8 @@
               (change)="onProxyMode('env')"
             />
             <label class="form-check-label" for="proxy-env">
-              Environnement du contrôleur (SECREVIEW_OSV_PROXY, sinon HTTPS_PROXY / NO_PROXY)
+              Variable <code>SECREVIEW_PROXY</code> ({{ current.proxy.url.env ?? 'vide' }}), sinon
+              HTTPS_PROXY / NO_PROXY
             </label>
           </div>
           <div class="form-check">
@@ -135,14 +154,14 @@
               (change)="onProxyMode('none')"
             />
             <label class="form-check-label" for="proxy-none">
-              Connexion directe (ignorer le proxy de l'environnement)
+              Connexion directe (ignorer les variables de proxy)
             </label>
           </div>
         </fieldset>
 
         @if (proxyMode() === 'custom') {
           <div class="mb-3">
-            <label for="proxy-url" class="form-label">URL du proxy</label>
+            <label for="proxy-url" class="form-label">URL</label>
             <input
               id="proxy-url"
               class="form-control font-monospace"
@@ -155,8 +174,52 @@
               (input)="proxyUrl.set($any($event.target).value)"
             />
             <div class="form-text">
-              HTTP uniquement (le tunnel vers OSV reste en HTTPS). Le mot de passe n'est jamais
-              réaffiché : laissez <code>***</code> pour conserver celui enregistré.
+              HTTP uniquement (le tunnel vers OSV et le fournisseur reste en HTTPS). Le mot de passe
+              n'est jamais réaffiché : laissez <code>***</code> pour conserver celui enregistré.
+            </div>
+          </div>
+        }
+
+        @if (proxyMode() !== 'none') {
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input
+                id="no-proxy-custom"
+                class="form-check-input"
+                type="checkbox"
+                role="switch"
+                [checked]="noProxyCustom()"
+                (change)="noProxyCustom.set($any($event.target).checked)"
+              />
+              <label class="form-check-label" for="no-proxy-custom">
+                Hôtes sans proxy définis ici
+                @if (current.proxy.no_proxy.value !== null) {
+                  <span class="badge text-bg-primary ms-1">Interface web</span>
+                } @else {
+                  <span class="badge text-bg-secondary ms-1">Variable</span>
+                }
+              </label>
+            </div>
+            @if (noProxyCustom()) {
+              <input
+                id="no-proxy"
+                class="form-control font-monospace mt-2"
+                type="text"
+                maxlength="500"
+                autocomplete="off"
+                spellcheck="false"
+                aria-label="Hôtes sans proxy"
+                placeholder=".corp.example, 10.0.0.5, 10.0.0.0/8, fd00::/8"
+                [value]="noProxy()"
+                (input)="noProxy.set($any($event.target).value)"
+              />
+            }
+            <div class="form-text">
+              Séparés par des virgules : domaines (sous-domaines compris), adresses IP, plages CIDR
+              (<code>10.0.0.0/8</code>, <code>fd00::/8</code>, pour les URL dont l'hôte est une
+              adresse IP), <code>*</code> pour tous les hôtes ; la boucle locale est toujours
+              directe. Variable <code>SECREVIEW_NO_PROXY</code> :
+              {{ current.proxy.no_proxy.env ?? 'vide' }}.
             </div>
           </div>
         }
@@ -170,20 +233,24 @@
       <table class="table table-sm env-table mb-0">
         <tbody>
           <tr>
-            <th scope="row"><code>SECREVIEW_OSV_PROXY</code></th>
-            <td class="font-monospace">{{ current.osv_proxy.env.secreview_osv_proxy ?? '—' }}</td>
+            <th scope="row"><code>SECREVIEW_PROXY</code></th>
+            <td class="font-monospace">{{ current.proxy.url.env ?? '—' }}</td>
+          </tr>
+          <tr>
+            <th scope="row"><code>SECREVIEW_NO_PROXY</code></th>
+            <td class="font-monospace">{{ current.proxy.no_proxy.env ?? '—' }}</td>
           </tr>
           <tr>
             <th scope="row"><code>HTTPS_PROXY</code></th>
-            <td class="font-monospace">{{ current.osv_proxy.env.https_proxy ?? '—' }}</td>
+            <td class="font-monospace">{{ current.proxy.environment.https_proxy ?? '—' }}</td>
           </tr>
           <tr>
             <th scope="row"><code>HTTP_PROXY</code></th>
-            <td class="font-monospace">{{ current.osv_proxy.env.http_proxy ?? '—' }}</td>
+            <td class="font-monospace">{{ current.proxy.environment.http_proxy ?? '—' }}</td>
           </tr>
           <tr>
             <th scope="row"><code>NO_PROXY</code></th>
-            <td class="font-monospace">{{ current.osv_proxy.env.no_proxy ?? '—' }}</td>
+            <td class="font-monospace">{{ current.proxy.environment.no_proxy ?? '—' }}</td>
           </tr>
         </tbody>
       </table>

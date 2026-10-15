@@ -113,16 +113,23 @@ class Settings(BaseSettings):
     oidc_display_name: str = "SSO"
     oidc_cafile: str | None = None
 
+    # Controller only: HTTP proxy of its outgoing connections (OSV download, SSO identity
+    # provider), http://[user:password@]host:port, and the comma-separated hosts reached without
+    # it (no_proxy: a domain also covers its subdomains, an IP address or CIDR range the URLs
+    # whose host is such an address, * every host; the loopback interface is always direct).
+    # Without proxy, urllib applies HTTPS_PROXY / NO_PROXY. Both can be overridden in the web
+    # interface (Paramètres, see app_settings).
+    proxy: str | None = None
+    no_proxy: str | None = None
+
     # Controller only: download the OSV exports (all.zip of each ecosystem) from osv_url and
-    # import them every osv_update_interval_hours. Disabled by default: it is the only outgoing
-    # connection of the controller (the MCP server never makes one). osv_proxy is an HTTP proxy
-    # (http://[user:password@]host:port; without it, HTTPS_PROXY / NO_PROXY apply), osv_cafile a
-    # CA bundle used instead of the system one (mirror or TLS-inspecting proxy).
+    # import them every osv_update_interval_hours. Disabled by default (the MCP server never
+    # connects anywhere). osv_cafile is a CA bundle used instead of the system one (mirror or
+    # TLS-inspecting proxy).
     osv_auto_update: bool = False
     osv_update_interval_hours: int = 24
     osv_url: str = "https://osv-vulnerabilities.storage.googleapis.com"
     osv_ecosystems: str = "PyPI,npm,Maven"
-    osv_proxy: str | None = None
     osv_cafile: str | None = None
     osv_max_download_mb: int = 1024
 
@@ -138,6 +145,12 @@ class Settings(BaseSettings):
     max_findings_per_report: int = 500
     max_dependency_chars: int = 1_000_000
     max_list_limit: int = 100
+
+    @field_validator("proxy", "no_proxy")
+    @classmethod
+    def _empty_is_unset(cls, value: str | None) -> str | None:
+        """An empty variable means no value (an empty stored proxy means a direct connection)."""
+        return value.strip() or None if value is not None else None
 
     @field_validator("report_language")
     @classmethod

@@ -122,7 +122,7 @@ docker compose logs controller   # mot de passe admin initial
 - La base d'avis de vulnérabilités est **vide** au premier démarrage : l'analyse de dépendances
   répond alors qu'aucune base n'est chargée. Pour que le contrôleur la télécharge au démarrage
   puis toutes les 24 h, ajoutez `SECREVIEW_OSV_AUTO_UPDATE=true` dans `.env` (et, si besoin,
-  `SECREVIEW_OSV_ECOSYSTEMS` et `SECREVIEW_OSV_PROXY`), que le fichier Compose transmet au seul
+  `SECREVIEW_OSV_ECOSYSTEMS`, `SECREVIEW_PROXY` et `SECREVIEW_NO_PROXY`), que le fichier Compose transmet au seul
   contrôleur, puis `docker compose up -d`. Suivez l'import avec `docker compose logs -f
   controller` ou dans les paramètres de l'interface web. Sans accès Internet, importez une
   archive avec `advisories import` (voir [Dépendances](../utilisation/dependances.md)).

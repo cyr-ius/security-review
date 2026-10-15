@@ -35,20 +35,21 @@ exports `all.zip` de chaque écosystème et les importe, puis recommence toutes 
 
 ```bash
 SECREVIEW_OSV_AUTO_UPDATE=true
-# Facultatif : proxy HTTP sortant (identifiants acceptés, jamais journalisés)
-SECREVIEW_OSV_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
+# Facultatif : proxy HTTP sortant du contrôleur (identifiants acceptés, jamais journalisés)
+SECREVIEW_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
 ```
 
-- **Désactivée par défaut** : c'est la seule connexion sortante du contrôleur. Le serveur MCP,
-  lui, ne se connecte jamais à l'extérieur.
+- **Désactivée par défaut**. Le serveur MCP, lui, ne se connecte jamais à l'extérieur.
 - L'échéance dépend de l'âge de la base (dernier import, manuel ou automatique) : un
   redémarrage ou une seconde réplique du contrôleur ne retélécharge pas avant la fin de
   l'intervalle (`SECREVIEW_OSV_UPDATE_INTERVAL_HOURS`, 24 par défaut). Une base vide ou trop
   ancienne est mise à jour dès le démarrage.
-- **Proxy** : `SECREVIEW_OSV_PROXY` accepte un proxy HTTP (`http://[utilisateur:mot de passe@]hôte:port`,
-  tunnel `CONNECT` vers le site HTTPS). Sans lui, les variables standard `HTTPS_PROXY` et
-  `NO_PROXY` s'appliquent. Si le proxy inspecte le TLS, donnez sa CA avec
-  `SECREVIEW_OSV_CAFILE` (elle remplace alors les CA du système).
+- **Proxy** : le téléchargement passe par le proxy sortant du contrôleur, `SECREVIEW_PROXY`
+  (`http://[utilisateur:mot de passe@]hôte:port`, tunnel `CONNECT` vers le site HTTPS), sauf
+  vers les hôtes de `SECREVIEW_NO_PROXY`. Le même proxy sert à la
+  [connexion SSO](interface-web.md#connexion-sso-openid-connect). Sans lui, les variables
+  standard `HTTPS_PROXY` et `NO_PROXY` s'appliquent. Si le proxy inspecte le TLS, donnez sa CA
+  avec `SECREVIEW_OSV_CAFILE` (elle remplace alors les CA du système).
 - **Miroir** : `SECREVIEW_OSV_URL` remplace la source (Nexus, Artifactory, bucket interne…)
   tant qu'il sert `<URL>/<écosystème>/all.zip` en HTTPS. HTTP en clair, identifiants dans l'URL
   et redirections vers autre chose que HTTPS sont refusés.
@@ -58,9 +59,33 @@ SECREVIEW_OSV_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
 - Un écosystème en échec (réseau, taille, archive invalide) n'empêche pas les autres ; il est
   journalisé et une nouvelle tentative a lieu une heure plus tard.
 
+#### Hôtes sans proxy
+
+`SECREVIEW_NO_PROXY` (ou la liste de l'écran **Paramètres**) donne, séparées par des virgules,
+les destinations jointes **sans** le proxy :
+
+| Entrée | Exemple | Effet |
+|---|---|---|
+| Domaine | `corp.example` ou `.corp.example` | Le domaine et tous ses sous-domaines (`sso.corp.example`) |
+| Joker de sous-domaines | `*.corp.example` | Identique à `.corp.example` |
+| Adresse IP | `10.0.0.5`, `[fd00::5]` | Cette adresse (un port éventuel, `10.0.0.5:8443`, est ignoré) |
+| Plage CIDR | `10.0.0.0/8`, `192.168.1.128/25`, `fd00::/8` | Toute adresse IPv4 ou IPv6 de la plage |
+| Tout | `*` | Aucune connexion ne passe par le proxy |
+
+Comme curl, une adresse ou une plage CIDR ne s'applique qu'à une URL dont l'hôte **est** une
+adresse IP (`https://10.1.2.3/...`) : un nom d'hôte n'est jamais résolu pour être comparé à une
+plage. Pour contourner le proxy vers un serveur interne joint par son nom, indiquez son domaine.
+La boucle locale (`localhost`, `127.0.0.0/8`, `::1`) est toujours jointe directement. Une plage
+invalide (`10.0.0.0/33`, `example.com/chemin`) est refusée.
+
+```bash
+SECREVIEW_NO_PROXY=.corp.example,10.0.0.0/8,172.16.0.0/12,fd00::/8
+```
+
 Le proxy peut aussi être choisi par un administrateur dans l'écran
-[**Paramètres**](interface-web.md#ecrans) de l'interface web : proxy défini ici ou connexion
-directe, prioritaires sur `SECREVIEW_OSV_PROXY` et `HTTPS_PROXY`. Le même écran affiche l'état de
+[**Paramètres**](interface-web.md#ecrans) de l'interface web : proxy et hôtes sans proxy
+définis ici, ou connexion directe, prioritaires sur `SECREVIEW_PROXY`, `SECREVIEW_NO_PROXY` et
+`HTTPS_PROXY` ; ils s'appliquent au téléchargement suivant. Le même écran affiche l'état de
 la base, l'historique des mises à jour (planifiées, CLI ou web) et un bouton **Mettre à jour
 maintenant** (lancement en arrière-plan, une mise à jour à la fois), disponible seulement quand
 `SECREVIEW_OSV_AUTO_UPDATE=true`.

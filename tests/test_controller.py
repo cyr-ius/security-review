@@ -289,12 +289,12 @@ def test_serve_runs_the_osv_updater_only_when_enabled(settings, captured_run, ui
     controller.main(["serve"])
     assert fake_updater == []
 
-    settings(osv_auto_update=True, osv_proxy="http://proxy.internal:3128")
+    settings(osv_auto_update=True, proxy="http://proxy.internal:3128")
     controller.main(["serve"])
 
     (updater,) = fake_updater
     assert updater.events == ["start", "stop"]
-    assert updater.settings.osv_proxy == "http://proxy.internal:3128"
+    assert updater.settings.proxy == "http://proxy.internal:3128"
 
 
 def test_serve_refuses_an_invalid_osv_setting(settings, captured_run, ui_dir, capsys):

@@ -1,4 +1,4 @@
-"""Settings changed in the web interface: report language and proxy of the OSV download."""
+"""Settings changed in the web interface: report language, proxy and single sign-on."""
 
 import pytest
 from sqlmodel import select
@@ -57,25 +57,36 @@ def test_updated_by_is_recorded():
 # ── proxy ────────────────────────────────────────────────────────────────────
 
 
-def test_proxy_defaults_to_the_variable_then_the_environment(monkeypatch):
-    assert app_settings.proxy_choice(make_settings(osv_proxy=PROXY)) == app_settings.ProxyChoice(
-        PROXY, "SECREVIEW_OSV_PROXY"
+def effective_proxy(settings: Settings) -> tuple[str | None, str | None]:
+    """Proxy URL and no_proxy list of the effective settings."""
+    effective = app_settings.effective_settings(settings)
+    return effective.proxy, effective.no_proxy
+
+
+def test_proxy_follows_the_variables_without_stored_value():
+    settings = make_settings(proxy=PROXY, no_proxy="osv.internal")
+    assert effective_proxy(settings) == (PROXY, "osv.internal")
+    # An empty variable means no proxy configured: urllib applies HTTPS_PROXY / NO_PROXY
+    assert effective_proxy(make_settings(proxy=" ", no_proxy="")) == (None, None)
+
+
+def test_proxy_set_in_the_web_interface_overrides_each_variable():
+    settings = make_settings(proxy=PROXY, no_proxy="osv.internal")
+
+    app_settings.set_proxy({"url": "http://web-proxy:8080"}, "admin")
+    assert effective_proxy(settings) == ("http://web-proxy:8080", "osv.internal")
+
+    app_settings.set_proxy({"no_proxy": " .example.com , 10.0.0.1, 192.168.0.0/16 "}, "admin")
+    assert effective_proxy(settings) == (
+        "http://web-proxy:8080",
+        ".example.com,10.0.0.1,192.168.0.0/16",
     )
-    assert app_settings.proxy_choice(make_settings()).source == "environment"
 
-
-def test_proxy_set_in_the_web_interface_comes_first():
-    app_settings.set_osv_proxy("custom", "http://web-proxy:8080", "admin")
-    choice = app_settings.proxy_choice(make_settings(osv_proxy=PROXY))
-    assert choice == app_settings.ProxyChoice("http://web-proxy:8080", "web")
-
-    app_settings.set_osv_proxy("none", None, "admin")
-    assert app_settings.proxy_choice(make_settings(osv_proxy=PROXY)).source == "none"
-
-    app_settings.set_osv_proxy("env", None, "admin")
-    assert app_settings.proxy_choice(make_settings(osv_proxy=PROXY)).source == (
-        "SECREVIEW_OSV_PROXY"
-    )
+    # "" connects directly, despite the variable; null applies the variable again
+    app_settings.set_proxy({"url": ""}, "admin")
+    assert effective_proxy(settings)[0] == ""
+    app_settings.set_proxy({"url": None, "no_proxy": None}, "admin")
+    assert effective_proxy(settings) == (PROXY, "osv.internal")
     with session_scope() as session:
         assert session.exec(select(AppSetting)).all() == []
 
@@ -97,59 +108,82 @@ def test_proxy_set_in_the_web_interface_comes_first():
 )
 def test_invalid_proxy_urls_are_refused(url):
     with pytest.raises(ValueError, match="proxy"):
-        app_settings.set_osv_proxy("custom", url, "admin")
+        app_settings.set_proxy({"url": url}, "admin")
 
 
-def test_custom_mode_needs_a_url():
-    with pytest.raises(ValueError, match="required"):
-        app_settings.set_osv_proxy("custom", " ", "admin")
-
-
-def test_unknown_mode_is_refused():
-    with pytest.raises(ValueError, match="mode"):
-        app_settings.set_osv_proxy("socks", None, "admin")  # type: ignore[arg-type]
+@pytest.mark.parametrize(
+    ("values", "message"),
+    [
+        ({"no_proxy": "example.com/path"}, "invalid CIDR range"),
+        ({"no_proxy": "10.0.0.0/33"}, "invalid CIDR range"),
+        ({"no_proxy": "a.com,b com"}, "invalid entry"),
+        ({"no_proxy": "a" * 501}, "too long"),
+        ({"mode": "custom"}, "unknown proxy setting"),
+    ],
+)
+def test_invalid_proxy_settings_are_refused(values, message):
+    with pytest.raises(ValueError, match=message):
+        app_settings.set_proxy(values, "admin")
 
 
 def test_describe_never_returns_the_proxy_password(monkeypatch):
     monkeypatch.setenv("HTTPS_PROXY", "http://bob:hunter2@corporate:8080")
-    app_settings.set_osv_proxy("custom", PROXY, "admin")
+    app_settings.set_proxy({"url": PROXY}, "admin")
 
-    described = app_settings.describe(make_settings(osv_proxy="http://carol:pa55@env-proxy:3128"))
+    described = app_settings.describe(make_settings(proxy="http://carol:pa55@env-proxy:3128"))
 
     text = repr(described)
     assert "s3cr3t" not in text and "hunter2" not in text and "pa55" not in text
-    proxy = described["osv_proxy"]
-    assert proxy["url"] == "http://alice:***@proxy.internal:3128"
-    assert proxy["effective"] == {"url": "http://alice:***@proxy.internal:3128", "source": "web"}
-    assert proxy["env"]["secreview_osv_proxy"] == "http://carol:***@env-proxy:3128"
-    assert proxy["env"]["https_proxy"] == "http://bob:***@corporate:8080"
+    proxy = described["proxy"]
+    assert proxy["url"] == {
+        "value": "http://alice:***@proxy.internal:3128",
+        "env": "http://carol:***@env-proxy:3128",
+    }
+    assert proxy["effective"] == {
+        "url": "http://alice:***@proxy.internal:3128",
+        "no_proxy": None,
+        "source": "web",
+    }
+    assert proxy["environment"]["https_proxy"] == "http://bob:***@corporate:8080"
 
 
-def test_describe_shows_the_environment_proxy_when_it_applies(monkeypatch):
+def test_describe_shows_the_source_of_the_effective_proxy(monkeypatch):
     monkeypatch.setenv("HTTPS_PROXY", "http://corporate:8080")
     monkeypatch.setenv("NO_PROXY", "localhost,.internal")
 
-    proxy = app_settings.describe(make_settings())["osv_proxy"]
+    proxy = app_settings.describe(make_settings())["proxy"]
+    assert proxy["url"] == {"value": None, "env": None}
+    assert proxy["effective"] == {
+        "url": "http://corporate:8080",
+        "no_proxy": None,
+        "source": "environment",
+    }
+    assert proxy["environment"]["no_proxy"] == "localhost,.internal"
 
-    assert proxy["mode"] == "env"
-    assert proxy["effective"] == {"url": "http://corporate:8080", "source": "environment"}
-    assert proxy["env"]["no_proxy"] == "localhost,.internal"
+    settings = make_settings(proxy="http://env-proxy:3128", no_proxy="osv.internal")
+    assert app_settings.describe(settings)["proxy"]["effective"] == {
+        "url": "http://env-proxy:3128",
+        "no_proxy": "osv.internal",
+        "source": "SECREVIEW_PROXY",
+    }
+    app_settings.set_proxy({"url": ""}, "admin")
+    assert app_settings.describe(settings)["proxy"]["effective"]["source"] == "none"
 
 
 def test_masked_password_keeps_the_stored_one():
-    app_settings.set_osv_proxy("custom", PROXY, "admin")
+    app_settings.set_proxy({"url": PROXY}, "admin")
 
-    app_settings.set_osv_proxy("custom", "http://alice:***@proxy.internal:3128", "admin")
+    app_settings.set_proxy({"url": "http://alice:***@proxy.internal:3128"}, "admin")
 
-    assert app_settings.proxy_choice(make_settings()).url == PROXY
+    assert effective_proxy(make_settings())[0] == PROXY
 
 
 def test_masked_password_for_another_proxy_is_refused():
-    app_settings.set_osv_proxy("custom", PROXY, "admin")
+    app_settings.set_proxy({"url": PROXY}, "admin")
 
     with pytest.raises(ValueError, match="password again"):
-        app_settings.set_osv_proxy("custom", "http://alice:***@other:3128", "admin")
-    assert app_settings.proxy_choice(make_settings()).url == PROXY
+        app_settings.set_proxy({"url": "http://alice:***@other:3128"}, "admin")
+    assert effective_proxy(make_settings())[0] == PROXY
 
 
 # ── single sign-on (OIDC) ────────────────────────────────────────────────────
@@ -167,7 +201,7 @@ def test_oidc_settings_override_the_variables_one_by_one():
 
     app_settings.set_oidc(SSO | {"auto_create_users": True}, "admin", settings)
 
-    effective = app_settings.oidc_settings(settings)
+    effective = app_settings.effective_settings(settings)
     assert effective.oidc_enabled is True
     assert effective.oidc_client_id == "secreview"
     assert effective.oidc_auto_create_users is True
@@ -182,7 +216,7 @@ def test_oidc_settings_override_the_variables_one_by_one():
 
     # null applies the variable again; a field left out is unchanged
     app_settings.set_oidc({"client_id": None, "enabled": False}, "admin", settings)
-    effective = app_settings.oidc_settings(settings)
+    effective = app_settings.effective_settings(settings)
     assert effective.oidc_client_id == "from-env"
     assert effective.oidc_enabled is False
     assert effective.oidc_issuer == SSO["issuer"]
@@ -190,7 +224,7 @@ def test_oidc_settings_override_the_variables_one_by_one():
 
 def test_oidc_settings_without_stored_value_are_the_variables():
     settings = make_settings(oidc_issuer="https://env.example.com")
-    assert app_settings.oidc_settings(settings) is settings
+    assert app_settings.effective_settings(settings) is settings
 
 
 def test_oidc_client_secret_is_never_described_and_the_mask_keeps_it():
@@ -206,11 +240,11 @@ def test_oidc_client_secret_is_never_described_and_the_mask_keeps_it():
     }
 
     app_settings.set_oidc({"client_secret": "***", "client_id": "other"}, "admin", settings)
-    assert app_settings.oidc_settings(settings).oidc_client_secret == "db-s3cr3t"
+    assert app_settings.effective_settings(settings).oidc_client_secret == "db-s3cr3t"
 
     # "" makes the client public, despite the variable
     app_settings.set_oidc({"client_secret": ""}, "admin", settings)
-    assert app_settings.oidc_settings(settings).oidc_client_secret == ""
+    assert app_settings.effective_settings(settings).oidc_client_secret == ""
     assert app_settings.describe_oidc(settings)["fields"]["client_secret"]["value"] == ""
 
 
@@ -220,11 +254,11 @@ def test_invalid_enabled_oidc_settings_are_refused_and_nothing_is_stored():
         app_settings.set_oidc({"enabled": True, "client_id": "secreview"}, "admin", settings)
     with pytest.raises(ValueError, match="https"):
         app_settings.set_oidc(SSO | {"issuer": "http://sso.example.com"}, "admin", settings)
-    assert app_settings.oidc_settings(settings) is settings
+    assert app_settings.effective_settings(settings) is settings
 
     # Disabled, an incomplete configuration can be prepared
     app_settings.set_oidc({"client_id": "secreview"}, "admin", settings)
-    assert app_settings.oidc_settings(settings).oidc_client_id == "secreview"
+    assert app_settings.effective_settings(settings).oidc_client_id == "secreview"
 
 
 @pytest.mark.parametrize(
