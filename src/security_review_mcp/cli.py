@@ -19,6 +19,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from . import (
     advisories,
     advisory_sync,
+    app_settings,
     codescan,
     depscan,
     enrollment,
@@ -475,12 +476,13 @@ def token_command(argv: list[str]) -> int:
         "--role",
         choices=[role.value for role in http_server.Role],
         default=http_server.DEFAULT_ROLE.value,
-        help="mcp (default): MCP endpoint; reader/triager: web interface; admin: both",
+        help="mcp (default): MCP endpoint; reader: REST API read only; triager: REST API read "
+        "and triage; admin: both",
     )
     creator.add_argument(
         "--project",
         action="append",
-        help="restrict the token to this project (MCP tools and web interface); repeat it to "
+        help="restrict the token to this project (MCP tools and REST API); repeat it to "
         "give several projects",
     )
     lister = actions.add_parser("list", help="list the tokens (never their secret or hash)")
@@ -516,7 +518,7 @@ def token_command(argv: list[str]) -> int:
                 else token_store.list_tokens(args.project)
             )
         elif args.action == "approve":
-            create_sso = get_settings().oidc_enabled
+            create_sso = app_settings.oidc_settings().oidc_enabled
             portal_user = (
                 web_users.check_project_grant(args.portal_user, create_sso)
                 if args.portal_user

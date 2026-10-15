@@ -63,8 +63,10 @@ version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, 
 - **Mon compte** : affiche le type du compte. Un utilisateur local y change son mot de passe (ses
   autres sessions sont fermées) ; celui d'un utilisateur SSO est géré par le fournisseur
   d'identité.
-- **Jetons** : les administrateurs créent et révoquent des jetons de rôle `reader`, `triager` ou
-  `mcp`, limités à un ou plusieurs projets. Le rôle `admin` reste non restreint et se crée par la
+- **Jetons** : les administrateurs créent et révoquent des jetons limités à un ou plusieurs
+  projets. Le champ **Usage** choisit **MCP** (rôle `mcp`) ou **API REST** ; pour l'API REST,
+  **Droits API** choisit **Lecture seule** (`reader`) ou **Lecture et triage** (`triager`). La
+  liste affiche l'usage de chaque jeton. Un jeton n'ouvre jamais l'interface web. Le rôle `admin` reste non restreint et se crée par la
   CLI. Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
   données. Une révocation prend effet à la requête suivante. La section
   **Demandes en attente** distingue les nouveaux jetons des demandes d'accès à un projet
@@ -102,12 +104,12 @@ Les **jetons** donnent accès au serveur MCP et à l'API REST (agents, CI, scrip
 **utilisateurs** (comptes locaux ou SSO) sont les seuls à ouvrir l'interface web. Chaque jeton
 porte un rôle, qui détermine les endpoints accessibles :
 
-| Rôle | `/mcp` | Interface web (lecture) | Changement de statut |
-|---|---|---|---|
-| `mcp` (défaut) | ✅ | — | — |
-| `reader` | — | ✅ | — |
-| `triager` | — | ✅ | ✅ |
-| `admin` | ✅ | ✅ | ✅ |
+| Rôle | Usage (écran **Jetons**) | `/mcp` | API REST (lecture) | Changement de statut |
+|---|---|---|---|---|
+| `mcp` (défaut) | MCP | ✅ | — | — |
+| `reader` | API REST — lecture seule | — | ✅ | — |
+| `triager` | API REST — lecture et triage | — | ✅ | ✅ |
+| `admin` | CLI uniquement | ✅ | ✅ | ✅ |
 
 Un jeton `mcp`, `reader` ou `triager` restreint avec `--project` ne voit et ne trie que les
 projets autorisés ; l'option peut être répétée (voir

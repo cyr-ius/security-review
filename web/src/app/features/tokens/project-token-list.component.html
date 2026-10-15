@@ -149,15 +149,32 @@
         (input)="label.set($any($event.target).value)"
       />
     </div>
-    <div class="col-md-3">
-      <label for="token-role" class="form-label">Rôle</label>
-      <select id="token-role" class="form-select" [value]="role()" (change)="onRoleChange($event)">
-        <option value="reader">Lecture web</option>
-        <option value="triager">Triage web</option>
-        <option value="mcp">Outils MCP</option>
+    <div class="col-md-2">
+      <label for="token-usage" class="form-label">Usage</label>
+      <select
+        id="token-usage"
+        class="form-select"
+        [value]="usage()"
+        (change)="onUsageChange($event)"
+      >
+        <option value="mcp">MCP</option>
+        <option value="api">API REST</option>
       </select>
     </div>
-    <fieldset class="col-md-4">
+    <div class="col-md-2">
+      <label for="token-api-role" class="form-label">Droits API</label>
+      <select
+        id="token-api-role"
+        class="form-select"
+        [value]="apiRole()"
+        [disabled]="usage() !== 'api'"
+        (change)="onApiRoleChange($event)"
+      >
+        <option value="reader">Lecture seule</option>
+        <option value="triager">Lecture et triage</option>
+      </select>
+    </div>
+    <fieldset class="col-md-3">
       <legend class="form-label">Projets autorisés</legend>
       @if ((projects.value() ?? []).length) {
         <div class="d-flex flex-wrap gap-3">
@@ -209,7 +226,7 @@
           <tr>
             <th scope="col">Label</th>
             <th scope="col">Projets autorisés</th>
-            <th scope="col">Rôle</th>
+            <th scope="col">Usage</th>
             <th scope="col">Créé le</th>
             <th scope="col" class="text-end">Action</th>
           </tr>
@@ -226,7 +243,7 @@
                   </div>
                 }
               </td>
-              <td>{{ token.role }}</td>
+              <td>{{ roleLabel(token.role) }}</td>
               <td>{{ token.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
               <td class="text-end">
                 <button
