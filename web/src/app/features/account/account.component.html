@@ -4,7 +4,16 @@
     <p class="text-body-secondary mb-0">
       {{ identity.client }} ·
       <i class="bi" [class]="role().icon" aria-hidden="true"></i>
-      {{ role().label }}
+      {{ role().label }} ·
+      @if (identity.auth_source === 'oidc') {
+        <span class="badge text-bg-primary bg-opacity-75">
+          <i class="bi bi-shield-lock" aria-hidden="true"></i> Compte SSO
+        </span>
+      } @else {
+        <span class="badge text-bg-secondary">
+          <i class="bi bi-person" aria-hidden="true"></i> Compte local
+        </span>
+      }
     </p>
   }
 </div>
@@ -83,6 +92,6 @@
 } @else {
   <div class="alert alert-info py-2" role="status">
     <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
-    Vous êtes connecté avec un jeton d'accès ou par SSO : aucun mot de passe n'est géré ici.
+    Compte SSO : le mot de passe est géré par votre fournisseur d'identité, pas ici.
   </div>
 }

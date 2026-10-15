@@ -139,94 +139,23 @@ def test_matching_is_exact():
     assert resolve("Devs ") is None
 
 
-# ── User grants ──────────────────────────────────────────────────────────────
+# ── Combination with the role of a web user ──────────────────────────────────
 
 
-def test_user_grants_add_projects_then_update_and_delete():
-    created = role_mapping.grant_user_projects(" alice ", ["shop-api"], created_by="admin")
-    assert (created["username"], created["role"], created["projects"]) == (
-        "alice",
-        "reader",
-        ["shop-api"],
+def test_combine_keeps_the_highest_role_and_merges_its_projects():
+    assert role_mapping.combine([]) is None
+    assert role_mapping.combine([(Role.READER, ["a"]), (Role.READER, ["b"])]) == Access(
+        Role.READER, frozenset({"a", "b"})
     )
-    # A second grant (complementary enrollment) adds the project to the same user
-    merged = role_mapping.grant_user_projects("alice", ["billing", "shop-api"])
-    assert merged["id"] == created["id"] and merged["projects"] == ["shop-api", "billing"]
-    assert merged["created_by"] == "admin"
-    assert [item["username"] for item in role_mapping.list_user_grants()] == ["alice"]
-
-    assert role_mapping.update_user_grant(created["id"], ["crm"])["projects"] == ["crm"]
-    with pytest.raises(ValueError, match="at least one project"):
-        role_mapping.update_user_grant(created["id"], [])
-    assert role_mapping.delete_user_grant(created["id"])["username"] == "alice"
-    assert role_mapping.list_user_grants() == []
-    with pytest.raises(services.NotFoundError):
-        role_mapping.delete_user_grant(created["id"])
-    with pytest.raises(services.NotFoundError):
-        role_mapping.update_user_grant(created["id"], ["crm"])
-
-
-@pytest.mark.parametrize(
-    ("username", "projects", "message"),
-    [
-        (" ", ["shop-api"], "between 1 and"),
-        ("x" * 201, ["shop-api"], "between 1 and"),
-        ("alice\nadmin", ["shop-api"], "control characters"),
-        ("alice", [], "at least one project"),
-        ("alice", ["bad\x00project"], "control characters"),
-        ("alice", [f"p{i}" for i in range(51)], "at most"),
-    ],
-)
-def test_invalid_user_grants_are_refused(username, projects, message):
-    with pytest.raises(ValueError, match=message):
-        role_mapping.grant_user_projects(username, projects)
-    assert role_mapping.list_user_grants() == []
-
-
-def test_user_grants_are_bounded(monkeypatch):
-    monkeypatch.setattr(role_mapping, "MAX_USER_GRANTS", 1)
-    role_mapping.grant_user_projects("alice", ["shop-api"])
-    with pytest.raises(ValueError, match="At most 1 user grants"):
-        role_mapping.check_user_grant("bob")
-    # The existing user can still be granted more projects
-    assert role_mapping.check_user_grant("alice") == "alice"
-    monkeypatch.setattr(role_mapping, "MAX_PROJECTS_PER_TOKEN", 1)
-    with pytest.raises(ValueError, match="already reads 1 projects"):
-        role_mapping.check_user_grant("alice")
-
-
-def test_user_grant_alone_gives_reader_on_its_projects():
-    role_mapping.grant_user_projects("alice", ["shop-api", "billing"])
-    assert role_mapping.resolve(set(), make_settings(), "alice") == Access(
-        Role.READER, frozenset({"shop-api", "billing"})
+    assert role_mapping.combine([(Role.READER, ["a"]), (Role.TRIAGER, ["b"])]) == Access(
+        Role.TRIAGER, frozenset({"b"})
     )
-    # Matched exactly on the user name
-    assert role_mapping.resolve(set(), make_settings(), "Alice") is None
-    assert role_mapping.resolve(set(), make_settings(), None) is None
+    # An unrestricted access of the winning role reaches every project
+    assert role_mapping.combine([(Role.READER, ["a"]), (Role.READER, None)]) == Access(Role.READER)
+    assert role_mapping.combine([(Role.ADMIN, None), (Role.READER, ["a"])]) == Access(Role.ADMIN)
 
 
-def test_user_grant_is_merged_with_the_reader_mappings():
-    role_mapping.create_mapping("devs", "reader", ["crm"])
-    role_mapping.grant_user_projects("alice", ["shop-api"])
-    assert role_mapping.resolve({"devs"}, make_settings(), "alice") == Access(
-        Role.READER, frozenset({"crm", "shop-api"})
-    )
-
-
-def test_higher_group_role_wins_over_a_user_grant():
-    role_mapping.create_mapping("payments", "triager", ["billing"])
-    role_mapping.grant_user_projects("alice", ["shop-api"])
-    assert role_mapping.resolve({"payments"}, make_settings(), "alice") == Access(
-        Role.TRIAGER, frozenset({"billing"})
-    )
-
-
-def test_default_role_still_applies_next_to_a_user_grant():
-    role_mapping.grant_user_projects("alice", ["shop-api"])
-    # A user grant never narrows the default role (every project)
-    assert role_mapping.resolve(
-        set(), make_settings(oidc_default_role="reader"), "alice"
-    ) == Access(Role.READER)
-    assert role_mapping.resolve(
-        set(), make_settings(oidc_default_role="triager"), "alice"
-    ) == Access(Role.TRIAGER)
+def test_combine_refuses_too_many_projects(monkeypatch):
+    monkeypatch.setattr(role_mapping, "MAX_SESSION_PROJECTS", 2)
+    with pytest.raises(ValueError, match="more than 2 projects"):
+        role_mapping.combine([(Role.READER, ["a", "b"]), (Role.READER, ["c"])])

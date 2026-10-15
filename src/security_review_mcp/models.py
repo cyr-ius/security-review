@@ -320,43 +320,48 @@ class OidcRoleMapping(SQLModel, table=True):
     created_by: str | None = Field(default=None, max_length=64)
 
 
-class OidcUserGrant(SQLModel, table=True):
-    """Projects an OIDC user reads in the web interface, granted by name (``reader``).
-
-    Usually created when an administrator approves an enrollment request: the developer who
-    enrolled a project for the MCP tools reads its reports in the web interface. ``username`` is
-    compared exactly with the ``SECREVIEW_OIDC_USERNAME_CLAIM`` claim of the login; ``projects``
-    is the JSON list of the projects (never empty).
-    """
-
-    id: int | None = Field(default=None, primary_key=True)
-    username: str = Field(unique=True, index=True, max_length=200)
-    projects: str = Field(default="[]")
-    created_at: datetime = Field(default_factory=utcnow)
-    updated_at: datetime = Field(default_factory=utcnow)
-    created_by: str | None = Field(default=None, max_length=64)
-
-
 # ── Web users (username and password login, see web_users) ───────────────────
 
 
 class WebUser(SQLModel, table=True):
-    """Account of the web interface: a username, a password and a web role.
+    """Account of the web interface: a local account (username and password) or an SSO one.
 
-    Only a scrypt hash of the password is stored. ``projects`` is the JSON list of the projects a
-    ``reader`` or ``triager`` reaches; an empty list means every project (always for ``admin``).
+    ``auth_source`` is ``local`` (password login, only a scrypt hash of the password is stored)
+    or ``oidc`` (OpenID Connect login, no password). ``role`` and ``projects`` are the access
+    given by an administrator: ``projects`` is the JSON list of the projects a ``reader`` or
+    ``triager`` reaches, an empty list meaning every project (always for ``admin``). An SSO
+    account may have no role of its own (``role`` None): ``sso_role`` and ``sso_projects`` hold
+    the access its groups gave at its last login (see role_mapping), and the highest of both
+    applies. ``oidc_subject`` is the ``sub`` claim bound at the first SSO login.
     ``session_version`` is drawn at random at creation and at each password change: the sessions
     issued with another version are refused.
     """
 
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True, max_length=64)
-    role: str = Field(max_length=20)
+    auth_source: str = Field(default="local", max_length=20)
+    role: str | None = Field(default=None, max_length=20)
     projects: str = Field(default="[]")
-    password_hash: str = Field(max_length=255)
+    password_hash: str | None = Field(default=None, max_length=255)
+    oidc_subject: str | None = Field(default=None, max_length=255)
+    sso_role: str | None = Field(default=None, max_length=20)
+    sso_projects: str = Field(default="[]")
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
-    password_changed_at: datetime = Field(default_factory=utcnow)
+    password_changed_at: datetime | None = Field(default=None)
     session_version: int = Field(default=0, sa_type=BigInteger)
     last_login_at: datetime | None = Field(default=None)
     created_by: str | None = Field(default=None, max_length=64)
+
+
+class RevokedSsoUser(SQLModel, table=True):
+    """Username of an SSO web user deleted by an administrator (see web_users.delete_user).
+
+    With ``SECREVIEW_OIDC_AUTO_CREATE_USERS``, an SSO login never creates a web user with this
+    name again; an administrator who creates the user again lifts the revocation.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    username: str = Field(unique=True, index=True, max_length=64)
+    revoked_at: datetime = Field(default_factory=utcnow)
+    revoked_by: str | None = Field(default=None, max_length=64)

@@ -94,7 +94,7 @@ l'utiliser.
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` |
 | Persistance, schéma | `models.py`, `services.py`, `database.py`, `migrations/` (Alembic) |
 | Export et tendances | `sarif.py`, `trends.py` |
-| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web (mot de passe, sessions, admin initial) : `web_users.py` ; connexion SSO OIDC du contrôleur : `oidc.py`, role mapping : `role_mapping.py` |
+| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et SSO, seuls à ouvrir l'interface (mot de passe, création SSO à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py`, role mapping : `role_mapping.py` |
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
 | Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy OSV) | `config.py` ; `app_settings.py` |

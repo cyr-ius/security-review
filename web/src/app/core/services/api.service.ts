@@ -5,6 +5,7 @@ import {
   AdvisoryOverview,
   AppSettings,
   AuthConfig,
+  AuthSource,
   Finding,
   FindingStatus,
   ChecklistCatalog,
@@ -23,13 +24,13 @@ import {
   MappedRole,
   ProxyMode,
   RoleMapping,
+  RevokedUser,
   RoleMappingCatalog,
   Report,
   ReportQuery,
   ReportSummary,
   RuleReloadResult,
   Trend,
-  UserGrant,
   WebUser,
   WebUserRole,
   WebUserWithPassword,
@@ -69,22 +70,27 @@ export class ApiService {
     return this.http.get<WebUser[]>(`${API_URL}/users`);
   }
 
-  /** Create a web user; without password, a generated one is returned once. */
+  /**
+   * Create a web user. A local one without password gets a generated one, returned once; an
+   * SSO one has no password and may have no role (null).
+   */
   createUser(
     username: string,
-    role: WebUserRole,
+    authSource: AuthSource,
+    role: WebUserRole | null,
     projects: string[],
     password: string | null,
   ): Observable<WebUserWithPassword> {
     return this.http.post<WebUserWithPassword>(`${API_URL}/users`, {
       username,
+      auth_source: authSource,
       role,
       projects,
       password,
     });
   }
 
-  updateUser(id: number, role: WebUserRole, projects: string[]): Observable<WebUser> {
+  updateUser(id: number, role: WebUserRole | null, projects: string[]): Observable<WebUser> {
     return this.http.put<WebUser>(`${API_URL}/users/${id}`, { role, projects });
   }
 
@@ -93,8 +99,18 @@ export class ApiService {
     return this.http.post<WebUserWithPassword>(`${API_URL}/users/${id}/password`, { password });
   }
 
+  /** Delete a web user; a deleted SSO user is revoked (never created again by a login). */
   deleteUser(id: number): Observable<void> {
     return this.http.delete<void>(`${API_URL}/users/${id}`);
+  }
+
+  revokedUsers(): Observable<RevokedUser[]> {
+    return this.http.get<RevokedUser[]>(`${API_URL}/users/revoked`);
+  }
+
+  /** Let a deleted SSO user be created again at its next login. */
+  liftRevocation(username: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/users/revoked/${encodeURIComponent(username)}`);
   }
 
   customRules(): Observable<CustomRuleCatalog> {
@@ -176,7 +192,10 @@ export class ApiService {
     return this.http.get<EnrollmentRequest[]>(`${API_URL}/enrollments`);
   }
 
-  /** With portalUser, that OIDC user also gets read access to the project in the web UI. */
+  /**
+   * With portalUser, that web user also reads the project in the web UI (an unknown name
+   * becomes an SSO user when OIDC is enabled).
+   */
   approveEnrollment(id: string, portalUser: string | null = null): Observable<EnrollmentApproved> {
     return this.http.post<EnrollmentApproved>(
       `${API_URL}/enrollments/${encodeURIComponent(id)}/approve`,
@@ -274,19 +293,6 @@ export class ApiService {
 
   deleteRoleMapping(id: number): Observable<void> {
     return this.http.delete<void>(`${API_URL}/oidc/role-mappings/${id}`);
-  }
-
-  /** Add projects to the read access of an OIDC user (created when missing). */
-  createUserGrant(username: string, projects: string[]): Observable<UserGrant> {
-    return this.http.post<UserGrant>(`${API_URL}/oidc/user-grants`, { username, projects });
-  }
-
-  updateUserGrant(id: number, projects: string[]): Observable<UserGrant> {
-    return this.http.put<UserGrant>(`${API_URL}/oidc/user-grants/${id}`, { projects });
-  }
-
-  deleteUserGrant(id: number): Observable<void> {
-    return this.http.delete<void>(`${API_URL}/oidc/user-grants/${id}`);
   }
 }
 

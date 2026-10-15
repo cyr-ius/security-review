@@ -2,8 +2,9 @@ import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { MappedRole, RoleMapping, UserGrant } from '../../core/models/api.models';
+import { MappedRole, RoleMapping } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 
 /** Labels of the roles a mapping may grant. */
@@ -19,7 +20,7 @@ const ROLE_LABELS: Record<MappedRole, string> = {
  */
 @Component({
   selector: 'app-role-mapping-list',
-  imports: [DatePipe],
+  imports: [DatePipe, RouterLink],
   templateUrl: './role-mapping-list.component.html',
   styleUrl: './role-mapping-list.component.css',
 })
@@ -39,8 +40,6 @@ export class RoleMappingListComponent {
   readonly editing = signal<RoleMapping | null>(null);
 
   /** Form of the read access given by name to an OIDC user. */
-  readonly grantUser = signal('');
-  readonly grantProjects = signal<string[]>([]);
 
   readonly message = signal<string | null>(null);
   readonly error = signal<string | null>(null);
@@ -127,58 +126,6 @@ export class RoleMappingListComponent {
     await this.run(async () => {
       await firstValueFrom(this.api.deleteRoleMapping(id));
       return `Association « ${claim_value} » supprimée.`;
-    });
-  }
-
-  toggleGrantProject(project: string, event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.grantProjects.update((selected) =>
-      checked ? [...selected, project] : selected.filter((item) => item !== project),
-    );
-  }
-
-  /** Give read access to the selected projects to an OIDC user (added to its projects). */
-  async addGrant(event: Event): Promise<void> {
-    event.preventDefault();
-    const username = this.grantUser().trim();
-    const projects = this.grantProjects();
-    if (this.busy() || !username || !projects.length) {
-      return;
-    }
-    await this.run(async () => {
-      const grant = await firstValueFrom(this.api.createUserGrant(username, projects));
-      this.grantUser.set('');
-      this.grantProjects.set([]);
-      return `« ${grant.username} » peut lire ${grant.projects.join(', ')}.`;
-    });
-  }
-
-  /** Remove one project from a user grant; removing the last one deletes the grant. */
-  async removeGrantProject(grant: UserGrant, project: string): Promise<void> {
-    const remaining = grant.projects.filter((item) => item !== project);
-    if (!remaining.length) {
-      await this.removeGrant(grant);
-      return;
-    }
-    if (this.busy() || !window.confirm(`Retirer ${project} à « ${grant.username} » ?`)) {
-      return;
-    }
-    await this.run(async () => {
-      await firstValueFrom(this.api.updateUserGrant(grant.id, remaining));
-      return `« ${grant.username} » ne lit plus ${project}.`;
-    });
-  }
-
-  async removeGrant(grant: UserGrant): Promise<void> {
-    if (
-      this.busy() ||
-      !window.confirm(`Supprimer l'accès en lecture de « ${grant.username} » au portail ?`)
-    ) {
-      return;
-    }
-    await this.run(async () => {
-      await firstValueFrom(this.api.deleteUserGrant(grant.id));
-      return `Accès de « ${grant.username} » supprimé.`;
     });
   }
 

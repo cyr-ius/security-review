@@ -85,8 +85,10 @@ class Identity(BaseModel):
     auth_enabled: bool
     # Projects a restricted token reaches; None: every project
     projects: list[str] | None = None
-    # True for a web user logged in with a password (who may change it)
+    # True for a local web user (logged in with a password, which it may change)
     local_account: bool = False
+    # Source of the account of a web user ("local" or "oidc"); None for a bearer token
+    auth_source: Literal["local", "oidc"] | None = None
     version: str
 
 
@@ -144,33 +146,18 @@ class RoleMappingUpdate(BaseModel):
     )
 
 
-class UserGrantCreate(BaseModel):
-    """Reader access given by name to an OIDC user, on some projects."""
-
-    username: str = Field(min_length=1, max_length=role_mapping.MAX_USERNAME_CHARS)
-    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
-        min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
-    )
-
-
-class UserGrantUpdate(BaseModel):
-    """New projects of a user grant (at least one: delete the grant to remove the access)."""
-
-    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
-        min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
-    )
-
-
 class WebUserCreate(BaseModel):
-    """A web user; without ``password`` a random one is generated and returned once."""
+    """A web user. A local one without ``password`` gets a random one, returned once; an SSO
+    one (``auth_source="oidc"``) has no password and may have no role (``role`` null)."""
 
     username: str = Field(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)
+    auth_source: Literal["local", "oidc"] = "local"
     password: str | None = Field(
         default=None,
         min_length=web_users.MIN_PASSWORD_CHARS,
         max_length=web_users.MAX_PASSWORD_CHARS,
     )
-    role: Literal["reader", "triager", "admin"] = "reader"
+    role: Literal["reader", "triager", "admin"] | None = "reader"
     # Empty: every project (always for admin)
     projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
         default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
@@ -178,9 +165,10 @@ class WebUserCreate(BaseModel):
 
 
 class WebUserUpdate(BaseModel):
-    """New role and projects of a web user (empty projects: every project)."""
+    """New role and projects of a web user (empty projects: every project; null role: only
+    the role of the groups, for an SSO user)."""
 
-    role: Literal["reader", "triager", "admin"]
+    role: Literal["reader", "triager", "admin"] | None
     projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
         default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
     )
@@ -206,9 +194,10 @@ class PasswordChange(BaseModel):
 
 
 class EnrollmentApproval(BaseModel):
-    """Optional body of an approval: the OIDC user who also reads the project on the web."""
+    """Optional body of an approval: the web user who also reads the project on the web (an
+    unknown name becomes an SSO user when OIDC is enabled)."""
 
-    portal_user: str | None = Field(default=None, max_length=role_mapping.MAX_USERNAME_CHARS)
+    portal_user: str | None = Field(default=None, max_length=web_users.MAX_USERNAME_CHARS)
 
 
 class ProjectTokenCreate(BaseModel):
@@ -296,7 +285,8 @@ def current_identity(
         can_triage=role in TRIAGE_ROLES,
         auth_enabled=True,
         projects=None if state.get("auth_projects") is None else sorted(state["auth_projects"]),
-        local_account=state.get("auth_user_id") is not None,
+        local_account=state.get("auth_source") == web_users.AUTH_LOCAL,
+        auth_source=state.get("auth_source"),
         version=__version__,
     )
 
@@ -375,7 +365,7 @@ LOGIN_HEADERS = {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"}
 
 
 class AuthConfig(BaseModel):
-    """Login methods offered by the login page, besides the access token."""
+    """Login methods offered by the login page (web users only: tokens are for the API)."""
 
     # Username and password of a web user (always offered by the controller)
     password: bool = True
@@ -521,14 +511,15 @@ async def oidc_callback(
         logger.warning("OIDC login not completed: %s", reason)
         return _to_login_page(login, {"oidcError": "denied" if error else "state"})
     try:
-        result = await run_in_threadpool(
+        user = await run_in_threadpool(
             login.finish, code, state, request.cookies.get(oidc.STATE_COOKIE)
         )
+        result = await run_in_threadpool(web_users.oidc_login, login.signer, user, login.settings)
     except oidc.OidcError as exc:
         logger.warning("OIDC login failed: %s", exc)
         return _to_login_page(login, {"oidcError": exc.code})
     return _to_login_page(
-        login, {"returnUrl": result.return_url}, urlencode({"session": result.session_token})
+        login, {"returnUrl": user.return_url}, urlencode({"session": result["session"]})
     )
 
 
@@ -560,9 +551,9 @@ async def change_password(
     The other sessions of the user end. Wrong current passwords count as failed logins.
     """
     user_id = (request.scope.get("state") or {}).get("auth_user_id")
-    if user_id is None:
+    if user_id is None or not identity.local_account:
         raise HTTPException(
-            status.HTTP_403_FORBIDDEN, "Only a web user logged in with a password has one"
+            status.HTTP_403_FORBIDDEN, "Only a local web user logged in with a password has one"
         )
     throttle: web_users.LoginThrottle = request.app.state.login_throttle
     address = _client_address(request)
@@ -885,19 +876,23 @@ async def enrollments(
 
 @router.post("/enrollments/{request_id}/approve")
 async def approve_enrollment(
+    request: Request,
     request_id: Annotated[str, APIPath(min_length=1, max_length=64)],
     identity: Annotated[Identity, Depends(require_admin)],
     body: EnrollmentApproval | None = None,
 ) -> dict[str, Any]:
     """Approve an enrollment request: the project is reachable from the next request.
 
-    With ``portal_user``, that OIDC user also gets ``reader`` on the project in the web
-    interface (user grant, from its next login).
+    With ``portal_user``, that web user also reads the project in the web interface (at once);
+    when OIDC is enabled, an unknown name becomes an SSO user, ready for its first login.
     """
     portal_user = body.portal_user if body is not None else None
+    create_sso = getattr(request.app.state, "oidc", None) is not None
     if portal_user is not None:
         try:
-            portal_user = await run_in_threadpool(role_mapping.check_user_grant, portal_user)
+            portal_user = await run_in_threadpool(
+                web_users.check_project_grant, portal_user, create_sso
+            )
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     try:
@@ -913,8 +908,8 @@ async def approve_enrollment(
     if portal_user is None:
         return approved
     try:
-        grant = await run_in_threadpool(
-            role_mapping.grant_user_projects, portal_user, [approved["project"]], identity.client
+        user = await run_in_threadpool(
+            web_users.grant_project, portal_user, approved["project"], identity.client, create_sso
         )
     except ValueError as exc:
         # Checked before the approval: only a concurrent change gets here
@@ -922,12 +917,12 @@ async def approve_enrollment(
             status.HTTP_409_CONFLICT, f"Enrollment approved, web access not granted: {exc}"
         ) from exc
     logger.info(
-        "Web reader access to %s granted to oidc user %s by %s",
+        "Web access to %s given to web user %s by %s",
         approved["project"],
-        grant["username"],
+        user["username"],
         identity.client,
     )
-    return approved | {"portal_grant": grant}
+    return approved | {"portal_user": user}
 
 
 @router.delete("/enrollments/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -1034,9 +1029,9 @@ async def role_mappings(
         "roles_claim": settings.oidc_roles_claim,
         "default_role": settings.oidc_default_role or None,
         "username_claim": settings.oidc_username_claim,
+        "auto_create_users": settings.oidc_auto_create_users,
         "mappings": await run_in_threadpool(role_mapping.list_mappings),
         "static_mappings": role_mapping.static_mappings(settings),
-        "user_grants": await run_in_threadpool(role_mapping.list_user_grants),
     }
 
 
@@ -1095,51 +1090,6 @@ async def delete_role_mapping(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/oidc/user-grants", status_code=status.HTTP_201_CREATED)
-async def create_user_grant(
-    body: UserGrantCreate, identity: Annotated[Identity, Depends(require_admin)]
-) -> dict[str, Any]:
-    """Give reader access to projects to an OIDC user (added to the projects it already reads)."""
-    try:
-        grant = await run_in_threadpool(
-            role_mapping.grant_user_projects, body.username, body.projects, identity.client
-        )
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    logger.info(
-        "Web reader access to %s granted to oidc user %s by %s",
-        ", ".join(body.projects),
-        grant["username"],
-        identity.client,
-    )
-    return grant
-
-
-@router.put("/oidc/user-grants/{grant_id}")
-async def update_user_grant(
-    grant_id: int,
-    body: UserGrantUpdate,
-    identity: Annotated[Identity, Depends(require_admin)],
-) -> dict[str, Any]:
-    """Replace the projects of a user grant (applies at the next login of the user)."""
-    try:
-        updated = await run_in_threadpool(role_mapping.update_user_grant, grant_id, body.projects)
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    logger.info("User grant %s updated by %s", grant_id, identity.client)
-    return updated
-
-
-@router.delete("/oidc/user-grants/{grant_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user_grant(
-    grant_id: int, identity: Annotated[Identity, Depends(require_admin)]
-) -> Response:
-    """Delete a user grant (open sessions keep their access until they expire)."""
-    deleted = await run_in_threadpool(role_mapping.delete_user_grant, grant_id)
-    logger.info("User grant of %s deleted by %s", deleted["username"], identity.client)
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
 @router.get("/users")
 async def users(identity: Annotated[Identity, Depends(require_admin)]) -> list[dict[str, Any]]:
     """List the web users (never their password hash)."""
@@ -1150,7 +1100,7 @@ async def users(identity: Annotated[Identity, Depends(require_admin)]) -> list[d
 async def create_user(
     body: WebUserCreate, identity: Annotated[Identity, Depends(require_admin)]
 ) -> JSONResponse:
-    """Create a web user; a generated password is returned once in ``password``."""
+    """Create a web user (local or SSO); a generated password is returned once in ``password``."""
     try:
         created = await run_in_threadpool(
             web_users.create_user,
@@ -1159,12 +1109,17 @@ async def create_user(
             body.role,
             body.projects,
             identity.client,
+            body.auth_source,
         )
     except ValueError as exc:
         code = status.HTTP_409_CONFLICT if "already exists" in str(exc) else 422
         raise HTTPException(code, str(exc)) from exc
     logger.info(
-        "Web user %s (%s) created by %s", created["username"], created["role"], identity.client
+        "Web user %s (%s, role %s) created by %s",
+        created["username"],
+        created["auth_source"],
+        created["role"] or "none",
+        identity.client,
     )
     return JSONResponse(created, status_code=status.HTTP_201_CREATED, headers=LOGIN_HEADERS)
 
@@ -1179,7 +1134,10 @@ async def update_user(
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     logger.info(
-        "Web user %s set to %s by %s", updated["username"], updated["role"], identity.client
+        "Web user %s set to %s by %s",
+        updated["username"],
+        updated["role"] or "no role",
+        identity.client,
     )
     return updated
 
@@ -1201,12 +1159,40 @@ async def reset_user_password(
 async def delete_user(
     user_id: int, identity: Annotated[Identity, Depends(require_admin)]
 ) -> Response:
-    """Delete a web user (its sessions stop at once); the last administrator is kept."""
+    """Delete a web user (its sessions stop at once); the last administrator is kept.
+
+    A deleted SSO user is revoked: a login never creates it again until an administrator
+    creates it again or lifts the revocation (DELETE /users/revoked/{username}).
+    """
     try:
-        deleted = await run_in_threadpool(web_users.delete_user, user_id)
+        deleted = await run_in_threadpool(web_users.delete_user, user_id, identity.client)
     except ValueError as exc:
         raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
-    logger.info("Web user %s deleted by %s", deleted["username"], identity.client)
+    logger.info(
+        "Web user %s (%s) deleted by %s",
+        deleted["username"],
+        deleted["auth_source"],
+        identity.client,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/users/revoked")
+async def revoked_users(
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> list[dict[str, Any]]:
+    """List the deleted SSO users, which a login never creates again."""
+    return await run_in_threadpool(web_users.list_revoked_users)
+
+
+@router.delete("/users/revoked/{username}", status_code=status.HTTP_204_NO_CONTENT)
+async def lift_user_revocation(
+    username: Annotated[str, APIPath(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)],
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> Response:
+    """Let a deleted SSO user be created again at its next login (automatic creation)."""
+    lifted = await run_in_threadpool(web_users.lift_revocation, username)
+    logger.info("Revocation of SSO user %s lifted by %s", lifted["username"], identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

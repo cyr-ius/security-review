@@ -8,18 +8,19 @@ flow with PKCE:
    short-lived HttpOnly cookie and redirects the browser to the provider;
 2. ``GET /api/v1/auth/oidc/callback`` checks the state, exchanges the code at the token endpoint
    (server to server), validates the ID token (signature from the provider JWKS, issuer,
-   audience, expiry, nonce) and maps its groups or roles claim to a web role;
-3. the role and projects come from the role mapping (see role_mapping), then the controller
-   issues a **session token**: a JWT signed with a key derived from ``SECREVIEW_SESSION_SECRET``,
-   valid ``SECREVIEW_SESSION_HOURS``, handed to the web application in the URL fragment of
-   ``/ui/login``. The application sends it as a bearer token, like a token of the database; the
-   bearer middleware of the controller verifies it (see http_server.BearerAuthMiddleware). It
-   never reaches the MCP server. The password login of the web users (see web_users) issues the
-   same session tokens, with the id of the user.
+   audience, expiry, nonce) and returns the identity it holds (OidcIdentity);
+3. web_users.oidc_login finds the SSO web user of that identity (or creates it when
+   ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is set), stores the access of its groups (see
+   role_mapping) and issues a **session token**: a JWT signed with a key derived from
+   ``SECREVIEW_SESSION_SECRET``, valid ``SECREVIEW_SESSION_HOURS``, handed to the web application
+   in the URL fragment of ``/ui/login``. The application sends it as a bearer token; the bearer
+   middleware of the controller verifies it (see http_server.BearerAuthMiddleware) and reads the
+   user again at each request. It never reaches the MCP server. The password login of the local
+   web users issues the same session tokens.
 
-Nothing is stored in the database. The provider is contacted only by the controller, over HTTPS
-(plain HTTP is accepted for a provider on the loopback interface, for development), with
-bounded response sizes; tokens, codes and secrets are never logged.
+This module stores nothing in the database. The provider is contacted only by the controller,
+over HTTPS (plain HTTP is accepted for a provider on the loopback interface, for development),
+with bounded response sizes; tokens, codes and secrets are never logged.
 """
 
 import base64
@@ -40,9 +41,9 @@ from typing import Any
 
 import jwt
 
-from . import __version__, role_mapping
+from . import __version__
 from .config import Settings
-from .http_server import AUTH_PREFIX, LOOPBACK_HOSTS, WEB_ROLES, Role, TokenInfo
+from .http_server import AUTH_PREFIX, LOOPBACK_HOSTS, WEB_ROLES, Role
 
 logger = logging.getLogger("security_review_mcp.oidc")
 
@@ -157,8 +158,8 @@ def user_label(claims: dict[str, Any], settings: Settings) -> str:
     return f"oidc:{printable}"[:MAX_LABEL_CHARS]
 
 
-def grant_name(claims: dict[str, Any], settings: Settings) -> str | None:
-    """Name matched by the user grants: the raw username claim, or None.
+def account_name(claims: dict[str, Any], settings: Settings) -> str | None:
+    """Name of the SSO web user of a login: the raw username claim, or None.
 
     Unlike the label, there is no fallback to ``email`` or ``sub`` and nothing is stripped: a
     value with control or invisible characters would otherwise match the name of another user.
@@ -245,15 +246,15 @@ class SessionSigner:
         self,
         label: str,
         role: Role,
-        projects: frozenset[str] | None = None,
-        user_id: int | None = None,
-        user_version: int = 0,
+        projects: frozenset[str] | None,
+        user_id: int,
+        user_version: int,
     ) -> str:
-        """Return a session token for a web role, restricted to ``projects`` (None: all).
+        """Return a session token of a web user, with its role and projects (None: all).
 
-        ``user_id`` (password login) names the web user, whose current role and projects are
-        read from the database at each request instead of the claims (see web_users);
-        ``user_version`` is its session version, raised by a password change.
+        ``user_id`` names the web user, whose current role and projects are read from the
+        database at each request (see web_users.session_identity); ``user_version`` is its
+        session version, changed by a password change.
         """
         if role not in WEB_ROLES:
             raise ValueError(f"Role '{role}' cannot use the web interface")
@@ -266,10 +267,9 @@ class SessionSigner:
             "projects": None if projects is None else sorted(projects),
             "iat": now,
             "exp": now + self.session_seconds,
+            "uid": user_id,
+            "uver": user_version,
         }
-        if user_id is not None:
-            payload["uid"] = user_id
-            payload["uver"] = user_version
         return jwt.encode(payload, self._session_key, algorithm="HS256")
 
     @staticmethod
@@ -286,41 +286,17 @@ class SessionSigner:
                 algorithms=["HS256"],
                 audience=SESSION_AUDIENCE,
                 issuer=SESSION_ISSUER,
-                options={"require": ["exp", "iat", "sub"]},
+                options={"require": ["exp", "iat", "sub", "uid", "uver"]},
             )
         except jwt.InvalidTokenError:
             return None
         for claim in ("uid", "uver"):
-            value = payload.get(claim)
-            if value is not None and (not isinstance(value, int) or isinstance(value, bool)):
+            value = payload[claim]
+            if not isinstance(value, int) or isinstance(value, bool):
                 return None
-        if (payload.get("uid") is None) != (payload.get("uver") is None):
+        if not isinstance(payload["sub"], str):
             return None
         return payload
-
-    def verify_session(self, credentials: str) -> TokenInfo | None:
-        """Return the identity written in a valid, unexpired session token, or None."""
-        payload = self.decode_session(credentials)
-        if payload is None:
-            return None
-        try:
-            role = Role(payload.get("role"))
-        except ValueError:
-            return None
-        projects = payload.get("projects")
-        if role not in WEB_ROLES or not isinstance(payload["sub"], str):
-            return None
-        # A restricted session never becomes unrestricted: anything but a list of names fails
-        if projects is not None and not (
-            isinstance(projects, list) and all(isinstance(name, str) for name in projects)
-        ):
-            return None
-        return TokenInfo(
-            label=payload["sub"][:MAX_LABEL_CHARS],
-            role=role,
-            projects=None if projects is None else frozenset(projects),
-            user_id=payload.get("uid"),
-        )
 
     def sign_state(self, data: dict[str, str]) -> str:
         """Return the signed state cookie of a login in progress."""
@@ -356,13 +332,18 @@ class LoginRequest:
 
 
 @dataclass(frozen=True)
-class LoginResult:
-    """A successful login: the session token and the page to open."""
+class OidcIdentity:
+    """The user of a verified login, and the page to open.
 
-    session_token: str
+    ``username`` is the raw username claim (see account_name, None when missing), ``subject``
+    the ``sub`` claim, ``groups`` the values of the groups or roles claim and ``label`` the name
+    written in the logs.
+    """
+
+    username: str | None
+    subject: str
+    groups: frozenset[str]
     label: str
-    role: Role
-    projects: frozenset[str] | None
     return_url: str
 
 
@@ -505,8 +486,8 @@ class OidcLogin:
         )
         return LoginRequest(endpoint + separator + urllib.parse.urlencode(params), cookie)
 
-    def finish(self, code: str, state: str, cookie: str | None) -> LoginResult:
-        """Check the callback, exchange the code and return a session; raise OidcError."""
+    def finish(self, code: str, state: str, cookie: str | None) -> OidcIdentity:
+        """Check the callback, exchange the code and return the user; raise OidcError."""
         saved = self.signer.read_state(cookie)
         if not same_value(saved.get("state", ""), state):
             raise OidcError("state", "Login state mismatch")
@@ -517,28 +498,11 @@ class OidcLogin:
         claims = self.validate_id_token(id_token, str(saved["nonce"]))
         if not claim_values(claims, self.settings.oidc_roles_claim):
             claims = {**self.userinfo(tokens.get("access_token"), claims["sub"]), **claims}
-        label = user_label(claims, self.settings)
-        try:
-            access = role_mapping.resolve(
-                claim_values(claims, self.settings.oidc_roles_claim),
-                self.settings,
-                grant_name(claims, self.settings),
-            )
-        except ValueError as exc:
-            logger.warning("OIDC login refused for %s: %s", label, exc)
-            raise OidcError("forbidden", str(exc)) from None
-        if access is None:
-            logger.warning(
-                "OIDC login refused for %s: no role mapping or user grant matches it", label
-            )
-            raise OidcError("forbidden", "No web role granted to this user")
-        scope = "every project" if access.projects is None else f"{len(access.projects)} project(s)"
-        logger.info("OIDC login of %s with role %s on %s", label, access.role, scope)
-        return LoginResult(
-            session_token=self.signer.issue_session(label, access.role, access.projects),
-            label=label,
-            role=access.role,
-            projects=access.projects,
+        return OidcIdentity(
+            username=account_name(claims, self.settings),
+            subject=claims["sub"],
+            groups=frozenset(claim_values(claims, self.settings.oidc_roles_claim)),
+            label=user_label(claims, self.settings),
             return_url=safe_return_url(saved.get("return_url")),
         )
 

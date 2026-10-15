@@ -35,8 +35,9 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `admin` sur tous les projets, séparés par des virgules, en plus des associations du [role mapping](../utilisation/interface-web.md#role-mapping) gérées dans l'interface |
 | `SECREVIEW_OIDC_TRIAGER_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `triager` (tous les projets) |
 | `SECREVIEW_OIDC_READER_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `reader` (tous les projets) |
-| `SECREVIEW_OIDC_DEFAULT_ROLE` | — | Contrôleur | Rôle (tous les projets) sans aucune association correspondante : `reader`, `triager` ou vide (connexion refusée) |
-| `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Contrôleur | Claim du label de session `oidc:<valeur>` (à défaut `email`, puis `sub`) |
+| `SECREVIEW_OIDC_DEFAULT_ROLE` | — | Contrôleur | Rôle de groupe (tous les projets) sans aucune association correspondante : `reader`, `triager` ou vide (seul le rôle attribué au compte s'applique) |
+| `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Contrôleur | Claim qui nomme le [compte SSO](../utilisation/interface-web.md#comptes-sso) (comparaison exacte, sans repli) ; label de session `oidc:<valeur>` |
+| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Contrôleur | Crée le compte SSO à sa première connexion si ses groupes lui donnent un rôle ; à `false`, un administrateur crée chaque compte SSO dans **Utilisateurs** |
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `SSO` | Contrôleur | Nom affiché sur le bouton de connexion (40 caractères au plus) |
 | `SECREVIEW_OIDC_CAFILE` | — | Contrôleur | Bundle de CA pour joindre le fournisseur (CA interne) ; un proxy se configure avec `HTTPS_PROXY` / `NO_PROXY` |
 | `SECREVIEW_OSV_AUTO_UPDATE` | `false` | Contrôleur | [Mise à jour quotidienne](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur) de la base OSV par `serve` (seule connexion sortante) |

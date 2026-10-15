@@ -4,7 +4,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import { MIN_PASSWORD_CHARS } from '../../core/constants/passwords';
-import { WebUser, WebUserRole } from '../../core/models/api.models';
+import { AuthSource, WebUser, WebUserRole } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -15,8 +15,12 @@ const ROLE_LABELS: Record<WebUserRole, string> = {
   admin: 'Administration',
 };
 
+/** Role chosen in the form: a web role, or none (SSO user: only the role of its groups). */
+type FormRole = WebUserRole | 'none';
+
 /**
- * Administrator page for the web users: accounts that log in with a username and a password,
+ * Administrator page for the web users, the only accounts of the web interface: local users
+ * (username and password) and SSO users (OpenID Connect, created here or at their first login),
  * their role and projects, password resets and deletion.
  */
 @Component({
@@ -32,10 +36,15 @@ export class UserListComponent {
   readonly roleLabels = ROLE_LABELS;
   readonly minPassword = MIN_PASSWORD_CHARS;
   readonly users = rxResource({ stream: () => this.api.users() });
+  /** Deleted SSO users, never created again by a login. */
+  readonly revoked = rxResource({ stream: () => this.api.revokedUsers() });
   readonly projects = rxResource({ stream: () => this.api.projects() });
+  /** Login methods of the controller: tells whether SSO users can log in. */
+  readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
 
   readonly username = signal('');
-  readonly role = signal<WebUserRole>('reader');
+  readonly source = signal<AuthSource>('local');
+  readonly role = signal<FormRole>('reader');
   /** Every project, or only the selected ones. */
   readonly allProjects = signal(true);
   readonly selectedProjects = signal<string[]>([]);
@@ -50,8 +59,17 @@ export class UserListComponent {
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
 
-  /** Admin users always reach every project. */
-  readonly projectsLocked = computed(() => this.role() === 'admin');
+  /** Admin users always reach every project; a user without a role lists none. */
+  readonly projectsLocked = computed(() => this.role() === 'admin' || this.role() === 'none');
+
+  /** Source of the user of the form (the edited one, or the one being created). */
+  readonly formSource = computed(() => this.editing()?.auth_source ?? this.source());
+
+  /** Name of the identity provider on the login page; null when OIDC is not enabled. */
+  readonly ssoName = computed(() => {
+    const config = this.authConfig.value();
+    return config?.oidc ? config.oidc_display_name : null;
+  });
 
   /** Projects offered as checkboxes: known projects plus those of the edited user. */
   readonly projectChoices = computed(() => {
@@ -60,7 +78,10 @@ export class UserListComponent {
   });
 
   readonly passwordTooShort = computed(
-    () => this.password().length > 0 && this.password().length < MIN_PASSWORD_CHARS,
+    () =>
+      this.formSource() === 'local' &&
+      this.password().length > 0 &&
+      this.password().length < MIN_PASSWORD_CHARS,
   );
 
   readonly canSubmit = computed(
@@ -74,13 +95,35 @@ export class UserListComponent {
   /** True for the row of the logged-in user. */
   isSelf(user: WebUser): boolean {
     const identity = this.auth.identity();
-    return identity?.local_account === true && identity.client === user.username;
+    if (!identity || identity.auth_source !== user.auth_source) {
+      return false;
+    }
+    const label = user.auth_source === 'oidc' ? `oidc:${user.username}` : user.username;
+    return identity.client === label;
+  }
+
+  /** Text of a role and its projects, e.g. "Triage (shop-api, billing)". */
+  describe(role: WebUserRole | null, projects: string[] | null): string {
+    if (!role) {
+      return '—';
+    }
+    return projects && role !== 'admin'
+      ? `${ROLE_LABELS[role]} (${projects.join(', ')})`
+      : `${ROLE_LABELS[role]} (tous les projets)`;
+  }
+
+  onSourceChange(source: AuthSource): void {
+    this.source.set(source);
+    this.password.set('');
+    if (source === 'local' && this.role() === 'none') {
+      this.role.set('reader');
+    }
   }
 
   onRoleChange(event: Event): void {
-    const role = (event.target as HTMLSelectElement).value as WebUserRole;
+    const role = (event.target as HTMLSelectElement).value as FormRole;
     this.role.set(role);
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'none') {
       this.allProjects.set(true);
     }
   }
@@ -96,7 +139,8 @@ export class UserListComponent {
   edit(user: WebUser): void {
     this.editing.set(user);
     this.username.set(user.username);
-    this.role.set(user.role);
+    this.source.set(user.auth_source);
+    this.role.set(user.role ?? 'none');
     this.allProjects.set(user.projects === null);
     this.selectedProjects.set(user.projects ?? []);
     this.password.set('');
@@ -107,6 +151,7 @@ export class UserListComponent {
   resetForm(): void {
     this.editing.set(null);
     this.username.set('');
+    this.source.set('local');
     this.role.set('reader');
     this.allProjects.set(true);
     this.selectedProjects.set([]);
@@ -118,21 +163,28 @@ export class UserListComponent {
     if (!this.canSubmit()) {
       return;
     }
-    const role = this.role();
+    const chosen = this.role();
+    const role = chosen === 'none' ? null : chosen;
     const projects = this.allProjects() || this.projectsLocked() ? [] : this.selectedProjects();
     const editing = this.editing();
+    const source = this.source();
     await this.run(async () => {
       if (editing) {
         const updated = await firstValueFrom(this.api.updateUser(editing.id, role, projects));
         this.message.set(`Utilisateur « ${updated.username} » mis à jour.`);
       } else {
+        const password = source === 'local' ? this.password() || null : null;
         const created = await firstValueFrom(
-          this.api.createUser(this.username().trim(), role, projects, this.password() || null),
+          this.api.createUser(this.username().trim(), source, role, projects, password),
         );
         if (created.password) {
           this.createdPassword.set({ username: created.username, password: created.password });
         }
-        this.message.set(`Utilisateur « ${created.username} » créé.`);
+        this.message.set(
+          source === 'oidc'
+            ? `Utilisateur SSO « ${created.username} » créé : il se connecte avec le fournisseur d'identité.`
+            : `Utilisateur « ${created.username} » créé.`,
+        );
       }
       this.resetForm();
     });
@@ -155,7 +207,13 @@ export class UserListComponent {
   }
 
   async remove(user: WebUser): Promise<void> {
-    if (this.busy() || !window.confirm(`Supprimer l'utilisateur « ${user.username} » ?`)) {
+    const question =
+      user.auth_source === 'oidc'
+        ? `Supprimer l'utilisateur SSO « ${user.username} » ? Ses sessions sont fermées et il ` +
+          "ne sera plus recréé à sa connexion, jusqu'à ce que vous le recréiez ou l'autorisiez " +
+          'à nouveau.'
+        : `Supprimer l'utilisateur « ${user.username} » ?`;
+    if (this.busy() || !window.confirm(question)) {
       return;
     }
     await this.run(async () => {
@@ -164,6 +222,20 @@ export class UserListComponent {
         this.resetForm();
       }
       this.message.set(`Utilisateur « ${user.username} » supprimé.`);
+    });
+  }
+
+  /** Let a deleted SSO user be created again at its next login. */
+  async liftRevocation(username: string): Promise<void> {
+    const question =
+      `Autoriser à nouveau « ${username} » ? Avec la création automatique, son compte SSO ` +
+      'sera recréé à sa prochaine connexion si ses groupes lui donnent un rôle.';
+    if (this.busy() || !window.confirm(question)) {
+      return;
+    }
+    await this.run(async () => {
+      await firstValueFrom(this.api.liftRevocation(username));
+      this.message.set(`« ${username} » peut de nouveau être créé à sa connexion.`);
     });
   }
 
@@ -192,6 +264,7 @@ export class UserListComponent {
     } finally {
       this.busy.set(false);
       this.users.reload();
+      this.revoked.reload();
     }
   }
 }

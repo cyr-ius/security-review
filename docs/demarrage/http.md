@@ -136,11 +136,12 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
     ```
 
     Une fois approuvé, le jeton fonctionne dès la requête suivante, sans reconfiguration.
-    Avec la [connexion SSO](../utilisation/interface-web.md#connexion-sso-openid-connect),
-    l'approbation peut aussi donner au développeur la **lecture du projet dans le portail**
-    (case cochée par défaut dans l'interface, ou
-    `token approve ID --portal-user alice` en CLI) : voir les
-    [accès nominatifs](../utilisation/interface-web.md#acces-nominatifs-enrolement).
+    L'approbation peut aussi donner au développeur la **lecture du projet dans le portail**,
+    sur son compte utilisateur (colonne **Lecture dans le portail** de l'interface, ou
+    `token approve ID --portal-user alice` en CLI) ; avec la
+    [connexion SSO](../utilisation/interface-web.md#connexion-sso-openid-connect), un nom
+    inconnu devient un compte SSO. Voir la
+    [lecture du projet à l'enrôlement](../utilisation/interface-web.md#lecture-du-projet-a-lenrolement).
 
 ### Enrôlement complémentaire
 

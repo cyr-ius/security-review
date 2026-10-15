@@ -36,8 +36,10 @@ export interface Identity {
   can_triage: boolean;
   auth_enabled: boolean;
   project: string | null;
-  /** True for a web user logged in with a password (who may change it). */
+  /** True for a local web user (logged in with a password, which it may change). */
   local_account?: boolean;
+  /** Source of the account of a web user; null for a bearer token (API). */
+  auth_source?: AuthSource | null;
   version: string;
 }
 
@@ -60,18 +62,39 @@ export interface LoginSession {
 /** Web role of a web user. */
 export type WebUserRole = 'reader' | 'triager' | 'admin';
 
-/** A web user (username and password login); the hash is never returned. */
+/** Source of a web user: local account (password) or SSO account (OpenID Connect). */
+export type AuthSource = 'local' | 'oidc';
+
+/** A web user, local or SSO; the password hash is never returned. */
 export interface WebUser {
   id: number;
   username: string;
-  role: WebUserRole;
-  /** null: every project. */
+  auth_source: AuthSource;
+  /** Role given to the user itself; null (SSO only): only the role of its groups. */
+  role: WebUserRole | null;
+  /** Projects of role; null: every project. */
   projects: string[] | null;
+  /** Role given by the groups of an SSO user at its last login. */
+  sso_role: WebUserRole | null;
+  sso_projects: string[] | null;
+  /** Access that applies (highest of role and sso_role); null: no access. */
+  effective_role: WebUserRole | null;
+  effective_projects: string[] | null;
+  /** True once an SSO user logged in (bound to its identity provider account). */
+  sso_linked: boolean;
   created_at: string;
   updated_at: string;
-  password_changed_at: string;
+  /** null for an SSO user (no password). */
+  password_changed_at: string | null;
   last_login_at: string | null;
   created_by: string | null;
+}
+
+/** A deleted SSO user: a login never creates it again until the revocation is lifted. */
+export interface RevokedUser {
+  username: string;
+  revoked_at: string;
+  revoked_by: string | null;
 }
 
 /** A web user just created or reset: ``password`` is set when it was generated (shown once). */
@@ -105,11 +128,11 @@ export interface EnrollmentRequest {
   created_at: string;
 }
 
-/** Response of an approval; portal_grant is present when an OIDC user got web access. */
+/** Response of an approval; portal_user is present when a web user got read access. */
 export interface EnrollmentApproved extends Omit<EnrollmentRequest, 'status'> {
   status: 'active';
   projects: string[];
-  portal_grant?: UserGrant;
+  portal_user?: WebUser;
 }
 
 /** Response returned once when a project-scoped token is created. */
@@ -379,25 +402,14 @@ export interface RoleMapping {
   created_by?: string | null;
 }
 
-/** Read access given by name to an OIDC user, usually when approving its enrollment. */
-export interface UserGrant {
-  id: number;
-  /** Exact value of the username claim of the identity provider. */
-  username: string;
-  role: 'reader';
-  projects: string[];
-  created_at: string;
-  updated_at: string;
-  created_by: string | null;
-}
-
 /** GET /api/v1/oidc/role-mappings */
 export interface RoleMappingCatalog {
   oidc_enabled: boolean;
   roles_claim: string;
   username_claim: string;
   default_role: 'reader' | 'triager' | null;
+  /** SECREVIEW_OIDC_AUTO_CREATE_USERS: SSO users are created at their first login. */
+  auto_create_users: boolean;
   mappings: RoleMapping[];
   static_mappings: RoleMapping[];
-  user_grants: UserGrant[];
 }

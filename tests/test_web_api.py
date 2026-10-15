@@ -13,7 +13,6 @@ from security_review_mcp import (
     http_server,
     oidc,
     registry,
-    role_mapping,
     rule_store,
     server,
     services,
@@ -21,7 +20,7 @@ from security_review_mcp import (
     web_api,
     web_users,
 )
-from security_review_mcp.config import get_settings
+from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
 from security_review_mcp.models import ApiToken, FindingCreate, Severity
@@ -443,40 +442,18 @@ def test_role_mappings_are_managed_by_administrators(secured, caplog):
     assert secured.delete(f"{url}/{mapping['id']}", headers=auth("admin")).status_code == 404
 
 
-def test_user_grants_are_managed_by_administrators(secured, caplog):
-    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
-    url = "/api/v1/oidc/user-grants"
-    body = {"username": "alice", "projects": ["billing"]}
-    for role in ("reader", "triager"):
-        assert secured.post(url, json=body, headers=auth(role)).status_code == 403
-    assert secured.post(url, json=body).status_code == 401
-
-    created = secured.post(url, json=body, headers=auth("admin"))
-    assert created.status_code == 201
-    grant = created.json()
-    assert (grant["username"], grant["role"], grant["projects"]) == ("alice", "reader", ["billing"])
-    assert "Web reader access to billing granted to oidc user alice by admin" in caplog.text
+def test_role_mapping_catalog_tells_whether_sso_users_are_created(secured):
     catalog = secured.get("/api/v1/oidc/role-mappings", headers=auth("admin")).json()
     assert catalog["username_claim"] == "preferred_username"
-    assert [item["id"] for item in catalog["user_grants"]] == [grant["id"]]
-
-    updated = secured.put(f"{url}/{grant['id']}", json={"projects": ["crm"]}, headers=auth("admin"))
-    assert updated.json()["projects"] == ["crm"]
-    for projects in ([], ["bad\x00project"]):
-        response = secured.put(
-            f"{url}/{grant['id']}", json={"projects": projects}, headers=auth("admin")
-        )
-        assert response.status_code == 422
-    assert (
-        secured.put(f"{url}/999", json={"projects": ["crm"]}, headers=auth("admin")).status_code
-        == 404
+    assert catalog["auto_create_users"] is False
+    assert "user_grants" not in catalog
+    # The user grants are gone: SSO users are web users
+    response = secured.post(
+        "/api/v1/oidc/user-grants",
+        json={"username": "alice", "projects": ["billing"]},
+        headers=auth("admin"),
     )
-    for invalid in ({"username": "", "projects": ["crm"]}, {"username": "bob", "projects": []}):
-        assert secured.post(url, json=invalid, headers=auth("admin")).status_code == 422
-
-    assert secured.delete(f"{url}/{grant['id']}", headers=auth("triager")).status_code == 403
-    assert secured.delete(f"{url}/{grant['id']}", headers=auth("admin")).status_code == 204
-    assert secured.delete(f"{url}/{grant['id']}", headers=auth("admin")).status_code == 404
+    assert response.status_code in (404, 405)
 
 
 @pytest.mark.parametrize(
@@ -730,6 +707,23 @@ def test_public_enrollment_then_admin_approval(secured, mcp_server):
     ).status_code == 404
 
 
+@pytest.fixture
+def sso_secured(secured, ui_dir) -> TestClient:
+    """The controller app of secured (same tokens), with OIDC enabled (never contacted)."""
+    settings = Settings(
+        _env_file=None,
+        oidc_enabled=True,
+        oidc_issuer="https://sso.example.com/realms/acme",
+        oidc_client_id="secreview",
+        oidc_redirect_uri="https://secreview.example.com/api/v1/auth/oidc/callback",
+    )
+    app = web_api.create_app(ui_dir=str(ui_dir), oidc_login=oidc.OidcLogin(settings))
+    return TestClient(
+        http_server.build_controller_app(app, token_store.DatabaseTokenStore()),
+        base_url="http://127.0.0.1",
+    )
+
+
 def test_approval_can_give_web_read_access_to_the_developer(secured, mcp_server, caplog):
     caplog.set_level(logging.INFO, logger="security_review_mcp.web")
     created = mcp_server.post(
@@ -737,55 +731,75 @@ def test_approval_can_give_web_read_access_to_the_developer(secured, mcp_server,
     ).json()
     url = f"/api/v1/enrollments/{created['request_id']}/approve"
 
-    # An invalid user name is refused before the approval: the request stays pending
-    response = secured.post(url, json={"portal_user": "alice\nadmin"}, headers=auth("admin"))
-    assert response.status_code == 422
+    # An invalid or (without OIDC) unknown user is refused before the approval
+    for name in ("alice\nadmin", "alice"):
+        response = secured.post(url, json={"portal_user": name}, headers=auth("admin"))
+        assert response.status_code == 422
     assert len(secured.get("/api/v1/enrollments", headers=auth("admin")).json()) == 1
 
+    web_users.create_user("alice", "correct horse battery", "reader", ["billing"])
     approved = secured.post(url, json={"portal_user": " alice "}, headers=auth("admin"))
 
     assert approved.status_code == 200 and approved.json()["status"] == "active"
-    grant = approved.json()["portal_grant"]
-    assert (grant["username"], grant["projects"], grant["created_by"]) == (
+    user = approved.json()["portal_user"]
+    assert (user["username"], user["auth_source"], user["projects"]) == (
         "alice",
+        "local",
+        ["billing", "new-service"],
+    )
+    assert "Web access to new-service given to web user alice by admin" in caplog.text
+
+
+def test_approval_creates_the_sso_user_when_oidc_is_enabled(sso_secured, mcp_server):
+    created = mcp_server.post(
+        "/api/v1/enroll", json={"project": "new-service", "requested_by": "alice"}
+    ).json()
+    approved = sso_secured.post(
+        f"/api/v1/enrollments/{created['request_id']}/approve",
+        json={"portal_user": "alice"},
+        headers=auth("admin"),
+    )
+
+    assert approved.status_code == 200
+    user = approved.json()["portal_user"]
+    assert (user["username"], user["auth_source"], user["role"], user["projects"]) == (
+        "alice",
+        "oidc",
+        "reader",
         ["new-service"],
-        "admin",
     )
-    assert "Web reader access to new-service granted to oidc user alice by admin" in caplog.text
-    assert role_mapping.resolve(set(), get_settings(), "alice") == role_mapping.Access(
-        Role.READER, frozenset({"new-service"})
-    )
+    assert user["created_by"] == "admin"
 
     # A complementary enrollment adds the project to the same user
     headers = {"Authorization": f"Bearer {created['token']}"}
     extra = mcp_server.post("/api/v1/enroll", json={"project": "billing"}, headers=headers).json()
-    approved = secured.post(
+    approved = sso_secured.post(
         f"/api/v1/enrollments/{extra['id']}/approve",
         json={"portal_user": "alice"},
         headers=auth("admin"),
     )
-    assert approved.json()["portal_grant"]["projects"] == ["new-service", "billing"]
+    assert approved.json()["portal_user"]["projects"] == ["new-service", "billing"]
 
 
-def test_approval_without_portal_user_grants_no_web_access(secured, mcp_server):
+def test_approval_without_portal_user_grants_no_web_access(sso_secured, mcp_server):
     created = mcp_server.post(
         "/api/v1/enroll", json={"project": "new-service", "requested_by": "alice"}
     ).json()
-    approved = secured.post(
+    approved = sso_secured.post(
         f"/api/v1/enrollments/{created['request_id']}/approve",
         json={"portal_user": None},
         headers=auth("admin"),
     )
-    assert approved.status_code == 200 and "portal_grant" not in approved.json()
-    assert role_mapping.list_user_grants() == []
+    assert approved.status_code == 200 and "portal_user" not in approved.json()
+    assert web_users.list_users() == []
 
 
-def test_failed_approval_grants_no_web_access(secured):
-    response = secured.post(
+def test_failed_approval_grants_no_web_access(sso_secured):
+    response = sso_secured.post(
         "/api/v1/enrollments/unknown/approve", json={"portal_user": "alice"}, headers=auth("admin")
     )
     assert response.status_code == 404
-    assert role_mapping.list_user_grants() == []
+    assert web_users.list_users() == []
 
 
 def test_admin_rejects_enrollment(secured, mcp_server):
@@ -1186,8 +1200,64 @@ def test_users_are_managed_by_administrators(accounts, caplog):
 
     assert accounts.delete(f"/api/v1/users/{bob['id']}", headers=admin).status_code == 204
     assert accounts.delete(f"/api/v1/users/{bob['id']}", headers=admin).status_code == 404
-    assert "Web user bob (triager) created by root" in caplog.text
+    assert "Web user bob (local, role triager) created by root" in caplog.text
     assert bob["password"] not in caplog.text
+
+
+def test_sso_users_are_managed_by_administrators(accounts, caplog):
+    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    web_users.create_user("root", USER_PASSWORD, "admin")
+    admin = session_headers(accounts, "root")
+    body = {"username": "carol@example.com", "auth_source": "oidc", "role": None}
+
+    created = accounts.post("/api/v1/users", json=body, headers=admin)
+    assert created.status_code == 201
+    carol = created.json()
+    assert (carol["auth_source"], carol["role"], carol["effective_role"]) == ("oidc", None, None)
+    assert "password" not in carol
+    assert "Web user carol@example.com (oidc, role none) created by root" in caplog.text
+    me = accounts.get("/api/v1/me", headers=admin).json()
+    assert (me["auth_source"], me["local_account"]) == ("local", True)
+
+    # An SSO user has no password, and only it may have no role
+    for invalid in (
+        {**body, "username": "dave", "password": USER_PASSWORD},
+        {"username": "erin", "role": None},
+    ):
+        assert accounts.post("/api/v1/users", json=invalid, headers=admin).status_code == 422
+    reset = accounts.post(f"/api/v1/users/{carol['id']}/password", json={}, headers=admin)
+    assert reset.status_code == 422
+    updated = accounts.put(
+        f"/api/v1/users/{carol['id']}",
+        json={"role": "reader", "projects": ["shop-api"]},
+        headers=admin,
+    )
+    assert (updated.json()["role"], updated.json()["effective_projects"]) == (
+        "reader",
+        ["shop-api"],
+    )
+    cleared = accounts.put(
+        f"/api/v1/users/{carol['id']}", json={"role": None, "projects": []}, headers=admin
+    )
+    assert cleared.json()["role"] is None
+    # An SSO user never logs in with a password
+    assert login(accounts, "carol@example.com", "").status_code in (401, 422)
+
+    # A deleted SSO user is revoked until an administrator lifts it
+    assert accounts.delete(f"/api/v1/users/{carol['id']}", headers=admin).status_code == 204
+    assert "Web user carol@example.com (oidc) deleted by root" in caplog.text
+    revoked = accounts.get("/api/v1/users/revoked", headers=admin).json()
+    assert [(item["username"], item["revoked_by"]) for item in revoked] == [
+        ("carol@example.com", "root")
+    ]
+    url = "/api/v1/users/revoked/carol@example.com"
+    web_users.create_user("eve", USER_PASSWORD, "reader")
+    eve = session_headers(accounts, "eve")
+    assert accounts.get("/api/v1/users/revoked", headers=eve).status_code == 403
+    assert accounts.delete(url, headers=eve).status_code == 403
+    assert accounts.delete(url, headers=admin).status_code == 204
+    assert accounts.delete(url, headers=admin).status_code == 404
+    assert accounts.get("/api/v1/users/revoked", headers=admin).json() == []
 
 
 def test_last_administrator_cannot_be_deleted_from_the_api(accounts):

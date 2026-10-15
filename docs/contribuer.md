@@ -88,7 +88,7 @@ src/security_review_mcp/
 ├── oidc.py        # connexion SSO OpenID Connect à l'interface web (contrôleur)
 ├── role_mapping.py # role mapping OIDC : groupes du fournisseur → rôle web et projets
 ├── token_store.py # jetons Bearer en base : création, révocation, enrôlement
-├── web_users.py   # comptes de l'interface web : mots de passe scrypt, sessions, admin initial
+├── web_users.py   # comptes de l'interface web, locaux (scrypt) ou SSO (création à la volée), sessions, admin initial
 ├── enrollment.py  # client de `enroll` : demande de jeton à un serveur partagé
 ├── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP
 ├── web_api.py     # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)

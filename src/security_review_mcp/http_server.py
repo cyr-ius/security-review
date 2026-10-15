@@ -90,7 +90,8 @@ class TokenInfo:
 
     ``projects`` lists the projects a restricted token reaches (None: every project).
     ``pending`` marks an enrollment request not approved yet: it grants no access.
-    ``user_id`` is set for the session of a web user (see web_users), None otherwise.
+    ``user_id`` and ``auth_source`` (``local`` or ``oidc``) are set for the session of a web
+    user (see web_users), None for a token.
     """
 
     label: str
@@ -99,6 +100,7 @@ class TokenInfo:
     token_id: str | None = None
     pending: bool = False
     user_id: int | None = None
+    auth_source: str | None = None
 
 
 class TokenStore(Protocol):
@@ -154,7 +156,7 @@ class BearerAuthMiddleware:
     Pure ASGI (no response buffering) so that streamed MCP responses are not affected.
     The label, role, projects and id of the accepted token are stored in ``scope["state"]``
     (``auth_client``, ``auth_role``, ``auth_projects``, ``auth_token_id``, and ``auth_user_id``
-    for the session of a web user).
+    and ``auth_source`` for the session of a web user).
 
     With ``web=False`` (MCP server) every path needs an MCP role, except ``public_paths``.
     With ``web=True`` (controller) the static files of the web interface are public and the
@@ -272,6 +274,7 @@ class BearerAuthMiddleware:
         state["auth_projects"] = info.projects
         state["auth_token_id"] = info.token_id
         state["auth_user_id"] = info.user_id
+        state["auth_source"] = info.auth_source
         await self.app(scope, receive, send)
 
     async def enroll(

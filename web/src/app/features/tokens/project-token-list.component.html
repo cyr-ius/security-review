@@ -39,10 +39,13 @@
   <p class="text-body-secondary small">
     Jetons demandés par un client (outil MCP <code>request_enrollment</code> ou commande
     <code>enroll</code>). Vérifiez le demandeur avant d'approuver : le jeton donne l'accès MCP au
-    projet.
+    projet. L'approbation peut aussi donner au développeur la lecture du projet dans ce portail :
+    indiquez son compte de la page Utilisateurs (prérempli avec le demandeur, qui n'est pas
+    vérifié).
     @if (authConfig.value()?.oidc) {
-      L'approbation peut aussi donner au développeur la lecture du projet dans ce portail : indiquez
-      son identifiant SSO (prérempli avec le demandeur, qui n'est pas vérifié).
+      Un identifiant inconnu devient un utilisateur SSO, qui lira le projet dès sa connexion.
+    } @else {
+      Sans SSO, le compte doit déjà exister.
     }
   </p>
   @if (enrollments.error()) {
@@ -58,9 +61,7 @@
             <th scope="col">Demandeur</th>
             <th scope="col">Adresse</th>
             <th scope="col">Demandé le</th>
-            @if (authConfig.value()?.oidc) {
-              <th scope="col">Lecture dans le portail</th>
-            }
+            <th scope="col">Lecture dans le portail</th>
             <th scope="col" class="text-end">Action</th>
           </tr>
         </thead>
@@ -75,36 +76,32 @@
               <td>{{ request.requested_by ?? '—' }}</td>
               <td class="font-monospace">{{ request.requested_from ?? '—' }}</td>
               <td>{{ request.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
-              @if (authConfig.value()?.oidc) {
-                <td>
-                  <div class="input-group input-group-sm portal-access">
-                    <div class="input-group-text">
-                      <input
-                        class="form-check-input mt-0"
-                        type="checkbox"
-                        [checked]="portalAccess(request).enabled"
-                        [attr.aria-label]="
-                          'Donner la lecture du projet ' + request.project + ' dans le portail'
-                        "
-                        (change)="
-                          setPortalAccess(request, { enabled: $any($event.target).checked })
-                        "
-                      />
-                    </div>
+              <td>
+                <div class="input-group input-group-sm portal-access">
+                  <div class="input-group-text">
                     <input
-                      class="form-control"
-                      maxlength="200"
-                      autocomplete="off"
-                      spellcheck="false"
-                      placeholder="Identifiant SSO"
-                      [disabled]="!portalAccess(request).enabled"
-                      [value]="portalAccess(request).user"
-                      [attr.aria-label]="'Identifiant SSO du développeur pour ' + request.label"
-                      (input)="setPortalAccess(request, { user: $any($event.target).value })"
+                      class="form-check-input mt-0"
+                      type="checkbox"
+                      [checked]="portalAccess(request).enabled"
+                      [attr.aria-label]="
+                        'Donner la lecture du projet ' + request.project + ' dans le portail'
+                      "
+                      (change)="setPortalAccess(request, { enabled: $any($event.target).checked })"
                     />
                   </div>
-                </td>
-              }
+                  <input
+                    class="form-control"
+                    maxlength="64"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="Utilisateur"
+                    [disabled]="!portalAccess(request).enabled"
+                    [value]="portalAccess(request).user"
+                    [attr.aria-label]="'Utilisateur web du développeur pour ' + request.label"
+                    (input)="setPortalAccess(request, { user: $any($event.target).value })"
+                  />
+                </div>
+              </td>
               <td class="text-end text-nowrap">
                 <button
                   type="button"

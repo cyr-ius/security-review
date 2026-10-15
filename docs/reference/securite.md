@@ -70,7 +70,7 @@
   requête** : suppression, nouveau rôle ou nouveaux projets s'appliquent immédiatement, et un
   changement de mot de passe tire une nouvelle version de session aléatoire qui invalide toutes
   les sessions précédentes. La session doit aussi porter l'identifiant du compte : elle n'ouvre
-  jamais un compte recréé sous le même numéro interne. Le dernier administrateur ne peut être ni supprimé ni rétrogradé. Le mot de passe
+  jamais un compte recréé sous le même numéro interne. Le dernier administrateur, local ou SSO (par son rôle ou celui de ses groupes), ne peut être ni supprimé ni rétrogradé. Le mot de passe
   du compte `admin` initial apparaît une fois dans les journaux du contrôleur : protégez-les et
   changez-le dès la première connexion.
 - **Connexion SSO (OpenID Connect)**, facultative : flux *authorization code* avec PKCE `S256`,
@@ -78,18 +78,21 @@
   ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
   uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Le rôle vient des
   groupes de l'utilisateur ([role mapping](../utilisation/interface-web.md#role-mapping), géré
-  par les administrateurs, éventuellement restreint à des projets) ; sans association, la
-  connexion est refusée par défaut, et ni le rôle `admin` par défaut ni le rôle `mcp` ne sont
-  possibles. Un [accès nominatif](../utilisation/interface-web.md#acces-nominatifs-enrolement)
-  ne donne que `reader`, sur des projets listés, à l'identifiant exact du claim
-  `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si elle
-  contient un caractère de contrôle ou invisible) : choisissez un claim que l'utilisateur ne peut pas modifier
-  chez le fournisseur, et vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant
-  de lui donner cet accès. Une session restreinte à des projets l'est comme un jeton `--project`, et une liste
-  de projets malformée dans une session invalide la session au lieu de l'élargir. La session est un jeton signé
-  (HMAC-SHA256, clé dérivée de `SECREVIEW_SESSION_SECRET`), accepté par le contrôleur
-  seulement, jamais par le serveur MCP, et révocable uniquement par son expiration ou un
-  changement du secret. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
+  par les administrateurs, éventuellement restreint à des projets) et du rôle attribué à son
+  [compte SSO](../utilisation/interface-web.md#comptes-sso) ; ni le rôle `admin` par défaut ni le
+  rôle `mcp` ne sont possibles. Le compte est nommé par l'identifiant exact du claim
+  `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si ce n'est pas
+  un identifiant valide) : choisissez un claim que l'utilisateur ne peut pas modifier chez le
+  fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte SSO créé par
+  un administrateur peut se connecter. Une connexion SSO n'ouvre jamais un compte local du même
+  nom, et le compte est lié au `sub` de sa première connexion : un autre `sub` est refusé. Un
+  compte SSO supprimé est révoqué : la création automatique ne le recrée pas, tant qu'un
+  administrateur ne l'a pas recréé ou autorisé à nouveau.
+  Vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant de lui donner la lecture
+  du projet. Une session restreinte à des projets l'est comme un jeton `--project`. La session est
+  un jeton signé (HMAC-SHA256, clé dérivée de `SECREVIEW_SESSION_SECRET`) qui désigne le compte,
+  relu à chaque requête : la suppression du compte la coupe aussitôt. Elle est acceptée par le
+  contrôleur seulement, jamais par le serveur MCP. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
   jetons et secrets ne sont jamais journalisés par le contrôleur ; le code d'autorisation
   apparaît toutefois dans les journaux d'accès d'un reverse proxy ou d'uvicorn, ce qui est
   sans danger : il est à usage unique et inutilisable sans le vérificateur PKCE du cookie.

@@ -11,18 +11,24 @@ import { ThemeService } from '../../core/services/theme.service';
 const OIDC_ERRORS: Record<string, string> = {
   denied: "Connexion refusée ou annulée auprès du fournisseur d'identité.",
   forbidden:
-    "Votre compte n'appartient à aucun groupe autorisé sur l'interface (reader, triager ou admin).",
+    "Votre compte n'a aucun rôle sur l'interface : ni rôle attribué, ni groupe autorisé (reader, triager ou admin).",
+  unknown_user:
+    "Votre compte SSO n'est pas encore créé sur l'interface : demandez à un administrateur de l'ajouter dans Utilisateurs.",
+  conflict:
+    "Ce nom d'utilisateur est déjà pris par un compte local ou lié à un autre compte SSO : contactez un administrateur.",
+  username:
+    "Le fournisseur d'identité n'a pas transmis d'identifiant utilisable pour votre compte.",
+  revoked:
+    "Votre compte SSO a été supprimé par un administrateur : demandez-lui de le recréer pour retrouver l'accès.",
   state: 'La connexion a expiré ou a été ouverte dans un autre navigateur : recommencez.',
   token: "La réponse du fournisseur d'identité a été refusée (jeton invalide).",
   provider: "Fournisseur d'identité injoignable ou mal configuré.",
 };
 
-/** Login method chosen on the page. */
-export type LoginMode = 'account' | 'token';
-
 /**
- * Login page: the user enters a username and a password (web user), or an access token, or
- * signs in with the identity provider (OIDC) when the controller offers it.
+ * Login page of the web users: a username and a password (local user), or the identity
+ * provider (SSO user) when the controller offers OIDC. Bearer tokens are for the MCP server and
+ * the REST API only: they never open the web interface.
  */
 @Component({
   selector: 'app-login',
@@ -58,7 +64,6 @@ export class LoginComponent implements OnInit {
 
   readonly error = signal<string | null>(this.initialMessage());
   readonly reveal = signal(false);
-  readonly mode = signal<LoginMode>('account');
 
   /** Label of the single sign-on button; null when OIDC is not enabled. */
   readonly ssoName = signal<string | null>(null);
@@ -78,16 +83,10 @@ export class LoginComponent implements OnInit {
     }
     this.api.authConfig().subscribe({
       next: (config) => this.ssoName.set(config.oidc ? config.oidc_display_name : null),
-      // Older controller or network error: only the password or token login is offered
+      // Older controller or network error: only the password login is offered
       error: () => this.ssoName.set(null),
     });
   }
-
-  readonly loginModel = signal({ token: '' });
-
-  readonly loginForm = form(this.loginModel, (path) => {
-    required(path.token, { message: "Le jeton d'accès est obligatoire" });
-  });
 
   readonly accountModel = signal({ username: '', password: '' });
 
@@ -97,19 +96,6 @@ export class LoginComponent implements OnInit {
     required(path.password, { message: 'Le mot de passe est obligatoire' });
     maxLength(path.password, 256, { message: 'Le mot de passe ne dépasse pas 256 caractères' });
   });
-
-  setMode(mode: LoginMode): void {
-    this.mode.set(mode);
-    this.error.set(null);
-    this.reveal.set(false);
-  }
-
-  onSubmit(event: Event): void {
-    event.preventDefault();
-    submit(this.loginForm, async (fields) => {
-      await this.enter(fields.token().value().trim());
-    });
-  }
 
   onAccountSubmit(event: Event): void {
     event.preventDefault();
@@ -126,10 +112,10 @@ export class LoginComponent implements OnInit {
     });
   }
 
-  /** Check a secret (token or session) and open the requested page. */
-  private async enter(secret: string): Promise<void> {
+  /** Check a session and open the requested page. */
+  private async enter(session: string): Promise<void> {
     this.error.set(null);
-    this.auth.login(secret);
+    this.auth.login(session);
     try {
       const identity = await firstValueFrom(this.api.me());
       this.auth.identity.set(identity);
@@ -172,10 +158,10 @@ export class LoginComponent implements OnInit {
       return "L'authentification de l'interface n'est pas configurée sur ce serveur.";
     }
     if (query.has('forbidden')) {
-      return "Ce secret n'a pas accès à l'interface web (rôle reader, triager ou admin requis).";
+      return "Ce compte n'a pas accès à l'interface web (rôle reader, triager ou admin requis).";
     }
     if (query.has('expired')) {
-      return 'Session expirée, compte supprimé ou jeton révoqué : reconnectez-vous.';
+      return 'Session expirée ou compte supprimé : reconnectez-vous.';
     }
     return null;
   }
@@ -202,10 +188,10 @@ function describeAccountError(err: unknown): string {
 function describeError(err: unknown): string {
   if (err instanceof HttpErrorResponse) {
     if (err.status === 401) {
-      return 'Jeton invalide ou session expirée.';
+      return 'Session invalide ou expirée.';
     }
     if (err.status === 403) {
-      return "Ce secret n'a pas accès à l'interface web (rôle reader, triager ou admin requis).";
+      return "Ce compte n'a pas accès à l'interface web (rôle reader, triager ou admin requis).";
     }
     if (err.status === 0) {
       return 'Serveur injoignable.';

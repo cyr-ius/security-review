@@ -24,7 +24,6 @@ from . import (
     enrollment,
     http_server,
     registry,
-    role_mapping,
     rule_store,
     rules_loader,
     sarif,
@@ -497,8 +496,8 @@ def token_command(argv: list[str]) -> int:
     )
     approver.add_argument(
         "--portal-user",
-        help="also give this OIDC user (username claim) read access to the project in the web "
-        "interface",
+        help="also let this web user read the project in the web interface (with OIDC enabled, "
+        "an unknown name becomes an SSO user)",
     )
     rejecter = actions.add_parser("reject", help="reject a pending enrollment request")
     rejecter.add_argument(
@@ -517,13 +516,16 @@ def token_command(argv: list[str]) -> int:
                 else token_store.list_tokens(args.project)
             )
         elif args.action == "approve":
+            create_sso = get_settings().oidc_enabled
             portal_user = (
-                role_mapping.check_user_grant(args.portal_user) if args.portal_user else None
+                web_users.check_project_grant(args.portal_user, create_sso)
+                if args.portal_user
+                else None
             )
             result = token_store.approve_enrollment(args.token)
             if portal_user is not None:
-                result["portal_grant"] = role_mapping.grant_user_projects(
-                    portal_user, [result["project"]], "cli"
+                result["portal_user"] = web_users.grant_project(
+                    portal_user, result["project"], "cli", create_sso
                 )
         elif args.action == "reject":
             result = token_store.reject_enrollment(args.token)
@@ -555,21 +557,32 @@ def _read_password(from_stdin: bool) -> str | None:
 
 
 def user_command(argv: list[str]) -> int:
-    """Run ``security-review-controller user``: manage the web users (password login)."""
+    """Run ``security-review-controller user``: manage the web users (local and SSO)."""
     parser = argparse.ArgumentParser(
         prog="security-review-controller user",
-        description="Manage the web users, who log in to the web interface with a username and "
-        "a password (stored as scrypt hashes). Without --password-stdin, a random password is "
-        "generated and printed once.",
+        description="Manage the web users, the only accounts of the web interface: local users "
+        "log in with a username and a password (stored as scrypt hashes), SSO users (--sso) with "
+        "the identity provider. Without --password-stdin, a random password is generated for a "
+        "local user and printed once.",
     )
+    roles = [role.value for role in web_users.USER_ROLES]
     actions = parser.add_subparsers(dest="action", required=True)
     creator = actions.add_parser("create", help="create a web user")
-    creator.add_argument("username", help="login name (letters, digits and . _ @ -)")
+    creator.add_argument(
+        "username",
+        help="login name (letters, digits and . _ @ -); for --sso, the exact username claim",
+    )
+    creator.add_argument(
+        "--sso",
+        action="store_true",
+        help="SSO user (OpenID Connect): no password, logs in with the identity provider",
+    )
     creator.add_argument(
         "--role",
-        choices=[role.value for role in web_users.USER_ROLES],
+        choices=[*roles, "none"],
         default=http_server.Role.READER.value,
-        help="reader (default): read; triager: also change finding status; admin: everything",
+        help="reader (default): read; triager: also change finding status; admin: everything; "
+        "none (--sso only): only the role of its groups",
     )
     creator.add_argument(
         "--project",
@@ -580,7 +593,9 @@ def user_command(argv: list[str]) -> int:
     actions.add_parser("list", help="list the web users (never their password hash)")
     updater = actions.add_parser("set-role", help="replace the role and projects of a user")
     updater.add_argument("username", help="username or id")
-    updater.add_argument("--role", choices=[role.value for role in web_users.USER_ROLES])
+    updater.add_argument(
+        "--role", choices=[*roles, "none"], help="none: only the role of its groups (SSO user)"
+    )
     updater.add_argument("--project", action="append", help="project (repeatable; none: all)")
     resetter = actions.add_parser(
         "reset-password", help="replace the password of a user and end its sessions"
@@ -594,16 +609,19 @@ def user_command(argv: list[str]) -> int:
     args = parser.parse_args(argv)
     if args.action == "set-role" and args.role is None:
         parser.error("set-role: --role is required")
+    if args.action == "create" and args.sso and args.password_stdin:
+        parser.error("create: an SSO user (--sso) has no password")
 
     try:
         init_db()
         if args.action == "create":
             result: object = web_users.create_user(
                 args.username,
-                _read_password(args.password_stdin),
+                None if args.sso else _read_password(args.password_stdin),
                 args.role,
                 args.project,
                 "cli",
+                web_users.AUTH_OIDC if args.sso else web_users.AUTH_LOCAL,
             )
         elif args.action == "list":
             result = web_users.list_users()
@@ -614,7 +632,7 @@ def user_command(argv: list[str]) -> int:
             elif args.action == "reset-password":
                 result = web_users.set_password(user_id, _read_password(args.password_stdin))
             else:
-                result = web_users.delete_user(user_id)
+                result = web_users.delete_user(user_id, "cli")
     except (ValueError, NotFoundError) as exc:
         return _fail(str(exc))
     print(json.dumps(result, indent=2))

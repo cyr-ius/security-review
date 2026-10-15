@@ -40,6 +40,7 @@ def make_settings(**values) -> Settings:
         "oidc_admin_groups": "secreview-admins",
         "oidc_triager_groups": "secreview-triagers",
         "oidc_reader_groups": "developers, qa",
+        "oidc_auto_create_users": True,
         "session_secret": SECRET,
     }
     return Settings(_env_file=None, **{**defaults, **values})
@@ -237,15 +238,21 @@ def test_return_url_stays_local(value, expected):
 
 def test_session_token_round_trip_and_rejections():
     signer = oidc.SessionSigner(SECRET, session_hours=1)
-    token = signer.issue_session("oidc:alice", Role.TRIAGER)
+    token = signer.issue_session("oidc:alice", Role.TRIAGER, None, 7, 42)
     assert signer.owns(token)
-    assert signer.verify_session(token) == http_server.TokenInfo("oidc:alice", Role.TRIAGER)
+    payload = signer.decode_session(token)
+    assert (payload["sub"], payload["role"], payload["uid"], payload["uver"]) == (
+        "oidc:alice",
+        "triager",
+        7,
+        42,
+    )
 
     # Another secret, a tampered payload, a state cookie or a database token are refused
-    assert oidc.SessionSigner("x" * 40).verify_session(token) is None
-    header, payload, signature = token.split(".")
-    assert signer.verify_session(f"{header}.{payload}x.{signature}") is None
-    assert signer.verify_session(signer.sign_state({"state": "s"})) is None
+    assert oidc.SessionSigner("x" * 40).decode_session(token) is None
+    header, body, signature = token.split(".")
+    assert signer.decode_session(f"{header}.{body}x.{signature}") is None
+    assert signer.decode_session(signer.sign_state({"state": "s"})) is None
     assert not signer.owns(token_store.create_token("api", Role.ADMIN)["token"])
 
 
@@ -260,53 +267,34 @@ def test_session_token_expires():
             "role": "reader",
             "iat": now - 7200,
             "exp": now - 3600,
+            "uid": 1,
+            "uver": 0,
         },
         signer._session_key,
         algorithm="HS256",
     )
-    assert signer.verify_session(expired) is None
+    assert signer.decode_session(expired) is None
 
 
-def test_session_token_keeps_its_projects():
+def test_session_tokens_always_name_a_web_user():
     signer = oidc.SessionSigner(SECRET)
-    token = signer.issue_session("oidc:bob", Role.READER, frozenset({"shop-api", "billing"}))
-    info = signer.verify_session(token)
-    assert info.projects == frozenset({"shop-api", "billing"})
-
-    # A malformed project list never turns into an unrestricted session
     now = int(time.time())
-    forged = jwt.encode(
-        {
-            "iss": oidc.SESSION_ISSUER,
-            "aud": oidc.SESSION_AUDIENCE,
-            "sub": "x",
-            "role": "reader",
-            "projects": "shop-api",
-            "iat": now,
-            "exp": now + 60,
-        },
-        signer._session_key,
-        algorithm="HS256",
-    )
-    assert signer.verify_session(forged) is None
+    claims = {
+        "iss": oidc.SESSION_ISSUER,
+        "aud": oidc.SESSION_AUDIENCE,
+        "sub": "x",
+        "role": "admin",
+        "iat": now,
+        "exp": now + 60,
+    }
+    for extra in ({}, {"uid": 1}, {"uid": "1", "uver": 0}, {"uid": 1, "uver": True}):
+        forged = jwt.encode({**claims, **extra}, signer._session_key, algorithm="HS256")
+        assert signer.decode_session(forged) is None
 
 
 def test_session_tokens_never_carry_the_mcp_role():
     with pytest.raises(ValueError, match="cannot use the web interface"):
-        oidc.SessionSigner(SECRET).issue_session("oidc:bot", Role.MCP)
-    forged = jwt.encode(
-        {
-            "iss": oidc.SESSION_ISSUER,
-            "aud": oidc.SESSION_AUDIENCE,
-            "sub": "x",
-            "role": "mcp",
-            "iat": int(time.time()),
-            "exp": int(time.time()) + 60,
-        },
-        oidc.SessionSigner(SECRET)._session_key,
-        algorithm="HS256",
-    )
-    assert oidc.SessionSigner(SECRET).verify_session(forged) is None
+        oidc.SessionSigner(SECRET).issue_session("oidc:bot", Role.MCP, None, 1, 0)
 
 
 # ── Login flow ───────────────────────────────────────────────────────────────
@@ -373,6 +361,10 @@ def test_full_login_gives_a_session_accepted_by_the_api(controller, provider, ca
         if record.name.startswith("security_review_mcp")
     )
     assert "OIDC login of oidc:alice with role reader" in logs
+    assert "SSO web user alice created at its first login" in logs
+    # The user now appears among the web users, as an SSO user bound to its subject
+    (user,) = web_users.list_users()
+    assert (user["username"], user["auth_source"], user["sso_role"]) == ("alice", "oidc", "reader")
     for secret in ("code-xyz", session, "access-abc", "client-secret"):
         assert secret not in logs
 
@@ -435,11 +427,11 @@ def test_stored_role_mapping_restricts_the_session_to_its_projects(controller, p
     assert controller.get("/api/v1/posture?project=shop-api", headers=headers).status_code == 404
 
 
-def test_user_grant_lets_an_enrolled_developer_read_its_projects(controller, provider):
+def test_sso_user_created_by_an_administrator_reads_its_projects(controller, provider):
     for project in ("shop-api", "billing"):
         services.save_report(project, "Review", [])
-    role_mapping.grant_user_projects("dave", ["shop-api"])
-    # No group of dave is mapped and there is no default role: only the grant applies
+    web_users.create_user("dave", None, "reader", ["shop-api"], auth_source="oidc")
+    # No group of dave is mapped and there is no default role: only its own role applies
     provider.claims = {"preferred_username": "dave", "groups": ["unmapped"]}
     state = start_login(controller, provider)
     session = session_of(
@@ -449,38 +441,84 @@ def test_user_grant_lets_an_enrolled_developer_read_its_projects(controller, pro
 
     me = controller.get("/api/v1/me", headers=headers).json()
     assert (me["client"], me["role"], me["projects"]) == ("oidc:dave", "reader", ["shop-api"])
+    assert (me["auth_source"], me["local_account"]) == ("oidc", False)
     projects = controller.get("/api/v1/projects", headers=headers).json()
     assert [item["project"] for item in projects] == ["shop-api"]
+    # An SSO user has no password to change
+    response = controller.put(
+        "/api/v1/me/password",
+        headers=headers,
+        json={"current_password": "x", "new_password": "y" * 12},
+    )
+    assert response.status_code == 403
+
+
+def test_unknown_sso_user_is_refused_without_auto_creation(tmp_path):
+    (tmp_path / "index.html").write_text("<html>app</html>", encoding="utf-8")
+    provider = FakeProvider(make_settings(oidc_auto_create_users=False))
+    app = web_api.create_app("0.0.0.0", ui_dir=str(tmp_path), oidc_login=provider)
+    client = TestClient(
+        http_server.build_controller_app(
+            app,
+            token_store.DatabaseTokenStore(include_users=True),
+            web_users.SessionVerifier(provider.signer),
+            require_auth=True,
+        ),
+        base_url="https://secreview.example.com",
+        follow_redirects=False,
+    )
+    # Even in an admin group: the administrator must create the user first
+    provider.claims = {"preferred_username": "alice", "groups": ["secreview-admins"]}
+    state = start_login(client, provider)
+    response = client.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
+    assert error_of(response) == "unknown_user"
+    assert web_users.list_users() == []
+
+    web_users.create_user("alice", None, None, auth_source="oidc")
+    state = start_login(client, provider)
+    session = session_of(
+        client.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
+    )
+    me = client.get("/api/v1/me", headers={"Authorization": f"Bearer {session}"}).json()
+    assert me["role"] == "admin"
+
+
+def test_sso_login_never_opens_a_local_account(controller, provider):
+    web_users.create_user("alice", "correct horse battery", "admin")
+    state = start_login(controller, provider)
+    response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
+    assert error_of(response) == "conflict"
 
 
 @pytest.mark.parametrize(
-    "claims",
+    ("claims", "error"),
     [
-        {"preferred_username": "mallory", "email": "dave"},
+        # Another name with the email of dave: a new user without any role
+        ({"preferred_username": "mallory", "email": "dave"}, "forbidden"),
         # No fallback to email or sub: only the configured claim names the user
-        {"email": "dave"},
-        # The subject of the fake provider is "user-123", also granted below
-        {},
+        ({"email": "dave"}, "username"),
+        # The subject of the fake provider is "user-123", also a user below
+        ({}, "username"),
         # Invisible or control characters are not stripped into another user's name
-        {"preferred_username": "da\u200bve"},
-        {"preferred_username": "dave\n"},
-        {"preferred_username": ["dave"]},
+        ({"preferred_username": "da\u200bve"}, "username"),
+        ({"preferred_username": "dave\n"}, "username"),
+        ({"preferred_username": ["dave"]}, "username"),
     ],
 )
-def test_user_grant_of_another_user_does_not_apply(controller, provider, claims):
-    role_mapping.grant_user_projects("dave", ["shop-api"])
-    role_mapping.grant_user_projects("user-123", ["shop-api"])
+def test_sso_user_of_another_name_does_not_apply(controller, provider, claims, error):
+    web_users.create_user("dave", None, "reader", ["shop-api"], auth_source="oidc")
+    web_users.create_user("user-123", None, "reader", ["shop-api"], auth_source="oidc")
     provider.claims = {**claims, "groups": []}
     state = start_login(controller, provider)
     response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
-    assert error_of(response) == "forbidden"
+    assert error_of(response) == error
 
 
 def test_login_granting_too_many_projects_is_refused(controller, provider, monkeypatch):
     monkeypatch.setattr(role_mapping, "MAX_SESSION_PROJECTS", 1)
     role_mapping.create_mapping("team-a", Role.READER, ["a"])
     role_mapping.create_mapping("team-b", Role.READER, ["b"])
-    provider.claims = {"groups": ["team-a", "team-b"]}
+    provider.claims = {"preferred_username": "alice", "groups": ["team-a", "team-b"]}
     state = start_login(controller, provider)
     response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
     assert error_of(response) == "forbidden"
