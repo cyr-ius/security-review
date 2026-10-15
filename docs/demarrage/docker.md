@@ -101,8 +101,8 @@ docker compose logs controller   # mot de passe admin initial
 |---|---|---|
 | `db` | PostgreSQL, joignable seulement sur le réseau interne `backend` | — |
 | `migrate` | `security-review-controller db upgrade`, puis s'arrête | — |
-| `controller` | API REST et interface web (`/ui/`) | `127.0.0.1:8080` (`SECREVIEW_CONTROLLER_PORT`) |
-| `mcp` | Serveur MCP (`/mcp`) et enrôlement public | `127.0.0.1:8000` (`SECREVIEW_PORT`) |
+| `controller` | API REST et interface web (`/ui/`) | `127.0.0.1:8080` (`PUBLISH_ADDRESS`, `SECREVIEW_CONTROLLER_PORT`) |
+| `mcp` | Serveur MCP (`/mcp`) et enrôlement public | `127.0.0.1:8000` (`PUBLISH_ADDRESS`, `SECREVIEW_PORT`) |
 
 - L'image est construite avec l'extra `postgres` (`security-review-mcp:pg`). `migrate` attend
   que la base soit prête (`pg_isready`) ; `controller` et `mcp` attendent que `migrate` ait
@@ -110,9 +110,11 @@ docker compose logs controller   # mot de passe admin initial
 - `POSTGRES_PASSWORD` est obligatoire et lu depuis `.env` (jamais commité). Il est inséré tel
   quel dans `SECREVIEW_DATABASE_URL` : utilisez des caractères hexadécimaux, ou encodez les
   caractères spéciaux (`@`, `:`, `/`...).
-- Les ports ne sont publiés que sur `127.0.0.1`. Pour les exposer, activez le
-  [TLS intégré](http.md) ou placez-les derrière un reverse proxy. Le contrôleur n'expose aucune
-  route d'écriture sans jeton : il peut rester interne.
+- Les ports ne sont publiés que sur `127.0.0.1` par défaut. Pour les exposer, activez le
+  [TLS intégré](http.md) ou placez-les derrière un reverse proxy, puis indiquez l'adresse de
+  l'hôte à utiliser dans `.env` : `PUBLISH_ADDRESS=192.168.1.10` (une interface) ou
+  `PUBLISH_ADDRESS=0.0.0.0` (toutes les interfaces). Cette variable ne sert qu'à Compose. Le
+  contrôleur n'expose aucune route d'écriture sans jeton : il peut rester interne.
 - Pour un essai en HTTPS sans fichier à monter, ajoutez `SECREVIEW_TLS_SELF_SIGNED=true` et
   `SECREVIEW_TLS_SELF_SIGNED_HOSTS` (l'adresse ou le nom par lequel les clients joignent l'hôte
   Docker) dans `.env` : le fichier Compose transmet ces variables aux deux serveurs, qui génèrent un
