@@ -7,7 +7,7 @@ docker build -t security-review-mcp .
 docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # pilote PostgreSQL
 ```
 
-Le build compile aussi l'[interface web](../utilisation/interface-web.md) (étape Node.js) ;
+Le build compile aussi l'[interface web](../usage/web-interface.md) (étape Node.js) ;
 elle est servie sur `/ui/` par le contrôleur.
 
 L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. La
@@ -76,7 +76,7 @@ dans ses logs ; seule son empreinte est conservée, dans la base de données. R�
 `docker logs secreview-controller`, connectez-vous sur l'interface (`/ui/`) avec l'identifiant
 `admin`, puis changez le mot de passe depuis **Mon compte**. Créez ensuite un compte par
 personne dans l'écran **Utilisateurs** (voir les
-[comptes utilisateurs](../utilisation/interface-web.md#comptes-utilisateurs)).
+[comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs)).
 
 Les jetons projet créés depuis l'écran **Jetons** sont eux aussi stockés sous forme d'empreinte
 dans la base, comme tous les jetons (voir [jetons Bearer](http.md#jetons-bearer)).
@@ -127,7 +127,7 @@ docker compose logs controller   # mot de passe admin initial
   `SECREVIEW_OSV_ECOSYSTEMS`, `SECREVIEW_PROXY` et `SECREVIEW_NO_PROXY`), que le fichier Compose transmet au seul
   contrôleur, puis `docker compose up -d`. Suivez l'import avec `docker compose logs -f
   controller` ou dans les paramètres de l'interface web. Sans accès Internet, importez une
-  archive avec `advisories import` (voir [Dépendances](../utilisation/dependances.md)).
+  archive avec `advisories import` (voir [Dépendances](../usage/dependencies.md)).
 - Les conteneurs tournent en système de fichiers en lecture seule, sans capacité Linux. Le
   volume `secreview-pg` contient les rapports, les comptes de l'interface web et les jetons :
   sauvegardez-le.
@@ -141,7 +141,7 @@ docker compose exec controller security-review-controller gate --project portal 
 
 ## Règles internes et CLI
 
-Les [règles internes](../utilisation/regles.md) sont stockées dans la base : importez un
+Les [règles internes](../usage/rules.md) sont stockées dans la base : importez un
 dossier de packs TOML avec la CLI du contrôleur (les serveurs en cours d'exécution les
 appliquent en quelques secondes) :
 

@@ -24,7 +24,11 @@ dependencies = [
 [project.optional-dependencies]
 postgres = ["psycopg2-binary>=2.9"]
 dev = ["pytest>=8", "ruff>=0.5", "debugpy>=1.8"]
-docs = ["mkdocs>=1.6,<2", "mkdocs-material>=9.5"]
+docs = [
+    "mkdocs>=1.6,<2",
+    "mkdocs-material>=9.5",
+    "mkdocs-static-i18n>=1.2",
+]
 
 [project.scripts]
 security-review-mcp = "security_review_mcp.server:main"

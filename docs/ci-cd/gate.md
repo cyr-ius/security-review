@@ -1,12 +1,12 @@
-# Gate CI/CD
+# CI/CD gate
 
-Sans agent ni client MCP, un job Jenkins, GitLab ou GitHub peut bloquer un déploiement tant que
-des findings critiques restent ouverts :
+Without an agent or an MCP client, a Jenkins, GitLab or GitHub job can block a deployment while
+critical findings remain open:
 
 ```bash
 security-review-controller gate --project portal --fail-on high
-# code de sortie : 0 = passe, 1 = bloqué, 2 = erreur (projet/rapport introuvable)
-# options : --report-id N pour ne juger qu'un rapport
+# exit code: 0 = passes, 1 = blocked, 2 = error (project/report not found)
+# options: --report-id N to judge only one report
 ```
 
 === "GitLab CI"
@@ -18,7 +18,7 @@ security-review-controller gate --project portal --fail-on high
       script:
         - security-review-controller gate --project "$CI_PROJECT_PATH_SLUG" --fail-on high
       variables:
-        SECREVIEW_DATABASE_URL: $SECREVIEW_DATABASE_URL   # variable masquée et protégée
+        SECREVIEW_DATABASE_URL: $SECREVIEW_DATABASE_URL   # masked and protected variable
     ```
 
 === "GitHub Actions"
@@ -30,5 +30,5 @@ security-review-controller gate --project portal --fail-on high
         SECREVIEW_DATABASE_URL: ${{ secrets.SECREVIEW_DATABASE_URL }}
     ```
 
-Un finding sort du blocage quand il passe à `fixed`, `accepted` ou `false_positive`
-(outil `update_finding_status`) : la décision reste tracée en base.
+A finding stops blocking when it moves to `fixed`, `accepted` or `false_positive`
+(`update_finding_status` tool): the decision stays recorded in the database.

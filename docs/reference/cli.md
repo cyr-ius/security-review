@@ -1,66 +1,65 @@
-# Ligne de commande
+# Command line
 
-Le paquet installe deux commandes, une par processus (voir
-[Architecture et déploiement](../demarrage/kubernetes.md)) :
+The package installs two commands, one per process (see
+[Architecture and deployment](../getting-started/kubernetes.md)):
 
-- `security-review-mcp` : le **serveur MCP** (stdio ou HTTP), plus `enroll` côté client ;
-- `security-review-controller` : le **contrôleur** (API REST et interface web), la base de
-  données, l'administration et les commandes de pipeline.
+- `security-review-mcp`: the **MCP server** (stdio or HTTP), plus `enroll` on the client side;
+- `security-review-controller`: the **controller** (REST API and web interface), the database,
+  the administration and the pipeline commands.
 
 ## `security-review-mcp`
 
-| Commande | Rôle | Page |
+| Command | Role | Page |
 |---|---|---|
-| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Lance le serveur MCP | [Installation](../demarrage/installation.md#lancement) |
-| `enroll --url URL --project P [--label L] [--requested-by QUI] [--token-stdin] [--cafile CA] [--allow-http]` | Demande un nouveau jeton ou, avec `--token-stdin`, un accès complémentaire pour le jeton lu sur stdin | [Enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton) |
+| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Starts the MCP server | [Installation](../getting-started/installation.md#running) |
+| `enroll --url URL --project P [--label L] [--requested-by WHO] [--token-stdin] [--cafile CA] [--allow-http]` | Requests a new token or, with `--token-stdin`, additional access for the token read on stdin | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token) |
 
-En stdio, le serveur migre lui-même sa base au démarrage (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`).
-En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`) tant que
-`security-review-controller db upgrade` n'a pas été lancé.
+With stdio, the server migrates its database itself at start-up (unless
+`SECREVIEW_DB_AUTO_UPGRADE=false`). With HTTP, it **only checks** the schema: it refuses to
+start (code `2`) while `security-review-controller db upgrade` has not been run.
 
-!!! note "Anciennes sous-commandes"
-    `security-review-mcp token|rules|gate|sarif|trend|advisories|deps|code|db` fonctionnent encore
-    pendant la version 2 : elles affichent un avertissement sur stderr et exécutent la commande
-    du contrôleur. Remplacez-les par `security-review-controller …`.
+!!! note "Old subcommands"
+    `security-review-mcp token|rules|gate|sarif|trend|advisories|deps|code|db` still work during
+    version 2: they print a warning on stderr and run the controller command. Replace them with
+    `security-review-controller …`.
 
 ## `security-review-controller`
 
-| Commande | Rôle | Page |
+| Command | Role | Page |
 |---|---|---|
-| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Sert l'API REST (`/api/v1`) et l'interface web (`/ui`) | [Serveur HTTP](../demarrage/http.md) |
-| `db upgrade` / `db status` | Migre le schéma (Alembic) et amorce les règles par défaut, ou affiche la révision | [Architecture et déploiement](../demarrage/kubernetes.md#migrations-du-schema) |
-| `token create --label NOM [--role ROLE] [--project P …]` | Crée un jeton Bearer, éventuellement limité à plusieurs projets, et affiche son secret une fois | [Jetons Bearer](../demarrage/http.md#jetons-bearer), [rôles](../utilisation/interface-web.md#roles) |
-| `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Liste (ou seulement les demandes d'enrôlement en attente) ou révoque les jetons | [Jetons Bearer](../demarrage/http.md#jetons-bearer) |
-| `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approuve ou refuse une demande d'enrôlement ; `approve --portal-user NOM` donne aussi à ce compte utilisateur la lecture du projet dans le portail (avec le SSO activé, un nom inconnu devient un compte SSO) | [Enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton), [lecture à l'enrôlement](../utilisation/interface-web.md#lecture-du-projet-a-lenrolement) |
-| `user create NOM [--sso] [--role ROLE\|none] [--project P …] [--password-stdin]` | Crée un [compte de l'interface web](../utilisation/interface-web.md#comptes-utilisateurs) : local (sans `--password-stdin`, le mot de passe est généré et affiché une fois) ou SSO avec `--sso` (sans mot de passe ; `--role none` : seul le rôle de ses groupes) | [Comptes utilisateurs](../utilisation/interface-web.md#comptes-utilisateurs) |
-| `user list` / `user set-role NOM --role ROLE\|none [--project P …]` / `user delete NOM` | Liste les comptes (jamais leur empreinte) avec leur type `auth_source`, change leur rôle et leurs projets (`none` : compte SSO seulement) ou les supprime (un compte SSO supprimé n'est plus recréé par une connexion) ; le dernier administrateur, local ou SSO, est conservé | [Comptes utilisateurs](../utilisation/interface-web.md#comptes-utilisateurs) |
-| `user reset-password NOM [--password-stdin]` | Remplace le mot de passe d'un compte local (généré par défaut) et ferme ses sessions | [Premier administrateur](../utilisation/interface-web.md#premier-administrateur) |
-| `code scan [PATH]` | Scan du dépôt complet | [Scan du code complet](../utilisation/code-scan.md) |
-| `rules list` / `rules import PATH…` / `rules export` | Liste, importe (packs TOML) ou exporte les règles stockées en base | [Règles internes](../utilisation/regles.md#commande-rules) |
-| `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Active, désactive (règles par défaut ou personnalisées) ou supprime des règles personnalisées | [Règles internes](../utilisation/regles.md#commande-rules) |
-| `deps scan FICHIER…` | Analyse de manifestes / lockfiles | [Dépendances](../utilisation/dependances.md) |
-| `advisories import PATH` / `advisories status` | Gestion de la base OSV hors ligne | [Dépendances](../utilisation/dependances.md#base-de-vulnerabilites-hors-ligne-format-osv) |
-| `advisories update [--ecosystem E …]` | Télécharge les exports OSV (`SECREVIEW_OSV_*`, proxy facultatif) et les importe ; code `2` si un écosystème échoue | [Mise à jour automatique](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur) |
-| `gate --project P --fail-on SEV` | Gate de déploiement | [Gate](../ci-cd/gate.md) |
-| `sarif --project P` / `--report-id N` | Export SARIF 2.1.0 | [SARIF](../ci-cd/sarif.md) |
-| `trend --project P` | Rapport de tendance | [Tendances](../ci-cd/tendances.md) |
+| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Serves the REST API (`/api/v1`) and the web interface (`/ui`) | [HTTP server](../getting-started/http.md) |
+| `db upgrade` / `db status` | Migrates the schema (Alembic) and seeds the default rules, or shows the revision | [Architecture and deployment](../getting-started/kubernetes.md#schema-migrations) |
+| `token create --label NAME [--role ROLE] [--project P …]` | Creates a Bearer token, possibly limited to several projects, and shows its secret once | [Bearer tokens](../getting-started/http.md#bearer-tokens), [roles](../usage/web-interface.md#roles) |
+| `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Lists (or only the pending enrollment requests) or revokes the tokens | [Bearer tokens](../getting-started/http.md#bearer-tokens) |
+| `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approves or rejects an enrollment request; `approve --portal-user NAME` also gives this user account read access to the project in the portal (with SSO enabled, an unknown name becomes an SSO account) | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token), [read access at enrollment](../usage/web-interface.md#project-read-access-at-enrollment) |
+| `user create NAME [--sso] [--role ROLE\|none] [--project P …] [--password-stdin]` | Creates a [web interface account](../usage/web-interface.md#user-accounts): local (without `--password-stdin`, the password is generated and shown once) or SSO with `--sso` (no password; `--role none`: only the role of its groups) | [User accounts](../usage/web-interface.md#user-accounts) |
+| `user list` / `user set-role NAME --role ROLE\|none [--project P …]` / `user delete NAME` | Lists the accounts (never their digest) with their `auth_source` type, changes their role and their projects (`none`: SSO account only) or deletes them (a deleted SSO account is no longer created again by a login); the last administrator, local or SSO, is kept | [User accounts](../usage/web-interface.md#user-accounts) |
+| `user reset-password NAME [--password-stdin]` | Replaces the password of a local account (generated by default) and closes its sessions | [First administrator](../usage/web-interface.md#first-administrator) |
+| `code scan [PATH]` | Whole repository scan | [Whole codebase scan](../usage/code-scan.md) |
+| `rules list` / `rules import PATH…` / `rules export` | Lists, imports (TOML packs) or exports the rules stored in the database | [Internal rules](../usage/rules.md#rules-command) |
+| `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Enables, disables (default or custom rules) or deletes custom rules | [Internal rules](../usage/rules.md#rules-command) |
+| `deps scan FILE…` | Analysis of manifests / lockfiles | [Dependencies](../usage/dependencies.md) |
+| `advisories import PATH` / `advisories status` | Management of the offline OSV database | [Dependencies](../usage/dependencies.md#offline-vulnerability-database-osv-format) |
+| `advisories update [--ecosystem E …]` | Downloads the OSV exports (`SECREVIEW_OSV_*`, optional proxy) and imports them; code `2` if an ecosystem fails | [Automatic update](../usage/dependencies.md#automatic-update-by-the-controller) |
+| `gate --project P --fail-on SEV` | Deployment gate | [Gate](../ci-cd/gate.md) |
+| `sarif --project P` / `--report-id N` | SARIF 2.1.0 export | [SARIF](../ci-cd/sarif.md) |
+| `trend --project P` | Trend report | [Trends](../ci-cd/trends.md) |
 
-`serve` et les commandes qui lisent ou écrivent la base migrent d'abord le schéma, sauf avec
-`SECREVIEW_DB_AUTO_UPGRADE=false` : elles vérifient alors seulement qu'il est à jour.
+`serve` and the commands that read or write the database first migrate the schema, unless
+`SECREVIEW_DB_AUTO_UPGRADE=false`: they then only check that it is up to date.
 
-## Codes de sortie
+## Exit codes
 
-Les commandes de contrôle (`code scan`, `deps scan`, `gate`, `db status`) partagent la même
-convention :
+The check commands (`code scan`, `deps scan`, `gate`, `db status`) share the same convention:
 
-| Code | Signification |
+| Code | Meaning |
 |---|---|
-| `0` | Passe |
-| `1` | Bloqué : au moins un finding atteint le seuil `--fail-on` (ou, pour `db status`, schéma pas à jour) |
-| `2` | Erreur (projet ou rapport introuvable, fichier illisible, schéma à migrer…) |
+| `0` | Passes |
+| `1` | Blocked: at least one finding reaches the `--fail-on` threshold (or, for `db status`, schema not up to date) |
+| `2` | Error (project or report not found, unreadable file, schema to migrate…) |
 
-Les commandes d'administration (`token`, `enroll`, `rules`, `advisories`, `db upgrade`)
-renvoient `0` en cas de succès et `2` en cas d'erreur (identifiant inconnu, pack invalide…),
-avec l'erreur en JSON sur stderr.
+The administration commands (`token`, `enroll`, `rules`, `advisories`, `db upgrade`) return `0`
+on success and `2` on error (unknown identifier, invalid pack…), with the error as JSON on
+stderr.
 
-Chaque commande accepte `--help` pour la liste complète de ses options.
+Every command accepts `--help` for the full list of its options.

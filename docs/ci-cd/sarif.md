@@ -1,27 +1,28 @@
-# Export SARIF
+# SARIF export
 
 ```bash
-security-review-controller sarif --project mon-projet -o results.sarif      # ou --report-id N
+security-review-controller sarif --project my-project -o results.sarif      # or --report-id N
 ```
 
-Le fichier produit est du SARIF 2.1.0 (validé contre le schéma officiel).
+The produced file is SARIF 2.1.0 (validated against the official schema).
 
-- Seuls les findings **ouverts** sont exportés ; `--include-resolved` ajoute les autres
-  (`baselineState: absent` pour les corrigés, `suppressions` pour les acceptés / faux positifs).
-- Pour un projet, un finding signalé dans plusieurs rapports n'apparaît qu'une fois.
-- L'empreinte (`partialFingerprints`) ignore le numéro de ligne : elle reste stable quand le
-  code bouge.
-- Sans chemin de fichier, le finding n'a qu'une localisation logique.
+- Only **open** findings are exported; `--include-resolved` adds the others
+  (`baselineState: absent` for the fixed ones, `suppressions` for the accepted / false
+  positives).
+- For a project, a finding reported in several reports appears only once.
+- The fingerprint (`partialFingerprints`) ignores the line number: it stays stable when the
+  code moves.
+- Without a file path, the finding only has a logical location.
 
-## Intégrations
+## Integrations
 
-| Plateforme | Ingestion |
+| Platform | Ingestion |
 |---|---|
 | **GitHub** | `github/codeql-action/upload-sarif` (code scanning) |
-| **GitLab** | N'ingère **pas** SARIF nativement (rapports `sast` au format GitLab) ; gardez le fichier comme artefact ou convertissez-le |
-| **Jenkins** | Plugin Warnings Next Generation |
+| **GitLab** | Does **not** ingest SARIF natively (`sast` reports in the GitLab format); keep the file as an artifact or convert it |
+| **Jenkins** | Warnings Next Generation plugin |
 
-Exemple GitHub Actions :
+GitHub Actions example:
 
 ```yaml
 - run: security-review-controller code scan . --format sarif -o code.sarif

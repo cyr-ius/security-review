@@ -7,7 +7,7 @@ activer ou désactiver n'importe quelle règle, **sans toucher au code**.
 
 Les règles se gèrent avec la commande `security-review-controller rules` (import et export de packs
 TOML, activation, désactivation, suppression) ou depuis l'écran **Règles** de
-l'[interface web](interface-web.md). Les items de checklist se gèrent depuis l'écran
+l'[interface web](web-interface.md). Les items de checklist se gèrent depuis l'écran
 **Checklists** de cette interface, ou avec les packs TOML de la commande `rules`.
 
 ## Règles par défaut
