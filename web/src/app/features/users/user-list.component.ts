@@ -7,6 +7,7 @@ import { MIN_PASSWORD_CHARS } from '../../core/constants/passwords';
 import { AuthSource, WebUser, WebUserRole } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 
 /** Labels of the roles of a web user. */
 const ROLE_LABELS: Record<WebUserRole, string> = {
@@ -25,7 +26,7 @@ type FormRole = WebUserRole | 'none';
  */
 @Component({
   selector: 'app-user-list',
-  imports: [DatePipe],
+  imports: [DatePipe, RefreshButtonComponent],
   templateUrl: './user-list.component.html',
   styleUrl: './user-list.component.css',
 })

@@ -1,0 +1,15 @@
+<button
+  type="button"
+  class="btn btn-sm btn-outline-secondary"
+  [disabled]="loading()"
+  [attr.aria-busy]="loading()"
+  (click)="onClick()"
+>
+  <i
+    class="bi bi-arrow-clockwise"
+    [class.spinning]="spinning()"
+    aria-hidden="true"
+    (animationiteration)="onTurnEnd()"
+  ></i>
+  {{ label() }}
+</button>
