@@ -26,6 +26,12 @@ dans l'écran [**Paramètres**](interface-web.md#ecrans) de l'interface web, sin
 choisit (en général la langue de la conversation). L'écran peut aussi imposer « l'agent
 choisit » malgré la variable.
 
+Un agent qui fait la revue **sans prompt**, avec les seuls outils (cas courant : un prompt MCP
+est une commande lancée par l'utilisateur, l'agent ne peut pas l'appeler lui-même), reçoit la
+même langue configurée (écran **Paramètres**, sinon variable) dans les résultats de
+`get_review_checklist` (section « Report language ») et de `scan_code` (champ
+`report_language`, `null` si l'agent choisit).
+
 Le code, les extraits, les chemins, les identifiants de règles, les références CWE / OWASP et
 les valeurs fixes attendues par les outils (sévérité, catégorie, statut) restent inchangés :
 le gate, l'export SARIF et les tendances fonctionnent quelle que soit la langue.

@@ -40,7 +40,8 @@ INSTRUCTIONS = """\
 Security code-review server.
 - Use the prompts `security-review`, `api-security-review` and `configuration-review` to \
 start a structured review, and `codebase-review` to review a whole repository (not only a diff).
-- Use `get_review_checklist` and `scan_code` while reviewing.
+- Use `get_review_checklist` and `scan_code` while reviewing. When their results give a report \
+language, write your reply and the free-text fields of the report in that language.
 - At the end of a review, call `save_security_report` once to store the report in the \
 database. Use `list_security_reports`, `get_security_report` and \
 `get_project_security_posture` to read stored results.
@@ -356,8 +357,10 @@ def list_checklists() -> dict[str, int]:
 def get_review_checklist(
     domain: Annotated[str, Field(description="A domain from list_checklists")],
 ) -> str:
-    """Return the security checklist of a domain, in Markdown."""
-    return registry.render_checklist_markdown(domain)
+    """Return the security checklist of a domain, in Markdown, with the report language."""
+    checklist = registry.render_checklist_markdown(domain)
+    language_block = prompts.report_language_block(app_settings.report_language())
+    return "\n\n".join(x for x in (checklist, language_block) if x)
 
 
 @mcp.tool(annotations=READ_ONLY)
@@ -384,6 +387,8 @@ def scan_code(
         "matches": matches,
         "suppressed_count": len(suppressed),
         "suppressed": suppressed,
+        # Reviews made without a prompt only learn the configured language here
+        "report_language": app_settings.report_language() or None,
         "note": (
             "Leads only: verify each one in context. No match does not mean safe. "
             "Suppressed lines carry an inline secreview:ignore marker: review them too."
@@ -493,8 +498,10 @@ def save_security_report(
 ) -> dict:
     """Store a security report and its findings in the database.
 
-    Call this once at the end of a review. Secrets in free-text fields are masked before
-    storage. Returns the report id, the overall risk level and the finding counts.
+    Call this once at the end of a review, with the free-text fields written in the report
+    language given by the review prompt, scan_code or get_review_checklist, if any. Secrets in
+    free-text fields are masked before storage. Returns the report id, the overall risk level
+    and the finding counts.
     """
     allowed = _caller_projects(ctx)
     if allowed is not None and project not in allowed:
