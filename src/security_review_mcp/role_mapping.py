@@ -9,6 +9,9 @@ optional list of projects. Two sources are combined at each login:
 - the static groups of ``SECREVIEW_OIDC_ADMIN_GROUPS``, ``..._TRIAGER_GROUPS`` and
   ``..._READER_GROUPS``, which reach every project (used to bootstrap the first administrator).
 
+The SSO settings named here are those variables, possibly overridden in the web interface (see
+app_settings.oidc_settings): ``settings`` is always the effective one.
+
 Resolution (see resolve): the highest role among the matching mappings wins. The session then
 reaches every project if one of the mappings granting that role is unrestricted, otherwise the
 union of their projects. Without any group match, ``SECREVIEW_OIDC_DEFAULT_ROLE`` applies (every
@@ -109,7 +112,7 @@ def list_mappings() -> list[dict[str, Any]]:
 
 
 def static_mappings(settings: Settings) -> list[dict[str, Any]]:
-    """The mappings of the ``SECREVIEW_OIDC_*_GROUPS`` variables (every project, read-only)."""
+    """The mappings of the ``*_groups`` SSO settings (every project, read-only here)."""
     sources = (
         (Role.ADMIN, settings.oidc_admin_groups),
         (Role.TRIAGER, settings.oidc_triager_groups),

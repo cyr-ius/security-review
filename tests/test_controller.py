@@ -6,7 +6,16 @@ from pathlib import Path
 import pytest
 from starlette.testclient import TestClient
 
-from security_review_mcp import cli, controller, database, http_server, token_store, web_users
+from security_review_mcp import (
+    app_settings,
+    cli,
+    controller,
+    database,
+    http_server,
+    token_store,
+    web_api,
+    web_users,
+)
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware
 
@@ -26,6 +35,9 @@ def settings(monkeypatch):
         current = make_settings(**values)
         monkeypatch.setattr(controller, "get_settings", lambda: current)
         monkeypatch.setattr(database, "get_settings", lambda: current)
+        # The SSO settings are read again at each login (see web_api.OidcLogins)
+        monkeypatch.setattr(web_api, "get_settings", lambda: current)
+        monkeypatch.setattr(app_settings, "get_settings", lambda: current)
 
     _set()
     return _set

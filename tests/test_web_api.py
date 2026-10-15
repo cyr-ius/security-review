@@ -2,7 +2,9 @@
 
 import logging
 
+import jwt
 import pytest
+from cryptography.hazmat.primitives.asymmetric import rsa
 from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
@@ -1383,3 +1385,119 @@ def test_development_standards_are_read_by_all_and_written_by_admins(secured):
     admin_list = secured.get("/api/v1/standards", headers=auth("admin")).json()["standards"]
     assert [item["slug"] for item in admin_list] == ["angular", "draft"]
     assert admin_list[0]["updated_by"] == "admin"
+
+
+# ── SSO settings ─────────────────────────────────────────────────────────────
+
+SSO_SETTINGS = {
+    "enabled": True,
+    "issuer": "https://sso.example.com/realms/acme",
+    "client_id": "secreview",
+    "client_secret": "client-s3cr3t",
+    "redirect_uri": "https://secreview.example.com/api/v1/auth/oidc/callback",
+    "display_name": "Acme SSO",
+    "admin_groups": "secreview-admins",
+}
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("get", "/api/v1/oidc/settings"),
+        ("put", "/api/v1/oidc/settings"),
+        ("post", "/api/v1/oidc/settings/test"),
+    ],
+)
+def test_sso_settings_are_admin_only(secured, method, path):
+    assert secured.request(method, path, json={}).status_code == 401
+    for role in ("reader", "triager"):
+        response = secured.request(method, path, headers=auth(role), json={})
+        assert response.status_code == 403, role
+
+
+def test_sso_set_in_the_web_interface_enables_the_login_at_once(client, caplog):
+    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    assert client.get("/api/v1/auth/config").json()["oidc"] is False
+    assert client.get("/api/v1/auth/oidc/login").status_code == 404
+
+    response = client.put("/api/v1/oidc/settings", json=SSO_SETTINGS)
+
+    assert response.status_code == 200
+    described = response.json()
+    assert described["active"] is True
+    assert described["fields"]["client_secret"]["value"] == "***"
+    assert described["fields"]["issuer"]["effective"] == SSO_SETTINGS["issuer"]
+    assert described["callback_path"] == "/api/v1/auth/oidc/callback"
+    assert "client-s3cr3t" not in response.text
+    assert "client-s3cr3t" not in client.get("/api/v1/oidc/settings").text
+    assert "client-s3cr3t" not in caplog.text
+    config = client.get("/api/v1/auth/config").json()
+    assert config == {"password": True, "oidc": True, "oidc_display_name": "Acme SSO"}
+    catalog = client.get("/api/v1/oidc/role-mappings").json()
+    assert catalog["oidc_enabled"] is True
+    assert catalog["static_mappings"][0]["claim_value"] == "secreview-admins"
+
+    # A change is applied at the next request, and null restores the variable (disabled)
+    client.put("/api/v1/oidc/settings", json={"display_name": "Keycloak"})
+    assert client.get("/api/v1/auth/config").json()["oidc_display_name"] == "Keycloak"
+    client.put("/api/v1/oidc/settings", json={"enabled": None})
+    assert client.get("/api/v1/auth/config").json()["oidc"] is False
+
+
+def test_invalid_sso_settings_are_refused(client):
+    response = client.put("/api/v1/oidc/settings", json={"enabled": True})
+    assert response.status_code == 422
+    assert "SECREVIEW_OIDC_ISSUER" in response.json()["detail"]
+    for body in ({"cafile": "/etc/passwd"}, {"default_role": "admin"}, {"issuer": "a" * 501}):
+        assert client.put("/api/v1/oidc/settings", json=body).status_code == 422
+    assert client.get("/api/v1/oidc/settings").json()["active"] is False
+
+
+def test_sso_variables_made_invalid_by_a_stored_value_only_disable_the_login(
+    client, monkeypatch, caplog
+):
+    client.put("/api/v1/oidc/settings", json=SSO_SETTINGS)
+    # The variable changes after the settings were stored: SSO is disabled, not the controller
+    monkeypatch.setattr(get_settings(), "oidc_scopes", "profile")
+    assert client.get("/api/v1/auth/config").json()["oidc"] is False
+    assert "SSO login disabled, invalid settings" in caplog.text
+
+
+def test_sso_settings_test_contacts_the_given_provider_without_storing(client, monkeypatch):
+    issuer = SSO_SETTINGS["issuer"]
+    calls: list[str] = []
+
+    def fetch_json(self, url, data=None, headers=None):  # noqa: ANN001, ANN202
+        calls.append(url)
+        if url.endswith("/.well-known/openid-configuration"):
+            return {
+                "issuer": issuer,
+                "authorization_endpoint": f"{issuer}/auth",
+                "token_endpoint": f"{issuer}/token",
+                "jwks_uri": f"{issuer}/certs",
+            }
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048).public_key()
+        return {"keys": [jwt.algorithms.RSAAlgorithm.to_jwk(key, as_dict=True)]}
+
+    monkeypatch.setattr(oidc.OidcLogin, "fetch_json", fetch_json)
+    result = client.post("/api/v1/oidc/settings/test", json=SSO_SETTINGS).json()
+
+    assert result["success"] is True
+    assert [step["name"] for step in result["steps"]] == ["discovery", "jwks"]
+    assert result["steps"][1]["detail"] == "1 signing key(s)"
+    assert calls == [f"{issuer}/.well-known/openid-configuration", f"{issuer}/certs"]
+    assert client.get("/api/v1/oidc/settings").json()["fields"]["issuer"]["value"] is None
+
+    def unreachable(self, url, data=None, headers=None):  # noqa: ANN001, ANN202
+        raise oidc.OidcError("provider", "Identity provider unreachable")
+
+    monkeypatch.setattr(oidc.OidcLogin, "fetch_json", unreachable)
+    result = client.post("/api/v1/oidc/settings/test", json=SSO_SETTINGS).json()
+    assert result == {
+        "success": False,
+        "steps": [{"name": "discovery", "ok": False, "detail": "Identity provider unreachable"}],
+    }
+    # Settings that cannot enable a login are refused before any connection
+    for body in ({"issuer": "http://evil.example"}, SSO_SETTINGS | {"issuer": f"{issuer}\nx"}):
+        response = client.post("/api/v1/oidc/settings/test", json=body)
+        assert response.status_code == 422

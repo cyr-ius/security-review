@@ -56,10 +56,10 @@ def serve(argv: list[str]) -> None:
         store = token_store.DatabaseTokenStore(include_users=True)
         tls = http_server.tls_options(settings, args.host)
         signer = oidc.session_signer(settings)
-        oidc_login = oidc.from_settings(settings, signer)
-        web_app = web_api.create_app(
-            args.host, ui=settings.web_ui, oidc_login=oidc_login, signer=signer
-        )
+        # The SECREVIEW_OIDC_* variables are checked here; the settings changed in the web
+        # interface are checked when they are stored (an invalid mix only disables SSO)
+        oidc.from_settings(settings, signer)
+        web_app = web_api.create_app(args.host, ui=settings.web_ui, signer=signer)
         if settings.osv_auto_update:
             advisory_sync.validate_settings(settings)
     except (ValueError, SchemaError) as exc:
@@ -76,8 +76,7 @@ def serve(argv: list[str]) -> None:
         )
     if settings.web_ui:
         logger.info("Web interface enabled on /ui (REST API on /api/v1)")
-    if oidc_login:
-        logger.info("OIDC login enabled with %s", oidc_login.issuer)
+    oidc_login = web_app.state.oidc.current()
     updater = advisory_sync.AdvisoryUpdater(settings) if settings.osv_auto_update else None
     if updater:
         updater.start()

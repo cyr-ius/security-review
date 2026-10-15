@@ -49,7 +49,14 @@
   Avec la [connexion SSO](../utilisation/interface-web.md#connexion-sso-openid-connect)
   (`SECREVIEW_OIDC_ENABLED`, désactivée par défaut), le contrôleur contacte aussi le fournisseur
   d'identité configuré : HTTPS uniquement (HTTP seulement sur localhost), redirections limitées
-  à HTTPS, réponses bornées à 1 Mio, délai de 10 secondes.
+  à HTTPS, réponses bornées à 1 Mio, délai de 10 secondes. Cette configuration peut aussi être
+  [modifiée dans l'interface](../utilisation/interface-web.md#configurer-le-sso-dans-linterface)
+  par un administrateur, avec les mêmes contrôles (refus d'une configuration invalide) ; le
+  bouton **Tester la connexion** contacte l'émetteur saisi, sous les mêmes conditions. Le
+  **secret client** saisi dans l'interface est enregistré en base **en clair** : l'API ne le
+  renvoie jamais (`***`) et les journaux ne citent que le nom des réglages modifiés ; préférez
+  `SECREVIEW_OIDC_CLIENT_SECRET` (secret Kubernetes) si la base n'est pas protégée comme un
+  secret.
 - **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton de rôle web ;
   sans utilisateur ni jeton, elle répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
   le statut d'un finding (action journalisée avec le label du jeton). Pages servies avec une CSP

@@ -2,16 +2,16 @@
 
 A stored value overrides the matching ``SECREVIEW_*`` variable, for both processes since they
 share the database: the language of the review reports (read by the MCP server when it builds a
-review prompt) and the proxy of the OSV download (read by the controller). Without a stored
-value, the variable applies.
+review prompt), the proxy of the OSV download and the single sign-on settings (read by the
+controller). Without a stored value, the variable applies.
 
-The proxy URL may hold credentials: they are stored as given, but never returned by the API nor
-logged (``masked_url``).
+The proxy URL and the OIDC client secret are secrets: they are stored as given, but never
+returned by the API nor logged (``masked_url``, PASSWORD_MASK).
 """
 
 import urllib.request
 from dataclasses import dataclass
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from sqlmodel import select
@@ -19,6 +19,7 @@ from sqlmodel import select
 from .config import Settings, check_report_language, get_settings
 from .database import session_scope
 from .models import AppSetting, utcnow
+from .oidc import CALLBACK_PATH, DEFAULT_ROLES, validate_settings
 
 REPORT_LANGUAGE = "report_language"
 OSV_PROXY_MODE = "osv_proxy_mode"
@@ -172,6 +173,156 @@ def _environment_proxies() -> dict[str, str | None]:
     return {
         name: masked_url(proxies[key]) if key in proxies and key != "no" else proxies.get(key)
         for name, key in (("https_proxy", "https"), ("http_proxy", "http"), ("no_proxy", "no"))
+    }
+
+
+# ── Single sign-on (OIDC) ────────────────────────────────────────────────────
+
+# Settings of the OIDC login an administrator may change in the web interface, by short name
+# (stored under the name of the Settings field, ``oidc_<name>``) and type. oidc_cafile (a file
+# of the deployment) and the session settings stay variables only.
+OIDC_FIELDS: dict[str, type] = {
+    "enabled": bool,
+    "issuer": str,
+    "client_id": str,
+    "client_secret": str,
+    "redirect_uri": str,
+    "scopes": str,
+    "roles_claim": str,
+    "username_claim": str,
+    "admin_groups": str,
+    "triager_groups": str,
+    "reader_groups": str,
+    "default_role": str,
+    "auto_create_users": bool,
+    "display_name": str,
+}
+OIDC_SECRET = "client_secret"
+# Bound of a stored value (AppSetting.value)
+MAX_OIDC_VALUE_CHARS = 500
+
+
+def _oidc_key(name: str) -> str:
+    """Key of an OIDC setting in the table, also the name of its Settings field."""
+    return f"oidc_{name}"
+
+
+def _oidc_overrides(stored: dict[str, str]) -> dict[str, Any]:
+    """Typed values of the stored OIDC settings, keyed by Settings field."""
+    overrides: dict[str, Any] = {}
+    for name, kind in OIDC_FIELDS.items():
+        key = _oidc_key(name)
+        if key in stored:
+            overrides[key] = stored[key] == "true" if kind is bool else stored[key]
+    return overrides
+
+
+def oidc_settings(settings: Settings | None = None) -> Settings:
+    """Return ``settings`` with the OIDC values stored in the web interface applied over the
+    ``SECREVIEW_OIDC_*`` variables."""
+    settings = settings or get_settings()
+    overrides = _oidc_overrides(_stored())
+    return settings.model_copy(update=overrides) if overrides else settings
+
+
+def _check_oidc_value(name: str, value: Any) -> str:
+    """Return the stored form of one OIDC value, or raise ValueError."""
+    if OIDC_FIELDS[name] is bool:
+        if not isinstance(value, bool):
+            raise ValueError(f"SSO setting {name} must be true or false")
+        return "true" if value else "false"
+    if not isinstance(value, str):
+        raise ValueError(f"SSO setting {name} must be a string")
+    text = value if name == OIDC_SECRET else value.strip()
+    if len(text) > MAX_OIDC_VALUE_CHARS:
+        raise ValueError(f"SSO setting {name} too long (max {MAX_OIDC_VALUE_CHARS} chars)")
+    if not text.isprintable():
+        raise ValueError(f"SSO setting {name} must not contain control characters")
+    if name == "default_role" and text not in DEFAULT_ROLES:
+        raise ValueError("SSO default role must be empty, reader or triager")
+    return text
+
+
+def _oidc_changes(
+    values: dict[str, Any], settings: Settings
+) -> tuple[dict[str, str | None], Settings]:
+    """Check ``values`` (see set_oidc); return the stored form of the changes and the effective
+    settings they would give. Raise ValueError on an invalid value."""
+    changes: dict[str, str | None] = {}
+    for name, value in values.items():
+        if name == OIDC_SECRET and value == PASSWORD_MASK:
+            continue
+        if name not in OIDC_FIELDS:
+            raise ValueError(f"unknown SSO setting: {name}")
+        changes[_oidc_key(name)] = None if value is None else _check_oidc_value(name, value)
+    stored = _stored()
+    for key, value in changes.items():
+        if value is None:
+            stored.pop(key, None)
+        else:
+            stored[key] = value
+    return changes, settings.model_copy(update=_oidc_overrides(stored))
+
+
+def _validate_oidc(effective: Settings) -> None:
+    """Raise ValueError when ``effective`` cannot enable a login."""
+    try:
+        validate_settings(effective)
+    except ValueError as exc:
+        raise ValueError(f"invalid SSO settings: {exc}") from None
+
+
+def set_oidc(values: dict[str, Any], updated_by: str, settings: Settings | None = None) -> None:
+    """Store OIDC settings: ``values`` maps short names to a value, or to None to apply the
+    variable again; the names left out are unchanged. A client secret equal to PASSWORD_MASK
+    (sent back as shown) keeps the stored one.
+
+    Raises:
+        ValueError: If a value is invalid, or if the resulting settings enable an invalid login
+            (nothing is stored then).
+    """
+    changes, effective = _oidc_changes(values, settings or get_settings())
+    if effective.oidc_enabled:
+        _validate_oidc(effective)
+    _write(changes, updated_by)
+
+
+def oidc_candidate(values: dict[str, Any], settings: Settings | None = None) -> Settings:
+    """Return the effective settings ``values`` would give (see set_oidc), without storing
+    them, to test the provider.
+
+    Raises:
+        ValueError: If a value is invalid or the settings cannot enable a login.
+    """
+    _, effective = _oidc_changes(values, settings or get_settings())
+    _validate_oidc(effective)
+    return effective
+
+
+def _shown(name: str, value: Any) -> Any:
+    """Value of an OIDC setting as returned by the API: a set client secret is masked."""
+    if name == OIDC_SECRET and value:
+        return PASSWORD_MASK
+    return value
+
+
+def describe_oidc(settings: Settings | None = None) -> dict:
+    """Describe each OIDC setting (stored value, variable, effective value), without secret."""
+    settings = settings or get_settings()
+    stored = _oidc_overrides(_stored())
+    effective = settings.model_copy(update=stored) if stored else settings
+    fields = {
+        name: {
+            "value": _shown(name, stored[_oidc_key(name)]) if _oidc_key(name) in stored else None,
+            "env": _shown(name, getattr(settings, _oidc_key(name))),
+            "effective": _shown(name, getattr(effective, _oidc_key(name))),
+        }
+        for name in OIDC_FIELDS
+    }
+    return {
+        "fields": fields,
+        "cafile": settings.oidc_cafile,
+        "callback_path": CALLBACK_PATH,
     }
 
 

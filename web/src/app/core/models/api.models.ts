@@ -421,7 +421,7 @@ export type MappedRole = 'reader' | 'triager' | 'admin';
 
 /** An identity provider group or role mapped to a web role (and projects). */
 export interface RoleMapping {
-  /** Absent for the mappings of the SECREVIEW_OIDC_*_GROUPS variables. */
+  /** Absent for the groups of the SSO settings (SECREVIEW_OIDC_*_GROUPS or web interface). */
   id?: number;
   claim_value: string;
   role: MappedRole;
@@ -438,8 +438,51 @@ export interface RoleMappingCatalog {
   roles_claim: string;
   username_claim: string;
   default_role: 'reader' | 'triager' | null;
-  /** SECREVIEW_OIDC_AUTO_CREATE_USERS: SSO users are created at their first login. */
+  /** SSO users are created at their first login (auto_create_users SSO setting). */
   auto_create_users: boolean;
   mappings: RoleMapping[];
   static_mappings: RoleMapping[];
+}
+
+/** SSO setting an administrator may change (GET/PUT /api/v1/oidc/settings). */
+export type OidcSettingName =
+  | 'enabled'
+  | 'issuer'
+  | 'client_id'
+  | 'client_secret'
+  | 'redirect_uri'
+  | 'scopes'
+  | 'roles_claim'
+  | 'username_claim'
+  | 'admin_groups'
+  | 'triager_groups'
+  | 'reader_groups'
+  | 'default_role'
+  | 'auto_create_users'
+  | 'display_name';
+
+/** One SSO setting: stored in the web interface (null: the variable applies), variable, effective. */
+export interface OidcSettingValue {
+  value: string | boolean | null;
+  env: string | boolean | null;
+  effective: string | boolean | null;
+}
+
+/** GET /api/v1/oidc/settings (a set client secret is replaced by ***) */
+export interface OidcSettings {
+  fields: Record<OidcSettingName, OidcSettingValue>;
+  /** SECREVIEW_OIDC_CAFILE, variable only. */
+  cafile: string | null;
+  callback_path: string;
+  /** The SSO login is enabled and valid on this controller. */
+  active: boolean;
+}
+
+/** Body of PUT /api/v1/oidc/settings: a field left out is unchanged, null restores the variable. */
+export type OidcSettingsUpdate = Partial<Record<OidcSettingName, string | boolean | null>>;
+
+/** POST /api/v1/oidc/settings/test */
+export interface OidcTestResult {
+  success: boolean;
+  steps: { name: string; ok: boolean; detail: string }[];
 }

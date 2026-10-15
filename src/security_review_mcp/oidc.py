@@ -18,9 +18,11 @@ flow with PKCE:
    user again at each request. It never reaches the MCP server. The password login of the local
    web users issues the same session tokens.
 
-This module stores nothing in the database. The provider is contacted only by the controller,
-over HTTPS (plain HTTP is accepted for a provider on the loopback interface, for development),
-with bounded response sizes; tokens, codes and secrets are never logged.
+This module stores nothing in the database: its settings are the ``SECREVIEW_OIDC_*`` variables,
+possibly overridden in the web interface (see app_settings.oidc_settings). The provider is
+contacted only by the controller, over HTTPS (plain HTTP is accepted for a provider on the
+loopback interface, for development), with bounded response sizes; tokens, codes and secrets
+are never logged.
 """
 
 import base64
@@ -577,6 +579,33 @@ class OidcLogin:
         if claims.get("sub") != subject:
             raise OidcError("token", "Userinfo response about another subject")
         return claims
+
+    def check(self) -> list[dict[str, Any]]:
+        """Test the provider without logging in: discovery document, then signing keys.
+
+        Each step is ``{"name", "ok", "detail"}``; the test stops at the first failed step.
+        """
+        try:
+            document = self.discovery()
+        except OidcError as exc:
+            return [{"name": "discovery", "ok": False, "detail": str(exc)}]
+        steps = [
+            {
+                "name": "discovery",
+                "ok": True,
+                "detail": f"Issuer {self.issuer} publishes the authorization, token and JWKS "
+                "endpoints",
+            }
+        ]
+        try:
+            keys = jwt.PyJWKSet.from_dict(self.fetch_json(document["jwks_uri"])).keys
+        except OidcError as exc:
+            steps.append({"name": "jwks", "ok": False, "detail": str(exc)})
+        except jwt.PyJWTError:
+            steps.append({"name": "jwks", "ok": False, "detail": "Invalid JWKS"})
+        else:
+            steps.append({"name": "jwks", "ok": True, "detail": f"{len(keys)} signing key(s)"})
+        return steps
 
 
 def _path_of(url: str) -> str:

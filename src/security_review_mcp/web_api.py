@@ -11,6 +11,7 @@ The services are synchronous (SQLModel sessions), so every call runs in the thre
 
 import json
 import logging
+import threading
 from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import urlencode
@@ -21,7 +22,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Scope
@@ -42,7 +43,7 @@ from . import (
     trends,
     web_users,
 )
-from .config import REPORT_LANGUAGE_MAX_CHARS, get_settings
+from .config import REPORT_LANGUAGE_MAX_CHARS, Settings, get_settings
 from .http_server import BEARER_CHALLENGE, HEALTH_PATH, LOOPBACK_HOSTS, TRIAGE_ROLES, Role
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
 from .sarif import build_sarif
@@ -246,6 +247,35 @@ class OsvProxyUpdate(BaseModel):
     url: str | None = Field(default=None, max_length=app_settings.MAX_PROXY_URL_CHARS)
 
 
+_OidcText = Annotated[str, Field(max_length=app_settings.MAX_OIDC_VALUE_CHARS)]
+
+
+class OidcSettingsUpdate(BaseModel):
+    """Body of PUT /oidc/settings and POST /oidc/settings/test.
+
+    A field left out is unchanged, ``null`` applies the ``SECREVIEW_OIDC_*`` variable again. A
+    client secret sent back as returned by the API (``***``) keeps the stored one; ``""`` makes
+    the client public.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool | None = None
+    issuer: _OidcText | None = None
+    client_id: _OidcText | None = None
+    client_secret: _OidcText | None = None
+    redirect_uri: _OidcText | None = None
+    scopes: _OidcText | None = None
+    roles_claim: _OidcText | None = None
+    username_claim: _OidcText | None = None
+    admin_groups: _OidcText | None = None
+    triager_groups: _OidcText | None = None
+    reader_groups: _OidcText | None = None
+    default_role: Literal["", "reader", "triager"] | None = None
+    auto_create_users: bool | None = None
+    display_name: _OidcText | None = None
+
+
 class ProjectSummary(BaseModel):
     """One project with its open findings."""
 
@@ -406,9 +436,55 @@ class LoginSession(BaseModel):
     role: Role
 
 
-def _oidc_login(request: Request) -> oidc.OidcLogin:
-    """Return the OIDC login flow of the app; 404 when OIDC is disabled."""
-    login = getattr(request.app.state, "oidc", None)
+class OidcLogins:
+    """Current OIDC login flow of the controller.
+
+    A ``fixed`` flow (tests) is always used. Otherwise the flow follows the effective settings,
+    the ``SECREVIEW_OIDC_*`` variables overridden in the web interface (see
+    app_settings.oidc_settings), read at each call: it is rebuilt when they change, so that
+    every replica applies a change at its next login.
+    """
+
+    def __init__(self, signer: oidc.SessionSigner, fixed: oidc.OidcLogin | None = None) -> None:
+        self.signer = signer
+        self.fixed = fixed
+        self._lock = threading.Lock()
+        self._login: oidc.OidcLogin | None = None
+        # Settings refused by validate_settings, logged once
+        self._refused: Settings | None = None
+
+    def current(self) -> oidc.OidcLogin | None:
+        """Return the login flow of the effective settings, or None when SSO is disabled."""
+        if self.fixed is not None:
+            return self.fixed
+        settings = app_settings.oidc_settings(get_settings())
+        if not settings.oidc_enabled:
+            return None
+        with self._lock:
+            if self._login is not None and self._login.settings == settings:
+                return self._login
+            if self._refused == settings:
+                return None
+            try:
+                self._login = oidc.from_settings(settings, self.signer)
+            except ValueError as exc:
+                logger.error("SSO login disabled, invalid settings: %s", exc)
+                self._login, self._refused = None, settings
+                return None
+            self._refused = None
+            logger.info("OIDC login enabled with %s", self._login.issuer)
+            return self._login
+
+
+async def _current_oidc(request: Request) -> oidc.OidcLogin | None:
+    """Return the current OIDC login flow, or None when SSO is disabled."""
+    logins: OidcLogins = request.app.state.oidc
+    return await run_in_threadpool(logins.current)
+
+
+async def _oidc_login(request: Request) -> oidc.OidcLogin:
+    """Return the current OIDC login flow; 404 when OIDC is disabled."""
+    login = await _current_oidc(request)
     if login is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OIDC is not enabled")
     return login
@@ -431,7 +507,7 @@ def _to_login_page(login: oidc.OidcLogin, query: dict[str, str], fragment: str =
 @auth_router.get("/config")
 async def auth_config(request: Request) -> AuthConfig:
     """Tell the login page whether single sign-on (OIDC) is available."""
-    login = getattr(request.app.state, "oidc", None)
+    login = await _current_oidc(request)
     return AuthConfig(
         password=True,
         oidc=login is not None,
@@ -489,7 +565,7 @@ async def oidc_login(
     return_url: Annotated[str | None, Query(max_length=oidc.MAX_RETURN_URL_CHARS)] = None,
 ) -> Response:
     """Start an OIDC login: redirect to the identity provider (code flow with PKCE)."""
-    login = _oidc_login(request)
+    login = await _oidc_login(request)
     try:
         started = await run_in_threadpool(login.start, return_url)
     except oidc.OidcError as exc:
@@ -522,7 +598,7 @@ async def oidc_callback(
     The token goes in the URL fragment of the login page, which the browser never sends to a
     server; the page removes it from the address bar and keeps it in the tab only.
     """
-    login = _oidc_login(request)
+    login = await _oidc_login(request)
     if error or not code or not state:
         reason = "".join(c for c in (error or "missing code or state") if c.isprintable())
         logger.warning("OIDC login not completed: %s", reason)
@@ -970,7 +1046,7 @@ async def approve_enrollment(
     when OIDC is enabled, an unknown name becomes an SSO user, ready for its first login.
     """
     portal_user = body.portal_user if body is not None else None
-    create_sso = getattr(request.app.state, "oidc", None) is not None
+    create_sso = await _current_oidc(request) is not None
     if portal_user is not None:
         try:
             portal_user = await run_in_threadpool(
@@ -1105,10 +1181,10 @@ async def start_advisory_update(identity: Annotated[Identity, Depends(require_ad
 async def role_mappings(
     request: Request, identity: Annotated[Identity, Depends(require_admin)]
 ) -> dict[str, Any]:
-    """List the OIDC role mappings: stored ones and those of the SECREVIEW_OIDC_* variables."""
-    settings = get_settings()
+    """List the OIDC role mappings: stored ones and the groups of the SSO settings."""
+    settings = await run_in_threadpool(app_settings.oidc_settings)
     return {
-        "oidc_enabled": getattr(request.app.state, "oidc", None) is not None,
+        "oidc_enabled": await _current_oidc(request) is not None,
         "roles_claim": settings.oidc_roles_claim,
         "default_role": settings.oidc_default_role or None,
         "username_claim": settings.oidc_username_claim,
@@ -1116,6 +1192,62 @@ async def role_mappings(
         "mappings": await run_in_threadpool(role_mapping.list_mappings),
         "static_mappings": role_mapping.static_mappings(settings),
     }
+
+
+async def _describe_oidc(request: Request) -> dict[str, Any]:
+    """SSO settings of the web interface, with whether the login is active."""
+    described = await run_in_threadpool(app_settings.describe_oidc)
+    return described | {"active": await _current_oidc(request) is not None}
+
+
+@router.get("/oidc/settings")
+async def get_oidc_settings(
+    request: Request, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict[str, Any]:
+    """Return the SSO settings: stored value, variable and effective value of each one.
+
+    A set client secret is replaced by ``***``.
+    """
+    return await _describe_oidc(request)
+
+
+@router.put("/oidc/settings")
+async def set_oidc_settings(
+    request: Request,
+    body: OidcSettingsUpdate,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict[str, Any]:
+    """Change SSO settings; they override the SECREVIEW_OIDC_* variables at the next login.
+
+    Refused (422) when the resulting settings enable an invalid login.
+    """
+    values = body.model_dump(exclude_unset=True)
+    try:
+        await run_in_threadpool(app_settings.set_oidc, values, identity.client)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    # Names only: the values may hold the client secret
+    logger.info("SSO settings %s changed by %s", ", ".join(sorted(values)), identity.client)
+    return await _describe_oidc(request)
+
+
+@router.post("/oidc/settings/test")
+async def test_oidc_settings(
+    request: Request,
+    body: OidcSettingsUpdate,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict[str, Any]:
+    """Test the identity provider of the given settings (applied over the effective ones,
+    nothing stored): discovery document and signing keys."""
+    values = body.model_dump(exclude_unset=True)
+    try:
+        candidate = await run_in_threadpool(app_settings.oidc_candidate, values)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logins: OidcLogins = request.app.state.oidc
+    steps = await run_in_threadpool(oidc.OidcLogin(candidate, logins.signer).check)
+    logger.info("SSO provider %s tested by %s", candidate.oidc_issuer, identity.client)
+    return {"success": all(step["ok"] for step in steps), "steps": steps}
 
 
 @router.post("/oidc/role-mappings", status_code=status.HTTP_201_CREATED)
@@ -1321,8 +1453,9 @@ def create_app(
 ) -> FastAPI:
     """Build the controller app (REST API and, when it is built, the Angular application).
 
-    ``ui=False`` (SECREVIEW_WEB_UI=false) serves the REST API only. ``oidc_login`` (see
-    oidc.from_settings) enables the single sign-on routes under ``/api/v1/auth/oidc``.
+    ``ui=False`` (SECREVIEW_WEB_UI=false) serves the REST API only. The single sign-on routes
+    under ``/api/v1/auth/oidc`` follow the effective SSO settings (see OidcLogins);
+    ``oidc_login`` (tests) replaces them with a fixed flow.
     ``signer`` (see oidc.session_signer) signs the sessions of the password login; the
     session tokens are checked by the bearer middleware (build_controller_app).
 
@@ -1337,12 +1470,12 @@ def create_app(
         redoc_url=None,
         openapi_url="/api/openapi.json",
     )
-    app.state.oidc = oidc_login
     app.state.signer = signer or (
         oidc_login.signer
         if oidc_login
         else oidc.SessionSigner(settings.session_secret, settings.session_hours)
     )
+    app.state.oidc = OidcLogins(app.state.signer, oidc_login)
     app.state.login_throttle = web_users.LoginThrottle()
     app.include_router(auth_router)
     app.include_router(router)
