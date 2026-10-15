@@ -58,13 +58,15 @@ projet : tout client autorisé sur `/mcp` les lit.
 ## Gestion (interface web et API REST)
 
 L'écran **Normes** de l'interface web liste les normes avec leurs technologies et motifs de
-fichiers, et permet de rechercher et de lire chacune. Tout utilisateur connecté les consulte ;
-seuls les administrateurs les créent, les modifient, les désactivent ou les suppriment.
+fichiers, et permet de rechercher et de lire chacune. Comme les règles et les checklists, il est
+réservé aux administrateurs, qui les créent, les modifient, les désactivent ou les suppriment.
+Les assistants IA, eux, reçoivent les normes actives par le serveur MCP (prompt et outils
+ci-dessus), quel que soit le rôle web de l'utilisateur.
 
 | Méthode | Route | Rôle requis |
 |---|---|---|
-| `GET` | `/api/v1/standards` | tout rôle web (les normes désactivées ne sont listées qu'aux administrateurs) |
-| `GET` | `/api/v1/standards/{slug}` | tout rôle web |
+| `GET` | `/api/v1/standards` | `admin` (normes désactivées comprises) |
+| `GET` | `/api/v1/standards/{slug}` | `admin` |
 | `POST` | `/api/v1/standards` | `admin` (`409` si l'identifiant existe déjà) |
 | `PUT` | `/api/v1/standards/{slug}` | `admin` (l'identifiant ne change pas) |
 | `DELETE` | `/api/v1/standards/{slug}` | `admin` |

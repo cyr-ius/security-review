@@ -19,9 +19,9 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 
 ## Écrans
 
-Les écrans sont accessibles depuis la barre latérale : **Supervision** (projets, rapports,
-normes) pour tous les rôles, **Administration** (règles, checklists, utilisateurs, jetons, rôles SSO,
-paramètres) pour le rôle `admin`. Le bas de la barre affiche le client connecté, son rôle et la
+Les écrans sont accessibles depuis la barre latérale : **Supervision** (projets, rapports) pour
+tous les rôles, puis **Référentiel** (règles, checklists, normes) et **Administration**
+(utilisateurs, jetons, rôles SSO, paramètres) pour le rôle `admin`. Le bas de la barre affiche le client connecté, son rôle et la
 version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
 à droite, y compris sur la page de connexion, et reste mémorisé dans le navigateur.
 
@@ -36,9 +36,9 @@ version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, 
   extrait de code et recommandation ; téléchargement Markdown et SARIF. Les utilisateurs qui ont
   le rôle `triager` ou `admin` changent le statut d'un finding directement depuis cet écran.
 - **Normes** : les [normes de développement](normes.md) transmises aux assistants IA par le
-  prompt `development-standards`. Tout utilisateur les recherche et les lit ; les
-  administrateurs les créent, les modifient (technologies, motifs de fichiers, contenu
-  Markdown), les désactivent ou les suppriment. Un changement s'applique immédiatement.
+  prompt `development-standards`. Les administrateurs les recherchent, les lisent, les créent,
+  les modifient (technologies, motifs de fichiers, contenu Markdown), les désactivent ou les
+  suppriment. Un changement s'applique immédiatement.
 - **Checklists** : les administrateurs consultent les items de contrôle par domaine, filtrent la
   liste et créent, modifient ou suppriment les items personnalisés. Les items par défaut peuvent
   être modifiés, mais pas supprimés. Toute modification est rechargée immédiatement par le serveur
