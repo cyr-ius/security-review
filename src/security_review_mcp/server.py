@@ -16,6 +16,7 @@ from pydantic import Field
 from . import (
     __version__,
     advisories,
+    app_settings,
     cli,
     depscan,
     enrollment_api,
@@ -25,10 +26,11 @@ from . import (
     sarif,
     scanner,
     services,
+    standards,
     token_store,
     trends,
 )
-from .config import configure_logging, get_settings
+from .config import check_report_language, configure_logging, get_settings
 from .database import SchemaError, check_db, init_db
 from .models import FindingCreate, FindingStatus, Severity
 
@@ -46,6 +48,8 @@ database. Use `list_security_reports`, `get_security_report` and \
 projects, call `request_enrollment` to ask an administrator to add this project to the token \
 (complementary enrollment: the token keeps working for its other projects), then \
 `get_enrollment_status` to know whether it was approved.
+- Before writing code, use the prompt `development-standards` (or the tool \
+`get_development_standards`) to get the development standards of the technologies you work on.
 """
 
 ENROLLMENT_INSTRUCTIONS = """\
@@ -134,6 +138,14 @@ def _caller_address(ctx: Context) -> str | None:
 # ── Prompts ──────────────────────────────────────────────────────────────────
 
 
+def _report_language(requested: str) -> str:
+    """Resolve the report language: prompt argument, web interface, SECREVIEW_REPORT_LANGUAGE."""
+    try:
+        return check_report_language(requested) or app_settings.report_language()
+    except ValueError as exc:
+        raise MCPError(code=INVALID_PARAMS, message=str(exc)) from exc
+
+
 @mcp.prompt(
     name="security-review",
     title="Security code review",
@@ -144,6 +156,7 @@ def security_review(
     code: str = "",
     context: str = "",
     focus: str = "",
+    report_language: str = "",
 ) -> str:
     """Build the general security-review prompt.
 
@@ -152,8 +165,12 @@ def security_review(
         code: Code or diff to review (leave empty to review the workspace files).
         context: Optional context (exposure, data sensitivity, authentication model...).
         focus: Optional areas to emphasize (for example "authentication, file upload").
+        report_language: Language of the reply and of the stored report, for example French
+            (default: SECREVIEW_REPORT_LANGUAGE).
     """
-    return prompts.build_security_review_prompt(language, code, context, focus)
+    return prompts.build_security_review_prompt(
+        language, code, context, focus, _report_language(report_language)
+    )
 
 
 @mcp.prompt(
@@ -166,6 +183,7 @@ def api_security_review(
     code: str = "",
     context: str = "",
     focus: str = "",
+    report_language: str = "",
 ) -> str:
     """Build the REST API review prompt.
 
@@ -174,8 +192,11 @@ def api_security_review(
         code: Controllers, routes, DTOs or diff to review.
         context: Optional context (public API, internal, consumers...).
         focus: Optional areas to emphasize.
+        report_language: Language of the reply and of the stored report.
     """
-    return prompts.build_api_review_prompt(framework, code, context, focus)
+    return prompts.build_api_review_prompt(
+        framework, code, context, focus, _report_language(report_language)
+    )
 
 
 @mcp.prompt(
@@ -188,6 +209,7 @@ def configuration_review(
     content: str = "",
     context: str = "",
     focus: str = "",
+    report_language: str = "",
 ) -> str:
     """Build the configuration review prompt.
 
@@ -196,8 +218,11 @@ def configuration_review(
         content: Configuration content to review.
         context: Optional context (environment, exposure...).
         focus: Optional areas to emphasize.
+        report_language: Language of the reply and of the stored report.
     """
-    return prompts.build_config_review_prompt(config_type, content, context, focus)
+    return prompts.build_config_review_prompt(
+        config_type, content, context, focus, _report_language(report_language)
+    )
 
 
 @mcp.prompt(
@@ -210,6 +235,7 @@ def codebase_review(
     scan_results: str = "",
     context: str = "",
     focus: str = "",
+    report_language: str = "",
 ) -> str:
     """Build the whole-codebase review prompt.
 
@@ -218,7 +244,9 @@ def codebase_review(
         scan_results: Optional output of `security-review-controller code scan . --format json`.
         context: Optional context (exposure, data sensitivity, authentication model...).
         focus: Optional areas to emphasize.
+        report_language: Language of the reply and of the stored report.
     """
+    language = _report_language(report_language)
     limit = get_settings().max_content_chars
     if len(scan_results) > limit:
         raise MCPError(
@@ -226,7 +254,7 @@ def codebase_review(
             message=f"scan_results too large ({len(scan_results)} chars); the limit is {limit}. "
             "Filter it, for example with --exclude or --fail-on, or use --save and triage-report.",
         )
-    return prompts.build_codebase_review_prompt(languages, scan_results, context, focus)
+    return prompts.build_codebase_review_prompt(languages, scan_results, context, focus, language)
 
 
 @mcp.prompt(
@@ -234,15 +262,20 @@ def codebase_review(
     title="Dependency and supply-chain review",
     description="Check manifests and lockfiles for vulnerable versions and risky practices.",
 )
-def dependency_review(ecosystem: str = "", files: str = "", context: str = "") -> str:
+def dependency_review(
+    ecosystem: str = "", files: str = "", context: str = "", report_language: str = ""
+) -> str:
     """Build the dependency review prompt.
 
     Args:
         ecosystem: PyPI, npm or Maven (leave empty for all).
         files: Dependency files with their names (leave empty to read the workspace files).
         context: Optional context (exposure, runtime vs dev usage...).
+        report_language: Language of the reply and of the stored report.
     """
-    return prompts.build_dependency_review_prompt(ecosystem, files, context)
+    return prompts.build_dependency_review_prompt(
+        ecosystem, files, context, _report_language(report_language)
+    )
 
 
 @mcp.prompt(
@@ -250,19 +283,62 @@ def dependency_review(ecosystem: str = "", files: str = "", context: str = "") -
     title="Triage a security report",
     description="Re-assess the findings of a stored report and update their status.",
 )
-def triage_report(ctx: Context, report_id: int, context: str = "") -> str:
+def triage_report(
+    ctx: Context, report_id: int, context: str = "", report_language: str = ""
+) -> str:
     """Build a triage prompt from a stored report.
 
     Args:
         report_id: Identifier returned by save_security_report.
         context: Optional deployment context to re-assess severity.
+        report_language: Language of the reply.
     """
+    language = _report_language(report_language)
     try:
         services.check_report_scope(_caller_projects(ctx), report_id)
         report = services.get_report(report_id)
     except services.NotFoundError as exc:
         raise MCPError(code=INVALID_PARAMS, message=str(exc)) from exc
-    return prompts.build_triage_prompt(services.render_report_markdown(report), context)
+    return prompts.build_triage_prompt(services.render_report_markdown(report), context, language)
+
+
+def _split_list(value: str) -> list[str]:
+    """Split a prompt argument given as a comma or newline separated list."""
+    return [item.strip() for item in value.replace("\n", ",").split(",") if item.strip()]
+
+
+@mcp.prompt(
+    name="development-standards",
+    title="Development standards",
+    description="Get the development standards of the technologies you work on before coding.",
+)
+def development_standards(
+    technologies: str = "", files: str = "", task: str = "", context: str = ""
+) -> str:
+    """Build the prompt that applies the development standards to a coding task.
+
+    Args:
+        technologies: Technologies of the code, for example "python, fastapi, angular" (leave
+            empty to let the assistant detect them from the workspace).
+        files: Optional file names that reveal the stack, comma or newline separated (for
+            example "pyproject.toml, angular.json").
+        task: Optional description of what is to be written or changed.
+        context: Optional context (project, constraints...).
+    """
+    wanted, paths = _split_list(technologies), _split_list(files)
+    limit = get_settings().max_content_chars
+    if len(task) + len(context) > limit:
+        raise MCPError(
+            code=INVALID_PARAMS, message=f"task and context too large; the limit is {limit}"
+        )
+    try:
+        if wanted or paths:
+            markdown = standards.render_lookup_markdown(standards.find_standards(wanted, paths))
+        else:
+            markdown = standards.render_catalog_markdown(standards.list_standards())
+    except ValueError as exc:
+        raise MCPError(code=INVALID_PARAMS, message=str(exc)) from exc
+    return prompts.build_development_standards_prompt(markdown, wanted, task, context)
 
 
 # ── Tools: knowledge and scanning ────────────────────────────────────────────
@@ -342,6 +418,55 @@ def reload_rules(ctx: Context) -> dict:
         "custom_rules": len(current.custom_rule_ids),
         "load_errors": list(current.errors),
     }
+
+
+# ── Tools: development standards ─────────────────────────────────────────────
+
+
+# Fields of a standard listed to the model (no content, no audit fields)
+_STANDARD_FIELDS = ("slug", "title", "description", "technologies", "file_patterns")
+
+
+@mcp.tool(annotations=READ_ONLY)
+@_tool_errors
+def list_development_standards() -> list[dict]:
+    """List the development standards defined by the administrators (without their content).
+
+    Each entry gives the slug, the title, the technologies it applies to and the file name
+    patterns that reveal them. Read one with get_development_standards.
+    """
+    return [{key: item[key] for key in _STANDARD_FIELDS} for item in standards.list_standards()]
+
+
+@mcp.tool(annotations=READ_ONLY)
+@_tool_errors
+def get_development_standards(
+    technologies: Annotated[
+        list[Annotated[str, Field(max_length=standards.MAX_KEYWORD_CHARS)]],
+        Field(
+            description="Technologies, frameworks or standard slugs, e.g. ['python', 'angular']",
+            max_length=standards.MAX_QUERY_TECHNOLOGIES,
+        ),
+    ] = [],  # noqa: B006  (the SDK copies the default)
+    files: Annotated[
+        list[Annotated[str, Field(max_length=standards.MAX_QUERY_FILE_CHARS)]],
+        Field(
+            description="File names or paths of the workspace that reveal the stack, "
+            "e.g. ['pyproject.toml', 'src/app/app.ts']",
+            max_length=standards.MAX_QUERY_FILES,
+        ),
+    ] = [],  # noqa: B006
+    format: Literal["markdown", "json"] = "markdown",
+) -> dict | str:
+    """Return the development standards to follow for technologies or files, before coding.
+
+    A standard is selected by its technologies or by a file matching its patterns. The answer
+    also names the technologies no standard covers.
+    """
+    if not technologies and not files:
+        raise ValueError("Give at least one technology or file name")
+    found = standards.find_standards(technologies, files)
+    return standards.render_lookup_markdown(found) if format == "markdown" else found
 
 
 # ── Tools: reports ───────────────────────────────────────────────────────────
@@ -566,6 +691,30 @@ def checklist_resource(domain: str) -> str:
     return registry.render_checklist_markdown(domain)
 
 
+@mcp.resource(
+    "standards://catalog",
+    name="development-standards",
+    description="The list of the development standards",
+    mime_type="text/markdown",
+)
+@_resource_errors
+def standards_catalog_resource() -> str:
+    """Expose the list of the development standards as a Markdown resource."""
+    return standards.render_catalog_markdown(standards.list_standards())
+
+
+@mcp.resource(
+    "standard://{slug}",
+    name="development-standard",
+    description="The development standard of a technology",
+    mime_type="text/markdown",
+)
+@_resource_errors
+def standard_resource(slug: str) -> str:
+    """Expose one development standard as a Markdown resource."""
+    return standards.render_standard_markdown(standards.get_standard(standards.validate_slug(slug)))
+
+
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 ProjectArg = Annotated[
@@ -774,7 +923,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         # Bearer tokens live in the database (hashes only)
         store = token_store.DatabaseTokenStore()
-        tls = http_server.tls_options(settings)
+        tls = http_server.tls_options(settings, args.host)
     except ValueError as exc:
         parser.error(str(exc))
     if settings.enrollment:

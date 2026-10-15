@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import field_validator
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import BigInteger, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -170,7 +170,7 @@ class AdvisoryAffected(SQLModel, table=True):
 
 
 class ApiToken(SQLModel, table=True):
-    """Bearer token of the HTTP transport (CLI, bootstrap admin, web project tokens).
+    """Bearer token of the HTTP transport (CLI, web project tokens, enrollment requests).
 
     Only the SHA-256 digest of the secret is stored. An enrollment request is a token whose
     status is ``pending``: it authenticates nothing until an administrator approves it.
@@ -242,6 +242,26 @@ class CustomCheckItem(SQLModel, table=True):
     cwe: str = Field(default="", max_length=20)
 
 
+class DevStandard(SQLModel, table=True):
+    """Development standard of a technology, served to the developer's AI (see standards).
+
+    ``technologies`` (JSON list of lowercase names and aliases) and ``file_patterns`` (JSON list
+    of file name globs) select the standard; ``content`` holds the guidance, in Markdown.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    slug: str = Field(unique=True, index=True, max_length=50)
+    title: str = Field(max_length=200)
+    description: str = Field(default="", max_length=500)
+    technologies: str = Field(default="[]")
+    file_patterns: str = Field(default="[]")
+    content: str = Field(default="")
+    enabled: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+    updated_by: str | None = Field(default=None, max_length=64)
+
+
 class DisabledRule(SQLModel, table=True):
     """A switched-off rule id (default or custom)."""
 
@@ -268,3 +288,100 @@ class DefaultSeed(SQLModel, table=True):
     key: str = Field(primary_key=True, max_length=90)  # rule id, or "domain/item id"
     digest: str = Field(max_length=64)  # hex SHA-256
     seeded_at: datetime = Field(default_factory=utcnow)
+
+
+# ── Settings changed in the web interface and history of the OSV updates ─────
+
+
+class AppSetting(SQLModel, table=True):
+    """A setting changed by an administrator in the web interface.
+
+    It overrides the matching ``SECREVIEW_*`` variable for both processes (see app_settings);
+    a missing row means the variable applies.
+    """
+
+    key: str = Field(primary_key=True, max_length=50)
+    value: str = Field(default="", max_length=500)
+    updated_at: datetime = Field(default_factory=utcnow)
+    updated_by: str | None = Field(default=None, max_length=64)
+
+
+class AdvisoryUpdate(SQLModel, table=True):
+    """One download of the OSV exports by the controller (scheduled, CLI or web)."""
+
+    id: int | None = Field(default=None, primary_key=True)
+    trigger: str = Field(max_length=20)  # "schedule", "cli" or "web"
+    triggered_by: str | None = Field(default=None, max_length=64)
+    # "running", "success", "partial" (some ecosystems failed) or "failed"
+    status: str = Field(default="running", index=True, max_length=20)
+    source: str = Field(default="", max_length=500)
+    started_at: datetime = Field(default_factory=utcnow, index=True)
+    finished_at: datetime | None = Field(default=None)
+    results: str = Field(default="{}")  # JSON: counters or error of each ecosystem
+
+
+# ── OIDC role mapping (web interface, see role_mapping) ──────────────────────
+
+
+class OidcRoleMapping(SQLModel, table=True):
+    """Web role granted to the OIDC users whose groups or roles claim holds ``claim_value``.
+
+    ``projects`` is the JSON list of the projects a ``reader`` or ``triager`` mapping is limited
+    to; an empty list means every project (always the case for ``admin``).
+    """
+
+    __table_args__ = (UniqueConstraint("claim_value", "role"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    claim_value: str = Field(index=True, max_length=200)
+    role: str = Field(max_length=20)
+    projects: str = Field(default="[]")
+    created_at: datetime = Field(default_factory=utcnow)
+    created_by: str | None = Field(default=None, max_length=64)
+
+
+# ── Web users (username and password login, see web_users) ───────────────────
+
+
+class WebUser(SQLModel, table=True):
+    """Account of the web interface: a local account (username and password) or an SSO one.
+
+    ``auth_source`` is ``local`` (password login, only a scrypt hash of the password is stored)
+    or ``oidc`` (OpenID Connect login, no password). ``role`` and ``projects`` are the access
+    given by an administrator: ``projects`` is the JSON list of the projects a ``reader`` or
+    ``triager`` reaches, an empty list meaning every project (always for ``admin``). An SSO
+    account may have no role of its own (``role`` None): ``sso_role`` and ``sso_projects`` hold
+    the access its groups gave at its last login (see role_mapping), and the highest of both
+    applies. ``oidc_subject`` is the ``sub`` claim bound at the first SSO login.
+    ``session_version`` is drawn at random at creation and at each password change: the sessions
+    issued with another version are refused.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    username: str = Field(unique=True, index=True, max_length=64)
+    auth_source: str = Field(default="local", max_length=20)
+    role: str | None = Field(default=None, max_length=20)
+    projects: str = Field(default="[]")
+    password_hash: str | None = Field(default=None, max_length=255)
+    oidc_subject: str | None = Field(default=None, max_length=255)
+    sso_role: str | None = Field(default=None, max_length=20)
+    sso_projects: str = Field(default="[]")
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+    password_changed_at: datetime | None = Field(default=None)
+    session_version: int = Field(default=0, sa_type=BigInteger)
+    last_login_at: datetime | None = Field(default=None)
+    created_by: str | None = Field(default=None, max_length=64)
+
+
+class RevokedSsoUser(SQLModel, table=True):
+    """Username of an SSO web user deleted by an administrator (see web_users.delete_user).
+
+    With ``SECREVIEW_OIDC_AUTO_CREATE_USERS``, an SSO login never creates a web user with this
+    name again; an administrator who creates the user again lifts the revocation.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    username: str = Field(unique=True, index=True, max_length=64)
+    revoked_at: datetime = Field(default_factory=utcnow)
+    revoked_by: str | None = Field(default=None, max_length=64)

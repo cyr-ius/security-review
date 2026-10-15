@@ -13,6 +13,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Annotated, Any, Literal
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi import Path as APIPath
@@ -25,8 +26,23 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Scope
 
-from . import __version__, registry, rule_store, rules_loader, services, token_store, trends
-from .config import get_settings
+from . import (
+    __version__,
+    advisories,
+    advisory_sync,
+    app_settings,
+    oidc,
+    registry,
+    role_mapping,
+    rule_store,
+    rules_loader,
+    services,
+    standards,
+    token_store,
+    trends,
+    web_users,
+)
+from .config import REPORT_LANGUAGE_MAX_CHARS, get_settings
 from .http_server import BEARER_CHALLENGE, HEALTH_PATH, LOOPBACK_HOSTS, TRIAGE_ROLES, Role
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
 from .sarif import build_sarif
@@ -70,6 +86,10 @@ class Identity(BaseModel):
     auth_enabled: bool
     # Projects a restricted token reaches; None: every project
     projects: list[str] | None = None
+    # True for a local web user (logged in with a password, which it may change)
+    local_account: bool = False
+    # Source of the account of a web user ("local" or "oidc"); None for a bearer token
+    auth_source: Literal["local", "oidc"] | None = None
     version: str
 
 
@@ -108,6 +128,95 @@ class ChecklistItemWrite(BaseModel):
     cwe: str = Field(default="", max_length=20)
 
 
+class StandardWrite(BaseModel):
+    """A development standard sent to the web API (validated again by standards.normalize)."""
+
+    slug: str = Field(min_length=1, max_length=50)
+    title: str = Field(min_length=1, max_length=standards.MAX_TITLE_CHARS)
+    description: str = Field(default="", max_length=standards.MAX_DESCRIPTION_CHARS)
+    technologies: list[Annotated[str, Field(max_length=standards.MAX_KEYWORD_CHARS)]] = Field(
+        default_factory=list, max_length=standards.MAX_KEYWORDS
+    )
+    file_patterns: list[Annotated[str, Field(max_length=standards.MAX_PATTERN_CHARS)]] = Field(
+        default_factory=list, max_length=standards.MAX_KEYWORDS
+    )
+    content: str = Field(min_length=1, max_length=standards.MAX_CONTENT_CHARS)
+    enabled: bool = True
+
+
+class RoleMappingCreate(BaseModel):
+    """An identity provider group or role mapped to a web role (and projects)."""
+
+    claim_value: str = Field(min_length=1, max_length=role_mapping.MAX_CLAIM_VALUE_CHARS)
+    role: Literal["reader", "triager", "admin"]
+    # Empty: every project (always for admin)
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
+
+
+class RoleMappingUpdate(BaseModel):
+    """New projects of a role mapping (empty: every project)."""
+
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
+
+
+class WebUserCreate(BaseModel):
+    """A web user. A local one without ``password`` gets a random one, returned once; an SSO
+    one (``auth_source="oidc"``) has no password and may have no role (``role`` null)."""
+
+    username: str = Field(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)
+    auth_source: Literal["local", "oidc"] = "local"
+    password: str | None = Field(
+        default=None,
+        min_length=web_users.MIN_PASSWORD_CHARS,
+        max_length=web_users.MAX_PASSWORD_CHARS,
+    )
+    role: Literal["reader", "triager", "admin"] | None = "reader"
+    # Empty: every project (always for admin)
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
+
+
+class WebUserUpdate(BaseModel):
+    """New role and projects of a web user (empty projects: every project; null role: only
+    the role of the groups, for an SSO user)."""
+
+    role: Literal["reader", "triager", "admin"] | None
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
+
+
+class PasswordReset(BaseModel):
+    """New password of a web user, set by an administrator (null: generate one)."""
+
+    password: str | None = Field(
+        default=None,
+        min_length=web_users.MIN_PASSWORD_CHARS,
+        max_length=web_users.MAX_PASSWORD_CHARS,
+    )
+
+
+class PasswordChange(BaseModel):
+    """Body of PUT /me/password: the current password and the new one."""
+
+    current_password: str = Field(min_length=1, max_length=web_users.MAX_PASSWORD_CHARS)
+    new_password: str = Field(
+        min_length=web_users.MIN_PASSWORD_CHARS, max_length=web_users.MAX_PASSWORD_CHARS
+    )
+
+
+class EnrollmentApproval(BaseModel):
+    """Optional body of an approval: the web user who also reads the project on the web (an
+    unknown name becomes an SSO user when OIDC is enabled)."""
+
+    portal_user: str | None = Field(default=None, max_length=web_users.MAX_USERNAME_CHARS)
+
+
 class ProjectTokenCreate(BaseModel):
     """A role-specific token scoped to one or several projects."""
 
@@ -116,6 +225,25 @@ class ProjectTokenCreate(BaseModel):
     projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
         min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
     )
+
+
+class ReportLanguageUpdate(BaseModel):
+    """Body of PUT /settings/report-language: "" lets the agent choose, null restores the
+    SECREVIEW_REPORT_LANGUAGE variable."""
+
+    value: str | None = Field(default=None, max_length=REPORT_LANGUAGE_MAX_CHARS)
+
+
+class OsvProxyUpdate(BaseModel):
+    """Body of PUT /settings/osv-proxy.
+
+    ``env`` applies SECREVIEW_OSV_PROXY then HTTPS_PROXY / NO_PROXY, ``custom`` uses ``url``,
+    ``none`` connects directly. A password sent back as returned by the API (``***``) keeps the
+    stored one.
+    """
+
+    mode: app_settings.ProxyMode
+    url: str | None = Field(default=None, max_length=app_settings.MAX_PROXY_URL_CHARS)
 
 
 class ProjectSummary(BaseModel):
@@ -174,6 +302,8 @@ def current_identity(
         can_triage=role in TRIAGE_ROLES,
         auth_enabled=True,
         projects=None if state.get("auth_projects") is None else sorted(state["auth_projects"]),
+        local_account=state.get("auth_source") == web_users.AUTH_LOCAL,
+        auth_source=state.get("auth_source"),
         version=__version__,
     )
 
@@ -240,6 +370,176 @@ async def _refresh_checklists() -> dict:
     return {"loaded_checklist_items": count, "load_errors": list(snapshot.errors)}
 
 
+# ── Login (public) ───────────────────────────────────────────────────────────
+
+
+# Public routes of the login flow: the bearer middleware lets them through without a token
+# (http_server.AUTH_PREFIX), so they never read the identity of the caller.
+auth_router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
+
+# The callback URL holds the authorization code, the redirect the session token
+LOGIN_HEADERS = {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"}
+
+
+class AuthConfig(BaseModel):
+    """Login methods offered by the login page (web users only: tokens are for the API)."""
+
+    # Username and password of a web user (always offered by the controller)
+    password: bool = True
+    oidc: bool
+    oidc_display_name: str | None = None
+
+
+class PasswordLogin(BaseModel):
+    """Body of POST /auth/login."""
+
+    username: str = Field(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)
+    password: str = Field(min_length=1, max_length=web_users.MAX_PASSWORD_CHARS)
+
+
+class LoginSession(BaseModel):
+    """Session opened by a password login, sent back as a bearer token."""
+
+    session: str
+    expires_in: int
+    username: str
+    role: Role
+
+
+def _oidc_login(request: Request) -> oidc.OidcLogin:
+    """Return the OIDC login flow of the app; 404 when OIDC is disabled."""
+    login = getattr(request.app.state, "oidc", None)
+    if login is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="OIDC is not enabled")
+    return login
+
+
+def _to_login_page(login: oidc.OidcLogin, query: dict[str, str], fragment: str = "") -> Response:
+    """Redirect to the login page of the web application and drop the state cookie."""
+    url = f"{oidc.UI_LOGIN_PATH}?{urlencode(query)}" + (f"#{fragment}" if fragment else "")
+    response = RedirectResponse(url, status_code=status.HTTP_303_SEE_OTHER, headers=LOGIN_HEADERS)
+    response.delete_cookie(
+        oidc.STATE_COOKIE,
+        path=login.cookie_path,
+        secure=login.secure_cookie,
+        httponly=True,
+        samesite="lax",
+    )
+    return response
+
+
+@auth_router.get("/config")
+async def auth_config(request: Request) -> AuthConfig:
+    """Tell the login page whether single sign-on (OIDC) is available."""
+    login = getattr(request.app.state, "oidc", None)
+    return AuthConfig(
+        password=True,
+        oidc=login is not None,
+        oidc_display_name=login.display_name if login else None,
+    )
+
+
+def _client_address(request: Request) -> str:
+    """Address of the caller, for the login throttling and the logs."""
+    return request.client.host if request.client else "unknown"
+
+
+def _log_name(username: str) -> str:
+    """Username as written in the logs: only a valid one, never arbitrary input."""
+    try:
+        return web_users.clean_username(username)
+    except ValueError:
+        return "<invalid username>"
+
+
+@auth_router.post("/login")
+async def password_login(request: Request, body: PasswordLogin) -> JSONResponse:
+    """Log a web user in with a username and a password; return a session token.
+
+    Failed attempts are throttled per username and address (429 once the limit is reached);
+    the answer never tells whether the username exists.
+    """
+    signer: oidc.SessionSigner = request.app.state.signer
+    throttle: web_users.LoginThrottle = request.app.state.login_throttle
+    address = _client_address(request)
+    username = body.username.strip()
+    if throttle.blocked(username, address):
+        logger.warning(
+            "Web login of %s from %s refused: too many failures", _log_name(username), address
+        )
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many failed logins: try again later",
+            headers={"Retry-After": str(int(throttle.window))},
+        )
+    user = await run_in_threadpool(web_users.authenticate, username, body.password)
+    if user is None:
+        throttle.failed(username, address)
+        logger.warning("Failed web login of %s from %s", _log_name(username), address)
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
+    throttle.succeeded(username, address)
+    result = LoginSession(**await run_in_threadpool(web_users.new_session, signer, user["id"]))
+    logger.info("Web login of %s (role %s) from %s", result.username, result.role, address)
+    return JSONResponse(result.model_dump(mode="json"), headers=LOGIN_HEADERS)
+
+
+@auth_router.get("/oidc/login", response_class=RedirectResponse, status_code=302)
+async def oidc_login(
+    request: Request,
+    return_url: Annotated[str | None, Query(max_length=oidc.MAX_RETURN_URL_CHARS)] = None,
+) -> Response:
+    """Start an OIDC login: redirect to the identity provider (code flow with PKCE)."""
+    login = _oidc_login(request)
+    try:
+        started = await run_in_threadpool(login.start, return_url)
+    except oidc.OidcError as exc:
+        return _to_login_page(login, {"oidcError": exc.code})
+    response = RedirectResponse(
+        started.authorization_url, status_code=status.HTTP_302_FOUND, headers=LOGIN_HEADERS
+    )
+    response.set_cookie(
+        oidc.STATE_COOKIE,
+        started.state_cookie,
+        max_age=oidc.STATE_TTL_SECONDS,
+        path=login.cookie_path,
+        secure=login.secure_cookie,
+        httponly=True,
+        # Lax: the cookie comes back with the top-level redirect from the provider
+        samesite="lax",
+    )
+    return response
+
+
+@auth_router.get("/oidc/callback", response_class=RedirectResponse, status_code=303)
+async def oidc_callback(
+    request: Request,
+    code: Annotated[str | None, Query(max_length=4096)] = None,
+    state: Annotated[str | None, Query(max_length=512)] = None,
+    error: Annotated[str | None, Query(max_length=100)] = None,
+) -> Response:
+    """End an OIDC login: hand a session token to the web application, or an error code.
+
+    The token goes in the URL fragment of the login page, which the browser never sends to a
+    server; the page removes it from the address bar and keeps it in the tab only.
+    """
+    login = _oidc_login(request)
+    if error or not code or not state:
+        reason = "".join(c for c in (error or "missing code or state") if c.isprintable())
+        logger.warning("OIDC login not completed: %s", reason)
+        return _to_login_page(login, {"oidcError": "denied" if error else "state"})
+    try:
+        user = await run_in_threadpool(
+            login.finish, code, state, request.cookies.get(oidc.STATE_COOKIE)
+        )
+        result = await run_in_threadpool(web_users.oidc_login, login.signer, user, login.settings)
+    except oidc.OidcError as exc:
+        logger.warning("OIDC login failed: %s", exc)
+        return _to_login_page(login, {"oidcError": exc.code})
+    return _to_login_page(
+        login, {"returnUrl": user.return_url}, urlencode({"session": result["session"]})
+    )
+
+
 # ── Routes ───────────────────────────────────────────────────────────────────
 
 
@@ -257,6 +557,41 @@ async def health() -> dict[str, str]:
 async def me(identity: CurrentIdentity) -> Identity:
     """Return the identity and permissions of the caller."""
     return identity
+
+
+@router.put("/me/password")
+async def change_password(
+    request: Request, body: PasswordChange, identity: CurrentIdentity
+) -> JSONResponse:
+    """Change the password of the logged-in web user and return a new session.
+
+    The other sessions of the user end. Wrong current passwords count as failed logins.
+    """
+    user_id = (request.scope.get("state") or {}).get("auth_user_id")
+    if user_id is None or not identity.local_account:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Only a local web user logged in with a password has one"
+        )
+    throttle: web_users.LoginThrottle = request.app.state.login_throttle
+    address = _client_address(request)
+    if throttle.blocked(identity.client, address):
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many failed attempts: try again later",
+            headers={"Retry-After": str(int(throttle.window))},
+        )
+    try:
+        user = await run_in_threadpool(
+            web_users.change_own_password, user_id, body.current_password, body.new_password
+        )
+    except ValueError as exc:
+        if "current password" in str(exc):
+            throttle.failed(identity.client, address)
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    signer: oidc.SessionSigner = request.app.state.signer
+    result = LoginSession(**await run_in_threadpool(web_users.new_session, signer, user["id"]))
+    logger.info("Password of web user %s changed by the user", user["username"])
+    return JSONResponse(result.model_dump(mode="json"), headers=LOGIN_HEADERS)
 
 
 @router.get("/projects")
@@ -432,6 +767,72 @@ async def delete_checklist_item(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+SlugPath = Annotated[str, APIPath(min_length=1, max_length=50)]
+
+
+def _standard_view(standard: dict, admin: bool) -> dict:
+    """Hide who changed a standard (an administrator's name) from the other web roles."""
+    if admin:
+        return standard
+    return {key: value for key, value in standard.items() if key != "updated_by"}
+
+
+@router.get("/standards")
+async def list_standards(identity: CurrentIdentity) -> dict:
+    """List the development standards (without content); disabled ones for administrators."""
+    admin = identity.role == Role.ADMIN
+    listed = await run_in_threadpool(standards.list_standards, admin)
+    return {"standards": [_standard_view(item, admin) for item in listed]}
+
+
+@router.get("/standards/{slug}")
+async def get_standard(slug: SlugPath, identity: CurrentIdentity) -> dict:
+    """Return one development standard with its content."""
+    admin = identity.role == Role.ADMIN
+    return _standard_view(await run_in_threadpool(standards.get_standard, slug, admin), admin)
+
+
+@router.post("/standards", status_code=status.HTTP_201_CREATED)
+async def create_standard(
+    body: StandardWrite, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict:
+    """Create a development standard."""
+    try:
+        created = await run_in_threadpool(
+            standards.create_standard, body.model_dump(), identity.client
+        )
+    except ValueError as exc:
+        code = status.HTTP_409_CONFLICT if "already exists" in str(exc) else 422
+        raise HTTPException(code, str(exc)) from exc
+    logger.info("Development standard %s created by %s", created["slug"], identity.client)
+    return created
+
+
+@router.put("/standards/{slug}")
+async def update_standard(
+    slug: SlugPath, body: StandardWrite, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict:
+    """Replace a development standard without changing its slug."""
+    try:
+        updated = await run_in_threadpool(
+            standards.update_standard, slug, body.model_dump(), identity.client
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Development standard %s updated by %s", updated["slug"], identity.client)
+    return updated
+
+
+@router.delete("/standards/{slug}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_standard(
+    slug: SlugPath, identity: Annotated[Identity, Depends(require_admin)]
+) -> Response:
+    """Delete a development standard."""
+    await run_in_threadpool(standards.delete_standard, slug)
+    logger.info("Development standard %s deleted by %s", slug, identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/rules/reload")
 async def reload_custom_rules(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
     """Reload the internal rules now (after a change made with the CLI)."""
@@ -558,10 +959,25 @@ async def enrollments(
 
 @router.post("/enrollments/{request_id}/approve")
 async def approve_enrollment(
+    request: Request,
     request_id: Annotated[str, APIPath(min_length=1, max_length=64)],
     identity: Annotated[Identity, Depends(require_admin)],
+    body: EnrollmentApproval | None = None,
 ) -> dict[str, Any]:
-    """Approve an enrollment request: the project is reachable from the next request."""
+    """Approve an enrollment request: the project is reachable from the next request.
+
+    With ``portal_user``, that web user also reads the project in the web interface (at once);
+    when OIDC is enabled, an unknown name becomes an SSO user, ready for its first login.
+    """
+    portal_user = body.portal_user if body is not None else None
+    create_sso = getattr(request.app.state, "oidc", None) is not None
+    if portal_user is not None:
+        try:
+            portal_user = await run_in_threadpool(
+                web_users.check_project_grant, portal_user, create_sso
+            )
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     try:
         approved = await run_in_threadpool(token_store.approve_enrollment, request_id)
     except ValueError as exc:
@@ -572,7 +988,24 @@ async def approve_enrollment(
         approved["project"],
         identity.client,
     )
-    return approved
+    if portal_user is None:
+        return approved
+    try:
+        user = await run_in_threadpool(
+            web_users.grant_project, portal_user, approved["project"], identity.client, create_sso
+        )
+    except ValueError as exc:
+        # Checked before the approval: only a concurrent change gets here
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, f"Enrollment approved, web access not granted: {exc}"
+        ) from exc
+    logger.info(
+        "Web access to %s given to web user %s by %s",
+        approved["project"],
+        user["username"],
+        identity.client,
+    )
+    return approved | {"portal_user": user}
 
 
 @router.delete("/enrollments/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -591,6 +1024,258 @@ async def reject_enrollment(
         rejected["project"],
         identity.client,
     )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/settings")
+async def get_app_settings(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+    """Return the settings of the web interface, the variables and the effective values.
+
+    Passwords of proxy URLs are replaced by ``***``.
+    """
+    return await run_in_threadpool(app_settings.describe)
+
+
+@router.put("/settings/report-language")
+async def set_report_language(
+    body: ReportLanguageUpdate, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict:
+    """Set the language of the review reports (used by the MCP server for the next prompts)."""
+    try:
+        await run_in_threadpool(app_settings.set_report_language, body.value, identity.client)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Report language set to %r by %s", body.value, identity.client)
+    return await run_in_threadpool(app_settings.describe)
+
+
+@router.put("/settings/osv-proxy")
+async def set_osv_proxy(
+    body: OsvProxyUpdate, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict:
+    """Set the proxy of the OSV download (the URL is never logged with its credentials)."""
+    try:
+        await run_in_threadpool(app_settings.set_osv_proxy, body.mode, body.url, identity.client)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("OSV proxy mode set to %s by %s", body.mode, identity.client)
+    return await run_in_threadpool(app_settings.describe)
+
+
+def _advisory_overview(limit: int) -> dict:
+    """State of the advisory database and history of its updates."""
+    settings = get_settings()
+    return {
+        "database": advisories.advisory_status(),
+        "download_enabled": settings.osv_auto_update,
+        "running": advisory_sync.running_update() is not None,
+        "updates": advisory_sync.list_updates(limit),
+    }
+
+
+@router.get("/advisories")
+async def advisory_overview(
+    identity: Annotated[Identity, Depends(require_admin)],
+    limit: Annotated[int, Query(ge=1, le=advisory_sync.HISTORY_SIZE)] = 20,
+) -> dict:
+    """Return the state of the advisory database and the latest OSV updates."""
+    return await run_in_threadpool(_advisory_overview, limit)
+
+
+@router.post("/advisories/update", status_code=status.HTTP_202_ACCEPTED)
+async def start_advisory_update(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+    """Start downloading the OSV exports in the background; follow it with GET /advisories.
+
+    Refused (409) when the download is disabled (SECREVIEW_OSV_AUTO_UPDATE=false) or an update
+    is already running.
+    """
+    try:
+        update_id = await run_in_threadpool(
+            advisory_sync.start_web_update, get_settings(), identity.client
+        )
+    except (advisory_sync.DownloadDisabled, advisory_sync.UpdateInProgress) as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("OSV update %d started by %s", update_id, identity.client)
+    return {"id": update_id}
+
+
+@router.get("/oidc/role-mappings")
+async def role_mappings(
+    request: Request, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict[str, Any]:
+    """List the OIDC role mappings: stored ones and those of the SECREVIEW_OIDC_* variables."""
+    settings = get_settings()
+    return {
+        "oidc_enabled": getattr(request.app.state, "oidc", None) is not None,
+        "roles_claim": settings.oidc_roles_claim,
+        "default_role": settings.oidc_default_role or None,
+        "username_claim": settings.oidc_username_claim,
+        "auto_create_users": settings.oidc_auto_create_users,
+        "mappings": await run_in_threadpool(role_mapping.list_mappings),
+        "static_mappings": role_mapping.static_mappings(settings),
+    }
+
+
+@router.post("/oidc/role-mappings", status_code=status.HTTP_201_CREATED)
+async def create_role_mapping(
+    body: RoleMappingCreate, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict[str, Any]:
+    """Map a group or role of the identity provider to a web role, optionally per project."""
+    try:
+        created = await run_in_threadpool(
+            role_mapping.create_mapping,
+            body.claim_value,
+            body.role,
+            body.projects,
+            identity.client,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info(
+        "Role mapping %s -> %s (%s) created by %s",
+        created["claim_value"],
+        created["role"],
+        ", ".join(created["projects"] or ["every project"]),
+        identity.client,
+    )
+    return created
+
+
+@router.put("/oidc/role-mappings/{mapping_id}")
+async def update_role_mapping(
+    mapping_id: int,
+    body: RoleMappingUpdate,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict[str, Any]:
+    """Replace the projects of a role mapping (applies at the next login of its users)."""
+    try:
+        updated = await run_in_threadpool(role_mapping.update_mapping, mapping_id, body.projects)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Role mapping %s updated by %s", mapping_id, identity.client)
+    return updated
+
+
+@router.delete("/oidc/role-mappings/{mapping_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_role_mapping(
+    mapping_id: int, identity: Annotated[Identity, Depends(require_admin)]
+) -> Response:
+    """Delete a role mapping (open sessions keep their role until they expire)."""
+    deleted = await run_in_threadpool(role_mapping.delete_mapping, mapping_id)
+    logger.info(
+        "Role mapping %s -> %s deleted by %s",
+        deleted["claim_value"],
+        deleted["role"],
+        identity.client,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/users")
+async def users(identity: Annotated[Identity, Depends(require_admin)]) -> list[dict[str, Any]]:
+    """List the web users (never their password hash)."""
+    return await run_in_threadpool(web_users.list_users)
+
+
+@router.post("/users", status_code=status.HTTP_201_CREATED)
+async def create_user(
+    body: WebUserCreate, identity: Annotated[Identity, Depends(require_admin)]
+) -> JSONResponse:
+    """Create a web user (local or SSO); a generated password is returned once in ``password``."""
+    try:
+        created = await run_in_threadpool(
+            web_users.create_user,
+            body.username,
+            body.password,
+            body.role,
+            body.projects,
+            identity.client,
+            body.auth_source,
+        )
+    except ValueError as exc:
+        code = status.HTTP_409_CONFLICT if "already exists" in str(exc) else 422
+        raise HTTPException(code, str(exc)) from exc
+    logger.info(
+        "Web user %s (%s, role %s) created by %s",
+        created["username"],
+        created["auth_source"],
+        created["role"] or "none",
+        identity.client,
+    )
+    return JSONResponse(created, status_code=status.HTTP_201_CREATED, headers=LOGIN_HEADERS)
+
+
+@router.put("/users/{user_id}")
+async def update_user(
+    user_id: int, body: WebUserUpdate, identity: Annotated[Identity, Depends(require_admin)]
+) -> dict[str, Any]:
+    """Replace the role and projects of a web user (applies to its sessions at once)."""
+    try:
+        updated = await run_in_threadpool(web_users.update_user, user_id, body.role, body.projects)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info(
+        "Web user %s set to %s by %s",
+        updated["username"],
+        updated["role"] or "no role",
+        identity.client,
+    )
+    return updated
+
+
+@router.post("/users/{user_id}/password")
+async def reset_user_password(
+    user_id: int, body: PasswordReset, identity: Annotated[Identity, Depends(require_admin)]
+) -> JSONResponse:
+    """Replace the password of a web user (generated when not given) and end its sessions."""
+    try:
+        updated = await run_in_threadpool(web_users.set_password, user_id, body.password)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Password of web user %s reset by %s", updated["username"], identity.client)
+    return JSONResponse(updated, headers=LOGIN_HEADERS)
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(
+    user_id: int, identity: Annotated[Identity, Depends(require_admin)]
+) -> Response:
+    """Delete a web user (its sessions stop at once); the last administrator is kept.
+
+    A deleted SSO user is revoked: a login never creates it again until an administrator
+    creates it again or lifts the revocation (DELETE /users/revoked/{username}).
+    """
+    try:
+        deleted = await run_in_threadpool(web_users.delete_user, user_id, identity.client)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    logger.info(
+        "Web user %s (%s) deleted by %s",
+        deleted["username"],
+        deleted["auth_source"],
+        identity.client,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/users/revoked")
+async def revoked_users(
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> list[dict[str, Any]]:
+    """List the deleted SSO users, which a login never creates again."""
+    return await run_in_threadpool(web_users.list_revoked_users)
+
+
+@router.delete("/users/revoked/{username}", status_code=status.HTTP_204_NO_CONTENT)
+async def lift_user_revocation(
+    username: Annotated[str, APIPath(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)],
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> Response:
+    """Let a deleted SSO user be created again at its next login (automatic creation)."""
+    lifted = await run_in_threadpool(web_users.lift_revocation, username)
+    logger.info("Revocation of SSO user %s lifted by %s", lifted["username"], identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -627,10 +1312,19 @@ def resolve_ui_dir(configured: str | None) -> Path | None:
 # ── Application ──────────────────────────────────────────────────────────────
 
 
-def create_app(host: str = "127.0.0.1", ui_dir: str | None = None, ui: bool = True) -> FastAPI:
+def create_app(
+    host: str = "127.0.0.1",
+    ui_dir: str | None = None,
+    ui: bool = True,
+    oidc_login: oidc.OidcLogin | None = None,
+    signer: oidc.SessionSigner | None = None,
+) -> FastAPI:
     """Build the controller app (REST API and, when it is built, the Angular application).
 
-    ``ui=False`` (SECREVIEW_WEB_UI=false) serves the REST API only.
+    ``ui=False`` (SECREVIEW_WEB_UI=false) serves the REST API only. ``oidc_login`` (see
+    oidc.from_settings) enables the single sign-on routes under ``/api/v1/auth/oidc``.
+    ``signer`` (see oidc.session_signer) signs the sessions of the password login; the
+    session tokens are checked by the bearer middleware (build_controller_app).
 
     Raises:
         ValueError: If ``ui_dir`` (SECREVIEW_WEB_UI_DIR) is set but holds no application.
@@ -643,6 +1337,14 @@ def create_app(host: str = "127.0.0.1", ui_dir: str | None = None, ui: bool = Tr
         redoc_url=None,
         openapi_url="/api/openapi.json",
     )
+    app.state.oidc = oidc_login
+    app.state.signer = signer or (
+        oidc_login.signer
+        if oidc_login
+        else oidc.SessionSigner(settings.session_secret, settings.session_hours)
+    )
+    app.state.login_throttle = web_users.LoginThrottle()
+    app.include_router(auth_router)
     app.include_router(router)
 
     @app.get(HEALTH_PATH, include_in_schema=False)

@@ -1142,9 +1142,11 @@ version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
+    { name = "cryptography" },
     { name = "fastapi" },
     { name = "mcp" },
     { name = "pydantic-settings" },
+    { name = "pyjwt", extra = ["crypto"] },
     { name = "sqlmodel" },
     { name = "tomlkit" },
 ]
@@ -1166,6 +1168,7 @@ postgres = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.13" },
+    { name = "cryptography", specifier = ">=44" },
     { name = "debugpy", marker = "extra == 'dev'", specifier = ">=1.8" },
     { name = "fastapi", specifier = ">=0.135" },
     { name = "mcp", specifier = ">=2,<3" },
@@ -1173,6 +1176,7 @@ requires-dist = [
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5" },
     { name = "psycopg2-binary", marker = "extra == 'postgres'", specifier = ">=2.9" },
     { name = "pydantic-settings", specifier = ">=2.2" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
     { name = "sqlmodel", specifier = ">=0.0.22" },

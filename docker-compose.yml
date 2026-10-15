@@ -5,6 +5,9 @@
 #   docker compose up -d --build
 #   docker compose logs controller   # one-time admin password, shown at first start
 #
+# The advisory database is empty at first: add SECREVIEW_OSV_AUTO_UPDATE=true to .env to let the
+# controller download the OSV advisories at start-up, then every 24 h.
+#
 # The migrate service migrates the schema (Alembic) before the two servers start.
 # The MCP server listens on 127.0.0.1:8000 and the controller on 127.0.0.1:8080 only: enable TLS
 # (SECREVIEW_TLS_*) or put them behind a reverse proxy before exposing them. The controller
@@ -13,18 +16,24 @@
 
 name: security-review-mcp
 
+x-secreview-env: &secreview-env
+  # The password is inserted as is in the URL: use URL-safe characters (e.g. hex)
+  SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
+  SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
+  # The migrate service is the only one that changes the schema
+  SECREVIEW_DB_AUTO_UPGRADE: "false"
+  # true: serve HTTPS with a self-signed certificate generated at every start (no file to mount)
+  SECREVIEW_TLS_SELF_SIGNED: ${SECREVIEW_TLS_SELF_SIGNED:-false}
+  # Names and IP addresses the clients use (e.g. 192.168.1.1,secreview.lan)
+  SECREVIEW_TLS_SELF_SIGNED_HOSTS: ${SECREVIEW_TLS_SELF_SIGNED_HOSTS:-}
+
 x-secreview: &secreview
   build:
     context: .
     args:
       EXTRAS: postgres
   image: security-review-mcp:pg
-  environment:
-    # The password is inserted as is in the URL: use URL-safe characters (e.g. hex)
-    SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
-    SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
-    # The migrate service is the only one that changes the schema
-    SECREVIEW_DB_AUTO_UPGRADE: "false"
+  environment: *secreview-env
   networks:
     - backend
   read_only: true
@@ -72,6 +81,15 @@ services:
         condition: service_completed_successfully
     entrypoint: ["security-review-controller"]
     command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      <<: *secreview-env
+      # Download the OSV advisories at start-up (empty database), then every 24 h. Disabled by
+      # default: it is the only outgoing connection. Without it, the dependency analysis has
+      # no advisory database (import one with `advisories import`).
+      SECREVIEW_OSV_AUTO_UPDATE: ${SECREVIEW_OSV_AUTO_UPDATE:-false}
+      SECREVIEW_OSV_ECOSYSTEMS: ${SECREVIEW_OSV_ECOSYSTEMS:-PyPI,npm,Maven}
+      # http://[user:password@]host:port; can also be set in the web interface
+      SECREVIEW_OSV_PROXY: ${SECREVIEW_OSV_PROXY:-}
     ports:
       - "127.0.0.1:${SECREVIEW_CONTROLLER_PORT:-8080}:8000"
 

@@ -86,13 +86,15 @@ stdio, il n'y a pas de jeton, donc pas de restriction.
 
 ### Mot de passe administrateur initial
 
-Avec `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (c'est le cas dans l'image Docker), un jeton aléatoire
-de rôle `admin` (label `bootstrap-admin`) est créé au premier démarrage **du contrôleur** et
-affiché une seule fois dans ses logs. Il donne accès à la Web UI et à `/mcp`. S'il est perdu, remplacez-le
-(l'ancien est aussitôt invalidé) :
+Avec `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (c'est le cas dans l'image Docker), le **contrôleur**
+crée au premier démarrage le [compte](../utilisation/interface-web.md#comptes-utilisateurs)
+`admin` de l'interface web, avec un mot de passe aléatoire affiché une seule fois dans ses logs.
+Ce compte n'ouvre que l'interface web et l'API REST, jamais `/mcp` : pour un agent, créez un
+jeton (`token create`). S'il est perdu, remplacez le mot de passe (l'ancien est aussitôt
+invalidé) :
 
 ```bash
-security-review-controller token reset-admin
+security-review-controller user reset-password admin
 ```
 
 ### Enrôlement : un projet demande son jeton
@@ -134,6 +136,12 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
     ```
 
     Une fois approuvé, le jeton fonctionne dès la requête suivante, sans reconfiguration.
+    L'approbation peut aussi donner au développeur la **lecture du projet dans le portail**,
+    sur son compte utilisateur (colonne **Lecture dans le portail** de l'interface, ou
+    `token approve ID --portal-user alice` en CLI) ; avec la
+    [connexion SSO](../utilisation/interface-web.md#connexion-sso-openid-connect), un nom
+    inconnu devient un compte SSO. Voir la
+    [lecture du projet à l'enrôlement](../utilisation/interface-web.md#lecture-du-projet-a-lenrolement).
 
 ### Enrôlement complémentaire
 
@@ -190,6 +198,50 @@ security-review-controller serve --host 0.0.0.0 --port 9443 \
 
 `SECREVIEW_TLS_CLIENT_CA` active en plus le **TLS mutuel** : seuls les clients présentant un
 certificat signé par cette CA peuvent se connecter.
+
+### Certificat auto-signé
+
+Sans certificat fourni, `--tls-self-signed` (ou `SECREVIEW_TLS_SELF_SIGNED=true`) fait générer au
+démarrage un certificat auto-signé et sa clé (EC P-256, valable un an) :
+
+```bash
+security-review-mcp --transport streamable-http --host 0.0.0.0 --port 8443 --tls-self-signed
+security-review-controller serve --host 0.0.0.0 --port 9443 --tls-self-signed
+```
+
+- Le certificat couvre `localhost`, `127.0.0.1`, `::1`, le nom de la machine et l'adresse
+  `--host` (sauf `0.0.0.0` / `::`). Ajoutez dans `SECREVIEW_TLS_SELF_SIGNED_HOSTS` les noms et
+  adresses IP **utilisés par les clients**, séparés par des virgules (par exemple
+  `192.168.1.1,secreview.lan`) : sinon, même un client qui fait confiance au certificat refuse
+  la connexion (nom non couvert). C'est indispensable en conteneur, où le nom de la machine est
+  celui du conteneur.
+- Il est écrit dans un dossier temporaire privé (clé en mode `0600`), supprimé à l'arrêt : **une
+  nouvelle clé est générée à chaque démarrage**. Son empreinte SHA-256 est journalisée pour que
+  les clients puissent la vérifier.
+- Un certificat fourni (`SECREVIEW_TLS_CERTFILE`) est toujours prioritaire ;
+  `SECREVIEW_TLS_CLIENT_CA` (TLS mutuel) reste utilisable.
+
+!!! warning
+    Les clients ne font pas confiance à ce certificat : il faut l'ajouter explicitement à leur
+    configuration (voir [Configuration de l'hôte](hote.md#serveur-https-auto-signe-ou-ca-interne)),
+    et le réajouter à chaque redémarrage. Réservez-le aux tests et aux réseaux internes ; en
+    production, fournissez un certificat signé par une CA ou terminez le TLS sur un reverse proxy.
+
+### Certificat stable
+
+Pour ne faire accepter le certificat qu'une seule fois, générez-le une fois pour toutes et
+fournissez-le avec `SECREVIEW_TLS_CERTFILE` / `SECREVIEW_TLS_KEYFILE`. Indiquez dans
+`subjectAltName` les noms et adresses utilisés par les clients :
+
+```bash
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 825 \
+    -keyout key.pem -out cert.pem -subj "/CN=security-review-mcp" \
+    -addext "subjectAltName=DNS:secreview.lan,IP:192.168.1.1,DNS:localhost,IP:127.0.0.1" \
+    -addext "basicConstraints=critical,CA:FALSE" -addext "extendedKeyUsage=serverAuth"
+chmod 600 key.pem
+```
+
+`cert.pem` est alors le fichier à distribuer aux clients ; `key.pem` ne quitte pas le serveur.
 
 ## Configuration du client
 

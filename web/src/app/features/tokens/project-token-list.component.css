@@ -2,3 +2,7 @@
   overflow-wrap: anywhere;
   user-select: all;
 }
+
+.portal-access {
+  min-width: 14rem;
+}

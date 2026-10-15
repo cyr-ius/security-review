@@ -6,7 +6,7 @@ from alembic.runtime.migration import MigrationContext
 from sqlalchemy import inspect
 from sqlmodel import SQLModel, StaticPool, create_engine
 
-from security_review_mcp import config, database, rule_store
+from security_review_mcp import config, database, rule_store, web_users
 
 
 @pytest.fixture
@@ -81,3 +81,45 @@ def test_init_db_upgrades_by_default(empty_engine):
     database.init_db()
 
     assert database.current_revision() == database.head_revision()
+
+
+def test_user_grants_become_sso_web_users(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0005")
+        now = "2026-10-01 10:00:00"
+        connection.execute(
+            text(
+                "INSERT INTO webuser (username, role, projects, password_hash, created_at, "
+                "updated_at, password_changed_at, session_version) "
+                "VALUES ('bob', 'admin', '[]', 'scrypt$x', :now, :now, :now, 1)"
+            ),
+            {"now": now},
+        )
+        for username, projects in (
+            ("alice", '["shop-api", "billing"]'),
+            ("bob", '["crm"]'),  # a local account: never turned into an SSO user
+            ("not a username", '["crm"]'),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO oidcusergrant (username, projects, created_at, updated_at, "
+                    "created_by) VALUES (:username, :projects, :now, :now, 'admin')"
+                ),
+                {"username": username, "projects": projects, "now": now},
+            )
+        command.upgrade(database.alembic_config(connection), "head")
+
+    assert not inspect(empty_engine).has_table("oidcusergrant")
+    users = {user["username"]: user for user in web_users.list_users()}
+    assert set(users) == {"alice", "bob"}
+    alice = users["alice"]
+    assert (alice["auth_source"], alice["role"], alice["projects"], alice["created_by"]) == (
+        "oidc",
+        "reader",
+        ["shop-api", "billing"],
+        "admin",
+    )
+    assert (users["bob"]["auth_source"], users["bob"]["role"]) == ("local", "admin")

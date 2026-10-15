@@ -173,6 +173,16 @@
   background: rgb(255 255 255 / 8%);
 }
 
+/* Several buttons: only the first one is pushed to the right */
+.icon-btn + .icon-btn {
+  margin-left: 0;
+}
+
+a.icon-btn {
+  line-height: 1.5;
+  text-decoration: none;
+}
+
 .version {
   margin: 0.5rem 0 0;
   text-align: center;

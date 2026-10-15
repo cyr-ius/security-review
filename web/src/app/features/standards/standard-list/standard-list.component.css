@@ -1,0 +1,42 @@
+.standard-dialog {
+  inline-size: min(54rem, calc(100vw - 2rem));
+  max-block-size: calc(100dvh - 2rem);
+  padding: 0;
+  border: 0;
+  border-radius: var(--bs-border-radius-lg);
+  background: transparent;
+  color: var(--bs-body-color);
+}
+
+.standard-dialog::backdrop {
+  background: rgb(0 0 0 / 50%);
+}
+
+.standard-editor {
+  max-block-size: calc(100dvh - 2rem);
+}
+
+.standard-editor .card-body {
+  overflow-y: auto;
+}
+
+.standard-key {
+  min-width: 9rem;
+}
+
+.standard-description {
+  min-width: 20rem;
+}
+
+.action-button {
+  inline-size: 2rem;
+  block-size: 2rem;
+  padding: 0;
+}
+
+.standard-content {
+  max-block-size: 60vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

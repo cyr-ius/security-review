@@ -22,6 +22,10 @@ export class ProjectTokenListComponent {
   readonly projects = rxResource({ stream: () => this.api.projects() });
   readonly tokens = rxResource({ stream: () => this.api.projectTokens() });
   readonly enrollments = rxResource({ stream: () => this.api.enrollments() });
+  /** Whether SSO is enabled: approvals then offer web read access to the developer. */
+  readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
+  /** Web access chosen for each pending request, by request id (default: see portalAccess). */
+  private readonly portalChoices = signal<Record<string, PortalAccess>>({});
   readonly label = signal('');
   readonly role = signal<ProjectTokenRole>('reader');
   readonly selectedProjects = signal<string[]>([]);
@@ -77,16 +81,53 @@ export class ProjectTokenListComponent {
     this.enrollments.reload();
   }
 
+  /**
+   * Web access offered with the approval, filled with the requester, which the administrator
+   * checks or corrects (the requester name is not verified). Checked by default with OIDC (an
+   * unknown name becomes an SSO user); without it, the name must be an existing web user.
+   */
+  portalAccess(request: EnrollmentRequest): PortalAccess {
+    return (
+      this.portalChoices()[request.id] ?? {
+        enabled: Boolean(request.requested_by) && Boolean(this.authConfig.value()?.oidc),
+        user: request.requested_by ?? '',
+      }
+    );
+  }
+
+  setPortalAccess(request: EnrollmentRequest, change: Partial<PortalAccess>): void {
+    const current = this.portalAccess(request);
+    this.portalChoices.update((choices) => ({
+      ...choices,
+      [request.id]: { ...current, ...change },
+    }));
+  }
+
+  /** Web user who gets read access with the approval, or null. */
+  private portalUser(request: EnrollmentRequest): string | null {
+    const access = this.portalAccess(request);
+    return access.enabled && access.user.trim() ? access.user.trim() : null;
+  }
+
   async approve(request: EnrollmentRequest): Promise<void> {
     const { id, label, project, kind } = request;
-    if (this.busy() || !window.confirm(`Approuver la demande « ${label} » pour ${project} ?`)) {
+    const portalUser = this.portalUser(request);
+    const question = portalUser
+      ? `Approuver la demande « ${label} » pour ${project} et donner la lecture du projet ` +
+        `dans le portail à l'utilisateur « ${portalUser} » ?`
+      : `Approuver la demande « ${label} » pour ${project} ?`;
+    if (this.busy() || !window.confirm(question)) {
       return;
     }
-    await this.decide(
-      () => firstValueFrom(this.api.approveEnrollment(id)),
+    const approved =
       kind === 'additional'
         ? `Accès au projet ${project} ajouté au jeton « ${label} ».`
-        : `Demande « ${label} » approuvée : le jeton est actif.`,
+        : `Demande « ${label} » approuvée : le jeton est actif.`;
+    await this.decide(
+      () => firstValueFrom(this.api.approveEnrollment(id, portalUser)),
+      portalUser
+        ? `${approved} « ${portalUser} » peut lire ${project} dans le portail (écran Utilisateurs).`
+        : approved,
     );
   }
 
@@ -111,6 +152,9 @@ export class ProjectTokenListComponent {
       this.reload();
     } catch (error: unknown) {
       this.error.set(describeError(error));
+      // The request may have been decided anyway (already processed, or approved without
+      // its web access)
+      this.enrollments.reload();
     } finally {
       this.busy.set(false);
     }
@@ -149,7 +193,26 @@ export class ProjectTokenListComponent {
   }
 }
 
+/** Web read access given to the developer when approving its enrollment. */
+interface PortalAccess {
+  enabled: boolean;
+  /** Username of the web user (for an SSO user, the username claim of the provider). */
+  user: string;
+}
+
 function describeError(error: unknown): string {
+  if (error instanceof HttpErrorResponse && error.status === 422) {
+    return typeof error.error?.detail === 'string'
+      ? `Accès portail refusé : ${error.error.detail}`
+      : 'Accès portail refusé : vérifiez l’identifiant de l’utilisateur.';
+  }
+  if (
+    error instanceof HttpErrorResponse &&
+    error.status === 409 &&
+    error.url?.includes('/approve')
+  ) {
+    return 'Demande approuvée, mais l’accès au portail n’a pas pu être accordé : ajoutez le projet depuis la page Utilisateurs.';
+  }
   if (error instanceof HttpErrorResponse && error.status === 404) {
     return "Cette demande n'existe plus (déjà traitée ou expirée).";
   }

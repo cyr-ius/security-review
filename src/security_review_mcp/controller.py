@@ -4,14 +4,14 @@ and administration.
 The controller runs apart from the MCP server (``security-review-mcp``), in its own process,
 container or pod; both share the database. ``serve`` serves the REST API (``/api/v1``) and the
 Angular application (``/ui``); the other commands are the operator and pipeline commands of
-cli.CONTROLLER_COMMANDS (``db``, ``token``, ``rules``, ``gate``...).
+cli.CONTROLLER_COMMANDS (``db``, ``token``, ``user``, ``rules``, ``gate``...).
 """
 
 import argparse
 import logging
 import sys
 
-from . import cli, http_server, registry, token_store, web_api
+from . import advisory_sync, cli, http_server, oidc, registry, token_store, web_api, web_users
 from .config import configure_logging, get_settings
 from .database import SchemaError, init_db
 
@@ -26,8 +26,9 @@ commands:
   serve        serve the REST API (/api/v1) and the web interface (/ui)
   db           migrate the database schema (upgrade) or show its revision (status)
   token        manage the bearer tokens and the enrollment requests
+  user         manage the web users (username and password login)
   rules        manage the internal rules and checklists
-  advisories   import or inspect the offline OSV advisory database
+  advisories   import, download or inspect the OSV advisory database
   gate         fail a pipeline when open findings reach a severity threshold
   sarif        export stored findings as SARIF 2.1.0
   trend        print the trend report of a project
@@ -52,27 +53,51 @@ def serve(argv: list[str]) -> None:
 
     try:
         init_db()
-        store = token_store.DatabaseTokenStore()
-        tls = http_server.tls_options(settings)
-        web_app = web_api.create_app(args.host, ui=settings.web_ui)
+        store = token_store.DatabaseTokenStore(include_users=True)
+        tls = http_server.tls_options(settings, args.host)
+        signer = oidc.session_signer(settings)
+        oidc_login = oidc.from_settings(settings, signer)
+        web_app = web_api.create_app(
+            args.host, ui=settings.web_ui, oidc_login=oidc_login, signer=signer
+        )
+        if settings.osv_auto_update:
+            advisory_sync.validate_settings(settings)
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
     registry.reload()
     bootstrap_password = (
-        token_store.ensure_bootstrap_admin() if settings.auth_bootstrap_admin else None
+        web_users.ensure_bootstrap_admin() if settings.auth_bootstrap_admin else None
     )
     if bootstrap_password:
-        logger.warning("Initial Web UI administrator password (shown once): %s", bootstrap_password)
+        logger.warning(
+            "Initial Web UI administrator created: user '%s', password (shown once): %s",
+            web_users.BOOTSTRAP_USERNAME,
+            bootstrap_password,
+        )
     if settings.web_ui:
         logger.info("Web interface enabled on /ui (REST API on /api/v1)")
-    http_server.serve(
-        http_server.build_controller_app(web_app, store),
-        args.host,
-        args.port,
-        store,
-        tls,
-        settings.log_level,
-    )
+    if oidc_login:
+        logger.info("OIDC login enabled with %s", oidc_login.issuer)
+    updater = advisory_sync.AdvisoryUpdater(settings) if settings.osv_auto_update else None
+    if updater:
+        updater.start()
+    try:
+        http_server.serve(
+            http_server.build_controller_app(
+                web_app,
+                store,
+                web_users.SessionVerifier(signer),
+                require_auth=oidc_login is not None,
+            ),
+            args.host,
+            args.port,
+            store,
+            tls,
+            settings.log_level,
+        )
+    finally:
+        if updater:
+            updater.stop()
 
 
 def main(argv: list[str] | None = None) -> None:

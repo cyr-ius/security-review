@@ -1,0 +1,359 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">Utilisateurs</h1>
+    <p class="text-body-secondary mb-0">
+      Comptes de l'interface web : locaux (identifiant et mot de passe) ou SSO (fournisseur
+      d'identité)
+    </p>
+  </div>
+  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="users.reload()">
+    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+    Actualiser
+  </button>
+</div>
+
+<p class="text-body-secondary small">
+  Seuls ces comptes ouvrent l'interface ; les jetons servent au serveur MCP et à l'API REST. Un
+  changement de rôle ou de projets s'applique immédiatement aux sessions ouvertes ; une
+  réinitialisation du mot de passe ou une suppression les ferme. Le dernier administrateur ne peut
+  être ni supprimé ni rétrogradé. Un utilisateur SSO peut n'avoir aucun rôle propre : le rôle de ses
+  groupes (écran Rôles SSO), relu à chaque connexion, s'applique ; avec les deux, le plus élevé
+  l'emporte.
+</p>
+
+@if (error(); as text) {
+  <div class="alert alert-danger py-2" role="alert">{{ text }}</div>
+}
+@if (message(); as text) {
+  <div class="alert alert-success py-2" role="status">{{ text }}</div>
+}
+@if (createdPassword(); as created) {
+  <section class="alert alert-warning" aria-label="Mot de passe généré">
+    <h2 class="h6">Mot de passe de « {{ created.username }} »</h2>
+    <p class="mb-2">Copiez-le maintenant : il ne sera plus affiché.</p>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <code class="secret-value font-monospace">{{ created.password }}</code>
+      <button type="button" class="btn btn-sm btn-outline-dark" (click)="copyPassword()">
+        <i class="bi bi-copy" aria-hidden="true"></i>
+        Copier
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-dark" (click)="createdPassword.set(null)">
+        Masquer
+      </button>
+    </div>
+  </section>
+}
+
+<section class="mb-4" aria-labelledby="user-form-title">
+  <h2 id="user-form-title" class="h5">
+    {{ editing() ? 'Modifier « ' + editing()!.username + ' »' : 'Créer un utilisateur' }}
+  </h2>
+  <form class="row g-2 align-items-start" (submit)="submit($event)">
+    @if (!editing()) {
+      <fieldset class="col-12">
+        <legend class="form-label">Type de compte</legend>
+        <div class="form-check form-check-inline">
+          <input
+            class="form-check-input"
+            type="radio"
+            name="user-source"
+            id="user-source-local"
+            [checked]="source() === 'local'"
+            (change)="onSourceChange('local')"
+          />
+          <label class="form-check-label" for="user-source-local">
+            <i class="bi bi-person" aria-hidden="true"></i> Local (mot de passe)
+          </label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input
+            class="form-check-input"
+            type="radio"
+            name="user-source"
+            id="user-source-oidc"
+            [checked]="source() === 'oidc'"
+            (change)="onSourceChange('oidc')"
+          />
+          <label class="form-check-label" for="user-source-oidc">
+            <i class="bi bi-shield-lock" aria-hidden="true"></i> SSO ({{ ssoName() ?? 'OIDC' }})
+          </label>
+        </div>
+        @if (source() === 'oidc' && !ssoName()) {
+          <div class="form-text text-warning-emphasis">
+            La connexion SSO n'est pas activée sur ce contrôleur : ce compte ne pourra se connecter
+            qu'une fois <code>SECREVIEW_OIDC_ENABLED</code> activé.
+          </div>
+        }
+      </fieldset>
+    }
+    <div class="col-md-3">
+      <label for="user-name" class="form-label">Identifiant</label>
+      <input
+        id="user-name"
+        class="form-control"
+        required
+        maxlength="64"
+        autocomplete="off"
+        autocapitalize="none"
+        spellcheck="false"
+        [placeholder]="formSource() === 'oidc' ? 'ex. alice@example.com' : 'ex. alice'"
+        [disabled]="editing() !== null"
+        [value]="username()"
+        (input)="username.set($any($event.target).value)"
+      />
+      <div class="form-text">
+        @if (formSource() === 'oidc') {
+          Valeur exacte du claim d'identifiant du fournisseur (lettres, chiffres et . _ &#64; -)
+        } @else {
+          Lettres, chiffres et . _ &#64; -
+        }
+      </div>
+    </div>
+    <div class="col-md-2">
+      <label for="user-role" class="form-label">Rôle</label>
+      <select id="user-role" class="form-select" [value]="role()" (change)="onRoleChange($event)">
+        @if (formSource() === 'oidc') {
+          <option value="none">Aucun (rôle des groupes)</option>
+        }
+        <option value="reader">Lecture</option>
+        <option value="triager">Triage</option>
+        <option value="admin">Administration</option>
+      </select>
+    </div>
+    @if (!editing() && formSource() === 'local') {
+      <div class="col-md-3">
+        <label for="user-password" class="form-label">Mot de passe</label>
+        <input
+          id="user-password"
+          class="form-control"
+          type="password"
+          maxlength="256"
+          autocomplete="new-password"
+          placeholder="Vide : généré"
+          [class.is-invalid]="passwordTooShort()"
+          [value]="password()"
+          (input)="password.set($any($event.target).value)"
+        />
+        <div class="form-text" [class.text-danger]="passwordTooShort()">
+          {{ minPassword }} caractères au moins ; laissé vide, il est généré et affiché une fois.
+        </div>
+      </div>
+    }
+    <fieldset [class]="editing() || formSource() === 'oidc' ? 'col-md-5' : 'col-md-4'">
+      <legend class="form-label">Projets</legend>
+      <div class="form-check form-check-inline">
+        <input
+          class="form-check-input"
+          type="radio"
+          name="user-scope"
+          id="user-scope-all"
+          [checked]="allProjects() || projectsLocked()"
+          (change)="allProjects.set(true)"
+        />
+        <label class="form-check-label" for="user-scope-all">Tous les projets</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input
+          class="form-check-input"
+          type="radio"
+          name="user-scope"
+          id="user-scope-some"
+          [disabled]="projectsLocked()"
+          [checked]="!allProjects() && !projectsLocked()"
+          (change)="allProjects.set(false)"
+        />
+        <label class="form-check-label" for="user-scope-some">Projets sélectionnés</label>
+      </div>
+      @if (role() === 'none') {
+        <div class="form-text">
+          Sans rôle propre, seuls les projets de ses groupes s'appliquent.
+        </div>
+      } @else if (projectsLocked()) {
+        <div class="form-text">Le rôle administration accède toujours à tous les projets.</div>
+      } @else if (!allProjects()) {
+        @if (projectChoices().length) {
+          <div class="d-flex flex-wrap gap-3 mt-2">
+            @for (project of projectChoices(); track project) {
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  [id]="'user-project-' + project"
+                  [checked]="selectedProjects().includes(project)"
+                  (change)="toggleProject(project, $event)"
+                />
+                <label class="form-check-label" [for]="'user-project-' + project">
+                  {{ project }}
+                </label>
+              </div>
+            }
+          </div>
+        } @else if (!projects.isLoading()) {
+          <div class="form-text">Aucun projet disponible.</div>
+        }
+      }
+    </fieldset>
+    <div class="col-md-2 d-flex flex-column gap-2 pt-md-4">
+      <button type="submit" class="btn btn-primary w-100" [disabled]="!canSubmit()">
+        <i class="bi" [class]="editing() ? 'bi-check-lg' : 'bi-person-plus'" aria-hidden="true"></i>
+        {{ editing() ? 'Enregistrer' : 'Créer' }}
+      </button>
+      @if (editing()) {
+        <button type="button" class="btn btn-outline-secondary w-100" (click)="resetForm()">
+          Annuler
+        </button>
+      }
+    </div>
+  </form>
+</section>
+
+<section aria-labelledby="users-title">
+  <h2 id="users-title" class="h5">Comptes</h2>
+  @if (users.error()) {
+    <div class="alert alert-danger" role="alert">Impossible de charger les utilisateurs.</div>
+  } @else if ((users.value() ?? []).length) {
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th scope="col">Identifiant</th>
+            <th scope="col">Type</th>
+            <th scope="col">Rôle attribué</th>
+            <th scope="col">Rôle des groupes</th>
+            <th scope="col">Dernière connexion</th>
+            <th scope="col">Créé le</th>
+            <th scope="col" class="text-end">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (user of users.value() ?? []; track user.id) {
+            <tr>
+              <td class="user-name">
+                {{ user.username }}
+                @if (isSelf(user)) {
+                  <span class="badge text-bg-secondary ms-1">vous</span>
+                }
+              </td>
+              <td>
+                @if (user.auth_source === 'oidc') {
+                  <span
+                    class="badge text-bg-primary bg-opacity-75 d-inline-flex align-items-center gap-1"
+                    [title]="
+                      user.sso_linked
+                        ? 'Compte SSO lié au fournisseur d\'identité'
+                        : 'Compte SSO pas encore connecté'
+                    "
+                  >
+                    <i class="bi bi-shield-lock" aria-hidden="true"></i> SSO
+                  </span>
+                  @if (!user.sso_linked) {
+                    <span class="badge text-bg-light border ms-1">jamais connecté</span>
+                  }
+                } @else {
+                  <span
+                    class="badge text-bg-secondary d-inline-flex align-items-center gap-1"
+                    title="Compte local, identifiant et mot de passe"
+                  >
+                    <i class="bi bi-person" aria-hidden="true"></i> Local
+                  </span>
+                }
+              </td>
+              <td>{{ describe(user.role, user.projects) }}</td>
+              <td>
+                @if (user.auth_source === 'oidc') {
+                  {{ describe(user.sso_role, user.sso_projects) }}
+                  @if (!user.effective_role) {
+                    <span class="badge text-bg-warning ms-1">aucun accès</span>
+                  }
+                } @else {
+                  <span class="text-body-secondary">—</span>
+                }
+              </td>
+              <td>
+                {{ user.last_login_at ? (user.last_login_at | date: 'dd/MM/yyyy HH:mm') : '—' }}
+              </td>
+              <td>{{ user.created_at | date: 'dd/MM/yyyy' }}</td>
+              <td class="text-end text-nowrap">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary me-1"
+                  [disabled]="busy()"
+                  [attr.aria-label]="'Modifier ' + user.username"
+                  (click)="edit(user)"
+                >
+                  <i class="bi bi-pencil" aria-hidden="true"></i>
+                </button>
+                @if (user.auth_source === 'local') {
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary me-1"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'Réinitialiser le mot de passe de ' + user.username"
+                    title="Réinitialiser le mot de passe"
+                    (click)="resetPassword(user)"
+                  >
+                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                  </button>
+                }
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-danger"
+                  [disabled]="busy()"
+                  [attr.aria-label]="'Supprimer ' + user.username"
+                  (click)="remove(user)"
+                >
+                  <i class="bi bi-trash" aria-hidden="true"></i>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (!users.isLoading()) {
+    <p class="text-body-secondary">Aucun utilisateur.</p>
+  }
+</section>
+
+@if ((revoked.value() ?? []).length) {
+  <section class="mt-4" aria-labelledby="revoked-title">
+    <h2 id="revoked-title" class="h5">Comptes SSO supprimés</h2>
+    <p class="text-body-secondary small">
+      Une connexion SSO ne recrée jamais ces comptes, même avec la création automatique. Recréez le
+      compte ci-dessus, ou autorisez-le à nouveau pour qu'il soit recréé à sa prochaine connexion.
+    </p>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th scope="col">Identifiant</th>
+            <th scope="col">Supprimé par</th>
+            <th scope="col">Supprimé le</th>
+            <th scope="col" class="text-end">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of revoked.value() ?? []; track item.username) {
+            <tr>
+              <td class="user-name">{{ item.username }}</td>
+              <td>{{ item.revoked_by ?? '—' }}</td>
+              <td>{{ item.revoked_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td class="text-end">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  [disabled]="busy()"
+                  [attr.aria-label]="'Autoriser à nouveau ' + item.username"
+                  (click)="liftRevocation(item.username)"
+                >
+                  <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                  Autoriser à nouveau
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+}

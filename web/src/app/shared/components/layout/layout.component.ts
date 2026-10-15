@@ -26,12 +26,16 @@ export class LayoutComponent {
   readonly mainNav: readonly NavItem[] = [
     { path: '/projects', label: 'Projets', icon: 'bi-grid-1x2' },
     { path: '/reports', label: 'Rapports', icon: 'bi-file-earmark-text' },
+    { path: '/standards', label: 'Normes', icon: 'bi-journal-code' },
   ];
 
   readonly adminNav: readonly NavItem[] = [
     { path: '/rules', label: 'Règles', icon: 'bi-sliders' },
     { path: '/checklists', label: 'Checklists', icon: 'bi-list-check' },
+    { path: '/users', label: 'Utilisateurs', icon: 'bi-people' },
     { path: '/tokens', label: 'Jetons', icon: 'bi-key' },
+    { path: '/role-mappings', label: 'Rôles SSO', icon: 'bi-person-badge' },
+    { path: '/settings', label: 'Paramètres', icon: 'bi-gear' },
   ];
 
   /** Sidebar shown as a drawer on small screens. */

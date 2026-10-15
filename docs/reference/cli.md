@@ -11,7 +11,7 @@ Le paquet installe deux commandes, une par processus (voir
 
 | Commande | Rôle | Page |
 |---|---|---|
-| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP | [Installation](../demarrage/installation.md#lancement) |
+| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Lance le serveur MCP | [Installation](../demarrage/installation.md#lancement) |
 | `enroll --url URL --project P [--label L] [--requested-by QUI] [--token-stdin] [--cafile CA] [--allow-http]` | Demande un nouveau jeton ou, avec `--token-stdin`, un accès complémentaire pour le jeton lu sur stdin | [Enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton) |
 
 En stdio, le serveur migre lui-même sa base au démarrage (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`).
@@ -27,17 +27,20 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 
 | Commande | Rôle | Page |
 |---|---|---|
-| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Sert l'API REST (`/api/v1`) et l'interface web (`/ui`) | [Serveur HTTP](../demarrage/http.md) |
+| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Sert l'API REST (`/api/v1`) et l'interface web (`/ui`) | [Serveur HTTP](../demarrage/http.md) |
 | `db upgrade` / `db status` | Migre le schéma (Alembic) et amorce les règles par défaut, ou affiche la révision | [Architecture et déploiement](../demarrage/kubernetes.md#migrations-du-schema) |
 | `token create --label NOM [--role ROLE] [--project P …]` | Crée un jeton Bearer, éventuellement limité à plusieurs projets, et affiche son secret une fois | [Jetons Bearer](../demarrage/http.md#jetons-bearer), [rôles](../utilisation/interface-web.md#roles) |
 | `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Liste (ou seulement les demandes d'enrôlement en attente) ou révoque les jetons | [Jetons Bearer](../demarrage/http.md#jetons-bearer) |
-| `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approuve ou refuse une demande d'enrôlement | [Enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton) |
-| `token reset-admin` | Remplace le mot de passe admin initial et l'affiche | [Mot de passe initial](../demarrage/http.md#mot-de-passe-administrateur-initial) |
+| `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approuve ou refuse une demande d'enrôlement ; `approve --portal-user NOM` donne aussi à ce compte utilisateur la lecture du projet dans le portail (avec le SSO activé, un nom inconnu devient un compte SSO) | [Enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton), [lecture à l'enrôlement](../utilisation/interface-web.md#lecture-du-projet-a-lenrolement) |
+| `user create NOM [--sso] [--role ROLE\|none] [--project P …] [--password-stdin]` | Crée un [compte de l'interface web](../utilisation/interface-web.md#comptes-utilisateurs) : local (sans `--password-stdin`, le mot de passe est généré et affiché une fois) ou SSO avec `--sso` (sans mot de passe ; `--role none` : seul le rôle de ses groupes) | [Comptes utilisateurs](../utilisation/interface-web.md#comptes-utilisateurs) |
+| `user list` / `user set-role NOM --role ROLE\|none [--project P …]` / `user delete NOM` | Liste les comptes (jamais leur empreinte) avec leur type `auth_source`, change leur rôle et leurs projets (`none` : compte SSO seulement) ou les supprime (un compte SSO supprimé n'est plus recréé par une connexion) ; le dernier administrateur, local ou SSO, est conservé | [Comptes utilisateurs](../utilisation/interface-web.md#comptes-utilisateurs) |
+| `user reset-password NOM [--password-stdin]` | Remplace le mot de passe d'un compte local (généré par défaut) et ferme ses sessions | [Premier administrateur](../utilisation/interface-web.md#premier-administrateur) |
 | `code scan [PATH]` | Scan du dépôt complet | [Scan du code complet](../utilisation/code-scan.md) |
 | `rules list` / `rules import PATH…` / `rules export` | Liste, importe (packs TOML) ou exporte les règles stockées en base | [Règles internes](../utilisation/regles.md#commande-rules) |
 | `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Active, désactive (règles par défaut ou personnalisées) ou supprime des règles personnalisées | [Règles internes](../utilisation/regles.md#commande-rules) |
 | `deps scan FICHIER…` | Analyse de manifestes / lockfiles | [Dépendances](../utilisation/dependances.md) |
 | `advisories import PATH` / `advisories status` | Gestion de la base OSV hors ligne | [Dépendances](../utilisation/dependances.md#base-de-vulnerabilites-hors-ligne-format-osv) |
+| `advisories update [--ecosystem E …]` | Télécharge les exports OSV (`SECREVIEW_OSV_*`, proxy facultatif) et les importe ; code `2` si un écosystème échoue | [Mise à jour automatique](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur) |
 | `gate --project P --fail-on SEV` | Gate de déploiement | [Gate](../ci-cd/gate.md) |
 | `sarif --project P` / `--report-id N` | Export SARIF 2.1.0 | [SARIF](../ci-cd/sarif.md) |
 | `trend --project P` | Rapport de tendance | [Tendances](../ci-cd/tendances.md) |

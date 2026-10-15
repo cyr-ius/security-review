@@ -4,15 +4,34 @@
 
 | Prompt | Usage | Arguments |
 |---|---|---|
-| `security-review` | Revue générale Python / Java / Angular | `language`, `code`, `context`, `focus` |
-| `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus` |
-| `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus` |
-| `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus` |
-| `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context` |
-| `triage-report` | Re-qualifier les findings d'un rapport stocké | `report_id`, `context` |
+| `security-review` | Revue générale Python / Java / Angular | `language`, `code`, `context`, `focus`, `report_language` |
+| `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
+| `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
+| `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
+| `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
+| `triage-report` | Re-qualifier les findings d'un rapport stocké | `report_id`, `context`, `report_language` |
+| `development-standards` | Donne à l'assistant les [normes de développement](normes.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
 
 Si `code` est vide, le prompt demande à l'agent de relire les fichiers de son espace de travail.
-Chaque prompt se termine par l'instruction d'appeler `save_security_report` une seule fois.
+Chaque prompt de revue se termine par l'instruction d'appeler `save_security_report` une seule
+fois ; `development-standards` n'enregistre rien.
+
+### Langue des rapports
+
+`report_language` fixe la langue de la réponse de l'agent et des champs rédigés du rapport
+enregistré (résumé, périmètre, titres, descriptions, recommandations), par exemple `French`,
+`fr` ou `pt-BR`. Sans cet argument, le prompt reprend la langue choisie par un administrateur
+dans l'écran [**Paramètres**](interface-web.md#ecrans) de l'interface web, sinon
+[`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md) ; si aucune n'est définie, l'agent
+choisit (en général la langue de la conversation). L'écran peut aussi imposer « l'agent
+choisit » malgré la variable.
+
+Le code, les extraits, les chemins, les identifiants de règles, les références CWE / OWASP et
+les valeurs fixes attendues par les outils (sévérité, catégorie, statut) restent inchangés :
+le gate, l'export SARIF et les tendances fonctionnent quelle que soit la langue.
+
+La valeur n'accepte que des lettres, espaces, `-`, `_` et parenthèses (40 caractères au plus),
+pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refusé.
 
 ## Outils
 
@@ -31,6 +50,7 @@ Chaque prompt se termine par l'instruction d'appeler `save_security_report` une 
 | `scan_dependencies` | Analyse d'un manifeste / lockfile : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
 | `request_enrollment` | Demande un jeton pour un premier projet ou l'ajout d'un projet au jeton présenté, après approbation par un administrateur ([enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton)) |
+| `list_development_standards` / `get_development_standards` | [Normes de développement](normes.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
 | `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](regles.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
 Sur le transport HTTP, un jeton restreint ne peut utiliser les outils de rapports que sur ses
@@ -56,7 +76,9 @@ Voir [l'enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton
 ## Ressources
 
 - `report://{report_id}` : un rapport enregistré ;
-- `checklist://{domain}` : la checklist d'un domaine.
+- `checklist://{domain}` : la checklist d'un domaine ;
+- `standards://catalog` : le catalogue des [normes de développement](normes.md) ;
+- `standard://{slug}` : une norme de développement.
 
 ## Rapport enregistré
 
@@ -72,5 +94,6 @@ Le **niveau de risque** du rapport est calculé (sévérité maximale des findin
 
 !!! info "Masquage des secrets"
     Les secrets présents dans `summary`, `description`, `evidence` et `recommendation`
-    (mots de passe, tokens, clés AWS, JWT, clés privées, identifiants dans les URL) sont masqués
+    (mots de passe, tokens, `SECRET_KEY`, clés AWS, jetons GitHub, GitLab, Slack, Google, Stripe
+    et npm, JWT, clés privées, identifiants dans les URL) sont masqués
     avant stockage. C'est un filet de sécurité : l'agent doit aussi éviter de les recopier.

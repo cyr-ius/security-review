@@ -16,7 +16,10 @@
   `--project` est limité à ce projet dans les outils MCP et l'API web : tout autre projet,
   rapport ou finding est traité comme inexistant (voir
   [jetons restreints à un projet](../demarrage/http.md#jetons-restreints-a-un-projet)). Si l'écoute n'est pas sur
-  localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Il n'y a
+  localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Le
+  [certificat auto-signé](../demarrage/http.md#certificat-auto-signe) facultatif est régénéré à
+  chaque démarrage (clé privée en `0600` dans un dossier temporaire, jamais journalisée) et n'est
+  pas reconnu par les clients sans ajout explicite. Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../utilisation/interface-web.md#roles)
   (`mcp`, `reader`, `triager`, `admin`) ; un jeton `mcp` sans projet accède à tous les outils
   MCP et à tous les projets.
@@ -29,18 +32,70 @@
   tronqué. N'importe quel client qui atteint le serveur peut déposer une demande : vérifiez le
   demandeur et l'adresse affichés avant d'approuver, ou désactivez l'enrôlement. Voir
   [l'enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton).
-- **Appels réseau sortants** : le serveur n'en fait aucun. Seule la commande
+- **Appels réseau sortants** : le serveur MCP n'en fait aucun. La commande
   `security-review-mcp enroll` contacte, à la demande de l'opérateur, l'URL qu'il indique ; elle
   refuse HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
-  redirections.
-- **Interface web** (contrôleur) : l'API REST exige toujours un jeton de rôle web ; sans configuration, elle
-  répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
+  redirections. Le contrôleur ne télécharge les avis OSV que si un administrateur l'active
+  (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
+  en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
+  (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
+  journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (rôle `admin`) n'est
+  accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Un proxy défini dans l'interface web est
+  enregistré en base **avec ses identifiants, en clair** : l'API ne les renvoie jamais (mot de
+  passe remplacé par `***`) et les messages d'erreur de l'historique en sont expurgés, mais
+  préférez `SECREVIEW_OSV_PROXY` (secret Kubernetes) si la base n'est pas protégée comme un
+  secret. Voir la
+  [mise à jour automatique](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur).
+  Avec la [connexion SSO](../utilisation/interface-web.md#connexion-sso-openid-connect)
+  (`SECREVIEW_OIDC_ENABLED`, désactivée par défaut), le contrôleur contacte aussi le fournisseur
+  d'identité configuré : HTTPS uniquement (HTTP seulement sur localhost), redirections limitées
+  à HTTPS, réponses bornées à 1 Mio, délai de 10 secondes.
+- **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton de rôle web ;
+  sans utilisateur ni jeton, elle répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
   le statut d'un finding (action journalisée avec le label du jeton). Pages servies avec une CSP
   stricte et les en-têtes anti-clickjacking ; jeton gardé dans le `sessionStorage` de l'onglet.
   La documentation Swagger et son schéma OpenAPI sont publics, mais les routes de données
   restent protégées. Le contrôle est fait deux fois : par le middleware Bearer, puis par
   chaque route de l'API, qui refuse (`401`) toute requête sans identité authentifiée. Ainsi,
   l'API ne donne jamais de droits par défaut, même si elle est servie sans le middleware.
+- **Comptes utilisateurs** ([identifiant et mot de passe](../utilisation/interface-web.md#comptes-utilisateurs)) :
+  seule une empreinte **scrypt** salée (N=2¹⁴, r=8, p=5, sel aléatoire de 16 octets) est
+  stockée ; une empreinte stockée aux paramètres hors bornes est refusée au lieu d'épuiser la
+  mémoire. Mots de passe de 12 à 256 caractères, identifiants limités à `[A-Za-z0-9._@-]`. La
+  vérification coûte le même temps que l'identifiant existe ou non (empreinte factice), et
+  l'échec renvoie toujours le même `401`. Les échecs sont limités en mémoire (5 par identifiant
+  et adresse, 20 par adresse, sur 15 minutes, puis `429`) ; seuls les identifiants valides sont
+  journalisés, jamais les mots de passe. La session est un jeton signé avec
+  `SECREVIEW_SESSION_SECRET`, comme celle du SSO, mais le compte est **relu en base à chaque
+  requête** : suppression, nouveau rôle ou nouveaux projets s'appliquent immédiatement, et un
+  changement de mot de passe tire une nouvelle version de session aléatoire qui invalide toutes
+  les sessions précédentes. La session doit aussi porter l'identifiant du compte : elle n'ouvre
+  jamais un compte recréé sous le même numéro interne. Le dernier administrateur, local ou SSO (par son rôle ou celui de ses groupes), ne peut être ni supprimé ni rétrogradé. Le mot de passe
+  du compte `admin` initial apparaît une fois dans les journaux du contrôleur : protégez-les et
+  changez-le dès la première connexion.
+- **Connexion SSO (OpenID Connect)**, facultative : flux *authorization code* avec PKCE `S256`,
+  state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
+  ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
+  uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Le rôle vient des
+  groupes de l'utilisateur ([role mapping](../utilisation/interface-web.md#role-mapping), géré
+  par les administrateurs, éventuellement restreint à des projets) et du rôle attribué à son
+  [compte SSO](../utilisation/interface-web.md#comptes-sso) ; ni le rôle `admin` par défaut ni le
+  rôle `mcp` ne sont possibles. Le compte est nommé par l'identifiant exact du claim
+  `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si ce n'est pas
+  un identifiant valide) : choisissez un claim que l'utilisateur ne peut pas modifier chez le
+  fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte SSO créé par
+  un administrateur peut se connecter. Une connexion SSO n'ouvre jamais un compte local du même
+  nom, et le compte est lié au `sub` de sa première connexion : un autre `sub` est refusé. Un
+  compte SSO supprimé est révoqué : la création automatique ne le recrée pas, tant qu'un
+  administrateur ne l'a pas recréé ou autorisé à nouveau.
+  Vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant de lui donner la lecture
+  du projet. Une session restreinte à des projets l'est comme un jeton `--project`. La session est
+  un jeton signé (HMAC-SHA256, clé dérivée de `SECREVIEW_SESSION_SECRET`) qui désigne le compte,
+  relu à chaque requête : la suppression du compte la coupe aussitôt. Elle est acceptée par le
+  contrôleur seulement, jamais par le serveur MCP. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
+  jetons et secrets ne sont jamais journalisés par le contrôleur ; le code d'autorisation
+  apparaît toutefois dans les journaux d'accès d'un reverse proxy ou d'uvicorn, ce qui est
+  sans danger : il est à usage unique et inutilisable sans le vérificateur PKCE du cookie.
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
   serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Le scan du dépôt
   complet est réservé à la CLI (`code scan`), lancée par l'opérateur sur un dossier qu'il
@@ -54,6 +109,12 @@
   applique directement ce fichier : le scan ne tourne jamais sans règles. Une règle par défaut
   peut être modifiée ou désactivée par un administrateur, mais pas supprimée
   (voir [Règles internes](../utilisation/regles.md#regles-par-defaut)).
+- **Normes de développement** : leur contenu est transmis tel quel à l'assistant IA comme
+  consignes ; seuls les administrateurs du contrôleur les écrivent (champs validés et bornés,
+  200 normes de 50 000 caractères au plus). Le serveur MCP les lit seulement, et la tâche
+  fournie au prompt `development-standards` est encadrée pour ne pas pouvoir en sortir. Le prompt
+  rappelle qu'une norme ne prime jamais sur la sécurité (voir
+  [Normes de développement](../utilisation/normes.md)).
 - **Journaux** sur stderr (stdout est réservé au protocole en stdio).
 
 !!! warning "Protégez la base"

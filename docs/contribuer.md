@@ -15,7 +15,7 @@ Dans VS Code (`.vscode/`) :
 |---|---|
 | **MCP server + controller** | Lance la tâche **Database upgrade**, puis les deux processus sur la même base |
 | **MCP server (HTTP, port 8000)** | Serveur MCP seul ; la base doit déjà être migrée |
-| **Controller (web UI and API, port 8080)** | Contrôleur seul ; migre la base et affiche le mot de passe admin initial au premier démarrage |
+| **Controller (web UI and API, port 8080)** | Contrôleur seul ; migre la base et affiche le mot de passe du compte `admin` initial au premier démarrage |
 | **Controller CLI (prompt for arguments)** | Une commande du contrôleur (`db status`, `token list --pending`…) sous le débogueur |
 | **Controller + web UI (Angular, port 4200)** | Contrôleur et application Angular sous le débogueur, rechargement à chaud |
 | **Web UI + API (Angular dev server, port 4200)** | Lance la tâche **Web UI + API: dev servers** (contrôleur sur 8080 et `ng serve`), attend qu'ils soient prêts, puis ouvre Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript |
@@ -85,11 +85,15 @@ src/security_review_mcp/
 ├── server.py      # prompts, outils, ressources, point d'entrée du serveur MCP
 ├── controller.py  # point d'entrée du contrôleur (serve, db et commandes d'administration)
 ├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
-├── token_store.py # jetons Bearer en base : création, révocation, enrôlement, admin initial
+├── oidc.py        # connexion SSO OpenID Connect à l'interface web (contrôleur)
+├── role_mapping.py # role mapping OIDC : groupes du fournisseur → rôle web et projets
+├── token_store.py # jetons Bearer en base : création, révocation, enrôlement
+├── web_users.py   # comptes de l'interface web, locaux (scrypt) ou SSO (création à la volée), sessions, admin initial
 ├── enrollment.py  # client de `enroll` : demande de jeton à un serveur partagé
 ├── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP
 ├── web_api.py     # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
 ├── prompts.py     # construction des prompts
+├── standards.py   # normes de développement : stockage, recherche par technologie / fichier, rendu
 ├── default_rules.toml  # règles et checklists par défaut, copiées en base au premier lancement
 ├── checklists.py  # structure d'un item de checklist
 ├── scanner.py     # moteur de scan, suppression inline, masquage des secrets
@@ -102,6 +106,8 @@ src/security_review_mcp/
 ├── trends.py      # rapport de tendance
 ├── versions.py    # comparaison de versions
 ├── advisories.py  # import OSV, correspondance des versions
+├── advisory_sync.py  # téléchargement OSV par le contrôleur (proxy, mise à jour quotidienne, historique)
+├── app_settings.py    # réglages de l'écran Paramètres (langue des rapports, proxy OSV), en base
 ├── dependencies.py    # analyseurs de manifestes / lockfiles, hygiène
 ├── depscan.py     # scan de dépendances et conversion en findings
 ├── services.py    # logique de persistance des rapports

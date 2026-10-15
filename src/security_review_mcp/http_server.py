@@ -16,10 +16,18 @@ Each token carries a role that decides which of the two it may use.
 """
 
 import argparse
+import datetime
 import hashlib
+import ipaddress
 import json
 import logging
+import os
+import re
+import shutil
+import signal
+import socket
 import ssl
+import tempfile
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -29,6 +37,10 @@ from typing import Any, Protocol
 
 import anyio.to_thread
 import uvicorn
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 from mcp.server.mcpserver import MCPServer
 from starlette.applications import Starlette
 from starlette.datastructures import Headers
@@ -66,6 +78,8 @@ UI_PREFIX = "/ui"
 ENROLL_PATH = "/api/v1/enroll"
 # Public liveness endpoint of both processes (container and Kubernetes probes)
 HEALTH_PATH = "/healthz"
+# Public login routes of the controller (OpenID Connect, see oidc)
+AUTH_PREFIX = "/api/v1/auth/"
 # Value of WWW-Authenticate on a 401 / 403 (an error="..." parameter may follow)
 BEARER_CHALLENGE = 'Bearer realm="security-review-mcp"'
 
@@ -76,6 +90,8 @@ class TokenInfo:
 
     ``projects`` lists the projects a restricted token reaches (None: every project).
     ``pending`` marks an enrollment request not approved yet: it grants no access.
+    ``user_id`` and ``auth_source`` (``local`` or ``oidc``) are set for the session of a web
+    user (see web_users), None for a token.
     """
 
     label: str
@@ -83,6 +99,8 @@ class TokenInfo:
     projects: frozenset[str] | None = None
     token_id: str | None = None
     pending: bool = False
+    user_id: int | None = None
+    auth_source: str | None = None
 
 
 class TokenStore(Protocol):
@@ -95,6 +113,17 @@ class TokenStore(Protocol):
         """True when at least one token is stored."""
 
 
+class SessionVerifier(Protocol):
+    """Verifier of the web sessions issued after a password or OIDC login (see
+    web_users.SessionVerifier)."""
+
+    def owns(self, credentials: str) -> bool:
+        """True when the bearer value is a session token (not a database token)."""
+
+    def verify_session(self, credentials: str) -> TokenInfo | None:
+        """Return the identity of a valid, unexpired session token, or None."""
+
+
 def hash_token(token: str) -> bytes:
     """Return the SHA-256 digest of a raw token: the only form that is ever stored."""
     return hashlib.sha256(token.encode("utf-8")).digest()
@@ -104,10 +133,10 @@ def hash_token(token: str) -> bytes:
 
 
 def is_controller_public_path(path: str) -> bool:
-    """Controller paths reachable without a token: the web UI shell, the API documentation and
-    the health check."""
+    """Controller paths reachable without a token: the web UI shell, the API documentation,
+    the health check and the login routes."""
     return path in ("/", UI_PREFIX, "/api/docs", "/api/openapi.json", HEALTH_PATH) or (
-        path.startswith(UI_PREFIX + "/")
+        path.startswith((UI_PREFIX + "/", AUTH_PREFIX))
     )
 
 
@@ -126,7 +155,8 @@ class BearerAuthMiddleware:
 
     Pure ASGI (no response buffering) so that streamed MCP responses are not affected.
     The label, role, projects and id of the accepted token are stored in ``scope["state"]``
-    (``auth_client``, ``auth_role``, ``auth_projects``, ``auth_token_id``).
+    (``auth_client``, ``auth_role``, ``auth_projects``, ``auth_token_id``, and ``auth_user_id``
+    and ``auth_source`` for the session of a web user).
 
     With ``web=False`` (MCP server) every path needs an MCP role, except ``public_paths``.
     With ``web=True`` (controller) the static files of the web interface are public and the
@@ -137,6 +167,10 @@ class BearerAuthMiddleware:
     with an empty bearer value) or with a pending enrollment token;
     ``scope["state"]["enrollment_token_id"]`` then holds the id of that pending token (None
     without a token). Without it they get 401 / 403.
+
+    ``sessions`` (controller only) also accepts the session tokens issued after a login.
+    ``require_auth`` (controller with OIDC) asks for credentials even while the store holds no
+    token, instead of answering 503.
     """
 
     def __init__(
@@ -146,12 +180,16 @@ class BearerAuthMiddleware:
         web: bool = False,
         enrollment_app: ASGIApp | None = None,
         public_paths: frozenset[str] = frozenset(),
+        sessions: SessionVerifier | None = None,
+        require_auth: bool = False,
     ) -> None:
         self.app = app
         self.store = store
         self.web = web
         self.enrollment_app = None if web else enrollment_app
         self.public_paths = public_paths
+        self.sessions = sessions if web else None
+        self.require_auth = require_auth and web
 
     async def identify(self, authorization: str) -> TokenInfo | None:
         """Return the identity of the presented bearer token, or None."""
@@ -159,6 +197,9 @@ class BearerAuthMiddleware:
         credentials = credentials.strip()
         if scheme.lower() != "bearer" or not credentials:
             return None
+        if self.sessions is not None and self.sessions.owns(credentials):
+            # The session of a web user is checked against the database
+            return await anyio.to_thread.run_sync(self.sessions.verify_session, credentials)
         return await anyio.to_thread.run_sync(self.store.lookup, hash_token(credentials))
 
     async def has_tokens(self) -> bool:
@@ -184,7 +225,7 @@ class BearerAuthMiddleware:
             await self.app(scope, receive, send)
             return
 
-        if not await self.has_tokens():
+        if not self.require_auth and not await self.has_tokens():
             if self.web:
                 await _send_error(
                     send,
@@ -232,6 +273,8 @@ class BearerAuthMiddleware:
         state["auth_role"] = info.role
         state["auth_projects"] = info.projects
         state["auth_token_id"] = info.token_id
+        state["auth_user_id"] = info.user_id
+        state["auth_source"] = info.auth_source
         await self.app(scope, receive, send)
 
     async def enroll(
@@ -296,14 +339,22 @@ async def health_app(scope: Scope, receive: Receive, send: Send) -> None:
 # ── TLS ──────────────────────────────────────────────────────────────────────
 
 
+SELF_SIGNED_VALIDITY = datetime.timedelta(days=365)
+
+
 @dataclass(frozen=True)
 class TLSOptions:
-    """TLS files for uvicorn; ``client_ca`` enables mutual TLS (client certificates)."""
+    """TLS files for uvicorn; ``client_ca`` enables mutual TLS (client certificates).
+
+    ``fingerprint`` (SHA-256 of the certificate) is set when the certificate was self-signed at
+    start-up, so that the operator can check it from the clients.
+    """
 
     certfile: str
     keyfile: str | None = None
     keyfile_password: str | None = None
     client_ca: str | None = None
+    fingerprint: str | None = None
 
     def uvicorn_kwargs(self) -> dict[str, Any]:
         """Translate the options into uvicorn.run keyword arguments."""
@@ -318,18 +369,115 @@ class TLSOptions:
         return options
 
 
-def tls_options(settings: Settings) -> TLSOptions | None:
-    """Validate the TLS settings; None when TLS is disabled (no certificate configured)."""
-    if not settings.tls_certfile:
-        if settings.tls_keyfile or settings.tls_client_ca:
-            raise ValueError(
-                "SECREVIEW_TLS_KEYFILE and SECREVIEW_TLS_CLIENT_CA need SECREVIEW_TLS_CERTFILE"
+# One DNS label (no wildcard): letters, digits and inner hyphens, 63 characters at most
+DNS_LABEL_PATTERN = re.compile(r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?")
+MAX_SELF_SIGNED_HOSTS = 20
+
+
+def self_signed_hosts(value: str | None) -> list[str]:
+    """Parse SECREVIEW_TLS_SELF_SIGNED_HOSTS: extra DNS names or IP addresses, comma-separated."""
+    names = [name.strip() for name in (value or "").split(",") if name.strip()]
+    if len(names) > MAX_SELF_SIGNED_HOSTS:
+        raise ValueError(f"SECREVIEW_TLS_SELF_SIGNED_HOSTS: at most {MAX_SELF_SIGNED_HOSTS} names")
+    for name in names:
+        try:
+            ipaddress.ip_address(name)
+        except ValueError:
+            labels = name.split(".")
+            if len(name) > 253 or not all(DNS_LABEL_PATTERN.fullmatch(label) for label in labels):
+                raise ValueError(
+                    f"SECREVIEW_TLS_SELF_SIGNED_HOSTS: invalid DNS name or IP address: {name!r}"
+                ) from None
+    return names
+
+
+def _subject_alt_names(host: str, extra_hosts: list[str]) -> list[x509.GeneralName]:
+    """Names the certificate is valid for: loopback, this machine, ``host`` and ``extra_hosts``."""
+    names = ["localhost", socket.gethostname(), "127.0.0.1", "::1"]
+    if host and host not in ("0.0.0.0", "::"):
+        names.append(host)
+    names.extend(extra_hosts)
+    alt_names: list[x509.GeneralName] = []
+    for name in dict.fromkeys(names):
+        try:
+            alt_names.append(x509.IPAddress(ipaddress.ip_address(name)))
+        except ValueError:
+            alt_names.append(x509.DNSName(name))
+    return alt_names
+
+
+def generate_self_signed(
+    host: str, directory: Path, extra_hosts: list[str] | None = None
+) -> tuple[Path, Path, str]:
+    """Write a self-signed certificate and its private key (EC P-256) into ``directory``.
+
+    ``extra_hosts`` (see self_signed_hosts) are the names the clients use to reach the server.
+    Returns the certificate path, the key path and the SHA-256 fingerprint of the certificate.
+    The key file is created with mode 0600 and is never logged.
+    """
+    key = ec.generate_private_key(ec.SECP256R1())
+    alt_names = x509.SubjectAlternativeName(_subject_alt_names(host, extra_hosts or []))
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "security-review-mcp")])
+    now = datetime.datetime.now(datetime.UTC)
+    certificate = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - datetime.timedelta(minutes=5))
+        .not_valid_after(now + SELF_SIGNED_VALIDITY)
+        .add_extension(alt_names, critical=False)
+        .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
+        .add_extension(x509.ExtendedKeyUsage([ExtendedKeyUsageOID.SERVER_AUTH]), critical=False)
+        .sign(key, hashes.SHA256())
+    )
+    certfile, keyfile = directory / "cert.pem", directory / "key.pem"
+    certfile.write_bytes(certificate.public_bytes(serialization.Encoding.PEM))
+    descriptor = os.open(keyfile, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "wb") as stream:
+        stream.write(
+            key.private_bytes(
+                serialization.Encoding.PEM,
+                serialization.PrivateFormat.PKCS8,
+                serialization.NoEncryption(),
             )
-        return None
+        )
+    fingerprint = certificate.fingerprint(hashes.SHA256()).hex(":").upper()
+    return certfile, keyfile, fingerprint
+
+
+def _self_signed_options(settings: Settings, host: str) -> TLSOptions:
+    """Generate a certificate in a private temporary directory (mode 0700), removed by serve."""
+    extra_hosts = self_signed_hosts(settings.tls_self_signed_hosts)
+    directory = Path(tempfile.mkdtemp(prefix="secreview-tls-"))
+    certfile, keyfile, fingerprint = generate_self_signed(host, directory, extra_hosts)
+    return TLSOptions(
+        certfile=str(certfile),
+        keyfile=str(keyfile),
+        client_ca=settings.tls_client_ca,
+        fingerprint=fingerprint,
+    )
+
+
+def tls_options(settings: Settings, host: str = "127.0.0.1") -> TLSOptions | None:
+    """Validate the TLS settings; None when TLS is disabled (no certificate configured).
+
+    Without a certificate, ``tls_self_signed`` generates one valid for ``host``.
+    """
+    if not settings.tls_certfile:
+        if settings.tls_keyfile:
+            raise ValueError("SECREVIEW_TLS_KEYFILE needs SECREVIEW_TLS_CERTFILE")
+        if settings.tls_client_ca and not settings.tls_self_signed:
+            raise ValueError(
+                "SECREVIEW_TLS_CLIENT_CA needs SECREVIEW_TLS_CERTFILE or SECREVIEW_TLS_SELF_SIGNED"
+            )
     for name in ("tls_certfile", "tls_keyfile", "tls_client_ca"):
         value = getattr(settings, name)
         if value and not Path(value).is_file():
             raise ValueError(f"SECREVIEW_{name.upper()}: file not found: {value}")
+    if not settings.tls_certfile:
+        return _self_signed_options(settings, host) if settings.tls_self_signed else None
     return TLSOptions(
         certfile=settings.tls_certfile,
         keyfile=settings.tls_keyfile,
@@ -344,16 +492,23 @@ def add_listen_arguments(parser: argparse.ArgumentParser, settings: Settings) ->
     parser.add_argument("--port", type=int, default=settings.port)
     parser.add_argument("--tls-certfile", help="enable TLS (overrides SECREVIEW_TLS_CERTFILE)")
     parser.add_argument("--tls-keyfile", help="private key (overrides SECREVIEW_TLS_KEYFILE)")
+    parser.add_argument(
+        "--tls-self-signed",
+        action="store_true",
+        help="without a certificate, serve HTTPS with a self-signed one generated at start-up "
+        "(SECREVIEW_TLS_SELF_SIGNED)",
+    )
 
 
 def with_tls_arguments(settings: Settings, args: argparse.Namespace) -> Settings:
-    """Return the settings with the TLS files given on the command line, if any."""
-    if not (args.tls_certfile or args.tls_keyfile):
+    """Return the settings with the TLS options given on the command line, if any."""
+    if not (args.tls_certfile or args.tls_keyfile or args.tls_self_signed):
         return settings
     return settings.model_copy(
         update={
             "tls_certfile": args.tls_certfile or settings.tls_certfile,
             "tls_keyfile": args.tls_keyfile or settings.tls_keyfile,
+            "tls_self_signed": args.tls_self_signed or settings.tls_self_signed,
         }
     )
 
@@ -407,9 +562,20 @@ def build_mcp_app(
     )
 
 
-def build_controller_app(web_app: ASGIApp, store: TokenStore) -> ASGIApp:
-    """Build the HTTP app of the controller (see web_api.create_app), protected by ``store``."""
-    return BearerAuthMiddleware(web_app, store, web=True)
+def build_controller_app(
+    web_app: ASGIApp,
+    store: TokenStore,
+    sessions: SessionVerifier | None = None,
+    require_auth: bool = False,
+) -> ASGIApp:
+    """Build the HTTP app of the controller (see web_api.create_app), protected by ``store``
+    and by the session tokens of ``sessions`` (password and OIDC logins).
+
+    ``require_auth`` (OIDC enabled) asks for a login even while no token nor user is stored.
+    """
+    return BearerAuthMiddleware(
+        web_app, store, web=True, sessions=sessions, require_auth=require_auth
+    )
 
 
 def _log_exposure(host: str, store: TokenStore, tls: TLSOptions | None) -> None:
@@ -426,12 +592,23 @@ def _log_exposure(host: str, store: TokenStore, tls: TLSOptions | None) -> None:
         )
     if tls:
         logger.info("TLS enabled%s", " with client certificates" if tls.client_ca else "")
+        if tls.fingerprint:
+            logger.warning(
+                "Self-signed TLS certificate generated for this start (clients must trust it "
+                "explicitly), SHA-256 fingerprint: %s",
+                tls.fingerprint,
+            )
     elif exposed:
         logger.warning(
             "Listening on %s without TLS: set SECREVIEW_TLS_CERTFILE and SECREVIEW_TLS_KEYFILE, "
             "or terminate TLS on a reverse proxy.",
             host,
         )
+
+
+def _exit_on_signal(signum: int, _frame: Any) -> None:
+    """Turn a termination signal into SystemExit so that cleanup code runs."""
+    raise SystemExit(128 + signum)
 
 
 def serve(
@@ -444,13 +621,24 @@ def serve(
 ) -> None:
     """Serve an app built by build_mcp_app or build_controller_app with uvicorn.
 
-    ``tls`` comes from tls_options (validated beforehand).
+    ``tls`` comes from tls_options (validated beforehand); a self-signed certificate it
+    generated is deleted when the server stops.
     """
     _log_exposure(host, store, tls)
-    uvicorn.run(
-        app,
-        host=host,
-        port=port,
-        log_level=log_level.lower(),
-        **(tls.uvicorn_kwargs() if tls else {}),
-    )
+    generated = tls is not None and tls.fingerprint is not None
+    if generated:
+        # uvicorn re-raises SIGTERM after its graceful shutdown: exit through `finally` instead
+        # of being killed by the default handler, so that the generated key is removed.
+        previous = signal.signal(signal.SIGTERM, _exit_on_signal)
+    try:
+        uvicorn.run(
+            app,
+            host=host,
+            port=port,
+            log_level=log_level.lower(),
+            **(tls.uvicorn_kwargs() if tls else {}),
+        )
+    finally:
+        if generated:
+            signal.signal(signal.SIGTERM, previous)
+            shutil.rmtree(Path(tls.certfile).parent, ignore_errors=True)

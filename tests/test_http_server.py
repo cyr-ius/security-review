@@ -2,15 +2,25 @@
 
 import json
 import ssl
+from pathlib import Path
 
 import pytest
+from cryptography import x509
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from security_review_mcp import cli, database, http_server, server, token_store
+from security_review_mcp import (
+    cli,
+    config,
+    database,
+    http_server,
+    server,
+    token_store,
+    web_users,
+)
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
 
@@ -44,6 +54,7 @@ def protected_client(web: bool = False, enrollment: bool = False) -> TestClient:
             Route("/mcp", whoami),
             Route("/api/v1/me", whoami),
             Route("/api/v1/enroll", whoami, methods=["POST"]),
+            Route("/api/v1/auth/config", whoami),
             Route("/api/docs", whoami),
             Route("/api/openapi.json", whoami),
             Route("/ui/", whoami),
@@ -128,6 +139,9 @@ def test_web_ui_files_are_public_but_not_the_api():
     assert mcp_client.get("/api/docs").status_code == 401
     assert mcp_client.get("/healthz").status_code == 200
     assert mcp_client.post("/api/v1/enroll").status_code == 200
+    # The login routes are public on the controller only
+    assert client.get("/api/v1/auth/config").status_code == 200
+    assert mcp_client.get("/api/v1/auth/config").status_code == 401
 
 
 def test_without_any_token_mcp_is_open_and_the_web_api_not_configured():
@@ -190,10 +204,10 @@ def test_pending_requests_do_not_close_an_open_server():
 
 def test_tokens_are_checked_in_the_database_on_each_request():
     mcp_client, web_client = protected_client(), protected_client(web=True)
-    password = token_store.ensure_bootstrap_admin()
+    password = token_store.create_token("ops", Role.ADMIN)["token"]
     created = token_store.create_project_token("ci", "shop-api")
     reader = bearer(created["token"])
-    assert web_client.get("/api/v1/me", headers=bearer(password)).text == "bootstrap-admin/admin"
+    assert web_client.get("/api/v1/me", headers=bearer(password)).text == "ops/admin"
     assert mcp_client.get("/mcp", headers=bearer(password)).status_code == 200
     assert web_client.get("/api/v1/me", headers=reader).text == "ci/reader"
     assert mcp_client.get("/mcp", headers=reader).status_code == 403
@@ -270,10 +284,82 @@ def test_tls_options(tmp_path):
 
 
 def test_tls_options_errors(tmp_path):
-    with pytest.raises(ValueError, match="need SECREVIEW_TLS_CERTFILE"):
+    with pytest.raises(ValueError, match="needs SECREVIEW_TLS_CERTFILE"):
         http_server.tls_options(make_settings(tls_keyfile="key.pem"))
+    with pytest.raises(ValueError, match="needs SECREVIEW_TLS_CERTFILE or"):
+        http_server.tls_options(make_settings(tls_client_ca="ca.pem"))
     with pytest.raises(ValueError, match="file not found"):
         http_server.tls_options(make_settings(tls_certfile=str(tmp_path / "missing.pem")))
+
+
+def test_generate_self_signed_certificate(tmp_path):
+    certfile, keyfile, fingerprint = http_server.generate_self_signed(
+        "secreview.internal", tmp_path
+    )
+
+    certificate = x509.load_pem_x509_certificate(certfile.read_bytes())
+    names = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+    assert {"localhost", "secreview.internal"} <= set(names.get_values_for_type(x509.DNSName))
+    assert certificate.issuer == certificate.subject
+    assert fingerprint.count(":") == 31
+    # The private key is readable by the owner only and matches the certificate
+    assert keyfile.stat().st_mode & 0o777 == 0o600
+    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    context.load_cert_chain(certfile, keyfile)
+
+
+def test_self_signed_certificate_covers_the_extra_hosts(tmp_path):
+    settings = make_settings(
+        tls_self_signed=True, tls_self_signed_hosts="192.168.1.1, secreview.lan"
+    )
+
+    tls = http_server.tls_options(settings, "0.0.0.0")
+
+    certificate = x509.load_pem_x509_certificate(Path(tls.certfile).read_bytes())
+    names = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+    assert "secreview.lan" in names.get_values_for_type(x509.DNSName)
+    assert "192.168.1.1" in {str(ip) for ip in names.get_values_for_type(x509.IPAddress)}
+
+
+@pytest.mark.parametrize(
+    "hosts",
+    [
+        "bad name",
+        "evil.example/path",
+        "*",
+        "*.example.com",
+        "a..b",
+        "-x.lan",
+        "x" * 64,
+        ",".join(["h"] * 21),
+    ],
+)
+def test_self_signed_hosts_are_validated(hosts):
+    with pytest.raises(ValueError, match="SECREVIEW_TLS_SELF_SIGNED_HOSTS"):
+        http_server.tls_options(make_settings(tls_self_signed=True, tls_self_signed_hosts=hosts))
+
+
+def test_tls_self_signed_only_without_certificate(tmp_path):
+    assert http_server.tls_options(make_settings(tls_self_signed=False)) is None
+
+    tls = http_server.tls_options(make_settings(tls_self_signed=True), "0.0.0.0")
+    assert tls.fingerprint and tls.keyfile_password is None
+    assert Path(tls.certfile).is_file() and Path(tls.keyfile).is_file()
+
+    # A configured certificate wins over the self-signed one
+    cert = tmp_path / "cert.pem"
+    cert.write_text("x", encoding="utf-8")
+    own = http_server.tls_options(make_settings(tls_certfile=str(cert), tls_self_signed=True))
+    assert own.certfile == str(cert) and own.fingerprint is None
+
+
+def test_tls_self_signed_keeps_mutual_tls(tmp_path):
+    ca = tmp_path / "ca.pem"
+    ca.write_text("x", encoding="utf-8")
+
+    tls = http_server.tls_options(make_settings(tls_self_signed=True, tls_client_ca=str(ca)))
+
+    assert tls.uvicorn_kwargs()["ssl_cert_reqs"] == ssl.CERT_REQUIRED
 
 
 # ── Start-up ─────────────────────────────────────────────────────────────────
@@ -312,6 +398,29 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     assert client.get("/mcp").status_code == 401
     # The web interface is served by the controller only
     assert client.get("/ui/").status_code == 401
+
+
+def test_main_serves_https_with_a_self_signed_certificate(caplog, monkeypatch, captured_run):
+    served: list[x509.Certificate] = []
+
+    def run(app, **kwargs) -> None:
+        """Read the certificate while it exists, as uvicorn does when it starts."""
+        served.append(x509.load_pem_x509_certificate(Path(kwargs["ssl_certfile"]).read_bytes()))
+        captured_run.append(kwargs)
+
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings(enrollment=False))
+    monkeypatch.setattr(http_server.uvicorn, "run", run)
+
+    with caplog.at_level("WARNING", logger="security_review_mcp"):
+        server.main(["--transport", "streamable-http", "--tls-self-signed"])
+
+    (certificate,) = served
+    assert certificate.issuer == certificate.subject
+    assert any("fingerprint" in record.message for record in caplog.records)
+    # The private key is never logged
+    assert all("PRIVATE KEY" not in record.getMessage() for record in caplog.records)
+    # The generated files are deleted when the server stops
+    assert not Path(captured_run[0]["ssl_keyfile"]).parent.exists()
 
 
 @pytest.mark.parametrize("enabled", [True, False])
@@ -487,6 +596,47 @@ def test_token_approve_and_reject_enrollment_requests(capsys):
     assert "not found" in json.loads(capsys.readouterr().err)["error"]
 
 
+def test_token_approve_can_give_web_read_access(capsys, monkeypatch):
+    first = token_store.request_enrollment("shop-api", label="shop-dev")
+    # An invalid or (without OIDC) unknown user name is refused before the approval
+    assert cli.run(["token", "approve", first["label"], "--portal-user", " "]) == cli.EXIT_ERROR
+    assert "between 1 and" in json.loads(capsys.readouterr().err)["error"]
+    assert cli.run(["token", "approve", first["label"], "--portal-user", "bob"]) == cli.EXIT_ERROR
+    assert "not found" in json.loads(capsys.readouterr().err)["error"]
+    assert STORE.lookup(hash_token(first["token"])).pending is True
+
+    web_users.create_user("alice", "correct horse battery", "reader", ["billing"])
+    code, approved = run_cli(capsys, "approve", first["label"], "--portal-user", "alice")
+
+    assert code == cli.EXIT_PASSED and approved["status"] == "active"
+    user = approved["portal_user"]
+    assert (user["username"], user["auth_source"], user["projects"]) == (
+        "alice",
+        "local",
+        ["billing", "shop-api"],
+    )
+
+
+def test_token_approve_creates_the_sso_user_when_oidc_is_enabled(capsys, monkeypatch):
+    monkeypatch.setenv("SECREVIEW_OIDC_ENABLED", "true")
+    config.get_settings.cache_clear()
+    first = token_store.request_enrollment("shop-api", label="shop-dev")
+    try:
+        code, approved = run_cli(capsys, "approve", first["label"], "--portal-user", "alice")
+    finally:
+        config.get_settings.cache_clear()
+
+    assert code == cli.EXIT_PASSED
+    user = approved["portal_user"]
+    assert (user["username"], user["auth_source"], user["role"], user["projects"]) == (
+        "alice",
+        "oidc",
+        "reader",
+        ["shop-api"],
+    )
+    assert user["created_by"] == "cli"
+
+
 def test_token_approve_complementary_enrollment_requests(capsys):
     created = token_store.create_token("ci", Role.MCP, "shop-api")
     billing = token_store.request_additional_project(created["id"], "billing")
@@ -520,13 +670,8 @@ def test_token_create_rejects_duplicate_labels(capsys):
     assert run_cli(capsys, "create", "--label", "ci")[0] == cli.EXIT_ERROR
 
 
-def test_token_reset_admin(capsys):
-    first = token_store.ensure_bootstrap_admin()
+def test_token_reset_admin_is_replaced_by_the_user_command(capsys):
+    with pytest.raises(SystemExit) as exc:
+        run_cli(capsys, "reset-admin")
 
-    code, output = run_cli(capsys, "reset-admin")
-
-    assert code == cli.EXIT_PASSED
-    assert output["label"] == "bootstrap-admin"
-    assert STORE.lookup(hash_token(first)) is None
-    info = STORE.lookup(hash_token(output["token"]))
-    assert (info.label, info.role) == ("bootstrap-admin", Role.ADMIN)
+    assert exc.value.code == cli.EXIT_ERROR

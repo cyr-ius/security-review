@@ -82,6 +82,14 @@ def test_unknown_language_is_rejected():
         ("key AKIAABCDEFGHIJKLMNOP here", "AKIAABCDEFGHIJKLMNOP"),
         ("postgres://admin:s3cr3tpw@db:5432/x", "s3cr3tpw"),
         ("t=eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdef", "eyJhbGciOiJIUzI1NiJ9"),
+        ('SECRET_KEY = "django-insecure-abc"', "django-insecure-abc"),
+        ('app.config["SECRET_KEY"] = "flask-dev-key"', "flask-dev-key"),
+        ('{"password": "hunter2hunter2"}', "hunter2hunter2"),
+        # Fake tokens built at run time so that the file itself holds no token-like literal
+        ("GH = " + "ghp_" + "a1" * 18, "a1" * 18),
+        ("x " + "glpat-" + "Z9" * 10, "Z9" * 10),
+        ("hook " + "xoxb-" + "1234567890-abc", "1234567890-abc"),
+        ("k=" + "sk_live_" + "Q" * 24, "Q" * 24),
     ],
 )
 def test_redact_secrets(text: str, secret: str):
@@ -94,3 +102,19 @@ def test_redact_private_key_block():
     text = "-----BEGIN RSA PRIVATE KEY-----\nMIIEabc123\n-----END RSA PRIVATE KEY-----"
     redacted = redact_secrets(text)
     assert "MIIEabc123" not in redacted
+
+
+@pytest.mark.parametrize(
+    "content, language, secret",
+    [
+        ('SECRET_KEY = "django-insecure-abc"', "python", "django-insecure-abc"),
+        ("token: " + "ghp_" + "b2" * 18, "yaml", "b2" * 18),
+        ("POSTGRES_PASSWORD: postgres", "yaml", "postgres"),
+        ("ENV API_TOKEN=abcd1234efgh", "docker", "abcd1234efgh"),
+        ("spring.datasource.password=Sup3rS3cret", "config", "Sup3rS3cret"),
+    ],
+)
+def test_new_secret_rules_never_echo_the_secret(content: str, language: str, secret: str):
+    matches = scan_content(content, language)
+    assert matches
+    assert all(secret not in m["excerpt"] for m in matches)

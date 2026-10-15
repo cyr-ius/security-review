@@ -2,7 +2,8 @@
 
 The server may have no Internet access, so advisories are imported from files that an
 administrator downloads elsewhere (for example the per-ecosystem ``all.zip`` archives
-published by osv.dev) and copied to the server. Only PyPI, npm and Maven are kept.
+published by osv.dev) and copied to the server. When it is allowed to, the controller downloads
+them itself (advisory_sync). Only PyPI, npm and Maven are kept.
 """
 
 import json
@@ -275,6 +276,15 @@ def import_advisories(path: str | Path, ecosystems: set[str] | None = None) -> d
     return stats
 
 
+def last_imported_at() -> datetime | None:
+    """Return when the most recent advisory was imported (timezone aware), or None."""
+    with session_scope() as session:
+        latest = session.exec(select(func.max(Advisory.imported_at))).one()
+    if latest is None:
+        return None
+    return latest if latest.tzinfo else latest.replace(tzinfo=UTC)
+
+
 def advisory_status() -> dict:
     """Describe the advisory database (size, freshness) so that results can be trusted."""
     with session_scope() as session:
@@ -287,11 +297,8 @@ def advisory_status() -> dict:
                 ).group_by(AdvisoryAffected.ecosystem)  # type: ignore[arg-type]
             ).all()
         )
-        latest = session.exec(select(func.max(Advisory.imported_at))).one()
-    age_days = None
-    if latest is not None:
-        moment = latest if latest.tzinfo else latest.replace(tzinfo=UTC)
-        age_days = (datetime.now(UTC) - moment).days
+    latest = last_imported_at()
+    age_days = None if latest is None else (datetime.now(UTC) - latest).days
     return {
         "loaded": total > 0,
         "advisories": total,

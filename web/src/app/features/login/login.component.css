@@ -173,3 +173,19 @@
     display: none;
   }
 }
+
+/* "or" separator between the single sign-on button and the secret form */
+.separator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+}
+
+.separator::before,
+.separator::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--bs-border-color);
+}

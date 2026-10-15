@@ -15,6 +15,10 @@ dependencies = [
     "fastapi>=0.135",
     "tomlkit>=0.13",
     "alembic>=1.13",
+    # Self-signed TLS certificate (SECREVIEW_TLS_SELF_SIGNED); already required by mcp
+    "cryptography>=44",
+    # ID token and session checks of the OIDC login (SECREVIEW_OIDC_*); already required by mcp
+    "pyjwt[crypto]>=2.10",
 ]
 
 [project.optional-dependencies]

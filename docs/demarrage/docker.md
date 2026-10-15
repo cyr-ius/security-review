@@ -71,11 +71,12 @@ docker run -d --name secreview-mcp -p 8443:8443 \
 
 Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Le
 serveur MCP refuse de démarrer tant que le schéma n'est pas migré. Au premier démarrage du
-contrôleur, un mot de passe aléatoire pour le rôle `admin` est généré et affiché une seule fois
-dans ses logs. Seule son empreinte est conservée, dans la base de données. Récupérez-le avec
-`docker logs secreview-controller` puis connectez-vous sur l'interface (`/ui/`). Ce rôle gère
-les règles et le triage et donne aussi accès à `/mcp`. Ajoutez ensuite des jetons individuels
-`reader` ou `triager` pour les équipes (voir les [rôles](../utilisation/interface-web.md#roles)).
+contrôleur, le compte `admin` est créé avec un mot de passe aléatoire affiché une seule fois
+dans ses logs ; seule son empreinte est conservée, dans la base de données. Récupérez-le avec
+`docker logs secreview-controller`, connectez-vous sur l'interface (`/ui/`) avec l'identifiant
+`admin`, puis changez le mot de passe depuis **Mon compte**. Créez ensuite un compte par
+personne dans l'écran **Utilisateurs** (voir les
+[comptes utilisateurs](../utilisation/interface-web.md#comptes-utilisateurs)).
 
 Les jetons projet créés depuis l'écran **Jetons** sont eux aussi stockés sous forme d'empreinte
 dans la base, comme tous les jetons (voir [jetons Bearer](http.md#jetons-bearer)).
@@ -83,7 +84,7 @@ dans la base, comme tous les jetons (voir [jetons Bearer](http.md#jetons-bearer)
 !!! warning "Protégez les journaux"
     Le mot de passe initial est un secret : limitez l'accès aux logs Docker et à leur collecte
     centralisée. Si vous le perdez, générez-en un nouveau (l'ancien est aussitôt invalidé) :
-    `docker exec secreview-controller security-review-controller token reset-admin`.
+    `docker exec secreview-controller security-review-controller user reset-password admin`.
 
 ## Docker Compose avec PostgreSQL
 
@@ -112,9 +113,22 @@ docker compose logs controller   # mot de passe admin initial
 - Les ports ne sont publiés que sur `127.0.0.1`. Pour les exposer, activez le
   [TLS intégré](http.md) ou placez-les derrière un reverse proxy. Le contrôleur n'expose aucune
   route d'écriture sans jeton : il peut rester interne.
+- Pour un essai en HTTPS sans fichier à monter, ajoutez `SECREVIEW_TLS_SELF_SIGNED=true` et
+  `SECREVIEW_TLS_SELF_SIGNED_HOSTS` (l'adresse ou le nom par lequel les clients joignent l'hôte
+  Docker) dans `.env` : le fichier Compose transmet ces variables aux deux serveurs, qui génèrent un
+  [certificat auto-signé](http.md#certificat-auto-signe) à chaque démarrage (dans le `tmpfs`
+  `/tmp`). Les autres variables de `.env` ne servent qu'à Compose : ajoutez-les sous
+  `environment` pour qu'elles atteignent les conteneurs.
+- La base d'avis de vulnérabilités est **vide** au premier démarrage : l'analyse de dépendances
+  répond alors qu'aucune base n'est chargée. Pour que le contrôleur la télécharge au démarrage
+  puis toutes les 24 h, ajoutez `SECREVIEW_OSV_AUTO_UPDATE=true` dans `.env` (et, si besoin,
+  `SECREVIEW_OSV_ECOSYSTEMS` et `SECREVIEW_OSV_PROXY`), que le fichier Compose transmet au seul
+  contrôleur, puis `docker compose up -d`. Suivez l'import avec `docker compose logs -f
+  controller` ou dans les paramètres de l'interface web. Sans accès Internet, importez une
+  archive avec `advisories import` (voir [Dépendances](../utilisation/dependances.md)).
 - Les conteneurs tournent en système de fichiers en lecture seule, sans capacité Linux. Le
-  volume `secreview-pg` contient les rapports et les jetons gérés (mot de passe admin et
-  jetons projet) : sauvegardez-le.
+  volume `secreview-pg` contient les rapports, les comptes de l'interface web et les jetons :
+  sauvegardez-le.
 
 Pour ajouter le TLS ou des règles internes, complétez `environment` et `volumes` du service
 concerné. Les commandes CLI s'exécutent dans le conteneur du contrôleur :

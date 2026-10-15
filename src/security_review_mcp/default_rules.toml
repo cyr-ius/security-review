@@ -49,7 +49,7 @@ title = "eval/exec on dynamic data"
 severity = "high"
 cwe = "CWE-95"
 languages = ["python"]
-pattern = '\b(eval|exec)\s*\('
+pattern = '(?<!\.)\b(eval|exec)\s*\('
 advice = "Avoid dynamic execution; use ast.literal_eval or an explicit dispatch table."
 
 [[rules]]
@@ -547,6 +547,629 @@ languages = ["angular", "javascript", "typescript"]
 pattern = 'document\.cookie\s*='
 advice = "Prefer HttpOnly, Secure, SameSite cookies set by the backend."
 
+[[rules]]
+id = "GEN-005"
+title = "Sensitive value written to a log"
+severity = "medium"
+cwe = "CWE-532"
+languages = ["python", "java", "javascript", "typescript", "angular"]
+pattern = '''\b(log(ger|ging)?|console)\.(trace|debug|info|warn|warning|error|critical|exception|log)\s*\([^)\n]*[,+{]\s*[\w.]*(password|passwd|secret|token|api_?key|credentials?)\b'''
+advice = "Never log credentials or tokens; log an identifier or a masked value instead."
+
+[[rules]]
+id = "GEN-006"
+title = "Token with a known service format"
+severity = "high"
+cwe = "CWE-798"
+languages = ["*"]
+pattern = '\b(gh[pousr]_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|glpat-[A-Za-z0-9_-]{20,}|xox[abprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z_-]{35}|(sk|rk)_live_[0-9A-Za-z]{20,}|npm_[A-Za-z0-9]{36})'
+advice = "Revoke the token at the provider, purge it from history and load it from a vault."
+ignore_case = false
+
+[[rules]]
+id = "GEN-007"
+title = "Credentials embedded in a URL"
+severity = "high"
+cwe = "CWE-798"
+languages = ["*"]
+pattern = '''(?<![\w+.-])[a-z][a-z0-9+.-]*://[^:/\s@'"$<{]+:[^@/\s'"$<{]+@[\w.-]+'''
+advice = "Pass credentials separately (vault, environment, credential helper), never in the URL."
+
+[[rules]]
+id = "GEN-008"
+title = "Hard-coded JSON Web Token"
+severity = "medium"
+cwe = "CWE-798"
+languages = ["*"]
+pattern = '\beyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'
+advice = "Remove the token; if it is still valid, revoke it or rotate the signing key."
+ignore_case = false
+
+[[rules]]
+id = "GEN-009"
+title = "Obsolete SSL/TLS protocol version"
+severity = "medium"
+cwe = "CWE-326"
+languages = ["*"]
+pattern = '(SSLv[23]|TLSv1([._][01])?)\b(?![._]\d)'  # secreview:ignore GEN-009 (rule text, not configuration)
+advice = "Allow TLS 1.2 and 1.3 only."
+
+[[rules]]
+id = "PY-014"
+title = "XML parser resolving entities or reaching the network"
+severity = "high"
+cwe = "CWE-611"
+languages = ["python"]
+pattern = '(resolve_entities|load_dtd|huge_tree)\s*=\s*True|no_network\s*=\s*False'
+advice = "Parse untrusted XML with defusedxml, or keep entity resolution and network access off."
+
+[[rules]]
+id = "PY-015"
+title = "Template rendered from a dynamic string (SSTI)"
+severity = "medium"
+cwe = "CWE-1336"
+languages = ["python"]
+pattern = '\b(render_template_string|from_string)\s*\(|\bTemplate\s*\([^)]*\)\s*\.\s*render\s*\('
+advice = "Render templates from files; pass user data only as context variables."
+
+[[rules]]
+id = "PY-016"
+title = "Hard-coded framework secret key"
+severity = "high"
+cwe = "CWE-798"
+languages = ["python"]
+pattern = '''SECRET_KEY['"]?\]?\s*=\s*[rbu]?['"]'''
+advice = "Load SECRET_KEY from the environment or a vault and rotate the exposed value."
+
+[[rules]]
+id = "PY-017"
+title = "Every host name accepted"
+severity = "medium"
+cwe = "CWE-183"
+languages = ["python"]
+pattern = '''\ballowed_hosts\s*=\s*\[\s*['"]\*['"]'''
+advice = "List the expected host names to prevent Host header attacks."
+
+[[rules]]
+id = "PY-018"
+title = "CSRF protection disabled"
+severity = "medium"
+cwe = "CWE-352"
+languages = ["python"]
+pattern = '@csrf_exempt\b|@csrf\.exempt\b|WTF_CSRF_ENABLED\s*=\s*False'
+advice = "Keep CSRF checks for cookie-authenticated views; exempt only stateless token APIs."
+
+[[rules]]
+id = "PY-019"
+title = "HTML marked as safe"
+severity = "medium"
+cwe = "CWE-79"
+languages = ["python"]
+pattern = '\b(mark_safe|Markup|SafeString)\s*\('
+advice = "Let the template engine escape values; sanitize with an allow-list if HTML is required."
+
+[[rules]]
+id = "PY-020"
+title = "Cookie without Secure or HttpOnly"
+severity = "medium"
+cwe = "CWE-614"
+languages = ["python"]
+pattern = '(SESSION_COOKIE_SECURE|CSRF_COOKIE_SECURE|SESSION_COOKIE_HTTPONLY|REMEMBER_COOKIE_SECURE)\s*=\s*False|set_cookie\s*\([^)]*\b(secure|httponly)\s*=\s*False'
+advice = "Set Secure, HttpOnly and SameSite on session and authentication cookies."
+
+[[rules]]
+id = "PY-021"
+title = "Weak cipher or ECB mode"
+severity = "medium"
+cwe = "CWE-327"
+languages = ["python"]
+pattern = '\bMODE_ECB\b|\bmodes\.ECB\s*\(|\b(DES|DES3|ARC2|ARC4|Blowfish)\.new\s*\(|\balgorithms\.(TripleDES|Blowfish|ARC4|IDEA)\s*\('
+advice = "Use AES-GCM or ChaCha20-Poly1305 (e.g. cryptography's AESGCM)."
+
+[[rules]]
+id = "PY-022"
+title = "Pickle-based loader"
+severity = "high"
+cwe = "CWE-502"
+languages = ["python"]
+pattern = '\b(jsonpickle\.decode|joblib\.load|dill\.loads?|(pd|pandas)\.read_pickle)\s*\(|\btorch\.load\s*\((?![^)]*weights_only\s*=\s*True)|allow_pickle\s*=\s*True'
+advice = "These loaders run code from the file: load trusted files only, or use torch.load(weights_only=True) and safetensors."
+
+[[rules]]
+id = "PY-023"
+title = "Hard-coded path in a shared temporary directory"
+severity = "low"
+cwe = "CWE-377"
+languages = ["python"]
+pattern = '''['"]/(tmp|var/tmp|dev/shm)/'''
+advice = "Use the tempfile module to get a private, unpredictable path."
+
+[[rules]]
+id = "PY-024"
+title = "Request to a user-supplied URL (SSRF)"
+severity = "high"
+cwe = "CWE-918"
+languages = ["python"]
+pattern = '\b(requests|httpx|urllib\.request)\.(get|post|put|patch|delete|head|request|urlopen)\s*\([^)]*\brequest\.(args|form|values|GET|POST|json|query_params)'
+advice = "Validate the URL against an allow-list of hosts and block private and link-local addresses."
+
+[[rules]]
+id = "PY-025"
+title = "Secret compared with a non-constant-time operator"
+severity = "low"
+cwe = "CWE-208"
+languages = ["python"]
+pattern = '''\b(password|passwd|token|secret|api_?key|signature|hmac)\s*[!=]=\s*(?!None\b)[\w.]|[\w.\])]\s*[!=]=\s*[\w.]*\b(password|passwd|token|secret|api_?key|signature|hmac)\b'''
+advice = "Compare secrets with hmac.compare_digest or secrets.compare_digest."
+
+[[rules]]
+id = "JV-009"
+title = "LDAP filter built by concatenation"
+severity = "medium"
+cwe = "CWE-90"
+languages = ["java"]
+pattern = '\.search\s*\([^;]*"[^"]*\([\w-]+=\s*"\s*\+'
+advice = "Escape values with an LDAP encoder or use a parameterized filter (filterArgs)."
+
+[[rules]]
+id = "JV-010"
+title = "File path built from a request parameter"
+severity = "high"
+cwe = "CWE-22"
+languages = ["java"]
+pattern = '(new\s+(File|FileInputStream|FileOutputStream|FileReader|FileWriter|RandomAccessFile)|Paths\.get|Path\.of)\s*\([^;]*getParameter\s*\('
+advice = "Resolve the path against a base directory, normalize it and check that it stays inside."
+
+[[rules]]
+id = "JV-011"
+title = "Redirect to a user-supplied URL"
+severity = "medium"
+cwe = "CWE-601"
+languages = ["java"]
+pattern = '''sendRedirect\s*\([^;]*getParameter\s*\(|"redirect:"\s*\+|"Location"\s*,\s*[^;]*getParameter\s*\('''
+advice = "Redirect only to relative paths or to an allow-list of destinations."
+
+[[rules]]
+id = "JV-012"
+title = "Expression language evaluation"
+severity = "medium"
+cwe = "CWE-917"
+languages = ["java"]
+pattern = '\.parseExpression\s*\(|\bcreateValueExpression\s*\('
+advice = "Never evaluate SpEL/EL built from user input; use SimpleEvaluationContext if evaluation is required."
+
+[[rules]]
+id = "JV-013"
+title = "Cookie without Secure or HttpOnly"
+severity = "medium"
+cwe = "CWE-614"
+languages = ["java"]
+pattern = '\.set(Secure|HttpOnly)\s*\(\s*false\s*\)'
+advice = "Set Secure, HttpOnly and SameSite on session and authentication cookies."
+
+[[rules]]
+id = "JV-014"
+title = "Predictable random generator"
+severity = "low"
+cwe = "CWE-338"
+languages = ["java"]
+pattern = '\bnew\s+(java\.util\.)?Random\s*\(|\bMath\.random\s*\('
+advice = "Use SecureRandom for tokens, identifiers, passwords and keys."
+
+[[rules]]
+id = "JV-015"
+title = "Stack trace printed"
+severity = "low"
+cwe = "CWE-209"
+languages = ["java"]
+pattern = '\.printStackTrace\s*\(\s*\)'
+advice = "Log the exception with the logging framework and return a generic error to clients."
+
+[[rules]]
+id = "JV-016"
+title = "Deserialization library with permissive defaults"
+severity = "medium"
+cwe = "CWE-502"
+languages = ["java"]
+pattern = '\bnew\s+XStream\s*\(|\bnew\s+Yaml\s*\(\s*\)|\bnew\s+Yaml\s*\(\s*new\s+Constructor\s*\('
+advice = "Configure an allow-list of types (XStream allowTypes, SnakeYAML SafeConstructor / LoaderOptions)."
+
+[[rules]]
+id = "NG-008"
+title = "Redirect to a user-supplied URL"
+severity = "medium"
+cwe = "CWE-601"
+languages = ["angular", "javascript", "typescript"]
+pattern = '(location\.(href\s*=|assign\s*\(|replace\s*\()|window\.open\s*\()[^;\n]*(queryParam|searchParams|params\[|snapshot\.params|location\.(search|hash))|\bres\.redirect\s*\([^;\n]*req\.(query|params|body)'
+advice = "Redirect only to relative paths or to an allow-list of destinations."
+
+[[rules]]
+id = "NG-009"
+title = "Timer with a string argument"
+severity = "medium"
+cwe = "CWE-95"
+languages = ["angular", "javascript", "typescript"]
+pattern = '''\bset(Timeout|Interval)\s*\(\s*['"`]'''
+advice = "Pass a function, not a string evaluated as code."
+
+[[rules]]
+id = "NG-010"
+title = "HTML injection sink"
+severity = "medium"
+cwe = "CWE-79"
+languages = ["angular", "javascript", "typescript"]
+pattern = '\.insertAdjacentHTML\s*\(|\bcreateContextualFragment\s*\(|\.srcdoc\s*=|\[srcdoc\]'
+advice = "Insert text nodes, or sanitize the HTML with a strict allow-list (e.g. DOMPurify)."
+
+[[rules]]
+id = "NG-011"
+title = "Sanitization disabled with SecurityContext.NONE"
+severity = "medium"
+cwe = "CWE-79"
+languages = ["angular", "typescript"]
+pattern = 'SecurityContext\.NONE'
+advice = "Sanitize in the context where the value is used (HTML, URL, STYLE, RESOURCE_URL)."
+
+[[rules]]
+id = "NG-012"
+title = "Shell command built from dynamic data (Node.js)"
+severity = "high"
+cwe = "CWE-78"
+languages = ["javascript", "typescript"]
+pattern = '\bexec(Sync)?\s*\(\s*`[^`]*\$\{|\bshell\s*:\s*true\b'
+advice = "Use execFile/spawn with an argument array and no shell; validate the arguments."
+
+[[rules]]
+id = "NG-013"
+title = "Weak hash or cipher (Node.js)"
+severity = "medium"
+cwe = "CWE-327"
+languages = ["javascript", "typescript"]
+pattern = '''createHash\s*\(\s*['"](md5|sha1)['"]|\bcreateCipher\s*\(|createCipheriv\s*\(\s*['"][^'"]*-ecb['"]'''
+advice = "Use SHA-256+, AES-GCM with createCipheriv and a random IV, and scrypt/argon2 for passwords."
+
+[[rules]]
+id = "NG-014"
+title = "TLS verification disabled (Node.js)"
+severity = "high"
+cwe = "CWE-295"
+languages = ["angular", "javascript", "typescript"]
+pattern = 'rejectUnauthorized\s*:\s*false'
+advice = "Keep certificate verification on; supply the internal CA with the ca option."
+
+[[rules]]
+id = "NG-015"
+title = "JWT decoded without signature verification"
+severity = "medium"
+cwe = "CWE-347"
+languages = ["javascript", "typescript"]
+pattern = '''\bjwt\.decode\s*\(|algorithms\s*:\s*\[[^\]]*['"]none['"]'''
+advice = "jwt.decode does not check the signature: use jwt.verify with a fixed algorithms list on the server."
+
+[[rules]]
+id = "NG-016"
+title = "Angular XSRF protection disabled"
+severity = "medium"
+cwe = "CWE-352"
+languages = ["angular", "typescript"]
+pattern = '\bwithNoXsrfProtection\s*\(|HttpClientXsrfModule\.disable\s*\('
+advice = "Keep XSRF protection when the API authenticates with cookies."
+
+[[rules]]
+id = "NG-017"
+title = "CORS allows every origin (Node.js)"
+severity = "medium"
+cwe = "CWE-942"
+languages = ["javascript", "typescript"]
+pattern = '''\bcors\s*\(\s*\)|\borigin\s*:\s*(true|['"]\*['"])'''
+advice = "List the allowed origins explicitly, especially when credentials are allowed."
+
+[[rules]]
+id = "NG-018"
+title = "SQL built with string interpolation (Node.js)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["javascript", "typescript"]
+pattern = '''\.(query|execute|raw)\s*\(\s*(`[^`]*\$\{|['"][^'"]*['"]\s*\+)'''
+advice = "Use placeholders and bound parameters (query(sql, [values]))."
+
+[[rules]]
+id = "NG-019"
+title = "MongoDB $where operator"
+severity = "medium"
+cwe = "CWE-943"
+languages = ["javascript", "typescript"]
+pattern = '''['"]?\$where['"]?\s*:'''
+advice = "Avoid $where (server-side JavaScript); use query operators and validate input types."
+
+[[rules]]
+id = "NG-020"
+title = "File path built from the request (Node.js)"
+severity = "high"
+cwe = "CWE-22"
+languages = ["javascript", "typescript"]
+pattern = '\b(sendFile|readFile|readFileSync|createReadStream|download)\s*\([^;\n]*req\.(query|params|body)'
+advice = "Resolve the path against a base directory and check that it stays inside (or use the root option)."
+
+[[rules]]
+id = "CFG-010"
+title = "Container runs as root"
+severity = "medium"
+cwe = "CWE-250"
+languages = ["config", "docker", "yaml"]
+pattern = '''^\s*USER\s+(root|0)(:\S*)?\s*$|^\s*user\s*:\s*['"]?(root|0)(:0)?['"]?\s*$'''
+advice = "Run the process as an unprivileged user (USER 10001)."
+
+[[rules]]
+id = "CFG-011"
+title = "ADD from a remote URL"
+severity = "medium"
+cwe = "CWE-494"
+languages = ["docker"]
+pattern = '^\s*ADD\s+[^\n]*\bhttps?://'
+advice = "Download with a pinned checksum (ADD --checksum or RUN with verification), or COPY a vetted file."
+
+[[rules]]
+id = "CFG-012"
+title = "Secret passed through ENV or ARG"
+severity = "high"
+cwe = "CWE-538"
+languages = ["docker"]
+pattern = '^\s*(ENV|ARG)\s+\w*(PASSWORD|PASSWD|SECRET|SECRET_KEY|TOKEN|API_?KEY)\s*=\s*\S'
+advice = "ENV and ARG values stay in the image history: use build secrets (RUN --mount=type=secret) or runtime injection."
+
+[[rules]]
+id = "CFG-013"
+title = "Host namespace shared with the container"
+severity = "high"
+cwe = "CWE-250"
+languages = ["config", "docker", "yaml"]
+pattern = '''\b(hostNetwork|hostPID|hostIPC)\s*:\s*true|\b(network_mode|pid|ipc)\s*:\s*['"]?host\b|--(net|network|pid|ipc)[= ]host\b'''
+advice = "Keep the container in its own network, PID and IPC namespaces."
+
+[[rules]]
+id = "CFG-014"
+title = "Privilege escalation allowed in the pod"
+severity = "medium"
+cwe = "CWE-250"
+languages = ["config", "yaml"]
+pattern = '\ballowPrivilegeEscalation\s*:\s*true|\brunAsNonRoot\s*:\s*false|\brunAsUser\s*:\s*0\b'
+advice = "Set allowPrivilegeEscalation: false and runAsNonRoot: true with a non-zero runAsUser."
+
+[[rules]]
+id = "CFG-015"
+title = "Dangerous Linux capability added"
+severity = "high"
+cwe = "CWE-250"
+languages = ["config", "docker", "yaml"]
+pattern = '''\b(CAP_)?(SYS_ADMIN|SYS_PTRACE|SYS_MODULE|SYS_RAWIO|NET_ADMIN|DAC_READ_SEARCH)\b|--cap-add[= ]['"]?ALL\b|\bcap_add\s*:\s*\[[^\]]*\bALL\b'''  # secreview:ignore CFG-015 (rule text, not configuration)
+advice = "Drop ALL capabilities and add back only the ones that are strictly needed."
+
+[[rules]]
+id = "CFG-016"
+title = "Sensitive host path mounted"
+severity = "medium"
+cwe = "CWE-668"
+languages = ["config", "docker", "yaml"]
+pattern = '''\bhostPath\s*:|(^\s*-|\s-v|--volume[= ])\s*['"]?/(etc|proc|sys|root|boot|var/lib/docker|var/lib/kubelet)?/?:/'''
+advice = "Mount only dedicated data directories, read-only when possible; prefer volumes to host paths."
+
+[[rules]]
+id = "CFG-017"
+title = "Database or admin port published on every interface"
+severity = "medium"
+cwe = "CWE-668"
+languages = ["config", "docker", "yaml"]
+pattern = '''^\s*-\s*['"]?(0\.0\.0\.0:)?(22|23|2375|2379|3306|5432|5984|6379|9200|11211|27017)\s*:\s*\d+'''
+advice = "Keep the port on the internal network or bind it to 127.0.0.1."
+
+[[rules]]
+id = "CFG-018"
+title = "Default or trivial password"
+severity = "high"
+cwe = "CWE-1392"
+languages = ["config", "docker", "yaml"]
+pattern = '''\b\w*(PASSWORD|PASSWD|PWD)\s*[:=]\s*['"]?(admin|password|changeme|changeit|root|123456|secret|default|postgres|test|guest)['"]?\s*$'''
+advice = "Generate a strong random password per environment and inject it from a vault."
+
+[[rules]]
+id = "CFG-019"
+title = "Wildcard or cluster-admin RBAC permission"
+severity = "high"
+cwe = "CWE-269"
+languages = ["config", "yaml"]
+pattern = '''\b(verbs|resources|apiGroups)\s*:\s*\[\s*['"]?\*['"]?\s*[,\]]|\bname\s*:\s*['"]?cluster-admin\b'''
+advice = "Grant the exact verbs and resources needed, in a namespaced Role when possible."
+
+[[rules]]
+id = "CFG-020"
+title = "Publicly readable storage bucket"
+severity = "high"
+cwe = "CWE-732"
+languages = ["config", "yaml"]
+pattern = '''\bacl\s*[:=]\s*['"]?public-read(-write)?\b|\bblock_public_(acls|policy)\s*=\s*false'''
+advice = "Keep buckets private and block public access; share objects with signed URLs."
+
+[[rules]]
+id = "CFG-021"
+title = "CORS header allows every origin"
+severity = "medium"
+cwe = "CWE-942"
+languages = ["config", "yaml"]
+pattern = '''Access-Control-Allow-Origin['"]?\s*[:,]?\s*['"]?\*'''
+advice = "Return an explicit origin from an allow-list; never combine * with credentials."
+
+[[rules]]
+id = "CFG-022"
+title = "Directory listing enabled"
+severity = "medium"
+cwe = "CWE-548"
+languages = ["config"]
+pattern = '\bautoindex\s+on\b|\bOptions\s+([^\n-]*\s)?\+?Indexes\b'
+advice = "Disable directory listing (autoindex off, Options -Indexes)."
+
+[[rules]]
+id = "CFG-023"
+title = "Weak SSH daemon setting"
+severity = "medium"
+cwe = "CWE-287"
+languages = ["config", "docker", "yaml"]
+pattern = '^\s*(PermitRootLogin|PasswordAuthentication|PermitEmptyPasswords)\s+yes\b'
+advice = "Disable root login and password authentication; use keys or certificates."
+
+[[rules]]
+id = "CFG-024"
+title = "Service authentication disabled"
+severity = "high"
+cwe = "CWE-306"
+languages = ["config", "docker", "yaml"]
+pattern = '''^\s*protected-mode\s+no\b|\b(xpack\.security\.enabled|security\.authorization)\s*[:=]\s*['"]?(false|disabled)|ALLOW_EMPTY_PASSWORD\s*[:=]\s*['"]?(yes|true|1)|POSTGRES_HOST_AUTH_METHOD\s*[:=]\s*['"]?trust'''
+advice = "Enable authentication on every data service, even on an internal network."
+
+[[rules]]
+id = "GL-006"
+title = "Untrusted CI variable evaluated by a shell"
+severity = "high"
+cwe = "CWE-78"
+languages = ["gitlab-ci"]
+pattern = '\b(eval|sh\s+-c|bash\s+-c)\b[^\n]*\$\{?CI_(COMMIT_(MESSAGE|TITLE|DESCRIPTION|TAG_MESSAGE|BRANCH|REF_NAME)|MERGE_REQUEST_(TITLE|DESCRIPTION|SOURCE_BRANCH_NAME))\b'
+advice = "Commit messages, MR titles and branch names are attacker-controlled: never evaluate them; use CI_COMMIT_REF_SLUG for names."
+
+[[rules]]
+id = "GL-007"
+title = "Debug trace exposes secrets"
+severity = "high"
+cwe = "CWE-532"
+languages = ["gitlab-ci"]
+pattern = '''\bCI_DEBUG_(TRACE|SERVICES)\s*:\s*['"]?(true|1)'''
+advice = "Debug trace prints every variable, masked ones included: remove it and rotate exposed secrets."
+
+[[rules]]
+id = "GL-008"
+title = "Public job artifacts"
+severity = "medium"
+cwe = "CWE-200"
+languages = ["gitlab-ci"]
+pattern = '^\s*public\s*:\s*true\b'
+advice = "Check that the artifacts contain no secret, report or internal data before making them public."
+
+[[rules]]
+id = "GL-009"
+title = "Git TLS verification disabled"
+severity = "high"
+cwe = "CWE-295"
+languages = ["config", "docker", "gitlab-ci", "jenkins"]
+pattern = '''\bGIT_SSL_NO_VERIFY\s*[:=]\s*['"]?(true|1)|http\.sslVerify\s*=?\s*false'''
+advice = "Fix the trust chain (internal CA bundle) instead of disabling verification."
+
+[[rules]]
+id = "JK-005"
+title = "Credential interpolated in a Groovy string"
+severity = "high"
+cwe = "CWE-214"
+languages = ["jenkins"]
+pattern = '\bsh\b[^\n]*"[^"\n]*\$\{?[\w.]*(PSW|PASSWORD|PASSWD|TOKEN|SECRET|API_?KEY)\b'
+advice = "Use single quotes so that the shell, not Groovy, expands the credential ('$TOKEN')."
+
+[[rules]]
+id = "JK-006"
+title = "Jenkins internal API used from a pipeline"
+severity = "medium"
+cwe = "CWE-269"
+languages = ["jenkins"]
+pattern = '\bJenkins\.(instance|get\s*\(\s*\))|\bHudson\.instance\b'
+advice = "Pipelines should not reach the controller internals; move the logic to a reviewed plugin or shared library."
+
+[[rules]]
+id = "CI-003"
+title = "Shell command tracing enabled"
+severity = "low"
+cwe = "CWE-532"
+languages = ["config", "docker", "gitlab-ci", "jenkins"]
+pattern = '\bset\s+-[a-z]*x'
+advice = "Tracing prints expanded commands, secrets included: disable it around commands that use credentials."
+
+[[rules]]
+id = "CI-004"
+title = "Dependencies installed without the lockfile"
+severity = "low"
+cwe = "CWE-1357"
+languages = ["config", "docker", "gitlab-ci", "jenkins"]
+pattern = '\bnpm\s+(install|i)\s*($|&&|;|\|)|\byarn\s+install\b(?![^\n]*--(frozen-lockfile|immutable))'
+advice = "Use npm ci or yarn install --frozen-lockfile so that the build uses the reviewed lockfile."
+
+[[rules]]
+id = "SP-007"
+title = "Error details returned to clients"
+severity = "medium"
+cwe = "CWE-209"
+languages = ["config", "yaml"]
+pattern = 'server\.error\.include-(stacktrace|message|exception|binding-errors)\s*[:=]\s*(always|true)'
+advice = "Keep the defaults (never) and log the details on the server."
+
+[[rules]]
+id = "SP-008"
+title = "Password set in Spring configuration"
+severity = "high"
+cwe = "CWE-798"
+languages = ["config", "yaml"]
+pattern = 'spring\.(security\.user|datasource|data\.redis|rabbitmq|mail)\.password\s*[:=]\s*[^\s$]'
+advice = "Reference an environment variable or a secret store (${DB_PASSWORD})."
+
+[[rules]]
+id = "SP-009"
+title = "Requests excluded from the security filter chain"
+severity = "medium"
+cwe = "CWE-862"
+languages = ["java"]
+pattern = '\.ignoring\s*\(\s*\)'
+advice = "Use permitAll() in the HttpSecurity chain instead: ignored requests get no security headers or protection."
+
+[[rules]]
+id = "SP-010"
+title = "Security headers disabled"
+severity = "medium"
+cwe = "CWE-1021"
+languages = ["java"]
+pattern = '\b(headers|frameOptions|contentSecurityPolicy|httpStrictTransportSecurity|contentTypeOptions)\s*\(\s*\)\s*\.\s*disable\s*\(|\b(headers|frameOptions|httpStrictTransportSecurity|contentTypeOptions)\s*\(\s*\w+\s*->\s*\w+\s*\.\s*disable\s*\(|(HeadersConfigurer|FrameOptionsConfig)::disable'
+advice = "Keep the default headers; relax frame options to sameOrigin() only where needed."
+
+[[rules]]
+id = "SP-011"
+title = "Actuator security disabled"
+severity = "high"
+cwe = "CWE-306"
+languages = ["config", "yaml"]
+pattern = '(management\.security\.enabled|endpoints\.[\w.-]*sensitive)\s*[:=]\s*false'
+advice = "Protect management endpoints with authentication and a dedicated port."
+
+[[rules]]
+id = "SP-012"
+title = "Sensitive actuator endpoint exposed"
+severity = "high"
+cwe = "CWE-200"
+languages = ["config", "yaml"]
+pattern = 'management\.endpoints?\.web\.exposure\.include\s*[:=][^\n]*\b(heapdump|env|shutdown|jolokia|threaddump|logfile|configprops)\b|management\.endpoint\.shutdown\.enabled\s*[:=]\s*true'
+advice = "heapdump, env and similar endpoints leak secrets: do not expose them over HTTP."
+
+[[rules]]
+id = "FA-003"
+title = "CORS origin regex matches everything"
+severity = "medium"
+cwe = "CWE-942"
+languages = ["python"]
+pattern = '''allow_origin_regex\s*=\s*r?['"]\.\*'''
+advice = "Anchor the regex on the expected domains and keep it as strict as an explicit list."
+
+[[rules]]
+id = "FA-004"
+title = "Auto-reload server mode"
+severity = "low"
+cwe = "CWE-489"
+languages = ["python", "config", "docker", "yaml"]
+pattern = '\buvicorn\.run\s*\([^)]*reload\s*=\s*True|\buvicorn\b[^\n]*--reload\b|\bfastapi\s+dev\b'
+advice = "Reload mode is for local development only; run without it in production."
+
 [[checklist]]
 domain = "python"
 id = "PY-01"
@@ -602,6 +1225,41 @@ id = "PY-08"
 title = "Debug and error exposure"
 what_to_look_for = "debug=True, stack traces returned to clients, assert used for authorization."  # secreview:ignore CFG-007 (rule text, not configuration)
 cwe = "CWE-489"
+
+[[checklist]]
+domain = "python"
+id = "PY-09"
+title = "Web framework settings"
+what_to_look_for = "Hard-coded SECRET_KEY, ALLOWED_HOSTS = ['*'], cookies without Secure/HttpOnly/SameSite, csrf_exempt views, mark_safe/Markup on user data, interactive docs or admin exposed in production."
+cwe = "CWE-16"
+
+[[checklist]]
+domain = "python"
+id = "PY-10"
+title = "Access control"
+what_to_look_for = "Views or endpoints without an authentication dependency/decorator, missing per-object ownership checks, authorization done with assert (removed by -O), role checks only on the client."
+cwe = "CWE-862"
+
+[[checklist]]
+domain = "python"
+id = "PY-11"
+title = "XML and parser hardening"
+what_to_look_for = "lxml or xml.* parsing untrusted input, resolve_entities/load_dtd/huge_tree enabled, no_network=False; prefer defusedxml."
+cwe = "CWE-611"
+
+[[checklist]]
+domain = "python"
+id = "PY-12"
+title = "Resource exhaustion"
+what_to_look_for = "HTTP clients without timeout, unbounded reads (request.body, file.read()), regexes with nested quantifiers on user input (ReDoS), unbounded pagination or decompression."
+cwe = "CWE-400"
+
+[[checklist]]
+domain = "python"
+id = "PY-13"
+title = "Mass assignment and model binding"
+what_to_look_for = "Request data spread into ORM models (**request.json, Model(**data)), Pydantic models with extra='allow' bound to entities, writable fields such as is_admin or owner_id."
+cwe = "CWE-915"
 
 [[checklist]]
 domain = "java"
@@ -660,6 +1318,34 @@ what_to_look_for = "Credentials in application.properties / code, sensitive data
 cwe = "CWE-798"
 
 [[checklist]]
+domain = "java"
+id = "JV-09"
+title = "Open redirect and SSRF"
+what_to_look_for = "sendRedirect or redirect: with request values, RestTemplate/WebClient/HttpClient calling URLs supplied by the client without an allow-list."
+cwe = "CWE-918"
+
+[[checklist]]
+domain = "java"
+id = "JV-10"
+title = "Error handling and information exposure"
+what_to_look_for = "Stack traces or exception messages returned to clients, server.error.include-stacktrace, printStackTrace, verbose @ExceptionHandler responses."
+cwe = "CWE-209"
+
+[[checklist]]
+domain = "java"
+id = "JV-11"
+title = "Cookies and session management"
+what_to_look_for = "Session cookies without Secure/HttpOnly/SameSite, no session fixation protection, session ids in URLs, missing timeout or logout invalidation."
+cwe = "CWE-614"
+
+[[checklist]]
+domain = "java"
+id = "JV-12"
+title = "Concurrency and shared state"
+what_to_look_for = "Request or user data stored in fields of singleton beans, check-then-act races on balances, quotas or one-time tokens (TOCTOU)."
+cwe = "CWE-362"
+
+[[checklist]]
 domain = "angular"
 id = "NG-01"
 title = "Cross-site scripting (XSS)"
@@ -700,6 +1386,27 @@ id = "NG-06"
 title = "Content Security Policy and headers"
 what_to_look_for = "Missing CSP, unsafe-inline/unsafe-eval, missing frame-ancestors, untrusted third-party scripts without SRI."
 cwe = "CWE-1021"
+
+[[checklist]]
+domain = "angular"
+id = "NG-07"
+title = "Sensitive data in the client"
+what_to_look_for = "Personal data or tokens in URLs, console logs, analytics events or long-lived caches; secrets bundled in environment files."
+cwe = "CWE-359"
+
+[[checklist]]
+domain = "angular"
+id = "NG-08"
+title = "Server-side rendering and Node.js backend"
+what_to_look_for = "SSR fetching URLs built from the request (SSRF), child_process with interpolated strings, rejectUnauthorized: false, Express without helmet or with permissive CORS."
+cwe = "CWE-918"
+
+[[checklist]]
+domain = "angular"
+id = "NG-09"
+title = "Prototype pollution and unsafe merges"
+what_to_look_for = "Deep merge or set-by-path of user-controlled objects (lodash merge/set, Object.assign on parsed JSON) without blocking __proto__, constructor and prototype keys."
+cwe = "CWE-1321"
 
 [[checklist]]
 domain = "api"
@@ -765,6 +1472,34 @@ what_to_look_for = "Old API versions or undocumented endpoints still exposed."
 cwe = "CWE-1059"
 
 [[checklist]]
+domain = "api"
+id = "API-10"
+title = "Token and OAuth/OIDC validation"
+what_to_look_for = "JWT accepted without checking signature, algorithm, iss, aud and exp; redirect_uri not matched exactly; missing state/nonce/PKCE; long-lived tokens without revocation."
+cwe = "CWE-347"
+
+[[checklist]]
+domain = "api"
+id = "API-11"
+title = "Sensitive business flows"
+what_to_look_for = "Purchase, sign-up, password reset or invitation flows that can be automated or replayed: no rate limit, no idempotency key, race conditions on balances or one-time codes."
+cwe = "CWE-799"
+
+[[checklist]]
+domain = "api"
+id = "API-12"
+title = "Webhooks and callbacks"
+what_to_look_for = "Incoming webhooks without signature or timestamp verification, outgoing callbacks to user-supplied URLs without SSRF protection."
+cwe = "CWE-345"
+
+[[checklist]]
+domain = "api"
+id = "API-13"
+title = "Error responses"
+what_to_look_for = "Stack traces, SQL errors or internal paths in responses; different messages that reveal whether an account exists (user enumeration)."
+cwe = "CWE-209"
+
+[[checklist]]
 domain = "config"
 id = "CFG-01"
 title = "Secrets in configuration"
@@ -821,6 +1556,34 @@ what_to_look_for = "chmod 777, world-writable volumes, overly broad IAM/RBAC rol
 cwe = "CWE-732"
 
 [[checklist]]
+domain = "config"
+id = "CFG-09"
+title = "Kubernetes workload hardening"
+what_to_look_for = "securityContext missing runAsNonRoot, readOnlyRootFilesystem, allowPrivilegeEscalation: false and capabilities drop ALL; hostPath mounts; no resource limits; no NetworkPolicy."
+cwe = "CWE-250"
+
+[[checklist]]
+domain = "config"
+id = "CFG-10"
+title = "RBAC and service accounts"
+what_to_look_for = "Wildcard verbs or resources, cluster-admin bindings, default service account used, service account tokens mounted where the API is not needed."
+cwe = "CWE-269"
+
+[[checklist]]
+domain = "config"
+id = "CFG-11"
+title = "Reverse proxy and HTTP headers"
+what_to_look_for = "Missing HSTS, CSP, X-Content-Type-Options and frame-ancestors; server version disclosed; directory listing; wildcard CORS headers; untrusted X-Forwarded-* accepted."
+cwe = "CWE-693"
+
+[[checklist]]
+domain = "config"
+id = "CFG-12"
+title = "Data services and storage"
+what_to_look_for = "Databases, caches or search engines without authentication, empty or default passwords, public buckets, no encryption at rest or in transit."
+cwe = "CWE-306"
+
+[[checklist]]
 domain = "cicd"
 id = "CI-01"
 title = "Secrets in pipelines"
@@ -870,6 +1633,27 @@ what_to_look_for = "Artifacts readable by everyone, images pushed without scanni
 cwe = "CWE-494"
 
 [[checklist]]
+domain = "cicd"
+id = "CI-08"
+title = "Debug output in pipelines"
+what_to_look_for = "CI_DEBUG_TRACE or shell tracing enabled in jobs that handle secrets, verbose tool flags that print headers or tokens."
+cwe = "CWE-532"
+
+[[checklist]]
+domain = "cicd"
+id = "CI-09"
+title = "Credential lifetime and scope"
+what_to_look_for = "Long-lived static cloud keys instead of OIDC federation, tokens with broader scope than the job needs, no rotation after people leave."
+cwe = "CWE-1392"
+
+[[checklist]]
+domain = "cicd"
+id = "CI-10"
+title = "Dependency installation in pipelines"
+what_to_look_for = "Installs that bypass the lockfile (npm install, unpinned pip), caches shared across branches or projects, package managers pointed at unreviewed registries."
+cwe = "CWE-1357"
+
+[[checklist]]
 domain = "dependencies"
 id = "SC-01"
 title = "Known vulnerable versions"
@@ -909,4 +1693,25 @@ domain = "dependencies"
 id = "SC-06"
 title = "Abandoned or typosquatted packages"
 what_to_look_for = "Unmaintained packages, names close to popular ones, packages with a sudden ownership change."
+cwe = "CWE-1104"
+
+[[checklist]]
+domain = "dependencies"
+id = "SC-07"
+title = "Lockfile integrity"
+what_to_look_for = "Integrity hashes missing or removed, resolved URLs pointing to unexpected hosts or registries, lockfile changes not matching the manifest change in the same diff."
+cwe = "CWE-494"
+
+[[checklist]]
+domain = "dependencies"
+id = "SC-08"
+title = "Vendored and copied code"
+what_to_look_for = "Third-party code copied into the repository without version or origin, never updated, or modified locally without tracking."
+cwe = "CWE-1104"
+
+[[checklist]]
+domain = "dependencies"
+id = "SC-09"
+title = "Update policy"
+what_to_look_for = "No automated update tool (Renovate, Dependabot), no deadline for fixing critical advisories, end-of-life runtimes or frameworks."
 cwe = "CWE-1104"

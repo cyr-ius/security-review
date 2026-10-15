@@ -150,7 +150,7 @@ def test_unseeded_database_falls_back_to_the_default_rules(database):
 def test_default_rules_file_is_valid_and_complete():
     defaults = default_content()
     ids = [rule.id for rule in defaults.rules]
-    assert len(ids) == len(set(ids)) >= 60
+    assert len(ids) == len(set(ids)) >= 120
     families = {"PY", "JV", "NG", "CFG", "GEN", "GL", "JK", "CI", "SP", "FA"}
     assert {rule_id.split("-")[0] for rule_id in ids} <= families
     # The review prompts rely on these checklist domains
@@ -214,6 +214,250 @@ def test_describe_rules_marks_origin_and_state(import_pack):
 def test_platform_rules(language, code, expected):
     matches, _ = registry.scan(code, language)
     assert expected in ids(matches), matches
+
+
+# Each additional default rule: (language, vulnerable line, safe equivalent, rule id)
+ADDITIONAL_RULES = [
+    (
+        "python",
+        'logger.info("login %s", user.password)',
+        'logger.info("login %s", user.name)',
+        "GEN-005",
+    ),
+    ("java", 'log.debug("token {}", token);', 'log.debug("user {}", userId);', "GEN-005"),
+    ("yaml", "token: " + "ghp_" + "a1" * 18, "token: ${GITHUB_TOKEN}", "GEN-006"),
+    (
+        "yaml",
+        "url: https://deploy:" + "s3cr3t@repo.example.com",
+        "url: https://${USER}:${PASS}@repo",
+        "GEN-007",
+    ),
+    (
+        "javascript",
+        "const t = '" + "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.c2lnbmF0dXJlMTIz';",
+        "const t = getToken();",
+        "GEN-008",
+    ),
+    ("config", "ssl_protocols TLSv1 TLSv1.1 TLSv1.2;", "ssl_protocols TLSv1.2 TLSv1.3;", "GEN-009"),
+    (
+        "python",
+        "ctx = ssl.SSLContext(ssl.PROTOCOL_TLSv1_1)",
+        "ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)",
+        "GEN-009",
+    ),
+    (
+        "python",
+        "parser = etree.XMLParser(resolve_entities=True)",
+        "parser = etree.XMLParser(resolve_entities=False)",
+        "PY-014",
+    ),
+    (
+        "python",
+        "return render_template_string(body)",
+        'return render_template("page.html", body=body)',
+        "PY-015",
+    ),
+    (
+        "python",
+        'SECRET_KEY = "django-insecure-abc"',
+        'SECRET_KEY = os.environ["SECRET_KEY"]',
+        "PY-016",
+    ),
+    ("python", "ALLOWED_HOSTS = ['*']", "ALLOWED_HOSTS = ['app.example.com']", "PY-017"),
+    ("python", "@csrf_exempt", "@csrf_protect", "PY-018"),
+    ("python", "return mark_safe(comment)", "return escape(comment)", "PY-019"),
+    ("python", "SESSION_COOKIE_SECURE = False", "SESSION_COOKIE_SECURE = True", "PY-020"),
+    (
+        "python",
+        "cipher = AES.new(key, AES.MODE_ECB)",
+        "cipher = AES.new(key, AES.MODE_GCM)",
+        "PY-021",
+    ),
+    ("python", "model = torch.load(path)", "model = torch.load(path, weights_only=True)", "PY-022"),
+    ("python", "open('/tmp/report.csv', 'w')", "tempfile.NamedTemporaryFile()", "PY-023"),
+    ("python", "requests.get(request.args['url'])", "requests.get(API_URL, timeout=5)", "PY-024"),
+    ("python", "if token == provided:", "if hmac.compare_digest(token, provided):", "PY-025"),
+    ("python", "if signature != expected:", "if digest(a) != digest(b):", "PY-025"),
+    (
+        "java",
+        'ctx.search("ou=users", "(uid=" + user + ")", ctls);',
+        'ctx.search("ou=users", "(uid={0})", new Object[]{user}, ctls);',
+        "JV-009",
+    ),
+    ("java", 'new File(request.getParameter("name"))', "new File(BASE_DIR, safeName)", "JV-010"),
+    (
+        "java",
+        'response.sendRedirect(request.getParameter("next"));',
+        'response.sendRedirect("/home");',
+        "JV-011",
+    ),
+    ("java", "parser.parseExpression(input).getValue();", "parser.toString();", "JV-012"),
+    ("java", "cookie.setHttpOnly(false);", "cookie.setHttpOnly(true);", "JV-013"),
+    ("java", "Random r = new Random();", "SecureRandom r = new SecureRandom();", "JV-014"),
+    ("java", "e.printStackTrace();", 'log.error("failure", e);', "JV-015"),
+    ("java", "XStream xs = new XStream();", "xs.allowTypes(new Class[]{Order.class});", "JV-016"),
+    (
+        "typescript",
+        "window.location.href = this.route.snapshot.queryParams['next'];",
+        "this.router.navigate(['/home']);",
+        "NG-008",
+    ),
+    ("javascript", "res.redirect(req.query.next);", "res.redirect('/home');", "NG-008"),
+    ("javascript", 'setTimeout("refresh()", 1000);', "setTimeout(refresh, 1000);", "NG-009"),
+    ("typescript", "el.insertAdjacentHTML('beforeend', html);", "el.append(text);", "NG-010"),
+    (
+        "angular",
+        "this.sanitizer.sanitize(SecurityContext.NONE, v)",
+        "this.sanitizer.sanitize(SecurityContext.HTML, v)",
+        "NG-011",
+    ),
+    ("javascript", "exec(`git log ${branch}`);", "execFile('git', ['log', branch]);", "NG-012"),
+    (
+        "javascript",
+        "spawn(cmd, args, { shell: true });",
+        "spawn(cmd, args, { shell: false });",
+        "NG-012",
+    ),
+    ("typescript", "crypto.createHash('md5')", "crypto.createHash('sha256')", "NG-013"),
+    (
+        "javascript",
+        "https.request({ rejectUnauthorized: false })",
+        "https.request({ ca: internalCa })",
+        "NG-014",
+    ),
+    (
+        "javascript",
+        "const claims = jwt.decode(token);",
+        "const claims = jwt.verify(token, key, { algorithms: ['RS256'] });",
+        "NG-015",
+    ),
+    (
+        "angular",
+        "provideHttpClient(withNoXsrfProtection())",
+        "provideHttpClient(withXsrfConfiguration({}))",
+        "NG-016",
+    ),
+    (
+        "javascript",
+        "app.use(cors());",
+        "app.use(cors({ origin: ['https://app.example.com'] }));",
+        "NG-017",
+    ),
+    (
+        "javascript",
+        "db.query(`SELECT * FROM u WHERE id = ${id}`);",
+        "db.query('SELECT * FROM u WHERE id = $1', [id]);",
+        "NG-018",
+    ),
+    (
+        "javascript",
+        "User.find({ $where: filter });",
+        "User.find({ name: String(filter) });",
+        "NG-019",
+    ),
+    (
+        "javascript",
+        "res.sendFile(req.query.file);",
+        "res.sendFile(name, { root: PUBLIC_DIR });",
+        "NG-020",
+    ),
+    ("docker", "USER root", "USER 10001", "CFG-010"),
+    ("docker", "ADD https://example.com/tool.tgz /opt/", "COPY tool.tgz /opt/", "CFG-011"),
+    ("docker", "ENV API_TOKEN=abcd1234efgh", "ENV API_URL=https://api.example.com", "CFG-012"),
+    ("yaml", "    hostNetwork: true", "    hostNetwork: false", "CFG-013"),
+    ("yaml", "    network_mode: host", "    network_mode: bridge", "CFG-013"),
+    ("yaml", "  allowPrivilegeEscalation: true", "  allowPrivilegeEscalation: false", "CFG-014"),
+    ("yaml", "    cap_add: [SYS_ADMIN]", "    cap_drop: [ALL]", "CFG-015"),
+    ("yaml", "      - /:/host", "      - ./data:/data", "CFG-016"),
+    ("yaml", '      - "5432:5432"', '      - "127.0.0.1:5432:5432"', "CFG-017"),
+    (
+        "yaml",
+        "      POSTGRES_PASSWORD: postgres",
+        "      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}",
+        "CFG-018",
+    ),
+    ("yaml", '    verbs: ["*"]', '    verbs: ["get", "list"]', "CFG-019"),
+    ("config", 'acl = "public-read"', 'acl = "private"', "CFG-020"),
+    (
+        "config",
+        "add_header Access-Control-Allow-Origin *;",
+        "add_header Access-Control-Allow-Origin https://app.example.com;",
+        "CFG-021",
+    ),
+    ("config", "autoindex on;", "autoindex off;", "CFG-022"),
+    ("config", "Options FollowSymLinks Indexes", "Options -Indexes", "CFG-022"),
+    ("config", "PermitRootLogin yes", "PermitRootLogin no", "CFG-023"),
+    ("yaml", "      ALLOW_EMPTY_PASSWORD: yes", "      ALLOW_EMPTY_PASSWORD: no", "CFG-024"),
+    ("gitlab-ci", '    - eval "$CI_COMMIT_MESSAGE"', '    - echo "$CI_COMMIT_REF_SLUG"', "GL-006"),
+    ("gitlab-ci", '  CI_DEBUG_TRACE: "true"', '  CI_DEBUG_TRACE: "false"', "GL-007"),
+    ("gitlab-ci", "    public: true", "    public: false", "GL-008"),
+    ("gitlab-ci", '  GIT_SSL_NO_VERIFY: "true"', '  GIT_SSL_NO_VERIFY: "false"', "GL-009"),
+    (
+        "jenkins",
+        'sh "curl -u admin:${API_TOKEN} https://nexus"',
+        "sh 'curl -u admin:$API_TOKEN https://nexus'",
+        "JK-005",
+    ),
+    (
+        "jenkins",
+        "def jobs = Jenkins.instance.getAllItems()",
+        "def jobs = currentBuild.number",
+        "JK-006",
+    ),
+    ("gitlab-ci", "    - set -eux", "    - set -eu", "CI-003"),
+    ("docker", "RUN npm install && npm run build", "RUN npm ci && npm run build", "CI-004"),
+    (
+        "config",
+        "server.error.include-stacktrace=always",
+        "server.error.include-stacktrace=never",
+        "SP-007",
+    ),
+    (
+        "config",
+        "spring.datasource.password=Sup3rS3cret",
+        "spring.datasource.password=${DB_PASSWORD}",
+        "SP-008",
+    ),
+    (
+        "java",
+        'web.ignoring().requestMatchers("/api/**");',
+        "http.authorizeHttpRequests(a -> a.anyRequest().authenticated());",
+        "SP-009",
+    ),
+    (
+        "java",
+        "http.headers(h -> h.disable());",
+        "http.headers(Customizer.withDefaults());",
+        "SP-010",
+    ),
+    ("config", "management.security.enabled=false", "management.security.enabled=true", "SP-011"),
+    (
+        "config",
+        "management.endpoints.web.exposure.include=health,heapdump",
+        "management.endpoints.web.exposure.include=health,info",
+        "SP-012",
+    ),
+    (
+        "python",
+        'app.add_middleware(CORSMiddleware, allow_origin_regex=".*")',
+        'allow_origin_regex=r"^https://app\\.example\\.com$"',
+        "FA-003",
+    ),
+    (
+        "python",
+        'uvicorn.run(app, host="0.0.0.0", reload=True)',
+        'uvicorn.run(app, host="0.0.0.0")',
+        "FA-004",
+    ),
+]
+
+
+@pytest.mark.parametrize("language, vulnerable, safe, rule_id", ADDITIONAL_RULES)
+def test_additional_rules(language, vulnerable, safe, rule_id):
+    matches, _ = registry.scan(vulnerable, language)
+    assert rule_id in ids(matches), matches
+    matches, _ = registry.scan(safe, language)
+    assert rule_id not in ids(matches), matches
 
 
 def test_gitlab_ci_inherits_yaml_rules():

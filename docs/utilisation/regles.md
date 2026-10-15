@@ -111,8 +111,23 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 
 ## Règles par défaut par plateforme
 
-En plus des règles Python, Java, Angular et configuration : **GitLab CI** (`GL-*`),
-**Jenkinsfile** (`JK-*`), **CI/CD commun** (`CI-*`), **Spring** (`SP-*`) et **FastAPI** (`FA-*`).
+| Famille | Couverture principale |
+|---|---|
+| `GEN-*` (tous langages) | Identifiants en dur, clés privées, clés cloud, jetons au format connu (GitHub, GitLab, Slack, Google, Stripe, npm), identifiants dans une URL, JWT en dur, SSL/TLS obsolète, secrets écrits dans les journaux, HTTP en clair |
+| `PY-*` (Python) | `eval`/`exec`, désérialisation (pickle, `torch.load`, `joblib`...), YAML, commandes shell, SQL formaté, TLS désactivé, crypto faible ou mode ECB, aléa non cryptographique, XXE (lxml), SSTI, `SECRET_KEY` en dur, `ALLOWED_HOSTS = ['*']`, CSRF désactivé, `mark_safe`, cookies sans `Secure`/`HttpOnly`, SSRF, comparaison de secrets non constante, fichiers temporaires |
+| `JV-*` (Java) | Désérialisation (dont XStream, SnakeYAML), commandes OS, SQL et LDAP concaténés, XXE, CSRF, CORS, crypto faible, TLS « trust all », chemins et redirections construits depuis la requête, SpEL/EL, cookies, `Random`, `printStackTrace` |
+| `NG-*` (Angular, JavaScript, TypeScript) | Contournement du sanitizer, `innerHTML` et autres puits HTML, `eval`, `setTimeout` avec chaîne, jetons en web storage, `postMessage('*')`, XSRF désactivé, redirections ouvertes ; côté Node.js : commandes shell, SQL interpolé, `$where`, chemins de fichiers, CORS ouvert, TLS désactivé, `jwt.decode`, crypto faible |
+| `CFG-*` (Docker, Compose, Kubernetes, serveurs) | Conteneur privilégié ou root, socket Docker, namespaces de l'hôte, capacités dangereuses, élévation de privilèges, montages sensibles, ports de bases exposés, secrets dans `ENV`/`ARG`, `ADD` distant, mots de passe par défaut, services sans authentification, RBAC `*` ou `cluster-admin`, buckets publics, CORS `*`, listage de répertoires, SSH faible, `curl \| sh`, debug |
+| `GL-*` (GitLab CI) | `include` distant, secrets affichés, DinD sans TLS, `allow_failure`, jeton CI en ligne de commande, variables non fiables évaluées par un shell, `CI_DEBUG_TRACE`, artefacts publics, `GIT_SSL_NO_VERIFY` |
+| `JK-*` (Jenkinsfile) | Injection dans `sh`, bibliothèque partagée non épinglée, `agent any`, sandbox désactivée, identifiant interpolé dans une chaîne Groovy, API interne `Jenkins.instance` |
+| `CI-*` (CI/CD commun) | Vérification TLS ou de signature désactivée, traçage shell, installation sans lockfile |
+| `SP-*` (Spring) | Actuator exposé ou non protégé, console H2, TLS désactivé, logs SQL, `permitAll`, entités liées au corps de requête, détails d'erreur renvoyés, mot de passe dans la configuration, `web.ignoring()`, en-têtes de sécurité désactivés |
+| `FA-*` (FastAPI) | CORS `*` ou regex `.*`, signature JWT non vérifiée, mode `reload` |
+
+Les checklists par défaut couvrent les domaines `python`, `java`, `angular`, `api`, `config`,
+`cicd` et `dependencies` (par exemple : validation des jetons OAuth/OIDC, webhooks, flux métier
+sensibles, durcissement Kubernetes, RBAC, en-têtes du proxy, intégrité des lockfiles).
+`get_review_checklist` et l'écran **Checklists** de l'interface web les affichent en entier.
 
 Langages acceptés par `scan_code` : `python`, `java`, `typescript`, `javascript`, `angular`,
 `config`, `yaml`, `docker`, `gitlab-ci`, `jenkins` (alias : `jenkinsfile`, `groovy`, `gitlab`,

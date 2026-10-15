@@ -90,14 +90,15 @@ l'utiliser.
 | Moteur de scan, masquage des secrets | `scanner.py` |
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`) et `MCP_COMMANDS` (`enroll`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`) |
-| Dépendances et avis OSV | `dependencies.py`, `depscan.py`, `advisories.py`, `versions.py` |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`, `user`) et `MCP_COMMANDS` (`enroll`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`) |
+| Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` |
 | Persistance, schéma | `models.py`, `services.py`, `database.py`, `migrations/` (Alembic) |
 | Export et tendances | `sarif.py`, `trends.py` |
-| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` |
+| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et SSO, seuls à ouvrir l'interface (mot de passe, création SSO à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py`, role mapping : `role_mapping.py` |
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
-| Paramètres `SECREVIEW_*` | `config.py` |
+| Normes de développement par technologie (prompt `development-standards`, écran « Normes ») | `standards.py` |
+| Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy OSV) | `config.py` ; `app_settings.py` |
 
 Tous les modules sont dans `src/security_review_mcp/`. L'application Angular (`web/`) est
 compilée par `npm run build` dans `src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules
@@ -149,8 +150,12 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - **Séparation MCP / contrôleur** : le serveur MCP n'expose que `/mcp`, l'enrôlement public et
   `/healthz` ; le contrôleur n'expose aucune route d'écriture sans jeton. N'ajoutez pas de route
   web au serveur MCP ni d'endpoint MCP au contrôleur.
-- **Aucun appel réseau sortant** : la base de vulnérabilités est importée hors ligne par la CLI.
-  Seule exception : la commande CLI `enroll`, qui contacte l'URL donnée par l'opérateur.
+- **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
+  CLI. Exceptions : la commande CLI `enroll`, qui contacte l'URL donnée par l'opérateur, et le
+  téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
+  uniquement, taille bornée, proxy facultatif jamais journalisé avec ses identifiants, et la
+  connexion SSO du contrôleur (`oidc`), **désactivée par défaut**, qui ne contacte que le
+  fournisseur d'identité configuré, en HTTPS, réponses bornées.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
   imbriqués) ; `rules_loader` les valide pour les règles internes.
 - Jetons Bearer : seules les empreintes SHA-256 sont conservées, comparaison en temps constant.
@@ -240,6 +245,7 @@ utilisateurs. Mettez-la à jour dans le même changement que le code :
 | Un paramètre `SECREVIEW_*` | `docs/reference/configuration.md`, `.env.example` |
 | Transport HTTP, authentification, TLS | `docs/demarrage/http.md`, `docs/reference/securite.md` |
 | Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/demarrage/kubernetes.md`, `docker-compose.yml`, `examples/kubernetes/` |
+| Les normes de développement (prompt, outils, ressources, écran) | `docs/utilisation/normes.md` (+ `prompts-outils.md`) |
 | L'interface web, l'API REST ou les rôles | `docs/utilisation/interface-web.md` |
 | Installation, image Docker | `docs/demarrage/installation.md`, `docs/demarrage/docker.md` |
 | Une garantie ou limite de sécurité | `docs/reference/securite.md` |

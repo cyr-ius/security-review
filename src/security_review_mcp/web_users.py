@@ -1,0 +1,854 @@
+"""Web users: the accounts of the web interface of the controller, local or SSO.
+
+Only web users log in to the web interface; the bearer tokens of the database are for the MCP
+server and the REST API (scripts, CI). A web user has an ``auth_source``:
+
+- ``local``: a username and a password. Only a scrypt hash of the password is stored
+  (``WebUser``); the parameters are part of the hash, so that they can be raised later.
+  ``POST /api/v1/auth/login`` checks the password and issues a session token;
+- ``oidc``: an account of the identity provider (see oidc), without a password. The login looks
+  it up by the username claim; with ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` it is created at the
+  first login, otherwise an administrator creates it beforehand. It never opens a local account,
+  and its ``sub`` claim is bound at the first login: another subject is refused afterwards. A
+  deleted SSO user is revoked (``RevokedSsoUser``): a login never creates it again, until an
+  administrator creates it again.
+
+A web user has a web role (``reader``, ``triager`` or ``admin``) and, for ``reader`` and
+``triager``, an optional list of projects, given by an administrator (or by the approval of an
+enrollment). An SSO user may have none: the access of its groups (see role_mapping), stored at
+each login, applies; with both, the highest role wins (see role_mapping.combine).
+
+The session token (see oidc.SessionSigner) carries the id of the user. At each request,
+SessionVerifier reads the user again: a deleted user loses its sessions at once, a new role or
+new projects apply at once, and a password change ends the sessions opened before it.
+``WebUser.session_version`` is random (drawn at creation and at each password change) and the
+session must name the same username, so that a session never opens another account that reuses
+the id of a deleted one.
+
+The first administrator is the local user ``admin``, created with a random password on the first
+start of the controller (``SECREVIEW_AUTH_BOOTSTRAP_ADMIN``). The last administrator (local or
+SSO, by its own role or by the role its groups gave at its last login) can be neither deleted
+nor demoted, so that the web interface always keeps one.
+
+Failed logins are throttled in memory (LoginThrottle), per username and address and per
+address: each controller replica counts its own failures.
+"""
+
+import base64
+import hashlib
+import hmac
+import json
+import logging
+import re
+import secrets
+import threading
+import time
+from collections import OrderedDict
+from collections.abc import Iterable
+from datetime import UTC, datetime
+from functools import cache
+from typing import Any
+
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import col, func, or_, select
+
+from . import role_mapping
+from .config import Settings
+from .database import session_scope
+from .http_server import WEB_ROLES, Role, TokenInfo
+from .models import RevokedSsoUser, WebUser, utcnow
+from .oidc import MAX_LABEL_CHARS, OidcError, OidcIdentity, SessionSigner, same_value
+from .services import NotFoundError
+from .token_store import MAX_PROJECTS_PER_TOKEN, _clean_project
+
+logger = logging.getLogger("security_review_mcp.web")
+
+BOOTSTRAP_USERNAME = "admin"
+MAX_USERS = 500
+MAX_USERNAME_CHARS = 64
+# Length of the sub claim of OpenID Connect (and of WebUser.oidc_subject)
+MAX_SUBJECT_CHARS = 255
+MIN_PASSWORD_CHARS = 12
+# Bounded: the hash cost does not depend on the length, but the request body does
+MAX_PASSWORD_CHARS = 256
+GENERATED_PASSWORD_BYTES = 18
+# Random session versions fit in a signed 64-bit integer column
+SESSION_VERSION_BITS = 62
+USERNAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@-]*")
+USER_ROLES = (Role.READER, Role.TRIAGER, Role.ADMIN)
+AUTH_LOCAL = "local"
+AUTH_OIDC = "oidc"
+AUTH_SOURCES = (AUTH_LOCAL, AUTH_OIDC)
+
+# scrypt with N=2^14, r=8, p=5: 16 MiB of memory, a setting recommended by OWASP
+SCRYPT_PREFIX = "scrypt"
+SCRYPT_N = 2**14
+SCRYPT_R = 8
+SCRYPT_P = 5
+SCRYPT_SALT_BYTES = 16
+SCRYPT_KEY_BYTES = 32
+# Upper bounds accepted when reading a stored hash (a tampered row must not exhaust memory)
+SCRYPT_MAX_N = 2**20
+SCRYPT_MAX_P = 16
+SCRYPT_MAXMEM = 256 * 1024 * 1024
+
+
+# ── Passwords ────────────────────────────────────────────────────────────────
+
+
+def _b64(data: bytes) -> str:
+    """Base64 without padding."""
+    return base64.b64encode(data).decode("ascii").rstrip("=")
+
+
+def _unb64(text: str) -> bytes:
+    """Decode the base64 written by _b64."""
+    return base64.b64decode(text + "=" * (-len(text) % 4), validate=True)
+
+
+def hash_password(password: str) -> str:
+    """Return ``scrypt$N$r$p$salt$key`` for a password (random salt)."""
+    salt = secrets.token_bytes(SCRYPT_SALT_BYTES)
+    key = hashlib.scrypt(
+        password.encode("utf-8"),
+        salt=salt,
+        n=SCRYPT_N,
+        r=SCRYPT_R,
+        p=SCRYPT_P,
+        maxmem=SCRYPT_MAXMEM,
+        dklen=SCRYPT_KEY_BYTES,
+    )
+    return f"{SCRYPT_PREFIX}${SCRYPT_N}${SCRYPT_R}${SCRYPT_P}${_b64(salt)}${_b64(key)}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    """True when ``password`` matches a hash of hash_password (constant-time comparison).
+
+    A malformed hash, or one whose parameters exceed the accepted bounds, never matches.
+    """
+    try:
+        prefix, n, r, p, salt, key = stored.split("$")
+        n_value, r_value, p_value = int(n), int(r), int(p)
+        expected = _unb64(key)
+        salt_bytes = _unb64(salt)
+    except ValueError:
+        return False
+    if (
+        prefix != SCRYPT_PREFIX
+        or not 2 <= n_value <= SCRYPT_MAX_N
+        or n_value & (n_value - 1)
+        or not 1 <= r_value <= 32
+        or not 1 <= p_value <= SCRYPT_MAX_P
+        or not expected
+    ):
+        return False
+    try:
+        actual = hashlib.scrypt(
+            password.encode("utf-8"),
+            salt=salt_bytes,
+            n=n_value,
+            r=r_value,
+            p=p_value,
+            maxmem=SCRYPT_MAXMEM,
+            dklen=len(expected),
+        )
+    except ValueError:
+        return False
+    return hmac.compare_digest(actual, expected)
+
+
+@cache
+def _dummy_hash() -> str:
+    """Hash checked when the username is unknown, so that timing does not reveal it."""
+    return hash_password(secrets.token_urlsafe(16))
+
+
+def new_session_version() -> int:
+    """Random session version of a user (see session_identity)."""
+    return secrets.randbits(SESSION_VERSION_BITS)
+
+
+def generate_password() -> str:
+    """Return a random password (24 URL-safe characters)."""
+    return secrets.token_urlsafe(GENERATED_PASSWORD_BYTES)
+
+
+# ── Validation ───────────────────────────────────────────────────────────────
+
+
+def clean_username(username: str) -> str:
+    """Validate a username: letters, digits and ``. _ @ -``, 1 to 64 characters."""
+    cleaned = username.strip()
+    if not 1 <= len(cleaned) <= MAX_USERNAME_CHARS:
+        raise ValueError(f"Username must contain between 1 and {MAX_USERNAME_CHARS} characters")
+    if not USERNAME_PATTERN.fullmatch(cleaned):
+        raise ValueError(
+            "Username may only contain letters, digits and . _ @ -, and starts with a letter or "
+            "a digit"
+        )
+    return cleaned
+
+
+def clean_password(password: str) -> str:
+    """Validate a new password (kept as typed: spaces are significant)."""
+    if not MIN_PASSWORD_CHARS <= len(password) <= MAX_PASSWORD_CHARS:
+        raise ValueError(
+            f"Password must contain between {MIN_PASSWORD_CHARS} and {MAX_PASSWORD_CHARS} "
+            "characters"
+        )
+    if not password.strip() or not password.isprintable():
+        raise ValueError("Password must not be blank nor contain control characters")
+    return password
+
+
+def clean_role(role: Role | str | None, auth_source: str = AUTH_LOCAL) -> Role | None:
+    """Validate the web role of a user; None (no role of its own) only for an SSO user."""
+    if role is None or str(role).strip().lower() in ("", "none"):
+        if auth_source == AUTH_OIDC:
+            return None
+        raise ValueError("A local user needs a role: reader, triager or admin")
+    try:
+        parsed = Role(str(role).strip().lower())
+    except ValueError:
+        parsed = None
+    if parsed not in USER_ROLES:
+        raise ValueError("Role must be reader, triager or admin")
+    return parsed
+
+
+def clean_projects(role: Role | None, projects: Iterable[str] | None) -> list[str]:
+    """Validate the projects of a user (empty: every project); none for ``admin`` or no role."""
+    cleaned = list(dict.fromkeys(_clean_project(name) for name in projects or ()))
+    if not all(name.isprintable() for name in cleaned):
+        raise ValueError("Project must not contain control characters")
+    if cleaned and role == Role.ADMIN:
+        raise ValueError("An admin user reaches every project: it cannot list projects")
+    if cleaned and role is None:
+        raise ValueError("A user without a role of its own cannot list projects")
+    if len(cleaned) > MAX_PROJECTS_PER_TOKEN:
+        raise ValueError(f"A user may reach at most {MAX_PROJECTS_PER_TOKEN} projects")
+    return cleaned
+
+
+def clean_auth_source(auth_source: str) -> str:
+    """Validate the source of a user: ``local`` or ``oidc``."""
+    if auth_source not in AUTH_SOURCES:
+        raise ValueError("Source must be local or oidc")
+    return auth_source
+
+
+# ── Accounts ─────────────────────────────────────────────────────────────────
+
+
+def _aware(value: datetime | None) -> datetime | None:
+    """Read a stored time as UTC (SQLite drops the time zone)."""
+    if value is None:
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+def _iso(value: datetime | None) -> str | None:
+    """ISO 8601 form of a stored time, or None."""
+    aware = _aware(value)
+    return aware.isoformat() if aware else None
+
+
+def _projects(row: WebUser) -> list[str] | None:
+    """Projects of the role of a user; None for every project."""
+    return json.loads(row.projects) or None
+
+
+def _sso_projects(row: WebUser) -> list[str] | None:
+    """Projects of the access given by the groups of an SSO user; None for every project."""
+    return json.loads(row.sso_projects) or None
+
+
+def _label(row: WebUser) -> str:
+    """Name of a user in the logs and the triage history (``oidc:<name>`` for an SSO user)."""
+    if row.auth_source == AUTH_OIDC:
+        return f"oidc:{row.username}"[:MAX_LABEL_CHARS]
+    return row.username
+
+
+def _access(row: WebUser) -> role_mapping.Access | None:
+    """Access of a user: its own role combined with that of its groups; None without any."""
+    matches: list[tuple[Role, list[str] | None]] = []
+    if row.role:
+        matches.append((Role(row.role), _projects(row)))
+    if row.sso_role:
+        matches.append((Role(row.sso_role), _sso_projects(row)))
+    try:
+        return role_mapping.combine(matches)
+    except ValueError as exc:
+        logger.warning("Web user %s has no usable access: %s", row.username, exc)
+        return None
+
+
+def _public(row: WebUser) -> dict[str, Any]:
+    """API view of a user, never its password hash nor its subject."""
+    access = _access(row)
+    return {
+        "id": row.id,
+        "username": row.username,
+        "auth_source": row.auth_source,
+        "role": row.role,
+        "projects": _projects(row),
+        "sso_role": row.sso_role,
+        "sso_projects": _sso_projects(row),
+        "effective_role": access.role.value if access else None,
+        "effective_projects": (
+            sorted(access.projects) if access and access.projects is not None else None
+        ),
+        "sso_linked": row.oidc_subject is not None,
+        "created_at": _iso(row.created_at),
+        "updated_at": _iso(row.updated_at),
+        "password_changed_at": _iso(row.password_changed_at),
+        "last_login_at": _iso(row.last_login_at),
+        "created_by": row.created_by,
+    }
+
+
+def _get(session: Any, user_id: int) -> WebUser:
+    """Return a user by id or raise NotFoundError."""
+    row = session.get(WebUser, user_id)
+    if row is None:
+        raise NotFoundError(f"Web user {user_id} not found")
+    return row
+
+
+def _by_name(session: Any, username: str) -> WebUser | None:
+    """Return the user with this exact username, or None."""
+    return session.exec(select(WebUser).where(WebUser.username == username)).first()
+
+
+def _is_admin(row: WebUser) -> bool:
+    """True for an administrator: by its own role, or by the role of its groups (SSO)."""
+    return Role.ADMIN.value in (row.role, row.sso_role)
+
+
+def _admin_count(session: Any) -> int:
+    """Number of administrators (see _is_admin)."""
+    return session.exec(
+        select(func.count())
+        .select_from(WebUser)
+        .where(or_(WebUser.role == Role.ADMIN.value, WebUser.sso_role == Role.ADMIN.value))
+    ).one()
+
+
+def _lift_revocation(session: Any, username: str) -> None:
+    """Forget the revocation of a name: an administrator creates that user again."""
+    revoked = session.exec(select(RevokedSsoUser).where(RevokedSsoUser.username == username))
+    for row in revoked.all():
+        session.delete(row)
+
+
+def _is_revoked(session: Any, username: str) -> bool:
+    """True when an administrator deleted the SSO user with this name."""
+    query = select(RevokedSsoUser.id).where(RevokedSsoUser.username == username)
+    return session.exec(query).first() is not None
+
+
+def lift_revocation(username: str) -> dict[str, Any]:
+    """Let a deleted SSO user be created again by its next login; raise NotFoundError."""
+    with session_scope() as session:
+        row = session.exec(
+            select(RevokedSsoUser).where(RevokedSsoUser.username == username.strip())
+        ).first()
+        if row is None:
+            raise NotFoundError(f"No revoked SSO user named '{username}'")
+        lifted = {"username": row.username, "revoked_at": _iso(row.revoked_at)}
+        session.delete(row)
+        return lifted
+
+
+def list_revoked_users() -> list[dict[str, Any]]:
+    """Names of the deleted SSO users, never created again by a login."""
+    with session_scope() as session:
+        rows = session.exec(select(RevokedSsoUser).order_by(col(RevokedSsoUser.username))).all()
+        return [
+            {
+                "username": row.username,
+                "revoked_at": _iso(row.revoked_at),
+                "revoked_by": row.revoked_by,
+            }
+            for row in rows
+        ]
+
+
+def _check_capacity(session: Any) -> None:
+    """Refuse one more user once MAX_USERS exist."""
+    if session.exec(select(func.count()).select_from(WebUser)).one() >= MAX_USERS:
+        raise ValueError(f"The limit of {MAX_USERS} web users has been reached")
+
+
+def has_users() -> bool:
+    """True when at least one web user exists."""
+    with session_scope() as session:
+        return session.exec(select(WebUser.id).limit(1)).first() is not None
+
+
+def list_users() -> list[dict[str, Any]]:
+    """Return every user, by username."""
+    with session_scope() as session:
+        rows = session.exec(select(WebUser).order_by(col(WebUser.username))).all()
+        return [_public(row) for row in rows]
+
+
+def find_user(reference: str) -> dict[str, Any]:
+    """Return a user by username or id; raise NotFoundError."""
+    with session_scope() as session:
+        row = _by_name(session, reference.strip())
+        if row is None and reference.strip().isdigit():
+            row = session.get(WebUser, int(reference.strip()))
+        if row is None:
+            raise NotFoundError(f"Web user '{reference}' not found")
+        return _public(row)
+
+
+def create_user(
+    username: str,
+    password: str | None,
+    role: Role | str | None,
+    projects: Iterable[str] | None = None,
+    created_by: str | None = None,
+    auth_source: str = AUTH_LOCAL,
+) -> dict[str, Any]:
+    """Create a user; a local one without ``password`` gets a random one.
+
+    An SSO user (``auth_source="oidc"``) has no password and may have no role of its own
+    (``role`` None: the role of its groups applies). Returns the user and, when generated, its
+    ``password`` (shown exactly once). Raises ValueError when invalid, duplicated or over the
+    limit.
+    """
+    source = clean_auth_source(auth_source)
+    name = clean_username(username)
+    parsed = clean_role(role, source)
+    names = clean_projects(parsed, projects)
+    secret: str | None = None
+    if source == AUTH_OIDC:
+        if password is not None:
+            raise ValueError("An SSO user has no password: it logs in with the identity provider")
+    else:
+        secret = generate_password() if password is None else clean_password(password)
+    with session_scope() as session:
+        _check_capacity(session)
+    row = WebUser(
+        username=name,
+        auth_source=source,
+        role=parsed.value if parsed else None,
+        projects=json.dumps(names),
+        password_hash=hash_password(secret) if secret is not None else None,
+        password_changed_at=utcnow() if secret is not None else None,
+        session_version=new_session_version(),
+        created_by=created_by,
+    )
+    try:
+        with session_scope() as session:
+            _lift_revocation(session, name)
+            session.add(row)
+            session.flush()
+            session.refresh(row)
+            created = _public(row)
+    except IntegrityError as exc:
+        raise ValueError(f"A web user named '{name}' already exists") from exc
+    generated = source == AUTH_LOCAL and password is None
+    return created | {"password": secret} if generated else created
+
+
+def update_user(
+    user_id: int, role: Role | str | None, projects: Iterable[str] | None = None
+) -> dict[str, Any]:
+    """Replace the role and projects of a user (applies to its open sessions at once).
+
+    ``role`` None removes the role of an SSO user (the role of its groups still applies). The
+    last administrator cannot be demoted.
+    """
+    with session_scope() as session:
+        row = _get(session, user_id)
+        parsed = clean_role(role, row.auth_source)
+        names = clean_projects(parsed, projects)
+        stays_admin = parsed == Role.ADMIN or row.sso_role == Role.ADMIN.value
+        if _is_admin(row) and not stays_admin and _admin_count(session) <= 1:
+            raise ValueError("The last administrator cannot lose the admin role")
+        row.role = parsed.value if parsed else None
+        row.projects = json.dumps(names)
+        row.updated_at = utcnow()
+        session.add(row)
+        session.flush()
+        session.refresh(row)
+        return _public(row)
+
+
+def set_password(user_id: int, password: str | None = None) -> dict[str, Any]:
+    """Replace the password of a local user and end its open sessions.
+
+    Without ``password`` a random one is generated and returned in ``password``. An SSO user has
+    no password (ValueError).
+    """
+    generated = password is None
+    secret = generate_password() if password is None else clean_password(password)
+    password_hash = hash_password(secret)
+    with session_scope() as session:
+        row = _get(session, user_id)
+        if row.auth_source != AUTH_LOCAL:
+            raise ValueError("An SSO user has no password: it logs in with the identity provider")
+        row.password_hash = password_hash
+        row.password_changed_at = row.updated_at = utcnow()
+        row.session_version = new_session_version()
+        session.add(row)
+        session.flush()
+        session.refresh(row)
+        updated = _public(row)
+    return updated | {"password": secret} if generated else updated
+
+
+def change_own_password(user_id: int, current: str, new: str) -> dict[str, Any]:
+    """Replace the password of a local user who proves the current one (ValueError otherwise)."""
+    with session_scope() as session:
+        row = _get(session, user_id)
+        stored = row.password_hash if row.auth_source == AUTH_LOCAL else None
+    if stored is None:
+        raise ValueError("An SSO user has no password: it logs in with the identity provider")
+    if not verify_password(current[:MAX_PASSWORD_CHARS], stored):
+        raise ValueError("The current password is wrong")
+    if current == new:
+        raise ValueError("The new password must differ from the current one")
+    return set_password(user_id, new)
+
+
+def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
+    """Delete a user (its sessions stop at once); the last administrator is kept.
+
+    A deleted SSO user is revoked: a login never creates it again (even with
+    ``SECREVIEW_OIDC_AUTO_CREATE_USERS``), until an administrator creates it again.
+    """
+    with session_scope() as session:
+        row = _get(session, user_id)
+        if _is_admin(row) and _admin_count(session) <= 1:
+            raise ValueError("The last administrator cannot be deleted")
+        deleted = _public(row)
+        if row.auth_source == AUTH_OIDC and not _is_revoked(session, row.username):
+            session.add(RevokedSsoUser(username=row.username, revoked_by=deleted_by))
+        session.delete(row)
+    return deleted
+
+
+def authenticate(username: str, password: str) -> dict[str, Any] | None:
+    """Return the local user whose username and password match, or None.
+
+    An SSO user never matches. The time spent does not depend on whether the username exists.
+    The last login time is recorded.
+    """
+    with session_scope() as session:
+        row = _by_name(session, username.strip())
+        stored = row.password_hash if row is not None and row.auth_source == AUTH_LOCAL else None
+        matches = verify_password(password[:MAX_PASSWORD_CHARS], stored or _dummy_hash())
+        if row is None or stored is None or not matches:
+            return None
+        row.last_login_at = utcnow()
+        session.add(row)
+        session.flush()
+        session.refresh(row)
+        return _public(row)
+
+
+def ensure_bootstrap_admin() -> str | None:
+    """Create the local user ``admin`` with a random password while no web user exists.
+
+    Return the password only when the user was created.
+    """
+    if has_users():
+        return None
+    try:
+        created = create_user(BOOTSTRAP_USERNAME, None, Role.ADMIN, created_by="bootstrap")
+    except ValueError:
+        # Another instance sharing the database created it first
+        return None
+    return created["password"]
+
+
+# ── Access given at the approval of an enrollment ────────────────────────────
+
+
+def check_project_grant(username: str, create_sso: bool) -> str:
+    """Check that ``grant_project`` can give a project to this user; return the clean name.
+
+    Called before approving an enrollment, so that a refused grant does not leave an approved
+    request without its web access. ``create_sso`` allows an unknown name (it becomes an SSO
+    user).
+    """
+    name = clean_username(username)
+    with session_scope() as session:
+        row = _by_name(session, name)
+        if row is None:
+            if not create_sso:
+                raise ValueError(f"Web user '{name}' not found (OIDC is not enabled)")
+            _check_capacity(session)
+        elif row.role in (Role.READER.value, Role.TRIAGER.value):
+            if len(json.loads(row.projects)) >= MAX_PROJECTS_PER_TOKEN:
+                raise ValueError(
+                    f"Web user '{name}' already reaches {MAX_PROJECTS_PER_TOKEN} projects"
+                )
+    return name
+
+
+def grant_project(
+    username: str, project: str, created_by: str | None, create_sso: bool
+) -> dict[str, Any]:
+    """Let a web user read ``project`` (usually the project of an approved enrollment).
+
+    A user without a role of its own becomes ``reader`` on that project; a restricted
+    ``reader`` or ``triager`` gets one more project; a user that already reaches every project
+    is unchanged. With ``create_sso``, an unknown name becomes an SSO user (``reader`` on the
+    project), ready for its first login.
+
+    Raises:
+        ValueError: Invalid name or project, unknown user without ``create_sso``, or a limit.
+    """
+    name = check_project_grant(username, create_sso)
+    added = _clean_project(project)
+    with session_scope() as session:
+        row = _by_name(session, name)
+        if row is None:
+            # Named by an administrator: a revoked user is created again
+            _lift_revocation(session, name)
+            row = WebUser(
+                username=name,
+                auth_source=AUTH_OIDC,
+                role=Role.READER.value,
+                projects=json.dumps([added]),
+                session_version=new_session_version(),
+                created_by=created_by,
+            )
+        elif row.role is None:
+            row.role = Role.READER.value
+            row.projects = json.dumps([added])
+        elif row.role != Role.ADMIN.value and json.loads(row.projects):
+            role = Role(row.role)
+            row.projects = json.dumps(clean_projects(role, [*json.loads(row.projects), added]))
+        row.updated_at = utcnow()
+        session.add(row)
+        try:
+            session.flush()
+        except IntegrityError:
+            # Same user created twice at the same time
+            raise ValueError(f"Web user '{name}' was created concurrently; retry") from None
+        session.refresh(row)
+        return _public(row)
+
+
+# ── Sessions ─────────────────────────────────────────────────────────────────
+
+
+def _session(signer: SessionSigner, row: WebUser) -> dict[str, Any]:
+    """Issue a session token for a web user, with its current access and version."""
+    access = _access(row)
+    if access is None or row.id is None:
+        raise ValueError(f"Web user {row.username} has no web role")
+    token = signer.issue_session(
+        _label(row),
+        access.role,
+        access.projects,
+        user_id=row.id,
+        user_version=row.session_version,
+    )
+    return {
+        "session": token,
+        "expires_in": signer.session_seconds,
+        "username": row.username,
+        "role": access.role,
+    }
+
+
+def new_session(signer: SessionSigner, user_id: int) -> dict[str, Any]:
+    """Issue a session token for a web user, with its current role, projects and version."""
+    with session_scope() as session:
+        return _session(signer, _get(session, user_id))
+
+
+def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings) -> dict[str, Any]:
+    """Open the session of the SSO user of a verified OIDC login; raise OidcError.
+
+    The user is named by the username claim. It is refused when the name belongs to a local
+    account, when it is bound to another subject, or when it does not exist and
+    ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is off (``unknown_user``) or an administrator deleted it
+    (``revoked``). The access of its groups is
+    stored at each login; the login is refused (``forbidden``) when neither its groups nor its
+    own role give it a web role, and a missing user is then not created.
+    """
+    label = identity.label
+    if not 1 <= len(identity.subject) <= MAX_SUBJECT_CHARS or not identity.subject.isascii():
+        # OIDC Core 2: at most 255 ASCII characters; never truncated into another subject
+        logger.warning("OIDC login of %s refused: invalid subject", label)
+        raise OidcError("token", "Invalid subject claim")
+    try:
+        name = clean_username(identity.username or "")
+    except ValueError:
+        logger.warning("OIDC login of %s refused: missing or invalid username claim", label)
+        raise OidcError("username", "Missing or invalid username claim") from None
+    try:
+        groups = role_mapping.resolve(set(identity.groups), settings)
+    except ValueError as exc:
+        logger.warning("OIDC login of %s refused: %s", label, exc)
+        raise OidcError("forbidden", str(exc)) from None
+    try:
+        with session_scope() as session:
+            row = _by_name(session, name)
+            if row is not None and row.auth_source != AUTH_OIDC:
+                logger.warning("OIDC login of %s refused: %s is a local account", label, name)
+                raise OidcError("conflict", "This username belongs to a local account")
+            if row is not None and row.oidc_subject is not None:
+                if not same_value(row.oidc_subject, identity.subject):
+                    logger.warning(
+                        "OIDC login of %s refused: user %s is bound to another subject",
+                        label,
+                        name,
+                    )
+                    raise OidcError("conflict", "This user is bound to another account")
+            if row is None:
+                if not settings.oidc_auto_create_users:
+                    logger.warning("OIDC login of %s refused: no web user %s", label, name)
+                    raise OidcError("unknown_user", "No web user for this account")
+                if _is_revoked(session, name):
+                    logger.warning("OIDC login of %s refused: web user %s was deleted", label, name)
+                    raise OidcError("revoked", "This web user was deleted by an administrator")
+                if groups is None:
+                    logger.warning("OIDC login of %s refused: no role mapping matches it", label)
+                    raise OidcError("forbidden", "No web role granted to this user")
+                _check_capacity(session)
+                row = WebUser(
+                    username=name,
+                    auth_source=AUTH_OIDC,
+                    session_version=new_session_version(),
+                    created_by="oidc",
+                )
+                logger.info("SSO web user %s created at its first login", name)
+            row.oidc_subject = identity.subject
+            row.sso_role = groups.role.value if groups else None
+            row.sso_projects = json.dumps(
+                sorted(groups.projects) if groups and groups.projects is not None else []
+            )
+            row.last_login_at = utcnow()
+            session.add(row)
+            session.flush()
+            session.refresh(row)
+            access = _access(row)
+            result = _session(signer, row) if access is not None else None
+    except IntegrityError:
+        # The same user logged in twice at the same time
+        raise OidcError("state", "Concurrent first login: try again") from None
+    except ValueError as exc:
+        raise OidcError("forbidden", str(exc)) from None
+    if result is None or access is None:
+        logger.warning("OIDC login of %s refused: no web role", label)
+        raise OidcError("forbidden", "No web role granted to this user")
+    scope = "every project" if access.projects is None else f"{len(access.projects)} project(s)"
+    logger.info("OIDC login of %s with role %s on %s", label, access.role, scope)
+    return result
+
+
+def session_identity(user_id: int, version: int, username: str) -> TokenInfo | None:
+    """Current identity of the user of a session issued to ``username`` with ``version``.
+
+    None when the user no longer exists (or its id now belongs to another account), has no web
+    role any more, or its password changed after the session was issued.
+    """
+    with session_scope() as session:
+        row = session.get(WebUser, user_id)
+        if (
+            row is None
+            or row.session_version != version
+            or not hmac.compare_digest(_label(row).encode(), username.encode())
+        ):
+            return None
+        access = _access(row)
+        if access is None or access.role not in WEB_ROLES:
+            return None
+        return TokenInfo(
+            label=_label(row),
+            role=access.role,
+            projects=access.projects,
+            user_id=row.id,
+            auth_source=row.auth_source,
+        )
+
+
+class SessionVerifier:
+    """Verifier of the controller sessions (http_server.SessionVerifier).
+
+    Every session names a web user, checked against the database at each request (see
+    session_identity).
+    """
+
+    def __init__(self, signer: SessionSigner) -> None:
+        self.signer = signer
+
+    def owns(self, credentials: str) -> bool:
+        """True when the bearer value is a session token."""
+        return self.signer.owns(credentials)
+
+    def verify_session(self, credentials: str) -> TokenInfo | None:
+        """Return the identity of a valid session, or None."""
+        payload = self.signer.decode_session(credentials)
+        if payload is None:
+            return None
+        return session_identity(payload["uid"], payload["uver"], payload["sub"])
+
+
+# ── Login throttling ─────────────────────────────────────────────────────────
+
+
+class LoginThrottle:
+    """Count the failed logins of the last ``window`` seconds, in memory.
+
+    A username is locked for an address after ``max_per_user`` failures, an address after
+    ``max_per_address`` failures on any username. At most ``max_keys`` keys are kept (the oldest
+    are dropped), so that memory stays bounded.
+    """
+
+    def __init__(
+        self,
+        max_per_user: int = 5,
+        max_per_address: int = 20,
+        window: float = 15 * 60,
+        max_keys: int = 10_000,
+    ) -> None:
+        self.max_per_user = max_per_user
+        self.max_per_address = max_per_address
+        self.window = window
+        self.max_keys = max_keys
+        self._failures: OrderedDict[tuple[str, ...], list[float]] = OrderedDict()
+        self._lock = threading.Lock()
+
+    def _recent(self, key: tuple[str, ...], now: float) -> list[float]:
+        """Failures of a key still inside the window (expired ones are dropped)."""
+        times = [t for t in self._failures.get(key, []) if now - t < self.window]
+        if times:
+            self._failures[key] = times
+        else:
+            self._failures.pop(key, None)
+        return times
+
+    def blocked(self, username: str, address: str) -> bool:
+        """True when this login must be refused without checking the password."""
+        now = time.monotonic()
+        with self._lock:
+            return (
+                len(self._recent(("user", username.lower(), address), now)) >= self.max_per_user
+                or len(self._recent(("address", address), now)) >= self.max_per_address
+            )
+
+    def failed(self, username: str, address: str) -> None:
+        """Record a failed login."""
+        now = time.monotonic()
+        with self._lock:
+            for key in (("user", username.lower(), address), ("address", address)):
+                self._failures.setdefault(key, []).append(now)
+                self._failures.move_to_end(key)
+            while len(self._failures) > self.max_keys:
+                self._failures.popitem(last=False)
+
+    def succeeded(self, username: str, address: str) -> None:
+        """Forget the failures of a username for an address after a successful login."""
+        with self._lock:
+            self._failures.pop(("user", username.lower(), address), None)

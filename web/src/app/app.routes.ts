@@ -56,6 +56,27 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'standards',
+        title: 'Normes · Security Review',
+        loadComponent: () =>
+          import('./features/standards/standard-list/standard-list.component').then(
+            (m) => m.StandardListComponent,
+          ),
+      },
+      {
+        path: 'account',
+        title: 'Mon compte · Security Review',
+        loadComponent: () =>
+          import('./features/account/account.component').then((m) => m.AccountComponent),
+      },
+      {
+        path: 'users',
+        title: 'Utilisateurs · Security Review',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/users/user-list.component').then((m) => m.UserListComponent),
+      },
+      {
         path: 'tokens',
         title: 'Jetons · Security Review',
         canActivate: [adminGuard],
@@ -63,6 +84,22 @@ export const routes: Routes = [
           import('./features/tokens/project-token-list.component').then(
             (m) => m.ProjectTokenListComponent,
           ),
+      },
+      {
+        path: 'role-mappings',
+        title: 'Rôles SSO · Security Review',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/role-mappings/role-mapping-list.component').then(
+            (m) => m.RoleMappingListComponent,
+          ),
+      },
+      {
+        path: 'settings',
+        title: 'Paramètres · Security Review',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/settings/settings.component').then((m) => m.SettingsComponent),
       },
       {
         path: 'reports/:id',
