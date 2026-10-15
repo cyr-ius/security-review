@@ -45,7 +45,7 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
 - Donnez `token` au client ; le `label`, unique, apparaît dans les journaux.
 - `--role` vaut `mcp` par défaut (serveur MCP) ; `reader` (lecture seule) et `triager` (lecture
   et triage) donnent accès à l'API REST du contrôleur, jamais à l'interface web : voir les
-  [rôles](../utilisation/interface-web.md#roles).
+  [rôles](../usage/web-interface.md#roles).
 - `--project` limite le jeton à un ou plusieurs projets (répétez l'option), pour les outils MCP
   comme pour l'API REST
   (rôles `mcp`, `reader` et `triager` ; refusé pour `admin`). Voir
@@ -88,7 +88,7 @@ stdio, il n'y a pas de jeton, donc pas de restriction.
 ### Mot de passe administrateur initial
 
 Avec `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (c'est le cas dans l'image Docker), le **contrôleur**
-crée au premier démarrage le [compte](../utilisation/interface-web.md#comptes-utilisateurs)
+crée au premier démarrage le [compte](../usage/web-interface.md#comptes-utilisateurs)
 `admin` de l'interface web, avec un mot de passe aléatoire affiché une seule fois dans ses logs.
 Ce compte n'ouvre que l'interface web et l'API REST, jamais `/mcp` : pour un agent, créez un
 jeton (`token create`). S'il est perdu, remplacez le mot de passe (l'ancien est aussitôt
@@ -124,11 +124,11 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
       `{"project": "shop-api"}`. Le contrôleur ne sert pas cet endpoint : il n'expose aucune
       route d'écriture sans authentification.
 2. **Configuration.** L'utilisateur place aussitôt le jeton dans la
-   [configuration de l'hôte](hote.md#obtenir-un-jeton-enrolement). Tant qu'il est en attente, le client
+   [configuration de l'hôte](host.md#obtenir-un-jeton-enrolement). Tant qu'il est en attente, le client
    reste sur le serveur d'enrôlement (`get_enrollment_status` répond `pending`) et l'API web
    répond `403 enrollment_pending`.
 3. **Validation.** Un administrateur approuve ou refuse la demande dans l'écran **Jetons** de
-   l'[interface web](../utilisation/interface-web.md), ou en CLI :
+   l'[interface web](../usage/web-interface.md), ou en CLI :
 
     ```bash
     security-review-controller token list --pending           # demandeur, adresse, date
@@ -140,9 +140,9 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
     L'approbation peut aussi donner au développeur la **lecture du projet dans le portail**,
     sur son compte utilisateur (colonne **Lecture dans le portail** de l'interface, ou
     `token approve ID --portal-user alice` en CLI) ; avec la
-    [connexion SSO](../utilisation/interface-web.md#connexion-sso-openid-connect), un nom
+    [connexion SSO](../usage/web-interface.md#connexion-sso-openid-connect), un nom
     inconnu devient un compte SSO. Voir la
-    [lecture du projet à l'enrôlement](../utilisation/interface-web.md#lecture-du-projet-a-lenrolement).
+    [lecture du projet à l'enrôlement](../usage/web-interface.md#lecture-du-projet-a-lenrolement).
 
 ### Enrôlement complémentaire
 
@@ -224,7 +224,7 @@ security-review-controller serve --host 0.0.0.0 --port 9443 --tls-self-signed
 
 !!! warning
     Les clients ne font pas confiance à ce certificat : il faut l'ajouter explicitement à leur
-    configuration (voir [Configuration de l'hôte](hote.md#serveur-https-auto-signe-ou-ca-interne)),
+    configuration (voir [Configuration de l'hôte](host.md#serveur-https-auto-signe-ou-ca-interne)),
     et le réajouter à chaque redémarrage. Réservez-le aux tests et aux réseaux internes ; en
     production, fournissez un certificat signé par une CA ou terminez le TLS sur un reverse proxy.
 
@@ -264,7 +264,7 @@ VS Code, avec un jeton demandé à l'utilisateur :
 ```
 
 Pour Claude et pour obtenir un jeton par enrôlement depuis l'hôte, voir
-[Configuration de l'hôte](hote.md#obtenir-un-jeton-enrolement).
+[Configuration de l'hôte](host.md#obtenir-un-jeton-enrolement).
 
 ## Derrière un reverse proxy
 

@@ -21,7 +21,7 @@ cp .env.example .env
 pytest && ruff check .
 ```
 
-L'[interface web](../utilisation/interface-web.md) est une application Angular à compiler
+L'[interface web](../usage/web-interface.md) est une application Angular à compiler
 (Node.js 22.22.3+ ou 24.15+, requis par Angular 22) ; sans elle, le contrôleur ne sert que l'API REST :
 
 ```bash
@@ -88,5 +88,5 @@ La version 2 sépare le serveur MCP et le contrôleur, et gère le schéma avec 
    `security-review-controller …` dans vos scripts et pipelines. Les anciennes formes
    fonctionnent encore pendant la version 2, avec un avertissement.
 4. Le compte administrateur initial (`SECREVIEW_AUTH_BOOTSTRAP_ADMIN`) est désormais
-   créé par le contrôleur : c'est le [compte `admin`](../utilisation/interface-web.md#premier-administrateur)
+   créé par le contrôleur : c'est le [compte `admin`](../usage/web-interface.md#premier-administrateur)
    de l'interface web, et non plus un jeton `bootstrap-admin`.

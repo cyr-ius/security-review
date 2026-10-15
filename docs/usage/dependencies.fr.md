@@ -47,7 +47,7 @@ SECREVIEW_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
 - **Proxy** : le téléchargement passe par le proxy sortant du contrôleur, `SECREVIEW_PROXY`
   (`http://[utilisateur:mot de passe@]hôte:port`, tunnel `CONNECT` vers le site HTTPS), sauf
   vers les hôtes de `SECREVIEW_NO_PROXY`. Le même proxy sert à la
-  [connexion SSO](interface-web.md#connexion-sso-openid-connect). Sans lui, les variables
+  [connexion SSO](web-interface.md#connexion-sso-openid-connect). Sans lui, les variables
   standard `HTTPS_PROXY` et `NO_PROXY` s'appliquent. Si le proxy inspecte le TLS, donnez sa CA
   avec `SECREVIEW_OSV_CAFILE` (elle remplace alors les CA du système).
 - **Miroir** : `SECREVIEW_OSV_URL` remplace la source (Nexus, Artifactory, bucket interne…)
@@ -83,7 +83,7 @@ SECREVIEW_NO_PROXY=.corp.example,10.0.0.0/8,172.16.0.0/12,fd00::/8
 ```
 
 Le proxy peut aussi être choisi par un administrateur dans l'écran
-[**Paramètres**](interface-web.md#ecrans) de l'interface web : proxy et hôtes sans proxy
+[**Paramètres**](web-interface.md#ecrans) de l'interface web : proxy et hôtes sans proxy
 définis ici, ou connexion directe, prioritaires sur `SECREVIEW_PROXY`, `SECREVIEW_NO_PROXY` et
 `HTTPS_PROXY` ; ils s'appliquent au téléchargement suivant. Le même écran affiche l'état de
 la base, l'historique des mises à jour (planifiées, CLI ou web) et un bouton **Mettre à jour
