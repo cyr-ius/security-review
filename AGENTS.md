@@ -91,14 +91,14 @@ l'utiliser.
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
 | CLI : `CONTROLLER_COMMANDS` (`db`, `gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`, `user`) et `MCP_COMMANDS` (`enroll`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`) |
-| Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` |
+| Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) ; proxy sortant du contrôleur (OSV et SSO) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` ; `proxy.py` |
 | Persistance, schéma | `models.py`, `services.py`, `database.py`, `migrations/` (Alembic) |
 | Export et tendances | `sarif.py`, `trends.py` |
 | HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et SSO, seuls à ouvrir l'interface (mot de passe, création SSO à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py`, role mapping : `role_mapping.py` |
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
 | Normes de développement par technologie (prompt `development-standards`, écran « Normes ») | `standards.py` |
-| Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy OSV, configuration SSO) | `config.py` ; `app_settings.py` |
+| Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy sortant, configuration SSO) | `config.py` ; `app_settings.py` |
 
 Tous les modules sont dans `src/security_review_mcp/`. L'application Angular (`web/`) est
 compilée par `npm run build` dans `src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules
@@ -153,7 +153,8 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
   CLI. Exceptions : la commande CLI `enroll`, qui contacte l'URL donnée par l'opérateur, et le
   téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
-  uniquement, taille bornée, proxy facultatif jamais journalisé avec ses identifiants, et la
+  uniquement, taille bornée, proxy facultatif (`proxy`, partagé avec le SSO) jamais journalisé
+  avec ses identifiants, et la
   connexion SSO du contrôleur (`oidc`), **désactivée par défaut**, qui ne contacte que le
   fournisseur d'identité configuré, en HTTPS, réponses bornées.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs

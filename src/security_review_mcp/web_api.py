@@ -33,6 +33,7 @@ from . import (
     advisory_sync,
     app_settings,
     oidc,
+    proxy,
     registry,
     role_mapping,
     rule_store,
@@ -235,16 +236,18 @@ class ReportLanguageUpdate(BaseModel):
     value: str | None = Field(default=None, max_length=REPORT_LANGUAGE_MAX_CHARS)
 
 
-class OsvProxyUpdate(BaseModel):
-    """Body of PUT /settings/osv-proxy.
+class ProxyUpdate(BaseModel):
+    """Body of PUT /settings/proxy: proxy of the outgoing connections of the controller.
 
-    ``env`` applies SECREVIEW_OSV_PROXY then HTTPS_PROXY / NO_PROXY, ``custom`` uses ``url``,
-    ``none`` connects directly. A password sent back as returned by the API (``***``) keeps the
-    stored one.
+    A field left out is unchanged, ``null`` applies the variable again (SECREVIEW_PROXY,
+    SECREVIEW_NO_PROXY). ``url`` ``""`` connects directly, despite the variables; a password
+    sent back as returned by the API (``***``) keeps the stored one.
     """
 
-    mode: app_settings.ProxyMode
-    url: str | None = Field(default=None, max_length=app_settings.MAX_PROXY_URL_CHARS)
+    model_config = ConfigDict(extra="forbid")
+
+    url: str | None = Field(default=None, max_length=proxy.MAX_PROXY_URL_CHARS)
+    no_proxy: str | None = Field(default=None, max_length=proxy.MAX_NO_PROXY_CHARS)
 
 
 _OidcText = Annotated[str, Field(max_length=app_settings.MAX_OIDC_VALUE_CHARS)]
@@ -441,7 +444,7 @@ class OidcLogins:
 
     A ``fixed`` flow (tests) is always used. Otherwise the flow follows the effective settings,
     the ``SECREVIEW_OIDC_*`` variables overridden in the web interface (see
-    app_settings.oidc_settings), read at each call: it is rebuilt when they change, so that
+    app_settings.effective_settings), read at each call: it is rebuilt when they change, so that
     every replica applies a change at its next login.
     """
 
@@ -457,7 +460,7 @@ class OidcLogins:
         """Return the login flow of the effective settings, or None when SSO is disabled."""
         if self.fixed is not None:
             return self.fixed
-        settings = app_settings.oidc_settings(get_settings())
+        settings = app_settings.effective_settings(get_settings())
         if not settings.oidc_enabled:
             return None
         with self._lock:
@@ -1125,16 +1128,19 @@ async def set_report_language(
     return await run_in_threadpool(app_settings.describe)
 
 
-@router.put("/settings/osv-proxy")
-async def set_osv_proxy(
-    body: OsvProxyUpdate, identity: Annotated[Identity, Depends(require_admin)]
+@router.put("/settings/proxy")
+async def set_proxy(
+    body: ProxyUpdate, identity: Annotated[Identity, Depends(require_admin)]
 ) -> dict:
-    """Set the proxy of the OSV download (the URL is never logged with its credentials)."""
+    """Set the proxy of the OSV download and of the SSO provider (applied at the next download
+    or login; the URL is never logged)."""
+    values = body.model_dump(exclude_unset=True)
     try:
-        await run_in_threadpool(app_settings.set_osv_proxy, body.mode, body.url, identity.client)
+        await run_in_threadpool(app_settings.set_proxy, values, identity.client)
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    logger.info("OSV proxy mode set to %s by %s", body.mode, identity.client)
+    # Names only: the URL may hold credentials
+    logger.info("Proxy settings %s changed by %s", ", ".join(sorted(values)), identity.client)
     return await run_in_threadpool(app_settings.describe)
 
 
@@ -1182,7 +1188,7 @@ async def role_mappings(
     request: Request, identity: Annotated[Identity, Depends(require_admin)]
 ) -> dict[str, Any]:
     """List the OIDC role mappings: stored ones and the groups of the SSO settings."""
-    settings = await run_in_threadpool(app_settings.oidc_settings)
+    settings = await run_in_threadpool(app_settings.effective_settings)
     return {
         "oidc_enabled": await _current_oidc(request) is not None,
         "roles_claim": settings.oidc_roles_claim,

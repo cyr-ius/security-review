@@ -88,11 +88,18 @@ version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, 
       langue définie ici (`French`, `fr`, `pt-BR`…). Elle s'applique aux prochains prompts de
       revue ; l'argument `report_language` d'un prompt reste prioritaire
       ([langue des rapports](prompts-outils.md#langue-des-rapports)).
-    - **Proxy du téléchargement OSV** : proxy de l'environnement du contrôleur
-      (`SECREVIEW_OSV_PROXY`, sinon `HTTPS_PROXY` / `NO_PROXY`, affichés en lecture seule),
-      proxy défini ici, ou connexion directe. Le proxy appliqué et son origine sont affichés.
-      Les mots de passe ne sont jamais réaffichés (`***`) : renvoyer `***` conserve celui
-      enregistré.
+    - **Proxy sortant du contrôleur** : proxy du téléchargement OSV **et** de la
+      [connexion SSO](#connexion-sso-openid-connect). Comme pour la configuration SSO, chaque
+      valeur définie ici remplace sa variable (badges **Variable** / **Interface web**) :
+      l'URL suit `SECREVIEW_PROXY` (sinon `HTTPS_PROXY` / `NO_PROXY`), est définie ici, ou force
+      la connexion directe ; les **hôtes sans proxy** suivent `SECREVIEW_NO_PROXY` ou sont
+      définis ici (voir [hôtes sans proxy](dependances.md#hotes-sans-proxy) : domaines, adresses
+      IP, plages CIDR, `*`). Le changement s'applique au prochain
+      téléchargement et à la prochaine connexion SSO, sans redémarrage. Le proxy appliqué, son
+      origine et les variables de l'environnement sont affichés ; les mots de passe ne sont
+      jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré. Par l'API :
+      `PUT /api/v1/settings/proxy` avec `url` et `no_proxy` (`null` applique de nouveau la
+      variable, `"url": ""` force la connexion directe, un champ absent est inchangé).
     - **Base de vulnérabilités OSV** : nombre d'avis par écosystème, date et âge du dernier
       import, configuration du téléchargement, historique des 50 dernières mises à jour
       (planifiée, CLI ou interface web, avec statut, durée et résultat par écosystème) et bouton
@@ -291,8 +298,9 @@ SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
 
 L'émetteur doit être en HTTPS (HTTP n'est accepté que sur `localhost`, pour le développement) ;
 son document `/.well-known/openid-configuration` doit annoncer le même `issuer`. Si le
-fournisseur utilise une CA interne, indiquez-la avec `SECREVIEW_OIDC_CAFILE` ; un proxy sortant
-se configure avec `HTTPS_PROXY` / `NO_PROXY`.
+fournisseur utilise une CA interne, indiquez-la avec `SECREVIEW_OIDC_CAFILE`. Le contrôleur joint
+le fournisseur par son proxy sortant (`SECREVIEW_PROXY` / `SECREVIEW_NO_PROXY`, ou l'écran
+**Paramètres**), sinon par `HTTPS_PROXY` / `NO_PROXY`.
 
 ### Configurer le SSO dans l'interface
 

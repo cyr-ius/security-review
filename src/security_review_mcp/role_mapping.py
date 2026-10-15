@@ -10,7 +10,7 @@ optional list of projects. Two sources are combined at each login:
   ``..._READER_GROUPS``, which reach every project (used to bootstrap the first administrator).
 
 The SSO settings named here are those variables, possibly overridden in the web interface (see
-app_settings.oidc_settings): ``settings`` is always the effective one.
+app_settings.effective_settings): ``settings`` is always the effective one.
 
 Resolution (see resolve): the highest role among the matching mappings wins. The session then
 reaches every project if one of the mappings granting that role is unrestricted, otherwise the

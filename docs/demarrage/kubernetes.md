@@ -100,7 +100,7 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 ```
 
 Pour la [mise à jour quotidienne des avis OSV](../utilisation/dependances.md#mise-a-jour-automatique-par-le-controleur),
-décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et au besoin `SECREVIEW_OSV_PROXY`, dans le Secret
+décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et au besoin `SECREVIEW_PROXY`, dans le Secret
 s'il contient des identifiants) sur le conteneur `controller`, et autorisez sa sortie vers
 osv.dev ou votre miroir (ou le proxy) si une NetworkPolicy d'egress s'applique. Le serveur MCP
 n'a besoin d'aucune sortie.

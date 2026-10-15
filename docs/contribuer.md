@@ -107,7 +107,8 @@ src/security_review_mcp/
 ├── versions.py    # comparaison de versions
 ├── advisories.py  # import OSV, correspondance des versions
 ├── advisory_sync.py  # téléchargement OSV par le contrôleur (proxy, mise à jour quotidienne, historique)
-├── app_settings.py    # réglages modifiables dans l'interface (langue, proxy OSV, SSO), en base
+├── app_settings.py    # réglages modifiables dans l'interface (langue, proxy sortant, SSO), en base
+├── proxy.py       # proxy sortant du contrôleur (OSV, SSO) : URL, no_proxy, handler urllib
 ├── dependencies.py    # analyseurs de manifestes / lockfiles, hygiène
 ├── depscan.py     # scan de dépendances et conversion en findings
 ├── services.py    # logique de persistance des rapports

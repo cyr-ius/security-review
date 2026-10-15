@@ -3,10 +3,10 @@
 When ``SECREVIEW_OSV_AUTO_UPDATE`` is enabled, ``security-review-controller serve`` downloads
 the per-ecosystem ``all.zip`` archives published by osv.dev (or a mirror) once a day and imports
 them with advisories.import_advisories, and an administrator may start an update from the web
-interface; ``security-review-controller advisories update`` does the same on demand. This is the
-only outgoing connection of the controller: the MCP server never makes one. The download goes
-through an optional HTTP proxy (app_settings.proxy_choice), only over HTTPS, and its size is
-bounded by ``SECREVIEW_OSV_MAX_DOWNLOAD_MB``.
+interface; ``security-review-controller advisories update`` does the same on demand. The MCP
+server never makes an outgoing connection. The download goes through the proxy of the
+controller (see proxy, effective settings read at each update), only over HTTPS, and its size
+is bounded by ``SECREVIEW_OSV_MAX_DOWNLOAD_MB``.
 
 Every update is recorded in the ``advisoryupdate`` table (history shown in the web interface).
 One update at a time runs in a controller process.
@@ -30,6 +30,7 @@ from . import __version__, advisories, app_settings
 from .config import Settings, get_settings
 from .database import session_scope
 from .models import AdvisoryUpdate, utcnow
+from .proxy import check_proxy_url, proxy_handler
 
 logger = logging.getLogger(__name__)
 
@@ -97,10 +98,8 @@ def validate_settings(settings: Settings) -> None:
         raise ValueError("SECREVIEW_OSV_URL must be an https:// URL")
     if url.username or url.password:
         raise ValueError("SECREVIEW_OSV_URL must not contain credentials")
-    if settings.osv_proxy:
-        proxy = urlsplit(settings.osv_proxy)
-        if proxy.scheme != "http" or not proxy.hostname:
-            raise ValueError("SECREVIEW_OSV_PROXY must be an http://[user:password@]host:port URL")
+    if settings.proxy:
+        check_proxy_url(settings.proxy, "SECREVIEW_PROXY")
     if settings.osv_cafile and not Path(settings.osv_cafile).is_file():
         raise ValueError(f"SECREVIEW_OSV_CAFILE: file not found: {settings.osv_cafile}")
     if settings.osv_update_interval_hours < 1:
@@ -111,22 +110,16 @@ def validate_settings(settings: Settings) -> None:
 
 
 def build_opener(settings: Settings) -> urllib.request.OpenerDirector:
-    """Build the HTTPS opener: CA bundle, HTTPS-only redirects and the proxy.
-
-    The proxy set in the web interface comes first, then ``SECREVIEW_OSV_PROXY``; without
-    either, urllib applies the standard ``HTTPS_PROXY`` and ``NO_PROXY`` environment variables,
-    unless the web interface asks for a direct connection.
-    """
+    """Build the HTTPS opener: CA bundle, HTTPS-only redirects and the proxy of ``settings``
+    (effective settings, see proxy.proxy_handler); without a proxy, urllib applies the
+    standard ``HTTPS_PROXY`` and ``NO_PROXY`` environment variables."""
     context = ssl.create_default_context(cafile=settings.osv_cafile)
     handlers: list[urllib.request.BaseHandler] = [
         urllib.request.HTTPSHandler(context=context),
         _HttpsRedirectOnly(),
     ]
-    choice = app_settings.proxy_choice(settings)
-    if choice.url:
-        handlers.append(urllib.request.ProxyHandler({"http": choice.url, "https": choice.url}))
-    elif choice.source == "none":
-        handlers.append(urllib.request.ProxyHandler({}))
+    if (handler := proxy_handler(settings)) is not None:
+        handlers.append(handler)
     return urllib.request.build_opener(*handlers)
 
 
@@ -164,15 +157,15 @@ def update_advisories(
     an ``error`` instead of the import counters. The archives are written in a private temporary
     directory, removed afterwards.
     """
-    settings = settings or get_settings()
+    # The proxy set in the web interface applies from the next update
+    settings = app_settings.effective_settings(settings or get_settings())
     validate_settings(settings)
     wanted = ecosystems or ecosystems_of(settings)
     opener = build_opener(settings)
     max_bytes = settings.osv_max_download_mb * 1024 * 1024
-    choice = app_settings.proxy_choice(settings)
-    if choice.url:
-        logger.info("OSV download through the proxy %s (%s)", safe_url(choice.url), choice.source)
-    elif choice.source == "none":
+    if settings.proxy:
+        logger.info("OSV download through the proxy %s", safe_url(settings.proxy))
+    elif settings.proxy == "":
         logger.info("OSV download without proxy (set in the web interface)")
     results: dict[str, dict] = {}
     with tempfile.TemporaryDirectory(prefix="secreview-osv-") as directory:
@@ -197,7 +190,7 @@ def update_advisories(
 
 def _scrub(text: str, settings: Settings) -> str:
     """Remove the proxy credentials from an error message and bound its length."""
-    for url in (settings.osv_proxy, app_settings.proxy_choice(settings).url):
+    for url in (settings.proxy, app_settings.effective_settings(settings).proxy):
         if url:
             text = text.replace(url, safe_url(url))
     return text[:MAX_ERROR_CHARS]

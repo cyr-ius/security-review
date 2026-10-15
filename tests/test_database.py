@@ -123,3 +123,36 @@ def test_user_grants_become_sso_web_users(empty_engine):
         "admin",
     )
     assert (users["bob"]["auth_source"], users["bob"]["role"]) == ("local", "admin")
+
+
+@pytest.mark.parametrize(
+    ("stored", "expected"),
+    [
+        ({"osv_proxy_mode": "custom", "osv_proxy_url": "http://proxy:3128"}, "http://proxy:3128"),
+        ({"osv_proxy_mode": "none"}, ""),
+        ({"osv_proxy_mode": "custom"}, None),  # no URL: the variable applies
+    ],
+)
+def test_the_osv_proxy_becomes_the_general_proxy(empty_engine, stored, expected):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0007")
+        for key, value in stored.items():
+            connection.execute(
+                text(
+                    "INSERT INTO appsetting (key, value, updated_at, updated_by) "
+                    "VALUES (:key, :value, '2026-10-01 10:00:00', 'admin')"
+                ),
+                {"key": key, "value": value},
+            )
+        command.upgrade(database.alembic_config(connection), "head")
+        rows = dict(connection.execute(text("SELECT key, value FROM appsetting")).all())
+    assert rows == ({} if expected is None else {"proxy": expected})
+
+    # Downgrading gives the OSV proxy back
+    with empty_engine.begin() as connection:
+        command.downgrade(database.alembic_config(connection), "0007")
+        rows = dict(connection.execute(text("SELECT key, value FROM appsetting")).all())
+    assert rows == {key: value for key, value in stored.items() if expected is not None}

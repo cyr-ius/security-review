@@ -969,7 +969,7 @@ def test_project_triager_only_changes_findings_of_its_project(secured, mcp_serve
     [
         ("get", "/api/v1/settings"),
         ("put", "/api/v1/settings/report-language"),
-        ("put", "/api/v1/settings/osv-proxy"),
+        ("put", "/api/v1/settings/proxy"),
         ("get", "/api/v1/advisories"),
         ("post", "/api/v1/advisories/update"),
     ],
@@ -1002,22 +1002,44 @@ def test_report_language_with_instructions_is_refused(client):
 def test_admin_sets_the_proxy_and_never_gets_the_password_back(client, caplog):
     with caplog.at_level("INFO", logger="security_review_mcp"):
         response = client.put(
-            "/api/v1/settings/osv-proxy",
-            json={"mode": "custom", "url": "http://alice:s3cr3t@proxy.internal:3128"},
+            "/api/v1/settings/proxy",
+            json={"url": "http://alice:s3cr3t@proxy.internal:3128", "no_proxy": "osv.internal"},
         )
         listed = client.get("/api/v1/settings")
 
     assert response.status_code == 200 and listed.status_code == 200
     assert "s3cr3t" not in response.text + listed.text + caplog.text
-    assert listed.json()["osv_proxy"]["url"] == "http://alice:***@proxy.internal:3128"
+    proxy = listed.json()["proxy"]
+    assert proxy["url"]["value"] == "http://alice:***@proxy.internal:3128"
+    assert proxy["no_proxy"]["value"] == "osv.internal"
+    assert proxy["effective"]["source"] == "web"
+    # A field left out is unchanged, null applies the variable again
+    reset = client.put("/api/v1/settings/proxy", json={"url": None}).json()["proxy"]
+    assert reset["url"]["value"] is None and reset["no_proxy"]["value"] == "osv.internal"
 
 
 def test_invalid_proxy_is_refused(client):
-    response = client.put(
-        "/api/v1/settings/osv-proxy", json={"mode": "custom", "url": "socks5://proxy:1080"}
-    )
-    assert response.status_code == 422
-    assert client.put("/api/v1/settings/osv-proxy", json={"mode": "other"}).status_code == 422
+    for body in (
+        {"url": "socks5://proxy:1080"},
+        {"no_proxy": "example.com/path"},
+        {"mode": "custom"},
+        {"url": "http://" + "a" * 500},
+    ):
+        assert client.put("/api/v1/settings/proxy", json=body).status_code == 422, body
+
+
+def test_a_proxy_change_rebuilds_the_sso_login(ui_dir):
+    app = web_api.create_app(ui_dir=str(ui_dir))
+    client = TestClient(as_admin(app), base_url="http://127.0.0.1")
+    client.put("/api/v1/oidc/settings", json=SSO_SETTINGS)
+    logins = app.state.oidc
+    before = logins.current()
+    assert before.settings.proxy is None
+
+    client.put("/api/v1/settings/proxy", json={"url": "http://proxy.internal:3128"})
+
+    after = logins.current()
+    assert after is not before and after.settings.proxy == "http://proxy.internal:3128"
 
 
 def test_advisory_overview_lists_the_database_and_the_updates(client, monkeypatch):

@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, output, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import {
   OidcSettingName,
@@ -93,7 +94,7 @@ export function variableOf(name: OidcSettingName): string {
  */
 @Component({
   selector: 'app-sso-settings',
-  imports: [NgTemplateOutlet],
+  imports: [NgTemplateOutlet, RouterLink],
   templateUrl: './sso-settings.component.html',
 })
 export class SsoSettingsComponent {

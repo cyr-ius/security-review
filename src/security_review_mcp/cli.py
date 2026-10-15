@@ -518,7 +518,7 @@ def token_command(argv: list[str]) -> int:
                 else token_store.list_tokens(args.project)
             )
         elif args.action == "approve":
-            create_sso = app_settings.oidc_settings().oidc_enabled
+            create_sso = app_settings.effective_settings().oidc_enabled
             portal_user = (
                 web_users.check_project_grant(args.portal_user, create_sso)
                 if args.portal_user

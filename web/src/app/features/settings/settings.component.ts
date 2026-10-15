@@ -7,13 +7,16 @@ import {
   AdvisoryEcosystemResult,
   AdvisoryUpdate,
   AppSettings,
-  ProxyMode,
+  ProxyUpdate,
 } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 
 /** How the report language is chosen in the form. */
 type LanguageMode = 'inherit' | 'agent' | 'custom';
+
+/** How the proxy URL is chosen: variable, set here, or direct connection. */
+type ProxyMode = 'env' | 'custom' | 'none';
 
 /** Delay between two refreshes of the OSV history while an update runs. */
 const POLL_MS = 5000;
@@ -36,16 +39,17 @@ export const TRIGGER_LABELS: Record<AdvisoryUpdate['trigger'], string> = {
   web: 'Interface web',
 };
 
-const PROXY_SOURCE_LABELS: Record<AppSettings['osv_proxy']['effective']['source'], string> = {
+const PROXY_SOURCE_LABELS: Record<AppSettings['proxy']['effective']['source'], string> = {
   web: 'interface web',
   none: 'connexion directe (interface web)',
-  SECREVIEW_OSV_PROXY: 'variable SECREVIEW_OSV_PROXY',
+  SECREVIEW_PROXY: 'variable SECREVIEW_PROXY',
   environment: 'variables HTTPS_PROXY / NO_PROXY',
 };
 
 /**
- * Administrator page: language of the review reports, proxy of the OSV download (or the one of
- * the environment), state of the advisory database, history of its updates and manual update.
+ * Administrator page: language of the review reports, proxy of the outgoing connections of the
+ * controller (OSV download and SSO provider; each value set here overrides its variable), state
+ * of the advisory database, history of its updates and manual update.
  */
 @Component({
   selector: 'app-settings',
@@ -63,6 +67,9 @@ export class SettingsComponent {
   readonly language = signal('');
   readonly proxyMode = signal<ProxyMode>('env');
   readonly proxyUrl = signal('');
+  /** The no_proxy list follows SECREVIEW_NO_PROXY (false) or is set here (true). */
+  readonly noProxyCustom = signal(false);
+  readonly noProxy = signal('');
 
   readonly message = signal<string | null>(null);
   readonly error = signal<string | null>(null);
@@ -84,7 +91,7 @@ export class SettingsComponent {
   );
 
   readonly proxySource = computed(() => {
-    const source = this.settings.value()?.osv_proxy.effective.source;
+    const source = this.settings.value()?.proxy.effective.source;
     return source ? PROXY_SOURCE_LABELS[source] : '';
   });
 
@@ -106,8 +113,11 @@ export class SettingsComponent {
       const stored = value.report_language.value;
       this.languageMode.set(stored === null ? 'inherit' : stored === '' ? 'agent' : 'custom');
       this.language.set(stored ?? '');
-      this.proxyMode.set(value.osv_proxy.mode);
-      this.proxyUrl.set(value.osv_proxy.url ?? '');
+      const url = value.proxy.url.value;
+      this.proxyMode.set(url === null ? 'env' : url === '' ? 'none' : 'custom');
+      this.proxyUrl.set(url ?? '');
+      this.noProxyCustom.set(value.proxy.no_proxy.value !== null);
+      this.noProxy.set(value.proxy.no_proxy.value ?? value.proxy.no_proxy.env ?? '');
     });
     // Follow an update in progress until it finishes
     effect(() => {
@@ -149,14 +159,18 @@ export class SettingsComponent {
   async saveProxy(event: Event): Promise<void> {
     event.preventDefault();
     const mode = this.proxyMode();
-    const url = mode === 'custom' ? this.proxyUrl().trim() : null;
+    const url = this.proxyUrl().trim();
     if (mode === 'custom' && !url) {
       this.error.set('Indiquez l’URL du proxy (http://[utilisateur:mot de passe@]hôte:port).');
       return;
     }
+    const values: ProxyUpdate = {
+      url: mode === 'env' ? null : mode === 'none' ? '' : url,
+      no_proxy: this.noProxyCustom() ? this.noProxy().trim() : null,
+    };
     await this.run(
-      () => firstValueFrom(this.api.setOsvProxy(mode, url)),
-      'Proxy enregistré : il s’applique au prochain téléchargement OSV.',
+      () => firstValueFrom(this.api.setProxy(values)),
+      'Proxy enregistré : il s’applique au prochain téléchargement OSV et à la prochaine connexion SSO.',
     );
   }
 

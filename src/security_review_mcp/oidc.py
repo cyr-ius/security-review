@@ -19,10 +19,10 @@ flow with PKCE:
    web users issues the same session tokens.
 
 This module stores nothing in the database: its settings are the ``SECREVIEW_OIDC_*`` variables,
-possibly overridden in the web interface (see app_settings.oidc_settings). The provider is
+possibly overridden in the web interface (see app_settings.effective_settings). The provider is
 contacted only by the controller, over HTTPS (plain HTTP is accepted for a provider on the
-loopback interface, for development), with bounded response sizes; tokens, codes and secrets
-are never logged.
+loopback interface, for development), through the proxy of the controller (see proxy), with
+bounded response sizes; tokens, codes and secrets are never logged.
 """
 
 import base64
@@ -46,6 +46,7 @@ import jwt
 from . import __version__
 from .config import Settings
 from .http_server import AUTH_PREFIX, LOOPBACK_HOSTS, WEB_ROLES, Role
+from .proxy import masked_url, proxy_handler
 
 logger = logging.getLogger("security_review_mcp.oidc")
 
@@ -383,10 +384,14 @@ class OidcLogin:
         self._jwks: jwt.PyJWKSet | None = None
         self._jwks_at = 0.0
         context = ssl.create_default_context(cafile=settings.oidc_cafile)
-        # Without an explicit ProxyHandler, urllib applies HTTPS_PROXY and NO_PROXY
-        self._opener = urllib.request.build_opener(
-            urllib.request.HTTPSHandler(context=context), _HttpsRedirectOnly()
-        )
+        handlers: list[urllib.request.BaseHandler] = [
+            urllib.request.HTTPSHandler(context=context),
+            _HttpsRedirectOnly(),
+        ]
+        # The proxy of the controller (see proxy); without one, urllib applies HTTPS_PROXY
+        if (handler := proxy_handler(settings)) is not None:
+            handlers.append(handler)
+        self._opener = urllib.request.build_opener(*handlers)
 
     # HTTP
 
@@ -412,7 +417,11 @@ class OidcLogin:
             logger.warning("Identity provider answered HTTP %s for %s", exc.code, _path_of(url))
             raise OidcError("provider", f"Identity provider error (HTTP {exc.code})") from None
         except (urllib.error.URLError, OSError) as exc:
-            logger.warning("Identity provider unreachable (%s): %s", _path_of(url), exc)
+            message = str(exc)
+            if self.settings.proxy:
+                # The error may name the proxy: never log its credentials
+                message = message.replace(self.settings.proxy, masked_url(self.settings.proxy))
+            logger.warning("Identity provider unreachable (%s): %s", _path_of(url), message)
             raise OidcError("provider", "Identity provider unreachable") from None
         if len(raw) > MAX_RESPONSE_BYTES:
             raise OidcError("provider", "Identity provider response too large")

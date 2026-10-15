@@ -28,7 +28,7 @@ import {
   ProjectTokenCreated,
   ProjectTokenRole,
   MappedRole,
-  ProxyMode,
+  ProxyUpdate,
   RoleMapping,
   RevokedUser,
   RoleMappingCatalog,
@@ -284,8 +284,9 @@ export class ApiService {
     return this.http.put<AppSettings>(`${API_URL}/settings/report-language`, { value });
   }
 
-  setOsvProxy(mode: ProxyMode, url: string | null): Observable<AppSettings> {
-    return this.http.put<AppSettings>(`${API_URL}/settings/osv-proxy`, { mode, url });
+  /** A field left out is unchanged; null restores the variable, url '' connects directly. */
+  setProxy(values: ProxyUpdate): Observable<AppSettings> {
+    return this.http.put<AppSettings>(`${API_URL}/settings/proxy`, values);
   }
 
   advisories(): Observable<AdvisoryOverview> {
