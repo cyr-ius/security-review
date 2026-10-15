@@ -32,7 +32,7 @@ commande `token` (voir la [CLI](../reference/cli.md)) :
 
 ```bash
 security-review-controller token create --label ci                      # rôle mcp par défaut
-security-review-controller token create --label alice --role triager
+security-review-controller token create --label triage-bot --role triager
 security-review-controller token create --label shop-ci --role reader --project shop-api
 # {"id": "6f1c…", "label": "ci", "role": "mcp", "project": null, "created_at": "…", "token": "UJB7…"}
 security-review-controller token list [--project shop-api]             # jamais le secret ni l'empreinte
@@ -43,10 +43,11 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
 [l'enrôlement](#enrolement-un-projet-demande-son-jeton).
 
 - Donnez `token` au client ; le `label`, unique, apparaît dans les journaux.
-- `--role` vaut `mcp` par défaut : voir les [rôles](../utilisation/interface-web.md#roles) pour
-  donner accès à l'interface web.
+- `--role` vaut `mcp` par défaut (serveur MCP) ; `reader` (lecture seule) et `triager` (lecture
+  et triage) donnent accès à l'API REST du contrôleur, jamais à l'interface web : voir les
+  [rôles](../utilisation/interface-web.md#roles).
 - `--project` limite le jeton à un ou plusieurs projets (répétez l'option), pour les outils MCP
-  comme pour l'interface web
+  comme pour l'API REST
   (rôles `mcp`, `reader` et `triager` ; refusé pour `admin`). Voir
   [jetons restreints à un projet](#jetons-restreints-a-un-projet). Les administrateurs peuvent
   aussi créer et révoquer des jetons `reader` restreints depuis l'écran **Jetons**.

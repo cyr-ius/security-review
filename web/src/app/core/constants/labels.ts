@@ -32,3 +32,11 @@ export const ROLE_META: Record<Role, { label: string; icon: string }> = {
   reader: { label: 'Lecture', icon: 'bi-eye-fill' },
   mcp: { label: 'MCP', icon: 'bi-plug-fill' },
 };
+
+/** What a token is used for, by role: the MCP server or the REST API (and its rights). */
+export const TOKEN_ROLE_LABELS: Record<Role, string> = {
+  mcp: 'MCP',
+  reader: 'API REST — lecture seule',
+  triager: 'API REST — lecture et triage',
+  admin: 'MCP et API REST — administrateur',
+};

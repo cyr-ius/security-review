@@ -1,14 +1,15 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
-import { EnrollmentRequest, ProjectTokenRole } from '../../core/models/api.models';
+import { TOKEN_ROLE_LABELS } from '../../core/constants/labels';
+import { EnrollmentRequest, ProjectTokenRole, Role } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 
 /**
  * Administrator page for project tokens: enrollment requests waiting for approval, creation of
- * read-only tokens and revocation.
+ * MCP or REST API tokens and revocation.
  */
 @Component({
   selector: 'app-project-token-list',
@@ -27,15 +28,31 @@ export class ProjectTokenListComponent {
   /** Web access chosen for each pending request, by request id (default: see portalAccess). */
   private readonly portalChoices = signal<Record<string, PortalAccess>>({});
   readonly label = signal('');
-  readonly role = signal<ProjectTokenRole>('reader');
+  /** What the new token is for: the MCP server or the REST API. */
+  readonly usage = signal<TokenUsage>('mcp');
+  /** Rights of a REST API token: read only, or read and triage. */
+  readonly apiRole = signal<ApiTokenRole>('reader');
+  /** Role sent to the API, derived from the usage and the API rights. */
+  readonly role = computed<ProjectTokenRole>(() =>
+    this.usage() === 'api' ? this.apiRole() : 'mcp',
+  );
   readonly selectedProjects = signal<string[]>([]);
   readonly createdToken = signal<string | null>(null);
   readonly message = signal<string | null>(null);
   readonly error = signal<string | null>(null);
   readonly busy = signal(false);
 
-  onRoleChange(event: Event): void {
-    this.role.set((event.target as HTMLSelectElement).value as ProjectTokenRole);
+  onUsageChange(event: Event): void {
+    this.usage.set((event.target as HTMLSelectElement).value as TokenUsage);
+  }
+
+  onApiRoleChange(event: Event): void {
+    this.apiRole.set((event.target as HTMLSelectElement).value as ApiTokenRole);
+  }
+
+  /** Display name of the usage of a token (MCP, or REST API with its rights). */
+  roleLabel(role: Role): string {
+    return TOKEN_ROLE_LABELS[role] ?? role;
   }
 
   toggleProject(project: string, event: Event): void {
@@ -61,10 +78,12 @@ export class ProjectTokenListComponent {
       const created = await firstValueFrom(this.api.createProjectToken(label, projects, role));
       this.createdToken.set(created.token);
       this.label.set('');
-      this.role.set('reader');
+      this.usage.set('mcp');
+      this.apiRole.set('reader');
       this.selectedProjects.set([]);
       this.message.set(
-        `Jeton « ${created.label} » (${created.role}) créé pour ${projects.join(', ')}.`,
+        `Jeton « ${created.label} » (${this.roleLabel(created.role)}) créé pour ` +
+          `${projects.join(', ')}.`,
       );
       this.tokens.reload();
     } catch (error: unknown) {
@@ -192,6 +211,12 @@ export class ProjectTokenListComponent {
     }
   }
 }
+
+/** What a project token is for. */
+type TokenUsage = 'mcp' | 'api';
+
+/** Rights of a REST API token. */
+type ApiTokenRole = Exclude<ProjectTokenRole, 'mcp'>;
 
 /** Web read access given to the developer when approving its enrollment. */
 interface PortalAccess {
