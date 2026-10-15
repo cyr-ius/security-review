@@ -162,6 +162,20 @@ async def test_report_language_set_in_the_web_interface_overrides_the_variable(m
     assert "Report language" not in free.messages[0].content.text
 
 
+async def test_review_tools_give_the_report_language_to_reviews_without_a_prompt(monkeypatch):
+    async with Client(mcp) as client:
+        free_scan = await client.call_tool("scan_code", {"content": "x = 1", "language": "python"})
+        free_checklist = await client.call_tool("get_review_checklist", {"domain": "api"})
+        monkeypatch.setattr(get_settings(), "report_language", "German")
+        app_settings.set_report_language("French", "admin")
+        scan = await client.call_tool("scan_code", {"content": "x = 1", "language": "python"})
+        checklist = await client.call_tool("get_review_checklist", {"domain": "api"})
+    assert json.loads(text_of(free_scan))["report_language"] is None
+    assert "Report language" not in text_of(free_checklist)
+    assert json.loads(text_of(scan))["report_language"] == "French"
+    assert "in **French**" in text_of(checklist)
+
+
 async def test_triage_prompt_sets_the_report_language():
     saved = services.save_report(project="demo", summary="Seeded", findings=[])
     async with Client(mcp) as client:
