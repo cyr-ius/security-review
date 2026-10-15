@@ -1,9 +1,6 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <h1 class="h3 mb-0">Rapports</h1>
-  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="reports.reload()">
-    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-    Actualiser
-  </button>
+  <app-refresh-button [loading]="reports.isLoading()" (refresh)="reports.reload()" />
 </div>
 
 <div class="card">

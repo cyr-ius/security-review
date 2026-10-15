@@ -10,6 +10,7 @@ import {
   ProxyMode,
 } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
+import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 
 /** How the report language is chosen in the form. */
 type LanguageMode = 'inherit' | 'agent' | 'custom';
@@ -48,7 +49,7 @@ const PROXY_SOURCE_LABELS: Record<AppSettings['osv_proxy']['effective']['source'
  */
 @Component({
   selector: 'app-settings',
-  imports: [DatePipe, DecimalPipe],
+  imports: [DatePipe, DecimalPipe, RefreshButtonComponent],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css',
 })

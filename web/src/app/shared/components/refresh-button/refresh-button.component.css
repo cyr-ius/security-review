@@ -1,0 +1,20 @@
+.bi {
+  display: inline-block;
+}
+
+.spinning {
+  animation: refresh-turn 0.8s linear infinite;
+}
+
+@keyframes refresh-turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* No rotation when the user asked for less motion: the button is only disabled and busy */
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation: none;
+  }
+}

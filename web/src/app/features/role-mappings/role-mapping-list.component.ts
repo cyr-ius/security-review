@@ -6,6 +6,7 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { MappedRole, RoleMapping } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
+import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import { SsoSettingsComponent } from './sso-settings.component';
 
 /** Labels of the roles a mapping may grant. */
@@ -22,7 +23,7 @@ const ROLE_LABELS: Record<MappedRole, string> = {
  */
 @Component({
   selector: 'app-role-mapping-list',
-  imports: [DatePipe, RouterLink, SsoSettingsComponent],
+  imports: [DatePipe, RouterLink, SsoSettingsComponent, RefreshButtonComponent],
   templateUrl: './role-mapping-list.component.html',
   styleUrl: './role-mapping-list.component.css',
 })

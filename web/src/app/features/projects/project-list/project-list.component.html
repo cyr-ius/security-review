@@ -3,10 +3,7 @@
     <h1 class="h3 mb-0">Projets</h1>
     <p class="text-body-secondary mb-0">Findings ouverts sur l'ensemble des rapports</p>
   </div>
-  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="projects.reload()">
-    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-    Actualiser
-  </button>
+  <app-refresh-button [loading]="projects.isLoading()" (refresh)="projects.reload()" />
 </div>
 
 @if (projects.error()) {

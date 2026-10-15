@@ -6,6 +6,7 @@ import { firstValueFrom } from 'rxjs';
 import { TOKEN_ROLE_LABELS } from '../../core/constants/labels';
 import { EnrollmentRequest, ProjectTokenRole, Role } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
+import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 
 /**
  * Administrator page for project tokens: enrollment requests waiting for approval, creation of
@@ -13,7 +14,7 @@ import { ApiService } from '../../core/services/api.service';
  */
 @Component({
   selector: 'app-project-token-list',
-  imports: [DatePipe],
+  imports: [DatePipe, RefreshButtonComponent],
   templateUrl: './project-token-list.component.html',
   styleUrl: './project-token-list.component.css',
 })

@@ -6,10 +6,10 @@
       d'identité)
     </p>
   </div>
-  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="users.reload()">
-    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-    Actualiser
-  </button>
+  <app-refresh-button
+    [loading]="users.isLoading() || revoked.isLoading()"
+    (refresh)="users.reload()"
+  />
 </div>
 
 <p class="text-body-secondary small">

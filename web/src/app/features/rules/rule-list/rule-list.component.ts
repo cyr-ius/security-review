@@ -12,6 +12,7 @@ import {
   Severity,
 } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
+import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 
 interface RuleFormModel {
   id: string;
@@ -38,7 +39,7 @@ const EMPTY_RULE: RuleFormModel = {
 /** Admin view for the scan rules stored in the database (default and custom). */
 @Component({
   selector: 'app-rule-list',
-  imports: [DatePipe, FormField],
+  imports: [DatePipe, FormField, RefreshButtonComponent],
   templateUrl: './rule-list.component.html',
   styleUrl: './rule-list.component.css',
 })

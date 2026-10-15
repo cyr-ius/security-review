@@ -10,6 +10,7 @@ import {
 } from '../../../core/models/api.models';
 import { SEVERITY_META } from '../../../core/constants/labels';
 import { ApiService } from '../../../core/services/api.service';
+import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
 import { SeverityCountsComponent } from '../../../shared/components/severity-counts/severity-counts.component';
 
@@ -18,7 +19,13 @@ type SortKey = 'risk' | 'activity' | 'name';
 /** Dashboard: every project with its open findings. */
 @Component({
   selector: 'app-project-list',
-  imports: [RouterLink, DatePipe, SeverityBadgeComponent, SeverityCountsComponent],
+  imports: [
+    RouterLink,
+    DatePipe,
+    SeverityBadgeComponent,
+    SeverityCountsComponent,
+    RefreshButtonComponent,
+  ],
   templateUrl: './project-list.component.html',
   styleUrl: './project-list.component.css',
 })

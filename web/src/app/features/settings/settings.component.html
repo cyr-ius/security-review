@@ -3,10 +3,7 @@
     <h1 class="h3 mb-0">Paramètres</h1>
     <p class="text-body-secondary mb-0">Langue des rapports et base de vulnérabilités OSV</p>
   </div>
-  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="reload()">
-    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-    Actualiser
-  </button>
+  <app-refresh-button [loading]="settings.isLoading()" (refresh)="reload()" />
 </div>
 
 @if (error(); as text) {

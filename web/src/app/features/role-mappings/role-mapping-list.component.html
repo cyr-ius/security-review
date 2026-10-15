@@ -6,10 +6,7 @@
       fournisseur d'identité
     </p>
   </div>
-  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="catalog.reload()">
-    <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>
-    Actualiser
-  </button>
+  <app-refresh-button [loading]="catalog.isLoading()" (refresh)="catalog.reload()" />
 </div>
 
 <app-sso-settings (changed)="catalog.reload()" />
