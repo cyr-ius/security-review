@@ -150,3 +150,94 @@ def test_masked_password_for_another_proxy_is_refused():
     with pytest.raises(ValueError, match="password again"):
         app_settings.set_osv_proxy("custom", "http://alice:***@other:3128", "admin")
     assert app_settings.proxy_choice(make_settings()).url == PROXY
+
+
+# ── single sign-on (OIDC) ────────────────────────────────────────────────────
+
+SSO = {
+    "enabled": True,
+    "issuer": "https://sso.example.com/realms/acme",
+    "client_id": "secreview",
+    "redirect_uri": "https://secreview.example.com/api/v1/auth/oidc/callback",
+}
+
+
+def test_oidc_settings_override_the_variables_one_by_one():
+    settings = make_settings(oidc_client_id="from-env", oidc_display_name="Keycloak")
+
+    app_settings.set_oidc(SSO | {"auto_create_users": True}, "admin", settings)
+
+    effective = app_settings.oidc_settings(settings)
+    assert effective.oidc_enabled is True
+    assert effective.oidc_client_id == "secreview"
+    assert effective.oidc_auto_create_users is True
+    assert effective.oidc_display_name == "Keycloak"  # not stored: the variable applies
+    described = app_settings.describe_oidc(settings)["fields"]
+    assert described["client_id"] == {
+        "value": "secreview",
+        "env": "from-env",
+        "effective": "secreview",
+    }
+    assert described["display_name"]["value"] is None
+
+    # null applies the variable again; a field left out is unchanged
+    app_settings.set_oidc({"client_id": None, "enabled": False}, "admin", settings)
+    effective = app_settings.oidc_settings(settings)
+    assert effective.oidc_client_id == "from-env"
+    assert effective.oidc_enabled is False
+    assert effective.oidc_issuer == SSO["issuer"]
+
+
+def test_oidc_settings_without_stored_value_are_the_variables():
+    settings = make_settings(oidc_issuer="https://env.example.com")
+    assert app_settings.oidc_settings(settings) is settings
+
+
+def test_oidc_client_secret_is_never_described_and_the_mask_keeps_it():
+    settings = make_settings(oidc_client_secret="env-secret")
+
+    app_settings.set_oidc(SSO | {"client_secret": "db-s3cr3t"}, "admin", settings)
+    described = app_settings.describe_oidc(settings)
+    assert "s3cr3t" not in str(described) and "env-secret" not in str(described)
+    assert described["fields"]["client_secret"] == {
+        "value": "***",
+        "env": "***",
+        "effective": "***",
+    }
+
+    app_settings.set_oidc({"client_secret": "***", "client_id": "other"}, "admin", settings)
+    assert app_settings.oidc_settings(settings).oidc_client_secret == "db-s3cr3t"
+
+    # "" makes the client public, despite the variable
+    app_settings.set_oidc({"client_secret": ""}, "admin", settings)
+    assert app_settings.oidc_settings(settings).oidc_client_secret == ""
+    assert app_settings.describe_oidc(settings)["fields"]["client_secret"]["value"] == ""
+
+
+def test_invalid_enabled_oidc_settings_are_refused_and_nothing_is_stored():
+    settings = make_settings()
+    with pytest.raises(ValueError, match="invalid SSO settings: SECREVIEW_OIDC_ISSUER"):
+        app_settings.set_oidc({"enabled": True, "client_id": "secreview"}, "admin", settings)
+    with pytest.raises(ValueError, match="https"):
+        app_settings.set_oidc(SSO | {"issuer": "http://sso.example.com"}, "admin", settings)
+    assert app_settings.oidc_settings(settings) is settings
+
+    # Disabled, an incomplete configuration can be prepared
+    app_settings.set_oidc({"client_id": "secreview"}, "admin", settings)
+    assert app_settings.oidc_settings(settings).oidc_client_id == "secreview"
+
+
+@pytest.mark.parametrize(
+    ("values", "message"),
+    [
+        ({"cafile": "/etc/passwd"}, "unknown SSO setting"),
+        ({"default_role": "admin"}, "default role"),
+        ({"enabled": "yes"}, "true or false"),
+        ({"issuer": 3}, "must be a string"),
+        ({"display_name": "SSO\nadmin"}, "control characters"),
+        ({"admin_groups": "a" * 501}, "too long"),
+    ],
+)
+def test_invalid_oidc_values_are_refused(values, message):
+    with pytest.raises(ValueError, match=message):
+        app_settings.set_oidc(values, "admin", make_settings())

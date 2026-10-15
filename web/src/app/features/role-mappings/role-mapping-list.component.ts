@@ -6,6 +6,7 @@ import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { MappedRole, RoleMapping } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
+import { SsoSettingsComponent } from './sso-settings.component';
 
 /** Labels of the roles a mapping may grant. */
 const ROLE_LABELS: Record<MappedRole, string> = {
@@ -15,12 +16,13 @@ const ROLE_LABELS: Record<MappedRole, string> = {
 };
 
 /**
- * Administrator page for the OIDC role mapping: which web role, and which projects, the groups
- * or roles of the identity provider grant.
+ * Administrator page for single sign-on: its settings (overriding the SECREVIEW_OIDC_* variables)
+ * and the OIDC role mapping, which web role, and which projects, the groups or roles of the
+ * identity provider grant.
  */
 @Component({
   selector: 'app-role-mapping-list',
-  imports: [DatePipe, RouterLink],
+  imports: [DatePipe, RouterLink, SsoSettingsComponent],
   templateUrl: './role-mapping-list.component.html',
   styleUrl: './role-mapping-list.component.css',
 })

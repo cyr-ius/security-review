@@ -25,7 +25,7 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_TLS_SELF_SIGNED_HOSTS` | — | les deux | Noms DNS (sans joker `*`) et adresses IP supplémentaires du certificat auto-signé, séparés par des virgules (ceux qu'utilisent les clients, 20 au plus) |
 | `SECREVIEW_WEB_UI` | `true` | Contrôleur | Sert l'[interface web](../utilisation/interface-web.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Contrôleur | Dossier d'une autre build de l'interface web |
-| `SECREVIEW_OIDC_ENABLED` | `false` | Contrôleur | Active la [connexion SSO OpenID Connect](../utilisation/interface-web.md#connexion-sso-openid-connect) à l'interface web |
+| `SECREVIEW_OIDC_ENABLED` | `false` | Contrôleur | Active la [connexion SSO OpenID Connect](../utilisation/interface-web.md#connexion-sso-openid-connect) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` se modifient aussi dans l'écran **Rôles SSO**, dont les valeurs enregistrées les remplacent ([configurer le SSO dans l'interface](../utilisation/interface-web.md#configurer-le-sso-dans-linterface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | Contrôleur | URL de l'émetteur (HTTPS ; HTTP seulement sur localhost), dont `/.well-known/openid-configuration` est lu |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Contrôleur | Identifiant du client déclaré chez le fournisseur |
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Contrôleur | Secret du client ; vide pour un client public (PKCE seul) |

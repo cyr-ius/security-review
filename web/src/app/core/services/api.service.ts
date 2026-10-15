@@ -20,6 +20,9 @@ import {
   EnrollmentRequest,
   Identity,
   LoginSession,
+  OidcSettings,
+  OidcSettingsUpdate,
+  OidcTestResult,
   ProjectSummary,
   ProjectToken,
   ProjectTokenCreated,
@@ -291,6 +294,20 @@ export class ApiService {
 
   startAdvisoryUpdate(): Observable<{ id: number }> {
     return this.http.post<{ id: number }>(`${API_URL}/advisories/update`, {});
+  }
+
+  oidcSettings(): Observable<OidcSettings> {
+    return this.http.get<OidcSettings>(`${API_URL}/oidc/settings`);
+  }
+
+  /** A field left out is unchanged; null restores the SECREVIEW_OIDC_* variable. */
+  setOidcSettings(values: OidcSettingsUpdate): Observable<OidcSettings> {
+    return this.http.put<OidcSettings>(`${API_URL}/oidc/settings`, values);
+  }
+
+  /** Test the identity provider of these values (over the effective ones), nothing stored. */
+  testOidcSettings(values: OidcSettingsUpdate): Observable<OidcTestResult> {
+    return this.http.post<OidcTestResult>(`${API_URL}/oidc/settings/test`, values);
   }
 
   roleMappings(): Observable<RoleMappingCatalog> {

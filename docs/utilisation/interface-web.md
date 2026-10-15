@@ -76,11 +76,12 @@ version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, 
   pour chaque jeton. La colonne **Lecture dans le portail** permet de donner en même temps au
   développeur la lecture du projet dans l'interface web, sur son compte utilisateur (voir
   [lecture du projet à l'enrôlement](#lecture-du-projet-a-lenrolement)).
-- **Rôles SSO** : les administrateurs associent les groupes ou rôles du fournisseur d'identité
-  à un rôle web et, pour `reader` et `triager`, à une liste de projets
-  (voir [role mapping](#role-mapping)). Les groupes des variables `SECREVIEW_OIDC_*_GROUPS`
-  sont affichés en lecture seule. Les utilisateurs SSO eux-mêmes se gèrent dans l'écran
-  **Utilisateurs**.
+- **Rôles SSO** : les administrateurs [configurent la connexion SSO](#configurer-le-sso-dans-linterface)
+  (chaque valeur enregistrée remplace sa variable `SECREVIEW_OIDC_*`, avec un test de connexion
+  au fournisseur) et associent les groupes ou rôles du fournisseur d'identité à un rôle web et,
+  pour `reader` et `triager`, à une liste de projets (voir [role mapping](#role-mapping)). Les
+  groupes de la configuration SSO (`*_GROUPS`) sont affichés en lecture seule dans la liste des
+  associations. Les utilisateurs SSO eux-mêmes se gèrent dans l'écran **Utilisateurs**.
 - **Paramètres** : réglages enregistrés en base, prioritaires sur les variables d'environnement
   et partagés par le serveur MCP et le contrôleur.
     - **Langue des rapports** : variable `SECREVIEW_REPORT_LANGUAGE`, choix laissé à l'agent ou
@@ -292,6 +293,47 @@ L'émetteur doit être en HTTPS (HTTP n'est accepté que sur `localhost`, pour l
 son document `/.well-known/openid-configuration` doit annoncer le même `issuer`. Si le
 fournisseur utilise une CA interne, indiquez-la avec `SECREVIEW_OIDC_CAFILE` ; un proxy sortant
 se configure avec `HTTPS_PROXY` / `NO_PROXY`.
+
+### Configurer le SSO dans l'interface
+
+Les mêmes réglages se modifient dans la section **Configuration SSO** de l'écran **Rôles SSO**
+(rôle `admin`), sans redémarrer le contrôleur. Comme pour l'écran **Paramètres**, une valeur
+enregistrée en base **remplace sa variable** `SECREVIEW_OIDC_*`, champ par champ ; un champ jamais
+modifié suit sa variable :
+
+- chaque champ porte le badge **Variable** (la variable s'applique, sa valeur est rappelée sous le
+  champ) ou **Interface web** (valeur enregistrée) ; le lien **Variable** d'un champ enregistré
+  supprime la valeur stockée et applique de nouveau la variable ;
+- le **secret client** n'est jamais réaffiché : laissé vide, le secret actuel est conservé ;
+  **Supprimer** enregistre un secret vide (client public, PKCE seul) ;
+- **Tester la connexion** contacte le fournisseur avec les valeurs du formulaire, sans les
+  enregistrer : lecture du document `/.well-known/openid-configuration` (même `issuer`, points
+  de terminaison en HTTPS), puis des clés de signature (JWKS) ;
+- **Enregistrer** refuse (`422`) une configuration qui activerait une connexion invalide (émetteur
+  manquant ou non HTTPS, scopes sans `openid`, rôle par défaut inconnu...) : rien n'est alors
+  enregistré. Une configuration incomplète peut être préparée tant que le SSO reste désactivé.
+
+Le changement s'applique à la connexion suivante, sur toutes les répliques (le contrôleur relit
+la configuration à chaque connexion et reconstruit le flux OIDC quand elle change). Les sessions
+déjà ouvertes restent valides jusqu'à leur expiration. Restent des variables uniquement :
+`SECREVIEW_OIDC_CAFILE` (un fichier du déploiement) et les réglages de session
+(`SECREVIEW_SESSION_SECRET`, `SECREVIEW_SESSION_HOURS`). Si une variable modifiée après coup rend
+invalide la combinaison avec les valeurs enregistrées, le contrôleur démarre quand même : la
+connexion SSO est désactivée et l'erreur journalisée, à corriger dans l'écran.
+
+Par l'API (`/api/v1/oidc/settings`, rôle `admin`) : `GET` décrit chaque réglage (`value`
+enregistrée ou `null`, `env`, `effective` ; un secret défini vaut `***`), `PUT` modifie les champs
+envoyés (`null` applique de nouveau la variable, un champ absent est inchangé) et
+`POST /api/v1/oidc/settings/test` teste le fournisseur sans rien enregistrer :
+
+```bash
+curl -X PUT https://secreview.example.com/api/v1/oidc/settings \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"enabled": true, "issuer": "https://sso.example.com/realms/acme",
+       "client_id": "security-review", "client_secret": "...",
+       "redirect_uri": "https://secreview.example.com/api/v1/auth/oidc/callback",
+       "display_name": null}'
+```
 
 ### Comptes SSO
 

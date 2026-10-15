@@ -98,7 +98,7 @@ l'utiliser.
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
 | Normes de développement par technologie (prompt `development-standards`, écran « Normes ») | `standards.py` |
-| Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy OSV) | `config.py` ; `app_settings.py` |
+| Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy OSV, configuration SSO) | `config.py` ; `app_settings.py` |
 
 Tous les modules sont dans `src/security_review_mcp/`. L'application Angular (`web/`) est
 compilée par `npm run build` dans `src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules

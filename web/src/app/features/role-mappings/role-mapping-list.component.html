@@ -2,7 +2,8 @@
   <div>
     <h1 class="h3 mb-0">Rôles SSO</h1>
     <p class="text-body-secondary mb-0">
-      Rôle et projets accordés aux groupes du fournisseur d'identité (OpenID Connect)
+      Configuration de la connexion OpenID Connect, rôle et projets accordés aux groupes du
+      fournisseur d'identité
     </p>
   </div>
   <button type="button" class="btn btn-sm btn-outline-secondary" (click)="catalog.reload()">
@@ -11,12 +12,14 @@
   </button>
 </div>
 
+<app-sso-settings (changed)="catalog.reload()" />
+
 @if (catalog.value(); as data) {
   @if (!data.oidc_enabled) {
     <div class="alert alert-info py-2" role="status">
       <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
-      La connexion SSO n'est pas activée sur ce contrôleur (<code>SECREVIEW_OIDC_ENABLED</code>) :
-      les associations s'appliqueront dès son activation.
+      La connexion SSO n'est pas active sur ce contrôleur (configuration ci-dessus) : les
+      associations s'appliqueront dès son activation.
     </div>
   }
   <p class="text-body-secondary small">
@@ -36,15 +39,11 @@
     <code>{{ data.username_claim }}</code
     >.
     @if (data.auto_create_users) {
-      Il y est créé à sa première connexion si ses groupes lui donnent un rôle (<code
-        >SECREVIEW_OIDC_AUTO_CREATE_USERS</code
-      >
-      activé).
+      Il y est créé à sa première connexion si ses groupes lui donnent un rôle (création à la
+      première connexion activée).
     } @else {
-      Un administrateur doit l'y créer avant sa première connexion (<code
-        >SECREVIEW_OIDC_AUTO_CREATE_USERS</code
-      >
-      désactivé).
+      Un administrateur doit l'y créer avant sa première connexion (création à la première connexion
+      désactivée).
     }
     Le rôle de ses groupes s'ajoute au rôle attribué à son compte : le plus élevé l'emporte.
   </p>
@@ -184,7 +183,7 @@
                 <td>{{ roleLabels[mapping.role] }}</td>
                 <td>Tous les projets</td>
                 <td>
-                  <span class="badge text-bg-secondary">Variable d'environnement</span>
+                  <span class="badge text-bg-secondary">Configuration SSO</span>
                 </td>
                 <td class="text-end text-body-secondary small">Lecture seule</td>
               </tr>

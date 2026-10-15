@@ -1,0 +1,242 @@
+<section class="card mb-4" aria-labelledby="sso-settings-title">
+  <div class="card-body">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-2">
+      <h2 id="sso-settings-title" class="h5 mb-0">
+        <i class="bi bi-shield-lock" aria-hidden="true"></i>
+        Configuration SSO
+      </h2>
+      @if (settings.value(); as current) {
+        @if (current.active) {
+          <span class="badge text-bg-success">Connexion SSO active</span>
+        } @else {
+          <span class="badge text-bg-secondary">Connexion SSO inactive</span>
+        }
+      }
+    </div>
+    <p class="text-body-secondary small">
+      Chaque valeur enregistrée ici remplace sa variable <code>SECREVIEW_OIDC_*</code> ; « Variable
+      » applique de nouveau la variable. Un changement s'applique à la prochaine connexion, sans
+      redémarrer le contrôleur.
+    </p>
+
+    @if (error(); as text) {
+      <div class="alert alert-danger py-2" role="alert">{{ text }}</div>
+    }
+    @if (message(); as text) {
+      <div class="alert alert-success py-2" role="status">{{ text }}</div>
+    }
+
+    @if (settings.error()) {
+      <div class="alert alert-danger" role="alert">Impossible de charger la configuration SSO.</div>
+    } @else if (settings.isLoading() && !settings.hasValue()) {
+      <div class="text-center my-3">
+        <span class="spinner-border text-secondary" aria-hidden="true"></span>
+        <span class="visually-hidden">Chargement…</span>
+      </div>
+    } @else if (settings.value(); as current) {
+      <form (submit)="save($event)">
+        <div class="form-check form-switch mb-3">
+          <input
+            id="sso-enabled"
+            class="form-check-input"
+            type="checkbox"
+            role="switch"
+            [checked]="value('enabled') === true"
+            (change)="set('enabled', $any($event.target).checked)"
+          />
+          <label class="form-check-label" for="sso-enabled">Activer la connexion SSO</label>
+          <ng-container
+            *ngTemplateOutlet="source; context: { $implicit: 'enabled', current: current }"
+          />
+        </div>
+
+        <h3 class="h6">Fournisseur d'identité</h3>
+        <div class="row g-3 mb-3">
+          @for (field of providerFields; track field.name) {
+            <div class="col-md-6">
+              <ng-container
+                *ngTemplateOutlet="input; context: { $implicit: field, current: current }"
+              />
+            </div>
+          }
+          <div class="col-12 form-text">
+            URL de retour à déclarer chez le fournisseur : URL publique du contrôleur suivie de
+            <code>{{ current.callback_path }}</code
+            >. Autorité de certification : <code>SECREVIEW_OIDC_CAFILE</code> ({{
+              current.cafile ?? 'certificats du système'
+            }}, variable uniquement).
+          </div>
+        </div>
+
+        <h3 class="h6">Groupes et comptes</h3>
+        <div class="row g-3 mb-3">
+          @for (field of accessFields; track field.name) {
+            <div [class]="field.kind === 'bool' ? 'col-12' : 'col-md-6'">
+              <ng-container
+                *ngTemplateOutlet="input; context: { $implicit: field, current: current }"
+              />
+            </div>
+          }
+        </div>
+
+        @if (testResult(); as result) {
+          <div
+            class="alert py-2"
+            [class.alert-success]="result.success"
+            [class.alert-warning]="!result.success"
+            role="status"
+          >
+            <strong>{{ result.success ? 'Fournisseur joignable' : 'Test en échec' }}</strong>
+            <ul class="mb-0 small">
+              @for (step of result.steps; track step.name) {
+                <li>
+                  <i
+                    class="bi"
+                    [class]="step.ok ? 'bi-check-circle text-success' : 'bi-x-circle text-danger'"
+                    aria-hidden="true"
+                  ></i>
+                  {{ step.name === 'discovery' ? 'Document de découverte' : 'Clés de signature' }}
+                  : {{ step.detail }}
+                </li>
+              }
+            </ul>
+          </div>
+        }
+
+        <div class="d-flex flex-wrap gap-2">
+          <button type="submit" class="btn btn-primary" [disabled]="busy() || !dirty()">
+            <i class="bi bi-check-lg" aria-hidden="true"></i>
+            Enregistrer
+          </button>
+          <button
+            type="button"
+            class="btn btn-outline-secondary"
+            [disabled]="busy()"
+            (click)="test()"
+          >
+            <i class="bi bi-plug" aria-hidden="true"></i>
+            Tester la connexion
+          </button>
+          @if (dirty()) {
+            <button type="button" class="btn btn-outline-secondary" (click)="reset()">
+              Annuler les modifications
+            </button>
+          }
+        </div>
+      </form>
+
+      <ng-template #source let-name let-current="current">
+        <span class="ms-2 small">
+          @if (stored(current, name)) {
+            <span class="badge text-bg-primary">Interface web</span>
+            <button
+              type="button"
+              class="btn btn-link btn-sm p-0 ms-1 align-baseline"
+              [disabled]="busy()"
+              [attr.aria-label]="'Appliquer de nouveau ' + variableOf(name)"
+              (click)="restore(name)"
+            >
+              Variable
+            </button>
+          } @else {
+            <span class="badge text-bg-secondary" [title]="variableOf(name)">Variable</span>
+          }
+        </span>
+      </ng-template>
+
+      <ng-template #input let-field let-current="current">
+        @switch (field.kind) {
+          @case ('bool') {
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [id]="'sso-' + field.name"
+                [checked]="value(field.name) === true"
+                (change)="set(field.name, $any($event.target).checked)"
+              />
+              <label class="form-check-label" [for]="'sso-' + field.name">{{ field.label }}</label>
+              <ng-container
+                *ngTemplateOutlet="source; context: { $implicit: field.name, current: current }"
+              />
+            </div>
+          }
+          @case ('role') {
+            <label class="form-label" [for]="'sso-' + field.name">
+              {{ field.label }}
+              <ng-container
+                *ngTemplateOutlet="source; context: { $implicit: field.name, current: current }"
+              />
+            </label>
+            <select
+              class="form-select"
+              [id]="'sso-' + field.name"
+              [value]="text(field.name)"
+              (change)="set(field.name, $any($event.target).value)"
+            >
+              <option value="">Aucun</option>
+              <option value="reader">Lecture</option>
+              <option value="triager">Triage</option>
+            </select>
+            <div class="form-text">Accordé, sur tous les projets, sans groupe correspondant.</div>
+          }
+          @case ('secret') {
+            <label class="form-label" [for]="'sso-' + field.name">
+              {{ field.label }}
+              <ng-container
+                *ngTemplateOutlet="source; context: { $implicit: field.name, current: current }"
+              />
+            </label>
+            <div class="input-group">
+              <input
+                class="form-control"
+                type="password"
+                autocomplete="new-password"
+                maxlength="500"
+                [id]="'sso-' + field.name"
+                [placeholder]="secretPlaceholder(current)"
+                [value]="text(field.name)"
+                (input)="set(field.name, $any($event.target).value)"
+              />
+              @if (current.fields.client_secret.effective) {
+                <button
+                  type="button"
+                  class="btn btn-outline-danger"
+                  [disabled]="busy()"
+                  (click)="clearSecret()"
+                >
+                  Supprimer
+                </button>
+              }
+            </div>
+            <div class="form-text">{{ field.help }}</div>
+          }
+          @default {
+            <label class="form-label" [for]="'sso-' + field.name">
+              {{ field.label }}
+              <ng-container
+                *ngTemplateOutlet="source; context: { $implicit: field.name, current: current }"
+              />
+            </label>
+            <input
+              class="form-control"
+              maxlength="500"
+              autocomplete="off"
+              spellcheck="false"
+              [id]="'sso-' + field.name"
+              [placeholder]="field.placeholder ?? ''"
+              [value]="text(field.name)"
+              (input)="set(field.name, $any($event.target).value)"
+            />
+            <div class="form-text">
+              @if (field.help) {
+                {{ field.help }}
+              }
+              Variable : {{ envValue(current, field.name) }}
+            </div>
+          }
+        }
+      </ng-template>
+    }
+  </div>
+</section>
