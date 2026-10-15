@@ -24,7 +24,7 @@ security-review-controller code scan . --save --project portal --commit "$CI_COM
 
 ## Seuil et enregistrement
 
-- `--fail-on` (défaut `high`) fixe le seuil de blocage ; les [règles](regles.md) de la base
+- `--fail-on` (défaut `high`) fixe le seuil de blocage ; les [règles](rules.md) de la base
   (`SECREVIEW_DATABASE_URL`) et les marqueurs `secreview:ignore` s'appliquent comme pour
   `scan_code`. Si la base est inaccessible, les règles par défaut (`default_rules.toml`)
   s'appliquent et un avertissement est écrit sur stderr.

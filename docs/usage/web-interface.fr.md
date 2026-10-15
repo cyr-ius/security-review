@@ -3,7 +3,7 @@
 L'interface web permet aux équipes sécurité de consulter les rapports enregistrés par les agents
 et de **trier les findings** (corrigé, risque accepté, faux positif) sans passer par un client
 MCP. Elle est servie par le **contrôleur**, un processus distinct du serveur MCP qui partage sa
-base de données (voir [Architecture et déploiement](../demarrage/kubernetes.md)) :
+base de données (voir [Architecture et déploiement](../getting-started/kubernetes.md)) :
 
 | Chemin | Contenu |
 |---|---|
@@ -35,7 +35,7 @@ version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, 
 - **Rapport** : résumé, contexte (dépôt, branche, commit), findings avec emplacement, CWE,
   extrait de code et recommandation ; téléchargement Markdown et SARIF. Les utilisateurs qui ont
   le rôle `triager` ou `admin` changent le statut d'un finding directement depuis cet écran.
-- **Normes** : les [normes de développement](normes.md) transmises aux assistants IA par le
+- **Normes** : les [normes de développement](standards.md) transmises aux assistants IA par le
   prompt `development-standards`. Les administrateurs les recherchent, les lisent, les créent,
   les modifient (technologies, motifs de fichiers, contenu Markdown), les désactivent ou les
   suppriment. Un changement s'applique immédiatement.
@@ -43,7 +43,7 @@ version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, 
   liste et créent, modifient ou suppriment les items personnalisés. Les items par défaut peuvent
   être modifiés, mais pas supprimés. Toute modification est rechargée immédiatement par le serveur
   et intégrée aux prompts de revue.
-- **Règles** : les administrateurs consultent toutes les [règles](regles.md) stockées en base,
+- **Règles** : les administrateurs consultent toutes les [règles](rules.md) stockées en base,
   filtrables par origine (par défaut ou personnalisée). Ils créent, modifient (dans une fenêtre
   modale, sans quitter la position dans la liste), activent ou désactivent les règles, et
   suppriment les règles personnalisées. Une règle par défaut peut être
@@ -70,7 +70,7 @@ version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, 
   CLI. Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
   données. Une révocation prend effet à la requête suivante. La section
   **Demandes en attente** distingue les nouveaux jetons des demandes d'accès à un projet
-  supplémentaire ([enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton)) :
+  supplémentaire ([enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton)) :
   **Approuver** active le nouveau jeton ou ajoute le projet au jeton existant ; **Refuser** ne
   supprime que la demande. Les projets autorisés et les ajouts encore en attente sont affichés
   pour chaque jeton. La colonne **Lecture dans le portail** permet de donner en même temps au
@@ -87,13 +87,13 @@ version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, 
     - **Langue des rapports** : variable `SECREVIEW_REPORT_LANGUAGE`, choix laissé à l'agent ou
       langue définie ici (`French`, `fr`, `pt-BR`…). Elle s'applique aux prochains prompts de
       revue ; l'argument `report_language` d'un prompt reste prioritaire
-      ([langue des rapports](prompts-outils.md#langue-des-rapports)).
+      ([langue des rapports](prompts-tools.md#langue-des-rapports)).
     - **Proxy sortant du contrôleur** : proxy du téléchargement OSV **et** de la
       [connexion SSO](#connexion-sso-openid-connect). Comme pour la configuration SSO, chaque
       valeur définie ici remplace sa variable (badges **Variable** / **Interface web**) :
       l'URL suit `SECREVIEW_PROXY` (sinon `HTTPS_PROXY` / `NO_PROXY`), est définie ici, ou force
       la connexion directe ; les **hôtes sans proxy** suivent `SECREVIEW_NO_PROXY` ou sont
-      définis ici (voir [hôtes sans proxy](dependances.md#hotes-sans-proxy) : domaines, adresses
+      définis ici (voir [hôtes sans proxy](dependencies.md#hotes-sans-proxy) : domaines, adresses
       IP, plages CIDR, `*`). Le changement s'applique au prochain
       téléchargement et à la prochaine connexion SSO, sans redémarrage. Le proxy appliqué, son
       origine et les variables de l'environnement sont affichés ; les mots de passe ne sont
@@ -104,7 +104,7 @@ version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, 
       import, configuration du téléchargement, historique des 50 dernières mises à jour
       (planifiée, CLI ou interface web, avec statut, durée et résultat par écosystème) et bouton
       **Mettre à jour maintenant**, disponible seulement si `SECREVIEW_OSV_AUTO_UPDATE=true`
-      ([mise à jour par le contrôleur](dependances.md#mise-a-jour-automatique-par-le-controleur)).
+      ([mise à jour par le contrôleur](dependencies.md#mise-a-jour-automatique-par-le-controleur)).
 
 ## Rôles
 
@@ -121,7 +121,7 @@ porte un rôle, qui détermine les endpoints accessibles :
 
 Un jeton `mcp`, `reader` ou `triager` restreint avec `--project` ne voit et ne trie que les
 projets autorisés ; l'option peut être répétée (voir
-[jetons restreints à un projet](../demarrage/http.md#jetons-restreints-a-un-projet)).
+[jetons restreints à un projet](../getting-started/http.md#jetons-restreints-a-un-projet)).
 
 Les personnes se connectent avec un [compte utilisateur](#comptes-utilisateurs) : local
 (identifiant et mot de passe) ou [SSO](#connexion-sso-openid-connect). Les comptes portent les
@@ -435,7 +435,7 @@ Ce rôle de groupe est ensuite combiné avec le rôle attribué au compte (voir
 [comptes SSO](#comptes-sso)).
 
 Une session restreinte se comporte comme un
-[jeton restreint à un projet](../demarrage/http.md#jetons-restreints-a-un-projet) : les autres
+[jeton restreint à un projet](../getting-started/http.md#jetons-restreints-a-un-projet) : les autres
 projets, leurs rapports et leurs findings sont traités comme inexistants. Un projet peut être
 cité avant d'exister (l'écran propose les projets connus). Un changement d'association
 s'applique à la **prochaine connexion** de l'utilisateur ; d'ici là, ses sessions ouvertes gardent
@@ -459,7 +459,7 @@ l'historique du triage.
 
 ### Lecture du projet à l'enrôlement
 
-À l'approbation d'une demande d'[enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton),
+À l'approbation d'une demande d'[enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton),
 l'administrateur peut aussi donner au développeur la lecture du projet dans le portail, sur son
 **compte utilisateur** : le développeur qui a demandé un jeton MCP pour un projet en consulte
 alors les rapports.
@@ -531,7 +531,7 @@ journalisé par le contrôleur, sans code ni jeton.
   tant que vous n'avez pas saisi de jeton avec **Authorize**, et ne veut pas dire que la route
   est accessible sans jeton.
 - Le contrôleur n'expose aucune route d'écriture sans jeton. Les demandes
-  d'[enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton) sont déposées sur
+  d'[enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton) sont déposées sur
   le **serveur MCP** (`POST /api/v1/enroll`, public) ; le contrôleur les liste et les traite
   (`GET /api/v1/enrollments`, `POST /api/v1/enrollments/{id}/approve`,
   `DELETE /api/v1/enrollments/{id}`, rôle `admin`). Il peut donc rester sur un réseau interne.
@@ -544,7 +544,7 @@ journalisé par le contrôleur, sans code ni jeton.
 - Il est conservé dans le `sessionStorage` de l'onglet et disparaît à sa fermeture.
 - Les pages sont servies avec une CSP stricte (`script-src 'self'`, aucune ressource externe),
   `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` et `Referrer-Policy: no-referrer`.
-- Servez l'interface en HTTPS ([TLS intégré ou reverse proxy](../demarrage/http.md#tls)) dès
+- Servez l'interface en HTTPS ([TLS intégré ou reverse proxy](../getting-started/http.md#tls)) dès
   qu'elle n'écoute plus sur localhost : le jeton circule à chaque requête.
 
 ## Configuration
@@ -562,4 +562,4 @@ journalisé par le contrôleur, sans code ni jeton.
 
 Le paquet publié et l'image Docker contiennent l'application déjà compilée. Si vous installez
 depuis les sources sans la compiler, le contrôleur ne sert que l'API REST et un avertissement est
-journalisé. Voir [Contribuer](../contribuer.md#interface-web) pour la compiler.
+journalisé. Voir [Contribuer](../contributing.md#interface-web) pour la compiler.

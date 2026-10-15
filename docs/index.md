@@ -1,24 +1,24 @@
 # security-review-mcp
 
-Serveur MCP pour la **revue de code orientée sécurité** (failles et mauvaises configurations).
-Il fournit à l'hôte (VS Code, Copilot, Claude, agent CI/CD) :
+MCP server for **security-oriented code review** (vulnerabilities and misconfigurations).
+It gives the host (VS Code, Copilot, Claude, CI/CD agent):
 
-- des **prompts** structurés pour lancer une revue ;
-- des **outils** : checklists, scan rapide par motifs, enregistrement et consultation de rapports ;
-- une **base de données** (SQLite par défaut, PostgreSQL possible) qui stocke les rapports et
-  leurs findings.
+- structured **prompts** to start a review;
+- **tools**: checklists, quick pattern scan, saving and reading reports;
+- a **database** (SQLite by default, PostgreSQL possible) that stores the reports and their
+  findings.
 
-Il s'accompagne d'une **ligne de commande** pour les pipelines : scan du dépôt complet, gate de
-déploiement, export SARIF, analyse des dépendances et rapport de tendance.
+It comes with a **command line** for pipelines: whole repository scan, deployment gate, SARIF
+export, dependency analysis and trend report.
 
-## Démarrage rapide
+## Quick start
 
 ```bash
 pip install security-review-mcp
-security-review-mcp            # transport stdio : l'hôte lance le processus
+security-review-mcp            # stdio transport: the host starts the process
 ```
 
-Puis déclarez le serveur dans votre hôte, par exemple `.vscode/mcp.json` :
+Then declare the server in your host, for example `.vscode/mcp.json`:
 
 ```json
 {
@@ -31,24 +31,23 @@ Puis déclarez le serveur dans votre hôte, par exemple `.vscode/mcp.json` :
 }
 ```
 
-Dans le chat, lancez le prompt `security-review` (ou `codebase-review` pour tout le dépôt) :
-l'agent relit le code, s'appuie sur les checklists et enregistre son rapport en base avec
+In the chat, run the `security-review` prompt (or `codebase-review` for the whole repository):
+the agent reads the code, relies on the checklists and saves its report in the database with
 `save_security_report`.
 
-## Par où continuer
+## Where to go next
 
-| Je veux… | Page |
+| I want to… | Page |
 |---|---|
-| Installer le serveur, y compris hors ligne | [Installation](demarrage/installation.md) |
-| Le brancher sur VS Code ou Claude | [Configuration de l'hôte](demarrage/hote.md) |
-| Monter un serveur partagé sécurisé | [Serveur HTTP, authentification et TLS](demarrage/http.md) |
-| Déployer le serveur MCP et le contrôleur séparément (Docker, Kubernetes) | [Architecture et déploiement](demarrage/kubernetes.md) |
-| Connaître les prompts et outils exposés | [Prompts et outils](utilisation/prompts-outils.md) |
-| Bloquer un déploiement sur des findings ouverts | [Gate](ci-cd/gate.md) |
-| Ajouter les règles de mon entreprise | [Règles internes](utilisation/regles.md) |
-| Consulter et trier les rapports dans un navigateur | [Interface web](utilisation/interface-web.md) |
+| Install the server, including offline | [Installation](getting-started/installation.md) |
+| Plug it into VS Code or Claude | [Host configuration](getting-started/host.md) |
+| Run a secure shared server | [HTTP server, authentication and TLS](getting-started/http.md) |
+| Deploy the MCP server and the controller separately (Docker, Kubernetes) | [Architecture and deployment](getting-started/kubernetes.md) |
+| Know the exposed prompts and tools | [Prompts and tools](usage/prompts-tools.md) |
+| Block a deployment on open findings | [Gate](ci-cd/gate.md) |
+| Add my company's rules | [Internal rules](usage/rules.md) |
+| Browse and triage the reports in a browser | [Web interface](usage/web-interface.md) |
 
-!!! warning "Ce n'est pas un SAST"
-    Le scan par motifs produit des **pistes** et des faux positifs. Il ne remplace ni un SAST,
-    ni une analyse SCA complète, ni une relecture humaine. Voir
-    [Sécurité et limites](reference/securite.md).
+!!! warning "This is not a SAST"
+    The pattern scan produces **leads** and false positives. It replaces neither a SAST, nor a
+    full SCA analysis, nor a human review. See [Security and limits](reference/security.md).
