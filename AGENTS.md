@@ -16,9 +16,11 @@ Deux processus partagent la base et ne s'appellent jamais : le **serveur MCP**
 
 1. **Des tests couvrent le changement** (voir [Tests](#tests)) et `uv run pytest` passe.
 2. `uv run ruff check . && uv run ruff format --check .` passe.
-3. **La documentation `docs/` est à jour** et `uv run mkdocs build --strict` passe
+3. **La documentation `docs/` est à jour, en anglais et en français**, et
+   `uv run mkdocs build --strict` passe
    (voir [Documentation](#documentation)).
-4. **Le `README.md` est à jour, en restant synthétique** (voir [README](#readme)).
+4. **Les `README.md` (anglais) et `README.fr.md` (français) sont à jour, en restant
+   synthétiques** (voir [README](#readme)).
 5. `.env.example` est à jour si un paramètre `SECREVIEW_*` a été ajouté ou modifié.
 6. **Une revue de sécurité des changements a été faite avec le serveur MCP `security-review`**
    s'il est opérationnel (voir [Revue de sécurité](#revue-de-sécurité)).
@@ -109,8 +111,8 @@ valident les entrées et appellent ces modules.
 
 - Python ≥ 3.14, annotations de type partout, ruff (longueur 100, règles `E F W I B C4 UP`).
 - **Code, docstrings, commentaires, messages d'erreur et logs en anglais.** Chaque module et
-  chaque fonction a une docstring. La documentation utilisateur (`docs/`, README) est en
-  **français**.
+  chaque fonction a une docstring. La documentation utilisateur (`docs/`, README) est
+  **bilingue, anglais et français** (voir [Documentation](#documentation)).
 - Imitez le code voisin : mêmes noms, même densité de commentaires, pas de nouvelle dépendance
   sans nécessité (le serveur doit rester installable hors ligne).
 - Messages de commit : Conventional Commits en anglais (`feat:`, `fix:`, `docs:`, `test:`,
@@ -164,7 +166,7 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 ### Paramètres
 
 Un nouveau paramètre s'ajoute dans `config.Settings` (préfixe `SECREVIEW_` automatique), avec
-un commentaire, puis dans `.env.example` et `docs/reference/configuration.md`. Lisez-le via
+un commentaire, puis dans `.env.example` et `docs/reference/configuration.md` (et `.fr.md`). Lisez-le via
 `get_settings()`, jamais avec `os.environ`.
 
 ### Règles de scan
@@ -233,34 +235,47 @@ avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt
 
 ## Documentation
 
-`docs/` (MkDocs Material, en français) est la **source de vérité complète** pour les
-utilisateurs. Mettez-la à jour dans le même changement que le code :
+`docs/` (MkDocs Material) est la **source de vérité complète** pour les utilisateurs, en
+**deux langues** : chaque page existe en anglais (`page.md`, langue par défaut, servie à la
+racine du site) et en français (`page.fr.md`, à côté, servie sous `/fr/`), avec le plugin
+`mkdocs-static-i18n`. Mettez-la à jour dans le même changement que le code, **dans les deux
+langues** :
 
-| Si vous modifiez... | Mettez à jour |
+| Si vous modifiez... | Mettez à jour (`.md` et `.fr.md`) |
 |---|---|
-| Un prompt ou un outil MCP (nom, argument, comportement) | `docs/utilisation/prompts-outils.md` |
-| Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/utilisation/regles.md` (et `code-scan.md` si le scan du dépôt change) |
-| Le format des packs TOML internes | `docs/utilisation/regles.md`, `examples/rules/company.toml` |
-| L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/utilisation/dependances.md` |
-| Une commande ou option CLI, un code de sortie | `docs/reference/cli.md` + la page d'usage concernée (`ci-cd/*.md`, `code-scan.md`...) |
-| Un paramètre `SECREVIEW_*` | `docs/reference/configuration.md`, `.env.example` |
-| Transport HTTP, authentification, TLS | `docs/demarrage/http.md`, `docs/reference/securite.md` |
-| Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/demarrage/kubernetes.md`, `docker-compose.yml`, `examples/kubernetes/` |
-| Les normes de développement (prompt, outils, ressources, écran) | `docs/utilisation/normes.md` (+ `prompts-outils.md`) |
-| L'interface web, l'API REST ou les rôles | `docs/utilisation/interface-web.md` |
-| Installation, image Docker | `docs/demarrage/installation.md`, `docs/demarrage/docker.md` |
-| Une garantie ou limite de sécurité | `docs/reference/securite.md` |
-| La structure du code, l'outillage de dev | `docs/contribuer.md` |
+| Un prompt ou un outil MCP (nom, argument, comportement) | `docs/usage/prompts-tools` |
+| Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/usage/rules` (et `code-scan` si le scan du dépôt change) |
+| Le format des packs TOML internes | `docs/usage/rules`, `examples/rules/company.toml` |
+| L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/usage/dependencies` |
+| Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`ci-cd/*`, `usage/code-scan`...) |
+| Un paramètre `SECREVIEW_*` | `docs/reference/configuration`, `.env.example` |
+| Transport HTTP, authentification, TLS | `docs/getting-started/http`, `docs/reference/security` |
+| Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/getting-started/kubernetes`, `docker-compose.yml`, `examples/kubernetes/` |
+| Les normes de développement (prompt, outils, ressources, écran) | `docs/usage/standards` (+ `usage/prompts-tools`) |
+| L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` |
+| Installation, image Docker | `docs/getting-started/installation`, `docs/getting-started/docker` |
+| Une garantie ou limite de sécurité | `docs/reference/security` |
+| La structure du code, l'outillage de dev | `docs/contributing` |
 
-- Nouvelle page : créez-la dans `docs/` **et** déclarez-la dans `nav` de `mkdocs.yml`.
-- Liens relatifs entre pages (`../reference/cli.md`) ; vérifiez avec `mkdocs build --strict`.
+- Les deux versions d'une page disent la même chose : pas de section qui n'existe que dans une
+  langue. Les exemples (commandes, sorties, JSON) sont identiques ; seuls le texte et les
+  commentaires sont traduits.
+- L'interface web est en français : la version anglaise cite ses libellés tels qu'ils
+  s'affichent, suivis de leur sens, par exemple **Jetons** (Tokens).
+- Nouvelle page : créez `page.md` et `page.fr.md` dans `docs/`, déclarez `page.md` dans `nav`
+  de `mkdocs.yml` et traduisez son titre dans `nav_translations` (langue `fr` du plugin `i18n`).
+- Liens relatifs entre pages, toujours vers le fichier anglais (`../reference/cli.md`) : le
+  plugin les fait pointer vers la page française depuis une page française. Les ancres suivent
+  les titres de chaque langue (`#report-language` / `#langue-des-rapports`). Vérifiez avec
+  `mkdocs build --strict` : une ancre inconnue fait échouer le build.
 - Exemples copiables et exacts : options, noms de variables et sorties doivent correspondre au
   code actuel.
 
 ## README
 
-Le `README.md` est une **vitrine synthétique**, pas une seconde documentation. Il doit rester
-nettement plus court que `docs/` et ne contenir que :
+Le `README.md` (anglais, celui de PyPI et de GitHub) et le `README.fr.md` (français) sont des
+**vitrines synthétiques**, pas une seconde documentation. Ils ont le même contenu, traduit, se
+lient l'un à l'autre en tête, restent nettement plus courts que `docs/` et ne contiennent que :
 
 1. une description en quelques lignes et le lien vers la documentation complète ;
 2. les capacités principales sous forme de liste ou de tableau court (noms des prompts, outils
@@ -277,5 +292,7 @@ Règles :
 - Quand vous ajoutez une capacité visible (outil, prompt, commande, transport), ajoutez **une
   ligne** au README avec un lien vers la page de doc ; quand vous en retirez ou renommez une,
   corrigez le README.
-- Les liens vers la doc pointent sur le site publié
-  `https://cyr-ius.github.io/security-review-mcp/...`.
+- Modifiez toujours les deux fichiers ensemble.
+- Les liens vers la doc pointent sur le site publié : `https://cyr-ius.github.io/security-review-mcp/...`
+  depuis `README.md`, `https://cyr-ius.github.io/security-review-mcp/fr/...` (ancres
+  françaises) depuis `README.fr.md`.

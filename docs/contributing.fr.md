@@ -48,8 +48,10 @@ ports 8000 (serveur MCP), 8080 (contrôleur), 4200 (serveur de dev Angular), 800
 ```bash
 psql -h db -U secreview secreview                     # mot de passe : secreview
 SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp   # revenir ponctuellement à SQLite
-``` Le démon Docker permet de construire et de lancer
-l'image du [Dockerfile](demarrage/docker.md) sans quitter le conteneur :
+```
+
+Le démon Docker permet de construire et de lancer l'image du
+[Dockerfile](getting-started/docker.md) sans quitter le conteneur :
 
 ```bash
 docker build -t security-review-mcp .
@@ -72,8 +74,8 @@ devcontainer : ils ne se mélangent pas avec ceux de l'hôte.
 ## Définition de « terminé »
 
 Une contribution, humaine ou produite par un agent IA, n'est terminée que si elle comprend des
-tests, que la documentation `docs/` est à jour et que le `README.md`, qui reste un résumé, l'est
-aussi. Quand le serveur MCP `security-review` est opérationnel, les changements sont en outre
+tests, que la documentation `docs/` est à jour dans les deux langues et que les `README.md`, qui
+restent des résumés, le sont aussi. Quand le serveur MCP `security-review` est opérationnel, les changements sont en outre
 relus avec lui (le projet se relit lui-même) et le rapport est enregistré. Les règles détaillées
 (conventions, invariants de sécurité, correspondance code → pages de doc) sont dans `AGENTS.md`
 à la racine du dépôt ; `CLAUDE.md` et `.github/copilot-instructions.md` y renvoient.
@@ -166,8 +168,9 @@ relisez le fichier généré et ne modifiez jamais une révision déjà publiée
 
 ## Documentation
 
-La documentation est écrite en Markdown dans `docs/` et construite avec
-[MkDocs Material](https://squidfunk.github.io/mkdocs-material/).
+La documentation est écrite en Markdown dans `docs/`, en **anglais et en français**, et
+construite avec [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) et le plugin
+[mkdocs-static-i18n](https://ultrabug.github.io/mkdocs-static-i18n/).
 
 ```bash
 uv sync --extra docs
@@ -175,8 +178,15 @@ uv run mkdocs serve          # aperçu sur http://127.0.0.1:8000, rechargement �
 uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer le build
 ```
 
-Pour ajouter une page, créez le fichier dans `docs/` et déclarez-le dans la section `nav` de
-`mkdocs.yml`.
+- Chaque page existe deux fois, côte à côte : `page.md` en anglais (langue par défaut, servie à
+  la racine du site) et `page.fr.md` en français (servie sous `/fr/`). Modifiez les deux dans le
+  même commit.
+- Les liens entre pages visent le fichier anglais (`../reference/cli.md`) : depuis une page
+  française, le plugin les fait pointer vers la page française. Les ancres suivent les titres de
+  chaque langue (`#report-language` en anglais, `#langue-des-rapports` en français).
+- Pour ajouter une page, créez les deux fichiers dans `docs/`, déclarez le fichier anglais dans
+  la section `nav` de `mkdocs.yml` et traduisez son titre dans `nav_translations` (langue `fr`
+  du plugin `i18n`).
 
 ### Publication
 

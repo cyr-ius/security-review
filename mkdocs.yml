@@ -1,5 +1,5 @@
 site_name: Security Review MCP
-site_description: Serveur MCP pour la revue de code orientée sécurité
+site_description: MCP server for security-oriented code review
 site_url: https://cyr-ius.github.io/security-review-mcp/
 repo_url: https://github.com/cyr-ius/security-review-mcp
 repo_name: cyr-ius/security-review-mcp
@@ -8,7 +8,7 @@ copyright: Security Review MCP
 
 theme:
   name: material
-  language: fr
+  language: en
   features:
     - navigation.sections
     - navigation.top
@@ -23,17 +23,65 @@ theme:
       primary: indigo
       toggle:
         icon: material/weather-night
-        name: Thème sombre
+        name: Dark theme
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
       primary: indigo
       toggle:
         icon: material/weather-sunny
-        name: Thème clair
+        name: Light theme
 
 plugins:
   - search:
-      lang: fr
+      lang:
+        - en
+        - fr
+  # English pages are page.md, French ones page.fr.md next to them (served under /fr/)
+  - i18n:
+      docs_structure: suffix
+      reconfigure_material: true
+      languages:
+        - locale: en
+          name: English
+          default: true
+          build: true
+        - locale: fr
+          name: Français
+          build: true
+          site_description: Serveur MCP pour la revue de code orientée sécurité
+          theme:
+            palette:
+              - media: "(prefers-color-scheme: light)"
+                scheme: default
+                primary: indigo
+                toggle:
+                  icon: material/weather-night
+                  name: Thème sombre
+              - media: "(prefers-color-scheme: dark)"
+                scheme: slate
+                primary: indigo
+                toggle:
+                  icon: material/weather-sunny
+                  name: Thème clair
+          nav_translations:
+            Home: Accueil
+            Getting started: Démarrage
+            Host configuration: Configuration de l'hôte
+            HTTP server, authentication and TLS: Serveur HTTP, authentification et TLS
+            Architecture and deployment: Architecture et déploiement
+            Usage: Utilisation
+            Prompts and tools: Prompts et outils
+            Whole codebase scan: Scan du code complet
+            Dependency analysis: Analyse des dépendances
+            Internal rules: Règles internes
+            Development standards: Normes de développement
+            Web interface: Interface web
+            SARIF export: Export SARIF
+            Trend report: Rapport de tendance
+            Reference: Référence
+            Command line: Ligne de commande
+            Security and limits: Sécurité et limites
+            Contributing: Contribuer
 
 markdown_extensions:
   - admonition
@@ -53,26 +101,26 @@ validation:
     anchors: warn
 
 nav:
-  - Accueil: index.md
-  - Démarrage:
-      - Installation: demarrage/installation.md
-      - Configuration de l'hôte: demarrage/hote.md
-      - Serveur HTTP, authentification et TLS: demarrage/http.md
-      - Docker: demarrage/docker.md
-      - Architecture et déploiement: demarrage/kubernetes.md
-  - Utilisation:
-      - Prompts et outils: utilisation/prompts-outils.md
-      - Scan du code complet: utilisation/code-scan.md
-      - Analyse des dépendances: utilisation/dependances.md
-      - Règles internes: utilisation/regles.md
-      - Normes de développement: utilisation/normes.md
-      - Interface web: utilisation/interface-web.md
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - Host configuration: getting-started/host.md
+      - HTTP server, authentication and TLS: getting-started/http.md
+      - Docker: getting-started/docker.md
+      - Architecture and deployment: getting-started/kubernetes.md
+  - Usage:
+      - Prompts and tools: usage/prompts-tools.md
+      - Whole codebase scan: usage/code-scan.md
+      - Dependency analysis: usage/dependencies.md
+      - Internal rules: usage/rules.md
+      - Development standards: usage/standards.md
+      - Web interface: usage/web-interface.md
   - CI/CD:
       - Gate: ci-cd/gate.md
-      - Export SARIF: ci-cd/sarif.md
-      - Rapport de tendance: ci-cd/tendances.md
-  - Référence:
+      - SARIF export: ci-cd/sarif.md
+      - Trend report: ci-cd/trends.md
+  - Reference:
       - Configuration: reference/configuration.md
-      - Ligne de commande: reference/cli.md
-      - Sécurité et limites: reference/securite.md
-  - Contribuer: contribuer.md
+      - Command line: reference/cli.md
+      - Security and limits: reference/security.md
+  - Contributing: contributing.md

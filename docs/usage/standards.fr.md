@@ -3,7 +3,7 @@
 Les **normes de développement** sont les conventions de votre organisation pour chaque
 technologie (Python, Angular, FastAPI, Spring…) : nommage, structure, typage, tests, gestion des
 erreurs, dépendances, sécurité. Les administrateurs les rédigent dans
-l'[interface web](interface-web.md#ecrans) ; le serveur MCP les transmet à l'assistant IA du
+l'[interface web](web-interface.md#ecrans) ; le serveur MCP les transmet à l'assistant IA du
 développeur **avant qu'il écrive du code**, pour que le code produit les respecte dès le départ.
 
 Elles complètent la revue de sécurité : les normes guident l'écriture, les prompts de revue

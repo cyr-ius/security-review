@@ -10,7 +10,7 @@
 | `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
 | `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
 | `triage-report` | Re-qualifier les findings d'un rapport stocké | `report_id`, `context`, `report_language` |
-| `development-standards` | Donne à l'assistant les [normes de développement](normes.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
+| `development-standards` | Donne à l'assistant les [normes de développement](standards.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
 
 Si `code` est vide, le prompt demande à l'agent de relire les fichiers de son espace de travail.
 Chaque prompt de revue se termine par l'instruction d'appeler `save_security_report` une seule
@@ -21,7 +21,7 @@ fois ; `development-standards` n'enregistre rien.
 `report_language` fixe la langue de la réponse de l'agent et des champs rédigés du rapport
 enregistré (résumé, périmètre, titres, descriptions, recommandations), par exemple `French`,
 `fr` ou `pt-BR`. Sans cet argument, le prompt reprend la langue choisie par un administrateur
-dans l'écran [**Paramètres**](interface-web.md#ecrans) de l'interface web, sinon
+dans l'écran [**Paramètres**](web-interface.md#ecrans) de l'interface web, sinon
 [`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md) ; si aucune n'est définie, l'agent
 choisit (en général la langue de la conversation). L'écran peut aussi imposer « l'agent
 choisit » malgré la variable.
@@ -55,13 +55,13 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste / lockfile : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `request_enrollment` | Demande un jeton pour un premier projet ou l'ajout d'un projet au jeton présenté, après approbation par un administrateur ([enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton)) |
-| `list_development_standards` / `get_development_standards` | [Normes de développement](normes.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
-| `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](regles.md), stockées en base), erreurs de chargement, rechargement immédiat |
+| `request_enrollment` | Demande un jeton pour un premier projet ou l'ajout d'un projet au jeton présenté, après approbation par un administrateur ([enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton)) |
+| `list_development_standards` / `get_development_standards` | [Normes de développement](standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
+| `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
 Sur le transport HTTP, un jeton restreint ne peut utiliser les outils de rapports que sur ses
 projets autorisés ; `reload_rules` lui est refusé (voir
-[jetons restreints à un projet](../demarrage/http.md#jetons-restreints-a-un-projet)).
+[jetons restreints à un projet](../getting-started/http.md#jetons-restreints-a-un-projet)).
 Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux ;
 `request_enrollment` demande l'ajout au jeton courant sans créer ni révéler un nouveau secret.
 
@@ -77,13 +77,13 @@ n'expose que :
 | `get_enrollment_status` | `pending` si le jeton présenté attend l'approbation, `not_enrolled` sans jeton |
 | Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Argument `project` facultatif ; expliquent à l'agent comment demander l'accès au lieu de lancer la revue |
 
-Voir [l'enrôlement](../demarrage/http.md#enrolement-un-projet-demande-son-jeton).
+Voir [l'enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton).
 
 ## Ressources
 
 - `report://{report_id}` : un rapport enregistré ;
 - `checklist://{domain}` : la checklist d'un domaine ;
-- `standards://catalog` : le catalogue des [normes de développement](normes.md) ;
+- `standards://catalog` : le catalogue des [normes de développement](standards.md) ;
 - `standard://{slug}` : une norme de développement.
 
 ## Rapport enregistré
