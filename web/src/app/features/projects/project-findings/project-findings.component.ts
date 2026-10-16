@@ -1,0 +1,118 @@
+import { DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
+import { rxResource } from '@angular/core/rxjs-interop';
+import { RouterLink } from '@angular/router';
+import { SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
+import { Message } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import {
+  FINDING_STATUSES,
+  Finding,
+  FindingStatus,
+  ProjectFinding,
+  SEVERITIES,
+  Severity,
+} from '../../../core/models/api.models';
+import { ApiService } from '../../../core/services/api.service';
+import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
+
+/** Findings loaded per request (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
+const PAGE_SIZE = 50;
+
+/**
+ * Every open finding of a project, across all its reports, worst first: the list a security
+ * expert reviews and triages. Other statuses can be listed to re-check past decisions.
+ */
+@Component({
+  selector: 'app-project-findings',
+  imports: [RouterLink, DatePipe, FindingCardComponent, TranslatePipe],
+  templateUrl: './project-findings.component.html',
+  styleUrl: './project-findings.component.css',
+})
+export class ProjectFindingsComponent {
+  private readonly api = inject(ApiService);
+
+  /** Route parameter :project */
+  readonly project = input.required<string>();
+
+  readonly severities = SEVERITIES;
+  readonly statuses = FINDING_STATUSES;
+  readonly severityMeta = SEVERITY_META;
+  readonly statusMeta = STATUS_META;
+
+  readonly statusFilter = signal<FindingStatus>('open');
+  readonly severityFilter = signal<Severity | ''>('');
+
+  /** First page for the current filters. */
+  readonly firstPage = rxResource({
+    params: () => ({
+      project: this.project(),
+      status: this.statusFilter(),
+      severity: this.severityFilter(),
+      limit: PAGE_SIZE,
+      offset: 0,
+    }),
+    stream: ({ params }) => this.api.projectFindings(params),
+  });
+
+  /** Loaded findings: the first page, then the pages added by "load more" and triage updates. */
+  readonly findings = linkedSignal<ProjectFinding[]>(() => this.firstPage.value()?.findings ?? []);
+  readonly total = computed(() => this.firstPage.value()?.total ?? 0);
+  readonly hasMore = computed(() => this.findings().length < this.total());
+
+  readonly loadingMore = signal(false);
+  readonly loadMoreFailed = signal(false);
+  readonly triageError = signal<Message | null>(null);
+
+  /** Findings whose status changed on this page (they stay listed until the next reload). */
+  readonly triagedCount = computed(
+    () => this.findings().filter((f) => f.status !== this.statusFilter()).length,
+  );
+
+  readonly forbidden = computed(() => {
+    const error = this.firstPage.error();
+    return error instanceof HttpErrorResponse && error.status === 404;
+  });
+
+  onStatusFilter(event: Event): void {
+    this.statusFilter.set((event.target as HTMLSelectElement).value as FindingStatus);
+  }
+
+  onSeverityFilter(event: Event): void {
+    this.severityFilter.set((event.target as HTMLSelectElement).value as Severity | '');
+  }
+
+  /** Append the next page to the list. */
+  loadMore(): void {
+    this.loadingMore.set(true);
+    this.loadMoreFailed.set(false);
+    this.api
+      .projectFindings({
+        project: this.project(),
+        status: this.statusFilter(),
+        severity: this.severityFilter(),
+        limit: PAGE_SIZE,
+        // Triaged findings left the filtered set on the server: skipping them in the offset
+        // keeps the next page from jumping over findings not yet seen
+        offset: this.findings().length - this.triagedCount(),
+      })
+      .subscribe({
+        next: (page) => {
+          const known = new Set(this.findings().map((f) => f.id));
+          this.findings.update((all) => [...all, ...page.findings.filter((f) => !known.has(f.id))]);
+          this.loadingMore.set(false);
+        },
+        error: () => {
+          this.loadMoreFailed.set(true);
+          this.loadingMore.set(false);
+        },
+      });
+  }
+
+  /** Keep the triage decision saved by a finding card, and the report context of the row. */
+  onUpdated(updated: Finding): void {
+    this.triageError.set(null);
+    this.findings.update((all) => all.map((f) => (f.id === updated.id ? { ...f, ...updated } : f)));
+  }
+}

@@ -38,6 +38,14 @@ by the API stay in English.
   activity or name.
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
+  The **Review open findings** button opens the next screen.
+- **Findings to review**: every open finding of the project across all its reports, worst
+  severity first, then newest report first, for a review by a security expert. Each finding
+  shows its description, code excerpt and recommendation, and a link to its report (date,
+  branch, commit). Filters by status (to re-check accepted risks or false positives) and by
+  severity; **Load more** displays the next findings. Users with the `triager` or `admin` role
+  change the status of each finding from this screen; a triaged finding stays displayed until
+  the next reload.
 - **Reports**: list filtered by project and risk level (the filters are in the URL,
   so a link can be shared).
 - **Report**: summary, context (repository, branch, commit), findings with location,
@@ -145,6 +153,16 @@ not open the interface** (the login page only offers the accounts):
 security-review-controller token create --label triage-bot --role triager
 # {"id": "…", "label": "triage-bot", "role": "triager", "project": null, "created_at": "…", "token": "UJB7…"}
 curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/projects
+```
+
+The same token lists the findings of a project across all its reports, open by default, worst
+first (`status` and `severity` filter, `limit` is capped by `SECREVIEW_MAX_LIST_LIMIT`, `total`
+gives the number of matching findings for paging):
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
+# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "report_created_at": "…", …}, …]}
 ```
 
 Revoke it with `security-review-controller token revoke triage-bot`. Every status change is

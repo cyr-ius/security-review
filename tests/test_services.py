@@ -124,6 +124,51 @@ def test_update_finding_status_and_posture():
     assert services.list_reports(project="shop")[0]["findings_open"] == 1
 
 
+def test_list_project_findings_across_reports(monkeypatch):
+    first = services.save_report(
+        "shop",
+        "first",
+        [make_finding(Severity.LOW, title="Weak hash"), make_finding(Severity.HIGH)],
+        branch="main",
+    )
+    services.save_report(
+        "shop",
+        "second",
+        [make_finding(Severity.CRITICAL, title="RCE", evidence="token = 'ghp_" + "a" * 36 + "'")],
+        commit_sha="abc123",
+    )
+    services.save_report("other", "other project", [make_finding(Severity.CRITICAL)])
+    low = next(
+        f for f in services.get_report(first["report_id"]).findings if f.title == "Weak hash"
+    )
+    services.update_finding_status(low.id, FindingStatus.ACCEPTED)
+
+    page = services.list_project_findings("shop")
+    assert page["total"] == 2
+    assert [f["severity"] for f in page["findings"]] == [Severity.CRITICAL, Severity.HIGH]
+    critical, high = page["findings"]
+    assert critical["commit_sha"] == "abc123"
+    assert high["branch"] == "main"
+    assert high["report_id"] == first["report_id"]
+    assert "ghp_" + "a" * 36 not in critical["evidence"]  # stored masked
+
+    accepted = services.list_project_findings("shop", status=FindingStatus.ACCEPTED)
+    assert [f["id"] for f in accepted["findings"]] == [low.id]
+    assert services.list_project_findings("shop", severity=Severity.HIGH)["total"] == 1
+    assert services.list_project_findings("unknown") == {
+        "project": "unknown",
+        "total": 0,
+        "findings": [],
+    }
+
+    # Paging, and the limit is capped by SECREVIEW_MAX_LIST_LIMIT
+    second_page = services.list_project_findings("shop", limit=1, offset=1)
+    assert second_page["total"] == 2
+    assert [f["severity"] for f in second_page["findings"]] == [Severity.HIGH]
+    monkeypatch.setattr(services.get_settings(), "max_list_limit", 1)
+    assert len(services.list_project_findings("shop", limit=50)["findings"]) == 1
+
+
 def test_posture_of_unknown_project_is_empty():
     posture = services.project_posture("ghost")
     assert posture["reports_total"] == 0

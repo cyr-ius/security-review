@@ -37,7 +37,14 @@ renvoyés par l'API restent en anglais.
   activité ou nom.
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, derniers rapports et
-  export SARIF.
+  export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant.
+- **Findings à revoir** : tous les findings ouverts du projet, sur l'ensemble de ses rapports,
+  du plus grave au moins grave puis du rapport le plus récent au plus ancien, pour une revue par
+  un expert en cybersécurité. Chaque finding affiche sa description, son extrait de code et sa
+  recommandation, et un lien vers son rapport (date, branche, commit). Filtres par statut (pour
+  revoir les risques acceptés ou les faux positifs) et par sévérité ; **Afficher plus** affiche
+  les findings suivants. Les utilisateurs qui ont le rôle `triager` ou `admin` changent le statut
+  de chaque finding depuis cet écran ; un finding trié reste affiché jusqu'au rechargement.
 - **Rapports** : liste filtrable par projet et niveau de risque (les filtres sont dans l'URL, on
   peut donc partager un lien).
 - **Rapport** : résumé, contexte (dépôt, branche, commit), findings avec emplacement, CWE,
@@ -143,6 +150,16 @@ propose que les comptes) :
 security-review-controller token create --label triage-bot --role triager
 # {"id": "…", "label": "triage-bot", "role": "triager", "project": null, "created_at": "…", "token": "UJB7…"}
 curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/projects
+```
+
+Le même jeton liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
+du plus grave au moins grave (filtres `status` et `severity`, `limit` plafonné par
+`SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer) :
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
+# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "report_created_at": "…", …}, …]}
 ```
 
 Révoquez-le avec `security-review-controller token revoke triage-bot`. Chaque changement de

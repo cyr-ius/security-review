@@ -4,7 +4,7 @@ import logging
 from collections import Counter
 from collections.abc import Collection
 
-from sqlalchemy import func
+from sqlalchemy import case, func
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
@@ -288,6 +288,54 @@ def project_posture(project: str) -> dict:
         "open_findings_by_severity": by_severity,
         "worst_open_severity": worst.value if open_total else None,
     }
+
+
+def list_project_findings(
+    project: str,
+    status: FindingStatus = FindingStatus.OPEN,
+    severity: Severity | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> dict:
+    """List the findings of a project across all its reports, for an expert review.
+
+    Worst severity first, then newest report first. ``limit`` is capped by
+    SECREVIEW_MAX_LIST_LIMIT; ``total`` counts every matching finding, for paging. Each finding
+    carries the branch, commit and date of its report.
+    """
+    settings = get_settings()
+    limit = max(1, min(limit, settings.max_list_limit))
+    offset = max(0, offset)
+    filters = [SecurityReport.project == project, Finding.status == status]
+    if severity is not None:
+        filters.append(Finding.severity == severity)
+    rank = case(*((Finding.severity == s, r) for s, r in SEVERITY_RANK.items()), else_=0)
+
+    with session_scope() as session:
+        total = session.exec(
+            select(func.count())
+            .select_from(Finding)
+            .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+            .where(*filters)
+        ).one()
+        rows = session.exec(
+            select(Finding, SecurityReport)
+            .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+            .where(*filters)
+            .order_by(rank.desc(), col(SecurityReport.created_at).desc(), col(Finding.id).desc())
+            .offset(offset)
+            .limit(limit)
+        ).all()
+        findings = [
+            {
+                **FindingPublic.model_validate(finding, from_attributes=True).model_dump(),
+                "branch": report.branch,
+                "commit_sha": report.commit_sha,
+                "report_created_at": report.created_at,
+            }
+            for finding, report in rows
+        ]
+    return {"project": project, "total": total, "findings": findings}
 
 
 def render_report_markdown(report: SecurityReportPublic) -> str:

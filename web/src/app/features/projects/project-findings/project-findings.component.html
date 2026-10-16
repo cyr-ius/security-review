@@ -1,0 +1,122 @@
+<nav [attr.aria-label]="'common.breadcrumb' | t">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item">
+      <a routerLink="/projects">{{ 'layout.projects' | t }}</a>
+    </li>
+    <li class="breadcrumb-item">
+      <a [routerLink]="['/projects', project()]">{{ project() }}</a>
+    </li>
+    <li class="breadcrumb-item active" aria-current="page">
+      {{ 'projectFindings.title' | t }}
+    </li>
+  </ol>
+</nav>
+
+<div class="mb-3">
+  <h1 class="h3 mb-1 text-break">{{ 'projectFindings.heading' | t: { project: project() } }}</h1>
+  <p class="text-body-secondary small mb-0">{{ 'projectFindings.subtitle' | t }}</p>
+</div>
+
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+  <span class="me-auto text-body-secondary small" aria-live="polite">
+    @if (firstPage.value()) {
+      {{ 'projectFindings.count' | t: { shown: findings().length, total: total() } }}
+      @if (triagedCount() > 0) {
+        · {{ 'projectFindings.triaged' | t: { count: triagedCount() } }}
+      }
+    }
+  </span>
+  <select
+    class="form-select form-select-sm filter"
+    [attr.aria-label]="'report.filterStatus' | t"
+    (change)="onStatusFilter($event)"
+  >
+    @for (status of statuses; track status) {
+      <option [value]="status" [selected]="status === statusFilter()">
+        {{ statusMeta[status].label | t }}
+      </option>
+    }
+  </select>
+  <select
+    class="form-select form-select-sm filter"
+    [attr.aria-label]="'report.filterSeverity' | t"
+    (change)="onSeverityFilter($event)"
+  >
+    <option value="">{{ 'report.allSeverities' | t }}</option>
+    @for (severity of severities; track severity) {
+      <option [value]="severity">{{ severityMeta[severity].label | t }}</option>
+    }
+  </select>
+</div>
+
+@if (triageError(); as message) {
+  <div class="alert alert-danger alert-dismissible py-2" role="alert">
+    {{ message | t }}
+    <button
+      type="button"
+      class="btn-close"
+      [attr.aria-label]="'common.close' | t"
+      (click)="triageError.set(null)"
+    ></button>
+  </div>
+}
+
+@if (forbidden()) {
+  <div class="alert alert-warning" role="alert">{{ 'projectFindings.notFound' | t }}</div>
+} @else if (firstPage.error()) {
+  <div class="alert alert-danger" role="alert">
+    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+    {{ 'projectFindings.loadError' | t }}
+  </div>
+} @else if (firstPage.hasValue()) {
+  @for (finding of findings(); track finding.id) {
+    <app-finding-card
+      [finding]="finding"
+      (updated)="onUpdated($event)"
+      (failed)="triageError.set($event)"
+    >
+      <a [routerLink]="['/reports', finding.report_id]">
+        <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+        {{ 'report.title' | t: { id: finding.report_id } }}
+      </a>
+      <span>{{ finding.report_created_at | date: 'dd/MM/yyyy' }}</span>
+      @if (finding.branch) {
+        <span><i class="bi bi-diagram-2" aria-hidden="true"></i> {{ finding.branch }}</span>
+      }
+      @if (finding.commit_sha) {
+        <code>{{ finding.commit_sha.slice(0, 12) }}</code>
+      }
+    </app-finding-card>
+  } @empty {
+    <p class="text-body-secondary text-center my-4">
+      <i class="bi bi-check2-circle" aria-hidden="true"></i>
+      {{
+        (statusFilter() === 'open' && !severityFilter()
+          ? 'projectFindings.none'
+          : 'report.noneFiltered'
+        ) | t
+      }}
+    </p>
+  }
+
+  @if (hasMore()) {
+    <div class="text-center my-3">
+      <button
+        type="button"
+        class="btn btn-outline-secondary"
+        (click)="loadMore()"
+        [disabled]="loadingMore()"
+      >
+        {{ 'projectFindings.loadMore' | t }}
+      </button>
+      @if (loadMoreFailed()) {
+        <p class="text-danger small mt-2 mb-0">{{ 'projectFindings.loadError' | t }}</p>
+      }
+    </div>
+  }
+} @else {
+  <div class="text-center my-5">
+    <span class="spinner-border text-secondary" aria-hidden="true"></span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+  </div>
+}

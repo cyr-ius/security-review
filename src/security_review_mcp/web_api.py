@@ -12,6 +12,7 @@ The services are synchronous (SQLModel sessions), so every call runs in the thre
 import json
 import logging
 import threading
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import urlencode
@@ -315,6 +316,22 @@ class ReportSummary(BaseModel):
     findings_total: int
     findings_open: int
     summary: str
+
+
+class ProjectFinding(FindingPublic):
+    """A finding of a project, with the context of its report."""
+
+    branch: str | None
+    commit_sha: str | None
+    report_created_at: datetime
+
+
+class ProjectFindingPage(BaseModel):
+    """One page of the findings of a project (``total`` counts every matching finding)."""
+
+    project: str
+    total: int
+    findings: list[ProjectFinding]
 
 
 # ── Dependencies ─────────────────────────────────────────────────────────────
@@ -698,6 +715,29 @@ async def posture(
 ) -> dict:
     """Open findings of a project across all its reports."""
     return await run_in_threadpool(services.project_posture, _scoped_project(identity, project))
+
+
+@router.get("/findings")
+async def project_findings(
+    project: Annotated[str, Query(min_length=1, max_length=200)],
+    identity: CurrentIdentity,
+    finding_status: Annotated[FindingStatus, Query(alias="status")] = FindingStatus.OPEN,
+    severity: Severity | None = None,
+    limit: Annotated[int, Query(ge=1)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> ProjectFindingPage:
+    """Findings of a project across all its reports (open by default), worst first.
+
+    Gives an expert the whole list to review; limit is capped by SECREVIEW_MAX_LIST_LIMIT.
+    """
+    return await run_in_threadpool(
+        services.list_project_findings,
+        _scoped_project(identity, project),
+        finding_status,
+        severity,
+        limit,
+        offset,
+    )
 
 
 @router.get("/trend")

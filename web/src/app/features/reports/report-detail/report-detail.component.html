@@ -119,75 +119,11 @@
   }
 
   @for (finding of visibleFindings(); track finding.id) {
-    <article class="card finding mb-3" [class]="'sev-' + finding.severity">
-      <div class="card-header d-flex flex-wrap align-items-center gap-2">
-        <app-severity-badge [severity]="finding.severity" />
-        <h3 class="h6 mb-0 me-auto">{{ finding.title }}</h3>
-        @if (auth.canTriage()) {
-          <select
-            class="form-select form-select-sm status-select"
-            [attr.aria-label]="'report.findingStatus' | t: { id: finding.id }"
-            [disabled]="saving().has(finding.id)"
-            (change)="changeStatus(finding, $event)"
-          >
-            @for (status of statuses; track status) {
-              <option [value]="status" [selected]="status === finding.status">
-                {{ statusMeta[status].label | t }}
-              </option>
-            }
-          </select>
-        } @else {
-          <app-status-badge [status]="finding.status" />
-        }
-      </div>
-      <div class="card-body">
-        <div class="d-flex flex-wrap gap-3 small text-body-secondary mb-2">
-          <span>#{{ finding.id }}</span>
-          @if (location(finding); as loc) {
-            <span
-              ><i class="bi bi-file-earmark-code" aria-hidden="true"></i>
-              <code>{{ loc }}</code></span
-            >
-          }
-          @if (finding.rule_id) {
-            <span><i class="bi bi-tag" aria-hidden="true"></i> {{ finding.rule_id }}</span>
-          }
-          @if (finding.cwe) {
-            @if (cweUrl(finding.cwe); as url) {
-              <a [href]="url" target="_blank" rel="noopener noreferrer">{{ finding.cwe }}</a>
-            } @else {
-              <span>{{ finding.cwe }}</span>
-            }
-          }
-          @if (finding.owasp) {
-            <span>OWASP {{ finding.owasp }}</span>
-          }
-          <span>{{ finding.category }}</span>
-          @if (finding.status !== 'open' && finding.status_changed_at) {
-            <span>
-              {{
-                'report.statusOn'
-                  | t
-                    : {
-                        status: statusMeta[finding.status].label | t,
-                        date: (finding.status_changed_at | date: 'dd/MM/yyyy') ?? '',
-                      }
-              }}
-            </span>
-          }
-        </div>
-        <p class="prewrap mb-2">{{ finding.description }}</p>
-        @if (finding.evidence) {
-          <pre class="evidence"><code>{{ finding.evidence }}</code></pre>
-        }
-        @if (finding.recommendation) {
-          <div class="recommendation">
-            <i class="bi bi-lightbulb" aria-hidden="true"></i>
-            <div class="prewrap">{{ finding.recommendation }}</div>
-          </div>
-        }
-      </div>
-    </article>
+    <app-finding-card
+      [finding]="finding"
+      (updated)="onUpdated($event)"
+      (failed)="triageError.set($event)"
+    />
   } @empty {
     <p class="text-body-secondary text-center my-4">
       <i class="bi bi-check2-circle" aria-hidden="true"></i>

@@ -286,6 +286,29 @@ export interface Finding {
   recommendation: string | null;
 }
 
+/** A finding of GET /api/v1/findings, with the context of its report. */
+export interface ProjectFinding extends Finding {
+  branch: string | null;
+  commit_sha: string | null;
+  report_created_at: string;
+}
+
+/** GET /api/v1/findings: one page of the findings of a project. */
+export interface ProjectFindingPage {
+  project: string;
+  total: number;
+  findings: ProjectFinding[];
+}
+
+/** Query of GET /api/v1/findings. */
+export interface ProjectFindingQuery {
+  project: string;
+  status: FindingStatus;
+  severity: Severity | '';
+  limit: number;
+  offset: number;
+}
+
 /** GET /api/v1/reports/{id} */
 export interface Report {
   id: number;

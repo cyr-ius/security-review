@@ -9,7 +9,14 @@
 
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <h1 class="h3 mb-0 text-break">{{ project() }}</h1>
-  <div class="d-flex gap-2">
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-primary" [routerLink]="['/projects', project(), 'findings']">
+      <i class="bi bi-shield-check" aria-hidden="true"></i>
+      {{ 'project.reviewFindings' | t }}
+      @if (trend.value(); as data) {
+        <span class="badge text-bg-light ms-1">{{ data.summary.open_now_total }}</span>
+      }
+    </a>
     <a
       class="btn btn-sm btn-outline-secondary"
       routerLink="/reports"

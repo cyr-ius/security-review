@@ -201,6 +201,33 @@ def test_posture_trend_and_sarif(client, reports):
     assert client.get("/api/v1/sarif").status_code == 422
 
 
+def test_project_findings(client, reports):
+    response = client.get("/api/v1/findings", params={"project": "shop-api"})
+    assert response.status_code == 200
+    page = response.json()
+    assert page["total"] == 2
+    assert [f["severity"] for f in page["findings"]] == ["high", "low"]
+    assert page["findings"][0]["report_id"] == reports[0]
+    assert "report_created_at" in page["findings"][0]
+
+    first = page["findings"][0]["id"]
+    client.patch(f"/api/v1/findings/{first}", json={"status": "false_positive"})
+    assert client.get("/api/v1/findings", params={"project": "shop-api"}).json()["total"] == 1
+    dismissed = client.get(
+        "/api/v1/findings", params={"project": "shop-api", "status": "false_positive"}
+    ).json()
+    assert [f["id"] for f in dismissed["findings"]] == [first]
+    assert client.get("/api/v1/findings").status_code == 422
+    assert (
+        client.get("/api/v1/findings", params={"project": "shop-api", "status": "x"}).status_code
+        == 422
+    )
+    assert (
+        client.get("/api/v1/findings", params={"project": "shop-api", "limit": 0}).status_code
+        == 422
+    )
+
+
 def test_update_finding_status(client, reports):
     finding = client.get(f"/api/v1/reports/{reports[0]}").json()["findings"][0]
     response = client.patch(f"/api/v1/findings/{finding['id']}", json={"status": "accepted"})
@@ -385,6 +412,11 @@ def test_reader_can_read_but_not_triage(secured, reports):
     me = secured.get("/api/v1/me", headers=auth("reader")).json()
     assert (me["client"], me["role"], me["can_triage"]) == ("reader", "reader", False)
     assert secured.get("/api/v1/projects", headers=auth("reader")).status_code == 200
+    findings = secured.get(
+        "/api/v1/findings", params={"project": "shop-api"}, headers=auth("reader")
+    )
+    assert findings.json()["total"] == 2
+    assert secured.get("/api/v1/findings", params={"project": "shop-api"}).status_code == 401
 
     response = secured.patch("/api/v1/findings/1", json={"status": "fixed"}, headers=auth("reader"))
     assert response.status_code == 403
@@ -567,6 +599,18 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, 
         == 200
     )
     assert secured.get("/api/v1/sarif", headers=project_headers).status_code == 200
+    assert (
+        secured.get(
+            "/api/v1/findings", params={"project": "shop-api"}, headers=project_headers
+        ).status_code
+        == 200
+    )
+    assert (
+        secured.get(
+            "/api/v1/findings", params={"project": "billing"}, headers=project_headers
+        ).status_code
+        == 404
+    )
     assert (
         secured.get(f"/api/v1/reports/{billing_report_id}", headers=project_headers).status_code
         == 404
