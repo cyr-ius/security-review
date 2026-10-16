@@ -26,7 +26,7 @@ FROM ghcr.io/astral-sh/uv:0.13.0 AS uv
 # ---------------------------------------------------------------------------
 # Web stage: build the Angular interface (served on /ui by the controller)
 # ---------------------------------------------------------------------------
-FROM node:24-slim AS web
+FROM node:25-slim AS web
 
 WORKDIR /web/web
 
