@@ -689,6 +689,30 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, 
     assert secured.get("/api/v1/project-tokens", headers=auth("admin")).json() == []
 
 
+def test_hidden_report_answers_like_a_missing_one(secured, reports):
+    _, billing_report_id = reports
+    missing_id = billing_report_id + 1000
+    token = token_store.create_project_token("shop-ci", ["shop-api"], "reader")["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    for path, params in (
+        ("/api/v1/reports/{id}", None),
+        ("/api/v1/reports/{id}/markdown", None),
+        ("/api/v1/sarif", {"report_id": "{id}"}),
+    ):
+        answers = []
+        for report_id in (billing_report_id, missing_id):
+            response = secured.get(
+                path.format(id=report_id),
+                params={k: v.format(id=report_id) for k, v in (params or {}).items()},
+                headers=headers,
+            )
+            body = response.json()["detail"].replace(str(report_id), "N")
+            answers.append((response.status_code, body))
+        # A report of another project cannot be told apart from a report that does not exist
+        assert answers[0] == answers[1] == (404, "Report N not found")
+
+
 def test_project_token_errors(secured, reports):
     def create(label: str, *projects: str):
         return secured.post(

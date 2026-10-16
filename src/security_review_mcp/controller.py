@@ -107,6 +107,7 @@ def serve(argv: list[str]) -> None:
             store,
             tls,
             settings.log_level,
+            settings.forwarded_allow_ips,
         )
     finally:
         if updater:

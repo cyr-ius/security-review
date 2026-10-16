@@ -408,9 +408,10 @@ def _scoped_project(identity: Identity, requested: str) -> str:
 
 
 def _ensure_report_scope(identity: Identity, report: SecurityReportPublic) -> None:
-    """Hide reports outside a project token's scope."""
+    """Hide reports outside a project token's scope, with the answer of a missing report (the
+    caller cannot tell which report ids exist in other projects)."""
     if not _in_scope(identity, report.project):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+        raise services.NotFoundError(f"Report {report.id} not found")
 
 
 def _rule_catalog() -> dict:

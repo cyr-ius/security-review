@@ -23,6 +23,9 @@ data:
   SECREVIEW_LOG_LEVEL: INFO
   # Only the init container of the controller migrates the schema
   SECREVIEW_DB_AUTO_UPGRADE: "false"
+  # Address range of the ingress controller pods: their X-Forwarded-For gives the client
+  # address (login throttling, enrollment limits, logs). Adapt it to your cluster.
+  # SECREVIEW_FORWARDED_ALLOW_IPS: "10.0.0.0/8"
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -167,7 +167,8 @@ to its rights.
 An unrestricted token already reaches every project: it cannot make an additional enrollment.
 Create a restricted token if you need to limit its access.
 
-Safeguards: at most 20 pending requests at a time, a request left unprocessed expires after
+Safeguards: at most 20 pending requests at a time, 3 per client address (behind a reverse
+proxy, set [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md)), a request left unprocessed expires after
 7 days, a token with an invalid secret stays refused (`401`) and pending requests never enable
 the authentication of an open server. Check the requester before approving: any client that
 reaches the server can file a request. To disable the enrollment:

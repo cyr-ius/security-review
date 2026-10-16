@@ -273,7 +273,9 @@ Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour
 depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
 connexion est refusée (`429`, en-tête `Retry-After`), même avec le bon mot de passe. Le compteur
 est tenu en mémoire par chaque réplique. Derrière un reverse proxy, l'adresse vue est celle du
-proxy : la limite s'applique alors à tous les clients du proxy. Chaque connexion et chaque échec
+proxy, et la limite s'appliquerait alors à tous les clients du proxy : déclarez le proxy dans
+[`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md) pour que l'adresse du client
+soit lue dans `X-Forwarded-For`. Chaque connexion et chaque échec
 sont journalisés, sans le mot de passe :
 
 ```

@@ -273,8 +273,10 @@ end at restart (a warning is logged).
 Login failures are limited: after **5 failures in 15 minutes** for a user name from the same
 address, or **20 failures** from an address all user names together, the login is refused
 (`429`, `Retry-After` header), even with the right password. The counter is kept in memory by
-every replica. Behind a reverse proxy, the address seen is the proxy's: the limit then applies
-to every client of the proxy. Every login and every failure is logged, without the password:
+every replica. Behind a reverse proxy, the address seen is the proxy's, and the limit would then
+apply to every client of the proxy: list the proxy in
+[`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md) so that the address of the
+client is read from `X-Forwarded-For`. Every login and every failure is logged, without the password:
 
 ```
 INFO security_review_mcp.web: Web login of alice (role triager) from 10.0.0.12

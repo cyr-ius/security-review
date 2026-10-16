@@ -958,7 +958,9 @@ def main(argv: list[str] | None = None) -> None:
         enrollment_mcp if settings.enrollment else None,
         enrollment_api.create_app(args.host) if settings.enrollment else None,
     )
-    http_server.serve(app, args.host, args.port, store, tls, settings.log_level)
+    http_server.serve(
+        app, args.host, args.port, store, tls, settings.log_level, settings.forwarded_allow_ips
+    )
 
 
 if __name__ == "__main__":

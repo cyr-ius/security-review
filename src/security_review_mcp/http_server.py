@@ -488,16 +488,28 @@ def serve(
     store: TokenStore,
     tls: TLSOptions | None,
     log_level: str = "INFO",
+    forwarded_allow_ips: str | None = None,
 ) -> None:
     """Serve an app built by build_mcp_app or build_controller_app with uvicorn.
 
-    ``tls`` comes from tls_options (validated beforehand).
+    ``tls`` comes from tls_options (validated beforehand). ``forwarded_allow_ips``
+    (SECREVIEW_FORWARDED_ALLOW_IPS) lists the reverse proxies trusted for the client address;
+    None keeps the uvicorn default.
     """
     _log_exposure(host, store, tls)
+    proxies: dict[str, Any] = {}
+    if forwarded_allow_ips is not None:
+        proxies = {"proxy_headers": True, "forwarded_allow_ips": forwarded_allow_ips}
+        if forwarded_allow_ips == "*":
+            logger.warning(
+                "SECREVIEW_FORWARDED_ALLOW_IPS=*: any client may set its address with "
+                "X-Forwarded-For; list the addresses of the reverse proxies instead."
+            )
     uvicorn.run(
         app,
         host=host,
         port=port,
         log_level=log_level.lower(),
+        **proxies,
         **(tls.uvicorn_kwargs() if tls else {}),
     )

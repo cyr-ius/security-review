@@ -57,6 +57,17 @@ def test_enrollment_endpoint_errors(public, monkeypatch):
     assert public.post("/api/v1/enroll", json={"project": "p"}).status_code == 404
 
 
+def test_enrollment_endpoint_bounds_the_requests_of_one_address(public, monkeypatch):
+    monkeypatch.setattr(token_store, "MAX_PENDING_PER_ADDRESS", 2)
+    for project in ("a", "b"):
+        assert public.post("/api/v1/enroll", json={"project": project}).status_code == 201
+
+    refused = public.post("/api/v1/enroll", json={"project": "c"})
+
+    assert refused.status_code == 422 and "from this address" in refused.json()["detail"]
+    assert len(token_store.list_enrollments()) == 2
+
+
 def test_enrollment_body_is_bounded(public):
     oversized = b'{"project": "' + b"p" * enrollment_api.MAX_BODY_BYTES + b'"}'
 

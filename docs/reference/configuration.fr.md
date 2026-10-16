@@ -21,6 +21,7 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_TLS_KEYFILE` | — | les deux | Clé privée |
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | les deux | Mot de passe de la clé privée |
 | `SECREVIEW_TLS_CLIENT_CA` | — | les deux | CA cliente : active le TLS mutuel |
+| `SECREVIEW_FORWARDED_ALLOW_IPS` | — | les deux | Reverse proxies (adresses IP ou plages CIDR séparées par des virgules, `*` pour tous) dont l'en-tête `X-Forwarded-For` donne l'adresse du client, utilisée par la limitation des connexions, les limites d'enrôlement et les journaux ; sans elle, la valeur par défaut d'uvicorn (variable `FORWARDED_ALLOW_IPS`, sinon `127.0.0.1`). À définir derrière un Ingress ou un reverse proxy, sinon tous les clients partagent l'adresse du proxy |
 | `SECREVIEW_WEB_UI` | `true` | Contrôleur | Sert l'[interface web](../usage/web-interface.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Contrôleur | Dossier d'une autre build de l'interface web |
 | `SECREVIEW_OIDC_ENABLED` | `false` | Contrôleur | Active la [connexion SSO OpenID Connect](../usage/web-interface.md#connexion-sso-openid-connect) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` se modifient aussi dans l'écran **Rôles SSO**, dont les valeurs enregistrées les remplacent ([configurer le SSO dans l'interface](../usage/web-interface.md#configurer-le-sso-dans-linterface)) |

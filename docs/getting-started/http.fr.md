@@ -174,7 +174,9 @@ ajouté à ses droits.
 Un jeton sans restriction atteint déjà tous les projets : il ne peut pas faire d'enrôlement
 complémentaire. Créez un jeton restreint si vous devez limiter ses accès.
 
-Garde-fous : au plus 20 demandes en attente à la fois, une demande non traitée expire au bout de
+Garde-fous : au plus 20 demandes en attente à la fois, 3 par adresse cliente (derrière un
+reverse proxy, définissez [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md)), une
+demande non traitée expire au bout de
 7 jours, un jeton avec un secret invalide reste refusé (`401`) et les demandes en attente
 n'activent jamais l'authentification d'un serveur ouvert. Vérifiez le demandeur avant
 d'approuver : n'importe quel client qui atteint le serveur peut déposer une demande. Pour

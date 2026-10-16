@@ -232,6 +232,26 @@ def test_pending_enrollments_are_bounded_and_expire(monkeypatch, database):
     ]
 
 
+def test_pending_enrollments_are_bounded_per_address(monkeypatch):
+    monkeypatch.setattr(token_store, "MAX_PENDING_PER_ADDRESS", 2)
+    first = token_store.request_enrollment("shop-api", requested_from="203.0.113.7")
+    token_store.request_enrollment("billing", requested_from="203.0.113.7")
+
+    # One client cannot fill the whole queue: its next request is refused...
+    with pytest.raises(ValueError, match="from this address"):
+        token_store.request_enrollment("other", requested_from="203.0.113.7")
+    created = token_store.create_token("ci", Role.MCP, "shop-api")
+    with pytest.raises(ValueError, match="from this address"):
+        token_store.request_additional_project(created["id"], "crm", requested_from="203.0.113.7")
+    # ...while the other clients (and stdio, without address) still enroll
+    token_store.request_enrollment("other", requested_from="198.51.100.2")
+    token_store.request_enrollment("local")
+
+    # A decision frees a slot of the address
+    token_store.reject_enrollment(first["request_id"])
+    token_store.request_enrollment("other", requested_from="203.0.113.7")
+
+
 # ── Multi-project tokens and complementary enrollment ───────────────────────
 
 

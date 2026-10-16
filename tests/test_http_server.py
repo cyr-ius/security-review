@@ -312,7 +312,11 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     cert.write_text("x", encoding="utf-8")
     key.write_text("x", encoding="utf-8")
     token_store.create_token("ci", Role.MCP)
-    monkeypatch.setattr(server, "get_settings", lambda: make_settings(enrollment=False))
+    monkeypatch.setattr(
+        server,
+        "get_settings",
+        lambda: make_settings(enrollment=False, forwarded_allow_ips="10.0.0.0/8"),
+    )
 
     server.main(
         [
@@ -325,6 +329,8 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     assert isinstance(call["app"], BearerAuthMiddleware) and not call["app"].web
     assert (call["host"], call["port"]) == ("0.0.0.0", 8443)
     assert (call["ssl_certfile"], call["ssl_keyfile"]) == (str(cert), str(key))
+    # The client address comes from X-Forwarded-For of the trusted reverse proxies only
+    assert (call["proxy_headers"], call["forwarded_allow_ips"]) == (True, "10.0.0.0/8")
     client = TestClient(call["app"])
     assert client.get("/mcp").status_code == 401
     # The web interface is served by the controller only
@@ -424,6 +430,40 @@ def test_serve_warns_without_authentication_only_when_no_token(caplog, captured_
 
     warned = any("without authentication" in record.message for record in caplog.records)
     assert warned is not has_token
+
+
+def test_serve_keeps_the_uvicorn_proxy_default_when_unset(captured_run):
+    http_server.serve(Starlette(), "0.0.0.0", 8000, STORE, None)
+
+    (call,) = captured_run
+    assert "forwarded_allow_ips" not in call and "proxy_headers" not in call
+
+
+def test_serve_warns_when_every_client_is_a_trusted_proxy(caplog, captured_run):
+    with caplog.at_level("WARNING", logger="security_review_mcp"):
+        http_server.serve(Starlette(), "0.0.0.0", 8000, STORE, None, forwarded_allow_ips="*")
+
+    assert captured_run[0]["forwarded_allow_ips"] == "*"
+    assert any("X-Forwarded-For" in record.message for record in caplog.records)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, None),
+        ("  ", None),
+        ("*", "*"),
+        (" 10.0.0.0/8, 192.168.1.10 ,fd00::/8", "10.0.0.0/8,192.168.1.10,fd00::/8"),
+    ],
+)
+def test_forwarded_allow_ips_setting(value, expected):
+    assert make_settings(forwarded_allow_ips=value).forwarded_allow_ips == expected
+
+
+@pytest.mark.parametrize("value", ["proxy.local", "10.0.0.0/8,*", "10.0.0.300"])
+def test_forwarded_allow_ips_refuses_what_is_not_an_address(value):
+    with pytest.raises(ValueError, match="forwarded_allow_ips"):
+        make_settings(forwarded_allow_ips=value)
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────

@@ -27,7 +27,7 @@
   serveur MCP restreint qui ne permet que de déposer une demande, et `POST /api/v1/enroll` est
   public sur le serveur MCP (corps limité à 4 Kio). L'approbation se fait sur le contrôleur. Une demande est un jeton `mcp` restreint au projet, **en attente** : il ne donne accès
   à rien avant l'approbation d'un administrateur, et les demandes en attente n'activent jamais
-  l'authentification d'un serveur ouvert. Le nombre de demandes en attente est borné (20) et
+  l'authentification d'un serveur ouvert. Le nombre de demandes en attente est borné (20 en tout, 3 par adresse cliente) et
   une demande non traitée expire après 7 jours ; le texte libre du demandeur est masqué et
   tronqué. N'importe quel client qui atteint le serveur peut déposer une demande : vérifiez le
   demandeur et l'adresse affichés avant d'approuver, ou désactivez l'enrôlement. Voir
@@ -73,7 +73,10 @@
   mémoire. Mots de passe de 12 à 256 caractères, identifiants limités à `[A-Za-z0-9._@-]`. La
   vérification coûte le même temps que l'identifiant existe ou non (empreinte factice), et
   l'échec renvoie toujours le même `401`. Les échecs sont limités en mémoire (5 par identifiant
-  et adresse, 20 par adresse, sur 15 minutes, puis `429`) ; seuls les identifiants valides sont
+  et adresse, 20 par adresse, sur 15 minutes, puis `429`) ; derrière un reverse proxy,
+  l'adresse du client n'est lue dans `X-Forwarded-For` que pour les proxies listés dans
+  `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` laisse tout client choisir son adresse et contourner les
+  limites). Seuls les identifiants valides sont
   journalisés, jamais les mots de passe. La session est un jeton signé avec
   `SECREVIEW_SESSION_SECRET`, comme celle du SSO, mais le compte est **relu en base à chaque
   requête** : suppression, nouveau rôle ou nouveaux projets s'appliquent immédiatement, et un

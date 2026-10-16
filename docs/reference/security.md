@@ -27,7 +27,8 @@
   on the MCP server (body limited to 4 KiB). The approval happens on the controller. A request
   is an `mcp` token restricted to the project, **pending**: it gives access to nothing before
   the approval of an administrator, and pending requests never enable the authentication of an
-  open server. The number of pending requests is bounded (20) and a request left unprocessed
+  open server. The number of pending requests is bounded (20 in all, 3 per client address) and a
+  request left unprocessed
   expires after 7 days; the free text of the requester is masked and truncated. Any client that
   reaches the server can file a request: check the requester and the address shown before
   approving, or disable the enrollment. See
@@ -73,7 +74,9 @@
   256 characters, user names limited to `[A-Za-z0-9._@-]`. The check takes the same time
   whether the user name exists or not (dummy digest), and a failure always returns the same
   `401`. Failures are limited in memory (5 per user name and address, 20 per address, over
-  15 minutes, then `429`); only valid user names are logged, never passwords. The session is a
+  15 minutes, then `429`); behind a reverse proxy, the client address is only read from
+  `X-Forwarded-For` for the proxies listed in `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` lets any
+  client choose its address and get round the limits). Only valid user names are logged, never passwords. The session is a
   token signed with `SECREVIEW_SESSION_SECRET`, like the SSO one, but the account is **read
   again from the database at every request**: deletion, new role or new projects apply
   immediately, and a password change draws a new random session version that invalidates every
