@@ -47,6 +47,7 @@ or both.
 | `SECREVIEW_OSV_CAFILE` | — | Controller | CA bundle used instead of the system one (internal mirror, proxy that inspects TLS) |
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Controller | Maximum size of a downloaded archive |
 | `SECREVIEW_REPORT_LANGUAGE` | — | MCP | [Report language](../usage/prompts-tools.md#report-language) asked by the review prompts (`French`, `fr`...) when the `report_language` argument is missing and no language is chosen in the [Settings](../usage/web-interface.md#screens) screen; empty: the agent chooses |
+| `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Controller | Age in days beyond which `serve` deletes the [reports without findings](#retention-of-reports-without-findings); `0` keeps every report |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | both | Logging level (on stderr) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | MCP | Maximum size of the content passed to `scan_code` |
 | `SECREVIEW_MAX_FINDINGS_PER_REPORT` | `500` | both | Maximum number of findings per report |
@@ -71,3 +72,21 @@ The schema is managed by Alembic migrations embedded in the package:
 `security-review-controller db upgrade` creates or migrates the database and seeds the default
 rules, `db status` shows the revision (code `1` if it is not up to date). See
 [Schema migrations](../getting-started/kubernetes.md#schema-migrations).
+
+### Retention of reports without findings
+
+A clean review (report without any finding) only proves that nothing was found at that date.
+The controller deletes these reports once they are older than
+`SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` days (default `90`): at the start of `serve`, then every
+day. The latest report of each project is always kept, so a project never disappears from the
+list, and a report with findings is never deleted, whatever their status. `0` disables the
+purge.
+
+The same purge can be run on demand, for example from a scheduled job when the controller is
+not running:
+
+```bash
+security-review-controller db prune              # retention of SECREVIEW_EMPTY_REPORT_RETENTION_DAYS
+security-review-controller db prune --days 30    # another retention, for this run only
+# {"retention_days": 30, "deleted": 4}
+```

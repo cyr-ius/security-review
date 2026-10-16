@@ -1,8 +1,10 @@
 """Controller entry point (security-review-controller): serve, db and command dispatch."""
 
 import json
+from datetime import timedelta
 
 import pytest
+from sqlmodel import select
 from starlette.testclient import TestClient
 
 from security_review_mcp import (
@@ -11,12 +13,15 @@ from security_review_mcp import (
     controller,
     database,
     http_server,
+    services,
     token_store,
     web_api,
     web_users,
 )
 from security_review_mcp.config import Settings
+from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import BearerAuthMiddleware
+from security_review_mcp.models import SecurityReport, utcnow
 
 STORE = token_store.DatabaseTokenStore()
 
@@ -40,6 +45,34 @@ def settings(monkeypatch):
 
     _set()
     return _set
+
+
+class FakePruner:
+    """Records how the controller drives the purge of the reports without findings."""
+
+    instances: list[FakePruner] = []
+
+    def __init__(self, retention_days: int) -> None:
+        """Remember the retention."""
+        self.retention_days = retention_days
+        self.events: list[str] = []
+        FakePruner.instances.append(self)
+
+    def start(self) -> None:
+        """Record the start."""
+        self.events.append("start")
+
+    def stop(self) -> None:
+        """Record the stop."""
+        self.events.append("stop")
+
+
+@pytest.fixture(autouse=True)
+def fake_pruner(monkeypatch):
+    """Replace the report pruner of the controller (no background thread in the tests)."""
+    FakePruner.instances = []
+    monkeypatch.setattr(controller.retention, "ReportPruner", FakePruner)
+    return FakePruner.instances
 
 
 @pytest.fixture
@@ -285,6 +318,42 @@ def test_serve_runs_the_osv_updater_only_when_enabled(settings, captured_run, ui
     (updater,) = fake_updater
     assert updater.events == ["start", "stop"]
     assert updater.settings.proxy == "http://proxy.internal:3128"
+
+
+def test_serve_runs_the_report_pruner_unless_disabled(settings, captured_run, ui_dir, fake_pruner):
+    controller.main(["serve"])
+
+    (pruner,) = fake_pruner
+    assert pruner.retention_days == 90
+    assert pruner.events == ["start", "stop"]
+
+    settings(empty_report_retention_days=0)
+    controller.main(["serve"])
+    assert len(fake_pruner) == 1
+
+
+def test_db_prune_deletes_old_reports_without_findings(settings, capsys):
+    services.save_report("shop", "Clean review", [])
+    services.save_report("shop", "Latest clean review", [])
+    with session_scope() as session:
+        for report in session.exec(select(SecurityReport)).all():
+            report.created_at = utcnow() - timedelta(days=40)
+            session.add(report)
+
+    with pytest.raises(SystemExit) as exc:
+        controller.main(["db", "prune", "--days", "30"])
+
+    assert exc.value.code == cli.EXIT_PASSED
+    assert json.loads(capsys.readouterr().out) == {"retention_days": 30, "deleted": 1}
+
+
+@pytest.mark.parametrize("days", ["-1", "1000000000"])
+def test_db_prune_refuses_an_out_of_range_retention(settings, capsys, days):
+    with pytest.raises(SystemExit) as exc:
+        controller.main(["db", "prune", "--days", days])
+
+    assert exc.value.code == cli.EXIT_ERROR
+    assert "retention_days" in capsys.readouterr().err
 
 
 def test_serve_refuses_an_invalid_osv_setting(settings, captured_run, ui_dir, capsys):

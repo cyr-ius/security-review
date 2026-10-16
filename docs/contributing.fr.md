@@ -114,6 +114,7 @@ src/security_review_mcp/
 ├── dependencies.py    # analyseurs de manifestes / lockfiles, hygiène
 ├── depscan.py     # scan de dépendances et conversion en findings
 ├── services.py    # logique de persistance des rapports
+├── retention.py   # purge quotidienne des rapports sans findings par le contrôleur
 ├── models.py      # modèles SQLModel (tables + schémas)
 ├── database.py    # moteur, sessions et migrations (Alembic)
 ├── migrations/    # environnement Alembic et révisions du schéma (versions/)

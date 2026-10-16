@@ -808,14 +808,33 @@ def rules_command(argv: list[str]) -> int:
 
 
 def db_command(argv: list[str]) -> int:
-    """Run ``security-review-controller db``: migrate the schema or show its revision."""
+    """Run ``security-review-controller db``: migrate the schema, show its revision or purge."""
     parser = argparse.ArgumentParser(
         prog="security-review-controller db", description="Manage the database schema."
     )
     actions = parser.add_subparsers(dest="action", required=True)
     actions.add_parser("upgrade", help="migrate the schema to this version and seed the rules")
     actions.add_parser("status", help="show the schema revision (exit code 1 when outdated)")
+    prune = actions.add_parser(
+        "prune", help="delete the reports without findings older than the retention period"
+    )
+    prune.add_argument(
+        "--days",
+        type=int,
+        default=None,
+        help="retention in days (default: SECREVIEW_EMPTY_REPORT_RETENTION_DAYS; 0 keeps all)",
+    )
     args = parser.parse_args(argv)
+    if args.action == "prune":
+        try:
+            init_db()
+            result = services.prune_empty_reports(args.days)
+        except (ValueError, SchemaError) as exc:
+            return _fail(str(exc))
+        except SQLAlchemyError as exc:
+            return _fail(f"Database error: {type(exc).__name__}")
+        print(json.dumps(result, indent=2))
+        return EXIT_PASSED
     try:
         if args.action == "upgrade":
             upgrade_db()

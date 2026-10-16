@@ -29,6 +29,7 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 |---|---|---|
 | `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Serves the REST API (`/api/v1`) and the web interface (`/ui`) | [HTTP server](../getting-started/http.md) |
 | `db upgrade` / `db status` | Migrates the schema (Alembic) and seeds the default rules, or shows the revision | [Architecture and deployment](../getting-started/kubernetes.md#schema-migrations) |
+| `db prune [--days N]` | Deletes the reports without findings older than `N` days (default `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS`), except the latest of each project | [Retention](configuration.md#retention-of-reports-without-findings) |
 | `token create --label NAME [--role ROLE] [--project P …]` | Creates a Bearer token, possibly limited to several projects, and shows its secret once | [Bearer tokens](../getting-started/http.md#bearer-tokens), [roles](../usage/web-interface.md#roles) |
 | `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Lists (or only the pending enrollment requests) or revokes the tokens | [Bearer tokens](../getting-started/http.md#bearer-tokens) |
 | `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approves or rejects an enrollment request; `approve --portal-user NAME` also gives this user account read access to the project in the portal (with SSO enabled, an unknown name becomes an SSO account) | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token), [read access at enrollment](../usage/web-interface.md#project-read-access-at-enrollment) |
@@ -58,7 +59,8 @@ The check commands (`code scan`, `deps scan`, `gate`, `db status`) share the sam
 | `1` | Blocked: at least one finding reaches the `--fail-on` threshold (or, for `db status`, schema not up to date) |
 | `2` | Error (project or report not found, unreadable file, schema to migrate…) |
 
-The administration commands (`token`, `enroll`, `rules`, `advisories`, `db upgrade`) return `0`
+The administration commands (`token`, `enroll`, `rules`, `advisories`, `db upgrade`,
+`db prune`) return `0`
 on success and `2` on error (unknown identifier, invalid pack…), with the error as JSON on
 stderr.
 

@@ -4,12 +4,15 @@ import logging
 import sys
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Language name or code given to the agent (for example "French", "fr", "pt-BR"): letters,
 # spaces, hyphens, underscores and parentheses only, so that it cannot carry instructions.
 REPORT_LANGUAGE_MAX_CHARS = 40
+
+# Upper bound of the retention of the reports without findings (100 years)
+MAX_RETENTION_DAYS = 36_500
 
 
 def check_report_language(value: str) -> str:
@@ -131,6 +134,11 @@ class Settings(BaseSettings):
     # example "French". Empty: the agent chooses. The `report_language` argument of the review
     # prompts overrides it. Severities, categories, statuses and rule ids stay in English.
     report_language: str = ""
+
+    # Controller only: delete the reports without any finding (clean reviews) older than
+    # empty_report_retention_days, checked at start then every day. The latest report of each
+    # project is always kept. 0 disables the purge.
+    empty_report_retention_days: int = Field(default=90, ge=0, le=MAX_RETENTION_DAYS)
 
     log_level: str = "INFO"
 

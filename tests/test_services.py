@@ -1,9 +1,20 @@
 """Tests for the report persistence service."""
 
+from datetime import timedelta
+
 import pytest
+from sqlmodel import select
 
 from security_review_mcp import services
-from security_review_mcp.models import FindingCreate, FindingStatus, Severity
+from security_review_mcp.config import Settings
+from security_review_mcp.database import session_scope
+from security_review_mcp.models import (
+    FindingCreate,
+    FindingStatus,
+    SecurityReport,
+    Severity,
+    utcnow,
+)
 
 
 def make_finding(severity: Severity = Severity.HIGH, **kwargs) -> FindingCreate:
@@ -225,3 +236,72 @@ def test_list_projects():
     assert (
         billing["last_report_at"] == services.get_report(clean["report_id"]).created_at.isoformat()
     )
+
+
+def age_report(report_id: int, days: int) -> None:
+    """Move the creation date of a report ``days`` days back."""
+    with session_scope() as session:
+        report = session.get(SecurityReport, report_id)
+        report.created_at = utcnow() - timedelta(days=days)
+        session.add(report)
+
+
+def stored_report_ids() -> set[int]:
+    """Return the ids of the stored reports."""
+    with session_scope() as session:
+        return set(session.exec(select(SecurityReport.id)).all())
+
+
+def test_prune_deletes_only_old_reports_without_findings():
+    old_empty = services.save_report("shop", "Old clean review", [])["report_id"]
+    old_with_finding = services.save_report("shop", "Old review", [make_finding()])["report_id"]
+    old_fixed = services.save_report("shop", "Old fixed review", [make_finding()])["report_id"]
+    services.update_finding_status(services.get_report(old_fixed).findings[0].id, "fixed")
+    recent_empty = services.save_report("shop", "Recent clean review", [])["report_id"]
+    latest = services.save_report("shop", "Latest clean review", [])["report_id"]
+    for report_id in (old_empty, old_with_finding, old_fixed, latest):
+        age_report(report_id, 100)
+    age_report(recent_empty, 10)
+
+    assert services.prune_empty_reports(90) == {"retention_days": 90, "deleted": 1}
+
+    # A report with findings (even fixed), a recent one and the latest of the project stay
+    assert stored_report_ids() == {old_with_finding, old_fixed, recent_empty, latest}
+
+
+def test_prune_keeps_the_latest_report_of_each_project():
+    first = services.save_report("shop", "Clean review", [])["report_id"]
+    other = services.save_report("billing", "Clean review", [])["report_id"]
+    age_report(first, 365)
+    age_report(other, 365)
+
+    assert services.prune_empty_reports(90)["deleted"] == 0
+    assert stored_report_ids() == {first, other}
+
+
+def test_prune_uses_the_setting_and_zero_disables_it(monkeypatch):
+    old = services.save_report("shop", "Old clean review", [])["report_id"]
+    services.save_report("shop", "Latest clean review", [])
+    age_report(old, 40)
+
+    monkeypatch.setattr(
+        services, "get_settings", lambda: Settings(_env_file=None, empty_report_retention_days=0)
+    )
+    assert services.prune_empty_reports() == {"retention_days": 0, "deleted": 0}
+    monkeypatch.setattr(
+        services, "get_settings", lambda: Settings(_env_file=None, empty_report_retention_days=30)
+    )
+    assert services.prune_empty_reports() == {"retention_days": 30, "deleted": 1}
+    assert old not in stored_report_ids()
+
+
+@pytest.mark.parametrize("days", [-1, 36_501, 10**9])
+def test_prune_refuses_an_out_of_range_retention(days):
+    with pytest.raises(ValueError, match="retention_days"):
+        services.prune_empty_reports(days)
+
+
+def test_retention_setting_defaults_to_90_days_and_rejects_negative_values():
+    assert Settings(_env_file=None).empty_report_retention_days == 90
+    with pytest.raises(ValueError):
+        Settings(_env_file=None, empty_report_retention_days=-1)

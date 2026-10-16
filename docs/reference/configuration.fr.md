@@ -47,6 +47,7 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_OSV_CAFILE` | — | Contrôleur | Bundle de CA utilisé à la place de celui du système (miroir interne, proxy qui inspecte le TLS) |
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Contrôleur | Taille maximale d'une archive téléchargée |
 | `SECREVIEW_REPORT_LANGUAGE` | — | MCP | [Langue des rapports](../usage/prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent et qu'aucune langue n'est choisie dans l'écran [Paramètres](../usage/web-interface.md#ecrans) ; vide : l'agent choisit |
+| `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Contrôleur | Âge en jours au-delà duquel `serve` supprime les [rapports sans findings](#conservation-des-rapports-sans-findings) ; `0` conserve tous les rapports |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | les deux | Niveau de journalisation (sur stderr) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | MCP | Taille maximale du contenu passé à `scan_code` |
 | `SECREVIEW_MAX_FINDINGS_PER_REPORT` | `500` | les deux | Nombre maximal de findings par rapport |
@@ -70,3 +71,21 @@ Le schéma est géré par des migrations Alembic embarquées dans le paquet :
 `security-review-controller db upgrade` crée ou migre la base et amorce les règles par défaut,
 `db status` affiche la révision (code `1` si elle n'est pas à jour). Voir
 [Migrations du schéma](../getting-started/kubernetes.md#migrations-du-schema).
+
+### Conservation des rapports sans findings
+
+Une revue propre (rapport sans aucun finding) prouve seulement que rien n'a été trouvé à cette
+date. Le contrôleur supprime ces rapports dès qu'ils ont plus de
+`SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` jours (`90` par défaut) : au démarrage de `serve`, puis
+chaque jour. Le dernier rapport de chaque projet est toujours conservé, si bien qu'un projet ne
+disparaît jamais de la liste, et un rapport avec des findings n'est jamais supprimé, quel que
+soit leur statut. `0` désactive la purge.
+
+La même purge peut être lancée à la demande, par exemple depuis une tâche planifiée quand le
+contrôleur ne tourne pas :
+
+```bash
+security-review-controller db prune              # conservation de SECREVIEW_EMPTY_REPORT_RETENTION_DAYS
+security-review-controller db prune --days 30    # une autre durée, pour cette exécution seulement
+# {"retention_days": 30, "deleted": 4}
+```

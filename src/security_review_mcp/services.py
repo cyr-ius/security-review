@@ -3,12 +3,13 @@
 import logging
 from collections import Counter
 from collections.abc import Collection
+from datetime import timedelta
 
 from sqlalchemy import case, func
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from .config import get_settings
+from .config import MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
 from .models import (
     SEVERITY_RANK,
@@ -336,6 +337,44 @@ def list_project_findings(
             for finding, report in rows
         ]
     return {"project": project, "total": total, "findings": findings}
+
+
+def prune_empty_reports(retention_days: int | None = None) -> dict:
+    """Delete the reports without any finding created more than ``retention_days`` days ago.
+
+    The latest report of each project is kept, so a project never disappears. Defaults to
+    SECREVIEW_EMPTY_REPORT_RETENTION_DAYS; 0 disables the purge.
+
+    Raises:
+        ValueError: If ``retention_days`` is negative or above MAX_RETENTION_DAYS.
+    """
+    days = get_settings().empty_report_retention_days if retention_days is None else retention_days
+    if not 0 <= days <= MAX_RETENTION_DAYS:
+        raise ValueError(f"retention_days must be between 0 and {MAX_RETENTION_DAYS}")
+    if days == 0:
+        return {"retention_days": 0, "deleted": 0}
+    cutoff = utcnow() - timedelta(days=days)
+
+    with session_scope() as session:
+        latest = (
+            select(func.max(SecurityReport.id))
+            .group_by(SecurityReport.project)  # type: ignore[arg-type]
+            .scalar_subquery()
+        )
+        with_findings = select(Finding.report_id).distinct().scalar_subquery()
+        reports = session.exec(
+            select(SecurityReport).where(
+                col(SecurityReport.created_at) < cutoff,
+                col(SecurityReport.id).not_in(with_findings),
+                col(SecurityReport.id).not_in(latest),
+            )
+        ).all()
+        for report in reports:
+            session.delete(report)
+        deleted = len(reports)
+    if deleted:
+        logger.info("Deleted %d reports without findings older than %d days", deleted, days)
+    return {"retention_days": days, "deleted": deleted}
 
 
 def render_report_markdown(report: SecurityReportPublic) -> str:

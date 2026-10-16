@@ -29,6 +29,7 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 |---|---|---|
 | `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Sert l'API REST (`/api/v1`) et l'interface web (`/ui`) | [Serveur HTTP](../getting-started/http.md) |
 | `db upgrade` / `db status` | Migre le schéma (Alembic) et amorce les règles par défaut, ou affiche la révision | [Architecture et déploiement](../getting-started/kubernetes.md#migrations-du-schema) |
+| `db prune [--days N]` | Supprime les rapports sans findings de plus de `N` jours (par défaut `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS`), sauf le dernier de chaque projet | [Conservation](configuration.md#conservation-des-rapports-sans-findings) |
 | `token create --label NOM [--role ROLE] [--project P …]` | Crée un jeton Bearer, éventuellement limité à plusieurs projets, et affiche son secret une fois | [Jetons Bearer](../getting-started/http.md#jetons-bearer), [rôles](../usage/web-interface.md#roles) |
 | `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Liste (ou seulement les demandes d'enrôlement en attente) ou révoque les jetons | [Jetons Bearer](../getting-started/http.md#jetons-bearer) |
 | `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approuve ou refuse une demande d'enrôlement ; `approve --portal-user NOM` donne aussi à ce compte utilisateur la lecture du projet dans le portail (avec le SSO activé, un nom inconnu devient un compte SSO) | [Enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton), [lecture à l'enrôlement](../usage/web-interface.md#lecture-du-projet-a-lenrolement) |
@@ -59,7 +60,8 @@ convention :
 | `1` | Bloqué : au moins un finding atteint le seuil `--fail-on` (ou, pour `db status`, schéma pas à jour) |
 | `2` | Erreur (projet ou rapport introuvable, fichier illisible, schéma à migrer…) |
 
-Les commandes d'administration (`token`, `enroll`, `rules`, `advisories`, `db upgrade`)
+Les commandes d'administration (`token`, `enroll`, `rules`, `advisories`, `db upgrade`,
+`db prune`)
 renvoient `0` en cas de succès et `2` en cas d'erreur (identifiant inconnu, pack invalide…),
 avec l'erreur en JSON sur stderr.
 
