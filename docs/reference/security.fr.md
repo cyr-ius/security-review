@@ -32,9 +32,10 @@
   tronqué. N'importe quel client qui atteint le serveur peut déposer une demande : vérifiez le
   demandeur et l'adresse affichés avant d'approuver, ou désactivez l'enrôlement. Voir
   [l'enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton).
-- **Appels réseau sortants** : le serveur MCP n'en fait aucun. La commande
-  `security-review-mcp enroll` contacte, à la demande de l'opérateur, l'URL qu'il indique ; elle
-  refuse HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
+- **Appels réseau sortants** : le serveur MCP n'en fait aucun. Les commandes
+  `security-review-mcp enroll` et `scan-deps` contactent, à la demande de l'opérateur, l'URL qu'il
+  indique (`scan-deps` envoie les fichiers de dépendances donnés sur sa ligne de commande, jamais
+  via un lien symbolique) ; elles refusent HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
   redirections. Le contrôleur ne télécharge les avis OSV que si un administrateur l'active
   (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée

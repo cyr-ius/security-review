@@ -117,6 +117,47 @@ security-review-controller deps scan package-lock.json requirements.txt \
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur
 ```
 
+## Scan avec un serveur partagé (hook de commit)
+
+`security-review-mcp scan-deps` envoie les fichiers de dépendances à l'outil `scan_dependencies`
+d'un serveur MCP partagé : le scan utilise la base d'avis de ce serveur, sans import local. Il
+faut un jeton de rôle `mcp` ou `admin` (voir
+[enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton)).
+
+```bash
+export SECREVIEW_SERVER_URL=https://secreview.example.com
+export SECREVIEW_TOKEN=<token>
+security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
+# exit code: 0 = ok, 1 = blocked, 2 = error (server unreachable, token refused...)
+```
+
+- Mêmes options et même sortie que `deps scan` (`--fail-on`, `--format`, `--require-database`) ;
+  rien n'est enregistré (pas de `--save`).
+- `--url` remplace `SECREVIEW_SERVER_URL`, `--token-stdin` lit le jeton sur stdin au lieu de
+  `SECREVIEW_TOKEN`. Les deux variables peuvent aussi être définies dans le fichier `.env` du
+  dossier (ne le commitez jamais).
+- HTTP en clair est refusé hors localhost (sauf `--allow-http`), comme les identifiants dans
+  l'URL et les redirections vers une autre origine ; `--cafile` indique une CA interne. Les liens
+  symboliques ne sont pas lus, car le contenu quitte la machine.
+- Chaque fichier est limité par le `SECREVIEW_MAX_DEPENDENCY_CHARS` du serveur.
+
+Hook de commit ([pre-commit](https://pre-commit.com) ou prek), lancé quand un manifeste ou un
+lockfile change :
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: scan-deps
+        name: dependency scan
+        entry: security-review-mcp scan-deps --skip-unconfigured --require-database
+        language: system
+        files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
+```
+
+`--skip-unconfigured` laisse passer le commit, avec un avertissement, quand aucune URL de serveur
+n'est configurée (contributeurs sans serveur partagé).
+
 ## Lire le résultat
 
 Le champ `vulnerability_check` dit si la vérification a eu lieu :

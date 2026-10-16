@@ -3,7 +3,7 @@
 The package installs two commands, one per process (see
 [Architecture and deployment](../getting-started/kubernetes.md)):
 
-- `security-review-mcp`: the **MCP server** (stdio or HTTP), plus `enroll` on the client side;
+- `security-review-mcp`: the **MCP server** (stdio or HTTP), plus `enroll` and `scan-deps` on the client side;
 - `security-review-controller`: the **controller** (REST API and web interface), the database,
   the administration and the pipeline commands.
 
@@ -13,6 +13,7 @@ The package installs two commands, one per process (see
 |---|---|---|
 | `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server | [Installation](../getting-started/installation.md#running) |
 | `enroll --url URL --project P [--label L] [--requested-by WHO] [--token-stdin] [--cafile CA] [--allow-http]` | Requests a new token (label: `--label`, by default your login name) or, with `--token-stdin`, additional access for the token read on stdin | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token) |
+| `scan-deps FILE… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http]` | Scans manifests and lockfiles with the advisory database of a shared MCP server (token: `SECREVIEW_TOKEN`), for a commit hook | [Dependencies](../usage/dependencies.md#scan-with-a-shared-server-commit-hook) |
 
 With stdio, the server migrates its database itself at start-up (unless
 `SECREVIEW_DB_AUTO_UPGRADE=false`). With HTTP, it **only checks** the schema: it refuses to

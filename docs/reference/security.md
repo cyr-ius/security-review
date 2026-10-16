@@ -33,8 +33,10 @@
   reaches the server can file a request: check the requester and the address shown before
   approving, or disable the enrollment. See
   [enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token).
-- **Outgoing network calls**: the MCP server makes none. The `security-review-mcp enroll`
-  command contacts, at the request of the operator, the URL they give; it refuses plain HTTP
+- **Outgoing network calls**: the MCP server makes none. The `security-review-mcp enroll` and
+  `scan-deps` commands contact, at the request of the operator, the URL they give (`scan-deps`
+  sends the dependency files given on its command line, never through a symbolic link); they
+  refuse plain HTTP
   outside localhost (unless `--allow-http`), credentials in the URL and redirects. The
   controller only downloads the OSV advisories if an administrator enables it
   (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over

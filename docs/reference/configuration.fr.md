@@ -17,6 +17,8 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_SESSION_SECRET` | — | Contrôleur | Secret de signature des sessions de l'interface web (comptes et SSO), 32 caractères au moins, identique sur toutes les répliques ; sans lui, aléatoire à chaque démarrage |
 | `SECREVIEW_SESSION_HOURS` | `8` | Contrôleur | Durée d'une session de l'interface web (1 à 24 heures) |
 | `SECREVIEW_ENROLLMENT` | `true` | MCP | [Enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton) : un client sans jeton peut demander un jeton de projet (serveur MCP restreint, `POST /api/v1/enroll`), actif après approbation sur le contrôleur |
+| `SECREVIEW_SERVER_URL` | — | Client | URL du serveur MCP partagé utilisé par [`security-review-mcp scan-deps`](../usage/dependencies.md#scan-avec-un-serveur-partage-hook-de-commit) (valeur par défaut de `--url`) ; jamais utilisée par les serveurs |
+| `SECREVIEW_TOKEN` | — | Client | Jeton Bearer envoyé par `scan-deps` à ce serveur ; jamais utilisé par les serveurs |
 | `SECREVIEW_TLS_CERTFILE` | — | les deux | Certificat : active le TLS |
 | `SECREVIEW_TLS_KEYFILE` | — | les deux | Clé privée |
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | les deux | Mot de passe de la clé privée |

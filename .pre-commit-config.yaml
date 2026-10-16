@@ -26,3 +26,10 @@ repos:
         entry: uv run --frozen ruff format
         language: system
         types_or: [python, pyi]
+      # Dependency scan with the advisory database of the shared MCP server
+      # (SECREVIEW_SERVER_URL and SECREVIEW_TOKEN); skipped when no server is configured
+      - id: scan-deps
+        name: dependency scan
+        entry: uv run --frozen security-review-mcp scan-deps --skip-unconfigured --require-database
+        language: system
+        files: ^(uv\.lock|pyproject\.toml|web/package(-lock)?\.json)$

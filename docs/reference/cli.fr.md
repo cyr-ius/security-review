@@ -3,7 +3,7 @@
 Le paquet installe deux commandes, une par processus (voir
 [Architecture et déploiement](../getting-started/kubernetes.md)) :
 
-- `security-review-mcp` : le **serveur MCP** (stdio ou HTTP), plus `enroll` côté client ;
+- `security-review-mcp` : le **serveur MCP** (stdio ou HTTP), plus `enroll` et `scan-deps` côté client ;
 - `security-review-controller` : le **contrôleur** (API REST et interface web), la base de
   données, l'administration et les commandes de pipeline.
 
@@ -13,6 +13,7 @@ Le paquet installe deux commandes, une par processus (voir
 |---|---|---|
 | `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP | [Installation](../getting-started/installation.md#lancement) |
 | `enroll --url URL --project P [--label L] [--requested-by QUI] [--token-stdin] [--cafile CA] [--allow-http]` | Demande un nouveau jeton (label : `--label`, par défaut votre nom de connexion) ou, avec `--token-stdin`, un accès complémentaire pour le jeton lu sur stdin | [Enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton) |
+| `scan-deps FICHIER… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http]` | Analyse manifestes et lockfiles avec la base d'avis d'un serveur MCP partagé (jeton : `SECREVIEW_TOKEN`), pour un hook de commit | [Dépendances](../usage/dependencies.md#scan-avec-un-serveur-partage-hook-de-commit) |
 
 En stdio, le serveur migre lui-même sa base au démarrage (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`).
 En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`) tant que

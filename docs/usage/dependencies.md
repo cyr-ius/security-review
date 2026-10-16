@@ -116,6 +116,47 @@ security-review-controller deps scan package-lock.json requirements.txt \
 # exit code: 0 = ok, 1 = blocked, 2 = error
 ```
 
+## Scan with a shared server (commit hook)
+
+`security-review-mcp scan-deps` sends the dependency files to the `scan_dependencies` tool of a
+shared MCP server: the scan uses the advisory database of that server, without any local
+import. It needs a token with the `mcp` or `admin` role (see
+[enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token)).
+
+```bash
+export SECREVIEW_SERVER_URL=https://secreview.example.com
+export SECREVIEW_TOKEN=<token>
+security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
+# exit code: 0 = ok, 1 = blocked, 2 = error (server unreachable, token refused...)
+```
+
+- Same options and output as `deps scan` (`--fail-on`, `--format`, `--require-database`);
+  nothing is stored (no `--save`).
+- `--url` replaces `SECREVIEW_SERVER_URL`, `--token-stdin` reads the token on stdin instead of
+  `SECREVIEW_TOKEN`. Both variables can also be set in the `.env` file of the folder (never
+  commit it).
+- Plain HTTP is refused outside localhost (unless `--allow-http`), as are credentials in the URL
+  and redirects to another origin; `--cafile` gives an internal CA. Symbolic links are not read,
+  as the content leaves the machine.
+- Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the server.
+
+Commit hook ([pre-commit](https://pre-commit.com) or prek), run when a manifest or a lockfile
+changes:
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: scan-deps
+        name: dependency scan
+        entry: security-review-mcp scan-deps --skip-unconfigured --require-database
+        language: system
+        files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
+```
+
+`--skip-unconfigured` lets the commit through, with a warning, when no server URL is configured
+(contributors without a shared server).
+
 ## Reading the result
 
 The `vulnerability_check` field says whether the check took place:

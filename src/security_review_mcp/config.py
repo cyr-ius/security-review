@@ -72,6 +72,12 @@ class Settings(BaseSettings):
     # approves it on the controller.
     enrollment: bool = True
 
+    # Client commands only (`security-review-mcp scan-deps`, used by commit hooks and
+    # pipelines): URL of the shared MCP server (default of --url) and the bearer token sent to
+    # it. Never used by the servers.
+    server_url: str | None = None
+    token: str | None = None
+
     # Optional TLS served by uvicorn (HTTP MCP server and controller), enabled by tls_certfile.
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).
     tls_certfile: str | None = None

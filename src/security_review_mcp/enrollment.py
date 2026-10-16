@@ -1,8 +1,8 @@
 """Client side of the enrollment: request a project token, or one more project for an
 existing token (complementary enrollment), from a shared server.
 
-Used by ``security-review-mcp enroll``. This is the only place where the package opens an
-outgoing connection, and only to the server URL the operator gives on the command line: the
+Used by ``security-review-mcp enroll``. With ``remote_scan`` (``scan-deps``), the only client
+commands that open an outgoing connection, and only to the server URL the operator gives: the
 MCP server itself never does.
 """
 
@@ -41,11 +41,11 @@ def local_username() -> str | None:
     return name or None
 
 
-def enrollment_url(server_url: str, allow_http: bool = False) -> str:
-    """Return the enrollment endpoint of a server given by its base or MCP URL.
+def server_endpoint(server_url: str, endpoint: str, purpose: str, allow_http: bool = False) -> str:
+    """Return the ``endpoint`` path of a server given by its base or MCP URL.
 
-    Plain HTTP is refused except on a loopback address or with ``allow_http``: the answer
-    carries the new token.
+    Plain HTTP is refused except on a loopback address or with ``allow_http``: the request or
+    its answer carries a token. ``purpose`` names the request in that error message.
     """
     parts = urlsplit(server_url.strip())
     if parts.scheme not in ("http", "https") or not parts.hostname:
@@ -53,11 +53,14 @@ def enrollment_url(server_url: str, allow_http: bool = False) -> str:
     if parts.username or parts.password:
         raise ValueError("The server URL must not contain credentials")
     if parts.scheme == "http" and parts.hostname not in LOOPBACK_HOSTS and not allow_http:
-        raise ValueError(
-            "Refusing to send an enrollment request over plain HTTP (see --allow-http)"
-        )
+        raise ValueError(f"Refusing to send {purpose} over plain HTTP (see --allow-http)")
     path = parts.path.rstrip("/").removesuffix("/mcp")
-    return f"{parts.scheme}://{parts.netloc}{path}{ENROLL_PATH}"
+    return f"{parts.scheme}://{parts.netloc}{path}{endpoint}"
+
+
+def enrollment_url(server_url: str, allow_http: bool = False) -> str:
+    """Return the enrollment endpoint of a server given by its base or MCP URL."""
+    return server_endpoint(server_url, ENROLL_PATH, "an enrollment request", allow_http)
 
 
 def _error_detail(error: urllib.error.HTTPError) -> str:
