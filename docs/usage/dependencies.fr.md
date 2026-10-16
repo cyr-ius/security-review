@@ -134,5 +134,9 @@ Le champ `vulnerability_check` dit si la vérification a eu lieu :
 - Une base de plus de 30 jours est signalée.
 - Une sévérité absente de l'avis est traitée comme `medium` (`severity_known: false`).
 - Les versions en intervalle (`>=2`) ne sont pas vérifiables : analysez le lockfile.
+- Chaque composant est marqué `dev` ou non. Dans `pyproject.toml`, les extras nommées d'après
+  le développement (`dev`, `test`, `docs`, `lint`...) et les `[dependency-groups]` sont `dev` ;
+  les autres extras (`postgres`...) sont installées en production et restent des dépendances
+  d'exécution.
 - Règles d'hygiène `DEP-001` à `DEP-009` : versions non épinglées, URL / VCS, HTTP, index
   supplémentaire, `--trusted-host`, etc.

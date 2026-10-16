@@ -264,6 +264,22 @@ def _load_json(content: str) -> dict:
     return data
 
 
+# Extras that only serve development: the other extras (postgres, s3...) are installed in
+# production and are reported as runtime dependencies
+_DEV_EXTRA_RE = re.compile(
+    r"(dev|devel|develop|development|tests?|testing|docs?|lint|linting|typing|types|mypy|style"
+    r"|ci|coverage|qa|bench|benchmarks?)",
+    re.IGNORECASE,
+)
+
+
+def _is_dev_extra(name: object) -> bool:
+    """Tell whether an optional-dependencies group only serves development (tests, docs...)."""
+    return isinstance(name, str) and any(
+        _DEV_EXTRA_RE.fullmatch(part) for part in re.split(r"[-_.]", name) if part
+    )
+
+
 def parse_pyproject(content: str) -> Parsed:
     """Parse the dependencies of a pyproject.toml (PEP 621, PEP 735 and Poetry)."""
     data = _load_toml(content)
@@ -276,8 +292,8 @@ def parse_pyproject(content: str) -> Parsed:
 
     project = data.get("project", {})
     add_list(project.get("dependencies"), False)
-    for group in (project.get("optional-dependencies") or {}).values():
-        add_list(group, True)
+    for extra, group in (project.get("optional-dependencies") or {}).items():
+        add_list(group, _is_dev_extra(extra))
     for group in (data.get("dependency-groups") or {}).values():
         add_list(group, True)
     add_list(data.get("build-system", {}).get("requires"), True)

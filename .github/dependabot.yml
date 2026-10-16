@@ -18,3 +18,19 @@ updates:
     groups:
       angular:
         patterns: ["@angular/*", "@angular-devkit/*", "typescript", "zone.js"]
+
+  # Python dependencies (pyproject.toml and uv.lock)
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Base images of the Dockerfile (node, python, uv) and of docker-compose.yml (postgres)
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "docker-compose"
+    directory: "/"
+    schedule:
+      interval: "weekly"

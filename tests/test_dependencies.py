@@ -94,6 +94,31 @@ wild = "*"
     assert next(c for c in parsed.components if c.name == "pytest").dev
 
 
+def test_pyproject_runtime_extras_are_not_dev():
+    content = """
+[project]
+dependencies = ["fastapi>=0.135"]
+[project.optional-dependencies]
+postgres = ["psycopg2-binary==2.9.0"]
+dev = ["pytest==8.0"]
+docs = ["mkdocs==1.6.0"]
+test-extra = ["hypothesis==6.0"]
+[dependency-groups]
+lint = ["ruff==0.5.0"]
+"""
+    parsed = parse_dependency_file(content, "pyproject.toml")
+
+    dev = {c.name: c.dev for c in parsed.components}
+    assert dev == {
+        "fastapi": False,
+        "psycopg2-binary": False,
+        "pytest": True,
+        "mkdocs": True,
+        "hypothesis": True,
+        "ruff": True,
+    }
+
+
 def test_poetry_lock_and_pipfile_lock():
     lock = """
 [[package]]

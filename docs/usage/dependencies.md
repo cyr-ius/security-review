@@ -133,5 +133,8 @@ The `vulnerability_check` field says whether the check took place:
 - A database older than 30 days is reported.
 - A severity missing from the advisory is handled as `medium` (`severity_known: false`).
 - Range versions (`>=2`) cannot be checked: analyze the lockfile.
+- Each component is marked `dev` or not. In `pyproject.toml`, the extras named after
+  development (`dev`, `test`, `docs`, `lint`...) and the `[dependency-groups]` are `dev`; the
+  other extras (`postgres`...) are installed in production and stay runtime dependencies.
 - Hygiene rules `DEP-001` to `DEP-009`: unpinned versions, URL / VCS, HTTP, extra index,
   `--trusted-host`, etc.
