@@ -1,26 +1,24 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
-    <h1 class="h3 mb-0">Paramètres</h1>
-    <p class="text-body-secondary mb-0">
-      Langue des rapports, proxy sortant et base de vulnérabilités OSV
-    </p>
+    <h1 class="h3 mb-0">{{ 'layout.settings' | t }}</h1>
+    <p class="text-body-secondary mb-0">{{ 'settings.subtitle' | t }}</p>
   </div>
   <app-refresh-button [loading]="settings.isLoading()" (refresh)="reload()" />
 </div>
 
 @if (error(); as text) {
-  <div class="alert alert-danger py-2" role="alert">{{ text }}</div>
+  <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
 }
 @if (message(); as text) {
-  <div class="alert alert-success py-2" role="status">{{ text }}</div>
+  <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
 }
 
 @if (settings.error()) {
-  <div class="alert alert-danger" role="alert">Impossible de charger les paramètres.</div>
+  <div class="alert alert-danger" role="alert">{{ 'settings.loadError' | t }}</div>
 } @else if (settings.isLoading() && !settings.hasValue()) {
   <div class="text-center my-4">
     <span class="spinner-border text-secondary" aria-hidden="true"></span>
-    <span class="visually-hidden">Chargement…</span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 } @else if (settings.value(); as current) {
   <!-- Report language -->
@@ -28,20 +26,19 @@
     <div class="card-body">
       <h2 id="language-title" class="h5">
         <i class="bi bi-translate" aria-hidden="true"></i>
-        Langue des rapports
+        {{ 'settings.languageTitle' | t }}
       </h2>
       <p class="text-body-secondary small">
-        Langue de la réponse de l'agent et des champs rédigés du rapport enregistré. L'argument
-        <code>report_language</code> d'un prompt reste prioritaire. Sévérités, catégories, statuts
-        et identifiants de règles restent inchangés.
+        {{ 'settings.languageHelpBefore' | t }} <code>report_language</code
+        >{{ 'settings.languageHelpAfter' | t }}
       </p>
       <p class="mb-3">
-        Langue appliquée :
-        <strong>{{ current.report_language.effective || "choisie par l'agent" }}</strong>
+        {{ 'settings.languageApplied' | t }}
+        <strong>{{ current.report_language.effective || ('settings.languageByAgent' | t) }}</strong>
       </p>
       <form class="row g-2 align-items-end" (submit)="saveLanguage($event)">
         <div class="col-md-5">
-          <label for="language-mode" class="form-label">Source</label>
+          <label for="language-mode" class="form-label">{{ 'settings.source' | t }}</label>
           <select
             id="language-mode"
             class="form-select"
@@ -49,15 +46,18 @@
             (change)="onLanguageMode($event)"
           >
             <option value="inherit">
-              Variable SECREVIEW_REPORT_LANGUAGE ({{ current.report_language.env || 'vide' }})
+              {{
+                'settings.languageInherit'
+                  | t: { value: current.report_language.env || ('sso.empty' | t) }
+              }}
             </option>
-            <option value="agent">L'agent choisit</option>
-            <option value="custom">Langue définie ici</option>
+            <option value="agent">{{ 'settings.languageAgent' | t }}</option>
+            <option value="custom">{{ 'settings.languageCustom' | t }}</option>
           </select>
         </div>
         @if (languageMode() === 'custom') {
           <div class="col-md-4">
-            <label for="language-value" class="form-label">Langue</label>
+            <label for="language-value" class="form-label">{{ 'common.language' | t }}</label>
             <input
               id="language-value"
               class="form-control"
@@ -67,20 +67,20 @@
               placeholder="French, fr, pt-BR…"
               [class.is-invalid]="!languageValid()"
               [value]="language()"
-              (input)="language.set($any($event.target).value)"
+              (input)="language.set(inputValue($event))"
             />
             <datalist id="language-suggestions">
               @for (name of languageSuggestions; track name) {
                 <option [value]="name"></option>
               }
             </datalist>
-            <div class="invalid-feedback">Lettres, espaces, -, _ et parenthèses uniquement.</div>
+            <div class="invalid-feedback">{{ 'settings.languagePattern' | t }}</div>
           </div>
         }
         <div class="col-md-3">
           <button type="submit" class="btn btn-primary" [disabled]="busy() || !languageValid()">
             <i class="bi bi-check-lg" aria-hidden="true"></i>
-            Enregistrer
+            {{ 'common.save' | t }}
           </button>
         </div>
       </form>
@@ -92,31 +92,33 @@
     <div class="card-body">
       <h2 id="proxy-title" class="h5">
         <i class="bi bi-hdd-network" aria-hidden="true"></i>
-        Proxy sortant du contrôleur
+        {{ 'settings.proxyTitle' | t }}
       </h2>
       <p class="text-body-secondary small">
-        Utilisé par le téléchargement OSV et par la connexion SSO (fournisseur d'identité). Chaque
-        valeur définie ici remplace sa variable ; elle s'applique au prochain téléchargement et à la
-        prochaine connexion, sans redémarrage.
+        {{ 'settings.proxyHelp' | t }}
       </p>
       <p class="mb-3">
-        Proxy appliqué :
-        <strong class="font-monospace">{{ current.proxy.effective.url ?? 'aucun' }}</strong>
-        <span class="text-body-secondary">({{ proxySource() }})</span>
+        {{ 'settings.proxyApplied' | t }}
+        <strong class="font-monospace">{{
+          current.proxy.effective.url ?? ('settings.none' | t)
+        }}</strong>
+        @if (proxySource(); as source) {
+          <span class="text-body-secondary">({{ source | t }})</span>
+        }
         @if (current.proxy.effective.no_proxy; as bypass) {
           <br />
-          Sans proxy : <span class="font-monospace">{{ bypass }}</span>
+          {{ 'settings.noProxyApplied' | t }} <span class="font-monospace">{{ bypass }}</span>
         }
       </p>
 
       <form (submit)="saveProxy($event)">
         <fieldset class="mb-3">
           <legend class="form-label">
-            URL du proxy
+            {{ 'settings.proxyUrl' | t }}
             @if (current.proxy.url.value !== null) {
-              <span class="badge text-bg-primary ms-1">Interface web</span>
+              <span class="badge text-bg-primary ms-1">{{ 'sso.webInterface' | t }}</span>
             } @else {
-              <span class="badge text-bg-secondary ms-1">Variable</span>
+              <span class="badge text-bg-secondary ms-1">{{ 'sso.variable' | t }}</span>
             }
           </legend>
           <div class="form-check">
@@ -129,8 +131,9 @@
               (change)="onProxyMode('env')"
             />
             <label class="form-check-label" for="proxy-env">
-              Variable <code>SECREVIEW_PROXY</code> ({{ current.proxy.url.env ?? 'vide' }}), sinon
-              HTTPS_PROXY / NO_PROXY
+              {{ 'sso.variable' | t }} <code>SECREVIEW_PROXY</code> ({{
+                current.proxy.url.env ?? ('sso.empty' | t)
+              }}){{ 'settings.proxyElse' | t }}
             </label>
           </div>
           <div class="form-check">
@@ -142,7 +145,9 @@
               [checked]="proxyMode() === 'custom'"
               (change)="onProxyMode('custom')"
             />
-            <label class="form-check-label" for="proxy-custom">Proxy défini ici</label>
+            <label class="form-check-label" for="proxy-custom">{{
+              'settings.proxyCustom' | t
+            }}</label>
           </div>
           <div class="form-check">
             <input
@@ -154,14 +159,14 @@
               (change)="onProxyMode('none')"
             />
             <label class="form-check-label" for="proxy-none">
-              Connexion directe (ignorer les variables de proxy)
+              {{ 'settings.proxyNone' | t }}
             </label>
           </div>
         </fieldset>
 
         @if (proxyMode() === 'custom') {
           <div class="mb-3">
-            <label for="proxy-url" class="form-label">URL</label>
+            <label for="proxy-url" class="form-label">{{ 'settings.url' | t }}</label>
             <input
               id="proxy-url"
               class="form-control font-monospace"
@@ -169,13 +174,13 @@
               maxlength="500"
               autocomplete="off"
               spellcheck="false"
-              placeholder="http://utilisateur:mot-de-passe@proxy.interne:3128"
+              [placeholder]="'settings.proxyPlaceholder' | t"
               [value]="proxyUrl()"
-              (input)="proxyUrl.set($any($event.target).value)"
+              (input)="proxyUrl.set(inputValue($event))"
             />
             <div class="form-text">
-              HTTP uniquement (le tunnel vers OSV et le fournisseur reste en HTTPS). Le mot de passe
-              n'est jamais réaffiché : laissez <code>***</code> pour conserver celui enregistré.
+              {{ 'settings.proxyUrlHelpBefore' | t }} <code>***</code
+              >{{ 'settings.proxyUrlHelpAfter' | t }}
             </div>
           </div>
         }
@@ -189,14 +194,14 @@
                 type="checkbox"
                 role="switch"
                 [checked]="noProxyCustom()"
-                (change)="noProxyCustom.set($any($event.target).checked)"
+                (change)="noProxyCustom.set(checkedValue($event))"
               />
               <label class="form-check-label" for="no-proxy-custom">
-                Hôtes sans proxy définis ici
+                {{ 'settings.noProxyCustom' | t }}
                 @if (current.proxy.no_proxy.value !== null) {
-                  <span class="badge text-bg-primary ms-1">Interface web</span>
+                  <span class="badge text-bg-primary ms-1">{{ 'sso.webInterface' | t }}</span>
                 } @else {
-                  <span class="badge text-bg-secondary ms-1">Variable</span>
+                  <span class="badge text-bg-secondary ms-1">{{ 'sso.variable' | t }}</span>
                 }
               </label>
             </div>
@@ -208,28 +213,30 @@
                 maxlength="500"
                 autocomplete="off"
                 spellcheck="false"
-                aria-label="Hôtes sans proxy"
+                [attr.aria-label]="'settings.noProxyHosts' | t"
                 placeholder=".corp.example, 10.0.0.5, 10.0.0.0/8, fd00::/8"
                 [value]="noProxy()"
-                (input)="noProxy.set($any($event.target).value)"
+                (input)="noProxy.set(inputValue($event))"
               />
             }
             <div class="form-text">
-              Séparés par des virgules : domaines (sous-domaines compris), adresses IP, plages CIDR
-              (<code>10.0.0.0/8</code>, <code>fd00::/8</code>, pour les URL dont l'hôte est une
-              adresse IP), <code>*</code> pour tous les hôtes ; la boucle locale est toujours
-              directe. Variable <code>SECREVIEW_NO_PROXY</code> :
-              {{ current.proxy.no_proxy.env ?? 'vide' }}.
+              {{ 'settings.noProxyHelp1' | t }} (<code>10.0.0.0/8</code>, <code>fd00::/8</code
+              >{{ 'settings.noProxyHelp2' | t }} <code>*</code>{{ 'settings.noProxyHelp3' | t }}
+              <code>SECREVIEW_NO_PROXY</code>
+              {{
+                'settings.colonValue'
+                  | t: { value: current.proxy.no_proxy.env ?? ('sso.empty' | t) }
+              }}
             </div>
           </div>
         }
         <button type="submit" class="btn btn-primary" [disabled]="busy()">
           <i class="bi bi-check-lg" aria-hidden="true"></i>
-          Enregistrer
+          {{ 'common.save' | t }}
         </button>
       </form>
 
-      <h3 class="h6 mt-4">Proxy de l'environnement du contrôleur</h3>
+      <h3 class="h6 mt-4">{{ 'settings.envProxy' | t }}</h3>
       <table class="table table-sm env-table mb-0">
         <tbody>
           <tr>
@@ -263,63 +270,65 @@
       <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
         <h2 id="osv-title" class="h5">
           <i class="bi bi-database" aria-hidden="true"></i>
-          Base de vulnérabilités OSV
+          {{ 'settings.osvTitle' | t }}
         </h2>
         <button
           type="button"
           class="btn btn-sm btn-primary"
           [disabled]="busy() || !current.osv.download_enabled || advisories.value()?.running"
           [title]="
-            current.osv.download_enabled
-              ? 'Télécharger et importer les avis maintenant'
-              : 'Téléchargement désactivé (SECREVIEW_OSV_AUTO_UPDATE=false)'
+            (current.osv.download_enabled ? 'settings.updateTitle' : 'settings.updateDisabled') | t
           "
           (click)="startUpdate()"
         >
           @if (advisories.value()?.running) {
             <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
-            Mise à jour en cours…
+            {{ 'settings.updating' | t }}
           } @else {
             <i class="bi bi-cloud-download" aria-hidden="true"></i>
-            Mettre à jour maintenant
+            {{ 'settings.updateNow' | t }}
           }
         </button>
       </div>
 
       @if (!current.osv.download_enabled) {
         <div class="alert alert-secondary py-2 small">
-          Téléchargement désactivé sur ce contrôleur. Activez
-          <code>SECREVIEW_OSV_AUTO_UPDATE=true</code>, ou importez les avis avec
-          <code>security-review-controller advisories import</code>.
+          {{ 'settings.downloadDisabled' | t }} <code>SECREVIEW_OSV_AUTO_UPDATE=true</code
+          >{{ 'settings.orImport' | t }} <code>security-review-controller advisories import</code>.
         </div>
       }
 
       @if (advisories.value(); as overview) {
         <div class="row g-3 mb-3">
           <div class="col-sm-4">
-            <div class="text-body-secondary small">Avis en base</div>
+            <div class="text-body-secondary small">{{ 'settings.advisories' | t }}</div>
             <div class="fs-4">{{ overview.database.advisories | number }}</div>
           </div>
           <div class="col-sm-4">
-            <div class="text-body-secondary small">Dernier import</div>
+            <div class="text-body-secondary small">{{ 'settings.lastImport' | t }}</div>
             <div>
               @if (overview.database.last_imported_at; as last) {
                 {{ last | date: 'dd/MM/yyyy HH:mm' }}
-                <span class="text-body-secondary">({{ overview.database.age_days }} j)</span>
+                <span class="text-body-secondary"
+                  >({{ 'project.days' | t: { days: overview.database.age_days ?? '—' } }})</span
+                >
                 @if (overview.database.stale) {
-                  <span class="badge text-bg-warning">Obsolète</span>
+                  <span class="badge text-bg-warning">{{ 'settings.stale' | t }}</span>
                 }
               } @else {
-                <span class="badge text-bg-danger">Base vide</span>
+                <span class="badge text-bg-danger">{{ 'settings.emptyDb' | t }}</span>
               }
             </div>
           </div>
           <div class="col-sm-4">
-            <div class="text-body-secondary small">Par écosystème</div>
+            <div class="text-body-secondary small">{{ 'settings.byEcosystem' | t }}</div>
             <div>
               @for (entry of ecosystems(); track entry[0]) {
                 <span class="badge text-bg-light border me-1">
-                  {{ entry[0] }} : {{ entry[1] | number }}
+                  {{
+                    'settings.ecosystemCount'
+                      | t: { name: entry[0], count: (entry[1] | number) ?? '' }
+                  }}
                 </span>
               } @empty {
                 —
@@ -329,51 +338,51 @@
         </div>
       }
 
-      <h3 class="h6">Configuration (variables d'environnement)</h3>
+      <h3 class="h6">{{ 'settings.osvConfig' | t }}</h3>
       <table class="table table-sm env-table">
         <tbody>
           <tr>
-            <th scope="row">Téléchargement</th>
+            <th scope="row">{{ 'settings.download' | t }}</th>
             <td>
-              {{
-                current.osv.download_enabled
-                  ? 'activé, toutes les ' + current.osv.update_interval_hours + ' h'
-                  : 'désactivé'
-              }}
+              @if (current.osv.download_enabled) {
+                {{ 'settings.downloadEvery' | t: { hours: current.osv.update_interval_hours } }}
+              } @else {
+                {{ 'settings.downloadOff' | t }}
+              }
             </td>
           </tr>
           <tr>
-            <th scope="row">Source</th>
+            <th scope="row">{{ 'settings.source' | t }}</th>
             <td class="font-monospace">{{ current.osv.url }}</td>
           </tr>
           <tr>
-            <th scope="row">Écosystèmes</th>
+            <th scope="row">{{ 'settings.ecosystems' | t }}</th>
             <td>{{ current.osv.ecosystems }}</td>
           </tr>
           <tr>
-            <th scope="row">Bundle de CA</th>
-            <td class="font-monospace">{{ current.osv.cafile ?? 'celui du système' }}</td>
+            <th scope="row">{{ 'settings.caBundle' | t }}</th>
+            <td class="font-monospace">{{ current.osv.cafile ?? ('settings.systemCa' | t) }}</td>
           </tr>
           <tr>
-            <th scope="row">Taille maximale</th>
-            <td>{{ current.osv.max_download_mb }} Mo par archive</td>
+            <th scope="row">{{ 'settings.maxSize' | t }}</th>
+            <td>{{ 'settings.maxSizeValue' | t: { size: current.osv.max_download_mb } }}</td>
           </tr>
         </tbody>
       </table>
 
-      <h3 class="h6">Historique des mises à jour</h3>
+      <h3 class="h6">{{ 'settings.history' | t }}</h3>
       @if (advisories.error()) {
-        <div class="alert alert-danger" role="alert">Impossible de charger l'historique.</div>
+        <div class="alert alert-danger" role="alert">{{ 'settings.historyError' | t }}</div>
       } @else if ((advisories.value()?.updates ?? []).length) {
         <div class="table-responsive">
           <table class="table table-hover align-middle small">
             <thead>
               <tr>
-                <th scope="col">Début</th>
-                <th scope="col">Déclenchement</th>
-                <th scope="col">Statut</th>
-                <th scope="col">Durée</th>
-                <th scope="col">Résultat</th>
+                <th scope="col">{{ 'settings.start' | t }}</th>
+                <th scope="col">{{ 'settings.trigger' | t }}</th>
+                <th scope="col">{{ 'settings.status' | t }}</th>
+                <th scope="col">{{ 'settings.duration' | t }}</th>
+                <th scope="col">{{ 'settings.result' | t }}</th>
               </tr>
             </thead>
             <tbody>
@@ -381,21 +390,22 @@
                 <tr>
                   <td class="text-nowrap">{{ update.started_at | date: 'dd/MM/yyyy HH:mm' }}</td>
                   <td>
-                    {{ triggerLabels[update.trigger] }}
+                    {{ triggerLabels[update.trigger] | t }}
                     @if (update.triggered_by) {
                       <div class="text-body-secondary">{{ update.triggered_by }}</div>
                     }
                   </td>
                   <td>
                     <span class="badge" [class]="statusMeta[update.status].css">
-                      {{ statusMeta[update.status].label }}
+                      {{ statusMeta[update.status].label | t }}
                     </span>
                   </td>
                   <td class="text-nowrap">{{ duration(update) }}</td>
                   <td>
                     @for (item of outcome(update); track item.name) {
                       <div [class.text-danger]="item.failed" class="update-error">
-                        <strong>{{ item.name }}</strong> : {{ item.text }}
+                        <strong>{{ item.name }}</strong
+                        >{{ 'settings.colonValue' | t: { value: item.text } }}
                       </div>
                     }
                   </td>
@@ -405,7 +415,7 @@
           </table>
         </div>
       } @else if (!advisories.isLoading()) {
-        <p class="text-body-secondary mb-0">Aucune mise à jour enregistrée.</p>
+        <p class="text-body-secondary mb-0">{{ 'settings.noHistory' | t }}</p>
       }
     </div>
   </section>

@@ -5,15 +5,18 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
 import { MIN_PASSWORD_CHARS } from '../../core/constants/passwords';
 import { AuthSource, WebUser, WebUserRole } from '../../core/models/api.models';
+import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
+import { MessageKey } from '../../core/i18n/messages';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 
-/** Labels of the roles of a web user. */
-const ROLE_LABELS: Record<WebUserRole, string> = {
-  reader: 'Lecture',
-  triager: 'Triage',
-  admin: 'Administration',
+/** Message keys of the roles of a web user. */
+const ROLE_LABELS: Record<WebUserRole, MessageKey> = {
+  reader: 'users.roleReader',
+  triager: 'users.roleTriager',
+  admin: 'users.roleAdmin',
 };
 
 /** Role chosen in the form: a web role, or none (SSO user: only the role of its groups). */
@@ -26,13 +29,14 @@ type FormRole = WebUserRole | 'none';
  */
 @Component({
   selector: 'app-user-list',
-  imports: [DatePipe, RefreshButtonComponent],
+  imports: [DatePipe, RefreshButtonComponent, TranslatePipe],
   templateUrl: './user-list.component.html',
   styleUrl: './user-list.component.css',
 })
 export class UserListComponent {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
+  private readonly i18n = inject(I18nService);
 
   readonly roleLabels = ROLE_LABELS;
   readonly minPassword = MIN_PASSWORD_CHARS;
@@ -56,8 +60,8 @@ export class UserListComponent {
 
   /** Generated password, shown once with the user it belongs to. */
   readonly createdPassword = signal<{ username: string; password: string } | null>(null);
-  readonly message = signal<string | null>(null);
-  readonly error = signal<string | null>(null);
+  readonly message = signal<Message | null>(null);
+  readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
 
   /** Admin users always reach every project; a user without a role lists none. */
@@ -108,9 +112,18 @@ export class UserListComponent {
     if (!role) {
       return '—';
     }
+    const label = this.i18n.translate(ROLE_LABELS[role]);
     return projects && role !== 'admin'
-      ? `${ROLE_LABELS[role]} (${projects.join(', ')})`
-      : `${ROLE_LABELS[role]} (tous les projets)`;
+      ? `${label} (${projects.join(', ')})`
+      : this.i18n.translate('users.roleAllProjects', { role: label });
+  }
+
+  onUsernameInput(event: Event): void {
+    this.username.set((event.target as HTMLInputElement).value);
+  }
+
+  onPasswordInput(event: Event): void {
+    this.password.set((event.target as HTMLInputElement).value);
   }
 
   onSourceChange(source: AuthSource): void {
@@ -172,7 +185,7 @@ export class UserListComponent {
     await this.run(async () => {
       if (editing) {
         const updated = await firstValueFrom(this.api.updateUser(editing.id, role, projects));
-        this.message.set(`Utilisateur « ${updated.username} » mis à jour.`);
+        this.message.set(msg('users.updated', { user: updated.username }));
       } else {
         const password = source === 'local' ? this.password() || null : null;
         const created = await firstValueFrom(
@@ -182,9 +195,9 @@ export class UserListComponent {
           this.createdPassword.set({ username: created.username, password: created.password });
         }
         this.message.set(
-          source === 'oidc'
-            ? `Utilisateur SSO « ${created.username} » créé : il se connecte avec le fournisseur d'identité.`
-            : `Utilisateur « ${created.username} » créé.`,
+          msg(source === 'oidc' ? 'users.ssoCreated' : 'users.created', {
+            user: created.username,
+          }),
         );
       }
       this.resetForm();
@@ -192,9 +205,7 @@ export class UserListComponent {
   }
 
   async resetPassword(user: WebUser): Promise<void> {
-    const question =
-      `Générer un nouveau mot de passe pour « ${user.username} » ? ` +
-      'Ses sessions ouvertes seront fermées.';
+    const question = this.i18n.translate('users.confirmReset', { user: user.username });
     if (this.busy() || !window.confirm(question)) {
       return;
     }
@@ -203,17 +214,15 @@ export class UserListComponent {
       if (reset.password) {
         this.createdPassword.set({ username: reset.username, password: reset.password });
       }
-      this.message.set(`Mot de passe de « ${reset.username} » réinitialisé.`);
+      this.message.set(msg('users.resetDone', { user: reset.username }));
     });
   }
 
   async remove(user: WebUser): Promise<void> {
-    const question =
-      user.auth_source === 'oidc'
-        ? `Supprimer l'utilisateur SSO « ${user.username} » ? Ses sessions sont fermées et il ` +
-          "ne sera plus recréé à sa connexion, jusqu'à ce que vous le recréiez ou l'autorisiez " +
-          'à nouveau.'
-        : `Supprimer l'utilisateur « ${user.username} » ?`;
+    const question = this.i18n.translate(
+      user.auth_source === 'oidc' ? 'users.confirmDeleteSso' : 'users.confirmDelete',
+      { user: user.username },
+    );
     if (this.busy() || !window.confirm(question)) {
       return;
     }
@@ -222,21 +231,19 @@ export class UserListComponent {
       if (this.editing()?.id === user.id) {
         this.resetForm();
       }
-      this.message.set(`Utilisateur « ${user.username} » supprimé.`);
+      this.message.set(msg('users.deleted', { user: user.username }));
     });
   }
 
   /** Let a deleted SSO user be created again at its next login. */
   async liftRevocation(username: string): Promise<void> {
-    const question =
-      `Autoriser à nouveau « ${username} » ? Avec la création automatique, son compte SSO ` +
-      'sera recréé à sa prochaine connexion si ses groupes lui donnent un rôle.';
+    const question = this.i18n.translate('users.confirmLift', { user: username });
     if (this.busy() || !window.confirm(question)) {
       return;
     }
     await this.run(async () => {
       await firstValueFrom(this.api.liftRevocation(username));
-      this.message.set(`« ${username} » peut de nouveau être créé à sa connexion.`);
+      this.message.set(msg('users.lifted', { user: username }));
     });
   }
 
@@ -247,9 +254,9 @@ export class UserListComponent {
     }
     try {
       await navigator.clipboard.writeText(created.password);
-      this.message.set('Mot de passe copié. Transmettez-le par un canal sûr.');
+      this.message.set(msg('users.copied'));
     } catch {
-      this.error.set('Copie impossible ; sélectionnez le mot de passe et copiez-le manuellement.');
+      this.error.set(msg('users.copyFailed'));
     }
   }
 
@@ -270,24 +277,24 @@ export class UserListComponent {
   }
 }
 
-function describeError(error: unknown): string {
+function describeError(error: unknown): Message {
   if (error instanceof HttpErrorResponse) {
     const detail = typeof error.error?.detail === 'string' ? error.error.detail : null;
     if (error.status === 409 && detail?.includes('last administrator')) {
-      return 'Le dernier administrateur ne peut pas être supprimé.';
+      return msg('users.lastAdminDelete');
     }
     if (error.status === 409) {
-      return 'Un utilisateur porte déjà cet identifiant.';
+      return msg('users.conflict');
     }
     if (error.status === 422 && detail?.includes('last administrator')) {
-      return 'Le dernier administrateur doit garder le rôle administration.';
+      return msg('users.lastAdminRole');
     }
     if (error.status === 422) {
-      return detail ? `Données refusées : ${detail}` : 'Données refusées par le serveur.';
+      return detail ? msg('common.refusedDetail', { detail }) : msg('common.refused');
     }
     if (error.status === 404) {
-      return "Cet utilisateur n'existe plus.";
+      return msg('users.notFound');
     }
   }
-  return 'La gestion des utilisateurs a échoué.';
+  return msg('users.failed');
 }

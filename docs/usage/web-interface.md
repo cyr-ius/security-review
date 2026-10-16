@@ -17,84 +17,87 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 # interface: http://127.0.0.1:8080/ui/
 ```
 
-!!! note "Interface language"
-    The web interface is in French. This page quotes its labels as they are displayed, followed
-    by their English meaning, for example **Jetons** (Tokens).
-
 ## Screens
 
 The screens are reached from the sidebar: **Supervision** (projects, reports) for every role,
-then **Référentiel** (Reference: rules, checklists, standards) and **Administration** (users,
+then **Reference** (rules, checklists, standards) and **Administration** (users,
 tokens, SSO roles, settings) for the `admin` role. The bottom of the sidebar shows the connected
-client, its role and the version, with the **Mon compte** (My account) and logout buttons; on a
+client, its role and the version, with the **My account** and logout buttons; on a
 small screen, the sidebar opens with the menu button. The light or dark theme is chosen at the
 top right, including on the login page, and is remembered by the browser.
 
-- **Projets** (Projects): every project with its open findings by severity, sorted by risk,
+The interface is available in **English**, **French** and **Spanish**. The language is chosen in
+the picker at the top right, including on the login page. The change is immediate and is
+remembered by the browser; on the first visit, the interface follows the language of the
+browser, or English if it offers none of them. This choice only concerns the interface: the
+language of the review reports is set in **Settings**, and the detailed error messages sent back
+by the API stay in English.
+
+- **Projects**: every project with its open findings by severity, sorted by risk,
   activity or name.
-- **Projet** (Project): open findings, trend over 30 days to 1 year (chart and table), mean
+- **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
-- **Rapports** (Reports): list filtered by project and risk level (the filters are in the URL,
+- **Reports**: list filtered by project and risk level (the filters are in the URL,
   so a link can be shared).
-- **Rapport** (Report): summary, context (repository, branch, commit), findings with location,
+- **Report**: summary, context (repository, branch, commit), findings with location,
   CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the `triager` or
   `admin` role change the status of a finding directly from this screen.
-- **Normes** (Standards): the [development standards](standards.md) handed to the AI
+- **Standards**: the [development standards](standards.md) handed to the AI
   assistants by the `development-standards` prompt. Administrators search, read, create, edit
   (technologies, file patterns, Markdown content), disable or delete them. A change applies
   immediately.
 - **Checklists**: administrators browse the check items by domain, filter the list and create,
   edit or delete the custom items. The default items can be edited, but not deleted. Every
   change is reloaded immediately by the server and included in the review prompts.
-- **Règles** (Rules): administrators browse every [rule](rules.md) stored in the database,
+- **Rules**: administrators browse every [rule](rules.md) stored in the database,
   filtered by origin (default or custom). They create, edit (in a modal window, without losing
   the position in the list), enable or disable the rules, and delete the custom rules. A default
   rule can be edited ("Par défaut, modifiée" badge: default, edited) or disabled, but not
-  deleted. The **Recharger** (Reload) button applies immediately a change made with the
+  deleted. The **Reload** button applies immediately a change made with the
   `security-review-controller rules` CLI.
-- **Utilisateurs** (Users): administrators manage the [accounts](#user-accounts), the only
+- **Users**: administrators manage the [accounts](#user-accounts), the only
   ones to open the interface. Each account is **Local** (user name and password, entered or
   generated and shown only once) or **SSO** (login through the identity provider, no password),
   with a badge in the list. The administrator chooses the `reader`, `triager` or `admin` role
   and, for `reader` and `triager`, the projects. An SSO account can have no role of its own: the
-  **Rôle des groupes** (Group role) column then shows the role that its groups gave it at its
+  **Role of the groups** column then shows the role that its groups gave it at its
   last login. The administrator changes the role and the projects of an account, resets the
   password of a local account or deletes an account. A deleted SSO account is no longer created
-  again at its login: the **Comptes SSO supprimés** (Deleted SSO accounts) section lists them,
-  with the **Autoriser à nouveau** (Allow again) button. The last administrator, local or SSO,
+  again at its login: the **Deleted SSO accounts** section lists them,
+  with the **Allow again** button. The last administrator, local or SSO,
   can be neither deleted nor demoted.
-- **Mon compte** (My account): shows the type of the account. A local user changes their
+- **My account**: shows the type of the account. A local user changes their
   password there (their other sessions are closed); the one of an SSO user is managed by the
   identity provider.
-- **Jetons** (Tokens): administrators create and revoke tokens limited to one or more
-  projects. The **Usage** field chooses **MCP** (`mcp` role) or **API REST** (REST API); for the
-  REST API, **Droits API** (API rights) chooses **Lecture seule** (read only, `reader`) or
+- **Tokens**: administrators create and revoke tokens limited to one or more
+  projects. The **Usage** field chooses **MCP** (`mcp` role) or **REST API**; for the
+  REST API, **API rights** chooses **Lecture seule** (read only, `reader`) or
   **Lecture et triage** (read and triage, `triager`). The list shows the usage of every token.
   A token never opens the web interface. The `admin` role stays unrestricted and is created from
   the CLI. The secret is shown only once; only its digest is stored, in the database. A
-  revocation takes effect at the next request. The **Demandes en attente** (Pending requests)
+  revocation takes effect at the next request. The **Pending requests**
   section tells new tokens apart from requests for access to an additional project
   ([enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token)):
-  **Approuver** (Approve) activates the new token or adds the project to the existing token;
-  **Refuser** (Reject) only deletes the request. The allowed projects and the additions still
-  pending are shown for every token. The **Lecture dans le portail** (Portal read access) column
+  **Approve** activates the new token or adds the project to the existing token;
+  **Reject** only deletes the request. The allowed projects and the additions still
+  pending are shown for every token. The **Read access in the portal** column
   lets you give the developer, at the same time, read access to the project in the web
   interface, on their user account (see
   [project read access at enrollment](#project-read-access-at-enrollment)).
-- **Rôles SSO** (SSO roles): administrators
+- **SSO roles**: administrators
   [configure the SSO login](#configuring-sso-in-the-interface) (every stored value replaces its
   `SECREVIEW_OIDC_*` variable, with a connection test to the provider) and map the groups or
   roles of the identity provider to a web role and, for `reader` and `triager`, to a list of
   projects (see [role mapping](#role-mapping)). The groups of the SSO configuration
   (`*_GROUPS`) are shown read only in the list of mappings. The SSO users themselves are managed
-  in the **Utilisateurs** (Users) screen.
-- **Paramètres** (Settings): settings stored in the database, taking precedence over the
+  in the **Users** screen.
+- **Settings**: settings stored in the database, taking precedence over the
   environment variables and shared by the MCP server and the controller.
-    - **Langue des rapports** (Report language): `SECREVIEW_REPORT_LANGUAGE` variable, choice
+    - **Report language**: `SECREVIEW_REPORT_LANGUAGE` variable, choice
       left to the agent or language set here (`French`, `fr`, `pt-BR`…). It applies to the next
       review prompts; the `report_language` argument of a prompt still takes precedence
       ([report language](prompts-tools.md#report-language)).
-    - **Proxy sortant du contrôleur** (Outgoing proxy of the controller): proxy of the OSV
+    - **Outgoing proxy of the controller**: proxy of the OSV
       download **and** of the [SSO login](#openid-connect-sso-login). As for the SSO
       configuration, every value set here replaces its variable (**Variable** / **Interface
       web** badges): the URL follows `SECREVIEW_PROXY` (else `HTTPS_PROXY` / `NO_PROXY`), is set
@@ -106,10 +109,10 @@ top right, including on the login page, and is remembered by the browser.
       are never shown again (`***`): sending `***` back keeps the stored one. Through the API:
       `PUT /api/v1/settings/proxy` with `url` and `no_proxy` (`null` applies the variable again,
       `"url": ""` forces the direct connection, a missing field is unchanged).
-    - **Base de vulnérabilités OSV** (OSV vulnerability database): number of advisories by
+    - **OSV vulnerability database**: number of advisories by
       ecosystem, date and age of the last import, download configuration, history of the last
       50 updates (scheduled, CLI or web interface, with status, duration and result by
-      ecosystem) and **Mettre à jour maintenant** (Update now) button, only available if
+      ecosystem) and **Update now** button, only available if
       `SECREVIEW_OSV_AUTO_UPDATE=true`
       ([update by the controller](dependencies.md#automatic-update-by-the-controller)).
 
@@ -171,7 +174,7 @@ limited to a list of projects; an `admin` account sees every project.
 | **SSO** (`oidc`) | [Identity provider](#openid-connect-sso-login), no password | By an administrator, at the approval of an enrollment, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
 An SSO account can have **no role of its own**: only the role given by its groups applies (see
-[SSO accounts](#sso-accounts)). Accounts are managed in the **Utilisateurs** (Users) screen,
+[SSO accounts](#sso-accounts)). Accounts are managed in the **Users** screen,
 through the `/api/v1/users` REST API (`admin` role) or with the
 [CLI](../reference/cli.md#security-review-controller):
 
@@ -199,7 +202,7 @@ curl -X POST https://secreview.example.com/api/v1/users \
 For a local account, without `--password-stdin` (or without a password in the interface), a
 random 24-character password is generated and shown **only once**. A chosen password has 12 to
 256 characters. An SSO account never has a password: the user name and password login, the
-reset and **Mon compte** (My account) refuse it.
+reset and **My account** refuse it.
 
 ### First administrator
 
@@ -212,7 +215,7 @@ WARNING security_review_mcp.controller: Initial Web UI administrator created: us
 ```
 
 Handle this password as a secret: restrict access to the logs, log in with `admin` and change
-it from **Mon compte** (My account). If it is lost, generate a new one (the old one is
+it from **My account**. If it is lost, generate a new one (the old one is
 invalidated at once): `security-review-controller user reset-password admin`.
 
 !!! note "Upgrading from the `bootstrap-admin` token"
@@ -262,7 +265,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 The controller can delegate the login to the interface to an OpenID Connect identity provider
 (Keycloak, Microsoft Entra ID, Okta, Authentik, Dex...). The login page then shows a
-**Se connecter avec SSO** (Log in with SSO) button above the form of the local accounts, which
+**Log in with SSO** button above the form of the local accounts, which
 stays available (initial `admin` account, fallback accounts).
 
 The flow is *authorization code* with PKCE (`S256`), state and nonce:
@@ -309,20 +312,20 @@ through its outgoing proxy (`SECREVIEW_PROXY` / `SECREVIEW_NO_PROXY`, or the **P
 
 ### Configuring SSO in the interface
 
-The same settings can be changed in the **Configuration SSO** (SSO configuration) section of
-the **Rôles SSO** (SSO roles) screen (`admin` role), without restarting the controller. As for
-the **Paramètres** (Settings) screen, a value stored in the database **replaces its
+The same settings can be changed in the **SSO settings** section of
+the **SSO roles** screen (`admin` role), without restarting the controller. As for
+the **Settings** screen, a value stored in the database **replaces its
 `SECREVIEW_OIDC_*` variable**, field by field; a field never changed follows its variable:
 
 - every field has the **Variable** badge (the variable applies, its value is shown under the
   field) or **Interface web** (stored value); the **Variable** link of a stored field deletes
   the stored value and applies the variable again;
 - the **client secret** is never shown again: left empty, the current secret is kept;
-  **Supprimer** (Delete) stores an empty secret (public client, PKCE only);
-- **Tester la connexion** (Test the connection) contacts the provider with the values of the
+  **Delete** stores an empty secret (public client, PKCE only);
+- **Test the connection** contacts the provider with the values of the
   form, without storing them: reading of the `/.well-known/openid-configuration` document (same
   `issuer`, HTTPS endpoints), then of the signing keys (JWKS);
-- **Enregistrer** (Save) refuses (`422`) a configuration that would enable an invalid login
+- **Save** refuses (`422`) a configuration that would enable an invalid login
   (missing or non-HTTPS issuer, scopes without `openid`, unknown default role...): nothing is
   stored then. An incomplete configuration can be prepared while SSO stays disabled.
 
@@ -350,7 +353,7 @@ curl -X PUT https://secreview.example.com/api/v1/oidc/settings \
 
 ### SSO accounts
 
-Every SSO user is an account of the **Utilisateurs** (Users) screen (**SSO** badge), named by
+Every SSO user is an account of the **Users** screen (**SSO** badge), named by
 the value of the `SECREVIEW_OIDC_USERNAME_CLAIM` claim (`preferred_username` by default),
 compared exactly, case included. There is no fallback to `email` or `sub`, and a value that is
 not a valid user name (control or invisible character, space, more than 64 characters) is
@@ -416,7 +419,7 @@ Mappings have two origins:
 
 | Origin | Management | Projects |
 |---|---|---|
-| Database | **Rôles SSO** (SSO roles) screen or `/api/v1/oidc/role-mappings` API (`admin` role) | All or a list |
+| Database | **SSO roles** screen or `/api/v1/oidc/role-mappings` API (`admin` role) | All or a list |
 | `SECREVIEW_OIDC_ADMIN_GROUPS`, `..._TRIAGER_GROUPS`, `..._READER_GROUPS` variables | Configuration of the controller (read only in the interface) | All |
 
 The variables are mostly used to name the first administrator, who then creates the other
@@ -468,11 +471,10 @@ request, the administrator can also give the developer read access to the projec
 portal, on their **user account**: the developer who requested an MCP token for a project then
 browses its reports.
 
-- In the **Jetons de projet** (Project tokens) screen, the **Lecture dans le portail** (Portal
-  read access) column is prefilled with the requester (`requested_by`) when it is given, and
+- In the **Project tokens** screen, the **Read access in the portal** column is prefilled with the requester (`requested_by`) when it is given, and
   ticked when SSO is enabled. This field is declared by the client and **is not verified**:
   check or correct it before approving, or untick the box.
-- The name designates an account of the **Utilisateurs** (Users) screen, local or SSO. With SSO
+- The name designates an account of the **Users** screen, local or SSO. With SSO
   enabled, an unknown name becomes an **SSO account** (`reader` on the project), ready for its
   first login; without SSO, the account must exist.
 - An account without a role of its own becomes `reader` on the project; a restricted `reader`
@@ -515,7 +517,7 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
 - A group change at the provider only applies at the next login. To cut every session before it
   expires, delete the account, or change `SECREVIEW_SESSION_SECRET` and restart the controller
   (every session is cut).
-- **Se déconnecter** (Log out) clears the session of the tab, not the one of the identity
+- **Log out** clears the session of the tab, not the one of the identity
   provider.
 
 On failure, the login page gives the cause (access denied at the provider, no role, SSO account
@@ -562,7 +564,7 @@ the controller, without code or token.
 | `SECREVIEW_SESSION_SECRET` | — | Signing secret of the sessions (at least 32 characters), identical on every replica |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or SSO login |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [SSO account](#sso-accounts) at the first login; otherwise an administrator creates it |
-| `SECREVIEW_ENROLLMENT` | `true` | Token requests by the projects (on the MCP server), approved in the **Jetons** (Tokens) screen |
+| `SECREVIEW_ENROLLMENT` | `true` | Token requests by the projects (on the MCP server), approved in the **Tokens** screen |
 | `SECREVIEW_OIDC_*` | — | [SSO login](#openid-connect-sso-login), see the [reference](../reference/configuration.md) |
 
 The published package and the Docker image contain the application already built. If you

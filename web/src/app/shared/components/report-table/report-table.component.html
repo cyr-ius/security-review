@@ -4,14 +4,14 @@
       <thead>
         <tr>
           <th scope="col">#</th>
-          <th scope="col">Date</th>
+          <th scope="col">{{ 'reportTable.date' | t }}</th>
           @if (showProject()) {
-            <th scope="col">Projet</th>
+            <th scope="col">{{ 'reportTable.project' | t }}</th>
           }
-          <th scope="col">Risque</th>
-          <th scope="col" class="text-end">Ouverts / total</th>
-          <th scope="col">Branche</th>
-          <th scope="col">Résumé</th>
+          <th scope="col">{{ 'reportTable.risk' | t }}</th>
+          <th scope="col" class="text-end">{{ 'reportTable.openTotal' | t }}</th>
+          <th scope="col">{{ 'reportTable.branch' | t }}</th>
+          <th scope="col">{{ 'reportTable.summary' | t }}</th>
         </tr>
       </thead>
       <tbody>
@@ -47,6 +47,6 @@
 } @else {
   <p class="text-body-secondary text-center my-4">
     <i class="bi bi-inbox" aria-hidden="true"></i>
-    Aucun rapport.
+    {{ 'reportTable.empty' | t }}
   </p>
 }

@@ -73,11 +73,11 @@ Mounted files must be readable by the container user (uid `10001`). The MCP serv
 start while the schema is not migrated. At the first start of the controller, the `admin`
 account is created with a random password shown only once in its logs; only its digest is
 kept, in the database. Get it with `docker logs secreview-controller`, log in to the interface
-(`/ui/`) with the `admin` user name, then change the password from **Mon compte** (My account). Then create
-one account per person in the **Utilisateurs** (Users) screen (see the
+(`/ui/`) with the `admin` user name, then change the password from **My account**. Then create
+one account per person in the **Users** screen (see the
 [user accounts](../usage/web-interface.md#user-accounts)).
 
-The project tokens created from the **Jetons** (Tokens) screen are also stored as digests in the
+The project tokens created from the **Tokens** screen are also stored as digests in the
 database, like every token (see [Bearer tokens](http.md#bearer-tokens)).
 
 !!! warning "Protect the logs"

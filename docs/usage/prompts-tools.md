@@ -21,14 +21,14 @@ saves nothing.
 `report_language` sets the language of the agent's reply and of the written fields of the
 stored report (summary, scope, titles, descriptions, recommendations), for example `French`,
 `fr` or `pt-BR`. Without this argument, the prompt uses the language chosen by an administrator
-in the [**Paramètres** (Settings)](web-interface.md#screens) screen of the web interface, else
+in the [**Settings**](web-interface.md#screens) screen of the web interface, else
 [`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md); if none is set, the agent chooses
 (usually the language of the conversation). The screen can also force "the agent chooses"
 despite the variable.
 
 An agent that reviews **without a prompt**, with the tools only (a common case: an MCP prompt is
 a command started by the user, the agent cannot call it itself), gets the same configured
-language (**Paramètres** (Settings) screen, else variable) in the results of `get_review_checklist`
+language (**Settings** screen, else variable) in the results of `get_review_checklist`
 ("Report language" section) and of `scan_code` (`report_language` field, `null` if the agent
 chooses).
 

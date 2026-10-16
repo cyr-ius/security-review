@@ -3,6 +3,8 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { ROLE_META } from '../../core/constants/labels';
 import { MIN_PASSWORD_CHARS } from '../../core/constants/passwords';
+import { Message, msg } from '../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 
@@ -12,6 +14,7 @@ import { AuthService } from '../../core/services/auth.service';
  */
 @Component({
   selector: 'app-account',
+  imports: [TranslatePipe],
   templateUrl: './account.component.html',
 })
 export class AccountComponent {
@@ -24,8 +27,8 @@ export class AccountComponent {
   readonly current = signal('');
   readonly next = signal('');
   readonly confirmation = signal('');
-  readonly message = signal<string | null>(null);
-  readonly error = signal<string | null>(null);
+  readonly message = signal<Message | null>(null);
+  readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
 
   readonly mismatch = computed(
@@ -55,7 +58,7 @@ export class AccountComponent {
       this.current.set('');
       this.next.set('');
       this.confirmation.set('');
-      this.message.set('Mot de passe modifié. Vos autres sessions ont été fermées.');
+      this.message.set(msg('account.changed'));
     } catch (error: unknown) {
       this.error.set(describeError(error));
     } finally {
@@ -64,21 +67,21 @@ export class AccountComponent {
   }
 }
 
-function describeError(error: unknown): string {
+function describeError(error: unknown): Message {
   if (error instanceof HttpErrorResponse) {
     const detail = typeof error.error?.detail === 'string' ? error.error.detail : '';
     if (error.status === 422 && detail.includes('current password')) {
-      return 'Le mot de passe actuel est incorrect.';
+      return msg('account.wrongCurrent');
     }
     if (error.status === 422 && detail.includes('must differ')) {
-      return "Le nouveau mot de passe doit être différent de l'actuel.";
+      return msg('account.mustDiffer');
     }
     if (error.status === 422) {
-      return detail ? `Mot de passe refusé : ${detail}` : 'Mot de passe refusé.';
+      return detail ? msg('account.refusedDetail', { detail }) : msg('account.refused');
     }
     if (error.status === 429) {
-      return 'Trop de tentatives échouées : réessayez dans quelques minutes.';
+      return msg('login.tooManyAttempts');
     }
   }
-  return 'Le changement de mot de passe a échoué.';
+  return msg('account.failed');
 }

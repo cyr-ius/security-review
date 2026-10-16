@@ -10,6 +10,9 @@ import {
   OidcSettingsUpdate,
   OidcTestResult,
 } from '../../core/models/api.models';
+import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
+import { MessageKey } from '../../core/i18n/messages';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ApiService } from '../../core/services/api.service';
 
 /** Value shown by the API in place of a set client secret. */
@@ -21,63 +24,63 @@ type FieldKind = 'text' | 'bool' | 'secret' | 'role';
 /** One field of the form. */
 interface FieldMeta {
   name: OidcSettingName;
-  label: string;
+  label: MessageKey;
   kind: FieldKind;
   placeholder?: string;
-  help?: string;
+  help?: MessageKey;
 }
 
 /** Fields of the form, grouped as displayed. */
 const PROVIDER_FIELDS: FieldMeta[] = [
   {
     name: 'issuer',
-    label: 'Émetteur (issuer)',
+    label: 'sso.issuer',
     kind: 'text',
     placeholder: 'https://sso.example.com/realms/acme',
   },
-  { name: 'client_id', label: 'Identifiant client', kind: 'text', placeholder: 'secreview' },
+  { name: 'client_id', label: 'sso.clientId', kind: 'text', placeholder: 'secreview' },
   {
     name: 'client_secret',
-    label: 'Secret client',
+    label: 'sso.clientSecret',
     kind: 'secret',
-    help: 'Vide : secret actuel conservé.',
+    help: 'sso.clientSecretHelp',
   },
   {
     name: 'redirect_uri',
-    label: 'URL de retour',
+    label: 'sso.redirectUri',
     kind: 'text',
     placeholder: 'https://secreview.example.com/api/v1/auth/oidc/callback',
   },
-  { name: 'scopes', label: 'Scopes', kind: 'text', placeholder: 'openid profile email' },
-  { name: 'display_name', label: 'Libellé du bouton', kind: 'text', placeholder: 'SSO' },
+  { name: 'scopes', label: 'sso.scopes', kind: 'text', placeholder: 'openid profile email' },
+  { name: 'display_name', label: 'sso.displayName', kind: 'text', placeholder: 'SSO' },
 ];
 
 const ACCESS_FIELDS: FieldMeta[] = [
   {
     name: 'roles_claim',
-    label: 'Claim des groupes',
+    label: 'sso.rolesClaim',
     kind: 'text',
     placeholder: 'groups',
-    help: 'Chemin pointé accepté (realm_access.roles).',
+    help: 'sso.rolesClaimHelp',
   },
   {
     name: 'username_claim',
-    label: "Claim du nom d'utilisateur",
+    label: 'sso.usernameClaim',
     kind: 'text',
     placeholder: 'preferred_username',
   },
   {
     name: 'admin_groups',
-    label: 'Groupes administration',
+    label: 'sso.adminGroups',
     kind: 'text',
-    help: 'Séparés par des virgules, tous les projets.',
+    help: 'sso.groupsHelp',
   },
-  { name: 'triager_groups', label: 'Groupes triage', kind: 'text' },
-  { name: 'reader_groups', label: 'Groupes lecture', kind: 'text' },
-  { name: 'default_role', label: 'Rôle par défaut', kind: 'role' },
+  { name: 'triager_groups', label: 'sso.triagerGroups', kind: 'text' },
+  { name: 'reader_groups', label: 'sso.readerGroups', kind: 'text' },
+  { name: 'default_role', label: 'sso.defaultRole', kind: 'role' },
   {
     name: 'auto_create_users',
-    label: 'Créer les utilisateurs à leur première connexion',
+    label: 'sso.autoCreate',
     kind: 'bool',
   },
 ];
@@ -94,11 +97,12 @@ export function variableOf(name: OidcSettingName): string {
  */
 @Component({
   selector: 'app-sso-settings',
-  imports: [NgTemplateOutlet, RouterLink],
+  imports: [NgTemplateOutlet, RouterLink, TranslatePipe],
   templateUrl: './sso-settings.component.html',
 })
 export class SsoSettingsComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
 
   /** Emitted after a change, so that the page reloads what depends on the settings. */
   readonly changed = output<void>();
@@ -112,8 +116,8 @@ export class SsoSettingsComponent {
   /** Values being edited (the client secret is empty unless a new one is typed). */
   readonly draft = signal<Record<string, string | boolean>>({});
   readonly testResult = signal<OidcTestResult | null>(null);
-  readonly message = signal<string | null>(null);
-  readonly error = signal<string | null>(null);
+  readonly message = signal<Message | null>(null);
+  readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
 
   /** Values of the form that differ from the effective ones. */
@@ -161,6 +165,14 @@ export class SsoSettingsComponent {
     this.testResult.set(null);
   }
 
+  onCheck(name: OidcSettingName, event: Event): void {
+    this.set(name, (event.target as HTMLInputElement).checked);
+  }
+
+  onText(name: OidcSettingName, event: Event): void {
+    this.set(name, (event.target as HTMLInputElement | HTMLSelectElement).value);
+  }
+
   /** True when the value of this setting is stored in the web interface. */
   stored(current: OidcSettings, name: OidcSettingName): boolean {
     return current.fields[name].value !== null;
@@ -172,13 +184,13 @@ export class SsoSettingsComponent {
     if (typeof env === 'boolean') {
       return env ? 'true' : 'false';
     }
-    return env ? env : 'vide';
+    return env ? env : this.i18n.translate('sso.empty');
   }
 
   /** Placeholder of the client secret field. */
   secretPlaceholder(current: OidcSettings): string {
     const effective = current.fields.client_secret.effective;
-    return effective === SECRET_MASK ? '•••••• (défini)' : 'aucun (client public)';
+    return this.i18n.translate(effective === SECRET_MASK ? 'sso.secretSet' : 'sso.secretNone');
   }
 
   async save(event: Event): Promise<void> {
@@ -189,7 +201,7 @@ export class SsoSettingsComponent {
     const names = Object.keys(this.changes()).length;
     await this.run(async () => {
       await firstValueFrom(this.api.setOidcSettings(this.changes()));
-      return `${names} paramètre(s) SSO enregistré(s) : ils s'appliquent à la prochaine connexion.`;
+      return msg('sso.saved', { count: names });
     });
   }
 
@@ -200,18 +212,18 @@ export class SsoSettingsComponent {
     }
     await this.run(async () => {
       await firstValueFrom(this.api.setOidcSettings({ [name]: null }));
-      return `La variable ${variableOf(name)} s'applique de nouveau.`;
+      return msg('sso.restored', { variable: variableOf(name) });
     });
   }
 
   /** Make the client public: the stored secret becomes empty. */
   async clearSecret(): Promise<void> {
-    if (this.busy() || !window.confirm('Supprimer le secret client (client public) ?')) {
+    if (this.busy() || !window.confirm(this.i18n.translate('sso.confirmClearSecret'))) {
       return;
     }
     await this.run(async () => {
       await firstValueFrom(this.api.setOidcSettings({ client_secret: '' }));
-      return 'Secret client supprimé : le client est public.';
+      return msg('sso.secretCleared');
     });
   }
 
@@ -226,7 +238,7 @@ export class SsoSettingsComponent {
     try {
       this.testResult.set(await firstValueFrom(this.api.testOidcSettings(this.changes())));
     } catch (error: unknown) {
-      this.error.set(describeError(error, 'Test refusé'));
+      this.error.set(describeError(error, TEST_REFUSED));
     } finally {
       this.busy.set(false);
     }
@@ -241,7 +253,7 @@ export class SsoSettingsComponent {
   }
 
   /** Run a change, show its outcome and reload the settings. */
-  private async run(action: () => Promise<string>): Promise<void> {
+  private async run(action: () => Promise<Message>): Promise<void> {
     this.busy.set(true);
     this.error.set(null);
     this.message.set(null);
@@ -251,7 +263,7 @@ export class SsoSettingsComponent {
       this.settings.reload();
       this.changed.emit();
     } catch (error: unknown) {
-      this.error.set(describeError(error, 'Paramètres refusés'));
+      this.error.set(describeError(error, SETTINGS_REFUSED));
     } finally {
       this.busy.set(false);
     }
@@ -267,12 +279,22 @@ function draftOf(current: OidcSettings): Record<string, string | boolean> {
   return draft;
 }
 
-function describeError(error: unknown, prefix: string): string {
+/** Messages of a refused change: with the detail sent by the server, or without one. */
+interface Refusal {
+  detail: MessageKey;
+  generic: MessageKey;
+}
+
+const TEST_REFUSED: Refusal = { detail: 'sso.testRefused', generic: 'sso.testRefusedCheck' };
+const SETTINGS_REFUSED: Refusal = {
+  detail: 'sso.settingsRefused',
+  generic: 'sso.settingsRefusedCheck',
+};
+
+function describeError(error: unknown, refusal: Refusal): Message {
   if (error instanceof HttpErrorResponse && error.status === 422) {
     const detail = error.error?.detail;
-    return typeof detail === 'string'
-      ? `${prefix} : ${detail}`
-      : `${prefix} : vérifiez les valeurs saisies.`;
+    return typeof detail === 'string' ? msg(refusal.detail, { detail }) : msg(refusal.generic);
   }
-  return 'La configuration SSO a échoué.';
+  return msg('sso.failed');
 }

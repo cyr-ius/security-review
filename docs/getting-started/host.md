@@ -216,7 +216,7 @@ The token is requested along the way, then approved by an administrator (see
 
 4. **Wait for the approval.** Tell the administrator the label of the token. While the request
    is pending, the host stays on the enrollment server: the `get_enrollment_status` tool
-   answers `pending`. As soon as the administrator approves it (**Jetons** (Tokens) screen of the web
+   answers `pending`. As soon as the administrator approves it (**Tokens** screen of the web
    interface, or `security-review-controller token approve <label>`), the same token gives
    access to the review tools. Run the review again, without reconfiguring anything.
 

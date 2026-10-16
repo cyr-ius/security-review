@@ -48,7 +48,7 @@ Projects can also request their token themselves: see
 - `--project` limits the token to one or more projects (repeat the option), for the MCP tools
   as for the REST API (`mcp`, `reader` and `triager` roles; refused for `admin`). See
   [tokens restricted to a project](#tokens-restricted-to-a-project). Administrators can also
-  create and revoke restricted `reader` tokens from the **Jetons** (Tokens) screen.
+  create and revoke restricted `reader` tokens from the **Tokens** screen.
 - The server reads the database at every request: a creation or a revocation applies
   immediately, including to the other instances sharing the same PostgreSQL database.
 
@@ -122,7 +122,7 @@ the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`) as soon as a
    [host configuration](host.md#getting-a-token-enrollment). While it is pending, the client
    stays on the enrollment server (`get_enrollment_status` answers `pending`) and the web API
    answers `403 enrollment_pending`.
-3. **Approval.** An administrator approves or rejects the request in the **Jetons** (Tokens) screen of
+3. **Approval.** An administrator approves or rejects the request in the **Tokens** screen of
    the [web interface](../usage/web-interface.md), or from the CLI:
 
     ```bash
@@ -133,7 +133,7 @@ the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`) as soon as a
 
     Once approved, the token works from the next request on, without reconfiguration. The
     approval can also give the developer **read access to the project in the portal**, on
-    their user account (**Lecture dans le portail** (Portal read access) column of the interface, or
+    their user account (**Read access in the portal** column of the interface, or
     `token approve ID --portal-user alice` from the CLI); with the
     [SSO login](../usage/web-interface.md#openid-connect-sso-login), an unknown name becomes an
     SSO account. See

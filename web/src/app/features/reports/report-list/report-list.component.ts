@@ -3,6 +3,7 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { SEVERITY_META } from '../../../core/constants/labels';
 import { SEVERITIES, Severity } from '../../../core/models/api.models';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { ReportTableComponent } from '../../../shared/components/report-table/report-table.component';
@@ -12,7 +13,7 @@ const PAGE_SIZE = 25;
 /** All reports, filtered by project and risk level (filters live in the URL). */
 @Component({
   selector: 'app-report-list',
-  imports: [ReportTableComponent, RefreshButtonComponent],
+  imports: [ReportTableComponent, RefreshButtonComponent, TranslatePipe],
   templateUrl: './report-list.component.html',
   styleUrl: './report-list.component.css',
 })

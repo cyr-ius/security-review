@@ -10,20 +10,17 @@
 
       <div>
         <h2 class="hero-title">
-          La sécurité de votre code,<br />
-          <span class="gradient-text">sous contrôle.</span>
+          {{ 'login.heroTitle' | t }}<br />
+          <span class="gradient-text">{{ 'login.heroTitleAccent' | t }}</span>
         </h2>
-        <p class="hero-lead">
-          Revues assistées par IA, scan de motifs et de dépendances, suivi des findings et des
-          tendances de risque, projet par projet.
-        </p>
+        <p class="hero-lead">{{ 'login.heroLead' | t }}</p>
         <ul class="features">
           @for (feature of features; track feature.icon) {
             <li>
               <span class="feature-icon"><i class="bi" [class]="feature.icon"></i></span>
               <span>
-                <strong>{{ feature.title }}</strong>
-                <span class="d-block">{{ feature.text }}</span>
+                <strong>{{ feature.title | t }}</strong>
+                <span class="d-block">{{ feature.text | t }}</span>
               </span>
             </li>
           }
@@ -32,44 +29,49 @@
 
       <p class="hero-foot">
         <i class="bi bi-lock-fill"></i>
-        Hébergé chez vous · aucun appel réseau sortant
+        {{ 'login.heroFoot' | t }}
       </p>
     </div>
   </section>
 
   <!-- Login form -->
   <section class="panel">
-    <button
-      type="button"
-      class="btn btn-sm btn-outline-secondary theme-toggle"
-      (click)="theme.toggle()"
-      [attr.aria-label]="theme.theme() === 'dark' ? 'Thème clair' : 'Thème sombre'"
-    >
-      <i
-        class="bi"
-        [class]="theme.theme() === 'dark' ? 'bi-sun' : 'bi-moon-stars'"
-        aria-hidden="true"
-      ></i>
-    </button>
+    <div class="panel-tools">
+      <app-language-select />
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        (click)="theme.toggle()"
+        [attr.aria-label]="
+          (theme.theme() === 'dark' ? 'layout.lightTheme' : 'layout.darkTheme') | t
+        "
+      >
+        <i
+          class="bi"
+          [class]="theme.theme() === 'dark' ? 'bi-sun' : 'bi-moon-stars'"
+          aria-hidden="true"
+        ></i>
+      </button>
+    </div>
 
     <div class="login-box">
       <span class="brand-mark lg mb-4 d-lg-none" aria-hidden="true">
         <i class="bi bi-shield-lock-fill"></i>
       </span>
-      <h1 class="h3 mb-1">Connexion</h1>
-      <p class="text-body-secondary mb-4">Accédez à la console de supervision Security Review.</p>
+      <h1 class="h3 mb-1">{{ 'login.title' | t }}</h1>
+      <p class="text-body-secondary mb-4">{{ 'login.subtitle' | t }}</p>
 
       @if (error(); as message) {
         <div class="alert alert-danger d-flex gap-2 py-2" role="alert">
           <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
-          <span>{{ message }}</span>
+          <span>{{ message | t }}</span>
         </div>
       }
 
       @if (ssoPending()) {
         <div class="alert alert-info d-flex gap-2 py-2" role="status">
           <span class="spinner-border spinner-border-sm mt-1" aria-hidden="true"></span>
-          <span>Connexion en cours…</span>
+          <span>{{ 'login.ssoPending' | t }}</span>
         </div>
       }
 
@@ -77,13 +79,15 @@
         <!-- Full-page navigation: the controller redirects to the identity provider -->
         <a class="btn btn-outline-primary btn-lg w-100" [href]="ssoUrl()">
           <i class="bi bi-person-badge me-1" aria-hidden="true"></i>
-          Se connecter avec {{ name }}
+          {{ 'login.ssoButton' | t: { name } }}
         </a>
-        <div class="separator my-4"><span>ou avec un compte local</span></div>
+        <div class="separator my-4">
+          <span>{{ 'login.orLocal' | t }}</span>
+        </div>
       }
 
       <form (submit)="onAccountSubmit($event)" novalidate>
-        <label for="username" class="form-label">Identifiant</label>
+        <label for="username" class="form-label">{{ 'login.username' | t }}</label>
         <div class="input-group input-group-lg mb-3">
           <span class="input-group-text"><i class="bi bi-person" aria-hidden="true"></i></span>
           <input
@@ -99,7 +103,7 @@
             "
           />
         </div>
-        <label for="password" class="form-label">Mot de passe</label>
+        <label for="password" class="form-label">{{ 'login.password' | t }}</label>
         <div class="input-group input-group-lg secret-group mb-1">
           <span class="input-group-text"><i class="bi bi-lock" aria-hidden="true"></i></span>
           <input
@@ -117,7 +121,7 @@
             type="button"
             class="btn btn-outline-secondary"
             (click)="reveal.set(!reveal())"
-            [attr.aria-label]="reveal() ? 'Masquer le mot de passe' : 'Afficher le mot de passe'"
+            [attr.aria-label]="(reveal() ? 'login.hidePassword' : 'login.showPassword') | t"
             [attr.aria-pressed]="reveal()"
           >
             <i class="bi" [class]="reveal() ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true"></i>
@@ -138,9 +142,9 @@
         >
           @if (accountForm().submitting()) {
             <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-            Vérification…
+            {{ 'login.checking' | t }}
           } @else {
-            Se connecter
+            {{ 'login.submit' | t }}
             <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
           }
         </button>
@@ -148,15 +152,12 @@
       <div class="help mt-4">
         <i class="bi bi-info-circle" aria-hidden="true"></i>
         <p class="mb-0">
-          Compte local créé par votre administrateur (au premier démarrage : utilisateur
-          <code>admin</code>, mot de passe affiché dans les journaux du contrôleur){{
-            ssoName() ? ", ou votre compte d'entreprise via le SSO" : ''
-          }}. Les jetons d'accès servent au serveur MCP et à l'API REST, pas à l'interface. La
-          session reste dans cet onglet et disparaît à sa fermeture.
+          {{ 'login.helpAccount' | t }} <code>admin</code>{{ 'login.helpPassword' | t
+          }}{{ ssoName() ? ('login.helpSso' | t) : '' }}{{ 'login.helpTokens' | t }}
         </p>
       </div>
     </div>
 
-    <p class="panel-foot">Security Review MCP · revue de code orientée sécurité</p>
+    <p class="panel-foot">{{ 'login.foot' | t }}</p>
   </section>
 </div>

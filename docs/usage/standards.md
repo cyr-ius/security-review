@@ -57,7 +57,7 @@ client allowed on `/mcp` reads them.
 
 ## Management (web interface and REST API)
 
-The **Normes** (Standards) screen of the web interface lists the standards with their technologies and
+The **Standards** screen of the web interface lists the standards with their technologies and
 file patterns, and lets you search and read each one. Like the rules and the checklists, it is
 reserved for administrators, who create, edit, disable or delete them. The AI assistants get
 the active standards through the MCP server (prompt and tools above), whatever the web role of

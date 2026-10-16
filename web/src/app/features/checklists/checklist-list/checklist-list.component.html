@@ -1,32 +1,30 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
-    <h1 class="h3 mb-0">Checklists de revue</h1>
-    <p class="text-body-secondary mb-0">
-      Points de contrôle manuels, organisés par domaine et intégrés aux prompts de revue.
-    </p>
+    <h1 class="h3 mb-0">{{ 'checklists.title' | t }}</h1>
+    <p class="text-body-secondary mb-0">{{ 'checklists.subtitle' | t }}</p>
   </div>
   <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
     <i class="bi bi-plus-lg" aria-hidden="true"></i>
-    Nouvel item
+    {{ 'checklists.new' | t }}
   </button>
 </div>
 
 @if (error(); as message) {
   <div class="alert alert-danger py-2" role="alert">
     <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-    {{ message }}
+    {{ message | t }}
   </div>
 }
 @if (notice(); as message) {
-  <div class="alert alert-success py-2" role="status">{{ message }}</div>
+  <div class="alert alert-success py-2" role="status">{{ message | t }}</div>
 }
 
 @if (catalog.error()) {
-  <div class="alert alert-danger" role="alert">Impossible de charger les checklists.</div>
+  <div class="alert alert-danger" role="alert">{{ 'checklists.loadError' | t }}</div>
 } @else if (catalog.isLoading() && !catalog.hasValue()) {
   <div class="text-center my-5">
     <span class="spinner-border text-secondary" aria-hidden="true"></span>
-    <span class="visually-hidden">Chargement…</span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 } @else if (catalog.value(); as data) {
   @for (issue of data.load_errors; track issue) {
@@ -35,15 +33,19 @@
 
   <div class="card">
     <div class="card-header d-flex flex-wrap gap-2 align-items-center">
-      <span class="fw-semibold">{{ visibleItems().length }} item(s)</span>
-      <label class="visually-hidden" for="checklist-domain-filter">Domaine</label>
+      <span class="fw-semibold">{{
+        'checklists.count' | t: { count: visibleItems().length }
+      }}</span>
+      <label class="visually-hidden" for="checklist-domain-filter">{{
+        'checklists.domain' | t
+      }}</label>
       <select
         id="checklist-domain-filter"
         class="form-select form-select-sm w-auto ms-auto"
         [value]="domainFilter()"
-        (change)="setDomainFilter($any($event.target).value)"
+        (change)="onDomainFilter($event)"
       >
-        <option value="">Tous les domaines</option>
+        <option value="">{{ 'checklists.allDomains' | t }}</option>
         @for (domain of domains(); track domain) {
           <option [value]="domain">{{ domain }}</option>
         }
@@ -54,11 +56,11 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr>
-              <th scope="col">Domaine / ID</th>
-              <th scope="col">Point de contrôle</th>
+              <th scope="col">{{ 'checklists.domainId' | t }}</th>
+              <th scope="col">{{ 'checklists.check' | t }}</th>
               <th scope="col">CWE</th>
-              <th scope="col">Origine</th>
-              <th scope="col" class="text-end">Actions</th>
+              <th scope="col">{{ 'rules.origin' | t }}</th>
+              <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
             </tr>
           </thead>
           <tbody>
@@ -75,19 +77,19 @@
                 <td class="text-nowrap">{{ item.cwe || '—' }}</td>
                 <td class="text-nowrap">
                   @if (item.origin === 'custom') {
-                    <span class="badge text-bg-info">Personnalisée</span>
+                    <span class="badge text-bg-info">{{ 'rules.custom' | t }}</span>
                   } @else if (item.modified) {
-                    <span class="badge text-bg-warning">Par défaut, modifiée</span>
+                    <span class="badge text-bg-warning">{{ 'rules.builtinModified' | t }}</span>
                   } @else {
-                    <span class="badge text-bg-light border">Par défaut</span>
+                    <span class="badge text-bg-light border">{{ 'rules.builtin' | t }}</span>
                   }
                 </td>
                 <td class="text-end text-nowrap">
                   <button
                     type="button"
                     class="btn btn-sm btn-outline-secondary action-button"
-                    [attr.aria-label]="'Modifier ' + item.domain + '/' + item.id"
-                    title="Modifier"
+                    [attr.aria-label]="'rules.editRule' | t: { id: item.domain + '/' + item.id }"
+                    [title]="'common.edit' | t"
                     (click)="startEdit(item)"
                   >
                     <i class="bi bi-pencil" aria-hidden="true"></i>
@@ -96,8 +98,10 @@
                     <button
                       type="button"
                       class="btn btn-sm btn-outline-danger action-button ms-1"
-                      [attr.aria-label]="'Supprimer ' + item.domain + '/' + item.id"
-                      title="Supprimer"
+                      [attr.aria-label]="
+                        'rules.deleteRule' | t: { id: item.domain + '/' + item.id }
+                      "
+                      [title]="'common.delete' | t"
                       (click)="remove(item)"
                     >
                       <i class="bi bi-trash" aria-hidden="true"></i>
@@ -110,7 +114,7 @@
         </table>
       </div>
     } @else {
-      <p class="text-body-secondary text-center my-4">Aucun item de checklist.</p>
+      <p class="text-body-secondary text-center my-4">{{ 'checklists.empty' | t }}</p>
     }
   </div>
 }
@@ -125,12 +129,12 @@
     <form class="card checklist-editor" (submit)="save($event)" novalidate>
       <div class="card-header d-flex align-items-center">
         <h2 id="checklist-dialog-title" class="h6 mb-0">
-          {{ editingItem() ? "Modifier l'item" : 'Nouvel item de checklist' }}
+          {{ (editingItem() ? 'checklists.editTitle' : 'checklists.newTitle') | t }}
         </h2>
         <button
           type="button"
           class="btn btn-sm btn-outline-secondary ms-auto"
-          aria-label="Fermer le formulaire"
+          [attr.aria-label]="'common.closeForm' | t"
           (click)="cancelEdit()"
         >
           <i class="bi bi-x-lg" aria-hidden="true"></i>
@@ -140,12 +144,12 @@
         @if (formError(); as message) {
           <div class="alert alert-danger py-2" role="alert">
             <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-            {{ message }}
+            {{ message | t }}
           </div>
         }
         <div class="row g-3">
           <div class="col-md-4">
-            <label class="form-label" for="checklist-domain">Domaine</label>
+            <label class="form-label" for="checklist-domain">{{ 'checklists.domain' | t }}</label>
             @if (editingItem()) {
               <input
                 id="checklist-domain"
@@ -163,7 +167,7 @@
             }
           </div>
           <div class="col-md-4">
-            <label class="form-label" for="checklist-id">Identifiant</label>
+            <label class="form-label" for="checklist-id">{{ 'rules.id' | t }}</label>
             @if (editingItem()) {
               <input
                 id="checklist-id"
@@ -189,11 +193,11 @@
             />
           </div>
           <div class="col-12">
-            <label class="form-label" for="checklist-title">Titre</label>
+            <label class="form-label" for="checklist-title">{{ 'rules.titleField' | t }}</label>
             <input id="checklist-title" class="form-control" [formField]="itemForm.title" />
           </div>
           <div class="col-12">
-            <label class="form-label" for="checklist-what">Point de contrôle</label>
+            <label class="form-label" for="checklist-what">{{ 'checklists.check' | t }}</label>
             <textarea
               id="checklist-what"
               class="form-control"
@@ -205,13 +209,13 @@
       </div>
       <div class="card-footer d-flex justify-content-end gap-2">
         <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEdit()">
-          Annuler
+          {{ 'common.cancel' | t }}
         </button>
         <button type="submit" class="btn btn-sm btn-primary" [disabled]="saving()">
           @if (saving()) {
             <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
           }
-          Enregistrer
+          {{ 'common.save' | t }}
         </button>
       </div>
     </form>

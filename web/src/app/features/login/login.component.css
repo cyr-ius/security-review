@@ -123,10 +123,12 @@
   background: var(--app-surface);
 }
 
-.theme-toggle {
+.panel-tools {
   position: absolute;
   top: 1.25rem;
   right: 1.25rem;
+  display: flex;
+  gap: 0.5rem;
 }
 
 .login-box {

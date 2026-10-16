@@ -1,5 +1,5 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
-  <h1 class="h3 mb-0">Rapports</h1>
+  <h1 class="h3 mb-0">{{ 'layout.reports' | t }}</h1>
   <app-refresh-button [loading]="reports.isLoading()" (refresh)="reports.reload()" />
 </div>
 
@@ -7,23 +7,23 @@
   <div class="card-header d-flex flex-wrap gap-2 align-items-center">
     <select
       class="form-select form-select-sm filter"
-      aria-label="Projet"
+      [attr.aria-label]="'reportTable.project' | t"
       (change)="onProject($event)"
     >
-      <option value="">Tous les projets</option>
+      <option value="">{{ 'reports.allProjects' | t }}</option>
       @for (p of projects.value() ?? []; track p.project) {
         <option [value]="p.project" [selected]="p.project === project()">{{ p.project }}</option>
       }
     </select>
     <select
       class="form-select form-select-sm filter"
-      aria-label="Niveau de risque"
+      [attr.aria-label]="'reports.riskLevel' | t"
       (change)="onRisk($event)"
     >
-      <option value="">Tous les niveaux de risque</option>
+      <option value="">{{ 'reports.allRisks' | t }}</option>
       @for (severity of severities; track severity) {
         <option [value]="severity" [selected]="severity === riskLevel()">
-          {{ severityMeta[severity].label }}
+          {{ severityMeta[severity].label | t }}
         </option>
       }
     </select>
@@ -32,12 +32,12 @@
   @if (reports.error()) {
     <div class="card-body text-danger">
       <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-      Impossible de charger les rapports.
+      {{ 'reports.loadError' | t }}
     </div>
   } @else if (reports.isLoading() && !reports.hasValue()) {
     <div class="text-center my-4">
       <span class="spinner-border text-secondary" aria-hidden="true"></span>
-      <span class="visually-hidden">Chargement…</span>
+      <span class="visually-hidden">{{ 'common.loading' | t }}</span>
     </div>
   } @else {
     <app-report-table [reports]="rows()" />
@@ -51,16 +51,16 @@
         [disabled]="pageNumber() <= 1"
         (click)="goToPage(pageNumber() - 1)"
       >
-        <i class="bi bi-chevron-left" aria-hidden="true"></i> Précédent
+        <i class="bi bi-chevron-left" aria-hidden="true"></i> {{ 'common.previous' | t }}
       </button>
-      <span class="small text-body-secondary">Page {{ pageNumber() }}</span>
+      <span class="small text-body-secondary">{{ 'common.page' | t: { page: pageNumber() } }}</span>
       <button
         type="button"
         class="btn btn-sm btn-outline-secondary"
         [disabled]="!hasNext()"
         (click)="goToPage(pageNumber() + 1)"
       >
-        Suivant <i class="bi bi-chevron-right" aria-hidden="true"></i>
+        {{ 'common.next' | t }} <i class="bi bi-chevron-right" aria-hidden="true"></i>
       </button>
     </div>
   }

@@ -1,15 +1,14 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
-    <h1 class="h3 mb-0">Normes de développement</h1>
+    <h1 class="h3 mb-0">{{ 'standards.title' | t }}</h1>
     <p class="text-body-secondary mb-0">
-      Conventions par technologie transmises à l'assistant IA du développeur via MCP (prompt
-      <code>development-standards</code>).
+      {{ 'standards.subtitle' | t }} <code>development-standards</code>).
     </p>
   </div>
   @if (isAdmin()) {
     <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
       <i class="bi bi-plus-lg" aria-hidden="true"></i>
-      Nouvelle norme
+      {{ 'standards.new' | t }}
     </button>
   }
 </div>
@@ -17,32 +16,34 @@
 @if (error(); as message) {
   <div class="alert alert-danger py-2" role="alert">
     <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-    {{ message }}
+    {{ message | t }}
   </div>
 }
 @if (notice(); as message) {
-  <div class="alert alert-success py-2" role="status">{{ message }}</div>
+  <div class="alert alert-success py-2" role="status">{{ message | t }}</div>
 }
 
 @if (catalog.error()) {
-  <div class="alert alert-danger" role="alert">Impossible de charger les normes.</div>
+  <div class="alert alert-danger" role="alert">{{ 'standards.loadError' | t }}</div>
 } @else if (catalog.isLoading() && !catalog.hasValue()) {
   <div class="text-center my-5">
     <span class="spinner-border text-secondary" aria-hidden="true"></span>
-    <span class="visually-hidden">Chargement…</span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 } @else if (catalog.hasValue()) {
   <div class="card">
     <div class="card-header d-flex flex-wrap gap-2 align-items-center">
-      <span class="fw-semibold">{{ visibleStandards().length }} norme(s)</span>
-      <label class="visually-hidden" for="standard-search">Rechercher</label>
+      <span class="fw-semibold">{{
+        'standards.count' | t: { count: visibleStandards().length }
+      }}</span>
+      <label class="visually-hidden" for="standard-search">{{ 'standards.search' | t }}</label>
       <input
         id="standard-search"
         type="search"
         class="form-control form-control-sm w-auto ms-auto"
-        placeholder="Rechercher une technologie…"
+        [placeholder]="'standards.searchPlaceholder' | t"
         [value]="query()"
-        (input)="setQuery($any($event.target).value)"
+        (input)="onQuery($event)"
       />
     </div>
     @if (visibleStandards().length > 0) {
@@ -50,11 +51,11 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr>
-              <th scope="col">Norme</th>
-              <th scope="col">Technologies</th>
-              <th scope="col">Fichiers</th>
-              <th scope="col">État</th>
-              <th scope="col" class="text-end">Actions</th>
+              <th scope="col">{{ 'standards.standard' | t }}</th>
+              <th scope="col">{{ 'standards.technologies' | t }}</th>
+              <th scope="col">{{ 'standards.files' | t }}</th>
+              <th scope="col">{{ 'rules.state' | t }}</th>
+              <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
             </tr>
           </thead>
           <tbody>
@@ -79,17 +80,17 @@
                 </td>
                 <td class="text-nowrap">
                   @if (item.enabled) {
-                    <span class="badge text-bg-success">Active</span>
+                    <span class="badge text-bg-success">{{ 'rules.enabled' | t }}</span>
                   } @else {
-                    <span class="badge text-bg-secondary">Désactivée</span>
+                    <span class="badge text-bg-secondary">{{ 'rules.disabled' | t }}</span>
                   }
                 </td>
                 <td class="text-end text-nowrap">
                   <button
                     type="button"
                     class="btn btn-sm btn-outline-secondary action-button"
-                    [attr.aria-label]="'Lire ' + item.slug"
-                    title="Lire"
+                    [attr.aria-label]="'standards.readStandard' | t: { id: item.slug }"
+                    [title]="'standards.read' | t"
                     (click)="view(item)"
                   >
                     <i class="bi bi-eye" aria-hidden="true"></i>
@@ -98,8 +99,8 @@
                     <button
                       type="button"
                       class="btn btn-sm btn-outline-secondary action-button ms-1"
-                      [attr.aria-label]="'Modifier ' + item.slug"
-                      title="Modifier"
+                      [attr.aria-label]="'rules.editRule' | t: { id: item.slug }"
+                      [title]="'common.edit' | t"
                       (click)="startEdit(item)"
                     >
                       <i class="bi bi-pencil" aria-hidden="true"></i>
@@ -107,8 +108,8 @@
                     <button
                       type="button"
                       class="btn btn-sm btn-outline-danger action-button ms-1"
-                      [attr.aria-label]="'Supprimer ' + item.slug"
-                      title="Supprimer"
+                      [attr.aria-label]="'rules.deleteRule' | t: { id: item.slug }"
+                      [title]="'common.delete' | t"
                       (click)="remove(item)"
                     >
                       <i class="bi bi-trash" aria-hidden="true"></i>
@@ -121,7 +122,7 @@
         </table>
       </div>
     } @else {
-      <p class="text-body-secondary text-center my-4">Aucune norme de développement.</p>
+      <p class="text-body-secondary text-center my-4">{{ 'standards.empty' | t }}</p>
     }
   </div>
 }
@@ -136,7 +137,7 @@
         <button
           type="button"
           class="btn btn-sm btn-outline-secondary ms-auto"
-          aria-label="Fermer"
+          [attr.aria-label]="'common.close' | t"
           (click)="closeViewer()"
         >
           <i class="bi bi-x-lg" aria-hidden="true"></i>
@@ -148,9 +149,13 @@
         }
         <pre class="standard-content border rounded p-3 mb-2">{{ standard.content }}</pre>
         <p class="small text-body-secondary mb-0">
-          Modifiée le {{ standard.updated_at.slice(0, 10) }}
           @if (standard.updated_by) {
-            par {{ standard.updated_by }}
+            {{
+              'standards.updatedBy'
+                | t: { date: standard.updated_at.slice(0, 10), user: standard.updated_by }
+            }}
+          } @else {
+            {{ 'standards.updatedOn' | t: { date: standard.updated_at.slice(0, 10) } }}
           }
         </p>
       </div>
@@ -168,12 +173,12 @@
     <form class="card standard-editor" (submit)="save($event)" novalidate>
       <div class="card-header d-flex align-items-center">
         <h2 id="standard-dialog-title" class="h6 mb-0">
-          {{ editingSlug() ? 'Modifier la norme' : 'Nouvelle norme de développement' }}
+          {{ (editingSlug() ? 'standards.editTitle' : 'standards.newTitle') | t }}
         </h2>
         <button
           type="button"
           class="btn btn-sm btn-outline-secondary ms-auto"
-          aria-label="Fermer le formulaire"
+          [attr.aria-label]="'common.closeForm' | t"
           (click)="cancelEdit()"
         >
           <i class="bi bi-x-lg" aria-hidden="true"></i>
@@ -183,12 +188,12 @@
         @if (formError(); as message) {
           <div class="alert alert-danger py-2" role="alert">
             <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-            {{ message }}
+            {{ message | t }}
           </div>
         }
         <div class="row g-3">
           <div class="col-md-4">
-            <label class="form-label" for="standard-slug">Identifiant</label>
+            <label class="form-label" for="standard-slug">{{ 'rules.id' | t }}</label>
             @if (editingSlug()) {
               <input
                 id="standard-slug"
@@ -206,16 +211,18 @@
             }
           </div>
           <div class="col-md-8">
-            <label class="form-label" for="standard-title">Titre</label>
+            <label class="form-label" for="standard-title">{{ 'rules.titleField' | t }}</label>
             <input
               id="standard-title"
               class="form-control"
-              placeholder="Normes Python"
+              [placeholder]="'standards.titlePlaceholder' | t"
               [formField]="standardForm.title"
             />
           </div>
           <div class="col-12">
-            <label class="form-label" for="standard-description">Description courte</label>
+            <label class="form-label" for="standard-description">{{
+              'standards.description' | t
+            }}</label>
             <input
               id="standard-description"
               class="form-control"
@@ -223,7 +230,9 @@
             />
           </div>
           <div class="col-md-6">
-            <label class="form-label" for="standard-technologies">Technologies</label>
+            <label class="form-label" for="standard-technologies">{{
+              'standards.technologies' | t
+            }}</label>
             <input
               id="standard-technologies"
               class="form-control"
@@ -232,11 +241,11 @@
               [formField]="standardForm.technologies"
             />
             <div id="standard-technologies-help" class="form-text">
-              Noms et alias séparés par des virgules (l'identifiant est toujours reconnu).
+              {{ 'standards.technologiesHelp' | t }}
             </div>
           </div>
           <div class="col-md-6">
-            <label class="form-label" for="standard-patterns">Motifs de fichiers</label>
+            <label class="form-label" for="standard-patterns">{{ 'standards.patterns' | t }}</label>
             <input
               id="standard-patterns"
               class="form-control font-monospace"
@@ -245,11 +254,11 @@
               [formField]="standardForm.file_patterns"
             />
             <div id="standard-patterns-help" class="form-text">
-              Globs séparés par des virgules, pour reconnaître la technologie à partir des fichiers.
+              {{ 'standards.patternsHelp' | t }}
             </div>
           </div>
           <div class="col-12">
-            <label class="form-label" for="standard-content">Contenu (Markdown)</label>
+            <label class="form-label" for="standard-content">{{ 'standards.content' | t }}</label>
             <textarea
               id="standard-content"
               class="form-control font-monospace"
@@ -257,8 +266,7 @@
               [formField]="standardForm.content"
             ></textarea>
             <div class="form-text">
-              {{ formModel().content.length }} / 50 000 caractères. Ce texte est donné tel quel à
-              l'assistant IA : rédigez des règles claires et vérifiables.
+              {{ 'standards.contentHelp' | t: { length: formModel().content.length } }}
             </div>
           </div>
           <div class="col-12">
@@ -271,7 +279,7 @@
                 [formField]="standardForm.enabled"
               />
               <label class="form-check-label" for="standard-enabled">
-                Active (servie aux assistants IA)
+                {{ 'standards.enabledLabel' | t }}
               </label>
             </div>
           </div>
@@ -279,13 +287,13 @@
       </div>
       <div class="card-footer d-flex justify-content-end gap-2">
         <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEdit()">
-          Annuler
+          {{ 'common.cancel' | t }}
         </button>
         <button type="submit" class="btn btn-sm btn-primary" [disabled]="saving()">
           @if (saving()) {
             <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
           }
-          Enregistrer
+          {{ 'common.save' | t }}
         </button>
       </div>
     </form>
