@@ -35,7 +35,7 @@ from . import (
 )
 from .config import get_settings
 from .database import SchemaError, init_db, schema_status, upgrade_db
-from .models import SEVERITY_RANK, Severity
+from .models import SEVERITY_RANK, ReviewType, Severity
 from .services import NotFoundError
 
 EXIT_PASSED = 0
@@ -298,6 +298,7 @@ def deps_command(argv: list[str]) -> int:
             commit_sha=args.commit,
             reviewer="security-review-controller deps scan",
             scope=", ".join(r["file"] for r in results),
+            review_type=ReviewType.DEPENDENCY_SCAN,
         )
 
     if args.format == "json":
@@ -370,6 +371,7 @@ def _save_code_scan(args: argparse.Namespace, result: dict) -> dict:
         commit_sha=args.commit,
         reviewer="security-review-controller code scan",
         scope=scope,
+        review_type=ReviewType.CODE_SCAN,
     )
 
 

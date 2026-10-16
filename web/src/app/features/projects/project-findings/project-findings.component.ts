@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
+import { REVIEW_TYPE_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import { Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
@@ -11,6 +11,8 @@ import {
   Finding,
   FindingStatus,
   ProjectFinding,
+  REVIEW_TYPES,
+  ReviewType,
   SEVERITIES,
   Severity,
 } from '../../../core/models/api.models';
@@ -40,9 +42,12 @@ export class ProjectFindingsComponent {
   readonly statuses = FINDING_STATUSES;
   readonly severityMeta = SEVERITY_META;
   readonly statusMeta = STATUS_META;
+  readonly reviewTypes = REVIEW_TYPES;
+  readonly reviewTypeMeta = REVIEW_TYPE_META;
 
   readonly statusFilter = signal<FindingStatus>('open');
   readonly severityFilter = signal<Severity | ''>('');
+  readonly reviewTypeFilter = signal<ReviewType | ''>('');
 
   /** First page for the current filters. */
   readonly firstPage = rxResource({
@@ -50,6 +55,7 @@ export class ProjectFindingsComponent {
       project: this.project(),
       status: this.statusFilter(),
       severity: this.severityFilter(),
+      reviewType: this.reviewTypeFilter(),
       limit: PAGE_SIZE,
       offset: 0,
     }),
@@ -83,6 +89,10 @@ export class ProjectFindingsComponent {
     this.severityFilter.set((event.target as HTMLSelectElement).value as Severity | '');
   }
 
+  onReviewTypeFilter(event: Event): void {
+    this.reviewTypeFilter.set((event.target as HTMLSelectElement).value as ReviewType | '');
+  }
+
   /** Append the next page to the list. */
   loadMore(): void {
     this.loadingMore.set(true);
@@ -92,6 +102,7 @@ export class ProjectFindingsComponent {
         project: this.project(),
         status: this.statusFilter(),
         severity: this.severityFilter(),
+        reviewType: this.reviewTypeFilter(),
         limit: PAGE_SIZE,
         // Triaged findings left the filtered set on the server: skipping them in the offset
         // keeps the next page from jumping over findings not yet seen

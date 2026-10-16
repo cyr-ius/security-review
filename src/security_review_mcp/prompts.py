@@ -51,10 +51,16 @@ than reporting it.
 
 ## Deliverable
 1. Reply with a short summary and the list of findings, most severe first.
-2. Then call the `save_security_report` tool exactly once with the project name, a summary \
-and the structured findings, so that the review is stored. Pass an empty findings list if \
+2. Then call the `save_security_report` tool exactly once with the project name, \
+`review_type` `{{review_type}}`, a summary and the structured findings, so that the review is \
+stored. Pass an empty findings list if \
 the review found nothing, and say what was covered.
 """
+
+
+def _method(review_type: str) -> str:
+    """Return the review method, telling which ``review_type`` to save the report with."""
+    return _METHOD.replace("{review_type}", review_type)
 
 
 _PIPELINE_HINTS = ("gitlab", "jenkins", "pipeline", "ci/cd", "cicd", "stages:")
@@ -117,7 +123,7 @@ def build_security_review_prompt(
         "(OWASP Top 10, CWE).",
         _context_block(context, focus),
         report_language_block(report_language),
-        _METHOD,
+        _method("security-review"),
         checklists,
         _code_block(code, lang),
     ]
@@ -139,7 +145,7 @@ def build_api_review_prompt(
         "For each endpoint you can see, determine: who may call it, how identity is "
         "established, how object ownership is verified, which fields are accepted and "
         "returned, and which limits apply (size, rate, pagination).",
-        _METHOD,
+        _method("api-security-review"),
         render_checklist_markdown("api"),
         company_checklist_markdown(),
         _code_block(code, "text"),
@@ -158,7 +164,9 @@ def build_config_review_prompt(
         "network exposure, weak TLS, unpinned dependencies and risky CI/CD steps.",
         _context_block(context, focus),
         report_language_block(report_language),
-        _METHOD.replace("`scan_code`", "`scan_code` (use language `config`, `yaml` or `docker`)"),
+        _method("configuration-review").replace(
+            "`scan_code`", "`scan_code` (use language `config`, `yaml` or `docker`)"
+        ),
         render_checklist_markdown("config"),
         _cicd_checklist(kind, content),
         company_checklist_markdown(),
@@ -217,9 +225,9 @@ that exist on public registries (dependency confusion), abandoned or typosquatte
 {_UNTRUSTED_RULE}
 
 ## Deliverable
-Reply with a short summary and the findings, then call `save_security_report` once. Use \
-category `dependency`, the advisory id as `rule_id`, `CWE-1395` for vulnerable components and \
-the manifest path as `file_path`.
+Reply with a short summary and the findings, then call `save_security_report` once with \
+`review_type` `dependency-review`. Use category `dependency`, the advisory id as `rule_id`, \
+`CWE-1395` for vulnerable components and the manifest path as `file_path`.
 """,
         render_checklist_markdown("dependencies"),
         company_checklist_markdown(),
@@ -264,7 +272,8 @@ reporting them, unless they ship to production.
 ## Deliverable
 1. Reply with a short summary, the findings (most severe first) and a coverage section: \
 files and areas reviewed, and those NOT reviewed.
-2. Call `save_security_report` exactly once. Put the coverage in `scope` (for example \
+2. Call `save_security_report` exactly once with `review_type` `codebase-review`. Put the \
+coverage in `scope` (for example \
 "Full codebase: src/api, src/auth reviewed; src/legacy not reviewed").
 """
 

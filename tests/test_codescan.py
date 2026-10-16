@@ -168,6 +168,7 @@ def test_code_scan_json_and_save(tmp_path, capsys):
     assert code == cli.EXIT_BLOCKED and data["blocked"] is True
     report = services.get_report(data["saved_report"]["report_id"])
     assert report.reviewer == "security-review-controller code scan"
+    assert report.review_type == "code-scan"
     assert {f.file_path for f in report.findings} >= {"app/views.py"}
 
 

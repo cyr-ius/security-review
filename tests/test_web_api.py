@@ -25,7 +25,7 @@ from security_review_mcp import (
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
-from security_review_mcp.models import ApiToken, FindingCreate, Severity
+from security_review_mcp.models import ApiToken, FindingCreate, ReviewType, Severity
 
 # Raw secret of one token per role, created in the database by the ``secured`` fixture
 TOKENS: dict[str, str] = {}
@@ -226,6 +226,34 @@ def test_project_findings(client, reports):
         client.get("/api/v1/findings", params={"project": "shop-api", "limit": 0}).status_code
         == 422
     )
+
+
+def test_findings_and_reports_show_and_filter_the_review_type(client):
+    services.save_report(
+        "typed",
+        "API review",
+        [FindingCreate(title="IDOR", severity=Severity.HIGH, description="No ownership check")],
+        review_type=ReviewType.API_SECURITY_REVIEW,
+    )
+    services.save_report(
+        "typed",
+        "Config review",
+        [FindingCreate(title="Root user", severity=Severity.LOW, description="Runs as root")],
+        review_type=ReviewType.CONFIGURATION_REVIEW,
+    )
+    params = {"project": "typed", "review_type": "api-security-review"}
+    page = client.get("/api/v1/findings", params=params).json()
+    assert [(f["title"], f["review_type"]) for f in page["findings"]] == [
+        ("IDOR", "api-security-review")
+    ]
+    reports = client.get("/api/v1/reports", params=params).json()
+    assert [r["review_type"] for r in reports] == ["api-security-review"]
+    report = client.get(f"/api/v1/reports/{reports[0]['report_id']}").json()
+    assert report["review_type"] == "api-security-review"
+    assert client.get("/api/v1/findings", params={"project": "typed"}).json()["total"] == 2
+    bad = {"project": "typed", "review_type": "bogus"}
+    assert client.get("/api/v1/findings", params=bad).status_code == 422
+    assert client.get("/api/v1/reports", params=bad).status_code == 422
 
 
 def test_update_finding_status(client, reports):

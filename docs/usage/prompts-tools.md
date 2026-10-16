@@ -47,7 +47,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `scan_code` | Quick pattern scan (leads to check, **not** a SAST). Masked excerpts |
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
-| `list_security_reports` | List filtered by project / risk level, with pagination |
+| `list_security_reports` | List filtered by project / risk level / review type, with pagination |
 | `update_finding_status` | `open`, `fixed`, `accepted`, `false_positive` |
 | `get_project_security_posture` | Open findings by severity (useful as a CI safeguard) |
 | `check_project_gate` | CI gate: `passed` is false while an **open** finding reaches the `fail_on` threshold |
@@ -94,10 +94,34 @@ See [enrollment](../getting-started/http.md#enrollment-a-project-requests-its-to
 - `project`, `summary`;
 - a list of `findings`: `title`, `severity`, `description`, and optionally `cwe`, `owasp`,
   `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category`;
-- `repository`, `branch`, `commit_sha`, `reviewer`, `scope`.
+- `repository`, `branch`, `commit_sha`, `reviewer`, `scope`;
+- `review_type`: the kind of review, given by each review prompt (see below).
 
 The **risk level** of the report is computed (highest severity of the findings). The
 `risk_level` parameter can only raise it, never lower it.
+
+### Review type
+
+Each review prompt tells the model which `review_type` to pass, so the reports and their
+findings can be told apart and filtered in the [web interface](web-interface.md) and in
+`list_security_reports`:
+
+| `review_type` | Set by |
+|---|---|
+| `security-review` | prompt `security-review` |
+| `api-security-review` | prompt `api-security-review` |
+| `configuration-review` | prompt `configuration-review` |
+| `dependency-review` | prompt `dependency-review` |
+| `codebase-review` | prompt `codebase-review` |
+| `code-scan` | CLI `security-review-controller code scan --save` |
+| `dependency-scan` | CLI `security-review-controller deps scan --save` |
+| `other` | any other review (manual, without a prompt) |
+
+The field is optional: a report saved without it has no type. Any other value is refused.
+The type is declared by the client: it labels and filters reports, it never grants a right
+nor changes a gate.
+Reports saved by the CLI scans before this field existed get their type when the database is
+upgraded.
 
 !!! info "Secret masking"
     Secrets found in `summary`, `description`, `evidence` and `recommendation` (passwords,

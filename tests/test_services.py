@@ -11,6 +11,7 @@ from security_review_mcp.database import session_scope
 from security_review_mcp.models import (
     FindingCreate,
     FindingStatus,
+    ReviewType,
     SecurityReport,
     Severity,
     utcnow,
@@ -178,6 +179,37 @@ def test_list_project_findings_across_reports(monkeypatch):
     assert [f["severity"] for f in second_page["findings"]] == [Severity.HIGH]
     monkeypatch.setattr(services.get_settings(), "max_list_limit", 1)
     assert len(services.list_project_findings("shop", limit=50)["findings"]) == 1
+
+
+def test_review_type_is_stored_listed_and_filtered():
+    api = services.save_report(
+        "shop",
+        "API review",
+        [make_finding(Severity.HIGH)],
+        review_type=ReviewType.API_SECURITY_REVIEW,
+    )
+    services.save_report(
+        "shop", "Codebase review", [make_finding(Severity.LOW)], review_type="codebase-review"
+    )
+    services.save_report("shop", "Untyped review", [make_finding(Severity.MEDIUM)])
+    assert api["review_type"] == "api-security-review"
+    assert services.get_report(api["report_id"]).review_type == ReviewType.API_SECURITY_REVIEW
+
+    listed = services.list_reports(project="shop", review_type=ReviewType.API_SECURITY_REVIEW)
+    assert [r["report_id"] for r in listed] == [api["report_id"]]
+    assert listed[0]["review_type"] == "api-security-review"
+    assert services.list_reports(project="shop")[0]["review_type"] is None  # newest: untyped
+
+    page = services.list_project_findings("shop", review_type=ReviewType.CODEBASE_REVIEW)
+    assert page["total"] == 1
+    assert page["findings"][0]["review_type"] == "codebase-review"
+    assert services.list_project_findings("shop", review_type=ReviewType.CODE_SCAN)["total"] == 0
+    assert services.list_project_findings("shop")["total"] == 3
+
+    markdown = services.render_report_markdown(services.get_report(api["report_id"]))
+    assert "- **Review type**: api-security-review" in markdown
+    with pytest.raises(ValueError):
+        services.save_report("shop", "Unknown type", [], review_type="pentest")
 
 
 def test_posture_of_unknown_project_is_empty():

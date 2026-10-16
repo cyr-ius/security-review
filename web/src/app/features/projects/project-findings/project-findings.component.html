@@ -47,6 +47,16 @@
       <option [value]="severity">{{ severityMeta[severity].label | t }}</option>
     }
   </select>
+  <select
+    class="form-select form-select-sm filter"
+    [attr.aria-label]="'report.filterReviewType' | t"
+    (change)="onReviewTypeFilter($event)"
+  >
+    <option value="">{{ 'report.allReviewTypes' | t }}</option>
+    @for (reviewType of reviewTypes; track reviewType) {
+      <option [value]="reviewType">{{ reviewTypeMeta[reviewType].label | t }}</option>
+    }
+  </select>
 </div>
 
 @if (triageError(); as message) {
@@ -80,6 +90,12 @@
         {{ 'report.title' | t: { id: finding.report_id } }}
       </a>
       <span>{{ finding.report_created_at | date: 'dd/MM/yyyy' }}</span>
+      @if (finding.review_type; as reviewType) {
+        <span [attr.title]="'report.reviewType' | t">
+          <i class="bi {{ reviewTypeMeta[reviewType].icon }}" aria-hidden="true"></i>
+          {{ reviewTypeMeta[reviewType].label | t }}
+        </span>
+      }
       @if (finding.branch) {
         <span><i class="bi bi-diagram-2" aria-hidden="true"></i> {{ finding.branch }}</span>
       }
@@ -91,7 +107,7 @@
     <p class="text-body-secondary text-center my-4">
       <i class="bi bi-check2-circle" aria-hidden="true"></i>
       {{
-        (statusFilter() === 'open' && !severityFilter()
+        (statusFilter() === 'open' && !severityFilter() && !reviewTypeFilter()
           ? 'projectFindings.none'
           : 'report.noneFiltered'
         ) | t

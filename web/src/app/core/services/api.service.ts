@@ -268,6 +268,9 @@ export class ApiService {
     if (query.severity) {
       params = params.set('severity', query.severity);
     }
+    if (query.reviewType) {
+      params = params.set('review_type', query.reviewType);
+    }
     return this.http.get<ProjectFindingPage>(`${API_URL}/findings`, { params });
   }
 

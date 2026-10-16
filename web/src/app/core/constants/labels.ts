@@ -1,5 +1,5 @@
 import { MessageKey } from '../i18n/messages';
-import { FindingStatus, Role, Severity } from '../models/api.models';
+import { FindingStatus, ReviewType, Role, Severity } from '../models/api.models';
 
 /** Message key and icon of each severity (color is never the only cue). */
 export const SEVERITY_META: Record<Severity, { label: MessageKey; icon: string }> = {
@@ -16,6 +16,18 @@ export const STATUS_META: Record<FindingStatus, { label: MessageKey; icon: strin
   fixed: { label: 'status.fixed', icon: 'bi-check-circle-fill' },
   accepted: { label: 'status.accepted', icon: 'bi-shield-check' },
   false_positive: { label: 'status.false_positive', icon: 'bi-slash-circle' },
+};
+
+/** Message key and icon of each review type. */
+export const REVIEW_TYPE_META: Record<ReviewType, { label: MessageKey; icon: string }> = {
+  'security-review': { label: 'reviewType.security-review', icon: 'bi-shield-lock' },
+  'api-security-review': { label: 'reviewType.api-security-review', icon: 'bi-hdd-network' },
+  'configuration-review': { label: 'reviewType.configuration-review', icon: 'bi-gear' },
+  'dependency-review': { label: 'reviewType.dependency-review', icon: 'bi-box-seam' },
+  'codebase-review': { label: 'reviewType.codebase-review', icon: 'bi-folder2-open' },
+  'code-scan': { label: 'reviewType.code-scan', icon: 'bi-terminal' },
+  'dependency-scan': { label: 'reviewType.dependency-scan', icon: 'bi-terminal' },
+  other: { label: 'reviewType.other', icon: 'bi-question-circle' },
 };
 
 /** Trend direction returned by the API. */

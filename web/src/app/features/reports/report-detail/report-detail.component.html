@@ -69,6 +69,13 @@
               <code>{{ data.commit_sha }}</code>
             </dd>
           }
+          @if (data.review_type; as reviewType) {
+            <dt>{{ 'report.reviewType' | t }}</dt>
+            <dd>
+              <i class="bi {{ reviewTypeMeta[reviewType].icon }}" aria-hidden="true"></i>
+              {{ reviewTypeMeta[reviewType].label | t }}
+            </dd>
+          }
           @if (data.reviewer) {
             <dt>{{ 'report.reviewer' | t }}</dt>
             <dd>{{ data.reviewer }}</dd>

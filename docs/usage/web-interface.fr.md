@@ -41,15 +41,18 @@ renvoyés par l'API restent en anglais.
 - **Findings à revoir** : tous les findings ouverts du projet, sur l'ensemble de ses rapports,
   du plus grave au moins grave puis du rapport le plus récent au plus ancien, pour une revue par
   un expert en cybersécurité. Chaque finding affiche sa description, son extrait de code et sa
-  recommandation, et un lien vers son rapport (date, branche, commit). Filtres par statut (pour
-  revoir les risques acceptés ou les faux positifs) et par sévérité ; **Afficher plus** affiche
-  les findings suivants. Les utilisateurs qui ont le rôle `triager` ou `admin` changent le statut
-  de chaque finding depuis cet écran ; un finding trié reste affiché jusqu'au rechargement.
+  recommandation, et un lien vers son rapport (date, type de revue, branche, commit). Filtres
+  par statut (pour revoir les risques acceptés ou les faux positifs), par sévérité et par type
+  de revue (**Revue de sécurité**, **Revue de sécurité d'API**, **Revue du code complet**... :
+  voir [type de revue](prompts-tools.md#type-de-revue)) ; **Afficher plus** affiche les findings
+  suivants. Les utilisateurs qui ont le rôle `triager` ou `admin` changent le statut de chaque
+  finding depuis cet écran ; un finding trié reste affiché jusqu'au rechargement.
 - **Rapports** : liste filtrable par projet et niveau de risque (les filtres sont dans l'URL, on
-  peut donc partager un lien).
-- **Rapport** : résumé, contexte (dépôt, branche, commit), findings avec emplacement, CWE,
-  extrait de code et recommandation ; téléchargement Markdown et SARIF. Les utilisateurs qui ont
-  le rôle `triager` ou `admin` changent le statut d'un finding directement depuis cet écran.
+  peut donc partager un lien), avec le **Type** de chaque revue.
+- **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue), findings avec
+  emplacement, CWE, extrait de code et recommandation ; téléchargement Markdown et SARIF. Les
+  utilisateurs qui ont le rôle `triager` ou `admin` changent le statut d'un finding directement
+  depuis cet écran.
 - **Normes** : les [normes de développement](standards.md) transmises aux assistants IA par le
   prompt `development-standards`. Les administrateurs les recherchent, les lisent, les créent,
   les modifient (technologies, motifs de fichiers, contenu Markdown), les désactivent ou les
@@ -153,13 +156,13 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/proj
 ```
 
 Le même jeton liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
-du plus grave au moins grave (filtres `status` et `severity`, `limit` plafonné par
+du plus grave au moins grave (filtres `status`, `severity` et `review_type`, `limit` plafonné par
 `SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer) :
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
   "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
-# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "report_created_at": "…", …}, …]}
+# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
 
 Révoquez-le avec `security-review-controller token revoke triage-bot`. Chaque changement de

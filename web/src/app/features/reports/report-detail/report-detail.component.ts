@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
+import { REVIEW_TYPE_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import {
   FINDING_STATUSES,
   Finding,
@@ -35,6 +35,7 @@ export class ReportDetailComponent {
   readonly statuses = FINDING_STATUSES;
   readonly severityMeta = SEVERITY_META;
   readonly statusMeta = STATUS_META;
+  readonly reviewTypeMeta = REVIEW_TYPE_META;
 
   readonly reportId = computed(() => Number.parseInt(this.id(), 10));
 

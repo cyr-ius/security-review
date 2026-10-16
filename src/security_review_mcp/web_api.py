@@ -57,7 +57,7 @@ from .http_server import (
     TRIAGE_ROLES,
     Role,
 )
-from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
+from .models import FindingPublic, FindingStatus, ReviewType, SecurityReportPublic, Severity
 from .sarif import build_sarif
 
 logger = logging.getLogger("security_review_mcp.web")
@@ -310,6 +310,7 @@ class ReportSummary(BaseModel):
     project: str
     branch: str | None
     commit_sha: str | None
+    review_type: ReviewType | None
     risk_level: Severity
     reviewer: str | None
     created_at: str
@@ -323,6 +324,7 @@ class ProjectFinding(FindingPublic):
 
     branch: str | None
     commit_sha: str | None
+    review_type: ReviewType | None
     report_created_at: datetime
 
 
@@ -723,6 +725,7 @@ async def project_findings(
     identity: CurrentIdentity,
     finding_status: Annotated[FindingStatus, Query(alias="status")] = FindingStatus.OPEN,
     severity: Severity | None = None,
+    review_type: ReviewType | None = None,
     limit: Annotated[int, Query(ge=1)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ProjectFindingPage:
@@ -737,6 +740,7 @@ async def project_findings(
         severity,
         limit,
         offset,
+        review_type,
     )
 
 
@@ -792,6 +796,7 @@ async def reports(
     identity: CurrentIdentity,
     project: Annotated[str | None, Query(max_length=200)] = None,
     risk_level: Severity | None = None,
+    review_type: ReviewType | None = None,
     limit: Annotated[int, Query(ge=1)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[ReportSummary]:
@@ -799,7 +804,13 @@ async def reports(
     if project:
         _scoped_project(identity, project)
     return await run_in_threadpool(
-        services.list_reports, project or None, risk_level, limit, offset, identity.projects
+        services.list_reports,
+        project or None,
+        risk_level,
+        limit,
+        offset,
+        identity.projects,
+        review_type,
     )
 
 

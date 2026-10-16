@@ -74,6 +74,7 @@ def test_deps_scan_json_and_save(tmp_path, capsys):
     data = json.loads(capsys.readouterr().out)
     assert code == cli.EXIT_BLOCKED and data["blocked"] is True
     assert data["saved_report"]["report_id"] >= 1
+    assert data["saved_report"]["review_type"] == "dependency-scan"
     assert services.list_reports(project="demo")
 
 

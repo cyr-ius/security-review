@@ -17,6 +17,7 @@ from .models import (
     FindingCreate,
     FindingPublic,
     FindingStatus,
+    ReviewType,
     SecurityReport,
     SecurityReportPublic,
     Severity,
@@ -60,6 +61,7 @@ def save_report(
     reviewer: str | None = None,
     scope: str | None = None,
     risk_level: Severity | None = None,
+    review_type: ReviewType | None = None,
 ) -> dict:
     """Persist a security report and its findings.
 
@@ -73,14 +75,16 @@ def save_report(
         reviewer: Agent or person who performed the review.
         scope: Description of what was reviewed.
         risk_level: Optional override; it can only raise the computed risk.
+        review_type: Kind of review (the prompt used or the CLI scan).
 
     Returns:
         Identifier, risk level and finding counts of the stored report.
 
     Raises:
-        ValueError: If the report contains too many findings.
+        ValueError: If the report contains too many findings or an unknown review type.
     """
     settings = get_settings()
+    review_type = ReviewType(review_type) if review_type else None
     project = project.strip()
     summary = summary.strip()
     if not project:
@@ -103,6 +107,7 @@ def save_report(
             commit_sha=commit_sha,
             reviewer=reviewer,
             scope=scope,
+            review_type=review_type,
             summary=redact_secrets(summary),
             risk_level=risk,
             findings=rows,
@@ -112,6 +117,7 @@ def save_report(
         result = {
             "report_id": report.id,
             "project": report.project,
+            "review_type": review_type.value if review_type else None,
             "risk_level": risk.value,
             "findings_count": len(rows),
             "findings_by_severity": dict(Counter(row.severity.value for row in rows)),
@@ -143,6 +149,7 @@ def list_reports(
     limit: int = 20,
     offset: int = 0,
     projects: Collection[str] | None = None,
+    review_type: ReviewType | None = None,
 ) -> list[dict]:
     """List reports, newest first, with their number of open findings.
 
@@ -160,6 +167,8 @@ def list_reports(
             statement = statement.where(col(SecurityReport.project).in_(list(projects)))
         if risk_level:
             statement = statement.where(SecurityReport.risk_level == risk_level)
+        if review_type:
+            statement = statement.where(SecurityReport.review_type == review_type)
         statement = (
             statement.order_by(col(SecurityReport.created_at).desc(), col(SecurityReport.id).desc())
             .offset(offset)
@@ -187,6 +196,7 @@ def list_reports(
                 "project": r.project,
                 "branch": r.branch,
                 "commit_sha": r.commit_sha,
+                "review_type": r.review_type,
                 "risk_level": r.risk_level.value,
                 "reviewer": r.reviewer,
                 "created_at": r.created_at.isoformat(),
@@ -297,12 +307,14 @@ def list_project_findings(
     severity: Severity | None = None,
     limit: int = 100,
     offset: int = 0,
+    review_type: ReviewType | None = None,
 ) -> dict:
     """List the findings of a project across all its reports, for an expert review.
 
     Worst severity first, then newest report first. ``limit`` is capped by
     SECREVIEW_MAX_LIST_LIMIT; ``total`` counts every matching finding, for paging. Each finding
-    carries the branch, commit and date of its report.
+    carries the branch, commit, review type and date of its report; ``review_type`` keeps only
+    the findings of the reports of that type.
     """
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
@@ -310,6 +322,8 @@ def list_project_findings(
     filters = [SecurityReport.project == project, Finding.status == status]
     if severity is not None:
         filters.append(Finding.severity == severity)
+    if review_type is not None:
+        filters.append(SecurityReport.review_type == review_type)
     rank = case(*((Finding.severity == s, r) for s, r in SEVERITY_RANK.items()), else_=0)
 
     with session_scope() as session:
@@ -332,6 +346,7 @@ def list_project_findings(
                 **FindingPublic.model_validate(finding, from_attributes=True).model_dump(),
                 "branch": report.branch,
                 "commit_sha": report.commit_sha,
+                "review_type": report.review_type,
                 "report_created_at": report.created_at,
             }
             for finding, report in rows
@@ -389,6 +404,7 @@ def render_report_markdown(report: SecurityReportPublic) -> str:
         ("Repository", report.repository),
         ("Branch", report.branch),
         ("Commit", report.commit_sha),
+        ("Review type", report.review_type and report.review_type.value),
         ("Reviewer", report.reviewer),
         ("Scope", report.scope),
     ):

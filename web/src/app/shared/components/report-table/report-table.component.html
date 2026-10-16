@@ -9,6 +9,7 @@
             <th scope="col">{{ 'reportTable.project' | t }}</th>
           }
           <th scope="col">{{ 'reportTable.risk' | t }}</th>
+          <th scope="col">{{ 'reportTable.reviewType' | t }}</th>
           <th scope="col" class="text-end">{{ 'reportTable.openTotal' | t }}</th>
           <th scope="col">{{ 'reportTable.branch' | t }}</th>
           <th scope="col">{{ 'reportTable.summary' | t }}</th>
@@ -27,6 +28,12 @@
               </td>
             }
             <td><app-severity-badge [severity]="report.risk_level" /></td>
+            <td class="text-nowrap small">
+              @if (report.review_type; as reviewType) {
+                <i class="bi {{ reviewTypeMeta[reviewType].icon }}" aria-hidden="true"></i>
+                {{ reviewTypeMeta[reviewType].label | t }}
+              }
+            </td>
             <td class="text-end numeric">
               <strong>{{ report.findings_open }}</strong> / {{ report.findings_total }}
             </td>

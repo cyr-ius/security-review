@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import field_validator
-from sqlalchemy import BigInteger, UniqueConstraint
+from sqlalchemy import BigInteger, String, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -40,6 +40,19 @@ class FindingStatus(StrEnum):
     FIXED = "fixed"
     ACCEPTED = "accepted"
     FALSE_POSITIVE = "false_positive"
+
+
+class ReviewType(StrEnum):
+    """Kind of review that produced a report (the MCP prompt or the CLI command)."""
+
+    SECURITY_REVIEW = "security-review"
+    API_SECURITY_REVIEW = "api-security-review"
+    CONFIGURATION_REVIEW = "configuration-review"
+    DEPENDENCY_REVIEW = "dependency-review"
+    CODEBASE_REVIEW = "codebase-review"
+    CODE_SCAN = "code-scan"
+    DEPENDENCY_SCAN = "dependency-scan"
+    OTHER = "other"
 
 
 # ── Findings ─────────────────────────────────────────────────────────────────
@@ -116,6 +129,13 @@ class SecurityReportBase(SQLModel):
     commit_sha: str | None = Field(default=None, max_length=64, index=True)
     reviewer: str | None = Field(default=None, max_length=200, description="Agent or person")
     scope: str | None = Field(default=None, description="What was reviewed (files, MR, diff...)")
+    # Stored as text, not as a database enum: a new review type needs no migration
+    review_type: ReviewType | None = Field(
+        default=None,
+        index=True,
+        sa_type=String(40),
+        description="Kind of review: the prompt used (security-review...) or the CLI scan",
+    )
     summary: str = Field(min_length=3, description="Executive summary of the review")
 
 

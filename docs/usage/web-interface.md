@@ -41,16 +41,17 @@ by the API stay in English.
   The **Review open findings** button opens the next screen.
 - **Findings to review**: every open finding of the project across all its reports, worst
   severity first, then newest report first, for a review by a security expert. Each finding
-  shows its description, code excerpt and recommendation, and a link to its report (date,
-  branch, commit). Filters by status (to re-check accepted risks or false positives) and by
-  severity; **Load more** displays the next findings. Users with the `triager` or `admin` role
-  change the status of each finding from this screen; a triaged finding stays displayed until
-  the next reload.
+  shows its description, code excerpt and recommendation, and a link to its report (date, review
+  type, branch, commit). Filters by status (to re-check accepted risks or false positives), by
+  severity and by review type (**Security review**, **API security review**, **Codebase
+  review**...: see [review type](prompts-tools.md#review-type)); **Load more** displays the next
+  findings. Users with the `triager` or `admin` role change the status of each finding from this
+  screen; a triaged finding stays displayed until the next reload.
 - **Reports**: list filtered by project and risk level (the filters are in the URL,
-  so a link can be shared).
-- **Report**: summary, context (repository, branch, commit), findings with location,
-  CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the `triager` or
-  `admin` role change the status of a finding directly from this screen.
+  so a link can be shared), with the **Type** of each review.
+- **Report**: summary, context (repository, branch, commit, review type), findings with
+  location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
+  `triager` or `admin` role change the status of a finding directly from this screen.
 - **Standards**: the [development standards](standards.md) handed to the AI
   assistants by the `development-standards` prompt. Administrators search, read, create, edit
   (technologies, file patterns, Markdown content), disable or delete them. A change applies
@@ -156,13 +157,13 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/proj
 ```
 
 The same token lists the findings of a project across all its reports, open by default, worst
-first (`status` and `severity` filter, `limit` is capped by `SECREVIEW_MAX_LIST_LIMIT`, `total`
-gives the number of matching findings for paging):
+first (`status`, `severity` and `review_type` filter, `limit` is capped by
+`SECREVIEW_MAX_LIST_LIMIT`, `total` gives the number of matching findings for paging):
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
   "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
-# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "report_created_at": "…", …}, …]}
+# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
 
 Revoke it with `security-review-controller token revoke triage-bot`. Every status change is
