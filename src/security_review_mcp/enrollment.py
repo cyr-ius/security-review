@@ -6,6 +6,7 @@ outgoing connection, and only to the server URL the operator gives on the comman
 MCP server itself never does.
 """
 
+import getpass
 import json
 import ssl
 import urllib.error
@@ -24,6 +25,20 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001, ANN201
         """Return None so that urllib raises an HTTPError for the 3xx answer."""
         return None
+
+
+def local_username() -> str | None:
+    """Login name of the developer on this machine, used as default token label, or None.
+
+    A token is personal (it may reach several projects through complementary enrollment), so
+    it is named after the person rather than after the first project requested.
+    """
+    try:
+        name = getpass.getuser().strip()
+    except OSError, KeyError:
+        # No login name in the environment nor in the password database (minimal containers)
+        return None
+    return name or None
 
 
 def enrollment_url(server_url: str, allow_http: bool = False) -> str:

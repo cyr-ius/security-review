@@ -104,20 +104,24 @@ Plutôt que de créer chaque jeton à l'avance, laissez les projets **demander**
 validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès qu'un jeton existe.
 
 1. **Demande.** Le client obtient tout de suite un jeton de rôle `mcp`, restreint au projet
-   demandé, mais **en attente** : il ne donne encore accès à rien. Son label (le nom du projet
-   par défaut) reçoit un suffixe aléatoire. Trois façons de demander :
+   demandé, mais **en attente** : il ne donne encore accès à rien. Un jeton est personnel (il
+   pourra ensuite atteindre d'autres projets) : son label est donc le **nom d'utilisateur du
+   développeur**, le nom de connexion avec `enroll`, le nom transmis par l'agent ; sans label,
+   le nom du projet suivi de `-enroll`. Un suffixe aléatoire est ajouté. Trois façons de
+   demander :
     - **Depuis l'agent, à la première revue.** Un client MCP qui se connecte **sans** en-tête
       `Authorization` n'est pas rejeté : il atteint un serveur MCP restreint (même nom
       `security-review`) qui n'expose que les outils `request_enrollment` et
       `get_enrollment_status`, et des prompts du même nom que les revues (`security-review`,
       `codebase-review`…) qui expliquent la marche à suivre. L'agent appelle
-      `request_enrollment` avec le nom du projet et remet le jeton à l'utilisateur.
+      `request_enrollment` avec le nom du projet et le nom d'utilisateur du développeur,
+      et remet le jeton à l'utilisateur.
     - **En ligne de commande**, depuis le poste du développeur ou la CI :
 
         ```bash
         security-review-mcp enroll --url https://secreview.example.internal:8443 \
             --project shop-api --requested-by "alice (équipe shop)"
-        # {"id": "…", "label": "shop-api-enroll-3fa9c1", "status": "pending", "token": "UJB7…", …}
+        # {"id": "…", "label": "alice-3fa9c1", "status": "pending", "token": "UJB7…", …}
         ```
 
     - **Par l'API du serveur MCP** : `POST /api/v1/enroll` (sans jeton) avec
@@ -132,8 +136,8 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
 
     ```bash
     security-review-controller token list --pending           # demandeur, adresse, date
-    security-review-controller token approve shop-api-enroll-3fa9c1
-    security-review-controller token reject shop-api-enroll-3fa9c1
+    security-review-controller token approve alice-3fa9c1
+    security-review-controller token reject alice-3fa9c1
     ```
 
     Une fois approuvé, le jeton fonctionne dès la requête suivante, sans reconfiguration.

@@ -73,7 +73,7 @@ n'expose que :
 
 | Élément | Rôle |
 |---|---|
-| `request_enrollment` | Dépose la demande pour un projet et renvoie le jeton (affiché une fois) |
+| `request_enrollment` | Dépose la demande pour un projet et renvoie le jeton (affiché une fois), nommé d'après le nom d'utilisateur du développeur (`label`) |
 | `get_enrollment_status` | `pending` si le jeton présenté attend l'approbation, `not_enrolled` sans jeton |
 | Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Argument `project` facultatif ; expliquent à l'agent comment demander l'accès au lieu de lancer la revue |
 

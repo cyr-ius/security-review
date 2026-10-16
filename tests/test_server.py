@@ -429,6 +429,7 @@ async def test_enrollment_server_only_exposes_enrollment():
     assert {"security-review", "codebase-review", "dependency-review"} <= prompts
     text = prompt.messages[0].content.text
     assert "request_enrollment" in text and "Authorization: Bearer" in text
+    assert "`label` the developer's username" in text
     assert "```\nshop-api\n```" in text and "untrusted" in text
     assert json.loads(text_of(status)) == {"status": "not_enrolled"}
 

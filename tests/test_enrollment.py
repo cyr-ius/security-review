@@ -125,6 +125,35 @@ def test_enroll_command(opener, capsys):
     assert token_store.DatabaseTokenStore().lookup(http_server.hash_token(answer["token"])).pending
 
 
+def test_enroll_command_names_the_token_after_the_developer(opener, capsys, monkeypatch):
+    monkeypatch.setattr(enrollment.getpass, "getuser", lambda: "alice")
+
+    code = cli.run(["enroll", "--url", "http://127.0.0.1", "--project", "shop-api"])
+
+    assert code == cli.EXIT_PASSED
+    assert json.loads(capsys.readouterr().out)["label"].startswith("alice-")
+    assert json.loads(opener.requests[0].data)["label"] == "alice"
+
+
+def test_enroll_command_label_option_wins_over_the_login_name(opener, capsys, monkeypatch):
+    monkeypatch.setattr(enrollment.getpass, "getuser", lambda: "alice")
+
+    args = ["enroll", "--url", "http://127.0.0.1", "--project", "shop-api", "--label", "ci"]
+    assert cli.run(args) == cli.EXIT_PASSED
+    assert json.loads(capsys.readouterr().out)["label"].startswith("ci-")
+
+
+def test_enroll_command_without_login_name_falls_back_to_the_project(opener, capsys, monkeypatch):
+    def no_login() -> str:
+        raise OSError("No username set in the environment")
+
+    monkeypatch.setattr(enrollment.getpass, "getuser", no_login)
+
+    assert enrollment.local_username() is None
+    assert cli.run(["enroll", "--url", "http://127.0.0.1", "--project", "shop-api"]) == 0
+    assert json.loads(capsys.readouterr().out)["label"].startswith("shop-api-enroll-")
+
+
 def test_request_enrollment_with_a_token_asks_for_one_more_project(opener):
     created = token_store.create_token("shop-ci", Role.MCP, "shop-api")
 

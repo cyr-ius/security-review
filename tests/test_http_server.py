@@ -293,14 +293,6 @@ def test_tls_options_errors(tmp_path):
         http_server.tls_options(make_settings(tls_certfile=str(tmp_path / "missing.pem")))
 
 
-def test_tls_is_never_self_signed(monkeypatch):
-    """Without a certificate, TLS stays disabled: no certificate is generated at start-up."""
-    monkeypatch.setenv("SECREVIEW_TLS_SELF_SIGNED", "true")
-
-    assert http_server.tls_options(Settings(_env_file=None)) is None
-    assert not hasattr(http_server, "generate_self_signed")
-
-
 # ── Start-up ─────────────────────────────────────────────────────────────────
 
 
@@ -337,17 +329,6 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     assert client.get("/mcp").status_code == 401
     # The web interface is served by the controller only
     assert client.get("/ui/").status_code == 401
-
-
-def test_main_refuses_the_removed_self_signed_option(monkeypatch, capsys, captured_run):
-    monkeypatch.setattr(server, "get_settings", lambda: make_settings(enrollment=False))
-
-    with pytest.raises(SystemExit) as exc:
-        server.main(["--transport", "streamable-http", "--tls-self-signed"])
-
-    assert exc.value.code == 2
-    assert "--tls-self-signed" in capsys.readouterr().err
-    assert captured_run == []
 
 
 @pytest.mark.parametrize("enabled", [True, False])

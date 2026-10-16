@@ -729,7 +729,10 @@ ProjectArg = Annotated[
 ]
 LabelArg = Annotated[
     str | None,
-    Field(description="Optional token name (default: the project); a random suffix is added"),
+    Field(
+        description="Token name: the developer's username, since a token is personal and may "
+        "reach several projects (default: the project); a random suffix is added"
+    ),
 ]
 RequestedByArg = Annotated[
     str | None,

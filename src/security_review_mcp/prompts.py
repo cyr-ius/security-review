@@ -304,8 +304,9 @@ is granted. Do this instead:
 1. Call `get_enrollment_status`. If a request is already `pending`, tell the user that an \
 administrator still has to approve it, and stop.
 2. Otherwise call `request_enrollment` once, with the project name used for the reports \
-(usually the repository name, or the one given under "Project" below). Pass in \
-`requested_by` who is asking (the user's name or team) if you know it.
+(usually the repository name, or the one given under "Project" below). Pass in `label` the \
+developer's username (the token is personal: it may later reach other projects) and in \
+`requested_by` who is asking (the user's name or team), if you know them.
 3. Show the user the returned `token` (it is displayed only once) and ask them to add it to \
 the MCP client configuration as the header `Authorization: Bearer <token>`, then to reconnect.
 4. Explain that the token works as soon as an administrator approves the request (web \

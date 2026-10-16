@@ -169,11 +169,11 @@ The token is requested along the way, then approved by an administrator (see
    enrollment server, which has the same `security-review` name.
 2. **Run a review**, for example the `security-review` prompt. Instead of reading the code, the
    agent calls the `request_enrollment` tool with the project name (usually the repository
-   name) and shows you the token, **only once**:
+   name) and your username as label (the token is personal), and shows you the token, **only once**:
 
     ```json
     {
-      "label": "shop-api-enroll-3fa9c1",
+      "label": "alice-3fa9c1",
       "project": "shop-api",
       "status": "pending",
       "token": "UJB7…"

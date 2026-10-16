@@ -170,11 +170,11 @@ lancez votre première revue. Le jeton est demandé au passage, puis validé par
    d'enrôlement, qui porte le même nom `security-review`.
 2. **Lancez une revue**, par exemple le prompt `security-review`. Au lieu de relire le code,
    l'agent appelle l'outil `request_enrollment` avec le nom du projet (le nom du dépôt en
-   général) et vous affiche le jeton, **une seule fois** :
+   général) et votre nom d'utilisateur comme label (le jeton est personnel), et vous affiche le jeton, **une seule fois** :
 
     ```json
     {
-      "label": "shop-api-enroll-3fa9c1",
+      "label": "alice-3fa9c1",
       "project": "shop-api",
       "status": "pending",
       "token": "UJB7…"

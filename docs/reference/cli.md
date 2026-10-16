@@ -12,7 +12,7 @@ The package installs two commands, one per process (see
 | Command | Role | Page |
 |---|---|---|
 | `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server | [Installation](../getting-started/installation.md#running) |
-| `enroll --url URL --project P [--label L] [--requested-by WHO] [--token-stdin] [--cafile CA] [--allow-http]` | Requests a new token or, with `--token-stdin`, additional access for the token read on stdin | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token) |
+| `enroll --url URL --project P [--label L] [--requested-by WHO] [--token-stdin] [--cafile CA] [--allow-http]` | Requests a new token (label: `--label`, by default your login name) or, with `--token-stdin`, additional access for the token read on stdin | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token) |
 
 With stdio, the server migrates its database itself at start-up (unless
 `SECREVIEW_DB_AUTO_UPGRADE=false`). With HTTP, it **only checks** the schema: it refuses to

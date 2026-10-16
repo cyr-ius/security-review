@@ -12,7 +12,7 @@ Le paquet installe deux commandes, une par processus (voir
 | Commande | Rôle | Page |
 |---|---|---|
 | `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP | [Installation](../getting-started/installation.md#lancement) |
-| `enroll --url URL --project P [--label L] [--requested-by QUI] [--token-stdin] [--cafile CA] [--allow-http]` | Demande un nouveau jeton ou, avec `--token-stdin`, un accès complémentaire pour le jeton lu sur stdin | [Enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton) |
+| `enroll --url URL --project P [--label L] [--requested-by QUI] [--token-stdin] [--cafile CA] [--allow-http]` | Demande un nouveau jeton (label : `--label`, par défaut votre nom de connexion) ou, avec `--token-stdin`, un accès complémentaire pour le jeton lu sur stdin | [Enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton) |
 
 En stdio, le serveur migre lui-même sa base au démarrage (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`).
 En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`) tant que

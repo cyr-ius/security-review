@@ -99,20 +99,22 @@ Rather than creating every token in advance, let the projects **request** theirs
 the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`) as soon as a token exists.
 
 1. **Request.** The client gets at once a token with the `mcp` role, restricted to the
-   requested project, but **pending**: it does not give access to anything yet. Its label (the
-   project name by default) gets a random suffix. Three ways to request:
+   requested project, but **pending**: it does not give access to anything yet. A token is
+   personal (it may later reach other projects), so its label is the **developer's username**:
+   the login name with `enroll`, the username passed by the agent; without a label, the project
+   name followed by `-enroll`. A random suffix is added. Three ways to request:
     - **From the agent, at the first review.** An MCP client that connects **without** an
       `Authorization` header is not rejected: it reaches a restricted MCP server (same
       `security-review` name) that only exposes the `request_enrollment` and
       `get_enrollment_status` tools, and prompts named like the reviews (`security-review`,
       `codebase-review`…) that explain the steps. The agent calls `request_enrollment` with the
-      project name and hands the token to the user.
+      project name and the developer's username, and hands the token to the user.
     - **From the command line**, from the developer workstation or the CI:
 
         ```bash
         security-review-mcp enroll --url https://secreview.example.internal:8443 \
             --project shop-api --requested-by "alice (shop team)"
-        # {"id": "…", "label": "shop-api-enroll-3fa9c1", "status": "pending", "token": "UJB7…", …}
+        # {"id": "…", "label": "alice-3fa9c1", "status": "pending", "token": "UJB7…", …}
         ```
 
     - **Through the MCP server API**: `POST /api/v1/enroll` (without a token) with
@@ -127,8 +129,8 @@ the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`) as soon as a
 
     ```bash
     security-review-controller token list --pending           # requester, address, date
-    security-review-controller token approve shop-api-enroll-3fa9c1
-    security-review-controller token reject shop-api-enroll-3fa9c1
+    security-review-controller token approve alice-3fa9c1
+    security-review-controller token reject alice-3fa9c1
     ```
 
     Once approved, the token works from the next request on, without reconfiguration. The

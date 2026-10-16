@@ -658,7 +658,9 @@ def enroll_command(argv: list[str]) -> int:
     )
     parser.add_argument("--project", required=True, help="project name used for the reports")
     parser.add_argument(
-        "--label", help="name of the token (default: the project); a random suffix is added"
+        "--label",
+        help="name of the token (default: your login name, as a token is personal); a random "
+        "suffix is added",
     )
     parser.add_argument("--requested-by", help="who asks (name, email or team), for the admin")
     parser.add_argument(
@@ -684,7 +686,7 @@ def enroll_command(argv: list[str]) -> int:
         result = enrollment.request_enrollment(
             args.url,
             args.project,
-            label=args.label,
+            label=args.label or enrollment.local_username(),
             requested_by=args.requested_by,
             cafile=args.cafile,
             allow_http=args.allow_http,
