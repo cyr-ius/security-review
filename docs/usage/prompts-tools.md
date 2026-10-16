@@ -102,5 +102,6 @@ The **risk level** of the report is computed (highest severity of the findings).
 !!! info "Secret masking"
     Secrets found in `summary`, `description`, `evidence` and `recommendation` (passwords,
     tokens, `SECRET_KEY`, AWS keys, GitHub, GitLab, Slack, Google, Stripe and npm tokens, JWT,
-    private keys, credentials in URLs) are masked before storage. It is a safety net: the agent
-    must also avoid copying them.
+    private keys, credentials in URLs) are masked before storage. Permission levels (`read`,
+    `write`, `none`, as in the GitHub Actions `id-token: write`) are not secrets and are kept. It
+    is a safety net: the agent must also avoid copying them.

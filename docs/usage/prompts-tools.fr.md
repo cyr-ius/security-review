@@ -102,4 +102,6 @@ Le **niveau de risque** du rapport est calculé (sévérité maximale des findin
     Les secrets présents dans `summary`, `description`, `evidence` et `recommendation`
     (mots de passe, tokens, `SECRET_KEY`, clés AWS, jetons GitHub, GitLab, Slack, Google, Stripe
     et npm, JWT, clés privées, identifiants dans les URL) sont masqués
-    avant stockage. C'est un filet de sécurité : l'agent doit aussi éviter de les recopier.
+    avant stockage. Les niveaux de permission (`read`, `write`, `none`, comme dans
+    `id-token: write` de GitHub Actions) ne sont pas des secrets et sont conservés. C'est un
+    filet de sécurité : l'agent doit aussi éviter de les recopier.

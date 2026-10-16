@@ -98,6 +98,53 @@ def test_redact_secrets(text: str, secret: str):
     assert "[REDACTED]" in redacted
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "permissions:\n  id-token: write",
+        "  id-token: read",
+        "token: none",
+        '"id-token": "write"',
+    ],
+)
+def test_redact_keeps_permission_levels(text: str):
+    """GitHub Actions permission levels are not secrets and must stay readable."""
+    assert redact_secrets(text) == text
+
+
+@pytest.mark.parametrize(
+    "text, secret",
+    [
+        ("token: writeABCD1234", "writeABCD1234"),
+        ("password = 'readonly-pass'", "readonly-pass"),
+        ("token: none-of-your-business", "none-of-your-business"),
+        # A value that only starts with the marker is not an already masked value
+        ("token: [REDACTED]abcd1234", "abcd1234"),
+        ("password=[REDACTED])hunter2hunter2", "hunter2hunter2"),
+    ],
+)
+def test_redact_values_starting_with_permission_words(text: str, secret: str):
+    """A secret that merely starts with read, write or none is still masked."""
+    assert secret not in redact_secrets(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "(id-token: [REDACTED]), then",
+        "token: [REDACTED]; password=[REDACTED]",
+        "postgres://admin:[REDACTED]@db:5432/x",
+        "(token: abcd1234efgh) and password = 'hunter2hunter2'",
+    ],
+)
+def test_redact_is_idempotent(text: str):
+    """Masking already masked text changes nothing: no character after the marker is lost."""
+    once = redact_secrets(text)
+    assert redact_secrets(once) == once
+    if "[REDACTED]" in text:
+        assert once == text
+
+
 def test_redact_private_key_block():
     text = "-----BEGIN RSA PRIVATE KEY-----\nMIIEabc123\n-----END RSA PRIVATE KEY-----"
     redacted = redact_secrets(text)
