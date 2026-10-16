@@ -355,33 +355,25 @@ def parse_uv_lock(content: str) -> Parsed:
     """
     data = _load_toml(content)
     builder = _Builder("uv.lock", "PyPI", True)
-    manifest = data.get("manifest")
-    members = manifest.get("members") if isinstance(manifest, dict) else None
-    members = {str(m) for m in members} if isinstance(members, list) else set()
-    packages = data.get("package")
-    for package in packages if isinstance(packages, list) else []:
-        if not isinstance(package, dict):
-            continue
+    members = set((data.get("manifest") or {}).get("members", []))
+    for package in data.get("package", []):
         name, version = package.get("name"), package.get("version")
-        if not isinstance(name, str) or not name:
+        if not name:
             continue
-        source = package.get("source")
-        source = source if isinstance(source, dict) else {}
+        source = package.get("source") or {}
         local = source.get("editable", source.get("virtual"))
         if local is not None and (local == "." or name in members):
             continue
         if not version:
             continue
-        builder.component(name, str(version))
+        builder.component(str(name), str(version))
         kind = next((k for k in ("git", "url", "path", "directory", "editable") if k in source), "")
         if kind:
             builder.issue("DEP-003", f"{name} comes from a {kind} source", None, name)
-        sdist = package.get("sdist")
-        wheels = package.get("wheels")
-        artifacts = [sdist, *(wheels if isinstance(wheels, list) else [])]
-        urls = [str(source.get("registry", "")), str(source.get("url", ""))]
-        urls += [str(item.get("url", "")) for item in artifacts if isinstance(item, dict)]
-        if any(_is_insecure_url(url) for url in urls):
+        artifacts = [package.get("sdist") or {}, *(package.get("wheels") or [])]
+        urls = [source.get("registry", ""), source.get("url", "")]
+        urls += [item.get("url", "") for item in artifacts]
+        if any(_is_insecure_url(str(url)) for url in urls):
             builder.issue("DEP-004", f"{name} is downloaded over HTTP", None, name)
     return builder.finish()
 
@@ -673,7 +665,16 @@ def parse_dependency_file(content: str, filename: str) -> Parsed:
     path = PurePosixPath(filename.replace("\\", "/").lower())
     base = path.name
     if base in _PARSERS:
-        return _PARSERS[base](content)
+        try:
+            return _PARSERS[base](content)
+        except (AttributeError, TypeError, KeyError, IndexError) as exc:
+            # Well-formed JSON / TOML whose nodes have unexpected types (a string where a
+            # table is expected...): report a data error instead of an internal failure. The
+            # message never echoes file content, which may hold secrets.
+            raise ValueError(
+                f"Invalid {path.name} structure: a value has an unexpected type "
+                f"({type(exc).__name__})"
+            ) from exc
     in_requirements_dir = base.endswith((".txt", ".in")) and path.parent.name in {
         "requirements",
         "constraints",

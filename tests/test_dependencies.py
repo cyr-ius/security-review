@@ -1,9 +1,11 @@
 """Tests for the dependency file parsers and the offline hygiene checks."""
 
 import json
+import re
 
 import pytest
 
+from security_review_mcp import dependencies
 from security_review_mcp.dependencies import parse_dependency_file
 
 
@@ -195,17 +197,36 @@ def test_uv_lock_invalid_toml():
 
 
 @pytest.mark.parametrize(
-    "content",
+    ("filename", "content"),
     [
-        'package = "x"',
-        '[[package]]\nname = "a"\nversion = "1"\nsource = "x"\nwheels = "y"',
-        '[manifest]\nmembers = 3\n[[package]]\nname = "a"\nversion = "1"',
-        '[[package]]\nname = [1]\nversion = "1"\nsource = { editable = "b" }',
+        ("uv.lock", 'package = "x"'),
+        ("uv.lock", '[[package]]\nname = "a"\nversion = "1"\nsource = "x"'),
+        ("uv.lock", '[manifest]\nmembers = 3\n[[package]]\nname = "a"\nversion = "1"'),
+        ("uv.lock", '[[package]]\nname = "a"\nversion = "1"\nwheels = "y"'),
+        ("poetry.lock", "package = 3"),
+        ("poetry.lock", '[[package]]\nname = "a"\nversion = "1"\nsource = "git"'),
+        ("pyproject.toml", 'project = "x"'),
+        ("pyproject.toml", '[tool.poetry]\ngroup = "x"'),
+        ("Pipfile.lock", json.dumps({"default": ["flask"]})),
+        ("Pipfile.lock", json.dumps({"_meta": {"sources": [3]}})),
+        ("package.json", json.dumps({"dependencies": ["lodash"]})),
+        ("package.json", json.dumps({"scripts": "postinstall"})),
+        ("package-lock.json", json.dumps({"lockfileVersion": 1, "dependencies": "x"})),
     ],
 )
-def test_uv_lock_unexpected_structure_is_ignored(content):
-    parsed = parse_dependency_file(content, "uv.lock")
-    assert all(c.name == "a" for c in parsed.components)
+def test_unexpected_structure_is_a_data_error(filename, content):
+    with pytest.raises(ValueError, match=f"Invalid {re.escape(filename.lower())} structure"):
+        parse_dependency_file(content, filename)
+
+
+def test_structure_error_does_not_echo_file_content(monkeypatch):
+    def parser(content: str):
+        raise KeyError("ghp_FAKESECRET0000000000000000000000000000")
+
+    monkeypatch.setitem(dependencies._PARSERS, "uv.lock", parser)
+    with pytest.raises(ValueError) as caught:
+        parse_dependency_file("", "uv.lock")
+    assert "FAKESECRET" not in str(caught.value) and "KeyError" in str(caught.value)
 
 
 def test_package_json():
