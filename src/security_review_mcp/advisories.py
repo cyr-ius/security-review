@@ -399,8 +399,9 @@ def find_vulnerabilities(queries: list[Query]) -> list[dict]:
                 )
                 for affected, advisory in session.exec(statement).all():
                     rows[(ecosystem, affected.package)].append((affected, advisory))
-                    session.expunge(affected)
-                    session.expunge(advisory)
+        # Detach once at the end: an advisory affecting several queried packages comes back
+        # on several rows as the same instance, which cannot be expunged twice
+        session.expunge_all()
 
     results: list[dict] = []
     for query in queries:

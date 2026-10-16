@@ -3,8 +3,12 @@
 ## Supported files
 
 `requirements*.txt`, `pyproject.toml` (PEP 621/735, Poetry), `poetry.lock`, `Pipfile.lock`,
-`package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 and berry),
-`pom.xml`, `build.gradle(.kts)`.
+`uv.lock`, `package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 and
+berry), `pom.xml`, `build.gradle(.kts)`.
+
+In a `uv.lock`, the project itself and its workspace members (editable or virtual sources) are
+not dependencies and are skipped; any other `git`, `url`, `path`, `directory` or `editable`
+source raises `DEP-003`.
 
 ## Offline vulnerability database (OSV format)
 

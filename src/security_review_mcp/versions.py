@@ -13,12 +13,18 @@ _TOKEN_RE = re.compile(r"\d+|[a-z]+")
 # Pre-release tags, from the oldest to the closest to the release
 _PRE_RANK = {
     "dev": 0,
+    # npm channels (Angular, React...): published before the betas of a release
+    "canary": 0,
+    "nightly": 0,
+    "experimental": 0,
     "alpha": 1,
     "a": 1,
     "beta": 2,
     "b": 2,
     "milestone": 3,
     "m": 3,
+    # Angular: 22.0.0-next.N, then 22.0.0-rc.N, then 22.0.0
+    "next": 3,
     "rc": 4,
     "cr": 4,
     "c": 4,

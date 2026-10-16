@@ -650,7 +650,7 @@ def scan_dependencies(
     Check `vulnerability_check` first: when it is not `performed`, no vulnerability could be
     detected and an empty list does NOT mean the dependencies are safe. Lockfiles give the best
     results. Supported: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock,
-    package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts).
+    uv.lock, package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts).
     """
     limit = get_settings().max_dependency_chars
     if len(content) > limit:

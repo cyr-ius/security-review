@@ -1,6 +1,6 @@
 """Parse dependency manifests and lockfiles, and run offline hygiene checks.
 
-Supported files: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock (PyPI);
+Supported files: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock, uv.lock (PyPI);
 package.json, package-lock.json, npm-shrinkwrap.json, yarn.lock (npm);
 pom.xml, build.gradle, build.gradle.kts (Maven).
 
@@ -23,6 +23,7 @@ SUPPORTED_FILES = (
     "pyproject.toml",
     "poetry.lock",
     "Pipfile.lock",
+    "uv.lock",
     "package.json",
     "package-lock.json",
     "npm-shrinkwrap.json",
@@ -138,7 +139,7 @@ class _Builder:
             self.parsed.notes.append(
                 f"{unresolved} dependency version(s) are ranges or managed elsewhere and cannot be "
                 "checked against advisories: scan the lockfile (package-lock.json, poetry.lock, "
-                "Pipfile.lock, yarn.lock) or the resolved dependency tree instead."
+                "Pipfile.lock, uv.lock, yarn.lock) or the resolved dependency tree instead."
             )
         return self.parsed
 
@@ -343,6 +344,45 @@ def parse_pipfile_lock(content: str) -> Parsed:
             builder.component(name, version, dev=dev)
             if any(key in meta for key in ("git", "path", "file")):
                 builder.issue("DEP-003", f"{name} comes from a VCS or local path", None, name)
+    return builder.finish()
+
+
+def parse_uv_lock(content: str) -> Parsed:
+    """Parse a uv.lock file.
+
+    The project itself and its workspace members (editable or virtual sources) are not
+    dependencies and are skipped.
+    """
+    data = _load_toml(content)
+    builder = _Builder("uv.lock", "PyPI", True)
+    manifest = data.get("manifest")
+    members = manifest.get("members") if isinstance(manifest, dict) else None
+    members = {str(m) for m in members} if isinstance(members, list) else set()
+    packages = data.get("package")
+    for package in packages if isinstance(packages, list) else []:
+        if not isinstance(package, dict):
+            continue
+        name, version = package.get("name"), package.get("version")
+        if not isinstance(name, str) or not name:
+            continue
+        source = package.get("source")
+        source = source if isinstance(source, dict) else {}
+        local = source.get("editable", source.get("virtual"))
+        if local is not None and (local == "." or name in members):
+            continue
+        if not version:
+            continue
+        builder.component(name, str(version))
+        kind = next((k for k in ("git", "url", "path", "directory", "editable") if k in source), "")
+        if kind:
+            builder.issue("DEP-003", f"{name} comes from a {kind} source", None, name)
+        sdist = package.get("sdist")
+        wheels = package.get("wheels")
+        artifacts = [sdist, *(wheels if isinstance(wheels, list) else [])]
+        urls = [str(source.get("registry", "")), str(source.get("url", ""))]
+        urls += [str(item.get("url", "")) for item in artifacts if isinstance(item, dict)]
+        if any(_is_insecure_url(url) for url in urls):
+            builder.issue("DEP-004", f"{name} is downloaded over HTTP", None, name)
     return builder.finish()
 
 
@@ -612,6 +652,7 @@ _PARSERS = {
     "pyproject.toml": parse_pyproject,
     "poetry.lock": parse_poetry_lock,
     "pipfile.lock": parse_pipfile_lock,
+    "uv.lock": parse_uv_lock,
     "package.json": parse_package_json,
     "package-lock.json": parse_package_lock,
     "npm-shrinkwrap.json": parse_package_lock,

@@ -126,6 +126,88 @@ url = "https://example.com/mylib"
     assert {"DEP-003", "DEP-004", "DEP-008"} <= rules(parsed)
 
 
+def test_uv_lock():
+    lock = """
+version = 1
+requires-python = ">=3.12"
+
+[manifest]
+members = ["app", "shared"]
+
+[[package]]
+name = "app"
+version = "1.0.0"
+source = { editable = "." }
+
+[[package]]
+name = "shared"
+version = "0.2.0"
+source = { editable = "packages/shared" }
+
+[[package]]
+name = "requests"
+version = "2.19.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/requests-2.19.0.tar.gz" }
+wheels = [{ url = "https://files.pythonhosted.org/requests-2.19.0-py3-none-any.whl" }]
+
+[[package]]
+name = "mylib"
+version = "0.1"
+source = { git = "https://example.com/mylib?rev=main#abc123" }
+
+[[package]]
+name = "internal"
+version = "3.0"
+source = { registry = "http://pypi.internal.example.com/simple" }
+"""
+    parsed = parse_dependency_file(lock, "uv.lock")
+    assert parsed.file_type == "uv.lock" and parsed.ecosystem == "PyPI" and parsed.is_lockfile
+    assert versions(parsed) == {"requests": "2.19.0", "mylib": "0.1", "internal": "3.0"}
+    assert {(i.rule_id, i.package) for i in parsed.issues} == {
+        ("DEP-003", "mylib"),
+        ("DEP-004", "internal"),
+    }
+    assert not parsed.notes
+
+
+def test_uv_lock_clean_registry_has_no_issue():
+    lock = """
+version = 1
+
+[[package]]
+name = "project"
+version = "0.1.0"
+source = { virtual = "." }
+
+[[package]]
+name = "flask"
+version = "3.0.0"
+source = { registry = "https://pypi.org/simple" }
+"""
+    parsed = parse_dependency_file(lock, "sub/dir/uv.lock")
+    assert versions(parsed) == {"flask": "3.0.0"} and not parsed.issues
+
+
+def test_uv_lock_invalid_toml():
+    with pytest.raises(ValueError):
+        parse_dependency_file("[[package]\nname=", "uv.lock")
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        'package = "x"',
+        '[[package]]\nname = "a"\nversion = "1"\nsource = "x"\nwheels = "y"',
+        '[manifest]\nmembers = 3\n[[package]]\nname = "a"\nversion = "1"',
+        '[[package]]\nname = [1]\nversion = "1"\nsource = { editable = "b" }',
+    ],
+)
+def test_uv_lock_unexpected_structure_is_ignored(content):
+    parsed = parse_dependency_file(content, "uv.lock")
+    assert all(c.name == "a" for c in parsed.components)
+
+
 def test_package_json():
     content = json.dumps(
         {
