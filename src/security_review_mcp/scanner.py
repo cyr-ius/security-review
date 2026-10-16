@@ -148,11 +148,14 @@ def scan_content(content: str, language: str, max_matches: int = 200) -> list[di
 # ── Secret redaction ─────────────────────────────────────────────────────────
 
 _REDACTION_PATTERNS: tuple[re.Pattern[str], ...] = (
-    # key = "value" assignments for sensitive-looking names (also "key": "v" and ["KEY"] = "v")
+    # key = "value" assignments for sensitive-looking names (also "key": "v" and ["KEY"] = "v");
+    # permission levels such as GitHub Actions "id-token: write" are not secrets, and an already
+    # masked value (the marker, then closing punctuation only) is skipped so that the characters
+    # after the marker are kept
     re.compile(
         r"(?i)((?:password|passwd|pwd|secret(?:[_-]?key)?|api[_-]?key|token|authorization)"
         r"[\"']?\]?\s*[:=]\s*[\"']?(?:(?:bearer|basic)\s+)?)"
-        r"([^\"'\s,;]{4,})"
+        r"(?!(?:read|write|none|\[REDACTED\][)\]}>.:!?]*)(?:[\"'\s,;]|$))([^\"'\s,;]{4,})"
     ),
     # Tokens with a known service prefix (GitHub, GitLab, Slack, Google, Stripe, npm)
     re.compile(

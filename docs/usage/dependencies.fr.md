@@ -3,8 +3,12 @@
 ## Fichiers pris en charge
 
 `requirements*.txt`, `pyproject.toml` (PEP 621/735, Poetry), `poetry.lock`, `Pipfile.lock`,
-`package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 et berry),
-`pom.xml`, `build.gradle(.kts)`.
+`uv.lock`, `package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 et
+berry), `pom.xml`, `build.gradle(.kts)`.
+
+Dans un `uv.lock`, le projet lui-même et les membres de son workspace (sources `editable` ou
+`virtual`) ne sont pas des dépendances et sont ignorés ; toute autre source `git`, `url`,
+`path`, `directory` ou `editable` lève `DEP-003`.
 
 ## Base de vulnérabilités hors ligne (format OSV)
 
@@ -113,6 +117,47 @@ security-review-controller deps scan package-lock.json requirements.txt \
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur
 ```
 
+## Scan avec un serveur partagé (hook de commit)
+
+`security-review-mcp scan-deps` envoie les fichiers de dépendances à l'outil `scan_dependencies`
+d'un serveur MCP partagé : le scan utilise la base d'avis de ce serveur, sans import local. Il
+faut un jeton de rôle `mcp` ou `admin` (voir
+[enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton)).
+
+```bash
+export SECREVIEW_SERVER_URL=https://secreview.example.com
+export SECREVIEW_TOKEN=<token>
+security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
+# exit code: 0 = ok, 1 = blocked, 2 = error (server unreachable, token refused...)
+```
+
+- Mêmes options et même sortie que `deps scan` (`--fail-on`, `--format`, `--require-database`) ;
+  rien n'est enregistré (pas de `--save`).
+- `--url` remplace `SECREVIEW_SERVER_URL`, `--token-stdin` lit le jeton sur stdin au lieu de
+  `SECREVIEW_TOKEN`. Les deux variables peuvent aussi être définies dans le fichier `.env` du
+  dossier (ne le commitez jamais).
+- HTTP en clair est refusé hors localhost (sauf `--allow-http`), comme les identifiants dans
+  l'URL et les redirections vers une autre origine ; `--cafile` indique une CA interne. Les liens
+  symboliques ne sont pas lus, car le contenu quitte la machine.
+- Chaque fichier est limité par le `SECREVIEW_MAX_DEPENDENCY_CHARS` du serveur.
+
+Hook de commit ([pre-commit](https://pre-commit.com) ou prek), lancé quand un manifeste ou un
+lockfile change :
+
+```yaml
+repos:
+  - repo: local
+    hooks:
+      - id: scan-deps
+        name: dependency scan
+        entry: security-review-mcp scan-deps --skip-unconfigured --require-database
+        language: system
+        files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
+```
+
+`--skip-unconfigured` laisse passer le commit, avec un avertissement, quand aucune URL de serveur
+n'est configurée (contributeurs sans serveur partagé).
+
 ## Lire le résultat
 
 Le champ `vulnerability_check` dit si la vérification a eu lieu :
@@ -130,5 +175,9 @@ Le champ `vulnerability_check` dit si la vérification a eu lieu :
 - Une base de plus de 30 jours est signalée.
 - Une sévérité absente de l'avis est traitée comme `medium` (`severity_known: false`).
 - Les versions en intervalle (`>=2`) ne sont pas vérifiables : analysez le lockfile.
+- Chaque composant est marqué `dev` ou non. Dans `pyproject.toml`, les extras nommées d'après
+  le développement (`dev`, `test`, `docs`, `lint`...) et les `[dependency-groups]` sont `dev` ;
+  les autres extras (`postgres`...) sont installées en production et restent des dépendances
+  d'exécution.
 - Règles d'hygiène `DEP-001` à `DEP-009` : versions non épinglées, URL / VCS, HTTP, index
   supplémentaire, `--trusted-host`, etc.

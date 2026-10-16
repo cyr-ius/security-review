@@ -156,3 +156,38 @@ def test_the_osv_proxy_becomes_the_general_proxy(empty_engine, stored, expected)
         command.downgrade(database.alembic_config(connection), "0007")
         rows = dict(connection.execute(text("SELECT key, value FROM appsetting")).all())
     assert rows == {key: value for key, value in stored.items() if expected is not None}
+
+
+def test_the_reports_of_the_cli_scans_get_their_review_type(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0008")
+        for reviewer in (
+            "security-review-controller code scan",
+            "security-review-controller deps scan",
+            "claude",
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO securityreport (project, reviewer, summary, risk_level, "
+                    "created_at) VALUES ('shop', :reviewer, 'Summary', 'LOW', "
+                    "'2026-10-01 10:00:00')"
+                ),
+                {"reviewer": reviewer},
+            )
+        command.upgrade(database.alembic_config(connection), "head")
+        rows = connection.execute(
+            text("SELECT reviewer, review_type FROM securityreport ORDER BY id")
+        ).all()
+    assert [tuple(row) for row in rows] == [
+        ("security-review-controller code scan", "code-scan"),
+        ("security-review-controller deps scan", "dependency-scan"),
+        ("claude", None),
+    ]
+
+    with empty_engine.begin() as connection:
+        command.downgrade(database.alembic_config(connection), "0008")
+        columns = {c["name"] for c in inspect(connection).get_columns("securityreport")}
+    assert "review_type" not in columns

@@ -3,7 +3,7 @@
 The package installs two commands, one per process (see
 [Architecture and deployment](../getting-started/kubernetes.md)):
 
-- `security-review-mcp`: the **MCP server** (stdio or HTTP), plus `enroll` on the client side;
+- `security-review-mcp`: the **MCP server** (stdio or HTTP), plus `enroll` and `scan-deps` on the client side;
 - `security-review-controller`: the **controller** (REST API and web interface), the database,
   the administration and the pipeline commands.
 
@@ -11,8 +11,9 @@ The package installs two commands, one per process (see
 
 | Command | Role | Page |
 |---|---|---|
-| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Starts the MCP server | [Installation](../getting-started/installation.md#running) |
-| `enroll --url URL --project P [--label L] [--requested-by WHO] [--token-stdin] [--cafile CA] [--allow-http]` | Requests a new token or, with `--token-stdin`, additional access for the token read on stdin | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token) |
+| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server | [Installation](../getting-started/installation.md#running) |
+| `enroll --url URL --project P [--label L] [--requested-by WHO] [--token-stdin] [--cafile CA] [--allow-http]` | Requests a new token (label: `--label`, by default your login name) or, with `--token-stdin`, additional access for the token read on stdin | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token) |
+| `scan-deps FILE… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http]` | Scans manifests and lockfiles with the advisory database of a shared MCP server (token: `SECREVIEW_TOKEN`), for a commit hook | [Dependencies](../usage/dependencies.md#scan-with-a-shared-server-commit-hook) |
 
 With stdio, the server migrates its database itself at start-up (unless
 `SECREVIEW_DB_AUTO_UPGRADE=false`). With HTTP, it **only checks** the schema: it refuses to
@@ -27,8 +28,9 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 
 | Command | Role | Page |
 |---|---|---|
-| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Serves the REST API (`/api/v1`) and the web interface (`/ui`) | [HTTP server](../getting-started/http.md) |
+| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Serves the REST API (`/api/v1`) and the web interface (`/ui`) | [HTTP server](../getting-started/http.md) |
 | `db upgrade` / `db status` | Migrates the schema (Alembic) and seeds the default rules, or shows the revision | [Architecture and deployment](../getting-started/kubernetes.md#schema-migrations) |
+| `db prune [--days N]` | Deletes the reports without findings older than `N` days (default `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS`), except the latest of each project | [Retention](configuration.md#retention-of-reports-without-findings) |
 | `token create --label NAME [--role ROLE] [--project P …]` | Creates a Bearer token, possibly limited to several projects, and shows its secret once | [Bearer tokens](../getting-started/http.md#bearer-tokens), [roles](../usage/web-interface.md#roles) |
 | `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Lists (or only the pending enrollment requests) or revokes the tokens | [Bearer tokens](../getting-started/http.md#bearer-tokens) |
 | `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approves or rejects an enrollment request; `approve --portal-user NAME` also gives this user account read access to the project in the portal (with SSO enabled, an unknown name becomes an SSO account) | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token), [read access at enrollment](../usage/web-interface.md#project-read-access-at-enrollment) |
@@ -58,7 +60,8 @@ The check commands (`code scan`, `deps scan`, `gate`, `db status`) share the sam
 | `1` | Blocked: at least one finding reaches the `--fail-on` threshold (or, for `db status`, schema not up to date) |
 | `2` | Error (project or report not found, unreadable file, schema to migrate…) |
 
-The administration commands (`token`, `enroll`, `rules`, `advisories`, `db upgrade`) return `0`
+The administration commands (`token`, `enroll`, `rules`, `advisories`, `db upgrade`,
+`db prune`) return `0`
 on success and `2` on error (unknown identifier, invalid pack…), with the error as JSON on
 stderr.
 

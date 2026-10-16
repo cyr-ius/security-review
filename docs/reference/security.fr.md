@@ -17,9 +17,9 @@
   rapport ou finding est traité comme inexistant (voir
   [jetons restreints à un projet](../getting-started/http.md#jetons-restreints-a-un-projet)). Si l'écoute n'est pas sur
   localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Le
-  [certificat auto-signé](../getting-started/http.md#certificat-auto-signe) facultatif est régénéré à
-  chaque démarrage (clé privée en `0600` dans un dossier temporaire, jamais journalisée) et n'est
-  pas reconnu par les clients sans ajout explicite. Il n'y a
+  serveur ne génère jamais de certificat TLS : le HTTPS utilise le certificat fourni par
+  l'opérateur, signé par une
+  [autorité de certification](../getting-started/http.md#autorite-de-certification). Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
   (`mcp`, `reader`, `triager`, `admin`) ; un jeton `mcp` sans projet accède à tous les outils
   MCP et à tous les projets.
@@ -27,14 +27,15 @@
   serveur MCP restreint qui ne permet que de déposer une demande, et `POST /api/v1/enroll` est
   public sur le serveur MCP (corps limité à 4 Kio). L'approbation se fait sur le contrôleur. Une demande est un jeton `mcp` restreint au projet, **en attente** : il ne donne accès
   à rien avant l'approbation d'un administrateur, et les demandes en attente n'activent jamais
-  l'authentification d'un serveur ouvert. Le nombre de demandes en attente est borné (20) et
+  l'authentification d'un serveur ouvert. Le nombre de demandes en attente est borné (20 en tout, 3 par adresse cliente) et
   une demande non traitée expire après 7 jours ; le texte libre du demandeur est masqué et
   tronqué. N'importe quel client qui atteint le serveur peut déposer une demande : vérifiez le
   demandeur et l'adresse affichés avant d'approuver, ou désactivez l'enrôlement. Voir
   [l'enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton).
-- **Appels réseau sortants** : le serveur MCP n'en fait aucun. La commande
-  `security-review-mcp enroll` contacte, à la demande de l'opérateur, l'URL qu'il indique ; elle
-  refuse HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
+- **Appels réseau sortants** : le serveur MCP n'en fait aucun. Les commandes
+  `security-review-mcp enroll` et `scan-deps` contactent, à la demande de l'opérateur, l'URL qu'il
+  indique (`scan-deps` envoie les fichiers de dépendances donnés sur sa ligne de commande, jamais
+  via un lien symbolique) ; elles refusent HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
   redirections. Le contrôleur ne télécharge les avis OSV que si un administrateur l'active
   (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
@@ -73,7 +74,10 @@
   mémoire. Mots de passe de 12 à 256 caractères, identifiants limités à `[A-Za-z0-9._@-]`. La
   vérification coûte le même temps que l'identifiant existe ou non (empreinte factice), et
   l'échec renvoie toujours le même `401`. Les échecs sont limités en mémoire (5 par identifiant
-  et adresse, 20 par adresse, sur 15 minutes, puis `429`) ; seuls les identifiants valides sont
+  et adresse, 20 par adresse, sur 15 minutes, puis `429`) ; derrière un reverse proxy,
+  l'adresse du client n'est lue dans `X-Forwarded-For` que pour les proxies listés dans
+  `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` laisse tout client choisir son adresse et contourner les
+  limites). Seuls les identifiants valides sont
   journalisés, jamais les mots de passe. La session est un jeton signé avec
   `SECREVIEW_SESSION_SECRET`, comme celle du SSO, mais le compte est **relu en base à chaque
   requête** : suppression, nouveau rôle ou nouveaux projets s'appliquent immédiatement, et un

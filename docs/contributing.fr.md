@@ -6,7 +6,8 @@
 uv sync --extra dev
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
-pre-commit install          # facultatif : mêmes contrôles avant chaque commit
+pre-commit install          # facultatif : mêmes contrôles avant chaque commit, et le scan des
+                            # dépendances si SECREVIEW_SERVER_URL est défini
 ```
 
 Dans VS Code (`.vscode/`) :
@@ -92,6 +93,7 @@ src/security_review_mcp/
 ├── token_store.py # jetons Bearer en base : création, révocation, enrôlement
 ├── web_users.py   # comptes de l'interface web, locaux (scrypt) ou SSO (création à la volée), sessions, admin initial
 ├── enrollment.py  # client de `enroll` : demande de jeton à un serveur partagé
+├── remote_scan.py # client de `scan-deps` : scan des dépendances par un serveur partagé
 ├── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP
 ├── web_api.py     # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
 ├── prompts.py     # construction des prompts
@@ -102,7 +104,7 @@ src/security_review_mcp/
 ├── rules_loader.py    # validation des règles, lecture des packs TOML et du fichier par défaut
 ├── rule_store.py  # règles en base : amorçage, import/export, activation, suppression
 ├── registry.py    # règles/checklists actives (lues en base), rechargement
-├── cli.py         # commandes db, gate, sarif, trend, advisories, deps, code, rules, token, enroll
+├── cli.py         # commandes db, gate, sarif, trend, advisories, deps, code, rules, token, enroll, scan-deps
 ├── codescan.py    # scan du code complet (liste des fichiers, langage, findings)
 ├── sarif.py       # export SARIF 2.1.0
 ├── trends.py      # rapport de tendance
@@ -114,6 +116,7 @@ src/security_review_mcp/
 ├── dependencies.py    # analyseurs de manifestes / lockfiles, hygiène
 ├── depscan.py     # scan de dépendances et conversion en findings
 ├── services.py    # logique de persistance des rapports
+├── retention.py   # purge quotidienne des rapports sans findings par le contrôleur
 ├── models.py      # modèles SQLModel (tables + schémas)
 ├── database.py    # moteur, sessions et migrations (Alembic)
 ├── migrations/    # environnement Alembic et révisions du schéma (versions/)

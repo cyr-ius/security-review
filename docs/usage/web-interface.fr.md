@@ -10,6 +10,7 @@ base de données (voir [Architecture et déploiement](../getting-started/kuberne
 | `/ui/` | Application web (Angular) |
 | `/api/v1/…` | API REST utilisée par l'application |
 | `/api/docs` | Documentation OpenAPI de l'API REST (publique, sans données) |
+| `/api/favicon.svg` | Icône de l'interface web et de la documentation Swagger (publique) |
 | `/healthz` | Sonde de vie (publique) |
 
 ```bash
@@ -36,12 +37,22 @@ renvoyés par l'API restent en anglais.
   activité ou nom.
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, derniers rapports et
-  export SARIF.
+  export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant.
+- **Findings à revoir** : tous les findings ouverts du projet, sur l'ensemble de ses rapports,
+  du plus grave au moins grave puis du rapport le plus récent au plus ancien, pour une revue par
+  un expert en cybersécurité. Chaque finding affiche sa description, son extrait de code et sa
+  recommandation, et un lien vers son rapport (date, type de revue, branche, commit). Filtres
+  par statut (pour revoir les risques acceptés ou les faux positifs), par sévérité et par type
+  de revue (**Revue de sécurité**, **Revue de sécurité d'API**, **Revue du code complet**... :
+  voir [type de revue](prompts-tools.md#type-de-revue)) ; **Afficher plus** affiche les findings
+  suivants. Les utilisateurs qui ont le rôle `triager` ou `admin` changent le statut de chaque
+  finding depuis cet écran ; un finding trié reste affiché jusqu'au rechargement.
 - **Rapports** : liste filtrable par projet et niveau de risque (les filtres sont dans l'URL, on
-  peut donc partager un lien).
-- **Rapport** : résumé, contexte (dépôt, branche, commit), findings avec emplacement, CWE,
-  extrait de code et recommandation ; téléchargement Markdown et SARIF. Les utilisateurs qui ont
-  le rôle `triager` ou `admin` changent le statut d'un finding directement depuis cet écran.
+  peut donc partager un lien), avec le **Type** de chaque revue.
+- **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue), findings avec
+  emplacement, CWE, extrait de code et recommandation ; téléchargement Markdown et SARIF. Les
+  utilisateurs qui ont le rôle `triager` ou `admin` changent le statut d'un finding directement
+  depuis cet écran.
 - **Normes** : les [normes de développement](standards.md) transmises aux assistants IA par le
   prompt `development-standards`. Les administrateurs les recherchent, les lisent, les créent,
   les modifient (technologies, motifs de fichiers, contenu Markdown), les désactivent ou les
@@ -142,6 +153,16 @@ propose que les comptes) :
 security-review-controller token create --label triage-bot --role triager
 # {"id": "…", "label": "triage-bot", "role": "triager", "project": null, "created_at": "…", "token": "UJB7…"}
 curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/projects
+```
+
+Le même jeton liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
+du plus grave au moins grave (filtres `status`, `severity` et `review_type`, `limit` plafonné par
+`SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer) :
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
+# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
 
 Révoquez-le avec `security-review-controller token revoke triage-bot`. Chaque changement de
@@ -252,7 +273,9 @@ Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour
 depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
 connexion est refusée (`429`, en-tête `Retry-After`), même avec le bon mot de passe. Le compteur
 est tenu en mémoire par chaque réplique. Derrière un reverse proxy, l'adresse vue est celle du
-proxy : la limite s'applique alors à tous les clients du proxy. Chaque connexion et chaque échec
+proxy, et la limite s'appliquerait alors à tous les clients du proxy : déclarez le proxy dans
+[`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md) pour que l'adresse du client
+soit lue dans `X-Forwarded-For`. Chaque connexion et chaque échec
 sont journalisés, sans le mot de passe :
 
 ```

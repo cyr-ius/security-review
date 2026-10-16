@@ -92,7 +92,10 @@ Il contient :
 Remplacez l'image (`registry.example.com/security-review-mcp:pg`) par la vôtre, construite avec
 l'extra `postgres`. Exposez le Service `secreview-mcp` aux agents et à la CI par un Ingress avec
 TLS. Gardez le contrôleur interne (`kubectl port-forward`, VPN ou Ingress restreint aux
-administrateurs). Les commandes d'administration s'exécutent dans son pod :
+administrateurs). Derrière l'Ingress, réglez `SECREVIEW_FORWARDED_ALLOW_IPS` (en commentaire dans
+la ConfigMap) sur la plage d'adresses des pods de l'ingress controller : sinon tous les clients
+partagent leur adresse pour la limitation des connexions et les limites d'enrôlement. Les
+commandes d'administration s'exécutent dans son pod :
 
 ```bash
 kubectl -n secreview exec deploy/secreview-controller -c controller -- \

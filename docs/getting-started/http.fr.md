@@ -57,7 +57,7 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
 Dès qu'un jeton existe en base, l'endpoint MCP et l'API du contrôleur exigent
 `Authorization: Bearer <jeton>`. Restent publics : `/healthz` sur les deux processus,
 `/api/v1/enroll` sur le serveur MCP, et sur le contrôleur les fichiers statiques de `/ui/` et la
-documentation Swagger (`/api/docs`, schéma `/api/openapi.json`). Tant qu'aucun jeton n'existe,
+documentation Swagger (`/api/docs`, schéma `/api/openapi.json`, icône `/api/favicon.svg`). Tant qu'aucun jeton n'existe,
 `/mcp` est ouvert (un avertissement est journalisé si l'écoute n'est pas sur localhost) et l'API
 du contrôleur répond `503`. `token revoke` avertit sur stderr quand il
 supprime le dernier jeton.
@@ -104,20 +104,24 @@ Plutôt que de créer chaque jeton à l'avance, laissez les projets **demander**
 validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès qu'un jeton existe.
 
 1. **Demande.** Le client obtient tout de suite un jeton de rôle `mcp`, restreint au projet
-   demandé, mais **en attente** : il ne donne encore accès à rien. Son label (le nom du projet
-   par défaut) reçoit un suffixe aléatoire. Trois façons de demander :
+   demandé, mais **en attente** : il ne donne encore accès à rien. Un jeton est personnel (il
+   pourra ensuite atteindre d'autres projets) : son label est donc le **nom d'utilisateur du
+   développeur**, le nom de connexion avec `enroll`, le nom transmis par l'agent ; sans label,
+   le nom du projet suivi de `-enroll`. Un suffixe aléatoire est ajouté. Trois façons de
+   demander :
     - **Depuis l'agent, à la première revue.** Un client MCP qui se connecte **sans** en-tête
       `Authorization` n'est pas rejeté : il atteint un serveur MCP restreint (même nom
       `security-review`) qui n'expose que les outils `request_enrollment` et
       `get_enrollment_status`, et des prompts du même nom que les revues (`security-review`,
       `codebase-review`…) qui expliquent la marche à suivre. L'agent appelle
-      `request_enrollment` avec le nom du projet et remet le jeton à l'utilisateur.
+      `request_enrollment` avec le nom du projet et le nom d'utilisateur du développeur,
+      et remet le jeton à l'utilisateur.
     - **En ligne de commande**, depuis le poste du développeur ou la CI :
 
         ```bash
         security-review-mcp enroll --url https://secreview.example.internal:8443 \
             --project shop-api --requested-by "alice (équipe shop)"
-        # {"id": "…", "label": "shop-api-enroll-3fa9c1", "status": "pending", "token": "UJB7…", …}
+        # {"id": "…", "label": "alice-3fa9c1", "status": "pending", "token": "UJB7…", …}
         ```
 
     - **Par l'API du serveur MCP** : `POST /api/v1/enroll` (sans jeton) avec
@@ -132,8 +136,8 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
 
     ```bash
     security-review-controller token list --pending           # demandeur, adresse, date
-    security-review-controller token approve shop-api-enroll-3fa9c1
-    security-review-controller token reject shop-api-enroll-3fa9c1
+    security-review-controller token approve alice-3fa9c1
+    security-review-controller token reject alice-3fa9c1
     ```
 
     Une fois approuvé, le jeton fonctionne dès la requête suivante, sans reconfiguration.
@@ -170,7 +174,9 @@ ajouté à ses droits.
 Un jeton sans restriction atteint déjà tous les projets : il ne peut pas faire d'enrôlement
 complémentaire. Créez un jeton restreint si vous devez limiter ses accès.
 
-Garde-fous : au plus 20 demandes en attente à la fois, une demande non traitée expire au bout de
+Garde-fous : au plus 20 demandes en attente à la fois, 3 par adresse cliente (derrière un
+reverse proxy, définissez [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md)), une
+demande non traitée expire au bout de
 7 jours, un jeton avec un secret invalide reste refusé (`401`) et les demandes en attente
 n'activent jamais l'authentification d'un serveur ouvert. Vérifiez le demandeur avant
 d'approuver : n'importe quel client qui atteint le serveur peut déposer une demande. Pour
@@ -200,49 +206,18 @@ security-review-controller serve --host 0.0.0.0 --port 9443 \
 `SECREVIEW_TLS_CLIENT_CA` active en plus le **TLS mutuel** : seuls les clients présentant un
 certificat signé par cette CA peuvent se connecter.
 
-### Certificat auto-signé
+### Autorité de certification
 
-Sans certificat fourni, `--tls-self-signed` (ou `SECREVIEW_TLS_SELF_SIGNED=true`) fait générer au
-démarrage un certificat auto-signé et sa clé (EC P-256, valable un an) :
+Le serveur ne génère jamais de certificat : fournissez-en un signé par une autorité de
+certification reconnue par les clients, une CA publique (par exemple Let's Encrypt, ou
+cert-manager dans Kubernetes) ou la **CA interne** de votre organisation. Son `subjectAltName`
+doit contenir les noms et adresses utilisés par les clients (par exemple
+`DNS:secreview.lan,IP:192.168.1.1`) ; sinon les clients refusent la connexion même s'ils font
+confiance à la CA. Le fichier de clé (`key.pem`) ne quitte jamais le serveur : gardez-le lisible
+par le seul compte du serveur (`chmod 600`).
 
-```bash
-security-review-mcp --transport streamable-http --host 0.0.0.0 --port 8443 --tls-self-signed
-security-review-controller serve --host 0.0.0.0 --port 9443 --tls-self-signed
-```
-
-- Le certificat couvre `localhost`, `127.0.0.1`, `::1`, le nom de la machine et l'adresse
-  `--host` (sauf `0.0.0.0` / `::`). Ajoutez dans `SECREVIEW_TLS_SELF_SIGNED_HOSTS` les noms et
-  adresses IP **utilisés par les clients**, séparés par des virgules (par exemple
-  `192.168.1.1,secreview.lan`) : sinon, même un client qui fait confiance au certificat refuse
-  la connexion (nom non couvert). C'est indispensable en conteneur, où le nom de la machine est
-  celui du conteneur.
-- Il est écrit dans un dossier temporaire privé (clé en mode `0600`), supprimé à l'arrêt : **une
-  nouvelle clé est générée à chaque démarrage**. Son empreinte SHA-256 est journalisée pour que
-  les clients puissent la vérifier.
-- Un certificat fourni (`SECREVIEW_TLS_CERTFILE`) est toujours prioritaire ;
-  `SECREVIEW_TLS_CLIENT_CA` (TLS mutuel) reste utilisable.
-
-!!! warning
-    Les clients ne font pas confiance à ce certificat : il faut l'ajouter explicitement à leur
-    configuration (voir [Configuration de l'hôte](host.md#serveur-https-auto-signe-ou-ca-interne)),
-    et le réajouter à chaque redémarrage. Réservez-le aux tests et aux réseaux internes ; en
-    production, fournissez un certificat signé par une CA ou terminez le TLS sur un reverse proxy.
-
-### Certificat stable
-
-Pour ne faire accepter le certificat qu'une seule fois, générez-le une fois pour toutes et
-fournissez-le avec `SECREVIEW_TLS_CERTFILE` / `SECREVIEW_TLS_KEYFILE`. Indiquez dans
-`subjectAltName` les noms et adresses utilisés par les clients :
-
-```bash
-openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 825 \
-    -keyout key.pem -out cert.pem -subj "/CN=security-review-mcp" \
-    -addext "subjectAltName=DNS:secreview.lan,IP:192.168.1.1,DNS:localhost,IP:127.0.0.1" \
-    -addext "basicConstraints=critical,CA:FALSE" -addext "extendedKeyUsage=serverAuth"
-chmod 600 key.pem
-```
-
-`cert.pem` est alors le fichier à distribuer aux clients ; `key.pem` ne quitte pas le serveur.
+Avec une CA interne, les clients doivent faire confiance à son certificat : voir
+[Configuration de l'hôte](host.md#serveur-https-avec-une-ca-interne).
 
 ## Configuration du client
 

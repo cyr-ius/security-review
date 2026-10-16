@@ -6,7 +6,8 @@
 uv sync --extra dev
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
-pre-commit install          # optional: same checks before every commit
+pre-commit install          # optional: same checks before every commit, and the dependency
+                            # scan when SECREVIEW_SERVER_URL is set
 ```
 
 In VS Code (`.vscode/`):
@@ -92,6 +93,7 @@ src/security_review_mcp/
 ├── token_store.py # Bearer tokens in the database: creation, revocation, enrollment
 ├── web_users.py   # web interface accounts, local (scrypt) or SSO (created on the fly), sessions, initial admin
 ├── enrollment.py  # `enroll` client: token request to a shared server
+├── remote_scan.py # `scan-deps` client: dependency scan with a shared server
 ├── enrollment_api.py  # public POST /api/v1/enroll endpoint of the MCP server
 ├── web_api.py     # controller: REST API /api/v1 and files of the application (/ui)
 ├── prompts.py     # construction of the prompts
@@ -102,7 +104,7 @@ src/security_review_mcp/
 ├── rules_loader.py    # rule validation, reading of the TOML packs and of the default file
 ├── rule_store.py  # rules in the database: seeding, import/export, enabling, deletion
 ├── registry.py    # active rules/checklists (read from the database), reload
-├── cli.py         # db, gate, sarif, trend, advisories, deps, code, rules, token, enroll commands
+├── cli.py         # db, gate, sarif, trend, advisories, deps, code, rules, token, enroll, scan-deps commands
 ├── codescan.py    # whole codebase scan (file list, language, findings)
 ├── sarif.py       # SARIF 2.1.0 export
 ├── trends.py      # trend report
@@ -114,6 +116,7 @@ src/security_review_mcp/
 ├── dependencies.py    # manifest / lockfile parsers, hygiene
 ├── depscan.py     # dependency scan and conversion into findings
 ├── services.py    # persistence logic of the reports
+├── retention.py   # daily purge of the reports without findings by the controller
 ├── models.py      # SQLModel models (tables + schemas)
 ├── database.py    # engine, sessions and migrations (Alembic)
 ├── migrations/    # Alembic environment and schema revisions (versions/)

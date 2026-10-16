@@ -1,6 +1,7 @@
 import { DatePipe, SlicePipe } from '@angular/common';
 import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { REVIEW_TYPE_META } from '../../../core/constants/labels';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ReportSummary } from '../../../core/models/api.models';
 import { SeverityBadgeComponent } from '../severity-badge/severity-badge.component';
@@ -17,4 +18,6 @@ export class ReportTableComponent {
 
   /** Hide the project column on a project page. */
   readonly showProject = input(true);
+
+  readonly reviewTypeMeta = REVIEW_TYPE_META;
 }

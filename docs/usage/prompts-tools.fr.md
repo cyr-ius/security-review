@@ -47,7 +47,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `scan_code` | Scan rapide par motifs (pistes à vérifier, **pas** un SAST). Extraits masqués |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
-| `list_security_reports` | Liste filtrable par projet / niveau de risque, avec pagination |
+| `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue, avec pagination |
 | `update_finding_status` | `open`, `fixed`, `accepted`, `false_positive` |
 | `get_project_security_posture` | Findings ouverts par sévérité (utile comme garde-fou CI) |
 | `check_project_gate` | Gate CI : `passed` est faux tant qu'un finding **ouvert** atteint le seuil `fail_on` |
@@ -73,7 +73,7 @@ n'expose que :
 
 | Élément | Rôle |
 |---|---|
-| `request_enrollment` | Dépose la demande pour un projet et renvoie le jeton (affiché une fois) |
+| `request_enrollment` | Dépose la demande pour un projet et renvoie le jeton (affiché une fois), nommé d'après le nom d'utilisateur du développeur (`label`) |
 | `get_enrollment_status` | `pending` si le jeton présenté attend l'approbation, `not_enrolled` sans jeton |
 | Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Argument `project` facultatif ; expliquent à l'agent comment demander l'accès au lieu de lancer la revue |
 
@@ -93,13 +93,38 @@ Voir [l'enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son
 - `project`, `summary` ;
 - une liste de `findings` : `title`, `severity`, `description`, et optionnellement `cwe`,
   `owasp`, `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category` ;
-- `repository`, `branch`, `commit_sha`, `reviewer`, `scope`.
+- `repository`, `branch`, `commit_sha`, `reviewer`, `scope` ;
+- `review_type` : le type de revue, indiqué par chaque prompt de revue (voir ci-dessous).
 
 Le **niveau de risque** du rapport est calculé (sévérité maximale des findings). Le paramètre
 `risk_level` peut seulement le relever, jamais le baisser.
+
+### Type de revue
+
+Chaque prompt de revue indique au modèle le `review_type` à transmettre : les rapports et leurs
+findings se distinguent et se filtrent ainsi dans l'[interface web](web-interface.md) et dans
+`list_security_reports` :
+
+| `review_type` | Fixé par |
+|---|---|
+| `security-review` | prompt `security-review` |
+| `api-security-review` | prompt `api-security-review` |
+| `configuration-review` | prompt `configuration-review` |
+| `dependency-review` | prompt `dependency-review` |
+| `codebase-review` | prompt `codebase-review` |
+| `code-scan` | CLI `security-review-controller code scan --save` |
+| `dependency-scan` | CLI `security-review-controller deps scan --save` |
+| `other` | toute autre revue (manuelle, sans prompt) |
+
+Le champ est facultatif : un rapport enregistré sans lui n'a pas de type. Toute autre valeur est
+refusée. Le type est déclaré par le client : il étiquette et filtre les rapports, il n'accorde
+jamais de droit et ne change pas une gate. Les rapports des scans CLI enregistrés avant l'existence de ce champ reçoivent leur
+type lors de la mise à jour de la base.
 
 !!! info "Masquage des secrets"
     Les secrets présents dans `summary`, `description`, `evidence` et `recommendation`
     (mots de passe, tokens, `SECRET_KEY`, clés AWS, jetons GitHub, GitLab, Slack, Google, Stripe
     et npm, JWT, clés privées, identifiants dans les URL) sont masqués
-    avant stockage. C'est un filet de sécurité : l'agent doit aussi éviter de les recopier.
+    avant stockage. Les niveaux de permission (`read`, `write`, `none`, comme dans
+    `id-token: write` de GitHub Actions) ne sont pas des secrets et sont conservés. C'est un
+    filet de sécurité : l'agent doit aussi éviter de les recopier.

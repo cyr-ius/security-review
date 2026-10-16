@@ -62,6 +62,9 @@ def osv(
         ("2.31.0", "2.9.1", 1),
         ("v1.2", "1.2", 0),
         ("1!2.0", "2.0", 0),
+        ("22.0.0-next.0", "22.0.0-rc.2", -1),
+        ("22.0.0-next.3", "22.0.0", -1),
+        ("19.0.0-canary-1", "19.0.0-beta.1", -1),
     ],
 )
 def test_compare_versions(left, right, expected):
@@ -142,6 +145,19 @@ def test_is_affected_follows_the_osv_algorithm():
     assert advisories.is_affected("3.0", [], ["3.0"])  # explicit version list
 
 
+def test_prerelease_ranges_do_not_affect_later_releases():
+    # Real Angular ranges (GHSA-p3vc-36g9-x9gr): "next" pre-releases come before "rc" ones
+    ranges = [
+        {"type": "SEMVER", "events": [{"introduced": "22.0.0-next.0"}, {"fixed": "22.0.0-rc.2"}]},
+        {"type": "SEMVER", "events": [{"introduced": "21.2.0-next.0"}, {"fixed": "21.2.0"}]},
+    ]
+
+    assert not advisories.is_affected("22.2.2", ranges, [])
+    assert not advisories.is_affected("21.2.1", ranges, [])
+    assert advisories.is_affected("22.0.0-next.5", ranges, [])
+    assert advisories.is_affected("21.2.0-rc.1", ranges, [])
+
+
 def test_recommended_upgrade_is_the_closest_newer_fix():
     assert advisories.recommended_upgrade("1.4", ["1.5", "2.3"]) == "1.5"
     assert advisories.recommended_upgrade("2.0", ["1.5", "2.3"]) == "2.3"
@@ -190,6 +206,26 @@ def test_import_directory_and_find(tmp_path):
     assert set(by_package) == {("requests", "2.19.0"), ("left-pad", "1.0.0")}
     assert by_package[("requests", "2.19.0")]["recommended_upgrade"] == "2.20.0"
     assert by_package[("requests", "2.19.0")]["severity"] == "high"
+
+
+def test_one_advisory_affecting_several_queried_packages(tmp_path):
+    record = osv("GHSA-multi", "httpx", fixed="1.0.0")
+    record["affected"].append(
+        {
+            "package": {"ecosystem": "PyPI", "name": "httpcore"},
+            "ranges": [{"type": "ECOSYSTEM", "events": [{"introduced": "0"}, {"fixed": "1.0.0"}]}],
+        }
+    )
+    advisories.import_advisories(write_dir(tmp_path, record))
+
+    found = advisories.find_vulnerabilities(
+        [Query("PyPI", "httpx", "0.9.0"), Query("PyPI", "httpcore", "0.9.0")]
+    )
+
+    assert {(f["package"], f["advisory_id"]) for f in found} == {
+        ("httpx", "GHSA-multi"),
+        ("httpcore", "GHSA-multi"),
+    }
 
 
 def test_pypi_names_are_normalized():

@@ -15,8 +15,6 @@ dependencies = [
     "fastapi>=0.135",
     "tomlkit>=0.13",
     "alembic>=1.13",
-    # Self-signed TLS certificate (SECREVIEW_TLS_SELF_SIGNED); already required by mcp
-    "cryptography>=44",
     # ID token and session checks of the OIDC login (SECREVIEW_OIDC_*); already required by mcp
     "pyjwt[crypto]>=2.10",
 ]
@@ -40,7 +38,7 @@ where = ["src"]
 # Default rules seeded into the database, and the built Angular application (web/,
 # `npm run build`) served on /ui
 [tool.setuptools.package-data]
-security_review_mcp = ["default_rules.toml", "migrations/script.py.mako", "webui/*", "webui/**/*"]
+security_review_mcp = ["default_rules.toml", "favicon.svg", "migrations/script.py.mako", "webui/*", "webui/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

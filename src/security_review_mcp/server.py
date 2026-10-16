@@ -32,7 +32,7 @@ from . import (
 )
 from .config import check_report_language, configure_logging, get_settings
 from .database import SchemaError, check_db, init_db
-from .models import FindingCreate, FindingStatus, Severity
+from .models import FindingCreate, FindingStatus, ReviewType, Severity
 
 logger = logging.getLogger("security_review_mcp")
 
@@ -495,12 +495,21 @@ def save_security_report(
         Severity | None,
         Field(description="Optional override; can only raise the risk computed from findings"),
     ] = None,
+    review_type: Annotated[
+        ReviewType | None,
+        Field(
+            description="Kind of review: the name of the review prompt used (security-review, "
+            "api-security-review, configuration-review, dependency-review, codebase-review), "
+            "or other"
+        ),
+    ] = None,
 ) -> dict:
     """Store a security report and its findings in the database.
 
     Call this once at the end of a review, with the free-text fields written in the report
-    language given by the review prompt, scan_code or get_review_checklist, if any. Secrets in
-    free-text fields are masked before storage. Returns the report id, the overall risk level
+    language given by the review prompt, scan_code or get_review_checklist, if any, and the
+    review_type given by the review prompt. Secrets in free-text fields are masked before
+    storage. Returns the report id, the overall risk level
     and the finding counts.
     """
     allowed = _caller_projects(ctx)
@@ -520,6 +529,7 @@ def save_security_report(
         reviewer=reviewer,
         scope=scope,
         risk_level=risk_level,
+        review_type=review_type,
     )
 
 
@@ -546,12 +556,15 @@ def list_security_reports(
     risk_level: Severity | None = None,
     limit: Annotated[int, Field(ge=1, le=100)] = 20,
     offset: Annotated[int, Field(ge=0)] = 0,
+    review_type: Annotated[
+        ReviewType | None, Field(description="Keep only the reports of this kind of review")
+    ] = None,
 ) -> list[dict]:
-    """List stored reports, newest first, optionally filtered by project or risk level."""
+    """List stored reports, newest first, optionally filtered by project, risk or review type."""
     allowed = _caller_projects(ctx)
     if allowed is not None and project:
         services.check_project_scope(allowed, project)
-    return services.list_reports(project, risk_level, limit, offset, allowed)
+    return services.list_reports(project, risk_level, limit, offset, allowed, review_type)
 
 
 @mcp.tool(annotations=WRITE)
@@ -650,7 +663,7 @@ def scan_dependencies(
     Check `vulnerability_check` first: when it is not `performed`, no vulnerability could be
     detected and an empty list does NOT mean the dependencies are safe. Lockfiles give the best
     results. Supported: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock,
-    package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts).
+    uv.lock, package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts).
     """
     limit = get_settings().max_dependency_chars
     if len(content) > limit:
@@ -729,7 +742,10 @@ ProjectArg = Annotated[
 ]
 LabelArg = Annotated[
     str | None,
-    Field(description="Optional token name (default: the project); a random suffix is added"),
+    Field(
+        description="Token name: the developer's username, since a token is personal and may "
+        "reach several projects (default: the project); a random suffix is added"
+    ),
 ]
 RequestedByArg = Annotated[
     str | None,
@@ -930,7 +946,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         # Bearer tokens live in the database (hashes only)
         store = token_store.DatabaseTokenStore()
-        tls = http_server.tls_options(settings, args.host)
+        tls = http_server.tls_options(settings)
     except ValueError as exc:
         parser.error(str(exc))
     if settings.enrollment:
@@ -942,7 +958,9 @@ def main(argv: list[str] | None = None) -> None:
         enrollment_mcp if settings.enrollment else None,
         enrollment_api.create_app(args.host) if settings.enrollment else None,
     )
-    http_server.serve(app, args.host, args.port, store, tls, settings.log_level)
+    http_server.serve(
+        app, args.host, args.port, store, tls, settings.log_level, settings.forwarded_allow_ips
+    )
 
 
 if __name__ == "__main__":

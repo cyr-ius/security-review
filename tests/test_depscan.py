@@ -37,6 +37,19 @@ def test_vulnerable_component_is_found_with_line_and_upgrade(tmp_path):
     assert vuln["recommended_upgrade"] == "2.20.0"
 
 
+def test_vulnerable_component_is_found_in_uv_lock(tmp_path):
+    load(osv(severity="HIGH", fixed="2.20.0"), tmp_path=tmp_path)
+    lock = (
+        'version = 1\n\n[[package]]\nname = "requests"\nversion = "2.19.0"\n'
+        'source = { registry = "https://pypi.org/simple" }\n'
+    )
+    result = depscan.scan_dependencies(lock, "uv.lock")
+    assert result["vulnerability_check"] == "performed"
+    (vuln,) = result["vulnerabilities"]
+    assert (vuln["package"], vuln["version"]) == ("requests", "2.19.0")
+    assert vuln["recommended_upgrade"] == "2.20.0"
+
+
 def test_fixed_version_is_not_reported(tmp_path):
     load(osv(fixed="2.0.0"), tmp_path=tmp_path)
     assert depscan.scan_dependencies(REQUIREMENTS, "requirements.txt")["vulnerabilities"] == []

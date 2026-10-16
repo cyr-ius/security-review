@@ -17,9 +17,9 @@
   finding is handled as missing (see
   [tokens restricted to a project](../getting-started/http.md#tokens-restricted-to-a-project)).
   If it does not listen on localhost, a warning is logged when authentication or TLS is missing.
-  The optional [self-signed certificate](../getting-started/http.md#self-signed-certificate) is
-  generated again at every start (private key in `0600` in a temporary folder, never logged)
-  and is not trusted by the clients without an explicit addition. There is no rate limiting.
+  The server never generates a TLS certificate: HTTPS uses the certificate given by the
+  operator, signed by a [certificate authority](../getting-started/http.md#certificate-authority).
+  There is no rate limiting.
   Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `reader`, `triager`,
   `admin`); an `mcp` token without a project reaches every MCP tool and every project.
 - **Enrollment** (enabled by default, `SECREVIEW_ENROLLMENT`): a client without a token reaches
@@ -27,13 +27,16 @@
   on the MCP server (body limited to 4 KiB). The approval happens on the controller. A request
   is an `mcp` token restricted to the project, **pending**: it gives access to nothing before
   the approval of an administrator, and pending requests never enable the authentication of an
-  open server. The number of pending requests is bounded (20) and a request left unprocessed
+  open server. The number of pending requests is bounded (20 in all, 3 per client address) and a
+  request left unprocessed
   expires after 7 days; the free text of the requester is masked and truncated. Any client that
   reaches the server can file a request: check the requester and the address shown before
   approving, or disable the enrollment. See
   [enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token).
-- **Outgoing network calls**: the MCP server makes none. The `security-review-mcp enroll`
-  command contacts, at the request of the operator, the URL they give; it refuses plain HTTP
+- **Outgoing network calls**: the MCP server makes none. The `security-review-mcp enroll` and
+  `scan-deps` commands contact, at the request of the operator, the URL they give (`scan-deps`
+  sends the dependency files given on its command line, never through a symbolic link); they
+  refuse plain HTTP
   outside localhost (unless `--allow-http`), credentials in the URL and redirects. The
   controller only downloads the OSV advisories if an administrator enables it
   (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over
@@ -73,7 +76,9 @@
   256 characters, user names limited to `[A-Za-z0-9._@-]`. The check takes the same time
   whether the user name exists or not (dummy digest), and a failure always returns the same
   `401`. Failures are limited in memory (5 per user name and address, 20 per address, over
-  15 minutes, then `429`); only valid user names are logged, never passwords. The session is a
+  15 minutes, then `429`); behind a reverse proxy, the client address is only read from
+  `X-Forwarded-For` for the proxies listed in `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` lets any
+  client choose its address and get round the limits). Only valid user names are logged, never passwords. The session is a
   token signed with `SECREVIEW_SESSION_SECRET`, like the SSO one, but the account is **read
   again from the database at every request**: deletion, new role or new projects apply
   immediately, and a password change draws a new random session version that invalidates every

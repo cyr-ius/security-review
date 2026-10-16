@@ -25,7 +25,7 @@ from security_review_mcp import (
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
-from security_review_mcp.models import ApiToken, FindingCreate, Severity
+from security_review_mcp.models import ApiToken, FindingCreate, ReviewType, Severity
 
 # Raw secret of one token per role, created in the database by the ``secured`` fixture
 TOKENS: dict[str, str] = {}
@@ -136,6 +136,26 @@ def test_api_without_middleware_fails_closed(ui_dir, method, path):
     assert bare.get("/api/openapi.json").status_code == 200
 
 
+def test_favicon_is_served_and_used_by_swagger(ui_dir):
+    bare = TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+
+    icon = bare.get("/api/favicon.svg")
+    assert icon.status_code == 200
+    assert icon.headers["content-type"] == "image/svg+xml"
+    assert icon.headers["x-content-type-options"] == "nosniff"
+    assert icon.headers["content-security-policy"].startswith("default-src 'none'")
+    assert icon.content.startswith(b"<svg")
+    # Swagger shows the application icon, not the one fetched from the FastAPI site
+    docs = bare.get("/api/docs")
+    assert docs.status_code == 200
+    assert 'href="/api/favicon.svg"' in docs.text
+    assert "fastapi.tiangolo.com" not in docs.text
+    assert "/api/openapi.json" in docs.text
+    # Neither is part of the API schema
+    paths = bare.get("/api/openapi.json").json()["paths"]
+    assert "/api/favicon.svg" not in paths and "/api/docs" not in paths
+
+
 def test_projects(client, reports):
     projects = client.get("/api/v1/projects").json()
     assert [p["project"] for p in projects] == ["billing", "shop-api"]
@@ -179,6 +199,61 @@ def test_posture_trend_and_sarif(client, reports):
     assert sarif.headers["content-type"] == "application/sarif+json"
     assert len(sarif.json()["runs"][0]["results"]) == 2
     assert client.get("/api/v1/sarif").status_code == 422
+
+
+def test_project_findings(client, reports):
+    response = client.get("/api/v1/findings", params={"project": "shop-api"})
+    assert response.status_code == 200
+    page = response.json()
+    assert page["total"] == 2
+    assert [f["severity"] for f in page["findings"]] == ["high", "low"]
+    assert page["findings"][0]["report_id"] == reports[0]
+    assert "report_created_at" in page["findings"][0]
+
+    first = page["findings"][0]["id"]
+    client.patch(f"/api/v1/findings/{first}", json={"status": "false_positive"})
+    assert client.get("/api/v1/findings", params={"project": "shop-api"}).json()["total"] == 1
+    dismissed = client.get(
+        "/api/v1/findings", params={"project": "shop-api", "status": "false_positive"}
+    ).json()
+    assert [f["id"] for f in dismissed["findings"]] == [first]
+    assert client.get("/api/v1/findings").status_code == 422
+    assert (
+        client.get("/api/v1/findings", params={"project": "shop-api", "status": "x"}).status_code
+        == 422
+    )
+    assert (
+        client.get("/api/v1/findings", params={"project": "shop-api", "limit": 0}).status_code
+        == 422
+    )
+
+
+def test_findings_and_reports_show_and_filter_the_review_type(client):
+    services.save_report(
+        "typed",
+        "API review",
+        [FindingCreate(title="IDOR", severity=Severity.HIGH, description="No ownership check")],
+        review_type=ReviewType.API_SECURITY_REVIEW,
+    )
+    services.save_report(
+        "typed",
+        "Config review",
+        [FindingCreate(title="Root user", severity=Severity.LOW, description="Runs as root")],
+        review_type=ReviewType.CONFIGURATION_REVIEW,
+    )
+    params = {"project": "typed", "review_type": "api-security-review"}
+    page = client.get("/api/v1/findings", params=params).json()
+    assert [(f["title"], f["review_type"]) for f in page["findings"]] == [
+        ("IDOR", "api-security-review")
+    ]
+    reports = client.get("/api/v1/reports", params=params).json()
+    assert [r["review_type"] for r in reports] == ["api-security-review"]
+    report = client.get(f"/api/v1/reports/{reports[0]['report_id']}").json()
+    assert report["review_type"] == "api-security-review"
+    assert client.get("/api/v1/findings", params={"project": "typed"}).json()["total"] == 2
+    bad = {"project": "typed", "review_type": "bogus"}
+    assert client.get("/api/v1/findings", params=bad).status_code == 422
+    assert client.get("/api/v1/reports", params=bad).status_code == 422
 
 
 def test_update_finding_status(client, reports):
@@ -365,6 +440,11 @@ def test_reader_can_read_but_not_triage(secured, reports):
     me = secured.get("/api/v1/me", headers=auth("reader")).json()
     assert (me["client"], me["role"], me["can_triage"]) == ("reader", "reader", False)
     assert secured.get("/api/v1/projects", headers=auth("reader")).status_code == 200
+    findings = secured.get(
+        "/api/v1/findings", params={"project": "shop-api"}, headers=auth("reader")
+    )
+    assert findings.json()["total"] == 2
+    assert secured.get("/api/v1/findings", params={"project": "shop-api"}).status_code == 401
 
     response = secured.patch("/api/v1/findings/1", json={"status": "fixed"}, headers=auth("reader"))
     assert response.status_code == 403
@@ -548,6 +628,18 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, 
     )
     assert secured.get("/api/v1/sarif", headers=project_headers).status_code == 200
     assert (
+        secured.get(
+            "/api/v1/findings", params={"project": "shop-api"}, headers=project_headers
+        ).status_code
+        == 200
+    )
+    assert (
+        secured.get(
+            "/api/v1/findings", params={"project": "billing"}, headers=project_headers
+        ).status_code
+        == 404
+    )
+    assert (
         secured.get(f"/api/v1/reports/{billing_report_id}", headers=project_headers).status_code
         == 404
     )
@@ -595,6 +687,30 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, 
     assert revoked.status_code == 204
     assert secured.get("/api/v1/me", headers=project_headers).status_code == 401
     assert secured.get("/api/v1/project-tokens", headers=auth("admin")).json() == []
+
+
+def test_hidden_report_answers_like_a_missing_one(secured, reports):
+    _, billing_report_id = reports
+    missing_id = billing_report_id + 1000
+    token = token_store.create_project_token("shop-ci", ["shop-api"], "reader")["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+
+    for path, params in (
+        ("/api/v1/reports/{id}", None),
+        ("/api/v1/reports/{id}/markdown", None),
+        ("/api/v1/sarif", {"report_id": "{id}"}),
+    ):
+        answers = []
+        for report_id in (billing_report_id, missing_id):
+            response = secured.get(
+                path.format(id=report_id),
+                params={k: v.format(id=report_id) for k, v in (params or {}).items()},
+                headers=headers,
+            )
+            body = response.json()["detail"].replace(str(report_id), "N")
+            answers.append((response.status_code, body))
+        # A report of another project cannot be told apart from a report that does not exist
+        assert answers[0] == answers[1] == (404, "Report N not found")
 
 
 def test_project_token_errors(secured, reports):

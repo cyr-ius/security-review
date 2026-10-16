@@ -34,6 +34,14 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'projects/:project/findings',
+        title: 'projectFindings.title',
+        loadComponent: () =>
+          import('./features/projects/project-findings/project-findings.component').then(
+            (m) => m.ProjectFindingsComponent,
+          ),
+      },
+      {
         path: 'reports',
         title: 'layout.reports',
         loadComponent: () =>

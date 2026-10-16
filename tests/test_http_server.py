@@ -2,10 +2,8 @@
 
 import json
 import ssl
-from pathlib import Path
 
 import pytest
-from cryptography import x509
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
@@ -57,6 +55,7 @@ def protected_client(web: bool = False, enrollment: bool = False) -> TestClient:
             Route("/api/v1/auth/config", whoami),
             Route("/api/docs", whoami),
             Route("/api/openapi.json", whoami),
+            Route("/api/favicon.svg", whoami),
             Route("/ui/", whoami),
             Route("/healthz", whoami),
         ]
@@ -131,12 +130,14 @@ def test_web_ui_files_are_public_but_not_the_api():
     assert client.get("/api/v1/me").status_code == 401
     assert client.get("/api/docs").status_code == 200
     assert client.get("/api/openapi.json").status_code == 200
+    assert client.get("/api/favicon.svg").status_code == 200
     # The controller does not serve the public enrollment endpoint
     assert client.post("/api/v1/enroll").status_code == 401
     # On the MCP server, only the public paths it declares are open
     mcp_client = protected_client()
     assert mcp_client.get("/ui/").status_code == 401
     assert mcp_client.get("/api/docs").status_code == 401
+    assert mcp_client.get("/api/favicon.svg").status_code == 401
     assert mcp_client.get("/healthz").status_code == 200
     assert mcp_client.post("/api/v1/enroll").status_code == 200
     # The login routes are public on the controller only
@@ -286,80 +287,10 @@ def test_tls_options(tmp_path):
 def test_tls_options_errors(tmp_path):
     with pytest.raises(ValueError, match="needs SECREVIEW_TLS_CERTFILE"):
         http_server.tls_options(make_settings(tls_keyfile="key.pem"))
-    with pytest.raises(ValueError, match="needs SECREVIEW_TLS_CERTFILE or"):
+    with pytest.raises(ValueError, match="CLIENT_CA needs SECREVIEW_TLS_CERTFILE"):
         http_server.tls_options(make_settings(tls_client_ca="ca.pem"))
     with pytest.raises(ValueError, match="file not found"):
         http_server.tls_options(make_settings(tls_certfile=str(tmp_path / "missing.pem")))
-
-
-def test_generate_self_signed_certificate(tmp_path):
-    certfile, keyfile, fingerprint = http_server.generate_self_signed(
-        "secreview.internal", tmp_path
-    )
-
-    certificate = x509.load_pem_x509_certificate(certfile.read_bytes())
-    names = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
-    assert {"localhost", "secreview.internal"} <= set(names.get_values_for_type(x509.DNSName))
-    assert certificate.issuer == certificate.subject
-    assert fingerprint.count(":") == 31
-    # The private key is readable by the owner only and matches the certificate
-    assert keyfile.stat().st_mode & 0o777 == 0o600
-    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-    context.load_cert_chain(certfile, keyfile)
-
-
-def test_self_signed_certificate_covers_the_extra_hosts(tmp_path):
-    settings = make_settings(
-        tls_self_signed=True, tls_self_signed_hosts="192.168.1.1, secreview.lan"
-    )
-
-    tls = http_server.tls_options(settings, "0.0.0.0")
-
-    certificate = x509.load_pem_x509_certificate(Path(tls.certfile).read_bytes())
-    names = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
-    assert "secreview.lan" in names.get_values_for_type(x509.DNSName)
-    assert "192.168.1.1" in {str(ip) for ip in names.get_values_for_type(x509.IPAddress)}
-
-
-@pytest.mark.parametrize(
-    "hosts",
-    [
-        "bad name",
-        "evil.example/path",
-        "*",
-        "*.example.com",
-        "a..b",
-        "-x.lan",
-        "x" * 64,
-        ",".join(["h"] * 21),
-    ],
-)
-def test_self_signed_hosts_are_validated(hosts):
-    with pytest.raises(ValueError, match="SECREVIEW_TLS_SELF_SIGNED_HOSTS"):
-        http_server.tls_options(make_settings(tls_self_signed=True, tls_self_signed_hosts=hosts))
-
-
-def test_tls_self_signed_only_without_certificate(tmp_path):
-    assert http_server.tls_options(make_settings(tls_self_signed=False)) is None
-
-    tls = http_server.tls_options(make_settings(tls_self_signed=True), "0.0.0.0")
-    assert tls.fingerprint and tls.keyfile_password is None
-    assert Path(tls.certfile).is_file() and Path(tls.keyfile).is_file()
-
-    # A configured certificate wins over the self-signed one
-    cert = tmp_path / "cert.pem"
-    cert.write_text("x", encoding="utf-8")
-    own = http_server.tls_options(make_settings(tls_certfile=str(cert), tls_self_signed=True))
-    assert own.certfile == str(cert) and own.fingerprint is None
-
-
-def test_tls_self_signed_keeps_mutual_tls(tmp_path):
-    ca = tmp_path / "ca.pem"
-    ca.write_text("x", encoding="utf-8")
-
-    tls = http_server.tls_options(make_settings(tls_self_signed=True, tls_client_ca=str(ca)))
-
-    assert tls.uvicorn_kwargs()["ssl_cert_reqs"] == ssl.CERT_REQUIRED
 
 
 # ── Start-up ─────────────────────────────────────────────────────────────────
@@ -381,7 +312,11 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     cert.write_text("x", encoding="utf-8")
     key.write_text("x", encoding="utf-8")
     token_store.create_token("ci", Role.MCP)
-    monkeypatch.setattr(server, "get_settings", lambda: make_settings(enrollment=False))
+    monkeypatch.setattr(
+        server,
+        "get_settings",
+        lambda: make_settings(enrollment=False, forwarded_allow_ips="10.0.0.0/8"),
+    )
 
     server.main(
         [
@@ -394,33 +329,12 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
     assert isinstance(call["app"], BearerAuthMiddleware) and not call["app"].web
     assert (call["host"], call["port"]) == ("0.0.0.0", 8443)
     assert (call["ssl_certfile"], call["ssl_keyfile"]) == (str(cert), str(key))
+    # The client address comes from X-Forwarded-For of the trusted reverse proxies only
+    assert (call["proxy_headers"], call["forwarded_allow_ips"]) == (True, "10.0.0.0/8")
     client = TestClient(call["app"])
     assert client.get("/mcp").status_code == 401
     # The web interface is served by the controller only
     assert client.get("/ui/").status_code == 401
-
-
-def test_main_serves_https_with_a_self_signed_certificate(caplog, monkeypatch, captured_run):
-    served: list[x509.Certificate] = []
-
-    def run(app, **kwargs) -> None:
-        """Read the certificate while it exists, as uvicorn does when it starts."""
-        served.append(x509.load_pem_x509_certificate(Path(kwargs["ssl_certfile"]).read_bytes()))
-        captured_run.append(kwargs)
-
-    monkeypatch.setattr(server, "get_settings", lambda: make_settings(enrollment=False))
-    monkeypatch.setattr(http_server.uvicorn, "run", run)
-
-    with caplog.at_level("WARNING", logger="security_review_mcp"):
-        server.main(["--transport", "streamable-http", "--tls-self-signed"])
-
-    (certificate,) = served
-    assert certificate.issuer == certificate.subject
-    assert any("fingerprint" in record.message for record in caplog.records)
-    # The private key is never logged
-    assert all("PRIVATE KEY" not in record.getMessage() for record in caplog.records)
-    # The generated files are deleted when the server stops
-    assert not Path(captured_run[0]["ssl_keyfile"]).parent.exists()
 
 
 @pytest.mark.parametrize("enabled", [True, False])
@@ -516,6 +430,40 @@ def test_serve_warns_without_authentication_only_when_no_token(caplog, captured_
 
     warned = any("without authentication" in record.message for record in caplog.records)
     assert warned is not has_token
+
+
+def test_serve_keeps_the_uvicorn_proxy_default_when_unset(captured_run):
+    http_server.serve(Starlette(), "0.0.0.0", 8000, STORE, None)
+
+    (call,) = captured_run
+    assert "forwarded_allow_ips" not in call and "proxy_headers" not in call
+
+
+def test_serve_warns_when_every_client_is_a_trusted_proxy(caplog, captured_run):
+    with caplog.at_level("WARNING", logger="security_review_mcp"):
+        http_server.serve(Starlette(), "0.0.0.0", 8000, STORE, None, forwarded_allow_ips="*")
+
+    assert captured_run[0]["forwarded_allow_ips"] == "*"
+    assert any("X-Forwarded-For" in record.message for record in caplog.records)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, None),
+        ("  ", None),
+        ("*", "*"),
+        (" 10.0.0.0/8, 192.168.1.10 ,fd00::/8", "10.0.0.0/8,192.168.1.10,fd00::/8"),
+    ],
+)
+def test_forwarded_allow_ips_setting(value, expected):
+    assert make_settings(forwarded_allow_ips=value).forwarded_allow_ips == expected
+
+
+@pytest.mark.parametrize("value", ["proxy.local", "10.0.0.0/8,*", "10.0.0.300"])
+def test_forwarded_allow_ips_refuses_what_is_not_an_address(value):
+    with pytest.raises(ValueError, match="forwarded_allow_ips"):
+        make_settings(forwarded_allow_ips=value)
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────

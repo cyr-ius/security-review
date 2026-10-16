@@ -92,9 +92,9 @@ l'utiliser.
 | Moteur de scan, masquage des secrets | `scanner.py` |
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`, `user`) et `MCP_COMMANDS` (`enroll`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`) |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`, `user`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`) |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) ; proxy sortant du contrôleur (OSV et SSO) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` ; `proxy.py` |
-| Persistance, schéma | `models.py`, `services.py`, `database.py`, `migrations/` (Alembic) |
+| Persistance, schéma (purge des rapports sans findings : `retention.py`) | `models.py`, `services.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
 | Export et tendances | `sarif.py`, `trends.py` |
 | HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et SSO, seuls à ouvrir l'interface (mot de passe, création SSO à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py`, role mapping : `role_mapping.py` |
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
@@ -153,8 +153,8 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   `/healthz` ; le contrôleur n'expose aucune route d'écriture sans jeton. N'ajoutez pas de route
   web au serveur MCP ni d'endpoint MCP au contrôleur.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
-  CLI. Exceptions : la commande CLI `enroll`, qui contacte l'URL donnée par l'opérateur, et le
-  téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
+  CLI. Exceptions : les commandes CLI `enroll` et `scan-deps`, qui contactent l'URL donnée par
+  l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
   uniquement, taille bornée, proxy facultatif (`proxy`, partagé avec le SSO) jamais journalisé
   avec ses identifiants, et la
   connexion SSO du contrôleur (`oidc`), **désactivée par défaut**, qui ne contacte que le

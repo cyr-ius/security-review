@@ -115,12 +115,10 @@ docker compose logs controller   # mot de passe admin initial
   l'hôte à utiliser dans `.env` : `PUBLISH_ADDRESS=192.168.1.10` (une interface) ou
   `PUBLISH_ADDRESS=0.0.0.0` (toutes les interfaces). Cette variable ne sert qu'à Compose. Le
   contrôleur n'expose aucune route d'écriture sans jeton : il peut rester interne.
-- Pour un essai en HTTPS sans fichier à monter, ajoutez `SECREVIEW_TLS_SELF_SIGNED=true` et
-  `SECREVIEW_TLS_SELF_SIGNED_HOSTS` (l'adresse ou le nom par lequel les clients joignent l'hôte
-  Docker) dans `.env` : le fichier Compose transmet ces variables aux deux serveurs, qui génèrent un
-  [certificat auto-signé](http.md#certificat-auto-signe) à chaque démarrage (dans le `tmpfs`
-  `/tmp`). Les autres variables de `.env` ne servent qu'à Compose : ajoutez-les sous
-  `environment` pour qu'elles atteignent les conteneurs.
+- Les variables de `.env` ne servent qu'à Compose : ajoutez-les sous `environment` pour
+  qu'elles atteignent les conteneurs (par exemple `SECREVIEW_TLS_CERTFILE` et
+  `SECREVIEW_TLS_KEYFILE`, avec les fichiers du certificat montés en lecture seule, voir
+  [Autorité de certification](http.md#autorite-de-certification)).
 - La base d'avis de vulnérabilités est **vide** au premier démarrage : l'analyse de dépendances
   répond alors qu'aucune base n'est chargée. Pour que le contrôleur la télécharge au démarrage
   puis toutes les 24 h, ajoutez `SECREVIEW_OSV_AUTO_UPDATE=true` dans `.env` (et, si besoin,

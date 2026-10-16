@@ -44,6 +44,8 @@ ADDITIONAL_PROJECT = "additional"
 # Anonymous requests are bounded: at most this many wait for a decision, and the requests
 # nobody decided on are dropped after ENROLLMENT_TTL
 MAX_PENDING_ENROLLMENTS = 20
+# Pending requests of one client address, so that one client cannot fill the whole queue
+MAX_PENDING_PER_ADDRESS = 3
 ENROLLMENT_TTL = timedelta(days=7)
 ENROLLMENT_ROLE = Role.MCP
 MAX_REQUESTED_BY_CHARS = 200
@@ -398,8 +400,9 @@ def _clean_requester(
     return requested_by, requested_from
 
 
-def _check_pending_capacity() -> None:
-    """Refuse a new request while MAX_PENDING_ENROLLMENTS requests wait for a decision."""
+def _check_pending_capacity(requested_from: str | None = None) -> None:
+    """Refuse a new request while MAX_PENDING_ENROLLMENTS requests wait for a decision, or
+    MAX_PENDING_PER_ADDRESS requests of the client address ``requested_from`` (None: stdio)."""
     _purge_expired_requests()
     with session_scope() as session:
         pending = session.exec(
@@ -407,6 +410,23 @@ def _check_pending_capacity() -> None:
             .select_from(ApiTokenProject)
             .where(ApiTokenProject.status == PENDING)
         ).one()
+        from_address = (
+            session.exec(
+                select(func.count())
+                .select_from(ApiTokenProject)
+                .where(
+                    ApiTokenProject.status == PENDING,
+                    ApiTokenProject.requested_from == requested_from,
+                )
+            ).one()
+            if requested_from is not None
+            else 0
+        )
+    if from_address >= MAX_PENDING_PER_ADDRESS:
+        raise ValueError(
+            "Too many enrollment requests from this address are waiting for approval; "
+            "ask an administrator"
+        )
     if pending >= MAX_PENDING_ENROLLMENTS:
         raise ValueError(
             "Too many enrollment requests are waiting for approval; ask an administrator"
@@ -424,8 +444,8 @@ def request_enrollment(
     ``label`` (default: the project name) gets a random suffix. The request is an ``mcp``
     token restricted to ``project`` and created ``pending``: it authenticates nothing until an
     administrator approves it. Anybody may call this, so the number of pending requests is
-    bounded and ``requested_by`` (free text) is redacted. ``request_id`` identifies the
-    request for the administrator.
+    bounded (in all and per client address) and ``requested_by`` (free text) is redacted.
+    ``request_id`` identifies the request for the administrator.
     """
     project = _clean_project(project)
     # The requester never picks the exact label: a random suffix keeps labels unique without
@@ -434,7 +454,7 @@ def request_enrollment(
     suffix = f"-{secrets.token_hex(3)}"
     label = _clean_label(base[: MAX_LABEL_CHARS - len(suffix)] + suffix)
     requested_by, requested_from = _clean_requester(requested_by, requested_from)
-    _check_pending_capacity()
+    _check_pending_capacity(requested_from)
     row, links, token = _insert(
         label,
         ENROLLMENT_ROLE,
@@ -469,7 +489,7 @@ def request_additional_project(
     """
     project = _clean_project(project)
     requested_by, requested_from = _clean_requester(requested_by, requested_from)
-    _check_pending_capacity()
+    _check_pending_capacity(requested_from)
     with session_scope() as session:
         row = session.get(ApiToken, token_id)
         if row is None:

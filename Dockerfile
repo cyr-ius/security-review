@@ -20,13 +20,13 @@
 #       --transport streamable-http --host 0.0.0.0 --port 8000
 # (SQLite in a shared volume is for a single host only: use PostgreSQL otherwise.)
 
-ARG PYTHON_VERSION=3.14
-ARG NODE_VERSION=24
+# Base images are written out (no ARG) so that Dependabot can propose their updates
+FROM ghcr.io/astral-sh/uv:0.13.0 AS uv
 
 # ---------------------------------------------------------------------------
 # Web stage: build the Angular interface (served on /ui by the controller)
 # ---------------------------------------------------------------------------
-FROM node:${NODE_VERSION}-slim AS web
+FROM node:24-slim AS web
 
 WORKDIR /web/web
 
@@ -41,9 +41,9 @@ RUN npm run build
 # ---------------------------------------------------------------------------
 # Build stage: resolve dependencies from uv.lock into a self-contained venv
 # ---------------------------------------------------------------------------
-FROM python:${PYTHON_VERSION}-slim AS builder
+FROM python:3.14-slim AS builder
 
-COPY --from=ghcr.io/astral-sh/uv:0.13.0 /uv /bin/uv
+COPY --from=uv /uv /bin/uv
 
 # Byte-compile for faster start-up, copy files out of the cache, never download a Python
 ENV UV_COMPILE_BYTECODE=1 \
@@ -71,7 +71,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ---------------------------------------------------------------------------
 # Runtime stage: no build tools, no sources, non-root user
 # ---------------------------------------------------------------------------
-FROM python:${PYTHON_VERSION}-slim
+FROM python:3.14-slim
 
 LABEL org.opencontainers.image.title="security-review-mcp" \
       org.opencontainers.image.description="MCP server for security code review"

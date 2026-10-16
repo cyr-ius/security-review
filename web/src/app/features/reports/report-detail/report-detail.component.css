@@ -16,28 +16,3 @@
 .filter {
   width: auto;
 }
-
-.status-select {
-  width: auto;
-}
-
-/* The severity stripe repeats the badge, which carries icon and name */
-.finding {
-  border-left: 4px solid var(--sev-color);
-}
-
-.evidence {
-  max-height: 20rem;
-  padding: 0.75rem;
-  background: var(--bs-tertiary-bg);
-  border-radius: 0.375rem;
-  font-size: 0.8125rem;
-}
-
-.recommendation {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem;
-  background: var(--bs-success-bg-subtle);
-  border-radius: 0.375rem;
-}

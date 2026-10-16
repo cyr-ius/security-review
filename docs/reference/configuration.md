@@ -17,12 +17,13 @@ or both.
 | `SECREVIEW_SESSION_SECRET` | — | Controller | Signing secret of the web interface sessions (accounts and SSO), at least 32 characters, identical on every replica; without it, random at every start |
 | `SECREVIEW_SESSION_HOURS` | `8` | Controller | Lifetime of a web interface session (1 to 24 hours) |
 | `SECREVIEW_ENROLLMENT` | `true` | MCP | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token): a client without a token can request a project token (restricted MCP server, `POST /api/v1/enroll`), active after approval on the controller |
+| `SECREVIEW_SERVER_URL` | — | Client | URL of the shared MCP server used by [`security-review-mcp scan-deps`](../usage/dependencies.md#scan-with-a-shared-server-commit-hook) (default of `--url`); never used by the servers |
+| `SECREVIEW_TOKEN` | — | Client | Bearer token sent by `scan-deps` to that server; never used by the servers |
 | `SECREVIEW_TLS_CERTFILE` | — | both | Certificate: enables TLS |
 | `SECREVIEW_TLS_KEYFILE` | — | both | Private key |
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | both | Password of the private key |
 | `SECREVIEW_TLS_CLIENT_CA` | — | both | Client CA: enables mutual TLS |
-| `SECREVIEW_TLS_SELF_SIGNED` | `false` | both | Without a given certificate, serves HTTPS with a [self-signed certificate](../getting-started/http.md#self-signed-certificate) generated at every start |
-| `SECREVIEW_TLS_SELF_SIGNED_HOSTS` | — | both | Extra DNS names (without `*` wildcard) and IP addresses of the self-signed certificate, comma separated (those used by the clients, 20 at most) |
+| `SECREVIEW_FORWARDED_ALLOW_IPS` | — | both | Reverse proxies (IP addresses or CIDR ranges separated by commas, `*` for any) whose `X-Forwarded-For` gives the client address, used by the login throttling, the enrollment limits and the logs; without it, the uvicorn default (`FORWARDED_ALLOW_IPS` variable, else `127.0.0.1`). Set it behind an Ingress or a reverse proxy, or every client shares the address of the proxy |
 | `SECREVIEW_WEB_UI` | `true` | Controller | Serves the [web interface](../usage/web-interface.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Controller | Folder of another build of the web interface |
 | `SECREVIEW_OIDC_ENABLED` | `false` | Controller | Enables the [OpenID Connect SSO login](../usage/web-interface.md#openid-connect-sso-login) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` can also be changed in the **SSO roles** screen, whose stored values replace them ([configuring SSO in the interface](../usage/web-interface.md#configuring-sso-in-the-interface)) |
@@ -49,6 +50,7 @@ or both.
 | `SECREVIEW_OSV_CAFILE` | — | Controller | CA bundle used instead of the system one (internal mirror, proxy that inspects TLS) |
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Controller | Maximum size of a downloaded archive |
 | `SECREVIEW_REPORT_LANGUAGE` | — | MCP | [Report language](../usage/prompts-tools.md#report-language) asked by the review prompts (`French`, `fr`...) when the `report_language` argument is missing and no language is chosen in the [Settings](../usage/web-interface.md#screens) screen; empty: the agent chooses |
+| `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Controller | Age in days beyond which `serve` deletes the [reports without findings](#retention-of-reports-without-findings); `0` keeps every report |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | both | Logging level (on stderr) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | MCP | Maximum size of the content passed to `scan_code` |
 | `SECREVIEW_MAX_FINDINGS_PER_REPORT` | `500` | both | Maximum number of findings per report |
@@ -73,3 +75,21 @@ The schema is managed by Alembic migrations embedded in the package:
 `security-review-controller db upgrade` creates or migrates the database and seeds the default
 rules, `db status` shows the revision (code `1` if it is not up to date). See
 [Schema migrations](../getting-started/kubernetes.md#schema-migrations).
+
+### Retention of reports without findings
+
+A clean review (report without any finding) only proves that nothing was found at that date.
+The controller deletes these reports once they are older than
+`SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` days (default `90`): at the start of `serve`, then every
+day. The latest report of each project is always kept, so a project never disappears from the
+list, and a report with findings is never deleted, whatever their status. `0` disables the
+purge.
+
+The same purge can be run on demand, for example from a scheduled job when the controller is
+not running:
+
+```bash
+security-review-controller db prune              # retention of SECREVIEW_EMPTY_REPORT_RETENTION_DAYS
+security-review-controller db prune --days 30    # another retention, for this run only
+# {"retention_days": 30, "deleted": 4}
+```

@@ -17,12 +17,13 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_SESSION_SECRET` | — | Contrôleur | Secret de signature des sessions de l'interface web (comptes et SSO), 32 caractères au moins, identique sur toutes les répliques ; sans lui, aléatoire à chaque démarrage |
 | `SECREVIEW_SESSION_HOURS` | `8` | Contrôleur | Durée d'une session de l'interface web (1 à 24 heures) |
 | `SECREVIEW_ENROLLMENT` | `true` | MCP | [Enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton) : un client sans jeton peut demander un jeton de projet (serveur MCP restreint, `POST /api/v1/enroll`), actif après approbation sur le contrôleur |
+| `SECREVIEW_SERVER_URL` | — | Client | URL du serveur MCP partagé utilisé par [`security-review-mcp scan-deps`](../usage/dependencies.md#scan-avec-un-serveur-partage-hook-de-commit) (valeur par défaut de `--url`) ; jamais utilisée par les serveurs |
+| `SECREVIEW_TOKEN` | — | Client | Jeton Bearer envoyé par `scan-deps` à ce serveur ; jamais utilisé par les serveurs |
 | `SECREVIEW_TLS_CERTFILE` | — | les deux | Certificat : active le TLS |
 | `SECREVIEW_TLS_KEYFILE` | — | les deux | Clé privée |
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | les deux | Mot de passe de la clé privée |
 | `SECREVIEW_TLS_CLIENT_CA` | — | les deux | CA cliente : active le TLS mutuel |
-| `SECREVIEW_TLS_SELF_SIGNED` | `false` | les deux | Sans certificat fourni, sert en HTTPS avec un [certificat auto-signé](../getting-started/http.md#certificat-auto-signe) généré à chaque démarrage |
-| `SECREVIEW_TLS_SELF_SIGNED_HOSTS` | — | les deux | Noms DNS (sans joker `*`) et adresses IP supplémentaires du certificat auto-signé, séparés par des virgules (ceux qu'utilisent les clients, 20 au plus) |
+| `SECREVIEW_FORWARDED_ALLOW_IPS` | — | les deux | Reverse proxies (adresses IP ou plages CIDR séparées par des virgules, `*` pour tous) dont l'en-tête `X-Forwarded-For` donne l'adresse du client, utilisée par la limitation des connexions, les limites d'enrôlement et les journaux ; sans elle, la valeur par défaut d'uvicorn (variable `FORWARDED_ALLOW_IPS`, sinon `127.0.0.1`). À définir derrière un Ingress ou un reverse proxy, sinon tous les clients partagent l'adresse du proxy |
 | `SECREVIEW_WEB_UI` | `true` | Contrôleur | Sert l'[interface web](../usage/web-interface.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Contrôleur | Dossier d'une autre build de l'interface web |
 | `SECREVIEW_OIDC_ENABLED` | `false` | Contrôleur | Active la [connexion SSO OpenID Connect](../usage/web-interface.md#connexion-sso-openid-connect) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` se modifient aussi dans l'écran **Rôles SSO**, dont les valeurs enregistrées les remplacent ([configurer le SSO dans l'interface](../usage/web-interface.md#configurer-le-sso-dans-linterface)) |
@@ -49,6 +50,7 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_OSV_CAFILE` | — | Contrôleur | Bundle de CA utilisé à la place de celui du système (miroir interne, proxy qui inspecte le TLS) |
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Contrôleur | Taille maximale d'une archive téléchargée |
 | `SECREVIEW_REPORT_LANGUAGE` | — | MCP | [Langue des rapports](../usage/prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent et qu'aucune langue n'est choisie dans l'écran [Paramètres](../usage/web-interface.md#ecrans) ; vide : l'agent choisit |
+| `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Contrôleur | Âge en jours au-delà duquel `serve` supprime les [rapports sans findings](#conservation-des-rapports-sans-findings) ; `0` conserve tous les rapports |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | les deux | Niveau de journalisation (sur stderr) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | MCP | Taille maximale du contenu passé à `scan_code` |
 | `SECREVIEW_MAX_FINDINGS_PER_REPORT` | `500` | les deux | Nombre maximal de findings par rapport |
@@ -72,3 +74,21 @@ Le schéma est géré par des migrations Alembic embarquées dans le paquet :
 `security-review-controller db upgrade` crée ou migre la base et amorce les règles par défaut,
 `db status` affiche la révision (code `1` si elle n'est pas à jour). Voir
 [Migrations du schéma](../getting-started/kubernetes.md#migrations-du-schema).
+
+### Conservation des rapports sans findings
+
+Une revue propre (rapport sans aucun finding) prouve seulement que rien n'a été trouvé à cette
+date. Le contrôleur supprime ces rapports dès qu'ils ont plus de
+`SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` jours (`90` par défaut) : au démarrage de `serve`, puis
+chaque jour. Le dernier rapport de chaque projet est toujours conservé, si bien qu'un projet ne
+disparaît jamais de la liste, et un rapport avec des findings n'est jamais supprimé, quel que
+soit leur statut. `0` désactive la purge.
+
+La même purge peut être lancée à la demande, par exemple depuis une tâche planifiée quand le
+contrôleur ne tourne pas :
+
+```bash
+security-review-controller db prune              # conservation de SECREVIEW_EMPTY_REPORT_RETENTION_DAYS
+security-review-controller db prune --days 30    # une autre durée, pour cette exécution seulement
+# {"retention_days": 30, "deleted": 4}
+```

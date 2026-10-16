@@ -1,15 +1,19 @@
 """Application settings loaded from environment variables."""
 
+import ipaddress
 import logging
 import sys
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Language name or code given to the agent (for example "French", "fr", "pt-BR"): letters,
 # spaces, hyphens, underscores and parentheses only, so that it cannot carry instructions.
 REPORT_LANGUAGE_MAX_CHARS = 40
+
+# Upper bound of the retention of the reports without findings (100 years)
+MAX_RETENTION_DAYS = 36_500
 
 
 def check_report_language(value: str) -> str:
@@ -68,18 +72,25 @@ class Settings(BaseSettings):
     # approves it on the controller.
     enrollment: bool = True
 
+    # Client commands only (`security-review-mcp scan-deps`, used by commit hooks and
+    # pipelines): URL of the shared MCP server (default of --url) and the bearer token sent to
+    # it. Never used by the servers.
+    server_url: str | None = None
+    token: str | None = None
+
     # Optional TLS served by uvicorn (HTTP MCP server and controller), enabled by tls_certfile.
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).
     tls_certfile: str | None = None
     tls_keyfile: str | None = None
     tls_keyfile_password: str | None = None
     tls_client_ca: str | None = None
-    # Without tls_certfile, serve HTTPS with a self-signed certificate generated at start-up
-    # (new key on every start, for tests or an internal network; not trusted by clients).
-    tls_self_signed: bool = False
-    # Extra names of the self-signed certificate, comma-separated: the DNS names or IP addresses
-    # the clients use (localhost, 127.0.0.1, ::1, the hostname and --host are always included).
-    tls_self_signed_hosts: str | None = None
+
+    # Reverse proxies (comma-separated IP addresses or CIDR ranges, "*" for any) whose
+    # X-Forwarded-For and X-Forwarded-Proto headers give the client address, used by the login
+    # throttling, the enrollment limits and the logs (HTTP MCP server and controller). Unset:
+    # uvicorn's default (FORWARDED_ALLOW_IPS variable, else 127.0.0.1). Behind an Ingress, set
+    # the address range of the proxy, or every client shares the address of the proxy.
+    forwarded_allow_ips: str | None = None
 
     # Controller: REST API on /api/v1 and, with web_ui, the Angular application on /ui.
     # web_ui_dir overrides the directory of the built application (default: bundled files).
@@ -138,6 +149,11 @@ class Settings(BaseSettings):
     # prompts overrides it. Severities, categories, statuses and rule ids stay in English.
     report_language: str = ""
 
+    # Controller only: delete the reports without any finding (clean reviews) older than
+    # empty_report_retention_days, checked at start then every day. The latest report of each
+    # project is always kept. 0 disables the purge.
+    empty_report_retention_days: int = Field(default=90, ge=0, le=MAX_RETENTION_DAYS)
+
     log_level: str = "INFO"
 
     # Hard limits to protect the server and the database
@@ -151,6 +167,23 @@ class Settings(BaseSettings):
     def _empty_is_unset(cls, value: str | None) -> str | None:
         """An empty variable means no value (an empty stored proxy means a direct connection)."""
         return value.strip() or None if value is not None else None
+
+    @field_validator("forwarded_allow_ips")
+    @classmethod
+    def _check_forwarded_allow_ips(cls, value: str | None) -> str | None:
+        """Accept "*" or a list of IP addresses and CIDR ranges; an empty value means unset."""
+        if value is None or not value.strip():
+            return None
+        entries = [entry.strip() for entry in value.split(",") if entry.strip()]
+        if entries != ["*"]:
+            for entry in entries:
+                try:
+                    ipaddress.ip_network(entry, strict=False)
+                except ValueError:
+                    raise ValueError(
+                        f"forwarded_allow_ips: not an IP address or CIDR range: {entry!r}"
+                    ) from None
+        return ",".join(entries)
 
     @field_validator("report_language")
     @classmethod

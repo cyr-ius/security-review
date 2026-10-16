@@ -3,7 +3,7 @@
 Le paquet installe deux commandes, une par processus (voir
 [Architecture et déploiement](../getting-started/kubernetes.md)) :
 
-- `security-review-mcp` : le **serveur MCP** (stdio ou HTTP), plus `enroll` côté client ;
+- `security-review-mcp` : le **serveur MCP** (stdio ou HTTP), plus `enroll` et `scan-deps` côté client ;
 - `security-review-controller` : le **contrôleur** (API REST et interface web), la base de
   données, l'administration et les commandes de pipeline.
 
@@ -11,8 +11,9 @@ Le paquet installe deux commandes, une par processus (voir
 
 | Commande | Rôle | Page |
 |---|---|---|
-| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Lance le serveur MCP | [Installation](../getting-started/installation.md#lancement) |
-| `enroll --url URL --project P [--label L] [--requested-by QUI] [--token-stdin] [--cafile CA] [--allow-http]` | Demande un nouveau jeton ou, avec `--token-stdin`, un accès complémentaire pour le jeton lu sur stdin | [Enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton) |
+| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP | [Installation](../getting-started/installation.md#lancement) |
+| `enroll --url URL --project P [--label L] [--requested-by QUI] [--token-stdin] [--cafile CA] [--allow-http]` | Demande un nouveau jeton (label : `--label`, par défaut votre nom de connexion) ou, avec `--token-stdin`, un accès complémentaire pour le jeton lu sur stdin | [Enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton) |
+| `scan-deps FICHIER… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http]` | Analyse manifestes et lockfiles avec la base d'avis d'un serveur MCP partagé (jeton : `SECREVIEW_TOKEN`), pour un hook de commit | [Dépendances](../usage/dependencies.md#scan-avec-un-serveur-partage-hook-de-commit) |
 
 En stdio, le serveur migre lui-même sa base au démarrage (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`).
 En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`) tant que
@@ -27,8 +28,9 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 
 | Commande | Rôle | Page |
 |---|---|---|
-| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Sert l'API REST (`/api/v1`) et l'interface web (`/ui`) | [Serveur HTTP](../getting-started/http.md) |
+| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Sert l'API REST (`/api/v1`) et l'interface web (`/ui`) | [Serveur HTTP](../getting-started/http.md) |
 | `db upgrade` / `db status` | Migre le schéma (Alembic) et amorce les règles par défaut, ou affiche la révision | [Architecture et déploiement](../getting-started/kubernetes.md#migrations-du-schema) |
+| `db prune [--days N]` | Supprime les rapports sans findings de plus de `N` jours (par défaut `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS`), sauf le dernier de chaque projet | [Conservation](configuration.md#conservation-des-rapports-sans-findings) |
 | `token create --label NOM [--role ROLE] [--project P …]` | Crée un jeton Bearer, éventuellement limité à plusieurs projets, et affiche son secret une fois | [Jetons Bearer](../getting-started/http.md#jetons-bearer), [rôles](../usage/web-interface.md#roles) |
 | `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Liste (ou seulement les demandes d'enrôlement en attente) ou révoque les jetons | [Jetons Bearer](../getting-started/http.md#jetons-bearer) |
 | `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approuve ou refuse une demande d'enrôlement ; `approve --portal-user NOM` donne aussi à ce compte utilisateur la lecture du projet dans le portail (avec le SSO activé, un nom inconnu devient un compte SSO) | [Enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton), [lecture à l'enrôlement](../usage/web-interface.md#lecture-du-projet-a-lenrolement) |
@@ -59,7 +61,8 @@ convention :
 | `1` | Bloqué : au moins un finding atteint le seuil `--fail-on` (ou, pour `db status`, schéma pas à jour) |
 | `2` | Erreur (projet ou rapport introuvable, fichier illisible, schéma à migrer…) |
 
-Les commandes d'administration (`token`, `enroll`, `rules`, `advisories`, `db upgrade`)
+Les commandes d'administration (`token`, `enroll`, `rules`, `advisories`, `db upgrade`,
+`db prune`)
 renvoient `0` en cas de succès et `2` en cas d'erreur (identifiant inconnu, pack invalide…),
 avec l'erreur en JSON sur stderr.
 

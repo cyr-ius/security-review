@@ -23,6 +23,8 @@ import {
   OidcSettings,
   OidcSettingsUpdate,
   OidcTestResult,
+  ProjectFindingPage,
+  ProjectFindingQuery,
   ProjectSummary,
   ProjectToken,
   ProjectTokenCreated,
@@ -254,6 +256,22 @@ export class ApiService {
       .set('days', days)
       .set('granularity', granularity);
     return this.http.get<Trend>(`${API_URL}/trend`, { params });
+  }
+
+  /** Findings of a project across all its reports, worst first (for an expert review). */
+  projectFindings(query: ProjectFindingQuery): Observable<ProjectFindingPage> {
+    let params = new HttpParams()
+      .set('project', query.project)
+      .set('status', query.status)
+      .set('limit', query.limit)
+      .set('offset', query.offset);
+    if (query.severity) {
+      params = params.set('severity', query.severity);
+    }
+    if (query.reviewType) {
+      params = params.set('review_type', query.reviewType);
+    }
+    return this.http.get<ProjectFindingPage>(`${API_URL}/findings`, { params });
   }
 
   updateFindingStatus(id: number, status: FindingStatus): Observable<Finding> {

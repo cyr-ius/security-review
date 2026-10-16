@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from security_review_mcp import app_settings, services, token_store
 from security_review_mcp.config import Settings, get_settings
-from security_review_mcp.models import FindingCreate, Severity
+from security_review_mcp.models import FindingCreate, ReviewType, Severity
 from security_review_mcp.prompts import fenced
 from security_review_mcp.server import enrollment_mcp, mcp
 
@@ -89,6 +89,43 @@ async def test_full_review_flow():
 
         resource = await client.read_resource(f"report://{report_id}")
         assert "Command injection" in resource.contents[0].text
+
+
+@pytest.mark.parametrize(
+    ("prompt", "review_type"),
+    [
+        ("security-review", "security-review"),
+        ("api-security-review", "api-security-review"),
+        ("configuration-review", "configuration-review"),
+        ("dependency-review", "dependency-review"),
+        ("codebase-review", "codebase-review"),
+    ],
+)
+async def test_review_prompts_give_their_review_type(prompt, review_type):
+    async with Client(mcp) as client:
+        result = await client.get_prompt(prompt, {})
+    assert f"`review_type` `{review_type}`" in result.messages[0].content.text
+    assert ReviewType(review_type)
+
+
+async def test_save_report_with_a_review_type_and_filter_the_list():
+    report = {"project": "typed", "summary": "Typed review", "findings": []}
+    async with Client(mcp) as client:
+        saved = await client.call_tool(
+            "save_security_report", {**report, "review_type": "codebase-review"}
+        )
+        assert json.loads(text_of(saved))["review_type"] == "codebase-review"
+        await client.call_tool("save_security_report", report)
+        listed = await client.call_tool(
+            "list_security_reports", {"project": "typed", "review_type": "codebase-review"}
+        )
+        bad = await client.call_tool(
+            "save_security_report", {**report, "review_type": "pentest-by-magic"}
+        )
+    rows = listed.structured_content["result"]
+    assert [r["review_type"] for r in rows] == ["codebase-review"]
+    assert bad.is_error
+    assert len(services.list_reports(project="typed")) == 2
 
 
 async def test_invalid_input_returns_a_tool_error():
@@ -429,6 +466,7 @@ async def test_enrollment_server_only_exposes_enrollment():
     assert {"security-review", "codebase-review", "dependency-review"} <= prompts
     text = prompt.messages[0].content.text
     assert "request_enrollment" in text and "Authorization: Bearer" in text
+    assert "`label` the developer's username" in text
     assert "```\nshop-api\n```" in text and "untrusted" in text
     assert json.loads(text_of(status)) == {"status": "not_enrolled"}
 

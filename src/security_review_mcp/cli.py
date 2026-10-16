@@ -2,9 +2,9 @@
 
 ``security-review-controller`` runs ``db``, ``gate``, ``sarif``, ``trend``, ``advisories``,
 ``deps``, ``code``, ``rules``, ``token`` and ``user`` (CONTROLLER_COMMANDS);
-``security-review-mcp`` runs ``enroll`` (MCP_COMMANDS). Exit codes follow the same convention
-everywhere: 0 success, 1 blocked (gate / findings found, schema not up to date), 2 usage or data
-error.
+``security-review-mcp`` runs ``enroll`` and ``scan-deps`` (MCP_COMMANDS). Exit codes follow the
+same convention everywhere: 0 success, 1 blocked (gate / findings found, schema not up to date),
+2 usage or data error.
 """
 
 import argparse
@@ -25,6 +25,7 @@ from . import (
     enrollment,
     http_server,
     registry,
+    remote_scan,
     rule_store,
     rules_loader,
     sarif,
@@ -35,7 +36,7 @@ from . import (
 )
 from .config import get_settings
 from .database import SchemaError, init_db, schema_status, upgrade_db
-from .models import SEVERITY_RANK, Severity
+from .models import SEVERITY_RANK, ReviewType, Severity
 from .services import NotFoundError
 
 EXIT_PASSED = 0
@@ -212,25 +213,35 @@ def _blocking(result: dict, threshold: int) -> int:
     return sum(1 for e in entries if SEVERITY_RANK[Severity(e["severity"])] >= threshold)
 
 
+def _printable(value: object) -> str:
+    """Return ``value`` as text without control characters (terminal escape sequences): scan
+    results come from advisories or from a remote server."""
+    return "".join(c if c.isprintable() else "?" for c in str(value))
+
+
 def _print_text(results: list[dict], blocked: int, fail_on: str) -> None:
     """Print a short human-readable summary of the scans."""
     for result in results:
         kind = "lockfile" if result["is_lockfile"] else "manifest"
         print(
-            f"{result['file']} ({result['ecosystem']}, {kind}): {result['components_total']} "
-            f"component(s), vulnerability check: {result['vulnerability_check']}"
+            _printable(
+                f"{result['file']} ({result['ecosystem']}, {kind}): {result['components_total']} "
+                f"component(s), vulnerability check: {result['vulnerability_check']}"
+            )
         )
         for vuln in result["vulnerabilities"]:
             upgrade = vuln["recommended_upgrade"]
             fix = f" -> upgrade to {upgrade}" if upgrade else ""
-            print(
-                f"  [{vuln['severity'].upper()}] {vuln['package']} {vuln['version']} "
+            line = (
+                f"[{vuln['severity'].upper()}] {vuln['package']} {vuln['version']} "
                 f"{vuln['advisory_id']}{fix}"
             )
+            print(f"  {_printable(line)}")
         for issue in result["hygiene"]:
-            print(f"  [{issue['severity'].upper()}] {issue['rule_id']} {issue['message']}")
+            line = f"[{issue['severity'].upper()}] {issue['rule_id']} {issue['message']}"
+            print(f"  {_printable(line)}")
         for note in result["notes"]:
-            print(f"  note: {note}")
+            print(f"  note: {_printable(note)}")
     verdict = f"BLOCKED ({blocked} finding(s) >= {fail_on})" if blocked else "OK"
     print(f"RESULT: {verdict}")
 
@@ -268,18 +279,8 @@ def deps_command(argv: list[str]) -> int:
     except (ValueError, OSError) as exc:
         return _fail(str(exc))
 
-    skipped = [r["file"] for r in results if r["vulnerability_check"] != "performed"]
-    if skipped:
-        print(
-            f"warning: vulnerability check did not run for: {', '.join(skipped)} "
-            "(no advisory database for this ecosystem)",
-            file=sys.stderr,
-        )
-    if skipped and args.require_database:
-        return _fail("vulnerability check could not run and --require-database was given")
-
-    threshold = SEVERITY_RANK[Severity(args.fail_on)]
-    blocked = sum(_blocking(r, threshold) for r in results)
+    if (error := _check_vulnerability_check(results, args.require_database)) is not None:
+        return error
 
     saved = None
     if args.save:
@@ -298,9 +299,37 @@ def deps_command(argv: list[str]) -> int:
             commit_sha=args.commit,
             reviewer="security-review-controller deps scan",
             scope=", ".join(r["file"] for r in results),
+            review_type=ReviewType.DEPENDENCY_SCAN,
         )
+    return _print_deps(results, args.fail_on, args.format, saved, args.project)
 
-    if args.format == "json":
+
+def _check_vulnerability_check(results: list[dict], require_database: bool) -> int | None:
+    """Warn about the files whose vulnerability check did not run; return the error exit code
+    when ``require_database`` is set, None otherwise."""
+    skipped = [r["file"] for r in results if r["vulnerability_check"] != "performed"]
+    if skipped:
+        print(
+            f"warning: vulnerability check did not run for: {', '.join(skipped)} "
+            "(no advisory database for this ecosystem)",
+            file=sys.stderr,
+        )
+    if skipped and require_database:
+        return _fail("vulnerability check could not run and --require-database was given")
+    return None
+
+
+def _print_deps(
+    results: list[dict],
+    fail_on: str,
+    output_format: str,
+    saved: dict | None = None,
+    project: str | None = None,
+) -> int:
+    """Print the dependency scans and return the exit code (blocked at ``fail_on``)."""
+    threshold = SEVERITY_RANK[Severity(fail_on)]
+    blocked = sum(_blocking(r, threshold) for r in results)
+    if output_format == "json":
         slim = [{k: v for k, v in r.items() if k != "components"} for r in results]
         print(
             json.dumps(
@@ -314,9 +343,9 @@ def deps_command(argv: list[str]) -> int:
             )
         )
     else:
-        _print_text(results, blocked, args.fail_on)
+        _print_text(results, blocked, fail_on)
         if saved:
-            print(f"Report #{saved['report_id']} saved for project {args.project}")
+            print(f"Report #{saved['report_id']} saved for project {project}")
     return EXIT_BLOCKED if blocked else EXIT_PASSED
 
 
@@ -370,6 +399,7 @@ def _save_code_scan(args: argparse.Namespace, result: dict) -> dict:
         commit_sha=args.commit,
         reviewer="security-review-controller code scan",
         scope=scope,
+        review_type=ReviewType.CODE_SCAN,
     )
 
 
@@ -658,7 +688,9 @@ def enroll_command(argv: list[str]) -> int:
     )
     parser.add_argument("--project", required=True, help="project name used for the reports")
     parser.add_argument(
-        "--label", help="name of the token (default: the project); a random suffix is added"
+        "--label",
+        help="name of the token (default: your login name, as a token is personal); a random "
+        "suffix is added",
     )
     parser.add_argument("--requested-by", help="who asks (name, email or team), for the admin")
     parser.add_argument(
@@ -684,7 +716,7 @@ def enroll_command(argv: list[str]) -> int:
         result = enrollment.request_enrollment(
             args.url,
             args.project,
-            label=args.label,
+            label=args.label or enrollment.local_username(),
             requested_by=args.requested_by,
             cafile=args.cafile,
             allow_http=args.allow_http,
@@ -694,6 +726,81 @@ def enroll_command(argv: list[str]) -> int:
         return _fail(str(exc))
     print(json.dumps(result, indent=2))
     return EXIT_PASSED
+
+
+# ── scan-deps ────────────────────────────────────────────────────────────────
+
+
+def scan_deps_command(argv: list[str]) -> int:
+    """Run ``security-review-mcp scan-deps``: scan dependency files with a shared server."""
+    settings = get_settings()
+    parser = argparse.ArgumentParser(
+        prog="security-review-mcp scan-deps",
+        description="Scan dependency manifests and lockfiles with the advisory database of a "
+        "shared MCP server (commit hooks, pipelines). The token is read from SECREVIEW_TOKEN "
+        "or, with --token-stdin, from the standard input.",
+    )
+    parser.add_argument("files", nargs="+", help="manifests or lockfiles")
+    parser.add_argument(
+        "--url",
+        default=settings.server_url,
+        help="server URL, for example https://secreview.example.com (default: "
+        "SECREVIEW_SERVER_URL)",
+    )
+    parser.add_argument("--fail-on", choices=_SEVERITY_CHOICES, default=Severity.HIGH.value)
+    parser.add_argument("--format", choices=["json", "text"], default="text")
+    parser.add_argument(
+        "--require-database",
+        action="store_true",
+        help="exit 2 when the vulnerability check could not run (no advisory database)",
+    )
+    parser.add_argument(
+        "--skip-unconfigured",
+        action="store_true",
+        help="exit 0 with a warning when no server URL is configured (shared commit hooks)",
+    )
+    parser.add_argument(
+        "--token-stdin", action="store_true", help="read the token on stdin (not SECREVIEW_TOKEN)"
+    )
+    parser.add_argument("--cafile", help="CA bundle used to verify the server certificate")
+    parser.add_argument(
+        "--allow-http",
+        action="store_true",
+        help="allow plain HTTP to a non-loopback server (the token would travel in clear)",
+    )
+    args = parser.parse_args(argv)
+    if not args.url:
+        if args.skip_unconfigured:
+            print(
+                "warning: dependency scan skipped (SECREVIEW_SERVER_URL is not set)",
+                file=sys.stderr,
+            )
+            return EXIT_PASSED
+        return _fail("No server URL: give --url or set SECREVIEW_SERVER_URL")
+    token = settings.token
+    if args.token_stdin:
+        # Never on the command line: it would show in the process list and the shell history
+        token = sys.stdin.readline().strip()
+        if not token:
+            return _fail("--token-stdin: no token read on stdin")
+
+    try:
+        files: list[tuple[str, str]] = []
+        for name in args.files:
+            path = Path(name)
+            # The content leaves the machine: never follow a link to another file
+            if path.is_symlink():
+                raise ValueError(f"Refusing to read a symbolic link: {path}")
+            files.append((path.name, _read_text(path)))
+        results = remote_scan.scan_files(
+            args.url, files, token=token, cafile=args.cafile, allow_http=args.allow_http
+        )
+    except (ValueError, OSError) as exc:
+        return _fail(str(exc))
+
+    if (error := _check_vulnerability_check(results, args.require_database)) is not None:
+        return error
+    return _print_deps(results, args.fail_on, args.format)
 
 
 # ── rules ────────────────────────────────────────────────────────────────────
@@ -806,14 +913,33 @@ def rules_command(argv: list[str]) -> int:
 
 
 def db_command(argv: list[str]) -> int:
-    """Run ``security-review-controller db``: migrate the schema or show its revision."""
+    """Run ``security-review-controller db``: migrate the schema, show its revision or purge."""
     parser = argparse.ArgumentParser(
         prog="security-review-controller db", description="Manage the database schema."
     )
     actions = parser.add_subparsers(dest="action", required=True)
     actions.add_parser("upgrade", help="migrate the schema to this version and seed the rules")
     actions.add_parser("status", help="show the schema revision (exit code 1 when outdated)")
+    prune = actions.add_parser(
+        "prune", help="delete the reports without findings older than the retention period"
+    )
+    prune.add_argument(
+        "--days",
+        type=int,
+        default=None,
+        help="retention in days (default: SECREVIEW_EMPTY_REPORT_RETENTION_DAYS; 0 keeps all)",
+    )
     args = parser.parse_args(argv)
+    if args.action == "prune":
+        try:
+            init_db()
+            result = services.prune_empty_reports(args.days)
+        except (ValueError, SchemaError) as exc:
+            return _fail(str(exc))
+        except SQLAlchemyError as exc:
+            return _fail(f"Database error: {type(exc).__name__}")
+        print(json.dumps(result, indent=2))
+        return EXIT_PASSED
     try:
         if args.action == "upgrade":
             upgrade_db()
@@ -838,7 +964,10 @@ CONTROLLER_COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "user": user_command,
 }
 # Commands of security-review-mcp (client side of a shared MCP server)
-MCP_COMMANDS: dict[str, Callable[[list[str]], int]] = {"enroll": enroll_command}
+MCP_COMMANDS: dict[str, Callable[[list[str]], int]] = {
+    "enroll": enroll_command,
+    "scan-deps": scan_deps_command,
+}
 COMMANDS = CONTROLLER_COMMANDS | MCP_COMMANDS
 
 

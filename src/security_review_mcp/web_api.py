@@ -12,6 +12,7 @@ The services are synchronous (SQLModel sessions), so every call runs in the thre
 import json
 import logging
 import threading
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import urlencode
@@ -19,6 +20,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
@@ -45,13 +47,24 @@ from . import (
     web_users,
 )
 from .config import REPORT_LANGUAGE_MAX_CHARS, Settings, get_settings
-from .http_server import BEARER_CHALLENGE, HEALTH_PATH, LOOPBACK_HOSTS, TRIAGE_ROLES, Role
-from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
+from .http_server import (
+    BEARER_CHALLENGE,
+    DOCS_PATH,
+    FAVICON_PATH,
+    HEALTH_PATH,
+    LOOPBACK_HOSTS,
+    OPENAPI_PATH,
+    TRIAGE_ROLES,
+    Role,
+)
+from .models import FindingPublic, FindingStatus, ReviewType, SecurityReportPublic, Severity
 from .sarif import build_sarif
 
 logger = logging.getLogger("security_review_mcp.web")
 
 BUNDLED_UI_DIR = Path(__file__).parent / "webui"
+# Icon of the web interface and of the Swagger documentation (the brand mark of the UI)
+FAVICON = (Path(__file__).parent / "favicon.svg").read_bytes()
 
 # Declares the bearer scheme in the OpenAPI document (Swagger "Authorize" button). The token
 # itself is validated by the bearer middleware: auto_error=False leaves the 401 to
@@ -297,12 +310,30 @@ class ReportSummary(BaseModel):
     project: str
     branch: str | None
     commit_sha: str | None
+    review_type: ReviewType | None
     risk_level: Severity
     reviewer: str | None
     created_at: str
     findings_total: int
     findings_open: int
     summary: str
+
+
+class ProjectFinding(FindingPublic):
+    """A finding of a project, with the context of its report."""
+
+    branch: str | None
+    commit_sha: str | None
+    review_type: ReviewType | None
+    report_created_at: datetime
+
+
+class ProjectFindingPage(BaseModel):
+    """One page of the findings of a project (``total`` counts every matching finding)."""
+
+    project: str
+    total: int
+    findings: list[ProjectFinding]
 
 
 # ── Dependencies ─────────────────────────────────────────────────────────────
@@ -377,9 +408,10 @@ def _scoped_project(identity: Identity, requested: str) -> str:
 
 
 def _ensure_report_scope(identity: Identity, report: SecurityReportPublic) -> None:
-    """Hide reports outside a project token's scope."""
+    """Hide reports outside a project token's scope, with the answer of a missing report (the
+    caller cannot tell which report ids exist in other projects)."""
     if not _in_scope(identity, report.project):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
+        raise services.NotFoundError(f"Report {report.id} not found")
 
 
 def _rule_catalog() -> dict:
@@ -688,6 +720,31 @@ async def posture(
     return await run_in_threadpool(services.project_posture, _scoped_project(identity, project))
 
 
+@router.get("/findings")
+async def project_findings(
+    project: Annotated[str, Query(min_length=1, max_length=200)],
+    identity: CurrentIdentity,
+    finding_status: Annotated[FindingStatus, Query(alias="status")] = FindingStatus.OPEN,
+    severity: Severity | None = None,
+    review_type: ReviewType | None = None,
+    limit: Annotated[int, Query(ge=1)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> ProjectFindingPage:
+    """Findings of a project across all its reports (open by default), worst first.
+
+    Gives an expert the whole list to review; limit is capped by SECREVIEW_MAX_LIST_LIMIT.
+    """
+    return await run_in_threadpool(
+        services.list_project_findings,
+        _scoped_project(identity, project),
+        finding_status,
+        severity,
+        limit,
+        offset,
+        review_type,
+    )
+
+
 @router.get("/trend")
 async def trend(
     project: Annotated[str, Query(min_length=1, max_length=200)],
@@ -740,6 +797,7 @@ async def reports(
     identity: CurrentIdentity,
     project: Annotated[str | None, Query(max_length=200)] = None,
     risk_level: Severity | None = None,
+    review_type: ReviewType | None = None,
     limit: Annotated[int, Query(ge=1)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[ReportSummary]:
@@ -747,7 +805,13 @@ async def reports(
     if project:
         _scoped_project(identity, project)
     return await run_in_threadpool(
-        services.list_reports, project or None, risk_level, limit, offset, identity.projects
+        services.list_reports,
+        project or None,
+        risk_level,
+        limit,
+        offset,
+        identity.projects,
+        review_type,
     )
 
 
@@ -1469,9 +1533,10 @@ def create_app(
     app = FastAPI(
         title="security-review-mcp",
         version=__version__,
-        docs_url="/api/docs",
+        # Served below, with the application icon instead of the FastAPI one
+        docs_url=None,
         redoc_url=None,
-        openapi_url="/api/openapi.json",
+        openapi_url=OPENAPI_PATH,
     )
     app.state.signer = signer or (
         oidc_login.signer
@@ -1487,6 +1552,29 @@ def create_app(
     async def healthz() -> dict[str, str]:
         """Public liveness probe (containers, Kubernetes)."""
         return {"status": "ok"}
+
+    @app.get(FAVICON_PATH, include_in_schema=False)
+    async def favicon() -> Response:
+        """Public icon of the web interface and of the API documentation."""
+        return Response(
+            FAVICON,
+            media_type="image/svg+xml",
+            headers={
+                "Cache-Control": "public, max-age=86400",
+                # Opened on its own, an SVG is a document: it may run nothing
+                "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+
+    @app.get(DOCS_PATH, include_in_schema=False)
+    async def swagger_ui() -> Response:
+        """Public Swagger documentation of the REST API."""
+        return get_swagger_ui_html(
+            openapi_url=OPENAPI_PATH,
+            title=f"{app.title} - API",
+            swagger_favicon_url=FAVICON_PATH,
+        )
 
     @app.exception_handler(services.NotFoundError)
     async def not_found(_: Request, exc: services.NotFoundError) -> JSONResponse:

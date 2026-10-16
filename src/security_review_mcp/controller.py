@@ -11,7 +11,17 @@ import argparse
 import logging
 import sys
 
-from . import advisory_sync, cli, http_server, oidc, registry, token_store, web_api, web_users
+from . import (
+    advisory_sync,
+    cli,
+    http_server,
+    oidc,
+    registry,
+    retention,
+    token_store,
+    web_api,
+    web_users,
+)
 from .config import configure_logging, get_settings
 from .database import SchemaError, init_db
 
@@ -24,7 +34,7 @@ Controller of security-review-mcp: web interface, REST API, database and adminis
 
 commands:
   serve        serve the REST API (/api/v1) and the web interface (/ui)
-  db           migrate the database schema (upgrade) or show its revision (status)
+  db           migrate the schema (upgrade), show its revision (status), purge reports (prune)
   token        manage the bearer tokens and the enrollment requests
   user         manage the web users (username and password login)
   rules        manage the internal rules and checklists
@@ -54,7 +64,7 @@ def serve(argv: list[str]) -> None:
     try:
         init_db()
         store = token_store.DatabaseTokenStore(include_users=True)
-        tls = http_server.tls_options(settings, args.host)
+        tls = http_server.tls_options(settings)
         signer = oidc.session_signer(settings)
         # The SECREVIEW_OIDC_* variables are checked here; the settings changed in the web
         # interface are checked when they are stored (an invalid mix only disables SSO)
@@ -80,6 +90,10 @@ def serve(argv: list[str]) -> None:
     updater = advisory_sync.AdvisoryUpdater(settings) if settings.osv_auto_update else None
     if updater:
         updater.start()
+    days = settings.empty_report_retention_days
+    pruner = retention.ReportPruner(days) if days else None
+    if pruner:
+        pruner.start()
     try:
         http_server.serve(
             http_server.build_controller_app(
@@ -93,10 +107,13 @@ def serve(argv: list[str]) -> None:
             store,
             tls,
             settings.log_level,
+            settings.forwarded_allow_ips,
         )
     finally:
         if updater:
             updater.stop()
+        if pruner:
+            pruner.stop()
 
 
 def main(argv: list[str] | None = None) -> None:

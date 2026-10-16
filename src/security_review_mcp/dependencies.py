@@ -1,6 +1,6 @@
 """Parse dependency manifests and lockfiles, and run offline hygiene checks.
 
-Supported files: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock (PyPI);
+Supported files: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock, uv.lock (PyPI);
 package.json, package-lock.json, npm-shrinkwrap.json, yarn.lock (npm);
 pom.xml, build.gradle, build.gradle.kts (Maven).
 
@@ -23,6 +23,7 @@ SUPPORTED_FILES = (
     "pyproject.toml",
     "poetry.lock",
     "Pipfile.lock",
+    "uv.lock",
     "package.json",
     "package-lock.json",
     "npm-shrinkwrap.json",
@@ -138,7 +139,7 @@ class _Builder:
             self.parsed.notes.append(
                 f"{unresolved} dependency version(s) are ranges or managed elsewhere and cannot be "
                 "checked against advisories: scan the lockfile (package-lock.json, poetry.lock, "
-                "Pipfile.lock, yarn.lock) or the resolved dependency tree instead."
+                "Pipfile.lock, uv.lock, yarn.lock) or the resolved dependency tree instead."
             )
         return self.parsed
 
@@ -263,6 +264,22 @@ def _load_json(content: str) -> dict:
     return data
 
 
+# Extras that only serve development: the other extras (postgres, s3...) are installed in
+# production and are reported as runtime dependencies
+_DEV_EXTRA_RE = re.compile(
+    r"(dev|devel|develop|development|tests?|testing|docs?|lint|linting|typing|types|mypy|style"
+    r"|ci|coverage|qa|bench|benchmarks?)",
+    re.IGNORECASE,
+)
+
+
+def _is_dev_extra(name: object) -> bool:
+    """Tell whether an optional-dependencies group only serves development (tests, docs...)."""
+    return isinstance(name, str) and any(
+        _DEV_EXTRA_RE.fullmatch(part) for part in re.split(r"[-_.]", name) if part
+    )
+
+
 def parse_pyproject(content: str) -> Parsed:
     """Parse the dependencies of a pyproject.toml (PEP 621, PEP 735 and Poetry)."""
     data = _load_toml(content)
@@ -275,8 +292,8 @@ def parse_pyproject(content: str) -> Parsed:
 
     project = data.get("project", {})
     add_list(project.get("dependencies"), False)
-    for group in (project.get("optional-dependencies") or {}).values():
-        add_list(group, True)
+    for extra, group in (project.get("optional-dependencies") or {}).items():
+        add_list(group, _is_dev_extra(extra))
     for group in (data.get("dependency-groups") or {}).values():
         add_list(group, True)
     add_list(data.get("build-system", {}).get("requires"), True)
@@ -343,6 +360,37 @@ def parse_pipfile_lock(content: str) -> Parsed:
             builder.component(name, version, dev=dev)
             if any(key in meta for key in ("git", "path", "file")):
                 builder.issue("DEP-003", f"{name} comes from a VCS or local path", None, name)
+    return builder.finish()
+
+
+def parse_uv_lock(content: str) -> Parsed:
+    """Parse a uv.lock file.
+
+    The project itself and its workspace members (editable or virtual sources) are not
+    dependencies and are skipped.
+    """
+    data = _load_toml(content)
+    builder = _Builder("uv.lock", "PyPI", True)
+    members = set((data.get("manifest") or {}).get("members", []))
+    for package in data.get("package", []):
+        name, version = package.get("name"), package.get("version")
+        if not name:
+            continue
+        source = package.get("source") or {}
+        local = source.get("editable", source.get("virtual"))
+        if local is not None and (local == "." or name in members):
+            continue
+        if not version:
+            continue
+        builder.component(str(name), str(version))
+        kind = next((k for k in ("git", "url", "path", "directory", "editable") if k in source), "")
+        if kind:
+            builder.issue("DEP-003", f"{name} comes from a {kind} source", None, name)
+        artifacts = [package.get("sdist") or {}, *(package.get("wheels") or [])]
+        urls = [source.get("registry", ""), source.get("url", "")]
+        urls += [item.get("url", "") for item in artifacts]
+        if any(_is_insecure_url(str(url)) for url in urls):
+            builder.issue("DEP-004", f"{name} is downloaded over HTTP", None, name)
     return builder.finish()
 
 
@@ -612,6 +660,7 @@ _PARSERS = {
     "pyproject.toml": parse_pyproject,
     "poetry.lock": parse_poetry_lock,
     "pipfile.lock": parse_pipfile_lock,
+    "uv.lock": parse_uv_lock,
     "package.json": parse_package_json,
     "package-lock.json": parse_package_lock,
     "npm-shrinkwrap.json": parse_package_lock,
@@ -632,7 +681,16 @@ def parse_dependency_file(content: str, filename: str) -> Parsed:
     path = PurePosixPath(filename.replace("\\", "/").lower())
     base = path.name
     if base in _PARSERS:
-        return _PARSERS[base](content)
+        try:
+            return _PARSERS[base](content)
+        except (AttributeError, TypeError, KeyError, IndexError) as exc:
+            # Well-formed JSON / TOML whose nodes have unexpected types (a string where a
+            # table is expected...): report a data error instead of an internal failure. The
+            # message never echoes file content, which may hold secrets.
+            raise ValueError(
+                f"Invalid {path.name} structure: a value has an unexpected type "
+                f"({type(exc).__name__})"
+            ) from exc
     in_requirements_dir = base.endswith((".txt", ".in")) and path.parent.name in {
         "requirements",
         "constraints",

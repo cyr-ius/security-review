@@ -1,9 +1,11 @@
 """Tests for the dependency file parsers and the offline hygiene checks."""
 
 import json
+import re
 
 import pytest
 
+from security_review_mcp import dependencies
 from security_review_mcp.dependencies import parse_dependency_file
 
 
@@ -92,6 +94,31 @@ wild = "*"
     assert next(c for c in parsed.components if c.name == "pytest").dev
 
 
+def test_pyproject_runtime_extras_are_not_dev():
+    content = """
+[project]
+dependencies = ["fastapi>=0.135"]
+[project.optional-dependencies]
+postgres = ["psycopg2-binary==2.9.0"]
+dev = ["pytest==8.0"]
+docs = ["mkdocs==1.6.0"]
+test-extra = ["hypothesis==6.0"]
+[dependency-groups]
+lint = ["ruff==0.5.0"]
+"""
+    parsed = parse_dependency_file(content, "pyproject.toml")
+
+    dev = {c.name: c.dev for c in parsed.components}
+    assert dev == {
+        "fastapi": False,
+        "psycopg2-binary": False,
+        "pytest": True,
+        "mkdocs": True,
+        "hypothesis": True,
+        "ruff": True,
+    }
+
+
 def test_poetry_lock_and_pipfile_lock():
     lock = """
 [[package]]
@@ -124,6 +151,107 @@ url = "https://example.com/mylib"
     parsed = parse_dependency_file(pipfile, "Pipfile.lock")
     assert versions(parsed) == {"flask": "1.0", "mine": None, "pytest": "7.0"}
     assert {"DEP-003", "DEP-004", "DEP-008"} <= rules(parsed)
+
+
+def test_uv_lock():
+    lock = """
+version = 1
+requires-python = ">=3.12"
+
+[manifest]
+members = ["app", "shared"]
+
+[[package]]
+name = "app"
+version = "1.0.0"
+source = { editable = "." }
+
+[[package]]
+name = "shared"
+version = "0.2.0"
+source = { editable = "packages/shared" }
+
+[[package]]
+name = "requests"
+version = "2.19.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/requests-2.19.0.tar.gz" }
+wheels = [{ url = "https://files.pythonhosted.org/requests-2.19.0-py3-none-any.whl" }]
+
+[[package]]
+name = "mylib"
+version = "0.1"
+source = { git = "https://example.com/mylib?rev=main#abc123" }
+
+[[package]]
+name = "internal"
+version = "3.0"
+source = { registry = "http://pypi.internal.example.com/simple" }
+"""
+    parsed = parse_dependency_file(lock, "uv.lock")
+    assert parsed.file_type == "uv.lock" and parsed.ecosystem == "PyPI" and parsed.is_lockfile
+    assert versions(parsed) == {"requests": "2.19.0", "mylib": "0.1", "internal": "3.0"}
+    assert {(i.rule_id, i.package) for i in parsed.issues} == {
+        ("DEP-003", "mylib"),
+        ("DEP-004", "internal"),
+    }
+    assert not parsed.notes
+
+
+def test_uv_lock_clean_registry_has_no_issue():
+    lock = """
+version = 1
+
+[[package]]
+name = "project"
+version = "0.1.0"
+source = { virtual = "." }
+
+[[package]]
+name = "flask"
+version = "3.0.0"
+source = { registry = "https://pypi.org/simple" }
+"""
+    parsed = parse_dependency_file(lock, "sub/dir/uv.lock")
+    assert versions(parsed) == {"flask": "3.0.0"} and not parsed.issues
+
+
+def test_uv_lock_invalid_toml():
+    with pytest.raises(ValueError):
+        parse_dependency_file("[[package]\nname=", "uv.lock")
+
+
+@pytest.mark.parametrize(
+    ("filename", "content"),
+    [
+        ("uv.lock", 'package = "x"'),
+        ("uv.lock", '[[package]]\nname = "a"\nversion = "1"\nsource = "x"'),
+        ("uv.lock", '[manifest]\nmembers = 3\n[[package]]\nname = "a"\nversion = "1"'),
+        ("uv.lock", '[[package]]\nname = "a"\nversion = "1"\nwheels = "y"'),
+        ("poetry.lock", "package = 3"),
+        ("poetry.lock", '[[package]]\nname = "a"\nversion = "1"\nsource = "git"'),
+        ("pyproject.toml", 'project = "x"'),
+        ("pyproject.toml", '[tool.poetry]\ngroup = "x"'),
+        ("Pipfile.lock", json.dumps({"default": ["flask"]})),
+        ("Pipfile.lock", json.dumps({"_meta": {"sources": [3]}})),
+        ("package.json", json.dumps({"dependencies": ["lodash"]})),
+        ("package.json", json.dumps({"scripts": "postinstall"})),
+        ("package-lock.json", json.dumps({"lockfileVersion": 1, "dependencies": "x"})),
+    ],
+)
+def test_unexpected_structure_is_a_data_error(filename, content):
+    with pytest.raises(ValueError, match=f"Invalid {re.escape(filename.lower())} structure"):
+        parse_dependency_file(content, filename)
+
+
+def test_structure_error_does_not_echo_file_content(monkeypatch):
+    def parser(content: str):
+        raise KeyError("ghp_FAKESECRET0000000000000000000000000000")
+
+    monkeypatch.setitem(dependencies._PARSERS, "uv.lock", parser)
+    with pytest.raises(ValueError) as caught:
+        parse_dependency_file("", "uv.lock")
+    assert "FAKESECRET" not in str(caught.value) and "KeyError" in str(caught.value)
 
 
 def test_package_json():

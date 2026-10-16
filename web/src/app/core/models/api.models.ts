@@ -26,6 +26,28 @@ export const FINDING_STATUSES: readonly FindingStatus[] = [
   'false_positive',
 ];
 
+/** Kind of review that produced a report: the MCP prompt used or the CLI scan. */
+export type ReviewType =
+  | 'security-review'
+  | 'api-security-review'
+  | 'configuration-review'
+  | 'dependency-review'
+  | 'codebase-review'
+  | 'code-scan'
+  | 'dependency-scan'
+  | 'other';
+
+export const REVIEW_TYPES: readonly ReviewType[] = [
+  'security-review',
+  'api-security-review',
+  'configuration-review',
+  'dependency-review',
+  'codebase-review',
+  'code-scan',
+  'dependency-scan',
+  'other',
+];
+
 /** Open findings counted by severity. */
 export type SeverityCounts = Record<Severity, number>;
 
@@ -258,6 +280,7 @@ export interface ReportSummary {
   project: string;
   branch: string | null;
   commit_sha: string | null;
+  review_type: ReviewType | null;
   risk_level: Severity;
   reviewer: string | null;
   created_at: string;
@@ -286,6 +309,31 @@ export interface Finding {
   recommendation: string | null;
 }
 
+/** A finding of GET /api/v1/findings, with the context of its report. */
+export interface ProjectFinding extends Finding {
+  branch: string | null;
+  commit_sha: string | null;
+  review_type: ReviewType | null;
+  report_created_at: string;
+}
+
+/** GET /api/v1/findings: one page of the findings of a project. */
+export interface ProjectFindingPage {
+  project: string;
+  total: number;
+  findings: ProjectFinding[];
+}
+
+/** Query of GET /api/v1/findings. */
+export interface ProjectFindingQuery {
+  project: string;
+  status: FindingStatus;
+  severity: Severity | '';
+  reviewType: ReviewType | '';
+  limit: number;
+  offset: number;
+}
+
 /** GET /api/v1/reports/{id} */
 export interface Report {
   id: number;
@@ -295,6 +343,7 @@ export interface Report {
   commit_sha: string | null;
   reviewer: string | null;
   scope: string | null;
+  review_type: ReviewType | null;
   summary: string;
   risk_level: Severity;
   created_at: string;
