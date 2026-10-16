@@ -1,7 +1,6 @@
 """Controller entry point (security-review-controller): serve, db and command dispatch."""
 
 import json
-from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
@@ -73,13 +72,12 @@ def test_serve_migrates_and_serves_the_web_interface(settings, captured_run, ui_
     assert client.get("/healthz").json() == {"status": "ok"}
 
 
-def test_serve_with_a_self_signed_certificate(settings, captured_run, ui_dir):
-    settings(tls_self_signed=True)
-    controller.main(["serve", "--host", "secreview.internal"])
+def test_serve_refuses_the_removed_self_signed_option(settings, captured_run, ui_dir):
+    with pytest.raises(SystemExit) as exc:
+        controller.main(["serve", "--tls-self-signed"])
 
-    (call,) = captured_run
-    assert call["ssl_certfile"].endswith("cert.pem") and call["ssl_keyfile"].endswith("key.pem")
-    assert not Path(call["ssl_keyfile"]).parent.exists()
+    assert exc.value.code == 2
+    assert captured_run == []
 
 
 def test_serve_does_not_serve_mcp_nor_the_public_enrollment(settings, captured_run, ui_dir):

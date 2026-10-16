@@ -91,29 +91,23 @@ proxy), leave out `headers` and `inputs`, for example `"url": "http://127.0.0.1:
     Never write the token in clear in a versioned configuration file: use an input
     (`${input:...}`) or an environment variable.
 
-## Self-signed HTTPS server or internal CA
+## HTTPS server with an internal CA
 
-When the server uses a [self-signed certificate](http.md#self-signed-certificate) or one signed
-by an internal CA, the host refuses the connection (`self signed certificate`,
-`DEPTH_ZERO_SELF_SIGNED_CERT`, `unable to verify the first certificate`). Neither VS Code nor
+When the server certificate is signed by an
+[internal CA](http.md#certificate-authority), the host refuses the connection
+(`unable to verify the first certificate`, `unable to get local issuer certificate`). Neither VS Code nor
 Claude has a per-server TLS option in its MCP configuration: the certificate is added to the
 trusted authorities of the host **process**. Claude Code and VS Code run on Node.js, which reads
 the `NODE_EXTRA_CA_CERTS` environment variable (PEM file) for this, **when the process starts**.
 
-1. Fetch the certificate and compare its fingerprint with the one in the server log
-   (`Self-signed TLS certificate generated ... SHA-256 fingerprint`) or with
-   `openssl x509 -in cert.pem -noout -fingerprint -sha256` on the server:
+1. Get the certificate of the internal CA (PEM) from its administrators, save it as
+   `~/.config/secreview/ca.pem`, and check that the name or address of the MCP `url` is in the
+   server certificate:
 
     ```bash
-    openssl s_client -connect 192.168.1.1:8000 </dev/null 2>/dev/null \
-        | openssl x509 > ~/.config/secreview/ca.pem
-    openssl x509 -in ~/.config/secreview/ca.pem -noout -fingerprint -sha256
+    openssl s_client -connect 192.168.1.1:8000 -CAfile ~/.config/secreview/ca.pem </dev/null \
+        2>/dev/null | openssl x509 -noout -ext subjectAltName
     ```
-
-    For an internal CA, use its certificate directly. Also check that the name or address of
-    the MCP `url` is in the certificate
-    (`openssl x509 -in ~/.config/secreview/ca.pem -noout -ext subjectAltName`): otherwise, see
-    `SECREVIEW_TLS_SELF_SIGNED_HOSTS`.
 
 2. Declare it to the host, then **restart it**:
 
@@ -154,14 +148,10 @@ the `NODE_EXTRA_CA_CERTS` environment variable (PEM file) for this, **when the p
     connection of the process (API, extensions, updates), not only the one to the MCP server,
     and lets an interception through.
 
-With a self-signed certificate generated at start-up, the key changes **at every restart of
-the server**: both steps must be done again. For lasting use, generate a
-[stable certificate](http.md#stable-certificate) or use an internal CA.
-
 The remote connectors added from the Claude web interface (claude.ai, Claude Desktop) are
 contacted from Anthropic's infrastructure, not from the workstation: they require a server
-reachable from the Internet with a publicly trusted certificate, which rules out a self-signed
-certificate.
+reachable from the Internet with a publicly trusted certificate, which rules out an internal
+CA.
 
 For the enrollment from the CLI, `security-review-mcp enroll` accepts `--cafile` directly (see
 below).

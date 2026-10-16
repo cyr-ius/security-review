@@ -10,6 +10,7 @@ the findings** (fixed, accepted risk, false positive) without an MCP client. It 
 | `/ui/` | Web application (Angular) |
 | `/api/v1/…` | REST API used by the application |
 | `/api/docs` | OpenAPI documentation of the REST API (public, no data) |
+| `/api/favicon.svg` | Icon of the web interface and of the Swagger documentation (public) |
 | `/healthz` | Liveness probe (public) |
 
 ```bash

@@ -136,6 +136,26 @@ def test_api_without_middleware_fails_closed(ui_dir, method, path):
     assert bare.get("/api/openapi.json").status_code == 200
 
 
+def test_favicon_is_served_and_used_by_swagger(ui_dir):
+    bare = TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+
+    icon = bare.get("/api/favicon.svg")
+    assert icon.status_code == 200
+    assert icon.headers["content-type"] == "image/svg+xml"
+    assert icon.headers["x-content-type-options"] == "nosniff"
+    assert icon.headers["content-security-policy"].startswith("default-src 'none'")
+    assert icon.content.startswith(b"<svg")
+    # Swagger shows the application icon, not the one fetched from the FastAPI site
+    docs = bare.get("/api/docs")
+    assert docs.status_code == 200
+    assert 'href="/api/favicon.svg"' in docs.text
+    assert "fastapi.tiangolo.com" not in docs.text
+    assert "/api/openapi.json" in docs.text
+    # Neither is part of the API schema
+    paths = bare.get("/api/openapi.json").json()["paths"]
+    assert "/api/favicon.svg" not in paths and "/api/docs" not in paths
+
+
 def test_projects(client, reports):
     projects = client.get("/api/v1/projects").json()
     assert [p["project"] for p in projects] == ["billing", "shop-api"]

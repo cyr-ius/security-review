@@ -17,9 +17,9 @@
   finding is handled as missing (see
   [tokens restricted to a project](../getting-started/http.md#tokens-restricted-to-a-project)).
   If it does not listen on localhost, a warning is logged when authentication or TLS is missing.
-  The optional [self-signed certificate](../getting-started/http.md#self-signed-certificate) is
-  generated again at every start (private key in `0600` in a temporary folder, never logged)
-  and is not trusted by the clients without an explicit addition. There is no rate limiting.
+  The server never generates a TLS certificate: HTTPS uses the certificate given by the
+  operator, signed by a [certificate authority](../getting-started/http.md#certificate-authority).
+  There is no rate limiting.
   Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `reader`, `triager`,
   `admin`); an `mcp` token without a project reaches every MCP tool and every project.
 - **Enrollment** (enabled by default, `SECREVIEW_ENROLLMENT`): a client without a token reaches

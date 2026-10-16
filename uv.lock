@@ -1154,7 +1154,6 @@ version = "1.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
-    { name = "cryptography" },
     { name = "fastapi" },
     { name = "mcp" },
     { name = "pydantic-settings" },
@@ -1181,7 +1180,6 @@ postgres = [
 [package.metadata]
 requires-dist = [
     { name = "alembic", specifier = ">=1.13" },
-    { name = "cryptography", specifier = ">=44" },
     { name = "debugpy", marker = "extra == 'dev'", specifier = ">=1.8" },
     { name = "fastapi", specifier = ">=0.135" },
     { name = "mcp", specifier = ">=2,<3" },

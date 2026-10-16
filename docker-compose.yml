@@ -23,10 +23,6 @@ x-secreview-env: &secreview-env
   SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
   # The migrate service is the only one that changes the schema
   SECREVIEW_DB_AUTO_UPGRADE: "false"
-  # true: serve HTTPS with a self-signed certificate generated at every start (no file to mount)
-  SECREVIEW_TLS_SELF_SIGNED: ${SECREVIEW_TLS_SELF_SIGNED:-false}
-  # Names and IP addresses the clients use (e.g. 192.168.1.1,secreview.lan)
-  SECREVIEW_TLS_SELF_SIGNED_HOSTS: ${SECREVIEW_TLS_SELF_SIGNED_HOSTS:-}
 
 x-secreview: &secreview
   build:

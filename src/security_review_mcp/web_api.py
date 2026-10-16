@@ -19,6 +19,7 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import JSONResponse, PlainTextResponse, RedirectResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
@@ -45,13 +46,24 @@ from . import (
     web_users,
 )
 from .config import REPORT_LANGUAGE_MAX_CHARS, Settings, get_settings
-from .http_server import BEARER_CHALLENGE, HEALTH_PATH, LOOPBACK_HOSTS, TRIAGE_ROLES, Role
+from .http_server import (
+    BEARER_CHALLENGE,
+    DOCS_PATH,
+    FAVICON_PATH,
+    HEALTH_PATH,
+    LOOPBACK_HOSTS,
+    OPENAPI_PATH,
+    TRIAGE_ROLES,
+    Role,
+)
 from .models import FindingPublic, FindingStatus, SecurityReportPublic, Severity
 from .sarif import build_sarif
 
 logger = logging.getLogger("security_review_mcp.web")
 
 BUNDLED_UI_DIR = Path(__file__).parent / "webui"
+# Icon of the web interface and of the Swagger documentation (the brand mark of the UI)
+FAVICON = (Path(__file__).parent / "favicon.svg").read_bytes()
 
 # Declares the bearer scheme in the OpenAPI document (Swagger "Authorize" button). The token
 # itself is validated by the bearer middleware: auto_error=False leaves the 401 to
@@ -1469,9 +1481,10 @@ def create_app(
     app = FastAPI(
         title="security-review-mcp",
         version=__version__,
-        docs_url="/api/docs",
+        # Served below, with the application icon instead of the FastAPI one
+        docs_url=None,
         redoc_url=None,
-        openapi_url="/api/openapi.json",
+        openapi_url=OPENAPI_PATH,
     )
     app.state.signer = signer or (
         oidc_login.signer
@@ -1487,6 +1500,29 @@ def create_app(
     async def healthz() -> dict[str, str]:
         """Public liveness probe (containers, Kubernetes)."""
         return {"status": "ok"}
+
+    @app.get(FAVICON_PATH, include_in_schema=False)
+    async def favicon() -> Response:
+        """Public icon of the web interface and of the API documentation."""
+        return Response(
+            FAVICON,
+            media_type="image/svg+xml",
+            headers={
+                "Cache-Control": "public, max-age=86400",
+                # Opened on its own, an SVG is a document: it may run nothing
+                "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
+
+    @app.get(DOCS_PATH, include_in_schema=False)
+    async def swagger_ui() -> Response:
+        """Public Swagger documentation of the REST API."""
+        return get_swagger_ui_html(
+            openapi_url=OPENAPI_PATH,
+            title=f"{app.title} - API",
+            swagger_favicon_url=FAVICON_PATH,
+        )
 
     @app.exception_handler(services.NotFoundError)
     async def not_found(_: Request, exc: services.NotFoundError) -> JSONResponse:

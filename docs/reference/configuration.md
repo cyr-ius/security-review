@@ -21,8 +21,6 @@ or both.
 | `SECREVIEW_TLS_KEYFILE` | — | both | Private key |
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | both | Password of the private key |
 | `SECREVIEW_TLS_CLIENT_CA` | — | both | Client CA: enables mutual TLS |
-| `SECREVIEW_TLS_SELF_SIGNED` | `false` | both | Without a given certificate, serves HTTPS with a [self-signed certificate](../getting-started/http.md#self-signed-certificate) generated at every start |
-| `SECREVIEW_TLS_SELF_SIGNED_HOSTS` | — | both | Extra DNS names (without `*` wildcard) and IP addresses of the self-signed certificate, comma separated (those used by the clients, 20 at most) |
 | `SECREVIEW_WEB_UI` | `true` | Controller | Serves the [web interface](../usage/web-interface.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Controller | Folder of another build of the web interface |
 | `SECREVIEW_OIDC_ENABLED` | `false` | Controller | Enables the [OpenID Connect SSO login](../usage/web-interface.md#openid-connect-sso-login) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` can also be changed in the **SSO roles** screen, whose stored values replace them ([configuring SSO in the interface](../usage/web-interface.md#configuring-sso-in-the-interface)) |

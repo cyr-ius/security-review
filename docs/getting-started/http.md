@@ -55,7 +55,7 @@ Projects can also request their token themselves: see
 As soon as a token exists in the database, the MCP endpoint and the controller API require
 `Authorization: Bearer <token>`. Still public: `/healthz` on both processes, `/api/v1/enroll`
 on the MCP server, and on the controller the static files of `/ui/` and the Swagger
-documentation (`/api/docs`, `/api/openapi.json` schema). While no token exists, `/mcp` is open
+documentation (`/api/docs`, `/api/openapi.json` schema, `/api/favicon.svg` icon). While no token exists, `/mcp` is open
 (a warning is logged if it does not listen on localhost) and the controller API answers `503`.
 `token revoke` warns on stderr when it deletes the last token.
 
@@ -194,49 +194,17 @@ security-review-controller serve --host 0.0.0.0 --port 9443 \
 `SECREVIEW_TLS_CLIENT_CA` also enables **mutual TLS**: only the clients presenting a
 certificate signed by this CA can connect.
 
-### Self-signed certificate
+### Certificate authority
 
-Without a given certificate, `--tls-self-signed` (or `SECREVIEW_TLS_SELF_SIGNED=true`)
-generates a self-signed certificate and its key at start-up (EC P-256, valid one year):
+The server never generates a certificate: provide one signed by a certificate authority
+trusted by the clients, a public CA (for example Let's Encrypt, or cert-manager in Kubernetes)
+or the **internal CA** of your organization. Its `subjectAltName` must contain the names and
+addresses used by the clients (for example `DNS:secreview.lan,IP:192.168.1.1`); otherwise the
+clients refuse the connection even when they trust the CA. The key file (`key.pem`) never
+leaves the server: keep it readable by the server account only (`chmod 600`).
 
-```bash
-security-review-mcp --transport streamable-http --host 0.0.0.0 --port 8443 --tls-self-signed
-security-review-controller serve --host 0.0.0.0 --port 9443 --tls-self-signed
-```
-
-- The certificate covers `localhost`, `127.0.0.1`, `::1`, the machine name and the `--host`
-  address (except `0.0.0.0` / `::`). Add to `SECREVIEW_TLS_SELF_SIGNED_HOSTS` the names and IP
-  addresses **used by the clients**, comma separated (for example
-  `192.168.1.1,secreview.lan`): otherwise, even a client that trusts the certificate refuses
-  the connection (name not covered). It is essential in a container, where the machine name is
-  the container's.
-- It is written to a private temporary folder (key in mode `0600`), deleted at shutdown: **a new
-  key is generated at every start**. Its SHA-256 fingerprint is logged so that the clients can
-  check it.
-- A given certificate (`SECREVIEW_TLS_CERTFILE`) always takes precedence;
-  `SECREVIEW_TLS_CLIENT_CA` (mutual TLS) remains usable.
-
-!!! warning
-    Clients do not trust this certificate: it must be added explicitly to their configuration
-    (see [Host configuration](host.md#self-signed-https-server-or-internal-ca)), and added
-    again at every restart. Keep it for tests and internal networks; in production, provide a
-    certificate signed by a CA or terminate TLS on a reverse proxy.
-
-### Stable certificate
-
-To have the certificate accepted only once, generate it once and for all and provide it with
-`SECREVIEW_TLS_CERTFILE` / `SECREVIEW_TLS_KEYFILE`. Put in `subjectAltName` the names and
-addresses used by the clients:
-
-```bash
-openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 825 \
-    -keyout key.pem -out cert.pem -subj "/CN=security-review-mcp" \
-    -addext "subjectAltName=DNS:secreview.lan,IP:192.168.1.1,DNS:localhost,IP:127.0.0.1" \
-    -addext "basicConstraints=critical,CA:FALSE" -addext "extendedKeyUsage=serverAuth"
-chmod 600 key.pem
-```
-
-`cert.pem` is then the file to hand out to the clients; `key.pem` never leaves the server.
+With an internal CA, the clients must trust its certificate: see
+[Host configuration](host.md#https-server-with-an-internal-ca).
 
 ## Client configuration
 

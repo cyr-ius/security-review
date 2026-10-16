@@ -54,7 +54,7 @@ def serve(argv: list[str]) -> None:
     try:
         init_db()
         store = token_store.DatabaseTokenStore(include_users=True)
-        tls = http_server.tls_options(settings, args.host)
+        tls = http_server.tls_options(settings)
         signer = oidc.session_signer(settings)
         # The SECREVIEW_OIDC_* variables are checked here; the settings changed in the web
         # interface are checked when they are stored (an invalid mix only disables SSO)

@@ -10,6 +10,7 @@ base de données (voir [Architecture et déploiement](../getting-started/kuberne
 | `/ui/` | Application web (Angular) |
 | `/api/v1/…` | API REST utilisée par l'application |
 | `/api/docs` | Documentation OpenAPI de l'API REST (publique, sans données) |
+| `/api/favicon.svg` | Icône de l'interface web et de la documentation Swagger (publique) |
 | `/healthz` | Sonde de vie (publique) |
 
 ```bash

@@ -114,12 +114,9 @@ docker compose logs controller   # initial admin password
   in `.env`: `PUBLISH_ADDRESS=192.168.1.10` (one interface) or `PUBLISH_ADDRESS=0.0.0.0`
   (every interface). This variable is only used by Compose. The controller exposes no write
   route without a token: it can stay internal.
-- For an HTTPS trial without a file to mount, add `SECREVIEW_TLS_SELF_SIGNED=true` and
-  `SECREVIEW_TLS_SELF_SIGNED_HOSTS` (the address or the name through which the clients reach
-  the Docker host) to `.env`: the Compose file passes these variables to both servers, which
-  generate a [self-signed certificate](http.md#self-signed-certificate) at every start (in the
-  `/tmp` `tmpfs`). The other variables of `.env` are only used by Compose: add them under
-  `environment` so that they reach the containers.
+- The variables of `.env` are only used by Compose: add them under `environment` so that they
+  reach the containers (for example `SECREVIEW_TLS_CERTFILE` and `SECREVIEW_TLS_KEYFILE`, with
+  the certificate files mounted read-only, see [Certificate authority](http.md#certificate-authority)).
 - The vulnerability advisory database is **empty** at first start: the dependency analysis then
   answers that no database is loaded. To let the controller download it at start-up, then every
   24 h, add `SECREVIEW_OSV_AUTO_UPDATE=true` to `.env` (and, if needed,

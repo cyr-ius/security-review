@@ -17,9 +17,9 @@
   rapport ou finding est traité comme inexistant (voir
   [jetons restreints à un projet](../getting-started/http.md#jetons-restreints-a-un-projet)). Si l'écoute n'est pas sur
   localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Le
-  [certificat auto-signé](../getting-started/http.md#certificat-auto-signe) facultatif est régénéré à
-  chaque démarrage (clé privée en `0600` dans un dossier temporaire, jamais journalisée) et n'est
-  pas reconnu par les clients sans ajout explicite. Il n'y a
+  serveur ne génère jamais de certificat TLS : le HTTPS utilise le certificat fourni par
+  l'opérateur, signé par une
+  [autorité de certification](../getting-started/http.md#autorite-de-certification). Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
   (`mcp`, `reader`, `triager`, `admin`) ; un jeton `mcp` sans projet accède à tous les outils
   MCP et à tous les projets.

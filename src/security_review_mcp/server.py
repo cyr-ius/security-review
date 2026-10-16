@@ -930,7 +930,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         # Bearer tokens live in the database (hashes only)
         store = token_store.DatabaseTokenStore()
-        tls = http_server.tls_options(settings, args.host)
+        tls = http_server.tls_options(settings)
     except ValueError as exc:
         parser.error(str(exc))
     if settings.enrollment:

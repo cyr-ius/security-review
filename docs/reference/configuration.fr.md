@@ -21,8 +21,6 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_TLS_KEYFILE` | — | les deux | Clé privée |
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | les deux | Mot de passe de la clé privée |
 | `SECREVIEW_TLS_CLIENT_CA` | — | les deux | CA cliente : active le TLS mutuel |
-| `SECREVIEW_TLS_SELF_SIGNED` | `false` | les deux | Sans certificat fourni, sert en HTTPS avec un [certificat auto-signé](../getting-started/http.md#certificat-auto-signe) généré à chaque démarrage |
-| `SECREVIEW_TLS_SELF_SIGNED_HOSTS` | — | les deux | Noms DNS (sans joker `*`) et adresses IP supplémentaires du certificat auto-signé, séparés par des virgules (ceux qu'utilisent les clients, 20 au plus) |
 | `SECREVIEW_WEB_UI` | `true` | Contrôleur | Sert l'[interface web](../usage/web-interface.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Contrôleur | Dossier d'une autre build de l'interface web |
 | `SECREVIEW_OIDC_ENABLED` | `false` | Contrôleur | Active la [connexion SSO OpenID Connect](../usage/web-interface.md#connexion-sso-openid-connect) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` se modifient aussi dans l'écran **Rôles SSO**, dont les valeurs enregistrées les remplacent ([configurer le SSO dans l'interface](../usage/web-interface.md#configurer-le-sso-dans-linterface)) |

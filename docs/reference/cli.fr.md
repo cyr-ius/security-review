@@ -11,7 +11,7 @@ Le paquet installe deux commandes, une par processus (voir
 
 | Commande | Rôle | Page |
 |---|---|---|
-| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Lance le serveur MCP | [Installation](../getting-started/installation.md#lancement) |
+| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP | [Installation](../getting-started/installation.md#lancement) |
 | `enroll --url URL --project P [--label L] [--requested-by QUI] [--token-stdin] [--cafile CA] [--allow-http]` | Demande un nouveau jeton ou, avec `--token-stdin`, un accès complémentaire pour le jeton lu sur stdin | [Enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton) |
 
 En stdio, le serveur migre lui-même sa base au démarrage (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`).
@@ -27,7 +27,7 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 
 | Commande | Rôle | Page |
 |---|---|---|
-| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Sert l'API REST (`/api/v1`) et l'interface web (`/ui`) | [Serveur HTTP](../getting-started/http.md) |
+| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Sert l'API REST (`/api/v1`) et l'interface web (`/ui`) | [Serveur HTTP](../getting-started/http.md) |
 | `db upgrade` / `db status` | Migre le schéma (Alembic) et amorce les règles par défaut, ou affiche la révision | [Architecture et déploiement](../getting-started/kubernetes.md#migrations-du-schema) |
 | `token create --label NOM [--role ROLE] [--project P …]` | Crée un jeton Bearer, éventuellement limité à plusieurs projets, et affiche son secret une fois | [Jetons Bearer](../getting-started/http.md#jetons-bearer), [rôles](../usage/web-interface.md#roles) |
 | `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Liste (ou seulement les demandes d'enrôlement en attente) ou révoque les jetons | [Jetons Bearer](../getting-started/http.md#jetons-bearer) |

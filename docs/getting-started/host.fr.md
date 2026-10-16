@@ -91,30 +91,24 @@ reverse proxy), omettez `headers` et `inputs`, par exemple
     N'écrivez jamais le jeton en clair dans un fichier de configuration versionné : utilisez une
     saisie (`${input:...}`) ou une variable d'environnement.
 
-## Serveur HTTPS auto-signé ou CA interne
+## Serveur HTTPS avec une CA interne
 
-Quand le serveur utilise un [certificat auto-signé](http.md#certificat-auto-signe) ou signé par
-une CA interne, l'hôte refuse la connexion (`self signed certificate`,
-`DEPTH_ZERO_SELF_SIGNED_CERT`, `unable to verify the first certificate`). Ni VS Code ni Claude
+Quand le certificat du serveur est signé par une
+[CA interne](http.md#autorite-de-certification), l'hôte refuse la connexion
+(`unable to verify the first certificate`, `unable to get local issuer certificate`). Ni VS Code ni Claude
 n'ont d'option TLS par serveur dans leur configuration MCP : on ajoute le certificat aux
 autorités de confiance du **processus** de l'hôte. Claude Code et VS Code reposent sur Node.js,
 qui lit pour cela la variable d'environnement `NODE_EXTRA_CA_CERTS` (fichier PEM) **au
 démarrage** du processus.
 
-1. Récupérez le certificat et comparez son empreinte avec celle du journal du serveur
-   (`Self-signed TLS certificate generated ... SHA-256 fingerprint`) ou avec
-   `openssl x509 -in cert.pem -noout -fingerprint -sha256` sur le serveur :
+1. Obtenez le certificat de la CA interne (PEM) auprès de ses administrateurs, enregistrez-le
+   sous `~/.config/secreview/ca.pem`, et vérifiez que le nom ou l'adresse de l'`url` MCP figure
+   dans le certificat du serveur :
 
     ```bash
-    openssl s_client -connect 192.168.1.1:8000 </dev/null 2>/dev/null \
-        | openssl x509 > ~/.config/secreview/ca.pem
-    openssl x509 -in ~/.config/secreview/ca.pem -noout -fingerprint -sha256
+    openssl s_client -connect 192.168.1.1:8000 -CAfile ~/.config/secreview/ca.pem </dev/null \
+        2>/dev/null | openssl x509 -noout -ext subjectAltName
     ```
-
-    Pour une CA interne, utilisez directement son certificat. Vérifiez aussi que le nom ou
-    l'adresse de l'`url` MCP figure dans le certificat
-    (`openssl x509 -in ~/.config/secreview/ca.pem -noout -ext subjectAltName`) : sinon, voir
-    `SECREVIEW_TLS_SELF_SIGNED_HOSTS`.
 
 2. Déclarez-le à l'hôte, puis **redémarrez-le** :
 
@@ -155,14 +149,10 @@ démarrage** du processus.
     les connexions du processus (API, extensions, mises à jour), pas seulement celle du serveur
     MCP, et laisse passer une interception.
 
-Avec un certificat auto-signé généré au démarrage, la clé change **à chaque redémarrage du
-serveur** : il faut recommencer ces deux étapes. Pour un usage durable, générez un
-[certificat stable](http.md#certificat-stable) ou utilisez une CA interne.
-
 Les connecteurs distants ajoutés depuis l'interface web de Claude (claude.ai, Claude Desktop)
 sont contactés depuis l'infrastructure d'Anthropic, pas depuis le poste : ils exigent un
-serveur joignable depuis Internet avec un certificat reconnu publiquement, ce qui exclut un
-certificat auto-signé.
+serveur joignable depuis Internet avec un certificat reconnu publiquement, ce qui exclut une CA
+interne.
 
 Pour l'enrôlement en CLI, `security-review-mcp enroll` accepte directement `--cafile` (voir
 ci-dessous).

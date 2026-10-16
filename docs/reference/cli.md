@@ -11,7 +11,7 @@ The package installs two commands, one per process (see
 
 | Command | Role | Page |
 |---|---|---|
-| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Starts the MCP server | [Installation](../getting-started/installation.md#running) |
+| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server | [Installation](../getting-started/installation.md#running) |
 | `enroll --url URL --project P [--label L] [--requested-by WHO] [--token-stdin] [--cafile CA] [--allow-http]` | Requests a new token or, with `--token-stdin`, additional access for the token read on stdin | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token) |
 
 With stdio, the server migrates its database itself at start-up (unless
@@ -27,7 +27,7 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 
 | Command | Role | Page |
 |---|---|---|
-| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--tls-self-signed]` | Serves the REST API (`/api/v1`) and the web interface (`/ui`) | [HTTP server](../getting-started/http.md) |
+| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Serves the REST API (`/api/v1`) and the web interface (`/ui`) | [HTTP server](../getting-started/http.md) |
 | `db upgrade` / `db status` | Migrates the schema (Alembic) and seeds the default rules, or shows the revision | [Architecture and deployment](../getting-started/kubernetes.md#schema-migrations) |
 | `token create --label NAME [--role ROLE] [--project P …]` | Creates a Bearer token, possibly limited to several projects, and shows its secret once | [Bearer tokens](../getting-started/http.md#bearer-tokens), [roles](../usage/web-interface.md#roles) |
 | `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Lists (or only the pending enrollment requests) or revokes the tokens | [Bearer tokens](../getting-started/http.md#bearer-tokens) |
