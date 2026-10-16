@@ -4,6 +4,8 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { ChecklistItem, ChecklistItemWrite } from '../../../core/models/api.models';
+import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ApiService } from '../../../core/services/api.service';
 
 interface ChecklistFormModel {
@@ -25,12 +27,13 @@ const EMPTY_ITEM: ChecklistFormModel = {
 /** Admin view for checklist items grouped by their review domain. */
 @Component({
   selector: 'app-checklist-list',
-  imports: [FormField],
+  imports: [FormField, TranslatePipe],
   templateUrl: './checklist-list.component.html',
   styleUrl: './checklist-list.component.css',
 })
 export class ChecklistListComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
   private readonly editorDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editorDialog');
 
   readonly catalog = rxResource({ stream: () => this.api.checklistItems() });
@@ -45,22 +48,28 @@ export class ChecklistListComponent {
   });
   readonly formModel = signal<ChecklistFormModel>({ ...EMPTY_ITEM });
   readonly itemForm = form(this.formModel, (path) => {
-    required(path.domain, { message: 'Le domaine est obligatoire' });
+    required(path.domain, { message: () => this.i18n.translate('checklists.domainRequired') });
     maxLength(path.domain, 31);
-    required(path.id, { message: "L'identifiant est obligatoire" });
+    required(path.id, { message: () => this.i18n.translate('rules.idRequired') });
     maxLength(path.id, 50);
-    required(path.title, { message: 'Le titre est obligatoire' });
+    required(path.title, { message: () => this.i18n.translate('rules.titleRequired') });
     maxLength(path.title, 300);
-    required(path.what_to_look_for, { message: 'Le point de contrôle est obligatoire' });
+    required(path.what_to_look_for, {
+      message: () => this.i18n.translate('checklists.checkRequired'),
+    });
     maxLength(path.what_to_look_for, 5000);
     maxLength(path.cwe, 20);
   });
   readonly editingItem = signal<{ domain: string; id: string } | null>(null);
   readonly creating = signal(false);
   readonly saving = signal(false);
-  readonly error = signal<string | null>(null);
-  readonly formError = signal<string | null>(null);
-  readonly notice = signal<string | null>(null);
+  readonly error = signal<Message | null>(null);
+  readonly formError = signal<Message | null>(null);
+  readonly notice = signal<Message | null>(null);
+
+  onDomainFilter(event: Event): void {
+    this.setDomainFilter((event.target as HTMLSelectElement).value);
+  }
 
   setDomainFilter(value: string): void {
     this.domainFilter.set(value);
@@ -124,10 +133,10 @@ export class ChecklistListComponent {
       const editing = this.editingItem();
       if (editing) {
         await firstValueFrom(this.api.updateChecklistItem(editing.domain, editing.id, payload));
-        this.notice.set(`Checklist ${editing.domain}/${editing.id} modifiée.`);
+        this.notice.set(msg('checklists.updated', { id: `${editing.domain}/${editing.id}` }));
       } else {
         await firstValueFrom(this.api.createChecklistItem(payload));
-        this.notice.set(`Checklist ${payload.domain}/${payload.id} créée.`);
+        this.notice.set(msg('checklists.created', { id: `${payload.domain}/${payload.id}` }));
       }
       this.cancelEdit();
       this.catalog.reload();
@@ -139,13 +148,14 @@ export class ChecklistListComponent {
   }
 
   async remove(item: ChecklistItem): Promise<void> {
-    if (!window.confirm(`Supprimer définitivement ${item.domain}/${item.id} ?`)) {
+    const id = `${item.domain}/${item.id}`;
+    if (!window.confirm(this.i18n.translate('checklists.confirmDelete', { id }))) {
       return;
     }
     this.clearMessages();
     try {
       await firstValueFrom(this.api.deleteChecklistItem(item.domain, item.id));
-      this.notice.set(`Checklist ${item.domain}/${item.id} supprimée.`);
+      this.notice.set(msg('checklists.deleted', { id }));
       this.catalog.reload();
     } catch (error: unknown) {
       this.error.set(describeError(error));
@@ -166,9 +176,9 @@ export class ChecklistListComponent {
   }
 }
 
-function describeError(error: unknown): string {
-  if (error instanceof HttpErrorResponse) {
-    return error.error?.detail ?? 'La modification de la checklist a échoué.';
+function describeError(error: unknown): Message {
+  if (error instanceof HttpErrorResponse && typeof error.error?.detail === 'string') {
+    return serverDetail(error.error.detail);
   }
-  return 'La modification de la checklist a échoué.';
+  return msg('checklists.failed');
 }

@@ -1,20 +1,19 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
-    <h1 class="h3 mb-0">Règles de scan</h1>
+    <h1 class="h3 mb-0">{{ 'rules.title' | t }}</h1>
     <p class="text-body-secondary mb-0">
-      Règles par défaut (chargées au premier lancement) et personnalisées, stockées en base ; import
-      et export avec <code>security-review-controller rules</code>
+      {{ 'rules.subtitle' | t }} <code>security-review-controller rules</code>
     </p>
   </div>
   <div class="d-flex gap-2">
     <app-refresh-button
-      label="Recharger"
+      [label]="'rules.reload' | t"
       [loading]="reloading() || catalog.isLoading()"
       (refresh)="reload()"
     />
     <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
       <i class="bi bi-plus-lg" aria-hidden="true"></i>
-      Nouvelle règle
+      {{ 'rules.new' | t }}
     </button>
   </div>
 </div>
@@ -22,19 +21,19 @@
 @if (error(); as message) {
   <div class="alert alert-danger py-2" role="alert">
     <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-    {{ message }}
+    {{ message | t }}
   </div>
 }
 @if (notice(); as message) {
-  <div class="alert alert-success py-2" role="status">{{ message }}</div>
+  <div class="alert alert-success py-2" role="status">{{ message | t }}</div>
 }
 
 @if (catalog.error()) {
-  <div class="alert alert-danger" role="alert">Impossible de charger les règles.</div>
+  <div class="alert alert-danger" role="alert">{{ 'rules.loadError' | t }}</div>
 } @else if (catalog.isLoading() && !catalog.hasValue()) {
   <div class="text-center my-5">
     <span class="spinner-border text-secondary" aria-hidden="true"></span>
-    <span class="visually-hidden">Chargement…</span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 } @else if (catalog.value(); as data) {
   @for (issue of data.load_errors; track issue) {
@@ -43,17 +42,17 @@
 
   <div class="card">
     <div class="card-header d-flex flex-wrap gap-2 align-items-center">
-      <span class="fw-semibold">{{ visibleRules().length }} règle(s)</span>
-      <label class="visually-hidden" for="rule-origin-filter">Origine</label>
+      <span class="fw-semibold">{{ 'rules.count' | t: { count: visibleRules().length } }}</span>
+      <label class="visually-hidden" for="rule-origin-filter">{{ 'rules.origin' | t }}</label>
       <select
         id="rule-origin-filter"
         class="form-select form-select-sm w-auto ms-auto"
         [value]="originFilter()"
-        (change)="setOriginFilter($any($event.target).value)"
+        (change)="onOriginFilter($event)"
       >
-        <option value="">Toutes les origines</option>
-        <option value="builtin">Par défaut</option>
-        <option value="custom">Personnalisées</option>
+        <option value="">{{ 'rules.allOrigins' | t }}</option>
+        <option value="builtin">{{ 'rules.builtinPlural' | t }}</option>
+        <option value="custom">{{ 'rules.customPlural' | t }}</option>
       </select>
     </div>
     @if (visibleRules().length > 0) {
@@ -61,12 +60,12 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr>
-              <th scope="col">Règle</th>
-              <th scope="col">Sévérité</th>
-              <th scope="col">Langages</th>
-              <th scope="col">Modifiée le</th>
-              <th scope="col">État</th>
-              <th scope="col" class="text-end">Actions</th>
+              <th scope="col">{{ 'rules.rule' | t }}</th>
+              <th scope="col">{{ 'rules.severity' | t }}</th>
+              <th scope="col">{{ 'rules.languages' | t }}</th>
+              <th scope="col">{{ 'rules.updatedAt' | t }}</th>
+              <th scope="col">{{ 'rules.state' | t }}</th>
+              <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
             </tr>
           </thead>
           <tbody>
@@ -75,18 +74,20 @@
                 <td class="rule-name">
                   <code>{{ rule.id }}</code>
                   @if (rule.origin === 'custom') {
-                    <span class="badge text-bg-info ms-1">Personnalisée</span>
+                    <span class="badge text-bg-info ms-1">{{ 'rules.custom' | t }}</span>
                   } @else if (rule.modified) {
-                    <span class="badge text-bg-warning ms-1">Par défaut, modifiée</span>
+                    <span class="badge text-bg-warning ms-1">{{
+                      'rules.builtinModified' | t
+                    }}</span>
                   } @else {
-                    <span class="badge text-bg-light border ms-1">Par défaut</span>
+                    <span class="badge text-bg-light border ms-1">{{ 'rules.builtin' | t }}</span>
                   }
                   <div class="fw-semibold">{{ rule.title }}</div>
                   @if (rule.cwe) {
                     <span class="small text-body-secondary">{{ rule.cwe }}</span>
                   }
                 </td>
-                <td>{{ rule.severity }}</td>
+                <td>{{ severityMeta[rule.severity].label | t }}</td>
                 <td>{{ rule.languages.join(', ') }}</td>
                 <td class="text-nowrap">{{ rule.updated_at | date: 'dd/MM/yyyy HH:mm' }}</td>
                 <td>
@@ -95,7 +96,7 @@
                     [class.text-bg-success]="rule.enabled"
                     [class.text-bg-secondary]="!rule.enabled"
                   >
-                    {{ rule.enabled ? 'Active' : 'Désactivée' }}
+                    {{ (rule.enabled ? 'rules.enabled' : 'rules.disabled') | t }}
                   </span>
                 </td>
                 <td class="text-end text-nowrap">
@@ -103,9 +104,9 @@
                     type="button"
                     class="btn btn-sm btn-outline-secondary action-button"
                     [attr.aria-label]="
-                      rule.enabled ? 'Désactiver ' + rule.id : 'Activer ' + rule.id
+                      (rule.enabled ? 'rules.disableRule' : 'rules.enableRule') | t: { id: rule.id }
                     "
-                    [title]="rule.enabled ? 'Désactiver' : 'Activer'"
+                    [title]="(rule.enabled ? 'common.disable' : 'common.enable') | t"
                     (click)="toggle(rule)"
                   >
                     <i
@@ -118,8 +119,8 @@
                   <button
                     type="button"
                     class="btn btn-sm btn-outline-secondary action-button ms-1"
-                    [attr.aria-label]="'Modifier ' + rule.id"
-                    title="Modifier"
+                    [attr.aria-label]="'rules.editRule' | t: { id: rule.id }"
+                    [title]="'common.edit' | t"
                     (click)="startEdit(rule)"
                   >
                     <i class="bi bi-pencil" aria-hidden="true"></i>
@@ -128,8 +129,8 @@
                     <button
                       type="button"
                       class="btn btn-sm btn-outline-danger action-button ms-1"
-                      [attr.aria-label]="'Supprimer ' + rule.id"
-                      title="Supprimer"
+                      [attr.aria-label]="'rules.deleteRule' | t: { id: rule.id }"
+                      [title]="'common.delete' | t"
                       (click)="remove(rule)"
                     >
                       <i class="bi bi-trash" aria-hidden="true"></i>
@@ -142,7 +143,7 @@
         </table>
       </div>
     } @else {
-      <p class="text-body-secondary text-center my-4">Aucune règle.</p>
+      <p class="text-body-secondary text-center my-4">{{ 'rules.empty' | t }}</p>
     }
   </div>
 }
@@ -157,12 +158,12 @@
     <form class="card rule-editor" (submit)="save($event)" novalidate>
       <div class="card-header d-flex align-items-center">
         <h2 id="rule-dialog-title" class="h6 mb-0">
-          {{ editingId() ? 'Modifier la règle' : 'Nouvelle règle' }}
+          {{ (editingId() ? 'rules.editTitle' : 'rules.new') | t }}
         </h2>
         <button
           type="button"
           class="btn btn-sm btn-outline-secondary ms-auto"
-          aria-label="Fermer le formulaire"
+          [attr.aria-label]="'common.closeForm' | t"
           (click)="cancelEdit()"
         >
           <i class="bi bi-x-lg" aria-hidden="true"></i>
@@ -172,12 +173,12 @@
         @if (formError(); as message) {
           <div class="alert alert-danger py-2" role="alert">
             <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-            {{ message }}
+            {{ message | t }}
           </div>
         }
         <div class="row g-3">
           <div class="col-md-4">
-            <label class="form-label" for="rule-id">Identifiant</label>
+            <label class="form-label" for="rule-id">{{ 'rules.id' | t }}</label>
             @if (editingId()) {
               <input
                 id="rule-id"
@@ -190,24 +191,24 @@
             }
           </div>
           <div class="col-md-5">
-            <label class="form-label" for="rule-title">Titre</label>
+            <label class="form-label" for="rule-title">{{ 'rules.titleField' | t }}</label>
             <input id="rule-title" class="form-control" [formField]="ruleForm.title" />
           </div>
           <div class="col-md-3">
-            <label class="form-label" for="rule-severity">Sévérité</label>
+            <label class="form-label" for="rule-severity">{{ 'rules.severity' | t }}</label>
             <select id="rule-severity" class="form-select" [formField]="ruleForm.severity">
-              <option value="">Choisir…</option>
+              <option value="">{{ 'common.choose' | t }}</option>
               @for (severity of severities; track severity) {
-                <option [value]="severity">{{ severity }}</option>
+                <option [value]="severity">{{ severityMeta[severity].label | t }}</option>
               }
             </select>
           </div>
           <div class="col-md-6">
-            <label class="form-label" for="rule-languages">Langages</label>
+            <label class="form-label" for="rule-languages">{{ 'rules.languages' | t }}</label>
             <input
               id="rule-languages"
               class="form-control"
-              placeholder="python, java ou *"
+              [placeholder]="'rules.languagesPlaceholder' | t"
               [formField]="ruleForm.languages"
             />
           </div>
@@ -221,7 +222,7 @@
             />
           </div>
           <div class="col-12">
-            <label class="form-label" for="rule-pattern">Expression régulière</label>
+            <label class="form-label" for="rule-pattern">{{ 'rules.pattern' | t }}</label>
             <textarea
               id="rule-pattern"
               class="form-control font-monospace pattern"
@@ -231,7 +232,7 @@
             ></textarea>
           </div>
           <div class="col-12">
-            <label class="form-label" for="rule-advice">Conseil</label>
+            <label class="form-label" for="rule-advice">{{ 'rules.advice' | t }}</label>
             <textarea
               id="rule-advice"
               class="form-control"
@@ -247,20 +248,22 @@
                 type="checkbox"
                 [formField]="ruleForm.ignore_case"
               />
-              <label class="form-check-label" for="rule-ignore-case">Ignorer la casse</label>
+              <label class="form-check-label" for="rule-ignore-case">{{
+                'rules.ignoreCase' | t
+              }}</label>
             </div>
           </div>
         </div>
       </div>
       <div class="card-footer d-flex justify-content-end gap-2">
         <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEdit()">
-          Annuler
+          {{ 'common.cancel' | t }}
         </button>
         <button type="submit" class="btn btn-sm btn-primary" [disabled]="saving()">
           @if (saving()) {
             <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
           }
-          Enregistrer
+          {{ 'common.save' | t }}
         </button>
       </div>
     </form>

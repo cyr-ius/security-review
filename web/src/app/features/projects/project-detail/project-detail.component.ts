@@ -3,6 +3,8 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { DIRECTION_META, SEVERITY_META } from '../../../core/constants/labels';
+import { MessageKey } from '../../../core/i18n/messages';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { SEVERITIES, Severity, Trend } from '../../../core/models/api.models';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { ReportTableComponent } from '../../../shared/components/report-table/report-table.component';
@@ -12,15 +14,15 @@ import { TrendChartComponent } from '../../../shared/components/trend-chart/tren
 interface TrendWindow {
   days: number;
   granularity: Trend['granularity'];
-  label: string;
+  label: MessageKey;
 }
 
 /** Time windows offered for the trend (each stays well under the server bucket limit). */
 const WINDOWS: readonly TrendWindow[] = [
-  { days: 30, granularity: 'day', label: '30 jours' },
-  { days: 90, granularity: 'week', label: '3 mois' },
-  { days: 180, granularity: 'week', label: '6 mois' },
-  { days: 365, granularity: 'month', label: '1 an' },
+  { days: 30, granularity: 'day', label: 'project.window30' },
+  { days: 90, granularity: 'week', label: 'project.window90' },
+  { days: 180, granularity: 'week', label: 'project.window180' },
+  { days: 365, granularity: 'month', label: 'project.window365' },
 ];
 
 const RECENT_REPORTS = 20;
@@ -34,6 +36,7 @@ const RECENT_REPORTS = 20;
     ReportTableComponent,
     SeverityCountsComponent,
     TrendChartComponent,
+    TranslatePipe,
   ],
   templateUrl: './project-detail.component.html',
   styleUrl: './project-detail.component.css',

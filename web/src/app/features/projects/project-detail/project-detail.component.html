@@ -1,6 +1,8 @@
-<nav aria-label="Fil d'Ariane">
+<nav [attr.aria-label]="'common.breadcrumb' | t">
   <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a routerLink="/projects">Projets</a></li>
+    <li class="breadcrumb-item">
+      <a routerLink="/projects">{{ 'layout.projects' | t }}</a>
+    </li>
     <li class="breadcrumb-item active" aria-current="page">{{ project() }}</li>
   </ol>
 </nav>
@@ -14,7 +16,7 @@
       [queryParams]="{ project: project() }"
     >
       <i class="bi bi-list-ul" aria-hidden="true"></i>
-      Tous les rapports
+      {{ 'project.allReports' | t }}
     </a>
     <button
       type="button"
@@ -23,22 +25,22 @@
       [disabled]="exporting()"
     >
       <i class="bi bi-download" aria-hidden="true"></i>
-      Export SARIF
+      {{ 'project.exportSarif' | t }}
     </button>
   </div>
 </div>
 
 @if (exportError()) {
-  <div class="alert alert-warning py-2" role="alert">L'export SARIF a échoué.</div>
+  <div class="alert alert-warning py-2" role="alert">{{ 'project.exportFailed' | t }}</div>
 }
 
 @if (trend.error()) {
   <div class="alert alert-danger" role="alert">
     <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-    Impossible de charger la tendance du projet.
+    {{ 'project.trendError' | t }}
   </div>
 } @else if (trend.value(); as data) {
-  <section class="mb-4" aria-label="Findings ouverts">
+  <section class="mb-4" [attr.aria-label]="'project.openFindings' | t">
     <app-severity-counts [counts]="data.summary.open_now" />
   </section>
 
@@ -46,12 +48,16 @@
     <div class="col-lg-8">
       <div class="card h-100">
         <div class="card-header d-flex flex-wrap align-items-center gap-2">
-          <span class="fw-semibold">Tendance</span>
+          <span class="fw-semibold">{{ 'project.trend' | t }}</span>
           <span class="badge bg-body-secondary text-body border">
             <i class="bi" [class]="direction().icon" aria-hidden="true"></i>
-            {{ direction().label }}
+            {{ direction().label | t }}
           </span>
-          <div class="btn-group btn-group-sm ms-auto" role="group" aria-label="Période">
+          <div
+            class="btn-group btn-group-sm ms-auto"
+            role="group"
+            [attr.aria-label]="'trend.period' | t"
+          >
             @for (w of windows; track w.days) {
               <button
                 type="button"
@@ -60,7 +66,7 @@
                 [attr.aria-pressed]="w === window()"
                 (click)="selectWindow(w)"
               >
-                {{ w.label }}
+                {{ w.label | t }}
               </button>
             }
           </div>
@@ -78,30 +84,37 @@
 
     <div class="col-lg-4">
       <div class="card h-100">
-        <div class="card-header fw-semibold">Sur la période</div>
+        <div class="card-header fw-semibold">{{ 'project.overPeriod' | t }}</div>
         <ul class="list-group list-group-flush">
           <li class="list-group-item d-flex justify-content-between">
-            <span>Nouveaux findings</span><strong>{{ data.summary.new_findings }}</strong>
+            <span>{{ 'project.newFindings' | t }}</span
+            ><strong>{{ data.summary.new_findings }}</strong>
           </li>
           <li class="list-group-item d-flex justify-content-between">
-            <span>Corrigés</span><strong>{{ data.summary.fixed_findings }}</strong>
+            <span>{{ 'trend.fixed' | t }}</span
+            ><strong>{{ data.summary.fixed_findings }}</strong>
           </li>
           <li class="list-group-item d-flex justify-content-between">
-            <span>Acceptés / faux positifs</span>
+            <span>{{ 'project.dismissed' | t }}</span>
             <strong>{{ data.summary.dismissed_findings }}</strong>
           </li>
           <li class="list-group-item d-flex justify-content-between">
-            <span>Score de risque actuel</span><strong>{{ data.summary.risk_score_now }}</strong>
+            <span>{{ 'project.riskScore' | t }}</span
+            ><strong>{{ data.summary.risk_score_now }}</strong>
           </li>
         </ul>
 
         @if (mttr().length > 0) {
           <div class="card-body border-top">
-            <h2 class="h6">Délai moyen de correction</h2>
+            <h2 class="h6">{{ 'project.mttr' | t }}</h2>
             @for (row of mttr(); track row.severity) {
               <div class="d-flex justify-content-between small">
-                <span>{{ row.label }}</span>
-                <span>{{ row.mean_days | number: '1.0-1' }} j ({{ row.count }})</span>
+                <span>{{ row.label | t }}</span>
+                <span
+                  >{{ 'project.days' | t: { days: (row.mean_days | number: '1.0-1') ?? '' } }} ({{
+                    row.count
+                  }})</span
+                >
               </div>
             }
           </div>
@@ -109,11 +122,11 @@
 
         @if (oldest().length > 0) {
           <div class="card-body border-top">
-            <h2 class="h6">Plus ancien finding ouvert</h2>
+            <h2 class="h6">{{ 'project.oldest' | t }}</h2>
             @for (row of oldest(); track row.label) {
               <div class="d-flex justify-content-between small">
-                <span>{{ row.label }}</span>
-                <span>{{ row.days | number: '1.0-0' }} j</span>
+                <span>{{ row.label | t }}</span>
+                <span>{{ 'project.days' | t: { days: (row.days | number: '1.0-0') ?? '' } }}</span>
               </div>
             }
           </div>
@@ -121,7 +134,7 @@
 
         @if (data.summary.top_open_cwes.length > 0) {
           <div class="card-body border-top">
-            <h2 class="h6">CWE les plus fréquentes</h2>
+            <h2 class="h6">{{ 'project.topCwes' | t }}</h2>
             @for (row of data.summary.top_open_cwes; track row.cwe) {
               <div class="d-flex justify-content-between small">
                 <span class="font-monospace">{{ row.cwe }}</span>
@@ -136,15 +149,15 @@
 } @else {
   <div class="text-center my-5">
     <span class="spinner-border text-secondary" aria-hidden="true"></span>
-    <span class="visually-hidden">Chargement…</span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 }
 
 <div class="card">
-  <div class="card-header fw-semibold">Derniers rapports</div>
+  <div class="card-header fw-semibold">{{ 'project.latestReports' | t }}</div>
   @if (reports.value(); as rows) {
     <app-report-table [reports]="rows" [showProject]="false" />
   } @else if (reports.error()) {
-    <div class="card-body text-danger">Impossible de charger les rapports.</div>
+    <div class="card-body text-danger">{{ 'reports.loadError' | t }}</div>
   }
 </div>

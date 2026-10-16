@@ -1,7 +1,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
-    <h1 class="h3 mb-0">Jetons de projet</h1>
-    <p class="text-body-secondary mb-0">Accès limité aux projets sélectionnés</p>
+    <h1 class="h3 mb-0">{{ 'tokens.title' | t }}</h1>
+    <p class="text-body-secondary mb-0">{{ 'tokens.subtitle' | t }}</p>
   </div>
   <app-refresh-button
     [loading]="tokens.isLoading() || enrollments.isLoading() || projects.isLoading()"
@@ -10,20 +10,20 @@
 </div>
 
 @if (error(); as text) {
-  <div class="alert alert-danger py-2" role="alert">{{ text }}</div>
+  <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
 }
 @if (message(); as text) {
-  <div class="alert alert-success py-2" role="status">{{ text }}</div>
+  <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
 }
 @if (createdToken(); as token) {
-  <section class="alert alert-warning" aria-label="Nouveau jeton">
-    <h2 class="h6">Copiez ce jeton maintenant</h2>
-    <p class="mb-2">Il ne sera plus affiché après avoir quitté cette page.</p>
+  <section class="alert alert-warning" [attr.aria-label]="'tokens.newToken' | t">
+    <h2 class="h6">{{ 'tokens.copyNow' | t }}</h2>
+    <p class="mb-2">{{ 'tokens.notShownAgain' | t }}</p>
     <div class="d-flex flex-wrap align-items-center gap-2">
       <code class="token-value font-monospace">{{ token }}</code>
       <button type="button" class="btn btn-sm btn-outline-dark" (click)="copyToken()">
         <i class="bi bi-copy" aria-hidden="true"></i>
-        Copier
+        {{ 'common.copy' | t }}
       </button>
     </div>
   </section>
@@ -31,38 +31,31 @@
 
 <section class="mb-4" aria-labelledby="enrollments-title">
   <h2 id="enrollments-title" class="h5">
-    Demandes en attente
+    {{ 'tokens.pending' | t }}
     @if ((enrollments.value() ?? []).length; as count) {
       <span class="badge text-bg-warning align-middle">{{ count }}</span>
     }
   </h2>
   <p class="text-body-secondary small">
-    Jetons demandés par un client (outil MCP <code>request_enrollment</code> ou commande
-    <code>enroll</code>). Vérifiez le demandeur avant d'approuver : le jeton donne l'accès MCP au
-    projet. L'approbation peut aussi donner au développeur la lecture du projet dans ce portail :
-    indiquez son compte de la page Utilisateurs (prérempli avec le demandeur, qui n'est pas
-    vérifié).
-    @if (authConfig.value()?.oidc) {
-      Un identifiant inconnu devient un utilisateur SSO, qui lira le projet dès sa connexion.
-    } @else {
-      Sans SSO, le compte doit déjà exister.
-    }
+    {{ 'tokens.pendingHelpTool' | t }} <code>request_enrollment</code>
+    {{ 'tokens.pendingHelpCommand' | t }} <code>enroll</code>{{ 'tokens.pendingHelp' | t }}
+    {{ (authConfig.value()?.oidc ? 'tokens.pendingHelpSso' : 'tokens.pendingHelpNoSso') | t }}
   </p>
   @if (enrollments.error()) {
-    <div class="alert alert-danger" role="alert">Impossible de charger les demandes.</div>
+    <div class="alert alert-danger" role="alert">{{ 'tokens.pendingLoadError' | t }}</div>
   } @else if ((enrollments.value() ?? []).length) {
     <div class="table-responsive">
       <table class="table table-hover align-middle">
         <thead>
           <tr>
-            <th scope="col">Label</th>
-            <th scope="col">Type</th>
-            <th scope="col">Projet</th>
-            <th scope="col">Demandeur</th>
-            <th scope="col">Adresse</th>
-            <th scope="col">Demandé le</th>
-            <th scope="col">Lecture dans le portail</th>
-            <th scope="col" class="text-end">Action</th>
+            <th scope="col">{{ 'tokens.label' | t }}</th>
+            <th scope="col">{{ 'users.type' | t }}</th>
+            <th scope="col">{{ 'reportTable.project' | t }}</th>
+            <th scope="col">{{ 'tokens.requester' | t }}</th>
+            <th scope="col">{{ 'tokens.address' | t }}</th>
+            <th scope="col">{{ 'tokens.requestedAt' | t }}</th>
+            <th scope="col">{{ 'tokens.portalAccess' | t }}</th>
+            <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
           </tr>
         </thead>
         <tbody>
@@ -70,7 +63,7 @@
             <tr>
               <td>{{ request.label }}</td>
               <td>
-                {{ request.kind === 'additional' ? 'Projet supplémentaire' : 'Nouveau jeton' }}
+                {{ (request.kind === 'additional' ? 'tokens.additional' : 'tokens.newToken') | t }}
               </td>
               <td>{{ request.project }}</td>
               <td>{{ request.requested_by ?? '—' }}</td>
@@ -83,9 +76,7 @@
                       class="form-check-input mt-0"
                       type="checkbox"
                       [checked]="portalAccess(request).enabled"
-                      [attr.aria-label]="
-                        'Donner la lecture du projet ' + request.project + ' dans le portail'
-                      "
+                      [attr.aria-label]="'tokens.portalGrant' | t: { project: request.project }"
                       (change)="onPortalEnabledChange(request, $event)"
                     />
                   </div>
@@ -94,10 +85,10 @@
                     maxlength="64"
                     autocomplete="off"
                     spellcheck="false"
-                    placeholder="Utilisateur"
+                    [placeholder]="'tokens.portalUser' | t"
                     [disabled]="!portalAccess(request).enabled"
                     [value]="portalAccess(request).user"
-                    [attr.aria-label]="'Utilisateur web du développeur pour ' + request.label"
+                    [attr.aria-label]="'tokens.portalUserFor' | t: { label: request.label }"
                     (input)="onPortalUserInput(request, $event)"
                   />
                 </div>
@@ -107,21 +98,21 @@
                   type="button"
                   class="btn btn-sm btn-success me-1"
                   [disabled]="busy()"
-                  [attr.aria-label]="'Approuver la demande ' + request.label"
+                  [attr.aria-label]="'tokens.approveRequest' | t: { label: request.label }"
                   (click)="approve(request)"
                 >
                   <i class="bi bi-check-lg" aria-hidden="true"></i>
-                  Approuver
+                  {{ 'tokens.approve' | t }}
                 </button>
                 <button
                   type="button"
                   class="btn btn-sm btn-outline-danger"
                   [disabled]="busy()"
-                  [attr.aria-label]="'Refuser la demande ' + request.label"
+                  [attr.aria-label]="'tokens.rejectRequest' | t: { label: request.label }"
                   (click)="reject(request.id, request.label)"
                 >
                   <i class="bi bi-x-lg" aria-hidden="true"></i>
-                  Refuser
+                  {{ 'tokens.reject' | t }}
                 </button>
               </td>
             </tr>
@@ -130,15 +121,15 @@
       </table>
     </div>
   } @else if (!enrollments.isLoading()) {
-    <p class="text-body-secondary">Aucune demande en attente.</p>
+    <p class="text-body-secondary">{{ 'tokens.noPending' | t }}</p>
   }
 </section>
 
 <section class="mb-4" aria-labelledby="create-token-title">
-  <h2 id="create-token-title" class="h5">Créer un jeton projet</h2>
+  <h2 id="create-token-title" class="h5">{{ 'tokens.createTitle' | t }}</h2>
   <form class="row g-2 align-items-end" (submit)="create($event)">
     <div class="col-md-3">
-      <label for="token-label" class="form-label">Label</label>
+      <label for="token-label" class="form-label">{{ 'tokens.label' | t }}</label>
       <input
         id="token-label"
         class="form-control"
@@ -147,21 +138,21 @@
       />
     </div>
     <div class="col-md-2">
-      <label for="token-usage" class="form-label">Usage</label>
+      <label for="token-usage" class="form-label">{{ 'tokens.usage' | t }}</label>
       <select id="token-usage" class="form-select" [formField]="tokenForm.usage">
         <option value="mcp">MCP</option>
-        <option value="api">API REST</option>
+        <option value="api">{{ 'tokens.restApi' | t }}</option>
       </select>
     </div>
     <div class="col-md-2">
-      <label for="token-api-role" class="form-label">Droits API</label>
+      <label for="token-api-role" class="form-label">{{ 'tokens.apiRights' | t }}</label>
       <select id="token-api-role" class="form-select" [formField]="tokenForm.apiRole">
-        <option value="reader">Lecture seule</option>
-        <option value="triager">Lecture et triage</option>
+        <option value="reader">{{ 'tokens.readOnly' | t }}</option>
+        <option value="triager">{{ 'tokens.readTriage' | t }}</option>
       </select>
     </div>
     <fieldset class="col-md-3">
-      <legend class="form-label">Projets autorisés</legend>
+      <legend class="form-label">{{ 'tokens.allowedProjects' | t }}</legend>
       @if ((projects.value() ?? []).length) {
         <div class="d-flex flex-wrap gap-3">
           @for (item of projects.value() ?? []; track item.project) {
@@ -180,7 +171,7 @@
           }
         </div>
       } @else if (!projects.isLoading()) {
-        <span class="text-body-secondary">Aucun projet disponible.</span>
+        <span class="text-body-secondary">{{ 'users.noProjects' | t }}</span>
       }
     </fieldset>
     <div class="col-md-2">
@@ -190,31 +181,31 @@
         [disabled]="busy() || tokenForm().invalid() || !selectedProjects().length"
       >
         <i class="bi bi-plus-lg" aria-hidden="true"></i>
-        Créer
+        {{ 'common.create' | t }}
       </button>
     </div>
   </form>
 </section>
 
 <section aria-labelledby="tokens-title">
-  <h2 id="tokens-title" class="h5">Jetons actifs</h2>
+  <h2 id="tokens-title" class="h5">{{ 'tokens.active' | t }}</h2>
   @if (tokens.error()) {
-    <div class="alert alert-danger" role="alert">Impossible de charger les jetons.</div>
+    <div class="alert alert-danger" role="alert">{{ 'tokens.loadError' | t }}</div>
   } @else if (tokens.isLoading() && !tokens.hasValue()) {
     <div class="text-center my-4">
       <span class="spinner-border text-secondary" aria-hidden="true"></span>
-      <span class="visually-hidden">Chargement…</span>
+      <span class="visually-hidden">{{ 'common.loading' | t }}</span>
     </div>
   } @else if ((tokens.value() ?? []).length) {
     <div class="table-responsive">
       <table class="table table-hover align-middle">
         <thead>
           <tr>
-            <th scope="col">Label</th>
-            <th scope="col">Projets autorisés</th>
-            <th scope="col">Usage</th>
-            <th scope="col">Créé le</th>
-            <th scope="col" class="text-end">Action</th>
+            <th scope="col">{{ 'tokens.label' | t }}</th>
+            <th scope="col">{{ 'tokens.allowedProjects' | t }}</th>
+            <th scope="col">{{ 'tokens.usage' | t }}</th>
+            <th scope="col">{{ 'common.createdAt' | t }}</th>
+            <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
           </tr>
         </thead>
         <tbody>
@@ -222,25 +213,29 @@
             <tr>
               <td>{{ token.label }}</td>
               <td>
-                {{ token.projects === null ? 'Tous les projets' : token.projects.join(', ') }}
+                {{
+                  token.projects === null ? ('reports.allProjects' | t) : token.projects.join(', ')
+                }}
                 @if (token.pending_projects.length) {
                   <div class="small text-body-secondary">
-                    En attente : {{ token.pending_projects.join(', ') }}
+                    {{
+                      'tokens.pendingProjects' | t: { projects: token.pending_projects.join(', ') }
+                    }}
                   </div>
                 }
               </td>
-              <td>{{ roleLabel(token.role) }}</td>
+              <td>{{ roleLabel(token.role) | t }}</td>
               <td>{{ token.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
               <td class="text-end">
                 <button
                   type="button"
                   class="btn btn-sm btn-outline-danger"
                   [disabled]="busy()"
-                  [attr.aria-label]="'Révoquer le jeton ' + token.label"
+                  [attr.aria-label]="'tokens.revokeToken' | t: { label: token.label }"
                   (click)="revoke(token.id, token.label)"
                 >
                   <i class="bi bi-trash3" aria-hidden="true"></i>
-                  Révoquer
+                  {{ 'tokens.revoke' | t }}
                 </button>
               </td>
             </tr>
@@ -249,6 +244,6 @@
       </table>
     </div>
   } @else {
-    <p class="text-body-secondary">Aucun jeton de projet.</p>
+    <p class="text-body-secondary">{{ 'tokens.empty' | t }}</p>
   }
 </section>

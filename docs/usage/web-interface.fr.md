@@ -25,6 +25,13 @@ tous les rôles, puis **Référentiel** (règles, checklists, normes) et **Admin
 version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
 à droite, y compris sur la page de connexion, et reste mémorisé dans le navigateur.
 
+L'interface est proposée en **anglais**, **français** et **espagnol**. La langue se choisit dans
+le sélecteur en haut à droite, y compris sur la page de connexion. Le changement est immédiat et
+reste mémorisé dans le navigateur ; à la première visite, l'interface suit la langue du
+navigateur, ou l'anglais si elle n'en propose aucune. Ce choix ne concerne que l'interface : la
+langue des rapports de revue se règle dans **Paramètres**, et les messages d'erreur détaillés
+renvoyés par l'API restent en anglais.
+
 - **Projets** : tous les projets avec leurs findings ouverts par sévérité, triés par risque,
   activité ou nom.
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai

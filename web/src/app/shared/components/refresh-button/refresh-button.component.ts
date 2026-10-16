@@ -1,4 +1,5 @@
 import { Component, effect, input, output, signal, untracked } from '@angular/core';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 
 /** Whether the user asked the system to minimize animations. */
 const REDUCED_MOTION =
@@ -9,6 +10,7 @@ const REDUCED_MOTION =
  * on a full turn, so that a fast reload still shows a smooth rotation instead of a jolt.
  */
 @Component({
+  imports: [TranslatePipe],
   selector: 'app-refresh-button',
   templateUrl: './refresh-button.component.html',
   styleUrl: './refresh-button.component.css',
@@ -16,7 +18,8 @@ const REDUCED_MOTION =
 export class RefreshButtonComponent {
   /** True while the data shown by the page is being fetched. */
   readonly loading = input(false);
-  readonly label = input('Actualiser');
+  /** Text of the button (default: the translation of "Refresh"). */
+  readonly label = input<string>();
   readonly refresh = output<void>();
 
   /** True while the icon turns: it starts with the loading and stops at the end of a turn. */

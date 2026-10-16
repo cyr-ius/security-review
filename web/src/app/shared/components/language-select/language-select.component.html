@@ -1,0 +1,11 @@
+<select
+  class="form-select form-select-sm"
+  [value]="i18n.language()"
+  [attr.aria-label]="'common.language' | t"
+  [title]="'common.language' | t"
+  (change)="onChange($event)"
+>
+  @for (language of languages; track language) {
+    <option [value]="language" [attr.lang]="language">{{ names[language] }}</option>
+  }
+</select>

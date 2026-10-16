@@ -5,6 +5,9 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, disabled, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { TOKEN_ROLE_LABELS } from '../../core/constants/labels';
+import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
+import { MessageKey } from '../../core/i18n/messages';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { EnrollmentRequest, ProjectTokenRole, Role } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
@@ -15,12 +18,13 @@ import { RefreshButtonComponent } from '../../shared/components/refresh-button/r
  */
 @Component({
   selector: 'app-project-token-list',
-  imports: [DatePipe, FormField, RefreshButtonComponent],
+  imports: [DatePipe, FormField, RefreshButtonComponent, TranslatePipe],
   templateUrl: './project-token-list.component.html',
   styleUrl: './project-token-list.component.css',
 })
 export class ProjectTokenListComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
 
   readonly projects = rxResource({ stream: () => this.api.projects() });
   readonly tokens = rxResource({ stream: () => this.api.projectTokens() });
@@ -32,20 +36,20 @@ export class ProjectTokenListComponent {
   /** Model of the creation form (the projects are picked in selectedProjects). */
   readonly formModel = signal<TokenFormModel>({ ...EMPTY_TOKEN });
   readonly tokenForm = form(this.formModel, (path) => {
-    required(path.label, { message: 'Le label est obligatoire' });
+    required(path.label, { message: () => this.i18n.translate('tokens.labelRequired') });
     maxLength(path.label, 64);
     // The API rights only apply to a REST API token
     disabled(path.apiRole, ({ valueOf }) => valueOf(path.usage) !== 'api');
   });
   readonly selectedProjects = signal<string[]>([]);
   readonly createdToken = signal<string | null>(null);
-  readonly message = signal<string | null>(null);
-  readonly error = signal<string | null>(null);
+  readonly message = signal<Message | null>(null);
+  readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
 
-  /** Display name of the usage of a token (MCP, or REST API with its rights). */
-  roleLabel(role: Role): string {
-    return TOKEN_ROLE_LABELS[role] ?? role;
+  /** Message key of the usage of a token (MCP, or REST API with its rights). */
+  roleLabel(role: Role): MessageKey {
+    return TOKEN_ROLE_LABELS[role];
   }
 
   toggleProject(project: string, event: Event): void {
@@ -76,8 +80,11 @@ export class ProjectTokenListComponent {
       this.tokenForm().reset();
       this.selectedProjects.set([]);
       this.message.set(
-        `Jeton « ${created.label} » (${this.roleLabel(created.role)}) créé pour ` +
-          `${projects.join(', ')}.`,
+        msg('tokens.created', {
+          label: created.label,
+          usage: this.i18n.translate(this.roleLabel(created.role)),
+          projects: projects.join(', '),
+        }),
       );
       this.tokens.reload();
     } catch (error: unknown) {
@@ -134,36 +141,36 @@ export class ProjectTokenListComponent {
     const { id, label, project, kind } = request;
     const portalUser = this.portalUser(request);
     const question = portalUser
-      ? `Approuver la demande « ${label} » pour ${project} et donner la lecture du projet ` +
-        `dans le portail à l'utilisateur « ${portalUser} » ?`
-      : `Approuver la demande « ${label} » pour ${project} ?`;
+      ? this.i18n.translate('tokens.confirmApprovePortal', { label, project, user: portalUser })
+      : this.i18n.translate('tokens.confirmApprove', { label, project });
     if (this.busy() || !window.confirm(question)) {
       return;
     }
-    const approved =
-      kind === 'additional'
-        ? `Accès au projet ${project} ajouté au jeton « ${label} ».`
-        : `Demande « ${label} » approuvée : le jeton est actif.`;
+    const additional = kind === 'additional';
     await this.decide(
       () => firstValueFrom(this.api.approveEnrollment(id, portalUser)),
       portalUser
-        ? `${approved} « ${portalUser} » peut lire ${project} dans le portail (écran Utilisateurs).`
-        : approved,
+        ? msg(additional ? 'tokens.approvedAdditionalPortal' : 'tokens.approvedNewPortal', {
+            label,
+            project,
+            user: portalUser,
+          })
+        : msg(additional ? 'tokens.approvedAdditional' : 'tokens.approvedNew', { label, project }),
     );
   }
 
   async reject(id: string, label: string): Promise<void> {
-    if (this.busy() || !window.confirm(`Refuser la demande « ${label} » ?`)) {
+    if (this.busy() || !window.confirm(this.i18n.translate('tokens.confirmReject', { label }))) {
       return;
     }
     await this.decide(
       () => firstValueFrom(this.api.rejectEnrollment(id)),
-      `Demande « ${label} » refusée.`,
+      msg('tokens.rejected', { label }),
     );
   }
 
   /** Apply a decision on an enrollment request and refresh the lists. */
-  private async decide(action: () => Promise<unknown>, success: string): Promise<void> {
+  private async decide(action: () => Promise<unknown>, success: Message): Promise<void> {
     this.busy.set(true);
     this.error.set(null);
     this.message.set(null);
@@ -188,14 +195,14 @@ export class ProjectTokenListComponent {
     }
     try {
       await navigator.clipboard.writeText(token);
-      this.message.set('Jeton copié. Conservez-le en lieu sûr.');
+      this.message.set(msg('tokens.copied'));
     } catch {
-      this.error.set('Copie impossible; sélectionnez le jeton et copiez-le manuellement.');
+      this.error.set(msg('tokens.copyFailed'));
     }
   }
 
   async revoke(id: string, label: string): Promise<void> {
-    if (this.busy() || !window.confirm(`Révoquer le jeton « ${label} » ?`)) {
+    if (this.busy() || !window.confirm(this.i18n.translate('tokens.confirmRevoke', { label }))) {
       return;
     }
     this.busy.set(true);
@@ -204,7 +211,7 @@ export class ProjectTokenListComponent {
     try {
       await firstValueFrom(this.api.deleteProjectToken(id));
       this.createdToken.set(null);
-      this.message.set(`Jeton « ${label} » révoqué.`);
+      this.message.set(msg('tokens.revoked', { label }));
       this.tokens.reload();
     } catch (error: unknown) {
       this.error.set(describeError(error));
@@ -238,27 +245,27 @@ interface PortalAccess {
   user: string;
 }
 
-function describeError(error: unknown): string {
+function describeError(error: unknown): Message {
   if (error instanceof HttpErrorResponse && error.status === 422) {
     return typeof error.error?.detail === 'string'
-      ? `Accès portail refusé : ${error.error.detail}`
-      : 'Accès portail refusé : vérifiez l’identifiant de l’utilisateur.';
+      ? msg('tokens.portalRefusedDetail', { detail: error.error.detail })
+      : msg('tokens.portalRefused');
   }
   if (
     error instanceof HttpErrorResponse &&
     error.status === 409 &&
     error.url?.includes('/approve')
   ) {
-    return 'Demande approuvée, mais l’accès au portail n’a pas pu être accordé : ajoutez le projet depuis la page Utilisateurs.';
+    return msg('tokens.portalConflict');
   }
   if (error instanceof HttpErrorResponse && error.status === 404) {
-    return "Cette demande n'existe plus (déjà traitée ou expirée).";
+    return msg('tokens.requestGone');
   }
   if (error instanceof HttpErrorResponse && error.status === 409) {
-    return 'Un jeton porte déjà ce label.';
+    return msg('tokens.labelConflict');
   }
   if (error instanceof HttpErrorResponse && error.status === 503) {
-    return "Le stockage des jetons projet n'est pas configuré.";
+    return msg('tokens.notConfigured');
   }
-  return 'La gestion des jetons a échoué.';
+  return msg('tokens.failed');
 }

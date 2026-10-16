@@ -9,6 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { TrendPeriod } from '../../../core/models/api.models';
 
 const HEIGHT = 220;
@@ -27,6 +28,7 @@ interface Point {
  */
 @Component({
   selector: 'app-trend-chart',
+  imports: [TranslatePipe],
   templateUrl: './trend-chart.component.html',
   styleUrl: './trend-chart.component.css',
 })
