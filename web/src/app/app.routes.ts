@@ -1,11 +1,13 @@
 import { Routes } from '@angular/router';
+
+// Each title is a message key, translated by I18nTitleStrategy
 import { authGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
   {
     path: 'login',
-    title: 'Connexion · Security Review',
+    title: 'login.title',
     loadComponent: () => import('./features/login/login.component').then((m) => m.LoginComponent),
   },
   {
@@ -17,7 +19,7 @@ export const routes: Routes = [
       { path: '', pathMatch: 'full', redirectTo: 'projects' },
       {
         path: 'projects',
-        title: 'Projets · Security Review',
+        title: 'layout.projects',
         loadComponent: () =>
           import('./features/projects/project-list/project-list.component').then(
             (m) => m.ProjectListComponent,
@@ -25,7 +27,7 @@ export const routes: Routes = [
       },
       {
         path: 'projects/:project',
-        title: 'Projet · Security Review',
+        title: 'reportTable.project',
         loadComponent: () =>
           import('./features/projects/project-detail/project-detail.component').then(
             (m) => m.ProjectDetailComponent,
@@ -33,7 +35,7 @@ export const routes: Routes = [
       },
       {
         path: 'reports',
-        title: 'Rapports · Security Review',
+        title: 'layout.reports',
         loadComponent: () =>
           import('./features/reports/report-list/report-list.component').then(
             (m) => m.ReportListComponent,
@@ -41,14 +43,14 @@ export const routes: Routes = [
       },
       {
         path: 'rules',
-        title: 'Règles · Security Review',
+        title: 'layout.rules',
         canActivate: [adminGuard],
         loadComponent: () =>
           import('./features/rules/rule-list/rule-list.component').then((m) => m.RuleListComponent),
       },
       {
         path: 'checklists',
-        title: 'Checklists · Security Review',
+        title: 'layout.checklists',
         canActivate: [adminGuard],
         loadComponent: () =>
           import('./features/checklists/checklist-list/checklist-list.component').then(
@@ -58,7 +60,7 @@ export const routes: Routes = [
       {
         path: 'standards',
         canActivate: [adminGuard],
-        title: 'Normes · Security Review',
+        title: 'layout.standards',
         loadComponent: () =>
           import('./features/standards/standard-list/standard-list.component').then(
             (m) => m.StandardListComponent,
@@ -66,20 +68,20 @@ export const routes: Routes = [
       },
       {
         path: 'account',
-        title: 'Mon compte · Security Review',
+        title: 'layout.account',
         loadComponent: () =>
           import('./features/account/account.component').then((m) => m.AccountComponent),
       },
       {
         path: 'users',
-        title: 'Utilisateurs · Security Review',
+        title: 'layout.users',
         canActivate: [adminGuard],
         loadComponent: () =>
           import('./features/users/user-list.component').then((m) => m.UserListComponent),
       },
       {
         path: 'tokens',
-        title: 'Jetons · Security Review',
+        title: 'layout.tokens',
         canActivate: [adminGuard],
         loadComponent: () =>
           import('./features/tokens/project-token-list.component').then(
@@ -88,7 +90,7 @@ export const routes: Routes = [
       },
       {
         path: 'role-mappings',
-        title: 'Rôles SSO · Security Review',
+        title: 'layout.sso',
         canActivate: [adminGuard],
         loadComponent: () =>
           import('./features/role-mappings/role-mapping-list.component').then(
@@ -97,14 +99,14 @@ export const routes: Routes = [
       },
       {
         path: 'settings',
-        title: 'Paramètres · Security Review',
+        title: 'layout.settings',
         canActivate: [adminGuard],
         loadComponent: () =>
           import('./features/settings/settings.component').then((m) => m.SettingsComponent),
       },
       {
         path: 'reports/:id',
-        title: 'Rapport · Security Review',
+        title: 'common.reportPage',
         loadComponent: () =>
           import('./features/reports/report-detail/report-detail.component').then(
             (m) => m.ReportDetailComponent,

@@ -5,15 +5,18 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { MappedRole, RoleMapping } from '../../core/models/api.models';
+import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
+import { MessageKey } from '../../core/i18n/messages';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ApiService } from '../../core/services/api.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import { SsoSettingsComponent } from './sso-settings.component';
 
-/** Labels of the roles a mapping may grant. */
-const ROLE_LABELS: Record<MappedRole, string> = {
-  reader: 'Lecture',
-  triager: 'Triage',
-  admin: 'Administration',
+/** Message keys of the roles a mapping may grant. */
+const ROLE_LABELS: Record<MappedRole, MessageKey> = {
+  reader: 'users.roleReader',
+  triager: 'users.roleTriager',
+  admin: 'users.roleAdmin',
 };
 
 /**
@@ -23,12 +26,13 @@ const ROLE_LABELS: Record<MappedRole, string> = {
  */
 @Component({
   selector: 'app-role-mapping-list',
-  imports: [DatePipe, RouterLink, SsoSettingsComponent, RefreshButtonComponent],
+  imports: [DatePipe, RouterLink, SsoSettingsComponent, RefreshButtonComponent, TranslatePipe],
   templateUrl: './role-mapping-list.component.html',
   styleUrl: './role-mapping-list.component.css',
 })
 export class RoleMappingListComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
 
   readonly roleLabels = ROLE_LABELS;
   readonly catalog = rxResource({ stream: () => this.api.roleMappings() });
@@ -44,8 +48,8 @@ export class RoleMappingListComponent {
 
   /** Form of the read access given by name to an OIDC user. */
 
-  readonly message = signal<string | null>(null);
-  readonly error = signal<string | null>(null);
+  readonly message = signal<Message | null>(null);
+  readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
 
   /** Admin mappings always reach every project. */
@@ -98,6 +102,10 @@ export class RoleMappingListComponent {
     this.selectedProjects.set([]);
   }
 
+  onClaimInput(event: Event): void {
+    this.claimValue.set((event.target as HTMLInputElement).value);
+  }
+
   async submit(event: Event): Promise<void> {
     event.preventDefault();
     if (!this.canSubmit()) {
@@ -108,12 +116,15 @@ export class RoleMappingListComponent {
     await this.run(async () => {
       if (editing?.id !== undefined) {
         await firstValueFrom(this.api.updateRoleMapping(editing.id, projects));
-        return `Projets du groupe « ${editing.claim_value} » mis à jour.`;
+        return msg('mappings.updated', { group: editing.claim_value });
       }
       const created = await firstValueFrom(
         this.api.createRoleMapping(this.claimValue().trim(), this.role(), projects),
       );
-      return `Groupe « ${created.claim_value} » associé au rôle ${ROLE_LABELS[created.role]}.`;
+      return msg('mappings.created', {
+        group: created.claim_value,
+        role: this.i18n.translate(ROLE_LABELS[created.role]),
+      });
     });
   }
 
@@ -122,18 +133,23 @@ export class RoleMappingListComponent {
     if (
       id === undefined ||
       this.busy() ||
-      !window.confirm(`Supprimer l'association « ${claim_value} » → ${ROLE_LABELS[role]} ?`)
+      !window.confirm(
+        this.i18n.translate('mappings.confirmDelete', {
+          group: claim_value,
+          role: this.i18n.translate(ROLE_LABELS[role]),
+        }),
+      )
     ) {
       return;
     }
     await this.run(async () => {
       await firstValueFrom(this.api.deleteRoleMapping(id));
-      return `Association « ${claim_value} » supprimée.`;
+      return msg('mappings.deleted', { group: claim_value });
     });
   }
 
   /** Run a change, show its outcome and reload the list. */
-  private async run(action: () => Promise<string>): Promise<void> {
+  private async run(action: () => Promise<Message>): Promise<void> {
     this.busy.set(true);
     this.error.set(null);
     this.message.set(null);
@@ -149,17 +165,17 @@ export class RoleMappingListComponent {
   }
 }
 
-function describeError(error: unknown): string {
+function describeError(error: unknown): Message {
   if (error instanceof HttpErrorResponse) {
     if (error.status === 404) {
-      return "Cette association n'existe plus.";
+      return msg('mappings.notFound');
     }
     if (error.status === 422 && typeof error.error?.detail === 'string') {
-      return `Association refusée : ${error.error.detail}`;
+      return msg('mappings.refusedDetail', { detail: error.error.detail });
     }
     if (error.status === 422) {
-      return 'Association refusée : vérifiez le groupe, le rôle et les projets.';
+      return msg('mappings.refused');
     }
   }
-  return 'La gestion des rôles SSO a échoué.';
+  return msg('mappings.failed');
 }

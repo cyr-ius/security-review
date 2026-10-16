@@ -25,7 +25,7 @@ run in two containers, two pods or on two machines.
 The two processes never call each other: everything goes through the database. A token created
 or revoked on the controller applies to the next request of the MCP server. A changed rule is
 reloaded within a few seconds. An enrollment request filed on the MCP server shows up in the
-**Jetons** (Tokens) screen of the controller.
+**Tokens** screen of the controller.
 
 The enrollment is served by the MCP server because the client only knows its URL. The
 controller thus exposes **no unauthenticated write route**.

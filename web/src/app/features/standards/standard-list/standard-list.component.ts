@@ -4,6 +4,9 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, pattern, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { DevStandard, DevStandardSummary, DevStandardWrite } from '../../../core/models/api.models';
+import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
+import { MessageKey } from '../../../core/i18n/messages';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -34,13 +37,14 @@ const MAX_CONTENT_CHARS = 50_000;
 /** Development standards served to the developers' AI: read by everyone, edited by admins. */
 @Component({
   selector: 'app-standard-list',
-  imports: [FormField],
+  imports: [FormField, TranslatePipe],
   templateUrl: './standard-list.component.html',
   styleUrl: './standard-list.component.css',
 })
 export class StandardListComponent {
   private readonly api = inject(ApiService);
   private readonly auth = inject(AuthService);
+  private readonly i18n = inject(I18nService);
   private readonly editorDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editorDialog');
   private readonly viewerDialog = viewChild.required<ElementRef<HTMLDialogElement>>('viewerDialog');
 
@@ -63,24 +67,28 @@ export class StandardListComponent {
 
   readonly formModel = signal<StandardFormModel>({ ...EMPTY_STANDARD });
   readonly standardForm = form(this.formModel, (path) => {
-    required(path.slug, { message: "L'identifiant est obligatoire" });
+    required(path.slug, { message: () => this.i18n.translate('rules.idRequired') });
     maxLength(path.slug, 50);
     pattern(path.slug, /^[a-z0-9][a-z0-9._+-]*$/, {
-      message: 'Minuscules, chiffres et . _ + - uniquement',
+      message: () => this.i18n.translate('standards.slugPattern'),
     });
-    required(path.title, { message: 'Le titre est obligatoire' });
+    required(path.title, { message: () => this.i18n.translate('rules.titleRequired') });
     maxLength(path.title, 200);
     maxLength(path.description, 500);
-    required(path.content, { message: 'Le contenu est obligatoire' });
+    required(path.content, { message: () => this.i18n.translate('standards.contentRequired') });
     maxLength(path.content, MAX_CONTENT_CHARS);
   });
   readonly editingSlug = signal<string | null>(null);
   readonly creating = signal(false);
   readonly viewed = signal<DevStandard | null>(null);
   readonly saving = signal(false);
-  readonly error = signal<string | null>(null);
-  readonly formError = signal<string | null>(null);
-  readonly notice = signal<string | null>(null);
+  readonly error = signal<Message | null>(null);
+  readonly formError = signal<Message | null>(null);
+  readonly notice = signal<Message | null>(null);
+
+  onQuery(event: Event): void {
+    this.setQuery((event.target as HTMLInputElement).value);
+  }
 
   setQuery(value: string): void {
     this.query.set(value);
@@ -95,7 +103,7 @@ export class StandardListComponent {
         dialog.showModal();
       }
     } catch (error: unknown) {
-      this.error.set(describeError(error, 'Impossible de charger la norme.'));
+      this.error.set(describeError(error, 'standards.loadOneError'));
     }
   }
 
@@ -132,7 +140,7 @@ export class StandardListComponent {
       });
       this.openEditor();
     } catch (error: unknown) {
-      this.error.set(describeError(error, 'Impossible de charger la norme.'));
+      this.error.set(describeError(error, 'standards.loadOneError'));
     }
   }
 
@@ -174,31 +182,31 @@ export class StandardListComponent {
       const editing = this.editingSlug();
       if (editing) {
         await firstValueFrom(this.api.updateDevStandard(editing, payload));
-        this.notice.set(`Norme ${editing} modifiée.`);
+        this.notice.set(msg('standards.updated', { id: editing }));
       } else {
         await firstValueFrom(this.api.createDevStandard(payload));
-        this.notice.set(`Norme ${payload.slug} créée.`);
+        this.notice.set(msg('standards.created', { id: payload.slug }));
       }
       this.cancelEdit();
       this.catalog.reload();
     } catch (error: unknown) {
-      this.formError.set(describeError(error, "L'enregistrement de la norme a échoué."));
+      this.formError.set(describeError(error, 'standards.saveFailed'));
     } finally {
       this.saving.set(false);
     }
   }
 
   async remove(item: DevStandardSummary): Promise<void> {
-    if (!window.confirm(`Supprimer définitivement la norme ${item.slug} ?`)) {
+    if (!window.confirm(this.i18n.translate('standards.confirmDelete', { id: item.slug }))) {
       return;
     }
     this.clearMessages();
     try {
       await firstValueFrom(this.api.deleteDevStandard(item.slug));
-      this.notice.set(`Norme ${item.slug} supprimée.`);
+      this.notice.set(msg('standards.deleted', { id: item.slug }));
       this.catalog.reload();
     } catch (error: unknown) {
-      this.error.set(describeError(error, 'La suppression de la norme a échoué.'));
+      this.error.set(describeError(error, 'standards.deleteFailed'));
     }
   }
 
@@ -224,9 +232,9 @@ function splitList(value: string): string[] {
     .filter(Boolean);
 }
 
-function describeError(error: unknown, fallback: string): string {
+function describeError(error: unknown, fallback: MessageKey): Message {
   if (error instanceof HttpErrorResponse && typeof error.error?.detail === 'string') {
-    return error.error.detail;
+    return serverDetail(error.error.detail);
   }
-  return fallback;
+  return msg(fallback);
 }

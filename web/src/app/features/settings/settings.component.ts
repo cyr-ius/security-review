@@ -9,6 +9,9 @@ import {
   AppSettings,
   ProxyUpdate,
 } from '../../core/models/api.models';
+import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
+import { MessageKey } from '../../core/i18n/messages';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ApiService } from '../../core/services/api.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 
@@ -24,26 +27,28 @@ const POLL_MS = 5000;
 /** Same rule as the server: a language name or code, nothing that could carry instructions. */
 const LANGUAGE_PATTERN = /^[\p{L} \-_()]{0,40}$/u;
 
-export const UPDATE_STATUS_META: Record<AdvisoryUpdate['status'], { label: string; css: string }> =
-  {
-    running: { label: 'En cours', css: 'text-bg-info' },
-    success: { label: 'Réussie', css: 'text-bg-success' },
-    partial: { label: 'Partielle', css: 'text-bg-warning' },
-    failed: { label: 'Échec', css: 'text-bg-danger' },
-    interrupted: { label: 'Interrompue', css: 'text-bg-secondary' },
-  };
-
-export const TRIGGER_LABELS: Record<AdvisoryUpdate['trigger'], string> = {
-  schedule: 'Planifiée',
-  cli: 'CLI',
-  web: 'Interface web',
+export const UPDATE_STATUS_META: Record<
+  AdvisoryUpdate['status'],
+  { label: MessageKey; css: string }
+> = {
+  running: { label: 'settings.statusRunning', css: 'text-bg-info' },
+  success: { label: 'settings.statusSuccess', css: 'text-bg-success' },
+  partial: { label: 'settings.statusPartial', css: 'text-bg-warning' },
+  failed: { label: 'settings.statusFailed', css: 'text-bg-danger' },
+  interrupted: { label: 'settings.statusInterrupted', css: 'text-bg-secondary' },
 };
 
-const PROXY_SOURCE_LABELS: Record<AppSettings['proxy']['effective']['source'], string> = {
-  web: 'interface web',
-  none: 'connexion directe (interface web)',
-  SECREVIEW_PROXY: 'variable SECREVIEW_PROXY',
-  environment: 'variables HTTPS_PROXY / NO_PROXY',
+export const TRIGGER_LABELS: Record<AdvisoryUpdate['trigger'], MessageKey> = {
+  schedule: 'settings.triggerSchedule',
+  cli: 'settings.triggerCli',
+  web: 'sso.webInterface',
+};
+
+const PROXY_SOURCE_LABELS: Record<AppSettings['proxy']['effective']['source'], MessageKey> = {
+  web: 'settings.sourceWeb',
+  none: 'settings.sourceNone',
+  SECREVIEW_PROXY: 'settings.sourceVariable',
+  environment: 'settings.sourceEnvironment',
 };
 
 /**
@@ -53,12 +58,13 @@ const PROXY_SOURCE_LABELS: Record<AppSettings['proxy']['effective']['source'], s
  */
 @Component({
   selector: 'app-settings',
-  imports: [DatePipe, DecimalPipe, RefreshButtonComponent],
+  imports: [DatePipe, DecimalPipe, RefreshButtonComponent, TranslatePipe],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.css',
 })
 export class SettingsComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
 
   readonly settings = rxResource({ stream: () => this.api.appSettings() });
   readonly advisories = rxResource({ stream: () => this.api.advisories() });
@@ -71,8 +77,8 @@ export class SettingsComponent {
   readonly noProxyCustom = signal(false);
   readonly noProxy = signal('');
 
-  readonly message = signal<string | null>(null);
-  readonly error = signal<string | null>(null);
+  readonly message = signal<Message | null>(null);
+  readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
 
   readonly statusMeta = UPDATE_STATUS_META;
@@ -92,7 +98,7 @@ export class SettingsComponent {
 
   readonly proxySource = computed(() => {
     const source = this.settings.value()?.proxy.effective.source;
-    return source ? PROXY_SOURCE_LABELS[source] : '';
+    return source ? PROXY_SOURCE_LABELS[source] : null;
   });
 
   readonly ecosystems = computed(() =>
@@ -138,6 +144,16 @@ export class SettingsComponent {
     this.languageMode.set((event.target as HTMLSelectElement).value as LanguageMode);
   }
 
+  /** Value of the input or select that sent an event. */
+  inputValue(event: Event): string {
+    return (event.target as HTMLInputElement).value;
+  }
+
+  /** State of the checkbox that sent an event. */
+  checkedValue(event: Event): boolean {
+    return (event.target as HTMLInputElement).checked;
+  }
+
   onProxyMode(mode: ProxyMode): void {
     this.proxyMode.set(mode);
   }
@@ -147,12 +163,12 @@ export class SettingsComponent {
     const mode = this.languageMode();
     const value = mode === 'inherit' ? null : mode === 'agent' ? '' : this.language().trim();
     if (mode === 'custom' && (!value || !this.languageValid())) {
-      this.error.set('Indiquez un nom ou un code de langue (par exemple French, fr ou pt-BR).');
+      this.error.set(msg('settings.languageMissing'));
       return;
     }
     await this.run(
       () => firstValueFrom(this.api.setReportLanguage(value)),
-      'Langue des rapports enregistrée : elle s’applique aux prochains prompts de revue.',
+      msg('settings.languageSaved'),
     );
   }
 
@@ -161,31 +177,23 @@ export class SettingsComponent {
     const mode = this.proxyMode();
     const url = this.proxyUrl().trim();
     if (mode === 'custom' && !url) {
-      this.error.set('Indiquez l’URL du proxy (http://[utilisateur:mot de passe@]hôte:port).');
+      this.error.set(msg('settings.proxyMissing'));
       return;
     }
     const values: ProxyUpdate = {
       url: mode === 'env' ? null : mode === 'none' ? '' : url,
       no_proxy: this.noProxyCustom() ? this.noProxy().trim() : null,
     };
-    await this.run(
-      () => firstValueFrom(this.api.setProxy(values)),
-      'Proxy enregistré : il s’applique au prochain téléchargement OSV et à la prochaine connexion SSO.',
-    );
+    await this.run(() => firstValueFrom(this.api.setProxy(values)), msg('settings.proxySaved'));
   }
 
   async startUpdate(): Promise<void> {
-    if (
-      this.busy() ||
-      !window.confirm(
-        'Télécharger maintenant les avis OSV ? L’opération peut prendre plusieurs minutes.',
-      )
-    ) {
+    if (this.busy() || !window.confirm(this.i18n.translate('settings.confirmUpdate'))) {
       return;
     }
     await this.run(
       () => firstValueFrom(this.api.startAdvisoryUpdate()),
-      'Mise à jour lancée. L’historique se rafraîchit jusqu’à la fin du téléchargement.',
+      msg('settings.updateStarted'),
     );
   }
 
@@ -193,12 +201,16 @@ export class SettingsComponent {
   outcome(update: AdvisoryUpdate): { name: string; text: string; failed: boolean }[] {
     return Object.entries(update.results).map(([name, result]) => {
       if (typeof result === 'string') {
-        return { name: 'Erreur', text: result, failed: true };
+        return { name: this.i18n.translate('settings.error'), text: result, failed: true };
       }
       const stats = result as AdvisoryEcosystemResult;
       return stats.error
         ? { name, text: stats.error, failed: true }
-        : { name, text: `${stats.imported ?? 0} avis importés`, failed: false };
+        : {
+            name,
+            text: this.i18n.translate('settings.imported', { count: stats.imported ?? 0 }),
+            failed: false,
+          };
     });
   }
 
@@ -214,7 +226,7 @@ export class SettingsComponent {
   }
 
   /** Run an action, show its outcome and refresh the page. */
-  private async run(action: () => Promise<unknown>, success: string): Promise<void> {
+  private async run(action: () => Promise<unknown>, success: Message): Promise<void> {
     this.busy.set(true);
     this.error.set(null);
     this.message.set(null);
@@ -230,27 +242,27 @@ export class SettingsComponent {
   }
 }
 
-function describeError(error: unknown): string {
+function describeError(error: unknown): Message {
   if (error instanceof HttpErrorResponse && (error.status === 409 || error.status === 422)) {
     const detail = error.error?.detail;
     if (typeof detail === 'string') {
       return translateDetail(detail);
     }
-    return 'Valeur refusée par le serveur.';
+    return msg('settings.refused');
   }
-  return 'L’opération a échoué.';
+  return msg('settings.failed');
 }
 
-/** French message for the known errors of the API (the server answers in English). */
-function translateDetail(detail: string): string {
+/** Translated message for the known errors of the API (the server answers in English). */
+function translateDetail(detail: string): Message {
   if (detail.includes('SECREVIEW_OSV_AUTO_UPDATE')) {
-    return 'Le téléchargement OSV est désactivé sur ce contrôleur (SECREVIEW_OSV_AUTO_UPDATE=false).';
+    return msg('settings.osvDisabled');
   }
   if (detail.includes('already running')) {
-    return 'Une mise à jour OSV est déjà en cours.';
+    return msg('settings.alreadyRunning');
   }
   if (detail.includes('password again')) {
-    return 'Saisissez de nouveau le mot de passe du proxy (l’hôte ou l’utilisateur a changé).';
+    return msg('settings.passwordAgain');
   }
-  return `Valeur refusée : ${detail}`;
+  return msg('settings.refusedDetail', { detail });
 }

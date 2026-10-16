@@ -11,5 +11,5 @@
     aria-hidden="true"
     (animationiteration)="onTurnEnd()"
   ></i>
-  {{ label() }}
+  {{ label() ?? ('common.refresh' | t) }}
 </button>

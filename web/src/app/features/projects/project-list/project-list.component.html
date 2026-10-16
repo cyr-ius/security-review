@@ -1,7 +1,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
-    <h1 class="h3 mb-0">Projets</h1>
-    <p class="text-body-secondary mb-0">Findings ouverts sur l'ensemble des rapports</p>
+    <h1 class="h3 mb-0">{{ 'layout.projects' | t }}</h1>
+    <p class="text-body-secondary mb-0">{{ 'projects.subtitle' | t }}</p>
   </div>
   <app-refresh-button [loading]="projects.isLoading()" (refresh)="projects.reload()" />
 </div>
@@ -9,15 +9,15 @@
 @if (projects.error()) {
   <div class="alert alert-danger" role="alert">
     <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-    Impossible de charger les projets.
+    {{ 'projects.loadError' | t }}
   </div>
 } @else if (projects.isLoading() && !projects.hasValue()) {
   <div class="text-center my-5">
     <span class="spinner-border text-secondary" aria-hidden="true"></span>
-    <span class="visually-hidden">Chargement…</span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 } @else {
-  <section class="mb-4" aria-label="Findings ouverts, tous projets">
+  <section class="mb-4" [attr.aria-label]="'projects.totalsLabel' | t">
     <app-severity-counts [counts]="totals()" />
   </section>
 
@@ -28,23 +28,25 @@
         <input
           type="search"
           class="form-control"
-          placeholder="Filtrer les projets…"
-          aria-label="Filtrer les projets"
+          [placeholder]="'projects.filterPlaceholder' | t"
+          [attr.aria-label]="'projects.filter' | t"
           [value]="search()"
           (input)="onSearch($event)"
         />
       </div>
       <select
         class="form-select form-select-sm sort"
-        aria-label="Trier"
+        [attr.aria-label]="'projects.sort' | t"
         [value]="sort()"
         (change)="onSort($event)"
       >
-        <option value="risk">Trier par risque</option>
-        <option value="activity">Trier par activité</option>
-        <option value="name">Trier par nom</option>
+        <option value="risk">{{ 'projects.sortRisk' | t }}</option>
+        <option value="activity">{{ 'projects.sortActivity' | t }}</option>
+        <option value="name">{{ 'projects.sortName' | t }}</option>
       </select>
-      <span class="ms-auto small text-body-secondary">{{ visible().length }} projet(s)</span>
+      <span class="ms-auto small text-body-secondary">{{
+        'projects.count' | t: { count: visible().length }
+      }}</span>
     </div>
 
     @if (visible().length > 0) {
@@ -52,13 +54,13 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr>
-              <th scope="col">Projet</th>
-              <th scope="col">Pire finding ouvert</th>
+              <th scope="col">{{ 'reportTable.project' | t }}</th>
+              <th scope="col">{{ 'projects.worst' | t }}</th>
               @for (severity of severities; track severity) {
-                <th scope="col" class="text-end">{{ severityMeta[severity].label }}</th>
+                <th scope="col" class="text-end">{{ severityMeta[severity].label | t }}</th>
               }
-              <th scope="col" class="text-end">Rapports</th>
-              <th scope="col">Dernier rapport</th>
+              <th scope="col" class="text-end">{{ 'trend.reports' | t }}</th>
+              <th scope="col">{{ 'projects.lastReport' | t }}</th>
             </tr>
           </thead>
           <tbody>
@@ -74,7 +76,8 @@
                     <app-severity-badge [severity]="worst" />
                   } @else {
                     <span class="text-body-secondary">
-                      <i class="bi bi-check-circle" aria-hidden="true"></i> Aucun
+                      <i class="bi bi-check-circle" aria-hidden="true"></i>
+                      {{ 'projects.none' | t }}
                     </span>
                   }
                 </td>
@@ -96,7 +99,7 @@
     } @else {
       <p class="text-body-secondary text-center my-4">
         <i class="bi bi-inbox" aria-hidden="true"></i>
-        Aucun projet.
+        {{ 'projects.empty' | t }}
       </p>
     }
   </div>

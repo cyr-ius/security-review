@@ -6,7 +6,7 @@ checklist items, edit the default rules and enable or disable any rule, **withou
 code**.
 
 Rules are managed with the `security-review-controller rules` command (import and export of
-TOML packs, enabling, disabling, deletion) or from the **Règles** (Rules) screen of the
+TOML packs, enabling, disabling, deletion) or from the **Rules** screen of the
 [web interface](web-interface.md). Checklist items are managed from the **Checklists** screen of
 this interface, or with the TOML packs of the `rules` command.
 
@@ -92,7 +92,7 @@ A full example is provided in `examples/rules/company.toml`.
   updated by new versions of the server).
 - A new `domain` can be used at once with `get_review_checklist`.
 - A change (CLI, web interface) is picked up by every running server **within a few seconds**,
-  without restart; the `reload_rules` tool and the **Recharger** (Reload) button of the **Règles** (Rules) screen apply
+  without restart; the `reload_rules` tool and the **Reload** button of the **Rules** screen apply
   it immediately. Changes made in the **Checklists** screen reload the registry immediately.
 - A stored rule that no longer passes the validation is **ignored and reported** (`list_rules`
   tool, `load_errors` field); if the database cannot be reached, the default rules of the

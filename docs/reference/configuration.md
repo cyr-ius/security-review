@@ -25,7 +25,7 @@ or both.
 | `SECREVIEW_TLS_SELF_SIGNED_HOSTS` | — | both | Extra DNS names (without `*` wildcard) and IP addresses of the self-signed certificate, comma separated (those used by the clients, 20 at most) |
 | `SECREVIEW_WEB_UI` | `true` | Controller | Serves the [web interface](../usage/web-interface.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Controller | Folder of another build of the web interface |
-| `SECREVIEW_OIDC_ENABLED` | `false` | Controller | Enables the [OpenID Connect SSO login](../usage/web-interface.md#openid-connect-sso-login) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` can also be changed in the **Rôles SSO** (SSO roles) screen, whose stored values replace them ([configuring SSO in the interface](../usage/web-interface.md#configuring-sso-in-the-interface)) |
+| `SECREVIEW_OIDC_ENABLED` | `false` | Controller | Enables the [OpenID Connect SSO login](../usage/web-interface.md#openid-connect-sso-login) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` can also be changed in the **SSO roles** screen, whose stored values replace them ([configuring SSO in the interface](../usage/web-interface.md#configuring-sso-in-the-interface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | Controller | URL of the issuer (HTTPS; HTTP only on localhost), whose `/.well-known/openid-configuration` is read |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Controller | Identifier of the client declared at the provider |
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Controller | Secret of the client; empty for a public client (PKCE only) |
@@ -37,11 +37,11 @@ or both.
 | `SECREVIEW_OIDC_READER_GROUPS` | — | Controller | Groups that give the `reader` role (every project) |
 | `SECREVIEW_OIDC_DEFAULT_ROLE` | — | Controller | Group role (every project) without any matching association: `reader`, `triager` or empty (only the role given to the account applies) |
 | `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Controller | Claim that names the [SSO account](../usage/web-interface.md#sso-accounts) (exact comparison, no fallback); session label `oidc:<value>` |
-| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Controller | Creates the SSO account at its first login if its groups give it a role; when `false`, an administrator creates every SSO account in **Utilisateurs** (Users) |
+| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Controller | Creates the SSO account at its first login if its groups give it a role; when `false`, an administrator creates every SSO account in **Users** |
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `SSO` | Controller | Name shown on the login button (40 characters at most) |
 | `SECREVIEW_OIDC_CAFILE` | — | Controller | CA bundle to reach the provider (internal CA); the proxy is the one of `SECREVIEW_PROXY` |
 | `SECREVIEW_PROXY` | — | Controller | HTTP proxy of the outgoing connections of the controller, OSV download and SSO provider (`http://[user:password@]host:port`); without it, `HTTPS_PROXY` / `NO_PROXY` apply. Replaced by the proxy chosen in the [Settings](../usage/web-interface.md#screens) screen (or the direct connection) |
-| `SECREVIEW_NO_PROXY` | — | Controller | [Hosts reached without `SECREVIEW_PROXY`](../usage/dependencies.md#hosts-without-proxy), comma separated: domains (subdomains included), IP addresses, CIDR ranges (`10.0.0.0/8`, `fd00::/8`), `*`; the loopback is always direct. Replaced by the list of the **Paramètres** (Settings) screen |
+| `SECREVIEW_NO_PROXY` | — | Controller | [Hosts reached without `SECREVIEW_PROXY`](../usage/dependencies.md#hosts-without-proxy), comma separated: domains (subdomains included), IP addresses, CIDR ranges (`10.0.0.0/8`, `fd00::/8`), `*`; the loopback is always direct. Replaced by the list of the **Settings** screen |
 | `SECREVIEW_OSV_AUTO_UPDATE` | `false` | Controller | [Daily update](../usage/dependencies.md#automatic-update-by-the-controller) of the OSV database by `serve` |
 | `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Controller | Age of the database beyond which `serve` updates it (minimum `1`) |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Controller | Source of the `<URL>/<ecosystem>/all.zip` exports (HTTPS only, mirror possible) |

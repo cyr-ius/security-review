@@ -260,8 +260,10 @@ langues** :
 - Les deux versions d'une page disent la même chose : pas de section qui n'existe que dans une
   langue. Les exemples (commandes, sorties, JSON) sont identiques ; seuls le texte et les
   commentaires sont traduits.
-- L'interface web est en français : la version anglaise cite ses libellés tels qu'ils
-  s'affichent, suivis de leur sens, par exemple **Jetons** (Tokens).
+- L'interface web est traduite (anglais, français, espagnol) : chaque version de la doc cite les
+  libellés de l'interface dans sa langue, tels qu'ils s'affichent (**Tokens** / **Jetons**).
+- Tout texte affiché par l'interface passe par les catalogues de `web/src/app/core/i18n/messages/`,
+  dans les trois langues (voir `docs/contributing`) : pas de texte en dur dans un template.
 - Nouvelle page : créez `page.md` et `page.fr.md` dans `docs/`, déclarez `page.md` dans `nav`
   de `mkdocs.yml` et traduisez son titre dans `nav_translations` (langue `fr` du plugin `i18n`).
 - Liens relatifs entre pages, toujours vers le fichier anglais (`../reference/cli.md`) : le

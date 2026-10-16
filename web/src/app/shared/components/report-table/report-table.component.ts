@@ -1,13 +1,14 @@
 import { DatePipe, SlicePipe } from '@angular/common';
 import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ReportSummary } from '../../../core/models/api.models';
 import { SeverityBadgeComponent } from '../severity-badge/severity-badge.component';
 
 /** Table of reports, newest first. */
 @Component({
   selector: 'app-report-table',
-  imports: [RouterLink, DatePipe, SlicePipe, SeverityBadgeComponent],
+  imports: [RouterLink, DatePipe, SlicePipe, SeverityBadgeComponent, TranslatePipe],
   templateUrl: './report-table.component.html',
   styleUrl: './report-table.component.css',
 })

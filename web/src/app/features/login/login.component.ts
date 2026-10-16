@@ -6,23 +6,22 @@ import { firstValueFrom } from 'rxjs';
 import { API_URL, ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { ThemeService } from '../../core/services/theme.service';
+import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
+import { MessageKey } from '../../core/i18n/messages';
+import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { LanguageSelectComponent } from '../../shared/components/language-select/language-select.component';
 
 /** Messages of the oidcError codes sent back by /api/v1/auth/oidc/callback. */
-const OIDC_ERRORS: Record<string, string> = {
-  denied: "Connexion refusée ou annulée auprès du fournisseur d'identité.",
-  forbidden:
-    "Votre compte n'a aucun rôle sur l'interface : ni rôle attribué, ni groupe autorisé (reader, triager ou admin).",
-  unknown_user:
-    "Votre compte SSO n'est pas encore créé sur l'interface : demandez à un administrateur de l'ajouter dans Utilisateurs.",
-  conflict:
-    "Ce nom d'utilisateur est déjà pris par un compte local ou lié à un autre compte SSO : contactez un administrateur.",
-  username:
-    "Le fournisseur d'identité n'a pas transmis d'identifiant utilisable pour votre compte.",
-  revoked:
-    "Votre compte SSO a été supprimé par un administrateur : demandez-lui de le recréer pour retrouver l'accès.",
-  state: 'La connexion a expiré ou a été ouverte dans un autre navigateur : recommencez.',
-  token: "La réponse du fournisseur d'identité a été refusée (jeton invalide).",
-  provider: "Fournisseur d'identité injoignable ou mal configuré.",
+const OIDC_ERRORS: Record<string, MessageKey> = {
+  denied: 'login.oidcDenied',
+  forbidden: 'login.oidcForbidden',
+  unknown_user: 'login.oidcUnknownUser',
+  conflict: 'login.oidcConflict',
+  username: 'login.oidcUsername',
+  revoked: 'login.oidcRevoked',
+  state: 'login.oidcState',
+  token: 'login.oidcToken',
+  provider: 'login.oidcProvider',
 };
 
 /**
@@ -32,7 +31,7 @@ const OIDC_ERRORS: Record<string, string> = {
  */
 @Component({
   selector: 'app-login',
-  imports: [FormField],
+  imports: [FormField, TranslatePipe, LanguageSelectComponent],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css',
 })
@@ -42,27 +41,28 @@ export class LoginComponent implements OnInit {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   readonly theme = inject(ThemeService);
+  private readonly i18n = inject(I18nService);
 
   /** Highlights shown on the brand panel. */
   readonly features = [
     {
       icon: 'bi-robot',
-      title: 'Revues assistées par IA',
-      text: 'Prompts et checklists exposés à votre assistant via MCP.',
+      title: 'login.featureReviewTitle',
+      text: 'login.featureReviewText',
     },
     {
       icon: 'bi-bug',
-      title: 'Scan de code et de dépendances',
-      text: 'Règles par motifs et avis de vulnérabilité OSV importés hors ligne.',
+      title: 'login.featureScanTitle',
+      text: 'login.featureScanText',
     },
     {
       icon: 'bi-graph-down-arrow',
-      title: 'Suivi et tendances',
-      text: 'Triage des findings, gate CI/CD, export SARIF.',
+      title: 'login.featureTrendTitle',
+      text: 'login.featureTrendText',
     },
-  ] as const;
+  ] as const satisfies readonly { icon: string; title: MessageKey; text: MessageKey }[];
 
-  readonly error = signal<string | null>(this.initialMessage());
+  readonly error = signal<Message | null>(this.initialMessage());
   readonly reveal = signal(false);
 
   /** Label of the single sign-on button; null when OIDC is not enabled. */
@@ -91,10 +91,12 @@ export class LoginComponent implements OnInit {
   readonly accountModel = signal({ username: '', password: '' });
 
   readonly accountForm = form(this.accountModel, (path) => {
-    required(path.username, { message: "L'identifiant est obligatoire" });
-    maxLength(path.username, 64, { message: "L'identifiant ne dépasse pas 64 caractères" });
-    required(path.password, { message: 'Le mot de passe est obligatoire' });
-    maxLength(path.password, 256, { message: 'Le mot de passe ne dépasse pas 256 caractères' });
+    required(path.username, { message: () => this.i18n.translate('login.usernameRequired') });
+    maxLength(path.username, 64, { message: () => this.i18n.translate('login.usernameTooLong') });
+    required(path.password, { message: () => this.i18n.translate('login.passwordRequired') });
+    maxLength(path.password, 256, {
+      message: () => this.i18n.translate('login.passwordTooLong'),
+    });
   });
 
   onAccountSubmit(event: Event): void {
@@ -148,54 +150,54 @@ export class LoginComponent implements OnInit {
     return session;
   }
 
-  private initialMessage(): string | null {
+  private initialMessage(): Message | null {
     const query = this.route.snapshot.queryParamMap;
     const oidcError = query.get('oidcError');
     if (oidcError) {
-      return OIDC_ERRORS[oidcError] ?? 'La connexion par SSO a échoué.';
+      return msg(OIDC_ERRORS[oidcError] ?? 'login.oidcFailed');
     }
     if (query.has('authRequired')) {
-      return "L'authentification de l'interface n'est pas configurée sur ce serveur.";
+      return msg('login.authRequired');
     }
     if (query.has('forbidden')) {
-      return "Ce compte n'a pas accès à l'interface web (rôle reader, triager ou admin requis).";
+      return msg('login.forbidden');
     }
     if (query.has('expired')) {
-      return 'Session expirée ou compte supprimé : reconnectez-vous.';
+      return msg('login.expired');
     }
     return null;
   }
 }
 
-function describeAccountError(err: unknown): string {
+function describeAccountError(err: unknown): Message {
   if (err instanceof HttpErrorResponse) {
     if (err.status === 401) {
-      return 'Identifiant ou mot de passe incorrect.';
+      return msg('login.badCredentials');
     }
     if (err.status === 429) {
-      return 'Trop de tentatives échouées : réessayez dans quelques minutes.';
+      return msg('login.tooManyAttempts');
     }
     if (err.status === 422) {
-      return 'Identifiant ou mot de passe trop long.';
+      return msg('login.tooLong');
     }
     if (err.status === 0) {
-      return 'Serveur injoignable.';
+      return msg('login.unreachable');
     }
   }
-  return 'La connexion a échoué.';
+  return msg('login.failed');
 }
 
-function describeError(err: unknown): string {
+function describeError(err: unknown): Message {
   if (err instanceof HttpErrorResponse) {
     if (err.status === 401) {
-      return 'Session invalide ou expirée.';
+      return msg('login.sessionInvalid');
     }
     if (err.status === 403) {
-      return "Ce compte n'a pas accès à l'interface web (rôle reader, triager ou admin requis).";
+      return msg('login.forbidden');
     }
     if (err.status === 0) {
-      return 'Serveur injoignable.';
+      return msg('login.unreachable');
     }
   }
-  return 'La connexion a échoué.';
+  return msg('login.failed');
 }

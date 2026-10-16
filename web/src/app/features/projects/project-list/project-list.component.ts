@@ -9,6 +9,7 @@ import {
   SeverityCounts,
 } from '../../../core/models/api.models';
 import { SEVERITY_META } from '../../../core/constants/labels';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
@@ -25,6 +26,7 @@ type SortKey = 'risk' | 'activity' | 'name';
     SeverityBadgeComponent,
     SeverityCountsComponent,
     RefreshButtonComponent,
+    TranslatePipe,
   ],
   templateUrl: './project-list.component.html',
   styleUrl: './project-list.component.css',

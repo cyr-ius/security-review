@@ -144,6 +144,31 @@ of a file of `web/src/` reloads the page (styles and templates without a full re
 breakpoints set in the `.ts` files are honored. In the devcontainer, Chrome is opened on the
 local workstation and port 4200 is forwarded automatically.
 
+### Interface translations
+
+The interface is translated into English, French and Spanish by an in-house service
+(`web/src/app/core/i18n/`), without any extra dependency. Each screen has its catalog in
+`core/i18n/messages/<screen>.ts`, declared in `messages/index.ts`, with its messages in the three
+languages:
+
+```ts
+export const tokens = defineMessages({
+  en: { 'tokens.created': 'Token “{label}” created.' },
+  fr: { 'tokens.created': 'Jeton « {label} » créé.' },
+  es: { 'tokens.created': 'Token «{label}» creado.' },
+});
+```
+
+- In a template: `{{ 'tokens.title' | t }}`, or with parameters
+  `{{ 'tokens.created' | t: { label: name } }}`.
+- In the code: `I18nService.translate(...)` (confirmations, messages of the Signal Forms
+  validators through `message: () => ...`). A message shown later (success, error) is kept as
+  `msg(key, parameters)` and translated in the template, so that it follows a change of language.
+- The title of the routes is a key, translated by `I18nTitleStrategy`.
+
+The keys are typed: an unknown key, or a key missing in one of the three languages, fails
+`npm run build`.
+
 ## Schema migrations
 
 Every change of a table model (`models.py`) comes with an Alembic revision in

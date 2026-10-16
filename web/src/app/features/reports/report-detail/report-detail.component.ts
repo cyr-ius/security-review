@@ -12,6 +12,8 @@ import {
   SEVERITY_RANK,
   Severity,
 } from '../../../core/models/api.models';
+import { Message, msg } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
@@ -20,7 +22,7 @@ import { StatusBadgeComponent } from '../../../shared/components/status-badge/st
 /** One report: metadata, summary and findings, with triage for triagers. */
 @Component({
   selector: 'app-report-detail',
-  imports: [RouterLink, DatePipe, SeverityBadgeComponent, StatusBadgeComponent],
+  imports: [RouterLink, DatePipe, SeverityBadgeComponent, StatusBadgeComponent, TranslatePipe],
   templateUrl: './report-detail.component.html',
   styleUrl: './report-detail.component.css',
 })
@@ -51,7 +53,7 @@ export class ReportDetailComponent {
 
   /** Finding ids whose status is being saved, and the last triage error. */
   readonly saving = signal<ReadonlySet<number>>(new Set());
-  readonly triageError = signal<string | null>(null);
+  readonly triageError = signal<Message | null>(null);
 
   readonly notFound = computed(() => {
     const error = this.report.error();
@@ -94,8 +96,8 @@ export class ReportDetailComponent {
         select.value = finding.status;
         this.triageError.set(
           err instanceof HttpErrorResponse && err.status === 403
-            ? "Votre rôle ne permet pas de modifier le statut d'un finding."
-            : `Le statut du finding #${finding.id} n'a pas pu être enregistré.`,
+            ? msg('report.triageForbidden')
+            : msg('report.triageFailed', { id: finding.id }),
         );
         this.doneSaving(finding.id);
       },

@@ -1,30 +1,35 @@
 @if (notFound()) {
   <div class="alert alert-warning" role="alert">
-    Le rapport #{{ id() }} n'existe pas. <a routerLink="/reports">Retour aux rapports</a>
+    {{ 'report.notFound' | t: { id: id() } }}
+    <a routerLink="/reports">{{ 'report.backToReports' | t }}</a>
   </div>
 } @else if (report.error()) {
   <div class="alert alert-danger" role="alert">
     <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
-    Impossible de charger le rapport.
+    {{ 'report.loadError' | t }}
   </div>
 } @else if (report.value(); as data) {
-  <nav aria-label="Fil d'Ariane">
+  <nav [attr.aria-label]="'common.breadcrumb' | t">
     <ol class="breadcrumb">
-      <li class="breadcrumb-item"><a routerLink="/projects">Projets</a></li>
+      <li class="breadcrumb-item">
+        <a routerLink="/projects">{{ 'layout.projects' | t }}</a>
+      </li>
       <li class="breadcrumb-item">
         <a [routerLink]="['/projects', data.project]">{{ data.project }}</a>
       </li>
-      <li class="breadcrumb-item active" aria-current="page">Rapport #{{ data.id }}</li>
+      <li class="breadcrumb-item active" aria-current="page">
+        {{ 'report.title' | t: { id: data.id } }}
+      </li>
     </ol>
   </nav>
 
   <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 mb-3">
     <div>
-      <h1 class="h3 mb-1">Rapport #{{ data.id }}</h1>
+      <h1 class="h3 mb-1">{{ 'report.title' | t: { id: data.id } }}</h1>
       <div class="d-flex flex-wrap align-items-center gap-2 text-body-secondary small">
         <app-severity-badge [severity]="data.risk_level" />
         <span>{{ data.created_at | date: 'dd/MM/yyyy HH:mm' }}</span>
-        <span>· {{ openCount() }} ouvert(s) sur {{ findings().length }}</span>
+        <span>· {{ 'report.openOf' | t: { open: openCount(), total: findings().length } }}</span>
       </div>
     </div>
     <div class="d-flex gap-2">
@@ -42,34 +47,34 @@
   <div class="row g-3 mb-4">
     <div class="col-lg-8">
       <div class="card h-100">
-        <div class="card-header fw-semibold">Résumé</div>
+        <div class="card-header fw-semibold">{{ 'reportTable.summary' | t }}</div>
         <div class="card-body prewrap">{{ data.summary }}</div>
       </div>
     </div>
     <div class="col-lg-4">
       <div class="card h-100">
-        <div class="card-header fw-semibold">Contexte</div>
+        <div class="card-header fw-semibold">{{ 'report.context' | t }}</div>
         <dl class="card-body meta mb-0">
           @if (data.repository) {
-            <dt>Dépôt</dt>
+            <dt>{{ 'report.repository' | t }}</dt>
             <dd class="text-break">{{ data.repository }}</dd>
           }
           @if (data.branch) {
-            <dt>Branche</dt>
+            <dt>{{ 'reportTable.branch' | t }}</dt>
             <dd>{{ data.branch }}</dd>
           }
           @if (data.commit_sha) {
-            <dt>Commit</dt>
+            <dt>{{ 'report.commit' | t }}</dt>
             <dd>
               <code>{{ data.commit_sha }}</code>
             </dd>
           }
           @if (data.reviewer) {
-            <dt>Relecteur</dt>
+            <dt>{{ 'report.reviewer' | t }}</dt>
             <dd>{{ data.reviewer }}</dd>
           }
           @if (data.scope) {
-            <dt>Périmètre</dt>
+            <dt>{{ 'report.scope' | t }}</dt>
             <dd class="prewrap">{{ data.scope }}</dd>
           }
         </dl>
@@ -78,36 +83,36 @@
   </div>
 
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-    <h2 class="h5 mb-0 me-auto">Findings</h2>
+    <h2 class="h5 mb-0 me-auto">{{ 'report.findings' | t }}</h2>
     <select
       class="form-select form-select-sm filter"
-      aria-label="Filtrer par sévérité"
+      [attr.aria-label]="'report.filterSeverity' | t"
       (change)="onSeverityFilter($event)"
     >
-      <option value="">Toutes les sévérités</option>
+      <option value="">{{ 'report.allSeverities' | t }}</option>
       @for (severity of severities; track severity) {
-        <option [value]="severity">{{ severityMeta[severity].label }}</option>
+        <option [value]="severity">{{ severityMeta[severity].label | t }}</option>
       }
     </select>
     <select
       class="form-select form-select-sm filter"
-      aria-label="Filtrer par statut"
+      [attr.aria-label]="'report.filterStatus' | t"
       (change)="onStatusFilter($event)"
     >
-      <option value="">Tous les statuts</option>
+      <option value="">{{ 'report.allStatuses' | t }}</option>
       @for (status of statuses; track status) {
-        <option [value]="status">{{ statusMeta[status].label }}</option>
+        <option [value]="status">{{ statusMeta[status].label | t }}</option>
       }
     </select>
   </div>
 
   @if (triageError(); as message) {
     <div class="alert alert-danger alert-dismissible py-2" role="alert">
-      {{ message }}
+      {{ message | t }}
       <button
         type="button"
         class="btn-close"
-        aria-label="Fermer"
+        [attr.aria-label]="'common.close' | t"
         (click)="triageError.set(null)"
       ></button>
     </div>
@@ -121,13 +126,13 @@
         @if (auth.canTriage()) {
           <select
             class="form-select form-select-sm status-select"
-            [attr.aria-label]="'Statut du finding #' + finding.id"
+            [attr.aria-label]="'report.findingStatus' | t: { id: finding.id }"
             [disabled]="saving().has(finding.id)"
             (change)="changeStatus(finding, $event)"
           >
             @for (status of statuses; track status) {
               <option [value]="status" [selected]="status === finding.status">
-                {{ statusMeta[status].label }}
+                {{ statusMeta[status].label | t }}
               </option>
             }
           </select>
@@ -160,8 +165,14 @@
           <span>{{ finding.category }}</span>
           @if (finding.status !== 'open' && finding.status_changed_at) {
             <span>
-              {{ statusMeta[finding.status].label }} le
-              {{ finding.status_changed_at | date: 'dd/MM/yyyy' }}
+              {{
+                'report.statusOn'
+                  | t
+                    : {
+                        status: statusMeta[finding.status].label | t,
+                        date: (finding.status_changed_at | date: 'dd/MM/yyyy') ?? '',
+                      }
+              }}
             </span>
           }
         </div>
@@ -180,12 +191,12 @@
   } @empty {
     <p class="text-body-secondary text-center my-4">
       <i class="bi bi-check2-circle" aria-hidden="true"></i>
-      Aucun finding{{ severityFilter() || statusFilter() ? ' pour ces filtres' : '' }}.
+      {{ (severityFilter() || statusFilter() ? 'report.noneFiltered' : 'report.none') | t }}
     </p>
   }
 } @else {
   <div class="text-center my-5">
     <span class="spinner-border text-secondary" aria-hidden="true"></span>
-    <span class="visually-hidden">Chargement…</span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 }

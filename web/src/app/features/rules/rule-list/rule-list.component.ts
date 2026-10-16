@@ -11,6 +11,9 @@ import {
   SEVERITIES,
   Severity,
 } from '../../../core/models/api.models';
+import { SEVERITY_META } from '../../../core/constants/labels';
+import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 
@@ -39,16 +42,18 @@ const EMPTY_RULE: RuleFormModel = {
 /** Admin view for the scan rules stored in the database (default and custom). */
 @Component({
   selector: 'app-rule-list',
-  imports: [DatePipe, FormField, RefreshButtonComponent],
+  imports: [DatePipe, FormField, RefreshButtonComponent, TranslatePipe],
   templateUrl: './rule-list.component.html',
   styleUrl: './rule-list.component.css',
 })
 export class RuleListComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
   /** Modal dialog hosting the create / edit form. */
   private readonly editorDialog = viewChild.required<ElementRef<HTMLDialogElement>>('editorDialog');
 
   readonly severities = SEVERITIES;
+  readonly severityMeta = SEVERITY_META;
   readonly catalog = rxResource({ stream: () => this.api.customRules() });
   /** Origin filter of the table ('' shows every rule). */
   readonly originFilter = signal<RuleOrigin | ''>('');
@@ -59,15 +64,15 @@ export class RuleListComponent {
   });
   readonly formModel = signal<RuleFormModel>({ ...EMPTY_RULE });
   readonly ruleForm = form(this.formModel, (path) => {
-    required(path.id, { message: "L'identifiant est obligatoire" });
+    required(path.id, { message: () => this.i18n.translate('rules.idRequired') });
     maxLength(path.id, 50);
-    required(path.title, { message: 'Le titre est obligatoire' });
+    required(path.title, { message: () => this.i18n.translate('rules.titleRequired') });
     maxLength(path.title, 300);
-    required(path.severity, { message: 'La sévérité est obligatoire' });
-    required(path.languages, { message: 'Au moins un langage est requis' });
+    required(path.severity, { message: () => this.i18n.translate('rules.severityRequired') });
+    required(path.languages, { message: () => this.i18n.translate('rules.languagesRequired') });
     maxLength(path.languages, 1056);
     maxLength(path.cwe, 20);
-    required(path.pattern, { message: 'Le motif est obligatoire' });
+    required(path.pattern, { message: () => this.i18n.translate('rules.patternRequired') });
     maxLength(path.pattern, 500);
     maxLength(path.advice, 5000);
   });
@@ -75,10 +80,10 @@ export class RuleListComponent {
   readonly creating = signal(false);
   readonly saving = signal(false);
   readonly reloading = signal(false);
-  readonly error = signal<string | null>(null);
+  readonly error = signal<Message | null>(null);
   /** Error raised while saving, shown inside the modal. */
-  readonly formError = signal<string | null>(null);
-  readonly notice = signal<string | null>(null);
+  readonly formError = signal<Message | null>(null);
+  readonly notice = signal<Message | null>(null);
 
   startCreate(): void {
     this.clearMessages();
@@ -149,10 +154,10 @@ export class RuleListComponent {
       const id = this.editingId();
       if (id) {
         await firstValueFrom(this.api.updateCustomRule(id, payload));
-        this.notice.set(`Règle ${id} modifiée.`);
+        this.notice.set(msg('rules.updated', { id }));
       } else {
         await firstValueFrom(this.api.createCustomRule(payload));
-        this.notice.set(`Règle ${payload.id} créée.`);
+        this.notice.set(msg('rules.created', { id: payload.id }));
       }
       this.cancelEdit();
       this.catalog.reload();
@@ -167,11 +172,17 @@ export class RuleListComponent {
     this.clearMessages();
     try {
       await firstValueFrom(this.api.setCustomRuleEnabled(rule.id, !rule.enabled));
-      this.notice.set(`Règle ${rule.id} ${rule.enabled ? 'désactivée' : 'activée'}.`);
+      this.notice.set(
+        msg(rule.enabled ? 'rules.disabledNotice' : 'rules.enabledNotice', { id: rule.id }),
+      );
       this.catalog.reload();
     } catch (error: unknown) {
       this.error.set(describeError(error));
     }
+  }
+
+  onOriginFilter(event: Event): void {
+    this.setOriginFilter((event.target as HTMLSelectElement).value);
   }
 
   setOriginFilter(value: string): void {
@@ -179,13 +190,13 @@ export class RuleListComponent {
   }
 
   async remove(rule: CustomRule): Promise<void> {
-    if (!window.confirm(`Supprimer définitivement la règle ${rule.id} ?`)) {
+    if (!window.confirm(this.i18n.translate('rules.confirmDelete', { id: rule.id }))) {
       return;
     }
     this.clearMessages();
     try {
       await firstValueFrom(this.api.deleteCustomRule(rule.id));
-      this.notice.set(`Règle ${rule.id} supprimée.`);
+      this.notice.set(msg('rules.deleted', { id: rule.id }));
       if (this.editingId() === rule.id) {
         this.cancelEdit();
       }
@@ -200,7 +211,7 @@ export class RuleListComponent {
     this.clearMessages();
     try {
       const result = await firstValueFrom(this.api.reloadCustomRules());
-      this.notice.set(`Règles rechargées (${result.loaded_rules} personnalisée(s)).`);
+      this.notice.set(msg('rules.reloaded', { count: result.loaded_rules }));
       this.catalog.reload();
     } catch (error: unknown) {
       this.error.set(describeError(error));
@@ -223,9 +234,9 @@ export class RuleListComponent {
   }
 }
 
-function describeError(error: unknown): string {
-  if (error instanceof HttpErrorResponse) {
-    return error.error?.detail ?? 'La modification des règles a échoué.';
+function describeError(error: unknown): Message {
+  if (error instanceof HttpErrorResponse && typeof error.error?.detail === 'string') {
+    return serverDetail(error.error.detail);
   }
-  return 'La modification des règles a échoué.';
+  return msg('rules.failed');
 }
