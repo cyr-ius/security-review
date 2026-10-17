@@ -15,7 +15,7 @@ Le flux utilisé est le *authorization code* avec PKCE (`S256`), state et nonce 
 2. le fournisseur renvoie sur `GET /api/v1/auth/oidc/callback` ; le contrôleur échange le code
    (appel serveur à serveur), vérifie l'ID token (signature par les clés JWKS du fournisseur,
    émetteur, audience, expiration, nonce), retrouve le [compte SSO](#comptes-sso) de
-   l'utilisateur (ou le crée) et enregistre le rôle donné par ses groupes ;
+   l'utilisateur (ou le crée) et enregistre les groupes nommés par son claim des groupes ;
 3. il remet à l'interface un **jeton de session** signé, valable
    `SECREVIEW_SESSION_HOURS` heures, que l'onglet utilise comme un jeton Bearer.
 
@@ -37,9 +37,7 @@ SECREVIEW_OIDC_CLIENT_ID=security-review
 SECREVIEW_OIDC_CLIENT_SECRET=...            # vide pour un client public
 SECREVIEW_OIDC_REDIRECT_URI=https://secreview.example.com/api/v1/auth/oidc/callback
 SECREVIEW_OIDC_ROLES_CLAIM=realm_access.roles   # "groups" par défaut
-SECREVIEW_OIDC_ADMIN_GROUPS=secreview-admins
-SECREVIEW_OIDC_TRIAGER_GROUPS=secreview-triagers
-SECREVIEW_OIDC_READER_GROUPS=developers,qa
+SECREVIEW_OIDC_ADMIN_GROUPS=secreview-admins   # créé avec le rôle admin (premier administrateur)
 SECREVIEW_OIDC_AUTO_CREATE_USERS=true       # sinon, créez chaque compte SSO dans Utilisateurs
 SECREVIEW_SESSION_SECRET=$(openssl rand -base64 48)
 SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
@@ -53,8 +51,9 @@ le fournisseur par son proxy sortant (`SECREVIEW_PROXY` / `SECREVIEW_NO_PROXY`, 
 
 ## Configurer le SSO dans l'interface
 
-Les mêmes réglages se modifient dans la section **Configuration SSO** de l'écran **Rôles SSO**
-(rôle `admin`), sans redémarrer le contrôleur. Comme pour l'écran **Proxy sortant**, une valeur
+Les mêmes réglages se modifient dans l'écran **SSO** (permission `users.manage` : la
+configuration SSO décide qui rejoint quel groupe), sans redémarrer le contrôleur. Comme pour
+l'écran **Proxy sortant**, une valeur
 enregistrée en base **remplace sa variable** `SECREVIEW_OIDC_*`, champ par champ ; un champ jamais
 modifié suit sa variable :
 
@@ -67,7 +66,7 @@ modifié suit sa variable :
   enregistrer : lecture du document `/.well-known/openid-configuration` (même `issuer`, points
   de terminaison en HTTPS), puis des clés de signature (JWKS) ;
 - **Enregistrer** refuse (`422`) une configuration qui activerait une connexion invalide (émetteur
-  manquant ou non HTTPS, scopes sans `openid`, rôle par défaut inconnu...) : rien n'est alors
+  manquant ou non HTTPS, scopes sans `openid`...) : rien n'est alors
   enregistré. Une configuration incomplète peut être préparée tant que le SSO reste désactivé.
 
 Le changement s'applique à la connexion suivante, sur toutes les répliques (le contrôleur relit
@@ -78,7 +77,7 @@ déjà ouvertes restent valides jusqu'à leur expiration. Restent des variables 
 invalide la combinaison avec les valeurs enregistrées, le contrôleur démarre quand même : la
 connexion SSO est désactivée et l'erreur journalisée, à corriger dans l'écran.
 
-Par l'API (`/api/v1/oidc/settings`, rôle `admin`) : `GET` décrit chaque réglage (`value`
+Par l'API (`/api/v1/oidc/settings`, permission `users.manage`) : `GET` décrit chaque réglage (`value`
 enregistrée ou `null`, `env`, `effective` ; un secret défini vaut `***`), `PUT` modifie les champs
 envoyés (`null` applique de nouveau la variable, un champ absent est inchangé) et
 `POST /api/v1/oidc/settings/test` teste le fournisseur sans rien enregistrer :
@@ -104,8 +103,8 @@ refusée.
 
 | Situation | Résultat |
 |---|---|
-| Compte SSO existant | Connexion, avec le rôle effectif ci-dessous |
-| Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | Le compte est **créé** (`created_by` : `oidc`) si ses groupes ou le rôle par défaut lui donnent un rôle ; sinon refus, sans création |
+| Compte SSO existant | Connexion, avec les permissions de ses groupes (ci-dessous) |
+| Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | Le compte est **créé** (`created_by` : `oidc`) si ses groupes lui donnent une permission ; sinon refus, sans création |
 | Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (défaut) | **Refus** : un administrateur doit d'abord créer le compte SSO |
 | Compte **local** du même nom | **Refus** : une connexion SSO n'ouvre jamais un compte local |
 | Compte SSO lié à un autre `sub` | **Refus** (voir ci-dessous) |
@@ -116,92 +115,57 @@ ultérieure avec le même identifiant mais un autre `sub` (compte du fournisseur
 recréé, renommé...) est refusée. Pour réattribuer l'identifiant, supprimez puis recréez le
 compte.
 
-Le **rôle effectif** combine le rôle attribué au compte (écran **Utilisateurs**, ou approbation
-d'un enrôlement) et celui de ses groupes ([role mapping](#role-mapping)), enregistré à chaque
-connexion : le plus élevé l'emporte, et ses projets sont l'union de ceux des deux accès de ce
-rôle. Un compte sans rôle propre ni rôle de groupe est refusé et ses sessions ouvertes se
-ferment. Le rôle attribué s'applique aussitôt ; celui des groupes, à la prochaine connexion.
+Ce qu'un compte SSO peut faire vient de ses [groupes](access-control.md) : ceux qu'un
+administrateur lui a donnés (écran **Utilisateurs** ou **Groupes**, approbation d'un enrôlement)
+et les groupes ouverts au SSO nommés par son claim des groupes, enregistrés à chaque connexion
+(voir [groupes du fournisseur d'identité](#groupes-du-fournisseur-didentite)). Un compte sans
+aucune permission est refusé et ses sessions ouvertes se ferment. Un changement de ses groupes
+donnés s'applique aussitôt ; un changement de ses groupes chez le fournisseur, à la prochaine
+connexion.
 
 **Supprimer un compte SSO** (écran **Utilisateurs**, `DELETE /api/v1/users/{id}` ou
 `security-review-controller user delete NOM`) ferme aussitôt ses sessions et **révoque** son
 identifiant : une connexion SSO ne le recrée plus, même avec la création automatique et des
-groupes qui lui donnent un rôle (message « compte supprimé » sur la page de connexion). Pour lui
+groupes qui lui donnent une permission (message « compte supprimé » sur la page de connexion). Pour lui
 rendre l'accès, un administrateur recrée le compte (à la main ou à l'approbation d'un enrôlement),
 ou lève la révocation (**Autoriser à nouveau**, `DELETE /api/v1/users/revoked/{identifiant}`) :
 le compte est alors recréé à sa prochaine connexion. `GET /api/v1/users/revoked` liste les
 comptes révoqués, avec l'auteur et la date de la suppression.
 
-Le **dernier administrateur** ne peut être ni supprimé ni rétrogradé. Est administrateur un
-compte local ou SSO dont le rôle attribué est `admin`, ou un compte SSO auquel ses groupes ont
-donné `admin` à sa dernière connexion. Gardez de préférence un administrateur local : si le
-fournisseur d'identité devient injoignable, il reste le seul accès, en plus de la CLI.
+Le [dernier détenteur](access-control.md#le-dernier-administrateur) de la permission
+`users.manage` ne peut être ni supprimé ni la perdre. Gardez de préférence un administrateur
+local : si le fournisseur d'identité devient injoignable, il reste le seul accès, en plus de la
+CLI.
 
 ```
 INFO security_review_mcp.web: SSO web user alice created at its first login
-INFO security_review_mcp.web: OIDC login of oidc:alice with role reader on every project
+INFO security_review_mcp.web: OIDC login of oidc:alice with role reader through 1 SSO group(s)
 WARNING security_review_mcp.web: OIDC login of oidc:bob refused: no web user bob
 INFO security_review_mcp.web: Web user carol (oidc) deleted by admin
 WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user carol was deleted
 ```
 
-## Role mapping
+## Groupes du fournisseur d'identité
 
-Le *role mapping* décide du rôle web, et des projets, d'un utilisateur SSO à partir des valeurs
-du claim `SECREVIEW_OIDC_ROLES_CLAIM` (liste ou chaîne, chemin pointé accepté, comparaison
-exacte, sensible à la casse). Une **association** relie une de ces valeurs (un groupe ou un
-rôle du fournisseur) à :
+Les valeurs du claim `SECREVIEW_OIDC_ROLES_CLAIM` (liste ou chaîne, chemin pointé accepté) sont
+comparées aux **noms des groupes** de l'écran **Groupes** : à chaque connexion, l'utilisateur
+rejoint chaque groupe **ouvert au SSO** dont le nom est **exactement** l'une de ces valeurs (casse
+comprise), et quitte les groupes SSO qu'il n'a plus. Les autres valeurs sont ignorées : créez un
+groupe du même nom pour en utiliser une. Les rôles du groupe, et leurs projets, s'appliquent alors
+(voir [Rôles, groupes et permissions](access-control.md)).
 
-- un rôle web : `reader`, `triager` ou `admin` (jamais `mcp` : une session OIDC n'ouvre que
-  l'interface web, pas `/mcp`) ;
-- pour `reader` et `triager`, une liste facultative de projets (50 au plus) ; sans liste, tous
-  les projets. Une association `admin` porte toujours sur tous les projets.
+| Réglage | Effet |
+|---|---|
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | Groupes séparés par des virgules qui ont le rôle `admin` : un tel groupe, absent à la connexion de l'un de ses membres, est créé ouvert au SSO avec le rôle `admin`. Un groupe existant reste tel que les administrateurs l'ont modifié. Sert à nommer le premier administrateur |
+| `SECREVIEW_OIDC_DEFAULT_GROUP` | Nom d'un groupe que tout utilisateur SSO rejoint à chaque connexion, quel que soit son claim (vide par défaut : aucun). Un groupe absent ne donne rien |
 
-Les associations ont deux origines :
+Un groupe **non ouvert au SSO** (par exemple `administrators`, ou le groupe personnel
+`user:<nom>`) n'est jamais rejoint par le claim, même quand une valeur porte son nom. Une session
+restreinte se comporte comme un [jeton restreint à un projet](http.md#jetons-restreints-a-un-projet) :
+les autres projets, leurs rapports et leurs findings sont traités comme inexistants.
 
-| Origine | Gestion | Projets |
-|---|---|---|
-| Base de données | Écran **Rôles SSO** ou API `/api/v1/oidc/role-mappings` (rôle `admin`) | Tous ou une liste |
-| Variables `SECREVIEW_OIDC_ADMIN_GROUPS`, `..._TRIAGER_GROUPS`, `..._READER_GROUPS` | Configuration du contrôleur (lecture seule dans l'interface) | Tous |
-
-Les variables servent surtout à désigner le premier administrateur, qui crée ensuite les autres
-associations dans l'interface.
-
-À la connexion :
-
-1. le **rôle le plus élevé** parmi les associations qui correspondent aux groupes de
-   l'utilisateur l'emporte (`admin` > `triager` > `reader`) ;
-2. la session voit **tous les projets** si l'une des associations de ce rôle n'est pas
-   restreinte ; sinon l'**union** de leurs projets (200 au plus : au-delà, la connexion est
-   refusée). Les projets des associations d'un rôle
-   inférieur ne sont pas ajoutés : un utilisateur `triager` sur `shop-api` et `reader` sur
-   `billing` est `triager` sur `shop-api` seulement ;
-3. sans aucune association de groupe, `SECREVIEW_OIDC_DEFAULT_ROLE` s'applique (`reader` ou
-   `triager`, tous les projets) ; vide (défaut), les groupes ne donnent aucun rôle et seul le
-   rôle attribué au [compte SSO](#comptes-sso) permet encore la connexion, sinon elle est
-   **refusée**. Le rôle `admin` ne peut pas être attribué par défaut.
-
-Ce rôle de groupe est ensuite combiné avec le rôle attribué au compte (voir
-[comptes SSO](#comptes-sso)).
-
-Une session restreinte se comporte comme un
-[jeton restreint à un projet](http.md#jetons-restreints-a-un-projet) : les autres
-projets, leurs rapports et leurs findings sont traités comme inexistants. Un projet peut être
-cité avant d'exister (l'écran propose les projets connus). Un changement d'association
-s'applique à la **prochaine connexion** de l'utilisateur ; d'ici là, ses sessions ouvertes gardent
-le rôle de groupe enregistré (voir [Sessions](#sessions)). Chaque création, modification ou
-suppression est journalisée avec le label de l'administrateur :
-
-```
-INFO security_review_mcp.web: Role mapping payments -> triager (billing) created by oidc:alice
-```
-
-Exemple avec l'API :
-
-```bash
-curl -X POST https://secreview.example.com/api/v1/oidc/role-mappings \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"claim_value": "payments-team", "role": "triager", "projects": ["billing"]}'
-```
+Exemple : avec le claim `["payments-team", "staff"]`, un groupe `payments-team` ouvert au SSO avec
+le rôle `triager` sur `billing`, et aucun groupe `staff`, l'utilisateur ne trie que `billing`.
 
 Le label d'une session SSO est `oidc:<identifiant>` : c'est lui qui apparaît dans les journaux et
 l'historique du triage.
@@ -218,10 +182,10 @@ alors les rapports.
   est déclaré par le client et **n'est pas vérifié** : contrôlez-le ou corrigez-le avant
   d'approuver, ou décochez la case.
 - Le nom désigne un compte de l'écran **Utilisateurs**, local ou SSO. Avec le SSO activé, un nom
-  inconnu devient un **compte SSO** (`reader` sur le projet), prêt pour sa première connexion ;
-  sans SSO, le compte doit exister.
-- Un compte sans rôle propre devient `reader` sur le projet ; un compte `reader` ou `triager`
-  restreint reçoit un projet de plus ; un compte qui voit déjà tous les projets est inchangé. Une
+  inconnu devient un **compte SSO**, prêt pour sa première connexion ; sans SSO, le compte doit
+  exister. Donner cet accès demande la permission `users.manage`.
+- Un compte qui lit déjà tous les projets est inchangé. Sinon le projet est ajouté au rôle
+  `reader` de son **groupe personnel** `user:<nom>` (non ouvert au SSO, créé s'il manque). Une
   demande complémentaire approuvée pour le même utilisateur ajoute le projet de la même façon.
 
 L'accès figure ensuite sur le compte, où il se modifie comme les autres. Il est indépendant du
@@ -253,8 +217,8 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
 
 - Le jeton de session est signé (HMAC-SHA256) avec une clé dérivée de `SECREVIEW_SESSION_SECRET`
   (32 caractères au moins), comme celui des [comptes locaux](../usage/web-interface.md#connexion-et-sessions), et désigne
-  le compte SSO, relu à chaque requête : supprimer le compte ou changer son rôle attribué
-  s'applique aussitôt. Toutes les répliques du contrôleur doivent partager ce secret ; sans lui,
+  le compte SSO, relu à chaque requête : supprimer le compte ou changer ses groupes ou leurs
+  rôles s'applique aussitôt. Toutes les répliques du contrôleur doivent partager ce secret ; sans lui,
   un secret aléatoire est tiré à chaque démarrage et les sessions se terminent au redémarrage (un
   avertissement est journalisé).
 - Un changement de groupe chez le fournisseur ne s'applique qu'à la connexion suivante. Pour
@@ -262,7 +226,7 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
   `SECREVIEW_SESSION_SECRET` et redémarrez le contrôleur (toutes les sessions sont coupées).
 - **Se déconnecter** efface la session de l'onglet, pas celle du fournisseur d'identité.
 
-En cas d'échec, la page de connexion indique la cause (accès refusé chez le fournisseur, aucun
-rôle, compte SSO pas encore créé ou supprimé, identifiant pris par un compte local ou lié à un autre compte,
+En cas d'échec, la page de connexion indique la cause (accès refusé chez le fournisseur, aucune
+permission, compte SSO pas encore créé ou supprimé, identifiant pris par un compte local ou lié à un autre compte,
 identifiant manquant, état expiré, jeton invalide, fournisseur injoignable) ; le détail est
 journalisé par le contrôleur, sans code ni jeton.

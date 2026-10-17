@@ -1,0 +1,9 @@
+.access-name {
+  overflow-wrap: anywhere;
+}
+
+.permission-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}

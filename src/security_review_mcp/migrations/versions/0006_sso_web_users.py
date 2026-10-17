@@ -94,7 +94,9 @@ def upgrade() -> None:
     with op.batch_alter_table("webuser") as batch:
         for column in missing:
             batch.add_column(column)
-        batch.alter_column("role", existing_type=sa.String(20), nullable=True)
+        # Dropped by revision 0013: missing from a database created from newer models
+        if "role" in existing:
+            batch.alter_column("role", existing_type=sa.String(20), nullable=True)
         batch.alter_column("password_hash", existing_type=sa.String(255), nullable=True)
         batch.alter_column(
             "password_changed_at", existing_type=sa.DateTime(timezone=True), nullable=True

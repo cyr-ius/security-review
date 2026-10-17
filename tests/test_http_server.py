@@ -5,6 +5,7 @@ import ssl
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from conftest import make_user
 from sqlmodel import select
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -19,7 +20,6 @@ from security_review_mcp import (
     http_server,
     server,
     token_store,
-    web_users,
 )
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
@@ -669,15 +669,15 @@ def test_token_approve_can_give_web_read_access(capsys, monkeypatch):
     assert "not found" in json.loads(capsys.readouterr().err)["error"]
     assert STORE.lookup(hash_token(first["token"])).pending is True
 
-    web_users.create_user("alice", "correct horse battery", "reader", ["billing"])
+    make_user("alice", "correct horse battery", "reader", ["billing"])
     code, approved = run_cli(capsys, "approve", first["label"], "--portal-user", "alice")
 
     assert code == cli.EXIT_PASSED and approved["status"] == "active"
     user = approved["portal_user"]
-    assert (user["username"], user["auth_source"], user["projects"]) == (
+    assert (user["username"], user["auth_source"], user["permissions"]) == (
         "alice",
         "local",
-        ["billing", "shop-api"],
+        {"reports.read": ["billing", "shop-api"]},
     )
 
 
@@ -692,11 +692,11 @@ def test_token_approve_creates_the_sso_user_when_oidc_is_enabled(capsys, monkeyp
 
     assert code == cli.EXIT_PASSED
     user = approved["portal_user"]
-    assert (user["username"], user["auth_source"], user["role"], user["projects"]) == (
+    assert (user["username"], user["auth_source"], user["effective_role"], user["permissions"]) == (
         "alice",
         "oidc",
         "reader",
-        ["shop-api"],
+        {"reports.read": ["shop-api"]},
     )
     assert user["created_by"] == "cli"
 

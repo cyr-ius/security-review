@@ -20,9 +20,10 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 
 ## Screens
 
-The screens are reached from the sidebar: **Supervision** (projects, reports) for every role,
-then **Reference** (rules, checklists, standards) and **Administration** (users, tokens, audit
-log, SSO roles, report language, outgoing proxy, OSV database) for the `admin` role. The bottom
+The screens are reached from the sidebar: **Supervision** (projects, reports) for every account,
+then **Reference** (rules, checklists, standards) and **Administration** (users, groups, roles,
+tokens, audit log, SSO, report language, outgoing proxy, OSV database), each shown only to the
+accounts that hold its [permission](../advanced/access-control.md#permissions). The bottom
 of the sidebar shows the connected client, its role and the version, with the **My account** and logout buttons; on a
 small screen, the sidebar opens with the menu button. The light or dark theme is chosen at the
 top right, including on the login page, and is remembered by the browser.
@@ -45,7 +46,7 @@ back by the API stay in English.
   type, branch, commit). Filters by status (to re-check accepted risks or false positives), by
   severity and by review type (**Security review**, **API security review**, **Codebase
   review**...: see [review type](prompts-tools.md#review-type)); **Load more** displays the next
-  findings. Users with the `triager` or `admin` role change the status of each finding from this
+  findings. Users with the `findings.triage` permission change the status of each finding from this
   screen and apply or reject the statuses proposed by the agents (see
   [triage of findings](#triage-of-findings)); a triaged finding stays displayed until the next
   reload.
@@ -54,7 +55,7 @@ back by the API stay in English.
 - **Report**: summary, context (repository, branch, commit, review type, **Author** and
   **Sent by (token)**, see [author of a report](prompts-tools.md#author-of-a-report)), findings with
   location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
-  `triager` or `admin` role change the status of a finding directly from this screen.
+  `findings.triage` permission change the status of a finding directly from this screen.
 - **Standards**: the [development standards](../advanced/standards.md) handed to the AI
   assistants by the `development-standards` prompt. Administrators search, read, create, edit
   (technologies, file patterns, Markdown content), disable or delete them. A change applies
@@ -71,14 +72,17 @@ back by the API stay in English.
 - **Users**: administrators manage the [accounts](#user-accounts), the only
   ones to open the interface. Each account is **Local** (user name and password, entered or
   generated and shown only once) or **SSO** (login through the identity provider, no password),
-  with a badge in the list. The administrator chooses the `reader`, `triager` or `admin` role
-  and, for `reader` and `triager`, the projects. An SSO account can have no role of its own: the
-  **Role of the groups** column then shows the role that its groups gave it at its
-  last login. The administrator changes the role and the projects of an account, resets the
-  password of a local account or deletes an account. A deleted SSO account is no longer created
-  again at its login: the **Deleted SSO accounts** section lists them,
-  with the **Allow again** button. The last administrator, local or SSO,
-  can be neither deleted nor demoted.
+  with a badge in the list. The administrator chooses its **Groups**; the **Groups** column shows
+  them, with a shield for the SSO groups found at the last login, and **Access** sums up what they
+  give. The administrator changes the groups of an account, resets the password of a local
+  account or deletes an account. A deleted SSO account is no longer created again at its login:
+  the **Deleted SSO accounts** section lists them, with the **Allow again** button. The last
+  holder of `users.manage` can be neither deleted nor lose it.
+- **Groups**: administrators create the groups, give them roles (on every project or on some
+  projects), add members and choose whether the group is **Open to SSO** (see
+  [Roles, groups and permissions](../advanced/access-control.md#groups)).
+- **Roles**: administrators create roles from the permissions; the system roles `reader`,
+  `triager` and `admin` are shown read only.
 - **My account**: shows the type of the account. A local user changes their
   password there (their other sessions are closed); the one of an SSO user is managed by the
   identity provider.
@@ -112,16 +116,14 @@ back by the API stay in English.
 - **Audit log**: administrators read the [audit log](../advanced/audit-metrics.md#audit-log): triage
   decisions, agent proposals, tokens and enrollment requests, newest first, with who made
   them; filters by event and by project, **Load more** for the older events.
-- **SSO roles**: administrators
+- **SSO**: administrators
   [configure the SSO login](../advanced/sso.md#configuring-sso-in-the-interface) (every stored value replaces its
-  `SECREVIEW_OIDC_*` variable, with a connection test to the provider) and map the groups or
-  roles of the identity provider to a web role and, for `reader` and `triager`, to a list of
-  projects (see [role mapping](../advanced/sso.md#role-mapping)). The groups of the SSO configuration
-  (`*_GROUPS`) are shown read only in the list of mappings. The SSO users themselves are managed
-  in the **Users** screen.
+  `SECREVIEW_OIDC_*` variable, with a connection test to the provider). What SSO users may do
+  comes from the groups open to SSO named by their groups claim (see
+  [groups of the identity provider](../advanced/sso.md#groups-of-the-identity-provider)).
 The next three screens hold settings stored in the database, taking precedence over the
-environment variables and shared by the MCP server and the controller (the former
-`/ui/settings` address opens **Report language**).
+environment variables and shared by the MCP server and the controller (`settings.manage`
+permission; the former `/ui/settings` address opens **Report language**).
 
 - **Report language**: `SECREVIEW_REPORT_LANGUAGE` variable, choice
   left to the agent or language set here (`French`, `fr`, `pt-BR`…). It applies to the next
@@ -198,7 +200,7 @@ which decides the reachable endpoints:
 | `metrics` | CLI only | — | `/metrics` only ([Prometheus](../advanced/audit-metrics.md#prometheus-metrics)) | — |
 
 ¹ With a token. `accepted` and `false_positive` need a person logged in to the interface
-with the `triager` or `admin` role ([triage of findings](#triage-of-findings)). On `/mcp`, no
+with the `findings.triage` permission ([triage of findings](#triage-of-findings)). On `/mcp`, no
 role changes a status: the agents only propose one.
 
 An `mcp`, `reader` or `triager` token restricted with `--project` only sees and triages the
@@ -207,9 +209,10 @@ allowed projects; a `ci` token is always restricted to its projects (see
 [tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
 
 People log in with a [user account](#user-accounts): local (user name and password) or
-[SSO](../advanced/sso.md). Accounts have the `reader`, `triager` or `admin` role, never
-`mcp`, and never open `/mcp`. A token created without a role stays `mcp`: it serves the agents
-and the CI, not the web interface. The `triager` role only adds the triage of the findings. A
+[SSO](../advanced/sso.md). What an account may do comes from the roles of its groups (see
+[Roles, groups and permissions](../advanced/access-control.md)); an account never opens `/mcp`.
+A token created without a role stays `mcp`: it serves the agents and the CI, not the web
+interface. A
 `reader`, `triager` or `admin` token calls the REST API, for example from a script, but **does
 not open the interface** (the login page only offers the accounts):
 
@@ -244,8 +247,8 @@ logged with the label of the token or of the account:
 INFO security_review_mcp.web: Finding 42 set to fixed by triage-bot
 ```
 
-and written to the [audit log](../advanced/audit-metrics.md#audit-log) (`GET /api/v1/audit`, `admin`
-role), with the actor `token:triage-bot` or `user:<name>`.
+and written to the [audit log](../advanced/audit-metrics.md#audit-log) (`GET /api/v1/audit`, `audit.read`
+permission), with the actor `token:triage-bot` or `user:<name>`.
 
 !!! warning "Authentication required for the web UI"
     The API of the interface refuses the requests with status `503` while no user and no token
@@ -259,39 +262,41 @@ role), with the actor `token:triage-bot` or `user:<name>`.
 ## User accounts
 
 An account ties a **user name** (letters, digits and `. _ @ -`, 64 characters at most), a
-**type** and a web role: `reader`, `triager` or `admin`. A `reader` or `triager` account can be
-limited to a list of projects; an `admin` account sees every project.
+**type** and **groups**, whose roles give its [permissions](../advanced/access-control.md).
 
 | Type (`auth_source`) | Login | Creation |
 |---|---|---|
 | **Local** (`local`) | User name and password | By an administrator, or the initial `admin` account |
 | **SSO** (`oidc`) | [Identity provider](../advanced/sso.md), no password | By an administrator, at the approval of an enrollment, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
-An SSO account can have **no role of its own**: only the role given by its groups applies (see
+An SSO account also joins, at each login, the groups open to SSO named by its groups claim (see
 [SSO accounts](../advanced/sso.md#sso-accounts)). Accounts are managed in the **Users** screen,
-through the `/api/v1/users` REST API (`admin` role) or with the
+through the `/api/v1/users` REST API (`users.manage` permission) or with the
 [CLI](../reference/cli.md#security-review-controller):
 
 ```bash
-security-review-controller user create alice --role triager --project shop-api
-# {"id": 2, "username": "alice", "auth_source": "local", "role": "triager", "projects": ["shop-api"], …, "password": "q3V…"}
+security-review-controller user create alice --group shop-triagers
+# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, "effective_role": "triager", …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
-security-review-controller user create carol@example.com --sso --role none   # group role
-security-review-controller user create dave --sso --role reader --project billing
+security-review-controller user create carol@example.com --sso   # SSO groups only
 security-review-controller user list
-security-review-controller user set-role alice --role reader
+security-review-controller user set-groups alice --group readers --group auditors
+security-review-controller user set-groups alice --group administrators   # created if missing
 security-review-controller user reset-password alice   # local account: new password, sessions closed
 security-review-controller user delete alice
+security-review-controller group list    # groups, their roles and members
 ```
 
 Through the API, an SSO account is created with `"auth_source": "oidc"`, without `password`;
-`"role": null` leaves it without a role of its own:
+`group_ids` lists its groups:
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"username": "carol@example.com", "auth_source": "oidc", "role": null}'
+  -d '{"username": "carol@example.com", "auth_source": "oidc", "group_ids": [4]}'
 ```
+
+An account without any group has no permission and cannot log in.
 
 For a local account, without `--password-stdin` (or without a password in the interface), a
 random 24-character password is generated and shown **only once**. A chosen password has 12 to
@@ -301,7 +306,8 @@ reset and **My account** refuse it.
 ### First administrator
 
 With `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (the case in the Docker image), the controller
-creates at first start the **`admin`** user, with the `admin` role, while no account exists.
+creates at first start the **`admin`** user, member of the `administrators` group (`admin`
+role), while no account exists.
 Its password is shown only once in the logs of the controller:
 
 ```
@@ -335,7 +341,8 @@ curl -s -X POST https://secreview.example.com/api/v1/auth/login \
 Every session names an account (local or SSO); at every request, the controller reads it again
 from the database:
 
-- a change of **role or projects** applies immediately to the open sessions;
+- a change of its **groups**, of their roles or of a role applies immediately to the open
+  sessions;
 - a **deletion** or a **new password** (changed by the user or reset by an administrator)
   closes every session of the account; `PUT /api/v1/me/password` hands a new session to the tab
   that changed the password.
@@ -372,7 +379,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token) requests are
   filed on the **MCP server** (`POST /api/v1/enroll`, public); the controller lists and handles
   them (`GET /api/v1/enrollments`, `POST /api/v1/enrollments/{id}/approve`,
-  `DELETE /api/v1/enrollments/{id}`, `admin` role). It can therefore stay on an internal
+  `DELETE /api/v1/enrollments/{id}`, `tokens.manage` permission). It can therefore stay on an internal
   network.
 - The token is sent in the `Authorization` header: no cookie, hence no CSRF. Only the
   [SSO login](../advanced/sso.md) sets a cookie, `HttpOnly`, `SameSite=Lax`, `Secure`

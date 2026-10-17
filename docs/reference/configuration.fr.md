@@ -28,17 +28,15 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_FORWARDED_ALLOW_IPS` | — | les deux | Reverse proxies (adresses IP ou plages CIDR séparées par des virgules, `*` pour tous) dont l'en-tête `X-Forwarded-For` donne l'adresse du client, utilisée par la limitation des connexions, les limites d'enrôlement et les journaux ; sans elle, la valeur par défaut d'uvicorn (variable `FORWARDED_ALLOW_IPS`, sinon `127.0.0.1`). À définir derrière un Ingress ou un reverse proxy, sinon tous les clients partagent l'adresse du proxy |
 | `SECREVIEW_WEB_UI` | `true` | Contrôleur | Sert l'[interface web](../usage/web-interface.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Contrôleur | Dossier d'une autre build de l'interface web |
-| `SECREVIEW_OIDC_ENABLED` | `false` | Contrôleur | Active la [connexion SSO OpenID Connect](../advanced/sso.md) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` se modifient aussi dans l'écran **Rôles SSO**, dont les valeurs enregistrées les remplacent ([configurer le SSO dans l'interface](../advanced/sso.md#configurer-le-sso-dans-linterface)) |
+| `SECREVIEW_OIDC_ENABLED` | `false` | Contrôleur | Active la [connexion SSO OpenID Connect](../advanced/sso.md) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` se modifient aussi dans l'écran **SSO**, dont les valeurs enregistrées les remplacent ([configurer le SSO dans l'interface](../advanced/sso.md#configurer-le-sso-dans-linterface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | Contrôleur | URL de l'émetteur (HTTPS ; HTTP seulement sur localhost), dont `/.well-known/openid-configuration` est lu |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Contrôleur | Identifiant du client déclaré chez le fournisseur |
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Contrôleur | Secret du client ; vide pour un client public (PKCE seul) |
 | `SECREVIEW_OIDC_REDIRECT_URI` | — | Contrôleur | URL publique de `/api/v1/auth/oidc/callback`, déclarée chez le fournisseur |
 | `SECREVIEW_OIDC_SCOPES` | `openid profile email` | Contrôleur | Scopes demandés (doit contenir `openid`) |
-| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Contrôleur | Claim des groupes ou rôles, chemin pointé accepté (`realm_access.roles`) |
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `admin` sur tous les projets, séparés par des virgules, en plus des associations du [role mapping](../advanced/sso.md#role-mapping) gérées dans l'interface |
-| `SECREVIEW_OIDC_TRIAGER_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `triager` (tous les projets) |
-| `SECREVIEW_OIDC_READER_GROUPS` | — | Contrôleur | Groupes qui donnent le rôle `reader` (tous les projets) |
-| `SECREVIEW_OIDC_DEFAULT_ROLE` | — | Contrôleur | Rôle de groupe (tous les projets) sans aucune association correspondante : `reader`, `triager` ou vide (seul le rôle attribué au compte s'applique) |
+| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Contrôleur | Claim des groupes ou rôles, chemin pointé accepté (`realm_access.roles`) ; ses valeurs sont comparées aux noms des [groupes ouverts au SSO](../advanced/sso.md#groupes-du-fournisseur-didentite) |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Contrôleur | Groupes SSO, séparés par des virgules, créés ouverts au SSO avec le rôle `admin` à la première connexion de l'un de leurs membres (premier administrateur) |
+| `SECREVIEW_OIDC_DEFAULT_GROUP` | — | Contrôleur | Groupe que tout utilisateur SSO rejoint à chaque connexion, quel que soit son claim (vide : aucun) |
 | `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Contrôleur | Claim qui nomme le [compte SSO](../advanced/sso.md#comptes-sso) (comparaison exacte, sans repli) ; label de session `oidc:<valeur>` |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Contrôleur | Crée le compte SSO à sa première connexion si ses groupes lui donnent un rôle ; à `false`, un administrateur crée chaque compte SSO dans **Utilisateurs** |
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `SSO` | Contrôleur | Nom affiché sur le bouton de connexion (40 caractères au plus) |

@@ -265,7 +265,9 @@ def test_invalid_enabled_oidc_settings_are_refused_and_nothing_is_stored():
     ("values", "message"),
     [
         ({"cafile": "/etc/passwd"}, "unknown SSO setting"),
-        ({"default_role": "admin"}, "default role"),
+        ({"default_role": "admin"}, "unknown SSO setting"),
+        ({"triager_groups": "devs"}, "unknown SSO setting"),
+        ({"default_group": "x" * 501}, "too long"),
         ({"enabled": "yes"}, "true or false"),
         ({"issuer": 3}, "must be a string"),
         ({"display_name": "SSO\nadmin"}, "control characters"),

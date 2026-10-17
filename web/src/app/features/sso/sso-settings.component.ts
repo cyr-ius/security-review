@@ -19,7 +19,7 @@ import { ApiService } from '../../core/services/api.service';
 const SECRET_MASK = '***';
 
 /** How a setting is edited. */
-type FieldKind = 'text' | 'bool' | 'secret' | 'role';
+type FieldKind = 'text' | 'bool' | 'secret';
 
 /** One field of the form. */
 interface FieldMeta {
@@ -73,11 +73,14 @@ const ACCESS_FIELDS: FieldMeta[] = [
     name: 'admin_groups',
     label: 'sso.adminGroups',
     kind: 'text',
-    help: 'sso.groupsHelp',
+    help: 'sso.adminGroupsHelp',
   },
-  { name: 'triager_groups', label: 'sso.triagerGroups', kind: 'text' },
-  { name: 'reader_groups', label: 'sso.readerGroups', kind: 'text' },
-  { name: 'default_role', label: 'sso.defaultRole', kind: 'role' },
+  {
+    name: 'default_group',
+    label: 'sso.defaultGroup',
+    kind: 'text',
+    help: 'sso.defaultGroupHelp',
+  },
   {
     name: 'auto_create_users',
     label: 'sso.autoCreate',

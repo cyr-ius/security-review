@@ -78,7 +78,7 @@
   (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
-  journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (rôle `admin`) n'est
+  journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (permission `settings.manage`) n'est
   accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Le proxy sortant (`SECREVIEW_PROXY`, ou
   l'écran **Proxy sortant**) sert au téléchargement OSV et au fournisseur SSO ; seul le nom des
   réglages modifiés est journalisé. Un proxy défini dans l'interface web est
@@ -135,11 +135,11 @@
 - **Connexion SSO (OpenID Connect)**, facultative : flux *authorization code* avec PKCE `S256`,
   state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
   ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
-  uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Le rôle vient des
-  groupes de l'utilisateur ([role mapping](../advanced/sso.md#role-mapping), géré
-  par les administrateurs, éventuellement restreint à des projets) et du rôle attribué à son
-  [compte SSO](../advanced/sso.md#comptes-sso) ; ni le rôle `admin` par défaut ni le
-  rôle `mcp` ne sont possibles. Le compte est nommé par l'identifiant exact du claim
+  uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Les permissions
+  viennent des [groupes](../advanced/access-control.md) du compte : ceux donnés par un
+  administrateur et les groupes ouverts au SSO dont le nom est exactement une valeur du claim des
+  groupes (les autres valeurs sont ignorées, un groupe non ouvert au SSO n'est jamais rejoint par
+  le claim) ; une session SSO n'ouvre jamais `/mcp`. Le compte est nommé par l'identifiant exact du claim
   `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si ce n'est pas
   un identifiant valide) : choisissez un claim que l'utilisateur ne peut pas modifier chez le
   fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte SSO créé par

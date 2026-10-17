@@ -21,6 +21,10 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `enrollment.requested` | Un client demande un jeton ou un projet de plus ([enrôlement](http.md#enrolement-un-projet-demande-son-jeton)), avec le demandeur et son adresse |
 | `enrollment.approved` | Un administrateur approuve une demande |
 | `enrollment.rejected` | Un administrateur rejette une demande |
+| `role.created`, `role.updated`, `role.deleted` | Un administrateur crée, modifie (avec les permissions précédentes) ou supprime un [rôle](access-control.md#roles) |
+| `group.created`, `group.updated`, `group.deleted` | Un administrateur crée, renomme ou modifie, ou supprime un [groupe](access-control.md#groupes) |
+| `group.roles_changed`, `group.members_changed` | Un administrateur remplace les rôles (avec leurs projets) ou les membres (identifiants ajoutés et retirés) d'un groupe |
+| `user.groups_changed` | Un administrateur remplace les groupes donnés à un compte (identifiants de groupes ajoutés et retirés) |
 
 Chaque événement porte sa date, son **acteur**, sa cible (`finding` et son id, `token` et son
 id, `enrollment` et l'id de la demande), le projet quand il y en a un, et des détails en JSON.
@@ -39,7 +43,7 @@ outil MCP ni aucune route ne les change.
 ### Consulter le journal
 
 Les administrateurs le consultent dans l'écran **Journal d'audit** de l'interface web (filtres
-par événement et par projet), avec `GET /api/v1/audit` (rôle `admin` ; paramètres `action`,
+par événement et par projet), avec `GET /api/v1/audit` (permission `audit.read` ; paramètres `action`,
 `project`, `actor`, `since`, `limit`, `offset`, du plus récent au plus ancien) ou en ligne de
 commande :
 

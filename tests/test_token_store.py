@@ -4,9 +4,10 @@ import re
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from conftest import make_user
 from sqlmodel import Session, select
 
-from security_review_mcp import audit, token_store, web_users
+from security_review_mcp import audit, token_store
 from security_review_mcp import database as database_module
 from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role, TokenInfo, hash_token
@@ -149,7 +150,7 @@ def test_list_tokens_filters_by_project_and_hides_hashes(database):
 
 
 def test_web_users_count_as_credentials_of_the_controller_only():
-    web_users.create_user("alice", "correct horse battery", "reader")
+    make_user("alice", "correct horse battery", "reader")
 
     assert STORE.has_tokens() is False
     assert token_store.DatabaseTokenStore(include_users=True).has_tokens() is True

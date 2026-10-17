@@ -79,7 +79,7 @@
   (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over
   HTTPS with certificate verification, redirects limited to HTTPS, bounded size
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
-  **Update now** button of the web interface (`admin` role) is only accepted if
+  **Update now** button of the web interface (`settings.manage` permission) is only accepted if
   `SECREVIEW_OSV_AUTO_UPDATE=true`. The outgoing proxy (`SECREVIEW_PROXY`, or the **Outgoing proxy**
   screen) serves the OSV download and the SSO provider; only the name of the changed settings
   is logged. A proxy set in the web interface is stored in the database **with its credentials,
@@ -134,11 +134,11 @@
 - **SSO login (OpenID Connect)**, optional: *authorization code* flow with `S256` PKCE, state
   bound to the browser by a signed `HttpOnly` / `SameSite=Lax` cookie of 10 minutes, nonce,
   verified ID token (signature by the JWKS keys of the provider, asymmetric algorithms only,
-  never `none` nor HMAC; issuer, audience, `azp`, expiry). The role comes from the groups of the
-  user ([role mapping](../advanced/sso.md#role-mapping), managed by the administrators,
-  possibly restricted to projects) and from the role given to their
-  [SSO account](../advanced/sso.md#sso-accounts); neither the `admin` role by default nor
-  the `mcp` role are possible. The account is named by the exact identifier of the
+  never `none` nor HMAC; issuer, audience, `azp`, expiry). The permissions come from the
+  [groups](../advanced/access-control.md) of the account: those given by an administrator and the
+  groups open to SSO whose name is exactly a value of the groups claim (other values are
+  ignored, a group not open to SSO is never joined through the claim); an SSO session never
+  opens `/mcp`. The account is named by the exact identifier of the
   `SECREVIEW_OIDC_USERNAME_CLAIM` claim (no fallback to `email` or `sub`, value refused if it is
   not a valid user name): choose a claim that the user cannot change at the provider. By
   default (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), only an SSO account created by an

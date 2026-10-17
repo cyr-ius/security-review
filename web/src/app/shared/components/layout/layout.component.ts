@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { ROLE_META } from '../../../core/constants/labels';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { MessageKey } from '../../../core/i18n/messages';
+import { Permission } from '../../../core/models/api.models';
 import { AuthService } from '../../../core/services/auth.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { LanguageSelectComponent } from '../language-select/language-select.component';
@@ -12,8 +13,8 @@ interface NavItem {
   path: string;
   label: MessageKey;
   icon: string;
-  /** Shown to administrators only (the route has the admin guard). */
-  adminOnly?: boolean;
+  /** Shown only to the users that hold it (the route has the same permission guard). */
+  permission?: Permission;
 }
 
 /** Application shell: sidebar navigation, top bar and the routed page. */
@@ -35,30 +36,56 @@ export class LayoutComponent {
 
   /** What the reviews rely on: scan rules, checklists and development standards. */
   private readonly referenceItems: readonly NavItem[] = [
-    { path: '/rules', label: 'layout.rules', icon: 'bi-sliders', adminOnly: true },
-    { path: '/checklists', label: 'layout.checklists', icon: 'bi-list-check', adminOnly: true },
-    { path: '/standards', label: 'layout.standards', icon: 'bi-journal-code', adminOnly: true },
+    { path: '/rules', label: 'layout.rules', icon: 'bi-sliders', permission: 'rules.manage' },
+    {
+      path: '/checklists',
+      label: 'layout.checklists',
+      icon: 'bi-list-check',
+      permission: 'rules.manage',
+    },
+    {
+      path: '/standards',
+      label: 'layout.standards',
+      icon: 'bi-journal-code',
+      permission: 'standards.manage',
+    },
   ];
 
-  readonly adminNav: readonly NavItem[] = [
-    { path: '/users', label: 'layout.users', icon: 'bi-people' },
-    { path: '/tokens', label: 'layout.tokens', icon: 'bi-key' },
-    { path: '/audit', label: 'layout.audit', icon: 'bi-journal-text' },
-    { path: '/role-mappings', label: 'layout.sso', icon: 'bi-person-badge' },
-    { path: '/settings/language', label: 'layout.reportLanguage', icon: 'bi-translate' },
-    { path: '/settings/proxy', label: 'layout.proxy', icon: 'bi-hdd-network' },
-    { path: '/settings/advisories', label: 'layout.advisories', icon: 'bi-database' },
+  private readonly adminItems: readonly NavItem[] = [
+    { path: '/users', label: 'layout.users', icon: 'bi-people', permission: 'users.manage' },
+    { path: '/groups', label: 'layout.groups', icon: 'bi-diagram-3', permission: 'users.manage' },
+    { path: '/roles', label: 'layout.roles', icon: 'bi-shield-check', permission: 'users.manage' },
+    { path: '/tokens', label: 'layout.tokens', icon: 'bi-key', permission: 'tokens.manage' },
+    { path: '/audit', label: 'layout.audit', icon: 'bi-journal-text', permission: 'audit.read' },
+    { path: '/sso', label: 'layout.sso', icon: 'bi-person-badge', permission: 'users.manage' },
+    {
+      path: '/settings/language',
+      label: 'layout.reportLanguage',
+      icon: 'bi-translate',
+      permission: 'settings.manage',
+    },
+    {
+      path: '/settings/proxy',
+      label: 'layout.proxy',
+      icon: 'bi-hdd-network',
+      permission: 'settings.manage',
+    },
+    {
+      path: '/settings/advisories',
+      label: 'layout.advisories',
+      icon: 'bi-database',
+      permission: 'settings.manage',
+    },
   ];
 
   /** Sidebar shown as a drawer on small screens. */
   readonly menuOpen = signal(false);
 
-  readonly isAdmin = computed(() => this.auth.identity()?.role === 'admin');
-
   /** Entries of the Référentiel section the current user may open. */
-  readonly referenceNav = computed(() =>
-    this.referenceItems.filter((item) => !item.adminOnly || this.isAdmin()),
-  );
+  readonly referenceNav = computed(() => this.allowed(this.referenceItems));
+
+  /** Entries of the Administration section the current user may open. */
+  readonly adminNav = computed(() => this.allowed(this.adminItems));
 
   readonly role = computed(() => ROLE_META[this.auth.identity()?.role ?? 'reader']);
 
@@ -68,6 +95,11 @@ export class LayoutComponent {
     const letters = words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? '?').slice(0, 2);
     return letters.toUpperCase();
   });
+
+  /** Items whose permission the current user holds. */
+  private allowed(items: readonly NavItem[]): NavItem[] {
+    return items.filter((item) => !item.permission || this.auth.can(item.permission));
+  }
 
   closeMenu(): void {
     this.menuOpen.set(false);

@@ -12,6 +12,7 @@ The services are synchronous (SQLModel sessions), so every call runs in the thre
 import json
 import logging
 import threading
+from collections.abc import Callable
 from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -31,6 +32,7 @@ from starlette.types import Scope
 
 from . import (
     __version__,
+    access_control,
     advisories,
     advisory_sync,
     app_settings,
@@ -39,7 +41,6 @@ from . import (
     oidc,
     proxy,
     registry,
-    role_mapping,
     rule_store,
     rules_loader,
     services,
@@ -59,7 +60,6 @@ from .http_server import (
     METRICS_PATH,
     METRICS_ROLES,
     OPENAPI_PATH,
-    TRIAGE_ROLES,
     WEB_ROLES,
     Role,
 )
@@ -110,12 +110,16 @@ class Identity(BaseModel):
     """Who is calling and what they may do."""
 
     client: str
+    # Role of a token; for a web user, the web role that sums up its permissions
     role: Role
     can_triage: bool
     # Always true: the API answers authenticated requests only (kept for API compatibility)
     auth_enabled: bool
-    # Projects a restricted token reaches; None: every project
+    # Projects whose reports the caller reads; None: every project
     projects: list[str] | None = None
+    # Each permission of the caller (see access_control.Permission) with its projects (None:
+    # every project)
+    permissions: dict[str, list[str] | None] = Field(default_factory=dict)
     # True for a local web user (logged in with a password, which it may change)
     local_account: bool = False
     # Source of the account of a web user ("local" or "oidc"); None for a bearer token
@@ -180,28 +184,55 @@ class StandardWrite(BaseModel):
     enabled: bool = True
 
 
-class RoleMappingCreate(BaseModel):
-    """An identity provider group or role mapped to a web role (and projects)."""
+_ProjectList = list[Annotated[str, Field(min_length=1, max_length=200)]]
 
-    claim_value: str = Field(min_length=1, max_length=role_mapping.MAX_CLAIM_VALUE_CHARS)
-    role: Literal["reader", "triager", "admin"]
-    # Empty: every project (always for admin)
-    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+
+class RoleWrite(BaseModel):
+    """A custom role: a name and the permissions it holds."""
+
+    name: str = Field(min_length=1, max_length=access_control.MAX_ROLE_NAME_CHARS)
+    description: str = Field(default="", max_length=access_control.MAX_DESCRIPTION_CHARS)
+    permissions: list[access_control.Permission] = Field(
+        min_length=1, max_length=len(access_control.Permission)
+    )
+
+
+class GroupWrite(BaseModel):
+    """A group of web users. With ``sso``, the SSO users whose groups claim holds ``name`` are
+    members too."""
+
+    name: str = Field(min_length=1, max_length=access_control.MAX_GROUP_NAME_CHARS)
+    description: str = Field(default="", max_length=access_control.MAX_DESCRIPTION_CHARS)
+    sso: bool = True
+
+
+class GroupRoleBinding(BaseModel):
+    """A role given to a group, on every project (empty ``projects``) or on some projects."""
+
+    role_id: int = Field(ge=1)
+    projects: _ProjectList = Field(
         default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
     )
 
 
-class RoleMappingUpdate(BaseModel):
-    """New projects of a role mapping (empty: every project)."""
+class GroupRolesUpdate(BaseModel):
+    """Body of PUT /groups/{id}/roles: every role of the group."""
 
-    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
-        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    roles: list[GroupRoleBinding] = Field(max_length=access_control.MAX_ROLES_PER_GROUP)
+
+
+class GroupMembersUpdate(BaseModel):
+    """Body of PUT /groups/{id}/members: the members added by an administrator."""
+
+    user_ids: list[Annotated[int, Field(ge=1)]] = Field(
+        max_length=access_control.MAX_MEMBERS_PER_CHANGE
     )
 
 
 class WebUserCreate(BaseModel):
-    """A web user. A local one without ``password`` gets a random one, returned once; an SSO
-    one (``auth_source="oidc"``) has no password and may have no role (``role`` null)."""
+    """A web user and its groups. A local one without ``password`` gets a random one, returned
+    once; an SSO one (``auth_source="oidc"``) has no password and also joins its SSO groups at
+    each login."""
 
     username: str = Field(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)
     auth_source: Literal["local", "oidc"] = "local"
@@ -210,21 +241,15 @@ class WebUserCreate(BaseModel):
         min_length=web_users.MIN_PASSWORD_CHARS,
         max_length=web_users.MAX_PASSWORD_CHARS,
     )
-    role: Literal["reader", "triager", "admin"] | None = "reader"
-    # Empty: every project (always for admin)
-    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
-        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    group_ids: list[Annotated[int, Field(ge=1)]] = Field(
+        default_factory=list, max_length=access_control.MAX_GROUPS
     )
 
 
 class WebUserUpdate(BaseModel):
-    """New role and projects of a web user (empty projects: every project; null role: only
-    the role of the groups, for an SSO user)."""
+    """Groups an administrator gives to a web user (its SSO groups are kept)."""
 
-    role: Literal["reader", "triager", "admin"] | None
-    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
-        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
-    )
+    group_ids: list[Annotated[int, Field(ge=1)]] = Field(max_length=access_control.MAX_GROUPS)
 
 
 class PasswordReset(BaseModel):
@@ -328,9 +353,7 @@ class OidcSettingsUpdate(BaseModel):
     roles_claim: _OidcText | None = None
     username_claim: _OidcText | None = None
     admin_groups: _OidcText | None = None
-    triager_groups: _OidcText | None = None
-    reader_groups: _OidcText | None = None
-    default_role: Literal["", "reader", "triager"] | None = None
+    default_group: _OidcText | None = None
     auto_create_users: bool | None = None
     display_name: _OidcText | None = None
 
@@ -402,12 +425,19 @@ def _scope_identity(request: Request) -> Identity:
             headers={"WWW-Authenticate": BEARER_CHALLENGE},
         )
     role = Role(state["auth_role"])
+    projects = state.get("auth_projects")
+    grants = state.get("auth_grants")
+    if grants is None:
+        grants = access_control.token_grants(role, projects)
     return Identity(
         client=state["auth_client"],
         role=role,
-        can_triage=role in TRIAGE_ROLES,
+        can_triage=access_control.Permission.FINDINGS_TRIAGE in grants,
         auth_enabled=True,
-        projects=None if state.get("auth_projects") is None else sorted(state["auth_projects"]),
+        projects=None if projects is None else sorted(projects),
+        permissions={
+            name: None if names is None else sorted(names) for name, names in grants.items()
+        },
         local_account=state.get("auth_source") == web_users.AUTH_LOCAL,
         auth_source=state.get("auth_source"),
         version=__version__,
@@ -468,24 +498,47 @@ CurrentIdentity = Annotated[Identity, Depends(current_identity)]
 PipelineIdentity = Annotated[Identity, Depends(pipeline_identity)]
 
 
-def require_triage(identity: CurrentIdentity) -> Identity:
-    """Only triagers and administrators may change a finding status."""
-    if not identity.can_triage:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Role '{identity.role}' cannot change finding status",
-        )
-    return identity
+def has_permission(
+    identity: Identity, permission: access_control.Permission, project: str | None = None
+) -> bool:
+    """True when the caller holds ``permission`` (on ``project`` when one is given)."""
+    if permission not in identity.permissions:
+        return False
+    projects = identity.permissions[permission]
+    return project is None or projects is None or project in projects
 
 
-def require_admin(identity: CurrentIdentity) -> Identity:
-    """Only web administrators may change rule packs."""
-    if identity.role != Role.ADMIN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Role '{identity.role}' cannot manage rules",
-        )
-    return identity
+def permission_scope(identity: Identity, permission: access_control.Permission) -> list[str] | None:
+    """Projects a permission of the caller reaches: None for every project, [] for none."""
+    if permission not in identity.permissions:
+        return []
+    return identity.permissions[permission]
+
+
+def require(permission: access_control.Permission) -> Callable[[Identity], Identity]:
+    """Dependency that refuses (403) a caller without ``permission`` on at least one project."""
+
+    def dependency(identity: CurrentIdentity) -> Identity:
+        """Return the identity of a caller that holds the permission."""
+        if not has_permission(identity, permission):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission '{permission}' required",
+            )
+        return identity
+
+    dependency.__name__ = f"require_{permission.value.replace('.', '_')}"
+    return dependency
+
+
+Permission = access_control.Permission
+Triager = Annotated[Identity, Depends(require(Permission.FINDINGS_TRIAGE))]
+RulesManager = Annotated[Identity, Depends(require(Permission.RULES_MANAGE))]
+StandardsManager = Annotated[Identity, Depends(require(Permission.STANDARDS_MANAGE))]
+TokensManager = Annotated[Identity, Depends(require(Permission.TOKENS_MANAGE))]
+SettingsManager = Annotated[Identity, Depends(require(Permission.SETTINGS_MANAGE))]
+UsersManager = Annotated[Identity, Depends(require(Permission.USERS_MANAGE))]
+AuditReader = Annotated[Identity, Depends(require(Permission.AUDIT_READ))]
 
 
 def _in_scope(identity: Identity, project: str) -> bool:
@@ -1001,7 +1054,7 @@ async def report_markdown(report_id: int, identity: CurrentIdentity) -> PlainTex
 async def update_finding(
     finding_id: int,
     body: FindingStatusUpdate,
-    identity: Annotated[Identity, Depends(require_triage)],
+    identity: Triager,
 ) -> FindingPublic:
     """Record a triage decision; the caller is stored as its approver and logged.
 
@@ -1014,7 +1067,11 @@ async def update_finding(
             "Only a person logged in to the web interface can accept a risk or mark a "
             "false positive",
         )
-    await run_in_threadpool(services.check_finding_scope, identity.projects, finding_id)
+    await run_in_threadpool(
+        services.check_finding_scope,
+        permission_scope(identity, Permission.FINDINGS_TRIAGE),
+        finding_id,
+    )
     expires_at = (
         None if body.expires_on is None else datetime.combine(body.expires_on, time.min, UTC)
     )
@@ -1037,10 +1094,14 @@ async def update_finding(
 @router.delete("/findings/{finding_id}/proposal")
 async def reject_finding_proposal(
     finding_id: int,
-    identity: Annotated[Identity, Depends(require_triage)],
+    identity: Triager,
 ) -> FindingPublic:
     """Reject the status proposed by an agent; the status of the finding does not change."""
-    await run_in_threadpool(services.check_finding_scope, identity.projects, finding_id)
+    await run_in_threadpool(
+        services.check_finding_scope,
+        permission_scope(identity, Permission.FINDINGS_TRIAGE),
+        finding_id,
+    )
     finding = await run_in_threadpool(
         services.clear_finding_proposal, finding_id, actor_of(identity)
     )
@@ -1049,13 +1110,13 @@ async def reject_finding_proposal(
 
 
 @router.get("/rules")
-async def list_custom_rules(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+async def list_custom_rules(identity: RulesManager) -> dict:
     """List the rules stored in the database (default and custom)."""
     return await run_in_threadpool(_rule_catalog)
 
 
 @router.get("/checklists")
-async def list_checklist_items(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+async def list_checklist_items(identity: RulesManager) -> dict:
     """List the checklist items stored in the database (default and custom)."""
     return {
         "checklist_items": await run_in_threadpool(rule_store.list_checklist_items),
@@ -1064,9 +1125,7 @@ async def list_checklist_items(identity: Annotated[Identity, Depends(require_adm
 
 
 @router.post("/checklists", status_code=status.HTTP_201_CREATED)
-async def create_checklist_item(
-    body: ChecklistItemWrite, identity: Annotated[Identity, Depends(require_admin)]
-) -> dict:
+async def create_checklist_item(body: ChecklistItemWrite, identity: RulesManager) -> dict:
     """Create a custom checklist item."""
     try:
         await run_in_threadpool(rule_store.create_check_item, body.model_dump(mode="json"))
@@ -1081,7 +1140,7 @@ async def update_checklist_item(
     domain: Annotated[str, APIPath(min_length=1, max_length=31)],
     item_id: Annotated[str, APIPath(min_length=3, max_length=rules_loader.MAX_ID_CHARS)],
     body: ChecklistItemWrite,
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: RulesManager,
 ) -> dict:
     """Update a checklist item without changing its domain or id."""
     try:
@@ -1098,7 +1157,7 @@ async def update_checklist_item(
 async def delete_checklist_item(
     domain: Annotated[str, APIPath(min_length=1, max_length=31)],
     item_id: Annotated[str, APIPath(min_length=3, max_length=rules_loader.MAX_ID_CHARS)],
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: RulesManager,
 ) -> Response:
     """Delete one custom checklist item."""
     try:
@@ -1114,7 +1173,7 @@ SlugPath = Annotated[str, APIPath(min_length=1, max_length=50)]
 
 
 @router.get("/standards")
-async def list_standards(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+async def list_standards(identity: StandardsManager) -> dict:
     """List the development standards (without content), disabled ones included.
 
     Administrators only, like the rules and checklists; the MCP tools serve the enabled
@@ -1125,17 +1184,13 @@ async def list_standards(identity: Annotated[Identity, Depends(require_admin)]) 
 
 
 @router.get("/standards/{slug}")
-async def get_standard(
-    slug: SlugPath, identity: Annotated[Identity, Depends(require_admin)]
-) -> dict:
+async def get_standard(slug: SlugPath, identity: StandardsManager) -> dict:
     """Return one development standard with its content (administrators only)."""
     return await run_in_threadpool(standards.get_standard, slug, True)
 
 
 @router.post("/standards", status_code=status.HTTP_201_CREATED)
-async def create_standard(
-    body: StandardWrite, identity: Annotated[Identity, Depends(require_admin)]
-) -> dict:
+async def create_standard(body: StandardWrite, identity: StandardsManager) -> dict:
     """Create a development standard."""
     try:
         created = await run_in_threadpool(
@@ -1149,9 +1204,7 @@ async def create_standard(
 
 
 @router.put("/standards/{slug}")
-async def update_standard(
-    slug: SlugPath, body: StandardWrite, identity: Annotated[Identity, Depends(require_admin)]
-) -> dict:
+async def update_standard(slug: SlugPath, body: StandardWrite, identity: StandardsManager) -> dict:
     """Replace a development standard without changing its slug."""
     try:
         updated = await run_in_threadpool(
@@ -1164,9 +1217,7 @@ async def update_standard(
 
 
 @router.delete("/standards/{slug}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_standard(
-    slug: SlugPath, identity: Annotated[Identity, Depends(require_admin)]
-) -> Response:
+async def delete_standard(slug: SlugPath, identity: StandardsManager) -> Response:
     """Delete a development standard."""
     await run_in_threadpool(standards.delete_standard, slug)
     logger.info("Development standard %s deleted by %s", slug, identity.client)
@@ -1174,16 +1225,14 @@ async def delete_standard(
 
 
 @router.post("/rules/reload")
-async def reload_custom_rules(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+async def reload_custom_rules(identity: RulesManager) -> dict:
     """Reload the internal rules now (after a change made with the CLI)."""
     logger.info("Internal rules reloaded by %s", identity.client)
     return await _refresh_rules()
 
 
 @router.post("/rules", status_code=status.HTTP_201_CREATED)
-async def create_custom_rule(
-    body: RuleWrite, identity: Annotated[Identity, Depends(require_admin)]
-) -> dict:
+async def create_custom_rule(body: RuleWrite, identity: RulesManager) -> dict:
     """Create a custom rule in the database."""
     try:
         await run_in_threadpool(rule_store.create_rule, body.model_dump(mode="json"))
@@ -1197,7 +1246,7 @@ async def create_custom_rule(
 async def update_custom_rule(
     rule_id: Annotated[str, APIPath(min_length=3, max_length=50)],
     body: RuleWrite,
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: RulesManager,
 ) -> dict:
     """Update a stored rule (default or custom) while keeping its stable id."""
     try:
@@ -1211,7 +1260,7 @@ async def update_custom_rule(
 @router.delete("/rules/{rule_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_custom_rule(
     rule_id: Annotated[str, APIPath(min_length=3, max_length=50)],
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: RulesManager,
 ) -> Response:
     """Delete a custom rule from the database (default rules can only be disabled)."""
     try:
@@ -1227,7 +1276,7 @@ async def delete_custom_rule(
 async def set_custom_rule_enabled(
     rule_id: Annotated[str, APIPath(min_length=3, max_length=50)],
     body: RuleEnabledUpdate,
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: RulesManager,
 ) -> dict:
     """Enable or disable a default or custom rule."""
     try:
@@ -1252,21 +1301,65 @@ def _describe_projects(projects: list[str] | None) -> str:
     return "every project" if projects is None else ", ".join(projects)
 
 
+def _check_delegation(identity: Identity, role: str, projects: list[str] | None) -> None:
+    """Refuse (403) a token that would reach projects the caller cannot read itself, or triage
+    them when the caller cannot: a token never grants more than its creator holds."""
+    needed = [Permission.REPORTS_READ]
+    if role == Role.TRIAGER:
+        needed.append(Permission.FINDINGS_TRIAGE)
+    for permission in needed:
+        reached = permission_scope(identity, permission)
+        if reached is not None and (projects is None or not set(projects) <= set(reached)):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                f"A token cannot reach projects where you do not hold '{permission}'",
+            )
+
+
+def _reaches(identity: Identity, projects: list[str] | None) -> bool:
+    """True when the caller reads every project of a token or request (None: every project)."""
+    reached = permission_scope(identity, Permission.REPORTS_READ)
+    return reached is None or (projects is not None and set(projects) <= set(reached))
+
+
+async def _check_enrollment_scope(identity: Identity, request_id: str) -> None:
+    """Refuse (403) to handle an enrollment request for a project the caller cannot read."""
+    pending = await run_in_threadpool(token_store.list_enrollments)
+    for item in pending:
+        if request_id in (item["id"], item["token_id"], item["label"]):
+            _check_delegation(identity, item["role"], [item["project"]])
+
+
+async def _check_token_delegation(
+    identity: Identity, token_id: str, projects: list[str] | None, keep: bool = False
+) -> None:
+    """Delegation check of a change to a stored token (see _check_delegation): with its new
+    ``projects``, or with its current ones when ``keep``. An unknown token is left to the call
+    that follows (404)."""
+    tokens = await run_in_threadpool(token_store.list_tokens)
+    token = next((item for item in tokens if item["id"] == token_id), None)
+    if token is not None:
+        _check_delegation(identity, token["role"], token["projects"] if keep else projects)
+
+
 @router.get("/project-tokens")
 async def project_tokens(
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: TokensManager,
 ) -> list[dict[str, Any]]:
-    """List project-token metadata without returning hashes or token values."""
-    return await run_in_threadpool(token_store.list_project_tokens)
+    """List project-token metadata without returning hashes or token values; only the tokens
+    whose projects the caller reads."""
+    tokens = await run_in_threadpool(token_store.list_project_tokens)
+    return [token for token in tokens if _reaches(identity, token["projects"])]
 
 
 @router.post("/project-tokens", status_code=status.HTTP_201_CREATED)
 async def create_project_token(
     body: ProjectTokenCreate,
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: TokensManager,
 ) -> dict[str, Any]:
     """Create a token for existing projects (or every project, ``projects`` null) and return
     its secret exactly once."""
+    _check_delegation(identity, body.role, body.projects)
     await _check_known_projects(body.projects)
     try:
         created = await run_in_threadpool(
@@ -1293,9 +1386,10 @@ async def create_project_token(
 async def update_project_token_projects(
     token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
     body: ProjectTokenProjects,
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: TokensManager,
 ) -> dict[str, Any]:
     """Change the projects of a token (``projects`` null: every project); its secret stays."""
+    await _check_token_delegation(identity, token_id, body.projects)
     await _check_known_projects(body.projects)
     try:
         updated = await run_in_threadpool(
@@ -1316,9 +1410,10 @@ async def update_project_token_projects(
 @router.delete("/project-tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_project_token(
     token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: TokensManager,
 ) -> Response:
     """Revoke a project token: the next request presenting it is rejected."""
+    await _check_token_delegation(identity, token_id, None, keep=True)
     try:
         await run_in_threadpool(token_store.revoke_project_token, token_id, actor_of(identity))
     except ValueError as exc:
@@ -1330,13 +1425,15 @@ async def delete_project_token(
 @router.post("/project-tokens/{token_id}/rotate")
 async def rotate_project_token(
     token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: TokensManager,
     body: ProjectTokenRotation | None = None,
 ) -> JSONResponse:
     """Replace the secret of a project token and return the new one exactly once.
 
-    The previous secret keeps working for ``grace_hours`` (0: it stops at once).
+    The previous secret keeps working for ``grace_hours`` (0: it stops at once). The caller
+    receives the new secret: it must reach every project of the token itself.
     """
+    await _check_token_delegation(identity, token_id, None, keep=True)
     body = body or ProjectTokenRotation()
     try:
         rotated = await run_in_threadpool(
@@ -1362,31 +1459,40 @@ async def rotate_project_token(
 
 @router.get("/enrollments")
 async def enrollments(
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: TokensManager,
 ) -> list[dict[str, Any]]:
     """List the enrollment requests waiting for approval (never a secret).
 
     ``kind`` is ``new`` for a first enrollment (new token) and ``additional`` for a
-    complementary one (one more project for an active token).
+    complementary one (one more project for an active token). Only the requests for the
+    projects the caller reads are listed.
     """
-    return await run_in_threadpool(token_store.list_enrollments)
+    pending = await run_in_threadpool(token_store.list_enrollments)
+    return [item for item in pending if _reaches(identity, [item["project"]])]
 
 
 @router.post("/enrollments/{request_id}/approve")
 async def approve_enrollment(
     request: Request,
     request_id: Annotated[str, APIPath(min_length=1, max_length=64)],
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: TokensManager,
     body: EnrollmentApproval | None = None,
 ) -> dict[str, Any]:
     """Approve an enrollment request: the project is reachable from the next request.
 
     With ``portal_user``, that web user also reads the project in the web interface (at once);
-    when OIDC is enabled, an unknown name becomes an SSO user, ready for its first login.
+    when OIDC is enabled, an unknown name becomes an SSO user, ready for its first login. Giving
+    that access also needs the ``users.manage`` permission.
     """
     portal_user = body.portal_user if body is not None else None
     create_sso = await _current_oidc(request) is not None
+    # The approved token reaches the requested project: the caller must read it itself
+    await _check_enrollment_scope(identity, request_id)
     if portal_user is not None:
+        if not has_permission(identity, Permission.USERS_MANAGE):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN, f"Permission '{Permission.USERS_MANAGE}' required"
+            )
         try:
             portal_user = await run_in_threadpool(
                 web_users.check_project_grant, portal_user, create_sso
@@ -1428,9 +1534,10 @@ async def approve_enrollment(
 @router.delete("/enrollments/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def reject_enrollment(
     request_id: Annotated[str, APIPath(min_length=1, max_length=64)],
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: TokensManager,
 ) -> Response:
     """Reject an enrollment request: a new token is deleted, an additional project dropped."""
+    await _check_enrollment_scope(identity, request_id)
     try:
         rejected = await run_in_threadpool(
             token_store.reject_enrollment, request_id, actor_of(identity)
@@ -1448,7 +1555,7 @@ async def reject_enrollment(
 
 @router.get("/audit")
 async def audit_events(
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: AuditReader,
     action: Annotated[audit.AuditAction | None, Query()] = None,
     project: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
     actor: Annotated[str | None, Query(min_length=1, max_length=audit.MAX_ACTOR_CHARS)] = None,
@@ -1474,7 +1581,7 @@ async def audit_events(
 
 
 @router.get("/settings")
-async def get_app_settings(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+async def get_app_settings(identity: SettingsManager) -> dict:
     """Return the settings of the web interface, the variables and the effective values.
 
     Passwords of proxy URLs are replaced by ``***``.
@@ -1483,9 +1590,7 @@ async def get_app_settings(identity: Annotated[Identity, Depends(require_admin)]
 
 
 @router.put("/settings/report-language")
-async def set_report_language(
-    body: ReportLanguageUpdate, identity: Annotated[Identity, Depends(require_admin)]
-) -> dict:
+async def set_report_language(body: ReportLanguageUpdate, identity: SettingsManager) -> dict:
     """Set the language of the review reports (used by the MCP server for the next prompts)."""
     try:
         await run_in_threadpool(app_settings.set_report_language, body.value, identity.client)
@@ -1496,9 +1601,7 @@ async def set_report_language(
 
 
 @router.put("/settings/proxy")
-async def set_proxy(
-    body: ProxyUpdate, identity: Annotated[Identity, Depends(require_admin)]
-) -> dict:
+async def set_proxy(body: ProxyUpdate, identity: SettingsManager) -> dict:
     """Set the proxy of the OSV download and of the SSO provider (applied at the next download
     or login; the URL is never logged)."""
     values = body.model_dump(exclude_unset=True)
@@ -1524,7 +1627,7 @@ def _advisory_overview(limit: int) -> dict:
 
 @router.get("/advisories")
 async def advisory_overview(
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: SettingsManager,
     limit: Annotated[int, Query(ge=1, le=advisory_sync.HISTORY_SIZE)] = 20,
 ) -> dict:
     """Return the state of the advisory database and the latest OSV updates."""
@@ -1532,7 +1635,7 @@ async def advisory_overview(
 
 
 @router.post("/advisories/update", status_code=status.HTTP_202_ACCEPTED)
-async def start_advisory_update(identity: Annotated[Identity, Depends(require_admin)]) -> dict:
+async def start_advisory_update(identity: SettingsManager) -> dict:
     """Start downloading the OSV exports in the background; follow it with GET /advisories.
 
     Refused (409) when the download is disabled (SECREVIEW_OSV_AUTO_UPDATE=false) or an update
@@ -1550,21 +1653,154 @@ async def start_advisory_update(identity: Annotated[Identity, Depends(require_ad
     return {"id": update_id}
 
 
-@router.get("/oidc/role-mappings")
-async def role_mappings(
-    request: Request, identity: Annotated[Identity, Depends(require_admin)]
-) -> dict[str, Any]:
-    """List the OIDC role mappings: stored ones and the groups of the SSO settings."""
+@router.get("/permissions")
+async def permissions(identity: UsersManager) -> list[dict[str, Any]]:
+    """List the permissions a role may hold, and whether they can be limited to projects."""
+    return access_control.list_permissions()
+
+
+@router.get("/roles")
+async def roles(identity: UsersManager) -> list[dict[str, Any]]:
+    """List the roles: the system roles, then the custom roles."""
+    return await run_in_threadpool(access_control.list_roles)
+
+
+@router.post("/roles", status_code=status.HTTP_201_CREATED)
+async def create_role(body: RoleWrite, identity: UsersManager) -> dict[str, Any]:
+    """Create a custom role."""
+    try:
+        created = await run_in_threadpool(
+            access_control.create_role,
+            body.name,
+            body.permissions,
+            body.description,
+            actor_of(identity),
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Role %s created by %s", created["name"], identity.client)
+    return created
+
+
+@router.put("/roles/{role_id}")
+async def update_role(role_id: int, body: RoleWrite, identity: UsersManager) -> dict[str, Any]:
+    """Replace the name, description and permissions of a custom role (applies at once)."""
+    try:
+        updated = await run_in_threadpool(
+            access_control.update_role,
+            role_id,
+            body.permissions,
+            body.description,
+            body.name,
+            actor_of(identity),
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Role %s updated by %s", updated["name"], identity.client)
+    return updated
+
+
+@router.delete("/roles/{role_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_role(role_id: int, identity: UsersManager) -> Response:
+    """Delete a custom role: the groups that have it lose it at once."""
+    try:
+        deleted = await run_in_threadpool(access_control.delete_role, role_id, actor_of(identity))
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    logger.info("Role %s deleted by %s", deleted["name"], identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/groups")
+async def groups(request: Request, identity: UsersManager) -> dict[str, Any]:
+    """List the groups with their roles and members, and the SSO settings that use them."""
     settings = await run_in_threadpool(app_settings.effective_settings)
     return {
         "oidc_enabled": await _current_oidc(request) is not None,
         "roles_claim": settings.oidc_roles_claim,
-        "default_role": settings.oidc_default_role or None,
-        "username_claim": settings.oidc_username_claim,
-        "auto_create_users": settings.oidc_auto_create_users,
-        "mappings": await run_in_threadpool(role_mapping.list_mappings),
-        "static_mappings": role_mapping.static_mappings(settings),
+        "admin_groups": sorted(access_control.parse_groups(settings.oidc_admin_groups)),
+        "default_group": settings.oidc_default_group.strip() or None,
+        "groups": await run_in_threadpool(access_control.list_groups),
     }
+
+
+@router.post("/groups", status_code=status.HTTP_201_CREATED)
+async def create_group(body: GroupWrite, identity: UsersManager) -> dict[str, Any]:
+    """Create a group, without role nor member."""
+    try:
+        created = await run_in_threadpool(
+            access_control.create_group,
+            body.name,
+            body.description,
+            body.sso,
+            actor_of(identity),
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Group %s created by %s", created["name"], identity.client)
+    return created
+
+
+@router.put("/groups/{group_id}")
+async def update_group(group_id: int, body: GroupWrite, identity: UsersManager) -> dict[str, Any]:
+    """Rename a group, change its description or whether the SSO groups claim names it."""
+    try:
+        updated = await run_in_threadpool(
+            access_control.update_group,
+            group_id,
+            body.name,
+            body.description,
+            body.sso,
+            actor_of(identity),
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Group %s updated by %s", updated["name"], identity.client)
+    return updated
+
+
+@router.put("/groups/{group_id}/roles")
+async def set_group_roles(
+    group_id: int, body: GroupRolesUpdate, identity: UsersManager
+) -> dict[str, Any]:
+    """Replace the roles of a group (applies to its members at once)."""
+    try:
+        updated = await run_in_threadpool(
+            access_control.set_group_roles,
+            group_id,
+            [(item.role_id, item.projects) for item in body.roles],
+            actor_of(identity),
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Roles of group %s changed by %s", updated["name"], identity.client)
+    return updated
+
+
+@router.put("/groups/{group_id}/members")
+async def set_group_members(
+    group_id: int, body: GroupMembersUpdate, identity: UsersManager
+) -> dict[str, Any]:
+    """Replace the members added by an administrator (the SSO members are kept)."""
+    try:
+        updated = await run_in_threadpool(
+            access_control.set_group_members, group_id, body.user_ids, actor_of(identity)
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info("Members of group %s changed by %s", updated["name"], identity.client)
+    return updated
+
+
+@router.delete("/groups/{group_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_group(group_id: int, identity: UsersManager) -> Response:
+    """Delete a group: its members lose its roles at once."""
+    try:
+        deleted = await run_in_threadpool(access_control.delete_group, group_id, actor_of(identity))
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+    logger.info("Group %s deleted by %s", deleted["name"], identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 async def _describe_oidc(request: Request) -> dict[str, Any]:
@@ -1573,10 +1809,10 @@ async def _describe_oidc(request: Request) -> dict[str, Any]:
     return described | {"active": await _current_oidc(request) is not None}
 
 
+# The SSO settings decide who joins which group (groups claim, admin and default groups,
+# identity provider): they need users.manage, not only settings.manage
 @router.get("/oidc/settings")
-async def get_oidc_settings(
-    request: Request, identity: Annotated[Identity, Depends(require_admin)]
-) -> dict[str, Any]:
+async def get_oidc_settings(request: Request, identity: UsersManager) -> dict[str, Any]:
     """Return the SSO settings: stored value, variable and effective value of each one.
 
     A set client secret is replaced by ``***``.
@@ -1588,7 +1824,7 @@ async def get_oidc_settings(
 async def set_oidc_settings(
     request: Request,
     body: OidcSettingsUpdate,
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: UsersManager,
 ) -> dict[str, Any]:
     """Change SSO settings; they override the SECREVIEW_OIDC_* variables at the next login.
 
@@ -1608,7 +1844,7 @@ async def set_oidc_settings(
 async def test_oidc_settings(
     request: Request,
     body: OidcSettingsUpdate,
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: UsersManager,
 ) -> dict[str, Any]:
     """Test the identity provider of the given settings (applied over the effective ones,
     nothing stored): discovery document and signing keys."""
@@ -1623,116 +1859,53 @@ async def test_oidc_settings(
     return {"success": all(step["ok"] for step in steps), "steps": steps}
 
 
-@router.post("/oidc/role-mappings", status_code=status.HTTP_201_CREATED)
-async def create_role_mapping(
-    body: RoleMappingCreate, identity: Annotated[Identity, Depends(require_admin)]
-) -> dict[str, Any]:
-    """Map a group or role of the identity provider to a web role, optionally per project."""
-    try:
-        created = await run_in_threadpool(
-            role_mapping.create_mapping,
-            body.claim_value,
-            body.role,
-            body.projects,
-            identity.client,
-        )
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    logger.info(
-        "Role mapping %s -> %s (%s) created by %s",
-        created["claim_value"],
-        created["role"],
-        ", ".join(created["projects"] or ["every project"]),
-        identity.client,
-    )
-    return created
-
-
-@router.put("/oidc/role-mappings/{mapping_id}")
-async def update_role_mapping(
-    mapping_id: int,
-    body: RoleMappingUpdate,
-    identity: Annotated[Identity, Depends(require_admin)],
-) -> dict[str, Any]:
-    """Replace the projects of a role mapping (applies at the next login of its users)."""
-    try:
-        updated = await run_in_threadpool(role_mapping.update_mapping, mapping_id, body.projects)
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    logger.info("Role mapping %s updated by %s", mapping_id, identity.client)
-    return updated
-
-
-@router.delete("/oidc/role-mappings/{mapping_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_role_mapping(
-    mapping_id: int, identity: Annotated[Identity, Depends(require_admin)]
-) -> Response:
-    """Delete a role mapping (open sessions keep their role until they expire)."""
-    deleted = await run_in_threadpool(role_mapping.delete_mapping, mapping_id)
-    logger.info(
-        "Role mapping %s -> %s deleted by %s",
-        deleted["claim_value"],
-        deleted["role"],
-        identity.client,
-    )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
-
-
 @router.get("/users")
-async def users(identity: Annotated[Identity, Depends(require_admin)]) -> list[dict[str, Any]]:
+async def users(identity: UsersManager) -> list[dict[str, Any]]:
     """List the web users (never their password hash)."""
     return await run_in_threadpool(web_users.list_users)
 
 
 @router.post("/users", status_code=status.HTTP_201_CREATED)
-async def create_user(
-    body: WebUserCreate, identity: Annotated[Identity, Depends(require_admin)]
-) -> JSONResponse:
+async def create_user(body: WebUserCreate, identity: UsersManager) -> JSONResponse:
     """Create a web user (local or SSO); a generated password is returned once in ``password``."""
     try:
         created = await run_in_threadpool(
             web_users.create_user,
             body.username,
             body.password,
-            body.role,
-            body.projects,
+            body.group_ids,
             identity.client,
             body.auth_source,
+            actor_of(identity),
         )
     except ValueError as exc:
         code = status.HTTP_409_CONFLICT if "already exists" in str(exc) else 422
         raise HTTPException(code, str(exc)) from exc
     logger.info(
-        "Web user %s (%s, role %s) created by %s",
+        "Web user %s (%s) created by %s",
         created["username"],
         created["auth_source"],
-        created["role"] or "none",
         identity.client,
     )
     return JSONResponse(created, status_code=status.HTTP_201_CREATED, headers=LOGIN_HEADERS)
 
 
 @router.put("/users/{user_id}")
-async def update_user(
-    user_id: int, body: WebUserUpdate, identity: Annotated[Identity, Depends(require_admin)]
-) -> dict[str, Any]:
-    """Replace the role and projects of a web user (applies to its sessions at once)."""
+async def update_user(user_id: int, body: WebUserUpdate, identity: UsersManager) -> dict[str, Any]:
+    """Replace the groups an administrator gave to a web user (applies to its sessions at once)."""
     try:
-        updated = await run_in_threadpool(web_users.update_user, user_id, body.role, body.projects)
+        updated = await run_in_threadpool(
+            web_users.update_user, user_id, body.group_ids, actor_of(identity)
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    logger.info(
-        "Web user %s set to %s by %s",
-        updated["username"],
-        updated["role"] or "no role",
-        identity.client,
-    )
+    logger.info("Groups of web user %s changed by %s", updated["username"], identity.client)
     return updated
 
 
 @router.post("/users/{user_id}/password")
 async def reset_user_password(
-    user_id: int, body: PasswordReset, identity: Annotated[Identity, Depends(require_admin)]
+    user_id: int, body: PasswordReset, identity: UsersManager
 ) -> JSONResponse:
     """Replace the password of a web user (generated when not given) and end its sessions."""
     try:
@@ -1744,10 +1917,8 @@ async def reset_user_password(
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(
-    user_id: int, identity: Annotated[Identity, Depends(require_admin)]
-) -> Response:
-    """Delete a web user (its sessions stop at once); the last administrator is kept.
+async def delete_user(user_id: int, identity: UsersManager) -> Response:
+    """Delete a web user (its sessions stop at once); the last holder of users.manage is kept.
 
     A deleted SSO user is revoked: a login never creates it again until an administrator
     creates it again or lifts the revocation (DELETE /users/revoked/{username}).
@@ -1767,7 +1938,7 @@ async def delete_user(
 
 @router.get("/users/revoked")
 async def revoked_users(
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: UsersManager,
 ) -> list[dict[str, Any]]:
     """List the deleted SSO users, which a login never creates again."""
     return await run_in_threadpool(web_users.list_revoked_users)
@@ -1776,7 +1947,7 @@ async def revoked_users(
 @router.delete("/users/revoked/{username}", status_code=status.HTTP_204_NO_CONTENT)
 async def lift_user_revocation(
     username: Annotated[str, APIPath(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)],
-    identity: Annotated[Identity, Depends(require_admin)],
+    identity: UsersManager,
 ) -> Response:
     """Let a deleted SSO user be created again at its next login (automatic creation)."""
     lifted = await run_in_threadpool(web_users.lift_revocation, username)

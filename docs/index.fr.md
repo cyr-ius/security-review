@@ -55,7 +55,7 @@ pip install security-review-mcp
 
 # 1. Contrôleur : schéma, premier administrateur, jeton de l'agent
 security-review-controller db upgrade
-security-review-controller user create admin --role admin   # mot de passe affiché une fois
+security-review-controller user create admin --group administrators   # mot de passe affiché une fois
 security-review-controller token create --label alice      # jeton mcp, affiché une fois
 
 # 2. Lancer les deux services (deux terminaux)

@@ -11,7 +11,8 @@ import { rules } from './rules';
 import { standards } from './standards';
 import { users } from './users';
 import { tokens } from './tokens';
-import { mappings } from './mappings';
+import { sso } from './sso';
+import { access } from './access';
 import { settings } from './settings';
 import { trend } from './trend';
 
@@ -29,7 +30,8 @@ const CATALOGS = [
   users,
   tokens,
   audit,
-  mappings,
+  sso,
+  access,
   settings,
   trend,
 ] as const;

@@ -1,0 +1,300 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ 'layout.groups' | t }}</h1>
+    <p class="text-body-secondary mb-0">{{ 'groups.subtitle' | t }}</p>
+  </div>
+  <app-refresh-button [loading]="catalog.isLoading()" (refresh)="catalog.reload()" />
+</div>
+
+@if (catalog.value(); as data) {
+  @if (!data.oidc_enabled) {
+    <div class="alert alert-info py-2" role="status">
+      <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+      {{ 'groups.ssoInactive' | t }}
+    </div>
+  }
+  <p class="text-body-secondary small">
+    {{ 'groups.claimBefore' | t }} <code>{{ data.roles_claim }}</code
+    >{{ 'groups.claimAfter' | t }}
+    @if (data.admin_groups.length) {
+      {{ 'groups.adminGroups' | t: { groups: data.admin_groups.join(', ') } }}
+    }
+    @if (data.default_group; as fallback) {
+      {{ 'groups.defaultGroup' | t: { group: fallback } }}
+    }
+    <a routerLink="/sso">{{ 'layout.sso' | t }}</a
+    >.
+  </p>
+}
+
+@if (error(); as text) {
+  <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+}
+@if (message(); as text) {
+  <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+}
+
+<section class="mb-4" aria-labelledby="group-form-title">
+  <h2 id="group-form-title" class="h5">
+    @if (editing(); as group) {
+      {{ 'groups.editTitle' | t: { group: group.name } }}
+    } @else {
+      {{ 'groups.createTitle' | t }}
+    }
+  </h2>
+  <form class="row g-3 align-items-start" (submit)="submit($event)">
+    <div class="col-md-4">
+      <label for="group-name" class="form-label">{{ 'access.name' | t }}</label>
+      <input
+        id="group-name"
+        class="form-control font-monospace"
+        required
+        maxlength="200"
+        autocomplete="off"
+        spellcheck="false"
+        [placeholder]="'groups.namePlaceholder' | t"
+        [value]="name()"
+        (input)="onName($event)"
+      />
+      <div class="form-text">{{ 'groups.nameHelp' | t }}</div>
+    </div>
+    <div class="col-md-5">
+      <label for="group-description" class="form-label">{{ 'access.description' | t }}</label>
+      <input
+        id="group-description"
+        class="form-control"
+        maxlength="500"
+        autocomplete="off"
+        [value]="description()"
+        (input)="onDescription($event)"
+      />
+    </div>
+    <div class="col-md-3 pt-md-4">
+      <div class="form-check form-switch">
+        <input
+          id="group-sso"
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          [checked]="sso()"
+          (change)="onSso($event)"
+        />
+        <label class="form-check-label" for="group-sso">{{ 'groups.sso' | t }}</label>
+      </div>
+      <div class="form-text">{{ 'groups.ssoHelp' | t }}</div>
+    </div>
+
+    <fieldset class="col-12">
+      <legend class="form-label">{{ 'layout.roles' | t }}</legend>
+      @for (binding of bindings(); track binding.roleId; let index = $index) {
+        <div class="border rounded p-2 mb-2">
+          <div class="d-flex flex-wrap align-items-center gap-3">
+            <strong>{{ roleById().get(binding.roleId)?.name }}</strong>
+            @if (scoped(binding.roleId)) {
+              <div class="form-check form-check-inline mb-0">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  [name]="'binding-scope-' + index"
+                  [id]="'binding-all-' + index"
+                  [checked]="binding.allProjects"
+                  (change)="setAllProjects(index, true)"
+                />
+                <label class="form-check-label" [for]="'binding-all-' + index">{{
+                  'reports.allProjects' | t
+                }}</label>
+              </div>
+              <div class="form-check form-check-inline mb-0">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  [name]="'binding-scope-' + index"
+                  [id]="'binding-some-' + index"
+                  [checked]="!binding.allProjects"
+                  (change)="setAllProjects(index, false)"
+                />
+                <label class="form-check-label" [for]="'binding-some-' + index">{{
+                  'users.someProjects' | t
+                }}</label>
+              </div>
+            } @else {
+              <span class="small text-body-secondary">{{ 'groups.globalRole' | t }}</span>
+            }
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-danger ms-auto"
+              [attr.aria-label]="
+                'groups.removeRole' | t: { role: roleById().get(binding.roleId)?.name ?? '' }
+              "
+              (click)="removeBinding(index)"
+            >
+              <i class="bi bi-x-lg" aria-hidden="true"></i>
+            </button>
+          </div>
+          @if (scoped(binding.roleId) && !binding.allProjects) {
+            @if (projectChoices().length) {
+              <div class="d-flex flex-wrap gap-3 mt-2">
+                @for (project of projectChoices(); track project) {
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      [id]="'binding-' + index + '-project-' + project"
+                      [checked]="binding.projects.includes(project)"
+                      (change)="toggleProject(index, project, $event)"
+                    />
+                    <label
+                      class="form-check-label"
+                      [for]="'binding-' + index + '-project-' + project"
+                    >
+                      {{ project }}
+                    </label>
+                  </div>
+                }
+              </div>
+            } @else if (!projects.isLoading()) {
+              <div class="form-text">{{ 'users.noProjects' | t }}</div>
+            }
+          }
+        </div>
+      }
+      @if (availableRoles().length) {
+        <label for="group-add-role" class="visually-hidden">{{ 'groups.addRole' | t }}</label>
+        <select id="group-add-role" class="form-select w-auto" (change)="addBinding($event)">
+          <option value="">{{ 'groups.addRole' | t }}</option>
+          @for (role of availableRoles(); track role.id) {
+            <option [value]="role.id">{{ roleName(role) }}</option>
+          }
+        </select>
+      }
+    </fieldset>
+
+    <fieldset class="col-12">
+      <legend class="form-label">{{ 'groups.members' | t }}</legend>
+      @if ((users.value() ?? []).length) {
+        <div class="d-flex flex-wrap gap-3">
+          @for (user of users.value() ?? []; track user.id) {
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [id]="'group-member-' + user.id"
+                [checked]="members().includes(user.id)"
+                (change)="toggleMember(user.id, $event)"
+              />
+              <label class="form-check-label access-name" [for]="'group-member-' + user.id">
+                {{ user.username }}
+              </label>
+            </div>
+          }
+        </div>
+      } @else if (!users.isLoading()) {
+        <div class="form-text">{{ 'users.empty' | t }}</div>
+      }
+      @if (ssoMembers().length) {
+        <div class="form-text">
+          {{ 'groups.ssoMembers' | t }}
+          @for (member of ssoMembers(); track member.user_id) {
+            <span class="badge text-bg-primary bg-opacity-75 ms-1">
+              <i class="bi bi-shield-lock" aria-hidden="true"></i> {{ member.username }}
+            </span>
+          }
+        </div>
+      }
+    </fieldset>
+
+    <div class="col-12 d-flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary" [disabled]="!canSubmit()">
+        <i class="bi" [class]="editing() ? 'bi-check-lg' : 'bi-plus-lg'" aria-hidden="true"></i>
+        {{ (editing() ? 'common.save' : 'common.create') | t }}
+      </button>
+      @if (editing()) {
+        <button type="button" class="btn btn-outline-secondary" (click)="resetForm()">
+          {{ 'common.cancel' | t }}
+        </button>
+      }
+    </div>
+  </form>
+</section>
+
+<section aria-labelledby="groups-title">
+  <h2 id="groups-title" class="h5">{{ 'layout.groups' | t }}</h2>
+  @if (catalog.error()) {
+    <div class="alert alert-danger" role="alert">{{ 'groups.loadError' | t }}</div>
+  } @else if (catalog.isLoading() && !catalog.hasValue()) {
+    <div class="text-center my-4">
+      <span class="spinner-border text-secondary" aria-hidden="true"></span>
+      <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+    </div>
+  } @else if ((catalog.value()?.groups ?? []).length) {
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th scope="col">{{ 'access.name' | t }}</th>
+            <th scope="col">{{ 'layout.roles' | t }}</th>
+            <th scope="col">{{ 'groups.members' | t }}</th>
+            <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (group of catalog.value()?.groups ?? []; track group.id) {
+            <tr>
+              <td class="access-name">
+                <span class="font-monospace">{{ group.name }}</span>
+                @if (group.sso) {
+                  <span
+                    class="badge text-bg-primary bg-opacity-75 ms-1"
+                    [title]="'groups.ssoHelp' | t"
+                  >
+                    SSO
+                  </span>
+                } @else {
+                  <span class="badge text-bg-secondary ms-1">{{ 'groups.localOnly' | t }}</span>
+                }
+                @if (group.description) {
+                  <div class="small text-body-secondary">{{ group.description }}</div>
+                }
+              </td>
+              <td class="small">{{ describeRoles(group) }}</td>
+              <td class="small">
+                @for (member of group.members; track member.user_id + member.source) {
+                  <span class="badge text-bg-light border me-1">
+                    @if (member.source === 'oidc') {
+                      <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                    }
+                    {{ member.username }}
+                  </span>
+                } @empty {
+                  —
+                }
+              </td>
+              <td class="text-end text-nowrap">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary me-1"
+                  [disabled]="busy()"
+                  [attr.aria-label]="'groups.editOf' | t: { group: group.name }"
+                  (click)="edit(group)"
+                >
+                  <i class="bi bi-pencil" aria-hidden="true"></i>
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-danger"
+                  [disabled]="busy()"
+                  [attr.aria-label]="'groups.deleteOf' | t: { group: group.name }"
+                  (click)="remove(group)"
+                >
+                  <i class="bi bi-trash" aria-hidden="true"></i>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <p class="text-body-secondary">{{ 'groups.empty' | t }}</p>
+  }
+</section>

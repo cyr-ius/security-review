@@ -116,13 +116,85 @@ def test_user_grants_become_sso_web_users(empty_engine):
     users = {user["username"]: user for user in web_users.list_users()}
     assert set(users) == {"alice", "bob"}
     alice = users["alice"]
-    assert (alice["auth_source"], alice["role"], alice["projects"], alice["created_by"]) == (
+    assert (alice["auth_source"], alice["effective_role"], alice["created_by"]) == (
         "oidc",
         "reader",
-        ["shop-api", "billing"],
         "admin",
     )
-    assert (users["bob"]["auth_source"], users["bob"]["role"]) == ("local", "admin")
+    # Revision 0013 moved the role of the user into its personal group
+    assert alice["permissions"] == {"reports.read": ["billing", "shop-api"]}
+    assert [group["name"] for group in alice["groups"]] == ["user:alice"]
+    assert (users["bob"]["auth_source"], users["bob"]["effective_role"]) == ("local", "admin")
+
+
+def test_roles_and_mappings_become_groups(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    from security_review_mcp import access_control
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0012")
+        now = "2026-10-01 10:00:00"
+        for name, role, projects, sso_role in (
+            ("root", "admin", "[]", None),
+            ("tess", "triager", "[]", None),
+            ("rita", "reader", '["shop"]', None),
+            ("sam", None, "[]", "triager"),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO webuser (username, auth_source, role, projects, sso_role, "
+                    "sso_projects, created_at, updated_at, session_version) VALUES (:name, "
+                    "'local', :role, :projects, :sso_role, '[]', :now, :now, 1)"
+                ),
+                {
+                    "name": name,
+                    "role": role,
+                    "projects": projects,
+                    "sso_role": sso_role,
+                    "now": now,
+                },
+            )
+        for claim, role, projects in (
+            ("sec-team", "admin", "[]"),
+            ("devs", "reader", '["shop", "crm"]'),
+            ("devs", "triager", '["shop"]'),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO oidcrolemapping (claim_value, role, projects, created_at) "
+                    "VALUES (:claim, :role, :projects, :now)"
+                ),
+                {"claim": claim, "role": role, "projects": projects, "now": now},
+            )
+        command.upgrade(database.alembic_config(connection), "head")
+
+    assert not inspect(empty_engine).has_table("oidcrolemapping")
+    columns = {column["name"] for column in inspect(empty_engine).get_columns("webuser")}
+    assert not columns & {"role", "projects", "sso_role", "sso_projects"}
+    groups = {group["name"]: group for group in access_control.list_groups()}
+    assert set(groups) == {"administrators", "triagers", "user:rita", "sec-team", "devs"}
+    assert [m["username"] for m in groups["administrators"]["members"]] == ["root"]
+    assert groups["administrators"]["sso"] is False and groups["user:rita"]["sso"] is False
+    assert groups["sec-team"]["sso"] is True and groups["sec-team"]["members"] == []
+    assert {(r["name"], tuple(r["projects"] or ())) for r in groups["devs"]["roles"]} == {
+        ("reader", ("shop", "crm")),
+        ("triager", ("shop",)),
+    }
+    users = {user["username"]: user for user in web_users.list_users()}
+    assert users["rita"]["permissions"] == {"reports.read": ["shop"]}
+    assert users["tess"]["effective_role"] == "triager"
+    # The access given by the SSO groups at the last login is computed again at the next one
+    assert users["sam"]["permissions"] == {}
+    roles = {role["name"]: role for role in access_control.list_roles()}
+    assert all(roles[name]["system"] for name in ("reader", "triager", "admin"))
+
+    # Downgrading drops the access control tables
+    with empty_engine.begin() as connection:
+        command.downgrade(database.alembic_config(connection), "0012")
+    assert not inspect(empty_engine).has_table("usergroup")
+    assert inspect(empty_engine).has_table("oidcrolemapping")
 
 
 def test_old_dismissals_expire_after_a_grace_period(empty_engine):

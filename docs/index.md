@@ -53,7 +53,7 @@ pip install security-review-mcp
 
 # 1. Controller: schema, first administrator, token of the agent
 security-review-controller db upgrade
-security-review-controller user create admin --role admin   # password shown once
+security-review-controller user create admin --group administrators   # password shown once
 security-review-controller token create --label alice      # mcp token, shown once
 
 # 2. Start the two services (two terminals)

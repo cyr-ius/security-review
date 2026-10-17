@@ -1,5 +1,5 @@
 import { MessageKey } from '../i18n/messages';
-import { FindingStatus, ReviewType, Role, Severity } from '../models/api.models';
+import { FindingStatus, Permission, ReviewType, Role, Severity } from '../models/api.models';
 
 /** Message key and icon of each severity (color is never the only cue). */
 export const SEVERITY_META: Record<Severity, { label: MessageKey; icon: string }> = {
@@ -55,4 +55,19 @@ export const TOKEN_ROLE_LABELS: Record<Role, MessageKey> = {
   triager: 'tokenRole.triager',
   admin: 'tokenRole.admin',
   ci: 'tokenRole.ci',
+};
+
+/** Message keys of the name and of the description of each permission, in display order. */
+export const PERMISSION_META: Record<Permission, { label: MessageKey; help: MessageKey }> = {
+  'reports.read': { label: 'permission.reportsRead', help: 'permission.reportsReadHelp' },
+  'findings.triage': { label: 'permission.findingsTriage', help: 'permission.findingsTriageHelp' },
+  'rules.manage': { label: 'permission.rulesManage', help: 'permission.rulesManageHelp' },
+  'standards.manage': {
+    label: 'permission.standardsManage',
+    help: 'permission.standardsManageHelp',
+  },
+  'tokens.manage': { label: 'permission.tokensManage', help: 'permission.tokensManageHelp' },
+  'settings.manage': { label: 'permission.settingsManage', help: 'permission.settingsManageHelp' },
+  'users.manage': { label: 'permission.usersManage', help: 'permission.usersManageHelp' },
+  'audit.read': { label: 'permission.auditRead', help: 'permission.auditReadHelp' },
 };

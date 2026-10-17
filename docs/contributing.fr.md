@@ -89,7 +89,7 @@ src/security_review_mcp/
 ├── controller.py  # point d'entrée du contrôleur (serve, db et commandes d'administration)
 ├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
 ├── oidc.py        # connexion SSO OpenID Connect à l'interface web (contrôleur)
-├── role_mapping.py # role mapping OIDC : groupes du fournisseur → rôle web et projets
+├── access_control.py # permissions, rôles, groupes et membres des comptes web
 ├── token_store.py # jetons Bearer en base : création, expiration, renouvellement, révocation, enrôlement
 ├── audit.py       # journal d'audit : événements des décisions de triage, propositions, jetons et enrôlements
 ├── metrics.py     # métriques Prometheus du contrôleur (/metrics)

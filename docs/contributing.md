@@ -89,7 +89,7 @@ src/security_review_mcp/
 ├── controller.py  # entry point of the controller (serve, db and administration commands)
 ├── http_server.py # HTTP of both processes: Bearer tokens and roles, TLS, /healthz, uvicorn
 ├── oidc.py        # OpenID Connect SSO login to the web interface (controller)
-├── role_mapping.py # OIDC role mapping: provider groups → web role and projects
+├── access_control.py # permissions, roles, groups and members of the web accounts
 ├── token_store.py # Bearer tokens in the database: creation, expiry, rotation, revocation, enrollment
 ├── audit.py       # audit log: events of triage decisions, proposals, tokens and enrollments
 ├── metrics.py     # Prometheus metrics of the controller (/metrics)

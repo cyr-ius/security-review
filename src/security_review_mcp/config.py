@@ -107,11 +107,12 @@ class Settings(BaseSettings):
     # disabled by default. oidc_redirect_uri is the public URL of /api/v1/auth/oidc/callback,
     # registered at the provider. oidc_client_secret is empty for a public client. The values of
     # oidc_roles_claim (dotted path allowed, e.g. realm_access.roles) are matched against the
-    # role mappings stored in the database (web interface) and the comma-separated groups below
-    # (every project; highest role wins, see role_mapping); without a match, oidc_default_role
-    # ("", "reader" or "triager") applies. A login opens the SSO web user named by
-    # oidc_username_claim: with oidc_auto_create_users it is created at the first login (when its
-    # groups or the default role give it a role), otherwise an administrator creates it first.
+    # names of the groups of the web interface (see access_control): the user joins each group
+    # of that name, and oidc_default_group (if set) in any case. oidc_admin_groups lists
+    # comma-separated SSO groups that hold the admin role: such a group is created at the first
+    # login of one of its members when it does not exist yet. A login opens the SSO web user
+    # named by oidc_username_claim: with oidc_auto_create_users it is created at the first login
+    # (when its groups give it a permission), otherwise an administrator creates it first.
     # Sessions use session_secret and session_hours. oidc_cafile replaces the system CA bundle
     # for the provider.
     oidc_enabled: bool = False
@@ -122,9 +123,7 @@ class Settings(BaseSettings):
     oidc_scopes: str = "openid profile email"
     oidc_roles_claim: str = "groups"
     oidc_admin_groups: str = ""
-    oidc_triager_groups: str = ""
-    oidc_reader_groups: str = ""
-    oidc_default_role: str = ""
+    oidc_default_group: str = ""
     oidc_username_claim: str = "preferred_username"
     oidc_auto_create_users: bool = False
     oidc_display_name: str = "SSO"
