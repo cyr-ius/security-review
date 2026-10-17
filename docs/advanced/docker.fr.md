@@ -34,27 +34,6 @@ L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outil
 base SQLite est dans le volume `/data`. Le fichier `.env` n'est **pas** copié dans l'image :
 passez la configuration avec `-e` ou `--env-file`.
 
-## Poste développeur (stdio)
-
-L'hôte lance le conteneur. `.vscode/mcp.json` :
-
-```json
-{
-  "servers": {
-    "security-review": {
-      "type": "stdio",
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "-v", "secreview-data:/data", "security-review-mcp"]
-    }
-  }
-}
-```
-
-!!! warning "`-i` mais pas `-t`"
-    `-i` est indispensable (le protocole passe par stdin) ; ne mettez pas `-t`.
-
-Pour Claude (`.mcp.json`), même `command` / `args` sous `mcpServers`.
-
 ## Serveur partagé (HTTP)
 
 Une seule image, deux conteneurs qui partagent la base (voir
@@ -159,7 +138,7 @@ Pour ajouter le TLS ou des règles internes, complétez `environment` et `volume
 concerné. Les commandes CLI s'exécutent dans le conteneur du contrôleur :
 
 ```bash
-docker compose exec controller security-review-controller gate --project portal --fail-on high
+docker compose exec controller security-review-controller token list
 ```
 
 ## Mise à niveau de PostgreSQL
@@ -189,6 +168,27 @@ Le service `migrate` applique ensuite les révisions Alembic en attente, s'il y 
 contient les rapports, les empreintes des mots de passe et des jetons : gardez-le hors du dépôt
 (lisible par vous seul, `umask 077`) et supprimez-le une fois la restauration vérifiée.
 
+## Poste développeur (stdio)
+
+L'hôte lance le conteneur. `.vscode/mcp.json` :
+
+```json
+{
+  "servers": {
+    "security-review": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-v", "secreview-data:/data", "security-review-mcp"]
+    }
+  }
+}
+```
+
+!!! warning "`-i` mais pas `-t`"
+    `-i` est indispensable (le protocole passe par stdin) ; ne mettez pas `-t`.
+
+Pour Claude (`.mcp.json`), même `command` / `args` sous `mcpServers`.
+
 ## Règles internes et CLI
 
 Les [règles internes](rules.md) sont stockées dans la base : importez un
@@ -204,5 +204,5 @@ Les autres commandes passent de la même façon :
 
 ```bash
 docker run --rm -v secreview-data:/data \
-    --entrypoint security-review-controller security-review-mcp gate --project portal --fail-on high
+    --entrypoint security-review-controller security-review-mcp token list
 ```

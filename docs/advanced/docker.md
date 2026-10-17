@@ -34,27 +34,6 @@ The image runs as a non-root user (uid `10001`), without sources nor build tools
 database is in the `/data` volume. The `.env` file is **not** copied into the image: pass the
 configuration with `-e` or `--env-file`.
 
-## Developer workstation (stdio)
-
-The host starts the container. `.vscode/mcp.json`:
-
-```json
-{
-  "servers": {
-    "security-review": {
-      "type": "stdio",
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "-v", "secreview-data:/data", "security-review-mcp"]
-    }
-  }
-}
-```
-
-!!! warning "`-i` but not `-t`"
-    `-i` is essential (the protocol goes through stdin); do not add `-t`.
-
-For Claude (`.mcp.json`), same `command` / `args` under `mcpServers`.
-
 ## Shared server (HTTP)
 
 A single image, two containers sharing the database (see
@@ -158,7 +137,7 @@ To add TLS or internal rules, complete `environment` and `volumes` of the servic
 CLI commands run in the controller container:
 
 ```bash
-docker compose exec controller security-review-controller gate --project portal --fail-on high
+docker compose exec controller security-review-controller token list
 ```
 
 ## Upgrading PostgreSQL
@@ -188,6 +167,27 @@ The `migrate` service then applies the pending Alembic revisions, if any. The du
 reports, the password hashes and the token fingerprints: keep it out of the repository (readable
 by you only, `umask 077`) and delete it once the restore is checked.
 
+## Developer workstation (stdio)
+
+The host starts the container. `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "security-review": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "-v", "secreview-data:/data", "security-review-mcp"]
+    }
+  }
+}
+```
+
+!!! warning "`-i` but not `-t`"
+    `-i` is essential (the protocol goes through stdin); do not add `-t`.
+
+For Claude (`.mcp.json`), same `command` / `args` under `mcpServers`.
+
 ## Internal rules and CLI
 
 [Internal rules](rules.md) are stored in the database: import a folder of TOML packs
@@ -202,5 +202,5 @@ The other commands work the same way:
 
 ```bash
 docker run --rm -v secreview-data:/data \
-    --entrypoint security-review-controller security-review-mcp gate --project portal --fail-on high
+    --entrypoint security-review-controller security-review-mcp token list
 ```
