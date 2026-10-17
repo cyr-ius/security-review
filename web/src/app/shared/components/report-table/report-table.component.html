@@ -12,6 +12,7 @@
           <th scope="col">{{ 'reportTable.reviewType' | t }}</th>
           <th scope="col" class="text-end">{{ 'reportTable.openTotal' | t }}</th>
           <th scope="col">{{ 'reportTable.branch' | t }}</th>
+          <th scope="col">{{ 'reportTable.author' | t }}</th>
           <th scope="col">{{ 'reportTable.summary' | t }}</th>
         </tr>
       </thead>
@@ -43,6 +44,11 @@
               }
               @if (report.commit_sha) {
                 <code class="ms-1">{{ report.commit_sha | slice: 0 : 8 }}</code>
+              }
+            </td>
+            <td class="text-nowrap">
+              @if (report.author) {
+                <i class="bi bi-person" aria-hidden="true"></i> {{ report.author }}
               }
             </td>
             <td class="summary text-body-secondary">{{ report.summary }}</td>

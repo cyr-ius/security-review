@@ -158,3 +158,9 @@
 - Les règles sont des motifs ligne par ligne : elles ne voient ni le flux de données ni les
   contrôles absents (autorisation manquante, par exemple). Ce travail reste celui de l'agent
   guidé par les checklists, et de vos outils SAST/SCA.
+- L'`author` d'un rapport (nom d'utilisateur du développeur) est déclaré par le client :
+  quiconque détient un jeton du projet peut nommer quelqu'un d'autre. Seul `submitted_by`, le
+  libellé du jeton qui a enregistré le rapport, est fixé par le serveur (voir
+  [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)). Un `author` est souvent
+  une adresse e-mail, donc une donnée personnelle : elle est visible de tous ceux qui atteignent
+  le projet et conservée aussi longtemps que le rapport.

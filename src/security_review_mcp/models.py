@@ -50,6 +50,8 @@ PROPOSABLE_STATUSES = frozenset(
     {FindingStatus.FIXED, FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE}
 )
 MAX_STATUS_REASON_CHARS = 1000
+# Developer username declared with a report, and label of the token that saved it
+MAX_AUTHOR_CHARS = 200
 
 
 def as_utc(value: datetime) -> datetime:
@@ -175,6 +177,13 @@ class SecurityReportBase(SQLModel):
     branch: str | None = Field(default=None, max_length=200)
     commit_sha: str | None = Field(default=None, max_length=64, index=True)
     reviewer: str | None = Field(default=None, max_length=200, description="Agent or person")
+    # Declared by the client (not authenticated): one enrolled device may serve several people
+    author: str | None = Field(
+        default=None,
+        index=True,
+        max_length=MAX_AUTHOR_CHARS,
+        description="Username of the developer whose work was reviewed (git user, login name)",
+    )
     scope: str | None = Field(default=None, description="What was reviewed (files, MR, diff...)")
     # Stored as text, not as a database enum: a new review type needs no migration
     review_type: ReviewType | None = Field(
@@ -192,6 +201,8 @@ class SecurityReport(SecurityReportBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     risk_level: Severity = Field(index=True)
     created_at: datetime = Field(default_factory=utcnow, index=True)
+    # Label of the bearer token (enrolled device) that saved the report, set by the server
+    submitted_by: str | None = Field(default=None, max_length=MAX_AUTHOR_CHARS)
     findings: list[Finding] = Relationship(
         back_populates="report",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
@@ -204,6 +215,7 @@ class SecurityReportPublic(SecurityReportBase):
     id: int
     risk_level: Severity
     created_at: datetime
+    submitted_by: str | None = None
     findings: list[FindingPublic] = []
 
 

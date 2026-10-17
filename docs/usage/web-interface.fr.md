@@ -50,8 +50,9 @@ renvoyés par l'API restent en anglais.
   [triage des findings](#triage-des-findings)) ; un finding trié reste affiché jusqu'au
   rechargement.
 - **Rapports** : liste filtrable par projet et niveau de risque (les filtres sont dans l'URL, on
-  peut donc partager un lien), avec le **Type** de chaque revue.
-- **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue), findings avec
+  peut donc partager un lien), avec le **Type** et l'**Auteur** de chaque revue.
+- **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** et
+  **Envoyé par (jeton)**, voir [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)), findings avec
   emplacement, CWE, extrait de code et recommandation ; téléchargement Markdown et SARIF. Les
   utilisateurs qui ont le rôle `triager` ou `admin` changent le statut d'un finding directement
   depuis cet écran.
@@ -211,6 +212,14 @@ du plus grave au moins grave (filtres `status`, `severity` et `review_type`, `li
 curl -H "Authorization: Bearer $TOKEN" \
   "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
 # {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
+```
+
+`GET /api/v1/reports` liste les rapports (filtres `project`, `risk_level`, `review_type` et
+`author`), chacun avec son `author` et son `submitted_by` :
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://secreview.example.com/api/v1/reports?project=shop-api&author=alice@example.com"
 ```
 
 Révoquez-le avec `security-review-controller token revoke triage-bot`. Chaque changement de

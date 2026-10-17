@@ -47,7 +47,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `scan_code` | Quick pattern scan (leads to check, **not** a SAST). Masked excerpts |
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
-| `list_security_reports` | List filtered by project / risk level / review type, with pagination |
+| `list_security_reports` | List filtered by project / risk level / review type / author, with pagination |
 | `propose_finding_status` | **Proposes** `fixed`, `accepted` or `false_positive` with a reason; never changes the status ([status of a finding](#status-of-a-finding)) |
 | `get_project_security_posture` | Open findings by severity (useful as a CI safeguard) |
 | `check_project_gate` | CI gate: `passed` is false while an **open** finding reaches the `fail_on` threshold |
@@ -95,7 +95,8 @@ See [enrollment](../getting-started/http.md#enrollment-a-project-requests-its-to
 - a list of `findings`: `title`, `severity`, `description`, and optionally `cwe`, `owasp`,
   `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category`;
 - `repository`, `branch`, `commit_sha`, `reviewer`, `scope`;
-- `review_type`: the kind of review, given by each review prompt (see below).
+- `review_type`: the kind of review, given by each review prompt (see below);
+- `author`: the username of the developer (see [author of a report](#author-of-a-report)).
 
 The **risk level** of the report is computed (highest severity of the findings). The
 `risk_level` parameter can only raise it, never lower it.
@@ -122,6 +123,22 @@ The type is declared by the client: it labels and filters reports, it never gran
 nor changes a gate.
 Reports saved by the CLI scans before this field existed get their type when the database is
 upgraded.
+
+### Author of a report
+
+A token is enrolled **per device**, not per person: several developers may share it, and its
+label does not say who worked on the reviewed code. Each report therefore carries two fields:
+
+| Field | Filled by | Value |
+|---|---|---|
+| `author` | the client | Username of the developer: the review prompts ask the agent for the output of `git config user.email` (else `git config user.name` or the login name), and to omit it rather than guess. With the CLI scans: `--author`. |
+| `submitted_by` | the server | Label of the bearer token that saved the report (empty with stdio and the CLI). The client cannot change it. |
+
+`author` is at most 200 characters: letters, digits, spaces and `. @ _ + - ' ,` only (no
+Markdown nor HTML, as it is copied into the Markdown export); a blank value is not stored.
+It is **declared, not authenticated**: use it to see who to talk to and to filter the reports
+(`list_security_reports`, [web interface](web-interface.md)), never as a proof of identity;
+`submitted_by` says which enrolled device actually sent the report.
 
 ### Status of a finding
 

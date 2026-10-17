@@ -212,6 +212,36 @@ def test_review_type_is_stored_listed_and_filtered():
         services.save_report("shop", "Unknown type", [], review_type="pentest")
 
 
+def test_author_is_stored_listed_filtered_and_bounded():
+    saved = services.save_report(
+        "shop", "Review", [], author=" alice ", submitted_by="laptop-42-ab12"
+    )
+    services.save_report("shop", "Other review", [], author="bob")
+    services.save_report("shop", "Anonymous review", [], author="   ")
+    report = services.get_report(saved["report_id"])
+    assert (report.author, report.submitted_by) == ("alice", "laptop-42-ab12")
+    assert services.list_reports(project="shop")[0]["author"] is None  # blank: not stored
+    listed = services.list_reports(project="shop", author="alice")
+    assert [(r["author"], r["submitted_by"]) for r in listed] == [("alice", "laptop-42-ab12")]
+    markdown = services.render_report_markdown(report)
+    assert "- **Author**: alice" in markdown
+    assert "- **Submitted by**: laptop-42-ab12" in markdown
+    with pytest.raises(ValueError, match="at most 200"):
+        services.save_report("shop", "Review", [], author="a" * 201)
+    assert services.save_report("shop", "Review", [], author="José O'Brien-Núñez")["author"]
+    assert services.save_report("shop", "Review", [], author="j.doe+ci@example.com")["author"]
+    for forged in (
+        "alice\x1b[31m",  # terminal escape
+        "alice\u202egnp.exe",  # bidi override
+        "[admin](javascript:alert(1))",  # Markdown link
+        "<img src=x onerror=alert(1)>",  # HTML
+        "alice | **bold**",  # Markdown table and emphasis
+    ):
+        with pytest.raises(ValueError, match="may only contain"):
+            services.save_report("shop", "Review", [], author=forged)
+    assert len(services.list_reports(project="shop")) == 5
+
+
 def test_posture_of_unknown_project_is_empty():
     posture = services.project_posture("ghost")
     assert posture["reports_total"] == 0

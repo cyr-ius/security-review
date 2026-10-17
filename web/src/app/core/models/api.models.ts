@@ -283,6 +283,8 @@ export interface ReportSummary {
   review_type: ReviewType | null;
   risk_level: Severity;
   reviewer: string | null;
+  author: string | null;
+  submitted_by: string | null;
   created_at: string;
   findings_total: number;
   findings_open: number;
@@ -362,6 +364,8 @@ export interface Report {
   branch: string | null;
   commit_sha: string | null;
   reviewer: string | null;
+  author: string | null;
+  submitted_by: string | null;
   scope: string | null;
   review_type: ReviewType | null;
   summary: string;

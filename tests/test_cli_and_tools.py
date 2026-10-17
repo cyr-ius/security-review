@@ -78,6 +78,18 @@ def test_deps_scan_json_and_save(tmp_path, capsys):
     assert services.list_reports(project="demo")
 
 
+def test_deps_scan_saves_the_author_and_refuses_an_invalid_one(tmp_path, capsys):
+    manifest = tmp_path / "requirements.txt"
+    manifest.write_text("flask==1.0\n", encoding="utf-8")
+    base = ["deps", "scan", str(manifest), "--format", "json", "--save", "--project", "demo"]
+    assert cli.run([*base, "--author", "alice"]) == cli.EXIT_PASSED
+    saved = json.loads(capsys.readouterr().out)["saved_report"]
+    assert services.get_report(saved["report_id"]).author == "alice"
+    assert cli.run([*base, "--author", "a" * 201]) == cli.EXIT_ERROR
+    assert "at most 200" in capsys.readouterr().err
+    assert len(services.list_reports(project="demo")) == 1
+
+
 def test_deps_scan_save_needs_a_project(tmp_path):
     manifest = tmp_path / "requirements.txt"
     manifest.write_text("flask==1.0\n", encoding="utf-8")

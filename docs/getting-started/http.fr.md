@@ -109,7 +109,10 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
    demandé, mais **en attente** : il ne donne encore accès à rien. Un jeton est personnel (il
    pourra ensuite atteindre d'autres projets) : son label est donc le **nom d'utilisateur du
    développeur**, le nom de connexion avec `enroll`, le nom transmis par l'agent ; sans label,
-   le nom du projet suivi de `-enroll`. Un suffixe aléatoire est ajouté. Trois façons de
+   le nom du projet suivi de `-enroll`. Un suffixe aléatoire est ajouté. Le jeton reste
+   configuré sur un équipement, que d'autres personnes peuvent utiliser : chaque rapport nomme
+   donc aussi son développeur (voir
+   [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)). Trois façons de
    demander :
     - **Depuis l'agent, à la première revue.** Un client MCP qui se connecte **sans** en-tête
       `Authorization` n'est pas rejeté : il atteint un serveur MCP restreint (même nom

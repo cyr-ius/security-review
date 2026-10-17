@@ -108,6 +108,35 @@ async def test_review_prompts_give_their_review_type(prompt, review_type):
     assert ReviewType(review_type)
 
 
+async def test_review_prompts_ask_for_the_developer_username():
+    async with Client(mcp) as client:
+        for prompt in ("security-review", "dependency-review", "codebase-review"):
+            result = await client.get_prompt(prompt, {})
+            assert "git config user.email" in result.messages[0].content.text, prompt
+
+
+async def test_save_report_with_an_author_and_filter_the_list():
+    report = {"project": "authored", "summary": "Authored review", "findings": []}
+    async with Client(mcp) as client:
+        saved = await client.call_tool(
+            "save_security_report", {**report, "author": "  alice@example.com "}
+        )
+        await client.call_tool("save_security_report", {**report, "author": "bob"})
+        listed = await client.call_tool(
+            "list_security_reports", {"project": "authored", "author": "alice@example.com"}
+        )
+        too_long = await client.call_tool("save_security_report", {**report, "author": "a" * 201})
+        control = await client.call_tool(
+            "save_security_report", {**report, "author": "alice\nINFO forged log line"}
+        )
+    assert json.loads(text_of(saved))["author"] == "alice@example.com"
+    rows = listed.structured_content["result"]
+    assert [(r["author"], r["submitted_by"]) for r in rows] == [("alice@example.com", None)]
+    assert too_long.is_error and control.is_error
+    assert "may only contain" in text_of(control)
+    assert len(services.list_reports(project="authored")) == 2
+
+
 async def test_save_report_with_a_review_type_and_filter_the_list():
     report = {"project": "typed", "summary": "Typed review", "findings": []}
     async with Client(mcp) as client:
@@ -466,9 +495,13 @@ def test_project_token_cannot_reach_other_projects(http_app, two_projects):
     )
     assert client.call("check_project_gate", {"project": "shop-api"})[0] is False
     is_error, text = client.call(
-        "save_security_report", {"project": "shop-api", "summary": "New review", "findings": []}
+        "save_security_report",
+        {"project": "shop-api", "summary": "New review", "findings": [], "author": "alice"},
     )
     assert not is_error
+    # The token label (device) is recorded by the server next to the declared developer
+    saved = services.get_report(json.loads(text)["report_id"])
+    assert (saved.author, saved.submitted_by) == ("alice", "shop-ci")
 
 
 def test_unrestricted_token_reaches_every_project(http_app, two_projects):

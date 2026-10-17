@@ -30,7 +30,8 @@ security-review-controller code scan . --save --project portal --commit "$CI_COM
   s'appliquent et un avertissement est écrit sur stderr.
 - `--save` enregistre les correspondances comme findings (au plus
   `SECREVIEW_MAX_FINDINGS_PER_REPORT`, les plus sévères d'abord) et la liste des fichiers non
-  analysés dans `scope`.
+  analysés dans `scope` ; `--author` ajoute le nom d'utilisateur du développeur (voir
+  [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)).
 
 !!! warning "Triez avant de bloquer"
     Les correspondances sont des **pistes**. Triez-les (prompt `triage-report`) avant de faire

@@ -50,8 +50,9 @@ by the API stay in English.
   [triage of findings](#triage-of-findings)); a triaged finding stays displayed until the next
   reload.
 - **Reports**: list filtered by project and risk level (the filters are in the URL,
-  so a link can be shared), with the **Type** of each review.
-- **Report**: summary, context (repository, branch, commit, review type), findings with
+  so a link can be shared), with the **Type** and the **Author** of each review.
+- **Report**: summary, context (repository, branch, commit, review type, **Author** and
+  **Sent by (token)**, see [author of a report](prompts-tools.md#author-of-a-report)), findings with
   location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
   `triager` or `admin` role change the status of a finding directly from this screen.
 - **Standards**: the [development standards](standards.md) handed to the AI
@@ -210,6 +211,14 @@ first (`status`, `severity` and `review_type` filter, `limit` is capped by
 curl -H "Authorization: Bearer $TOKEN" \
   "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
 # {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
+```
+
+`GET /api/v1/reports` lists the reports (`project`, `risk_level`, `review_type` and `author`
+filter), each with its `author` and `submitted_by`:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://secreview.example.com/api/v1/reports?project=shop-api&author=alice@example.com"
 ```
 
 Revoke it with `security-review-controller token revoke triage-bot`. Every status change is

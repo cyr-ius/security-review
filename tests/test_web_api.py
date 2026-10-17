@@ -299,6 +299,21 @@ def test_findings_and_reports_show_and_filter_the_review_type(client):
     assert client.get("/api/v1/reports", params=bad).status_code == 422
 
 
+def test_reports_show_and_filter_the_author(client):
+    saved = services.save_report(
+        "authored", "Review", [], author="alice", submitted_by="laptop-42-ab12"
+    )
+    services.save_report("authored", "Other review", [], author="bob")
+    params = {"project": "authored", "author": "alice"}
+    reports = client.get("/api/v1/reports", params=params).json()
+    assert [(r["author"], r["submitted_by"]) for r in reports] == [("alice", "laptop-42-ab12")]
+    report = client.get(f"/api/v1/reports/{saved['report_id']}").json()
+    assert (report["author"], report["submitted_by"]) == ("alice", "laptop-42-ab12")
+    assert len(client.get("/api/v1/reports", params={"project": "authored"}).json()) == 2
+    too_long = {"project": "authored", "author": "a" * 201}
+    assert client.get("/api/v1/reports", params=too_long).status_code == 422
+
+
 def test_update_finding_status(client, reports):
     finding = client.get(f"/api/v1/reports/{reports[0]}").json()["findings"][0]
     response = client.patch(

@@ -47,7 +47,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `scan_code` | Scan rapide par motifs (pistes à vérifier, **pas** un SAST). Extraits masqués |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
-| `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue, avec pagination |
+| `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue / auteur, avec pagination |
 | `propose_finding_status` | **Propose** `fixed`, `accepted` ou `false_positive` avec un motif ; ne change jamais le statut ([statut d'un finding](#statut-dun-finding)) |
 | `get_project_security_posture` | Findings ouverts par sévérité (utile comme garde-fou CI) |
 | `check_project_gate` | Gate CI : `passed` est faux tant qu'un finding **ouvert** atteint le seuil `fail_on` |
@@ -94,7 +94,8 @@ Voir [l'enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son
 - une liste de `findings` : `title`, `severity`, `description`, et optionnellement `cwe`,
   `owasp`, `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category` ;
 - `repository`, `branch`, `commit_sha`, `reviewer`, `scope` ;
-- `review_type` : le type de revue, indiqué par chaque prompt de revue (voir ci-dessous).
+- `review_type` : le type de revue, indiqué par chaque prompt de revue (voir ci-dessous) ;
+- `author` : le nom d'utilisateur du développeur (voir [auteur d'un rapport](#auteur-dun-rapport)).
 
 Le **niveau de risque** du rapport est calculé (sévérité maximale des findings). Le paramètre
 `risk_level` peut seulement le relever, jamais le baisser.
@@ -120,6 +121,23 @@ Le champ est facultatif : un rapport enregistré sans lui n'a pas de type. Toute
 refusée. Le type est déclaré par le client : il étiquette et filtre les rapports, il n'accorde
 jamais de droit et ne change pas une gate. Les rapports des scans CLI enregistrés avant l'existence de ce champ reçoivent leur
 type lors de la mise à jour de la base.
+
+### Auteur d'un rapport
+
+Un jeton est enrôlé **par équipement**, pas par personne : plusieurs développeurs peuvent le
+partager, et son libellé ne dit pas qui a travaillé sur le code relu. Chaque rapport porte donc
+deux champs :
+
+| Champ | Rempli par | Valeur |
+|---|---|---|
+| `author` | le client | Nom d'utilisateur du développeur : les prompts de revue demandent à l'agent la sortie de `git config user.email` (sinon `git config user.name` ou le nom de connexion), et de l'omettre plutôt que de deviner. Avec les scans CLI : `--author`. |
+| `submitted_by` | le serveur | Libellé du jeton Bearer qui a enregistré le rapport (vide en stdio et avec la CLI). Le client ne peut pas le modifier. |
+
+`author` fait au plus 200 caractères : lettres, chiffres, espaces et `. @ _ + - ' ,` uniquement
+(ni Markdown ni HTML, car il est recopié dans l'export Markdown) ; une valeur vide n'est pas
+enregistrée. Il est **déclaré, non authentifié** : il sert à savoir à qui s'adresser et à filtrer
+les rapports (`list_security_reports`, [interface web](web-interface.md)), jamais de preuve
+d'identité ; `submitted_by` indique quel équipement enrôlé a réellement envoyé le rapport.
 
 ### Statut d'un finding
 

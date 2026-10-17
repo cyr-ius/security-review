@@ -266,6 +266,9 @@ def deps_command(argv: list[str]) -> int:
     parser.add_argument("--repository")
     parser.add_argument("--branch")
     parser.add_argument("--commit")
+    parser.add_argument(
+        "--author", help="username of the developer, stored with the report (with --save)"
+    )
     args = parser.parse_args(argv)
     if args.save and not args.project:
         return _fail("--save requires --project")
@@ -287,20 +290,24 @@ def deps_command(argv: list[str]) -> int:
         findings = [f for r in results for f in depscan.to_findings(r)]
         vulnerabilities = sum(r["vulnerabilities_count"] for r in results)
         hygiene = sum(r["hygiene_count"] for r in results)
-        saved = services.save_report(
-            project=args.project,
-            summary=(
-                f"Dependency scan of {len(results)} file(s): {vulnerabilities} vulnerable "
-                f"component(s), {hygiene} hygiene issue(s)."
-            ),
-            findings=findings,
-            repository=args.repository,
-            branch=args.branch,
-            commit_sha=args.commit,
-            reviewer="security-review-controller deps scan",
-            scope=", ".join(r["file"] for r in results),
-            review_type=ReviewType.DEPENDENCY_SCAN,
-        )
+        try:
+            saved = services.save_report(
+                project=args.project,
+                summary=(
+                    f"Dependency scan of {len(results)} file(s): {vulnerabilities} vulnerable "
+                    f"component(s), {hygiene} hygiene issue(s)."
+                ),
+                findings=findings,
+                repository=args.repository,
+                branch=args.branch,
+                commit_sha=args.commit,
+                reviewer="security-review-controller deps scan",
+                scope=", ".join(r["file"] for r in results),
+                review_type=ReviewType.DEPENDENCY_SCAN,
+                author=args.author,
+            )
+        except ValueError as exc:
+            return _fail(str(exc))
     return _print_deps(results, args.fail_on, args.format, saved, args.project)
 
 
@@ -400,6 +407,7 @@ def _save_code_scan(args: argparse.Namespace, result: dict) -> dict:
         reviewer="security-review-controller code scan",
         scope=scope,
         review_type=ReviewType.CODE_SCAN,
+        author=args.author,
     )
 
 
@@ -435,6 +443,9 @@ def code_command(argv: list[str]) -> int:
     parser.add_argument("--repository")
     parser.add_argument("--branch")
     parser.add_argument("--commit")
+    parser.add_argument(
+        "--author", help="username of the developer, stored with the report (with --save)"
+    )
     args = parser.parse_args(argv)
     if args.save and not args.project:
         return _fail("--save requires --project")

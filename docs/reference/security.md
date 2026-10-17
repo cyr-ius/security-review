@@ -157,3 +157,9 @@
 - Rules are line-by-line patterns: they see neither the data flow nor the missing checks
   (missing authorization, for example). This work remains the agent's, guided by the
   checklists, and your SAST/SCA tools'.
+- The `author` of a report (developer username) is declared by the client: anyone holding a
+  token of the project can name someone else. Only `submitted_by`, the label of the token that
+  saved the report, is set by the server (see
+  [author of a report](../usage/prompts-tools.md#author-of-a-report)). An `author` is often an
+  email address, that is personal data: it is visible to everyone who reaches the project and
+  kept as long as the report.

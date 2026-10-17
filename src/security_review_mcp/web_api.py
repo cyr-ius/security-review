@@ -60,6 +60,7 @@ from .http_server import (
 )
 from .models import (
     DISMISSED_STATUSES,
+    MAX_AUTHOR_CHARS,
     MAX_STATUS_REASON_CHARS,
     FindingPublic,
     FindingStatus,
@@ -329,6 +330,8 @@ class ReportSummary(BaseModel):
     review_type: ReviewType | None
     risk_level: Severity
     reviewer: str | None
+    author: str | None
+    submitted_by: str | None
     created_at: str
     findings_total: int
     findings_open: int
@@ -908,6 +911,7 @@ async def reports(
     project: Annotated[str | None, Query(max_length=200)] = None,
     risk_level: Severity | None = None,
     review_type: ReviewType | None = None,
+    author: Annotated[str | None, Query(max_length=MAX_AUTHOR_CHARS)] = None,
     limit: Annotated[int, Query(ge=1)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[ReportSummary]:
@@ -922,6 +926,7 @@ async def reports(
         offset,
         identity.projects,
         review_type,
+        author or None,
     )
 
 

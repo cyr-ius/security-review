@@ -32,7 +32,14 @@ from . import (
 )
 from .config import check_report_language, configure_logging, get_settings
 from .database import SchemaError, check_db, init_db
-from .models import MAX_STATUS_REASON_CHARS, FindingCreate, FindingStatus, ReviewType, Severity
+from .models import (
+    MAX_AUTHOR_CHARS,
+    MAX_STATUS_REASON_CHARS,
+    FindingCreate,
+    FindingStatus,
+    ReviewType,
+    Severity,
+)
 
 logger = logging.getLogger("security_review_mcp")
 
@@ -43,7 +50,9 @@ start a structured review, and `codebase-review` to review a whole repository (n
 - Use `get_review_checklist` and `scan_code` while reviewing. When their results give a report \
 language, write your reply and the free-text fields of the report in that language.
 - At the end of a review, call `save_security_report` once to store the report in the \
-database. Use `list_security_reports`, `get_security_report` and \
+database, with `author` set to the developer's username when you can find it (`git config \
+user.email`, else `git config user.name` or the login name): a token identifies a device, not \
+a person. Use `list_security_reports`, `get_security_report` and \
 `get_project_security_posture` to read stored results.
 - You never change the status of a finding: `propose_finding_status` only records a proposal \
 (fixed, accepted, false_positive) with its reason, which a person approves or rejects in the \
@@ -506,13 +515,23 @@ def save_security_report(
             "or other"
         ),
     ] = None,
+    author: Annotated[
+        str | None,
+        Field(
+            max_length=MAX_AUTHOR_CHARS,
+            description="Username of the developer whose work was reviewed: the output of "
+            "`git config user.email` (else `git config user.name` or the login name); omit it "
+            "when unknown, never guess",
+        ),
+    ] = None,
 ) -> dict:
     """Store a security report and its findings in the database.
 
     Call this once at the end of a review, with the free-text fields written in the report
-    language given by the review prompt, scan_code or get_review_checklist, if any, and the
-    review_type given by the review prompt. Secrets in free-text fields are masked before
-    storage. Returns the report id, the overall risk level
+    language given by the review prompt, scan_code or get_review_checklist, if any, the
+    review_type given by the review prompt and the developer's username as author. The
+    server also records the label of the token (device) that saved the report. Secrets in
+    free-text fields are masked before storage. Returns the report id, the overall risk level
     and the finding counts.
     """
     allowed = _caller_projects(ctx)
@@ -533,6 +552,8 @@ def save_security_report(
         scope=scope,
         risk_level=risk_level,
         review_type=review_type,
+        author=author,
+        submitted_by=_auth_state(ctx).get("auth_client"),
     )
 
 
@@ -562,12 +583,22 @@ def list_security_reports(
     review_type: Annotated[
         ReviewType | None, Field(description="Keep only the reports of this kind of review")
     ] = None,
+    author: Annotated[
+        str | None,
+        Field(
+            max_length=MAX_AUTHOR_CHARS,
+            description="Keep only the reports of this developer username",
+        ),
+    ] = None,
 ) -> list[dict]:
-    """List stored reports, newest first, optionally filtered by project, risk or review type."""
+    """List stored reports, newest first, optionally filtered by project, risk, review type or
+    author."""
     allowed = _caller_projects(ctx)
     if allowed is not None and project:
         services.check_project_scope(allowed, project)
-    return services.list_reports(project, risk_level, limit, offset, allowed, review_type)
+    return services.list_reports(
+        project, risk_level, limit, offset, allowed, review_type, author or None
+    )
 
 
 @mcp.tool(annotations=WRITE)

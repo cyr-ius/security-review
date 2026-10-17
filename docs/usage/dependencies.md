@@ -141,6 +141,9 @@ security-review-controller deps scan package-lock.json requirements.txt \
 # exit code: 0 = ok, 1 = blocked, 2 = error
 ```
 
+With `--save`, `--author` stores the username of the developer with the report (see
+[author of a report](prompts-tools.md#author-of-a-report)).
+
 ## Scan with a shared server (commit hook)
 
 `security-review-mcp scan-deps` sends the dependency files to the `scan_dependencies` tool of a

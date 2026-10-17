@@ -1,6 +1,7 @@
 """Report persistence service (business logic between MCP tools and the database)."""
 
 import logging
+import re
 from collections import Counter
 from collections.abc import Collection
 from datetime import datetime, timedelta
@@ -13,6 +14,7 @@ from .config import MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
 from .models import (
     DISMISSED_STATUSES,
+    MAX_AUTHOR_CHARS,
     MAX_STATUS_REASON_CHARS,
     PROPOSABLE_STATUSES,
     SEVERITY_RANK,
@@ -31,6 +33,10 @@ from .models import (
 from .scanner import redact_secrets
 
 logger = logging.getLogger(__name__)
+
+# Characters of a developer username or email (Unicode letters and digits included): no
+# Markdown or HTML syntax, as the author is copied as is into the Markdown export of a report
+_AUTHOR_RE = re.compile(r"[\w .@+'’,-]+")
 
 # Shortest reason of a triage decision or of a proposal (a word or two is not a reason)
 MIN_STATUS_REASON_CHARS = 10
@@ -67,6 +73,26 @@ def _status_is(status: FindingStatus, now: datetime | None = None) -> ColumnElem
     return Finding.status == status
 
 
+def _check_author(author: str | None) -> str | None:
+    """Strip and bound the developer username of a report (None when empty).
+
+    Raises:
+        ValueError: Longer than MAX_AUTHOR_CHARS, or with characters other than letters,
+            digits, spaces and . @ _ + - ' , (no control character nor Markdown or HTML
+            syntax: the name is shown as is in the web interface and the Markdown export).
+    """
+    author = (author or "").strip()
+    if not author:
+        return None
+    if len(author) > MAX_AUTHOR_CHARS:
+        raise ValueError(f"author must contain at most {MAX_AUTHOR_CHARS} characters")
+    if not author.isprintable() or not _AUTHOR_RE.fullmatch(author):
+        raise ValueError(
+            "author may only contain letters, digits, spaces and . @ _ + - ' , characters"
+        )
+    return author
+
+
 def _sanitize_finding(data: FindingCreate) -> Finding:
     """Build a Finding row, masking secrets that may appear in free-text fields."""
     values = data.model_dump()
@@ -89,6 +115,8 @@ def save_report(
     scope: str | None = None,
     risk_level: Severity | None = None,
     review_type: ReviewType | None = None,
+    author: str | None = None,
+    submitted_by: str | None = None,
 ) -> dict:
     """Persist a security report and its findings.
 
@@ -103,12 +131,15 @@ def save_report(
         scope: Description of what was reviewed.
         risk_level: Optional override; it can only raise the computed risk.
         review_type: Kind of review (the prompt used or the CLI scan).
+        author: Username of the developer, declared by the client (not authenticated).
+        submitted_by: Label of the token that saved the report (set by the server).
 
     Returns:
         Identifier, risk level and finding counts of the stored report.
 
     Raises:
-        ValueError: If the report contains too many findings or an unknown review type.
+        ValueError: If the report contains too many findings, an unknown review type or an
+            invalid author.
     """
     settings = get_settings()
     review_type = ReviewType(review_type) if review_type else None
@@ -122,6 +153,7 @@ def save_report(
         raise ValueError(
             f"Too many findings ({len(findings)}); the limit is {settings.max_findings_per_report}"
         )
+    author = _check_author(author)
 
     rows = [_sanitize_finding(item) for item in findings]
     risk = compute_risk_level([row.severity for row in rows], risk_level)
@@ -135,6 +167,8 @@ def save_report(
             reviewer=reviewer,
             scope=scope,
             review_type=review_type,
+            author=author,
+            submitted_by=submitted_by,
             summary=redact_secrets(summary),
             risk_level=risk,
             findings=rows,
@@ -145,6 +179,7 @@ def save_report(
             "report_id": report.id,
             "project": report.project,
             "review_type": review_type.value if review_type else None,
+            "author": author,
             "risk_level": risk.value,
             "findings_count": len(rows),
             "findings_by_severity": dict(Counter(row.severity.value for row in rows)),
@@ -177,10 +212,12 @@ def list_reports(
     offset: int = 0,
     projects: Collection[str] | None = None,
     review_type: ReviewType | None = None,
+    author: str | None = None,
 ) -> list[dict]:
     """List reports, newest first, with their number of open findings.
 
-    ``projects`` (the scope of a restricted caller) keeps only the reports of these projects.
+    ``projects`` (the scope of a restricted caller) keeps only the reports of these projects;
+    ``author`` keeps only the reports declared for this developer username.
     """
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
@@ -196,6 +233,8 @@ def list_reports(
             statement = statement.where(SecurityReport.risk_level == risk_level)
         if review_type:
             statement = statement.where(SecurityReport.review_type == review_type)
+        if author:
+            statement = statement.where(SecurityReport.author == author)
         statement = (
             statement.order_by(col(SecurityReport.created_at).desc(), col(SecurityReport.id).desc())
             .offset(offset)
@@ -226,6 +265,8 @@ def list_reports(
                 "review_type": r.review_type,
                 "risk_level": r.risk_level.value,
                 "reviewer": r.reviewer,
+                "author": r.author,
+                "submitted_by": r.submitted_by,
                 "created_at": r.created_at.isoformat(),
                 "findings_total": counts[r.id]["total"],
                 "findings_open": counts[r.id]["open"],
@@ -541,6 +582,8 @@ def render_report_markdown(report: SecurityReportPublic) -> str:
         ("Commit", report.commit_sha),
         ("Review type", report.review_type and report.review_type.value),
         ("Reviewer", report.reviewer),
+        ("Author", report.author),
+        ("Submitted by", report.submitted_by),
         ("Scope", report.scope),
     ):
         if value:

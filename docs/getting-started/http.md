@@ -104,7 +104,9 @@ the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`) as soon as a
    requested project, but **pending**: it does not give access to anything yet. A token is
    personal (it may later reach other projects), so its label is the **developer's username**:
    the login name with `enroll`, the username passed by the agent; without a label, the project
-   name followed by `-enroll`. A random suffix is added. Three ways to request:
+   name followed by `-enroll`. A random suffix is added. The token stays configured on a
+   device, which other people may use: each report therefore also names its developer (see
+   [author of a report](../usage/prompts-tools.md#author-of-a-report)). Three ways to request:
     - **From the agent, at the first review.** An MCP client that connects **without** an
       `Authorization` header is not rejected: it reaches a restricted MCP server (same
       `security-review` name) that only exposes the `request_enrollment` and
