@@ -316,7 +316,8 @@ below).
 
 ## Client configuration
 
-VS Code, with a token asked to the user:
+VS Code, with a token asked to the user (`.vscode/mcp.json`, see
+[Host configuration](../getting-started/host.md#http-transport)):
 
 ```json
 {

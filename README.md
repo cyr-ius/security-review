@@ -53,7 +53,8 @@ security-review-mcp --transport streamable-http --port 8000        # /mcp endpoi
 security-review-ci gate --url http://localhost:8080 --project portal  # block a pipeline (ci token: SECREVIEW_TOKEN)
 ```
 
-Host configuration (VS Code, `.vscode/mcp.json`):
+Host configuration (VS Code with a token, `.vscode/mcp.json`; Claude and `.mcp.json`: see
+[connecting the host](https://cyr-ius.github.io/security-review-mcp/getting-started/host/)):
 
 ```json
 {

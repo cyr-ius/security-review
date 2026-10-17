@@ -53,7 +53,8 @@ security-review-mcp --transport streamable-http --port 8000        # endpoint /m
 security-review-ci gate --url http://localhost:8080 --project portal  # bloquer un pipeline (jeton ci : SECREVIEW_TOKEN)
 ```
 
-Configuration de l'hôte (VS Code, `.vscode/mcp.json`) :
+Configuration de l'hôte (VS Code avec jeton, `.vscode/mcp.json` ; Claude et `.mcp.json` : voir
+[configuration de l'hôte](https://cyr-ius.github.io/security-review-mcp/fr/getting-started/host/)) :
 
 ```json
 {

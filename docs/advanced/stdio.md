@@ -26,35 +26,19 @@ With the **stdio** transport, the host (VS Code, Claude…) starts the server pr
 Give the path of the executable and, if needed, the `SECREVIEW_*` variables
 (see [Configuration](../reference/configuration.md)).
 
-=== "VS Code / GitHub Copilot"
+VS Code, GitHub Copilot and Claude read the same `.mcp.json` file at the root of the
+repository:
 
-    `.vscode/mcp.json`:
-
-    ```json
-    {
-      "servers": {
-        "security-review": {
-          "type": "stdio",
-          "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
-          "env": { "SECREVIEW_DATABASE_URL": "sqlite:////data/security_reports.db" }
-        }
-      }
+```json
+{
+  "mcpServers": {
+    "security-review": {
+      "type": "stdio",
+      "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
+      "env": { "SECREVIEW_DATABASE_URL": "sqlite:////data/security_reports.db" }
     }
-    ```
-
-=== "Claude"
-
-    `.mcp.json`:
-
-    ```json
-    {
-      "mcpServers": {
-        "security-review": {
-          "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
-          "env": { "SECREVIEW_DATABASE_URL": "sqlite:////data/security_reports.db" }
-        }
-      }
-    }
-    ```
+  }
+}
+```
 
 To run the server from a container, see [Docker](docker.md#developer-workstation-stdio).

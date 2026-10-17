@@ -330,7 +330,8 @@ ci-dessous).
 
 ## Configuration du client
 
-VS Code, avec un jeton demandé à l'utilisateur :
+VS Code, avec un jeton demandé à l'utilisateur (`.vscode/mcp.json`, voir
+[Configuration de l'hôte](../getting-started/host.md#transport-http)) :
 
 ```json
 {

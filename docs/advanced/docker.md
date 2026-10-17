@@ -169,11 +169,12 @@ by you only, `umask 077`) and delete it once the restore is checked.
 
 ## Developer workstation (stdio)
 
-The host starts the container. `.vscode/mcp.json`:
+The host starts the container. `.mcp.json` at the root of the repository (VS Code, GitHub
+Copilot and Claude):
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "security-review": {
       "type": "stdio",
       "command": "docker",
@@ -185,8 +186,6 @@ The host starts the container. `.vscode/mcp.json`:
 
 !!! warning "`-i` but not `-t`"
     `-i` is essential (the protocol goes through stdin); do not add `-t`.
-
-For Claude (`.mcp.json`), same `command` / `args` under `mcpServers`.
 
 ## Internal rules and CLI
 

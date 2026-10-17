@@ -170,11 +170,12 @@ contient les rapports, les empreintes des mots de passe et des jetons : gardez-l
 
 ## Poste développeur (stdio)
 
-L'hôte lance le conteneur. `.vscode/mcp.json` :
+L'hôte lance le conteneur. `.mcp.json` à la racine du dépôt (VS Code, GitHub Copilot et
+Claude) :
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "security-review": {
       "type": "stdio",
       "command": "docker",
@@ -186,8 +187,6 @@ L'hôte lance le conteneur. `.vscode/mcp.json` :
 
 !!! warning "`-i` mais pas `-t`"
     `-i` est indispensable (le protocole passe par stdin) ; ne mettez pas `-t`.
-
-Pour Claude (`.mcp.json`), même `command` / `args` sous `mcpServers`.
 
 ## Règles internes et CLI
 

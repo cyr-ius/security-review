@@ -29,6 +29,11 @@ démarrage du serveur : voir [Serveur HTTP, authentification et TLS](../advanced
     }
     ```
 
+    VS Code privilégie désormais le fichier `.mcp.json` à la racine du dépôt et signale
+    `.vscode/mcp.json` comme déprécié, mais le lit toujours. Gardez-le pour un serveur avec
+    jeton : dans `.mcp.json`, VS Code ne substitue pas encore les variables (ni `${input:...}`,
+    ni les variables d'environnement), et le jeton devrait être écrit en clair.
+
 === "Claude"
 
     `.mcp.json`, avec le jeton lu dans la variable d'environnement `SECURITY_REVIEW_TOKEN` du
@@ -48,8 +53,19 @@ démarrage du serveur : voir [Serveur HTTP, authentification et TLS](../advanced
     ```
 
 Sans authentification (serveur local sur `127.0.0.1`, ou authentification assurée par un
-reverse proxy), omettez `headers` et `inputs`, par exemple
-`"url": "http://127.0.0.1:8000/mcp"`.
+reverse proxy), VS Code, GitHub Copilot et Claude partagent le même fichier `.mcp.json` à la
+racine du dépôt, sans `headers` :
+
+```json
+{
+  "mcpServers": {
+    "security-review": {
+      "type": "http",
+      "url": "http://127.0.0.1:8000/mcp"
+    }
+  }
+}
+```
 
 !!! tip
     N'écrivez jamais le jeton en clair dans un fichier de configuration versionné : utilisez une

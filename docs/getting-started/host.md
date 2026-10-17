@@ -29,6 +29,11 @@ see [HTTP server, authentication and TLS](../advanced/http.md)).
     }
     ```
 
+    VS Code now prefers the `.mcp.json` file at the root of the repository and marks
+    `.vscode/mcp.json` as deprecated, but still reads it. Keep it for a server with a token:
+    in `.mcp.json`, VS Code does not substitute variables yet (neither `${input:...}` nor
+    environment variables), and the token would have to be written in clear.
+
 === "Claude"
 
     `.mcp.json`, with the token read from the `SECURITY_REVIEW_TOKEN` environment variable of
@@ -49,7 +54,19 @@ see [HTTP server, authentication and TLS](../advanced/http.md)).
     ```
 
 Without authentication (local server on `127.0.0.1`, or authentication handled by a reverse
-proxy), leave out `headers` and `inputs`, for example `"url": "http://127.0.0.1:8000/mcp"`.
+proxy), VS Code, GitHub Copilot and Claude share the same `.mcp.json` file at the root of the
+repository, without `headers`:
+
+```json
+{
+  "mcpServers": {
+    "security-review": {
+      "type": "http",
+      "url": "http://127.0.0.1:8000/mcp"
+    }
+  }
+}
+```
 
 !!! tip
     Never write the token in clear in a versioned configuration file: use an input
