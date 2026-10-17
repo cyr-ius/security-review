@@ -56,8 +56,6 @@ security-review-controller db status    # {"current": "0001", "head": "0001", "u
   `SECREVIEW_DB_AUTO_UPGRADE=false`. They then only check the schema. Disable the automatic
   migration when a dedicated task handles it (`migrate` service of Docker Compose, Kubernetes
   init container): one migration at a time.
-- A database created by version 1.x (without an Alembic revision) is recognized and completed by
-  the first revision, without data loss.
 
 ## Docker Compose
 

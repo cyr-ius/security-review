@@ -31,7 +31,6 @@ La même image lance le serveur MCP et le contrôleur : voir [Docker](../advance
 
 ## Autres cas
 
-Installation depuis les sources, sans accès Internet, ou mise à jour depuis la version 1.x :
-voir [Installation : autres cas](../advanced/installation.md).
+Installation depuis les sources ou sans accès Internet : voir [Installation : autres cas](../advanced/installation.md).
 
 **Étape suivante :** [mettre le serveur en service](deploy.md).

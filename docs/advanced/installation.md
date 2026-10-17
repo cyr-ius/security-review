@@ -1,8 +1,7 @@
 # Installation: other cases
 
 The usual installation is in [Installation](../getting-started/installation.md). This page
-covers the installation from the sources, without Internet access, and the upgrade from
-version 1.x.
+covers the installation from the sources and without Internet access.
 
 ## From source
 
@@ -47,20 +46,3 @@ Then, on the target machine, targeting Python 3.14 explicitly:
 python3.14 -m venv /opt/security-review-mcp/venv
 /opt/security-review-mcp/venv/bin/pip install --no-index --find-links wheels security-review-mcp
 ```
-
-## Upgrading from version 1.x
-
-Version 2 separates the MCP server from the controller, and manages the schema with Alembic:
-
-1. Upgrade the package or the image, then run `security-review-controller db upgrade`
-   **once**. A database created by version 1.x is recognized and completed (missing columns
-   and tables, multi-project tokens), without data loss.
-2. Run the controller (`security-review-controller serve`) next to the MCP server: the MCP
-   server no longer serves `/ui/` nor the REST API, except the public enrollment
-   `/api/v1/enroll`.
-3. Replace `security-review-mcp token|rules|gate|sarif|trend|advisories|deps|code` with
-   `security-review-controller …` in your scripts and pipelines. The old forms still work
-   during version 2, with a warning.
-4. The initial administrator account (`SECREVIEW_AUTH_BOOTSTRAP_ADMIN`) is now created by the
-   controller: it is the [`admin` account](../usage/web-interface.md#first-administrator) of
-   the web interface, and no longer a `bootstrap-admin` token.

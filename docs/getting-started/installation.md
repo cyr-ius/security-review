@@ -31,7 +31,7 @@ The same image runs the MCP server and the controller: see [Docker](../advanced/
 
 ## Other cases
 
-Installation from the sources, without Internet access, or upgrade from version 1.x: see
+Installation from the sources or without Internet access: see
 [Installation: other cases](../advanced/installation.md).
 
 **Next step:** [deploy the server](deploy.md).
