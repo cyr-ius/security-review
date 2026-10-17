@@ -302,13 +302,20 @@ def test_token_cli_refuses_bad_rotations_and_expiries(settings, capsys, argv):
     assert json.loads(capsys.readouterr().err)["error"]
 
 
-@pytest.mark.parametrize("argv", [[], ["unknown"], ["enroll"]])
+@pytest.mark.parametrize(
+    "argv", [[], ["unknown"], ["enroll"], ["gate"], ["sarif", "--project", "shop"], ["trend"]]
+)
 def test_unknown_commands_print_the_usage(argv, capsys):
     with pytest.raises(SystemExit) as exc:
         controller.main(argv)
 
     assert exc.value.code == cli.EXIT_ERROR
     assert "usage: security-review-controller" in capsys.readouterr().err
+
+
+def test_pipeline_commands_belong_to_the_ci_client():
+    assert not {"gate", "sarif", "trend"} & cli.CONTROLLER_COMMANDS.keys()
+    assert not {"gate", "sarif", "trend"} & cli.COMMANDS.keys()
 
 
 def test_help(capsys):

@@ -2,9 +2,9 @@
 
 ``security-review-ci`` runs the security gate, downloads the SARIF log or prints the trend of a
 project through the pipeline routes of the controller REST API (``/api/v1/ci/``), with a
-``ci`` token restricted to the projects the pipeline may see. Unlike ``security-review-controller
-gate`` / ``sarif`` / ``trend``, it opens no database: no database driver, no SQLModel, no
-database URL in the pipeline.
+``ci`` token restricted to the projects the pipeline may see. It is the only command line for
+these pipeline commands (the controller CLI does not run them) and opens no database: no database
+driver, no SQLModel, no database URL in the pipeline.
 
 The module only uses the Python standard library and imports nothing from the package, so it
 can also be copied alone to a build agent and run with ``python3 ci_client.py``. That is why it

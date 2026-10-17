@@ -1,14 +1,10 @@
 # CI/CD gate
 
 Without an agent or an MCP client, a Jenkins, GitLab or GitHub job can block a deployment while
-critical findings remain open. Two commands do it:
-
-| Command | Reaches | Needs on the build agent |
-|---|---|---|
-| `security-review-ci gate` (recommended) | the controller REST API, with a [`ci` token](#ci-token-and-visible-projects) | Python 3 only: no database driver, no SQLModel, no database URL |
-| `security-review-controller gate` | the database directly | the package, the database driver and `SECREVIEW_DATABASE_URL` |
-
-Both share the exit codes and the JSON output:
+critical findings remain open. The `security-review-ci gate` command does it through the
+controller REST API, with a [`ci` token](#ci-token-and-visible-projects): it needs only Python 3
+on the build agent (no database driver, no SQLModel, no database URL). The controller CLI
+(`security-review-controller`) has no pipeline command.
 
 ```bash
 security-review-ci gate --project portal --fail-on high
@@ -115,28 +111,6 @@ projects); `mcp` tokens may not.
         SECREVIEW_CONTROLLER_URL: https://secreview.example.com
         SECREVIEW_TOKEN: ${{ secrets.SECREVIEW_CI_TOKEN }}
     ```
-
-## Direct database access (`security-review-controller gate`)
-
-On a machine that already reaches the database (the controller itself, an administration job),
-the controller command reads it directly:
-
-```bash
-security-review-controller gate --project portal --fail-on high
-```
-
-```yaml
-# .gitlab-ci.yml
-security-gate:
-  stage: test
-  script:
-    - security-review-controller gate --project "$CI_PROJECT_PATH_SLUG" --fail-on high
-  variables:
-    SECREVIEW_DATABASE_URL: $SECREVIEW_DATABASE_URL   # masked and protected variable
-```
-
-It needs the database driver and gives the pipeline the database credentials: prefer
-`security-review-ci` and a `ci` token.
 
 A finding stops blocking when a person moves it to `fixed`, `accepted` or `false_positive` in
 the [web interface](web-interface.md#triage-of-findings): the decision stays recorded in

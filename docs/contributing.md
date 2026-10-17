@@ -107,7 +107,7 @@ src/security_review_mcp/
 ├── rules_loader.py    # rule validation, reading of the TOML packs and of the default file
 ├── rule_store.py  # rules in the database: seeding, import/export, enabling, deletion
 ├── registry.py    # active rules/checklists (read from the database), reload
-├── cli.py         # db, gate, sarif, trend, advisories, deps, code, rules, token, audit, enroll, scan-deps commands
+├── cli.py         # db, advisories, deps, code, rules, token, audit, enroll, scan-deps commands
 ├── codescan.py    # whole codebase scan (file list, language, findings)
 ├── sarif.py       # SARIF 2.1.0 export
 ├── trends.py      # trend report

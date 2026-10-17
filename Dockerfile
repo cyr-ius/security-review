@@ -107,6 +107,6 @@ USER secreview
 EXPOSE 8000
 
 # MCP server by default: arguments are its transport options (or `enroll`). The controller and
-# its commands (serve, db, token, rules, gate, sarif...) use
+# its commands (serve, db, token, rules...) use
 # --entrypoint security-review-controller (Docker) or command: (Compose, Kubernetes).
 ENTRYPOINT ["security-review-mcp"]
