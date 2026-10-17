@@ -4,11 +4,37 @@
 
 `requirements*.txt`, `pyproject.toml` (PEP 621/735, Poetry), `poetry.lock`, `Pipfile.lock`,
 `uv.lock`, `package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 et
-berry), `pom.xml`, `build.gradle(.kts)`.
+berry), `pom.xml`, `build.gradle(.kts)`, SBOM CycloneDX (`bom.json`, `bom.xml`, `sbom.json`,
+`*.cdx.json`, `*.cdx.xml`...).
 
 Dans un `uv.lock`, le projet lui-même et les membres de son workspace (sources `editable` ou
 `virtual`) ne sont pas des dépendances et sont ignorés ; toute autre source `git`, `url`,
 `path`, `directory` ou `editable` lève `DEP-003`.
+
+### SBOM CycloneDX (dépendances transitives)
+
+`pom.xml` et `build.gradle` ne listent que les dépendances directes : leurs dépendances
+transitives, souvent les vulnérables, ne sont pas vérifiées (une note le rappelle dans le
+résultat). Générez dans le pipeline un SBOM CycloneDX de l'arbre de dépendances résolu, puis
+analysez-le :
+
+```bash
+# Maven : écrit target/bom.json et target/bom.xml
+mvn org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
+security-review-controller deps scan target/bom.json --require-database
+```
+
+Avec Gradle, la tâche `cyclonedxBom` du plugin `org.cyclonedx.bom` produit le même fichier ;
+`npm sbom --sbom-format cyclonedx` le fait pour npm.
+
+- Le SBOM est lu en JSON (`bomFormat: "CycloneDX"`) ou en XML (espace de noms CycloneDX) ; les
+  composants imbriqués sont inclus. Un SBOM XML contenant un `DOCTYPE` ou une `ENTITY` est refusé.
+- Chaque composant est identifié par son package URL (`purl`) : `pkg:maven/...` (Maven),
+  `pkg:npm/...` (npm) et `pkg:pypi/...` (PyPI). Un SBOM peut mélanger ces écosystèmes. Les
+  autres types (`pkg:golang`, `pkg:nuget`...) et les composants sans `purl` sont comptés dans une
+  note et ne sont pas vérifiés.
+- Les versions sont résolues : le SBOM est traité comme un lockfile. Un composant de portée
+  `excluded` est marqué `dev` ; une version Maven `-SNAPSHOT` lève `DEP-002`.
 
 ## Base de vulnérabilités hors ligne (format OSV)
 
@@ -175,6 +201,8 @@ Le champ `vulnerability_check` dit si la vérification a eu lieu :
 - Une base de plus de 30 jours est signalée.
 - Une sévérité absente de l'avis est traitée comme `medium` (`severity_known: false`).
 - Les versions en intervalle (`>=2`) ne sont pas vérifiables : analysez le lockfile.
+- Pour un SBOM qui mélange des écosystèmes, la vérification est `performed` dès que l'un d'eux a
+  des avis ; une note nomme les écosystèmes qui n'ont pas pu être vérifiés.
 - Chaque composant est marqué `dev` ou non. Dans `pyproject.toml`, les extras nommées d'après
   le développement (`dev`, `test`, `docs`, `lint`...) et les `[dependency-groups]` sont `dev` ;
   les autres extras (`postgres`...) sont installées en production et restent des dépendances

@@ -40,7 +40,7 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | `code scan [PATH]` | Scan du dépôt complet | [Scan du code complet](../usage/code-scan.md) |
 | `rules list` / `rules import PATH…` / `rules export` | Liste, importe (packs TOML) ou exporte les règles stockées en base | [Règles internes](../usage/rules.md#commande-rules) |
 | `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Active, désactive (règles par défaut ou personnalisées) ou supprime des règles personnalisées | [Règles internes](../usage/rules.md#commande-rules) |
-| `deps scan FICHIER…` | Analyse de manifestes / lockfiles | [Dépendances](../usage/dependencies.md) |
+| `deps scan FICHIER…` | Analyse de manifestes / lockfiles / SBOM CycloneDX | [Dépendances](../usage/dependencies.md) |
 | `advisories import PATH` / `advisories status` | Gestion de la base OSV hors ligne | [Dépendances](../usage/dependencies.md#base-de-vulnerabilites-hors-ligne-format-osv) |
 | `advisories update [--ecosystem E …]` | Télécharge les exports OSV (`SECREVIEW_OSV_*`, proxy facultatif) et les importe ; code `2` si un écosystème échoue | [Mise à jour automatique](../usage/dependencies.md#mise-a-jour-automatique-par-le-controleur) |
 | `gate --project P --fail-on SEV` | Gate de déploiement | [Gate](../ci-cd/gate.md) |

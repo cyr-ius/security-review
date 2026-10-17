@@ -661,9 +661,11 @@ def scan_dependencies(
     """Scan a manifest or lockfile for vulnerable versions and risky dependency practices.
 
     Check `vulnerability_check` first: when it is not `performed`, no vulnerability could be
-    detected and an empty list does NOT mean the dependencies are safe. Lockfiles give the best
-    results. Supported: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock,
-    uv.lock, package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts).
+    detected and an empty list does NOT mean the dependencies are safe. Lockfiles and SBOMs give
+    the best results. Supported: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock,
+    uv.lock, package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts) and
+    CycloneDX SBOMs (bom.json, bom.xml, *.cdx.json): use an SBOM for the transitive
+    dependencies of a Maven or Gradle project.
     """
     limit = get_settings().max_dependency_chars
     if len(content) > limit:

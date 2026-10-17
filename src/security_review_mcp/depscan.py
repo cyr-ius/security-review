@@ -17,12 +17,22 @@ def _check_state(parsed: Parsed, status: dict) -> tuple[str, list[str]]:
             "checks ran. Import OSV advisories with `security-review-controller advisories import`."
         )
         return "skipped_no_advisory_database", notes
-    if status["by_ecosystem"].get(parsed.ecosystem, 0) == 0:
+    # An SBOM may mix ecosystems: the check runs if at least one of them has advisories
+    ecosystems = sorted({c.ecosystem for c in parsed.components if c.version is not None}) or [
+        parsed.ecosystem
+    ]
+    missing = [e for e in ecosystems if status["by_ecosystem"].get(e, 0) == 0]
+    if len(missing) == len(ecosystems):
         notes.append(
-            f"The advisory database has no {parsed.ecosystem} advisory: vulnerable versions "
+            f"The advisory database has no {', '.join(missing)} advisory: vulnerable versions "
             "cannot be detected for this file."
         )
         return "skipped_no_advisories_for_ecosystem", notes
+    if missing:
+        notes.append(
+            f"The advisory database has no {', '.join(missing)} advisory: vulnerable versions "
+            "cannot be detected for the components of this ecosystem."
+        )
     if status["stale"]:
         notes.append(
             f"The advisory database was last imported {status['age_days']} days ago: recent "

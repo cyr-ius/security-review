@@ -273,6 +273,35 @@ async def test_scan_dependencies_tool(tmp_path):
         assert status["loaded"] is True
 
 
+def test_deps_scan_accepts_a_cyclonedx_sbom(tmp_path, capsys):
+    cli.run(["advisories", "import", str(import_osv(tmp_path, severity="HIGH"))])
+    sbom = tmp_path / "bom.json"
+    sbom.write_text(
+        json.dumps(
+            {"bomFormat": "CycloneDX", "components": [{"purl": "pkg:pypi/requests@2.19.0"}]}
+        ),
+        encoding="utf-8",
+    )
+    capsys.readouterr()
+    assert cli.run(["deps", "scan", str(sbom), "--require-database"]) == cli.EXIT_BLOCKED
+    out = capsys.readouterr().out
+    assert "bom.json (PyPI, lockfile)" in out and "PYSEC-1" in out
+
+
+@pytest.mark.anyio
+async def test_scan_dependencies_tool_accepts_a_cyclonedx_sbom(tmp_path):
+    cli.run(["advisories", "import", str(import_osv(tmp_path, severity="HIGH"))])
+    sbom = json.dumps(
+        {"bomFormat": "CycloneDX", "components": [{"purl": "pkg:pypi/requests@2.19.0"}]}
+    )
+    async with Client(server.mcp) as client:
+        result = await client.call_tool(
+            "scan_dependencies", {"content": sbom, "filename": "app.cdx.json"}
+        )
+        data = json.loads(text_of(result))
+    assert data["file_type"] == "CycloneDX" and data["vulnerabilities_count"] == 1
+
+
 @pytest.mark.anyio
 async def test_scan_dependencies_tool_limits_and_errors(monkeypatch):
     monkeypatch.setattr(get_settings(), "max_dependency_chars", 20)

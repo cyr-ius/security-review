@@ -53,7 +53,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `check_project_gate` | CI gate: `passed` is false while an **open** finding reaches the `fail_on` threshold |
 | `export_sarif` | SARIF 2.1.0 export of a report or a project |
 | `get_trend_report` | Trend of a project: new / fixed, backlog, risk score, MTTR |
-| `scan_dependencies` | Analysis of a manifest / lockfile: vulnerable versions + hygiene |
+| `scan_dependencies` | Analysis of a manifest, lockfile or CycloneDX SBOM: vulnerable versions + hygiene |
 | `get_advisory_status` | Size and age of the vulnerability database |
 | `request_enrollment` | Requests a token for a first project or the addition of a project to the presented token, after approval by an administrator ([enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token)) |
 | `list_development_standards` / `get_development_standards` | [Development standards](standards.md): catalog, then the standards to apply for technologies or file names |

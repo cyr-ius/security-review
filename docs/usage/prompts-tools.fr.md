@@ -53,7 +53,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `check_project_gate` | Gate CI : `passed` est faux tant qu'un finding **ouvert** atteint le seuil `fail_on` |
 | `export_sarif` | Export SARIF 2.1.0 d'un rapport ou d'un projet |
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
-| `scan_dependencies` | Analyse d'un manifeste / lockfile : versions vulnérables + hygiène |
+| `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
 | `request_enrollment` | Demande un jeton pour un premier projet ou l'ajout d'un projet au jeton présenté, après approbation par un administrateur ([enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton)) |
 | `list_development_standards` / `get_development_standards` | [Normes de développement](standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |

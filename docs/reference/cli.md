@@ -40,7 +40,7 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 | `code scan [PATH]` | Whole repository scan | [Whole codebase scan](../usage/code-scan.md) |
 | `rules list` / `rules import PATH…` / `rules export` | Lists, imports (TOML packs) or exports the rules stored in the database | [Internal rules](../usage/rules.md#rules-command) |
 | `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Enables, disables (default or custom rules) or deletes custom rules | [Internal rules](../usage/rules.md#rules-command) |
-| `deps scan FILE…` | Analysis of manifests / lockfiles | [Dependencies](../usage/dependencies.md) |
+| `deps scan FILE…` | Analysis of manifests / lockfiles / CycloneDX SBOMs | [Dependencies](../usage/dependencies.md) |
 | `advisories import PATH` / `advisories status` | Management of the offline OSV database | [Dependencies](../usage/dependencies.md#offline-vulnerability-database-osv-format) |
 | `advisories update [--ecosystem E …]` | Downloads the OSV exports (`SECREVIEW_OSV_*`, optional proxy) and imports them; code `2` if an ecosystem fails | [Automatic update](../usage/dependencies.md#automatic-update-by-the-controller) |
 | `gate --project P --fail-on SEV` | Deployment gate | [Gate](../ci-cd/gate.md) |

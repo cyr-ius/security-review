@@ -4,11 +4,36 @@
 
 `requirements*.txt`, `pyproject.toml` (PEP 621/735, Poetry), `poetry.lock`, `Pipfile.lock`,
 `uv.lock`, `package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 and
-berry), `pom.xml`, `build.gradle(.kts)`.
+berry), `pom.xml`, `build.gradle(.kts)`, CycloneDX SBOMs (`bom.json`, `bom.xml`, `sbom.json`,
+`*.cdx.json`, `*.cdx.xml`...).
 
 In a `uv.lock`, the project itself and its workspace members (editable or virtual sources) are
 not dependencies and are skipped; any other `git`, `url`, `path`, `directory` or `editable`
 source raises `DEP-003`.
+
+### CycloneDX SBOM (transitive dependencies)
+
+`pom.xml` and `build.gradle` only list the direct dependencies: their transitive dependencies,
+often the vulnerable ones, are not checked (a note says so in the result). Generate a CycloneDX
+SBOM of the resolved dependency tree in the pipeline and scan it:
+
+```bash
+# Maven: writes target/bom.json and target/bom.xml
+mvn org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
+security-review-controller deps scan target/bom.json --require-database
+```
+
+With Gradle, the `cyclonedxBom` task of the `org.cyclonedx.bom` plugin produces the same file;
+`npm sbom --sbom-format cyclonedx` does it for npm.
+
+- The SBOM is read in JSON (`bomFormat: "CycloneDX"`) or XML (CycloneDX namespace); nested
+  components are included. An XML SBOM with a `DOCTYPE` or `ENTITY` is refused.
+- Each component is identified by its package URL (`purl`): `pkg:maven/...` (Maven),
+  `pkg:npm/...` (npm) and `pkg:pypi/...` (PyPI). An SBOM may mix these ecosystems. The other
+  types (`pkg:golang`, `pkg:nuget`...) and the components without a `purl` are counted in a
+  note and not checked.
+- The versions are resolved: the SBOM is handled like a lockfile. A component of scope
+  `excluded` is marked `dev`; a Maven `-SNAPSHOT` version raises `DEP-002`.
 
 ## Offline vulnerability database (OSV format)
 
@@ -174,6 +199,8 @@ The `vulnerability_check` field says whether the check took place:
 - A database older than 30 days is reported.
 - A severity missing from the advisory is handled as `medium` (`severity_known: false`).
 - Range versions (`>=2`) cannot be checked: analyze the lockfile.
+- For an SBOM that mixes ecosystems, the check is `performed` as soon as one of them has
+  advisories; a note names the ecosystems that could not be checked.
 - Each component is marked `dev` or not. In `pyproject.toml`, the extras named after
   development (`dev`, `test`, `docs`, `lint`...) and the `[dependency-groups]` are `dev`; the
   other extras (`postgres`...) are installed in production and stay runtime dependencies.
