@@ -129,6 +129,11 @@ docker compose logs controller   # mot de passe admin initial
 - Les conteneurs tournent en système de fichiers en lecture seule, sans capacité Linux. Le
   volume `secreview-pg` contient les rapports, les comptes de l'interface web et les jetons :
   sauvegardez-le.
+- Le service `db` utilise PostgreSQL 18, dont l'image range les données dans un répertoire par
+  version majeure : le volume `secreview-pg` est monté sur `/var/lib/postgresql` (et non
+  `/var/lib/postgresql/data`). Un volume créé par PostgreSQL 17 ne démarre pas avec cette image
+  (`Error: in 18+, these Docker images are configured to store database data in a format...`) :
+  voir [Mise à niveau de PostgreSQL](#mise-a-niveau-de-postgresql).
 
 Pour ajouter le TLS ou des règles internes, complétez `environment` et `volumes` du service
 concerné. Les commandes CLI s'exécutent dans le conteneur du contrôleur :
@@ -136,6 +141,33 @@ concerné. Les commandes CLI s'exécutent dans le conteneur du contrôleur :
 ```bash
 docker compose exec controller security-review-controller gate --project portal --fail-on high
 ```
+
+## Mise à niveau de PostgreSQL
+
+Une version majeure de PostgreSQL ne lit pas les fichiers de données de la précédente. Pour
+passer un volume `secreview-pg` de PostgreSQL 17 à 18, exportez la base avec l'ancienne image,
+recréez le volume puis restaurez l'export :
+
+```bash
+# 1. Avec le fichier Compose précédent (postgres:17-alpine, montage sur /var/lib/postgresql/data)
+docker compose stop mcp controller
+(umask 077 && docker compose exec -T db pg_dump -U secreview -d secreview -Fc > ~/secreview.dump)
+docker compose down
+
+# 2. Vérifier l'export (il liste les tables), puis recréer le volume : l'export est désormais
+#    la seule copie des données
+docker compose run --rm -T --no-deps --entrypoint pg_restore db --list < ~/secreview.dump | grep 'TABLE DATA'
+docker volume rm security-review-mcp_secreview-pg
+
+# 3. Avec le fichier Compose actuel (postgres:18-alpine, montage sur /var/lib/postgresql)
+docker compose up -d db
+docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exists --no-owner < ~/secreview.dump
+docker compose up -d
+```
+
+Le service `migrate` applique ensuite les révisions Alembic en attente, s'il y en a. L'export
+contient les rapports, les empreintes des mots de passe et des jetons : gardez-le hors du dépôt
+(lisible par vous seul, `umask 077`) et supprimez-le une fois la restauration vérifiée.
 
 ## Règles internes et CLI
 

@@ -128,6 +128,11 @@ docker compose logs controller   # initial admin password
 - The containers run with a read-only file system, without any Linux capability. The
   `secreview-pg` volume holds the reports, the web interface accounts and the tokens: back it
   up.
+- The `db` service uses PostgreSQL 18, whose image stores the data in a major-version
+  directory: the `secreview-pg` volume is mounted on `/var/lib/postgresql` (not
+  `/var/lib/postgresql/data`). A volume created by PostgreSQL 17 does not start with this image
+  (`Error: in 18+, these Docker images are configured to store database data in a format...`):
+  see [Upgrading PostgreSQL](#upgrading-postgresql).
 
 To add TLS or internal rules, complete `environment` and `volumes` of the service concerned.
 CLI commands run in the controller container:
@@ -135,6 +140,33 @@ CLI commands run in the controller container:
 ```bash
 docker compose exec controller security-review-controller gate --project portal --fail-on high
 ```
+
+## Upgrading PostgreSQL
+
+A PostgreSQL major version does not read the data files of the previous one. To move a
+`secreview-pg` volume from PostgreSQL 17 to 18, dump the database with the old image, recreate
+the volume and restore the dump:
+
+```bash
+# 1. With the previous Compose file (postgres:17-alpine, mount on /var/lib/postgresql/data)
+docker compose stop mcp controller
+(umask 077 && docker compose exec -T db pg_dump -U secreview -d secreview -Fc > ~/secreview.dump)
+docker compose down
+
+# 2. Check the dump (it lists the tables), then recreate the volume: the dump is the only copy
+#    of the data from now on
+docker compose run --rm -T --no-deps --entrypoint pg_restore db --list < ~/secreview.dump | grep 'TABLE DATA'
+docker volume rm security-review-mcp_secreview-pg
+
+# 3. With the current Compose file (postgres:18-alpine, mount on /var/lib/postgresql)
+docker compose up -d db
+docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exists --no-owner < ~/secreview.dump
+docker compose up -d
+```
+
+The `migrate` service then applies the pending Alembic revisions, if any. The dump holds the
+reports, the password hashes and the token fingerprints: keep it out of the repository (readable
+by you only, `umask 077`) and delete it once the restore is checked.
 
 ## Internal rules and CLI
 

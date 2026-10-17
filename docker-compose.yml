@@ -41,14 +41,17 @@ x-secreview: &secreview
 
 services:
   db:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: secreview
       POSTGRES_USER: secreview
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
-      - secreview-pg:/var/lib/postgresql/data
+      # PostgreSQL 18+ images keep the data in a major-version directory (/var/lib/postgresql/18/
+      # docker): mount the parent directory. A volume from PostgreSQL 17 must be dumped and
+      # restored, see docs/advanced/docker.md.
+      - secreview-pg:/var/lib/postgresql
     networks:
       - backend
     healthcheck:
