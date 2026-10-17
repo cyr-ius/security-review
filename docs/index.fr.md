@@ -1,4 +1,4 @@
-# security-review-mcp
+# Security Review MCP
 
 Serveur MCP pour la **revue de code orientée sécurité** (failles et mauvaises configurations).
 Il fournit à l'hôte (VS Code, Copilot, Claude, agent CI/CD) :
