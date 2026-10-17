@@ -9,6 +9,8 @@ copyright: Security Review MCP
 theme:
   name: material
   language: en
+  # Same icon as the web interface (src/security_review_mcp/favicon.svg, kept identical by a test)
+  favicon: assets/favicon.svg
   features:
     - navigation.sections
     - navigation.top

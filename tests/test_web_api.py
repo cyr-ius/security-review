@@ -2,6 +2,7 @@
 
 import logging
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 
 import jwt
 import pytest
@@ -170,6 +171,12 @@ def test_favicon_is_served_and_used_by_swagger(ui_dir):
     # Neither is part of the API schema
     paths = bare.get("/api/openapi.json").json()["paths"]
     assert "/api/favicon.svg" not in paths and "/api/docs" not in paths
+
+
+def test_documentation_uses_the_web_interface_favicon():
+    # The MkDocs site (docs/assets/favicon.svg) must show the same icon as the web interface
+    docs_icon = Path(__file__).parents[1] / "docs" / "assets" / "favicon.svg"
+    assert docs_icon.read_bytes() == web_api.FAVICON
 
 
 def test_projects(client, reports):
