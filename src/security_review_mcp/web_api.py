@@ -254,16 +254,26 @@ class EnrollmentApproval(BaseModel):
 
 
 class ProjectTokenCreate(BaseModel):
-    """A role-specific token scoped to one or several projects."""
+    """A role-specific token scoped to one or several projects, or to every project."""
 
     label: str = Field(min_length=1, max_length=64)
     # ci: pipeline token (gate, SARIF and trend of its projects only, see ci_client)
     role: Literal["mcp", "reader", "triager", "ci"] = "reader"
-    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
+    # null: every project (refused for a ci token)
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] | None = Field(
         min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
     )
     # Validity in days (null: SECREVIEW_TOKEN_MAX_DAYS, or no expiry when it is 0)
     expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
+
+
+class ProjectTokenProjects(BaseModel):
+    """Body of PUT /project-tokens/{id}/projects."""
+
+    # null: every project (refused for a ci token)
+    projects: list[Annotated[str, Field(min_length=1, max_length=200)]] | None = Field(
+        min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
 
 
 class ProjectTokenRotation(BaseModel):
@@ -1228,6 +1238,20 @@ async def set_custom_rule_enabled(
     return await _refresh_rules()
 
 
+async def _check_known_projects(projects: list[str] | None) -> None:
+    """Refuse a token for a project that has no report yet (None: every project)."""
+    if projects is None:
+        return
+    known = {item["project"] for item in await run_in_threadpool(services.list_projects)}
+    if not set(projects) <= known:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
+
+
+def _describe_projects(projects: list[str] | None) -> str:
+    """Projects of a token for the logs."""
+    return "every project" if projects is None else ", ".join(projects)
+
+
 @router.get("/project-tokens")
 async def project_tokens(
     identity: Annotated[Identity, Depends(require_admin)],
@@ -1241,10 +1265,9 @@ async def create_project_token(
     body: ProjectTokenCreate,
     identity: Annotated[Identity, Depends(require_admin)],
 ) -> dict[str, Any]:
-    """Create a scoped token for existing projects and return its secret exactly once."""
-    known = {item["project"] for item in await run_in_threadpool(services.list_projects)}
-    if not set(body.projects) <= known:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
+    """Create a token for existing projects (or every project, ``projects`` null) and return
+    its secret exactly once."""
+    await _check_known_projects(body.projects)
     try:
         created = await run_in_threadpool(
             token_store.create_project_token,
@@ -1260,10 +1283,34 @@ async def create_project_token(
         "Project token %s (%s) created for %s by %s",
         body.label,
         body.role,
-        ", ".join(created["projects"]),
+        _describe_projects(created["projects"]),
         identity.client,
     )
     return created
+
+
+@router.put("/project-tokens/{token_id}/projects")
+async def update_project_token_projects(
+    token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
+    body: ProjectTokenProjects,
+    identity: Annotated[Identity, Depends(require_admin)],
+) -> dict[str, Any]:
+    """Change the projects of a token (``projects`` null: every project); its secret stays."""
+    await _check_known_projects(body.projects)
+    try:
+        updated = await run_in_threadpool(
+            token_store.set_token_projects, token_id, body.projects, actor_of(identity)
+        )
+    except ValueError as exc:
+        code = status.HTTP_404_NOT_FOUND if "not found" in str(exc) else 422
+        raise HTTPException(code, str(exc)) from exc
+    logger.info(
+        "Projects of token %s set to %s by %s",
+        updated["label"],
+        _describe_projects(updated["projects"]),
+        identity.client,
+    )
+    return updated
 
 
 @router.delete("/project-tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)

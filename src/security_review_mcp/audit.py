@@ -43,6 +43,7 @@ class AuditAction(StrEnum):
     TOKEN_CREATED = "token.created"
     TOKEN_ROTATED = "token.rotated"
     TOKEN_REVOKED = "token.revoked"
+    TOKEN_PROJECTS_CHANGED = "token.projects_changed"
     ENROLLMENT_REQUESTED = "enrollment.requested"
     ENROLLMENT_APPROVED = "enrollment.approved"
     ENROLLMENT_REJECTED = "enrollment.rejected"

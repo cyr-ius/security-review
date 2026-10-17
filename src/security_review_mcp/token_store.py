@@ -18,7 +18,12 @@ nothing but stays listed, so that an administrator rotates or revokes it. A rota
 secret of a token (same id, label, role and projects); the previous secret may keep working
 during a grace period, so that its clients are updated without an interruption.
 
-Every creation, rotation, revocation and enrollment decision is written to the audit log.
+The web interface manages the ``mcp``, ``reader``, ``triager`` and ``ci`` tokens (WEB_TOKEN_ROLES):
+an administrator creates them for some projects or for every project, changes their projects,
+rotates and revokes them. The ``admin`` and ``metrics`` tokens are managed with the CLI only.
+
+Every creation, rotation, revocation, change of projects and enrollment decision is written to
+the audit log.
 """
 
 import hmac
@@ -64,6 +69,8 @@ MAX_ADDRESS_CHARS = 64
 MAX_ROTATION_GRACE_HOURS = 168
 # Roles whose rights cannot be scoped to projects
 UNSCOPED_ROLES = frozenset({Role.ADMIN, Role.METRICS})
+# Roles of the tokens managed in the web interface (admin and metrics tokens: CLI only)
+WEB_TOKEN_ROLES = frozenset({Role.MCP, Role.READER, Role.TRIAGER, Role.CI})
 
 
 def _is_pending(row: ApiToken) -> bool:
@@ -469,7 +476,8 @@ def rotate_token(
     The token keeps its id, label, role and projects. During ``grace_hours`` (at most
     MAX_ROTATION_GRACE_HOURS) the previous secret keeps working, unless the token had expired:
     an expired secret never comes back. The new expiry date follows ``expires_in_days`` (same
-    rules as create_token). ``project_token`` (web interface) only accepts a project token.
+    rules as create_token). ``project_token`` (web interface) only accepts a token of
+    WEB_TOKEN_ROLES.
 
     Raises:
         ValueError: Unknown token, enrollment request still pending, or bounds exceeded.
@@ -481,9 +489,7 @@ def rotate_token(
     token = secrets.token_urlsafe(32)
     statement = select(ApiToken).where(or_(ApiToken.id == reference, ApiToken.label == reference))
     if project_token:
-        statement = select(ApiToken).where(
-            ApiToken.id == reference, col(ApiToken.project).is_not(None)
-        )
+        statement = _web_token_query(reference)
     with session_scope() as session:
         row = session.exec(statement).first()
         if row is None:
@@ -539,34 +545,114 @@ def token_counts(expiring_within: timedelta = timedelta(days=14)) -> dict[str, A
 # ── Project tokens (web interface) ───────────────────────────────────────────
 
 
+def _web_token_query(token_id: str) -> Any:
+    """SELECT of a token managed in the web interface (role in WEB_TOKEN_ROLES), by id."""
+    return select(ApiToken).where(
+        ApiToken.id == token_id, col(ApiToken.role).in_([role.value for role in WEB_TOKEN_ROLES])
+    )
+
+
 def list_project_tokens() -> list[dict[str, Any]]:
-    """Return the metadata of the active project-scoped tokens."""
+    """Return the metadata of the active tokens managed in the web interface.
+
+    They are the ``mcp``, ``reader``, ``triager`` and ``ci`` tokens, restricted to projects
+    (``projects`` lists them) or reaching every project (``projects`` None).
+    """
     return [
         token
         for token in list_tokens()
-        if token["projects"] is not None and token["status"] == ACTIVE
+        if token["role"] in WEB_TOKEN_ROLES and token["status"] == ACTIVE
     ]
 
 
 def create_project_token(
     label: str,
-    projects: str | Iterable[str],
+    projects: str | Iterable[str] | None,
     role: Role | str = Role.READER,
     expires_in_days: int | None = None,
     actor: str | None = None,
 ) -> dict[str, Any]:
-    """Create a role-specific token restricted to one or several projects."""
-    if _clean_projects(projects) is None:
-        raise ValueError("A project token needs at least one project")
-    return create_token(label, role, projects, expires_in_days, actor)
+    """Create a token of WEB_TOKEN_ROLES for one or several projects, or for every project
+    (``projects`` None; refused for ``ci``, see create_token)."""
+    try:
+        if Role(str(role).strip().lower()) not in WEB_TOKEN_ROLES:
+            raise ValueError
+    except ValueError:
+        raise ValueError(f"A {role} token cannot be created in the web interface") from None
+    return create_token(label, role, _scope(projects), expires_in_days, actor)
+
+
+def _scope(projects: str | Iterable[str] | None) -> list[str] | None:
+    """Validate the projects of a web token: None gives every project, an empty list is refused
+    (never read as every project)."""
+    cleaned = _clean_projects(projects)
+    if projects is not None and cleaned is None:
+        raise ValueError("A project token needs at least one project (None: every project)")
+    return cleaned
+
+
+def set_token_projects(
+    token_id: str, projects: str | Iterable[str] | None, actor: str | None = None
+) -> dict[str, Any]:
+    """Change the projects of a token of WEB_TOKEN_ROLES and return its metadata.
+
+    ``projects`` replaces the approved projects; None gives the token every project (refused
+    for ``ci``). A pending enrollment request for a project now granted is approved with the
+    change; with every project, the pending requests are dropped (the token reaches them). The
+    other pending requests keep waiting. The change is audited with ``actor``.
+
+    Raises:
+        ValueError: Unknown token, enrollment request still pending, ``ci`` token for every
+            project, or more than MAX_PROJECTS_PER_TOKEN projects granted or requested.
+    """
+    cleaned = _scope(projects)
+    wanted = set(cleaned or [])
+    with session_scope() as session:
+        row = session.exec(_web_token_query(token_id)).first()
+        if row is None:
+            raise ValueError(f"Project token '{token_id}' was not found")
+        if _is_pending(row):
+            raise ValueError("An enrollment request waiting for approval cannot be changed")
+        if cleaned is None and row.role == Role.CI:
+            raise ValueError("A ci token must be restricted to at least one project")
+        links = _links(session, [row.id])[row.id]
+        previous = _active_projects(row, links)
+        # Pending requests for other projects keep waiting (dropped with every project)
+        waiting = {
+            link.id
+            for link in links
+            if cleaned is not None and link.status == PENDING and link.project not in wanted
+        }
+        if len(wanted) + len(waiting) > MAX_PROJECTS_PER_TOKEN:
+            raise ValueError(f"A token may reach at most {MAX_PROJECTS_PER_TOKEN} projects")
+        for link in links:
+            if link.project in wanted:
+                link.status = ACTIVE
+                session.add(link)
+            elif link.id not in waiting:
+                session.delete(link)
+        known = {link.project for link in links}
+        session.add_all(
+            _new_link(row.id, name, ACTIVE) for name in cleaned or [] if name not in known
+        )
+        row.project = cleaned[0] if cleaned else None
+        session.add(row)
+        session.flush()
+        updated = _public(row, _links(session, [row.id])[row.id])
+        _audit_token(
+            session,
+            AuditAction.TOKEN_PROJECTS_CHANGED,
+            actor,
+            updated,
+            previous_projects=previous,
+        )
+    return updated
 
 
 def revoke_project_token(token_id: str, actor: str | None = None) -> None:
-    """Delete a project token by id; other tokens cannot be revoked this way."""
+    """Delete a token of WEB_TOKEN_ROLES by id; other tokens cannot be revoked this way."""
     with session_scope() as session:
-        row = session.exec(
-            select(ApiToken).where(ApiToken.id == token_id, col(ApiToken.project).is_not(None))
-        ).first()
+        row = session.exec(_web_token_query(token_id)).first()
         if row is None:
             raise ValueError(f"Project token '{token_id}' was not found")
         revoked = _public(row, _links(session, [row.id])[row.id])

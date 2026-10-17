@@ -84,18 +84,23 @@ renvoyés par l'API restent en anglais.
 - **Mon compte** : affiche le type du compte. Un utilisateur local y change son mot de passe (ses
   autres sessions sont fermées) ; celui d'un utilisateur SSO est géré par le fournisseur
   d'identité.
-- **Jetons** : les administrateurs créent et révoquent des jetons limités à un ou plusieurs
-  projets. Le champ **Usage** choisit **MCP** (rôle `mcp`), **API REST** ou **Pipeline CI/CD**
+- **Jetons** : les administrateurs créent et révoquent des jetons pour un ou plusieurs
+  projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit **MCP** (rôle `mcp`), **API REST** ou **Pipeline CI/CD**
   (rôle `ci`, pour [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)) ;
   pour l'API REST, **Droits API** choisit **Lecture seule** (`reader`) ou **Lecture et triage**
-  (`triager`). Les cases **Projets autorisés** sélectionnent les projets que voit le jeton ;
+  (`triager`). Sous **Projets autorisés**, **Tous les projets** donne tous les projets, y
+  compris ceux revus plus tard, et **Projets sélectionnés** affiche les cases des projets que voit
+  le jeton ;
   **Validité** fixe sa durée de vie (30 jours à 1 an, ou le défaut du serveur,
-  `SECREVIEW_TOKEN_MAX_DAYS`). La liste affiche l'usage de chaque jeton et sa date d'expiration
-  (**Expiré** une fois passée). **Renouveler** remplace le secret d'un jeton et affiche le
+  `SECREVIEW_TOKEN_MAX_DAYS`). La liste affiche l'usage de chaque jeton `mcp`, `reader`,
+  `triager` et `ci`, ses projets et sa date d'expiration (**Expiré** une fois passée).
+  **Projets** change les projets d'un jeton existant, ou lui donne **Tous les projets** après
+  confirmation, sans changer son secret : le changement s'applique dès la requête suivante ; une
+  demande en attente pour un projet désormais accordé est approuvée avec lui. **Renouveler** remplace le secret d'un jeton et affiche le
   nouveau une fois ; l'ancien reste valable pendant le délai de grâce choisi au-dessus de la
   liste (aucun, 1 h, 24 h ou 7 jours, voir
-  [expiration et renouvellement](../advanced/http.md#expiration-et-renouvellement-des-jetons)). Un jeton n'ouvre jamais l'interface web. Le rôle `admin` reste non restreint et se crée par la
-  CLI. Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
+  [expiration et renouvellement](../advanced/http.md#expiration-et-renouvellement-des-jetons)). Un jeton n'ouvre jamais l'interface web. Les jetons `admin` et `metrics` restent non
+  restreints et se gèrent uniquement par la CLI. Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
   données. Une révocation prend effet à la requête suivante. La section
   **Demandes en attente** distingue les nouveaux jetons des demandes d'accès à un projet
   supplémentaire ([enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton)) :

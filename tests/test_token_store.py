@@ -6,8 +6,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlmodel import Session, select
 
+from security_review_mcp import audit, token_store, web_users
 from security_review_mcp import database as database_module
-from security_review_mcp import token_store, web_users
 from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role, TokenInfo, hash_token
 from security_review_mcp.models import ApiToken, ApiTokenProject
@@ -567,3 +567,83 @@ def test_token_counts_by_role_and_state(database):
     }
     assert counts["expiring_soon"] == 1
     assert counts["pending_enrollments"] == 1
+
+
+# ── Projects of a web token ──────────────────────────────────────────────────
+
+
+def test_web_token_for_every_project():
+    created = token_store.create_project_token("portal", None, Role.TRIAGER)
+
+    assert (created["project"], created["projects"]) == (None, None)
+    info = STORE.lookup(digest_of(created["token"]))
+    assert (info.role, info.projects) == (Role.TRIAGER, None)
+    assert [token["label"] for token in token_store.list_project_tokens()] == ["portal"]
+    # An empty list is refused, never read as every project
+    with pytest.raises(ValueError, match="at least one project"):
+        token_store.create_project_token("empty", [])
+    with pytest.raises(ValueError, match="ci token must be restricted"):
+        token_store.create_project_token("pipeline", None, Role.CI)
+    with pytest.raises(ValueError, match="cannot be created in the web interface"):
+        token_store.create_project_token("boss", None, Role.ADMIN)
+
+
+def test_set_token_projects_restricts_and_widens_a_token(database):
+    created = token_store.create_project_token("dev", ["shop-api"], Role.MCP)
+    digest = digest_of(created["token"])
+
+    widened = token_store.set_token_projects(created["id"], None, actor="user:root")
+
+    assert (widened["project"], widened["projects"]) == (None, None)
+    assert STORE.lookup(digest).projects is None
+    assert link_rows(database) == []
+    restricted = token_store.set_token_projects(created["id"], ["billing", " shop-api "])
+    assert (restricted["project"], restricted["projects"]) == ("billing", ["billing", "shop-api"])
+    assert STORE.lookup(digest).projects == frozenset({"billing", "shop-api"})
+    # The secret is kept and every change is audited with the previous projects
+    (latest, first) = audit.list_events(action="token.projects_changed")["events"]
+    assert (first["actor"], first["details"]["previous_projects"]) == ("user:root", ["shop-api"])
+    assert (latest["details"]["previous_projects"], latest["details"]["projects"]) == (
+        None,
+        ["billing", "shop-api"],
+    )
+
+
+def test_set_token_projects_settles_the_pending_requests(database):
+    created = token_store.create_project_token("dev", ["shop-api"], Role.MCP)
+    token_store.request_additional_project(created["id"], "billing")
+    token_store.request_additional_project(created["id"], "crm")
+
+    updated = token_store.set_token_projects(created["id"], ["billing"])
+
+    # The granted request is approved, the other one keeps waiting
+    assert (updated["projects"], updated["pending_projects"]) == (["billing"], ["crm"])
+    assert [request["project"] for request in token_store.list_enrollments()] == ["crm"]
+    widened = token_store.set_token_projects(created["id"], None)
+    assert (widened["projects"], widened["pending_projects"]) == (None, [])
+    assert token_store.list_enrollments() == []
+
+
+def test_set_token_projects_refusals():
+    admin = token_store.create_token("ops", Role.ADMIN)
+    ci = token_store.create_project_token("pipeline", ["shop-api"], Role.CI)
+    reader = token_store.create_project_token("reader", ["shop-api"])
+    pending = token_store.request_enrollment("billing", label="newcomer")
+
+    with pytest.raises(ValueError, match="not found"):
+        token_store.set_token_projects(admin["id"], ["shop-api"])
+    with pytest.raises(ValueError, match="not found"):
+        token_store.set_token_projects("missing", None)
+    with pytest.raises(ValueError, match="ci token must be restricted"):
+        token_store.set_token_projects(ci["id"], None)
+    with pytest.raises(ValueError, match="at least one project"):
+        token_store.set_token_projects(reader["id"], [])
+    with pytest.raises(ValueError, match="waiting for approval"):
+        token_store.set_token_projects(pending["id"], ["billing"])
+    with pytest.raises(ValueError, match="at most"):
+        token_store.set_token_projects(
+            reader["id"], [f"p{index}" for index in range(token_store.MAX_PROJECTS_PER_TOKEN + 1)]
+        )
+    # Nothing changed
+    assert STORE.lookup(digest_of(ci["token"])).projects == frozenset({"shop-api"})
+    assert STORE.lookup(digest_of(admin["token"])).projects is None

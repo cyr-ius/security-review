@@ -111,7 +111,10 @@ security-review-controller token create --label shop-ci --project shop-api      
 security-review-controller token create --label shop-triage --role triager --project shop-api
 ```
 
-Un jeton sans `--project` accède à tous les projets. Un jeton restreint :
+Un jeton sans `--project` accède à tous les projets. Dans l'interface web, l'écran
+[**Jetons**](../usage/web-interface.md#ecrans) crée un jeton pour certains projets ou pour
+**Tous les projets**, et change les projets d'un jeton existant (sauf `admin` et `metrics` ; un
+jeton `ci` garde toujours au moins un projet). Un jeton restreint :
 
 - n'enregistre de rapport (`save_security_report`) que pour son projet ;
 - ne lit, ne liste, n'exporte et ne trie (`propose_finding_status`, `PATCH` de l'API web) que les

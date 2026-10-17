@@ -105,7 +105,10 @@ security-review-controller token create --label shop-ci --project shop-api      
 security-review-controller token create --label shop-triage --role triager --project shop-api
 ```
 
-A token without `--project` reaches every project. A restricted token:
+A token without `--project` reaches every project. In the web interface, the
+[**Tokens**](../usage/web-interface.md#screens) screen creates a token for some projects
+or for **All projects**, and changes the projects of an existing token (except `admin` and
+`metrics`; a `ci` token always keeps at least one project). A restricted token:
 
 - only saves reports (`save_security_report`) for its project;
 - only reads, lists, exports and triages (`propose_finding_status`, `PATCH` of the web API) the

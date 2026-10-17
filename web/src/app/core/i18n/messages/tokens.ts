@@ -4,7 +4,7 @@ import { defineMessages } from '../catalog';
 export const tokens = defineMessages({
   en: {
     'tokens.title': 'Project tokens',
-    'tokens.subtitle': 'Access limited to the selected projects',
+    'tokens.subtitle': 'Access to the selected projects or to every project',
     'tokens.newToken': 'New token',
     'tokens.copyNow': 'Copy this token now',
     'tokens.notShownAgain': 'It will not be shown again once you leave this page.',
@@ -46,7 +46,7 @@ export const tokens = defineMessages({
     'tokens.pendingProjects': 'Pending: {projects}',
     'tokens.revokeToken': 'Revoke token {label}',
     'tokens.revoke': 'Revoke',
-    'tokens.empty': 'No project tokens.',
+    'tokens.empty': 'No tokens.',
     'tokens.labelRequired': 'The label is required',
     'tokens.created': 'Token “{label}” ({usage}) created for {projects}.',
     'tokens.confirmApprovePortal':
@@ -64,6 +64,13 @@ export const tokens = defineMessages({
     'tokens.copyFailed': 'Copy impossible; select the token and copy it manually.',
     'tokens.confirmRevoke': 'Revoke token “{label}”?',
     'tokens.revoked': 'Token “{label}” revoked.',
+    'tokens.allProjectsHelp': 'Every project, including the projects reviewed later.',
+    'tokens.pipelineProjects': 'A CI/CD token is always restricted to projects.',
+    'tokens.editProjects': 'Projects',
+    'tokens.editProjectsOf': 'Change the projects of token {label}',
+    'tokens.confirmAllProjects':
+      'Give token “{label}” access to every project, including the projects reviewed later?',
+    'tokens.projectsUpdated': 'Projects of token “{label}” changed: {projects}.',
     'tokens.portalRefusedDetail': 'Portal access refused: {detail}',
     'tokens.portalRefused': 'Portal access refused: check the username of the user.',
     'tokens.portalConflict':
@@ -98,7 +105,7 @@ export const tokens = defineMessages({
   },
   fr: {
     'tokens.title': 'Jetons de projet',
-    'tokens.subtitle': 'Accès limité aux projets sélectionnés',
+    'tokens.subtitle': 'Accès aux projets sélectionnés ou à tous les projets',
     'tokens.newToken': 'Nouveau jeton',
     'tokens.copyNow': 'Copiez ce jeton maintenant',
     'tokens.notShownAgain': 'Il ne sera plus affiché après avoir quitté cette page.',
@@ -140,7 +147,7 @@ export const tokens = defineMessages({
     'tokens.pendingProjects': 'En attente : {projects}',
     'tokens.revokeToken': 'Révoquer le jeton {label}',
     'tokens.revoke': 'Révoquer',
-    'tokens.empty': 'Aucun jeton de projet.',
+    'tokens.empty': 'Aucun jeton.',
     'tokens.labelRequired': 'Le label est obligatoire',
     'tokens.created': 'Jeton « {label} » ({usage}) créé pour {projects}.',
     'tokens.confirmApprovePortal':
@@ -158,6 +165,13 @@ export const tokens = defineMessages({
     'tokens.copyFailed': 'Copie impossible ; sélectionnez le jeton et copiez-le manuellement.',
     'tokens.confirmRevoke': 'Révoquer le jeton « {label} » ?',
     'tokens.revoked': 'Jeton « {label} » révoqué.',
+    'tokens.allProjectsHelp': 'Tous les projets, y compris ceux revus plus tard.',
+    'tokens.pipelineProjects': 'Un jeton CI/CD est toujours limité à des projets.',
+    'tokens.editProjects': 'Projets',
+    'tokens.editProjectsOf': 'Modifier les projets du jeton {label}',
+    'tokens.confirmAllProjects':
+      'Donner au jeton « {label} » l’accès à tous les projets, y compris ceux revus plus tard ?',
+    'tokens.projectsUpdated': 'Projets du jeton « {label} » modifiés : {projects}.',
     'tokens.portalRefusedDetail': 'Accès portail refusé : {detail}',
     'tokens.portalRefused': "Accès portail refusé : vérifiez l'identifiant de l'utilisateur.",
     'tokens.portalConflict':
@@ -192,7 +206,7 @@ export const tokens = defineMessages({
   },
   es: {
     'tokens.title': 'Tokens de proyecto',
-    'tokens.subtitle': 'Acceso limitado a los proyectos seleccionados',
+    'tokens.subtitle': 'Acceso a los proyectos seleccionados o a todos los proyectos',
     'tokens.newToken': 'Nuevo token',
     'tokens.copyNow': 'Copie este token ahora',
     'tokens.notShownAgain': 'No se volverá a mostrar después de salir de esta página.',
@@ -234,7 +248,7 @@ export const tokens = defineMessages({
     'tokens.pendingProjects': 'Pendiente: {projects}',
     'tokens.revokeToken': 'Revocar el token {label}',
     'tokens.revoke': 'Revocar',
-    'tokens.empty': 'No hay tokens de proyecto.',
+    'tokens.empty': 'No hay tokens.',
     'tokens.labelRequired': 'La etiqueta es obligatoria',
     'tokens.created': 'Token «{label}» ({usage}) creado para {projects}.',
     'tokens.confirmApprovePortal':
@@ -252,6 +266,13 @@ export const tokens = defineMessages({
     'tokens.copyFailed': 'No se pudo copiar; seleccione el token y cópielo manualmente.',
     'tokens.confirmRevoke': '¿Revocar el token «{label}»?',
     'tokens.revoked': 'Token «{label}» revocado.',
+    'tokens.allProjectsHelp': 'Todos los proyectos, incluidos los revisados más adelante.',
+    'tokens.pipelineProjects': 'Un token CI/CD siempre está limitado a proyectos.',
+    'tokens.editProjects': 'Proyectos',
+    'tokens.editProjectsOf': 'Cambiar los proyectos del token {label}',
+    'tokens.confirmAllProjects':
+      '¿Dar al token «{label}» acceso a todos los proyectos, incluidos los revisados más adelante?',
+    'tokens.projectsUpdated': 'Proyectos del token «{label}» cambiados: {projects}.',
     'tokens.portalRefusedDetail': 'Acceso al portal rechazado: {detail}',
     'tokens.portalRefused': 'Acceso al portal rechazado: compruebe el nombre del usuario.',
     'tokens.portalConflict':
