@@ -251,3 +251,8 @@ Une version correspond à un tag poussé sur `master` :
 3. Sur `master`, poussez le tag correspondant : `git tag v1.3.0 && git push origin v1.3.0`.
 4. Le push du tag déclenche `publish.yml` : lint et tests, vérification que le tag correspond à
    la version, publication sur PyPI puis création de la release GitHub.
+
+Chaque action des workflows est épinglée sur le SHA complet d'un commit, avec sa version en
+commentaire (`uses: actions/checkout@<SHA de 40 caractères> # v7.0.1`) : un tag peut être
+déplacé, pas un commit. Dependabot (`.github/dependabot.yml`) met à jour le SHA et le
+commentaire ensemble. Épinglez de la même façon toute nouvelle action.

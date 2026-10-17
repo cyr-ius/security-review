@@ -251,3 +251,8 @@ A version is a tag pushed on `master`:
 3. On `master`, push the matching tag: `git tag v1.3.0 && git push origin v1.3.0`.
 4. The push of the tag triggers `publish.yml`: lint and tests, check that the tag matches the
    version, publication on PyPI then creation of the GitHub release.
+
+Every action of the workflows is pinned to a full commit SHA, with its version in a comment
+(`uses: actions/checkout@<40-character SHA> # v7.0.1`): a tag can be moved, a commit cannot.
+Dependabot (`.github/dependabot.yml`) updates the SHA and the comment together. Pin any new
+action the same way.

@@ -41,7 +41,8 @@ uv run mkdocs build --strict       # ce que fait la CI : un lien cassé fait éc
 
 La CI (`.github/workflows/`) lance ruff et pytest sur Python 3.14 et 3.15 avec
 `uv sync --locked` : après un changement de dépendances dans `pyproject.toml`, lancez `uv lock`
-et commitez `uv.lock`.
+et commitez `uv.lock`. Les actions des workflows sont épinglées sur le SHA complet d'un commit,
+avec la version en commentaire (`@<sha> # vX.Y.Z`) : faites de même pour toute nouvelle action.
 
 ## Branches et versions
 
