@@ -44,12 +44,15 @@ export const ROLE_META: Record<Role, { label: MessageKey; icon: string }> = {
   triager: { label: 'role.triager', icon: 'bi-funnel-fill' },
   reader: { label: 'role.reader', icon: 'bi-eye-fill' },
   mcp: { label: 'role.mcp', icon: 'bi-plug-fill' },
+  ci: { label: 'role.ci', icon: 'bi-gear-wide-connected' },
 };
 
-/** What a token is used for, by role: the MCP server or the REST API (and its rights). */
+/** What a token is used for, by role: the MCP server, the REST API (and its rights) or a
+ * CI/CD pipeline. */
 export const TOKEN_ROLE_LABELS: Record<Role, MessageKey> = {
   mcp: 'tokenRole.mcp',
   reader: 'tokenRole.reader',
   triager: 'tokenRole.triager',
   admin: 'tokenRole.admin',
+  ci: 'tokenRole.ci',
 };

@@ -18,7 +18,8 @@ or both.
 | `SECREVIEW_SESSION_HOURS` | `8` | Controller | Lifetime of a web interface session (1 to 24 hours) |
 | `SECREVIEW_ENROLLMENT` | `true` | MCP | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token): a client without a token can request a project token (restricted MCP server, `POST /api/v1/enroll`), active after approval on the controller |
 | `SECREVIEW_SERVER_URL` | — | Client | URL of the shared MCP server used by [`security-review-mcp scan-deps`](../usage/dependencies.md#scan-with-a-shared-server-commit-hook) (default of `--url`); never used by the servers |
-| `SECREVIEW_TOKEN` | — | Client | Bearer token sent by `scan-deps` to that server; never used by the servers |
+| `SECREVIEW_TOKEN` | — | Client | Bearer token sent by `scan-deps` to that server, and by [`security-review-ci`](../ci-cd/gate.md#pipeline-client-security-review-ci) to the controller (`ci` token); never used by the servers |
+| `SECREVIEW_CONTROLLER_URL` | — | Client | URL of the controller used by [`security-review-ci`](../ci-cd/gate.md#pipeline-client-security-review-ci) (default of `--url`); read from the environment only, never from `.env` |
 | `SECREVIEW_TLS_CERTFILE` | — | both | Certificate: enables TLS |
 | `SECREVIEW_TLS_KEYFILE` | — | both | Private key |
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | both | Password of the private key |

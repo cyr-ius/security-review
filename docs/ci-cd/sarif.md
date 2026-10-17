@@ -4,6 +4,13 @@
 security-review-controller sarif --project my-project -o results.sarif      # or --report-id N
 ```
 
+In a pipeline, the [pipeline client](gate.md#pipeline-client-security-review-ci) downloads the
+same log through the controller REST API, with a `ci` token and without database access:
+
+```bash
+security-review-ci sarif --project my-project -o results.sarif   # SECREVIEW_CONTROLLER_URL, SECREVIEW_TOKEN
+```
+
 The produced file is SARIF 2.1.0 (validated against the official schema).
 
 - Only **open** findings are exported; `--include-resolved` adds the others

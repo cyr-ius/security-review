@@ -94,6 +94,7 @@ src/security_review_mcp/
 ├── web_users.py   # web interface accounts, local (scrypt) or SSO (created on the fly), sessions, initial admin
 ├── enrollment.py  # `enroll` client: token request to a shared server
 ├── remote_scan.py # `scan-deps` client: dependency scan with a shared server
+├── ci_client.py   # `security-review-ci`: pipeline client of the controller (standard library only)
 ├── enrollment_api.py  # public POST /api/v1/enroll endpoint of the MCP server
 ├── web_api.py     # controller: REST API /api/v1 and files of the application (/ui)
 ├── prompts.py     # construction of the prompts

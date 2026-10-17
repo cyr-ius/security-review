@@ -43,7 +43,9 @@ Projects can also request their token themselves: see
 
 - Give `token` to the client; the unique `label` appears in the logs.
 - `--role` is `mcp` by default (MCP server); `reader` (read only) and `triager` (read and
-  triage) give access to the REST API of the controller, never to the web interface: see the
+  triage) give access to the REST API of the controller, never to the web interface; `ci`
+  (always with `--project`) only reaches the pipeline routes used by
+  [`security-review-ci`](../ci-cd/gate.md#pipeline-client-security-review-ci): see the
   [roles](../usage/web-interface.md#roles).
 - `--project` limits the token to one or more projects (repeat the option), for the MCP tools
   as for the REST API (`mcp`, `reader` and `triager` roles; refused for `admin`). See

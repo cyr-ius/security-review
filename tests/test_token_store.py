@@ -74,6 +74,30 @@ def test_token_validation():
         token_store.create_project_token("other", [])
 
 
+def test_ci_token_is_always_restricted_to_projects():
+    with pytest.raises(ValueError, match="ci token must be restricted"):
+        token_store.create_token("jenkins", Role.CI)
+    with pytest.raises(ValueError, match="ci token must be restricted"):
+        token_store.create_token("jenkins", "ci", [])
+
+    created = token_store.create_project_token("jenkins", ["shop-api", "billing"], "ci")
+    info = STORE.lookup(digest_of(created["token"]))
+    assert (info.role, info.projects) == (Role.CI, frozenset({"shop-api", "billing"}))
+
+
+def test_unrestricted_ci_row_reaches_no_project(database):
+    # A ci row without projects (written outside create_token) fails closed
+    created = token_store.create_token("jenkins", Role.READER)
+    with Session(database) as session:
+        row = session.get(ApiToken, created["id"])
+        row.role = Role.CI.value
+        session.add(row)
+        session.commit()
+
+    info = STORE.lookup(digest_of(created["token"]))
+    assert (info.role, info.projects) == (Role.CI, frozenset())
+
+
 def test_project_token_limit(monkeypatch):
     monkeypatch.setattr(token_store, "MAX_TOKENS", 2)
     token_store.create_project_token("one", "shop-api")

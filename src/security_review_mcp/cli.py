@@ -507,7 +507,7 @@ def token_command(argv: list[str]) -> int:
         choices=[role.value for role in http_server.Role],
         default=http_server.DEFAULT_ROLE.value,
         help="mcp (default): MCP endpoint; reader: REST API read only; triager: REST API read "
-        "and triage; admin: both",
+        "and triage; admin: both; ci: pipeline routes only (security-review-ci), needs --project",
     )
     creator.add_argument(
         "--project",

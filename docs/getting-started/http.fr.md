@@ -44,7 +44,9 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
 
 - Donnez `token` au client ; le `label`, unique, apparaît dans les journaux.
 - `--role` vaut `mcp` par défaut (serveur MCP) ; `reader` (lecture seule) et `triager` (lecture
-  et triage) donnent accès à l'API REST du contrôleur, jamais à l'interface web : voir les
+  et triage) donnent accès à l'API REST du contrôleur, jamais à l'interface web ; `ci`
+  (toujours avec `--project`) n'atteint que les routes de pipeline utilisées par
+  [`security-review-ci`](../ci-cd/gate.md#client-de-pipeline-security-review-ci) : voir les
   [rôles](../usage/web-interface.md#roles).
 - `--project` limite le jeton à un ou plusieurs projets (répétez l'option), pour les outils MCP
   comme pour l'API REST

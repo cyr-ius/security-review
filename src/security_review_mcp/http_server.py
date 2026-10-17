@@ -12,7 +12,8 @@ Two apps are built, meant to run in separate processes (containers, pods) sharin
 - the controller (``build_controller_app``): the REST API under ``/api`` and the Angular
   application under ``/ui`` (see web_api).
 
-Each token carries a role that decides which of the two it may use.
+Each token carries a role that decides which of the two it may use. A ``ci`` token only reaches
+the read-only pipeline routes of the controller (``/api/v1/ci/``, see web_api and ci_client).
 """
 
 import argparse
@@ -45,21 +46,27 @@ class Role(StrEnum):
     """What a token may do.
 
     ``mcp`` (default) only reaches the MCP endpoint; ``reader`` and ``triager`` only reach the
-    web API; ``admin`` reaches both MCP and the web API.
+    web API; ``admin`` reaches both MCP and the web API; ``ci`` (always restricted to projects)
+    only reaches the pipeline routes of the web API (gate, SARIF, trend).
     """
 
     MCP = "mcp"
     READER = "reader"
     TRIAGER = "triager"
     ADMIN = "admin"
+    CI = "ci"
 
 
 DEFAULT_ROLE = Role.MCP
 MCP_ROLES = frozenset({Role.MCP, Role.ADMIN})
 WEB_ROLES = frozenset({Role.READER, Role.TRIAGER, Role.ADMIN})
 TRIAGE_ROLES = frozenset({Role.TRIAGER, Role.ADMIN})
+# Roles accepted by the pipeline routes of the controller (read only, scoped to projects)
+CI_ROUTE_ROLES = WEB_ROLES | {Role.CI}
 
 API_PREFIX = "/api/"
+# Pipeline routes of the controller, the only ones a ``ci`` token reaches
+CI_PREFIX = "/api/v1/ci/"
 UI_PREFIX = "/ui"
 # Public endpoint of the MCP server where a client without a token requests one
 # (see enrollment_api)
@@ -202,10 +209,16 @@ class BearerAuthMiddleware:
         """True for the paths reachable without a token."""
         return is_controller_public_path(path) if self.web else path in self.public_paths
 
-    @property
-    def allowed_roles(self) -> frozenset[Role]:
-        """Roles accepted by this process."""
-        return WEB_ROLES if self.web else MCP_ROLES
+    def role_allowed(self, role: Role, path: str) -> bool:
+        """True when a token of this role may reach ``path`` on this process.
+
+        A ``ci`` token only reaches the pipeline routes of the controller.
+        """
+        if not self.web:
+            return role in MCP_ROLES
+        if path.startswith(CI_PREFIX):
+            return role in CI_ROUTE_ROLES
+        return role in WEB_ROLES
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -251,7 +264,7 @@ class BearerAuthMiddleware:
                 "This token is waiting for an administrator to approve its enrollment",
             )
             return
-        if info.role not in self.allowed_roles:
+        if not self.role_allowed(info.role, path):
             logger.warning(
                 "Rejected request from %s (%s, role %s) to %s", address, info.label, info.role, path
             )

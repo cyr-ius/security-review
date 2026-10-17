@@ -91,8 +91,13 @@ def _active_projects(row: ApiToken, links: list[ApiTokenProject]) -> list[str] |
 
 
 def _info(row: ApiToken, links: list[ApiTokenProject]) -> TokenInfo:
-    """Convert a stored token into the identity used by the middleware."""
+    """Convert a stored token into the identity used by the middleware.
+
+    A ``ci`` token is never unrestricted: without projects it reaches none (fail closed).
+    """
     projects = _active_projects(row, links)
+    if projects is None and row.role == Role.CI:
+        projects = []
     return TokenInfo(
         row.label,
         Role(row.role),
@@ -281,7 +286,7 @@ def create_token(
 
     ``projects`` (one name or several) restricts the token to these projects, for the MCP
     tools and the web interface. It is refused for ``admin``, whose rights (rules, every
-    project) cannot be scoped.
+    project) cannot be scoped, and required for ``ci``, the pipeline token.
     """
     label = _clean_label(label)
     try:
@@ -292,6 +297,8 @@ def create_token(
     cleaned = _clean_projects(projects)
     if cleaned is not None and role == Role.ADMIN:
         raise ValueError("An admin token cannot be restricted to a project")
+    if cleaned is None and role == Role.CI:
+        raise ValueError("A ci token must be restricted to at least one project")
     row, links, token = _insert(label, role, cleaned)
     return _public(row, links) | {"token": token}
 

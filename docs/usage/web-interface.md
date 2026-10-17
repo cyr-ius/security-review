@@ -80,9 +80,11 @@ by the API stay in English.
   password there (their other sessions are closed); the one of an SSO user is managed by the
   identity provider.
 - **Tokens**: administrators create and revoke tokens limited to one or more
-  projects. The **Usage** field chooses **MCP** (`mcp` role) or **REST API**; for the
-  REST API, **API rights** chooses **Lecture seule** (read only, `reader`) or
-  **Lecture et triage** (read and triage, `triager`). The list shows the usage of every token.
+  projects. The **Usage** field chooses **MCP** (`mcp` role), **REST API** or **CI/CD pipeline**
+  (`ci` role, for [`security-review-ci`](../ci-cd/gate.md#pipeline-client-security-review-ci));
+  for the REST API, **API rights** chooses **Read only** (`reader`) or **Read and triage**
+  (`triager`). The **Allowed projects** boxes select the projects the token sees. The list shows
+  the usage of every token.
   A token never opens the web interface. The `admin` role stays unrestricted and is created from
   the CLI. The secret is shown only once; only its digest is stored, in the database. A
   revocation takes effect at the next request. The **Pending requests**
@@ -132,15 +134,17 @@ by the API stay in English.
 (local or SSO accounts) are the only ones to open the web interface. Every token has a role,
 which decides the reachable endpoints:
 
-| Role | Usage (**Jetons** screen) | `/mcp` | REST API (read) | Status change |
+| Role | Usage (**Tokens** screen) | `/mcp` | REST API (read) | Status change |
 |---|---|---|---|---|
 | `mcp` (default) | MCP | ✅ | — | — |
 | `reader` | REST API — read only | — | ✅ | — |
 | `triager` | REST API — read and triage | — | ✅ | ✅ |
 | `admin` | CLI only | ✅ | ✅ | ✅ |
+| `ci` | CI/CD pipeline — gate, SARIF and trend | — | pipeline routes only (`/api/v1/ci/`) | — |
 
 An `mcp`, `reader` or `triager` token restricted with `--project` only sees and triages the
-allowed projects; the option can be repeated (see
+allowed projects; a `ci` token is always restricted to its projects (see
+[`ci` token](../ci-cd/gate.md#ci-token-and-visible-projects)); the option can be repeated (see
 [tokens restricted to a project](../getting-started/http.md#tokens-restricted-to-a-project)).
 
 People log in with a [user account](#user-accounts): local (user name and password) or

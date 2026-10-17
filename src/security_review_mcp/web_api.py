@@ -49,6 +49,7 @@ from . import (
 from .config import REPORT_LANGUAGE_MAX_CHARS, Settings, get_settings
 from .http_server import (
     BEARER_CHALLENGE,
+    CI_ROUTE_ROLES,
     DOCS_PATH,
     FAVICON_PATH,
     HEALTH_PATH,
@@ -236,7 +237,8 @@ class ProjectTokenCreate(BaseModel):
     """A role-specific token scoped to one or several projects."""
 
     label: str = Field(min_length=1, max_length=64)
-    role: Literal["mcp", "reader", "triager"] = "reader"
+    # ci: pipeline token (gate, SARIF and trend of its projects only, see ci_client)
+    role: Literal["mcp", "reader", "triager", "ci"] = "reader"
     projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
         min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
     )
@@ -339,10 +341,7 @@ class ProjectFindingPage(BaseModel):
 # ── Dependencies ─────────────────────────────────────────────────────────────
 
 
-def current_identity(
-    request: Request,
-    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
-) -> Identity:
+def _scope_identity(request: Request) -> Identity:
     """Identity set by the bearer middleware once it has validated the token.
 
     Fails closed: a request that reaches a route without an identity in its scope (app served
@@ -372,7 +371,37 @@ def current_identity(
     )
 
 
+def current_identity(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Identity:
+    """Identity of a web role (reader, triager, admin): a ``ci`` token is refused here even if
+    the bearer middleware let it through (it only reaches the pipeline routes)."""
+    identity = _scope_identity(request)
+    if identity.role == Role.CI:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{identity.role}' cannot access this endpoint",
+        )
+    return identity
+
+
+def pipeline_identity(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Identity:
+    """Identity of the pipeline routes: a ``ci`` token or a web role, scoped to its projects."""
+    identity = _scope_identity(request)
+    if identity.role not in CI_ROUTE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{identity.role}' cannot access this endpoint",
+        )
+    return identity
+
+
 CurrentIdentity = Annotated[Identity, Depends(current_identity)]
+PipelineIdentity = Annotated[Identity, Depends(pipeline_identity)]
 
 
 def require_triage(identity: CurrentIdentity) -> Identity:
@@ -783,13 +812,80 @@ async def sarif(
         raise
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    document = build_sarif(items, name, include_resolved)
     filename = f"report-{report_id}.sarif" if report_id else "project.sarif"
+    return _sarif_response(name, items, include_resolved, filename)
+
+
+def _sarif_response(name: str, items: list, include_resolved: bool, filename: str) -> Response:
+    """SARIF 2.1.0 download of collected findings."""
+    document = build_sarif(items, name, include_resolved)
     return Response(
         content=json.dumps(document, indent=2),
         media_type="application/sarif+json",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ── Pipeline routes (ci tokens, see ci_client) ───────────────────────────────
+
+
+# Read only, scoped to the projects of the token; a ci token reaches nothing else
+ci_router = APIRouter(prefix="/api/v1/ci", dependencies=[Depends(pipeline_identity)])
+
+ProjectQuery = Annotated[str, Query(min_length=1, max_length=200)]
+
+
+@ci_router.get("/gate")
+async def ci_gate(
+    project: ProjectQuery,
+    identity: PipelineIdentity,
+    fail_on: Severity = Severity.HIGH,
+    report_id: Annotated[int | None, Query(ge=1)] = None,
+) -> dict:
+    """Security gate of a project: ``passed`` is false while open findings reach ``fail_on``.
+
+    ``report_id`` judges one report of the project only.
+    """
+    project = _scoped_project(identity, project)
+    if report_id is not None:
+        report = await run_in_threadpool(services.get_report, report_id)
+        _ensure_report_scope(identity, report)
+    try:
+        return await run_in_threadpool(services.evaluate_gate, project, fail_on, report_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+
+
+@ci_router.get("/sarif")
+async def ci_sarif(
+    project: ProjectQuery, identity: PipelineIdentity, include_resolved: bool = False
+) -> Response:
+    """Findings of a project as SARIF 2.1.0 (open ones only by default)."""
+    project = _scoped_project(identity, project)
+    name, items = await run_in_threadpool(services.collect_sarif_items, None, project)
+    return _sarif_response(name, items, include_resolved, "project.sarif")
+
+
+@ci_router.get("/trend")
+async def ci_trend(
+    project: ProjectQuery,
+    identity: PipelineIdentity,
+    days: Annotated[int, Query(ge=1, le=1095)] = 90,
+    granularity: Literal["day", "week", "month"] = "week",
+    output: Annotated[Literal["json", "markdown"], Query(alias="format")] = "json",
+) -> Response:
+    """Evolution of the security posture of a project, as JSON or Markdown."""
+    try:
+        result = await run_in_threadpool(
+            trends.get_trend, _scoped_project(identity, project), days, granularity
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    if output == "markdown":
+        return PlainTextResponse(
+            trends.render_trend_markdown(result), media_type="text/markdown; charset=utf-8"
+        )
+    return JSONResponse(result)
 
 
 @router.get("/reports")
@@ -1547,6 +1643,7 @@ def create_app(
     app.state.login_throttle = web_users.LoginThrottle()
     app.include_router(auth_router)
     app.include_router(router)
+    app.include_router(ci_router)
 
     @app.get(HEALTH_PATH, include_in_schema=False)
     async def healthz() -> dict[str, str]:

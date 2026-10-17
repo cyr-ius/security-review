@@ -14,7 +14,7 @@ import { RefreshButtonComponent } from '../../shared/components/refresh-button/r
 
 /**
  * Administrator page for project tokens: enrollment requests waiting for approval, creation of
- * MCP or REST API tokens and revocation.
+ * MCP, REST API or CI/CD tokens and revocation.
  */
 @Component({
   selector: 'app-project-token-list',
@@ -63,7 +63,7 @@ export class ProjectTokenListComponent {
     event.preventDefault();
     const model = this.formModel();
     const label = model.label.trim();
-    const role: ProjectTokenRole = model.usage === 'api' ? model.apiRole : 'mcp';
+    const role: ProjectTokenRole = model.usage === 'api' ? model.apiRole : model.usage;
     const projects = this.selectedProjects();
     if (this.tokenForm().invalid() || !label || !projects.length || this.busy()) {
       this.tokenForm().markAsTouched();
@@ -221,16 +221,16 @@ export class ProjectTokenListComponent {
   }
 }
 
-/** What a project token is for. */
-type TokenUsage = 'mcp' | 'api';
+/** What a project token is for: the MCP server, the REST API or a CI/CD pipeline. */
+type TokenUsage = 'mcp' | 'api' | 'ci';
 
 /** Rights of a REST API token. */
-type ApiTokenRole = Exclude<ProjectTokenRole, 'mcp'>;
+type ApiTokenRole = Exclude<ProjectTokenRole, 'mcp' | 'ci'>;
 
 /** Fields of the token creation form. */
 interface TokenFormModel {
   label: string;
-  /** The MCP server or the REST API. */
+  /** The MCP server, the REST API or a CI/CD pipeline. */
   usage: TokenUsage;
   /** Rights of a REST API token: read only, or read and triage. */
   apiRole: ApiTokenRole;

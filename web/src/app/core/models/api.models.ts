@@ -5,7 +5,7 @@ export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type FindingStatus = 'open' | 'fixed' | 'accepted' | 'false_positive';
 
 /** Role attached to the bearer token. */
-export type Role = 'mcp' | 'reader' | 'triager' | 'admin';
+export type Role = 'mcp' | 'reader' | 'triager' | 'admin' | 'ci';
 export type ProjectTokenRole = Exclude<Role, 'admin'>;
 
 export const SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low', 'info'];

@@ -5,7 +5,8 @@
 - **Two processes**: the MCP server (exposed to the agents) and the controller (REST API, web
   interface, administration) run separately and only share the database (see
   [Architecture and deployment](../getting-started/kubernetes.md)). The MCP server only accepts
-  the `mcp` and `admin` roles, the controller only `reader`, `triager` and `admin`. The
+  the `mcp` and `admin` roles, the controller only `reader`, `triager` and `admin`, plus `ci`
+  on its read-only pipeline routes (`/api/v1/ci/`) and nowhere else. The
   controller exposes no write route without a token: it can stay on an internal network, and the
   compromise of the exposed MCP server gives no access to the administration interface.
 - **HTTP transport**: MCP authentication by Bearer token and TLS are built in but optional (see
@@ -21,7 +22,14 @@
   operator, signed by a [certificate authority](../getting-started/http.md#certificate-authority).
   There is no rate limiting.
   Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `reader`, `triager`,
-  `admin`); an `mcp` token without a project reaches every MCP tool and every project.
+  `admin`, `ci`); an `mcp` token without a project reaches every MCP tool and every project.
+- **Pipeline tokens** (`ci`): always restricted to projects (a `ci` token without a project
+  cannot be created, and one found without a project reaches none). It only reads the gate, the
+  SARIF log and the trend of its projects; the other routes of the controller, `/mcp` and the
+  web interface answer `403`, the other projects `404`. The pipeline client
+  ([`security-review-ci`](../ci-cd/gate.md#pipeline-client-security-review-ci)) opens no
+  database, reads the token from the environment or stdin only, refuses plain HTTP outside
+  localhost, credentials in the URL and redirects, and bounds the answers.
 - **Enrollment** (enabled by default, `SECREVIEW_ENROLLMENT`): a client without a token reaches
   a restricted MCP server that only lets it file a request, and `POST /api/v1/enroll` is public
   on the MCP server (body limited to 4 KiB). The approval happens on the controller. A request

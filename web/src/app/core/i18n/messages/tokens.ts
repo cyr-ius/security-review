@@ -34,6 +34,9 @@ export const tokens = defineMessages({
     'tokens.createTitle': 'Create a project token',
     'tokens.usage': 'Usage',
     'tokens.restApi': 'REST API',
+    'tokens.pipeline': 'CI/CD pipeline',
+    'tokens.pipelineHelp':
+      'A CI/CD token only runs the gate, the SARIF export and the trend of the selected projects (security-review-ci command), without database access.',
     'tokens.apiRights': 'API rights',
     'tokens.readOnly': 'Read only',
     'tokens.readTriage': 'Read and triage',
@@ -102,6 +105,9 @@ export const tokens = defineMessages({
     'tokens.createTitle': 'Créer un jeton projet',
     'tokens.usage': 'Usage',
     'tokens.restApi': 'API REST',
+    'tokens.pipeline': 'Pipeline CI/CD',
+    'tokens.pipelineHelp':
+      'Un jeton CI/CD ne fait que le gate, l’export SARIF et la tendance des projets sélectionnés (commande security-review-ci), sans accès à la base.',
     'tokens.apiRights': 'Droits API',
     'tokens.readOnly': 'Lecture seule',
     'tokens.readTriage': 'Lecture et triage',
@@ -170,6 +176,9 @@ export const tokens = defineMessages({
     'tokens.createTitle': 'Crear un token de proyecto',
     'tokens.usage': 'Uso',
     'tokens.restApi': 'API REST',
+    'tokens.pipeline': 'Pipeline CI/CD',
+    'tokens.pipelineHelp':
+      'Un token CI/CD solo ejecuta el gate, la exportación SARIF y la tendencia de los proyectos seleccionados (comando security-review-ci), sin acceso a la base de datos.',
     'tokens.apiRights': 'Permisos de la API',
     'tokens.readOnly': 'Solo lectura',
     'tokens.readTriage': 'Lectura y triaje',

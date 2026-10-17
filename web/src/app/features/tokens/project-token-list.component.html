@@ -142,6 +142,7 @@
       <select id="token-usage" class="form-select" [formField]="tokenForm.usage">
         <option value="mcp">MCP</option>
         <option value="api">{{ 'tokens.restApi' | t }}</option>
+        <option value="ci">{{ 'tokens.pipeline' | t }}</option>
       </select>
     </div>
     <div class="col-md-2">
@@ -174,6 +175,9 @@
         <span class="text-body-secondary">{{ 'users.noProjects' | t }}</span>
       }
     </fieldset>
+    @if (formModel().usage === 'ci') {
+      <p class="col-12 order-last form-text mb-0">{{ 'tokens.pipelineHelp' | t }}</p>
+    }
     <div class="col-md-2">
       <button
         type="submit"

@@ -31,6 +31,8 @@ docs = [
 [project.scripts]
 security-review-mcp = "security_review_mcp.server:main"
 security-review-controller = "security_review_mcp.controller:main"
+# Pipeline client of the controller REST API (standard library only, no database access)
+security-review-ci = "security_review_mcp.ci_client:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

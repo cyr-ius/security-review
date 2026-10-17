@@ -82,8 +82,10 @@ renvoyés par l'API restent en anglais.
   autres sessions sont fermées) ; celui d'un utilisateur SSO est géré par le fournisseur
   d'identité.
 - **Jetons** : les administrateurs créent et révoquent des jetons limités à un ou plusieurs
-  projets. Le champ **Usage** choisit **MCP** (rôle `mcp`) ou **API REST** ; pour l'API REST,
-  **Droits API** choisit **Lecture seule** (`reader`) ou **Lecture et triage** (`triager`). La
+  projets. Le champ **Usage** choisit **MCP** (rôle `mcp`), **API REST** ou **Pipeline CI/CD**
+  (rôle `ci`, pour [`security-review-ci`](../ci-cd/gate.md#client-de-pipeline-security-review-ci)) ;
+  pour l'API REST, **Droits API** choisit **Lecture seule** (`reader`) ou **Lecture et triage**
+  (`triager`). Les cases **Projets autorisés** sélectionnent les projets que voit le jeton. La
   liste affiche l'usage de chaque jeton. Un jeton n'ouvre jamais l'interface web. Le rôle `admin` reste non restreint et se crée par la
   CLI. Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
   données. Une révocation prend effet à la requête suivante. La section
@@ -136,9 +138,11 @@ porte un rôle, qui détermine les endpoints accessibles :
 | `reader` | API REST — lecture seule | — | ✅ | — |
 | `triager` | API REST — lecture et triage | — | ✅ | ✅ |
 | `admin` | CLI uniquement | ✅ | ✅ | ✅ |
+| `ci` | Pipeline CI/CD — gate, SARIF et tendance | — | routes de pipeline seulement (`/api/v1/ci/`) | — |
 
 Un jeton `mcp`, `reader` ou `triager` restreint avec `--project` ne voit et ne trie que les
-projets autorisés ; l'option peut être répétée (voir
+projets autorisés ; un jeton `ci` est toujours restreint à ses projets (voir
+[jeton `ci`](../ci-cd/gate.md#jeton-ci-et-projets-visibles)) ; l'option peut être répétée (voir
 [jetons restreints à un projet](../getting-started/http.md#jetons-restreints-a-un-projet)).
 
 Les personnes se connectent avec un [compte utilisateur](#comptes-utilisateurs) : local

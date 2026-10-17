@@ -92,7 +92,7 @@ l'utiliser.
 | Moteur de scan, masquage des secrets | `scanner.py` |
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`, `user`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`) |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`, `user`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`), `ci_client.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) ; proxy sortant du contrôleur (OSV et SSO) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` ; `proxy.py` |
 | Persistance, schéma (purge des rapports sans findings : `retention.py`) | `models.py`, `services.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
 | Export et tendances | `sarif.py`, `trends.py` |
@@ -153,7 +153,7 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   `/healthz` ; le contrôleur n'expose aucune route d'écriture sans jeton. N'ajoutez pas de route
   web au serveur MCP ni d'endpoint MCP au contrôleur.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
-  CLI. Exceptions : les commandes CLI `enroll` et `scan-deps`, qui contactent l'URL donnée par
+  CLI. Exceptions : les commandes CLI `enroll`, `scan-deps` et `security-review-ci`, qui contactent l'URL donnée par
   l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
   uniquement, taille bornée, proxy facultatif (`proxy`, partagé avec le SSO) jamais journalisé
   avec ses identifiants, et la

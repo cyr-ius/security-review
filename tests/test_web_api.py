@@ -69,7 +69,8 @@ def secured(ui_dir) -> TestClient:
     """The controller app protected by one token per role."""
     TOKENS.clear()
     for role in Role:
-        TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
+        if role != Role.CI:  # see ci_token: a ci token is always restricted to projects
+            TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
     app = http_server.build_controller_app(
         web_api.create_app(ui_dir=str(ui_dir)), token_store.DatabaseTokenStore()
     )
@@ -87,6 +88,13 @@ def mcp_server(secured) -> TestClient:
         enrollment_api.create_app(),
     )
     return TestClient(app, base_url="http://127.0.0.1")
+
+
+@pytest.fixture
+def ci_token(secured) -> str:
+    """A ci token restricted to shop-api, reachable with auth("ci")."""
+    TOKENS["ci"] = token_store.create_token("ci", Role.CI, ["shop-api"])["token"]
+    return TOKENS["ci"]
 
 
 def auth(role: str) -> dict[str, str]:
@@ -461,6 +469,110 @@ def test_triager_can_change_status(secured, reports):
 def test_mcp_token_cannot_use_the_api(secured):
     assert secured.get("/api/v1/projects", headers=auth("mcp")).status_code == 403
     assert secured.get("/api/v1/projects").status_code == 401
+
+
+# ── Pipeline routes (ci tokens) ──────────────────────────────────────────────
+
+
+def test_ci_token_runs_the_gate_sarif_and_trend_of_its_project(secured, ci_token, reports):
+    shop_report_id, _ = reports
+
+    gate = secured.get("/api/v1/ci/gate", params={"project": "shop-api"}, headers=auth("ci"))
+    assert gate.status_code == 200
+    assert (gate.json()["project"], gate.json()["passed"]) == ("shop-api", False)
+    relaxed = secured.get(
+        "/api/v1/ci/gate",
+        params={"project": "shop-api", "fail_on": "critical", "report_id": shop_report_id},
+        headers=auth("ci"),
+    )
+    assert relaxed.json()["passed"] is True
+
+    sarif = secured.get("/api/v1/ci/sarif", params={"project": "shop-api"}, headers=auth("ci"))
+    assert sarif.status_code == 200
+    assert sarif.headers["content-type"].startswith("application/sarif+json")
+    assert len(sarif.json()["runs"][0]["results"]) == 2
+
+    trend = secured.get("/api/v1/ci/trend", params={"project": "shop-api"}, headers=auth("ci"))
+    assert trend.status_code == 200 and trend.json()["project"] == "shop-api"
+    markdown = secured.get(
+        "/api/v1/ci/trend",
+        params={"project": "shop-api", "format": "markdown"},
+        headers=auth("ci"),
+    )
+    assert markdown.headers["content-type"].startswith("text/markdown")
+    assert "shop-api" in markdown.text
+
+
+def test_ci_token_only_sees_its_projects(secured, ci_token, reports):
+    _, billing_report_id = reports
+
+    for route in ("gate", "sarif", "trend"):
+        response = secured.get(
+            f"/api/v1/ci/{route}", params={"project": "billing"}, headers=auth("ci")
+        )
+        assert response.status_code == 404
+    # A report of another project is hidden like a missing one (its project is not named)
+    response = secured.get(
+        "/api/v1/ci/gate",
+        params={"project": "shop-api", "report_id": billing_report_id},
+        headers=auth("ci"),
+    )
+    assert response.status_code == 404
+    assert "billing" not in response.text
+
+
+def test_ci_token_reaches_nothing_but_the_pipeline_routes(secured, ci_token, mcp_server, reports):
+    for path in ("/api/v1/projects", "/api/v1/me", "/api/v1/health", "/api/v1/project-tokens"):
+        assert secured.get(path, headers=auth("ci")).status_code == 403
+    findings = secured.get("/api/v1/findings", params={"project": "shop-api"}, headers=auth("ci"))
+    assert findings.status_code == 403
+    assert (
+        secured.patch(
+            "/api/v1/findings/1", json={"status": "fixed"}, headers=auth("ci")
+        ).status_code
+        == 403
+    )
+    assert mcp_server.get("/mcp", headers=auth("ci")).status_code == 403
+    # Without a token the pipeline routes answer 401, like the rest of the API
+    assert secured.get("/api/v1/ci/gate", params={"project": "shop-api"}).status_code == 401
+
+
+def test_web_api_refuses_a_ci_identity_even_without_the_middleware_check(ui_dir, reports):
+    app = web_api.create_app(ui_dir=str(ui_dir))
+
+    async def as_ci(scope, receive, send):
+        if scope["type"] == "http":
+            scope.setdefault("state", {}).update(
+                auth_client="jenkins", auth_role=Role.CI, auth_projects=frozenset({"shop-api"})
+            )
+        await app(scope, receive, send)
+
+    client = TestClient(as_ci, base_url="http://127.0.0.1")
+    assert client.get("/api/v1/projects").status_code == 403
+    assert client.get("/api/v1/ci/gate", params={"project": "shop-api"}).status_code == 200
+
+
+def test_other_api_roles_may_use_the_pipeline_routes(secured, reports):
+    for role in ("reader", "triager", "admin"):
+        response = secured.get("/api/v1/ci/gate", params={"project": "billing"}, headers=auth(role))
+        assert (response.status_code, response.json()["passed"]) == (200, True)
+    response = secured.get("/api/v1/ci/gate", params={"project": "billing"}, headers=auth("mcp"))
+    assert response.status_code == 403
+
+
+def test_admin_creates_a_ci_token_for_selected_projects(secured, reports):
+    created = secured.post(
+        "/api/v1/project-tokens",
+        json={"label": "jenkins", "role": "ci", "projects": ["shop-api", "billing"]},
+        headers=auth("admin"),
+    )
+
+    assert created.status_code == 201
+    assert (created.json()["role"], created.json()["projects"]) == ("ci", ["shop-api", "billing"])
+    headers = {"Authorization": f"Bearer {created.json()['token']}"}
+    for project in ("shop-api", "billing"):
+        response = secured.get("/api/v1/ci/gate", params={"project": project}, headers=headers)
+        assert response.status_code == 200
 
 
 def test_openapi_marks_api_operations_as_bearer_protected(secured):

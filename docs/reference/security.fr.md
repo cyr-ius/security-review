@@ -5,7 +5,8 @@
 - **Deux processus** : le serveur MCP (exposé aux agents) et le contrôleur (API REST, interface
   web, administration) tournent séparément et ne partagent que la base (voir
   [Architecture et déploiement](../getting-started/kubernetes.md)). Le serveur MCP n'accepte que les
-  rôles `mcp` et `admin`, le contrôleur que `reader`, `triager` et `admin`. Le contrôleur
+  rôles `mcp` et `admin`, le contrôleur que `reader`, `triager` et `admin`, plus `ci` sur ses
+  routes de pipeline en lecture seule (`/api/v1/ci/`) et nulle part ailleurs. Le contrôleur
   n'expose aucune route d'écriture sans jeton : il peut rester sur un réseau interne, et la
   compromission du serveur MCP exposé ne donne pas accès à l'interface d'administration.
 - **Transport HTTP** : authentification MCP par jeton Bearer et TLS intégrés mais facultatifs (voir
@@ -21,8 +22,15 @@
   l'opérateur, signé par une
   [autorité de certification](../getting-started/http.md#autorite-de-certification). Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
-  (`mcp`, `reader`, `triager`, `admin`) ; un jeton `mcp` sans projet accède à tous les outils
-  MCP et à tous les projets.
+  (`mcp`, `reader`, `triager`, `admin`, `ci`) ; un jeton `mcp` sans projet accède à tous les
+  outils MCP et à tous les projets.
+- **Jetons de pipeline** (`ci`) : toujours restreints à des projets (un jeton `ci` sans projet
+  ne peut pas être créé, et un jeton trouvé sans projet n'en atteint aucun). Il ne lit que le
+  gate, le journal SARIF et la tendance de ses projets ; les autres routes du contrôleur, `/mcp`
+  et l'interface web répondent `403`, les autres projets `404`. Le client de pipeline
+  ([`security-review-ci`](../ci-cd/gate.md#client-de-pipeline-security-review-ci)) n'ouvre
+  aucune base, ne lit le jeton que dans l'environnement ou sur stdin, refuse le HTTP en clair
+  hors localhost, les identifiants dans l'URL et les redirections, et borne les réponses.
 - **Enrôlement** (actif par défaut, `SECREVIEW_ENROLLMENT`) : un client sans jeton atteint un
   serveur MCP restreint qui ne permet que de déposer une demande, et `POST /api/v1/enroll` est
   public sur le serveur MCP (corps limité à 4 Kio). L'approbation se fait sur le contrôleur. Une demande est un jeton `mcp` restreint au projet, **en attente** : il ne donne accès
