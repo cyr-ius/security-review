@@ -571,6 +571,7 @@ async def test_enrollment_server_only_exposes_enrollment():
     text = prompt.messages[0].content.text
     assert "request_enrollment" in text and "Authorization: Bearer" in text
     assert "`label` the developer's username" in text
+    assert "`token_rejected`" in text and "enroll again" in text
     assert "```\nshop-api\n```" in text and "untrusted" in text
     assert json.loads(text_of(status)) == {"status": "not_enrolled"}
 
@@ -674,8 +675,49 @@ async def test_get_enrollment_status_without_token():
     assert json.loads(text_of(status)) == {"status": "not_enrolled"}
 
 
-async def test_wrong_token_is_rejected_even_with_enrollment(enrolling_app):
-    response = enrolling_app.post(
+def test_wrong_token_is_offered_a_new_enrollment(enrolling_app):
+    client = McpOverHttp(enrolling_app, "wrong")
+
+    # Only the enrollment server answers: the review tools stay out of reach
+    hidden = client.request("tools/call", {"name": "list_security_reports", "arguments": {}})
+    assert hidden["result"]["isError"] is True
+    is_error, text = client.call("get_enrollment_status")
+    assert not is_error
+    status = json.loads(text)
+    assert (status["status"], status["reason"]) == ("token_rejected", "invalid_token")
+    assert "request_enrollment" in status["next_steps"]
+
+    is_error, text = client.call("request_enrollment", {"project": "shop-api"})
+    assert not is_error, text
+    created = json.loads(text)
+    assert created["token"] != "wrong"
+    assert "replaces the rejected one" in created["next_steps"]
+    assert len(token_store.list_enrollments()) == 1
+
+
+def test_expired_token_is_offered_a_new_enrollment(enrolling_app):
+    from datetime import UTC, datetime, timedelta
+
+    from sqlmodel import select
+
+    from security_review_mcp.database import session_scope
+    from security_review_mcp.models import ApiToken
+
+    token = token_store.create_token("old", "mcp", "shop-api", expires_in_days=1)["token"]
+    with session_scope() as session:
+        row = session.exec(select(ApiToken).where(ApiToken.label == "old")).one()
+        row.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+        session.add(row)
+
+    status = json.loads(McpOverHttp(enrolling_app, token).call("get_enrollment_status")[1])
+
+    assert (status["status"], status["reason"]) == ("token_rejected", "token_expired")
+    assert "expired" in status["next_steps"]
+
+
+def test_wrong_token_is_rejected_without_enrollment(http_app):
+    token_store.create_token("ops", "admin")
+    response = http_app.post(
         "/mcp",
         headers={"Authorization": "Bearer wrong", "Accept": "application/json"},
         json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},

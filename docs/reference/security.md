@@ -26,7 +26,8 @@
   Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `reader`, `triager`,
   `admin`, `ci`, `metrics`); an `mcp` token without a project reaches every MCP tool and every
   project.
-- **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`), and
+- **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`, or only the
+  [enrollment server](../advanced/http.md#rejected-token-new-enrollment) on `/mcp`), and
   `SECREVIEW_TOKEN_MAX_DAYS` bounds the validity of every token created or rotated. Expired
   tokens still count as configured: a server whose tokens have all expired stays closed. A
   rotation stores the digest of the new secret only; the previous digest is kept during the grace

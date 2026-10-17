@@ -2,8 +2,10 @@
 
 import json
 import ssl
+from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlmodel import select
 from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse
@@ -21,6 +23,7 @@ from security_review_mcp import (
 )
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
+from security_review_mcp.models import ApiToken
 
 STORE = token_store.DatabaseTokenStore()
 
@@ -41,8 +44,20 @@ def whoami(request: Request) -> PlainTextResponse:
 
 
 def enrollment_echo(request: Request) -> PlainTextResponse:
-    """Stand-in for the enrollment server: echo the pending token id it receives."""
-    return PlainTextResponse(f"enroll/{request.scope['state']['enrollment_token_id']}")
+    """Stand-in for the enrollment server: echo the pending token id it receives, and why a
+    token was rejected if one was."""
+    state = request.scope["state"]
+    rejected = state["enrollment_rejected_token"]
+    suffix = f"/{rejected}" if rejected else ""
+    return PlainTextResponse(f"enroll/{state['enrollment_token_id']}{suffix}")
+
+
+def expire(label: str) -> None:
+    """Move the expiry date of a token into the past."""
+    with database.session_scope() as session:
+        row = session.exec(select(ApiToken).where(ApiToken.label == label)).one()
+        row.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+        session.add(row)
 
 
 def protected_client(
@@ -202,13 +217,34 @@ def test_enrollment_app_receives_mcp_clients_without_an_approved_token():
     for empty in ("Bearer ", "Bearer    ", "bearer"):
         assert client.get("/mcp", headers={"Authorization": empty}).text == "enroll/None"
     assert client.get("/mcp", headers=bearer(request["token"])).text == f"enroll/{request['id']}"
-    # A wrong token is still an error
-    assert client.get("/mcp", headers=bearer("x" * 40)).status_code == 401
+    # An unknown (or revoked) token is offered a new enrollment
+    assert client.get("/mcp", headers=bearer("x" * 40)).text == "enroll/None/invalid_token"
     # The enrollment endpoint itself is public
     assert client.post("/api/v1/enroll").status_code == 200
 
     token_store.approve_enrollment(request["id"])
     assert client.get("/mcp", headers=bearer(request["token"])).text == f"{request['label']}/mcp"
+
+
+def test_rejected_tokens_fall_back_to_enrollment_on_the_mcp_server_only():
+    token_store.create_token("ops", Role.ADMIN)
+    old = token_store.create_token("old", Role.MCP, expires_in_days=1)["token"]
+    expire("old")
+    before = dict(http_server.AUTH_REJECTIONS)
+    client = protected_client(enrollment=True)
+
+    assert client.get("/mcp", headers=bearer(old)).text == "enroll/None/token_expired"
+    assert client.get("/mcp", headers=bearer("x" * 40)).text == "enroll/None/invalid_token"
+    # Still counted as rejections, and never a way into the review server
+    assert http_server.AUTH_REJECTIONS["token_expired"] == before.get("token_expired", 0) + 1
+    assert http_server.AUTH_REJECTIONS["invalid_token"] == before.get("invalid_token", 0) + 1
+    # Without enrollment the MCP server answers 401, and the controller always does
+    for rejected in (old, "x" * 40):
+        assert protected_client().get("/mcp", headers=bearer(rejected)).status_code == 401
+        response = protected_client(web=True, enrollment=True).get(
+            "/api/v1/me", headers=bearer(rejected)
+        )
+        assert response.status_code == 401
 
 
 def test_controller_never_falls_back_to_enrollment():

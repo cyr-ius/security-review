@@ -77,7 +77,8 @@ avec son auteur.
 ### Expiration et renouvellement des jetons
 
 Un jeton peut expirer : après sa date d'expiration il n'authentifie plus rien (`401`,
-`error="invalid_token"`, description `The bearer token has expired`), mais il reste listé pour
+`error="invalid_token"`, description `The bearer token has expired`, ou le
+[serveur d'enrôlement](#jeton-refuse-nouvel-enrolement) sur `/mcp`), mais il reste listé pour
 qu'un administrateur le renouvelle ou le révoque. `SECREVIEW_TOKEN_MAX_DAYS` (`0` par défaut)
 fixe la validité maximale d'un jeton créé ou renouvelé, et sa validité par défaut ; à `0`, les
 jetons n'expirent pas, sauf validité demandée.
@@ -194,6 +195,21 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`), même
     inconnu devient un compte SSO. Voir la
     [lecture du projet à l'enrôlement](sso.md#lecture-du-projet-a-lenrolement).
 
+### Jeton refusé : nouvel enrôlement
+
+Quand l'enrôlement est activé, un client dont le jeton est **inconnu, révoqué ou expiré** ne
+reçoit pas `401` sur `/mcp` : comme un client sans jeton, il atteint le serveur d'enrôlement, qui
+n'expose que `request_enrollment` et `get_enrollment_status`. `get_enrollment_status` répond
+alors `token_rejected` avec le motif (`invalid_token` ou `token_expired`), et l'agent propose à
+l'utilisateur de refaire l'enrôlement ; le nouveau jeton remplace le jeton refusé dans la
+[configuration de l'hôte](../getting-started/host.md#obtenir-un-jeton-enrolement), une fois
+approuvé. Le refus reste journalisé et compté dans les métriques `invalid_token` /
+`token_expired` ; l'API du contrôleur et l'endpoint `/api/v1/enroll` continuent de répondre
+`401`.
+
+`security-review-mcp scan-deps` reconnaît ce cas et propose de lancer
+`security-review-mcp enroll`.
+
 ### Enrôlement complémentaire
 
 Un hôte qui possède déjà un jeton actif restreint à un ou plusieurs projets peut demander un
@@ -223,11 +239,12 @@ complémentaire. Créez un jeton restreint si vous devez limiter ses accès.
 Garde-fous : au plus 20 demandes en attente à la fois, 3 par adresse cliente (derrière un
 reverse proxy, définissez [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md)), une
 demande non traitée expire au bout de
-7 jours, un jeton avec un secret invalide reste refusé (`401`) et les demandes en attente
+7 jours, un jeton avec un secret invalide n'atteint jamais les outils de revue (seulement le
+[serveur d'enrôlement](#jeton-refuse-nouvel-enrolement)) et les demandes en attente
 n'activent jamais l'authentification d'un serveur ouvert. Vérifiez le demandeur avant
 d'approuver : n'importe quel client qui atteint le serveur peut déposer une demande. Pour
-désactiver l'enrôlement : `SECREVIEW_ENROLLMENT=false` (les clients sans jeton reçoivent alors
-`401`).
+désactiver l'enrôlement : `SECREVIEW_ENROLLMENT=false` (les clients sans jeton, ou avec un jeton
+refusé, reçoivent alors `401`).
 
 `--url` est l'URL du **serveur MCP** (avec ou sans `/mcp`) : c'est lui qui reçoit les demandes.
 

@@ -26,8 +26,9 @@
   pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
   (`mcp`, `reader`, `triager`, `admin`, `ci`, `metrics`) ; un jeton `mcp` sans projet accède à
   tous les outils MCP et à tous les projets.
-- **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`),
-  et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons
+- **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`,
+  ou seulement le [serveur d'enrôlement](../advanced/http.md#jeton-refuse-nouvel-enrolement) sur
+  `/mcp`), et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons
   expirés comptent toujours comme configurés : un serveur dont tous les jetons ont expiré reste
   fermé. Un renouvellement n'enregistre que l'empreinte du nouveau secret ; l'empreinte
   précédente est conservée pendant le délai de grâce (168 heures au plus), comparée en temps

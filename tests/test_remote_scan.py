@@ -126,6 +126,39 @@ async def test_scan_without_a_valid_token_is_refused(shared_server, token):
 
 
 @pytest.mark.anyio
+async def test_scan_without_a_valid_token_suggests_enrollment(shared_server):
+    factory, _ = shared_server
+    with pytest.raises(ValueError, match="security-review-mcp enroll"):
+        await remote_scan.scan_files_async(
+            "http://127.0.0.1:8000", [LOCKFILE], token="nope", http_client_factory=factory
+        )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("token", [None, "not-a-valid-token"])
+async def test_scan_reaching_the_enrollment_server_suggests_enrollment(token):
+    token_store.create_token("ops", Role.ADMIN)
+    app = http_server.build_mcp_app(
+        server.mcp,
+        "127.0.0.1",
+        token_store.DatabaseTokenStore(),
+        enrollment_server=server.enrollment_mcp,
+    )
+
+    def factory(headers: dict[str, str]) -> httpx2.AsyncClient:
+        """Build an HTTP client bound to the app."""
+        return httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app), headers=headers)
+
+    async with server.mcp.session_manager.run(), server.enrollment_mcp.session_manager.run():
+        with pytest.raises(ValueError, match="did not accept the token") as error:
+            await remote_scan.scan_files_async(
+                "http://127.0.0.1:8000", [LOCKFILE], token=token, http_client_factory=factory
+            )
+    assert "security-review-mcp enroll" in str(error.value)
+    assert "not-a-valid-token" not in str(error.value)
+
+
+@pytest.mark.anyio
 async def test_scan_with_a_web_token_is_forbidden(shared_server):
     factory, _ = shared_server
     reader = token_store.create_token("viewer", Role.READER)["token"]

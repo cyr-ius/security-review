@@ -158,6 +158,10 @@ security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
 # exit code: 0 = ok, 1 = blocked, 2 = error (server unreachable, token refused...)
 ```
 
+A refused token (missing, unknown, revoked, expired or not approved yet) ends with an error that
+suggests `security-review-mcp enroll` (see
+[rejected token](http.md#rejected-token-new-enrollment)).
+
 - Same options and output as `deps scan` (`--fail-on`, `--format`, `--require-database`);
   nothing is stored (no `--save`).
 - `--url` replaces `SECREVIEW_SERVER_URL`, `--token-stdin` reads the token on stdin instead of

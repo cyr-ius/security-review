@@ -132,7 +132,7 @@ lui propose quand il refuse le projet.
 
 !!! note
     Si l'administrateur a désactivé l'enrôlement (`SECREVIEW_ENROLLMENT=false`), un hôte sans
-    jeton reçoit `401` : demandez-lui un jeton créé avec `security-review-controller token create`.
+    jeton, ou avec un jeton refusé, reçoit `401` : demandez-lui un jeton créé avec `security-review-controller token create`.
 
 ## Autres cas
 

@@ -80,6 +80,9 @@ UI_PREFIX = "/ui"
 # Public endpoint of the MCP server where a client without a token requests one
 # (see enrollment_api)
 ENROLL_PATH = "/api/v1/enroll"
+# Title of the MCP server that the clients without an approved token reach (see
+# server.enrollment_mcp): scan-deps recognizes it to suggest a new enrollment
+ENROLLMENT_SERVER_TITLE = "Security Review (enrollment)"
 # Public liveness endpoint of both processes (container and Kubernetes probes)
 HEALTH_PATH = "/healthz"
 # Prometheus endpoint of the controller (see metrics)
@@ -181,9 +184,10 @@ class BearerAuthMiddleware:
     ``allow_open`` (see allows_open_mcp) lets every request through.
 
     ``enrollment_app`` receives the MCP requests sent without an ``Authorization`` header (or
-    with an empty bearer value) or with a pending enrollment token;
-    ``scope["state"]["enrollment_token_id"]`` then holds the id of that pending token (None
-    without a token). Without it they get 401 / 403.
+    with an empty bearer value), with a pending enrollment token, or with a token that is
+    unknown, revoked or expired; ``scope["state"]["enrollment_token_id"]`` then holds the id of
+    that pending token (None otherwise) and ``scope["state"]["enrollment_rejected_token"]`` the
+    reason a token was rejected (None otherwise). Without it they get 401 / 403.
 
     ``sessions`` (controller only) also accepts the session tokens issued after a login.
     ``require_auth`` (controller with OIDC) asks for credentials even while the store holds no
@@ -278,11 +282,18 @@ class BearerAuthMiddleware:
         if info is None:
             AUTH_REJECTIONS["invalid_token"] += 1
             logger.warning("Rejected unauthenticated request from %s to %s", address, path)
+            if self.enrollment_app is not None:
+                # Unknown or revoked token: the client is offered a new enrollment
+                await self.enroll(scope, receive, send, None, rejection="invalid_token")
+                return
             await _send_error(send, 401, "invalid_token", "Missing or invalid bearer token")
             return
         if info.expired:
             AUTH_REJECTIONS["token_expired"] += 1
             logger.warning("Rejected expired token %s from %s to %s", info.label, address, path)
+            if self.enrollment_app is not None:
+                await self.enroll(scope, receive, send, None, rejection="token_expired")
+                return
             # RFC 6750: an expired token is an invalid_token
             await _send_error(send, 401, "invalid_token", "The bearer token has expired")
             return
@@ -318,13 +329,24 @@ class BearerAuthMiddleware:
         await self.app(scope, receive, send)
 
     async def enroll(
-        self, scope: Scope, receive: Receive, send: Send, token_id: str | None
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+        token_id: str | None,
+        rejection: str | None = None,
     ) -> None:
-        """Forward a request to the enrollment MCP server, with the pending token id if any."""
+        """Forward a request to the enrollment MCP server, with the pending token id if any.
+
+        ``rejection`` (``invalid_token`` or ``token_expired``) tells the enrollment server
+        that the client presented a token that no longer grants access, so that the model
+        offers a new enrollment.
+        """
         if self.enrollment_app is None:
             raise RuntimeError("Enrollment is not enabled")
         state = scope.setdefault("state", {})
         state["enrollment_token_id"] = token_id
+        state["enrollment_rejected_token"] = rejection
         await self.enrollment_app(scope, receive, send)
 
 

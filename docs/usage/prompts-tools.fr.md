@@ -68,13 +68,13 @@ Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur 
 ### Serveur d'enrôlement
 
 Sur le transport HTTP, un client qui se connecte **sans jeton** (ou avec un jeton dont
-l'enrôlement n'est pas encore approuvé) atteint un serveur restreint, du même nom, qui
+l'enrôlement n'est pas encore approuvé, ou un jeton inconnu, révoqué ou expiré) atteint un serveur restreint, du même nom, qui
 n'expose que :
 
 | Élément | Rôle |
 |---|---|
 | `request_enrollment` | Dépose la demande pour un projet et renvoie le jeton (affiché une fois), nommé d'après le nom d'utilisateur du développeur (`label`) |
-| `get_enrollment_status` | `pending` si le jeton présenté attend l'approbation, `not_enrolled` sans jeton |
+| `get_enrollment_status` | `pending` si le jeton présenté attend l'approbation, `not_enrolled` sans jeton, `token_rejected` (avec `reason`) pour un jeton inconnu, révoqué ou expiré : l'agent propose un nouvel enrôlement |
 | Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Argument `project` facultatif ; expliquent à l'agent comment demander l'accès au lieu de lancer la revue |
 
 Voir [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton).

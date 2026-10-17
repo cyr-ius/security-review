@@ -67,9 +67,11 @@ projects, call `request_enrollment` to ask an administrator to add this project 
 """
 
 ENROLLMENT_INSTRUCTIONS = """\
-Security code-review server, enrollment mode: the client has no approved bearer token yet, so \
-the review tools are not available.
-- Call `get_enrollment_status` to know whether a request is already waiting for approval.
+Security code-review server, enrollment mode: the client has no approved bearer token yet, or \
+its token was rejected (unknown, revoked or expired), so the review tools are not available.
+- Call `get_enrollment_status` to know whether a request is already waiting for approval. \
+`token_rejected` means the configured token no longer works: tell the user and offer to \
+enroll again with `request_enrollment`, whose new token replaces the rejected one.
 - Otherwise call `request_enrollment` once with the project name (usually the repository \
 name). Give the returned token to the user: they add it to the MCP client configuration as \
 `Authorization: Bearer <token>`. It works once an administrator approves the request.
@@ -83,10 +85,11 @@ mcp = MCPServer(
     version=__version__,
 )
 
-# Served by the HTTP transport to the clients that have no approved token (see http_server)
+# Served by the HTTP transport to the clients that have no approved token, or a rejected one
+# (see http_server)
 enrollment_mcp = MCPServer(
     "security-review",
-    title="Security Review (enrollment)",
+    title=http_server.ENROLLMENT_SERVER_TITLE,
     instructions=ENROLLMENT_INSTRUCTIONS,
     version=__version__,
 )
@@ -914,12 +917,30 @@ def enrollment_request(
         raise ValueError(
             "This client already uses a token waiting for approval; call get_enrollment_status"
         )
-    return _request_enrollment(ctx, project, label, requested_by)
+    created = _request_enrollment(ctx, project, label, requested_by)
+    if _rejected_token(ctx) is not None:
+        created["next_steps"] += (
+            " The new token replaces the rejected one in the MCP client configuration."
+        )
+    return created
 
 
 def _enrollment_token_id(ctx: Context) -> str | None:
     """Id of the pending token presented by the client of the enrollment server, or None."""
     return _auth_state(ctx).get("enrollment_token_id")
+
+
+def _rejected_token(ctx: Context) -> str | None:
+    """Why the token presented to the enrollment server was rejected (``invalid_token`` or
+    ``token_expired``), or None when the client sent no token or a pending one."""
+    return _auth_state(ctx).get("enrollment_rejected_token")
+
+
+# What the model tells the user when the server rejected the configured token
+_REJECTED_TOKEN_STEPS = {
+    "invalid_token": "The token of the MCP client configuration is unknown or was revoked.",
+    "token_expired": "The token of the MCP client configuration has expired.",
+}
 
 
 @enrollment_mcp.tool(name="get_enrollment_status", annotations=READ_ONLY)
@@ -928,7 +949,20 @@ def enrollment_status(ctx: Context) -> dict:
     """Tell whether the token presented by this client is waiting for approval.
 
     ``not_enrolled`` means the client sends no token: call request_enrollment.
+    ``token_rejected`` means its token is unknown, revoked or expired: offer the user to enroll
+    again with request_enrollment.
     """
+    reason = _rejected_token(ctx)
+    if reason is not None:
+        return {
+            "status": "token_rejected",
+            "reason": reason,
+            "next_steps": (
+                f"{_REJECTED_TOKEN_STEPS.get(reason, 'The token was rejected.')} Offer the user "
+                "to enroll again: call request_enrollment with the project name, then replace "
+                "the token in the MCP client configuration with the new one."
+            ),
+        }
     return token_store.enrollment_status(_enrollment_token_id(ctx))
 
 
