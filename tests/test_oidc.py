@@ -9,13 +9,14 @@ from urllib.parse import parse_qs, urlsplit
 
 import jwt
 import pytest
+from conftest import group_for, make_user
 from cryptography.hazmat.primitives.asymmetric import rsa
 from starlette.testclient import TestClient
 
 from security_review_mcp import (
+    access_control,
     http_server,
     oidc,
-    role_mapping,
     server,
     services,
     token_store,
@@ -40,8 +41,6 @@ def make_settings(**values) -> Settings:
         "oidc_client_secret": "client-secret",
         "oidc_redirect_uri": REDIRECT_URI,
         "oidc_admin_groups": "secreview-admins",
-        "oidc_triager_groups": "secreview-triagers",
-        "oidc_reader_groups": "developers, qa",
         "oidc_auto_create_users": True,
         "session_secret": SECRET,
     }
@@ -103,6 +102,8 @@ class FakeProvider(oidc.OidcLogin):
 
 @pytest.fixture
 def provider() -> FakeProvider:
+    # The groups claim of the fake provider names "qa": a group of readers open to SSO
+    group_for("reader", name="qa", sso=True)
     return FakeProvider(make_settings())
 
 
@@ -159,7 +160,7 @@ def test_from_settings_is_none_when_disabled():
         ({"oidc_redirect_uri": ""}, "SECREVIEW_OIDC_REDIRECT_URI is required"),
         ({"oidc_redirect_uri": "javascript:alert(1)"}, "SECREVIEW_OIDC_REDIRECT_URI must be"),
         ({"oidc_scopes": "profile email"}, "must include openid"),
-        ({"oidc_default_role": "admin"}, "SECREVIEW_OIDC_DEFAULT_ROLE"),
+        ({"oidc_default_group": "x" * 201}, "SECREVIEW_OIDC_DEFAULT_GROUP"),
         ({"oidc_cafile": "/nonexistent/ca.pem"}, "SECREVIEW_OIDC_CAFILE"),
         ({"oidc_display_name": " "}, "SECREVIEW_OIDC_DISPLAY_NAME"),
     ],
@@ -362,11 +363,16 @@ def test_full_login_gives_a_session_accepted_by_the_api(controller, provider, ca
         for record in caplog.records
         if record.name.startswith("security_review_mcp")
     )
-    assert "OIDC login of oidc:alice with role reader" in logs
+    assert "OIDC login of oidc:alice with role reader through 1 SSO group(s)" in logs
     assert "SSO web user alice created at its first login" in logs
     # The user now appears among the web users, as an SSO user bound to its subject
     (user,) = web_users.list_users()
-    assert (user["username"], user["auth_source"], user["sso_role"]) == ("alice", "oidc", "reader")
+    assert (user["username"], user["auth_source"], user["effective_role"]) == (
+        "alice",
+        "oidc",
+        "reader",
+    )
+    assert [(group["name"], group["source"]) for group in user["groups"]] == [("qa", "oidc")]
     for secret in ("code-xyz", session, "access-abc", "client-secret"):
         assert secret not in logs
 
@@ -411,10 +417,10 @@ def test_admin_group_and_userinfo_groups(controller, provider):
     assert (me["client"], me["role"]) == ("oidc:bob", "admin")
 
 
-def test_stored_role_mapping_restricts_the_session_to_its_projects(controller, provider):
+def test_sso_group_restricts_the_session_to_its_projects(controller, provider):
     for project in ("shop-api", "billing"):
         services.save_report(project, "Review", [])
-    role_mapping.create_mapping("payments-team", Role.TRIAGER, ["billing"])
+    group_for("triager", ["billing"], name="payments-team", sso=True)
     provider.claims = {"preferred_username": "carol", "groups": ["payments-team"]}
     state = start_login(controller, provider)
     session = session_of(
@@ -424,6 +430,7 @@ def test_stored_role_mapping_restricts_the_session_to_its_projects(controller, p
 
     me = controller.get("/api/v1/me", headers=headers).json()
     assert (me["role"], me["projects"]) == ("triager", ["billing"])
+    assert me["permissions"] == {"findings.triage": ["billing"], "reports.read": ["billing"]}
     projects = controller.get("/api/v1/projects", headers=headers).json()
     assert [item["project"] for item in projects] == ["billing"]
     assert controller.get("/api/v1/posture?project=shop-api", headers=headers).status_code == 404
@@ -432,8 +439,8 @@ def test_stored_role_mapping_restricts_the_session_to_its_projects(controller, p
 def test_sso_user_created_by_an_administrator_reads_its_projects(controller, provider):
     for project in ("shop-api", "billing"):
         services.save_report(project, "Review", [])
-    web_users.create_user("dave", None, "reader", ["shop-api"], auth_source="oidc")
-    # No group of dave is mapped and there is no default role: only its own role applies
+    make_user("dave", None, "reader", ["shop-api"], auth_source="oidc")
+    # No group of the claim of dave exists: only the groups given by an administrator apply
     provider.claims = {"preferred_username": "dave", "groups": ["unmapped"]}
     state = start_login(controller, provider)
     session = session_of(
@@ -486,7 +493,7 @@ def test_unknown_sso_user_is_refused_without_auto_creation(tmp_path):
 
 
 def test_sso_login_never_opens_a_local_account(controller, provider):
-    web_users.create_user("alice", "correct horse battery", "admin")
+    make_user("alice", "correct horse battery", "admin")
     state = start_login(controller, provider)
     response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
     assert error_of(response) == "conflict"
@@ -495,7 +502,7 @@ def test_sso_login_never_opens_a_local_account(controller, provider):
 @pytest.mark.parametrize(
     ("claims", "error"),
     [
-        # Another name with the email of dave: a new user without any role
+        # Another name with the email of dave: a new user without any group
         ({"preferred_username": "mallory", "email": "dave"}, "forbidden"),
         # No fallback to email or sub: only the configured claim names the user
         ({"email": "dave"}, "username"),
@@ -508,8 +515,8 @@ def test_sso_login_never_opens_a_local_account(controller, provider):
     ],
 )
 def test_sso_user_of_another_name_does_not_apply(controller, provider, claims, error):
-    web_users.create_user("dave", None, "reader", ["shop-api"], auth_source="oidc")
-    web_users.create_user("user-123", None, "reader", ["shop-api"], auth_source="oidc")
+    make_user("dave", None, "reader", ["shop-api"], auth_source="oidc")
+    make_user("user-123", None, "reader", ["shop-api"], auth_source="oidc")
     provider.claims = {**claims, "groups": []}
     state = start_login(controller, provider)
     response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
@@ -517,9 +524,9 @@ def test_sso_user_of_another_name_does_not_apply(controller, provider, claims, e
 
 
 def test_login_granting_too_many_projects_is_refused(controller, provider, monkeypatch):
-    monkeypatch.setattr(role_mapping, "MAX_SESSION_PROJECTS", 1)
-    role_mapping.create_mapping("team-a", Role.READER, ["a"])
-    role_mapping.create_mapping("team-b", Role.READER, ["b"])
+    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 1)
+    group_for("reader", ["a"], name="team-a", sso=True)
+    group_for("reader", ["b"], name="team-b", sso=True)
     provider.claims = {"preferred_username": "alice", "groups": ["team-a", "team-b"]}
     state = start_login(controller, provider)
     response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})

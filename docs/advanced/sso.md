@@ -14,7 +14,7 @@ The flow is *authorization code* with PKCE (`S256`), state and nonce:
 2. the provider sends back to `GET /api/v1/auth/oidc/callback`; the controller exchanges the
    code (server-to-server call), checks the ID token (signature by the JWKS keys of the
    provider, issuer, audience, expiry, nonce), finds the [SSO account](#sso-accounts) of the
-   user (or creates it) and stores the role given by its groups;
+   user (or creates it) and records the groups named by its groups claim;
 3. it hands the interface a signed **session token**, valid `SECREVIEW_SESSION_HOURS` hours,
    that the tab uses like a Bearer token.
 
@@ -36,9 +36,7 @@ SECREVIEW_OIDC_CLIENT_ID=security-review
 SECREVIEW_OIDC_CLIENT_SECRET=...            # empty for a public client
 SECREVIEW_OIDC_REDIRECT_URI=https://secreview.example.com/api/v1/auth/oidc/callback
 SECREVIEW_OIDC_ROLES_CLAIM=realm_access.roles   # "groups" by default
-SECREVIEW_OIDC_ADMIN_GROUPS=secreview-admins
-SECREVIEW_OIDC_TRIAGER_GROUPS=secreview-triagers
-SECREVIEW_OIDC_READER_GROUPS=developers,qa
+SECREVIEW_OIDC_ADMIN_GROUPS=secreview-admins   # created with the admin role (first administrator)
 SECREVIEW_OIDC_AUTO_CREATE_USERS=true       # otherwise, create every SSO account in Utilisateurs
 SECREVIEW_SESSION_SECRET=$(openssl rand -base64 48)
 SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
@@ -52,8 +50,8 @@ screen), else through `HTTPS_PROXY` / `NO_PROXY`.
 
 ## Configuring SSO in the interface
 
-The same settings can be changed in the **SSO settings** section of
-the **SSO roles** screen (`admin` role), without restarting the controller. As for
+The same settings can be changed in the **SSO** screen (`users.manage` permission: the SSO
+settings decide who joins which group), without restarting the controller. As for
 the **Outgoing proxy** screen, a value stored in the database **replaces its
 `SECREVIEW_OIDC_*` variable**, field by field; a field never changed follows its variable:
 
@@ -66,7 +64,7 @@ the **Outgoing proxy** screen, a value stored in the database **replaces its
   form, without storing them: reading of the `/.well-known/openid-configuration` document (same
   `issuer`, HTTPS endpoints), then of the signing keys (JWKS);
 - **Save** refuses (`422`) a configuration that would enable an invalid login
-  (missing or non-HTTPS issuer, scopes without `openid`, unknown default role...): nothing is
+  (missing or non-HTTPS issuer, scopes without `openid`...): nothing is
   stored then. An incomplete configuration can be prepared while SSO stays disabled.
 
 The change applies to the next login, on every replica (the controller reads the configuration
@@ -77,7 +75,7 @@ If a variable changed later makes the combination with the stored values invalid
 controller starts anyway: the SSO login is disabled and the error logged, to be fixed in the
 screen.
 
-Through the API (`/api/v1/oidc/settings`, `admin` role): `GET` describes every setting (stored
+Through the API (`/api/v1/oidc/settings`, `users.manage` permission): `GET` describes every setting (stored
 `value` or `null`, `env`, `effective`; a set secret reads `***`), `PUT` changes the sent fields
 (`null` applies the variable again, a missing field is unchanged) and
 `POST /api/v1/oidc/settings/test` tests the provider without storing anything:
@@ -103,8 +101,8 @@ At login, the controller looks for this account:
 
 | Situation | Result |
 |---|---|
-| Existing SSO account | Login, with the effective role below |
-| No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | The account is **created** (`created_by`: `oidc`) if its groups or the default role give it a role; otherwise refused, without creation |
+| Existing SSO account | Login, with the permissions of its groups (below) |
+| No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | The account is **created** (`created_by`: `oidc`) if its groups give it a permission; otherwise refused, without creation |
 | No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (default) | **Refused**: an administrator must first create the SSO account |
 | **Local** account with the same name | **Refused**: an SSO login never opens a local account |
 | SSO account bound to another `sub` | **Refused** (see below) |
@@ -115,91 +113,56 @@ with the same user name but another `sub` (provider account deleted then created
 renamed...) is refused. To give the user name to someone else, delete then create the account
 again.
 
-The **effective role** combines the role given to the account (**Utilisateurs** screen, or
-approval of an enrollment) and the role of its groups ([role mapping](#role-mapping)), stored at
-every login: the highest wins, and its projects are the union of those of both accesses with
-this role. An account with neither a role of its own nor a group role is refused and its open
-sessions are closed. The given role applies at once; the group role, at the next login.
+What an SSO account may do comes from its [groups](access-control.md): those an administrator
+gave it (**Users** or **Groups** screen, approval of an enrollment) and the groups open to SSO
+named by its groups claim, recorded at every login (see
+[groups of the identity provider](#groups-of-the-identity-provider)). An account without any
+permission is refused and its open sessions are closed. A change of its given groups applies at
+once; a change of its groups at the provider, at the next login.
 
 **Deleting an SSO account** (**Utilisateurs** screen, `DELETE /api/v1/users/{id}` or
 `security-review-controller user delete NAME`) closes its sessions at once and **revokes** its
 user name: an SSO login no longer creates it again, even with the automatic creation and groups
-that give it a role ("compte supprimé" message, account deleted, on the login page). To give it
+that give it a permission ("compte supprimé" message, account deleted, on the login page). To give it
 access back, an administrator creates the account again (by hand or at the approval of an
 enrollment), or lifts the revocation (**Autoriser à nouveau**, Allow again,
 `DELETE /api/v1/users/revoked/{username}`): the account is then created again at its next
 login. `GET /api/v1/users/revoked` lists the revoked accounts, with the author and the date of
 the deletion.
 
-The **last administrator** can be neither deleted nor demoted. An administrator is a local or
-SSO account whose given role is `admin`, or an SSO account whose groups gave it `admin` at its
-last login. Preferably keep a local administrator: if the identity provider becomes
-unreachable, it remains the only access, besides the CLI.
+The [last holder](access-control.md#the-last-administrator) of the `users.manage` permission
+can be neither deleted nor lose it. Preferably keep a local administrator: if the identity
+provider becomes unreachable, it remains the only access, besides the CLI.
 
 ```
 INFO security_review_mcp.web: SSO web user alice created at its first login
-INFO security_review_mcp.web: OIDC login of oidc:alice with role reader on every project
+INFO security_review_mcp.web: OIDC login of oidc:alice with role reader through 1 SSO group(s)
 WARNING security_review_mcp.web: OIDC login of oidc:bob refused: no web user bob
 INFO security_review_mcp.web: Web user carol (oidc) deleted by admin
 WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user carol was deleted
 ```
 
-## Role mapping
+## Groups of the identity provider
 
-The *role mapping* decides the web role, and the projects, of an SSO user from the values of
-the `SECREVIEW_OIDC_ROLES_CLAIM` claim (list or string, dotted path accepted, exact comparison,
-case sensitive). A **mapping** ties one of these values (a group or a role of the provider) to:
+The values of the `SECREVIEW_OIDC_ROLES_CLAIM` claim (list or string, dotted path accepted) are
+compared with the **names of the groups** of the **Groups** screen: at each login, the user joins
+every group **open to SSO** whose name is **exactly** one of these values (case included), and
+leaves the SSO groups it no longer has. The other values are ignored: create a group of the same
+name to use one. The roles of the group, and their projects, then apply (see
+[Roles, groups and permissions](access-control.md)).
 
-- a web role: `reader`, `triager` or `admin` (never `mcp`: an OIDC session only opens the web
-  interface, not `/mcp`);
-- for `reader` and `triager`, an optional list of projects (50 at most); without a list, every
-  project. An `admin` mapping always covers every project.
+| Setting | Effect |
+|---|---|
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | Comma-separated groups that hold the `admin` role: such a group, missing at the login of one of its members, is created open to SSO with the `admin` role. An existing group is left as administrators changed it. Used to name the first administrator |
+| `SECREVIEW_OIDC_DEFAULT_GROUP` | Name of a group every SSO user joins at each login, whatever its claim (empty by default: none). A missing group gives nothing |
 
-Mappings have two origins:
+A group **not open to SSO** (for example `administrators`, or the personal group `user:<name>`)
+is never joined through the claim, even when a value has its name. A restricted session behaves
+like a [token restricted to a project](http.md#tokens-restricted-to-a-project): the other
+projects, their reports and their findings are handled as missing.
 
-| Origin | Management | Projects |
-|---|---|---|
-| Database | **SSO roles** screen or `/api/v1/oidc/role-mappings` API (`admin` role) | All or a list |
-| `SECREVIEW_OIDC_ADMIN_GROUPS`, `..._TRIAGER_GROUPS`, `..._READER_GROUPS` variables | Configuration of the controller (read only in the interface) | All |
-
-The variables are mostly used to name the first administrator, who then creates the other
-mappings in the interface.
-
-At login:
-
-1. the **highest role** among the mappings that match the groups of the user wins
-   (`admin` > `triager` > `reader`);
-2. the session sees **every project** if one of the mappings of this role is not restricted;
-   otherwise the **union** of their projects (200 at most: beyond that, the login is refused).
-   The projects of the mappings of a lower role are not added: a user who is `triager` on
-   `shop-api` and `reader` on `billing` is `triager` on `shop-api` only;
-3. without any group mapping, `SECREVIEW_OIDC_DEFAULT_ROLE` applies (`reader` or `triager`,
-   every project); empty (default), the groups give no role and only the role given to the
-   [SSO account](#sso-accounts) still allows the login, otherwise it is **refused**. The
-   `admin` role cannot be given by default.
-
-This group role is then combined with the role given to the account (see
-[SSO accounts](#sso-accounts)).
-
-A restricted session behaves like a
-[token restricted to a project](http.md#tokens-restricted-to-a-project): the
-other projects, their reports and their findings are handled as missing. A project can be named
-before it exists (the screen suggests the known projects). A change of mapping applies at the
-**next login** of the user; until then, their open sessions keep the stored group role (see
-[Sessions](#sessions)). Every creation, change or deletion is logged with the label of the
-administrator:
-
-```
-INFO security_review_mcp.web: Role mapping payments -> triager (billing) created by oidc:alice
-```
-
-API example:
-
-```bash
-curl -X POST https://secreview.example.com/api/v1/oidc/role-mappings \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"claim_value": "payments-team", "role": "triager", "projects": ["billing"]}'
-```
+Example: with the claim `["payments-team", "staff"]`, a group `payments-team` open to SSO with the
+`triager` role on `billing`, and no `staff` group, the user triages `billing` only.
 
 The label of an SSO session is `oidc:<username>`: it is the one that appears in the logs and
 in the triage history.
@@ -215,11 +178,11 @@ browses its reports.
   ticked when SSO is enabled. This field is declared by the client and **is not verified**:
   check or correct it before approving, or untick the box.
 - The name designates an account of the **Users** screen, local or SSO. With SSO
-  enabled, an unknown name becomes an **SSO account** (`reader` on the project), ready for its
-  first login; without SSO, the account must exist.
-- An account without a role of its own becomes `reader` on the project; a restricted `reader`
-  or `triager` account gets one more project; an account that already sees every project is
-  unchanged. An approved additional request for the same user adds the project the same way.
+  enabled, an unknown name becomes an **SSO account**, ready for its first login; without SSO,
+  the account must exist. Giving this access needs the `users.manage` permission.
+- An account that already reads every project is unchanged. Otherwise the project is added to
+  the `reader` role of its **personal group** `user:<name>` (not open to SSO, created when
+  missing). An approved additional request for the same user adds the project the same way.
 
 The access then shows on the account, where it is changed like the others. It is independent of
 the MCP token: revoking the token does not remove it.
@@ -251,7 +214,7 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
 - The session token is signed (HMAC-SHA256) with a key derived from `SECREVIEW_SESSION_SECRET`
   (at least 32 characters), like the one of the [local accounts](../usage/web-interface.md#login-and-sessions), and
   names the SSO account, read again at every request: deleting the account or changing its
-  given role applies at once. Every replica of the controller must share this secret; without
+  groups or their roles applies at once. Every replica of the controller must share this secret; without
   it, a random secret is drawn at every start and the sessions end at restart (a warning is
   logged).
 - A group change at the provider only applies at the next login. To cut every session before it
@@ -260,7 +223,7 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
 - **Log out** clears the session of the tab, not the one of the identity
   provider.
 
-On failure, the login page gives the cause (access denied at the provider, no role, SSO account
+On failure, the login page gives the cause (access denied at the provider, no permission, SSO account
 not created yet or deleted, user name taken by a local account or bound to another account,
 missing user name, expired state, invalid token, unreachable provider); the detail is logged by
 the controller, without code or token.

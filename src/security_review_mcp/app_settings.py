@@ -18,7 +18,7 @@ from sqlmodel import select
 from .config import Settings, check_report_language, get_settings
 from .database import session_scope
 from .models import AppSetting, utcnow
-from .oidc import CALLBACK_PATH, DEFAULT_ROLES, validate_settings
+from .oidc import CALLBACK_PATH, validate_settings
 from .proxy import PASSWORD_MASK, check_no_proxy, check_proxy_url, describe_proxy, masked_url
 
 REPORT_LANGUAGE = "report_language"
@@ -179,9 +179,7 @@ OIDC_FIELDS: dict[str, type] = {
     "roles_claim": str,
     "username_claim": str,
     "admin_groups": str,
-    "triager_groups": str,
-    "reader_groups": str,
-    "default_role": str,
+    "default_group": str,
     "auto_create_users": bool,
     "display_name": str,
 }
@@ -218,8 +216,6 @@ def _check_oidc_value(name: str, value: Any) -> str:
         raise ValueError(f"SSO setting {name} too long (max {MAX_OIDC_VALUE_CHARS} chars)")
     if not text.isprintable():
         raise ValueError(f"SSO setting {name} must not contain control characters")
-    if name == "default_role" and text not in DEFAULT_ROLES:
-        raise ValueError("SSO default role must be empty, reader or triager")
     return text
 
 

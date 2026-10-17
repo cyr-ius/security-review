@@ -47,10 +47,10 @@
         </ul>
       }
 
-      @if (isAdmin()) {
+      @if (adminNav().length) {
         <p class="nav-section">{{ 'layout.sectionAdmin' | t }}</p>
         <ul class="nav-list">
-          @for (item of adminNav; track item.path) {
+          @for (item of adminNav(); track item.path) {
             <li>
               <a
                 class="nav-entry"

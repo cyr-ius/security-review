@@ -3,7 +3,9 @@
 import re
 from datetime import UTC, datetime, timedelta
 
-from security_review_mcp import http_server, metrics, services, token_store, web_users
+from conftest import make_user
+
+from security_review_mcp import http_server, metrics, services, token_store
 from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
 from security_review_mcp.models import AdvisoryUpdate, FindingCreate, FindingStatus, Severity
@@ -27,7 +29,7 @@ def test_metrics_count_findings_tokens_and_users(triage):
     token_store.create_token("dev", Role.MCP)
     token_store.create_token("soon", Role.MCP, expires_in_days=3)
     token_store.request_enrollment("shop-api")
-    web_users.create_user("alice", "correct horse battery", "reader")
+    make_user("alice", "correct horse battery", "reader")
 
     text = metrics.render()
 

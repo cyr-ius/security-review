@@ -104,17 +104,6 @@
         }
       </div>
     </div>
-    <div class="col-md-2">
-      <label for="user-role" class="form-label">{{ 'users.role' | t }}</label>
-      <select id="user-role" class="form-select" [value]="role()" (change)="onRoleChange($event)">
-        @if (formSource() === 'oidc') {
-          <option value="none">{{ 'users.roleNone' | t }}</option>
-        }
-        <option value="reader">{{ 'users.roleReader' | t }}</option>
-        <option value="triager">{{ 'users.roleTriager' | t }}</option>
-        <option value="admin">{{ 'users.roleAdmin' | t }}</option>
-      </select>
-    </div>
     @if (!editing() && formSource() === 'local') {
       <div class="col-md-3">
         <label for="user-password" class="form-label">{{ 'login.password' | t }}</label>
@@ -134,58 +123,38 @@
         </div>
       </div>
     }
-    <fieldset [class]="editing() || formSource() === 'oidc' ? 'col-md-5' : 'col-md-4'">
-      <legend class="form-label">{{ 'layout.projects' | t }}</legend>
-      <div class="form-check form-check-inline">
-        <input
-          class="form-check-input"
-          type="radio"
-          name="user-scope"
-          id="user-scope-all"
-          [checked]="allProjects() || projectsLocked()"
-          (change)="allProjects.set(true)"
-        />
-        <label class="form-check-label" for="user-scope-all">{{ 'reports.allProjects' | t }}</label>
-      </div>
-      <div class="form-check form-check-inline">
-        <input
-          class="form-check-input"
-          type="radio"
-          name="user-scope"
-          id="user-scope-some"
-          [disabled]="projectsLocked()"
-          [checked]="!allProjects() && !projectsLocked()"
-          (change)="allProjects.set(false)"
-        />
-        <label class="form-check-label" for="user-scope-some">{{ 'users.someProjects' | t }}</label>
-      </div>
-      @if (role() === 'none') {
-        <div class="form-text">
-          {{ 'users.noRoleProjects' | t }}
+    <fieldset [class]="editing() || formSource() === 'oidc' ? 'col-md-7' : 'col-md-4'">
+      <legend class="form-label">{{ 'layout.groups' | t }}</legend>
+      @if ((groups.value()?.groups ?? []).length) {
+        <div class="d-flex flex-wrap gap-3">
+          @for (group of groups.value()?.groups ?? []; track group.id) {
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [id]="'user-group-' + group.id"
+                [checked]="selectedGroups().includes(group.id)"
+                (change)="toggleGroup(group.id, $event)"
+              />
+              <label class="form-check-label user-name" [for]="'user-group-' + group.id">
+                {{ group.name }}
+              </label>
+            </div>
+          }
         </div>
-      } @else if (projectsLocked()) {
-        <div class="form-text">{{ 'users.adminProjects' | t }}</div>
-      } @else if (!allProjects()) {
-        @if (projectChoices().length) {
-          <div class="d-flex flex-wrap gap-3 mt-2">
-            @for (project of projectChoices(); track project) {
-              <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  [id]="'user-project-' + project"
-                  [checked]="selectedProjects().includes(project)"
-                  (change)="toggleProject(project, $event)"
-                />
-                <label class="form-check-label" [for]="'user-project-' + project">
-                  {{ project }}
-                </label>
-              </div>
-            }
-          </div>
-        } @else if (!projects.isLoading()) {
-          <div class="form-text">{{ 'users.noProjects' | t }}</div>
-        }
+      } @else if (!groups.isLoading()) {
+        <div class="form-text">{{ 'users.noGroups' | t }}</div>
+      }
+      <div class="form-text">{{ 'users.groupsHelp' | t }}</div>
+      @if (ssoGroups().length) {
+        <div class="form-text">
+          {{ 'users.ssoGroups' | t }}
+          @for (group of ssoGroups(); track group.group_id) {
+            <span class="badge text-bg-primary bg-opacity-75 ms-1">
+              <i class="bi bi-shield-lock" aria-hidden="true"></i> {{ group.name }}
+            </span>
+          }
+        </div>
       }
     </fieldset>
     <div class="col-md-2 d-flex flex-column gap-2 pt-md-4">
@@ -213,8 +182,8 @@
           <tr>
             <th scope="col">{{ 'login.username' | t }}</th>
             <th scope="col">{{ 'users.type' | t }}</th>
-            <th scope="col">{{ 'users.ownRole' | t }}</th>
-            <th scope="col">{{ 'users.groupRole' | t }}</th>
+            <th scope="col">{{ 'layout.groups' | t }}</th>
+            <th scope="col">{{ 'users.access' | t }}</th>
             <th scope="col">{{ 'users.lastLogin' | t }}</th>
             <th scope="col">{{ 'common.createdAt' | t }}</th>
             <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
@@ -251,15 +220,25 @@
                   </span>
                 }
               </td>
-              <td>{{ describe(user.role, user.projects) }}</td>
+              <td class="small">
+                @for (group of user.groups; track group.group_id + group.source) {
+                  <span
+                    class="badge text-bg-light border me-1"
+                    [title]="(group.source === 'oidc' ? 'users.ssoGroup' : 'users.givenGroup') | t"
+                  >
+                    @if (group.source === 'oidc') {
+                      <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                    }
+                    {{ group.name }}
+                  </span>
+                } @empty {
+                  —
+                }
+              </td>
               <td>
-                @if (user.auth_source === 'oidc') {
-                  {{ describe(user.sso_role, user.sso_projects) }}
-                  @if (!user.effective_role) {
-                    <span class="badge text-bg-warning ms-1">{{ 'users.noAccess' | t }}</span>
-                  }
-                } @else {
-                  <span class="text-body-secondary">—</span>
+                {{ describe(user) }}
+                @if (!user.effective_role) {
+                  <span class="badge text-bg-warning ms-1">{{ 'users.noAccess' | t }}</span>
                 }
               </td>
               <td>

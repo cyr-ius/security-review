@@ -1,5 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { Identity } from '../models/api.models';
+import { Identity, Permission } from '../models/api.models';
 
 const TOKEN_KEY = 'secreview.token';
 
@@ -18,6 +18,16 @@ export class AuthService {
   readonly identity = signal<Identity | null>(null);
 
   readonly canTriage = computed(() => this.identity()?.can_triage ?? false);
+
+  /** True when the user holds ``permission`` (on ``project`` when one is given). */
+  can(permission: Permission, project?: string): boolean {
+    const grants = this.identity()?.permissions ?? {};
+    if (!(permission in grants)) {
+      return false;
+    }
+    const projects = grants[permission];
+    return project === undefined || projects === null || !!projects?.includes(project);
+  }
 
   /** Store a token (the identity is loaded by the guard). */
   login(token: string): void {

@@ -19,13 +19,10 @@ const ROLE_LABELS: Record<WebUserRole, MessageKey> = {
   admin: 'users.roleAdmin',
 };
 
-/** Role chosen in the form: a web role, or none (SSO user: only the role of its groups). */
-type FormRole = WebUserRole | 'none';
-
 /**
  * Administrator page for the web users, the only accounts of the web interface: local users
  * (username and password) and SSO users (OpenID Connect, created here or at their first login),
- * their role and projects, password resets and deletion.
+ * the groups given to them (their roles give the permissions), password resets and deletion.
  */
 @Component({
   selector: 'app-user-list',
@@ -43,19 +40,17 @@ export class UserListComponent {
   readonly users = rxResource({ stream: () => this.api.users() });
   /** Deleted SSO users, never created again by a login. */
   readonly revoked = rxResource({ stream: () => this.api.revokedUsers() });
-  readonly projects = rxResource({ stream: () => this.api.projects() });
+  readonly groups = rxResource({ stream: () => this.api.groups() });
   /** Login methods of the controller: tells whether SSO users can log in. */
   readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
 
   readonly username = signal('');
   readonly source = signal<AuthSource>('local');
-  readonly role = signal<FormRole>('reader');
-  /** Every project, or only the selected ones. */
-  readonly allProjects = signal(true);
-  readonly selectedProjects = signal<string[]>([]);
+  /** Ids of the groups given by an administrator (the SSO groups are kept apart). */
+  readonly selectedGroups = signal<number[]>([]);
   /** Password typed by the administrator; empty: the controller generates one. */
   readonly password = signal('');
-  /** User whose role and projects are being edited (null: creation form). */
+  /** User whose groups are being edited (null: creation form). */
   readonly editing = signal<WebUser | null>(null);
 
   /** Generated password, shown once with the user it belongs to. */
@@ -63,9 +58,6 @@ export class UserListComponent {
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
-
-  /** Admin users always reach every project; a user without a role lists none. */
-  readonly projectsLocked = computed(() => this.role() === 'admin' || this.role() === 'none');
 
   /** Source of the user of the form (the edited one, or the one being created). */
   readonly formSource = computed(() => this.editing()?.auth_source ?? this.source());
@@ -76,11 +68,10 @@ export class UserListComponent {
     return config?.oidc ? config.oidc_display_name : null;
   });
 
-  /** Projects offered as checkboxes: known projects plus those of the edited user. */
-  readonly projectChoices = computed(() => {
-    const known = (this.projects.value() ?? []).map((item) => item.project);
-    return [...new Set([...known, ...this.selectedProjects()])].sort();
-  });
+  /** SSO groups of the edited user (named by its groups claim at its last login). */
+  readonly ssoGroups = computed(() =>
+    (this.editing()?.groups ?? []).filter((group) => group.source === 'oidc'),
+  );
 
   readonly passwordTooShort = computed(
     () =>
@@ -93,8 +84,7 @@ export class UserListComponent {
     () =>
       !this.busy() &&
       !this.passwordTooShort() &&
-      (this.editing() !== null || this.username().trim().length > 0) &&
-      (this.allProjects() || this.projectsLocked() || this.selectedProjects().length > 0),
+      (this.editing() !== null || this.username().trim().length > 0),
   );
 
   /** True for the row of the logged-in user. */
@@ -107,13 +97,14 @@ export class UserListComponent {
     return identity.client === label;
   }
 
-  /** Text of a role and its projects, e.g. "Triage (shop-api, billing)". */
-  describe(role: WebUserRole | null, projects: string[] | null): string {
-    if (!role) {
+  /** Text of the access of a user, e.g. "Triage (shop-api, billing)". */
+  describe(user: WebUser): string {
+    if (!user.effective_role) {
       return '—';
     }
-    const label = this.i18n.translate(ROLE_LABELS[role]);
-    return projects && role !== 'admin'
+    const label = this.i18n.translate(ROLE_LABELS[user.effective_role]);
+    const projects = user.permissions['reports.read'];
+    return projects
       ? `${label} (${projects.join(', ')})`
       : this.i18n.translate('users.roleAllProjects', { role: label });
   }
@@ -129,34 +120,23 @@ export class UserListComponent {
   onSourceChange(source: AuthSource): void {
     this.source.set(source);
     this.password.set('');
-    if (source === 'local' && this.role() === 'none') {
-      this.role.set('reader');
-    }
   }
 
-  onRoleChange(event: Event): void {
-    const role = (event.target as HTMLSelectElement).value as FormRole;
-    this.role.set(role);
-    if (role === 'admin' || role === 'none') {
-      this.allProjects.set(true);
-    }
-  }
-
-  toggleProject(project: string, event: Event): void {
+  toggleGroup(groupId: number, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
-    this.selectedProjects.update((selected) =>
-      checked ? [...selected, project] : selected.filter((item) => item !== project),
+    this.selectedGroups.update((selected) =>
+      checked ? [...selected, groupId] : selected.filter((item) => item !== groupId),
     );
   }
 
-  /** Load a user into the form to change its role and projects. */
+  /** Load a user into the form to change its groups. */
   edit(user: WebUser): void {
     this.editing.set(user);
     this.username.set(user.username);
     this.source.set(user.auth_source);
-    this.role.set(user.role ?? 'none');
-    this.allProjects.set(user.projects === null);
-    this.selectedProjects.set(user.projects ?? []);
+    this.selectedGroups.set(
+      user.groups.filter((group) => group.source === 'local').map((group) => group.group_id),
+    );
     this.password.set('');
     this.message.set(null);
     this.error.set(null);
@@ -166,9 +146,7 @@ export class UserListComponent {
     this.editing.set(null);
     this.username.set('');
     this.source.set('local');
-    this.role.set('reader');
-    this.allProjects.set(true);
-    this.selectedProjects.set([]);
+    this.selectedGroups.set([]);
     this.password.set('');
   }
 
@@ -177,19 +155,17 @@ export class UserListComponent {
     if (!this.canSubmit()) {
       return;
     }
-    const chosen = this.role();
-    const role = chosen === 'none' ? null : chosen;
-    const projects = this.allProjects() || this.projectsLocked() ? [] : this.selectedProjects();
+    const groups = this.selectedGroups();
     const editing = this.editing();
     const source = this.source();
     await this.run(async () => {
       if (editing) {
-        const updated = await firstValueFrom(this.api.updateUser(editing.id, role, projects));
+        const updated = await firstValueFrom(this.api.updateUser(editing.id, groups));
         this.message.set(msg('users.updated', { user: updated.username }));
       } else {
         const password = source === 'local' ? this.password() || null : null;
         const created = await firstValueFrom(
-          this.api.createUser(this.username().trim(), source, role, projects, password),
+          this.api.createUser(this.username().trim(), source, groups, password),
         );
         if (created.password) {
           this.createdPassword.set({ username: created.username, password: created.password });
@@ -280,13 +256,13 @@ export class UserListComponent {
 function describeError(error: unknown): Message {
   if (error instanceof HttpErrorResponse) {
     const detail = typeof error.error?.detail === 'string' ? error.error.detail : null;
-    if (error.status === 409 && detail?.includes('last administrator')) {
+    if (error.status === 409 && detail?.includes('users.manage')) {
       return msg('users.lastAdminDelete');
     }
     if (error.status === 409) {
       return msg('users.conflict');
     }
-    if (error.status === 422 && detail?.includes('last administrator')) {
+    if (error.status === 422 && detail?.includes('users.manage')) {
       return msg('users.lastAdminRole');
     }
     if (error.status === 422) {

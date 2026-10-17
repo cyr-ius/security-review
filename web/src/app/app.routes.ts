@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 
 // Each title is a message key, translated by I18nTitleStrategy
 import { authGuard } from './core/guards/auth.guard';
-import { adminGuard } from './core/guards/admin.guard';
+import { permissionGuard } from './core/guards/permission.guard';
 
 export const routes: Routes = [
   {
@@ -52,14 +52,14 @@ export const routes: Routes = [
       {
         path: 'rules',
         title: 'layout.rules',
-        canActivate: [adminGuard],
+        canActivate: [permissionGuard('rules.manage')],
         loadComponent: () =>
           import('./features/rules/rule-list/rule-list.component').then((m) => m.RuleListComponent),
       },
       {
         path: 'checklists',
         title: 'layout.checklists',
-        canActivate: [adminGuard],
+        canActivate: [permissionGuard('rules.manage')],
         loadComponent: () =>
           import('./features/checklists/checklist-list/checklist-list.component').then(
             (m) => m.ChecklistListComponent,
@@ -67,7 +67,7 @@ export const routes: Routes = [
       },
       {
         path: 'standards',
-        canActivate: [adminGuard],
+        canActivate: [permissionGuard('standards.manage')],
         title: 'layout.standards',
         loadComponent: () =>
           import('./features/standards/standard-list/standard-list.component').then(
@@ -83,14 +83,14 @@ export const routes: Routes = [
       {
         path: 'users',
         title: 'layout.users',
-        canActivate: [adminGuard],
+        canActivate: [permissionGuard('users.manage')],
         loadComponent: () =>
           import('./features/users/user-list.component').then((m) => m.UserListComponent),
       },
       {
         path: 'tokens',
         title: 'layout.tokens',
-        canActivate: [adminGuard],
+        canActivate: [permissionGuard('tokens.manage')],
         loadComponent: () =>
           import('./features/tokens/project-token-list.component').then(
             (m) => m.ProjectTokenListComponent,
@@ -99,25 +99,39 @@ export const routes: Routes = [
       {
         path: 'audit',
         title: 'layout.audit',
-        canActivate: [adminGuard],
+        canActivate: [permissionGuard('audit.read')],
         loadComponent: () =>
           import('./features/audit/audit-log.component').then((m) => m.AuditLogComponent),
       },
       {
-        path: 'role-mappings',
-        title: 'layout.sso',
-        canActivate: [adminGuard],
+        path: 'groups',
+        title: 'layout.groups',
+        canActivate: [permissionGuard('users.manage')],
         loadComponent: () =>
-          import('./features/role-mappings/role-mapping-list.component').then(
-            (m) => m.RoleMappingListComponent,
-          ),
+          import('./features/access/group-list.component').then((m) => m.GroupListComponent),
       },
       // Former single settings page, split into the three pages below
       { path: 'settings', pathMatch: 'full', redirectTo: 'settings/language' },
       {
+        path: 'roles',
+        title: 'layout.roles',
+        canActivate: [permissionGuard('users.manage')],
+        loadComponent: () =>
+          import('./features/access/role-list.component').then((m) => m.RoleListComponent),
+      },
+      {
+        path: 'sso',
+        title: 'layout.sso',
+        canActivate: [permissionGuard('users.manage')],
+        loadComponent: () =>
+          import('./features/sso/sso-page.component').then((m) => m.SsoPageComponent),
+      },
+      // Former address of the SSO page
+      { path: 'role-mappings', pathMatch: 'full', redirectTo: 'sso' },
+      {
         path: 'settings/language',
         title: 'settings.languageTitle',
-        canActivate: [adminGuard],
+        canActivate: [permissionGuard('settings.manage')],
         loadComponent: () =>
           import('./features/settings/language-settings.component').then(
             (m) => m.LanguageSettingsComponent,
@@ -126,7 +140,7 @@ export const routes: Routes = [
       {
         path: 'settings/proxy',
         title: 'settings.proxyTitle',
-        canActivate: [adminGuard],
+        canActivate: [permissionGuard('settings.manage')],
         loadComponent: () =>
           import('./features/settings/proxy-settings.component').then(
             (m) => m.ProxySettingsComponent,
@@ -135,7 +149,7 @@ export const routes: Routes = [
       {
         path: 'settings/advisories',
         title: 'settings.osvTitle',
-        canActivate: [adminGuard],
+        canActivate: [permissionGuard('settings.manage')],
         loadComponent: () =>
           import('./features/settings/advisory-settings.component').then(
             (m) => m.AdvisorySettingsComponent,

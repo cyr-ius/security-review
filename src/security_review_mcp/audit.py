@@ -1,9 +1,9 @@
-"""Audit log: who changed a finding status, a token or an enrollment request, and when.
+"""Audit log: who changed a finding status, a token, an enrollment request or an access.
 
-Events are written by the business modules (services, token_store) in the same transaction as
-the change they describe, so that an event exists exactly when the change was committed. They
-are append-only: no tool nor route edits them, and only the daily purge of the controller
-(SECREVIEW_AUDIT_RETENTION_DAYS, see retention) deletes the old ones.
+Events are written by the business modules (services, token_store, access_control) in the same
+transaction as the change they describe, so that an event exists exactly when the change was
+committed. They are append-only: no tool nor route edits them, and only the daily purge of the
+controller (SECREVIEW_AUDIT_RETENTION_DAYS, see retention) deletes the old ones.
 
 ``details`` never holds a secret: the values are bounded and masked with
 ``scanner.redact_secrets`` before they are stored.
@@ -47,6 +47,15 @@ class AuditAction(StrEnum):
     ENROLLMENT_REQUESTED = "enrollment.requested"
     ENROLLMENT_APPROVED = "enrollment.approved"
     ENROLLMENT_REJECTED = "enrollment.rejected"
+    ROLE_CREATED = "role.created"
+    ROLE_UPDATED = "role.updated"
+    ROLE_DELETED = "role.deleted"
+    GROUP_CREATED = "group.created"
+    GROUP_UPDATED = "group.updated"
+    GROUP_DELETED = "group.deleted"
+    GROUP_ROLES_CHANGED = "group.roles_changed"
+    GROUP_MEMBERS_CHANGED = "group.members_changed"
+    USER_GROUPS_CHANGED = "user.groups_changed"
 
 
 def user_actor(username: str) -> str:

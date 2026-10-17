@@ -13,10 +13,9 @@ server and the REST API (scripts, CI). A web user has an ``auth_source``:
   deleted SSO user is revoked (``RevokedSsoUser``): a login never creates it again, until an
   administrator creates it again.
 
-A web user has a web role (``reader``, ``triager`` or ``admin``) and, for ``reader`` and
-``triager``, an optional list of projects, given by an administrator (or by the approval of an
-enrollment). An SSO user may have none: the access of its groups (see role_mapping), stored at
-each login, applies; with both, the highest role wins (see role_mapping.combine).
+What a web user may do comes from the roles of its groups (see access_control): the groups an
+administrator gave it (or the approval of an enrollment, see grant_project) and, for an SSO
+user, the groups named by its groups claim at its last login.
 
 The session token (see oidc.SessionSigner) carries the id of the user. At each request,
 SessionVerifier reads the user again: a deleted user loses its sessions at once, a new role or
@@ -26,9 +25,9 @@ session must name the same username, so that a session never opens another accou
 the id of a deleted one.
 
 The first administrator is the local user ``admin``, created with a random password on the first
-start of the controller (``SECREVIEW_AUTH_BOOTSTRAP_ADMIN``). The last administrator (local or
-SSO, by its own role or by the role its groups gave at its last login) can be neither deleted
-nor demoted, so that the web interface always keeps one.
+start of the controller (``SECREVIEW_AUTH_BOOTSTRAP_ADMIN``), member of the group
+``administrators``. The last user that holds ``users.manage`` can be neither deleted nor lose
+that permission, so that the web interface always keeps an administrator.
 
 Failed logins are throttled in memory (LoginThrottle), per username and address and per
 address: each controller replica counts its own failures.
@@ -50,16 +49,18 @@ from functools import cache
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import col, func, or_, select
+from sqlmodel import Session, col, func, select
 
-from . import role_mapping
+from . import access_control
 from .config import Settings
 from .database import session_scope
-from .http_server import WEB_ROLES, Role, TokenInfo
-from .models import RevokedSsoUser, WebUser, utcnow
+from .http_server import Role, TokenInfo
+from .models import GroupRole, RevokedSsoUser, UserGroup, WebUser, utcnow
 from .oidc import MAX_LABEL_CHARS, OidcError, OidcIdentity, SessionSigner, same_value
 from .services import NotFoundError
 from .token_store import MAX_PROJECTS_PER_TOKEN, _clean_project
+
+Permission = access_control.Permission
 
 logger = logging.getLogger("security_review_mcp.web")
 
@@ -75,7 +76,8 @@ GENERATED_PASSWORD_BYTES = 18
 # Random session versions fit in a signed 64-bit integer column
 SESSION_VERSION_BITS = 62
 USERNAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@-]*")
-USER_ROLES = (Role.READER, Role.TRIAGER, Role.ADMIN)
+# Group of the projects given to one user by the approval of an enrollment (see grant_project)
+PERSONAL_GROUP_PREFIX = "user:"
 AUTH_LOCAL = "local"
 AUTH_OIDC = "oidc"
 AUTH_SOURCES = (AUTH_LOCAL, AUTH_OIDC)
@@ -201,35 +203,6 @@ def clean_password(password: str) -> str:
     return password
 
 
-def clean_role(role: Role | str | None, auth_source: str = AUTH_LOCAL) -> Role | None:
-    """Validate the web role of a user; None (no role of its own) only for an SSO user."""
-    if role is None or str(role).strip().lower() in ("", "none"):
-        if auth_source == AUTH_OIDC:
-            return None
-        raise ValueError("A local user needs a role: reader, triager or admin")
-    try:
-        parsed = Role(str(role).strip().lower())
-    except ValueError:
-        parsed = None
-    if parsed not in USER_ROLES:
-        raise ValueError("Role must be reader, triager or admin")
-    return parsed
-
-
-def clean_projects(role: Role | None, projects: Iterable[str] | None) -> list[str]:
-    """Validate the projects of a user (empty: every project); none for ``admin`` or no role."""
-    cleaned = list(dict.fromkeys(_clean_project(name) for name in projects or ()))
-    if not all(name.isprintable() for name in cleaned):
-        raise ValueError("Project must not contain control characters")
-    if cleaned and role == Role.ADMIN:
-        raise ValueError("An admin user reaches every project: it cannot list projects")
-    if cleaned and role is None:
-        raise ValueError("A user without a role of its own cannot list projects")
-    if len(cleaned) > MAX_PROJECTS_PER_TOKEN:
-        raise ValueError(f"A user may reach at most {MAX_PROJECTS_PER_TOKEN} projects")
-    return cleaned
-
-
 def clean_auth_source(auth_source: str) -> str:
     """Validate the source of a user: ``local`` or ``oidc``."""
     if auth_source not in AUTH_SOURCES:
@@ -253,16 +226,6 @@ def _iso(value: datetime | None) -> str | None:
     return aware.isoformat() if aware else None
 
 
-def _projects(row: WebUser) -> list[str] | None:
-    """Projects of the role of a user; None for every project."""
-    return json.loads(row.projects) or None
-
-
-def _sso_projects(row: WebUser) -> list[str] | None:
-    """Projects of the access given by the groups of an SSO user; None for every project."""
-    return json.loads(row.sso_projects) or None
-
-
 def _label(row: WebUser) -> str:
     """Name of a user in the logs and the triage history (``oidc:<name>`` for an SSO user)."""
     if row.auth_source == AUTH_OIDC:
@@ -270,35 +233,30 @@ def _label(row: WebUser) -> str:
     return row.username
 
 
-def _access(row: WebUser) -> role_mapping.Access | None:
-    """Access of a user: its own role combined with that of its groups; None without any."""
-    matches: list[tuple[Role, list[str] | None]] = []
-    if row.role:
-        matches.append((Role(row.role), _projects(row)))
-    if row.sso_role:
-        matches.append((Role(row.sso_role), _sso_projects(row)))
+def _grants(session: Session, row: WebUser) -> dict[str, Any]:
+    """Permissions of a user through its groups; empty when it has none (or too many projects)."""
+    if row.id is None:
+        return {}
     try:
-        return role_mapping.combine(matches)
+        return access_control.user_grants(session, row.id)
     except ValueError as exc:
         logger.warning("Web user %s has no usable access: %s", row.username, exc)
-        return None
+        return {}
 
 
-def _public(row: WebUser) -> dict[str, Any]:
+def _public(session: Session, row: WebUser) -> dict[str, Any]:
     """API view of a user, never its password hash nor its subject."""
-    access = _access(row)
+    grants = _grants(session, row)
     return {
         "id": row.id,
         "username": row.username,
         "auth_source": row.auth_source,
-        "role": row.role,
-        "projects": _projects(row),
-        "sso_role": row.sso_role,
-        "sso_projects": _sso_projects(row),
-        "effective_role": access.role.value if access else None,
-        "effective_projects": (
-            sorted(access.projects) if access and access.projects is not None else None
-        ),
+        "groups": access_control.user_groups(session, row.id) if row.id is not None else [],
+        "permissions": {
+            name: None if projects is None else sorted(projects)
+            for name, projects in sorted(grants.items())
+        },
+        "effective_role": access_control.summary_role(grants).value if grants else None,
         "sso_linked": row.oidc_subject is not None,
         "created_at": _iso(row.created_at),
         "updated_at": _iso(row.updated_at),
@@ -319,20 +277,6 @@ def _get(session: Any, user_id: int) -> WebUser:
 def _by_name(session: Any, username: str) -> WebUser | None:
     """Return the user with this exact username, or None."""
     return session.exec(select(WebUser).where(WebUser.username == username)).first()
-
-
-def _is_admin(row: WebUser) -> bool:
-    """True for an administrator: by its own role, or by the role of its groups (SSO)."""
-    return Role.ADMIN.value in (row.role, row.sso_role)
-
-
-def _admin_count(session: Any) -> int:
-    """Number of administrators (see _is_admin)."""
-    return session.exec(
-        select(func.count())
-        .select_from(WebUser)
-        .where(or_(WebUser.role == Role.ADMIN.value, WebUser.sso_role == Role.ADMIN.value))
-    ).one()
 
 
 def _lift_revocation(session: Any, username: str) -> None:
@@ -391,7 +335,7 @@ def list_users() -> list[dict[str, Any]]:
     """Return every user, by username."""
     with session_scope() as session:
         rows = session.exec(select(WebUser).order_by(col(WebUser.username))).all()
-        return [_public(row) for row in rows]
+        return [_public(session, row) for row in rows]
 
 
 def find_user(reference: str) -> dict[str, Any]:
@@ -402,28 +346,26 @@ def find_user(reference: str) -> dict[str, Any]:
             row = session.get(WebUser, int(reference.strip()))
         if row is None:
             raise NotFoundError(f"Web user '{reference}' not found")
-        return _public(row)
+        return _public(session, row)
 
 
 def create_user(
     username: str,
     password: str | None,
-    role: Role | str | None,
-    projects: Iterable[str] | None = None,
+    groups: Iterable[int] | None = None,
     created_by: str | None = None,
     auth_source: str = AUTH_LOCAL,
+    actor: str | None = None,
 ) -> dict[str, Any]:
-    """Create a user; a local one without ``password`` gets a random one.
+    """Create a user, member of ``groups`` (ids); a local one without ``password`` gets a random
+    one. ``actor`` is written to the audit log (default: ``created_by``).
 
-    An SSO user (``auth_source="oidc"``) has no password and may have no role of its own
-    (``role`` None: the role of its groups applies). Returns the user and, when generated, its
-    ``password`` (shown exactly once). Raises ValueError when invalid, duplicated or over the
-    limit.
+    An SSO user (``auth_source="oidc"``) has no password; its SSO groups are added at each
+    login. Returns the user and, when generated, its ``password`` (shown exactly once). Raises
+    ValueError when invalid, duplicated or over the limit, NotFoundError for an unknown group.
     """
     source = clean_auth_source(auth_source)
     name = clean_username(username)
-    parsed = clean_role(role, source)
-    names = clean_projects(parsed, projects)
     secret: str | None = None
     if source == AUTH_OIDC:
         if password is not None:
@@ -435,8 +377,6 @@ def create_user(
     row = WebUser(
         username=name,
         auth_source=source,
-        role=parsed.value if parsed else None,
-        projects=json.dumps(names),
         password_hash=hash_password(secret) if secret is not None else None,
         password_changed_at=utcnow() if secret is not None else None,
         session_version=new_session_version(),
@@ -447,8 +387,10 @@ def create_user(
             _lift_revocation(session, name)
             session.add(row)
             session.flush()
+            if groups:
+                access_control.set_user_groups(session, row.id, groups, actor or created_by)  # type: ignore[arg-type]
             session.refresh(row)
-            created = _public(row)
+            created = _public(session, row)
     except IntegrityError as exc:
         raise ValueError(f"A web user named '{name}' already exists") from exc
     generated = source == AUTH_LOCAL and password is None
@@ -456,27 +398,23 @@ def create_user(
 
 
 def update_user(
-    user_id: int, role: Role | str | None, projects: Iterable[str] | None = None
+    user_id: int, groups: Iterable[int], updated_by: str | None = None
 ) -> dict[str, Any]:
-    """Replace the role and projects of a user (applies to its open sessions at once).
+    """Replace the groups an administrator gave to a user (applies to its sessions at once).
 
-    ``role`` None removes the role of an SSO user (the role of its groups still applies). The
-    last administrator cannot be demoted.
+    Its SSO groups are kept. The last user that holds ``users.manage`` cannot lose it.
     """
     with session_scope() as session:
         row = _get(session, user_id)
-        parsed = clean_role(role, row.auth_source)
-        names = clean_projects(parsed, projects)
-        stays_admin = parsed == Role.ADMIN or row.sso_role == Role.ADMIN.value
-        if _is_admin(row) and not stays_admin and _admin_count(session) <= 1:
-            raise ValueError("The last administrator cannot lose the admin role")
-        row.role = parsed.value if parsed else None
-        row.projects = json.dumps(names)
+        before = access_control.managers(session)
+        access_control.set_user_groups(session, user_id, groups, updated_by)
+        if before and not access_control.managers(session):
+            raise ValueError("At least one user must keep the users.manage permission")
         row.updated_at = utcnow()
         session.add(row)
         session.flush()
         session.refresh(row)
-        return _public(row)
+        return _public(session, row)
 
 
 def set_password(user_id: int, password: str | None = None) -> dict[str, Any]:
@@ -498,7 +436,7 @@ def set_password(user_id: int, password: str | None = None) -> dict[str, Any]:
         session.add(row)
         session.flush()
         session.refresh(row)
-        updated = _public(row)
+        updated = _public(session, row)
     return updated | {"password": secret} if generated else updated
 
 
@@ -524,11 +462,12 @@ def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
     """
     with session_scope() as session:
         row = _get(session, user_id)
-        if _is_admin(row) and _admin_count(session) <= 1:
-            raise ValueError("The last administrator cannot be deleted")
-        deleted = _public(row)
+        if access_control.managers(session) == {user_id}:
+            raise ValueError("The last holder of users.manage cannot be deleted")
+        deleted = _public(session, row)
         if row.auth_source == AUTH_OIDC and not _is_revoked(session, row.username):
             session.add(RevokedSsoUser(username=row.username, revoked_by=deleted_by))
+        access_control.forget_user(session, user_id)
         session.delete(row)
     return deleted
 
@@ -549,18 +488,21 @@ def authenticate(username: str, password: str) -> dict[str, Any] | None:
         session.add(row)
         session.flush()
         session.refresh(row)
-        return _public(row)
+        return _public(session, row)
 
 
 def ensure_bootstrap_admin() -> str | None:
     """Create the local user ``admin`` with a random password while no web user exists.
 
+    The user joins the group ``administrators`` (created with the ``admin`` role when missing).
     Return the password only when the user was created.
     """
     if has_users():
         return None
+    with session_scope() as session:
+        group_id = access_control.ensure_admin_group(session).id
     try:
-        created = create_user(BOOTSTRAP_USERNAME, None, Role.ADMIN, created_by="bootstrap")
+        created = create_user(BOOTSTRAP_USERNAME, None, [group_id], created_by="bootstrap")  # type: ignore[list-item]
     except ValueError:
         # Another instance sharing the database created it first
         return None
@@ -568,6 +510,20 @@ def ensure_bootstrap_admin() -> str | None:
 
 
 # ── Access given at the approval of an enrollment ────────────────────────────
+
+
+def _personal_binding(session: Session, name: str) -> tuple[UserGroup | None, GroupRole | None]:
+    """Personal group of a user and its binding to the role ``reader`` (each None if missing)."""
+    group = session.exec(
+        select(UserGroup).where(UserGroup.name == f"{PERSONAL_GROUP_PREFIX}{name}")
+    ).first()
+    if group is None:
+        return None, None
+    reader = access_control.ensure_system_roles(session)[Role.READER.value]
+    binding = session.exec(
+        select(GroupRole).where(GroupRole.group_id == group.id, GroupRole.role_id == reader)
+    ).first()
+    return group, binding
 
 
 def check_project_grant(username: str, create_sso: bool) -> str:
@@ -584,11 +540,9 @@ def check_project_grant(username: str, create_sso: bool) -> str:
             if not create_sso:
                 raise ValueError(f"Web user '{name}' not found (OIDC is not enabled)")
             _check_capacity(session)
-        elif row.role in (Role.READER.value, Role.TRIAGER.value):
-            if len(json.loads(row.projects)) >= MAX_PROJECTS_PER_TOKEN:
-                raise ValueError(
-                    f"Web user '{name}' already reaches {MAX_PROJECTS_PER_TOKEN} projects"
-                )
+        _, binding = _personal_binding(session, name)
+        if binding is not None and len(json.loads(binding.projects)) >= MAX_PROJECTS_PER_TOKEN:
+            raise ValueError(f"Web user '{name}' already reaches {MAX_PROJECTS_PER_TOKEN} projects")
     return name
 
 
@@ -597,10 +551,10 @@ def grant_project(
 ) -> dict[str, Any]:
     """Let a web user read ``project`` (usually the project of an approved enrollment).
 
-    A user without a role of its own becomes ``reader`` on that project; a restricted
-    ``reader`` or ``triager`` gets one more project; a user that already reaches every project
-    is unchanged. With ``create_sso``, an unknown name becomes an SSO user (``reader`` on the
-    project), ready for its first login.
+    A user that can already read every project is unchanged. Otherwise the project is added to
+    the role ``reader`` of its personal group ``user:<username>`` (a group not matched against
+    the SSO groups claim, created when missing). With ``create_sso``, an unknown name becomes an
+    SSO user, ready for its first login.
 
     Raises:
         ValueError: Invalid name or project, unknown user without ``create_sso``, or a limit.
@@ -615,17 +569,9 @@ def grant_project(
             row = WebUser(
                 username=name,
                 auth_source=AUTH_OIDC,
-                role=Role.READER.value,
-                projects=json.dumps([added]),
                 session_version=new_session_version(),
                 created_by=created_by,
             )
-        elif row.role is None:
-            row.role = Role.READER.value
-            row.projects = json.dumps([added])
-        elif row.role != Role.ADMIN.value and json.loads(row.projects):
-            role = Role(row.role)
-            row.projects = json.dumps(clean_projects(role, [*json.loads(row.projects), added]))
         row.updated_at = utcnow()
         session.add(row)
         try:
@@ -633,22 +579,40 @@ def grant_project(
         except IntegrityError:
             # Same user created twice at the same time
             raise ValueError(f"Web user '{name}' was created concurrently; retry") from None
+        user_id: int = row.id  # type: ignore[assignment]
+        if _grants(session, row).get(Permission.REPORTS_READ, frozenset()) is not None:
+            group, binding = _personal_binding(session, name)
+            if group is None:
+                group = UserGroup(
+                    name=f"{PERSONAL_GROUP_PREFIX}{name}", sso=False, created_by=created_by
+                )
+                session.add(group)
+                session.flush()
+            if binding is None:
+                reader = access_control.ensure_system_roles(session)[Role.READER.value]
+                binding = GroupRole(group_id=group.id, role_id=reader, projects="[]")  # type: ignore[arg-type]
+            projects = list(dict.fromkeys([*json.loads(binding.projects), added]))
+            if len(projects) > MAX_PROJECTS_PER_TOKEN:
+                raise ValueError(f"A user may reach at most {MAX_PROJECTS_PER_TOKEN} projects")
+            binding.projects = json.dumps(projects)
+            session.add(binding)
+            access_control.add_user_to_group(session, user_id, group.id)  # type: ignore[arg-type]
         session.refresh(row)
-        return _public(row)
+        return _public(session, row)
 
 
 # ── Sessions ─────────────────────────────────────────────────────────────────
 
 
-def _session(signer: SessionSigner, row: WebUser) -> dict[str, Any]:
+def _session(signer: SessionSigner, row: WebUser, grants: access_control.Grants) -> dict[str, Any]:
     """Issue a session token for a web user, with its current access and version."""
-    access = _access(row)
-    if access is None or row.id is None:
-        raise ValueError(f"Web user {row.username} has no web role")
+    if not grants or row.id is None:
+        raise ValueError(f"Web user {row.username} has no permission")
+    role = access_control.summary_role(grants)
     token = signer.issue_session(
         _label(row),
-        access.role,
-        access.projects,
+        role,
+        access_control.scope(grants, Permission.REPORTS_READ),
         user_id=row.id,
         user_version=row.session_version,
     )
@@ -656,14 +620,15 @@ def _session(signer: SessionSigner, row: WebUser) -> dict[str, Any]:
         "session": token,
         "expires_in": signer.session_seconds,
         "username": row.username,
-        "role": access.role,
+        "role": role,
     }
 
 
 def new_session(signer: SessionSigner, user_id: int) -> dict[str, Any]:
-    """Issue a session token for a web user, with its current role, projects and version."""
+    """Issue a session token for a web user, with its current permissions and version."""
     with session_scope() as session:
-        return _session(signer, _get(session, user_id))
+        row = _get(session, user_id)
+        return _session(signer, row, _grants(session, row))
 
 
 def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings) -> dict[str, Any]:
@@ -672,9 +637,9 @@ def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings
     The user is named by the username claim. It is refused when the name belongs to a local
     account, when it is bound to another subject, or when it does not exist and
     ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is off (``unknown_user``) or an administrator deleted it
-    (``revoked``). The access of its groups is
-    stored at each login; the login is refused (``forbidden``) when neither its groups nor its
-    own role give it a web role, and a missing user is then not created.
+    (``revoked``). Its SSO groups are replaced by those its groups claim names (see
+    access_control.sync_sso_groups); the login is refused (``forbidden``) when its groups give
+    it no permission, and a missing user is then not created.
     """
     label = identity.label
     if not 1 <= len(identity.subject) <= MAX_SUBJECT_CHARS or not identity.subject.isascii():
@@ -686,11 +651,6 @@ def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings
     except ValueError:
         logger.warning("OIDC login of %s refused: missing or invalid username claim", label)
         raise OidcError("username", "Missing or invalid username claim") from None
-    try:
-        groups = role_mapping.resolve(set(identity.groups), settings)
-    except ValueError as exc:
-        logger.warning("OIDC login of %s refused: %s", label, exc)
-        raise OidcError("forbidden", str(exc)) from None
     try:
         with session_scope() as session:
             row = _by_name(session, name)
@@ -705,6 +665,7 @@ def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings
                         name,
                     )
                     raise OidcError("conflict", "This user is bound to another account")
+            created = row is None
             if row is None:
                 if not settings.oidc_auto_create_users:
                     logger.warning("OIDC login of %s refused: no web user %s", label, name)
@@ -712,9 +673,6 @@ def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings
                 if _is_revoked(session, name):
                     logger.warning("OIDC login of %s refused: web user %s was deleted", label, name)
                     raise OidcError("revoked", "This web user was deleted by an administrator")
-                if groups is None:
-                    logger.warning("OIDC login of %s refused: no role mapping matches it", label)
-                    raise OidcError("forbidden", "No web role granted to this user")
                 _check_capacity(session)
                 row = WebUser(
                     username=name,
@@ -722,36 +680,42 @@ def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings
                     session_version=new_session_version(),
                     created_by="oidc",
                 )
-                logger.info("SSO web user %s created at its first login", name)
             row.oidc_subject = identity.subject
-            row.sso_role = groups.role.value if groups else None
-            row.sso_projects = json.dumps(
-                sorted(groups.projects) if groups and groups.projects is not None else []
-            )
             row.last_login_at = utcnow()
             session.add(row)
             session.flush()
-            session.refresh(row)
-            access = _access(row)
-            result = _session(signer, row) if access is not None else None
+            joined = access_control.sync_sso_groups(
+                session,
+                row.id,  # type: ignore[arg-type]
+                identity.groups,
+                settings,
+            )
+            grants = _grants(session, row)
+            if not grants and created:
+                # Rolled back: the user is not created
+                logger.warning("OIDC login of %s refused: no group gives it a permission", label)
+                raise OidcError("forbidden", "No web role granted to this user")
+            if created:
+                logger.info("SSO web user %s created at its first login", name)
+            result = _session(signer, row, grants) if grants else None
     except IntegrityError:
         # The same user logged in twice at the same time
         raise OidcError("state", "Concurrent first login: try again") from None
-    except ValueError as exc:
-        raise OidcError("forbidden", str(exc)) from None
-    if result is None or access is None:
-        logger.warning("OIDC login of %s refused: no web role", label)
+    if result is None:
+        # The SSO groups it lost are committed, so that its other sessions lose them too
+        logger.warning("OIDC login of %s refused: no group gives it a permission", label)
         raise OidcError("forbidden", "No web role granted to this user")
-    scope = "every project" if access.projects is None else f"{len(access.projects)} project(s)"
-    logger.info("OIDC login of %s with role %s on %s", label, access.role, scope)
+    logger.info(
+        "OIDC login of %s with role %s through %d SSO group(s)", label, result["role"], len(joined)
+    )
     return result
 
 
 def session_identity(user_id: int, version: int, username: str) -> TokenInfo | None:
     """Current identity of the user of a session issued to ``username`` with ``version``.
 
-    None when the user no longer exists (or its id now belongs to another account), has no web
-    role any more, or its password changed after the session was issued.
+    None when the user no longer exists (or its id now belongs to another account), has no
+    permission any more, or its password changed after the session was issued.
     """
     with session_scope() as session:
         row = session.get(WebUser, user_id)
@@ -761,15 +725,16 @@ def session_identity(user_id: int, version: int, username: str) -> TokenInfo | N
             or not hmac.compare_digest(_label(row).encode(), username.encode())
         ):
             return None
-        access = _access(row)
-        if access is None or access.role not in WEB_ROLES:
+        grants = _grants(session, row)
+        if not grants:
             return None
         return TokenInfo(
             label=_label(row),
-            role=access.role,
-            projects=access.projects,
+            role=access_control.summary_role(grants),
+            projects=access_control.scope(grants, Permission.REPORTS_READ),
             user_id=row.id,
             auth_source=row.auth_source,
+            grants=grants,
         )
 
 

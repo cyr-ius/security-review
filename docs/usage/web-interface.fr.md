@@ -21,8 +21,10 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 ## Écrans
 
 Les écrans sont accessibles depuis la barre latérale : **Supervision** (projets, rapports) pour
-tous les rôles, puis **Référentiel** (règles, checklists, normes) et **Administration**
-(utilisateurs, jetons, journal d'audit, rôles SSO, langue des rapports, proxy sortant, base OSV) pour le rôle `admin`. Le bas de la barre affiche le client connecté, son rôle et la
+tous les comptes, puis **Référentiel** (règles, checklists, normes) et **Administration**
+(utilisateurs, groupes, rôles, jetons, journal d'audit, SSO, langue des rapports, proxy sortant,
+base OSV), chaque écran n'étant affiché qu'aux comptes qui ont sa
+[permission](../advanced/access-control.md#permissions). Le bas de la barre affiche le client connecté, son rôle et la
 version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
 à droite, y compris sur la page de connexion, et reste mémorisé dans le navigateur.
 
@@ -45,7 +47,7 @@ renvoyés par l'API restent en anglais.
   par statut (pour revoir les risques acceptés ou les faux positifs), par sévérité et par type
   de revue (**Revue de sécurité**, **Revue de sécurité d'API**, **Revue du code complet**... :
   voir [type de revue](prompts-tools.md#type-de-revue)) ; **Afficher plus** affiche les findings
-  suivants. Les utilisateurs qui ont le rôle `triager` ou `admin` changent le statut de chaque
+  suivants. Les utilisateurs qui ont la permission `findings.triage` changent le statut de chaque
   finding depuis cet écran et appliquent ou rejettent les statuts proposés par les agents (voir
   [triage des findings](#triage-des-findings)) ; un finding trié reste affiché jusqu'au
   rechargement.
@@ -54,7 +56,7 @@ renvoyés par l'API restent en anglais.
 - **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** et
   **Envoyé par (jeton)**, voir [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)), findings avec
   emplacement, CWE, extrait de code et recommandation ; téléchargement Markdown et SARIF. Les
-  utilisateurs qui ont le rôle `triager` ou `admin` changent le statut d'un finding directement
+  utilisateurs qui ont la permission `findings.triage` changent le statut d'un finding directement
   depuis cet écran.
 - **Normes** : les [normes de développement](../advanced/standards.md) transmises aux assistants IA par le
   prompt `development-standards`. Les administrateurs les recherchent, les lisent, les créent,
@@ -74,13 +76,18 @@ renvoyés par l'API restent en anglais.
 - **Utilisateurs** : les administrateurs gèrent les [comptes](#comptes-utilisateurs), seuls
   à ouvrir l'interface. Chaque compte est **Local** (identifiant et mot de passe, saisi ou généré
   et affiché une seule fois) ou **SSO** (connexion par le fournisseur d'identité, sans mot de
-  passe), avec un badge dans la liste. L'administrateur choisit le rôle `reader`, `triager` ou
-  `admin` et, pour `reader` et `triager`, les projets. Un compte SSO peut n'avoir aucun rôle
-  propre : la colonne **Rôle des groupes** montre alors le rôle que ses groupes lui ont donné à sa
-  dernière connexion. L'administrateur change le rôle et les projets d'un compte, réinitialise le
-  mot de passe d'un compte local ou supprime un compte. Un compte SSO supprimé n'est plus recréé
-  à sa connexion : la section **Comptes SSO supprimés** les liste, avec le bouton **Autoriser à
-  nouveau**. Le dernier administrateur, local ou SSO, ne peut être ni supprimé ni rétrogradé.
+  passe), avec un badge dans la liste. L'administrateur choisit ses **Groupes** ; la colonne
+  **Groupes** les montre, avec un bouclier pour les groupes SSO trouvés à la dernière connexion,
+  et **Accès** résume ce qu'ils donnent. L'administrateur change les groupes d'un compte,
+  réinitialise le mot de passe d'un compte local ou supprime un compte. Un compte SSO supprimé
+  n'est plus recréé à sa connexion : la section **Comptes SSO supprimés** les liste, avec le
+  bouton **Autoriser à nouveau**. Le dernier détenteur de `users.manage` ne peut être ni supprimé
+  ni la perdre.
+- **Groupes** : les administrateurs créent les groupes, leur donnent des rôles (sur tous les
+  projets ou sur certains), ajoutent des membres et choisissent si le groupe est **Ouvert au SSO**
+  (voir [Rôles, groupes et permissions](../advanced/access-control.md#groupes)).
+- **Rôles** : les administrateurs créent des rôles à partir des permissions ; les rôles système
+  `reader`, `triager` et `admin` sont affichés en lecture seule.
 - **Mon compte** : affiche le type du compte. Un utilisateur local y change son mot de passe (ses
   autres sessions sont fermées) ; celui d'un utilisateur SSO est géré par le fournisseur
   d'identité.
@@ -113,15 +120,14 @@ renvoyés par l'API restent en anglais.
   décisions de triage, propositions des agents, jetons et demandes d'enrôlement, du plus récent
   au plus ancien, avec leur auteur ; filtres par événement et par projet, **Afficher plus** pour
   les événements plus anciens.
-- **Rôles SSO** : les administrateurs [configurent la connexion SSO](../advanced/sso.md#configurer-le-sso-dans-linterface)
+- **SSO** : les administrateurs [configurent la connexion SSO](../advanced/sso.md#configurer-le-sso-dans-linterface)
   (chaque valeur enregistrée remplace sa variable `SECREVIEW_OIDC_*`, avec un test de connexion
-  au fournisseur) et associent les groupes ou rôles du fournisseur d'identité à un rôle web et,
-  pour `reader` et `triager`, à une liste de projets (voir [role mapping](../advanced/sso.md#role-mapping)). Les
-  groupes de la configuration SSO (`*_GROUPS`) sont affichés en lecture seule dans la liste des
-  associations. Les utilisateurs SSO eux-mêmes se gèrent dans l'écran **Utilisateurs**.
+  au fournisseur). Ce que peuvent faire les utilisateurs SSO vient des groupes ouverts au SSO
+  nommés par leur claim des groupes (voir
+  [groupes du fournisseur d'identité](../advanced/sso.md#groupes-du-fournisseur-didentite)).
 Les trois écrans suivants portent des réglages enregistrés en base, prioritaires sur les
-variables d'environnement et partagés par le serveur MCP et le contrôleur (l'ancienne adresse
-`/ui/settings` ouvre **Langue des rapports**).
+variables d'environnement et partagés par le serveur MCP et le contrôleur (permission
+`settings.manage` ; l'ancienne adresse `/ui/settings` ouvre **Langue des rapports**).
 
 - **Langue des rapports** : variable `SECREVIEW_REPORT_LANGUAGE`, choix laissé à l'agent ou
   langue définie ici (`French`, `fr`, `pt-BR`…). Elle s'applique aux prochains prompts de
@@ -200,7 +206,7 @@ porte un rôle, qui détermine les endpoints accessibles :
 | `metrics` | CLI seulement | — | `/metrics` seulement ([Prometheus](../advanced/audit-metrics.md#metriques-prometheus)) | — |
 
 ¹ Avec un jeton. `accepted` et `false_positive` exigent une personne connectée à l'interface
-avec le rôle `triager` ou `admin` ([triage des findings](#triage-des-findings)). Sur `/mcp`,
+avec la permission `findings.triage` ([triage des findings](#triage-des-findings)). Sur `/mcp`,
 aucun rôle ne change un statut : les agents ne font que le proposer.
 
 Un jeton `mcp`, `reader` ou `triager` restreint avec `--project` ne voit et ne trie que les
@@ -209,10 +215,10 @@ projets autorisés ; un jeton `ci` est toujours restreint à ses projets (voir
 [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)).
 
 Les personnes se connectent avec un [compte utilisateur](#comptes-utilisateurs) : local
-(identifiant et mot de passe) ou [SSO](../advanced/sso.md). Les comptes portent les
-rôles `reader`, `triager` ou `admin`, jamais `mcp`, et n'ouvrent jamais `/mcp`. Un jeton créé
-sans rôle reste `mcp` : il sert aux agents et à la CI, pas à l'interface web. Le rôle `triager`
-ajoute uniquement le triage des findings. Un jeton `reader`, `triager` ou `admin` appelle l'API
+(identifiant et mot de passe) ou [SSO](../advanced/sso.md). Ce qu'un compte peut faire vient
+des rôles de ses groupes (voir [Rôles, groupes et permissions](../advanced/access-control.md)) ;
+un compte n'ouvre jamais `/mcp`. Un jeton créé sans rôle reste `mcp` : il sert aux agents et à la
+CI, pas à l'interface web. Un jeton `reader`, `triager` ou `admin` appelle l'API
 REST, par exemple depuis un script, mais **n'ouvre pas l'interface** (la page de connexion ne
 propose que les comptes) :
 
@@ -247,8 +253,8 @@ statut est journalisé avec le label du jeton ou du compte :
 INFO security_review_mcp.web: Finding 42 set to fixed by triage-bot
 ```
 
-et écrit dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit) (`GET /api/v1/audit`, rôle
-`admin`), avec l'acteur `token:triage-bot` ou `user:<nom>`.
+et écrit dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit) (`GET /api/v1/audit`, permission
+`audit.read`), avec l'acteur `token:triage-bot` ou `user:<nom>`.
 
 !!! warning "Authentification requise pour la Web UI"
     L'API de l'interface refuse les requêtes avec le statut `503` tant qu'aucun utilisateur ni
@@ -262,39 +268,41 @@ et écrit dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit)
 ## Comptes utilisateurs
 
 Un compte associe un **identifiant** (lettres, chiffres et `. _ @ -`, 64 caractères au plus), un
-**type** et un rôle web : `reader`, `triager` ou `admin`. Un compte `reader` ou `triager` peut
-être limité à une liste de projets ; un compte `admin` voit tous les projets.
+**type** et des **groupes**, dont les rôles donnent ses [permissions](../advanced/access-control.md).
 
 | Type (`auth_source`) | Connexion | Création |
 |---|---|---|
 | **Local** (`local`) | Identifiant et mot de passe | Par un administrateur, ou le compte `admin` initial |
 | **SSO** (`oidc`) | [Fournisseur d'identité](../advanced/sso.md), sans mot de passe | Par un administrateur, à l'approbation d'un enrôlement, ou à la première connexion si `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
-Un compte SSO peut n'avoir **aucun rôle propre** : seul le rôle donné par ses groupes
-s'applique (voir [comptes SSO](../advanced/sso.md#comptes-sso)). Les comptes se gèrent dans l'écran
-**Utilisateurs**, par l'API REST `/api/v1/users` (rôle `admin`) ou par la
+Un compte SSO rejoint aussi, à chaque connexion, les groupes ouverts au SSO nommés par son claim
+des groupes (voir [comptes SSO](../advanced/sso.md#comptes-sso)). Les comptes se gèrent dans
+l'écran **Utilisateurs**, par l'API REST `/api/v1/users` (permission `users.manage`) ou par la
 [CLI](../reference/cli.md#security-review-controller) :
 
 ```bash
-security-review-controller user create alice --role triager --project shop-api
-# {"id": 2, "username": "alice", "auth_source": "local", "role": "triager", "projects": ["shop-api"], …, "password": "q3V…"}
+security-review-controller user create alice --group shop-triagers
+# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, "effective_role": "triager", …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
-security-review-controller user create carol@example.com --sso --role none   # rôle des groupes
-security-review-controller user create dave --sso --role reader --project billing
+security-review-controller user create carol@example.com --sso   # groupes SSO seulement
 security-review-controller user list
-security-review-controller user set-role alice --role reader
+security-review-controller user set-groups alice --group readers --group auditors
+security-review-controller user set-groups alice --group administrators   # créé s'il manque
 security-review-controller user reset-password alice   # compte local : nouveau mot de passe, sessions fermées
 security-review-controller user delete alice
+security-review-controller group list    # groupes, leurs rôles et leurs membres
 ```
 
-Par l'API, un compte SSO se crée avec `"auth_source": "oidc"`, sans `password` ; `"role": null`
-le laisse sans rôle propre :
+Par l'API, un compte SSO se crée avec `"auth_source": "oidc"`, sans `password` ; `group_ids`
+liste ses groupes :
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"username": "carol@example.com", "auth_source": "oidc", "role": null}'
+  -d '{"username": "carol@example.com", "auth_source": "oidc", "group_ids": [4]}'
 ```
+
+Un compte sans aucun groupe n'a aucune permission et ne peut pas se connecter.
 
 Pour un compte local, sans `--password-stdin` (ou sans mot de passe dans l'interface), un mot de
 passe aléatoire de 24 caractères est généré et affiché **une seule fois**. Un mot de passe choisi
@@ -304,7 +312,8 @@ identifiant et mot de passe, la réinitialisation et **Mon compte** le refusent.
 ### Premier administrateur
 
 Avec `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (c'est le cas dans l'image Docker), le contrôleur crée
-au premier démarrage l'utilisateur **`admin`**, de rôle `admin`, tant qu'aucun compte n'existe.
+au premier démarrage l'utilisateur **`admin`**, membre du groupe `administrators` (rôle `admin`),
+tant qu'aucun compte n'existe.
 Son mot de passe est affiché une seule fois dans les journaux du contrôleur :
 
 ```
@@ -338,7 +347,8 @@ curl -s -X POST https://secreview.example.com/api/v1/auth/login \
 Chaque session désigne un compte (local ou SSO) ; à chaque requête, le contrôleur le relit en
 base :
 
-- un changement de **rôle ou de projets** s'applique immédiatement aux sessions ouvertes ;
+- un changement de ses **groupes**, de leurs rôles ou d'un rôle s'applique immédiatement aux
+  sessions ouvertes ;
 - une **suppression** ou un **nouveau mot de passe** (changé par l'utilisateur ou réinitialisé
   par un administrateur) ferme toutes les sessions du compte ; `PUT /api/v1/me/password` remet une
   nouvelle session à l'onglet qui a changé le mot de passe.
@@ -377,7 +387,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   d'[enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton) sont déposées sur
   le **serveur MCP** (`POST /api/v1/enroll`, public) ; le contrôleur les liste et les traite
   (`GET /api/v1/enrollments`, `POST /api/v1/enrollments/{id}/approve`,
-  `DELETE /api/v1/enrollments/{id}`, rôle `admin`). Il peut donc rester sur un réseau interne.
+  `DELETE /api/v1/enrollments/{id}`, permission `tokens.manage`). Il peut donc rester sur un réseau interne.
 - Le jeton est envoyé dans l'en-tête `Authorization` : pas de cookie, donc pas de CSRF.
   Seule la [connexion SSO](../advanced/sso.md) pose un cookie, `HttpOnly`,
   `SameSite=Lax`, `Secure` en HTTPS, limité à l'URL de retour et valable 10 minutes : il lie le

@@ -10,8 +10,8 @@ flow with PKCE:
    (server to server), validates the ID token (signature from the provider JWKS, issuer,
    audience, expiry, nonce) and returns the identity it holds (OidcIdentity);
 3. web_users.oidc_login finds the SSO web user of that identity (or creates it when
-   ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is set), stores the access of its groups (see
-   role_mapping) and issues a **session token**: a JWT signed with a key derived from
+   ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is set), records the groups of its groups claim
+   (see access_control) and issues a **session token**: a JWT signed with a key derived from
    ``SECREVIEW_SESSION_SECRET``, valid ``SECREVIEW_SESSION_HOURS``, handed to the web application
    in the URL fragment of ``/ui/login``. The application sends it as a bearer token; the bearer
    middleware of the controller verifies it (see http_server.BearerAuthMiddleware) and reads the
@@ -68,6 +68,8 @@ MIN_SESSION_SECRET_CHARS = 32
 MAX_LABEL_CHARS = 64
 MAX_RETURN_URL_CHARS = 512
 MAX_DISPLAY_NAME_CHARS = 40
+# Same bound as the names of the groups (access_control.MAX_GROUP_NAME_CHARS)
+MAX_GROUP_NAME_CHARS = 200
 
 SESSION_ISSUER = "security-review-controller"
 SESSION_AUDIENCE = "secreview-web"
@@ -76,8 +78,6 @@ STATE_AUDIENCE = "secreview-oidc-state"
 ID_TOKEN_ALGORITHMS = frozenset(
     {"RS256", "RS384", "RS512", "PS256", "PS384", "PS512", "ES256", "ES384", "ES512", "EdDSA"}
 )
-# Roles an identity provider may grant; "mcp" is reserved to the tokens of the MCP server
-DEFAULT_ROLES = ("", Role.READER.value, Role.TRIAGER.value)
 
 
 class OidcError(Exception):
@@ -122,8 +122,10 @@ def validate_settings(settings: Settings) -> None:
     _check_url("SECREVIEW_OIDC_REDIRECT_URI", settings.oidc_redirect_uri)
     if "openid" not in settings.oidc_scopes.split():
         raise ValueError("SECREVIEW_OIDC_SCOPES must include openid")
-    if settings.oidc_default_role not in DEFAULT_ROLES:
-        raise ValueError("SECREVIEW_OIDC_DEFAULT_ROLE must be empty, reader or triager")
+    if len(settings.oidc_default_group.strip()) > MAX_GROUP_NAME_CHARS:
+        raise ValueError(
+            f"SECREVIEW_OIDC_DEFAULT_GROUP must hold at most {MAX_GROUP_NAME_CHARS} characters"
+        )
     if settings.oidc_cafile and not Path(settings.oidc_cafile).is_file():
         raise ValueError(f"SECREVIEW_OIDC_CAFILE: file not found: {settings.oidc_cafile}")
     if not settings.oidc_roles_claim.strip():

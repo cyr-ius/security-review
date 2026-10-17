@@ -2,6 +2,8 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  AccessRole,
+  AccessRoleWrite,
   AdvisoryOverview,
   AppSettings,
   AuditPage,
@@ -20,6 +22,7 @@ import {
   DevStandardWrite,
   EnrollmentApproved,
   EnrollmentRequest,
+  GroupCatalog,
   Identity,
   LoginSession,
   OidcSettings,
@@ -31,18 +34,17 @@ import {
   ProjectToken,
   ProjectTokenCreated,
   ProjectTokenRole,
-  MappedRole,
+  PermissionInfo,
   ProxyUpdate,
-  RoleMapping,
   RevokedUser,
-  RoleMappingCatalog,
   Report,
   ReportQuery,
   ReportSummary,
   RuleReloadResult,
   Trend,
+  UserGroup,
+  UserGroupWrite,
   WebUser,
-  WebUserRole,
   WebUserWithPassword,
 } from '../models/api.models';
 
@@ -81,27 +83,26 @@ export class ApiService {
   }
 
   /**
-   * Create a web user. A local one without password gets a generated one, returned once; an
-   * SSO one has no password and may have no role (null).
+   * Create a web user, member of these groups. A local one without password gets a generated
+   * one, returned once; an SSO one has no password and also joins its SSO groups at each login.
    */
   createUser(
     username: string,
     authSource: AuthSource,
-    role: WebUserRole | null,
-    projects: string[],
+    groupIds: number[],
     password: string | null,
   ): Observable<WebUserWithPassword> {
     return this.http.post<WebUserWithPassword>(`${API_URL}/users`, {
       username,
       auth_source: authSource,
-      role,
-      projects,
+      group_ids: groupIds,
       password,
     });
   }
 
-  updateUser(id: number, role: WebUserRole | null, projects: string[]): Observable<WebUser> {
-    return this.http.put<WebUser>(`${API_URL}/users/${id}`, { role, projects });
+  /** Replace the groups given to a web user (its SSO groups are kept). */
+  updateUser(id: number, groupIds: number[]): Observable<WebUser> {
+    return this.http.put<WebUser>(`${API_URL}/users/${id}`, { group_ids: groupIds });
   }
 
   /** Replace the password of a web user (generated when null) and end its sessions. */
@@ -370,29 +371,54 @@ export class ApiService {
     return this.http.post<OidcTestResult>(`${API_URL}/oidc/settings/test`, values);
   }
 
-  roleMappings(): Observable<RoleMappingCatalog> {
-    return this.http.get<RoleMappingCatalog>(`${API_URL}/oidc/role-mappings`);
+  /** Permissions a role may hold, and whether they can be limited to projects. */
+  permissions(): Observable<PermissionInfo[]> {
+    return this.http.get<PermissionInfo[]>(`${API_URL}/permissions`);
   }
 
-  /** An empty project list reaches every project. */
-  createRoleMapping(
-    claimValue: string,
-    role: MappedRole,
-    projects: string[],
-  ): Observable<RoleMapping> {
-    return this.http.post<RoleMapping>(`${API_URL}/oidc/role-mappings`, {
-      claim_value: claimValue,
-      role,
-      projects,
-    });
+  roles(): Observable<AccessRole[]> {
+    return this.http.get<AccessRole[]>(`${API_URL}/roles`);
   }
 
-  updateRoleMapping(id: number, projects: string[]): Observable<RoleMapping> {
-    return this.http.put<RoleMapping>(`${API_URL}/oidc/role-mappings/${id}`, { projects });
+  createRole(role: AccessRoleWrite): Observable<AccessRole> {
+    return this.http.post<AccessRole>(`${API_URL}/roles`, role);
   }
 
-  deleteRoleMapping(id: number): Observable<void> {
-    return this.http.delete<void>(`${API_URL}/oidc/role-mappings/${id}`);
+  updateRole(id: number, role: AccessRoleWrite): Observable<AccessRole> {
+    return this.http.put<AccessRole>(`${API_URL}/roles/${id}`, role);
+  }
+
+  deleteRole(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/roles/${id}`);
+  }
+
+  groups(): Observable<GroupCatalog> {
+    return this.http.get<GroupCatalog>(`${API_URL}/groups`);
+  }
+
+  createGroup(group: UserGroupWrite): Observable<UserGroup> {
+    return this.http.post<UserGroup>(`${API_URL}/groups`, group);
+  }
+
+  updateGroup(id: number, group: UserGroupWrite): Observable<UserGroup> {
+    return this.http.put<UserGroup>(`${API_URL}/groups/${id}`, group);
+  }
+
+  /** Replace the roles of a group; an empty project list reaches every project. */
+  setGroupRoles(
+    id: number,
+    roles: { role_id: number; projects: string[] }[],
+  ): Observable<UserGroup> {
+    return this.http.put<UserGroup>(`${API_URL}/groups/${id}/roles`, { roles });
+  }
+
+  /** Replace the members added by an administrator (the SSO members are kept). */
+  setGroupMembers(id: number, userIds: number[]): Observable<UserGroup> {
+    return this.http.put<UserGroup>(`${API_URL}/groups/${id}/members`, { user_ids: userIds });
+  }
+
+  deleteGroup(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/groups/${id}`);
   }
 }
 

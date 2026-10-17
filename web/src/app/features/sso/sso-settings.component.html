@@ -164,25 +164,6 @@
               />
             </div>
           }
-          @case ('role') {
-            <label class="form-label" [for]="'sso-' + field.name">
-              {{ field.label | t }}
-              <ng-container
-                *ngTemplateOutlet="source; context: { $implicit: field.name, current: current }"
-              />
-            </label>
-            <select
-              class="form-select"
-              [id]="'sso-' + field.name"
-              [value]="text(field.name)"
-              (change)="onText(field.name, $event)"
-            >
-              <option value="">{{ 'projects.none' | t }}</option>
-              <option value="reader">{{ 'users.roleReader' | t }}</option>
-              <option value="triager">{{ 'users.roleTriager' | t }}</option>
-            </select>
-            <div class="form-text">{{ 'sso.defaultRoleHelp' | t }}</div>
-          }
           @case ('secret') {
             <label class="form-label" [for]="'sso-' + field.name">
               {{ field.label | t }}

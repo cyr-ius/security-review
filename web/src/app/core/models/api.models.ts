@@ -51,13 +51,30 @@ export const REVIEW_TYPES: readonly ReviewType[] = [
 /** Open findings counted by severity. */
 export type SeverityCounts = Record<Severity, number>;
 
+/** Permission a role may hold (access_control.Permission on the server). */
+export type Permission =
+  | 'reports.read'
+  | 'findings.triage'
+  | 'rules.manage'
+  | 'standards.manage'
+  | 'tokens.manage'
+  | 'settings.manage'
+  | 'users.manage'
+  | 'audit.read';
+
+/** Each permission held, with its projects (null: every project). */
+export type Grants = Partial<Record<Permission, string[] | null>>;
+
 /** GET /api/v1/me */
 export interface Identity {
   client: string;
+  /** Role of a token; for a web user, the web role that sums up its permissions. */
   role: Role;
   can_triage: boolean;
   auth_enabled: boolean;
-  project: string | null;
+  /** Projects whose reports the caller reads; null: every project. */
+  projects?: string[] | null;
+  permissions: Grants;
   /** True for a local web user (logged in with a password, which it may change). */
   local_account?: boolean;
   /** Source of the account of a web user; null for a bearer token (API). */
@@ -87,21 +104,24 @@ export type WebUserRole = 'reader' | 'triager' | 'admin';
 /** Source of a web user: local account (password) or SSO account (OpenID Connect). */
 export type AuthSource = 'local' | 'oidc';
 
+/** Membership of a web user in a group. */
+export interface UserGroupMembership {
+  group_id: number;
+  name: string;
+  /** local: given by an administrator; oidc: named by the groups claim at the last login. */
+  source: AuthSource;
+}
+
 /** A web user, local or SSO; the password hash is never returned. */
 export interface WebUser {
   id: number;
   username: string;
   auth_source: AuthSource;
-  /** Role given to the user itself; null (SSO only): only the role of its groups. */
-  role: WebUserRole | null;
-  /** Projects of role; null: every project. */
-  projects: string[] | null;
-  /** Role given by the groups of an SSO user at its last login. */
-  sso_role: WebUserRole | null;
-  sso_projects: string[] | null;
-  /** Access that applies (highest of role and sso_role); null: no access. */
+  groups: UserGroupMembership[];
+  /** Permissions given by the roles of its groups. */
+  permissions: Grants;
+  /** Web role that sums up the permissions; null: no permission. */
   effective_role: WebUserRole | null;
-  effective_projects: string[] | null;
   /** True once an SSO user logged in (bound to its identity provider account). */
   sso_linked: boolean;
   created_at: string;
@@ -560,32 +580,80 @@ export interface AdvisoryOverview {
   updates: AdvisoryUpdate[];
 }
 
-/** Web role an OIDC role mapping may grant. */
-export type MappedRole = 'reader' | 'triager' | 'admin';
-
-/** An identity provider group or role mapped to a web role (and projects). */
-export interface RoleMapping {
-  /** Absent for the groups of the SSO settings (SECREVIEW_OIDC_*_GROUPS or web interface). */
-  id?: number;
-  claim_value: string;
-  role: MappedRole;
-  /** null: every project. */
-  projects: string[] | null;
-  source: 'database' | 'environment';
-  created_at?: string;
-  created_by?: string | null;
+/** GET /api/v1/permissions: a permission and whether it can be limited to projects. */
+export interface PermissionInfo {
+  name: Permission;
+  scoped: boolean;
 }
 
-/** GET /api/v1/oidc/role-mappings */
-export interface RoleMappingCatalog {
+/** A role: a named set of permissions, given to groups. */
+export interface AccessRole {
+  id: number;
+  name: string;
+  description: string;
+  permissions: Permission[];
+  /** reader, triager and admin: neither changed nor deleted. */
+  system: boolean;
+  /** Only scoped permissions: the role may be limited to projects in a group. */
+  scoped: boolean;
+  /** Number of groups that have the role. */
+  groups: number;
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+}
+
+/** Body of POST /api/v1/roles and PUT /api/v1/roles/{id}. */
+export interface AccessRoleWrite {
+  name: string;
+  description: string;
+  permissions: Permission[];
+}
+
+/** A role given to a group, on every project (null) or on some projects. */
+export interface GroupRoleBinding {
+  role_id: number;
+  name: string;
+  projects: string[] | null;
+}
+
+/** A member of a group. */
+export interface GroupMember {
+  user_id: number;
+  username: string;
+  source: AuthSource;
+}
+
+/** A group of web users. */
+export interface UserGroup {
+  id: number;
+  name: string;
+  description: string;
+  /** The SSO users whose groups claim holds the name are members too. */
+  sso: boolean;
+  roles: GroupRoleBinding[];
+  members: GroupMember[];
+  created_at: string;
+  updated_at: string;
+  created_by: string | null;
+}
+
+/** Body of POST /api/v1/groups and PUT /api/v1/groups/{id}. */
+export interface UserGroupWrite {
+  name: string;
+  description: string;
+  sso: boolean;
+}
+
+/** GET /api/v1/groups */
+export interface GroupCatalog {
   oidc_enabled: boolean;
   roles_claim: string;
-  username_claim: string;
-  default_role: 'reader' | 'triager' | null;
-  /** SSO users are created at their first login (auto_create_users SSO setting). */
-  auto_create_users: boolean;
-  mappings: RoleMapping[];
-  static_mappings: RoleMapping[];
+  /** SSO groups created with the admin role at the login of a member (SSO settings). */
+  admin_groups: string[];
+  /** Group every SSO user joins at each login (SSO settings). */
+  default_group: string | null;
+  groups: UserGroup[];
 }
 
 /** SSO setting an administrator may change (GET/PUT /api/v1/oidc/settings). */
@@ -599,9 +667,7 @@ export type OidcSettingName =
   | 'roles_claim'
   | 'username_claim'
   | 'admin_groups'
-  | 'triager_groups'
-  | 'reader_groups'
-  | 'default_role'
+  | 'default_group'
   | 'auto_create_users'
   | 'display_name';
 

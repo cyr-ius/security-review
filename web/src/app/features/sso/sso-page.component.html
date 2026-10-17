@@ -1,0 +1,10 @@
+<div class="mb-3">
+  <h1 class="h3 mb-0">{{ 'layout.sso' | t }}</h1>
+  <p class="text-body-secondary mb-0">{{ 'sso.subtitle' | t }}</p>
+</div>
+<p class="text-body-secondary small">
+  {{ 'sso.groupsBefore' | t }}
+  <a routerLink="/groups">{{ 'layout.groups' | t }}</a
+  >{{ 'sso.groupsAfter' | t }}
+</p>
+<app-sso-settings />

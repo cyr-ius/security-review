@@ -26,9 +26,9 @@ import json
 import logging
 import ssl
 from collections import Counter
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 from typing import Any, Protocol
@@ -105,7 +105,9 @@ class TokenInfo:
     ``pending`` marks an enrollment request not approved yet: it grants no access.
     ``expired`` marks a token past its expiry date: it grants no access either.
     ``user_id`` and ``auth_source`` (``local`` or ``oidc``) are set for the session of a web
-    user (see web_users), None for a token.
+    user (see web_users), None for a token. ``grants`` holds the permissions of a web user, each
+    with its projects (None: every project, see access_control); for a token they follow from
+    ``role`` and ``projects``, and ``role`` of a session only sums them up.
     """
 
     label: str
@@ -116,6 +118,9 @@ class TokenInfo:
     expired: bool = False
     user_id: int | None = None
     auth_source: str | None = None
+    grants: Mapping[str, frozenset[str] | None] | None = field(
+        default=None, compare=False, hash=False
+    )
 
 
 class TokenStore(Protocol):
@@ -326,6 +331,7 @@ class BearerAuthMiddleware:
         state["auth_token_id"] = info.token_id
         state["auth_user_id"] = info.user_id
         state["auth_source"] = info.auth_source
+        state["auth_grants"] = info.grants
         await self.app(scope, receive, send)
 
     async def enroll(

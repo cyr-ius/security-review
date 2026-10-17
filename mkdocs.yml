@@ -74,6 +74,7 @@ plugins:
             Analysis: Analyse
             Reports and monitoring: Rapports et suivi
             SSO login: Connexion SSO
+            Roles, groups and permissions: Rôles, groupes et permissions
             "Installation: other cases": "Installation : autres cas"
             Local mode (stdio): Mode local (stdio)
             HTTP server, authentication and TLS: Serveur HTTP, authentification et TLS
@@ -126,6 +127,7 @@ nav:
           - Docker: advanced/docker.md
           - HTTP server, authentication and TLS: advanced/http.md
           - SSO login: advanced/sso.md
+          - Roles, groups and permissions: advanced/access-control.md
           - "Installation: other cases": advanced/installation.md
           - Local mode (stdio): advanced/stdio.md
       - Analysis:

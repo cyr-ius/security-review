@@ -1,7 +1,7 @@
 """Command line helpers for pipelines and administrators (no MCP client or agent needed).
 
 ``security-review-controller`` runs ``db``, ``advisories``, ``deps``, ``code``, ``rules``,
-``token``, ``user`` and ``audit`` (CONTROLLER_COMMANDS);
+``token``, ``user``, ``group`` and ``audit`` (CONTROLLER_COMMANDS);
 ``security-review-mcp`` runs ``enroll`` and ``scan-deps`` (MCP_COMMANDS). Exit codes follow the
 same convention everywhere: 0 success, 1 blocked (findings found, schema not up to date),
 2 usage or data error.
@@ -17,6 +17,7 @@ from pathlib import Path
 from sqlalchemy.exc import SQLAlchemyError
 
 from . import (
+    access_control,
     advisories,
     advisory_sync,
     app_settings,
@@ -35,7 +36,7 @@ from . import (
     web_users,
 )
 from .config import get_settings
-from .database import SchemaError, init_db, schema_status, upgrade_db
+from .database import SchemaError, init_db, schema_status, session_scope, upgrade_db
 from .models import SEVERITY_RANK, ReviewType, Severity
 from .services import NotFoundError
 
@@ -608,7 +609,6 @@ def user_command(argv: list[str]) -> int:
         "the identity provider. Without --password-stdin, a random password is generated for a "
         "local user and printed once.",
     )
-    roles = [role.value for role in web_users.USER_ROLES]
     actions = parser.add_subparsers(dest="action", required=True)
     creator = actions.add_parser("create", help="create a web user")
     creator.add_argument(
@@ -621,25 +621,22 @@ def user_command(argv: list[str]) -> int:
         help="SSO user (OpenID Connect): no password, logs in with the identity provider",
     )
     creator.add_argument(
-        "--role",
-        choices=[*roles, "none"],
-        default=http_server.Role.READER.value,
-        help="reader (default): read; triager: also change finding status; admin: everything; "
-        "none (--sso only): only the role of its groups",
-    )
-    creator.add_argument(
-        "--project",
+        "--group",
         action="append",
-        help="restrict a reader or triager to this project; repeat it to give several projects",
+        help="group the user joins (repeatable); its roles give the permissions of the user",
     )
     creator.add_argument("--password-stdin", action="store_true", help="read the password on stdin")
     actions.add_parser("list", help="list the web users (never their password hash)")
-    updater = actions.add_parser("set-role", help="replace the role and projects of a user")
+    updater = actions.add_parser(
+        "set-groups", help="replace the groups given to a user (its SSO groups are kept)"
+    )
     updater.add_argument("username", help="username or id")
     updater.add_argument(
-        "--role", choices=[*roles, "none"], help="none: only the role of its groups (SSO user)"
+        "--group",
+        action="append",
+        help=f"group (repeatable; none: no group); {access_control.ADMIN_GROUP} is created "
+        "with the admin role when missing",
     )
-    updater.add_argument("--project", action="append", help="project (repeatable; none: all)")
     resetter = actions.add_parser(
         "reset-password", help="replace the password of a user and end its sessions"
     )
@@ -647,11 +644,11 @@ def user_command(argv: list[str]) -> int:
     resetter.add_argument(
         "--password-stdin", action="store_true", help="read the password on stdin"
     )
-    deleter = actions.add_parser("delete", help="delete a user (the last admin is kept)")
+    deleter = actions.add_parser(
+        "delete", help="delete a user (the last holder of users.manage is kept)"
+    )
     deleter.add_argument("username", help="username or id")
     args = parser.parse_args(argv)
-    if args.action == "set-role" and args.role is None:
-        parser.error("set-role: --role is required")
     if args.action == "create" and args.sso and args.password_stdin:
         parser.error("create: an SSO user (--sso) has no password")
 
@@ -661,8 +658,7 @@ def user_command(argv: list[str]) -> int:
             result: object = web_users.create_user(
                 args.username,
                 None if args.sso else _read_password(args.password_stdin),
-                args.role,
-                args.project,
+                _group_ids(args.group),
                 "cli",
                 web_users.AUTH_OIDC if args.sso else web_users.AUTH_LOCAL,
             )
@@ -670,13 +666,48 @@ def user_command(argv: list[str]) -> int:
             result = web_users.list_users()
         else:
             user_id = web_users.find_user(args.username)["id"]
-            if args.action == "set-role":
-                result = web_users.update_user(user_id, args.role, args.project)
+            if args.action == "set-groups":
+                result = web_users.update_user(user_id, _group_ids(args.group), "cli")
             elif args.action == "reset-password":
                 result = web_users.set_password(user_id, _read_password(args.password_stdin))
             else:
                 result = web_users.delete_user(user_id, "cli")
     except (ValueError, NotFoundError) as exc:
+        return _fail(str(exc))
+    print(json.dumps(result, indent=2))
+    return EXIT_PASSED
+
+
+def _group_ids(names: list[str] | None) -> list[int]:
+    """Ids of the groups named on the command line; ``administrators`` is created if missing
+    (so that an operator can always restore an administrator)."""
+    with session_scope() as session:
+        if access_control.ADMIN_GROUP in (names or []):
+            access_control.ensure_admin_group(session)
+        return access_control.find_groups(session, names or [])
+
+
+# ── group ────────────────────────────────────────────────────────────────────
+
+
+def group_command(argv: list[str]) -> int:
+    """Run ``security-review-controller group``: list the groups and the roles."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-controller group",
+        description="List the groups of web users (with their roles and members) or the roles "
+        "(with their permissions). Groups and roles are managed in the web interface.",
+    )
+    actions = parser.add_subparsers(dest="action", required=True)
+    actions.add_parser("list", help="list the groups, their roles and their members")
+    actions.add_parser("roles", help="list the roles and their permissions")
+    args = parser.parse_args(argv)
+    try:
+        init_db()
+        if args.action == "list":
+            result: object = access_control.list_groups()
+        else:
+            result = access_control.list_roles()
+    except ValueError as exc:
         return _fail(str(exc))
     print(json.dumps(result, indent=2))
     return EXIT_PASSED
@@ -972,6 +1003,7 @@ CONTROLLER_COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "token": token_command,
     "audit": audit_command,
     "user": user_command,
+    "group": group_command,
 }
 # Commands of security-review-mcp (client side of a shared MCP server)
 MCP_COMMANDS: dict[str, Callable[[list[str]], int]] = {

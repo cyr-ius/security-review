@@ -6,7 +6,12 @@ import pytest
 from sqlalchemy import Engine
 from sqlmodel import SQLModel, StaticPool, create_engine
 
-from security_review_mcp import models, registry, rule_store  # noqa: F401  (register the tables)
+from security_review_mcp import (  # noqa: F401  (register the tables)
+    access_control,
+    models,
+    registry,
+    rule_store,
+)
 from security_review_mcp.database import set_engine
 from security_review_mcp.models import DISMISSED_STATUSES, FindingPublic, FindingStatus
 from security_review_mcp.services import update_finding_status
@@ -31,6 +36,7 @@ def seeded_template():
     SQLModel.metadata.create_all(engine)
     set_engine(engine)
     rule_store.seed_defaults()
+    access_control.ensure_system_roles()
     set_engine(None)
     yield engine
     engine.dispose()
@@ -93,6 +99,40 @@ def triage():
         return update_finding_status(finding_id, status, "alice")
 
     return _triage
+
+
+def group_for(
+    role: str, projects: list[str] | None = None, name: str | None = None, sso: bool = False
+) -> int:
+    """Id of a group that has the system role ``role`` on ``projects`` (created when missing).
+
+    Named ``name``, or after the role and its projects (``reader:shop,billing``).
+    """
+    from security_review_mcp import access_control
+
+    group_name = name or ":".join([role, ",".join(projects)] if projects else [role])
+    existing = {group["name"]: group["id"] for group in access_control.list_groups()}
+    if group_name in existing:
+        return existing[group_name]
+    roles = {item["name"]: item["id"] for item in access_control.list_roles()}
+    group = access_control.create_group(group_name, sso=sso)
+    access_control.set_group_roles(group["id"], [(roles[role], projects)])
+    return group["id"]
+
+
+def make_user(
+    username: str,
+    password: str | None,
+    role: str | None = None,
+    projects: list[str] | None = None,
+    created_by: str | None = None,
+    auth_source: str = "local",
+) -> dict:
+    """Create a web user that holds the system role ``role`` on ``projects`` (see group_for)."""
+    from security_review_mcp import web_users
+
+    groups = [group_for(role, projects)] if role else []
+    return web_users.create_user(username, password, groups, created_by, auth_source)
 
 
 @pytest.fixture

@@ -28,17 +28,15 @@ or both.
 | `SECREVIEW_FORWARDED_ALLOW_IPS` | — | both | Reverse proxies (IP addresses or CIDR ranges separated by commas, `*` for any) whose `X-Forwarded-For` gives the client address, used by the login throttling, the enrollment limits and the logs; without it, the uvicorn default (`FORWARDED_ALLOW_IPS` variable, else `127.0.0.1`). Set it behind an Ingress or a reverse proxy, or every client shares the address of the proxy |
 | `SECREVIEW_WEB_UI` | `true` | Controller | Serves the [web interface](../usage/web-interface.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Controller | Folder of another build of the web interface |
-| `SECREVIEW_OIDC_ENABLED` | `false` | Controller | Enables the [OpenID Connect SSO login](../advanced/sso.md) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` can also be changed in the **SSO roles** screen, whose stored values replace them ([configuring SSO in the interface](../advanced/sso.md#configuring-sso-in-the-interface)) |
+| `SECREVIEW_OIDC_ENABLED` | `false` | Controller | Enables the [OpenID Connect SSO login](../advanced/sso.md) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` can also be changed in the **SSO** screen, whose stored values replace them ([configuring SSO in the interface](../advanced/sso.md#configuring-sso-in-the-interface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | Controller | URL of the issuer (HTTPS; HTTP only on localhost), whose `/.well-known/openid-configuration` is read |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Controller | Identifier of the client declared at the provider |
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Controller | Secret of the client; empty for a public client (PKCE only) |
 | `SECREVIEW_OIDC_REDIRECT_URI` | — | Controller | Public URL of `/api/v1/auth/oidc/callback`, declared at the provider |
 | `SECREVIEW_OIDC_SCOPES` | `openid profile email` | Controller | Requested scopes (must contain `openid`) |
-| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Controller | Claim of the groups or roles, dotted path accepted (`realm_access.roles`) |
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Controller | Groups that give the `admin` role on every project, comma separated, in addition to the associations of the [role mapping](../advanced/sso.md#role-mapping) managed in the interface |
-| `SECREVIEW_OIDC_TRIAGER_GROUPS` | — | Controller | Groups that give the `triager` role (every project) |
-| `SECREVIEW_OIDC_READER_GROUPS` | — | Controller | Groups that give the `reader` role (every project) |
-| `SECREVIEW_OIDC_DEFAULT_ROLE` | — | Controller | Group role (every project) without any matching association: `reader`, `triager` or empty (only the role given to the account applies) |
+| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Controller | Claim of the groups or roles, dotted path accepted (`realm_access.roles`); its values are matched against the names of the [groups open to SSO](../advanced/sso.md#groups-of-the-identity-provider) |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Controller | SSO groups, comma separated, created open to SSO with the `admin` role at the first login of one of their members (first administrator) |
+| `SECREVIEW_OIDC_DEFAULT_GROUP` | — | Controller | Group every SSO user joins at each login, whatever its claim (empty: none) |
 | `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Controller | Claim that names the [SSO account](../advanced/sso.md#sso-accounts) (exact comparison, no fallback); session label `oidc:<value>` |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Controller | Creates the SSO account at its first login if its groups give it a role; when `false`, an administrator creates every SSO account in **Users** |
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `SSO` | Controller | Name shown on the login button (40 characters at most) |

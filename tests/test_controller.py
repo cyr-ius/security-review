@@ -4,6 +4,7 @@ import json
 from datetime import timedelta
 
 import pytest
+from conftest import make_user
 from sqlmodel import select
 from starlette.testclient import TestClient
 
@@ -163,7 +164,7 @@ def test_serve_requires_a_login_once_a_web_user_exists(settings, captured_run, u
     client = TestClient(captured_run[0]["app"], base_url="http://127.0.0.1")
     assert client.get("/api/v1/me").status_code == 503
 
-    web_users.create_user("alice", "correct horse battery", "reader")
+    make_user("alice", "correct horse battery", "reader")
 
     assert client.get("/api/v1/me").status_code == 401
     assert STORE.has_tokens() is False
