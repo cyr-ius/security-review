@@ -18,10 +18,8 @@
 name: security-review-mcp
 
 x-secreview-env: &secreview-env
-  # The password is inserted as is in the URL: use URL-safe characters (e.g. hex)
   SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
   SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
-  # The migrate service is the only one that changes the schema
   SECREVIEW_DB_AUTO_UPGRADE: "false"
 
 x-secreview: &secreview
@@ -85,8 +83,6 @@ services:
       # no advisory database (import one with `advisories import`).
       SECREVIEW_OSV_AUTO_UPDATE: ${SECREVIEW_OSV_AUTO_UPDATE:-false}
       SECREVIEW_OSV_ECOSYSTEMS: ${SECREVIEW_OSV_ECOSYSTEMS:-PyPI,npm,Maven}
-      # Proxy of the OSV download and of the SSO provider: http://[user:password@]host:port and
-      # the hosts reached without it; can also be set in the web interface
       SECREVIEW_PROXY: ${SECREVIEW_PROXY:-}
       SECREVIEW_NO_PROXY: ${SECREVIEW_NO_PROXY:-}
     ports:
