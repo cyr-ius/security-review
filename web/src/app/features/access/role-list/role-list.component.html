@@ -23,18 +23,15 @@
       {{ 'roles.createTitle' | t }}
     }
   </h2>
-  <form class="row g-2 align-items-start" (submit)="submit($event)">
+  <form class="row g-2 align-items-start" (submit)="submit($event)" novalidate>
     <div class="col-md-4">
       <label for="role-name" class="form-label">{{ 'access.name' | t }}</label>
       <input
         id="role-name"
         class="form-control"
-        required
-        maxlength="64"
         autocomplete="off"
         [placeholder]="'roles.namePlaceholder' | t"
-        [value]="name()"
-        (input)="onName($event)"
+        [formField]="roleForm.name"
       />
     </div>
     <div class="col-md-8">
@@ -42,10 +39,8 @@
       <input
         id="role-description"
         class="form-control"
-        maxlength="500"
         autocomplete="off"
-        [value]="description()"
-        (input)="onDescription($event)"
+        [formField]="roleForm.description"
       />
     </div>
     <fieldset class="col-12">

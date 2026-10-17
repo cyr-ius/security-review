@@ -46,10 +46,8 @@
           id="current-password"
           class="form-control"
           type="password"
-          maxlength="256"
           autocomplete="current-password"
-          [value]="current()"
-          (input)="current.set($any($event.target).value)"
+          [formField]="passwordForm.current"
         />
       </div>
       <div class="mb-3">
@@ -58,10 +56,8 @@
           id="new-password"
           class="form-control"
           type="password"
-          maxlength="256"
           autocomplete="new-password"
-          [value]="next()"
-          (input)="next.set($any($event.target).value)"
+          [formField]="passwordForm.next"
         />
         <div class="form-text">{{ 'account.minChars' | t: { count: minPassword } }}</div>
       </div>
@@ -71,11 +67,9 @@
           id="confirm-password"
           class="form-control"
           type="password"
-          maxlength="256"
           autocomplete="new-password"
           [class.is-invalid]="mismatch()"
-          [value]="confirmation()"
-          (input)="confirmation.set($any($event.target).value)"
+          [formField]="passwordForm.confirmation"
         />
         @if (mismatch()) {
           <div class="invalid-feedback">{{ 'account.mismatch' | t }}</div>

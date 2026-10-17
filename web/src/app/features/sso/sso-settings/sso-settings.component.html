@@ -32,19 +32,19 @@
         <span class="visually-hidden">{{ 'common.loading' | t }}</span>
       </div>
     } @else if (settings.value(); as current) {
-      <form (submit)="save($event)">
+      <form (submit)="save($event)" novalidate>
         <div class="form-check form-switch mb-3">
           <input
             id="sso-enabled"
             class="form-check-input"
             type="checkbox"
             role="switch"
-            [checked]="value('enabled') === true"
-            (change)="onCheck('enabled', $event)"
+            [formField]="ssoForm.enabled"
           />
           <label class="form-check-label" for="sso-enabled">{{ 'sso.enable' | t }}</label>
           <ng-container
-            *ngTemplateOutlet="source; context: { $implicit: 'enabled', current: current }"
+            [ngTemplateOutlet]="source"
+            [ngTemplateOutletContext]="{ $implicit: 'enabled', current: current }"
           />
         </div>
 
@@ -53,7 +53,8 @@
           @for (field of providerFields; track field.name) {
             <div class="col-md-6">
               <ng-container
-                *ngTemplateOutlet="input; context: { $implicit: field, current: current }"
+                [ngTemplateOutlet]="input"
+                [ngTemplateOutletContext]="{ $implicit: field, current: current }"
               />
             </div>
           }
@@ -72,7 +73,8 @@
           @for (field of accessFields; track field.name) {
             <div [class]="field.kind === 'bool' ? 'col-12' : 'col-md-6'">
               <ng-container
-                *ngTemplateOutlet="input; context: { $implicit: field, current: current }"
+                [ngTemplateOutlet]="input"
+                [ngTemplateOutletContext]="{ $implicit: field, current: current }"
               />
             </div>
           }
@@ -153,14 +155,14 @@
                 class="form-check-input"
                 type="checkbox"
                 [id]="'sso-' + field.name"
-                [checked]="value(field.name) === true"
-                (change)="onCheck(field.name, $event)"
+                [formField]="boolField(field.name)"
               />
               <label class="form-check-label" [for]="'sso-' + field.name">{{
                 field.label | t
               }}</label>
               <ng-container
-                *ngTemplateOutlet="source; context: { $implicit: field.name, current: current }"
+                [ngTemplateOutlet]="source"
+                [ngTemplateOutletContext]="{ $implicit: field.name, current: current }"
               />
             </div>
           }
@@ -168,7 +170,8 @@
             <label class="form-label" [for]="'sso-' + field.name">
               {{ field.label | t }}
               <ng-container
-                *ngTemplateOutlet="source; context: { $implicit: field.name, current: current }"
+                [ngTemplateOutlet]="source"
+                [ngTemplateOutletContext]="{ $implicit: field.name, current: current }"
               />
             </label>
             <div class="input-group">
@@ -176,11 +179,9 @@
                 class="form-control"
                 type="password"
                 autocomplete="new-password"
-                maxlength="500"
                 [id]="'sso-' + field.name"
                 [placeholder]="secretPlaceholder(current)"
-                [value]="text(field.name)"
-                (input)="onText(field.name, $event)"
+                [formField]="textField(field.name)"
               />
               @if (current.fields.client_secret.effective) {
                 <button
@@ -201,18 +202,17 @@
             <label class="form-label" [for]="'sso-' + field.name">
               {{ field.label | t }}
               <ng-container
-                *ngTemplateOutlet="source; context: { $implicit: field.name, current: current }"
+                [ngTemplateOutlet]="source"
+                [ngTemplateOutletContext]="{ $implicit: field.name, current: current }"
               />
             </label>
             <input
               class="form-control"
-              maxlength="500"
               autocomplete="off"
               spellcheck="false"
               [id]="'sso-' + field.name"
               [placeholder]="field.placeholder ?? ''"
-              [value]="text(field.name)"
-              (input)="onText(field.name, $event)"
+              [formField]="textField(field.name)"
             />
             <div class="form-text">
               @if (field.help) {

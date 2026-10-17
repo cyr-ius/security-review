@@ -98,7 +98,11 @@ src/security_review_mcp/
 ├── remote_scan.py # `scan-deps` client: dependency scan with a shared server
 ├── ci_client.py   # `security-review-ci`: pipeline client of the controller (standard library only)
 ├── enrollment_api.py  # public POST /api/v1/enroll endpoint of the MCP server
-├── web_api.py     # controller: REST API /api/v1 and files of the application (/ui)
+├── web_api/       # controller: REST API /api/v1 and files of the application (/ui)
+│   ├── __init__.py    # create_app, static files of /ui, assembly of the routers
+│   ├── schemas.py     # request and response models of every route
+│   ├── deps.py        # identity of the caller, permissions, project scope
+│   └── *_routes.py    # one router per domain (auth, account, report, ci, rule, token, admin, access)
 ├── prompts.py     # construction of the prompts
 ├── standards.py   # development standards: storage, lookup by technology / file, rendering
 ├── default_rules.toml  # default rules and checklists, copied into the database at first start
@@ -149,6 +153,21 @@ configuration **Web UI + API (Angular dev server, port 4200)**, which starts bot
 of a file of `web/src/` reloads the page (styles and templates without a full reload), and the
 breakpoints set in the `.ts` files are honored. In the devcontainer, Chrome is opened on the
 local workstation and port 4200 is forwarded automatically.
+
+### Code conventions
+
+- **REST API**: every route that answers JSON declares its response model (`web_api/schemas.py`):
+  FastAPI documents it in OpenAPI and drops any field that is not declared.
+  `test_openapi_documents_the_response_of_every_json_route` fails on a route that returns a bare
+  `dict`.
+- **Components**: template and styles in separate files. A feature with several screens has one
+  folder per component (`features/access/role-list/`); its shared files (styles, base class,
+  error messages) stay at the root of the feature.
+- **Forms**: the input forms use the Signal Forms (`form()`, `[formField]`, validators with a
+  translated message); the list filters and the dynamic lists of checkboxes stay plain event
+  handlers.
+- **HTTP calls**: through `rxResource` for the data of a screen, or `await
+  firstValueFrom(...)` for an action; no `.subscribe()` in the components.
 
 ### Interface translations
 

@@ -114,6 +114,10 @@
   restent protégées. Le contrôle est fait deux fois : par le middleware Bearer, puis par
   chaque route de l'API, qui refuse (`401`) toute requête sans identité authentifiée. Ainsi,
   l'API ne donne jamais de droits par défaut, même si elle est servie sans le middleware.
+  Chaque réponse JSON passe par son modèle de réponse déclaré : un champ qu'un service ajouterait
+  par erreur (une empreinte, un secret) est retiré au lieu d'être renvoyé. Les réponses qui
+  contiennent un secret (session, jeton créé ou renouvelé, mot de passe généré) sont envoyées
+  avec `Cache-Control: no-store`.
 - **Comptes utilisateurs** ([identifiant et mot de passe](../usage/web-interface.md#comptes-utilisateurs)) :
   seule une empreinte **scrypt** salée (N=2¹⁴, r=8, p=5, sel aléatoire de 16 octets) est
   stockée ; une empreinte stockée aux paramètres hors bornes est refusée au lieu d'épuiser la

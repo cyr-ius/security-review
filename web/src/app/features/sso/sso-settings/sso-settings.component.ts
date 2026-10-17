@@ -3,20 +3,45 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, output, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { FieldTree, FormField, form, maxLength } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import {
   OidcSettingName,
   OidcSettings,
   OidcSettingsUpdate,
   OidcTestResult,
-} from '../../core/models/api.models';
-import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
-import { MessageKey } from '../../core/i18n/messages';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { ApiService } from '../../core/services/api.service';
+} from '../../../core/models/api.models';
+import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
+import { MessageKey } from '../../../core/i18n/messages';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { ApiService } from '../../../core/services/api.service';
 
 /** Value shown by the API in place of a set client secret. */
 const SECRET_MASK = '***';
+
+/** Longest value of a setting accepted by the server (app_settings.MAX_OIDC_VALUE_CHARS). */
+const MAX_VALUE_CHARS = 500;
+
+/** Settings edited with a switch; every other one is a text. */
+type BoolSettingName = 'enabled' | 'auto_create_users';
+type TextSettingName = Exclude<OidcSettingName, BoolSettingName>;
+
+const BOOL_SETTINGS: readonly BoolSettingName[] = ['enabled', 'auto_create_users'];
+const TEXT_SETTINGS: readonly TextSettingName[] = [
+  'issuer',
+  'client_id',
+  'client_secret',
+  'redirect_uri',
+  'scopes',
+  'roles_claim',
+  'username_claim',
+  'admin_groups',
+  'default_group',
+  'display_name',
+];
+
+/** Values being edited (the client secret is empty unless a new one is typed). */
+type SsoFormModel = Record<TextSettingName, string> & Record<BoolSettingName, boolean>;
 
 /** How a setting is edited. */
 type FieldKind = 'text' | 'bool' | 'secret';
@@ -100,7 +125,7 @@ export function variableOf(name: OidcSettingName): string {
  */
 @Component({
   selector: 'app-sso-settings',
-  imports: [NgTemplateOutlet, RouterLink, TranslatePipe],
+  imports: [FormField, NgTemplateOutlet, RouterLink, TranslatePipe],
   templateUrl: './sso-settings.component.html',
 })
 export class SsoSettingsComponent {
@@ -116,8 +141,12 @@ export class SsoSettingsComponent {
 
   readonly settings = rxResource({ stream: () => this.api.oidcSettings() });
 
-  /** Values being edited (the client secret is empty unless a new one is typed). */
-  readonly draft = signal<Record<string, string | boolean>>({});
+  readonly draft = signal<SsoFormModel>(emptyDraft());
+  readonly ssoForm = form(this.draft, (path) => {
+    for (const name of TEXT_SETTINGS) {
+      maxLength(path[name], MAX_VALUE_CHARS);
+    }
+  });
   readonly testResult = signal<OidcTestResult | null>(null);
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
@@ -136,44 +165,40 @@ export class SsoSettingsComponent {
         if (value !== '') {
           changes[key] = value;
         }
-      } else if (value !== (current.fields[key].effective ?? '')) {
+      } else if (
+        value !== (current.fields[key].effective ?? (typeof value === 'boolean' ? false : ''))
+      ) {
         changes[key] = value;
       }
     }
     return changes;
   });
 
-  readonly dirty = computed(() => Object.keys(this.changes()).length > 0);
+  readonly dirty = computed(() => Object.keys(this.changes()).length > 0 && this.ssoForm().valid());
 
   constructor() {
     // Load the effective values into the form at each (re)load
     effect(() => {
       const current = this.settings.value();
       if (current) {
-        this.draft.set(draftOf(current));
+        this.ssoForm().reset(draftOf(current));
       }
+    });
+    // A test result describes the values it was run with: any edit clears it
+    effect(() => {
+      this.draft();
+      this.testResult.set(null);
     });
   }
 
-  value(name: OidcSettingName): string | boolean {
-    return this.draft()[name] ?? '';
+  /** Field of a setting edited with a switch. */
+  boolField(name: OidcSettingName): FieldTree<boolean> {
+    return this.ssoForm[name as BoolSettingName];
   }
 
-  text(name: OidcSettingName): string {
-    return String(this.value(name));
-  }
-
-  set(name: OidcSettingName, value: string | boolean): void {
-    this.draft.update((draft) => ({ ...draft, [name]: value }));
-    this.testResult.set(null);
-  }
-
-  onCheck(name: OidcSettingName, event: Event): void {
-    this.set(name, (event.target as HTMLInputElement).checked);
-  }
-
-  onText(name: OidcSettingName, event: Event): void {
-    this.set(name, (event.target as HTMLInputElement | HTMLSelectElement).value);
+  /** Field of a setting edited as a text. */
+  textField(name: OidcSettingName): FieldTree<string> {
+    return this.ssoForm[name as TextSettingName];
   }
 
   /** True when the value of this setting is stored in the web interface. */
@@ -250,9 +275,8 @@ export class SsoSettingsComponent {
   reset(): void {
     const current = this.settings.value();
     if (current) {
-      this.draft.set(draftOf(current));
+      this.ssoForm().reset(draftOf(current));
     }
-    this.testResult.set(null);
   }
 
   /** Run a change, show its outcome and reload the settings. */
@@ -273,11 +297,27 @@ export class SsoSettingsComponent {
   }
 }
 
+/** Empty form, before the settings are loaded. */
+function emptyDraft(): SsoFormModel {
+  const draft = {} as SsoFormModel;
+  for (const name of BOOL_SETTINGS) {
+    draft[name] = false;
+  }
+  for (const name of TEXT_SETTINGS) {
+    draft[name] = '';
+  }
+  return draft;
+}
+
 /** Form values of the effective settings (the client secret is never shown). */
-function draftOf(current: OidcSettings): Record<string, string | boolean> {
-  const draft: Record<string, string | boolean> = {};
-  for (const [name, field] of Object.entries(current.fields)) {
-    draft[name] = name === 'client_secret' ? '' : (field.effective ?? '');
+function draftOf(current: OidcSettings): SsoFormModel {
+  const draft = emptyDraft();
+  for (const name of BOOL_SETTINGS) {
+    draft[name] = current.fields[name].effective === true;
+  }
+  for (const name of TEXT_SETTINGS) {
+    const effective = current.fields[name].effective;
+    draft[name] = name === 'client_secret' || typeof effective !== 'string' ? '' : effective;
   }
   return draft;
 }

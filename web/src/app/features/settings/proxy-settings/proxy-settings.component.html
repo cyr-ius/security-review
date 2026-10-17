@@ -40,7 +40,7 @@
         }
       </p>
 
-      <form (submit)="saveProxy($event)">
+      <form (submit)="saveProxy($event)" novalidate>
         <fieldset class="mb-3">
           <legend class="form-label">
             {{ 'settings.proxyUrl' | t }}
@@ -54,10 +54,9 @@
             <input
               class="form-check-input"
               type="radio"
-              name="proxy-mode"
               id="proxy-env"
-              [checked]="proxyMode() === 'env'"
-              (change)="onProxyMode('env')"
+              value="env"
+              [formField]="proxyForm.mode"
             />
             <label class="form-check-label" for="proxy-env">
               {{ 'sso.variable' | t }} <code>SECREVIEW_PROXY</code> ({{
@@ -69,10 +68,9 @@
             <input
               class="form-check-input"
               type="radio"
-              name="proxy-mode"
               id="proxy-custom"
-              [checked]="proxyMode() === 'custom'"
-              (change)="onProxyMode('custom')"
+              value="custom"
+              [formField]="proxyForm.mode"
             />
             <label class="form-check-label" for="proxy-custom">{{
               'settings.proxyCustom' | t
@@ -82,10 +80,9 @@
             <input
               class="form-check-input"
               type="radio"
-              name="proxy-mode"
               id="proxy-none"
-              [checked]="proxyMode() === 'none'"
-              (change)="onProxyMode('none')"
+              value="none"
+              [formField]="proxyForm.mode"
             />
             <label class="form-check-label" for="proxy-none">
               {{ 'settings.proxyNone' | t }}
@@ -93,19 +90,17 @@
           </div>
         </fieldset>
 
-        @if (proxyMode() === 'custom') {
+        @if (proxyModel().mode === 'custom') {
           <div class="mb-3">
             <label for="proxy-url" class="form-label">{{ 'settings.url' | t }}</label>
             <input
               id="proxy-url"
               class="form-control font-monospace"
               type="text"
-              maxlength="500"
               autocomplete="off"
               spellcheck="false"
               [placeholder]="'settings.proxyPlaceholder' | t"
-              [value]="proxyUrl()"
-              (input)="proxyUrl.set(inputValue($event))"
+              [formField]="proxyForm.url"
             />
             <div class="form-text">
               {{ 'settings.proxyUrlHelpBefore' | t }} <code>***</code
@@ -114,7 +109,7 @@
           </div>
         }
 
-        @if (proxyMode() !== 'none') {
+        @if (proxyModel().mode !== 'none') {
           <div class="mb-3">
             <div class="form-check form-switch">
               <input
@@ -122,8 +117,7 @@
                 class="form-check-input"
                 type="checkbox"
                 role="switch"
-                [checked]="noProxyCustom()"
-                (change)="noProxyCustom.set(checkedValue($event))"
+                [formField]="proxyForm.noProxyCustom"
               />
               <label class="form-check-label" for="no-proxy-custom">
                 {{ 'settings.noProxyCustom' | t }}
@@ -134,18 +128,16 @@
                 }
               </label>
             </div>
-            @if (noProxyCustom()) {
+            @if (proxyModel().noProxyCustom) {
               <input
                 id="no-proxy"
                 class="form-control font-monospace mt-2"
                 type="text"
-                maxlength="500"
                 autocomplete="off"
                 spellcheck="false"
                 [attr.aria-label]="'settings.noProxyHosts' | t"
                 placeholder=".corp.example, 10.0.0.5, 10.0.0.0/8, fd00::/8"
-                [value]="noProxy()"
-                (input)="noProxy.set(inputValue($event))"
+                [formField]="proxyForm.noProxy"
               />
             }
             <div class="form-text">

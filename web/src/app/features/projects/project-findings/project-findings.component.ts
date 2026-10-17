@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { REVIEW_TYPE_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import { Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
@@ -94,31 +95,28 @@ export class ProjectFindingsComponent {
   }
 
   /** Append the next page to the list. */
-  loadMore(): void {
+  async loadMore(): Promise<void> {
     this.loadingMore.set(true);
     this.loadMoreFailed.set(false);
-    this.api
-      .projectFindings({
-        project: this.project(),
-        status: this.statusFilter(),
-        severity: this.severityFilter(),
-        reviewType: this.reviewTypeFilter(),
-        limit: PAGE_SIZE,
-        // Triaged findings left the filtered set on the server: skipping them in the offset
-        // keeps the next page from jumping over findings not yet seen
-        offset: this.findings().length - this.triagedCount(),
-      })
-      .subscribe({
-        next: (page) => {
-          const known = new Set(this.findings().map((f) => f.id));
-          this.findings.update((all) => [...all, ...page.findings.filter((f) => !known.has(f.id))]);
-          this.loadingMore.set(false);
-        },
-        error: () => {
-          this.loadMoreFailed.set(true);
-          this.loadingMore.set(false);
-        },
-      });
+    const request = this.api.projectFindings({
+      project: this.project(),
+      status: this.statusFilter(),
+      severity: this.severityFilter(),
+      reviewType: this.reviewTypeFilter(),
+      limit: PAGE_SIZE,
+      // Triaged findings left the filtered set on the server: skipping them in the offset
+      // keeps the next page from jumping over findings not yet seen
+      offset: this.findings().length - this.triagedCount(),
+    });
+    try {
+      const page = await firstValueFrom(request);
+      const known = new Set(this.findings().map((f) => f.id));
+      this.findings.update((all) => [...all, ...page.findings.filter((f) => !known.has(f.id))]);
+    } catch {
+      this.loadMoreFailed.set(true);
+    } finally {
+      this.loadingMore.set(false);
+    }
   }
 
   /** Keep the triage decision saved by a finding card, and the report context of the row. */
