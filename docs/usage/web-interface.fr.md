@@ -61,18 +61,21 @@ renvoyés par l'API restent en anglais.
 - **Normes** : les [normes de développement](../advanced/standards.md) transmises aux assistants IA par le
   prompt `development-standards`. Les administrateurs les recherchent, les lisent, les créent,
   les modifient (technologies, motifs de fichiers, contenu Markdown), les désactivent ou les
-  suppriment. Un changement s'applique immédiatement.
+  suppriment. Un changement s'applique immédiatement. **Exporter** et **Importer** les copient
+  sous forme de [fichier TOML](../advanced/standards.md#import-et-export).
 - **Checklists** : les administrateurs consultent les items de contrôle par domaine, filtrent la
   liste et créent, modifient ou suppriment les items personnalisés. Les items par défaut peuvent
   être modifiés, mais pas supprimés. Toute modification est rechargée immédiatement par le serveur
-  et intégrée aux prompts de revue.
+  et intégrée aux prompts de revue. **Exporter** et **Importer** échangent des
+  [packs TOML](../advanced/rules.md#import-et-export-dans-linterface-web).
 - **Règles** : les administrateurs consultent toutes les [règles](../advanced/rules.md) stockées en base,
   filtrables par origine (par défaut ou personnalisée). Ils créent, modifient (dans une fenêtre
   modale, sans quitter la position dans la liste), activent ou désactivent les règles, et
   suppriment les règles personnalisées. Une règle par défaut peut être
   modifiée (badge « Par défaut, modifiée ») ou désactivée, mais pas supprimée. Le bouton
   **Recharger** applique immédiatement un changement fait avec la CLI
-  `security-review-controller rules`.
+  `security-review-controller rules`. **Exporter** et **Importer** échangent des
+  [packs TOML](../advanced/rules.md#import-et-export-dans-linterface-web).
 - **Utilisateurs** : les administrateurs gèrent les [comptes](#comptes-utilisateurs), seuls
   à ouvrir l'interface. Chaque compte est **Local** (identifiant et mot de passe, saisi ou généré
   et affiché une seule fois) ou **SSO** (connexion par le fournisseur d'identité, sans mot de

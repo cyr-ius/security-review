@@ -14,7 +14,12 @@ import {
 import { SEVERITY_META } from '../../../core/constants/labels';
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { ApiService } from '../../../core/services/api.service';
+import { ApiService, saveBlob } from '../../../core/services/api.service';
+import {
+  PackFile,
+  PackFileError,
+  PackTransferComponent,
+} from '../../../shared/components/pack-transfer/pack-transfer.component';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 
 interface RuleFormModel {
@@ -42,7 +47,7 @@ const EMPTY_RULE: RuleFormModel = {
 /** Admin view for the scan rules stored in the database (default and custom). */
 @Component({
   selector: 'app-rule-list',
-  imports: [DatePipe, FormField, RefreshButtonComponent, TranslatePipe],
+  imports: [PackTransferComponent, DatePipe, FormField, RefreshButtonComponent, TranslatePipe],
   templateUrl: './rule-list.component.html',
   styleUrl: './rule-list.component.css',
 })
@@ -84,6 +89,8 @@ export class RuleListComponent {
   /** Error raised while saving, shown inside the modal. */
   readonly formError = signal<Message | null>(null);
   readonly notice = signal<Message | null>(null);
+  /** True while a pack is exported or imported. */
+  readonly transferring = signal(false);
 
   startCreate(): void {
     this.clearMessages();
@@ -218,6 +225,49 @@ export class RuleListComponent {
     } finally {
       this.reloading.set(false);
     }
+  }
+
+  /** Download the security-review-rules.toml pack. */
+  async exportPack(): Promise<void> {
+    this.clearMessages();
+    this.transferring.set(true);
+    try {
+      saveBlob(
+        await firstValueFrom(this.api.exportRulePack(['rules'])),
+        'security-review-rules.toml',
+      );
+    } catch {
+      this.error.set(msg('pack.exportFailed'));
+    } finally {
+      this.transferring.set(false);
+    }
+  }
+
+  /** Import a TOML pack chosen by the user (all or nothing), then reload the list. */
+  async importPack(file: PackFile): Promise<void> {
+    this.clearMessages();
+    this.transferring.set(true);
+    try {
+      const result = await firstValueFrom(this.api.importRulePack(file.name, file.content));
+      this.notice.set(
+        msg('pack.rulesImported', {
+          file: file.name,
+          rules: result.rules,
+          items: result.checklist_items,
+          disabled: result.disabled_rules,
+        }),
+      );
+      this.catalog.reload();
+    } catch (error: unknown) {
+      this.error.set(describeError(error));
+    } finally {
+      this.transferring.set(false);
+    }
+  }
+
+  onPackRejected(reason: PackFileError): void {
+    this.clearMessages();
+    this.error.set(msg(reason === 'tooLarge' ? 'pack.tooLarge' : 'pack.unreadable'));
   }
 
   private openEditor(): void {

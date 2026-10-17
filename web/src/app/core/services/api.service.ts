@@ -40,7 +40,10 @@ import {
   Report,
   ReportQuery,
   ReportSummary,
+  RulePackImportResult,
+  RulePackSection,
   RuleReloadResult,
+  StandardPackImportResult,
   Trend,
   UserGroup,
   UserGroupWrite,
@@ -193,6 +196,31 @@ export class ApiService {
 
   reloadCustomRules(): Observable<RuleReloadResult> {
     return this.http.post<RuleReloadResult>(`${API_URL}/rules/reload`, {});
+  }
+
+  /** TOML pack of the rules and checklist items that differ from the defaults. */
+  exportRulePack(sections: RulePackSection[]): Observable<Blob> {
+    let params = new HttpParams();
+    for (const section of sections) {
+      params = params.append('sections', section);
+    }
+    return this.http.get(`${API_URL}/packs/rules`, { params, responseType: 'blob' });
+  }
+
+  importRulePack(name: string, content: string): Observable<RulePackImportResult> {
+    return this.http.post<RulePackImportResult>(`${API_URL}/packs/rules`, { name, content });
+  }
+
+  /** TOML pack of every development standard (disabled ones included). */
+  exportStandardPack(): Observable<Blob> {
+    return this.http.get(`${API_URL}/packs/standards`, { responseType: 'blob' });
+  }
+
+  importStandardPack(name: string, content: string): Observable<StandardPackImportResult> {
+    return this.http.post<StandardPackImportResult>(`${API_URL}/packs/standards`, {
+      name,
+      content,
+    });
   }
 
   projects(): Observable<ProjectSummary[]> {

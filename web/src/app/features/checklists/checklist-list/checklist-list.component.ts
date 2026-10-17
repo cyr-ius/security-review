@@ -6,7 +6,12 @@ import { firstValueFrom } from 'rxjs';
 import { ChecklistItem, ChecklistItemWrite } from '../../../core/models/api.models';
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { ApiService } from '../../../core/services/api.service';
+import { ApiService, saveBlob } from '../../../core/services/api.service';
+import {
+  PackFile,
+  PackFileError,
+  PackTransferComponent,
+} from '../../../shared/components/pack-transfer/pack-transfer.component';
 
 interface ChecklistFormModel {
   domain: string;
@@ -27,7 +32,7 @@ const EMPTY_ITEM: ChecklistFormModel = {
 /** Admin view for checklist items grouped by their review domain. */
 @Component({
   selector: 'app-checklist-list',
-  imports: [FormField, TranslatePipe],
+  imports: [PackTransferComponent, FormField, TranslatePipe],
   templateUrl: './checklist-list.component.html',
   styleUrl: './checklist-list.component.css',
 })
@@ -66,6 +71,8 @@ export class ChecklistListComponent {
   readonly error = signal<Message | null>(null);
   readonly formError = signal<Message | null>(null);
   readonly notice = signal<Message | null>(null);
+  /** True while a pack is exported or imported. */
+  readonly transferring = signal(false);
 
   onDomainFilter(event: Event): void {
     this.setDomainFilter((event.target as HTMLSelectElement).value);
@@ -160,6 +167,49 @@ export class ChecklistListComponent {
     } catch (error: unknown) {
       this.error.set(describeError(error));
     }
+  }
+
+  /** Download the security-review-checklists.toml pack. */
+  async exportPack(): Promise<void> {
+    this.clearMessages();
+    this.transferring.set(true);
+    try {
+      saveBlob(
+        await firstValueFrom(this.api.exportRulePack(['checklist'])),
+        'security-review-checklists.toml',
+      );
+    } catch {
+      this.error.set(msg('pack.exportFailed'));
+    } finally {
+      this.transferring.set(false);
+    }
+  }
+
+  /** Import a TOML pack chosen by the user (all or nothing), then reload the list. */
+  async importPack(file: PackFile): Promise<void> {
+    this.clearMessages();
+    this.transferring.set(true);
+    try {
+      const result = await firstValueFrom(this.api.importRulePack(file.name, file.content));
+      this.notice.set(
+        msg('pack.rulesImported', {
+          file: file.name,
+          rules: result.rules,
+          items: result.checklist_items,
+          disabled: result.disabled_rules,
+        }),
+      );
+      this.catalog.reload();
+    } catch (error: unknown) {
+      this.error.set(describeError(error));
+    } finally {
+      this.transferring.set(false);
+    }
+  }
+
+  onPackRejected(reason: PackFileError): void {
+    this.clearMessages();
+    this.error.set(msg(reason === 'tooLarge' ? 'pack.tooLarge' : 'pack.unreadable'));
   }
 
   private openEditor(): void {

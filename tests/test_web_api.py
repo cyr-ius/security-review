@@ -22,6 +22,7 @@ from security_review_mcp import (
     rule_store,
     server,
     services,
+    standards,
     token_store,
     web_api,
     web_users,
@@ -2061,6 +2062,76 @@ def test_development_standards_are_read_and_written_by_admins_only(secured):
     assert admin_list[0]["updated_by"] == "admin"
     draft = secured.get("/api/v1/standards/draft", headers=auth("admin"))
     assert draft.status_code == 200 and draft.json()["enabled"] is False
+
+
+def test_standards_pack_export_and_import(client, caplog):
+    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    client.post("/api/v1/standards", json=STANDARD)
+    exported = client.get("/api/v1/packs/standards")
+    assert exported.status_code == 200
+    assert exported.headers["content-type"].startswith("application/toml")
+    assert "security-review-standards.toml" in exported.headers["content-disposition"]
+    assert exported.headers["cache-control"] == "no-store"
+    assert 'slug = "angular"' in exported.text
+
+    client.delete("/api/v1/standards/angular")
+    body = {"name": "standards.toml", "content": exported.text}
+    imported = client.post("/api/v1/packs/standards", json=body)
+    assert imported.status_code == 200
+    assert imported.json()["created"] == ["angular"]
+    assert client.get("/api/v1/standards/angular").json()["updated_by"] == "test-admin"
+    assert "Development standards imported by test-admin: 1 created" in caplog.text
+
+    broken = client.post("/api/v1/packs/standards", json={"content": "slug = ["})
+    assert broken.status_code == 422
+    assert "pack.toml" in broken.json()["detail"]
+    too_big = {"content": "x" * (standards.MAX_PACK_BYTES + 1)}
+    assert client.post("/api/v1/packs/standards", json=too_big).status_code == 422
+
+
+def test_rule_pack_export_and_import(client):
+    pack = (
+        'disabled_rules = ["PY-008"]\n'
+        '[[rules]]\nid = "ACME-001"\ntitle = "Unsafe eval"\nseverity = "high"\n'
+        'languages = ["python"]\npattern = "eval\\\\("\n'
+        '[[checklist]]\ndomain = "company"\nid = "ACME-CL-01"\ntitle = "Tenant"\n'
+        'what_to_look_for = "Tenant id."\n'
+    )
+    imported = client.post("/api/v1/packs/rules", json={"name": "acme.toml", "content": pack})
+    assert imported.status_code == 200
+    result = imported.json()
+    assert (result["rules"], result["checklist_items"], result["disabled_rules"]) == (1, 1, 1)
+    assert result["load_errors"] == []
+    assert any(hit["rule_id"] == "ACME-001" for hit in registry.scan("eval(x)", "python")[0])
+
+    both = client.get("/api/v1/packs/rules")
+    assert both.status_code == 200
+    assert "security-review-rules.toml" in both.headers["content-disposition"]
+    assert "ACME-001" in both.text and "ACME-CL-01" in both.text and "PY-008" in both.text
+    checklist = client.get("/api/v1/packs/rules", params={"sections": "checklist"})
+    assert "security-review-checklists.toml" in checklist.headers["content-disposition"]
+    assert "ACME-CL-01" in checklist.text and "ACME-001" not in checklist.text
+    rules = client.get("/api/v1/packs/rules", params={"sections": "rules"})
+    assert "ACME-001" in rules.text and "ACME-CL-01" not in rules.text
+    assert client.get("/api/v1/packs/rules", params={"sections": "bogus"}).status_code == 422
+
+    broken = pack + '[[rules]]\nid = "ACME-002"\ntitle = "t"\nseverity = "low"\npattern = "(a+)+"'
+    refused = client.post("/api/v1/packs/rules", json={"name": "bad.toml", "content": broken})
+    assert refused.status_code == 422
+    assert "nothing imported" in refused.json()["detail"]
+    assert "ACME-002" not in {row["id"] for row in custom_rules(client)}
+
+
+def test_packs_need_their_permission(secured):
+    body = {"content": '[[standards]]\nslug = "a"\ntitle = "t"\ncontent = "c"'}
+    for path in ("/api/v1/packs/rules", "/api/v1/packs/standards"):
+        assert secured.get(path).status_code == 401
+        assert secured.post(path, json=body).status_code == 401
+        for role in ("reader", "triager"):
+            assert secured.get(path, headers=auth(role)).status_code == 403
+            assert secured.post(path, json=body, headers=auth(role)).status_code == 403
+        assert secured.get(path, headers=auth("admin")).status_code == 200
+    assert secured.get("/api/v1/standards", headers=auth("admin")).json()["standards"] == []
 
 
 # ── SSO settings ─────────────────────────────────────────────────────────────

@@ -519,12 +519,21 @@ def import_packs(packs: list[tuple[str, str]], replace: bool = False) -> dict:
     }
 
 
-def export_pack() -> str:
+PACK_SECTIONS = frozenset({"rules", "checklist"})
+
+
+def export_pack(sections: frozenset[str] = PACK_SECTIONS) -> str:
     """Return the stored content as a TOML pack accepted by ``import_packs``.
 
     Unmodified default rules and checklist items are left out: the pack holds what differs
-    from the defaults (custom and modified entries, disabled rules).
+    from the defaults (custom and modified entries, disabled rules). ``sections`` limits the
+    pack to the rules (with the disabled rule ids) or to the checklist items.
+
+    Raises:
+        ValueError: If ``sections`` names an unknown section or none.
     """
+    if not sections or not sections <= PACK_SECTIONS:
+        raise ValueError(f"sections must be a non-empty subset of {sorted(PACK_SECTIONS)}")
     defaults = {digest(entry) for entry in default_rules().values()}
     defaults |= {digest(entry) for entry in default_check_items().values()}
     with session_scope() as session:
@@ -540,12 +549,17 @@ def export_pack() -> str:
         disabled = sorted(session.exec(select(DisabledRule.rule_id)).all())
 
     document = tomlkit.document()
+    document.add(tomlkit.comment("Internal rules exported by security-review-controller."))
     document.add(
-        tomlkit.comment("Internal rules exported by `security-review-controller rules export`.")
+        tomlkit.comment(
+            "Import with `security-review-controller rules import FILE` or the web interface."
+        )
     )
-    document.add(tomlkit.comment("Import with `security-review-controller rules import FILE`."))
-    document["disabled_rules"] = disabled
+    if "rules" in sections:
+        document["disabled_rules"] = disabled
     for key, entries in (("rules", rules), ("checklist", checklist)):
+        if key not in sections:
+            continue
         tables = tomlkit.aot()
         for entry in entries:
             table = tomlkit.table()

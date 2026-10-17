@@ -184,6 +184,15 @@ class StandardWrite(BaseModel):
     enabled: bool = True
 
 
+class PackUpload(BaseModel):
+    """A TOML pack (rules and checklists, or development standards) uploaded for import."""
+
+    # File name, only used in the error messages
+    name: str = Field(default="pack.toml", min_length=1, max_length=200)
+    # Bounded again (in bytes) by rule_store.import_packs and standards.import_pack
+    content: str = Field(min_length=1, max_length=standards.MAX_PACK_BYTES)
+
+
 _ProjectList = list[Annotated[str, Field(min_length=1, max_length=200)]]
 
 
@@ -1285,6 +1294,88 @@ async def set_custom_rule_enabled(
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     logger.info("Rule %s enabled=%s by %s", rule_id, body.enabled, identity.client)
     return await _refresh_rules()
+
+
+def _toml_download(text: str, filename: str) -> Response:
+    """Return a TOML pack as a file to save."""
+    return Response(
+        text,
+        media_type="application/toml; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.get("/packs/rules")
+async def export_rule_pack(
+    identity: RulesManager,
+    sections: Annotated[list[Literal["rules", "checklist"]] | None, Query(max_length=2)] = None,
+) -> Response:
+    """Export the rules and checklist items that differ from the defaults as a TOML pack.
+
+    ``sections`` limits the pack to the rules (with the disabled rule ids) or the checklist.
+    """
+    selected = frozenset(sections or rule_store.PACK_SECTIONS)
+    text = await run_in_threadpool(rule_store.export_pack, selected)
+    logger.info("Rule pack (%s) exported by %s", ", ".join(sorted(selected)), identity.client)
+    name = "checklists" if selected == {"checklist"} else "rules"
+    return _toml_download(text, f"security-review-{name}.toml")
+
+
+@router.post("/packs/rules")
+async def import_rule_pack(body: PackUpload, identity: RulesManager) -> dict:
+    """Import a TOML rule pack (rules, checklist items, disabled ids), all or nothing.
+
+    Entries are added or replaced by id; the other stored entries are kept.
+    """
+    try:
+        result = await run_in_threadpool(
+            rule_store.import_packs, [(body.name, body.content)], False
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info(
+        "Rule pack imported by %s: %d rule(s), %d checklist item(s), %d disabled id(s)",
+        identity.client,
+        result["rules"],
+        result["checklist_items"],
+        result["disabled_rules"],
+    )
+    snapshot = await run_in_threadpool(registry.reload)
+    return result | {
+        "loaded_rules": len(snapshot.custom_rule_ids),
+        "loaded_checklist_items": sum(len(items) for items in snapshot.checklists.values()),
+        "load_errors": list(snapshot.errors),
+    }
+
+
+@router.get("/packs/standards")
+async def export_standard_pack(identity: StandardsManager) -> Response:
+    """Export every development standard (disabled ones included) as a TOML pack."""
+    text = await run_in_threadpool(standards.export_pack)
+    logger.info("Development standards exported by %s", identity.client)
+    return _toml_download(text, "security-review-standards.toml")
+
+
+@router.post("/packs/standards")
+async def import_standard_pack(body: PackUpload, identity: StandardsManager) -> dict:
+    """Import a TOML pack of development standards, all or nothing (created or replaced by
+    slug; the other standards are kept)."""
+    try:
+        result = await run_in_threadpool(
+            standards.import_pack, body.content, body.name, identity.client
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    logger.info(
+        "Development standards imported by %s: %d created, %d updated",
+        identity.client,
+        len(result["created"]),
+        len(result["updated"]),
+    )
+    return result
 
 
 async def _check_known_projects(projects: list[str] | None) -> None:

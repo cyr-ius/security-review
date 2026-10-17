@@ -59,16 +59,18 @@ back by the API stay in English.
 - **Standards**: the [development standards](../advanced/standards.md) handed to the AI
   assistants by the `development-standards` prompt. Administrators search, read, create, edit
   (technologies, file patterns, Markdown content), disable or delete them. A change applies
-  immediately.
+  immediately. **Export** and **Import** copy them as a [TOML file](../advanced/standards.md#import-and-export).
 - **Checklists**: administrators browse the check items by domain, filter the list and create,
   edit or delete the custom items. The default items can be edited, but not deleted. Every
   change is reloaded immediately by the server and included in the review prompts.
+  **Export** and **Import** exchange [TOML packs](../advanced/rules.md#import-and-export-in-the-web-interface).
 - **Rules**: administrators browse every [rule](../advanced/rules.md) stored in the database,
   filtered by origin (default or custom). They create, edit (in a modal window, without losing
   the position in the list), enable or disable the rules, and delete the custom rules. A default
   rule can be edited ("Par défaut, modifiée" badge: default, edited) or disabled, but not
   deleted. The **Reload** button applies immediately a change made with the
-  `security-review-controller rules` CLI.
+  `security-review-controller rules` CLI. **Export** and **Import** exchange
+  [TOML packs](../advanced/rules.md#import-and-export-in-the-web-interface).
 - **Users**: administrators manage the [accounts](#user-accounts), the only
   ones to open the interface. Each account is **Local** (user name and password, entered or
   generated and shown only once) or **SSO** (login through the identity provider, no password),

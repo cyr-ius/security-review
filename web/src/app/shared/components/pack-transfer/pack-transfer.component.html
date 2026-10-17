@@ -1,0 +1,31 @@
+<div class="btn-group btn-group-sm" role="group" [attr.aria-label]="'pack.group' | t">
+  <button
+    type="button"
+    class="btn btn-outline-secondary"
+    [disabled]="busy()"
+    [title]="'pack.exportHint' | t"
+    (click)="exportRequested.emit()"
+  >
+    <i class="bi bi-download" aria-hidden="true"></i>
+    {{ 'pack.export' | t }}
+  </button>
+  <button
+    type="button"
+    class="btn btn-outline-secondary"
+    [disabled]="busy()"
+    [title]="'pack.importHint' | t"
+    (click)="chooseFile()"
+  >
+    <i class="bi bi-upload" aria-hidden="true"></i>
+    {{ 'pack.import' | t }}
+  </button>
+</div>
+<input
+  #fileInput
+  type="file"
+  class="d-none"
+  accept=".toml,application/toml,text/plain"
+  tabindex="-1"
+  aria-hidden="true"
+  (change)="onFileChange($event)"
+/>

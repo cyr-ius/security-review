@@ -3,10 +3,18 @@
     <h1 class="h3 mb-0">{{ 'checklists.title' | t }}</h1>
     <p class="text-body-secondary mb-0">{{ 'checklists.subtitle' | t }}</p>
   </div>
-  <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
-    <i class="bi bi-plus-lg" aria-hidden="true"></i>
-    {{ 'checklists.new' | t }}
-  </button>
+  <div class="d-flex flex-wrap gap-2">
+    <app-pack-transfer
+      [busy]="transferring()"
+      (exportRequested)="exportPack()"
+      (fileChosen)="importPack($event)"
+      (fileRejected)="onPackRejected($event)"
+    />
+    <button type="button" class="btn btn-sm btn-primary" (click)="startCreate()">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i>
+      {{ 'checklists.new' | t }}
+    </button>
+  </div>
 </div>
 
 @if (error(); as message) {

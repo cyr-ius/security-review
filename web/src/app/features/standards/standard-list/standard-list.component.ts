@@ -7,7 +7,12 @@ import { DevStandard, DevStandardSummary, DevStandardWrite } from '../../../core
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { ApiService } from '../../../core/services/api.service';
+import { ApiService, saveBlob } from '../../../core/services/api.service';
+import {
+  PackFile,
+  PackFileError,
+  PackTransferComponent,
+} from '../../../shared/components/pack-transfer/pack-transfer.component';
 import { AuthService } from '../../../core/services/auth.service';
 
 /** Editable fields; the lists are typed as comma separated text. */
@@ -37,7 +42,7 @@ const MAX_CONTENT_CHARS = 50_000;
 /** Development standards served to the developers' AI: read by everyone, edited by admins. */
 @Component({
   selector: 'app-standard-list',
-  imports: [FormField, TranslatePipe],
+  imports: [PackTransferComponent, FormField, TranslatePipe],
   templateUrl: './standard-list.component.html',
   styleUrl: './standard-list.component.css',
 })
@@ -85,6 +90,8 @@ export class StandardListComponent {
   readonly error = signal<Message | null>(null);
   readonly formError = signal<Message | null>(null);
   readonly notice = signal<Message | null>(null);
+  /** True while a pack is exported or imported. */
+  readonly transferring = signal(false);
 
   onQuery(event: Event): void {
     this.setQuery((event.target as HTMLInputElement).value);
@@ -208,6 +215,48 @@ export class StandardListComponent {
     } catch (error: unknown) {
       this.error.set(describeError(error, 'standards.deleteFailed'));
     }
+  }
+
+  /** Download the security-review-standards.toml pack. */
+  async exportPack(): Promise<void> {
+    this.clearMessages();
+    this.transferring.set(true);
+    try {
+      saveBlob(
+        await firstValueFrom(this.api.exportStandardPack()),
+        'security-review-standards.toml',
+      );
+    } catch {
+      this.error.set(msg('pack.exportFailed'));
+    } finally {
+      this.transferring.set(false);
+    }
+  }
+
+  /** Import a TOML pack chosen by the user (all or nothing), then reload the list. */
+  async importPack(file: PackFile): Promise<void> {
+    this.clearMessages();
+    this.transferring.set(true);
+    try {
+      const result = await firstValueFrom(this.api.importStandardPack(file.name, file.content));
+      this.notice.set(
+        msg('pack.standardsImported', {
+          file: file.name,
+          created: result.created.length,
+          updated: result.updated.length,
+        }),
+      );
+      this.catalog.reload();
+    } catch (error: unknown) {
+      this.error.set(describeError(error, 'pack.importFailed'));
+    } finally {
+      this.transferring.set(false);
+    }
+  }
+
+  onPackRejected(reason: PackFileError): void {
+    this.clearMessages();
+    this.error.set(msg(reason === 'tooLarge' ? 'pack.tooLarge' : 'pack.unreadable'));
   }
 
   private openEditor(): void {

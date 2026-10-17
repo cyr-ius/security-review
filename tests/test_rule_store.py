@@ -239,6 +239,18 @@ def test_export_of_an_empty_database_is_a_valid_pack():
     assert tomllib.loads(rule_store.export_pack()) == {"disabled_rules": []}
 
 
+def test_export_can_be_limited_to_one_section():
+    rule_store.import_packs([("company.toml", PACK)])
+    rules_only = tomllib.loads(rule_store.export_pack(frozenset({"rules"})))
+    assert set(rules_only) == {"disabled_rules", "rules"}
+    checklist_only = tomllib.loads(rule_store.export_pack(frozenset({"checklist"})))
+    assert set(checklist_only) == {"checklist"}
+    assert checklist_only["checklist"][0]["id"] == "ACME-CL-01"
+    for sections in (frozenset(), frozenset({"standards"})):
+        with pytest.raises(ValueError, match="sections"):
+            rule_store.export_pack(sections)
+
+
 def test_import_limits(monkeypatch):
     monkeypatch.setattr(rule_store, "MAX_CUSTOM_RULES", 1)
     with pytest.raises(ValueError, match="limit of 1 stored rules"):
@@ -347,3 +359,8 @@ def test_concurrent_conflict_is_reported_as_value_error(monkeypatch):
     with pytest.raises(ValueError, match="changed concurrently"):
         rule_store.create_rule(RULE)
     assert custom_rules() == []
+
+
+def test_deeply_nested_pack_is_refused():
+    with pytest.raises(ValueError, match="nothing imported.*nested.toml"):
+        rule_store.import_packs([("nested.toml", "a = " + "[" * 50_000 + "]" * 50_000)])

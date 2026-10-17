@@ -8,7 +8,8 @@ activer ou désactiver n'importe quelle règle, **sans toucher au code**.
 Les règles se gèrent avec la commande `security-review-controller rules` (import et export de packs
 TOML, activation, désactivation, suppression) ou depuis l'écran **Règles** de
 l'[interface web](../usage/web-interface.md). Les items de checklist se gèrent depuis l'écran
-**Checklists** de cette interface, ou avec les packs TOML de la commande `rules`.
+**Checklists** de cette interface, ou avec les packs TOML de la commande `rules`. Ces deux écrans
+[importent et exportent aussi les packs TOML](#import-et-export-dans-linterface-web).
 
 ## Règles par défaut
 
@@ -58,6 +59,32 @@ security-review-controller rules list --custom                        # vérifie
 security-review-controller rules disable PY-008            # règle par défaut trop bruyante
 security-review-controller rules export -o rules.toml      # sauvegarde ou revue
 security-review-controller rules import --replace rules.toml
+```
+
+## Import et export dans l'interface web
+
+Les écrans **Règles** et **Checklists** ont des boutons **Exporter** et **Importer** (permission
+`rules.manage`) :
+
+- **Exporter** télécharge un pack TOML de ce qui diffère des valeurs par défaut, comme
+  `rules export` : `security-review-rules.toml` (règles personnalisées ou modifiées, règles
+  désactivées) depuis l'écran **Règles**, `security-review-checklists.toml` (items de checklist
+  personnalisés ou modifiés) depuis l'écran **Checklists**.
+- **Importer** lit un pack TOML choisi sur votre poste (256 Kio au plus), depuis l'un ou l'autre
+  écran : les règles, items de checklist et `disabled_rules` qu'il contient sont importés,
+  **tout ou rien**, comme `rules import` sans `--replace` (entrées ajoutées ou remplacées par
+  identifiant, les autres entrées conservées). Le message donne le nombre d'entrées importées,
+  ou les erreurs quand rien n'a été importé. Pour revenir aux valeurs par défaut, utilisez
+  `rules import --replace` en CLI.
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| `GET` | `/api/v1/packs/rules[?sections=rules\|checklist]` | `rules.manage` : pack TOML (les deux sections par défaut) |
+| `POST` | `/api/v1/packs/rules` | `rules.manage` : corps `{"name": "acme.toml", "content": "<TOML>"}` ; `422` avec les erreurs si le pack est invalide |
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" -o rules.toml \
+  "https://secreview.example.com/api/v1/packs/rules?sections=rules"
 ```
 
 ## Format d'un pack

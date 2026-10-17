@@ -318,6 +318,25 @@ export interface ChecklistReloadResult {
   load_errors: string[];
 }
 
+/** Sections of a rule pack exported by GET /api/v1/packs/rules. */
+export type RulePackSection = 'rules' | 'checklist';
+
+/** Answer of POST /api/v1/packs/rules: what the pack held, then the reloaded registry. */
+export interface RulePackImportResult extends RuleReloadResult, ChecklistReloadResult {
+  files: string[];
+  rules: number;
+  checklist_items: number;
+  disabled_rules: number;
+  replaced: boolean;
+}
+
+/** Answer of POST /api/v1/packs/standards: the slugs created and replaced. */
+export interface StandardPackImportResult {
+  file: string;
+  created: string[];
+  updated: string[];
+}
+
 /** One development standard as listed by GET /api/v1/standards (no content). */
 export interface DevStandardSummary {
   slug: string;
