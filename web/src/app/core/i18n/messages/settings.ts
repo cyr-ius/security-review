@@ -1,9 +1,11 @@
 import { defineMessages } from '../catalog';
 
-/** Settings screen: report language, outgoing proxy and OSV database. */
+/** Settings screens: report language, outgoing proxy and OSV database. */
 export const settings = defineMessages({
   en: {
-    'settings.subtitle': 'Report language, outgoing proxy and OSV vulnerability database',
+    'settings.languageSubtitle': "Language of the agent's answers and of the stored reports",
+    'settings.proxySubtitle': 'Proxy of the OSV download and of the SSO login',
+    'settings.osvSubtitle': 'Advisories used by the dependency analysis and their updates',
     'settings.loadError': 'Could not load the settings.',
     'settings.languageTitle': 'Report language',
     'settings.languageHelpBefore':
@@ -99,7 +101,9 @@ export const settings = defineMessages({
     'settings.refusedDetail': 'Value refused: {detail}',
   },
   fr: {
-    'settings.subtitle': 'Langue des rapports, proxy sortant et base de vulnérabilités OSV',
+    'settings.languageSubtitle': "Langue des réponses de l'agent et des rapports enregistrés",
+    'settings.proxySubtitle': 'Proxy du téléchargement OSV et de la connexion SSO',
+    'settings.osvSubtitle': "Avis utilisés par l'analyse de dépendances et leurs mises à jour",
     'settings.loadError': 'Impossible de charger les paramètres.',
     'settings.languageTitle': 'Langue des rapports',
     'settings.languageHelpBefore':
@@ -202,7 +206,9 @@ export const settings = defineMessages({
     'settings.refusedDetail': 'Valeur refusée : {detail}',
   },
   es: {
-    'settings.subtitle': 'Idioma de los informes, proxy saliente y base de vulnerabilidades OSV',
+    'settings.languageSubtitle': 'Idioma de las respuestas del agente y de los informes guardados',
+    'settings.proxySubtitle': 'Proxy de la descarga OSV y del inicio de sesión SSO',
+    'settings.osvSubtitle': 'Avisos usados por el análisis de dependencias y sus actualizaciones',
     'settings.loadError': 'No se pudieron cargar los ajustes.',
     'settings.languageTitle': 'Idioma de los informes',
     'settings.languageHelpBefore':

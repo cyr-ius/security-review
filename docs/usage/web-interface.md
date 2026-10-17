@@ -21,9 +21,9 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 ## Screens
 
 The screens are reached from the sidebar: **Supervision** (projects, reports) for every role,
-then **Reference** (rules, checklists, standards) and **Administration** (users,
-tokens, SSO roles, settings) for the `admin` role. The bottom of the sidebar shows the connected
-client, its role and the version, with the **My account** and logout buttons; on a
+then **Reference** (rules, checklists, standards) and **Administration** (users, tokens, audit
+log, SSO roles, report language, outgoing proxy, OSV database) for the `admin` role. The bottom
+of the sidebar shows the connected client, its role and the version, with the **My account** and logout buttons; on a
 small screen, the sidebar opens with the menu button. The light or dark theme is chosen at the
 top right, including on the login page, and is remembered by the browser.
 
@@ -31,8 +31,8 @@ The interface is available in **English**, **French** and **Spanish**. The langu
 the picker at the top right, including on the login page. The change is immediate and is
 remembered by the browser; on the first visit, the interface follows the language of the
 browser, or English if it offers none of them. This choice only concerns the interface: the
-language of the review reports is set in **Settings**, and the detailed error messages sent back
-by the API stay in English.
+language of the review reports is set in **Report language**, and the detailed error messages sent
+back by the API stay in English.
 
 - **Projects**: every project with its open findings by severity, sorted by risk,
   activity or name.
@@ -119,30 +119,32 @@ by the API stay in English.
   projects (see [role mapping](../advanced/sso.md#role-mapping)). The groups of the SSO configuration
   (`*_GROUPS`) are shown read only in the list of mappings. The SSO users themselves are managed
   in the **Users** screen.
-- **Settings**: settings stored in the database, taking precedence over the
-  environment variables and shared by the MCP server and the controller.
-    - **Report language**: `SECREVIEW_REPORT_LANGUAGE` variable, choice
-      left to the agent or language set here (`French`, `fr`, `pt-BR`…). It applies to the next
-      review prompts; the `report_language` argument of a prompt still takes precedence
-      ([report language](prompts-tools.md#report-language)).
-    - **Outgoing proxy of the controller**: proxy of the OSV
-      download **and** of the [SSO login](../advanced/sso.md). As for the SSO
-      configuration, every value set here replaces its variable (**Variable** / **Interface
-      web** badges): the URL follows `SECREVIEW_PROXY` (else `HTTPS_PROXY` / `NO_PROXY`), is set
-      here, or forces the direct connection; the **hosts without proxy** follow
-      `SECREVIEW_NO_PROXY` or are set here (see
-      [hosts without proxy](../advanced/dependencies.md#hosts-without-proxy): domains, IP addresses, CIDR
-      ranges, `*`). The change applies to the next download and to the next SSO login, without
-      restart. The applied proxy, its origin and the environment variables are shown; passwords
-      are never shown again (`***`): sending `***` back keeps the stored one. Through the API:
-      `PUT /api/v1/settings/proxy` with `url` and `no_proxy` (`null` applies the variable again,
-      `"url": ""` forces the direct connection, a missing field is unchanged).
-    - **OSV vulnerability database**: number of advisories by
-      ecosystem, date and age of the last import, download configuration, history of the last
-      50 updates (scheduled, CLI or web interface, with status, duration and result by
-      ecosystem) and **Update now** button, only available if
-      `SECREVIEW_OSV_AUTO_UPDATE=true`
-      ([update by the controller](../advanced/dependencies.md#automatic-update-by-the-controller)).
+The next three screens hold settings stored in the database, taking precedence over the
+environment variables and shared by the MCP server and the controller (the former
+`/ui/settings` address opens **Report language**).
+
+- **Report language**: `SECREVIEW_REPORT_LANGUAGE` variable, choice
+  left to the agent or language set here (`French`, `fr`, `pt-BR`…). It applies to the next
+  review prompts; the `report_language` argument of a prompt still takes precedence
+  ([report language](prompts-tools.md#report-language)).
+- **Outgoing proxy**: proxy of the outgoing connections of the controller, used by the OSV
+  download **and** by the [SSO login](../advanced/sso.md). As for the SSO
+  configuration, every value set here replaces its variable (**Variable** / **Interface
+  web** badges): the URL follows `SECREVIEW_PROXY` (else `HTTPS_PROXY` / `NO_PROXY`), is set
+  here, or forces the direct connection; the **hosts without proxy** follow
+  `SECREVIEW_NO_PROXY` or are set here (see
+  [hosts without proxy](../advanced/dependencies.md#hosts-without-proxy): domains, IP addresses, CIDR
+  ranges, `*`). The change applies to the next download and to the next SSO login, without
+  restart. The applied proxy, its origin and the environment variables are shown; passwords
+  are never shown again (`***`): sending `***` back keeps the stored one. Through the API:
+  `PUT /api/v1/settings/proxy` with `url` and `no_proxy` (`null` applies the variable again,
+  `"url": ""` forces the direct connection, a missing field is unchanged).
+- **OSV database**: state of the OSV vulnerability database: number of advisories by
+  ecosystem, date and age of the last import, download configuration, history of the last
+  50 updates (scheduled, CLI or web interface, with status, duration and result by
+  ecosystem) and **Update now** button, only available if
+  `SECREVIEW_OSV_AUTO_UPDATE=true`
+  ([update by the controller](../advanced/dependencies.md#automatic-update-by-the-controller)).
 
 ## Triage of findings
 

@@ -90,7 +90,7 @@ SECREVIEW_PROXY=http://user:password@proxy.example.com:3128
 
 #### Hosts without proxy
 
-`SECREVIEW_NO_PROXY` (or the list of the **Settings** screen) gives, comma separated, the
+`SECREVIEW_NO_PROXY` (or the list of the **Outgoing proxy** screen) gives, comma separated, the
 destinations reached **without** the proxy:
 
 | Entry | Example | Effect |
@@ -111,10 +111,10 @@ the proxy towards an internal server reached by its name, give its domain. The l
 SECREVIEW_NO_PROXY=.corp.example,10.0.0.0/8,172.16.0.0/12,fd00::/8
 ```
 
-The proxy can also be chosen by an administrator in the [**Settings**](../usage/web-interface.md#screens)
+The proxy can also be chosen by an administrator in the [**Outgoing proxy**](../usage/web-interface.md#screens)
 screen of the web interface: proxy and hosts without proxy set there, or direct connection,
 take precedence over `SECREVIEW_PROXY`, `SECREVIEW_NO_PROXY` and `HTTPS_PROXY`; they apply to
-the next download. The same screen shows the state of the database, the history of the updates
+the next download. The **OSV database** screen shows the state of the database, the history of the updates
 (scheduled, CLI or web) and an **Update now** button (run in the background, one update at a
 time), only available when `SECREVIEW_OSV_AUTO_UPDATE=true`.
 

@@ -1,0 +1,84 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ 'settings.languageTitle' | t }}</h1>
+    <p class="text-body-secondary mb-0">{{ 'settings.languageSubtitle' | t }}</p>
+  </div>
+  <app-refresh-button [loading]="settings.isLoading()" (refresh)="reload()" />
+</div>
+
+@if (error(); as text) {
+  <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+}
+@if (message(); as text) {
+  <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+}
+
+@if (settings.error()) {
+  <div class="alert alert-danger" role="alert">{{ 'settings.loadError' | t }}</div>
+} @else if (settings.isLoading() && !settings.hasValue()) {
+  <div class="text-center my-4">
+    <span class="spinner-border text-secondary" aria-hidden="true"></span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+  </div>
+} @else if (settings.value(); as current) {
+  <section class="card setting-card mb-4" aria-labelledby="language-help">
+    <div class="card-body">
+      <p id="language-help" class="text-body-secondary small">
+        {{ 'settings.languageHelpBefore' | t }} <code>report_language</code
+        >{{ 'settings.languageHelpAfter' | t }}
+      </p>
+      <p class="mb-3">
+        {{ 'settings.languageApplied' | t }}
+        <strong>{{ current.report_language.effective || ('settings.languageByAgent' | t) }}</strong>
+      </p>
+      <form class="row g-2 align-items-end" (submit)="saveLanguage($event)">
+        <div class="col-md-5">
+          <label for="language-mode" class="form-label">{{ 'settings.source' | t }}</label>
+          <select
+            id="language-mode"
+            class="form-select"
+            [value]="languageMode()"
+            (change)="onLanguageMode($event)"
+          >
+            <option value="inherit">
+              {{
+                'settings.languageInherit'
+                  | t: { value: current.report_language.env || ('sso.empty' | t) }
+              }}
+            </option>
+            <option value="agent">{{ 'settings.languageAgent' | t }}</option>
+            <option value="custom">{{ 'settings.languageCustom' | t }}</option>
+          </select>
+        </div>
+        @if (languageMode() === 'custom') {
+          <div class="col-md-4">
+            <label for="language-value" class="form-label">{{ 'common.language' | t }}</label>
+            <input
+              id="language-value"
+              class="form-control"
+              list="language-suggestions"
+              maxlength="40"
+              autocomplete="off"
+              placeholder="French, fr, pt-BR…"
+              [class.is-invalid]="!languageValid()"
+              [value]="language()"
+              (input)="language.set(inputValue($event))"
+            />
+            <datalist id="language-suggestions">
+              @for (name of languageSuggestions; track name) {
+                <option [value]="name"></option>
+              }
+            </datalist>
+            <div class="invalid-feedback">{{ 'settings.languagePattern' | t }}</div>
+          </div>
+        }
+        <div class="col-md-3">
+          <button type="submit" class="btn btn-primary" [disabled]="busy() || !languageValid()">
+            <i class="bi bi-check-lg" aria-hidden="true"></i>
+            {{ 'common.save' | t }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </section>
+}

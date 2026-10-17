@@ -22,7 +22,7 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 
 Les écrans sont accessibles depuis la barre latérale : **Supervision** (projets, rapports) pour
 tous les rôles, puis **Référentiel** (règles, checklists, normes) et **Administration**
-(utilisateurs, jetons, rôles SSO, paramètres) pour le rôle `admin`. Le bas de la barre affiche le client connecté, son rôle et la
+(utilisateurs, jetons, journal d'audit, rôles SSO, langue des rapports, proxy sortant, base OSV) pour le rôle `admin`. Le bas de la barre affiche le client connecté, son rôle et la
 version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
 à droite, y compris sur la page de connexion, et reste mémorisé dans le navigateur.
 
@@ -30,7 +30,7 @@ L'interface est proposée en **anglais**, **français** et **espagnol**. La lang
 le sélecteur en haut à droite, y compris sur la page de connexion. Le changement est immédiat et
 reste mémorisé dans le navigateur ; à la première visite, l'interface suit la langue du
 navigateur, ou l'anglais si elle n'en propose aucune. Ce choix ne concerne que l'interface : la
-langue des rapports de revue se règle dans **Paramètres**, et les messages d'erreur détaillés
+langue des rapports de revue se règle dans **Langue des rapports**, et les messages d'erreur détaillés
 renvoyés par l'API restent en anglais.
 
 - **Projets** : tous les projets avec leurs findings ouverts par sévérité, triés par risque,
@@ -119,29 +119,32 @@ renvoyés par l'API restent en anglais.
   pour `reader` et `triager`, à une liste de projets (voir [role mapping](../advanced/sso.md#role-mapping)). Les
   groupes de la configuration SSO (`*_GROUPS`) sont affichés en lecture seule dans la liste des
   associations. Les utilisateurs SSO eux-mêmes se gèrent dans l'écran **Utilisateurs**.
-- **Paramètres** : réglages enregistrés en base, prioritaires sur les variables d'environnement
-  et partagés par le serveur MCP et le contrôleur.
-    - **Langue des rapports** : variable `SECREVIEW_REPORT_LANGUAGE`, choix laissé à l'agent ou
-      langue définie ici (`French`, `fr`, `pt-BR`…). Elle s'applique aux prochains prompts de
-      revue ; l'argument `report_language` d'un prompt reste prioritaire
-      ([langue des rapports](prompts-tools.md#langue-des-rapports)).
-    - **Proxy sortant du contrôleur** : proxy du téléchargement OSV **et** de la
-      [connexion SSO](../advanced/sso.md). Comme pour la configuration SSO, chaque
-      valeur définie ici remplace sa variable (badges **Variable** / **Interface web**) :
-      l'URL suit `SECREVIEW_PROXY` (sinon `HTTPS_PROXY` / `NO_PROXY`), est définie ici, ou force
-      la connexion directe ; les **hôtes sans proxy** suivent `SECREVIEW_NO_PROXY` ou sont
-      définis ici (voir [hôtes sans proxy](../advanced/dependencies.md#hotes-sans-proxy) : domaines, adresses
-      IP, plages CIDR, `*`). Le changement s'applique au prochain
-      téléchargement et à la prochaine connexion SSO, sans redémarrage. Le proxy appliqué, son
-      origine et les variables de l'environnement sont affichés ; les mots de passe ne sont
-      jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré. Par l'API :
-      `PUT /api/v1/settings/proxy` avec `url` et `no_proxy` (`null` applique de nouveau la
-      variable, `"url": ""` force la connexion directe, un champ absent est inchangé).
-    - **Base de vulnérabilités OSV** : nombre d'avis par écosystème, date et âge du dernier
-      import, configuration du téléchargement, historique des 50 dernières mises à jour
-      (planifiée, CLI ou interface web, avec statut, durée et résultat par écosystème) et bouton
-      **Mettre à jour maintenant**, disponible seulement si `SECREVIEW_OSV_AUTO_UPDATE=true`
-      ([mise à jour par le contrôleur](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur)).
+Les trois écrans suivants portent des réglages enregistrés en base, prioritaires sur les
+variables d'environnement et partagés par le serveur MCP et le contrôleur (l'ancienne adresse
+`/ui/settings` ouvre **Langue des rapports**).
+
+- **Langue des rapports** : variable `SECREVIEW_REPORT_LANGUAGE`, choix laissé à l'agent ou
+  langue définie ici (`French`, `fr`, `pt-BR`…). Elle s'applique aux prochains prompts de
+  revue ; l'argument `report_language` d'un prompt reste prioritaire
+  ([langue des rapports](prompts-tools.md#langue-des-rapports)).
+- **Proxy sortant** : proxy des connexions sortantes du contrôleur, utilisé par le
+  téléchargement OSV **et** par la
+  [connexion SSO](../advanced/sso.md). Comme pour la configuration SSO, chaque
+  valeur définie ici remplace sa variable (badges **Variable** / **Interface web**) :
+  l'URL suit `SECREVIEW_PROXY` (sinon `HTTPS_PROXY` / `NO_PROXY`), est définie ici, ou force
+  la connexion directe ; les **hôtes sans proxy** suivent `SECREVIEW_NO_PROXY` ou sont
+  définis ici (voir [hôtes sans proxy](../advanced/dependencies.md#hotes-sans-proxy) : domaines, adresses
+  IP, plages CIDR, `*`). Le changement s'applique au prochain
+  téléchargement et à la prochaine connexion SSO, sans redémarrage. Le proxy appliqué, son
+  origine et les variables de l'environnement sont affichés ; les mots de passe ne sont
+  jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré. Par l'API :
+  `PUT /api/v1/settings/proxy` avec `url` et `no_proxy` (`null` applique de nouveau la
+  variable, `"url": ""` force la connexion directe, un champ absent est inchangé).
+- **Base OSV** : état de la base de vulnérabilités OSV : nombre d'avis par écosystème, date et âge du dernier
+  import, configuration du téléchargement, historique des 50 dernières mises à jour
+  (planifiée, CLI ou interface web, avec statut, durée et résultat par écosystème) et bouton
+  **Mettre à jour maintenant**, disponible seulement si `SECREVIEW_OSV_AUTO_UPDATE=true`
+  ([mise à jour par le contrôleur](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur)).
 
 ## Triage des findings
 

@@ -47,14 +47,14 @@ SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
 The issuer must use HTTPS (HTTP is only accepted on `localhost`, for development); its
 `/.well-known/openid-configuration` document must announce the same `issuer`. If the provider
 uses an internal CA, give it with `SECREVIEW_OIDC_CAFILE`. The controller reaches the provider
-through its outgoing proxy (`SECREVIEW_PROXY` / `SECREVIEW_NO_PROXY`, or the **Paramètres**
-(Settings) screen), else through `HTTPS_PROXY` / `NO_PROXY`.
+through its outgoing proxy (`SECREVIEW_PROXY` / `SECREVIEW_NO_PROXY`, or the **Outgoing proxy**
+screen), else through `HTTPS_PROXY` / `NO_PROXY`.
 
 ## Configuring SSO in the interface
 
 The same settings can be changed in the **SSO settings** section of
 the **SSO roles** screen (`admin` role), without restarting the controller. As for
-the **Settings** screen, a value stored in the database **replaces its
+the **Outgoing proxy** screen, a value stored in the database **replaces its
 `SECREVIEW_OIDC_*` variable**, field by field; a field never changed follows its variable:
 
 - every field has the **Variable** badge (the variable applies, its value is shown under the

@@ -45,7 +45,9 @@ export class LayoutComponent {
     { path: '/tokens', label: 'layout.tokens', icon: 'bi-key' },
     { path: '/audit', label: 'layout.audit', icon: 'bi-journal-text' },
     { path: '/role-mappings', label: 'layout.sso', icon: 'bi-person-badge' },
-    { path: '/settings', label: 'layout.settings', icon: 'bi-gear' },
+    { path: '/settings/language', label: 'layout.reportLanguage', icon: 'bi-translate' },
+    { path: '/settings/proxy', label: 'layout.proxy', icon: 'bi-hdd-network' },
+    { path: '/settings/advisories', label: 'layout.advisories', icon: 'bi-database' },
   ];
 
   /** Sidebar shown as a drawer on small screens. */

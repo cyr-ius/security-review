@@ -21,14 +21,14 @@ fois ; `development-standards` n'enregistre rien.
 `report_language` fixe la langue de la réponse de l'agent et des champs rédigés du rapport
 enregistré (résumé, périmètre, titres, descriptions, recommandations), par exemple `French`,
 `fr` ou `pt-BR`. Sans cet argument, le prompt reprend la langue choisie par un administrateur
-dans l'écran [**Paramètres**](web-interface.md#ecrans) de l'interface web, sinon
+dans l'écran [**Langue des rapports**](web-interface.md#ecrans) de l'interface web, sinon
 [`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md) ; si aucune n'est définie, l'agent
 choisit (en général la langue de la conversation). L'écran peut aussi imposer « l'agent
 choisit » malgré la variable.
 
 Un agent qui fait la revue **sans prompt**, avec les seuls outils (cas courant : un prompt MCP
 est une commande lancée par l'utilisateur, l'agent ne peut pas l'appeler lui-même), reçoit la
-même langue configurée (écran **Paramètres**, sinon variable) dans les résultats de
+même langue configurée (écran **Langue des rapports**, sinon variable) dans les résultats de
 `get_review_checklist` (section « Report language ») et de `scan_code` (champ
 `report_language`, `null` si l'agent choisit).
 

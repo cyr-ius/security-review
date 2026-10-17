@@ -91,7 +91,7 @@ SECREVIEW_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
 
 #### Hôtes sans proxy
 
-`SECREVIEW_NO_PROXY` (ou la liste de l'écran **Paramètres**) donne, séparées par des virgules,
+`SECREVIEW_NO_PROXY` (ou la liste de l'écran **Proxy sortant**) donne, séparées par des virgules,
 les destinations jointes **sans** le proxy :
 
 | Entrée | Exemple | Effet |
@@ -113,9 +113,9 @@ SECREVIEW_NO_PROXY=.corp.example,10.0.0.0/8,172.16.0.0/12,fd00::/8
 ```
 
 Le proxy peut aussi être choisi par un administrateur dans l'écran
-[**Paramètres**](../usage/web-interface.md#ecrans) de l'interface web : proxy et hôtes sans proxy
+[**Proxy sortant**](../usage/web-interface.md#ecrans) de l'interface web : proxy et hôtes sans proxy
 définis ici, ou connexion directe, prioritaires sur `SECREVIEW_PROXY`, `SECREVIEW_NO_PROXY` et
-`HTTPS_PROXY` ; ils s'appliquent au téléchargement suivant. Le même écran affiche l'état de
+`HTTPS_PROXY` ; ils s'appliquent au téléchargement suivant. L'écran **Base OSV** affiche l'état de
 la base, l'historique des mises à jour (planifiées, CLI ou web) et un bouton **Mettre à jour
 maintenant** (lancement en arrière-plan, une mise à jour à la fois), disponible seulement quand
 `SECREVIEW_OSV_AUTO_UPDATE=true`.

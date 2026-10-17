@@ -61,7 +61,8 @@
             {{ 'sso.callbackHelp' | t }} <code>{{ current.callback_path }}</code
             >{{ 'sso.cafileHelp' | t }} <code>SECREVIEW_OIDC_CAFILE</code> ({{
               current.cafile ?? ('sso.systemCerts' | t)
-            }}{{ 'sso.variableOnly' | t }} <a routerLink="/settings">{{ 'layout.settings' | t }}</a
+            }}{{ 'sso.variableOnly' | t }}
+            <a routerLink="/settings/proxy">{{ 'layout.proxy' | t }}</a
             >.
           </div>
         </div>

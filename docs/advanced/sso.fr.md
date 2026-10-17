@@ -49,12 +49,12 @@ L'émetteur doit être en HTTPS (HTTP n'est accepté que sur `localhost`, pour l
 son document `/.well-known/openid-configuration` doit annoncer le même `issuer`. Si le
 fournisseur utilise une CA interne, indiquez-la avec `SECREVIEW_OIDC_CAFILE`. Le contrôleur joint
 le fournisseur par son proxy sortant (`SECREVIEW_PROXY` / `SECREVIEW_NO_PROXY`, ou l'écran
-**Paramètres**), sinon par `HTTPS_PROXY` / `NO_PROXY`.
+**Proxy sortant**), sinon par `HTTPS_PROXY` / `NO_PROXY`.
 
 ## Configurer le SSO dans l'interface
 
 Les mêmes réglages se modifient dans la section **Configuration SSO** de l'écran **Rôles SSO**
-(rôle `admin`), sans redémarrer le contrôleur. Comme pour l'écran **Paramètres**, une valeur
+(rôle `admin`), sans redémarrer le contrôleur. Comme pour l'écran **Proxy sortant**, une valeur
 enregistrée en base **remplace sa variable** `SECREVIEW_OIDC_*`, champ par champ ; un champ jamais
 modifié suit sa variable :
 

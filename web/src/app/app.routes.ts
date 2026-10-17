@@ -112,12 +112,34 @@ export const routes: Routes = [
             (m) => m.RoleMappingListComponent,
           ),
       },
+      // Former single settings page, split into the three pages below
+      { path: 'settings', pathMatch: 'full', redirectTo: 'settings/language' },
       {
-        path: 'settings',
-        title: 'layout.settings',
+        path: 'settings/language',
+        title: 'settings.languageTitle',
         canActivate: [adminGuard],
         loadComponent: () =>
-          import('./features/settings/settings.component').then((m) => m.SettingsComponent),
+          import('./features/settings/language-settings.component').then(
+            (m) => m.LanguageSettingsComponent,
+          ),
+      },
+      {
+        path: 'settings/proxy',
+        title: 'settings.proxyTitle',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/settings/proxy-settings.component').then(
+            (m) => m.ProxySettingsComponent,
+          ),
+      },
+      {
+        path: 'settings/advisories',
+        title: 'settings.osvTitle',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/settings/advisory-settings.component').then(
+            (m) => m.AdvisorySettingsComponent,
+          ),
       },
       {
         path: 'reports/:id',
