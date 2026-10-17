@@ -604,11 +604,13 @@ def token_command(argv: list[str]) -> int:
         else:
             result = token_store.revoke_token(args.token, audit.CLI_ACTOR)
             if not token_store.DatabaseTokenStore().has_tokens():
-                # Without any token the HTTP transport no longer requires authentication
-                print(
-                    json.dumps({"warning": "No token left: the MCP endpoint is now open"}),
-                    file=sys.stderr,
+                # Without any token the HTTP MCP server refuses every client (fail closed)
+                warning = (
+                    "No token left: the MCP endpoint refuses every client except enrollment "
+                    "requests (it is open if it listens on localhost or with "
+                    "SECREVIEW_ALLOW_UNAUTHENTICATED)"
                 )
+                print(json.dumps({"warning": warning}), file=sys.stderr)
     except ValueError as exc:
         return _fail(str(exc))
     print(json.dumps(result, indent=2))

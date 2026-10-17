@@ -71,15 +71,17 @@ The MCP server refuses to start while the schema is not migrated (step 2).
 
 ### 5. Give access to the agents
 
-The MCP server requires a token **as soon as one token exists** in the database. Create the
-first one now:
+The MCP server requires a token, even while none exists in the database (it then only accepts
+enrollment requests). Create the first one now:
 
 ```bash
 security-review-controller token create --label alice   # mcp token, shown once
 ```
 
-!!! warning "While no token exists, `/mcp` is open"
-    Anyone who reaches the endpoint can then use it. Create a token before exposing the server.
+!!! note "Open server on localhost"
+    A server listening on localhost, without any token, accepts every request. Elsewhere, only
+    `SECREVIEW_ALLOW_UNAUTHENTICATED=true` opens it (see
+    [Bearer tokens](../advanced/http.md#bearer-tokens)).
 
 Then, two ways to give a token to each developer and pipeline:
 

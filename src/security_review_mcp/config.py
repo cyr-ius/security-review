@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     # on its first start while no web user exists (enabled in the Docker image).
     auth_bootstrap_admin: bool = False
 
+    # HTTP MCP server only: accept requests without a token while no token is stored. Off by
+    # default: an exposed server stays closed (fail closed) until a first token exists; a server
+    # listening on a loopback address is open in that case anyway. Never enable it on a server
+    # reachable from the network.
+    allow_unauthenticated: bool = False
+
     # Controller only: sessions of the web interface (password and OIDC logins), tokens signed
     # with session_secret (at least 32 characters, shared by the replicas; random per start when
     # unset) and valid session_hours (1 to 24).

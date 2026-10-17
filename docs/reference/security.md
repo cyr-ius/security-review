@@ -17,6 +17,8 @@
   is limited to that project in the MCP tools and the web API: any other project, report or
   finding is handled as missing (see
   [tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
+  While no token exists, the MCP server stays closed (fail closed: only enrollment is reachable),
+  unless it listens on localhost or `SECREVIEW_ALLOW_UNAUTHENTICATED=true`.
   If it does not listen on localhost, a warning is logged when authentication or TLS is missing.
   The server never generates a TLS certificate: HTTPS uses the certificate given by the
   operator, signed by a [certificate authority](../advanced/http.md#certificate-authority).

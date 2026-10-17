@@ -74,15 +74,17 @@ Le serveur MCP refuse de démarrer tant que le schéma n'est pas migré (étape 
 
 ### 5. Donner l'accès aux agents
 
-Le serveur MCP exige un jeton **dès qu'un jeton existe** en base. Créez le premier maintenant :
+Le serveur MCP exige un jeton, même tant qu'aucun n'existe en base (il n'accepte alors que les
+demandes d'enrôlement). Créez le premier maintenant :
 
 ```bash
 security-review-controller token create --label alice   # jeton mcp, affiché une fois
 ```
 
-!!! warning "Tant qu'aucun jeton n'existe, `/mcp` est ouvert"
-    Quiconque atteint l'endpoint peut alors l'utiliser. Créez un jeton avant d'exposer le
-    serveur.
+!!! note "Serveur ouvert sur localhost"
+    Un serveur qui écoute sur localhost, sans aucun jeton, accepte toutes les requêtes. Ailleurs,
+    seul `SECREVIEW_ALLOW_UNAUTHENTICATED=true` l'ouvre (voir
+    [Jetons Bearer](../advanced/http.md#jetons-bearer)).
 
 Ensuite, deux façons de donner un jeton à chaque développeur et à chaque pipeline :
 

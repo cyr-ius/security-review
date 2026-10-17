@@ -1012,15 +1012,28 @@ def main(argv: list[str] | None = None) -> None:
         parser.error(str(exc))
     if settings.enrollment:
         logger.info("Enrollment enabled: clients without a token may request one")
+    allow_open = http_server.allows_open_mcp(args.host, settings.allow_unauthenticated)
+    if settings.allow_unauthenticated:
+        logger.warning(
+            "SECREVIEW_ALLOW_UNAUTHENTICATED=true: /mcp is open to anyone while no token exists"
+        )
     app = http_server.build_mcp_app(
         mcp,
         args.host,
         store,
         enrollment_mcp if settings.enrollment else None,
-        enrollment_api.create_app(args.host) if settings.enrollment else None,
+        enrollment_api.create_app(args.host, allow_open) if settings.enrollment else None,
+        allow_open=allow_open,
     )
     http_server.serve(
-        app, args.host, args.port, store, tls, settings.log_level, settings.forwarded_allow_ips
+        app,
+        args.host,
+        args.port,
+        store,
+        tls,
+        settings.log_level,
+        settings.forwarded_allow_ips,
+        allow_open=allow_open,
     )
 
 

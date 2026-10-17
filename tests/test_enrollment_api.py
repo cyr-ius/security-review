@@ -105,13 +105,22 @@ def test_complementary_enrollment_needs_a_valid_restricted_token(public, admin_t
     assert enroll(restricted["token"]).status_code == 404
 
 
-def test_enrollment_is_pointless_without_authentication():
-    client = TestClient(enrollment_api.create_app(), base_url="http://127.0.0.1")
+def test_enrollment_is_pointless_on_an_open_server_without_token():
+    client = TestClient(enrollment_api.create_app(allow_open=True), base_url="http://127.0.0.1")
 
     response = client.post("/api/v1/enroll", json={"project": "p"})
 
     assert response.status_code == 409
     assert token_store.list_tokens() == []
+
+
+def test_closed_server_accepts_enrollment_before_its_first_token():
+    client = TestClient(enrollment_api.create_app("0.0.0.0"), base_url="http://10.0.0.5")
+
+    response = client.post("/api/v1/enroll", json={"project": "p"})
+
+    assert response.status_code == 201
+    assert [item["project"] for item in token_store.list_enrollments()] == ["p"]
 
 
 def test_loopback_server_refuses_other_hosts(admin_token):

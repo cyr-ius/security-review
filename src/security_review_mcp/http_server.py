@@ -8,7 +8,9 @@ Two apps are built, meant to run in separate processes (containers, pods) sharin
 
 - the MCP server (``build_mcp_app``): the MCP endpoint, the public enrollment endpoint and
   ``/healthz``. With enrollment, an MCP client that presents no token (or a token still waiting
-  for approval) is sent to a restricted MCP server that only lets it request a project token;
+  for approval) is sent to a restricted MCP server that only lets it request a project token.
+  It requires a token even while none is stored (fail closed), except on a loopback address
+  or with ``SECREVIEW_ALLOW_UNAUTHENTICATED`` (see allows_open_mcp);
 - the controller (``build_controller_app``): the REST API under ``/api`` and the Angular
   application under ``/ui`` (see web_api).
 
@@ -174,8 +176,9 @@ class BearerAuthMiddleware:
 
     With ``web=False`` (MCP server) every path needs an MCP role, except ``public_paths``.
     With ``web=True`` (controller) the static files of the web interface are public and the
-    REST API needs a web role. While ``store`` holds no token at all, the MCP server is open
-    and the controller API answers 503 (authentication not configured).
+    REST API needs a web role. While ``store`` holds no token at all, the controller API
+    answers 503 (authentication not configured) and the MCP server stays closed, unless
+    ``allow_open`` (see allows_open_mcp) lets every request through.
 
     ``enrollment_app`` receives the MCP requests sent without an ``Authorization`` header (or
     with an empty bearer value) or with a pending enrollment token;
@@ -196,6 +199,7 @@ class BearerAuthMiddleware:
         public_paths: frozenset[str] = frozenset(),
         sessions: SessionVerifier | None = None,
         require_auth: bool = False,
+        allow_open: bool = False,
     ) -> None:
         self.app = app
         self.store = store
@@ -204,6 +208,7 @@ class BearerAuthMiddleware:
         self.public_paths = public_paths
         self.sessions = sessions if web else None
         self.require_auth = require_auth and web
+        self.allow_open = allow_open and not web
 
     async def identify(self, authorization: str) -> TokenInfo | None:
         """Return the identity of the presented bearer token, or None."""
@@ -248,7 +253,10 @@ class BearerAuthMiddleware:
             await self.app(scope, receive, send)
             return
 
-        if not self.require_auth and not await self.has_tokens():
+        # Without any token the controller answers 503 and an open MCP server lets the request
+        # through; a closed MCP server (the default) goes on and asks for a token
+        open_check = (self.web and not self.require_auth) or self.allow_open
+        if open_check and not await self.has_tokens():
             if self.web:
                 await _send_error(
                     send,
@@ -437,6 +445,16 @@ def with_tls_arguments(settings: Settings, args: argparse.Namespace) -> Settings
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 
+def allows_open_mcp(host: str, allow_unauthenticated: bool) -> bool:
+    """True when the MCP server may accept requests without a token while none is stored.
+
+    Only on a loopback address, or when the operator explicitly sets
+    ``SECREVIEW_ALLOW_UNAUTHENTICATED``: an exposed server stays closed (fail closed) and its
+    clients get a token by enrollment or from an administrator.
+    """
+    return allow_unauthenticated or host in LOOPBACK_HOSTS
+
+
 def _enrollment_app(main: Starlette, enrollment_server: MCPServer, host: str) -> Starlette:
     """Build the enrollment MCP app and run its session manager with the main one.
 
@@ -462,11 +480,13 @@ def build_mcp_app(
     store: TokenStore,
     enrollment_server: MCPServer | None = None,
     enroll_endpoint: ASGIApp | None = None,
+    allow_open: bool = False,
 ) -> ASGIApp:
     """Build the HTTP app of the MCP server, protected by the bearer tokens of ``store``.
 
     ``enrollment_server`` answers the MCP clients that have no token yet and
     ``enroll_endpoint`` (see enrollment_api.create_app) serves the public ``ENROLL_PATH``.
+    ``allow_open`` (see allows_open_mcp) lets every request through while no token is stored.
     """
     main = server.streamable_http_app(host=host)
     enrollment_app = (
@@ -480,6 +500,7 @@ def build_mcp_app(
         store,
         enrollment_app=enrollment_app,
         public_paths=frozenset(routes),
+        allow_open=allow_open,
     )
 
 
@@ -499,11 +520,23 @@ def build_controller_app(
     )
 
 
-def _log_exposure(host: str, store: TokenStore, tls: TLSOptions | None) -> None:
-    """Warn when the server listens on a public address without authentication or TLS."""
+def _log_exposure(
+    host: str, store: TokenStore, tls: TLSOptions | None, allow_open: bool = True
+) -> None:
+    """Warn when the server listens on a public address without authentication or TLS.
+
+    ``allow_open`` is False for a closed MCP server (see allows_open_mcp): without any token it
+    refuses every client, which is not an exposure but needs a first token to be usable.
+    """
     exposed = host not in LOOPBACK_HOSTS
     if store.has_tokens():
         logger.info("Bearer authentication enabled (tokens stored in the database)")
+    elif not allow_open:
+        logger.warning(
+            "No token stored: every MCP client is refused (except enrollment requests) until "
+            "an administrator creates a token with `security-review-controller token create` "
+            "or approves an enrollment."
+        )
     elif exposed and not (tls and tls.client_ca):
         logger.warning(
             "Listening on %s without authentication: create a token with "
@@ -529,14 +562,16 @@ def serve(
     tls: TLSOptions | None,
     log_level: str = "INFO",
     forwarded_allow_ips: str | None = None,
+    allow_open: bool = True,
 ) -> None:
     """Serve an app built by build_mcp_app or build_controller_app with uvicorn.
 
     ``tls`` comes from tls_options (validated beforehand). ``forwarded_allow_ips``
     (SECREVIEW_FORWARDED_ALLOW_IPS) lists the reverse proxies trusted for the client address;
-    None keeps the uvicorn default.
+    None keeps the uvicorn default. ``allow_open`` is the one given to build_mcp_app (always
+    True for the controller), used for the start-up warnings only.
     """
-    _log_exposure(host, store, tls)
+    _log_exposure(host, store, tls, allow_open)
     proxies: dict[str, Any] = {}
     if forwarded_allow_ips is not None:
         proxies = {"proxy_headers": True, "forwarded_allow_ips": forwarded_allow_ips}
