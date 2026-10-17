@@ -1,11 +1,13 @@
 # Command line
 
 The package installs two commands, one per process (see
-[Architecture and deployment](../getting-started/kubernetes.md)):
+[Architecture and deployment](../getting-started/kubernetes.md)), and a pipeline client:
 
 - `security-review-mcp`: the **MCP server** (stdio or HTTP), plus `enroll` and `scan-deps` on the client side;
 - `security-review-controller`: the **controller** (REST API and web interface), the database,
-  the administration and the pipeline commands.
+  the administration and the pipeline commands;
+- `security-review-ci`: the **pipeline client** of the controller REST API (`ci` token, Python
+  standard library only, no database access).
 
 ## `security-review-mcp`
 
@@ -50,9 +52,21 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 `serve` and the commands that read or write the database first migrate the schema, unless
 `SECREVIEW_DB_AUTO_UPGRADE=false`: they then only check that it is up to date.
 
+## `security-review-ci`
+
+Options of every sub-command: `--project P` (required), `--url URL` (default
+`SECREVIEW_CONTROLLER_URL`), `--token-stdin` (default: `SECREVIEW_TOKEN`), `--cafile CA`,
+`--allow-http`, `--timeout S`.
+
+| Command | Role | Page |
+|---|---|---|
+| `gate --project P [--fail-on SEV] [--report-id N]` | Deployment gate through the REST API | [Pipeline client](../ci-cd/gate.md#pipeline-client-security-review-ci) |
+| `sarif --project P [--include-resolved] [-o FILE]` | SARIF 2.1.0 export through the REST API | [SARIF](../ci-cd/sarif.md) |
+| `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Trend report through the REST API | [Trends](../ci-cd/trends.md) |
+
 ## Exit codes
 
-The check commands (`code scan`, `deps scan`, `gate`, `db status`) share the same convention:
+The check commands (`code scan`, `deps scan`, `gate`, `security-review-ci gate`, `db status`) share the same convention:
 
 | Code | Meaning |
 |---|---|

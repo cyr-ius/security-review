@@ -1,11 +1,13 @@
 # Ligne de commande
 
 Le paquet installe deux commandes, une par processus (voir
-[Architecture et déploiement](../getting-started/kubernetes.md)) :
+[Architecture et déploiement](../getting-started/kubernetes.md)), et un client de pipeline :
 
 - `security-review-mcp` : le **serveur MCP** (stdio ou HTTP), plus `enroll` et `scan-deps` côté client ;
 - `security-review-controller` : le **contrôleur** (API REST et interface web), la base de
-  données, l'administration et les commandes de pipeline.
+  données, l'administration et les commandes de pipeline ;
+- `security-review-ci` : le **client de pipeline** de l'API REST du contrôleur (jeton `ci`,
+  bibliothèque standard de Python uniquement, sans accès à la base).
 
 ## `security-review-mcp`
 
@@ -50,9 +52,21 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 `serve` et les commandes qui lisent ou écrivent la base migrent d'abord le schéma, sauf avec
 `SECREVIEW_DB_AUTO_UPGRADE=false` : elles vérifient alors seulement qu'il est à jour.
 
+## `security-review-ci`
+
+Options de toutes les sous-commandes : `--project P` (obligatoire), `--url URL` (par défaut
+`SECREVIEW_CONTROLLER_URL`), `--token-stdin` (par défaut : `SECREVIEW_TOKEN`), `--cafile CA`,
+`--allow-http`, `--timeout S`.
+
+| Commande | Rôle | Page |
+|---|---|---|
+| `gate --project P [--fail-on SEV] [--report-id N]` | Gate de déploiement par l'API REST | [Client de pipeline](../ci-cd/gate.md#client-de-pipeline-security-review-ci) |
+| `sarif --project P [--include-resolved] [-o FICHIER]` | Export SARIF 2.1.0 par l'API REST | [SARIF](../ci-cd/sarif.md) |
+| `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Rapport de tendance par l'API REST | [Tendances](../ci-cd/trends.md) |
+
 ## Codes de sortie
 
-Les commandes de contrôle (`code scan`, `deps scan`, `gate`, `db status`) partagent la même
+Les commandes de contrôle (`code scan`, `deps scan`, `gate`, `security-review-ci gate`, `db status`) partagent la même
 convention :
 
 | Code | Signification |
