@@ -47,10 +47,13 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
   et triage) donnent accès à l'API REST du contrôleur, jamais à l'interface web ; `ci`
   (toujours avec `--project`) n'atteint que les routes de pipeline utilisées par
   [`security-review-ci`](../ci-cd/gate.md#client-de-pipeline-security-review-ci) : voir les
-  [rôles](../usage/web-interface.md#roles).
+  [rôles](../usage/web-interface.md#roles) ; `metrics` (jamais avec `--project`) n'atteint que
+  les [métriques Prometheus](../usage/audit-metrics.md#metriques-prometheus) du contrôleur.
+- `--expires-in-days` fixe la validité du jeton : voir
+  [expiration et renouvellement](#expiration-et-renouvellement-des-jetons).
 - `--project` limite le jeton à un ou plusieurs projets (répétez l'option), pour les outils MCP
   comme pour l'API REST
-  (rôles `mcp`, `reader` et `triager` ; refusé pour `admin`). Voir
+  (rôles `mcp`, `reader` et `triager` ; refusé pour `admin` et `metrics`). Voir
   [jetons restreints à un projet](#jetons-restreints-a-un-projet). Les administrateurs peuvent
   aussi créer et révoquer des jetons `reader` restreints depuis l'écran **Jetons**.
 - Le serveur consulte la base à chaque requête : une création ou une révocation s'applique
@@ -63,6 +66,37 @@ documentation Swagger (`/api/docs`, schéma `/api/openapi.json`, icône `/api/fa
 `/mcp` est ouvert (un avertissement est journalisé si l'écoute n'est pas sur localhost) et l'API
 du contrôleur répond `503`. `token revoke` avertit sur stderr quand il
 supprime le dernier jeton.
+
+Chaque création, renouvellement et révocation de jeton, et chaque demande et décision
+d'enrôlement, est écrite dans le [journal d'audit](../usage/audit-metrics.md#journal-daudit),
+avec son auteur.
+
+### Expiration et renouvellement des jetons
+
+Un jeton peut expirer : après sa date d'expiration il n'authentifie plus rien (`401`,
+`error="invalid_token"`, description `The bearer token has expired`), mais il reste listé pour
+qu'un administrateur le renouvelle ou le révoque. `SECREVIEW_TOKEN_MAX_DAYS` (`0` par défaut)
+fixe la validité maximale d'un jeton créé ou renouvelé, et sa validité par défaut ; à `0`, les
+jetons n'expirent pas, sauf validité demandée.
+
+```bash
+security-review-controller token create --label shop-ci --project shop-api --expires-in-days 90
+security-review-controller token rotate shop-ci --grace-hours 24     # nouveau secret, affiché une fois
+# {"id": "6f1c…", "label": "shop-ci", …, "expires_at": "…", "rotated_at": "…", "grace_until": "…", "token": "pX4q…"}
+```
+
+Un renouvellement remplace le secret d'un jeton : il garde son id, son label, son rôle et ses
+projets, et reçoit une nouvelle validité (`--expires-in-days`, défaut comme à la création).
+Pendant `--grace-hours` (`0` par défaut, `168` au plus), l'ancien secret reste valable, le temps
+de mettre à jour les clients (`grace_until` dans `token list`) ; ensuite, seul le nouveau
+authentifie. L'ancien secret d'un jeton expiré ne revient jamais. Après une fuite, renouvelez sans délai de
+grâce (ou révoquez) : le secret divulgué cesse alors immédiatement de fonctionner. Une demande d'enrôlement en
+attente d'approbation ne peut pas être renouvelée. Dans l'interface web, l'écran **Jetons**
+renouvelle les jetons de projet (bouton **Renouveler**, délai de grâce choisi au-dessus de la
+liste).
+
+Les jetons expirés comptent toujours comme jetons configurés : un serveur dont tous les jetons
+ont expiré reste fermé, il ne devient jamais ouvert.
 
 ### Jetons restreints à un projet
 

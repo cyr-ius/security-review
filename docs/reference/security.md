@@ -22,7 +22,25 @@
   operator, signed by a [certificate authority](../getting-started/http.md#certificate-authority).
   There is no rate limiting.
   Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `reader`, `triager`,
-  `admin`, `ci`); an `mcp` token without a project reaches every MCP tool and every project.
+  `admin`, `ci`, `metrics`); an `mcp` token without a project reaches every MCP tool and every
+  project.
+- **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`), and
+  `SECREVIEW_TOKEN_MAX_DAYS` bounds the validity of every token created or rotated. Expired
+  tokens still count as configured: a server whose tokens have all expired stays closed. A
+  rotation stores the digest of the new secret only; the previous digest is kept during the grace
+  period (at most 168 hours), compared in constant time like the current one, and the previous
+  secret of an expired token never comes back (see
+  [expiry and rotation](../getting-started/http.md#expiry-and-rotation-of-tokens)).
+- **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
+  tokens, enrollment requests and decisions are written in the same transaction as the change,
+  with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,
+  and never hold a token or a password; no tool nor route edits an event, only the purge of
+  `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../usage/audit-metrics.md#audit-log)).
+- **Metrics**: `/metrics` exists on the controller only (the MCP server keeps `/mcp`,
+  `/api/v1/enroll` and `/healthz`), behind a `metrics` or `admin` token; a `metrics` token
+  reaches nothing else. The answer holds counts and project names, never a finding, a token
+  label or a secret, and every label value is escaped (see
+  [Prometheus metrics](../usage/audit-metrics.md#prometheus-metrics)).
 - **Pipeline tokens** (`ci`): always restricted to projects (a `ci` token without a project
   cannot be created, and one found without a project reaches none). It only reads the gate, the
   SARIF log and the trend of its projects; the other routes of the controller, `/mcp` and the

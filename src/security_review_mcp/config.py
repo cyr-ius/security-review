@@ -158,6 +158,19 @@ class Settings(BaseSettings):
     # date may not be later. Once expired, the finding counts as open again (gate, posture).
     max_dismissal_days: int = Field(default=365, ge=1, le=MAX_RETENTION_DAYS)
 
+    # Longest validity, in days, of a bearer token created or rotated (CLI, web interface,
+    # enrollment), which is also its default validity. 0: tokens never expire unless an expiry is
+    # asked for at creation or rotation.
+    token_max_days: int = Field(default=0, ge=0, le=MAX_RETENTION_DAYS)
+
+    # Controller only: delete the audit events older than audit_retention_days, checked at start
+    # then every day. 0 keeps them forever.
+    audit_retention_days: int = Field(default=365, ge=0, le=MAX_RETENTION_DAYS)
+
+    # Controller only: Prometheus metrics on /metrics, reached with a token of role "metrics" or
+    # "admin". false: /metrics answers 404.
+    metrics_enabled: bool = True
+
     log_level: str = "INFO"
 
     # Hard limits to protect the server and the database

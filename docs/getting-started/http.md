@@ -46,9 +46,12 @@ Projects can also request their token themselves: see
   triage) give access to the REST API of the controller, never to the web interface; `ci`
   (always with `--project`) only reaches the pipeline routes used by
   [`security-review-ci`](../ci-cd/gate.md#pipeline-client-security-review-ci): see the
-  [roles](../usage/web-interface.md#roles).
+  [roles](../usage/web-interface.md#roles); `metrics` (never with `--project`) only reaches the
+  [Prometheus metrics](../usage/audit-metrics.md#prometheus-metrics) of the controller.
+- `--expires-in-days` sets the validity of the token: see
+  [expiry and rotation](#expiry-and-rotation-of-tokens).
 - `--project` limits the token to one or more projects (repeat the option), for the MCP tools
-  as for the REST API (`mcp`, `reader` and `triager` roles; refused for `admin`). See
+  as for the REST API (`mcp`, `reader` and `triager` roles; refused for `admin` and `metrics`). See
   [tokens restricted to a project](#tokens-restricted-to-a-project). Administrators can also
   create and revoke restricted `reader` tokens from the **Tokens** screen.
 - The server reads the database at every request: a creation or a revocation applies
@@ -60,6 +63,35 @@ on the MCP server, and on the controller the static files of `/ui/` and the Swag
 documentation (`/api/docs`, `/api/openapi.json` schema, `/api/favicon.svg` icon). While no token exists, `/mcp` is open
 (a warning is logged if it does not listen on localhost) and the controller API answers `503`.
 `token revoke` warns on stderr when it deletes the last token.
+
+Every creation, rotation and revocation of a token, and every enrollment request and decision,
+is written to the [audit log](../usage/audit-metrics.md#audit-log), with who made it.
+
+### Expiry and rotation of tokens
+
+A token may expire: after its expiry date it authenticates nothing (`401`, `error="invalid_token"`,
+description `The bearer token has expired`), but it stays listed so that an administrator
+rotates or revokes it. `SECREVIEW_TOKEN_MAX_DAYS` (default `0`) sets the longest validity of a
+token created or rotated, and its default validity; with `0`, tokens do not expire unless a
+validity is asked for.
+
+```bash
+security-review-controller token create --label shop-ci --project shop-api --expires-in-days 90
+security-review-controller token rotate shop-ci --grace-hours 24     # new secret, shown once
+# {"id": "6f1c…", "label": "shop-ci", …, "expires_at": "…", "rotated_at": "…", "grace_until": "…", "token": "pX4q…"}
+```
+
+A rotation replaces the secret of a token: it keeps its id, label, role and projects, and gets a
+new validity (`--expires-in-days`, default as at creation). During `--grace-hours` (`0` by
+default, at most `168`) the previous secret keeps working, the time to update the clients
+(`grace_until` in `token list`); after that, only the new one authenticates. The previous secret
+of an expired token never comes back. After a leak, rotate without a grace period (or revoke):
+the leaked secret then stops at once. An enrollment request still waiting for approval cannot
+be rotated. In the web interface, the **Tokens** screen rotates the project tokens (button
+**Rotate**, grace period chosen above the list).
+
+Expired tokens still count as configured tokens: a server whose tokens have all expired stays
+closed, it never becomes open.
 
 ### Tokens restricted to a project
 

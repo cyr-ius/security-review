@@ -270,6 +270,13 @@ class ApiToken(SQLModel, table=True):
     # Who asked for the token (free text given by the requester) and from which address
     requested_by: str | None = Field(default=None, max_length=200)
     requested_from: str | None = Field(default=None, max_length=64)
+    # After this date the token authenticates nothing (None: no expiry)
+    expires_at: datetime | None = Field(default=None, index=True)
+    # Rotation: the secret replaced by the latest rotation keeps working until
+    # previous_expires_at (grace period), then nothing but the new one authenticates
+    rotated_at: datetime | None = Field(default=None)
+    previous_token_hash: str | None = Field(default=None, index=True, max_length=64)
+    previous_expires_at: datetime | None = Field(default=None)
 
 
 class ApiTokenProject(SQLModel, table=True):
@@ -289,6 +296,27 @@ class ApiTokenProject(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
     requested_by: str | None = Field(default=None, max_length=200)
     requested_from: str | None = Field(default=None, max_length=64)
+
+
+# ── Audit log (see audit) ────────────────────────────────────────────────────
+
+
+class AuditEvent(SQLModel, table=True):
+    """One security-relevant change: triage decision, token or enrollment event.
+
+    ``actor`` is ``user:<name>`` (web session), ``token:<label>`` (bearer token), ``cli``
+    (operator command) or ``anonymous`` (public enrollment). ``details`` is a JSON object, with
+    the secrets masked; it never holds a token or a password.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    action: str = Field(index=True, max_length=50)
+    actor: str = Field(index=True, max_length=200)
+    target_type: str = Field(max_length=30)
+    target_id: str | None = Field(default=None, max_length=200)
+    project: str | None = Field(default=None, index=True, max_length=200)
+    details: str = Field(default="{}")
 
 
 # ── Rules (managed with `security-review-controller rules` and the web interface) ──

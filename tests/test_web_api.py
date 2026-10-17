@@ -1889,3 +1889,125 @@ def test_sso_settings_test_contacts_the_given_provider_without_storing(client, m
     for body in ({"issuer": "http://evil.example"}, SSO_SETTINGS | {"issuer": f"{issuer}\nx"}):
         response = client.post("/api/v1/oidc/settings/test", json=body)
         assert response.status_code == 422
+
+
+# ── Token expiry and rotation, audit log, metrics ────────────────────────────
+
+
+def test_an_expired_token_gets_401(secured):
+    token = token_store.create_token("old", Role.READER, expires_in_days=1)["token"]
+    with session_scope() as session:
+        row = session.exec(select(ApiToken).where(ApiToken.label == "old")).one()
+        row.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+        session.add(row)
+    before = http_server.AUTH_REJECTIONS["token_expired"]
+
+    response = secured.get("/api/v1/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 401
+    assert response.json()["error_description"] == "The bearer token has expired"
+    assert 'error="invalid_token"' in response.headers["www-authenticate"]
+    assert http_server.AUTH_REJECTIONS["token_expired"] == before + 1
+
+
+def test_project_token_with_expiry_and_rotation(client, reports):
+    created = client.post(
+        "/api/v1/project-tokens",
+        json={"label": "ci", "projects": ["shop-api"], "role": "mcp", "expires_in_days": 30},
+    ).json()
+    assert created["expires_at"] is not None
+
+    response = client.post(
+        f"/api/v1/project-tokens/{created['id']}/rotate", json={"grace_hours": 2}
+    )
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    rotated = response.json()
+    assert rotated["id"] == created["id"]
+    assert rotated["token"] != created["token"]
+    assert rotated["grace_until"] is not None
+    listed = client.get("/api/v1/project-tokens").json()
+    assert "token" not in listed[0]
+    assert listed[0]["rotated_at"] is not None
+
+
+def test_project_token_rotation_errors(client):
+    admin = token_store.create_token("ops", Role.ADMIN)
+
+    assert client.post("/api/v1/project-tokens/missing/rotate").status_code == 404
+    # Only project tokens are rotated from the web interface
+    assert client.post(f"/api/v1/project-tokens/{admin['id']}/rotate").status_code == 404
+    token = token_store.create_token("ci", Role.MCP, ["shop-api"])
+    too_long = {"grace_hours": token_store.MAX_ROTATION_GRACE_HOURS + 1}
+    response = client.post(f"/api/v1/project-tokens/{token['id']}/rotate", json=too_long)
+    assert response.status_code == 422
+
+
+def test_rotation_needs_an_admin(secured):
+    token = token_store.create_token("ci", Role.MCP, ["shop-api"])
+    for role in ("reader", "triager"):
+        response = secured.post(f"/api/v1/project-tokens/{token['id']}/rotate", headers=auth(role))
+        assert response.status_code == 403
+
+
+def test_web_actions_are_audited_with_the_user_or_the_token(accounts, secured, reports):
+    web_users.create_user("tess", USER_PASSWORD, "triager")
+    headers = session_headers(accounts, "tess")
+    finding_id = services.get_report(reports[0]).findings[0].id
+    accounts.patch(f"/api/v1/findings/{finding_id}", json={"status": "fixed"}, headers=headers)
+    secured.post(
+        "/api/v1/project-tokens",
+        json={"label": "ci", "projects": ["shop-api"]},
+        headers=auth("admin"),
+    )
+
+    events = secured.get("/api/v1/audit", headers=auth("admin")).json()["events"]
+    assert [(event["action"], event["actor"]) for event in events[:2]] == [
+        ("token.created", "token:admin"),
+        ("finding.status_changed", "user:tess"),
+    ]
+
+
+def test_audit_route_filters_and_permissions(secured, reports):
+    token_store.create_token("ci", Role.MCP, ["shop-api"], actor="cli")
+    url = "/api/v1/audit"
+
+    body = secured.get(url, params={"project": "shop-api"}, headers=auth("admin")).json()
+    assert body["total"] == 1
+    assert body["events"][0]["details"]["label"] == "ci"
+    params = {"action": "token.revoked"}
+    assert secured.get(url, params=params, headers=auth("admin")).json()["total"] == 0
+    params = {"since": "2999-01-01"}
+    assert secured.get(url, params=params, headers=auth("admin")).json()["total"] == 0
+    params = {"action": "unknown"}
+    assert secured.get(url, params=params, headers=auth("admin")).status_code == 422
+    for role in ("reader", "triager", "metrics"):
+        assert secured.get(url, headers=auth(role)).status_code == 403
+
+
+def test_metrics_need_a_metrics_or_admin_token(secured, reports):
+    assert secured.get("/metrics").status_code == 401
+    for role in ("metrics", "admin"):
+        response = secured.get("/metrics", headers=auth(role))
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/plain; version=0.0.4")
+        assert 'secreview_open_findings{severity="high"} 1' in response.text
+    for role in ("reader", "triager", "mcp"):
+        assert secured.get("/metrics", headers=auth(role)).status_code == 403
+
+
+def test_a_metrics_token_reaches_nothing_else(secured, mcp_server, ci_token):
+    for path in ("/api/v1/me", "/api/v1/projects", "/api/v1/ci/gate?project=shop-api"):
+        assert secured.get(path, headers=auth("metrics")).status_code == 403
+    response = mcp_server.post("/mcp", json={}, headers=auth("metrics"))
+    assert response.status_code == 403
+    # The MCP server has no metrics endpoint
+    assert mcp_server.get("/metrics", headers=auth("admin")).status_code != 200
+
+
+def test_metrics_can_be_disabled(ui_dir, monkeypatch):
+    monkeypatch.setattr(get_settings(), "metrics_enabled", False)
+    app = TestClient(as_admin(web_api.create_app(ui_dir=str(ui_dir))), base_url="http://127.0.0.1")
+
+    assert app.get("/metrics").status_code == 404

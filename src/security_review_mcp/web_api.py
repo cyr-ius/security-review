@@ -34,6 +34,8 @@ from . import (
     advisories,
     advisory_sync,
     app_settings,
+    audit,
+    metrics,
     oidc,
     proxy,
     registry,
@@ -46,7 +48,7 @@ from . import (
     trends,
     web_users,
 )
-from .config import REPORT_LANGUAGE_MAX_CHARS, Settings, get_settings
+from .config import MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS, Settings, get_settings
 from .http_server import (
     BEARER_CHALLENGE,
     CI_ROUTE_ROLES,
@@ -54,8 +56,11 @@ from .http_server import (
     FAVICON_PATH,
     HEALTH_PATH,
     LOOPBACK_HOSTS,
+    METRICS_PATH,
+    METRICS_ROLES,
     OPENAPI_PATH,
     TRIAGE_ROLES,
+    WEB_ROLES,
     Role,
 )
 from .models import (
@@ -257,6 +262,17 @@ class ProjectTokenCreate(BaseModel):
     projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
         min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
     )
+    # Validity in days (null: SECREVIEW_TOKEN_MAX_DAYS, or no expiry when it is 0)
+    expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
+
+
+class ProjectTokenRotation(BaseModel):
+    """Body of POST /project-tokens/{id}/rotate."""
+
+    # Hours during which the previous secret keeps working (0: it stops at once)
+    grace_hours: int = Field(default=0, ge=0, le=token_store.MAX_ROTATION_GRACE_HOURS)
+    # Validity of the new secret in days (null: SECREVIEW_TOKEN_MAX_DAYS, or no expiry)
+    expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
 
 
 class ReportLanguageUpdate(BaseModel):
@@ -392,10 +408,10 @@ def current_identity(
     request: Request,
     _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> Identity:
-    """Identity of a web role (reader, triager, admin): a ``ci`` token is refused here even if
-    the bearer middleware let it through (it only reaches the pipeline routes)."""
+    """Identity of a web role (reader, triager, admin): a ``ci`` or ``metrics`` token is refused
+    here even if the bearer middleware let it through (it only reaches its own routes)."""
     identity = _scope_identity(request)
-    if identity.role == Role.CI:
+    if identity.role not in WEB_ROLES:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Role '{identity.role}' cannot access this endpoint",
@@ -415,6 +431,27 @@ def pipeline_identity(
             detail=f"Role '{identity.role}' cannot access this endpoint",
         )
     return identity
+
+
+def metrics_identity(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Identity:
+    """Identity of the Prometheus endpoint: a ``metrics`` or ``admin`` token."""
+    identity = _scope_identity(request)
+    if identity.role not in METRICS_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{identity.role}' cannot access this endpoint",
+        )
+    return identity
+
+
+def actor_of(identity: Identity) -> str:
+    """Actor written to the audit log: a web user (session) or a bearer token."""
+    if identity.auth_source is not None:
+        return audit.user_actor(identity.client)
+    return audit.token_actor(identity.client)
 
 
 CurrentIdentity = Annotated[Identity, Depends(current_identity)]
@@ -979,6 +1016,7 @@ async def update_finding(
             identity.client,
             body.reason,
             expires_at,
+            actor_of(identity),
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
@@ -993,7 +1031,9 @@ async def reject_finding_proposal(
 ) -> FindingPublic:
     """Reject the status proposed by an agent; the status of the finding does not change."""
     await run_in_threadpool(services.check_finding_scope, identity.projects, finding_id)
-    finding = await run_in_threadpool(services.clear_finding_proposal, finding_id)
+    finding = await run_in_threadpool(
+        services.clear_finding_proposal, finding_id, actor_of(identity)
+    )
     logger.info("Proposal for finding %s rejected by %s", finding_id, identity.client)
     return finding
 
@@ -1207,7 +1247,12 @@ async def create_project_token(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
     try:
         created = await run_in_threadpool(
-            token_store.create_project_token, body.label, body.projects, body.role
+            token_store.create_project_token,
+            body.label,
+            body.projects,
+            body.role,
+            body.expires_in_days,
+            actor_of(identity),
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
@@ -1228,11 +1273,44 @@ async def delete_project_token(
 ) -> Response:
     """Revoke a project token: the next request presenting it is rejected."""
     try:
-        await run_in_threadpool(token_store.revoke_project_token, token_id)
+        await run_in_threadpool(token_store.revoke_project_token, token_id, actor_of(identity))
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     logger.info("Project token %s revoked by %s", token_id, identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/project-tokens/{token_id}/rotate")
+async def rotate_project_token(
+    token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
+    identity: Annotated[Identity, Depends(require_admin)],
+    body: ProjectTokenRotation | None = None,
+) -> JSONResponse:
+    """Replace the secret of a project token and return the new one exactly once.
+
+    The previous secret keeps working for ``grace_hours`` (0: it stops at once).
+    """
+    body = body or ProjectTokenRotation()
+    try:
+        rotated = await run_in_threadpool(
+            lambda: token_store.rotate_token(
+                token_id,
+                body.grace_hours,
+                body.expires_in_days,
+                actor_of(identity),
+                project_token=True,
+            )
+        )
+    except ValueError as exc:
+        code = status.HTTP_404_NOT_FOUND if "not found" in str(exc) else 422
+        raise HTTPException(code, str(exc)) from exc
+    logger.info(
+        "Project token %s rotated by %s (grace %d h)",
+        rotated["label"],
+        identity.client,
+        body.grace_hours,
+    )
+    return JSONResponse(rotated, headers=LOGIN_HEADERS)
 
 
 @router.get("/enrollments")
@@ -1269,7 +1347,9 @@ async def approve_enrollment(
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     try:
-        approved = await run_in_threadpool(token_store.approve_enrollment, request_id)
+        approved = await run_in_threadpool(
+            token_store.approve_enrollment, request_id, actor_of(identity)
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     logger.info(
@@ -1305,7 +1385,9 @@ async def reject_enrollment(
 ) -> Response:
     """Reject an enrollment request: a new token is deleted, an additional project dropped."""
     try:
-        rejected = await run_in_threadpool(token_store.reject_enrollment, request_id)
+        rejected = await run_in_threadpool(
+            token_store.reject_enrollment, request_id, actor_of(identity)
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     logger.info(
@@ -1315,6 +1397,33 @@ async def reject_enrollment(
         identity.client,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/audit")
+async def audit_events(
+    identity: Annotated[Identity, Depends(require_admin)],
+    action: Annotated[audit.AuditAction | None, Query()] = None,
+    project: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+    actor: Annotated[str | None, Query(min_length=1, max_length=audit.MAX_ACTOR_CHARS)] = None,
+    since: date | None = None,
+    limit: Annotated[int, Query(ge=1)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict[str, Any]:
+    """Audit log, newest first: triage decisions, agent proposals, tokens and enrollments.
+
+    ``since`` keeps the events from that day (00:00 UTC); limit is capped by
+    SECREVIEW_MAX_LIST_LIMIT.
+    """
+    start = None if since is None else datetime.combine(since, time.min, UTC)
+    return await run_in_threadpool(
+        audit.list_events,
+        action.value if action else None,
+        project,
+        actor,
+        start,
+        limit,
+        offset,
+    )
 
 
 @router.get("/settings")
@@ -1703,6 +1812,18 @@ def create_app(
     async def healthz() -> dict[str, str]:
         """Public liveness probe (containers, Kubernetes)."""
         return {"status": "ok"}
+
+    if settings.metrics_enabled:
+
+        @app.get(METRICS_PATH, include_in_schema=False)
+        async def prometheus_metrics(
+            identity: Annotated[Identity, Depends(metrics_identity)],
+        ) -> Response:
+            """Prometheus metrics (``metrics`` or ``admin`` token)."""
+            text = await run_in_threadpool(metrics.render)
+            return Response(
+                text, media_type=metrics.CONTENT_TYPE, headers={"Cache-Control": "no-store"}
+            )
 
     @app.get(FAVICON_PATH, include_in_schema=False)
     async def favicon() -> Response:

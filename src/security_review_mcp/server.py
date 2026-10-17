@@ -17,6 +17,7 @@ from . import (
     __version__,
     advisories,
     app_settings,
+    audit,
     cli,
     depscan,
     enrollment_api,
@@ -625,9 +626,14 @@ def propose_finding_status(
     never closes a finding.
     """
     services.check_finding_scope(_caller_projects(ctx), finding_id)
-    proposed_by = _auth_state(ctx).get("auth_client") or "stdio"
+    client = _auth_state(ctx).get("auth_client")
+    proposed_by = client or "stdio"
     finding = services.propose_finding_status(
-        finding_id, FindingStatus(status), reason, proposed_by
+        finding_id,
+        FindingStatus(status),
+        reason,
+        proposed_by,
+        audit.token_actor(client) if client else "stdio",
     )
     return finding.model_dump(mode="json")
 

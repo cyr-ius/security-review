@@ -13,7 +13,9 @@ Two apps are built, meant to run in separate processes (containers, pods) sharin
   application under ``/ui`` (see web_api).
 
 Each token carries a role that decides which of the two it may use. A ``ci`` token only reaches
-the read-only pipeline routes of the controller (``/api/v1/ci/``, see web_api and ci_client).
+the read-only pipeline routes of the controller (``/api/v1/ci/``, see web_api and ci_client), a
+``metrics`` token only its Prometheus endpoint (``/metrics``, see metrics). An expired token
+authenticates nothing.
 """
 
 import argparse
@@ -21,6 +23,7 @@ import hashlib
 import json
 import logging
 import ssl
+from collections import Counter
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -47,7 +50,8 @@ class Role(StrEnum):
 
     ``mcp`` (default) only reaches the MCP endpoint; ``reader`` and ``triager`` only reach the
     web API; ``admin`` reaches both MCP and the web API; ``ci`` (always restricted to projects)
-    only reaches the pipeline routes of the web API (gate, SARIF, trend).
+    only reaches the pipeline routes of the web API (gate, SARIF, trend); ``metrics`` (never
+    restricted to projects) only reaches the Prometheus endpoint of the controller.
     """
 
     MCP = "mcp"
@@ -55,6 +59,7 @@ class Role(StrEnum):
     TRIAGER = "triager"
     ADMIN = "admin"
     CI = "ci"
+    METRICS = "metrics"
 
 
 DEFAULT_ROLE = Role.MCP
@@ -63,6 +68,8 @@ WEB_ROLES = frozenset({Role.READER, Role.TRIAGER, Role.ADMIN})
 TRIAGE_ROLES = frozenset({Role.TRIAGER, Role.ADMIN})
 # Roles accepted by the pipeline routes of the controller (read only, scoped to projects)
 CI_ROUTE_ROLES = WEB_ROLES | {Role.CI}
+# Roles accepted by the Prometheus endpoint of the controller
+METRICS_ROLES = frozenset({Role.METRICS, Role.ADMIN})
 
 API_PREFIX = "/api/"
 # Pipeline routes of the controller, the only ones a ``ci`` token reaches
@@ -73,6 +80,8 @@ UI_PREFIX = "/ui"
 ENROLL_PATH = "/api/v1/enroll"
 # Public liveness endpoint of both processes (container and Kubernetes probes)
 HEALTH_PATH = "/healthz"
+# Prometheus endpoint of the controller (see metrics)
+METRICS_PATH = "/metrics"
 # Public files of the controller: the API documentation and the application icon
 DOCS_PATH = "/api/docs"
 OPENAPI_PATH = "/api/openapi.json"
@@ -89,6 +98,7 @@ class TokenInfo:
 
     ``projects`` lists the projects a restricted token reaches (None: every project).
     ``pending`` marks an enrollment request not approved yet: it grants no access.
+    ``expired`` marks a token past its expiry date: it grants no access either.
     ``user_id`` and ``auth_source`` (``local`` or ``oidc``) are set for the session of a web
     user (see web_users), None for a token.
     """
@@ -98,6 +108,7 @@ class TokenInfo:
     projects: frozenset[str] | None = None
     token_id: str | None = None
     pending: bool = False
+    expired: bool = False
     user_id: int | None = None
     auth_source: str | None = None
 
@@ -129,6 +140,10 @@ def hash_token(token: str) -> bytes:
 
 
 # ── Middleware ───────────────────────────────────────────────────────────────
+
+# Requests rejected by the bearer middleware of this process since it started, by reason
+# (invalid_token, token_expired, enrollment_pending, insufficient_scope), see metrics
+AUTH_REJECTIONS: Counter[str] = Counter()
 
 
 def is_controller_public_path(path: str) -> bool:
@@ -212,10 +227,13 @@ class BearerAuthMiddleware:
     def role_allowed(self, role: Role, path: str) -> bool:
         """True when a token of this role may reach ``path`` on this process.
 
-        A ``ci`` token only reaches the pipeline routes of the controller.
+        A ``ci`` token only reaches the pipeline routes of the controller, a ``metrics`` token
+        only its Prometheus endpoint.
         """
         if not self.web:
             return role in MCP_ROLES
+        if path == METRICS_PATH:
+            return role in METRICS_ROLES
         if path.startswith(CI_PREFIX):
             return role in CI_ROUTE_ROLES
         return role in WEB_ROLES
@@ -250,13 +268,21 @@ class BearerAuthMiddleware:
             return
         info = await self.identify(authorization)
         if info is None:
+            AUTH_REJECTIONS["invalid_token"] += 1
             logger.warning("Rejected unauthenticated request from %s to %s", address, path)
             await _send_error(send, 401, "invalid_token", "Missing or invalid bearer token")
+            return
+        if info.expired:
+            AUTH_REJECTIONS["token_expired"] += 1
+            logger.warning("Rejected expired token %s from %s to %s", info.label, address, path)
+            # RFC 6750: an expired token is an invalid_token
+            await _send_error(send, 401, "invalid_token", "The bearer token has expired")
             return
         if info.pending:
             if self.enrollment_app is not None:
                 await self.enroll(scope, receive, send, info.token_id)
                 return
+            AUTH_REJECTIONS["enrollment_pending"] += 1
             await _send_error(
                 send,
                 403,
@@ -265,6 +291,7 @@ class BearerAuthMiddleware:
             )
             return
         if not self.role_allowed(info.role, path):
+            AUTH_REJECTIONS["insufficient_scope"] += 1
             logger.warning(
                 "Rejected request from %s (%s, role %s) to %s", address, info.label, info.role, path
             )

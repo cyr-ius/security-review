@@ -88,8 +88,13 @@ renvoyés par l'API restent en anglais.
   projets. Le champ **Usage** choisit **MCP** (rôle `mcp`), **API REST** ou **Pipeline CI/CD**
   (rôle `ci`, pour [`security-review-ci`](../ci-cd/gate.md#client-de-pipeline-security-review-ci)) ;
   pour l'API REST, **Droits API** choisit **Lecture seule** (`reader`) ou **Lecture et triage**
-  (`triager`). Les cases **Projets autorisés** sélectionnent les projets que voit le jeton. La
-  liste affiche l'usage de chaque jeton. Un jeton n'ouvre jamais l'interface web. Le rôle `admin` reste non restreint et se crée par la
+  (`triager`). Les cases **Projets autorisés** sélectionnent les projets que voit le jeton ;
+  **Validité** fixe sa durée de vie (30 jours à 1 an, ou le défaut du serveur,
+  `SECREVIEW_TOKEN_MAX_DAYS`). La liste affiche l'usage de chaque jeton et sa date d'expiration
+  (**Expiré** une fois passée). **Renouveler** remplace le secret d'un jeton et affiche le
+  nouveau une fois ; l'ancien reste valable pendant le délai de grâce choisi au-dessus de la
+  liste (aucun, 1 h, 24 h ou 7 jours, voir
+  [expiration et renouvellement](../getting-started/http.md#expiration-et-renouvellement-des-jetons)). Un jeton n'ouvre jamais l'interface web. Le rôle `admin` reste non restreint et se crée par la
   CLI. Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
   données. Une révocation prend effet à la requête suivante. La section
   **Demandes en attente** distingue les nouveaux jetons des demandes d'accès à un projet
@@ -99,6 +104,10 @@ renvoyés par l'API restent en anglais.
   pour chaque jeton. La colonne **Lecture dans le portail** permet de donner en même temps au
   développeur la lecture du projet dans l'interface web, sur son compte utilisateur (voir
   [lecture du projet à l'enrôlement](#lecture-du-projet-a-lenrolement)).
+- **Journal d'audit** : les administrateurs consultent le [journal d'audit](audit-metrics.md#journal-daudit) :
+  décisions de triage, propositions des agents, jetons et demandes d'enrôlement, du plus récent
+  au plus ancien, avec leur auteur ; filtres par événement et par projet, **Afficher plus** pour
+  les événements plus anciens.
 - **Rôles SSO** : les administrateurs [configurent la connexion SSO](#configurer-le-sso-dans-linterface)
   (chaque valeur enregistrée remplace sa variable `SECREVIEW_OIDC_*`, avec un test de connexion
   au fournisseur) et associent les groupes ou rôles du fournisseur d'identité à un rôle web et,
@@ -180,6 +189,7 @@ porte un rôle, qui détermine les endpoints accessibles :
 | `triager` | API REST — lecture et triage | — | ✅ | `open`, `fixed` ¹ |
 | `admin` | CLI uniquement | ✅ | ✅ | `open`, `fixed` ¹ |
 | `ci` | Pipeline CI/CD — gate, SARIF et tendance | — | routes de pipeline seulement (`/api/v1/ci/`) | — |
+| `metrics` | CLI seulement | — | `/metrics` seulement ([Prometheus](audit-metrics.md#metriques-prometheus)) | — |
 
 ¹ Avec un jeton. `accepted` et `false_positive` exigent une personne connectée à l'interface
 avec le rôle `triager` ou `admin` ([triage des findings](#triage-des-findings)). Sur `/mcp`,
@@ -228,6 +238,9 @@ statut est journalisé avec le label du jeton ou du compte :
 ```
 INFO security_review_mcp.web: Finding 42 set to fixed by triage-bot
 ```
+
+et écrit dans le [journal d'audit](audit-metrics.md#journal-daudit) (`GET /api/v1/audit`, rôle
+`admin`), avec l'acteur `token:triage-bot` ou `user:<nom>`.
 
 !!! warning "Authentification requise pour la Web UI"
     L'API de l'interface refuse les requêtes avec le statut `503` tant qu'aucun utilisateur ni

@@ -148,7 +148,8 @@ l'agent à neutraliser ses propres findings et à débloquer la [gate](../ci-cd/
 - `propose_finding_status` enregistre une **proposition** (`fixed`, `accepted` ou
   `false_positive`) avec le motif de l'agent (10 à 1000 caractères, secrets masqués) et le label
   de son jeton. Le statut, la posture et la gate ne changent pas. Une nouvelle proposition
-  remplace la précédente.
+  remplace la précédente. Elle est écrite dans le [journal d'audit](audit-metrics.md#journal-daudit),
+  comme la décision qui suit.
 - Une personne qui a le rôle `triager` ou `admin` l'applique ou la rejette dans
   l'[interface web](web-interface.md#triage-des-findings). `accepted` et `false_positive`
   exigent un motif, un approbateur (l'utilisateur connecté) et une date d'expiration ; à partir

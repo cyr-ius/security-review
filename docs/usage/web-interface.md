@@ -86,8 +86,12 @@ by the API stay in English.
   projects. The **Usage** field chooses **MCP** (`mcp` role), **REST API** or **CI/CD pipeline**
   (`ci` role, for [`security-review-ci`](../ci-cd/gate.md#pipeline-client-security-review-ci));
   for the REST API, **API rights** chooses **Read only** (`reader`) or **Read and triage**
-  (`triager`). The **Allowed projects** boxes select the projects the token sees. The list shows
-  the usage of every token.
+  (`triager`). The **Allowed projects** boxes select the projects the token sees; **Validity**
+  sets its lifetime (30 days to 1 year, or the default of the server, `SECREVIEW_TOKEN_MAX_DAYS`).
+  The list shows the usage of every token and its expiry date (**Expired** once past).
+  **Rotate** replaces the secret of a token and shows the new one once; the previous one keeps
+  working for the grace period chosen above the list (none, 1 h, 24 h or 7 days, see
+  [expiry and rotation](../getting-started/http.md#expiry-and-rotation-of-tokens)).
   A token never opens the web interface. The `admin` role stays unrestricted and is created from
   the CLI. The secret is shown only once; only its digest is stored, in the database. A
   revocation takes effect at the next request. The **Pending requests**
@@ -99,6 +103,9 @@ by the API stay in English.
   lets you give the developer, at the same time, read access to the project in the web
   interface, on their user account (see
   [project read access at enrollment](#project-read-access-at-enrollment)).
+- **Audit log**: administrators read the [audit log](audit-metrics.md#audit-log): triage
+  decisions, agent proposals, tokens and enrollment requests, newest first, with who made
+  them; filters by event and by project, **Load more** for the older events.
 - **SSO roles**: administrators
   [configure the SSO login](#configuring-sso-in-the-interface) (every stored value replaces its
   `SECREVIEW_OIDC_*` variable, with a connection test to the provider) and map the groups or
@@ -180,6 +187,7 @@ which decides the reachable endpoints:
 | `triager` | REST API — read and triage | — | ✅ | `open`, `fixed` ¹ |
 | `admin` | CLI only | ✅ | ✅ | `open`, `fixed` ¹ |
 | `ci` | CI/CD pipeline — gate, SARIF and trend | — | pipeline routes only (`/api/v1/ci/`) | — |
+| `metrics` | CLI only | — | `/metrics` only ([Prometheus](audit-metrics.md#prometheus-metrics)) | — |
 
 ¹ With a token. `accepted` and `false_positive` need a person logged in to the interface
 with the `triager` or `admin` role ([triage of findings](#triage-of-findings)). On `/mcp`, no
@@ -227,6 +235,9 @@ logged with the label of the token or of the account:
 ```
 INFO security_review_mcp.web: Finding 42 set to fixed by triage-bot
 ```
+
+and written to the [audit log](audit-metrics.md#audit-log) (`GET /api/v1/audit`, `admin`
+role), with the actor `token:triage-bot` or `user:<name>`.
 
 !!! warning "Authentication required for the web UI"
     The API of the interface refuses the requests with status `503` while no user and no token

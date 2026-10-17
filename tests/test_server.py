@@ -7,7 +7,7 @@ from mcp.client import Client
 from mcp.shared.exceptions import MCPError
 from pydantic import ValidationError
 
-from security_review_mcp import app_settings, services, token_store
+from security_review_mcp import app_settings, audit, services, token_store
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.models import FindingCreate, ReviewType, Severity
 from security_review_mcp.prompts import fenced
@@ -313,6 +313,9 @@ async def test_agent_can_only_propose_a_status_and_the_gate_keeps_blocking():
     assert (proposed["proposed_status"], proposed["proposed_by"]) == ("false_positive", "stdio")
     assert "hunter2hunter2" not in proposed["proposed_reason"]  # masked before storage
     assert gate["passed"] is False and gate["blocking_findings"] == 1
+    (event,) = audit.list_events(action="finding.status_proposed")["events"]
+    assert (event["actor"], event["project"]) == ("stdio", "demo")
+    assert "hunter2hunter2" not in json.dumps(event)
 
 
 @pytest.mark.parametrize(

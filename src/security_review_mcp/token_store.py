@@ -12,22 +12,32 @@ An enrollment request is a ``pending`` project row. When it creates the token (f
 enrollment), the token is ``pending`` too: its secret is given to the requester at once but
 authenticates nothing until an administrator approves the request. A complementary enrollment
 adds a pending project to an active token, which keeps working for its other projects.
+
+A token may expire (``expires_at``, bounded by SECREVIEW_TOKEN_MAX_DAYS): it then authenticates
+nothing but stays listed, so that an administrator rotates or revokes it. A rotation replaces the
+secret of a token (same id, label, role and projects); the previous secret may keep working
+during a grace period, so that its clients are updated without an interruption.
+
+Every creation, rotation, revocation and enrollment decision is written to the audit log.
 """
 
 import hmac
 import secrets
 import uuid
 from collections.abc import Iterable
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import ColumnElement
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, or_, select
 
+from . import audit
+from .audit import AuditAction
+from .config import MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
 from .http_server import Role, TokenInfo, hash_token
-from .models import ApiToken, ApiTokenProject, WebUser, utcnow
+from .models import ApiToken, ApiTokenProject, WebUser, as_utc, utcnow
 from .scanner import redact_secrets
 
 MAX_TOKENS = 500
@@ -50,11 +60,43 @@ ENROLLMENT_TTL = timedelta(days=7)
 ENROLLMENT_ROLE = Role.MCP
 MAX_REQUESTED_BY_CHARS = 200
 MAX_ADDRESS_CHARS = 64
+# Longest time the previous secret of a rotated token keeps working
+MAX_ROTATION_GRACE_HOURS = 168
+# Roles whose rights cannot be scoped to projects
+UNSCOPED_ROLES = frozenset({Role.ADMIN, Role.METRICS})
 
 
 def _is_pending(row: ApiToken) -> bool:
     """True for an enrollment request that no administrator has approved yet."""
     return row.status == PENDING
+
+
+def _is_expired(row: ApiToken, now: datetime | None = None) -> bool:
+    """True for a token past its expiry date."""
+    return row.expires_at is not None and as_utc(row.expires_at) <= (now or utcnow())
+
+
+def _expiry(expires_in_days: int | None, now: datetime) -> datetime | None:
+    """Expiry date of a token created or rotated now.
+
+    Without ``expires_in_days`` the token gets the longest validity (SECREVIEW_TOKEN_MAX_DAYS),
+    or none when that setting is 0.
+
+    Raises:
+        ValueError: If ``expires_in_days`` is out of bounds.
+    """
+    longest = get_settings().token_max_days
+    if expires_in_days is None:
+        return now + timedelta(days=longest) if longest else None
+    limit = longest or MAX_RETENTION_DAYS
+    if not 1 <= expires_in_days <= limit:
+        raise ValueError(f"The validity of a token must be between 1 and {limit} days")
+    return now + timedelta(days=expires_in_days)
+
+
+def _iso(value: datetime | None) -> str | None:
+    """ISO 8601 form of an optional date (UTC)."""
+    return None if value is None else as_utc(value).isoformat()
 
 
 def _active_clause() -> ColumnElement[bool]:
@@ -93,7 +135,8 @@ def _active_projects(row: ApiToken, links: list[ApiTokenProject]) -> list[str] |
 def _info(row: ApiToken, links: list[ApiTokenProject]) -> TokenInfo:
     """Convert a stored token into the identity used by the middleware.
 
-    A ``ci`` token is never unrestricted: without projects it reaches none (fail closed).
+    A ``ci`` token is never unrestricted: without projects it reaches none (fail closed). An
+    expired token is marked ``expired``: the middleware rejects it.
     """
     projects = _active_projects(row, links)
     if projects is None and row.role == Role.CI:
@@ -104,6 +147,7 @@ def _info(row: ApiToken, links: list[ApiTokenProject]) -> TokenInfo:
         projects=None if projects is None else frozenset(projects),
         token_id=row.id,
         pending=_is_pending(row),
+        expired=_is_expired(row),
     )
 
 
@@ -111,7 +155,10 @@ def _public(row: ApiToken, links: list[ApiTokenProject]) -> dict[str, Any]:
     """Metadata of a token, without its hash.
 
     ``projects`` is None for an unrestricted token; ``project`` is the first project.
+    ``grace_until`` is the end of the grace period of the previous secret after a rotation.
     """
+    now = utcnow()
+    grace = row.previous_expires_at if row.previous_token_hash else None
     return {
         "id": row.id,
         "label": row.label,
@@ -121,6 +168,10 @@ def _public(row: ApiToken, links: list[ApiTokenProject]) -> dict[str, Any]:
         "pending_projects": [link.project for link in links if link.status == PENDING],
         "status": PENDING if _is_pending(row) else ACTIVE,
         "created_at": row.created_at.isoformat(),
+        "expires_at": _iso(row.expires_at),
+        "expired": _is_expired(row, now),
+        "rotated_at": _iso(row.rotated_at),
+        "grace_until": _iso(grace) if grace is not None and as_utc(grace) > now else None,
     }
 
 
@@ -154,11 +205,17 @@ class DatabaseTokenStore:
         """Return the identity of the stored token with this SHA-256 digest, or None.
 
         The lookup key is the digest of the presented credential: its timing reveals nothing
-        usable without a preimage of a stored hash. The final check is constant time.
+        usable without a preimage of a stored hash. The final check is constant time. The
+        previous secret of a rotated token matches until the end of its grace period.
         """
+        hexdigest = digest.hex()
         with session_scope() as session:
-            row = session.exec(select(ApiToken).where(ApiToken.token_hash == digest.hex())).first()
-            if row is None or not hmac.compare_digest(bytes.fromhex(row.token_hash), digest):
+            row = session.exec(
+                select(ApiToken).where(
+                    or_(ApiToken.token_hash == hexdigest, ApiToken.previous_token_hash == hexdigest)
+                )
+            ).first()
+            if row is None or not _matches(row, digest):
                 return None
             return _info(row, _links(session, [row.id])[row.id])
 
@@ -166,7 +223,8 @@ class DatabaseTokenStore:
         """True when at least one active token is stored.
 
         Pending enrollment requests do not count: anybody may create one, and doing so must
-        not switch on authentication for a server that has none.
+        not switch on authentication for a server that has none. Expired tokens do count: a
+        server whose tokens have all expired stays closed (fail closed).
         """
         with session_scope() as session:
             if session.exec(select(ApiToken.id).where(_active_clause()).limit(1)).first():
@@ -174,6 +232,18 @@ class DatabaseTokenStore:
             return (
                 self.include_users and session.exec(select(WebUser.id).limit(1)).first() is not None
             )
+
+
+def _matches(row: ApiToken, digest: bytes) -> bool:
+    """Constant-time check of a digest against the secret of a token, or its previous secret
+    during the grace period of a rotation."""
+    if hmac.compare_digest(bytes.fromhex(row.token_hash), digest):
+        return True
+    if row.previous_token_hash is None or row.previous_expires_at is None:
+        return False
+    return hmac.compare_digest(bytes.fromhex(row.previous_token_hash), digest) and (
+        as_utc(row.previous_expires_at) > utcnow()
+    )
 
 
 def _new_link(token_id: str, project: str, status: str, **fields: str | None) -> ApiTokenProject:
@@ -189,14 +259,20 @@ def _new_link(token_id: str, project: str, status: str, **fields: str | None) ->
 
 
 def _insert(
-    label: str, role: Role, projects: list[str] | None = None, **fields: str | None
+    label: str,
+    role: Role,
+    projects: list[str] | None = None,
+    expires_in_days: int | None = None,
+    event: tuple[AuditAction, str | None] = (AuditAction.TOKEN_CREATED, None),
+    **fields: str | None,
 ) -> tuple[ApiToken, list[ApiTokenProject], str]:
     """Generate a token, store its digest and projects and return (row, project rows, token).
 
     ``fields`` sets the enrollment columns (status, requested_by, requested_from); the project
-    rows get the status of the token. A duplicate label raises ValueError; the token limit is
-    enforced here.
+    rows get the status of the token. ``event`` is the audit action and actor written with the
+    token. A duplicate label raises ValueError; the token limit is enforced here.
     """
+    expires_at = _expiry(expires_in_days, utcnow())
     with session_scope() as session:
         count = session.exec(select(func.count()).select_from(ApiToken)).one()
     if count >= MAX_TOKENS:
@@ -212,6 +288,7 @@ def _insert(
         status=status,
         requested_by=fields.get("requested_by"),
         requested_from=fields.get("requested_from"),
+        expires_at=expires_at,
     )
     links = [
         _new_link(
@@ -228,6 +305,23 @@ def _insert(
             session.add(row)
             session.flush()
             session.add_all(links)
+            action, actor = event
+            audit.record(
+                session,
+                action,
+                actor,
+                "token",
+                row.id,
+                row.project,
+                {
+                    "label": label,
+                    "role": role.value,
+                    "projects": projects,
+                    "expires_at": _iso(expires_at),
+                    "requested_by": fields.get("requested_by"),
+                    "requested_from": fields.get("requested_from"),
+                },
+            )
             session.flush()
             for item in (row, *links):
                 session.refresh(item)
@@ -280,13 +374,19 @@ def _clean_projects(projects: str | Iterable[str] | None) -> list[str] | None:
 
 
 def create_token(
-    label: str, role: Role | str, projects: str | Iterable[str] | None = None
+    label: str,
+    role: Role | str,
+    projects: str | Iterable[str] | None = None,
+    expires_in_days: int | None = None,
+    actor: str | None = None,
 ) -> dict[str, Any]:
     """Create a token and return its metadata with the raw secret, shown exactly once.
 
     ``projects`` (one name or several) restricts the token to these projects, for the MCP
     tools and the web interface. It is refused for ``admin``, whose rights (rules, every
-    project) cannot be scoped, and required for ``ci``, the pipeline token.
+    project) cannot be scoped, and for ``metrics`` (whole database), and required for ``ci``,
+    the pipeline token. ``expires_in_days`` defaults to SECREVIEW_TOKEN_MAX_DAYS (0: no
+    expiry). The creation is audited with ``actor`` (default ``cli``).
     """
     label = _clean_label(label)
     try:
@@ -295,11 +395,13 @@ def create_token(
         allowed = ", ".join(r.value for r in Role)
         raise ValueError(f"Unknown role '{role}' (allowed: {allowed})") from None
     cleaned = _clean_projects(projects)
-    if cleaned is not None and role == Role.ADMIN:
-        raise ValueError("An admin token cannot be restricted to a project")
+    if cleaned is not None and role in UNSCOPED_ROLES:
+        raise ValueError(f"A {role.value} token cannot be restricted to a project")
     if cleaned is None and role == Role.CI:
         raise ValueError("A ci token must be restricted to at least one project")
-    row, links, token = _insert(label, role, cleaned)
+    row, links, token = _insert(
+        label, role, cleaned, expires_in_days, (AuditAction.TOKEN_CREATED, actor)
+    )
     return _public(row, links) | {"token": token}
 
 
@@ -323,10 +425,25 @@ def list_tokens(project: str | None = None) -> list[dict[str, Any]]:
         return [_public(row, links[row.id]) for row in rows]
 
 
-def revoke_token(reference: str) -> dict[str, Any]:
+def _audit_token(
+    session: Session, action: AuditAction, actor: str | None, public: dict[str, Any], **extra: Any
+) -> None:
+    """Write an audit event about a token (its metadata, never its secret)."""
+    audit.record(
+        session,
+        action,
+        actor,
+        "token",
+        public["id"],
+        public["project"],
+        {"label": public["label"], "role": public["role"], "projects": public["projects"]} | extra,
+    )
+
+
+def revoke_token(reference: str, actor: str | None = None) -> dict[str, Any]:
     """Delete a token by id or label and return its metadata.
 
-    The next request presenting it is rejected.
+    The next request presenting it is rejected. The revocation is audited with ``actor``.
     """
     with session_scope() as session:
         row = session.exec(
@@ -336,7 +453,87 @@ def revoke_token(reference: str) -> dict[str, Any]:
             raise ValueError(f"Token '{reference}' was not found")
         revoked = _public(row, _links(session, [row.id])[row.id])
         _delete_token(session, row)
+        _audit_token(session, AuditAction.TOKEN_REVOKED, actor, revoked)
     return revoked
+
+
+def rotate_token(
+    reference: str,
+    grace_hours: int = 0,
+    expires_in_days: int | None = None,
+    actor: str | None = None,
+    project_token: bool = False,
+) -> dict[str, Any]:
+    """Replace the secret of a token (by id or label) and return the new one, shown once.
+
+    The token keeps its id, label, role and projects. During ``grace_hours`` (at most
+    MAX_ROTATION_GRACE_HOURS) the previous secret keeps working, unless the token had expired:
+    an expired secret never comes back. The new expiry date follows ``expires_in_days`` (same
+    rules as create_token). ``project_token`` (web interface) only accepts a project token.
+
+    Raises:
+        ValueError: Unknown token, enrollment request still pending, or bounds exceeded.
+    """
+    if not 0 <= grace_hours <= MAX_ROTATION_GRACE_HOURS:
+        raise ValueError(f"The grace period must be between 0 and {MAX_ROTATION_GRACE_HOURS} hours")
+    now = utcnow()
+    expires_at = _expiry(expires_in_days, now)
+    token = secrets.token_urlsafe(32)
+    statement = select(ApiToken).where(or_(ApiToken.id == reference, ApiToken.label == reference))
+    if project_token:
+        statement = select(ApiToken).where(
+            ApiToken.id == reference, col(ApiToken.project).is_not(None)
+        )
+    with session_scope() as session:
+        row = session.exec(statement).first()
+        if row is None:
+            kind = "Project token" if project_token else "Token"
+            raise ValueError(f"{kind} '{reference}' was not found")
+        if _is_pending(row):
+            raise ValueError("An enrollment request waiting for approval cannot be rotated")
+        grace = grace_hours if not _is_expired(row, now) else 0
+        row.previous_token_hash = row.token_hash if grace else None
+        row.previous_expires_at = now + timedelta(hours=grace) if grace else None
+        row.token_hash = hash_token(token).hex()
+        row.rotated_at = now
+        row.expires_at = expires_at
+        session.add(row)
+        session.flush()
+        rotated = _public(row, _links(session, [row.id])[row.id])
+        _audit_token(
+            session,
+            AuditAction.TOKEN_ROTATED,
+            actor,
+            rotated,
+            grace_hours=grace,
+            expires_at=rotated["expires_at"],
+        )
+    return rotated | {"token": token}
+
+
+def token_counts(expiring_within: timedelta = timedelta(days=14)) -> dict[str, Any]:
+    """Count the tokens by role and state (``active``, ``expired``, ``pending``), the active
+    ones that expire within ``expiring_within`` and the enrollment requests waiting."""
+    now = utcnow()
+    by_role: dict[tuple[str, str], int] = {}
+    expiring = 0
+    with session_scope() as session:
+        for row in session.exec(select(ApiToken)).all():
+            if _is_pending(row):
+                state = PENDING
+            elif _is_expired(row, now):
+                state = "expired"
+            else:
+                state = ACTIVE
+                if row.expires_at is not None and as_utc(row.expires_at) <= now + expiring_within:
+                    expiring += 1
+            by_role[(row.role, state)] = by_role.get((row.role, state), 0) + 1
+        pending = session.exec(
+            select(func.count())
+            .select_from(ApiTokenProject)
+            .where(ApiTokenProject.status == PENDING)
+        ).one()
+    return {"by_role_and_state": by_role, "expiring_soon": expiring, "pending_enrollments": pending}
 
 
 # ── Project tokens (web interface) ───────────────────────────────────────────
@@ -355,14 +552,16 @@ def create_project_token(
     label: str,
     projects: str | Iterable[str],
     role: Role | str = Role.READER,
+    expires_in_days: int | None = None,
+    actor: str | None = None,
 ) -> dict[str, Any]:
     """Create a role-specific token restricted to one or several projects."""
     if _clean_projects(projects) is None:
         raise ValueError("A project token needs at least one project")
-    return create_token(label, role, projects)
+    return create_token(label, role, projects, expires_in_days, actor)
 
 
-def revoke_project_token(token_id: str) -> None:
+def revoke_project_token(token_id: str, actor: str | None = None) -> None:
     """Delete a project token by id; other tokens cannot be revoked this way."""
     with session_scope() as session:
         row = session.exec(
@@ -370,7 +569,9 @@ def revoke_project_token(token_id: str) -> None:
         ).first()
         if row is None:
             raise ValueError(f"Project token '{token_id}' was not found")
+        revoked = _public(row, _links(session, [row.id])[row.id])
         _delete_token(session, row)
+        _audit_token(session, AuditAction.TOKEN_REVOKED, actor, revoked)
 
 
 # ── Enrollment requests ──────────────────────────────────────────────────────
@@ -466,6 +667,8 @@ def request_enrollment(
         label,
         ENROLLMENT_ROLE,
         [project],
+        None,
+        (AuditAction.ENROLLMENT_REQUESTED, audit.ANONYMOUS_ACTOR),
         status=PENDING,
         requested_by=requested_by,
         requested_from=requested_from,
@@ -503,6 +706,8 @@ def request_additional_project(
             raise ValueError("Token not found")
         if _is_pending(row):
             raise ValueError("This token is still waiting for the approval of its first request")
+        if _is_expired(row):
+            raise ValueError("This token has expired")
         links = _links(session, [row.id])[row.id]
         if _active_projects(row, links) is None:
             raise ValueError("This token is not restricted: it already reaches every project")
@@ -525,6 +730,20 @@ def request_additional_project(
                 f"A request for project '{project}' is already waiting for approval"
             ) from exc
         session.refresh(link)
+        audit.record(
+            session,
+            AuditAction.ENROLLMENT_REQUESTED,
+            audit.token_actor(row.label),
+            "enrollment",
+            link.id,
+            project,
+            {
+                "label": row.label,
+                "kind": ADDITIONAL_PROJECT,
+                "requested_by": requested_by,
+                "requested_from": requested_from,
+            },
+        )
         return _request(link, row) | {"projects": _active_projects(row, links)}
 
 
@@ -570,11 +789,32 @@ def _pending_request(session: Session, reference: str) -> tuple[ApiTokenProject,
     return link, row
 
 
-def approve_enrollment(reference: str) -> dict[str, Any]:
+def _audit_request(
+    session: Session, action: AuditAction, actor: str | None, request: dict[str, Any]
+) -> None:
+    """Write an audit event about an enrollment decision."""
+    audit.record(
+        session,
+        action,
+        actor,
+        "enrollment",
+        request["id"],
+        request["project"],
+        {
+            "label": request["label"],
+            "token_id": request["token_id"],
+            "kind": request["kind"],
+            "requested_by": request["requested_by"],
+            "requested_from": request["requested_from"],
+        },
+    )
+
+
+def approve_enrollment(reference: str, actor: str | None = None) -> dict[str, Any]:
     """Approve a pending request (request id, or token id or label when it has only one).
 
     A first enrollment activates the token; a complementary one adds the project to it. The
-    change applies from the next request.
+    change applies from the next request. The approval is audited with ``actor``.
     """
     with session_scope() as session:
         link, row = _pending_request(session, reference)
@@ -584,11 +824,12 @@ def approve_enrollment(reference: str) -> dict[str, Any]:
         if _is_pending(row):
             row.status = ACTIVE
             session.add(row)
+        _audit_request(session, AuditAction.ENROLLMENT_APPROVED, actor, approved)
         session.flush()
         return approved | {"projects": _active_projects(row, _links(session, [row.id])[row.id])}
 
 
-def reject_enrollment(reference: str) -> dict[str, Any]:
+def reject_enrollment(reference: str, actor: str | None = None) -> dict[str, Any]:
     """Reject a pending request (same references as approve_enrollment).
 
     A rejected first enrollment deletes its token; a rejected complementary request only drops
@@ -601,6 +842,7 @@ def reject_enrollment(reference: str) -> dict[str, Any]:
             _delete_token(session, row)
         else:
             session.delete(link)
+        _audit_request(session, AuditAction.ENROLLMENT_REJECTED, actor, rejected)
     return rejected
 
 

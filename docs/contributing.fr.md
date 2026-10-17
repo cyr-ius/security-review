@@ -90,7 +90,9 @@ src/security_review_mcp/
 ├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
 ├── oidc.py        # connexion SSO OpenID Connect à l'interface web (contrôleur)
 ├── role_mapping.py # role mapping OIDC : groupes du fournisseur → rôle web et projets
-├── token_store.py # jetons Bearer en base : création, révocation, enrôlement
+├── token_store.py # jetons Bearer en base : création, expiration, renouvellement, révocation, enrôlement
+├── audit.py       # journal d'audit : événements des décisions de triage, propositions, jetons et enrôlements
+├── metrics.py     # métriques Prometheus du contrôleur (/metrics)
 ├── web_users.py   # comptes de l'interface web, locaux (scrypt) ou SSO (création à la volée), sessions, admin initial
 ├── enrollment.py  # client de `enroll` : demande de jeton à un serveur partagé
 ├── remote_scan.py # client de `scan-deps` : scan des dépendances par un serveur partagé
@@ -105,7 +107,7 @@ src/security_review_mcp/
 ├── rules_loader.py    # validation des règles, lecture des packs TOML et du fichier par défaut
 ├── rule_store.py  # règles en base : amorçage, import/export, activation, suppression
 ├── registry.py    # règles/checklists actives (lues en base), rechargement
-├── cli.py         # commandes db, gate, sarif, trend, advisories, deps, code, rules, token, enroll, scan-deps
+├── cli.py         # commandes db, gate, sarif, trend, advisories, deps, code, rules, token, audit, enroll, scan-deps
 ├── codescan.py    # scan du code complet (liste des fichiers, langage, findings)
 ├── sarif.py       # export SARIF 2.1.0
 ├── trends.py      # rapport de tendance
@@ -117,7 +119,7 @@ src/security_review_mcp/
 ├── dependencies.py    # analyseurs de manifestes / lockfiles, hygiène
 ├── depscan.py     # scan de dépendances et conversion en findings
 ├── services.py    # logique de persistance des rapports
-├── retention.py   # purge quotidienne des rapports sans findings par le contrôleur
+├── retention.py   # purge quotidienne des rapports sans findings et des anciens événements d'audit
 ├── models.py      # modèles SQLModel (tables + schémas)
 ├── database.py    # moteur, sessions et migrations (Alembic)
 ├── migrations/    # environnement Alembic et révisions du schéma (versions/)

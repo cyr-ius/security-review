@@ -37,6 +37,7 @@ commands:
   db           migrate the schema (upgrade), show its revision (status), purge reports (prune)
   token        manage the bearer tokens and the enrollment requests
   user         manage the web users (username and password login)
+  audit        read or purge the audit log (triage decisions, tokens, enrollments)
   rules        manage the internal rules and checklists
   advisories   import, download or inspect the OSV advisory database
   gate         fail a pipeline when open findings reach a severity threshold
@@ -90,8 +91,12 @@ def serve(argv: list[str]) -> None:
     updater = advisory_sync.AdvisoryUpdater(settings) if settings.osv_auto_update else None
     if updater:
         updater.start()
-    days = settings.empty_report_retention_days
-    pruner = retention.ReportPruner(days) if days else None
+    days, audit_days = settings.empty_report_retention_days, settings.audit_retention_days
+    pruner = (
+        retention.ReportPruner(days, audit_retention_days=audit_days)
+        if days or audit_days
+        else None
+    )
     if pruner:
         pruner.start()
     try:

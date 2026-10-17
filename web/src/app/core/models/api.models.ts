@@ -134,6 +134,65 @@ export interface ProjectToken {
   pending_projects: string[];
   status: 'active' | 'pending';
   created_at: string;
+  /** Expiry date; null: the token never expires. */
+  expires_at: string | null;
+  /** True once the expiry date is past: the token authenticates nothing. */
+  expired: boolean;
+  /** Date of the latest rotation (new secret), or null. */
+  rotated_at: string | null;
+  /** End of the grace period of the previous secret after a rotation, or null. */
+  grace_until: string | null;
+}
+
+/** Kind of an audit event. */
+export type AuditAction =
+  | 'finding.status_changed'
+  | 'finding.status_proposed'
+  | 'finding.proposal_rejected'
+  | 'token.created'
+  | 'token.rotated'
+  | 'token.revoked'
+  | 'enrollment.requested'
+  | 'enrollment.approved'
+  | 'enrollment.rejected';
+
+export const AUDIT_ACTIONS: readonly AuditAction[] = [
+  'finding.status_changed',
+  'finding.status_proposed',
+  'finding.proposal_rejected',
+  'token.created',
+  'token.rotated',
+  'token.revoked',
+  'enrollment.requested',
+  'enrollment.approved',
+  'enrollment.rejected',
+];
+
+/** One entry of the audit log (details never hold a secret). */
+export interface AuditEvent {
+  id: number;
+  created_at: string;
+  action: AuditAction;
+  /** user:NAME, token:LABEL, cli, anonymous or stdio. */
+  actor: string;
+  target_type: string;
+  target_id: string | null;
+  project: string | null;
+  details: Record<string, unknown>;
+}
+
+/** One page of the audit log (total counts every matching event). */
+export interface AuditPage {
+  total: number;
+  events: AuditEvent[];
+}
+
+/** Filters of the audit log. */
+export interface AuditQuery {
+  action?: AuditAction | null;
+  project?: string | null;
+  limit: number;
+  offset: number;
 }
 
 /** A project token requested by a client (enrollment), waiting for an administrator. */

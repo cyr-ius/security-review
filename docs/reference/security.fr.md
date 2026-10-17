@@ -22,8 +22,27 @@
   l'opérateur, signé par une
   [autorité de certification](../getting-started/http.md#autorite-de-certification). Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
-  (`mcp`, `reader`, `triager`, `admin`, `ci`) ; un jeton `mcp` sans projet accède à tous les
-  outils MCP et à tous les projets.
+  (`mcp`, `reader`, `triager`, `admin`, `ci`, `metrics`) ; un jeton `mcp` sans projet accède à
+  tous les outils MCP et à tous les projets.
+- **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`),
+  et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons
+  expirés comptent toujours comme configurés : un serveur dont tous les jetons ont expiré reste
+  fermé. Un renouvellement n'enregistre que l'empreinte du nouveau secret ; l'empreinte
+  précédente est conservée pendant le délai de grâce (168 heures au plus), comparée en temps
+  constant comme l'actuelle, et l'ancien secret d'un jeton expiré ne revient jamais (voir
+  [expiration et renouvellement](../getting-started/http.md#expiration-et-renouvellement-des-jetons)).
+- **Journal d'audit** : les décisions de triage, les propositions des agents, les créations,
+  renouvellements et révocations de jetons, les demandes et décisions d'enrôlement sont écrits
+  dans la même transaction que le changement, avec leur acteur (`user:`, `token:`, `cli`,
+  `anonymous`). Les détails sont bornés et masqués, et ne contiennent jamais de jeton ni de mot
+  de passe ; aucun outil ni aucune route ne modifie un événement, seule la purge de
+  `SECREVIEW_AUDIT_RETENTION_DAYS` les supprime (voir
+  [journal d'audit](../usage/audit-metrics.md#journal-daudit)).
+- **Métriques** : `/metrics` n'existe que sur le contrôleur (le serveur MCP garde `/mcp`,
+  `/api/v1/enroll` et `/healthz`), derrière un jeton `metrics` ou `admin` ; un jeton `metrics`
+  n'atteint rien d'autre. La réponse contient des nombres et des noms de projets, jamais un
+  finding, un label de jeton ou un secret, et chaque valeur de label est échappée (voir
+  [métriques Prometheus](../usage/audit-metrics.md#metriques-prometheus)).
 - **Jetons de pipeline** (`ci`) : toujours restreints à des projets (un jeton `ci` sans projet
   ne peut pas être créé, et un jeton trouvé sans projet n'en atteint aucun). Il ne lit que le
   gate, le journal SARIF et la tendance de ses projets ; les autres routes du contrôleur, `/mcp`

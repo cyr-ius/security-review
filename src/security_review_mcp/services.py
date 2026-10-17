@@ -10,6 +10,7 @@ from sqlalchemy import ColumnElement, and_, case, func, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
+from . import audit
 from .config import MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
 from .models import (
@@ -301,13 +302,15 @@ def update_finding_status(
     approver: str,
     reason: str | None = None,
     expires_at: datetime | None = None,
+    actor: str | None = None,
 ) -> FindingPublic:
     """Record a triage decision made by a person (web interface), never by an agent.
 
     ``accepted`` and ``false_positive`` need a reason and an expiry date, in the future and at
     most SECREVIEW_MAX_DISMISSAL_DAYS days away: once expired, the finding counts as open again.
     ``fixed`` takes an optional reason; ``open`` clears the decision. Any decision clears the
-    status proposed by an agent.
+    status proposed by an agent. The decision is written to the audit log (``actor``, default
+    the approver).
 
     Raises:
         NotFoundError: If the finding does not exist.
@@ -336,8 +339,10 @@ def update_finding_status(
         finding = session.get(Finding, finding_id)
         if finding is None:
             raise NotFoundError(f"Finding {finding_id} not found")
-        if effective_status(finding.status, finding.status_expires_at, now) != status:
+        previous = effective_status(finding.status, finding.status_expires_at, now)
+        if previous != status:
             finding.status_changed_at = now
+        proposal = finding.proposed_status
         finding.status = status
         reopened = status == FindingStatus.OPEN
         finding.status_reason = reason
@@ -348,18 +353,38 @@ def update_finding_status(
         finding.proposed_by = None
         finding.proposed_at = None
         session.add(finding)
+        audit.record(
+            session,
+            audit.AuditAction.FINDING_STATUS_CHANGED,
+            actor or approver,
+            "finding",
+            finding_id,
+            finding.report.project,
+            {
+                "previous_status": FindingStatus(previous).value,
+                "status": status.value,
+                "reason": reason,
+                "expires_at": expires_at.isoformat() if expires_at else None,
+                "proposal": FindingStatus(proposal).value if proposal else None,
+            },
+        )
         session.flush()
         logger.info("Finding %s set to %s", finding_id, status)
         return FindingPublic.model_validate(finding, from_attributes=True)
 
 
 def propose_finding_status(
-    finding_id: int, status: FindingStatus, reason: str, proposed_by: str
+    finding_id: int,
+    status: FindingStatus,
+    reason: str,
+    proposed_by: str,
+    actor: str | None = None,
 ) -> FindingPublic:
     """Store the status an agent proposes for a finding, without applying it.
 
     The status, the gate and the posture do not change: a triager decides in the web
-    interface. A new proposal replaces the previous one.
+    interface. A new proposal replaces the previous one. It is written to the audit log
+    (``actor``, default the token ``proposed_by``).
 
     Raises:
         NotFoundError: If the finding does not exist.
@@ -378,13 +403,24 @@ def propose_finding_status(
         finding.proposed_by = (proposed_by.strip() or "unknown")[:200]
         finding.proposed_at = utcnow()
         session.add(finding)
+        audit.record(
+            session,
+            audit.AuditAction.FINDING_STATUS_PROPOSED,
+            actor or audit.token_actor(finding.proposed_by),
+            "finding",
+            finding_id,
+            finding.report.project,
+            {"status": status.value, "reason": checked},
+        )
         session.flush()
         logger.info("Status %s proposed for finding %s", status, finding_id)
         return FindingPublic.model_validate(finding, from_attributes=True)
 
 
-def clear_finding_proposal(finding_id: int) -> FindingPublic:
+def clear_finding_proposal(finding_id: int, actor: str | None = None) -> FindingPublic:
     """Reject the status proposed by an agent for a finding (the status does not change).
+
+    The rejection is written to the audit log when a proposal existed.
 
     Raises:
         NotFoundError: If the finding does not exist.
@@ -393,6 +429,19 @@ def clear_finding_proposal(finding_id: int) -> FindingPublic:
         finding = session.get(Finding, finding_id)
         if finding is None:
             raise NotFoundError(f"Finding {finding_id} not found")
+        if finding.proposed_status is not None:
+            audit.record(
+                session,
+                audit.AuditAction.FINDING_PROPOSAL_REJECTED,
+                actor,
+                "finding",
+                finding_id,
+                finding.report.project,
+                {
+                    "status": FindingStatus(finding.proposed_status).value,
+                    "proposed_by": finding.proposed_by,
+                },
+            )
         finding.proposed_status = None
         finding.proposed_reason = None
         finding.proposed_by = None
@@ -401,6 +450,25 @@ def clear_finding_proposal(finding_id: int) -> FindingPublic:
         session.flush()
         logger.info("Proposal rejected for finding %s", finding_id)
         return FindingPublic.model_validate(finding, from_attributes=True)
+
+
+def finding_status_counts() -> dict[str, int]:
+    """Count the findings by effective status (an expired dismissal counts as ``open``), plus
+    ``proposed``: the findings with an agent proposal waiting for a person."""
+    now = utcnow()
+    with session_scope() as session:
+        counts = {
+            status.value: session.exec(
+                select(func.count()).select_from(Finding).where(_status_is(status, now))
+            ).one()
+            for status in FindingStatus
+        }
+        counts["proposed"] = session.exec(
+            select(func.count())
+            .select_from(Finding)
+            .where(col(Finding.proposed_status).is_not(None))
+        ).one()
+    return counts
 
 
 def list_projects() -> list[dict]:

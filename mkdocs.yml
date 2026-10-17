@@ -78,6 +78,7 @@ plugins:
             Internal rules: Règles internes
             Development standards: Normes de développement
             Web interface: Interface web
+            Audit log and metrics: Journal d'audit et métriques
             SARIF export: Export SARIF
             Trend report: Rapport de tendance
             Reference: Référence
@@ -117,6 +118,7 @@ nav:
       - Internal rules: usage/rules.md
       - Development standards: usage/standards.md
       - Web interface: usage/web-interface.md
+      - Audit log and metrics: usage/audit-metrics.md
   - CI/CD:
       - Gate: ci-cd/gate.md
       - SARIF export: ci-cd/sarif.md

@@ -90,7 +90,9 @@ src/security_review_mcp/
 ├── http_server.py # HTTP of both processes: Bearer tokens and roles, TLS, /healthz, uvicorn
 ├── oidc.py        # OpenID Connect SSO login to the web interface (controller)
 ├── role_mapping.py # OIDC role mapping: provider groups → web role and projects
-├── token_store.py # Bearer tokens in the database: creation, revocation, enrollment
+├── token_store.py # Bearer tokens in the database: creation, expiry, rotation, revocation, enrollment
+├── audit.py       # audit log: events of triage decisions, proposals, tokens and enrollments
+├── metrics.py     # Prometheus metrics of the controller (/metrics)
 ├── web_users.py   # web interface accounts, local (scrypt) or SSO (created on the fly), sessions, initial admin
 ├── enrollment.py  # `enroll` client: token request to a shared server
 ├── remote_scan.py # `scan-deps` client: dependency scan with a shared server
@@ -105,7 +107,7 @@ src/security_review_mcp/
 ├── rules_loader.py    # rule validation, reading of the TOML packs and of the default file
 ├── rule_store.py  # rules in the database: seeding, import/export, enabling, deletion
 ├── registry.py    # active rules/checklists (read from the database), reload
-├── cli.py         # db, gate, sarif, trend, advisories, deps, code, rules, token, enroll, scan-deps commands
+├── cli.py         # db, gate, sarif, trend, advisories, deps, code, rules, token, audit, enroll, scan-deps commands
 ├── codescan.py    # whole codebase scan (file list, language, findings)
 ├── sarif.py       # SARIF 2.1.0 export
 ├── trends.py      # trend report
@@ -117,7 +119,7 @@ src/security_review_mcp/
 ├── dependencies.py    # manifest / lockfile parsers, hygiene
 ├── depscan.py     # dependency scan and conversion into findings
 ├── services.py    # persistence logic of the reports
-├── retention.py   # daily purge of the reports without findings by the controller
+├── retention.py   # daily purge of the reports without findings and of the old audit events
 ├── models.py      # SQLModel models (tables + schemas)
 ├── database.py    # engine, sessions and migrations (Alembic)
 ├── migrations/    # Alembic environment and schema revisions (versions/)

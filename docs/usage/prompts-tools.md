@@ -148,7 +148,8 @@ its own findings and unblock the [gate](../ci-cd/gate.md).
 
 - `propose_finding_status` stores a **proposal** (`fixed`, `accepted` or `false_positive`) with
   the agent's reason (10 to 1000 characters, secrets masked) and the label of its token. The
-  status, the posture and the gate do not change. A new proposal replaces the previous one.
+  status, the posture and the gate do not change. A new proposal replaces the previous one. It
+  is written to the [audit log](audit-metrics.md#audit-log), like the decision that follows.
 - A person with the `triager` or `admin` role applies or rejects it in the
   [web interface](web-interface.md#triage-of-findings). `accepted` and `false_positive` need a
   reason, an approver (the logged-in user) and an expiry date; from that date the finding counts

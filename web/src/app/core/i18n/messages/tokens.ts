@@ -72,6 +72,29 @@ export const tokens = defineMessages({
     'tokens.labelConflict': 'A token already has this label.',
     'tokens.notConfigured': 'The storage of project tokens is not configured.',
     'tokens.failed': 'The management of the tokens failed.',
+    'tokens.validity': 'Validity',
+    'tokens.validityDefault': 'Server default',
+    'tokens.validityDays': '{days} days',
+    'tokens.expiresAt': 'Expires on',
+    'tokens.never': 'Never',
+    'tokens.expired': 'Expired',
+    'tokens.rotatedAt': 'Rotated on {date}',
+    'tokens.graceUntil': 'Previous secret valid until {date}',
+    'tokens.grace': 'Grace period of a rotation',
+    'tokens.graceNone': 'None',
+    'tokens.graceHours': '{hours} h',
+    'tokens.rotateHelp':
+      'Rotating a token replaces its secret: its clients must use the new one. During the grace period, the previous secret keeps working. An expired token authenticates nothing until it is rotated.',
+    'tokens.rotate': 'Rotate',
+    'tokens.rotateToken': 'Rotate token {label}',
+    'tokens.confirmRotate':
+      'Replace the secret of token “{label}”? The current secret stops working at once.',
+    'tokens.confirmRotateGrace':
+      'Replace the secret of token “{label}”? The current secret keeps working for {hours} h.',
+    'tokens.rotated': 'Token “{label}” rotated: copy its new secret.',
+    'tokens.rotatedGrace':
+      'Token “{label}” rotated: copy its new secret. The previous one works for {hours} h more.',
+    'tokens.refusedDetail': 'Refused: {detail}',
   },
   fr: {
     'tokens.title': 'Jetons de projet',
@@ -143,6 +166,29 @@ export const tokens = defineMessages({
     'tokens.labelConflict': 'Un jeton porte déjà ce label.',
     'tokens.notConfigured': "Le stockage des jetons projet n'est pas configuré.",
     'tokens.failed': 'La gestion des jetons a échoué.',
+    'tokens.validity': 'Validité',
+    'tokens.validityDefault': 'Défaut du serveur',
+    'tokens.validityDays': '{days} jours',
+    'tokens.expiresAt': 'Expire le',
+    'tokens.never': 'Jamais',
+    'tokens.expired': 'Expiré',
+    'tokens.rotatedAt': 'Renouvelé le {date}',
+    'tokens.graceUntil': 'Ancien secret valide jusqu’au {date}',
+    'tokens.grace': 'Délai de grâce d’un renouvellement',
+    'tokens.graceNone': 'Aucun',
+    'tokens.graceHours': '{hours} h',
+    'tokens.rotateHelp':
+      'Renouveler un jeton remplace son secret : ses clients doivent utiliser le nouveau. Pendant le délai de grâce, l’ancien secret reste valable. Un jeton expiré n’authentifie plus rien tant qu’il n’est pas renouvelé.',
+    'tokens.rotate': 'Renouveler',
+    'tokens.rotateToken': 'Renouveler le jeton {label}',
+    'tokens.confirmRotate':
+      'Remplacer le secret du jeton « {label} » ? Le secret actuel cesse de fonctionner immédiatement.',
+    'tokens.confirmRotateGrace':
+      'Remplacer le secret du jeton « {label} » ? Le secret actuel reste valable {hours} h.',
+    'tokens.rotated': 'Jeton « {label} » renouvelé : copiez son nouveau secret.',
+    'tokens.rotatedGrace':
+      'Jeton « {label} » renouvelé : copiez son nouveau secret. L’ancien reste valable {hours} h.',
+    'tokens.refusedDetail': 'Refusé : {detail}',
   },
   es: {
     'tokens.title': 'Tokens de proyecto',
@@ -214,5 +260,28 @@ export const tokens = defineMessages({
     'tokens.labelConflict': 'Ya existe un token con esta etiqueta.',
     'tokens.notConfigured': 'El almacenamiento de los tokens de proyecto no está configurado.',
     'tokens.failed': 'La gestión de los tokens ha fallado.',
+    'tokens.validity': 'Validez',
+    'tokens.validityDefault': 'Predeterminada del servidor',
+    'tokens.validityDays': '{days} días',
+    'tokens.expiresAt': 'Caduca el',
+    'tokens.never': 'Nunca',
+    'tokens.expired': 'Caducado',
+    'tokens.rotatedAt': 'Renovado el {date}',
+    'tokens.graceUntil': 'Secreto anterior válido hasta el {date}',
+    'tokens.grace': 'Periodo de gracia de una renovación',
+    'tokens.graceNone': 'Ninguno',
+    'tokens.graceHours': '{hours} h',
+    'tokens.rotateHelp':
+      'Renovar un token sustituye su secreto: sus clientes deben usar el nuevo. Durante el periodo de gracia, el secreto anterior sigue funcionando. Un token caducado no autentica nada hasta que se renueva.',
+    'tokens.rotate': 'Renovar',
+    'tokens.rotateToken': 'Renovar el token {label}',
+    'tokens.confirmRotate':
+      '¿Sustituir el secreto del token «{label}»? El secreto actual deja de funcionar de inmediato.',
+    'tokens.confirmRotateGrace':
+      '¿Sustituir el secreto del token «{label}»? El secreto actual sigue funcionando {hours} h.',
+    'tokens.rotated': 'Token «{label}» renovado: copie su nuevo secreto.',
+    'tokens.rotatedGrace':
+      'Token «{label}» renovado: copie su nuevo secreto. El anterior funciona {hours} h más.',
+    'tokens.refusedDetail': 'Rechazado: {detail}',
   },
 });
