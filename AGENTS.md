@@ -162,6 +162,11 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
   imbriqués) ; `rules_loader` les valide pour les règles internes.
 - Jetons Bearer : seules les empreintes SHA-256 sont conservées, comparaison en temps constant.
+- **Un agent ne ferme jamais un finding** : aucun outil MCP ne change un statut
+  (`propose_finding_status` enregistre seulement une proposition). `accepted` et
+  `false_positive` sont décidés par une personne connectée à l'interface (session, jamais un
+  jeton Bearer), avec motif, approbateur et date d'expiration ; une décision expirée compte comme
+  ouverte (gate, posture, SARIF, tendances).
 
 ### Paramètres
 
@@ -224,8 +229,9 @@ une PR, quelle que soit la taille du changement :
 3. Enregistrez le résultat **une seule fois** avec `save_security_report` (`project` :
    `security-review-mcp`, plus `branch` et `commit_sha` quand ils sont connus).
 4. Corrigez les findings `critical` et `high` avant de terminer, avec un test qui couvre la
-   correction. Pour les autres, corrigez-les ou justifiez-les, et mettez leur statut à jour avec
-   `update_finding_status` (`fixed`, `accepted`, `false_positive`).
+   correction. Pour les autres, corrigez-les ou justifiez-les, et proposez leur statut avec
+   `propose_finding_status` (`fixed`, `accepted`, `false_positive`, avec le motif) : un agent ne
+   change jamais un statut, c'est une personne qui valide la proposition dans l'interface web.
 5. Résumez la revue (identifiant du rapport, findings et suite donnée) dans votre réponse et dans
    la description de PR.
 

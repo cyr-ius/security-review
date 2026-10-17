@@ -1,6 +1,7 @@
 """Web interface: REST API, permissions and static files."""
 
 import logging
+from datetime import UTC, date, datetime, timedelta
 
 import jwt
 import pytest
@@ -25,7 +26,14 @@ from security_review_mcp import (
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
-from security_review_mcp.models import ApiToken, FindingCreate, ReviewType, Severity
+from security_review_mcp.models import (
+    ApiToken,
+    Finding,
+    FindingCreate,
+    FindingStatus,
+    ReviewType,
+    Severity,
+)
 
 # Raw secret of one token per role, created in the database by the ``secured`` fixture
 TOKENS: dict[str, str] = {}
@@ -219,12 +227,32 @@ def test_project_findings(client, reports):
     assert "report_created_at" in page["findings"][0]
 
     first = page["findings"][0]["id"]
-    client.patch(f"/api/v1/findings/{first}", json={"status": "false_positive"})
+    services.update_finding_status(
+        first,
+        FindingStatus.FALSE_POSITIVE,
+        "alice",
+        "Dead code, never called",
+        datetime.now(UTC) + timedelta(days=30),
+    )
     assert client.get("/api/v1/findings", params={"project": "shop-api"}).json()["total"] == 1
     dismissed = client.get(
         "/api/v1/findings", params={"project": "shop-api", "status": "false_positive"}
     ).json()
     assert [f["id"] for f in dismissed["findings"]] == [first]
+
+    # Once expired, the false positive is listed with the open findings again
+    with session_scope() as session:
+        stored = session.get(Finding, first)
+        stored.status_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        session.add(stored)
+    reopened = client.get("/api/v1/findings", params={"project": "shop-api"}).json()
+    assert reopened["total"] == 2
+    assert reopened["findings"][0]["status"] == "open"
+    assert reopened["findings"][0]["status_reason"] == "Dead code, never called"
+    dismissed = client.get(
+        "/api/v1/findings", params={"project": "shop-api", "status": "false_positive"}
+    ).json()
+    assert dismissed["total"] == 0
     assert client.get("/api/v1/findings").status_code == 422
     assert (
         client.get("/api/v1/findings", params={"project": "shop-api", "status": "x"}).status_code
@@ -266,9 +294,18 @@ def test_findings_and_reports_show_and_filter_the_review_type(client):
 
 def test_update_finding_status(client, reports):
     finding = client.get(f"/api/v1/reports/{reports[0]}").json()["findings"][0]
-    response = client.patch(f"/api/v1/findings/{finding['id']}", json={"status": "accepted"})
+    response = client.patch(
+        f"/api/v1/findings/{finding['id']}",
+        json={"status": "fixed", "reason": "Query parameters are bound"},
+    )
     assert response.status_code == 200
-    assert response.json()["status"] == "accepted"
+    body = response.json()
+    assert (body["status"], body["status_approver"], body["status_expires_at"]) == (
+        "fixed",
+        "test-admin",
+        None,
+    )
+    assert body["status_reason"] == "Query parameters are bound"
     assert client.patch("/api/v1/findings/1", json={"status": "bogus"}).status_code == 422
     assert client.patch("/api/v1/findings/999", json={"status": "fixed"}).status_code == 404
 
@@ -458,12 +495,25 @@ def test_reader_can_read_but_not_triage(secured, reports):
     assert response.status_code == 403
 
 
-def test_triager_can_change_status(secured, reports):
+def test_triager_token_can_fix_but_never_dismiss(secured, reports):
+    """A bearer token (an agent may hold one) cannot accept a risk or mark a false positive."""
+    expires_on = (date.today() + timedelta(days=30)).isoformat()
+    for dismissal in ("false_positive", "accepted"):
+        body = {
+            "status": dismissal,
+            "reason": "Not reachable from outside",
+            "expires_on": expires_on,
+        }
+        for role in ("triager", "admin"):
+            response = secured.patch("/api/v1/findings/1", json=body, headers=auth(role))
+            assert response.status_code == 403, (dismissal, role)
+            assert "logged in to the web interface" in response.json()["detail"]
+
     response = secured.patch(
-        "/api/v1/findings/1", json={"status": "false_positive"}, headers=auth("triager")
+        "/api/v1/findings/1", json={"status": "fixed"}, headers=auth("triager")
     )
     assert response.status_code == 200
-    assert response.json()["status"] == "false_positive"
+    assert (response.json()["status"], response.json()["status_approver"]) == ("fixed", "triager")
 
 
 def test_mcp_token_cannot_use_the_api(secured):
@@ -1178,7 +1228,7 @@ def test_project_triager_only_changes_findings_of_its_project(secured, mcp_serve
     headers = {"Authorization": f"Bearer {token}"}
 
     response = secured.patch(
-        f"/api/v1/findings/{billing_finding}", json={"status": "accepted"}, headers=headers
+        f"/api/v1/findings/{billing_finding}", json={"status": "fixed"}, headers=headers
     )
     assert response.status_code == 404
     assert services.get_report(billing["report_id"]).findings[0].status == "open"
@@ -1344,6 +1394,74 @@ def session_headers(client: TestClient, username: str, password: str = USER_PASS
     response = login(client, username, password)
     assert response.status_code == 200, response.text
     return {"Authorization": f"Bearer {response.json()['session']}"}
+
+
+def test_web_user_accepts_a_risk_with_a_reason_and_an_expiry(accounts, reports):
+    web_users.create_user("tess", USER_PASSWORD, "triager")
+    headers = session_headers(accounts, "tess")
+    finding_id = services.get_report(reports[0]).findings[0].id
+    url = f"/api/v1/findings/{finding_id}"
+    services.propose_finding_status(finding_id, FindingStatus.ACCEPTED, "Internal tool only", "ci")
+    in_30_days = (date.today() + timedelta(days=30)).isoformat()
+
+    for body in (
+        {"status": "accepted", "expires_on": in_30_days},  # no reason
+        {"status": "accepted", "reason": "ok", "expires_on": in_30_days},  # reason too short
+        {"status": "false_positive", "reason": "Dead code, never called"},  # no expiry
+        {"status": "accepted", "reason": "Internal tool only", "expires_on": "2020-01-01"},
+        {
+            "status": "accepted",
+            "reason": "Internal tool only",
+            "expires_on": (date.today() + timedelta(days=400)).isoformat(),
+        },
+        {"status": "fixed", "reason": "Query is bound", "expires_on": in_30_days},
+    ):
+        assert accounts.patch(url, json=body, headers=headers).status_code == 422, body
+    assert services.get_report(reports[0]).findings[0].proposed_status == "accepted"
+
+    body = {"status": "accepted", "reason": "Internal tool only", "expires_on": in_30_days}
+    saved = accounts.patch(url, json=body, headers=headers).json()
+    assert (saved["status"], saved["status_approver"], saved["status_reason"]) == (
+        "accepted",
+        "tess",
+        "Internal tool only",
+    )
+    assert saved["status_expires_at"].startswith(in_30_days)
+    assert saved["proposed_status"] is None  # the decision clears the agent proposal
+
+    reopened = accounts.patch(url, json={"status": "open"}, headers=headers).json()
+    assert (reopened["status"], reopened["status_reason"], reopened["status_approver"]) == (
+        "open",
+        None,
+        None,
+    )
+
+
+def test_reader_session_cannot_dismiss(accounts, reports):
+    web_users.create_user("rita", USER_PASSWORD, "reader")
+    body = {
+        "status": "false_positive",
+        "reason": "Dead code, never called",
+        "expires_on": (date.today() + timedelta(days=30)).isoformat(),
+    }
+    response = accounts.patch(
+        "/api/v1/findings/1", json=body, headers=session_headers(accounts, "rita")
+    )
+    assert response.status_code == 403
+
+
+def test_triager_rejects_an_agent_proposal(secured, reports):
+    finding_id = services.get_report(reports[0]).findings[0].id
+    services.propose_finding_status(finding_id, FindingStatus.FIXED, "The query is bound", "ci")
+    url = f"/api/v1/findings/{finding_id}/proposal"
+
+    assert secured.delete(url, headers=auth("reader")).status_code == 403
+    response = secured.delete(url, headers=auth("triager"))
+    assert response.status_code == 200
+    assert (response.json()["status"], response.json()["proposed_status"]) == ("open", None)
+    assert (
+        secured.delete("/api/v1/findings/999/proposal", headers=auth("triager")).status_code == 404
+    )
 
 
 def test_password_login_opens_a_session(accounts, caplog):

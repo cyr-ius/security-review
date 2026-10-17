@@ -15,7 +15,7 @@ The produced file is SARIF 2.1.0 (validated against the official schema).
 
 - Only **open** findings are exported; `--include-resolved` adds the others
   (`baselineState: absent` for the fixed ones, `suppressions` for the accepted / false
-  positives).
+  positives). An expired acceptance or false positive is exported as open.
 - For a project, a finding reported in several reports appears only once.
 - The fingerprint (`partialFingerprints`) ignores the line number: it stays stable when the
   code moves.

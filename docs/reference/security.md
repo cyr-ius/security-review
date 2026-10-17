@@ -72,7 +72,14 @@
 - **Web interface** (controller): the REST API always requires a session or a token with a web
   role; without a user or a token, it answers `503` instead of granting anonymous rights. Only
   `triager` and `admin` change the status of a finding (action logged with the label of the
-  token). Pages are served with a strict CSP and the anti-clickjacking headers; the token is
+  token), and only a person logged in to the interface (session) accepts a risk or marks a false
+  positive: a bearer token is refused (`403`), even `admin`. These two decisions need a reason
+  and an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the
+  logged-in user, and the finding counts as open again once the date has passed.
+- **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
+  stores a proposal (reason masked and bounded, author taken from the token) without changing
+  the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a
+  finding. Pages are served with a strict CSP and the anti-clickjacking headers; the token is
   kept in the `sessionStorage` of the tab. The Swagger documentation and its OpenAPI schema
   are public, but the data routes stay protected. The check is made twice: by the Bearer
   middleware, then by every route of the API, which refuses (`401`) any request without an

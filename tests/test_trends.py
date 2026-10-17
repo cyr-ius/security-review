@@ -118,7 +118,7 @@ def test_unknown_project_has_a_note():
     assert any("No report" in note for note in trend["notes"])
 
 
-def test_database_round_trip_and_markdown():
+def test_database_round_trip_and_markdown(triage):
     finding = FindingCreate(title="Issue", severity=Severity.HIGH, description="Something wrong")
     saved = services.save_report("shop", "summary", [finding])
     fixed_id = services.get_report(saved["report_id"]).findings[0].id
@@ -128,7 +128,7 @@ def test_database_round_trip_and_markdown():
         report = session.get(SecurityReport, saved["report_id"])
         report.created_at = datetime.now(UTC) - timedelta(days=10)
         session.add(report)
-    services.update_finding_status(fixed_id, FindingStatus.FIXED)
+    triage(fixed_id, FindingStatus.FIXED)
     with session_scope() as session:
         row = session.get(Finding, fixed_id)
         assert row.status_changed_at is not None  # stamped by update_finding_status
@@ -143,12 +143,23 @@ def test_database_round_trip_and_markdown():
     assert "| Period |" in markdown and "Time to remediate" in markdown
 
 
-def test_reopening_does_not_restamp_without_a_change():
+def test_reopening_does_not_restamp_without_a_change(triage):
     saved = services.save_report(
         "shop", "summary", [FindingCreate(title="Issue", severity=Severity.LOW, description="Text")]
     )
     finding_id = services.get_report(saved["report_id"]).findings[0].id
-    first = services.update_finding_status(finding_id, FindingStatus.OPEN)
+    first = triage(finding_id, FindingStatus.OPEN)
     assert first.status_changed_at is None  # no change, no stamp
-    changed = services.update_finding_status(finding_id, FindingStatus.FIXED)
+    changed = triage(finding_id, FindingStatus.FIXED)
     assert changed.status_changed_at is not None
+
+
+def test_an_expired_acceptance_counts_as_open():
+    expired = TrendFinding(
+        Severity.HIGH, FindingStatus.ACCEPTED, None, at(9, 1), at(9, 2), at(10, 1)
+    )
+    valid = TrendFinding(
+        Severity.HIGH, FindingStatus.FALSE_POSITIVE, None, at(9, 1), at(9, 2), at(12, 1)
+    )
+    trend = trends.compute_trend([expired, valid], [], "shop", now=NOW)
+    assert trend["summary"]["open_now_total"] == 1

@@ -7,7 +7,7 @@ import {
   AuthConfig,
   AuthSource,
   Finding,
-  FindingStatus,
+  FindingDecision,
   ChecklistCatalog,
   ChecklistItemWrite,
   ChecklistReloadResult,
@@ -274,8 +274,14 @@ export class ApiService {
     return this.http.get<ProjectFindingPage>(`${API_URL}/findings`, { params });
   }
 
-  updateFindingStatus(id: number, status: FindingStatus): Observable<Finding> {
-    return this.http.patch<Finding>(`${API_URL}/findings/${id}`, { status });
+  /** Record a triage decision (accepted and false_positive need a reason and an expiry). */
+  updateFindingStatus(id: number, decision: FindingDecision): Observable<Finding> {
+    return this.http.patch<Finding>(`${API_URL}/findings/${id}`, decision);
+  }
+
+  /** Reject the status proposed by an agent (the status does not change). */
+  rejectFindingProposal(id: number): Observable<Finding> {
+    return this.http.delete<Finding>(`${API_URL}/findings/${id}/proposal`);
   }
 
   /** Download the Markdown version of a report. */

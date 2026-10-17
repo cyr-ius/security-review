@@ -73,7 +73,7 @@ security-review-controller token create --label shop-triage --role triager --pro
 A token without `--project` reaches every project. A restricted token:
 
 - only saves reports (`save_security_report`) for its project;
-- only reads, lists, exports and triages (`update_finding_status`, `PATCH` of the web API) the
+- only reads, lists, exports and triages (`propose_finding_status`, `PATCH` of the web API) the
   reports and findings of its project; `list_security_reports` without a filter only returns
   those;
 - gets, for any other project, report or finding, the same "not found" error as for a missing

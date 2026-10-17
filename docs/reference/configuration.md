@@ -52,6 +52,7 @@ or both.
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Controller | Maximum size of a downloaded archive |
 | `SECREVIEW_REPORT_LANGUAGE` | — | MCP | [Report language](../usage/prompts-tools.md#report-language) asked by the review prompts (`French`, `fr`...) when the `report_language` argument is missing and no language is chosen in the [Settings](../usage/web-interface.md#screens) screen; empty: the agent chooses |
 | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Controller | Age in days beyond which `serve` deletes the [reports without findings](#retention-of-reports-without-findings); `0` keeps every report |
+| `SECREVIEW_MAX_DISMISSAL_DAYS` | `365` | Controller | Longest validity in days of an `accepted` or `false_positive` [decision](../usage/web-interface.md#triage-of-findings): its expiry date may not be later |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | both | Logging level (on stderr) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | MCP | Maximum size of the content passed to `scan_code` |
 | `SECREVIEW_MAX_FINDINGS_PER_REPORT` | `500` | both | Maximum number of findings per report |

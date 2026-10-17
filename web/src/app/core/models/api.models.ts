@@ -297,6 +297,15 @@ export interface Finding {
   severity: Severity;
   status: FindingStatus;
   status_changed_at: string | null;
+  /** Triage decision, made by a person: reason, approver and end of an acceptance. */
+  status_reason: string | null;
+  status_approver: string | null;
+  status_expires_at: string | null;
+  /** Status proposed by an agent, never applied until a triager approves it. */
+  proposed_status: FindingStatus | null;
+  proposed_reason: string | null;
+  proposed_by: string | null;
+  proposed_at: string | null;
   rule_id: string | null;
   category: string;
   cwe: string | null;
@@ -307,6 +316,17 @@ export interface Finding {
   description: string;
   evidence: string | null;
   recommendation: string | null;
+}
+
+/** Statuses that need a reason and an expiry date, decided by a person only. */
+export const DISMISSED_STATUSES: readonly FindingStatus[] = ['accepted', 'false_positive'];
+
+/** Body of PATCH /api/v1/findings/{id}: a triage decision. */
+export interface FindingDecision {
+  status: FindingStatus;
+  reason?: string;
+  /** YYYY-MM-DD: the finding counts as open again from that day. */
+  expires_on?: string;
 }
 
 /** A finding of GET /api/v1/findings, with the context of its report. */

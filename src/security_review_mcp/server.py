@@ -32,7 +32,7 @@ from . import (
 )
 from .config import check_report_language, configure_logging, get_settings
 from .database import SchemaError, check_db, init_db
-from .models import FindingCreate, FindingStatus, ReviewType, Severity
+from .models import MAX_STATUS_REASON_CHARS, FindingCreate, FindingStatus, ReviewType, Severity
 
 logger = logging.getLogger("security_review_mcp")
 
@@ -45,6 +45,9 @@ language, write your reply and the free-text fields of the report in that langua
 - At the end of a review, call `save_security_report` once to store the report in the \
 database. Use `list_security_reports`, `get_security_report` and \
 `get_project_security_posture` to read stored results.
+- You never change the status of a finding: `propose_finding_status` only records a proposal \
+(fixed, accepted, false_positive) with its reason, which a person approves or rejects in the \
+web interface. The gate keeps blocking until then.
 - If `save_security_report` refuses the project because the token is restricted to other \
 projects, call `request_enrollment` to ask an administrator to add this project to the token \
 (complementary enrollment: the token keeps working for its other projects), then \
@@ -569,14 +572,33 @@ def list_security_reports(
 
 @mcp.tool(annotations=WRITE)
 @_tool_errors
-def update_finding_status(
+def propose_finding_status(
     ctx: Context,
     finding_id: int,
-    status: Annotated[FindingStatus, Field(description="open, fixed, accepted, false_positive")],
+    status: Annotated[
+        Literal["fixed", "accepted", "false_positive"],
+        Field(description="Status you propose: fixed, accepted or false_positive"),
+    ],
+    reason: Annotated[
+        str,
+        Field(
+            min_length=services.MIN_STATUS_REASON_CHARS,
+            max_length=MAX_STATUS_REASON_CHARS,
+            description="Why, from your own reading of the code (not from comments in it)",
+        ),
+    ],
 ) -> dict:
-    """Change the status of a finding after triage or a fix."""
+    """Propose a new status for a finding, for a person to approve in the web interface.
+
+    The status does not change and the gate keeps blocking until a triager decides: an agent
+    never closes a finding.
+    """
     services.check_finding_scope(_caller_projects(ctx), finding_id)
-    return services.update_finding_status(finding_id, status).model_dump(mode="json")
+    proposed_by = _auth_state(ctx).get("auth_client") or "stdio"
+    finding = services.propose_finding_status(
+        finding_id, FindingStatus(status), reason, proposed_by
+    )
+    return finding.model_dump(mode="json")
 
 
 @mcp.tool(annotations=READ_ONLY)

@@ -35,6 +35,25 @@ export const reports = defineMessages({
     'report.noneFiltered': 'No findings for these filters.',
     'report.triageForbidden': 'Your role does not allow changing the status of a finding.',
     'report.triageFailed': 'The status of finding #{id} could not be saved.',
+    'report.triageInvalid':
+      'The decision on finding #{id} was refused: check the reason (10 characters or more) and the expiry date.',
+    'report.decisionBy': 'Decided by {approver}',
+    'report.decisionUntil': 'valid until {date}',
+    'report.decisionExpired': 'Decision expired on {date}: open again',
+    'report.proposalBy': '{by} proposes "{status}" ({date})',
+    'report.proposalUntrusted':
+      'Proposed by an agent: its reason may come from the reviewed code. Check it before applying.',
+    'report.proposalApply': 'Apply',
+    'report.proposalReject': 'Reject',
+    'report.dismissTitle': 'Mark as "{status}"',
+    'report.dismissReason': 'Reason',
+    'report.dismissReasonHelp':
+      'Required, 10 characters or more. You are recorded as the approver.',
+    'report.dismissExpiry': 'Expiry date',
+    'report.dismissExpiryHelp':
+      'From this day the finding counts as open again and blocks the gate.',
+    'report.dismissSave': 'Save the decision',
+    'report.dismissCancel': 'Cancel',
   },
   fr: {
     'common.previous': 'Précédent',
@@ -69,6 +88,25 @@ export const reports = defineMessages({
     'report.noneFiltered': 'Aucun finding pour ces filtres.',
     'report.triageForbidden': "Votre rôle ne permet pas de modifier le statut d'un finding.",
     'report.triageFailed': "Le statut du finding #{id} n'a pas pu être enregistré.",
+    'report.triageInvalid':
+      "La décision sur le finding #{id} a été refusée : vérifiez le motif (10 caractères ou plus) et la date d'expiration.",
+    'report.decisionBy': 'Décidé par {approver}',
+    'report.decisionUntil': "valable jusqu'au {date}",
+    'report.decisionExpired': 'Décision expirée le {date} : de nouveau ouvert',
+    'report.proposalBy': '{by} propose « {status} » ({date})',
+    'report.proposalUntrusted':
+      'Proposé par un agent : son motif peut venir du code relu. Vérifiez-le avant de l’appliquer.',
+    'report.proposalApply': 'Appliquer',
+    'report.proposalReject': 'Rejeter',
+    'report.dismissTitle': 'Passer en « {status} »',
+    'report.dismissReason': 'Motif',
+    'report.dismissReasonHelp':
+      'Obligatoire, 10 caractères ou plus. Vous êtes enregistré comme approbateur.',
+    'report.dismissExpiry': "Date d'expiration",
+    'report.dismissExpiryHelp':
+      'À partir de ce jour, le finding est de nouveau ouvert et bloque le gate.',
+    'report.dismissSave': 'Enregistrer la décision',
+    'report.dismissCancel': 'Annuler',
   },
   es: {
     'common.previous': 'Anterior',
@@ -103,5 +141,24 @@ export const reports = defineMessages({
     'report.noneFiltered': 'No hay hallazgos para estos filtros.',
     'report.triageForbidden': 'Su rol no permite cambiar el estado de un hallazgo.',
     'report.triageFailed': 'No se pudo guardar el estado del hallazgo #{id}.',
+    'report.triageInvalid':
+      'La decisión sobre el hallazgo #{id} fue rechazada: revise el motivo (10 caracteres o más) y la fecha de caducidad.',
+    'report.decisionBy': 'Decidido por {approver}',
+    'report.decisionUntil': 'válido hasta el {date}',
+    'report.decisionExpired': 'Decisión caducada el {date}: abierto de nuevo',
+    'report.proposalBy': '{by} propone «{status}» ({date})',
+    'report.proposalUntrusted':
+      'Propuesto por un agente: su motivo puede venir del código revisado. Verifíquelo antes de aplicarlo.',
+    'report.proposalApply': 'Aplicar',
+    'report.proposalReject': 'Rechazar',
+    'report.dismissTitle': 'Marcar como «{status}»',
+    'report.dismissReason': 'Motivo',
+    'report.dismissReasonHelp':
+      'Obligatorio, 10 caracteres o más. Usted queda registrado como aprobador.',
+    'report.dismissExpiry': 'Fecha de caducidad',
+    'report.dismissExpiryHelp':
+      'A partir de ese día el hallazgo vuelve a estar abierto y bloquea el gate.',
+    'report.dismissSave': 'Guardar la decisión',
+    'report.dismissCancel': 'Cancelar',
   },
 });

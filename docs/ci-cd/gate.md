@@ -138,5 +138,8 @@ security-gate:
 It needs the database driver and gives the pipeline the database credentials: prefer
 `security-review-ci` and a `ci` token.
 
-A finding stops blocking when it moves to `fixed`, `accepted` or `false_positive`
-(`update_finding_status` tool): the decision stays recorded in the database.
+A finding stops blocking when a person moves it to `fixed`, `accepted` or `false_positive` in
+the [web interface](../usage/web-interface.md#triage-of-findings): the decision stays recorded in
+the database with its reason and its approver. An agent can only propose a status
+(`propose_finding_status`), which does not unblock the gate. An acceptance or a false positive
+expires: from its expiry date, the finding blocks again.

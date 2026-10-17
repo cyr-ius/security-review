@@ -140,5 +140,8 @@ security-gate:
 Elle nécessite le pilote de base et donne au pipeline les identifiants de la base : préférez
 `security-review-ci` et un jeton `ci`.
 
-Un finding sort du blocage quand il passe à `fixed`, `accepted` ou `false_positive`
-(outil `update_finding_status`) : la décision reste tracée en base.
+Un finding sort du blocage quand une personne le passe à `fixed`, `accepted` ou
+`false_positive` dans l'[interface web](../usage/web-interface.md#triage-des-findings) : la
+décision reste tracée en base avec son motif et son approbateur. Un agent peut seulement
+proposer un statut (`propose_finding_status`), ce qui ne débloque pas la gate. Une acceptation
+ou un faux positif expire : à partir de sa date d'expiration, le finding bloque de nouveau.

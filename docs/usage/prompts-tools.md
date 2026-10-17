@@ -48,7 +48,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
 | `list_security_reports` | List filtered by project / risk level / review type, with pagination |
-| `update_finding_status` | `open`, `fixed`, `accepted`, `false_positive` |
+| `propose_finding_status` | **Proposes** `fixed`, `accepted` or `false_positive` with a reason; never changes the status ([status of a finding](#status-of-a-finding)) |
 | `get_project_security_posture` | Open findings by severity (useful as a CI safeguard) |
 | `check_project_gate` | CI gate: `passed` is false while an **open** finding reaches the `fail_on` threshold |
 | `export_sarif` | SARIF 2.1.0 export of a report or a project |
@@ -122,6 +122,23 @@ The type is declared by the client: it labels and filters reports, it never gran
 nor changes a gate.
 Reports saved by the CLI scans before this field existed get their type when the database is
 upgraded.
+
+### Status of a finding
+
+A finding is `open` when it is saved. **An agent never closes it**: the reviewed code is
+untrusted input, and a prompt injection in a comment could otherwise lead the agent to dismiss
+its own findings and unblock the [gate](../ci-cd/gate.md).
+
+- `propose_finding_status` stores a **proposal** (`fixed`, `accepted` or `false_positive`) with
+  the agent's reason (10 to 1000 characters, secrets masked) and the label of its token. The
+  status, the posture and the gate do not change. A new proposal replaces the previous one.
+- A person with the `triager` or `admin` role applies or rejects it in the
+  [web interface](web-interface.md#triage-of-findings). `accepted` and `false_positive` need a
+  reason, an approver (the logged-in user) and an expiry date; from that date the finding counts
+  as open again.
+
+This holds for every token role, `admin` included: the MCP server has no tool that changes a
+status.
 
 !!! info "Secret masking"
     Secrets found in `summary`, `description`, `evidence` and `recommendation` (passwords,

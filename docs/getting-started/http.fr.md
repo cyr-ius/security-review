@@ -77,7 +77,7 @@ security-review-controller token create --label shop-triage --role triager --pro
 Un jeton sans `--project` accède à tous les projets. Un jeton restreint :
 
 - n'enregistre de rapport (`save_security_report`) que pour son projet ;
-- ne lit, ne liste, n'exporte et ne trie (`update_finding_status`, `PATCH` de l'API web) que les
+- ne lit, ne liste, n'exporte et ne trie (`propose_finding_status`, `PATCH` de l'API web) que les
   rapports et findings de son projet ; `list_security_reports` sans filtre ne renvoie que
   ceux-ci ;
 - reçoit pour tout autre projet, rapport ou finding la même erreur « not found » que pour un

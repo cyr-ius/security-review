@@ -70,7 +70,15 @@
   secret.
 - **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton de rôle web ;
   sans utilisateur ni jeton, elle répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
-  le statut d'un finding (action journalisée avec le label du jeton). Pages servies avec une CSP
+  le statut d'un finding (action journalisée avec le label du jeton), et seule une personne
+  connectée à l'interface (session) accepte un risque ou marque un faux positif : un jeton Bearer
+  est refusé (`403`), même `admin`. Ces deux décisions exigent un motif et une date d'expiration
+  (au plus `SECREVIEW_MAX_DISMISSAL_DAYS` jours) ; l'approbateur est l'utilisateur connecté, et le
+  finding est de nouveau compté comme ouvert une fois la date passée.
+- **Les agents ne ferment jamais un finding** : le serveur MCP n'offre que
+  `propose_finding_status`, qui enregistre une proposition (motif masqué et borné, auteur tiré du
+  jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt
+  ne peut pas neutraliser un finding. Pages servies avec une CSP
   stricte et les en-têtes anti-clickjacking ; jeton gardé dans le `sessionStorage` de l'onglet.
   La documentation Swagger et son schéma OpenAPI sont publics, mais les routes de données
   restent protégées. Le contrôle est fait deux fois : par le middleware Bearer, puis par

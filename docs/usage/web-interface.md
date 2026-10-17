@@ -46,7 +46,9 @@ by the API stay in English.
   severity and by review type (**Security review**, **API security review**, **Codebase
   review**...: see [review type](prompts-tools.md#review-type)); **Load more** displays the next
   findings. Users with the `triager` or `admin` role change the status of each finding from this
-  screen; a triaged finding stays displayed until the next reload.
+  screen and apply or reject the statuses proposed by the agents (see
+  [triage of findings](#triage-of-findings)); a triaged finding stays displayed until the next
+  reload.
 - **Reports**: list filtered by project and risk level (the filters are in the URL,
   so a link can be shared), with the **Type** of each review.
 - **Report**: summary, context (repository, branch, commit, review type), findings with
@@ -128,6 +130,42 @@ by the API stay in English.
       `SECREVIEW_OSV_AUTO_UPDATE=true`
       ([update by the controller](dependencies.md#automatic-update-by-the-controller)).
 
+## Triage of findings
+
+The status of a finding is decided by a **person**; an agent only proposes it (MCP tool
+`propose_finding_status`, see [status of a finding](prompts-tools.md#status-of-a-finding)).
+
+- **Proposal of an agent**: shown on the finding in a separate box, with its author (label of
+  the token), its date and its reason. The reason may come from the reviewed code: check it.
+  **Apply** saves `fixed` at once, or opens the form below for `accepted` and
+  `false_positive`; **Reject** removes the proposal. Neither changes the status by itself.
+- **Risk accepted** and **False positive**: the status select opens a form that asks for a
+  **Reason** (10 to 1000 characters) and an **Expiry date** (90 days by default, at most
+  `SECREVIEW_MAX_DISMISSAL_DAYS`). The logged-in user is recorded as the approver; the card shows
+  the approver, the reason and the end of validity. From the expiry date, the finding counts as
+  open again (status filter, posture, [gate](../ci-cd/gate.md), SARIF, trend) and the card says
+  that the decision has expired.
+- **Open** and **Fixed** are saved at once (optional reason through the API). Any decision
+  removes the pending proposal.
+
+Only a session (local or SSO account) may accept a risk or mark a false positive: a bearer
+token, even `triager` or `admin`, gets `403`. Through the REST API:
+
+```bash
+curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42 \
+  -d '{"status": "accepted", "reason": "Internal tool, not exposed to the Internet", "expires_on": "2027-01-31"}'
+# {"id": 42, "status": "accepted", "status_approver": "alice", "status_expires_at": "2027-01-31T00:00:00Z", …}
+curl -X DELETE -H "Authorization: Bearer $SESSION" \
+  https://secreview.example.com/api/v1/findings/42/proposal    # reject the agent proposal
+```
+
+A reason that is missing or too short, an expiry date in the past or too far away, or an expiry
+date for `open` / `fixed` gets `422`. The **Risk accepted** and **False positive** decisions
+made before this feature had no reason nor approver: the database upgrade gives them an expiry
+date 30 days later, with a reason that asks to confirm them. Review them with the status filters
+before that date, or they block the gate again.
+
 ## Roles
 
 **Tokens** give access to the MCP server and to the REST API (agents, CI, scripts); **users**
@@ -138,9 +176,13 @@ which decides the reachable endpoints:
 |---|---|---|---|---|
 | `mcp` (default) | MCP | ✅ | — | — |
 | `reader` | REST API — read only | — | ✅ | — |
-| `triager` | REST API — read and triage | — | ✅ | ✅ |
-| `admin` | CLI only | ✅ | ✅ | ✅ |
+| `triager` | REST API — read and triage | — | ✅ | `open`, `fixed` ¹ |
+| `admin` | CLI only | ✅ | ✅ | `open`, `fixed` ¹ |
 | `ci` | CI/CD pipeline — gate, SARIF and trend | — | pipeline routes only (`/api/v1/ci/`) | — |
+
+¹ With a token. `accepted` and `false_positive` need a person logged in to the interface
+with the `triager` or `admin` role ([triage of findings](#triage-of-findings)). On `/mcp`, no
+role changes a status: the agents only propose one.
 
 An `mcp`, `reader` or `triager` token restricted with `--project` only sees and triages the
 allowed projects; a `ci` token is always restricted to its projects (see
@@ -174,7 +216,7 @@ Revoke it with `security-review-controller token revoke triage-bot`. Every statu
 logged with the label of the token or of the account:
 
 ```
-INFO security_review_mcp.web: Finding 42 set to accepted by triage-bot
+INFO security_review_mcp.web: Finding 42 set to fixed by triage-bot
 ```
 
 !!! warning "Authentication required for the web UI"

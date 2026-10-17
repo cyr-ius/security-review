@@ -36,6 +36,7 @@ class TrendFinding:
     cwe: str | None
     created_at: datetime  # creation date of its report
     status_changed_at: datetime | None
+    status_expires_at: datetime | None = None  # end of an acceptance or a false positive
 
 
 @dataclass(frozen=True)
@@ -94,6 +95,9 @@ def _is_open_at(finding: TrendFinding, moment: datetime) -> bool:
         return False
     if finding.status not in _CLOSED:
         return True  # open now (a reopened finding is counted as open throughout)
+    expires = finding.status_expires_at
+    if finding.status in _DISMISSED and expires is not None and aware(expires) <= moment:
+        return True  # the acceptance or false positive had expired
     if finding.status_changed_at is None:
         return False  # closed before changes were dated: treated as closed from creation
     return aware(finding.status_changed_at) > moment
@@ -205,7 +209,7 @@ def compute_trend(
         )
     }
 
-    currently_open = [f for f in findings if f.status not in _CLOSED]
+    currently_open = [f for f in findings if _is_open_at(f, now)]
     open_now = _empty_counts()
     oldest: dict[str, float] = {}
     for finding in currently_open:
@@ -272,6 +276,7 @@ def get_trend(
                 Finding.cwe,
                 SecurityReport.created_at,
                 Finding.status_changed_at,
+                Finding.status_expires_at,
             )
             .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
             .where(SecurityReport.project == project)

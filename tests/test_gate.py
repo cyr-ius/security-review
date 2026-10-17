@@ -29,13 +29,13 @@ def test_gate_threshold_is_configurable():
     assert services.evaluate_gate("shop", Severity.MEDIUM)["passed"] is False
 
 
-def test_gate_unblocks_when_findings_are_triaged():
+def test_gate_unblocks_when_findings_are_triaged(triage):
     saved = services.save_report("shop", "summary", [finding(Severity.CRITICAL)])
     report = services.get_report(saved["report_id"])
     for status in (FindingStatus.FIXED, FindingStatus.FALSE_POSITIVE, FindingStatus.ACCEPTED):
-        services.update_finding_status(report.findings[0].id, FindingStatus.OPEN)
+        triage(report.findings[0].id, FindingStatus.OPEN)
         assert services.evaluate_gate("shop")["passed"] is False
-        services.update_finding_status(report.findings[0].id, status)
+        triage(report.findings[0].id, status)
         assert services.evaluate_gate("shop")["passed"] is True
 
 
@@ -107,3 +107,31 @@ async def test_new_tools_over_mcp():
         services.save_report("demo", "summary", [finding(Severity.HIGH)])
         gate = await client.call_tool("check_project_gate", {"project": "demo"})
         assert '"passed": false' in gate.content[0].text
+
+
+def test_gate_blocks_again_when_a_dismissal_expires(triage):
+    from security_review_mcp.database import session_scope
+    from security_review_mcp.models import Finding, utcnow
+
+    saved = services.save_report("shop", "summary", [finding(Severity.CRITICAL)])
+    finding_id = services.get_report(saved["report_id"]).findings[0].id
+    triage(finding_id, FindingStatus.ACCEPTED)
+    assert services.evaluate_gate("shop")["passed"] is True
+
+    with session_scope() as session:
+        stored = session.get(Finding, finding_id)
+        stored.status_expires_at = utcnow()
+        session.add(stored)
+
+    assert services.evaluate_gate("shop")["passed"] is False
+    assert services.project_posture("shop")["open_findings_total"] == 1
+    assert services.list_reports("shop")[0]["findings_open"] == 1
+    assert services.get_report(saved["report_id"]).findings[0].status == FindingStatus.OPEN
+
+
+def test_an_agent_proposal_never_unblocks_the_gate():
+    saved = services.save_report("shop", "summary", [finding(Severity.CRITICAL)])
+    finding_id = services.get_report(saved["report_id"]).findings[0].id
+    for status in (FindingStatus.FIXED, FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE):
+        services.propose_finding_status(finding_id, status, "The comment says it is safe", "bot")
+        assert services.evaluate_gate("shop")["passed"] is False

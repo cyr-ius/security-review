@@ -154,6 +154,10 @@ class Settings(BaseSettings):
     # project is always kept. 0 disables the purge.
     empty_report_retention_days: int = Field(default=90, ge=0, le=MAX_RETENTION_DAYS)
 
+    # Longest validity, in days, of a triage decision "accepted" or "false_positive": its expiry
+    # date may not be later. Once expired, the finding counts as open again (gate, posture).
+    max_dismissal_days: int = Field(default=365, ge=1, le=MAX_RETENTION_DAYS)
+
     log_level: str = "INFO"
 
     # Hard limits to protect the server and the database

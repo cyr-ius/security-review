@@ -48,7 +48,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
 | `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue, avec pagination |
-| `update_finding_status` | `open`, `fixed`, `accepted`, `false_positive` |
+| `propose_finding_status` | **Propose** `fixed`, `accepted` ou `false_positive` avec un motif ; ne change jamais le statut ([statut d'un finding](#statut-dun-finding)) |
 | `get_project_security_posture` | Findings ouverts par sévérité (utile comme garde-fou CI) |
 | `check_project_gate` | Gate CI : `passed` est faux tant qu'un finding **ouvert** atteint le seuil `fail_on` |
 | `export_sarif` | Export SARIF 2.1.0 d'un rapport ou d'un projet |
@@ -120,6 +120,24 @@ Le champ est facultatif : un rapport enregistré sans lui n'a pas de type. Toute
 refusée. Le type est déclaré par le client : il étiquette et filtre les rapports, il n'accorde
 jamais de droit et ne change pas une gate. Les rapports des scans CLI enregistrés avant l'existence de ce champ reçoivent leur
 type lors de la mise à jour de la base.
+
+### Statut d'un finding
+
+Un finding est `open` à son enregistrement. **Un agent ne le ferme jamais** : le code relu est
+une entrée non fiable, et une injection de prompt dans un commentaire pourrait sinon amener
+l'agent à neutraliser ses propres findings et à débloquer la [gate](../ci-cd/gate.md).
+
+- `propose_finding_status` enregistre une **proposition** (`fixed`, `accepted` ou
+  `false_positive`) avec le motif de l'agent (10 à 1000 caractères, secrets masqués) et le label
+  de son jeton. Le statut, la posture et la gate ne changent pas. Une nouvelle proposition
+  remplace la précédente.
+- Une personne qui a le rôle `triager` ou `admin` l'applique ou la rejette dans
+  l'[interface web](web-interface.md#triage-des-findings). `accepted` et `false_positive`
+  exigent un motif, un approbateur (l'utilisateur connecté) et une date d'expiration ; à partir
+  de cette date, le finding est de nouveau compté comme ouvert.
+
+C'est vrai pour tous les rôles de jeton, `admin` compris : le serveur MCP n'a aucun outil qui
+change un statut.
 
 !!! info "Masquage des secrets"
     Les secrets présents dans `summary`, `description`, `evidence` et `recommendation`

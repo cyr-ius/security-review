@@ -1,6 +1,6 @@
 """Tests for the report persistence service."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlmodel import select
@@ -116,7 +116,7 @@ def test_list_reports_filters_and_counts():
     assert len(services.list_reports(limit=1, offset=1)) == 1
 
 
-def test_update_finding_status_and_posture():
+def test_update_finding_status_and_posture(triage):
     saved = services.save_report(
         "shop", "summary", [make_finding(Severity.CRITICAL), make_finding(Severity.LOW)]
     )
@@ -127,7 +127,7 @@ def test_update_finding_status_and_posture():
     assert before["open_findings_total"] == 2
     assert before["worst_open_severity"] == "critical"
 
-    updated = services.update_finding_status(critical.id, FindingStatus.FIXED)
+    updated = triage(critical.id, FindingStatus.FIXED)
     assert updated.status == FindingStatus.FIXED
 
     after = services.project_posture("shop")
@@ -136,7 +136,7 @@ def test_update_finding_status_and_posture():
     assert services.list_reports(project="shop")[0]["findings_open"] == 1
 
 
-def test_list_project_findings_across_reports(monkeypatch):
+def test_list_project_findings_across_reports(monkeypatch, triage):
     first = services.save_report(
         "shop",
         "first",
@@ -153,7 +153,7 @@ def test_list_project_findings_across_reports(monkeypatch):
     low = next(
         f for f in services.get_report(first["report_id"]).findings if f.title == "Weak hash"
     )
-    services.update_finding_status(low.id, FindingStatus.ACCEPTED)
+    triage(low.id, FindingStatus.ACCEPTED)
 
     page = services.list_project_findings("shop")
     assert page["total"] == 2
@@ -222,7 +222,7 @@ def test_not_found_errors():
     with pytest.raises(services.NotFoundError):
         services.get_report(999)
     with pytest.raises(services.NotFoundError):
-        services.update_finding_status(999, FindingStatus.FIXED)
+        services.update_finding_status(999, FindingStatus.FIXED, "alice")
 
 
 def test_markdown_rendering_orders_by_severity():
@@ -248,12 +248,12 @@ def test_blank_project_or_summary_is_rejected():
         services.save_report("project", "ab", [])
 
 
-def test_list_projects():
+def test_list_projects(triage):
     assert services.list_projects() == []
     services.save_report("shop", "First", [make_finding(Severity.HIGH), make_finding(Severity.LOW)])
     clean = services.save_report("billing", "Clean", [])
     report = services.get_report(services.list_reports(project="shop")[0]["report_id"])
-    services.update_finding_status(report.findings[0].id, FindingStatus.FIXED)
+    triage(report.findings[0].id, FindingStatus.FIXED)
 
     projects = {p["project"]: p for p in services.list_projects()}
     assert list(projects) == ["billing", "shop"]  # latest report first
@@ -284,11 +284,11 @@ def stored_report_ids() -> set[int]:
         return set(session.exec(select(SecurityReport.id)).all())
 
 
-def test_prune_deletes_only_old_reports_without_findings():
+def test_prune_deletes_only_old_reports_without_findings(triage):
     old_empty = services.save_report("shop", "Old clean review", [])["report_id"]
     old_with_finding = services.save_report("shop", "Old review", [make_finding()])["report_id"]
     old_fixed = services.save_report("shop", "Old fixed review", [make_finding()])["report_id"]
-    services.update_finding_status(services.get_report(old_fixed).findings[0].id, "fixed")
+    triage(services.get_report(old_fixed).findings[0].id, "fixed")
     recent_empty = services.save_report("shop", "Recent clean review", [])["report_id"]
     latest = services.save_report("shop", "Latest clean review", [])["report_id"]
     for report_id in (old_empty, old_with_finding, old_fixed, latest):
@@ -337,3 +337,48 @@ def test_retention_setting_defaults_to_90_days_and_rejects_negative_values():
     assert Settings(_env_file=None).empty_report_retention_days == 90
     with pytest.raises(ValueError):
         Settings(_env_file=None, empty_report_retention_days=-1)
+
+
+@pytest.mark.parametrize(
+    ("status", "reason", "expires_in", "error"),
+    [
+        (FindingStatus.ACCEPTED, None, 30, "reason is required"),
+        (FindingStatus.ACCEPTED, "too short", 30, "10 to 1000"),
+        (FindingStatus.ACCEPTED, "x" * 1001, 30, "10 to 1000"),
+        (FindingStatus.FALSE_POSITIVE, "Dead code, never called", None, "expiry date is required"),
+        (FindingStatus.FALSE_POSITIVE, "Dead code, never called", -1, "in the future"),
+        (FindingStatus.ACCEPTED, "Internal tool only", 366, "at most 365 days"),
+        (FindingStatus.FIXED, "Query is bound now", 30, "takes no expiry date"),
+    ],
+)
+def test_triage_decision_is_validated(status, reason, expires_in, error):
+    saved = services.save_report("shop", "summary", [make_finding()])
+    finding_id = services.get_report(saved["report_id"]).findings[0].id
+    expires_at = None if expires_in is None else datetime.now(UTC) + timedelta(days=expires_in)
+    with pytest.raises(ValueError, match=error):
+        services.update_finding_status(finding_id, status, "alice", reason, expires_at)
+    with pytest.raises(ValueError, match="approver"):
+        services.update_finding_status(finding_id, FindingStatus.FIXED, "  ")
+    assert services.get_report(saved["report_id"]).findings[0].status == FindingStatus.OPEN
+
+
+def test_triage_decision_masks_its_reason_and_clears_the_proposal():
+    saved = services.save_report("shop", "summary", [make_finding()])
+    finding_id = services.get_report(saved["report_id"]).findings[0].id
+    services.propose_finding_status(finding_id, FindingStatus.FIXED, "Bound parameters", "bot")
+    with pytest.raises(ValueError, match="Only these statuses"):
+        services.propose_finding_status(finding_id, FindingStatus.OPEN, "Reopen it now", "bot")
+
+    decided = services.update_finding_status(
+        finding_id,
+        FindingStatus.ACCEPTED,
+        "alice",
+        "Accepted until rotation, password=hunter2hunter2",
+        datetime.now(UTC) + timedelta(days=10),
+    )
+    assert decided.status == FindingStatus.ACCEPTED
+    assert decided.status_approver == "alice"
+    assert "hunter2hunter2" not in decided.status_reason
+    assert decided.proposed_status is None and decided.proposed_by is None
+    with pytest.raises(services.NotFoundError):
+        services.clear_finding_proposal(999)

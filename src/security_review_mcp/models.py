@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from sqlalchemy import BigInteger, String, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -40,6 +40,31 @@ class FindingStatus(StrEnum):
     FIXED = "fixed"
     ACCEPTED = "accepted"
     FALSE_POSITIVE = "false_positive"
+
+
+# Statuses that close a finding without a fix: a person decides them, with a reason and an
+# expiry date after which the finding counts as open again
+DISMISSED_STATUSES = frozenset({FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE})
+# Statuses an agent may propose (never apply) through the MCP tool propose_finding_status
+PROPOSABLE_STATUSES = frozenset(
+    {FindingStatus.FIXED, FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE}
+)
+MAX_STATUS_REASON_CHARS = 1000
+
+
+def as_utc(value: datetime) -> datetime:
+    """Return a timezone-aware UTC datetime (SQLite returns naive values)."""
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
+def effective_status(
+    status: FindingStatus, expires_at: datetime | None, now: datetime | None = None
+) -> FindingStatus:
+    """Return ``open`` for an accepted or false-positive finding whose decision has expired."""
+    if status in DISMISSED_STATUSES and expires_at is not None:
+        if as_utc(expires_at) <= (now or utcnow()):
+            return FindingStatus.OPEN
+    return status
 
 
 class ReviewType(StrEnum):
@@ -101,6 +126,15 @@ class Finding(FindingBase, table=True):
     report_id: int = Field(foreign_key="securityreport.id", index=True)
     status: FindingStatus = Field(default=FindingStatus.OPEN, index=True)
     status_changed_at: datetime | None = Field(default=None)
+    # Triage decision, made by a person in the web interface (never by an agent)
+    status_reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
+    status_approver: str | None = Field(default=None, max_length=200)
+    status_expires_at: datetime | None = Field(default=None, index=True)
+    # Status proposed by an agent (MCP propose_finding_status): stored, never applied
+    proposed_status: FindingStatus | None = Field(default=None, sa_type=String(20))
+    proposed_reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
+    proposed_by: str | None = Field(default=None, max_length=200)
+    proposed_at: datetime | None = Field(default=None)
     report: SecurityReport = Relationship(back_populates="findings")
 
 
@@ -115,6 +149,19 @@ class FindingPublic(FindingBase):
     report_id: int
     status: FindingStatus
     status_changed_at: datetime | None = None
+    status_reason: str | None = None
+    status_approver: str | None = None
+    status_expires_at: datetime | None = None
+    proposed_status: FindingStatus | None = None
+    proposed_reason: str | None = None
+    proposed_by: str | None = None
+    proposed_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def _expire_dismissal(self) -> FindingPublic:
+        """Show an expired acceptance or false positive as open (its reason stays visible)."""
+        self.status = effective_status(self.status, self.status_expires_at)
+        return self
 
 
 # ── Reports ──────────────────────────────────────────────────────────────────

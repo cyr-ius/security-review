@@ -12,7 +12,7 @@ The services are synchronous (SQLModel sessions), so every call runs in the thre
 import json
 import logging
 import threading
-from datetime import datetime
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import urlencode
@@ -58,7 +58,15 @@ from .http_server import (
     TRIAGE_ROLES,
     Role,
 )
-from .models import FindingPublic, FindingStatus, ReviewType, SecurityReportPublic, Severity
+from .models import (
+    DISMISSED_STATUSES,
+    MAX_STATUS_REASON_CHARS,
+    FindingPublic,
+    FindingStatus,
+    ReviewType,
+    SecurityReportPublic,
+    Severity,
+)
 from .sarif import build_sarif
 
 logger = logging.getLogger("security_review_mcp.web")
@@ -110,9 +118,15 @@ class Identity(BaseModel):
 
 
 class FindingStatusUpdate(BaseModel):
-    """Body of PATCH /findings/{id}."""
+    """Body of PATCH /findings/{id}: a triage decision.
+
+    ``accepted`` and ``false_positive`` need a reason and an expiry date (the finding counts as
+    open again from that day, 00:00 UTC).
+    """
 
     status: FindingStatus
+    reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
+    expires_on: date | None = None
 
 
 class RuleWrite(BaseModel):
@@ -937,10 +951,45 @@ async def update_finding(
     body: FindingStatusUpdate,
     identity: Annotated[Identity, Depends(require_triage)],
 ) -> FindingPublic:
-    """Change the status of a finding (triage). The change is logged with the caller."""
+    """Record a triage decision; the caller is stored as its approver and logged.
+
+    Only a person logged in to the web interface may accept a risk or mark a false positive:
+    a bearer token, which an agent may hold, is refused.
+    """
+    if body.status in DISMISSED_STATUSES and identity.auth_source is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only a person logged in to the web interface can accept a risk or mark a "
+            "false positive",
+        )
     await run_in_threadpool(services.check_finding_scope, identity.projects, finding_id)
-    finding = await run_in_threadpool(services.update_finding_status, finding_id, body.status)
+    expires_at = (
+        None if body.expires_on is None else datetime.combine(body.expires_on, time.min, UTC)
+    )
+    try:
+        finding = await run_in_threadpool(
+            services.update_finding_status,
+            finding_id,
+            body.status,
+            identity.client,
+            body.reason,
+            expires_at,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     logger.info("Finding %s set to %s by %s", finding_id, body.status, identity.client)
+    return finding
+
+
+@router.delete("/findings/{finding_id}/proposal")
+async def reject_finding_proposal(
+    finding_id: int,
+    identity: Annotated[Identity, Depends(require_triage)],
+) -> FindingPublic:
+    """Reject the status proposed by an agent; the status of the finding does not change."""
+    await run_in_threadpool(services.check_finding_scope, identity.projects, finding_id)
+    finding = await run_in_threadpool(services.clear_finding_proposal, finding_id)
+    logger.info("Proposal for finding %s rejected by %s", finding_id, identity.client)
     return finding
 
 

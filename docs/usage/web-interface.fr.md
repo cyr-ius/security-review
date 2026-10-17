@@ -46,7 +46,9 @@ renvoyés par l'API restent en anglais.
   de revue (**Revue de sécurité**, **Revue de sécurité d'API**, **Revue du code complet**... :
   voir [type de revue](prompts-tools.md#type-de-revue)) ; **Afficher plus** affiche les findings
   suivants. Les utilisateurs qui ont le rôle `triager` ou `admin` changent le statut de chaque
-  finding depuis cet écran ; un finding trié reste affiché jusqu'au rechargement.
+  finding depuis cet écran et appliquent ou rejettent les statuts proposés par les agents (voir
+  [triage des findings](#triage-des-findings)) ; un finding trié reste affiché jusqu'au
+  rechargement.
 - **Rapports** : liste filtrable par projet et niveau de risque (les filtres sont dans l'URL, on
   peut donc partager un lien), avec le **Type** de chaque revue.
 - **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue), findings avec
@@ -126,6 +128,44 @@ renvoyés par l'API restent en anglais.
       **Mettre à jour maintenant**, disponible seulement si `SECREVIEW_OSV_AUTO_UPDATE=true`
       ([mise à jour par le contrôleur](dependencies.md#mise-a-jour-automatique-par-le-controleur)).
 
+## Triage des findings
+
+Le statut d'un finding est décidé par une **personne** ; un agent ne fait que le proposer (outil
+MCP `propose_finding_status`, voir [statut d'un finding](prompts-tools.md#statut-dun-finding)).
+
+- **Proposition d'un agent** : affichée sur le finding dans un encadré distinct, avec son auteur
+  (label du jeton), sa date et son motif. Le motif peut venir du code relu : vérifiez-le.
+  **Appliquer** enregistre `fixed` immédiatement, ou ouvre le formulaire ci-dessous pour
+  `accepted` et `false_positive` ; **Rejeter** supprime la proposition. Aucun des deux ne change
+  le statut à lui seul.
+- **Risque accepté** et **Faux positif** : la liste des statuts ouvre un formulaire qui demande
+  un **Motif** (10 à 1000 caractères) et une **Date d'expiration** (90 jours par défaut, au plus
+  `SECREVIEW_MAX_DISMISSAL_DAYS`). L'utilisateur connecté est enregistré comme approbateur ; la
+  carte affiche l'approbateur, le motif et la fin de validité. À partir de la date d'expiration,
+  le finding est de nouveau compté comme ouvert (filtre de statut, posture,
+  [gate](../ci-cd/gate.md), SARIF, tendance) et la carte indique que la décision a expiré.
+- **Ouvert** et **Corrigé** sont enregistrés immédiatement (motif facultatif par l'API). Toute
+  décision supprime la proposition en attente.
+
+Seule une session (compte local ou SSO) peut accepter un risque ou marquer un faux positif : un
+jeton Bearer, même `triager` ou `admin`, reçoit `403`. Par l'API REST :
+
+```bash
+curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42 \
+  -d '{"status": "accepted", "reason": "Internal tool, not exposed to the Internet", "expires_on": "2027-01-31"}'
+# {"id": 42, "status": "accepted", "status_approver": "alice", "status_expires_at": "2027-01-31T00:00:00Z", …}
+curl -X DELETE -H "Authorization: Bearer $SESSION" \
+  https://secreview.example.com/api/v1/findings/42/proposal    # rejette la proposition de l'agent
+```
+
+Un motif absent ou trop court, une date d'expiration passée ou trop lointaine, ou une date
+d'expiration pour `open` / `fixed` reçoit `422`. Les décisions **Risque accepté** et **Faux
+positif** prises avant cette fonctionnalité n'avaient ni motif ni approbateur : la mise à jour de
+la base leur donne une date d'expiration 30 jours plus tard, avec un motif qui demande de les
+confirmer. Revoyez-les avec les filtres de statut avant cette date, sinon elles bloquent de
+nouveau la gate.
+
 ## Rôles
 
 Les **jetons** donnent accès au serveur MCP et à l'API REST (agents, CI, scripts) ; les
@@ -136,9 +176,13 @@ porte un rôle, qui détermine les endpoints accessibles :
 |---|---|---|---|---|
 | `mcp` (défaut) | MCP | ✅ | — | — |
 | `reader` | API REST — lecture seule | — | ✅ | — |
-| `triager` | API REST — lecture et triage | — | ✅ | ✅ |
-| `admin` | CLI uniquement | ✅ | ✅ | ✅ |
+| `triager` | API REST — lecture et triage | — | ✅ | `open`, `fixed` ¹ |
+| `admin` | CLI uniquement | ✅ | ✅ | `open`, `fixed` ¹ |
 | `ci` | Pipeline CI/CD — gate, SARIF et tendance | — | routes de pipeline seulement (`/api/v1/ci/`) | — |
+
+¹ Avec un jeton. `accepted` et `false_positive` exigent une personne connectée à l'interface
+avec le rôle `triager` ou `admin` ([triage des findings](#triage-des-findings)). Sur `/mcp`,
+aucun rôle ne change un statut : les agents ne font que le proposer.
 
 Un jeton `mcp`, `reader` ou `triager` restreint avec `--project` ne voit et ne trie que les
 projets autorisés ; un jeton `ci` est toujours restreint à ses projets (voir
@@ -173,7 +217,7 @@ Révoquez-le avec `security-review-controller token revoke triage-bot`. Chaque c
 statut est journalisé avec le label du jeton ou du compte :
 
 ```
-INFO security_review_mcp.web: Finding 42 set to accepted by triage-bot
+INFO security_review_mcp.web: Finding 42 set to fixed by triage-bot
 ```
 
 !!! warning "Authentification requise pour la Web UI"
