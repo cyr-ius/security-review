@@ -682,6 +682,68 @@ def test_openapi_marks_api_operations_as_bearer_protected(secured):
     assert secured.get("/api/v1/projects").status_code == 401
 
 
+# Answers that are a file (SARIF, Markdown), not a JSON document
+FILE_ROUTES = {
+    "/api/v1/sarif",
+    "/api/v1/ci/sarif",
+    "/api/v1/reports/{report_id}/markdown",
+}
+
+
+def test_openapi_documents_the_response_of_every_json_route(secured):
+    """Each JSON answer has a declared model: no route returns an undocumented dict."""
+    schema = secured.get("/api/openapi.json").json()
+    untyped = []
+    for path, methods in schema["paths"].items():
+        if path in FILE_ROUTES:
+            continue
+        for method, operation in methods.items():
+            for code, answer in operation["responses"].items():
+                if not code.startswith("2") or code == "204" or "content" not in answer:
+                    continue
+                if "application/json" not in answer["content"]:
+                    continue  # a file to save (TOML pack), not a JSON document
+                body = answer["content"]["application/json"].get("schema", {})
+                while body.get("type") == "array":
+                    body = body.get("items", {})
+                if "$ref" not in body and "properties" not in body:
+                    untyped.append(f"{method.upper()} {path}")
+    assert untyped == []
+
+
+def test_an_undeclared_field_never_leaves_the_api(secured, reports, monkeypatch):
+    """The response models filter the answers: a field added by a service is dropped."""
+    listed = token_store.list_project_tokens
+
+    def with_hash() -> list[dict]:
+        return [token | {"token_hash": "secret-hash"} for token in listed()]
+
+    monkeypatch.setattr(token_store, "list_project_tokens", with_hash)
+    token_store.create_project_token("leak-check", ["shop-api"])
+
+    response = secured.get("/api/v1/project-tokens", headers=auth("admin"))
+
+    assert response.status_code == 200
+    assert any(item["label"] == "leak-check" for item in response.json())
+    assert all("token_hash" not in item for item in response.json())
+
+
+def test_a_new_token_secret_is_never_cached(secured, reports):
+    created = secured.post(
+        "/api/v1/project-tokens",
+        json={"label": "no-cache", "projects": ["shop-api"]},
+        headers=auth("admin"),
+    )
+
+    assert created.status_code == 201 and created.json()["token"]
+    assert created.headers["cache-control"] == "no-store"
+    rotated = secured.post(
+        f"/api/v1/project-tokens/{created.json()['id']}/rotate", headers=auth("admin")
+    )
+    assert rotated.status_code == 200 and rotated.json()["token"] != created.json()["token"]
+    assert rotated.headers["cache-control"] == "no-store"
+
+
 def test_roles_are_managed_with_users_manage(secured, caplog):
     caplog.set_level(logging.INFO, logger="security_review_mcp.web")
     url = "/api/v1/roles"
