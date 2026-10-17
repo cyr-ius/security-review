@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from enum import StrEnum
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from sqlalchemy import BigInteger, String, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
@@ -40,6 +40,33 @@ class FindingStatus(StrEnum):
     FIXED = "fixed"
     ACCEPTED = "accepted"
     FALSE_POSITIVE = "false_positive"
+
+
+# Statuses that close a finding without a fix: a person decides them, with a reason and an
+# expiry date after which the finding counts as open again
+DISMISSED_STATUSES = frozenset({FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE})
+# Statuses an agent may propose (never apply) through the MCP tool propose_finding_status
+PROPOSABLE_STATUSES = frozenset(
+    {FindingStatus.FIXED, FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE}
+)
+MAX_STATUS_REASON_CHARS = 1000
+# Developer username declared with a report, and label of the token that saved it
+MAX_AUTHOR_CHARS = 200
+
+
+def as_utc(value: datetime) -> datetime:
+    """Return a timezone-aware UTC datetime (SQLite returns naive values)."""
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+
+
+def effective_status(
+    status: FindingStatus, expires_at: datetime | None, now: datetime | None = None
+) -> FindingStatus:
+    """Return ``open`` for an accepted or false-positive finding whose decision has expired."""
+    if status in DISMISSED_STATUSES and expires_at is not None:
+        if as_utc(expires_at) <= (now or utcnow()):
+            return FindingStatus.OPEN
+    return status
 
 
 class ReviewType(StrEnum):
@@ -101,6 +128,15 @@ class Finding(FindingBase, table=True):
     report_id: int = Field(foreign_key="securityreport.id", index=True)
     status: FindingStatus = Field(default=FindingStatus.OPEN, index=True)
     status_changed_at: datetime | None = Field(default=None)
+    # Triage decision, made by a person in the web interface (never by an agent)
+    status_reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
+    status_approver: str | None = Field(default=None, max_length=200)
+    status_expires_at: datetime | None = Field(default=None, index=True)
+    # Status proposed by an agent (MCP propose_finding_status): stored, never applied
+    proposed_status: FindingStatus | None = Field(default=None, sa_type=String(20))
+    proposed_reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
+    proposed_by: str | None = Field(default=None, max_length=200)
+    proposed_at: datetime | None = Field(default=None)
     report: SecurityReport = Relationship(back_populates="findings")
 
 
@@ -115,6 +151,19 @@ class FindingPublic(FindingBase):
     report_id: int
     status: FindingStatus
     status_changed_at: datetime | None = None
+    status_reason: str | None = None
+    status_approver: str | None = None
+    status_expires_at: datetime | None = None
+    proposed_status: FindingStatus | None = None
+    proposed_reason: str | None = None
+    proposed_by: str | None = None
+    proposed_at: datetime | None = None
+
+    @model_validator(mode="after")
+    def _expire_dismissal(self) -> FindingPublic:
+        """Show an expired acceptance or false positive as open (its reason stays visible)."""
+        self.status = effective_status(self.status, self.status_expires_at)
+        return self
 
 
 # ── Reports ──────────────────────────────────────────────────────────────────
@@ -128,6 +177,13 @@ class SecurityReportBase(SQLModel):
     branch: str | None = Field(default=None, max_length=200)
     commit_sha: str | None = Field(default=None, max_length=64, index=True)
     reviewer: str | None = Field(default=None, max_length=200, description="Agent or person")
+    # Declared by the client (not authenticated): one enrolled device may serve several people
+    author: str | None = Field(
+        default=None,
+        index=True,
+        max_length=MAX_AUTHOR_CHARS,
+        description="Username of the developer whose work was reviewed (git user, login name)",
+    )
     scope: str | None = Field(default=None, description="What was reviewed (files, MR, diff...)")
     # Stored as text, not as a database enum: a new review type needs no migration
     review_type: ReviewType | None = Field(
@@ -145,6 +201,8 @@ class SecurityReport(SecurityReportBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     risk_level: Severity = Field(index=True)
     created_at: datetime = Field(default_factory=utcnow, index=True)
+    # Label of the bearer token (enrolled device) that saved the report, set by the server
+    submitted_by: str | None = Field(default=None, max_length=MAX_AUTHOR_CHARS)
     findings: list[Finding] = Relationship(
         back_populates="report",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
@@ -157,6 +215,7 @@ class SecurityReportPublic(SecurityReportBase):
     id: int
     risk_level: Severity
     created_at: datetime
+    submitted_by: str | None = None
     findings: list[FindingPublic] = []
 
 
@@ -211,6 +270,13 @@ class ApiToken(SQLModel, table=True):
     # Who asked for the token (free text given by the requester) and from which address
     requested_by: str | None = Field(default=None, max_length=200)
     requested_from: str | None = Field(default=None, max_length=64)
+    # After this date the token authenticates nothing (None: no expiry)
+    expires_at: datetime | None = Field(default=None, index=True)
+    # Rotation: the secret replaced by the latest rotation keeps working until
+    # previous_expires_at (grace period), then nothing but the new one authenticates
+    rotated_at: datetime | None = Field(default=None)
+    previous_token_hash: str | None = Field(default=None, index=True, max_length=64)
+    previous_expires_at: datetime | None = Field(default=None)
 
 
 class ApiTokenProject(SQLModel, table=True):
@@ -230,6 +296,27 @@ class ApiTokenProject(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
     requested_by: str | None = Field(default=None, max_length=200)
     requested_from: str | None = Field(default=None, max_length=64)
+
+
+# ── Audit log (see audit) ────────────────────────────────────────────────────
+
+
+class AuditEvent(SQLModel, table=True):
+    """One security-relevant change: triage decision, token or enrollment event.
+
+    ``actor`` is ``user:<name>`` (web session), ``token:<label>`` (bearer token), ``cli``
+    (operator command) or ``anonymous`` (public enrollment). ``details`` is a JSON object, with
+    the secrets masked; it never holds a token or a password.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    action: str = Field(index=True, max_length=50)
+    actor: str = Field(index=True, max_length=200)
+    target_type: str = Field(max_length=30)
+    target_id: str | None = Field(default=None, max_length=200)
+    project: str | None = Field(default=None, index=True, max_length=200)
+    details: str = Field(default="{}")
 
 
 # ── Rules (managed with `security-review-controller rules` and the web interface) ──

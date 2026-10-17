@@ -4,10 +4,12 @@ import { Observable } from 'rxjs';
 import {
   AdvisoryOverview,
   AppSettings,
+  AuditPage,
+  AuditQuery,
   AuthConfig,
   AuthSource,
   Finding,
-  FindingStatus,
+  FindingDecision,
   ChecklistCatalog,
   ChecklistItemWrite,
   ChecklistReloadResult,
@@ -200,16 +202,38 @@ export class ApiService {
     return this.http.get<ProjectToken[]>(`${API_URL}/project-tokens`);
   }
 
+  /** expiresInDays null: the default validity of the server (SECREVIEW_TOKEN_MAX_DAYS). */
   createProjectToken(
     label: string,
     projects: string[],
     role: ProjectTokenRole,
+    expiresInDays: number | null = null,
   ): Observable<ProjectTokenCreated> {
     return this.http.post<ProjectTokenCreated>(`${API_URL}/project-tokens`, {
       label,
       projects,
       role,
+      expires_in_days: expiresInDays,
     });
+  }
+
+  /** Replace the secret of a project token; the previous one works for graceHours more. */
+  rotateProjectToken(id: string, graceHours: number): Observable<ProjectTokenCreated> {
+    return this.http.post<ProjectTokenCreated>(
+      `${API_URL}/project-tokens/${encodeURIComponent(id)}/rotate`,
+      { grace_hours: graceHours },
+    );
+  }
+
+  auditEvents(query: AuditQuery): Observable<AuditPage> {
+    let params = new HttpParams().set('limit', query.limit).set('offset', query.offset);
+    if (query.action) {
+      params = params.set('action', query.action);
+    }
+    if (query.project) {
+      params = params.set('project', query.project);
+    }
+    return this.http.get<AuditPage>(`${API_URL}/audit`, { params });
   }
 
   deleteProjectToken(id: string): Observable<void> {
@@ -274,8 +298,14 @@ export class ApiService {
     return this.http.get<ProjectFindingPage>(`${API_URL}/findings`, { params });
   }
 
-  updateFindingStatus(id: number, status: FindingStatus): Observable<Finding> {
-    return this.http.patch<Finding>(`${API_URL}/findings/${id}`, { status });
+  /** Record a triage decision (accepted and false_positive need a reason and an expiry). */
+  updateFindingStatus(id: number, decision: FindingDecision): Observable<Finding> {
+    return this.http.patch<Finding>(`${API_URL}/findings/${id}`, decision);
+  }
+
+  /** Reject the status proposed by an agent (the status does not change). */
+  rejectFindingProposal(id: number): Observable<Finding> {
+    return this.http.delete<Finding>(`${API_URL}/findings/${id}/proposal`);
   }
 
   /** Download the Markdown version of a report. */

@@ -12,7 +12,7 @@ The services are synchronous (SQLModel sessions), so every call runs in the thre
 import json
 import logging
 import threading
-from datetime import datetime
+from datetime import UTC, date, datetime, time
 from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.parse import urlencode
@@ -34,6 +34,8 @@ from . import (
     advisories,
     advisory_sync,
     app_settings,
+    audit,
+    metrics,
     oidc,
     proxy,
     registry,
@@ -46,18 +48,31 @@ from . import (
     trends,
     web_users,
 )
-from .config import REPORT_LANGUAGE_MAX_CHARS, Settings, get_settings
+from .config import MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS, Settings, get_settings
 from .http_server import (
     BEARER_CHALLENGE,
+    CI_ROUTE_ROLES,
     DOCS_PATH,
     FAVICON_PATH,
     HEALTH_PATH,
     LOOPBACK_HOSTS,
+    METRICS_PATH,
+    METRICS_ROLES,
     OPENAPI_PATH,
     TRIAGE_ROLES,
+    WEB_ROLES,
     Role,
 )
-from .models import FindingPublic, FindingStatus, ReviewType, SecurityReportPublic, Severity
+from .models import (
+    DISMISSED_STATUSES,
+    MAX_AUTHOR_CHARS,
+    MAX_STATUS_REASON_CHARS,
+    FindingPublic,
+    FindingStatus,
+    ReviewType,
+    SecurityReportPublic,
+    Severity,
+)
 from .sarif import build_sarif
 
 logger = logging.getLogger("security_review_mcp.web")
@@ -109,9 +124,15 @@ class Identity(BaseModel):
 
 
 class FindingStatusUpdate(BaseModel):
-    """Body of PATCH /findings/{id}."""
+    """Body of PATCH /findings/{id}: a triage decision.
+
+    ``accepted`` and ``false_positive`` need a reason and an expiry date (the finding counts as
+    open again from that day, 00:00 UTC).
+    """
 
     status: FindingStatus
+    reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
+    expires_on: date | None = None
 
 
 class RuleWrite(BaseModel):
@@ -236,10 +257,22 @@ class ProjectTokenCreate(BaseModel):
     """A role-specific token scoped to one or several projects."""
 
     label: str = Field(min_length=1, max_length=64)
-    role: Literal["mcp", "reader", "triager"] = "reader"
+    # ci: pipeline token (gate, SARIF and trend of its projects only, see ci_client)
+    role: Literal["mcp", "reader", "triager", "ci"] = "reader"
     projects: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(
         min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
     )
+    # Validity in days (null: SECREVIEW_TOKEN_MAX_DAYS, or no expiry when it is 0)
+    expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
+
+
+class ProjectTokenRotation(BaseModel):
+    """Body of POST /project-tokens/{id}/rotate."""
+
+    # Hours during which the previous secret keeps working (0: it stops at once)
+    grace_hours: int = Field(default=0, ge=0, le=token_store.MAX_ROTATION_GRACE_HOURS)
+    # Validity of the new secret in days (null: SECREVIEW_TOKEN_MAX_DAYS, or no expiry)
+    expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
 
 
 class ReportLanguageUpdate(BaseModel):
@@ -313,6 +346,8 @@ class ReportSummary(BaseModel):
     review_type: ReviewType | None
     risk_level: Severity
     reviewer: str | None
+    author: str | None
+    submitted_by: str | None
     created_at: str
     findings_total: int
     findings_open: int
@@ -339,10 +374,7 @@ class ProjectFindingPage(BaseModel):
 # ── Dependencies ─────────────────────────────────────────────────────────────
 
 
-def current_identity(
-    request: Request,
-    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
-) -> Identity:
+def _scope_identity(request: Request) -> Identity:
     """Identity set by the bearer middleware once it has validated the token.
 
     Fails closed: a request that reaches a route without an identity in its scope (app served
@@ -372,7 +404,58 @@ def current_identity(
     )
 
 
+def current_identity(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Identity:
+    """Identity of a web role (reader, triager, admin): a ``ci`` or ``metrics`` token is refused
+    here even if the bearer middleware let it through (it only reaches its own routes)."""
+    identity = _scope_identity(request)
+    if identity.role not in WEB_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{identity.role}' cannot access this endpoint",
+        )
+    return identity
+
+
+def pipeline_identity(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Identity:
+    """Identity of the pipeline routes: a ``ci`` token or a web role, scoped to its projects."""
+    identity = _scope_identity(request)
+    if identity.role not in CI_ROUTE_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{identity.role}' cannot access this endpoint",
+        )
+    return identity
+
+
+def metrics_identity(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Identity:
+    """Identity of the Prometheus endpoint: a ``metrics`` or ``admin`` token."""
+    identity = _scope_identity(request)
+    if identity.role not in METRICS_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Role '{identity.role}' cannot access this endpoint",
+        )
+    return identity
+
+
+def actor_of(identity: Identity) -> str:
+    """Actor written to the audit log: a web user (session) or a bearer token."""
+    if identity.auth_source is not None:
+        return audit.user_actor(identity.client)
+    return audit.token_actor(identity.client)
+
+
 CurrentIdentity = Annotated[Identity, Depends(current_identity)]
+PipelineIdentity = Annotated[Identity, Depends(pipeline_identity)]
 
 
 def require_triage(identity: CurrentIdentity) -> Identity:
@@ -783,13 +866,80 @@ async def sarif(
         raise
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    document = build_sarif(items, name, include_resolved)
     filename = f"report-{report_id}.sarif" if report_id else "project.sarif"
+    return _sarif_response(name, items, include_resolved, filename)
+
+
+def _sarif_response(name: str, items: list, include_resolved: bool, filename: str) -> Response:
+    """SARIF 2.1.0 download of collected findings."""
+    document = build_sarif(items, name, include_resolved)
     return Response(
         content=json.dumps(document, indent=2),
         media_type="application/sarif+json",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+# ── Pipeline routes (ci tokens, see ci_client) ───────────────────────────────
+
+
+# Read only, scoped to the projects of the token; a ci token reaches nothing else
+ci_router = APIRouter(prefix="/api/v1/ci", dependencies=[Depends(pipeline_identity)])
+
+ProjectQuery = Annotated[str, Query(min_length=1, max_length=200)]
+
+
+@ci_router.get("/gate")
+async def ci_gate(
+    project: ProjectQuery,
+    identity: PipelineIdentity,
+    fail_on: Severity = Severity.HIGH,
+    report_id: Annotated[int | None, Query(ge=1)] = None,
+) -> dict:
+    """Security gate of a project: ``passed`` is false while open findings reach ``fail_on``.
+
+    ``report_id`` judges one report of the project only.
+    """
+    project = _scoped_project(identity, project)
+    if report_id is not None:
+        report = await run_in_threadpool(services.get_report, report_id)
+        _ensure_report_scope(identity, report)
+    try:
+        return await run_in_threadpool(services.evaluate_gate, project, fail_on, report_id)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+
+
+@ci_router.get("/sarif")
+async def ci_sarif(
+    project: ProjectQuery, identity: PipelineIdentity, include_resolved: bool = False
+) -> Response:
+    """Findings of a project as SARIF 2.1.0 (open ones only by default)."""
+    project = _scoped_project(identity, project)
+    name, items = await run_in_threadpool(services.collect_sarif_items, None, project)
+    return _sarif_response(name, items, include_resolved, "project.sarif")
+
+
+@ci_router.get("/trend")
+async def ci_trend(
+    project: ProjectQuery,
+    identity: PipelineIdentity,
+    days: Annotated[int, Query(ge=1, le=1095)] = 90,
+    granularity: Literal["day", "week", "month"] = "week",
+    output: Annotated[Literal["json", "markdown"], Query(alias="format")] = "json",
+) -> Response:
+    """Evolution of the security posture of a project, as JSON or Markdown."""
+    try:
+        result = await run_in_threadpool(
+            trends.get_trend, _scoped_project(identity, project), days, granularity
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    if output == "markdown":
+        return PlainTextResponse(
+            trends.render_trend_markdown(result), media_type="text/markdown; charset=utf-8"
+        )
+    return JSONResponse(result)
 
 
 @router.get("/reports")
@@ -798,6 +948,7 @@ async def reports(
     project: Annotated[str | None, Query(max_length=200)] = None,
     risk_level: Severity | None = None,
     review_type: ReviewType | None = None,
+    author: Annotated[str | None, Query(max_length=MAX_AUTHOR_CHARS)] = None,
     limit: Annotated[int, Query(ge=1)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[ReportSummary]:
@@ -812,6 +963,7 @@ async def reports(
         offset,
         identity.projects,
         review_type,
+        author or None,
     )
 
 
@@ -841,10 +993,48 @@ async def update_finding(
     body: FindingStatusUpdate,
     identity: Annotated[Identity, Depends(require_triage)],
 ) -> FindingPublic:
-    """Change the status of a finding (triage). The change is logged with the caller."""
+    """Record a triage decision; the caller is stored as its approver and logged.
+
+    Only a person logged in to the web interface may accept a risk or mark a false positive:
+    a bearer token, which an agent may hold, is refused.
+    """
+    if body.status in DISMISSED_STATUSES and identity.auth_source is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only a person logged in to the web interface can accept a risk or mark a "
+            "false positive",
+        )
     await run_in_threadpool(services.check_finding_scope, identity.projects, finding_id)
-    finding = await run_in_threadpool(services.update_finding_status, finding_id, body.status)
+    expires_at = (
+        None if body.expires_on is None else datetime.combine(body.expires_on, time.min, UTC)
+    )
+    try:
+        finding = await run_in_threadpool(
+            services.update_finding_status,
+            finding_id,
+            body.status,
+            identity.client,
+            body.reason,
+            expires_at,
+            actor_of(identity),
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     logger.info("Finding %s set to %s by %s", finding_id, body.status, identity.client)
+    return finding
+
+
+@router.delete("/findings/{finding_id}/proposal")
+async def reject_finding_proposal(
+    finding_id: int,
+    identity: Annotated[Identity, Depends(require_triage)],
+) -> FindingPublic:
+    """Reject the status proposed by an agent; the status of the finding does not change."""
+    await run_in_threadpool(services.check_finding_scope, identity.projects, finding_id)
+    finding = await run_in_threadpool(
+        services.clear_finding_proposal, finding_id, actor_of(identity)
+    )
+    logger.info("Proposal for finding %s rejected by %s", finding_id, identity.client)
     return finding
 
 
@@ -1057,7 +1247,12 @@ async def create_project_token(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Project not found")
     try:
         created = await run_in_threadpool(
-            token_store.create_project_token, body.label, body.projects, body.role
+            token_store.create_project_token,
+            body.label,
+            body.projects,
+            body.role,
+            body.expires_in_days,
+            actor_of(identity),
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
@@ -1078,11 +1273,44 @@ async def delete_project_token(
 ) -> Response:
     """Revoke a project token: the next request presenting it is rejected."""
     try:
-        await run_in_threadpool(token_store.revoke_project_token, token_id)
+        await run_in_threadpool(token_store.revoke_project_token, token_id, actor_of(identity))
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     logger.info("Project token %s revoked by %s", token_id, identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/project-tokens/{token_id}/rotate")
+async def rotate_project_token(
+    token_id: Annotated[str, APIPath(min_length=1, max_length=64)],
+    identity: Annotated[Identity, Depends(require_admin)],
+    body: ProjectTokenRotation | None = None,
+) -> JSONResponse:
+    """Replace the secret of a project token and return the new one exactly once.
+
+    The previous secret keeps working for ``grace_hours`` (0: it stops at once).
+    """
+    body = body or ProjectTokenRotation()
+    try:
+        rotated = await run_in_threadpool(
+            lambda: token_store.rotate_token(
+                token_id,
+                body.grace_hours,
+                body.expires_in_days,
+                actor_of(identity),
+                project_token=True,
+            )
+        )
+    except ValueError as exc:
+        code = status.HTTP_404_NOT_FOUND if "not found" in str(exc) else 422
+        raise HTTPException(code, str(exc)) from exc
+    logger.info(
+        "Project token %s rotated by %s (grace %d h)",
+        rotated["label"],
+        identity.client,
+        body.grace_hours,
+    )
+    return JSONResponse(rotated, headers=LOGIN_HEADERS)
 
 
 @router.get("/enrollments")
@@ -1119,7 +1347,9 @@ async def approve_enrollment(
         except ValueError as exc:
             raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     try:
-        approved = await run_in_threadpool(token_store.approve_enrollment, request_id)
+        approved = await run_in_threadpool(
+            token_store.approve_enrollment, request_id, actor_of(identity)
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     logger.info(
@@ -1155,7 +1385,9 @@ async def reject_enrollment(
 ) -> Response:
     """Reject an enrollment request: a new token is deleted, an additional project dropped."""
     try:
-        rejected = await run_in_threadpool(token_store.reject_enrollment, request_id)
+        rejected = await run_in_threadpool(
+            token_store.reject_enrollment, request_id, actor_of(identity)
+        )
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     logger.info(
@@ -1165,6 +1397,33 @@ async def reject_enrollment(
         identity.client,
     )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/audit")
+async def audit_events(
+    identity: Annotated[Identity, Depends(require_admin)],
+    action: Annotated[audit.AuditAction | None, Query()] = None,
+    project: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+    actor: Annotated[str | None, Query(min_length=1, max_length=audit.MAX_ACTOR_CHARS)] = None,
+    since: date | None = None,
+    limit: Annotated[int, Query(ge=1)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> dict[str, Any]:
+    """Audit log, newest first: triage decisions, agent proposals, tokens and enrollments.
+
+    ``since`` keeps the events from that day (00:00 UTC); limit is capped by
+    SECREVIEW_MAX_LIST_LIMIT.
+    """
+    start = None if since is None else datetime.combine(since, time.min, UTC)
+    return await run_in_threadpool(
+        audit.list_events,
+        action.value if action else None,
+        project,
+        actor,
+        start,
+        limit,
+        offset,
+    )
 
 
 @router.get("/settings")
@@ -1547,11 +1806,24 @@ def create_app(
     app.state.login_throttle = web_users.LoginThrottle()
     app.include_router(auth_router)
     app.include_router(router)
+    app.include_router(ci_router)
 
     @app.get(HEALTH_PATH, include_in_schema=False)
     async def healthz() -> dict[str, str]:
         """Public liveness probe (containers, Kubernetes)."""
         return {"status": "ok"}
+
+    if settings.metrics_enabled:
+
+        @app.get(METRICS_PATH, include_in_schema=False)
+        async def prometheus_metrics(
+            identity: Annotated[Identity, Depends(metrics_identity)],
+        ) -> Response:
+            """Prometheus metrics (``metrics`` or ``admin`` token)."""
+            text = await run_in_threadpool(metrics.render)
+            return Response(
+                text, media_type=metrics.CONTENT_TYPE, headers={"Cache-Control": "no-store"}
+            )
 
     @app.get(FAVICON_PATH, include_in_schema=False)
     async def favicon() -> Response:

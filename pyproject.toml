@@ -15,7 +15,6 @@ dependencies = [
     "fastapi>=0.135",
     "tomlkit>=0.13",
     "alembic>=1.13",
-    # ID token and session checks of the OIDC login (SECREVIEW_OIDC_*); already required by mcp
     "pyjwt[crypto]>=2.10",
 ]
 
@@ -31,12 +30,11 @@ docs = [
 [project.scripts]
 security-review-mcp = "security_review_mcp.server:main"
 security-review-controller = "security_review_mcp.controller:main"
+security-review-ci = "security_review_mcp.ci_client:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
-# Default rules seeded into the database, and the built Angular application (web/,
-# `npm run build`) served on /ui
 [tool.setuptools.package-data]
 security_review_mcp = ["default_rules.toml", "favicon.svg", "migrations/script.py.mako", "webui/*", "webui/**/*"]
 

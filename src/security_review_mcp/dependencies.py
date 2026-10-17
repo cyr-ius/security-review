@@ -2,19 +2,23 @@
 
 Supported files: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock, uv.lock (PyPI);
 package.json, package-lock.json, npm-shrinkwrap.json, yarn.lock (npm);
-pom.xml, build.gradle, build.gradle.kts (Maven).
+pom.xml, build.gradle, build.gradle.kts (Maven);
+CycloneDX SBOMs in JSON or XML (bom.json, bom.xml, *.cdx.json...), any of these ecosystems.
 
-Lockfiles list the exact resolved versions, including transitive dependencies: they are the
-most reliable input for vulnerability matching.
+Lockfiles and SBOMs list the exact resolved versions, including transitive dependencies: they
+are the most reliable input for vulnerability matching. An SBOM is the only way to check the
+transitive dependencies of a Maven or Gradle project.
 """
 
 import json
 import re
 import tomllib
 import xml.etree.ElementTree as ET
-from collections import defaultdict
+from collections import Counter, defaultdict
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
+from urllib.parse import unquote
 
 from .models import Severity
 
@@ -31,6 +35,10 @@ SUPPORTED_FILES = (
     "pom.xml",
     "build.gradle",
     "build.gradle.kts",
+    "bom.json",
+    "bom.xml",
+    "*.cdx.json",
+    "*.cdx.xml",
 )
 
 # rule id -> (title, severity, cwe)
@@ -139,7 +147,7 @@ class _Builder:
             self.parsed.notes.append(
                 f"{unresolved} dependency version(s) are ranges or managed elsewhere and cannot be "
                 "checked against advisories: scan the lockfile (package-lock.json, poetry.lock, "
-                "Pipfile.lock, uv.lock, yarn.lock) or the resolved dependency tree instead."
+                "Pipfile.lock, uv.lock, yarn.lock) or a CycloneDX SBOM (bom.json) instead."
             )
         return self.parsed
 
@@ -251,6 +259,8 @@ def _load_toml(content: str) -> dict:
         return tomllib.loads(content)
     except tomllib.TOMLDecodeError as exc:
         raise ValueError(f"Invalid TOML: {exc}") from exc
+    except RecursionError as exc:
+        raise ValueError("Invalid TOML: nesting too deep") from exc
 
 
 def _load_json(content: str) -> dict:
@@ -259,6 +269,8 @@ def _load_json(content: str) -> dict:
         data = json.loads(content)
     except ValueError as exc:
         raise ValueError(f"Invalid JSON: {exc}") from exc
+    except RecursionError as exc:
+        raise ValueError("Invalid JSON: nesting too deep") from exc
     if not isinstance(data, dict):
         raise ValueError("Invalid JSON: an object was expected")
     return data
@@ -525,15 +537,27 @@ def _text(element: ET.Element, name: str) -> str:
     return (found[0].text or "").strip() if found else ""
 
 
-def parse_pom(content: str) -> Parsed:
-    """Parse a Maven pom.xml file (the effective POM is not computed)."""
+def _load_xml(content: str, file_type: str) -> ET.Element:
+    """Parse XML or raise a clear ValueError; DTDs are refused (entity expansion, XXE)."""
     if re.search(r"<!(DOCTYPE|ENTITY)", content, re.IGNORECASE):
-        raise ValueError("pom.xml contains a DOCTYPE or ENTITY declaration: refusing to parse it")
+        raise ValueError(
+            f"{file_type} contains a DOCTYPE or ENTITY declaration: refusing to parse it"
+        )
     try:
-        root = ET.fromstring(content)
+        return ET.fromstring(content)
     except ET.ParseError as exc:
         raise ValueError(f"Invalid XML: {exc}") from exc
 
+
+_TRANSITIVE_NOTE = (
+    "{file} only lists the direct dependencies: generate a CycloneDX SBOM of the resolved "
+    "dependency tree (bom.json) and scan it to check the transitive dependencies."
+)
+
+
+def parse_pom(content: str) -> Parsed:
+    """Parse a Maven pom.xml file (the effective POM is not computed)."""
+    root = _load_xml(content, "pom.xml")
     builder = _Builder("pom.xml", "Maven", False)
     properties: dict[str, str] = {}
     for block in _children(root, "properties"):
@@ -611,6 +635,7 @@ def parse_pom(content: str) -> Parsed:
                         None,
                         _text(repo, "id") or None,
                     )
+    builder.parsed.notes.append(_TRANSITIVE_NOTE.format(file="pom.xml"))
     return builder.finish()
 
 
@@ -651,7 +676,132 @@ def parse_gradle(content: str) -> Parsed:
                 builder.issue("DEP-002", f"{name}:{version} is a dynamic version", number, name)
             else:
                 builder.component(name, version, line=number, dev=dev)
+    builder.parsed.notes.append(_TRANSITIVE_NOTE.format(file="build.gradle"))
     return builder.finish()
+
+
+# ── CycloneDX SBOM ───────────────────────────────────────────────────────────
+
+# Package URL type -> advisory ecosystem; the other types (golang, nuget...) are not checked
+_PURL_ECOSYSTEMS = {"pypi": "PyPI", "npm": "npm", "maven": "Maven"}
+_CYCLONEDX_XML_NS = "http://cyclonedx.org/schema/bom/"  # secreview:ignore GEN-004 XML namespace
+
+
+def _parse_purl(purl: str) -> tuple[str, str, str | None] | None:
+    """Return the type, the ecosystem name and the version of a package URL, or None.
+
+    ``pkg:maven/org.apache/commons@1.0`` gives ``("maven", "org.apache:commons", "1.0")`` and
+    ``pkg:npm/%40angular/core@17.0.0`` gives ``("npm", "@angular/core", "17.0.0")``.
+    """
+    if not purl.startswith("pkg:"):
+        return None
+    path = purl[4:].split("#", 1)[0].split("?", 1)[0].strip("/")
+    kind, _, path = path.partition("/")
+    version = None
+    # The version follows the last "@" of the last segment (an unencoded npm scope is "@x/")
+    head, slash, last = path.rpartition("/")
+    if "@" in last:
+        last, version = last.rsplit("@", 1)
+        version = unquote(version).strip() or None
+    segments = [unquote(segment) for segment in f"{head}{slash}{last}".split("/") if segment]
+    kind = kind.lower()
+    if not segments or not kind:
+        return None
+    if kind == "maven":
+        if len(segments) < 2:
+            return None
+        return kind, f"{'.'.join(segments[:-1])}:{segments[-1]}", version
+    if kind == "npm":
+        return kind, "/".join(segments), version
+    return kind, segments[-1], version
+
+
+def _json_sbom_entries(components: object) -> Iterator[tuple[object, object, object]]:
+    """Yield the purl, version and scope of the components of a JSON SBOM, nested included.
+
+    The walk is iterative: a deeply nested SBOM cannot exhaust the Python stack.
+    """
+    stack = list(reversed(components)) if isinstance(components, list) else []
+    while stack:
+        item = stack.pop()
+        if not isinstance(item, dict):
+            continue
+        yield item.get("purl"), item.get("version"), item.get("scope")
+        nested = item.get("components")
+        if isinstance(nested, list):
+            stack.extend(reversed(nested))
+
+
+def _xml_sbom_entries(root: ET.Element) -> Iterator[tuple[object, object, object]]:
+    """Yield the purl, version and scope of the components of an XML SBOM, nested included."""
+
+    def components_of(element: ET.Element) -> list[ET.Element]:
+        return [
+            c for block in _children(element, "components") for c in _children(block, "component")
+        ]
+
+    stack = list(reversed(components_of(root)))
+    while stack:
+        item = stack.pop()
+        yield _text(item, "purl"), _text(item, "version"), _text(item, "scope")
+        stack.extend(reversed(components_of(item)))
+
+
+def _parse_sbom(entries: Iterator[tuple[object, object, object]], file_type: str) -> Parsed:
+    """Turn the components of a CycloneDX SBOM into a Parsed (several ecosystems possible)."""
+    builder = _Builder(file_type, "", True)
+    unsupported: Counter[str] = Counter()
+    unidentified = 0
+    for purl, version, scope in entries:
+        identity = _parse_purl(purl.strip()) if isinstance(purl, str) else None
+        if identity is None:
+            unidentified += 1
+            continue
+        kind, name, purl_version = identity
+        ecosystem = _PURL_ECOSYSTEMS.get(kind)
+        if ecosystem is None:
+            unsupported[kind] += 1
+            continue
+        if isinstance(version, str) and version.strip():
+            purl_version = version.strip()
+        builder.parsed.components.append(
+            Component(ecosystem, name, purl_version, dev=scope == "excluded")
+        )
+        if ecosystem == "Maven" and (purl_version or "").upper().endswith("-SNAPSHOT"):
+            builder.issue("DEP-002", f"{name} {purl_version} is a mutable SNAPSHOT", None, name)
+
+    components = builder.parsed.components
+    ecosystems = sorted({c.ecosystem for c in components})
+    builder.parsed.ecosystem = ", ".join(ecosystems) or "none"
+    notes = builder.parsed.notes
+    if not components:
+        notes.append("The SBOM lists no PyPI, npm or Maven component: nothing could be checked.")
+    if missing := sum(1 for c in components if c.version is None):
+        notes.append(f"{missing} component(s) have no version and cannot be checked.")
+    if unsupported:
+        types = ", ".join(f"{kind} ({count})" for kind, count in sorted(unsupported.items()))
+        notes.append(f"Package types without advisories, not checked: {types}.")
+    if unidentified:
+        notes.append(
+            f"{unidentified} component(s) have no package URL (purl) and cannot be checked."
+        )
+    return builder.finish()
+
+
+def parse_cyclonedx_json(content: str) -> Parsed:
+    """Parse a CycloneDX SBOM in JSON (``bomFormat: CycloneDX``)."""
+    data = _load_json(content)
+    if data.get("bomFormat") != "CycloneDX":
+        raise ValueError("Not a CycloneDX SBOM: bomFormat must be 'CycloneDX'")
+    return _parse_sbom(_json_sbom_entries(data.get("components")), "CycloneDX")
+
+
+def parse_cyclonedx_xml(content: str) -> Parsed:
+    """Parse a CycloneDX SBOM in XML (``<bom xmlns="http://cyclonedx.org/schema/bom/...">``)."""
+    root = _load_xml(content, "SBOM")
+    if _local(root.tag) != "bom" or not root.tag.startswith("{" + _CYCLONEDX_XML_NS):
+        raise ValueError("Not a CycloneDX SBOM: the root must be a CycloneDX <bom> element")
+    return _parse_sbom(_xml_sbom_entries(root), "CycloneDX")
 
 
 # ── Dispatch ─────────────────────────────────────────────────────────────────
@@ -670,6 +820,8 @@ _PARSERS = {
     "build.gradle.kts": parse_gradle,
 }
 _REQUIREMENTS_NAME = re.compile(r"^[\w.-]*(requirements|constraints)[\w.-]*\.(txt|in)$")
+# CycloneDX SBOMs: bom.json, sbom.xml, app-bom.json, app.cdx.json...
+_SBOM_NAME = re.compile(r"^(?:[\w.-]*[._-])?(?:s?bom|cdx)\.(json|xml)$")
 
 
 def parse_dependency_file(content: str, filename: str) -> Parsed:
@@ -680,9 +832,12 @@ def parse_dependency_file(content: str, filename: str) -> Parsed:
     """
     path = PurePosixPath(filename.replace("\\", "/").lower())
     base = path.name
-    if base in _PARSERS:
+    parser = _PARSERS.get(base)
+    if parser is None and (sbom := _SBOM_NAME.match(base)):
+        parser = parse_cyclonedx_json if sbom.group(1) == "json" else parse_cyclonedx_xml
+    if parser is not None:
         try:
-            return _PARSERS[base](content)
+            return parser(content)
         except (AttributeError, TypeError, KeyError, IndexError) as exc:
             # Well-formed JSON / TOML whose nodes have unexpected types (a string where a
             # table is expected...): report a data error instead of an internal failure. The

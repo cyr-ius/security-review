@@ -4,11 +4,37 @@
 
 `requirements*.txt`, `pyproject.toml` (PEP 621/735, Poetry), `poetry.lock`, `Pipfile.lock`,
 `uv.lock`, `package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 et
-berry), `pom.xml`, `build.gradle(.kts)`.
+berry), `pom.xml`, `build.gradle(.kts)`, SBOM CycloneDX (`bom.json`, `bom.xml`, `sbom.json`,
+`*.cdx.json`, `*.cdx.xml`...).
 
 Dans un `uv.lock`, le projet lui-même et les membres de son workspace (sources `editable` ou
 `virtual`) ne sont pas des dépendances et sont ignorés ; toute autre source `git`, `url`,
 `path`, `directory` ou `editable` lève `DEP-003`.
+
+### SBOM CycloneDX (dépendances transitives)
+
+`pom.xml` et `build.gradle` ne listent que les dépendances directes : leurs dépendances
+transitives, souvent les vulnérables, ne sont pas vérifiées (une note le rappelle dans le
+résultat). Générez dans le pipeline un SBOM CycloneDX de l'arbre de dépendances résolu, puis
+analysez-le :
+
+```bash
+# Maven : écrit target/bom.json et target/bom.xml
+mvn org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
+security-review-controller deps scan target/bom.json --require-database
+```
+
+Avec Gradle, la tâche `cyclonedxBom` du plugin `org.cyclonedx.bom` produit le même fichier ;
+`npm sbom --sbom-format cyclonedx` le fait pour npm.
+
+- Le SBOM est lu en JSON (`bomFormat: "CycloneDX"`) ou en XML (espace de noms CycloneDX) ; les
+  composants imbriqués sont inclus. Un SBOM XML contenant un `DOCTYPE` ou une `ENTITY` est refusé.
+- Chaque composant est identifié par son package URL (`purl`) : `pkg:maven/...` (Maven),
+  `pkg:npm/...` (npm) et `pkg:pypi/...` (PyPI). Un SBOM peut mélanger ces écosystèmes. Les
+  autres types (`pkg:golang`, `pkg:nuget`...) et les composants sans `purl` sont comptés dans une
+  note et ne sont pas vérifiés.
+- Les versions sont résolues : le SBOM est traité comme un lockfile. Un composant de portée
+  `excluded` est marqué `dev` ; une version Maven `-SNAPSHOT` lève `DEP-002`.
 
 ## Base de vulnérabilités hors ligne (format OSV)
 
@@ -51,7 +77,7 @@ SECREVIEW_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
 - **Proxy** : le téléchargement passe par le proxy sortant du contrôleur, `SECREVIEW_PROXY`
   (`http://[utilisateur:mot de passe@]hôte:port`, tunnel `CONNECT` vers le site HTTPS), sauf
   vers les hôtes de `SECREVIEW_NO_PROXY`. Le même proxy sert à la
-  [connexion SSO](web-interface.md#connexion-sso-openid-connect). Sans lui, les variables
+  [connexion SSO](sso.md). Sans lui, les variables
   standard `HTTPS_PROXY` et `NO_PROXY` s'appliquent. Si le proxy inspecte le TLS, donnez sa CA
   avec `SECREVIEW_OSV_CAFILE` (elle remplace alors les CA du système).
 - **Miroir** : `SECREVIEW_OSV_URL` remplace la source (Nexus, Artifactory, bucket interne…)
@@ -87,7 +113,7 @@ SECREVIEW_NO_PROXY=.corp.example,10.0.0.0/8,172.16.0.0/12,fd00::/8
 ```
 
 Le proxy peut aussi être choisi par un administrateur dans l'écran
-[**Paramètres**](web-interface.md#ecrans) de l'interface web : proxy et hôtes sans proxy
+[**Paramètres**](../usage/web-interface.md#ecrans) de l'interface web : proxy et hôtes sans proxy
 définis ici, ou connexion directe, prioritaires sur `SECREVIEW_PROXY`, `SECREVIEW_NO_PROXY` et
 `HTTPS_PROXY` ; ils s'appliquent au téléchargement suivant. Le même écran affiche l'état de
 la base, l'historique des mises à jour (planifiées, CLI ou web) et un bouton **Mettre à jour
@@ -117,12 +143,15 @@ security-review-controller deps scan package-lock.json requirements.txt \
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur
 ```
 
+Avec `--save`, `--author` enregistre le nom d'utilisateur du développeur avec le rapport (voir
+[auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)).
+
 ## Scan avec un serveur partagé (hook de commit)
 
 `security-review-mcp scan-deps` envoie les fichiers de dépendances à l'outil `scan_dependencies`
 d'un serveur MCP partagé : le scan utilise la base d'avis de ce serveur, sans import local. Il
 faut un jeton de rôle `mcp` ou `admin` (voir
-[enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton)).
+[enrôlement](http.md#enrolement-un-projet-demande-son-jeton)).
 
 ```bash
 export SECREVIEW_SERVER_URL=https://secreview.example.com
@@ -175,6 +204,8 @@ Le champ `vulnerability_check` dit si la vérification a eu lieu :
 - Une base de plus de 30 jours est signalée.
 - Une sévérité absente de l'avis est traitée comme `medium` (`severity_known: false`).
 - Les versions en intervalle (`>=2`) ne sont pas vérifiables : analysez le lockfile.
+- Pour un SBOM qui mélange des écosystèmes, la vérification est `performed` dès que l'un d'eux a
+  des avis ; une note nomme les écosystèmes qui n'ont pas pu être vérifiés.
 - Chaque composant est marqué `dev` ou non. Dans `pyproject.toml`, les extras nommées d'après
   le développement (`dev`, `test`, `docs`, `lint`...) et les `[dependency-groups]` sont `dev` ;
   les autres extras (`postgres`...) sont installées en production et restent des dépendances

@@ -1,7 +1,7 @@
 # HTTP server, authentication and TLS
 
 A shared server (team, CI/CD) is made of **two processes** sharing the same database (see
-[Architecture and deployment](kubernetes.md)):
+[Architecture and deployment](architecture.md)):
 
 - the **MCP server** (`security-review-mcp --transport streamable-http`): `/mcp` endpoint,
   public enrollment (`/api/v1/enroll`) and `/healthz` probe; it is the one exposed to the agents
@@ -43,10 +43,15 @@ Projects can also request their token themselves: see
 
 - Give `token` to the client; the unique `label` appears in the logs.
 - `--role` is `mcp` by default (MCP server); `reader` (read only) and `triager` (read and
-  triage) give access to the REST API of the controller, never to the web interface: see the
-  [roles](../usage/web-interface.md#roles).
+  triage) give access to the REST API of the controller, never to the web interface; `ci`
+  (always with `--project`) only reaches the pipeline routes used by
+  [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci): see the
+  [roles](../usage/web-interface.md#roles); `metrics` (never with `--project`) only reaches the
+  [Prometheus metrics](audit-metrics.md#prometheus-metrics) of the controller.
+- `--expires-in-days` sets the validity of the token: see
+  [expiry and rotation](#expiry-and-rotation-of-tokens).
 - `--project` limits the token to one or more projects (repeat the option), for the MCP tools
-  as for the REST API (`mcp`, `reader` and `triager` roles; refused for `admin`). See
+  as for the REST API (`mcp`, `reader` and `triager` roles; refused for `admin` and `metrics`). See
   [tokens restricted to a project](#tokens-restricted-to-a-project). Administrators can also
   create and revoke restricted `reader` tokens from the **Tokens** screen.
 - The server reads the database at every request: a creation or a revocation applies
@@ -58,6 +63,35 @@ on the MCP server, and on the controller the static files of `/ui/` and the Swag
 documentation (`/api/docs`, `/api/openapi.json` schema, `/api/favicon.svg` icon). While no token exists, `/mcp` is open
 (a warning is logged if it does not listen on localhost) and the controller API answers `503`.
 `token revoke` warns on stderr when it deletes the last token.
+
+Every creation, rotation and revocation of a token, and every enrollment request and decision,
+is written to the [audit log](audit-metrics.md#audit-log), with who made it.
+
+### Expiry and rotation of tokens
+
+A token may expire: after its expiry date it authenticates nothing (`401`, `error="invalid_token"`,
+description `The bearer token has expired`), but it stays listed so that an administrator
+rotates or revokes it. `SECREVIEW_TOKEN_MAX_DAYS` (default `0`) sets the longest validity of a
+token created or rotated, and its default validity; with `0`, tokens do not expire unless a
+validity is asked for.
+
+```bash
+security-review-controller token create --label shop-ci --project shop-api --expires-in-days 90
+security-review-controller token rotate shop-ci --grace-hours 24     # new secret, shown once
+# {"id": "6f1c…", "label": "shop-ci", …, "expires_at": "…", "rotated_at": "…", "grace_until": "…", "token": "pX4q…"}
+```
+
+A rotation replaces the secret of a token: it keeps its id, label, role and projects, and gets a
+new validity (`--expires-in-days`, default as at creation). During `--grace-hours` (`0` by
+default, at most `168`) the previous secret keeps working, the time to update the clients
+(`grace_until` in `token list`); after that, only the new one authenticates. The previous secret
+of an expired token never comes back. After a leak, rotate without a grace period (or revoke):
+the leaked secret then stops at once. An enrollment request still waiting for approval cannot
+be rotated. In the web interface, the **Tokens** screen rotates the project tokens (button
+**Rotate**, grace period chosen above the list).
+
+Expired tokens still count as configured tokens: a server whose tokens have all expired stays
+closed, it never becomes open.
 
 ### Tokens restricted to a project
 
@@ -71,7 +105,7 @@ security-review-controller token create --label shop-triage --role triager --pro
 A token without `--project` reaches every project. A restricted token:
 
 - only saves reports (`save_security_report`) for its project;
-- only reads, lists, exports and triages (`update_finding_status`, `PATCH` of the web API) the
+- only reads, lists, exports and triages (`propose_finding_status`, `PATCH` of the web API) the
   reports and findings of its project; `list_security_reports` without a filter only returns
   those;
 - gets, for any other project, report or finding, the same "not found" error as for a missing
@@ -102,7 +136,9 @@ the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`) as soon as a
    requested project, but **pending**: it does not give access to anything yet. A token is
    personal (it may later reach other projects), so its label is the **developer's username**:
    the login name with `enroll`, the username passed by the agent; without a label, the project
-   name followed by `-enroll`. A random suffix is added. Three ways to request:
+   name followed by `-enroll`. A random suffix is added. The token stays configured on a
+   device, which other people may use: each report therefore also names its developer (see
+   [author of a report](../usage/prompts-tools.md#author-of-a-report)). Three ways to request:
     - **From the agent, at the first review.** An MCP client that connects **without** an
       `Authorization` header is not rejected: it reaches a restricted MCP server (same
       `security-review` name) that only exposes the `request_enrollment` and
@@ -121,7 +157,7 @@ the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`) as soon as a
       `{"project": "shop-api"}`. The controller does not serve this endpoint: it exposes no
       unauthenticated write route.
 2. **Configuration.** The user puts the token at once in the
-   [host configuration](host.md#getting-a-token-enrollment). While it is pending, the client
+   [host configuration](../getting-started/host.md#getting-a-token-enrollment). While it is pending, the client
    stays on the enrollment server (`get_enrollment_status` answers `pending`) and the web API
    answers `403 enrollment_pending`.
 3. **Approval.** An administrator approves or rejects the request in the **Tokens** screen of
@@ -137,9 +173,9 @@ the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`) as soon as a
     approval can also give the developer **read access to the project in the portal**, on
     their user account (**Read access in the portal** column of the interface, or
     `token approve ID --portal-user alice` from the CLI); with the
-    [SSO login](../usage/web-interface.md#openid-connect-sso-login), an unknown name becomes an
+    [SSO login](sso.md), an unknown name becomes an
     SSO account. See
-    [project read access at enrollment](../usage/web-interface.md#project-read-access-at-enrollment).
+    [project read access at enrollment](sso.md#project-read-access-at-enrollment).
 
 ### Additional enrollment
 
@@ -207,7 +243,72 @@ clients refuse the connection even when they trust the CA. The key file (`key.pe
 leaves the server: keep it readable by the server account only (`chmod 600`).
 
 With an internal CA, the clients must trust its certificate: see
-[Host configuration](host.md#https-server-with-an-internal-ca).
+[Host configuration](http.md#https-server-with-an-internal-ca).
+
+## HTTPS server with an internal CA
+
+When the server certificate is signed by an
+[internal CA](#certificate-authority), the host refuses the connection
+(`unable to verify the first certificate`, `unable to get local issuer certificate`). Neither VS Code nor
+Claude has a per-server TLS option in its MCP configuration: the certificate is added to the
+trusted authorities of the host **process**. Claude Code and VS Code run on Node.js, which reads
+the `NODE_EXTRA_CA_CERTS` environment variable (PEM file) for this, **when the process starts**.
+
+1. Get the certificate of the internal CA (PEM) from its administrators, save it as
+   `~/.config/secreview/ca.pem`, and check that the name or address of the MCP `url` is in the
+   server certificate:
+
+    ```bash
+    openssl s_client -connect 192.168.1.1:8000 -CAfile ~/.config/secreview/ca.pem </dev/null \
+        2>/dev/null | openssl x509 -noout -ext subjectAltName
+    ```
+
+2. Declare it to the host, then **restart it**:
+
+=== "Claude Code"
+
+    In the shell profile (`~/.bashrc`, `~/.zshrc`), before starting `claude`:
+
+    ```bash
+    export NODE_EXTRA_CA_CERTS="$HOME/.config/secreview/ca.pem"
+    ```
+
+    The [Claude Code documentation](https://code.claude.com/docs/en/network-config) also gives
+    the `env` key of `settings.json`
+    (`"env": { "NODE_EXTRA_CA_CERTS": "/home/me/.config/secreview/ca.pem" }`). The variable
+    applies to every connection of Claude Code, not only to the MCP server.
+
+=== "VS Code / GitHub Copilot"
+
+    Start VS Code from a shell where the variable is set (`code .`), or set it at system
+    level:
+
+    ```bash
+    export NODE_EXTRA_CA_CERTS="$HOME/.config/secreview/ca.pem"
+    code .
+    ```
+
+    Another option: add the certificate to the certificate store of the system (Windows:
+    *Trusted Root Certification Authorities*; macOS: Keychain, *Always Trust*; Linux:
+    `/usr/local/share/ca-certificates/` then `sudo update-ca-certificates`). VS Code loads the
+    system certificates (`http.systemCertificates` setting, enabled by default).
+
+    In a **dev container**, the connection leaves from the container: mount the file and set
+    the variable in `devcontainer.json` (`"remoteEnv": { "NODE_EXTRA_CA_CERTS": "..." }`), then
+    rebuild or reload the window.
+
+!!! warning
+    Do not use `NODE_TLS_REJECT_UNAUTHORIZED=0`: it disables the verification of **every**
+    connection of the process (API, extensions, updates), not only the one to the MCP server,
+    and lets an interception through.
+
+The remote connectors added from the Claude web interface (claude.ai, Claude Desktop) are
+contacted from Anthropic's infrastructure, not from the workstation: they require a server
+reachable from the Internet with a publicly trusted certificate, which rules out an internal
+CA.
+
+For the enrollment from the CLI, `security-review-mcp enroll` accepts `--cafile` directly (see
+below).
 
 ## Client configuration
 
@@ -229,7 +330,7 @@ VS Code, with a token asked to the user:
 ```
 
 For Claude and to get a token by enrollment from the host, see
-[Host configuration](host.md#getting-a-token-enrollment).
+[Host configuration](../getting-started/host.md#getting-a-token-enrollment).
 
 ## Behind a reverse proxy
 

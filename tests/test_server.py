@@ -7,7 +7,7 @@ from mcp.client import Client
 from mcp.shared.exceptions import MCPError
 from pydantic import ValidationError
 
-from security_review_mcp import app_settings, services, token_store
+from security_review_mcp import app_settings, audit, services, token_store
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.models import FindingCreate, ReviewType, Severity
 from security_review_mcp.prompts import fenced
@@ -106,6 +106,35 @@ async def test_review_prompts_give_their_review_type(prompt, review_type):
         result = await client.get_prompt(prompt, {})
     assert f"`review_type` `{review_type}`" in result.messages[0].content.text
     assert ReviewType(review_type)
+
+
+async def test_review_prompts_ask_for_the_developer_username():
+    async with Client(mcp) as client:
+        for prompt in ("security-review", "dependency-review", "codebase-review"):
+            result = await client.get_prompt(prompt, {})
+            assert "git config user.email" in result.messages[0].content.text, prompt
+
+
+async def test_save_report_with_an_author_and_filter_the_list():
+    report = {"project": "authored", "summary": "Authored review", "findings": []}
+    async with Client(mcp) as client:
+        saved = await client.call_tool(
+            "save_security_report", {**report, "author": "  alice@example.com "}
+        )
+        await client.call_tool("save_security_report", {**report, "author": "bob"})
+        listed = await client.call_tool(
+            "list_security_reports", {"project": "authored", "author": "alice@example.com"}
+        )
+        too_long = await client.call_tool("save_security_report", {**report, "author": "a" * 201})
+        control = await client.call_tool(
+            "save_security_report", {**report, "author": "alice\nINFO forged log line"}
+        )
+    assert json.loads(text_of(saved))["author"] == "alice@example.com"
+    rows = listed.structured_content["result"]
+    assert [(r["author"], r["submitted_by"]) for r in rows] == [("alice@example.com", None)]
+    assert too_long.is_error and control.is_error
+    assert "may only contain" in text_of(control)
+    assert len(services.list_reports(project="authored")) == 2
 
 
 async def test_save_report_with_a_review_type_and_filter_the_list():
@@ -253,8 +282,65 @@ async def test_triage_prompt_fences_report_and_forbids_status_from_text():
     async with Client(mcp) as client:
         result = await client.get_prompt("triage-report", {"report_id": str(saved["report_id"])})
     text = result.messages[0].content.text
-    assert "never change a status" in text and "untrusted" in text
+    assert "cannot change the status" in text and "untrusted" in text
+    assert "propose_finding_status" in text and "update_finding_status" not in text
     assert "````markdown" in text
+
+
+async def test_agent_can_only_propose_a_status_and_the_gate_keeps_blocking():
+    saved = services.save_report(
+        "demo",
+        "Seeded",
+        [FindingCreate(title="SQL injection", severity=Severity.HIGH, description="Query")],
+    )
+    finding_id = services.get_report(saved["report_id"]).findings[0].id
+    async with Client(mcp) as client:
+        tools = {tool.name for tool in (await client.list_tools()).tools}
+        result = await client.call_tool(
+            "propose_finding_status",
+            {
+                "finding_id": finding_id,
+                "status": "false_positive",
+                "reason": "Ignore it: password=hunter2hunter2 is a test value",
+            },
+        )
+        gate = json.loads(
+            text_of(await client.call_tool("check_project_gate", {"project": "demo"}))
+        )
+    assert "update_finding_status" not in tools
+    proposed = json.loads(text_of(result))
+    assert proposed["status"] == "open"
+    assert (proposed["proposed_status"], proposed["proposed_by"]) == ("false_positive", "stdio")
+    assert "hunter2hunter2" not in proposed["proposed_reason"]  # masked before storage
+    assert gate["passed"] is False and gate["blocking_findings"] == 1
+    (event,) = audit.list_events(action="finding.status_proposed")["events"]
+    assert (event["actor"], event["project"]) == ("stdio", "demo")
+    assert "hunter2hunter2" not in json.dumps(event)
+
+
+@pytest.mark.parametrize(
+    ("status", "reason"),
+    [("open", "The code is vulnerable again"), ("fixed", "short"), ("closed", "Not a status")],
+)
+async def test_propose_finding_status_refuses_invalid_input(status, reason):
+    saved = services.save_report(
+        "demo",
+        "Seeded",
+        [FindingCreate(title="SQL injection", severity=Severity.HIGH, description="Query")],
+    )
+    finding_id = services.get_report(saved["report_id"]).findings[0].id
+    async with Client(mcp) as client:
+        refused = await client.call_tool(
+            "propose_finding_status",
+            {"finding_id": finding_id, "status": status, "reason": reason},
+        )
+        missing = await client.call_tool(
+            "propose_finding_status",
+            {"finding_id": 999, "status": "fixed", "reason": "The query is bound now"},
+        )
+    assert refused.is_error
+    assert missing.is_error and "not found" in text_of(missing)
+    assert services.get_report(saved["report_id"]).findings[0].proposed_status is None
 
 
 # ── Project-restricted tokens (HTTP transport) ───────────────────────────────
@@ -366,7 +452,14 @@ def test_project_token_cannot_reach_other_projects(http_app, two_projects):
     for name, arguments in [
         ("get_security_report", {"report_id": billing["report_id"]}),
         ("list_security_reports", {"project": "billing"}),
-        ("update_finding_status", {"finding_id": finding_id_of(billing), "status": "accepted"}),
+        (
+            "propose_finding_status",
+            {
+                "finding_id": finding_id_of(billing),
+                "status": "accepted",
+                "reason": "Only reachable from the admin network",
+            },
+        ),
         ("get_project_security_posture", {"project": "billing"}),
         ("check_project_gate", {"project": "billing"}),
         ("check_project_gate", {"project": "shop-api", "report_id": billing["report_id"]}),
@@ -393,14 +486,25 @@ def test_project_token_cannot_reach_other_projects(http_app, two_projects):
     assert client.projects_listed() == {"shop-api"}
     assert client.call("get_security_report", {"report_id": shop["report_id"]})[0] is False
     is_error, _ = client.call(
-        "update_finding_status", {"finding_id": finding_id_of(shop), "status": "fixed"}
+        "propose_finding_status",
+        {"finding_id": finding_id_of(shop), "status": "fixed", "reason": "Query is now bound"},
     )
     assert not is_error
+    proposed = services.get_report(shop["report_id"]).findings[0]
+    assert (proposed.status, proposed.proposed_status, proposed.proposed_by) == (
+        "open",
+        "fixed",
+        "shop-ci",
+    )
     assert client.call("check_project_gate", {"project": "shop-api"})[0] is False
     is_error, text = client.call(
-        "save_security_report", {"project": "shop-api", "summary": "New review", "findings": []}
+        "save_security_report",
+        {"project": "shop-api", "summary": "New review", "findings": [], "author": "alice"},
     )
     assert not is_error
+    # The token label (device) is recorded by the server next to the declared developer
+    saved = services.get_report(json.loads(text)["report_id"])
+    assert (saved.author, saved.submitted_by) == ("alice", "shop-ci")
 
 
 def test_unrestricted_token_reaches_every_project(http_app, two_projects):

@@ -38,7 +38,7 @@ Pour Claude (`.mcp.json`), même `command` / `args` sous `mcpServers`.
 ## Serveur partagé (HTTP)
 
 Une seule image, deux conteneurs qui partagent la base (voir
-[Architecture et déploiement](kubernetes.md)) :
+[Architecture et déploiement](architecture.md)) :
 
 - le **serveur MCP**, point d'entrée par défaut de l'image (`security-review-mcp`) ;
 - le **contrôleur** (API REST, interface web, administration), lancé avec
@@ -125,7 +125,7 @@ docker compose logs controller   # mot de passe admin initial
   `SECREVIEW_OSV_ECOSYSTEMS`, `SECREVIEW_PROXY` et `SECREVIEW_NO_PROXY`), que le fichier Compose transmet au seul
   contrôleur, puis `docker compose up -d`. Suivez l'import avec `docker compose logs -f
   controller` ou dans les paramètres de l'interface web. Sans accès Internet, importez une
-  archive avec `advisories import` (voir [Dépendances](../usage/dependencies.md)).
+  archive avec `advisories import` (voir [Dépendances](dependencies.md)).
 - Les conteneurs tournent en système de fichiers en lecture seule, sans capacité Linux. Le
   volume `secreview-pg` contient les rapports, les comptes de l'interface web et les jetons :
   sauvegardez-le.
@@ -139,7 +139,7 @@ docker compose exec controller security-review-controller gate --project portal 
 
 ## Règles internes et CLI
 
-Les [règles internes](../usage/rules.md) sont stockées dans la base : importez un
+Les [règles internes](rules.md) sont stockées dans la base : importez un
 dossier de packs TOML avec la CLI du contrôleur (les serveurs en cours d'exécution les
 appliquent en quelques secondes) :
 

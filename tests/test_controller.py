@@ -9,6 +9,7 @@ from starlette.testclient import TestClient
 
 from security_review_mcp import (
     app_settings,
+    audit,
     cli,
     controller,
     database,
@@ -52,9 +53,10 @@ class FakePruner:
 
     instances: list[FakePruner] = []
 
-    def __init__(self, retention_days: int) -> None:
-        """Remember the retention."""
+    def __init__(self, retention_days: int, audit_retention_days: int = 0) -> None:
+        """Remember the retentions."""
         self.retention_days = retention_days
+        self.audit_retention_days = audit_retention_days
         self.events: list[str] = []
         FakePruner.instances.append(self)
 
@@ -264,6 +266,42 @@ def test_administration_commands_run_from_the_controller(settings, capsys):
     assert json.loads(capsys.readouterr().out)["label"] == "ci"
 
 
+def test_token_cli_creates_with_an_expiry_and_rotates(settings, capsys):
+    argv = ["token", "create", "--label", "ci", "--role", "mcp", "--expires-in-days", "30"]
+    with pytest.raises(SystemExit) as exc:
+        controller.main(argv)
+    assert exc.value.code == cli.EXIT_PASSED
+    created = json.loads(capsys.readouterr().out)
+    assert created["expires_at"] is not None
+
+    with pytest.raises(SystemExit) as exc:
+        controller.main(["token", "rotate", "ci", "--grace-hours", "4"])
+    assert exc.value.code == cli.EXIT_PASSED
+    rotated = json.loads(capsys.readouterr().out)
+    assert rotated["id"] == created["id"]
+    assert rotated["token"] != created["token"]
+    assert rotated["grace_until"] is not None
+    actors = {event["actor"] for event in audit.list_events()["events"]}
+    assert actors == {"cli"}
+
+
+@pytest.mark.parametrize(
+    "argv",
+    [
+        ["token", "rotate", "missing"],
+        ["token", "rotate", "ci", "--grace-hours", "1000"],
+        ["token", "create", "--label", "x", "--expires-in-days", "0"],
+        ["token", "create", "--label", "m", "--role", "metrics", "--project", "shop"],
+    ],
+)
+def test_token_cli_refuses_bad_rotations_and_expiries(settings, capsys, argv):
+    token_store.create_token("ci", "mcp")
+    with pytest.raises(SystemExit) as exc:
+        controller.main(argv)
+    assert exc.value.code == cli.EXIT_ERROR
+    assert json.loads(capsys.readouterr().err)["error"]
+
+
 @pytest.mark.parametrize("argv", [[], ["unknown"], ["enroll"]])
 def test_unknown_commands_print_the_usage(argv, capsys):
     with pytest.raises(SystemExit) as exc:
@@ -325,11 +363,18 @@ def test_serve_runs_the_report_pruner_unless_disabled(settings, captured_run, ui
 
     (pruner,) = fake_pruner
     assert pruner.retention_days == 90
+    assert pruner.audit_retention_days == 365
     assert pruner.events == ["start", "stop"]
 
+    # The audit purge alone keeps the pruner running
     settings(empty_report_retention_days=0)
     controller.main(["serve"])
-    assert len(fake_pruner) == 1
+    assert len(fake_pruner) == 2
+    assert (fake_pruner[1].retention_days, fake_pruner[1].audit_retention_days) == (0, 365)
+
+    settings(empty_report_retention_days=0, audit_retention_days=0)
+    controller.main(["serve"])
+    assert len(fake_pruner) == 2
 
 
 def test_db_prune_deletes_old_reports_without_findings(settings, capsys):

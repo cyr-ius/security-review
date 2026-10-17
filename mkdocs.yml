@@ -9,6 +9,7 @@ copyright: Security Review MCP
 theme:
   name: material
   language: en
+  favicon: assets/favicon.svg
   features:
     - navigation.sections
     - navigation.top
@@ -66,7 +67,15 @@ plugins:
           nav_translations:
             Home: Accueil
             Getting started: Démarrage
-            Host configuration: Configuration de l'hôte
+            Deploying the server: Mise en service du serveur
+            Connecting the host: Connexion de l'hôte
+            Advanced: Avancé
+            Deployment: Déploiement
+            Analysis: Analyse
+            Reports and monitoring: Rapports et suivi
+            SSO login: Connexion SSO
+            "Installation: other cases": "Installation : autres cas"
+            Local mode (stdio): Mode local (stdio)
             HTTP server, authentication and TLS: Serveur HTTP, authentification et TLS
             Architecture and deployment: Architecture et déploiement
             Usage: Utilisation
@@ -76,6 +85,7 @@ plugins:
             Internal rules: Règles internes
             Development standards: Normes de développement
             Web interface: Interface web
+            Audit log and metrics: Journal d'audit et métriques
             SARIF export: Export SARIF
             Trend report: Rapport de tendance
             Reference: Référence
@@ -104,21 +114,29 @@ nav:
   - Home: index.md
   - Getting started:
       - Installation: getting-started/installation.md
-      - Host configuration: getting-started/host.md
-      - HTTP server, authentication and TLS: getting-started/http.md
-      - Docker: getting-started/docker.md
-      - Architecture and deployment: getting-started/kubernetes.md
+      - Deploying the server: getting-started/deploy.md
+      - Connecting the host: getting-started/host.md
   - Usage:
       - Prompts and tools: usage/prompts-tools.md
-      - Whole codebase scan: usage/code-scan.md
-      - Dependency analysis: usage/dependencies.md
-      - Internal rules: usage/rules.md
-      - Development standards: usage/standards.md
       - Web interface: usage/web-interface.md
-  - CI/CD:
-      - Gate: ci-cd/gate.md
-      - SARIF export: ci-cd/sarif.md
-      - Trend report: ci-cd/trends.md
+      - Gate: usage/gate.md
+  - Advanced:
+      - Deployment:
+          - Architecture and deployment: advanced/architecture.md
+          - Docker: advanced/docker.md
+          - HTTP server, authentication and TLS: advanced/http.md
+          - SSO login: advanced/sso.md
+          - "Installation: other cases": advanced/installation.md
+          - Local mode (stdio): advanced/stdio.md
+      - Analysis:
+          - Whole codebase scan: advanced/code-scan.md
+          - Dependency analysis: advanced/dependencies.md
+          - Internal rules: advanced/rules.md
+          - Development standards: advanced/standards.md
+      - Reports and monitoring:
+          - SARIF export: advanced/sarif.md
+          - Trend report: advanced/trends.md
+          - Audit log and metrics: advanced/audit-metrics.md
   - Reference:
       - Configuration: reference/configuration.md
       - Command line: reference/cli.md

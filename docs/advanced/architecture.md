@@ -17,7 +17,7 @@ run in two containers, two pods or on two machines.
 |---|---|---|
 | Command | `security-review-mcp --transport streamable-http` | `security-review-controller serve` |
 | Serves | `/mcp`, public enrollment `POST /api/v1/enroll`, `/healthz` | REST API `/api/v1`, interface `/ui`, `/healthz` |
-| Accepted tokens | `mcp` and `admin` roles | `reader`, `triager` and `admin` roles |
+| Accepted tokens | `mcp` and `admin` roles | `reader`, `triager` and `admin` roles; `ci` on the pipeline routes `/api/v1/ci/` only |
 | Routes without a token | enrollment, `/healthz` | `/ui` files, API documentation, `/healthz` (read only) |
 | Database schema | only checks it | migrates it (unless `SECREVIEW_DB_AUTO_UPGRADE=false`) |
 | Advised exposure | agents and CI, with TLS | internal network or access restricted to administrators |
@@ -100,7 +100,7 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
     security-review-controller token list --pending
 ```
 
-For the [daily update of the OSV advisories](../usage/dependencies.md#automatic-update-by-the-controller),
+For the [daily update of the OSV advisories](dependencies.md#automatic-update-by-the-controller),
 uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and if needed `SECREVIEW_PROXY`, in the Secret if it
 holds credentials) on the `controller` container, and allow its egress to osv.dev or your
 mirror (or the proxy) if an egress NetworkPolicy applies. The MCP server needs no egress.

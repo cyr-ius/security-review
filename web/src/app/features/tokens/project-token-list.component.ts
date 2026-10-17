@@ -14,7 +14,7 @@ import { RefreshButtonComponent } from '../../shared/components/refresh-button/r
 
 /**
  * Administrator page for project tokens: enrollment requests waiting for approval, creation of
- * MCP or REST API tokens and revocation.
+ * MCP, REST API or CI/CD tokens (with a validity), rotation and revocation.
  */
 @Component({
   selector: 'app-project-token-list',
@@ -46,6 +46,12 @@ export class ProjectTokenListComponent {
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
+  /** Validities offered at creation, in days ('' : default of the server). */
+  readonly validities = VALIDITY_DAYS;
+  /** Grace periods offered for a rotation, in hours. */
+  readonly graceChoices = GRACE_HOURS;
+  /** Hours during which the previous secret keeps working after a rotation. */
+  readonly graceHours = signal(0);
 
   /** Message key of the usage of a token (MCP, or REST API with its rights). */
   roleLabel(role: Role): MessageKey {
@@ -63,7 +69,7 @@ export class ProjectTokenListComponent {
     event.preventDefault();
     const model = this.formModel();
     const label = model.label.trim();
-    const role: ProjectTokenRole = model.usage === 'api' ? model.apiRole : 'mcp';
+    const role: ProjectTokenRole = model.usage === 'api' ? model.apiRole : model.usage;
     const projects = this.selectedProjects();
     if (this.tokenForm().invalid() || !label || !projects.length || this.busy()) {
       this.tokenForm().markAsTouched();
@@ -74,7 +80,10 @@ export class ProjectTokenListComponent {
     this.message.set(null);
     this.createdToken.set(null);
     try {
-      const created = await firstValueFrom(this.api.createProjectToken(label, projects, role));
+      const days = model.validity ? Number(model.validity) : null;
+      const created = await firstValueFrom(
+        this.api.createProjectToken(label, projects, role, days),
+      );
       this.createdToken.set(created.token);
       this.formModel.set({ ...EMPTY_TOKEN });
       this.tokenForm().reset();
@@ -201,6 +210,37 @@ export class ProjectTokenListComponent {
     }
   }
 
+  onGraceChange(event: Event): void {
+    this.graceHours.set(Number((event.target as HTMLSelectElement).value));
+  }
+
+  /** Replace the secret of a token and show the new one once. */
+  async rotate(id: string, label: string): Promise<void> {
+    const hours = this.graceHours();
+    const question = hours
+      ? this.i18n.translate('tokens.confirmRotateGrace', { label, hours })
+      : this.i18n.translate('tokens.confirmRotate', { label });
+    if (this.busy() || !window.confirm(question)) {
+      return;
+    }
+    this.busy.set(true);
+    this.error.set(null);
+    this.message.set(null);
+    this.createdToken.set(null);
+    try {
+      const rotated = await firstValueFrom(this.api.rotateProjectToken(id, hours));
+      this.createdToken.set(rotated.token);
+      this.message.set(
+        hours ? msg('tokens.rotatedGrace', { label, hours }) : msg('tokens.rotated', { label }),
+      );
+      this.tokens.reload();
+    } catch (error: unknown) {
+      this.error.set(describeError(error));
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
   async revoke(id: string, label: string): Promise<void> {
     if (this.busy() || !window.confirm(this.i18n.translate('tokens.confirmRevoke', { label }))) {
       return;
@@ -221,22 +261,30 @@ export class ProjectTokenListComponent {
   }
 }
 
-/** What a project token is for. */
-type TokenUsage = 'mcp' | 'api';
+/** What a project token is for: the MCP server, the REST API or a CI/CD pipeline. */
+type TokenUsage = 'mcp' | 'api' | 'ci';
 
 /** Rights of a REST API token. */
-type ApiTokenRole = Exclude<ProjectTokenRole, 'mcp'>;
+type ApiTokenRole = Exclude<ProjectTokenRole, 'mcp' | 'ci'>;
 
 /** Fields of the token creation form. */
 interface TokenFormModel {
   label: string;
-  /** The MCP server or the REST API. */
+  /** The MCP server, the REST API or a CI/CD pipeline. */
   usage: TokenUsage;
   /** Rights of a REST API token: read only, or read and triage. */
   apiRole: ApiTokenRole;
+  /** Validity in days; '': the default of the server (SECREVIEW_TOKEN_MAX_DAYS). */
+  validity: string;
 }
 
-const EMPTY_TOKEN: TokenFormModel = { label: '', usage: 'mcp', apiRole: 'reader' };
+const EMPTY_TOKEN: TokenFormModel = { label: '', usage: 'mcp', apiRole: 'reader', validity: '' };
+
+/** Validities offered at creation, in days. */
+const VALIDITY_DAYS: readonly string[] = ['30', '90', '180', '365'];
+
+/** Grace periods offered for a rotation, in hours (at most 168 on the server). */
+const GRACE_HOURS: readonly number[] = [0, 1, 24, 168];
 
 /** Web read access given to the developer when approving its enrollment. */
 interface PortalAccess {
@@ -246,6 +294,15 @@ interface PortalAccess {
 }
 
 function describeError(error: unknown): Message {
+  if (
+    error instanceof HttpErrorResponse &&
+    error.status === 422 &&
+    !error.url?.includes('/approve')
+  ) {
+    return typeof error.error?.detail === 'string'
+      ? msg('tokens.refusedDetail', { detail: error.error.detail })
+      : msg('tokens.failed');
+  }
   if (error instanceof HttpErrorResponse && error.status === 422) {
     return typeof error.error?.detail === 'string'
       ? msg('tokens.portalRefusedDetail', { detail: error.error.detail })

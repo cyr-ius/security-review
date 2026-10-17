@@ -1,7 +1,7 @@
 # Serveur HTTP, authentification et TLS
 
 Un serveur partagé (équipe, CI/CD) se compose de **deux processus** qui partagent la même base
-de données (voir [Architecture et déploiement](kubernetes.md)) :
+de données (voir [Architecture et déploiement](architecture.md)) :
 
 - le **serveur MCP** (`security-review-mcp --transport streamable-http`) : endpoint `/mcp`,
   enrôlement public (`/api/v1/enroll`) et sonde `/healthz` ; c'est lui qu'on expose aux agents et
@@ -44,11 +44,16 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
 
 - Donnez `token` au client ; le `label`, unique, apparaît dans les journaux.
 - `--role` vaut `mcp` par défaut (serveur MCP) ; `reader` (lecture seule) et `triager` (lecture
-  et triage) donnent accès à l'API REST du contrôleur, jamais à l'interface web : voir les
-  [rôles](../usage/web-interface.md#roles).
+  et triage) donnent accès à l'API REST du contrôleur, jamais à l'interface web ; `ci`
+  (toujours avec `--project`) n'atteint que les routes de pipeline utilisées par
+  [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) : voir les
+  [rôles](../usage/web-interface.md#roles) ; `metrics` (jamais avec `--project`) n'atteint que
+  les [métriques Prometheus](audit-metrics.md#metriques-prometheus) du contrôleur.
+- `--expires-in-days` fixe la validité du jeton : voir
+  [expiration et renouvellement](#expiration-et-renouvellement-des-jetons).
 - `--project` limite le jeton à un ou plusieurs projets (répétez l'option), pour les outils MCP
   comme pour l'API REST
-  (rôles `mcp`, `reader` et `triager` ; refusé pour `admin`). Voir
+  (rôles `mcp`, `reader` et `triager` ; refusé pour `admin` et `metrics`). Voir
   [jetons restreints à un projet](#jetons-restreints-a-un-projet). Les administrateurs peuvent
   aussi créer et révoquer des jetons `reader` restreints depuis l'écran **Jetons**.
 - Le serveur consulte la base à chaque requête : une création ou une révocation s'applique
@@ -61,6 +66,37 @@ documentation Swagger (`/api/docs`, schéma `/api/openapi.json`, icône `/api/fa
 `/mcp` est ouvert (un avertissement est journalisé si l'écoute n'est pas sur localhost) et l'API
 du contrôleur répond `503`. `token revoke` avertit sur stderr quand il
 supprime le dernier jeton.
+
+Chaque création, renouvellement et révocation de jeton, et chaque demande et décision
+d'enrôlement, est écrite dans le [journal d'audit](audit-metrics.md#journal-daudit),
+avec son auteur.
+
+### Expiration et renouvellement des jetons
+
+Un jeton peut expirer : après sa date d'expiration il n'authentifie plus rien (`401`,
+`error="invalid_token"`, description `The bearer token has expired`), mais il reste listé pour
+qu'un administrateur le renouvelle ou le révoque. `SECREVIEW_TOKEN_MAX_DAYS` (`0` par défaut)
+fixe la validité maximale d'un jeton créé ou renouvelé, et sa validité par défaut ; à `0`, les
+jetons n'expirent pas, sauf validité demandée.
+
+```bash
+security-review-controller token create --label shop-ci --project shop-api --expires-in-days 90
+security-review-controller token rotate shop-ci --grace-hours 24     # nouveau secret, affiché une fois
+# {"id": "6f1c…", "label": "shop-ci", …, "expires_at": "…", "rotated_at": "…", "grace_until": "…", "token": "pX4q…"}
+```
+
+Un renouvellement remplace le secret d'un jeton : il garde son id, son label, son rôle et ses
+projets, et reçoit une nouvelle validité (`--expires-in-days`, défaut comme à la création).
+Pendant `--grace-hours` (`0` par défaut, `168` au plus), l'ancien secret reste valable, le temps
+de mettre à jour les clients (`grace_until` dans `token list`) ; ensuite, seul le nouveau
+authentifie. L'ancien secret d'un jeton expiré ne revient jamais. Après une fuite, renouvelez sans délai de
+grâce (ou révoquez) : le secret divulgué cesse alors immédiatement de fonctionner. Une demande d'enrôlement en
+attente d'approbation ne peut pas être renouvelée. Dans l'interface web, l'écran **Jetons**
+renouvelle les jetons de projet (bouton **Renouveler**, délai de grâce choisi au-dessus de la
+liste).
+
+Les jetons expirés comptent toujours comme jetons configurés : un serveur dont tous les jetons
+ont expiré reste fermé, il ne devient jamais ouvert.
 
 ### Jetons restreints à un projet
 
@@ -75,7 +111,7 @@ security-review-controller token create --label shop-triage --role triager --pro
 Un jeton sans `--project` accède à tous les projets. Un jeton restreint :
 
 - n'enregistre de rapport (`save_security_report`) que pour son projet ;
-- ne lit, ne liste, n'exporte et ne trie (`update_finding_status`, `PATCH` de l'API web) que les
+- ne lit, ne liste, n'exporte et ne trie (`propose_finding_status`, `PATCH` de l'API web) que les
   rapports et findings de son projet ; `list_security_reports` sans filtre ne renvoie que
   ceux-ci ;
 - reçoit pour tout autre projet, rapport ou finding la même erreur « not found » que pour un
@@ -107,7 +143,10 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
    demandé, mais **en attente** : il ne donne encore accès à rien. Un jeton est personnel (il
    pourra ensuite atteindre d'autres projets) : son label est donc le **nom d'utilisateur du
    développeur**, le nom de connexion avec `enroll`, le nom transmis par l'agent ; sans label,
-   le nom du projet suivi de `-enroll`. Un suffixe aléatoire est ajouté. Trois façons de
+   le nom du projet suivi de `-enroll`. Un suffixe aléatoire est ajouté. Le jeton reste
+   configuré sur un équipement, que d'autres personnes peuvent utiliser : chaque rapport nomme
+   donc aussi son développeur (voir
+   [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)). Trois façons de
    demander :
     - **Depuis l'agent, à la première revue.** Un client MCP qui se connecte **sans** en-tête
       `Authorization` n'est pas rejeté : il atteint un serveur MCP restreint (même nom
@@ -128,7 +167,7 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
       `{"project": "shop-api"}`. Le contrôleur ne sert pas cet endpoint : il n'expose aucune
       route d'écriture sans authentification.
 2. **Configuration.** L'utilisateur place aussitôt le jeton dans la
-   [configuration de l'hôte](host.md#obtenir-un-jeton-enrolement). Tant qu'il est en attente, le client
+   [configuration de l'hôte](../getting-started/host.md#obtenir-un-jeton-enrolement). Tant qu'il est en attente, le client
    reste sur le serveur d'enrôlement (`get_enrollment_status` répond `pending`) et l'API web
    répond `403 enrollment_pending`.
 3. **Validation.** Un administrateur approuve ou refuse la demande dans l'écran **Jetons** de
@@ -144,9 +183,9 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès q
     L'approbation peut aussi donner au développeur la **lecture du projet dans le portail**,
     sur son compte utilisateur (colonne **Lecture dans le portail** de l'interface, ou
     `token approve ID --portal-user alice` en CLI) ; avec la
-    [connexion SSO](../usage/web-interface.md#connexion-sso-openid-connect), un nom
+    [connexion SSO](sso.md), un nom
     inconnu devient un compte SSO. Voir la
-    [lecture du projet à l'enrôlement](../usage/web-interface.md#lecture-du-projet-a-lenrolement).
+    [lecture du projet à l'enrôlement](sso.md#lecture-du-projet-a-lenrolement).
 
 ### Enrôlement complémentaire
 
@@ -217,7 +256,73 @@ confiance à la CA. Le fichier de clé (`key.pem`) ne quitte jamais le serveur :
 par le seul compte du serveur (`chmod 600`).
 
 Avec une CA interne, les clients doivent faire confiance à son certificat : voir
-[Configuration de l'hôte](host.md#serveur-https-avec-une-ca-interne).
+[Configuration de l'hôte](http.md#serveur-https-avec-une-ca-interne).
+
+## Serveur HTTPS avec une CA interne
+
+Quand le certificat du serveur est signé par une
+[CA interne](#autorite-de-certification), l'hôte refuse la connexion
+(`unable to verify the first certificate`, `unable to get local issuer certificate`). Ni VS Code ni Claude
+n'ont d'option TLS par serveur dans leur configuration MCP : on ajoute le certificat aux
+autorités de confiance du **processus** de l'hôte. Claude Code et VS Code reposent sur Node.js,
+qui lit pour cela la variable d'environnement `NODE_EXTRA_CA_CERTS` (fichier PEM) **au
+démarrage** du processus.
+
+1. Obtenez le certificat de la CA interne (PEM) auprès de ses administrateurs, enregistrez-le
+   sous `~/.config/secreview/ca.pem`, et vérifiez que le nom ou l'adresse de l'`url` MCP figure
+   dans le certificat du serveur :
+
+    ```bash
+    openssl s_client -connect 192.168.1.1:8000 -CAfile ~/.config/secreview/ca.pem </dev/null \
+        2>/dev/null | openssl x509 -noout -ext subjectAltName
+    ```
+
+2. Déclarez-le à l'hôte, puis **redémarrez-le** :
+
+=== "Claude Code"
+
+    Dans le profil du shell (`~/.bashrc`, `~/.zshrc`), avant de lancer `claude` :
+
+    ```bash
+    export NODE_EXTRA_CA_CERTS="$HOME/.config/secreview/ca.pem"
+    ```
+
+    La [documentation de Claude Code](https://code.claude.com/docs/en/network-config) indique
+    aussi la clé `env` de `settings.json`
+    (`"env": { "NODE_EXTRA_CA_CERTS": "/home/moi/.config/secreview/ca.pem" }`). La variable
+    s'applique à toutes les connexions de Claude Code, pas seulement au serveur MCP.
+
+=== "VS Code / GitHub Copilot"
+
+    Lancez VS Code depuis un shell où la variable est définie (`code .`), ou définissez-la au
+    niveau du système :
+
+    ```bash
+    export NODE_EXTRA_CA_CERTS="$HOME/.config/secreview/ca.pem"
+    code .
+    ```
+
+    Autre solution : ajoutez le certificat au magasin de certificats du système (Windows :
+    *Autorités de certification racines de confiance* ; macOS : Trousseau, *Toujours approuver* ;
+    Linux : `/usr/local/share/ca-certificates/` puis `sudo update-ca-certificates`). VS Code
+    charge les certificats du système (paramètre `http.systemCertificates`, actif par défaut).
+
+    Dans un **dev container**, la connexion part du conteneur : montez le fichier et définissez
+    la variable dans `devcontainer.json` (`"remoteEnv": { "NODE_EXTRA_CA_CERTS": "..." }`), puis
+    reconstruisez ou rechargez la fenêtre.
+
+!!! warning
+    N'utilisez pas `NODE_TLS_REJECT_UNAUTHORIZED=0` : il désactive la vérification de **toutes**
+    les connexions du processus (API, extensions, mises à jour), pas seulement celle du serveur
+    MCP, et laisse passer une interception.
+
+Les connecteurs distants ajoutés depuis l'interface web de Claude (claude.ai, Claude Desktop)
+sont contactés depuis l'infrastructure d'Anthropic, pas depuis le poste : ils exigent un
+serveur joignable depuis Internet avec un certificat reconnu publiquement, ce qui exclut une CA
+interne.
+
+Pour l'enrôlement en CLI, `security-review-mcp enroll` accepte directement `--cafile` (voir
+ci-dessous).
 
 ## Configuration du client
 
@@ -239,7 +344,7 @@ VS Code, avec un jeton demandé à l'utilisateur :
 ```
 
 Pour Claude et pour obtenir un jeton par enrôlement depuis l'hôte, voir
-[Configuration de l'hôte](host.md#obtenir-un-jeton-enrolement).
+[Configuration de l'hôte](../getting-started/host.md#obtenir-un-jeton-enrolement).
 
 ## Derrière un reverse proxy
 

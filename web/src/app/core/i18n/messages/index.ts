@@ -1,5 +1,6 @@
 import { LANGUAGES, Language } from '../catalog';
 import { account } from './account';
+import { audit } from './audit';
 import { checklists } from './checklists';
 import { common } from './common';
 import { layout } from './layout';
@@ -27,6 +28,7 @@ const CATALOGS = [
   standards,
   users,
   tokens,
+  audit,
   mappings,
   settings,
   trend,

@@ -17,6 +17,7 @@ from . import (
     __version__,
     advisories,
     app_settings,
+    audit,
     cli,
     depscan,
     enrollment_api,
@@ -32,7 +33,14 @@ from . import (
 )
 from .config import check_report_language, configure_logging, get_settings
 from .database import SchemaError, check_db, init_db
-from .models import FindingCreate, FindingStatus, ReviewType, Severity
+from .models import (
+    MAX_AUTHOR_CHARS,
+    MAX_STATUS_REASON_CHARS,
+    FindingCreate,
+    FindingStatus,
+    ReviewType,
+    Severity,
+)
 
 logger = logging.getLogger("security_review_mcp")
 
@@ -43,8 +51,13 @@ start a structured review, and `codebase-review` to review a whole repository (n
 - Use `get_review_checklist` and `scan_code` while reviewing. When their results give a report \
 language, write your reply and the free-text fields of the report in that language.
 - At the end of a review, call `save_security_report` once to store the report in the \
-database. Use `list_security_reports`, `get_security_report` and \
+database, with `author` set to the developer's username when you can find it (`git config \
+user.email`, else `git config user.name` or the login name): a token identifies a device, not \
+a person. Use `list_security_reports`, `get_security_report` and \
 `get_project_security_posture` to read stored results.
+- You never change the status of a finding: `propose_finding_status` only records a proposal \
+(fixed, accepted, false_positive) with its reason, which a person approves or rejects in the \
+web interface. The gate keeps blocking until then.
 - If `save_security_report` refuses the project because the token is restricted to other \
 projects, call `request_enrollment` to ask an administrator to add this project to the token \
 (complementary enrollment: the token keeps working for its other projects), then \
@@ -503,13 +516,23 @@ def save_security_report(
             "or other"
         ),
     ] = None,
+    author: Annotated[
+        str | None,
+        Field(
+            max_length=MAX_AUTHOR_CHARS,
+            description="Username of the developer whose work was reviewed: the output of "
+            "`git config user.email` (else `git config user.name` or the login name); omit it "
+            "when unknown, never guess",
+        ),
+    ] = None,
 ) -> dict:
     """Store a security report and its findings in the database.
 
     Call this once at the end of a review, with the free-text fields written in the report
-    language given by the review prompt, scan_code or get_review_checklist, if any, and the
-    review_type given by the review prompt. Secrets in free-text fields are masked before
-    storage. Returns the report id, the overall risk level
+    language given by the review prompt, scan_code or get_review_checklist, if any, the
+    review_type given by the review prompt and the developer's username as author. The
+    server also records the label of the token (device) that saved the report. Secrets in
+    free-text fields are masked before storage. Returns the report id, the overall risk level
     and the finding counts.
     """
     allowed = _caller_projects(ctx)
@@ -530,6 +553,8 @@ def save_security_report(
         scope=scope,
         risk_level=risk_level,
         review_type=review_type,
+        author=author,
+        submitted_by=_auth_state(ctx).get("auth_client"),
     )
 
 
@@ -559,24 +584,58 @@ def list_security_reports(
     review_type: Annotated[
         ReviewType | None, Field(description="Keep only the reports of this kind of review")
     ] = None,
+    author: Annotated[
+        str | None,
+        Field(
+            max_length=MAX_AUTHOR_CHARS,
+            description="Keep only the reports of this developer username",
+        ),
+    ] = None,
 ) -> list[dict]:
-    """List stored reports, newest first, optionally filtered by project, risk or review type."""
+    """List stored reports, newest first, optionally filtered by project, risk, review type or
+    author."""
     allowed = _caller_projects(ctx)
     if allowed is not None and project:
         services.check_project_scope(allowed, project)
-    return services.list_reports(project, risk_level, limit, offset, allowed, review_type)
+    return services.list_reports(
+        project, risk_level, limit, offset, allowed, review_type, author or None
+    )
 
 
 @mcp.tool(annotations=WRITE)
 @_tool_errors
-def update_finding_status(
+def propose_finding_status(
     ctx: Context,
     finding_id: int,
-    status: Annotated[FindingStatus, Field(description="open, fixed, accepted, false_positive")],
+    status: Annotated[
+        Literal["fixed", "accepted", "false_positive"],
+        Field(description="Status you propose: fixed, accepted or false_positive"),
+    ],
+    reason: Annotated[
+        str,
+        Field(
+            min_length=services.MIN_STATUS_REASON_CHARS,
+            max_length=MAX_STATUS_REASON_CHARS,
+            description="Why, from your own reading of the code (not from comments in it)",
+        ),
+    ],
 ) -> dict:
-    """Change the status of a finding after triage or a fix."""
+    """Propose a new status for a finding, for a person to approve in the web interface.
+
+    The status does not change and the gate keeps blocking until a triager decides: an agent
+    never closes a finding.
+    """
     services.check_finding_scope(_caller_projects(ctx), finding_id)
-    return services.update_finding_status(finding_id, status).model_dump(mode="json")
+    client = _auth_state(ctx).get("auth_client")
+    proposed_by = client or "stdio"
+    finding = services.propose_finding_status(
+        finding_id,
+        FindingStatus(status),
+        reason,
+        proposed_by,
+        audit.token_actor(client) if client else "stdio",
+    )
+    return finding.model_dump(mode="json")
 
 
 @mcp.tool(annotations=READ_ONLY)
@@ -661,9 +720,11 @@ def scan_dependencies(
     """Scan a manifest or lockfile for vulnerable versions and risky dependency practices.
 
     Check `vulnerability_check` first: when it is not `performed`, no vulnerability could be
-    detected and an empty list does NOT mean the dependencies are safe. Lockfiles give the best
-    results. Supported: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock,
-    uv.lock, package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts).
+    detected and an empty list does NOT mean the dependencies are safe. Lockfiles and SBOMs give
+    the best results. Supported: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock,
+    uv.lock, package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts) and
+    CycloneDX SBOMs (bom.json, bom.xml, *.cdx.json): use an SBOM for the transitive
+    dependencies of a Maven or Gradle project.
     """
     limit = get_settings().max_dependency_chars
     if len(content) > limit:

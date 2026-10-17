@@ -51,7 +51,7 @@ psql -h db -U secreview secreview                     # password: secreview
 SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp   # back to SQLite for once
 ```
 
-The Docker daemon lets you build and run the image of the [Dockerfile](getting-started/docker.md)
+The Docker daemon lets you build and run the image of the [Dockerfile](advanced/docker.md)
 without leaving the container:
 
 ```bash
@@ -90,10 +90,13 @@ src/security_review_mcp/
 ├── http_server.py # HTTP of both processes: Bearer tokens and roles, TLS, /healthz, uvicorn
 ├── oidc.py        # OpenID Connect SSO login to the web interface (controller)
 ├── role_mapping.py # OIDC role mapping: provider groups → web role and projects
-├── token_store.py # Bearer tokens in the database: creation, revocation, enrollment
+├── token_store.py # Bearer tokens in the database: creation, expiry, rotation, revocation, enrollment
+├── audit.py       # audit log: events of triage decisions, proposals, tokens and enrollments
+├── metrics.py     # Prometheus metrics of the controller (/metrics)
 ├── web_users.py   # web interface accounts, local (scrypt) or SSO (created on the fly), sessions, initial admin
 ├── enrollment.py  # `enroll` client: token request to a shared server
 ├── remote_scan.py # `scan-deps` client: dependency scan with a shared server
+├── ci_client.py   # `security-review-ci`: pipeline client of the controller (standard library only)
 ├── enrollment_api.py  # public POST /api/v1/enroll endpoint of the MCP server
 ├── web_api.py     # controller: REST API /api/v1 and files of the application (/ui)
 ├── prompts.py     # construction of the prompts
@@ -104,7 +107,7 @@ src/security_review_mcp/
 ├── rules_loader.py    # rule validation, reading of the TOML packs and of the default file
 ├── rule_store.py  # rules in the database: seeding, import/export, enabling, deletion
 ├── registry.py    # active rules/checklists (read from the database), reload
-├── cli.py         # db, gate, sarif, trend, advisories, deps, code, rules, token, enroll, scan-deps commands
+├── cli.py         # db, gate, sarif, trend, advisories, deps, code, rules, token, audit, enroll, scan-deps commands
 ├── codescan.py    # whole codebase scan (file list, language, findings)
 ├── sarif.py       # SARIF 2.1.0 export
 ├── trends.py      # trend report
@@ -116,7 +119,7 @@ src/security_review_mcp/
 ├── dependencies.py    # manifest / lockfile parsers, hygiene
 ├── depscan.py     # dependency scan and conversion into findings
 ├── services.py    # persistence logic of the reports
-├── retention.py   # daily purge of the reports without findings by the controller
+├── retention.py   # daily purge of the reports without findings and of the old audit events
 ├── models.py      # SQLModel models (tables + schemas)
 ├── database.py    # engine, sessions and migrations (Alembic)
 ├── migrations/    # Alembic environment and schema revisions (versions/)
@@ -213,6 +216,10 @@ uv run mkdocs build --strict # what the CI does: a broken link fails the build
 - Links between pages target the English file (`../reference/cli.md`): the plugin points them
   to the French page from a French page. Anchors follow the headings of each language
   (`#report-language` in English, `#langue-des-rapports` in French).
+- The pages follow the order of a set-up: **Getting started** (`getting-started/`) and
+  **Usage** (`usage/`) only hold what is needed to work; **Advanced** (`advanced/`) gathers the
+  details and the optional features. Put a detailed explanation in `advanced/`, with at most a
+  line and a link from the essential pages.
 - To add a page, create both files in `docs/`, declare the English one in the `nav` section of
   `mkdocs.yml`, and translate its title in `nav_translations` (French language of the `i18n`
   plugin).

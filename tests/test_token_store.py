@@ -1,13 +1,14 @@
 """Tokens stored in the database: creation, lookup, revocation, project scope, bootstrap admin."""
 
 import re
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlmodel import Session, select
 
 from security_review_mcp import database as database_module
 from security_review_mcp import token_store, web_users
+from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role, TokenInfo, hash_token
 from security_review_mcp.models import ApiToken, ApiTokenProject
 
@@ -72,6 +73,30 @@ def test_token_validation():
         token_store.create_project_token("other", "p" * 201)
     with pytest.raises(ValueError, match="at least one project"):
         token_store.create_project_token("other", [])
+
+
+def test_ci_token_is_always_restricted_to_projects():
+    with pytest.raises(ValueError, match="ci token must be restricted"):
+        token_store.create_token("jenkins", Role.CI)
+    with pytest.raises(ValueError, match="ci token must be restricted"):
+        token_store.create_token("jenkins", "ci", [])
+
+    created = token_store.create_project_token("jenkins", ["shop-api", "billing"], "ci")
+    info = STORE.lookup(digest_of(created["token"]))
+    assert (info.role, info.projects) == (Role.CI, frozenset({"shop-api", "billing"}))
+
+
+def test_unrestricted_ci_row_reaches_no_project(database):
+    # A ci row without projects (written outside create_token) fails closed
+    created = token_store.create_token("jenkins", Role.READER)
+    with Session(database) as session:
+        row = session.get(ApiToken, created["id"])
+        row.role = Role.CI.value
+        session.add(row)
+        session.commit()
+
+    info = STORE.lookup(digest_of(created["token"]))
+    assert (info.role, info.projects) == (Role.CI, frozenset())
 
 
 def test_project_token_limit(monkeypatch):
@@ -409,3 +434,136 @@ def test_legacy_project_tokens_are_migrated(database):
     assert STORE.lookup(bytes.fromhex("ab" * 32)).projects == {"shop-api"}
     assert STORE.lookup(bytes.fromhex("cd" * 32)).projects is None
     assert [item["token_id"] for item in token_store.list_enrollments()] == ["t3"]
+
+
+# ── Expiry and rotation ──────────────────────────────────────────────────────
+
+
+def _set_dates(database, label: str, **values) -> None:
+    """Change date columns of a stored token (simulates the passing of time)."""
+    with Session(database) as session:
+        row = session.exec(select(ApiToken).where(ApiToken.label == label)).one()
+        for name, value in values.items():
+            setattr(row, name, value)
+        session.add(row)
+        session.commit()
+
+
+def test_a_token_without_expiry_never_expires():
+    created = token_store.create_token("dev", Role.MCP)
+
+    assert created["expires_at"] is None
+    assert created["expired"] is False
+    assert STORE.lookup(digest_of(created["token"])).expired is False
+
+
+def test_an_expired_token_is_marked_but_still_counts_as_configured(database):
+    created = token_store.create_token("dev", Role.MCP, expires_in_days=30)
+    assert created["expires_at"] is not None
+
+    _set_dates(database, "dev", expires_at=datetime.now(UTC) - timedelta(seconds=1))
+
+    assert STORE.lookup(digest_of(created["token"])).expired is True
+    (listed,) = token_store.list_tokens()
+    assert listed["expired"] is True
+    # Fail closed: expired tokens never turn authentication off
+    assert STORE.has_tokens() is True
+
+
+def test_token_max_days_is_the_default_and_the_limit(monkeypatch):
+    monkeypatch.setattr(get_settings(), "token_max_days", 90)
+
+    created = token_store.create_token("dev", Role.MCP)
+    expires_at = datetime.fromisoformat(created["expires_at"])
+    assert timedelta(days=89) < expires_at - datetime.now(UTC) <= timedelta(days=90)
+    assert token_store.create_token("short", Role.MCP, expires_in_days=7)["expires_at"]
+    with pytest.raises(ValueError, match="between 1 and 90 days"):
+        token_store.create_token("long", Role.MCP, expires_in_days=91)
+    with pytest.raises(ValueError, match="between 1 and 90 days"):
+        token_store.create_token("zero", Role.MCP, expires_in_days=0)
+    # Enrollment requests follow the same limit
+    request = token_store.request_enrollment("shop-api")
+    assert request["expires_at"] is not None
+
+
+def test_rotation_replaces_the_secret_and_keeps_the_token(database):
+    created = token_store.create_token("ci", Role.MCP, ["shop-api"])
+
+    rotated = token_store.rotate_token("ci")
+
+    assert rotated["id"] == created["id"]
+    assert rotated["projects"] == ["shop-api"]
+    assert rotated["token"] != created["token"]
+    assert rotated["rotated_at"] is not None
+    assert rotated["grace_until"] is None
+    assert STORE.lookup(digest_of(created["token"])) is None
+    assert STORE.lookup(digest_of(rotated["token"])).label == "ci"
+    (row,) = stored_rows(database)
+    assert row.previous_token_hash is None
+    assert rotated["token"] not in row.model_dump_json()
+
+
+def test_the_previous_secret_works_during_the_grace_period_only(database):
+    created = token_store.create_token("ci", Role.MCP)
+    rotated = token_store.rotate_token(created["id"], grace_hours=24)
+
+    assert rotated["grace_until"] is not None
+    assert STORE.lookup(digest_of(created["token"])).label == "ci"
+    assert STORE.lookup(digest_of(rotated["token"])).label == "ci"
+
+    _set_dates(database, "ci", previous_expires_at=datetime.now(UTC) - timedelta(seconds=1))
+    assert STORE.lookup(digest_of(created["token"])) is None
+    assert STORE.lookup(digest_of(rotated["token"])).label == "ci"
+
+
+def test_an_expired_secret_never_comes_back_with_a_rotation(database):
+    created = token_store.create_token("ci", Role.MCP, expires_in_days=1)
+    _set_dates(database, "ci", expires_at=datetime.now(UTC) - timedelta(seconds=1))
+
+    rotated = token_store.rotate_token("ci", grace_hours=24, expires_in_days=30)
+
+    assert rotated["grace_until"] is None
+    assert rotated["expired"] is False
+    assert STORE.lookup(digest_of(created["token"])) is None
+    assert STORE.lookup(digest_of(rotated["token"])).expired is False
+
+
+def test_rotation_refuses_bad_requests():
+    token_store.request_enrollment("shop-api", label="dev")
+    token_store.create_token("ops", Role.ADMIN)
+
+    with pytest.raises(ValueError, match="not found"):
+        token_store.rotate_token("missing")
+    with pytest.raises(ValueError, match="grace period"):
+        token_store.rotate_token("ops", grace_hours=token_store.MAX_ROTATION_GRACE_HOURS + 1)
+    (pending,) = token_store.list_enrollments()
+    with pytest.raises(ValueError, match="waiting for approval"):
+        token_store.rotate_token(pending["token_id"])
+    # The web interface only rotates project tokens
+    ops = next(token for token in token_store.list_tokens() if token["label"] == "ops")
+    with pytest.raises(ValueError, match="Project token"):
+        token_store.rotate_token(ops["id"], project_token=True)
+
+
+def test_a_metrics_token_cannot_be_restricted_to_projects():
+    assert token_store.create_token("prometheus", Role.METRICS)["projects"] is None
+    with pytest.raises(ValueError, match="metrics token cannot be restricted"):
+        token_store.create_token("scraper", Role.METRICS, ["shop-api"])
+
+
+def test_token_counts_by_role_and_state(database):
+    token_store.create_token("dev", Role.MCP)
+    token_store.create_token("soon", Role.MCP, expires_in_days=3)
+    token_store.create_token("old", Role.READER, expires_in_days=30)
+    _set_dates(database, "old", expires_at=datetime.now(UTC) - timedelta(days=1))
+    token_store.request_enrollment("shop-api")
+
+    counts = token_store.token_counts()
+
+    assert counts["by_role_and_state"] == {
+        ("mcp", "active"): 2,
+        ("reader", "expired"): 1,
+        ("mcp", "pending"): 1,
+    }
+    assert counts["expiring_soon"] == 1
+    assert counts["pending_enrollments"] == 1

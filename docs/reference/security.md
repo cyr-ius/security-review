@@ -4,24 +4,50 @@
 
 - **Two processes**: the MCP server (exposed to the agents) and the controller (REST API, web
   interface, administration) run separately and only share the database (see
-  [Architecture and deployment](../getting-started/kubernetes.md)). The MCP server only accepts
-  the `mcp` and `admin` roles, the controller only `reader`, `triager` and `admin`. The
+  [Architecture and deployment](../advanced/architecture.md)). The MCP server only accepts
+  the `mcp` and `admin` roles, the controller only `reader`, `triager` and `admin`, plus `ci`
+  on its read-only pipeline routes (`/api/v1/ci/`) and nowhere else. The
   controller exposes no write route without a token: it can stay on an internal network, and the
   compromise of the exposed MCP server gives no access to the administration interface.
 - **HTTP transport**: MCP authentication by Bearer token and TLS are built in but optional (see
-  [HTTP server, authentication and TLS](../getting-started/http.md)). Tokens are stored in the
+  [HTTP server, authentication and TLS](../advanced/http.md)). Tokens are stored in the
   database and only their SHA-256 digests are kept. Every request looks up the digest of the
   presented token, which reveals nothing usable without a preimage, then checks it in constant
   time: a revocation is therefore immediate on every instance. A token created with `--project`
   is limited to that project in the MCP tools and the web API: any other project, report or
   finding is handled as missing (see
-  [tokens restricted to a project](../getting-started/http.md#tokens-restricted-to-a-project)).
+  [tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
   If it does not listen on localhost, a warning is logged when authentication or TLS is missing.
   The server never generates a TLS certificate: HTTPS uses the certificate given by the
-  operator, signed by a [certificate authority](../getting-started/http.md#certificate-authority).
+  operator, signed by a [certificate authority](../advanced/http.md#certificate-authority).
   There is no rate limiting.
   Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `reader`, `triager`,
-  `admin`); an `mcp` token without a project reaches every MCP tool and every project.
+  `admin`, `ci`, `metrics`); an `mcp` token without a project reaches every MCP tool and every
+  project.
+- **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`), and
+  `SECREVIEW_TOKEN_MAX_DAYS` bounds the validity of every token created or rotated. Expired
+  tokens still count as configured: a server whose tokens have all expired stays closed. A
+  rotation stores the digest of the new secret only; the previous digest is kept during the grace
+  period (at most 168 hours), compared in constant time like the current one, and the previous
+  secret of an expired token never comes back (see
+  [expiry and rotation](../advanced/http.md#expiry-and-rotation-of-tokens)).
+- **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
+  tokens, enrollment requests and decisions are written in the same transaction as the change,
+  with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,
+  and never hold a token or a password; no tool nor route edits an event, only the purge of
+  `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-metrics.md#audit-log)).
+- **Metrics**: `/metrics` exists on the controller only (the MCP server keeps `/mcp`,
+  `/api/v1/enroll` and `/healthz`), behind a `metrics` or `admin` token; a `metrics` token
+  reaches nothing else. The answer holds counts and project names, never a finding, a token
+  label or a secret, and every label value is escaped (see
+  [Prometheus metrics](../advanced/audit-metrics.md#prometheus-metrics)).
+- **Pipeline tokens** (`ci`): always restricted to projects (a `ci` token without a project
+  cannot be created, and one found without a project reaches none). It only reads the gate, the
+  SARIF log and the trend of its projects; the other routes of the controller, `/mcp` and the
+  web interface answer `403`, the other projects `404`. The pipeline client
+  ([`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci)) opens no
+  database, reads the token from the environment or stdin only, refuses plain HTTP outside
+  localhost, credentials in the URL and redirects, and bounds the answers.
 - **Enrollment** (enabled by default, `SECREVIEW_ENROLLMENT`): a client without a token reaches
   a restricted MCP server that only lets it file a request, and `POST /api/v1/enroll` is public
   on the MCP server (body limited to 4 KiB). The approval happens on the controller. A request
@@ -32,7 +58,7 @@
   expires after 7 days; the free text of the requester is masked and truncated. Any client that
   reaches the server can file a request: check the requester and the address shown before
   approving, or disable the enrollment. See
-  [enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token).
+  [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token).
 - **Outgoing network calls**: the MCP server makes none. The `security-review-mcp enroll` and
   `scan-deps` commands contact, at the request of the operator, the URL they give (`scan-deps`
   sends the dependency files given on its command line, never through a symbolic link); they
@@ -49,12 +75,12 @@
   in clear**: the API never returns them (password replaced by `***`) and the error messages of
   the history are scrubbed of them, but prefer `SECREVIEW_PROXY` (Kubernetes secret) if the
   database is not protected like a secret. See the
-  [automatic update](../usage/dependencies.md#automatic-update-by-the-controller). With the
-  [SSO login](../usage/web-interface.md#openid-connect-sso-login) (`SECREVIEW_OIDC_ENABLED`,
+  [automatic update](../advanced/dependencies.md#automatic-update-by-the-controller). With the
+  [SSO login](../advanced/sso.md) (`SECREVIEW_OIDC_ENABLED`,
   disabled by default), the controller also contacts the configured identity provider: HTTPS
   only (HTTP only on localhost), redirects limited to HTTPS, answers bounded to 1 MiB, 10 second
   timeout. This configuration can also be
-  [changed in the interface](../usage/web-interface.md#configuring-sso-in-the-interface) by an
+  [changed in the interface](../advanced/sso.md#configuring-sso-in-the-interface) by an
   administrator, with the same checks (an invalid configuration is refused); the **Test the
   connection** button contacts the entered issuer, under the same conditions. The **client
   secret** entered in the interface is stored in the database **in clear**: the API never
@@ -64,7 +90,14 @@
 - **Web interface** (controller): the REST API always requires a session or a token with a web
   role; without a user or a token, it answers `503` instead of granting anonymous rights. Only
   `triager` and `admin` change the status of a finding (action logged with the label of the
-  token). Pages are served with a strict CSP and the anti-clickjacking headers; the token is
+  token), and only a person logged in to the interface (session) accepts a risk or marks a false
+  positive: a bearer token is refused (`403`), even `admin`. These two decisions need a reason
+  and an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the
+  logged-in user, and the finding counts as open again once the date has passed.
+- **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
+  stores a proposal (reason masked and bounded, author taken from the token) without changing
+  the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a
+  finding. Pages are served with a strict CSP and the anti-clickjacking headers; the token is
   kept in the `sessionStorage` of the tab. The Swagger documentation and its OpenAPI schema
   are public, but the data routes stay protected. The check is made twice: by the Bearer
   middleware, then by every route of the API, which refuses (`401`) any request without an
@@ -91,9 +124,9 @@
   bound to the browser by a signed `HttpOnly` / `SameSite=Lax` cookie of 10 minutes, nonce,
   verified ID token (signature by the JWKS keys of the provider, asymmetric algorithms only,
   never `none` nor HMAC; issuer, audience, `azp`, expiry). The role comes from the groups of the
-  user ([role mapping](../usage/web-interface.md#role-mapping), managed by the administrators,
+  user ([role mapping](../advanced/sso.md#role-mapping), managed by the administrators,
   possibly restricted to projects) and from the role given to their
-  [SSO account](../usage/web-interface.md#sso-accounts); neither the `admin` role by default nor
+  [SSO account](../advanced/sso.md#sso-accounts); neither the `admin` role by default nor
   the `mcp` role are possible. The account is named by the exact identifier of the
   `SECREVIEW_OIDC_USERNAME_CLAIM` claim (no fallback to `email` or `sub`, value refused if it is
   not a valid user name): choose a claim that the user cannot change at the provider. By
@@ -121,13 +154,13 @@
 - **Scan rules**: the default rules (`default_rules.toml`) are copied into the database at first
   start. If the database cannot be reached or was never initialized, the server applies this
   file directly: the scan never runs without rules. A default rule can be edited or disabled by
-  an administrator, but not deleted (see [Internal rules](../usage/rules.md#default-rules)).
+  an administrator, but not deleted (see [Internal rules](../advanced/rules.md#default-rules)).
 - **Development standards**: their content is handed as is to the AI assistant as instructions;
   only the administrators of the controller write them (validated and bounded fields, 200
   standards of 50,000 characters at most). The MCP server only reads them, and the task given to
   the `development-standards` prompt is fenced so that it cannot escape. The prompt reminds that
   a standard never prevails over security (see
-  [Development standards](../usage/standards.md)).
+  [Development standards](../advanced/standards.md)).
 - **Logs** on stderr (stdout is reserved for the protocol with stdio).
 
 !!! warning "Protect the database"
@@ -142,3 +175,9 @@
 - Rules are line-by-line patterns: they see neither the data flow nor the missing checks
   (missing authorization, for example). This work remains the agent's, guided by the
   checklists, and your SAST/SCA tools'.
+- The `author` of a report (developer username) is declared by the client: anyone holding a
+  token of the project can name someone else. Only `submitted_by`, the label of the token that
+  saved the report, is set by the server (see
+  [author of a report](../usage/prompts-tools.md#author-of-a-report)). An `author` is often an
+  email address, that is personal data: it is visible to everyone who reaches the project and
+  kept as long as the report.

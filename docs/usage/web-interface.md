@@ -3,7 +3,7 @@
 The web interface lets the security teams browse the reports saved by the agents and **triage
 the findings** (fixed, accepted risk, false positive) without an MCP client. It is served by the
 **controller**, a process distinct from the MCP server that shares its database (see
-[Architecture and deployment](../getting-started/kubernetes.md)):
+[Architecture and deployment](../advanced/architecture.md)):
 
 | Path | Content |
 |---|---|
@@ -46,20 +46,23 @@ by the API stay in English.
   severity and by review type (**Security review**, **API security review**, **Codebase
   review**...: see [review type](prompts-tools.md#review-type)); **Load more** displays the next
   findings. Users with the `triager` or `admin` role change the status of each finding from this
-  screen; a triaged finding stays displayed until the next reload.
+  screen and apply or reject the statuses proposed by the agents (see
+  [triage of findings](#triage-of-findings)); a triaged finding stays displayed until the next
+  reload.
 - **Reports**: list filtered by project and risk level (the filters are in the URL,
-  so a link can be shared), with the **Type** of each review.
-- **Report**: summary, context (repository, branch, commit, review type), findings with
+  so a link can be shared), with the **Type** and the **Author** of each review.
+- **Report**: summary, context (repository, branch, commit, review type, **Author** and
+  **Sent by (token)**, see [author of a report](prompts-tools.md#author-of-a-report)), findings with
   location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
   `triager` or `admin` role change the status of a finding directly from this screen.
-- **Standards**: the [development standards](standards.md) handed to the AI
+- **Standards**: the [development standards](../advanced/standards.md) handed to the AI
   assistants by the `development-standards` prompt. Administrators search, read, create, edit
   (technologies, file patterns, Markdown content), disable or delete them. A change applies
   immediately.
 - **Checklists**: administrators browse the check items by domain, filter the list and create,
   edit or delete the custom items. The default items can be edited, but not deleted. Every
   change is reloaded immediately by the server and included in the review prompts.
-- **Rules**: administrators browse every [rule](rules.md) stored in the database,
+- **Rules**: administrators browse every [rule](../advanced/rules.md) stored in the database,
   filtered by origin (default or custom). They create, edit (in a modal window, without losing
   the position in the list), enable or disable the rules, and delete the custom rules. A default
   rule can be edited ("Par défaut, modifiée" badge: default, edited) or disabled, but not
@@ -80,25 +83,34 @@ by the API stay in English.
   password there (their other sessions are closed); the one of an SSO user is managed by the
   identity provider.
 - **Tokens**: administrators create and revoke tokens limited to one or more
-  projects. The **Usage** field chooses **MCP** (`mcp` role) or **REST API**; for the
-  REST API, **API rights** chooses **Lecture seule** (read only, `reader`) or
-  **Lecture et triage** (read and triage, `triager`). The list shows the usage of every token.
+  projects. The **Usage** field chooses **MCP** (`mcp` role), **REST API** or **CI/CD pipeline**
+  (`ci` role, for [`security-review-ci`](gate.md#pipeline-client-security-review-ci));
+  for the REST API, **API rights** chooses **Read only** (`reader`) or **Read and triage**
+  (`triager`). The **Allowed projects** boxes select the projects the token sees; **Validity**
+  sets its lifetime (30 days to 1 year, or the default of the server, `SECREVIEW_TOKEN_MAX_DAYS`).
+  The list shows the usage of every token and its expiry date (**Expired** once past).
+  **Rotate** replaces the secret of a token and shows the new one once; the previous one keeps
+  working for the grace period chosen above the list (none, 1 h, 24 h or 7 days, see
+  [expiry and rotation](../advanced/http.md#expiry-and-rotation-of-tokens)).
   A token never opens the web interface. The `admin` role stays unrestricted and is created from
   the CLI. The secret is shown only once; only its digest is stored, in the database. A
   revocation takes effect at the next request. The **Pending requests**
   section tells new tokens apart from requests for access to an additional project
-  ([enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token)):
+  ([enrollment](../advanced/http.md#enrollment-a-project-requests-its-token)):
   **Approve** activates the new token or adds the project to the existing token;
   **Reject** only deletes the request. The allowed projects and the additions still
   pending are shown for every token. The **Read access in the portal** column
   lets you give the developer, at the same time, read access to the project in the web
   interface, on their user account (see
-  [project read access at enrollment](#project-read-access-at-enrollment)).
+  [project read access at enrollment](../advanced/sso.md#project-read-access-at-enrollment)).
+- **Audit log**: administrators read the [audit log](../advanced/audit-metrics.md#audit-log): triage
+  decisions, agent proposals, tokens and enrollment requests, newest first, with who made
+  them; filters by event and by project, **Load more** for the older events.
 - **SSO roles**: administrators
-  [configure the SSO login](#configuring-sso-in-the-interface) (every stored value replaces its
+  [configure the SSO login](../advanced/sso.md#configuring-sso-in-the-interface) (every stored value replaces its
   `SECREVIEW_OIDC_*` variable, with a connection test to the provider) and map the groups or
   roles of the identity provider to a web role and, for `reader` and `triager`, to a list of
-  projects (see [role mapping](#role-mapping)). The groups of the SSO configuration
+  projects (see [role mapping](../advanced/sso.md#role-mapping)). The groups of the SSO configuration
   (`*_GROUPS`) are shown read only in the list of mappings. The SSO users themselves are managed
   in the **Users** screen.
 - **Settings**: settings stored in the database, taking precedence over the
@@ -108,12 +120,12 @@ by the API stay in English.
       review prompts; the `report_language` argument of a prompt still takes precedence
       ([report language](prompts-tools.md#report-language)).
     - **Outgoing proxy of the controller**: proxy of the OSV
-      download **and** of the [SSO login](#openid-connect-sso-login). As for the SSO
+      download **and** of the [SSO login](../advanced/sso.md). As for the SSO
       configuration, every value set here replaces its variable (**Variable** / **Interface
       web** badges): the URL follows `SECREVIEW_PROXY` (else `HTTPS_PROXY` / `NO_PROXY`), is set
       here, or forces the direct connection; the **hosts without proxy** follow
       `SECREVIEW_NO_PROXY` or are set here (see
-      [hosts without proxy](dependencies.md#hosts-without-proxy): domains, IP addresses, CIDR
+      [hosts without proxy](../advanced/dependencies.md#hosts-without-proxy): domains, IP addresses, CIDR
       ranges, `*`). The change applies to the next download and to the next SSO login, without
       restart. The applied proxy, its origin and the environment variables are shown; passwords
       are never shown again (`***`): sending `***` back keeps the stored one. Through the API:
@@ -124,7 +136,43 @@ by the API stay in English.
       50 updates (scheduled, CLI or web interface, with status, duration and result by
       ecosystem) and **Update now** button, only available if
       `SECREVIEW_OSV_AUTO_UPDATE=true`
-      ([update by the controller](dependencies.md#automatic-update-by-the-controller)).
+      ([update by the controller](../advanced/dependencies.md#automatic-update-by-the-controller)).
+
+## Triage of findings
+
+The status of a finding is decided by a **person**; an agent only proposes it (MCP tool
+`propose_finding_status`, see [status of a finding](prompts-tools.md#status-of-a-finding)).
+
+- **Proposal of an agent**: shown on the finding in a separate box, with its author (label of
+  the token), its date and its reason. The reason may come from the reviewed code: check it.
+  **Apply** saves `fixed` at once, or opens the form below for `accepted` and
+  `false_positive`; **Reject** removes the proposal. Neither changes the status by itself.
+- **Risk accepted** and **False positive**: the status select opens a form that asks for a
+  **Reason** (10 to 1000 characters) and an **Expiry date** (90 days by default, at most
+  `SECREVIEW_MAX_DISMISSAL_DAYS`). The logged-in user is recorded as the approver; the card shows
+  the approver, the reason and the end of validity. From the expiry date, the finding counts as
+  open again (status filter, posture, [gate](gate.md), SARIF, trend) and the card says
+  that the decision has expired.
+- **Open** and **Fixed** are saved at once (optional reason through the API). Any decision
+  removes the pending proposal.
+
+Only a session (local or SSO account) may accept a risk or mark a false positive: a bearer
+token, even `triager` or `admin`, gets `403`. Through the REST API:
+
+```bash
+curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42 \
+  -d '{"status": "accepted", "reason": "Internal tool, not exposed to the Internet", "expires_on": "2027-01-31"}'
+# {"id": 42, "status": "accepted", "status_approver": "alice", "status_expires_at": "2027-01-31T00:00:00Z", …}
+curl -X DELETE -H "Authorization: Bearer $SESSION" \
+  https://secreview.example.com/api/v1/findings/42/proposal    # reject the agent proposal
+```
+
+A reason that is missing or too short, an expiry date in the past or too far away, or an expiry
+date for `open` / `fixed` gets `422`. The **Risk accepted** and **False positive** decisions
+made before this feature had no reason nor approver: the database upgrade gives them an expiry
+date 30 days later, with a reason that asks to confirm them. Review them with the status filters
+before that date, or they block the gate again.
 
 ## Roles
 
@@ -132,19 +180,26 @@ by the API stay in English.
 (local or SSO accounts) are the only ones to open the web interface. Every token has a role,
 which decides the reachable endpoints:
 
-| Role | Usage (**Jetons** screen) | `/mcp` | REST API (read) | Status change |
+| Role | Usage (**Tokens** screen) | `/mcp` | REST API (read) | Status change |
 |---|---|---|---|---|
 | `mcp` (default) | MCP | ✅ | — | — |
 | `reader` | REST API — read only | — | ✅ | — |
-| `triager` | REST API — read and triage | — | ✅ | ✅ |
-| `admin` | CLI only | ✅ | ✅ | ✅ |
+| `triager` | REST API — read and triage | — | ✅ | `open`, `fixed` ¹ |
+| `admin` | CLI only | ✅ | ✅ | `open`, `fixed` ¹ |
+| `ci` | CI/CD pipeline — gate, SARIF and trend | — | pipeline routes only (`/api/v1/ci/`) | — |
+| `metrics` | CLI only | — | `/metrics` only ([Prometheus](../advanced/audit-metrics.md#prometheus-metrics)) | — |
+
+¹ With a token. `accepted` and `false_positive` need a person logged in to the interface
+with the `triager` or `admin` role ([triage of findings](#triage-of-findings)). On `/mcp`, no
+role changes a status: the agents only propose one.
 
 An `mcp`, `reader` or `triager` token restricted with `--project` only sees and triages the
-allowed projects; the option can be repeated (see
-[tokens restricted to a project](../getting-started/http.md#tokens-restricted-to-a-project)).
+allowed projects; a `ci` token is always restricted to its projects (see
+[`ci` token](gate.md#ci-token-and-visible-projects)); the option can be repeated (see
+[tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
 
 People log in with a [user account](#user-accounts): local (user name and password) or
-[SSO](#openid-connect-sso-login). Accounts have the `reader`, `triager` or `admin` role, never
+[SSO](../advanced/sso.md). Accounts have the `reader`, `triager` or `admin` role, never
 `mcp`, and never open `/mcp`. A token created without a role stays `mcp`: it serves the agents
 and the CI, not the web interface. The `triager` role only adds the triage of the findings. A
 `reader`, `triager` or `admin` token calls the REST API, for example from a script, but **does
@@ -166,12 +221,23 @@ curl -H "Authorization: Bearer $TOKEN" \
 # {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
 
+`GET /api/v1/reports` lists the reports (`project`, `risk_level`, `review_type` and `author`
+filter), each with its `author` and `submitted_by`:
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://secreview.example.com/api/v1/reports?project=shop-api&author=alice@example.com"
+```
+
 Revoke it with `security-review-controller token revoke triage-bot`. Every status change is
 logged with the label of the token or of the account:
 
 ```
-INFO security_review_mcp.web: Finding 42 set to accepted by triage-bot
+INFO security_review_mcp.web: Finding 42 set to fixed by triage-bot
 ```
+
+and written to the [audit log](../advanced/audit-metrics.md#audit-log) (`GET /api/v1/audit`, `admin`
+role), with the actor `token:triage-bot` or `user:<name>`.
 
 !!! warning "Authentication required for the web UI"
     The API of the interface refuses the requests with status `503` while no user and no token
@@ -179,7 +245,7 @@ INFO security_review_mcp.web: Finding 42 set to accepted by triage-bot
     Enable `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` (the case in the Docker image), or create an
     account with `security-review-controller user create`. This restriction concerns the web
     UI; MCP authentication stays independent (a user account never opens `/mcp`). With the
-    [SSO login](#openid-connect-sso-login), the API asks for a login (`401`) even without any
+    [SSO login](../advanced/sso.md), the API asks for a login (`401`) even without any
     user or token in the database.
 
 ## User accounts
@@ -191,10 +257,10 @@ limited to a list of projects; an `admin` account sees every project.
 | Type (`auth_source`) | Login | Creation |
 |---|---|---|
 | **Local** (`local`) | User name and password | By an administrator, or the initial `admin` account |
-| **SSO** (`oidc`) | [Identity provider](#openid-connect-sso-login), no password | By an administrator, at the approval of an enrollment, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
+| **SSO** (`oidc`) | [Identity provider](../advanced/sso.md), no password | By an administrator, at the approval of an enrollment, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
 An SSO account can have **no role of its own**: only the role given by its groups applies (see
-[SSO accounts](#sso-accounts)). Accounts are managed in the **Users** screen,
+[SSO accounts](../advanced/sso.md#sso-accounts)). Accounts are managed in the **Users** screen,
 through the `/api/v1/users` REST API (`admin` role) or with the
 [CLI](../reference/cli.md#security-review-controller):
 
@@ -247,7 +313,7 @@ invalidated at once): `security-review-controller user reset-password admin`.
 ### Login and sessions
 
 The login page offers the user name and password of a local account and, with the
-[SSO login](#openid-connect-sso-login), the button of the identity provider; it does not accept
+[SSO login](../advanced/sso.md), the button of the identity provider; it does not accept
 a token. `POST /api/v1/auth/login` checks the password of a local account and returns a signed
 **session token**, valid `SECREVIEW_SESSION_HOURS` hours (8 by default), that the tab uses like
 a Bearer token:
@@ -283,270 +349,6 @@ INFO security_review_mcp.web: Web login of alice (role triager) from 10.0.0.12
 WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 ```
 
-## OpenID Connect SSO login
-
-The controller can delegate the login to the interface to an OpenID Connect identity provider
-(Keycloak, Microsoft Entra ID, Okta, Authentik, Dex...). The login page then shows a
-**Log in with SSO** button above the form of the local accounts, which
-stays available (initial `admin` account, fallback accounts).
-
-The flow is *authorization code* with PKCE (`S256`), state and nonce:
-
-1. `GET /api/v1/auth/oidc/login` redirects the browser to the provider;
-2. the provider sends back to `GET /api/v1/auth/oidc/callback`; the controller exchanges the
-   code (server-to-server call), checks the ID token (signature by the JWKS keys of the
-   provider, issuer, audience, expiry, nonce), finds the [SSO account](#sso-accounts) of the
-   user (or creates it) and stores the role given by its groups;
-3. it hands the interface a signed **session token**, valid `SECREVIEW_SESSION_HOURS` hours,
-   that the tab uses like a Bearer token.
-
-### Declaring the client at the provider
-
-Create a *confidential* OIDC client (or a public one, without a secret: PKCE is enough) with:
-
-- **Redirect URL**: `https://<controller>/api/v1/auth/oidc/callback`, the exact public URL seen
-  by the browser (behind a reverse proxy, the proxy's);
-- a claim holding the groups or roles of the user in the ID token (or, failing that, in the
-  *userinfo* answer, which the controller reads when the ID token does not contain it).
-
-Keycloak example (realm roles):
-
-```bash
-SECREVIEW_OIDC_ENABLED=true
-SECREVIEW_OIDC_ISSUER=https://sso.example.com/realms/acme
-SECREVIEW_OIDC_CLIENT_ID=security-review
-SECREVIEW_OIDC_CLIENT_SECRET=...            # empty for a public client
-SECREVIEW_OIDC_REDIRECT_URI=https://secreview.example.com/api/v1/auth/oidc/callback
-SECREVIEW_OIDC_ROLES_CLAIM=realm_access.roles   # "groups" by default
-SECREVIEW_OIDC_ADMIN_GROUPS=secreview-admins
-SECREVIEW_OIDC_TRIAGER_GROUPS=secreview-triagers
-SECREVIEW_OIDC_READER_GROUPS=developers,qa
-SECREVIEW_OIDC_AUTO_CREATE_USERS=true       # otherwise, create every SSO account in Utilisateurs
-SECREVIEW_SESSION_SECRET=$(openssl rand -base64 48)
-SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
-```
-
-The issuer must use HTTPS (HTTP is only accepted on `localhost`, for development); its
-`/.well-known/openid-configuration` document must announce the same `issuer`. If the provider
-uses an internal CA, give it with `SECREVIEW_OIDC_CAFILE`. The controller reaches the provider
-through its outgoing proxy (`SECREVIEW_PROXY` / `SECREVIEW_NO_PROXY`, or the **Paramètres**
-(Settings) screen), else through `HTTPS_PROXY` / `NO_PROXY`.
-
-### Configuring SSO in the interface
-
-The same settings can be changed in the **SSO settings** section of
-the **SSO roles** screen (`admin` role), without restarting the controller. As for
-the **Settings** screen, a value stored in the database **replaces its
-`SECREVIEW_OIDC_*` variable**, field by field; a field never changed follows its variable:
-
-- every field has the **Variable** badge (the variable applies, its value is shown under the
-  field) or **Interface web** (stored value); the **Variable** link of a stored field deletes
-  the stored value and applies the variable again;
-- the **client secret** is never shown again: left empty, the current secret is kept;
-  **Delete** stores an empty secret (public client, PKCE only);
-- **Test the connection** contacts the provider with the values of the
-  form, without storing them: reading of the `/.well-known/openid-configuration` document (same
-  `issuer`, HTTPS endpoints), then of the signing keys (JWKS);
-- **Save** refuses (`422`) a configuration that would enable an invalid login
-  (missing or non-HTTPS issuer, scopes without `openid`, unknown default role...): nothing is
-  stored then. An incomplete configuration can be prepared while SSO stays disabled.
-
-The change applies to the next login, on every replica (the controller reads the configuration
-again at every login and rebuilds the OIDC flow when it changes). Sessions already open stay
-valid until they expire. Still variables only: `SECREVIEW_OIDC_CAFILE` (a file of the
-deployment) and the session settings (`SECREVIEW_SESSION_SECRET`, `SECREVIEW_SESSION_HOURS`).
-If a variable changed later makes the combination with the stored values invalid, the
-controller starts anyway: the SSO login is disabled and the error logged, to be fixed in the
-screen.
-
-Through the API (`/api/v1/oidc/settings`, `admin` role): `GET` describes every setting (stored
-`value` or `null`, `env`, `effective`; a set secret reads `***`), `PUT` changes the sent fields
-(`null` applies the variable again, a missing field is unchanged) and
-`POST /api/v1/oidc/settings/test` tests the provider without storing anything:
-
-```bash
-curl -X PUT https://secreview.example.com/api/v1/oidc/settings \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"enabled": true, "issuer": "https://sso.example.com/realms/acme",
-       "client_id": "security-review", "client_secret": "...",
-       "redirect_uri": "https://secreview.example.com/api/v1/auth/oidc/callback",
-       "display_name": null}'
-```
-
-### SSO accounts
-
-Every SSO user is an account of the **Users** screen (**SSO** badge), named by
-the value of the `SECREVIEW_OIDC_USERNAME_CLAIM` claim (`preferred_username` by default),
-compared exactly, case included. There is no fallback to `email` or `sub`, and a value that is
-not a valid user name (control or invisible character, space, more than 64 characters) is
-refused.
-
-At login, the controller looks for this account:
-
-| Situation | Result |
-|---|---|
-| Existing SSO account | Login, with the effective role below |
-| No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | The account is **created** (`created_by`: `oidc`) if its groups or the default role give it a role; otherwise refused, without creation |
-| No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (default) | **Refused**: an administrator must first create the SSO account |
-| **Local** account with the same name | **Refused**: an SSO login never opens a local account |
-| SSO account bound to another `sub` | **Refused** (see below) |
-| SSO account deleted by an administrator | **Refused**, even with the automatic creation (see below) |
-
-At the first login, the account is **bound** to the `sub` claim of the provider; a later login
-with the same user name but another `sub` (provider account deleted then created again,
-renamed...) is refused. To give the user name to someone else, delete then create the account
-again.
-
-The **effective role** combines the role given to the account (**Utilisateurs** screen, or
-approval of an enrollment) and the role of its groups ([role mapping](#role-mapping)), stored at
-every login: the highest wins, and its projects are the union of those of both accesses with
-this role. An account with neither a role of its own nor a group role is refused and its open
-sessions are closed. The given role applies at once; the group role, at the next login.
-
-**Deleting an SSO account** (**Utilisateurs** screen, `DELETE /api/v1/users/{id}` or
-`security-review-controller user delete NAME`) closes its sessions at once and **revokes** its
-user name: an SSO login no longer creates it again, even with the automatic creation and groups
-that give it a role ("compte supprimé" message, account deleted, on the login page). To give it
-access back, an administrator creates the account again (by hand or at the approval of an
-enrollment), or lifts the revocation (**Autoriser à nouveau**, Allow again,
-`DELETE /api/v1/users/revoked/{username}`): the account is then created again at its next
-login. `GET /api/v1/users/revoked` lists the revoked accounts, with the author and the date of
-the deletion.
-
-The **last administrator** can be neither deleted nor demoted. An administrator is a local or
-SSO account whose given role is `admin`, or an SSO account whose groups gave it `admin` at its
-last login. Preferably keep a local administrator: if the identity provider becomes
-unreachable, it remains the only access, besides the CLI.
-
-```
-INFO security_review_mcp.web: SSO web user alice created at its first login
-INFO security_review_mcp.web: OIDC login of oidc:alice with role reader on every project
-WARNING security_review_mcp.web: OIDC login of oidc:bob refused: no web user bob
-INFO security_review_mcp.web: Web user carol (oidc) deleted by admin
-WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user carol was deleted
-```
-
-### Role mapping
-
-The *role mapping* decides the web role, and the projects, of an SSO user from the values of
-the `SECREVIEW_OIDC_ROLES_CLAIM` claim (list or string, dotted path accepted, exact comparison,
-case sensitive). A **mapping** ties one of these values (a group or a role of the provider) to:
-
-- a web role: `reader`, `triager` or `admin` (never `mcp`: an OIDC session only opens the web
-  interface, not `/mcp`);
-- for `reader` and `triager`, an optional list of projects (50 at most); without a list, every
-  project. An `admin` mapping always covers every project.
-
-Mappings have two origins:
-
-| Origin | Management | Projects |
-|---|---|---|
-| Database | **SSO roles** screen or `/api/v1/oidc/role-mappings` API (`admin` role) | All or a list |
-| `SECREVIEW_OIDC_ADMIN_GROUPS`, `..._TRIAGER_GROUPS`, `..._READER_GROUPS` variables | Configuration of the controller (read only in the interface) | All |
-
-The variables are mostly used to name the first administrator, who then creates the other
-mappings in the interface.
-
-At login:
-
-1. the **highest role** among the mappings that match the groups of the user wins
-   (`admin` > `triager` > `reader`);
-2. the session sees **every project** if one of the mappings of this role is not restricted;
-   otherwise the **union** of their projects (200 at most: beyond that, the login is refused).
-   The projects of the mappings of a lower role are not added: a user who is `triager` on
-   `shop-api` and `reader` on `billing` is `triager` on `shop-api` only;
-3. without any group mapping, `SECREVIEW_OIDC_DEFAULT_ROLE` applies (`reader` or `triager`,
-   every project); empty (default), the groups give no role and only the role given to the
-   [SSO account](#sso-accounts) still allows the login, otherwise it is **refused**. The
-   `admin` role cannot be given by default.
-
-This group role is then combined with the role given to the account (see
-[SSO accounts](#sso-accounts)).
-
-A restricted session behaves like a
-[token restricted to a project](../getting-started/http.md#tokens-restricted-to-a-project): the
-other projects, their reports and their findings are handled as missing. A project can be named
-before it exists (the screen suggests the known projects). A change of mapping applies at the
-**next login** of the user; until then, their open sessions keep the stored group role (see
-[Sessions](#sessions)). Every creation, change or deletion is logged with the label of the
-administrator:
-
-```
-INFO security_review_mcp.web: Role mapping payments -> triager (billing) created by oidc:alice
-```
-
-API example:
-
-```bash
-curl -X POST https://secreview.example.com/api/v1/oidc/role-mappings \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"claim_value": "payments-team", "role": "triager", "projects": ["billing"]}'
-```
-
-The label of an SSO session is `oidc:<username>`: it is the one that appears in the logs and
-in the triage history.
-
-### Project read access at enrollment
-
-At the approval of an [enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token)
-request, the administrator can also give the developer read access to the project in the
-portal, on their **user account**: the developer who requested an MCP token for a project then
-browses its reports.
-
-- In the **Project tokens** screen, the **Read access in the portal** column is prefilled with the requester (`requested_by`) when it is given, and
-  ticked when SSO is enabled. This field is declared by the client and **is not verified**:
-  check or correct it before approving, or untick the box.
-- The name designates an account of the **Users** screen, local or SSO. With SSO
-  enabled, an unknown name becomes an **SSO account** (`reader` on the project), ready for its
-  first login; without SSO, the account must exist.
-- An account without a role of its own becomes `reader` on the project; a restricted `reader`
-  or `triager` account gets one more project; an account that already sees every project is
-  unchanged. An approved additional request for the same user adds the project the same way.
-
-The access then shows on the account, where it is changed like the others. It is independent of
-the MCP token: revoking the token does not remove it.
-
-```bash
-# Approve a request and give the "alice" user read access to the project
-curl -X POST https://secreview.example.com/api/v1/enrollments/$REQUEST_ID/approve \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"portal_user": "alice"}'
-```
-
-The answer then contains `portal_user`, the updated account. An invalid user name, an unknown
-account without SSO or a reached limit are refused (`422`) before the approval: the request
-stays pending. The log of the controller records the access:
-
-```
-INFO security_review_mcp.web: Web access to shop-api given to web user alice by admin
-```
-
-!!! note "Upgrading from the named accesses"
-    Previous versions stored these accesses apart ("named accesses",
-    `/api/v1/oidc/user-grants` API). Schema migration `0006` turns them into `reader` SSO
-    accounts on the same projects, then deletes the table. An access whose name is not a valid
-    user name or that bears the name of a local account is dropped, with a warning in the log of
-    the migration.
-
-### Sessions
-
-- The session token is signed (HMAC-SHA256) with a key derived from `SECREVIEW_SESSION_SECRET`
-  (at least 32 characters), like the one of the [local accounts](#login-and-sessions), and
-  names the SSO account, read again at every request: deleting the account or changing its
-  given role applies at once. Every replica of the controller must share this secret; without
-  it, a random secret is drawn at every start and the sessions end at restart (a warning is
-  logged).
-- A group change at the provider only applies at the next login. To cut every session before it
-  expires, delete the account, or change `SECREVIEW_SESSION_SECRET` and restart the controller
-  (every session is cut).
-- **Log out** clears the session of the tab, not the one of the identity
-  provider.
-
-On failure, the login page gives the cause (access denied at the provider, no role, SSO account
-not created yet or deleted, user name taken by a local account or bound to another account,
-missing user name, expired state, invalid token, unreachable provider); the detail is logged by
-the controller, without code or token.
-
 ## Security
 
 - The static files of `/ui/` are public (they hold no data); the `/api/v1/` API requires a
@@ -559,13 +361,13 @@ the controller, without code or token.
   padlock of a route says that it requires a token: it stays **open** while you have not entered
   a token with **Authorize**, and does not mean that the route can be reached without a token.
 - The controller exposes no write route without a token. The
-  [enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token) requests are
+  [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token) requests are
   filed on the **MCP server** (`POST /api/v1/enroll`, public); the controller lists and handles
   them (`GET /api/v1/enrollments`, `POST /api/v1/enrollments/{id}/approve`,
   `DELETE /api/v1/enrollments/{id}`, `admin` role). It can therefore stay on an internal
   network.
 - The token is sent in the `Authorization` header: no cookie, hence no CSRF. Only the
-  [SSO login](#openid-connect-sso-login) sets a cookie, `HttpOnly`, `SameSite=Lax`, `Secure`
+  [SSO login](../advanced/sso.md) sets a cookie, `HttpOnly`, `SameSite=Lax`, `Secure`
   over HTTPS, limited to the return URL and valid 10 minutes: it binds the return from the
   provider to the browser that started the login (protection against *login CSRF*). The session
   token is handed in the URL fragment (`#session=...`), never sent to a server, and the
@@ -573,7 +375,7 @@ the controller, without code or token.
 - It is kept in the `sessionStorage` of the tab and disappears when the tab closes.
 - Pages are served with a strict CSP (`script-src 'self'`, no external resource),
   `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
-- Serve the interface over HTTPS ([built-in TLS or reverse proxy](../getting-started/http.md#tls))
+- Serve the interface over HTTPS ([built-in TLS or reverse proxy](../advanced/http.md#tls))
   as soon as it no longer listens on localhost: the token travels with every request.
 
 ## Configuration
@@ -585,9 +387,9 @@ the controller, without code or token.
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Creates the `admin` account at the first start of the controller, while no account exists; `true` in Docker |
 | `SECREVIEW_SESSION_SECRET` | — | Signing secret of the sessions (at least 32 characters), identical on every replica |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or SSO login |
-| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [SSO account](#sso-accounts) at the first login; otherwise an administrator creates it |
+| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [SSO account](../advanced/sso.md#sso-accounts) at the first login; otherwise an administrator creates it |
 | `SECREVIEW_ENROLLMENT` | `true` | Token requests by the projects (on the MCP server), approved in the **Tokens** screen |
-| `SECREVIEW_OIDC_*` | — | [SSO login](#openid-connect-sso-login), see the [reference](../reference/configuration.md) |
+| `SECREVIEW_OIDC_*` | — | [SSO login](../advanced/sso.md), see the [reference](../reference/configuration.md) |
 
 The published package and the Docker image contain the application already built. If you
 install from source without building it, the controller only serves the REST API and a warning

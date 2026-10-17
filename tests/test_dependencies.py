@@ -409,6 +409,120 @@ dependencies {
     assert versions(kts) == {"a.b:c": "1.0"}
 
 
+def test_pom_and_gradle_recommend_an_sbom_for_transitive_dependencies():
+    for content, filename in ((POM, "pom.xml"), ('implementation "a.b:c:1.0"', "build.gradle")):
+        parsed = parse_dependency_file(content, filename)
+        assert any("transitive" in note and "SBOM" in note for note in parsed.notes)
+
+
+SBOM_JSON = {
+    "bomFormat": "CycloneDX",
+    "specVersion": "1.5",
+    "metadata": {"component": {"purl": "pkg:maven/com.example/app@1.0.0"}},
+    "components": [
+        {
+            "name": "spring-web",
+            "version": "5.3.0",
+            "purl": "pkg:maven/org.springframework/spring-web@5.3.0?type=jar",
+            "components": [
+                {"purl": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.9.8"},
+            ],
+        },
+        {"purl": "pkg:maven/org.example/snap@1.0-SNAPSHOT"},
+        {"purl": "pkg:maven/junit/junit@4.12", "scope": "excluded"},
+        {"purl": "pkg:npm/%40angular/core@17.0.0"},
+        {"purl": "pkg:npm/@scope/raw@1.2.3"},
+        {"purl": "pkg:pypi/requests@2.19.0"},
+        {"purl": "pkg:pypi/noversion"},
+        {"purl": "pkg:golang/github.com/x/y@v1.0.0"},
+        {"name": "no-purl", "version": "1.0"},
+        {"purl": 1},
+        "not an object",
+    ],
+}
+
+
+def test_cyclonedx_json_sbom():
+    parsed = parse_dependency_file(json.dumps(SBOM_JSON), "target/bom.json")
+    assert parsed.file_type == "CycloneDX" and parsed.is_lockfile
+    assert parsed.ecosystem == "Maven, PyPI, npm"
+    assert versions(parsed) == {
+        "org.springframework:spring-web": "5.3.0",
+        "com.fasterxml.jackson.core:jackson-databind": "2.9.8",
+        "org.example:snap": "1.0-SNAPSHOT",
+        "junit:junit": "4.12",
+        "@angular/core": "17.0.0",
+        "@scope/raw": "1.2.3",
+        "requests": "2.19.0",
+        "noversion": None,
+    }
+    ecosystems = {c.name: c.ecosystem for c in parsed.components}
+    assert ecosystems["@angular/core"] == "npm" and ecosystems["requests"] == "PyPI"
+    assert next(c for c in parsed.components if c.name == "junit:junit").dev
+    assert rules(parsed) == {"DEP-002"}
+    notes = " ".join(parsed.notes)
+    assert "golang (1)" in notes and "no package URL" in notes and "no version" in notes
+
+
+def test_cyclonedx_xml_sbom():
+    content = """<?xml version="1.0"?>
+<bom xmlns="http://cyclonedx.org/schema/bom/1.5" version="1">
+  <components>
+    <component type="library">
+      <name>spring-web</name><version>5.3.0</version>
+      <purl>pkg:maven/org.springframework/spring-web@5.3.0</purl>
+      <components>
+        <component type="library">
+          <purl>pkg:maven/org.yaml/snakeyaml@1.26</purl><scope>excluded</scope>
+        </component>
+      </components>
+    </component>
+  </components>
+</bom>"""
+    parsed = parse_dependency_file(content, "bom.xml")
+    assert parsed.ecosystem == "Maven"
+    assert versions(parsed) == {
+        "org.springframework:spring-web": "5.3.0",
+        "org.yaml:snakeyaml": "1.26",
+    }
+    assert next(c for c in parsed.components if c.name == "org.yaml:snakeyaml").dev
+
+
+@pytest.mark.parametrize(
+    "filename, matches",
+    [
+        ("bom.json", True),
+        ("sbom.xml", True),
+        ("app-bom.json", True),
+        ("app.cdx.json", True),
+        ("bom.cdx.xml", True),
+        ("xbom.json", False),
+        ("bom.yaml", False),
+    ],
+)
+def test_sbom_file_names(filename, matches):
+    content = (
+        '{"bomFormat": "CycloneDX", "components": []}'
+        if filename.endswith(".json")
+        else '<bom xmlns="http://cyclonedx.org/schema/bom/1.5"/>'
+    )
+    if matches:
+        parsed = parse_dependency_file(content, filename)
+        assert parsed.components == [] and any("nothing" in n for n in parsed.notes)
+    else:
+        with pytest.raises(ValueError, match="Unsupported file"):
+            parse_dependency_file(content, filename)
+
+
+def test_deeply_nested_sbom_does_not_exhaust_the_stack():
+    component: dict = {"purl": "pkg:npm/leaf@1.0.0"}
+    for _ in range(5000):
+        component = {"purl": "pkg:npm/node@1.0.0", "components": [component]}
+    # json.loads itself has a nesting limit: build the walk input directly
+    entries = list(dependencies._json_sbom_entries([component]))
+    assert len(entries) == 5001 and entries[-1][0] == "pkg:npm/leaf@1.0.0"
+
+
 def test_many_occurrences_are_merged_into_one_issue():
     deps = {f"dep{i}": f"git+https://example.com/dep{i}.git" for i in range(8)}
     parsed = parse_dependency_file(json.dumps({"dependencies": deps}), "package.json")
@@ -424,6 +538,11 @@ def test_many_occurrences_are_merged_into_one_issue():
         ("= nope", "pyproject.toml", "Invalid TOML"),
         ("<project>", "pom.xml", "Invalid XML"),
         ("anything", "Makefile", "Unsupported file"),
+        ('{"bomFormat": "SPDX"}', "bom.json", "Not a CycloneDX SBOM"),
+        ("<project/>", "bom.xml", "Not a CycloneDX SBOM"),
+        ('<!DOCTYPE bom [<!ENTITY a "a">]><bom/>', "bom.xml", "DOCTYPE"),
+        ('{"bomFormat": "CycloneDX", "components": ' + "[" * 200_000, "bom.json", "too deep"),
+        ("a = " + "[" * 200_000, "pyproject.toml", "TOML"),
     ],
 )
 def test_invalid_and_unsupported_files(content, filename, fragment):

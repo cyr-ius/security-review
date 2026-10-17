@@ -5,7 +5,7 @@ export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type FindingStatus = 'open' | 'fixed' | 'accepted' | 'false_positive';
 
 /** Role attached to the bearer token. */
-export type Role = 'mcp' | 'reader' | 'triager' | 'admin';
+export type Role = 'mcp' | 'reader' | 'triager' | 'admin' | 'ci';
 export type ProjectTokenRole = Exclude<Role, 'admin'>;
 
 export const SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
@@ -134,6 +134,65 @@ export interface ProjectToken {
   pending_projects: string[];
   status: 'active' | 'pending';
   created_at: string;
+  /** Expiry date; null: the token never expires. */
+  expires_at: string | null;
+  /** True once the expiry date is past: the token authenticates nothing. */
+  expired: boolean;
+  /** Date of the latest rotation (new secret), or null. */
+  rotated_at: string | null;
+  /** End of the grace period of the previous secret after a rotation, or null. */
+  grace_until: string | null;
+}
+
+/** Kind of an audit event. */
+export type AuditAction =
+  | 'finding.status_changed'
+  | 'finding.status_proposed'
+  | 'finding.proposal_rejected'
+  | 'token.created'
+  | 'token.rotated'
+  | 'token.revoked'
+  | 'enrollment.requested'
+  | 'enrollment.approved'
+  | 'enrollment.rejected';
+
+export const AUDIT_ACTIONS: readonly AuditAction[] = [
+  'finding.status_changed',
+  'finding.status_proposed',
+  'finding.proposal_rejected',
+  'token.created',
+  'token.rotated',
+  'token.revoked',
+  'enrollment.requested',
+  'enrollment.approved',
+  'enrollment.rejected',
+];
+
+/** One entry of the audit log (details never hold a secret). */
+export interface AuditEvent {
+  id: number;
+  created_at: string;
+  action: AuditAction;
+  /** user:NAME, token:LABEL, cli, anonymous or stdio. */
+  actor: string;
+  target_type: string;
+  target_id: string | null;
+  project: string | null;
+  details: Record<string, unknown>;
+}
+
+/** One page of the audit log (total counts every matching event). */
+export interface AuditPage {
+  total: number;
+  events: AuditEvent[];
+}
+
+/** Filters of the audit log. */
+export interface AuditQuery {
+  action?: AuditAction | null;
+  project?: string | null;
+  limit: number;
+  offset: number;
 }
 
 /** A project token requested by a client (enrollment), waiting for an administrator. */
@@ -283,6 +342,8 @@ export interface ReportSummary {
   review_type: ReviewType | null;
   risk_level: Severity;
   reviewer: string | null;
+  author: string | null;
+  submitted_by: string | null;
   created_at: string;
   findings_total: number;
   findings_open: number;
@@ -297,6 +358,15 @@ export interface Finding {
   severity: Severity;
   status: FindingStatus;
   status_changed_at: string | null;
+  /** Triage decision, made by a person: reason, approver and end of an acceptance. */
+  status_reason: string | null;
+  status_approver: string | null;
+  status_expires_at: string | null;
+  /** Status proposed by an agent, never applied until a triager approves it. */
+  proposed_status: FindingStatus | null;
+  proposed_reason: string | null;
+  proposed_by: string | null;
+  proposed_at: string | null;
   rule_id: string | null;
   category: string;
   cwe: string | null;
@@ -307,6 +377,17 @@ export interface Finding {
   description: string;
   evidence: string | null;
   recommendation: string | null;
+}
+
+/** Statuses that need a reason and an expiry date, decided by a person only. */
+export const DISMISSED_STATUSES: readonly FindingStatus[] = ['accepted', 'false_positive'];
+
+/** Body of PATCH /api/v1/findings/{id}: a triage decision. */
+export interface FindingDecision {
+  status: FindingStatus;
+  reason?: string;
+  /** YYYY-MM-DD: the finding counts as open again from that day. */
+  expires_on?: string;
 }
 
 /** A finding of GET /api/v1/findings, with the context of its report. */
@@ -342,6 +423,8 @@ export interface Report {
   branch: string | null;
   commit_sha: string | null;
   reviewer: string | null;
+  author: string | null;
+  submitted_by: string | null;
   scope: string | null;
   review_type: ReviewType | null;
   summary: string;

@@ -4,10 +4,19 @@
 security-review-controller sarif --project mon-projet -o results.sarif      # ou --report-id N
 ```
 
+Dans un pipeline, le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci)
+télécharge le même journal par l'API REST du contrôleur, avec un jeton `ci` et sans accès à la
+base :
+
+```bash
+security-review-ci sarif --project mon-projet -o results.sarif   # SECREVIEW_CONTROLLER_URL, SECREVIEW_TOKEN
+```
+
 Le fichier produit est du SARIF 2.1.0 (validé contre le schéma officiel).
 
 - Seuls les findings **ouverts** sont exportés ; `--include-resolved` ajoute les autres
   (`baselineState: absent` pour les corrigés, `suppressions` pour les acceptés / faux positifs).
+  Une acceptation ou un faux positif expiré est exporté comme ouvert.
 - Pour un projet, un finding signalé dans plusieurs rapports n'apparaît qu'une fois.
 - L'empreinte (`partialFingerprints`) ignore le numéro de ligne : elle reste stable quand le
   code bouge.

@@ -90,7 +90,7 @@ def test_rule_id_is_preferred_and_advisories_get_an_osv_link():
     assert rule["helpUri"] == "https://osv.dev/vulnerability/GHSA-aaaa-bbbb-cccc"
 
 
-def test_only_open_findings_by_default_and_resolved_on_request():
+def test_only_open_findings_by_default_and_resolved_on_request(triage):
     saved = services.save_report(
         "shop",
         "summary",
@@ -104,7 +104,7 @@ def test_only_open_findings_by_default_and_resolved_on_request():
     findings = services.get_report(saved["report_id"]).findings
     statuses = [FindingStatus.FIXED, FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE]
     for finding, status in zip(findings[:3], statuses, strict=True):
-        services.update_finding_status(finding.id, status)
+        triage(finding.id, status)
 
     assert len(export()["runs"][0]["results"]) == 1
 

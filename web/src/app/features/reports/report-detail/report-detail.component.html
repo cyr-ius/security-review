@@ -80,6 +80,14 @@
             <dt>{{ 'report.reviewer' | t }}</dt>
             <dd>{{ data.reviewer }}</dd>
           }
+          @if (data.author) {
+            <dt>{{ 'report.author' | t }}</dt>
+            <dd>{{ data.author }}</dd>
+          }
+          @if (data.submitted_by) {
+            <dt>{{ 'report.submittedBy' | t }}</dt>
+            <dd>{{ data.submitted_by }}</dd>
+          }
           @if (data.scope) {
             <dt>{{ 'report.scope' | t }}</dt>
             <dd class="prewrap">{{ data.scope }}</dd>

@@ -92,9 +92,10 @@ l'utiliser.
 | Moteur de scan, masquage des secrets | `scanner.py` |
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`, `user`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`) |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`, `user`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`), `ci_client.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) ; proxy sortant du contrôleur (OSV et SSO) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` ; `proxy.py` |
-| Persistance, schéma (purge des rapports sans findings : `retention.py`) | `models.py`, `services.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
+| Persistance, schéma (purge des rapports sans findings et de l'audit : `retention.py`) | `models.py`, `services.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
+| Journal d'audit (écrit par `services` et `token_store` dans la transaction du changement) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `audit.py` ; `metrics.py` |
 | Export et tendances | `sarif.py`, `trends.py` |
 | HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et SSO, seuls à ouvrir l'interface (mot de passe, création SSO à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py`, role mapping : `role_mapping.py` |
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
@@ -153,7 +154,7 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   `/healthz` ; le contrôleur n'expose aucune route d'écriture sans jeton. N'ajoutez pas de route
   web au serveur MCP ni d'endpoint MCP au contrôleur.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
-  CLI. Exceptions : les commandes CLI `enroll` et `scan-deps`, qui contactent l'URL donnée par
+  CLI. Exceptions : les commandes CLI `enroll`, `scan-deps` et `security-review-ci`, qui contactent l'URL donnée par
   l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
   uniquement, taille bornée, proxy facultatif (`proxy`, partagé avec le SSO) jamais journalisé
   avec ses identifiants, et la
@@ -162,6 +163,11 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
   imbriqués) ; `rules_loader` les valide pour les règles internes.
 - Jetons Bearer : seules les empreintes SHA-256 sont conservées, comparaison en temps constant.
+- **Un agent ne ferme jamais un finding** : aucun outil MCP ne change un statut
+  (`propose_finding_status` enregistre seulement une proposition). `accepted` et
+  `false_positive` sont décidés par une personne connectée à l'interface (session, jamais un
+  jeton Bearer), avec motif, approbateur et date d'expiration ; une décision expirée compte comme
+  ouverte (gate, posture, SARIF, tendances).
 
 ### Paramètres
 
@@ -224,8 +230,9 @@ une PR, quelle que soit la taille du changement :
 3. Enregistrez le résultat **une seule fois** avec `save_security_report` (`project` :
    `security-review-mcp`, plus `branch` et `commit_sha` quand ils sont connus).
 4. Corrigez les findings `critical` et `high` avant de terminer, avec un test qui couvre la
-   correction. Pour les autres, corrigez-les ou justifiez-les, et mettez leur statut à jour avec
-   `update_finding_status` (`fixed`, `accepted`, `false_positive`).
+   correction. Pour les autres, corrigez-les ou justifiez-les, et proposez leur statut avec
+   `propose_finding_status` (`fixed`, `accepted`, `false_positive`, avec le motif) : un agent ne
+   change jamais un statut, c'est une personne qui valide la proposition dans l'interface web.
 5. Résumez la revue (identifiant du rapport, findings et suite donnée) dans votre réponse et dans
    la description de PR.
 
@@ -241,19 +248,26 @@ racine du site) et en français (`page.fr.md`, à côté, servie sous `/fr/`), a
 `mkdocs-static-i18n`. Mettez-la à jour dans le même changement que le code, **dans les deux
 langues** :
 
+La doc est organisée en parcours de mise en œuvre : **Démarrage** (`getting-started/` :
+installation, mise en service du serveur, connexion de l'hôte) et **Utilisation** (`usage/` :
+prompts et outils, interface web, gate) ne contiennent que l'essentiel pour travailler ;
+**Avancé** (`advanced/`) regroupe les détails et les fonctions facultatives. Une nouvelle
+explication détaillée va dans `advanced/`, avec au plus une ligne et un lien depuis les pages
+essentielles.
+
 | Si vous modifiez... | Mettez à jour (`.md` et `.fr.md`) |
 |---|---|
 | Un prompt ou un outil MCP (nom, argument, comportement) | `docs/usage/prompts-tools` |
-| Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/usage/rules` (et `code-scan` si le scan du dépôt change) |
-| Le format des packs TOML internes | `docs/usage/rules`, `examples/rules/company.toml` |
-| L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/usage/dependencies` |
-| Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`ci-cd/*`, `usage/code-scan`...) |
+| Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/advanced/rules` (et `code-scan` si le scan du dépôt change) |
+| Le format des packs TOML internes | `docs/advanced/rules`, `examples/rules/company.toml` |
+| L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/advanced/dependencies` |
+| Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`usage/gate`, `advanced/code-scan`, `advanced/sarif`...) |
 | Un paramètre `SECREVIEW_*` | `docs/reference/configuration`, `.env.example` |
-| Transport HTTP, authentification, TLS | `docs/getting-started/http`, `docs/reference/security` |
-| Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/getting-started/kubernetes`, `docker-compose.yml`, `examples/kubernetes/` |
-| Les normes de développement (prompt, outils, ressources, écran) | `docs/usage/standards` (+ `usage/prompts-tools`) |
-| L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` |
-| Installation, image Docker | `docs/getting-started/installation`, `docs/getting-started/docker` |
+| Transport HTTP, authentification, TLS, enrôlement | `docs/advanced/http`, `docs/reference/security` (+ `getting-started/deploy` et `getting-started/host` si le parcours de base change) |
+| Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/advanced/architecture`, `docs/getting-started/deploy`, `docker-compose.yml`, `examples/kubernetes/` |
+| Les normes de développement (prompt, outils, ressources, écran) | `docs/advanced/standards` (+ `usage/prompts-tools`) |
+| L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` (connexion SSO : `docs/advanced/sso`) |
+| Installation, image Docker | `docs/getting-started/installation`, `docs/advanced/installation`, `docs/advanced/docker` |
 | Une garantie ou limite de sécurité | `docs/reference/security` |
 | La structure du code, l'outillage de dev | `docs/contributing` |
 

@@ -97,6 +97,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'audit',
+        title: 'layout.audit',
+        canActivate: [adminGuard],
+        loadComponent: () =>
+          import('./features/audit/audit-log.component').then((m) => m.AuditLogComponent),
+      },
+      {
         path: 'role-mappings',
         title: 'layout.sso',
         canActivate: [adminGuard],

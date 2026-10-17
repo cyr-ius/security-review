@@ -1,7 +1,7 @@
 """Command line helpers for pipelines and administrators (no MCP client or agent needed).
 
 ``security-review-controller`` runs ``db``, ``gate``, ``sarif``, ``trend``, ``advisories``,
-``deps``, ``code``, ``rules``, ``token`` and ``user`` (CONTROLLER_COMMANDS);
+``deps``, ``code``, ``rules``, ``token``, ``user`` and ``audit`` (CONTROLLER_COMMANDS);
 ``security-review-mcp`` runs ``enroll`` and ``scan-deps`` (MCP_COMMANDS). Exit codes follow the
 same convention everywhere: 0 success, 1 blocked (gate / findings found, schema not up to date),
 2 usage or data error.
@@ -20,6 +20,7 @@ from . import (
     advisories,
     advisory_sync,
     app_settings,
+    audit,
     codescan,
     depscan,
     enrollment,
@@ -266,6 +267,9 @@ def deps_command(argv: list[str]) -> int:
     parser.add_argument("--repository")
     parser.add_argument("--branch")
     parser.add_argument("--commit")
+    parser.add_argument(
+        "--author", help="username of the developer, stored with the report (with --save)"
+    )
     args = parser.parse_args(argv)
     if args.save and not args.project:
         return _fail("--save requires --project")
@@ -287,20 +291,24 @@ def deps_command(argv: list[str]) -> int:
         findings = [f for r in results for f in depscan.to_findings(r)]
         vulnerabilities = sum(r["vulnerabilities_count"] for r in results)
         hygiene = sum(r["hygiene_count"] for r in results)
-        saved = services.save_report(
-            project=args.project,
-            summary=(
-                f"Dependency scan of {len(results)} file(s): {vulnerabilities} vulnerable "
-                f"component(s), {hygiene} hygiene issue(s)."
-            ),
-            findings=findings,
-            repository=args.repository,
-            branch=args.branch,
-            commit_sha=args.commit,
-            reviewer="security-review-controller deps scan",
-            scope=", ".join(r["file"] for r in results),
-            review_type=ReviewType.DEPENDENCY_SCAN,
-        )
+        try:
+            saved = services.save_report(
+                project=args.project,
+                summary=(
+                    f"Dependency scan of {len(results)} file(s): {vulnerabilities} vulnerable "
+                    f"component(s), {hygiene} hygiene issue(s)."
+                ),
+                findings=findings,
+                repository=args.repository,
+                branch=args.branch,
+                commit_sha=args.commit,
+                reviewer="security-review-controller deps scan",
+                scope=", ".join(r["file"] for r in results),
+                review_type=ReviewType.DEPENDENCY_SCAN,
+                author=args.author,
+            )
+        except ValueError as exc:
+            return _fail(str(exc))
     return _print_deps(results, args.fail_on, args.format, saved, args.project)
 
 
@@ -400,6 +408,7 @@ def _save_code_scan(args: argparse.Namespace, result: dict) -> dict:
         reviewer="security-review-controller code scan",
         scope=scope,
         review_type=ReviewType.CODE_SCAN,
+        author=args.author,
     )
 
 
@@ -435,6 +444,9 @@ def code_command(argv: list[str]) -> int:
     parser.add_argument("--repository")
     parser.add_argument("--branch")
     parser.add_argument("--commit")
+    parser.add_argument(
+        "--author", help="username of the developer, stored with the report (with --save)"
+    )
     args = parser.parse_args(argv)
     if args.save and not args.project:
         return _fail("--save requires --project")
@@ -507,13 +519,19 @@ def token_command(argv: list[str]) -> int:
         choices=[role.value for role in http_server.Role],
         default=http_server.DEFAULT_ROLE.value,
         help="mcp (default): MCP endpoint; reader: REST API read only; triager: REST API read "
-        "and triage; admin: both",
+        "and triage; admin: both; ci: pipeline routes only (security-review-ci), needs --project; "
+        "metrics: Prometheus endpoint of the controller only",
     )
     creator.add_argument(
         "--project",
         action="append",
         help="restrict the token to this project (MCP tools and REST API); repeat it to "
         "give several projects",
+    )
+    creator.add_argument(
+        "--expires-in-days",
+        type=int,
+        help="validity of the token (default: SECREVIEW_TOKEN_MAX_DAYS, no expiry when it is 0)",
     )
     lister = actions.add_parser("list", help="list the tokens (never their secret or hash)")
     lister.add_argument("--project", help="only the tokens that reach this project")
@@ -522,6 +540,22 @@ def token_command(argv: list[str]) -> int:
     )
     revoker = actions.add_parser("revoke", help="delete a token by id or label")
     revoker.add_argument("token", help="token id or label")
+    rotator = actions.add_parser(
+        "rotate", help="replace the secret of a token (same label, role and projects)"
+    )
+    rotator.add_argument("token", help="token id or label")
+    rotator.add_argument(
+        "--grace-hours",
+        type=int,
+        default=0,
+        help="hours during which the previous secret keeps working (default: 0, max "
+        f"{token_store.MAX_ROTATION_GRACE_HOURS})",
+    )
+    rotator.add_argument(
+        "--expires-in-days",
+        type=int,
+        help="validity of the new secret (default: SECREVIEW_TOKEN_MAX_DAYS, no expiry when 0)",
+    )
     approver = actions.add_parser("approve", help="approve a pending enrollment request")
     approver.add_argument(
         "token", help="request id, or token id or label when the token has one request"
@@ -540,7 +574,9 @@ def token_command(argv: list[str]) -> int:
     try:
         init_db()
         if args.action == "create":
-            result: object = token_store.create_token(args.label, args.role, args.project)
+            result: object = token_store.create_token(
+                args.label, args.role, args.project, args.expires_in_days, audit.CLI_ACTOR
+            )
         elif args.action == "list":
             result = (
                 token_store.list_enrollments()
@@ -554,15 +590,19 @@ def token_command(argv: list[str]) -> int:
                 if args.portal_user
                 else None
             )
-            result = token_store.approve_enrollment(args.token)
+            result = token_store.approve_enrollment(args.token, audit.CLI_ACTOR)
             if portal_user is not None:
                 result["portal_user"] = web_users.grant_project(
                     portal_user, result["project"], "cli", create_sso
                 )
         elif args.action == "reject":
-            result = token_store.reject_enrollment(args.token)
+            result = token_store.reject_enrollment(args.token, audit.CLI_ACTOR)
+        elif args.action == "rotate":
+            result = token_store.rotate_token(
+                args.token, args.grace_hours, args.expires_in_days, audit.CLI_ACTOR
+            )
         else:
-            result = token_store.revoke_token(args.token)
+            result = token_store.revoke_token(args.token, audit.CLI_ACTOR)
             if not token_store.DatabaseTokenStore().has_tokens():
                 # Without any token the HTTP transport no longer requires authentication
                 print(
@@ -571,6 +611,65 @@ def token_command(argv: list[str]) -> int:
                 )
     except ValueError as exc:
         return _fail(str(exc))
+    print(json.dumps(result, indent=2))
+    return EXIT_PASSED
+
+
+# ── audit ────────────────────────────────────────────────────────────────────
+
+
+def _since(value: str) -> datetime:
+    """Parse --since: a date (00:00 UTC) or an ISO 8601 date and time (UTC when naive)."""
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"not an ISO 8601 date: {value!r}") from None
+    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed
+
+
+def audit_command(argv: list[str]) -> int:
+    """Run ``security-review-controller audit``: read the audit log."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-controller audit",
+        description="Read the audit log: triage decisions, agent proposals, tokens and "
+        "enrollment requests, newest first.",
+    )
+    actions = parser.add_subparsers(dest="action", required=True)
+    lister = actions.add_parser("list", help="print the audit events as JSON")
+    lister.add_argument(
+        "--action",
+        dest="event",
+        choices=[item.value for item in audit.AuditAction],
+        help="only this kind of event",
+    )
+    lister.add_argument("--project", help="only the events of this project")
+    lister.add_argument("--actor", help="only this actor (user:NAME, token:LABEL, cli, anonymous)")
+    lister.add_argument(
+        "--since", type=_since, help="only the events from this date (ISO 8601, UTC)"
+    )
+    lister.add_argument("--limit", type=int, default=50, help="capped by SECREVIEW_MAX_LIST_LIMIT")
+    lister.add_argument("--offset", type=int, default=0)
+    pruner = actions.add_parser("prune", help="delete the events older than the retention period")
+    pruner.add_argument(
+        "--days",
+        type=int,
+        default=None,
+        help="retention in days (default: SECREVIEW_AUDIT_RETENTION_DAYS; 0 keeps all)",
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        init_db()
+        if args.action == "prune":
+            result = audit.prune_events(args.days)
+        else:
+            result = audit.list_events(
+                args.event, args.project, args.actor, args.since, args.limit, args.offset
+            )
+    except (ValueError, SchemaError) as exc:
+        return _fail(str(exc))
+    except SQLAlchemyError as exc:
+        return _fail(f"Database error: {type(exc).__name__}")
     print(json.dumps(result, indent=2))
     return EXIT_PASSED
 
@@ -961,6 +1060,7 @@ CONTROLLER_COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "code": code_command,
     "rules": rules_command,
     "token": token_command,
+    "audit": audit_command,
     "user": user_command,
 }
 # Commands of security-review-mcp (client side of a shared MCP server)

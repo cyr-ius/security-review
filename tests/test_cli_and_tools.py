@@ -78,6 +78,18 @@ def test_deps_scan_json_and_save(tmp_path, capsys):
     assert services.list_reports(project="demo")
 
 
+def test_deps_scan_saves_the_author_and_refuses_an_invalid_one(tmp_path, capsys):
+    manifest = tmp_path / "requirements.txt"
+    manifest.write_text("flask==1.0\n", encoding="utf-8")
+    base = ["deps", "scan", str(manifest), "--format", "json", "--save", "--project", "demo"]
+    assert cli.run([*base, "--author", "alice"]) == cli.EXIT_PASSED
+    saved = json.loads(capsys.readouterr().out)["saved_report"]
+    assert services.get_report(saved["report_id"]).author == "alice"
+    assert cli.run([*base, "--author", "a" * 201]) == cli.EXIT_ERROR
+    assert "at most 200" in capsys.readouterr().err
+    assert len(services.list_reports(project="demo")) == 1
+
+
 def test_deps_scan_save_needs_a_project(tmp_path):
     manifest = tmp_path / "requirements.txt"
     manifest.write_text("flask==1.0\n", encoding="utf-8")
@@ -271,6 +283,35 @@ async def test_scan_dependencies_tool(tmp_path):
         assert data["vulnerabilities_count"] == 1
         status = json.loads(text_of(await client.call_tool("get_advisory_status", {})))
         assert status["loaded"] is True
+
+
+def test_deps_scan_accepts_a_cyclonedx_sbom(tmp_path, capsys):
+    cli.run(["advisories", "import", str(import_osv(tmp_path, severity="HIGH"))])
+    sbom = tmp_path / "bom.json"
+    sbom.write_text(
+        json.dumps(
+            {"bomFormat": "CycloneDX", "components": [{"purl": "pkg:pypi/requests@2.19.0"}]}
+        ),
+        encoding="utf-8",
+    )
+    capsys.readouterr()
+    assert cli.run(["deps", "scan", str(sbom), "--require-database"]) == cli.EXIT_BLOCKED
+    out = capsys.readouterr().out
+    assert "bom.json (PyPI, lockfile)" in out and "PYSEC-1" in out
+
+
+@pytest.mark.anyio
+async def test_scan_dependencies_tool_accepts_a_cyclonedx_sbom(tmp_path):
+    cli.run(["advisories", "import", str(import_osv(tmp_path, severity="HIGH"))])
+    sbom = json.dumps(
+        {"bomFormat": "CycloneDX", "components": [{"purl": "pkg:pypi/requests@2.19.0"}]}
+    )
+    async with Client(server.mcp) as client:
+        result = await client.call_tool(
+            "scan_dependencies", {"content": sbom, "filename": "app.cdx.json"}
+        )
+        data = json.loads(text_of(result))
+    assert data["file_type"] == "CycloneDX" and data["vulnerabilities_count"] == 1
 
 
 @pytest.mark.anyio

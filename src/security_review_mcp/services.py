@@ -1,17 +1,23 @@
 """Report persistence service (business logic between MCP tools and the database)."""
 
 import logging
+import re
 from collections import Counter
 from collections.abc import Collection
-from datetime import timedelta
+from datetime import datetime, timedelta
 
-from sqlalchemy import case, func
+from sqlalchemy import ColumnElement, and_, case, func, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
+from . import audit
 from .config import MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
 from .models import (
+    DISMISSED_STATUSES,
+    MAX_AUTHOR_CHARS,
+    MAX_STATUS_REASON_CHARS,
+    PROPOSABLE_STATUSES,
     SEVERITY_RANK,
     Finding,
     FindingCreate,
@@ -21,11 +27,20 @@ from .models import (
     SecurityReport,
     SecurityReportPublic,
     Severity,
+    as_utc,
+    effective_status,
     utcnow,
 )
 from .scanner import redact_secrets
 
 logger = logging.getLogger(__name__)
+
+# Characters of a developer username or email (Unicode letters and digits included): no
+# Markdown or HTML syntax, as the author is copied as is into the Markdown export of a report
+_AUTHOR_RE = re.compile(r"[\w .@+'’,-]+")
+
+# Shortest reason of a triage decision or of a proposal (a word or two is not a reason)
+MIN_STATUS_REASON_CHARS = 10
 
 
 class NotFoundError(LookupError):
@@ -38,6 +53,45 @@ def compute_risk_level(severities: list[Severity], override: Severity | None = N
     if override is not None and SEVERITY_RANK[override] > SEVERITY_RANK[computed]:
         return override
     return computed
+
+
+def _expired_dismissal(now: datetime) -> ColumnElement[bool]:
+    """SQL condition: an accepted or false-positive finding whose decision has expired."""
+    return and_(
+        col(Finding.status).in_(DISMISSED_STATUSES),
+        col(Finding.status_expires_at).is_not(None),
+        col(Finding.status_expires_at) <= now,
+    )
+
+
+def _status_is(status: FindingStatus, now: datetime | None = None) -> ColumnElement[bool]:
+    """SQL condition on the effective status (an expired dismissal counts as ``open``)."""
+    now = now or utcnow()
+    if status == FindingStatus.OPEN:
+        return or_(Finding.status == FindingStatus.OPEN, _expired_dismissal(now))
+    if status in DISMISSED_STATUSES:
+        return and_(Finding.status == status, ~_expired_dismissal(now))
+    return Finding.status == status
+
+
+def _check_author(author: str | None) -> str | None:
+    """Strip and bound the developer username of a report (None when empty).
+
+    Raises:
+        ValueError: Longer than MAX_AUTHOR_CHARS, or with characters other than letters,
+            digits, spaces and . @ _ + - ' , (no control character nor Markdown or HTML
+            syntax: the name is shown as is in the web interface and the Markdown export).
+    """
+    author = (author or "").strip()
+    if not author:
+        return None
+    if len(author) > MAX_AUTHOR_CHARS:
+        raise ValueError(f"author must contain at most {MAX_AUTHOR_CHARS} characters")
+    if not author.isprintable() or not _AUTHOR_RE.fullmatch(author):
+        raise ValueError(
+            "author may only contain letters, digits, spaces and . @ _ + - ' , characters"
+        )
+    return author
 
 
 def _sanitize_finding(data: FindingCreate) -> Finding:
@@ -62,6 +116,8 @@ def save_report(
     scope: str | None = None,
     risk_level: Severity | None = None,
     review_type: ReviewType | None = None,
+    author: str | None = None,
+    submitted_by: str | None = None,
 ) -> dict:
     """Persist a security report and its findings.
 
@@ -76,12 +132,15 @@ def save_report(
         scope: Description of what was reviewed.
         risk_level: Optional override; it can only raise the computed risk.
         review_type: Kind of review (the prompt used or the CLI scan).
+        author: Username of the developer, declared by the client (not authenticated).
+        submitted_by: Label of the token that saved the report (set by the server).
 
     Returns:
         Identifier, risk level and finding counts of the stored report.
 
     Raises:
-        ValueError: If the report contains too many findings or an unknown review type.
+        ValueError: If the report contains too many findings, an unknown review type or an
+            invalid author.
     """
     settings = get_settings()
     review_type = ReviewType(review_type) if review_type else None
@@ -95,6 +154,7 @@ def save_report(
         raise ValueError(
             f"Too many findings ({len(findings)}); the limit is {settings.max_findings_per_report}"
         )
+    author = _check_author(author)
 
     rows = [_sanitize_finding(item) for item in findings]
     risk = compute_risk_level([row.severity for row in rows], risk_level)
@@ -108,6 +168,8 @@ def save_report(
             reviewer=reviewer,
             scope=scope,
             review_type=review_type,
+            author=author,
+            submitted_by=submitted_by,
             summary=redact_secrets(summary),
             risk_level=risk,
             findings=rows,
@@ -118,6 +180,7 @@ def save_report(
             "report_id": report.id,
             "project": report.project,
             "review_type": review_type.value if review_type else None,
+            "author": author,
             "risk_level": risk.value,
             "findings_count": len(rows),
             "findings_by_severity": dict(Counter(row.severity.value for row in rows)),
@@ -150,10 +213,12 @@ def list_reports(
     offset: int = 0,
     projects: Collection[str] | None = None,
     review_type: ReviewType | None = None,
+    author: str | None = None,
 ) -> list[dict]:
     """List reports, newest first, with their number of open findings.
 
-    ``projects`` (the scope of a restricted caller) keeps only the reports of these projects.
+    ``projects`` (the scope of a restricted caller) keeps only the reports of these projects;
+    ``author`` keeps only the reports declared for this developer username.
     """
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
@@ -169,6 +234,8 @@ def list_reports(
             statement = statement.where(SecurityReport.risk_level == risk_level)
         if review_type:
             statement = statement.where(SecurityReport.review_type == review_type)
+        if author:
+            statement = statement.where(SecurityReport.author == author)
         statement = (
             statement.order_by(col(SecurityReport.created_at).desc(), col(SecurityReport.id).desc())
             .offset(offset)
@@ -180,15 +247,15 @@ def list_reports(
         # One query for all the counters (avoids N+1)
         counts: dict[int, dict[str, int]] = {i: {"total": 0, "open": 0} for i in ids}
         if ids:
+            is_open = case((_status_is(FindingStatus.OPEN), 1), else_=0)
             rows = session.exec(
-                select(Finding.report_id, Finding.status, func.count())
+                select(Finding.report_id, func.count(), func.sum(is_open))
                 .where(col(Finding.report_id).in_(ids))
-                .group_by(Finding.report_id, Finding.status)  # type: ignore[arg-type]
+                .group_by(Finding.report_id)  # type: ignore[arg-type]
             ).all()
-            for report_id, status, number in rows:
-                counts[report_id]["total"] += number
-                if status == FindingStatus.OPEN:
-                    counts[report_id]["open"] += number
+            for report_id, number, open_number in rows:
+                counts[report_id]["total"] = number
+                counts[report_id]["open"] = open_number or 0
 
         return [
             {
@@ -199,6 +266,8 @@ def list_reports(
                 "review_type": r.review_type,
                 "risk_level": r.risk_level.value,
                 "reviewer": r.reviewer,
+                "author": r.author,
+                "submitted_by": r.submitted_by,
                 "created_at": r.created_at.isoformat(),
                 "findings_total": counts[r.id]["total"],
                 "findings_open": counts[r.id]["open"],
@@ -208,8 +277,150 @@ def list_reports(
         ]
 
 
-def update_finding_status(finding_id: int, status: FindingStatus) -> FindingPublic:
-    """Change the status of a finding (e.g. after a fix or a triage decision).
+def _check_reason(reason: str | None, required: bool) -> str | None:
+    """Strip, bound and mask a triage reason.
+
+    Raises:
+        ValueError: If a required reason is missing, too short or too long.
+    """
+    reason = (reason or "").strip()
+    if not reason:
+        if required:
+            raise ValueError("A reason is required")
+        return None
+    if not MIN_STATUS_REASON_CHARS <= len(reason) <= MAX_STATUS_REASON_CHARS:
+        raise ValueError(
+            f"The reason must have {MIN_STATUS_REASON_CHARS} to {MAX_STATUS_REASON_CHARS} "
+            "characters"
+        )
+    return redact_secrets(reason)
+
+
+def update_finding_status(
+    finding_id: int,
+    status: FindingStatus,
+    approver: str,
+    reason: str | None = None,
+    expires_at: datetime | None = None,
+    actor: str | None = None,
+) -> FindingPublic:
+    """Record a triage decision made by a person (web interface), never by an agent.
+
+    ``accepted`` and ``false_positive`` need a reason and an expiry date, in the future and at
+    most SECREVIEW_MAX_DISMISSAL_DAYS days away: once expired, the finding counts as open again.
+    ``fixed`` takes an optional reason; ``open`` clears the decision. Any decision clears the
+    status proposed by an agent. The decision is written to the audit log (``actor``, default
+    the approver).
+
+    Raises:
+        NotFoundError: If the finding does not exist.
+        ValueError: If the approver, the reason or the expiry date is missing or invalid.
+    """
+    approver = approver.strip()
+    if not approver:
+        raise ValueError("An approver is required")
+    now = utcnow()
+    if status in DISMISSED_STATUSES:
+        reason = _check_reason(reason, required=True)
+        if expires_at is None:
+            raise ValueError(f"An expiry date is required for the status '{status.value}'")
+        expires_at = as_utc(expires_at)
+        longest = get_settings().max_dismissal_days
+        if expires_at <= now:
+            raise ValueError("The expiry date must be in the future")
+        if expires_at > now + timedelta(days=longest):
+            raise ValueError(f"The expiry date must be at most {longest} days away")
+    else:
+        if expires_at is not None:
+            raise ValueError(f"The status '{status.value}' takes no expiry date")
+        reason = _check_reason(reason, required=False) if status != FindingStatus.OPEN else None
+
+    with session_scope() as session:
+        finding = session.get(Finding, finding_id)
+        if finding is None:
+            raise NotFoundError(f"Finding {finding_id} not found")
+        previous = effective_status(finding.status, finding.status_expires_at, now)
+        if previous != status:
+            finding.status_changed_at = now
+        proposal = finding.proposed_status
+        finding.status = status
+        reopened = status == FindingStatus.OPEN
+        finding.status_reason = reason
+        finding.status_approver = None if reopened else approver[:200]
+        finding.status_expires_at = expires_at
+        finding.proposed_status = None
+        finding.proposed_reason = None
+        finding.proposed_by = None
+        finding.proposed_at = None
+        session.add(finding)
+        audit.record(
+            session,
+            audit.AuditAction.FINDING_STATUS_CHANGED,
+            actor or approver,
+            "finding",
+            finding_id,
+            finding.report.project,
+            {
+                "previous_status": FindingStatus(previous).value,
+                "status": status.value,
+                "reason": reason,
+                "expires_at": expires_at.isoformat() if expires_at else None,
+                "proposal": FindingStatus(proposal).value if proposal else None,
+            },
+        )
+        session.flush()
+        logger.info("Finding %s set to %s", finding_id, status)
+        return FindingPublic.model_validate(finding, from_attributes=True)
+
+
+def propose_finding_status(
+    finding_id: int,
+    status: FindingStatus,
+    reason: str,
+    proposed_by: str,
+    actor: str | None = None,
+) -> FindingPublic:
+    """Store the status an agent proposes for a finding, without applying it.
+
+    The status, the gate and the posture do not change: a triager decides in the web
+    interface. A new proposal replaces the previous one. It is written to the audit log
+    (``actor``, default the token ``proposed_by``).
+
+    Raises:
+        NotFoundError: If the finding does not exist.
+        ValueError: If the status cannot be proposed or the reason is missing or invalid.
+    """
+    if status not in PROPOSABLE_STATUSES:
+        allowed = ", ".join(sorted(s.value for s in PROPOSABLE_STATUSES))
+        raise ValueError(f"Only these statuses can be proposed: {allowed}")
+    checked = _check_reason(reason, required=True)
+    with session_scope() as session:
+        finding = session.get(Finding, finding_id)
+        if finding is None:
+            raise NotFoundError(f"Finding {finding_id} not found")
+        finding.proposed_status = status
+        finding.proposed_reason = checked
+        finding.proposed_by = (proposed_by.strip() or "unknown")[:200]
+        finding.proposed_at = utcnow()
+        session.add(finding)
+        audit.record(
+            session,
+            audit.AuditAction.FINDING_STATUS_PROPOSED,
+            actor or audit.token_actor(finding.proposed_by),
+            "finding",
+            finding_id,
+            finding.report.project,
+            {"status": status.value, "reason": checked},
+        )
+        session.flush()
+        logger.info("Status %s proposed for finding %s", status, finding_id)
+        return FindingPublic.model_validate(finding, from_attributes=True)
+
+
+def clear_finding_proposal(finding_id: int, actor: str | None = None) -> FindingPublic:
+    """Reject the status proposed by an agent for a finding (the status does not change).
+
+    The rejection is written to the audit log when a proposal existed.
 
     Raises:
         NotFoundError: If the finding does not exist.
@@ -218,13 +429,46 @@ def update_finding_status(finding_id: int, status: FindingStatus) -> FindingPubl
         finding = session.get(Finding, finding_id)
         if finding is None:
             raise NotFoundError(f"Finding {finding_id} not found")
-        if finding.status != status:
-            finding.status = status
-            finding.status_changed_at = utcnow()
+        if finding.proposed_status is not None:
+            audit.record(
+                session,
+                audit.AuditAction.FINDING_PROPOSAL_REJECTED,
+                actor,
+                "finding",
+                finding_id,
+                finding.report.project,
+                {
+                    "status": FindingStatus(finding.proposed_status).value,
+                    "proposed_by": finding.proposed_by,
+                },
+            )
+        finding.proposed_status = None
+        finding.proposed_reason = None
+        finding.proposed_by = None
+        finding.proposed_at = None
         session.add(finding)
         session.flush()
-        logger.info("Finding %s set to %s", finding_id, status)
+        logger.info("Proposal rejected for finding %s", finding_id)
         return FindingPublic.model_validate(finding, from_attributes=True)
+
+
+def finding_status_counts() -> dict[str, int]:
+    """Count the findings by effective status (an expired dismissal counts as ``open``), plus
+    ``proposed``: the findings with an agent proposal waiting for a person."""
+    now = utcnow()
+    with session_scope() as session:
+        counts = {
+            status.value: session.exec(
+                select(func.count()).select_from(Finding).where(_status_is(status, now))
+            ).one()
+            for status in FindingStatus
+        }
+        counts["proposed"] = session.exec(
+            select(func.count())
+            .select_from(Finding)
+            .where(col(Finding.proposed_status).is_not(None))
+        ).one()
+    return counts
 
 
 def list_projects() -> list[dict]:
@@ -243,7 +487,7 @@ def list_projects() -> list[dict]:
         finding_rows = session.exec(
             select(SecurityReport.project, Finding.severity, func.count())
             .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
-            .where(Finding.status == FindingStatus.OPEN)
+            .where(_status_is(FindingStatus.OPEN))
             .group_by(SecurityReport.project, Finding.severity)  # type: ignore[arg-type]
         ).all()
 
@@ -278,7 +522,7 @@ def project_posture(project: str) -> dict:
         rows = session.exec(
             select(Finding.severity, func.count())
             .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
-            .where(SecurityReport.project == project, Finding.status == FindingStatus.OPEN)
+            .where(SecurityReport.project == project, _status_is(FindingStatus.OPEN))
             .group_by(Finding.severity)  # type: ignore[arg-type]
         ).all()
         reports_total = session.exec(
@@ -319,7 +563,7 @@ def list_project_findings(
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
     offset = max(0, offset)
-    filters = [SecurityReport.project == project, Finding.status == status]
+    filters = [SecurityReport.project == project, _status_is(status)]
     if severity is not None:
         filters.append(Finding.severity == severity)
     if review_type is not None:
@@ -406,6 +650,8 @@ def render_report_markdown(report: SecurityReportPublic) -> str:
         ("Commit", report.commit_sha),
         ("Review type", report.review_type and report.review_type.value),
         ("Reviewer", report.reviewer),
+        ("Author", report.author),
+        ("Submitted by", report.submitted_by),
         ("Scope", report.scope),
     ):
         if value:
@@ -449,8 +695,8 @@ def evaluate_gate(
     """Decide whether a project (or one report) passes a security gate.
 
     The gate fails when at least one finding with status ``open`` has a severity greater than
-    or equal to ``fail_on``. Mark findings ``fixed``, ``accepted`` or ``false_positive`` to
-    unblock it.
+    or equal to ``fail_on``. A triager unblocks it by marking findings ``fixed``, ``accepted``
+    or ``false_positive``; an expired acceptance or false positive blocks again.
 
     Args:
         project: Project name.
@@ -466,7 +712,7 @@ def evaluate_gate(
         statement = (
             select(Finding.severity, func.count())
             .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
-            .where(SecurityReport.project == project, Finding.status == FindingStatus.OPEN)
+            .where(SecurityReport.project == project, _status_is(FindingStatus.OPEN))
         )
         if report_id is not None:
             report = session.get(SecurityReport, report_id)

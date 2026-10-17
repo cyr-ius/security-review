@@ -1,6 +1,8 @@
 """Web interface: REST API, permissions and static files."""
 
 import logging
+from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 
 import jwt
 import pytest
@@ -25,7 +27,14 @@ from security_review_mcp import (
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
-from security_review_mcp.models import ApiToken, FindingCreate, ReviewType, Severity
+from security_review_mcp.models import (
+    ApiToken,
+    Finding,
+    FindingCreate,
+    FindingStatus,
+    ReviewType,
+    Severity,
+)
 
 # Raw secret of one token per role, created in the database by the ``secured`` fixture
 TOKENS: dict[str, str] = {}
@@ -69,7 +78,8 @@ def secured(ui_dir) -> TestClient:
     """The controller app protected by one token per role."""
     TOKENS.clear()
     for role in Role:
-        TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
+        if role != Role.CI:  # see ci_token: a ci token is always restricted to projects
+            TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
     app = http_server.build_controller_app(
         web_api.create_app(ui_dir=str(ui_dir)), token_store.DatabaseTokenStore()
     )
@@ -87,6 +97,13 @@ def mcp_server(secured) -> TestClient:
         enrollment_api.create_app(),
     )
     return TestClient(app, base_url="http://127.0.0.1")
+
+
+@pytest.fixture
+def ci_token(secured) -> str:
+    """A ci token restricted to shop-api, reachable with auth("ci")."""
+    TOKENS["ci"] = token_store.create_token("ci", Role.CI, ["shop-api"])["token"]
+    return TOKENS["ci"]
 
 
 def auth(role: str) -> dict[str, str]:
@@ -156,6 +173,12 @@ def test_favicon_is_served_and_used_by_swagger(ui_dir):
     assert "/api/favicon.svg" not in paths and "/api/docs" not in paths
 
 
+def test_documentation_uses_the_web_interface_favicon():
+    # The MkDocs site (docs/assets/favicon.svg) must show the same icon as the web interface
+    docs_icon = Path(__file__).parents[1] / "docs" / "assets" / "favicon.svg"
+    assert docs_icon.read_bytes() == web_api.FAVICON
+
+
 def test_projects(client, reports):
     projects = client.get("/api/v1/projects").json()
     assert [p["project"] for p in projects] == ["billing", "shop-api"]
@@ -211,12 +234,32 @@ def test_project_findings(client, reports):
     assert "report_created_at" in page["findings"][0]
 
     first = page["findings"][0]["id"]
-    client.patch(f"/api/v1/findings/{first}", json={"status": "false_positive"})
+    services.update_finding_status(
+        first,
+        FindingStatus.FALSE_POSITIVE,
+        "alice",
+        "Dead code, never called",
+        datetime.now(UTC) + timedelta(days=30),
+    )
     assert client.get("/api/v1/findings", params={"project": "shop-api"}).json()["total"] == 1
     dismissed = client.get(
         "/api/v1/findings", params={"project": "shop-api", "status": "false_positive"}
     ).json()
     assert [f["id"] for f in dismissed["findings"]] == [first]
+
+    # Once expired, the false positive is listed with the open findings again
+    with session_scope() as session:
+        stored = session.get(Finding, first)
+        stored.status_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        session.add(stored)
+    reopened = client.get("/api/v1/findings", params={"project": "shop-api"}).json()
+    assert reopened["total"] == 2
+    assert reopened["findings"][0]["status"] == "open"
+    assert reopened["findings"][0]["status_reason"] == "Dead code, never called"
+    dismissed = client.get(
+        "/api/v1/findings", params={"project": "shop-api", "status": "false_positive"}
+    ).json()
+    assert dismissed["total"] == 0
     assert client.get("/api/v1/findings").status_code == 422
     assert (
         client.get("/api/v1/findings", params={"project": "shop-api", "status": "x"}).status_code
@@ -256,11 +299,35 @@ def test_findings_and_reports_show_and_filter_the_review_type(client):
     assert client.get("/api/v1/reports", params=bad).status_code == 422
 
 
+def test_reports_show_and_filter_the_author(client):
+    saved = services.save_report(
+        "authored", "Review", [], author="alice", submitted_by="laptop-42-ab12"
+    )
+    services.save_report("authored", "Other review", [], author="bob")
+    params = {"project": "authored", "author": "alice"}
+    reports = client.get("/api/v1/reports", params=params).json()
+    assert [(r["author"], r["submitted_by"]) for r in reports] == [("alice", "laptop-42-ab12")]
+    report = client.get(f"/api/v1/reports/{saved['report_id']}").json()
+    assert (report["author"], report["submitted_by"]) == ("alice", "laptop-42-ab12")
+    assert len(client.get("/api/v1/reports", params={"project": "authored"}).json()) == 2
+    too_long = {"project": "authored", "author": "a" * 201}
+    assert client.get("/api/v1/reports", params=too_long).status_code == 422
+
+
 def test_update_finding_status(client, reports):
     finding = client.get(f"/api/v1/reports/{reports[0]}").json()["findings"][0]
-    response = client.patch(f"/api/v1/findings/{finding['id']}", json={"status": "accepted"})
+    response = client.patch(
+        f"/api/v1/findings/{finding['id']}",
+        json={"status": "fixed", "reason": "Query parameters are bound"},
+    )
     assert response.status_code == 200
-    assert response.json()["status"] == "accepted"
+    body = response.json()
+    assert (body["status"], body["status_approver"], body["status_expires_at"]) == (
+        "fixed",
+        "test-admin",
+        None,
+    )
+    assert body["status_reason"] == "Query parameters are bound"
     assert client.patch("/api/v1/findings/1", json={"status": "bogus"}).status_code == 422
     assert client.patch("/api/v1/findings/999", json={"status": "fixed"}).status_code == 404
 
@@ -450,17 +517,134 @@ def test_reader_can_read_but_not_triage(secured, reports):
     assert response.status_code == 403
 
 
-def test_triager_can_change_status(secured, reports):
+def test_triager_token_can_fix_but_never_dismiss(secured, reports):
+    """A bearer token (an agent may hold one) cannot accept a risk or mark a false positive."""
+    expires_on = (date.today() + timedelta(days=30)).isoformat()
+    for dismissal in ("false_positive", "accepted"):
+        body = {
+            "status": dismissal,
+            "reason": "Not reachable from outside",
+            "expires_on": expires_on,
+        }
+        for role in ("triager", "admin"):
+            response = secured.patch("/api/v1/findings/1", json=body, headers=auth(role))
+            assert response.status_code == 403, (dismissal, role)
+            assert "logged in to the web interface" in response.json()["detail"]
+
     response = secured.patch(
-        "/api/v1/findings/1", json={"status": "false_positive"}, headers=auth("triager")
+        "/api/v1/findings/1", json={"status": "fixed"}, headers=auth("triager")
     )
     assert response.status_code == 200
-    assert response.json()["status"] == "false_positive"
+    assert (response.json()["status"], response.json()["status_approver"]) == ("fixed", "triager")
 
 
 def test_mcp_token_cannot_use_the_api(secured):
     assert secured.get("/api/v1/projects", headers=auth("mcp")).status_code == 403
     assert secured.get("/api/v1/projects").status_code == 401
+
+
+# ── Pipeline routes (ci tokens) ──────────────────────────────────────────────
+
+
+def test_ci_token_runs_the_gate_sarif_and_trend_of_its_project(secured, ci_token, reports):
+    shop_report_id, _ = reports
+
+    gate = secured.get("/api/v1/ci/gate", params={"project": "shop-api"}, headers=auth("ci"))
+    assert gate.status_code == 200
+    assert (gate.json()["project"], gate.json()["passed"]) == ("shop-api", False)
+    relaxed = secured.get(
+        "/api/v1/ci/gate",
+        params={"project": "shop-api", "fail_on": "critical", "report_id": shop_report_id},
+        headers=auth("ci"),
+    )
+    assert relaxed.json()["passed"] is True
+
+    sarif = secured.get("/api/v1/ci/sarif", params={"project": "shop-api"}, headers=auth("ci"))
+    assert sarif.status_code == 200
+    assert sarif.headers["content-type"].startswith("application/sarif+json")
+    assert len(sarif.json()["runs"][0]["results"]) == 2
+
+    trend = secured.get("/api/v1/ci/trend", params={"project": "shop-api"}, headers=auth("ci"))
+    assert trend.status_code == 200 and trend.json()["project"] == "shop-api"
+    markdown = secured.get(
+        "/api/v1/ci/trend",
+        params={"project": "shop-api", "format": "markdown"},
+        headers=auth("ci"),
+    )
+    assert markdown.headers["content-type"].startswith("text/markdown")
+    assert "shop-api" in markdown.text
+
+
+def test_ci_token_only_sees_its_projects(secured, ci_token, reports):
+    _, billing_report_id = reports
+
+    for route in ("gate", "sarif", "trend"):
+        response = secured.get(
+            f"/api/v1/ci/{route}", params={"project": "billing"}, headers=auth("ci")
+        )
+        assert response.status_code == 404
+    # A report of another project is hidden like a missing one (its project is not named)
+    response = secured.get(
+        "/api/v1/ci/gate",
+        params={"project": "shop-api", "report_id": billing_report_id},
+        headers=auth("ci"),
+    )
+    assert response.status_code == 404
+    assert "billing" not in response.text
+
+
+def test_ci_token_reaches_nothing_but_the_pipeline_routes(secured, ci_token, mcp_server, reports):
+    for path in ("/api/v1/projects", "/api/v1/me", "/api/v1/health", "/api/v1/project-tokens"):
+        assert secured.get(path, headers=auth("ci")).status_code == 403
+    findings = secured.get("/api/v1/findings", params={"project": "shop-api"}, headers=auth("ci"))
+    assert findings.status_code == 403
+    assert (
+        secured.patch(
+            "/api/v1/findings/1", json={"status": "fixed"}, headers=auth("ci")
+        ).status_code
+        == 403
+    )
+    assert mcp_server.get("/mcp", headers=auth("ci")).status_code == 403
+    # Without a token the pipeline routes answer 401, like the rest of the API
+    assert secured.get("/api/v1/ci/gate", params={"project": "shop-api"}).status_code == 401
+
+
+def test_web_api_refuses_a_ci_identity_even_without_the_middleware_check(ui_dir, reports):
+    app = web_api.create_app(ui_dir=str(ui_dir))
+
+    async def as_ci(scope, receive, send):
+        if scope["type"] == "http":
+            scope.setdefault("state", {}).update(
+                auth_client="jenkins", auth_role=Role.CI, auth_projects=frozenset({"shop-api"})
+            )
+        await app(scope, receive, send)
+
+    client = TestClient(as_ci, base_url="http://127.0.0.1")
+    assert client.get("/api/v1/projects").status_code == 403
+    assert client.get("/api/v1/ci/gate", params={"project": "shop-api"}).status_code == 200
+
+
+def test_other_api_roles_may_use_the_pipeline_routes(secured, reports):
+    for role in ("reader", "triager", "admin"):
+        response = secured.get("/api/v1/ci/gate", params={"project": "billing"}, headers=auth(role))
+        assert (response.status_code, response.json()["passed"]) == (200, True)
+    response = secured.get("/api/v1/ci/gate", params={"project": "billing"}, headers=auth("mcp"))
+    assert response.status_code == 403
+
+
+def test_admin_creates_a_ci_token_for_selected_projects(secured, reports):
+    created = secured.post(
+        "/api/v1/project-tokens",
+        json={"label": "jenkins", "role": "ci", "projects": ["shop-api", "billing"]},
+        headers=auth("admin"),
+    )
+
+    assert created.status_code == 201
+    assert (created.json()["role"], created.json()["projects"]) == ("ci", ["shop-api", "billing"])
+    headers = {"Authorization": f"Bearer {created.json()['token']}"}
+    for project in ("shop-api", "billing"):
+        response = secured.get("/api/v1/ci/gate", params={"project": project}, headers=headers)
+        assert response.status_code == 200
 
 
 def test_openapi_marks_api_operations_as_bearer_protected(secured):
@@ -1066,7 +1250,7 @@ def test_project_triager_only_changes_findings_of_its_project(secured, mcp_serve
     headers = {"Authorization": f"Bearer {token}"}
 
     response = secured.patch(
-        f"/api/v1/findings/{billing_finding}", json={"status": "accepted"}, headers=headers
+        f"/api/v1/findings/{billing_finding}", json={"status": "fixed"}, headers=headers
     )
     assert response.status_code == 404
     assert services.get_report(billing["report_id"]).findings[0].status == "open"
@@ -1232,6 +1416,74 @@ def session_headers(client: TestClient, username: str, password: str = USER_PASS
     response = login(client, username, password)
     assert response.status_code == 200, response.text
     return {"Authorization": f"Bearer {response.json()['session']}"}
+
+
+def test_web_user_accepts_a_risk_with_a_reason_and_an_expiry(accounts, reports):
+    web_users.create_user("tess", USER_PASSWORD, "triager")
+    headers = session_headers(accounts, "tess")
+    finding_id = services.get_report(reports[0]).findings[0].id
+    url = f"/api/v1/findings/{finding_id}"
+    services.propose_finding_status(finding_id, FindingStatus.ACCEPTED, "Internal tool only", "ci")
+    in_30_days = (date.today() + timedelta(days=30)).isoformat()
+
+    for body in (
+        {"status": "accepted", "expires_on": in_30_days},  # no reason
+        {"status": "accepted", "reason": "ok", "expires_on": in_30_days},  # reason too short
+        {"status": "false_positive", "reason": "Dead code, never called"},  # no expiry
+        {"status": "accepted", "reason": "Internal tool only", "expires_on": "2020-01-01"},
+        {
+            "status": "accepted",
+            "reason": "Internal tool only",
+            "expires_on": (date.today() + timedelta(days=400)).isoformat(),
+        },
+        {"status": "fixed", "reason": "Query is bound", "expires_on": in_30_days},
+    ):
+        assert accounts.patch(url, json=body, headers=headers).status_code == 422, body
+    assert services.get_report(reports[0]).findings[0].proposed_status == "accepted"
+
+    body = {"status": "accepted", "reason": "Internal tool only", "expires_on": in_30_days}
+    saved = accounts.patch(url, json=body, headers=headers).json()
+    assert (saved["status"], saved["status_approver"], saved["status_reason"]) == (
+        "accepted",
+        "tess",
+        "Internal tool only",
+    )
+    assert saved["status_expires_at"].startswith(in_30_days)
+    assert saved["proposed_status"] is None  # the decision clears the agent proposal
+
+    reopened = accounts.patch(url, json={"status": "open"}, headers=headers).json()
+    assert (reopened["status"], reopened["status_reason"], reopened["status_approver"]) == (
+        "open",
+        None,
+        None,
+    )
+
+
+def test_reader_session_cannot_dismiss(accounts, reports):
+    web_users.create_user("rita", USER_PASSWORD, "reader")
+    body = {
+        "status": "false_positive",
+        "reason": "Dead code, never called",
+        "expires_on": (date.today() + timedelta(days=30)).isoformat(),
+    }
+    response = accounts.patch(
+        "/api/v1/findings/1", json=body, headers=session_headers(accounts, "rita")
+    )
+    assert response.status_code == 403
+
+
+def test_triager_rejects_an_agent_proposal(secured, reports):
+    finding_id = services.get_report(reports[0]).findings[0].id
+    services.propose_finding_status(finding_id, FindingStatus.FIXED, "The query is bound", "ci")
+    url = f"/api/v1/findings/{finding_id}/proposal"
+
+    assert secured.delete(url, headers=auth("reader")).status_code == 403
+    response = secured.delete(url, headers=auth("triager"))
+    assert response.status_code == 200
+    assert (response.json()["status"], response.json()["proposed_status"]) == ("open", None)
+    assert (
+        secured.delete("/api/v1/findings/999/proposal", headers=auth("triager")).status_code == 404
+    )
 
 
 def test_password_login_opens_a_session(accounts, caplog):
@@ -1637,3 +1889,125 @@ def test_sso_settings_test_contacts_the_given_provider_without_storing(client, m
     for body in ({"issuer": "http://evil.example"}, SSO_SETTINGS | {"issuer": f"{issuer}\nx"}):
         response = client.post("/api/v1/oidc/settings/test", json=body)
         assert response.status_code == 422
+
+
+# ── Token expiry and rotation, audit log, metrics ────────────────────────────
+
+
+def test_an_expired_token_gets_401(secured):
+    token = token_store.create_token("old", Role.READER, expires_in_days=1)["token"]
+    with session_scope() as session:
+        row = session.exec(select(ApiToken).where(ApiToken.label == "old")).one()
+        row.expires_at = datetime.now(UTC) - timedelta(minutes=1)
+        session.add(row)
+    before = http_server.AUTH_REJECTIONS["token_expired"]
+
+    response = secured.get("/api/v1/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 401
+    assert response.json()["error_description"] == "The bearer token has expired"
+    assert 'error="invalid_token"' in response.headers["www-authenticate"]
+    assert http_server.AUTH_REJECTIONS["token_expired"] == before + 1
+
+
+def test_project_token_with_expiry_and_rotation(client, reports):
+    created = client.post(
+        "/api/v1/project-tokens",
+        json={"label": "ci", "projects": ["shop-api"], "role": "mcp", "expires_in_days": 30},
+    ).json()
+    assert created["expires_at"] is not None
+
+    response = client.post(
+        f"/api/v1/project-tokens/{created['id']}/rotate", json={"grace_hours": 2}
+    )
+
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    rotated = response.json()
+    assert rotated["id"] == created["id"]
+    assert rotated["token"] != created["token"]
+    assert rotated["grace_until"] is not None
+    listed = client.get("/api/v1/project-tokens").json()
+    assert "token" not in listed[0]
+    assert listed[0]["rotated_at"] is not None
+
+
+def test_project_token_rotation_errors(client):
+    admin = token_store.create_token("ops", Role.ADMIN)
+
+    assert client.post("/api/v1/project-tokens/missing/rotate").status_code == 404
+    # Only project tokens are rotated from the web interface
+    assert client.post(f"/api/v1/project-tokens/{admin['id']}/rotate").status_code == 404
+    token = token_store.create_token("ci", Role.MCP, ["shop-api"])
+    too_long = {"grace_hours": token_store.MAX_ROTATION_GRACE_HOURS + 1}
+    response = client.post(f"/api/v1/project-tokens/{token['id']}/rotate", json=too_long)
+    assert response.status_code == 422
+
+
+def test_rotation_needs_an_admin(secured):
+    token = token_store.create_token("ci", Role.MCP, ["shop-api"])
+    for role in ("reader", "triager"):
+        response = secured.post(f"/api/v1/project-tokens/{token['id']}/rotate", headers=auth(role))
+        assert response.status_code == 403
+
+
+def test_web_actions_are_audited_with_the_user_or_the_token(accounts, secured, reports):
+    web_users.create_user("tess", USER_PASSWORD, "triager")
+    headers = session_headers(accounts, "tess")
+    finding_id = services.get_report(reports[0]).findings[0].id
+    accounts.patch(f"/api/v1/findings/{finding_id}", json={"status": "fixed"}, headers=headers)
+    secured.post(
+        "/api/v1/project-tokens",
+        json={"label": "ci", "projects": ["shop-api"]},
+        headers=auth("admin"),
+    )
+
+    events = secured.get("/api/v1/audit", headers=auth("admin")).json()["events"]
+    assert [(event["action"], event["actor"]) for event in events[:2]] == [
+        ("token.created", "token:admin"),
+        ("finding.status_changed", "user:tess"),
+    ]
+
+
+def test_audit_route_filters_and_permissions(secured, reports):
+    token_store.create_token("ci", Role.MCP, ["shop-api"], actor="cli")
+    url = "/api/v1/audit"
+
+    body = secured.get(url, params={"project": "shop-api"}, headers=auth("admin")).json()
+    assert body["total"] == 1
+    assert body["events"][0]["details"]["label"] == "ci"
+    params = {"action": "token.revoked"}
+    assert secured.get(url, params=params, headers=auth("admin")).json()["total"] == 0
+    params = {"since": "2999-01-01"}
+    assert secured.get(url, params=params, headers=auth("admin")).json()["total"] == 0
+    params = {"action": "unknown"}
+    assert secured.get(url, params=params, headers=auth("admin")).status_code == 422
+    for role in ("reader", "triager", "metrics"):
+        assert secured.get(url, headers=auth(role)).status_code == 403
+
+
+def test_metrics_need_a_metrics_or_admin_token(secured, reports):
+    assert secured.get("/metrics").status_code == 401
+    for role in ("metrics", "admin"):
+        response = secured.get("/metrics", headers=auth(role))
+        assert response.status_code == 200
+        assert response.headers["content-type"].startswith("text/plain; version=0.0.4")
+        assert 'secreview_open_findings{severity="high"} 1' in response.text
+    for role in ("reader", "triager", "mcp"):
+        assert secured.get("/metrics", headers=auth(role)).status_code == 403
+
+
+def test_a_metrics_token_reaches_nothing_else(secured, mcp_server, ci_token):
+    for path in ("/api/v1/me", "/api/v1/projects", "/api/v1/ci/gate?project=shop-api"):
+        assert secured.get(path, headers=auth("metrics")).status_code == 403
+    response = mcp_server.post("/mcp", json={}, headers=auth("metrics"))
+    assert response.status_code == 403
+    # The MCP server has no metrics endpoint
+    assert mcp_server.get("/metrics", headers=auth("admin")).status_code != 200
+
+
+def test_metrics_can_be_disabled(ui_dir, monkeypatch):
+    monkeypatch.setattr(get_settings(), "metrics_enabled", False)
+    app = TestClient(as_admin(web_api.create_app(ui_dir=str(ui_dir))), base_url="http://127.0.0.1")
+
+    assert app.get("/metrics").status_code == 404

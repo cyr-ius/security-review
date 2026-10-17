@@ -4,11 +4,36 @@
 
 `requirements*.txt`, `pyproject.toml` (PEP 621/735, Poetry), `poetry.lock`, `Pipfile.lock`,
 `uv.lock`, `package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 and
-berry), `pom.xml`, `build.gradle(.kts)`.
+berry), `pom.xml`, `build.gradle(.kts)`, CycloneDX SBOMs (`bom.json`, `bom.xml`, `sbom.json`,
+`*.cdx.json`, `*.cdx.xml`...).
 
 In a `uv.lock`, the project itself and its workspace members (editable or virtual sources) are
 not dependencies and are skipped; any other `git`, `url`, `path`, `directory` or `editable`
 source raises `DEP-003`.
+
+### CycloneDX SBOM (transitive dependencies)
+
+`pom.xml` and `build.gradle` only list the direct dependencies: their transitive dependencies,
+often the vulnerable ones, are not checked (a note says so in the result). Generate a CycloneDX
+SBOM of the resolved dependency tree in the pipeline and scan it:
+
+```bash
+# Maven: writes target/bom.json and target/bom.xml
+mvn org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
+security-review-controller deps scan target/bom.json --require-database
+```
+
+With Gradle, the `cyclonedxBom` task of the `org.cyclonedx.bom` plugin produces the same file;
+`npm sbom --sbom-format cyclonedx` does it for npm.
+
+- The SBOM is read in JSON (`bomFormat: "CycloneDX"`) or XML (CycloneDX namespace); nested
+  components are included. An XML SBOM with a `DOCTYPE` or `ENTITY` is refused.
+- Each component is identified by its package URL (`purl`): `pkg:maven/...` (Maven),
+  `pkg:npm/...` (npm) and `pkg:pypi/...` (PyPI). An SBOM may mix these ecosystems. The other
+  types (`pkg:golang`, `pkg:nuget`...) and the components without a `purl` are counted in a
+  note and not checked.
+- The versions are resolved: the SBOM is handled like a lockfile. A component of scope
+  `excluded` is marked `dev`; a Maven `-SNAPSHOT` version raises `DEP-002`.
 
 ## Offline vulnerability database (OSV format)
 
@@ -51,7 +76,7 @@ SECREVIEW_PROXY=http://user:password@proxy.example.com:3128
 - **Proxy**: the download goes through the outgoing proxy of the controller,
   `SECREVIEW_PROXY` (`http://[user:password@]host:port`, `CONNECT` tunnel to the HTTPS site),
   except to the hosts of `SECREVIEW_NO_PROXY`. The same proxy serves the
-  [SSO login](web-interface.md#openid-connect-sso-login). Without it, the standard
+  [SSO login](sso.md). Without it, the standard
   `HTTPS_PROXY` and `NO_PROXY` variables apply. If the proxy inspects TLS, give its CA with
   `SECREVIEW_OSV_CAFILE` (it then replaces the system CAs).
 - **Mirror**: `SECREVIEW_OSV_URL` replaces the source (Nexus, Artifactory, internal bucket…) as
@@ -86,7 +111,7 @@ the proxy towards an internal server reached by its name, give its domain. The l
 SECREVIEW_NO_PROXY=.corp.example,10.0.0.0/8,172.16.0.0/12,fd00::/8
 ```
 
-The proxy can also be chosen by an administrator in the [**Settings**](web-interface.md#screens)
+The proxy can also be chosen by an administrator in the [**Settings**](../usage/web-interface.md#screens)
 screen of the web interface: proxy and hosts without proxy set there, or direct connection,
 take precedence over `SECREVIEW_PROXY`, `SECREVIEW_NO_PROXY` and `HTTPS_PROXY`; they apply to
 the next download. The same screen shows the state of the database, the history of the updates
@@ -116,12 +141,15 @@ security-review-controller deps scan package-lock.json requirements.txt \
 # exit code: 0 = ok, 1 = blocked, 2 = error
 ```
 
+With `--save`, `--author` stores the username of the developer with the report (see
+[author of a report](../usage/prompts-tools.md#author-of-a-report)).
+
 ## Scan with a shared server (commit hook)
 
 `security-review-mcp scan-deps` sends the dependency files to the `scan_dependencies` tool of a
 shared MCP server: the scan uses the advisory database of that server, without any local
 import. It needs a token with the `mcp` or `admin` role (see
-[enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token)).
+[enrollment](http.md#enrollment-a-project-requests-its-token)).
 
 ```bash
 export SECREVIEW_SERVER_URL=https://secreview.example.com
@@ -174,6 +202,8 @@ The `vulnerability_check` field says whether the check took place:
 - A database older than 30 days is reported.
 - A severity missing from the advisory is handled as `medium` (`severity_known: false`).
 - Range versions (`>=2`) cannot be checked: analyze the lockfile.
+- For an SBOM that mixes ecosystems, the check is `performed` as soon as one of them has
+  advisories; a note names the ecosystems that could not be checked.
 - Each component is marked `dev` or not. In `pyproject.toml`, the extras named after
   development (`dev`, `test`, `docs`, `lint`...) and the `[dependency-groups]` are `dev`; the
   other extras (`postgres`...) are installed in production and stay runtime dependencies.

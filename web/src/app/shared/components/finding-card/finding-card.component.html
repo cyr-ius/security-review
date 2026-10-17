@@ -41,7 +41,15 @@
         <span>OWASP {{ finding().owasp }}</span>
       }
       <span>{{ finding().category }}</span>
-      @if (finding().status !== 'open' && finding().status_changed_at) {
+      @if (expired()) {
+        <span class="text-warning-emphasis">
+          <i class="bi bi-hourglass-bottom" aria-hidden="true"></i>
+          {{
+            'report.decisionExpired'
+              | t: { date: (finding().status_expires_at | date: 'dd/MM/yyyy') ?? '' }
+          }}
+        </span>
+      } @else if (finding().status !== 'open' && finding().status_changed_at) {
         <span>
           {{
             'report.statusOn'
@@ -55,6 +63,121 @@
       }
       <ng-content />
     </div>
+    @if (finding().status !== 'open' && (finding().status_reason || finding().status_approver)) {
+      <div class="decision small mb-2">
+        <div>
+          <i class="bi bi-person-check" aria-hidden="true"></i>
+          {{ 'report.decisionBy' | t: { approver: finding().status_approver ?? '' } }}
+          @if (finding().status_expires_at) {
+            ·
+            {{
+              'report.decisionUntil'
+                | t: { date: (finding().status_expires_at | date: 'dd/MM/yyyy') ?? '' }
+            }}
+          }
+        </div>
+        @if (finding().status_reason) {
+          <div class="prewrap">{{ finding().status_reason }}</div>
+        }
+      </div>
+    }
+    @if (finding().proposed_status; as proposed) {
+      <div class="proposal small mb-2" role="note">
+        <div class="fw-semibold">
+          <i class="bi bi-robot" aria-hidden="true"></i>
+          {{
+            'report.proposalBy'
+              | t
+                : {
+                    by: finding().proposed_by ?? '',
+                    status: statusMeta[proposed].label | t,
+                    date: (finding().proposed_at | date: 'dd/MM/yyyy') ?? '',
+                  }
+          }}
+        </div>
+        <div class="text-body-secondary">{{ 'report.proposalUntrusted' | t }}</div>
+        @if (finding().proposed_reason) {
+          <div class="prewrap mt-1">{{ finding().proposed_reason }}</div>
+        }
+        @if (auth.canTriage()) {
+          <div class="d-flex gap-2 mt-2">
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-primary"
+              [disabled]="saving()"
+              (click)="applyProposal()"
+            >
+              {{ 'report.proposalApply' | t }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              [disabled]="saving()"
+              (click)="rejectProposal()"
+            >
+              {{ 'report.proposalReject' | t }}
+            </button>
+          </div>
+        }
+      </div>
+    }
+    @if (pendingStatus(); as pending) {
+      <form
+        class="dismissal border rounded p-3 mb-2"
+        (submit)="$event.preventDefault(); submitDismissal()"
+      >
+        <p class="fw-semibold mb-2">
+          {{ 'report.dismissTitle' | t: { status: statusMeta[pending].label | t } }}
+        </p>
+        <div class="mb-2">
+          <label class="form-label" [for]="'reason-' + finding().id">{{
+            'report.dismissReason' | t
+          }}</label>
+          <textarea
+            class="form-control form-control-sm"
+            [id]="'reason-' + finding().id"
+            rows="3"
+            minlength="10"
+            maxlength="1000"
+            required
+            [value]="reason()"
+            (input)="reason.set($any($event.target).value)"
+          ></textarea>
+          <div class="form-text">{{ 'report.dismissReasonHelp' | t }}</div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" [for]="'expiry-' + finding().id">{{
+            'report.dismissExpiry' | t
+          }}</label>
+          <input
+            type="date"
+            class="form-control form-control-sm expiry"
+            [id]="'expiry-' + finding().id"
+            required
+            [min]="minExpiry"
+            [value]="expiresOn()"
+            (input)="expiresOn.set($any($event.target).value)"
+          />
+          <div class="form-text">{{ 'report.dismissExpiryHelp' | t }}</div>
+        </div>
+        <div class="d-flex gap-2">
+          <button
+            type="submit"
+            class="btn btn-sm btn-primary"
+            [disabled]="saving() || reason().trim().length < 10 || !expiresOn()"
+          >
+            {{ 'report.dismissSave' | t }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            (click)="cancelDismissal()"
+          >
+            {{ 'report.dismissCancel' | t }}
+          </button>
+        </div>
+      </form>
+    }
     <p class="prewrap mb-2">{{ finding().description }}</p>
     @if (finding().evidence) {
       <pre class="evidence"><code>{{ finding().evidence }}</code></pre>

@@ -64,6 +64,51 @@ def test_ecosystem_without_advisory_is_reported(tmp_path):
     assert result["vulnerability_check"] == "skipped_no_advisories_for_ecosystem"
 
 
+SBOM = json.dumps(
+    {
+        "bomFormat": "CycloneDX",
+        "components": [
+            {"purl": "pkg:maven/org.springframework/spring-web@5.3.0"},
+            {"purl": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.9.8"},
+            {"purl": "pkg:npm/lodash@4.17.0"},
+        ],
+    }
+)
+
+
+def test_transitive_maven_dependency_is_found_in_a_cyclonedx_sbom(tmp_path):
+    load(
+        osv(
+            "GHSA-1",
+            package="com.fasterxml.jackson.core:jackson-databind",
+            ecosystem="Maven",
+            fixed="2.9.10",
+            severity="CRITICAL",
+        ),
+        tmp_path=tmp_path,
+    )
+    result = depscan.scan_dependencies(SBOM, "bom.json")
+    assert result["vulnerability_check"] == "performed"
+    assert result["is_lockfile"] and result["components_resolved"] == 3
+    (vuln,) = result["vulnerabilities"]
+    assert (vuln["package"], vuln["version"]) == (
+        "com.fasterxml.jackson.core:jackson-databind",
+        "2.9.8",
+    )
+    assert vuln["recommended_upgrade"] == "2.9.10"
+    # npm has no advisory: the check still ran for Maven, and the gap is reported
+    assert any("no npm advisory" in note for note in result["notes"])
+    (finding,) = [f for f in depscan.to_findings(result) if f.rule_id == "GHSA-1"]
+    assert finding.file_path == "bom.json" and finding.severity.value == "critical"
+
+
+def test_sbom_without_advisories_for_any_of_its_ecosystems_is_skipped(tmp_path):
+    load(osv(), tmp_path=tmp_path)
+    result = depscan.scan_dependencies(SBOM, "bom.json")
+    assert result["vulnerability_check"] == "skipped_no_advisories_for_ecosystem"
+    assert any("Maven, npm" in note for note in result["notes"])
+
+
 def test_unknown_severity_defaults_to_medium(tmp_path):
     load(osv(fixed="2.20.0"), tmp_path=tmp_path)
     (vuln,) = depscan.scan_dependencies(REQUIREMENTS, "requirements.txt")["vulnerabilities"]

@@ -17,7 +17,7 @@ données. Ils peuvent tourner dans deux conteneurs, deux pods ou sur deux machin
 |---|---|---|
 | Commande | `security-review-mcp --transport streamable-http` | `security-review-controller serve` |
 | Sert | `/mcp`, enrôlement public `POST /api/v1/enroll`, `/healthz` | API REST `/api/v1`, interface `/ui`, `/healthz` |
-| Jetons acceptés | rôles `mcp` et `admin` | rôles `reader`, `triager` et `admin` |
+| Jetons acceptés | rôles `mcp` et `admin` | rôles `reader`, `triager` et `admin` ; `ci` sur les seules routes de pipeline `/api/v1/ci/` |
 | Routes sans jeton | enrôlement, `/healthz` | fichiers de `/ui`, documentation de l'API, `/healthz` (lecture seule) |
 | Schéma de la base | vérifie seulement | migre (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`) |
 | Exposition conseillée | agents et CI, avec TLS | réseau interne ou accès restreint aux administrateurs |
@@ -102,7 +102,7 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
     security-review-controller token list --pending
 ```
 
-Pour la [mise à jour quotidienne des avis OSV](../usage/dependencies.md#mise-a-jour-automatique-par-le-controleur),
+Pour la [mise à jour quotidienne des avis OSV](dependencies.md#mise-a-jour-automatique-par-le-controleur),
 décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et au besoin `SECREVIEW_PROXY`, dans le Secret
 s'il contient des identifiants) sur le conteneur `controller`, et autorisez sa sortie vers
 osv.dev ou votre miroir (ou le proxy) si une NetworkPolicy d'egress s'applique. Le serveur MCP

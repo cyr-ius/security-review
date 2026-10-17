@@ -142,6 +142,7 @@
       <select id="token-usage" class="form-select" [formField]="tokenForm.usage">
         <option value="mcp">MCP</option>
         <option value="api">{{ 'tokens.restApi' | t }}</option>
+        <option value="ci">{{ 'tokens.pipeline' | t }}</option>
       </select>
     </div>
     <div class="col-md-2">
@@ -149,6 +150,15 @@
       <select id="token-api-role" class="form-select" [formField]="tokenForm.apiRole">
         <option value="reader">{{ 'tokens.readOnly' | t }}</option>
         <option value="triager">{{ 'tokens.readTriage' | t }}</option>
+      </select>
+    </div>
+    <div class="col-md-2">
+      <label for="token-validity" class="form-label">{{ 'tokens.validity' | t }}</label>
+      <select id="token-validity" class="form-select" [formField]="tokenForm.validity">
+        <option value="">{{ 'tokens.validityDefault' | t }}</option>
+        @for (days of validities; track days) {
+          <option [value]="days">{{ 'tokens.validityDays' | t: { days } }}</option>
+        }
       </select>
     </div>
     <fieldset class="col-md-3">
@@ -174,6 +184,9 @@
         <span class="text-body-secondary">{{ 'users.noProjects' | t }}</span>
       }
     </fieldset>
+    @if (formModel().usage === 'ci') {
+      <p class="col-12 order-last form-text mb-0">{{ 'tokens.pipelineHelp' | t }}</p>
+    }
     <div class="col-md-2">
       <button
         type="submit"
@@ -188,7 +201,24 @@
 </section>
 
 <section aria-labelledby="tokens-title">
-  <h2 id="tokens-title" class="h5">{{ 'tokens.active' | t }}</h2>
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
+    <h2 id="tokens-title" class="h5 mb-0">{{ 'tokens.active' | t }}</h2>
+    <div class="d-flex align-items-center gap-2">
+      <label for="token-grace" class="form-label mb-0 small">{{ 'tokens.grace' | t }}</label>
+      <select
+        id="token-grace"
+        class="form-select form-select-sm w-auto"
+        (change)="onGraceChange($event)"
+      >
+        @for (hours of graceChoices; track hours) {
+          <option [value]="hours" [selected]="graceHours() === hours">
+            {{ (hours ? 'tokens.graceHours' : 'tokens.graceNone') | t: { hours } }}
+          </option>
+        }
+      </select>
+    </div>
+  </div>
+  <p class="text-body-secondary small">{{ 'tokens.rotateHelp' | t }}</p>
   @if (tokens.error()) {
     <div class="alert alert-danger" role="alert">{{ 'tokens.loadError' | t }}</div>
   } @else if (tokens.isLoading() && !tokens.hasValue()) {
@@ -205,6 +235,7 @@
             <th scope="col">{{ 'tokens.allowedProjects' | t }}</th>
             <th scope="col">{{ 'tokens.usage' | t }}</th>
             <th scope="col">{{ 'common.createdAt' | t }}</th>
+            <th scope="col">{{ 'tokens.expiresAt' | t }}</th>
             <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
           </tr>
         </thead>
@@ -225,8 +256,47 @@
                 }
               </td>
               <td>{{ roleLabel(token.role) | t }}</td>
-              <td>{{ token.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
-              <td class="text-end">
+              <td>
+                {{ token.created_at | date: 'dd/MM/yyyy HH:mm' }}
+                @if (token.rotated_at) {
+                  <div class="small text-body-secondary">
+                    {{
+                      'tokens.rotatedAt'
+                        | t: { date: (token.rotated_at | date: 'dd/MM/yyyy HH:mm') ?? '' }
+                    }}
+                  </div>
+                }
+              </td>
+              <td>
+                @if (token.expired) {
+                  <span class="badge text-bg-danger">
+                    <i class="bi bi-clock-history" aria-hidden="true"></i>
+                    {{ 'tokens.expired' | t }}
+                  </span>
+                }
+                {{
+                  token.expires_at ? (token.expires_at | date: 'dd/MM/yyyy') : ('tokens.never' | t)
+                }}
+                @if (token.grace_until) {
+                  <div class="small text-body-secondary">
+                    {{
+                      'tokens.graceUntil'
+                        | t: { date: (token.grace_until | date: 'dd/MM/yyyy HH:mm') ?? '' }
+                    }}
+                  </div>
+                }
+              </td>
+              <td class="text-end text-nowrap">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary me-1"
+                  [disabled]="busy()"
+                  [attr.aria-label]="'tokens.rotateToken' | t: { label: token.label }"
+                  (click)="rotate(token.id, token.label)"
+                >
+                  <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                  {{ 'tokens.rotate' | t }}
+                </button>
                 <button
                   type="button"
                   class="btn btn-sm btn-outline-danger"

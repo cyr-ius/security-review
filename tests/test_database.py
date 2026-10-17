@@ -125,6 +125,45 @@ def test_user_grants_become_sso_web_users(empty_engine):
     assert (users["bob"]["auth_source"], users["bob"]["role"]) == ("local", "admin")
 
 
+def test_old_dismissals_expire_after_a_grace_period(empty_engine):
+    from datetime import UTC, datetime, timedelta
+
+    from alembic import command
+    from sqlalchemy import text
+
+    from security_review_mcp import services
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0009")
+        connection.execute(
+            text(
+                "INSERT INTO securityreport (id, project, summary, risk_level, created_at) "
+                "VALUES (1, 'shop', 'Old review', 'CRITICAL', '2026-10-01 10:00:00')"
+            )
+        )
+        for number, status in enumerate(("OPEN", "FIXED", "ACCEPTED", "FALSE_POSITIVE"), 1):
+            connection.execute(
+                text(
+                    "INSERT INTO finding (id, report_id, title, severity, category, "
+                    "description, status) VALUES (:id, 1, 'Issue', 'CRITICAL', 'code', "
+                    "'Something', :status)"
+                ),
+                {"id": number, "status": status},
+            )
+        command.upgrade(database.alembic_config(connection), "head")
+
+    findings = {f.id: f for f in services.get_report(1).findings}
+    soon = datetime.now(UTC) + timedelta(days=30)
+    for dismissed in (3, 4):
+        expires = findings[dismissed].status_expires_at.replace(tzinfo=UTC)
+        assert soon - timedelta(minutes=5) < expires <= soon
+        assert "confirm it" in findings[dismissed].status_reason
+        assert findings[dismissed].status_approver is None
+    for kept in (1, 2):
+        assert findings[kept].status_expires_at is None and findings[kept].status_reason is None
+    assert services.evaluate_gate("shop")["blocking_findings"] == 1  # only the open one, for now
+
+
 @pytest.mark.parametrize(
     ("stored", "expected"),
     [
