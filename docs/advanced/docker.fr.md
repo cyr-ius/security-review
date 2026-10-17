@@ -1,5 +1,25 @@
 # Docker
 
+## Images publiées
+
+Chaque version est publiée pour `linux/amd64` et `linux/arm64` sur GitHub Container Registry et
+Docker Hub, en deux variantes : SQLite seul, et `-pg` avec le pilote PostgreSQL.
+
+```bash
+docker pull ghcr.io/cyr-ius/security-review-mcp:latest-pg   # or docker.io/cyrius44/security-review-mcp
+```
+
+| Tag | Contenu |
+|---|---|
+| `X.Y.Z`, `X.Y`, `X`, `latest` | Version `X.Y.Z` (la dernière version stable pour `latest`) |
+| `X.Y.Z-pg`, `X.Y-pg`, `X-pg`, `latest-pg` | Idem, avec le pilote PostgreSQL |
+| `X.Y.ZrcN` (`a`, `b`, `rc`) | Préversion : ce tag seulement, jamais `latest` |
+
+Fixez une version (`1.2.3-pg`) en production. Les images portent un SBOM et une attestation de
+provenance (`docker buildx imagetools inspect --format '{{ json .Provenance }}' IMAGE`). Dans
+les exemples de cette page, remplacez `security-review-mcp` et `security-review-mcp:pg` par
+l'image publiée, ou construisez-la.
+
 ## Construire l'image
 
 ```bash

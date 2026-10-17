@@ -250,7 +250,19 @@ A version is a tag pushed on `master`:
 2. Merge `dev` into `master`.
 3. On `master`, push the matching tag: `git tag v1.3.0 && git push origin v1.3.0`.
 4. The push of the tag triggers `publish.yml`: lint and tests, check that the tag matches the
-   version, publication on PyPI then creation of the GitHub release.
+   version, publication on PyPI and of the Docker images (`docker.yml`), then creation of the
+   GitHub release.
+
+The `.github/workflows/docker.yml` workflow builds the image (`linux/amd64`, `linux/arm64`,
+default and `-pg` variants) and checks that both entry points start. On a pull request that
+touches the `Dockerfile` or the dependencies, it only builds; on a version tag, it pushes the
+images to `ghcr.io/cyr-ius/security-review-mcp` and `docker.io/cyrius44/security-review-mcp`
+(see [published images](advanced/docker.md#published-images)). A manual run (**Actions →
+Docker image → Run workflow**, `push` checked) publishes a branch image (`dev`, `dev-pg`).
+
+One-time setup: a Docker Hub access token (read and write) in the repository secret
+`DOCKERHUB_TOKEN`; GHCR uses the token of the workflow. After the first publication, make the
+GHCR package public (**Packages → security-review-mcp → Package settings**).
 
 Every action of the workflows is pinned to a full commit SHA, with its version in a comment
 (`uses: actions/checkout@<40-character SHA> # v7.0.1`): a tag can be moved, a commit cannot.

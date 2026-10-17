@@ -19,10 +19,11 @@ Le paquet publié contient l'interface web déjà compilée.
 
 ## Image Docker
 
-Pour faire tourner le serveur dans des conteneurs, construisez l'image depuis le dépôt (l'extra
-`postgres` ajoute le pilote PostgreSQL) :
+Pour faire tourner le serveur dans des conteneurs, récupérez l'image publiée (la variante `-pg`
+contient le pilote PostgreSQL), ou construisez-la depuis le dépôt :
 
 ```bash
+docker pull ghcr.io/cyr-ius/security-review-mcp:latest-pg    # or docker.io/cyrius44/security-review-mcp
 docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .
 ```
 
