@@ -133,7 +133,7 @@ with `request_enrollment`; `save_security_report` suggests it when it refuses th
 
 !!! note
     If the administrator disabled the enrollment (`SECREVIEW_ENROLLMENT=false`), a host without
-    a token gets `401`: ask them for a token created with
+    a token, or with a rejected token, gets `401`: ask them for a token created with
     `security-review-controller token create`.
 
 ## Other cases

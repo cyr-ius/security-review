@@ -26,13 +26,22 @@
   pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
   (`mcp`, `reader`, `triager`, `admin`, `ci`, `metrics`) ; un jeton `mcp` sans projet accède à
   tous les outils MCP et à tous les projets.
-- **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`),
-  et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons
+- **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`,
+  ou seulement le [serveur d'enrôlement](../advanced/http.md#jeton-refuse-nouvel-enrolement) sur
+  `/mcp`), et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons
   expirés comptent toujours comme configurés : un serveur dont tous les jetons ont expiré reste
   fermé. Un renouvellement n'enregistre que l'empreinte du nouveau secret ; l'empreinte
   précédente est conservée pendant le délai de grâce (168 heures au plus), comparée en temps
   constant comme l'actuelle, et l'ancien secret d'un jeton expiré ne revient jamais (voir
   [expiration et renouvellement](../advanced/http.md#expiration-et-renouvellement-des-jetons)).
+- **Jetons refusés sur `/mcp`** : avec l'enrôlement activé, un jeton inconnu, révoqué ou expiré
+  atteint le [serveur d'enrôlement](../advanced/http.md#jeton-refuse-nouvel-enrolement) au lieu
+  d'un `401`. Chaque refus reste journalisé en avertissement par le serveur MCP
+  (`Rejected unauthenticated request` / `Rejected expired token`, avec l'adresse du client) :
+  surveillez ces journaux, plutôt que les réponses `401` d'un reverse proxy, pour détecter des
+  essais de jetons sur `/mcp` ; la [métrique](../advanced/audit-metrics.md)
+  `secreview_auth_rejections_total` ne compte que les refus du contrôleur.
+  Positionnez `SECREVIEW_ENROLLMENT=false` quand une détection par codes HTTP est exigée.
 - **Journal d'audit** : les décisions de triage, les propositions des agents, les créations,
   renouvellements et révocations de jetons, les demandes et décisions d'enrôlement sont écrits
   dans la même transaction que le changement, avec leur acteur (`user:`, `token:`, `cli`,

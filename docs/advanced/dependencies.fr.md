@@ -160,6 +160,10 @@ security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
 # exit code: 0 = ok, 1 = blocked, 2 = error (server unreachable, token refused...)
 ```
 
+Un jeton refusé (absent, inconnu, révoqué, expiré ou pas encore approuvé) se termine par une
+erreur qui propose `security-review-mcp enroll` (voir
+[jeton refusé](http.md#jeton-refuse-nouvel-enrolement)).
+
 - Mêmes options et même sortie que `deps scan` (`--fail-on`, `--format`, `--require-database`) ;
   rien n'est enregistré (pas de `--save`).
 - `--url` remplace `SECREVIEW_SERVER_URL`, `--token-stdin` lit le jeton sur stdin au lieu de

@@ -73,7 +73,8 @@ is written to the [audit log](audit-metrics.md#audit-log), with who made it.
 ### Expiry and rotation of tokens
 
 A token may expire: after its expiry date it authenticates nothing (`401`, `error="invalid_token"`,
-description `The bearer token has expired`), but it stays listed so that an administrator
+description `The bearer token has expired`, or the [enrollment server](#rejected-token-new-enrollment)
+on `/mcp`), but it stays listed so that an administrator
 rotates or revokes it. `SECREVIEW_TOKEN_MAX_DAYS` (default `0`) sets the longest validity of a
 token created or rotated, and its default validity; with `0`, tokens do not expire unless a
 validity is asked for.
@@ -105,7 +106,10 @@ security-review-controller token create --label shop-ci --project shop-api      
 security-review-controller token create --label shop-triage --role triager --project shop-api
 ```
 
-A token without `--project` reaches every project. A restricted token:
+A token without `--project` reaches every project. In the web interface, the
+[**Tokens**](../usage/web-interface.md#screens) screen creates a token for some projects
+or for **All projects**, and changes the projects of an existing token (except `admin` and
+`metrics`; a `ci` token always keeps at least one project). A restricted token:
 
 - only saves reports (`save_security_report`) for its project;
 - only reads, lists, exports and triages (`propose_finding_status`, `PATCH` of the web API) the
@@ -181,6 +185,20 @@ created (except on an [open server](#bearer-tokens), which needs no token).
     SSO account. See
     [project read access at enrollment](sso.md#project-read-access-at-enrollment).
 
+### Rejected token: new enrollment
+
+When the enrollment is enabled, a client whose token is **unknown, revoked or expired** does
+not get `401` on `/mcp`: like a client without a token, it reaches the enrollment server, which
+only exposes `request_enrollment` and `get_enrollment_status`. `get_enrollment_status` then
+answers `token_rejected` with the reason (`invalid_token` or `token_expired`), and the agent
+offers the user to enroll again; the new token replaces the rejected one in the
+[host configuration](../getting-started/host.md#getting-a-token-enrollment), once approved. The
+rejection is still logged as a warning by the MCP server (`Rejected unauthenticated request` /
+`Rejected expired token`); the controller API and the `/api/v1/enroll` endpoint keep answering `401`.
+
+`security-review-mcp scan-deps` recognizes this case and suggests running
+`security-review-mcp enroll`.
+
 ### Additional enrollment
 
 A host that already has an active token restricted to one or more projects can request an
@@ -209,10 +227,12 @@ Create a restricted token if you need to limit its access.
 
 Safeguards: at most 20 pending requests at a time, 3 per client address (behind a reverse
 proxy, set [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md)), a request left unprocessed expires after
-7 days, a token with an invalid secret stays refused (`401`) and pending requests never enable
+7 days, a token with an invalid secret never reaches the review tools (only the
+[enrollment server](#rejected-token-new-enrollment)) and pending requests never enable
 the authentication of an open server. Check the requester before approving: any client that
 reaches the server can file a request. To disable the enrollment:
-`SECREVIEW_ENROLLMENT=false` (clients without a token then get `401`).
+`SECREVIEW_ENROLLMENT=false` (clients without a token, or with a rejected token, then get
+`401`).
 
 `--url` is the URL of the **MCP server** (with or without `/mcp`): it receives the requests.
 

@@ -19,6 +19,7 @@ from mcp.client.streamable_http import streamable_http_client
 from mcp.types import Implementation
 
 from . import enrollment
+from .http_server import ENROLLMENT_SERVER_TITLE
 
 MCP_PATH = "/mcp"
 TOOL_NAME = "scan_dependencies"
@@ -26,9 +27,11 @@ DEFAULT_TIMEOUT = 60.0
 # Bound of the error messages taken from the server or from the HTTP stack
 MAX_ERROR_CHARS = 500
 
+# Advice given when the server does not accept the token
+ENROLL_HINT = "run `security-review-mcp enroll` to request a new one"
 # Explanation added to the refusals of the MCP endpoint
 _REFUSAL_HINTS = {
-    401: ": missing or invalid token (SECREVIEW_TOKEN or --token-stdin)",
+    401: f": missing or invalid token (SECREVIEW_TOKEN or --token-stdin); {ENROLL_HINT}",
     403: ": the token is not allowed to call this tool",
 }
 
@@ -97,6 +100,13 @@ async def _scan(
     transport = streamable_http_client(url, http_client=http_client)
     client_info = Implementation(name="security-review-mcp scan-deps", version="1")
     async with http_client, Client(transport, client_info=client_info) as client:
+        if client.server_info.title == ENROLLMENT_SERVER_TITLE:
+            # A server with enrollment answers a missing, unknown, revoked, expired or pending
+            # token with its enrollment server instead of a 401
+            raise ValueError(
+                f"{url} did not accept the token (missing, invalid, expired or not approved "
+                f"yet): {ENROLL_HINT}, or wait for the approval of a pending request"
+            )
         for filename, content in files:
             result = await client.call_tool(TOOL_NAME, {"content": content, "filename": filename})
             if result.is_error:

@@ -82,18 +82,24 @@ by the API stay in English.
 - **My account**: shows the type of the account. A local user changes their
   password there (their other sessions are closed); the one of an SSO user is managed by the
   identity provider.
-- **Tokens**: administrators create and revoke tokens limited to one or more
-  projects. The **Usage** field chooses **MCP** (`mcp` role), **REST API** or **CI/CD pipeline**
+- **Tokens**: administrators create and revoke tokens for one or more projects, or for
+  **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role), **REST API** or **CI/CD pipeline**
   (`ci` role, for [`security-review-ci`](gate.md#pipeline-client-security-review-ci));
   for the REST API, **API rights** chooses **Read only** (`reader`) or **Read and triage**
-  (`triager`). The **Allowed projects** boxes select the projects the token sees; **Validity**
+  (`triager`). Under **Allowed projects**, **All projects** gives every project, including the
+  projects reviewed later, and **Selected projects** shows the boxes of the projects the token
+  sees; **Validity**
   sets its lifetime (30 days to 1 year, or the default of the server, `SECREVIEW_TOKEN_MAX_DAYS`).
-  The list shows the usage of every token and its expiry date (**Expired** once past).
+  The list shows the usage of every `mcp`, `reader`, `triager` and `ci` token, its projects
+  and its expiry date (**Expired** once past). **Projects** changes the projects of an existing
+  token, or gives it **All projects** after a confirmation, without changing its secret: the
+  change applies from the next request; a pending request for a project now granted is approved
+  with it.
   **Rotate** replaces the secret of a token and shows the new one once; the previous one keeps
   working for the grace period chosen above the list (none, 1 h, 24 h or 7 days, see
   [expiry and rotation](../advanced/http.md#expiry-and-rotation-of-tokens)).
-  A token never opens the web interface. The `admin` role stays unrestricted and is created from
-  the CLI. The secret is shown only once; only its digest is stored, in the database. A
+  A token never opens the web interface. The `admin` and `metrics` tokens stay unrestricted and
+  are managed from the CLI only. The secret is shown only once; only its digest is stored, in the database. A
   revocation takes effect at the next request. The **Pending requests**
   section tells new tokens apart from requests for access to an additional project
   ([enrollment](../advanced/http.md#enrollment-a-project-requests-its-token)):

@@ -202,10 +202,13 @@ export class ApiService {
     return this.http.get<ProjectToken[]>(`${API_URL}/project-tokens`);
   }
 
-  /** expiresInDays null: the default validity of the server (SECREVIEW_TOKEN_MAX_DAYS). */
+  /**
+   * projects null: every project (refused for a CI/CD token). expiresInDays null: the default
+   * validity of the server (SECREVIEW_TOKEN_MAX_DAYS).
+   */
   createProjectToken(
     label: string,
-    projects: string[],
+    projects: string[] | null,
     role: ProjectTokenRole,
     expiresInDays: number | null = null,
   ): Observable<ProjectTokenCreated> {
@@ -215,6 +218,14 @@ export class ApiService {
       role,
       expires_in_days: expiresInDays,
     });
+  }
+
+  /** Change the projects of a token (null: every project); its secret stays the same. */
+  updateProjectTokenProjects(id: string, projects: string[] | null): Observable<ProjectToken> {
+    return this.http.put<ProjectToken>(
+      `${API_URL}/project-tokens/${encodeURIComponent(id)}/projects`,
+      { projects },
+    );
   }
 
   /** Replace the secret of a project token; the previous one works for graceHours more. */

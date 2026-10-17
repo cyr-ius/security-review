@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, disabled, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
@@ -8,13 +8,19 @@ import { TOKEN_ROLE_LABELS } from '../../core/constants/labels';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { EnrollmentRequest, ProjectTokenRole, Role } from '../../core/models/api.models';
+import {
+  EnrollmentRequest,
+  ProjectToken,
+  ProjectTokenRole,
+  Role,
+} from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 
 /**
- * Administrator page for project tokens: enrollment requests waiting for approval, creation of
- * MCP, REST API or CI/CD tokens (with a validity), rotation and revocation.
+ * Administrator page for tokens: enrollment requests waiting for approval, creation of MCP,
+ * REST API or CI/CD tokens (with a validity) for some projects or every project, change of their
+ * projects, rotation and revocation.
  */
 @Component({
   selector: 'app-project-token-list',
@@ -41,7 +47,17 @@ export class ProjectTokenListComponent {
     // The API rights only apply to a REST API token
     disabled(path.apiRole, ({ valueOf }) => valueOf(path.usage) !== 'api');
   });
+  /** Every project (not offered for a CI/CD token), or only selectedProjects. */
+  readonly allProjects = signal(false);
   readonly selectedProjects = signal<string[]>([]);
+  /** A CI/CD token is always restricted to projects. */
+  readonly creationAllProjects = computed(
+    () => this.allProjects() && this.formModel().usage !== 'ci',
+  );
+  /** Token whose projects are being changed in its row (null: none). */
+  readonly editing = signal<ProjectToken | null>(null);
+  readonly editAllProjects = signal(false);
+  readonly editSelected = signal<string[]>([]);
   readonly createdToken = signal<string | null>(null);
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
@@ -59,10 +75,68 @@ export class ProjectTokenListComponent {
   }
 
   toggleProject(project: string, event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.selectedProjects.update((selected) =>
-      checked ? [...selected, project] : selected.filter((item) => item !== project),
-    );
+    this.selectedProjects.update((selected) => toggled(selected, project, event));
+  }
+
+  /** Text of the projects of a token: their names, or "All projects". */
+  describeProjects(projects: string[] | null): string {
+    return projects === null ? this.i18n.translate('reports.allProjects') : projects.join(', ');
+  }
+
+  /** Projects offered when changing a token: known projects plus those of the token. */
+  editChoices(token: ProjectToken): string[] {
+    const known = (this.projects.value() ?? []).map((item) => item.project);
+    return [...new Set([...known, ...(token.projects ?? [])])].sort();
+  }
+
+  /** Open the change of the projects of a token in its row. */
+  editProjects(token: ProjectToken): void {
+    this.editing.set(token);
+    this.editAllProjects.set(token.projects === null);
+    this.editSelected.set(token.projects ?? []);
+    this.error.set(null);
+    this.message.set(null);
+  }
+
+  cancelEdit(): void {
+    this.editing.set(null);
+  }
+
+  toggleEditProject(project: string, event: Event): void {
+    this.editSelected.update((selected) => toggled(selected, project, event));
+  }
+
+  /** Save the projects of the edited token; giving every project asks for a confirmation. */
+  async saveProjects(): Promise<void> {
+    const token = this.editing();
+    const all = this.editAllProjects() && token?.role !== 'ci';
+    const projects = all ? null : this.editSelected();
+    if (!token || this.busy() || (projects !== null && !projects.length)) {
+      return;
+    }
+    const question = this.i18n.translate('tokens.confirmAllProjects', { label: token.label });
+    if (all && token.projects !== null && !window.confirm(question)) {
+      return;
+    }
+    this.busy.set(true);
+    this.error.set(null);
+    this.message.set(null);
+    try {
+      const updated = await firstValueFrom(this.api.updateProjectTokenProjects(token.id, projects));
+      this.editing.set(null);
+      this.message.set(
+        msg('tokens.projectsUpdated', {
+          label: updated.label,
+          projects: this.describeProjects(updated.projects),
+        }),
+      );
+      this.tokens.reload();
+      this.enrollments.reload();
+    } catch (error: unknown) {
+      this.error.set(describeError(error));
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   async create(event: Event): Promise<void> {
@@ -70,8 +144,8 @@ export class ProjectTokenListComponent {
     const model = this.formModel();
     const label = model.label.trim();
     const role: ProjectTokenRole = model.usage === 'api' ? model.apiRole : model.usage;
-    const projects = this.selectedProjects();
-    if (this.tokenForm().invalid() || !label || !projects.length || this.busy()) {
+    const projects = this.creationAllProjects() ? null : this.selectedProjects();
+    if (this.tokenForm().invalid() || !label || projects?.length === 0 || this.busy()) {
       this.tokenForm().markAsTouched();
       return;
     }
@@ -88,11 +162,12 @@ export class ProjectTokenListComponent {
       this.formModel.set({ ...EMPTY_TOKEN });
       this.tokenForm().reset();
       this.selectedProjects.set([]);
+      this.allProjects.set(false);
       this.message.set(
         msg('tokens.created', {
           label: created.label,
           usage: this.i18n.translate(this.roleLabel(created.role)),
-          projects: projects.join(', '),
+          projects: this.describeProjects(created.projects),
         }),
       );
       this.tokens.reload();
@@ -291,6 +366,12 @@ interface PortalAccess {
   enabled: boolean;
   /** Username of the web user (for an SSO user, the username claim of the provider). */
   user: string;
+}
+
+/** The selection with a project added or removed, after a checkbox change. */
+function toggled(selected: string[], project: string, event: Event): string[] {
+  const checked = (event.target as HTMLInputElement).checked;
+  return checked ? [...selected, project] : selected.filter((item) => item !== project);
 }
 
 function describeError(error: unknown): Message {

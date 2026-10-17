@@ -69,13 +69,13 @@ a new secret.
 ### Enrollment server
 
 On the HTTP transport, a client that connects **without a token** (or with a token whose
-enrollment is not approved yet) reaches a restricted server, with the same name, that only
+enrollment is not approved yet, or a token that is unknown, revoked or expired) reaches a restricted server, with the same name, that only
 exposes:
 
 | Item | Role |
 |---|---|
 | `request_enrollment` | Files the request for a project and returns the token (shown once), named after the developer's username (`label`) |
-| `get_enrollment_status` | `pending` if the presented token awaits approval, `not_enrolled` without a token |
+| `get_enrollment_status` | `pending` if the presented token awaits approval, `not_enrolled` without a token, `token_rejected` (with `reason`) for an unknown, revoked or expired token: the agent offers a new enrollment |
 | Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Optional `project` argument; explain to the agent how to request access instead of running the review |
 
 See [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token).

@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+# MCP host configuration of each developer (server URL, token variable)
+.mcp.json
 
 # Local databases and generated reports
 *.db

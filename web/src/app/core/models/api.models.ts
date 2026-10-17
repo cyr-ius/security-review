@@ -124,7 +124,10 @@ export interface WebUserWithPassword extends WebUser {
   password?: string;
 }
 
-/** Metadata returned for a project-scoped token; the raw secret is only returned at creation. */
+/**
+ * Metadata of a token managed in the web interface (projects null: every project); the raw
+ * secret is only returned at creation.
+ */
 export interface ProjectToken {
   id: string;
   label: string;
@@ -152,6 +155,7 @@ export type AuditAction =
   | 'token.created'
   | 'token.rotated'
   | 'token.revoked'
+  | 'token.projects_changed'
   | 'enrollment.requested'
   | 'enrollment.approved'
   | 'enrollment.rejected';
@@ -163,6 +167,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'token.created',
   'token.rotated',
   'token.revoked',
+  'token.projects_changed',
   'enrollment.requested',
   'enrollment.approved',
   'enrollment.rejected',

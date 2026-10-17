@@ -110,6 +110,13 @@ def auth(role: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {TOKENS[role]}"}
 
 
+def listed_tokens(client: TestClient) -> list[dict]:
+    """Tokens of the web interface, without the tokens of the secured fixture (one per role)."""
+    response = client.get("/api/v1/project-tokens", headers=auth("admin"))
+    assert response.status_code == 200
+    return [item for item in response.json() if item["label"] not in TOKENS]
+
+
 @pytest.fixture
 def reports() -> tuple[int, int]:
     first = services.save_report(
@@ -763,7 +770,9 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, 
 
     listed = secured.get("/api/v1/project-tokens", headers=auth("admin"))
     assert listed.status_code == 200
-    assert listed.json() == [{key: value for key, value in created.items() if key != "token"}]
+    assert [item for item in listed.json() if item["label"] not in TOKENS] == [
+        {key: value for key, value in created.items() if key != "token"}
+    ]
     assert token not in listed.text
     assert "sha256" not in listed.text
     assert (
@@ -870,7 +879,7 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, 
     revoked = secured.delete(f"/api/v1/project-tokens/{created['id']}", headers=auth("admin"))
     assert revoked.status_code == 204
     assert secured.get("/api/v1/me", headers=project_headers).status_code == 401
-    assert secured.get("/api/v1/project-tokens", headers=auth("admin")).json() == []
+    assert listed_tokens(secured) == []
 
 
 def test_hidden_report_answers_like_a_missing_one(secured, reports):
@@ -955,6 +964,81 @@ def test_admin_token_cannot_be_revoked_as_a_project_token(secured):
     assert "ops" in {row.label for row in _stored_tokens()}
 
 
+def test_admin_creates_a_token_for_every_project(secured, reports):
+    response = secured.post(
+        "/api/v1/project-tokens",
+        json={"label": "portal", "role": "reader", "projects": None},
+        headers=auth("admin"),
+    )
+
+    assert response.status_code == 201
+    created = response.json()
+    assert (created["project"], created["projects"]) == (None, None)
+    headers = {"Authorization": f"Bearer {created['token']}"}
+    assert {
+        item["project"] for item in secured.get("/api/v1/projects", headers=headers).json()
+    } == {
+        "shop-api",
+        "billing",
+    }
+    assert [item["label"] for item in listed_tokens(secured)] == ["portal"]
+    # Every project is an explicit choice: a missing field or an empty list is refused
+    for body in ({"label": "implicit"}, {"label": "empty", "projects": []}):
+        assert (
+            secured.post("/api/v1/project-tokens", json=body, headers=auth("admin")).status_code
+            == 422
+        )
+    pipeline = {"label": "pipeline", "role": "ci", "projects": None}
+    refused = secured.post("/api/v1/project-tokens", json=pipeline, headers=auth("admin"))
+    assert refused.status_code == 422 and "ci token" in refused.json()["detail"]
+
+
+def test_admin_changes_the_projects_of_a_token(secured, reports):
+    created = token_store.create_project_token("dev", ["shop-api"], "reader")
+    headers = {"Authorization": f"Bearer {created['token']}"}
+    path = f"/api/v1/project-tokens/{created['id']}/projects"
+
+    widened = secured.put(path, json={"projects": None}, headers=auth("admin"))
+
+    assert widened.status_code == 200
+    assert widened.json()["projects"] is None and "token" not in widened.json()
+    assert len(secured.get("/api/v1/projects", headers=headers).json()) == 2
+    narrowed = secured.put(path, json={"projects": ["billing"]}, headers=auth("admin"))
+    assert narrowed.status_code == 200 and narrowed.json()["projects"] == ["billing"]
+    assert [
+        item["project"] for item in secured.get("/api/v1/projects", headers=headers).json()
+    ] == ["billing"]
+    (event, *_) = secured.get(
+        "/api/v1/audit", params={"action": "token.projects_changed"}, headers=auth("admin")
+    ).json()["events"]
+    assert (event["actor"], event["details"]["previous_projects"]) == ("token:admin", None)
+
+
+def test_changing_the_projects_of_a_token_errors(secured, reports):
+    reader = token_store.create_project_token("dev", ["shop-api"], "reader")
+    pipeline = token_store.create_project_token("pipeline", ["shop-api"], "ci")
+    admin_id = next(row.id for row in _stored_tokens() if row.label == "admin")
+
+    def put(token_id: str, body: dict, role: str = "admin"):
+        return secured.put(
+            f"/api/v1/project-tokens/{token_id}/projects", json=body, headers=auth(role)
+        )
+
+    assert put(reader["id"], {"projects": ["unknown-project"]}).status_code == 404
+    assert put(reader["id"], {"projects": []}).status_code == 422
+    assert put(reader["id"], {}).status_code == 422
+    assert put(pipeline["id"], {"projects": None}).status_code == 422
+    # The admin and metrics tokens are managed with the CLI only
+    assert put(admin_id, {"projects": None}).status_code == 404
+    assert put("unknown", {"projects": None}).status_code == 404
+    for role in ("reader", "triager", "mcp"):
+        assert put(reader["id"], {"projects": None}, role).status_code == 403
+    assert {token["label"]: token["projects"] for token in listed_tokens(secured)} == {
+        "dev": ["shop-api"],
+        "pipeline": ["shop-api"],
+    }
+
+
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 
@@ -982,7 +1066,7 @@ def test_public_enrollment_then_admin_approval(secured, mcp_server):
     assert listed.json()[0]["requested_by"] == "alice@example.com"
     assert created["token"] not in listed.text
     # Pending requests are not listed with the active project tokens
-    assert secured.get("/api/v1/project-tokens", headers=auth("admin")).json() == []
+    assert listed_tokens(secured) == []
     for role in ("reader", "triager", "mcp"):
         assert secured.get("/api/v1/enrollments", headers=auth(role)).status_code == 403
         assert (
@@ -996,9 +1080,7 @@ def test_public_enrollment_then_admin_approval(secured, mcp_server):
 
     assert approved.status_code == 200 and approved.json()["status"] == "active"
     assert secured.get("/api/v1/enrollments", headers=auth("admin")).json() == []
-    assert [
-        item["id"] for item in secured.get("/api/v1/project-tokens", headers=auth("admin")).json()
-    ] == [created["id"]]
+    assert [item["id"] for item in listed_tokens(secured)] == [created["id"]]
     # The approved token is an MCP token: it reaches /mcp, not the REST API
     assert secured.get("/api/v1/me", headers=pending_headers).status_code == 403
     assert secured.get("/api/v1/me", headers=pending_headers).json()["error"] == (
