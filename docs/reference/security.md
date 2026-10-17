@@ -34,6 +34,14 @@
   period (at most 168 hours), compared in constant time like the current one, and the previous
   secret of an expired token never comes back (see
   [expiry and rotation](../advanced/http.md#expiry-and-rotation-of-tokens)).
+- **Rejected tokens on `/mcp`**: with the enrollment enabled, an unknown, revoked or expired
+  token reaches the [enrollment server](../advanced/http.md#rejected-token-new-enrollment) instead
+  of a `401`. Each rejection is still logged as a warning by the MCP server
+  (`Rejected unauthenticated request` / `Rejected expired token`, with the client address): watch
+  these logs, not the `401` answers of a reverse proxy, to detect token guessing on `/mcp`; the
+  `secreview_auth_rejections_total` [metric](../advanced/audit-metrics.md) only counts the
+  rejections of the controller. Set `SECREVIEW_ENROLLMENT=false` when a detection
+  based on HTTP status codes is required.
 - **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
   tokens, enrollment requests and decisions are written in the same transaction as the change,
   with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,

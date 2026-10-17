@@ -203,9 +203,9 @@ n'expose que `request_enrollment` et `get_enrollment_status`. `get_enrollment_st
 alors `token_rejected` avec le motif (`invalid_token` ou `token_expired`), et l'agent propose à
 l'utilisateur de refaire l'enrôlement ; le nouveau jeton remplace le jeton refusé dans la
 [configuration de l'hôte](../getting-started/host.md#obtenir-un-jeton-enrolement), une fois
-approuvé. Le refus reste journalisé et compté dans les métriques `invalid_token` /
-`token_expired` ; l'API du contrôleur et l'endpoint `/api/v1/enroll` continuent de répondre
-`401`.
+approuvé. Le refus reste journalisé en avertissement par le serveur MCP (`Rejected unauthenticated
+request` / `Rejected expired token`) ; l'API du contrôleur et l'endpoint `/api/v1/enroll`
+continuent de répondre `401`.
 
 `security-review-mcp scan-deps` reconnaît ce cas et propose de lancer
 `security-review-mcp enroll`.

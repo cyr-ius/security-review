@@ -193,8 +193,8 @@ only exposes `request_enrollment` and `get_enrollment_status`. `get_enrollment_s
 answers `token_rejected` with the reason (`invalid_token` or `token_expired`), and the agent
 offers the user to enroll again; the new token replaces the rejected one in the
 [host configuration](../getting-started/host.md#getting-a-token-enrollment), once approved. The
-rejection is still logged and counted in the `invalid_token` / `token_expired` metrics; the
-controller API and the `/api/v1/enroll` endpoint keep answering `401`.
+rejection is still logged as a warning by the MCP server (`Rejected unauthenticated request` /
+`Rejected expired token`); the controller API and the `/api/v1/enroll` endpoint keep answering `401`.
 
 `security-review-mcp scan-deps` recognizes this case and suggests running
 `security-review-mcp enroll`.
