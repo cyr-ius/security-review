@@ -1,18 +1,14 @@
 # Rapport de tendance
 
+Le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci) affiche le
+rapport de tendance d'un projet par l'API REST du contrôleur, avec un jeton `ci` :
+
 ```bash
-security-review-controller trend --project mon-projet --days 90 --granularity week --format markdown
+security-review-ci trend --project mon-projet --days 90 --granularity week --format markdown
 ```
 
 Options : `--granularity day|week|month` (défaut `week`), `--format markdown|json`
 (défaut `markdown`), `--days` (défaut 90).
-
-Le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci) affiche le même rapport
-par l'API REST du contrôleur, avec un jeton `ci` et les mêmes options :
-
-```bash
-security-review-ci trend --project mon-projet --days 90 --format markdown
-```
 
 Pour chaque période :
 
@@ -23,8 +19,5 @@ Pour chaque période :
 
 Sur l'ensemble : délai moyen de correction (MTTR) par sévérité, plus ancien finding ouvert, CWE
 les plus fréquentes.
-
-!!! note
-    Les corrections faites avant la v1.2 n'ont pas de date : elles sont signalées en note.
 
 Le même rapport est disponible côté MCP avec l'outil `get_trend_report`.

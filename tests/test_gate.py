@@ -1,12 +1,11 @@
-"""Tests for the security gate (service, CLI and MCP tool) and the shipped example pack."""
+"""Tests for the security gate (service and MCP tool) and the shipped example pack."""
 
-import json
 from pathlib import Path
 
 import pytest
 from mcp.client import Client
 
-from security_review_mcp import cli, registry, rule_store, services
+from security_review_mcp import registry, rule_store, services
 from security_review_mcp.models import FindingCreate, FindingStatus, Severity
 from security_review_mcp.server import mcp
 
@@ -56,15 +55,6 @@ def test_gate_rejects_unknown_or_foreign_report():
 
 def test_gate_on_unknown_project_passes():
     assert services.evaluate_gate("ghost")["passed"] is True
-
-
-def test_cli_exit_codes(capsys):
-    services.save_report("shop", "summary", [finding(Severity.HIGH)])
-    assert cli.gate_command(["--project", "shop"]) == cli.EXIT_BLOCKED
-    assert json.loads(capsys.readouterr().out)["passed"] is False
-
-    assert cli.gate_command(["--project", "shop", "--fail-on", "critical"]) == cli.EXIT_PASSED
-    assert cli.gate_command(["--project", "shop", "--report-id", "999"]) == cli.EXIT_ERROR
 
 
 def test_shipped_example_pack_is_valid(import_pack):

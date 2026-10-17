@@ -59,13 +59,16 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
 - Le serveur consulte la base à chaque requête : une création ou une révocation s'applique
   immédiatement, y compris aux autres instances qui partagent la même base PostgreSQL.
 
-Dès qu'un jeton existe en base, l'endpoint MCP et l'API du contrôleur exigent
-`Authorization: Bearer <jeton>`. Restent publics : `/healthz` sur les deux processus,
+L'endpoint MCP et l'API du contrôleur exigent `Authorization: Bearer <jeton>`. Restent publics : `/healthz` sur les deux processus,
 `/api/v1/enroll` sur le serveur MCP, et sur le contrôleur les fichiers statiques de `/ui/` et la
 documentation Swagger (`/api/docs`, schéma `/api/openapi.json`, icône `/api/favicon.svg`). Tant qu'aucun jeton n'existe,
-`/mcp` est ouvert (un avertissement est journalisé si l'écoute n'est pas sur localhost) et l'API
-du contrôleur répond `503`. `token revoke` avertit sur stderr quand il
-supprime le dernier jeton.
+l'API du contrôleur répond `503` et le serveur MCP **reste fermé** : un client sans jeton
+n'atteint que l'[enrôlement](#enrolement-un-projet-demande-son-jeton), toute autre requête reçoit
+`401`, quelle que soit la valeur Bearer (un avertissement est journalisé au démarrage). `/mcp`
+n'est ouvert dans ce cas que si le serveur écoute sur localhost (`127.0.0.1`, `::1`) ou avec
+`SECREVIEW_ALLOW_UNAUTHENTICATED=true`, à réserver aux tests sur un réseau isolé : dès qu'un jeton
+existe, il est exigé dans tous les cas. `token revoke` avertit sur stderr quand il supprime le
+dernier jeton.
 
 Chaque création, renouvellement et révocation de jeton, et chaque demande et décision
 d'enrôlement, est écrite dans le [journal d'audit](audit-metrics.md#journal-daudit),
@@ -137,7 +140,8 @@ security-review-controller user reset-password admin
 ### Enrôlement : un projet demande son jeton
 
 Plutôt que de créer chaque jeton à l'avance, laissez les projets **demander** le leur, puis
-validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`) dès qu'un jeton existe.
+validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`), même avant la création du premier jeton
+(sauf sur un [serveur ouvert](#jetons-bearer), qui n'en demande pas).
 
 1. **Demande.** Le client obtient tout de suite un jeton de rôle `mcp`, restreint au projet
    demandé, mais **en attente** : il ne donne encore accès à rien. Un jeton est personnel (il
@@ -326,7 +330,8 @@ ci-dessous).
 
 ## Configuration du client
 
-VS Code, avec un jeton demandé à l'utilisateur :
+VS Code, avec un jeton demandé à l'utilisateur (`.vscode/mcp.json`, voir
+[Configuration de l'hôte](../getting-started/host.md#transport-http)) :
 
 ```json
 {

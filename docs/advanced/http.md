@@ -57,12 +57,15 @@ Projects can also request their token themselves: see
 - The server reads the database at every request: a creation or a revocation applies
   immediately, including to the other instances sharing the same PostgreSQL database.
 
-As soon as a token exists in the database, the MCP endpoint and the controller API require
-`Authorization: Bearer <token>`. Still public: `/healthz` on both processes, `/api/v1/enroll`
+The MCP endpoint and the controller API require `Authorization: Bearer <token>`. Still public: `/healthz` on both processes, `/api/v1/enroll`
 on the MCP server, and on the controller the static files of `/ui/` and the Swagger
-documentation (`/api/docs`, `/api/openapi.json` schema, `/api/favicon.svg` icon). While no token exists, `/mcp` is open
-(a warning is logged if it does not listen on localhost) and the controller API answers `503`.
-`token revoke` warns on stderr when it deletes the last token.
+documentation (`/api/docs`, `/api/openapi.json` schema, `/api/favicon.svg` icon). While no token exists, the controller API answers `503` and the MCP server **stays closed**: a
+client without a token only reaches [enrollment](#enrollment-a-project-requests-its-token), any
+other request gets `401`, whatever the bearer value (a warning is logged at start-up). `/mcp` is
+only open in that case when the server listens on localhost (`127.0.0.1`, `::1`) or when
+`SECREVIEW_ALLOW_UNAUTHENTICATED=true`, to keep for tests on an isolated network: as soon as a
+token exists, it is required in every case. `token revoke` warns on stderr when it deletes the
+last token.
 
 Every creation, rotation and revocation of a token, and every enrollment request and decision,
 is written to the [audit log](audit-metrics.md#audit-log), with who made it.
@@ -130,7 +133,8 @@ security-review-controller user reset-password admin
 ### Enrollment: a project requests its token
 
 Rather than creating every token in advance, let the projects **request** theirs, then approve
-the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`) as soon as a token exists.
+the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token is
+created (except on an [open server](#bearer-tokens), which needs no token).
 
 1. **Request.** The client gets at once a token with the `mcp` role, restricted to the
    requested project, but **pending**: it does not give access to anything yet. A token is
@@ -312,7 +316,8 @@ below).
 
 ## Client configuration
 
-VS Code, with a token asked to the user:
+VS Code, with a token asked to the user (`.vscode/mcp.json`, see
+[Host configuration](../getting-started/host.md#http-transport)):
 
 ```json
 {

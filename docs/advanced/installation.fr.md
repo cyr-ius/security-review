@@ -1,8 +1,7 @@
 # Installation : autres cas
 
 L'installation courante est décrite dans [Installation](../getting-started/installation.md).
-Cette page couvre l'installation depuis les sources, sans accès Internet, et la mise à jour
-depuis la version 1.x.
+Cette page couvre l'installation depuis les sources et sans accès Internet.
 
 ## Depuis les sources
 
@@ -47,19 +46,3 @@ Puis, sur la machine cible, en ciblant explicitement Python 3.14 :
 python3.14 -m venv /opt/security-review-mcp/venv
 /opt/security-review-mcp/venv/bin/pip install --no-index --find-links wheels security-review-mcp
 ```
-
-## Mise à jour depuis la version 1.x
-
-La version 2 sépare le serveur MCP et le contrôleur, et gère le schéma avec Alembic :
-
-1. Mettez à jour le paquet ou l'image, puis lancez **une fois**
-   `security-review-controller db upgrade`. Une base créée par la version 1.x est reconnue et
-   complétée (colonnes et tables manquantes, jetons multi-projets), sans perte de données.
-2. Lancez le contrôleur (`security-review-controller serve`) à côté du serveur MCP : celui-ci ne
-   sert plus `/ui/` ni l'API REST, à l'exception de l'enrôlement public `/api/v1/enroll`.
-3. Remplacez `security-review-mcp token|rules|gate|sarif|trend|advisories|deps|code` par
-   `security-review-controller …` dans vos scripts et pipelines. Les anciennes formes
-   fonctionnent encore pendant la version 2, avec un avertissement.
-4. Le compte administrateur initial (`SECREVIEW_AUTH_BOOTSTRAP_ADMIN`) est désormais
-   créé par le contrôleur : c'est le [compte `admin`](../usage/web-interface.md#premier-administrateur)
-   de l'interface web, et non plus un jeton `bootstrap-admin`.

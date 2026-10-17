@@ -41,3 +41,6 @@ site/
 web/node_modules/
 web/.angular/
 src/security_review_mcp/webui/
+
+# Database dumps (PostgreSQL upgrade)
+*.dump

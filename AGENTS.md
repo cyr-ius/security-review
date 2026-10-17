@@ -41,7 +41,8 @@ uv run mkdocs build --strict       # ce que fait la CI : un lien cassé fait éc
 
 La CI (`.github/workflows/`) lance ruff et pytest sur Python 3.14 et 3.15 avec
 `uv sync --locked` : après un changement de dépendances dans `pyproject.toml`, lancez `uv lock`
-et commitez `uv.lock`.
+et commitez `uv.lock`. Les actions des workflows sont épinglées sur le SHA complet d'un commit,
+avec la version en commentaire (`@<sha> # vX.Y.Z`) : faites de même pour toute nouvelle action.
 
 ## Branches et versions
 
@@ -56,7 +57,8 @@ et commitez `uv.lock`.
 - Ne commitez jamais directement sur `master`.
 - **Une version = un tag sur `master`.** Pousser un tag `vX.Y.Z` déclenche `publish.yml` :
   lint et tests, vérification que le tag correspond à `version` dans `pyproject.toml`, puis
-  publication sur PyPI et création de la release GitHub. Procédure :
+  publication sur PyPI et des images Docker (GHCR et Docker Hub, `docker.yml`), et création de
+  la release GitHub. Procédure :
   1. sur `dev`, mettre à jour la version (`uv version X.Y.Z`) et commiter ;
   2. fusionner `dev` dans `master` ;
   3. sur `master` : `git tag vX.Y.Z && git push origin vX.Y.Z`.
@@ -92,7 +94,7 @@ l'utiliser.
 | Moteur de scan, masquage des secrets | `scanner.py` |
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `gate`, `sarif`, `trend`, `advisories`, `deps`, `code`, `rules`, `token`, `user`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`), `ci_client.py` |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `deps`, `code`, `rules`, `token`, `user`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif` et `trend` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`), `ci_client.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) ; proxy sortant du contrôleur (OSV et SSO) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` ; `proxy.py` |
 | Persistance, schéma (purge des rapports sans findings et de l'audit : `retention.py`) | `models.py`, `services.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
 | Journal d'audit (écrit par `services` et `token_store` dans la transaction du changement) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `audit.py` ; `metrics.py` |

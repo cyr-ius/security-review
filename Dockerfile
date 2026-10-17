@@ -26,7 +26,8 @@ FROM ghcr.io/astral-sh/uv:0.13.1 AS uv
 # ---------------------------------------------------------------------------
 # Web stage: build the Angular interface (served on /ui by the controller)
 # ---------------------------------------------------------------------------
-FROM node:25-slim AS web
+# The bundle does not depend on the architecture: built once, on the platform of the builder
+FROM --platform=$BUILDPLATFORM node:25-slim AS web
 
 WORKDIR /web/web
 
@@ -106,6 +107,6 @@ USER secreview
 EXPOSE 8000
 
 # MCP server by default: arguments are its transport options (or `enroll`). The controller and
-# its commands (serve, db, token, rules, gate, sarif...) use
+# its commands (serve, db, token, rules...) use
 # --entrypoint security-review-controller (Docker) or command: (Compose, Kubernetes).
 ENTRYPOINT ["security-review-mcp"]

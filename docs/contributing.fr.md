@@ -107,7 +107,7 @@ src/security_review_mcp/
 ├── rules_loader.py    # validation des règles, lecture des packs TOML et du fichier par défaut
 ├── rule_store.py  # règles en base : amorçage, import/export, activation, suppression
 ├── registry.py    # règles/checklists actives (lues en base), rechargement
-├── cli.py         # commandes db, gate, sarif, trend, advisories, deps, code, rules, token, audit, enroll, scan-deps
+├── cli.py         # commandes db, advisories, deps, code, rules, token, audit, enroll, scan-deps
 ├── codescan.py    # scan du code complet (liste des fichiers, langage, findings)
 ├── sarif.py       # export SARIF 2.1.0
 ├── trends.py      # rapport de tendance
@@ -250,4 +250,22 @@ Une version correspond à un tag poussé sur `master` :
 2. Fusionnez `dev` dans `master`.
 3. Sur `master`, poussez le tag correspondant : `git tag v1.3.0 && git push origin v1.3.0`.
 4. Le push du tag déclenche `publish.yml` : lint et tests, vérification que le tag correspond à
-   la version, publication sur PyPI puis création de la release GitHub.
+   la version, publication sur PyPI et des images Docker (`docker.yml`), puis création de la
+   release GitHub.
+
+Le workflow `.github/workflows/docker.yml` construit l'image (`linux/amd64`, `linux/arm64`,
+variantes par défaut et `-pg`) et vérifie que les deux points d'entrée démarrent. Sur une pull
+request qui touche le `Dockerfile` ou les dépendances, il construit seulement ; sur un tag de
+version, il pousse les images sur `ghcr.io/cyr-ius/security-review-mcp` et
+`docker.io/cyrius44/security-review-mcp` (voir [images publiées](advanced/docker.md#images-publiees)).
+Une exécution manuelle (**Actions → Docker image → Run workflow**, `push` coché) publie une
+image de branche (`dev`, `dev-pg`).
+
+Mise en place unique : un jeton d'accès Docker Hub (lecture et écriture) dans le secret du dépôt
+`DOCKERHUB_TOKEN` ; GHCR utilise le jeton du workflow. Après la première publication, rendez le
+paquet GHCR public (**Packages → security-review-mcp → Package settings**).
+
+Chaque action des workflows est épinglée sur le SHA complet d'un commit, avec sa version en
+commentaire (`uses: actions/checkout@<SHA de 40 caractères> # v7.0.1`) : un tag peut être
+déplacé, pas un commit. Dependabot (`.github/dependabot.yml`) met à jour le SHA et le
+commentaire ensemble. Épinglez de la même façon toute nouvelle action.

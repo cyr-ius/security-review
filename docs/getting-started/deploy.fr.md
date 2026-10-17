@@ -11,8 +11,9 @@ administration) et le serveur MCP (utilisé par les agents et la CI), sur la mê
   développeurs ;
 - d'un compte `admin` pour gérer les utilisateurs, les jetons et les règles.
 
-Deux façons : [en ligne de commande](#en-ligne-de-commande) (une machine) ou
-[avec Docker Compose](#avec-docker-compose) (conteneurs et PostgreSQL).
+Trois façons : [en ligne de commande](#en-ligne-de-commande) (une machine),
+[avec Docker Compose](#avec-docker-compose) (conteneurs et PostgreSQL) ou
+[avec Kubernetes](#avec-kubernetes) (cluster et base PostgreSQL existante).
 
 ## En ligne de commande
 
@@ -73,15 +74,17 @@ Le serveur MCP refuse de démarrer tant que le schéma n'est pas migré (étape 
 
 ### 5. Donner l'accès aux agents
 
-Le serveur MCP exige un jeton **dès qu'un jeton existe** en base. Créez le premier maintenant :
+Le serveur MCP exige un jeton, même tant qu'aucun n'existe en base (il n'accepte alors que les
+demandes d'enrôlement). Créez le premier maintenant :
 
 ```bash
 security-review-controller token create --label alice   # jeton mcp, affiché une fois
 ```
 
-!!! warning "Tant qu'aucun jeton n'existe, `/mcp` est ouvert"
-    Quiconque atteint l'endpoint peut alors l'utiliser. Créez un jeton avant d'exposer le
-    serveur.
+!!! note "Serveur ouvert sur localhost"
+    Un serveur qui écoute sur localhost, sans aucun jeton, accepte toutes les requêtes. Ailleurs,
+    seul `SECREVIEW_ALLOW_UNAUTHENTICATED=true` l'ouvre (voir
+    [Jetons Bearer](../advanced/http.md#jetons-bearer)).
 
 Ensuite, deux façons de donner un jeton à chaque développeur et à chaque pipeline :
 
@@ -116,8 +119,36 @@ L'interface web répond sur `http://127.0.0.1:8080/ui/`, l'endpoint MCP sur
 ouvrir à l'équipe, ajoutez le TLS et renseignez `PUBLISH_ADDRESS` (voir
 [Docker Compose avec PostgreSQL](../advanced/docker.md#docker-compose-avec-postgresql)).
 
+## Avec Kubernetes
+
+Le manifeste
+[`examples/kubernetes/security-review.yaml`](https://github.com/cyr-ius/security-review-mcp/blob/master/examples/kubernetes/security-review.yaml)
+réalise les étapes 2 à 4 sur une base PostgreSQL existante : un init container migre le schéma,
+puis le contrôleur et le serveur MCP démarrent dans deux Deployments. Le compte `admin` est créé
+au premier lancement, avec son mot de passe dans les journaux.
+
+Avant de l'appliquer, remplacez l'image `registry.example.com/security-review-mcp:pg` par une
+image qui contient le pilote PostgreSQL, par exemple `ghcr.io/cyr-ius/security-review-mcp:latest-pg`
+(voir [Installation](installation.md)).
+
+```bash
+kubectl create namespace secreview
+kubectl -n secreview create secret generic secreview-db \
+    --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
+kubectl -n secreview apply -f examples/kubernetes/security-review.yaml
+kubectl -n secreview logs deploy/secreview-controller -c controller   # mot de passe admin initial
+kubectl -n secreview exec deploy/secreview-controller -c controller -- \
+    security-review-controller token create --label alice
+```
+
+Le contrôleur reste interne : ouvrez l'interface web avec
+`kubectl -n secreview port-forward svc/secreview-controller 8080:80`, puis
+`http://127.0.0.1:8080/ui/`. Exposez le Service `secreview-mcp` aux développeurs et à la CI par
+un Ingress avec TLS, et réglez `SECREVIEW_FORWARDED_ALLOW_IPS` sur la plage d'adresses des pods
+de l'ingress controller. Contenu du manifeste, mise à jour OSV et réplicas multiples : voir
+[Kubernetes](../advanced/architecture.md#kubernetes).
+
 ## Étape suivante
 
 [Connectez l'hôte](host.md) de chaque développeur au serveur MCP. Pour aller plus loin :
-[jetons, enrôlement et TLS](../advanced/http.md), [Kubernetes](../advanced/architecture.md#kubernetes),
-[connexion SSO](../advanced/sso.md).
+[jetons, enrôlement et TLS](../advanced/http.md), [connexion SSO](../advanced/sso.md).

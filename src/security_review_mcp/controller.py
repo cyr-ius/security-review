@@ -3,8 +3,9 @@ and administration.
 
 The controller runs apart from the MCP server (``security-review-mcp``), in its own process,
 container or pod; both share the database. ``serve`` serves the REST API (``/api/v1``) and the
-Angular application (``/ui``); the other commands are the operator and pipeline commands of
-cli.CONTROLLER_COMMANDS (``db``, ``token``, ``user``, ``rules``, ``gate``...).
+Angular application (``/ui``); the other commands are the operator commands of
+cli.CONTROLLER_COMMANDS (``db``, ``token``, ``user``, ``rules``...). The pipeline commands
+(``gate``, ``sarif``, ``trend``) belong to ``security-review-ci`` (ci_client).
 """
 
 import argparse
@@ -40,13 +41,11 @@ commands:
   audit        read or purge the audit log (triage decisions, tokens, enrollments)
   rules        manage the internal rules and checklists
   advisories   import, download or inspect the OSV advisory database
-  gate         fail a pipeline when open findings reach a severity threshold
-  sarif        export stored findings as SARIF 2.1.0
-  trend        print the trend report of a project
   code         pattern-scan every file of a codebase
   deps         scan dependency manifests and lockfiles
 
 Run `security-review-controller COMMAND --help` for the options of a command.
+Pipeline commands (gate, sarif, trend) are run by security-review-ci.
 """
 
 

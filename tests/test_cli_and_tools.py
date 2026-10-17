@@ -124,29 +124,6 @@ def test_advisories_import_and_status(tmp_path, capsys):
     assert cli.run(["advisories", "import", str(tmp_path / "nope.json")]) == cli.EXIT_ERROR
 
 
-def test_sarif_command_stdout_and_file(tmp_path, capsys):
-    seed()
-    capsys.readouterr()
-    assert cli.run(["sarif", "--project", "demo"]) == 0
-    log = json.loads(capsys.readouterr().out)
-    assert log["version"] == "2.1.0" and len(log["runs"][0]["results"]) == 1
-    target = tmp_path / "out.sarif"
-    assert cli.run(["sarif", "--project", "demo", "-o", str(target)]) == 0
-    assert json.loads(target.read_text(encoding="utf-8"))["version"] == "2.1.0"
-    capsys.readouterr()
-    assert cli.run(["sarif", "--project", "unknown"]) == 0  # nothing to report is not an error
-    assert json.loads(capsys.readouterr().out)["runs"][0]["results"] == []
-
-
-def test_trend_command(capsys):
-    seed()
-    capsys.readouterr()
-    assert cli.run(["trend", "--project", "demo", "--format", "json"]) == 0
-    assert json.loads(capsys.readouterr().out)["project"] == "demo"
-    assert cli.run(["trend", "--project", "demo"]) == 0
-    assert "demo" in capsys.readouterr().out
-
-
 def test_main_dispatches_cli_commands():
     with pytest.raises(SystemExit) as stop:
         server.main(["advisories", "status"])

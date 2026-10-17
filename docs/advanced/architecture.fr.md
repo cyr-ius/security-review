@@ -57,8 +57,6 @@ security-review-controller db status    # {"current": "0001", "head": "0001", "u
   `SECREVIEW_DB_AUTO_UPGRADE=false`. Ils vérifient alors seulement le schéma. Désactivez la
   migration automatique quand une tâche dédiée s'en charge (service `migrate` de Docker
   Compose, init container Kubernetes) : une seule migration à la fois.
-- Une base créée par la version 1.x (sans révision Alembic) est reconnue et complétée par la
-  première révision, sans perte de données.
 
 ## Docker Compose
 

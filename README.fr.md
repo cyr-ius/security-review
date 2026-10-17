@@ -15,7 +15,7 @@ rapports (SQLite ou PostgreSQL) exploitable en pipeline.
 |---|---|
 | **Prompts** | `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review`, `triage-report`, `development-standards` |
 | **Outils** | checklists, `scan_code`, `scan_dependencies`, enregistrement et lecture des rapports, [propositions de statut](https://cyr-ius.github.io/security-review-mcp/fr/usage/prompts-tools/#statut-dun-finding) (`propose_finding_status` : un agent ne ferme jamais un finding), posture et gate projet, export SARIF, tendances, gestion des règles |
-| **CLI** | `security-review-mcp` (serveur MCP, `enroll`, [`scan-deps`](https://cyr-ius.github.io/security-review-mcp/fr/advanced/dependencies/#scan-avec-un-serveur-partage-hook-de-commit) pour un hook de commit) et `security-review-controller` (`serve`, `db`, `gate`, `sarif`, `trend`, `code scan`, `deps scan`, `advisories`, `rules`, `token`, `user`, `audit`), codes de sortie 0 / 1 / 2 |
+| **CLI** | `security-review-mcp` (serveur MCP, `enroll`, [`scan-deps`](https://cyr-ius.github.io/security-review-mcp/fr/advanced/dependencies/#scan-avec-un-serveur-partage-hook-de-commit) pour un hook de commit) et `security-review-controller` (`serve`, `db`, `code scan`, `deps scan`, `advisories`, `rules`, `token`, `user`, `audit`), codes de sortie 0 / 1 / 2 |
 | **Pipelines** | [`security-review-ci`](https://cyr-ius.github.io/security-review-mcp/fr/usage/gate/#client-de-pipeline-security-review-ci) (`gate`, `sarif`, `trend`) : client léger de l'API REST pour Jenkins, GitLab ou GitHub, avec un jeton `ci` restreint aux projets sélectionnés, sans pilote de base |
 | **Règles** | Plus de 120 règles et plus de 75 items de checklist : Python, Java, Angular / Node.js, Docker, Kubernetes, configuration, GitLab CI, Jenkins, Spring, FastAPI, copiés en base au premier lancement, plus vos [règles internes](https://cyr-ius.github.io/security-review-mcp/fr/advanced/rules/) (import/export TOML) |
 | **Normes de développement** | [conventions par technologie](https://cyr-ius.github.io/security-review-mcp/fr/advanced/standards/) gérées dans l'interface web et transmises à l'assistant IA avant qu'il code (prompt, outils `get_development_standards` / `list_development_standards`, ressources) |
@@ -50,10 +50,11 @@ security-review-controller token create --label alice              # jeton de l'
 security-review-controller serve --port 8080                       # interface /ui et API REST
 security-review-mcp --transport streamable-http --port 8000        # endpoint /mcp
 
-security-review-controller gate --project portal --fail-on high    # bloquer un pipeline
+security-review-ci gate --url http://localhost:8080 --project portal  # bloquer un pipeline (jeton ci : SECREVIEW_TOKEN)
 ```
 
-Configuration de l'hôte (VS Code, `.vscode/mcp.json`) :
+Configuration de l'hôte (VS Code avec jeton, `.vscode/mcp.json` ; Claude et `.mcp.json` : voir
+[configuration de l'hôte](https://cyr-ius.github.io/security-review-mcp/fr/getting-started/host/)) :
 
 ```json
 {
@@ -75,7 +76,7 @@ Pas à pas : [mise en service du serveur](https://cyr-ius.github.io/security-rev
 Autres cas : [installation hors ligne](https://cyr-ius.github.io/security-review-mcp/fr/advanced/installation/),
 [mode local stdio](https://cyr-ius.github.io/security-review-mcp/fr/advanced/stdio/),
 [HTTP, authentification et TLS](https://cyr-ius.github.io/security-review-mcp/fr/advanced/http/),
-[Docker et Docker Compose avec PostgreSQL](https://cyr-ius.github.io/security-review-mcp/fr/advanced/docker/),
+[images Docker](https://cyr-ius.github.io/security-review-mcp/fr/advanced/docker/#images-publiees) (`ghcr.io/cyr-ius/security-review-mcp`, `docker.io/cyrius44/security-review-mcp`) et [Docker Compose avec PostgreSQL](https://cyr-ius.github.io/security-review-mcp/fr/advanced/docker/#docker-compose-avec-postgresql),
 [architecture et Kubernetes](https://cyr-ius.github.io/security-review-mcp/fr/advanced/architecture/),
 [variables `SECREVIEW_*`](https://cyr-ius.github.io/security-review-mcp/fr/reference/configuration/).
 

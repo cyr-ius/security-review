@@ -22,8 +22,8 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 `security-review-controller db upgrade` n'a pas été lancé.
 
 !!! note "Anciennes sous-commandes"
-    `security-review-mcp token|rules|gate|sarif|trend|advisories|deps|code|db` fonctionnent encore
-    pendant la version 2 : elles affichent un avertissement sur stderr et exécutent la commande
+    `security-review-mcp token|rules|advisories|deps|code|db` sont dépréciées :
+    elles affichent un avertissement sur stderr et exécutent la commande
     du contrôleur. Remplacez-les par `security-review-controller …`.
 
 ## `security-review-controller`
@@ -47,12 +47,12 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | `deps scan FICHIER…` | Analyse de manifestes / lockfiles / SBOM CycloneDX | [Dépendances](../advanced/dependencies.md) |
 | `advisories import PATH` / `advisories status` | Gestion de la base OSV hors ligne | [Dépendances](../advanced/dependencies.md#base-de-vulnerabilites-hors-ligne-format-osv) |
 | `advisories update [--ecosystem E …]` | Télécharge les exports OSV (`SECREVIEW_OSV_*`, proxy facultatif) et les importe ; code `2` si un écosystème échoue | [Mise à jour automatique](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur) |
-| `gate --project P --fail-on SEV` | Gate de déploiement | [Gate](../usage/gate.md) |
-| `sarif --project P` / `--report-id N` | Export SARIF 2.1.0 | [SARIF](../advanced/sarif.md) |
-| `trend --project P` | Rapport de tendance | [Tendances](../advanced/trends.md) |
 
 `serve` et les commandes qui lisent ou écrivent la base migrent d'abord le schéma, sauf avec
 `SECREVIEW_DB_AUTO_UPGRADE=false` : elles vérifient alors seulement qu'il est à jour.
+
+Les commandes de pipeline (gate, export SARIF, rapport de tendance) ne sont pas des commandes du
+contrôleur : elles sont exécutées par [`security-review-ci`](#security-review-ci), par l'API REST.
 
 ## `security-review-ci`
 
@@ -68,7 +68,7 @@ Options de toutes les sous-commandes : `--project P` (obligatoire), `--url URL` 
 
 ## Codes de sortie
 
-Les commandes de contrôle (`code scan`, `deps scan`, `gate`, `security-review-ci gate`, `db status`) partagent la même
+Les commandes de contrôle (`code scan`, `deps scan`, `security-review-ci gate`, `db status`) partagent la même
 convention :
 
 | Code | Signification |

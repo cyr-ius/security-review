@@ -45,7 +45,9 @@ def enrollment_echo(request: Request) -> PlainTextResponse:
     return PlainTextResponse(f"enroll/{request.scope['state']['enrollment_token_id']}")
 
 
-def protected_client(web: bool = False, enrollment: bool = False) -> TestClient:
+def protected_client(
+    web: bool = False, enrollment: bool = False, allow_open: bool = False
+) -> TestClient:
     """The middleware of the MCP server (``web=False``) or of the controller (``web=True``)."""
     app = Starlette(
         routes=[
@@ -64,7 +66,12 @@ def protected_client(web: bool = False, enrollment: bool = False) -> TestClient:
     public = frozenset({"/api/v1/enroll", "/healthz"})
     return TestClient(
         BearerAuthMiddleware(
-            app, STORE, web=web, enrollment_app=enrollment_app, public_paths=public
+            app,
+            STORE,
+            web=web,
+            enrollment_app=enrollment_app,
+            public_paths=public,
+            allow_open=allow_open,
         )
     )
 
@@ -145,14 +152,44 @@ def test_web_ui_files_are_public_but_not_the_api():
     assert mcp_client.get("/api/v1/auth/config").status_code == 401
 
 
-def test_without_any_token_mcp_is_open_and_the_web_api_not_configured():
+def test_without_any_token_the_web_api_is_not_configured():
     client = protected_client(web=True)
 
     assert client.get("/ui/").status_code == 200
     response = client.get("/api/v1/me")
     assert response.status_code == 503
     assert response.json()["error"] == "authentication_not_configured"
-    assert protected_client().get("/mcp").status_code == 200
+    # allow_open only concerns the MCP server
+    assert protected_client(web=True, allow_open=True).get("/api/v1/me").status_code == 503
+
+
+def test_without_any_token_mcp_is_closed_unless_allowed():
+    closed = protected_client()
+    assert closed.get("/mcp").status_code == 401
+    # Any bearer value used to be accepted while no token existed
+    assert closed.get("/mcp", headers=bearer("anything")).status_code == 401
+    assert closed.get("/healthz").status_code == 200
+    # Without a token, a client of a closed server reaches enrollment
+    assert protected_client(enrollment=True).get("/mcp").text == "enroll/None"
+
+    assert protected_client(allow_open=True).get("/mcp").status_code == 200
+    # Once a token exists, an open server requires it too
+    token_store.create_token("ops", Role.ADMIN)
+    assert protected_client(allow_open=True).get("/mcp").status_code == 401
+
+
+@pytest.mark.parametrize(
+    ("host", "allow_unauthenticated", "expected"),
+    [
+        ("127.0.0.1", False, True),
+        ("::1", False, True),
+        ("0.0.0.0", False, False),
+        ("192.168.1.1", False, False),
+        ("0.0.0.0", True, True),
+    ],
+)
+def test_only_loopback_or_explicit_setting_opens_mcp(host, allow_unauthenticated, expected):
+    assert http_server.allows_open_mcp(host, allow_unauthenticated) is expected
 
 
 def test_enrollment_app_receives_mcp_clients_without_an_approved_token():
@@ -199,7 +236,7 @@ def test_pending_token_is_refused_without_enrollment_app():
 def test_pending_requests_do_not_close_an_open_server():
     token_store.request_enrollment("shop-api")
 
-    assert protected_client(enrollment=True).get("/mcp").text == "None/None"
+    assert protected_client(enrollment=True, allow_open=True).get("/mcp").text == "None/None"
     assert protected_client(web=True).get("/api/v1/me").status_code == 503
 
 
@@ -362,6 +399,40 @@ def test_main_serves_the_enrollment_server_when_enabled(monkeypatch, captured_ru
         assert enroll.status_code == 401
 
 
+@pytest.mark.parametrize(
+    ("host", "allow_unauthenticated", "status"),
+    [("0.0.0.0", False, 401), ("0.0.0.0", True, 200), ("127.0.0.1", False, 200)],
+)
+def test_main_closes_an_exposed_server_without_token(
+    monkeypatch, captured_run, host, allow_unauthenticated, status
+):
+    monkeypatch.setattr(
+        server,
+        "get_settings",
+        lambda: make_settings(enrollment=False, allow_unauthenticated=allow_unauthenticated),
+    )
+
+    server.main(["--transport", "streamable-http", "--host", host])
+
+    (call,) = captured_run
+    with TestClient(call["app"], base_url="http://127.0.0.1:8000") as client:
+        response = client.post(
+            "/mcp",
+            headers={"Accept": "application/json, text/event-stream", **bearer("anything")},
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test", "version": "0"},
+                },
+            },
+        )
+    assert response.status_code == status
+
+
 def test_http_mcp_server_refuses_a_database_that_was_not_migrated(monkeypatch, capsys):
     monkeypatch.setattr(server, "get_settings", lambda: make_settings())
     started = []
@@ -430,6 +501,15 @@ def test_serve_warns_without_authentication_only_when_no_token(caplog, captured_
 
     warned = any("without authentication" in record.message for record in caplog.records)
     assert warned is not has_token
+
+
+def test_serve_warns_that_a_closed_server_without_token_refuses_every_client(caplog, captured_run):
+    with caplog.at_level("WARNING", logger="security_review_mcp"):
+        http_server.serve(Starlette(), "0.0.0.0", 8000, STORE, None, allow_open=False)
+
+    messages = [record.message for record in caplog.records]
+    assert any("every MCP client is refused" in message for message in messages)
+    assert not any("without authentication" in message for message in messages)
 
 
 def test_serve_keeps_the_uvicorn_proxy_default_when_unset(captured_run):

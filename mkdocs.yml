@@ -3,7 +3,7 @@ site_description: MCP server for security-oriented code review
 site_url: https://cyr-ius.github.io/security-review-mcp/
 repo_url: https://github.com/cyr-ius/security-review-mcp
 repo_name: cyr-ius/security-review-mcp
-edit_uri: edit/master/docs/
+edit_uri: edit/dev/docs/
 copyright: Security Review MCP
 
 theme:

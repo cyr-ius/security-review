@@ -22,8 +22,8 @@ With stdio, the server migrates its database itself at start-up (unless
 start (code `2`) while `security-review-controller db upgrade` has not been run.
 
 !!! note "Old subcommands"
-    `security-review-mcp token|rules|gate|sarif|trend|advisories|deps|code|db` still work during
-    version 2: they print a warning on stderr and run the controller command. Replace them with
+    `security-review-mcp token|rules|advisories|deps|code|db` are deprecated:
+    they print a warning on stderr and run the controller command. Replace them with
     `security-review-controller …`.
 
 ## `security-review-controller`
@@ -47,12 +47,12 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 | `deps scan FILE…` | Analysis of manifests / lockfiles / CycloneDX SBOMs | [Dependencies](../advanced/dependencies.md) |
 | `advisories import PATH` / `advisories status` | Management of the offline OSV database | [Dependencies](../advanced/dependencies.md#offline-vulnerability-database-osv-format) |
 | `advisories update [--ecosystem E …]` | Downloads the OSV exports (`SECREVIEW_OSV_*`, optional proxy) and imports them; code `2` if an ecosystem fails | [Automatic update](../advanced/dependencies.md#automatic-update-by-the-controller) |
-| `gate --project P --fail-on SEV` | Deployment gate | [Gate](../usage/gate.md) |
-| `sarif --project P` / `--report-id N` | SARIF 2.1.0 export | [SARIF](../advanced/sarif.md) |
-| `trend --project P` | Trend report | [Trends](../advanced/trends.md) |
 
 `serve` and the commands that read or write the database first migrate the schema, unless
 `SECREVIEW_DB_AUTO_UPGRADE=false`: they then only check that it is up to date.
+
+The pipeline commands (gate, SARIF export, trend report) are not controller commands: they are
+run by [`security-review-ci`](#security-review-ci), through the REST API.
 
 ## `security-review-ci`
 
@@ -68,7 +68,7 @@ Options of every sub-command: `--project P` (required), `--url URL` (default
 
 ## Exit codes
 
-The check commands (`code scan`, `deps scan`, `gate`, `security-review-ci gate`, `db status`) share the same convention:
+The check commands (`code scan`, `deps scan`, `security-review-ci gate`, `db status`) share the same convention:
 
 | Code | Meaning |
 |---|---|

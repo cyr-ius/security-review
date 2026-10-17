@@ -105,7 +105,9 @@ async def _enroll(request: Request) -> dict[str, Any]:
     """Validate and store an enrollment request; return the created request."""
     if not get_settings().enrollment:
         raise EnrollmentError(404, "Enrollment is disabled")
-    if not await run_in_threadpool(token_store.DatabaseTokenStore().has_tokens):
+    if request.app.state.allow_open and not await run_in_threadpool(
+        token_store.DatabaseTokenStore().has_tokens
+    ):
         raise EnrollmentError(409, "Authentication is not configured: no token is needed")
     body = _parse(await _read_body(request))
     address = request.client.host if request.client else None
@@ -153,12 +155,18 @@ async def enroll(request: Request) -> JSONResponse:
     return JSONResponse(created, status_code=201)
 
 
-def create_app(host: str = "127.0.0.1") -> Starlette:
-    """Build the enrollment endpoint app (protected against DNS rebinding on loopback)."""
+def create_app(host: str = "127.0.0.1", allow_open: bool = False) -> Starlette:
+    """Build the enrollment endpoint app (protected against DNS rebinding on loopback).
+
+    ``allow_open`` is the one given to http_server.build_mcp_app: an open server without any
+    token needs no enrollment, a closed one accepts requests even before its first token.
+    """
     middleware = []
     if host in LOOPBACK_HOSTS:
         # Same protection as the MCP endpoint against DNS rebinding on a local server
         middleware.append(
             Middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "[::1]"])
         )
-    return Starlette(routes=[Route(ENROLL_PATH, enroll, methods=["POST"])], middleware=middleware)
+    app = Starlette(routes=[Route(ENROLL_PATH, enroll, methods=["POST"])], middleware=middleware)
+    app.state.allow_open = allow_open
+    return app

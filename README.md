@@ -15,7 +15,7 @@ in pipelines.
 |---|---|
 | **Prompts** | `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review`, `triage-report`, `development-standards` |
 | **Tools** | checklists, `scan_code`, `scan_dependencies`, saving and reading of reports, [status proposals](https://cyr-ius.github.io/security-review-mcp/usage/prompts-tools/#status-of-a-finding) (`propose_finding_status`: an agent never closes a finding), project posture and gate, SARIF export, trends, rule management |
-| **CLI** | `security-review-mcp` (MCP server, `enroll`, [`scan-deps`](https://cyr-ius.github.io/security-review-mcp/advanced/dependencies/#scan-with-a-shared-server-commit-hook) for a commit hook) and `security-review-controller` (`serve`, `db`, `gate`, `sarif`, `trend`, `code scan`, `deps scan`, `advisories`, `rules`, `token`, `user`, `audit`), exit codes 0 / 1 / 2 |
+| **CLI** | `security-review-mcp` (MCP server, `enroll`, [`scan-deps`](https://cyr-ius.github.io/security-review-mcp/advanced/dependencies/#scan-with-a-shared-server-commit-hook) for a commit hook) and `security-review-controller` (`serve`, `db`, `code scan`, `deps scan`, `advisories`, `rules`, `token`, `user`, `audit`), exit codes 0 / 1 / 2 |
 | **Pipelines** | [`security-review-ci`](https://cyr-ius.github.io/security-review-mcp/usage/gate/#pipeline-client-security-review-ci) (`gate`, `sarif`, `trend`): lightweight client of the REST API for Jenkins, GitLab or GitHub, with a `ci` token restricted to the selected projects, no database driver |
 | **Rules** | More than 120 rules and more than 75 checklist items: Python, Java, Angular / Node.js, Docker, Kubernetes, configuration, GitLab CI, Jenkins, Spring, FastAPI, copied into the database at first start, plus your [internal rules](https://cyr-ius.github.io/security-review-mcp/advanced/rules/) (TOML import/export) |
 | **Development standards** | [conventions by technology](https://cyr-ius.github.io/security-review-mcp/advanced/standards/) managed in the web interface and handed to the AI assistant before it codes (prompt, `get_development_standards` / `list_development_standards` tools, resources) |
@@ -50,10 +50,11 @@ security-review-controller token create --label alice              # token of th
 security-review-controller serve --port 8080                       # /ui interface and REST API
 security-review-mcp --transport streamable-http --port 8000        # /mcp endpoint
 
-security-review-controller gate --project portal --fail-on high    # block a pipeline
+security-review-ci gate --url http://localhost:8080 --project portal  # block a pipeline (ci token: SECREVIEW_TOKEN)
 ```
 
-Host configuration (VS Code, `.vscode/mcp.json`):
+Host configuration (VS Code with a token, `.vscode/mcp.json`; Claude and `.mcp.json`: see
+[connecting the host](https://cyr-ius.github.io/security-review-mcp/getting-started/host/)):
 
 ```json
 {
@@ -75,7 +76,7 @@ Step by step: [deploying the server](https://cyr-ius.github.io/security-review-m
 Other cases: [offline installation](https://cyr-ius.github.io/security-review-mcp/advanced/installation/),
 [local stdio mode](https://cyr-ius.github.io/security-review-mcp/advanced/stdio/),
 [HTTP, authentication and TLS](https://cyr-ius.github.io/security-review-mcp/advanced/http/),
-[Docker and Docker Compose with PostgreSQL](https://cyr-ius.github.io/security-review-mcp/advanced/docker/),
+[Docker images](https://cyr-ius.github.io/security-review-mcp/advanced/docker/#published-images) (`ghcr.io/cyr-ius/security-review-mcp`, `docker.io/cyrius44/security-review-mcp`) and [Docker Compose with PostgreSQL](https://cyr-ius.github.io/security-review-mcp/advanced/docker/#docker-compose-with-postgresql),
 [architecture and Kubernetes](https://cyr-ius.github.io/security-review-mcp/advanced/architecture/),
 [`SECREVIEW_*` variables](https://cyr-ius.github.io/security-review-mcp/reference/configuration/).
 

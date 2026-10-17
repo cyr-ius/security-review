@@ -26,35 +26,18 @@ En transport **stdio**, l'hôte (VS Code, Claude…) lance lui-même le processu
 Indiquez le chemin de l'exécutable et, si besoin, les variables `SECREVIEW_*`
 (voir [Configuration](../reference/configuration.md)).
 
-=== "VS Code / GitHub Copilot"
+VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la racine du dépôt :
 
-    `.vscode/mcp.json` :
-
-    ```json
-    {
-      "servers": {
-        "security-review": {
-          "type": "stdio",
-          "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
-          "env": { "SECREVIEW_DATABASE_URL": "sqlite:////data/security_reports.db" }
-        }
-      }
+```json
+{
+  "mcpServers": {
+    "security-review": {
+      "type": "stdio",
+      "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
+      "env": { "SECREVIEW_DATABASE_URL": "sqlite:////data/security_reports.db" }
     }
-    ```
-
-=== "Claude"
-
-    `.mcp.json` :
-
-    ```json
-    {
-      "mcpServers": {
-        "security-review": {
-          "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
-          "env": { "SECREVIEW_DATABASE_URL": "sqlite:////data/security_reports.db" }
-        }
-      }
-    }
-    ```
+  }
+}
+```
 
 Pour lancer le serveur depuis un conteneur, voir [Docker](docker.md#poste-developpeur-stdio).

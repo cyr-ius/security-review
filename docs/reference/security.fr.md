@@ -16,7 +16,9 @@
   constant : une révocation est donc immédiate sur toutes les instances. Un jeton créé avec
   `--project` est limité à ce projet dans les outils MCP et l'API web : tout autre projet,
   rapport ou finding est traité comme inexistant (voir
-  [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)). Si l'écoute n'est pas sur
+  [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)). Tant
+  qu'aucun jeton n'existe, le serveur MCP reste fermé (seul l'enrôlement est accessible), sauf
+  s'il écoute sur localhost ou avec `SECREVIEW_ALLOW_UNAUTHENTICATED=true`. Si l'écoute n'est pas sur
   localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Le
   serveur ne génère jamais de certificat TLS : le HTTPS utilise le certificat fourni par
   l'opérateur, signé par une

@@ -4,15 +4,18 @@
 # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
 
 version: 2
+# master is protected and only receives merges of dev: every update targets dev
 updates:
   - package-ecosystem: "github-actions" # See documentation for possible values
     directory: "/" # Location of package manifests
+    target-branch: "dev"
     schedule:
       interval: "weekly"
 
   # Web interface (Angular); Angular packages are upgraded together with `ng update`
   - package-ecosystem: "npm"
     directory: "/web"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
     groups:
@@ -22,15 +25,18 @@ updates:
   # Python dependencies (pyproject.toml and uv.lock)
   - package-ecosystem: "uv"
     directory: "/"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
 
   # Base images of the Dockerfile (node, python, uv) and of docker-compose.yml (postgres)
   - package-ecosystem: "docker"
     directory: "/"
+    target-branch: "dev"
     schedule:
       interval: "weekly"
   - package-ecosystem: "docker-compose"
     directory: "/"
+    target-branch: "dev"
     schedule:
       interval: "weekly"

@@ -1,9 +1,9 @@
 """Command line helpers for pipelines and administrators (no MCP client or agent needed).
 
-``security-review-controller`` runs ``db``, ``gate``, ``sarif``, ``trend``, ``advisories``,
-``deps``, ``code``, ``rules``, ``token``, ``user`` and ``audit`` (CONTROLLER_COMMANDS);
+``security-review-controller`` runs ``db``, ``advisories``, ``deps``, ``code``, ``rules``,
+``token``, ``user`` and ``audit`` (CONTROLLER_COMMANDS);
 ``security-review-mcp`` runs ``enroll`` and ``scan-deps`` (MCP_COMMANDS). Exit codes follow the
-same convention everywhere: 0 success, 1 blocked (gate / findings found, schema not up to date),
+same convention everywhere: 0 success, 1 blocked (findings found, schema not up to date),
 2 usage or data error.
 """
 
@@ -32,7 +32,6 @@ from . import (
     sarif,
     services,
     token_store,
-    trends,
     web_users,
 )
 from .config import get_settings
@@ -61,95 +60,6 @@ def _read_text(path: Path) -> str:
     if path.stat().st_size > MAX_FILE_BYTES:
         raise ValueError(f"File too large (> {MAX_FILE_BYTES} bytes): {path}")
     return path.read_text(encoding="utf-8", errors="replace")
-
-
-# ── gate ─────────────────────────────────────────────────────────────────────
-
-
-def gate_command(argv: list[str]) -> int:
-    """Run ``security-review-controller gate``: fail when open findings reach a threshold."""
-    parser = argparse.ArgumentParser(
-        prog="security-review-controller gate",
-        description="Fail when open findings reach a severity threshold.",
-    )
-    parser.add_argument("--project", required=True)
-    parser.add_argument(
-        "--fail-on",
-        choices=_SEVERITY_CHOICES,
-        default=Severity.HIGH.value,
-        help="lowest blocking severity (default: high)",
-    )
-    parser.add_argument("--report-id", type=int, default=None, help="check a single report")
-    args = parser.parse_args(argv)
-
-    try:
-        init_db()
-        result = services.evaluate_gate(args.project, Severity(args.fail_on), args.report_id)
-    except (NotFoundError, ValueError) as exc:
-        print(json.dumps({"passed": False, "error": str(exc)}), file=sys.stderr)
-        return EXIT_ERROR
-
-    print(json.dumps(result, indent=2))
-    return EXIT_PASSED if result["passed"] else EXIT_BLOCKED
-
-
-# ── sarif ────────────────────────────────────────────────────────────────────
-
-
-def sarif_command(argv: list[str]) -> int:
-    """Run ``security-review-controller sarif``: export stored findings as SARIF 2.1.0."""
-    parser = argparse.ArgumentParser(
-        prog="security-review-controller sarif", description="Export findings as a SARIF 2.1.0 log."
-    )
-    target = parser.add_mutually_exclusive_group(required=True)
-    target.add_argument("--project")
-    target.add_argument("--report-id", type=int)
-    parser.add_argument("--include-resolved", action="store_true")
-    parser.add_argument("--output", "-o", help="file to write (default: standard output)")
-    args = parser.parse_args(argv)
-
-    try:
-        init_db()
-        name, items = services.collect_sarif_items(args.report_id, args.project)
-        log = sarif.build_sarif(items, name, args.include_resolved)
-        text = json.dumps(log, indent=2)
-        if args.output:
-            Path(args.output).write_text(text + "\n", encoding="utf-8")
-            print(
-                f"{len(log['runs'][0]['results'])} result(s) written to {args.output}",
-                file=sys.stderr,
-            )
-        else:
-            print(text)
-    except (NotFoundError, ValueError, OSError) as exc:
-        return _fail(str(exc))
-    return EXIT_PASSED
-
-
-# ── trend ────────────────────────────────────────────────────────────────────
-
-
-def trend_command(argv: list[str]) -> int:
-    """Run ``security-review-controller trend``: print the trend report of a project."""
-    parser = argparse.ArgumentParser(
-        prog="security-review-controller trend", description="Trend report of a project."
-    )
-    parser.add_argument("--project", required=True)
-    parser.add_argument("--days", type=int, default=90)
-    parser.add_argument("--granularity", choices=["day", "week", "month"], default="week")
-    parser.add_argument("--format", choices=["markdown", "json"], default="markdown")
-    args = parser.parse_args(argv)
-
-    try:
-        init_db()
-        trend = trends.get_trend(args.project, args.days, args.granularity)
-    except ValueError as exc:
-        return _fail(str(exc))
-    if args.format == "json":
-        print(json.dumps(trend, indent=2))
-    else:
-        print(trends.render_trend_markdown(trend), end="")
-    return EXIT_PASSED
 
 
 # ── advisories ───────────────────────────────────────────────────────────────
@@ -604,11 +514,13 @@ def token_command(argv: list[str]) -> int:
         else:
             result = token_store.revoke_token(args.token, audit.CLI_ACTOR)
             if not token_store.DatabaseTokenStore().has_tokens():
-                # Without any token the HTTP transport no longer requires authentication
-                print(
-                    json.dumps({"warning": "No token left: the MCP endpoint is now open"}),
-                    file=sys.stderr,
+                # Without any token the HTTP MCP server refuses every client (fail closed)
+                warning = (
+                    "No token left: the MCP endpoint refuses every client except enrollment "
+                    "requests (it is open if it listens on localhost or with "
+                    "SECREVIEW_ALLOW_UNAUTHENTICATED)"
                 )
+                print(json.dumps({"warning": warning}), file=sys.stderr)
     except ValueError as exc:
         return _fail(str(exc))
     print(json.dumps(result, indent=2))
@@ -1049,12 +961,10 @@ def db_command(argv: list[str]) -> int:
     return EXIT_PASSED if status["up_to_date"] else EXIT_BLOCKED
 
 
-# Commands of security-review-controller (database, administration and pipelines)
+# Commands of security-review-controller (database and administration); the pipeline
+# commands gate, sarif and trend belong to security-review-ci (ci_client)
 CONTROLLER_COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "db": db_command,
-    "gate": gate_command,
-    "sarif": sarif_command,
-    "trend": trend_command,
     "advisories": advisories_command,
     "deps": deps_command,
     "code": code_command,

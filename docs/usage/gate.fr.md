@@ -1,14 +1,10 @@
 # Gate CI/CD
 
 Sans agent ni client MCP, un job Jenkins, GitLab ou GitHub peut bloquer un déploiement tant que
-des findings critiques restent ouverts. Deux commandes le font :
-
-| Commande | Contacte | Nécessite sur l'agent de build |
-|---|---|---|
-| `security-review-ci gate` (recommandée) | l'API REST du contrôleur, avec un [jeton `ci`](#jeton-ci-et-projets-visibles) | Python 3 seulement : ni pilote de base, ni SQLModel, ni URL de base |
-| `security-review-controller gate` | la base directement | le paquet, le pilote de base et `SECREVIEW_DATABASE_URL` |
-
-Les deux ont les mêmes codes de sortie et la même sortie JSON :
+des findings critiques restent ouverts. La commande `security-review-ci gate` le fait par l'API
+REST du contrôleur, avec un [jeton `ci`](#jeton-ci-et-projets-visibles) : elle ne nécessite que
+Python 3 sur l'agent de build (ni pilote de base, ni SQLModel, ni URL de base). La CLI du
+contrôleur (`security-review-controller`) n'a aucune commande de pipeline.
 
 ```bash
 security-review-ci gate --project portal --fail-on high
@@ -117,28 +113,6 @@ leurs propres projets) ; les jetons `mcp`, non.
         SECREVIEW_CONTROLLER_URL: https://secreview.example.com
         SECREVIEW_TOKEN: ${{ secrets.SECREVIEW_CI_TOKEN }}
     ```
-
-## Accès direct à la base (`security-review-controller gate`)
-
-Sur une machine qui atteint déjà la base (le contrôleur lui-même, un job d'administration), la
-commande du contrôleur la lit directement :
-
-```bash
-security-review-controller gate --project portal --fail-on high
-```
-
-```yaml
-# .gitlab-ci.yml
-security-gate:
-  stage: test
-  script:
-    - security-review-controller gate --project "$CI_PROJECT_PATH_SLUG" --fail-on high
-  variables:
-    SECREVIEW_DATABASE_URL: $SECREVIEW_DATABASE_URL   # variable masquée et protégée
-```
-
-Elle nécessite le pilote de base et donne au pipeline les identifiants de la base : préférez
-`security-review-ci` et un jeton `ci`.
 
 Un finding sort du blocage quand une personne le passe à `fixed`, `accepted` ou
 `false_positive` dans l'[interface web](web-interface.md#triage-des-findings) : la

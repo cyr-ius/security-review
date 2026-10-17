@@ -63,8 +63,8 @@ security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
 # MCP endpoint: http://127.0.0.1:8000/mcp
 ```
 
-Then declare the MCP server in your host, for example `.vscode/mcp.json`, and paste the token
-when VS Code asks for it:
+Then declare the MCP server in your host, for example in VS Code with `.vscode/mcp.json` (the
+only file where VS Code can ask for the token), and paste the token when VS Code asks for it:
 
 ```json
 {

@@ -19,10 +19,11 @@ Le paquet publié contient l'interface web déjà compilée.
 
 ## Image Docker
 
-Pour faire tourner le serveur dans des conteneurs, construisez l'image depuis le dépôt (l'extra
-`postgres` ajoute le pilote PostgreSQL) :
+Pour faire tourner le serveur dans des conteneurs, récupérez l'image publiée (la variante `-pg`
+contient le pilote PostgreSQL), ou construisez-la depuis le dépôt :
 
 ```bash
+docker pull ghcr.io/cyr-ius/security-review-mcp:latest-pg    # or docker.io/cyrius44/security-review-mcp
 docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .
 ```
 
@@ -30,7 +31,6 @@ La même image lance le serveur MCP et le contrôleur : voir [Docker](../advance
 
 ## Autres cas
 
-Installation depuis les sources, sans accès Internet, ou mise à jour depuis la version 1.x :
-voir [Installation : autres cas](../advanced/installation.md).
+Installation depuis les sources ou sans accès Internet : voir [Installation : autres cas](../advanced/installation.md).
 
 **Étape suivante :** [mettre le serveur en service](deploy.md).

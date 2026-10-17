@@ -10,8 +10,9 @@ At the end, you have:
 - an `/mcp` endpoint, protected by tokens, that the hosts of the developers connect to;
 - an `admin` account to manage the users, the tokens and the rules.
 
-Two ways: [with the command line](#with-the-command-line) (one machine) or
-[with Docker Compose](#with-docker-compose) (containers and PostgreSQL).
+Three ways: [with the command line](#with-the-command-line) (one machine),
+[with Docker Compose](#with-docker-compose) (containers and PostgreSQL) or
+[with Kubernetes](#with-kubernetes) (cluster and existing PostgreSQL).
 
 ## With the command line
 
@@ -70,15 +71,17 @@ The MCP server refuses to start while the schema is not migrated (step 2).
 
 ### 5. Give access to the agents
 
-The MCP server requires a token **as soon as one token exists** in the database. Create the
-first one now:
+The MCP server requires a token, even while none exists in the database (it then only accepts
+enrollment requests). Create the first one now:
 
 ```bash
 security-review-controller token create --label alice   # mcp token, shown once
 ```
 
-!!! warning "While no token exists, `/mcp` is open"
-    Anyone who reaches the endpoint can then use it. Create a token before exposing the server.
+!!! note "Open server on localhost"
+    A server listening on localhost, without any token, accepts every request. Elsewhere, only
+    `SECREVIEW_ALLOW_UNAUTHENTICATED=true` opens it (see
+    [Bearer tokens](../advanced/http.md#bearer-tokens)).
 
 Then, two ways to give a token to each developer and pipeline:
 
@@ -113,8 +116,36 @@ The web interface answers on `http://127.0.0.1:8080/ui/`, the MCP endpoint on
 team, add TLS and set `PUBLISH_ADDRESS` (see
 [Docker Compose with PostgreSQL](../advanced/docker.md#docker-compose-with-postgresql)).
 
+## With Kubernetes
+
+The
+[`examples/kubernetes/security-review.yaml`](https://github.com/cyr-ius/security-review-mcp/blob/master/examples/kubernetes/security-review.yaml)
+manifest runs steps 2 to 4 on an existing PostgreSQL database: an init container migrates the
+schema, then the controller and the MCP server start in two Deployments. The `admin` account is
+created at the first start, with its password in the logs.
+
+Before applying it, replace the image `registry.example.com/security-review-mcp:pg` with an
+image that contains the PostgreSQL driver, for example `ghcr.io/cyr-ius/security-review-mcp:latest-pg`
+(see [Installation](installation.md)).
+
+```bash
+kubectl create namespace secreview
+kubectl -n secreview create secret generic secreview-db \
+    --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
+kubectl -n secreview apply -f examples/kubernetes/security-review.yaml
+kubectl -n secreview logs deploy/secreview-controller -c controller   # initial admin password
+kubectl -n secreview exec deploy/secreview-controller -c controller -- \
+    security-review-controller token create --label alice
+```
+
+The controller stays internal: reach the web interface with
+`kubectl -n secreview port-forward svc/secreview-controller 8080:80`, then
+`http://127.0.0.1:8080/ui/`. Expose the `secreview-mcp` Service to the developers and the CI
+through an Ingress with TLS, and set `SECREVIEW_FORWARDED_ALLOW_IPS` to the address range of
+the ingress controller pods. Content of the manifest, OSV update and several replicas: see
+[Kubernetes](../advanced/architecture.md#kubernetes).
+
 ## Next step
 
 [Connect the host](host.md) of each developer to the MCP server. To go further:
-[tokens, enrollment and TLS](../advanced/http.md), [Kubernetes](../advanced/architecture.md#kubernetes),
-[SSO login](../advanced/sso.md).
+[tokens, enrollment and TLS](../advanced/http.md), [SSO login](../advanced/sso.md).

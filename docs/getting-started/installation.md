@@ -19,10 +19,11 @@ The published package contains the web interface already built.
 
 ## Docker image
 
-To run the server in containers, build the image from the repository (the `postgres` extra
-adds the PostgreSQL driver):
+To run the server in containers, pull the published image (the `-pg` variant contains the
+PostgreSQL driver), or build it from the repository:
 
 ```bash
+docker pull ghcr.io/cyr-ius/security-review-mcp:latest-pg    # or docker.io/cyrius44/security-review-mcp
 docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .
 ```
 
@@ -30,7 +31,7 @@ The same image runs the MCP server and the controller: see [Docker](../advanced/
 
 ## Other cases
 
-Installation from the sources, without Internet access, or upgrade from version 1.x: see
+Installation from the sources or without Internet access: see
 [Installation: other cases](../advanced/installation.md).
 
 **Next step:** [deploy the server](deploy.md).
