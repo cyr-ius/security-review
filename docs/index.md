@@ -1,4 +1,4 @@
-# security-review-mcp
+# Security Review MCP
 
 MCP server for **security-oriented code review** (vulnerabilities and misconfigurations).
 It gives the host (VS Code, Copilot, Claude, CI/CD agent):
