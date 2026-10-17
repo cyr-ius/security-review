@@ -10,7 +10,7 @@
 | `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
 | `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
 | `triage-report` | Re-qualifier les findings d'un rapport stocké | `report_id`, `context`, `report_language` |
-| `development-standards` | Donne à l'assistant les [normes de développement](standards.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
+| `development-standards` | Donne à l'assistant les [normes de développement](../advanced/standards.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
 
 Si `code` est vide, le prompt demande à l'agent de relire les fichiers de son espace de travail.
 Chaque prompt de revue se termine par l'instruction d'appeler `save_security_report` une seule
@@ -55,13 +55,13 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `request_enrollment` | Demande un jeton pour un premier projet ou l'ajout d'un projet au jeton présenté, après approbation par un administrateur ([enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton)) |
-| `list_development_standards` / `get_development_standards` | [Normes de développement](standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
-| `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
+| `request_enrollment` | Demande un jeton pour un premier projet ou l'ajout d'un projet au jeton présenté, après approbation par un administrateur ([enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton)) |
+| `list_development_standards` / `get_development_standards` | [Normes de développement](../advanced/standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
+| `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](../advanced/rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
 Sur le transport HTTP, un jeton restreint ne peut utiliser les outils de rapports que sur ses
 projets autorisés ; `reload_rules` lui est refusé (voir
-[jetons restreints à un projet](../getting-started/http.md#jetons-restreints-a-un-projet)).
+[jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)).
 Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux ;
 `request_enrollment` demande l'ajout au jeton courant sans créer ni révéler un nouveau secret.
 
@@ -77,13 +77,13 @@ n'expose que :
 | `get_enrollment_status` | `pending` si le jeton présenté attend l'approbation, `not_enrolled` sans jeton |
 | Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Argument `project` facultatif ; expliquent à l'agent comment demander l'accès au lieu de lancer la revue |
 
-Voir [l'enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton).
+Voir [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton).
 
 ## Ressources
 
 - `report://{report_id}` : un rapport enregistré ;
 - `checklist://{domain}` : la checklist d'un domaine ;
-- `standards://catalog` : le catalogue des [normes de développement](standards.md) ;
+- `standards://catalog` : le catalogue des [normes de développement](../advanced/standards.md) ;
 - `standard://{slug}` : une norme de développement.
 
 ## Rapport enregistré
@@ -143,12 +143,12 @@ d'identité ; `submitted_by` indique quel équipement enrôlé a réellement env
 
 Un finding est `open` à son enregistrement. **Un agent ne le ferme jamais** : le code relu est
 une entrée non fiable, et une injection de prompt dans un commentaire pourrait sinon amener
-l'agent à neutraliser ses propres findings et à débloquer la [gate](../ci-cd/gate.md).
+l'agent à neutraliser ses propres findings et à débloquer la [gate](gate.md).
 
 - `propose_finding_status` enregistre une **proposition** (`fixed`, `accepted` ou
   `false_positive`) avec le motif de l'agent (10 à 1000 caractères, secrets masqués) et le label
   de son jeton. Le statut, la posture et la gate ne changent pas. Une nouvelle proposition
-  remplace la précédente. Elle est écrite dans le [journal d'audit](audit-metrics.md#journal-daudit),
+  remplace la précédente. Elle est écrite dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit),
   comme la décision qui suit.
 - Une personne qui a le rôle `triager` ou `admin` l'applique ou la rejette dans
   l'[interface web](web-interface.md#triage-des-findings). `accepted` et `false_positive`

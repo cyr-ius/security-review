@@ -4,7 +4,7 @@
 security-review-controller sarif --project my-project -o results.sarif      # or --report-id N
 ```
 
-In a pipeline, the [pipeline client](gate.md#pipeline-client-security-review-ci) downloads the
+In a pipeline, the [pipeline client](../usage/gate.md#pipeline-client-security-review-ci) downloads the
 same log through the controller REST API, with a `ci` token and without database access:
 
 ```bash

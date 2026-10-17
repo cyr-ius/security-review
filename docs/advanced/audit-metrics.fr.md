@@ -17,7 +17,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `token.created` | Un jeton est créé (CLI `token create`, écran **Jetons**) |
 | `token.rotated` | Le secret d'un jeton est remplacé (`token rotate`, bouton **Renouveler**), avec le délai de grâce |
 | `token.revoked` | Un jeton est révoqué |
-| `enrollment.requested` | Un client demande un jeton ou un projet de plus ([enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton)), avec le demandeur et son adresse |
+| `enrollment.requested` | Un client demande un jeton ou un projet de plus ([enrôlement](http.md#enrolement-un-projet-demande-son-jeton)), avec le demandeur et son adresse |
 | `enrollment.approved` | Un administrateur approuve une demande |
 | `enrollment.rejected` | Un administrateur rejette une demande |
 

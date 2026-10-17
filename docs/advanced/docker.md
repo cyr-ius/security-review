@@ -38,7 +38,7 @@ For Claude (`.mcp.json`), same `command` / `args` under `mcpServers`.
 ## Shared server (HTTP)
 
 A single image, two containers sharing the database (see
-[Architecture and deployment](kubernetes.md)):
+[Architecture and deployment](architecture.md)):
 
 - the **MCP server**, default entry point of the image (`security-review-mcp`);
 - the **controller** (REST API, web interface, administration), started with
@@ -124,7 +124,7 @@ docker compose logs controller   # initial admin password
   file passes to the controller only, then `docker compose up -d`. Follow the import with
   `docker compose logs -f controller` or in the settings of the web interface. Without
   Internet access, import an archive with `advisories import` (see
-  [Dependencies](../usage/dependencies.md)).
+  [Dependencies](dependencies.md)).
 - The containers run with a read-only file system, without any Linux capability. The
   `secreview-pg` volume holds the reports, the web interface accounts and the tokens: back it
   up.
@@ -138,7 +138,7 @@ docker compose exec controller security-review-controller gate --project portal 
 
 ## Internal rules and CLI
 
-[Internal rules](../usage/rules.md) are stored in the database: import a folder of TOML packs
+[Internal rules](rules.md) are stored in the database: import a folder of TOML packs
 with the controller CLI (the running servers apply them within a few seconds):
 
 ```bash

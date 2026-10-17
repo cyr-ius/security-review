@@ -7,7 +7,7 @@ security-review-controller trend --project mon-projet --days 90 --granularity we
 Options : `--granularity day|week|month` (défaut `week`), `--format markdown|json`
 (défaut `markdown`), `--days` (défaut 90).
 
-Le [client de pipeline](gate.md#client-de-pipeline-security-review-ci) affiche le même rapport
+Le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci) affiche le même rapport
 par l'API REST du contrôleur, avec un jeton `ci` et les mêmes options :
 
 ```bash

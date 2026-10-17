@@ -10,7 +10,7 @@
 | `codebase-review` | Review of the **whole repository** (not only a diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
 | `dependency-review` | Manifests and lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
 | `triage-report` | Re-qualify the findings of a stored report | `report_id`, `context`, `report_language` |
-| `development-standards` | Gives the assistant the [development standards](standards.md) of its stack **before it writes code** | `technologies`, `files`, `task`, `context` |
+| `development-standards` | Gives the assistant the [development standards](../advanced/standards.md) of its stack **before it writes code** | `technologies`, `files`, `task`, `context` |
 
 If `code` is empty, the prompt asks the agent to read the files of its workspace. Every review
 prompt ends with the instruction to call `save_security_report` once; `development-standards`
@@ -55,13 +55,13 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `get_trend_report` | Trend of a project: new / fixed, backlog, risk score, MTTR |
 | `scan_dependencies` | Analysis of a manifest, lockfile or CycloneDX SBOM: vulnerable versions + hygiene |
 | `get_advisory_status` | Size and age of the vulnerability database |
-| `request_enrollment` | Requests a token for a first project or the addition of a project to the presented token, after approval by an administrator ([enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token)) |
-| `list_development_standards` / `get_development_standards` | [Development standards](standards.md): catalog, then the standards to apply for technologies or file names |
-| `list_rules` / `reload_rules` | Active rules ([default and custom](rules.md), stored in the database), loading errors, immediate reload |
+| `request_enrollment` | Requests a token for a first project or the addition of a project to the presented token, after approval by an administrator ([enrollment](../advanced/http.md#enrollment-a-project-requests-its-token)) |
+| `list_development_standards` / `get_development_standards` | [Development standards](../advanced/standards.md): catalog, then the standards to apply for technologies or file names |
+| `list_rules` / `reload_rules` | Active rules ([default and custom](../advanced/rules.md), stored in the database), loading errors, immediate reload |
 
 On the HTTP transport, a restricted token can only use the report tools on its allowed
 projects; `reload_rules` is refused to it (see
-[tokens restricted to a project](../getting-started/http.md#tokens-restricted-to-a-project)).
+[tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
 A token tied to several projects can use the report tools on each of them;
 `request_enrollment` requests the addition to the current token without creating nor revealing
 a new secret.
@@ -78,13 +78,13 @@ exposes:
 | `get_enrollment_status` | `pending` if the presented token awaits approval, `not_enrolled` without a token |
 | Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Optional `project` argument; explain to the agent how to request access instead of running the review |
 
-See [enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token).
+See [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token).
 
 ## Resources
 
 - `report://{report_id}`: a stored report;
 - `checklist://{domain}`: the checklist of a domain;
-- `standards://catalog`: the catalog of the [development standards](standards.md);
+- `standards://catalog`: the catalog of the [development standards](../advanced/standards.md);
 - `standard://{slug}`: a development standard.
 
 ## Stored report
@@ -144,12 +144,12 @@ It is **declared, not authenticated**: use it to see who to talk to and to filte
 
 A finding is `open` when it is saved. **An agent never closes it**: the reviewed code is
 untrusted input, and a prompt injection in a comment could otherwise lead the agent to dismiss
-its own findings and unblock the [gate](../ci-cd/gate.md).
+its own findings and unblock the [gate](gate.md).
 
 - `propose_finding_status` stores a **proposal** (`fixed`, `accepted` or `false_positive`) with
   the agent's reason (10 to 1000 characters, secrets masked) and the label of its token. The
   status, the posture and the gate do not change. A new proposal replaces the previous one. It
-  is written to the [audit log](audit-metrics.md#audit-log), like the decision that follows.
+  is written to the [audit log](../advanced/audit-metrics.md#audit-log), like the decision that follows.
 - A person with the `triager` or `admin` role applies or rejects it in the
   [web interface](web-interface.md#triage-of-findings). `accepted` and `false_positive` need a
   reason, an approver (the logged-in user) and an expiry date; from that date the finding counts

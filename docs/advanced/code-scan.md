@@ -30,11 +30,11 @@ security-review-controller code scan . --save --project portal --commit "$CI_COM
   apply and a warning is written on stderr.
 - `--save` stores the matches as findings (at most `SECREVIEW_MAX_FINDINGS_PER_REPORT`, the most
   severe first) and the list of files not analyzed in `scope`; `--author` adds the username of
-  the developer (see [author of a report](prompts-tools.md#author-of-a-report)).
+  the developer (see [author of a report](../usage/prompts-tools.md#author-of-a-report)).
 
 !!! warning "Triage before blocking"
     Matches are **leads**. Triage them (`triage-report` prompt) before making a
-    [gate](../ci-cd/gate.md) depend on this report, otherwise the false positives will block it.
+    [gate](../usage/gate.md) depend on this report, otherwise the false positives will block it.
 
 ## Agent-guided review
 

@@ -1,50 +1,14 @@
 # Host configuration
 
-## stdio transport
-
-With the **stdio** transport, the host (VS Code, Claude…) starts the server process itself.
-Give the path of the executable and, if needed, the `SECREVIEW_*` variables
-(see [Configuration](../reference/configuration.md)).
-
-=== "VS Code / GitHub Copilot"
-
-    `.vscode/mcp.json`:
-
-    ```json
-    {
-      "servers": {
-        "security-review": {
-          "type": "stdio",
-          "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
-          "env": { "SECREVIEW_DATABASE_URL": "sqlite:////data/security_reports.db" }
-        }
-      }
-    }
-    ```
-
-=== "Claude"
-
-    `.mcp.json`:
-
-    ```json
-    {
-      "mcpServers": {
-        "security-review": {
-          "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
-          "env": { "SECREVIEW_DATABASE_URL": "sqlite:////data/security_reports.db" }
-        }
-      }
-    }
-    ```
-
-To run the server from a container, see [Docker](docker.md#developer-workstation-stdio).
+Each developer declares the shared MCP server in their host (VS Code, Claude…). The server must
+already be running: see [Deploying the server](deploy.md).
 
 ## HTTP transport
 
 For a shared server, started with `--transport streamable-http`, the host connects to the
 `/mcp` endpoint instead of starting a process. If authentication is enabled, it sends the
 token in the `Authorization: Bearer <token>` header (token generation, TLS and server start:
-see [HTTP server, authentication and TLS](http.md)).
+see [HTTP server, authentication and TLS](../advanced/http.md)).
 
 === "VS Code / GitHub Copilot"
 
@@ -91,77 +55,12 @@ proxy), leave out `headers` and `inputs`, for example `"url": "http://127.0.0.1:
     Never write the token in clear in a versioned configuration file: use an input
     (`${input:...}`) or an environment variable.
 
-## HTTPS server with an internal CA
-
-When the server certificate is signed by an
-[internal CA](http.md#certificate-authority), the host refuses the connection
-(`unable to verify the first certificate`, `unable to get local issuer certificate`). Neither VS Code nor
-Claude has a per-server TLS option in its MCP configuration: the certificate is added to the
-trusted authorities of the host **process**. Claude Code and VS Code run on Node.js, which reads
-the `NODE_EXTRA_CA_CERTS` environment variable (PEM file) for this, **when the process starts**.
-
-1. Get the certificate of the internal CA (PEM) from its administrators, save it as
-   `~/.config/secreview/ca.pem`, and check that the name or address of the MCP `url` is in the
-   server certificate:
-
-    ```bash
-    openssl s_client -connect 192.168.1.1:8000 -CAfile ~/.config/secreview/ca.pem </dev/null \
-        2>/dev/null | openssl x509 -noout -ext subjectAltName
-    ```
-
-2. Declare it to the host, then **restart it**:
-
-=== "Claude Code"
-
-    In the shell profile (`~/.bashrc`, `~/.zshrc`), before starting `claude`:
-
-    ```bash
-    export NODE_EXTRA_CA_CERTS="$HOME/.config/secreview/ca.pem"
-    ```
-
-    The [Claude Code documentation](https://code.claude.com/docs/en/network-config) also gives
-    the `env` key of `settings.json`
-    (`"env": { "NODE_EXTRA_CA_CERTS": "/home/me/.config/secreview/ca.pem" }`). The variable
-    applies to every connection of Claude Code, not only to the MCP server.
-
-=== "VS Code / GitHub Copilot"
-
-    Start VS Code from a shell where the variable is set (`code .`), or set it at system
-    level:
-
-    ```bash
-    export NODE_EXTRA_CA_CERTS="$HOME/.config/secreview/ca.pem"
-    code .
-    ```
-
-    Another option: add the certificate to the certificate store of the system (Windows:
-    *Trusted Root Certification Authorities*; macOS: Keychain, *Always Trust*; Linux:
-    `/usr/local/share/ca-certificates/` then `sudo update-ca-certificates`). VS Code loads the
-    system certificates (`http.systemCertificates` setting, enabled by default).
-
-    In a **dev container**, the connection leaves from the container: mount the file and set
-    the variable in `devcontainer.json` (`"remoteEnv": { "NODE_EXTRA_CA_CERTS": "..." }`), then
-    rebuild or reload the window.
-
-!!! warning
-    Do not use `NODE_TLS_REJECT_UNAUTHORIZED=0`: it disables the verification of **every**
-    connection of the process (API, extensions, updates), not only the one to the MCP server,
-    and lets an interception through.
-
-The remote connectors added from the Claude web interface (claude.ai, Claude Desktop) are
-contacted from Anthropic's infrastructure, not from the workstation: they require a server
-reachable from the Internet with a publicly trusted certificate, which rules out an internal
-CA.
-
-For the enrollment from the CLI, `security-review-mcp enroll` accepts `--cafile` directly (see
-below).
-
 ## Getting a token (enrollment)
 
 On a shared server that requires a token, you do not need to ask the administrator for one
 before you start: configure the host as above, **without a token**, and run your first review.
 The token is requested along the way, then approved by an administrator (see
-[enrollment](http.md#enrollment-a-project-requests-its-token)).
+[enrollment](../advanced/http.md#enrollment-a-project-requests-its-token)).
 
 1. **Configure the host without a token.** With the examples of the
    [HTTP transport](#http-transport) section, leave the token input empty (VS Code) or do not
@@ -211,7 +110,7 @@ The token is requested along the way, then approved by an administrator (see
    access to the review tools. Run the review again, without reconfiguring anything.
 
 The token you get has the `mcp` role and is
-[restricted to the requested project](http.md#tokens-restricted-to-a-project): it only saves
+[restricted to the requested project](../advanced/http.md#tokens-restricted-to-a-project): it only saves
 and reads the reports of that project. For another project, the agent can request a new token
 with `request_enrollment`; `save_security_report` suggests it when it refuses the project.
 
@@ -219,3 +118,12 @@ with `request_enrollment`; `save_security_report` suggests it when it refuses th
     If the administrator disabled the enrollment (`SECREVIEW_ENROLLMENT=false`), a host without
     a token gets `401`: ask them for a token created with
     `security-review-controller token create`.
+
+## Other cases
+
+- **Server certificate signed by an internal CA** (`unable to verify the first certificate`):
+  see [HTTPS server with an internal CA](../advanced/http.md#https-server-with-an-internal-ca).
+- **Local mode, without a shared server** (the host starts the process itself): see
+  [Local mode (stdio)](../advanced/stdio.md).
+
+**Next step:** run your first review with the [prompts and tools](../usage/prompts-tools.md).

@@ -28,8 +28,8 @@ n'ouvre aucune base. Il n'utilise que la bibliothèque standard de Python : inst
 | Sous-commande | Rôle |
 |---|---|
 | `gate --project P [--fail-on S] [--report-id N]` | Gate du projet (voir ci-dessus) |
-| `sarif --project P [--include-resolved] [-o FICHIER]` | Journal SARIF 2.1.0 du projet ([Export SARIF](sarif.md)) |
-| `trend --project P [--days N] [--granularity day\|week\|month] [--format markdown\|json]` | Rapport de tendance du projet ([Rapport de tendance](trends.md)) |
+| `sarif --project P [--include-resolved] [-o FICHIER]` | Journal SARIF 2.1.0 du projet ([Export SARIF](../advanced/sarif.md)) |
+| `trend --project P [--days N] [--granularity day\|week\|month] [--format markdown\|json]` | Rapport de tendance du projet ([Rapport de tendance](../advanced/trends.md)) |
 
 Options communes : `--url` (par défaut `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (lit le
 jeton sur l'entrée standard au lieu de `SECREVIEW_TOKEN`), `--cafile` (CA du certificat du
@@ -141,7 +141,7 @@ Elle nécessite le pilote de base et donne au pipeline les identifiants de la ba
 `security-review-ci` et un jeton `ci`.
 
 Un finding sort du blocage quand une personne le passe à `fixed`, `accepted` ou
-`false_positive` dans l'[interface web](../usage/web-interface.md#triage-des-findings) : la
+`false_positive` dans l'[interface web](web-interface.md#triage-des-findings) : la
 décision reste tracée en base avec son motif et son approbateur. Un agent peut seulement
 proposer un statut (`propose_finding_status`), ce qui ne débloque pas la gate. Une acceptation
 ou un faux positif expire : à partir de sa date d'expiration, le finding bloque de nouveau.

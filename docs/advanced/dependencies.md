@@ -76,7 +76,7 @@ SECREVIEW_PROXY=http://user:password@proxy.example.com:3128
 - **Proxy**: the download goes through the outgoing proxy of the controller,
   `SECREVIEW_PROXY` (`http://[user:password@]host:port`, `CONNECT` tunnel to the HTTPS site),
   except to the hosts of `SECREVIEW_NO_PROXY`. The same proxy serves the
-  [SSO login](web-interface.md#openid-connect-sso-login). Without it, the standard
+  [SSO login](sso.md). Without it, the standard
   `HTTPS_PROXY` and `NO_PROXY` variables apply. If the proxy inspects TLS, give its CA with
   `SECREVIEW_OSV_CAFILE` (it then replaces the system CAs).
 - **Mirror**: `SECREVIEW_OSV_URL` replaces the source (Nexus, Artifactory, internal bucket…) as
@@ -111,7 +111,7 @@ the proxy towards an internal server reached by its name, give its domain. The l
 SECREVIEW_NO_PROXY=.corp.example,10.0.0.0/8,172.16.0.0/12,fd00::/8
 ```
 
-The proxy can also be chosen by an administrator in the [**Settings**](web-interface.md#screens)
+The proxy can also be chosen by an administrator in the [**Settings**](../usage/web-interface.md#screens)
 screen of the web interface: proxy and hosts without proxy set there, or direct connection,
 take precedence over `SECREVIEW_PROXY`, `SECREVIEW_NO_PROXY` and `HTTPS_PROXY`; they apply to
 the next download. The same screen shows the state of the database, the history of the updates
@@ -142,14 +142,14 @@ security-review-controller deps scan package-lock.json requirements.txt \
 ```
 
 With `--save`, `--author` stores the username of the developer with the report (see
-[author of a report](prompts-tools.md#author-of-a-report)).
+[author of a report](../usage/prompts-tools.md#author-of-a-report)).
 
 ## Scan with a shared server (commit hook)
 
 `security-review-mcp scan-deps` sends the dependency files to the `scan_dependencies` tool of a
 shared MCP server: the scan uses the advisory database of that server, without any local
 import. It needs a token with the `mcp` or `admin` role (see
-[enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token)).
+[enrollment](http.md#enrollment-a-project-requests-its-token)).
 
 ```bash
 export SECREVIEW_SERVER_URL=https://secreview.example.com

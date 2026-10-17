@@ -4,23 +4,23 @@
 
 - **Deux processus** : le serveur MCP (exposé aux agents) et le contrôleur (API REST, interface
   web, administration) tournent séparément et ne partagent que la base (voir
-  [Architecture et déploiement](../getting-started/kubernetes.md)). Le serveur MCP n'accepte que les
+  [Architecture et déploiement](../advanced/architecture.md)). Le serveur MCP n'accepte que les
   rôles `mcp` et `admin`, le contrôleur que `reader`, `triager` et `admin`, plus `ci` sur ses
   routes de pipeline en lecture seule (`/api/v1/ci/`) et nulle part ailleurs. Le contrôleur
   n'expose aucune route d'écriture sans jeton : il peut rester sur un réseau interne, et la
   compromission du serveur MCP exposé ne donne pas accès à l'interface d'administration.
 - **Transport HTTP** : authentification MCP par jeton Bearer et TLS intégrés mais facultatifs (voir
-  [Serveur HTTP, authentification et TLS](../getting-started/http.md)). Les jetons sont stockés en
+  [Serveur HTTP, authentification et TLS](../advanced/http.md)). Les jetons sont stockés en
   base et seules leurs empreintes SHA-256 sont conservées. Chaque requête recherche l'empreinte
   du jeton présenté, ce qui ne révèle rien d'exploitable sans préimage, puis la vérifie en temps
   constant : une révocation est donc immédiate sur toutes les instances. Un jeton créé avec
   `--project` est limité à ce projet dans les outils MCP et l'API web : tout autre projet,
   rapport ou finding est traité comme inexistant (voir
-  [jetons restreints à un projet](../getting-started/http.md#jetons-restreints-a-un-projet)). Si l'écoute n'est pas sur
+  [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)). Si l'écoute n'est pas sur
   localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Le
   serveur ne génère jamais de certificat TLS : le HTTPS utilise le certificat fourni par
   l'opérateur, signé par une
-  [autorité de certification](../getting-started/http.md#autorite-de-certification). Il n'y a
+  [autorité de certification](../advanced/http.md#autorite-de-certification). Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
   (`mcp`, `reader`, `triager`, `admin`, `ci`, `metrics`) ; un jeton `mcp` sans projet accède à
   tous les outils MCP et à tous les projets.
@@ -30,24 +30,24 @@
   fermé. Un renouvellement n'enregistre que l'empreinte du nouveau secret ; l'empreinte
   précédente est conservée pendant le délai de grâce (168 heures au plus), comparée en temps
   constant comme l'actuelle, et l'ancien secret d'un jeton expiré ne revient jamais (voir
-  [expiration et renouvellement](../getting-started/http.md#expiration-et-renouvellement-des-jetons)).
+  [expiration et renouvellement](../advanced/http.md#expiration-et-renouvellement-des-jetons)).
 - **Journal d'audit** : les décisions de triage, les propositions des agents, les créations,
   renouvellements et révocations de jetons, les demandes et décisions d'enrôlement sont écrits
   dans la même transaction que le changement, avec leur acteur (`user:`, `token:`, `cli`,
   `anonymous`). Les détails sont bornés et masqués, et ne contiennent jamais de jeton ni de mot
   de passe ; aucun outil ni aucune route ne modifie un événement, seule la purge de
   `SECREVIEW_AUDIT_RETENTION_DAYS` les supprime (voir
-  [journal d'audit](../usage/audit-metrics.md#journal-daudit)).
+  [journal d'audit](../advanced/audit-metrics.md#journal-daudit)).
 - **Métriques** : `/metrics` n'existe que sur le contrôleur (le serveur MCP garde `/mcp`,
   `/api/v1/enroll` et `/healthz`), derrière un jeton `metrics` ou `admin` ; un jeton `metrics`
   n'atteint rien d'autre. La réponse contient des nombres et des noms de projets, jamais un
   finding, un label de jeton ou un secret, et chaque valeur de label est échappée (voir
-  [métriques Prometheus](../usage/audit-metrics.md#metriques-prometheus)).
+  [métriques Prometheus](../advanced/audit-metrics.md#metriques-prometheus)).
 - **Jetons de pipeline** (`ci`) : toujours restreints à des projets (un jeton `ci` sans projet
   ne peut pas être créé, et un jeton trouvé sans projet n'en atteint aucun). Il ne lit que le
   gate, le journal SARIF et la tendance de ses projets ; les autres routes du contrôleur, `/mcp`
   et l'interface web répondent `403`, les autres projets `404`. Le client de pipeline
-  ([`security-review-ci`](../ci-cd/gate.md#client-de-pipeline-security-review-ci)) n'ouvre
+  ([`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci)) n'ouvre
   aucune base, ne lit le jeton que dans l'environnement ou sur stdin, refuse le HTTP en clair
   hors localhost, les identifiants dans l'URL et les redirections, et borne les réponses.
 - **Enrôlement** (actif par défaut, `SECREVIEW_ENROLLMENT`) : un client sans jeton atteint un
@@ -58,7 +58,7 @@
   une demande non traitée expire après 7 jours ; le texte libre du demandeur est masqué et
   tronqué. N'importe quel client qui atteint le serveur peut déposer une demande : vérifiez le
   demandeur et l'adresse affichés avant d'approuver, ou désactivez l'enrôlement. Voir
-  [l'enrôlement](../getting-started/http.md#enrolement-un-projet-demande-son-jeton).
+  [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton).
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun. Les commandes
   `security-review-mcp enroll` et `scan-deps` contactent, à la demande de l'opérateur, l'URL qu'il
   indique (`scan-deps` envoie les fichiers de dépendances donnés sur sa ligne de commande, jamais
@@ -75,12 +75,12 @@
   passe remplacé par `***`) et les messages d'erreur de l'historique en sont expurgés, mais
   préférez `SECREVIEW_PROXY` (secret Kubernetes) si la base n'est pas protégée comme un
   secret. Voir la
-  [mise à jour automatique](../usage/dependencies.md#mise-a-jour-automatique-par-le-controleur).
-  Avec la [connexion SSO](../usage/web-interface.md#connexion-sso-openid-connect)
+  [mise à jour automatique](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur).
+  Avec la [connexion SSO](../advanced/sso.md)
   (`SECREVIEW_OIDC_ENABLED`, désactivée par défaut), le contrôleur contacte aussi le fournisseur
   d'identité configuré : HTTPS uniquement (HTTP seulement sur localhost), redirections limitées
   à HTTPS, réponses bornées à 1 Mio, délai de 10 secondes. Cette configuration peut aussi être
-  [modifiée dans l'interface](../usage/web-interface.md#configurer-le-sso-dans-linterface)
+  [modifiée dans l'interface](../advanced/sso.md#configurer-le-sso-dans-linterface)
   par un administrateur, avec les mêmes contrôles (refus d'une configuration invalide) ; le
   bouton **Tester la connexion** contacte l'émetteur saisi, sous les mêmes conditions. Le
   **secret client** saisi dans l'interface est enregistré en base **en clair** : l'API ne le
@@ -125,9 +125,9 @@
   state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
   ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
   uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Le rôle vient des
-  groupes de l'utilisateur ([role mapping](../usage/web-interface.md#role-mapping), géré
+  groupes de l'utilisateur ([role mapping](../advanced/sso.md#role-mapping), géré
   par les administrateurs, éventuellement restreint à des projets) et du rôle attribué à son
-  [compte SSO](../usage/web-interface.md#comptes-sso) ; ni le rôle `admin` par défaut ni le
+  [compte SSO](../advanced/sso.md#comptes-sso) ; ni le rôle `admin` par défaut ni le
   rôle `mcp` ne sont possibles. Le compte est nommé par l'identifiant exact du claim
   `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si ce n'est pas
   un identifiant valide) : choisissez un claim que l'utilisateur ne peut pas modifier chez le
@@ -156,13 +156,13 @@
   premier lancement. Si la base est inaccessible ou n'a jamais été initialisée, le serveur
   applique directement ce fichier : le scan ne tourne jamais sans règles. Une règle par défaut
   peut être modifiée ou désactivée par un administrateur, mais pas supprimée
-  (voir [Règles internes](../usage/rules.md#regles-par-defaut)).
+  (voir [Règles internes](../advanced/rules.md#regles-par-defaut)).
 - **Normes de développement** : leur contenu est transmis tel quel à l'assistant IA comme
   consignes ; seuls les administrateurs du contrôleur les écrivent (champs validés et bornés,
   200 normes de 50 000 caractères au plus). Le serveur MCP les lit seulement, et la tâche
   fournie au prompt `development-standards` est encadrée pour ne pas pouvoir en sortir. Le prompt
   rappelle qu'une norme ne prime jamais sur la sécurité (voir
-  [Normes de développement](../usage/standards.md)).
+  [Normes de développement](../advanced/standards.md)).
 - **Journaux** sur stderr (stdout est réservé au protocole en stdio).
 
 !!! warning "Protégez la base"

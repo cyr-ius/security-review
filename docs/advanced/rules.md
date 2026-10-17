@@ -7,7 +7,7 @@ code**.
 
 Rules are managed with the `security-review-controller rules` command (import and export of
 TOML packs, enabling, disabling, deletion) or from the **Rules** screen of the
-[web interface](web-interface.md). Checklist items are managed from the **Checklists** screen of
+[web interface](../usage/web-interface.md). Checklist items are managed from the **Checklists** screen of
 this interface, or with the TOML packs of the `rules` command.
 
 ## Default rules

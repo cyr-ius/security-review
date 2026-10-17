@@ -7,7 +7,7 @@ security-review-controller trend --project my-project --days 90 --granularity we
 Options: `--granularity day|week|month` (default `week`), `--format markdown|json`
 (default `markdown`), `--days` (default 90).
 
-The [pipeline client](gate.md#pipeline-client-security-review-ci) prints the same report
+The [pipeline client](../usage/gate.md#pipeline-client-security-review-ci) prints the same report
 through the controller REST API, with a `ci` token and the same options:
 
 ```bash

@@ -28,8 +28,8 @@ database. It only uses the Python standard library: install the package
 | Sub-command | Role |
 |---|---|
 | `gate --project P [--fail-on S] [--report-id N]` | Gate of the project (see above) |
-| `sarif --project P [--include-resolved] [-o FILE]` | SARIF 2.1.0 log of the project ([SARIF export](sarif.md)) |
-| `trend --project P [--days N] [--granularity day\|week\|month] [--format markdown\|json]` | Trend report of the project ([Trend report](trends.md)) |
+| `sarif --project P [--include-resolved] [-o FILE]` | SARIF 2.1.0 log of the project ([SARIF export](../advanced/sarif.md)) |
+| `trend --project P [--days N] [--granularity day\|week\|month] [--format markdown\|json]` | Trend report of the project ([Trend report](../advanced/trends.md)) |
 
 Common options: `--url` (default `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (reads the token
 on stdin instead of `SECREVIEW_TOKEN`), `--cafile` (CA of the controller certificate),
@@ -139,7 +139,7 @@ It needs the database driver and gives the pipeline the database credentials: pr
 `security-review-ci` and a `ci` token.
 
 A finding stops blocking when a person moves it to `fixed`, `accepted` or `false_positive` in
-the [web interface](../usage/web-interface.md#triage-of-findings): the decision stays recorded in
+the [web interface](web-interface.md#triage-of-findings): the decision stays recorded in
 the database with its reason and its approver. An agent can only propose a status
 (`propose_finding_status`), which does not unblock the gate. An acceptance or a false positive
 expires: from its expiry date, the finding blocks again.

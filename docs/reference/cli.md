@@ -1,7 +1,7 @@
 # Command line
 
 The package installs two commands, one per process (see
-[Architecture and deployment](../getting-started/kubernetes.md)), and a pipeline client:
+[Architecture and deployment](../advanced/architecture.md)), and a pipeline client:
 
 - `security-review-mcp`: the **MCP server** (stdio or HTTP), plus `enroll` and `scan-deps` on the client side;
 - `security-review-controller`: the **controller** (REST API and web interface), the database,
@@ -13,9 +13,9 @@ The package installs two commands, one per process (see
 
 | Command | Role | Page |
 |---|---|---|
-| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server | [Installation](../getting-started/installation.md#running) |
-| `enroll --url URL --project P [--label L] [--requested-by WHO] [--token-stdin] [--cafile CA] [--allow-http]` | Requests a new token (label: `--label`, by default your login name) or, with `--token-stdin`, additional access for the token read on stdin | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token) |
-| `scan-deps FILE… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http]` | Scans manifests and lockfiles with the advisory database of a shared MCP server (token: `SECREVIEW_TOKEN`), for a commit hook | [Dependencies](../usage/dependencies.md#scan-with-a-shared-server-commit-hook) |
+| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server | [Installation](../getting-started/deploy.md) |
+| `enroll --url URL --project P [--label L] [--requested-by WHO] [--token-stdin] [--cafile CA] [--allow-http]` | Requests a new token (label: `--label`, by default your login name) or, with `--token-stdin`, additional access for the token read on stdin | [Enrollment](../advanced/http.md#enrollment-a-project-requests-its-token) |
+| `scan-deps FILE… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http]` | Scans manifests and lockfiles with the advisory database of a shared MCP server (token: `SECREVIEW_TOKEN`), for a commit hook | [Dependencies](../advanced/dependencies.md#scan-with-a-shared-server-commit-hook) |
 
 With stdio, the server migrates its database itself at start-up (unless
 `SECREVIEW_DB_AUTO_UPGRADE=false`). With HTTP, it **only checks** the schema: it refuses to
@@ -30,26 +30,26 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 
 | Command | Role | Page |
 |---|---|---|
-| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Serves the REST API (`/api/v1`) and the web interface (`/ui`) | [HTTP server](../getting-started/http.md) |
-| `db upgrade` / `db status` | Migrates the schema (Alembic) and seeds the default rules, or shows the revision | [Architecture and deployment](../getting-started/kubernetes.md#schema-migrations) |
+| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Serves the REST API (`/api/v1`) and the web interface (`/ui`) | [HTTP server](../advanced/http.md) |
+| `db upgrade` / `db status` | Migrates the schema (Alembic) and seeds the default rules, or shows the revision | [Architecture and deployment](../advanced/architecture.md#schema-migrations) |
 | `db prune [--days N]` | Deletes the reports without findings older than `N` days (default `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS`), except the latest of each project | [Retention](configuration.md#retention-of-reports-without-findings) |
-| `token create --label NAME [--role ROLE] [--project P …] [--expires-in-days N]` | Creates a Bearer token, possibly limited to several projects and with a validity, and shows its secret once | [Bearer tokens](../getting-started/http.md#bearer-tokens), [roles](../usage/web-interface.md#roles) |
-| `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Lists (or only the pending enrollment requests) or revokes the tokens | [Bearer tokens](../getting-started/http.md#bearer-tokens) |
-| `token rotate ID\|LABEL [--grace-hours H] [--expires-in-days N]` | Replaces the secret of a token (same label, role and projects) and shows the new one once; the previous one works for `H` more hours (`0` to `168`) | [Expiry and rotation](../getting-started/http.md#expiry-and-rotation-of-tokens) |
-| `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approves or rejects an enrollment request; `approve --portal-user NAME` also gives this user account read access to the project in the portal (with SSO enabled, an unknown name becomes an SSO account) | [Enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token), [read access at enrollment](../usage/web-interface.md#project-read-access-at-enrollment) |
-| `audit list [--action A] [--project P] [--actor WHO] [--since DATE] [--limit N] [--offset N]` / `audit prune [--days N]` | Reads the audit log (JSON, newest first) or deletes the events older than `N` days (default `SECREVIEW_AUDIT_RETENTION_DAYS`) | [Audit log](../usage/audit-metrics.md#audit-log) |
+| `token create --label NAME [--role ROLE] [--project P …] [--expires-in-days N]` | Creates a Bearer token, possibly limited to several projects and with a validity, and shows its secret once | [Bearer tokens](../advanced/http.md#bearer-tokens), [roles](../usage/web-interface.md#roles) |
+| `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Lists (or only the pending enrollment requests) or revokes the tokens | [Bearer tokens](../advanced/http.md#bearer-tokens) |
+| `token rotate ID\|LABEL [--grace-hours H] [--expires-in-days N]` | Replaces the secret of a token (same label, role and projects) and shows the new one once; the previous one works for `H` more hours (`0` to `168`) | [Expiry and rotation](../advanced/http.md#expiry-and-rotation-of-tokens) |
+| `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approves or rejects an enrollment request; `approve --portal-user NAME` also gives this user account read access to the project in the portal (with SSO enabled, an unknown name becomes an SSO account) | [Enrollment](../advanced/http.md#enrollment-a-project-requests-its-token), [read access at enrollment](../advanced/sso.md#project-read-access-at-enrollment) |
+| `audit list [--action A] [--project P] [--actor WHO] [--since DATE] [--limit N] [--offset N]` / `audit prune [--days N]` | Reads the audit log (JSON, newest first) or deletes the events older than `N` days (default `SECREVIEW_AUDIT_RETENTION_DAYS`) | [Audit log](../advanced/audit-metrics.md#audit-log) |
 | `user create NAME [--sso] [--role ROLE\|none] [--project P …] [--password-stdin]` | Creates a [web interface account](../usage/web-interface.md#user-accounts): local (without `--password-stdin`, the password is generated and shown once) or SSO with `--sso` (no password; `--role none`: only the role of its groups) | [User accounts](../usage/web-interface.md#user-accounts) |
 | `user list` / `user set-role NAME --role ROLE\|none [--project P …]` / `user delete NAME` | Lists the accounts (never their digest) with their `auth_source` type, changes their role and their projects (`none`: SSO account only) or deletes them (a deleted SSO account is no longer created again by a login); the last administrator, local or SSO, is kept | [User accounts](../usage/web-interface.md#user-accounts) |
 | `user reset-password NAME [--password-stdin]` | Replaces the password of a local account (generated by default) and closes its sessions | [First administrator](../usage/web-interface.md#first-administrator) |
-| `code scan [PATH]` | Whole repository scan | [Whole codebase scan](../usage/code-scan.md) |
-| `rules list` / `rules import PATH…` / `rules export` | Lists, imports (TOML packs) or exports the rules stored in the database | [Internal rules](../usage/rules.md#rules-command) |
-| `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Enables, disables (default or custom rules) or deletes custom rules | [Internal rules](../usage/rules.md#rules-command) |
-| `deps scan FILE…` | Analysis of manifests / lockfiles / CycloneDX SBOMs | [Dependencies](../usage/dependencies.md) |
-| `advisories import PATH` / `advisories status` | Management of the offline OSV database | [Dependencies](../usage/dependencies.md#offline-vulnerability-database-osv-format) |
-| `advisories update [--ecosystem E …]` | Downloads the OSV exports (`SECREVIEW_OSV_*`, optional proxy) and imports them; code `2` if an ecosystem fails | [Automatic update](../usage/dependencies.md#automatic-update-by-the-controller) |
-| `gate --project P --fail-on SEV` | Deployment gate | [Gate](../ci-cd/gate.md) |
-| `sarif --project P` / `--report-id N` | SARIF 2.1.0 export | [SARIF](../ci-cd/sarif.md) |
-| `trend --project P` | Trend report | [Trends](../ci-cd/trends.md) |
+| `code scan [PATH]` | Whole repository scan | [Whole codebase scan](../advanced/code-scan.md) |
+| `rules list` / `rules import PATH…` / `rules export` | Lists, imports (TOML packs) or exports the rules stored in the database | [Internal rules](../advanced/rules.md#rules-command) |
+| `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Enables, disables (default or custom rules) or deletes custom rules | [Internal rules](../advanced/rules.md#rules-command) |
+| `deps scan FILE…` | Analysis of manifests / lockfiles / CycloneDX SBOMs | [Dependencies](../advanced/dependencies.md) |
+| `advisories import PATH` / `advisories status` | Management of the offline OSV database | [Dependencies](../advanced/dependencies.md#offline-vulnerability-database-osv-format) |
+| `advisories update [--ecosystem E …]` | Downloads the OSV exports (`SECREVIEW_OSV_*`, optional proxy) and imports them; code `2` if an ecosystem fails | [Automatic update](../advanced/dependencies.md#automatic-update-by-the-controller) |
+| `gate --project P --fail-on SEV` | Deployment gate | [Gate](../usage/gate.md) |
+| `sarif --project P` / `--report-id N` | SARIF 2.1.0 export | [SARIF](../advanced/sarif.md) |
+| `trend --project P` | Trend report | [Trends](../advanced/trends.md) |
 
 `serve` and the commands that read or write the database first migrate the schema, unless
 `SECREVIEW_DB_AUTO_UPGRADE=false`: they then only check that it is up to date.
@@ -62,9 +62,9 @@ Options of every sub-command: `--project P` (required), `--url URL` (default
 
 | Command | Role | Page |
 |---|---|---|
-| `gate --project P [--fail-on SEV] [--report-id N]` | Deployment gate through the REST API | [Pipeline client](../ci-cd/gate.md#pipeline-client-security-review-ci) |
-| `sarif --project P [--include-resolved] [-o FILE]` | SARIF 2.1.0 export through the REST API | [SARIF](../ci-cd/sarif.md) |
-| `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Trend report through the REST API | [Trends](../ci-cd/trends.md) |
+| `gate --project P [--fail-on SEV] [--report-id N]` | Deployment gate through the REST API | [Pipeline client](../usage/gate.md#pipeline-client-security-review-ci) |
+| `sarif --project P [--include-resolved] [-o FILE]` | SARIF 2.1.0 export through the REST API | [SARIF](../advanced/sarif.md) |
+| `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Trend report through the REST API | [Trends](../advanced/trends.md) |
 
 ## Exit codes
 

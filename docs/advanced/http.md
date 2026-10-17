@@ -1,7 +1,7 @@
 # HTTP server, authentication and TLS
 
 A shared server (team, CI/CD) is made of **two processes** sharing the same database (see
-[Architecture and deployment](kubernetes.md)):
+[Architecture and deployment](architecture.md)):
 
 - the **MCP server** (`security-review-mcp --transport streamable-http`): `/mcp` endpoint,
   public enrollment (`/api/v1/enroll`) and `/healthz` probe; it is the one exposed to the agents
@@ -45,9 +45,9 @@ Projects can also request their token themselves: see
 - `--role` is `mcp` by default (MCP server); `reader` (read only) and `triager` (read and
   triage) give access to the REST API of the controller, never to the web interface; `ci`
   (always with `--project`) only reaches the pipeline routes used by
-  [`security-review-ci`](../ci-cd/gate.md#pipeline-client-security-review-ci): see the
+  [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci): see the
   [roles](../usage/web-interface.md#roles); `metrics` (never with `--project`) only reaches the
-  [Prometheus metrics](../usage/audit-metrics.md#prometheus-metrics) of the controller.
+  [Prometheus metrics](audit-metrics.md#prometheus-metrics) of the controller.
 - `--expires-in-days` sets the validity of the token: see
   [expiry and rotation](#expiry-and-rotation-of-tokens).
 - `--project` limits the token to one or more projects (repeat the option), for the MCP tools
@@ -65,7 +65,7 @@ documentation (`/api/docs`, `/api/openapi.json` schema, `/api/favicon.svg` icon)
 `token revoke` warns on stderr when it deletes the last token.
 
 Every creation, rotation and revocation of a token, and every enrollment request and decision,
-is written to the [audit log](../usage/audit-metrics.md#audit-log), with who made it.
+is written to the [audit log](audit-metrics.md#audit-log), with who made it.
 
 ### Expiry and rotation of tokens
 
@@ -157,7 +157,7 @@ the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`) as soon as a
       `{"project": "shop-api"}`. The controller does not serve this endpoint: it exposes no
       unauthenticated write route.
 2. **Configuration.** The user puts the token at once in the
-   [host configuration](host.md#getting-a-token-enrollment). While it is pending, the client
+   [host configuration](../getting-started/host.md#getting-a-token-enrollment). While it is pending, the client
    stays on the enrollment server (`get_enrollment_status` answers `pending`) and the web API
    answers `403 enrollment_pending`.
 3. **Approval.** An administrator approves or rejects the request in the **Tokens** screen of
@@ -173,9 +173,9 @@ the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`) as soon as a
     approval can also give the developer **read access to the project in the portal**, on
     their user account (**Read access in the portal** column of the interface, or
     `token approve ID --portal-user alice` from the CLI); with the
-    [SSO login](../usage/web-interface.md#openid-connect-sso-login), an unknown name becomes an
+    [SSO login](sso.md), an unknown name becomes an
     SSO account. See
-    [project read access at enrollment](../usage/web-interface.md#project-read-access-at-enrollment).
+    [project read access at enrollment](sso.md#project-read-access-at-enrollment).
 
 ### Additional enrollment
 
@@ -243,7 +243,72 @@ clients refuse the connection even when they trust the CA. The key file (`key.pe
 leaves the server: keep it readable by the server account only (`chmod 600`).
 
 With an internal CA, the clients must trust its certificate: see
-[Host configuration](host.md#https-server-with-an-internal-ca).
+[Host configuration](http.md#https-server-with-an-internal-ca).
+
+## HTTPS server with an internal CA
+
+When the server certificate is signed by an
+[internal CA](#certificate-authority), the host refuses the connection
+(`unable to verify the first certificate`, `unable to get local issuer certificate`). Neither VS Code nor
+Claude has a per-server TLS option in its MCP configuration: the certificate is added to the
+trusted authorities of the host **process**. Claude Code and VS Code run on Node.js, which reads
+the `NODE_EXTRA_CA_CERTS` environment variable (PEM file) for this, **when the process starts**.
+
+1. Get the certificate of the internal CA (PEM) from its administrators, save it as
+   `~/.config/secreview/ca.pem`, and check that the name or address of the MCP `url` is in the
+   server certificate:
+
+    ```bash
+    openssl s_client -connect 192.168.1.1:8000 -CAfile ~/.config/secreview/ca.pem </dev/null \
+        2>/dev/null | openssl x509 -noout -ext subjectAltName
+    ```
+
+2. Declare it to the host, then **restart it**:
+
+=== "Claude Code"
+
+    In the shell profile (`~/.bashrc`, `~/.zshrc`), before starting `claude`:
+
+    ```bash
+    export NODE_EXTRA_CA_CERTS="$HOME/.config/secreview/ca.pem"
+    ```
+
+    The [Claude Code documentation](https://code.claude.com/docs/en/network-config) also gives
+    the `env` key of `settings.json`
+    (`"env": { "NODE_EXTRA_CA_CERTS": "/home/me/.config/secreview/ca.pem" }`). The variable
+    applies to every connection of Claude Code, not only to the MCP server.
+
+=== "VS Code / GitHub Copilot"
+
+    Start VS Code from a shell where the variable is set (`code .`), or set it at system
+    level:
+
+    ```bash
+    export NODE_EXTRA_CA_CERTS="$HOME/.config/secreview/ca.pem"
+    code .
+    ```
+
+    Another option: add the certificate to the certificate store of the system (Windows:
+    *Trusted Root Certification Authorities*; macOS: Keychain, *Always Trust*; Linux:
+    `/usr/local/share/ca-certificates/` then `sudo update-ca-certificates`). VS Code loads the
+    system certificates (`http.systemCertificates` setting, enabled by default).
+
+    In a **dev container**, the connection leaves from the container: mount the file and set
+    the variable in `devcontainer.json` (`"remoteEnv": { "NODE_EXTRA_CA_CERTS": "..." }`), then
+    rebuild or reload the window.
+
+!!! warning
+    Do not use `NODE_TLS_REJECT_UNAUTHORIZED=0`: it disables the verification of **every**
+    connection of the process (API, extensions, updates), not only the one to the MCP server,
+    and lets an interception through.
+
+The remote connectors added from the Claude web interface (claude.ai, Claude Desktop) are
+contacted from Anthropic's infrastructure, not from the workstation: they require a server
+reachable from the Internet with a publicly trusted certificate, which rules out an internal
+CA.
+
+For the enrollment from the CLI, `security-review-mcp enroll` accepts `--cafile` directly (see
+below).
 
 ## Client configuration
 
@@ -265,7 +330,7 @@ VS Code, with a token asked to the user:
 ```
 
 For Claude and to get a token by enrollment from the host, see
-[Host configuration](host.md#getting-a-token-enrollment).
+[Host configuration](../getting-started/host.md#getting-a-token-enrollment).
 
 ## Behind a reverse proxy
 

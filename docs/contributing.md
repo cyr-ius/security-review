@@ -51,7 +51,7 @@ psql -h db -U secreview secreview                     # password: secreview
 SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp   # back to SQLite for once
 ```
 
-The Docker daemon lets you build and run the image of the [Dockerfile](getting-started/docker.md)
+The Docker daemon lets you build and run the image of the [Dockerfile](advanced/docker.md)
 without leaving the container:
 
 ```bash
@@ -216,6 +216,10 @@ uv run mkdocs build --strict # what the CI does: a broken link fails the build
 - Links between pages target the English file (`../reference/cli.md`): the plugin points them
   to the French page from a French page. Anchors follow the headings of each language
   (`#report-language` in English, `#langue-des-rapports` in French).
+- The pages follow the order of a set-up: **Getting started** (`getting-started/`) and
+  **Usage** (`usage/`) only hold what is needed to work; **Advanced** (`advanced/`) gathers the
+  details and the optional features. Put a detailed explanation in `advanced/`, with at most a
+  line and a link from the essential pages.
 - To add a page, create both files in `docs/`, declare the English one in the `nav` section of
   `mkdocs.yml`, and translate its title in `nav_translations` (French language of the `i18n`
   plugin).

@@ -52,7 +52,7 @@ SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp   # revenir ponctu
 ```
 
 Le démon Docker permet de construire et de lancer l'image du
-[Dockerfile](getting-started/docker.md) sans quitter le conteneur :
+[Dockerfile](advanced/docker.md) sans quitter le conteneur :
 
 ```bash
 docker build -t security-review-mcp .
@@ -215,6 +215,10 @@ uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer 
 - Les liens entre pages visent le fichier anglais (`../reference/cli.md`) : depuis une page
   française, le plugin les fait pointer vers la page française. Les ancres suivent les titres de
   chaque langue (`#report-language` en anglais, `#langue-des-rapports` en français).
+- Les pages suivent l'ordre d'une mise en œuvre : **Démarrage** (`getting-started/`) et
+  **Utilisation** (`usage/`) ne contiennent que l'essentiel pour travailler ; **Avancé**
+  (`advanced/`) regroupe les détails et les fonctions facultatives. Placez une explication
+  détaillée dans `advanced/`, avec au plus une ligne et un lien depuis les pages essentielles.
 - Pour ajouter une page, créez les deux fichiers dans `docs/`, déclarez le fichier anglais dans
   la section `nav` de `mkdocs.yml` et traduisez son titre dans `nav_translations` (langue `fr`
   du plugin `i18n`).

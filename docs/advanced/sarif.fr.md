@@ -4,7 +4,7 @@
 security-review-controller sarif --project mon-projet -o results.sarif      # ou --report-id N
 ```
 
-Dans un pipeline, le [client de pipeline](gate.md#client-de-pipeline-security-review-ci)
+Dans un pipeline, le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci)
 télécharge le même journal par l'API REST du contrôleur, avec un jeton `ci` et sans accès à la
 base :
 

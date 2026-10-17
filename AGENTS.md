@@ -248,19 +248,26 @@ racine du site) et en français (`page.fr.md`, à côté, servie sous `/fr/`), a
 `mkdocs-static-i18n`. Mettez-la à jour dans le même changement que le code, **dans les deux
 langues** :
 
+La doc est organisée en parcours de mise en œuvre : **Démarrage** (`getting-started/` :
+installation, mise en service du serveur, connexion de l'hôte) et **Utilisation** (`usage/` :
+prompts et outils, interface web, gate) ne contiennent que l'essentiel pour travailler ;
+**Avancé** (`advanced/`) regroupe les détails et les fonctions facultatives. Une nouvelle
+explication détaillée va dans `advanced/`, avec au plus une ligne et un lien depuis les pages
+essentielles.
+
 | Si vous modifiez... | Mettez à jour (`.md` et `.fr.md`) |
 |---|---|
 | Un prompt ou un outil MCP (nom, argument, comportement) | `docs/usage/prompts-tools` |
-| Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/usage/rules` (et `code-scan` si le scan du dépôt change) |
-| Le format des packs TOML internes | `docs/usage/rules`, `examples/rules/company.toml` |
-| L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/usage/dependencies` |
-| Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`ci-cd/*`, `usage/code-scan`...) |
+| Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/advanced/rules` (et `code-scan` si le scan du dépôt change) |
+| Le format des packs TOML internes | `docs/advanced/rules`, `examples/rules/company.toml` |
+| L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/advanced/dependencies` |
+| Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`usage/gate`, `advanced/code-scan`, `advanced/sarif`...) |
 | Un paramètre `SECREVIEW_*` | `docs/reference/configuration`, `.env.example` |
-| Transport HTTP, authentification, TLS | `docs/getting-started/http`, `docs/reference/security` |
-| Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/getting-started/kubernetes`, `docker-compose.yml`, `examples/kubernetes/` |
-| Les normes de développement (prompt, outils, ressources, écran) | `docs/usage/standards` (+ `usage/prompts-tools`) |
-| L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` |
-| Installation, image Docker | `docs/getting-started/installation`, `docs/getting-started/docker` |
+| Transport HTTP, authentification, TLS, enrôlement | `docs/advanced/http`, `docs/reference/security` (+ `getting-started/deploy` et `getting-started/host` si le parcours de base change) |
+| Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/advanced/architecture`, `docs/getting-started/deploy`, `docker-compose.yml`, `examples/kubernetes/` |
+| Les normes de développement (prompt, outils, ressources, écran) | `docs/advanced/standards` (+ `usage/prompts-tools`) |
+| L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` (connexion SSO : `docs/advanced/sso`) |
+| Installation, image Docker | `docs/getting-started/installation`, `docs/advanced/installation`, `docs/advanced/docker` |
 | Une garantie ou limite de sécurité | `docs/reference/security` |
 | La structure du code, l'outillage de dev | `docs/contributing` |
 

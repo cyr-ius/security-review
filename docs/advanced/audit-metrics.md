@@ -17,7 +17,7 @@ exists exactly when the change was committed.
 | `token.created` | A token is created (CLI `token create`, **Tokens** screen) |
 | `token.rotated` | The secret of a token is replaced (`token rotate`, **Rotate** button), with the grace period |
 | `token.revoked` | A token is revoked |
-| `enrollment.requested` | A client requests a token or one more project ([enrollment](../getting-started/http.md#enrollment-a-project-requests-its-token)), with the requester and its address |
+| `enrollment.requested` | A client requests a token or one more project ([enrollment](http.md#enrollment-a-project-requests-its-token)), with the requester and its address |
 | `enrollment.approved` | An administrator approves a request |
 | `enrollment.rejected` | An administrator rejects a request |
 
