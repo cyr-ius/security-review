@@ -19,7 +19,7 @@ démarrage du serveur : voir [Serveur HTTP, authentification et TLS](../advanced
       "servers": {
         "security-review": {
           "type": "http",
-          "url": "https://secreview.example.internal:8443/mcp",
+          "url": "https://secreview.example.internal/mcp",
           "headers": { "Authorization": "Bearer ${input:secreview-token}" }
         }
       },
@@ -45,7 +45,7 @@ démarrage du serveur : voir [Serveur HTTP, authentification et TLS](../advanced
       "mcpServers": {
         "security-review": {
           "type": "http",
-          "url": "https://secreview.example.internal:8443/mcp",
+          "url": "https://secreview.example.internal/mcp",
           "headers": { "Authorization": "Bearer ${SECURITY_REVIEW_TOKEN:-}" }
         }
       }
