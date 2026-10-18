@@ -1,4 +1,4 @@
-import { Component, computed, effect, signal } from '@angular/core';
+import { Component, computed, linkedSignal } from '@angular/core';
 import { FormField, form, validate } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { msg } from '../../../core/i18n/i18n.service';
@@ -26,7 +26,15 @@ interface LanguageFormModel {
   styleUrl: '../settings.css',
 })
 export class LanguageSettingsComponent extends SettingsPage {
-  readonly languageModel = signal<LanguageFormModel>({ mode: 'inherit', language: '' });
+  /** Filled with the stored value each time it is loaded, then edited by the form. */
+  readonly languageModel = linkedSignal<LanguageFormModel>(() => {
+    const stored = this.settings.value()?.report_language.value;
+    return {
+      mode:
+        stored === undefined || stored === null ? 'inherit' : stored === '' ? 'agent' : 'custom',
+      language: stored ?? '',
+    };
+  });
   readonly languageForm = form(this.languageModel, (path) => {
     validate(path.language, ({ value, valueOf }) =>
       valueOf(path.mode) === 'custom' && !LANGUAGE_PATTERN.test(value().trim())
@@ -46,22 +54,6 @@ export class LanguageSettingsComponent extends SettingsPage {
   ];
 
   readonly languageValid = computed(() => this.languageForm().valid());
-
-  constructor() {
-    super();
-    // Fill the form with the stored value each time it is loaded
-    effect(() => {
-      const value = this.settings.value();
-      if (!value) {
-        return;
-      }
-      const stored = value.report_language.value;
-      this.languageForm().reset({
-        mode: stored === null ? 'inherit' : stored === '' ? 'agent' : 'custom',
-        language: stored ?? '',
-      });
-    });
-  }
 
   async saveLanguage(event: Event): Promise<void> {
     event.preventDefault();

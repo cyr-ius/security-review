@@ -1,4 +1,4 @@
-import { Component, computed, effect, signal } from '@angular/core';
+import { Component, computed, linkedSignal } from '@angular/core';
 import { FormField, form, maxLength } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { msg } from '../../../core/i18n/i18n.service';
@@ -41,11 +41,19 @@ interface ProxyFormModel {
   styleUrl: '../settings.css',
 })
 export class ProxySettingsComponent extends SettingsPage {
-  readonly proxyModel = signal<ProxyFormModel>({
-    mode: 'env',
-    url: '',
-    noProxyCustom: false,
-    noProxy: '',
+  /** Filled with the stored values each time they are loaded, then edited by the form. */
+  readonly proxyModel = linkedSignal<ProxyFormModel>(() => {
+    const proxy = this.settings.value()?.proxy;
+    if (!proxy) {
+      return { mode: 'env', url: '', noProxyCustom: false, noProxy: '' };
+    }
+    const url = proxy.url.value;
+    return {
+      mode: url === null ? 'env' : url === '' ? 'none' : 'custom',
+      url: url ?? '',
+      noProxyCustom: proxy.no_proxy.value !== null,
+      noProxy: proxy.no_proxy.value ?? proxy.no_proxy.env ?? '',
+    };
   });
   readonly proxyForm = form(this.proxyModel, (path) => {
     maxLength(path.url, MAX_PROXY_CHARS);
@@ -56,24 +64,6 @@ export class ProxySettingsComponent extends SettingsPage {
     const source = this.settings.value()?.proxy.effective.source;
     return source ? PROXY_SOURCE_LABELS[source] : null;
   });
-
-  constructor() {
-    super();
-    // Fill the form with the stored values each time they are loaded
-    effect(() => {
-      const value = this.settings.value();
-      if (!value) {
-        return;
-      }
-      const url = value.proxy.url.value;
-      this.proxyForm().reset({
-        mode: url === null ? 'env' : url === '' ? 'none' : 'custom',
-        url: url ?? '',
-        noProxyCustom: value.proxy.no_proxy.value !== null,
-        noProxy: value.proxy.no_proxy.value ?? value.proxy.no_proxy.env ?? '',
-      });
-    });
-  }
 
   async saveProxy(event: Event): Promise<void> {
     event.preventDefault();
