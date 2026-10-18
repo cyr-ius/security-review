@@ -46,6 +46,8 @@ export function roleDraftsComplete(drafts: RoleBindingDraft[]): boolean {
   selector: 'app-role-bindings',
   imports: [TranslatePipe],
   templateUrl: './role-bindings.component.html',
+  // Block box, so Bootstrap's `legend + * { clear: left }` puts it below the floated legend.
+  host: { class: 'd-block' },
 })
 export class RoleBindingsComponent {
   private readonly i18n = inject(I18nService);
