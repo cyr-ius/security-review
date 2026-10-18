@@ -140,7 +140,9 @@ valident les entrées et appellent ces modules.
   schéma OpenAPI.
 - Angular : formulaires de saisie en Signal Forms, pas de `.subscribe()` dans les composants
   (`rxResource` ou `firstValueFrom`), un dossier par composant quand une fonctionnalité en a
-  plusieurs. Le détail est dans `docs/contributing`.
+  plusieurs, `linkedSignal` plutôt qu'un `effect()` qui recopie un signal, signaux des services en
+  `asReadonly()`, `shared/` sans service métier, couleurs par variables Bootstrap ou jetons de
+  `styles.css`. Le détail est dans `docs/contributing`.
 
 ### Invariants de sécurité (ne jamais régresser)
 
