@@ -42,19 +42,16 @@
       {{ 'groups.createTitle' | t }}
     }
   </h2>
-  <form class="row g-3 align-items-start" (submit)="submit($event)">
+  <form class="row g-3 align-items-start" (submit)="submit($event)" novalidate>
     <div class="col-md-4">
       <label for="group-name" class="form-label">{{ 'access.name' | t }}</label>
       <input
         id="group-name"
         class="form-control font-monospace"
-        required
-        maxlength="200"
         autocomplete="off"
         spellcheck="false"
         [placeholder]="'groups.namePlaceholder' | t"
-        [value]="name()"
-        (input)="onName($event)"
+        [formField]="groupForm.name"
       />
       <div class="form-text">{{ 'groups.nameHelp' | t }}</div>
     </div>
@@ -63,10 +60,8 @@
       <input
         id="group-description"
         class="form-control"
-        maxlength="500"
         autocomplete="off"
-        [value]="description()"
-        (input)="onDescription($event)"
+        [formField]="groupForm.description"
       />
     </div>
     <div class="col-md-3 pt-md-4">
@@ -76,8 +71,7 @@
           class="form-check-input"
           type="checkbox"
           role="switch"
-          [checked]="sso()"
-          (change)="onSso($event)"
+          [formField]="groupForm.sso"
         />
         <label class="form-check-label" for="group-sso">{{ 'groups.sso' | t }}</label>
       </div>

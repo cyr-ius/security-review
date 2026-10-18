@@ -106,7 +106,8 @@ Preferably keep a local administrator.
 
 A token never grants more than its creator holds: creating a token, changing its projects,
 rotating its secret, revoking it, or approving or rejecting an enrollment request needs
-`reports.read` on every project of the token (and `findings.triage` for a `triager` token); the
+`reports.read` on every project of the token, before and after a change of its projects (and
+`findings.triage` for a `triager` token); the
 **Tokens** screen only lists the tokens and requests of the projects the user reads. Giving a user read access at the
 approval of an enrollment also needs `users.manage`.
 

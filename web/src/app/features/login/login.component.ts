@@ -81,11 +81,18 @@ export class LoginComponent implements OnInit {
       this.ssoPending.set(true);
       void this.enter(session).finally(() => this.ssoPending.set(false));
     }
-    this.api.authConfig().subscribe({
-      next: (config) => this.ssoName.set(config.oidc ? config.oidc_display_name : null),
+    void this.loadSsoName();
+  }
+
+  /** Offer the identity provider when the controller enables OIDC. */
+  private async loadSsoName(): Promise<void> {
+    try {
+      const config = await firstValueFrom(this.api.authConfig());
+      this.ssoName.set(config.oidc ? config.oidc_display_name : null);
+    } catch {
       // Older controller or network error: only the password login is offered
-      error: () => this.ssoName.set(null),
-    });
+      this.ssoName.set(null);
+    }
   }
 
   readonly accountModel = signal({ username: '', password: '' });

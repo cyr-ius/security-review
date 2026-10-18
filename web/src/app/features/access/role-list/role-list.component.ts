@@ -1,14 +1,23 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { PERMISSION_META } from '../../core/constants/labels';
-import { AccessRole, Permission } from '../../core/models/api.models';
-import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { ApiService } from '../../core/services/api.service';
-import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
-import { describeAccessError } from './access-errors';
+import { PERMISSION_META } from '../../../core/constants/labels';
+import { AccessRole, Permission } from '../../../core/models/api.models';
+import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { ApiService } from '../../../core/services/api.service';
+import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
+import { describeAccessError } from '../access-errors';
+
+/** Name and description of the role being created or edited. */
+interface RoleFormModel {
+  name: string;
+  description: string;
+}
+
+const EMPTY_ROLE: RoleFormModel = { name: '', description: '' };
 
 /**
  * Administrator page for the roles: named sets of permissions, given to groups. The system roles
@@ -16,9 +25,9 @@ import { describeAccessError } from './access-errors';
  */
 @Component({
   selector: 'app-role-list',
-  imports: [DatePipe, RefreshButtonComponent, TranslatePipe],
+  imports: [DatePipe, FormField, RefreshButtonComponent, TranslatePipe],
   templateUrl: './role-list.component.html',
-  styleUrl: './access.css',
+  styleUrl: '../access.css',
 })
 export class RoleListComponent {
   private readonly api = inject(ApiService);
@@ -28,8 +37,13 @@ export class RoleListComponent {
   readonly roles = rxResource({ stream: () => this.api.roles() });
   readonly permissions = rxResource({ stream: () => this.api.permissions() });
 
-  readonly name = signal('');
-  readonly description = signal('');
+  readonly roleModel = signal<RoleFormModel>({ ...EMPTY_ROLE });
+  readonly roleForm = form(this.roleModel, (path) => {
+    required(path.name);
+    maxLength(path.name, 64);
+    maxLength(path.description, 500);
+  });
+  /** Permissions ticked in the form (a list of checkboxes, kept apart from the model). */
   readonly selected = signal<Permission[]>([]);
   /** Role being edited (null: creation form). */
   readonly editing = signal<AccessRole | null>(null);
@@ -47,16 +61,12 @@ export class RoleListComponent {
   });
 
   readonly canSubmit = computed(
-    () => !this.busy() && this.name().trim().length > 0 && this.selected().length > 0,
+    () =>
+      !this.busy() &&
+      this.roleForm().valid() &&
+      this.roleModel().name.trim().length > 0 &&
+      this.selected().length > 0,
   );
-
-  onName(event: Event): void {
-    this.name.set((event.target as HTMLInputElement).value);
-  }
-
-  onDescription(event: Event): void {
-    this.description.set((event.target as HTMLTextAreaElement).value);
-  }
 
   toggle(permission: Permission, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
@@ -68,8 +78,7 @@ export class RoleListComponent {
   /** Load a custom role into the form. */
   edit(role: AccessRole): void {
     this.editing.set(role);
-    this.name.set(role.name);
-    this.description.set(role.description);
+    this.roleForm().reset({ name: role.name, description: role.description });
     this.selected.set([...role.permissions]);
     this.message.set(null);
     this.error.set(null);
@@ -77,8 +86,7 @@ export class RoleListComponent {
 
   resetForm(): void {
     this.editing.set(null);
-    this.name.set('');
-    this.description.set('');
+    this.roleForm().reset({ ...EMPTY_ROLE });
     this.selected.set([]);
   }
 
@@ -87,9 +95,10 @@ export class RoleListComponent {
     if (!this.canSubmit()) {
       return;
     }
+    const { name, description } = this.roleModel();
     const body = {
-      name: this.name().trim(),
-      description: this.description().trim(),
+      name: name.trim(),
+      description: description.trim(),
       permissions: this.selected(),
     };
     const editing = this.editing();

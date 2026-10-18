@@ -1,20 +1,30 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { UserGroup } from '../../core/models/api.models';
-import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { ApiService } from '../../core/services/api.service';
-import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
+import { UserGroup } from '../../../core/models/api.models';
+import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { ApiService } from '../../../core/services/api.service';
+import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
   RoleBindingDraft,
   RoleBindingsComponent,
   roleDraftsComplete,
   toRoleBindings,
   toRoleDrafts,
-} from '../../shared/components/role-bindings/role-bindings.component';
-import { describeAccessError } from './access-errors';
+} from '../../../shared/components/role-bindings/role-bindings.component';
+import { describeAccessError } from '../access-errors';
+
+/** Name, description and SSO switch of the group being created or edited. */
+interface GroupFormModel {
+  name: string;
+  description: string;
+  sso: boolean;
+}
+
+const EMPTY_GROUP: GroupFormModel = { name: '', description: '', sso: true };
 
 /**
  * Administrator page for the groups of web users: their roles (each on every project or on some
@@ -23,9 +33,9 @@ import { describeAccessError } from './access-errors';
  */
 @Component({
   selector: 'app-group-list',
-  imports: [RouterLink, RefreshButtonComponent, RoleBindingsComponent, TranslatePipe],
+  imports: [FormField, RouterLink, RefreshButtonComponent, RoleBindingsComponent, TranslatePipe],
   templateUrl: './group-list.component.html',
-  styleUrl: './access.css',
+  styleUrl: '../access.css',
 })
 export class GroupListComponent {
   private readonly api = inject(ApiService);
@@ -36,9 +46,13 @@ export class GroupListComponent {
   readonly users = rxResource({ stream: () => this.api.users() });
   readonly projects = rxResource({ stream: () => this.api.projects() });
 
-  readonly name = signal('');
-  readonly description = signal('');
-  readonly sso = signal(true);
+  readonly groupModel = signal<GroupFormModel>({ ...EMPTY_GROUP });
+  readonly groupForm = form(this.groupModel, (path) => {
+    required(path.name);
+    maxLength(path.name, 200);
+    maxLength(path.description, 500);
+  });
+  /** Roles of the group: a list edited row by row, kept apart from the model. */
   readonly bindings = signal<RoleBindingDraft[]>([]);
   /** Ids of the members added by an administrator. */
   readonly members = signal<number[]>([]);
@@ -60,20 +74,12 @@ export class GroupListComponent {
   );
 
   readonly canSubmit = computed(
-    () => !this.busy() && this.name().trim().length > 0 && roleDraftsComplete(this.bindings()),
+    () =>
+      !this.busy() &&
+      this.groupForm().valid() &&
+      this.groupModel().name.trim().length > 0 &&
+      roleDraftsComplete(this.bindings()),
   );
-
-  onName(event: Event): void {
-    this.name.set((event.target as HTMLInputElement).value);
-  }
-
-  onDescription(event: Event): void {
-    this.description.set((event.target as HTMLInputElement).value);
-  }
-
-  onSso(event: Event): void {
-    this.sso.set((event.target as HTMLInputElement).checked);
-  }
 
   toggleMember(userId: number, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
@@ -96,9 +102,7 @@ export class GroupListComponent {
   /** Load a group into the form. */
   edit(group: UserGroup): void {
     this.editing.set(group);
-    this.name.set(group.name);
-    this.description.set(group.description);
-    this.sso.set(group.sso);
+    this.groupForm().reset({ name: group.name, description: group.description, sso: group.sso });
     this.bindings.set(toRoleDrafts(group.roles));
     this.members.set(
       group.members.filter((member) => member.source === 'local').map((member) => member.user_id),
@@ -109,9 +113,7 @@ export class GroupListComponent {
 
   resetForm(): void {
     this.editing.set(null);
-    this.name.set('');
-    this.description.set('');
-    this.sso.set(true);
+    this.groupForm().reset({ ...EMPTY_GROUP });
     this.bindings.set([]);
     this.members.set([]);
   }
@@ -121,11 +123,8 @@ export class GroupListComponent {
     if (!this.canSubmit()) {
       return;
     }
-    const body = {
-      name: this.name().trim(),
-      description: this.description().trim(),
-      sso: this.sso(),
-    };
+    const { name, description, sso } = this.groupModel();
+    const body = { name: name.trim(), description: description.trim(), sso };
     const roles = toRoleBindings(this.bindings(), this.roles.value() ?? []);
     const members = this.members();
     const editing = this.editing();

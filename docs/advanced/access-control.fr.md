@@ -109,8 +109,8 @@ Gardez de préférence un administrateur local.
 
 Un jeton ne donne jamais plus que ce que détient son créateur : créer un jeton, changer ses
 projets, renouveler son secret, le révoquer, ou approuver ou rejeter une demande d'enrôlement
-demande `reports.read` sur tous les projets du jeton (et `findings.triage` pour un jeton
-`triager`) ; l'écran **Jetons** ne liste que les jetons et demandes des projets que l'utilisateur
+demande `reports.read` sur tous les projets du jeton, avant et après un changement de ses projets
+(et `findings.triage` pour un jeton `triager`) ; l'écran **Jetons** ne liste que les jetons et demandes des projets que l'utilisateur
 lit. Donner à un utilisateur
 la lecture d'un projet à l'approbation d'un enrôlement demande aussi `users.manage`.
 

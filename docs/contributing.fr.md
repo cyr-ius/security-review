@@ -98,7 +98,11 @@ src/security_review_mcp/
 ├── remote_scan.py # client de `scan-deps` : scan des dépendances par un serveur partagé
 ├── ci_client.py   # `security-review-ci` : client de pipeline du contrôleur (bibliothèque standard uniquement)
 ├── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP
-├── web_api.py     # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
+├── web_api/       # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
+│   ├── __init__.py    # create_app, fichiers statiques de /ui, assemblage des routeurs
+│   ├── schemas.py     # modèles de requête et de réponse de chaque route
+│   ├── deps.py        # identité de l'appelant, permissions, portée projet
+│   └── *_routes.py    # un routeur par domaine (auth, account, report, ci, rule, token, admin, access)
 ├── prompts.py     # construction des prompts
 ├── standards.py   # normes de développement : stockage, recherche par technologie / fichier, rendu
 ├── default_rules.toml  # règles et checklists par défaut, copiées en base au premier lancement
@@ -148,6 +152,21 @@ configuration VS Code **Web UI + API (Angular dev server, port 4200)**, qui dém
 fichier de `web/src/` recharge la page (styles et templates sans rechargement complet), et les
 points d'arrêt posés dans les fichiers `.ts` sont pris en compte. Dans le devcontainer, Chrome
 est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
+
+### Conventions de code
+
+- **API REST** : toute route qui répond en JSON déclare son modèle de réponse
+  (`web_api/schemas.py`) : FastAPI le documente dans OpenAPI et retire tout champ non déclaré.
+  `test_openapi_documents_the_response_of_every_json_route` échoue sur une route qui renvoie un
+  `dict` brut.
+- **Composants** : template et styles dans des fichiers séparés. Une fonctionnalité à plusieurs
+  écrans a un dossier par composant (`features/access/role-list/`) ; ses fichiers partagés
+  (styles, classe de base, messages d'erreur) restent à la racine de la fonctionnalité.
+- **Formulaires** : les formulaires de saisie utilisent les Signal Forms (`form()`,
+  `[formField]`, validateurs avec un message traduit) ; les filtres de liste et les listes
+  dynamiques de cases à cocher restent de simples gestionnaires d'événements.
+- **Appels HTTP** : par `rxResource` pour les données d'un écran, ou `await
+  firstValueFrom(...)` pour une action ; pas de `.subscribe()` dans les composants.
 
 ### Traductions de l'interface
 

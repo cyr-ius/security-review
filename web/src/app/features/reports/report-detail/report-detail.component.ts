@@ -3,6 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { REVIEW_TYPE_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import {
   FINDING_STATUSES,
@@ -81,15 +82,13 @@ export class ReportDetailComponent {
     this.findings.update((all) => all.map((f) => (f.id === updated.id ? updated : f)));
   }
 
-  downloadMarkdown(): void {
-    this.api
-      .reportMarkdown(this.reportId())
-      .subscribe((blob) => saveBlob(blob, `report-${this.reportId()}.md`));
+  async downloadMarkdown(): Promise<void> {
+    const id = this.reportId();
+    saveBlob(await firstValueFrom(this.api.reportMarkdown(id)), `report-${id}.md`);
   }
 
-  downloadSarif(): void {
-    this.api
-      .sarif({ report_id: this.reportId() })
-      .subscribe((blob) => saveBlob(blob, `report-${this.reportId()}.sarif`));
+  async downloadSarif(): Promise<void> {
+    const id = this.reportId();
+    saveBlob(await firstValueFrom(this.api.sarif({ report_id: id })), `report-${id}.sarif`);
   }
 }

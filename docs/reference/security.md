@@ -113,7 +113,10 @@
   are public, but the data routes stay protected. The check is made twice: by the Bearer
   middleware, then by every route of the API, which refuses (`401`) any request without an
   authenticated identity. The API thus never grants rights by default, even if it is served
-  without the middleware.
+  without the middleware. Every JSON answer goes through its declared response model: a field
+  a service would add by mistake (a digest, a secret) is dropped instead of being returned. The
+  answers that hold a secret (session, new or rotated token, generated password) are sent with
+  `Cache-Control: no-store`.
 - **User accounts** ([user name and password](../usage/web-interface.md#user-accounts)): only
   a salted **scrypt** digest (N=2¹⁴, r=8, p=5, random 16-byte salt) is stored; a stored digest
   with out-of-bounds parameters is refused instead of exhausting the memory. Passwords of 12 to

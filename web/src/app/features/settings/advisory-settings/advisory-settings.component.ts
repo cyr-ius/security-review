@@ -2,12 +2,12 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, DestroyRef, computed, effect, inject } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
-import { AdvisoryEcosystemResult, AdvisoryUpdate } from '../../core/models/api.models';
-import { msg } from '../../core/i18n/i18n.service';
-import { MessageKey } from '../../core/i18n/messages';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
-import { SettingsPage } from './settings-page';
+import { AdvisoryEcosystemResult, AdvisoryUpdate } from '../../../core/models/api.models';
+import { msg } from '../../../core/i18n/i18n.service';
+import { MessageKey } from '../../../core/i18n/messages';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
+import { SettingsPage } from '../settings-page';
 
 /** Delay between two refreshes of the OSV history while an update runs. */
 const POLL_MS = 5000;
@@ -37,7 +37,7 @@ export const TRIGGER_LABELS: Record<AdvisoryUpdate['trigger'], MessageKey> = {
   selector: 'app-advisory-settings',
   imports: [DatePipe, DecimalPipe, RefreshButtonComponent, TranslatePipe],
   templateUrl: './advisory-settings.component.html',
-  styleUrl: './settings.css',
+  styleUrl: '../settings.css',
 })
 export class AdvisorySettingsComponent extends SettingsPage {
   readonly advisories = rxResource({ stream: () => this.api.advisories() });

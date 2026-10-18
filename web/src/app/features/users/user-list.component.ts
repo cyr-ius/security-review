@@ -2,8 +2,9 @@ import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { FormField, disabled, form, maxLength, required, validate } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { MIN_PASSWORD_CHARS } from '../../core/constants/passwords';
+import { MAX_PASSWORD_CHARS, MIN_PASSWORD_CHARS } from '../../core/constants/passwords';
 import { AuthSource, WebUser, WebUserRole } from '../../core/models/api.models';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
@@ -26,6 +27,16 @@ const ROLE_LABELS: Record<WebUserRole, MessageKey> = {
   admin: 'users.roleAdmin',
 };
 
+/** Account type, name and password of the user being created (or edited: name only). */
+interface UserFormModel {
+  source: AuthSource;
+  username: string;
+  /** Empty: the controller generates one. */
+  password: string;
+}
+
+const EMPTY_USER: UserFormModel = { source: 'local', username: '', password: '' };
+
 /**
  * Administrator page for the web users, the only accounts of the web interface: local users
  * (username and password) and SSO users (OpenID Connect, created here or at their first login),
@@ -34,7 +45,7 @@ const ROLE_LABELS: Record<WebUserRole, MessageKey> = {
  */
 @Component({
   selector: 'app-user-list',
-  imports: [DatePipe, RefreshButtonComponent, RoleBindingsComponent, TranslatePipe],
+  imports: [DatePipe, FormField, RefreshButtonComponent, RoleBindingsComponent, TranslatePipe],
   templateUrl: './user-list.component.html',
   styleUrl: './user-list.component.css',
 })
@@ -54,16 +65,28 @@ export class UserListComponent {
   /** Login methods of the controller: tells whether SSO users can log in. */
   readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
 
-  readonly username = signal('');
-  readonly source = signal<AuthSource>('local');
+  /** User whose groups are being edited (null: creation form). */
+  readonly editing = signal<WebUser | null>(null);
+  readonly userModel = signal<UserFormModel>({ ...EMPTY_USER });
+  readonly userForm = form(this.userModel, (path) => {
+    required(path.username);
+    maxLength(path.username, 64);
+    // The name of an existing user never changes: only its groups are edited
+    disabled(path.username, () => this.editing() !== null);
+    maxLength(path.password, MAX_PASSWORD_CHARS);
+    validate(path.password, ({ value, valueOf }) =>
+      valueOf(path.source) === 'local' && value().length > 0 && value().length < MIN_PASSWORD_CHARS
+        ? {
+            kind: 'minLength',
+            message: this.i18n.translate('users.passwordHelp', { count: MIN_PASSWORD_CHARS }),
+          }
+        : undefined,
+    );
+  });
   /** Ids of the groups given by an administrator (the SSO groups are kept apart). */
   readonly selectedGroups = signal<number[]>([]);
   /** Roles given directly to the user, each on every project or on the selected ones. */
   readonly bindings = signal<RoleBindingDraft[]>([]);
-  /** Password typed by the administrator; empty: the controller generates one. */
-  readonly password = signal('');
-  /** User whose groups are being edited (null: creation form). */
-  readonly editing = signal<WebUser | null>(null);
 
   /** Generated password, shown once with the user it belongs to. */
   readonly createdPassword = signal<{ username: string; password: string } | null>(null);
@@ -72,7 +95,7 @@ export class UserListComponent {
   readonly busy = signal(false);
 
   /** Source of the user of the form (the edited one, or the one being created). */
-  readonly formSource = computed(() => this.editing()?.auth_source ?? this.source());
+  readonly formSource = computed(() => this.editing()?.auth_source ?? this.userModel().source);
 
   /** Names of the known projects. */
   readonly knownProjects = computed(() =>
@@ -91,18 +114,15 @@ export class UserListComponent {
   );
 
   readonly passwordTooShort = computed(
-    () =>
-      this.formSource() === 'local' &&
-      this.password().length > 0 &&
-      this.password().length < MIN_PASSWORD_CHARS,
+    () => this.formSource() === 'local' && this.userForm.password().invalid(),
   );
 
   readonly canSubmit = computed(
     () =>
       !this.busy() &&
-      !this.passwordTooShort() &&
       roleDraftsComplete(this.bindings()) &&
-      (this.editing() !== null || this.username().trim().length > 0),
+      (this.editing() !== null ||
+        (this.userForm().valid() && this.userModel().username.trim().length > 0)),
   );
 
   /** True for the row of the logged-in user. */
@@ -135,19 +155,6 @@ export class UserListComponent {
       : this.i18n.translate('users.roleAllProjects', { role: label });
   }
 
-  onUsernameInput(event: Event): void {
-    this.username.set((event.target as HTMLInputElement).value);
-  }
-
-  onPasswordInput(event: Event): void {
-    this.password.set((event.target as HTMLInputElement).value);
-  }
-
-  onSourceChange(source: AuthSource): void {
-    this.source.set(source);
-    this.password.set('');
-  }
-
   toggleGroup(groupId: number, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
     this.selectedGroups.update((selected) =>
@@ -158,24 +165,20 @@ export class UserListComponent {
   /** Load a user into the form to change its groups and its direct roles. */
   edit(user: WebUser): void {
     this.editing.set(user);
-    this.username.set(user.username);
-    this.source.set(user.auth_source);
+    this.userForm().reset({ source: user.auth_source, username: user.username, password: '' });
     this.selectedGroups.set(
       user.groups.filter((group) => group.source === 'local').map((group) => group.group_id),
     );
     this.bindings.set(toRoleDrafts(user.roles));
-    this.password.set('');
     this.message.set(null);
     this.error.set(null);
   }
 
   resetForm(): void {
     this.editing.set(null);
-    this.username.set('');
-    this.source.set('local');
+    this.userForm().reset({ ...EMPTY_USER });
     this.selectedGroups.set([]);
     this.bindings.set([]);
-    this.password.set('');
   }
 
   async submit(event: Event): Promise<void> {
@@ -186,15 +189,15 @@ export class UserListComponent {
     const groups = this.selectedGroups();
     const roles = toRoleBindings(this.bindings(), this.roles.value() ?? []);
     const editing = this.editing();
-    const source = this.source();
+    const { source, username, password: typed } = this.userModel();
     await this.run(async () => {
       if (editing) {
         const updated = await firstValueFrom(this.api.updateUser(editing.id, groups, roles));
         this.message.set(msg('users.updated', { user: updated.username }));
       } else {
-        const password = source === 'local' ? this.password() || null : null;
+        const password = source === 'local' ? typed || null : null;
         const created = await firstValueFrom(
-          this.api.createUser(this.username().trim(), source, groups, password, roles),
+          this.api.createUser(username.trim(), source, groups, password, roles),
         );
         if (created.password) {
           this.createdPassword.set({ username: created.username, password: created.password });

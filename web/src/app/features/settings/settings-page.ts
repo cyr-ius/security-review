@@ -22,11 +22,6 @@ export abstract class SettingsPage {
     this.settings.reload();
   }
 
-  /** Value of the input or select that sent an event. */
-  inputValue(event: Event): string {
-    return (event.target as HTMLInputElement).value;
-  }
-
   /** Run an action, show its outcome and refresh the page. */
   protected async run(action: () => Promise<unknown>, success: Message): Promise<void> {
     this.busy.set(true);

@@ -122,10 +122,7 @@
       </div>
     }
     @if (pendingStatus(); as pending) {
-      <form
-        class="dismissal border rounded p-3 mb-2"
-        (submit)="$event.preventDefault(); submitDismissal()"
-      >
+      <form class="dismissal border rounded p-3 mb-2" (submit)="submitDismissal($event)" novalidate>
         <p class="fw-semibold mb-2">
           {{ 'report.dismissTitle' | t: { status: statusMeta[pending].label | t } }}
         </p>
@@ -137,11 +134,10 @@
             class="form-control form-control-sm"
             [id]="'reason-' + finding().id"
             rows="3"
-            minlength="10"
-            maxlength="1000"
-            required
-            [value]="reason()"
-            (input)="reason.set($any($event.target).value)"
+            [formField]="dismissalForm.reason"
+            [class.is-invalid]="
+              dismissalForm.reason().touched() && dismissalForm.reason().invalid()
+            "
           ></textarea>
           <div class="form-text">{{ 'report.dismissReasonHelp' | t }}</div>
         </div>
@@ -153,10 +149,11 @@
             type="date"
             class="form-control form-control-sm expiry"
             [id]="'expiry-' + finding().id"
-            required
             [min]="minExpiry"
-            [value]="expiresOn()"
-            (input)="expiresOn.set($any($event.target).value)"
+            [formField]="dismissalForm.expiresOn"
+            [class.is-invalid]="
+              dismissalForm.expiresOn().touched() && dismissalForm.expiresOn().invalid()
+            "
           />
           <div class="form-text">{{ 'report.dismissExpiryHelp' | t }}</div>
         </div>
@@ -164,7 +161,7 @@
           <button
             type="submit"
             class="btn btn-sm btn-primary"
-            [disabled]="saving() || reason().trim().length < 10 || !expiresOn()"
+            [disabled]="saving() || dismissalForm().invalid()"
           >
             {{ 'report.dismissSave' | t }}
           </button>

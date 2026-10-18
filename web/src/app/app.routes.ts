@@ -108,7 +108,9 @@ export const routes: Routes = [
         title: 'layout.groups',
         canActivate: [permissionGuard('users.manage')],
         loadComponent: () =>
-          import('./features/access/group-list.component').then((m) => m.GroupListComponent),
+          import('./features/access/group-list/group-list.component').then(
+            (m) => m.GroupListComponent,
+          ),
       },
       // Former single settings page, split into the three pages below
       { path: 'settings', pathMatch: 'full', redirectTo: 'settings/language' },
@@ -117,14 +119,16 @@ export const routes: Routes = [
         title: 'layout.roles',
         canActivate: [permissionGuard('users.manage')],
         loadComponent: () =>
-          import('./features/access/role-list.component').then((m) => m.RoleListComponent),
+          import('./features/access/role-list/role-list.component').then(
+            (m) => m.RoleListComponent,
+          ),
       },
       {
         path: 'sso',
         title: 'layout.sso',
         canActivate: [permissionGuard('users.manage')],
         loadComponent: () =>
-          import('./features/sso/sso-page.component').then((m) => m.SsoPageComponent),
+          import('./features/sso/sso-page/sso-page.component').then((m) => m.SsoPageComponent),
       },
       // Former address of the SSO page
       { path: 'role-mappings', pathMatch: 'full', redirectTo: 'sso' },
@@ -133,7 +137,7 @@ export const routes: Routes = [
         title: 'settings.languageTitle',
         canActivate: [permissionGuard('settings.manage')],
         loadComponent: () =>
-          import('./features/settings/language-settings.component').then(
+          import('./features/settings/language-settings/language-settings.component').then(
             (m) => m.LanguageSettingsComponent,
           ),
       },
@@ -142,7 +146,7 @@ export const routes: Routes = [
         title: 'settings.proxyTitle',
         canActivate: [permissionGuard('settings.manage')],
         loadComponent: () =>
-          import('./features/settings/proxy-settings.component').then(
+          import('./features/settings/proxy-settings/proxy-settings.component').then(
             (m) => m.ProxySettingsComponent,
           ),
       },
@@ -151,7 +155,7 @@ export const routes: Routes = [
         title: 'settings.osvTitle',
         canActivate: [permissionGuard('settings.manage')],
         loadComponent: () =>
-          import('./features/settings/advisory-settings.component').then(
+          import('./features/settings/advisory-settings/advisory-settings.component').then(
             (m) => m.AdvisorySettingsComponent,
           ),
       },
