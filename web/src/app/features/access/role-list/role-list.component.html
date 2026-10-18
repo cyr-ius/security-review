@@ -105,6 +105,7 @@
             <th scope="col">{{ 'access.name' | t }}</th>
             <th scope="col">{{ 'roles.permissions' | t }}</th>
             <th scope="col">{{ 'layout.groups' | t }}</th>
+            <th scope="col">{{ 'layout.users' | t }}</th>
             <th scope="col">{{ 'rules.origin' | t }}</th>
             <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
           </tr>
@@ -131,6 +132,7 @@
                 </div>
               </td>
               <td>{{ role.groups }}</td>
+              <td>{{ role.users }}</td>
               <td class="small">
                 {{ role.created_by ?? '—' }}
                 <span class="text-body-secondary">

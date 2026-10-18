@@ -279,7 +279,12 @@ async def approve_enrollment(
         return EnrollmentApproved.model_validate(approved)
     try:
         user = await run_in_threadpool(
-            web_users.grant_project, portal_user, approved["project"], identity.client, create_sso
+            web_users.grant_project,
+            portal_user,
+            approved["project"],
+            identity.client,
+            create_sso,
+            actor_of(identity),
         )
     except ValueError as exc:
         # Checked before the approval: only a concurrent change gets here

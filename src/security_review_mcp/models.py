@@ -435,7 +435,8 @@ class WebUser(SQLModel, table=True):
 
     ``auth_source`` is ``local`` (password login, only a scrypt hash of the password is stored)
     or ``oidc`` (OpenID Connect login, no password). What a user may do comes from the roles of
-    its groups (``GroupMember``, see access_control). ``oidc_subject`` is the ``sub`` claim bound
+    its groups (``GroupMember``) and from the roles given to it directly (``UserRole``, see
+    access_control). ``oidc_subject`` is the ``sub`` claim bound
     at the first SSO login. ``session_version`` is drawn at random at creation and at each
     password change: the sessions issued with another version are refused.
     """
@@ -502,6 +503,21 @@ class GroupRole(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     group_id: int = Field(foreign_key="usergroup.id", index=True)
+    role_id: int = Field(foreign_key="accessrole.id", index=True)
+    projects: str = Field(default="[]")
+
+
+class UserRole(SQLModel, table=True):
+    """Role given directly to a web user, on every project or on the projects in ``projects``.
+
+    It adds to the roles of the groups of the user. ``projects`` is a JSON list; empty means
+    every project. Only a role whose permissions are all scoped to projects may list projects.
+    """
+
+    __table_args__ = (UniqueConstraint("user_id", "role_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="webuser.id", index=True)
     role_id: int = Field(foreign_key="accessrole.id", index=True)
     projects: str = Field(default="[]")
 

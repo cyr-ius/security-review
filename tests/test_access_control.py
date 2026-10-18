@@ -329,6 +329,98 @@ def test_sync_sso_groups_replaces_only_the_sso_memberships():
     assert devs in [g["group_id"] for g in groups]
 
 
+# ── Direct roles of a user ───────────────────────────────────────────────────
+
+
+def set_roles(user_id: int, bindings, actor: str | None = None) -> None:
+    """Replace the direct roles of a user in a new session."""
+    with session_scope() as session:
+        access_control.set_user_roles(session, user_id, bindings, actor)
+
+
+def test_direct_roles_add_to_the_roles_of_the_groups():
+    alice = make_user("alice", PASSWORD, "reader", ["shop"])
+    set_roles(alice["id"], [(role_id("triager"), ["crm", "billing"])])
+
+    assert grants_of(alice["id"]) == {
+        "reports.read": frozenset({"shop", "crm", "billing"}),
+        "findings.triage": frozenset({"crm", "billing"}),
+    }
+    user = web_users.find_user("alice")
+    assert user["roles"] == [
+        {"role_id": role_id("triager"), "name": "triager", "projects": ["crm", "billing"]}
+    ]
+    assert [group["name"] for group in user["groups"]] == ["reader:shop"]
+    # A direct role on every project wins over the projects of the groups
+    set_roles(alice["id"], [(role_id("reader"), None)])
+    assert grants_of(alice["id"]) == {"reports.read": None}
+    assert web_users.find_user("alice")["roles"][0]["projects"] is None
+
+
+def test_a_user_without_group_gets_access_from_its_direct_roles():
+    bob = web_users.create_user("bob", PASSWORD, roles=[(role_id("reader"), ["shop"])])
+    assert bob["groups"] == []
+    assert (bob["effective_role"], bob["permissions"]) == ("reader", {"reports.read": ["shop"]})
+    # update_user leaves the groups alone when they are not given
+    updated = web_users.update_user(bob["id"], None, "root", [])
+    assert (updated["roles"], updated["permissions"]) == ([], {})
+
+
+@pytest.mark.parametrize(
+    ("bindings", "message"),
+    [
+        ([("admin", ["shop"])], "cannot list projects"),
+        ([("reader", None), ("reader", ["shop"])], "given twice"),
+        ([("reader", ["bad\x00name"])], "control characters"),
+    ],
+)
+def test_invalid_direct_roles_are_refused(bindings, message):
+    alice = web_users.create_user("alice", PASSWORD)
+    with pytest.raises(ValueError, match=message):
+        set_roles(alice["id"], [(role_id(name), projects) for name, projects in bindings])
+    assert web_users.find_user("alice")["roles"] == []
+
+
+def test_direct_roles_are_bounded_and_checked(monkeypatch):
+    alice = web_users.create_user("alice", PASSWORD)
+    with pytest.raises(NotFoundError, match="Role 999"):
+        set_roles(alice["id"], [(999, None)])
+    monkeypatch.setattr(access_control, "MAX_ROLES_PER_USER", 1)
+    with pytest.raises(ValueError, match="at most 1 direct roles"):
+        set_roles(alice["id"], [(role_id("reader"), None), (role_id("triager"), None)])
+    monkeypatch.setattr(access_control, "MAX_PROJECTS_PER_TOKEN", 2)
+    with pytest.raises(ValueError, match="at most 2 projects"):
+        set_roles(alice["id"], [(role_id("reader"), ["a", "b", "c"])])
+
+
+def test_a_role_limited_to_projects_for_a_user_cannot_gain_controller_permissions():
+    role = access_control.create_role("Shop readers", ["reports.read"])
+    alice = web_users.create_user("alice", PASSWORD)
+    set_roles(alice["id"], [(role["id"], ["shop"])])
+    assert access_control.list_roles()[-1]["users"] == 1
+
+    with pytest.raises(ValueError, match="limited to projects for a user"):
+        access_control.update_role(role["id"], ["reports.read", "audit.read"])
+    access_control.delete_role(role["id"])
+    assert web_users.find_user("alice")["roles"] == []
+
+
+def test_deleting_a_user_removes_its_direct_roles():
+    make_user("root", PASSWORD, "admin")
+    alice = web_users.create_user("alice", PASSWORD, roles=[(role_id("reader"), ["shop"])])
+    web_users.delete_user(alice["id"])
+    again = web_users.create_user("alice", PASSWORD)
+    assert again["roles"] == [] and again["permissions"] == {}
+
+
+def test_find_roles_reads_the_command_line():
+    with session_scope() as session:
+        bindings = access_control.find_roles(session, ["reader", "triager:shop, crm"])
+        with pytest.raises(NotFoundError, match="Role 'ghost'"):
+            access_control.find_roles(session, ["ghost:shop"])
+    assert bindings == [(role_id("reader"), None), (role_id("triager"), ["shop", "crm"])]
+
+
 # ── The last holder of users.manage ──────────────────────────────────────────
 
 
@@ -355,6 +447,19 @@ def test_no_change_removes_the_last_holder_of_users_manage():
     assert access_control.get_group(other["id"])["roles"][0]["name"] == "Managers"
 
 
+def test_a_direct_admin_role_counts_as_a_holder_of_users_manage():
+    root = web_users.create_user("root", PASSWORD, roles=[(role_id("admin"), None)])
+    with session_scope() as session:
+        assert access_control.managers(session) == {root["id"]}
+    with pytest.raises(ValueError, match="keep the users.manage"):
+        web_users.update_user(root["id"], None, "root", [(role_id("reader"), None)])
+    with pytest.raises(ValueError, match="cannot be deleted"):
+        web_users.delete_user(root["id"])
+    # Another holder through a group: the direct role may go
+    make_user("bob", PASSWORD, "admin")
+    assert web_users.update_user(root["id"], None, "root", [])["roles"] == []
+
+
 def test_the_guard_does_not_block_a_database_without_any_manager():
     group = access_control.create_group("devs")
     access_control.set_group_roles(group["id"], [(role_id("reader"), None)])
@@ -372,6 +477,9 @@ def test_access_changes_are_audited():
     alice = web_users.create_user("alice", PASSWORD)
     access_control.set_group_members(group["id"], [alice["id"]], actor="user:root")
     web_users.update_user(alice["id"], [], "user:root")
+    web_users.update_user(
+        alice["id"], None, "user:root", [(role["id"], None), (role_id("reader"), ["shop"])]
+    )
     access_control.update_group(group["id"], "audit-team", actor="user:root")
     access_control.delete_group(group["id"], actor="user:root")
     access_control.delete_role(role["id"], actor="user:root")
@@ -383,12 +491,16 @@ def test_access_changes_are_audited():
         "group.roles_changed",
         "group.members_changed",
         "user.groups_changed",
+        "user.roles_changed",
         "group.updated",
         "group.deleted",
         "role.deleted",
     ]
     members = next(e for e in events if e["action"] == "group.members_changed")
     assert members["details"] == {"added": [alice["id"]], "name": "auditors", "removed": []}
+    roles = next(e for e in events if e["action"] == "user.roles_changed")
+    assert roles["target_id"] == str(alice["id"])
+    assert roles["details"] == {"roles": ["Auditor", "reader:shop"]}
 
 
 def _settings(**values):

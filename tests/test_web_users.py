@@ -7,7 +7,7 @@ import pytest
 from conftest import group_for, make_user
 from sqlmodel import Session, select
 
-from security_review_mcp import access_control, cli, oidc, web_users
+from security_review_mcp import access_control, audit, cli, oidc, web_users
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import Role
 from security_review_mcp.models import WebUser
@@ -573,18 +573,27 @@ def test_last_administrator_by_its_sso_groups_is_kept():
 # ── Access given at the approval of an enrollment ────────────────────────────
 
 
-def test_grant_project_extends_the_personal_group_of_a_restricted_user():
+def test_grant_project_extends_the_direct_reader_role_of_a_restricted_user():
     make_user("alice", PASSWORD, "triager", ["shop"])
     granted = web_users.grant_project("alice", "billing", "admin", create_sso=False)
     assert granted["permissions"]["reports.read"] == ["billing", "shop"]
     assert granted["permissions"]["findings.triage"] == ["shop"]
-    assert [group["name"] for group in granted["groups"]] == ["triager:shop", "user:alice"]
-    personal = next(g for g in access_control.list_groups() if g["name"] == "user:alice")
-    assert personal["sso"] is False
-    assert [role["name"] for role in personal["roles"]] == ["reader"]
+    # No personal group: the project goes to a role of the user
+    assert [group["name"] for group in granted["groups"]] == ["triager:shop"]
+    assert granted["roles"] == [
+        {"role_id": granted["roles"][0]["role_id"], "name": "reader", "projects": ["billing"]}
+    ]
+    granted = web_users.grant_project("alice", "crm", "admin", False, actor="user:admin")
+    assert granted["roles"][0]["projects"] == ["billing", "crm"]
+    # Each added project is audited
+    events = audit.list_events(action="user.roles_changed")["events"]
+    assert [(e["actor"], e["details"]) for e in events] == [
+        ("user:admin", {"roles": ["reader:billing,crm"]}),
+        ("admin", {"roles": ["reader:billing"]}),
+    ]
     # Already reached: unchanged
     granted = web_users.grant_project("alice", "shop", "admin", False)
-    assert granted["permissions"]["reports.read"] == ["billing", "shop"]
+    assert granted["permissions"]["reports.read"] == ["billing", "crm", "shop"]
 
 
 def test_grant_project_leaves_an_unrestricted_user_unchanged():
@@ -698,6 +707,30 @@ def test_user_cli_create_list_set_groups_delete(capsys):
     assert (code, updated["groups"], updated["permissions"]) == (cli.EXIT_PASSED, [], {})
     code, deleted = run_cli(capsys, "delete", "alice")
     assert (code, deleted["username"]) == (cli.EXIT_PASSED, "alice")
+
+
+def test_user_cli_gives_direct_roles(capsys):
+    group_for("reader", ["shop"], name="shop-readers")
+    code, created = run_cli(
+        capsys, "create", "alice", "--group", "shop-readers", "--role", "triager:crm,billing"
+    )
+    assert code == cli.EXIT_PASSED
+    assert [(r["name"], r["projects"]) for r in created["roles"]] == [
+        ("triager", ["crm", "billing"])
+    ]
+    assert created["permissions"]["reports.read"] == ["billing", "crm", "shop"]
+
+    code, updated = run_cli(capsys, "set-roles", "alice", "--role", "reader")
+    assert code == cli.EXIT_PASSED
+    assert [(r["name"], r["projects"]) for r in updated["roles"]] == [("reader", None)]
+    # The groups are kept by set-roles
+    assert [group["name"] for group in updated["groups"]] == ["shop-readers"]
+    code, updated = run_cli(capsys, "set-roles", "alice")
+    assert (code, updated["roles"]) == (cli.EXIT_PASSED, [])
+    assert cli.run(["user", "set-roles", "alice", "--role", "ghost"]) == cli.EXIT_ERROR
+    assert "Role 'ghost' not found" in json.loads(capsys.readouterr().err)["error"]
+    assert cli.run(["user", "set-roles", "alice", "--role", "admin:shop"]) == cli.EXIT_ERROR
+    assert "cannot list projects" in json.loads(capsys.readouterr().err)["error"]
 
 
 def test_user_cli_restores_the_administrators_group(capsys):

@@ -6,7 +6,7 @@ export const users = defineMessages({
     'users.subtitle':
       'Accounts of the web interface: local (username and password) or SSO (identity provider)',
     'users.help':
-      'Only these accounts open the interface; tokens are for the MCP server and the REST API. What a user may do comes from the roles of its groups: those given here and, for an SSO user, those named by its groups claim at its last login. A change applies at once to the open sessions; a password reset or a deletion closes them. The last holder of the users.manage permission can be neither deleted nor lose it.',
+      'Only these accounts open the interface; tokens are for the MCP server and the REST API. What a user may do comes from the roles of its groups (those given here and, for an SSO user, those named by its groups claim at its last login) and from the roles given to it directly, each on every project or on some projects. A change applies at once to the open sessions; a password reset or a deletion closes them. The last holder of the users.manage permission can be neither deleted nor lose it.',
     'users.generatedPassword': 'Generated password',
     'users.passwordOf': 'Password of “{user}”',
     'users.copyNow': 'Copy it now: it will not be shown again.',
@@ -76,12 +76,15 @@ export const users = defineMessages({
     'users.ssoGroup': 'Named by the groups claim at the last login',
     'users.givenGroup': 'Given by an administrator',
     'users.access': 'Access',
+    'users.directRoles': 'Direct roles and projects',
+    'users.directRolesHelp':
+      'Roles given to this user only, in addition to those of its groups: for example triager on two projects.',
   },
   fr: {
     'users.subtitle':
       "Comptes de l'interface web : locaux (identifiant et mot de passe) ou SSO (fournisseur d'identité)",
     'users.help':
-      "Seuls ces comptes ouvrent l'interface ; les jetons servent au serveur MCP et à l'API REST. Ce qu'un utilisateur peut faire vient des rôles de ses groupes : ceux donnés ici et, pour un utilisateur SSO, ceux nommés par son claim des groupes à sa dernière connexion. Une modification s'applique aussitôt aux sessions ouvertes ; une réinitialisation du mot de passe ou une suppression les ferme. Le dernier détenteur de la permission users.manage ne peut être ni supprimé ni la perdre.",
+      "Seuls ces comptes ouvrent l'interface ; les jetons servent au serveur MCP et à l'API REST. Ce qu'un utilisateur peut faire vient des rôles de ses groupes (ceux donnés ici et, pour un utilisateur SSO, ceux nommés par son claim des groupes à sa dernière connexion) et des rôles qui lui sont donnés directement, chacun sur tous les projets ou sur certains. Une modification s'applique aussitôt aux sessions ouvertes ; une réinitialisation du mot de passe ou une suppression les ferme. Le dernier détenteur de la permission users.manage ne peut être ni supprimé ni la perdre.",
     'users.generatedPassword': 'Mot de passe généré',
     'users.passwordOf': 'Mot de passe de « {user} »',
     'users.copyNow': 'Copiez-le maintenant : il ne sera plus affiché.',
@@ -155,12 +158,15 @@ export const users = defineMessages({
     'users.ssoGroup': 'Nommé par le claim des groupes à la dernière connexion',
     'users.givenGroup': 'Donné par un administrateur',
     'users.access': 'Accès',
+    'users.directRoles': 'Rôles et projets directs',
+    'users.directRolesHelp':
+      'Rôles donnés à cet utilisateur seul, en plus de ceux de ses groupes : par exemple triager sur deux projets.',
   },
   es: {
     'users.subtitle':
       'Cuentas de la interfaz web: locales (usuario y contraseña) o SSO (proveedor de identidad)',
     'users.help':
-      'Solo estas cuentas abren la interfaz; los tokens sirven al servidor MCP y a la API REST. Lo que un usuario puede hacer viene de los roles de sus grupos: los asignados aquí y, para un usuario SSO, los nombrados por su claim de grupos en su último inicio de sesión. Un cambio se aplica de inmediato a las sesiones abiertas; un restablecimiento de contraseña o una eliminación las cierra. El último titular del permiso users.manage no puede ser eliminado ni perderlo.',
+      'Solo estas cuentas abren la interfaz; los tokens sirven al servidor MCP y a la API REST. Lo que un usuario puede hacer viene de los roles de sus grupos (los asignados aquí y, para un usuario SSO, los nombrados por su claim de grupos en su último inicio de sesión) y de los roles que se le asignan directamente, cada uno en todos los proyectos o en algunos. Un cambio se aplica de inmediato a las sesiones abiertas; un restablecimiento de contraseña o una eliminación las cierra. El último titular del permiso users.manage no puede ser eliminado ni perderlo.',
     'users.generatedPassword': 'Contraseña generada',
     'users.passwordOf': 'Contraseña de «{user}»',
     'users.copyNow': 'Cópiela ahora: no se volverá a mostrar.',
@@ -230,5 +236,8 @@ export const users = defineMessages({
     'users.ssoGroup': 'Nombrado por el claim de grupos en el último inicio de sesión',
     'users.givenGroup': 'Asignado por un administrador',
     'users.access': 'Acceso',
+    'users.directRoles': 'Roles y proyectos directos',
+    'users.directRolesHelp':
+      'Roles asignados solo a este usuario, además de los de sus grupos: por ejemplo triager en dos proyectos.',
   },
 });

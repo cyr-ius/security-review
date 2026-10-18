@@ -3,19 +3,19 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { AccessRole, UserGroup } from '../../../core/models/api.models';
+import { UserGroup } from '../../../core/models/api.models';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
+import {
+  RoleBindingDraft,
+  RoleBindingsComponent,
+  roleDraftsComplete,
+  toRoleBindings,
+  toRoleDrafts,
+} from '../../../shared/components/role-bindings/role-bindings.component';
 import { describeAccessError } from '../access-errors';
-
-/** A role of the group being edited, on every project or on the selected ones. */
-interface BindingDraft {
-  roleId: number;
-  allProjects: boolean;
-  projects: string[];
-}
 
 /** Name, description and SSO switch of the group being created or edited. */
 interface GroupFormModel {
@@ -33,7 +33,7 @@ const EMPTY_GROUP: GroupFormModel = { name: '', description: '', sso: true };
  */
 @Component({
   selector: 'app-group-list',
-  imports: [FormField, RouterLink, RefreshButtonComponent, TranslatePipe],
+  imports: [FormField, RouterLink, RefreshButtonComponent, RoleBindingsComponent, TranslatePipe],
   templateUrl: './group-list.component.html',
   styleUrl: '../access.css',
 })
@@ -53,7 +53,7 @@ export class GroupListComponent {
     maxLength(path.description, 500);
   });
   /** Roles of the group: a list edited row by row, kept apart from the model. */
-  readonly bindings = signal<BindingDraft[]>([]);
+  readonly bindings = signal<RoleBindingDraft[]>([]);
   /** Ids of the members added by an administrator. */
   readonly members = signal<number[]>([]);
   /** Group being edited (null: creation form). */
@@ -63,23 +63,10 @@ export class GroupListComponent {
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
 
-  /** Roles by id. */
-  readonly roleById = computed(
-    () => new Map((this.roles.value() ?? []).map((role) => [role.id, role] as const)),
+  /** Names of the known projects. */
+  readonly knownProjects = computed(() =>
+    (this.projects.value() ?? []).map((item) => item.project),
   );
-
-  /** Roles not given yet to the edited group. */
-  readonly availableRoles = computed(() => {
-    const used = new Set(this.bindings().map((binding) => binding.roleId));
-    return (this.roles.value() ?? []).filter((role) => !used.has(role.id));
-  });
-
-  /** Projects offered as checkboxes: known projects plus those already selected. */
-  readonly projectChoices = computed(() => {
-    const known = (this.projects.value() ?? []).map((item) => item.project);
-    const selected = this.bindings().flatMap((binding) => binding.projects);
-    return [...new Set([...known, ...selected])].sort();
-  });
 
   /** Members of the edited group found in its groups claim at their last login. */
   readonly ssoMembers = computed(() =>
@@ -91,40 +78,8 @@ export class GroupListComponent {
       !this.busy() &&
       this.groupForm().valid() &&
       this.groupModel().name.trim().length > 0 &&
-      this.bindings().every((binding) => binding.allProjects || binding.projects.length > 0),
+      roleDraftsComplete(this.bindings()),
   );
-
-  /** True when the role may be limited to projects (only scoped permissions). */
-  scoped(roleId: number): boolean {
-    return this.roleById().get(roleId)?.scoped ?? false;
-  }
-
-  addBinding(event: Event): void {
-    const select = event.target as HTMLSelectElement;
-    const roleId = Number(select.value);
-    select.value = '';
-    if (roleId) {
-      this.bindings.update((items) => [...items, { roleId, allProjects: true, projects: [] }]);
-    }
-  }
-
-  removeBinding(index: number): void {
-    this.bindings.update((items) => items.filter((_, position) => position !== index));
-  }
-
-  setAllProjects(index: number, allProjects: boolean): void {
-    this.updateBinding(index, (binding) => ({ ...binding, allProjects }));
-  }
-
-  toggleProject(index: number, project: string, event: Event): void {
-    const checked = (event.target as HTMLInputElement).checked;
-    this.updateBinding(index, (binding) => ({
-      ...binding,
-      projects: checked
-        ? [...binding.projects, project]
-        : binding.projects.filter((item) => item !== project),
-    }));
-  }
 
   toggleMember(userId: number, event: Event): void {
     const checked = (event.target as HTMLInputElement).checked;
@@ -144,21 +99,11 @@ export class GroupListComponent {
       .join(' · ');
   }
 
-  roleName(role: AccessRole): string {
-    return role.system ? `${role.name} — ${this.i18n.translate('roles.system')}` : role.name;
-  }
-
   /** Load a group into the form. */
   edit(group: UserGroup): void {
     this.editing.set(group);
     this.groupForm().reset({ name: group.name, description: group.description, sso: group.sso });
-    this.bindings.set(
-      group.roles.map((role) => ({
-        roleId: role.role_id,
-        allProjects: role.projects === null,
-        projects: role.projects ?? [],
-      })),
-    );
+    this.bindings.set(toRoleDrafts(group.roles));
     this.members.set(
       group.members.filter((member) => member.source === 'local').map((member) => member.user_id),
     );
@@ -180,10 +125,7 @@ export class GroupListComponent {
     }
     const { name, description, sso } = this.groupModel();
     const body = { name: name.trim(), description: description.trim(), sso };
-    const roles = this.bindings().map((binding) => ({
-      role_id: binding.roleId,
-      projects: binding.allProjects || !this.scoped(binding.roleId) ? [] : binding.projects,
-    }));
+    const roles = toRoleBindings(this.bindings(), this.roles.value() ?? []);
     const members = this.members();
     const editing = this.editing();
     await this.run(async () => {
@@ -208,12 +150,6 @@ export class GroupListComponent {
       await firstValueFrom(this.api.deleteGroup(group.id));
       return msg('groups.deleted', { group: group.name });
     });
-  }
-
-  private updateBinding(index: number, change: (binding: BindingDraft) => BindingDraft): void {
-    this.bindings.update((items) =>
-      items.map((binding, position) => (position === index ? change(binding) : binding)),
-    );
   }
 
   /** Run a change, show its outcome and reload the list. */

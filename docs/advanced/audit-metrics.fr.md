@@ -25,6 +25,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `group.created`, `group.updated`, `group.deleted` | Un administrateur crée, renomme ou modifie, ou supprime un [groupe](access-control.md#groupes) |
 | `group.roles_changed`, `group.members_changed` | Un administrateur remplace les rôles (avec leurs projets) ou les membres (identifiants ajoutés et retirés) d'un groupe |
 | `user.groups_changed` | Un administrateur remplace les groupes donnés à un compte (identifiants de groupes ajoutés et retirés) |
+| `user.roles_changed` | Un administrateur remplace les rôles directs d'un compte, ou l'approbation d'un enrôlement lui ajoute un projet (`roles` : `rôle` ou `rôle:projet,projet`) |
 
 Chaque événement porte sa date, son **acteur**, sa cible (`finding` et son id, `token` et son
 id, `enrollment` et l'id de la demande), le projet quand il y en a un, et des détails en JSON.

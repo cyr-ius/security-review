@@ -156,8 +156,7 @@ name to use one. The roles of the group, and their projects, then apply (see
 | `SECREVIEW_OIDC_ADMIN_GROUPS` | Comma-separated groups that hold the `admin` role: such a group, missing at the login of one of its members, is created open to SSO with the `admin` role. An existing group is left as administrators changed it. Used to name the first administrator |
 | `SECREVIEW_OIDC_DEFAULT_GROUP` | Name of a group every SSO user joins at each login, whatever its claim (empty by default: none). A missing group gives nothing |
 
-A group **not open to SSO** (for example `administrators`, or the personal group `user:<name>`)
-is never joined through the claim, even when a value has its name. A restricted session behaves
+A group **not open to SSO** (for example `administrators`) is never joined through the claim, even when a value has its name. A restricted session behaves
 like a [token restricted to a project](http.md#tokens-restricted-to-a-project): the other
 projects, their reports and their findings are handled as missing.
 
@@ -181,8 +180,9 @@ browses its reports.
   enabled, an unknown name becomes an **SSO account**, ready for its first login; without SSO,
   the account must exist. Giving this access needs the `users.manage` permission.
 - An account that already reads every project is unchanged. Otherwise the project is added to
-  the `reader` role of its **personal group** `user:<name>` (not open to SSO, created when
-  missing). An approved additional request for the same user adds the project the same way.
+  its [direct](access-control.md#direct-roles-and-projects-of-an-account) `reader` role (given on
+  this project only when missing). An approved additional request for the same user adds the
+  project the same way.
 
 The access then shows on the account, where it is changed like the others. It is independent of
 the MCP token: revoking the token does not remove it.

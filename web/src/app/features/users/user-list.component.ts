@@ -12,6 +12,13 @@ import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
+import {
+  RoleBindingDraft,
+  RoleBindingsComponent,
+  roleDraftsComplete,
+  toRoleBindings,
+  toRoleDrafts,
+} from '../../shared/components/role-bindings/role-bindings.component';
 
 /** Message keys of the roles of a web user. */
 const ROLE_LABELS: Record<WebUserRole, MessageKey> = {
@@ -33,11 +40,12 @@ const EMPTY_USER: UserFormModel = { source: 'local', username: '', password: '' 
 /**
  * Administrator page for the web users, the only accounts of the web interface: local users
  * (username and password) and SSO users (OpenID Connect, created here or at their first login),
- * the groups given to them (their roles give the permissions), password resets and deletion.
+ * the groups given to them and the roles given to them directly on every project or on some
+ * projects (both give the permissions), password resets and deletion.
  */
 @Component({
   selector: 'app-user-list',
-  imports: [DatePipe, FormField, RefreshButtonComponent, TranslatePipe],
+  imports: [DatePipe, FormField, RefreshButtonComponent, RoleBindingsComponent, TranslatePipe],
   templateUrl: './user-list.component.html',
   styleUrl: './user-list.component.css',
 })
@@ -52,6 +60,8 @@ export class UserListComponent {
   /** Deleted SSO users, never created again by a login. */
   readonly revoked = rxResource({ stream: () => this.api.revokedUsers() });
   readonly groups = rxResource({ stream: () => this.api.groups() });
+  readonly roles = rxResource({ stream: () => this.api.roles() });
+  readonly projects = rxResource({ stream: () => this.api.projects() });
   /** Login methods of the controller: tells whether SSO users can log in. */
   readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
 
@@ -75,6 +85,8 @@ export class UserListComponent {
   });
   /** Ids of the groups given by an administrator (the SSO groups are kept apart). */
   readonly selectedGroups = signal<number[]>([]);
+  /** Roles given directly to the user, each on every project or on the selected ones. */
+  readonly bindings = signal<RoleBindingDraft[]>([]);
 
   /** Generated password, shown once with the user it belongs to. */
   readonly createdPassword = signal<{ username: string; password: string } | null>(null);
@@ -84,6 +96,11 @@ export class UserListComponent {
 
   /** Source of the user of the form (the edited one, or the one being created). */
   readonly formSource = computed(() => this.editing()?.auth_source ?? this.userModel().source);
+
+  /** Names of the known projects. */
+  readonly knownProjects = computed(() =>
+    (this.projects.value() ?? []).map((item) => item.project),
+  );
 
   /** Name of the identity provider on the login page; null when OIDC is not enabled. */
   readonly ssoName = computed(() => {
@@ -103,6 +120,7 @@ export class UserListComponent {
   readonly canSubmit = computed(
     () =>
       !this.busy() &&
+      roleDraftsComplete(this.bindings()) &&
       (this.editing() !== null ||
         (this.userForm().valid() && this.userModel().username.trim().length > 0)),
   );
@@ -115,6 +133,14 @@ export class UserListComponent {
     }
     const label = user.auth_source === 'oidc' ? `oidc:${user.username}` : user.username;
     return identity.client === label;
+  }
+
+  /** Text of the direct roles of a user, e.g. "triager (shop-api, billing)". */
+  describeRoles(user: WebUser): string {
+    const all = this.i18n.translate('reports.allProjects');
+    return user.roles
+      .map((role) => `${role.name} (${role.projects ? role.projects.join(', ') : all})`)
+      .join(' · ');
   }
 
   /** Text of the access of a user, e.g. "Triage (shop-api, billing)". */
@@ -136,13 +162,14 @@ export class UserListComponent {
     );
   }
 
-  /** Load a user into the form to change its groups. */
+  /** Load a user into the form to change its groups and its direct roles. */
   edit(user: WebUser): void {
     this.editing.set(user);
     this.userForm().reset({ source: user.auth_source, username: user.username, password: '' });
     this.selectedGroups.set(
       user.groups.filter((group) => group.source === 'local').map((group) => group.group_id),
     );
+    this.bindings.set(toRoleDrafts(user.roles));
     this.message.set(null);
     this.error.set(null);
   }
@@ -151,6 +178,7 @@ export class UserListComponent {
     this.editing.set(null);
     this.userForm().reset({ ...EMPTY_USER });
     this.selectedGroups.set([]);
+    this.bindings.set([]);
   }
 
   async submit(event: Event): Promise<void> {
@@ -159,16 +187,17 @@ export class UserListComponent {
       return;
     }
     const groups = this.selectedGroups();
+    const roles = toRoleBindings(this.bindings(), this.roles.value() ?? []);
     const editing = this.editing();
     const { source, username, password: typed } = this.userModel();
     await this.run(async () => {
       if (editing) {
-        const updated = await firstValueFrom(this.api.updateUser(editing.id, groups));
+        const updated = await firstValueFrom(this.api.updateUser(editing.id, groups, roles));
         this.message.set(msg('users.updated', { user: updated.username }));
       } else {
         const password = source === 'local' ? typed || null : null;
         const created = await firstValueFrom(
-          this.api.createUser(username.trim(), source, groups, password),
+          this.api.createUser(username.trim(), source, groups, password, roles),
         );
         if (created.password) {
           this.createdPassword.set({ username: created.username, password: created.password });
