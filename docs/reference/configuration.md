@@ -12,7 +12,7 @@ or both.
 | `SECREVIEW_DB_AUTO_UPGRADE` | `true` | both | Migrates the schema at start-up of the controller, of the stdio MCP server and of the CLI commands; when `false`, they only check that it is up to date (see [migrations](../advanced/architecture.md#schema-migrations)). The HTTP MCP server never migrates |
 | `SECREVIEW_TRANSPORT` | `stdio` | MCP | `stdio` or `streamable-http` |
 | `SECREVIEW_HOST` | `127.0.0.1` | both | Listening address (HTTP) |
-| `SECREVIEW_PORT` | `8000` | both | Listening port (HTTP) |
+| `DOCKER_MCP_PORT` | `8000` | both | Listening port (HTTP) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Controller | Creates the [`admin` account](../usage/web-interface.md#first-administrator) at first start, while no account exists; its random password is logged once (only the scrypt digest in the database) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | MCP | While no token exists, accepts every request on `/mcp` even when the server does not listen on localhost (by default it then stays closed, see [Bearer tokens](../advanced/http.md#bearer-tokens)); only for tests on an isolated network |
 | `SECREVIEW_SESSION_SECRET` | — | Controller | Signing secret of the web interface sessions (accounts and OIDC), at least 32 characters, identical on every replica; without it, read from `SECREVIEW_SESSION_SECRET_FILE` |

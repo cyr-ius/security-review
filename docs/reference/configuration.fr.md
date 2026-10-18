@@ -12,7 +12,7 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_DB_AUTO_UPGRADE` | `true` | les deux | Migre le schéma au démarrage du contrôleur, du serveur MCP stdio et des commandes CLI ; à `false`, ils vérifient seulement qu'il est à jour (voir [migrations](../advanced/architecture.md#migrations-du-schema)). Le serveur MCP HTTP ne migre jamais |
 | `SECREVIEW_TRANSPORT` | `stdio` | MCP | `stdio` ou `streamable-http` |
 | `SECREVIEW_HOST` | `127.0.0.1` | les deux | Adresse d'écoute (HTTP) |
-| `SECREVIEW_PORT` | `8000` | les deux | Port d'écoute (HTTP) |
+| `DOCKER_MCP_PORT` | `8000` | les deux | Port d'écoute (HTTP) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Contrôleur | Crée le [compte `admin`](../usage/web-interface.md#premier-administrateur) au premier démarrage, tant qu'aucun compte n'existe ; son mot de passe aléatoire est journalisé une fois (empreinte scrypt seule en base) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | MCP | Tant qu'aucun jeton n'existe, accepte toute requête sur `/mcp` même si le serveur n'écoute pas sur localhost (par défaut il reste alors fermé, voir [Jetons Bearer](../advanced/http.md#jetons-bearer)) ; à réserver aux tests sur un réseau isolé |
 | `SECREVIEW_SESSION_SECRET` | — | Contrôleur | Secret de signature des sessions de l'interface web (comptes et OIDC), 32 caractères au moins, identique sur toutes les répliques ; sans lui, lu dans `SECREVIEW_SESSION_SECRET_FILE` |

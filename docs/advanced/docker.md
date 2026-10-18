@@ -99,8 +99,8 @@ docker compose logs controller   # initial admin password
 |---|---|---|
 | `db` | PostgreSQL, only reachable on the internal `backend` network | — |
 | `migrate` | `security-review-controller db upgrade`, then stops | — |
-| `controller` | REST API and web interface (`/ui/`) | `127.0.0.1:8080` (`DOCKER_PUBLISH_ADDRESS`, `SECREVIEW_CONTROLLER_PORT`) |
-| `mcp` | MCP server (`/mcp`) and public enrollment | `127.0.0.1:8000` (`DOCKER_PUBLISH_ADDRESS`, `SECREVIEW_PORT`) |
+| `controller` | REST API and web interface (`/ui/`) | `127.0.0.1:8080` (`DOCKER_PUBLISH_ADDRESS`, `DOCKER_CONTROLLER_PORT`) |
+| `mcp` | MCP server (`/mcp`) and public enrollment | `127.0.0.1:8000` (`DOCKER_PUBLISH_ADDRESS`, `DOCKER_MCP_PORT`) |
 
 - The image is built with the `postgres` extra (`security-review-mcp:pg`). `migrate` waits
   for the database to be ready (`pg_isready`); `controller` and `mcp` wait for `migrate` to
