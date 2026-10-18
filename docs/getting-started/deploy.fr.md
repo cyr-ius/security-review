@@ -138,7 +138,7 @@ kubectl create namespace secreview
 kubectl -n secreview create secret generic secreview-db \
     --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
 kubectl -n secreview create secret generic secreview-controller \
-    --from-literal=SECREVIEW_SESSION_SECRET="$(openssl rand -hex 32)"
+    --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
 kubectl -n secreview apply -f examples/kubernetes/security-review.yaml
 kubectl -n secreview exec deploy/secreview-controller -c controller -- security-review-controller user reset-password admin   # mot de passe admin initial
 kubectl -n secreview exec deploy/secreview-controller -c controller -- \

@@ -369,8 +369,7 @@ WARNING security_review_mcp.controller: Initial Web UI administrator 'admin' cre
 Traitez ce mot de passe comme un secret et connectez-vous avec `admin`. L'interface **exige alors
 un nouveau mot de passe** avant toute autre chose : elle ouvre **Mon compte**, et l'API refuse
 toutes les autres routes (`403`) tant que le mot de passe n'est pas changé. S'il est perdu,
-générez-en un nouveau (l'ancien est aussitôt invalidé) :
-`security-review-controller user reset-password admin`.
+voir [mot de passe perdu](#mot-de-passe-perdu).
 
 Il en va de même de tout mot de passe défini par quelqu'un d'autre : un compte local créé ou
 réinitialisé par un administrateur (écran ou CLI) change son mot de passe à sa première connexion.

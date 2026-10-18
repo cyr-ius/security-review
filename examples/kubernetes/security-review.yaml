@@ -5,7 +5,7 @@
 #   kubectl -n secreview create secret generic secreview-db \
 #       --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
 #   kubectl -n secreview create secret generic secreview-controller \
-#       --from-literal=SECREVIEW_SESSION_SECRET="$(openssl rand -hex 32)"
+#       --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
 #   kubectl -n secreview apply -f examples/kubernetes/security-review.yaml
 #   kubectl -n secreview logs deploy/secreview-controller -c controller   # one-time admin password
 #
@@ -18,7 +18,7 @@
 # keep the controller internal (port-forward, VPN or an Ingress restricted to administrators).
 #
 # The root file system is read-only: the controller cannot generate its session secret file,
-# so the secreview-controller Secret gives SECREVIEW_SESSION_SECRET (sessions survive restarts
+# so the secreview-controller Secret gives SECREVIEW_SECRET_KEY (sessions survive restarts
 # and are shared by the replicas). Put the proxy credentials there too.
 ---
 apiVersion: v1
@@ -95,7 +95,7 @@ spec:
                 name: secreview-config
             - secretRef:
                 name: secreview-db
-            # SECREVIEW_SESSION_SECRET (and the proxy variables when they hold credentials)
+            # SECREVIEW_SECRET_KEY (and the proxy variables when they hold credentials)
             - secretRef:
                 name: secreview-controller
           env:

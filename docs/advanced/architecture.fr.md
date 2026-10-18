@@ -74,7 +74,7 @@ kubectl create namespace secreview
 kubectl -n secreview create secret generic secreview-db \
     --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
 kubectl -n secreview create secret generic secreview-controller \
-    --from-literal=SECREVIEW_SESSION_SECRET="$(openssl rand -hex 32)"
+    --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
 kubectl -n secreview apply -f examples/kubernetes/security-review.yaml
 kubectl -n secreview exec deploy/secreview-controller -c controller -- security-review-controller user reset-password admin   # mot de passe admin initial
 ```
@@ -84,9 +84,9 @@ Il contient :
 - un **Deployment `secreview-controller`** (une réplique, stratégie `Recreate`) dont l'init
   container lance `security-review-controller db upgrade` à chaque déploiement ;
 - un **Deployment `secreview-mcp`**, qui vérifie seulement le schéma ;
-- le **Secret `secreview-controller`**, créé à la main, avec `SECREVIEW_SESSION_SECRET` : le
+- le **Secret `secreview-controller`**, créé à la main, avec `SECREVIEW_SECRET_KEY` : le
   système de fichiers racine est en lecture seule, le contrôleur ne peut donc pas écrire son
-  `SECREVIEW_SESSION_SECRET_FILE` ; sans lui, les sessions web prendraient fin à chaque
+  `SECREVIEW_SECRET_KEY_FILE` ; sans lui, les sessions web prendraient fin à chaque
   redémarrage et ne seraient pas partagées entre réplicas (voir
   [Connexion et sessions](../usage/web-interface.md#connexion-et-sessions)) ;
 - un Service par processus, des sondes `readiness` et `liveness` sur `/healthz`, des

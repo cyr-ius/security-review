@@ -73,7 +73,7 @@ kubectl create namespace secreview
 kubectl -n secreview create secret generic secreview-db \
     --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
 kubectl -n secreview create secret generic secreview-controller \
-    --from-literal=SECREVIEW_SESSION_SECRET="$(openssl rand -hex 32)"
+    --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
 kubectl -n secreview apply -f examples/kubernetes/security-review.yaml
 kubectl -n secreview exec deploy/secreview-controller -c controller -- security-review-controller user reset-password admin   # initial admin password
 ```
@@ -83,9 +83,9 @@ It contains:
 - a **`secreview-controller` Deployment** (one replica, `Recreate` strategy) whose init
   container runs `security-review-controller db upgrade` at every deployment;
 - a **`secreview-mcp` Deployment**, which only checks the schema;
-- the **`secreview-controller` Secret**, created by hand, with `SECREVIEW_SESSION_SECRET`: the
+- the **`secreview-controller` Secret**, created by hand, with `SECREVIEW_SECRET_KEY`: the
   root file system is read-only, so the controller cannot write its
-  `SECREVIEW_SESSION_SECRET_FILE`; without it, the web sessions would end at every restart and
+  `SECREVIEW_SECRET_KEY_FILE`; without it, the web sessions would end at every restart and
   would not be shared by the replicas (see
   [Login and sessions](../usage/web-interface.md#login-and-sessions));
 - one Service per process, `readiness` and `liveness` probes on `/healthz`, non-root

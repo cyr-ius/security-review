@@ -356,8 +356,7 @@ WARNING security_review_mcp.controller: Initial Web UI administrator 'admin' cre
 
 Handle this password as a secret and log in with `admin`. The interface then **requires a new
 password** before anything else: it opens **My account**, and the API refuses every other route
-(`403`) until the password is changed. If it is lost, generate a new one (the old one is
-invalidated at once): `security-review-controller user reset-password admin`.
+(`403`) until the password is changed. If it is lost, see [lost password](#lost-password).
 
 The same applies to every password set by someone else: a local account created or reset by an
 administrator (screen or CLI) changes its password at its first login. The **Users** screen shows
