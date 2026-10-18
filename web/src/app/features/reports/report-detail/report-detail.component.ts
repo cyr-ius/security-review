@@ -8,6 +8,7 @@ import { REVIEW_TYPE_META, SEVERITY_META, STATUS_META } from '../../../core/cons
 import {
   FINDING_STATUSES,
   Finding,
+  FindingDecision,
   FindingStatus,
   SEVERITIES,
   SEVERITY_RANK,
@@ -15,6 +16,8 @@ import {
 } from '../../../core/models/api.models';
 import { Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { AuthService } from '../../../core/services/auth.service';
+import { TriageService } from '../../../core/services/triage.service';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
@@ -28,6 +31,8 @@ import { SeverityBadgeComponent } from '../../../shared/components/severity-badg
 })
 export class ReportDetailComponent {
   private readonly api = inject(ApiService);
+  readonly auth = inject(AuthService);
+  readonly triage = inject(TriageService);
 
   /** Route parameter :id */
   readonly id = input.required<string>();
@@ -74,6 +79,17 @@ export class ReportDetailComponent {
 
   onStatusFilter(event: Event): void {
     this.statusFilter.set((event.target as HTMLSelectElement).value as FindingStatus | '');
+  }
+
+  /** Save the triage decision of a finding card (``null``: reject the agent proposal). */
+  async decide(finding: Finding, decision: FindingDecision | null): Promise<void> {
+    this.triageError.set(null);
+    const result = await this.triage.decide(finding, decision);
+    if ('error' in result) {
+      this.triageError.set(result.error);
+    } else {
+      this.onUpdated(result.finding);
+    }
   }
 
   /** Keep the triage decision saved by a finding card. */

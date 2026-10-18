@@ -1,14 +1,14 @@
-import { Component, HostListener, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { ROLE_META } from '../../../core/constants/labels';
-import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { MessageKey } from '../../../core/i18n/messages';
-import { Permission } from '../../../core/models/api.models';
-import { ApiService } from '../../../core/services/api.service';
-import { AuthService } from '../../../core/services/auth.service';
-import { ThemeService } from '../../../core/services/theme.service';
-import { LanguageSelectComponent } from '../language-select/language-select.component';
+import { ROLE_META } from '../core/constants/labels';
+import { TranslatePipe } from '../core/i18n/translate.pipe';
+import { MessageKey } from '../core/i18n/messages';
+import { Permission } from '../core/models/api.models';
+import { ApiService } from '../core/services/api.service';
+import { AuthService } from '../core/services/auth.service';
+import { ThemeService } from '../core/services/theme.service';
+import { LanguageSelectComponent } from '../shared/components/language-select/language-select.component';
 
 /** One entry of the sidebar. */
 interface NavItem {
@@ -25,6 +25,8 @@ interface NavItem {
   imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe, LanguageSelectComponent],
   templateUrl: './layout.component.html',
   styleUrl: './layout.component.css',
+  // Escape closes the menu, wherever the focus is
+  host: { '(document:keydown.escape)': 'onEscape()' },
 })
 export class LayoutComponent {
   readonly auth = inject(AuthService);
@@ -108,7 +110,6 @@ export class LayoutComponent {
     this.menuOpen.set(false);
   }
 
-  @HostListener('document:keydown.escape')
   onEscape(): void {
     this.closeMenu();
   }

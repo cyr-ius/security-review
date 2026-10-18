@@ -82,8 +82,10 @@
   @for (finding of findings(); track finding.id) {
     <app-finding-card
       [finding]="finding"
-      (updated)="onUpdated($event)"
-      (failed)="triageError.set($event)"
+      [canTriage]="auth.canTriage()"
+      [saving]="triage.saving() === finding.id"
+      (decided)="decide(finding, $event)"
+      (proposalRejected)="decide(finding, null)"
     >
       <a [routerLink]="['/reports', finding.report_id]">
         <i class="bi bi-file-earmark-text" aria-hidden="true"></i>

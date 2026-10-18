@@ -1,10 +1,8 @@
 import { DatePipe } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { FormField, form, maxLength, required, validate } from '@angular/forms/signals';
-import { Observable, firstValueFrom } from 'rxjs';
 import { STATUS_META } from '../../../core/constants/labels';
-import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
   DISMISSED_STATUSES,
@@ -13,8 +11,6 @@ import {
   FindingDecision,
   FindingStatus,
 } from '../../../core/models/api.models';
-import { ApiService } from '../../../core/services/api.service';
-import { AuthService } from '../../../core/services/auth.service';
 import { SeverityBadgeComponent } from '../severity-badge/severity-badge.component';
 import { StatusBadgeComponent } from '../status-badge/status-badge.component';
 
@@ -42,6 +38,9 @@ function isoDay(days: number): string {
  * Accepting a risk or marking a false positive asks for a reason and an expiry date; a status
  * proposed by an agent is shown apart, for the triager to apply or reject.
  * Extra details (report link...) can be projected at the end of the metadata line.
+ *
+ * The card only shows and asks: the page saves the decision it emits (see TriageService) and
+ * passes the saved finding back, which closes the form.
  */
 @Component({
   selector: 'app-finding-card',
@@ -50,23 +49,30 @@ function isoDay(days: number): string {
   styleUrl: './finding-card.component.css',
 })
 export class FindingCardComponent {
-  private readonly api = inject(ApiService);
-  readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);
 
   readonly finding = input.required<Finding>();
+  /** The user may record triage decisions (findings.triage). */
+  readonly canTriage = input(false);
+  /** A decision on this finding is being saved. */
+  readonly saving = input(false);
 
-  /** The saved finding, after a triage decision. */
-  readonly updated = output<Finding>();
-  /** Why a triage decision could not be saved. */
-  readonly failed = output<Message>();
+  /** A triage decision to save. */
+  readonly decided = output<FindingDecision>();
+  /** The status proposed by an agent is rejected. */
+  readonly proposalRejected = output<void>();
 
   readonly statuses = FINDING_STATUSES;
   readonly statusMeta = STATUS_META;
-  readonly saving = signal(false);
 
-  /** Accepted or false positive being decided: the form asks for a reason and an expiry. */
-  readonly pendingStatus = signal<FindingStatus | null>(null);
+  /**
+   * Accepted or false positive being decided: the form asks for a reason and an expiry. It
+   * closes when the page passes the saved finding back.
+   */
+  readonly pendingStatus = linkedSignal<Finding, FindingStatus | null>({
+    source: this.finding,
+    computation: () => null,
+  });
   readonly minExpiry = isoDay(1);
   readonly dismissalModel = signal<DismissalFormModel>(newDismissal());
   readonly dismissalForm = form(this.dismissalModel, (path) => {
@@ -172,38 +178,11 @@ export class FindingCardComponent {
   }
 
   rejectProposal(): void {
-    const finding = this.finding();
-    void this.send(finding.id, this.api.rejectFindingProposal(finding.id));
+    this.proposalRejected.emit();
   }
 
   private save(decision: FindingDecision): void {
-    const finding = this.finding();
-    void this.send(finding.id, this.api.updateFindingStatus(finding.id, decision));
-  }
-
-  /** Send a triage request and report the saved finding, or why it was refused. */
-  private async send(id: number, request: Observable<Finding>): Promise<void> {
-    this.saving.set(true);
-    try {
-      const saved = await firstValueFrom(request);
-      this.pendingStatus.set(null);
-      this.updated.emit(saved);
-    } catch (err: unknown) {
-      this.refused(err, id);
-    } finally {
-      this.saving.set(false);
-    }
-  }
-
-  private refused(err: unknown, id: number): void {
-    const code = err instanceof HttpErrorResponse ? err.status : 0;
-    this.failed.emit(
-      code === 403
-        ? msg('report.triageForbidden')
-        : code === 422
-          ? msg('report.triageInvalid', { id })
-          : msg('report.triageFailed', { id }),
-    );
+    this.decided.emit(decision);
   }
 }
 
