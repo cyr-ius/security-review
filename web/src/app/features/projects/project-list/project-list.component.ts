@@ -53,6 +53,11 @@ export class ProjectListComponent {
     return totals;
   });
 
+  /** Open findings of every project, shown on the review button. */
+  readonly openTotal = computed(() =>
+    SEVERITIES.reduce((sum, severity) => sum + this.totals()[severity], 0),
+  );
+
   readonly visible = computed(() => {
     const term = this.search().trim().toLowerCase();
     const rows = (this.projects.value() ?? []).filter((p) =>

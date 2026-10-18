@@ -27,8 +27,9 @@ import { FindingCardComponent } from '../../../shared/components/finding-card/fi
 const PAGE_SIZE = 50;
 
 /**
- * Every open finding of a project, across all its reports, worst first: the list a security
- * expert reviews and triages. Other statuses can be listed to re-check past decisions.
+ * Every open finding of a project (or of every project, at /findings), across all reports, worst
+ * first: the list a security expert reviews and triages. Other statuses can be listed to re-check
+ * past decisions.
  */
 @Component({
   selector: 'app-project-findings',
@@ -41,8 +42,8 @@ export class ProjectFindingsComponent {
   readonly auth = inject(AuthService);
   readonly triage = inject(TriageService);
 
-  /** Route parameter :project */
-  readonly project = input.required<string>();
+  /** Route parameter :project (undefined at /findings: every project in the scope). */
+  readonly project = input<string>();
 
   readonly severities = SEVERITIES;
   readonly statuses = FINDING_STATUSES;

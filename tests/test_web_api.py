@@ -341,7 +341,7 @@ def test_project_findings(client, reports):
         "/api/v1/findings", params={"project": "shop-api", "status": "false_positive"}
     ).json()
     assert dismissed["total"] == 0
-    assert client.get("/api/v1/findings").status_code == 422
+    assert client.get("/api/v1/findings", params={"project": ""}).status_code == 422
     assert (
         client.get("/api/v1/findings", params={"project": "shop-api", "status": "x"}).status_code
         == 422
@@ -350,6 +350,31 @@ def test_project_findings(client, reports):
         client.get("/api/v1/findings", params={"project": "shop-api", "limit": 0}).status_code
         == 422
     )
+
+
+def test_findings_of_every_project(client, reports):
+    services.save_report("billing", "Second review", [make_finding(Severity.CRITICAL)])
+    page = client.get("/api/v1/findings").json()
+    assert page["project"] is None
+    assert page["total"] == 3
+    assert [(f["project"], f["severity"]) for f in page["findings"]] == [
+        ("billing", "critical"),
+        ("shop-api", "high"),
+        ("shop-api", "low"),
+    ]
+    shop = client.get("/api/v1/findings", params={"project": "shop-api"}).json()
+    assert {f["project"] for f in shop["findings"]} == {"shop-api"}
+
+
+def test_findings_of_every_project_stay_in_the_scope_of_a_project_token(secured, reports):
+    services.save_report("billing", "Second review", [make_finding(Severity.CRITICAL)])
+    token = token_store.create_token("shop-only", Role.READER, ["shop-api"])["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    page = secured.get("/api/v1/findings", headers=headers).json()
+    assert page["total"] == 2
+    assert {f["project"] for f in page["findings"]} == {"shop-api"}
+    refused = secured.get("/api/v1/findings", params={"project": "billing"}, headers=headers)
+    assert refused.status_code == 404
 
 
 def test_findings_and_reports_show_and_filter_the_review_type(client):

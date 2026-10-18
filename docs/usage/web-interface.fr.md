@@ -44,7 +44,9 @@ cesse de répondre ensuite), la page **Backend indisponible** s'ouvre, et son bo
 revient à la page demandée dès que le contrôleur répond de nouveau.
 
 - **Projets** : tous les projets avec leurs findings ouverts par sévérité, triés par risque,
-  activité ou nom.
+  activité ou nom. Le bouton **Revoir les findings ouverts** ouvre les findings à revoir de tous
+  les projets que vous pouvez voir (**Findings à revoir : tous les projets**), chacun avec un
+  lien vers son projet.
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, derniers rapports et
   export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant.
@@ -241,12 +243,14 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/proj
 
 Le même jeton liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
 du plus grave au moins grave (filtres `status`, `severity` et `review_type`, `limit` plafonné par
-`SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer) :
+`SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer).
+Sans `project`, il liste les findings de tous les projets du périmètre du jeton
+(`"project": null`) :
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
   "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
-# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
+# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "project": "shop-api", "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
 
 `GET /api/v1/reports` liste les rapports (filtres `project`, `risk_level`, `review_type` et

@@ -40,6 +40,9 @@ export const projects = defineMessages({
     'project.reviewFindings': 'Review open findings',
     'projectFindings.title': 'Findings to review',
     'projectFindings.heading': 'Findings to review: {project}',
+    'projectFindings.headingAll': 'Findings to review: all projects',
+    'projectFindings.subtitleAll':
+      'Every finding of every project you can see, across all reports, worst first, for a review by a security expert.',
     'projectFindings.subtitle':
       'Every finding of the project across all its reports, worst first, for a review by a security expert.',
     'projectFindings.count': '{shown} of {total} finding(s)',
@@ -87,6 +90,9 @@ export const projects = defineMessages({
     'project.reviewFindings': 'Revoir les findings ouverts',
     'projectFindings.title': 'Findings à revoir',
     'projectFindings.heading': 'Findings à revoir : {project}',
+    'projectFindings.headingAll': 'Findings à revoir : tous les projets',
+    'projectFindings.subtitleAll':
+      "Tous les findings des projets que vous pouvez voir, sur l'ensemble des rapports, du plus grave au moins grave, pour une revue par un expert en cybersécurité.",
     'projectFindings.subtitle':
       "Tous les findings du projet, sur l'ensemble de ses rapports, du plus grave au moins grave, pour une revue par un expert en cybersécurité.",
     'projectFindings.count': '{shown} sur {total} finding(s)',
@@ -134,6 +140,9 @@ export const projects = defineMessages({
     'project.reviewFindings': 'Revisar los hallazgos abiertos',
     'projectFindings.title': 'Hallazgos por revisar',
     'projectFindings.heading': 'Hallazgos por revisar: {project}',
+    'projectFindings.headingAll': 'Hallazgos por revisar: todos los proyectos',
+    'projectFindings.subtitleAll':
+      'Todos los hallazgos de los proyectos que puede ver, en todos los informes, del más grave al menos grave, para una revisión por un experto en ciberseguridad.',
     'projectFindings.subtitle':
       'Todos los hallazgos del proyecto en todos sus informes, del más grave al menos grave, para una revisión por un experto en ciberseguridad.',
     'projectFindings.count': '{shown} de {total} hallazgo(s)',

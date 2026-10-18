@@ -151,6 +151,7 @@ class ReportSummary(BaseModel):
 class ProjectFinding(FindingPublic):
     """A finding of a project, with the context of its report."""
 
+    project: str
     branch: str | None
     commit_sha: str | None
     review_type: ReviewType | None
@@ -158,9 +159,10 @@ class ProjectFinding(FindingPublic):
 
 
 class ProjectFindingPage(BaseModel):
-    """One page of the findings of a project (``total`` counts every matching finding)."""
+    """One page of the findings of a project, or of every project in the scope of the caller
+    (``project`` None; ``total`` counts every matching finding)."""
 
-    project: str
+    project: str | None
     total: int
     findings: list[ProjectFinding]
 

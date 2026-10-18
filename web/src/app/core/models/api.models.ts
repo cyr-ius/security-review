@@ -479,22 +479,24 @@ export interface FindingDecision {
 
 /** A finding of GET /api/v1/findings, with the context of its report. */
 export interface ProjectFinding extends Finding {
+  project: string;
   branch: string | null;
   commit_sha: string | null;
   review_type: ReviewType | null;
   report_created_at: string;
 }
 
-/** GET /api/v1/findings: one page of the findings of a project. */
+/** GET /api/v1/findings: one page of the findings of a project (null: every project). */
 export interface ProjectFindingPage {
-  project: string;
+  project: string | null;
   total: number;
   findings: ProjectFinding[];
 }
 
 /** Query of GET /api/v1/findings. */
 export interface ProjectFindingQuery {
-  project: string;
+  /** Omitted: the findings of every project in the scope of the caller. */
+  project?: string;
   status: FindingStatus;
   severity: Severity | '';
   reviewType: ReviewType | '';

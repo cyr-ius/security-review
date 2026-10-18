@@ -3,7 +3,16 @@
     <h1 class="h3 mb-0">{{ 'layout.projects' | t }}</h1>
     <p class="text-body-secondary mb-0">{{ 'projects.subtitle' | t }}</p>
   </div>
-  <app-refresh-button [loading]="projects.isLoading()" (refresh)="projects.reload()" />
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-primary" routerLink="/findings">
+      <i class="bi bi-shield-check" aria-hidden="true"></i>
+      {{ 'project.reviewFindings' | t }}
+      @if (projects.hasValue()) {
+        <span class="badge text-bg-light ms-1">{{ openTotal() }}</span>
+      }
+    </a>
+    <app-refresh-button [loading]="projects.isLoading()" (refresh)="projects.reload()" />
+  </div>
 </div>
 
 @if (projects.error()) {

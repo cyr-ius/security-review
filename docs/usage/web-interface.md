@@ -44,7 +44,8 @@ answering later), the **Backend unavailable** page opens, and its **Retry** butt
 the requested page once the controller answers again.
 
 - **Projects**: every project with its open findings by severity, sorted by risk,
-  activity or name.
+  activity or name. The **Review open findings** button opens the findings to review of every
+  project you can see (**Findings to review: all projects**), each with a link to its project.
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
   The **Review open findings** button opens the next screen.
@@ -234,12 +235,13 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/proj
 
 The same token lists the findings of a project across all its reports, open by default, worst
 first (`status`, `severity` and `review_type` filter, `limit` is capped by
-`SECREVIEW_MAX_LIST_LIMIT`, `total` gives the number of matching findings for paging):
+`SECREVIEW_MAX_LIST_LIMIT`, `total` gives the number of matching findings for paging). Without
+`project`, it lists the findings of every project in the scope of the token (`"project": null`):
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
   "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
-# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
+# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "project": "shop-api", "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
 
 `GET /api/v1/reports` lists the reports (`project`, `risk_level`, `review_type` and `author`

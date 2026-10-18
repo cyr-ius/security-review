@@ -83,8 +83,8 @@ async def posture(project: ProjectQuery, identity: CurrentIdentity) -> ProjectPo
 
 @router.get("/findings")
 async def project_findings(
-    project: ProjectQuery,
     identity: CurrentIdentity,
+    project: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
     finding_status: Annotated[FindingStatus, Query(alias="status")] = FindingStatus.OPEN,
     severity: Severity | None = None,
     review_type: ReviewType | None = None,
@@ -93,16 +93,20 @@ async def project_findings(
 ) -> ProjectFindingPage:
     """Findings of a project across all its reports (open by default), worst first.
 
-    Gives an expert the whole list to review; limit is capped by SECREVIEW_MAX_LIST_LIMIT.
+    Gives an expert the whole list to review; without ``project``, lists the findings of every
+    project in the scope of the caller. limit is capped by SECREVIEW_MAX_LIST_LIMIT.
     """
+    if project is not None:
+        scoped_project(identity, project)
     return await run_in_threadpool(
         services.list_project_findings,
-        scoped_project(identity, project),
+        project,
         finding_status,
         severity,
         limit,
         offset,
         review_type,
+        identity.projects,
     )
 
 

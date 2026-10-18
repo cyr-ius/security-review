@@ -334,13 +334,15 @@ export class ApiService {
     return this.http.get<Trend>(`${API_URL}/trend`, { params });
   }
 
-  /** Findings of a project across all its reports, worst first (for an expert review). */
+  /** Findings of a project (or of every project) across all reports, worst first. */
   projectFindings(query: ProjectFindingQuery): Observable<ProjectFindingPage> {
     let params = new HttpParams()
-      .set('project', query.project)
       .set('status', query.status)
       .set('limit', query.limit)
       .set('offset', query.offset);
+    if (query.project) {
+      params = params.set('project', query.project);
+    }
     if (query.severity) {
       params = params.set('severity', query.severity);
     }

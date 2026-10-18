@@ -546,24 +546,30 @@ def project_posture(project: str) -> dict:
 
 
 def list_project_findings(
-    project: str,
+    project: str | None,
     status: FindingStatus = FindingStatus.OPEN,
     severity: Severity | None = None,
     limit: int = 100,
     offset: int = 0,
     review_type: ReviewType | None = None,
+    projects: Collection[str] | None = None,
 ) -> dict:
-    """List the findings of a project across all its reports, for an expert review.
+    """List the findings of a project (or of every project) across all reports, for a review.
 
     Worst severity first, then newest report first. ``limit`` is capped by
     SECREVIEW_MAX_LIST_LIMIT; ``total`` counts every matching finding, for paging. Each finding
-    carries the branch, commit, review type and date of its report; ``review_type`` keeps only
-    the findings of the reports of that type.
+    carries the project, branch, commit, review type and date of its report; ``review_type``
+    keeps only the findings of the reports of that type. ``project`` None lists every project;
+    ``projects`` (the scope of a restricted caller) keeps only the findings of these projects.
     """
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
     offset = max(0, offset)
-    filters = [SecurityReport.project == project, _status_is(status)]
+    filters = [_status_is(status)]
+    if project is not None:
+        filters.append(SecurityReport.project == project)
+    if projects is not None:
+        filters.append(col(SecurityReport.project).in_(list(projects)))
     if severity is not None:
         filters.append(Finding.severity == severity)
     if review_type is not None:
@@ -588,6 +594,7 @@ def list_project_findings(
         findings = [
             {
                 **FindingPublic.model_validate(finding, from_attributes=True).model_dump(),
+                "project": report.project,
                 "branch": report.branch,
                 "commit_sha": report.commit_sha,
                 "review_type": report.review_type,
