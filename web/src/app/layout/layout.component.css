@@ -155,8 +155,11 @@
 }
 
 .user-role {
+  overflow: hidden;
   font-size: 0.75rem;
   color: var(--app-sidebar-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .icon-btn {
