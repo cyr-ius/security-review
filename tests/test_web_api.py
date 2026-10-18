@@ -27,6 +27,7 @@ from security_review_mcp import (
     services,
     standards,
     token_store,
+    update_check,
     web_api,
     web_users,
 )
@@ -253,6 +254,46 @@ def test_about_gives_the_version_and_the_links(secured, ui_dir):
     # Swagger disabled: no link
     bare = TestClient(as_admin(web_api.create_app(ui_dir=str(ui_dir))), base_url="http://127.0.0.1")
     assert bare.get("/api/v1/about").json()["swagger_url"] is None
+
+
+def test_about_update_is_disabled_by_default(secured, monkeypatch):
+    assert secured.get("/api/v1/about/update").status_code == 401
+    monkeypatch.setattr(
+        update_check, "fetch_latest", lambda settings: pytest.fail("GitHub must not be called")
+    )
+
+    status = secured.get("/api/v1/about/update", headers=auth("reader")).json()
+
+    assert status == {
+        "enabled": False,
+        "current": __version__,
+        "latest": None,
+        "update_available": False,
+        "release_url": None,
+        "checked_at": None,
+        "error": None,
+    }
+
+
+def test_about_update_reports_a_newer_release_through_the_proxy(secured, monkeypatch):
+    update_check.clear_cache()
+    enabled = get_settings().model_copy(update={"update_check_enabled": True})
+    monkeypatch.setattr(web_api.account_routes, "get_settings", lambda: enabled)
+    app_settings.set_proxy({"url": "http://proxy.internal:3128"}, "admin")
+    used: list[str | None] = []
+
+    def fake_fetch(settings):
+        used.append(settings.proxy)
+        return "99.0.0", update_check.RELEASES_PAGE + "tag/v99.0.0"
+
+    monkeypatch.setattr(update_check, "fetch_latest", fake_fetch)
+
+    status = secured.get("/api/v1/about/update", headers=auth("reader")).json()
+    update_check.clear_cache()
+
+    assert (status["latest"], status["update_available"]) == ("99.0.0", True)
+    assert status["release_url"].endswith("/tag/v99.0.0")
+    assert used == ["http://proxy.internal:3128"]  # the proxy set in the web interface
 
 
 def test_documentation_uses_the_web_interface_favicon():
@@ -2180,6 +2221,30 @@ def test_users_change_their_own_password(accounts):
     assert login(accounts, "alice", "Another long secret 2").status_code == 200
 
 
+def test_users_keep_their_theme_on_every_browser(accounts):
+    make_user("alice", USER_PASSWORD, "reader")
+    make_user("bob", USER_PASSWORD, "reader")
+    alice = session_headers(accounts, "alice")
+
+    assert accounts.get("/api/v1/me/preferences").status_code == 401
+    assert accounts.get("/api/v1/me/preferences", headers=alice).json() == {"theme": "auto"}
+    saved = accounts.put("/api/v1/me/preferences", json={"theme": "dark"}, headers=alice)
+    assert saved.status_code == 200 and saved.json() == {"theme": "dark"}
+    # Another session (browser) of the same user, and another user
+    again = session_headers(accounts, "alice")
+    assert accounts.get("/api/v1/me/preferences", headers=again).json() == {"theme": "dark"}
+    bob = session_headers(accounts, "bob")
+    assert accounts.get("/api/v1/me/preferences", headers=bob).json() == {"theme": "auto"}
+    refused = accounts.put("/api/v1/me/preferences", json={"theme": "pink"}, headers=alice)
+    assert refused.status_code == 422
+
+
+def test_a_token_has_no_preferences(secured):
+    assert secured.get("/api/v1/me/preferences", headers=auth("reader")).status_code == 403
+    response = secured.put("/api/v1/me/preferences", json={"theme": "dark"}, headers=auth("reader"))
+    assert response.status_code == 403
+
+
 def test_a_user_must_change_a_password_set_by_someone_else(accounts, reports):
     make_user("alice", USER_PASSWORD, "reader", must_change=True)
     logged = login(accounts, "alice")
@@ -2494,7 +2559,7 @@ def test_sso_variables_made_invalid_by_a_stored_value_only_disable_the_login(
 ):
     client.put("/api/v1/oidc/settings", json=OIDC_SETTINGS)
     # The variable changes after the settings were stored: OIDC is disabled, not the controller
-    monkeypatch.setattr(get_settings(), "oidc_scopes", "profile")
+    monkeypatch.setattr(get_settings(), "oidc_scope", "profile")
     assert client.get("/api/v1/auth/config").json()["oidc"] is False
     assert "OIDC login disabled, invalid settings" in caplog.text
 

@@ -38,7 +38,7 @@ SECREVIEW_OIDC_REDIRECT_URI=https://secreview.example.com/api/v1/auth/oidc/callb
 SECREVIEW_OIDC_ROLES_CLAIM=realm_access.roles   # "groups" by default
 SECREVIEW_OIDC_ADMIN_GROUPS=secreview-admins   # created with the admin role (first administrator)
 SECREVIEW_OIDC_AUTO_CREATE_USERS=true       # otherwise, create every OIDC account in Utilisateurs
-SECREVIEW_SESSION_SECRET=$(openssl rand -base64 48)
+SECREVIEW_SECRET_KEY=$(openssl rand -base64 48)
 SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
 ```
 
@@ -69,7 +69,7 @@ the **Outgoing proxy** screen, a value stored in the database **replaces its
 The change applies to the next login, on every replica (the controller reads the configuration
 again at every login and rebuilds the OIDC flow when it changes). Sessions already open stay
 valid until they expire. Still variables only: `SECREVIEW_OIDC_CAFILE` (a file of the
-deployment) and the session settings (`SECREVIEW_SESSION_SECRET`, `SECREVIEW_SESSION_HOURS`).
+deployment) and the session settings (`SECREVIEW_SECRET_KEY`, `SECREVIEW_SESSION_HOURS`).
 If a variable changed later makes the combination with the stored values invalid, the
 controller starts anyway: the OIDC login is disabled and the error logged, to be fixed in the
 screen.
@@ -210,15 +210,32 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
     user name or that bears the name of a local account is dropped, with a warning in the log of
     the migration.
 
+## OIDC only
+
+With `SECREVIEW_OIDC_ONLY=true`, the identity provider becomes the only way in: the login page
+only offers its button, and `POST /api/v1/auth/login` refuses the user name and password of the
+local accounts (`403`, logged). The sessions already open stay valid until they expire.
+
+```bash
+SECREVIEW_OIDC_ENABLED=true
+SECREVIEW_OIDC_ONLY=true
+```
+
+It applies only while OIDC works: with OIDC disabled, or with settings refused at their check,
+the local accounts log in again, so that nobody is locked out. `SECREVIEW_OIDC_ONLY` is a
+variable only, never changed in the interface: if the provider is unavailable, unset it and
+restart the controller, then log in with a local account (its password can be set with
+`security-review-controller user reset-password`).
+
 ## Sessions
 
-- The session token is signed (HMAC-SHA256) with a key derived from `SECREVIEW_SESSION_SECRET`
+- The session token is signed (HMAC-SHA256) with a key derived from `SECREVIEW_SECRET_KEY`
   (at least 32 characters), like the one of the [local accounts](../usage/web-interface.md#login-and-sessions), and
   names the OIDC account, read again at every request: deleting the account or changing its
   groups or their roles applies at once. Every replica of the controller must share this secret; without
-  it, the secret of `SECREVIEW_SESSION_SECRET_FILE` is used, generated at the first start.
+  it, the secret of `SECREVIEW_SECRET_KEY_FILE` is used, generated at the first start.
 - A group change at the provider only applies at the next login. To cut every session before it
-  expires, delete the account, or change `SECREVIEW_SESSION_SECRET` and restart the controller
+  expires, delete the account, or change `SECREVIEW_SECRET_KEY` and restart the controller
   (every session is cut).
 - **Log out** clears the session of the tab, not the one of the identity
   provider.

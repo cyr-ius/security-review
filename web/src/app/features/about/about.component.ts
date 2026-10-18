@@ -17,6 +17,8 @@ export class AboutComponent {
   private readonly health = inject(HealthService);
 
   readonly about = rxResource({ stream: () => this.api.about() });
+  /** Latest release on GitHub (SECREVIEW_UPDATE_CHECK_ENABLED, cached by the controller). */
+  readonly update = rxResource({ stream: () => this.api.aboutUpdate() });
   /** Live check of the backend, done when the page opens and on demand. */
   readonly backend = resource({ loader: () => this.health.check(true) });
 

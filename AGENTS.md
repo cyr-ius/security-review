@@ -90,14 +90,14 @@ l'utiliser.
 | Zone | Fichiers |
 |---|---|
 | Prompts, outils, ressources MCP, point d'entrée du serveur MCP | `server.py`, `prompts.py` |
-| Point d'entrée du contrôleur (`serve`, `db`, commandes d'administration) | `controller.py` |
+| Point d'entrée du contrôleur (`serve`, `db`, commandes d'administration) ; recherche de nouvelle version (page À propos) ; `HEALTHCHECK` de l'image Docker | `controller.py` ; `update_check.py` ; `healthcheck.py` |
 | Moteur de scan, masquage des secrets | `scanner.py` |
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
 | CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `code-scan` et `deps-scan` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `codescan.py`, `depscan.py`, `web_api/ci_routes.py`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`), `ci_client.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` ; `proxy.py` |
 | Persistance, schéma (purge des rapports sans findings et de l'audit : `retention.py`) | `models.py`, `services.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
-| Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `audit.py` ; `metrics.py` |
+| Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement ; envoi syslog facultatif par le contrôleur) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `audit.py`, `audit_syslog.py` ; `metrics.py` |
 | Export et tendances | `sarif.py`, `trends.py` |
 | HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim) : `access_control.py` |
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
@@ -172,7 +172,11 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   uniquement, taille bornée, proxy facultatif (`proxy`, partagé avec le OIDC) jamais journalisé
   avec ses identifiants, et la
   connexion OIDC du contrôleur (`oidc`), **désactivée par défaut**, qui ne contacte que le
-  fournisseur d'identité configuré, en HTTPS, réponses bornées.
+  fournisseur d'identité configuré, en HTTPS, réponses bornées, la recherche de nouvelle version
+  du contrôleur (`update_check`, **désactivée par défaut**, HTTPS vers l'API GitHub, par le
+  proxy, réponse bornée et mise en cache) et l'envoi syslog du journal d'audit par le contrôleur
+  (`audit_syslog`, **désactivé par défaut**, qui lit les événements en base : le serveur MCP n'y
+  participe pas).
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
   imbriqués) ; `rules_loader` les valide pour les règles internes.
 - Jetons Bearer : seules les empreintes SHA-256 sont conservées, comparaison en temps constant.

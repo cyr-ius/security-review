@@ -95,9 +95,29 @@ export interface About {
   health_url: string;
 }
 
+/** GET /api/v1/about/update: latest release on GitHub (SECREVIEW_UPDATE_CHECK_ENABLED). */
+export interface UpdateStatus {
+  enabled: boolean;
+  current: string;
+  latest: string | null;
+  update_available: boolean;
+  release_url: string | null;
+  checked_at: string | null;
+  /** Why the latest release is unknown while enabled. */
+  error: 'unreachable' | 'invalid' | null;
+}
+
+/** Theme of the web interface; auto follows the system preference. */
+export type ThemeChoice = 'light' | 'dark' | 'auto';
+
+/** GET and PUT /api/v1/me/preferences: preferences of the logged-in web user. */
+export interface Preferences {
+  theme: ThemeChoice;
+}
+
 /** GET /api/v1/auth/config: login methods offered on the login page. */
 export interface AuthConfig {
-  /** Username and password of a web user. */
+  /** Username and password of a local web user (false with SECREVIEW_OIDC_ONLY). */
   password?: boolean;
   oidc: boolean;
   oidc_display_name: string | null;
@@ -729,7 +749,7 @@ export type OidcSettingName =
   | 'client_id'
   | 'client_secret'
   | 'redirect_uri'
-  | 'scopes'
+  | 'scope'
   | 'roles_claim'
   | 'username_claim'
   | 'admin_groups'

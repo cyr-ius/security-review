@@ -4,7 +4,8 @@ who logged in to the web interface (or failed to) and out.
 Events are written by the business modules (services, token_store, access_control) in the same
 transaction as the change they describe, so that an event exists exactly when the change was
 committed. They are append-only: no tool nor route edits them, and only the daily purge of the
-controller (SECREVIEW_AUDIT_RETENTION_DAYS, see retention) deletes the old ones.
+controller (SECREVIEW_AUDIT_RETENTION_DAYS and SECREVIEW_AUDIT_MAX_EVENTS, see retention) deletes
+the old ones. The controller may also forward them to syslog (see audit_syslog).
 
 ``details`` never holds a secret: the values are bounded and masked with
 ``scanner.redact_secrets`` before they are stored.
@@ -19,7 +20,7 @@ from typing import Any, Literal
 from sqlalchemy import delete, or_
 from sqlmodel import Session, col, func, select
 
-from .config import MAX_RETENTION_DAYS, get_settings
+from .config import MAX_AUDIT_EVENTS, MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
 from .models import AuditEvent, as_utc, utcnow
 from .scanner import redact_secrets
@@ -114,7 +115,7 @@ def record(
     )
 
 
-def _public(event: AuditEvent) -> dict[str, Any]:
+def public_event(event: AuditEvent) -> dict[str, Any]:
     """An audit event as returned by the REST API and the CLI."""
     try:
         details = json.loads(event.details)
@@ -198,26 +199,46 @@ def list_events(
             .offset(offset)
             .limit(limit)
         ).all()
-        return {"total": total, "events": [_public(row) for row in rows]}
+        return {"total": total, "events": [public_event(row) for row in rows]}
 
 
-def prune_events(retention_days: int | None = None) -> dict[str, int]:
-    """Delete the audit events older than ``retention_days`` days.
+def prune_events(
+    retention_days: int | None = None, max_events: int | None = None
+) -> dict[str, int]:
+    """Delete the audit events older than ``retention_days`` days, then the oldest ones beyond
+    ``max_events``.
 
-    Defaults to SECREVIEW_AUDIT_RETENTION_DAYS; 0 keeps every event.
+    Defaults to SECREVIEW_AUDIT_RETENTION_DAYS and SECREVIEW_AUDIT_MAX_EVENTS; 0 disables each
+    purge.
 
     Raises:
-        ValueError: If ``retention_days`` is negative or above MAX_RETENTION_DAYS.
+        ValueError: If a bound is negative or above its maximum.
     """
-    days = get_settings().audit_retention_days if retention_days is None else retention_days
+    settings = get_settings()
+    days = settings.audit_retention_days if retention_days is None else retention_days
+    limit = settings.audit_max_events if max_events is None else max_events
     if not 0 <= days <= MAX_RETENTION_DAYS:
         raise ValueError(f"retention_days must be between 0 and {MAX_RETENTION_DAYS}")
-    if days == 0:
-        return {"retention_days": 0, "deleted": 0}
-    cutoff = utcnow() - timedelta(days=days)
+    if not 0 <= limit <= MAX_AUDIT_EVENTS:
+        raise ValueError(f"max_events must be between 0 and {MAX_AUDIT_EVENTS}")
+    deleted = 0
     with session_scope() as session:
-        result = session.execute(delete(AuditEvent).where(col(AuditEvent.created_at) < cutoff))
-        deleted = result.rowcount or 0
+        if days:
+            cutoff = utcnow() - timedelta(days=days)
+            result = session.execute(delete(AuditEvent).where(col(AuditEvent.created_at) < cutoff))
+            deleted += result.rowcount or 0
+        if limit:
+            # Id of the newest event beyond the limit: it and every older one go
+            newest_dropped = session.exec(
+                select(AuditEvent.id).order_by(col(AuditEvent.id).desc()).offset(limit).limit(1)
+            ).first()
+            if newest_dropped is not None:
+                result = session.execute(
+                    delete(AuditEvent).where(col(AuditEvent.id) <= newest_dropped)
+                )
+                deleted += result.rowcount or 0
     if deleted:
-        logger.info("Deleted %d audit events older than %d days", deleted, days)
-    return {"retention_days": days, "deleted": deleted}
+        logger.info(
+            "Deleted %d audit events (retention %d days, at most %d events)", deleted, days, limit
+        )
+    return {"retention_days": days, "max_events": limit, "deleted": deleted}

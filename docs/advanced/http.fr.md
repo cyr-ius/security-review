@@ -131,12 +131,12 @@ stdio, il n'y a pas de jeton, donc pas de restriction.
 
 ### Mot de passe administrateur initial
 
-Avec `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (c'est le cas dans l'image Docker), le **contrôleur**
-crée au premier démarrage le [compte](../usage/web-interface.md#comptes-utilisateurs)
-`admin` de l'interface web, avec un mot de passe aléatoire affiché une seule fois dans ses logs.
+À son premier démarrage, le **contrôleur** crée le
+[compte](../usage/web-interface.md#comptes-utilisateurs) `admin` de l'interface web
+(`SECREVIEW_ADMIN_USERNAME`), avec un mot de passe aléatoire que personne ne connaît :
+définissez-le avec la CLI, qui l'affiche une fois (l'ancien est aussitôt invalidé), voir le [premier administrateur](../usage/web-interface.md#premier-administrateur).
 Ce compte n'ouvre que l'interface web et l'API REST, jamais `/mcp` : pour un agent, créez un
-jeton (`token create`). S'il est perdu, remplacez le mot de passe (l'ancien est aussitôt
-invalidé) :
+jeton (`token create`).
 
 ```bash
 security-review-controller user reset-password admin

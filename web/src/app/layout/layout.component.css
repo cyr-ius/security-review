@@ -1,5 +1,6 @@
 .shell {
   --sidebar-w: 16rem;
+  --rail-w: 4.5rem;
   min-height: 100vh;
 }
 
@@ -17,7 +18,6 @@
     radial-gradient(120% 50% at 0% 0%, rgba(var(--app-brand-glow-rgb), 0.18), transparent 60%),
     var(--app-sidebar-bg);
   border-right: 1px solid rgba(var(--bs-white-rgb), 0.06);
-  transition: transform 0.25s ease;
 }
 
 .brand {
@@ -217,12 +217,6 @@ a.icon-btn {
   backdrop-filter: saturate(180%) blur(10px);
 }
 
-.small-mark {
-  width: 1.9rem;
-  height: 1.9rem;
-  font-size: 0.95rem;
-}
-
 .status-pill {
   align-items: center;
   gap: 0.4rem;
@@ -252,27 +246,36 @@ a.icon-btn {
   display: none;
 }
 
-/* ── Drawer on small screens ── */
-@media (max-width: 991.98px) {
-  .sidebar {
-    transform: translateX(-100%);
-  }
+/* ── Rail of icons: small screens, or reduced by the user ── */
+.rail .sidebar {
+  width: var(--rail-w);
+  padding-inline: 0.5rem;
+}
 
-  .main {
-    margin-left: 0;
-  }
+/* The labels are visually hidden (still read by screen readers), the links carry a title */
+.rail .main,
+.narrow .main {
+  margin-left: var(--rail-w);
+}
 
-  .menu-open .sidebar {
-    transform: none;
-    box-shadow: var(--app-shadow-lg);
-  }
+.rail .nav-entry.active::before {
+  left: -0.5rem;
+}
 
-  .menu-open .backdrop {
-    position: fixed;
-    inset: 0;
-    z-index: 1030;
-    display: block;
-    background: var(--app-backdrop);
-    backdrop-filter: blur(2px);
-  }
+.rail .icon-btn {
+  margin-left: 0;
+}
+
+/* Small screen, sidebar opened in full over the page */
+.narrow.menu-open .sidebar {
+  box-shadow: var(--app-shadow-lg);
+}
+
+.narrow.menu-open .backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1030;
+  display: block;
+  background: var(--app-backdrop);
+  backdrop-filter: blur(2px);
 }

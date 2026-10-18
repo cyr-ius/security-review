@@ -462,3 +462,35 @@ def test_the_reports_of_the_cli_scans_get_their_review_type(empty_engine):
         command.downgrade(database.alembic_config(connection), "0008")
         columns = {c["name"] for c in inspect(connection).get_columns("securityreport")}
     assert "review_type" not in columns
+
+
+def test_the_stored_oidc_scope_follows_the_renamed_variable(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0018")
+        for key, value in (
+            ("proxy", "http://proxy:3128"),
+            ("no_proxy", "internal"),
+            ("oidc_scopes", "openid email"),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO appsetting (key, value, updated_at, updated_by) "
+                    "VALUES (:key, :value, '2026-10-01 10:00:00', 'admin')"
+                ),
+                {"key": key, "value": value},
+            )
+        command.upgrade(database.alembic_config(connection), "0019")
+        rows = dict(connection.execute(text("SELECT key, value FROM appsetting")).all())
+    assert rows == {
+        "proxy": "http://proxy:3128",
+        "no_proxy": "internal",
+        "oidc_scope": "openid email",
+    }
+
+    with empty_engine.begin() as connection:
+        command.downgrade(database.alembic_config(connection), "0018")
+        rows = dict(connection.execute(text("SELECT key, value FROM appsetting")).all())
+    assert set(rows) == {"proxy", "no_proxy", "oidc_scopes"}

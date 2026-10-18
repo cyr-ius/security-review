@@ -20,6 +20,7 @@ from security_review_mcp import (
     http_server,
     server,
     token_store,
+    web_users,
 )
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
@@ -530,11 +531,12 @@ def test_http_mcp_server_refuses_a_database_that_was_not_migrated(monkeypatch, c
 
 
 def test_http_mcp_server_creates_no_bootstrap_admin(monkeypatch, captured_run):
-    monkeypatch.setattr(server, "get_settings", lambda: make_settings(auth_bootstrap_admin=True))
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings())
 
     server.main(["--transport", "streamable-http"])
 
     assert STORE.has_tokens() is False
+    assert web_users.has_users() is False
 
 
 def test_stdio_server_migrates_its_own_database(monkeypatch):

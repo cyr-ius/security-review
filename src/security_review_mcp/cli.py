@@ -290,19 +290,27 @@ def audit_command(argv: list[str]) -> int:
     )
     lister.add_argument("--limit", type=int, default=50, help="capped by SECREVIEW_MAX_LIST_LIMIT")
     lister.add_argument("--offset", type=int, default=0)
-    pruner = actions.add_parser("prune", help="delete the events older than the retention period")
+    pruner = actions.add_parser(
+        "prune", help="delete the events older than the retention period, then beyond the limit"
+    )
     pruner.add_argument(
         "--days",
         type=int,
         default=None,
         help="retention in days (default: SECREVIEW_AUDIT_RETENTION_DAYS; 0 keeps all)",
     )
+    pruner.add_argument(
+        "--max-events",
+        type=int,
+        default=None,
+        help="events kept at most (default: SECREVIEW_AUDIT_MAX_EVENTS; 0: no limit)",
+    )
     args = parser.parse_args(argv)
 
     try:
         init_db()
         if args.action == "prune":
-            result = audit.prune_events(args.days)
+            result = audit.prune_events(args.days, args.max_events)
         else:
             result = audit.list_events(
                 args.event, args.project, args.actor, args.since, args.limit, args.offset

@@ -92,6 +92,7 @@ src/security_review_mcp/
 ├── access_control.py # permissions, roles, groups and members of the web accounts
 ├── token_store.py # Bearer tokens in the database: creation, expiry, rotation, revocation, enrollment
 ├── audit.py       # audit log: events of triage decisions, proposals, tokens and enrollments
+├── audit_syslog.py # forwarding of the audit events to syslog by the controller (optional)
 ├── metrics.py     # Prometheus metrics of the controller (/metrics)
 ├── web_users.py   # web interface accounts, local (scrypt) or OIDC (created on the fly), sessions, initial admin
 ├── enrollment.py  # `enroll` client: token request to a shared server
@@ -116,6 +117,8 @@ src/security_review_mcp/
 ├── sarif.py       # SARIF 2.1.0 export
 ├── trends.py      # trend report
 ├── versions.py    # version comparison
+├── update_check.py # search for a newer release on GitHub (About page, optional)
+├── healthcheck.py # HEALTHCHECK of the Docker image (/healthz of the HTTP processes)
 ├── advisories.py  # OSV import, version matching
 ├── advisory_sync.py  # OSV download by the controller (proxy, daily update, history)
 ├── app_settings.py    # settings changed in the interface (language, outgoing proxy, OIDC), in the database

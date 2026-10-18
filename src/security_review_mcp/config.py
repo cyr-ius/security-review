@@ -14,6 +14,8 @@ REPORT_LANGUAGE_MAX_CHARS = 40
 
 # Upper bound of the retention of the reports without findings (100 years)
 MAX_RETENTION_DAYS = 36_500
+# Upper bound of SECREVIEW_AUDIT_MAX_EVENTS
+MAX_AUDIT_EVENTS = 100_000_000
 
 
 def check_report_language(value: str) -> str:
@@ -57,9 +59,12 @@ class Settings(BaseSettings):
 
     # Bearer authentication of the HTTP MCP server and of the controller. Tokens are stored in
     # the database (SHA-256 digests only) and managed with `security-review-controller token`.
-    # This makes the controller create the web user "admin" with a random password, logged once,
-    # on its first start while no web user exists (enabled in the Docker image).
-    auth_bootstrap_admin: bool = False
+    # Controller only: on its first start, while no web user exists, the controller creates the
+    # local administrator admin_username (member of the group "administrators") with a random
+    # password that nobody knows: an operator sets one with `security-review-controller user
+    # reset-password <admin_username>`, which prints it once, and the user changes it at its
+    # first login.
+    admin_username: str = "admin"
 
     # HTTP MCP server only: accept requests without a token while no token is stored. Off by
     # default: an exposed server stays closed (fail closed) until a first token exists; a server
@@ -68,12 +73,12 @@ class Settings(BaseSettings):
     allow_unauthenticated: bool = False
 
     # Controller only: sessions of the web interface (password and OIDC logins), tokens signed
-    # with session_secret (at least 32 characters, shared by the replicas) and valid
-    # session_hours (1 to 24). Unset, the secret is read from session_secret_file, generated
-    # there (mode 0600) at the first start; "" for session_secret_file draws a random secret at
+    # with secret_key (at least 32 characters, shared by the replicas) and valid
+    # session_hours (1 to 24). Unset, the secret is read from secret_key_file, generated
+    # there (mode 0600) at the first start; "" for secret_key_file draws a random secret at
     # each start (sessions then end at restart).
-    session_secret: SecretStr | None = None
-    session_secret_file: str = "session-secret"
+    secret_key: SecretStr | None = None
+    secret_key_file: str = "secret-key"
     session_hours: int = 8
 
     # Enrollment (HTTP MCP server, once a token exists): a client without a token reaches a
@@ -129,14 +134,14 @@ class Settings(BaseSettings):
     # login of one of its members when it does not exist yet. A login opens the OIDC web user
     # named by oidc_username_claim: with oidc_auto_create_users it is created at the first login
     # (when its groups give it a permission), otherwise an administrator creates it first.
-    # Sessions use session_secret and session_hours. oidc_cafile replaces the system CA bundle
+    # Sessions use secret_key and session_hours. oidc_cafile replaces the system CA bundle
     # for the provider.
     oidc_enabled: bool = False
     oidc_issuer: str = ""
     oidc_client_id: str = ""
     oidc_client_secret: SecretStr | None = None
     oidc_redirect_uri: str = ""
-    oidc_scopes: str = "openid profile email"
+    oidc_scope: str = "openid profile email"
     oidc_roles_claim: str = "groups"
     oidc_admin_groups: str = ""
     oidc_default_group: str = ""
@@ -144,6 +149,10 @@ class Settings(BaseSettings):
     oidc_auto_create_users: bool = False
     oidc_display_name: str = "OIDC"
     oidc_cafile: str | None = None
+    # Controller only: with OIDC enabled, refuse the password login of the local web users (the
+    # login page then only offers the identity provider). A variable only, never changed in the
+    # web interface: unsetting it is the way back when the provider is unavailable.
+    oidc_only: bool = False
 
     # Controller only: HTTP proxy of its outgoing connections (OSV download, OIDC identity
     # provider), from the standard variables, without the SECREVIEW_ prefix (lowercase names
@@ -191,10 +200,24 @@ class Settings(BaseSettings):
     # Controller only: delete the audit events older than audit_retention_days, checked at start
     # then every day. 0 keeps them forever.
     audit_retention_days: int = Field(default=365, ge=0, le=MAX_RETENTION_DAYS)
+    # Controller only: also keep at most audit_max_events events (the oldest are deleted by the
+    # same daily purge). 0: no limit.
+    audit_max_events: int = Field(default=0, ge=0, le=MAX_AUDIT_EVENTS)
+    # Controller only: send each audit event, as JSON, to a syslog server: udp://host:port,
+    # tcp://host:port or unix:///dev/log (no TLS: use a local relay such as rsyslog for it).
+    # Disabled by default. The controller forwards the events of every process (MCP server and
+    # CLI included) from the database, each event once even with several replicas. Not proxied.
+    audit_syslog_address: str | None = None
+    audit_syslog_facility: str = "local0"
 
     # Controller only: Prometheus metrics on /metrics, reached with a token of role "metrics" or
     # "admin". false: /metrics answers 404.
     metrics_enabled: bool = True
+
+    # Controller only: the About page searches GitHub for a newer release (latest release of
+    # the repository, HTTPS, through the outgoing proxy, cached 6 hours). Disabled by default: an
+    # outgoing connection.
+    update_check_enabled: bool = False
 
     log_level: str = "INFO"
 
@@ -210,7 +233,7 @@ class Settings(BaseSettings):
     max_scan_files: int = Field(default=10_000, ge=1)
     max_scan_file_chars: int = Field(default=1_048_576, ge=1)
 
-    @field_validator("proxy", "no_proxy")
+    @field_validator("proxy", "no_proxy", "audit_syslog_address")
     @classmethod
     def _empty_is_unset(cls, value: str | None) -> str | None:
         """An empty variable means no value (an empty stored proxy means a direct connection)."""

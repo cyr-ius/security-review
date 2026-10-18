@@ -104,13 +104,13 @@ curl http://127.0.0.1:8000/healthz   # serveur MCP : {"status":"ok"}
 ## Avec Docker Compose
 
 Le fichier `docker-compose.yml` du dépôt réalise les étapes 1 à 4 avec PostgreSQL : base,
-migration, contrôleur et serveur MCP. Le compte `admin` est créé au premier lancement, avec son
-mot de passe dans les journaux :
+migration, contrôleur et serveur MCP. Le compte `admin` est créé au premier lancement ; définissez
+son mot de passe avec la CLI, qui l'affiche une fois :
 
 ```bash
 echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env
 docker compose up -d --build
-docker compose logs controller                     # mot de passe admin initial
+docker compose exec controller security-review-controller user reset-password admin   # mot de passe admin initial
 docker compose exec controller security-review-controller token create --label alice
 ```
 
@@ -125,18 +125,22 @@ Le manifeste
 [`examples/kubernetes/security-review.yaml`](https://github.com/cyr-ius/security-review-mcp/blob/master/examples/kubernetes/security-review.yaml)
 réalise les étapes 2 à 4 sur une base PostgreSQL existante : un init container migre le schéma,
 puis le contrôleur et le serveur MCP démarrent dans deux Deployments. Le compte `admin` est créé
-au premier lancement, avec son mot de passe dans les journaux.
+au premier lancement ; définissez son mot de passe avec la CLI, qui l'affiche une fois.
 
 Avant de l'appliquer, remplacez l'image `registry.example.com/security-review-mcp:pg` par une
 image qui contient le pilote PostgreSQL, par exemple `ghcr.io/cyr-ius/security-review-mcp:latest-pg`
-(voir [Installation](installation.md)).
+(voir [Installation](installation.md)). Le Secret `secreview-controller` contient le secret de
+signature des sessions web : le système de fichiers des conteneurs est en lecture seule, le
+contrôleur ne peut pas le générer.
 
 ```bash
 kubectl create namespace secreview
 kubectl -n secreview create secret generic secreview-db \
     --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
+kubectl -n secreview create secret generic secreview-controller \
+    --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
 kubectl -n secreview apply -f examples/kubernetes/security-review.yaml
-kubectl -n secreview logs deploy/secreview-controller -c controller   # mot de passe admin initial
+kubectl -n secreview exec deploy/secreview-controller -c controller -- security-review-controller user reset-password admin   # mot de passe admin initial
 kubectl -n secreview exec deploy/secreview-controller -c controller -- \
     security-review-controller token create --label alice
 ```

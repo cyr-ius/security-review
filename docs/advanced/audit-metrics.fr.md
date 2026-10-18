@@ -64,14 +64,43 @@ security-review-controller audit list --project shop-api --actor user:alice --li
 ### Conservation
 
 `serve` supprime les événements de plus de `SECREVIEW_AUDIT_RETENTION_DAYS` jours (`365` par
-défaut), au démarrage puis chaque jour ; `0` conserve tous les événements. La même purge se lance
-à la demande :
+défaut), au démarrage puis chaque jour ; `0` conserve tous les événements. Avec
+`SECREVIEW_AUDIT_MAX_EVENTS` (`0` par défaut, sans limite), la même purge ne garde ensuite qu'au
+plus ce nombre d'événements, en supprimant les plus anciens. La même purge se lance à la demande :
 
 ```bash
-security-review-controller audit prune              # conservation de SECREVIEW_AUDIT_RETENTION_DAYS
+security-review-controller audit prune              # SECREVIEW_AUDIT_RETENTION_DAYS et SECREVIEW_AUDIT_MAX_EVENTS
 security-review-controller audit prune --days 730   # une autre durée, pour cette exécution seulement
-# {"retention_days": 730, "deleted": 0}
+# {"retention_days": 730, "max_events": 0, "deleted": 0}
+security-review-controller audit prune --max-events 100000
 ```
+
+### Envoi vers syslog
+
+Le contrôleur peut aussi envoyer chaque événement à un serveur syslog, pour le conserver hors de
+la base (SIEM, journal central). Désactivé par défaut :
+
+```bash
+SECREVIEW_AUDIT_SYSLOG_ADDRESS=udp://syslog.example.com:514   # ou tcp://hôte:port, unix:///dev/log
+SECREVIEW_AUDIT_SYSLOG_FACILITY=local0                        # par défaut
+```
+
+Chaque événement est un message de sévérité `info`, étiqueté `secreview-audit`, dont le corps est
+l'événement en JSON, avec les mêmes champs que `audit list` :
+
+```
+<134>secreview-audit: {"action":"user.login","actor":"user:alice","created_at":"…","details":{"address":"10.0.0.8","method":"password"},"id":12,"project":null,"target_id":"2","target_type":"user"}
+```
+
+- Le contrôleur envoie les événements de **tous** les processus, serveur MCP et CLI compris,
+  depuis la base : le serveur MCP ne fait toujours aucune connexion sortante. Un événement part
+  environ 5 à 15 secondes après son écriture ; l'historique antérieur au premier démarrage n'est
+  pas envoyé.
+- Chaque événement est envoyé **une fois**, même avec plusieurs répliques du contrôleur : l'id du
+  dernier événement envoyé est conservé en base, et une réplique l'avance avant d'envoyer. Un lot
+  dont l'envoi échoue est journalisé et n'est pas renvoyé (au plus une fois).
+- Ni TLS ni proxy : pour chiffrer, envoyez à un relais local (`rsyslog`, `syslog-ng`, Fluent Bit)
+  qui transmet en TLS. Une adresse invalide arrête `serve` au démarrage.
 
 ## Métriques Prometheus
 
