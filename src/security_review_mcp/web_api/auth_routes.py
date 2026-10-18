@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import RedirectResponse
 
-from .. import app_settings, oidc, web_users
+from .. import app_settings, oidc, rate_limit, web_users
 from ..config import Settings, get_settings
 from .deps import client_address
 from .schemas import AuthConfig, LoginSession, PasswordLogin
@@ -128,10 +128,10 @@ async def password_login(request: Request, body: PasswordLogin, response: Respon
     Failed attempts are throttled per username and address (429 once the limit is reached);
     the answer never tells whether the username exists.
     """
-    throttle: web_users.LoginThrottle = request.app.state.login_throttle
+    throttle: rate_limit.LoginThrottle = request.app.state.login_throttle
     address = client_address(request)
     username = body.username.strip()
-    if throttle.blocked(username, address):
+    if await run_in_threadpool(throttle.blocked, username, address):
         logger.warning(
             "Web login of %s from %s refused: too many failures", _log_name(username), address
         )
@@ -142,10 +142,10 @@ async def password_login(request: Request, body: PasswordLogin, response: Respon
         )
     user = await run_in_threadpool(web_users.authenticate, username, body.password)
     if user is None:
-        throttle.failed(username, address)
+        await run_in_threadpool(throttle.failed, username, address)
         logger.warning("Failed web login of %s from %s", _log_name(username), address)
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
-    throttle.succeeded(username, address)
+    await run_in_threadpool(throttle.succeeded, username, address)
     result = await open_session(request, user["id"], response)
     logger.info("Web login of %s (role %s) from %s", result.username, result.role, address)
     return result

@@ -123,8 +123,10 @@
   with out-of-bounds parameters is refused instead of exhausting the memory. Passwords of 12 to
   256 characters, user names limited to `[A-Za-z0-9._@-]`. The check takes the same time
   whether the user name exists or not (dummy digest), and a failure always returns the same
-  `401`. Failures are limited in memory (5 per user name and address, 20 per address, over
-  15 minutes, then `429`); behind a reverse proxy, the client address is only read from
+  `401`. Failures are limited in the database, shared by every replica (5 per user name and
+  address, 20 per address, over 15 minutes, then `429`), and so are the requests of an address
+  to the REST API (`SECREVIEW_RATE_LIMIT_*`, counted before the token is checked, so that
+  guessing tokens is limited too; the counters store SHA-256 digests, never the addresses); behind a reverse proxy, the client address is only read from
   `X-Forwarded-For` for the proxies listed in `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` lets any
   client choose its address and get round the limits). Only valid user names are logged, never passwords. The session is a
   token signed with `SECREVIEW_SESSION_SECRET`, like the SSO one, but the account is **read

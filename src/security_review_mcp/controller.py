@@ -106,6 +106,7 @@ def serve(argv: list[str]) -> None:
                 store,
                 web_users.SessionVerifier(signer),
                 require_auth=oidc_login is not None,
+                settings=settings,
             ),
             args.host,
             args.port,

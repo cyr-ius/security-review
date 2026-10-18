@@ -673,49 +673,6 @@ def test_grant_project_is_bounded(monkeypatch):
         web_users.check_project_grant("bob", True)
 
 
-# ── Login throttling ─────────────────────────────────────────────────────────
-
-
-def test_throttle_locks_a_username_per_address():
-    throttle = web_users.LoginThrottle(max_per_user=2, max_per_address=10)
-
-    throttle.failed("Alice", "10.0.0.1")
-    assert not throttle.blocked("alice", "10.0.0.1")
-    throttle.failed("alice", "10.0.0.1")
-    assert throttle.blocked("ALICE", "10.0.0.1")
-    # Another address is not locked out by these failures
-    assert not throttle.blocked("alice", "10.0.0.2")
-
-
-def test_throttle_locks_an_address_trying_many_usernames():
-    throttle = web_users.LoginThrottle(max_per_user=5, max_per_address=3)
-
-    for name in ("a", "b", "c"):
-        throttle.failed(name, "10.0.0.1")
-
-    assert throttle.blocked("d", "10.0.0.1")
-
-
-def test_throttle_forgets_old_failures_and_successes():
-    throttle = web_users.LoginThrottle(max_per_user=1, max_per_address=10, window=0)
-    throttle.failed("alice", "10.0.0.1")
-    assert not throttle.blocked("alice", "10.0.0.1")
-
-    throttle = web_users.LoginThrottle(max_per_user=1, max_per_address=10)
-    throttle.failed("alice", "10.0.0.1")
-    throttle.succeeded("alice", "10.0.0.1")
-    assert not throttle.blocked("alice", "10.0.0.1")
-
-
-def test_throttle_memory_is_bounded():
-    throttle = web_users.LoginThrottle(max_keys=10)
-
-    for index in range(100):
-        throttle.failed(f"user{index}", f"10.0.0.{index}")
-
-    assert len(throttle._failures) == 10
-
-
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
 

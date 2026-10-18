@@ -98,6 +98,14 @@ class Settings(BaseSettings):
     # the address range of the proxy, or every client shares the address of the proxy.
     forwarded_allow_ips: str | None = None
 
+    # Controller only: requests to the REST API per client address and per window of
+    # rate_limit_window_seconds, counted in the database (shared by every worker and replica).
+    # The login routes (/api/v1/auth/) have their own, stricter, limit. Over the limit: 429.
+    rate_limit_enabled: bool = True
+    rate_limit_window_seconds: int = Field(default=60, ge=1, le=3600)
+    rate_limit_max_requests: int = Field(default=600, ge=1)
+    rate_limit_auth_max_requests: int = Field(default=30, ge=1)
+
     # Controller: REST API on /api/v1 and, with web_ui, the Angular application on /ui.
     # web_ui_dir overrides the directory of the built application (default: bundled files).
     web_ui: bool = True

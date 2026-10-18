@@ -125,8 +125,11 @@
   stockée ; une empreinte stockée aux paramètres hors bornes est refusée au lieu d'épuiser la
   mémoire. Mots de passe de 12 à 256 caractères, identifiants limités à `[A-Za-z0-9._@-]`. La
   vérification coûte le même temps que l'identifiant existe ou non (empreinte factice), et
-  l'échec renvoie toujours le même `401`. Les échecs sont limités en mémoire (5 par identifiant
-  et adresse, 20 par adresse, sur 15 minutes, puis `429`) ; derrière un reverse proxy,
+  l'échec renvoie toujours le même `401`. Les échecs sont limités en base, partagés par toutes
+  les réplicas (5 par identifiant et adresse, 20 par adresse, sur 15 minutes, puis `429`), comme
+  les requêtes d'une adresse vers l'API REST (`SECREVIEW_RATE_LIMIT_*`, comptées avant le
+  contrôle du jeton, pour limiter aussi les essais de jetons ; les compteurs enregistrent des
+  empreintes SHA-256, jamais les adresses) ; derrière un reverse proxy,
   l'adresse du client n'est lue dans `X-Forwarded-For` que pour les proxies listés dans
   `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` laisse tout client choisir son adresse et contourner les
   limites). Seuls les identifiants valides sont

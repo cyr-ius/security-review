@@ -29,8 +29,8 @@ start of the controller (``SECREVIEW_AUTH_BOOTSTRAP_ADMIN``), member of the grou
 ``administrators``. The last user that holds ``users.manage`` can be neither deleted nor lose
 that permission, so that the web interface always keeps an administrator.
 
-Failed logins are throttled in memory (LoginThrottle), per username and address and per
-address: each controller replica counts its own failures.
+Failed logins are throttled per username and address and per address, in the database
+(rate_limit.LoginThrottle): every worker and replica of the controller shares the counts.
 """
 
 import base64
@@ -39,9 +39,6 @@ import hmac
 import logging
 import re
 import secrets
-import threading
-import time
-from collections import OrderedDict
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from functools import cache
@@ -766,62 +763,3 @@ class SessionVerifier:
         if payload is None:
             return None
         return session_identity(payload["uid"], payload["uver"], payload["sub"])
-
-
-# ── Login throttling ─────────────────────────────────────────────────────────
-
-
-class LoginThrottle:
-    """Count the failed logins of the last ``window`` seconds, in memory.
-
-    A username is locked for an address after ``max_per_user`` failures, an address after
-    ``max_per_address`` failures on any username. At most ``max_keys`` keys are kept (the oldest
-    are dropped), so that memory stays bounded.
-    """
-
-    def __init__(
-        self,
-        max_per_user: int = 5,
-        max_per_address: int = 20,
-        window: float = 15 * 60,
-        max_keys: int = 10_000,
-    ) -> None:
-        self.max_per_user = max_per_user
-        self.max_per_address = max_per_address
-        self.window = window
-        self.max_keys = max_keys
-        self._failures: OrderedDict[tuple[str, ...], list[float]] = OrderedDict()
-        self._lock = threading.Lock()
-
-    def _recent(self, key: tuple[str, ...], now: float) -> list[float]:
-        """Failures of a key still inside the window (expired ones are dropped)."""
-        times = [t for t in self._failures.get(key, []) if now - t < self.window]
-        if times:
-            self._failures[key] = times
-        else:
-            self._failures.pop(key, None)
-        return times
-
-    def blocked(self, username: str, address: str) -> bool:
-        """True when this login must be refused without checking the password."""
-        now = time.monotonic()
-        with self._lock:
-            return (
-                len(self._recent(("user", username.lower(), address), now)) >= self.max_per_user
-                or len(self._recent(("address", address), now)) >= self.max_per_address
-            )
-
-    def failed(self, username: str, address: str) -> None:
-        """Record a failed login."""
-        now = time.monotonic()
-        with self._lock:
-            for key in (("user", username.lower(), address), ("address", address)):
-                self._failures.setdefault(key, []).append(now)
-                self._failures.move_to_end(key)
-            while len(self._failures) > self.max_keys:
-                self._failures.popitem(last=False)
-
-    def succeeded(self, username: str, address: str) -> None:
-        """Forget the failures of a username for an address after a successful login."""
-        with self._lock:
-            self._failures.pop(("user", username.lower(), address), None)

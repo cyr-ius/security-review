@@ -41,6 +41,7 @@ from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .config import Settings
+from .rate_limit import RateLimitMiddleware
 
 logger = logging.getLogger("security_review_mcp.http")
 
@@ -539,15 +540,27 @@ def build_controller_app(
     store: TokenStore,
     sessions: SessionVerifier | None = None,
     require_auth: bool = False,
+    settings: Settings | None = None,
 ) -> ASGIApp:
     """Build the HTTP app of the controller (see web_api.create_app), protected by ``store``
     and by the session tokens of ``sessions`` (password and OIDC logins).
 
     ``require_auth`` (OIDC enabled) asks for a login even while no token nor user is stored.
+    With ``settings`` and SECREVIEW_RATE_LIMIT_ENABLED, the requests of each address are
+    limited before the token is checked, so that guessing tokens is limited too.
     """
-    return BearerAuthMiddleware(
+    app: ASGIApp = BearerAuthMiddleware(
         web_app, store, web=True, sessions=sessions, require_auth=require_auth
     )
+    if settings is not None and settings.rate_limit_enabled:
+        app = RateLimitMiddleware(
+            app,
+            max_requests=settings.rate_limit_max_requests,
+            max_auth_requests=settings.rate_limit_auth_max_requests,
+            window=settings.rate_limit_window_seconds,
+            auth_prefix=AUTH_PREFIX,
+        )
+    return app
 
 
 def _log_exposure(

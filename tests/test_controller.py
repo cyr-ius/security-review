@@ -24,6 +24,7 @@ from security_review_mcp.config import Settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import BearerAuthMiddleware
 from security_review_mcp.models import SecurityReport, utcnow
+from security_review_mcp.rate_limit import RateLimitMiddleware
 
 STORE = token_store.DatabaseTokenStore()
 
@@ -102,7 +103,9 @@ def test_serve_migrates_and_serves_the_web_interface(settings, captured_run, ui_
     controller.main(["serve", "--host", "0.0.0.0", "--port", "9000"])
 
     (call,) = captured_run
-    assert isinstance(call["app"], BearerAuthMiddleware) and call["app"].web
+    # Requests are limited per address before the token is checked
+    assert isinstance(call["app"], RateLimitMiddleware)
+    assert isinstance(call["app"].app, BearerAuthMiddleware) and call["app"].app.web
     assert (call["host"], call["port"]) == ("0.0.0.0", 9000)
     assert database.current_revision() == database.head_revision()
     client = TestClient(call["app"], base_url="http://127.0.0.1")
@@ -207,7 +210,7 @@ def test_serve_enables_the_oidc_login(settings, captured_run, ui_dir):
     controller.main(["serve"])
 
     app = captured_run[0]["app"]
-    assert app.sessions is not None
+    assert app.app.sessions is not None
     client = TestClient(app, base_url="http://127.0.0.1")
     assert client.get("/api/v1/auth/config").json()["oidc"] is True
     # No token in the database: the API asks for credentials instead of answering 503

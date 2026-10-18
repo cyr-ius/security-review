@@ -26,6 +26,10 @@ or both.
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | both | Password of the private key |
 | `SECREVIEW_TLS_CLIENT_CA` | — | both | Client CA: enables mutual TLS |
 | `SECREVIEW_FORWARDED_ALLOW_IPS` | — | both | Reverse proxies (IP addresses or CIDR ranges separated by commas, `*` for any) whose `X-Forwarded-For` gives the client address, used by the login throttling, the enrollment limits and the logs; without it, the uvicorn default (`FORWARDED_ALLOW_IPS` variable, else `127.0.0.1`). Set it behind an Ingress or a reverse proxy, or every client shares the address of the proxy |
+| `SECREVIEW_RATE_LIMIT_ENABLED` | `true` | Controller | Limit the requests of each client address to the REST API (`429` over the limit); counted in the database, shared by every replica |
+| `SECREVIEW_RATE_LIMIT_WINDOW_SECONDS` | `60` | Controller | Window of the limits, in seconds (1 to 3600) |
+| `SECREVIEW_RATE_LIMIT_MAX_REQUESTS` | `600` | Controller | Requests of an address to `/api/` per window |
+| `SECREVIEW_RATE_LIMIT_AUTH_MAX_REQUESTS` | `30` | Controller | Requests of an address to the login routes (`/api/v1/auth/`) per window |
 | `SECREVIEW_WEB_UI` | `true` | Controller | Serves the [web interface](../usage/web-interface.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Controller | Folder of another build of the web interface |
 | `SECREVIEW_SWAGGER_ENABLED` | `false` | Controller | Serve the Swagger documentation (`/api/docs`) and the OpenAPI schema (`/api/openapi.json`), from the files of the web interface build |

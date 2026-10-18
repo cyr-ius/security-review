@@ -5,7 +5,7 @@ import logging
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 
-from .. import web_users
+from .. import rate_limit, web_users
 from .auth_routes import open_session
 from .deps import CurrentIdentity, client_address
 from .schemas import HealthStatus, Identity, LoginSession, PasswordChange
@@ -40,9 +40,9 @@ async def change_password(
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, "Only a local web user logged in with a password has one"
         )
-    throttle: web_users.LoginThrottle = request.app.state.login_throttle
+    throttle: rate_limit.LoginThrottle = request.app.state.login_throttle
     address = client_address(request)
-    if throttle.blocked(identity.client, address):
+    if await run_in_threadpool(throttle.blocked, identity.client, address):
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
             "Too many failed attempts: try again later",
@@ -54,7 +54,7 @@ async def change_password(
         )
     except ValueError as exc:
         if "current password" in str(exc):
-            throttle.failed(identity.client, address)
+            await run_in_threadpool(throttle.failed, identity.client, address)
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
     result = await open_session(request, user["id"], response)
     logger.info("Password of web user %s changed by the user", user["username"])

@@ -26,7 +26,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Scope
 
-from .. import __version__, metrics, oidc, services, web_users
+from .. import __version__, metrics, oidc, rate_limit, services
 from ..config import get_settings
 from ..http_server import (
     DOCS_ASSETS_PREFIX,
@@ -195,7 +195,7 @@ def create_app(
         else oidc.SessionSigner(settings.session_secret, settings.session_hours)
     )
     app.state.oidc = OidcLogins(app.state.signer, oidc_login)
-    app.state.login_throttle = web_users.LoginThrottle()
+    app.state.login_throttle = rate_limit.LoginThrottle()
     app.include_router(auth_routes.router)
     app.include_router(api_router)
     app.include_router(ci_routes.router)

@@ -456,6 +456,21 @@ class WebUser(SQLModel, table=True):
     created_by: str | None = Field(default=None, max_length=64)
 
 
+# ── Rate limiting (see rate_limit) ───────────────────────────────────────────
+
+
+class RateLimitCounter(SQLModel, table=True):
+    """Events of a rate limit key in one fixed time window, shared by every process.
+
+    ``key`` is a SHA-256 digest of the limit and of what it counts (address, username...),
+    ``window_start`` the start of the window in seconds since the epoch.
+    """
+
+    key: str = Field(primary_key=True, max_length=64)
+    window_start: int = Field(primary_key=True, sa_type=BigInteger, index=True)
+    hits: int = Field(default=0)
+
+
 # ── Access control: roles, groups and members (see access_control) ───────────
 
 

@@ -26,6 +26,10 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | les deux | Mot de passe de la clé privée |
 | `SECREVIEW_TLS_CLIENT_CA` | — | les deux | CA cliente : active le TLS mutuel |
 | `SECREVIEW_FORWARDED_ALLOW_IPS` | — | les deux | Reverse proxies (adresses IP ou plages CIDR séparées par des virgules, `*` pour tous) dont l'en-tête `X-Forwarded-For` donne l'adresse du client, utilisée par la limitation des connexions, les limites d'enrôlement et les journaux ; sans elle, la valeur par défaut d'uvicorn (variable `FORWARDED_ALLOW_IPS`, sinon `127.0.0.1`). À définir derrière un Ingress ou un reverse proxy, sinon tous les clients partagent l'adresse du proxy |
+| `SECREVIEW_RATE_LIMIT_ENABLED` | `true` | Contrôleur | Limiter les requêtes de chaque adresse cliente vers l'API REST (`429` au-delà) ; comptées en base, partagées par toutes les réplicas |
+| `SECREVIEW_RATE_LIMIT_WINDOW_SECONDS` | `60` | Contrôleur | Fenêtre des limites, en secondes (1 à 3600) |
+| `SECREVIEW_RATE_LIMIT_MAX_REQUESTS` | `600` | Contrôleur | Requêtes d'une adresse vers `/api/` par fenêtre |
+| `SECREVIEW_RATE_LIMIT_AUTH_MAX_REQUESTS` | `30` | Contrôleur | Requêtes d'une adresse vers les routes de connexion (`/api/v1/auth/`) par fenêtre |
 | `SECREVIEW_WEB_UI` | `true` | Contrôleur | Sert l'[interface web](../usage/web-interface.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Contrôleur | Dossier d'une autre build de l'interface web |
 | `SECREVIEW_SWAGGER_ENABLED` | `false` | Contrôleur | Servir la documentation Swagger (`/api/docs`) et le schéma OpenAPI (`/api/openapi.json`), depuis les fichiers de la build de l'interface web |

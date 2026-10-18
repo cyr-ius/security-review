@@ -366,8 +366,10 @@ les sessions se terminent au redémarrage (un avertissement est journalisé).
 
 Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour un identifiant
 depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
-connexion est refusée (`429`, en-tête `Retry-After`), même avec le bon mot de passe. Le compteur
-est tenu en mémoire par chaque réplique. Derrière un reverse proxy, l'adresse vue est celle du
+connexion est refusée (`429`, en-tête `Retry-After`), même avec le bon mot de passe. Les
+compteurs sont tenus en base : tous les workers et réplicas du contrôleur les partagent. Chaque
+adresse est aussi limitée sur toute l'API REST (par défaut 600 requêtes par minute, 30 sur les
+routes de connexion, voir [`SECREVIEW_RATE_LIMIT_*`](../reference/configuration.md)). Derrière un reverse proxy, l'adresse vue est celle du
 proxy, et la limite s'appliquerait alors à tous les clients du proxy : déclarez le proxy dans
 [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md) pour que l'adresse du client
 soit lue dans `X-Forwarded-For`. Chaque connexion et chaque échec
