@@ -84,6 +84,17 @@ export interface Identity {
   version: string;
 }
 
+/** GET /api/v1/about: version and links of the About page. */
+export interface About {
+  version: string;
+  documentation_url: string | null;
+  repository_url: string | null;
+  issues_url: string | null;
+  /** Swagger documentation, null when it is not served. */
+  swagger_url: string | null;
+  health_url: string;
+}
+
 /** GET /api/v1/auth/config: login methods offered on the login page. */
 export interface AuthConfig {
   /** Username and password of a web user. */

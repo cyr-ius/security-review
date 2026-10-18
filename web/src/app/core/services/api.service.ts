@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  About,
   AccessRole,
   AccessRoleWrite,
   AdvisoryOverview,
@@ -58,6 +59,11 @@ export const API_URL = '/api/v1';
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
+
+  /** Version and links of the About page. */
+  about(): Observable<About> {
+    return this.http.get<About>(`${API_URL}/about`);
+  }
 
   me(): Observable<Identity> {
     return this.http.get<Identity>(`${API_URL}/me`);

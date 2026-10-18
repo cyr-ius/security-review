@@ -11,6 +11,7 @@ base de données (voir [Architecture et déploiement](../advanced/architecture.m
 | `/api/v1/…` | API REST utilisée par l'application |
 | `/api/docs` | Documentation OpenAPI de l'API REST (publique, sans données), avec `SECREVIEW_SWAGGER_ENABLED=true` |
 | `/api/favicon.svg` | Icône de l'interface web et de la documentation Swagger (publique) |
+| `/api/health` | Disponibilité de l'API, vérifiée par l'application au chargement (publique, ne révèle ni la version ni les réglages) |
 | `/healthz` | Sonde de vie (publique) |
 
 ```bash
@@ -25,7 +26,7 @@ tous les comptes, puis **Référentiel** (règles, checklists, normes) et **Admi
 (utilisateurs, groupes, rôles, jetons, journal d'audit, OIDC, langue des rapports, proxy sortant,
 base OSV), chaque écran n'étant affiché qu'aux comptes qui ont sa
 [permission](../advanced/access-control.md#permissions). Le bas de la barre affiche le client connecté, son rôle et la
-version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
+version (un lien vers **À propos**), avec les boutons **Mon compte** et de déconnexion ; sur petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
 à droite, y compris sur la page de connexion, et reste mémorisé dans le navigateur.
 
 L'interface est proposée en **anglais**, **français** et **espagnol**. La langue se choisit dans
@@ -34,6 +35,13 @@ reste mémorisé dans le navigateur ; à la première visite, l'interface suit l
 navigateur, ou l'anglais si elle n'en propose aucune. Ce choix ne concerne que l'interface : la
 langue des rapports de revue se règle dans **Langue des rapports**, et les messages d'erreur détaillés
 renvoyés par l'API restent en anglais.
+
+La page **À propos** donne la version du contrôleur, les liens de la documentation, du code
+source et pour signaler un problème, le lien de la documentation Swagger quand elle est activée,
+et l'état du backend (`/api/health`, vérifié à nouveau avec **Vérifier à nouveau**). Au
+chargement, l'application interroge d'abord `/api/health` : si le contrôleur ne répond pas (ou
+cesse de répondre ensuite), la page **Backend indisponible** s'ouvre, et son bouton **Réessayer**
+revient à la page demandée dès que le contrôleur répond de nouveau.
 
 - **Projets** : tous les projets avec leurs findings ouverts par sévérité, triés par risque,
   activité ou nom.
@@ -348,6 +356,10 @@ L'écran **Utilisateurs** affiche **mot de passe à changer** jusque-là.
     `security-review-controller token revoke bootstrap-admin`.
 
 ### Connexion et sessions
+
+Quand le contrôleur n'accepte plus la session pendant la navigation (session expirée, mot de passe
+changé dans un autre onglet, compte supprimé), une fenêtre **Session expirée** s'ouvre :
+**Se reconnecter** ouvre la page de connexion puis revient à la même page.
 
 La page de connexion propose l'identifiant et le mot de passe d'un compte local et, avec la
 [connexion OIDC](../advanced/sso.md), le bouton du fournisseur d'identité ; elle

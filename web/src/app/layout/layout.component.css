@@ -184,8 +184,14 @@ a.icon-btn {
 }
 
 .version {
+  display: block;
   margin: 0.5rem 0 0;
   text-align: center;
+  text-decoration: none;
+}
+
+.version:hover {
+  color: var(--app-sidebar-fg);
 }
 
 /* ── Main column ── */

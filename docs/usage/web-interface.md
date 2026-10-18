@@ -11,6 +11,7 @@ the findings** (fixed, accepted risk, false positive) without an MCP client. It 
 | `/api/v1/…` | REST API used by the application |
 | `/api/docs` | OpenAPI documentation of the REST API (public, no data), when `SECREVIEW_SWAGGER_ENABLED=true` |
 | `/api/favicon.svg` | Icon of the web interface and of the Swagger documentation (public) |
+| `/api/health` | Liveness of the API, checked by the application at load (public, tells nothing about the version or settings) |
 | `/healthz` | Liveness probe (public) |
 
 ```bash
@@ -24,7 +25,7 @@ The screens are reached from the sidebar: **Supervision** (projects, reports) fo
 then **Reference** (rules, checklists, standards) and **Administration** (users, groups, roles,
 tokens, audit log, OIDC, report language, outgoing proxy, OSV database), each shown only to the
 accounts that hold its [permission](../advanced/access-control.md#permissions). The bottom
-of the sidebar shows the connected client, its role and the version, with the **My account** and logout buttons; on a
+of the sidebar shows the connected client, its role and the version (a link to **About**), with the **My account** and logout buttons; on a
 small screen, the sidebar opens with the menu button. The light or dark theme is chosen at the
 top right, including on the login page, and is remembered by the browser.
 
@@ -34,6 +35,13 @@ remembered by the browser; on the first visit, the interface follows the languag
 browser, or English if it offers none of them. This choice only concerns the interface: the
 language of the review reports is set in **Report language**, and the detailed error messages sent
 back by the API stay in English.
+
+The **About** page gives the version of the controller, the links of the documentation, of the
+source code and to report an issue, the link of the Swagger documentation when it is enabled, and
+the status of the backend (`/api/health`, checked again with **Check again**). When the
+application loads, it checks `/api/health` first: if the controller does not answer (or stops
+answering later), the **Backend unavailable** page opens, and its **Retry** button goes back to
+the requested page once the controller answers again.
 
 - **Projects**: every project with its open findings by severity, sorted by risk,
   activity or name.
@@ -341,6 +349,10 @@ administrator (screen or CLI) changes its password at its first login. The **Use
     `security-review-controller token revoke bootstrap-admin`.
 
 ### Login and sessions
+
+When the controller no longer accepts the session while you browse (session expired, password
+changed in another tab, account deleted), a **Session expired** dialog opens: **Log in again**
+opens the login page and comes back to the same page afterwards.
 
 The login page offers the user name and password of a local account and, with the
 [OIDC login](../advanced/sso.md), the button of the identity provider; it does not accept

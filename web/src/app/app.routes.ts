@@ -2,18 +2,28 @@ import { Routes } from '@angular/router';
 
 // Each title is a message key, translated by I18nTitleStrategy
 import { authGuard } from './core/guards/auth.guard';
+import { backendGuard } from './core/guards/backend.guard';
 import { passwordChangeGuard } from './core/guards/password-change.guard';
 import { permissionGuard } from './core/guards/permission.guard';
 
 export const routes: Routes = [
   {
+    path: 'unavailable',
+    title: 'unavailable.title',
+    loadComponent: () =>
+      import('./features/unavailable/backend-unavailable.component').then(
+        (m) => m.BackendUnavailableComponent,
+      ),
+  },
+  {
     path: 'login',
     title: 'login.title',
+    canActivate: [backendGuard],
     loadComponent: () => import('./features/login/login.component').then((m) => m.LoginComponent),
   },
   {
     path: '',
-    canActivate: [authGuard],
+    canActivate: [backendGuard, authGuard],
     canActivateChild: [passwordChangeGuard],
     loadComponent: () => import('./layout/layout.component').then((m) => m.LayoutComponent),
     children: [
@@ -74,6 +84,12 @@ export const routes: Routes = [
           import('./features/standards/standard-list/standard-list.component').then(
             (m) => m.StandardListComponent,
           ),
+      },
+      {
+        path: 'about',
+        title: 'about.title',
+        loadComponent: () =>
+          import('./features/about/about.component').then((m) => m.AboutComponent),
       },
       {
         path: 'account',

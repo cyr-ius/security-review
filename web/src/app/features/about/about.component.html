@@ -1,0 +1,95 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ 'about.title' | t }}</h1>
+    <p class="text-body-secondary mb-0">{{ 'about.subtitle' | t }}</p>
+  </div>
+</div>
+
+@if (about.error()) {
+  <div class="alert alert-danger" role="alert">{{ 'about.loadError' | t }}</div>
+} @else if (about.value(); as info) {
+  <div class="row g-3">
+    <section class="col-lg-6" aria-labelledby="about-links">
+      <div class="card h-100">
+        <div class="card-body">
+          <h2 id="about-links" class="h5">{{ 'about.links' | t }}</h2>
+          <dl class="row mb-0">
+            <dt class="col-sm-5">{{ 'about.version' | t }}</dt>
+            <dd class="col-sm-7 font-monospace">v{{ info.version }}</dd>
+            @if (info.documentation_url; as url) {
+              <dt class="col-sm-5">{{ 'about.documentation' | t }}</dt>
+              <dd class="col-sm-7">
+                <a [href]="url" target="_blank" rel="noopener noreferrer">
+                  <i class="bi bi-book" aria-hidden="true"></i> {{ url }}
+                </a>
+              </dd>
+            }
+            @if (info.repository_url; as url) {
+              <dt class="col-sm-5">{{ 'about.repository' | t }}</dt>
+              <dd class="col-sm-7">
+                <a [href]="url" target="_blank" rel="noopener noreferrer">
+                  <i class="bi bi-github" aria-hidden="true"></i> {{ url }}
+                </a>
+              </dd>
+            }
+            @if (info.issues_url; as url) {
+              <dt class="col-sm-5">{{ 'about.issue' | t }}</dt>
+              <dd class="col-sm-7">
+                <a [href]="newIssueUrl(url)" target="_blank" rel="noopener noreferrer">
+                  <i class="bi bi-bug" aria-hidden="true"></i> {{ newIssueUrl(url) }}
+                </a>
+              </dd>
+            }
+            <dt class="col-sm-5">{{ 'about.swagger' | t }}</dt>
+            <dd class="col-sm-7">
+              @if (info.swagger_url; as url) {
+                <a [href]="url" target="_blank" rel="noopener">
+                  <i class="bi bi-braces" aria-hidden="true"></i> {{ url }}
+                </a>
+              } @else {
+                <span class="text-body-secondary">{{ 'about.swaggerOff' | t }}</span>
+              }
+            </dd>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <section class="col-lg-6" aria-labelledby="about-backend">
+      <div class="card h-100">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <h2 id="about-backend" class="h5">{{ 'about.backend' | t }}</h2>
+            <app-refresh-button
+              [loading]="backend.isLoading()"
+              [label]="'about.check' | t"
+              (refresh)="backend.reload()"
+            />
+          </div>
+          <p class="mb-2" role="status">
+            @if (backend.value() === true) {
+              <span class="badge text-bg-success">
+                <i class="bi bi-check-circle" aria-hidden="true"></i> {{ 'about.backendUp' | t }}
+              </span>
+            } @else if (backend.value() === false) {
+              <span class="badge text-bg-danger">
+                <i class="bi bi-x-circle" aria-hidden="true"></i> {{ 'about.backendDown' | t }}
+              </span>
+            }
+          </p>
+          <p class="mb-0 small">
+            {{ 'about.healthCheck' | t }}
+            <a [href]="info.health_url" target="_blank" rel="noopener" class="font-monospace">{{
+              info.health_url
+            }}</a>
+          </p>
+        </div>
+      </div>
+    </section>
+  </div>
+} @else {
+  <div class="text-center my-4">
+    <span class="spinner-border text-secondary" aria-hidden="true"></span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+  </div>
+}

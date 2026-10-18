@@ -9,6 +9,7 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { ThemeService } from '../core/services/theme.service';
 import { LanguageSelectComponent } from '../shared/components/language-select/language-select.component';
+import { SessionExpiredComponent } from './session-expired/session-expired.component';
 
 /** One entry of the sidebar. */
 interface NavItem {
@@ -22,7 +23,14 @@ interface NavItem {
 /** Application shell: sidebar navigation, top bar and the routed page. */
 @Component({
   selector: 'app-layout',
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, TranslatePipe, LanguageSelectComponent],
+  imports: [
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    TranslatePipe,
+    LanguageSelectComponent,
+    SessionExpiredComponent,
+  ],
   templateUrl: './layout.component.html',
   styleUrl: './layout.component.css',
   // Escape closes the menu, wherever the focus is

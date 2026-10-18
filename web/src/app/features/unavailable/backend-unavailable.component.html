@@ -1,0 +1,17 @@
+<main class="unavailable d-flex align-items-center justify-content-center p-3">
+  <section class="card unavailable-card text-center" aria-labelledby="unavailable-title">
+    <div class="card-body p-4">
+      <i class="bi bi-cloud-slash display-5 text-danger" aria-hidden="true"></i>
+      <h1 id="unavailable-title" class="h4 mt-3">{{ 'unavailable.title' | t }}</h1>
+      <p class="text-body-secondary">{{ 'unavailable.text' | t }}</p>
+      @if (stillDown()) {
+        <p class="text-danger small" role="status">{{ 'unavailable.stillDown' | t }}</p>
+      }
+      <app-refresh-button
+        [loading]="checking()"
+        [label]="'unavailable.retry' | t"
+        (refresh)="retry()"
+      />
+    </div>
+  </section>
+</main>
