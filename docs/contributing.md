@@ -168,6 +168,18 @@ local workstation and port 4200 is forwarded automatically.
   handlers.
 - **HTTP calls**: through `rxResource` for the data of a screen, or `await
   firstValueFrom(...)` for an action; no `.subscribe()` in the components.
+- **State**: `signal()` and `computed()`; a value derived from another one but still editable (a
+  form filled with the loaded settings) is a `linkedSignal()`. `effect()` is kept for real side
+  effects (document attributes, local storage, timers), never to copy a signal into another. A
+  service exposes its signals with `asReadonly()` and changes them through named methods.
+- **Folders**: `shared/` holds reusable components without business logic: they get their data
+  through inputs and report through outputs, never through a business service of `core/` (the
+  finding card emits the decision, `TriageService` saves it). The shell of the application is
+  `layout/`.
+- **Templates**: host bindings in `host: {}` (no `@HostListener`); a message that explains why a
+  field is invalid is linked to it with `aria-describedby`.
+- **Colors**: Bootstrap variables (`var(--bs-…)`) or the design tokens of `styles.css`
+  (`--app-…`), never a color written in a component, so that the light and dark themes work.
 
 ### Interface translations
 

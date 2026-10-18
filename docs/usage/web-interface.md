@@ -121,7 +121,7 @@ back by the API stay in English.
   decisions, agent proposals, tokens and enrollment requests, newest first, with who made
   them; filters by event and by project, **Load more** for the older events.
 - **OIDC**: administrators
-  [configure the OIDC login](../advanced/sso.md#configuring-sso-in-the-interface) (every stored value replaces its
+  [configure the OIDC login](../advanced/sso.md#configuring-oidc-in-the-interface) (every stored value replaces its
   `SECREVIEW_OIDC_*` variable, with a connection test to the provider). What OIDC users may do
   comes from the groups open to OIDC named by their groups claim (see
   [groups of the identity provider](../advanced/sso.md#groups-of-the-identity-provider)).
@@ -275,7 +275,7 @@ this account only): their roles give its [permissions](../advanced/access-contro
 | **OIDC** (`oidc`) | [Identity provider](../advanced/sso.md), no password | By an administrator, at the approval of an enrollment, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
 An OIDC account also joins, at each login, the groups open to OIDC named by its groups claim (see
-[OIDC accounts](../advanced/sso.md#sso-accounts)). Accounts are managed in the **Users** screen,
+[OIDC accounts](../advanced/sso.md#oidc-accounts)). Accounts are managed in the **Users** screen,
 through the `/api/v1/users` REST API (`users.manage` permission) or with the
 [CLI](../reference/cli.md#security-review-controller):
 
@@ -426,7 +426,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_SESSION_SECRET` | — | Signing secret of the sessions (at least 32 characters), identical on every replica |
 | `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | File of the secret when `SECREVIEW_SESSION_SECRET` is unset, generated at the first start |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or OIDC login |
-| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [OIDC account](../advanced/sso.md#sso-accounts) at the first login; otherwise an administrator creates it |
+| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [OIDC account](../advanced/sso.md#oidc-accounts) at the first login; otherwise an administrator creates it |
 | `SECREVIEW_ENROLLMENT` | `true` | Token requests by the projects (on the MCP server), approved in the **Tokens** screen |
 | `SECREVIEW_OIDC_*` | — | [OIDC login](../advanced/sso.md), see the [reference](../reference/configuration.md) |
 

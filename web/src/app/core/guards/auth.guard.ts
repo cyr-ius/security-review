@@ -24,7 +24,7 @@ export const authGuard: CanActivateFn = (_route, state) => {
           queryParams: { returnUrl: state.url, authRequired: 1 },
         });
       }
-      auth.identity.set(identity);
+      auth.setIdentity(identity);
       return true;
     }),
     catchError((error: unknown) => {

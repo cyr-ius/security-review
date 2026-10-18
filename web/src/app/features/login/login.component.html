@@ -88,7 +88,7 @@
 
       <form (submit)="onAccountSubmit($event)" novalidate>
         <label for="username" class="form-label">{{ 'login.username' | t }}</label>
-        <div class="input-group input-group-lg mb-3">
+        <div class="input-group input-group-lg">
           <span class="input-group-text"><i class="bi bi-person" aria-hidden="true"></i></span>
           <input
             id="username"
@@ -97,11 +97,19 @@
             autocapitalize="none"
             spellcheck="false"
             autofocus
+            aria-describedby="username-errors"
             [formField]="accountForm.username"
             [class.is-invalid]="
               accountForm.username().touched() && accountForm.username().invalid()
             "
           />
+        </div>
+        <div id="username-errors" class="mb-3" aria-live="polite">
+          @if (accountForm.username().touched() && accountForm.username().invalid()) {
+            @for (err of accountForm.username().errors(); track err.kind) {
+              <div class="invalid-feedback d-block">{{ err.message }}</div>
+            }
+          }
         </div>
         <label for="password" class="form-label">{{ 'login.password' | t }}</label>
         <div class="input-group input-group-lg secret-group mb-1">
@@ -112,6 +120,7 @@
             [type]="reveal() ? 'text' : 'password'"
             autocomplete="current-password"
             spellcheck="false"
+            aria-describedby="password-errors"
             [formField]="accountForm.password"
             [class.is-invalid]="
               accountForm.password().touched() && accountForm.password().invalid()
@@ -127,13 +136,13 @@
             <i class="bi" [class]="reveal() ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true"></i>
           </button>
         </div>
-        @for (field of [accountForm.username, accountForm.password]; track $index) {
-          @if (field().touched() && field().invalid()) {
-            @for (err of field().errors(); track err.kind) {
+        <div id="password-errors" aria-live="polite">
+          @if (accountForm.password().touched() && accountForm.password().invalid()) {
+            @for (err of accountForm.password().errors(); track err.kind) {
               <div class="invalid-feedback d-block">{{ err.message }}</div>
             }
           }
-        }
+        </div>
 
         <button
           type="submit"

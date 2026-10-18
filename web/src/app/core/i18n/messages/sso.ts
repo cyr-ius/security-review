@@ -61,7 +61,8 @@ export const sso = defineMessages({
     'sso.adminGroupsHelp':
       'Separated by commas: such a group is created with the admin role at the first login of one of its members (first administrator).',
     'sso.defaultGroup': 'Default group',
-    'sso.defaultGroupHelp': 'Name of a group assigned by default upon each connection (empty: none).',
+    'sso.defaultGroupHelp':
+      'Name of a group assigned by default upon each connection (empty: none).',
   },
   fr: {
     'common.add': 'Ajouter',
@@ -123,8 +124,7 @@ export const sso = defineMessages({
     'sso.adminGroupsHelp':
       "Séparés par des virgules : un tel groupe est créé avec le rôle admin à la première connexion de l'un de ses membres (premier administrateur).",
     'sso.defaultGroup': 'Groupe par défaut',
-    'sso.defaultGroupHelp':
-      "Nom d'un groupe affecté par défaut à chaque connexion (vide : aucun).",
+    'sso.defaultGroupHelp': "Nom d'un groupe affecté par défaut à chaque connexion (vide : aucun).",
   },
   es: {
     'common.add': 'Añadir',
@@ -169,7 +169,8 @@ export const sso = defineMessages({
     'sso.empty': 'vacía',
     'sso.secretSet': '•••••• (definido)',
     'sso.secretNone': 'ninguno (cliente público)',
-    'sso.saved': '{count} parámetro(s) OIDC guardado(s): se aplican en el próximo inicio de sesión.',
+    'sso.saved':
+      '{count} parámetro(s) OIDC guardado(s): se aplican en el próximo inicio de sesión.',
     'sso.restored': 'La variable {variable} vuelve a aplicarse.',
     'sso.confirmClearSecret': '¿Eliminar el secreto de cliente (cliente público)?',
     'sso.secretCleared': 'Secreto de cliente eliminado: el cliente es público.',

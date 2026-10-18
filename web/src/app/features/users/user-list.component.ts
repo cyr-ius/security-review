@@ -14,11 +14,11 @@ import { AuthService } from '../../core/services/auth.service';
 import { PasswordPolicyComponent } from '../../shared/components/password-policy/password-policy.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import {
-    RoleBindingDraft,
-    RoleBindingsComponent,
-    roleDraftsComplete,
-    toRoleBindings,
-    toRoleDrafts,
+  RoleBindingDraft,
+  RoleBindingsComponent,
+  roleDraftsComplete,
+  toRoleBindings,
+  toRoleDrafts,
 } from '../../shared/components/role-bindings/role-bindings.component';
 
 /** Message keys of the roles of a web user. */

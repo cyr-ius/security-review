@@ -14,7 +14,7 @@ Le flux utilisé est le *authorization code* avec PKCE (`S256`), state et nonce 
 1. `GET /api/v1/auth/oidc/login` redirige le navigateur vers le fournisseur ;
 2. le fournisseur renvoie sur `GET /api/v1/auth/oidc/callback` ; le contrôleur échange le code
    (appel serveur à serveur), vérifie l'ID token (signature par les clés JWKS du fournisseur,
-   émetteur, audience, expiration, nonce), retrouve le [compte OIDC](#comptes-sso) de
+   émetteur, audience, expiration, nonce), retrouve le [compte OIDC](#comptes-oidc) de
    l'utilisateur (ou le crée) et enregistre les groupes nommés par son claim des groupes ;
 3. il remet à l'interface un **jeton de session** signé, valable
    `SECREVIEW_SESSION_HOURS` heures, que l'onglet utilise comme un jeton Bearer.

@@ -136,8 +136,10 @@
   @for (finding of visibleFindings(); track finding.id) {
     <app-finding-card
       [finding]="finding"
-      (updated)="onUpdated($event)"
-      (failed)="triageError.set($event)"
+      [canTriage]="auth.canTriage()"
+      [saving]="triage.saving() === finding.id"
+      (decided)="decide(finding, $event)"
+      (proposalRejected)="decide(finding, null)"
     />
   } @empty {
     <p class="text-body-secondary text-center my-4">

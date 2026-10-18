@@ -15,8 +15,7 @@ export const routes: Routes = [
     path: '',
     canActivate: [authGuard],
     canActivateChild: [passwordChangeGuard],
-    loadComponent: () =>
-      import('./shared/components/layout/layout.component').then((m) => m.LayoutComponent),
+    loadComponent: () => import('./layout/layout.component').then((m) => m.LayoutComponent),
     children: [
       { path: '', pathMatch: 'full', redirectTo: 'projects' },
       {

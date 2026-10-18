@@ -167,6 +167,19 @@ est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
   dynamiques de cases à cocher restent de simples gestionnaires d'événements.
 - **Appels HTTP** : par `rxResource` pour les données d'un écran, ou `await
   firstValueFrom(...)` pour une action ; pas de `.subscribe()` dans les composants.
+- **État** : `signal()` et `computed()` ; une valeur dérivée d'une autre mais modifiable (un
+  formulaire rempli avec les réglages chargés) est un `linkedSignal()`. `effect()` est réservé aux
+  vrais effets de bord (attributs du document, stockage local, minuteries), jamais pour recopier
+  un signal dans un autre. Un service expose ses signaux avec `asReadonly()` et les modifie par
+  des méthodes nommées.
+- **Dossiers** : `shared/` contient des composants réutilisables sans logique métier : ils
+  reçoivent leurs données par des entrées et répondent par des sorties, jamais par un service
+  métier de `core/` (la fiche d'un finding émet la décision, `TriageService` l'enregistre). La
+  coquille de l'application est `layout/`.
+- **Templates** : liaisons de l'hôte dans `host: {}` (pas de `@HostListener`) ; un message qui
+  explique pourquoi un champ est invalide lui est relié par `aria-describedby`.
+- **Couleurs** : variables Bootstrap (`var(--bs-…)`) ou jetons de `styles.css` (`--app-…`),
+  jamais une couleur écrite dans un composant, pour que les thèmes clair et sombre fonctionnent.
 
 ### Traductions de l'interface
 

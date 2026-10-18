@@ -10,6 +10,7 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
   FINDING_STATUSES,
   Finding,
+  FindingDecision,
   FindingStatus,
   ProjectFinding,
   REVIEW_TYPES,
@@ -17,6 +18,8 @@ import {
   SEVERITIES,
   Severity,
 } from '../../../core/models/api.models';
+import { AuthService } from '../../../core/services/auth.service';
+import { TriageService } from '../../../core/services/triage.service';
 import { ApiService } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
 
@@ -35,6 +38,8 @@ const PAGE_SIZE = 50;
 })
 export class ProjectFindingsComponent {
   private readonly api = inject(ApiService);
+  readonly auth = inject(AuthService);
+  readonly triage = inject(TriageService);
 
   /** Route parameter :project */
   readonly project = input.required<string>();
@@ -116,6 +121,17 @@ export class ProjectFindingsComponent {
       this.loadMoreFailed.set(true);
     } finally {
       this.loadingMore.set(false);
+    }
+  }
+
+  /** Save the triage decision of a finding card (``null``: reject the agent proposal). */
+  async decide(finding: Finding, decision: FindingDecision | null): Promise<void> {
+    this.triageError.set(null);
+    const result = await this.triage.decide(finding, decision);
+    if ('error' in result) {
+      this.triageError.set(result.error);
+    } else {
+      this.onUpdated(result.finding);
     }
   }
 

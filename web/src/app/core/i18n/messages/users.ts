@@ -211,7 +211,8 @@ export const users = defineMessages({
     'users.liftUser': 'Volver a autorizar a {user}',
     'users.lift': 'Volver a autorizar',
     'users.updated': 'Usuario «{user}» actualizado.',
-    'users.ssoCreated': 'Usuario OIDC «{user}» creado: inicia sesión con el proveedor de identidad.',
+    'users.ssoCreated':
+      'Usuario OIDC «{user}» creado: inicia sesión con el proveedor de identidad.',
     'users.created': 'Usuario «{user}» creado.',
     'users.confirmReset':
       '¿Generar una nueva contraseña para «{user}»? Se cerrarán sus sesiones abiertas.',

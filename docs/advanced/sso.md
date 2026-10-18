@@ -13,7 +13,7 @@ The flow is *authorization code* with PKCE (`S256`), state and nonce:
 1. `GET /api/v1/auth/oidc/login` redirects the browser to the provider;
 2. the provider sends back to `GET /api/v1/auth/oidc/callback`; the controller exchanges the
    code (server-to-server call), checks the ID token (signature by the JWKS keys of the
-   provider, issuer, audience, expiry, nonce), finds the [OIDC account](#sso-accounts) of the
+   provider, issuer, audience, expiry, nonce), finds the [OIDC account](#oidc-accounts) of the
    user (or creates it) and records the groups named by its groups claim;
 3. it hands the interface a signed **session token**, valid `SECREVIEW_SESSION_HOURS` hours,
    that the tab uses like a Bearer token.

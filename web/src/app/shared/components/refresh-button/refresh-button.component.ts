@@ -1,4 +1,4 @@
-import { Component, effect, input, output, signal, untracked } from '@angular/core';
+import { Component, input, linkedSignal, output } from '@angular/core';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 
 /** Whether the user asked the system to minimize animations. */
@@ -22,22 +22,14 @@ export class RefreshButtonComponent {
   readonly label = input<string>();
   readonly refresh = output<void>();
 
-  /** True while the icon turns: it starts with the loading and stops at the end of a turn. */
-  readonly spinning = signal(false);
-
-  constructor() {
-    effect(() => {
-      const loading = this.loading();
-      untracked(() => {
-        if (loading) {
-          this.spinning.set(true);
-        } else if (REDUCED_MOTION) {
-          // No animation, hence no end of turn to wait for
-          this.spinning.set(false);
-        }
-      });
-    });
-  }
+  /**
+   * True while the icon turns: it starts with the loading and stops at the end of a turn
+   * (onTurnEnd), or at once without animations.
+   */
+  readonly spinning = linkedSignal<boolean, boolean>({
+    source: this.loading,
+    computation: (loading, previous) => loading || (!REDUCED_MOTION && (previous?.value ?? false)),
+  });
 
   /** Start the rotation at once and ask the page to reload. */
   onClick(): void {

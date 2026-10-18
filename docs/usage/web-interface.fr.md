@@ -125,7 +125,7 @@ renvoyés par l'API restent en anglais.
   décisions de triage, propositions des agents, jetons et demandes d'enrôlement, du plus récent
   au plus ancien, avec leur auteur ; filtres par événement et par projet, **Afficher plus** pour
   les événements plus anciens.
-- **OIDC** : les administrateurs [configurent la connexion OIDC](../advanced/sso.md#configurer-le-sso-dans-linterface)
+- **OIDC** : les administrateurs [configurent la connexion OIDC](../advanced/sso.md#configurer-le-oidc-dans-linterface)
   (chaque valeur enregistrée remplace sa variable `SECREVIEW_OIDC_*`, avec un test de connexion
   au fournisseur). Ce que peuvent faire les utilisateurs OIDC vient des groupes ouverts au OIDC
   nommés par leur claim des groupes (voir
@@ -282,7 +282,7 @@ donné à ce seul compte) : leurs rôles donnent ses [permissions](../advanced/a
 | **OIDC** (`oidc`) | [Fournisseur d'identité](../advanced/sso.md), sans mot de passe | Par un administrateur, à l'approbation d'un enrôlement, ou à la première connexion si `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
 Un compte OIDC rejoint aussi, à chaque connexion, les groupes ouverts au OIDC nommés par son claim
-des groupes (voir [comptes OIDC](../advanced/sso.md#comptes-sso)). Les comptes se gèrent dans
+des groupes (voir [comptes OIDC](../advanced/sso.md#comptes-oidc)). Les comptes se gèrent dans
 l'écran **Utilisateurs**, par l'API REST `/api/v1/users` (permission `users.manage`) ou par la
 [CLI](../reference/cli.md#security-review-controller) :
 
@@ -435,7 +435,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_SESSION_SECRET` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques |
 | `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | Fichier du secret quand `SECREVIEW_SESSION_SECRET` n'est pas défini, généré au premier démarrage |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session (1 à 24 heures), connexion par compte local ou OIDC |
-| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le [compte OIDC](../advanced/sso.md#comptes-sso) à la première connexion ; sinon un administrateur le crée |
+| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le [compte OIDC](../advanced/sso.md#comptes-oidc) à la première connexion ; sinon un administrateur le crée |
 | `SECREVIEW_ENROLLMENT` | `true` | Demandes de jetons par les projets (sur le serveur MCP), validées dans l'écran **Jetons** |
 | `SECREVIEW_OIDC_*` | — | [Connexion OIDC](../advanced/sso.md), voir la [référence](../reference/configuration.md) |
 

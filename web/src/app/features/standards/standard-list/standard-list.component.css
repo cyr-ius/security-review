@@ -9,7 +9,7 @@
 }
 
 .standard-dialog::backdrop {
-  background: rgb(0 0 0 / 50%);
+  background: var(--app-backdrop);
 }
 
 .standard-editor {

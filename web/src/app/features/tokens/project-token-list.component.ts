@@ -9,10 +9,10 @@ import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import {
-    EnrollmentRequest,
-    ProjectToken,
-    ProjectTokenRole,
-    Role,
+  EnrollmentRequest,
+  ProjectToken,
+  ProjectTokenRole,
+  Role,
 } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';

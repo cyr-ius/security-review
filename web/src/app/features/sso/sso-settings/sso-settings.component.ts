@@ -1,6 +1,6 @@
 import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, effect, inject, output, signal } from '@angular/core';
+import { Component, computed, inject, linkedSignal, output, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FieldTree, FormField, form, maxLength } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
@@ -9,10 +9,10 @@ import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
-    OidcSettingName,
-    OidcSettings,
-    OidcSettingsUpdate,
-    OidcTestResult,
+  OidcSettingName,
+  OidcSettings,
+  OidcSettingsUpdate,
+  OidcTestResult,
 } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 
@@ -141,13 +141,21 @@ export class SsoSettingsComponent {
 
   readonly settings = rxResource({ stream: () => this.api.oidcSettings() });
 
-  readonly draft = signal<SsoFormModel>(emptyDraft());
+  /** Effective values, loaded at each (re)load, then edited by the form. */
+  readonly draft = linkedSignal<SsoFormModel>(() => {
+    const current = this.settings.value();
+    return current ? draftOf(current) : emptyDraft();
+  });
   readonly ssoForm = form(this.draft, (path) => {
     for (const name of TEXT_SETTINGS) {
       maxLength(path[name], MAX_VALUE_CHARS);
     }
   });
-  readonly testResult = signal<OidcTestResult | null>(null);
+  /** A test result describes the values it was run with: any edit clears it. */
+  readonly testResult = linkedSignal<SsoFormModel, OidcTestResult | null>({
+    source: this.draft,
+    computation: () => null,
+  });
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
@@ -175,21 +183,6 @@ export class SsoSettingsComponent {
   });
 
   readonly dirty = computed(() => Object.keys(this.changes()).length > 0 && this.ssoForm().valid());
-
-  constructor() {
-    // Load the effective values into the form at each (re)load
-    effect(() => {
-      const current = this.settings.value();
-      if (current) {
-        this.ssoForm().reset(draftOf(current));
-      }
-    });
-    // A test result describes the values it was run with: any edit clears it
-    effect(() => {
-      this.draft();
-      this.testResult.set(null);
-    });
-  }
 
   /** Field of a setting edited with a switch. */
   boolField(name: OidcSettingName): FieldTree<boolean> {
