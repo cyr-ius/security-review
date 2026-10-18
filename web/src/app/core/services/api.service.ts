@@ -74,6 +74,11 @@ export class ApiService {
   }
 
   /** Change the password of the logged-in web user; returns a new session. */
+  /** Record the logout of the web user in the audit log (the session is then dropped). */
+  logout(): Observable<void> {
+    return this.http.post<void>(`${API_URL}/me/logout`, null);
+  }
+
   changePassword(currentPassword: string, newPassword: string): Observable<LoginSession> {
     return this.http.put<LoginSession>(`${API_URL}/me/password`, {
       current_password: currentPassword,

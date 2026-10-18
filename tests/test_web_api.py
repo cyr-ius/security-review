@@ -15,6 +15,7 @@ from security_review_mcp import (
     access_control,
     advisory_sync,
     app_settings,
+    audit,
     enrollment_api,
     http_server,
     oidc,
@@ -2141,6 +2142,34 @@ def test_a_user_must_change_a_password_set_by_someone_else(accounts, reports):
     assert changed.status_code == 200 and changed.json()["must_change_password"] is False
     headers = {"Authorization": f"Bearer {changed.json()['session']}"}
     assert accounts.get("/api/v1/projects", headers=headers).status_code == 200
+
+
+def test_logins_failures_and_logouts_are_audited(accounts):
+    make_user("alice", USER_PASSWORD, "reader")
+    assert login(accounts, "alice", "Wrong password 1!").status_code == 401
+    assert login(accounts, "bob smith", "Wrong password 1!").status_code == 401
+    headers = session_headers(accounts, "alice")
+
+    assert accounts.post("/api/v1/me/logout", headers=headers).status_code == 204
+
+    events = audit.list_events(project=None)["events"]
+    summary = [(e["action"], e["actor"], e["target_id"], e["details"]) for e in events]
+    password = {"address": "testclient", "method": "password"}
+    assert summary[:4] == [
+        ("user.logout", "user:alice", "alice", {"address": "testclient"}),
+        ("user.login", "user:alice", "alice", password),
+        # An invalid username is not written
+        ("user.login_failed", "anonymous", None, password),
+        ("user.login_failed", "anonymous", "alice", password),
+    ]
+    assert "Wrong password" not in str(events) and USER_PASSWORD not in str(events)
+
+
+def test_a_token_has_no_session_to_log_out(secured):
+    response = secured.post("/api/v1/me/logout", headers=auth("reader"))
+
+    assert response.status_code == 403
+    assert audit.list_events(action="user.logout")["total"] == 0
 
 
 def test_a_weak_new_password_is_refused_with_the_broken_rules(accounts):

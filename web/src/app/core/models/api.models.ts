@@ -186,7 +186,19 @@ export type AuditAction =
   | 'token.projects_changed'
   | 'enrollment.requested'
   | 'enrollment.approved'
-  | 'enrollment.rejected';
+  | 'enrollment.rejected'
+  | 'role.created'
+  | 'role.updated'
+  | 'role.deleted'
+  | 'group.created'
+  | 'group.updated'
+  | 'group.deleted'
+  | 'group.roles_changed'
+  | 'group.members_changed'
+  | 'user.groups_changed'
+  | 'user.login'
+  | 'user.login_failed'
+  | 'user.logout';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
@@ -199,6 +211,18 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'enrollment.requested',
   'enrollment.approved',
   'enrollment.rejected',
+  'role.created',
+  'role.updated',
+  'role.deleted',
+  'group.created',
+  'group.updated',
+  'group.deleted',
+  'group.roles_changed',
+  'group.members_changed',
+  'user.groups_changed',
+  'user.login',
+  'user.login_failed',
+  'user.logout',
 ];
 
 /** One entry of the audit log (details never hold a secret). */

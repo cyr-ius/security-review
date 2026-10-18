@@ -48,7 +48,8 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, select
 
-from . import access_control
+from . import access_control, audit
+from .audit import AuditAction
 from .config import Settings
 from .database import session_scope
 from .http_server import Role, TokenInfo
@@ -521,23 +522,72 @@ def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
     return deleted
 
 
-def authenticate(username: str, password: str) -> dict[str, Any] | None:
+def _valid_name(username: str | None) -> str | None:
+    """A username as written to the audit log: only a valid one, never arbitrary input."""
+    try:
+        return clean_username(username or "")
+    except ValueError:
+        return None
+
+
+def record_login_failure(username: str | None, method: str, address: str | None) -> None:
+    """Write a failed login of the web interface to the audit log (never the password)."""
+    with session_scope() as session:
+        audit.record(
+            session,
+            AuditAction.USER_LOGIN_FAILED,
+            audit.ANONYMOUS_ACTOR,
+            "user",
+            _valid_name(username),
+            details={"method": method, "address": address},
+        )
+
+
+def _record_login(session: Session, row: WebUser, method: str, address: str | None) -> None:
+    """Write a successful login of the web interface to the audit log."""
+    audit.record(
+        session,
+        AuditAction.USER_LOGIN,
+        audit.user_actor(_label(row)),
+        "user",
+        row.username,
+        details={"method": method, "address": address},
+    )
+
+
+def record_logout(label: str, address: str | None) -> None:
+    """Write the logout of a web user (``label``: its session label) to the audit log."""
+    with session_scope() as session:
+        audit.record(
+            session,
+            AuditAction.USER_LOGOUT,
+            audit.user_actor(label),
+            "user",
+            label.removeprefix(f"{AUTH_OIDC}:"),
+            details={"address": address},
+        )
+
+
+def authenticate(username: str, password: str, address: str | None = None) -> dict[str, Any] | None:
     """Return the local user whose username and password match, or None.
 
     An SSO user never matches. The time spent does not depend on whether the username exists.
-    The last login time is recorded.
+    The last login time is recorded, and the login or its failure (from ``address``) is written
+    to the audit log.
     """
     with session_scope() as session:
         row = _by_name(session, username.strip())
         stored = row.password_hash if row is not None and row.auth_source == AUTH_LOCAL else None
         matches = verify_password(password[:MAX_PASSWORD_CHARS], stored or _dummy_hash())
-        if row is None or stored is None or not matches:
-            return None
-        row.last_login_at = utcnow()
-        session.add(row)
-        session.flush()
-        session.refresh(row)
-        return _public(session, row)
+        if row is not None and stored is not None and matches:
+            row.last_login_at = utcnow()
+            session.add(row)
+            _record_login(session, row, "password", address)
+            session.flush()
+            session.refresh(row)
+            return _public(session, row)
+    record_login_failure(username.strip(), "password", address)
+    return None
 
 
 def ensure_bootstrap_admin() -> str | None:
@@ -667,7 +717,12 @@ def new_session(signer: SessionSigner, user_id: int) -> dict[str, Any]:
         return _session(signer, row, _grants(session, row))
 
 
-def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings) -> dict[str, Any]:
+def oidc_login(
+    signer: SessionSigner,
+    identity: OidcIdentity,
+    settings: Settings,
+    address: str | None = None,
+) -> dict[str, Any]:
     """Open the session of the SSO user of a verified OIDC login; raise OidcError.
 
     The user is named by the username claim. It is refused when the name belongs to a local
@@ -743,6 +798,8 @@ def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings
                 raise OidcError("forbidden", "No web role granted to this user")
             if created:
                 logger.info("SSO web user %s created at its first login", name)
+            if grants:
+                _record_login(session, row, "oidc", address)
             result = _session(signer, row, grants) if grants else None
     except IntegrityError:
         # The same user logged in twice at the same time

@@ -18,6 +18,7 @@ from starlette.testclient import TestClient
 
 from security_review_mcp import (
     access_control,
+    audit,
     http_server,
     oidc,
     server,
@@ -441,6 +442,8 @@ def test_full_login_gives_a_session_accepted_by_the_api(controller, provider, ca
     with session_scope() as db:
         row = db.exec(select(WebUser).where(WebUser.username == "alice")).one()
         assert (row.oidc_subject, row.oidc_issuer) == ("user-123", ISSUER)
+    (event,) = audit.list_events(action="user.login")["events"]
+    assert (event["actor"], event["details"]["method"]) == ("user:oidc:alice", "oidc")
     for secret in ("code-xyz", session, "access-abc", "client-secret"):
         assert secret not in logs
 

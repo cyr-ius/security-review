@@ -140,7 +140,7 @@ async def password_login(request: Request, body: PasswordLogin, response: Respon
             "Too many failed logins: try again later",
             headers={"Retry-After": str(int(throttle.window))},
         )
-    user = await run_in_threadpool(web_users.authenticate, username, body.password)
+    user = await run_in_threadpool(web_users.authenticate, username, body.password, address)
     if user is None:
         await run_in_threadpool(throttle.failed, username, address)
         logger.warning("Failed web login of %s from %s", _log_name(username), address)
@@ -191,17 +191,25 @@ async def oidc_callback(
     server; the page removes it from the address bar and keeps it in the tab only.
     """
     login = await _oidc_login(request)
+    address = client_address(request)
     if error or not code or not state:
         reason = "".join(c for c in (error or "missing code or state") if c.isprintable())
         logger.warning("OIDC login not completed: %s", reason)
+        await run_in_threadpool(web_users.record_login_failure, None, "oidc", address)
         return _to_login_page(login, {"oidcError": "denied" if error else "state"})
+    user: oidc.OidcIdentity | None = None
     try:
         user = await run_in_threadpool(
             login.finish, code, state, request.cookies.get(oidc.STATE_COOKIE)
         )
-        result = await run_in_threadpool(web_users.oidc_login, login.signer, user, login.settings)
+        result = await run_in_threadpool(
+            web_users.oidc_login, login.signer, user, login.settings, address
+        )
     except oidc.OidcError as exc:
         logger.warning("OIDC login failed: %s", exc)
+        await run_in_threadpool(
+            web_users.record_login_failure, user.username if user else None, "oidc", address
+        )
         return _to_login_page(login, {"oidcError": exc.code})
     return _to_login_page(
         login, {"returnUrl": user.return_url}, urlencode({"session": result["session"]})
