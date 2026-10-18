@@ -4,9 +4,13 @@ export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 /** Lifecycle status of a finding. */
 export type FindingStatus = 'open' | 'fixed' | 'accepted' | 'false_positive';
 
-/** Role attached to the bearer token. */
-export type Role = 'mcp' | 'reader' | 'triager' | 'admin' | 'ci';
-export type ProjectTokenRole = Exclude<Role, 'admin'>;
+/** Role of a bearer token: tokens are for machines, a person signs in with a web user. */
+export type TokenRole = 'mcp' | 'admin' | 'ci';
+/** Role of the caller: the role of its token or, for a web user, the web role that sums up
+ * the permissions of its groups (reader, triager or admin). */
+export type Role = TokenRole | 'reader' | 'triager';
+/** Role of a token managed in the web interface. */
+export type ProjectTokenRole = Exclude<TokenRole, 'admin'>;
 
 export const SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 
@@ -188,7 +192,7 @@ export interface WebUserWithPassword extends WebUser {
 export interface ProjectToken {
   id: string;
   label: string;
-  role: Role;
+  role: ProjectTokenRole;
   project: string | null;
   projects: string[] | null;
   pending_projects: string[];
@@ -291,7 +295,7 @@ export interface EnrollmentRequest {
   id: string;
   token_id: string;
   label: string;
-  role: Role;
+  role: ProjectTokenRole;
   project: string;
   kind: 'new' | 'additional';
   status: 'pending';

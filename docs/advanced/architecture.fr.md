@@ -17,7 +17,7 @@ données. Ils peuvent tourner dans deux conteneurs, deux pods ou sur deux machin
 |---|---|---|
 | Commande | `security-review-mcp --transport streamable-http` | `security-review-controller serve` |
 | Sert | `/mcp`, enrôlement public `POST /api/v1/enroll`, `/healthz` | API REST `/api/v1`, interface `/ui`, `/healthz` |
-| Jetons acceptés | rôles `mcp` et `admin` | rôles `reader`, `triager` et `admin` ; `ci` sur les seules routes de pipeline `/api/v1/ci/` (gate, SARIF, tendance, scans) |
+| Identifiants acceptés | jetons `mcp` et `admin` | sessions web (utilisateurs) et jetons `admin` ; jetons `ci` sur les seules routes de pipeline `/api/v1/ci/` (gate, SARIF, tendance, scans) |
 | Routes sans jeton | enrôlement, `/healthz` | fichiers de `/ui`, documentation de l'API, `/healthz` (lecture seule) |
 | Schéma de la base | vérifie seulement | migre (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`) |
 | Exposition conseillée | agents et CI, avec TLS | réseau interne ou accès restreint aux administrateurs |

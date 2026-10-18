@@ -6,8 +6,9 @@ REST API comes only from **roles**, a role being a set of **permissions**, given
 project of its own: to give a person access, add them to a group. Administrators manage them in the **Groups**, **Roles** and **Users** screens (`users.manage`
 permission), or through the `/api/v1/groups`, `/api/v1/roles` and `/api/v1/users` API.
 
-Bearer tokens are not concerned: they keep their fixed role (`mcp`, `reader`, `triager`, `admin`,
-`ci`, `metrics`, see [Roles](../usage/web-interface.md#roles)).
+Bearer tokens are not concerned: they are for machines and keep their fixed role (`mcp`, `admin`,
+`ci`, `metrics`, see [Roles](../usage/web-interface.md#roles)). There is no read-only or triage
+token: a person gets read or triage access through the groups of their account.
 
 ## Permissions
 
@@ -28,14 +29,16 @@ interface, never a token (see [triage of findings](../usage/web-interface.md#tri
 
 ## Roles
 
-A role is a name, a description and at least one permission. Three **system** roles exist from
-the start and can be neither changed nor deleted:
+A role is a name, a description and at least one permission. Two **built-in** roles exist from
+the start and can be neither changed nor deleted, because the controller relies on them:
 
-| System role | Permissions |
-|---|---|
-| `reader` | `reports.read` |
-| `triager` | `reports.read`, `findings.triage` |
-| `admin` | every permission |
+| Built-in role | Permissions | Used by |
+|---|---|---|
+| `reader` | `reports.read` | the [project groups](#project-groups) created at the approval of an enrollment |
+| `admin` | every permission (including the ones a later version adds) | the `administrators` group of the first administrator, `SECREVIEW_OIDC_ADMIN_GROUPS` |
+
+The `triager` role (`reports.read`, `findings.triage`) is also created with the database, but it
+is an ordinary role: administrators change or delete it like any other.
 
 Administrators create other roles (100 at most), for example an *Auditor* role with
 `audit.read` and `reports.read`. A change of a role applies at once to the open sessions of the
@@ -99,8 +102,7 @@ Preferably keep a local administrator.
 
 A token never grants more than its creator holds: creating a token, changing its projects,
 rotating its secret, revoking it, or approving or rejecting an enrollment request needs
-`reports.read` on every project of the token, before and after a change of its projects (and
-`findings.triage` for a `triager` token); the
+`reports.read` on every project of the token, before and after a change of its projects; the
 **Tokens** screen only lists the tokens and requests of the projects the user reads. Giving a user read access at the
 approval of an enrollment also needs `users.manage`.
 
@@ -169,3 +171,14 @@ The role given to an OIDC account by its groups at its last login is computed ag
 login. The `SECREVIEW_OIDC_TRIAGER_GROUPS`, `SECREVIEW_OIDC_READER_GROUPS` and
 `SECREVIEW_OIDC_DEFAULT_ROLE` variables are gone: create the groups of the same names with the
 `triager` or `reader` role, and use `SECREVIEW_OIDC_DEFAULT_GROUP` instead of the default role.
+
+## Upgrading from the reader and triager tokens
+
+Schema migration `0021` makes tokens machine-only:
+
+- the `reader` and `triager` tokens are revoked; each revocation is written to the
+  [audit log](audit-metrics.md) (`token.revoked`, actor `migration`). Give the people who used
+  them a [user account](../usage/web-interface.md#user-accounts) in a group with the `reader` or
+  `triager` role on the same projects; an administration script uses an `admin` token;
+- the `triager` role stops being built in: it keeps its permissions and its groups, and can now
+  be changed or deleted.

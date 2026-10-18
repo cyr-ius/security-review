@@ -32,8 +32,8 @@ commande `token` (voir la [CLI](../reference/cli.md)) :
 
 ```bash
 security-review-controller token create --label ci                      # rôle mcp par défaut
-security-review-controller token create --label triage-bot --role triager
-security-review-controller token create --label shop-ci --role reader --project shop-api
+security-review-controller token create --label jenkins --role ci --project shop-api
+security-review-controller token create --label ops-script --role admin
 # {"id": "6f1c…", "label": "ci", "role": "mcp", "project": null, "created_at": "…", "token": "UJB7…"}
 security-review-controller token list [--project shop-api]             # jamais le secret ni l'empreinte
 security-review-controller token revoke ci                              # par label ou par id
@@ -43,19 +43,20 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
 [l'enrôlement](#enrolement-un-projet-demande-son-jeton).
 
 - Donnez `token` au client ; le `label`, unique, apparaît dans les journaux.
-- `--role` vaut `mcp` par défaut (serveur MCP) ; `reader` (lecture seule) et `triager` (lecture
-  et triage) donnent accès à l'API REST du contrôleur, jamais à l'interface web ; `ci`
-  (toujours avec `--project`) n'atteint que les routes de pipeline utilisées par
+- `--role` vaut `mcp` par défaut (serveur MCP) ; `admin` atteint le serveur MCP et toute l'API
+  REST du contrôleur, jamais l'interface web ; `ci` (toujours avec `--project`) n'atteint que les routes de pipeline utilisées par
   [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) : voir les
   [rôles](../usage/web-interface.md#roles) ; `metrics` (jamais avec `--project`) n'atteint que
-  les [métriques Prometheus](audit-metrics.md#metriques-prometheus) du contrôleur.
+  les [métriques Prometheus](audit-metrics.md#metriques-prometheus) du contrôleur. Les jetons
+  sont destinés aux machines : il n'existe pas de jeton `reader` ou `triager`, une personne lit
+  et trie avec un [compte utilisateur](../usage/web-interface.md#comptes-utilisateurs) et ses
+  [groupes](access-control.md).
 - `--expires-in-days` fixe la validité du jeton : voir
   [expiration et renouvellement](#expiration-et-renouvellement-des-jetons).
 - `--project` limite le jeton à un ou plusieurs projets (répétez l'option), pour les outils MCP
-  comme pour l'API REST
-  (rôles `mcp`, `reader` et `triager` ; refusé pour `admin` et `metrics`). Voir
+  et les routes de pipeline (rôles `mcp` et `ci` ; refusé pour `admin` et `metrics`). Voir
   [jetons restreints à un projet](#jetons-restreints-a-un-projet). Les administrateurs peuvent
-  aussi créer et révoquer des jetons `reader` restreints depuis l'écran **Jetons**.
+  aussi créer et révoquer des jetons `mcp` et `ci` restreints depuis l'écran **Jetons**.
 - Le serveur consulte la base à chaque requête : une création ou une révocation s'applique
   immédiatement, y compris aux autres instances qui partagent la même base PostgreSQL.
 
@@ -110,7 +111,7 @@ projet :
 
 ```bash
 security-review-controller token create --label shop-ci --project shop-api            # rôle mcp
-security-review-controller token create --label shop-triage --role triager --project shop-api
+security-review-controller token create --label shop-gate --role ci --project shop-api
 ```
 
 Un jeton sans `--project` accède à tous les projets. Dans l'interface web, l'écran
@@ -119,7 +120,7 @@ Un jeton sans `--project` accède à tous les projets. Dans l'interface web, l'�
 jeton `ci` garde toujours au moins un projet). Un jeton restreint :
 
 - n'enregistre de rapport (`save_security_report`) que pour son projet ;
-- ne lit, ne liste, n'exporte et ne trie (`propose_finding_status`, `PATCH` de l'API web) que les
+- ne lit, ne liste, n'exporte et ne propose de statut (`propose_finding_status`) que pour les
   rapports et findings de son projet ; `list_security_reports` sans filtre ne renvoie que
   ceux-ci ;
 - reçoit pour tout autre projet, rapport ou finding la même erreur « not found » que pour un

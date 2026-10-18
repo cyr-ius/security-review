@@ -54,7 +54,7 @@ async def permissions(identity: UsersManager) -> list[PermissionInfo]:
 
 @router.get("/roles")
 async def roles(identity: UsersManager) -> list[AccessRole]:
-    """List the roles: the system roles, then the custom roles."""
+    """List the roles: the built-in roles, then the custom roles."""
     return await run_in_threadpool(access_control.list_roles)
 
 

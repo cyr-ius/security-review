@@ -483,7 +483,7 @@ class AccessRole(SQLModel, table=True):
     """Role of the web interface: a named set of permissions, given to groups.
 
     ``permissions`` is the JSON list of the permission names (access_control.Permission). A
-    ``system`` role (``reader``, ``triager``, ``admin``) can be neither changed nor deleted: its
+    ``system`` (built-in) role, ``reader`` or ``admin``, can be neither changed nor deleted: its
     permissions are those of the code, not of this column.
     """
 

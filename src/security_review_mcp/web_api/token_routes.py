@@ -1,7 +1,7 @@
 """Routes of the project tokens and of the enrollment requests (``tokens.manage``).
 
 A token never grants more than its creator holds: every change is checked against the
-projects the caller reads (and triages, for a triager token).
+projects the caller reads.
 """
 
 import logging
@@ -12,7 +12,6 @@ from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 
 from .. import services, token_store, web_users
-from ..http_server import Role
 from .auth_routes import LOGIN_HEADERS, current_oidc
 from .deps import (
     Identity,
@@ -63,19 +62,15 @@ def _describe_projects(projects: list[str] | None) -> str:
     return "every project" if projects is None else ", ".join(projects)
 
 
-def _check_delegation(identity: Identity, role: str, projects: list[str] | None) -> None:
-    """Refuse (403) a token that would reach projects the caller cannot read itself, or triage
-    them when the caller cannot: a token never grants more than its creator holds."""
-    needed = [Permission.REPORTS_READ]
-    if role == Role.TRIAGER:
-        needed.append(Permission.FINDINGS_TRIAGE)
-    for permission in needed:
-        reached = permission_scope(identity, permission)
-        if reached is not None and (projects is None or not set(projects) <= set(reached)):
-            raise HTTPException(
-                status.HTTP_403_FORBIDDEN,
-                f"A token cannot reach projects where you do not hold '{permission}'",
-            )
+def _check_delegation(identity: Identity, projects: list[str] | None) -> None:
+    """Refuse (403) a token that would reach projects the caller cannot read itself: a token
+    never grants more than its creator holds."""
+    reached = permission_scope(identity, Permission.REPORTS_READ)
+    if reached is not None and (projects is None or not set(projects) <= set(reached)):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            f"A token cannot reach projects where you do not hold '{Permission.REPORTS_READ}'",
+        )
 
 
 def _reaches(identity: Identity, projects: list[str] | None) -> bool:
@@ -89,7 +84,7 @@ async def _check_enrollment_scope(identity: Identity, request_id: str) -> None:
     pending = await run_in_threadpool(token_store.list_enrollments)
     for item in pending:
         if request_id in (item["id"], item["token_id"], item["label"]):
-            _check_delegation(identity, item["role"], [item["project"]])
+            _check_delegation(identity, [item["project"]])
 
 
 async def _check_token_delegation(
@@ -101,7 +96,7 @@ async def _check_token_delegation(
     tokens = await run_in_threadpool(token_store.list_tokens)
     token = next((item for item in tokens if item["id"] == token_id), None)
     if token is not None:
-        _check_delegation(identity, token["role"], token["projects"] if keep else projects)
+        _check_delegation(identity, token["projects"] if keep else projects)
 
 
 # ── Project tokens ───────────────────────────────────────────────────────────
@@ -121,7 +116,7 @@ async def create_project_token(
 ) -> ProjectTokenSecret:
     """Create a token for existing projects (or every project, ``projects`` null) and return
     its secret exactly once."""
-    _check_delegation(identity, body.role, body.projects)
+    _check_delegation(identity, body.projects)
     await _check_known_projects(body.projects)
     try:
         created = await run_in_threadpool(

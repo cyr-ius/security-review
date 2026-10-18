@@ -269,7 +269,7 @@ def test_init_db_moves_legacy_project_tokens():
         conn.execute(
             text(
                 "INSERT INTO apitoken (id, label, role, project, token_hash, created_at) "
-                "VALUES ('t1', 'old', 'reader', 'shop-api', :digest, CURRENT_TIMESTAMP)"
+                "VALUES ('t1', 'old', 'mcp', 'shop-api', :digest, CURRENT_TIMESTAMP)"
             ),
             {"digest": "ab" * 32},
         )

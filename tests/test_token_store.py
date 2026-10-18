@@ -40,7 +40,7 @@ def test_project_token_is_stored_as_hash_and_revoked(database):
     assert row.token_hash == digest_of(created["token"]).hex()
     assert created["token"] not in row.model_dump_json()
     assert STORE.lookup(digest_of(created["token"])) == TokenInfo(
-        "ci", Role.READER, projects=frozenset({"shop-api"}), token_id=created["id"]
+        "ci", Role.MCP, projects=frozenset({"shop-api"}), token_id=created["id"]
     )
     listed = token_store.list_project_tokens()
     assert listed == [{key: value for key, value in created.items() if key != "token"}]
@@ -65,7 +65,7 @@ def test_token_validation():
         token_store.create_token("boss", "boss")
     with pytest.raises(ValueError, match="admin token cannot be restricted"):
         token_store.create_token("boss-admin", Role.ADMIN, "billing")
-    for role in (Role.MCP, Role.READER, Role.TRIAGER):
+    for role in (Role.MCP, Role.CI):
         created = token_store.create_token(f"{role}-billing", role, "billing")
         assert (created["project"], created["projects"]) == ("billing", ["billing"])
     with pytest.raises(ValueError, match="between 1 and 64"):
@@ -74,6 +74,22 @@ def test_token_validation():
         token_store.create_project_token("other", "p" * 201)
     with pytest.raises(ValueError, match="at least one project"):
         token_store.create_project_token("other", [])
+
+
+@pytest.mark.parametrize("role", [Role.READER, Role.TRIAGER])
+def test_a_token_is_never_given_to_a_person(database, role):
+    """reader and triager are reached through a web session and its groups, never a token."""
+    with pytest.raises(ValueError, match="through a group"):
+        token_store.create_token("person", role)
+    with pytest.raises(ValueError, match="cannot be created in the web interface"):
+        token_store.create_project_token("person", ["shop-api"], role)
+    assert stored_rows(database) == []
+
+    # A row left by an older version authenticates nothing (fail closed)
+    with Session(database) as session:
+        session.add(ApiToken(id="t1", label="old", role=role.value, token_hash="ab" * 32))
+        session.commit()
+    assert STORE.lookup(bytes.fromhex("ab" * 32)) is None
 
 
 def test_ci_token_is_always_restricted_to_projects():
@@ -89,7 +105,7 @@ def test_ci_token_is_always_restricted_to_projects():
 
 def test_unrestricted_ci_row_reaches_no_project(database):
     # A ci row without projects (written outside create_token) fails closed
-    created = token_store.create_token("jenkins", Role.READER)
+    created = token_store.create_token("jenkins", Role.MCP)
     with Session(database) as session:
         row = session.get(ApiToken, created["id"])
         row.role = Role.CI.value
@@ -409,7 +425,7 @@ def test_complementary_requests_count_in_the_pending_limit_and_expire(monkeypatc
 def test_legacy_project_tokens_are_migrated(database):
     with Session(database) as session:
         session.add(
-            ApiToken(id="t1", label="old", role="reader", project="shop-api", token_hash="ab" * 32)
+            ApiToken(id="t1", label="old", role="mcp", project="shop-api", token_hash="ab" * 32)
         )
         session.add(ApiToken(id="t2", label="admin", role="admin", token_hash="cd" * 32))
         session.add(
@@ -555,7 +571,7 @@ def test_a_metrics_token_cannot_be_restricted_to_projects():
 def test_token_counts_by_role_and_state(database):
     token_store.create_token("dev", Role.MCP)
     token_store.create_token("soon", Role.MCP, expires_in_days=3)
-    token_store.create_token("old", Role.READER, expires_in_days=30)
+    token_store.create_token("old", Role.ADMIN, expires_in_days=30)
     _set_dates(database, "old", expires_at=datetime.now(UTC) - timedelta(days=1))
     token_store.request_enrollment("shop-api")
 
@@ -563,7 +579,7 @@ def test_token_counts_by_role_and_state(database):
 
     assert counts["by_role_and_state"] == {
         ("mcp", "active"): 2,
-        ("reader", "expired"): 1,
+        ("admin", "expired"): 1,
         ("mcp", "pending"): 1,
     }
     assert counts["expiring_soon"] == 1
@@ -574,11 +590,11 @@ def test_token_counts_by_role_and_state(database):
 
 
 def test_web_token_for_every_project():
-    created = token_store.create_project_token("portal", None, Role.TRIAGER)
+    created = token_store.create_project_token("portal", None, Role.MCP)
 
     assert (created["project"], created["projects"]) == (None, None)
     info = STORE.lookup(digest_of(created["token"]))
-    assert (info.role, info.projects) == (Role.TRIAGER, None)
+    assert (info.role, info.projects) == (Role.MCP, None)
     assert [token["label"] for token in token_store.list_project_tokens()] == ["portal"]
     # An empty list is refused, never read as every project
     with pytest.raises(ValueError, match="at least one project"):

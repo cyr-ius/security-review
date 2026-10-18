@@ -5,7 +5,7 @@
 - **Two processes**: the MCP server (exposed to the agents) and the controller (REST API, web
   interface, administration) run separately and only share the database (see
   [Architecture and deployment](../advanced/architecture.md)). The MCP server only accepts
-  the `mcp` and `admin` roles, the controller only `reader`, `triager` and `admin`, plus `ci`
+  the `mcp` and `admin` tokens, the controller only web sessions and `admin` tokens, plus `ci`
   on its pipeline routes (`/api/v1/ci/`: gate, SARIF and trend in read only, scans that store
   reports of its projects) and nowhere else. The
   controller exposes no write route without a token: it can stay on an internal network, and the
@@ -15,8 +15,8 @@
   database and only their SHA-256 digests are kept. Every request looks up the digest of the
   presented token, which reveals nothing usable without a preimage, then checks it in constant
   time: a revocation is therefore immediate on every instance. A token created with `--project`
-  is limited to that project in the MCP tools and the web API: any other project, report or
-  finding is handled as missing (see
+  is limited to that project in the MCP tools and the pipeline routes: any other project, report
+  or finding is handled as missing (see
   [tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
   While no token exists, the MCP server stays closed (fail closed: only enrollment is reachable),
   unless it listens on localhost or `SECREVIEW_ALLOW_UNAUTHENTICATED=true`.
@@ -24,9 +24,10 @@
   The server never generates a TLS certificate: HTTPS uses the certificate given by the
   operator, signed by a [certificate authority](../advanced/http.md#certificate-authority).
   There is no rate limiting.
-  Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `reader`, `triager`,
-  `admin`, `ci`, `metrics`); an `mcp` token without a project reaches every MCP tool and every
-  project.
+  Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `admin`, `ci`, `metrics`):
+  tokens are for machines, and no token reads or triages on behalf of a person (a stored
+  `reader` or `triager` token, left by an older version, authenticates nothing); an `mcp` token
+  without a project reaches every MCP tool and every project.
 - **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`, or only the
   [enrollment server](../advanced/http.md#rejected-token-new-enrollment) on `/mcp`), and
   `SECREVIEW_TOKEN_MAX_DAYS` bounds the validity of every token created or rotated. Expired
@@ -114,10 +115,10 @@
   prints it once. With `SECREVIEW_OIDC_ONLY=true` and OIDC enabled, the
   password login of the local accounts is refused (`403`); a disabled or invalid OIDC
   configuration never locks the local accounts out.
-- **Web interface** (controller): the REST API always requires a session or a token with a web
-  role; without a user or a token, it answers `503` instead of granting anonymous rights. Only
-  `triager` and `admin` change the status of a finding (action logged with the label of the
-  token), and only a person logged in to the interface (session) accepts a risk or marks a false
+- **Web interface** (controller): the REST API always requires a session or an `admin` token;
+  without a user or a token, it answers `503` instead of granting anonymous rights. Only a
+  session with the `findings.triage` permission or an `admin` token changes the status of a
+  finding (action logged with the user or the label of the token), and only a person logged in to the interface (session) accepts a risk or marks a false
   positive: a bearer token is refused (`403`), even `admin`. These two decisions need a reason
   and an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the
   logged-in user, and the finding counts as open again once the date has passed.
@@ -195,7 +196,7 @@
   choose, reads the files without following symbolic links and sends their content to the
   controller, which scans it without reading its own disk.
 - **Pipeline scans**: `POST /api/v1/ci/scan/code` and `/scan/deps` need a `ci` or `admin`
-  token (a web session, a `reader` or `triager` token is refused) and stay within the projects
+  token (a web session is refused) and stay within the projects
   of the token; they store a report only with `save`. The request body is bounded
   (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` beyond, read after the token check), as are the
   number of files (`SECREVIEW_MAX_SCAN_FILES`) and their size; secrets are masked in the

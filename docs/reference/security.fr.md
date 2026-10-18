@@ -5,7 +5,7 @@
 - **Deux processus** : le serveur MCP (exposé aux agents) et le contrôleur (API REST, interface
   web, administration) tournent séparément et ne partagent que la base (voir
   [Architecture et déploiement](../advanced/architecture.md)). Le serveur MCP n'accepte que les
-  rôles `mcp` et `admin`, le contrôleur que `reader`, `triager` et `admin`, plus `ci` sur ses
+  jetons `mcp` et `admin`, le contrôleur que les sessions web et les jetons `admin`, plus `ci` sur ses
   routes de pipeline (`/api/v1/ci/` : gate, SARIF et tendance en lecture seule, scans qui
   enregistrent des rapports de ses projets) et nulle part ailleurs. Le contrôleur
   n'expose aucune route d'écriture sans jeton : il peut rester sur un réseau interne, et la
@@ -15,7 +15,7 @@
   base et seules leurs empreintes SHA-256 sont conservées. Chaque requête recherche l'empreinte
   du jeton présenté, ce qui ne révèle rien d'exploitable sans préimage, puis la vérifie en temps
   constant : une révocation est donc immédiate sur toutes les instances. Un jeton créé avec
-  `--project` est limité à ce projet dans les outils MCP et l'API web : tout autre projet,
+  `--project` est limité à ce projet dans les outils MCP et les routes de pipeline : tout autre projet,
   rapport ou finding est traité comme inexistant (voir
   [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)). Tant
   qu'aucun jeton n'existe, le serveur MCP reste fermé (seul l'enrôlement est accessible), sauf
@@ -25,8 +25,10 @@
   l'opérateur, signé par une
   [autorité de certification](../advanced/http.md#autorite-de-certification). Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
-  (`mcp`, `reader`, `triager`, `admin`, `ci`, `metrics`) ; un jeton `mcp` sans projet accède à
-  tous les outils MCP et à tous les projets.
+  (`mcp`, `admin`, `ci`, `metrics`) : les jetons sont destinés aux machines, et aucun jeton ne
+  lit ni ne trie pour le compte d'une personne (un jeton `reader` ou `triager` stocké, laissé par
+  une version antérieure, n'authentifie rien) ; un jeton `mcp` sans projet accède à tous les
+  outils MCP et à tous les projets.
 - **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`,
   ou seulement le [serveur d'enrôlement](../advanced/http.md#jeton-refuse-nouvel-enrolement) sur
   `/mcp`), et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons
@@ -115,9 +117,10 @@
   un opérateur, qui l'affiche une fois. Avec `SECREVIEW_OIDC_ONLY=true` et le OIDC activé, la connexion par mot
   de passe des comptes locaux est refusée (`403`) ; une configuration OIDC désactivée ou invalide
   ne bloque jamais les comptes locaux.
-- **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton de rôle web ;
-  sans utilisateur ni jeton, elle répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
-  le statut d'un finding (action journalisée avec le label du jeton), et seule une personne
+- **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton `admin` ;
+  sans utilisateur ni jeton, elle répond `503` au lieu d'accorder les droits anonymes. Seuls une
+  session qui a la permission `findings.triage` ou un jeton `admin` changent le statut d'un
+  finding (action journalisée avec l'utilisateur ou le label du jeton), et seule une personne
   connectée à l'interface (session) accepte un risque ou marque un faux positif : un jeton Bearer
   est refusé (`403`), même `admin`. Ces deux décisions exigent un motif et une date d'expiration
   (au plus `SECREVIEW_MAX_DISMISSAL_DAYS` jours) ; l'approbateur est l'utilisateur connecté, et le
@@ -202,7 +205,7 @@
   sur un dossier qu'il choisit, lit les fichiers sans suivre les liens symboliques et envoie
   leur contenu au contrôleur, qui le scanne sans lire son propre disque.
 - **Scans de pipeline** : `POST /api/v1/ci/scan/code` et `/scan/deps` demandent un jeton `ci` ou
-  `admin` (une session web, un jeton `reader` ou `triager` est refusé) et restent dans les
+  `admin` (une session web est refusée) et restent dans les
   projets du jeton ; ils n'enregistrent un rapport qu'avec `save`. Le corps de la requête est
   borné (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` au-delà, lu après la vérification du jeton),
   comme le nombre de fichiers (`SECREVIEW_MAX_SCAN_FILES`) et leur taille ; les secrets sont

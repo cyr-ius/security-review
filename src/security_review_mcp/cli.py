@@ -155,11 +155,11 @@ def token_command(argv: list[str]) -> int:
     creator.add_argument("--label", required=True, help="unique name of the client (in the logs)")
     creator.add_argument(
         "--role",
-        choices=[role.value for role in http_server.Role],
+        choices=sorted(role.value for role in http_server.TOKEN_ROLES),
         default=http_server.DEFAULT_ROLE.value,
-        help="mcp (default): MCP endpoint; reader: REST API read only; triager: REST API read "
-        "and triage; admin: both; ci: pipeline routes only (security-review-ci), needs --project; "
-        "metrics: Prometheus endpoint of the controller only",
+        help="mcp (default): MCP endpoint; admin: MCP and REST API; ci: pipeline routes only "
+        "(security-review-ci), needs --project; metrics: Prometheus endpoint of the controller "
+        "only. A person reaches the web interface with a web user and its groups",
     )
     creator.add_argument(
         "--project",

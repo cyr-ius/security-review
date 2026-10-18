@@ -629,8 +629,9 @@ class ProjectTokenCreate(BaseModel):
     """A role-specific token scoped to one or several projects, or to every project."""
 
     label: str = Field(min_length=1, max_length=64)
-    # ci: pipeline token (gate, SARIF and trend of its projects only, see ci_client)
-    role: Literal["mcp", "reader", "triager", "ci"] = "reader"
+    # mcp: MCP agent; ci: pipeline token (gate, SARIF, trend and scans of its projects only,
+    # see ci_client). A person reaches the web API through a session, not a token.
+    role: Literal["mcp", "ci"] = "mcp"
     # null: every project (refused for a ci token)
     projects: list[_ProjectName] | None = Field(
         min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
@@ -827,7 +828,7 @@ class AccessRole(BaseModel):
     name: str
     description: str
     permissions: list[access_control.Permission]
-    # reader, triager and admin: neither changed nor deleted
+    # Built-in role (reader, admin): neither changed nor deleted
     system: bool
     # Only scoped permissions: the role may be limited to projects in a group
     scoped: bool

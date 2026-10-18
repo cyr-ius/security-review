@@ -159,15 +159,7 @@
       <label for="token-usage" class="form-label">{{ 'tokens.usage' | t }}</label>
       <select id="token-usage" class="form-select" [formField]="tokenForm.usage">
         <option value="mcp">MCP</option>
-        <option value="api">{{ 'tokens.restApi' | t }}</option>
         <option value="ci">{{ 'tokens.pipeline' | t }}</option>
-      </select>
-    </div>
-    <div class="col-md-2">
-      <label for="token-api-role" class="form-label">{{ 'tokens.apiRights' | t }}</label>
-      <select id="token-api-role" class="form-select" [formField]="tokenForm.apiRole">
-        <option value="reader">{{ 'tokens.readOnly' | t }}</option>
-        <option value="triager">{{ 'tokens.readTriage' | t }}</option>
       </select>
     </div>
     <div class="col-md-2">
@@ -237,6 +229,7 @@
     @if (formModel().usage === 'ci') {
       <p class="col-12 order-last form-text mb-0">{{ 'tokens.pipelineHelp' | t }}</p>
     }
+    <p class="col-12 order-last form-text mb-0">{{ 'tokens.machinesHelp' | t }}</p>
     <div class="col-md-2">
       <button
         type="submit"

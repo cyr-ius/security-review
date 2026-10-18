@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { FormField, disabled, form, maxLength, required } from '@angular/forms/signals';
+import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { TOKEN_ROLE_LABELS } from '../../core/constants/labels';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
@@ -12,7 +12,7 @@ import {
   EnrollmentRequest,
   ProjectToken,
   ProjectTokenRole,
-  Role,
+  TokenRole,
 } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
@@ -121,7 +121,7 @@ export class ProjectTokenListComponent {
       value: this.tokenRoleFilter(),
       options: [
         { value: '', label: this.i18n.translate('common.all') },
-        ...(['mcp', 'reader', 'triager', 'ci'] as ProjectTokenRole[]).map((role) => ({
+        ...(['mcp', 'ci'] as ProjectTokenRole[]).map((role) => ({
           value: role,
           label: this.i18n.translate(this.roleLabel(role)),
         })),
@@ -174,8 +174,6 @@ export class ProjectTokenListComponent {
   readonly tokenForm = form(this.formModel, (path) => {
     required(path.label, { message: () => this.i18n.translate('tokens.labelRequired') });
     maxLength(path.label, 64);
-    // The API rights only apply to a REST API token
-    disabled(path.apiRole, ({ valueOf }) => valueOf(path.usage) !== 'api');
   });
   /** Every project (not offered for a CI/CD token), or only selectedProjects. */
   readonly allProjects = signal(false);
@@ -228,15 +226,13 @@ export class ProjectTokenListComponent {
   onTokenFilter(change: TableControlFilterChange): void {
     if (change.key === 'role') {
       this.tokenRoleFilter.set(
-        ['mcp', 'reader', 'triager', 'ci'].includes(change.value)
-          ? (change.value as ProjectTokenRole)
-          : '',
+        ['mcp', 'ci'].includes(change.value) ? (change.value as ProjectTokenRole) : '',
       );
     }
   }
 
-  /** Message key of the usage of a token (MCP, or REST API with its rights). */
-  roleLabel(role: Role): MessageKey {
+  /** Message key of the usage of a token (MCP agent or CI/CD pipeline). */
+  roleLabel(role: TokenRole): MessageKey {
     return TOKEN_ROLE_LABELS[role];
   }
 
@@ -309,7 +305,7 @@ export class ProjectTokenListComponent {
     event.preventDefault();
     const model = this.formModel();
     const label = model.label.trim();
-    const role: ProjectTokenRole = model.usage === 'api' ? model.apiRole : model.usage;
+    const role: ProjectTokenRole = model.usage;
     const projects = this.creationAllProjects() ? null : this.selectedProjects();
     if (this.tokenForm().invalid() || !label || projects?.length === 0 || this.busy()) {
       this.tokenForm().markAsTouched();
@@ -502,24 +498,16 @@ export class ProjectTokenListComponent {
   }
 }
 
-/** What a project token is for: the MCP server, the REST API or a CI/CD pipeline. */
-type TokenUsage = 'mcp' | 'api' | 'ci';
-
-/** Rights of a REST API token. */
-type ApiTokenRole = Exclude<ProjectTokenRole, 'mcp' | 'ci'>;
-
 /** Fields of the token creation form. */
 interface TokenFormModel {
   label: string;
-  /** The MCP server, the REST API or a CI/CD pipeline. */
-  usage: TokenUsage;
-  /** Rights of a REST API token: read only, or read and triage. */
-  apiRole: ApiTokenRole;
+  /** What the token is for: the MCP server or a CI/CD pipeline. */
+  usage: ProjectTokenRole;
   /** Validity in days; '': the default of the server (SECREVIEW_TOKEN_MAX_DAYS). */
   validity: string;
 }
 
-const EMPTY_TOKEN: TokenFormModel = { label: '', usage: 'mcp', apiRole: 'reader', validity: '' };
+const EMPTY_TOKEN: TokenFormModel = { label: '', usage: 'mcp', validity: '' };
 
 /** Validities offered at creation, in days. */
 const VALIDITY_DAYS: readonly string[] = ['30', '90', '180', '365'];

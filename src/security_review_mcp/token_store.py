@@ -18,9 +18,14 @@ nothing but stays listed, so that an administrator rotates or revokes it. A rota
 secret of a token (same id, label, role and projects); the previous secret may keep working
 during a grace period, so that its clients are updated without an interruption.
 
-The web interface manages the ``mcp``, ``reader``, ``triager`` and ``ci`` tokens (WEB_TOKEN_ROLES):
-an administrator creates them for some projects or for every project, changes their projects,
-rotates and revokes them. The ``admin`` and ``metrics`` tokens are managed with the CLI only.
+A token has one of the roles of http_server.TOKEN_ROLES: tokens are for machines (MCP agent,
+pipeline, Prometheus, administration). A person reaches the web API through a session, whose
+rights come from its groups (see access_control). A stored token of another role (``reader`` or
+``triager``, from an older version) authenticates nothing.
+
+The web interface manages the ``mcp`` and ``ci`` tokens (WEB_TOKEN_ROLES): an administrator
+creates them for some projects or for every project, changes their projects, rotates and revokes
+them. The ``admin`` and ``metrics`` tokens are managed with the CLI only.
 
 Every creation, rotation, revocation, change of projects and enrollment decision is written to
 the audit log.
@@ -41,7 +46,7 @@ from . import audit
 from .audit import AuditAction
 from .config import MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
-from .http_server import Role, TokenInfo, hash_token
+from .http_server import TOKEN_ROLES, Role, TokenInfo, hash_token
 from .models import ApiToken, ApiTokenProject, WebUser, as_utc, utcnow
 from .scanner import redact_secrets
 
@@ -70,7 +75,7 @@ MAX_ROTATION_GRACE_HOURS = 168
 # Roles whose rights cannot be scoped to projects
 UNSCOPED_ROLES = frozenset({Role.ADMIN, Role.METRICS})
 # Roles of the tokens managed in the web interface (admin and metrics tokens: CLI only)
-WEB_TOKEN_ROLES = frozenset({Role.MCP, Role.READER, Role.TRIAGER, Role.CI})
+WEB_TOKEN_ROLES = frozenset({Role.MCP, Role.CI})
 
 
 def _is_pending(row: ApiToken) -> bool:
@@ -222,7 +227,7 @@ class DatabaseTokenStore:
                     or_(ApiToken.token_hash == hexdigest, ApiToken.previous_token_hash == hexdigest)
                 )
             ).first()
-            if row is None or not _matches(row, digest):
+            if row is None or row.role not in TOKEN_ROLES or not _matches(row, digest):
                 return None
             return _info(row, _links(session, [row.id])[row.id])
 
@@ -389,18 +394,24 @@ def create_token(
 ) -> dict[str, Any]:
     """Create a token and return its metadata with the raw secret, shown exactly once.
 
-    ``projects`` (one name or several) restricts the token to these projects, for the MCP
-    tools and the web interface. It is refused for ``admin``, whose rights (rules, every
-    project) cannot be scoped, and for ``metrics`` (whole database), and required for ``ci``,
-    the pipeline token. ``expires_in_days`` defaults to SECREVIEW_TOKEN_MAX_DAYS (0: no
-    expiry). The creation is audited with ``actor`` (default ``cli``).
+    ``role`` is one of TOKEN_ROLES. ``projects`` (one name or several) restricts the token to
+    these projects, for the MCP tools and the pipeline routes. It is refused for ``admin``,
+    whose rights (rules, every project) cannot be scoped, and for ``metrics`` (whole database),
+    and required for ``ci``, the pipeline token. ``expires_in_days`` defaults to
+    SECREVIEW_TOKEN_MAX_DAYS (0: no expiry). The creation is audited with ``actor`` (default
+    ``cli``).
     """
     label = _clean_label(label)
+    allowed = ", ".join(sorted(r.value for r in TOKEN_ROLES))
     try:
         role = Role(str(role).strip().lower())
     except ValueError:
-        allowed = ", ".join(r.value for r in Role)
         raise ValueError(f"Unknown role '{role}' (allowed: {allowed})") from None
+    if role not in TOKEN_ROLES:
+        raise ValueError(
+            f"A token cannot have the role '{role.value}' (allowed: {allowed}): give a person "
+            "web access through a group"
+        )
     cleaned = _clean_projects(projects)
     if cleaned is not None and role in UNSCOPED_ROLES:
         raise ValueError(f"A {role.value} token cannot be restricted to a project")
@@ -555,7 +566,7 @@ def _web_token_query(token_id: str) -> Any:
 def list_project_tokens() -> list[dict[str, Any]]:
     """Return the metadata of the active tokens managed in the web interface.
 
-    They are the ``mcp``, ``reader``, ``triager`` and ``ci`` tokens, restricted to projects
+    They are the ``mcp`` and ``ci`` tokens, restricted to projects
     (``projects`` lists them) or reaching every project (``projects`` None).
     """
     return [
@@ -568,7 +579,7 @@ def list_project_tokens() -> list[dict[str, Any]]:
 def create_project_token(
     label: str,
     projects: str | Iterable[str] | None,
-    role: Role | str = Role.READER,
+    role: Role | str = Role.MCP,
     expires_in_days: int | None = None,
     actor: str | None = None,
 ) -> dict[str, Any]:

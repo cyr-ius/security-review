@@ -33,13 +33,11 @@ export const tokens = defineMessages({
     'tokens.noPending': 'No pending requests.',
     'tokens.createTitle': 'Create a project token',
     'tokens.usage': 'Usage',
-    'tokens.restApi': 'REST API',
     'tokens.pipeline': 'CI/CD pipeline',
     'tokens.pipelineHelp':
       'A CI/CD token only runs the gate, the SARIF export and the trend of the selected projects (security-review-ci command), without database access.',
-    'tokens.apiRights': 'API rights',
-    'tokens.readOnly': 'Read only',
-    'tokens.readTriage': 'Read and triage',
+    'tokens.machinesHelp':
+      'Tokens are for machines: an MCP agent or a CI/CD pipeline. A person reads and triages in this portal with a web user, whose rights come from its groups.',
     'tokens.allowedProjects': 'Allowed projects',
     'tokens.active': 'Active tokens',
     'tokens.loadError': 'Could not load the tokens.',
@@ -134,13 +132,11 @@ export const tokens = defineMessages({
     'tokens.noPending': 'Aucune demande en attente.',
     'tokens.createTitle': 'Créer un jeton projet',
     'tokens.usage': 'Usage',
-    'tokens.restApi': 'API REST',
     'tokens.pipeline': 'Pipeline CI/CD',
     'tokens.pipelineHelp':
       'Un jeton CI/CD ne fait que le gate, l’export SARIF et la tendance des projets sélectionnés (commande security-review-ci), sans accès à la base.',
-    'tokens.apiRights': 'Droits API',
-    'tokens.readOnly': 'Lecture seule',
-    'tokens.readTriage': 'Lecture et triage',
+    'tokens.machinesHelp':
+      'Les jetons sont destinés aux machines : un agent MCP ou un pipeline CI/CD. Une personne lit et trie dans ce portail avec un utilisateur web, dont les droits viennent de ses groupes.',
     'tokens.allowedProjects': 'Projets autorisés',
     'tokens.active': 'Jetons actifs',
     'tokens.loadError': 'Impossible de charger les jetons.',
@@ -235,13 +231,11 @@ export const tokens = defineMessages({
     'tokens.noPending': 'No hay solicitudes pendientes.',
     'tokens.createTitle': 'Crear un token de proyecto',
     'tokens.usage': 'Uso',
-    'tokens.restApi': 'API REST',
     'tokens.pipeline': 'Pipeline CI/CD',
     'tokens.pipelineHelp':
       'Un token CI/CD solo ejecuta el gate, la exportación SARIF y la tendencia de los proyectos seleccionados (comando security-review-ci), sin acceso a la base de datos.',
-    'tokens.apiRights': 'Permisos de la API',
-    'tokens.readOnly': 'Solo lectura',
-    'tokens.readTriage': 'Lectura y triaje',
+    'tokens.machinesHelp':
+      'Los tokens son para máquinas: un agente MCP o un pipeline CI/CD. Una persona lee y clasifica en este portal con un usuario web, cuyos permisos provienen de sus grupos.',
     'tokens.allowedProjects': 'Proyectos autorizados',
     'tokens.active': 'Tokens activos',
     'tokens.loadError': 'No se pudieron cargar los tokens.',
