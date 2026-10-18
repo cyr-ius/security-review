@@ -216,7 +216,7 @@ def build_dependency_review_prompt(
 contain the exact resolved versions, including transitive dependencies.
 2. For each file call the `scan_dependencies` tool with its content and its file name. Large \
 lockfiles do not fit in a tool call: tell the user to run \
-`security-review-controller deps scan <file> --project <name> --save` in the pipeline instead.
+`security-review-ci deps-scan <file> --project <name> --save` in the pipeline instead.
 3. Read `vulnerability_check` first. If it is not `performed`, say clearly that vulnerable \
 versions could NOT be checked: never report "no vulnerability" in that case.
 4. Read `advisory_database`: report its age; a stale database means recent issues may be missing.
@@ -254,9 +254,10 @@ _CODEBASE_METHOD = f"""\
 vendored dependencies and build output). Identify the languages, frameworks, entry points \
 (HTTP routes, CLI, message consumers, scheduled jobs) and the configuration and CI/CD files.
 2. **Leads.** If scan results are given below, start from them. Otherwise ask the user to run \
-`security-review-controller code scan . --format json` (it scans every file without the size \
-limit of a tool call) and paste the output, or call `scan_code` file by file on the files you \
-read. A match is a lead, not a finding: confirm each one by reading the surrounding code.
+`security-review-ci code-scan . --project <name> --format json` (the controller scans every \
+file without the size limit of a tool call) and paste the output, or call `scan_code` file by \
+file on the files you read. A match is a lead, not a finding: confirm each one by reading the \
+surrounding code.
 3. **Prioritize.** Read first what an attacker can reach: entry points, authentication and \
 authorization, input parsing and validation, database access, file and process handling, \
 deserialization, outbound requests, cryptography and secrets, then configuration and pipelines.

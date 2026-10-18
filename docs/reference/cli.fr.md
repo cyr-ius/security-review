@@ -5,9 +5,10 @@ Le paquet installe deux commandes, une par processus (voir
 
 - `security-review-mcp` : le **serveur MCP** (stdio ou HTTP), plus `enroll` et `scan-deps` côté client ;
 - `security-review-controller` : le **contrôleur** (API REST et interface web), la base de
-  données, l'administration et les commandes de pipeline ;
+  données et l'administration ;
 - `security-review-ci` : le **client de pipeline** de l'API REST du contrôleur (jeton `ci`,
-  bibliothèque standard de Python uniquement, sans accès à la base).
+  bibliothèque standard de Python uniquement, sans accès à la base) : gate, SARIF, tendance,
+  scans du code et des dépendances.
 
 ## `security-review-mcp`
 
@@ -22,7 +23,7 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 `security-review-controller db upgrade` n'a pas été lancé.
 
 !!! note "Anciennes sous-commandes"
-    `security-review-mcp token|rules|advisories|deps|code|db` sont dépréciées :
+    `security-review-mcp token|rules|advisories|db` sont dépréciées :
     elles affichent un avertissement sur stderr et exécutent la commande
     du contrôleur. Remplacez-les par `security-review-controller …`.
 
@@ -42,18 +43,17 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | `user list` / `user set-groups NOM [--group G …]` / `user delete NOM` | Liste les comptes (jamais leur empreinte) avec leurs groupes et permissions, remplace les groupes donnés à un compte (ses groupes OIDC sont gardés ; `administrators` est créé avec le rôle `admin` s'il manque, pour restaurer un administrateur) ou le supprime (un compte OIDC supprimé n'est plus recréé par une connexion) ; le dernier détenteur de `users.manage` est conservé | [Comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs) |
 | `group list` / `group roles` | Liste les groupes (rôles, projets, membres) ou les rôles (permissions) ; ils se gèrent dans l'interface web | [Rôles, groupes et permissions](../advanced/access-control.md) |
 | `user reset-password NOM [--password-stdin]` | Remplace le mot de passe d'un compte local (généré par défaut) et ferme ses sessions | [Premier administrateur](../usage/web-interface.md#premier-administrateur) |
-| `code scan [PATH]` | Scan du dépôt complet | [Scan du code complet](../advanced/code-scan.md) |
 | `rules list` / `rules import PATH…` / `rules export` | Liste, importe (packs TOML) ou exporte les règles stockées en base | [Règles internes](../advanced/rules.md#commande-rules) |
 | `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Active, désactive (règles par défaut ou personnalisées) ou supprime des règles personnalisées | [Règles internes](../advanced/rules.md#commande-rules) |
-| `deps scan FICHIER…` | Analyse de manifestes / lockfiles / SBOM CycloneDX | [Dépendances](../advanced/dependencies.md) |
 | `advisories import PATH` / `advisories status` | Gestion de la base OSV hors ligne | [Dépendances](../advanced/dependencies.md#base-de-vulnerabilites-hors-ligne-format-osv) |
 | `advisories update [--ecosystem E …]` | Télécharge les exports OSV (`SECREVIEW_OSV_*`, proxy facultatif) et les importe ; code `2` si un écosystème échoue | [Mise à jour automatique](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur) |
 
 `serve` et les commandes qui lisent ou écrivent la base migrent d'abord le schéma, sauf avec
 `SECREVIEW_DB_AUTO_UPGRADE=false` : elles vérifient alors seulement qu'il est à jour.
 
-Les commandes de pipeline (gate, export SARIF, rapport de tendance) ne sont pas des commandes du
-contrôleur : elles sont exécutées par [`security-review-ci`](#security-review-ci), par l'API REST.
+Les commandes de pipeline (gate, export SARIF, rapport de tendance, scans du code et des
+dépendances) ne sont pas des commandes du contrôleur : elles sont exécutées par
+[`security-review-ci`](#security-review-ci), par l'API REST.
 
 ## `security-review-ci`
 
@@ -66,10 +66,14 @@ Options de toutes les sous-commandes : `--project P` (obligatoire), `--url URL` 
 | `gate --project P [--fail-on SEV] [--report-id N]` | Gate de déploiement par l'API REST | [Client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci) |
 | `sarif --project P [--include-resolved] [-o FICHIER]` | Export SARIF 2.1.0 par l'API REST | [SARIF](../advanced/sarif.md) |
 | `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Rapport de tendance par l'API REST | [Tendances](../advanced/trends.md) |
+| `code-scan [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FICHIER] [--save]` | Lit les fichiers du dépôt et les fait scanner par le contrôleur avec ses règles ; `--save` enregistre un rapport | [Scan du code complet](../advanced/code-scan.md) |
+| `deps-scan FICHIER… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--save]` | Envoie des manifestes, lockfiles ou SBOM CycloneDX au contrôleur, qui les compare à sa base d'avis ; `--save` enregistre un rapport | [Dépendances](../advanced/dependencies.md#scan-dans-un-pipeline-security-review-ci-deps-scan) |
 
+`code-scan` et `deps-scan` acceptent aussi `--repository`, `--branch`, `--commit` et `--author`,
+enregistrés avec le rapport. Ils demandent un jeton `ci` ou `admin`.
 ## Codes de sortie
 
-Les commandes de contrôle (`code scan`, `deps scan`, `security-review-ci gate`, `db status`) partagent la même
+Les commandes de contrôle (`security-review-ci gate`, `code-scan` et `deps-scan`, `scan-deps`, `db status`) partagent la même
 convention :
 
 | Code | Signification |

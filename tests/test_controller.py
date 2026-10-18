@@ -312,7 +312,17 @@ def test_token_cli_refuses_bad_rotations_and_expiries(settings, capsys, argv):
 
 
 @pytest.mark.parametrize(
-    "argv", [[], ["unknown"], ["enroll"], ["gate"], ["sarif", "--project", "shop"], ["trend"]]
+    "argv",
+    [
+        [],
+        ["unknown"],
+        ["enroll"],
+        ["gate"],
+        ["sarif", "--project", "shop"],
+        ["trend"],
+        ["code", "scan", "."],
+        ["deps", "scan", "requirements.txt"],
+    ],
 )
 def test_unknown_commands_print_the_usage(argv, capsys):
     with pytest.raises(SystemExit) as exc:
@@ -323,8 +333,9 @@ def test_unknown_commands_print_the_usage(argv, capsys):
 
 
 def test_pipeline_commands_belong_to_the_ci_client():
-    assert not {"gate", "sarif", "trend"} & cli.CONTROLLER_COMMANDS.keys()
-    assert not {"gate", "sarif", "trend"} & cli.COMMANDS.keys()
+    pipeline = {"gate", "sarif", "trend", "code", "deps", "code-scan", "deps-scan"}
+    assert not pipeline & cli.CONTROLLER_COMMANDS.keys()
+    assert not pipeline & cli.COMMANDS.keys()
 
 
 def test_help(capsys):

@@ -15,9 +15,9 @@ security-review-ci gate --project portal --fail-on high
 
 ## Client de pipeline (`security-review-ci`)
 
-`security-review-ci` est un client léger du contrôleur : il appelle les routes de pipeline, en
-lecture seule, de l'API REST (`/api/v1/ci/gate`, `/api/v1/ci/sarif`, `/api/v1/ci/trend`) et
-n'ouvre aucune base. Il n'utilise que la bibliothèque standard de Python : installez le paquet
+`security-review-ci` est un client léger du contrôleur : il appelle les routes de pipeline de
+l'API REST (`/api/v1/ci/gate`, `/api/v1/ci/sarif`, `/api/v1/ci/trend`, et
+`/api/v1/ci/scan/code` et `/api/v1/ci/scan/deps` pour les scans) et n'ouvre aucune base. Il n'utilise que la bibliothèque standard de Python : installez le paquet
 (`pip install security-review-mcp`), ou copiez le seul fichier
 `security_review_mcp/ci_client.py` sur l'agent et lancez-le avec `python3 ci_client.py`.
 
@@ -26,6 +26,8 @@ n'ouvre aucune base. Il n'utilise que la bibliothèque standard de Python : inst
 | `gate --project P [--fail-on S] [--report-id N]` | Gate du projet (voir ci-dessus) |
 | `sarif --project P [--include-resolved] [-o FICHIER]` | Journal SARIF 2.1.0 du projet ([Export SARIF](../advanced/sarif.md)) |
 | `trend --project P [--days N] [--granularity day\|week\|month] [--format markdown\|json]` | Rapport de tendance du projet ([Rapport de tendance](../advanced/trends.md)) |
+| `code-scan [PATH] --project P [--save] …` | Envoie les fichiers du dépôt au contrôleur, qui les scanne avec ses règles ([Scan du code complet](../advanced/code-scan.md)) |
+| `deps-scan FICHIER… --project P [--save] …` | Envoie manifestes et lockfiles au contrôleur, qui les compare à ses avis ([Dépendances](../advanced/dependencies.md#scan-dans-un-pipeline-security-review-ci-deps-scan)) |
 
 Options communes : `--url` (par défaut `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (lit le
 jeton sur l'entrée standard au lieu de `SECREVIEW_TOKEN`), `--cafile` (CA du certificat du
@@ -44,8 +46,8 @@ contrôleur), `--allow-http`, `--timeout` (secondes, 60 par défaut).
 
 Un jeton `ci` n'atteint que les routes de pipeline : ni `/mcp`, ni le reste de l'API REST, ni
 l'interface web. Il est **toujours restreint à des projets** : il ne voit le gate, le journal
-SARIF et la tendance que des projets sélectionnés ; un autre projet répond `404`, comme un
-projet inexistant.
+SARIF et la tendance que des projets sélectionnés, et n'enregistre des rapports de scan que pour
+eux ; un autre projet répond `404`, comme un projet inexistant.
 
 - Dans l'interface web, écran **Jetons** : **Usage** **Pipeline CI/CD**, puis cochez les
   **Projets autorisés**. Le secret n'est affiché qu'une fois.
@@ -56,8 +58,9 @@ security-review-controller token create --label jenkins-portal --role ci \
   --project portal --project portal-api
 ```
 
-Les jetons `reader`, `triager` et `admin` peuvent aussi appeler les routes de pipeline (dans
-leurs propres projets) ; les jetons `mcp`, non.
+Les jetons `reader`, `triager` et `admin` peuvent aussi appeler les routes du gate, du SARIF et
+de la tendance (dans leurs propres projets) ; les jetons `mcp`, non. Les scans, qui enregistrent
+des rapports, demandent un jeton `ci` ou `admin` (`403` sinon, sessions web comprises).
 
 ### Exemples
 

@@ -42,11 +42,9 @@ commands:
   audit        read or purge the audit log (triage decisions, tokens, enrollments, access)
   rules        manage the internal rules and checklists
   advisories   import, download or inspect the OSV advisory database
-  code         pattern-scan every file of a codebase
-  deps         scan dependency manifests and lockfiles
 
 Run `security-review-controller COMMAND --help` for the options of a command.
-Pipeline commands (gate, sarif, trend) are run by security-review-ci.
+Pipeline commands (gate, sarif, trend, code-scan, deps-scan) are run by security-review-ci.
 """
 
 

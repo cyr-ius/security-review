@@ -15,9 +15,9 @@ security-review-ci gate --project portal --fail-on high
 
 ## Pipeline client (`security-review-ci`)
 
-`security-review-ci` is a lightweight client of the controller: it calls the read-only pipeline
-routes of the REST API (`/api/v1/ci/gate`, `/api/v1/ci/sarif`, `/api/v1/ci/trend`) and opens no
-database. It only uses the Python standard library: install the package
+`security-review-ci` is a lightweight client of the controller: it calls the pipeline routes of
+the REST API (`/api/v1/ci/gate`, `/api/v1/ci/sarif`, `/api/v1/ci/trend`, and
+`/api/v1/ci/scan/code` and `/api/v1/ci/scan/deps` for the scans) and opens no database. It only uses the Python standard library: install the package
 (`pip install security-review-mcp`), or copy the single file
 `security_review_mcp/ci_client.py` to the agent and run it with `python3 ci_client.py`.
 
@@ -26,6 +26,8 @@ database. It only uses the Python standard library: install the package
 | `gate --project P [--fail-on S] [--report-id N]` | Gate of the project (see above) |
 | `sarif --project P [--include-resolved] [-o FILE]` | SARIF 2.1.0 log of the project ([SARIF export](../advanced/sarif.md)) |
 | `trend --project P [--days N] [--granularity day\|week\|month] [--format markdown\|json]` | Trend report of the project ([Trend report](../advanced/trends.md)) |
+| `code-scan [PATH] --project P [--save] …` | Sends the files of the repository to the controller, which scans them with its rules ([Whole codebase scan](../advanced/code-scan.md)) |
+| `deps-scan FILE… --project P [--save] …` | Sends manifests and lockfiles to the controller, which checks them against its advisories ([Dependencies](../advanced/dependencies.md#scan-in-a-pipeline-security-review-ci-deps-scan)) |
 
 Common options: `--url` (default `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (reads the token
 on stdin instead of `SECREVIEW_TOKEN`), `--cafile` (CA of the controller certificate),
@@ -42,8 +44,8 @@ on stdin instead of `SECREVIEW_TOKEN`), `--cafile` (CA of the controller certifi
 
 A `ci` token only reaches the pipeline routes: neither `/mcp`, nor the rest of the REST API,
 nor the web interface. It is **always restricted to projects**: it sees the gate, the SARIF
-log and the trend of the selected projects only; another project answers `404`, like a project
-that does not exist.
+log and the trend of the selected projects only, and only stores scan reports for them; another
+project answers `404`, like a project that does not exist.
 
 - In the web interface, **Tokens** screen: **Usage** **CI/CD pipeline**, then tick the
   **Allowed projects**. The secret is shown once.
@@ -54,8 +56,9 @@ security-review-controller token create --label jenkins-portal --role ci \
   --project portal --project portal-api
 ```
 
-`reader`, `triager` and `admin` tokens may also call the pipeline routes (within their own
-projects); `mcp` tokens may not.
+`reader`, `triager` and `admin` tokens may also call the gate, SARIF and trend routes (within
+their own projects); `mcp` tokens may not. The scans, which store reports, need a `ci` or
+`admin` token (`403` otherwise, web sessions included).
 
 ### Examples
 

@@ -1,11 +1,21 @@
-"""Dependency scan: parse a manifest or lockfile, check it against the advisories, run hygiene."""
+"""Dependency scan: parse a manifest or lockfile, check it against the advisories, run hygiene.
 
+Used by the ``scan_dependencies`` MCP tool and by the controller for the files sent by
+``security-review-ci deps-scan`` (``POST /api/v1/ci/scan/deps``, see scan_files and save).
+"""
+
+from collections.abc import Sequence
+from pathlib import PurePosixPath
+
+from . import services
 from .advisories import Query, advisory_status, find_vulnerabilities, severity_or_default
+from .config import get_settings
 from .dependencies import Parsed, parse_dependency_file
-from .models import SEVERITY_RANK, FindingCreate, Severity
+from .models import SEVERITY_RANK, FindingCreate, ReviewType, Severity
 
 MAX_COMPONENTS_LISTED = 200
 VULNERABLE_COMPONENT_CWE = "CWE-1395"  # Dependency on Vulnerable Third-Party Component
+REVIEWER = "security-review-ci deps-scan"
 
 
 def _check_state(parsed: Parsed, status: dict) -> tuple[str, list[str]]:
@@ -166,3 +176,83 @@ def to_findings(result: dict) -> list[FindingCreate]:
             )
         )
     return findings
+
+
+def scan_files(files: Sequence[tuple[str, str]], require_database: bool = False) -> list[dict]:
+    """Scan dependency files sent by a client (path or name, content).
+
+    Raises:
+        ValueError: Too many files, a file above SECREVIEW_MAX_DEPENDENCY_CHARS, an unsupported
+            or invalid file, or (with ``require_database``) a file whose vulnerability check
+            could not run.
+    """
+    settings = get_settings()
+    if not files:
+        raise ValueError("No dependency file to scan")
+    if len(files) > settings.max_scan_files:
+        raise ValueError(
+            f"Too many files ({len(files)}); the limit is {settings.max_scan_files} "
+            "(SECREVIEW_MAX_SCAN_FILES)"
+        )
+    results: list[dict] = []
+    for path, content in files:
+        name = PurePosixPath(path.replace("\\", "/")).name
+        if len(content) > settings.max_dependency_chars:
+            raise ValueError(
+                f"{name} is too large ({len(content)} characters); the limit is "
+                f"{settings.max_dependency_chars} (SECREVIEW_MAX_DEPENDENCY_CHARS)"
+            )
+        results.append(scan_dependencies(content, name))
+    unchecked = [r["file"] for r in results if r["vulnerability_check"] != "performed"]
+    if require_database and unchecked:
+        raise ValueError(
+            f"The vulnerability check could not run for: {', '.join(unchecked)} (no advisory "
+            "database for this ecosystem) and require_database was given"
+        )
+    return results
+
+
+def blocking_count(results: Sequence[dict], fail_on: Severity) -> int:
+    """Count the vulnerabilities and hygiene issues whose severity reaches the threshold."""
+    threshold = SEVERITY_RANK[fail_on]
+    return sum(
+        1
+        for result in results
+        for entry in result["vulnerabilities"] + result["hygiene"]
+        if SEVERITY_RANK[Severity(entry["severity"])] >= threshold
+    )
+
+
+def save(
+    results: Sequence[dict],
+    project: str,
+    repository: str | None = None,
+    branch: str | None = None,
+    commit_sha: str | None = None,
+    author: str | None = None,
+    submitted_by: str | None = None,
+) -> dict:
+    """Store the vulnerabilities and hygiene issues of the scans as one report.
+
+    Raises:
+        ValueError: Too many findings or invalid report fields (author...).
+    """
+    findings = [f for r in results for f in to_findings(r)]
+    vulnerabilities = sum(r["vulnerabilities_count"] for r in results)
+    hygiene = sum(r["hygiene_count"] for r in results)
+    return services.save_report(
+        project=project,
+        summary=(
+            f"Dependency scan of {len(results)} file(s): {vulnerabilities} vulnerable "
+            f"component(s), {hygiene} hygiene issue(s)."
+        ),
+        findings=findings,
+        repository=repository,
+        branch=branch,
+        commit_sha=commit_sha,
+        reviewer=REVIEWER,
+        scope=", ".join(r["file"] for r in results),
+        review_type=ReviewType.DEPENDENCY_SCAN,
+        author=author,
+        submitted_by=submitted_by,
+    )

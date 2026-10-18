@@ -6,7 +6,8 @@
   web, administration) tournent séparément et ne partagent que la base (voir
   [Architecture et déploiement](../advanced/architecture.md)). Le serveur MCP n'accepte que les
   rôles `mcp` et `admin`, le contrôleur que `reader`, `triager` et `admin`, plus `ci` sur ses
-  routes de pipeline en lecture seule (`/api/v1/ci/`) et nulle part ailleurs. Le contrôleur
+  routes de pipeline (`/api/v1/ci/` : gate, SARIF et tendance en lecture seule, scans qui
+  enregistrent des rapports de ses projets) et nulle part ailleurs. Le contrôleur
   n'expose aucune route d'écriture sans jeton : il peut rester sur un réseau interne, et la
   compromission du serveur MCP exposé ne donne pas accès à l'interface d'administration.
 - **Transport HTTP** : authentification MCP par jeton Bearer et TLS intégrés mais facultatifs (voir
@@ -180,9 +181,16 @@
   droits `0600` (un avertissement est journalisé si le fichier est lisible par d'autres
   utilisateurs).
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
-  serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Le scan du dépôt
-  complet est réservé à la CLI (`code scan`), lancée par l'opérateur sur un dossier qu'il
-  choisit ; elle ne suit pas les liens symboliques.
+  serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Pour le scan du
+  dépôt complet, le client de pipeline (`security-review-ci code-scan`), lancé par l'opérateur
+  sur un dossier qu'il choisit, lit les fichiers sans suivre les liens symboliques et envoie
+  leur contenu au contrôleur, qui le scanne sans lire son propre disque.
+- **Scans de pipeline** : `POST /api/v1/ci/scan/code` et `/scan/deps` demandent un jeton `ci` ou
+  `admin` (une session web, un jeton `reader` ou `triager` est refusé) et restent dans les
+  projets du jeton ; ils n'enregistrent un rapport qu'avec `save`. Le corps de la requête est
+  borné (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` au-delà, lu après la vérification du jeton),
+  comme le nombre de fichiers (`SECREVIEW_MAX_SCAN_FILES`) et leur taille ; les secrets sont
+  masqués dans les extraits et dans le rapport enregistré.
 - **Base de données** : les requêtes SQL passent par l'ORM (paramètres liés) ; les tailles
   d'entrée, le nombre de findings et la pagination sont bornés. Le schéma est migré par
   Alembic ; le serveur MCP HTTP ne le modifie jamais et refuse de servir une base qui n'est pas

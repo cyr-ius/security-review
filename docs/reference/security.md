@@ -6,7 +6,8 @@
   interface, administration) run separately and only share the database (see
   [Architecture and deployment](../advanced/architecture.md)). The MCP server only accepts
   the `mcp` and `admin` roles, the controller only `reader`, `triager` and `admin`, plus `ci`
-  on its read-only pipeline routes (`/api/v1/ci/`) and nowhere else. The
+  on its pipeline routes (`/api/v1/ci/`: gate, SARIF and trend in read only, scans that store
+  reports of its projects) and nowhere else. The
   controller exposes no write route without a token: it can stay on an internal network, and the
   compromise of the exposed MCP server gives no access to the administration interface.
 - **HTTP transport**: MCP authentication by Bearer token and TLS are built in but optional (see
@@ -174,9 +175,16 @@
   `SECREVIEW_SESSION_SECRET_FILE` with mode `0600` (a warning is logged if the file is readable
   by other users).
 - **No disk access on the MCP side**: `scan_code` only works on the given content; the server
-  reads no file from the disk, which avoids path traversals. The whole repository scan is
-  reserved for the CLI (`code scan`), run by the operator on a folder they choose; it does not
-  follow symbolic links.
+  reads no file from the disk, which avoids path traversals. For the whole repository scan,
+  the pipeline client (`security-review-ci code-scan`), run by the operator on a folder they
+  choose, reads the files without following symbolic links and sends their content to the
+  controller, which scans it without reading its own disk.
+- **Pipeline scans**: `POST /api/v1/ci/scan/code` and `/scan/deps` need a `ci` or `admin`
+  token (a web session, a `reader` or `triager` token is refused) and stay within the projects
+  of the token; they store a report only with `save`. The request body is bounded
+  (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` beyond, read after the token check), as are the
+  number of files (`SECREVIEW_MAX_SCAN_FILES`) and their size; secrets are masked in the
+  excerpts and in the stored report.
 - **Database**: SQL queries go through the ORM (bound parameters); input sizes, the number of
   findings and the pagination are bounded. The schema is migrated by Alembic; the HTTP MCP
   server never changes it and refuses to serve a database that is not at the expected

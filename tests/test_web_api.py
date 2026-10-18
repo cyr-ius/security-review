@@ -1,5 +1,6 @@
 """Web interface: REST API, permissions and static files."""
 
+import json
 import logging
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -2700,3 +2701,136 @@ def test_metrics_can_be_disabled(ui_dir, monkeypatch):
     app = TestClient(as_admin(web_api.create_app(ui_dir=str(ui_dir))), base_url="http://127.0.0.1")
 
     assert app.get("/metrics").status_code == 404
+
+
+# ── Pipeline scans (security-review-ci code-scan and deps-scan) ──────────────
+
+SECRET_LINE = 'password = "Sup3rSecret99"\n'
+
+
+def code_scan_body(project: str = "shop-api", **fields) -> dict:
+    """Body of a code scan request with a command injection and a hard-coded secret."""
+    return {
+        "project": project,
+        "files": [
+            {"path": "app/views.py", "content": "subprocess.run(cmd, shell=True)\n"},
+            {"path": "settings.properties", "content": SECRET_LINE},
+        ],
+        **fields,
+    }
+
+
+def test_ci_token_scans_code_and_stores_a_report_without_secrets(secured, ci_token):
+    body = code_scan_body(save=True, sarif=True, commit_sha="abc123", author="alice")
+    response = secured.post("/api/v1/ci/scan/code", json=body, headers=auth("ci"))
+
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert (result["blocked"], result["fail_on"], result["files_scanned"]) == (True, "high", 2)
+    assert result["sarif"]["runs"][0]["results"]
+    assert "Sup3rSecret99" not in response.text
+    report = services.get_report(result["saved_report"]["report_id"])
+    assert (report.project, report.review_type, report.submitted_by) == (
+        "shop-api",
+        ReviewType.CODE_SCAN,
+        "ci",
+    )
+    assert "Sup3rSecret99" not in report.model_dump_json()
+
+
+def test_ci_token_scans_dependencies(secured, ci_token):
+    body = {
+        "project": "shop-api",
+        "files": [{"path": "requirements.txt", "content": "flask\n"}],
+        "fail_on": "low",
+        "save": True,
+    }
+    response = secured.post("/api/v1/ci/scan/deps", json=body, headers=auth("ci"))
+
+    assert response.status_code == 200, response.text
+    result = response.json()
+    assert result["blocked"] is True and result["blocking_findings"] >= 1
+    scan = result["files"][0]
+    assert scan["vulnerability_check"] == "skipped_no_advisory_database"
+    assert "components" not in scan and scan["hygiene"][0]["rule_id"].startswith("DEP-")
+    assert services.get_report(result["saved_report"]["report_id"]).review_type == "dependency-scan"
+
+    refused = secured.post(
+        "/api/v1/ci/scan/deps", json=body | {"require_database": True}, headers=auth("ci")
+    )
+    assert refused.status_code == 422 and "require_database" in refused.text
+
+
+def test_scans_stay_in_the_projects_of_the_token(secured, ci_token):
+    for route, body in (
+        ("code", code_scan_body("billing", save=True)),
+        ("deps", {"project": "billing", "files": [{"path": "requirements.txt", "content": "a"}]}),
+    ):
+        response = secured.post(f"/api/v1/ci/scan/{route}", json=body, headers=auth("ci"))
+        assert response.status_code == 404
+    assert services.list_reports(project="billing") == []
+
+
+def test_scans_need_a_ci_or_admin_token(secured, ci_token):
+    for role in ("reader", "triager", "mcp", "metrics"):
+        response = secured.post("/api/v1/ci/scan/code", json=code_scan_body(), headers=auth(role))
+        assert response.status_code == 403, role
+    assert secured.post("/api/v1/ci/scan/code", json=code_scan_body()).status_code == 401
+    admin = secured.post("/api/v1/ci/scan/code", json=code_scan_body(), headers=auth("admin"))
+    assert admin.status_code == 200
+
+
+def test_scans_refuse_a_web_session(accounts):
+    make_user("root", USER_PASSWORD, "admin", must_change=False)
+    headers = session_headers(accounts, "root")
+
+    response = accounts.post("/api/v1/ci/scan/code", json=code_scan_body(), headers=headers)
+
+    assert response.status_code == 403 and "web session" in response.json()["detail"]
+
+
+def test_scan_request_body_is_bounded(secured, ci_token, monkeypatch):
+    monkeypatch.setattr(get_settings(), "max_scan_request_mb", 1)
+    big = code_scan_body()
+    big["files"][0]["content"] = "x" * (1024 * 1024)
+
+    declared = secured.post("/api/v1/ci/scan/code", json=big, headers=auth("ci"))
+    assert declared.status_code == 413
+    assert "SECREVIEW_MAX_SCAN_REQUEST_MB" in declared.json()["detail"]
+
+    # Without Content-Length (chunked body), the limit applies to what is read
+    payload = json.dumps(big).encode()
+
+    def chunks():
+        for start in range(0, len(payload), 65536):
+            yield payload[start : start + 65536]
+
+    headers = auth("ci") | {"Content-Type": "application/json"}
+    streamed = secured.post("/api/v1/ci/scan/code", content=chunks(), headers=headers)
+    assert streamed.status_code == 413
+    small = json.dumps(code_scan_body()).encode()
+    accepted = secured.post("/api/v1/ci/scan/code", content=iter([small]), headers=headers)
+    assert accepted.status_code == 200
+
+
+def test_scan_limits_on_files(secured, ci_token, monkeypatch):
+    monkeypatch.setattr(get_settings(), "max_scan_files", 1)
+    response = secured.post("/api/v1/ci/scan/code", json=code_scan_body(), headers=auth("ci"))
+    assert response.status_code == 422 and "SECREVIEW_MAX_SCAN_FILES" in response.text
+
+    long_path = code_scan_body()
+    long_path["files"][0]["path"] = "a/" * 300 + "b.py"
+    response = secured.post("/api/v1/ci/scan/code", json=long_path, headers=auth("ci"))
+    assert response.status_code == 422
+
+
+def test_scan_logs_cannot_be_forged_with_the_project_name(secured, caplog):
+    body = code_scan_body("shop\nINFO forged line")
+    with caplog.at_level(logging.INFO, logger="security_review_mcp.web"):
+        response = secured.post("/api/v1/ci/scan/code", json=body, headers=auth("admin"))
+
+    assert response.status_code == 200
+    messages = [
+        record.getMessage() for record in caplog.records if "Code scan" in record.getMessage()
+    ]
+    assert messages and all("\n" not in message for message in messages)

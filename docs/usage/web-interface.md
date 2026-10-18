@@ -214,7 +214,7 @@ which decides the reachable endpoints:
 | `reader` | REST API — read only | — | ✅ | — |
 | `triager` | REST API — read and triage | — | ✅ | `open`, `fixed` ¹ |
 | `admin` | CLI only | ✅ | ✅ | `open`, `fixed` ¹ |
-| `ci` | CI/CD pipeline — gate, SARIF and trend | — | pipeline routes only (`/api/v1/ci/`) | — |
+| `ci` | CI/CD pipeline — gate, SARIF, trend and scans | — | pipeline routes only (`/api/v1/ci/`), including the scans that store reports | — |
 | `metrics` | CLI only | — | `/metrics` only ([Prometheus](../advanced/audit-metrics.md#prometheus-metrics)) | — |
 
 ¹ With a token. `accepted` and `false_positive` need a person logged in to the interface

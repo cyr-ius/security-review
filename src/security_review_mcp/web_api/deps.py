@@ -14,7 +14,14 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .. import __version__, access_control, audit, services, web_users
-from ..http_server import BEARER_CHALLENGE, CI_ROUTE_ROLES, METRICS_ROLES, WEB_ROLES, Role
+from ..http_server import (
+    BEARER_CHALLENGE,
+    CI_ROUTE_ROLES,
+    METRICS_ROLES,
+    SCAN_ROUTE_ROLES,
+    WEB_ROLES,
+    Role,
+)
 from ..models import SecurityReportPublic
 from .schemas import Identity
 
@@ -109,6 +116,21 @@ def pipeline_identity(
     return _identity_with_role(request, CI_ROUTE_ROLES)
 
 
+def scan_identity(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Identity:
+    """Identity of the pipeline scans, which may store a report: a ``ci`` or ``admin`` token,
+    scoped to its projects (a web session or a reader or triager token is refused)."""
+    identity = _identity_with_role(request, SCAN_ROUTE_ROLES)
+    if identity.auth_source is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The pipeline scans need a ci or admin token, not a web session",
+        )
+    return identity
+
+
 def metrics_identity(
     request: Request,
     _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
@@ -126,6 +148,7 @@ def actor_of(identity: Identity) -> str:
 
 CurrentIdentity = Annotated[Identity, Depends(current_identity)]
 PipelineIdentity = Annotated[Identity, Depends(pipeline_identity)]
+ScanIdentity = Annotated[Identity, Depends(scan_identity)]
 MetricsIdentity = Annotated[Identity, Depends(metrics_identity)]
 
 

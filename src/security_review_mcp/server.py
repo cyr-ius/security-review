@@ -258,7 +258,8 @@ def codebase_review(
 
     Args:
         languages: Main languages, for example "python, angular" (selects the checklists).
-        scan_results: Optional output of `security-review-controller code scan . --format json`.
+        scan_results: Optional output of
+            `security-review-ci code-scan . --project <name> --format json`.
         context: Optional context (exposure, data sensitivity, authentication model...).
         focus: Optional areas to emphasize.
         report_language: Language of the reply and of the stored report.
@@ -733,7 +734,7 @@ def scan_dependencies(
     if len(content) > limit:
         raise ValueError(
             f"File too large for a tool call ({len(content)} chars, limit {limit}): run "
-            "`security-review-controller deps scan <file>` in the pipeline instead"
+            "`security-review-ci deps-scan <file> --project <name>` in the pipeline instead"
         )
     return depscan.scan_dependencies(content, filename)
 

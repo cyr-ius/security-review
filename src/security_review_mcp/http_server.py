@@ -15,9 +15,9 @@ Two apps are built, meant to run in separate processes (containers, pods) sharin
   application under ``/ui`` (see web_api).
 
 Each token carries a role that decides which of the two it may use. A ``ci`` token only reaches
-the read-only pipeline routes of the controller (``/api/v1/ci/``, see web_api and ci_client), a
-``metrics`` token only its Prometheus endpoint (``/metrics``, see metrics). An expired token
-authenticates nothing.
+the pipeline routes of the controller (``/api/v1/ci/``, see web_api and ci_client: gate, SARIF,
+trend, and the scans that store reports of its projects), a ``metrics`` token only its
+Prometheus endpoint (``/metrics``, see metrics). An expired token authenticates nothing.
 """
 
 import argparse
@@ -53,7 +53,8 @@ class Role(StrEnum):
 
     ``mcp`` (default) only reaches the MCP endpoint; ``reader`` and ``triager`` only reach the
     web API; ``admin`` reaches both MCP and the web API; ``ci`` (always restricted to projects)
-    only reaches the pipeline routes of the web API (gate, SARIF, trend); ``metrics`` (never
+    only reaches the pipeline routes of the web API (gate, SARIF, trend, and the code and
+    dependency scans, which store reports); ``metrics`` (never
     restricted to projects) only reaches the Prometheus endpoint of the controller.
     """
 
@@ -69,8 +70,10 @@ DEFAULT_ROLE = Role.MCP
 MCP_ROLES = frozenset({Role.MCP, Role.ADMIN})
 WEB_ROLES = frozenset({Role.READER, Role.TRIAGER, Role.ADMIN})
 TRIAGE_ROLES = frozenset({Role.TRIAGER, Role.ADMIN})
-# Roles accepted by the pipeline routes of the controller (read only, scoped to projects)
+# Roles accepted by the pipeline routes of the controller (scoped to projects)
 CI_ROUTE_ROLES = WEB_ROLES | {Role.CI}
+# Roles accepted by the scans of the pipeline routes, which may store a report
+SCAN_ROUTE_ROLES = frozenset({Role.CI, Role.ADMIN})
 # Roles accepted by the Prometheus endpoint of the controller
 METRICS_ROLES = frozenset({Role.METRICS, Role.ADMIN})
 

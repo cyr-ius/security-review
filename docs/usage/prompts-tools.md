@@ -114,8 +114,8 @@ findings can be told apart and filtered in the [web interface](web-interface.md)
 | `configuration-review` | prompt `configuration-review` |
 | `dependency-review` | prompt `dependency-review` |
 | `codebase-review` | prompt `codebase-review` |
-| `code-scan` | CLI `security-review-controller code scan --save` |
-| `dependency-scan` | CLI `security-review-controller deps scan --save` |
+| `code-scan` | `security-review-ci code-scan --save` |
+| `dependency-scan` | `security-review-ci deps-scan --save` |
 | `other` | any other review (manual, without a prompt) |
 
 The field is optional: a report saved without it has no type. Any other value is refused.

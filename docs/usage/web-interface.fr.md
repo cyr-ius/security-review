@@ -224,7 +224,7 @@ porte un rôle, qui détermine les endpoints accessibles :
 | `reader` | API REST — lecture seule | — | ✅ | — |
 | `triager` | API REST — lecture et triage | — | ✅ | `open`, `fixed` ¹ |
 | `admin` | CLI uniquement | ✅ | ✅ | `open`, `fixed` ¹ |
-| `ci` | Pipeline CI/CD — gate, SARIF et tendance | — | routes de pipeline seulement (`/api/v1/ci/`) | — |
+| `ci` | Pipeline CI/CD — gate, SARIF, tendance et scans | — | routes de pipeline seulement (`/api/v1/ci/`), dont les scans qui enregistrent des rapports | — |
 | `metrics` | CLI seulement | — | `/metrics` seulement ([Prometheus](../advanced/audit-metrics.md#metriques-prometheus)) | — |
 
 ¹ Avec un jeton. `accepted` et `false_positive` exigent une personne connectée à l'interface

@@ -203,6 +203,12 @@ class Settings(BaseSettings):
     max_findings_per_report: int = 500
     max_dependency_chars: int = 1_000_000
     max_list_limit: int = 100
+    # Controller only: bounds of the scans sent by security-review-ci (POST /api/v1/ci/scan/...):
+    # size of the request body (413 above), files per request, and size of one scanned source
+    # file (a larger one is reported as skipped)
+    max_scan_request_mb: int = Field(default=64, ge=1, le=1024)
+    max_scan_files: int = Field(default=10_000, ge=1)
+    max_scan_file_chars: int = Field(default=1_048_576, ge=1)
 
     @field_validator("proxy", "no_proxy")
     @classmethod

@@ -21,7 +21,7 @@ analysez-le :
 ```bash
 # Maven : écrit target/bom.json et target/bom.xml
 mvn org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
-security-review-controller deps scan target/bom.json --require-database
+security-review-ci deps-scan target/bom.json --project mon-projet --require-database
 ```
 
 Avec Gradle, la tâche `cyclonedxBom` du plugin `org.cyclonedx.bom` produit le même fichier ;
@@ -132,19 +132,29 @@ security-review-controller advisories update --ecosystem npm  # option répétab
 Le contrôleur télécharge au plus quelques centaines de Mio par jour (l'export npm est le plus
 gros) : prévoyez l'espace correspondant dans son dossier temporaire (`/tmp`).
 
-## Scan en pipeline
+## Scan dans un pipeline (`security-review-ci deps-scan`)
 
-Pour les gros lockfiles, préférez la CLI à l'outil MCP, limité à
-`SECREVIEW_MAX_DEPENDENCY_CHARS` :
+Dans un pipeline, le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci)
+envoie les fichiers de dépendances au contrôleur, qui les compare à sa base d'avis et, avec
+`--save`, enregistre un rapport `dependency-scan` du projet. Le pipeline n'a besoin ni de la
+base ni du paquet, seulement d'un [jeton `ci`](../usage/gate.md#jeton-ci-et-projets-visibles)
+(ou `admin`) du projet :
 
 ```bash
-security-review-controller deps scan package-lock.json requirements.txt \
+export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
+export SECREVIEW_TOKEN=...   # jeton ci limité à mon-projet
+security-review-ci deps-scan package-lock.json requirements.txt \
     --fail-on high --require-database --project mon-projet --save
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur
 ```
 
-Avec `--save`, `--author` enregistre le nom d'utilisateur du développeur avec le rapport (voir
-[auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)).
+- `--require-database` refuse le scan (code `2`, rien n'est enregistré) quand la vérification
+  des vulnérabilités ne peut pas avoir lieu pour un fichier.
+- Avec `--save`, `--author` enregistre le nom d'utilisateur du développeur avec le rapport (voir
+  [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)), `--repository`,
+  `--branch` et `--commit` le contexte ; le libellé du jeton est enregistré comme appareil.
+- Chaque fichier est limité au `SECREVIEW_MAX_DEPENDENCY_CHARS` du contrôleur, la requête à
+  `SECREVIEW_MAX_SCAN_REQUEST_MB`. Les liens symboliques ne sont pas lus.
 
 ## Scan avec un serveur partagé (hook de commit)
 
@@ -157,15 +167,15 @@ faut un jeton de rôle `mcp` ou `admin` (voir
 export SECREVIEW_SERVER_URL=https://secreview.example.com
 export SECREVIEW_TOKEN=<token>
 security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
-# exit code: 0 = ok, 1 = blocked, 2 = error (server unreachable, token refused...)
+# code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (serveur injoignable, jeton refusé...)
 ```
 
 Un jeton refusé (absent, inconnu, révoqué, expiré ou pas encore approuvé) se termine par une
 erreur qui propose `security-review-mcp enroll` (voir
 [jeton refusé](http.md#jeton-refuse-nouvel-enrolement)).
 
-- Mêmes options et même sortie que `deps scan` (`--fail-on`, `--format`, `--require-database`) ;
-  rien n'est enregistré (pas de `--save`).
+- Mêmes options et même sortie que `security-review-ci deps-scan` (`--fail-on`, `--format`,
+  `--require-database`) ; rien n'est enregistré (pas de `--save`).
 - `--url` remplace `SECREVIEW_SERVER_URL`, `--token-stdin` lit le jeton sur stdin au lieu de
   `SECREVIEW_TOKEN`. Les deux variables peuvent aussi être définies dans le fichier `.env` du
   dossier (ne le commitez jamais).

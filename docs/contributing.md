@@ -96,7 +96,7 @@ src/security_review_mcp/
 ├── web_users.py   # web interface accounts, local (scrypt) or OIDC (created on the fly), sessions, initial admin
 ├── enrollment.py  # `enroll` client: token request to a shared server
 ├── remote_scan.py # `scan-deps` client: dependency scan with a shared server
-├── ci_client.py   # `security-review-ci`: pipeline client of the controller (standard library only)
+├── ci_client.py   # `security-review-ci`: pipeline client of the controller, file listing (standard library only)
 ├── enrollment_api.py  # public POST /api/v1/enroll endpoint of the MCP server
 ├── web_api/       # controller: REST API /api/v1 and files of the application (/ui)
 │   ├── __init__.py    # create_app, static files of /ui, assembly of the routers
@@ -111,8 +111,8 @@ src/security_review_mcp/
 ├── rules_loader.py    # rule validation, reading of the TOML packs and of the default file
 ├── rule_store.py  # rules in the database: seeding, import/export, enabling, deletion
 ├── registry.py    # active rules/checklists (read from the database), reload
-├── cli.py         # db, advisories, deps, code, rules, token, audit, enroll, scan-deps commands
-├── codescan.py    # whole codebase scan (file list, language, findings)
+├── cli.py         # db, advisories, rules, token, audit, enroll, scan-deps commands
+├── codescan.py    # whole codebase scan of the files sent by security-review-ci (findings)
 ├── sarif.py       # SARIF 2.1.0 export
 ├── trends.py      # trend report
 ├── versions.py    # version comparison
