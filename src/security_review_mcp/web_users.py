@@ -26,7 +26,7 @@ session must name the same username, so that a session never opens another accou
 the id of a deleted one.
 
 The first administrator is the local user ``SECREVIEW_ADMIN_USERNAME`` (``admin``), created on
-the first start of the controller with ``SECREVIEW_ADMIN_PASSWORD`` or a random password,
+the first start of the controller with a random password that only ``user reset-password`` sets,
 member of the group ``administrators``. The last user that holds ``users.manage`` can be
 neither deleted nor lose that permission, so that the web interface always keeps an
 administrator.
@@ -599,29 +599,28 @@ def authenticate(username: str, password: str, address: str | None = None) -> di
     return None
 
 
-def ensure_bootstrap_admin(username: str = "admin", password: str | None = None) -> str | None:
-    """Create the local administrator ``username`` while no web user exists.
+def ensure_bootstrap_admin(username: str = "admin") -> bool:
+    """Create the local administrator ``username`` while no web user exists; True if created.
 
-    The user joins the group ``administrators`` (created with the ``admin`` role when missing)
-    and must change its password at its first login. Without ``password`` a random one is set.
-    Return the password only when the user was created.
+    The user joins the group ``administrators`` (created with the ``admin`` role when missing).
+    Its random password is never returned nor logged: an operator sets one with
+    ``security-review-controller user reset-password``, and the user changes it at its first
+    login.
 
     Raises:
-        ValueError: If the username or the given password does not follow the policy.
+        ValueError: If the username is invalid.
     """
     name = clean_username(username)
-    if password is not None:
-        clean_password(password)
     if has_users():
-        return None
+        return False
     with session_scope() as session:
         group_id = access_control.ensure_admin_group(session).id
     try:
-        created = create_user(name, password, [group_id], created_by="bootstrap")  # type: ignore[list-item]
+        create_user(name, None, [group_id], created_by="bootstrap")  # type: ignore[list-item]
     except ValueError:
         # Another instance sharing the database created it first
-        return None
-    return created.get("password", password)
+        return False
+    return True
 
 
 # ── Access given at the approval of an enrollment ────────────────────────────

@@ -352,12 +352,10 @@ identifiant et mot de passe, la réinitialisation et **Mon compte** le refusent.
 ### Premier administrateur
 
 À son premier démarrage, tant qu'aucun compte n'existe, le contrôleur crée le compte local
-**`admin`** (`SECREVIEW_ADMIN_USERNAME`), membre du groupe `administrators` (rôle `admin`) :
-
-- avec `SECREVIEW_ADMIN_PASSWORD`, il reçoit ce mot de passe (qui doit respecter la politique de
-  mot de passe, sinon le contrôleur refuse de démarrer), jamais écrit dans les journaux ;
-- sinon il reçoit un mot de passe aléatoire, que personne ne connaît : définissez-en un avec la
-  CLI, qui l'affiche une fois, puis connectez-vous avec :
+**`admin`** (`SECREVIEW_ADMIN_USERNAME`), membre du groupe `administrators` (rôle `admin`),
+avec un mot de passe aléatoire que personne ne connaît et qui n'est jamais écrit dans les
+journaux. Le seul moyen d'obtenir un mot de passe est la CLI, qui en définit un nouveau et
+l'affiche une fois :
 
 ```bash
 security-review-controller user reset-password admin
@@ -365,13 +363,8 @@ security-review-controller user reset-password admin
 ```
 
 ```
-WARNING security_review_mcp.controller: Initial Web UI administrator 'admin' created with a random password: set one with `security-review-controller user reset-password admin`
+WARNING security_review_mcp.controller: Initial Web UI administrator 'admin' created: set its password with `security-review-controller user reset-password admin`
 ```
-
-Pour un premier essai seulement, `SECREVIEW_ADMIN_PASSWORD_LOG=true` écrit plutôt le mot de passe
-aléatoire une fois dans les journaux du contrôleur (`Initial Web UI administrator created: user
-'admin', password (shown once): …`) : les journaux sont souvent conservés et partagés, préférez
-la CLI.
 
 Traitez ce mot de passe comme un secret et connectez-vous avec `admin`. L'interface **exige alors
 un nouveau mot de passe** avant toute autre chose : elle ouvre **Mon compte**, et l'API refuse
@@ -512,9 +505,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 |---|---|---|
 | `SECREVIEW_WEB_UI` | `true` | Sert l'interface sur `/ui` ; à `false`, le contrôleur ne sert que l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
-| `SECREVIEW_ADMIN_USERNAME` | `admin` | Nom du [premier administrateur](#premier-administrateur), créé au premier démarrage du contrôleur tant qu'aucun compte n'existe |
-| `SECREVIEW_ADMIN_PASSWORD` | — | Son mot de passe initial (à changer à la première connexion) ; absent : aléatoire, défini avec `user reset-password` |
-| `SECREVIEW_ADMIN_PASSWORD_LOG` | `false` | Écrit le mot de passe aléatoire une fois dans les journaux (premier essai seulement) |
+| `SECREVIEW_ADMIN_USERNAME` | `admin` | Nom du [premier administrateur](#premier-administrateur), créé au premier démarrage du contrôleur tant qu'aucun compte n'existe ; son mot de passe se définit avec `user reset-password` |
 | `SECREVIEW_OIDC_ONLY` | `false` | Avec le OIDC activé, refuse la connexion par mot de passe des comptes locaux ([OIDC seul](../advanced/sso.md#oidc-seul)) |
 | `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques |
 | `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | Fichier du secret quand `SECREVIEW_SECRET_KEY` n'est pas défini, généré au premier démarrage |

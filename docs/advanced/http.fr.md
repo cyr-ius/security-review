@@ -133,9 +133,8 @@ stdio, il n'y a pas de jeton, donc pas de restriction.
 
 À son premier démarrage, le **contrôleur** crée le
 [compte](../usage/web-interface.md#comptes-utilisateurs) `admin` de l'interface web
-(`SECREVIEW_ADMIN_USERNAME`), avec `SECREVIEW_ADMIN_PASSWORD` ou un mot de passe aléatoire que
-personne ne connaît : définissez-le avec la CLI, qui l'affiche une fois (l'ancien est aussitôt
-invalidé), voir le [premier administrateur](../usage/web-interface.md#premier-administrateur).
+(`SECREVIEW_ADMIN_USERNAME`), avec un mot de passe aléatoire que personne ne connaît :
+définissez-le avec la CLI, qui l'affiche une fois (l'ancien est aussitôt invalidé), voir le [premier administrateur](../usage/web-interface.md#premier-administrateur).
 Ce compte n'ouvre que l'interface web et l'API REST, jamais `/mcp` : pour un agent, créez un
 jeton (`token create`).
 

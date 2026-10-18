@@ -92,8 +92,8 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db
 
 # The admin password hash and the project tokens are stored in the database. At its first start
-# the controller creates the administrator "admin" (SECREVIEW_ADMIN_USERNAME) with
-# SECREVIEW_ADMIN_PASSWORD, or a random password replaced with
+# the controller creates the administrator "admin" (SECREVIEW_ADMIN_USERNAME) with a random
+# password, never logged, replaced with
 #   docker compose exec controller security-review-controller user reset-password admin
 
 # Reports database (SQLite) lives in the volume, with the internal rules imported with

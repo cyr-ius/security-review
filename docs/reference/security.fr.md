@@ -108,11 +108,10 @@
   TCP ou socket Unix, ni TLS ni proxy : passez par un relais local pour le TLS) ; les
   événements ne contiennent aucun secret (détails masqués), et le serveur MCP ne se connecte
   toujours nulle part.
-- **Administrateur initial** : créé par le contrôleur à son premier démarrage, son mot de passe
-  est `SECREVIEW_ADMIN_PASSWORD` (jamais journalisé) ou un mot de passe aléatoire que personne ne
-  connaît tant qu'un opérateur ne l'a pas défini avec `user reset-password` ;
-  `SECREVIEW_ADMIN_PASSWORD_LOG` écrit le mot de passe aléatoire dans les journaux, pour un
-  premier essai seulement. Avec `SECREVIEW_OIDC_ONLY=true` et le OIDC activé, la connexion par mot
+- **Administrateur initial** : créé par le contrôleur à son premier démarrage avec un mot de
+  passe aléatoire que personne ne connaît, jamais journalisé ni passé par une variable ; le seul
+  moyen d'obtenir un mot de passe est `security-review-controller user reset-password`, lancé par
+  un opérateur, qui l'affiche une fois. Avec `SECREVIEW_OIDC_ONLY=true` et le OIDC activé, la connexion par mot
   de passe des comptes locaux est refusée (`403`) ; une configuration OIDC désactivée ou invalide
   ne bloque jamais les comptes locaux.
 - **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton de rôle web ;

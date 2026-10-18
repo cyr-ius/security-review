@@ -75,8 +75,8 @@ docker run -d --name secreview-mcp -p 8443:8443 \
 
 Mounted files must be readable by the container user (uid `10001`). The MCP server refuses to
 start while the schema is not migrated. At the first start of the controller, the `admin`
-account is created with `SECREVIEW_ADMIN_PASSWORD`, or a random password that nobody knows;
-only its digest is kept, in the database. Set it with
+account is created with a random password that nobody knows and that is never logged; only its
+digest is kept, in the database. Set it with
 `docker exec secreview-controller security-review-controller user reset-password admin`
 (printed once), log in to the interface (`/ui/`) with the `admin` user name, then choose your
 own password in **My account**. Then create
@@ -86,11 +86,10 @@ one account per person in the **Users** screen (see the
 The project tokens created from the **Tokens** screen are also stored as digests in the
 database, like every token (see [Bearer tokens](http.md#bearer-tokens)).
 
-!!! warning "Keep the initial password out of the logs"
-    The initial password is a secret: pass `SECREVIEW_ADMIN_PASSWORD` as a secret (never in the
-    image), or use the CLI above. `SECREVIEW_ADMIN_PASSWORD_LOG=true` writes the random one in
-    the Docker logs: for a first test only, restrict access to the logs then. If you lose it,
-    run `user reset-password admin` again (the old one is invalidated at once).
+!!! warning "The CLI is the only way to the initial password"
+    No variable sets it and the logs never show it: run `user reset-password admin` in the
+    container, and handle what it prints as a secret. If you lose it, run the command again (the
+    old one is invalidated at once).
 
 ## Docker Compose with PostgreSQL
 

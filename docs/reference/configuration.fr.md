@@ -13,9 +13,7 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_TRANSPORT` | `stdio` | MCP | `stdio` ou `streamable-http` |
 | `SECREVIEW_HOST` | `127.0.0.1` | les deux | Adresse d'écoute (HTTP) |
 | `DOCKER_MCP_PORT` | `8000` | les deux | Port d'écoute (HTTP) |
-| `SECREVIEW_ADMIN_USERNAME` | `admin` | Contrôleur | Nom du [premier administrateur](../usage/web-interface.md#premier-administrateur), créé au premier démarrage tant qu'aucun compte n'existe (groupe `administrators`) |
-| `SECREVIEW_ADMIN_PASSWORD` | — | Contrôleur | Mot de passe initial de ce compte, à changer à la première connexion, jamais journalisé (il doit respecter la politique de mot de passe) ; absent : un mot de passe aléatoire, défini avec `security-review-controller user reset-password` |
-| `SECREVIEW_ADMIN_PASSWORD_LOG` | `false` | Contrôleur | Écrit le mot de passe aléatoire du premier administrateur une fois dans les journaux (premier essai seulement) |
+| `SECREVIEW_ADMIN_USERNAME` | `admin` | Contrôleur | Nom du [premier administrateur](../usage/web-interface.md#premier-administrateur), créé au premier démarrage tant qu'aucun compte n'existe (groupe `administrators`), avec un mot de passe aléatoire jamais journalisé : définissez-le avec `security-review-controller user reset-password` |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | MCP | Tant qu'aucun jeton n'existe, accepte toute requête sur `/mcp` même si le serveur n'écoute pas sur localhost (par défaut il reste alors fermé, voir [Jetons Bearer](../advanced/http.md#jetons-bearer)) ; à réserver aux tests sur un réseau isolé |
 | `SECREVIEW_SECRET_KEY` | — | Contrôleur | Secret de signature des sessions de l'interface web (comptes et OIDC), 32 caractères au moins, identique sur toutes les répliques ; sans lui, lu dans `SECREVIEW_SECRET_KEY_FILE` |
 | `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | Contrôleur | Fichier du secret de session quand `SECREVIEW_SECRET_KEY` n'est pas défini : généré au premier démarrage (droits `0600`), relu aux suivants ; `""` : un secret aléatoire à chaque démarrage (les sessions se terminent au redémarrage) |

@@ -24,7 +24,7 @@ from . import (
     web_api,
     web_users,
 )
-from .config import Settings, configure_logging, get_settings, secret_value
+from .config import Settings, configure_logging, get_settings
 from .database import SchemaError, init_db
 
 logger = logging.getLogger("security_review_mcp.controller")
@@ -51,30 +51,17 @@ Pipeline commands (gate, sarif, trend) are run by security-review-ci.
 """
 
 
-def _log_bootstrap_admin(password: str | None, settings: Settings) -> None:
-    """Tell the operator how to log in once the initial administrator was created (``password``
-    is None when it already existed). The password is logged only with SECREVIEW_ADMIN_PASSWORD_LOG
-    when it was generated, never when it came from SECREVIEW_ADMIN_PASSWORD."""
-    if password is None:
+def _log_bootstrap_admin(created: bool, settings: Settings) -> None:
+    """Tell the operator how to set the password of the initial administrator, once created."""
+    if not created:
         return
     name = settings.admin_username.strip()
-    if settings.admin_password is not None:
-        logger.warning(
-            "Initial Web UI administrator '%s' created with SECREVIEW_ADMIN_PASSWORD", name
-        )
-    elif settings.admin_password_log:
-        logger.warning(
-            "Initial Web UI administrator created: user '%s', password (shown once): %s",
-            name,
-            password,
-        )
-    else:
-        logger.warning(
-            "Initial Web UI administrator '%s' created with a random password: set one with "
-            "`security-review-controller user reset-password %s`",
-            name,
-            name,
-        )
+    logger.warning(
+        "Initial Web UI administrator '%s' created: set its password with "
+        "`security-review-controller user reset-password %s`",
+        name,
+        name,
+    )
 
 
 def serve(argv: list[str]) -> None:
@@ -101,13 +88,11 @@ def serve(argv: list[str]) -> None:
         if settings.osv_auto_update:
             advisory_sync.validate_settings(settings)
         audit_syslog.validate_settings(settings)
-        bootstrap_password = web_users.ensure_bootstrap_admin(
-            settings.admin_username, secret_value(settings.admin_password)
-        )
+        bootstrap_created = web_users.ensure_bootstrap_admin(settings.admin_username)
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
     registry.reload()
-    _log_bootstrap_admin(bootstrap_password, settings)
+    _log_bootstrap_admin(bootstrap_created, settings)
     if settings.web_ui:
         logger.info("Web interface enabled on /ui (REST API on /api/v1)")
     oidc_login = web_app.state.oidc.current()

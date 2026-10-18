@@ -127,8 +127,8 @@ With stdio, there is no token, hence no restriction.
 
 At its first start, the **controller** creates the `admin`
 [account](../usage/web-interface.md#user-accounts) of the web interface
-(`SECREVIEW_ADMIN_USERNAME`), with `SECREVIEW_ADMIN_PASSWORD` or a random password that nobody
-knows: set it with the CLI, which prints it once (the old one is invalidated at once), see the
+(`SECREVIEW_ADMIN_USERNAME`), with a random password that nobody knows: set it with the CLI,
+which prints it once (the old one is invalidated at once), see the
 [first administrator](../usage/web-interface.md#first-administrator). This account only opens
 the web interface and the REST API, never `/mcp`: for an agent, create a token
 (`token create`).

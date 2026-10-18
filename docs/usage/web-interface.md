@@ -341,12 +341,9 @@ reset and **My account** refuse it.
 ### First administrator
 
 At its first start, while no account exists, the controller creates the local account
-**`admin`** (`SECREVIEW_ADMIN_USERNAME`), member of the `administrators` group (`admin` role):
-
-- with `SECREVIEW_ADMIN_PASSWORD`, it gets that password (it must follow the password policy,
-  otherwise the controller refuses to start), never written to the logs;
-- otherwise it gets a random password, which nobody knows: set one with the CLI, which prints it
-  once, then log in with it:
+**`admin`** (`SECREVIEW_ADMIN_USERNAME`), member of the `administrators` group (`admin` role),
+with a random password that nobody knows and that is never written to the logs. The only way to
+a password is the CLI, which sets a new one and prints it once:
 
 ```bash
 security-review-controller user reset-password admin
@@ -354,12 +351,8 @@ security-review-controller user reset-password admin
 ```
 
 ```
-WARNING security_review_mcp.controller: Initial Web UI administrator 'admin' created with a random password: set one with `security-review-controller user reset-password admin`
+WARNING security_review_mcp.controller: Initial Web UI administrator 'admin' created: set its password with `security-review-controller user reset-password admin`
 ```
-
-For a first test only, `SECREVIEW_ADMIN_PASSWORD_LOG=true` writes the random password once in
-the logs of the controller instead (`Initial Web UI administrator created: user 'admin', password
-(shown once): …`): logs are often kept and shared, so prefer the CLI.
 
 Handle this password as a secret and log in with `admin`. The interface then **requires a new
 password** before anything else: it opens **My account**, and the API refuses every other route
@@ -495,9 +488,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 |---|---|---|
 | `SECREVIEW_WEB_UI` | `true` | Serves the interface on `/ui`; when `false`, the controller only serves the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the application (default: the one of the package) |
-| `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](#first-administrator), created at the first start of the controller while no account exists |
-| `SECREVIEW_ADMIN_PASSWORD` | — | Its initial password (to change at the first login); unset: random, set with `user reset-password` |
-| `SECREVIEW_ADMIN_PASSWORD_LOG` | `false` | Writes the random password once in the logs (first test only) |
+| `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](#first-administrator), created at the first start of the controller while no account exists; its password is set with `user reset-password` |
 | `SECREVIEW_OIDC_ONLY` | `false` | With OIDC enabled, refuses the password login of the local accounts ([OIDC only](../advanced/sso.md#oidc-only)) |
 | `SECREVIEW_SECRET_KEY` | — | Signing secret of the sessions (at least 32 characters), identical on every replica |
 | `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | File of the secret when `SECREVIEW_SECRET_KEY` is unset, generated at the first start |

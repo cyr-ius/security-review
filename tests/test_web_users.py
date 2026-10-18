@@ -221,10 +221,11 @@ def test_bootstrap_admin_must_change_its_password():
 
 
 def test_bootstrap_admin_is_created_once_while_no_user_exists():
-    password = web_users.ensure_bootstrap_admin()
-
-    assert password is not None
-    assert web_users.ensure_bootstrap_admin() is None
+    assert web_users.ensure_bootstrap_admin() is True
+    assert web_users.ensure_bootstrap_admin() is False
+    # Its random password is never handed out: the operator sets one with the CLI
+    admin = web_users.find_user("admin")
+    password = web_users.set_password(admin["id"])["password"]
     user = web_users.authenticate("admin", password)
     assert (user["effective_role"], user["created_by"]) == ("admin", "bootstrap")
     assert [group["name"] for group in user["groups"]] == ["administrators"]
@@ -233,7 +234,7 @@ def test_bootstrap_admin_is_created_once_while_no_user_exists():
 def test_no_bootstrap_admin_once_another_user_exists():
     make_user("alice", PASSWORD, "reader")
 
-    assert web_users.ensure_bootstrap_admin() is None
+    assert web_users.ensure_bootstrap_admin() is False
     assert [user["username"] for user in web_users.list_users()] == ["alice"]
 
 

@@ -107,10 +107,10 @@
   [audit events](../advanced/audit-metrics.md#forwarding-to-syslog) to that syslog server (UDP,
   TCP or Unix socket, neither TLS nor proxy: use a local relay for TLS); the events hold no
   secret (masked details), and the MCP server still connects nowhere.
-- **Initial administrator**: created by the controller at its first start, its password is
-  `SECREVIEW_ADMIN_PASSWORD` (never logged) or a random one that nobody knows until an operator
-  sets it with `user reset-password`; `SECREVIEW_ADMIN_PASSWORD_LOG` writes the random one to
-  the logs, for a first test only. With `SECREVIEW_OIDC_ONLY=true` and OIDC enabled, the
+- **Initial administrator**: created by the controller at its first start with a random
+  password that nobody knows, never logged nor passed through a variable; the only way to a
+  password is `security-review-controller user reset-password`, run by an operator, which
+  prints it once. With `SECREVIEW_OIDC_ONLY=true` and OIDC enabled, the
   password login of the local accounts is refused (`403`); a disabled or invalid OIDC
   configuration never locks the local accounts out.
 - **Web interface** (controller): the REST API always requires a session or a token with a web

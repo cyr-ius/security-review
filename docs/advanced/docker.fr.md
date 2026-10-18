@@ -75,8 +75,8 @@ docker run -d --name secreview-mcp -p 8443:8443 \
 
 Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Le
 serveur MCP refuse de démarrer tant que le schéma n'est pas migré. Au premier démarrage du
-contrôleur, le compte `admin` est créé avec `SECREVIEW_ADMIN_PASSWORD`, ou un mot de passe
-aléatoire que personne ne connaît ; seule son empreinte est conservée, dans la base de données.
+contrôleur, le compte `admin` est créé avec un mot de passe aléatoire que personne ne connaît
+et qui n'est jamais journalisé ; seule son empreinte est conservée, dans la base de données.
 Définissez-le avec
 `docker exec secreview-controller security-review-controller user reset-password admin`
 (affiché une fois), connectez-vous sur l'interface (`/ui/`) avec l'identifiant `admin`, puis
@@ -87,12 +87,10 @@ personne dans l'écran **Utilisateurs** (voir les
 Les jetons projet créés depuis l'écran **Jetons** sont eux aussi stockés sous forme d'empreinte
 dans la base, comme tous les jetons (voir [jetons Bearer](http.md#jetons-bearer)).
 
-!!! warning "Gardez le mot de passe initial hors des journaux"
-    Le mot de passe initial est un secret : passez `SECREVIEW_ADMIN_PASSWORD` comme un secret
-    (jamais dans l'image), ou utilisez la CLI ci-dessus. `SECREVIEW_ADMIN_PASSWORD_LOG=true` écrit
-    le mot de passe aléatoire dans les logs Docker : pour un premier essai seulement, limitez
-    alors l'accès aux journaux. Si vous le perdez, relancez `user reset-password admin` (l'ancien
-    est aussitôt invalidé).
+!!! warning "La CLI est le seul moyen d'obtenir le mot de passe initial"
+    Aucune variable ne le définit et les journaux ne l'affichent jamais : lancez
+    `user reset-password admin` dans le conteneur, et traitez ce qu'elle affiche comme un secret.
+    Si vous le perdez, relancez la commande (l'ancien est aussitôt invalidé).
 
 ## Docker Compose avec PostgreSQL
 

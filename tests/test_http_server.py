@@ -531,9 +531,7 @@ def test_http_mcp_server_refuses_a_database_that_was_not_migrated(monkeypatch, c
 
 
 def test_http_mcp_server_creates_no_bootstrap_admin(monkeypatch, captured_run):
-    monkeypatch.setattr(
-        server, "get_settings", lambda: make_settings(admin_password="Initial-admin-pa55word")
-    )
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings())
 
     server.main(["--transport", "streamable-http"])
 

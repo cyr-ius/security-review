@@ -130,22 +130,25 @@ def test_serve_does_not_serve_mcp_nor_the_public_enrollment(settings, captured_r
     assert token_store.list_enrollments() == []
 
 
-def test_serve_logs_bootstrap_password_only_when_created(settings, caplog, captured_run, ui_dir):
-    settings(admin_password_log=True)
-
+def test_serve_creates_the_admin_once_without_logging_any_password(
+    settings, caplog, capsys, captured_run, ui_dir
+):
     with caplog.at_level("WARNING", logger="security_review_mcp"):
         controller.main(["serve"])
-        messages = [record.message for record in caplog.records]
-        assert sum("Initial Web UI administrator created" in message for message in messages) == 1
+        (message,) = [r.message for r in caplog.records if "administrator" in r.message]
         caplog.clear()
         controller.main(["serve"])
 
-    assert not any(
-        "Initial Web UI administrator created" in record.message for record in caplog.records
-    )
-    (password,) = [
-        message.rsplit(" ", 1)[1] for message in messages if "administrator created" in message
-    ]
+    assert "user reset-password admin" in message
+    assert not any("administrator" in record.message for record in caplog.records)
+    (admin,) = web_users.list_users()
+    assert (admin["username"], admin["must_change_password"]) == ("admin", True)
+    assert [group["name"] for group in admin["groups"]] == ["administrators"]
+    # The only way to a password: the CLI, which prints it once
+    capsys.readouterr()
+    assert cli.run(["user", "reset-password", "admin"]) == cli.EXIT_PASSED
+    password = json.loads(capsys.readouterr().out)["password"]
+    assert password not in caplog.text and password not in message
     client = TestClient(captured_run[-1]["app"], base_url="http://127.0.0.1")
     login = client.post("/api/v1/auth/login", json={"username": "admin", "password": password})
     assert login.status_code == 200
@@ -160,52 +163,25 @@ def test_serve_logs_bootstrap_password_only_when_created(settings, caplog, captu
     assert (
         client.get("/api/v1/me", headers={"Authorization": f"Bearer {password}"}).status_code == 401
     )
-
-
-def test_serve_creates_the_admin_without_logging_its_random_password(
-    settings, caplog, captured_run, ui_dir
-):
-    with caplog.at_level("WARNING", logger="security_review_mcp"):
-        controller.main(["serve"])
-
-    (message,) = [r.message for r in caplog.records if "administrator" in r.message]
-    assert "user reset-password admin" in message
-    (admin,) = web_users.list_users()
-    assert (admin["username"], admin["must_change_password"]) == ("admin", True)
-    assert [group["name"] for group in admin["groups"]] == ["administrators"]
-    # The operator sets a password with the CLI, which prints it once
-    password = web_users.set_password(admin["id"])["password"]
-    assert password not in caplog.text
-    assert web_users.authenticate("admin", password)["effective_role"] == "admin"
     assert STORE.has_tokens() is False
 
 
-def test_serve_creates_the_admin_with_the_configured_name_and_password(
-    settings, caplog, captured_run, ui_dir
-):
-    password = "Initial-admin-pa55word"  # secreview:ignore GEN-004 test value
-    settings(admin_username="root", admin_password=password, admin_password_log=True)
+def test_serve_creates_the_admin_with_the_configured_name(settings, captured_run, ui_dir):
+    settings(admin_username="root")
 
-    with caplog.at_level("WARNING", logger="security_review_mcp"):
-        controller.main(["serve"])
+    controller.main(["serve"])
 
-    assert password not in caplog.text and "SECREVIEW_ADMIN_PASSWORD" in caplog.text
-    user = web_users.authenticate("root", password)
-    assert (user["effective_role"], user["must_change_password"]) == ("admin", True)
+    assert [user["username"] for user in web_users.list_users()] == ["root"]
 
 
-@pytest.mark.parametrize(
-    ("values", "expected"),
-    [({"admin_password": "short"}, "12"), ({"admin_username": "bad name!"}, "Username")],
-)
-def test_serve_refuses_an_invalid_admin_setting(settings, captured_run, capsys, values, expected):
-    settings(**values)
+def test_serve_refuses_an_invalid_admin_username(settings, captured_run, capsys):
+    settings(admin_username="bad name!")
 
     with pytest.raises(SystemExit) as exc:
         controller.main(["serve"])
 
     assert exc.value.code == 2 and not captured_run
-    assert expected in capsys.readouterr().err
+    assert "Username" in capsys.readouterr().err
     assert web_users.has_users() is False
 
 

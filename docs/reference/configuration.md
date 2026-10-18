@@ -13,9 +13,7 @@ or both.
 | `SECREVIEW_TRANSPORT` | `stdio` | MCP | `stdio` or `streamable-http` |
 | `SECREVIEW_HOST` | `127.0.0.1` | both | Listening address (HTTP) |
 | `DOCKER_MCP_PORT` | `8000` | both | Listening port (HTTP) |
-| `SECREVIEW_ADMIN_USERNAME` | `admin` | Controller | Name of the [first administrator](../usage/web-interface.md#first-administrator), created at the first start while no account exists (`administrators` group) |
-| `SECREVIEW_ADMIN_PASSWORD` | — | Controller | Initial password of that account, to change at the first login, never logged (it must follow the password policy); unset: a random password, set with `security-review-controller user reset-password` |
-| `SECREVIEW_ADMIN_PASSWORD_LOG` | `false` | Controller | Writes the random password of the first administrator once in the logs (first test only) |
+| `SECREVIEW_ADMIN_USERNAME` | `admin` | Controller | Name of the [first administrator](../usage/web-interface.md#first-administrator), created at the first start while no account exists (`administrators` group), with a random password never logged: set it with `security-review-controller user reset-password` |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | MCP | While no token exists, accepts every request on `/mcp` even when the server does not listen on localhost (by default it then stays closed, see [Bearer tokens](../advanced/http.md#bearer-tokens)); only for tests on an isolated network |
 | `SECREVIEW_SECRET_KEY` | — | Controller | Signing secret of the web interface sessions (accounts and OIDC), at least 32 characters, identical on every replica; without it, read from `SECREVIEW_SECRET_KEY_FILE` |
 | `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | Controller | File of the session secret when `SECREVIEW_SECRET_KEY` is unset: generated at the first start (mode `0600`), read at the next ones; `""`: a random secret at every start (sessions end at restart) |

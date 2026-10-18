@@ -60,14 +60,11 @@ class Settings(BaseSettings):
     # Bearer authentication of the HTTP MCP server and of the controller. Tokens are stored in
     # the database (SHA-256 digests only) and managed with `security-review-controller token`.
     # Controller only: on its first start, while no web user exists, the controller creates the
-    # local administrator admin_username (member of the group "administrators") with
-    # admin_password, which it must change at its first login. Without admin_password, a random
-    # password is set: an operator replaces it with `security-review-controller user
-    # reset-password <admin_username>`, which prints a new one; admin_password_log also logs the
-    # random password once (for a first test only: logs are often kept and shared).
+    # local administrator admin_username (member of the group "administrators") with a random
+    # password that nobody knows: an operator sets one with `security-review-controller user
+    # reset-password <admin_username>`, which prints it once, and the user changes it at its
+    # first login.
     admin_username: str = "admin"
-    admin_password: SecretStr | None = None
-    admin_password_log: bool = False
 
     # HTTP MCP server only: accept requests without a token while no token is stored. Off by
     # default: an exposed server stays closed (fail closed) until a first token exists; a server
