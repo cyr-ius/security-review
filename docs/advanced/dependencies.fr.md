@@ -77,7 +77,7 @@ SECREVIEW_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
 - **Proxy** : le téléchargement passe par le proxy sortant du contrôleur, `SECREVIEW_PROXY`
   (`http://[utilisateur:mot de passe@]hôte:port`, tunnel `CONNECT` vers le site HTTPS), sauf
   vers les hôtes de `SECREVIEW_NO_PROXY`. Le même proxy sert à la
-  [connexion SSO](sso.md). Sans lui, les variables
+  [connexion OIDC](sso.md). Sans lui, les variables
   standard `HTTPS_PROXY` et `NO_PROXY` s'appliquent. Si le proxy inspecte le TLS, donnez sa CA
   avec `SECREVIEW_OSV_CAFILE` (elle remplace alors les CA du système).
 - **Miroir** : `SECREVIEW_OSV_URL` remplace la source (Nexus, Artifactory, bucket interne…)

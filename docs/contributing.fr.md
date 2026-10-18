@@ -88,12 +88,12 @@ src/security_review_mcp/
 ├── server.py      # prompts, outils, ressources, point d'entrée du serveur MCP
 ├── controller.py  # point d'entrée du contrôleur (serve, db et commandes d'administration)
 ├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
-├── oidc.py        # connexion SSO OpenID Connect à l'interface web (contrôleur)
+├── oidc.py        # connexion OIDC OpenID Connect à l'interface web (contrôleur)
 ├── access_control.py # permissions, rôles, groupes et membres des comptes web
 ├── token_store.py # jetons Bearer en base : création, expiration, renouvellement, révocation, enrôlement
 ├── audit.py       # journal d'audit : événements des décisions de triage, propositions, jetons et enrôlements
 ├── metrics.py     # métriques Prometheus du contrôleur (/metrics)
-├── web_users.py   # comptes de l'interface web, locaux (scrypt) ou SSO (création à la volée), sessions, admin initial
+├── web_users.py   # comptes de l'interface web, locaux (scrypt) ou OIDC (création à la volée), sessions, admin initial
 ├── enrollment.py  # client de `enroll` : demande de jeton à un serveur partagé
 ├── remote_scan.py # client de `scan-deps` : scan des dépendances par un serveur partagé
 ├── ci_client.py   # `security-review-ci` : client de pipeline du contrôleur (bibliothèque standard uniquement)
@@ -118,8 +118,8 @@ src/security_review_mcp/
 ├── versions.py    # comparaison de versions
 ├── advisories.py  # import OSV, correspondance des versions
 ├── advisory_sync.py  # téléchargement OSV par le contrôleur (proxy, mise à jour quotidienne, historique)
-├── app_settings.py    # réglages modifiables dans l'interface (langue, proxy sortant, SSO), en base
-├── proxy.py       # proxy sortant du contrôleur (OSV, SSO) : URL, no_proxy, handler urllib
+├── app_settings.py    # réglages modifiables dans l'interface (langue, proxy sortant, OIDC), en base
+├── proxy.py       # proxy sortant du contrôleur (OSV, OIDC) : URL, no_proxy, handler urllib
 ├── dependencies.py    # analyseurs de manifestes / lockfiles, hygiène
 ├── depscan.py     # scan de dépendances et conversion en findings
 ├── services.py    # logique de persistance des rapports

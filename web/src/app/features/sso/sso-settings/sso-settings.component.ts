@@ -2,18 +2,18 @@ import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, effect, inject, output, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
 import { FieldTree, FormField, form, maxLength } from '@angular/forms/signals';
+import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import {
-  OidcSettingName,
-  OidcSettings,
-  OidcSettingsUpdate,
-  OidcTestResult,
-} from '../../../core/models/api.models';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import {
+    OidcSettingName,
+    OidcSettings,
+    OidcSettingsUpdate,
+    OidcTestResult,
+} from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 
 /** Value shown by the API in place of a set client secret. */
@@ -77,7 +77,7 @@ const PROVIDER_FIELDS: FieldMeta[] = [
     placeholder: 'https://secreview.example.com/api/v1/auth/oidc/callback',
   },
   { name: 'scopes', label: 'sso.scopes', kind: 'text', placeholder: 'openid profile email' },
-  { name: 'display_name', label: 'sso.displayName', kind: 'text', placeholder: 'SSO' },
+  { name: 'display_name', label: 'sso.displayName', kind: 'text', placeholder: 'OIDC' },
 ];
 
 const ACCESS_FIELDS: FieldMeta[] = [

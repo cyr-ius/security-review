@@ -20,7 +20,7 @@ Les jetons Bearer ne sont pas concernés : ils gardent leur rôle fixe (`mcp`, `
 | `standards.manage` | Normes de développement | |
 | `tokens.manage` | Jetons de projet et demandes d'enrôlement | |
 | `settings.manage` | Langue des rapports, proxy sortant, base d'avis | |
-| `users.manage` | Utilisateurs, groupes, rôles et configuration SSO (elle décide qui rejoint quel groupe) | |
+| `users.manage` | Utilisateurs, groupes, rôles et configuration OIDC (elle décide qui rejoint quel groupe) | |
 | `audit.read` | Journal d'audit | |
 
 `users.manage` permet à son détenteur de se donner toutes les autres permissions : ne la donnez
@@ -55,12 +55,12 @@ Les membres ont deux origines :
 
 - **locale** : ajoutés par un administrateur (écran **Groupes** ou **Utilisateurs**, CLI,
   approbation d'un enrôlement) ;
-- **SSO** : quand le groupe est **ouvert au SSO**, les utilisateurs SSO dont le claim des groupes
+- **OIDC** : quand le groupe est **ouvert au OIDC**, les utilisateurs OIDC dont le claim des groupes
   contient **exactement le nom du groupe** le rejoignent à chaque connexion (voir
-  [SSO](sso.md#groupes-du-fournisseur-didentite)). Les valeurs du claim qui ne nomment aucun groupe
+  [OIDC](sso.md#groupes-du-fournisseur-didentite)). Les valeurs du claim qui ne nomment aucun groupe
   sont ignorées.
 
-Renommer un groupe, ou le fermer au SSO, retire aussitôt ses membres SSO.
+Renommer un groupe, ou le fermer au OIDC, retire aussitôt ses membres OIDC.
 
 ## Rôles et projets directs d'un compte
 
@@ -71,10 +71,10 @@ d'un groupe : un rôle fait de permissions par projet s'applique à tous les pro
 de projets (50 au plus), un rôle qui contient une permission sur tout le contrôleur s'applique
 toujours à tous les projets, et un compte a 20 rôles directs au plus.
 
-Les rôles directs sont gardés quand le compte change de groupes, y compris les groupes SSO
+Les rôles directs sont gardés quand le compte change de groupes, y compris les groupes OIDC
 recalculés à chaque connexion. L'approbation d'un enrôlement avec lecture dans le portail ajoute
 le projet au rôle direct `reader` du compte (voir
-[SSO](sso.md#lecture-du-projet-a-lenrolement)).
+[OIDC](sso.md#lecture-du-projet-a-lenrolement)).
 
 ## Ce qu'un utilisateur peut faire
 
@@ -101,8 +101,8 @@ compte sans aucune permission ne peut pas se connecter, et ses sessions ouvertes
 ## Le dernier administrateur
 
 Au moins un compte garde `users.manage` : supprimer ce compte, son groupe, le rôle de son groupe,
-son rôle direct ou la permission de son rôle est refusé (`409` ou `422`). Une connexion SSO qui retire le dernier
-détenteur de son groupe SSO n'est pas bloquée : le fournisseur d'identité reste l'autorité.
+son rôle direct ou la permission de son rôle est refusé (`409` ou `422`). Une connexion OIDC qui retire le dernier
+détenteur de son groupe OIDC n'est pas bloquée : le fournisseur d'identité reste l'autorité.
 Gardez de préférence un administrateur local.
 
 ## Jetons créés depuis l'interface
@@ -117,7 +117,7 @@ la lecture d'un projet à l'approbation d'un enrôlement demande aussi `users.ma
 ## API
 
 ```bash
-# Un rôle et un groupe qui le donne sur le projet « billing », ouvert au SSO
+# Un rôle et un groupe qui le donne sur le projet « billing », ouvert au OIDC
 curl -X POST https://secreview.example.com/api/v1/roles \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
   -d '{"name": "Auditor", "description": "Reads the log", "permissions": ["audit.read", "reports.read"]}'
@@ -140,9 +140,9 @@ curl -X PUT https://secreview.example.com/api/v1/users/7 \
 |---|---|
 | `GET /api/v1/permissions` | Permissions qu'un rôle peut contenir, et si elles peuvent être limitées à des projets |
 | `GET`, `POST /api/v1/roles` ; `PUT`, `DELETE /api/v1/roles/{id}` | Rôles |
-| `GET`, `POST /api/v1/groups` ; `PUT`, `DELETE /api/v1/groups/{id}` | Groupes (`GET` renvoie aussi la configuration SSO qui les utilise) |
+| `GET`, `POST /api/v1/groups` ; `PUT`, `DELETE /api/v1/groups/{id}` | Groupes (`GET` renvoie aussi la configuration OIDC qui les utilise) |
 | `PUT /api/v1/groups/{id}/roles` | Remplace les rôles d'un groupe |
-| `PUT /api/v1/groups/{id}/members` | Remplace les membres locaux d'un groupe (les membres SSO sont gardés) |
+| `PUT /api/v1/groups/{id}/members` | Remplace les membres locaux d'un groupe (les membres OIDC sont gardés) |
 | `POST /api/v1/users` | Crée un utilisateur, avec `group_ids` et `roles` (rôles directs) |
 | `PUT /api/v1/users/{id}` | Remplace les groupes locaux (`group_ids`) et les rôles directs (`roles`, chacun `{"role_id": 3, "projects": ["crm"]}`, `projects` vide : tous les projets) d'un utilisateur ; un champ absent reste inchangé |
 
@@ -157,18 +157,18 @@ set-groups` change les groupes d'un compte, `user set-roles` ses rôles directs
 
 La migration de schéma `0013` déplace les anciens accès dans des groupes :
 
-- chaque association de rôle OIDC devient un groupe ouvert au SSO du nom de son groupe, avec le
+- chaque association de rôle OIDC devient un groupe ouvert au OIDC du nom de son groupe, avec le
   rôle de l'association sur les mêmes projets ;
 - chaque compte qui avait un rôle propre rejoint `administrators`, `triagers` ou `readers`
-  (groupes non ouverts au SSO) s'il voyait tous les projets, sinon un groupe personnel
+  (groupes non ouverts au OIDC) s'il voyait tous les projets, sinon un groupe personnel
   `user:<nom>`.
 
 La migration de schéma `0014` transforme ensuite chaque groupe personnel `user:<nom>` dont le seul
 membre est ce compte (ajouté par un administrateur) en rôles directs du compte, sur les mêmes
-projets, et supprime le groupe. Un groupe personnel qui a d'autres membres, ou ouvert au SSO, est
+projets, et supprime le groupe. Un groupe personnel qui a d'autres membres, ou ouvert au OIDC, est
 gardé.
 
-Le rôle donné à un compte SSO par ses groupes à sa dernière connexion est recalculé à sa
+Le rôle donné à un compte OIDC par ses groupes à sa dernière connexion est recalculé à sa
 prochaine connexion. Les variables `SECREVIEW_OIDC_TRIAGER_GROUPS`, `SECREVIEW_OIDC_READER_GROUPS`
 et `SECREVIEW_OIDC_DEFAULT_ROLE` disparaissent : créez les groupes de mêmes noms avec le rôle
 `triager` ou `reader`, et utilisez `SECREVIEW_OIDC_DEFAULT_GROUP` à la place du rôle par défaut.

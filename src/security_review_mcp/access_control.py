@@ -8,13 +8,13 @@
   SYSTEM_ROLES, so that a new permission reaches ``admin`` without a migration.
 - A **group** (UserGroup) has roles (GroupRole, each on every project or on a list of projects)
   and members (GroupMember). An administrator adds members (``local``); for a group with
-  ``sso``, the SSO users whose groups claim holds the name of the group are members too
+  ``sso``, the OIDC users whose groups claim holds the name of the group are members too
   (``oidc``, replaced at each login, see sync_sso_groups). A value of the claim that names no
   group is ignored.
-- ``SECREVIEW_OIDC_ADMIN_GROUPS`` names SSO groups that hold the ``admin`` role: at a login, a
+- ``SECREVIEW_OIDC_ADMIN_GROUPS`` names OIDC groups that hold the ``admin`` role: at a login, a
   listed group of the claim that does not exist yet is created (with ``sso`` and the ``admin``
-  role), so that a deployment that only uses SSO gets its first administrator.
-  ``SECREVIEW_OIDC_DEFAULT_GROUP`` names a group every SSO user joins at each login.
+  role), so that a deployment that only uses OIDC gets its first administrator.
+  ``SECREVIEW_OIDC_DEFAULT_GROUP`` names a group every OIDC user joins at each login.
 - A role may also be given **directly to a user** (UserRole), on every project or on a list of
   projects, in addition to its groups (see set_user_roles).
 
@@ -59,7 +59,7 @@ class Permission(StrEnum):
     TOKENS_MANAGE = "tokens.manage"
     # Report language, outgoing proxy and advisory database
     SETTINGS_MANAGE = "settings.manage"
-    # Web users, groups, roles and SSO settings: whoever holds it can give itself any permission
+    # Web users, groups, roles and OIDC settings: whoever holds it can give itself any permission
     USERS_MANAGE = "users.manage"
     # Audit log
     AUDIT_READ = "audit.read"
@@ -73,7 +73,7 @@ SYSTEM_ROLES: dict[str, frozenset[Permission]] = {
     Role.TRIAGER.value: frozenset({Permission.REPORTS_READ, Permission.FINDINGS_TRIAGE}),
     Role.ADMIN.value: ALL_PERMISSIONS,
 }
-# Group of the first administrator (not matched against the SSO groups claim)
+# Group of the first administrator (not matched against the OIDC groups claim)
 ADMIN_GROUP = "administrators"
 SOURCE_LOCAL = "local"
 SOURCE_OIDC = "oidc"
@@ -222,7 +222,7 @@ def clean_role_name(name: str) -> str:
 
 
 def clean_group_name(name: str) -> str:
-    """Validate the name of a group (for an SSO group, a value of the groups claim)."""
+    """Validate the name of a group (for an OIDC group, a value of the groups claim)."""
     return _clean_text(name, "Group name", MAX_GROUP_NAME_CHARS)
 
 
@@ -581,9 +581,9 @@ def update_group(
     sso: bool = True,
     actor: str | None = None,
 ) -> dict[str, Any]:
-    """Rename a group, replace its description or its SSO matching.
+    """Rename a group, replace its description or its OIDC matching.
 
-    The SSO members it loses (renamed group, or ``sso`` turned off) leave it at once.
+    The OIDC members it loses (renamed group, or ``sso`` turned off) leave it at once.
     """
     cleaned_name = clean_group_name(name)
     text = clean_description(description)
@@ -695,7 +695,7 @@ def _check_users(session: Session, user_ids: Iterable[int]) -> list[int]:
 def set_group_members(
     group_id: int, user_ids: Iterable[int], actor: str | None = None
 ) -> dict[str, Any]:
-    """Replace the members an administrator added to a group (its SSO members are kept)."""
+    """Replace the members an administrator added to a group (its OIDC members are kept)."""
     with session_scope() as session:
         row = _get_group(session, group_id)
         ids = _check_users(session, user_ids)
@@ -788,7 +788,7 @@ def find_roles(session: Session, specs: Iterable[str]) -> list[tuple[int, list[s
 def set_user_groups(
     session: Session, user_id: int, group_ids: Iterable[int], actor: str | None = None
 ) -> None:
-    """Replace the groups an administrator gave to a user (its SSO groups are kept).
+    """Replace the groups an administrator gave to a user (its OIDC groups are kept).
 
     Runs in the session of the caller (web_users), which checks the last manager.
     """
@@ -939,7 +939,7 @@ def add_user_project(
 def sync_sso_groups(
     session: Session, user_id: int, claim_values: Iterable[str], settings: Settings
 ) -> list[str]:
-    """Replace the SSO memberships of a user with the groups its claim names; return them.
+    """Replace the OIDC memberships of a user with the groups its claim names; return them.
 
     Only the groups with ``sso`` count. A group of SECREVIEW_OIDC_ADMIN_GROUPS found in the
     claim is first created with the ``admin`` role when missing; the group

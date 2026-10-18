@@ -188,7 +188,7 @@ def test_masked_password_for_another_proxy_is_refused():
 
 # ── single sign-on (OIDC) ────────────────────────────────────────────────────
 
-SSO = {
+OIDC = {
     "enabled": True,
     "issuer": "https://sso.example.com/realms/acme",
     "client_id": "secreview",
@@ -199,7 +199,7 @@ SSO = {
 def test_oidc_settings_override_the_variables_one_by_one():
     settings = make_settings(oidc_client_id="from-env", oidc_display_name="Keycloak")
 
-    app_settings.set_oidc(SSO | {"auto_create_users": True}, "admin", settings)
+    app_settings.set_oidc(OIDC | {"auto_create_users": True}, "admin", settings)
 
     effective = app_settings.effective_settings(settings)
     assert effective.oidc_enabled is True
@@ -219,7 +219,7 @@ def test_oidc_settings_override_the_variables_one_by_one():
     effective = app_settings.effective_settings(settings)
     assert effective.oidc_client_id == "from-env"
     assert effective.oidc_enabled is False
-    assert effective.oidc_issuer == SSO["issuer"]
+    assert effective.oidc_issuer == OIDC["issuer"]
 
 
 def test_oidc_settings_without_stored_value_are_the_variables():
@@ -230,7 +230,7 @@ def test_oidc_settings_without_stored_value_are_the_variables():
 def test_oidc_client_secret_is_never_described_and_the_mask_keeps_it():
     settings = make_settings(oidc_client_secret="env-secret")
 
-    app_settings.set_oidc(SSO | {"client_secret": "db-s3cr3t"}, "admin", settings)
+    app_settings.set_oidc(OIDC | {"client_secret": "db-s3cr3t"}, "admin", settings)
     described = app_settings.describe_oidc(settings)
     assert "s3cr3t" not in str(described) and "env-secret" not in str(described)
     assert described["fields"]["client_secret"] == {
@@ -250,10 +250,10 @@ def test_oidc_client_secret_is_never_described_and_the_mask_keeps_it():
 
 def test_invalid_enabled_oidc_settings_are_refused_and_nothing_is_stored():
     settings = make_settings()
-    with pytest.raises(ValueError, match="invalid SSO settings: SECREVIEW_OIDC_ISSUER"):
+    with pytest.raises(ValueError, match="invalid OIDC settings: SECREVIEW_OIDC_ISSUER"):
         app_settings.set_oidc({"enabled": True, "client_id": "secreview"}, "admin", settings)
     with pytest.raises(ValueError, match="https"):
-        app_settings.set_oidc(SSO | {"issuer": "http://sso.example.com"}, "admin", settings)
+        app_settings.set_oidc(OIDC | {"issuer": "http://sso.example.com"}, "admin", settings)
     assert app_settings.effective_settings(settings) is settings
 
     # Disabled, an incomplete configuration can be prepared
@@ -264,13 +264,13 @@ def test_invalid_enabled_oidc_settings_are_refused_and_nothing_is_stored():
 @pytest.mark.parametrize(
     ("values", "message"),
     [
-        ({"cafile": "/etc/passwd"}, "unknown SSO setting"),
-        ({"default_role": "admin"}, "unknown SSO setting"),
-        ({"triager_groups": "devs"}, "unknown SSO setting"),
+        ({"cafile": "/etc/passwd"}, "unknown OIDC setting"),
+        ({"default_role": "admin"}, "unknown OIDC setting"),
+        ({"triager_groups": "devs"}, "unknown OIDC setting"),
         ({"default_group": "x" * 501}, "too long"),
         ({"enabled": "yes"}, "true or false"),
         ({"issuer": 3}, "must be a string"),
-        ({"display_name": "SSO\nadmin"}, "control characters"),
+        ({"display_name": "OIDC\nadmin"}, "control characters"),
         ({"admin_groups": "a" * 501}, "too long"),
     ],
 )

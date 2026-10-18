@@ -1,23 +1,23 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
+import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { UserGroup } from '../../../core/models/api.models';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { UserGroup } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
-  RoleBindingDraft,
-  RoleBindingsComponent,
-  roleDraftsComplete,
-  toRoleBindings,
-  toRoleDrafts,
+    RoleBindingDraft,
+    RoleBindingsComponent,
+    roleDraftsComplete,
+    toRoleBindings,
+    toRoleDrafts,
 } from '../../../shared/components/role-bindings/role-bindings.component';
 import { describeAccessError } from '../access-errors';
 
-/** Name, description and SSO switch of the group being created or edited. */
+/** Name, description and OIDC switch of the group being created or edited. */
 interface GroupFormModel {
   name: string;
   description: string;
@@ -28,7 +28,7 @@ const EMPTY_GROUP: GroupFormModel = { name: '', description: '', sso: true };
 
 /**
  * Administrator page for the groups of web users: their roles (each on every project or on some
- * projects) and their members. A group open to SSO also gets, at each login, the SSO users whose
+ * projects) and their members. A group open to OIDC also gets, at each login, the OIDC users whose
  * groups claim holds its name.
  */
 @Component({

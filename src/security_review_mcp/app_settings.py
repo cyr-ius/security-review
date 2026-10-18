@@ -153,12 +153,12 @@ def _describe_proxy(settings: Settings, stored: dict[str, str], effective: Setti
 
 
 def _overrides(stored: dict[str, str]) -> dict[str, Any]:
-    """Every stored value that overrides a Settings field (proxy and SSO)."""
+    """Every stored value that overrides a Settings field (proxy and OIDC)."""
     return _proxy_overrides(stored) | _oidc_overrides(stored)
 
 
 def effective_settings(settings: Settings | None = None) -> Settings:
-    """Return ``settings`` with the proxy and SSO values stored in the web interface applied
+    """Return ``settings`` with the proxy and OIDC values stored in the web interface applied
     over the ``SECREVIEW_*`` variables (read by the controller at each OSV download and login)."""
     settings = settings or get_settings()
     overrides = _overrides(_stored())
@@ -213,15 +213,15 @@ def _check_oidc_value(name: str, value: Any) -> str:
     """Return the stored form of one OIDC value, or raise ValueError."""
     if OIDC_FIELDS[name] is bool:
         if not isinstance(value, bool):
-            raise ValueError(f"SSO setting {name} must be true or false")
+            raise ValueError(f"OIDC setting {name} must be true or false")
         return "true" if value else "false"
     if not isinstance(value, str):
-        raise ValueError(f"SSO setting {name} must be a string")
+        raise ValueError(f"OIDC setting {name} must be a string")
     text = value if name == OIDC_SECRET else value.strip()
     if len(text) > MAX_OIDC_VALUE_CHARS:
-        raise ValueError(f"SSO setting {name} too long (max {MAX_OIDC_VALUE_CHARS} chars)")
+        raise ValueError(f"OIDC setting {name} too long (max {MAX_OIDC_VALUE_CHARS} chars)")
     if not text.isprintable():
-        raise ValueError(f"SSO setting {name} must not contain control characters")
+        raise ValueError(f"OIDC setting {name} must not contain control characters")
     return text
 
 
@@ -235,7 +235,7 @@ def _oidc_changes(
         if name == OIDC_SECRET and value == PASSWORD_MASK:
             continue
         if name not in OIDC_FIELDS:
-            raise ValueError(f"unknown SSO setting: {name}")
+            raise ValueError(f"unknown OIDC setting: {name}")
         changes[_oidc_key(name)] = None if value is None else _check_oidc_value(name, value)
     stored = _stored()
     for key, value in changes.items():
@@ -251,7 +251,7 @@ def _validate_oidc(effective: Settings) -> None:
     try:
         validate_settings(effective)
     except ValueError as exc:
-        raise ValueError(f"invalid SSO settings: {exc}") from None
+        raise ValueError(f"invalid OIDC settings: {exc}") from None
 
 
 def set_oidc(values: dict[str, Any], updated_by: str, settings: Settings | None = None) -> None:

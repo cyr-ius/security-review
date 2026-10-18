@@ -3,12 +3,12 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormField, form, maxLength, required, submit } from '@angular/forms/signals';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { API_URL, ApiService } from '../../core/services/api.service';
-import { AuthService } from '../../core/services/auth.service';
-import { ThemeService } from '../../core/services/theme.service';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { API_URL, ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
+import { ThemeService } from '../../core/services/theme.service';
 import { LanguageSelectComponent } from '../../shared/components/language-select/language-select.component';
 
 /** Messages of the oidcError codes sent back by /api/v1/auth/oidc/callback. */
@@ -26,7 +26,7 @@ const OIDC_ERRORS: Record<string, MessageKey> = {
 
 /**
  * Login page of the web users: a username and a password (local user), or the identity
- * provider (SSO user) when the controller offers OIDC. Bearer tokens are for the MCP server and
+ * provider (OIDC user) when the controller offers OIDC. Bearer tokens are for the MCP server and
  * the REST API only: they never open the web interface.
  */
 @Component({

@@ -34,16 +34,16 @@ export const login = defineMessages({
     'login.oidcForbidden':
       'Your account has no role on the interface: no role given and no allowed group (reader, triager or admin).',
     'login.oidcUnknownUser':
-      'Your SSO account is not created on the interface yet: ask an administrator to add it in Users.',
+      'Your OIDC account is not created on the interface yet: ask an administrator to add it in Users.',
     'login.oidcConflict':
-      'This username is already taken by a local account or bound to another SSO account: contact an administrator.',
+      'This username is already taken by a local account or bound to another OIDC account: contact an administrator.',
     'login.oidcUsername': 'The identity provider sent no usable username for your account.',
     'login.oidcRevoked':
-      'Your SSO account was deleted by an administrator: ask them to create it again to get access back.',
+      'Your OIDC account was deleted by an administrator: ask them to create it again to get access back.',
     'login.oidcState': 'The login expired or was opened in another browser: start again.',
     'login.oidcToken': 'The answer of the identity provider was refused (invalid token).',
     'login.oidcProvider': 'Identity provider unreachable or misconfigured.',
-    'login.oidcFailed': 'The SSO login failed.',
+    'login.oidcFailed': 'The OIDC login failed.',
     'login.authRequired': 'The authentication of the interface is not configured on this server.',
     'login.forbidden':
       'This account has no access to the web interface (role reader, triager or admin required).',
@@ -87,18 +87,18 @@ export const login = defineMessages({
     'login.oidcForbidden':
       "Votre compte n'a aucun rôle sur l'interface : ni rôle attribué, ni groupe autorisé (reader, triager ou admin).",
     'login.oidcUnknownUser':
-      "Votre compte SSO n'est pas encore créé sur l'interface : demandez à un administrateur de l'ajouter dans Utilisateurs.",
+      "Votre compte OIDC n'est pas encore créé sur l'interface : demandez à un administrateur de l'ajouter dans Utilisateurs.",
     'login.oidcConflict':
-      "Ce nom d'utilisateur est déjà pris par un compte local ou lié à un autre compte SSO : contactez un administrateur.",
+      "Ce nom d'utilisateur est déjà pris par un compte local ou lié à un autre compte OIDC : contactez un administrateur.",
     'login.oidcUsername':
       "Le fournisseur d'identité n'a pas transmis d'identifiant utilisable pour votre compte.",
     'login.oidcRevoked':
-      "Votre compte SSO a été supprimé par un administrateur : demandez-lui de le recréer pour retrouver l'accès.",
+      "Votre compte OIDC a été supprimé par un administrateur : demandez-lui de le recréer pour retrouver l'accès.",
     'login.oidcState':
       'La connexion a expiré ou a été ouverte dans un autre navigateur : recommencez.',
     'login.oidcToken': "La réponse du fournisseur d'identité a été refusée (jeton invalide).",
     'login.oidcProvider': "Fournisseur d'identité injoignable ou mal configuré.",
-    'login.oidcFailed': 'La connexion par SSO a échoué.',
+    'login.oidcFailed': 'La connexion par OIDC a échoué.',
     'login.authRequired': "L'authentification de l'interface n'est pas configurée sur ce serveur.",
     'login.forbidden':
       "Ce compte n'a pas accès à l'interface web (rôle reader, triager ou admin requis).",
@@ -143,17 +143,17 @@ export const login = defineMessages({
     'login.oidcForbidden':
       'Su cuenta no tiene ningún rol en la interfaz: ni rol asignado ni grupo autorizado (reader, triager o admin).',
     'login.oidcUnknownUser':
-      'Su cuenta SSO aún no existe en la interfaz: pida a un administrador que la añada en Usuarios.',
+      'Su cuenta OIDC aún no existe en la interfaz: pida a un administrador que la añada en Usuarios.',
     'login.oidcConflict':
-      'Este nombre de usuario ya lo usa una cuenta local o está vinculado a otra cuenta SSO: contacte con un administrador.',
+      'Este nombre de usuario ya lo usa una cuenta local o está vinculado a otra cuenta OIDC: contacte con un administrador.',
     'login.oidcUsername':
       'El proveedor de identidad no ha enviado un usuario utilizable para su cuenta.',
     'login.oidcRevoked':
-      'Un administrador eliminó su cuenta SSO: pídale que la vuelva a crear para recuperar el acceso.',
+      'Un administrador eliminó su cuenta OIDC: pídale que la vuelva a crear para recuperar el acceso.',
     'login.oidcState': 'El inicio de sesión caducó o se abrió en otro navegador: vuelva a empezar.',
     'login.oidcToken': 'Se rechazó la respuesta del proveedor de identidad (token no válido).',
     'login.oidcProvider': 'Proveedor de identidad inaccesible o mal configurado.',
-    'login.oidcFailed': 'El inicio de sesión por SSO ha fallado.',
+    'login.oidcFailed': 'El inicio de sesión por OIDC ha fallado.',
     'login.authRequired': 'La autenticación de la interfaz no está configurada en este servidor.',
     'login.forbidden':
       'Esta cuenta no tiene acceso a la interfaz web (se requiere el rol reader, triager o admin).',

@@ -1,5 +1,5 @@
 """Routes of the access control (``users.manage``): permissions, roles, groups, web users and
-the SSO settings, which decide who joins which group."""
+the OIDC settings, which decide who joins which group."""
 
 import logging
 from typing import Annotated, Any
@@ -109,7 +109,7 @@ async def delete_role(role_id: int, identity: UsersManager) -> Response:
 
 @router.get("/groups")
 async def groups(request: Request, identity: UsersManager) -> GroupCatalog:
-    """List the groups with their roles and members, and the SSO settings that use them."""
+    """List the groups with their roles and members, and the OIDC settings that use them."""
     settings = await run_in_threadpool(app_settings.effective_settings)
     return GroupCatalog.model_validate(
         {
@@ -141,7 +141,7 @@ async def create_group(body: GroupWrite, identity: UsersManager) -> UserGroup:
 
 @router.put("/groups/{group_id}")
 async def update_group(group_id: int, body: GroupWrite, identity: UsersManager) -> UserGroup:
-    """Rename a group, change its description or whether the SSO groups claim names it."""
+    """Rename a group, change its description or whether the OIDC groups claim names it."""
     try:
         updated = await run_in_threadpool(
             access_control.update_group,
@@ -179,7 +179,7 @@ async def set_group_roles(
 async def set_group_members(
     group_id: int, body: GroupMembersUpdate, identity: UsersManager
 ) -> UserGroup:
-    """Replace the members added by an administrator (the SSO members are kept)."""
+    """Replace the members added by an administrator (the OIDC members are kept)."""
     try:
         updated = await run_in_threadpool(
             access_control.set_group_members, group_id, body.user_ids, actor_of(identity)
@@ -201,20 +201,20 @@ async def delete_group(group_id: int, identity: UsersManager) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-# ── SSO settings ─────────────────────────────────────────────────────────────
+# ── OIDC settings ─────────────────────────────────────────────────────────────
 
 
 async def _describe_oidc(request: Request) -> dict[str, Any]:
-    """SSO settings of the web interface, with whether the login is active."""
+    """OIDC settings of the web interface, with whether the login is active."""
     described = await run_in_threadpool(app_settings.describe_oidc)
     return described | {"active": await current_oidc(request) is not None}
 
 
-# The SSO settings decide who joins which group (groups claim, admin and default groups,
+# The OIDC settings decide who joins which group (groups claim, admin and default groups,
 # identity provider): they need users.manage, not only settings.manage
 @router.get("/oidc/settings", tags=["sso"])
 async def get_oidc_settings(request: Request, identity: UsersManager) -> OidcSettings:
-    """Return the SSO settings: stored value, variable and effective value of each one.
+    """Return the OIDC settings: stored value, variable and effective value of each one.
 
     A set client secret is replaced by ``***``.
     """
@@ -225,7 +225,7 @@ async def get_oidc_settings(request: Request, identity: UsersManager) -> OidcSet
 async def set_oidc_settings(
     request: Request, body: OidcSettingsUpdate, identity: UsersManager
 ) -> OidcSettings:
-    """Change SSO settings; they override the SECREVIEW_OIDC_* variables at the next login.
+    """Change OIDC settings; they override the SECREVIEW_OIDC_* variables at the next login.
 
     Refused (422) when the resulting settings enable an invalid login.
     """
@@ -235,7 +235,7 @@ async def set_oidc_settings(
     except ValueError as exc:
         raise unprocessable(exc) from exc
     # Names only: the values may hold the client secret
-    logger.info("SSO settings %s changed by %s", ", ".join(sorted(values)), identity.client)
+    logger.info("OIDC settings %s changed by %s", ", ".join(sorted(values)), identity.client)
     return OidcSettings.model_validate(await _describe_oidc(request))
 
 
@@ -252,7 +252,7 @@ async def test_oidc_settings(
         raise unprocessable(exc) from exc
     logins: OidcLogins = request.app.state.oidc
     steps = await run_in_threadpool(oidc.OidcLogin(candidate, logins.signer).check)
-    logger.info("SSO provider %s tested by %s", candidate.oidc_issuer, identity.client)
+    logger.info("OIDC provider %s tested by %s", candidate.oidc_issuer, identity.client)
     return OidcTestResult.model_validate(
         {"success": all(step["ok"] for step in steps), "steps": steps}
     )
@@ -271,7 +271,7 @@ async def users(identity: UsersManager) -> list[WebUser]:
 async def create_user(
     body: WebUserCreate, identity: UsersManager, response: Response
 ) -> WebUserWithPassword:
-    """Create a web user (local or SSO); a generated password is returned once in ``password``."""
+    """Create a web user (local or OIDC); a generated password is returned once in ``password``."""
     try:
         created = await run_in_threadpool(
             web_users.create_user,
@@ -300,15 +300,15 @@ async def create_user(
 # Declared before /users/{user_id}: "revoked" is not a user id
 @router.get("/users/revoked")
 async def revoked_users(identity: UsersManager) -> list[RevokedUser]:
-    """List the deleted SSO users, which a login never creates again."""
+    """List the deleted OIDC users, which a login never creates again."""
     return await run_in_threadpool(web_users.list_revoked_users)
 
 
 @router.delete("/users/revoked/{username}", status_code=status.HTTP_204_NO_CONTENT)
 async def lift_user_revocation(username: UsernamePath, identity: UsersManager) -> Response:
-    """Let a deleted SSO user be created again at its next login (automatic creation)."""
+    """Let a deleted OIDC user be created again at its next login (automatic creation)."""
     lifted = await run_in_threadpool(web_users.lift_revocation, username)
-    logger.info("Revocation of SSO user %s lifted by %s", lifted["username"], identity.client)
+    logger.info("Revocation of OIDC user %s lifted by %s", lifted["username"], identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -345,7 +345,7 @@ async def reset_user_password(
 async def delete_user(user_id: int, identity: UsersManager) -> Response:
     """Delete a web user (its sessions stop at once); the last holder of users.manage is kept.
 
-    A deleted SSO user is revoked: a login never creates it again until an administrator
+    A deleted OIDC user is revoked: a login never creates it again until an administrator
     creates it again or lifts the revocation (DELETE /users/revoked/{username}).
     """
     try:

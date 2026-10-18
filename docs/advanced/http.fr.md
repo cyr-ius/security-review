@@ -192,8 +192,8 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`), même
     L'approbation peut aussi donner au développeur la **lecture du projet dans le portail**,
     sur son compte utilisateur (colonne **Lecture dans le portail** de l'interface, ou
     `token approve ID --portal-user alice` en CLI) ; avec la
-    [connexion SSO](sso.md), un nom
-    inconnu devient un compte SSO. Voir la
+    [connexion OIDC](sso.md), un nom
+    inconnu devient un compte OIDC. Voir la
     [lecture du projet à l'enrôlement](sso.md#lecture-du-projet-a-lenrolement).
 
 ### Jeton refusé : nouvel enrôlement
@@ -374,7 +374,7 @@ Pour Claude et pour obtenir un jeton par enrôlement depuis l'hôte, voir
 
 ## Derrière un reverse proxy
 
-Un reverse proxy (TLS, SSO, limitation de débit) reste une option valable : dans ce cas,
+Un reverse proxy (TLS, OIDC, limitation de débit) reste une option valable : dans ce cas,
 laissez ces variables vides.
 
 !!! warning

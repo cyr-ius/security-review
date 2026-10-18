@@ -1,4 +1,4 @@
-"""Web users: the accounts of the web interface of the controller, local or SSO.
+"""Web users: the accounts of the web interface of the controller, local or OIDC.
 
 Only web users log in to the web interface; the bearer tokens of the database are for the MCP
 server and the REST API (scripts, CI). A web user has an ``auth_source``:
@@ -10,11 +10,11 @@ server and the REST API (scripts, CI). A web user has an ``auth_source``:
   it up by the username claim; with ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` it is created at the
   first login, otherwise an administrator creates it beforehand. It never opens a local account,
   and its ``sub`` claim is bound at the first login: another subject is refused afterwards. A
-  deleted SSO user is revoked (``RevokedSsoUser``): a login never creates it again, until an
+  deleted OIDC user is revoked (``RevokedSsoUser``): a login never creates it again, until an
   administrator creates it again.
 
 What a web user may do comes from the roles of its groups (see access_control): the groups an
-administrator gave it (or the approval of an enrollment, see grant_project) and, for an SSO
+administrator gave it (or the approval of an enrollment, see grant_project) and, for an OIDC
 user, the groups named by its groups claim at its last login.
 
 The session token (see oidc.SessionSigner) carries the id of the user. At each request,
@@ -255,7 +255,7 @@ def _iso(value: datetime | None) -> str | None:
 
 
 def _label(row: WebUser) -> str:
-    """Name of a user in the logs and the triage history (``oidc:<name>`` for an SSO user)."""
+    """Name of a user in the logs and the triage history (``oidc:<name>`` for an OIDC user)."""
     if row.auth_source == AUTH_OIDC:
         return f"oidc:{row.username}"[:MAX_LABEL_CHARS]
     return row.username
@@ -318,26 +318,26 @@ def _lift_revocation(session: Any, username: str) -> None:
 
 
 def _is_revoked(session: Any, username: str) -> bool:
-    """True when an administrator deleted the SSO user with this name."""
+    """True when an administrator deleted the OIDC user with this name."""
     query = select(RevokedSsoUser.id).where(RevokedSsoUser.username == username)
     return session.exec(query).first() is not None
 
 
 def lift_revocation(username: str) -> dict[str, Any]:
-    """Let a deleted SSO user be created again by its next login; raise NotFoundError."""
+    """Let a deleted OIDC user be created again by its next login; raise NotFoundError."""
     with session_scope() as session:
         row = session.exec(
             select(RevokedSsoUser).where(RevokedSsoUser.username == username.strip())
         ).first()
         if row is None:
-            raise NotFoundError(f"No revoked SSO user named '{username}'")
+            raise NotFoundError(f"No revoked OIDC user named '{username}'")
         lifted = {"username": row.username, "revoked_at": _iso(row.revoked_at)}
         session.delete(row)
         return lifted
 
 
 def list_revoked_users() -> list[dict[str, Any]]:
-    """Names of the deleted SSO users, never created again by a login."""
+    """Names of the deleted OIDC users, never created again by a login."""
     with session_scope() as session:
         rows = session.exec(select(RevokedSsoUser).order_by(col(RevokedSsoUser.username))).all()
         return [
@@ -393,7 +393,7 @@ def create_user(
     None for every project); a local one without ``password`` gets a random one. ``actor`` is
     written to the audit log (default: ``created_by``).
 
-    An SSO user (``auth_source="oidc"``) has no password; its SSO groups are added at each
+    An OIDC user (``auth_source="oidc"``) has no password; its OIDC groups are added at each
     login. Returns the user and, when generated, its ``password`` (shown exactly once). Raises
     ValueError when invalid, duplicated or over the limit, NotFoundError for an unknown group or
     role.
@@ -403,7 +403,7 @@ def create_user(
     secret: str | None = None
     if source == AUTH_OIDC:
         if password is not None:
-            raise ValueError("An SSO user has no password: it logs in with the identity provider")
+            raise ValueError("An OIDC user has no password: it logs in with the identity provider")
     else:
         secret = generate_password() if password is None else clean_password(password)
     with session_scope() as session:
@@ -444,7 +444,7 @@ def update_user(
     """Replace the groups an administrator gave to a user and its direct roles (role id,
     projects or None for every project); applies to its sessions at once.
 
-    ``None`` leaves the groups or the roles unchanged. Its SSO groups are kept. The last user
+    ``None`` leaves the groups or the roles unchanged. Its OIDC groups are kept. The last user
     that holds ``users.manage`` cannot lose it.
     """
     with session_scope() as session:
@@ -468,7 +468,7 @@ def set_password(
 ) -> dict[str, Any]:
     """Replace the password of a local user and end its open sessions.
 
-    Without ``password`` a random one is generated and returned in ``password``. An SSO user has
+    Without ``password`` a random one is generated and returned in ``password``. An OIDC user has
     no password (ValueError). ``must_change`` (a password set by an administrator) makes the
     user change it at its next login.
     """
@@ -478,7 +478,7 @@ def set_password(
     with session_scope() as session:
         row = _get(session, user_id)
         if row.auth_source != AUTH_LOCAL:
-            raise ValueError("An SSO user has no password: it logs in with the identity provider")
+            raise ValueError("An OIDC user has no password: it logs in with the identity provider")
         row.password_hash = password_hash
         row.password_changed_at = row.updated_at = utcnow()
         row.must_change_password = must_change
@@ -496,7 +496,7 @@ def change_own_password(user_id: int, current: str, new: str) -> dict[str, Any]:
         row = _get(session, user_id)
         stored = row.password_hash if row.auth_source == AUTH_LOCAL else None
     if stored is None:
-        raise ValueError("An SSO user has no password: it logs in with the identity provider")
+        raise ValueError("An OIDC user has no password: it logs in with the identity provider")
     if not verify_password(current[:MAX_PASSWORD_CHARS], stored):
         raise ValueError("The current password is wrong")
     if current == new:
@@ -507,7 +507,7 @@ def change_own_password(user_id: int, current: str, new: str) -> dict[str, Any]:
 def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
     """Delete a user (its sessions stop at once); the last administrator is kept.
 
-    A deleted SSO user is revoked: a login never creates it again (even with
+    A deleted OIDC user is revoked: a login never creates it again (even with
     ``SECREVIEW_OIDC_AUTO_CREATE_USERS``), until an administrator creates it again.
     """
     with session_scope() as session:
@@ -571,7 +571,7 @@ def record_logout(label: str, address: str | None) -> None:
 def authenticate(username: str, password: str, address: str | None = None) -> dict[str, Any] | None:
     """Return the local user whose username and password match, or None.
 
-    An SSO user never matches. The time spent does not depend on whether the username exists.
+    An OIDC user never matches. The time spent does not depend on whether the username exists.
     The last login time is recorded, and the login or its failure (from ``address``) is written
     to the audit log.
     """
@@ -626,7 +626,7 @@ def check_project_grant(username: str, create_sso: bool) -> str:
     """Check that ``grant_project`` can give a project to this user; return the clean name.
 
     Called before approving an enrollment, so that a refused grant does not leave an approved
-    request without its web access. ``create_sso`` allows an unknown name (it becomes an SSO
+    request without its web access. ``create_sso`` allows an unknown name (it becomes an OIDC
     user).
     """
     name = clean_username(username)
@@ -653,7 +653,7 @@ def grant_project(
 
     A user that can already read every project is unchanged. Otherwise the project is added to
     its direct role ``reader`` (given on this project only when it has none). With
-    ``create_sso``, an unknown name becomes an SSO user, ready for its first login.
+    ``create_sso``, an unknown name becomes an OIDC user, ready for its first login.
 
     Raises:
         ValueError: Invalid name or project, unknown user without ``create_sso``, or a limit.
@@ -723,14 +723,14 @@ def oidc_login(
     settings: Settings,
     address: str | None = None,
 ) -> dict[str, Any]:
-    """Open the session of the SSO user of a verified OIDC login; raise OidcError.
+    """Open the session of the OIDC user of a verified OIDC login; raise OidcError.
 
     The user is named by the username claim. It is refused when the name belongs to a local
     account, when it is bound to another subject or to another identity provider (the account
     is identified by the issuer and the subject; a user bound before the issuer was recorded
     gets it at its next login), or when it does not exist and
     ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is off (``unknown_user``) or an administrator deleted it
-    (``revoked``). Its SSO groups are replaced by those its groups claim names (see
+    (``revoked``). Its OIDC groups are replaced by those its groups claim names (see
     access_control.sync_sso_groups); the login is refused (``forbidden``) when its groups give
     it no permission, and a missing user is then not created.
     """
@@ -797,7 +797,7 @@ def oidc_login(
                 logger.warning("OIDC login of %s refused: no group gives it a permission", label)
                 raise OidcError("forbidden", "No web role granted to this user")
             if created:
-                logger.info("SSO web user %s created at its first login", name)
+                logger.info("OIDC web user %s created at its first login", name)
             if grants:
                 _record_login(session, row, "oidc", address)
             result = _session(signer, row, grants) if grants else None
@@ -805,11 +805,11 @@ def oidc_login(
         # The same user logged in twice at the same time
         raise OidcError("state", "Concurrent first login: try again") from None
     if result is None:
-        # The SSO groups it lost are committed, so that its other sessions lose them too
+        # The OIDC groups it lost are committed, so that its other sessions lose them too
         logger.warning("OIDC login of %s refused: no group gives it a permission", label)
         raise OidcError("forbidden", "No web role granted to this user")
     logger.info(
-        "OIDC login of %s with role %s through %d SSO group(s)", label, result["role"], len(joined)
+        "OIDC login of %s with role %s through %d OIDC group(s)", label, result["role"], len(joined)
     )
     return result
 

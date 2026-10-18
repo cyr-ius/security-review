@@ -5,20 +5,20 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, disabled, form, maxLength, required, validate } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { MAX_PASSWORD_CHARS, followsPasswordPolicy } from '../../core/constants/passwords';
-import { AuthSource, WebUser, WebUserRole } from '../../core/models/api.models';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { AuthSource, WebUser, WebUserRole } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { PasswordPolicyComponent } from '../../shared/components/password-policy/password-policy.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import {
-  RoleBindingDraft,
-  RoleBindingsComponent,
-  roleDraftsComplete,
-  toRoleBindings,
-  toRoleDrafts,
+    RoleBindingDraft,
+    RoleBindingsComponent,
+    roleDraftsComplete,
+    toRoleBindings,
+    toRoleDrafts,
 } from '../../shared/components/role-bindings/role-bindings.component';
 
 /** Message keys of the roles of a web user. */
@@ -40,7 +40,7 @@ const EMPTY_USER: UserFormModel = { source: 'local', username: '', password: '' 
 
 /**
  * Administrator page for the web users, the only accounts of the web interface: local users
- * (username and password) and SSO users (OpenID Connect, created here or at their first login),
+ * (username and password) and OIDC users (OpenID Connect, created here or at their first login),
  * the groups given to them and the roles given to them directly on every project or on some
  * projects (both give the permissions), password resets and deletion.
  */
@@ -64,12 +64,12 @@ export class UserListComponent {
 
   readonly roleLabels = ROLE_LABELS;
   readonly users = rxResource({ stream: () => this.api.users() });
-  /** Deleted SSO users, never created again by a login. */
+  /** Deleted OIDC users, never created again by a login. */
   readonly revoked = rxResource({ stream: () => this.api.revokedUsers() });
   readonly groups = rxResource({ stream: () => this.api.groups() });
   readonly roles = rxResource({ stream: () => this.api.roles() });
   readonly projects = rxResource({ stream: () => this.api.projects() });
-  /** Login methods of the controller: tells whether SSO users can log in. */
+  /** Login methods of the controller: tells whether OIDC users can log in. */
   readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
 
   /** User whose groups are being edited (null: creation form). */
@@ -88,7 +88,7 @@ export class UserListComponent {
         : undefined,
     );
   });
-  /** Ids of the groups given by an administrator (the SSO groups are kept apart). */
+  /** Ids of the groups given by an administrator (the OIDC groups are kept apart). */
   readonly selectedGroups = signal<number[]>([]);
   /** Roles given directly to the user, each on every project or on the selected ones. */
   readonly bindings = signal<RoleBindingDraft[]>([]);
@@ -113,7 +113,7 @@ export class UserListComponent {
     return config?.oidc ? config.oidc_display_name : null;
   });
 
-  /** SSO groups of the edited user (named by its groups claim at its last login). */
+  /** OIDC groups of the edited user (named by its groups claim at its last login). */
   readonly ssoGroups = computed(() =>
     (this.editing()?.groups ?? []).filter((group) => group.source === 'oidc'),
   );
@@ -248,7 +248,7 @@ export class UserListComponent {
     });
   }
 
-  /** Let a deleted SSO user be created again at its next login. */
+  /** Let a deleted OIDC user be created again at its next login. */
   async liftRevocation(username: string): Promise<void> {
     const question = this.i18n.translate('users.confirmLift', { user: username });
     if (this.busy() || !window.confirm(question)) {

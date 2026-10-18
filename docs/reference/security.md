@@ -81,13 +81,13 @@
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
   **Update now** button of the web interface (`settings.manage` permission) is only accepted if
   `SECREVIEW_OSV_AUTO_UPDATE=true`. The outgoing proxy (`SECREVIEW_PROXY`, or the **Outgoing proxy**
-  screen) serves the OSV download and the SSO provider; only the name of the changed settings
+  screen) serves the OSV download and the OIDC provider; only the name of the changed settings
   is logged. A proxy set in the web interface is stored in the database **with its credentials,
   in clear**: the API never returns them (password replaced by `***`) and the error messages of
   the history are scrubbed of them, but prefer `SECREVIEW_PROXY` (Kubernetes secret) if the
   database is not protected like a secret. See the
   [automatic update](../advanced/dependencies.md#automatic-update-by-the-controller). With the
-  [SSO login](../advanced/sso.md) (`SECREVIEW_OIDC_ENABLED`,
+  [OIDC login](../advanced/sso.md) (`SECREVIEW_OIDC_ENABLED`,
   disabled by default), the controller also contacts the configured identity provider: HTTPS
   only (HTTP only on localhost), redirects limited to HTTPS, answers bounded to 1 MiB, 10 second
   timeout. This configuration can also be
@@ -136,28 +136,28 @@
   guessing tokens is limited too; the counters store SHA-256 digests, never the addresses); behind a reverse proxy, the client address is only read from
   `X-Forwarded-For` for the proxies listed in `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` lets any
   client choose its address and get round the limits). Only valid user names are logged, never passwords. The session is a
-  token signed with `SECREVIEW_SESSION_SECRET`, like the SSO one, but the account is **read
+  token signed with `SECREVIEW_SESSION_SECRET`, like the OIDC one, but the account is **read
   again from the database at every request**: deletion, new role or new projects apply
   immediately, and a password change draws a new random session version that invalidates every
   previous session. The session must also carry the identifier of the account: it never opens
   an account created again under the same internal number. The last administrator, local or
-  SSO (by its role or the role of its groups), can be neither deleted nor demoted. The password
+  OIDC (by its role or the role of its groups), can be neither deleted nor demoted. The password
   of the initial `admin` account appears once in the logs of the controller: protect them and
   change it at the first login.
-- **SSO login (OpenID Connect)**, optional: *authorization code* flow with `S256` PKCE, state
+- **OIDC login (OpenID Connect)**, optional: *authorization code* flow with `S256` PKCE, state
   bound to the browser by a signed `HttpOnly` / `SameSite=Lax` cookie of 10 minutes, nonce,
   verified ID token (signature by the JWKS keys of the provider, asymmetric algorithms only,
   never `none` nor HMAC; issuer, audience, `azp`, expiry). The permissions come from the
   [groups](../advanced/access-control.md) of the account: those given by an administrator and the
-  groups open to SSO whose name is exactly a value of the groups claim (other values are
-  ignored, a group not open to SSO is never joined through the claim); an SSO session never
+  groups open to OIDC whose name is exactly a value of the groups claim (other values are
+  ignored, a group not open to OIDC is never joined through the claim); an OIDC session never
   opens `/mcp`. The account is named by the exact identifier of the
   `SECREVIEW_OIDC_USERNAME_CLAIM` claim (no fallback to `email` or `sub`, value refused if it is
   not a valid user name): choose a claim that the user cannot change at the provider. By
-  default (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), only an SSO account created by an
-  administrator can log in. An SSO login never opens a local account of the same name, and the
+  default (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), only an OIDC account created by an
+  administrator can log in. An OIDC login never opens a local account of the same name, and the
   account is bound to the issuer and the `sub` of its first login: another `sub` or another
-  issuer is refused. A deleted SSO
+  issuer is refused. A deleted OIDC
   account is revoked: the automatic creation does not create it again, until an administrator
   creates it again or allows it again. Check the requester of an enrollment (free text, not
   verified) before giving them read access to the project. A session restricted to projects is

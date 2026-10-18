@@ -88,12 +88,12 @@ src/security_review_mcp/
 ├── server.py      # prompts, tools, resources, entry point of the MCP server
 ├── controller.py  # entry point of the controller (serve, db and administration commands)
 ├── http_server.py # HTTP of both processes: Bearer tokens and roles, TLS, /healthz, uvicorn
-├── oidc.py        # OpenID Connect SSO login to the web interface (controller)
+├── oidc.py        # OpenID Connect OIDC login to the web interface (controller)
 ├── access_control.py # permissions, roles, groups and members of the web accounts
 ├── token_store.py # Bearer tokens in the database: creation, expiry, rotation, revocation, enrollment
 ├── audit.py       # audit log: events of triage decisions, proposals, tokens and enrollments
 ├── metrics.py     # Prometheus metrics of the controller (/metrics)
-├── web_users.py   # web interface accounts, local (scrypt) or SSO (created on the fly), sessions, initial admin
+├── web_users.py   # web interface accounts, local (scrypt) or OIDC (created on the fly), sessions, initial admin
 ├── enrollment.py  # `enroll` client: token request to a shared server
 ├── remote_scan.py # `scan-deps` client: dependency scan with a shared server
 ├── ci_client.py   # `security-review-ci`: pipeline client of the controller (standard library only)
@@ -118,8 +118,8 @@ src/security_review_mcp/
 ├── versions.py    # version comparison
 ├── advisories.py  # OSV import, version matching
 ├── advisory_sync.py  # OSV download by the controller (proxy, daily update, history)
-├── app_settings.py    # settings changed in the interface (language, outgoing proxy, SSO), in the database
-├── proxy.py       # outgoing proxy of the controller (OSV, SSO): URL, no_proxy, urllib handler
+├── app_settings.py    # settings changed in the interface (language, outgoing proxy, OIDC), in the database
+├── proxy.py       # outgoing proxy of the controller (OSV, OIDC): URL, no_proxy, urllib handler
 ├── dependencies.py    # manifest / lockfile parsers, hygiene
 ├── depscan.py     # dependency scan and conversion into findings
 ├── services.py    # persistence logic of the reports

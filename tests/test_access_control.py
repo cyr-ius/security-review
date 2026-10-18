@@ -221,7 +221,7 @@ def test_groups_are_created_with_roles_and_members():
         "reports.read": frozenset({"shop", "crm"}),
         "findings.triage": frozenset({"shop"}),
     }
-    # Replacing the members keeps the SSO ones and removes the others
+    # Replacing the members keeps the OIDC ones and removes the others
     removed = access_control.set_group_members(group["id"], [bob["id"]])
     assert [m["username"] for m in removed["members"]] == ["bob"]
     assert grants_of(alice["id"]) == {}

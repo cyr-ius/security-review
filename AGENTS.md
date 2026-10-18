@@ -95,15 +95,15 @@ l'utiliser.
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
 | CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `deps`, `code`, `rules`, `token`, `user`, `group`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif` et `trend` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`), `ci_client.py` |
-| Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) ; proxy sortant du contrôleur (OSV et SSO) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` ; `proxy.py` |
+| Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` ; `proxy.py` |
 | Persistance, schéma (purge des rapports sans findings et de l'audit : `retention.py`) | `models.py`, `services.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
 | Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `audit.py` ; `metrics.py` |
 | Export et tendances | `sarif.py`, `trends.py` |
-| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et SSO, seuls à ouvrir l'interface (mot de passe, création SSO à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py` ; permissions, rôles, groupes et membres (groupes SSO par le claim) : `access_control.py` |
+| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim) : `access_control.py` |
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas.py` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
 | Normes de développement par technologie (prompt `development-standards`, écran « Normes ») | `standards.py` |
-| Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy sortant, configuration SSO) | `config.py` ; `app_settings.py` |
+| Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy sortant, configuration OIDC) | `config.py` ; `app_settings.py` |
 
 Tous les modules sont dans `src/security_review_mcp/`. L'application Angular (`web/`) est
 compilée par `npm run build` dans `src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules
@@ -167,9 +167,9 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
   CLI. Exceptions : les commandes CLI `enroll`, `scan-deps` et `security-review-ci`, qui contactent l'URL donnée par
   l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
-  uniquement, taille bornée, proxy facultatif (`proxy`, partagé avec le SSO) jamais journalisé
+  uniquement, taille bornée, proxy facultatif (`proxy`, partagé avec le OIDC) jamais journalisé
   avec ses identifiants, et la
-  connexion SSO du contrôleur (`oidc`), **désactivée par défaut**, qui ne contacte que le
+  connexion OIDC du contrôleur (`oidc`), **désactivée par défaut**, qui ne contacte que le
   fournisseur d'identité configuré, en HTTPS, réponses bornées.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
   imbriqués) ; `rules_loader` les valide pour les règles internes.
@@ -277,7 +277,7 @@ essentielles.
 | Transport HTTP, authentification, TLS, enrôlement | `docs/advanced/http`, `docs/reference/security` (+ `getting-started/deploy` et `getting-started/host` si le parcours de base change) |
 | Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/advanced/architecture`, `docs/getting-started/deploy`, `docker-compose.yml`, `examples/kubernetes/` |
 | Les normes de développement (prompt, outils, ressources, écran) | `docs/advanced/standards` (+ `usage/prompts-tools`) |
-| L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` (connexion SSO : `docs/advanced/sso`) |
+| L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` (connexion OIDC : `docs/advanced/sso`) |
 | Installation, image Docker | `docs/getting-started/installation`, `docs/advanced/installation`, `docs/advanced/docker` |
 | Une garantie ou limite de sécurité | `docs/reference/security` |
 | La structure du code, l'outillage de dev | `docs/contributing` |

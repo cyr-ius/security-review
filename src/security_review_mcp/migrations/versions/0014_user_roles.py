@@ -1,7 +1,7 @@
 """Roles given directly to a web user, on every project or on a list of projects.
 
 Creates the ``userrole`` table. The personal groups ``user:<username>`` (created by revision
-0013 and by the approval of an enrollment, not open to SSO) whose only members are that user,
+0013 and by the approval of an enrollment, not open to OIDC) whose only members are that user,
 added locally, become roles of the user: their roles move to ``userrole`` with the same
 projects, then the group is deleted. Any other group is left as it is.
 

@@ -979,7 +979,7 @@ def test_sso_settings_need_users_manage(accounts):
     make_user("sam", USER_PASSWORD, group_ids=[group["id"]])
     headers = session_headers(accounts, "sam")
 
-    # The SSO settings decide group membership: settings.manage alone cannot change them
+    # The OIDC settings decide group membership: settings.manage alone cannot change them
     assert accounts.get("/api/v1/settings", headers=headers).status_code == 200
     body = {"admin_groups": "my-idp-group", "default_group": "administrators"}
     for method, url in (
@@ -1724,7 +1724,7 @@ def test_invalid_proxy_is_refused(client):
 def test_a_proxy_change_rebuilds_the_sso_login(ui_dir):
     app = web_api.create_app(ui_dir=str(ui_dir))
     client = TestClient(as_admin(app), base_url="http://127.0.0.1")
-    client.put("/api/v1/oidc/settings", json=SSO_SETTINGS)
+    client.put("/api/v1/oidc/settings", json=OIDC_SETTINGS)
     logins = app.state.oidc
     before = logins.current()
     assert before.settings.proxy is None
@@ -2053,7 +2053,7 @@ def test_sso_users_are_managed_by_administrators(accounts, caplog):
     me = accounts.get("/api/v1/me", headers=admin).json()
     assert (me["auth_source"], me["local_account"]) == ("local", True)
 
-    # An SSO user has no password
+    # An OIDC user has no password
     invalid = {**body, "username": "dave", "password": USER_PASSWORD}
     assert accounts.post("/api/v1/users", json=invalid, headers=admin).status_code == 422
     reset = accounts.post(f"/api/v1/users/{carol['id']}/password", json={}, headers=admin)
@@ -2069,10 +2069,10 @@ def test_sso_users_are_managed_by_administrators(accounts, caplog):
     )
     cleared = accounts.put(f"/api/v1/users/{carol['id']}", json={"group_ids": []}, headers=admin)
     assert cleared.json()["groups"] == []
-    # An SSO user never logs in with a password
+    # An OIDC user never logs in with a password
     assert login(accounts, "carol@example.com", "").status_code in (401, 422)
 
-    # A deleted SSO user is revoked until an administrator lifts it
+    # A deleted OIDC user is revoked until an administrator lifts it
     assert accounts.delete(f"/api/v1/users/{carol['id']}", headers=admin).status_code == 204
     assert "Web user carol@example.com (oidc) deleted by root" in caplog.text
     revoked = accounts.get("/api/v1/users/revoked", headers=admin).json()
@@ -2361,15 +2361,15 @@ def test_packs_need_their_permission(secured):
     assert secured.get("/api/v1/standards", headers=auth("admin")).json()["standards"] == []
 
 
-# ── SSO settings ─────────────────────────────────────────────────────────────
+# ── OIDC settings ─────────────────────────────────────────────────────────────
 
-SSO_SETTINGS = {
+OIDC_SETTINGS = {
     "enabled": True,
     "issuer": "https://sso.example.com/realms/acme",
     "client_id": "secreview",
     "client_secret": "client-s3cr3t",
     "redirect_uri": "https://secreview.example.com/api/v1/auth/oidc/callback",
-    "display_name": "Acme SSO",
+    "display_name": "Acme OIDC",
     "admin_groups": "secreview-admins",
 }
 
@@ -2394,19 +2394,19 @@ def test_sso_set_in_the_web_interface_enables_the_login_at_once(client, caplog):
     assert client.get("/api/v1/auth/config").json()["oidc"] is False
     assert client.get("/api/v1/auth/oidc/login").status_code == 404
 
-    response = client.put("/api/v1/oidc/settings", json=SSO_SETTINGS)
+    response = client.put("/api/v1/oidc/settings", json=OIDC_SETTINGS)
 
     assert response.status_code == 200
     described = response.json()
     assert described["active"] is True
     assert described["fields"]["client_secret"]["value"] == "***"
-    assert described["fields"]["issuer"]["effective"] == SSO_SETTINGS["issuer"]
+    assert described["fields"]["issuer"]["effective"] == OIDC_SETTINGS["issuer"]
     assert described["callback_path"] == "/api/v1/auth/oidc/callback"
     assert "client-s3cr3t" not in response.text
     assert "client-s3cr3t" not in client.get("/api/v1/oidc/settings").text
     assert "client-s3cr3t" not in caplog.text
     config = client.get("/api/v1/auth/config").json()
-    assert config == {"password": True, "oidc": True, "oidc_display_name": "Acme SSO"}
+    assert config == {"password": True, "oidc": True, "oidc_display_name": "Acme OIDC"}
     catalog = client.get("/api/v1/groups").json()
     assert catalog["oidc_enabled"] is True
     assert catalog["admin_groups"] == ["secreview-admins"]
@@ -2436,15 +2436,15 @@ def test_invalid_sso_settings_are_refused(client):
 def test_sso_variables_made_invalid_by_a_stored_value_only_disable_the_login(
     client, monkeypatch, caplog
 ):
-    client.put("/api/v1/oidc/settings", json=SSO_SETTINGS)
-    # The variable changes after the settings were stored: SSO is disabled, not the controller
+    client.put("/api/v1/oidc/settings", json=OIDC_SETTINGS)
+    # The variable changes after the settings were stored: OIDC is disabled, not the controller
     monkeypatch.setattr(get_settings(), "oidc_scopes", "profile")
     assert client.get("/api/v1/auth/config").json()["oidc"] is False
-    assert "SSO login disabled, invalid settings" in caplog.text
+    assert "OIDC login disabled, invalid settings" in caplog.text
 
 
 def test_sso_settings_test_contacts_the_given_provider_without_storing(client, monkeypatch):
-    issuer = SSO_SETTINGS["issuer"]
+    issuer = OIDC_SETTINGS["issuer"]
     calls: list[str] = []
 
     def fetch_json(self, url, data=None, headers=None):  # noqa: ANN001, ANN202
@@ -2460,7 +2460,7 @@ def test_sso_settings_test_contacts_the_given_provider_without_storing(client, m
         return {"keys": [jwt.algorithms.RSAAlgorithm.to_jwk(key, as_dict=True)]}
 
     monkeypatch.setattr(oidc.OidcLogin, "fetch_json", fetch_json)
-    result = client.post("/api/v1/oidc/settings/test", json=SSO_SETTINGS).json()
+    result = client.post("/api/v1/oidc/settings/test", json=OIDC_SETTINGS).json()
 
     assert result["success"] is True
     assert [step["name"] for step in result["steps"]] == ["discovery", "jwks"]
@@ -2472,13 +2472,13 @@ def test_sso_settings_test_contacts_the_given_provider_without_storing(client, m
         raise oidc.OidcError("provider", "Identity provider unreachable")
 
     monkeypatch.setattr(oidc.OidcLogin, "fetch_json", unreachable)
-    result = client.post("/api/v1/oidc/settings/test", json=SSO_SETTINGS).json()
+    result = client.post("/api/v1/oidc/settings/test", json=OIDC_SETTINGS).json()
     assert result == {
         "success": False,
         "steps": [{"name": "discovery", "ok": False, "detail": "Identity provider unreachable"}],
     }
     # Settings that cannot enable a login are refused before any connection
-    for body in ({"issuer": "http://evil.example"}, SSO_SETTINGS | {"issuer": f"{issuer}\nx"}):
+    for body in ({"issuer": "http://evil.example"}, OIDC_SETTINGS | {"issuer": f"{issuer}\nx"}):
         response = client.post("/api/v1/oidc/settings/test", json=body)
         assert response.status_code == 422
 

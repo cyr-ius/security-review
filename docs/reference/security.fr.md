@@ -80,14 +80,14 @@
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
   journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (permission `settings.manage`) n'est
   accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Le proxy sortant (`SECREVIEW_PROXY`, ou
-  l'écran **Proxy sortant**) sert au téléchargement OSV et au fournisseur SSO ; seul le nom des
+  l'écran **Proxy sortant**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
   réglages modifiés est journalisé. Un proxy défini dans l'interface web est
   enregistré en base **avec ses identifiants, en clair** : l'API ne les renvoie jamais (mot de
   passe remplacé par `***`) et les messages d'erreur de l'historique en sont expurgés, mais
   préférez `SECREVIEW_PROXY` (secret Kubernetes) si la base n'est pas protégée comme un
   secret. Voir la
   [mise à jour automatique](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur).
-  Avec la [connexion SSO](../advanced/sso.md)
+  Avec la [connexion OIDC](../advanced/sso.md)
   (`SECREVIEW_OIDC_ENABLED`, désactivée par défaut), le contrôleur contacte aussi le fournisseur
   d'identité configuré : HTTPS uniquement (HTTP seulement sur localhost), redirections limitées
   à HTTPS, réponses bornées à 1 Mio, délai de 10 secondes. Cette configuration peut aussi être
@@ -142,28 +142,28 @@
   `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` laisse tout client choisir son adresse et contourner les
   limites). Seuls les identifiants valides sont
   journalisés, jamais les mots de passe. La session est un jeton signé avec
-  `SECREVIEW_SESSION_SECRET`, comme celle du SSO, mais le compte est **relu en base à chaque
+  `SECREVIEW_SESSION_SECRET`, comme celle du OIDC, mais le compte est **relu en base à chaque
   requête** : suppression, nouveau rôle ou nouveaux projets s'appliquent immédiatement, et un
   changement de mot de passe tire une nouvelle version de session aléatoire qui invalide toutes
   les sessions précédentes. La session doit aussi porter l'identifiant du compte : elle n'ouvre
-  jamais un compte recréé sous le même numéro interne. Le dernier administrateur, local ou SSO (par son rôle ou celui de ses groupes), ne peut être ni supprimé ni rétrogradé. Le mot de passe
+  jamais un compte recréé sous le même numéro interne. Le dernier administrateur, local ou OIDC (par son rôle ou celui de ses groupes), ne peut être ni supprimé ni rétrogradé. Le mot de passe
   du compte `admin` initial apparaît une fois dans les journaux du contrôleur : protégez-les et
   changez-le dès la première connexion.
-- **Connexion SSO (OpenID Connect)**, facultative : flux *authorization code* avec PKCE `S256`,
+- **Connexion OIDC (OpenID Connect)**, facultative : flux *authorization code* avec PKCE `S256`,
   state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
   ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
   uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Les permissions
   viennent des [groupes](../advanced/access-control.md) du compte : ceux donnés par un
-  administrateur et les groupes ouverts au SSO dont le nom est exactement une valeur du claim des
-  groupes (les autres valeurs sont ignorées, un groupe non ouvert au SSO n'est jamais rejoint par
-  le claim) ; une session SSO n'ouvre jamais `/mcp`. Le compte est nommé par l'identifiant exact du claim
+  administrateur et les groupes ouverts au OIDC dont le nom est exactement une valeur du claim des
+  groupes (les autres valeurs sont ignorées, un groupe non ouvert au OIDC n'est jamais rejoint par
+  le claim) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est nommé par l'identifiant exact du claim
   `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si ce n'est pas
   un identifiant valide) : choisissez un claim que l'utilisateur ne peut pas modifier chez le
-  fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte SSO créé par
-  un administrateur peut se connecter. Une connexion SSO n'ouvre jamais un compte local du même
+  fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte OIDC créé par
+  un administrateur peut se connecter. Une connexion OIDC n'ouvre jamais un compte local du même
   nom, et le compte est lié à l'émetteur et au `sub` de sa première connexion : un autre `sub`
   ou un autre émetteur est refusé. Un
-  compte SSO supprimé est révoqué : la création automatique ne le recrée pas, tant qu'un
+  compte OIDC supprimé est révoqué : la création automatique ne le recrée pas, tant qu'un
   administrateur ne l'a pas recréé ou autorisé à nouveau.
   Vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant de lui donner la lecture
   du projet. Une session restreinte à des projets l'est comme un jeton `--project`. La session est

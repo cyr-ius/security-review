@@ -209,7 +209,7 @@ def test_a_password_set_by_someone_else_must_be_changed(database):
     # Reset by an administrator: to change again
     web_users.set_password(created["id"])
     assert web_users.find_user("alice")["must_change_password"] is True
-    # An SSO user has no password to change
+    # An OIDC user has no password to change
     sso = web_users.create_user("bob", None, None, auth_source="oidc")
     assert sso["must_change_password"] is False
 
@@ -320,7 +320,7 @@ def test_sessions_without_a_web_user_are_refused():
     assert verifier.verify_session(other) is None
 
 
-# ── SSO users ────────────────────────────────────────────────────────────────
+# ── OIDC users ────────────────────────────────────────────────────────────────
 
 
 def sso_settings(**values) -> Settings:
@@ -463,7 +463,7 @@ def test_sso_login_opens_a_user_created_by_an_administrator():
     verifier = web_users.SessionVerifier(signer)
     make_user("alice", None, "reader", ["shop"], auth_source="oidc")
 
-    # No SSO group: the groups given by an administrator apply
+    # No OIDC group: the groups given by an administrator apply
     info = verifier.verify_session(login(signer)["session"])
     assert (info.role, info.projects) == (Role.READER, frozenset({"shop"}))
 
@@ -481,7 +481,7 @@ def test_sso_login_combines_the_given_groups_with_the_sso_ones(database):
     info = verifier.verify_session(login(signer, identity("alice", "sub-1", "leads"))["session"])
     assert (info.role, info.projects) == (Role.TRIAGER, frozenset({"shop", "crm"}))
     assert info.grants["findings.triage"] == frozenset({"crm"})
-    # The SSO groups are replaced at each login
+    # The OIDC groups are replaced at each login
     login(signer, identity("alice", "sub-1"))
     user = web_users.find_user("alice")
     assert [group["source"] for group in user["groups"]] == ["local"]
@@ -629,7 +629,7 @@ def test_last_administrator_counts_sso_administrators():
     root = make_user("root", PASSWORD, "admin")
     sso_admin = make_user("alice", None, "admin", auth_source="oidc")
 
-    # Two administrators: the local one may go, the SSO one is then the last
+    # Two administrators: the local one may go, the OIDC one is then the last
     web_users.delete_user(root["id"])
     with pytest.raises(ValueError, match="last holder of users.manage"):
         web_users.delete_user(sso_admin["id"])
@@ -647,11 +647,11 @@ def test_last_administrator_by_its_sso_groups_is_kept():
     assert alice["effective_role"] == "admin"
     root = make_user("root", PASSWORD, "admin")
 
-    # Demoting the local admin keeps an administrator (alice, by its SSO group)
+    # Demoting the local admin keeps an administrator (alice, by its OIDC group)
     web_users.update_user(root["id"], [group_for("reader")])
     with pytest.raises(ValueError, match="last holder of users.manage"):
         web_users.delete_user(alice["id"])
-    # The groups given by hand may change: the SSO group keeps it administrator
+    # The groups given by hand may change: the OIDC group keeps it administrator
     assert web_users.update_user(alice["id"], [group_for("reader")])["effective_role"] == "admin"
 
 
@@ -793,7 +793,7 @@ def test_user_cli_creates_an_sso_user(capsys):
     group_for("triager")
     code, updated = run_cli(capsys, "set-groups", "alice@example.com", "--group", "triager")
     assert (code, updated["effective_role"]) == (cli.EXIT_PASSED, "triager")
-    # An unknown group is refused; an SSO user never has a password
+    # An unknown group is refused; an OIDC user never has a password
     assert cli.run(["user", "create", "bob", "--group", "nope"]) == cli.EXIT_ERROR
     assert "Group 'nope' not found" in json.loads(capsys.readouterr().err)["error"]
     with pytest.raises(SystemExit) as exc:

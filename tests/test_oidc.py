@@ -108,7 +108,7 @@ class FakeProvider(oidc.OidcLogin):
 
 @pytest.fixture
 def provider() -> FakeProvider:
-    # The groups claim of the fake provider names "qa": a group of readers open to SSO
+    # The groups claim of the fake provider names "qa": a group of readers open to OIDC
     group_for("reader", name="qa", sso=True)
     return FakeProvider(make_settings())
 
@@ -371,7 +371,7 @@ def test_session_tokens_never_carry_the_mcp_role():
 
 def test_auth_config_is_public(controller, tmp_path):
     response = controller.get("/api/v1/auth/config")
-    assert response.json() == {"password": True, "oidc": True, "oidc_display_name": "SSO"}
+    assert response.json() == {"password": True, "oidc": True, "oidc_display_name": "OIDC"}
 
     disabled = TestClient(web_api.create_app(ui_dir=str(tmp_path)), base_url="http://127.0.0.1")
     assert disabled.get("/api/v1/auth/config").json() == {
@@ -429,9 +429,9 @@ def test_full_login_gives_a_session_accepted_by_the_api(controller, provider, ca
         for record in caplog.records
         if record.name.startswith("security_review_mcp")
     )
-    assert "OIDC login of oidc:alice with role reader through 1 SSO group(s)" in logs
-    assert "SSO web user alice created at its first login" in logs
-    # The user now appears among the web users, as an SSO user bound to its subject
+    assert "OIDC login of oidc:alice with role reader through 1 OIDC group(s)" in logs
+    assert "OIDC web user alice created at its first login" in logs
+    # The user now appears among the web users, as an OIDC user bound to its subject
     (user,) = web_users.list_users()
     assert (user["username"], user["auth_source"], user["effective_role"]) == (
         "alice",
@@ -524,7 +524,7 @@ def test_sso_user_created_by_an_administrator_reads_its_projects(controller, pro
     assert (me["auth_source"], me["local_account"]) == ("oidc", False)
     projects = controller.get("/api/v1/projects", headers=headers).json()
     assert [item["project"] for item in projects] == ["shop-api"]
-    # An SSO user has no password to change
+    # An OIDC user has no password to change
     response = controller.put(
         "/api/v1/me/password",
         headers=headers,

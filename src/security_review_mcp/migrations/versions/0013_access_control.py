@@ -2,15 +2,15 @@
 
 Creates the ``accessrole``, ``usergroup``, ``grouprole`` and ``groupmember`` tables, with the
 system roles ``reader``, ``triager`` and ``admin`` and the group ``administrators`` (role
-``admin``, not matched against the SSO groups claim). The former access is moved into groups:
+``admin``, not matched against the OIDC groups claim). The former access is moved into groups:
 
-- each OIDC role mapping becomes a group named after its claim value (matched against the SSO
+- each OIDC role mapping becomes a group named after its claim value (matched against the OIDC
   groups claim) that has the role of the mapping, on the same projects;
 - each web user with a role of its own joins ``administrators``, ``triagers`` or ``readers``
-  (groups not matched against the SSO groups claim) when it reached every project, or else a
+  (groups not matched against the OIDC groups claim) when it reached every project, or else a
   personal group ``user:<username>`` with that role on its projects.
 
-The access an SSO user got from its groups at its last login is not moved: it is computed again
+The access an OIDC user got from its groups at its last login is not moved: it is computed again
 at its next login. The ``oidcrolemapping`` table and the role columns of ``webuser`` are then
 dropped.
 

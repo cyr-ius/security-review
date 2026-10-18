@@ -105,7 +105,7 @@ export interface LoginSession {
 /** Web role of a web user. */
 export type WebUserRole = 'reader' | 'triager' | 'admin';
 
-/** Source of a web user: local account (password) or SSO account (OpenID Connect). */
+/** Source of a web user: local account (password) or OIDC account (OpenID Connect). */
 export type AuthSource = 'local' | 'oidc';
 
 /** Membership of a web user in a group. */
@@ -116,7 +116,7 @@ export interface UserGroupMembership {
   source: AuthSource;
 }
 
-/** A web user, local or SSO; the password hash is never returned. */
+/** A web user, local or OIDC; the password hash is never returned. */
 export interface WebUser {
   id: number;
   username: string;
@@ -128,11 +128,11 @@ export interface WebUser {
   permissions: Grants;
   /** Web role that sums up the permissions; null: no permission. */
   effective_role: WebUserRole | null;
-  /** True once an SSO user logged in (bound to its identity provider account). */
+  /** True once an OIDC user logged in (bound to its identity provider account). */
   sso_linked: boolean;
   created_at: string;
   updated_at: string;
-  /** null for an SSO user (no password). */
+  /** null for an OIDC user (no password). */
   password_changed_at: string | null;
   /** Its password was set by someone else: it changes it at its next login. */
   must_change_password: boolean;
@@ -140,7 +140,7 @@ export interface WebUser {
   created_by: string | null;
 }
 
-/** A deleted SSO user: a login never creates it again until the revocation is lifted. */
+/** A deleted OIDC user: a login never creates it again until the revocation is lifted. */
 export interface RevokedUser {
   username: string;
   revoked_at: string;
@@ -569,7 +569,7 @@ export interface AppSettings {
     env: string;
     effective: string;
   };
-  /** Proxy of the outgoing connections of the controller (OSV download, SSO provider). */
+  /** Proxy of the outgoing connections of the controller (OSV download, OIDC provider). */
   proxy: {
     /** value: set in the web interface (null: SECREVIEW_PROXY applies, '': direct connection). */
     url: { value: string | null; env: string | null };
@@ -684,7 +684,7 @@ export interface UserGroup {
   id: number;
   name: string;
   description: string;
-  /** The SSO users whose groups claim holds the name are members too. */
+  /** The OIDC users whose groups claim holds the name are members too. */
   sso: boolean;
   roles: GroupRoleBinding[];
   members: GroupMember[];
@@ -704,14 +704,14 @@ export interface UserGroupWrite {
 export interface GroupCatalog {
   oidc_enabled: boolean;
   roles_claim: string;
-  /** SSO groups created with the admin role at the login of a member (SSO settings). */
+  /** OIDC groups created with the admin role at the login of a member (OIDC settings). */
   admin_groups: string[];
-  /** Group every SSO user joins at each login (SSO settings). */
+  /** Group every OIDC user joins at each login (OIDC settings). */
   default_group: string | null;
   groups: UserGroup[];
 }
 
-/** SSO setting an administrator may change (GET/PUT /api/v1/oidc/settings). */
+/** OIDC setting an administrator may change (GET/PUT /api/v1/oidc/settings). */
 export type OidcSettingName =
   | 'enabled'
   | 'issuer'
@@ -726,7 +726,7 @@ export type OidcSettingName =
   | 'auto_create_users'
   | 'display_name';
 
-/** One SSO setting: stored in the web interface (null: the variable applies), variable, effective. */
+/** One OIDC setting: stored in the web interface (null: the variable applies), variable, effective. */
 export interface OidcSettingValue {
   value: string | boolean | null;
   env: string | boolean | null;
@@ -739,7 +739,7 @@ export interface OidcSettings {
   /** SECREVIEW_OIDC_CAFILE, variable only. */
   cafile: string | null;
   callback_path: string;
-  /** The SSO login is enabled and valid on this controller. */
+  /** The OIDC login is enabled and valid on this controller. */
   active: boolean;
 }
 

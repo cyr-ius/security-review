@@ -125,8 +125,8 @@ class Settings(BaseSettings):
     # oidc_roles_claim (dotted path allowed, e.g. realm_access.roles) are matched against the
     # names of the groups of the web interface (see access_control): the user joins each group
     # of that name, and oidc_default_group (if set) in any case. oidc_admin_groups lists
-    # comma-separated SSO groups that hold the admin role: such a group is created at the first
-    # login of one of its members when it does not exist yet. A login opens the SSO web user
+    # comma-separated OIDC groups that hold the admin role: such a group is created at the first
+    # login of one of its members when it does not exist yet. A login opens the OIDC web user
     # named by oidc_username_claim: with oidc_auto_create_users it is created at the first login
     # (when its groups give it a permission), otherwise an administrator creates it first.
     # Sessions use session_secret and session_hours. oidc_cafile replaces the system CA bundle
@@ -142,10 +142,10 @@ class Settings(BaseSettings):
     oidc_default_group: str = ""
     oidc_username_claim: str = "preferred_username"
     oidc_auto_create_users: bool = False
-    oidc_display_name: str = "SSO"
+    oidc_display_name: str = "OIDC"
     oidc_cafile: str | None = None
 
-    # Controller only: HTTP proxy of its outgoing connections (OSV download, SSO identity
+    # Controller only: HTTP proxy of its outgoing connections (OSV download, OIDC identity
     # provider), http://[user:password@]host:port, and the comma-separated hosts reached without
     # it (no_proxy: a domain also covers its subdomains, an IP address or CIDR range the URLs
     # whose host is such an address, * every host; the loopback interface is always direct).

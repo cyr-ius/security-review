@@ -43,7 +43,7 @@ def settings(monkeypatch):
         monkeypatch.setattr(controller, "get_settings", lambda: current)
         monkeypatch.setattr(database, "get_settings", lambda: current)
         monkeypatch.setattr(web_api, "get_settings", lambda: current)
-        # The SSO settings are read again at each login (see web_api.auth_routes.OidcLogins)
+        # The OIDC settings are read again at each login (see web_api.auth_routes.OidcLogins)
         monkeypatch.setattr(web_api.auth_routes, "get_settings", lambda: current)
         monkeypatch.setattr(web_api.admin_routes, "get_settings", lambda: current)
         monkeypatch.setattr(app_settings, "get_settings", lambda: current)

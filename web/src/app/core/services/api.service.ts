@@ -2,53 +2,53 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  AccessRole,
-  AccessRoleWrite,
-  AdvisoryOverview,
-  AppSettings,
-  AuditPage,
-  AuditQuery,
-  AuthConfig,
-  AuthSource,
-  Finding,
-  FindingDecision,
-  ChecklistCatalog,
-  ChecklistItemWrite,
-  ChecklistReloadResult,
-  CustomRuleCatalog,
-  CustomRuleWrite,
-  DevStandard,
-  DevStandardCatalog,
-  DevStandardWrite,
-  EnrollmentApproved,
-  EnrollmentRequest,
-  GroupCatalog,
-  Identity,
-  LoginSession,
-  OidcSettings,
-  OidcSettingsUpdate,
-  OidcTestResult,
-  ProjectFindingPage,
-  ProjectFindingQuery,
-  ProjectSummary,
-  ProjectToken,
-  ProjectTokenCreated,
-  ProjectTokenRole,
-  PermissionInfo,
-  ProxyUpdate,
-  RevokedUser,
-  Report,
-  ReportQuery,
-  ReportSummary,
-  RulePackImportResult,
-  RulePackSection,
-  RuleReloadResult,
-  StandardPackImportResult,
-  Trend,
-  UserGroup,
-  UserGroupWrite,
-  WebUser,
-  WebUserWithPassword,
+    AccessRole,
+    AccessRoleWrite,
+    AdvisoryOverview,
+    AppSettings,
+    AuditPage,
+    AuditQuery,
+    AuthConfig,
+    AuthSource,
+    ChecklistCatalog,
+    ChecklistItemWrite,
+    ChecklistReloadResult,
+    CustomRuleCatalog,
+    CustomRuleWrite,
+    DevStandard,
+    DevStandardCatalog,
+    DevStandardWrite,
+    EnrollmentApproved,
+    EnrollmentRequest,
+    Finding,
+    FindingDecision,
+    GroupCatalog,
+    Identity,
+    LoginSession,
+    OidcSettings,
+    OidcSettingsUpdate,
+    OidcTestResult,
+    PermissionInfo,
+    ProjectFindingPage,
+    ProjectFindingQuery,
+    ProjectSummary,
+    ProjectToken,
+    ProjectTokenCreated,
+    ProjectTokenRole,
+    ProxyUpdate,
+    Report,
+    ReportQuery,
+    ReportSummary,
+    RevokedUser,
+    RulePackImportResult,
+    RulePackSection,
+    RuleReloadResult,
+    StandardPackImportResult,
+    Trend,
+    UserGroup,
+    UserGroupWrite,
+    WebUser,
+    WebUserWithPassword,
 } from '../models/api.models';
 
 /** Base path of the REST API (served by the same origin as the application). */
@@ -93,7 +93,7 @@ export class ApiService {
   /**
    * Create a web user, member of these groups, with these direct roles (an empty project list
    * reaches every project). A local one without password gets a generated one, returned once;
-   * an SSO one has no password and also joins its SSO groups at each login.
+   * an OIDC one has no password and also joins its OIDC groups at each login.
    */
   createUser(
     username: string,
@@ -112,7 +112,7 @@ export class ApiService {
   }
 
   /**
-   * Replace the groups given to a web user (its SSO groups are kept) and its direct roles (an
+   * Replace the groups given to a web user (its OIDC groups are kept) and its direct roles (an
    * empty project list reaches every project).
    */
   updateUser(
@@ -128,7 +128,7 @@ export class ApiService {
     return this.http.post<WebUserWithPassword>(`${API_URL}/users/${id}/password`, { password });
   }
 
-  /** Delete a web user; a deleted SSO user is revoked (never created again by a login). */
+  /** Delete a web user; a deleted OIDC user is revoked (never created again by a login). */
   deleteUser(id: number): Observable<void> {
     return this.http.delete<void>(`${API_URL}/users/${id}`);
   }
@@ -137,7 +137,7 @@ export class ApiService {
     return this.http.get<RevokedUser[]>(`${API_URL}/users/revoked`);
   }
 
-  /** Let a deleted SSO user be created again at its next login. */
+  /** Let a deleted OIDC user be created again at its next login. */
   liftRevocation(username: string): Observable<void> {
     return this.http.delete<void>(`${API_URL}/users/revoked/${encodeURIComponent(username)}`);
   }
@@ -301,7 +301,7 @@ export class ApiService {
 
   /**
    * With portalUser, that web user also reads the project in the web UI (an unknown name
-   * becomes an SSO user when OIDC is enabled).
+   * becomes an OIDC user when OIDC is enabled).
    */
   approveEnrollment(id: string, portalUser: string | null = null): Observable<EnrollmentApproved> {
     return this.http.post<EnrollmentApproved>(
@@ -455,7 +455,7 @@ export class ApiService {
     return this.http.put<UserGroup>(`${API_URL}/groups/${id}/roles`, { roles });
   }
 
-  /** Replace the members added by an administrator (the SSO members are kept). */
+  /** Replace the members added by an administrator (the OIDC members are kept). */
   setGroupMembers(id: number, userIds: number[]): Observable<UserGroup> {
     return this.http.put<UserGroup>(`${API_URL}/groups/${id}/members`, { user_ids: userIds });
   }

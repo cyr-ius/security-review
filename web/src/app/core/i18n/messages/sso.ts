@@ -1,17 +1,17 @@
 import { defineMessages } from '../catalog';
 
-/** SSO screen: settings of the OpenID Connect login. */
+/** OIDC screen: settings of the OpenID Connect login. */
 export const sso = defineMessages({
   en: {
     'common.add': 'Add',
-    'sso.title': 'SSO settings',
-    'sso.active': 'SSO login active',
-    'sso.inactive': 'SSO login inactive',
+    'sso.title': 'OIDC settings',
+    'sso.active': 'OIDC login active',
+    'sso.inactive': 'OIDC login inactive',
     'sso.helpBefore': 'Each value replaces its variable',
     'sso.helpAfter':
       '. The "Variable" button reapplies the variable. The change takes effect upon the next login; no restart is required.',
-    'sso.loadError': 'Could not load the SSO settings.',
-    'sso.enable': 'Enable SSO login',
+    'sso.loadError': 'Could not load the OIDC settings.',
+    'sso.enable': 'Enable OIDC login',
     'sso.provider': 'Identity provider',
     'sso.callbackHelp':
       'Callback URL to declare at the provider: public URL of the controller followed by',
@@ -45,7 +45,7 @@ export const sso = defineMessages({
     'sso.empty': 'empty',
     'sso.secretSet': '•••••• (set)',
     'sso.secretNone': 'none (public client)',
-    'sso.saved': '{count} SSO setting(s) saved: they apply at the next login.',
+    'sso.saved': '{count} OIDC setting(s) saved: they apply at the next login.',
     'sso.restored': 'The variable {variable} applies again.',
     'sso.confirmClearSecret': 'Delete the client secret (public client)?',
     'sso.secretCleared': 'Client secret deleted: the client is public.',
@@ -53,10 +53,10 @@ export const sso = defineMessages({
     'sso.testRefusedCheck': 'Test refused: check the values entered.',
     'sso.settingsRefused': 'Settings refused: {detail}',
     'sso.settingsRefusedCheck': 'Settings refused: check the values entered.',
-    'sso.failed': 'The SSO configuration failed.',
+    'sso.failed': 'The OIDC configuration failed.',
     'sso.subtitle': 'OpenID Connect login settings',
     'sso.groupsBefore':
-      'What an SSO user can do comes from their groups: at each login, they join the groups whose name appears in their group claim (screen',
+      'What an OIDC user can do comes from their groups: at each login, they join the groups whose name appears in their group claim (screen',
     'sso.groupsAfter': '). The other values of the claim are ignored.',
     'sso.adminGroupsHelp':
       'Separated by commas: such a group is created with the admin role at the first login of one of its members (first administrator).',
@@ -65,14 +65,14 @@ export const sso = defineMessages({
   },
   fr: {
     'common.add': 'Ajouter',
-    'sso.title': 'Configuration SSO',
-    'sso.active': 'Connexion SSO active',
-    'sso.inactive': 'Connexion SSO inactive',
+    'sso.title': 'Configuration OIDC',
+    'sso.active': 'Connexion OIDC active',
+    'sso.inactive': 'Connexion OIDC inactive',
     'sso.helpBefore': 'Chaque valeur remplace sa variable',
     'sso.helpAfter':
       ". Le bouton « Variable » applique de nouveau la variable. Le changement s'applique à la prochaine connexion, aucun redémarrage nécessaire.",
-    'sso.loadError': 'Impossible de charger la configuration SSO.',
-    'sso.enable': 'Activer la connexion SSO',
+    'sso.loadError': 'Impossible de charger la configuration OIDC.',
+    'sso.enable': 'Activer la connexion OIDC',
     'sso.provider': "Fournisseur d'identité",
     'sso.callbackHelp':
       'URL de retour à déclarer chez le fournisseur : URL publique du contrôleur suivie de',
@@ -107,7 +107,7 @@ export const sso = defineMessages({
     'sso.secretSet': '•••••• (défini)',
     'sso.secretNone': 'aucun (client public)',
     'sso.saved':
-      "{count} paramètre(s) SSO enregistré(s) : ils s'appliquent à la prochaine connexion.",
+      "{count} paramètre(s) OIDC enregistré(s) : ils s'appliquent à la prochaine connexion.",
     'sso.restored': "La variable {variable} s'applique de nouveau.",
     'sso.confirmClearSecret': 'Supprimer le secret client (client public) ?',
     'sso.secretCleared': 'Secret client supprimé : le client est public.',
@@ -115,10 +115,10 @@ export const sso = defineMessages({
     'sso.testRefusedCheck': 'Test refusé : vérifiez les valeurs saisies.',
     'sso.settingsRefused': 'Paramètres refusés : {detail}',
     'sso.settingsRefusedCheck': 'Paramètres refusés : vérifiez les valeurs saisies.',
-    'sso.failed': 'La configuration SSO a échoué.',
+    'sso.failed': 'La configuration OIDC a échoué.',
     'sso.subtitle': 'Configuration de la connexion OpenID Connect',
     'sso.groupsBefore':
-      "Ce qu'un utilisateur SSO peut faire vient de ses groupes : à chaque connexion, il rejoint les groupes dont le nom figure dans son claim des groupes (écran",
+      "Ce qu'un utilisateur OIDC peut faire vient de ses groupes : à chaque connexion, il rejoint les groupes dont le nom figure dans son claim des groupes (écran",
     'sso.groupsAfter': '). Les autres valeurs du claim sont ignorées.',
     'sso.adminGroupsHelp':
       "Séparés par des virgules : un tel groupe est créé avec le rôle admin à la première connexion de l'un de ses membres (premier administrateur).",
@@ -128,14 +128,14 @@ export const sso = defineMessages({
   },
   es: {
     'common.add': 'Añadir',
-    'sso.title': 'Configuración SSO',
-    'sso.active': 'Inicio de sesión SSO activo',
-    'sso.inactive': 'Inicio de sesión SSO inactivo',
+    'sso.title': 'Configuración OIDC',
+    'sso.active': 'Inicio de sesión OIDC activo',
+    'sso.inactive': 'Inicio de sesión OIDC inactivo',
     'sso.helpBefore': 'Cada valor guardado aquí sustituye a su variable',
     'sso.helpAfter':
       '; «Variable» vuelve a aplicar la variable. Un cambio se aplica en el próximo inicio de sesión, sin reiniciar el controlador.',
-    'sso.loadError': 'No se pudo cargar la configuración SSO.',
-    'sso.enable': 'Activar el inicio de sesión SSO',
+    'sso.loadError': 'No se pudo cargar la configuración OIDC.',
+    'sso.enable': 'Activar el inicio de sesión OIDC',
     'sso.provider': 'Proveedor de identidad',
     'sso.callbackHelp':
       'URL de retorno que se debe declarar en el proveedor: URL pública del controlador seguida de',
@@ -162,14 +162,14 @@ export const sso = defineMessages({
     'sso.displayName': 'Texto del botón',
     'sso.rolesClaim': 'Claim de los grupos',
     'sso.rolesClaimHelp':
-      'Sus valores se comparan con los nombres de los grupos abiertos al SSO. Se acepta una ruta con puntos (realm_access.roles).',
+      'Sus valores se comparan con los nombres de los grupos abiertos al OIDC. Se acepta una ruta con puntos (realm_access.roles).',
     'sso.usernameClaim': 'Claim del nombre de usuario',
     'sso.adminGroups': 'Grupos de administración',
     'sso.autoCreate': 'Crear los usuarios en su primer inicio de sesión',
     'sso.empty': 'vacía',
     'sso.secretSet': '•••••• (definido)',
     'sso.secretNone': 'ninguno (cliente público)',
-    'sso.saved': '{count} parámetro(s) SSO guardado(s): se aplican en el próximo inicio de sesión.',
+    'sso.saved': '{count} parámetro(s) OIDC guardado(s): se aplican en el próximo inicio de sesión.',
     'sso.restored': 'La variable {variable} vuelve a aplicarse.',
     'sso.confirmClearSecret': '¿Eliminar el secreto de cliente (cliente público)?',
     'sso.secretCleared': 'Secreto de cliente eliminado: el cliente es público.',
@@ -177,15 +177,15 @@ export const sso = defineMessages({
     'sso.testRefusedCheck': 'Prueba rechazada: compruebe los valores introducidos.',
     'sso.settingsRefused': 'Parámetros rechazados: {detail}',
     'sso.settingsRefusedCheck': 'Parámetros rechazados: compruebe los valores introducidos.',
-    'sso.failed': 'La configuración SSO ha fallado.',
+    'sso.failed': 'La configuración OIDC ha fallado.',
     'sso.subtitle': 'Configuración del inicio de sesión OpenID Connect',
     'sso.groupsBefore':
-      'Lo que un usuario SSO puede hacer viene de sus grupos: en cada inicio de sesión, se une a los grupos abiertos al SSO cuyo nombre figura en su claim de grupos (pantalla',
+      'Lo que un usuario OIDC puede hacer viene de sus grupos: en cada inicio de sesión, se une a los grupos abiertos al OIDC cuyo nombre figura en su claim de grupos (pantalla',
     'sso.groupsAfter': '). Los demás valores del claim se ignoran.',
     'sso.adminGroupsHelp':
       'Separados por comas: un grupo así se crea con el rol admin en el primer inicio de sesión de uno de sus miembros (primer administrador).',
     'sso.defaultGroup': 'Grupo por defecto',
     'sso.defaultGroupHelp':
-      'Nombre de un grupo al que se une todo usuario SSO en cada inicio de sesión (vacío: ninguno).',
+      'Nombre de un grupo al que se une todo usuario OIDC en cada inicio de sesión (vacío: ninguno).',
   },
 });

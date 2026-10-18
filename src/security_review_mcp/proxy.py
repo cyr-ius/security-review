@@ -1,4 +1,4 @@
-"""HTTP proxy of the outgoing connections of the controller (OSV download, SSO provider).
+"""HTTP proxy of the outgoing connections of the controller (OSV download, OIDC provider).
 
 The effective proxy is ``Settings.proxy`` and ``Settings.no_proxy``, the ``SECREVIEW_PROXY`` and
 ``SECREVIEW_NO_PROXY`` variables possibly overridden in the web interface (see

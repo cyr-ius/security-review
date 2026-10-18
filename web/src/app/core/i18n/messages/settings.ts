@@ -4,7 +4,7 @@ import { defineMessages } from '../catalog';
 export const settings = defineMessages({
   en: {
     'settings.languageSubtitle': "Language of the agent's answers and of the stored reports",
-    'settings.proxySubtitle': 'Proxy of the OSV download and of the SSO login',
+    'settings.proxySubtitle': 'Proxy of the OSV download and of the OIDC login',
     'settings.osvSubtitle': 'Advisories used by the dependency analysis and their updates',
     'settings.loadError': 'Could not load the settings.',
     'settings.languageTitle': 'Report language',
@@ -87,7 +87,7 @@ export const settings = defineMessages({
     'settings.languageSaved': 'Report language saved: it applies to the next review prompts.',
     'settings.proxyMissing': 'Enter the proxy URL (http://[user:password@]host:port).',
     'settings.proxySaved':
-      'Proxy saved: it applies to the next OSV download and the next SSO login.',
+      'Proxy saved: it applies to the next OSV download and the next OIDC login.',
     'settings.confirmUpdate': 'Download the OSV advisories now? It may take several minutes.',
     'settings.updateStarted': 'Update started. The history refreshes until the download ends.',
     'settings.error': 'Error',
@@ -102,7 +102,7 @@ export const settings = defineMessages({
   },
   fr: {
     'settings.languageSubtitle': "Langue des réponses de l'agent et des rapports enregistrés",
-    'settings.proxySubtitle': 'Proxy du téléchargement OSV et de la connexion SSO',
+    'settings.proxySubtitle': 'Proxy du téléchargement OSV et de la connexion OIDC',
     'settings.osvSubtitle': "Avis utilisés par l'analyse de dépendances et leurs mises à jour",
     'settings.loadError': 'Impossible de charger les paramètres.',
     'settings.languageTitle': 'Langue des rapports',
@@ -189,7 +189,7 @@ export const settings = defineMessages({
     'settings.proxyMissing':
       "Indiquez l'URL du proxy (http://[utilisateur:mot de passe@]hôte:port).",
     'settings.proxySaved':
-      "Proxy enregistré : il s'applique au prochain téléchargement OSV et à la prochaine connexion SSO.",
+      "Proxy enregistré : il s'applique au prochain téléchargement OSV et à la prochaine connexion OIDC.",
     'settings.confirmUpdate':
       "Télécharger maintenant les avis OSV ? L'opération peut prendre plusieurs minutes.",
     'settings.updateStarted':
@@ -207,7 +207,7 @@ export const settings = defineMessages({
   },
   es: {
     'settings.languageSubtitle': 'Idioma de las respuestas del agente y de los informes guardados',
-    'settings.proxySubtitle': 'Proxy de la descarga OSV y del inicio de sesión SSO',
+    'settings.proxySubtitle': 'Proxy de la descarga OSV y del inicio de sesión OIDC',
     'settings.osvSubtitle': 'Avisos usados por el análisis de dependencias y sus actualizaciones',
     'settings.loadError': 'No se pudieron cargar los ajustes.',
     'settings.languageTitle': 'Idioma de los informes',
@@ -224,7 +224,7 @@ export const settings = defineMessages({
     'settings.languagePattern': 'Solo letras, espacios, -, _ y paréntesis.',
     'settings.proxyTitle': 'Proxy saliente del controlador',
     'settings.proxyHelp':
-      'Lo usan la descarga OSV y el inicio de sesión SSO (proveedor de identidad). Cada valor definido aquí sustituye a su variable; se aplica en la próxima descarga y el próximo inicio de sesión, sin reiniciar.',
+      'Lo usan la descarga OSV y el inicio de sesión OIDC (proveedor de identidad). Cada valor definido aquí sustituye a su variable; se aplica en la próxima descarga y el próximo inicio de sesión, sin reiniciar.',
     'settings.proxyApplied': 'Proxy aplicado:',
     'settings.none': 'ninguno',
     'settings.noProxyApplied': 'Sin proxy:',
@@ -292,7 +292,7 @@ export const settings = defineMessages({
       'Idioma de los informes guardado: se aplica a los próximos prompts de revisión.',
     'settings.proxyMissing': 'Indique la URL del proxy (http://[usuario:contraseña@]host:puerto).',
     'settings.proxySaved':
-      'Proxy guardado: se aplica a la próxima descarga OSV y al próximo inicio de sesión SSO.',
+      'Proxy guardado: se aplica a la próxima descarga OSV y al próximo inicio de sesión OIDC.',
     'settings.confirmUpdate':
       '¿Descargar ahora los avisos OSV? La operación puede tardar varios minutos.',
     'settings.updateStarted':

@@ -245,7 +245,7 @@ async def approve_enrollment(
     """Approve an enrollment request: the project is reachable from the next request.
 
     With ``portal_user``, that web user also reads the project in the web interface (at once);
-    when OIDC is enabled, an unknown name becomes an SSO user, ready for its first login. Giving
+    when OIDC is enabled, an unknown name becomes an OIDC user, ready for its first login. Giving
     that access also needs the ``users.manage`` permission.
     """
     portal_user = body.portal_user if body is not None else None

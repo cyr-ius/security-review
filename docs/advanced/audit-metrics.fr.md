@@ -27,14 +27,14 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `user.groups_changed` | Un administrateur remplace les groupes donnés à un compte (identifiants de groupes ajoutés et retirés) |
 | `user.roles_changed` | Un administrateur remplace les rôles directs d'un compte, ou l'approbation d'un enrôlement lui ajoute un projet (`roles` : `rôle` ou `rôle:projet,projet`) |
 | `user.login` | Un utilisateur web se connecte (méthode `password` ou `oidc`, adresse) |
-| `user.login_failed` | Une connexion échoue : mot de passe incorrect, connexion SSO refusée (méthode, adresse, et l'identifiant seulement s'il est valide) |
+| `user.login_failed` | Une connexion échoue : mot de passe incorrect, connexion OIDC refusée (méthode, adresse, et l'identifiant seulement s'il est valide) |
 | `user.logout` | Un utilisateur web se déconnecte avec **Déconnexion** (adresse) |
 
 Chaque événement porte sa date, son **acteur**, sa cible (`finding` et son id, `token` et son
 id, `enrollment` et l'id de la demande), le projet quand il y en a un, et des détails en JSON.
 L'acteur est :
 
-- `user:<nom>` : une personne connectée à l'interface web (compte local ou SSO) ;
+- `user:<nom>` : une personne connectée à l'interface web (compte local ou OIDC) ;
 - `token:<label>` : un jeton Bearer (agent, client de l'API, jeton administrateur) ;
 - `cli` : une commande `security-review-controller` ;
 - `anonymous` : l'endpoint public d'enrôlement, ou une connexion échouée ;

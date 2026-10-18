@@ -33,12 +33,12 @@ export const access = defineMessages({
     'roles.deleted': 'Role “{role}” deleted.',
     'groups.subtitle': 'Groups of web users, their roles and their members',
     'groups.ssoInactive':
-      'SSO login is not active: only the members added here belong to the groups.',
+      'OIDC login is not active: only the members added here belong to the groups.',
     'groups.claimBefore':
-      'Upon each login, an SSO user joins the groups whose names are included in their claim.',
+      'Upon each login, an OIDC user joins the groups whose names are included in their claim.',
     'groups.claimAfter': ': the names must be identical.',
     'groups.adminGroups': 'Created with the admin role at the first login of a member: {groups}.',
-    'groups.defaultGroup': 'Every SSO user joins {group}.',
+    'groups.defaultGroup': 'Every OIDC user joins {group}.',
     'groups.editTitle': 'Edit the group “{group}”',
     'groups.createTitle': 'Create a group',
     'groups.namePlaceholder': 'e.g. secreview-admins',
@@ -155,7 +155,7 @@ export const access = defineMessages({
     'permission.settingsManageHelp': "Langue des rapports, proxy sortant et base d'avis.",
     'permission.usersManage': 'Gérer les utilisateurs',
     'permission.usersManageHelp':
-      'Utilisateurs, groupes, rôles et configuration SSO : donne toutes les autres permissions.',
+      'Utilisateurs, groupes, rôles et configuration OIDC : donne toutes les autres permissions.',
     'permission.auditRead': "Lire le journal d'audit",
     'permission.auditReadHelp': 'Qui a changé quoi, et quand.',
   },
@@ -190,9 +190,9 @@ export const access = defineMessages({
     'roles.deleted': 'Rol «{role}» eliminado.',
     'groups.subtitle': 'Grupos de usuarios web, sus roles y sus miembros',
     'groups.ssoInactive':
-      'El inicio de sesión SSO no está activo: solo los miembros añadidos aquí pertenecen a los grupos.',
+      'El inicio de sesión OIDC no está activo: solo los miembros añadidos aquí pertenecen a los grupos.',
     'groups.claimBefore':
-      'En cada inicio de sesión, un usuario SSO se une a los grupos abiertos al SSO cuyo nombre figura en su claim',
+      'En cada inicio de sesión, un usuario OIDC se une a los grupos abiertos al OIDC cuyo nombre figura en su claim',
     'groups.claimAfter': ': los nombres deben ser idénticos.',
     'groups.adminGroups':
       'Creados con el rol admin en el primer inicio de sesión de un miembro: {groups}.',
@@ -235,7 +235,7 @@ export const access = defineMessages({
     'permission.settingsManageHelp': 'Idioma de los informes, proxy saliente y base de avisos.',
     'permission.usersManage': 'Gestionar los usuarios',
     'permission.usersManageHelp':
-      'Usuarios, grupos, roles y configuración SSO: da todos los demás permisos.',
+      'Usuarios, grupos, roles y configuración OIDC: da todos los demás permisos.',
     'permission.auditRead': 'Leer el registro de auditoría',
     'permission.auditReadHelp': 'Quién cambió qué, y cuándo.',
   },

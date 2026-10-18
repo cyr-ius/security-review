@@ -44,7 +44,7 @@ class OidcLogins:
         self._refused: Settings | None = None
 
     def current(self) -> oidc.OidcLogin | None:
-        """Return the login flow of the effective settings, or None when SSO is disabled."""
+        """Return the login flow of the effective settings, or None when OIDC is disabled."""
         if self.fixed is not None:
             return self.fixed
         settings = app_settings.effective_settings(get_settings())
@@ -58,7 +58,7 @@ class OidcLogins:
             try:
                 self._login = oidc.from_settings(settings, self.signer)
             except ValueError as exc:
-                logger.error("SSO login disabled, invalid settings: %s", exc)
+                logger.error("OIDC login disabled, invalid settings: %s", exc)
                 self._login, self._refused = None, settings
                 return None
             self._refused = None
@@ -67,7 +67,7 @@ class OidcLogins:
 
 
 async def current_oidc(request: Request) -> oidc.OidcLogin | None:
-    """Return the current OIDC login flow, or None when SSO is disabled."""
+    """Return the current OIDC login flow, or None when OIDC is disabled."""
     logins: OidcLogins = request.app.state.oidc
     return await run_in_threadpool(logins.current)
 

@@ -1,10 +1,10 @@
 import { Component, computed, effect, signal } from '@angular/core';
 import { FormField, form, maxLength } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { AppSettings, ProxyUpdate } from '../../../core/models/api.models';
 import { msg } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { AppSettings, ProxyUpdate } from '../../../core/models/api.models';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SettingsPage } from '../settings-page';
 
@@ -31,7 +31,7 @@ interface ProxyFormModel {
 }
 
 /**
- * Administrator page: proxy of the outgoing connections of the controller (OSV download and SSO
+ * Administrator page: proxy of the outgoing connections of the controller (OSV download and OIDC
  * provider); each value set here overrides its variable.
  */
 @Component({

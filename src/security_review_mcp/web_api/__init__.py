@@ -167,7 +167,7 @@ def create_app(
     """Build the controller app (REST API and, when it is built, the Angular application).
 
     ``ui=False`` (SECREVIEW_WEB_UI=false) serves the REST API only. The single sign-on routes
-    under ``/api/v1/auth/oidc`` follow the effective SSO settings (see OidcLogins);
+    under ``/api/v1/auth/oidc`` follow the effective OIDC settings (see OidcLogins);
     ``oidc_login`` (tests) replaces them with a fixed flow.
     ``signer`` (see oidc.session_signer) signs the sessions of the password login; the
     session tokens are checked by the bearer middleware (build_controller_app).

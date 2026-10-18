@@ -5,7 +5,7 @@ import { SsoSettingsComponent } from '../sso-settings/sso-settings.component';
 
 /**
  * Administrator page for single sign-on: its settings, which override the SECREVIEW_OIDC_*
- * variables. What an SSO user may do comes from the groups named by its groups claim (Groups
+ * variables. What an OIDC user may do comes from the groups named by its groups claim (Groups
  * page).
  */
 @Component({

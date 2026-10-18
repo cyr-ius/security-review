@@ -464,7 +464,7 @@ class ProjectTokenSecret(ProjectToken):
 
 class EnrollmentApproval(BaseModel):
     """Optional body of an approval: the web user who also reads the project on the web (an
-    unknown name becomes an SSO user when OIDC is enabled)."""
+    unknown name becomes an OIDC user when OIDC is enabled)."""
 
     portal_user: str | None = Field(default=None, max_length=web_users.MAX_USERNAME_CHARS)
 
@@ -506,7 +506,7 @@ class UserRole(BaseModel):
 
 
 class WebUser(BaseModel):
-    """A web user, local or SSO; never its password hash nor its subject."""
+    """A web user, local or OIDC; never its password hash nor its subject."""
 
     id: int
     username: str
@@ -517,11 +517,11 @@ class WebUser(BaseModel):
     permissions: dict[str, list[str] | None]
     # Web role that sums up the permissions; None: no permission
     effective_role: Role | None
-    # True once an SSO user logged in (bound to its identity provider account)
+    # True once an OIDC user logged in (bound to its identity provider account)
     sso_linked: bool
     created_at: str | None
     updated_at: str | None
-    # None for an SSO user (no password)
+    # None for an OIDC user (no password)
     password_changed_at: str | None
     # Its password was set by someone else: it must change it at its next login
     must_change_password: bool = False
@@ -536,7 +536,7 @@ class WebUserWithPassword(WebUser):
 
 
 class RevokedUser(BaseModel):
-    """A deleted SSO user: a login never creates it again until the revocation is lifted."""
+    """A deleted OIDC user: a login never creates it again until the revocation is lifted."""
 
     username: str
     revoked_at: str | None
@@ -561,8 +561,8 @@ class UserRoleBinding(BaseModel):
 
 class WebUserCreate(BaseModel):
     """A web user, its groups and its direct roles. A local one without ``password`` gets a
-    random one, returned once; an SSO one (``auth_source="oidc"``) has no password and also joins
-    its SSO groups at each login."""
+    random one, returned once; an OIDC one (``auth_source="oidc"``) has no password and also joins
+    its OIDC groups at each login."""
 
     username: str = Field(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)
     auth_source: AuthSource = "local"
@@ -580,7 +580,7 @@ class WebUserCreate(BaseModel):
 
 
 class WebUserUpdate(BaseModel):
-    """Groups an administrator gives to a web user (its SSO groups are kept) and its direct
+    """Groups an administrator gives to a web user (its OIDC groups are kept) and its direct
     roles; a missing field is left unchanged."""
 
     group_ids: list[Annotated[int, Field(ge=1)]] | None = Field(
@@ -639,7 +639,7 @@ class AccessRole(BaseModel):
 
 
 class GroupWrite(BaseModel):
-    """A group of web users. With ``sso``, the SSO users whose groups claim holds ``name`` are
+    """A group of web users. With ``sso``, the OIDC users whose groups claim holds ``name`` are
     members too."""
 
     name: str = Field(min_length=1, max_length=access_control.MAX_GROUP_NAME_CHARS)
@@ -692,7 +692,7 @@ class UserGroup(BaseModel):
     id: int
     name: str
     description: str
-    # The SSO users whose groups claim holds the name are members too
+    # The OIDC users whose groups claim holds the name are members too
     sso: bool
     roles: list[GroupRole]
     members: list[GroupMember]
@@ -702,13 +702,13 @@ class UserGroup(BaseModel):
 
 
 class GroupCatalog(BaseModel):
-    """The groups and the SSO settings that use them."""
+    """The groups and the OIDC settings that use them."""
 
     oidc_enabled: bool
     roles_claim: str
-    # SSO groups created with the admin role at the login of a member
+    # OIDC groups created with the admin role at the login of a member
     admin_groups: list[str]
-    # Group every SSO user joins at each login
+    # Group every OIDC user joins at each login
     default_group: str | None
     groups: list[UserGroup]
 
@@ -737,7 +737,7 @@ class AuditPage(BaseModel):
     events: list[AuditEvent]
 
 
-# ── Settings, advisories and SSO ─────────────────────────────────────────────
+# ── Settings, advisories and OIDC ─────────────────────────────────────────────
 
 
 class ReportLanguageUpdate(BaseModel):
@@ -888,7 +888,7 @@ class OidcSettingsUpdate(BaseModel):
 
 
 class OidcSettingValue(BaseModel):
-    """One SSO setting: stored value (None: the variable applies), variable, effective value."""
+    """One OIDC setting: stored value (None: the variable applies), variable, effective value."""
 
     value: bool | str | None
     env: bool | str | None
@@ -896,13 +896,13 @@ class OidcSettingValue(BaseModel):
 
 
 class OidcSettings(BaseModel):
-    """SSO settings of the controller (a set client secret is replaced by ``***``)."""
+    """OIDC settings of the controller (a set client secret is replaced by ``***``)."""
 
     fields: dict[str, OidcSettingValue]
     # SECREVIEW_OIDC_CAFILE, variable only
     cafile: str | None
     callback_path: str
-    # The SSO login is enabled and valid on this controller
+    # The OIDC login is enabled and valid on this controller
     active: bool
 
 

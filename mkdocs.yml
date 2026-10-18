@@ -73,7 +73,7 @@ plugins:
             Deployment: Déploiement
             Analysis: Analyse
             Reports and monitoring: Rapports et suivi
-            SSO login: Connexion SSO
+            OIDC login: Connexion OIDC
             Roles, groups and permissions: Rôles, groupes et permissions
             "Installation: other cases": "Installation : autres cas"
             Local mode (stdio): Mode local (stdio)
@@ -126,7 +126,7 @@ nav:
           - Architecture and deployment: advanced/architecture.md
           - Docker: advanced/docker.md
           - HTTP server, authentication and TLS: advanced/http.md
-          - SSO login: advanced/sso.md
+          - OIDC login: advanced/sso.md
           - Roles, groups and permissions: advanced/access-control.md
           - "Installation: other cases": advanced/installation.md
           - Local mode (stdio): advanced/stdio.md

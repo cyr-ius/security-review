@@ -67,7 +67,7 @@
             [formField]="userForm.source"
           />
           <label class="form-check-label" for="user-source-oidc">
-            <i class="bi bi-shield-lock" aria-hidden="true"></i> SSO ({{ ssoName() ?? 'OIDC' }})
+            <i class="bi bi-shield-lock" aria-hidden="true"></i> OIDC ({{ ssoName() ?? 'OIDC' }})
           </label>
         </div>
         @if (userModel().source === 'oidc' && !ssoName()) {
@@ -210,7 +210,7 @@
                     class="badge text-bg-primary bg-opacity-75 d-inline-flex align-items-center gap-1"
                     [title]="(user.sso_linked ? 'users.ssoLinked' : 'users.ssoNotLinked') | t"
                   >
-                    <i class="bi bi-shield-lock" aria-hidden="true"></i> SSO
+                    <i class="bi bi-shield-lock" aria-hidden="true"></i> OIDC
                   </span>
                   @if (!user.sso_linked) {
                     <span class="badge text-bg-light border ms-1">{{

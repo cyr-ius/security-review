@@ -1,6 +1,6 @@
-"""Issuer of the SSO account of a web user.
+"""Issuer of the OIDC account of a web user.
 
-Adds ``webuser.oidc_issuer``: an SSO account is identified by the issuer and the ``sub``
+Adds ``webuser.oidc_issuer``: an OIDC account is identified by the issuer and the ``sub``
 claim, so that another identity provider cannot reuse a subject. The users bound before this
 revision get the issuer of their next login.
 

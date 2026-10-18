@@ -22,7 +22,7 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 
 The screens are reached from the sidebar: **Supervision** (projects, reports) for every account,
 then **Reference** (rules, checklists, standards) and **Administration** (users, groups, roles,
-tokens, audit log, SSO, report language, outgoing proxy, OSV database), each shown only to the
+tokens, audit log, OIDC, report language, outgoing proxy, OSV database), each shown only to the
 accounts that hold its [permission](../advanced/access-control.md#permissions). The bottom
 of the sidebar shows the connected client, its role and the version, with the **My account** and logout buttons; on a
 small screen, the sidebar opens with the menu button. The light or dark theme is chosen at the
@@ -73,22 +73,22 @@ back by the API stay in English.
   [TOML packs](../advanced/rules.md#import-and-export-in-the-web-interface).
 - **Users**: administrators manage the [accounts](#user-accounts), the only
   ones to open the interface. Each account is **Local** (user name and password, entered or
-  generated and shown only once) or **SSO** (login through the identity provider, no password),
+  generated and shown only once) or **OIDC** (login through the identity provider, no password),
   with a badge in the list. The administrator chooses its **Groups** and its **Direct roles and
   projects** (a role on every project or on selected projects, for this account only); the
-  **Groups** column shows the groups, with a shield for the SSO groups found at the last login,
+  **Groups** column shows the groups, with a shield for the OIDC groups found at the last login,
   the **Direct roles and projects** column the direct roles, and **Access** sums up what they
   give. The administrator changes the groups and direct roles of an account, resets the password of a local
-  account or deletes an account. A deleted SSO account is no longer created again at its login:
-  the **Deleted SSO accounts** section lists them, with the **Allow again** button. The last
+  account or deletes an account. A deleted OIDC account is no longer created again at its login:
+  the **Deleted OIDC accounts** section lists them, with the **Allow again** button. The last
   holder of `users.manage` can be neither deleted nor lose it.
 - **Groups**: administrators create the groups, give them roles (on every project or on some
-  projects), add members and choose whether the group is **Open to SSO** (see
+  projects), add members and choose whether the group is **Open to OIDC** (see
   [Roles, groups and permissions](../advanced/access-control.md#groups)).
 - **Roles**: administrators create roles from the permissions; the system roles `reader`,
   `triager` and `admin` are shown read only.
 - **My account**: shows the type of the account. A local user changes their
-  password there (their other sessions are closed); the one of an SSO user is managed by the
+  password there (their other sessions are closed); the one of an OIDC user is managed by the
   identity provider.
 - **Tokens**: administrators create and revoke tokens for one or more projects, or for
   **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role), **REST API** or **CI/CD pipeline**
@@ -120,10 +120,10 @@ back by the API stay in English.
 - **Audit log**: administrators read the [audit log](../advanced/audit-metrics.md#audit-log): triage
   decisions, agent proposals, tokens and enrollment requests, newest first, with who made
   them; filters by event and by project, **Load more** for the older events.
-- **SSO**: administrators
-  [configure the SSO login](../advanced/sso.md#configuring-sso-in-the-interface) (every stored value replaces its
-  `SECREVIEW_OIDC_*` variable, with a connection test to the provider). What SSO users may do
-  comes from the groups open to SSO named by their groups claim (see
+- **OIDC**: administrators
+  [configure the OIDC login](../advanced/sso.md#configuring-sso-in-the-interface) (every stored value replaces its
+  `SECREVIEW_OIDC_*` variable, with a connection test to the provider). What OIDC users may do
+  comes from the groups open to OIDC named by their groups claim (see
   [groups of the identity provider](../advanced/sso.md#groups-of-the-identity-provider)).
 The next three screens hold settings stored in the database, taking precedence over the
 environment variables and shared by the MCP server and the controller (`settings.manage`
@@ -134,13 +134,13 @@ permission; the former `/ui/settings` address opens **Report language**).
   review prompts; the `report_language` argument of a prompt still takes precedence
   ([report language](prompts-tools.md#report-language)).
 - **Outgoing proxy**: proxy of the outgoing connections of the controller, used by the OSV
-  download **and** by the [SSO login](../advanced/sso.md). As for the SSO
+  download **and** by the [OIDC login](../advanced/sso.md). As for the OIDC
   configuration, every value set here replaces its variable (**Variable** / **Interface
   web** badges): the URL follows `SECREVIEW_PROXY` (else `HTTPS_PROXY` / `NO_PROXY`), is set
   here, or forces the direct connection; the **hosts without proxy** follow
   `SECREVIEW_NO_PROXY` or are set here (see
   [hosts without proxy](../advanced/dependencies.md#hosts-without-proxy): domains, IP addresses, CIDR
-  ranges, `*`). The change applies to the next download and to the next SSO login, without
+  ranges, `*`). The change applies to the next download and to the next OIDC login, without
   restart. The applied proxy, its origin and the environment variables are shown; passwords
   are never shown again (`***`): sending `***` back keeps the stored one. Through the API:
   `PUT /api/v1/settings/proxy` with `url` and `no_proxy` (`null` applies the variable again,
@@ -170,7 +170,7 @@ The status of a finding is decided by a **person**; an agent only proposes it (M
 - **Open** and **Fixed** are saved at once (optional reason through the API). Any decision
   removes the pending proposal.
 
-Only a session (local or SSO account) may accept a risk or mark a false positive: a bearer
+Only a session (local or OIDC account) may accept a risk or mark a false positive: a bearer
 token, even `triager` or `admin`, gets `403`. Through the REST API:
 
 ```bash
@@ -191,7 +191,7 @@ before that date, or they block the gate again.
 ## Roles
 
 **Tokens** give access to the MCP server and to the REST API (agents, CI, scripts); **users**
-(local or SSO accounts) are the only ones to open the web interface. Every token has a role,
+(local or OIDC accounts) are the only ones to open the web interface. Every token has a role,
 which decides the reachable endpoints:
 
 | Role | Usage (**Tokens** screen) | `/mcp` | REST API (read) | Status change |
@@ -213,7 +213,7 @@ allowed projects; a `ci` token is always restricted to its projects (see
 [tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
 
 People log in with a [user account](#user-accounts): local (user name and password) or
-[SSO](../advanced/sso.md). What an account may do comes from the roles of its groups (see
+[OIDC](../advanced/sso.md). What an account may do comes from the roles of its groups (see
 [Roles, groups and permissions](../advanced/access-control.md)); an account never opens `/mcp`.
 A token created without a role stays `mcp`: it serves the agents and the CI, not the web
 interface. A
@@ -260,7 +260,7 @@ permission), with the actor `token:triage-bot` or `user:<name>`.
     Enable `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` (the case in the Docker image), or create an
     account with `security-review-controller user create`. This restriction concerns the web
     UI; MCP authentication stays independent (a user account never opens `/mcp`). With the
-    [SSO login](../advanced/sso.md), the API asks for a login (`401`) even without any
+    [OIDC login](../advanced/sso.md), the API asks for a login (`401`) even without any
     user or token in the database.
 
 ## User accounts
@@ -272,10 +272,10 @@ this account only): their roles give its [permissions](../advanced/access-contro
 | Type (`auth_source`) | Login | Creation |
 |---|---|---|
 | **Local** (`local`) | User name and password | By an administrator, or the initial `admin` account |
-| **SSO** (`oidc`) | [Identity provider](../advanced/sso.md), no password | By an administrator, at the approval of an enrollment, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
+| **OIDC** (`oidc`) | [Identity provider](../advanced/sso.md), no password | By an administrator, at the approval of an enrollment, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
-An SSO account also joins, at each login, the groups open to SSO named by its groups claim (see
-[SSO accounts](../advanced/sso.md#sso-accounts)). Accounts are managed in the **Users** screen,
+An OIDC account also joins, at each login, the groups open to OIDC named by its groups claim (see
+[OIDC accounts](../advanced/sso.md#sso-accounts)). Accounts are managed in the **Users** screen,
 through the `/api/v1/users` REST API (`users.manage` permission) or with the
 [CLI](../reference/cli.md#security-review-controller):
 
@@ -283,7 +283,7 @@ through the `/api/v1/users` REST API (`users.manage` permission) or with the
 security-review-controller user create alice --group shop-triagers
 # {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, "effective_role": "triager", …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
-security-review-controller user create carol@example.com --sso   # SSO groups only
+security-review-controller user create carol@example.com --sso   # OIDC groups only
 security-review-controller user list
 security-review-controller user set-groups alice --group readers --group auditors
 security-review-controller user set-groups alice --group administrators   # created if missing
@@ -293,7 +293,7 @@ security-review-controller user delete alice
 security-review-controller group list    # groups, their roles and members
 ```
 
-Through the API, an SSO account is created with `"auth_source": "oidc"`, without `password`;
+Through the API, an OIDC account is created with `"auth_source": "oidc"`, without `password`;
 `group_ids` lists its groups and `roles` its direct roles (empty `projects`: every project):
 
 ```bash
@@ -310,7 +310,7 @@ the **password policy**: 12 to 256 characters, with at least a lowercase letter,
 letter, a digit and a character that is neither a letter nor a digit. The screens list these
 rules under the field and tick each one while the password is typed, and **My account** says at
 once whether the confirmation matches. The policy applies to new passwords: a password set
-before keeps working until it is changed. An SSO account never has a password: the user name and password login, the
+before keeps working until it is changed. An OIDC account never has a password: the user name and password login, the
 reset and **My account** refuse it.
 
 ### First administrator
@@ -343,7 +343,7 @@ administrator (screen or CLI) changes its password at its first login. The **Use
 ### Login and sessions
 
 The login page offers the user name and password of a local account and, with the
-[SSO login](../advanced/sso.md), the button of the identity provider; it does not accept
+[OIDC login](../advanced/sso.md), the button of the identity provider; it does not accept
 a token. `POST /api/v1/auth/login` checks the password of a local account and returns a signed
 **session token**, valid `SECREVIEW_SESSION_HOURS` hours (8 by default), that the tab uses like
 a Bearer token:
@@ -354,7 +354,7 @@ curl -s -X POST https://secreview.example.com/api/v1/auth/login \
 # {"session": "eyJ…", "expires_in": 28800, "username": "alice", "role": "triager"}
 ```
 
-Every session names an account (local or SSO); at every request, the controller reads it again
+Every session names an account (local or OIDC); at every request, the controller reads it again
 from the database:
 
 - a change of its **groups**, of their roles or of a role applies immediately to the open
@@ -405,7 +405,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   `DELETE /api/v1/enrollments/{id}`, `tokens.manage` permission). It can therefore stay on an internal
   network.
 - The token is sent in the `Authorization` header: no cookie, hence no CSRF. Only the
-  [SSO login](../advanced/sso.md) sets a cookie, `HttpOnly`, `SameSite=Lax`, `Secure`
+  [OIDC login](../advanced/sso.md) sets a cookie, `HttpOnly`, `SameSite=Lax`, `Secure`
   over HTTPS, limited to the return URL and valid 10 minutes: it binds the return from the
   provider to the browser that started the login (protection against *login CSRF*). The session
   token is handed in the URL fragment (`#session=...`), never sent to a server, and the
@@ -425,10 +425,10 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Creates the `admin` account at the first start of the controller, while no account exists; `true` in Docker |
 | `SECREVIEW_SESSION_SECRET` | — | Signing secret of the sessions (at least 32 characters), identical on every replica |
 | `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | File of the secret when `SECREVIEW_SESSION_SECRET` is unset, generated at the first start |
-| `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or SSO login |
-| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [SSO account](../advanced/sso.md#sso-accounts) at the first login; otherwise an administrator creates it |
+| `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or OIDC login |
+| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [OIDC account](../advanced/sso.md#sso-accounts) at the first login; otherwise an administrator creates it |
 | `SECREVIEW_ENROLLMENT` | `true` | Token requests by the projects (on the MCP server), approved in the **Tokens** screen |
-| `SECREVIEW_OIDC_*` | — | [SSO login](../advanced/sso.md), see the [reference](../reference/configuration.md) |
+| `SECREVIEW_OIDC_*` | — | [OIDC login](../advanced/sso.md), see the [reference](../reference/configuration.md) |
 
 The published package and the Docker image contain the application already built. If you
 install from source without building it, the controller only serves the REST API and a warning

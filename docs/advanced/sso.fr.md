@@ -1,4 +1,4 @@
-# Connexion SSO (OpenID Connect)
+# Connexion OIDC (OpenID Connect)
 
 Cette page est facultative : les [comptes locaux](../usage/web-interface.md#comptes-utilisateurs)
 suffisent pour démarrer. Elle sert à connecter les personnes à l'interface web avec votre
@@ -6,7 +6,7 @@ fournisseur d'identité.
 
 Le contrôleur peut déléguer la connexion à l'interface à un fournisseur d'identité OpenID
 Connect (Keycloak, Microsoft Entra ID, Okta, Authentik, Dex...). La page de connexion affiche
-alors un bouton **Se connecter avec SSO** au-dessus du formulaire des comptes locaux, qui reste
+alors un bouton **Se connecter avec OIDC** au-dessus du formulaire des comptes locaux, qui reste
 disponible (compte `admin` initial, comptes de secours).
 
 Le flux utilisé est le *authorization code* avec PKCE (`S256`), state et nonce :
@@ -14,7 +14,7 @@ Le flux utilisé est le *authorization code* avec PKCE (`S256`), state et nonce 
 1. `GET /api/v1/auth/oidc/login` redirige le navigateur vers le fournisseur ;
 2. le fournisseur renvoie sur `GET /api/v1/auth/oidc/callback` ; le contrôleur échange le code
    (appel serveur à serveur), vérifie l'ID token (signature par les clés JWKS du fournisseur,
-   émetteur, audience, expiration, nonce), retrouve le [compte SSO](#comptes-sso) de
+   émetteur, audience, expiration, nonce), retrouve le [compte OIDC](#comptes-sso) de
    l'utilisateur (ou le crée) et enregistre les groupes nommés par son claim des groupes ;
 3. il remet à l'interface un **jeton de session** signé, valable
    `SECREVIEW_SESSION_HOURS` heures, que l'onglet utilise comme un jeton Bearer.
@@ -38,7 +38,7 @@ SECREVIEW_OIDC_CLIENT_SECRET=...            # vide pour un client public
 SECREVIEW_OIDC_REDIRECT_URI=https://secreview.example.com/api/v1/auth/oidc/callback
 SECREVIEW_OIDC_ROLES_CLAIM=realm_access.roles   # "groups" par défaut
 SECREVIEW_OIDC_ADMIN_GROUPS=secreview-admins   # créé avec le rôle admin (premier administrateur)
-SECREVIEW_OIDC_AUTO_CREATE_USERS=true       # sinon, créez chaque compte SSO dans Utilisateurs
+SECREVIEW_OIDC_AUTO_CREATE_USERS=true       # sinon, créez chaque compte OIDC dans Utilisateurs
 SECREVIEW_SESSION_SECRET=$(openssl rand -base64 48)
 SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
 ```
@@ -49,10 +49,10 @@ fournisseur utilise une CA interne, indiquez-la avec `SECREVIEW_OIDC_CAFILE`. Le
 le fournisseur par son proxy sortant (`SECREVIEW_PROXY` / `SECREVIEW_NO_PROXY`, ou l'écran
 **Proxy sortant**), sinon par `HTTPS_PROXY` / `NO_PROXY`.
 
-## Configurer le SSO dans l'interface
+## Configurer le OIDC dans l'interface
 
-Les mêmes réglages se modifient dans l'écran **SSO** (permission `users.manage` : la
-configuration SSO décide qui rejoint quel groupe), sans redémarrer le contrôleur. Comme pour
+Les mêmes réglages se modifient dans l'écran **OIDC** (permission `users.manage` : la
+configuration OIDC décide qui rejoint quel groupe), sans redémarrer le contrôleur. Comme pour
 l'écran **Proxy sortant**, une valeur
 enregistrée en base **remplace sa variable** `SECREVIEW_OIDC_*`, champ par champ ; un champ jamais
 modifié suit sa variable :
@@ -67,7 +67,7 @@ modifié suit sa variable :
   de terminaison en HTTPS), puis des clés de signature (JWKS) ;
 - **Enregistrer** refuse (`422`) une configuration qui activerait une connexion invalide (émetteur
   manquant ou non HTTPS, scopes sans `openid`...) : rien n'est alors
-  enregistré. Une configuration incomplète peut être préparée tant que le SSO reste désactivé.
+  enregistré. Une configuration incomplète peut être préparée tant que le OIDC reste désactivé.
 
 Le changement s'applique à la connexion suivante, sur toutes les répliques (le contrôleur relit
 la configuration à chaque connexion et reconstruit le flux OIDC quand elle change). Les sessions
@@ -75,7 +75,7 @@ déjà ouvertes restent valides jusqu'à leur expiration. Restent des variables 
 `SECREVIEW_OIDC_CAFILE` (un fichier du déploiement) et les réglages de session
 (`SECREVIEW_SESSION_SECRET`, `SECREVIEW_SESSION_HOURS`). Si une variable modifiée après coup rend
 invalide la combinaison avec les valeurs enregistrées, le contrôleur démarre quand même : la
-connexion SSO est désactivée et l'erreur journalisée, à corriger dans l'écran.
+connexion OIDC est désactivée et l'erreur journalisée, à corriger dans l'écran.
 
 Par l'API (`/api/v1/oidc/settings`, permission `users.manage`) : `GET` décrit chaque réglage (`value`
 enregistrée ou `null`, `env`, `effective` ; un secret défini vaut `***`), `PUT` modifie les champs
@@ -91,9 +91,9 @@ curl -X PUT https://secreview.example.com/api/v1/oidc/settings \
        "display_name": null}'
 ```
 
-## Comptes SSO
+## Comptes OIDC
 
-Chaque utilisateur SSO est un compte de l'écran **Utilisateurs** (badge **SSO**), nommé par la
+Chaque utilisateur OIDC est un compte de l'écran **Utilisateurs** (badge **OIDC**), nommé par la
 valeur du claim `SECREVIEW_OIDC_USERNAME_CLAIM` (`preferred_username` par défaut), comparée
 exactement, casse comprise. Il n'y a pas de repli sur `email` ou `sub`, et une valeur qui n'est
 pas un identifiant valide (caractère de contrôle ou invisible, espace, plus de 64 caractères) est
@@ -103,12 +103,12 @@ refusée.
 
 | Situation | Résultat |
 |---|---|
-| Compte SSO existant | Connexion, avec les permissions de ses groupes (ci-dessous) |
+| Compte OIDC existant | Connexion, avec les permissions de ses groupes (ci-dessous) |
 | Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | Le compte est **créé** (`created_by` : `oidc`) si ses groupes lui donnent une permission ; sinon refus, sans création |
-| Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (défaut) | **Refus** : un administrateur doit d'abord créer le compte SSO |
-| Compte **local** du même nom | **Refus** : une connexion SSO n'ouvre jamais un compte local |
-| Compte SSO lié à un autre `sub` ou à un autre émetteur | **Refus** (voir ci-dessous) |
-| Compte SSO supprimé par un administrateur | **Refus**, même avec la création automatique (voir ci-dessous) |
+| Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (défaut) | **Refus** : un administrateur doit d'abord créer le compte OIDC |
+| Compte **local** du même nom | **Refus** : une connexion OIDC n'ouvre jamais un compte local |
+| Compte OIDC lié à un autre `sub` ou à un autre émetteur | **Refus** (voir ci-dessous) |
+| Compte OIDC supprimé par un administrateur | **Refus**, même avec la création automatique (voir ci-dessous) |
 
 À la première connexion, le compte est **lié** à l'émetteur (issuer) et au claim `sub` du
 fournisseur : le compte est identifié par les deux. Une connexion ultérieure avec le même
@@ -118,17 +118,17 @@ venant d'un autre émetteur (un autre fournisseur d'identité, qui pourrait réu
 connexion suivante. Pour réattribuer l'identifiant, supprimez puis recréez le
 compte.
 
-Ce qu'un compte SSO peut faire vient de ses [groupes](access-control.md) : ceux qu'un
+Ce qu'un compte OIDC peut faire vient de ses [groupes](access-control.md) : ceux qu'un
 administrateur lui a donnés (écran **Utilisateurs** ou **Groupes**, approbation d'un enrôlement)
-et les groupes ouverts au SSO nommés par son claim des groupes, enregistrés à chaque connexion
+et les groupes ouverts au OIDC nommés par son claim des groupes, enregistrés à chaque connexion
 (voir [groupes du fournisseur d'identité](#groupes-du-fournisseur-didentite)). Un compte sans
 aucune permission est refusé et ses sessions ouvertes se ferment. Un changement de ses groupes
 donnés s'applique aussitôt ; un changement de ses groupes chez le fournisseur, à la prochaine
 connexion.
 
-**Supprimer un compte SSO** (écran **Utilisateurs**, `DELETE /api/v1/users/{id}` ou
+**Supprimer un compte OIDC** (écran **Utilisateurs**, `DELETE /api/v1/users/{id}` ou
 `security-review-controller user delete NOM`) ferme aussitôt ses sessions et **révoque** son
-identifiant : une connexion SSO ne le recrée plus, même avec la création automatique et des
+identifiant : une connexion OIDC ne le recrée plus, même avec la création automatique et des
 groupes qui lui donnent une permission (message « compte supprimé » sur la page de connexion). Pour lui
 rendre l'accès, un administrateur recrée le compte (à la main ou à l'approbation d'un enrôlement),
 ou lève la révocation (**Autoriser à nouveau**, `DELETE /api/v1/users/revoked/{identifiant}`) :
@@ -141,8 +141,8 @@ local : si le fournisseur d'identité devient injoignable, il reste le seul acc�
 CLI.
 
 ```
-INFO security_review_mcp.web: SSO web user alice created at its first login
-INFO security_review_mcp.web: OIDC login of oidc:alice with role reader through 1 SSO group(s)
+INFO security_review_mcp.web: OIDC web user alice created at its first login
+INFO security_review_mcp.web: OIDC login of oidc:alice with role reader through 1 OIDC group(s)
 WARNING security_review_mcp.web: OIDC login of oidc:bob refused: no web user bob
 INFO security_review_mcp.web: Web user carol (oidc) deleted by admin
 WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user carol was deleted
@@ -152,24 +152,24 @@ WARNING security_review_mcp.web: OIDC login of oidc:carol refused: web user caro
 
 Les valeurs du claim `SECREVIEW_OIDC_ROLES_CLAIM` (liste ou chaîne, chemin pointé accepté) sont
 comparées aux **noms des groupes** de l'écran **Groupes** : à chaque connexion, l'utilisateur
-rejoint chaque groupe **ouvert au SSO** dont le nom est **exactement** l'une de ces valeurs (casse
-comprise), et quitte les groupes SSO qu'il n'a plus. Les autres valeurs sont ignorées : créez un
+rejoint chaque groupe **ouvert au OIDC** dont le nom est **exactement** l'une de ces valeurs (casse
+comprise), et quitte les groupes OIDC qu'il n'a plus. Les autres valeurs sont ignorées : créez un
 groupe du même nom pour en utiliser une. Les rôles du groupe, et leurs projets, s'appliquent alors
 (voir [Rôles, groupes et permissions](access-control.md)).
 
 | Réglage | Effet |
 |---|---|
-| `SECREVIEW_OIDC_ADMIN_GROUPS` | Groupes séparés par des virgules qui ont le rôle `admin` : un tel groupe, absent à la connexion de l'un de ses membres, est créé ouvert au SSO avec le rôle `admin`. Un groupe existant reste tel que les administrateurs l'ont modifié. Sert à nommer le premier administrateur |
-| `SECREVIEW_OIDC_DEFAULT_GROUP` | Nom d'un groupe que tout utilisateur SSO rejoint à chaque connexion, quel que soit son claim (vide par défaut : aucun). Un groupe absent ne donne rien |
+| `SECREVIEW_OIDC_ADMIN_GROUPS` | Groupes séparés par des virgules qui ont le rôle `admin` : un tel groupe, absent à la connexion de l'un de ses membres, est créé ouvert au OIDC avec le rôle `admin`. Un groupe existant reste tel que les administrateurs l'ont modifié. Sert à nommer le premier administrateur |
+| `SECREVIEW_OIDC_DEFAULT_GROUP` | Nom d'un groupe que tout utilisateur OIDC rejoint à chaque connexion, quel que soit son claim (vide par défaut : aucun). Un groupe absent ne donne rien |
 
-Un groupe **non ouvert au SSO** (par exemple `administrators`) n'est jamais rejoint par le claim, même quand une valeur porte son nom. Une session
+Un groupe **non ouvert au OIDC** (par exemple `administrators`) n'est jamais rejoint par le claim, même quand une valeur porte son nom. Une session
 restreinte se comporte comme un [jeton restreint à un projet](http.md#jetons-restreints-a-un-projet) :
 les autres projets, leurs rapports et leurs findings sont traités comme inexistants.
 
-Exemple : avec le claim `["payments-team", "staff"]`, un groupe `payments-team` ouvert au SSO avec
+Exemple : avec le claim `["payments-team", "staff"]`, un groupe `payments-team` ouvert au OIDC avec
 le rôle `triager` sur `billing`, et aucun groupe `staff`, l'utilisateur ne trie que `billing`.
 
-Le label d'une session SSO est `oidc:<identifiant>` : c'est lui qui apparaît dans les journaux et
+Le label d'une session OIDC est `oidc:<identifiant>` : c'est lui qui apparaît dans les journaux et
 l'historique du triage.
 
 ## Lecture du projet à l'enrôlement
@@ -180,11 +180,11 @@ l'administrateur peut aussi donner au développeur la lecture du projet dans le 
 alors les rapports.
 
 - Dans l'écran **Jetons de projet**, la colonne **Lecture dans le portail** est préremplie avec le
-  demandeur (`requested_by`) quand il est renseigné, et cochée quand le SSO est activé. Ce champ
+  demandeur (`requested_by`) quand il est renseigné, et cochée quand le OIDC est activé. Ce champ
   est déclaré par le client et **n'est pas vérifié** : contrôlez-le ou corrigez-le avant
   d'approuver, ou décochez la case.
-- Le nom désigne un compte de l'écran **Utilisateurs**, local ou SSO. Avec le SSO activé, un nom
-  inconnu devient un **compte SSO**, prêt pour sa première connexion ; sans SSO, le compte doit
+- Le nom désigne un compte de l'écran **Utilisateurs**, local ou OIDC. Avec le OIDC activé, un nom
+  inconnu devient un **compte OIDC**, prêt pour sa première connexion ; sans OIDC, le compte doit
   exister. Donner cet accès demande la permission `users.manage`.
 - Un compte qui lit déjà tous les projets est inchangé. Sinon le projet est ajouté à son rôle
   `reader` [direct](access-control.md#roles-et-projets-directs-dun-compte) (donné sur ce seul
@@ -202,7 +202,7 @@ curl -X POST https://secreview.example.com/api/v1/enrollments/$REQUEST_ID/approv
 ```
 
 La réponse contient alors `portal_user`, le compte mis à jour. Un identifiant invalide, un compte
-inconnu sans SSO ou une limite atteinte sont refusés (`422`) avant l'approbation : la demande reste
+inconnu sans OIDC ou une limite atteinte sont refusés (`422`) avant l'approbation : la demande reste
 en attente. Le journal du contrôleur trace l'accès :
 
 ```
@@ -211,7 +211,7 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
 
 !!! note "Mise à jour depuis les accès nominatifs"
     Les versions précédentes enregistraient ces accès à part (« accès nominatifs », API
-    `/api/v1/oidc/user-grants`). La migration de schéma `0006` les transforme en comptes SSO
+    `/api/v1/oidc/user-grants`). La migration de schéma `0006` les transforme en comptes OIDC
     `reader` sur les mêmes projets, puis supprime la table. Un accès dont le nom n'est pas un
     identifiant valide ou qui porte le nom d'un compte local est abandonné, avec un avertissement
     dans le journal de la migration.
@@ -220,7 +220,7 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
 
 - Le jeton de session est signé (HMAC-SHA256) avec une clé dérivée de `SECREVIEW_SESSION_SECRET`
   (32 caractères au moins), comme celui des [comptes locaux](../usage/web-interface.md#connexion-et-sessions), et désigne
-  le compte SSO, relu à chaque requête : supprimer le compte ou changer ses groupes ou leurs
+  le compte OIDC, relu à chaque requête : supprimer le compte ou changer ses groupes ou leurs
   rôles s'applique aussitôt. Toutes les répliques du contrôleur doivent partager ce secret ; sans lui,
   le secret de `SECREVIEW_SESSION_SECRET_FILE` est utilisé, généré au premier démarrage.
 - Un changement de groupe chez le fournisseur ne s'applique qu'à la connexion suivante. Pour
@@ -229,6 +229,6 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
 - **Se déconnecter** efface la session de l'onglet, pas celle du fournisseur d'identité.
 
 En cas d'échec, la page de connexion indique la cause (accès refusé chez le fournisseur, aucune
-permission, compte SSO pas encore créé ou supprimé, identifiant pris par un compte local ou lié à un autre compte,
+permission, compte OIDC pas encore créé ou supprimé, identifiant pris par un compte local ou lié à un autre compte,
 identifiant manquant, état expiré, jeton invalide, fournisseur injoignable) ; le détail est
 journalisé par le contrôleur, sans code ni jeton.

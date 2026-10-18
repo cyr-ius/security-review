@@ -132,7 +132,7 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/sso/sso-page/sso-page.component').then((m) => m.SsoPageComponent),
       },
-      // Former address of the SSO page
+      // Former address of the OIDC page
       { path: 'role-mappings', pathMatch: 'full', redirectTo: 'sso' },
       {
         path: 'settings/language',

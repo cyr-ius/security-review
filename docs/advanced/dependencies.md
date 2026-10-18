@@ -76,7 +76,7 @@ SECREVIEW_PROXY=http://user:password@proxy.example.com:3128
 - **Proxy**: the download goes through the outgoing proxy of the controller,
   `SECREVIEW_PROXY` (`http://[user:password@]host:port`, `CONNECT` tunnel to the HTTPS site),
   except to the hosts of `SECREVIEW_NO_PROXY`. The same proxy serves the
-  [SSO login](sso.md). Without it, the standard
+  [OIDC login](sso.md). Without it, the standard
   `HTTPS_PROXY` and `NO_PROXY` variables apply. If the proxy inspects TLS, give its CA with
   `SECREVIEW_OSV_CAFILE` (it then replaces the system CAs).
 - **Mirror**: `SECREVIEW_OSV_URL` replaces the source (Nexus, Artifactory, internal bucket…) as

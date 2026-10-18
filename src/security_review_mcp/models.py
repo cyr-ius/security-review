@@ -431,13 +431,13 @@ class AdvisoryUpdate(SQLModel, table=True):
 
 
 class WebUser(SQLModel, table=True):
-    """Account of the web interface: a local account (username and password) or an SSO one.
+    """Account of the web interface: a local account (username and password) or an OIDC one.
 
     ``auth_source`` is ``local`` (password login, only a scrypt hash of the password is stored)
     or ``oidc`` (OpenID Connect login, no password). What a user may do comes from the roles of
     its groups (``GroupMember``) and from the roles given to it directly (``UserRole``, see
     access_control). ``oidc_subject`` and ``oidc_issuer`` are the ``sub`` claim and the issuer
-    bound at the first SSO login: an account is identified by both, so that another identity
+    bound at the first OIDC login: an account is identified by both, so that another identity
     provider cannot reuse a subject. ``session_version`` is drawn at random at creation and at
     each password change: the sessions issued with another version are refused.
     """
@@ -498,7 +498,7 @@ class AccessRole(SQLModel, table=True):
 class UserGroup(SQLModel, table=True):
     """Group of web users; its roles apply to every member.
 
-    With ``sso``, the SSO users whose groups claim holds ``name`` are members too: their
+    With ``sso``, the OIDC users whose groups claim holds ``name`` are members too: their
     membership is recomputed at each login. Without it, only the members an administrator added
     belong to the group.
     """
@@ -546,7 +546,7 @@ class GroupMember(SQLModel, table=True):
     """Membership of a web user in a group.
 
     ``source`` is ``local`` (added by an administrator) or ``oidc`` (found in the groups claim
-    at the last SSO login, replaced at each login).
+    at the last OIDC login, replaced at each login).
     """
 
     __table_args__ = (UniqueConstraint("group_id", "user_id", "source"),)
@@ -559,9 +559,9 @@ class GroupMember(SQLModel, table=True):
 
 
 class RevokedSsoUser(SQLModel, table=True):
-    """Username of an SSO web user deleted by an administrator (see web_users.delete_user).
+    """Username of an OIDC web user deleted by an administrator (see web_users.delete_user).
 
-    With ``SECREVIEW_OIDC_AUTO_CREATE_USERS``, an SSO login never creates a web user with this
+    With ``SECREVIEW_OIDC_AUTO_CREATE_USERS``, an OIDC login never creates a web user with this
     name again; an administrator who creates the user again lifts the revocation.
     """
 

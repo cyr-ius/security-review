@@ -100,7 +100,7 @@ def test_user_grants_become_sso_web_users(empty_engine):
         )
         for username, projects in (
             ("alice", '["shop-api", "billing"]'),
-            ("bob", '["crm"]'),  # a local account: never turned into an SSO user
+            ("bob", '["crm"]'),  # a local account: never turned into an OIDC user
             ("not a username", '["crm"]'),
         ):
             connection.execute(
@@ -192,7 +192,7 @@ def test_roles_and_mappings_become_groups(empty_engine):
         ("reader", ["shop"])
     ]
     assert users["tess"]["effective_role"] == "triager"
-    # The access given by the SSO groups at the last login is computed again at the next one
+    # The access given by the OIDC groups at the last login is computed again at the next one
     assert users["sam"]["permissions"] == {}
     roles = {role["name"]: role for role in access_control.list_roles()}
     assert all(roles[name]["system"] for name in ("reader", "triager", "admin"))

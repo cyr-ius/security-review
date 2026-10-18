@@ -9,10 +9,10 @@ import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import {
-  EnrollmentRequest,
-  ProjectToken,
-  ProjectTokenRole,
-  Role,
+    EnrollmentRequest,
+    ProjectToken,
+    ProjectTokenRole,
+    Role,
 } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
@@ -35,7 +35,7 @@ export class ProjectTokenListComponent {
   readonly projects = rxResource({ stream: () => this.api.projects() });
   readonly tokens = rxResource({ stream: () => this.api.projectTokens() });
   readonly enrollments = rxResource({ stream: () => this.api.enrollments() });
-  /** Whether SSO is enabled: approvals then offer web read access to the developer. */
+  /** Whether OIDC is enabled: approvals then offer web read access to the developer. */
   readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
   /** Web access chosen for each pending request, by request id (default: see portalAccess). */
   private readonly portalChoices = signal<Record<string, PortalAccess>>({});
@@ -188,7 +188,7 @@ export class ProjectTokenListComponent {
   /**
    * Web access offered with the approval, filled with the requester, which the administrator
    * checks or corrects (the requester name is not verified). Checked by default with OIDC (an
-   * unknown name becomes an SSO user); without it, the name must be an existing web user.
+   * unknown name becomes an OIDC user); without it, the name must be an existing web user.
    */
   portalAccess(request: EnrollmentRequest): PortalAccess {
     return (
@@ -364,7 +364,7 @@ const GRACE_HOURS: readonly number[] = [0, 1, 24, 168];
 /** Web read access given to the developer when approving its enrollment. */
 interface PortalAccess {
   enabled: boolean;
-  /** Username of the web user (for an SSO user, the username claim of the provider). */
+  /** Username of the web user (for an OIDC user, the username claim of the provider). */
   user: string;
 }
 

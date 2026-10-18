@@ -148,4 +148,4 @@ the ingress controller pods. Content of the manifest, OSV update and several rep
 ## Next step
 
 [Connect the host](host.md) of each developer to the MCP server. To go further:
-[tokens, enrollment and TLS](../advanced/http.md), [SSO login](../advanced/sso.md).
+[tokens, enrollment and TLS](../advanced/http.md), [OIDC login](../advanced/sso.md).

@@ -19,7 +19,7 @@ Bearer tokens are not concerned: they keep their fixed role (`mcp`, `reader`, `t
 | `standards.manage` | Development standards | |
 | `tokens.manage` | Project tokens and enrollment requests | |
 | `settings.manage` | Report language, outgoing proxy, advisory database | |
-| `users.manage` | Users, groups, roles and SSO settings (they decide who joins which group) | |
+| `users.manage` | Users, groups, roles and OIDC settings (they decide who joins which group) | |
 | `audit.read` | Audit log | |
 
 `users.manage` lets its holder give itself every other permission: give it only to
@@ -53,11 +53,11 @@ Members come from two sources:
 
 - **local**: added by an administrator (**Groups** or **Users** screen, CLI, enrollment
   approval);
-- **SSO**: when the group is **open to SSO**, the SSO users whose groups claim holds **exactly
-  the name of the group** join it at each login (see [SSO](sso.md#groups-of-the-identity-provider)).
+- **OIDC**: when the group is **open to OIDC**, the OIDC users whose groups claim holds **exactly
+  the name of the group** join it at each login (see [OIDC](sso.md#groups-of-the-identity-provider)).
   The values of the claim that name no group are ignored.
 
-Renaming a group, or closing it to SSO, removes its SSO members at once.
+Renaming a group, or closing it to OIDC, removes its OIDC members at once.
 
 ## Direct roles and projects of an account
 
@@ -68,10 +68,10 @@ a group: a role made of per-project permissions applies to every project or to a
 (50 at most), a role holding a permission on the whole controller always applies to every
 project, and an account has 20 direct roles at most.
 
-Direct roles are kept when the account changes groups, including the SSO groups recomputed at
+Direct roles are kept when the account changes groups, including the OIDC groups recomputed at
 each login. The approval of an enrollment with read access in the portal adds the project to the
 direct `reader` role of the account (see
-[SSO](sso.md#project-read-access-at-enrollment)).
+[OIDC](sso.md#project-read-access-at-enrollment)).
 
 ## What a user may do
 
@@ -98,8 +98,8 @@ otherwise.
 ## The last administrator
 
 At least one account keeps `users.manage`: deleting this account, removing its group, the role
-of its group, its direct role or the permission of its role is refused (`409` or `422`). An SSO login that removes
-the last holder from its SSO group is not blocked: the identity provider remains the authority.
+of its group, its direct role or the permission of its role is refused (`409` or `422`). An OIDC login that removes
+the last holder from its OIDC group is not blocked: the identity provider remains the authority.
 Preferably keep a local administrator.
 
 ## Tokens created from the interface
@@ -114,7 +114,7 @@ approval of an enrollment also needs `users.manage`.
 ## API
 
 ```bash
-# A role and a group that gives it on the "billing" project, open to SSO
+# A role and a group that gives it on the "billing" project, open to OIDC
 curl -X POST https://secreview.example.com/api/v1/roles \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
   -d '{"name": "Auditor", "description": "Reads the log", "permissions": ["audit.read", "reports.read"]}'
@@ -137,9 +137,9 @@ curl -X PUT https://secreview.example.com/api/v1/users/7 \
 |---|---|
 | `GET /api/v1/permissions` | Permissions a role may hold, and whether they can be limited to projects |
 | `GET`, `POST /api/v1/roles`; `PUT`, `DELETE /api/v1/roles/{id}` | Roles |
-| `GET`, `POST /api/v1/groups`; `PUT`, `DELETE /api/v1/groups/{id}` | Groups (`GET` also returns the SSO settings that use them) |
+| `GET`, `POST /api/v1/groups`; `PUT`, `DELETE /api/v1/groups/{id}` | Groups (`GET` also returns the OIDC settings that use them) |
 | `PUT /api/v1/groups/{id}/roles` | Replaces the roles of a group |
-| `PUT /api/v1/groups/{id}/members` | Replaces the local members of a group (SSO members are kept) |
+| `PUT /api/v1/groups/{id}/members` | Replaces the local members of a group (OIDC members are kept) |
 | `POST /api/v1/users` | Creates a user, with `group_ids` and `roles` (direct roles) |
 | `PUT /api/v1/users/{id}` | Replaces the local groups (`group_ids`) and the direct roles (`roles`, each `{"role_id": 3, "projects": ["crm"]}`, empty `projects`: every project) of a user; a missing field is left unchanged |
 
@@ -154,16 +154,16 @@ set-groups` changes the groups of an account, `user set-roles` its direct roles
 
 Schema migration `0013` moves the former access into groups:
 
-- each OIDC role mapping becomes a group open to SSO named after its group, with the role of the
+- each OIDC role mapping becomes a group open to OIDC named after its group, with the role of the
   mapping on the same projects;
 - each account with a role of its own joins `administrators`, `triagers` or `readers` (groups not
-  open to SSO) when it reached every project, otherwise a personal group `user:<name>`.
+  open to OIDC) when it reached every project, otherwise a personal group `user:<name>`.
 
 Schema migration `0014` then turns each personal group `user:<name>` whose only member is that
 account (added by an administrator) into direct roles of the account, on the same projects, and
-deletes the group. A personal group with other members, or open to SSO, is kept.
+deletes the group. A personal group with other members, or open to OIDC, is kept.
 
-The role given to an SSO account by its groups at its last login is computed again at its next
+The role given to an OIDC account by its groups at its last login is computed again at its next
 login. The `SECREVIEW_OIDC_TRIAGER_GROUPS`, `SECREVIEW_OIDC_READER_GROUPS` and
 `SECREVIEW_OIDC_DEFAULT_ROLE` variables are gone: create the groups of the same names with the
 `triager` or `reader` role, and use `SECREVIEW_OIDC_DEFAULT_GROUP` instead of the default role.

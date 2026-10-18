@@ -9,7 +9,7 @@ flow with PKCE:
 2. ``GET /api/v1/auth/oidc/callback`` checks the state, exchanges the code at the token endpoint
    (server to server), validates the ID token (signature from the provider JWKS, issuer,
    audience, expiry, nonce) and returns the identity it holds (OidcIdentity);
-3. web_users.oidc_login finds the SSO web user of that identity (or creates it when
+3. web_users.oidc_login finds the OIDC web user of that identity (or creates it when
    ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is set), records the groups of its groups claim
    (see access_control) and issues a **session token**: a JWT signed with a key derived from
    ``SECREVIEW_SESSION_SECRET``, valid ``SECREVIEW_SESSION_HOURS``, handed to the web application
@@ -166,7 +166,7 @@ def user_label(claims: dict[str, Any], settings: Settings) -> str:
 
 
 def account_name(claims: dict[str, Any], settings: Settings) -> str | None:
-    """Name of the SSO web user of a login: the raw username claim, or None.
+    """Name of the OIDC web user of a login: the raw username claim, or None.
 
     Unlike the label, there is no fallback to ``email`` or ``sub`` and nothing is stripped: a
     value with control or invisible characters would otherwise match the name of another user.

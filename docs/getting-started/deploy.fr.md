@@ -151,4 +151,4 @@ de l'ingress controller. Contenu du manifeste, mise à jour OSV et réplicas mul
 ## Étape suivante
 
 [Connectez l'hôte](host.md) de chaque développeur au serveur MCP. Pour aller plus loin :
-[jetons, enrôlement et TLS](../advanced/http.md), [connexion SSO](../advanced/sso.md).
+[jetons, enrôlement et TLS](../advanced/http.md), [connexion OIDC](../advanced/sso.md).

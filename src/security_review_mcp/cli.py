@@ -474,7 +474,7 @@ def token_command(argv: list[str]) -> int:
     approver.add_argument(
         "--portal-user",
         help="also let this web user read the project in the web interface (with OIDC enabled, "
-        "an unknown name becomes an SSO user)",
+        "an unknown name becomes an OIDC user)",
     )
     rejecter = actions.add_parser("reject", help="reject a pending enrollment request")
     rejecter.add_argument(
@@ -601,11 +601,11 @@ def _read_password(from_stdin: bool) -> str | None:
 
 
 def user_command(argv: list[str]) -> int:
-    """Run ``security-review-controller user``: manage the web users (local and SSO)."""
+    """Run ``security-review-controller user``: manage the web users (local and OIDC)."""
     parser = argparse.ArgumentParser(
         prog="security-review-controller user",
         description="Manage the web users, the only accounts of the web interface: local users "
-        "log in with a username and a password (stored as scrypt hashes), SSO users (--sso) with "
+        "log in with a username and a password (stored as scrypt hashes), OIDC users (--sso) with "
         "the identity provider. Without --password-stdin, a random password is generated for a "
         "local user and printed once.",
     )
@@ -618,7 +618,7 @@ def user_command(argv: list[str]) -> int:
     creator.add_argument(
         "--sso",
         action="store_true",
-        help="SSO user (OpenID Connect): no password, logs in with the identity provider",
+        help="OIDC user (OpenID Connect): no password, logs in with the identity provider",
     )
     creator.add_argument(
         "--group",
@@ -634,7 +634,7 @@ def user_command(argv: list[str]) -> int:
     creator.add_argument("--password-stdin", action="store_true", help="read the password on stdin")
     actions.add_parser("list", help="list the web users (never their password hash)")
     updater = actions.add_parser(
-        "set-groups", help="replace the groups given to a user (its SSO groups are kept)"
+        "set-groups", help="replace the groups given to a user (its OIDC groups are kept)"
     )
     updater.add_argument("username", help="username or id")
     updater.add_argument(
@@ -666,7 +666,7 @@ def user_command(argv: list[str]) -> int:
     deleter.add_argument("username", help="username or id")
     args = parser.parse_args(argv)
     if args.action == "create" and args.sso and args.password_stdin:
-        parser.error("create: an SSO user (--sso) has no password")
+        parser.error("create: an OIDC user (--sso) has no password")
 
     try:
         init_db()

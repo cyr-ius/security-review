@@ -73,7 +73,7 @@ async def set_report_language(body: ReportLanguageUpdate, identity: SettingsMana
 
 @router.put("/settings/proxy")
 async def set_proxy(body: ProxyUpdate, identity: SettingsManager) -> AppSettings:
-    """Set the proxy of the OSV download and of the SSO provider (applied at the next download
+    """Set the proxy of the OSV download and of the OIDC provider (applied at the next download
     or login; the URL is never logged)."""
     values = body.model_dump(exclude_unset=True)
     try:

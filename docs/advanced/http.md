@@ -182,8 +182,8 @@ created (except on an [open server](#bearer-tokens), which needs no token).
     approval can also give the developer **read access to the project in the portal**, on
     their user account (**Read access in the portal** column of the interface, or
     `token approve ID --portal-user alice` from the CLI); with the
-    [SSO login](sso.md), an unknown name becomes an
-    SSO account. See
+    [OIDC login](sso.md), an unknown name becomes an
+    OIDC account. See
     [project read access at enrollment](sso.md#project-read-access-at-enrollment).
 
 ### Rejected token: new enrollment
@@ -360,7 +360,7 @@ For Claude and to get a token by enrollment from the host, see
 
 ## Behind a reverse proxy
 
-A reverse proxy (TLS, SSO, rate limiting) remains a valid option: in that case, leave these
+A reverse proxy (TLS, OIDC, rate limiting) remains a valid option: in that case, leave these
 variables empty.
 
 !!! warning

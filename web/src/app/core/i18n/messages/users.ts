@@ -5,7 +5,7 @@ export const users = defineMessages({
   en: {
     'users.mustChange': 'password to change',
     'users.subtitle':
-      'Accounts of the web interface: local (username and password) or SSO (identity provider)',
+      'Accounts of the web interface: local (username and password) or OIDC (identity provider)',
     'users.help':
       'Only accounts can access the interface. Any changes take effect immediately for active sessions; a password reset or account deletion will terminate those sessions. The final account possessing the `users.manage` permission cannot be deleted, nor can that permission be removed from it.',
     'users.generatedPassword': 'Generated password',
@@ -16,7 +16,7 @@ export const users = defineMessages({
     'users.accountType': 'Account type',
     'users.localPassword': 'Local (password)',
     'users.ssoDisabled':
-      'SSO login is not enabled on this controller: this account can only log in once you enable',
+      'OIDC login is not enabled on this controller: this account can only log in once you enable',
     'users.ssoPlaceholder': 'e.g. alice@example.com',
     'users.localPlaceholder': 'e.g. alice',
     'users.ssoUsernameHelp':
@@ -35,33 +35,33 @@ export const users = defineMessages({
     'users.type': 'Type',
     'users.lastLogin': 'Last login',
     'users.you': 'you',
-    'users.ssoLinked': 'SSO account bound to the identity provider',
-    'users.ssoNotLinked': 'SSO account not logged in yet',
+    'users.ssoLinked': 'OIDC account bound to the identity provider',
+    'users.ssoNotLinked': 'OIDC account not logged in yet',
     'users.neverLoggedIn': 'never logged in',
     'users.localTitle': 'Local account, username and password',
     'users.noAccess': 'no access',
     'users.resetPasswordOf': 'Reset the password of {user}',
     'users.resetPassword': 'Reset the password',
     'users.empty': 'No users.',
-    'users.revokedTitle': 'Deleted SSO accounts',
+    'users.revokedTitle': 'Deleted OIDC accounts',
     'users.revokedHelp':
-      'An SSO login never creates these accounts again, even with automatic creation. Create the account again above, or allow it again so that it is created at its next login.',
+      'An OIDC login never creates these accounts again, even with automatic creation. Create the account again above, or allow it again so that it is created at its next login.',
     'users.revokedBy': 'Deleted by',
     'users.revokedAt': 'Deleted on',
     'users.liftUser': 'Allow {user} again',
     'users.lift': 'Allow again',
     'users.updated': 'User “{user}” updated.',
-    'users.ssoCreated': 'SSO user “{user}” created: they log in with the identity provider.',
+    'users.ssoCreated': 'OIDC user “{user}” created: they log in with the identity provider.',
     'users.created': 'User “{user}” created.',
     'users.confirmReset':
       'Generate a new password for “{user}”? Their open sessions will be closed.',
     'users.resetDone': 'Password of “{user}” reset.',
     'users.confirmDeleteSso':
-      'Delete SSO user “{user}”? Their sessions are closed and they will not be created again at login, until you create them again or allow them again.',
+      'Delete OIDC user “{user}”? Their sessions are closed and they will not be created again at login, until you create them again or allow them again.',
     'users.confirmDelete': 'Delete user “{user}”?',
     'users.deleted': 'User “{user}” deleted.',
     'users.confirmLift':
-      'Allow “{user}” again? With automatic creation, their SSO account will be created again at their next login if their groups give them a permission.',
+      'Allow “{user}” again? With automatic creation, their OIDC account will be created again at their next login if their groups give them a permission.',
     'users.lifted': '“{user}” can be created again at login.',
     'users.copied': 'Password copied. Send it through a safe channel.',
     'users.copyFailed': 'Copy impossible; select the password and copy it manually.',
@@ -72,7 +72,7 @@ export const users = defineMessages({
     'users.failed': 'The management of the users failed.',
     'users.groupsHelp': 'Groups given by an administrator; their roles give the permissions.',
     'users.noGroups': 'No group yet: create one on the Groups screen.',
-    'users.ssoGroups': 'SSO groups at the last login:',
+    'users.ssoGroups': 'OIDC groups at the last login:',
     'users.ssoGroup': 'Named by the groups claim at the last login',
     'users.givenGroup': 'Given by an administrator',
     'users.access': 'Access',
@@ -83,7 +83,7 @@ export const users = defineMessages({
   fr: {
     'users.mustChange': 'mot de passe à changer',
     'users.subtitle':
-      "Comptes de l'interface web : locaux (identifiant et mot de passe) ou SSO (fournisseur d'identité)",
+      "Comptes de l'interface web : locaux (identifiant et mot de passe) ou OIDC (fournisseur d'identité)",
     'users.help':
       "Seuls les comptes ouvrent l'interface. Une modification s'applique aussitôt aux sessions ouvertes ; une réinitialisation du mot de passe ou une suppression les ferme. Le dernier compte qui possède la permission users.manage ne peut être ni supprimé ni la perdre.",
     'users.generatedPassword': 'Mot de passe généré',
@@ -94,7 +94,7 @@ export const users = defineMessages({
     'users.accountType': 'Type de compte',
     'users.localPassword': 'Local (mot de passe)',
     'users.ssoDisabled':
-      "La connexion SSO n'est pas activée sur ce contrôleur : ce compte ne pourra se connecter qu'après activation de",
+      "La connexion OIDC n'est pas activée sur ce contrôleur : ce compte ne pourra se connecter qu'après activation de",
     'users.ssoPlaceholder': 'ex. alice@example.com',
     'users.localPlaceholder': 'ex. alice',
     'users.ssoUsernameHelp':
@@ -113,34 +113,34 @@ export const users = defineMessages({
     'users.type': 'Type',
     'users.lastLogin': 'Dernière connexion',
     'users.you': 'vous',
-    'users.ssoLinked': "Compte SSO lié au fournisseur d'identité",
-    'users.ssoNotLinked': 'Compte SSO pas encore connecté',
+    'users.ssoLinked': "Compte OIDC lié au fournisseur d'identité",
+    'users.ssoNotLinked': 'Compte OIDC pas encore connecté',
     'users.neverLoggedIn': 'jamais connecté',
     'users.localTitle': 'Compte local, identifiant et mot de passe',
     'users.noAccess': 'aucun accès',
     'users.resetPasswordOf': 'Réinitialiser le mot de passe de {user}',
     'users.resetPassword': 'Réinitialiser le mot de passe',
     'users.empty': 'Aucun utilisateur.',
-    'users.revokedTitle': 'Comptes SSO supprimés',
+    'users.revokedTitle': 'Comptes OIDC supprimés',
     'users.revokedHelp':
-      "Une connexion SSO ne recrée jamais ces comptes, même avec la création automatique. Recréez le compte ci-dessus, ou autorisez-le à nouveau pour qu'il soit recréé à sa prochaine connexion.",
+      "Une connexion OIDC ne recrée jamais ces comptes, même avec la création automatique. Recréez le compte ci-dessus, ou autorisez-le à nouveau pour qu'il soit recréé à sa prochaine connexion.",
     'users.revokedBy': 'Supprimé par',
     'users.revokedAt': 'Supprimé le',
     'users.liftUser': 'Autoriser à nouveau {user}',
     'users.lift': 'Autoriser à nouveau',
     'users.updated': 'Utilisateur « {user} » mis à jour.',
     'users.ssoCreated':
-      "Utilisateur SSO « {user} » créé : il se connecte avec le fournisseur d'identité.",
+      "Utilisateur OIDC « {user} » créé : il se connecte avec le fournisseur d'identité.",
     'users.created': 'Utilisateur « {user} » créé.',
     'users.confirmReset':
       'Générer un nouveau mot de passe pour « {user} » ? Ses sessions ouvertes seront fermées.',
     'users.resetDone': 'Mot de passe de « {user} » réinitialisé.',
     'users.confirmDeleteSso':
-      "Supprimer l'utilisateur SSO « {user} » ? Ses sessions sont fermées et il ne sera plus recréé à sa connexion, jusqu'à ce que vous le recréiez ou l'autorisiez à nouveau.",
+      "Supprimer l'utilisateur OIDC « {user} » ? Ses sessions sont fermées et il ne sera plus recréé à sa connexion, jusqu'à ce que vous le recréiez ou l'autorisiez à nouveau.",
     'users.confirmDelete': "Supprimer l'utilisateur « {user} » ?",
     'users.deleted': 'Utilisateur « {user} » supprimé.',
     'users.confirmLift':
-      'Autoriser à nouveau « {user} » ? Avec la création automatique, son compte SSO sera recréé à sa prochaine connexion si ses groupes lui donnent une permission.',
+      'Autoriser à nouveau « {user} » ? Avec la création automatique, son compte OIDC sera recréé à sa prochaine connexion si ses groupes lui donnent une permission.',
     'users.lifted': '« {user} » peut de nouveau être créé à sa connexion.',
     'users.copied': 'Mot de passe copié. Transmettez-le par un canal sûr.',
     'users.copyFailed':
@@ -154,7 +154,7 @@ export const users = defineMessages({
     'users.groupsHelp':
       'Groupes donnés par un administrateur ; leurs rôles donnent les permissions.',
     'users.noGroups': "Aucun groupe : créez-en un sur l'écran Groupes.",
-    'users.ssoGroups': 'Groupes SSO à la dernière connexion :',
+    'users.ssoGroups': 'Groupes OIDC à la dernière connexion :',
     'users.ssoGroup': 'Nommé par le claim des groupes à la dernière connexion',
     'users.givenGroup': 'Donné par un administrateur',
     'users.access': 'Accès',
@@ -165,9 +165,9 @@ export const users = defineMessages({
   es: {
     'users.mustChange': 'contraseña por cambiar',
     'users.subtitle':
-      'Cuentas de la interfaz web: locales (usuario y contraseña) o SSO (proveedor de identidad)',
+      'Cuentas de la interfaz web: locales (usuario y contraseña) o OIDC (proveedor de identidad)',
     'users.help':
-      'Solo estas cuentas abren la interfaz; los tokens sirven al servidor MCP y a la API REST. Lo que un usuario puede hacer viene de los roles de sus grupos (los asignados aquí y, para un usuario SSO, los nombrados por su claim de grupos en su último inicio de sesión) y de los roles que se le asignan directamente, cada uno en todos los proyectos o en algunos. Un cambio se aplica de inmediato a las sesiones abiertas; un restablecimiento de contraseña o una eliminación las cierra. El último titular del permiso users.manage no puede ser eliminado ni perderlo.',
+      'Solo estas cuentas abren la interfaz; los tokens sirven al servidor MCP y a la API REST. Lo que un usuario puede hacer viene de los roles de sus grupos (los asignados aquí y, para un usuario OIDC, los nombrados por su claim de grupos en su último inicio de sesión) y de los roles que se le asignan directamente, cada uno en todos los proyectos o en algunos. Un cambio se aplica de inmediato a las sesiones abiertas; un restablecimiento de contraseña o una eliminación las cierra. El último titular del permiso users.manage no puede ser eliminado ni perderlo.',
     'users.generatedPassword': 'Contraseña generada',
     'users.passwordOf': 'Contraseña de «{user}»',
     'users.copyNow': 'Cópiela ahora: no se volverá a mostrar.',
@@ -176,7 +176,7 @@ export const users = defineMessages({
     'users.accountType': 'Tipo de cuenta',
     'users.localPassword': 'Local (contraseña)',
     'users.ssoDisabled':
-      'El inicio de sesión SSO no está activado en este controlador: esta cuenta solo podrá iniciar sesión cuando se active',
+      'El inicio de sesión OIDC no está activado en este controlador: esta cuenta solo podrá iniciar sesión cuando se active',
     'users.ssoPlaceholder': 'p. ej. alice@example.com',
     'users.localPlaceholder': 'p. ej. alice',
     'users.ssoUsernameHelp':
@@ -195,33 +195,33 @@ export const users = defineMessages({
     'users.type': 'Tipo',
     'users.lastLogin': 'Último inicio de sesión',
     'users.you': 'usted',
-    'users.ssoLinked': 'Cuenta SSO vinculada al proveedor de identidad',
-    'users.ssoNotLinked': 'Cuenta SSO que aún no ha iniciado sesión',
+    'users.ssoLinked': 'Cuenta OIDC vinculada al proveedor de identidad',
+    'users.ssoNotLinked': 'Cuenta OIDC que aún no ha iniciado sesión',
     'users.neverLoggedIn': 'nunca conectado',
     'users.localTitle': 'Cuenta local, usuario y contraseña',
     'users.noAccess': 'sin acceso',
     'users.resetPasswordOf': 'Restablecer la contraseña de {user}',
     'users.resetPassword': 'Restablecer la contraseña',
     'users.empty': 'No hay usuarios.',
-    'users.revokedTitle': 'Cuentas SSO eliminadas',
+    'users.revokedTitle': 'Cuentas OIDC eliminadas',
     'users.revokedHelp':
-      'Un inicio de sesión SSO nunca vuelve a crear estas cuentas, ni siquiera con la creación automática. Vuelva a crear la cuenta arriba, o autorícela de nuevo para que se cree en su próximo inicio de sesión.',
+      'Un inicio de sesión OIDC nunca vuelve a crear estas cuentas, ni siquiera con la creación automática. Vuelva a crear la cuenta arriba, o autorícela de nuevo para que se cree en su próximo inicio de sesión.',
     'users.revokedBy': 'Eliminado por',
     'users.revokedAt': 'Eliminado el',
     'users.liftUser': 'Volver a autorizar a {user}',
     'users.lift': 'Volver a autorizar',
     'users.updated': 'Usuario «{user}» actualizado.',
-    'users.ssoCreated': 'Usuario SSO «{user}» creado: inicia sesión con el proveedor de identidad.',
+    'users.ssoCreated': 'Usuario OIDC «{user}» creado: inicia sesión con el proveedor de identidad.',
     'users.created': 'Usuario «{user}» creado.',
     'users.confirmReset':
       '¿Generar una nueva contraseña para «{user}»? Se cerrarán sus sesiones abiertas.',
     'users.resetDone': 'Contraseña de «{user}» restablecida.',
     'users.confirmDeleteSso':
-      '¿Eliminar el usuario SSO «{user}»? Sus sesiones se cierran y no se volverá a crear al iniciar sesión, hasta que usted lo vuelva a crear o lo autorice de nuevo.',
+      '¿Eliminar el usuario OIDC «{user}»? Sus sesiones se cierran y no se volverá a crear al iniciar sesión, hasta que usted lo vuelva a crear o lo autorice de nuevo.',
     'users.confirmDelete': '¿Eliminar el usuario «{user}»?',
     'users.deleted': 'Usuario «{user}» eliminado.',
     'users.confirmLift':
-      '¿Permitir de nuevo «{user}»? Con la creación automática, su cuenta SSO se creará de nuevo en su próximo inicio de sesión si sus grupos le dan un permiso.',
+      '¿Permitir de nuevo «{user}»? Con la creación automática, su cuenta OIDC se creará de nuevo en su próximo inicio de sesión si sus grupos le dan un permiso.',
     'users.lifted': '«{user}» puede volver a crearse al iniciar sesión.',
     'users.copied': 'Contraseña copiada. Transmítala por un canal seguro.',
     'users.copyFailed': 'No se pudo copiar; seleccione la contraseña y cópiela manualmente.',
@@ -232,7 +232,7 @@ export const users = defineMessages({
     'users.failed': 'La gestión de los usuarios ha fallado.',
     'users.groupsHelp': 'Grupos asignados por un administrador; sus roles dan los permisos.',
     'users.noGroups': 'Ningún grupo: cree uno en la pantalla Grupos.',
-    'users.ssoGroups': 'Grupos SSO en el último inicio de sesión:',
+    'users.ssoGroups': 'Grupos OIDC en el último inicio de sesión:',
     'users.ssoGroup': 'Nombrado por el claim de grupos en el último inicio de sesión',
     'users.givenGroup': 'Asignado por un administrador',
     'users.access': 'Acceso',

@@ -111,7 +111,7 @@ ce qu'il faut pour travailler ; **Avancé** regroupe les détails et les fonctio
 |---|---|
 | Docker, Kubernetes, PostgreSQL | [Architecture et déploiement](advanced/architecture.md), [Docker](advanced/docker.md) |
 | Jetons restreints à un projet, enrôlement, renouvellement, TLS | [Serveur HTTP, authentification et TLS](advanced/http.md) |
-| Se connecter avec le fournisseur d'identité de l'entreprise | [Connexion SSO](advanced/sso.md) |
+| Se connecter avec le fournisseur d'identité de l'entreprise | [Connexion OIDC](advanced/sso.md) |
 | Scanner tout un dépôt, les dépendances, ajouter les règles de mon entreprise | [Scan du code complet](advanced/code-scan.md), [Analyse des dépendances](advanced/dependencies.md), [Règles internes](advanced/rules.md) |
 | SARIF, tendances, journal d'audit, Prometheus | [Export SARIF](advanced/sarif.md), [Rapport de tendance](advanced/trends.md), [Journal d'audit et métriques](advanced/audit-metrics.md) |
 
