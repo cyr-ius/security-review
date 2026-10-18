@@ -107,12 +107,15 @@ refusée.
 | Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | Le compte est **créé** (`created_by` : `oidc`) si ses groupes lui donnent une permission ; sinon refus, sans création |
 | Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (défaut) | **Refus** : un administrateur doit d'abord créer le compte SSO |
 | Compte **local** du même nom | **Refus** : une connexion SSO n'ouvre jamais un compte local |
-| Compte SSO lié à un autre `sub` | **Refus** (voir ci-dessous) |
+| Compte SSO lié à un autre `sub` ou à un autre émetteur | **Refus** (voir ci-dessous) |
 | Compte SSO supprimé par un administrateur | **Refus**, même avec la création automatique (voir ci-dessous) |
 
-À la première connexion, le compte est **lié** au claim `sub` du fournisseur ; une connexion
-ultérieure avec le même identifiant mais un autre `sub` (compte du fournisseur supprimé puis
-recréé, renommé...) est refusée. Pour réattribuer l'identifiant, supprimez puis recréez le
+À la première connexion, le compte est **lié** à l'émetteur (issuer) et au claim `sub` du
+fournisseur : le compte est identifié par les deux. Une connexion ultérieure avec le même
+identifiant mais un autre `sub` (compte du fournisseur supprimé puis recréé, renommé...) ou
+venant d'un autre émetteur (un autre fournisseur d'identité, qui pourrait réutiliser le même
+`sub`) est refusée. Un compte lié quand seul le `sub` était enregistré reçoit l'émetteur de sa
+connexion suivante. Pour réattribuer l'identifiant, supprimez puis recréez le
 compte.
 
 Ce qu'un compte SSO peut faire vient de ses [groupes](access-control.md) : ceux qu'un

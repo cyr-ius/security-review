@@ -146,7 +146,8 @@
   not a valid user name): choose a claim that the user cannot change at the provider. By
   default (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), only an SSO account created by an
   administrator can log in. An SSO login never opens a local account of the same name, and the
-  account is bound to the `sub` of its first login: another `sub` is refused. A deleted SSO
+  account is bound to the issuer and the `sub` of its first login: another `sub` or another
+  issuer is refused. A deleted SSO
   account is revoked: the automatic creation does not create it again, until an administrator
   creates it again or allows it again. Check the requester of an enrollment (free text, not
   verified) before giving them read access to the project. A session restricted to projects is

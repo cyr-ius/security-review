@@ -436,9 +436,10 @@ class WebUser(SQLModel, table=True):
     ``auth_source`` is ``local`` (password login, only a scrypt hash of the password is stored)
     or ``oidc`` (OpenID Connect login, no password). What a user may do comes from the roles of
     its groups (``GroupMember``) and from the roles given to it directly (``UserRole``, see
-    access_control). ``oidc_subject`` is the ``sub`` claim bound
-    at the first SSO login. ``session_version`` is drawn at random at creation and at each
-    password change: the sessions issued with another version are refused.
+    access_control). ``oidc_subject`` and ``oidc_issuer`` are the ``sub`` claim and the issuer
+    bound at the first SSO login: an account is identified by both, so that another identity
+    provider cannot reuse a subject. ``session_version`` is drawn at random at creation and at
+    each password change: the sessions issued with another version are refused.
     """
 
     id: int | None = Field(default=None, primary_key=True)
@@ -446,6 +447,7 @@ class WebUser(SQLModel, table=True):
     auth_source: str = Field(default="local", max_length=20)
     password_hash: str | None = Field(default=None, max_length=255)
     oidc_subject: str | None = Field(default=None, max_length=255)
+    oidc_issuer: str | None = Field(default=None, max_length=500)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
     password_changed_at: datetime | None = Field(default=None)

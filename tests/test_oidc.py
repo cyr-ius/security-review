@@ -11,6 +11,7 @@ import jwt
 import pytest
 from conftest import group_for, make_user
 from cryptography.hazmat.primitives.asymmetric import rsa
+from sqlmodel import select
 from starlette.testclient import TestClient
 
 from security_review_mcp import (
@@ -24,7 +25,9 @@ from security_review_mcp import (
     web_users,
 )
 from security_review_mcp.config import Settings
+from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
+from security_review_mcp.models import WebUser
 
 ISSUER = "https://idp.example.com/realms/acme"
 CLIENT_ID = "secreview"
@@ -373,6 +376,9 @@ def test_full_login_gives_a_session_accepted_by_the_api(controller, provider, ca
         "reader",
     )
     assert [(group["name"], group["source"]) for group in user["groups"]] == [("qa", "oidc")]
+    with session_scope() as db:
+        row = db.exec(select(WebUser).where(WebUser.username == "alice")).one()
+        assert (row.oidc_subject, row.oidc_issuer) == ("user-123", ISSUER)
     for secret in ("code-xyz", session, "access-abc", "client-secret"):
         assert secret not in logs
 

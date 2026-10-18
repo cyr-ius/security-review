@@ -105,12 +105,14 @@ At login, the controller looks for this account:
 | No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | The account is **created** (`created_by`: `oidc`) if its groups give it a permission; otherwise refused, without creation |
 | No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (default) | **Refused**: an administrator must first create the SSO account |
 | **Local** account with the same name | **Refused**: an SSO login never opens a local account |
-| SSO account bound to another `sub` | **Refused** (see below) |
+| SSO account bound to another `sub` or another issuer | **Refused** (see below) |
 | SSO account deleted by an administrator | **Refused**, even with the automatic creation (see below) |
 
-At the first login, the account is **bound** to the `sub` claim of the provider; a later login
-with the same user name but another `sub` (provider account deleted then created again,
-renamed...) is refused. To give the user name to someone else, delete then create the account
+At the first login, the account is **bound** to the issuer and to the `sub` claim of the
+provider: the account is identified by both. A later login with the same user name but another
+`sub` (provider account deleted then created again, renamed...) or from another issuer (another
+identity provider, which could reuse the same `sub`) is refused. An account bound when only
+the `sub` was recorded gets the issuer of its next login. To give the user name to someone else, delete then create the account
 again.
 
 What an SSO account may do comes from its [groups](access-control.md): those an administrator

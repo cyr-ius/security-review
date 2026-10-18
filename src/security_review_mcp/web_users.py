@@ -633,7 +633,9 @@ def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings
     """Open the session of the SSO user of a verified OIDC login; raise OidcError.
 
     The user is named by the username claim. It is refused when the name belongs to a local
-    account, when it is bound to another subject, or when it does not exist and
+    account, when it is bound to another subject or to another identity provider (the account
+    is identified by the issuer and the subject; a user bound before the issuer was recorded
+    gets it at its next login), or when it does not exist and
     ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is off (``unknown_user``) or an administrator deleted it
     (``revoked``). Its SSO groups are replaced by those its groups claim names (see
     access_control.sync_sso_groups); the login is refused (``forbidden``) when its groups give
@@ -663,6 +665,13 @@ def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings
                         name,
                     )
                     raise OidcError("conflict", "This user is bound to another account")
+                if row.oidc_issuer is not None and not same_value(row.oidc_issuer, identity.issuer):
+                    logger.warning(
+                        "OIDC login of %s refused: user %s is bound to another provider",
+                        label,
+                        name,
+                    )
+                    raise OidcError("conflict", "This user is bound to another account")
             created = row is None
             if row is None:
                 if not settings.oidc_auto_create_users:
@@ -679,6 +688,7 @@ def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings
                     created_by="oidc",
                 )
             row.oidc_subject = identity.subject
+            row.oidc_issuer = identity.issuer
             row.last_login_at = utcnow()
             session.add(row)
             session.flush()

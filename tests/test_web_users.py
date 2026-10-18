@@ -277,11 +277,17 @@ def sso_settings(**values) -> Settings:
     return Settings(_env_file=None, **values)
 
 
-def identity(username: str | None = "alice", subject: str = "sub-1", *groups: str):
+ISSUER = "https://sso.example.com"
+
+
+def identity(
+    username: str | None = "alice", subject: str = "sub-1", *groups: str, issuer: str = ISSUER
+):
     """A verified OIDC login."""
     return oidc.OidcIdentity(
         username=username,
         subject=subject,
+        issuer=issuer,
         groups=frozenset(groups),
         label=f"oidc:{username}",
         return_url="/",
@@ -447,6 +453,34 @@ def test_sso_user_is_bound_to_its_first_subject():
     with pytest.raises(oidc.OidcError) as exc:
         login(signer, identity("alice", "sub-2"))
     assert exc.value.code == "conflict"
+
+
+def test_sso_user_is_bound_to_the_issuer_of_its_first_login(database):
+    signer = oidc.SessionSigner(SECRET)
+    make_user("alice", None, "reader", auth_source="oidc")
+    login(signer, identity("alice", "sub-1"))
+    assert stored(database, "alice").oidc_issuer == ISSUER
+
+    # Same subject, other identity provider: another account, refused
+    with pytest.raises(oidc.OidcError) as exc:
+        login(signer, identity("alice", "sub-1", issuer="https://evil.example.com"))
+    assert exc.value.code == "conflict"
+    assert stored(database, "alice").oidc_issuer == ISSUER
+
+
+def test_sso_user_bound_before_the_issuer_was_recorded_gets_it(database):
+    signer = oidc.SessionSigner(SECRET)
+    make_user("alice", None, "reader", auth_source="oidc")
+    login(signer, identity("alice", "sub-1"))
+    with Session(database) as session:
+        row = session.exec(select(WebUser).where(WebUser.username == "alice")).one()
+        row.oidc_issuer = None
+        session.add(row)
+        session.commit()
+
+    login(signer, identity("alice", "sub-1"))
+
+    assert stored(database, "alice").oidc_issuer == ISSUER
 
 
 @pytest.mark.parametrize("username", [None, "", "bob smith", "a" * 65, "bo\u200bb"])

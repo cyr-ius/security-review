@@ -341,12 +341,13 @@ class OidcIdentity:
     """The user of a verified login, and the page to open.
 
     ``username`` is the raw username claim (see account_name, None when missing), ``subject``
-    the ``sub`` claim, ``groups`` the values of the groups or roles claim and ``label`` the name
-    written in the logs.
+    the ``sub`` claim, ``issuer`` the provider that signed the ID token, ``groups`` the values
+    of the groups or roles claim and ``label`` the name written in the logs.
     """
 
     username: str | None
     subject: str
+    issuer: str
     groups: frozenset[str]
     label: str
     return_url: str
@@ -514,6 +515,7 @@ class OidcLogin:
         return OidcIdentity(
             username=account_name(claims, self.settings),
             subject=claims["sub"],
+            issuer=self.issuer,
             groups=frozenset(claim_values(claims, self.settings.oidc_roles_claim)),
             label=user_label(claims, self.settings),
             return_url=safe_return_url(saved.get("return_url")),

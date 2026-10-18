@@ -148,7 +148,8 @@
   un identifiant valide) : choisissez un claim que l'utilisateur ne peut pas modifier chez le
   fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte SSO créé par
   un administrateur peut se connecter. Une connexion SSO n'ouvre jamais un compte local du même
-  nom, et le compte est lié au `sub` de sa première connexion : un autre `sub` est refusé. Un
+  nom, et le compte est lié à l'émetteur et au `sub` de sa première connexion : un autre `sub`
+  ou un autre émetteur est refusé. Un
   compte SSO supprimé est révoqué : la création automatique ne le recrée pas, tant qu'un
   administrateur ne l'a pas recréé ou autorisé à nouveau.
   Vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant de lui donner la lecture
