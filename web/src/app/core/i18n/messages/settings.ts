@@ -11,7 +11,7 @@ export const settings = defineMessages({
     'settings.languageHelpBefore':
       "Language of the agent's response in recorded reports. The argument",
     'settings.languageHelpAfter':
-      ' of a prompt takes precedence. Severities, categories, statuses and rule identifiers stay unchanged.',
+      ' of a prompt takes precedence.',
     'settings.languageApplied': 'Language applied:',
     'settings.languageByAgent': 'chosen by the agent',
     'settings.source': 'Source',
@@ -21,7 +21,7 @@ export const settings = defineMessages({
     'settings.languagePattern': 'Letters, spaces, -, _ and parentheses only.',
     'settings.proxyTitle': 'Outgoing proxy of the controller',
     'settings.proxyHelp':
-      'Used by the OSV download process and your identity provider connection. Each value defined here overrides its corresponding variable; it takes effect for the next download and the next connection, without requiring a restart.',
+      'Used for OSV downloads and for authentication with the identity provider. Each defined value replaces its corresponding variable. It takes effect during the next download or authentication, without requiring a restart.',
     'settings.proxyApplied': 'Proxy applied:',
     'settings.none': 'none',
     'settings.noProxyApplied': 'Without proxy:',
@@ -109,7 +109,7 @@ export const settings = defineMessages({
     'settings.languageHelpBefore':
       "Langue de la réponse de l'agent dans les rapports enregistrés. L'argument",
     'settings.languageHelpAfter':
-      " d'un prompt reste prioritaire. Sévérités, catégories, statuts et identifiants de règles restent inchangés.",
+      " d'un prompt reste prioritaire.",
     'settings.languageApplied': 'Langue appliquée :',
     'settings.languageByAgent': "choisie par l'agent",
     'settings.source': 'Source',
@@ -119,7 +119,7 @@ export const settings = defineMessages({
     'settings.languagePattern': 'Lettres, espaces, -, _ et parenthèses uniquement.',
     'settings.proxyTitle': 'Proxy sortant du contrôleur',
     'settings.proxyHelp':
-      "Utilisé par le téléchargement OSV et par la connexion de votre fournisseur d'identité. Chaque valeur définie ici remplace sa variable ; elle s'applique au prochain téléchargement et à la prochaine connexion, sans redémarrage.",
+      "Utilisé par le téléchargement OSV et par la connexion auprès du fournisseur d'identité. Chaque valeur définie remplace sa variable. Elle s'applique au prochain téléchargement ou à la prochaine connexion, sans redémarrage.",
     'settings.proxyApplied': 'Proxy appliqué :',
     'settings.none': 'aucun',
     'settings.noProxyApplied': 'Sans proxy :',
