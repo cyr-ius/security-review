@@ -150,7 +150,11 @@ async def create_project_token(
 async def update_project_token_projects(
     token_id: TokenIdPath, body: ProjectTokenProjects, identity: TokensManager
 ) -> ProjectToken:
-    """Change the projects of a token (``projects`` null: every project); its secret stays."""
+    """Change the projects of a token (``projects`` null: every project); its secret stays.
+
+    The caller must reach the current projects of the token as well as the new ones.
+    """
+    await _check_token_delegation(identity, token_id, None, keep=True)
     await _check_token_delegation(identity, token_id, body.projects)
     await _check_known_projects(body.projects)
     try:

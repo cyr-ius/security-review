@@ -973,6 +973,12 @@ def test_a_token_never_grants_more_than_its_creator(accounts, reports):
     other = token_store.create_project_token("billing-ci", ["billing"])
     assert accounts.post(f"{url}/{other['id']}/rotate", headers=headers).status_code == 403
     assert accounts.post(f"{url}/{token_id}/rotate", headers=headers).status_code == 200
+    # A token of a project the caller cannot read is not moved into its scope either
+    moved = accounts.put(
+        f"{url}/{other['id']}/projects", json={"projects": ["shop-api"]}, headers=headers
+    )
+    assert moved.status_code == 403
+    assert token_store.list_tokens()[-1]["projects"] == ["billing"]
     # Approving an enrollment gives a token on its project: refused outside the scope
     request = token_store.request_enrollment("billing", label="billing-dev")
     response = accounts.post(
