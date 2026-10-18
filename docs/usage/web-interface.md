@@ -111,14 +111,16 @@ the requested page once the controller answers again.
   changed or deleted.
 - **My account**: shows the type of the account. A local user changes their
   password there (their other sessions are closed); the one of an OIDC user is managed by the
-  identity provider.
+  identity provider. **API tokens** creates and revokes personal [API tokens](#api-tokens)
+  (REST API and Swagger) that hold the rights of the account.
 - **Tokens**: pending enrollment requests are searchable, sortable and filterable by request
   type; active tokens are searchable, sortable and filterable by usage. Administrators create
   and revoke tokens for one or more projects, or for
-  **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role)
-  or **CI/CD pipeline** (`ci` role, for
-  [`security-review-ci`](gate.md#pipeline-client-security-review-ci)): tokens are for machines,
-  a person reads and triages with a [user account](#user-accounts). Under **Allowed projects**, **All projects** gives every project, including the
+  **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role),
+  **CI/CD pipeline** (`ci` role, for
+  [`security-review-ci`](gate.md#pipeline-client-security-review-ci)) or **REST API** (`api`
+  role, with the **Role** it holds, see [API tokens](#api-tokens)): tokens are for machines, a
+  person reads and triages with a [user account](#user-accounts). Under **Allowed projects**, **All projects** gives every project, including the
   projects reviewed later, and **Selected projects** shows the boxes of the projects the token
   sees; **Validity**
   sets its lifetime (30 days to 1 year, or the default of the server, `SECREVIEW_TOKEN_MAX_DAYS`).
@@ -223,6 +225,7 @@ endpoints:
 |---|---|---|---|---|
 | `mcp` (default) | MCP | ✅ | — | — |
 | `admin` | CLI only | ✅ | ✅ | `open`, `fixed` ¹ |
+| `api` | REST API — Swagger and scripts ([API tokens](#api-tokens)) | — | ✅ with the permissions of its role or of its user | `open`, `fixed` ¹ with `findings.triage` |
 | `ci` | CI/CD pipeline — gate, SARIF, trend and scans | — | pipeline routes only (`/api/v1/ci/`), including the scans that store reports | — |
 | `metrics` | CLI only | — | `/metrics` only ([Prometheus](../advanced/audit-metrics.md#prometheus-metrics)) | — |
 
@@ -268,15 +271,15 @@ curl -H "Authorization: Bearer $TOKEN" \
   "https://secreview.example.com/api/v1/reports?project=shop-api&author=alice@example.com"
 ```
 
-Revoke it with `security-review-controller token revoke triage-bot`. Every status change is
+Revoke it with `security-review-controller token revoke ops-script`. Every status change is
 logged with the label of the token or of the account:
 
 ```
-INFO security_review_mcp.web: Finding 42 set to fixed by triage-bot
+INFO security_review_mcp.web: Finding 42 set to fixed by ops-script
 ```
 
 and written to the [audit log](../advanced/audit-metrics.md#audit-log) (`GET /api/v1/audit`, `audit.read`
-permission), with the actor `token:triage-bot` or `user:<name>`.
+permission), with the actor `token:ops-script` or `user:<name>`.
 
 !!! warning "Authentication required for the web UI"
     The API of the interface refuses the requests with status `503` while no user and no token
@@ -287,6 +290,31 @@ permission), with the actor `token:triage-bot` or `user:<name>`.
     UI; MCP authentication stays independent (a user account never opens `/mcp`). With the
     [OIDC login](../advanced/sso.md), the API asks for a login (`401`) even without any
     user or token in the database.
+
+### API tokens
+
+An `api` token calls the REST API, from a script or from the Swagger documentation (`/api/docs`,
+**Authorize** button), with the rights of the access control, read at each request. It never
+reaches `/mcp`, never opens the interface and, like every token, never accepts a risk nor marks
+a false positive. There are two kinds:
+
+- **Personal token**: a user creates it for themselves in **My account** > **API tokens** (10 at
+  most, label `<user>:<label>`, a `:` that no other token label may hold, validity bounded by `SECREVIEW_TOKEN_MAX_DAYS`). It holds the
+  current rights of the account, which come from its groups: it reaches nothing once the account
+  loses them, and is deleted with the account. Nobody can rotate it nor change its projects; an
+  administrator can revoke it from the **Tokens** screen.
+- **Role token**: an administrator (`tokens.manage`) creates it on the **Tokens** screen with
+  **Usage** **REST API** and a **Role**. It holds the permissions of that role on its projects
+  (every project, or a list when the role only holds permissions per project). Its creator must
+  hold each of these permissions on these projects; a role used by a token cannot be deleted.
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "swagger", "expires_in_days": 30}'
+# {"id": "…", "label": "alice:swagger", "role": "api", "personal": true, "access_role_id": null, …, "token": "Zq3…"}
+curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
+# {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
+```
 
 ## User accounts
 
@@ -452,7 +480,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 ## Security
 
 - The static files of `/ui/` are public (they hold no data); the `/api/v1/` API requires a
-  session or an `admin` token. Only the login routes (`/api/v1/auth/…`)
+  session or an `admin` or `api` token. Only the login routes (`/api/v1/auth/…`)
   are public.
 - Account passwords are never stored: only a salted **scrypt** digest (N=2¹⁴, r=8, p=5) is
   stored and no API answer returns it. The check takes the same time whether the user name
@@ -463,6 +491,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   Internet, and Swagger never sends the schema to the online validator. In Swagger, the
   padlock of a route says that it requires a token: it stays **open** while you have not entered
   a token with **Authorize**, and does not mean that the route can be reached without a token.
+  Enter an [API token](#api-tokens) there.
 - The controller exposes no write route without a token. The
   [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token) requests are
   filed on the **MCP server** (`POST /api/v1/enroll`, public); the controller lists and handles

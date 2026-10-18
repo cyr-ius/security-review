@@ -1,0 +1,102 @@
+<section class="mt-4" aria-labelledby="api-tokens-title">
+  <h2 id="api-tokens-title" class="h5">{{ 'apiTokens.title' | t }}</h2>
+  <p class="text-body-secondary small">{{ 'apiTokens.help' | t }}</p>
+
+  @if (error(); as text) {
+    <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+  }
+  @if (message(); as text) {
+    <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+  }
+  @if (createdToken(); as token) {
+    <section class="alert alert-warning" [attr.aria-label]="'tokens.newToken' | t">
+      <h3 class="h6">{{ 'tokens.copyNow' | t }}</h3>
+      <p class="mb-2">{{ 'tokens.notShownAgain' | t }}</p>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <code class="token-value font-monospace">{{ token }}</code>
+        <button type="button" class="btn btn-sm btn-outline-dark" (click)="copyToken()">
+          <i class="bi bi-copy" aria-hidden="true"></i>
+          {{ 'common.copy' | t }}
+        </button>
+      </div>
+    </section>
+  }
+
+  <form class="row g-2 align-items-end mb-3" (submit)="create($event)">
+    <div class="col-md-4">
+      <label for="api-token-label" class="form-label">{{ 'tokens.label' | t }}</label>
+      <input
+        id="api-token-label"
+        class="form-control"
+        autocomplete="off"
+        [formField]="tokenForm.label"
+      />
+    </div>
+    <div class="col-md-3">
+      <label for="api-token-validity" class="form-label">{{ 'tokens.validity' | t }}</label>
+      <select id="api-token-validity" class="form-select" [formField]="tokenForm.validity">
+        <option value="">{{ 'tokens.validityDefault' | t }}</option>
+        @for (days of validities; track days) {
+          <option [value]="days">{{ 'tokens.validityDays' | t: { days } }}</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-3">
+      <button
+        type="submit"
+        class="btn btn-primary w-100"
+        [disabled]="busy() || tokenForm().invalid()"
+      >
+        <i class="bi bi-key" aria-hidden="true"></i>
+        {{ 'apiTokens.create' | t }}
+      </button>
+    </div>
+  </form>
+
+  @if (tokens.error()) {
+    <div class="alert alert-danger" role="alert">{{ 'tokens.loadError' | t }}</div>
+  } @else if ((tokens.value() ?? []).length) {
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th scope="col">{{ 'tokens.label' | t }}</th>
+            <th scope="col">{{ 'common.createdAt' | t }}</th>
+            <th scope="col">{{ 'tokens.expiresAt' | t }}</th>
+            <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (token of tokens.value() ?? []; track token.id) {
+            <tr>
+              <td>{{ token.label }}</td>
+              <td>{{ token.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+              <td>
+                @if (token.expired) {
+                  <span class="badge text-bg-danger">{{ 'tokens.expired' | t }}</span>
+                }
+                {{
+                  token.expires_at ? (token.expires_at | date: 'dd/MM/yyyy') : ('tokens.never' | t)
+                }}
+              </td>
+              <td class="text-end">
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-danger"
+                  [disabled]="busy()"
+                  [attr.aria-label]="'tokens.revokeToken' | t: { label: token.label }"
+                  (click)="revoke(token.id, token.label)"
+                >
+                  <i class="bi bi-trash3" aria-hidden="true"></i>
+                  {{ 'tokens.revoke' | t }}
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else if (!tokens.isLoading()) {
+    <p class="text-body-secondary">{{ 'apiTokens.empty' | t }}</p>
+  }
+</section>

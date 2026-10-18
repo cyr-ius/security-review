@@ -92,9 +92,9 @@ def client(ui_dir) -> TestClient:
 def secured(ui_dir) -> TestClient:
     """The controller app protected by one token per token role (sessions: see web_sessions)."""
     TOKENS.clear()
-    for role in http_server.TOKEN_ROLES:
-        if role != Role.CI:  # see ci_token: a ci token is always restricted to projects
-            TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
+    # ci: see ci_token (always restricted to projects); api: a role or an owner (see api tests)
+    for role in http_server.TOKEN_ROLES - {Role.CI, Role.API}:
+        TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
     signer = oidc.SessionSigner("s" * 40)
     app = http_server.build_controller_app(
         web_api.create_app(ui_dir=str(ui_dir), swagger=True, signer=signer),
@@ -2922,3 +2922,194 @@ def test_scan_logs_cannot_be_forged_with_the_project_name(secured, caplog):
         record.getMessage() for record in caplog.records if "Code scan" in record.getMessage()
     ]
     assert messages and all("\n" not in message for message in messages)
+
+
+# ── api tokens (REST API and Swagger) ────────────────────────────────────────
+
+
+def _bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _role_id(name: str) -> int:
+    return next(role["id"] for role in access_control.list_roles() if role["name"] == name)
+
+
+def test_a_personal_api_token_holds_the_current_rights_of_its_user(secured, reports):
+    shop_report_id, _ = reports
+    make_user("alice", USER_PASSWORD, "reader", ["shop-api"])
+    headers = session_headers(secured, "alice")
+
+    created = secured.post("/api/v1/me/tokens", json={"label": "swagger"}, headers=headers)
+    assert created.status_code == 201
+    assert created.headers["cache-control"] == "no-store"
+    body = created.json()
+    assert (body["label"], body["role"], body["personal"]) == ("alice:swagger", "api", True)
+    token = _bearer(body["token"])
+    listed = secured.get("/api/v1/me/tokens", headers=headers).json()
+    assert [item["id"] for item in listed] == [body["id"]] and body["token"] not in str(listed)
+
+    me = secured.get("/api/v1/me", headers=token).json()
+    assert (me["client"], me["role"], me["projects"]) == ("alice:swagger", "api", ["shop-api"])
+    assert me["permissions"] == {"reports.read": ["shop-api"]}
+    projects = secured.get("/api/v1/projects", headers=token).json()
+    assert [item["project"] for item in projects] == ["shop-api"]
+    assert secured.get(f"/api/v1/reports/{shop_report_id}", headers=token).status_code == 200
+    patched = secured.patch("/api/v1/findings/1", json={"status": "fixed"}, headers=token)
+    assert patched.status_code == 403
+    # A token never creates another token, nor changes the preferences of its user
+    assert secured.post("/api/v1/me/tokens", json={"label": "x"}, headers=token).status_code == 403
+    assert secured.get("/api/v1/me/preferences", headers=token).status_code == 403
+    assert secured.post("/api/v1/me/logout", headers=token).status_code == 403
+
+    # The rights of the user are read at each request
+    alice = web_users.find_user("alice")
+    web_users.update_user(alice["id"], [group_for("triager", ["shop-api"])])
+    patched = secured.patch("/api/v1/findings/1", json={"status": "fixed"}, headers=token)
+    assert patched.status_code == 200
+    web_users.update_user(alice["id"], [])
+    assert secured.get("/api/v1/me", headers=token).status_code == 401
+
+
+def test_an_api_token_never_dismisses_a_finding(secured, reports):
+    make_user("tess", USER_PASSWORD, "triager")
+    headers = session_headers(secured, "tess")
+    token = secured.post("/api/v1/me/tokens", json={"label": "bot"}, headers=headers).json()
+    expires_on = (date.today() + timedelta(days=30)).isoformat()
+    body = {"status": "accepted", "reason": "Not reachable at all", "expires_on": expires_on}
+
+    response = secured.patch("/api/v1/findings/1", json=body, headers=_bearer(token["token"]))
+
+    assert response.status_code == 403
+    assert "logged in to the web interface" in response.json()["detail"]
+
+
+def test_personal_api_tokens_are_bounded_and_private(secured, reports):
+    make_user("alice", USER_PASSWORD, "reader")
+    make_user("bob", USER_PASSWORD, "reader")
+    alice, bob = session_headers(secured, "alice"), session_headers(secured, "bob")
+    url = "/api/v1/me/tokens"
+    token = secured.post(url, json={"label": "swagger"}, headers=alice).json()
+
+    # Labels are unique per user, not across users
+    assert secured.post(url, json={"label": "swagger"}, headers=alice).status_code == 422
+    assert secured.post(url, json={"label": "swagger"}, headers=bob).status_code == 201
+    assert secured.post(url, json={"label": "x" * 65}, headers=alice).status_code == 422
+    assert [item["label"] for item in secured.get(url, headers=bob).json()] == ["bob:swagger"]
+    # Another user cannot revoke it
+    assert secured.delete(f"{url}/{token['id']}", headers=bob).status_code == 404
+    for index in range(token_store.MAX_PERSONAL_TOKENS - 1):
+        assert secured.post(url, json={"label": f"t{index}"}, headers=alice).status_code == 201
+    refused = secured.post(url, json={"label": "one-more"}, headers=alice)
+    assert refused.status_code == 422 and "at most" in refused.json()["detail"]
+    assert secured.delete(f"{url}/{token['id']}", headers=alice).status_code == 204
+    assert secured.get("/api/v1/me", headers=_bearer(token["token"])).status_code == 401
+    (event, *_) = audit.list_events(action="token.revoked")["events"]
+    assert (event["actor"], event["details"]["label"]) == ("user:alice", "alice:swagger")
+
+
+def test_a_personal_api_token_is_deleted_with_its_user(secured, web_sessions, reports):
+    make_user("alice", USER_PASSWORD, "reader")
+    headers = session_headers(secured, "alice")
+    token = secured.post("/api/v1/me/tokens", json={"label": "swagger"}, headers=headers).json()
+    # Listed for the administrators, who may revoke it but neither rotate it nor change it
+    listed = {item["id"]: item for item in listed_tokens(secured)}
+    assert listed[token["id"]]["personal"] is True
+    url = f"/api/v1/project-tokens/{token['id']}"
+    assert secured.post(f"{url}/rotate", headers=auth("admin")).status_code == 422
+    changed = secured.put(f"{url}/projects", json={"projects": ["shop-api"]}, headers=auth("admin"))
+    assert changed.status_code == 422
+
+    web_users.delete_user(web_users.find_user("alice")["id"], "token:admin")
+
+    assert secured.get("/api/v1/me", headers=_bearer(token["token"])).status_code == 401
+    assert token["id"] not in {row.id for row in _stored_tokens()}
+
+
+def test_a_role_api_token_holds_the_permissions_of_its_role(secured, reports):
+    _, billing_report_id = reports
+    triager = _role_id("triager")
+    created = secured.post(
+        "/api/v1/project-tokens",
+        json={
+            "label": "swagger",
+            "role": "api",
+            "access_role_id": triager,
+            "projects": ["shop-api"],
+        },
+        headers=auth("admin"),
+    )
+    assert created.status_code == 201
+    body = created.json()
+    assert (body["role"], body["access_role_id"], body["personal"]) == ("api", triager, False)
+    token = _bearer(body["token"])
+
+    me = secured.get("/api/v1/me", headers=token).json()
+    assert me["permissions"] == {"findings.triage": ["shop-api"], "reports.read": ["shop-api"]}
+    assert secured.patch("/api/v1/findings/1", json={"status": "fixed"}, headers=token).json()[
+        "status"
+    ] == ("fixed")
+    assert secured.get(f"/api/v1/reports/{billing_report_id}", headers=token).status_code == 404
+    assert secured.get("/api/v1/roles", headers=token).status_code == 403
+    gate = secured.get("/api/v1/ci/gate", params={"project": "shop-api"}, headers=token)
+    assert gate.status_code == 200
+
+    # A change of the role applies at once; a role used by a token cannot be deleted
+    access_control.update_role(triager, ["reports.read"])
+    patched = secured.patch("/api/v1/findings/1", json={"status": "open"}, headers=token)
+    assert patched.status_code == 403
+    assert secured.delete(f"/api/v1/roles/{triager}", headers=auth("admin")).status_code == 409
+    with pytest.raises(ValueError, match="limited to projects"):
+        access_control.update_role(triager, ["reports.read", "audit.read"])
+
+
+def test_role_api_token_errors(secured, reports):
+    url = "/api/v1/project-tokens"
+    admin_role = _role_id("admin")
+
+    def create(**body):
+        return secured.post(
+            url, json={"label": "api", "projects": None} | body, headers=auth("admin")
+        )
+
+    # A role is required for an api token, refused for the others
+    assert create(role="api").status_code == 422
+    assert create(role="mcp", access_role_id=admin_role).status_code == 422
+    assert create(role="api", access_role_id=999).status_code == 404
+    # A role with a permission on the whole controller reaches every project
+    assert create(role="api", access_role_id=admin_role, projects=["shop-api"]).status_code == 422
+    assert create(role="api", access_role_id=admin_role).status_code == 201
+    roles = secured.get(f"{url}/roles", headers=auth("admin")).json()
+    assert {"id": admin_role, "name": "admin", "scoped": False} == {
+        key: value for key, value in roles[0].items() if key != "permissions"
+    }
+
+
+def test_a_role_api_token_never_grants_more_than_its_creator(accounts, reports):
+    make_user("root", USER_PASSWORD, "admin")
+    keeper = access_control.create_role("Token keeper", ["tokens.manage"])
+    group = access_control.create_group("keepers")
+    access_control.set_group_roles(
+        group["id"], [(keeper["id"], None), (_role_id("reader"), ["shop-api"])]
+    )
+    make_user("kim", USER_PASSWORD, group_ids=[group["id"]])
+    headers = session_headers(accounts, "kim")
+    url = "/api/v1/project-tokens"
+
+    def create(role: str, projects: list[str] | None):
+        body = {
+            "label": role,
+            "role": "api",
+            "access_role_id": _role_id(role),
+            "projects": projects,
+        }
+        return accounts.post(url, json=body, headers=headers)
+
+    assert create("triager", ["shop-api"]).status_code == 403
+    assert create("admin", None).status_code == 403
+    assert create("reader", ["shop-api"]).status_code == 201
+    # Rotating a role token hands over its rights: same check
+    token = token_store.create_project_token(
+        "billing-api", None, "api", access_role_id=_role_id("triager")
+    )
+    assert accounts.post(f"{url}/{token['id']}/rotate", headers=headers).status_code == 403

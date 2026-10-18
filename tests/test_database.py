@@ -538,7 +538,7 @@ def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
                     ),
                     {"id": f"p{token_id}", "token": token_id, "project": project},
                 )
-        command.upgrade(database.alembic_config(connection), "0021")
+        command.upgrade(database.alembic_config(connection), "head")
         links = connection.execute(text("SELECT token_id FROM apitokenproject")).scalars().all()
 
     assert sorted(token["label"] for token in token_store.list_tokens()) == [
@@ -572,3 +572,25 @@ def test_a_new_database_gets_an_ordinary_triager_role(empty_engine):
     roles = {role["name"]: role for role in access_control.list_roles()}
     assert [name for name, role in roles.items() if role["system"]] == ["admin", "reader"]
     assert roles["triager"]["permissions"] == ["findings.triage", "reports.read"]
+
+
+def test_downgrading_the_api_tokens_deletes_them(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "head")
+        for token_id, role in (("t1", "api"), ("t2", "mcp")):
+            connection.execute(
+                text(
+                    "INSERT INTO apitoken (id, label, role, token_hash, created_at) "
+                    "VALUES (:id, :id, :role, :digest, '2026-10-01')"
+                ),
+                {"id": token_id, "role": role, "digest": token_id * 32},
+            )
+        command.downgrade(database.alembic_config(connection), "0021")
+        rows = connection.execute(text("SELECT id FROM apitoken")).scalars().all()
+        columns = {column["name"] for column in inspect(connection).get_columns("apitoken")}
+
+    assert rows == ["t2"]
+    assert not columns & {"user_id", "access_role_id"}

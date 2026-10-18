@@ -13,6 +13,7 @@ import {
   ProjectToken,
   ProjectTokenRole,
   TokenRole,
+  TokenRoleChoice,
 } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
@@ -28,7 +29,7 @@ type TokenSortKey = 'label' | 'projects' | 'usage' | 'created' | 'expires';
 
 /**
  * Administrator page for tokens: enrollment requests waiting for approval, creation of MCP,
- * REST API or CI/CD tokens (with a validity) for some projects or every project, change of their
+ * CI/CD or REST API tokens (an api token holds the permissions of a role) (with a validity) for some projects or every project, change of their
  * projects, rotation and revocation.
  */
 @Component({
@@ -43,6 +44,8 @@ export class ProjectTokenListComponent {
 
   readonly projects = rxResource({ stream: () => this.api.projects() });
   readonly tokens = rxResource({ stream: () => this.api.projectTokens() });
+  /** Roles an api token may hold. */
+  readonly tokenRoles = rxResource({ stream: () => this.api.tokenRoles() });
   readonly enrollments = rxResource({ stream: () => this.api.enrollments() });
   /** Whether OIDC is enabled: approvals then offer web read access to the developer. */
   readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
@@ -121,7 +124,7 @@ export class ProjectTokenListComponent {
       value: this.tokenRoleFilter(),
       options: [
         { value: '', label: this.i18n.translate('common.all') },
-        ...(['mcp', 'ci'] as ProjectTokenRole[]).map((role) => ({
+        ...(['mcp', 'ci', 'api'] as ProjectTokenRole[]).map((role) => ({
           value: role,
           label: this.i18n.translate(this.roleLabel(role)),
         })),
@@ -142,7 +145,7 @@ export class ProjectTokenListComponent {
           token.project ?? '',
           ...(token.projects ?? []),
           ...(token.pending_projects ?? []),
-          this.i18n.translate(this.roleLabel(token.role)),
+          this.usageLabel(token),
         ].join(' '),
       (left, right) => {
         if (sort === 'projects') {
@@ -152,10 +155,7 @@ export class ProjectTokenListComponent {
           );
         }
         if (sort === 'usage') {
-          return compareTableText(
-            this.i18n.translate(this.roleLabel(left.role)),
-            this.i18n.translate(this.roleLabel(right.role)),
-          );
+          return compareTableText(this.usageLabel(left), this.usageLabel(right));
         }
         if (sort === 'created') {
           return left.created_at.localeCompare(right.created_at);
@@ -174,13 +174,24 @@ export class ProjectTokenListComponent {
   readonly tokenForm = form(this.formModel, (path) => {
     required(path.label, { message: () => this.i18n.translate('tokens.labelRequired') });
     maxLength(path.label, 64);
+    // The role only applies to an api token, which needs one
+    required(path.accessRoleId, { when: ({ valueOf }) => valueOf(path.usage) === 'api' });
   });
+  /** The role chosen for a new api token (undefined: none, or another usage). */
+  readonly selectedRole = computed(() => {
+    const model = this.formModel();
+    return model.usage === 'api'
+      ? (this.tokenRoles.value() ?? []).find((role) => String(role.id) === model.accessRoleId)
+      : undefined;
+  });
+  /** A role with a permission on the whole controller: its token reaches every project. */
+  readonly wholeControllerRole = computed(() => this.selectedRole()?.scoped === false);
   /** Every project (not offered for a CI/CD token), or only selectedProjects. */
   readonly allProjects = signal(false);
   readonly selectedProjects = signal<string[]>([]);
   /** A CI/CD token is always restricted to projects. */
   readonly creationAllProjects = computed(
-    () => this.allProjects() && this.formModel().usage !== 'ci',
+    () => this.wholeControllerRole() || (this.allProjects() && this.formModel().usage !== 'ci'),
   );
   /** Token whose projects are being changed in its row (null: none). */
   readonly editing = signal<ProjectToken | null>(null);
@@ -231,9 +242,30 @@ export class ProjectTokenListComponent {
     }
   }
 
-  /** Message key of the usage of a token (MCP agent or CI/CD pipeline). */
+  /** Message key of the usage of a token (MCP agent, CI/CD pipeline or REST API). */
   roleLabel(role: TokenRole): MessageKey {
     return TOKEN_ROLE_LABELS[role];
+  }
+
+  /** Usage of a token, with the role or the owner of an api token. */
+  usageLabel(token: ProjectToken): string {
+    const usage = this.i18n.translate(this.roleLabel(token.role));
+    if (token.personal) {
+      return `${usage} · ${this.i18n.translate('tokens.personal')}`;
+    }
+    const role = this.roleOf(token);
+    return role ? `${usage} · ${role.name}` : usage;
+  }
+
+  /** Role of an api token, when the caller may list the roles. */
+  private roleOf(token: ProjectToken): TokenRoleChoice | undefined {
+    return (this.tokenRoles.value() ?? []).find((role) => role.id === token.access_role_id);
+  }
+
+  /** The projects of a token can be changed, except for a personal token (the rights of its
+   * user) and for an api token whose role reaches the whole controller. */
+  canEditProjects(token: ProjectToken): boolean {
+    return !token.personal && !(token.role === 'api' && this.roleOf(token)?.scoped === false);
   }
 
   toggleProject(project: string, event: Event): void {
@@ -306,6 +338,7 @@ export class ProjectTokenListComponent {
     const model = this.formModel();
     const label = model.label.trim();
     const role: ProjectTokenRole = model.usage;
+    const accessRoleId = role === 'api' ? Number(model.accessRoleId) : null;
     const projects = this.creationAllProjects() ? null : this.selectedProjects();
     if (this.tokenForm().invalid() || !label || projects?.length === 0 || this.busy()) {
       this.tokenForm().markAsTouched();
@@ -318,7 +351,7 @@ export class ProjectTokenListComponent {
     try {
       const days = model.validity ? Number(model.validity) : null;
       const created = await firstValueFrom(
-        this.api.createProjectToken(label, projects, role, days),
+        this.api.createProjectToken(label, projects, role, days, accessRoleId),
       );
       this.createdToken.set(created.token);
       this.formModel.set({ ...EMPTY_TOKEN });
@@ -501,13 +534,15 @@ export class ProjectTokenListComponent {
 /** Fields of the token creation form. */
 interface TokenFormModel {
   label: string;
-  /** What the token is for: the MCP server or a CI/CD pipeline. */
+  /** What the token is for: the MCP server, a CI/CD pipeline or the REST API. */
   usage: ProjectTokenRole;
+  /** Role of an api token (id as text; '': none chosen). */
+  accessRoleId: string;
   /** Validity in days; '': the default of the server (SECREVIEW_TOKEN_MAX_DAYS). */
   validity: string;
 }
 
-const EMPTY_TOKEN: TokenFormModel = { label: '', usage: 'mcp', validity: '' };
+const EMPTY_TOKEN: TokenFormModel = { label: '', usage: 'mcp', accessRoleId: '', validity: '' };
 
 /** Validities offered at creation, in days. */
 const VALIDITY_DAYS: readonly string[] = ['30', '90', '180', '365'];

@@ -49,7 +49,9 @@ Projects can also request their token themselves: see
   [Prometheus metrics](audit-metrics.md#prometheus-metrics) of the controller. Tokens are for
   machines: there is no `reader` or `triager` token, a person reads and triages with a
   [user account](../usage/web-interface.md#user-accounts) and its
-  [groups](access-control.md).
+  [groups](access-control.md). The `api` tokens of the REST API and its Swagger, which hold the
+  rights of a user or of a role, are created in the web interface
+  ([API tokens](../usage/web-interface.md#api-tokens)).
 - `--expires-in-days` sets the validity of the token: see
   [expiry and rotation](#expiry-and-rotation-of-tokens).
 - `--project` limits the token to one or more projects (repeat the option), for the MCP tools

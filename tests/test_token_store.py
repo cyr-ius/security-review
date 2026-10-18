@@ -664,3 +664,60 @@ def test_set_token_projects_refusals():
     # Nothing changed
     assert STORE.lookup(digest_of(ci["token"])).projects == frozenset({"shop-api"})
     assert STORE.lookup(digest_of(admin["token"])).projects is None
+
+
+# ── api tokens ───────────────────────────────────────────────────────────────
+
+
+def test_an_api_token_needs_a_role_or_an_owner(database):
+    with pytest.raises(ValueError, match="created with a role"):
+        token_store.create_token("swagger", Role.API)
+    with pytest.raises(ValueError, match="needs a role"):
+        token_store.create_project_token("swagger", None, Role.API)
+
+    # A stored api row without role nor owner authenticates nothing (fail closed)
+    with Session(database) as session:
+        session.add(ApiToken(id="t1", label="orphan", role="api", token_hash="ab" * 32))
+        session.commit()
+    assert STORE.lookup(bytes.fromhex("ab" * 32)) is None
+
+
+def test_a_role_api_token_without_its_role_authenticates_nothing(database):
+    from security_review_mcp import access_control
+
+    role = access_control.create_role("Auditor", ["audit.read"])
+    created = token_store.create_project_token("audit", None, Role.API, access_role_id=role["id"])
+    info = STORE.lookup(digest_of(created["token"]))
+    assert (info.role, dict(info.grants)) == (Role.API, {"audit.read": None})
+
+    with Session(database) as session:
+        row = session.get(ApiToken, created["id"])
+        row.access_role_id = 999
+        session.add(row)
+        session.commit()
+    assert STORE.lookup(digest_of(created["token"])) is None
+
+
+def test_the_label_of_a_personal_token_names_its_user():
+    from conftest import make_user
+
+    user = make_user("a" * 60, "Correct horse battery 9", "reader")
+
+    with pytest.raises(ValueError, match="at most 3 characters"):
+        token_store.create_personal_token(user["id"], "four")
+    created = token_store.create_personal_token(user["id"], "abc")
+    assert created["label"] == "a" * 60 + ":abc"
+    with pytest.raises(ValueError, match="cannot be rotated"):
+        token_store.rotate_token(created["id"])
+    with pytest.raises(ValueError, match="not found"):
+        token_store.create_personal_token(999, "x")
+
+
+def test_only_a_personal_token_has_a_colon_in_its_label():
+    """``<username>:<label>`` names the user of a personal token: no other token imitates it."""
+    with pytest.raises(ValueError, match="must not contain ':'"):
+        token_store.create_token("alice:swagger", Role.MCP)
+    with pytest.raises(ValueError, match="must not contain ':'"):
+        token_store.create_project_token("alice:swagger", None, Role.MCP)
+    request = token_store.request_enrollment("shop-api", label="alice:swagger")
+    assert ":" not in request["label"] and request["label"].startswith("alice-swagger")

@@ -8,10 +8,12 @@ ajoutez-la à un groupe. Les administrateurs les gèrent dans les écrans **Grou
 **Rôles** et **Utilisateurs** (permission `users.manage`), ou par l'API `/api/v1/groups`,
 `/api/v1/roles` et `/api/v1/users`.
 
-Les jetons Bearer ne sont pas concernés : ils sont destinés aux machines et gardent leur rôle fixe
-(`mcp`, `admin`, `ci`, `metrics`, voir [Rôles](../usage/web-interface.md#roles)). Il n'existe pas
-de jeton de lecture ou de triage : une personne obtient la lecture ou le triage par les groupes de
-son compte.
+Les jetons Bearer sont destinés aux machines et gardent leur rôle fixe (`mcp`, `admin`, `ci`,
+`metrics`, voir [Rôles](../usage/web-interface.md#roles)), sauf les jetons `api` de l'API REST et
+de son Swagger, qui suivent ce modèle (voir [jetons API](../usage/web-interface.md#jetons-api)) :
+un jeton personnel porte les droits actuels de son utilisateur, un jeton de rôle les permissions
+d'un rôle sur ses projets. Une personne obtient la lecture ou le triage par les groupes de son
+compte.
 
 ## Permissions
 
@@ -108,7 +110,7 @@ Gardez de préférence un administrateur local.
 Un jeton ne donne jamais plus que ce que détient son créateur : créer un jeton, changer ses
 projets, renouveler son secret, le révoquer, ou approuver ou rejeter une demande d'enrôlement
 demande `reports.read` sur tous les projets du jeton, avant et après un changement de ses
-projets ; l'écran **Jetons** ne liste que les jetons et demandes des projets que l'utilisateur
+projets, et, pour un jeton `api` de rôle, chaque permission de son rôle sur ces projets ; l'écran **Jetons** ne liste que les jetons et demandes des projets que l'utilisateur
 lit. Donner à un utilisateur
 la lecture d'un projet à l'approbation d'un enrôlement demande aussi `users.manage`.
 

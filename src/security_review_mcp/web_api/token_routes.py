@@ -1,7 +1,7 @@
 """Routes of the project tokens and of the enrollment requests (``tokens.manage``).
 
 A token never grants more than its creator holds: every change is checked against the
-projects the caller reads.
+projects the caller reads and, for an api token, the permissions of its role.
 """
 
 import logging
@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 
-from .. import services, token_store, web_users
+from .. import access_control, services, token_store, web_users
 from .auth_routes import LOGIN_HEADERS, current_oidc
 from .deps import (
     Identity,
@@ -31,6 +31,7 @@ from .schemas import (
     ProjectTokenProjects,
     ProjectTokenRotation,
     ProjectTokenSecret,
+    TokenRoleChoice,
 )
 
 logger = logging.getLogger("security_review_mcp.web")
@@ -62,15 +63,30 @@ def _describe_projects(projects: list[str] | None) -> str:
     return "every project" if projects is None else ", ".join(projects)
 
 
-def _check_delegation(identity: Identity, projects: list[str] | None) -> None:
-    """Refuse (403) a token that would reach projects the caller cannot read itself: a token
-    never grants more than its creator holds."""
-    reached = permission_scope(identity, Permission.REPORTS_READ)
-    if reached is not None and (projects is None or not set(projects) <= set(reached)):
-        raise HTTPException(
-            status.HTTP_403_FORBIDDEN,
-            f"A token cannot reach projects where you do not hold '{Permission.REPORTS_READ}'",
-        )
+def _check_delegation(
+    identity: Identity, projects: list[str] | None, permissions: list[str] | None = None
+) -> None:
+    """Refuse (403) a token that would reach projects the caller cannot read itself, or hold a
+    permission of its role (``permissions``, api token) the caller does not hold on them: a
+    token never grants more than its creator holds."""
+    for permission in dict.fromkeys([Permission.REPORTS_READ, *(permissions or [])]):
+        reached = permission_scope(identity, Permission(permission))
+        if reached is not None and (projects is None or not set(projects) <= set(reached)):
+            raise HTTPException(
+                status.HTTP_403_FORBIDDEN,
+                f"A token cannot hold '{permission}' where you do not hold it",
+            )
+
+
+async def _role_permissions(role_id: int | None) -> list[str]:
+    """Permissions of the role of an api token (none for another token); 404 when unknown."""
+    if role_id is None:
+        return []
+    try:
+        permissions, _ = await run_in_threadpool(access_control.role_token_scope, role_id, None)
+    except services.NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    return permissions
 
 
 def _reaches(identity: Identity, projects: list[str] | None) -> bool:
@@ -96,10 +112,17 @@ async def _check_token_delegation(
     tokens = await run_in_threadpool(token_store.list_tokens)
     token = next((item for item in tokens if item["id"] == token_id), None)
     if token is not None:
-        _check_delegation(identity, token["projects"] if keep else projects)
+        permissions = await _role_permissions(token.get("access_role_id"))
+        _check_delegation(identity, token["projects"] if keep else projects, permissions)
 
 
 # ── Project tokens ───────────────────────────────────────────────────────────
+
+
+@router.get("/project-tokens/roles")
+async def project_token_roles(identity: TokensManager) -> list[TokenRoleChoice]:
+    """The roles an api token may hold, with their permissions."""
+    return await run_in_threadpool(access_control.list_token_roles)
 
 
 @router.get("/project-tokens")
@@ -115,8 +138,9 @@ async def create_project_token(
     body: ProjectTokenCreate, identity: TokensManager, response: Response
 ) -> ProjectTokenSecret:
     """Create a token for existing projects (or every project, ``projects`` null) and return
-    its secret exactly once."""
-    _check_delegation(identity, body.projects)
+    its secret exactly once. An ``api`` token holds the permissions of ``access_role_id``: the
+    caller must hold each of them on the projects of the token."""
+    _check_delegation(identity, body.projects, await _role_permissions(body.access_role_id))
     await _check_known_projects(body.projects)
     try:
         created = await run_in_threadpool(
@@ -126,6 +150,7 @@ async def create_project_token(
             body.role,
             body.expires_in_days,
             actor_of(identity),
+            body.access_role_id,
         )
     except ValueError as exc:
         raise unprocessable(exc) from exc

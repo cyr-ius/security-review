@@ -5,7 +5,7 @@
 - **Deux processus** : le serveur MCP (exposé aux agents) et le contrôleur (API REST, interface
   web, administration) tournent séparément et ne partagent que la base (voir
   [Architecture et déploiement](../advanced/architecture.md)). Le serveur MCP n'accepte que les
-  jetons `mcp` et `admin`, le contrôleur que les sessions web et les jetons `admin`, plus `ci` sur ses
+  jetons `mcp` et `admin`, le contrôleur que les sessions web et les jetons `admin` et `api`, plus `ci` sur ses
   routes de pipeline (`/api/v1/ci/` : gate, SARIF et tendance en lecture seule, scans qui
   enregistrent des rapports de ses projets) et nulle part ailleurs. Le contrôleur
   n'expose aucune route d'écriture sans jeton : il peut rester sur un réseau interne, et la
@@ -25,10 +25,13 @@
   l'opérateur, signé par une
   [autorité de certification](../advanced/http.md#autorite-de-certification). Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
-  (`mcp`, `admin`, `ci`, `metrics`) : les jetons sont destinés aux machines, et aucun jeton ne
-  lit ni ne trie pour le compte d'une personne (un jeton `reader` ou `triager` stocké, laissé par
-  une version antérieure, n'authentifie rien) ; un jeton `mcp` sans projet accède à tous les
-  outils MCP et à tous les projets.
+  (`mcp`, `api`, `admin`, `ci`, `metrics`) ; un jeton `reader` ou `triager` stocké, laissé par une
+  version antérieure, n'authentifie rien. Un jeton `api` ne porte que des droits du contrôle
+  d'accès, lus à chaque requête : ceux de son utilisateur (jeton personnel, supprimé avec
+  l'utilisateur, jamais renouvelé par un tiers, dont le nouveau secret porterait les droits de
+  l'utilisateur) ou ceux de son rôle sur ses projets (jeton de rôle, dont le créateur doit détenir
+  chaque permission). Un jeton ne crée jamais un autre jeton personnel. Un jeton `mcp` sans projet
+  accède à tous les outils MCP et à tous les projets.
 - **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`,
   ou seulement le [serveur d'enrôlement](../advanced/http.md#jeton-refuse-nouvel-enrolement) sur
   `/mcp`), et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons
@@ -117,9 +120,10 @@
   un opérateur, qui l'affiche une fois. Avec `SECREVIEW_OIDC_ONLY=true` et le OIDC activé, la connexion par mot
   de passe des comptes locaux est refusée (`403`) ; une configuration OIDC désactivée ou invalide
   ne bloque jamais les comptes locaux.
-- **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton `admin` ;
+- **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton `admin` ou
+  `api` ;
   sans utilisateur ni jeton, elle répond `503` au lieu d'accorder les droits anonymes. Seuls une
-  session qui a la permission `findings.triage` ou un jeton `admin` changent le statut d'un
+  session ou un jeton `api` qui ont la permission `findings.triage`, ou un jeton `admin`, changent le statut d'un
   finding (action journalisée avec l'utilisateur ou le label du jeton), et seule une personne
   connectée à l'interface (session) accepte un risque ou marque un faux positif : un jeton Bearer
   est refusé (`403`), même `admin`. Ces deux décisions exigent un motif et une date d'expiration

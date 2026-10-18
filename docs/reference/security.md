@@ -5,7 +5,7 @@
 - **Two processes**: the MCP server (exposed to the agents) and the controller (REST API, web
   interface, administration) run separately and only share the database (see
   [Architecture and deployment](../advanced/architecture.md)). The MCP server only accepts
-  the `mcp` and `admin` tokens, the controller only web sessions and `admin` tokens, plus `ci`
+  the `mcp` and `admin` tokens, the controller only web sessions and `admin` and `api` tokens, plus `ci`
   on its pipeline routes (`/api/v1/ci/`: gate, SARIF and trend in read only, scans that store
   reports of its projects) and nowhere else. The
   controller exposes no write route without a token: it can stay on an internal network, and the
@@ -24,10 +24,13 @@
   The server never generates a TLS certificate: HTTPS uses the certificate given by the
   operator, signed by a [certificate authority](../advanced/http.md#certificate-authority).
   There is no rate limiting.
-  Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `admin`, `ci`, `metrics`):
-  tokens are for machines, and no token reads or triages on behalf of a person (a stored
-  `reader` or `triager` token, left by an older version, authenticates nothing); an `mcp` token
-  without a project reaches every MCP tool and every project.
+  Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `api`, `admin`, `ci`,
+  `metrics`); a stored `reader` or `triager` token, left by an older version, authenticates
+  nothing. An `api` token only holds rights of the access control, read at each request: those
+  of its user (personal token, deleted with the user, never rotated by someone else, whose new
+  secret would carry the rights of the user) or of its role on its projects (role token, whose
+  creator must hold each permission). A token never creates another personal token. An `mcp`
+  token without a project reaches every MCP tool and every project.
 - **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`, or only the
   [enrollment server](../advanced/http.md#rejected-token-new-enrollment) on `/mcp`), and
   `SECREVIEW_TOKEN_MAX_DAYS` bounds the validity of every token created or rotated. Expired
@@ -115,9 +118,10 @@
   prints it once. With `SECREVIEW_OIDC_ONLY=true` and OIDC enabled, the
   password login of the local accounts is refused (`403`); a disabled or invalid OIDC
   configuration never locks the local accounts out.
-- **Web interface** (controller): the REST API always requires a session or an `admin` token;
+- **Web interface** (controller): the REST API always requires a session or an `admin` or `api`
+  token;
   without a user or a token, it answers `503` instead of granting anonymous rights. Only a
-  session with the `findings.triage` permission or an `admin` token changes the status of a
+  session or an `api` token with the `findings.triage` permission, or an `admin` token, changes the status of a
   finding (action logged with the user or the label of the token), and only a person logged in to the interface (session) accepts a risk or marks a false
   positive: a bearer token is refused (`403`), even `admin`. These two decisions need a reason
   and an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the

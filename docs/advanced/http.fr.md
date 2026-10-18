@@ -50,7 +50,9 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
   les [métriques Prometheus](audit-metrics.md#metriques-prometheus) du contrôleur. Les jetons
   sont destinés aux machines : il n'existe pas de jeton `reader` ou `triager`, une personne lit
   et trie avec un [compte utilisateur](../usage/web-interface.md#comptes-utilisateurs) et ses
-  [groupes](access-control.md).
+  [groupes](access-control.md). Les jetons `api` de l'API REST et de son Swagger, qui portent
+  les droits d'un utilisateur ou d'un rôle, se créent dans l'interface web
+  ([jetons API](../usage/web-interface.md#jetons-api)).
 - `--expires-in-days` fixe la validité du jeton : voir
   [expiration et renouvellement](#expiration-et-renouvellement-des-jetons).
 - `--project` limite le jeton à un ou plusieurs projets (répétez l'option), pour les outils MCP

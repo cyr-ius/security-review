@@ -28,7 +28,10 @@ bindings does, otherwise the union of their projects. At least one user keeps ``
 a change that would remove the last one is refused (see _guard_managers).
 
 The bearer tokens are for machines and keep their fixed roles (see http_server.TOKEN_ROLES):
-token_grants gives every permission to an ``admin`` token, none to the others.
+token_grants gives every permission to an ``admin`` token, none to the others. An ``api`` token
+follows this model instead: a personal token holds the grants of its user (user_grants), a role
+token the permissions of its role on its projects (role_token_grants), both read at each
+request. A role used by a token cannot be deleted.
 """
 
 import json
@@ -43,7 +46,7 @@ from . import audit
 from .config import Settings
 from .database import session_scope
 from .http_server import Role
-from .models import AccessRole, GroupMember, GroupRole, UserGroup, WebUser, utcnow
+from .models import AccessRole, ApiToken, GroupMember, GroupRole, UserGroup, WebUser, utcnow
 from .services import NotFoundError
 from .token_store import MAX_PROJECTS_PER_TOKEN, _clean_project
 
@@ -457,11 +460,18 @@ def update_role(
                 raise ValueError(f"The built-in role {row.name} cannot be changed")
             before = managers(session)
             if not set(cleaned) <= SCOPED_PERMISSIONS:
-                limited = session.exec(
-                    select(GroupRole).where(
-                        GroupRole.role_id == role_id, GroupRole.projects != "[]"
-                    )
-                ).first()
+                limited = (
+                    session.exec(
+                        select(GroupRole).where(
+                            GroupRole.role_id == role_id, GroupRole.projects != "[]"
+                        )
+                    ).first()
+                    or session.exec(
+                        select(ApiToken).where(
+                            ApiToken.access_role_id == role_id, col(ApiToken.project).is_not(None)
+                        )
+                    ).first()
+                )
                 if limited is not None:
                     raise ValueError(
                         "This role is limited to projects in a group: it cannot hold permissions "
@@ -494,6 +504,13 @@ def delete_role(role_id: int, actor: str | None = None) -> dict[str, Any]:
         row = _get_role(session, role_id)
         if row.system:
             raise ValueError(f"The built-in role {row.name} cannot be deleted")
+        tokens = session.exec(
+            select(func.count()).select_from(ApiToken).where(ApiToken.access_role_id == role_id)
+        ).one()
+        if tokens:
+            raise ValueError(
+                f"The role {row.name} is used by {tokens} API token(s): revoke them first"
+            )
         before = managers(session)
         deleted = _role_public(session, row)
         for binding in session.exec(select(GroupRole).where(GroupRole.role_id == role_id)).all():
@@ -509,6 +526,57 @@ def delete_role(role_id: int, actor: str | None = None) -> dict[str, Any]:
             details={"name": deleted["name"]},
         )
         return deleted
+
+
+# ── Role tokens ──────────────────────────────────────────────────────────────
+
+
+def list_token_roles() -> list[dict[str, Any]]:
+    """The roles a role ``api`` token may have: every role, with its permissions."""
+    with session_scope() as session:
+        rows = session.exec(
+            select(AccessRole).order_by(col(AccessRole.system).desc(), col(AccessRole.name))
+        ).all()
+        return [
+            {
+                "id": row.id,
+                "name": row.name,
+                "permissions": sorted(_permissions(row)),
+                "scoped": _permissions(row) <= SCOPED_PERMISSIONS,
+            }
+            for row in rows
+        ]
+
+
+def role_token_scope(
+    role_id: int, projects: Iterable[str] | None
+) -> tuple[list[str], list[str] | None]:
+    """Permissions of the role of a new role token, and its validated projects (None: every
+    project). Only a role made of scoped permissions may be limited to projects.
+
+    Raises:
+        NotFoundError: Unknown role.
+        ValueError: Projects refused for this role, or an empty list.
+    """
+    with session_scope() as session:
+        permissions = sorted(_permissions(_get_role(session, role_id)))
+    if projects is None:
+        return permissions, None
+    cleaned = clean_projects(permissions, projects)
+    if not cleaned:
+        raise ValueError("A token needs at least one project (None: every project)")
+    return permissions, cleaned
+
+
+def role_token_grants(
+    session: Session, role_id: int, projects: Iterable[str] | None
+) -> dict[str, Any] | None:
+    """Grants of a role ``api`` token: the permissions of its role (read now) on its projects
+    (None: every project); None when the role no longer exists."""
+    row = session.get(AccessRole, role_id)
+    if row is None:
+        return None
+    return combine([(_permissions(row), None if projects is None else list(projects))])
 
 
 # ── Groups ───────────────────────────────────────────────────────────────────

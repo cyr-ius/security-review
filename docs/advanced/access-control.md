@@ -6,9 +6,11 @@ REST API comes only from **roles**, a role being a set of **permissions**, given
 project of its own: to give a person access, add them to a group. Administrators manage them in the **Groups**, **Roles** and **Users** screens (`users.manage`
 permission), or through the `/api/v1/groups`, `/api/v1/roles` and `/api/v1/users` API.
 
-Bearer tokens are not concerned: they are for machines and keep their fixed role (`mcp`, `admin`,
-`ci`, `metrics`, see [Roles](../usage/web-interface.md#roles)). There is no read-only or triage
-token: a person gets read or triage access through the groups of their account.
+Bearer tokens are for machines and keep their fixed role (`mcp`, `admin`, `ci`, `metrics`, see
+[Roles](../usage/web-interface.md#roles)), except the `api` tokens of the REST API and its
+Swagger, which follow this model (see [API tokens](../usage/web-interface.md#api-tokens)): a
+personal token holds the current rights of its user, a role token the permissions of one role on
+its projects. A person gets read or triage access through the groups of their account.
 
 ## Permissions
 
@@ -102,7 +104,8 @@ Preferably keep a local administrator.
 
 A token never grants more than its creator holds: creating a token, changing its projects,
 rotating its secret, revoking it, or approving or rejecting an enrollment request needs
-`reports.read` on every project of the token, before and after a change of its projects; the
+`reports.read` on every project of the token, before and after a change of its projects, and,
+for a role `api` token, each permission of its role on these projects; the
 **Tokens** screen only lists the tokens and requests of the projects the user reads. Giving a user read access at the
 approval of an enrollment also needs `users.manage`.
 

@@ -50,7 +50,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, select
 
-from . import access_control, audit
+from . import access_control, audit, token_store
 from .audit import AuditAction
 from .config import Settings
 from .database import session_scope
@@ -527,6 +527,7 @@ def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
         if row.auth_source == AUTH_OIDC and not _is_revoked(session, row.username):
             session.add(RevokedSsoUser(username=row.username, revoked_by=deleted_by))
         access_control.forget_user(session, user_id)
+        token_store.delete_user_tokens(session, user_id, deleted_by)
         session.delete(row)
     return deleted
 

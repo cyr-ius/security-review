@@ -630,12 +630,33 @@ class ProjectTokenCreate(BaseModel):
 
     label: str = Field(min_length=1, max_length=64)
     # mcp: MCP agent; ci: pipeline token (gate, SARIF, trend and scans of its projects only,
-    # see ci_client). A person reaches the web API through a session, not a token.
-    role: Literal["mcp", "ci"] = "mcp"
-    # null: every project (refused for a ci token)
+    # see ci_client); api: REST API (Swagger, scripts) with the permissions of access_role_id
+    role: Literal["mcp", "ci", "api"] = "mcp"
+    # null: every project (refused for a ci token); a list is refused for an api token whose
+    # role holds a permission on the whole controller
     projects: list[_ProjectName] | None = Field(
         min_length=1, max_length=token_store.MAX_PROJECTS_PER_TOKEN
     )
+    # Validity in days (null: SECREVIEW_TOKEN_MAX_DAYS, or no expiry when it is 0)
+    expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
+    # Role of an api token (required for it, refused for the others)
+    access_role_id: int | None = Field(default=None, ge=1)
+
+
+class TokenRoleChoice(BaseModel):
+    """A role an api token may hold (GET /project-tokens/roles)."""
+
+    id: int
+    name: str
+    permissions: list[access_control.Permission]
+    # Only scoped permissions: the token may be limited to projects
+    scoped: bool
+
+
+class PersonalTokenCreate(BaseModel):
+    """Body of POST /me/tokens: an api token of the logged-in user, with its rights."""
+
+    label: str = Field(min_length=1, max_length=64)
     # Validity in days (null: SECREVIEW_TOKEN_MAX_DAYS, or no expiry when it is 0)
     expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
 
@@ -676,6 +697,9 @@ class ProjectToken(BaseModel):
     rotated_at: str | None
     # End of the grace period of the previous secret after a rotation
     grace_until: str | None
+    # api token: its role (role token), or personal (the rights of the user who created it)
+    access_role_id: int | None
+    personal: bool
 
 
 class ProjectTokenSecret(ProjectToken):

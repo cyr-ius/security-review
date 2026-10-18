@@ -5,7 +5,7 @@ export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type FindingStatus = 'open' | 'fixed' | 'accepted' | 'false_positive';
 
 /** Role of a bearer token: tokens are for machines, a person signs in with a web user. */
-export type TokenRole = 'mcp' | 'admin' | 'ci';
+export type TokenRole = 'mcp' | 'admin' | 'ci' | 'api';
 /** Role of the caller: the role of its token or, for a web user, the web role that sums up
  * the permissions of its groups (reader, triager or admin). */
 export type Role = TokenRole | 'reader' | 'triager';
@@ -193,6 +193,10 @@ export interface ProjectToken {
   id: string;
   label: string;
   role: ProjectTokenRole;
+  /** api token: its role (role token); null for a personal token or another usage. */
+  access_role_id: number | null;
+  /** api token created by a web user for itself: it holds the current rights of that user. */
+  personal: boolean;
   project: string | null;
   projects: string[] | null;
   pending_projects: string[];
@@ -314,6 +318,15 @@ export interface EnrollmentApproved extends Omit<EnrollmentRequest, 'status'> {
 /** Response returned once when a project-scoped token is created. */
 export interface ProjectTokenCreated extends ProjectToken {
   token: string;
+}
+
+/** A role an api token may hold (GET /api/v1/project-tokens/roles). */
+export interface TokenRoleChoice {
+  id: number;
+  name: string;
+  permissions: Permission[];
+  /** Only permissions per project: the token may be limited to projects. */
+  scoped: boolean;
 }
 
 /** Origin of a stored rule: shipped default (seeded on the first run) or custom. */

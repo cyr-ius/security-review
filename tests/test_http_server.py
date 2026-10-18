@@ -686,7 +686,7 @@ def test_token_command_errors(capsys, argv, message):
     assert message in json.loads(capsys.readouterr().err)["error"]
 
 
-@pytest.mark.parametrize("role", ["reader", "triager"])
+@pytest.mark.parametrize("role", ["reader", "triager", "api"])
 def test_token_create_refuses_a_role_of_a_person(capsys, role):
     with pytest.raises(SystemExit) as exited:
         cli.run(["token", "create", "--label", "x", "--role", role])

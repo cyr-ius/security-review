@@ -103,7 +103,9 @@ export const routes: Routes = [
         path: 'account',
         title: 'layout.account',
         loadComponent: () =>
-          import('./features/account/account.component').then((m) => m.AccountComponent),
+          import('./features/account/account-page/account.component').then(
+            (m) => m.AccountComponent,
+          ),
       },
       {
         path: 'users',
