@@ -9,11 +9,11 @@ import { UserGroup } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
-    RoleBindingDraft,
-    RoleBindingsComponent,
-    roleDraftsComplete,
-    toRoleBindings,
-    toRoleDrafts,
+  RoleBindingDraft,
+  RoleBindingsComponent,
+  roleDraftsComplete,
+  toRoleBindings,
+  toRoleDrafts,
 } from '../../../shared/components/role-bindings/role-bindings.component';
 import { describeAccessError } from '../access-errors';
 

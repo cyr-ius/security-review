@@ -10,8 +10,7 @@ export const settings = defineMessages({
     'settings.languageTitle': 'Report language',
     'settings.languageHelpBefore':
       "Language of the agent's response in recorded reports. The argument",
-    'settings.languageHelpAfter':
-      ' of a prompt takes precedence.',
+    'settings.languageHelpAfter': ' of a prompt takes precedence.',
     'settings.languageApplied': 'Language applied:',
     'settings.languageByAgent': 'chosen by the agent',
     'settings.source': 'Source',
@@ -108,8 +107,7 @@ export const settings = defineMessages({
     'settings.languageTitle': 'Langue des rapports',
     'settings.languageHelpBefore':
       "Langue de la réponse de l'agent dans les rapports enregistrés. L'argument",
-    'settings.languageHelpAfter':
-      " d'un prompt reste prioritaire.",
+    'settings.languageHelpAfter': " d'un prompt reste prioritaire.",
     'settings.languageApplied': 'Langue appliquée :',
     'settings.languageByAgent': "choisie par l'agent",
     'settings.source': 'Source',
