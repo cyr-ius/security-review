@@ -365,7 +365,7 @@ from the database:
 
 Sessions are signed with `SECREVIEW_SESSION_SECRET` (at least 32 characters), shared by every
 replica of the controller. Without it, the secret is read from `SECREVIEW_SESSION_SECRET_FILE`
-(`session-secret` in the working directory, `/data` in Docker), generated there at the first
+(`session-secret` in the working directory, `/var/lib/secreview` in Docker), generated there at the first
 start with mode `0600`: sessions survive a restart, and the replicas that share the volume share
 the secret. Replicas without a shared volume must share `SECREVIEW_SESSION_SECRET`.
 

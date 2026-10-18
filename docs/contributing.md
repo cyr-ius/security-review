@@ -56,9 +56,9 @@ without leaving the container:
 
 ```bash
 docker build -t security-review-mcp .
-docker run --rm -p 8080:8000 -v secreview-data:/data \
+docker run --rm -p 8080:8000 -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
-docker run --rm -p 8000:8000 -v secreview-data:/data security-review-mcp \
+docker run --rm -p 8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
     --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 

@@ -368,7 +368,7 @@ ADDITIONAL_RULES = [
     ("yaml", "    network_mode: host", "    network_mode: bridge", "CFG-013"),
     ("yaml", "  allowPrivilegeEscalation: true", "  allowPrivilegeEscalation: false", "CFG-014"),
     ("yaml", "    cap_add: [SYS_ADMIN]", "    cap_drop: [ALL]", "CFG-015"),
-    ("yaml", "      - /:/host", "      - ./data:/data", "CFG-016"),
+    ("yaml", "      - /:/host", "      - ./var/lib/secreview:/var/lib/secreview", "CFG-016"),
     ("yaml", '      - "5432:5432"', '      - "127.0.0.1:5432:5432"', "CFG-017"),
     (
         "yaml",

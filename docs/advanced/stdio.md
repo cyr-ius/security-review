@@ -35,7 +35,7 @@ repository:
     "security-review": {
       "type": "stdio",
       "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
-      "env": { "SECREVIEW_DATABASE_URL": "sqlite:////data/security_reports.db" }
+      "env": { "SECREVIEW_DATABASE_URL": "sqlite:////var/lib/secreview/security_reports.db" }
     }
   }
 }

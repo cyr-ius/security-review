@@ -6,17 +6,17 @@
 #   docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # PostgreSQL driver
 #
 # stdio (developer workstation, the MCP host starts the container itself):
-#   docker run -i --rm -v secreview-data:/data security-review-mcp
+#   docker run -i --rm -v secreview-data:/var/lib/secreview security-review-mcp
 #
 # Shared server (see docker-compose.yml): the MCP server (default entrypoint, MCP on /mcp) and
 # the controller (REST API on /api/v1, web interface on /ui, administration commands) run in
 # two containers. Enable TLS (SECREVIEW_TLS_CERTFILE, SECREVIEW_TLS_KEYFILE) or put them behind
 # a reverse proxy that enforces it:
-#   docker run --rm -v secreview-data:/data --entrypoint security-review-controller \
+#   docker run --rm -v secreview-data:/var/lib/secreview --entrypoint security-review-controller \
 #       security-review-mcp db upgrade
-#   docker run -d -p 127.0.0.1:8080:8000 -v secreview-data:/data \
+#   docker run -d -p 127.0.0.1:8080:8000 -v secreview-data:/var/lib/secreview \
 #       --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
-#   docker run -d -p 127.0.0.1:8000:8000 -v secreview-data:/data security-review-mcp \
+#   docker run -d -p 127.0.0.1:8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
 #       --transport streamable-http --host 0.0.0.0 --port 8000
 # (SQLite in a shared volume is for a single host only: use PostgreSQL otherwise.)
 
@@ -80,8 +80,8 @@ LABEL org.opencontainers.image.title="security-review-mcp" \
 RUN groupadd --system --gid 10001 secreview \
     && useradd --system --uid 10001 --gid secreview --no-create-home \
        --shell /usr/sbin/nologin secreview \
-    && mkdir -p /data \
-    && chown secreview:secreview /data
+    && mkdir -p /var/lib/secreview \
+    && chown secreview:secreview /var/lib/secreview
 
 # Same path as in the build stage: the venv scripts reference it
 COPY --from=builder /app/.venv /app/.venv
@@ -89,17 +89,17 @@ COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    SECREVIEW_DATABASE_URL=sqlite:////data/security_reports.db \
+    SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db \
     SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true
 
 # The admin password hash and the project tokens are stored in the database; the controller
 # shows the bootstrap administrator password once, at its first start
 
 # Reports database (SQLite) lives in the volume, with the internal rules imported with
-#   docker run --rm -v secreview-data:/data -v ./rules.d:/rules:ro \
+#   docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
 #       --entrypoint security-review-controller IMAGE rules import /rules
-WORKDIR /data
-VOLUME ["/data"]
+WORKDIR /var/lib/secreview
+VOLUME ["/var/lib/secreview"]
 
 USER secreview
 

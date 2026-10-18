@@ -372,7 +372,7 @@ base :
 
 Les sessions sont signées avec `SECREVIEW_SESSION_SECRET` (32 caractères au moins), partagé par
 toutes les répliques du contrôleur. Sans lui, le secret est lu dans
-`SECREVIEW_SESSION_SECRET_FILE` (`session-secret` dans le répertoire de travail, `/data` en
+`SECREVIEW_SESSION_SECRET_FILE` (`session-secret` dans le répertoire de travail, `/var/lib/secreview` en
 Docker), où il est généré au premier démarrage avec les droits `0600` : les sessions survivent à
 un redémarrage, et les répliques qui partagent le volume partagent le secret. Des répliques sans
 volume partagé doivent partager `SECREVIEW_SESSION_SECRET`.

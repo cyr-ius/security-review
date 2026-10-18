@@ -31,7 +31,7 @@ Le build compile aussi l'[interface web](../usage/web-interface.md) (étape Node
 elle est servie sur `/ui/` par le contrôleur.
 
 L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. La
-base SQLite est dans le volume `/data`. Le fichier `.env` n'est **pas** copié dans l'image :
+base SQLite est dans le volume `/var/lib/secreview`. Le fichier `.env` n'est **pas** copié dans l'image :
 passez la configuration avec `-e` ou `--env-file`.
 
 ## Serveur partagé (HTTP)
@@ -179,7 +179,7 @@ Claude) :
     "security-review": {
       "type": "stdio",
       "command": "docker",
-      "args": ["run", "-i", "--rm", "-v", "secreview-data:/data", "security-review-mcp"]
+      "args": ["run", "-i", "--rm", "-v", "secreview-data:/var/lib/secreview", "security-review-mcp"]
     }
   }
 }
@@ -195,13 +195,13 @@ dossier de packs TOML avec la CLI du contrôleur (les serveurs en cours d'exécu
 appliquent en quelques secondes) :
 
 ```bash
-docker run --rm -v secreview-data:/data -v ./rules.d:/rules:ro \
+docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
     --entrypoint security-review-controller security-review-mcp rules import /rules
 ```
 
 Les autres commandes passent de la même façon :
 
 ```bash
-docker run --rm -v secreview-data:/data \
+docker run --rm -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp token list
 ```

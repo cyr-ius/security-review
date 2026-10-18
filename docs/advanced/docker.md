@@ -31,7 +31,7 @@ The build also compiles the [web interface](../usage/web-interface.md) (Node.js 
 controller serves it on `/ui/`.
 
 The image runs as a non-root user (uid `10001`), without sources nor build tools. The SQLite
-database is in the `/data` volume. The `.env` file is **not** copied into the image: pass the
+database is in the `/var/lib/secreview` volume. The `.env` file is **not** copied into the image: pass the
 configuration with `-e` or `--env-file`.
 
 ## Shared server (HTTP)
@@ -178,7 +178,7 @@ Copilot and Claude):
     "security-review": {
       "type": "stdio",
       "command": "docker",
-      "args": ["run", "-i", "--rm", "-v", "secreview-data:/data", "security-review-mcp"]
+      "args": ["run", "-i", "--rm", "-v", "secreview-data:/var/lib/secreview", "security-review-mcp"]
     }
   }
 }
@@ -193,13 +193,13 @@ Copilot and Claude):
 with the controller CLI (the running servers apply them within a few seconds):
 
 ```bash
-docker run --rm -v secreview-data:/data -v ./rules.d:/rules:ro \
+docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
     --entrypoint security-review-controller security-review-mcp rules import /rules
 ```
 
 The other commands work the same way:
 
 ```bash
-docker run --rm -v secreview-data:/data \
+docker run --rm -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp token list
 ```
