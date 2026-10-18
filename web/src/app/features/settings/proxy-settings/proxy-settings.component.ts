@@ -13,9 +13,8 @@ type ProxyMode = 'env' | 'custom' | 'none';
 
 const PROXY_SOURCE_LABELS: Record<AppSettings['proxy']['effective']['source'], MessageKey> = {
   web: 'settings.sourceWeb',
-  none: 'settings.sourceNone',
-  SECREVIEW_PROXY: 'settings.sourceVariable',
   environment: 'settings.sourceEnvironment',
+  none: 'settings.sourceNone',
 };
 
 /** Longest proxy URL or no_proxy list accepted by the server (proxy.MAX_*_CHARS). */
@@ -25,7 +24,7 @@ const MAX_PROXY_CHARS = 500;
 interface ProxyFormModel {
   mode: ProxyMode;
   url: string;
-  /** The no_proxy list follows SECREVIEW_NO_PROXY (false) or is set here (true). */
+  /** The no_proxy list follows NO_PROXY (false) or is set here (true). */
   noProxyCustom: boolean;
   noProxy: string;
 }

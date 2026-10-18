@@ -446,10 +446,9 @@ class OidcLogin:
         handlers: list[urllib.request.BaseHandler] = [
             urllib.request.HTTPSHandler(context=context),
             _HttpsRedirectOnly(),
+            # The proxy of the controller (see proxy)
+            proxy_handler(settings),
         ]
-        # The proxy of the controller (see proxy); without one, urllib applies HTTPS_PROXY
-        if (handler := proxy_handler(settings)) is not None:
-            handlers.append(handler)
         self._opener = urllib.request.build_opener(*handlers)
 
     # HTTP

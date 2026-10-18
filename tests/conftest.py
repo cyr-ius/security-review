@@ -71,6 +71,21 @@ def session_secret_file(tmp_path, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def isolate_controller_environment(monkeypatch):
+    """Ignore proxy and OSV update variables of the machine running the tests."""
+    for name in (
+        "HTTPS_PROXY",
+        "https_proxy",
+        "HTTP_PROXY",
+        "http_proxy",
+        "NO_PROXY",
+        "no_proxy",
+        "SECREVIEW_OSV_AUTO_UPDATE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(autouse=True)
 def clean_registry():
     """Start every test with an unloaded registry and drop what it loaded."""
     registry.reset()

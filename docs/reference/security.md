@@ -80,11 +80,11 @@
   HTTPS with certificate verification, redirects limited to HTTPS, bounded size
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
   **Update now** button of the web interface (`settings.manage` permission) is only accepted if
-  `SECREVIEW_OSV_AUTO_UPDATE=true`. The outgoing proxy (`SECREVIEW_PROXY`, or the **Outgoing proxy**
+  `SECREVIEW_OSV_AUTO_UPDATE=true`. The outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **Outgoing proxy**
   screen) serves the OSV download and the OIDC provider; only the name of the changed settings
   is logged. A proxy set in the web interface is stored in the database **with its credentials,
   in clear**: the API never returns them (password replaced by `***`) and the error messages of
-  the history are scrubbed of them, but prefer `SECREVIEW_PROXY` (Kubernetes secret) if the
+  the history are scrubbed of them, but prefer `HTTPS_PROXY` (Kubernetes secret) if the
   database is not protected like a secret. See the
   [automatic update](../advanced/dependencies.md#automatic-update-by-the-controller). With the
   [OIDC login](../advanced/sso.md) (`SECREVIEW_OIDC_ENABLED`,

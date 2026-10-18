@@ -743,8 +743,8 @@ class ReportLanguageUpdate(BaseModel):
 class ProxyUpdate(BaseModel):
     """Body of PUT /settings/proxy: proxy of the outgoing connections of the controller.
 
-    A field left out is unchanged, ``null`` applies the variable again (SECREVIEW_PROXY,
-    SECREVIEW_NO_PROXY). ``url`` ``""`` connects directly, despite the variables; a password
+    A field left out is unchanged, ``null`` applies the variable again (HTTPS_PROXY, else
+    HTTP_PROXY, and NO_PROXY). ``url`` ``""`` connects directly, despite the variables; a password
     sent back as returned by the API (``***``) keeps the stored one.
     """
 
@@ -769,20 +769,13 @@ class ProxyValue(BaseModel):
     env: str | None
 
 
-class ProxyEnvironment(BaseModel):
-    """Standard proxy variables, applied by urllib when no proxy is configured."""
-
-    https_proxy: str | None
-    http_proxy: str | None
-    no_proxy: str | None
-
-
 class ProxyEffective(BaseModel):
     """Proxy actually used and where it comes from."""
 
     url: str | None
     no_proxy: str | None
-    source: Literal["web", "none", "SECREVIEW_PROXY", "environment"]
+    # environment: HTTPS_PROXY (else HTTP_PROXY); none: direct connection
+    source: Literal["web", "environment", "none"]
 
 
 class ProxySettings(BaseModel):
@@ -790,7 +783,6 @@ class ProxySettings(BaseModel):
 
     url: ProxyValue
     no_proxy: ProxyValue
-    environment: ProxyEnvironment
     effective: ProxyEffective
 
 

@@ -79,12 +79,12 @@
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
   journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (permission `settings.manage`) n'est
-  accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Le proxy sortant (`SECREVIEW_PROXY`, ou
+  accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Le proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou
   l'écran **Proxy sortant**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
   réglages modifiés est journalisé. Un proxy défini dans l'interface web est
   enregistré en base **avec ses identifiants, en clair** : l'API ne les renvoie jamais (mot de
   passe remplacé par `***`) et les messages d'erreur de l'historique en sont expurgés, mais
-  préférez `SECREVIEW_PROXY` (secret Kubernetes) si la base n'est pas protégée comme un
+  préférez `HTTPS_PROXY` (secret Kubernetes) si la base n'est pas protégée comme un
   secret. Voir la
   [mise à jour automatique](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur).
   Avec la [connexion OIDC](../advanced/sso.md)

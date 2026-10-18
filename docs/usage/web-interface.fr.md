@@ -150,12 +150,12 @@ variables d'environnement et partagés par le serveur MCP et le contrôleur (per
   téléchargement OSV **et** par la
   [connexion OIDC](../advanced/sso.md). Comme pour la configuration OIDC, chaque
   valeur définie ici remplace sa variable (badges **Variable** / **Interface web**) :
-  l'URL suit `SECREVIEW_PROXY` (sinon `HTTPS_PROXY` / `NO_PROXY`), est définie ici, ou force
-  la connexion directe ; les **hôtes sans proxy** suivent `SECREVIEW_NO_PROXY` ou sont
-  définis ici (voir [hôtes sans proxy](../advanced/dependencies.md#hotes-sans-proxy) : domaines, adresses
-  IP, plages CIDR, `*`). Le changement s'applique au prochain
+  l'URL suit `HTTPS_PROXY` (sinon `HTTP_PROXY`), est définie ici, ou force la connexion
+  directe ; les **hôtes sans proxy** suivent `NO_PROXY` ou sont définis ici (voir
+  [hôtes sans proxy](../advanced/dependencies.md#hotes-sans-proxy) : domaines, adresses IP,
+  `*`, pas de plages CIDR). Le changement s'applique au prochain
   téléchargement et à la prochaine connexion OIDC, sans redémarrage. Le proxy appliqué, son
-  origine et les variables de l'environnement sont affichés ; les mots de passe ne sont
+  origine et les variables sont affichés ; les mots de passe ne sont
   jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré. Par l'API :
   `PUT /api/v1/settings/proxy` avec `url` et `no_proxy` (`null` applique de nouveau la
   variable, `"url": ""` force la connexion directe, un champ absent est inchangé).

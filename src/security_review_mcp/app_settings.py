@@ -1,6 +1,6 @@
 """Settings changed by an administrator in the web interface (table ``appsetting``).
 
-A stored value overrides the matching ``SECREVIEW_*`` variable, for both processes since they
+A stored value overrides the matching variable, for both processes since they
 share the database: the language of the review reports (read by the MCP server when it builds a
 review prompt), the proxy of the outgoing connections and the single sign-on settings (read by
 the controller, see effective_settings). Without a stored value, the variable applies.
@@ -9,7 +9,6 @@ The proxy URL and the OIDC client secret are secrets: they are stored as given, 
 returned by the API nor logged (``masked_url``, PASSWORD_MASK).
 """
 
-import urllib.request
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -24,7 +23,7 @@ from .proxy import PASSWORD_MASK, check_no_proxy, check_proxy_url, describe_prox
 
 REPORT_LANGUAGE = "report_language"
 # Keys of the proxy settings, also the names of their Settings fields. A stored proxy "" means a
-# direct connection, despite SECREVIEW_PROXY and HTTPS_PROXY.
+# direct connection, despite HTTPS_PROXY and HTTP_PROXY.
 PROXY = "proxy"
 NO_PROXY = "no_proxy"
 
@@ -121,29 +120,20 @@ def set_proxy(values: dict[str, str | None], updated_by: str) -> None:
 
 def _describe_proxy(settings: Settings, stored: dict[str, str], effective: Settings) -> dict:
     """Stored values, variables and effective proxy (passwords masked)."""
-    url, kind = describe_proxy(effective)
-    if kind == "proxy":
-        source = "web" if PROXY in stored else "SECREVIEW_PROXY"
-    elif kind == "none":
+    url = describe_proxy(effective)
+    if url is None:
         source = "none"
     else:
-        source = "environment"
-    environment = urllib.request.getproxies()
+        source = "web" if PROXY in stored else "environment"
     return {
         "url": {
             "value": masked_url(stored[PROXY]) if PROXY in stored else None,
             "env": masked_url(settings.proxy) if settings.proxy else None,
         },
         "no_proxy": {"value": stored.get(NO_PROXY), "env": settings.no_proxy},
-        "environment": {
-            name: masked_url(environment[key])
-            if key in environment and key != "no"
-            else environment.get(key)
-            for name, key in (("https_proxy", "https"), ("http_proxy", "http"), ("no_proxy", "no"))
-        },
         "effective": {
             "url": url,
-            "no_proxy": effective.no_proxy if kind == "proxy" else None,
+            "no_proxy": effective.no_proxy if url is not None else None,
             "source": source,
         },
     }
@@ -159,7 +149,7 @@ def _overrides(stored: dict[str, str]) -> dict[str, Any]:
 
 def effective_settings(settings: Settings | None = None) -> Settings:
     """Return ``settings`` with the proxy and OIDC values stored in the web interface applied
-    over the ``SECREVIEW_*`` variables (read by the controller at each OSV download and login)."""
+    over the variables (read by the controller at each OSV download and login)."""
     settings = settings or get_settings()
     overrides = _overrides(_stored())
     return settings.model_copy(update=overrides) if overrides else settings

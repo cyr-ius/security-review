@@ -5,7 +5,7 @@ import logging
 import sys
 from functools import lru_cache
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Language name or code given to the agent (for example "French", "fr", "pt-BR"): letters,
@@ -146,13 +146,17 @@ class Settings(BaseSettings):
     oidc_cafile: str | None = None
 
     # Controller only: HTTP proxy of its outgoing connections (OSV download, OIDC identity
-    # provider), http://[user:password@]host:port, and the comma-separated hosts reached without
-    # it (no_proxy: a domain also covers its subdomains, an IP address or CIDR range the URLs
-    # whose host is such an address, * every host; the loopback interface is always direct).
-    # Without proxy, urllib applies HTTPS_PROXY / NO_PROXY. Both can be overridden in the web
-    # interface (Paramètres, see app_settings).
-    proxy: str | None = None
-    no_proxy: str | None = None
+    # provider), from the standard variables, without the SECREVIEW_ prefix (lowercase names
+    # accepted): HTTPS_PROXY, else HTTP_PROXY, http://[user:password@]host:port (host:port
+    # means http://host:port), and NO_PROXY, the comma-separated hosts reached without it (a
+    # domain also covers its subdomains, an IP address the URLs whose host is that address, *
+    # every host; the loopback interface is always direct). Both can be overridden in the web
+    # interface (Paramètres, see app_settings). Settings(https_proxy=...) sets the proxy (the
+    # aliases only: populating by name would read SECREVIEW_PROXY again).
+    proxy: str | None = Field(
+        default=None, validation_alias=AliasChoices("https_proxy", "http_proxy")
+    )
+    no_proxy: str | None = Field(default=None, validation_alias=AliasChoices("no_proxy"))
 
     # Controller only: download the OSV exports (all.zip of each ecosystem) from osv_url and
     # import them every osv_update_interval_hours. Disabled by default (the MCP server never
@@ -205,6 +209,14 @@ class Settings(BaseSettings):
     def _empty_is_unset(cls, value: str | None) -> str | None:
         """An empty variable means no value (an empty stored proxy means a direct connection)."""
         return value.strip() or None if value is not None else None
+
+    @field_validator("proxy")
+    @classmethod
+    def _default_proxy_scheme(cls, value: str | None) -> str | None:
+        """Read a proxy given as host:port, as curl does, as http://host:port."""
+        if value and "://" not in value:
+            return f"http://{value}"
+        return value
 
     @field_validator("forwarded_allow_ips")
     @classmethod

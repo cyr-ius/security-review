@@ -45,8 +45,7 @@ SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
 The issuer must use HTTPS (HTTP is only accepted on `localhost`, for development); its
 `/.well-known/openid-configuration` document must announce the same `issuer`. If the provider
 uses an internal CA, give it with `SECREVIEW_OIDC_CAFILE`. The controller reaches the provider
-through its outgoing proxy (`SECREVIEW_PROXY` / `SECREVIEW_NO_PROXY`, or the **Outgoing proxy**
-screen), else through `HTTPS_PROXY` / `NO_PROXY`.
+through its outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **Outgoing proxy** screen).
 
 ## Configuring OIDC in the interface
 

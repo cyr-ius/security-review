@@ -99,7 +99,7 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 ```
 
 For the [daily update of the OSV advisories](dependencies.md#automatic-update-by-the-controller),
-uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and if needed `SECREVIEW_PROXY`, in the Secret if it
+uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and if needed `HTTPS_PROXY` and `NO_PROXY`, in the Secret if it
 holds credentials) on the `controller` container, and allow its egress to osv.dev or your
 mirror (or the proxy) if an egress NetworkPolicy applies. The MCP server needs no egress.
 

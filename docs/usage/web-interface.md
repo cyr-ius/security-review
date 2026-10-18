@@ -143,12 +143,11 @@ permission; the former `/ui/settings` address opens **Report language**).
 - **Outgoing proxy**: proxy of the outgoing connections of the controller, used by the OSV
   download **and** by the [OIDC login](../advanced/sso.md). As for the OIDC
   configuration, every value set here replaces its variable (**Variable** / **Interface
-  web** badges): the URL follows `SECREVIEW_PROXY` (else `HTTPS_PROXY` / `NO_PROXY`), is set
-  here, or forces the direct connection; the **hosts without proxy** follow
-  `SECREVIEW_NO_PROXY` or are set here (see
-  [hosts without proxy](../advanced/dependencies.md#hosts-without-proxy): domains, IP addresses, CIDR
-  ranges, `*`). The change applies to the next download and to the next OIDC login, without
-  restart. The applied proxy, its origin and the environment variables are shown; passwords
+  web** badges): the URL follows `HTTPS_PROXY` (else `HTTP_PROXY`), is set here, or forces
+  the direct connection; the **hosts without proxy** follow `NO_PROXY` or are set here (see
+  [hosts without proxy](../advanced/dependencies.md#hosts-without-proxy): domains, IP
+  addresses, `*`, no CIDR ranges). The change applies to the next download and to the next
+  OIDC login, without restart. The applied proxy, its origin and the variables are shown; passwords
   are never shown again (`***`): sending `***` back keeps the stored one. Through the API:
   `PUT /api/v1/settings/proxy` with `url` and `no_proxy` (`null` applies the variable again,
   `"url": ""` forces the direct connection, a missing field is unchanged).

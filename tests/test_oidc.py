@@ -725,14 +725,14 @@ def test_fetch_json_bounds_the_response(monkeypatch):
 
 
 def test_the_provider_is_reached_through_the_proxy_of_the_controller():
-    login = oidc.OidcLogin(make_settings(proxy="http://proxy.internal:3128"))
+    login = oidc.OidcLogin(make_settings(https_proxy="http://proxy.internal:3128"))
     (handler,) = [h for h in login._opener.handlers if isinstance(h, urllib.request.ProxyHandler)]
     assert handler.proxies["https"] == "http://proxy.internal:3128"
 
 
 def test_an_unreachable_provider_never_logs_the_proxy_password(monkeypatch, caplog):
     proxy_url = "http://alice:s3cr3t@proxy.internal:3128"
-    login = oidc.OidcLogin(make_settings(proxy=proxy_url))
+    login = oidc.OidcLogin(make_settings(https_proxy=proxy_url))
 
     def fail(request, timeout):  # noqa: ANN001, ANN202
         raise urllib.error.URLError(f"cannot reach {proxy_url}")

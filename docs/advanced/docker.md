@@ -119,7 +119,7 @@ docker compose logs controller   # initial admin password
 - The vulnerability advisory database is **empty** at first start: the dependency analysis then
   answers that no database is loaded. To let the controller download it at start-up, then every
   24 h, add `SECREVIEW_OSV_AUTO_UPDATE=true` to `.env` (and, if needed,
-  `SECREVIEW_OSV_ECOSYSTEMS`, `SECREVIEW_PROXY` and `SECREVIEW_NO_PROXY`), which the Compose
+  `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY` and `NO_PROXY`), which the Compose
   file passes to the controller only, then `docker compose up -d`. Follow the import with
   `docker compose logs -f controller` or in the settings of the web interface. Without
   Internet access, import an archive with `advisories import` (see

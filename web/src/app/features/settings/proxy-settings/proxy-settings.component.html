@@ -59,9 +59,9 @@
               [formField]="proxyForm.mode"
             />
             <label class="form-check-label" for="proxy-env">
-              {{ 'sso.variable' | t }} <code>SECREVIEW_PROXY</code> ({{
+              {{ 'sso.variable' | t }} <code>HTTPS_PROXY</code> / <code>HTTP_PROXY</code> ({{
                 current.proxy.url.env ?? ('sso.empty' | t)
-              }}){{ 'settings.proxyElse' | t }}
+              }})
             </label>
           </div>
           <div class="form-check">
@@ -136,14 +136,13 @@
                 autocomplete="off"
                 spellcheck="false"
                 [attr.aria-label]="'settings.noProxyHosts' | t"
-                placeholder=".corp.example, 10.0.0.5, 10.0.0.0/8, fd00::/8"
+                placeholder=".corp.example, 10.0.0.5, fd00::5"
                 [formField]="proxyForm.noProxy"
               />
             }
             <div class="form-text">
-              {{ 'settings.noProxyHelp1' | t }} (<code>10.0.0.0/8</code>, <code>fd00::/8</code
-              >{{ 'settings.noProxyHelp2' | t }} <code>*</code>{{ 'settings.noProxyHelp3' | t }}
-              <code>SECREVIEW_NO_PROXY</code>
+              {{ 'settings.noProxyHelp1' | t }} <code>*</code>{{ 'settings.noProxyHelp3' | t }}
+              <code>NO_PROXY</code>
               {{
                 'settings.colonValue'
                   | t: { value: current.proxy.no_proxy.env ?? ('sso.empty' | t) }
@@ -156,32 +155,6 @@
           {{ 'common.save' | t }}
         </button>
       </form>
-
-      <h3 class="h6 mt-4">{{ 'settings.envProxy' | t }}</h3>
-      <table class="table table-sm env-table mb-0">
-        <tbody>
-          <tr>
-            <th scope="row"><code>SECREVIEW_PROXY</code></th>
-            <td class="font-monospace">{{ current.proxy.url.env ?? '—' }}</td>
-          </tr>
-          <tr>
-            <th scope="row"><code>SECREVIEW_NO_PROXY</code></th>
-            <td class="font-monospace">{{ current.proxy.no_proxy.env ?? '—' }}</td>
-          </tr>
-          <tr>
-            <th scope="row"><code>HTTPS_PROXY</code></th>
-            <td class="font-monospace">{{ current.proxy.environment.https_proxy ?? '—' }}</td>
-          </tr>
-          <tr>
-            <th scope="row"><code>HTTP_PROXY</code></th>
-            <td class="font-monospace">{{ current.proxy.environment.http_proxy ?? '—' }}</td>
-          </tr>
-          <tr>
-            <th scope="row"><code>NO_PROXY</code></th>
-            <td class="font-monospace">{{ current.proxy.environment.no_proxy ?? '—' }}</td>
-          </tr>
-        </tbody>
-      </table>
     </div>
   </section>
 }

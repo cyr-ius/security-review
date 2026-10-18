@@ -582,19 +582,14 @@ export interface AppSettings {
   };
   /** Proxy of the outgoing connections of the controller (OSV download, OIDC provider). */
   proxy: {
-    /** value: set in the web interface (null: SECREVIEW_PROXY applies, '': direct connection). */
+    /** value: set in the web interface (null: the variable applies, '': direct connection);
+     * env: HTTPS_PROXY (else HTTP_PROXY) and NO_PROXY. */
     url: { value: string | null; env: string | null };
     no_proxy: { value: string | null; env: string | null };
-    /** Standard variables, applied by urllib when no proxy is configured. */
-    environment: {
-      https_proxy: string | null;
-      http_proxy: string | null;
-      no_proxy: string | null;
-    };
     effective: {
       url: string | null;
       no_proxy: string | null;
-      source: 'web' | 'none' | 'SECREVIEW_PROXY' | 'environment';
+      source: 'web' | 'environment' | 'none';
     };
   };
   osv: {

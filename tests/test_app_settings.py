@@ -16,13 +16,6 @@ def make_settings(**values) -> Settings:
     return Settings(_env_file=None, **values)
 
 
-@pytest.fixture(autouse=True)
-def no_environment_proxy(monkeypatch):
-    """Ignore the proxy variables of the machine running the tests."""
-    for name in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "NO_PROXY", "no_proxy"):
-        monkeypatch.delenv(name, raising=False)
-
-
 # ── report language ──────────────────────────────────────────────────────────
 
 
@@ -64,22 +57,22 @@ def effective_proxy(settings: Settings) -> tuple[str | None, str | None]:
 
 
 def test_proxy_follows_the_variables_without_stored_value():
-    settings = make_settings(proxy=PROXY, no_proxy="osv.internal")
+    settings = make_settings(https_proxy=PROXY, no_proxy="osv.internal")
     assert effective_proxy(settings) == (PROXY, "osv.internal")
-    # An empty variable means no proxy configured: urllib applies HTTPS_PROXY / NO_PROXY
-    assert effective_proxy(make_settings(proxy=" ", no_proxy="")) == (None, None)
+    # An empty variable means no proxy
+    assert effective_proxy(make_settings(https_proxy=" ", no_proxy="")) == (None, None)
 
 
 def test_proxy_set_in_the_web_interface_overrides_each_variable():
-    settings = make_settings(proxy=PROXY, no_proxy="osv.internal")
+    settings = make_settings(https_proxy=PROXY, no_proxy="osv.internal")
 
     app_settings.set_proxy({"url": "http://web-proxy:8080"}, "admin")
     assert effective_proxy(settings) == ("http://web-proxy:8080", "osv.internal")
 
-    app_settings.set_proxy({"no_proxy": " .example.com , 10.0.0.1, 192.168.0.0/16 "}, "admin")
+    app_settings.set_proxy({"no_proxy": " .example.com , 10.0.0.1, [fd00::1] "}, "admin")
     assert effective_proxy(settings) == (
         "http://web-proxy:8080",
-        ".example.com,10.0.0.1,192.168.0.0/16",
+        ".example.com,10.0.0.1,[fd00::1]",
     )
 
     # "" connects directly, despite the variable; null applies the variable again
@@ -114,8 +107,8 @@ def test_invalid_proxy_urls_are_refused(url):
 @pytest.mark.parametrize(
     ("values", "message"),
     [
-        ({"no_proxy": "example.com/path"}, "invalid CIDR range"),
-        ({"no_proxy": "10.0.0.0/33"}, "invalid CIDR range"),
+        ({"no_proxy": "example.com/path"}, "invalid entry"),
+        ({"no_proxy": "10.0.0.0/8"}, "address ranges are not supported"),
         ({"no_proxy": "a.com,b com"}, "invalid entry"),
         ({"no_proxy": "a" * 501}, "too long"),
         ({"mode": "custom"}, "unknown proxy setting"),
@@ -130,44 +123,46 @@ def test_describe_never_returns_the_proxy_password(monkeypatch):
     monkeypatch.setenv("HTTPS_PROXY", "http://bob:hunter2@corporate:8080")
     app_settings.set_proxy({"url": PROXY}, "admin")
 
-    described = app_settings.describe(make_settings(proxy="http://carol:pa55@env-proxy:3128"))
+    described = app_settings.describe(make_settings())
 
     text = repr(described)
-    assert "s3cr3t" not in text and "hunter2" not in text and "pa55" not in text
+    assert "s3cr3t" not in text and "hunter2" not in text
     proxy = described["proxy"]
     assert proxy["url"] == {
         "value": "http://alice:***@proxy.internal:3128",
-        "env": "http://carol:***@env-proxy:3128",
+        "env": "http://bob:***@corporate:8080",
     }
     assert proxy["effective"] == {
         "url": "http://alice:***@proxy.internal:3128",
         "no_proxy": None,
         "source": "web",
     }
-    assert proxy["environment"]["https_proxy"] == "http://bob:***@corporate:8080"
 
 
 def test_describe_shows_the_source_of_the_effective_proxy(monkeypatch):
+    assert app_settings.describe(make_settings())["proxy"]["effective"] == {
+        "url": None,
+        "no_proxy": None,
+        "source": "none",
+    }
+
     monkeypatch.setenv("HTTPS_PROXY", "http://corporate:8080")
     monkeypatch.setenv("NO_PROXY", "localhost,.internal")
-
-    proxy = app_settings.describe(make_settings())["proxy"]
-    assert proxy["url"] == {"value": None, "env": None}
+    settings = make_settings()
+    proxy = app_settings.describe(settings)["proxy"]
+    assert proxy["url"] == {"value": None, "env": "http://corporate:8080"}
+    assert proxy["no_proxy"] == {"value": None, "env": "localhost,.internal"}
     assert proxy["effective"] == {
         "url": "http://corporate:8080",
-        "no_proxy": None,
+        "no_proxy": "localhost,.internal",
         "source": "environment",
     }
-    assert proxy["environment"]["no_proxy"] == "localhost,.internal"
-
-    settings = make_settings(proxy="http://env-proxy:3128", no_proxy="osv.internal")
-    assert app_settings.describe(settings)["proxy"]["effective"] == {
-        "url": "http://env-proxy:3128",
-        "no_proxy": "osv.internal",
-        "source": "SECREVIEW_PROXY",
-    }
     app_settings.set_proxy({"url": ""}, "admin")
-    assert app_settings.describe(settings)["proxy"]["effective"]["source"] == "none"
+    assert app_settings.describe(settings)["proxy"]["effective"] == {
+        "url": None,
+        "no_proxy": None,
+        "source": "none",
+    }
 
 
 def test_masked_password_keeps_the_stored_one():
