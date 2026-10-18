@@ -80,8 +80,8 @@ def url_of(ecosystem: str) -> str:
         ({"osv_url": "http://osv.example"}, "SECREVIEW_OSV_URL"),
         ({"osv_url": "file:///etc"}, "SECREVIEW_OSV_URL"),
         ({"osv_url": "https://user:pw@osv.example"}, "SECREVIEW_OSV_URL"),
-        ({"proxy": "socks5://proxy:1080"}, "SECREVIEW_PROXY"),
-        ({"proxy": "proxy:3128"}, "SECREVIEW_PROXY"),
+        ({"https_proxy": "socks5://proxy:1080"}, "HTTPS_PROXY"),
+        ({"https_proxy": "https://proxy:3128"}, "HTTPS_PROXY"),
         ({"osv_cafile": "/nonexistent/ca.pem"}, "SECREVIEW_OSV_CAFILE"),
         ({"osv_update_interval_hours": 0}, "SECREVIEW_OSV_UPDATE_INTERVAL_HOURS"),
         ({"osv_max_download_mb": 0}, "SECREVIEW_OSV_MAX_DOWNLOAD_MB"),
@@ -95,7 +95,7 @@ def test_invalid_settings_are_refused(values, variable):
 
 
 def test_default_settings_are_valid_and_ecosystems_are_canonical():
-    advisory_sync.validate_settings(make_settings(proxy=PROXY))
+    advisory_sync.validate_settings(make_settings(https_proxy=PROXY))
 
     settings = make_settings(osv_ecosystems="pypi, NPM,maven,PyPI")
     assert advisory_sync.ecosystems_of(settings) == ["PyPI", "npm", "Maven"]
@@ -115,20 +115,25 @@ def proxies_of(opener: urllib.request.OpenerDirector) -> dict:
     return handler.proxies
 
 
-def test_opener_uses_the_configured_proxy(monkeypatch):
-    monkeypatch.setenv("HTTPS_PROXY", "http://other:8080")
-
-    opener = advisory_sync.build_opener(make_settings(proxy=PROXY))
+def test_opener_uses_the_configured_proxy():
+    opener = advisory_sync.build_opener(make_settings(https_proxy=PROXY))
 
     assert proxies_of(opener) == {"http": PROXY, "https": PROXY}
 
 
-def test_opener_falls_back_to_the_standard_proxy_variables(monkeypatch):
+def test_opener_uses_the_standard_proxy_variables(monkeypatch):
     monkeypatch.setenv("HTTPS_PROXY", "http://corporate:8080")
 
     opener = advisory_sync.build_opener(make_settings())
 
     assert proxies_of(opener)["https"] == "http://corporate:8080"
+
+
+def test_opener_without_proxy_connects_directly():
+    opener = advisory_sync.build_opener(make_settings())
+
+    # The empty handler replaces urllib's default one, which would read the environment again
+    assert not any(isinstance(h, urllib.request.ProxyHandler) for h in opener.handlers)
 
 
 def test_redirects_to_another_scheme_than_https_are_refused():
@@ -179,7 +184,7 @@ def test_update_downloads_and_imports_each_ecosystem(opener, caplog):
         url_of("PyPI"): osv_zip(osv("PYSEC-1"), osv("PYSEC-2", package="flask")),
         url_of("npm"): osv_zip(osv("GHSA-1", package="lodash", ecosystem="npm")),
     }
-    settings = make_settings(osv_ecosystems="PyPI,npm", proxy=PROXY)
+    settings = make_settings(osv_ecosystems="PyPI,npm", https_proxy=PROXY)
 
     with caplog.at_level("INFO", logger="security_review_mcp"):
         result = advisory_sync.update_advisories(settings)
@@ -328,7 +333,7 @@ def test_cli_update_refuses_an_unknown_ecosystem(opener, capsys):
 def test_opener_uses_the_proxy_set_in_the_web_interface(monkeypatch):
     monkeypatch.setenv("HTTPS_PROXY", "http://other:8080")
     app_settings.set_proxy({"url": "http://web-proxy:3128"}, "admin")
-    settings = app_settings.effective_settings(make_settings(proxy=PROXY))
+    settings = app_settings.effective_settings(make_settings(https_proxy=PROXY))
 
     opener = advisory_sync.build_opener(settings)
 
@@ -339,7 +344,9 @@ def test_opener_connects_directly_when_the_web_interface_says_so(monkeypatch):
     monkeypatch.setenv("HTTPS_PROXY", "http://corporate:8080")
     app_settings.set_proxy({"url": ""}, "admin")
 
-    opener = advisory_sync.build_opener(app_settings.effective_settings(make_settings(proxy=PROXY)))
+    opener = advisory_sync.build_opener(
+        app_settings.effective_settings(make_settings(https_proxy=PROXY))
+    )
 
     # An empty ProxyHandler replaces the default one (which reads HTTPS_PROXY) and opens nothing
     assert not [h for h in opener.handlers if isinstance(h, urllib.request.ProxyHandler)]
@@ -354,7 +361,7 @@ def test_update_reads_the_proxy_set_in_the_web_interface_at_each_run(monkeypatch
 
     monkeypatch.setattr(advisory_sync, "build_opener", build)
     opener.bodies = {url_of("PyPI"): osv_zip(osv())}
-    settings = make_settings(osv_ecosystems="PyPI", proxy=PROXY)
+    settings = make_settings(osv_ecosystems="PyPI", https_proxy=PROXY)
 
     advisory_sync.update_advisories(settings)
     app_settings.set_proxy({"url": "http://web-proxy:3128"}, "admin")
@@ -393,7 +400,7 @@ def test_run_update_records_partial_and_failed_updates(opener):
 def test_run_update_hides_the_proxy_credentials_in_the_errors(opener):
     opener.bodies = {url_of("PyPI"): urllib.error.URLError(f"cannot reach {PROXY}")}
 
-    advisory_sync.run_update(make_settings(osv_ecosystems="PyPI", proxy=PROXY), "cli")
+    advisory_sync.run_update(make_settings(osv_ecosystems="PyPI", https_proxy=PROXY), "cli")
 
     error = advisory_sync.list_updates()[0]["results"]["PyPI"]["error"]
     assert "s3cr3t" not in error and "proxy.internal:3128" in error

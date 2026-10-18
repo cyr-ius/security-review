@@ -8,7 +8,8 @@ code**.
 Rules are managed with the `security-review-controller rules` command (import and export of
 TOML packs, enabling, disabling, deletion) or from the **Rules** screen of the
 [web interface](../usage/web-interface.md). Checklist items are managed from the **Checklists** screen of
-this interface, or with the TOML packs of the `rules` command.
+this interface, or with the TOML packs of the `rules` command. Both screens also
+[import and export the TOML packs](#import-and-export-in-the-web-interface).
 
 ## Default rules
 
@@ -57,6 +58,31 @@ security-review-controller rules list --custom                        # check
 security-review-controller rules disable PY-008            # too noisy default rule
 security-review-controller rules export -o rules.toml      # backup or review
 security-review-controller rules import --replace rules.toml
+```
+
+## Import and export in the web interface
+
+The **Rules** and **Checklists** screens have **Export** and **Import** buttons (permission
+`rules.manage`):
+
+- **Export** downloads a TOML pack of what differs from the defaults, like `rules export`:
+  `security-review-rules.toml` (custom or edited rules, disabled rules) from the **Rules**
+  screen, `security-review-checklists.toml` (custom or edited checklist items) from the
+  **Checklists** screen.
+- **Import** reads a TOML pack chosen on your computer (256 KiB at most), on either screen: the
+  rules, checklist items and `disabled_rules` it holds are imported, **all or nothing**, like
+  `rules import` without `--replace` (entries added or replaced by identifier, the other entries
+  kept). The message gives the number of imported entries, or the errors when nothing was
+  imported. To reset the content to the defaults, use `rules import --replace` in the CLI.
+
+| Method | Route | Role |
+|---|---|---|
+| `GET` | `/api/v1/packs/rules[?sections=rules\|checklist]` | `rules.manage`: TOML pack (both sections by default) |
+| `POST` | `/api/v1/packs/rules` | `rules.manage`: body `{"name": "acme.toml", "content": "<TOML>"}`; `422` with the errors if the pack is invalid |
+
+```bash
+curl -H "Authorization: Bearer $ADMIN_TOKEN" -o rules.toml \
+  "https://secreview.example.com/api/v1/packs/rules?sections=rules"
 ```
 
 ## Pack format

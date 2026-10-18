@@ -9,8 +9,9 @@ base de données (voir [Architecture et déploiement](../advanced/architecture.m
 |---|---|
 | `/ui/` | Application web (Angular) |
 | `/api/v1/…` | API REST utilisée par l'application |
-| `/api/docs` | Documentation OpenAPI de l'API REST (publique, sans données) |
+| `/api/docs` | Documentation OpenAPI de l'API REST (publique, sans données), avec `SECREVIEW_SWAGGER_ENABLED=true` |
 | `/api/favicon.svg` | Icône de l'interface web et de la documentation Swagger (publique) |
+| `/api/health` | Disponibilité de l'API, vérifiée par l'application au chargement (publique, ne révèle ni la version ni les réglages) |
 | `/healthz` | Sonde de vie (publique) |
 
 ```bash
@@ -21,20 +22,32 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 ## Écrans
 
 Les écrans sont accessibles depuis la barre latérale : **Supervision** (projets, rapports) pour
-tous les rôles, puis **Référentiel** (règles, checklists, normes) et **Administration**
-(utilisateurs, jetons, rôles SSO, paramètres) pour le rôle `admin`. Le bas de la barre affiche le client connecté, son rôle et la
-version, avec les boutons **Mon compte** et de déconnexion ; sur petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
+tous les comptes, puis **Référentiel** (règles, checklists, normes) et **Administration**
+(utilisateurs, groupes, rôles, jetons, journal d'audit, OIDC, langue des rapports, proxy sortant,
+base OSV), chaque écran n'étant affiché qu'aux comptes qui ont sa
+[permission](../advanced/access-control.md#permissions). Le bas de la barre affiche le client connecté, son rôle et la
+version (un lien vers **À propos**), avec les boutons **Mon compte** et de déconnexion ; sur petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
 à droite, y compris sur la page de connexion, et reste mémorisé dans le navigateur.
 
 L'interface est proposée en **anglais**, **français** et **espagnol**. La langue se choisit dans
 le sélecteur en haut à droite, y compris sur la page de connexion. Le changement est immédiat et
 reste mémorisé dans le navigateur ; à la première visite, l'interface suit la langue du
 navigateur, ou l'anglais si elle n'en propose aucune. Ce choix ne concerne que l'interface : la
-langue des rapports de revue se règle dans **Paramètres**, et les messages d'erreur détaillés
+langue des rapports de revue se règle dans **Langue des rapports**, et les messages d'erreur détaillés
 renvoyés par l'API restent en anglais.
 
-- **Projets** : tous les projets avec leurs findings ouverts par sévérité, triés par risque,
-  activité ou nom.
+La page **À propos** donne la version du contrôleur, les liens de la documentation, du code
+source et pour signaler un problème, le lien de la documentation Swagger quand elle est activée,
+et l'état du backend (`/api/health`, vérifié à nouveau avec **Vérifier à nouveau**). Au
+chargement, l'application interroge d'abord `/api/health` : si le contrôleur ne répond pas (ou
+cesse de répondre ensuite), la page **Backend indisponible** s'ouvre, et son bouton **Réessayer**
+revient à la page demandée dès que le contrôleur répond de nouveau.
+
+- **Projets** : tous les projets avec leurs findings ouverts par sévérité. Rechercher par nom,
+  trier par risque, activité ou nom, et filtrer par sévérité maximale. Le bouton
+  **Revoir les findings ouverts** ouvre les findings à revoir de tous
+  les projets que vous pouvez voir (**Findings à revoir : tous les projets**), chacun avec un
+  lien vers son projet.
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, derniers rapports et
   export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant.
@@ -45,46 +58,61 @@ renvoyés par l'API restent en anglais.
   par statut (pour revoir les risques acceptés ou les faux positifs), par sévérité et par type
   de revue (**Revue de sécurité**, **Revue de sécurité d'API**, **Revue du code complet**... :
   voir [type de revue](prompts-tools.md#type-de-revue)) ; **Afficher plus** affiche les findings
-  suivants. Les utilisateurs qui ont le rôle `triager` ou `admin` changent le statut de chaque
+  suivants. Les utilisateurs qui ont la permission `findings.triage` changent le statut de chaque
   finding depuis cet écran et appliquent ou rejettent les statuts proposés par les agents (voir
   [triage des findings](#triage-des-findings)) ; un finding trié reste affiché jusqu'au
   rechargement.
-- **Rapports** : liste filtrable par projet et niveau de risque (les filtres sont dans l'URL, on
-  peut donc partager un lien), avec le **Type** et l'**Auteur** de chaque revue.
+- **Rapports** : liste filtrable par projet et niveau de risque, avec recherche dans les
+  métadonnées et le résumé, tri par date, projet, risque, type, branche, auteur ou résumé. La
+  recherche, le tri et les filtres restent dans l'URL, pour partager la vue.
 - **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** et
   **Envoyé par (jeton)**, voir [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)), findings avec
   emplacement, CWE, extrait de code et recommandation ; téléchargement Markdown et SARIF. Les
-  utilisateurs qui ont le rôle `triager` ou `admin` changent le statut d'un finding directement
+  utilisateurs qui ont la permission `findings.triage` changent le statut d'un finding directement
   depuis cet écran.
 - **Normes** : les [normes de développement](../advanced/standards.md) transmises aux assistants IA par le
-  prompt `development-standards`. Les administrateurs les recherchent, les lisent, les créent,
+  prompt `development-standards`. Rechercher et trier par titre, identifiant, technologie ou motif
+  de fichier, filtrer par état activé. Les administrateurs les lisent, les créent,
   les modifient (technologies, motifs de fichiers, contenu Markdown), les désactivent ou les
-  suppriment. Un changement s'applique immédiatement.
-- **Checklists** : les administrateurs consultent les items de contrôle par domaine, filtrent la
-  liste et créent, modifient ou suppriment les items personnalisés. Les items par défaut peuvent
+  suppriment. Un changement s'applique immédiatement. **Exporter** et **Importer** les copient
+  sous forme de [fichier TOML](../advanced/standards.md#import-et-export).
+- **Checklists** : les administrateurs recherchent et trient les items de contrôle, filtrent par
+  domaine et origine, et créent, modifient ou suppriment les items personnalisés. Les items par défaut peuvent
   être modifiés, mais pas supprimés. Toute modification est rechargée immédiatement par le serveur
-  et intégrée aux prompts de revue.
-- **Règles** : les administrateurs consultent toutes les [règles](../advanced/rules.md) stockées en base,
-  filtrables par origine (par défaut ou personnalisée). Ils créent, modifient (dans une fenêtre
+  et intégrée aux prompts de revue. **Exporter** et **Importer** échangent des
+  [packs TOML](../advanced/rules.md#import-et-export-dans-linterface-web).
+- **Règles** : les administrateurs recherchent et trient toutes les [règles](../advanced/rules.md) stockées en base,
+  filtrables par origine (par défaut ou personnalisée) et sévérité. Ils créent, modifient (dans une fenêtre
   modale, sans quitter la position dans la liste), activent ou désactivent les règles, et
   suppriment les règles personnalisées. Une règle par défaut peut être
   modifiée (badge « Par défaut, modifiée ») ou désactivée, mais pas supprimée. Le bouton
   **Recharger** applique immédiatement un changement fait avec la CLI
-  `security-review-controller rules`.
+  `security-review-controller rules`. **Exporter** et **Importer** échangent des
+  [packs TOML](../advanced/rules.md#import-et-export-dans-linterface-web).
 - **Utilisateurs** : les administrateurs gèrent les [comptes](#comptes-utilisateurs), seuls
   à ouvrir l'interface. Chaque compte est **Local** (identifiant et mot de passe, saisi ou généré
-  et affiché une seule fois) ou **SSO** (connexion par le fournisseur d'identité, sans mot de
-  passe), avec un badge dans la liste. L'administrateur choisit le rôle `reader`, `triager` ou
-  `admin` et, pour `reader` et `triager`, les projets. Un compte SSO peut n'avoir aucun rôle
-  propre : la colonne **Rôle des groupes** montre alors le rôle que ses groupes lui ont donné à sa
-  dernière connexion. L'administrateur change le rôle et les projets d'un compte, réinitialise le
-  mot de passe d'un compte local ou supprime un compte. Un compte SSO supprimé n'est plus recréé
-  à sa connexion : la section **Comptes SSO supprimés** les liste, avec le bouton **Autoriser à
-  nouveau**. Le dernier administrateur, local ou SSO, ne peut être ni supprimé ni rétrogradé.
+  et affiché une seule fois) ou **OIDC** (connexion par le fournisseur d'identité, sans mot de
+  passe), avec un badge dans la liste. La liste est recherchable, triable et filtrable par type.
+  Les comptes OIDC supprimés sont recherchables, triables et filtrables par administrateur de
+  révocation. L'administrateur choisit ses **Groupes**, seule source de
+  ses permissions ; la colonne **Groupes** montre les groupes, avec un bouclier pour les groupes
+  OIDC trouvés à la dernière connexion, et **Accès** résume ce qu'ils donnent. L'administrateur
+  change les groupes d'un compte, réinitialise le mot de passe d'un compte local ou supprime un compte. Un compte OIDC supprimé
+  n'est plus recréé à sa connexion : la section **Comptes OIDC supprimés** les liste, avec le
+  bouton **Autoriser à nouveau**. Le dernier détenteur de `users.manage` ne peut être ni supprimé
+  ni la perdre.
+- **Groupes** : les administrateurs recherchent et trient les groupes, et filtrent les groupes
+  locaux de ceux ouverts au OIDC. Ils créent les groupes, leur donnent des rôles (sur tous les
+  projets ou sur certains), ajoutent des membres et choisissent si le groupe est **Ouvert au OIDC**
+  (voir [Rôles, groupes et permissions](../advanced/access-control.md#groupes)).
+- **Rôles** : les administrateurs recherchent et trient les rôles, et filtrent les rôles système
+  des rôles personnalisés. Ils créent des rôles à partir des permissions ; les rôles système
+  `reader`, `triager` et `admin` sont affichés en lecture seule.
 - **Mon compte** : affiche le type du compte. Un utilisateur local y change son mot de passe (ses
-  autres sessions sont fermées) ; celui d'un utilisateur SSO est géré par le fournisseur
+  autres sessions sont fermées) ; celui d'un utilisateur OIDC est géré par le fournisseur
   d'identité.
-- **Jetons** : les administrateurs créent et révoquent des jetons pour un ou plusieurs
+- **Jetons** : les demandes d'enrôlement sont recherchables, triables et filtrables par type ; les
+  jetons actifs le sont par usage. Les administrateurs créent et révoquent des jetons pour un ou plusieurs
   projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit **MCP** (rôle `mcp`), **API REST** ou **Pipeline CI/CD**
   (rôle `ci`, pour [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)) ;
   pour l'API REST, **Droits API** choisit **Lecture seule** (`reader`) ou **Lecture et triage**
@@ -111,37 +139,40 @@ renvoyés par l'API restent en anglais.
   [lecture du projet à l'enrôlement](../advanced/sso.md#lecture-du-projet-a-lenrolement)).
 - **Journal d'audit** : les administrateurs consultent le [journal d'audit](../advanced/audit-metrics.md#journal-daudit) :
   décisions de triage, propositions des agents, jetons et demandes d'enrôlement, du plus récent
-  au plus ancien, avec leur auteur ; filtres par événement et par projet, **Afficher plus** pour
-  les événements plus anciens.
-- **Rôles SSO** : les administrateurs [configurent la connexion SSO](../advanced/sso.md#configurer-le-sso-dans-linterface)
+  au plus ancien, avec leur auteur ; filtres par événement et projet, recherche dans les détails,
+  tri par date/action/auteur/cible/projet et **Afficher plus** pour les événements plus anciens.
+- **OIDC** : les administrateurs [configurent la connexion OIDC](../advanced/sso.md#configurer-le-oidc-dans-linterface)
   (chaque valeur enregistrée remplace sa variable `SECREVIEW_OIDC_*`, avec un test de connexion
-  au fournisseur) et associent les groupes ou rôles du fournisseur d'identité à un rôle web et,
-  pour `reader` et `triager`, à une liste de projets (voir [role mapping](../advanced/sso.md#role-mapping)). Les
-  groupes de la configuration SSO (`*_GROUPS`) sont affichés en lecture seule dans la liste des
-  associations. Les utilisateurs SSO eux-mêmes se gèrent dans l'écran **Utilisateurs**.
-- **Paramètres** : réglages enregistrés en base, prioritaires sur les variables d'environnement
-  et partagés par le serveur MCP et le contrôleur.
-    - **Langue des rapports** : variable `SECREVIEW_REPORT_LANGUAGE`, choix laissé à l'agent ou
-      langue définie ici (`French`, `fr`, `pt-BR`…). Elle s'applique aux prochains prompts de
-      revue ; l'argument `report_language` d'un prompt reste prioritaire
-      ([langue des rapports](prompts-tools.md#langue-des-rapports)).
-    - **Proxy sortant du contrôleur** : proxy du téléchargement OSV **et** de la
-      [connexion SSO](../advanced/sso.md). Comme pour la configuration SSO, chaque
-      valeur définie ici remplace sa variable (badges **Variable** / **Interface web**) :
-      l'URL suit `SECREVIEW_PROXY` (sinon `HTTPS_PROXY` / `NO_PROXY`), est définie ici, ou force
-      la connexion directe ; les **hôtes sans proxy** suivent `SECREVIEW_NO_PROXY` ou sont
-      définis ici (voir [hôtes sans proxy](../advanced/dependencies.md#hotes-sans-proxy) : domaines, adresses
-      IP, plages CIDR, `*`). Le changement s'applique au prochain
-      téléchargement et à la prochaine connexion SSO, sans redémarrage. Le proxy appliqué, son
-      origine et les variables de l'environnement sont affichés ; les mots de passe ne sont
-      jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré. Par l'API :
-      `PUT /api/v1/settings/proxy` avec `url` et `no_proxy` (`null` applique de nouveau la
-      variable, `"url": ""` force la connexion directe, un champ absent est inchangé).
-    - **Base de vulnérabilités OSV** : nombre d'avis par écosystème, date et âge du dernier
-      import, configuration du téléchargement, historique des 50 dernières mises à jour
-      (planifiée, CLI ou interface web, avec statut, durée et résultat par écosystème) et bouton
-      **Mettre à jour maintenant**, disponible seulement si `SECREVIEW_OSV_AUTO_UPDATE=true`
-      ([mise à jour par le contrôleur](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur)).
+  au fournisseur). Ce que peuvent faire les utilisateurs OIDC vient des groupes ouverts au OIDC
+  nommés par leur claim des groupes (voir
+  [groupes du fournisseur d'identité](../advanced/sso.md#groupes-du-fournisseur-didentite)).
+Les trois écrans suivants portent des réglages enregistrés en base, prioritaires sur les
+variables d'environnement et partagés par le serveur MCP et le contrôleur (permission
+`settings.manage` ; l'ancienne adresse `/ui/settings` ouvre **Langue des rapports**).
+
+- **Langue des rapports** : variable `SECREVIEW_REPORT_LANGUAGE`, choix laissé à l'agent ou
+  langue définie ici (`French`, `fr`, `pt-BR`…). Elle s'applique aux prochains prompts de
+  revue ; l'argument `report_language` d'un prompt reste prioritaire
+  ([langue des rapports](prompts-tools.md#langue-des-rapports)).
+- **Proxy sortant** : proxy des connexions sortantes du contrôleur, utilisé par le
+  téléchargement OSV **et** par la
+  [connexion OIDC](../advanced/sso.md). Comme pour la configuration OIDC, chaque
+  valeur définie ici remplace sa variable (badges **Variable** / **Interface web**) :
+  l'URL suit `HTTPS_PROXY` (sinon `HTTP_PROXY`), est définie ici, ou force la connexion
+  directe ; les **hôtes sans proxy** suivent `NO_PROXY` ou sont définis ici (voir
+  [hôtes sans proxy](../advanced/dependencies.md#hotes-sans-proxy) : domaines, adresses IP,
+  `*`, pas de plages CIDR). Le changement s'applique au prochain
+  téléchargement et à la prochaine connexion OIDC, sans redémarrage. Le proxy appliqué, son
+  origine et les variables sont affichés ; les mots de passe ne sont
+  jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré. Par l'API :
+  `PUT /api/v1/settings/proxy` avec `url` et `no_proxy` (`null` applique de nouveau la
+  variable, `"url": ""` force la connexion directe, un champ absent est inchangé).
+- **Base OSV** : état de la base de vulnérabilités OSV : nombre d'avis par écosystème, date et âge du dernier
+  import, configuration du téléchargement, historique des 50 dernières mises à jour
+  (planifiée, CLI ou interface web, avec statut, durée et résultat par écosystème), recherchable,
+  triable et filtrable par statut/déclencheur, et bouton
+  **Mettre à jour maintenant**, disponible seulement si `SECREVIEW_OSV_AUTO_UPDATE=true`
+  ([mise à jour par le contrôleur](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur)).
 
 ## Triage des findings
 
@@ -162,7 +193,7 @@ MCP `propose_finding_status`, voir [statut d'un finding](prompts-tools.md#statut
 - **Ouvert** et **Corrigé** sont enregistrés immédiatement (motif facultatif par l'API). Toute
   décision supprime la proposition en attente.
 
-Seule une session (compte local ou SSO) peut accepter un risque ou marquer un faux positif : un
+Seule une session (compte local ou OIDC) peut accepter un risque ou marquer un faux positif : un
 jeton Bearer, même `triager` ou `admin`, reçoit `403`. Par l'API REST :
 
 ```bash
@@ -184,7 +215,7 @@ nouveau la gate.
 ## Rôles
 
 Les **jetons** donnent accès au serveur MCP et à l'API REST (agents, CI, scripts) ; les
-**utilisateurs** (comptes locaux ou SSO) sont les seuls à ouvrir l'interface web. Chaque jeton
+**utilisateurs** (comptes locaux ou OIDC) sont les seuls à ouvrir l'interface web. Chaque jeton
 porte un rôle, qui détermine les endpoints accessibles :
 
 | Rôle | Usage (écran **Jetons**) | `/mcp` | API REST (lecture) | Changement de statut |
@@ -197,7 +228,7 @@ porte un rôle, qui détermine les endpoints accessibles :
 | `metrics` | CLI seulement | — | `/metrics` seulement ([Prometheus](../advanced/audit-metrics.md#metriques-prometheus)) | — |
 
 ¹ Avec un jeton. `accepted` et `false_positive` exigent une personne connectée à l'interface
-avec le rôle `triager` ou `admin` ([triage des findings](#triage-des-findings)). Sur `/mcp`,
+avec la permission `findings.triage` ([triage des findings](#triage-des-findings)). Sur `/mcp`,
 aucun rôle ne change un statut : les agents ne font que le proposer.
 
 Un jeton `mcp`, `reader` ou `triager` restreint avec `--project` ne voit et ne trie que les
@@ -206,10 +237,10 @@ projets autorisés ; un jeton `ci` est toujours restreint à ses projets (voir
 [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)).
 
 Les personnes se connectent avec un [compte utilisateur](#comptes-utilisateurs) : local
-(identifiant et mot de passe) ou [SSO](../advanced/sso.md). Les comptes portent les
-rôles `reader`, `triager` ou `admin`, jamais `mcp`, et n'ouvrent jamais `/mcp`. Un jeton créé
-sans rôle reste `mcp` : il sert aux agents et à la CI, pas à l'interface web. Le rôle `triager`
-ajoute uniquement le triage des findings. Un jeton `reader`, `triager` ou `admin` appelle l'API
+(identifiant et mot de passe) ou [OIDC](../advanced/sso.md). Ce qu'un compte peut faire vient
+des rôles de ses groupes (voir [Rôles, groupes et permissions](../advanced/access-control.md)) ;
+un compte n'ouvre jamais `/mcp`. Un jeton créé sans rôle reste `mcp` : il sert aux agents et à la
+CI, pas à l'interface web. Un jeton `reader`, `triager` ou `admin` appelle l'API
 REST, par exemple depuis un script, mais **n'ouvre pas l'interface** (la page de connexion ne
 propose que les comptes) :
 
@@ -221,12 +252,14 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/proj
 
 Le même jeton liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
 du plus grave au moins grave (filtres `status`, `severity` et `review_type`, `limit` plafonné par
-`SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer) :
+`SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer).
+Sans `project`, il liste les findings de tous les projets du périmètre du jeton
+(`"project": null`) :
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
   "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
-# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
+# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "project": "shop-api", "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
 
 `GET /api/v1/reports` liste les rapports (filtres `project`, `risk_level`, `review_type` et
@@ -244,8 +277,8 @@ statut est journalisé avec le label du jeton ou du compte :
 INFO security_review_mcp.web: Finding 42 set to fixed by triage-bot
 ```
 
-et écrit dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit) (`GET /api/v1/audit`, rôle
-`admin`), avec l'acteur `token:triage-bot` ou `user:<nom>`.
+et écrit dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit) (`GET /api/v1/audit`, permission
+`audit.read`), avec l'acteur `token:triage-bot` ou `user:<nom>`.
 
 !!! warning "Authentification requise pour la Web UI"
     L'API de l'interface refuse les requêtes avec le statut `503` tant qu'aucun utilisateur ni
@@ -253,64 +286,79 @@ et écrit dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit)
     être configurée. Activez `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` (c'est le cas dans l'image Docker),
     ou créez un compte avec `security-review-controller user create`. Cette restriction concerne
     la Web UI ; l'authentification MCP reste indépendante (un compte utilisateur n'ouvre jamais
-    `/mcp`). Avec la [connexion SSO](../advanced/sso.md), l'API demande une connexion
+    `/mcp`). Avec la [connexion OIDC](../advanced/sso.md), l'API demande une connexion
     (`401`) même sans utilisateur ni jeton en base.
 
 ## Comptes utilisateurs
 
 Un compte associe un **identifiant** (lettres, chiffres et `. _ @ -`, 64 caractères au plus), un
-**type** et un rôle web : `reader`, `triager` ou `admin`. Un compte `reader` ou `triager` peut
-être limité à une liste de projets ; un compte `admin` voit tous les projets.
+**type** et des **groupes** : les rôles de ses groupes donnent ses
+[permissions](../advanced/access-control.md#ce-quun-utilisateur-peut-faire). Un compte n'a ni rôle
+ni projet propre.
 
 | Type (`auth_source`) | Connexion | Création |
 |---|---|---|
 | **Local** (`local`) | Identifiant et mot de passe | Par un administrateur, ou le compte `admin` initial |
-| **SSO** (`oidc`) | [Fournisseur d'identité](../advanced/sso.md), sans mot de passe | Par un administrateur, à l'approbation d'un enrôlement, ou à la première connexion si `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
+| **OIDC** (`oidc`) | [Fournisseur d'identité](../advanced/sso.md), sans mot de passe | Par un administrateur, à l'approbation d'un enrôlement, ou à la première connexion si `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
-Un compte SSO peut n'avoir **aucun rôle propre** : seul le rôle donné par ses groupes
-s'applique (voir [comptes SSO](../advanced/sso.md#comptes-sso)). Les comptes se gèrent dans l'écran
-**Utilisateurs**, par l'API REST `/api/v1/users` (rôle `admin`) ou par la
+Un compte OIDC rejoint aussi, à chaque connexion, les groupes ouverts au OIDC nommés par son claim
+des groupes (voir [comptes OIDC](../advanced/sso.md#comptes-oidc)). Les comptes se gèrent dans
+l'écran **Utilisateurs**, par l'API REST `/api/v1/users` (permission `users.manage`) ou par la
 [CLI](../reference/cli.md#security-review-controller) :
 
 ```bash
-security-review-controller user create alice --role triager --project shop-api
-# {"id": 2, "username": "alice", "auth_source": "local", "role": "triager", "projects": ["shop-api"], …, "password": "q3V…"}
+security-review-controller user create alice --group shop-triagers
+# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, "effective_role": "triager", …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
-security-review-controller user create carol@example.com --sso --role none   # rôle des groupes
-security-review-controller user create dave --sso --role reader --project billing
+security-review-controller user create carol@example.com --sso   # groupes OIDC seulement
 security-review-controller user list
-security-review-controller user set-role alice --role reader
+security-review-controller user set-groups alice --group readers --group auditors
+security-review-controller user set-groups alice --group administrators   # créé s'il manque
 security-review-controller user reset-password alice   # compte local : nouveau mot de passe, sessions fermées
 security-review-controller user delete alice
+security-review-controller group list    # groupes, leurs rôles et leurs membres
 ```
 
-Par l'API, un compte SSO se crée avec `"auth_source": "oidc"`, sans `password` ; `"role": null`
-le laisse sans rôle propre :
+Par l'API, un compte OIDC se crée avec `"auth_source": "oidc"`, sans `password` ; `group_ids`
+liste ses groupes :
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"username": "carol@example.com", "auth_source": "oidc", "role": null}'
+  -d '{"username": "carol@example.com", "auth_source": "oidc", "group_ids": [4]}'
 ```
+
+Un compte sans aucun groupe n'a aucune permission et ne peut pas se connecter.
 
 Pour un compte local, sans `--password-stdin` (ou sans mot de passe dans l'interface), un mot de
 passe aléatoire de 24 caractères est généré et affiché **une seule fois**. Un mot de passe choisi
-compte 12 à 256 caractères. Un compte SSO n'a jamais de mot de passe : la connexion par
+respecte la **politique de mot de passe** : 12 à 256 caractères, avec au moins une minuscule, une
+majuscule, un chiffre et un caractère qui n'est ni une lettre ni un chiffre. Les écrans affichent
+ces règles sous le champ et cochent chacune pendant la saisie, et **Mon compte** indique aussitôt
+si la confirmation correspond. La politique s'applique aux nouveaux mots de passe : un mot de passe
+défini avant reste valable jusqu'à son changement. Un compte OIDC n'a jamais de mot de passe : la connexion par
 identifiant et mot de passe, la réinitialisation et **Mon compte** le refusent.
 
 ### Premier administrateur
 
 Avec `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (c'est le cas dans l'image Docker), le contrôleur crée
-au premier démarrage l'utilisateur **`admin`**, de rôle `admin`, tant qu'aucun compte n'existe.
+au premier démarrage l'utilisateur **`admin`**, membre du groupe `administrators` (rôle `admin`),
+tant qu'aucun compte n'existe.
 Son mot de passe est affiché une seule fois dans les journaux du contrôleur :
 
 ```
 WARNING security_review_mcp.controller: Initial Web UI administrator created: user 'admin', password (shown once): …
 ```
 
-Traitez ce mot de passe comme un secret : restreignez l'accès aux journaux, connectez-vous avec
-`admin` et changez-le depuis **Mon compte**. S'il est perdu, générez-en un nouveau (l'ancien est
-aussitôt invalidé) : `security-review-controller user reset-password admin`.
+Traitez ce mot de passe comme un secret : restreignez l'accès aux journaux et connectez-vous avec
+`admin`. L'interface **exige alors un nouveau mot de passe** avant toute autre chose : elle ouvre
+**Mon compte**, et l'API refuse toutes les autres routes (`403`) tant que le mot de passe n'est pas
+changé. S'il est perdu, générez-en un nouveau (l'ancien est aussitôt invalidé) :
+`security-review-controller user reset-password admin`.
+
+Il en va de même de tout mot de passe défini par quelqu'un d'autre : un compte local créé ou
+réinitialisé par un administrateur (écran ou CLI) change son mot de passe à sa première connexion.
+L'écran **Utilisateurs** affiche **mot de passe à changer** jusque-là.
 
 !!! note "Mise à jour depuis le jeton `bootstrap-admin`"
     Les versions précédentes créaient un **jeton** `bootstrap-admin` à la place du compte. Sur une
@@ -320,8 +368,12 @@ aussitôt invalidé) : `security-review-controller user reset-password admin`.
 
 ### Connexion et sessions
 
+Quand le contrôleur n'accepte plus la session pendant la navigation (session expirée, mot de passe
+changé dans un autre onglet, compte supprimé), une fenêtre **Session expirée** s'ouvre :
+**Se reconnecter** ouvre la page de connexion puis revient à la même page.
+
 La page de connexion propose l'identifiant et le mot de passe d'un compte local et, avec la
-[connexion SSO](../advanced/sso.md), le bouton du fournisseur d'identité ; elle
+[connexion OIDC](../advanced/sso.md), le bouton du fournisseur d'identité ; elle
 n'accepte pas de jeton. `POST /api/v1/auth/login` vérifie le mot de passe d'un compte local et
 renvoie un **jeton de session** signé, valable `SECREVIEW_SESSION_HOURS` heures (8 par défaut),
 que l'onglet utilise comme un jeton Bearer :
@@ -332,22 +384,28 @@ curl -s -X POST https://secreview.example.com/api/v1/auth/login \
 # {"session": "eyJ…", "expires_in": 28800, "username": "alice", "role": "triager"}
 ```
 
-Chaque session désigne un compte (local ou SSO) ; à chaque requête, le contrôleur le relit en
+Chaque session désigne un compte (local ou OIDC) ; à chaque requête, le contrôleur le relit en
 base :
 
-- un changement de **rôle ou de projets** s'applique immédiatement aux sessions ouvertes ;
+- un changement de ses **groupes**, de leurs rôles ou d'un rôle s'applique immédiatement aux
+  sessions ouvertes ;
 - une **suppression** ou un **nouveau mot de passe** (changé par l'utilisateur ou réinitialisé
   par un administrateur) ferme toutes les sessions du compte ; `PUT /api/v1/me/password` remet une
   nouvelle session à l'onglet qui a changé le mot de passe.
 
 Les sessions sont signées avec `SECREVIEW_SESSION_SECRET` (32 caractères au moins), partagé par
-toutes les répliques du contrôleur ; sans lui, un secret aléatoire est tiré à chaque démarrage et
-les sessions se terminent au redémarrage (un avertissement est journalisé).
+toutes les répliques du contrôleur. Sans lui, le secret est lu dans
+`SECREVIEW_SESSION_SECRET_FILE` (`session-secret` dans le répertoire de travail, `/var/lib/secreview` en
+Docker), où il est généré au premier démarrage avec les droits `0600` : les sessions survivent à
+un redémarrage, et les répliques qui partagent le volume partagent le secret. Des répliques sans
+volume partagé doivent partager `SECREVIEW_SESSION_SECRET`.
 
 Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour un identifiant
 depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
-connexion est refusée (`429`, en-tête `Retry-After`), même avec le bon mot de passe. Le compteur
-est tenu en mémoire par chaque réplique. Derrière un reverse proxy, l'adresse vue est celle du
+connexion est refusée (`429`, en-tête `Retry-After`), même avec le bon mot de passe. Les
+compteurs sont tenus en base : tous les workers et réplicas du contrôleur les partagent. Chaque
+adresse est aussi limitée sur toute l'API REST (par défaut 600 requêtes par minute, 30 sur les
+routes de connexion, voir [`SECREVIEW_RATE_LIMIT_*`](../reference/configuration.md)). Derrière un reverse proxy, l'adresse vue est celle du
 proxy, et la limite s'appliquerait alors à tous les clients du proxy : déclarez le proxy dans
 [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md) pour que l'adresse du client
 soit lue dans `X-Forwarded-For`. Chaque connexion et chaque échec
@@ -366,7 +424,10 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 - Les mots de passe des comptes ne sont jamais stockés : seule une empreinte **scrypt** salée
   (N=2¹⁴, r=8, p=5) est enregistrée et aucune réponse de l'API ne la renvoie. La vérification
   prend le même temps que l'identifiant existe ou non, et la réponse d'échec est identique. La documentation Swagger (`/api/docs`)
-  et son schéma (`/api/openapi.json`) sont publics et ne donnent accès à aucune donnée.
+  et son schéma (`/api/openapi.json`) sont **désactivés par défaut**
+  (`SECREVIEW_SWAGGER_ENABLED=true` les sert) ; une fois activés, ils sont publics et ne donnent
+  accès à aucune donnée. Leurs fichiers sont fournis avec la build de l'interface web : rien
+  n'est chargé depuis Internet, et Swagger n'envoie jamais le schéma au validateur en ligne.
   Dans Swagger, le cadenas d'une route indique qu'elle exige un jeton : il reste **ouvert**
   tant que vous n'avez pas saisi de jeton avec **Authorize**, et ne veut pas dire que la route
   est accessible sans jeton.
@@ -374,9 +435,9 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   d'[enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton) sont déposées sur
   le **serveur MCP** (`POST /api/v1/enroll`, public) ; le contrôleur les liste et les traite
   (`GET /api/v1/enrollments`, `POST /api/v1/enrollments/{id}/approve`,
-  `DELETE /api/v1/enrollments/{id}`, rôle `admin`). Il peut donc rester sur un réseau interne.
+  `DELETE /api/v1/enrollments/{id}`, permission `tokens.manage`). Il peut donc rester sur un réseau interne.
 - Le jeton est envoyé dans l'en-tête `Authorization` : pas de cookie, donc pas de CSRF.
-  Seule la [connexion SSO](../advanced/sso.md) pose un cookie, `HttpOnly`,
+  Seule la [connexion OIDC](../advanced/sso.md) pose un cookie, `HttpOnly`,
   `SameSite=Lax`, `Secure` en HTTPS, limité à l'URL de retour et valable 10 minutes : il lie le
   retour du fournisseur au navigateur qui a lancé la connexion (protection contre le *login
   CSRF*). Le jeton de session est remis dans le fragment d'URL (`#session=...`), jamais envoyé à
@@ -395,10 +456,11 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Crée le compte `admin` au premier démarrage du contrôleur, tant qu'aucun compte n'existe ; `true` dans Docker |
 | `SECREVIEW_SESSION_SECRET` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques |
-| `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session (1 à 24 heures), connexion par compte local ou SSO |
-| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le [compte SSO](../advanced/sso.md#comptes-sso) à la première connexion ; sinon un administrateur le crée |
+| `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | Fichier du secret quand `SECREVIEW_SESSION_SECRET` n'est pas défini, généré au premier démarrage |
+| `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session (1 à 24 heures), connexion par compte local ou OIDC |
+| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le [compte OIDC](../advanced/sso.md#comptes-oidc) à la première connexion ; sinon un administrateur le crée |
 | `SECREVIEW_ENROLLMENT` | `true` | Demandes de jetons par les projets (sur le serveur MCP), validées dans l'écran **Jetons** |
-| `SECREVIEW_OIDC_*` | — | [Connexion SSO](../advanced/sso.md), voir la [référence](../reference/configuration.md) |
+| `SECREVIEW_OIDC_*` | — | [Connexion OIDC](../advanced/sso.md), voir la [référence](../reference/configuration.md) |
 
 Le paquet publié et l'image Docker contiennent l'application déjà compilée. Si vous installez
 depuis les sources sans la compiler, le contrôleur ne sert que l'API REST et un avertissement est

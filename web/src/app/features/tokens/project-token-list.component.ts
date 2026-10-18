@@ -16,6 +16,15 @@ import {
 } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
+import {
+  TableControlFilter,
+  TableControlFilterChange,
+  TableControlsComponent,
+} from '../../shared/components/table-controls/table-controls.component';
+import { compareTableText, filterAndSortRows } from '../../shared/utils/table-utils';
+
+type EnrollmentSortKey = 'label' | 'project' | 'requester' | 'created';
+type TokenSortKey = 'label' | 'projects' | 'usage' | 'created' | 'expires';
 
 /**
  * Administrator page for tokens: enrollment requests waiting for approval, creation of MCP,
@@ -24,7 +33,7 @@ import { RefreshButtonComponent } from '../../shared/components/refresh-button/r
  */
 @Component({
   selector: 'app-project-token-list',
-  imports: [DatePipe, FormField, RefreshButtonComponent, TranslatePipe],
+  imports: [DatePipe, FormField, RefreshButtonComponent, TableControlsComponent, TranslatePipe],
   templateUrl: './project-token-list.component.html',
   styleUrl: './project-token-list.component.css',
 })
@@ -35,8 +44,129 @@ export class ProjectTokenListComponent {
   readonly projects = rxResource({ stream: () => this.api.projects() });
   readonly tokens = rxResource({ stream: () => this.api.projectTokens() });
   readonly enrollments = rxResource({ stream: () => this.api.enrollments() });
-  /** Whether SSO is enabled: approvals then offer web read access to the developer. */
+  /** Whether OIDC is enabled: approvals then offer web read access to the developer. */
   readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
+  readonly enrollmentSearch = signal('');
+  readonly enrollmentSort = signal<EnrollmentSortKey>('created');
+  readonly enrollmentDirection = signal<'asc' | 'desc'>('desc');
+  readonly enrollmentKindFilter = signal<'' | 'new' | 'additional'>('');
+  readonly enrollmentSortOptions = computed(() => [
+    { value: 'label', label: this.i18n.translate('tokens.label') },
+    { value: 'project', label: this.i18n.translate('reportTable.project') },
+    { value: 'requester', label: this.i18n.translate('tokens.requester') },
+    { value: 'created', label: this.i18n.translate('tokens.requestedAt') },
+  ]);
+  readonly enrollmentFilters = computed<TableControlFilter[]>(() => [
+    {
+      key: 'kind',
+      label: this.i18n.translate('users.type'),
+      value: this.enrollmentKindFilter(),
+      options: [
+        { value: '', label: this.i18n.translate('common.all') },
+        { value: 'new', label: this.i18n.translate('tokens.newToken') },
+        { value: 'additional', label: this.i18n.translate('tokens.additional') },
+      ],
+    },
+  ]);
+  readonly visibleEnrollments = computed(() => {
+    const kind = this.enrollmentKindFilter();
+    const requests = (this.enrollments.value() ?? []).filter(
+      (request) => !kind || request.kind === kind,
+    );
+    const sort = this.enrollmentSort();
+    return filterAndSortRows(
+      requests,
+      this.enrollmentSearch(),
+      this.enrollmentDirection(),
+      (request) =>
+        [
+          request.label,
+          this.i18n.translate(
+            request.kind === 'additional' ? 'tokens.additional' : 'tokens.newToken',
+          ),
+          this.i18n.translate(this.roleLabel(request.role)),
+          request.project,
+          request.requested_by ?? '',
+          request.requested_from ?? '',
+        ].join(' '),
+      (left, right) => {
+        if (sort === 'project') {
+          return compareTableText(left.project, right.project);
+        }
+        if (sort === 'requester') {
+          return compareTableText(left.requested_by ?? '', right.requested_by ?? '');
+        }
+        if (sort === 'created') {
+          return left.created_at.localeCompare(right.created_at);
+        }
+        return compareTableText(left.label, right.label);
+      },
+    );
+  });
+  readonly tokenSearch = signal('');
+  readonly tokenSort = signal<TokenSortKey>('created');
+  readonly tokenDirection = signal<'asc' | 'desc'>('desc');
+  readonly tokenRoleFilter = signal<'' | ProjectTokenRole>('');
+  readonly tokenSortOptions = computed(() => [
+    { value: 'label', label: this.i18n.translate('tokens.label') },
+    { value: 'projects', label: this.i18n.translate('tokens.allowedProjects') },
+    { value: 'usage', label: this.i18n.translate('tokens.usage') },
+    { value: 'created', label: this.i18n.translate('common.createdAt') },
+    { value: 'expires', label: this.i18n.translate('tokens.expiresAt') },
+  ]);
+  readonly tokenFilters = computed<TableControlFilter[]>(() => [
+    {
+      key: 'role',
+      label: this.i18n.translate('tokens.usage'),
+      value: this.tokenRoleFilter(),
+      options: [
+        { value: '', label: this.i18n.translate('common.all') },
+        ...(['mcp', 'reader', 'triager', 'ci'] as ProjectTokenRole[]).map((role) => ({
+          value: role,
+          label: this.i18n.translate(this.roleLabel(role)),
+        })),
+      ],
+    },
+  ]);
+  readonly visibleTokens = computed(() => {
+    const role = this.tokenRoleFilter();
+    const items = (this.tokens.value() ?? []).filter((token) => !role || token.role === role);
+    const sort = this.tokenSort();
+    return filterAndSortRows(
+      items,
+      this.tokenSearch(),
+      this.tokenDirection(),
+      (token) =>
+        [
+          token.label,
+          token.project ?? '',
+          ...(token.projects ?? []),
+          ...(token.pending_projects ?? []),
+          this.i18n.translate(this.roleLabel(token.role)),
+        ].join(' '),
+      (left, right) => {
+        if (sort === 'projects') {
+          return compareTableText(
+            this.describeProjects(left.projects),
+            this.describeProjects(right.projects),
+          );
+        }
+        if (sort === 'usage') {
+          return compareTableText(
+            this.i18n.translate(this.roleLabel(left.role)),
+            this.i18n.translate(this.roleLabel(right.role)),
+          );
+        }
+        if (sort === 'created') {
+          return left.created_at.localeCompare(right.created_at);
+        }
+        if (sort === 'expires') {
+          return (left.expires_at ?? '').localeCompare(right.expires_at ?? '');
+        }
+        return compareTableText(left.label, right.label);
+      },
+    );
+  });
   /** Web access chosen for each pending request, by request id (default: see portalAccess). */
   private readonly portalChoices = signal<Record<string, PortalAccess>>({});
   /** Model of the creation form (the projects are picked in selectedProjects). */
@@ -68,6 +198,42 @@ export class ProjectTokenListComponent {
   readonly graceChoices = GRACE_HOURS;
   /** Hours during which the previous secret keeps working after a rotation. */
   readonly graceHours = signal(0);
+
+  onEnrollmentSort(value: string): void {
+    if (value === 'label' || value === 'project' || value === 'requester' || value === 'created') {
+      this.enrollmentSort.set(value);
+    }
+  }
+
+  onEnrollmentFilter(change: TableControlFilterChange): void {
+    if (change.key === 'kind') {
+      this.enrollmentKindFilter.set(
+        change.value === 'new' || change.value === 'additional' ? change.value : '',
+      );
+    }
+  }
+
+  onTokenSort(value: string): void {
+    if (
+      value === 'label' ||
+      value === 'projects' ||
+      value === 'usage' ||
+      value === 'created' ||
+      value === 'expires'
+    ) {
+      this.tokenSort.set(value);
+    }
+  }
+
+  onTokenFilter(change: TableControlFilterChange): void {
+    if (change.key === 'role') {
+      this.tokenRoleFilter.set(
+        ['mcp', 'reader', 'triager', 'ci'].includes(change.value)
+          ? (change.value as ProjectTokenRole)
+          : '',
+      );
+    }
+  }
 
   /** Message key of the usage of a token (MCP, or REST API with its rights). */
   roleLabel(role: Role): MessageKey {
@@ -188,7 +354,7 @@ export class ProjectTokenListComponent {
   /**
    * Web access offered with the approval, filled with the requester, which the administrator
    * checks or corrects (the requester name is not verified). Checked by default with OIDC (an
-   * unknown name becomes an SSO user); without it, the name must be an existing web user.
+   * unknown name becomes an OIDC user); without it, the name must be an existing web user.
    */
   portalAccess(request: EnrollmentRequest): PortalAccess {
     return (
@@ -364,7 +530,7 @@ const GRACE_HOURS: readonly number[] = [0, 1, 24, 168];
 /** Web read access given to the developer when approving its enrollment. */
 interface PortalAccess {
   enabled: boolean;
-  /** Username of the web user (for an SSO user, the username claim of the provider). */
+  /** Username of the web user (for an OIDC user, the username claim of the provider). */
   user: string;
 }
 

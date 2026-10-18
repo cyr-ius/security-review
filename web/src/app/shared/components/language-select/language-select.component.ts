@@ -18,7 +18,7 @@ export class LanguageSelectComponent {
   onChange(event: Event): void {
     const value = (event.target as HTMLSelectElement).value;
     if (isLanguage(value)) {
-      this.i18n.language.set(value);
+      this.i18n.setLanguage(value);
     }
   }
 }

@@ -4,18 +4,30 @@ import { Component, ElementRef, computed, inject, signal, viewChild } from '@ang
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
+import { SEVERITY_META } from '../../../core/constants/labels';
+import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
   CustomRule,
   CustomRuleWrite,
   RuleOrigin,
   SEVERITIES,
+  SEVERITY_RANK,
   Severity,
 } from '../../../core/models/api.models';
-import { SEVERITY_META } from '../../../core/constants/labels';
-import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
-import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { ApiService } from '../../../core/services/api.service';
+import { ApiService, saveBlob } from '../../../core/services/api.service';
+import {
+  PackFile,
+  PackFileError,
+  PackTransferComponent,
+} from '../../../shared/components/pack-transfer/pack-transfer.component';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
+import {
+  TableControlFilter,
+  TableControlFilterChange,
+  TableControlsComponent,
+} from '../../../shared/components/table-controls/table-controls.component';
+import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 
 interface RuleFormModel {
   id: string;
@@ -39,10 +51,19 @@ const EMPTY_RULE: RuleFormModel = {
   ignore_case: true,
 };
 
+type RuleSortKey = 'id' | 'title' | 'severity' | 'updated';
+
 /** Admin view for the scan rules stored in the database (default and custom). */
 @Component({
   selector: 'app-rule-list',
-  imports: [DatePipe, FormField, RefreshButtonComponent, TranslatePipe],
+  imports: [
+    PackTransferComponent,
+    DatePipe,
+    FormField,
+    RefreshButtonComponent,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './rule-list.component.html',
   styleUrl: './rule-list.component.css',
 })
@@ -57,10 +78,69 @@ export class RuleListComponent {
   readonly catalog = rxResource({ stream: () => this.api.customRules() });
   /** Origin filter of the table ('' shows every rule). */
   readonly originFilter = signal<RuleOrigin | ''>('');
+  readonly search = signal('');
+  readonly sort = signal<RuleSortKey>('id');
+  readonly direction = signal<'asc' | 'desc'>('asc');
+  readonly severityFilter = signal<Severity | ''>('');
+  readonly sortOptions = computed(() => [
+    { value: 'id', label: this.i18n.translate('rules.rule') },
+    { value: 'title', label: this.i18n.translate('rules.title') },
+    { value: 'severity', label: this.i18n.translate('rules.severity') },
+    { value: 'updated', label: this.i18n.translate('rules.updatedAt') },
+  ]);
+  readonly filters = computed<TableControlFilter[]>(() => [
+    {
+      key: 'origin',
+      label: this.i18n.translate('rules.origin'),
+      value: this.originFilter(),
+      options: [
+        { value: '', label: this.i18n.translate('rules.allOrigins') },
+        { value: 'builtin', label: this.i18n.translate('rules.builtinPlural') },
+        { value: 'custom', label: this.i18n.translate('rules.customPlural') },
+      ],
+    },
+    {
+      key: 'severity',
+      label: this.i18n.translate('rules.severity'),
+      value: this.severityFilter(),
+      options: [
+        { value: '', label: this.i18n.translate('common.all') },
+        ...SEVERITIES.map((severity) => ({
+          value: severity,
+          label: this.i18n.translate(this.severityMeta[severity].label),
+        })),
+      ],
+    },
+  ]);
   readonly visibleRules = computed(() => {
     const rules = this.catalog.value()?.rules ?? [];
     const origin = this.originFilter();
-    return origin ? rules.filter((rule) => rule.origin === origin) : rules;
+    const severity = this.severityFilter();
+    const filtered = rules.filter(
+      (rule) => (!origin || rule.origin === origin) && (!severity || rule.severity === severity),
+    );
+    const sort = this.sort();
+    return filterAndSortRows(
+      filtered,
+      this.search(),
+      this.direction(),
+      (rule) =>
+        [rule.id, rule.title, rule.cwe, rule.languages.join(' '), rule.pattern, rule.advice].join(
+          ' ',
+        ),
+      (left, right) => {
+        if (sort === 'title') {
+          return compareTableText(left.title, right.title);
+        }
+        if (sort === 'severity') {
+          return SEVERITY_RANK[left.severity] - SEVERITY_RANK[right.severity];
+        }
+        if (sort === 'updated') {
+          return left.updated_at.localeCompare(right.updated_at);
+        }
+        return compareTableText(left.id, right.id);
+      },
+    );
   });
   readonly formModel = signal<RuleFormModel>({ ...EMPTY_RULE });
   readonly ruleForm = form(this.formModel, (path) => {
@@ -84,6 +164,8 @@ export class RuleListComponent {
   /** Error raised while saving, shown inside the modal. */
   readonly formError = signal<Message | null>(null);
   readonly notice = signal<Message | null>(null);
+  /** True while a pack is exported or imported. */
+  readonly transferring = signal(false);
 
   startCreate(): void {
     this.clearMessages();
@@ -189,6 +271,22 @@ export class RuleListComponent {
     this.originFilter.set(value === 'builtin' || value === 'custom' ? value : '');
   }
 
+  onTableSort(value: string): void {
+    if (value === 'id' || value === 'title' || value === 'severity' || value === 'updated') {
+      this.sort.set(value);
+    }
+  }
+
+  onTableFilter(change: TableControlFilterChange): void {
+    if (change.key === 'origin') {
+      this.setOriginFilter(change.value);
+    } else if (change.key === 'severity') {
+      this.severityFilter.set(
+        SEVERITIES.includes(change.value as Severity) ? (change.value as Severity) : '',
+      );
+    }
+  }
+
   async remove(rule: CustomRule): Promise<void> {
     if (!window.confirm(this.i18n.translate('rules.confirmDelete', { id: rule.id }))) {
       return;
@@ -218,6 +316,49 @@ export class RuleListComponent {
     } finally {
       this.reloading.set(false);
     }
+  }
+
+  /** Download the security-review-rules.toml pack. */
+  async exportPack(): Promise<void> {
+    this.clearMessages();
+    this.transferring.set(true);
+    try {
+      saveBlob(
+        await firstValueFrom(this.api.exportRulePack(['rules'])),
+        'security-review-rules.toml',
+      );
+    } catch {
+      this.error.set(msg('pack.exportFailed'));
+    } finally {
+      this.transferring.set(false);
+    }
+  }
+
+  /** Import a TOML pack chosen by the user (all or nothing), then reload the list. */
+  async importPack(file: PackFile): Promise<void> {
+    this.clearMessages();
+    this.transferring.set(true);
+    try {
+      const result = await firstValueFrom(this.api.importRulePack(file.name, file.content));
+      this.notice.set(
+        msg('pack.rulesImported', {
+          file: file.name,
+          rules: result.rules,
+          items: result.checklist_items,
+          disabled: result.disabled_rules,
+        }),
+      );
+      this.catalog.reload();
+    } catch (error: unknown) {
+      this.error.set(describeError(error));
+    } finally {
+      this.transferring.set(false);
+    }
+  }
+
+  onPackRejected(reason: PackFileError): void {
+    this.clearMessages();
+    this.error.set(msg(reason === 'tooLarge' ? 'pack.tooLarge' : 'pack.unreadable'));
   }
 
   private openEditor(): void {

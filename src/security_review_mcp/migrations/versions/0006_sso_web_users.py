@@ -1,11 +1,11 @@
-"""SSO web users: the OIDC users become web users; the user grants are moved into them.
+"""OIDC web users: the OIDC users become web users; the user grants are moved into them.
 
-The revokedssouser table holds the names of the deleted SSO users, never created again by a
+The revokedssouser table holds the names of the deleted OIDC users, never created again by a
 login.
 
-Each user grant (reader access given by name to an OIDC user) becomes an SSO web user with the
+Each user grant (reader access given by name to an OIDC user) becomes an OIDC web user with the
 role ``reader`` on the same projects. A grant whose name is not a valid username, or that names
-an existing local account, is dropped (and logged): an SSO login never opens a local account.
+an existing local account, is dropped (and logged): an OIDC login never opens a local account.
 
 Revision ID: 0006
 Revises: 0005
@@ -33,7 +33,7 @@ USERNAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@-]{0,63}")
 
 
 def _move_user_grants(connection: sa.Connection) -> None:
-    """Copy the user grants into SSO web users, then drop their table."""
+    """Copy the user grants into OIDC web users, then drop their table."""
     if not sa.inspect(connection).has_table("oidcusergrant"):
         return
     grants = sa.table(
@@ -80,7 +80,7 @@ def _move_user_grants(connection: sa.Connection) -> None:
 
 
 def upgrade() -> None:
-    """Add the SSO columns to webuser (those it lacks) and move the user grants into it."""
+    """Add the OIDC columns to webuser (those it lacks) and move the user grants into it."""
     existing = {column["name"] for column in sa.inspect(op.get_bind()).get_columns("webuser")}
     added = {
         "auth_source": sa.Column(
@@ -94,7 +94,9 @@ def upgrade() -> None:
     with op.batch_alter_table("webuser") as batch:
         for column in missing:
             batch.add_column(column)
-        batch.alter_column("role", existing_type=sa.String(20), nullable=True)
+        # Dropped by revision 0013: missing from a database created from newer models
+        if "role" in existing:
+            batch.alter_column("role", existing_type=sa.String(20), nullable=True)
         batch.alter_column("password_hash", existing_type=sa.String(255), nullable=True)
         batch.alter_column(
             "password_changed_at", existing_type=sa.DateTime(timezone=True), nullable=True
@@ -118,7 +120,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Drop the SSO web users, their columns and revocations; recreate (empty) oidcusergrant."""
+    """Drop the OIDC web users, their columns and revocations; recreate (empty) oidcusergrant."""
     op.drop_table("revokedssouser")
     op.execute(sa.text("DELETE FROM webuser WHERE auth_source <> 'local'"))
     with op.batch_alter_table("webuser") as batch:

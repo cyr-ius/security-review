@@ -65,7 +65,7 @@ With `SECREVIEW_OSV_AUTO_UPDATE=true`, `security-review-controller serve` downlo
 ```bash
 SECREVIEW_OSV_AUTO_UPDATE=true
 # Optional: outgoing HTTP proxy of the controller (credentials accepted, never logged)
-SECREVIEW_PROXY=http://user:password@proxy.example.com:3128
+HTTPS_PROXY=http://user:password@proxy.example.com:3128
 ```
 
 - **Disabled by default**. The MCP server itself never connects outside.
@@ -73,12 +73,12 @@ SECREVIEW_PROXY=http://user:password@proxy.example.com:3128
   or a second replica of the controller does not download again before the end of the interval
   (`SECREVIEW_OSV_UPDATE_INTERVAL_HOURS`, 24 by default). An empty or too old database is
   updated at start-up.
-- **Proxy**: the download goes through the outgoing proxy of the controller,
-  `SECREVIEW_PROXY` (`http://[user:password@]host:port`, `CONNECT` tunnel to the HTTPS site),
-  except to the hosts of `SECREVIEW_NO_PROXY`. The same proxy serves the
-  [SSO login](sso.md). Without it, the standard
-  `HTTPS_PROXY` and `NO_PROXY` variables apply. If the proxy inspects TLS, give its CA with
-  `SECREVIEW_OSV_CAFILE` (it then replaces the system CAs).
+- **Proxy**: the download goes through the outgoing proxy of the controller, given by the
+  standard variables `HTTPS_PROXY` (else `HTTP_PROXY`; lowercase names accepted;
+  `http://[user:password@]host:port`, `host:port` meaning `http://host:port`, `CONNECT` tunnel
+  to the HTTPS site), except to the hosts of `NO_PROXY`. The same proxy serves the
+  [OIDC login](sso.md). Without these variables, the connection is direct. If the proxy
+  inspects TLS, give its CA with `SECREVIEW_OSV_CAFILE` (it then replaces the system CAs).
 - **Mirror**: `SECREVIEW_OSV_URL` replaces the source (Nexus, Artifactory, internal bucket…) as
   long as it serves `<URL>/<ecosystem>/all.zip` over HTTPS. Plain HTTP, credentials in the URL
   and redirects to anything other than HTTPS are refused.
@@ -90,7 +90,7 @@ SECREVIEW_PROXY=http://user:password@proxy.example.com:3128
 
 #### Hosts without proxy
 
-`SECREVIEW_NO_PROXY` (or the list of the **Settings** screen) gives, comma separated, the
+`NO_PROXY` (or the list of the **Outgoing proxy** screen) gives, comma separated, the
 destinations reached **without** the proxy:
 
 | Entry | Example | Effect |
@@ -98,23 +98,22 @@ destinations reached **without** the proxy:
 | Domain | `corp.example` or `.corp.example` | The domain and all its subdomains (`sso.corp.example`) |
 | Subdomain wildcard | `*.corp.example` | Same as `.corp.example` |
 | IP address | `10.0.0.5`, `[fd00::5]` | This address (a port, `10.0.0.5:8443`, is ignored) |
-| CIDR range | `10.0.0.0/8`, `192.168.1.128/25`, `fd00::/8` | Any IPv4 or IPv6 address of the range |
 | Everything | `*` | No connection goes through the proxy |
 
-Like curl, an address or a CIDR range only applies to a URL whose host **is** an IP address
-(`https://10.1.2.3/...`): a host name is never resolved to be compared with a range. To bypass
-the proxy towards an internal server reached by its name, give its domain. The loopback
-(`localhost`, `127.0.0.0/8`, `::1`) is always reached directly. An invalid range
-(`10.0.0.0/33`, `example.com/path`) is refused.
+An address only applies to a URL whose host **is** that IP address (`https://10.0.0.5/...`): a
+host name is never resolved. To bypass the proxy towards an internal server reached by its name,
+give its domain. Address ranges (CIDR, `10.0.0.0/8`) are not supported: in `NO_PROXY`, such an
+entry matches no host, and the **Outgoing proxy** screen refuses it. The loopback (`localhost`,
+`127.0.0.0/8`, `::1`) is always reached directly.
 
 ```bash
-SECREVIEW_NO_PROXY=.corp.example,10.0.0.0/8,172.16.0.0/12,fd00::/8
+NO_PROXY=.corp.example,10.0.0.5
 ```
 
-The proxy can also be chosen by an administrator in the [**Settings**](../usage/web-interface.md#screens)
+The proxy can also be chosen by an administrator in the [**Outgoing proxy**](../usage/web-interface.md#screens)
 screen of the web interface: proxy and hosts without proxy set there, or direct connection,
-take precedence over `SECREVIEW_PROXY`, `SECREVIEW_NO_PROXY` and `HTTPS_PROXY`; they apply to
-the next download. The same screen shows the state of the database, the history of the updates
+take precedence over `HTTPS_PROXY`, `HTTP_PROXY` and `NO_PROXY`; they apply to
+the next download. The **OSV database** screen shows the state of the database, the history of the updates
 (scheduled, CLI or web) and an **Update now** button (run in the background, one update at a
 time), only available when `SECREVIEW_OSV_AUTO_UPDATE=true`.
 

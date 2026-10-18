@@ -163,7 +163,7 @@
 <div class="card">
   <div class="card-header fw-semibold">{{ 'project.latestReports' | t }}</div>
   @if (reports.value(); as rows) {
-    <app-report-table [reports]="rows" [showProject]="false" />
+    <app-report-table [reports]="rows" [showProject]="false" [enableControls]="true" />
   } @else if (reports.error()) {
     <div class="card-body text-danger">{{ 'reports.loadError' | t }}</div>
   }

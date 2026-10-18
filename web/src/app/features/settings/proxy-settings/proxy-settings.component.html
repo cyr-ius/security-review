@@ -1,0 +1,160 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ 'settings.proxyTitle' | t }}</h1>
+    <p class="text-body-secondary mb-0">{{ 'settings.proxySubtitle' | t }}</p>
+  </div>
+  <app-refresh-button [loading]="settings.isLoading()" (refresh)="reload()" />
+</div>
+
+@if (error(); as text) {
+  <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+}
+@if (message(); as text) {
+  <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+}
+
+@if (settings.error()) {
+  <div class="alert alert-danger" role="alert">{{ 'settings.loadError' | t }}</div>
+} @else if (settings.isLoading() && !settings.hasValue()) {
+  <div class="text-center my-4">
+    <span class="spinner-border text-secondary" aria-hidden="true"></span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+  </div>
+} @else if (settings.value(); as current) {
+  <section class="card setting-card mb-4" aria-labelledby="proxy-help">
+    <div class="card-body">
+      <p id="proxy-help" class="text-body-secondary small">
+        {{ 'settings.proxyHelp' | t }}
+      </p>
+      <p class="mb-3">
+        {{ 'settings.proxyApplied' | t }}
+        <strong class="font-monospace">{{
+          current.proxy.effective.url ?? ('settings.none' | t)
+        }}</strong>
+        @if (proxySource(); as source) {
+          <span class="text-body-secondary">({{ source | t }})</span>
+        }
+        @if (current.proxy.effective.no_proxy; as bypass) {
+          <br />
+          {{ 'settings.noProxyApplied' | t }} <span class="font-monospace">{{ bypass }}</span>
+        }
+      </p>
+
+      <form (submit)="saveProxy($event)" novalidate>
+        <fieldset class="mb-3">
+          <legend class="form-label">
+            {{ 'settings.proxyUrl' | t }}
+            @if (current.proxy.url.value !== null) {
+              <span class="badge text-bg-primary ms-1">{{ 'sso.webInterface' | t }}</span>
+            } @else {
+              <span class="badge text-bg-secondary ms-1">{{ 'sso.variable' | t }}</span>
+            }
+          </legend>
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="radio"
+              id="proxy-env"
+              value="env"
+              [formField]="proxyForm.mode"
+            />
+            <label class="form-check-label" for="proxy-env">
+              {{ 'sso.variable' | t }} <code>HTTPS_PROXY</code> / <code>HTTP_PROXY</code> ({{
+                current.proxy.url.env ?? ('sso.empty' | t)
+              }})
+            </label>
+          </div>
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="radio"
+              id="proxy-custom"
+              value="custom"
+              [formField]="proxyForm.mode"
+            />
+            <label class="form-check-label" for="proxy-custom">{{
+              'settings.proxyCustom' | t
+            }}</label>
+          </div>
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="radio"
+              id="proxy-none"
+              value="none"
+              [formField]="proxyForm.mode"
+            />
+            <label class="form-check-label" for="proxy-none">
+              {{ 'settings.proxyNone' | t }}
+            </label>
+          </div>
+        </fieldset>
+
+        @if (proxyModel().mode === 'custom') {
+          <div class="mb-3">
+            <label for="proxy-url" class="form-label">{{ 'settings.url' | t }}</label>
+            <input
+              id="proxy-url"
+              class="form-control font-monospace"
+              type="text"
+              autocomplete="off"
+              spellcheck="false"
+              [placeholder]="'settings.proxyPlaceholder' | t"
+              [formField]="proxyForm.url"
+            />
+            <div class="form-text">
+              {{ 'settings.proxyUrlHelpBefore' | t }} <code>***</code
+              >{{ 'settings.proxyUrlHelpAfter' | t }}
+            </div>
+          </div>
+        }
+
+        @if (proxyModel().mode !== 'none') {
+          <div class="mb-3">
+            <div class="form-check form-switch">
+              <input
+                id="no-proxy-custom"
+                class="form-check-input"
+                type="checkbox"
+                role="switch"
+                [formField]="proxyForm.noProxyCustom"
+              />
+              <label class="form-check-label" for="no-proxy-custom">
+                {{ 'settings.noProxyCustom' | t }}
+                @if (current.proxy.no_proxy.value !== null) {
+                  <span class="badge text-bg-primary ms-1">{{ 'sso.webInterface' | t }}</span>
+                } @else {
+                  <span class="badge text-bg-secondary ms-1">{{ 'sso.variable' | t }}</span>
+                }
+              </label>
+            </div>
+            @if (proxyModel().noProxyCustom) {
+              <input
+                id="no-proxy"
+                class="form-control font-monospace mt-2"
+                type="text"
+                autocomplete="off"
+                spellcheck="false"
+                [attr.aria-label]="'settings.noProxyHosts' | t"
+                placeholder=".corp.example, 10.0.0.5, fd00::5"
+                [formField]="proxyForm.noProxy"
+              />
+            }
+            <div class="form-text">
+              {{ 'settings.noProxyHelp1' | t }} <code>*</code>{{ 'settings.noProxyHelp3' | t }}
+              <code>NO_PROXY</code>
+              {{
+                'settings.colonValue'
+                  | t: { value: current.proxy.no_proxy.env ?? ('sso.empty' | t) }
+              }}
+            </div>
+          </div>
+        }
+        <button type="submit" class="btn btn-primary" [disabled]="busy()">
+          <i class="bi bi-check-lg" aria-hidden="true"></i>
+          {{ 'common.save' | t }}
+        </button>
+      </form>
+    </div>
+  </section>
+}

@@ -1,11 +1,14 @@
 <select
   class="form-select form-select-sm"
-  [value]="i18n.language()"
   [attr.aria-label]="'common.language' | t"
   [title]="'common.language' | t"
   (change)="onChange($event)"
 >
+  <!-- [selected] on each option, not [value] on the select: the options of the @for do not
+       exist yet when the select is bound, and the browser would fall back on the first one -->
   @for (language of languages; track language) {
-    <option [value]="language" [attr.lang]="language">{{ names[language] }}</option>
+    <option [value]="language" [attr.lang]="language" [selected]="language === i18n.language()">
+      {{ names[language] }}
+    </option>
   }
 </select>

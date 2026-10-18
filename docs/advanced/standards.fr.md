@@ -78,9 +78,37 @@ curl -X POST https://secreview.example.com/api/v1/standards \
        "file_patterns": ["*.py", "pyproject.toml"], "content": "- PEP 8, ruff, typage."}'
 ```
 
+### Import et export
+
+Le bouton **Exporter** de l'écran **Normes** télécharge toutes les normes, désactivées
+comprises, dans un fichier TOML (`security-review-standards.toml`), sans les champs d'audit
+(auteur et date de la dernière modification). Le bouton **Importer** lit un tel fichier, **tout
+ou rien** : une norme est créée, ou remplacée si son identifiant (`slug`) existe ; les autres
+normes sont conservées. Utilisez-le pour copier les normes d'un serveur à l'autre, ou pour les
+versionner dans un dépôt.
+
+```toml
+[[standards]]
+slug = "python"
+title = "Normes Python"
+description = "Conventions maison"
+technologies = ["python", "fastapi"]
+file_patterns = ["*.py", "pyproject.toml"]
+enabled = true                     # facultatif (true par défaut)
+content = """
+- PEP 8, ruff, typage.
+"""
+```
+
+| Méthode | Route | Rôle |
+|---|---|---|
+| `GET` | `/api/v1/packs/standards` | `standards.manage` : fichier TOML de toutes les normes |
+| `POST` | `/api/v1/packs/standards` | `standards.manage` : corps `{"name": "standards.toml", "content": "<TOML>"}` ; renvoie les identifiants créés (`created`) et remplacés (`updated`), `422` avec les erreurs si le fichier est invalide |
+
 ## Limites
 
 - 200 normes au plus ; 32 technologies et 32 motifs de fichiers par norme.
+- Un fichier importé est limité à 4 Mio.
 - Recherche par l'outil ou le prompt : 50 technologies et 500 noms de fichiers au plus, et
   `SECREVIEW_MAX_CONTENT_CHARS` caractères au total.
 - Le contenu est du texte transmis à l'assistant : n'y mettez ni secret ni donnée sensible.

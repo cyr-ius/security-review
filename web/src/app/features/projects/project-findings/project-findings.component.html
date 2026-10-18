@@ -3,9 +3,11 @@
     <li class="breadcrumb-item">
       <a routerLink="/projects">{{ 'layout.projects' | t }}</a>
     </li>
-    <li class="breadcrumb-item">
-      <a [routerLink]="['/projects', project()]">{{ project() }}</a>
-    </li>
+    @if (project(); as name) {
+      <li class="breadcrumb-item">
+        <a [routerLink]="['/projects', name]">{{ name }}</a>
+      </li>
+    }
     <li class="breadcrumb-item active" aria-current="page">
       {{ 'projectFindings.title' | t }}
     </li>
@@ -13,8 +15,13 @@
 </nav>
 
 <div class="mb-3">
-  <h1 class="h3 mb-1 text-break">{{ 'projectFindings.heading' | t: { project: project() } }}</h1>
-  <p class="text-body-secondary small mb-0">{{ 'projectFindings.subtitle' | t }}</p>
+  @if (project(); as name) {
+    <h1 class="h3 mb-1 text-break">{{ 'projectFindings.heading' | t: { project: name } }}</h1>
+    <p class="text-body-secondary small mb-0">{{ 'projectFindings.subtitle' | t }}</p>
+  } @else {
+    <h1 class="h3 mb-1">{{ 'projectFindings.headingAll' | t }}</h1>
+    <p class="text-body-secondary small mb-0">{{ 'projectFindings.subtitleAll' | t }}</p>
+  }
 </div>
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
@@ -82,9 +89,16 @@
   @for (finding of findings(); track finding.id) {
     <app-finding-card
       [finding]="finding"
-      (updated)="onUpdated($event)"
-      (failed)="triageError.set($event)"
+      [canTriage]="auth.canTriage()"
+      [saving]="triage.saving() === finding.id"
+      (decided)="decide(finding, $event)"
+      (proposalRejected)="decide(finding, null)"
     >
+      @if (!project()) {
+        <a [routerLink]="['/projects', finding.project]" class="text-break">
+          <i class="bi bi-folder" aria-hidden="true"></i> {{ finding.project }}
+        </a>
+      }
       <a [routerLink]="['/reports', finding.report_id]">
         <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
         {{ 'report.title' | t: { id: finding.report_id } }}

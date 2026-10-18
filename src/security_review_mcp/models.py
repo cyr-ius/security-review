@@ -427,39 +427,17 @@ class AdvisoryUpdate(SQLModel, table=True):
     results: str = Field(default="{}")  # JSON: counters or error of each ecosystem
 
 
-# ── OIDC role mapping (web interface, see role_mapping) ──────────────────────
-
-
-class OidcRoleMapping(SQLModel, table=True):
-    """Web role granted to the OIDC users whose groups or roles claim holds ``claim_value``.
-
-    ``projects`` is the JSON list of the projects a ``reader`` or ``triager`` mapping is limited
-    to; an empty list means every project (always the case for ``admin``).
-    """
-
-    __table_args__ = (UniqueConstraint("claim_value", "role"),)
-
-    id: int | None = Field(default=None, primary_key=True)
-    claim_value: str = Field(index=True, max_length=200)
-    role: str = Field(max_length=20)
-    projects: str = Field(default="[]")
-    created_at: datetime = Field(default_factory=utcnow)
-    created_by: str | None = Field(default=None, max_length=64)
-
-
 # ── Web users (username and password login, see web_users) ───────────────────
 
 
 class WebUser(SQLModel, table=True):
-    """Account of the web interface: a local account (username and password) or an SSO one.
+    """Account of the web interface: a local account (username and password) or an OIDC one.
 
     ``auth_source`` is ``local`` (password login, only a scrypt hash of the password is stored)
-    or ``oidc`` (OpenID Connect login, no password). ``role`` and ``projects`` are the access
-    given by an administrator: ``projects`` is the JSON list of the projects a ``reader`` or
-    ``triager`` reaches, an empty list meaning every project (always for ``admin``). An SSO
-    account may have no role of its own (``role`` None): ``sso_role`` and ``sso_projects`` hold
-    the access its groups gave at its last login (see role_mapping), and the highest of both
-    applies. ``oidc_subject`` is the ``sub`` claim bound at the first SSO login.
+    or ``oidc`` (OpenID Connect login, no password). What a user may do comes only from the
+    roles of its groups (``GroupMember``, see access_control). ``oidc_subject`` and
+    ``oidc_issuer`` are the ``sub`` claim and the issuer bound at the first OIDC login: an
+    account is identified by both, so that another identity provider cannot reuse a subject.
     ``session_version`` is drawn at random at creation and at each password change: the sessions
     issued with another version are refused.
     """
@@ -467,24 +445,108 @@ class WebUser(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True, max_length=64)
     auth_source: str = Field(default="local", max_length=20)
-    role: str | None = Field(default=None, max_length=20)
-    projects: str = Field(default="[]")
     password_hash: str | None = Field(default=None, max_length=255)
     oidc_subject: str | None = Field(default=None, max_length=255)
-    sso_role: str | None = Field(default=None, max_length=20)
-    sso_projects: str = Field(default="[]")
+    oidc_issuer: str | None = Field(default=None, max_length=500)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
     password_changed_at: datetime | None = Field(default=None)
+    # Set by a password chosen or generated for the user (creation, reset, first administrator):
+    # its sessions reach nothing but the change of its own password until it changes it
+    must_change_password: bool = Field(default=False)
     session_version: int = Field(default=0, sa_type=BigInteger)
     last_login_at: datetime | None = Field(default=None)
     created_by: str | None = Field(default=None, max_length=64)
 
 
-class RevokedSsoUser(SQLModel, table=True):
-    """Username of an SSO web user deleted by an administrator (see web_users.delete_user).
+# ── Rate limiting (see rate_limit) ───────────────────────────────────────────
 
-    With ``SECREVIEW_OIDC_AUTO_CREATE_USERS``, an SSO login never creates a web user with this
+
+class RateLimitCounter(SQLModel, table=True):
+    """Events of a rate limit key in one fixed time window, shared by every process.
+
+    ``key`` is a SHA-256 digest of the limit and of what it counts (address, username...),
+    ``window_start`` the start of the window in seconds since the epoch.
+    """
+
+    key: str = Field(primary_key=True, max_length=64)
+    window_start: int = Field(primary_key=True, sa_type=BigInteger, index=True)
+    hits: int = Field(default=0)
+
+
+# ── Access control: roles, groups and members (see access_control) ───────────
+
+
+class AccessRole(SQLModel, table=True):
+    """Role of the web interface: a named set of permissions, given to groups.
+
+    ``permissions`` is the JSON list of the permission names (access_control.Permission). A
+    ``system`` role (``reader``, ``triager``, ``admin``) can be neither changed nor deleted: its
+    permissions are those of the code, not of this column.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(unique=True, index=True, max_length=64)
+    description: str = Field(default="", max_length=500)
+    permissions: str = Field(default="[]")
+    system: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+    created_by: str | None = Field(default=None, max_length=64)
+
+
+class UserGroup(SQLModel, table=True):
+    """Group of web users; its roles apply to every member.
+
+    With ``sso``, the OIDC users whose groups claim holds ``name`` are members too: their
+    membership is recomputed at each login. Without it, only the members an administrator added
+    belong to the group.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(unique=True, index=True, max_length=200)
+    description: str = Field(default="", max_length=500)
+    sso: bool = Field(default=True)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+    created_by: str | None = Field(default=None, max_length=64)
+
+
+class GroupRole(SQLModel, table=True):
+    """Role given to a group, on every project or on the projects listed in ``projects``.
+
+    ``projects`` is a JSON list; empty means every project. Only a role whose permissions are
+    all scoped to projects (reading reports, triaging findings) may list projects.
+    """
+
+    __table_args__ = (UniqueConstraint("group_id", "role_id"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    group_id: int = Field(foreign_key="usergroup.id", index=True)
+    role_id: int = Field(foreign_key="accessrole.id", index=True)
+    projects: str = Field(default="[]")
+
+
+class GroupMember(SQLModel, table=True):
+    """Membership of a web user in a group.
+
+    ``source`` is ``local`` (added by an administrator) or ``oidc`` (found in the groups claim
+    at the last OIDC login, replaced at each login).
+    """
+
+    __table_args__ = (UniqueConstraint("group_id", "user_id", "source"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    group_id: int = Field(foreign_key="usergroup.id", index=True)
+    user_id: int = Field(foreign_key="webuser.id", index=True)
+    source: str = Field(default="local", max_length=20)
+    created_at: datetime = Field(default_factory=utcnow)
+
+
+class RevokedSsoUser(SQLModel, table=True):
+    """Username of an OIDC web user deleted by an administrator (see web_users.delete_user).
+
+    With ``SECREVIEW_OIDC_AUTO_CREATE_USERS``, an OIDC login never creates a web user with this
     name again; an administrator who creates the user again lifts the revocation.
     """
 

@@ -170,6 +170,9 @@ def parse_pack(text: str, name: str) -> LoadResult:
     except tomllib.TOMLDecodeError as exc:
         result.errors.append(f"{name}: {exc}")
         return result
+    except RecursionError:
+        result.errors.append(f"{name}: values nested too deeply")
+        return result
 
     disabled = data.get("disabled_rules", [])
     if not isinstance(disabled, list):

@@ -14,8 +14,8 @@ export const tokens = defineMessages({
     'tokens.pendingHelp':
       '). Check the requester before approving: the token gives MCP access to the project. The approval can also give the developer read access to the project in this portal: enter their account from the Users page (filled with the requester, which is not verified).',
     'tokens.pendingHelpSso':
-      'An unknown username becomes an SSO user, who reads the project at login.',
-    'tokens.pendingHelpNoSso': 'Without SSO, the account must already exist.',
+      'An unknown username becomes an OIDC user, who reads the project at login.',
+    'tokens.pendingHelpNoSso': 'Without OIDC, the account must already exist.',
     'tokens.pendingLoadError': 'Could not load the requests.',
     'tokens.label': 'Label',
     'tokens.requester': 'Requester',
@@ -115,8 +115,8 @@ export const tokens = defineMessages({
     'tokens.pendingHelp':
       "). Vérifiez le demandeur avant d'approuver : le jeton donne l'accès MCP au projet. L'approbation peut aussi donner au développeur la lecture du projet dans ce portail : indiquez son compte de la page Utilisateurs (prérempli avec le demandeur, qui n'est pas vérifié).",
     'tokens.pendingHelpSso':
-      'Un identifiant inconnu devient un utilisateur SSO, qui lira le projet dès sa connexion.',
-    'tokens.pendingHelpNoSso': 'Sans SSO, le compte doit déjà exister.',
+      'Un identifiant inconnu devient un utilisateur OIDC, qui lira le projet dès sa connexion.',
+    'tokens.pendingHelpNoSso': 'Sans OIDC, le compte doit déjà exister.',
     'tokens.pendingLoadError': 'Impossible de charger les demandes.',
     'tokens.label': 'Label',
     'tokens.requester': 'Demandeur',
@@ -216,8 +216,8 @@ export const tokens = defineMessages({
     'tokens.pendingHelp':
       '). Compruebe el solicitante antes de aprobar: el token da acceso MCP al proyecto. La aprobación también puede dar al desarrollador acceso de lectura al proyecto en este portal: indique su cuenta de la página Usuarios (rellenada con el solicitante, que no está verificado).',
     'tokens.pendingHelpSso':
-      'Un usuario desconocido se convierte en un usuario SSO, que podrá leer el proyecto al iniciar sesión.',
-    'tokens.pendingHelpNoSso': 'Sin SSO, la cuenta debe existir ya.',
+      'Un usuario desconocido se convierte en un usuario OIDC, que podrá leer el proyecto al iniciar sesión.',
+    'tokens.pendingHelpNoSso': 'Sin OIDC, la cuenta debe existir ya.',
     'tokens.pendingLoadError': 'No se pudieron cargar las solicitudes.',
     'tokens.label': 'Etiqueta',
     'tokens.requester': 'Solicitante',

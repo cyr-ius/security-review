@@ -1,0 +1,157 @@
+<div class="shell" [class.menu-open]="menuOpen()">
+  <aside class="sidebar" id="app-sidebar" [attr.aria-label]="'layout.mainNav' | t">
+    <a class="brand" routerLink="/" (click)="closeMenu()">
+      <span class="brand-mark" aria-hidden="true"><i class="bi bi-shield-lock-fill"></i></span>
+      <span class="brand-text">
+        <span class="brand-name">Security Review</span>
+        <span class="brand-sub">{{ 'layout.subtitle' | t }}</span>
+      </span>
+    </a>
+
+    <nav class="nav-scroll">
+      <p class="nav-section">{{ 'layout.sectionSupervision' | t }}</p>
+      <ul class="nav-list">
+        @for (item of mainNav; track item.path) {
+          <li>
+            <a
+              class="nav-entry"
+              [routerLink]="item.path"
+              routerLinkActive="active"
+              ariaCurrentWhenActive="page"
+              (click)="closeMenu()"
+            >
+              <i class="bi" [class]="item.icon" aria-hidden="true"></i>
+              {{ item.label | t }}
+            </a>
+          </li>
+        }
+      </ul>
+
+      @if (referenceNav().length) {
+        <p class="nav-section">{{ 'layout.sectionReference' | t }}</p>
+        <ul class="nav-list">
+          @for (item of referenceNav(); track item.path) {
+            <li>
+              <a
+                class="nav-entry"
+                [routerLink]="item.path"
+                routerLinkActive="active"
+                ariaCurrentWhenActive="page"
+                (click)="closeMenu()"
+              >
+                <i class="bi" [class]="item.icon" aria-hidden="true"></i>
+                {{ item.label | t }}
+              </a>
+            </li>
+          }
+        </ul>
+      }
+
+      @if (adminNav().length) {
+        <p class="nav-section">{{ 'layout.sectionAdmin' | t }}</p>
+        <ul class="nav-list">
+          @for (item of adminNav(); track item.path) {
+            <li>
+              <a
+                class="nav-entry"
+                [routerLink]="item.path"
+                routerLinkActive="active"
+                ariaCurrentWhenActive="page"
+                (click)="closeMenu()"
+              >
+                <i class="bi" [class]="item.icon" aria-hidden="true"></i>
+                {{ item.label | t }}
+              </a>
+            </li>
+          }
+        </ul>
+      }
+    </nav>
+
+    @if (auth.identity(); as identity) {
+      <div class="user-card">
+        <span class="avatar" aria-hidden="true">{{ initials() }}</span>
+        <span class="user-text">
+          <span class="user-name" [title]="identity.client">{{ identity.client }}</span>
+          <span class="user-role">
+            <i class="bi" [class]="role().icon" aria-hidden="true"></i>
+            {{ role().label | t }}
+          </span>
+        </span>
+        <a
+          class="icon-btn"
+          routerLink="/account"
+          (click)="closeMenu()"
+          [attr.aria-label]="'layout.account' | t"
+          [title]="'layout.account' | t"
+        >
+          <i class="bi bi-person-gear" aria-hidden="true"></i>
+        </a>
+        <button
+          type="button"
+          class="icon-btn"
+          (click)="logout()"
+          [attr.aria-label]="'layout.logout' | t"
+          [title]="'layout.logout' | t"
+        >
+          <i class="bi bi-box-arrow-right" aria-hidden="true"></i>
+        </button>
+      </div>
+      <a
+        class="version"
+        routerLink="/about"
+        (click)="closeMenu()"
+        [attr.aria-label]="('about.title' | t) + ' · v' + identity.version"
+      >
+        <i class="bi bi-info-circle" aria-hidden="true"></i> v{{ identity.version }}
+      </a>
+    }
+  </aside>
+
+  <div class="backdrop" (click)="closeMenu()" aria-hidden="true"></div>
+
+  <div class="main">
+    <header class="topbar">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary d-lg-none"
+        (click)="menuOpen.set(!menuOpen())"
+        aria-controls="app-sidebar"
+        [attr.aria-expanded]="menuOpen()"
+        [attr.aria-label]="'layout.menu' | t"
+      >
+        <i class="bi bi-list" aria-hidden="true"></i>
+      </button>
+      <span class="brand-mark small-mark d-lg-none" aria-hidden="true">
+        <i class="bi bi-shield-lock-fill"></i>
+      </span>
+      <span class="ms-auto"></span>
+      <span class="status-pill d-none d-md-inline-flex">
+        <span class="dot" aria-hidden="true"></span>
+        {{ 'layout.connected' | t }}
+      </span>
+      <app-language-select />
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        (click)="theme.toggle()"
+        [attr.aria-label]="
+          (theme.theme() === 'dark' ? 'layout.lightTheme' : 'layout.darkTheme') | t
+        "
+        [title]="(theme.theme() === 'dark' ? 'layout.lightTheme' : 'layout.darkTheme') | t"
+      >
+        <i
+          class="bi"
+          [class]="theme.theme() === 'dark' ? 'bi-sun' : 'bi-moon-stars'"
+          aria-hidden="true"
+        ></i>
+      </button>
+    </header>
+
+    <main class="content">
+      <router-outlet />
+    </main>
+  </div>
+</div>
+
+<app-session-expired />

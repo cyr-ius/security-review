@@ -1,5 +1,7 @@
 """Development standards: validation, storage, lookup and rendering."""
 
+import tomllib
+
 import pytest
 
 from security_review_mcp import standards
@@ -147,3 +149,83 @@ def test_rendering():
 
     missing = standards.render_lookup_markdown(standards.find_standards(["cobol"]))
     assert "Available standards: `python`" in missing
+
+
+# ── Import / export ──────────────────────────────────────────────────────────
+
+
+def test_export_round_trips_through_import():
+    tricky = 'Quotes """ and \\ backslashes\n```python\nprint("x")\n```'
+    standards.create_standard(make(content=tricky), by="alice")
+    standards.create_standard(make("angular", enabled=False))
+    exported = standards.export_pack()
+    data = tomllib.loads(exported)
+    assert [item["slug"] for item in data["standards"]] == ["angular", "python"]
+    assert data["standards"][0]["enabled"] is False
+    assert data["standards"][1]["content"] == tricky
+    assert "updated_by" not in data["standards"][1]  # no audit field
+    assert "alice" not in exported
+
+    for slug in ("angular", "python"):
+        standards.delete_standard(slug)
+    result = standards.import_pack(exported, "export.toml", by="bob")
+    assert result == {"file": "export.toml", "created": ["angular", "python"], "updated": []}
+    assert standards.get_standard("python")["content"] == tricky
+    assert standards.get_standard("python")["updated_by"] == "bob"
+    assert standards.export_pack() == exported
+
+
+def test_import_creates_or_replaces_by_slug_and_keeps_the_others():
+    standards.create_standard(make("python"))
+    standards.create_standard(make("go"))
+    pack = '[[standards]]\nslug = "python"\ntitle = "New"\ncontent = "- New rule"\n'
+    pack += '[[standards]]\nslug = "rust"\ntitle = "Rust"\ncontent = "- Clippy"\n'
+    result = standards.import_pack(pack, "pack.toml")
+    assert result["created"] == ["rust"] and result["updated"] == ["python"]
+    python = standards.get_standard("python")
+    assert python["title"] == "New" and python["technologies"] == [] and python["enabled"]
+    assert [item["slug"] for item in standards.list_standards()] == ["go", "python", "rust"]
+
+
+@pytest.mark.parametrize(
+    "pack, message",
+    [
+        ("not = [toml", "pack.toml"),
+        ("", "no \\[\\[standards\\]\\] entry"),
+        ('standards = "x"', "array of tables"),
+        (
+            '[[standards]]\nslug = "rust"\ntitle = "Rust"\ncontent = "- Clippy"\n'
+            '[[standards]]\nslug = "Bad"\ntitle = "t"\ncontent = "c"',
+            r"nothing imported: standards\[2\]: slug",
+        ),
+        (
+            '[[standards]]\nslug = "a"\ntitle = "t"\ncontent = "c"\n'
+            '[[standards]]\nslug = "a"\ntitle = "t"\ncontent = "c"',
+            "duplicate slug a",
+        ),
+    ],
+)
+def test_invalid_packs_import_nothing(pack, message):
+    standards.create_standard(make())
+    with pytest.raises(ValueError, match=message):
+        standards.import_pack(pack, "pack.toml")
+    assert [item["slug"] for item in standards.list_standards()] == ["python"]
+
+
+def test_import_is_bounded(monkeypatch):
+    monkeypatch.setattr(standards, "MAX_PACK_BYTES", 10)
+    with pytest.raises(ValueError, match="larger than 10 bytes"):
+        standards.import_pack("# " + "x" * 20, "big.toml")
+    monkeypatch.setattr(standards, "MAX_PACK_BYTES", 4096)
+    monkeypatch.setattr(standards, "MAX_STANDARDS", 1)
+    standards.create_standard(make())
+    pack = '[[standards]]\nslug = "rust"\ntitle = "Rust"\ncontent = "- Clippy"\n'
+    with pytest.raises(ValueError, match="limit of 1 standards"):
+        standards.import_pack(pack, "pack.toml")
+    # Replacing an existing standard does not count against the limit
+    standards.import_pack(pack.replace("rust", "python"), "pack.toml")
+
+
+def test_deeply_nested_pack_is_refused():
+    with pytest.raises(ValueError, match="nested.toml"):
+        standards.import_pack("a = " + "[" * 50_000 + "]" * 50_000, "nested.toml")

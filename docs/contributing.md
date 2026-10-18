@@ -56,9 +56,9 @@ without leaving the container:
 
 ```bash
 docker build -t security-review-mcp .
-docker run --rm -p 8080:8000 -v secreview-data:/data \
+docker run --rm -p 8080:8000 -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
-docker run --rm -p 8000:8000 -v secreview-data:/data security-review-mcp \
+docker run --rm -p 8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
     --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
@@ -88,17 +88,21 @@ src/security_review_mcp/
 ├── server.py      # prompts, tools, resources, entry point of the MCP server
 ├── controller.py  # entry point of the controller (serve, db and administration commands)
 ├── http_server.py # HTTP of both processes: Bearer tokens and roles, TLS, /healthz, uvicorn
-├── oidc.py        # OpenID Connect SSO login to the web interface (controller)
-├── role_mapping.py # OIDC role mapping: provider groups → web role and projects
+├── oidc.py        # OpenID Connect OIDC login to the web interface (controller)
+├── access_control.py # permissions, roles, groups and members of the web accounts
 ├── token_store.py # Bearer tokens in the database: creation, expiry, rotation, revocation, enrollment
 ├── audit.py       # audit log: events of triage decisions, proposals, tokens and enrollments
 ├── metrics.py     # Prometheus metrics of the controller (/metrics)
-├── web_users.py   # web interface accounts, local (scrypt) or SSO (created on the fly), sessions, initial admin
+├── web_users.py   # web interface accounts, local (scrypt) or OIDC (created on the fly), sessions, initial admin
 ├── enrollment.py  # `enroll` client: token request to a shared server
 ├── remote_scan.py # `scan-deps` client: dependency scan with a shared server
 ├── ci_client.py   # `security-review-ci`: pipeline client of the controller (standard library only)
 ├── enrollment_api.py  # public POST /api/v1/enroll endpoint of the MCP server
-├── web_api.py     # controller: REST API /api/v1 and files of the application (/ui)
+├── web_api/       # controller: REST API /api/v1 and files of the application (/ui)
+│   ├── __init__.py    # create_app, static files of /ui, assembly of the routers
+│   ├── schemas.py     # request and response models of every route
+│   ├── deps.py        # identity of the caller, permissions, project scope
+│   └── *_routes.py    # one router per domain (auth, account, report, ci, rule, token, admin, access)
 ├── prompts.py     # construction of the prompts
 ├── standards.py   # development standards: storage, lookup by technology / file, rendering
 ├── default_rules.toml  # default rules and checklists, copied into the database at first start
@@ -114,8 +118,8 @@ src/security_review_mcp/
 ├── versions.py    # version comparison
 ├── advisories.py  # OSV import, version matching
 ├── advisory_sync.py  # OSV download by the controller (proxy, daily update, history)
-├── app_settings.py    # settings changed in the interface (language, outgoing proxy, SSO), in the database
-├── proxy.py       # outgoing proxy of the controller (OSV, SSO): URL, no_proxy, urllib handler
+├── app_settings.py    # settings changed in the interface (language, outgoing proxy, OIDC), in the database
+├── proxy.py       # outgoing proxy of the controller (OSV, OIDC): URL, no_proxy, urllib handler
 ├── dependencies.py    # manifest / lockfile parsers, hygiene
 ├── depscan.py     # dependency scan and conversion into findings
 ├── services.py    # persistence logic of the reports
@@ -149,6 +153,33 @@ configuration **Web UI + API (Angular dev server, port 4200)**, which starts bot
 of a file of `web/src/` reloads the page (styles and templates without a full reload), and the
 breakpoints set in the `.ts` files are honored. In the devcontainer, Chrome is opened on the
 local workstation and port 4200 is forwarded automatically.
+
+### Code conventions
+
+- **REST API**: every route that answers JSON declares its response model (`web_api/schemas.py`):
+  FastAPI documents it in OpenAPI and drops any field that is not declared.
+  `test_openapi_documents_the_response_of_every_json_route` fails on a route that returns a bare
+  `dict`.
+- **Components**: template and styles in separate files. A feature with several screens has one
+  folder per component (`features/access/role-list/`); its shared files (styles, base class,
+  error messages) stay at the root of the feature.
+- **Forms**: the input forms use the Signal Forms (`form()`, `[formField]`, validators with a
+  translated message); the list filters and the dynamic lists of checkboxes stay plain event
+  handlers.
+- **HTTP calls**: through `rxResource` for the data of a screen, or `await
+  firstValueFrom(...)` for an action; no `.subscribe()` in the components.
+- **State**: `signal()` and `computed()`; a value derived from another one but still editable (a
+  form filled with the loaded settings) is a `linkedSignal()`. `effect()` is kept for real side
+  effects (document attributes, local storage, timers), never to copy a signal into another. A
+  service exposes its signals with `asReadonly()` and changes them through named methods.
+- **Folders**: `shared/` holds reusable components without business logic: they get their data
+  through inputs and report through outputs, never through a business service of `core/` (the
+  finding card emits the decision, `TriageService` saves it). The shell of the application is
+  `layout/`.
+- **Templates**: host bindings in `host: {}` (no `@HostListener`); a message that explains why a
+  field is invalid is linked to it with `aria-describedby`.
+- **Colors**: Bootstrap variables (`var(--bs-…)`) or the design tokens of `styles.css`
+  (`--app-…`), never a color written in a component, so that the light and dark themes work.
 
 ### Interface translations
 

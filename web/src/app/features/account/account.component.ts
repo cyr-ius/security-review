@@ -1,12 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
+import { FormField, form, maxLength, required, validate } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { ROLE_META } from '../../core/constants/labels';
-import { MIN_PASSWORD_CHARS } from '../../core/constants/passwords';
-import { Message, msg } from '../../core/i18n/i18n.service';
+import { MAX_PASSWORD_CHARS, followsPasswordPolicy } from '../../core/constants/passwords';
+import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { PasswordPolicyComponent } from '../../shared/components/password-policy/password-policy.component';
 
 /**
  * Account page: who is logged in and, for a web user, the change of its own password (the
@@ -14,34 +16,44 @@ import { AuthService } from '../../core/services/auth.service';
  */
 @Component({
   selector: 'app-account',
-  imports: [TranslatePipe],
+  imports: [FormField, PasswordPolicyComponent, TranslatePipe],
   templateUrl: './account.component.html',
 })
 export class AccountComponent {
   private readonly api = inject(ApiService);
   readonly auth = inject(AuthService);
+  private readonly i18n = inject(I18nService);
 
-  readonly minPassword = MIN_PASSWORD_CHARS;
   readonly role = computed(() => ROLE_META[this.auth.identity()?.role ?? 'reader']);
 
-  readonly current = signal('');
-  readonly next = signal('');
-  readonly confirmation = signal('');
+  readonly passwordModel = signal<PasswordFormModel>({ ...EMPTY_PASSWORDS });
+  readonly passwordForm = form(this.passwordModel, (path) => {
+    required(path.current);
+    maxLength(path.current, MAX_PASSWORD_CHARS);
+    required(path.next);
+    // The rules are listed under the field (app-password-policy); the controller checks them again
+    validate(path.next, ({ value }) =>
+      followsPasswordPolicy(value())
+        ? undefined
+        : { kind: 'policy', message: this.i18n.translate('password.policy') },
+    );
+    // Shown as soon as the confirmation is typed, not only once the field is left
+    validate(path.confirmation, ({ value, valueOf }) =>
+      value() !== valueOf(path.next)
+        ? { kind: 'mismatch', message: this.i18n.translate('account.mismatch') }
+        : undefined,
+    );
+  });
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
 
   readonly mismatch = computed(
-    () => this.confirmation().length > 0 && this.confirmation() !== this.next(),
+    () =>
+      this.passwordModel().confirmation.length > 0 && this.passwordForm.confirmation().invalid(),
   );
 
-  readonly canSubmit = computed(
-    () =>
-      !this.busy() &&
-      this.current().length > 0 &&
-      this.next().length >= MIN_PASSWORD_CHARS &&
-      this.next() === this.confirmation(),
-  );
+  readonly canSubmit = computed(() => !this.busy() && this.passwordForm().valid());
 
   async submit(event: Event): Promise<void> {
     event.preventDefault();
@@ -51,13 +63,14 @@ export class AccountComponent {
     this.busy.set(true);
     this.error.set(null);
     this.message.set(null);
+    const { current, next } = this.passwordModel();
     try {
-      const login = await firstValueFrom(this.api.changePassword(this.current(), this.next()));
+      const login = await firstValueFrom(this.api.changePassword(current, next));
       // The previous session is no longer valid: keep working with the new one
       this.auth.login(login.session);
-      this.current.set('');
-      this.next.set('');
-      this.confirmation.set('');
+      // The other pages open again once a required change is done
+      this.auth.setIdentity(await firstValueFrom(this.api.me()));
+      this.passwordForm().reset({ ...EMPTY_PASSWORDS });
       this.message.set(msg('account.changed'));
     } catch (error: unknown) {
       this.error.set(describeError(error));
@@ -66,6 +79,15 @@ export class AccountComponent {
     }
   }
 }
+
+/** Fields of the password change form. */
+interface PasswordFormModel {
+  current: string;
+  next: string;
+  confirmation: string;
+}
+
+const EMPTY_PASSWORDS: PasswordFormModel = { current: '', next: '', confirmation: '' };
 
 function describeError(error: unknown): Message {
   if (error instanceof HttpErrorResponse) {

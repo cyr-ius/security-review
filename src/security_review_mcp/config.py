@@ -5,7 +5,7 @@ import logging
 import sys
 from functools import lru_cache
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Language name or code given to the agent (for example "French", "fr", "pt-BR"): letters,
@@ -41,7 +41,8 @@ class Settings(BaseSettings):
 
     # SQLite by default (zero setup).
     # PostgreSQL: postgresql+psycopg2://user:pass@host:5432/db  # secreview:ignore GEN-007
-    database_url: str = "sqlite:///./security_reports.db"
+    # A secret (it may hold a password): never shown in a repr nor in a log
+    database_url: SecretStr = SecretStr("sqlite:///./security_reports.db")
     database_echo: bool = False
     # Migrate the schema (Alembic) when the controller, the stdio MCP server or a CLI command
     # starts. Set it to false when a dedicated job runs `security-review-controller db upgrade`
@@ -67,9 +68,12 @@ class Settings(BaseSettings):
     allow_unauthenticated: bool = False
 
     # Controller only: sessions of the web interface (password and OIDC logins), tokens signed
-    # with session_secret (at least 32 characters, shared by the replicas; random per start when
-    # unset) and valid session_hours (1 to 24).
-    session_secret: str | None = None
+    # with session_secret (at least 32 characters, shared by the replicas) and valid
+    # session_hours (1 to 24). Unset, the secret is read from session_secret_file, generated
+    # there (mode 0600) at the first start; "" for session_secret_file draws a random secret at
+    # each start (sessions then end at restart).
+    session_secret: SecretStr | None = None
+    session_secret_file: str = "session-secret"
     session_hours: int = 8
 
     # Enrollment (HTTP MCP server, once a token exists): a client without a token reaches a
@@ -88,7 +92,7 @@ class Settings(BaseSettings):
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).
     tls_certfile: str | None = None
     tls_keyfile: str | None = None
-    tls_keyfile_password: str | None = None
+    tls_keyfile_password: SecretStr | None = None
     tls_client_ca: str | None = None
 
     # Reverse proxies (comma-separated IP addresses or CIDR ranges, "*" for any) whose
@@ -98,46 +102,61 @@ class Settings(BaseSettings):
     # the address range of the proxy, or every client shares the address of the proxy.
     forwarded_allow_ips: str | None = None
 
+    # Controller only: requests to the REST API per client address and per window of
+    # rate_limit_window_seconds, counted in the database (shared by every worker and replica).
+    # The login routes (/api/v1/auth/) have their own, stricter, limit. Over the limit: 429.
+    rate_limit_enabled: bool = True
+    rate_limit_window_seconds: int = Field(default=60, ge=1, le=3600)
+    rate_limit_max_requests: int = Field(default=600, ge=1)
+    rate_limit_auth_max_requests: int = Field(default=30, ge=1)
+
     # Controller: REST API on /api/v1 and, with web_ui, the Angular application on /ui.
     # web_ui_dir overrides the directory of the built application (default: bundled files).
     web_ui: bool = True
     web_ui_dir: str | None = None
+    # Controller: Swagger documentation of the REST API (/api/docs) and its OpenAPI schema
+    # (/api/openapi.json), disabled by default. Its files come with the web interface build:
+    # nothing is loaded from the Internet.
+    swagger_enabled: bool = False
 
     # Controller only: OpenID Connect login to the web interface (authorization code + PKCE),
     # disabled by default. oidc_redirect_uri is the public URL of /api/v1/auth/oidc/callback,
     # registered at the provider. oidc_client_secret is empty for a public client. The values of
     # oidc_roles_claim (dotted path allowed, e.g. realm_access.roles) are matched against the
-    # role mappings stored in the database (web interface) and the comma-separated groups below
-    # (every project; highest role wins, see role_mapping); without a match, oidc_default_role
-    # ("", "reader" or "triager") applies. A login opens the SSO web user named by
-    # oidc_username_claim: with oidc_auto_create_users it is created at the first login (when its
-    # groups or the default role give it a role), otherwise an administrator creates it first.
+    # names of the groups of the web interface (see access_control): the user joins each group
+    # of that name, and oidc_default_group (if set) in any case. oidc_admin_groups lists
+    # comma-separated OIDC groups that hold the admin role: such a group is created at the first
+    # login of one of its members when it does not exist yet. A login opens the OIDC web user
+    # named by oidc_username_claim: with oidc_auto_create_users it is created at the first login
+    # (when its groups give it a permission), otherwise an administrator creates it first.
     # Sessions use session_secret and session_hours. oidc_cafile replaces the system CA bundle
     # for the provider.
     oidc_enabled: bool = False
     oidc_issuer: str = ""
     oidc_client_id: str = ""
-    oidc_client_secret: str | None = None
+    oidc_client_secret: SecretStr | None = None
     oidc_redirect_uri: str = ""
     oidc_scopes: str = "openid profile email"
     oidc_roles_claim: str = "groups"
     oidc_admin_groups: str = ""
-    oidc_triager_groups: str = ""
-    oidc_reader_groups: str = ""
-    oidc_default_role: str = ""
+    oidc_default_group: str = ""
     oidc_username_claim: str = "preferred_username"
     oidc_auto_create_users: bool = False
-    oidc_display_name: str = "SSO"
+    oidc_display_name: str = "OIDC"
     oidc_cafile: str | None = None
 
-    # Controller only: HTTP proxy of its outgoing connections (OSV download, SSO identity
-    # provider), http://[user:password@]host:port, and the comma-separated hosts reached without
-    # it (no_proxy: a domain also covers its subdomains, an IP address or CIDR range the URLs
-    # whose host is such an address, * every host; the loopback interface is always direct).
-    # Without proxy, urllib applies HTTPS_PROXY / NO_PROXY. Both can be overridden in the web
-    # interface (Paramètres, see app_settings).
-    proxy: str | None = None
-    no_proxy: str | None = None
+    # Controller only: HTTP proxy of its outgoing connections (OSV download, OIDC identity
+    # provider), from the standard variables, without the SECREVIEW_ prefix (lowercase names
+    # accepted): HTTPS_PROXY, else HTTP_PROXY, http://[user:password@]host:port (host:port
+    # means http://host:port), and NO_PROXY, the comma-separated hosts reached without it (a
+    # domain also covers its subdomains, an IP address the URLs whose host is that address, *
+    # every host; the loopback interface is always direct). Both can be overridden in the web
+    # interface (Paramètres, see app_settings). Settings(https_proxy=...) sets the proxy (the
+    # aliases only: populating by name would read SECREVIEW_PROXY again).
+    proxy: str | None = Field(
+        default=None, validation_alias=AliasChoices("https_proxy", "http_proxy")
+    )
+    no_proxy: str | None = Field(default=None, validation_alias=AliasChoices("no_proxy"))
 
     # Controller only: download the OSV exports (all.zip of each ecosystem) from osv_url and
     # import them every osv_update_interval_hours. Disabled by default (the MCP server never
@@ -191,6 +210,14 @@ class Settings(BaseSettings):
         """An empty variable means no value (an empty stored proxy means a direct connection)."""
         return value.strip() or None if value is not None else None
 
+    @field_validator("proxy")
+    @classmethod
+    def _default_proxy_scheme(cls, value: str | None) -> str | None:
+        """Read a proxy given as host:port, as curl does, as http://host:port."""
+        if value and "://" not in value:
+            return f"http://{value}"
+        return value
+
     @field_validator("forwarded_allow_ips")
     @classmethod
     def _check_forwarded_allow_ips(cls, value: str | None) -> str | None:
@@ -213,6 +240,11 @@ class Settings(BaseSettings):
     def _check_report_language(cls, value: str) -> str:
         """Reject a report language that is not a plain language name or code."""
         return check_report_language(value)
+
+
+def secret_value(secret: SecretStr | None) -> str | None:
+    """Clear value of a secret setting (None when unset)."""
+    return None if secret is None else secret.get_secret_value()
 
 
 @lru_cache

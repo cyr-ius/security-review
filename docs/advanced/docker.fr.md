@@ -31,7 +31,7 @@ Le build compile aussi l'[interface web](../usage/web-interface.md) (étape Node
 elle est servie sur `/ui/` par le contrôleur.
 
 L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. La
-base SQLite est dans le volume `/data`. Le fichier `.env` n'est **pas** copié dans l'image :
+base SQLite est dans le volume `/var/lib/secreview`. Le fichier `.env` n'est **pas** copié dans l'image :
 passez la configuration avec `-e` ou `--env-file`.
 
 ## Serveur partagé (HTTP)
@@ -100,8 +100,8 @@ docker compose logs controller   # mot de passe admin initial
 |---|---|---|
 | `db` | PostgreSQL, joignable seulement sur le réseau interne `backend` | — |
 | `migrate` | `security-review-controller db upgrade`, puis s'arrête | — |
-| `controller` | API REST et interface web (`/ui/`) | `127.0.0.1:8080` (`PUBLISH_ADDRESS`, `SECREVIEW_CONTROLLER_PORT`) |
-| `mcp` | Serveur MCP (`/mcp`) et enrôlement public | `127.0.0.1:8000` (`PUBLISH_ADDRESS`, `SECREVIEW_PORT`) |
+| `controller` | API REST et interface web (`/ui/`) | `127.0.0.1:8080` (`DOCKER_PUBLISH_ADDRESS`, `DOCKER_CONTROLLER_PORT`) |
+| `mcp` | Serveur MCP (`/mcp`) et enrôlement public | `127.0.0.1:8000` (`DOCKER_PUBLISH_ADDRESS`, `DOCKER_MCP_PORT`) |
 
 - L'image est construite avec l'extra `postgres` (`security-review-mcp:pg`). `migrate` attend
   que la base soit prête (`pg_isready`) ; `controller` et `mcp` attendent que `migrate` ait
@@ -111,8 +111,8 @@ docker compose logs controller   # mot de passe admin initial
   caractères spéciaux (`@`, `:`, `/`...).
 - Les ports ne sont publiés que sur `127.0.0.1` par défaut. Pour les exposer, activez le
   [TLS intégré](http.md) ou placez-les derrière un reverse proxy, puis indiquez l'adresse de
-  l'hôte à utiliser dans `.env` : `PUBLISH_ADDRESS=192.168.1.10` (une interface) ou
-  `PUBLISH_ADDRESS=0.0.0.0` (toutes les interfaces). Cette variable ne sert qu'à Compose. Le
+  l'hôte à utiliser dans `.env` : `DOCKER_PUBLISH_ADDRESS=192.168.1.10` (une interface) ou
+  `DOCKER_PUBLISH_ADDRESS=0.0.0.0` (toutes les interfaces). Cette variable ne sert qu'à Compose. Le
   contrôleur n'expose aucune route d'écriture sans jeton : il peut rester interne.
 - Les variables de `.env` ne servent qu'à Compose : ajoutez-les sous `environment` pour
   qu'elles atteignent les conteneurs (par exemple `SECREVIEW_TLS_CERTFILE` et
@@ -121,7 +121,7 @@ docker compose logs controller   # mot de passe admin initial
 - La base d'avis de vulnérabilités est **vide** au premier démarrage : l'analyse de dépendances
   répond alors qu'aucune base n'est chargée. Pour que le contrôleur la télécharge au démarrage
   puis toutes les 24 h, ajoutez `SECREVIEW_OSV_AUTO_UPDATE=true` dans `.env` (et, si besoin,
-  `SECREVIEW_OSV_ECOSYSTEMS`, `SECREVIEW_PROXY` et `SECREVIEW_NO_PROXY`), que le fichier Compose transmet au seul
+  `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY` et `NO_PROXY`), que le fichier Compose transmet au seul
   contrôleur, puis `docker compose up -d`. Suivez l'import avec `docker compose logs -f
   controller` ou dans les paramètres de l'interface web. Sans accès Internet, importez une
   archive avec `advisories import` (voir [Dépendances](dependencies.md)).
@@ -179,7 +179,7 @@ Claude) :
     "security-review": {
       "type": "stdio",
       "command": "docker",
-      "args": ["run", "-i", "--rm", "-v", "secreview-data:/data", "security-review-mcp"]
+      "args": ["run", "-i", "--rm", "-v", "secreview-data:/var/lib/secreview", "security-review-mcp"]
     }
   }
 }
@@ -195,13 +195,13 @@ dossier de packs TOML avec la CLI du contrôleur (les serveurs en cours d'exécu
 appliquent en quelques secondes) :
 
 ```bash
-docker run --rm -v secreview-data:/data -v ./rules.d:/rules:ro \
+docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
     --entrypoint security-review-controller security-review-mcp rules import /rules
 ```
 
 Les autres commandes passent de la même façon :
 
 ```bash
-docker run --rm -v secreview-data:/data \
+docker run --rm -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp token list
 ```

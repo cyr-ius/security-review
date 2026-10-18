@@ -60,8 +60,9 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
   immédiatement, y compris aux autres instances qui partagent la même base PostgreSQL.
 
 L'endpoint MCP et l'API du contrôleur exigent `Authorization: Bearer <jeton>`. Restent publics : `/healthz` sur les deux processus,
-`/api/v1/enroll` sur le serveur MCP, et sur le contrôleur les fichiers statiques de `/ui/` et la
-documentation Swagger (`/api/docs`, schéma `/api/openapi.json`, icône `/api/favicon.svg`). Tant qu'aucun jeton n'existe,
+`/api/v1/enroll` sur le serveur MCP, et sur le contrôleur les fichiers statiques de `/ui/`,
+l'icône `/api/favicon.svg`, la disponibilité de l'API `/api/health` et, avec `SECREVIEW_SWAGGER_ENABLED=true` (désactivé par défaut), la
+documentation Swagger (`/api/docs`, schéma `/api/openapi.json`, fichiers `/api/swagger/`). Tant qu'aucun jeton n'existe,
 l'API du contrôleur répond `503` et le serveur MCP **reste fermé** : un client sans jeton
 n'atteint que l'[enrôlement](#enrolement-un-projet-demande-son-jeton), toute autre requête reçoit
 `401`, quelle que soit la valeur Bearer (un avertissement est journalisé au démarrage). `/mcp`
@@ -191,8 +192,8 @@ validez la demande. C'est actif par défaut (`SECREVIEW_ENROLLMENT=true`), même
     L'approbation peut aussi donner au développeur la **lecture du projet dans le portail**,
     sur son compte utilisateur (colonne **Lecture dans le portail** de l'interface, ou
     `token approve ID --portal-user alice` en CLI) ; avec la
-    [connexion SSO](sso.md), un nom
-    inconnu devient un compte SSO. Voir la
+    [connexion OIDC](sso.md), un nom
+    inconnu devient un compte OIDC. Voir la
     [lecture du projet à l'enrôlement](sso.md#lecture-du-projet-a-lenrolement).
 
 ### Jeton refusé : nouvel enrôlement
@@ -373,7 +374,7 @@ Pour Claude et pour obtenir un jeton par enrôlement depuis l'hôte, voir
 
 ## Derrière un reverse proxy
 
-Un reverse proxy (TLS, SSO, limitation de débit) reste une option valable : dans ce cas,
+Un reverse proxy (TLS, OIDC, limitation de débit) reste une option valable : dans ce cas,
 laissez ces variables vides.
 
 !!! warning

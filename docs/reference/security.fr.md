@@ -78,20 +78,20 @@
   (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
-  journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (rôle `admin`) n'est
-  accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Le proxy sortant (`SECREVIEW_PROXY`, ou
-  l'écran **Paramètres**) sert au téléchargement OSV et au fournisseur SSO ; seul le nom des
+  journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (permission `settings.manage`) n'est
+  accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Le proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou
+  l'écran **Proxy sortant**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
   réglages modifiés est journalisé. Un proxy défini dans l'interface web est
   enregistré en base **avec ses identifiants, en clair** : l'API ne les renvoie jamais (mot de
   passe remplacé par `***`) et les messages d'erreur de l'historique en sont expurgés, mais
-  préférez `SECREVIEW_PROXY` (secret Kubernetes) si la base n'est pas protégée comme un
+  préférez `HTTPS_PROXY` (secret Kubernetes) si la base n'est pas protégée comme un
   secret. Voir la
   [mise à jour automatique](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur).
-  Avec la [connexion SSO](../advanced/sso.md)
+  Avec la [connexion OIDC](../advanced/sso.md)
   (`SECREVIEW_OIDC_ENABLED`, désactivée par défaut), le contrôleur contacte aussi le fournisseur
   d'identité configuré : HTTPS uniquement (HTTP seulement sur localhost), redirections limitées
   à HTTPS, réponses bornées à 1 Mio, délai de 10 secondes. Cette configuration peut aussi être
-  [modifiée dans l'interface](../advanced/sso.md#configurer-le-sso-dans-linterface)
+  [modifiée dans l'interface](../advanced/sso.md#configurer-le-oidc-dans-linterface)
   par un administrateur, avec les mêmes contrôles (refus d'une configuration invalide) ; le
   bouton **Tester la connexion** contacte l'émetteur saisi, sous les mêmes conditions. Le
   **secret client** saisi dans l'interface est enregistré en base **en clair** : l'API ne le
@@ -109,43 +109,61 @@
   `propose_finding_status`, qui enregistre une proposition (motif masqué et borné, auteur tiré du
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt
   ne peut pas neutraliser un finding. Pages servies avec une CSP
-  stricte et les en-têtes anti-clickjacking ; jeton gardé dans le `sessionStorage` de l'onglet.
-  La documentation Swagger et son schéma OpenAPI sont publics, mais les routes de données
+  stricte et les en-têtes anti-clickjacking, et chaque réponse du contrôleur (API, refus
+  compris) porte `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
+  `X-Frame-Options: DENY`, une CSP fermée quand la route n'en définit pas et, en HTTPS (TLS du
+  contrôleur, ou `X-Forwarded-Proto` d'un proxy listé dans `SECREVIEW_FORWARDED_ALLOW_IPS`),
+  `Strict-Transport-Security: max-age=31536000` ; jeton gardé dans le `sessionStorage` de l'onglet.
+  La documentation Swagger et son schéma OpenAPI sont désactivés par défaut
+  (`SECREVIEW_SWAGGER_ENABLED`) ; une fois activés, ils sont publics, servis depuis des fichiers
+  locaux uniquement avec une CSP stricte, et les routes de données
   restent protégées. Le contrôle est fait deux fois : par le middleware Bearer, puis par
   chaque route de l'API, qui refuse (`401`) toute requête sans identité authentifiée. Ainsi,
   l'API ne donne jamais de droits par défaut, même si elle est servie sans le middleware.
+  Chaque réponse JSON passe par son modèle de réponse déclaré : un champ qu'un service ajouterait
+  par erreur (une empreinte, un secret) est retiré au lieu d'être renvoyé. Les réponses qui
+  contiennent un secret (session, jeton créé ou renouvelé, mot de passe généré) sont envoyées
+  avec `Cache-Control: no-store`.
 - **Comptes utilisateurs** ([identifiant et mot de passe](../usage/web-interface.md#comptes-utilisateurs)) :
   seule une empreinte **scrypt** salée (N=2¹⁴, r=8, p=5, sel aléatoire de 16 octets) est
   stockée ; une empreinte stockée aux paramètres hors bornes est refusée au lieu d'épuiser la
-  mémoire. Mots de passe de 12 à 256 caractères, identifiants limités à `[A-Za-z0-9._@-]`. La
+  mémoire. Mots de passe de 12 à 256 caractères, avec une
+  minuscule, une majuscule, un chiffre et un caractère qui n'est ni l'un ni l'autre (contrôlés par
+  le contrôleur, mots de passe générés compris) ; un mot de passe défini par quelqu'un d'autre
+  (premier administrateur, création ou réinitialisation par un administrateur) doit être changé
+  à la première connexion : jusque-là, la session n'atteint que **Mon compte** (`403` ailleurs), identifiants limités à `[A-Za-z0-9._@-]`. La
   vérification coûte le même temps que l'identifiant existe ou non (empreinte factice), et
-  l'échec renvoie toujours le même `401`. Les échecs sont limités en mémoire (5 par identifiant
-  et adresse, 20 par adresse, sur 15 minutes, puis `429`) ; derrière un reverse proxy,
+  l'échec renvoie toujours le même `401`. Les échecs sont limités en base, partagés par toutes
+  les réplicas (5 par identifiant et adresse, 20 par adresse, sur 15 minutes, puis `429`), comme
+  les requêtes d'une adresse vers l'API REST (`SECREVIEW_RATE_LIMIT_*`, comptées avant le
+  contrôle du jeton, pour limiter aussi les essais de jetons ; les compteurs enregistrent des
+  empreintes SHA-256, jamais les adresses) ; derrière un reverse proxy,
   l'adresse du client n'est lue dans `X-Forwarded-For` que pour les proxies listés dans
   `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` laisse tout client choisir son adresse et contourner les
   limites). Seuls les identifiants valides sont
   journalisés, jamais les mots de passe. La session est un jeton signé avec
-  `SECREVIEW_SESSION_SECRET`, comme celle du SSO, mais le compte est **relu en base à chaque
+  `SECREVIEW_SESSION_SECRET`, comme celle du OIDC, mais le compte est **relu en base à chaque
   requête** : suppression, nouveau rôle ou nouveaux projets s'appliquent immédiatement, et un
   changement de mot de passe tire une nouvelle version de session aléatoire qui invalide toutes
   les sessions précédentes. La session doit aussi porter l'identifiant du compte : elle n'ouvre
-  jamais un compte recréé sous le même numéro interne. Le dernier administrateur, local ou SSO (par son rôle ou celui de ses groupes), ne peut être ni supprimé ni rétrogradé. Le mot de passe
+  jamais un compte recréé sous le même numéro interne. Le dernier administrateur, local ou OIDC (par son rôle ou celui de ses groupes), ne peut être ni supprimé ni rétrogradé. Le mot de passe
   du compte `admin` initial apparaît une fois dans les journaux du contrôleur : protégez-les et
   changez-le dès la première connexion.
-- **Connexion SSO (OpenID Connect)**, facultative : flux *authorization code* avec PKCE `S256`,
+- **Connexion OIDC (OpenID Connect)**, facultative : flux *authorization code* avec PKCE `S256`,
   state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
   ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
-  uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Le rôle vient des
-  groupes de l'utilisateur ([role mapping](../advanced/sso.md#role-mapping), géré
-  par les administrateurs, éventuellement restreint à des projets) et du rôle attribué à son
-  [compte SSO](../advanced/sso.md#comptes-sso) ; ni le rôle `admin` par défaut ni le
-  rôle `mcp` ne sont possibles. Le compte est nommé par l'identifiant exact du claim
+  uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Les permissions
+  viennent des [groupes](../advanced/access-control.md) du compte : ceux donnés par un
+  administrateur et les groupes ouverts au OIDC dont le nom est exactement une valeur du claim des
+  groupes (les autres valeurs sont ignorées, un groupe non ouvert au OIDC n'est jamais rejoint par
+  le claim) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est nommé par l'identifiant exact du claim
   `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si ce n'est pas
   un identifiant valide) : choisissez un claim que l'utilisateur ne peut pas modifier chez le
-  fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte SSO créé par
-  un administrateur peut se connecter. Une connexion SSO n'ouvre jamais un compte local du même
-  nom, et le compte est lié au `sub` de sa première connexion : un autre `sub` est refusé. Un
-  compte SSO supprimé est révoqué : la création automatique ne le recrée pas, tant qu'un
+  fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte OIDC créé par
+  un administrateur peut se connecter. Une connexion OIDC n'ouvre jamais un compte local du même
+  nom, et le compte est lié à l'émetteur et au `sub` de sa première connexion : un autre `sub`
+  ou un autre émetteur est refusé. Un
+  compte OIDC supprimé est révoqué : la création automatique ne le recrée pas, tant qu'un
   administrateur ne l'a pas recréé ou autorisé à nouveau.
   Vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant de lui donner la lecture
   du projet. Une session restreinte à des projets l'est comme un jeton `--project`. La session est
@@ -154,7 +172,13 @@
   contrôleur seulement, jamais par le serveur MCP. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
   jetons et secrets ne sont jamais journalisés par le contrôleur ; le code d'autorisation
   apparaît toutefois dans les journaux d'accès d'un reverse proxy ou d'uvicorn, ce qui est
-  sans danger : il est à usage unique et inutilisable sans le vérificateur PKCE du cookie.
+  sans danger : il est à usage unique et inutilisable sans le vérificateur PKCE du cookie. Les
+  réglages secrets (`SECREVIEW_SESSION_SECRET`, `SECREVIEW_OIDC_CLIENT_SECRET`,
+  `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`) sont typés comme secrets : ils
+  n'apparaissent jamais dans un affichage des réglages. Sans `SECREVIEW_SESSION_SECRET`, le
+  secret de session généré est écrit une seule fois dans `SECREVIEW_SESSION_SECRET_FILE` avec les
+  droits `0600` (un avertissement est journalisé si le fichier est lisible par d'autres
+  utilisateurs).
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
   serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Le scan du dépôt
   complet est réservé à la CLI (`code scan`), lancée par l'opérateur sur un dossier qu'il

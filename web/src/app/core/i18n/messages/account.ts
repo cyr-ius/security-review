@@ -3,16 +3,17 @@ import { defineMessages } from '../catalog';
 /** My account page. */
 export const account = defineMessages({
   en: {
-    'account.sso': 'SSO account',
+    'account.mustChange':
+      'Your password was set by an administrator: choose your own before using the interface.',
+    'account.sso': 'OIDC account',
     'account.local': 'Local account',
     'account.passwordTitle': 'Change password',
     'account.current': 'Current password',
     'account.new': 'New password',
-    'account.minChars': 'At least {count} characters.',
     'account.confirmation': 'Confirmation',
     'account.mismatch': 'The two passwords differ.',
     'account.submit': 'Change the password',
-    'account.ssoInfo': 'SSO account: the password is managed by your identity provider, not here.',
+    'account.ssoInfo': 'OIDC account: the password is managed by your identity provider, not here.',
     'account.changed': 'Password changed. Your other sessions were closed.',
     'account.wrongCurrent': 'The current password is wrong.',
     'account.mustDiffer': 'The new password must differ from the current one.',
@@ -21,17 +22,18 @@ export const account = defineMessages({
     'account.failed': 'The password change failed.',
   },
   fr: {
-    'account.sso': 'Compte SSO',
+    'account.mustChange':
+      'Votre mot de passe a été défini par un administrateur : choisissez le vôtre avant d’utiliser l’interface.',
+    'account.sso': 'Compte OIDC',
     'account.local': 'Compte local',
     'account.passwordTitle': 'Changer de mot de passe',
     'account.current': 'Mot de passe actuel',
     'account.new': 'Nouveau mot de passe',
-    'account.minChars': '{count} caractères au moins.',
     'account.confirmation': 'Confirmation',
     'account.mismatch': 'Les deux mots de passe diffèrent.',
     'account.submit': 'Changer le mot de passe',
     'account.ssoInfo':
-      "Compte SSO : le mot de passe est géré par votre fournisseur d'identité, pas ici.",
+      "Compte OIDC : le mot de passe est géré par votre fournisseur d'identité, pas ici.",
     'account.changed': 'Mot de passe modifié. Vos autres sessions ont été fermées.',
     'account.wrongCurrent': 'Le mot de passe actuel est incorrect.',
     'account.mustDiffer': "Le nouveau mot de passe doit être différent de l'actuel.",
@@ -40,17 +42,18 @@ export const account = defineMessages({
     'account.failed': 'Le changement de mot de passe a échoué.',
   },
   es: {
-    'account.sso': 'Cuenta SSO',
+    'account.mustChange':
+      'Un administrador definió su contraseña: elija la suya antes de usar la interfaz.',
+    'account.sso': 'Cuenta OIDC',
     'account.local': 'Cuenta local',
     'account.passwordTitle': 'Cambiar la contraseña',
     'account.current': 'Contraseña actual',
     'account.new': 'Nueva contraseña',
-    'account.minChars': 'Al menos {count} caracteres.',
     'account.confirmation': 'Confirmación',
     'account.mismatch': 'Las dos contraseñas no coinciden.',
     'account.submit': 'Cambiar la contraseña',
     'account.ssoInfo':
-      'Cuenta SSO: la contraseña la gestiona su proveedor de identidad, no esta interfaz.',
+      'Cuenta OIDC: la contraseña la gestiona su proveedor de identidad, no esta interfaz.',
     'account.changed': 'Contraseña cambiada. Se han cerrado sus otras sesiones.',
     'account.wrongCurrent': 'La contraseña actual es incorrecta.',
     'account.mustDiffer': 'La nueva contraseña debe ser distinta de la actual.',

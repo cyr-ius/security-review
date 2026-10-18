@@ -58,8 +58,9 @@ Projects can also request their token themselves: see
   immediately, including to the other instances sharing the same PostgreSQL database.
 
 The MCP endpoint and the controller API require `Authorization: Bearer <token>`. Still public: `/healthz` on both processes, `/api/v1/enroll`
-on the MCP server, and on the controller the static files of `/ui/` and the Swagger
-documentation (`/api/docs`, `/api/openapi.json` schema, `/api/favicon.svg` icon). While no token exists, the controller API answers `503` and the MCP server **stays closed**: a
+on the MCP server, and on the controller the static files of `/ui/`, the `/api/favicon.svg`
+icon, the `/api/health` liveness of the API and, with `SECREVIEW_SWAGGER_ENABLED=true` (disabled by default), the Swagger
+documentation (`/api/docs`, `/api/openapi.json` schema, `/api/swagger/` files). While no token exists, the controller API answers `503` and the MCP server **stays closed**: a
 client without a token only reaches [enrollment](#enrollment-a-project-requests-its-token), any
 other request gets `401`, whatever the bearer value (a warning is logged at start-up). `/mcp` is
 only open in that case when the server listens on localhost (`127.0.0.1`, `::1`) or when
@@ -181,8 +182,8 @@ created (except on an [open server](#bearer-tokens), which needs no token).
     approval can also give the developer **read access to the project in the portal**, on
     their user account (**Read access in the portal** column of the interface, or
     `token approve ID --portal-user alice` from the CLI); with the
-    [SSO login](sso.md), an unknown name becomes an
-    SSO account. See
+    [OIDC login](sso.md), an unknown name becomes an
+    OIDC account. See
     [project read access at enrollment](sso.md#project-read-access-at-enrollment).
 
 ### Rejected token: new enrollment
@@ -359,7 +360,7 @@ For Claude and to get a token by enrollment from the host, see
 
 ## Behind a reverse proxy
 
-A reverse proxy (TLS, SSO, rate limiting) remains a valid option: in that case, leave these
+A reverse proxy (TLS, OIDC, rate limiting) remains a valid option: in that case, leave these
 variables empty.
 
 !!! warning

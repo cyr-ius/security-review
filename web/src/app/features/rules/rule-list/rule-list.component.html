@@ -5,7 +5,13 @@
       {{ 'rules.subtitle' | t }} <code>security-review-controller rules</code>
     </p>
   </div>
-  <div class="d-flex gap-2">
+  <div class="d-flex flex-wrap gap-2">
+    <app-pack-transfer
+      [busy]="transferring()"
+      (exportRequested)="exportPack()"
+      (fileChosen)="importPack($event)"
+      (fileRejected)="onPackRejected($event)"
+    />
     <app-refresh-button
       [label]="'rules.reload' | t"
       [loading]="reloading() || catalog.isLoading()"
@@ -40,20 +46,21 @@
     <div class="alert alert-warning py-2" role="status">{{ issue }}</div>
   }
 
+  <app-table-controls
+    idPrefix="rules"
+    [search]="search()"
+    [sort]="sort()"
+    [direction]="direction()"
+    [sortOptions]="sortOptions()"
+    [filters]="filters()"
+    (searchChange)="search.set($event)"
+    (sortChange)="onTableSort($event)"
+    (directionChange)="direction.set($event)"
+    (filterChange)="onTableFilter($event)"
+  />
   <div class="card">
     <div class="card-header d-flex flex-wrap gap-2 align-items-center">
       <span class="fw-semibold">{{ 'rules.count' | t: { count: visibleRules().length } }}</span>
-      <label class="visually-hidden" for="rule-origin-filter">{{ 'rules.origin' | t }}</label>
-      <select
-        id="rule-origin-filter"
-        class="form-select form-select-sm w-auto ms-auto"
-        [value]="originFilter()"
-        (change)="onOriginFilter($event)"
-      >
-        <option value="">{{ 'rules.allOrigins' | t }}</option>
-        <option value="builtin">{{ 'rules.builtinPlural' | t }}</option>
-        <option value="custom">{{ 'rules.customPlural' | t }}</option>
-      </select>
     </div>
     @if (visibleRules().length > 0) {
       <div class="table-responsive">
@@ -142,6 +149,8 @@
           </tbody>
         </table>
       </div>
+    } @else if ((catalog.value()?.rules ?? []).length) {
+      <p class="text-body-secondary text-center my-4">{{ 'common.noMatches' | t }}</p>
     } @else {
       <p class="text-body-secondary text-center my-4">{{ 'rules.empty' | t }}</p>
     }

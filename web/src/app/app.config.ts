@@ -9,6 +9,7 @@ import { TitleStrategy, provideRouter, withComponentInputBinding } from '@angula
 import { routes } from './app.routes';
 import { I18nTitleStrategy } from './core/i18n/title.strategy';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
+import { errorInterceptor } from './core/interceptors/error.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -17,7 +18,7 @@ export const appConfig: ApplicationConfig = {
     provideZonelessChangeDetection(),
     // Route parameters are bound to component inputs
     provideRouter(routes, withComponentInputBinding()),
-    provideHttpClient(withInterceptors([authInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor, errorInterceptor])),
     // Route titles are message keys, translated in the language of the interface
     { provide: TitleStrategy, useClass: I18nTitleStrategy },
   ],

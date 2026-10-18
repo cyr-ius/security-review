@@ -1,6 +1,6 @@
 """Settings changed by an administrator in the web interface (table ``appsetting``).
 
-A stored value overrides the matching ``SECREVIEW_*`` variable, for both processes since they
+A stored value overrides the matching variable, for both processes since they
 share the database: the language of the review reports (read by the MCP server when it builds a
 review prompt), the proxy of the outgoing connections and the single sign-on settings (read by
 the controller, see effective_settings). Without a stored value, the variable applies.
@@ -9,21 +9,21 @@ The proxy URL and the OIDC client secret are secrets: they are stored as given, 
 returned by the API nor logged (``masked_url``, PASSWORD_MASK).
 """
 
-import urllib.request
 from typing import Any
 from urllib.parse import urlsplit
 
+from pydantic import SecretStr
 from sqlmodel import select
 
 from .config import Settings, check_report_language, get_settings
 from .database import session_scope
 from .models import AppSetting, utcnow
-from .oidc import CALLBACK_PATH, DEFAULT_ROLES, validate_settings
+from .oidc import CALLBACK_PATH, validate_settings
 from .proxy import PASSWORD_MASK, check_no_proxy, check_proxy_url, describe_proxy, masked_url
 
 REPORT_LANGUAGE = "report_language"
 # Keys of the proxy settings, also the names of their Settings fields. A stored proxy "" means a
-# direct connection, despite SECREVIEW_PROXY and HTTPS_PROXY.
+# direct connection, despite HTTPS_PROXY and HTTP_PROXY.
 PROXY = "proxy"
 NO_PROXY = "no_proxy"
 
@@ -120,29 +120,20 @@ def set_proxy(values: dict[str, str | None], updated_by: str) -> None:
 
 def _describe_proxy(settings: Settings, stored: dict[str, str], effective: Settings) -> dict:
     """Stored values, variables and effective proxy (passwords masked)."""
-    url, kind = describe_proxy(effective)
-    if kind == "proxy":
-        source = "web" if PROXY in stored else "SECREVIEW_PROXY"
-    elif kind == "none":
+    url = describe_proxy(effective)
+    if url is None:
         source = "none"
     else:
-        source = "environment"
-    environment = urllib.request.getproxies()
+        source = "web" if PROXY in stored else "environment"
     return {
         "url": {
             "value": masked_url(stored[PROXY]) if PROXY in stored else None,
             "env": masked_url(settings.proxy) if settings.proxy else None,
         },
         "no_proxy": {"value": stored.get(NO_PROXY), "env": settings.no_proxy},
-        "environment": {
-            name: masked_url(environment[key])
-            if key in environment and key != "no"
-            else environment.get(key)
-            for name, key in (("https_proxy", "https"), ("http_proxy", "http"), ("no_proxy", "no"))
-        },
         "effective": {
             "url": url,
-            "no_proxy": effective.no_proxy if kind == "proxy" else None,
+            "no_proxy": effective.no_proxy if url is not None else None,
             "source": source,
         },
     }
@@ -152,13 +143,13 @@ def _describe_proxy(settings: Settings, stored: dict[str, str], effective: Setti
 
 
 def _overrides(stored: dict[str, str]) -> dict[str, Any]:
-    """Every stored value that overrides a Settings field (proxy and SSO)."""
+    """Every stored value that overrides a Settings field (proxy and OIDC)."""
     return _proxy_overrides(stored) | _oidc_overrides(stored)
 
 
 def effective_settings(settings: Settings | None = None) -> Settings:
-    """Return ``settings`` with the proxy and SSO values stored in the web interface applied
-    over the ``SECREVIEW_*`` variables (read by the controller at each OSV download and login)."""
+    """Return ``settings`` with the proxy and OIDC values stored in the web interface applied
+    over the variables (read by the controller at each OSV download and login)."""
     settings = settings or get_settings()
     overrides = _overrides(_stored())
     return settings.model_copy(update=overrides) if overrides else settings
@@ -179,9 +170,7 @@ OIDC_FIELDS: dict[str, type] = {
     "roles_claim": str,
     "username_claim": str,
     "admin_groups": str,
-    "triager_groups": str,
-    "reader_groups": str,
-    "default_role": str,
+    "default_group": str,
     "auto_create_users": bool,
     "display_name": str,
 }
@@ -201,7 +190,12 @@ def _oidc_overrides(stored: dict[str, str]) -> dict[str, Any]:
     for name, kind in OIDC_FIELDS.items():
         key = _oidc_key(name)
         if key in stored:
-            overrides[key] = stored[key] == "true" if kind is bool else stored[key]
+            if kind is bool:
+                overrides[key] = stored[key] == "true"
+            elif name == OIDC_SECRET:
+                overrides[key] = SecretStr(stored[key])
+            else:
+                overrides[key] = stored[key]
     return overrides
 
 
@@ -209,17 +203,15 @@ def _check_oidc_value(name: str, value: Any) -> str:
     """Return the stored form of one OIDC value, or raise ValueError."""
     if OIDC_FIELDS[name] is bool:
         if not isinstance(value, bool):
-            raise ValueError(f"SSO setting {name} must be true or false")
+            raise ValueError(f"OIDC setting {name} must be true or false")
         return "true" if value else "false"
     if not isinstance(value, str):
-        raise ValueError(f"SSO setting {name} must be a string")
+        raise ValueError(f"OIDC setting {name} must be a string")
     text = value if name == OIDC_SECRET else value.strip()
     if len(text) > MAX_OIDC_VALUE_CHARS:
-        raise ValueError(f"SSO setting {name} too long (max {MAX_OIDC_VALUE_CHARS} chars)")
+        raise ValueError(f"OIDC setting {name} too long (max {MAX_OIDC_VALUE_CHARS} chars)")
     if not text.isprintable():
-        raise ValueError(f"SSO setting {name} must not contain control characters")
-    if name == "default_role" and text not in DEFAULT_ROLES:
-        raise ValueError("SSO default role must be empty, reader or triager")
+        raise ValueError(f"OIDC setting {name} must not contain control characters")
     return text
 
 
@@ -233,7 +225,7 @@ def _oidc_changes(
         if name == OIDC_SECRET and value == PASSWORD_MASK:
             continue
         if name not in OIDC_FIELDS:
-            raise ValueError(f"unknown SSO setting: {name}")
+            raise ValueError(f"unknown OIDC setting: {name}")
         changes[_oidc_key(name)] = None if value is None else _check_oidc_value(name, value)
     stored = _stored()
     for key, value in changes.items():
@@ -249,7 +241,7 @@ def _validate_oidc(effective: Settings) -> None:
     try:
         validate_settings(effective)
     except ValueError as exc:
-        raise ValueError(f"invalid SSO settings: {exc}") from None
+        raise ValueError(f"invalid OIDC settings: {exc}") from None
 
 
 def set_oidc(values: dict[str, Any], updated_by: str, settings: Settings | None = None) -> None:
@@ -281,6 +273,8 @@ def oidc_candidate(values: dict[str, Any], settings: Settings | None = None) -> 
 
 def _shown(name: str, value: Any) -> Any:
     """Value of an OIDC setting as returned by the API: a set client secret is masked."""
+    if isinstance(value, SecretStr):
+        value = value.get_secret_value()
     if name == OIDC_SECRET and value:
         return PASSWORD_MASK
     return value

@@ -3,10 +3,21 @@ import { Component, ElementRef, computed, inject, signal, viewChild } from '@ang
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { ChecklistItem, ChecklistItemWrite } from '../../../core/models/api.models';
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { ApiService } from '../../../core/services/api.service';
+import { ChecklistItem, ChecklistItemWrite } from '../../../core/models/api.models';
+import { ApiService, saveBlob } from '../../../core/services/api.service';
+import {
+  PackFile,
+  PackFileError,
+  PackTransferComponent,
+} from '../../../shared/components/pack-transfer/pack-transfer.component';
+import {
+  TableControlFilter,
+  TableControlFilterChange,
+  TableControlsComponent,
+} from '../../../shared/components/table-controls/table-controls.component';
+import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 
 interface ChecklistFormModel {
   domain: string;
@@ -24,10 +35,12 @@ const EMPTY_ITEM: ChecklistFormModel = {
   cwe: '',
 };
 
+type ChecklistSortKey = 'domain' | 'id' | 'title';
+
 /** Admin view for checklist items grouped by their review domain. */
 @Component({
   selector: 'app-checklist-list',
-  imports: [FormField, TranslatePipe],
+  imports: [PackTransferComponent, FormField, TableControlsComponent, TranslatePipe],
   templateUrl: './checklist-list.component.html',
   styleUrl: './checklist-list.component.css',
 })
@@ -38,13 +51,56 @@ export class ChecklistListComponent {
 
   readonly catalog = rxResource({ stream: () => this.api.checklistItems() });
   readonly domainFilter = signal('');
+  readonly search = signal('');
+  readonly sort = signal<ChecklistSortKey>('domain');
+  readonly direction = signal<'asc' | 'desc'>('asc');
+  readonly originFilter = signal<'all' | 'builtin' | 'custom'>('all');
   readonly domains = computed(() =>
     [...new Set((this.catalog.value()?.checklist_items ?? []).map((item) => item.domain))].sort(),
   );
+  readonly sortOptions = computed(() => [
+    { value: 'domain', label: this.i18n.translate('checklists.domain') },
+    { value: 'id', label: this.i18n.translate('checklists.domainId') },
+    { value: 'title', label: this.i18n.translate('checklists.check') },
+  ]);
+  readonly filters = computed<TableControlFilter[]>(() => [
+    {
+      key: 'domain',
+      label: this.i18n.translate('checklists.domain'),
+      value: this.domainFilter(),
+      options: [
+        { value: '', label: this.i18n.translate('checklists.allDomains') },
+        ...this.domains().map((domain) => ({ value: domain, label: domain })),
+      ],
+    },
+    {
+      key: 'origin',
+      label: this.i18n.translate('rules.origin'),
+      value: this.originFilter(),
+      options: [
+        { value: 'all', label: this.i18n.translate('common.all') },
+        { value: 'builtin', label: this.i18n.translate('rules.builtin') },
+        { value: 'custom', label: this.i18n.translate('rules.custom') },
+      ],
+    },
+  ]);
   readonly visibleItems = computed(() => {
-    const items = this.catalog.value()?.checklist_items ?? [];
     const domain = this.domainFilter();
-    return domain ? items.filter((item) => item.domain === domain) : items;
+    const origin = this.originFilter();
+    const items = (this.catalog.value()?.checklist_items ?? []).filter(
+      (item) => (!domain || item.domain === domain) && (origin === 'all' || item.origin === origin),
+    );
+    const sort = this.sort();
+    return filterAndSortRows(
+      items,
+      this.search(),
+      this.direction(),
+      (item) => [item.domain, item.id, item.title, item.what_to_look_for, item.cwe].join(' '),
+      (left, right) =>
+        compareTableText(left[sort], right[sort]) ||
+        compareTableText(left.domain, right.domain) ||
+        compareTableText(left.id, right.id),
+    );
   });
   readonly formModel = signal<ChecklistFormModel>({ ...EMPTY_ITEM });
   readonly itemForm = form(this.formModel, (path) => {
@@ -66,6 +122,8 @@ export class ChecklistListComponent {
   readonly error = signal<Message | null>(null);
   readonly formError = signal<Message | null>(null);
   readonly notice = signal<Message | null>(null);
+  /** True while a pack is exported or imported. */
+  readonly transferring = signal(false);
 
   onDomainFilter(event: Event): void {
     this.setDomainFilter((event.target as HTMLSelectElement).value);
@@ -73,6 +131,22 @@ export class ChecklistListComponent {
 
   setDomainFilter(value: string): void {
     this.domainFilter.set(value);
+  }
+
+  onTableSort(value: string): void {
+    if (value === 'domain' || value === 'id' || value === 'title') {
+      this.sort.set(value);
+    }
+  }
+
+  onTableFilter(change: TableControlFilterChange): void {
+    if (change.key === 'domain') {
+      this.setDomainFilter(change.value);
+    } else if (change.key === 'origin') {
+      this.originFilter.set(
+        change.value === 'builtin' || change.value === 'custom' ? change.value : 'all',
+      );
+    }
   }
 
   startCreate(): void {
@@ -160,6 +234,49 @@ export class ChecklistListComponent {
     } catch (error: unknown) {
       this.error.set(describeError(error));
     }
+  }
+
+  /** Download the security-review-checklists.toml pack. */
+  async exportPack(): Promise<void> {
+    this.clearMessages();
+    this.transferring.set(true);
+    try {
+      saveBlob(
+        await firstValueFrom(this.api.exportRulePack(['checklist'])),
+        'security-review-checklists.toml',
+      );
+    } catch {
+      this.error.set(msg('pack.exportFailed'));
+    } finally {
+      this.transferring.set(false);
+    }
+  }
+
+  /** Import a TOML pack chosen by the user (all or nothing), then reload the list. */
+  async importPack(file: PackFile): Promise<void> {
+    this.clearMessages();
+    this.transferring.set(true);
+    try {
+      const result = await firstValueFrom(this.api.importRulePack(file.name, file.content));
+      this.notice.set(
+        msg('pack.rulesImported', {
+          file: file.name,
+          rules: result.rules,
+          items: result.checklist_items,
+          disabled: result.disabled_rules,
+        }),
+      );
+      this.catalog.reload();
+    } catch (error: unknown) {
+      this.error.set(describeError(error));
+    } finally {
+      this.transferring.set(false);
+    }
+  }
+
+  onPackRejected(reason: PackFileError): void {
+    this.clearMessages();
+    this.error.set(msg(reason === 'tooLarge' ? 'pack.tooLarge' : 'pack.unreadable'));
   }
 
   private openEditor(): void {

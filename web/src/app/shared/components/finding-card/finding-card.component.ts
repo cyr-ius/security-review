@@ -1,8 +1,8 @@
 import { DatePipe } from '@angular/common';
-import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
+import { FormField, form, maxLength, required, validate } from '@angular/forms/signals';
 import { STATUS_META } from '../../../core/constants/labels';
-import { Message, msg } from '../../../core/i18n/i18n.service';
+import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
   DISMISSED_STATUSES,
@@ -11,13 +11,22 @@ import {
   FindingDecision,
   FindingStatus,
 } from '../../../core/models/api.models';
-import { ApiService } from '../../../core/services/api.service';
-import { AuthService } from '../../../core/services/auth.service';
 import { SeverityBadgeComponent } from '../severity-badge/severity-badge.component';
 import { StatusBadgeComponent } from '../status-badge/status-badge.component';
 
 /** Default validity of an acceptance or a false positive, in days (the server caps it). */
 const DEFAULT_DISMISSAL_DAYS = 90;
+
+/** Shortest reason of an acceptance or a false positive (services.MIN_STATUS_REASON_CHARS). */
+const MIN_REASON_CHARS = 10;
+/** Longest reason accepted by the server (models.MAX_STATUS_REASON_CHARS). */
+const MAX_REASON_CHARS = 1000;
+
+/** Reason and expiry of an acceptance or a false positive. */
+interface DismissalFormModel {
+  reason: string;
+  expiresOn: string;
+}
 
 /** YYYY-MM-DD of today plus ``days``, in UTC like the server. */
 function isoDay(days: number): string {
@@ -29,33 +38,61 @@ function isoDay(days: number): string {
  * Accepting a risk or marking a false positive asks for a reason and an expiry date; a status
  * proposed by an agent is shown apart, for the triager to apply or reject.
  * Extra details (report link...) can be projected at the end of the metadata line.
+ *
+ * The card only shows and asks: the page saves the decision it emits (see TriageService) and
+ * passes the saved finding back, which closes the form.
  */
 @Component({
   selector: 'app-finding-card',
-  imports: [DatePipe, SeverityBadgeComponent, StatusBadgeComponent, TranslatePipe],
+  imports: [DatePipe, FormField, SeverityBadgeComponent, StatusBadgeComponent, TranslatePipe],
   templateUrl: './finding-card.component.html',
   styleUrl: './finding-card.component.css',
 })
 export class FindingCardComponent {
-  private readonly api = inject(ApiService);
-  readonly auth = inject(AuthService);
+  private readonly i18n = inject(I18nService);
 
   readonly finding = input.required<Finding>();
+  /** The user may record triage decisions (findings.triage). */
+  readonly canTriage = input(false);
+  /** A decision on this finding is being saved. */
+  readonly saving = input(false);
 
-  /** The saved finding, after a triage decision. */
-  readonly updated = output<Finding>();
-  /** Why a triage decision could not be saved. */
-  readonly failed = output<Message>();
+  /** A triage decision to save. */
+  readonly decided = output<FindingDecision>();
+  /** The status proposed by an agent is rejected. */
+  readonly proposalRejected = output<void>();
 
   readonly statuses = FINDING_STATUSES;
   readonly statusMeta = STATUS_META;
-  readonly saving = signal(false);
 
-  /** Accepted or false positive being decided: the form asks for a reason and an expiry. */
-  readonly pendingStatus = signal<FindingStatus | null>(null);
-  readonly reason = signal('');
-  readonly expiresOn = signal(isoDay(DEFAULT_DISMISSAL_DAYS));
+  /**
+   * Accepted or false positive being decided: the form asks for a reason and an expiry. It
+   * closes when the page passes the saved finding back.
+   */
+  readonly pendingStatus = linkedSignal<Finding, FindingStatus | null>({
+    source: this.finding,
+    computation: () => null,
+  });
   readonly minExpiry = isoDay(1);
+  readonly dismissalModel = signal<DismissalFormModel>(newDismissal());
+  readonly dismissalForm = form(this.dismissalModel, (path) => {
+    // Counted without the surrounding spaces, like the server
+    validate(path.reason, ({ value }) =>
+      value().trim().length < MIN_REASON_CHARS
+        ? {
+            kind: 'minLength',
+            message: this.i18n.translate('report.dismissReasonHelp'),
+          }
+        : undefined,
+    );
+    maxLength(path.reason, MAX_REASON_CHARS);
+    required(path.expiresOn);
+    validate(path.expiresOn, ({ value }) =>
+      value() && value() < this.minExpiry
+        ? { kind: 'minDate', message: this.i18n.translate('report.dismissExpiryHelp') }
+        : undefined,
+    );
+  });
 
   /** The acceptance or false positive has expired: the finding counts as open again. */
   readonly expired = computed(() => {
@@ -108,8 +145,7 @@ export class FindingCardComponent {
 
   /** Open the reason and expiry form for an acceptance or a false positive. */
   openDismissal(status: FindingStatus): void {
-    this.reason.set('');
-    this.expiresOn.set(isoDay(DEFAULT_DISMISSAL_DAYS));
+    this.dismissalForm().reset(newDismissal());
     this.pendingStatus.set(status);
   }
 
@@ -117,11 +153,15 @@ export class FindingCardComponent {
     this.pendingStatus.set(null);
   }
 
-  submitDismissal(): void {
+  submitDismissal(event: Event): void {
+    event.preventDefault();
     const status = this.pendingStatus();
-    if (status) {
-      this.save({ status, reason: this.reason().trim(), expires_on: this.expiresOn() });
+    if (!status || this.dismissalForm().invalid()) {
+      this.dismissalForm().markAsTouched();
+      return;
     }
+    const { reason, expiresOn } = this.dismissalModel();
+    this.save({ status, reason: reason.trim(), expires_on: expiresOn });
   }
 
   /** Apply the status proposed by an agent: a dismissal still needs the triager's reason. */
@@ -138,38 +178,15 @@ export class FindingCardComponent {
   }
 
   rejectProposal(): void {
-    const finding = this.finding();
-    this.saving.set(true);
-    this.api.rejectFindingProposal(finding.id).subscribe({
-      next: (saved) => this.saved(saved),
-      error: (err: unknown) => this.refused(err, finding.id),
-    });
+    this.proposalRejected.emit();
   }
 
   private save(decision: FindingDecision): void {
-    const finding = this.finding();
-    this.saving.set(true);
-    this.api.updateFindingStatus(finding.id, decision).subscribe({
-      next: (saved) => this.saved(saved),
-      error: (err: unknown) => this.refused(err, finding.id),
-    });
+    this.decided.emit(decision);
   }
+}
 
-  private saved(finding: Finding): void {
-    this.saving.set(false);
-    this.pendingStatus.set(null);
-    this.updated.emit(finding);
-  }
-
-  private refused(err: unknown, id: number): void {
-    this.saving.set(false);
-    const code = err instanceof HttpErrorResponse ? err.status : 0;
-    this.failed.emit(
-      code === 403
-        ? msg('report.triageForbidden')
-        : code === 422
-          ? msg('report.triageInvalid', { id })
-          : msg('report.triageFailed', { id }),
-    );
-  }
+/** Empty reason, default expiry. */
+function newDismissal(): DismissalFormModel {
+  return { reason: '', expiresOn: isoDay(DEFAULT_DISMISSAL_DAYS) };
 }

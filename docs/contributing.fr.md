@@ -56,9 +56,9 @@ Le démon Docker permet de construire et de lancer l'image du
 
 ```bash
 docker build -t security-review-mcp .
-docker run --rm -p 8080:8000 -v secreview-data:/data \
+docker run --rm -p 8080:8000 -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
-docker run --rm -p 8000:8000 -v secreview-data:/data security-review-mcp \
+docker run --rm -p 8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
     --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
@@ -88,17 +88,21 @@ src/security_review_mcp/
 ├── server.py      # prompts, outils, ressources, point d'entrée du serveur MCP
 ├── controller.py  # point d'entrée du contrôleur (serve, db et commandes d'administration)
 ├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
-├── oidc.py        # connexion SSO OpenID Connect à l'interface web (contrôleur)
-├── role_mapping.py # role mapping OIDC : groupes du fournisseur → rôle web et projets
+├── oidc.py        # connexion OIDC OpenID Connect à l'interface web (contrôleur)
+├── access_control.py # permissions, rôles, groupes et membres des comptes web
 ├── token_store.py # jetons Bearer en base : création, expiration, renouvellement, révocation, enrôlement
 ├── audit.py       # journal d'audit : événements des décisions de triage, propositions, jetons et enrôlements
 ├── metrics.py     # métriques Prometheus du contrôleur (/metrics)
-├── web_users.py   # comptes de l'interface web, locaux (scrypt) ou SSO (création à la volée), sessions, admin initial
+├── web_users.py   # comptes de l'interface web, locaux (scrypt) ou OIDC (création à la volée), sessions, admin initial
 ├── enrollment.py  # client de `enroll` : demande de jeton à un serveur partagé
 ├── remote_scan.py # client de `scan-deps` : scan des dépendances par un serveur partagé
 ├── ci_client.py   # `security-review-ci` : client de pipeline du contrôleur (bibliothèque standard uniquement)
 ├── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP
-├── web_api.py     # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
+├── web_api/       # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
+│   ├── __init__.py    # create_app, fichiers statiques de /ui, assemblage des routeurs
+│   ├── schemas.py     # modèles de requête et de réponse de chaque route
+│   ├── deps.py        # identité de l'appelant, permissions, portée projet
+│   └── *_routes.py    # un routeur par domaine (auth, account, report, ci, rule, token, admin, access)
 ├── prompts.py     # construction des prompts
 ├── standards.py   # normes de développement : stockage, recherche par technologie / fichier, rendu
 ├── default_rules.toml  # règles et checklists par défaut, copiées en base au premier lancement
@@ -114,8 +118,8 @@ src/security_review_mcp/
 ├── versions.py    # comparaison de versions
 ├── advisories.py  # import OSV, correspondance des versions
 ├── advisory_sync.py  # téléchargement OSV par le contrôleur (proxy, mise à jour quotidienne, historique)
-├── app_settings.py    # réglages modifiables dans l'interface (langue, proxy sortant, SSO), en base
-├── proxy.py       # proxy sortant du contrôleur (OSV, SSO) : URL, no_proxy, handler urllib
+├── app_settings.py    # réglages modifiables dans l'interface (langue, proxy sortant, OIDC), en base
+├── proxy.py       # proxy sortant du contrôleur (OSV, OIDC) : URL, no_proxy, handler urllib
 ├── dependencies.py    # analyseurs de manifestes / lockfiles, hygiène
 ├── depscan.py     # scan de dépendances et conversion en findings
 ├── services.py    # logique de persistance des rapports
@@ -148,6 +152,34 @@ configuration VS Code **Web UI + API (Angular dev server, port 4200)**, qui dém
 fichier de `web/src/` recharge la page (styles et templates sans rechargement complet), et les
 points d'arrêt posés dans les fichiers `.ts` sont pris en compte. Dans le devcontainer, Chrome
 est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
+
+### Conventions de code
+
+- **API REST** : toute route qui répond en JSON déclare son modèle de réponse
+  (`web_api/schemas.py`) : FastAPI le documente dans OpenAPI et retire tout champ non déclaré.
+  `test_openapi_documents_the_response_of_every_json_route` échoue sur une route qui renvoie un
+  `dict` brut.
+- **Composants** : template et styles dans des fichiers séparés. Une fonctionnalité à plusieurs
+  écrans a un dossier par composant (`features/access/role-list/`) ; ses fichiers partagés
+  (styles, classe de base, messages d'erreur) restent à la racine de la fonctionnalité.
+- **Formulaires** : les formulaires de saisie utilisent les Signal Forms (`form()`,
+  `[formField]`, validateurs avec un message traduit) ; les filtres de liste et les listes
+  dynamiques de cases à cocher restent de simples gestionnaires d'événements.
+- **Appels HTTP** : par `rxResource` pour les données d'un écran, ou `await
+  firstValueFrom(...)` pour une action ; pas de `.subscribe()` dans les composants.
+- **État** : `signal()` et `computed()` ; une valeur dérivée d'une autre mais modifiable (un
+  formulaire rempli avec les réglages chargés) est un `linkedSignal()`. `effect()` est réservé aux
+  vrais effets de bord (attributs du document, stockage local, minuteries), jamais pour recopier
+  un signal dans un autre. Un service expose ses signaux avec `asReadonly()` et les modifie par
+  des méthodes nommées.
+- **Dossiers** : `shared/` contient des composants réutilisables sans logique métier : ils
+  reçoivent leurs données par des entrées et répondent par des sorties, jamais par un service
+  métier de `core/` (la fiche d'un finding émet la décision, `TriageService` l'enregistre). La
+  coquille de l'application est `layout/`.
+- **Templates** : liaisons de l'hôte dans `host: {}` (pas de `@HostListener`) ; un message qui
+  explique pourquoi un champ est invalide lui est relié par `aria-describedby`.
+- **Couleurs** : variables Bootstrap (`var(--bs-…)`) ou jetons de `styles.css` (`--app-…`),
+  jamais une couleur écrite dans un composant, pour que les thèmes clair et sombre fonctionnent.
 
 ### Traductions de l'interface
 

@@ -3,12 +3,14 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { REVIEW_TYPE_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import { Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
   FINDING_STATUSES,
   Finding,
+  FindingDecision,
   FindingStatus,
   ProjectFinding,
   REVIEW_TYPES,
@@ -16,6 +18,8 @@ import {
   SEVERITIES,
   Severity,
 } from '../../../core/models/api.models';
+import { AuthService } from '../../../core/services/auth.service';
+import { TriageService } from '../../../core/services/triage.service';
 import { ApiService } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
 
@@ -23,8 +27,9 @@ import { FindingCardComponent } from '../../../shared/components/finding-card/fi
 const PAGE_SIZE = 50;
 
 /**
- * Every open finding of a project, across all its reports, worst first: the list a security
- * expert reviews and triages. Other statuses can be listed to re-check past decisions.
+ * Every open finding of a project (or of every project, at /findings), across all reports, worst
+ * first: the list a security expert reviews and triages. Other statuses can be listed to re-check
+ * past decisions.
  */
 @Component({
   selector: 'app-project-findings',
@@ -34,9 +39,11 @@ const PAGE_SIZE = 50;
 })
 export class ProjectFindingsComponent {
   private readonly api = inject(ApiService);
+  readonly auth = inject(AuthService);
+  readonly triage = inject(TriageService);
 
-  /** Route parameter :project */
-  readonly project = input.required<string>();
+  /** Route parameter :project (undefined at /findings: every project in the scope). */
+  readonly project = input<string>();
 
   readonly severities = SEVERITIES;
   readonly statuses = FINDING_STATUSES;
@@ -94,31 +101,39 @@ export class ProjectFindingsComponent {
   }
 
   /** Append the next page to the list. */
-  loadMore(): void {
+  async loadMore(): Promise<void> {
     this.loadingMore.set(true);
     this.loadMoreFailed.set(false);
-    this.api
-      .projectFindings({
-        project: this.project(),
-        status: this.statusFilter(),
-        severity: this.severityFilter(),
-        reviewType: this.reviewTypeFilter(),
-        limit: PAGE_SIZE,
-        // Triaged findings left the filtered set on the server: skipping them in the offset
-        // keeps the next page from jumping over findings not yet seen
-        offset: this.findings().length - this.triagedCount(),
-      })
-      .subscribe({
-        next: (page) => {
-          const known = new Set(this.findings().map((f) => f.id));
-          this.findings.update((all) => [...all, ...page.findings.filter((f) => !known.has(f.id))]);
-          this.loadingMore.set(false);
-        },
-        error: () => {
-          this.loadMoreFailed.set(true);
-          this.loadingMore.set(false);
-        },
-      });
+    const request = this.api.projectFindings({
+      project: this.project(),
+      status: this.statusFilter(),
+      severity: this.severityFilter(),
+      reviewType: this.reviewTypeFilter(),
+      limit: PAGE_SIZE,
+      // Triaged findings left the filtered set on the server: skipping them in the offset
+      // keeps the next page from jumping over findings not yet seen
+      offset: this.findings().length - this.triagedCount(),
+    });
+    try {
+      const page = await firstValueFrom(request);
+      const known = new Set(this.findings().map((f) => f.id));
+      this.findings.update((all) => [...all, ...page.findings.filter((f) => !known.has(f.id))]);
+    } catch {
+      this.loadMoreFailed.set(true);
+    } finally {
+      this.loadingMore.set(false);
+    }
+  }
+
+  /** Save the triage decision of a finding card (``null``: reject the agent proposal). */
+  async decide(finding: Finding, decision: FindingDecision | null): Promise<void> {
+    this.triageError.set(null);
+    const result = await this.triage.decide(finding, decision);
+    if ('error' in result) {
+      this.triageError.set(result.error);
+    } else {
+      this.onUpdated(result.finding);
+    }
   }
 
   /** Keep the triage decision saved by a finding card, and the report context of the row. */

@@ -1,0 +1,186 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ 'layout.roles' | t }}</h1>
+    <p class="text-body-secondary mb-0">{{ 'roles.subtitle' | t }}</p>
+  </div>
+  <app-refresh-button [loading]="roles.isLoading()" (refresh)="roles.reload()" />
+</div>
+
+<p class="text-body-secondary small">{{ 'roles.help' | t }}</p>
+
+@if (error(); as text) {
+  <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+}
+@if (message(); as text) {
+  <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+}
+
+<section class="mb-4" aria-labelledby="role-form-title">
+  <h2 id="role-form-title" class="h5">
+    @if (editing(); as role) {
+      {{ 'roles.editTitle' | t: { role: role.name } }}
+    } @else {
+      {{ 'roles.createTitle' | t }}
+    }
+  </h2>
+  <form class="row g-2 align-items-start" (submit)="submit($event)" novalidate>
+    <div class="col-md-4">
+      <label for="role-name" class="form-label">{{ 'access.name' | t }}</label>
+      <input
+        id="role-name"
+        class="form-control"
+        autocomplete="off"
+        [placeholder]="'roles.namePlaceholder' | t"
+        [formField]="roleForm.name"
+      />
+    </div>
+    <div class="col-md-8">
+      <label for="role-description" class="form-label">{{ 'access.description' | t }}</label>
+      <input
+        id="role-description"
+        class="form-control"
+        autocomplete="off"
+        [formField]="roleForm.description"
+      />
+    </div>
+    <fieldset class="col-12">
+      <legend class="form-label">{{ 'roles.permissions' | t }}</legend>
+      <div class="row g-2">
+        @for (permission of permissions.value() ?? []; track permission.name) {
+          <div class="col-md-6">
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [id]="'role-permission-' + permission.name"
+                [checked]="selected().includes(permission.name)"
+                (change)="toggle(permission.name, $event)"
+              />
+              <label class="form-check-label" [for]="'role-permission-' + permission.name">
+                {{ permissionMeta[permission.name].label | t }}
+                <code class="small ms-1">{{ permission.name }}</code>
+                @if (permission.scoped) {
+                  <span class="badge text-bg-light border ms-1">{{ 'roles.scoped' | t }}</span>
+                }
+              </label>
+              <div class="form-text mt-0">{{ permissionMeta[permission.name].help | t }}</div>
+            </div>
+          </div>
+        }
+      </div>
+      @if (selected().length) {
+        <div class="form-text">
+          {{ (scoped() ? 'roles.scopedHelp' : 'roles.globalHelp') | t }}
+        </div>
+      }
+    </fieldset>
+    <div class="col-12 d-flex flex-wrap gap-2">
+      <button type="submit" class="btn btn-primary" [disabled]="!canSubmit()">
+        <i class="bi" [class]="editing() ? 'bi-check-lg' : 'bi-plus-lg'" aria-hidden="true"></i>
+        {{ (editing() ? 'common.save' : 'common.create') | t }}
+      </button>
+      @if (editing()) {
+        <button type="button" class="btn btn-outline-secondary" (click)="resetForm()">
+          {{ 'common.cancel' | t }}
+        </button>
+      }
+    </div>
+  </form>
+</section>
+
+<section aria-labelledby="roles-title">
+  <h2 id="roles-title" class="h5">{{ 'layout.roles' | t }}</h2>
+  @if (roles.error()) {
+    <div class="alert alert-danger" role="alert">{{ 'roles.loadError' | t }}</div>
+  } @else if (roles.isLoading() && !roles.hasValue()) {
+    <div class="text-center my-4">
+      <span class="spinner-border text-secondary" aria-hidden="true"></span>
+      <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+    </div>
+  } @else {
+    <app-table-controls
+      idPrefix="roles"
+      [search]="tableSearch()"
+      [sort]="tableSort()"
+      [direction]="tableDirection()"
+      [sortOptions]="tableSortOptions()"
+      [filters]="tableFilters()"
+      (searchChange)="tableSearch.set($event)"
+      (sortChange)="onRoleTableSort($event)"
+      (directionChange)="tableDirection.set($event)"
+      (filterChange)="onRoleTableFilter($event)"
+    />
+    @if (visibleRoles().length) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
+            <tr>
+              <th scope="col">{{ 'access.name' | t }}</th>
+              <th scope="col">{{ 'roles.permissions' | t }}</th>
+              <th scope="col">{{ 'layout.groups' | t }}</th>
+              <th scope="col">{{ 'rules.origin' | t }}</th>
+              <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (role of visibleRoles(); track role.id) {
+              <tr>
+                <td class="access-name">
+                  <strong>{{ role.name }}</strong>
+                  @if (role.system) {
+                    <span class="badge text-bg-secondary ms-1">{{ 'roles.system' | t }}</span>
+                  }
+                  @if (role.description) {
+                    <div class="small text-body-secondary">{{ role.description }}</div>
+                  }
+                </td>
+                <td>
+                  <div class="permission-badges">
+                    @for (permission of role.permissions; track permission) {
+                      <span class="badge text-bg-light border" [title]="permission">
+                        {{ permissionMeta[permission].label | t }}
+                      </span>
+                    }
+                  </div>
+                </td>
+                <td>{{ role.groups }}</td>
+                <td class="small">
+                  {{ role.created_by ?? '—' }}
+                  <span class="text-body-secondary">
+                    · {{ role.created_at | date: 'dd/MM/yyyy' }}
+                  </span>
+                </td>
+                <td class="text-end text-nowrap">
+                  @if (!role.system) {
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary me-1"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'roles.editOf' | t: { role: role.name }"
+                      (click)="edit(role)"
+                    >
+                      <i class="bi bi-pencil" aria-hidden="true"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'roles.deleteOf' | t: { role: role.name }"
+                      (click)="remove(role)"
+                    >
+                      <i class="bi bi-trash" aria-hidden="true"></i>
+                    </button>
+                  } @else {
+                    <span class="text-body-secondary small">{{ 'roles.readOnly' | t }}</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary">{{ 'common.noMatches' | t }}</p>
+    }
+  }
+</section>

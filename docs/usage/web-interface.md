@@ -9,8 +9,9 @@ the findings** (fixed, accepted risk, false positive) without an MCP client. It 
 |---|---|
 | `/ui/` | Web application (Angular) |
 | `/api/v1/…` | REST API used by the application |
-| `/api/docs` | OpenAPI documentation of the REST API (public, no data) |
+| `/api/docs` | OpenAPI documentation of the REST API (public, no data), when `SECREVIEW_SWAGGER_ENABLED=true` |
 | `/api/favicon.svg` | Icon of the web interface and of the Swagger documentation (public) |
+| `/api/health` | Liveness of the API, checked by the application at load (public, tells nothing about the version or settings) |
 | `/healthz` | Liveness probe (public) |
 
 ```bash
@@ -20,10 +21,11 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 
 ## Screens
 
-The screens are reached from the sidebar: **Supervision** (projects, reports) for every role,
-then **Reference** (rules, checklists, standards) and **Administration** (users,
-tokens, SSO roles, settings) for the `admin` role. The bottom of the sidebar shows the connected
-client, its role and the version, with the **My account** and logout buttons; on a
+The screens are reached from the sidebar: **Supervision** (projects, reports) for every account,
+then **Reference** (rules, checklists, standards) and **Administration** (users, groups, roles,
+tokens, audit log, OIDC, report language, outgoing proxy, OSV database), each shown only to the
+accounts that hold its [permission](../advanced/access-control.md#permissions). The bottom
+of the sidebar shows the connected client, its role and the version (a link to **About**), with the **My account** and logout buttons; on a
 small screen, the sidebar opens with the menu button. The light or dark theme is chosen at the
 top right, including on the login page, and is remembered by the browser.
 
@@ -31,11 +33,19 @@ The interface is available in **English**, **French** and **Spanish**. The langu
 the picker at the top right, including on the login page. The change is immediate and is
 remembered by the browser; on the first visit, the interface follows the language of the
 browser, or English if it offers none of them. This choice only concerns the interface: the
-language of the review reports is set in **Settings**, and the detailed error messages sent back
-by the API stay in English.
+language of the review reports is set in **Report language**, and the detailed error messages sent
+back by the API stay in English.
 
-- **Projects**: every project with its open findings by severity, sorted by risk,
-  activity or name.
+The **About** page gives the version of the controller, the links of the documentation, of the
+source code and to report an issue, the link of the Swagger documentation when it is enabled, and
+the status of the backend (`/api/health`, checked again with **Check again**). When the
+application loads, it checks `/api/health` first: if the controller does not answer (or stops
+answering later), the **Backend unavailable** page opens, and its **Retry** button goes back to
+the requested page once the controller answers again.
+
+- **Projects**: every project with its open findings by severity. Search by project name, sort
+  by risk, activity or name, and filter by worst open severity. The **Review open findings** button opens the findings to review of every
+  project you can see (**Findings to review: all projects**), each with a link to its project.
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
   The **Review open findings** button opens the next screen.
@@ -45,44 +55,56 @@ by the API stay in English.
   type, branch, commit). Filters by status (to re-check accepted risks or false positives), by
   severity and by review type (**Security review**, **API security review**, **Codebase
   review**...: see [review type](prompts-tools.md#review-type)); **Load more** displays the next
-  findings. Users with the `triager` or `admin` role change the status of each finding from this
+  findings. Users with the `findings.triage` permission change the status of each finding from this
   screen and apply or reject the statuses proposed by the agents (see
   [triage of findings](#triage-of-findings)); a triaged finding stays displayed until the next
   reload.
-- **Reports**: list filtered by project and risk level (the filters are in the URL,
-  so a link can be shared), with the **Type** and the **Author** of each review.
+- **Reports**: list filtered by project and risk level, searchable across report metadata and
+  summary, and sortable by date, project, risk, type, branch, author or summary. Search, sort
+  and filters stay in the URL, so a view can be shared.
 - **Report**: summary, context (repository, branch, commit, review type, **Author** and
   **Sent by (token)**, see [author of a report](prompts-tools.md#author-of-a-report)), findings with
   location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
-  `triager` or `admin` role change the status of a finding directly from this screen.
+  `findings.triage` permission change the status of a finding directly from this screen.
 - **Standards**: the [development standards](../advanced/standards.md) handed to the AI
-  assistants by the `development-standards` prompt. Administrators search, read, create, edit
+  assistants by the `development-standards` prompt. Search and sort by title, identifier,
+  technology or file pattern, and filter by enabled state. Administrators read, create, edit
   (technologies, file patterns, Markdown content), disable or delete them. A change applies
-  immediately.
-- **Checklists**: administrators browse the check items by domain, filter the list and create,
+  immediately. **Export** and **Import** copy them as a [TOML file](../advanced/standards.md#import-and-export).
+- **Checklists**: administrators search and sort check items, and filter by domain and origin; they create,
   edit or delete the custom items. The default items can be edited, but not deleted. Every
   change is reloaded immediately by the server and included in the review prompts.
-- **Rules**: administrators browse every [rule](../advanced/rules.md) stored in the database,
-  filtered by origin (default or custom). They create, edit (in a modal window, without losing
+  **Export** and **Import** exchange [TOML packs](../advanced/rules.md#import-and-export-in-the-web-interface).
+- **Rules**: administrators search and sort every [rule](../advanced/rules.md) stored in the database,
+  and filter by origin (default or custom) and severity. They create, edit (in a modal window, without losing
   the position in the list), enable or disable the rules, and delete the custom rules. A default
   rule can be edited ("Par défaut, modifiée" badge: default, edited) or disabled, but not
   deleted. The **Reload** button applies immediately a change made with the
-  `security-review-controller rules` CLI.
+  `security-review-controller rules` CLI. **Export** and **Import** exchange
+  [TOML packs](../advanced/rules.md#import-and-export-in-the-web-interface).
 - **Users**: administrators manage the [accounts](#user-accounts), the only
   ones to open the interface. Each account is **Local** (user name and password, entered or
-  generated and shown only once) or **SSO** (login through the identity provider, no password),
-  with a badge in the list. The administrator chooses the `reader`, `triager` or `admin` role
-  and, for `reader` and `triager`, the projects. An SSO account can have no role of its own: the
-  **Role of the groups** column then shows the role that its groups gave it at its
-  last login. The administrator changes the role and the projects of an account, resets the
-  password of a local account or deletes an account. A deleted SSO account is no longer created
-  again at its login: the **Deleted SSO accounts** section lists them,
-  with the **Allow again** button. The last administrator, local or SSO,
-  can be neither deleted nor demoted.
+  generated and shown only once) or **OIDC** (login through the identity provider, no password),
+  with a badge in the list. The account list is searchable, sortable and filterable by type.
+  Deleted OIDC accounts can be searched, sorted and filtered by the revoking administrator. The administrator chooses its **Groups**, the only source of its
+  permissions; the **Groups** column shows the groups, with a shield for the OIDC groups found at
+  the last login, and **Access** sums up what they give. The administrator changes the groups of
+  an account, resets the password of a local account or deletes an account. A deleted OIDC account is no longer created again at its login:
+  the **Deleted OIDC accounts** section lists them, with the **Allow again** button. The last
+  holder of `users.manage` can be neither deleted nor lose it.
+- **Groups**: administrators search and sort groups, and filter local groups from groups open to
+  OIDC. They create the groups, give them roles (on every project or on some projects), add
+  members and choose whether the group is **Open to OIDC** (see
+  [Roles, groups and permissions](../advanced/access-control.md#groups)).
+- **Roles**: administrators search and sort roles, and filter system from custom roles. They
+  create roles from the permissions; the system roles `reader`,
+  `triager` and `admin` are shown read only.
 - **My account**: shows the type of the account. A local user changes their
-  password there (their other sessions are closed); the one of an SSO user is managed by the
+  password there (their other sessions are closed); the one of an OIDC user is managed by the
   identity provider.
-- **Tokens**: administrators create and revoke tokens for one or more projects, or for
+- **Tokens**: pending enrollment requests are searchable, sortable and filterable by request
+  type; active tokens are searchable, sortable and filterable by usage. Administrators create
+  and revoke tokens for one or more projects, or for
   **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role), **REST API** or **CI/CD pipeline**
   (`ci` role, for [`security-review-ci`](gate.md#pipeline-client-security-review-ci));
   for the REST API, **API rights** chooses **Read only** (`reader`) or **Read and triage**
@@ -111,38 +133,38 @@ by the API stay in English.
   [project read access at enrollment](../advanced/sso.md#project-read-access-at-enrollment)).
 - **Audit log**: administrators read the [audit log](../advanced/audit-metrics.md#audit-log): triage
   decisions, agent proposals, tokens and enrollment requests, newest first, with who made
-  them; filters by event and by project, **Load more** for the older events.
-- **SSO roles**: administrators
-  [configure the SSO login](../advanced/sso.md#configuring-sso-in-the-interface) (every stored value replaces its
-  `SECREVIEW_OIDC_*` variable, with a connection test to the provider) and map the groups or
-  roles of the identity provider to a web role and, for `reader` and `triager`, to a list of
-  projects (see [role mapping](../advanced/sso.md#role-mapping)). The groups of the SSO configuration
-  (`*_GROUPS`) are shown read only in the list of mappings. The SSO users themselves are managed
-  in the **Users** screen.
-- **Settings**: settings stored in the database, taking precedence over the
-  environment variables and shared by the MCP server and the controller.
-    - **Report language**: `SECREVIEW_REPORT_LANGUAGE` variable, choice
-      left to the agent or language set here (`French`, `fr`, `pt-BR`…). It applies to the next
-      review prompts; the `report_language` argument of a prompt still takes precedence
-      ([report language](prompts-tools.md#report-language)).
-    - **Outgoing proxy of the controller**: proxy of the OSV
-      download **and** of the [SSO login](../advanced/sso.md). As for the SSO
-      configuration, every value set here replaces its variable (**Variable** / **Interface
-      web** badges): the URL follows `SECREVIEW_PROXY` (else `HTTPS_PROXY` / `NO_PROXY`), is set
-      here, or forces the direct connection; the **hosts without proxy** follow
-      `SECREVIEW_NO_PROXY` or are set here (see
-      [hosts without proxy](../advanced/dependencies.md#hosts-without-proxy): domains, IP addresses, CIDR
-      ranges, `*`). The change applies to the next download and to the next SSO login, without
-      restart. The applied proxy, its origin and the environment variables are shown; passwords
-      are never shown again (`***`): sending `***` back keeps the stored one. Through the API:
-      `PUT /api/v1/settings/proxy` with `url` and `no_proxy` (`null` applies the variable again,
-      `"url": ""` forces the direct connection, a missing field is unchanged).
-    - **OSV vulnerability database**: number of advisories by
-      ecosystem, date and age of the last import, download configuration, history of the last
-      50 updates (scheduled, CLI or web interface, with status, duration and result by
-      ecosystem) and **Update now** button, only available if
-      `SECREVIEW_OSV_AUTO_UPDATE=true`
-      ([update by the controller](../advanced/dependencies.md#automatic-update-by-the-controller)).
+  them; filter by event and project, search event details, sort by date/action/actor/target/project,
+  and use **Load more** for older events.
+- **OIDC**: administrators
+  [configure the OIDC login](../advanced/sso.md#configuring-oidc-in-the-interface) (every stored value replaces its
+  `SECREVIEW_OIDC_*` variable, with a connection test to the provider). What OIDC users may do
+  comes from the groups open to OIDC named by their groups claim (see
+  [groups of the identity provider](../advanced/sso.md#groups-of-the-identity-provider)).
+The next three screens hold settings stored in the database, taking precedence over the
+environment variables and shared by the MCP server and the controller (`settings.manage`
+permission; the former `/ui/settings` address opens **Report language**).
+
+- **Report language**: `SECREVIEW_REPORT_LANGUAGE` variable, choice
+  left to the agent or language set here (`French`, `fr`, `pt-BR`…). It applies to the next
+  review prompts; the `report_language` argument of a prompt still takes precedence
+  ([report language](prompts-tools.md#report-language)).
+- **Outgoing proxy**: proxy of the outgoing connections of the controller, used by the OSV
+  download **and** by the [OIDC login](../advanced/sso.md). As for the OIDC
+  configuration, every value set here replaces its variable (**Variable** / **Interface
+  web** badges): the URL follows `HTTPS_PROXY` (else `HTTP_PROXY`), is set here, or forces
+  the direct connection; the **hosts without proxy** follow `NO_PROXY` or are set here (see
+  [hosts without proxy](../advanced/dependencies.md#hosts-without-proxy): domains, IP
+  addresses, `*`, no CIDR ranges). The change applies to the next download and to the next
+  OIDC login, without restart. The applied proxy, its origin and the variables are shown; passwords
+  are never shown again (`***`): sending `***` back keeps the stored one. Through the API:
+  `PUT /api/v1/settings/proxy` with `url` and `no_proxy` (`null` applies the variable again,
+  `"url": ""` forces the direct connection, a missing field is unchanged).
+- **OSV database**: state of the OSV vulnerability database: number of advisories by
+  ecosystem, date and age of the last import, download configuration, history of the last
+  50 updates (scheduled, CLI or web interface, with status, duration and result by
+  ecosystem), searchable and sortable with status/trigger filters, and **Update now** button, only available if
+  `SECREVIEW_OSV_AUTO_UPDATE=true`
+  ([update by the controller](../advanced/dependencies.md#automatic-update-by-the-controller)).
 
 ## Triage of findings
 
@@ -162,7 +184,7 @@ The status of a finding is decided by a **person**; an agent only proposes it (M
 - **Open** and **Fixed** are saved at once (optional reason through the API). Any decision
   removes the pending proposal.
 
-Only a session (local or SSO account) may accept a risk or mark a false positive: a bearer
+Only a session (local or OIDC account) may accept a risk or mark a false positive: a bearer
 token, even `triager` or `admin`, gets `403`. Through the REST API:
 
 ```bash
@@ -183,7 +205,7 @@ before that date, or they block the gate again.
 ## Roles
 
 **Tokens** give access to the MCP server and to the REST API (agents, CI, scripts); **users**
-(local or SSO accounts) are the only ones to open the web interface. Every token has a role,
+(local or OIDC accounts) are the only ones to open the web interface. Every token has a role,
 which decides the reachable endpoints:
 
 | Role | Usage (**Tokens** screen) | `/mcp` | REST API (read) | Status change |
@@ -196,7 +218,7 @@ which decides the reachable endpoints:
 | `metrics` | CLI only | — | `/metrics` only ([Prometheus](../advanced/audit-metrics.md#prometheus-metrics)) | — |
 
 ¹ With a token. `accepted` and `false_positive` need a person logged in to the interface
-with the `triager` or `admin` role ([triage of findings](#triage-of-findings)). On `/mcp`, no
+with the `findings.triage` permission ([triage of findings](#triage-of-findings)). On `/mcp`, no
 role changes a status: the agents only propose one.
 
 An `mcp`, `reader` or `triager` token restricted with `--project` only sees and triages the
@@ -205,9 +227,10 @@ allowed projects; a `ci` token is always restricted to its projects (see
 [tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
 
 People log in with a [user account](#user-accounts): local (user name and password) or
-[SSO](../advanced/sso.md). Accounts have the `reader`, `triager` or `admin` role, never
-`mcp`, and never open `/mcp`. A token created without a role stays `mcp`: it serves the agents
-and the CI, not the web interface. The `triager` role only adds the triage of the findings. A
+[OIDC](../advanced/sso.md). What an account may do comes from the roles of its groups (see
+[Roles, groups and permissions](../advanced/access-control.md)); an account never opens `/mcp`.
+A token created without a role stays `mcp`: it serves the agents and the CI, not the web
+interface. A
 `reader`, `triager` or `admin` token calls the REST API, for example from a script, but **does
 not open the interface** (the login page only offers the accounts):
 
@@ -219,12 +242,13 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/proj
 
 The same token lists the findings of a project across all its reports, open by default, worst
 first (`status`, `severity` and `review_type` filter, `limit` is capped by
-`SECREVIEW_MAX_LIST_LIMIT`, `total` gives the number of matching findings for paging):
+`SECREVIEW_MAX_LIST_LIMIT`, `total` gives the number of matching findings for paging). Without
+`project`, it lists the findings of every project in the scope of the token (`"project": null`):
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
   "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
-# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
+# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "project": "shop-api", "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
 ```
 
 `GET /api/v1/reports` lists the reports (`project`, `risk_level`, `review_type` and `author`
@@ -242,8 +266,8 @@ logged with the label of the token or of the account:
 INFO security_review_mcp.web: Finding 42 set to fixed by triage-bot
 ```
 
-and written to the [audit log](../advanced/audit-metrics.md#audit-log) (`GET /api/v1/audit`, `admin`
-role), with the actor `token:triage-bot` or `user:<name>`.
+and written to the [audit log](../advanced/audit-metrics.md#audit-log) (`GET /api/v1/audit`, `audit.read`
+permission), with the actor `token:triage-bot` or `user:<name>`.
 
 !!! warning "Authentication required for the web UI"
     The API of the interface refuses the requests with status `503` while no user and no token
@@ -251,64 +275,79 @@ role), with the actor `token:triage-bot` or `user:<name>`.
     Enable `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` (the case in the Docker image), or create an
     account with `security-review-controller user create`. This restriction concerns the web
     UI; MCP authentication stays independent (a user account never opens `/mcp`). With the
-    [SSO login](../advanced/sso.md), the API asks for a login (`401`) even without any
+    [OIDC login](../advanced/sso.md), the API asks for a login (`401`) even without any
     user or token in the database.
 
 ## User accounts
 
 An account ties a **user name** (letters, digits and `. _ @ -`, 64 characters at most), a
-**type** and a web role: `reader`, `triager` or `admin`. A `reader` or `triager` account can be
-limited to a list of projects; an `admin` account sees every project.
+**type** and **groups**: the roles of its groups give its
+[permissions](../advanced/access-control.md#what-a-user-may-do). An account has no role or
+project of its own.
 
 | Type (`auth_source`) | Login | Creation |
 |---|---|---|
 | **Local** (`local`) | User name and password | By an administrator, or the initial `admin` account |
-| **SSO** (`oidc`) | [Identity provider](../advanced/sso.md), no password | By an administrator, at the approval of an enrollment, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
+| **OIDC** (`oidc`) | [Identity provider](../advanced/sso.md), no password | By an administrator, at the approval of an enrollment, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
-An SSO account can have **no role of its own**: only the role given by its groups applies (see
-[SSO accounts](../advanced/sso.md#sso-accounts)). Accounts are managed in the **Users** screen,
-through the `/api/v1/users` REST API (`admin` role) or with the
+An OIDC account also joins, at each login, the groups open to OIDC named by its groups claim (see
+[OIDC accounts](../advanced/sso.md#oidc-accounts)). Accounts are managed in the **Users** screen,
+through the `/api/v1/users` REST API (`users.manage` permission) or with the
 [CLI](../reference/cli.md#security-review-controller):
 
 ```bash
-security-review-controller user create alice --role triager --project shop-api
-# {"id": 2, "username": "alice", "auth_source": "local", "role": "triager", "projects": ["shop-api"], …, "password": "q3V…"}
+security-review-controller user create alice --group shop-triagers
+# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, "effective_role": "triager", …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
-security-review-controller user create carol@example.com --sso --role none   # group role
-security-review-controller user create dave --sso --role reader --project billing
+security-review-controller user create carol@example.com --sso   # OIDC groups only
 security-review-controller user list
-security-review-controller user set-role alice --role reader
+security-review-controller user set-groups alice --group readers --group auditors
+security-review-controller user set-groups alice --group administrators   # created if missing
 security-review-controller user reset-password alice   # local account: new password, sessions closed
 security-review-controller user delete alice
+security-review-controller group list    # groups, their roles and members
 ```
 
-Through the API, an SSO account is created with `"auth_source": "oidc"`, without `password`;
-`"role": null` leaves it without a role of its own:
+Through the API, an OIDC account is created with `"auth_source": "oidc"`, without `password`;
+`group_ids` lists its groups:
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"username": "carol@example.com", "auth_source": "oidc", "role": null}'
+  -d '{"username": "carol@example.com", "auth_source": "oidc", "group_ids": [4]}'
 ```
 
+An account without any group has no permission and cannot log in.
+
 For a local account, without `--password-stdin` (or without a password in the interface), a
-random 24-character password is generated and shown **only once**. A chosen password has 12 to
-256 characters. An SSO account never has a password: the user name and password login, the
+random 24-character password is generated and shown **only once**. A chosen password follows
+the **password policy**: 12 to 256 characters, with at least a lowercase letter, an uppercase
+letter, a digit and a character that is neither a letter nor a digit. The screens list these
+rules under the field and tick each one while the password is typed, and **My account** says at
+once whether the confirmation matches. The policy applies to new passwords: a password set
+before keeps working until it is changed. An OIDC account never has a password: the user name and password login, the
 reset and **My account** refuse it.
 
 ### First administrator
 
 With `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (the case in the Docker image), the controller
-creates at first start the **`admin`** user, with the `admin` role, while no account exists.
+creates at first start the **`admin`** user, member of the `administrators` group (`admin`
+role), while no account exists.
 Its password is shown only once in the logs of the controller:
 
 ```
 WARNING security_review_mcp.controller: Initial Web UI administrator created: user 'admin', password (shown once): …
 ```
 
-Handle this password as a secret: restrict access to the logs, log in with `admin` and change
-it from **My account**. If it is lost, generate a new one (the old one is
-invalidated at once): `security-review-controller user reset-password admin`.
+Handle this password as a secret: restrict access to the logs and log in with `admin`. The
+interface then **requires a new password** before anything else: it opens **My account**, and
+the API refuses every other route (`403`) until the password is changed. If it is lost, generate
+a new one (the old one is invalidated at once):
+`security-review-controller user reset-password admin`.
+
+The same applies to every password set by someone else: a local account created or reset by an
+administrator (screen or CLI) changes its password at its first login. The **Users** screen shows
+**password to change** until then.
 
 !!! note "Upgrading from the `bootstrap-admin` token"
     Previous versions created a `bootstrap-admin` **token** instead of the account. On an
@@ -318,8 +357,12 @@ invalidated at once): `security-review-controller user reset-password admin`.
 
 ### Login and sessions
 
+When the controller no longer accepts the session while you browse (session expired, password
+changed in another tab, account deleted), a **Session expired** dialog opens: **Log in again**
+opens the login page and comes back to the same page afterwards.
+
 The login page offers the user name and password of a local account and, with the
-[SSO login](../advanced/sso.md), the button of the identity provider; it does not accept
+[OIDC login](../advanced/sso.md), the button of the identity provider; it does not accept
 a token. `POST /api/v1/auth/login` checks the password of a local account and returns a signed
 **session token**, valid `SECREVIEW_SESSION_HOURS` hours (8 by default), that the tab uses like
 a Bearer token:
@@ -330,22 +373,27 @@ curl -s -X POST https://secreview.example.com/api/v1/auth/login \
 # {"session": "eyJ…", "expires_in": 28800, "username": "alice", "role": "triager"}
 ```
 
-Every session names an account (local or SSO); at every request, the controller reads it again
+Every session names an account (local or OIDC); at every request, the controller reads it again
 from the database:
 
-- a change of **role or projects** applies immediately to the open sessions;
+- a change of its **groups**, of their roles or of a role applies immediately to the open
+  sessions;
 - a **deletion** or a **new password** (changed by the user or reset by an administrator)
   closes every session of the account; `PUT /api/v1/me/password` hands a new session to the tab
   that changed the password.
 
 Sessions are signed with `SECREVIEW_SESSION_SECRET` (at least 32 characters), shared by every
-replica of the controller; without it, a random secret is drawn at every start and the sessions
-end at restart (a warning is logged).
+replica of the controller. Without it, the secret is read from `SECREVIEW_SESSION_SECRET_FILE`
+(`session-secret` in the working directory, `/var/lib/secreview` in Docker), generated there at the first
+start with mode `0600`: sessions survive a restart, and the replicas that share the volume share
+the secret. Replicas without a shared volume must share `SECREVIEW_SESSION_SECRET`.
 
 Login failures are limited: after **5 failures in 15 minutes** for a user name from the same
 address, or **20 failures** from an address all user names together, the login is refused
-(`429`, `Retry-After` header), even with the right password. The counter is kept in memory by
-every replica. Behind a reverse proxy, the address seen is the proxy's, and the limit would then
+(`429`, `Retry-After` header), even with the right password. The counters are kept in the
+database: every worker and replica of the controller shares them. Every address is also limited
+on the whole REST API (by default 600 requests a minute, 30 on the login routes, see
+[`SECREVIEW_RATE_LIMIT_*`](../reference/configuration.md)). Behind a reverse proxy, the address seen is the proxy's, and the limit would then
 apply to every client of the proxy: list the proxy in
 [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md) so that the address of the
 client is read from `X-Forwarded-For`. Every login and every failure is logged, without the password:
@@ -363,17 +411,20 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 - Account passwords are never stored: only a salted **scrypt** digest (N=2¹⁴, r=8, p=5) is
   stored and no API answer returns it. The check takes the same time whether the user name
   exists or not, and the failure answer is identical. The Swagger documentation (`/api/docs`)
-  and its schema (`/api/openapi.json`) are public and give access to no data. In Swagger, the
+  and its schema (`/api/openapi.json`) are **disabled by default**
+  (`SECREVIEW_SWAGGER_ENABLED=true` serves them); once enabled, they are public and give access
+  to no data. Their files come with the web interface build: nothing is loaded from the
+  Internet, and Swagger never sends the schema to the online validator. In Swagger, the
   padlock of a route says that it requires a token: it stays **open** while you have not entered
   a token with **Authorize**, and does not mean that the route can be reached without a token.
 - The controller exposes no write route without a token. The
   [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token) requests are
   filed on the **MCP server** (`POST /api/v1/enroll`, public); the controller lists and handles
   them (`GET /api/v1/enrollments`, `POST /api/v1/enrollments/{id}/approve`,
-  `DELETE /api/v1/enrollments/{id}`, `admin` role). It can therefore stay on an internal
+  `DELETE /api/v1/enrollments/{id}`, `tokens.manage` permission). It can therefore stay on an internal
   network.
 - The token is sent in the `Authorization` header: no cookie, hence no CSRF. Only the
-  [SSO login](../advanced/sso.md) sets a cookie, `HttpOnly`, `SameSite=Lax`, `Secure`
+  [OIDC login](../advanced/sso.md) sets a cookie, `HttpOnly`, `SameSite=Lax`, `Secure`
   over HTTPS, limited to the return URL and valid 10 minutes: it binds the return from the
   provider to the browser that started the login (protection against *login CSRF*). The session
   token is handed in the URL fragment (`#session=...`), never sent to a server, and the
@@ -392,10 +443,11 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the application (default: the one of the package) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Creates the `admin` account at the first start of the controller, while no account exists; `true` in Docker |
 | `SECREVIEW_SESSION_SECRET` | — | Signing secret of the sessions (at least 32 characters), identical on every replica |
-| `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or SSO login |
-| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [SSO account](../advanced/sso.md#sso-accounts) at the first login; otherwise an administrator creates it |
+| `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | File of the secret when `SECREVIEW_SESSION_SECRET` is unset, generated at the first start |
+| `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or OIDC login |
+| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [OIDC account](../advanced/sso.md#oidc-accounts) at the first login; otherwise an administrator creates it |
 | `SECREVIEW_ENROLLMENT` | `true` | Token requests by the projects (on the MCP server), approved in the **Tokens** screen |
-| `SECREVIEW_OIDC_*` | — | [SSO login](../advanced/sso.md), see the [reference](../reference/configuration.md) |
+| `SECREVIEW_OIDC_*` | — | [OIDC login](../advanced/sso.md), see the [reference](../reference/configuration.md) |
 
 The published package and the Docker image contain the application already built. If you
 install from source without building it, the controller only serves the REST API and a warning

@@ -44,82 +44,100 @@
   @if (enrollments.error()) {
     <div class="alert alert-danger" role="alert">{{ 'tokens.pendingLoadError' | t }}</div>
   } @else if ((enrollments.value() ?? []).length) {
-    <div class="table-responsive">
-      <table class="table table-hover align-middle">
-        <thead>
-          <tr>
-            <th scope="col">{{ 'tokens.label' | t }}</th>
-            <th scope="col">{{ 'users.type' | t }}</th>
-            <th scope="col">{{ 'reportTable.project' | t }}</th>
-            <th scope="col">{{ 'tokens.requester' | t }}</th>
-            <th scope="col">{{ 'tokens.address' | t }}</th>
-            <th scope="col">{{ 'tokens.requestedAt' | t }}</th>
-            <th scope="col">{{ 'tokens.portalAccess' | t }}</th>
-            <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (request of enrollments.value() ?? []; track request.id) {
+    <app-table-controls
+      idPrefix="enrollments"
+      [search]="enrollmentSearch()"
+      [sort]="enrollmentSort()"
+      [direction]="enrollmentDirection()"
+      [sortOptions]="enrollmentSortOptions()"
+      [filters]="enrollmentFilters()"
+      (searchChange)="enrollmentSearch.set($event)"
+      (sortChange)="onEnrollmentSort($event)"
+      (directionChange)="enrollmentDirection.set($event)"
+      (filterChange)="onEnrollmentFilter($event)"
+    />
+    @if (visibleEnrollments().length) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
             <tr>
-              <td>{{ request.label }}</td>
-              <td>
-                {{ (request.kind === 'additional' ? 'tokens.additional' : 'tokens.newToken') | t }}
-              </td>
-              <td>{{ request.project }}</td>
-              <td>{{ request.requested_by ?? '—' }}</td>
-              <td class="font-monospace">{{ request.requested_from ?? '—' }}</td>
-              <td>{{ request.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
-              <td>
-                <div class="input-group input-group-sm portal-access">
-                  <div class="input-group-text">
+              <th scope="col">{{ 'tokens.label' | t }}</th>
+              <th scope="col">{{ 'users.type' | t }}</th>
+              <th scope="col">{{ 'reportTable.project' | t }}</th>
+              <th scope="col">{{ 'tokens.requester' | t }}</th>
+              <th scope="col">{{ 'tokens.address' | t }}</th>
+              <th scope="col">{{ 'tokens.requestedAt' | t }}</th>
+              <th scope="col">{{ 'tokens.portalAccess' | t }}</th>
+              <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (request of visibleEnrollments(); track request.id) {
+              <tr>
+                <td>{{ request.label }}</td>
+                <td>
+                  {{
+                    (request.kind === 'additional' ? 'tokens.additional' : 'tokens.newToken') | t
+                  }}
+                </td>
+                <td>{{ request.project }}</td>
+                <td>{{ request.requested_by ?? '—' }}</td>
+                <td class="font-monospace">{{ request.requested_from ?? '—' }}</td>
+                <td>{{ request.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td>
+                  <div class="input-group input-group-sm portal-access">
+                    <div class="input-group-text">
+                      <input
+                        class="form-check-input mt-0"
+                        type="checkbox"
+                        [checked]="portalAccess(request).enabled"
+                        [attr.aria-label]="'tokens.portalGrant' | t: { project: request.project }"
+                        (change)="onPortalEnabledChange(request, $event)"
+                      />
+                    </div>
                     <input
-                      class="form-check-input mt-0"
-                      type="checkbox"
-                      [checked]="portalAccess(request).enabled"
-                      [attr.aria-label]="'tokens.portalGrant' | t: { project: request.project }"
-                      (change)="onPortalEnabledChange(request, $event)"
+                      class="form-control"
+                      maxlength="64"
+                      autocomplete="off"
+                      spellcheck="false"
+                      [placeholder]="'tokens.portalUser' | t"
+                      [disabled]="!portalAccess(request).enabled"
+                      [value]="portalAccess(request).user"
+                      [attr.aria-label]="'tokens.portalUserFor' | t: { label: request.label }"
+                      (input)="onPortalUserInput(request, $event)"
                     />
                   </div>
-                  <input
-                    class="form-control"
-                    maxlength="64"
-                    autocomplete="off"
-                    spellcheck="false"
-                    [placeholder]="'tokens.portalUser' | t"
-                    [disabled]="!portalAccess(request).enabled"
-                    [value]="portalAccess(request).user"
-                    [attr.aria-label]="'tokens.portalUserFor' | t: { label: request.label }"
-                    (input)="onPortalUserInput(request, $event)"
-                  />
-                </div>
-              </td>
-              <td class="text-end text-nowrap">
-                <button
-                  type="button"
-                  class="btn btn-sm btn-success me-1"
-                  [disabled]="busy()"
-                  [attr.aria-label]="'tokens.approveRequest' | t: { label: request.label }"
-                  (click)="approve(request)"
-                >
-                  <i class="bi bi-check-lg" aria-hidden="true"></i>
-                  {{ 'tokens.approve' | t }}
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-danger"
-                  [disabled]="busy()"
-                  [attr.aria-label]="'tokens.rejectRequest' | t: { label: request.label }"
-                  (click)="reject(request.id, request.label)"
-                >
-                  <i class="bi bi-x-lg" aria-hidden="true"></i>
-                  {{ 'tokens.reject' | t }}
-                </button>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
+                </td>
+                <td class="text-end text-nowrap">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-success me-1"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'tokens.approveRequest' | t: { label: request.label }"
+                    (click)="approve(request)"
+                  >
+                    <i class="bi bi-check-lg" aria-hidden="true"></i>
+                    {{ 'tokens.approve' | t }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'tokens.rejectRequest' | t: { label: request.label }"
+                    (click)="reject(request.id, request.label)"
+                  >
+                    <i class="bi bi-x-lg" aria-hidden="true"></i>
+                    {{ 'tokens.reject' | t }}
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary">{{ 'common.noMatches' | t }}</p>
+    }
   } @else if (!enrollments.isLoading()) {
     <p class="text-body-secondary">{{ 'tokens.noPending' | t }}</p>
   }
@@ -261,177 +279,196 @@
       <span class="visually-hidden">{{ 'common.loading' | t }}</span>
     </div>
   } @else if ((tokens.value() ?? []).length) {
-    <div class="table-responsive">
-      <table class="table table-hover align-middle">
-        <thead>
-          <tr>
-            <th scope="col">{{ 'tokens.label' | t }}</th>
-            <th scope="col">{{ 'tokens.allowedProjects' | t }}</th>
-            <th scope="col">{{ 'tokens.usage' | t }}</th>
-            <th scope="col">{{ 'common.createdAt' | t }}</th>
-            <th scope="col">{{ 'tokens.expiresAt' | t }}</th>
-            <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (token of tokens.value() ?? []; track token.id) {
+    <app-table-controls
+      idPrefix="tokens"
+      [search]="tokenSearch()"
+      [sort]="tokenSort()"
+      [direction]="tokenDirection()"
+      [sortOptions]="tokenSortOptions()"
+      [filters]="tokenFilters()"
+      (searchChange)="tokenSearch.set($event)"
+      (sortChange)="onTokenSort($event)"
+      (directionChange)="tokenDirection.set($event)"
+      (filterChange)="onTokenFilter($event)"
+    />
+    @if (visibleTokens().length) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
             <tr>
-              <td>{{ token.label }}</td>
-              <td>
-                @if (editing()?.id === token.id) {
-                  <fieldset class="project-editor">
-                    <legend class="visually-hidden">
-                      {{ 'tokens.editProjectsOf' | t: { label: token.label } }}
-                    </legend>
-                    @if (token.role !== 'ci') {
-                      <div class="form-check form-check-inline">
-                        <input
-                          class="form-check-input"
-                          type="radio"
-                          name="edit-scope"
-                          id="edit-scope-all"
-                          [checked]="editAllProjects()"
-                          (change)="editAllProjects.set(true)"
-                        />
-                        <label class="form-check-label" for="edit-scope-all">
-                          {{ 'reports.allProjects' | t }}
-                        </label>
-                      </div>
-                      <div class="form-check form-check-inline">
-                        <input
-                          class="form-check-input"
-                          type="radio"
-                          name="edit-scope"
-                          id="edit-scope-some"
-                          [checked]="!editAllProjects()"
-                          (change)="editAllProjects.set(false)"
-                        />
-                        <label class="form-check-label" for="edit-scope-some">
-                          {{ 'users.someProjects' | t }}
-                        </label>
-                      </div>
-                    } @else {
-                      <div class="form-text mt-0">{{ 'tokens.pipelineProjects' | t }}</div>
-                    }
-                    @if (!editAllProjects() || token.role === 'ci') {
-                      <div class="d-flex flex-wrap gap-3 mt-1">
-                        @for (project of editChoices(token); track project) {
-                          <div class="form-check">
-                            <input
-                              class="form-check-input"
-                              type="checkbox"
-                              [id]="'edit-project-' + project"
-                              [checked]="editSelected().includes(project)"
-                              (change)="toggleEditProject(project, $event)"
-                            />
-                            <label class="form-check-label" [for]="'edit-project-' + project">
-                              {{ project }}
-                            </label>
-                          </div>
-                        }
-                      </div>
-                    }
-                    <div class="d-flex gap-1 mt-2">
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-primary"
-                        [disabled]="
-                          busy() ||
-                          ((!editAllProjects() || token.role === 'ci') && !editSelected().length)
-                        "
-                        (click)="saveProjects()"
-                      >
-                        <i class="bi bi-check-lg" aria-hidden="true"></i>
-                        {{ 'common.save' | t }}
-                      </button>
-                      <button
-                        type="button"
-                        class="btn btn-sm btn-outline-secondary"
-                        (click)="cancelEdit()"
-                      >
-                        {{ 'common.cancel' | t }}
-                      </button>
-                    </div>
-                  </fieldset>
-                } @else {
-                  {{ describeProjects(token.projects) }}
-                }
-                @if (token.pending_projects.length) {
-                  <div class="small text-body-secondary">
-                    {{
-                      'tokens.pendingProjects' | t: { projects: token.pending_projects.join(', ') }
-                    }}
-                  </div>
-                }
-              </td>
-              <td>{{ roleLabel(token.role) | t }}</td>
-              <td>
-                {{ token.created_at | date: 'dd/MM/yyyy HH:mm' }}
-                @if (token.rotated_at) {
-                  <div class="small text-body-secondary">
-                    {{
-                      'tokens.rotatedAt'
-                        | t: { date: (token.rotated_at | date: 'dd/MM/yyyy HH:mm') ?? '' }
-                    }}
-                  </div>
-                }
-              </td>
-              <td>
-                @if (token.expired) {
-                  <span class="badge text-bg-danger">
-                    <i class="bi bi-clock-history" aria-hidden="true"></i>
-                    {{ 'tokens.expired' | t }}
-                  </span>
-                }
-                {{
-                  token.expires_at ? (token.expires_at | date: 'dd/MM/yyyy') : ('tokens.never' | t)
-                }}
-                @if (token.grace_until) {
-                  <div class="small text-body-secondary">
-                    {{
-                      'tokens.graceUntil'
-                        | t: { date: (token.grace_until | date: 'dd/MM/yyyy HH:mm') ?? '' }
-                    }}
-                  </div>
-                }
-              </td>
-              <td class="text-end text-nowrap">
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-secondary me-1"
-                  [disabled]="busy() || editing()?.id === token.id"
-                  [attr.aria-label]="'tokens.editProjectsOf' | t: { label: token.label }"
-                  (click)="editProjects(token)"
-                >
-                  <i class="bi bi-pencil" aria-hidden="true"></i>
-                  {{ 'tokens.editProjects' | t }}
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-secondary me-1"
-                  [disabled]="busy()"
-                  [attr.aria-label]="'tokens.rotateToken' | t: { label: token.label }"
-                  (click)="rotate(token.id, token.label)"
-                >
-                  <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
-                  {{ 'tokens.rotate' | t }}
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-danger"
-                  [disabled]="busy()"
-                  [attr.aria-label]="'tokens.revokeToken' | t: { label: token.label }"
-                  (click)="revoke(token.id, token.label)"
-                >
-                  <i class="bi bi-trash3" aria-hidden="true"></i>
-                  {{ 'tokens.revoke' | t }}
-                </button>
-              </td>
+              <th scope="col">{{ 'tokens.label' | t }}</th>
+              <th scope="col">{{ 'tokens.allowedProjects' | t }}</th>
+              <th scope="col">{{ 'tokens.usage' | t }}</th>
+              <th scope="col">{{ 'common.createdAt' | t }}</th>
+              <th scope="col">{{ 'tokens.expiresAt' | t }}</th>
+              <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
             </tr>
-          }
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            @for (token of visibleTokens(); track token.id) {
+              <tr>
+                <td>{{ token.label }}</td>
+                <td>
+                  @if (editing()?.id === token.id) {
+                    <fieldset class="project-editor">
+                      <legend class="visually-hidden">
+                        {{ 'tokens.editProjectsOf' | t: { label: token.label } }}
+                      </legend>
+                      @if (token.role !== 'ci') {
+                        <div class="form-check form-check-inline">
+                          <input
+                            class="form-check-input"
+                            type="radio"
+                            name="edit-scope"
+                            id="edit-scope-all"
+                            [checked]="editAllProjects()"
+                            (change)="editAllProjects.set(true)"
+                          />
+                          <label class="form-check-label" for="edit-scope-all">
+                            {{ 'reports.allProjects' | t }}
+                          </label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                          <input
+                            class="form-check-input"
+                            type="radio"
+                            name="edit-scope"
+                            id="edit-scope-some"
+                            [checked]="!editAllProjects()"
+                            (change)="editAllProjects.set(false)"
+                          />
+                          <label class="form-check-label" for="edit-scope-some">
+                            {{ 'users.someProjects' | t }}
+                          </label>
+                        </div>
+                      } @else {
+                        <div class="form-text mt-0">{{ 'tokens.pipelineProjects' | t }}</div>
+                      }
+                      @if (!editAllProjects() || token.role === 'ci') {
+                        <div class="d-flex flex-wrap gap-3 mt-1">
+                          @for (project of editChoices(token); track project) {
+                            <div class="form-check">
+                              <input
+                                class="form-check-input"
+                                type="checkbox"
+                                [id]="'edit-project-' + project"
+                                [checked]="editSelected().includes(project)"
+                                (change)="toggleEditProject(project, $event)"
+                              />
+                              <label class="form-check-label" [for]="'edit-project-' + project">
+                                {{ project }}
+                              </label>
+                            </div>
+                          }
+                        </div>
+                      }
+                      <div class="d-flex gap-1 mt-2">
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-primary"
+                          [disabled]="
+                            busy() ||
+                            ((!editAllProjects() || token.role === 'ci') && !editSelected().length)
+                          "
+                          (click)="saveProjects()"
+                        >
+                          <i class="bi bi-check-lg" aria-hidden="true"></i>
+                          {{ 'common.save' | t }}
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-sm btn-outline-secondary"
+                          (click)="cancelEdit()"
+                        >
+                          {{ 'common.cancel' | t }}
+                        </button>
+                      </div>
+                    </fieldset>
+                  } @else {
+                    {{ describeProjects(token.projects) }}
+                  }
+                  @if (token.pending_projects.length) {
+                    <div class="small text-body-secondary">
+                      {{
+                        'tokens.pendingProjects'
+                          | t: { projects: token.pending_projects.join(', ') }
+                      }}
+                    </div>
+                  }
+                </td>
+                <td>{{ roleLabel(token.role) | t }}</td>
+                <td>
+                  {{ token.created_at | date: 'dd/MM/yyyy HH:mm' }}
+                  @if (token.rotated_at) {
+                    <div class="small text-body-secondary">
+                      {{
+                        'tokens.rotatedAt'
+                          | t: { date: (token.rotated_at | date: 'dd/MM/yyyy HH:mm') ?? '' }
+                      }}
+                    </div>
+                  }
+                </td>
+                <td>
+                  @if (token.expired) {
+                    <span class="badge text-bg-danger">
+                      <i class="bi bi-clock-history" aria-hidden="true"></i>
+                      {{ 'tokens.expired' | t }}
+                    </span>
+                  }
+                  {{
+                    token.expires_at
+                      ? (token.expires_at | date: 'dd/MM/yyyy')
+                      : ('tokens.never' | t)
+                  }}
+                  @if (token.grace_until) {
+                    <div class="small text-body-secondary">
+                      {{
+                        'tokens.graceUntil'
+                          | t: { date: (token.grace_until | date: 'dd/MM/yyyy HH:mm') ?? '' }
+                      }}
+                    </div>
+                  }
+                </td>
+                <td class="text-end text-nowrap">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary me-1"
+                    [disabled]="busy() || editing()?.id === token.id"
+                    [attr.aria-label]="'tokens.editProjectsOf' | t: { label: token.label }"
+                    (click)="editProjects(token)"
+                  >
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                    {{ 'tokens.editProjects' | t }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary me-1"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'tokens.rotateToken' | t: { label: token.label }"
+                    (click)="rotate(token.id, token.label)"
+                  >
+                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                    {{ 'tokens.rotate' | t }}
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'tokens.revokeToken' | t: { label: token.label }"
+                    (click)="revoke(token.id, token.label)"
+                  >
+                    <i class="bi bi-trash3" aria-hidden="true"></i>
+                    {{ 'tokens.revoke' | t }}
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary">{{ 'common.noMatches' | t }}</p>
+    }
   } @else {
     <p class="text-body-secondary">{{ 'tokens.empty' | t }}</p>
   }

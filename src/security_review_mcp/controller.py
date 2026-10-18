@@ -4,8 +4,8 @@ and administration.
 The controller runs apart from the MCP server (``security-review-mcp``), in its own process,
 container or pod; both share the database. ``serve`` serves the REST API (``/api/v1``) and the
 Angular application (``/ui``); the other commands are the operator commands of
-cli.CONTROLLER_COMMANDS (``db``, ``token``, ``user``, ``rules``...). The pipeline commands
-(``gate``, ``sarif``, ``trend``) belong to ``security-review-ci`` (ci_client).
+cli.CONTROLLER_COMMANDS (``db``, ``token``, ``user``, ``group``, ``rules``...). The pipeline
+commands (``gate``, ``sarif``, ``trend``) belong to ``security-review-ci`` (ci_client).
 """
 
 import argparse
@@ -37,8 +37,9 @@ commands:
   serve        serve the REST API (/api/v1) and the web interface (/ui)
   db           migrate the schema (upgrade), show its revision (status), purge reports (prune)
   token        manage the bearer tokens and the enrollment requests
-  user         manage the web users (username and password login)
-  audit        read or purge the audit log (triage decisions, tokens, enrollments)
+  user         manage the web users (local and OIDC) and the groups they belong to
+  group        list the groups of web users and the roles (with their permissions)
+  audit        read or purge the audit log (triage decisions, tokens, enrollments, access)
   rules        manage the internal rules and checklists
   advisories   import, download or inspect the OSV advisory database
   code         pattern-scan every file of a codebase
@@ -67,7 +68,7 @@ def serve(argv: list[str]) -> None:
         tls = http_server.tls_options(settings)
         signer = oidc.session_signer(settings)
         # The SECREVIEW_OIDC_* variables are checked here; the settings changed in the web
-        # interface are checked when they are stored (an invalid mix only disables SSO)
+        # interface are checked when they are stored (an invalid mix only disables OIDC)
         oidc.from_settings(settings, signer)
         web_app = web_api.create_app(args.host, ui=settings.web_ui, signer=signer)
         if settings.osv_auto_update:
@@ -105,6 +106,7 @@ def serve(argv: list[str]) -> None:
                 store,
                 web_users.SessionVerifier(signer),
                 require_auth=oidc_login is not None,
+                settings=settings,
             ),
             args.host,
             args.port,

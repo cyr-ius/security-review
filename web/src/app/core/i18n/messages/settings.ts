@@ -1,15 +1,16 @@
 import { defineMessages } from '../catalog';
 
-/** Settings screen: report language, outgoing proxy and OSV database. */
+/** Settings screens: report language, outgoing proxy and OSV database. */
 export const settings = defineMessages({
   en: {
-    'settings.subtitle': 'Report language, outgoing proxy and OSV vulnerability database',
+    'settings.languageSubtitle': "Language of the agent's answers and of the stored reports",
+    'settings.proxySubtitle': 'Proxy of the OSV download and of the OIDC login',
+    'settings.osvSubtitle': 'Advisories used by the dependency analysis and their updates',
     'settings.loadError': 'Could not load the settings.',
     'settings.languageTitle': 'Report language',
     'settings.languageHelpBefore':
-      "Language of the agent's answer and of the written fields of the stored report. The argument",
-    'settings.languageHelpAfter':
-      ' of a prompt takes precedence. Severities, categories, statuses and rule identifiers stay unchanged.',
+      "Language of the agent's response in recorded reports. The argument",
+    'settings.languageHelpAfter': ' of a prompt takes precedence.',
     'settings.languageApplied': 'Language applied:',
     'settings.languageByAgent': 'chosen by the agent',
     'settings.source': 'Source',
@@ -19,12 +20,11 @@ export const settings = defineMessages({
     'settings.languagePattern': 'Letters, spaces, -, _ and parentheses only.',
     'settings.proxyTitle': 'Outgoing proxy of the controller',
     'settings.proxyHelp':
-      'Used by the OSV download and by the SSO login (identity provider). Each value set here replaces its variable; it applies at the next download and the next login, without restart.',
+      'Used for OSV downloads and for authentication with the identity provider. Each defined value replaces its corresponding variable. It takes effect during the next download or authentication, without requiring a restart.',
     'settings.proxyApplied': 'Proxy applied:',
     'settings.none': 'none',
     'settings.noProxyApplied': 'Without proxy:',
     'settings.proxyUrl': 'Proxy URL',
-    'settings.proxyElse': ', otherwise HTTPS_PROXY / NO_PROXY',
     'settings.proxyCustom': 'Proxy set here',
     'settings.proxyNone': 'Direct connection (ignore the proxy variables)',
     'settings.url': 'URL',
@@ -35,11 +35,9 @@ export const settings = defineMessages({
     'settings.noProxyCustom': 'Hosts without proxy set here',
     'settings.noProxyHosts': 'Hosts without proxy',
     'settings.noProxyHelp1':
-      'Separated by commas: domains (subdomains included), IP addresses, CIDR ranges',
-    'settings.noProxyHelp2': ', for URLs whose host is an IP address),',
+      'Separated by commas: domains (subdomains included), IP addresses (address ranges are not supported),',
     'settings.noProxyHelp3': ' for every host; the loopback is always direct. Variable',
     'settings.colonValue': ': {value}',
-    'settings.envProxy': 'Proxy of the controller environment',
     'settings.osvTitle': 'OSV vulnerability database',
     'settings.updateTitle': 'Download and import the advisories now',
     'settings.updateDisabled': 'Download disabled (SECREVIEW_OSV_AUTO_UPDATE=false)',
@@ -78,14 +76,13 @@ export const settings = defineMessages({
     'settings.triggerSchedule': 'Scheduled',
     'settings.triggerCli': 'CLI',
     'settings.sourceWeb': 'web interface',
-    'settings.sourceNone': 'direct connection (web interface)',
-    'settings.sourceVariable': 'variable SECREVIEW_PROXY',
-    'settings.sourceEnvironment': 'variables HTTPS_PROXY / NO_PROXY',
+    'settings.sourceNone': 'direct connection',
+    'settings.sourceEnvironment': 'variables HTTPS_PROXY / HTTP_PROXY',
     'settings.languageMissing': 'Enter a language name or code (for example French, fr or pt-BR).',
     'settings.languageSaved': 'Report language saved: it applies to the next review prompts.',
     'settings.proxyMissing': 'Enter the proxy URL (http://[user:password@]host:port).',
     'settings.proxySaved':
-      'Proxy saved: it applies to the next OSV download and the next SSO login.',
+      'Proxy saved: it applies to the next OSV download and the next OIDC login.',
     'settings.confirmUpdate': 'Download the OSV advisories now? It may take several minutes.',
     'settings.updateStarted': 'Update started. The history refreshes until the download ends.',
     'settings.error': 'Error',
@@ -99,13 +96,14 @@ export const settings = defineMessages({
     'settings.refusedDetail': 'Value refused: {detail}',
   },
   fr: {
-    'settings.subtitle': 'Langue des rapports, proxy sortant et base de vulnérabilités OSV',
+    'settings.languageSubtitle': "Langue des réponses de l'agent et des rapports enregistrés",
+    'settings.proxySubtitle': 'Proxy du téléchargement OSV et de la connexion OIDC',
+    'settings.osvSubtitle': "Avis utilisés par l'analyse de dépendances et leurs mises à jour",
     'settings.loadError': 'Impossible de charger les paramètres.',
     'settings.languageTitle': 'Langue des rapports',
     'settings.languageHelpBefore':
-      "Langue de la réponse de l'agent et des champs rédigés du rapport enregistré. L'argument",
-    'settings.languageHelpAfter':
-      " d'un prompt reste prioritaire. Sévérités, catégories, statuts et identifiants de règles restent inchangés.",
+      "Langue de la réponse de l'agent dans les rapports enregistrés. L'argument",
+    'settings.languageHelpAfter': " d'un prompt reste prioritaire.",
     'settings.languageApplied': 'Langue appliquée :',
     'settings.languageByAgent': "choisie par l'agent",
     'settings.source': 'Source',
@@ -115,12 +113,11 @@ export const settings = defineMessages({
     'settings.languagePattern': 'Lettres, espaces, -, _ et parenthèses uniquement.',
     'settings.proxyTitle': 'Proxy sortant du contrôleur',
     'settings.proxyHelp':
-      "Utilisé par le téléchargement OSV et par la connexion SSO (fournisseur d'identité). Chaque valeur définie ici remplace sa variable ; elle s'applique au prochain téléchargement et à la prochaine connexion, sans redémarrage.",
+      "Utilisé par le téléchargement OSV et par la connexion auprès du fournisseur d'identité. Chaque valeur définie remplace sa variable. Elle s'applique au prochain téléchargement ou à la prochaine connexion, sans redémarrage.",
     'settings.proxyApplied': 'Proxy appliqué :',
     'settings.none': 'aucun',
     'settings.noProxyApplied': 'Sans proxy :',
     'settings.proxyUrl': 'URL du proxy',
-    'settings.proxyElse': ', sinon HTTPS_PROXY / NO_PROXY',
     'settings.proxyCustom': 'Proxy défini ici',
     'settings.proxyNone': 'Connexion directe (ignorer les variables de proxy)',
     'settings.url': 'URL',
@@ -131,12 +128,10 @@ export const settings = defineMessages({
     'settings.noProxyCustom': 'Hôtes sans proxy définis ici',
     'settings.noProxyHosts': 'Hôtes sans proxy',
     'settings.noProxyHelp1':
-      'Séparés par des virgules : domaines (sous-domaines compris), adresses IP, plages CIDR',
-    'settings.noProxyHelp2': ", pour les URL dont l'hôte est une adresse IP),",
+      "Séparés par des virgules : domaines (sous-domaines compris), adresses IP (les plages d'adresses ne sont pas prises en charge),",
     'settings.noProxyHelp3':
       ' pour tous les hôtes ; la boucle locale est toujours directe. Variable',
     'settings.colonValue': ' : {value}',
-    'settings.envProxy': "Proxy de l'environnement du contrôleur",
     'settings.osvTitle': 'Base de vulnérabilités OSV',
     'settings.updateTitle': 'Télécharger et importer les avis maintenant',
     'settings.updateDisabled': 'Téléchargement désactivé (SECREVIEW_OSV_AUTO_UPDATE=false)',
@@ -175,9 +170,8 @@ export const settings = defineMessages({
     'settings.triggerSchedule': 'Planifiée',
     'settings.triggerCli': 'CLI',
     'settings.sourceWeb': 'interface web',
-    'settings.sourceNone': 'connexion directe (interface web)',
-    'settings.sourceVariable': 'variable SECREVIEW_PROXY',
-    'settings.sourceEnvironment': 'variables HTTPS_PROXY / NO_PROXY',
+    'settings.sourceNone': 'connexion directe',
+    'settings.sourceEnvironment': 'variables HTTPS_PROXY / HTTP_PROXY',
     'settings.languageMissing':
       'Indiquez un nom ou un code de langue (par exemple French, fr ou pt-BR).',
     'settings.languageSaved':
@@ -185,7 +179,7 @@ export const settings = defineMessages({
     'settings.proxyMissing':
       "Indiquez l'URL du proxy (http://[utilisateur:mot de passe@]hôte:port).",
     'settings.proxySaved':
-      "Proxy enregistré : il s'applique au prochain téléchargement OSV et à la prochaine connexion SSO.",
+      "Proxy enregistré : il s'applique au prochain téléchargement OSV et à la prochaine connexion OIDC.",
     'settings.confirmUpdate':
       "Télécharger maintenant les avis OSV ? L'opération peut prendre plusieurs minutes.",
     'settings.updateStarted':
@@ -202,7 +196,9 @@ export const settings = defineMessages({
     'settings.refusedDetail': 'Valeur refusée : {detail}',
   },
   es: {
-    'settings.subtitle': 'Idioma de los informes, proxy saliente y base de vulnerabilidades OSV',
+    'settings.languageSubtitle': 'Idioma de las respuestas del agente y de los informes guardados',
+    'settings.proxySubtitle': 'Proxy de la descarga OSV y del inicio de sesión OIDC',
+    'settings.osvSubtitle': 'Avisos usados por el análisis de dependencias y sus actualizaciones',
     'settings.loadError': 'No se pudieron cargar los ajustes.',
     'settings.languageTitle': 'Idioma de los informes',
     'settings.languageHelpBefore':
@@ -218,12 +214,11 @@ export const settings = defineMessages({
     'settings.languagePattern': 'Solo letras, espacios, -, _ y paréntesis.',
     'settings.proxyTitle': 'Proxy saliente del controlador',
     'settings.proxyHelp':
-      'Lo usan la descarga OSV y el inicio de sesión SSO (proveedor de identidad). Cada valor definido aquí sustituye a su variable; se aplica en la próxima descarga y el próximo inicio de sesión, sin reiniciar.',
+      'Lo usan la descarga OSV y el inicio de sesión OIDC (proveedor de identidad). Cada valor definido aquí sustituye a su variable; se aplica en la próxima descarga y el próximo inicio de sesión, sin reiniciar.',
     'settings.proxyApplied': 'Proxy aplicado:',
     'settings.none': 'ninguno',
     'settings.noProxyApplied': 'Sin proxy:',
     'settings.proxyUrl': 'URL del proxy',
-    'settings.proxyElse': ', si no HTTPS_PROXY / NO_PROXY',
     'settings.proxyCustom': 'Proxy definido aquí',
     'settings.proxyNone': 'Conexión directa (ignorar las variables de proxy)',
     'settings.url': 'URL',
@@ -234,11 +229,9 @@ export const settings = defineMessages({
     'settings.noProxyCustom': 'Hosts sin proxy definidos aquí',
     'settings.noProxyHosts': 'Hosts sin proxy',
     'settings.noProxyHelp1':
-      'Separados por comas: dominios (subdominios incluidos), direcciones IP, rangos CIDR',
-    'settings.noProxyHelp2': ', para las URL cuyo host es una dirección IP),',
+      'Separados por comas: dominios (subdominios incluidos), direcciones IP (los rangos de direcciones no se admiten),',
     'settings.noProxyHelp3': ' para todos los hosts; el bucle local siempre es directo. Variable',
     'settings.colonValue': ': {value}',
-    'settings.envProxy': 'Proxy del entorno del controlador',
     'settings.osvTitle': 'Base de vulnerabilidades OSV',
     'settings.updateTitle': 'Descargar e importar los avisos ahora',
     'settings.updateDisabled': 'Descarga desactivada (SECREVIEW_OSV_AUTO_UPDATE=false)',
@@ -277,16 +270,15 @@ export const settings = defineMessages({
     'settings.triggerSchedule': 'Programada',
     'settings.triggerCli': 'CLI',
     'settings.sourceWeb': 'interfaz web',
-    'settings.sourceNone': 'conexión directa (interfaz web)',
-    'settings.sourceVariable': 'variable SECREVIEW_PROXY',
-    'settings.sourceEnvironment': 'variables HTTPS_PROXY / NO_PROXY',
+    'settings.sourceNone': 'conexión directa',
+    'settings.sourceEnvironment': 'variables HTTPS_PROXY / HTTP_PROXY',
     'settings.languageMissing':
       'Indique un nombre o código de idioma (por ejemplo French, fr o pt-BR).',
     'settings.languageSaved':
       'Idioma de los informes guardado: se aplica a los próximos prompts de revisión.',
     'settings.proxyMissing': 'Indique la URL del proxy (http://[usuario:contraseña@]host:puerto).',
     'settings.proxySaved':
-      'Proxy guardado: se aplica a la próxima descarga OSV y al próximo inicio de sesión SSO.',
+      'Proxy guardado: se aplica a la próxima descarga OSV y al próximo inicio de sesión OIDC.',
     'settings.confirmUpdate':
       '¿Descargar ahora los avisos OSV? La operación puede tardar varios minutos.',
     'settings.updateStarted':

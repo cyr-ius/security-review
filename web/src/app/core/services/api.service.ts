@@ -2,14 +2,15 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  About,
+  AccessRole,
+  AccessRoleWrite,
   AdvisoryOverview,
   AppSettings,
   AuditPage,
   AuditQuery,
   AuthConfig,
   AuthSource,
-  Finding,
-  FindingDecision,
   ChecklistCatalog,
   ChecklistItemWrite,
   ChecklistReloadResult,
@@ -20,29 +21,34 @@ import {
   DevStandardWrite,
   EnrollmentApproved,
   EnrollmentRequest,
+  Finding,
+  FindingDecision,
+  GroupCatalog,
   Identity,
   LoginSession,
   OidcSettings,
   OidcSettingsUpdate,
   OidcTestResult,
+  PermissionInfo,
   ProjectFindingPage,
   ProjectFindingQuery,
   ProjectSummary,
   ProjectToken,
   ProjectTokenCreated,
   ProjectTokenRole,
-  MappedRole,
   ProxyUpdate,
-  RoleMapping,
-  RevokedUser,
-  RoleMappingCatalog,
   Report,
   ReportQuery,
   ReportSummary,
+  RevokedUser,
+  RulePackImportResult,
+  RulePackSection,
   RuleReloadResult,
+  StandardPackImportResult,
   Trend,
+  UserGroup,
+  UserGroupWrite,
   WebUser,
-  WebUserRole,
   WebUserWithPassword,
 } from '../models/api.models';
 
@@ -53,6 +59,11 @@ export const API_URL = '/api/v1';
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
+
+  /** Version and links of the About page. */
+  about(): Observable<About> {
+    return this.http.get<About>(`${API_URL}/about`);
+  }
 
   me(): Observable<Identity> {
     return this.http.get<Identity>(`${API_URL}/me`);
@@ -69,6 +80,11 @@ export class ApiService {
   }
 
   /** Change the password of the logged-in web user; returns a new session. */
+  /** Record the logout of the web user in the audit log (the session is then dropped). */
+  logout(): Observable<void> {
+    return this.http.post<void>(`${API_URL}/me/logout`, null);
+  }
+
   changePassword(currentPassword: string, newPassword: string): Observable<LoginSession> {
     return this.http.put<LoginSession>(`${API_URL}/me/password`, {
       current_password: currentPassword,
@@ -81,27 +97,27 @@ export class ApiService {
   }
 
   /**
-   * Create a web user. A local one without password gets a generated one, returned once; an
-   * SSO one has no password and may have no role (null).
+   * Create a web user, member of these groups (the only source of its permissions). A local one
+   * without password gets a generated one, returned once; an OIDC one has no password and also
+   * joins its OIDC groups at each login.
    */
   createUser(
     username: string,
     authSource: AuthSource,
-    role: WebUserRole | null,
-    projects: string[],
+    groupIds: number[],
     password: string | null,
   ): Observable<WebUserWithPassword> {
     return this.http.post<WebUserWithPassword>(`${API_URL}/users`, {
       username,
       auth_source: authSource,
-      role,
-      projects,
+      group_ids: groupIds,
       password,
     });
   }
 
-  updateUser(id: number, role: WebUserRole | null, projects: string[]): Observable<WebUser> {
-    return this.http.put<WebUser>(`${API_URL}/users/${id}`, { role, projects });
+  /** Replace the groups given to a web user (its OIDC groups are kept). */
+  updateUser(id: number, groupIds: number[]): Observable<WebUser> {
+    return this.http.put<WebUser>(`${API_URL}/users/${id}`, { group_ids: groupIds });
   }
 
   /** Replace the password of a web user (generated when null) and end its sessions. */
@@ -109,7 +125,7 @@ export class ApiService {
     return this.http.post<WebUserWithPassword>(`${API_URL}/users/${id}/password`, { password });
   }
 
-  /** Delete a web user; a deleted SSO user is revoked (never created again by a login). */
+  /** Delete a web user; a deleted OIDC user is revoked (never created again by a login). */
   deleteUser(id: number): Observable<void> {
     return this.http.delete<void>(`${API_URL}/users/${id}`);
   }
@@ -118,7 +134,7 @@ export class ApiService {
     return this.http.get<RevokedUser[]>(`${API_URL}/users/revoked`);
   }
 
-  /** Let a deleted SSO user be created again at its next login. */
+  /** Let a deleted OIDC user be created again at its next login. */
   liftRevocation(username: string): Observable<void> {
     return this.http.delete<void>(`${API_URL}/users/revoked/${encodeURIComponent(username)}`);
   }
@@ -194,6 +210,31 @@ export class ApiService {
     return this.http.post<RuleReloadResult>(`${API_URL}/rules/reload`, {});
   }
 
+  /** TOML pack of the rules and checklist items that differ from the defaults. */
+  exportRulePack(sections: RulePackSection[]): Observable<Blob> {
+    let params = new HttpParams();
+    for (const section of sections) {
+      params = params.append('sections', section);
+    }
+    return this.http.get(`${API_URL}/packs/rules`, { params, responseType: 'blob' });
+  }
+
+  importRulePack(name: string, content: string): Observable<RulePackImportResult> {
+    return this.http.post<RulePackImportResult>(`${API_URL}/packs/rules`, { name, content });
+  }
+
+  /** TOML pack of every development standard (disabled ones included). */
+  exportStandardPack(): Observable<Blob> {
+    return this.http.get(`${API_URL}/packs/standards`, { responseType: 'blob' });
+  }
+
+  importStandardPack(name: string, content: string): Observable<StandardPackImportResult> {
+    return this.http.post<StandardPackImportResult>(`${API_URL}/packs/standards`, {
+      name,
+      content,
+    });
+  }
+
   projects(): Observable<ProjectSummary[]> {
     return this.http.get<ProjectSummary[]>(`${API_URL}/projects`);
   }
@@ -244,6 +285,15 @@ export class ApiService {
     if (query.project) {
       params = params.set('project', query.project);
     }
+    if (query.search) {
+      params = params.set('search', query.search);
+    }
+    if (query.sort_by) {
+      params = params.set('sort_by', query.sort_by);
+    }
+    if (query.sort_direction) {
+      params = params.set('sort_direction', query.sort_direction);
+    }
     return this.http.get<AuditPage>(`${API_URL}/audit`, { params });
   }
 
@@ -257,7 +307,7 @@ export class ApiService {
 
   /**
    * With portalUser, that web user also reads the project in the web UI (an unknown name
-   * becomes an SSO user when OIDC is enabled).
+   * becomes an OIDC user when OIDC is enabled).
    */
   approveEnrollment(id: string, portalUser: string | null = null): Observable<EnrollmentApproved> {
     return this.http.post<EnrollmentApproved>(
@@ -278,6 +328,15 @@ export class ApiService {
     if (query.risk_level) {
       params = params.set('risk_level', query.risk_level);
     }
+    if (query.search) {
+      params = params.set('search', query.search);
+    }
+    if (query.sort_by) {
+      params = params.set('sort_by', query.sort_by);
+    }
+    if (query.sort_direction) {
+      params = params.set('sort_direction', query.sort_direction);
+    }
     return this.http.get<ReportSummary[]>(`${API_URL}/reports`, { params });
   }
 
@@ -293,13 +352,15 @@ export class ApiService {
     return this.http.get<Trend>(`${API_URL}/trend`, { params });
   }
 
-  /** Findings of a project across all its reports, worst first (for an expert review). */
+  /** Findings of a project (or of every project) across all reports, worst first. */
   projectFindings(query: ProjectFindingQuery): Observable<ProjectFindingPage> {
     let params = new HttpParams()
-      .set('project', query.project)
       .set('status', query.status)
       .set('limit', query.limit)
       .set('offset', query.offset);
+    if (query.project) {
+      params = params.set('project', query.project);
+    }
     if (query.severity) {
       params = params.set('severity', query.severity);
     }
@@ -370,29 +431,54 @@ export class ApiService {
     return this.http.post<OidcTestResult>(`${API_URL}/oidc/settings/test`, values);
   }
 
-  roleMappings(): Observable<RoleMappingCatalog> {
-    return this.http.get<RoleMappingCatalog>(`${API_URL}/oidc/role-mappings`);
+  /** Permissions a role may hold, and whether they can be limited to projects. */
+  permissions(): Observable<PermissionInfo[]> {
+    return this.http.get<PermissionInfo[]>(`${API_URL}/permissions`);
   }
 
-  /** An empty project list reaches every project. */
-  createRoleMapping(
-    claimValue: string,
-    role: MappedRole,
-    projects: string[],
-  ): Observable<RoleMapping> {
-    return this.http.post<RoleMapping>(`${API_URL}/oidc/role-mappings`, {
-      claim_value: claimValue,
-      role,
-      projects,
-    });
+  roles(): Observable<AccessRole[]> {
+    return this.http.get<AccessRole[]>(`${API_URL}/roles`);
   }
 
-  updateRoleMapping(id: number, projects: string[]): Observable<RoleMapping> {
-    return this.http.put<RoleMapping>(`${API_URL}/oidc/role-mappings/${id}`, { projects });
+  createRole(role: AccessRoleWrite): Observable<AccessRole> {
+    return this.http.post<AccessRole>(`${API_URL}/roles`, role);
   }
 
-  deleteRoleMapping(id: number): Observable<void> {
-    return this.http.delete<void>(`${API_URL}/oidc/role-mappings/${id}`);
+  updateRole(id: number, role: AccessRoleWrite): Observable<AccessRole> {
+    return this.http.put<AccessRole>(`${API_URL}/roles/${id}`, role);
+  }
+
+  deleteRole(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/roles/${id}`);
+  }
+
+  groups(): Observable<GroupCatalog> {
+    return this.http.get<GroupCatalog>(`${API_URL}/groups`);
+  }
+
+  createGroup(group: UserGroupWrite): Observable<UserGroup> {
+    return this.http.post<UserGroup>(`${API_URL}/groups`, group);
+  }
+
+  updateGroup(id: number, group: UserGroupWrite): Observable<UserGroup> {
+    return this.http.put<UserGroup>(`${API_URL}/groups/${id}`, group);
+  }
+
+  /** Replace the roles of a group; an empty project list reaches every project. */
+  setGroupRoles(
+    id: number,
+    roles: { role_id: number; projects: string[] }[],
+  ): Observable<UserGroup> {
+    return this.http.put<UserGroup>(`${API_URL}/groups/${id}/roles`, { roles });
+  }
+
+  /** Replace the members added by an administrator (the OIDC members are kept). */
+  setGroupMembers(id: number, userIds: number[]): Observable<UserGroup> {
+    return this.http.put<UserGroup>(`${API_URL}/groups/${id}/members`, { user_ids: userIds });
+  }
+
+  deleteGroup(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/groups/${id}`);
   }
 }
 

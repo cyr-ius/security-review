@@ -3,10 +3,12 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { REVIEW_TYPE_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import {
   FINDING_STATUSES,
   Finding,
+  FindingDecision,
   FindingStatus,
   SEVERITIES,
   SEVERITY_RANK,
@@ -14,6 +16,8 @@ import {
 } from '../../../core/models/api.models';
 import { Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { AuthService } from '../../../core/services/auth.service';
+import { TriageService } from '../../../core/services/triage.service';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
@@ -27,6 +31,8 @@ import { SeverityBadgeComponent } from '../../../shared/components/severity-badg
 })
 export class ReportDetailComponent {
   private readonly api = inject(ApiService);
+  readonly auth = inject(AuthService);
+  readonly triage = inject(TriageService);
 
   /** Route parameter :id */
   readonly id = input.required<string>();
@@ -75,21 +81,30 @@ export class ReportDetailComponent {
     this.statusFilter.set((event.target as HTMLSelectElement).value as FindingStatus | '');
   }
 
+  /** Save the triage decision of a finding card (``null``: reject the agent proposal). */
+  async decide(finding: Finding, decision: FindingDecision | null): Promise<void> {
+    this.triageError.set(null);
+    const result = await this.triage.decide(finding, decision);
+    if ('error' in result) {
+      this.triageError.set(result.error);
+    } else {
+      this.onUpdated(result.finding);
+    }
+  }
+
   /** Keep the triage decision saved by a finding card. */
   onUpdated(updated: Finding): void {
     this.triageError.set(null);
     this.findings.update((all) => all.map((f) => (f.id === updated.id ? updated : f)));
   }
 
-  downloadMarkdown(): void {
-    this.api
-      .reportMarkdown(this.reportId())
-      .subscribe((blob) => saveBlob(blob, `report-${this.reportId()}.md`));
+  async downloadMarkdown(): Promise<void> {
+    const id = this.reportId();
+    saveBlob(await firstValueFrom(this.api.reportMarkdown(id)), `report-${id}.md`);
   }
 
-  downloadSarif(): void {
-    this.api
-      .sarif({ report_id: this.reportId() })
-      .subscribe((blob) => saveBlob(blob, `report-${this.reportId()}.sarif`));
+  async downloadSarif(): Promise<void> {
+    const id = this.reportId();
+    saveBlob(await firstValueFrom(this.api.sarif({ report_id: id })), `report-${id}.sarif`);
   }
 }

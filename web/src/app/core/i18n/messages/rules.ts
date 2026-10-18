@@ -5,7 +5,7 @@ export const rules = defineMessages({
   en: {
     'rules.title': 'Scan rules',
     'rules.subtitle':
-      'Default rules (loaded at first start) and custom rules, stored in the database; import and export with',
+      'Default rules (loaded at first start) and custom rules, stored in the database; import and export here or with',
     'rules.reload': 'Reload',
     'rules.new': 'New rule',
     'rules.loadError': 'Could not load the rules.',
@@ -53,7 +53,7 @@ export const rules = defineMessages({
   fr: {
     'rules.title': 'Règles de scan',
     'rules.subtitle':
-      'Règles par défaut (chargées au premier lancement) et personnalisées, stockées en base ; import et export avec',
+      'Règles par défaut (chargées au premier lancement) et personnalisées, stockées en base ; import et export ici ou avec',
     'rules.reload': 'Recharger',
     'rules.new': 'Nouvelle règle',
     'rules.loadError': 'Impossible de charger les règles.',
@@ -101,7 +101,7 @@ export const rules = defineMessages({
   es: {
     'rules.title': 'Reglas de análisis',
     'rules.subtitle':
-      'Reglas por defecto (cargadas en el primer arranque) y personalizadas, guardadas en la base de datos; importación y exportación con',
+      'Reglas por defecto (cargadas en el primer arranque) y personalizadas, guardadas en la base de datos; importación y exportación aquí o con',
     'rules.reload': 'Recargar',
     'rules.new': 'Nueva regla',
     'rules.loadError': 'No se pudieron cargar las reglas.',

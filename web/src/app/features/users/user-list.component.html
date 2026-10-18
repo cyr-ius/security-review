@@ -42,7 +42,7 @@
       {{ 'users.createTitle' | t }}
     }
   </h2>
-  <form class="row g-2 align-items-start" (submit)="submit($event)">
+  <form class="row g-2 align-items-start" (submit)="submit($event)" novalidate>
     @if (!editing()) {
       <fieldset class="col-12">
         <legend class="form-label">{{ 'users.accountType' | t }}</legend>
@@ -50,10 +50,9 @@
           <input
             class="form-check-input"
             type="radio"
-            name="user-source"
             id="user-source-local"
-            [checked]="source() === 'local'"
-            (change)="onSourceChange('local')"
+            value="local"
+            [formField]="userForm.source"
           />
           <label class="form-check-label" for="user-source-local">
             <i class="bi bi-person" aria-hidden="true"></i> {{ 'users.localPassword' | t }}
@@ -63,16 +62,15 @@
           <input
             class="form-check-input"
             type="radio"
-            name="user-source"
             id="user-source-oidc"
-            [checked]="source() === 'oidc'"
-            (change)="onSourceChange('oidc')"
+            value="oidc"
+            [formField]="userForm.source"
           />
           <label class="form-check-label" for="user-source-oidc">
-            <i class="bi bi-shield-lock" aria-hidden="true"></i> SSO ({{ ssoName() ?? 'OIDC' }})
+            <i class="bi bi-shield-lock" aria-hidden="true"></i> OIDC ({{ ssoName() ?? 'OIDC' }})
           </label>
         </div>
-        @if (source() === 'oidc' && !ssoName()) {
+        @if (userModel().source === 'oidc' && !ssoName()) {
           <div class="form-text text-warning-emphasis">
             {{ 'users.ssoDisabled' | t }} <code>SECREVIEW_OIDC_ENABLED</code>.
           </div>
@@ -84,17 +82,13 @@
       <input
         id="user-name"
         class="form-control"
-        required
-        maxlength="64"
         autocomplete="off"
         autocapitalize="none"
         spellcheck="false"
         [placeholder]="
           (formSource() === 'oidc' ? 'users.ssoPlaceholder' : 'users.localPlaceholder') | t
         "
-        [disabled]="editing() !== null"
-        [value]="username()"
-        (input)="onUsernameInput($event)"
+        [formField]="userForm.username"
       />
       <div class="form-text">
         @if (formSource() === 'oidc') {
@@ -104,17 +98,6 @@
         }
       </div>
     </div>
-    <div class="col-md-2">
-      <label for="user-role" class="form-label">{{ 'users.role' | t }}</label>
-      <select id="user-role" class="form-select" [value]="role()" (change)="onRoleChange($event)">
-        @if (formSource() === 'oidc') {
-          <option value="none">{{ 'users.roleNone' | t }}</option>
-        }
-        <option value="reader">{{ 'users.roleReader' | t }}</option>
-        <option value="triager">{{ 'users.roleTriager' | t }}</option>
-        <option value="admin">{{ 'users.roleAdmin' | t }}</option>
-      </select>
-    </div>
     @if (!editing() && formSource() === 'local') {
       <div class="col-md-3">
         <label for="user-password" class="form-label">{{ 'login.password' | t }}</label>
@@ -122,70 +105,50 @@
           id="user-password"
           class="form-control"
           type="password"
-          maxlength="256"
           autocomplete="new-password"
+          aria-describedby="user-password-help user-password-policy"
           [placeholder]="'users.passwordPlaceholder' | t"
-          [class.is-invalid]="passwordTooShort()"
-          [value]="password()"
-          (input)="onPasswordInput($event)"
+          [class.is-invalid]="passwordInvalid()"
+          [formField]="userForm.password"
         />
-        <div class="form-text" [class.text-danger]="passwordTooShort()">
-          {{ 'users.passwordHelp' | t: { count: minPassword } }}
-        </div>
+        <div id="user-password-help" class="form-text">{{ 'users.passwordHelp' | t }}</div>
+        @if (userModel().password) {
+          <app-password-policy id="user-password-policy" [password]="userModel().password" />
+        }
       </div>
     }
-    <fieldset [class]="editing() || formSource() === 'oidc' ? 'col-md-5' : 'col-md-4'">
-      <legend class="form-label">{{ 'layout.projects' | t }}</legend>
-      <div class="form-check form-check-inline">
-        <input
-          class="form-check-input"
-          type="radio"
-          name="user-scope"
-          id="user-scope-all"
-          [checked]="allProjects() || projectsLocked()"
-          (change)="allProjects.set(true)"
-        />
-        <label class="form-check-label" for="user-scope-all">{{ 'reports.allProjects' | t }}</label>
-      </div>
-      <div class="form-check form-check-inline">
-        <input
-          class="form-check-input"
-          type="radio"
-          name="user-scope"
-          id="user-scope-some"
-          [disabled]="projectsLocked()"
-          [checked]="!allProjects() && !projectsLocked()"
-          (change)="allProjects.set(false)"
-        />
-        <label class="form-check-label" for="user-scope-some">{{ 'users.someProjects' | t }}</label>
-      </div>
-      @if (role() === 'none') {
-        <div class="form-text">
-          {{ 'users.noRoleProjects' | t }}
+    <fieldset [class]="editing() || formSource() === 'oidc' ? 'col-md-7' : 'col-md-4'">
+      <legend class="form-label">{{ 'layout.groups' | t }}</legend>
+      @if ((groups.value()?.groups ?? []).length) {
+        <div class="d-flex flex-wrap gap-3">
+          @for (group of groups.value()?.groups ?? []; track group.id) {
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                [id]="'user-group-' + group.id"
+                [checked]="selectedGroups().includes(group.id)"
+                (change)="toggleGroup(group.id, $event)"
+              />
+              <label class="form-check-label user-name" [for]="'user-group-' + group.id">
+                {{ group.name }}
+              </label>
+            </div>
+          }
         </div>
-      } @else if (projectsLocked()) {
-        <div class="form-text">{{ 'users.adminProjects' | t }}</div>
-      } @else if (!allProjects()) {
-        @if (projectChoices().length) {
-          <div class="d-flex flex-wrap gap-3 mt-2">
-            @for (project of projectChoices(); track project) {
-              <div class="form-check">
-                <input
-                  class="form-check-input"
-                  type="checkbox"
-                  [id]="'user-project-' + project"
-                  [checked]="selectedProjects().includes(project)"
-                  (change)="toggleProject(project, $event)"
-                />
-                <label class="form-check-label" [for]="'user-project-' + project">
-                  {{ project }}
-                </label>
-              </div>
-            }
-          </div>
-        } @else if (!projects.isLoading()) {
-          <div class="form-text">{{ 'users.noProjects' | t }}</div>
-        }
+      } @else if (!groups.isLoading()) {
+        <div class="form-text">{{ 'users.noGroups' | t }}</div>
+      }
+      <div class="form-text">{{ 'users.groupsHelp' | t }}</div>
+      @if (ssoGroups().length) {
+        <div class="form-text">
+          {{ 'users.ssoGroups' | t }}
+          @for (group of ssoGroups(); track group.group_id) {
+            <span class="badge text-bg-primary bg-opacity-75 ms-1">
+              <i class="bi bi-shield-lock" aria-hidden="true"></i> {{ group.name }}
+            </span>
+          }
+        </div>
       }
     </fieldset>
     <div class="col-md-2 d-flex flex-column gap-2 pt-md-4">
@@ -207,102 +170,133 @@
   @if (users.error()) {
     <div class="alert alert-danger" role="alert">{{ 'users.loadError' | t }}</div>
   } @else if ((users.value() ?? []).length) {
-    <div class="table-responsive">
-      <table class="table table-hover align-middle">
-        <thead>
-          <tr>
-            <th scope="col">{{ 'login.username' | t }}</th>
-            <th scope="col">{{ 'users.type' | t }}</th>
-            <th scope="col">{{ 'users.ownRole' | t }}</th>
-            <th scope="col">{{ 'users.groupRole' | t }}</th>
-            <th scope="col">{{ 'users.lastLogin' | t }}</th>
-            <th scope="col">{{ 'common.createdAt' | t }}</th>
-            <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (user of users.value() ?? []; track user.id) {
+    <app-table-controls
+      idPrefix="users"
+      [search]="tableSearch()"
+      [sort]="tableSort()"
+      [direction]="tableDirection()"
+      [sortOptions]="tableSortOptions()"
+      [filters]="tableFilters()"
+      (searchChange)="tableSearch.set($event)"
+      (sortChange)="onUserTableSort($event)"
+      (directionChange)="tableDirection.set($event)"
+      (filterChange)="onUserTableFilter($event)"
+    />
+    @if (visibleUsers().length) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
             <tr>
-              <td class="user-name">
-                {{ user.username }}
-                @if (isSelf(user)) {
-                  <span class="badge text-bg-secondary ms-1">{{ 'users.you' | t }}</span>
-                }
-              </td>
-              <td>
-                @if (user.auth_source === 'oidc') {
-                  <span
-                    class="badge text-bg-primary bg-opacity-75 d-inline-flex align-items-center gap-1"
-                    [title]="(user.sso_linked ? 'users.ssoLinked' : 'users.ssoNotLinked') | t"
-                  >
-                    <i class="bi bi-shield-lock" aria-hidden="true"></i> SSO
-                  </span>
-                  @if (!user.sso_linked) {
-                    <span class="badge text-bg-light border ms-1">{{
-                      'users.neverLoggedIn' | t
-                    }}</span>
+              <th scope="col">{{ 'login.username' | t }}</th>
+              <th scope="col">{{ 'users.type' | t }}</th>
+              <th scope="col">{{ 'layout.groups' | t }}</th>
+              <th scope="col">{{ 'users.access' | t }}</th>
+              <th scope="col">{{ 'users.lastLogin' | t }}</th>
+              <th scope="col">{{ 'common.createdAt' | t }}</th>
+              <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (user of visibleUsers(); track user.id) {
+              <tr>
+                <td class="user-name">
+                  {{ user.username }}
+                  @if (isSelf(user)) {
+                    <span class="badge text-bg-secondary ms-1">{{ 'users.you' | t }}</span>
                   }
-                } @else {
-                  <span
-                    class="badge text-bg-secondary d-inline-flex align-items-center gap-1"
-                    [title]="'users.localTitle' | t"
-                  >
-                    <i class="bi bi-person" aria-hidden="true"></i> Local
-                  </span>
-                }
-              </td>
-              <td>{{ describe(user.role, user.projects) }}</td>
-              <td>
-                @if (user.auth_source === 'oidc') {
-                  {{ describe(user.sso_role, user.sso_projects) }}
+                </td>
+                <td>
+                  @if (user.auth_source === 'oidc') {
+                    <span
+                      class="badge text-bg-primary bg-opacity-75 d-inline-flex align-items-center gap-1"
+                      [title]="(user.sso_linked ? 'users.ssoLinked' : 'users.ssoNotLinked') | t"
+                    >
+                      <i class="bi bi-shield-lock" aria-hidden="true"></i> OIDC
+                    </span>
+                    @if (!user.sso_linked) {
+                      <span class="badge text-bg-light border ms-1">{{
+                        'users.neverLoggedIn' | t
+                      }}</span>
+                    }
+                  } @else {
+                    <span
+                      class="badge text-bg-secondary d-inline-flex align-items-center gap-1"
+                      [title]="'users.localTitle' | t"
+                    >
+                      <i class="bi bi-person" aria-hidden="true"></i> Local
+                    </span>
+                    @if (user.must_change_password) {
+                      <span class="badge text-bg-warning ms-1">{{ 'users.mustChange' | t }}</span>
+                    }
+                  }
+                </td>
+                <td class="small">
+                  @for (group of user.groups; track group.group_id + group.source) {
+                    <span
+                      class="badge text-bg-light border me-1"
+                      [title]="
+                        (group.source === 'oidc' ? 'users.ssoGroup' : 'users.givenGroup') | t
+                      "
+                    >
+                      @if (group.source === 'oidc') {
+                        <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                      }
+                      {{ group.name }}
+                    </span>
+                  } @empty {
+                    —
+                  }
+                </td>
+                <td>
+                  {{ describe(user) }}
                   @if (!user.effective_role) {
                     <span class="badge text-bg-warning ms-1">{{ 'users.noAccess' | t }}</span>
                   }
-                } @else {
-                  <span class="text-body-secondary">—</span>
-                }
-              </td>
-              <td>
-                {{ user.last_login_at ? (user.last_login_at | date: 'dd/MM/yyyy HH:mm') : '—' }}
-              </td>
-              <td>{{ user.created_at | date: 'dd/MM/yyyy' }}</td>
-              <td class="text-end text-nowrap">
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-secondary me-1"
-                  [disabled]="busy()"
-                  [attr.aria-label]="'rules.editRule' | t: { id: user.username }"
-                  (click)="edit(user)"
-                >
-                  <i class="bi bi-pencil" aria-hidden="true"></i>
-                </button>
-                @if (user.auth_source === 'local') {
+                </td>
+                <td>
+                  {{ user.last_login_at ? (user.last_login_at | date: 'dd/MM/yyyy HH:mm') : '—' }}
+                </td>
+                <td>{{ user.created_at | date: 'dd/MM/yyyy' }}</td>
+                <td class="text-end text-nowrap">
                   <button
                     type="button"
                     class="btn btn-sm btn-outline-secondary me-1"
                     [disabled]="busy()"
-                    [attr.aria-label]="'users.resetPasswordOf' | t: { user: user.username }"
-                    [title]="'users.resetPassword' | t"
-                    (click)="resetPassword(user)"
+                    [attr.aria-label]="'rules.editRule' | t: { id: user.username }"
+                    (click)="edit(user)"
                   >
-                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
                   </button>
-                }
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-danger"
-                  [disabled]="busy()"
-                  [attr.aria-label]="'rules.deleteRule' | t: { id: user.username }"
-                  (click)="remove(user)"
-                >
-                  <i class="bi bi-trash" aria-hidden="true"></i>
-                </button>
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </div>
+                  @if (user.auth_source === 'local') {
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary me-1"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'users.resetPasswordOf' | t: { user: user.username }"
+                      [title]="'users.resetPassword' | t"
+                      (click)="resetPassword(user)"
+                    >
+                      <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                    </button>
+                  }
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'rules.deleteRule' | t: { id: user.username }"
+                    (click)="remove(user)"
+                  >
+                    <i class="bi bi-trash" aria-hidden="true"></i>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary">{{ 'common.noMatches' | t }}</p>
+    }
   } @else if (!users.isLoading()) {
     <p class="text-body-secondary">{{ 'users.empty' | t }}</p>
   }
@@ -312,38 +306,54 @@
   <section class="mt-4" aria-labelledby="revoked-title">
     <h2 id="revoked-title" class="h5">{{ 'users.revokedTitle' | t }}</h2>
     <p class="text-body-secondary small">{{ 'users.revokedHelp' | t }}</p>
-    <div class="table-responsive">
-      <table class="table table-hover align-middle">
-        <thead>
-          <tr>
-            <th scope="col">{{ 'login.username' | t }}</th>
-            <th scope="col">{{ 'users.revokedBy' | t }}</th>
-            <th scope="col">{{ 'users.revokedAt' | t }}</th>
-            <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (item of revoked.value() ?? []; track item.username) {
+    <app-table-controls
+      idPrefix="revoked-users"
+      [search]="revokedSearch()"
+      [sort]="revokedSort()"
+      [direction]="revokedDirection()"
+      [sortOptions]="revokedSortOptions()"
+      [filters]="revokedFilters()"
+      (searchChange)="revokedSearch.set($event)"
+      (sortChange)="onRevokedSort($event)"
+      (directionChange)="revokedDirection.set($event)"
+      (filterChange)="onRevokedFilter($event)"
+    />
+    @if (visibleRevoked().length) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
             <tr>
-              <td class="user-name">{{ item.username }}</td>
-              <td>{{ item.revoked_by ?? '—' }}</td>
-              <td>{{ item.revoked_at | date: 'dd/MM/yyyy HH:mm' }}</td>
-              <td class="text-end">
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-secondary"
-                  [disabled]="busy()"
-                  [attr.aria-label]="'users.liftUser' | t: { user: item.username }"
-                  (click)="liftRevocation(item.username)"
-                >
-                  <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
-                  {{ 'users.lift' | t }}
-                </button>
-              </td>
+              <th scope="col">{{ 'login.username' | t }}</th>
+              <th scope="col">{{ 'users.revokedBy' | t }}</th>
+              <th scope="col">{{ 'users.revokedAt' | t }}</th>
+              <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
             </tr>
-          }
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            @for (item of visibleRevoked(); track item.username) {
+              <tr>
+                <td class="user-name">{{ item.username }}</td>
+                <td>{{ item.revoked_by ?? '—' }}</td>
+                <td>{{ item.revoked_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="text-end">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'users.liftUser' | t: { user: item.username }"
+                    (click)="liftRevocation(item.username)"
+                  >
+                    <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+                    {{ 'users.lift' | t }}
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary">{{ 'common.noMatches' | t }}</p>
+    }
   </section>
 }

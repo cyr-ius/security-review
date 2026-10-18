@@ -31,7 +31,7 @@ The build also compiles the [web interface](../usage/web-interface.md) (Node.js 
 controller serves it on `/ui/`.
 
 The image runs as a non-root user (uid `10001`), without sources nor build tools. The SQLite
-database is in the `/data` volume. The `.env` file is **not** copied into the image: pass the
+database is in the `/var/lib/secreview` volume. The `.env` file is **not** copied into the image: pass the
 configuration with `-e` or `--env-file`.
 
 ## Shared server (HTTP)
@@ -99,8 +99,8 @@ docker compose logs controller   # initial admin password
 |---|---|---|
 | `db` | PostgreSQL, only reachable on the internal `backend` network | — |
 | `migrate` | `security-review-controller db upgrade`, then stops | — |
-| `controller` | REST API and web interface (`/ui/`) | `127.0.0.1:8080` (`PUBLISH_ADDRESS`, `SECREVIEW_CONTROLLER_PORT`) |
-| `mcp` | MCP server (`/mcp`) and public enrollment | `127.0.0.1:8000` (`PUBLISH_ADDRESS`, `SECREVIEW_PORT`) |
+| `controller` | REST API and web interface (`/ui/`) | `127.0.0.1:8080` (`DOCKER_PUBLISH_ADDRESS`, `DOCKER_CONTROLLER_PORT`) |
+| `mcp` | MCP server (`/mcp`) and public enrollment | `127.0.0.1:8000` (`DOCKER_PUBLISH_ADDRESS`, `DOCKER_MCP_PORT`) |
 
 - The image is built with the `postgres` extra (`security-review-mcp:pg`). `migrate` waits
   for the database to be ready (`pg_isready`); `controller` and `mcp` wait for `migrate` to
@@ -110,7 +110,7 @@ docker compose logs controller   # initial admin password
   (`@`, `:`, `/`...).
 - The ports are only published on `127.0.0.1` by default. To expose them, enable the
   [built-in TLS](http.md) or put them behind a reverse proxy, then give the host address to use
-  in `.env`: `PUBLISH_ADDRESS=192.168.1.10` (one interface) or `PUBLISH_ADDRESS=0.0.0.0`
+  in `.env`: `DOCKER_PUBLISH_ADDRESS=192.168.1.10` (one interface) or `DOCKER_PUBLISH_ADDRESS=0.0.0.0`
   (every interface). This variable is only used by Compose. The controller exposes no write
   route without a token: it can stay internal.
 - The variables of `.env` are only used by Compose: add them under `environment` so that they
@@ -119,7 +119,7 @@ docker compose logs controller   # initial admin password
 - The vulnerability advisory database is **empty** at first start: the dependency analysis then
   answers that no database is loaded. To let the controller download it at start-up, then every
   24 h, add `SECREVIEW_OSV_AUTO_UPDATE=true` to `.env` (and, if needed,
-  `SECREVIEW_OSV_ECOSYSTEMS`, `SECREVIEW_PROXY` and `SECREVIEW_NO_PROXY`), which the Compose
+  `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY` and `NO_PROXY`), which the Compose
   file passes to the controller only, then `docker compose up -d`. Follow the import with
   `docker compose logs -f controller` or in the settings of the web interface. Without
   Internet access, import an archive with `advisories import` (see
@@ -178,7 +178,7 @@ Copilot and Claude):
     "security-review": {
       "type": "stdio",
       "command": "docker",
-      "args": ["run", "-i", "--rm", "-v", "secreview-data:/data", "security-review-mcp"]
+      "args": ["run", "-i", "--rm", "-v", "secreview-data:/var/lib/secreview", "security-review-mcp"]
     }
   }
 }
@@ -193,13 +193,13 @@ Copilot and Claude):
 with the controller CLI (the running servers apply them within a few seconds):
 
 ```bash
-docker run --rm -v secreview-data:/data -v ./rules.d:/rules:ro \
+docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
     --entrypoint security-review-controller security-review-mcp rules import /rules
 ```
 
 The other commands work the same way:
 
 ```bash
-docker run --rm -v secreview-data:/data \
+docker run --rm -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp token list
 ```

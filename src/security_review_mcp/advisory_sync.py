@@ -99,7 +99,7 @@ def validate_settings(settings: Settings) -> None:
     if url.username or url.password:
         raise ValueError("SECREVIEW_OSV_URL must not contain credentials")
     if settings.proxy:
-        check_proxy_url(settings.proxy, "SECREVIEW_PROXY")
+        check_proxy_url(settings.proxy, "HTTPS_PROXY / HTTP_PROXY")
     if settings.osv_cafile and not Path(settings.osv_cafile).is_file():
         raise ValueError(f"SECREVIEW_OSV_CAFILE: file not found: {settings.osv_cafile}")
     if settings.osv_update_interval_hours < 1:
@@ -111,15 +111,13 @@ def validate_settings(settings: Settings) -> None:
 
 def build_opener(settings: Settings) -> urllib.request.OpenerDirector:
     """Build the HTTPS opener: CA bundle, HTTPS-only redirects and the proxy of ``settings``
-    (effective settings, see proxy.proxy_handler); without a proxy, urllib applies the
-    standard ``HTTPS_PROXY`` and ``NO_PROXY`` environment variables."""
+    (effective settings, see proxy.proxy_handler)."""
     context = ssl.create_default_context(cafile=settings.osv_cafile)
     handlers: list[urllib.request.BaseHandler] = [
         urllib.request.HTTPSHandler(context=context),
         _HttpsRedirectOnly(),
+        proxy_handler(settings),
     ]
-    if (handler := proxy_handler(settings)) is not None:
-        handlers.append(handler)
     return urllib.request.build_opener(*handlers)
 
 
@@ -165,8 +163,8 @@ def update_advisories(
     max_bytes = settings.osv_max_download_mb * 1024 * 1024
     if settings.proxy:
         logger.info("OSV download through the proxy %s", safe_url(settings.proxy))
-    elif settings.proxy == "":
-        logger.info("OSV download without proxy (set in the web interface)")
+    else:
+        logger.info("OSV download without proxy")
     results: dict[str, dict] = {}
     with tempfile.TemporaryDirectory(prefix="secreview-osv-") as directory:
         for ecosystem in wanted:

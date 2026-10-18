@@ -79,19 +79,19 @@
   (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over
   HTTPS with certificate verification, redirects limited to HTTPS, bounded size
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
-  **Update now** button of the web interface (`admin` role) is only accepted if
-  `SECREVIEW_OSV_AUTO_UPDATE=true`. The outgoing proxy (`SECREVIEW_PROXY`, or the **Settings**
-  screen) serves the OSV download and the SSO provider; only the name of the changed settings
+  **Update now** button of the web interface (`settings.manage` permission) is only accepted if
+  `SECREVIEW_OSV_AUTO_UPDATE=true`. The outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **Outgoing proxy**
+  screen) serves the OSV download and the OIDC provider; only the name of the changed settings
   is logged. A proxy set in the web interface is stored in the database **with its credentials,
   in clear**: the API never returns them (password replaced by `***`) and the error messages of
-  the history are scrubbed of them, but prefer `SECREVIEW_PROXY` (Kubernetes secret) if the
+  the history are scrubbed of them, but prefer `HTTPS_PROXY` (Kubernetes secret) if the
   database is not protected like a secret. See the
   [automatic update](../advanced/dependencies.md#automatic-update-by-the-controller). With the
-  [SSO login](../advanced/sso.md) (`SECREVIEW_OIDC_ENABLED`,
+  [OIDC login](../advanced/sso.md) (`SECREVIEW_OIDC_ENABLED`,
   disabled by default), the controller also contacts the configured identity provider: HTTPS
   only (HTTP only on localhost), redirects limited to HTTPS, answers bounded to 1 MiB, 10 second
   timeout. This configuration can also be
-  [changed in the interface](../advanced/sso.md#configuring-sso-in-the-interface) by an
+  [changed in the interface](../advanced/sso.md#configuring-oidc-in-the-interface) by an
   administrator, with the same checks (an invalid configuration is refused); the **Test the
   connection** button contacts the entered issuer, under the same conditions. The **client
   secret** entered in the interface is stored in the database **in clear**: the API never
@@ -108,42 +108,56 @@
 - **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
   stores a proposal (reason masked and bounded, author taken from the token) without changing
   the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a
-  finding. Pages are served with a strict CSP and the anti-clickjacking headers; the token is
+  finding. Pages are served with a strict CSP and the anti-clickjacking headers, and every
+  answer of the controller (API, refusals included) carries `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, a closed CSP when the route sets
+  none and, over HTTPS (TLS of the controller, or `X-Forwarded-Proto` of a proxy listed in
+  `SECREVIEW_FORWARDED_ALLOW_IPS`), `Strict-Transport-Security: max-age=31536000`; the token is
   kept in the `sessionStorage` of the tab. The Swagger documentation and its OpenAPI schema
-  are public, but the data routes stay protected. The check is made twice: by the Bearer
+  are disabled by default (`SECREVIEW_SWAGGER_ENABLED`); once enabled they are public, served
+  from local files only with a strict CSP, and the data routes stay protected. The check is made twice: by the Bearer
   middleware, then by every route of the API, which refuses (`401`) any request without an
   authenticated identity. The API thus never grants rights by default, even if it is served
-  without the middleware.
+  without the middleware. Every JSON answer goes through its declared response model: a field
+  a service would add by mistake (a digest, a secret) is dropped instead of being returned. The
+  answers that hold a secret (session, new or rotated token, generated password) are sent with
+  `Cache-Control: no-store`.
 - **User accounts** ([user name and password](../usage/web-interface.md#user-accounts)): only
   a salted **scrypt** digest (N=2¹⁴, r=8, p=5, random 16-byte salt) is stored; a stored digest
   with out-of-bounds parameters is refused instead of exhausting the memory. Passwords of 12 to
-  256 characters, user names limited to `[A-Za-z0-9._@-]`. The check takes the same time
+  256 characters, with a lowercase letter, an uppercase letter, a digit and a character that is
+  neither (checked by the controller, generated passwords included); a password set by someone
+  else (first administrator, creation or reset by an administrator) must be changed at the first
+  login: until then the session only reaches **My account** (`403` elsewhere), user names limited to `[A-Za-z0-9._@-]`. The check takes the same time
   whether the user name exists or not (dummy digest), and a failure always returns the same
-  `401`. Failures are limited in memory (5 per user name and address, 20 per address, over
-  15 minutes, then `429`); behind a reverse proxy, the client address is only read from
+  `401`. Failures are limited in the database, shared by every replica (5 per user name and
+  address, 20 per address, over 15 minutes, then `429`), and so are the requests of an address
+  to the REST API (`SECREVIEW_RATE_LIMIT_*`, counted before the token is checked, so that
+  guessing tokens is limited too; the counters store SHA-256 digests, never the addresses); behind a reverse proxy, the client address is only read from
   `X-Forwarded-For` for the proxies listed in `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` lets any
   client choose its address and get round the limits). Only valid user names are logged, never passwords. The session is a
-  token signed with `SECREVIEW_SESSION_SECRET`, like the SSO one, but the account is **read
+  token signed with `SECREVIEW_SESSION_SECRET`, like the OIDC one, but the account is **read
   again from the database at every request**: deletion, new role or new projects apply
   immediately, and a password change draws a new random session version that invalidates every
   previous session. The session must also carry the identifier of the account: it never opens
   an account created again under the same internal number. The last administrator, local or
-  SSO (by its role or the role of its groups), can be neither deleted nor demoted. The password
+  OIDC (by its role or the role of its groups), can be neither deleted nor demoted. The password
   of the initial `admin` account appears once in the logs of the controller: protect them and
   change it at the first login.
-- **SSO login (OpenID Connect)**, optional: *authorization code* flow with `S256` PKCE, state
+- **OIDC login (OpenID Connect)**, optional: *authorization code* flow with `S256` PKCE, state
   bound to the browser by a signed `HttpOnly` / `SameSite=Lax` cookie of 10 minutes, nonce,
   verified ID token (signature by the JWKS keys of the provider, asymmetric algorithms only,
-  never `none` nor HMAC; issuer, audience, `azp`, expiry). The role comes from the groups of the
-  user ([role mapping](../advanced/sso.md#role-mapping), managed by the administrators,
-  possibly restricted to projects) and from the role given to their
-  [SSO account](../advanced/sso.md#sso-accounts); neither the `admin` role by default nor
-  the `mcp` role are possible. The account is named by the exact identifier of the
+  never `none` nor HMAC; issuer, audience, `azp`, expiry). The permissions come from the
+  [groups](../advanced/access-control.md) of the account: those given by an administrator and the
+  groups open to OIDC whose name is exactly a value of the groups claim (other values are
+  ignored, a group not open to OIDC is never joined through the claim); an OIDC session never
+  opens `/mcp`. The account is named by the exact identifier of the
   `SECREVIEW_OIDC_USERNAME_CLAIM` claim (no fallback to `email` or `sub`, value refused if it is
   not a valid user name): choose a claim that the user cannot change at the provider. By
-  default (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), only an SSO account created by an
-  administrator can log in. An SSO login never opens a local account of the same name, and the
-  account is bound to the `sub` of its first login: another `sub` is refused. A deleted SSO
+  default (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), only an OIDC account created by an
+  administrator can log in. An OIDC login never opens a local account of the same name, and the
+  account is bound to the issuer and the `sub` of its first login: another `sub` or another
+  issuer is refused. A deleted OIDC
   account is revoked: the automatic creation does not create it again, until an administrator
   creates it again or allows it again. Check the requester of an enrollment (free text, not
   verified) before giving them read access to the project. A session restricted to projects is
@@ -153,7 +167,12 @@
   MCP server. The return URL after login is limited to local paths. Codes, tokens and secrets
   are never logged by the controller; the authorization code does appear in the access logs of
   a reverse proxy or of uvicorn, which is harmless: it is single-use and useless without the
-  PKCE verifier of the cookie.
+  PKCE verifier of the cookie. The secret settings (`SECREVIEW_SESSION_SECRET`,
+  `SECREVIEW_OIDC_CLIENT_SECRET`, `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`)
+  are typed as secrets: they never appear in a dump of the settings. Without
+  `SECREVIEW_SESSION_SECRET`, the generated session secret is written once to
+  `SECREVIEW_SESSION_SECRET_FILE` with mode `0600` (a warning is logged if the file is readable
+  by other users).
 - **No disk access on the MCP side**: `scan_code` only works on the given content; the server
   reads no file from the disk, which avoids path traversals. The whole repository scan is
   reserved for the CLI (`code scan`), run by the operator on a folder they choose; it does not

@@ -2,6 +2,7 @@ import { DecimalPipe } from '@angular/common';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { DIRECTION_META, SEVERITY_META } from '../../../core/constants/labels';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
@@ -90,16 +91,17 @@ export class ProjectDetailComponent {
     this.window.set(window);
   }
 
-  exportSarif(): void {
+  async exportSarif(): Promise<void> {
+    const project = this.project();
     this.exporting.set(true);
     this.exportError.set(false);
-    this.api.sarif({ project: this.project() }).subscribe({
-      next: (blob) => saveBlob(blob, `${this.project().replace(/[^\w.-]+/g, '_')}.sarif`),
-      error: () => {
-        this.exportError.set(true);
-        this.exporting.set(false);
-      },
-      complete: () => this.exporting.set(false),
-    });
+    try {
+      const blob = await firstValueFrom(this.api.sarif({ project }));
+      saveBlob(blob, `${project.replace(/[^\w.-]+/g, '_')}.sarif`);
+    } catch {
+      this.exportError.set(true);
+    } finally {
+      this.exporting.set(false);
+    }
   }
 }

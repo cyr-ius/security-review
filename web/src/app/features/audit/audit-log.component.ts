@@ -1,14 +1,23 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { firstValueFrom } from 'rxjs';
+import { I18nService } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { AUDIT_ACTIONS, AuditAction, AuditEvent } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
+import {
+  TableControlFilter,
+  TableControlFilterChange,
+  TableControlsComponent,
+  TableSortDirection,
+} from '../../shared/components/table-controls/table-controls.component';
 
 /** Events loaded per page (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
 const PAGE_SIZE = 50;
+type AuditSortKey = 'created_at' | 'action' | 'actor' | 'target' | 'project';
 
 /**
  * Administrator page of the audit log: triage decisions, agent proposals, tokens and
@@ -16,21 +25,49 @@ const PAGE_SIZE = 50;
  */
 @Component({
   selector: 'app-audit-log',
-  imports: [DatePipe, RefreshButtonComponent, TranslatePipe],
+  imports: [DatePipe, RefreshButtonComponent, TableControlsComponent, TranslatePipe],
   templateUrl: './audit-log.component.html',
 })
 export class AuditLogComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
 
   readonly actions = AUDIT_ACTIONS;
   readonly actionFilter = signal<AuditAction | ''>('');
   readonly projectFilter = signal('');
+  readonly search = signal('');
+  readonly sortBy = signal<AuditSortKey>('created_at');
+  readonly sortDirection = signal<TableSortDirection>('desc');
+  readonly sortOptions = computed(() => [
+    { value: 'created_at', label: this.i18n.translate('audit.date') },
+    { value: 'action', label: this.i18n.translate('audit.action') },
+    { value: 'actor', label: this.i18n.translate('audit.actor') },
+    { value: 'target', label: this.i18n.translate('audit.target') },
+    { value: 'project', label: this.i18n.translate('reportTable.project') },
+  ]);
+  readonly filters = computed<TableControlFilter[]>(() => [
+    {
+      key: 'action',
+      label: this.i18n.translate('audit.action'),
+      value: this.actionFilter(),
+      options: [
+        { value: '', label: this.i18n.translate('audit.allActions') },
+        ...this.actions.map((action) => ({
+          value: action,
+          label: this.i18n.translate(this.actionLabel(action)),
+        })),
+      ],
+    },
+  ]);
 
   /** First page for the current filters. */
   readonly firstPage = rxResource({
     params: () => ({
       action: this.actionFilter() || null,
       project: this.projectFilter().trim() || null,
+      search: this.search().trim() || null,
+      sort_by: this.sortBy(),
+      sort_direction: this.sortDirection(),
       limit: PAGE_SIZE,
       offset: 0,
     }),
@@ -61,31 +98,51 @@ export class AuditLogComponent {
     this.actionFilter.set((event.target as HTMLSelectElement).value as AuditAction | '');
   }
 
+  onTableSort(value: string): void {
+    if (
+      value === 'created_at' ||
+      value === 'action' ||
+      value === 'actor' ||
+      value === 'target' ||
+      value === 'project'
+    ) {
+      this.sortBy.set(value);
+    }
+  }
+
+  onTableFilter(change: TableControlFilterChange): void {
+    if (change.key === 'action') {
+      this.actionFilter.set(
+        this.actions.includes(change.value as AuditAction) ? (change.value as AuditAction) : '',
+      );
+    }
+  }
+
   onProjectFilter(event: Event): void {
     this.projectFilter.set((event.target as HTMLInputElement).value);
   }
 
   /** Append the next page (events are append-only: the offset stays valid). */
-  loadMore(): void {
+  async loadMore(): Promise<void> {
     this.loadingMore.set(true);
     this.loadMoreFailed.set(false);
-    this.api
-      .auditEvents({
-        action: this.actionFilter() || null,
-        project: this.projectFilter().trim() || null,
-        limit: PAGE_SIZE,
-        offset: this.events().length,
-      })
-      .subscribe({
-        next: (page) => {
-          const known = new Set(this.events().map((item) => item.id));
-          this.events.update((all) => [...all, ...page.events.filter((e) => !known.has(e.id))]);
-          this.loadingMore.set(false);
-        },
-        error: () => {
-          this.loadMoreFailed.set(true);
-          this.loadingMore.set(false);
-        },
-      });
+    const request = this.api.auditEvents({
+      action: this.actionFilter() || null,
+      project: this.projectFilter().trim() || null,
+      search: this.search().trim() || null,
+      sort_by: this.sortBy(),
+      sort_direction: this.sortDirection(),
+      limit: PAGE_SIZE,
+      offset: this.events().length,
+    });
+    try {
+      const page = await firstValueFrom(request);
+      const known = new Set(this.events().map((item) => item.id));
+      this.events.update((all) => [...all, ...page.events.filter((e) => !known.has(e.id))]);
+    } catch {
+      this.loadMoreFailed.set(true);
+    } finally {
+      this.loadingMore.set(false);
+    }
   }
 }

@@ -2,18 +2,25 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { SEVERITY_META } from '../../../core/constants/labels';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
   SEVERITIES,
   SEVERITY_RANK,
   Severity,
   SeverityCounts,
 } from '../../../core/models/api.models';
-import { SEVERITY_META } from '../../../core/constants/labels';
-import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
 import { SeverityCountsComponent } from '../../../shared/components/severity-counts/severity-counts.component';
+import {
+  TableControlFilter,
+  TableControlFilterChange,
+  TableControlsComponent,
+} from '../../../shared/components/table-controls/table-controls.component';
+import { filterAndSortRows } from '../../../shared/utils/table-utils';
 
 type SortKey = 'risk' | 'activity' | 'name';
 
@@ -26,6 +33,7 @@ type SortKey = 'risk' | 'activity' | 'name';
     SeverityBadgeComponent,
     SeverityCountsComponent,
     RefreshButtonComponent,
+    TableControlsComponent,
     TranslatePipe,
   ],
   templateUrl: './project-list.component.html',
@@ -33,6 +41,7 @@ type SortKey = 'risk' | 'activity' | 'name';
 })
 export class ProjectListComponent {
   private readonly api = inject(ApiService);
+  private readonly i18n = inject(I18nService);
 
   readonly severities = SEVERITIES;
   readonly severityMeta = SEVERITY_META;
@@ -41,6 +50,28 @@ export class ProjectListComponent {
 
   readonly search = signal('');
   readonly sort = signal<SortKey>('risk');
+  readonly direction = signal<'asc' | 'desc'>('desc');
+  readonly severityFilter = signal<Severity | 'none' | ''>('');
+  readonly sortOptions = computed(() => [
+    { value: 'risk', label: this.i18n.translate('projects.sortRisk') },
+    { value: 'activity', label: this.i18n.translate('projects.sortActivity') },
+    { value: 'name', label: this.i18n.translate('projects.sortName') },
+  ]);
+  readonly filters = computed<TableControlFilter[]>(() => [
+    {
+      key: 'severity',
+      label: this.i18n.translate('projects.worst'),
+      value: this.severityFilter(),
+      options: [
+        { value: '', label: this.i18n.translate('common.all') },
+        ...SEVERITIES.map((severity) => ({
+          value: severity,
+          label: this.i18n.translate(this.severityMeta[severity].label),
+        })),
+        { value: 'none', label: this.i18n.translate('projects.none') },
+      ],
+    },
+  ]);
 
   /** Open findings of every project added up. */
   readonly totals = computed<SeverityCounts>(() => {
@@ -53,32 +84,58 @@ export class ProjectListComponent {
     return totals;
   });
 
+  /** Open findings of every project, shown on the review button. */
+  readonly openTotal = computed(() =>
+    SEVERITIES.reduce((sum, severity) => sum + this.totals()[severity], 0),
+  );
+
   readonly visible = computed(() => {
-    const term = this.search().trim().toLowerCase();
-    const rows = (this.projects.value() ?? []).filter((p) =>
-      p.project.toLowerCase().includes(term),
+    const severity = this.severityFilter();
+    const rows = (this.projects.value() ?? []).filter(
+      (project) =>
+        !severity ||
+        (severity === 'none'
+          ? project.worst_open_severity === null
+          : project.worst_open_severity === severity),
     );
-    switch (this.sort()) {
-      case 'name':
-        return rows.sort((a, b) => a.project.localeCompare(b.project));
-      case 'activity':
-        return rows.sort((a, b) => b.last_report_at.localeCompare(a.last_report_at));
-      default:
-        // Worst open severity first, then the number of open findings
-        return rows.sort(
-          (a, b) =>
-            rank(b.worst_open_severity) - rank(a.worst_open_severity) ||
-            b.open_findings_total - a.open_findings_total,
+    const sort = this.sort();
+    return filterAndSortRows(
+      rows,
+      this.search(),
+      this.direction(),
+      (project) => project.project,
+      (a, b) => {
+        if (sort === 'name') {
+          return a.project.localeCompare(b.project, undefined, {
+            numeric: true,
+            sensitivity: 'base',
+          });
+        }
+        if (sort === 'activity') {
+          return a.last_report_at.localeCompare(b.last_report_at);
+        }
+        return (
+          rank(a.worst_open_severity) - rank(b.worst_open_severity) ||
+          a.open_findings_total - b.open_findings_total
         );
-    }
+      },
+    );
   });
 
-  onSearch(event: Event): void {
-    this.search.set((event.target as HTMLInputElement).value);
+  onSortValue(value: string): void {
+    if (value === 'risk' || value === 'activity' || value === 'name') {
+      this.sort.set(value);
+    }
   }
 
-  onSort(event: Event): void {
-    this.sort.set((event.target as HTMLSelectElement).value as SortKey);
+  onProjectTableFilter(change: TableControlFilterChange): void {
+    if (change.key === 'severity') {
+      this.severityFilter.set(
+        change.value === 'none' || SEVERITIES.includes(change.value as Severity)
+          ? (change.value as Severity | 'none')
+          : '',
+      );
+    }
   }
 }
 

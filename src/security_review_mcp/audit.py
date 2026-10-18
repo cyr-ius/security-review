@@ -1,9 +1,10 @@
-"""Audit log: who changed a finding status, a token or an enrollment request, and when.
+"""Audit log: who changed a finding status, a token, an enrollment request or an access, and
+who logged in to the web interface (or failed to) and out.
 
-Events are written by the business modules (services, token_store) in the same transaction as
-the change they describe, so that an event exists exactly when the change was committed. They
-are append-only: no tool nor route edits them, and only the daily purge of the controller
-(SECREVIEW_AUDIT_RETENTION_DAYS, see retention) deletes the old ones.
+Events are written by the business modules (services, token_store, access_control) in the same
+transaction as the change they describe, so that an event exists exactly when the change was
+committed. They are append-only: no tool nor route edits them, and only the daily purge of the
+controller (SECREVIEW_AUDIT_RETENTION_DAYS, see retention) deletes the old ones.
 
 ``details`` never holds a secret: the values are bounded and masked with
 ``scanner.redact_secrets`` before they are stored.
@@ -13,9 +14,9 @@ import json
 import logging
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
-from sqlalchemy import delete
+from sqlalchemy import delete, or_
 from sqlmodel import Session, col, func, select
 
 from .config import MAX_RETENTION_DAYS, get_settings
@@ -47,6 +48,20 @@ class AuditAction(StrEnum):
     ENROLLMENT_REQUESTED = "enrollment.requested"
     ENROLLMENT_APPROVED = "enrollment.approved"
     ENROLLMENT_REJECTED = "enrollment.rejected"
+    ROLE_CREATED = "role.created"
+    ROLE_UPDATED = "role.updated"
+    ROLE_DELETED = "role.deleted"
+    GROUP_CREATED = "group.created"
+    GROUP_UPDATED = "group.updated"
+    GROUP_DELETED = "group.deleted"
+    GROUP_ROLES_CHANGED = "group.roles_changed"
+    GROUP_MEMBERS_CHANGED = "group.members_changed"
+    USER_GROUPS_CHANGED = "user.groups_changed"
+    # Recorded by the direct roles of a user, removed since revision 0018: kept for the history
+    USER_ROLES_CHANGED = "user.roles_changed"
+    USER_LOGIN = "user.login"
+    USER_LOGIN_FAILED = "user.login_failed"
+    USER_LOGOUT = "user.logout"
 
 
 def user_actor(username: str) -> str:
@@ -124,6 +139,9 @@ def list_events(
     since: datetime | None = None,
     limit: int = 50,
     offset: int = 0,
+    search: str | None = None,
+    sort_by: Literal["created_at", "action", "actor", "target", "project"] = "created_at",
+    sort_direction: Literal["asc", "desc"] = "desc",
 ) -> dict[str, Any]:
     """Return audit events, newest first, and the number of matching events.
 
@@ -147,12 +165,36 @@ def list_events(
         conditions.append(AuditEvent.actor == actor)
     if since is not None:
         conditions.append(col(AuditEvent.created_at) >= as_utc(since))
+    if search:
+        escaped = search[:200].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        conditions.append(
+            or_(
+                col(AuditEvent.action).ilike(pattern, escape="\\"),
+                col(AuditEvent.actor).ilike(pattern, escape="\\"),
+                col(AuditEvent.target_type).ilike(pattern, escape="\\"),
+                col(AuditEvent.target_id).ilike(pattern, escape="\\"),
+                col(AuditEvent.project).ilike(pattern, escape="\\"),
+                col(AuditEvent.details).ilike(pattern, escape="\\"),
+            )
+        )
+    sort_columns = {
+        "created_at": (col(AuditEvent.created_at),),
+        "action": (col(AuditEvent.action),),
+        "actor": (col(AuditEvent.actor),),
+        "target": (col(AuditEvent.target_type), col(AuditEvent.target_id)),
+        "project": (col(AuditEvent.project),),
+    }
+    sort_column = sort_columns[sort_by]
+    primary_order = tuple(
+        column.asc() if sort_direction == "asc" else column.desc() for column in sort_column
+    )
     with session_scope() as session:
         total = session.exec(select(func.count()).select_from(AuditEvent).where(*conditions)).one()
         rows = session.exec(
             select(AuditEvent)
             .where(*conditions)
-            .order_by(col(AuditEvent.created_at).desc(), col(AuditEvent.id).desc())
+            .order_by(*primary_order, col(AuditEvent.id).desc())
             .offset(offset)
             .limit(limit)
         ).all()

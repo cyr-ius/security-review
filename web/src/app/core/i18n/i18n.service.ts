@@ -34,11 +34,12 @@ export function serverDetail(detail: string): Message {
  */
 @Injectable({ providedIn: 'root' })
 export class I18nService {
-  readonly language = signal<Language>(initialLanguage());
+  private readonly languageValue = signal<Language>(initialLanguage());
+  readonly language = this.languageValue.asReadonly();
 
   constructor() {
     effect(() => {
-      const language = this.language();
+      const language = this.languageValue();
       document.documentElement.setAttribute('lang', language);
       try {
         localStorage.setItem(LANGUAGE_KEY, language);
@@ -46,6 +47,11 @@ export class I18nService {
         // Preference not remembered
       }
     });
+  }
+
+  /** Switch the interface to ``language`` (remembered for the next visits). */
+  setLanguage(language: Language): void {
+    this.languageValue.set(language);
   }
 
   /** Text of a message key (or Message) in the current language, placeholders replaced. */

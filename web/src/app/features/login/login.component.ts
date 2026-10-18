@@ -3,12 +3,12 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormField, form, maxLength, required, submit } from '@angular/forms/signals';
 import { ActivatedRoute, Router } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { API_URL, ApiService } from '../../core/services/api.service';
-import { AuthService } from '../../core/services/auth.service';
-import { ThemeService } from '../../core/services/theme.service';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
+import { API_URL, ApiService } from '../../core/services/api.service';
+import { AuthService } from '../../core/services/auth.service';
+import { ThemeService } from '../../core/services/theme.service';
 import { LanguageSelectComponent } from '../../shared/components/language-select/language-select.component';
 
 /** Messages of the oidcError codes sent back by /api/v1/auth/oidc/callback. */
@@ -26,7 +26,7 @@ const OIDC_ERRORS: Record<string, MessageKey> = {
 
 /**
  * Login page of the web users: a username and a password (local user), or the identity
- * provider (SSO user) when the controller offers OIDC. Bearer tokens are for the MCP server and
+ * provider (OIDC user) when the controller offers OIDC. Bearer tokens are for the MCP server and
  * the REST API only: they never open the web interface.
  */
 @Component({
@@ -81,11 +81,18 @@ export class LoginComponent implements OnInit {
       this.ssoPending.set(true);
       void this.enter(session).finally(() => this.ssoPending.set(false));
     }
-    this.api.authConfig().subscribe({
-      next: (config) => this.ssoName.set(config.oidc ? config.oidc_display_name : null),
+    void this.loadSsoName();
+  }
+
+  /** Offer the identity provider when the controller enables OIDC. */
+  private async loadSsoName(): Promise<void> {
+    try {
+      const config = await firstValueFrom(this.api.authConfig());
+      this.ssoName.set(config.oidc ? config.oidc_display_name : null);
+    } catch {
       // Older controller or network error: only the password login is offered
-      error: () => this.ssoName.set(null),
-    });
+      this.ssoName.set(null);
+    }
   }
 
   readonly accountModel = signal({ username: '', password: '' });
@@ -120,7 +127,7 @@ export class LoginComponent implements OnInit {
     this.auth.login(session);
     try {
       const identity = await firstValueFrom(this.api.me());
-      this.auth.identity.set(identity);
+      this.auth.setIdentity(identity);
       await this.router.navigateByUrl(this.returnUrl());
     } catch (err: unknown) {
       this.auth.logout();

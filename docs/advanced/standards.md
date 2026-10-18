@@ -78,9 +78,37 @@ curl -X POST https://secreview.example.com/api/v1/standards \
        "file_patterns": ["*.py", "pyproject.toml"], "content": "- PEP 8, ruff, typing."}'
 ```
 
+### Import and export
+
+The **Export** button of the **Standards** screen downloads every standard, disabled ones
+included, in a TOML file (`security-review-standards.toml`), without the audit fields (author
+and date of the last change). The **Import** button reads such a file, **all or nothing**: a
+standard is created, or replaced when its identifier (`slug`) exists; the other standards are
+kept. Use it to copy the standards from one server to another, or to version them in a
+repository.
+
+```toml
+[[standards]]
+slug = "python"
+title = "Python standards"
+description = "House conventions"
+technologies = ["python", "fastapi"]
+file_patterns = ["*.py", "pyproject.toml"]
+enabled = true                     # optional (default true)
+content = """
+- PEP 8, ruff, typing.
+"""
+```
+
+| Method | Route | Role |
+|---|---|---|
+| `GET` | `/api/v1/packs/standards` | `standards.manage`: TOML file of every standard |
+| `POST` | `/api/v1/packs/standards` | `standards.manage`: body `{"name": "standards.toml", "content": "<TOML>"}`; returns the identifiers `created` and `updated`, `422` with the errors if the file is invalid |
+
 ## Limits
 
 - 200 standards at most; 32 technologies and 32 file patterns per standard.
+- An imported file is limited to 4 MiB.
 - Lookup by the tool or the prompt: 50 technologies and 500 file names at most, and
   `SECREVIEW_MAX_CONTENT_CHARS` characters in total.
 - The content is text handed to the assistant: put neither secrets nor sensitive data in it.

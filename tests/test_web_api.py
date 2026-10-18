@@ -6,13 +6,17 @@ from pathlib import Path
 
 import jwt
 import pytest
+from conftest import group_for, make_user
 from cryptography.hazmat.primitives.asymmetric import rsa
 from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
 from security_review_mcp import (
+    __version__,
+    access_control,
     advisory_sync,
     app_settings,
+    audit,
     enrollment_api,
     http_server,
     oidc,
@@ -20,6 +24,7 @@ from security_review_mcp import (
     rule_store,
     server,
     services,
+    standards,
     token_store,
     web_api,
     web_users,
@@ -51,6 +56,10 @@ def ui_dir(tmp_path):
     """A fake Angular build."""
     (tmp_path / "index.html").write_text("<html>app</html>", encoding="utf-8")
     (tmp_path / "main.js").write_text("console.log(1)", encoding="utf-8")
+    # Files of Swagger UI, copied by the Angular build
+    (tmp_path / "swagger").mkdir()
+    for name in web_api.SWAGGER_FILES:
+        (tmp_path / "swagger" / name).write_text("/* swagger */", encoding="utf-8")
     return tmp_path
 
 
@@ -81,7 +90,7 @@ def secured(ui_dir) -> TestClient:
         if role != Role.CI:  # see ci_token: a ci token is always restricted to projects
             TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
     app = http_server.build_controller_app(
-        web_api.create_app(ui_dir=str(ui_dir)), token_store.DatabaseTokenStore()
+        web_api.create_app(ui_dir=str(ui_dir), swagger=True), token_store.DatabaseTokenStore()
     )
     return TestClient(app, base_url="http://127.0.0.1")
 
@@ -151,7 +160,9 @@ def test_me(client):
 def test_api_without_middleware_fails_closed(ui_dir, method, path):
     # Defense in depth: served without the bearer middleware, the API refuses every request
     # instead of treating the caller as an administrator
-    bare = TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+    bare = TestClient(
+        web_api.create_app(ui_dir=str(ui_dir), swagger=True), base_url="http://127.0.0.1"
+    )
     response = bare.request(method, path, json={"status": "accepted"})
     assert response.status_code == 401
     assert response.headers["www-authenticate"].startswith("Bearer ")
@@ -161,7 +172,9 @@ def test_api_without_middleware_fails_closed(ui_dir, method, path):
 
 
 def test_favicon_is_served_and_used_by_swagger(ui_dir):
-    bare = TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+    bare = TestClient(
+        web_api.create_app(ui_dir=str(ui_dir), swagger=True), base_url="http://127.0.0.1"
+    )
 
     icon = bare.get("/api/favicon.svg")
     assert icon.status_code == 200
@@ -178,6 +191,67 @@ def test_favicon_is_served_and_used_by_swagger(ui_dir):
     # Neither is part of the API schema
     paths = bare.get("/api/openapi.json").json()["paths"]
     assert "/api/favicon.svg" not in paths and "/api/docs" not in paths
+
+
+def test_swagger_is_disabled_by_default(ui_dir):
+    bare = TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+
+    for path in ("/api/docs", "/api/openapi.json", "/api/swagger/swagger-ui-bundle.js"):
+        assert bare.get(path).status_code == 404, path
+
+
+def test_swagger_is_served_without_any_external_resource(secured):
+    docs = secured.get("/api/docs")
+
+    assert docs.status_code == 200
+    assert "cdn" not in docs.text and "https://" not in docs.text
+    assert 'src="/api/swagger/swagger-ui-bundle.js"' in docs.text
+    assert 'href="/api/swagger/swagger-ui.css"' in docs.text
+    # The schema is never sent to the online validator of swagger.io
+    assert '"validatorUrl": null' in docs.text
+    # Only its own files, and its inline script by its digest
+    policy = docs.headers["content-security-policy"]
+    assert policy.startswith("default-src 'none'; script-src 'self' 'sha256-")
+    assert "unsafe-inline" not in policy and "connect-src 'self'" in policy
+    # Public, like the page: reachable without a token
+    assert secured.get("/api/swagger/swagger-ui-bundle.js").status_code == 200
+
+
+def test_swagger_without_the_web_interface_build_is_not_served(tmp_path, caplog):
+    bare = TestClient(
+        web_api.create_app(ui_dir=None, ui=False, swagger=True), base_url="http://127.0.0.1"
+    )
+    # The bundled build may hold the files: point to an empty directory instead
+    empty = TestClient(
+        web_api.create_app(ui_dir=str(tmp_path), ui=False, swagger=True),
+        base_url="http://127.0.0.1",
+    )
+
+    assert empty.get("/api/docs").status_code == 404
+    assert "Swagger UI files of the web interface build are missing" in caplog.text
+    assert bare.get("/api/openapi.json").status_code == 200
+
+
+def test_api_health_is_public_and_tells_nothing_else(secured):
+    response = secured.get("/api/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_about_gives_the_version_and_the_links(secured, ui_dir):
+    assert secured.get("/api/v1/about").status_code == 401
+
+    about = secured.get("/api/v1/about", headers=auth("reader")).json()
+
+    assert about["version"] == __version__
+    assert about["repository_url"] == "https://github.com/cyr-ius/security-review-mcp"
+    assert about["issues_url"].endswith("/issues")
+    assert about["documentation_url"].startswith("https://")
+    assert (about["swagger_url"], about["health_url"]) == ("/api/docs", "/api/health")
+    # Swagger disabled: no link
+    bare = TestClient(as_admin(web_api.create_app(ui_dir=str(ui_dir))), base_url="http://127.0.0.1")
+    assert bare.get("/api/v1/about").json()["swagger_url"] is None
 
 
 def test_documentation_uses_the_web_interface_favicon():
@@ -209,6 +283,28 @@ def test_reports_list_and_detail(client, reports):
     markdown = client.get(f"/api/v1/reports/{shop_id}/markdown")
     assert markdown.headers["content-type"].startswith("text/markdown")
     assert "# Security report" in markdown.text
+
+
+def test_report_list_search_sort_and_bounds(client):
+    services.save_report("z-project", "Needle report", [])
+    services.save_report("a-project", "Needle report", [])
+    services.save_report("ignored", "Different summary", [])
+
+    params = {
+        "search": "Needle",
+        "sort_by": "project",
+        "sort_direction": "asc",
+        "limit": 1,
+    }
+    first = client.get("/api/v1/reports", params=params)
+    assert first.status_code == 200
+    assert [report["project"] for report in first.json()] == ["a-project"]
+    params["offset"] = 1
+    second = client.get("/api/v1/reports", params=params)
+    assert [report["project"] for report in second.json()] == ["z-project"]
+    assert client.get("/api/v1/reports", params={"search": "missing"}).json() == []
+    assert client.get("/api/v1/reports", params={"search": "x" * 201}).status_code == 422
+    assert client.get("/api/v1/reports", params={"sort_by": "unknown"}).status_code == 422
 
 
 def test_unknown_report_is_404(client):
@@ -267,7 +363,7 @@ def test_project_findings(client, reports):
         "/api/v1/findings", params={"project": "shop-api", "status": "false_positive"}
     ).json()
     assert dismissed["total"] == 0
-    assert client.get("/api/v1/findings").status_code == 422
+    assert client.get("/api/v1/findings", params={"project": ""}).status_code == 422
     assert (
         client.get("/api/v1/findings", params={"project": "shop-api", "status": "x"}).status_code
         == 422
@@ -276,6 +372,31 @@ def test_project_findings(client, reports):
         client.get("/api/v1/findings", params={"project": "shop-api", "limit": 0}).status_code
         == 422
     )
+
+
+def test_findings_of_every_project(client, reports):
+    services.save_report("billing", "Second review", [make_finding(Severity.CRITICAL)])
+    page = client.get("/api/v1/findings").json()
+    assert page["project"] is None
+    assert page["total"] == 3
+    assert [(f["project"], f["severity"]) for f in page["findings"]] == [
+        ("billing", "critical"),
+        ("shop-api", "high"),
+        ("shop-api", "low"),
+    ]
+    shop = client.get("/api/v1/findings", params={"project": "shop-api"}).json()
+    assert {f["project"] for f in shop["findings"]} == {"shop-api"}
+
+
+def test_findings_of_every_project_stay_in_the_scope_of_a_project_token(secured, reports):
+    services.save_report("billing", "Second review", [make_finding(Severity.CRITICAL)])
+    token = token_store.create_token("shop-only", Role.READER, ["shop-api"])["token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    page = secured.get("/api/v1/findings", headers=headers).json()
+    assert page["total"] == 2
+    assert {f["project"] for f in page["findings"]} == {"shop-api"}
+    refused = secured.get("/api/v1/findings", params={"project": "billing"}, headers=headers)
+    assert refused.status_code == 404
 
 
 def test_findings_and_reports_show_and_filter_the_review_type(client):
@@ -679,76 +800,334 @@ def test_openapi_marks_api_operations_as_bearer_protected(secured):
     assert secured.get("/api/v1/projects").status_code == 401
 
 
-def test_role_mappings_are_managed_by_administrators(secured, caplog):
+# Answers that are a file (SARIF, Markdown), not a JSON document
+FILE_ROUTES = {
+    "/api/v1/sarif",
+    "/api/v1/ci/sarif",
+    "/api/v1/reports/{report_id}/markdown",
+}
+
+
+def test_openapi_documents_the_response_of_every_json_route(secured):
+    """Each JSON answer has a declared model: no route returns an undocumented dict."""
+    schema = secured.get("/api/openapi.json").json()
+    untyped = []
+    for path, methods in schema["paths"].items():
+        if path in FILE_ROUTES:
+            continue
+        for method, operation in methods.items():
+            for code, answer in operation["responses"].items():
+                if not code.startswith("2") or code == "204" or "content" not in answer:
+                    continue
+                if "application/json" not in answer["content"]:
+                    continue  # a file to save (TOML pack), not a JSON document
+                body = answer["content"]["application/json"].get("schema", {})
+                while body.get("type") == "array":
+                    body = body.get("items", {})
+                if "$ref" not in body and "properties" not in body:
+                    untyped.append(f"{method.upper()} {path}")
+    assert untyped == []
+
+
+def test_an_undeclared_field_never_leaves_the_api(secured, reports, monkeypatch):
+    """The response models filter the answers: a field added by a service is dropped."""
+    listed = token_store.list_project_tokens
+
+    def with_hash() -> list[dict]:
+        return [token | {"token_hash": "secret-hash"} for token in listed()]
+
+    monkeypatch.setattr(token_store, "list_project_tokens", with_hash)
+    token_store.create_project_token("leak-check", ["shop-api"])
+
+    response = secured.get("/api/v1/project-tokens", headers=auth("admin"))
+
+    assert response.status_code == 200
+    assert any(item["label"] == "leak-check" for item in response.json())
+    assert all("token_hash" not in item for item in response.json())
+
+
+def test_a_new_token_secret_is_never_cached(secured, reports):
+    created = secured.post(
+        "/api/v1/project-tokens",
+        json={"label": "no-cache", "projects": ["shop-api"]},
+        headers=auth("admin"),
+    )
+
+    assert created.status_code == 201 and created.json()["token"]
+    assert created.headers["cache-control"] == "no-store"
+    rotated = secured.post(
+        f"/api/v1/project-tokens/{created.json()['id']}/rotate", headers=auth("admin")
+    )
+    assert rotated.status_code == 200 and rotated.json()["token"] != created.json()["token"]
+    assert rotated.headers["cache-control"] == "no-store"
+
+
+def test_roles_are_managed_with_users_manage(secured, caplog):
     caplog.set_level(logging.INFO, logger="security_review_mcp.web")
-    url = "/api/v1/oidc/role-mappings"
-    body = {"claim_value": "payments", "role": "triager", "projects": ["billing"]}
+    url = "/api/v1/roles"
+    body = {"name": "Auditor", "description": "Reads the log", "permissions": ["audit.read"]}
     for role in ("reader", "triager"):
         assert secured.get(url, headers=auth(role)).status_code == 403
         assert secured.post(url, json=body, headers=auth(role)).status_code == 403
     assert secured.get(url).status_code == 401
 
+    permissions = secured.get("/api/v1/permissions", headers=auth("admin")).json()
+    assert {"name": "reports.read", "scoped": True} in permissions
+    assert {"name": "users.manage", "scoped": False} in permissions
     created = secured.post(url, json=body, headers=auth("admin"))
     assert created.status_code == 201
-    mapping = created.json()
-    assert (mapping["claim_value"], mapping["role"], mapping["projects"]) == (
-        "payments",
-        "triager",
-        ["billing"],
+    role = created.json()
+    assert (role["name"], role["permissions"], role["system"]) == (
+        "Auditor",
+        ["audit.read"],
+        False,
     )
-    assert mapping["created_by"] == "admin"
-    assert "Role mapping payments -> triager (billing) created by admin" in caplog.text
-
+    assert role["created_by"] == "token:admin"
+    assert "Role Auditor created by admin" in caplog.text
     listed = secured.get(url, headers=auth("admin")).json()
-    assert listed["oidc_enabled"] is False
-    assert listed["roles_claim"] == "groups"
-    assert [item["id"] for item in listed["mappings"]] == [mapping["id"]]
+    assert [item["name"] for item in listed] == ["admin", "reader", "triager", "Auditor"]
 
-    updated = secured.put(f"{url}/{mapping['id']}", json={"projects": []}, headers=auth("admin"))
-    assert updated.json()["projects"] is None
-    assert (
-        secured.put(f"{url}/999", json={"projects": []}, headers=auth("admin")).status_code == 404
-    )
-
-    assert secured.delete(f"{url}/{mapping['id']}", headers=auth("reader")).status_code == 403
-    assert secured.delete(f"{url}/{mapping['id']}", headers=auth("admin")).status_code == 204
-    assert secured.delete(f"{url}/{mapping['id']}", headers=auth("admin")).status_code == 404
-
-
-def test_role_mapping_catalog_tells_whether_sso_users_are_created(secured):
-    catalog = secured.get("/api/v1/oidc/role-mappings", headers=auth("admin")).json()
-    assert catalog["username_claim"] == "preferred_username"
-    assert catalog["auto_create_users"] is False
-    assert "user_grants" not in catalog
-    # The user grants are gone: SSO users are web users
-    response = secured.post(
-        "/api/v1/oidc/user-grants",
-        json={"username": "alice", "projects": ["billing"]},
-        headers=auth("admin"),
-    )
-    assert response.status_code in (404, 405)
+    body["permissions"] = ["audit.read", "rules.manage"]
+    updated = secured.put(f"{url}/{role['id']}", json=body, headers=auth("admin"))
+    assert updated.json()["permissions"] == ["audit.read", "rules.manage"]
+    system = listed[0]["id"]
+    assert secured.put(f"{url}/{system}", json=body, headers=auth("admin")).status_code == 422
+    assert secured.delete(f"{url}/{system}", headers=auth("admin")).status_code == 409
+    assert secured.put(f"{url}/999", json=body, headers=auth("admin")).status_code == 404
+    assert secured.delete(f"{url}/{role['id']}", headers=auth("admin")).status_code == 204
+    assert secured.delete(f"{url}/{role['id']}", headers=auth("admin")).status_code == 404
 
 
 @pytest.mark.parametrize(
     "body",
     [
-        {"claim_value": "devs", "role": "mcp"},
-        {"claim_value": "", "role": "reader"},
-        {"claim_value": "devs", "role": "admin", "projects": ["shop-api"]},
-        {"claim_value": "devs", "role": "reader", "projects": [f"p{i}" for i in range(51)]},
+        {"name": "Auditor", "permissions": []},
+        {"name": "Auditor", "permissions": ["root.everything"]},
+        {"name": "", "permissions": ["audit.read"]},
+        {"name": "x" * 65, "permissions": ["audit.read"]},
+        {"name": "Auditor", "permissions": ["audit.read"], "description": "x" * 501},
+        {"name": "reader", "permissions": ["audit.read"]},
     ],
 )
-def test_invalid_role_mappings_are_refused(secured, body):
-    response = secured.post("/api/v1/oidc/role-mappings", json=body, headers=auth("admin"))
+def test_invalid_roles_are_refused(secured, body):
+    response = secured.post("/api/v1/roles", json=body, headers=auth("admin"))
     assert response.status_code == 422
 
 
-def test_duplicate_role_mapping_is_refused(secured):
-    body = {"claim_value": "devs", "role": "reader"}
-    url = "/api/v1/oidc/role-mappings"
-    assert secured.post(url, json=body, headers=auth("admin")).status_code == 201
-    response = secured.post(url, json=body, headers=auth("admin"))
-    assert response.status_code == 422 and "already mapped" in response.json()["detail"]
+def test_groups_are_managed_with_users_manage(secured, caplog):
+    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    url = "/api/v1/groups"
+    admin = auth("admin")
+    assert secured.get(url, headers=auth("triager")).status_code == 403
+    assert secured.post(url, json={"name": "devs"}, headers=auth("reader")).status_code == 403
+
+    created = secured.post(url, json={"name": "devs", "description": "Developers"}, headers=admin)
+    assert created.status_code == 201
+    group = created.json()
+    assert (group["name"], group["sso"], group["roles"], group["members"]) == ("devs", True, [], [])
+    roles = {
+        item["name"]: item["id"] for item in secured.get("/api/v1/roles", headers=admin).json()
+    }
+    alice = make_user("alice", USER_PASSWORD)
+
+    response = secured.put(
+        f"{url}/{group['id']}/roles",
+        json={"roles": [{"role_id": roles["triager"], "projects": ["billing"]}]},
+        headers=admin,
+    )
+    assert response.status_code == 200
+    assert response.json()["roles"][0] | {"role_id": 0} == {
+        "role_id": 0,
+        "name": "triager",
+        "projects": ["billing"],
+    }
+    response = secured.put(
+        f"{url}/{group['id']}/members", json={"user_ids": [alice["id"]]}, headers=admin
+    )
+    assert [m["username"] for m in response.json()["members"]] == ["alice"]
+    assert web_users.find_user("alice")["permissions"]["findings.triage"] == ["billing"]
+    assert "Members of group devs changed by admin" in caplog.text
+
+    listed = secured.get(url, headers=admin).json()
+    assert (listed["oidc_enabled"], listed["roles_claim"], listed["default_group"]) == (
+        False,
+        "groups",
+        None,
+    )
+    assert [item["name"] for item in listed["groups"]] == ["devs"]
+    renamed = secured.put(
+        f"{url}/{group['id']}", json={"name": "developers", "sso": False}, headers=admin
+    ).json()
+    assert (renamed["name"], renamed["sso"], renamed["description"]) == ("developers", False, "")
+
+    # Invalid changes
+    admin_role = {"roles": [{"role_id": roles["admin"], "projects": ["shop-api"]}]}
+    assert (
+        secured.put(f"{url}/{group['id']}/roles", json=admin_role, headers=admin).status_code == 422
+    )
+    unknown_role = {"roles": [{"role_id": 999}]}
+    assert (
+        secured.put(f"{url}/{group['id']}/roles", json=unknown_role, headers=admin).status_code
+        == 404
+    )
+    unknown_user = {"user_ids": [999]}
+    assert (
+        secured.put(f"{url}/{group['id']}/members", json=unknown_user, headers=admin).status_code
+        == 404
+    )
+    assert secured.post(url, json={"name": "developers"}, headers=admin).status_code == 422
+    assert secured.post(url, json={"name": "x" * 201}, headers=admin).status_code == 422
+
+    assert secured.delete(f"{url}/{group['id']}", headers=admin).status_code == 204
+    assert web_users.find_user("alice")["permissions"] == {}
+    assert secured.delete(f"{url}/{group['id']}", headers=admin).status_code == 404
+
+
+def test_the_role_mappings_are_gone(secured):
+    for url in ("/api/v1/oidc/role-mappings", "/api/v1/oidc/user-grants"):
+        response = secured.post(url, json={"claim_value": "devs"}, headers=auth("admin"))
+        assert response.status_code in (404, 405)
+
+
+def test_a_custom_role_opens_only_its_routes(accounts, reports):
+    make_user("root", USER_PASSWORD, "admin")
+    auditor = access_control.create_role("Auditor", ["audit.read"])
+    reader = next(role["id"] for role in access_control.list_roles() if role["name"] == "reader")
+    group = access_control.create_group("auditors")
+    access_control.set_group_roles(group["id"], [(auditor["id"], None), (reader, ["billing"])])
+    make_user("ann", USER_PASSWORD, group_ids=[group["id"]])
+    headers = session_headers(accounts, "ann")
+
+    me = accounts.get("/api/v1/me", headers=headers).json()
+    assert (me["role"], me["can_triage"], me["projects"]) == ("reader", False, ["billing"])
+    assert me["permissions"] == {"audit.read": None, "reports.read": ["billing"]}
+    assert accounts.get("/api/v1/audit", headers=headers).status_code == 200
+    projects = accounts.get("/api/v1/projects", headers=headers).json()
+    assert [item["project"] for item in projects] == ["billing"]
+    for url in ("/api/v1/users", "/api/v1/rules", "/api/v1/settings", "/api/v1/project-tokens"):
+        response = accounts.get(url, headers=headers)
+        assert response.status_code == 403, url
+        assert "required" in response.json()["detail"]
+    finding_id = services.get_report(reports[0]).findings[0].id
+    response = accounts.patch(
+        f"/api/v1/findings/{finding_id}", json={"status": "fixed"}, headers=headers
+    )
+    assert response.status_code == 403
+
+
+def test_triage_is_limited_to_the_projects_of_the_triage_permission(accounts, reports):
+    make_user("root", USER_PASSWORD, "admin")
+    crm_report = services.save_report("crm", "Review", [make_finding(Severity.HIGH)])
+    group = access_control.create_group("mixed")
+    roles = {role["name"]: role["id"] for role in access_control.list_roles()}
+    access_control.set_group_roles(
+        group["id"], [(roles["reader"], None), (roles["triager"], ["crm"])]
+    )
+    make_user("mia", USER_PASSWORD, group_ids=[group["id"]])
+    headers = session_headers(accounts, "mia")
+    shop_finding = services.get_report(reports[0]).findings[0].id
+    crm_finding = services.get_report(crm_report["report_id"]).findings[0].id
+
+    # Reads every project, triages only crm
+    assert accounts.get(f"/api/v1/reports/{reports[0]}", headers=headers).status_code == 200
+    body = {"status": "fixed"}
+    assert (
+        accounts.patch(f"/api/v1/findings/{shop_finding}", json=body, headers=headers).status_code
+        == 404
+    )
+    assert (
+        accounts.patch(f"/api/v1/findings/{crm_finding}", json=body, headers=headers).status_code
+        == 200
+    )
+
+
+def test_sso_settings_need_users_manage(accounts):
+    make_user("root", USER_PASSWORD, "admin")
+    keeper = access_control.create_role("Settings keeper", ["settings.manage"])
+    group = access_control.create_group("keepers")
+    access_control.set_group_roles(group["id"], [(keeper["id"], None)])
+    make_user("sam", USER_PASSWORD, group_ids=[group["id"]])
+    headers = session_headers(accounts, "sam")
+
+    # The OIDC settings decide group membership: settings.manage alone cannot change them
+    assert accounts.get("/api/v1/settings", headers=headers).status_code == 200
+    body = {"admin_groups": "my-idp-group", "default_group": "administrators"}
+    for method, url in (
+        ("get", "/api/v1/oidc/settings"),
+        ("put", "/api/v1/oidc/settings"),
+        ("post", "/api/v1/oidc/settings/test"),
+    ):
+        response = accounts.request(method, url, json=body, headers=headers)
+        assert response.status_code == 403, url
+
+
+def test_a_token_never_grants_more_than_its_creator(accounts, reports):
+    make_user("root", USER_PASSWORD, "admin")
+    keeper = access_control.create_role("Token keeper", ["tokens.manage"])
+    group = access_control.create_group("keepers")
+    roles = {role["name"]: role["id"] for role in access_control.list_roles()}
+    access_control.set_group_roles(
+        group["id"], [(keeper["id"], None), (roles["reader"], ["shop-api"])]
+    )
+    make_user("kim", USER_PASSWORD, group_ids=[group["id"]])
+    headers = session_headers(accounts, "kim")
+    url = "/api/v1/project-tokens"
+
+    for body in (
+        {"label": "other", "projects": ["billing"]},
+        {"label": "all", "projects": None},
+        {"label": "triage", "role": "triager", "projects": ["shop-api"]},
+    ):
+        response = accounts.post(url, json=body, headers=headers)
+        assert response.status_code == 403, body
+    created = accounts.post(url, json={"label": "ok", "projects": ["shop-api"]}, headers=headers)
+    assert created.status_code == 201
+    token_id = created.json()["id"]
+    widened = accounts.put(
+        f"{url}/{token_id}/projects", json={"projects": ["shop-api", "billing"]}, headers=headers
+    )
+    assert widened.status_code == 403
+    # Rotating hands over a new secret: refused for a token that reaches other projects
+    other = token_store.create_project_token("billing-ci", ["billing"])
+    assert accounts.post(f"{url}/{other['id']}/rotate", headers=headers).status_code == 403
+    assert accounts.post(f"{url}/{token_id}/rotate", headers=headers).status_code == 200
+    # A token of a project the caller cannot read is not moved into its scope either
+    moved = accounts.put(
+        f"{url}/{other['id']}/projects", json={"projects": ["shop-api"]}, headers=headers
+    )
+    assert moved.status_code == 403
+    assert token_store.list_tokens()[-1]["projects"] == ["billing"]
+    # Approving an enrollment gives a token on its project: refused outside the scope
+    request = token_store.request_enrollment("billing", label="billing-dev")
+    response = accounts.post(
+        f"/api/v1/enrollments/{request['request_id']}/approve", headers=headers
+    )
+    assert response.status_code == 403
+    assert token_store.list_enrollments()[0]["status"] == "pending"
+    # Tokens and requests of other projects are neither listed, revoked nor rejected
+    assert [item["label"] for item in accounts.get(url, headers=headers).json()] == ["ok"]
+    assert accounts.get("/api/v1/enrollments", headers=headers).json() == []
+    assert accounts.delete(f"{url}/{other['id']}", headers=headers).status_code == 403
+    reject = accounts.delete(f"/api/v1/enrollments/{request['request_id']}", headers=headers)
+    assert reject.status_code == 403
+    assert token_store.list_enrollments()[0]["status"] == "pending"
+    assert accounts.delete(f"{url}/{token_id}", headers=headers).status_code == 204
+
+
+def test_portal_access_at_approval_needs_users_manage(accounts):
+    make_user("root", USER_PASSWORD, "admin")
+    keeper = access_control.create_role("Token keeper", ["tokens.manage", "reports.read"])
+    group = access_control.create_group("keepers")
+    access_control.set_group_roles(group["id"], [(keeper["id"], None)])
+    make_user("kim", USER_PASSWORD, group_ids=[group["id"]])
+    make_user("dev", USER_PASSWORD)
+    request = token_store.request_enrollment("shop-api", label="shop-dev")
+    headers = session_headers(accounts, "kim")
+    url = f"/api/v1/enrollments/{request['request_id']}/approve"
+
+    response = accounts.post(url, json={"portal_user": "dev"}, headers=headers)
+    assert response.status_code == 403
+    assert accounts.post(url, headers=headers).json()["status"] == "active"
 
 
 def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, reports, database):
@@ -1121,15 +1500,15 @@ def test_approval_can_give_web_read_access_to_the_developer(secured, mcp_server,
         assert response.status_code == 422
     assert len(secured.get("/api/v1/enrollments", headers=auth("admin")).json()) == 1
 
-    web_users.create_user("alice", "correct horse battery", "reader", ["billing"])
+    make_user("alice", "Correct horse battery 9", "reader", ["billing"])
     approved = secured.post(url, json={"portal_user": " alice "}, headers=auth("admin"))
 
     assert approved.status_code == 200 and approved.json()["status"] == "active"
     user = approved.json()["portal_user"]
-    assert (user["username"], user["auth_source"], user["projects"]) == (
+    assert (user["username"], user["auth_source"], user["permissions"]) == (
         "alice",
         "local",
-        ["billing", "new-service"],
+        {"reports.read": ["billing", "new-service"]},
     )
     assert "Web access to new-service given to web user alice by admin" in caplog.text
 
@@ -1146,12 +1525,12 @@ def test_approval_creates_the_sso_user_when_oidc_is_enabled(sso_secured, mcp_ser
 
     assert approved.status_code == 200
     user = approved.json()["portal_user"]
-    assert (user["username"], user["auth_source"], user["role"], user["projects"]) == (
+    assert (user["username"], user["auth_source"], user["effective_role"]) == (
         "alice",
         "oidc",
         "reader",
-        ["new-service"],
     )
+    assert user["permissions"] == {"reports.read": ["new-service"]}
     assert user["created_by"] == "admin"
 
     # A complementary enrollment adds the project to the same user
@@ -1162,7 +1541,9 @@ def test_approval_creates_the_sso_user_when_oidc_is_enabled(sso_secured, mcp_ser
         json={"portal_user": "alice"},
         headers=auth("admin"),
     )
-    assert approved.json()["portal_user"]["projects"] == ["new-service", "billing"]
+    assert approved.json()["portal_user"]["permissions"] == {
+        "reports.read": ["billing", "new-service"]
+    }
 
 
 def test_approval_without_portal_user_grants_no_web_access(sso_secured, mcp_server):
@@ -1413,7 +1794,7 @@ def test_invalid_proxy_is_refused(client):
 def test_a_proxy_change_rebuilds_the_sso_login(ui_dir):
     app = web_api.create_app(ui_dir=str(ui_dir))
     client = TestClient(as_admin(app), base_url="http://127.0.0.1")
-    client.put("/api/v1/oidc/settings", json=SSO_SETTINGS)
+    client.put("/api/v1/oidc/settings", json=OIDC_SETTINGS)
     logins = app.state.oidc
     before = logins.current()
     assert before.settings.proxy is None
@@ -1475,7 +1856,7 @@ def test_advisory_update_is_refused_while_one_runs(client, monkeypatch):
 
 # ── Web users ────────────────────────────────────────────────────────────────
 
-USER_PASSWORD = "correct horse battery"
+USER_PASSWORD = "Correct horse battery 9"
 
 
 @pytest.fixture
@@ -1501,7 +1882,7 @@ def session_headers(client: TestClient, username: str, password: str = USER_PASS
 
 
 def test_web_user_accepts_a_risk_with_a_reason_and_an_expiry(accounts, reports):
-    web_users.create_user("tess", USER_PASSWORD, "triager")
+    make_user("tess", USER_PASSWORD, "triager")
     headers = session_headers(accounts, "tess")
     finding_id = services.get_report(reports[0]).findings[0].id
     url = f"/api/v1/findings/{finding_id}"
@@ -1542,7 +1923,7 @@ def test_web_user_accepts_a_risk_with_a_reason_and_an_expiry(accounts, reports):
 
 
 def test_reader_session_cannot_dismiss(accounts, reports):
-    web_users.create_user("rita", USER_PASSWORD, "reader")
+    make_user("rita", USER_PASSWORD, "reader")
     body = {
         "status": "false_positive",
         "reason": "Dead code, never called",
@@ -1570,7 +1951,7 @@ def test_triager_rejects_an_agent_proposal(secured, reports):
 
 def test_password_login_opens_a_session(accounts, caplog):
     caplog.set_level(logging.INFO, logger="security_review_mcp.web")
-    web_users.create_user("alice", USER_PASSWORD, "reader", ["shop-api"])
+    make_user("alice", USER_PASSWORD, "reader", ["shop-api"])
 
     response = login(accounts, "alice")
 
@@ -1591,7 +1972,7 @@ def test_password_login_opens_a_session(accounts, caplog):
 
 
 def test_password_login_failures_do_not_reveal_the_username(accounts, caplog):
-    web_users.create_user("alice", USER_PASSWORD, "reader")
+    make_user("alice", USER_PASSWORD, "reader")
 
     wrong_password = login(accounts, "alice", "not the password")
     unknown_user = login(accounts, "nobody", USER_PASSWORD)
@@ -1605,7 +1986,7 @@ def test_password_login_failures_do_not_reveal_the_username(accounts, caplog):
 
 
 def test_password_login_is_throttled(accounts):
-    web_users.create_user("alice", USER_PASSWORD, "reader")
+    make_user("alice", USER_PASSWORD, "reader")
 
     for _ in range(5):
         assert login(accounts, "alice", "not the password").status_code == 401
@@ -1625,24 +2006,27 @@ def test_password_login_bounds_its_input(accounts):
 
 
 def test_sessions_follow_the_stored_user(accounts):
-    web_users.create_user("root", USER_PASSWORD, "admin")
-    alice = web_users.create_user("alice", USER_PASSWORD, "reader")
+    make_user("root", USER_PASSWORD, "admin")
+    alice = make_user("alice", USER_PASSWORD, "reader")
     headers = session_headers(accounts, "alice")
 
     assert accounts.get("/api/v1/rules", headers=headers).status_code == 403
-    web_users.update_user(alice["id"], "admin")
+    web_users.update_user(alice["id"], [group_for("admin")])
     assert accounts.get("/api/v1/rules", headers=headers).status_code == 200
-    web_users.update_user(alice["id"], "reader")
+    web_users.update_user(alice["id"], [])
+    # Without any permission, the session stops
+    assert accounts.get("/api/v1/me", headers=headers).status_code == 401
     web_users.delete_user(alice["id"])
     assert accounts.get("/api/v1/me", headers=headers).status_code == 401
 
 
 def test_users_are_managed_by_administrators(accounts, caplog):
     caplog.set_level(logging.INFO, logger="security_review_mcp.web")
-    web_users.create_user("root", USER_PASSWORD, "admin")
-    web_users.create_user("reader", USER_PASSWORD, "reader")
+    make_user("root", USER_PASSWORD, "admin")
+    make_user("reader", USER_PASSWORD, "reader")
     admin, reader = session_headers(accounts, "root"), session_headers(accounts, "reader")
-    body = {"username": "bob", "role": "triager", "projects": ["shop-api"]}
+    triagers = group_for("triager", ["shop-api"])
+    body = {"username": "bob", "group_ids": [triagers]}
 
     assert accounts.get("/api/v1/users", headers=reader).status_code == 403
     assert accounts.post("/api/v1/users", json=body, headers=reader).status_code == 403
@@ -1651,19 +2035,24 @@ def test_users_are_managed_by_administrators(accounts, caplog):
     assert created.headers["cache-control"] == "no-store"
     bob = created.json()
     assert len(bob["password"]) >= 24 and bob["created_by"] == "root"
+    assert bob["permissions"] == {"findings.triage": ["shop-api"], "reports.read": ["shop-api"]}
     assert accounts.post("/api/v1/users", json=body, headers=admin).status_code == 409
     listed = accounts.get("/api/v1/users", headers=admin).json()
     assert [user["username"] for user in listed] == ["bob", "reader", "root"]
     assert all("password" not in user and "password_hash" not in user for user in listed)
 
     updated = accounts.put(
-        f"/api/v1/users/{bob['id']}", json={"role": "admin", "projects": []}, headers=admin
+        f"/api/v1/users/{bob['id']}", json={"group_ids": [group_for("admin")]}, headers=admin
     )
-    assert (updated.status_code, updated.json()["role"]) == (200, "admin")
-    invalid = accounts.put(
-        f"/api/v1/users/{bob['id']}", json={"role": "admin", "projects": ["x"]}, headers=admin
+    assert (updated.status_code, updated.json()["effective_role"]) == (200, "admin")
+    unknown = accounts.put(f"/api/v1/users/{bob['id']}", json={"group_ids": [999]}, headers=admin)
+    assert unknown.status_code == 404
+    assert (
+        accounts.post(
+            "/api/v1/users", json={"username": "x", "group_ids": [999]}, headers=admin
+        ).status_code
+        == 404
     )
-    assert invalid.status_code == 422
 
     bob_session = session_headers(accounts, "bob", bob["password"])
     reset = accounts.post(f"/api/v1/users/{bob['id']}/password", json={}, headers=admin)
@@ -1674,50 +2063,71 @@ def test_users_are_managed_by_administrators(accounts, caplog):
 
     assert accounts.delete(f"/api/v1/users/{bob['id']}", headers=admin).status_code == 204
     assert accounts.delete(f"/api/v1/users/{bob['id']}", headers=admin).status_code == 404
-    assert "Web user bob (local, role triager) created by root" in caplog.text
+    assert "Web user bob (local) created by root" in caplog.text
+    assert "Access of web user bob changed by root" in caplog.text
     assert bob["password"] not in caplog.text
+
+
+def test_roles_are_never_given_directly_to_a_user(accounts):
+    make_user("root", USER_PASSWORD, "admin")
+    admin = session_headers(accounts, "root")
+    roles = {role["name"]: role["id"] for role in access_control.list_roles()}
+    direct = [{"role_id": roles["admin"], "projects": []}]
+    body = {"username": "bob", "group_ids": [group_for("reader", ["shop"])], "roles": direct}
+
+    # A user has no role of its own: the field is refused, not silently ignored
+    assert accounts.post("/api/v1/users", json=body, headers=admin).status_code == 422
+    assert web_users.list_users()[-1]["username"] == "root"
+    del body["roles"]
+    created = accounts.post("/api/v1/users", json=body, headers=admin)
+    assert created.status_code == 201
+    bob = created.json()
+    assert "roles" not in bob
+    assert bob["permissions"] == {"reports.read": ["shop"]}
+
+    url = f"/api/v1/users/{bob['id']}"
+    assert accounts.put(url, json={"roles": direct}, headers=admin).status_code == 422
+    assert web_users.find_user("bob")["permissions"] == {"reports.read": ["shop"]}
+    # The roles screen counts the groups of a role, never users
+    listed = accounts.get("/api/v1/roles", headers=admin).json()
+    assert all("users" not in role for role in listed)
 
 
 def test_sso_users_are_managed_by_administrators(accounts, caplog):
     caplog.set_level(logging.INFO, logger="security_review_mcp.web")
-    web_users.create_user("root", USER_PASSWORD, "admin")
+    make_user("root", USER_PASSWORD, "admin")
     admin = session_headers(accounts, "root")
-    body = {"username": "carol@example.com", "auth_source": "oidc", "role": None}
+    body = {"username": "carol@example.com", "auth_source": "oidc"}
 
     created = accounts.post("/api/v1/users", json=body, headers=admin)
     assert created.status_code == 201
     carol = created.json()
-    assert (carol["auth_source"], carol["role"], carol["effective_role"]) == ("oidc", None, None)
+    assert (carol["auth_source"], carol["groups"], carol["effective_role"]) == ("oidc", [], None)
     assert "password" not in carol
-    assert "Web user carol@example.com (oidc, role none) created by root" in caplog.text
+    assert "Web user carol@example.com (oidc) created by root" in caplog.text
     me = accounts.get("/api/v1/me", headers=admin).json()
     assert (me["auth_source"], me["local_account"]) == ("local", True)
 
-    # An SSO user has no password, and only it may have no role
-    for invalid in (
-        {**body, "username": "dave", "password": USER_PASSWORD},
-        {"username": "erin", "role": None},
-    ):
-        assert accounts.post("/api/v1/users", json=invalid, headers=admin).status_code == 422
+    # An OIDC user has no password
+    invalid = {**body, "username": "dave", "password": USER_PASSWORD}
+    assert accounts.post("/api/v1/users", json=invalid, headers=admin).status_code == 422
     reset = accounts.post(f"/api/v1/users/{carol['id']}/password", json={}, headers=admin)
     assert reset.status_code == 422
     updated = accounts.put(
         f"/api/v1/users/{carol['id']}",
-        json={"role": "reader", "projects": ["shop-api"]},
+        json={"group_ids": [group_for("reader", ["shop-api"])]},
         headers=admin,
     )
-    assert (updated.json()["role"], updated.json()["effective_projects"]) == (
+    assert (updated.json()["effective_role"], updated.json()["permissions"]) == (
         "reader",
-        ["shop-api"],
+        {"reports.read": ["shop-api"]},
     )
-    cleared = accounts.put(
-        f"/api/v1/users/{carol['id']}", json={"role": None, "projects": []}, headers=admin
-    )
-    assert cleared.json()["role"] is None
-    # An SSO user never logs in with a password
+    cleared = accounts.put(f"/api/v1/users/{carol['id']}", json={"group_ids": []}, headers=admin)
+    assert cleared.json()["groups"] == []
+    # An OIDC user never logs in with a password
     assert login(accounts, "carol@example.com", "").status_code in (401, 422)
 
-    # A deleted SSO user is revoked until an administrator lifts it
+    # A deleted OIDC user is revoked until an administrator lifts it
     assert accounts.delete(f"/api/v1/users/{carol['id']}", headers=admin).status_code == 204
     assert "Web user carol@example.com (oidc) deleted by root" in caplog.text
     revoked = accounts.get("/api/v1/users/revoked", headers=admin).json()
@@ -1725,7 +2135,7 @@ def test_sso_users_are_managed_by_administrators(accounts, caplog):
         ("carol@example.com", "root")
     ]
     url = "/api/v1/users/revoked/carol@example.com"
-    web_users.create_user("eve", USER_PASSWORD, "reader")
+    make_user("eve", USER_PASSWORD, "reader")
     eve = session_headers(accounts, "eve")
     assert accounts.get("/api/v1/users/revoked", headers=eve).status_code == 403
     assert accounts.delete(url, headers=eve).status_code == 403
@@ -1735,18 +2145,26 @@ def test_sso_users_are_managed_by_administrators(accounts, caplog):
 
 
 def test_last_administrator_cannot_be_deleted_from_the_api(accounts):
-    root = web_users.create_user("root", USER_PASSWORD, "admin")
+    root = make_user("root", USER_PASSWORD, "admin")
     admin = session_headers(accounts, "root")
 
     assert accounts.delete(f"/api/v1/users/{root['id']}", headers=admin).status_code == 409
-    demote = accounts.put(f"/api/v1/users/{root['id']}", json={"role": "reader"}, headers=admin)
+    demote = accounts.put(f"/api/v1/users/{root['id']}", json={"group_ids": []}, headers=admin)
     assert demote.status_code == 422
+    assert "users.manage" in demote.json()["detail"]
+    (group,) = [g for g in access_control.list_groups() if g["name"] == "admin"]
+    response = accounts.delete(f"/api/v1/groups/{group['id']}", headers=admin)
+    assert response.status_code == 409
+    response = accounts.put(
+        f"/api/v1/groups/{group['id']}/members", json={"user_ids": []}, headers=admin
+    )
+    assert response.status_code == 422
 
 
 def test_users_change_their_own_password(accounts):
-    web_users.create_user("alice", USER_PASSWORD, "reader")
+    make_user("alice", USER_PASSWORD, "reader")
     headers = session_headers(accounts, "alice")
-    body = {"current_password": USER_PASSWORD, "new_password": "another long secret"}
+    body = {"current_password": USER_PASSWORD, "new_password": "Another long secret 2"}
 
     wrong = accounts.put(
         "/api/v1/me/password", json={**body, "current_password": "nope"}, headers=headers
@@ -1758,12 +2176,83 @@ def test_users_change_their_own_password(accounts):
     new_headers = {"Authorization": f"Bearer {changed.json()['session']}"}
     assert accounts.get("/api/v1/me", headers=new_headers).status_code == 200
     assert login(accounts, "alice").status_code == 401
-    assert login(accounts, "alice", "another long secret").status_code == 200
+    assert login(accounts, "alice", "Another long secret 2").status_code == 200
+
+
+def test_a_user_must_change_a_password_set_by_someone_else(accounts, reports):
+    make_user("alice", USER_PASSWORD, "reader", must_change=True)
+    logged = login(accounts, "alice")
+    assert logged.json()["must_change_password"] is True
+    headers = {"Authorization": f"Bearer {logged.json()['session']}"}
+
+    # Nothing but its identity and the change of its password
+    refused = accounts.get("/api/v1/projects", headers=headers)
+    assert refused.status_code == 403
+    assert refused.json()["detail"].startswith("Password change required")
+    me = accounts.get("/api/v1/me", headers=headers)
+    assert me.status_code == 200 and me.json()["must_change_password"] is True
+
+    body = {"current_password": USER_PASSWORD, "new_password": "Another long secret 2"}
+    changed = accounts.put("/api/v1/me/password", json=body, headers=headers)
+    assert changed.status_code == 200 and changed.json()["must_change_password"] is False
+    headers = {"Authorization": f"Bearer {changed.json()['session']}"}
+    assert accounts.get("/api/v1/projects", headers=headers).status_code == 200
+
+
+def test_logins_failures_and_logouts_are_audited(accounts):
+    make_user("alice", USER_PASSWORD, "reader")
+    assert login(accounts, "alice", "Wrong password 1!").status_code == 401
+    assert login(accounts, "bob smith", "Wrong password 1!").status_code == 401
+    headers = session_headers(accounts, "alice")
+
+    assert accounts.post("/api/v1/me/logout", headers=headers).status_code == 204
+
+    events = audit.list_events(project=None)["events"]
+    summary = [(e["action"], e["actor"], e["target_id"], e["details"]) for e in events]
+    password = {"address": "testclient", "method": "password"}
+    assert summary[:4] == [
+        ("user.logout", "user:alice", "alice", {"address": "testclient"}),
+        ("user.login", "user:alice", "alice", password),
+        # An invalid username is not written
+        ("user.login_failed", "anonymous", None, password),
+        ("user.login_failed", "anonymous", "alice", password),
+    ]
+    assert "Wrong password" not in str(events) and USER_PASSWORD not in str(events)
+
+
+def test_a_token_has_no_session_to_log_out(secured):
+    response = secured.post("/api/v1/me/logout", headers=auth("reader"))
+
+    assert response.status_code == 403
+    assert audit.list_events(action="user.logout")["total"] == 0
+
+
+def test_a_user_who_must_change_its_password_reaches_no_pipeline_route(accounts, reports):
+    make_user("alice", USER_PASSWORD, "reader", must_change=True)
+    headers = session_headers(accounts, "alice")
+
+    gate = accounts.get("/api/v1/ci/gate", params={"project": "shop-api"}, headers=headers)
+
+    assert gate.status_code == 403
+    assert gate.json()["detail"].startswith("Password change required")
+
+
+def test_a_weak_new_password_is_refused_with_the_broken_rules(accounts):
+    make_user("alice", USER_PASSWORD, "reader")
+    headers = session_headers(accounts, "alice")
+    body = {"current_password": USER_PASSWORD, "new_password": "only lowercase letters"}
+
+    refused = accounts.put("/api/v1/me/password", json=body, headers=headers)
+
+    assert refused.status_code == 422
+    detail = refused.json()["detail"]
+    assert "an uppercase letter" in detail and "a digit" in detail
+    assert login(accounts, "alice").status_code == 200
 
 
 def test_a_token_has_no_password_to_change(accounts):
     secret = token_store.create_token("ops", "admin")["token"]
-    body = {"current_password": "x", "new_password": "another long secret"}
+    body = {"current_password": "x", "new_password": "Another long secret 2"}
 
     response = accounts.put(
         "/api/v1/me/password", json=body, headers={"Authorization": f"Bearer {secret}"}
@@ -1857,15 +2346,85 @@ def test_development_standards_are_read_and_written_by_admins_only(secured):
     assert draft.status_code == 200 and draft.json()["enabled"] is False
 
 
-# ── SSO settings ─────────────────────────────────────────────────────────────
+def test_standards_pack_export_and_import(client, caplog):
+    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
+    client.post("/api/v1/standards", json=STANDARD)
+    exported = client.get("/api/v1/packs/standards")
+    assert exported.status_code == 200
+    assert exported.headers["content-type"].startswith("application/toml")
+    assert "security-review-standards.toml" in exported.headers["content-disposition"]
+    assert exported.headers["cache-control"] == "no-store"
+    assert 'slug = "angular"' in exported.text
 
-SSO_SETTINGS = {
+    client.delete("/api/v1/standards/angular")
+    body = {"name": "standards.toml", "content": exported.text}
+    imported = client.post("/api/v1/packs/standards", json=body)
+    assert imported.status_code == 200
+    assert imported.json()["created"] == ["angular"]
+    assert client.get("/api/v1/standards/angular").json()["updated_by"] == "test-admin"
+    assert "Development standards imported by test-admin: 1 created" in caplog.text
+
+    broken = client.post("/api/v1/packs/standards", json={"content": "slug = ["})
+    assert broken.status_code == 422
+    assert "pack.toml" in broken.json()["detail"]
+    too_big = {"content": "x" * (standards.MAX_PACK_BYTES + 1)}
+    assert client.post("/api/v1/packs/standards", json=too_big).status_code == 422
+
+
+def test_rule_pack_export_and_import(client):
+    pack = (
+        'disabled_rules = ["PY-008"]\n'
+        '[[rules]]\nid = "ACME-001"\ntitle = "Unsafe eval"\nseverity = "high"\n'
+        'languages = ["python"]\npattern = "eval\\\\("\n'
+        '[[checklist]]\ndomain = "company"\nid = "ACME-CL-01"\ntitle = "Tenant"\n'
+        'what_to_look_for = "Tenant id."\n'
+    )
+    imported = client.post("/api/v1/packs/rules", json={"name": "acme.toml", "content": pack})
+    assert imported.status_code == 200
+    result = imported.json()
+    assert (result["rules"], result["checklist_items"], result["disabled_rules"]) == (1, 1, 1)
+    assert result["load_errors"] == []
+    assert any(hit["rule_id"] == "ACME-001" for hit in registry.scan("eval(x)", "python")[0])
+
+    both = client.get("/api/v1/packs/rules")
+    assert both.status_code == 200
+    assert "security-review-rules.toml" in both.headers["content-disposition"]
+    assert "ACME-001" in both.text and "ACME-CL-01" in both.text and "PY-008" in both.text
+    checklist = client.get("/api/v1/packs/rules", params={"sections": "checklist"})
+    assert "security-review-checklists.toml" in checklist.headers["content-disposition"]
+    assert "ACME-CL-01" in checklist.text and "ACME-001" not in checklist.text
+    rules = client.get("/api/v1/packs/rules", params={"sections": "rules"})
+    assert "ACME-001" in rules.text and "ACME-CL-01" not in rules.text
+    assert client.get("/api/v1/packs/rules", params={"sections": "bogus"}).status_code == 422
+
+    broken = pack + '[[rules]]\nid = "ACME-002"\ntitle = "t"\nseverity = "low"\npattern = "(a+)+"'
+    refused = client.post("/api/v1/packs/rules", json={"name": "bad.toml", "content": broken})
+    assert refused.status_code == 422
+    assert "nothing imported" in refused.json()["detail"]
+    assert "ACME-002" not in {row["id"] for row in custom_rules(client)}
+
+
+def test_packs_need_their_permission(secured):
+    body = {"content": '[[standards]]\nslug = "a"\ntitle = "t"\ncontent = "c"'}
+    for path in ("/api/v1/packs/rules", "/api/v1/packs/standards"):
+        assert secured.get(path).status_code == 401
+        assert secured.post(path, json=body).status_code == 401
+        for role in ("reader", "triager"):
+            assert secured.get(path, headers=auth(role)).status_code == 403
+            assert secured.post(path, json=body, headers=auth(role)).status_code == 403
+        assert secured.get(path, headers=auth("admin")).status_code == 200
+    assert secured.get("/api/v1/standards", headers=auth("admin")).json()["standards"] == []
+
+
+# ── OIDC settings ─────────────────────────────────────────────────────────────
+
+OIDC_SETTINGS = {
     "enabled": True,
     "issuer": "https://sso.example.com/realms/acme",
     "client_id": "secreview",
     "client_secret": "client-s3cr3t",
     "redirect_uri": "https://secreview.example.com/api/v1/auth/oidc/callback",
-    "display_name": "Acme SSO",
+    "display_name": "Acme OIDC",
     "admin_groups": "secreview-admins",
 }
 
@@ -1890,22 +2449,22 @@ def test_sso_set_in_the_web_interface_enables_the_login_at_once(client, caplog):
     assert client.get("/api/v1/auth/config").json()["oidc"] is False
     assert client.get("/api/v1/auth/oidc/login").status_code == 404
 
-    response = client.put("/api/v1/oidc/settings", json=SSO_SETTINGS)
+    response = client.put("/api/v1/oidc/settings", json=OIDC_SETTINGS)
 
     assert response.status_code == 200
     described = response.json()
     assert described["active"] is True
     assert described["fields"]["client_secret"]["value"] == "***"
-    assert described["fields"]["issuer"]["effective"] == SSO_SETTINGS["issuer"]
+    assert described["fields"]["issuer"]["effective"] == OIDC_SETTINGS["issuer"]
     assert described["callback_path"] == "/api/v1/auth/oidc/callback"
     assert "client-s3cr3t" not in response.text
     assert "client-s3cr3t" not in client.get("/api/v1/oidc/settings").text
     assert "client-s3cr3t" not in caplog.text
     config = client.get("/api/v1/auth/config").json()
-    assert config == {"password": True, "oidc": True, "oidc_display_name": "Acme SSO"}
-    catalog = client.get("/api/v1/oidc/role-mappings").json()
+    assert config == {"password": True, "oidc": True, "oidc_display_name": "Acme OIDC"}
+    catalog = client.get("/api/v1/groups").json()
     assert catalog["oidc_enabled"] is True
-    assert catalog["static_mappings"][0]["claim_value"] == "secreview-admins"
+    assert catalog["admin_groups"] == ["secreview-admins"]
 
     # A change is applied at the next request, and null restores the variable (disabled)
     client.put("/api/v1/oidc/settings", json={"display_name": "Keycloak"})
@@ -1918,7 +2477,13 @@ def test_invalid_sso_settings_are_refused(client):
     response = client.put("/api/v1/oidc/settings", json={"enabled": True})
     assert response.status_code == 422
     assert "SECREVIEW_OIDC_ISSUER" in response.json()["detail"]
-    for body in ({"cafile": "/etc/passwd"}, {"default_role": "admin"}, {"issuer": "a" * 501}):
+    for body in (
+        {"cafile": "/etc/passwd"},
+        {"default_role": "admin"},
+        {"reader_groups": "devs"},
+        {"default_group": "a" * 501},
+        {"issuer": "a" * 501},
+    ):
         assert client.put("/api/v1/oidc/settings", json=body).status_code == 422
     assert client.get("/api/v1/oidc/settings").json()["active"] is False
 
@@ -1926,15 +2491,15 @@ def test_invalid_sso_settings_are_refused(client):
 def test_sso_variables_made_invalid_by_a_stored_value_only_disable_the_login(
     client, monkeypatch, caplog
 ):
-    client.put("/api/v1/oidc/settings", json=SSO_SETTINGS)
-    # The variable changes after the settings were stored: SSO is disabled, not the controller
+    client.put("/api/v1/oidc/settings", json=OIDC_SETTINGS)
+    # The variable changes after the settings were stored: OIDC is disabled, not the controller
     monkeypatch.setattr(get_settings(), "oidc_scopes", "profile")
     assert client.get("/api/v1/auth/config").json()["oidc"] is False
-    assert "SSO login disabled, invalid settings" in caplog.text
+    assert "OIDC login disabled, invalid settings" in caplog.text
 
 
 def test_sso_settings_test_contacts_the_given_provider_without_storing(client, monkeypatch):
-    issuer = SSO_SETTINGS["issuer"]
+    issuer = OIDC_SETTINGS["issuer"]
     calls: list[str] = []
 
     def fetch_json(self, url, data=None, headers=None):  # noqa: ANN001, ANN202
@@ -1950,7 +2515,7 @@ def test_sso_settings_test_contacts_the_given_provider_without_storing(client, m
         return {"keys": [jwt.algorithms.RSAAlgorithm.to_jwk(key, as_dict=True)]}
 
     monkeypatch.setattr(oidc.OidcLogin, "fetch_json", fetch_json)
-    result = client.post("/api/v1/oidc/settings/test", json=SSO_SETTINGS).json()
+    result = client.post("/api/v1/oidc/settings/test", json=OIDC_SETTINGS).json()
 
     assert result["success"] is True
     assert [step["name"] for step in result["steps"]] == ["discovery", "jwks"]
@@ -1962,13 +2527,13 @@ def test_sso_settings_test_contacts_the_given_provider_without_storing(client, m
         raise oidc.OidcError("provider", "Identity provider unreachable")
 
     monkeypatch.setattr(oidc.OidcLogin, "fetch_json", unreachable)
-    result = client.post("/api/v1/oidc/settings/test", json=SSO_SETTINGS).json()
+    result = client.post("/api/v1/oidc/settings/test", json=OIDC_SETTINGS).json()
     assert result == {
         "success": False,
         "steps": [{"name": "discovery", "ok": False, "detail": "Identity provider unreachable"}],
     }
     # Settings that cannot enable a login are refused before any connection
-    for body in ({"issuer": "http://evil.example"}, SSO_SETTINGS | {"issuer": f"{issuer}\nx"}):
+    for body in ({"issuer": "http://evil.example"}, OIDC_SETTINGS | {"issuer": f"{issuer}\nx"}):
         response = client.post("/api/v1/oidc/settings/test", json=body)
         assert response.status_code == 422
 
@@ -2034,7 +2599,7 @@ def test_rotation_needs_an_admin(secured):
 
 
 def test_web_actions_are_audited_with_the_user_or_the_token(accounts, secured, reports):
-    web_users.create_user("tess", USER_PASSWORD, "triager")
+    make_user("tess", USER_PASSWORD, "triager")
     headers = session_headers(accounts, "tess")
     finding_id = services.get_report(reports[0]).findings[0].id
     accounts.patch(f"/api/v1/findings/{finding_id}", json={"status": "fixed"}, headers=headers)
@@ -2066,6 +2631,48 @@ def test_audit_route_filters_and_permissions(secured, reports):
     assert secured.get(url, params=params, headers=auth("admin")).status_code == 422
     for role in ("reader", "triager", "metrics"):
         assert secured.get(url, headers=auth(role)).status_code == 403
+
+
+def test_audit_route_search_sort_and_bounds(secured):
+    with session_scope() as session:
+        audit.record(
+            session,
+            audit.AuditAction.TOKEN_CREATED,
+            "user:zeta",
+            "token",
+            "z-token",
+            "shop-api",
+            {"label": "needle z"},
+        )
+        audit.record(
+            session,
+            audit.AuditAction.TOKEN_CREATED,
+            "user:alpha",
+            "token",
+            "a-token",
+            "shop-api",
+            {"label": "needle a"},
+        )
+
+    params = {
+        "search": "needle",
+        "project": "shop-api",
+        "sort_by": "actor",
+        "sort_direction": "asc",
+        "limit": 1,
+    }
+    first = secured.get("/api/v1/audit", params=params, headers=auth("admin")).json()
+    assert first["total"] == 2
+    assert [event["actor"] for event in first["events"]] == ["user:alpha"]
+    params["offset"] = 1
+    second = secured.get("/api/v1/audit", params=params, headers=auth("admin")).json()
+    assert [event["actor"] for event in second["events"]] == ["user:zeta"]
+    too_long = secured.get("/api/v1/audit", params={"search": "x" * 201}, headers=auth("admin"))
+    assert too_long.status_code == 422
+    invalid_sort = secured.get(
+        "/api/v1/audit", params={"sort_by": "unknown"}, headers=auth("admin")
+    )
+    assert invalid_sort.status_code == 422
 
 
 def test_metrics_need_a_metrics_or_admin_token(secured, reports):

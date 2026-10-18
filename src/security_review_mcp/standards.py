@@ -13,8 +13,10 @@ interface applies at once to every MCP server instance sharing the database.
 import fnmatch
 import json
 import re
+import tomllib
 from collections.abc import Iterable
 
+import tomlkit
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, func, select
 
@@ -30,6 +32,10 @@ MAX_CONTENT_CHARS = 50_000
 MAX_KEYWORDS = 32
 MAX_KEYWORD_CHARS = 50
 MAX_PATTERN_CHARS = 100
+# Largest standards pack accepted by import_pack (TOML exchange format of the web interface)
+MAX_PACK_BYTES = 4 * 1024 * 1024
+# Fields of a standard in a pack, in the order they are exported
+PACK_FIELDS = ("slug", "title", "description", "technologies", "file_patterns", "enabled")
 # Bounds of a lookup by the MCP tools and prompt (with SECREVIEW_MAX_CONTENT_CHARS in total)
 MAX_QUERY_TECHNOLOGIES = 50
 MAX_QUERY_FILES = 500
@@ -349,3 +355,107 @@ def delete_standard(slug: str) -> None:
         if row is None:
             raise NotFoundError(f"Development standard {slug[:60]!r} not found")
         session.delete(row)
+
+
+# ── Import / export (web interface) ──────────────────────────────────────────
+
+
+def export_pack() -> str:
+    """Return every standard (disabled ones included) as a TOML pack accepted by import_pack.
+
+    The audit fields (who changed a standard, and when) are left out.
+    """
+    document = tomlkit.document()
+    document.add(tomlkit.comment("Development standards exported by security-review-controller."))
+    document.add(tomlkit.comment("Import them in the web interface (Standards > Import)."))
+    tables = tomlkit.aot()
+    with session_scope() as session:
+        rows = session.exec(select(DevStandard).order_by(col(DevStandard.slug))).all()
+        for row in rows:
+            entry = _full(row)
+            table = tomlkit.table()
+            for key in PACK_FIELDS:
+                table[key] = entry[key]
+            table["content"] = tomlkit.string(entry["content"], multiline=True)
+            tables.append(table)
+    document["standards"] = tables
+    return tomlkit.dumps(document)
+
+
+def _parse_pack(text: str, name: str) -> list[dict]:
+    """Parse and validate a standards pack; return the normalized standards.
+
+    Raises:
+        ValueError: Listing every invalid entry.
+    """
+    if len(text.encode("utf-8")) > MAX_PACK_BYTES:
+        raise ValueError(f"{name}: file larger than {MAX_PACK_BYTES} bytes")
+    try:
+        data = tomllib.loads(text)
+    except tomllib.TOMLDecodeError as exc:
+        raise ValueError(f"{name}: {exc}") from exc
+    except RecursionError as exc:
+        raise ValueError(f"{name}: values nested too deeply") from exc
+    entries = data.get("standards", [])
+    if not isinstance(entries, list) or not all(isinstance(item, dict) for item in entries):
+        raise ValueError(f"{name}: standards must be an array of tables")
+    if not entries:
+        raise ValueError(f"{name}: no [[standards]] entry to import")
+    if len(entries) > MAX_STANDARDS:
+        raise ValueError(f"{name}: at most {MAX_STANDARDS} standards")
+    parsed: dict[str, dict] = {}
+    errors: list[str] = []
+    for index, entry in enumerate(entries, start=1):
+        try:
+            fields = normalize(entry)
+        except ValueError as exc:
+            errors.append(f"standards[{index}]: {exc}")
+            continue
+        if fields["slug"] in parsed:
+            errors.append(f"standards[{index}]: duplicate slug {fields['slug']}")
+            continue
+        parsed[fields["slug"]] = fields
+    if errors:
+        raise ValueError(
+            f"Invalid standards pack {name}, nothing imported: " + "; ".join(errors[:20])
+        )
+    return list(parsed.values())
+
+
+def import_pack(text: str, name: str, by: str | None = None) -> dict:
+    """Import a TOML standards pack, all or nothing.
+
+    A standard is created, or replaced when its slug exists; the other standards are kept.
+
+    Raises:
+        ValueError: If the pack is invalid or the limit of standards would be exceeded.
+    """
+    entries = _parse_pack(text, name)
+    created: list[str] = []
+    updated: list[str] = []
+    try:
+        with session_scope() as session:
+            existing = {
+                row.slug: row
+                for row in session.exec(
+                    select(DevStandard).where(
+                        col(DevStandard.slug).in_([entry["slug"] for entry in entries])
+                    )
+                ).all()
+            }
+            total = session.exec(select(func.count()).select_from(DevStandard)).one()
+            new = [entry for entry in entries if entry["slug"] not in existing]
+            if total + len(new) > MAX_STANDARDS:
+                raise ValueError(f"The limit of {MAX_STANDARDS} standards would be exceeded")
+            for fields in entries:
+                row = existing.get(fields["slug"])
+                if row is None:
+                    row = DevStandard(slug=fields["slug"], title="")
+                    created.append(fields["slug"])
+                else:
+                    updated.append(fields["slug"])
+                _apply(row, fields, by)
+                session.add(row)
+    except IntegrityError as exc:
+        raise ValueError("The standards were changed concurrently; retry the import") from exc
+    return {"file": name, "created": created, "updated": updated}

@@ -6,18 +6,7 @@
   <app-refresh-button [loading]="firstPage.isLoading()" (refresh)="firstPage.reload()" />
 </div>
 
-<form class="row g-2 mb-3" role="search" (submit)="$event.preventDefault()">
-  <div class="col-md-4">
-    <label for="audit-action" class="form-label">{{ 'audit.action' | t }}</label>
-    <select id="audit-action" class="form-select" (change)="onActionFilter($event)">
-      <option value="">{{ 'audit.allActions' | t }}</option>
-      @for (action of actions; track action) {
-        <option [value]="action" [selected]="actionFilter() === action">
-          {{ actionLabel(action) | t }}
-        </option>
-      }
-    </select>
-  </div>
+<form class="row g-2 mb-3" (submit)="$event.preventDefault()">
   <div class="col-md-4">
     <label for="audit-project" class="form-label">{{ 'reportTable.project' | t }}</label>
     <input
@@ -31,6 +20,19 @@
     />
   </div>
 </form>
+
+<app-table-controls
+  idPrefix="audit"
+  [search]="search()"
+  [sort]="sortBy()"
+  [direction]="sortDirection()"
+  [sortOptions]="sortOptions()"
+  [filters]="filters()"
+  (searchChange)="search.set($event)"
+  (sortChange)="onTableSort($event)"
+  (directionChange)="sortDirection.set($event)"
+  (filterChange)="onTableFilter($event)"
+/>
 
 @if (firstPage.error()) {
   <div class="alert alert-danger" role="alert">{{ 'audit.loadError' | t }}</div>

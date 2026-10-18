@@ -37,7 +37,7 @@ export SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db
 
 ```bash
 security-review-controller db upgrade                       # crée ou migre le schéma
-security-review-controller user create admin --role admin   # mot de passe affiché une fois
+security-review-controller user create admin --group administrators   # mot de passe affiché une fois
 ```
 
 Conservez le mot de passe : il ouvre l'interface web. Changez-le ensuite depuis **Mon compte**.
@@ -116,7 +116,7 @@ docker compose exec controller security-review-controller token create --label a
 
 L'interface web répond sur `http://127.0.0.1:8080/ui/`, l'endpoint MCP sur
 `http://127.0.0.1:8000/mcp`. Les deux ports ne sont publiés que sur `127.0.0.1` : pour les
-ouvrir à l'équipe, ajoutez le TLS et renseignez `PUBLISH_ADDRESS` (voir
+ouvrir à l'équipe, ajoutez le TLS et renseignez `DOCKER_PUBLISH_ADDRESS` (voir
 [Docker Compose avec PostgreSQL](../advanced/docker.md#docker-compose-avec-postgresql)).
 
 ## Avec Kubernetes
@@ -151,4 +151,4 @@ de l'ingress controller. Contenu du manifeste, mise à jour OSV et réplicas mul
 ## Étape suivante
 
 [Connectez l'hôte](host.md) de chaque développeur au serveur MCP. Pour aller plus loin :
-[jetons, enrôlement et TLS](../advanced/http.md), [connexion SSO](../advanced/sso.md).
+[jetons, enrôlement et TLS](../advanced/http.md), [connexion OIDC](../advanced/sso.md).

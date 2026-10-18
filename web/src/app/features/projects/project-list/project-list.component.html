@@ -3,7 +3,16 @@
     <h1 class="h3 mb-0">{{ 'layout.projects' | t }}</h1>
     <p class="text-body-secondary mb-0">{{ 'projects.subtitle' | t }}</p>
   </div>
-  <app-refresh-button [loading]="projects.isLoading()" (refresh)="projects.reload()" />
+  <div class="d-flex flex-wrap gap-2">
+    <a class="btn btn-sm btn-primary" routerLink="/findings">
+      <i class="bi bi-shield-check" aria-hidden="true"></i>
+      {{ 'project.reviewFindings' | t }}
+      @if (projects.hasValue()) {
+        <span class="badge text-bg-light ms-1">{{ openTotal() }}</span>
+      }
+    </a>
+    <app-refresh-button [loading]="projects.isLoading()" (refresh)="projects.reload()" />
+  </div>
 </div>
 
 @if (projects.error()) {
@@ -21,29 +30,20 @@
     <app-severity-counts [counts]="totals()" />
   </section>
 
+  <app-table-controls
+    idPrefix="projects"
+    [search]="search()"
+    [sort]="sort()"
+    [direction]="direction()"
+    [sortOptions]="sortOptions()"
+    [filters]="filters()"
+    (searchChange)="search.set($event)"
+    (sortChange)="onSortValue($event)"
+    (directionChange)="direction.set($event)"
+    (filterChange)="onProjectTableFilter($event)"
+  />
   <div class="card">
-    <div class="card-header d-flex flex-wrap gap-2 align-items-center">
-      <div class="input-group input-group-sm filter">
-        <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
-        <input
-          type="search"
-          class="form-control"
-          [placeholder]="'projects.filterPlaceholder' | t"
-          [attr.aria-label]="'projects.filter' | t"
-          [value]="search()"
-          (input)="onSearch($event)"
-        />
-      </div>
-      <select
-        class="form-select form-select-sm sort"
-        [attr.aria-label]="'projects.sort' | t"
-        [value]="sort()"
-        (change)="onSort($event)"
-      >
-        <option value="risk">{{ 'projects.sortRisk' | t }}</option>
-        <option value="activity">{{ 'projects.sortActivity' | t }}</option>
-        <option value="name">{{ 'projects.sortName' | t }}</option>
-      </select>
+    <div class="card-header">
       <span class="ms-auto small text-body-secondary">{{
         'projects.count' | t: { count: visible().length }
       }}</span>
@@ -96,6 +96,8 @@
           </tbody>
         </table>
       </div>
+    } @else if ((projects.value() ?? []).length) {
+      <p class="text-body-secondary text-center my-4">{{ 'common.noMatches' | t }}</p>
     } @else {
       <p class="text-body-secondary text-center my-4">
         <i class="bi bi-inbox" aria-hidden="true"></i>

@@ -1,62 +1,80 @@
 @if (reports().length > 0) {
-  <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
-      <thead>
-        <tr>
-          <th scope="col">#</th>
-          <th scope="col">{{ 'reportTable.date' | t }}</th>
-          @if (showProject()) {
-            <th scope="col">{{ 'reportTable.project' | t }}</th>
-          }
-          <th scope="col">{{ 'reportTable.risk' | t }}</th>
-          <th scope="col">{{ 'reportTable.reviewType' | t }}</th>
-          <th scope="col" class="text-end">{{ 'reportTable.openTotal' | t }}</th>
-          <th scope="col">{{ 'reportTable.branch' | t }}</th>
-          <th scope="col">{{ 'reportTable.author' | t }}</th>
-          <th scope="col">{{ 'reportTable.summary' | t }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        @for (report of reports(); track report.report_id) {
+  @if (enableControls()) {
+    <app-table-controls
+      idPrefix="project-reports"
+      [search]="search()"
+      [sort]="sort()"
+      [direction]="direction()"
+      [sortOptions]="sortOptions()"
+      [filters]="filters()"
+      (searchChange)="search.set($event)"
+      (sortChange)="onSort($event)"
+      (directionChange)="direction.set($event)"
+      (filterChange)="onFilter($event)"
+    />
+  }
+  @if (visibleReports().length) {
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
           <tr>
-            <td>
-              <a [routerLink]="['/reports', report.report_id]">#{{ report.report_id }}</a>
-            </td>
-            <td class="text-nowrap">{{ report.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+            <th scope="col">#</th>
+            <th scope="col">{{ 'reportTable.date' | t }}</th>
             @if (showProject()) {
-              <td>
-                <a [routerLink]="['/projects', report.project]">{{ report.project }}</a>
-              </td>
+              <th scope="col">{{ 'reportTable.project' | t }}</th>
             }
-            <td><app-severity-badge [severity]="report.risk_level" /></td>
-            <td class="text-nowrap small">
-              @if (report.review_type; as reviewType) {
-                <i class="bi {{ reviewTypeMeta[reviewType].icon }}" aria-hidden="true"></i>
-                {{ reviewTypeMeta[reviewType].label | t }}
-              }
-            </td>
-            <td class="text-end numeric">
-              <strong>{{ report.findings_open }}</strong> / {{ report.findings_total }}
-            </td>
-            <td class="text-nowrap">
-              @if (report.branch) {
-                <i class="bi bi-git" aria-hidden="true"></i> {{ report.branch }}
-              }
-              @if (report.commit_sha) {
-                <code class="ms-1">{{ report.commit_sha | slice: 0 : 8 }}</code>
-              }
-            </td>
-            <td class="text-nowrap">
-              @if (report.author) {
-                <i class="bi bi-person" aria-hidden="true"></i> {{ report.author }}
-              }
-            </td>
-            <td class="summary text-body-secondary">{{ report.summary }}</td>
+            <th scope="col">{{ 'reportTable.risk' | t }}</th>
+            <th scope="col">{{ 'reportTable.reviewType' | t }}</th>
+            <th scope="col" class="text-end">{{ 'reportTable.openTotal' | t }}</th>
+            <th scope="col">{{ 'reportTable.branch' | t }}</th>
+            <th scope="col">{{ 'reportTable.author' | t }}</th>
+            <th scope="col">{{ 'reportTable.summary' | t }}</th>
           </tr>
-        }
-      </tbody>
-    </table>
-  </div>
+        </thead>
+        <tbody>
+          @for (report of visibleReports(); track report.report_id) {
+            <tr>
+              <td>
+                <a [routerLink]="['/reports', report.report_id]">#{{ report.report_id }}</a>
+              </td>
+              <td class="text-nowrap">{{ report.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+              @if (showProject()) {
+                <td>
+                  <a [routerLink]="['/projects', report.project]">{{ report.project }}</a>
+                </td>
+              }
+              <td><app-severity-badge [severity]="report.risk_level" /></td>
+              <td class="text-nowrap small">
+                @if (report.review_type; as reviewType) {
+                  <i class="bi {{ reviewTypeMeta[reviewType].icon }}" aria-hidden="true"></i>
+                  {{ reviewTypeMeta[reviewType].label | t }}
+                }
+              </td>
+              <td class="text-end numeric">
+                <strong>{{ report.findings_open }}</strong> / {{ report.findings_total }}
+              </td>
+              <td class="text-nowrap">
+                @if (report.branch) {
+                  <i class="bi bi-git" aria-hidden="true"></i> {{ report.branch }}
+                }
+                @if (report.commit_sha) {
+                  <code class="ms-1">{{ report.commit_sha | slice: 0 : 8 }}</code>
+                }
+              </td>
+              <td class="text-nowrap">
+                @if (report.author) {
+                  <i class="bi bi-person" aria-hidden="true"></i> {{ report.author }}
+                }
+              </td>
+              <td class="summary text-body-secondary">{{ report.summary }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  } @else {
+    <p class="text-body-secondary text-center my-4">{{ 'common.noMatches' | t }}</p>
+  }
 } @else {
   <p class="text-body-secondary text-center my-4">
     <i class="bi bi-inbox" aria-hidden="true"></i>

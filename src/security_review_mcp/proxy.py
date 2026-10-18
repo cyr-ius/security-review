@@ -1,16 +1,16 @@
-"""HTTP proxy of the outgoing connections of the controller (OSV download, SSO provider).
+"""HTTP proxy of the outgoing connections of the controller (OSV download, OIDC provider).
 
-The effective proxy is ``Settings.proxy`` and ``Settings.no_proxy``, the ``SECREVIEW_PROXY`` and
-``SECREVIEW_NO_PROXY`` variables possibly overridden in the web interface (see
-app_settings.effective_settings):
+The effective proxy is ``Settings.proxy`` and ``Settings.no_proxy``, read from the standard
+``HTTPS_PROXY`` (else ``HTTP_PROXY``) and ``NO_PROXY`` variables and possibly overridden in the
+web interface (see app_settings.effective_settings):
 
-- ``proxy`` None: no proxy is configured, urllib applies the standard ``HTTPS_PROXY`` and
-  ``NO_PROXY`` environment variables;
-- ``proxy`` ``""``: direct connection, the environment variables are ignored (web interface);
+- ``proxy`` None or ``""`` (direct connection set in the web interface): no proxy;
 - otherwise every connection goes through that proxy, except to the hosts of ``no_proxy`` and
   the loopback interface. A ``no_proxy`` entry is a domain (covering its subdomains), an IP
-  address, a CIDR range (``10.0.0.0/8``, ``fd00::/8``) or ``*``. Like curl, an address or a
-  range only matches a URL whose host is an IP address: host names are never resolved.
+  address or ``*``. An address only matches a URL whose host is that address: host names are
+  never resolved. Address ranges (CIDR) are not supported: such an entry matches no host.
+
+The opener always gets an explicit handler, so urllib never reads the variables on its own.
 
 A proxy URL may hold credentials: masked_url hides the password before it is shown or logged.
 """
@@ -27,9 +27,8 @@ MAX_NO_PROXY_CHARS = 500
 PASSWORD_MASK = "***"
 # Always reached without proxy
 LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
-# Characters of a no_proxy entry: host name, IP address (v4 or bracketed v6), CIDR range, port,
-# wildcard
-_NO_PROXY_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789.-_*:[]/")
+# Characters of a no_proxy entry: host name, IP address (v4 or bracketed v6), port, wildcard
+_NO_PROXY_CHARS = frozenset("abcdefghijklmnopqrstuvwxyz0123456789.-_*:[]")
 
 
 def masked_url(url: str) -> str:
@@ -67,9 +66,7 @@ def parse_no_proxy(value: str) -> tuple[str, ...]:
         entry = item.strip().lower()
         if not entry:
             continue
-        if "/" in entry:
-            entry = entry.replace("[", "").replace("]", "")
-        elif entry.startswith("["):
+        if entry.startswith("["):
             entry = entry[1:].partition("]")[0]
         elif entry.count(":") == 1:
             entry = entry.partition(":")[0]
@@ -86,23 +83,16 @@ def check_no_proxy(value: str, name: str = "no_proxy") -> str:
     for item in items:
         if not set(item.lower()) <= _NO_PROXY_CHARS:
             raise ValueError(
-                f"{name}: invalid entry {item!r} (host names, IP addresses, CIDR ranges or * "
-                "expected)"
+                f"{name}: invalid entry {item!r} (host names, IP addresses or * expected; "
+                "address ranges are not supported)"
             )
-        if "/" in item:
-            try:
-                ipaddress.ip_network(item.replace("[", "").replace("]", ""), strict=False)
-            except ValueError:
-                raise ValueError(
-                    f"{name}: invalid CIDR range {item!r} (for example 10.0.0.0/8 or fd00::/8)"
-                ) from None
     return ",".join(items)
 
 
-def _network(entry: str) -> ipaddress.IPv4Network | ipaddress.IPv6Network | None:
-    """The address or range of a no_proxy entry, or None for a host name."""
+def _address(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address | None:
+    """The IP address ``value`` is, or None for a host name."""
     try:
-        return ipaddress.ip_network(entry, strict=False)
+        return ipaddress.ip_address(value)
     except ValueError:
         return None
 
@@ -111,24 +101,21 @@ def bypasses(host: str, entries: tuple[str, ...]) -> bool:
     """True when ``host`` is reached without proxy: loopback, ``*``, or a no_proxy entry.
 
     A domain entry matches the host itself and its subdomains (``example.com`` and
-    ``.example.com`` both cover ``api.example.com``); an address or a CIDR range matches a host
-    that is an IP address of that range (a host name is never resolved).
+    ``.example.com`` both cover ``api.example.com``); an address entry matches a host that is
+    that IP address (a host name is never resolved).
     """
     host = host.lower().strip("[]")
     if host in LOOPBACK_HOSTS:
         return True
-    try:
-        address = ipaddress.ip_address(host)
-    except ValueError:
-        address = None
+    address = _address(host)
     if address is not None and address.is_loopback:
         return True
     for entry in entries:
         if entry == "*":
             return True
-        network = _network(entry)
-        if network is not None:
-            if address is not None and address.version == network.version and address in network:
+        entry_address = _address(entry)
+        if entry_address is not None:
+            if address == entry_address:
                 return True
             continue
         domain = entry.lstrip("*.")
@@ -151,26 +138,17 @@ class _ProxyHandler(urllib.request.ProxyHandler):
         return super().proxy_open(req, proxy, type)
 
 
-def proxy_handler(settings: Settings) -> urllib.request.BaseHandler | None:
+def proxy_handler(settings: Settings) -> urllib.request.ProxyHandler:
     """Handler of the effective proxy for urllib.build_opener.
 
-    None leaves urllib's default handler, which applies HTTPS_PROXY and NO_PROXY.
+    Without proxy, a handler without proxies: it replaces urllib's default one, which would read
+    the environment variables again, bypassing a direct connection set in the web interface.
     """
-    if settings.proxy is None:
-        return None
     if not settings.proxy:
         return urllib.request.ProxyHandler({})
     return _ProxyHandler(settings.proxy, parse_no_proxy(settings.no_proxy or ""))
 
 
-def describe_proxy(settings: Settings) -> tuple[str | None, str]:
-    """Effective proxy URL (masked) and its kind: ``proxy``, ``none`` or ``environment``.
-
-    In ``environment``, the URL is the one of HTTPS_PROXY seen by urllib, if any.
-    """
-    if settings.proxy is None:
-        env = urllib.request.getproxies().get("https")
-        return (masked_url(env) if env else None), "environment"
-    if not settings.proxy:
-        return None, "none"
-    return masked_url(settings.proxy), "proxy"
+def describe_proxy(settings: Settings) -> str | None:
+    """Effective proxy URL (masked), or None for a direct connection."""
+    return masked_url(settings.proxy) if settings.proxy else None

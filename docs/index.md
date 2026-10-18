@@ -53,7 +53,7 @@ pip install security-review-mcp
 
 # 1. Controller: schema, first administrator, token of the agent
 security-review-controller db upgrade
-security-review-controller user create admin --role admin   # password shown once
+security-review-controller user create admin --group administrators   # password shown once
 security-review-controller token create --label alice      # mcp token, shown once
 
 # 2. Start the two services (two terminals)
@@ -107,7 +107,7 @@ you need to work; **Advanced** gathers the details and the optional features.
 |---|---|
 | Docker, Kubernetes, PostgreSQL | [Architecture and deployment](advanced/architecture.md), [Docker](advanced/docker.md) |
 | Tokens restricted to a project, enrollment, rotation, TLS | [HTTP server, authentication and TLS](advanced/http.md) |
-| Log in with the company identity provider | [SSO login](advanced/sso.md) |
+| Log in with the company identity provider | [OIDC login](advanced/sso.md) |
 | Scan a whole repository, the dependencies, add my company's rules | [Whole codebase scan](advanced/code-scan.md), [Dependency analysis](advanced/dependencies.md), [Internal rules](advanced/rules.md) |
 | SARIF, trends, audit log, Prometheus | [SARIF export](advanced/sarif.md), [Trend report](advanced/trends.md), [Audit log and metrics](advanced/audit-metrics.md) |
 

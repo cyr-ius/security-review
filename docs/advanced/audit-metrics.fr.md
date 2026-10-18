@@ -21,15 +21,23 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `enrollment.requested` | Un client demande un jeton ou un projet de plus ([enrôlement](http.md#enrolement-un-projet-demande-son-jeton)), avec le demandeur et son adresse |
 | `enrollment.approved` | Un administrateur approuve une demande |
 | `enrollment.rejected` | Un administrateur rejette une demande |
+| `role.created`, `role.updated`, `role.deleted` | Un administrateur crée, modifie (avec les permissions précédentes) ou supprime un [rôle](access-control.md#roles) |
+| `group.created`, `group.updated`, `group.deleted` | Un administrateur crée, renomme ou modifie, ou supprime un [groupe](access-control.md#groupes) ; l'approbation d'un enrôlement crée un [groupe de projet](access-control.md#groupes-de-projet) manquant (`project` dans le détail) |
+| `group.roles_changed`, `group.members_changed` | Un administrateur remplace les rôles (avec leurs projets) ou les membres (identifiants ajoutés et retirés) d'un groupe |
+| `user.groups_changed` | Un administrateur remplace les groupes donnés à un compte, ou l'approbation d'un enrôlement l'ajoute à un [groupe de projet](access-control.md#groupes-de-projet) (identifiants de groupes ajoutés et retirés) |
+| `user.roles_changed` | Anciens rôles directs d'un compte (`roles` : `rôle` ou `rôle:projet,projet`) : plus enregistré depuis que les comptes n'ont plus de rôle propre, gardé dans l'historique |
+| `user.login` | Un utilisateur web se connecte (méthode `password` ou `oidc`, adresse) |
+| `user.login_failed` | Une connexion échoue : mot de passe incorrect, connexion OIDC refusée (méthode, adresse, et l'identifiant seulement s'il est valide) |
+| `user.logout` | Un utilisateur web se déconnecte avec **Déconnexion** (adresse) |
 
 Chaque événement porte sa date, son **acteur**, sa cible (`finding` et son id, `token` et son
 id, `enrollment` et l'id de la demande), le projet quand il y en a un, et des détails en JSON.
 L'acteur est :
 
-- `user:<nom>` : une personne connectée à l'interface web (compte local ou SSO) ;
+- `user:<nom>` : une personne connectée à l'interface web (compte local ou OIDC) ;
 - `token:<label>` : un jeton Bearer (agent, client de l'API, jeton administrateur) ;
 - `cli` : une commande `security-review-controller` ;
-- `anonymous` : l'endpoint public d'enrôlement ;
+- `anonymous` : l'endpoint public d'enrôlement, ou une connexion échouée ;
 - `stdio` : un agent connecté au serveur MCP en stdio.
 
 Les détails ne contiennent jamais de secret : aucun jeton, aucun mot de passe, et le texte libre
@@ -39,7 +47,7 @@ outil MCP ni aucune route ne les change.
 ### Consulter le journal
 
 Les administrateurs le consultent dans l'écran **Journal d'audit** de l'interface web (filtres
-par événement et par projet), avec `GET /api/v1/audit` (rôle `admin` ; paramètres `action`,
+par événement et par projet), avec `GET /api/v1/audit` (permission `audit.read` ; paramètres `action`,
 `project`, `actor`, `since`, `limit`, `offset`, du plus récent au plus ancien) ou en ligne de
 commande :
 

@@ -23,6 +23,18 @@
   --app-shadow: 0 1px 2px rgb(15 23 42 / 4%), 0 4px 16px rgb(15 23 42 / 6%);
   --app-shadow-lg: 0 10px 40px rgb(15 23 42 / 12%);
 
+  /* Brand surfaces, dark in both themes (login panel, sidebar) */
+  --app-brand-bg: linear-gradient(160deg, #0f172a 0%, #1e1b4b 55%, #0c4a6e 100%);
+  --app-brand-fg: #e2e8f0;
+  --app-brand-muted: #94a3b8;
+  --app-brand-subtle: #64748b;
+  --app-brand-accent: #a5b4fc;
+  --app-brand-accent-strong: #818cf8;
+  --app-brand-accent-2: #38bdf8;
+  --app-brand-glow-rgb: 99, 102, 241;
+  --app-brand-avatar: linear-gradient(135deg, #334155, #475569);
+  --app-backdrop: rgba(var(--bs-black-rgb), 0.5);
+
   --bs-body-font-family: var(--app-font);
   --bs-body-bg: var(--app-canvas);
   --bs-body-bg-rgb: 244, 246, 251;
@@ -262,8 +274,12 @@ dialog::backdrop {
   scrollbar-color: var(--bs-border-color) transparent;
 }
 
+/*
+ * Loading indicators (Bootstrap spinners, turning refresh icon) are left out: they are the only
+ * sign that work is running, and they already turn slower under reduced motion.
+ */
 @media (prefers-reduced-motion: reduce) {
-  *,
+  :not(.spinner-border, .spinner-grow, .spinning),
   *::before,
   *::after {
     transition: none !important;

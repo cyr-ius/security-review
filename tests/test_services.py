@@ -167,6 +167,12 @@ def test_list_project_findings_across_reports(monkeypatch, triage):
     accepted = services.list_project_findings("shop", status=FindingStatus.ACCEPTED)
     assert [f["id"] for f in accepted["findings"]] == [low.id]
     assert services.list_project_findings("shop", severity=Severity.HIGH)["total"] == 1
+    assert high["project"] == "shop"
+    every = services.list_project_findings(None)
+    assert (every["project"], every["total"]) == (None, 3)
+    assert {f["project"] for f in every["findings"]} == {"shop", "other"}
+    assert services.list_project_findings(None, projects=["other"])["total"] == 1
+    assert services.list_project_findings("shop", projects=["other"])["total"] == 0
     assert services.list_project_findings("unknown") == {
         "project": "unknown",
         "total": 0,
