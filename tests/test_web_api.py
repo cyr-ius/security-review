@@ -2172,6 +2172,16 @@ def test_a_token_has_no_session_to_log_out(secured):
     assert audit.list_events(action="user.logout")["total"] == 0
 
 
+def test_a_user_who_must_change_its_password_reaches_no_pipeline_route(accounts, reports):
+    make_user("alice", USER_PASSWORD, "reader", must_change=True)
+    headers = session_headers(accounts, "alice")
+
+    gate = accounts.get("/api/v1/ci/gate", params={"project": "shop-api"}, headers=headers)
+
+    assert gate.status_code == 403
+    assert gate.json()["detail"].startswith("Password change required")
+
+
 def test_a_weak_new_password_is_refused_with_the_broken_rules(accounts):
     make_user("alice", USER_PASSWORD, "reader")
     headers = session_headers(accounts, "alice")

@@ -167,7 +167,7 @@ def new_session_version() -> int:
     return secrets.randbits(SESSION_VERSION_BITS)
 
 
-# Characters of a generated password: each class of PASSWORD_RULES is drawn at least once
+# Characters of a generated password: one of each class at least (see password_problems)
 _PASSWORD_CLASSES = (
     string.ascii_lowercase,
     string.ascii_uppercase,

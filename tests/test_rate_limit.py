@@ -1,5 +1,7 @@
 """Rate limiting shared through the database: login throttling and REST API limits."""
 
+import math
+
 import pytest
 from sqlmodel import Session, select
 from starlette.applications import Starlette
@@ -118,6 +120,33 @@ def test_expired_counters_are_purged(database, clock):
 
     with Session(database) as session:
         assert len(session.exec(select(RateLimitCounter)).all()) == 1
+
+
+def test_counters_are_purged_after_two_of_the_longest_windows(database, clock, monkeypatch):
+    limit = rate_limit.RateLimit("test", 60, clock)
+    monkeypatch.setattr(rate_limit, "_longest_window", 60)
+    limit.hit("old")
+
+    clock.now += 30  # the next window: "old" is still read as the previous one, kept
+    rate_limit._last_purge = 0.0
+    limit.hit("new")
+    with Session(database) as session:
+        assert len(session.exec(select(RateLimitCounter)).all()) == 2
+
+    clock.now += 120  # older than two windows: purged, only the current one is left
+    rate_limit._last_purge = 0.0
+    limit.hit("new")
+    with Session(database) as session:
+        (row,) = session.exec(select(RateLimitCounter)).all()
+    assert row.window_start == math.floor(clock.now / 60) * 60
+
+
+def test_a_longer_window_keeps_its_counters(monkeypatch):
+    monkeypatch.setattr(rate_limit, "_longest_window", 60)
+
+    rate_limit.RateLimit("test", 900)
+
+    assert rate_limit._longest_window == 900
 
 
 # ── REST API limit ───────────────────────────────────────────────────────────

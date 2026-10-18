@@ -33,11 +33,13 @@ logger = logging.getLogger(__name__)
 
 # Seconds between two purges of the expired counters, in each process
 PURGE_INTERVAL_SECONDS = 60
-# Counters are kept for twice the longest window (the previous window is still read)
+# Longest window a limit may have
 MAX_WINDOW_SECONDS = 24 * 3600
 
 _last_purge = 0.0
 _purge_lock = threading.Lock()
+# Longest window of the limits of this process: older counters are no longer read
+_longest_window = 60
 
 
 def _digest(*parts: str) -> str:
@@ -75,13 +77,17 @@ def _upsert(session: Session, key: str, start: int) -> None:
 
 
 def _purge(now: float) -> None:
-    """Delete the expired counters, at most once per PURGE_INTERVAL_SECONDS per process."""
+    """Delete the expired counters, at most once per PURGE_INTERVAL_SECONDS per process.
+
+    A counter is expired once it is older than two of the longest windows in use (the previous
+    window is still read).
+    """
     global _last_purge
     with _purge_lock:
         if now - _last_purge < PURGE_INTERVAL_SECONDS:
             return
         _last_purge = now
-    limit = int(now) - 2 * MAX_WINDOW_SECONDS
+    limit = int(now) - 2 * _longest_window
     with session_scope() as session:
         session.execute(delete(RateLimitCounter).where(col(RateLimitCounter.window_start) < limit))
 
@@ -95,6 +101,9 @@ class RateLimit:
         self.name = name
         self.window = int(window)
         self.clock = clock
+        global _longest_window
+        with _purge_lock:
+            _longest_window = max(_longest_window, self.window)
 
     def _windows(self, now: float) -> tuple[int, int, float]:
         """Start of the current and the previous windows, and the elapsed part of the current."""
