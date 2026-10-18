@@ -1,13 +1,10 @@
 import { Component, input, linkedSignal, output } from '@angular/core';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 
-/** Whether the user asked the system to minimize animations. */
-const REDUCED_MOTION =
-  typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 /**
  * Outline button that reloads a page. Its icon turns while `loading` is true and always ends
- * on a full turn, so that a fast reload still shows a smooth rotation instead of a jolt.
+ * on a full turn, so that a fast reload still shows a smooth rotation instead of a jolt. The
+ * rotation is only slowed down when the system asks for reduced motion.
  */
 @Component({
   imports: [TranslatePipe],
@@ -24,18 +21,16 @@ export class RefreshButtonComponent {
 
   /**
    * True while the icon turns: it starts with the loading and stops at the end of a turn
-   * (onTurnEnd), or at once without animations.
+   * (onTurnEnd).
    */
   readonly spinning = linkedSignal<boolean, boolean>({
     source: this.loading,
-    computation: (loading, previous) => loading || (!REDUCED_MOTION && (previous?.value ?? false)),
+    computation: (loading, previous) => loading || (previous?.value ?? false),
   });
 
   /** Start the rotation at once and ask the page to reload. */
   onClick(): void {
-    if (!REDUCED_MOTION) {
-      this.spinning.set(true);
-    }
+    this.spinning.set(true);
     this.refresh.emit();
   }
 

@@ -12,9 +12,12 @@
   }
 }
 
-/* No rotation when the user asked for less motion: the button is only disabled and busy */
+/*
+ * Slower rotation when the user asked for less motion, as Bootstrap does for its spinners:
+ * the turn is the only sign that a reload is running, so it is kept.
+ */
 @media (prefers-reduced-motion: reduce) {
   .spinning {
-    animation: none;
+    animation-duration: 1.6s;
   }
 }
