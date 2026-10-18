@@ -353,8 +353,7 @@ WARNING security_review_mcp.controller: Initial Web UI administrator created: us
 Traitez ce mot de passe comme un secret : restreignez l'accès aux journaux et connectez-vous avec
 `admin`. L'interface **exige alors un nouveau mot de passe** avant toute autre chose : elle ouvre
 **Mon compte**, et l'API refuse toutes les autres routes (`403`) tant que le mot de passe n'est pas
-changé. S'il est perdu, générez-en un nouveau (l'ancien est aussitôt invalidé) :
-`security-review-controller user reset-password admin`.
+changé.
 
 Il en va de même de tout mot de passe défini par quelqu'un d'autre : un compte local créé ou
 réinitialisé par un administrateur (écran ou CLI) change son mot de passe à sa première connexion.
@@ -365,6 +364,41 @@ L'écran **Utilisateurs** affiche **mot de passe à changer** jusque-là.
     base existante, ce jeton reste valable ; le compte `admin` est créé au démarrage suivant s'il
     n'existe aucun compte. Une fois connecté avec le compte, révoquez l'ancien jeton :
     `security-review-controller token revoke bootstrap-admin`.
+
+#### Mot de passe perdu
+
+Le mot de passe est stocké sous forme d'empreinte scrypt : il est impossible de le relire.
+Remplacez-le avec la CLI du contrôleur, sur la même base :
+
+```bash
+security-review-controller user reset-password admin
+```
+
+La commande affiche le compte en JSON, avec un mot de passe généré dans le champ `password`
+(`| jq -r .password` pour ne garder que lui). L'ancien mot de passe est aussitôt invalidé, les
+sessions ouvertes du compte prennent fin et le nouveau mot de passe doit être changé à la
+prochaine connexion. Pour le choisir, donnez-le sur la première ligne de l'entrée standard (il
+n'apparaît alors ni dans l'historique du shell ni dans la liste des processus, et le JSON n'a pas
+de champ `password`) :
+
+```bash
+printf '%s\n' "$NEW_PASSWORD" | security-review-controller user reset-password admin --password-stdin
+```
+
+Lancez-la là où tourne le contrôleur :
+
+```bash
+# Docker Compose
+docker compose exec controller security-review-controller user reset-password admin
+# Kubernetes
+kubectl -n secreview exec deploy/secreview-controller -c controller -- \
+    security-review-controller user reset-password admin
+```
+
+Un compte OIDC n'a pas de mot de passe (code de sortie `2`). S'il ne reste aucun administrateur,
+créez-en un avec `security-review-controller user create NAME --group administrators` (mot de
+passe généré, affiché de la même façon) : le compte `admin` n'est créé au démarrage que tant
+qu'aucun compte n'existe.
 
 ### Connexion et sessions
 

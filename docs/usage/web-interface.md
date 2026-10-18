@@ -341,9 +341,7 @@ WARNING security_review_mcp.controller: Initial Web UI administrator created: us
 
 Handle this password as a secret: restrict access to the logs and log in with `admin`. The
 interface then **requires a new password** before anything else: it opens **My account**, and
-the API refuses every other route (`403`) until the password is changed. If it is lost, generate
-a new one (the old one is invalidated at once):
-`security-review-controller user reset-password admin`.
+the API refuses every other route (`403`) until the password is changed.
 
 The same applies to every password set by someone else: a local account created or reset by an
 administrator (screen or CLI) changes its password at its first login. The **Users** screen shows
@@ -354,6 +352,39 @@ administrator (screen or CLI) changes its password at its first login. The **Use
     existing database, this token stays valid; the `admin` account is created at the next start
     if no account exists. Once logged in with the account, revoke the old token:
     `security-review-controller token revoke bootstrap-admin`.
+
+#### Lost password
+
+The password is stored as a scrypt digest: it cannot be read back. Replace it with the CLI of the
+controller, on the same database:
+
+```bash
+security-review-controller user reset-password admin
+```
+
+The command prints the account as JSON, with a generated password in the `password` field
+(`| jq -r .password` to keep only it). The old password is invalidated at once, the open sessions
+of the account end, and the new password must be changed at the next login. To choose it, give it
+on the first line of stdin (it then stays out of the shell history and of the process list, and
+the JSON has no `password` field):
+
+```bash
+printf '%s\n' "$NEW_PASSWORD" | security-review-controller user reset-password admin --password-stdin
+```
+
+Run it where the controller runs:
+
+```bash
+# Docker Compose
+docker compose exec controller security-review-controller user reset-password admin
+# Kubernetes
+kubectl -n secreview exec deploy/secreview-controller -c controller -- \
+    security-review-controller user reset-password admin
+```
+
+An OIDC account has no password (exit code `2`). If no administrator is left, create one with
+`security-review-controller user create NAME --group administrators` (generated password, printed
+the same way): the `admin` account is only created at start-up while no account exists.
 
 ### Login and sessions
 
