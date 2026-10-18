@@ -1,6 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { firstValueFrom } from 'rxjs';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { AUDIT_ACTIONS, AuditAction, AuditEvent } from '../../core/models/api.models';
@@ -66,26 +67,23 @@ export class AuditLogComponent {
   }
 
   /** Append the next page (events are append-only: the offset stays valid). */
-  loadMore(): void {
+  async loadMore(): Promise<void> {
     this.loadingMore.set(true);
     this.loadMoreFailed.set(false);
-    this.api
-      .auditEvents({
-        action: this.actionFilter() || null,
-        project: this.projectFilter().trim() || null,
-        limit: PAGE_SIZE,
-        offset: this.events().length,
-      })
-      .subscribe({
-        next: (page) => {
-          const known = new Set(this.events().map((item) => item.id));
-          this.events.update((all) => [...all, ...page.events.filter((e) => !known.has(e.id))]);
-          this.loadingMore.set(false);
-        },
-        error: () => {
-          this.loadMoreFailed.set(true);
-          this.loadingMore.set(false);
-        },
-      });
+    const request = this.api.auditEvents({
+      action: this.actionFilter() || null,
+      project: this.projectFilter().trim() || null,
+      limit: PAGE_SIZE,
+      offset: this.events().length,
+    });
+    try {
+      const page = await firstValueFrom(request);
+      const known = new Set(this.events().map((item) => item.id));
+      this.events.update((all) => [...all, ...page.events.filter((e) => !known.has(e.id))]);
+    } catch {
+      this.loadMoreFailed.set(true);
+    } finally {
+      this.loadingMore.set(false);
+    }
   }
 }

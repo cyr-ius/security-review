@@ -31,15 +31,10 @@
         {{ 'settings.languageApplied' | t }}
         <strong>{{ current.report_language.effective || ('settings.languageByAgent' | t) }}</strong>
       </p>
-      <form class="row g-2 align-items-end" (submit)="saveLanguage($event)">
+      <form class="row g-2 align-items-end" (submit)="saveLanguage($event)" novalidate>
         <div class="col-md-5">
           <label for="language-mode" class="form-label">{{ 'settings.source' | t }}</label>
-          <select
-            id="language-mode"
-            class="form-select"
-            [value]="languageMode()"
-            (change)="onLanguageMode($event)"
-          >
+          <select id="language-mode" class="form-select" [formField]="languageForm.mode">
             <option value="inherit">
               {{
                 'settings.languageInherit'
@@ -57,12 +52,10 @@
               id="language-value"
               class="form-control"
               list="language-suggestions"
-              maxlength="40"
               autocomplete="off"
               placeholder="French, fr, pt-BR…"
               [class.is-invalid]="!languageValid()"
-              [value]="language()"
-              (input)="language.set(inputValue($event))"
+              [formField]="languageForm.language"
             />
             <datalist id="language-suggestions">
               @for (name of languageSuggestions; track name) {

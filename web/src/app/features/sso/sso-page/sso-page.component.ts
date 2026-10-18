@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { SsoSettingsComponent } from './sso-settings.component';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { SsoSettingsComponent } from '../sso-settings/sso-settings.component';
 
 /**
  * Administrator page for single sign-on: its settings, which override the SECREVIEW_OIDC_*

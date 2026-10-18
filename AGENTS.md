@@ -101,7 +101,7 @@ l'utiliser.
 | Export et tendances | `sarif.py`, `trends.py` |
 | HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et SSO, seuls à ouvrir l'interface (mot de passe, création SSO à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py` ; permissions, rôles, groupes et membres (groupes SSO par le claim) : `access_control.py` |
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
-| Contrôleur : API REST `/api/v1` et fichiers de `/ui` | `web_api.py` ; application Angular dans `web/` |
+| Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas.py` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
 | Normes de développement par technologie (prompt `development-standards`, écran « Normes ») | `standards.py` |
 | Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy sortant, configuration SSO) | `config.py` ; `app_settings.py` |
 
@@ -132,6 +132,15 @@ valident les entrées et appellent ces modules.
   déroulé d'une revue.
 - Les prompts de revue se terminent par l'appel unique à `save_security_report` ; le contenu
   fourni par l'utilisateur est encadré avec `prompts.fenced`.
+
+### API REST et interface web
+
+- Chaque route JSON du contrôleur déclare son modèle de réponse dans `web_api/schemas.py` (jamais
+  `-> dict`) : il documente l'API et filtre les champs non déclarés. Un test le vérifie sur le
+  schéma OpenAPI.
+- Angular : formulaires de saisie en Signal Forms, pas de `.subscribe()` dans les composants
+  (`rxResource` ou `firstValueFrom`), un dossier par composant quand une fonctionnalité en a
+  plusieurs. Le détail est dans `docs/contributing`.
 
 ### Invariants de sécurité (ne jamais régresser)
 
