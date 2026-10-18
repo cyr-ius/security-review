@@ -10,7 +10,7 @@
 #
 # The migrate service migrates the schema (Alembic) before the two servers start.
 # The MCP server listens on 127.0.0.1:8000 and the controller on 127.0.0.1:8080 only. To publish
-# them on another address (PUBLISH_ADDRESS=0.0.0.0 in .env: every interface), enable TLS
+# them on another address (DOCKER_PUBLISH_ADDRESS=0.0.0.0 in .env: every interface), enable TLS
 # (SECREVIEW_TLS_*) or put them behind a reverse proxy first. The controller exposes no
 # unauthenticated write endpoint: it can stay on an internal network.
 # PostgreSQL is not published on the host.
@@ -81,11 +81,8 @@ services:
       <<: *secreview-env
       SECREVIEW_OSV_AUTO_UPDATE: ${SECREVIEW_OSV_AUTO_UPDATE:-false}
       SECREVIEW_OSV_ECOSYSTEMS: ${SECREVIEW_OSV_ECOSYSTEMS:-PyPI,npm,Maven}
-      HTTPS_PROXY: ${HTTPS_PROXY:-}
-      HTTP_PROXY: ${HTTP_PROXY:-}
-      NO_PROXY: ${NO_PROXY:-}
     ports:
-      - "${PUBLISH_ADDRESS:-127.0.0.1}:${SECREVIEW_CONTROLLER_PORT:-8080}:8000"
+      - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:${DOCKER_CONTROLLER_PORT:-8080}:8000"
 
   mcp:
     <<: *secreview
@@ -95,7 +92,7 @@ services:
         condition: service_completed_successfully
     command: ["--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
     ports:
-      - "${PUBLISH_ADDRESS:-127.0.0.1}:${SECREVIEW_PORT:-8000}:8000"
+      - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:${DOCKER_MCP_PORT:-8000}:8000"
 
 volumes:
   secreview-pg:

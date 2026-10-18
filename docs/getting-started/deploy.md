@@ -113,7 +113,7 @@ docker compose exec controller security-review-controller token create --label a
 
 The web interface answers on `http://127.0.0.1:8080/ui/`, the MCP endpoint on
 `http://127.0.0.1:8000/mcp`. Both ports are only published on `127.0.0.1`: to open them to the
-team, add TLS and set `PUBLISH_ADDRESS` (see
+team, add TLS and set `DOCKER_PUBLISH_ADDRESS` (see
 [Docker Compose with PostgreSQL](../advanced/docker.md#docker-compose-with-postgresql)).
 
 ## With Kubernetes

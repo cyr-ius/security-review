@@ -99,8 +99,8 @@ docker compose logs controller   # initial admin password
 |---|---|---|
 | `db` | PostgreSQL, only reachable on the internal `backend` network | — |
 | `migrate` | `security-review-controller db upgrade`, then stops | — |
-| `controller` | REST API and web interface (`/ui/`) | `127.0.0.1:8080` (`PUBLISH_ADDRESS`, `SECREVIEW_CONTROLLER_PORT`) |
-| `mcp` | MCP server (`/mcp`) and public enrollment | `127.0.0.1:8000` (`PUBLISH_ADDRESS`, `SECREVIEW_PORT`) |
+| `controller` | REST API and web interface (`/ui/`) | `127.0.0.1:8080` (`DOCKER_PUBLISH_ADDRESS`, `SECREVIEW_CONTROLLER_PORT`) |
+| `mcp` | MCP server (`/mcp`) and public enrollment | `127.0.0.1:8000` (`DOCKER_PUBLISH_ADDRESS`, `SECREVIEW_PORT`) |
 
 - The image is built with the `postgres` extra (`security-review-mcp:pg`). `migrate` waits
   for the database to be ready (`pg_isready`); `controller` and `mcp` wait for `migrate` to
@@ -110,7 +110,7 @@ docker compose logs controller   # initial admin password
   (`@`, `:`, `/`...).
 - The ports are only published on `127.0.0.1` by default. To expose them, enable the
   [built-in TLS](http.md) or put them behind a reverse proxy, then give the host address to use
-  in `.env`: `PUBLISH_ADDRESS=192.168.1.10` (one interface) or `PUBLISH_ADDRESS=0.0.0.0`
+  in `.env`: `DOCKER_PUBLISH_ADDRESS=192.168.1.10` (one interface) or `DOCKER_PUBLISH_ADDRESS=0.0.0.0`
   (every interface). This variable is only used by Compose. The controller exposes no write
   route without a token: it can stay internal.
 - The variables of `.env` are only used by Compose: add them under `environment` so that they
