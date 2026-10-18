@@ -21,6 +21,7 @@ x-secreview-env: &secreview-env
   SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
   SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
   SECREVIEW_DB_AUTO_UPGRADE: "false"
+  SECREVIEW_SWAGGER_ENABLED: ${SECREVIEW_SWAGGER_ENABLED:-false}
 
 x-secreview: &secreview
   build:
@@ -48,9 +49,6 @@ services:
       POSTGRES_USER: secreview
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
     volumes:
-      # PostgreSQL 18+ images keep the data in a major-version directory (/var/lib/postgresql/18/
-      # docker): mount the parent directory. A volume from PostgreSQL 17 must be dumped and
-      # restored, see docs/advanced/docker.md.
       - secreview-pg:/var/lib/postgresql
     networks:
       - backend
@@ -81,12 +79,8 @@ services:
     command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       <<: *secreview-env
-      # Download the OSV advisories at start-up (empty database), then every 24 h. Disabled by
-      # default (the MCP server never connects anywhere). Without it, the dependency analysis has
-      # no advisory database (import one with `advisories import`).
       SECREVIEW_OSV_AUTO_UPDATE: ${SECREVIEW_OSV_AUTO_UPDATE:-false}
       SECREVIEW_OSV_ECOSYSTEMS: ${SECREVIEW_OSV_ECOSYSTEMS:-PyPI,npm,Maven}
-      # Proxy of the OSV download and of the OIDC provider (standard variables)
       HTTPS_PROXY: ${HTTPS_PROXY:-}
       HTTP_PROXY: ${HTTP_PROXY:-}
       NO_PROXY: ${NO_PROXY:-}
