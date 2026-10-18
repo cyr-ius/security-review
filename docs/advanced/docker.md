@@ -31,7 +31,12 @@ The build also compiles the [web interface](../usage/web-interface.md) (Node.js 
 controller serves it on `/ui/`.
 
 The image runs as a non-root user (uid `10001`), without sources nor build tools. The SQLite
-database is in the `/var/lib/secreview` volume. The `.env` file is **not** copied into the image: pass the
+database is in the `/var/lib/secreview` volume. Its `HEALTHCHECK`
+(`python -m security_review_mcp.healthcheck`, every 30 seconds) requests `/healthz` of the HTTP
+MCP server or of the controller on the loopback interface, over HTTPS when TLS is enabled
+(trusting only the certificate of the container); in stdio, nothing listens and the container
+stays healthy, and with mutual TLS (`SECREVIEW_TLS_CLIENT_CA`) it is not requested: rely on the
+probes of the orchestrator. The `.env` file is **not** copied into the image: pass the
 configuration with `-e` or `--env-file`.
 
 ## Shared server (HTTP)
@@ -70,19 +75,22 @@ docker run -d --name secreview-mcp -p 8443:8443 \
 
 Mounted files must be readable by the container user (uid `10001`). The MCP server refuses to
 start while the schema is not migrated. At the first start of the controller, the `admin`
-account is created with a random password shown only once in its logs; only its digest is
-kept, in the database. Get it with `docker logs secreview-controller`, log in to the interface
-(`/ui/`) with the `admin` user name, then change the password from **My account**. Then create
+account is created with `SECREVIEW_ADMIN_PASSWORD`, or a random password that nobody knows;
+only its digest is kept, in the database. Set it with
+`docker exec secreview-controller security-review-controller user reset-password admin`
+(printed once), log in to the interface (`/ui/`) with the `admin` user name, then choose your
+own password in **My account**. Then create
 one account per person in the **Users** screen (see the
 [user accounts](../usage/web-interface.md#user-accounts)).
 
 The project tokens created from the **Tokens** screen are also stored as digests in the
 database, like every token (see [Bearer tokens](http.md#bearer-tokens)).
 
-!!! warning "Protect the logs"
-    The initial password is a secret: restrict access to the Docker logs and to their central
-    collection. If you lose it, generate a new one (the old one is invalidated at once):
-    `docker exec secreview-controller security-review-controller user reset-password admin`.
+!!! warning "Keep the initial password out of the logs"
+    The initial password is a secret: pass `SECREVIEW_ADMIN_PASSWORD` as a secret (never in the
+    image), or use the CLI above. `SECREVIEW_ADMIN_PASSWORD_LOG=true` writes the random one in
+    the Docker logs: for a first test only, restrict access to the logs then. If you lose it,
+    run `user reset-password admin` again (the old one is invalidated at once).
 
 ## Docker Compose with PostgreSQL
 
@@ -92,7 +100,7 @@ PostgreSQL database:
 ```bash
 echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env
 docker compose up -d --build
-docker compose logs controller   # initial admin password
+docker compose exec controller security-review-controller user reset-password admin   # initial admin password
 ```
 
 | Service | Role | Listens on |

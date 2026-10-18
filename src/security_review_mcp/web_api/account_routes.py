@@ -7,11 +7,20 @@ from importlib.metadata import PackageNotFoundError, metadata
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 
-from .. import __version__, rate_limit, web_users
+from .. import __version__, app_settings, rate_limit, update_check, web_users
+from ..config import get_settings
 from ..http_server import API_HEALTH_PATH, DOCS_PATH
 from .auth_routes import open_session
 from .deps import CurrentIdentity, client_address
-from .schemas import About, HealthStatus, Identity, LoginSession, PasswordChange
+from .schemas import (
+    About,
+    HealthStatus,
+    Identity,
+    LoginSession,
+    PasswordChange,
+    Preferences,
+    UpdateStatus,
+)
 
 logger = logging.getLogger("security_review_mcp.web")
 
@@ -52,6 +61,16 @@ async def about(request: Request) -> About:
     )
 
 
+@router.get("/about/update")
+async def about_update() -> UpdateStatus:
+    """Latest release on GitHub against the running version (any web user).
+
+    Disabled by default (SECREVIEW_UPDATE_CHECK_ENABLED); the answer of GitHub is cached.
+    """
+    settings = app_settings.effective_settings(get_settings())
+    return UpdateStatus(**await run_in_threadpool(update_check.check, settings))
+
+
 @router.get("/me")
 async def me(identity: CurrentIdentity) -> Identity:
     """Return the identity and permissions of the caller."""
@@ -69,6 +88,29 @@ async def logout(request: Request, identity: CurrentIdentity) -> Response:
     await run_in_threadpool(web_users.record_logout, identity.client, client_address(request))
     logger.info("Web user %s logged out", identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+def _web_user_id(request: Request) -> int:
+    """Id of the logged-in web user; 403 for a bearer token."""
+    user_id = (request.scope.get("state") or {}).get("auth_user_id")
+    if user_id is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only a web user has preferences")
+    return user_id
+
+
+@router.get("/me/preferences")
+async def my_preferences(request: Request, _: CurrentIdentity) -> Preferences:
+    """Preferences of the logged-in web user (its theme)."""
+    return Preferences(**await run_in_threadpool(web_users.get_preferences, _web_user_id(request)))
+
+
+@router.put("/me/preferences")
+async def set_my_preferences(
+    request: Request, body: Preferences, _: CurrentIdentity
+) -> Preferences:
+    """Remember the preferences of the logged-in web user, for every browser it uses."""
+    user_id = _web_user_id(request)
+    return Preferences(**await run_in_threadpool(web_users.set_theme, user_id, body.theme))
 
 
 @router.put("/me/password")

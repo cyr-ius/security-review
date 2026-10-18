@@ -30,7 +30,12 @@ docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # pilote 
 Le build compile aussi l'[interface web](../usage/web-interface.md) (étape Node.js) ;
 elle est servie sur `/ui/` par le contrôleur.
 
-L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. La
+L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. Son
+`HEALTHCHECK` (`python -m security_review_mcp.healthcheck`, toutes les 30 secondes) interroge
+`/healthz` du serveur MCP HTTP ou du contrôleur sur l'interface de bouclage, en HTTPS quand le
+TLS est activé (en ne faisant confiance qu'au certificat du conteneur) ; en stdio, rien n'écoute
+et le conteneur reste sain, et avec le TLS mutuel (`SECREVIEW_TLS_CLIENT_CA`) il n'interroge
+rien : appuyez-vous sur les sondes de l'orchestrateur. La
 base SQLite est dans le volume `/var/lib/secreview`. Le fichier `.env` n'est **pas** copié dans l'image :
 passez la configuration avec `-e` ou `--env-file`.
 
@@ -70,20 +75,24 @@ docker run -d --name secreview-mcp -p 8443:8443 \
 
 Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Le
 serveur MCP refuse de démarrer tant que le schéma n'est pas migré. Au premier démarrage du
-contrôleur, le compte `admin` est créé avec un mot de passe aléatoire affiché une seule fois
-dans ses logs ; seule son empreinte est conservée, dans la base de données. Récupérez-le avec
-`docker logs secreview-controller`, connectez-vous sur l'interface (`/ui/`) avec l'identifiant
-`admin`, puis changez le mot de passe depuis **Mon compte**. Créez ensuite un compte par
+contrôleur, le compte `admin` est créé avec `SECREVIEW_ADMIN_PASSWORD`, ou un mot de passe
+aléatoire que personne ne connaît ; seule son empreinte est conservée, dans la base de données.
+Définissez-le avec
+`docker exec secreview-controller security-review-controller user reset-password admin`
+(affiché une fois), connectez-vous sur l'interface (`/ui/`) avec l'identifiant `admin`, puis
+choisissez votre propre mot de passe dans **Mon compte**. Créez ensuite un compte par
 personne dans l'écran **Utilisateurs** (voir les
 [comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs)).
 
 Les jetons projet créés depuis l'écran **Jetons** sont eux aussi stockés sous forme d'empreinte
 dans la base, comme tous les jetons (voir [jetons Bearer](http.md#jetons-bearer)).
 
-!!! warning "Protégez les journaux"
-    Le mot de passe initial est un secret : limitez l'accès aux logs Docker et à leur collecte
-    centralisée. Si vous le perdez, générez-en un nouveau (l'ancien est aussitôt invalidé) :
-    `docker exec secreview-controller security-review-controller user reset-password admin`.
+!!! warning "Gardez le mot de passe initial hors des journaux"
+    Le mot de passe initial est un secret : passez `SECREVIEW_ADMIN_PASSWORD` comme un secret
+    (jamais dans l'image), ou utilisez la CLI ci-dessus. `SECREVIEW_ADMIN_PASSWORD_LOG=true` écrit
+    le mot de passe aléatoire dans les logs Docker : pour un premier essai seulement, limitez
+    alors l'accès aux journaux. Si vous le perdez, relancez `user reset-password admin` (l'ancien
+    est aussitôt invalidé).
 
 ## Docker Compose avec PostgreSQL
 
@@ -93,7 +102,7 @@ PostgreSQL :
 ```bash
 echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env
 docker compose up -d --build
-docker compose logs controller   # mot de passe admin initial
+docker compose exec controller security-review-controller user reset-password admin   # mot de passe admin initial
 ```
 
 | Service | Rôle | Écoute |

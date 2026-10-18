@@ -48,7 +48,7 @@ def make_settings(**values) -> Settings:
         "oidc_redirect_uri": REDIRECT_URI,
         "oidc_admin_groups": "secreview-admins",
         "oidc_auto_create_users": True,
-        "session_secret": SECRET,
+        "secret_key": SECRET,
     }
     return Settings(_env_file=None, **{**defaults, **values})
 
@@ -165,7 +165,7 @@ def test_from_settings_is_none_when_disabled():
         ({"oidc_client_id": ""}, "SECREVIEW_OIDC_CLIENT_ID"),
         ({"oidc_redirect_uri": ""}, "SECREVIEW_OIDC_REDIRECT_URI is required"),
         ({"oidc_redirect_uri": "javascript:alert(1)"}, "SECREVIEW_OIDC_REDIRECT_URI must be"),
-        ({"oidc_scopes": "profile email"}, "must include openid"),
+        ({"oidc_scope": "profile email"}, "must include openid"),
         ({"oidc_default_group": "x" * 201}, "SECREVIEW_OIDC_DEFAULT_GROUP"),
         ({"oidc_cafile": "/nonexistent/ca.pem"}, "SECREVIEW_OIDC_CAFILE"),
         ({"oidc_display_name": " "}, "SECREVIEW_OIDC_DISPLAY_NAME"),
@@ -186,7 +186,7 @@ def test_plain_http_issuer_is_accepted_on_localhost_only():
     [
         ({"session_hours": 0}, "SECREVIEW_SESSION_HOURS"),
         ({"session_hours": 25}, "SECREVIEW_SESSION_HOURS"),
-        ({"session_secret": "short"}, "at least 32"),
+        ({"secret_key": "short"}, "at least 32"),
     ],
 )
 def test_invalid_session_settings_are_refused(values, message):
@@ -194,55 +194,55 @@ def test_invalid_session_settings_are_refused(values, message):
         oidc.session_signer(make_settings(**values))
 
 
-def test_without_a_session_secret_nor_file_a_warning_is_logged(caplog):
-    settings = make_settings(session_secret=None, session_secret_file="")
+def test_without_a_secret_key_nor_file_a_warning_is_logged(caplog):
+    settings = make_settings(secret_key=None, secret_key_file="")
     with caplog.at_level(logging.WARNING, logger="security_review_mcp.oidc"):
         assert oidc.session_signer(settings) is not None
     assert "web sessions end when the controller restarts" in caplog.text
 
 
-def test_session_secret_is_generated_once_in_its_file(session_secret_file, caplog):
-    settings = make_settings(session_secret=None)
+def test_secret_key_is_generated_once_in_its_file(secret_key_file, caplog):
+    settings = make_settings(secret_key=None)
     first = oidc.session_signer(settings)
     token = first.issue_session("alice", Role.READER, None, 1, 1)
 
     # Mode 0600, never logged; the next start (or another worker) reads the same secret
-    assert stat.S_IMODE(session_secret_file.stat().st_mode) == 0o600
-    secret = session_secret_file.read_text().strip()
-    assert len(secret) >= oidc.MIN_SESSION_SECRET_CHARS and secret not in caplog.text
+    assert stat.S_IMODE(secret_key_file.stat().st_mode) == 0o600
+    secret = secret_key_file.read_text().strip()
+    assert len(secret) >= oidc.MIN_SECRET_KEY_CHARS and secret not in caplog.text
     assert oidc.session_signer(settings).decode_session(token) is not None
-    assert [p.name for p in session_secret_file.parent.iterdir()] == ["session-secret"]
+    assert [p.name for p in secret_key_file.parent.iterdir()] == ["secret-key"]
 
 
-def test_a_secret_created_concurrently_is_used(session_secret_file, monkeypatch):
+def test_a_secret_created_concurrently_is_used(secret_key_file, monkeypatch):
     # Another worker creates the file between the read and the link: its secret is used
     real_link = os.link
 
     def link_after_another_worker(source, target):
-        session_secret_file.write_text("w" * 40 + "\n")
+        secret_key_file.write_text("w" * 40 + "\n")
         return real_link(source, target)
 
     monkeypatch.setattr(os, "link", link_after_another_worker)
 
-    assert oidc.stored_session_secret(session_secret_file) == "w" * 40
+    assert oidc.stored_secret_key(secret_key_file) == "w" * 40
 
 
-def test_a_short_or_shared_secret_file_is_reported(session_secret_file, caplog):
-    session_secret_file.write_text("short")
+def test_a_short_or_shared_secret_file_is_reported(secret_key_file, caplog):
+    secret_key_file.write_text("short")
     with pytest.raises(ValueError, match="at least 32"):
-        oidc.session_signer(make_settings(session_secret=None))
+        oidc.session_signer(make_settings(secret_key=None))
 
-    session_secret_file.write_text("s" * 40)
-    session_secret_file.chmod(0o644)
+    secret_key_file.write_text("s" * 40)
+    secret_key_file.chmod(0o644)
     with caplog.at_level(logging.WARNING, logger="security_review_mcp.oidc"):
-        oidc.session_signer(make_settings(session_secret=None))
+        oidc.session_signer(make_settings(secret_key=None))
     assert "readable by other users" in caplog.text
 
 
 def test_an_unwritable_secret_file_falls_back_to_a_random_secret(tmp_path, caplog):
     blocker = tmp_path / "file"
     blocker.write_text("")
-    settings = make_settings(session_secret=None, session_secret_file=str(blocker / "secret"))
+    settings = make_settings(secret_key=None, secret_key_file=str(blocker / "secret"))
     with caplog.at_level(logging.WARNING, logger="security_review_mcp.oidc"):
         assert oidc.session_signer(settings) is not None
     assert "Session secret file not usable" in caplog.text
@@ -250,7 +250,7 @@ def test_an_unwritable_secret_file_falls_back_to_a_random_secret(tmp_path, caplo
 
 def test_secrets_are_never_shown_by_the_settings():
     settings = make_settings(
-        session_secret="s3cr3t" * 6,
+        secret_key="s3cr3t" * 6,
         oidc_client_secret="client-s3cr3t",
         tls_keyfile_password="key-s3cr3t",
         database_url="postgresql+psycopg2://app:db-s3cr3t@db/app",
@@ -380,6 +380,24 @@ def test_auth_config_is_public(controller, tmp_path):
         "oidc_display_name": None,
     }
     assert disabled.get("/api/v1/auth/oidc/login").status_code == 404
+
+
+def test_oidc_only_refuses_the_local_logins_while_oidc_works(controller, tmp_path, monkeypatch):
+    password = "Local-admin-pa55word"  # secreview:ignore GEN-004 test value
+    make_user("alice", password, "reader")
+    only = Settings(_env_file=None, oidc_only=True)
+    monkeypatch.setattr(web_api.auth_routes, "get_settings", lambda: only)
+    body = {"username": "alice", "password": password}
+
+    assert controller.get("/api/v1/auth/config").json()["password"] is False
+    refused = controller.post("/api/v1/auth/login", json=body)
+    assert refused.status_code == 403 and "single sign-on" in refused.json()["detail"]
+    assert controller.get("/api/v1/auth/oidc/login").status_code == 302
+
+    # Without a working OIDC login, the local accounts stay usable (no lock-out)
+    disabled = TestClient(web_api.create_app(ui_dir=str(tmp_path)), base_url="http://127.0.0.1")
+    assert disabled.get("/api/v1/auth/config").json()["password"] is True
+    assert disabled.post("/api/v1/auth/login", json=body).status_code == 200
 
 
 def test_login_redirects_to_the_provider_with_pkce_and_a_state_cookie(controller, provider):

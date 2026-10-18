@@ -36,17 +36,26 @@ def test_pruner_also_purges_the_audit_log(monkeypatch):
     monkeypatch.setattr(
         services, "prune_empty_reports", lambda days: calls.append(("reports", days))
     )
-    monkeypatch.setattr(audit, "prune_events", lambda days: calls.append(("audit", days)))
+    monkeypatch.setattr(
+        audit, "prune_events", lambda days, limit: calls.append(("audit", days, limit))
+    )
 
     retention.ReportPruner(30, audit_retention_days=365).prune_once()
     retention.ReportPruner(0, audit_retention_days=365).prune_once()
     retention.ReportPruner(30).prune_once()
+    retention.ReportPruner(0, audit_max_events=1000).prune_once()
 
-    assert calls == [("reports", 30), ("audit", 365), ("audit", 365), ("reports", 30)]
+    assert calls == [
+        ("reports", 30),
+        ("audit", 365, 0),
+        ("audit", 365, 0),
+        ("reports", 30),
+        ("audit", 0, 1000),
+    ]
 
 
 def test_a_failed_audit_purge_is_logged(monkeypatch, caplog):
-    def broken(days: int) -> dict:
+    def broken(days: int, limit: int) -> dict:
         raise RuntimeError("database unavailable")
 
     monkeypatch.setattr(audit, "prune_events", broken)

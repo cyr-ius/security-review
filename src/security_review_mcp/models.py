@@ -457,6 +457,8 @@ class WebUser(SQLModel, table=True):
     session_version: int = Field(default=0, sa_type=BigInteger)
     last_login_at: datetime | None = Field(default=None)
     created_by: str | None = Field(default=None, max_length=64)
+    # Theme of the web interface chosen by the user: light, dark or auto (system preference)
+    theme: str = Field(default="auto", max_length=10)
 
 
 # ── Rate limiting (see rate_limit) ───────────────────────────────────────────

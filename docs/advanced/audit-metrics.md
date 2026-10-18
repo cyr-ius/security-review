@@ -63,13 +63,42 @@ security-review-controller audit list --project shop-api --actor user:alice --li
 ### Retention
 
 `serve` deletes the events older than `SECREVIEW_AUDIT_RETENTION_DAYS` days (default `365`), at
-start then every day; `0` keeps every event. The same purge runs on demand:
+start then every day; `0` keeps every event. With `SECREVIEW_AUDIT_MAX_EVENTS` (default `0`, no
+limit), the same purge then keeps at most that many events, deleting the oldest. The same purge
+runs on demand:
 
 ```bash
-security-review-controller audit prune              # retention of SECREVIEW_AUDIT_RETENTION_DAYS
+security-review-controller audit prune              # SECREVIEW_AUDIT_RETENTION_DAYS and SECREVIEW_AUDIT_MAX_EVENTS
 security-review-controller audit prune --days 730   # another retention, for this run only
-# {"retention_days": 730, "deleted": 0}
+# {"retention_days": 730, "max_events": 0, "deleted": 0}
+security-review-controller audit prune --max-events 100000
 ```
+
+### Forwarding to syslog
+
+The controller can also send each event to a syslog server, to keep it outside the database
+(SIEM, central log). Disabled by default:
+
+```bash
+SECREVIEW_AUDIT_SYSLOG_ADDRESS=udp://syslog.example.com:514   # or tcp://host:port, unix:///dev/log
+SECREVIEW_AUDIT_SYSLOG_FACILITY=local0                        # default
+```
+
+Each event is one message with the `info` severity, tagged `secreview-audit`, its body the event
+as JSON, the same fields as `audit list`:
+
+```
+<134>secreview-audit: {"action":"user.login","actor":"user:alice","created_at":"…","details":{"address":"10.0.0.8","method":"password"},"id":12,"project":null,"target_id":"2","target_type":"user"}
+```
+
+- The controller forwards the events of **every** process, MCP server and CLI included, from the
+  database: the MCP server keeps making no outgoing connection. An event leaves about 5 to 15
+  seconds after it is written; the history before the first start is not sent.
+- Each event is sent **once**, even with several replicas of the controller: the id of the last
+  forwarded event is kept in the database, and a replica moves it forward before sending. A batch
+  whose sending fails is logged and not sent again (at most once).
+- No TLS nor proxy: to encrypt, send to a local relay (`rsyslog`, `syslog-ng`, Fluent Bit) that
+  forwards over TLS. An invalid address stops `serve` at start.
 
 ## Prometheus metrics
 

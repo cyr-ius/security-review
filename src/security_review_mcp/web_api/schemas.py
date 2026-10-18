@@ -52,10 +52,20 @@ class Identity(BaseModel):
     version: str
 
 
+Theme = Literal["light", "dark", "auto"]
+
+
+class Preferences(BaseModel):
+    """Preferences of a web user in the web interface; body of PUT /me/preferences."""
+
+    # auto: the system preference (prefers-color-scheme)
+    theme: Theme
+
+
 class AuthConfig(BaseModel):
     """Login methods offered by the login page (web users only: tokens are for the API)."""
 
-    # Username and password of a web user (always offered by the controller)
+    # Username and password of a local web user (false with SECREVIEW_OIDC_ONLY and OIDC enabled)
     password: bool = True
     oidc: bool
     oidc_display_name: str | None = None
@@ -104,6 +114,19 @@ class About(BaseModel):
     # The Swagger documentation is served (SECREVIEW_SWAGGER_ENABLED and its files built)
     swagger_url: str | None
     health_url: str
+
+
+class UpdateStatus(BaseModel):
+    """Latest release on GitHub against the running version (SECREVIEW_UPDATE_CHECK_ENABLED)."""
+
+    enabled: bool
+    current: str
+    latest: str | None
+    update_available: bool
+    release_url: str | None
+    checked_at: str | None
+    # Why the latest release is unknown while enabled
+    error: Literal["unreachable", "invalid"] | None
 
 
 # ── Projects, reports and findings ───────────────────────────────────────────
@@ -863,7 +886,7 @@ class OidcSettingsUpdate(BaseModel):
     client_id: _OidcText | None = None
     client_secret: _OidcText | None = None
     redirect_uri: _OidcText | None = None
-    scopes: _OidcText | None = None
+    scope: _OidcText | None = None
     roles_claim: _OidcText | None = None
     username_claim: _OidcText | None = None
     admin_groups: _OidcText | None = None

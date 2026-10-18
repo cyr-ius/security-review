@@ -39,7 +39,7 @@ SECREVIEW_OIDC_REDIRECT_URI=https://secreview.example.com/api/v1/auth/oidc/callb
 SECREVIEW_OIDC_ROLES_CLAIM=realm_access.roles   # "groups" par défaut
 SECREVIEW_OIDC_ADMIN_GROUPS=secreview-admins   # créé avec le rôle admin (premier administrateur)
 SECREVIEW_OIDC_AUTO_CREATE_USERS=true       # sinon, créez chaque compte OIDC dans Utilisateurs
-SECREVIEW_SESSION_SECRET=$(openssl rand -base64 48)
+SECREVIEW_SECRET_KEY=$(openssl rand -base64 48)
 SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
 ```
 
@@ -72,7 +72,7 @@ Le changement s'applique à la connexion suivante, sur toutes les répliques (le
 la configuration à chaque connexion et reconstruit le flux OIDC quand elle change). Les sessions
 déjà ouvertes restent valides jusqu'à leur expiration. Restent des variables uniquement :
 `SECREVIEW_OIDC_CAFILE` (un fichier du déploiement) et les réglages de session
-(`SECREVIEW_SESSION_SECRET`, `SECREVIEW_SESSION_HOURS`). Si une variable modifiée après coup rend
+(`SECREVIEW_SECRET_KEY`, `SECREVIEW_SESSION_HOURS`). Si une variable modifiée après coup rend
 invalide la combinaison avec les valeurs enregistrées, le contrôleur démarre quand même : la
 connexion OIDC est désactivée et l'erreur journalisée, à corriger dans l'écran.
 
@@ -215,16 +215,35 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
     identifiant valide ou qui porte le nom d'un compte local est abandonné, avec un avertissement
     dans le journal de la migration.
 
+## OIDC seul
+
+Avec `SECREVIEW_OIDC_ONLY=true`, le fournisseur d'identité devient la seule porte d'entrée : la
+page de connexion ne propose que son bouton, et `POST /api/v1/auth/login` refuse l'identifiant et
+le mot de passe des comptes locaux (`403`, journalisé). Les sessions déjà ouvertes restent
+valables jusqu'à leur expiration.
+
+```bash
+SECREVIEW_OIDC_ENABLED=true
+SECREVIEW_OIDC_ONLY=true
+```
+
+Il ne s'applique que tant que le OIDC fonctionne : OIDC désactivé, ou réglages refusés à leur
+vérification, les comptes locaux se connectent de nouveau, pour que personne ne reste bloqué.
+`SECREVIEW_OIDC_ONLY` est une variable uniquement, jamais modifiée dans l'interface : si le
+fournisseur est indisponible, retirez-la et redémarrez le contrôleur, puis connectez-vous avec un
+compte local (son mot de passe peut être défini avec
+`security-review-controller user reset-password`).
+
 ## Sessions
 
-- Le jeton de session est signé (HMAC-SHA256) avec une clé dérivée de `SECREVIEW_SESSION_SECRET`
+- Le jeton de session est signé (HMAC-SHA256) avec une clé dérivée de `SECREVIEW_SECRET_KEY`
   (32 caractères au moins), comme celui des [comptes locaux](../usage/web-interface.md#connexion-et-sessions), et désigne
   le compte OIDC, relu à chaque requête : supprimer le compte ou changer ses groupes ou leurs
   rôles s'applique aussitôt. Toutes les répliques du contrôleur doivent partager ce secret ; sans lui,
-  le secret de `SECREVIEW_SESSION_SECRET_FILE` est utilisé, généré au premier démarrage.
+  le secret de `SECREVIEW_SECRET_KEY_FILE` est utilisé, généré au premier démarrage.
 - Un changement de groupe chez le fournisseur ne s'applique qu'à la connexion suivante. Pour
   couper toutes les sessions avant leur expiration, supprimez le compte, ou changez
-  `SECREVIEW_SESSION_SECRET` et redémarrez le contrôleur (toutes les sessions sont coupées).
+  `SECREVIEW_SECRET_KEY` et redémarrez le contrôleur (toutes les sessions sont coupées).
 - **Se déconnecter** efface la session de l'onglet, pas celle du fournisseur d'identité.
 
 En cas d'échec, la page de connexion indique la cause (accès refusé chez le fournisseur, aucune

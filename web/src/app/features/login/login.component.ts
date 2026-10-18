@@ -8,8 +8,8 @@ import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { API_URL, ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
-import { ThemeService } from '../../core/services/theme.service';
 import { LanguageSelectComponent } from '../../shared/components/language-select/language-select.component';
+import { ThemeButtonComponent } from '../../shared/components/theme-button/theme-button.component';
 
 /** Messages of the oidcError codes sent back by /api/v1/auth/oidc/callback. */
 const OIDC_ERRORS: Record<string, MessageKey> = {
@@ -31,7 +31,7 @@ const OIDC_ERRORS: Record<string, MessageKey> = {
  */
 @Component({
   selector: 'app-login',
-  imports: [FormField, TranslatePipe, LanguageSelectComponent],
+  imports: [FormField, TranslatePipe, LanguageSelectComponent, ThemeButtonComponent],
   templateUrl: './login.component.html',
   styleUrl: './login.component.css',
 })
@@ -40,7 +40,6 @@ export class LoginComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
-  readonly theme = inject(ThemeService);
   private readonly i18n = inject(I18nService);
 
   /** Highlights shown on the brand panel. */
@@ -84,11 +83,16 @@ export class LoginComponent implements OnInit {
     void this.loadSsoName();
   }
 
+  /** Whether the username and password form is offered. */
+  protected readonly passwordLogin = signal(true);
+
   /** Offer the identity provider when the controller enables OIDC. */
   private async loadSsoName(): Promise<void> {
     try {
       const config = await firstValueFrom(this.api.authConfig());
       this.ssoName.set(config.oidc ? config.oidc_display_name : null);
+      // false with SECREVIEW_OIDC_ONLY: the identity provider is the only way in
+      this.passwordLogin.set(config.password !== false || !config.oidc);
     } catch {
       // Older controller or network error: only the password login is offered
       this.ssoName.set(null);

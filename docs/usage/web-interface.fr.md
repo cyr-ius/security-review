@@ -26,8 +26,15 @@ tous les comptes, puis **Référentiel** (règles, checklists, normes) et **Admi
 (utilisateurs, groupes, rôles, jetons, journal d'audit, OIDC, langue des rapports, proxy sortant,
 base OSV), chaque écran n'étant affiché qu'aux comptes qui ont sa
 [permission](../advanced/access-control.md#permissions). Le bas de la barre affiche le client connecté, son rôle et la
-version (un lien vers **À propos**), avec les boutons **Mon compte** et de déconnexion ; sur petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
-à droite, y compris sur la page de connexion, et reste mémorisé dans le navigateur.
+version (un lien vers **À propos**), avec les boutons **Mon compte** et de déconnexion.
+Sur petit écran, la barre est réduite à ses icônes (chacune nomme son écran au survol) et le
+bouton en haut à gauche l'ouvre en entier ; sur grand écran, le même bouton la réduit à ses icônes
+ou la déplie, un choix mémorisé par le navigateur.
+
+Le bouton de thème en haut à droite, y compris sur la page de connexion, passe d'**automatique**
+(le thème du système, suivi en direct) à **clair** puis **sombre**. Le choix d'un utilisateur
+connecté est conservé dans son compte (`GET` et `PUT /api/v1/me/preferences`), pour tous les
+navigateurs qu'il utilise ; le navigateur retient le dernier pour la page de connexion.
 
 L'interface est proposée en **anglais**, **français** et **espagnol**. La langue se choisit dans
 le sélecteur en haut à droite, y compris sur la page de connexion. Le changement est immédiat et
@@ -36,8 +43,10 @@ navigateur, ou l'anglais si elle n'en propose aucune. Ce choix ne concerne que l
 langue des rapports de revue se règle dans **Langue des rapports**, et les messages d'erreur détaillés
 renvoyés par l'API restent en anglais.
 
-La page **À propos** donne la version du contrôleur, les liens de la documentation, du code
-source et pour signaler un problème, le lien de la documentation Swagger quand elle est activée,
+La page **À propos** donne la version du contrôleur, si une **Nouvelle version** est disponible
+sur GitHub (seulement avec `SECREVIEW_UPDATE_CHECK_ENABLED=true`, voir les
+[connexions sortantes](../reference/security.md#securite-du-serveur-lui-meme)), les liens de la
+documentation, du code source et pour signaler un problème, le lien de la documentation Swagger quand elle est activée,
 et l'état du backend (`/api/health`, vérifié à nouveau avec **Vérifier à nouveau**). Au
 chargement, l'application interroge d'abord `/api/health` : si le contrôleur ne répond pas (ou
 cesse de répondre ensuite), la page **Backend indisponible** s'ouvre, et son bouton **Réessayer**
@@ -283,8 +292,9 @@ et écrit dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit)
 !!! warning "Authentification requise pour la Web UI"
     L'API de l'interface refuse les requêtes avec le statut `503` tant qu'aucun utilisateur ni
     jeton n'existe ; la mire de connexion reste affichée et indique que l'authentification doit
-    être configurée. Activez `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` (c'est le cas dans l'image Docker),
-    ou créez un compte avec `security-review-controller user create`. Cette restriction concerne
+    être configurée. `security-review-controller serve` crée le
+    [premier administrateur](#premier-administrateur) à son premier démarrage : cela n'arrive donc
+    qu'avant ; un compte peut aussi être créé avec `security-review-controller user create`. Cette restriction concerne
     la Web UI ; l'authentification MCP reste indépendante (un compte utilisateur n'ouvre jamais
     `/mcp`). Avec la [connexion OIDC](../advanced/sso.md), l'API demande une connexion
     (`401`) même sans utilisateur ni jeton en base.
@@ -341,19 +351,33 @@ identifiant et mot de passe, la réinitialisation et **Mon compte** le refusent.
 
 ### Premier administrateur
 
-Avec `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (c'est le cas dans l'image Docker), le contrôleur crée
-au premier démarrage l'utilisateur **`admin`**, membre du groupe `administrators` (rôle `admin`),
-tant qu'aucun compte n'existe.
-Son mot de passe est affiché une seule fois dans les journaux du contrôleur :
+À son premier démarrage, tant qu'aucun compte n'existe, le contrôleur crée le compte local
+**`admin`** (`SECREVIEW_ADMIN_USERNAME`), membre du groupe `administrators` (rôle `admin`) :
+
+- avec `SECREVIEW_ADMIN_PASSWORD`, il reçoit ce mot de passe (qui doit respecter la politique de
+  mot de passe, sinon le contrôleur refuse de démarrer), jamais écrit dans les journaux ;
+- sinon il reçoit un mot de passe aléatoire, que personne ne connaît : définissez-en un avec la
+  CLI, qui l'affiche une fois, puis connectez-vous avec :
+
+```bash
+security-review-controller user reset-password admin
+# {"id": 1, "username": "admin", …, "must_change_password": true, "password": "q3V…"}
+```
 
 ```
-WARNING security_review_mcp.controller: Initial Web UI administrator created: user 'admin', password (shown once): …
+WARNING security_review_mcp.controller: Initial Web UI administrator 'admin' created with a random password: set one with `security-review-controller user reset-password admin`
 ```
 
-Traitez ce mot de passe comme un secret : restreignez l'accès aux journaux et connectez-vous avec
-`admin`. L'interface **exige alors un nouveau mot de passe** avant toute autre chose : elle ouvre
-**Mon compte**, et l'API refuse toutes les autres routes (`403`) tant que le mot de passe n'est pas
-changé.
+Pour un premier essai seulement, `SECREVIEW_ADMIN_PASSWORD_LOG=true` écrit plutôt le mot de passe
+aléatoire une fois dans les journaux du contrôleur (`Initial Web UI administrator created: user
+'admin', password (shown once): …`) : les journaux sont souvent conservés et partagés, préférez
+la CLI.
+
+Traitez ce mot de passe comme un secret et connectez-vous avec `admin`. L'interface **exige alors
+un nouveau mot de passe** avant toute autre chose : elle ouvre **Mon compte**, et l'API refuse
+toutes les autres routes (`403`) tant que le mot de passe n'est pas changé. S'il est perdu,
+générez-en un nouveau (l'ancien est aussitôt invalidé) :
+`security-review-controller user reset-password admin`.
 
 Il en va de même de tout mot de passe défini par quelqu'un d'autre : un compte local créé ou
 réinitialisé par un administrateur (écran ou CLI) change son mot de passe à sa première connexion.
@@ -427,12 +451,12 @@ base :
   par un administrateur) ferme toutes les sessions du compte ; `PUT /api/v1/me/password` remet une
   nouvelle session à l'onglet qui a changé le mot de passe.
 
-Les sessions sont signées avec `SECREVIEW_SESSION_SECRET` (32 caractères au moins), partagé par
+Les sessions sont signées avec `SECREVIEW_SECRET_KEY` (32 caractères au moins), partagé par
 toutes les répliques du contrôleur. Sans lui, le secret est lu dans
-`SECREVIEW_SESSION_SECRET_FILE` (`session-secret` dans le répertoire de travail, `/var/lib/secreview` en
+`SECREVIEW_SECRET_KEY_FILE` (`secret-key` dans le répertoire de travail, `/var/lib/secreview` en
 Docker), où il est généré au premier démarrage avec les droits `0600` : les sessions survivent à
 un redémarrage, et les répliques qui partagent le volume partagent le secret. Des répliques sans
-volume partagé doivent partager `SECREVIEW_SESSION_SECRET`.
+volume partagé doivent partager `SECREVIEW_SECRET_KEY`.
 
 Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour un identifiant
 depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
@@ -488,9 +512,12 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 |---|---|---|
 | `SECREVIEW_WEB_UI` | `true` | Sert l'interface sur `/ui` ; à `false`, le contrôleur ne sert que l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
-| `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Crée le compte `admin` au premier démarrage du contrôleur, tant qu'aucun compte n'existe ; `true` dans Docker |
-| `SECREVIEW_SESSION_SECRET` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques |
-| `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | Fichier du secret quand `SECREVIEW_SESSION_SECRET` n'est pas défini, généré au premier démarrage |
+| `SECREVIEW_ADMIN_USERNAME` | `admin` | Nom du [premier administrateur](#premier-administrateur), créé au premier démarrage du contrôleur tant qu'aucun compte n'existe |
+| `SECREVIEW_ADMIN_PASSWORD` | — | Son mot de passe initial (à changer à la première connexion) ; absent : aléatoire, défini avec `user reset-password` |
+| `SECREVIEW_ADMIN_PASSWORD_LOG` | `false` | Écrit le mot de passe aléatoire une fois dans les journaux (premier essai seulement) |
+| `SECREVIEW_OIDC_ONLY` | `false` | Avec le OIDC activé, refuse la connexion par mot de passe des comptes locaux ([OIDC seul](../advanced/sso.md#oidc-seul)) |
+| `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques |
+| `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | Fichier du secret quand `SECREVIEW_SECRET_KEY` n'est pas défini, généré au premier démarrage |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session (1 à 24 heures), connexion par compte local ou OIDC |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le [compte OIDC](../advanced/sso.md#comptes-oidc) à la première connexion ; sinon un administrateur le crée |
 | `SECREVIEW_ENROLLMENT` | `true` | Demandes de jetons par les projets (sur le serveur MCP), validées dans l'écran **Jetons** |

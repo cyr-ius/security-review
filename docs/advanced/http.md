@@ -125,11 +125,13 @@ With stdio, there is no token, hence no restriction.
 
 ### Initial administrator password
 
-With `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (the case in the Docker image), the **controller**
-creates at first start the `admin` [account](../usage/web-interface.md#user-accounts) of the
-web interface, with a random password shown only once in its logs. This account only opens
+At its first start, the **controller** creates the `admin`
+[account](../usage/web-interface.md#user-accounts) of the web interface
+(`SECREVIEW_ADMIN_USERNAME`), with `SECREVIEW_ADMIN_PASSWORD` or a random password that nobody
+knows: set it with the CLI, which prints it once (the old one is invalidated at once), see the
+[first administrator](../usage/web-interface.md#first-administrator). This account only opens
 the web interface and the REST API, never `/mcp`: for an agent, create a token
-(`token create`). If it is lost, replace the password (the old one is invalidated at once):
+(`token create`).
 
 ```bash
 security-review-controller user reset-password admin

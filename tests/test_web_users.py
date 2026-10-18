@@ -848,3 +848,13 @@ def test_session_of_a_deleted_user_never_opens_a_recreated_account():
         assert recreated["id"] == alice["id"]
         assert verifier.verify_session(session) is None
         web_users.delete_user(recreated["id"])
+
+
+def test_the_theme_of_a_user_is_checked_and_kept():
+    user = make_user("alice", PASSWORD, "reader")
+
+    assert web_users.get_preferences(user["id"]) == {"theme": "auto"}
+    assert web_users.set_theme(user["id"], "light") == {"theme": "light"}
+    assert web_users.get_preferences(user["id"]) == {"theme": "light"}
+    with pytest.raises(ValueError, match="theme"):
+        web_users.set_theme(user["id"], "<script>")

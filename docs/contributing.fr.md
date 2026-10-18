@@ -92,6 +92,7 @@ src/security_review_mcp/
 ├── access_control.py # permissions, rôles, groupes et membres des comptes web
 ├── token_store.py # jetons Bearer en base : création, expiration, renouvellement, révocation, enrôlement
 ├── audit.py       # journal d'audit : événements des décisions de triage, propositions, jetons et enrôlements
+├── audit_syslog.py # envoi des événements d'audit vers syslog par le contrôleur (facultatif)
 ├── metrics.py     # métriques Prometheus du contrôleur (/metrics)
 ├── web_users.py   # comptes de l'interface web, locaux (scrypt) ou OIDC (création à la volée), sessions, admin initial
 ├── enrollment.py  # client de `enroll` : demande de jeton à un serveur partagé
@@ -116,6 +117,8 @@ src/security_review_mcp/
 ├── sarif.py       # export SARIF 2.1.0
 ├── trends.py      # rapport de tendance
 ├── versions.py    # comparaison de versions
+├── update_check.py # recherche d'une nouvelle version sur GitHub (page À propos, facultatif)
+├── healthcheck.py # HEALTHCHECK de l'image Docker (/healthz des processus HTTP)
 ├── advisories.py  # import OSV, correspondance des versions
 ├── advisory_sync.py  # téléchargement OSV par le contrôleur (proxy, mise à jour quotidienne, historique)
 ├── app_settings.py    # réglages modifiables dans l'interface (langue, proxy sortant, OIDC), en base

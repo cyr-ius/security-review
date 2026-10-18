@@ -97,7 +97,24 @@
   **secret client** saisi dans l'interface est enregistré en base **en clair** : l'API ne le
   renvoie jamais (`***`) et les journaux ne citent que le nom des réglages modifiés ; préférez
   `SECREVIEW_OIDC_CLIENT_SECRET` (secret Kubernetes) si la base n'est pas protégée comme un
-  secret.
+  secret. Avec `SECREVIEW_UPDATE_CHECK_ENABLED=true` (désactivé par défaut), la page **À
+  propos** demande à `api.github.com` la dernière version publiée du dépôt : HTTPS uniquement,
+  par le proxy sortant, redirections limitées au HTTPS, réponse bornée à 512 Kio, délai de
+  10 secondes, au plus une requête par processus du contrôleur toutes les 6 heures (15 minutes
+  après un échec) ; seuls la version et le lien de la version sont conservés (un lien hors des
+  versions du dépôt est remplacé), et la page ne reçoit qu'un code d'erreur court. Avec
+  `SECREVIEW_AUDIT_SYSLOG_ADDRESS` (désactivé par défaut), le contrôleur envoie les
+  [événements d'audit](../advanced/audit-metrics.md#envoi-vers-syslog) à ce serveur syslog (UDP,
+  TCP ou socket Unix, ni TLS ni proxy : passez par un relais local pour le TLS) ; les
+  événements ne contiennent aucun secret (détails masqués), et le serveur MCP ne se connecte
+  toujours nulle part.
+- **Administrateur initial** : créé par le contrôleur à son premier démarrage, son mot de passe
+  est `SECREVIEW_ADMIN_PASSWORD` (jamais journalisé) ou un mot de passe aléatoire que personne ne
+  connaît tant qu'un opérateur ne l'a pas défini avec `user reset-password` ;
+  `SECREVIEW_ADMIN_PASSWORD_LOG` écrit le mot de passe aléatoire dans les journaux, pour un
+  premier essai seulement. Avec `SECREVIEW_OIDC_ONLY=true` et le OIDC activé, la connexion par mot
+  de passe des comptes locaux est refusée (`403`) ; une configuration OIDC désactivée ou invalide
+  ne bloque jamais les comptes locaux.
 - **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton de rôle web ;
   sans utilisateur ni jeton, elle répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
   le statut d'un finding (action journalisée avec le label du jeton), et seule une personne
@@ -142,7 +159,7 @@
   `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` laisse tout client choisir son adresse et contourner les
   limites). Seuls les identifiants valides sont
   journalisés, jamais les mots de passe. La session est un jeton signé avec
-  `SECREVIEW_SESSION_SECRET`, comme celle du OIDC, mais le compte est **relu en base à chaque
+  `SECREVIEW_SECRET_KEY`, comme celle du OIDC, mais le compte est **relu en base à chaque
   requête** : suppression, nouveau rôle ou nouveaux projets s'appliquent immédiatement, et un
   changement de mot de passe tire une nouvelle version de session aléatoire qui invalide toutes
   les sessions précédentes. La session doit aussi porter l'identifiant du compte : elle n'ouvre
@@ -167,16 +184,16 @@
   administrateur ne l'a pas recréé ou autorisé à nouveau.
   Vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant de lui donner la lecture
   du projet. Une session restreinte à des projets l'est comme un jeton `--project`. La session est
-  un jeton signé (HMAC-SHA256, clé dérivée de `SECREVIEW_SESSION_SECRET`) qui désigne le compte,
+  un jeton signé (HMAC-SHA256, clé dérivée de `SECREVIEW_SECRET_KEY`) qui désigne le compte,
   relu à chaque requête : la suppression du compte la coupe aussitôt. Elle est acceptée par le
   contrôleur seulement, jamais par le serveur MCP. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
   jetons et secrets ne sont jamais journalisés par le contrôleur ; le code d'autorisation
   apparaît toutefois dans les journaux d'accès d'un reverse proxy ou d'uvicorn, ce qui est
   sans danger : il est à usage unique et inutilisable sans le vérificateur PKCE du cookie. Les
-  réglages secrets (`SECREVIEW_SESSION_SECRET`, `SECREVIEW_OIDC_CLIENT_SECRET`,
+  réglages secrets (`SECREVIEW_SECRET_KEY`, `SECREVIEW_OIDC_CLIENT_SECRET`,
   `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`) sont typés comme secrets : ils
-  n'apparaissent jamais dans un affichage des réglages. Sans `SECREVIEW_SESSION_SECRET`, le
-  secret de session généré est écrit une seule fois dans `SECREVIEW_SESSION_SECRET_FILE` avec les
+  n'apparaissent jamais dans un affichage des réglages. Sans `SECREVIEW_SECRET_KEY`, le
+  secret de session généré est écrit une seule fois dans `SECREVIEW_SECRET_KEY_FILE` avec les
   droits `0600` (un avertissement est journalisé si le fichier est lisible par d'autres
   utilisateurs).
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le

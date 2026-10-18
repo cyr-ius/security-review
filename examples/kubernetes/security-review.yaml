@@ -99,8 +99,6 @@ spec:
             - secretRef:
                 name: secreview-controller
           env:
-            - name: SECREVIEW_AUTH_BOOTSTRAP_ADMIN
-              value: "true"
             # Swagger documentation of the REST API on /api/docs (disabled by default)
             # - name: SECREVIEW_SWAGGER_ENABLED
             #   value: "true"

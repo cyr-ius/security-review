@@ -30,6 +30,7 @@ import {
   OidcSettingsUpdate,
   OidcTestResult,
   PermissionInfo,
+  Preferences,
   ProjectFindingPage,
   ProjectFindingQuery,
   ProjectSummary,
@@ -46,6 +47,7 @@ import {
   RuleReloadResult,
   StandardPackImportResult,
   Trend,
+  UpdateStatus,
   UserGroup,
   UserGroupWrite,
   WebUser,
@@ -63,6 +65,20 @@ export class ApiService {
   /** Version and links of the About page. */
   about(): Observable<About> {
     return this.http.get<About>(`${API_URL}/about`);
+  }
+
+  /** Latest release on GitHub against the running version. */
+  aboutUpdate(): Observable<UpdateStatus> {
+    return this.http.get<UpdateStatus>(`${API_URL}/about/update`);
+  }
+
+  /** Preferences of the logged-in web user, kept for every browser it uses. */
+  preferences(): Observable<Preferences> {
+    return this.http.get<Preferences>(`${API_URL}/me/preferences`);
+  }
+
+  setPreferences(preferences: Preferences): Observable<Preferences> {
+    return this.http.put<Preferences>(`${API_URL}/me/preferences`, preferences);
   }
 
   me(): Observable<Identity> {

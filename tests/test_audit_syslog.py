@@ -1,0 +1,204 @@
+"""Tests of the forwarding of the audit events to syslog."""
+
+import json
+import socket
+import tempfile
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+
+import pytest
+from sqlmodel import Session, select
+
+from security_review_mcp import audit_syslog, token_store
+from security_review_mcp.config import Settings
+from security_review_mcp.models import AppSetting, AuditEvent
+from security_review_mcp.token_store import Role
+
+
+def make_settings(**values) -> Settings:
+    """Settings that ignore the developer's .env file."""
+    return Settings(_env_file=None, **values)
+
+
+def age_events(database, seconds: int = 60) -> None:
+    """Make every audit event older than the settle delay."""
+    with Session(database) as session:
+        for event in session.exec(select(AuditEvent)).all():
+            event.created_at = datetime.now(UTC) - timedelta(seconds=seconds)
+            session.add(event)
+        session.commit()
+
+
+class FakeSocket:
+    """Socket that records what is sent, or fails."""
+
+    def __init__(self, fail: bool = False) -> None:
+        self.sent: list[bytes] = []
+        self.fail = fail
+
+    def sendto(self, payload: bytes, address) -> None:
+        if self.fail:
+            raise ConnectionRefusedError("refused")
+        self.sent.append(payload)
+
+
+class FakeHandler:
+    """SysLogHandler stand-in over UDP."""
+
+    unixsocket = False
+    socktype = socket.SOCK_DGRAM
+    address = ("syslog.example.com", 514)
+    facility = 16  # local0
+
+    def __init__(self, fail: bool = False) -> None:
+        self.socket = FakeSocket(fail)
+        self.closed = False
+
+    @staticmethod
+    def encodePriority(facility: int, priority: str) -> int:  # noqa: N802 (logging API)
+        return facility << 3 | 6
+
+    def close(self) -> None:
+        self.closed = True
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("udp://syslog.example.com", (("syslog.example.com", 514), socket.SOCK_DGRAM)),
+        ("udp://10.0.0.5:5514", (("10.0.0.5", 5514), socket.SOCK_DGRAM)),
+        ("tcp://syslog.example.com:601", (("syslog.example.com", 601), socket.SOCK_STREAM)),
+        ("unix:///dev/log", ("/dev/log", socket.SOCK_DGRAM)),
+    ],
+)
+def test_addresses_are_parsed(value, expected):
+    assert audit_syslog.parse_address(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "syslog.example.com:514",
+        "http://syslog.example.com",
+        "udp://",
+        "udp://user:secret@syslog.example.com",  # secreview:ignore GEN-007 test value
+        "udp://syslog.example.com/path",
+        "unix://host/dev/log",
+        "udp://syslog.example.com:99999",
+        "udp://sys log",
+    ],
+)
+def test_invalid_addresses_are_refused(value):
+    with pytest.raises(ValueError, match="SECREVIEW_AUDIT_SYSLOG_ADDRESS"):
+        audit_syslog.parse_address(value)
+
+
+def test_an_unknown_facility_is_refused():
+    assert audit_syslog.facility("LOCAL0") == 16
+    with pytest.raises(ValueError, match="SECREVIEW_AUDIT_SYSLOG_FACILITY"):
+        audit_syslog.validate_settings(
+            make_settings(audit_syslog_address="udp://syslog", audit_syslog_facility="nope")
+        )
+
+
+def test_the_first_batch_starts_after_the_history(database):
+    token_store.create_token("before", Role.MCP)
+    age_events(database)
+
+    assert audit_syslog.claim_batch() == []
+    token_store.create_token("after", Role.MCP)
+    age_events(database)
+
+    (event,) = audit_syslog.claim_batch()
+    assert event["action"] == "token.created" and event["details"]["label"] == "after"
+    assert audit_syslog.claim_batch() == []
+
+
+def test_recent_events_wait_for_the_settle_delay(database):
+    audit_syslog.claim_batch()
+    token_store.create_token("now", Role.MCP)
+
+    assert audit_syslog.claim_batch() == []
+    age_events(database)
+    assert len(audit_syslog.claim_batch()) == 1
+
+
+def test_a_batch_claimed_by_another_replica_is_not_sent_twice(database, monkeypatch):
+    audit_syslog.claim_batch()
+    token_store.create_token("shared", Role.MCP)
+    age_events(database)
+    original = audit_syslog.update
+
+    def raced(*args, **kwargs):
+        # Another replica moves the cursor between the read and the conditional update
+        with Session(database) as session:
+            row = session.get(AppSetting, audit_syslog.AUDIT_SYSLOG_CURSOR)
+            row.value = "999999"
+            session.add(row)
+            session.commit()
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(audit_syslog, "update", raced)
+    assert audit_syslog.claim_batch() == []
+
+
+def test_the_forwarder_sends_each_event_once_as_json(database, monkeypatch):
+    handler = FakeHandler()
+    monkeypatch.setattr(audit_syslog, "make_handler", lambda settings: handler)
+    forwarder = audit_syslog.AuditForwarder(make_settings(audit_syslog_address="udp://syslog"))
+    forwarder.forward_once()
+    secret = token_store.create_token("ci", Role.MCP)["token"]
+    age_events(database)
+
+    assert forwarder.forward_once() == 1
+    assert forwarder.forward_once() == 0
+    (payload,) = handler.socket.sent
+    priority, _, message = payload.decode().partition(">")
+    assert priority == "<134"  # local0.info
+    tag, _, body = message.partition(": ")
+    event = json.loads(body)
+    assert tag == "secreview-audit" and event["details"]["label"] == "ci"
+    assert secret not in payload.decode()  # the token itself is never sent
+
+
+def test_a_failed_sending_is_logged_without_retry(database, monkeypatch, caplog):
+    handlers = [FakeHandler(fail=True), FakeHandler()]
+    monkeypatch.setattr(audit_syslog, "make_handler", lambda settings: handlers.pop(0))
+    forwarder = audit_syslog.AuditForwarder(make_settings(audit_syslog_address="udp://syslog"))
+    forwarder.forward_once()
+    token_store.create_token("lost", Role.MCP)
+    age_events(database)
+
+    assert forwarder.forward_once() == 0
+    assert "Forwarding of 1 audit events to syslog failed" in caplog.text
+    # The failed batch is not resent; the next one opens a new connection
+    assert forwarder.forward_once() == 0
+    token_store.create_token("next", Role.MCP)
+    age_events(database)
+    assert forwarder.forward_once() == 1 and handlers == []
+
+
+def test_the_forwarder_writes_to_a_unix_socket(database):
+    with tempfile.TemporaryDirectory(dir="/tmp") as directory:
+        path = Path(directory) / "log"
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        server.bind(str(path))
+        server.settimeout(2)
+        try:
+            forwarder = audit_syslog.AuditForwarder(
+                make_settings(audit_syslog_address=f"unix://{path}")
+            )
+            forwarder.forward_once()
+            token_store.create_token("local", Role.MCP)
+            age_events(database)
+
+            assert forwarder.forward_once() == 1
+            assert b"secreview-audit: " in server.recv(65536)
+        finally:
+            forwarder.stop()
+            server.close()
+
+
+def test_invalid_settings_refuse_the_forwarder():
+    with pytest.raises(ValueError):
+        audit_syslog.AuditForwarder(make_settings(audit_syslog_address="syslog:514"))

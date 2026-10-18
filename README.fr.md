@@ -95,3 +95,8 @@ uv sync --extra dev && uv run pytest && uv run ruff check .
 Le développement se fait sur `dev`, et une version est publiée en poussant un tag `vX.Y.Z`
 sur `master`. Voir le [guide de contribution](https://cyr-ius.github.io/security-review-mcp/fr/contributing/)
 et [`AGENTS.md`](AGENTS.md) (consignes pour les agents IA).
+
+## Sécurité et licence
+
+Signalez une vulnérabilité en privé, comme décrit dans [`SECURITY.md`](SECURITY.md). Le projet
+est distribué sous [licence Apache 2.0](LICENSE).

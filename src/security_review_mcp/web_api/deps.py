@@ -69,7 +69,9 @@ def _scope_identity(request: Request) -> Identity:
 
 
 # Routes a web user who must change its password still reaches
-PASSWORD_CHANGE_PATHS = frozenset({"/api/v1/me", "/api/v1/me/password", "/api/v1/me/logout"})
+PASSWORD_CHANGE_PATHS = frozenset(
+    {"/api/v1/me", "/api/v1/me/password", "/api/v1/me/logout", "/api/v1/me/preferences"}
+)
 
 
 def _identity_with_role(request: Request, allowed: frozenset[Role] | set[Role]) -> Identity:

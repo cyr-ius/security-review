@@ -89,11 +89,12 @@ COPY --from=builder /app/.venv /app/.venv
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db \
-    SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true
+    SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db
 
-# The admin password hash and the project tokens are stored in the database; the controller
-# shows the bootstrap administrator password once, at its first start
+# The admin password hash and the project tokens are stored in the database. At its first start
+# the controller creates the administrator "admin" (SECREVIEW_ADMIN_USERNAME) with
+# SECREVIEW_ADMIN_PASSWORD, or a random password replaced with
+#   docker compose exec controller security-review-controller user reset-password admin
 
 # Reports database (SQLite) lives in the volume, with the internal rules imported with
 #   docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
@@ -105,6 +106,10 @@ USER secreview
 
 # MCP server (--transport streamable-http) or controller (serve)
 EXPOSE 8000
+
+# /healthz of the HTTP MCP server or of the controller (always healthy in stdio: no port)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD ["python", "-m", "security_review_mcp.healthcheck"]
 
 # MCP server by default: arguments are its transport options (or `enroll`). The controller and
 # its commands (serve, db, token, rules...) use

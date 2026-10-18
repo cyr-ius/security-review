@@ -4,7 +4,6 @@ import json
 from datetime import timedelta
 
 import pytest
-from conftest import make_user
 from sqlmodel import select
 from starlette.testclient import TestClient
 
@@ -57,10 +56,13 @@ class FakePruner:
 
     instances: list[FakePruner] = []
 
-    def __init__(self, retention_days: int, audit_retention_days: int = 0) -> None:
+    def __init__(
+        self, retention_days: int, audit_retention_days: int = 0, audit_max_events: int = 0
+    ) -> None:
         """Remember the retentions."""
         self.retention_days = retention_days
         self.audit_retention_days = audit_retention_days
+        self.audit_max_events = audit_max_events
         self.events: list[str] = []
         FakePruner.instances.append(self)
 
@@ -129,7 +131,7 @@ def test_serve_does_not_serve_mcp_nor_the_public_enrollment(settings, captured_r
 
 
 def test_serve_logs_bootstrap_password_only_when_created(settings, caplog, captured_run, ui_dir):
-    settings(auth_bootstrap_admin=True)
+    settings(admin_password_log=True)
 
     with caplog.at_level("WARNING", logger="security_review_mcp"):
         controller.main(["serve"])
@@ -160,32 +162,69 @@ def test_serve_logs_bootstrap_password_only_when_created(settings, caplog, captu
     )
 
 
-def test_serve_without_bootstrap_setting_creates_no_admin(settings, captured_run, ui_dir):
-    controller.main(["serve"])
+def test_serve_creates_the_admin_without_logging_its_random_password(
+    settings, caplog, captured_run, ui_dir
+):
+    with caplog.at_level("WARNING", logger="security_review_mcp"):
+        controller.main(["serve"])
 
+    (message,) = [r.message for r in caplog.records if "administrator" in r.message]
+    assert "user reset-password admin" in message
+    (admin,) = web_users.list_users()
+    assert (admin["username"], admin["must_change_password"]) == ("admin", True)
+    assert [group["name"] for group in admin["groups"]] == ["administrators"]
+    # The operator sets a password with the CLI, which prints it once
+    password = web_users.set_password(admin["id"])["password"]
+    assert password not in caplog.text
+    assert web_users.authenticate("admin", password)["effective_role"] == "admin"
     assert STORE.has_tokens() is False
-    assert web_users.has_users() is False
 
 
-def test_serve_requires_a_login_once_a_web_user_exists(settings, captured_run, ui_dir):
-    controller.main(["serve"])
-    client = TestClient(captured_run[0]["app"], base_url="http://127.0.0.1")
-    assert client.get("/api/v1/me").status_code == 503
+def test_serve_creates_the_admin_with_the_configured_name_and_password(
+    settings, caplog, captured_run, ui_dir
+):
+    password = "Initial-admin-pa55word"  # secreview:ignore GEN-004 test value
+    settings(admin_username="root", admin_password=password, admin_password_log=True)
 
-    make_user("alice", "Correct horse battery 9", "reader")
+    with caplog.at_level("WARNING", logger="security_review_mcp"):
+        controller.main(["serve"])
 
-    assert client.get("/api/v1/me").status_code == 401
-    assert STORE.has_tokens() is False
+    assert password not in caplog.text and "SECREVIEW_ADMIN_PASSWORD" in caplog.text
+    user = web_users.authenticate("root", password)
+    assert (user["effective_role"], user["must_change_password"]) == ("admin", True)
 
 
-def test_serve_refuses_an_invalid_session_secret(settings, captured_run, capsys):
-    settings(session_secret="short")
+@pytest.mark.parametrize(
+    ("values", "expected"),
+    [({"admin_password": "short"}, "12"), ({"admin_username": "bad name!"}, "Username")],
+)
+def test_serve_refuses_an_invalid_admin_setting(settings, captured_run, capsys, values, expected):
+    settings(**values)
 
     with pytest.raises(SystemExit) as exc:
         controller.main(["serve"])
 
     assert exc.value.code == 2 and not captured_run
-    assert "SECREVIEW_SESSION_SECRET" in capsys.readouterr().err
+    assert expected in capsys.readouterr().err
+    assert web_users.has_users() is False
+
+
+def test_serve_requires_a_login_once_the_admin_exists(settings, captured_run, ui_dir):
+    controller.main(["serve"])
+    client = TestClient(captured_run[0]["app"], base_url="http://127.0.0.1")
+
+    assert client.get("/api/v1/me").status_code == 401
+    assert STORE.has_tokens() is False
+
+
+def test_serve_refuses_an_invalid_secret_key(settings, captured_run, capsys):
+    settings(secret_key="short")
+
+    with pytest.raises(SystemExit) as exc:
+        controller.main(["serve"])
+
+    assert exc.value.code == 2 and not captured_run
+    assert "SECREVIEW_SECRET_KEY" in capsys.readouterr().err
 
 
 def test_serve_without_web_ui_serves_the_api_only(settings, captured_run, ui_dir):
@@ -203,7 +242,7 @@ OIDC_SETTINGS = {
     "oidc_issuer": "https://idp.example.com",
     "oidc_client_id": "secreview",
     "oidc_redirect_uri": "https://secreview.example.com/api/v1/auth/oidc/callback",
-    "session_secret": "s" * 40,
+    "secret_key": "s" * 40,
 }
 
 
@@ -388,9 +427,14 @@ def test_serve_runs_the_report_pruner_unless_disabled(settings, captured_run, ui
     assert len(fake_pruner) == 2
     assert (fake_pruner[1].retention_days, fake_pruner[1].audit_retention_days) == (0, 365)
 
+    # The limit of the audit events alone too
+    settings(empty_report_retention_days=0, audit_retention_days=0, audit_max_events=1000)
+    controller.main(["serve"])
+    assert len(fake_pruner) == 3 and fake_pruner[2].audit_max_events == 1000
+
     settings(empty_report_retention_days=0, audit_retention_days=0)
     controller.main(["serve"])
-    assert len(fake_pruner) == 2
+    assert len(fake_pruner) == 3
 
 
 def test_db_prune_deletes_old_reports_without_findings(settings, capsys):
@@ -425,3 +469,37 @@ def test_serve_refuses_an_invalid_osv_setting(settings, captured_run, ui_dir, ca
 
     assert exc.value.code == 2 and not captured_run
     assert "SECREVIEW_OSV_URL" in capsys.readouterr().err
+
+
+def test_serve_forwards_the_audit_events_only_when_configured(
+    settings, captured_run, ui_dir, monkeypatch
+):
+    started: list[str] = []
+
+    class FakeForwarder:
+        def __init__(self, current) -> None:
+            started.append(current.audit_syslog_address)
+
+        def start(self) -> None:
+            started.append("start")
+
+        def stop(self) -> None:
+            started.append("stop")
+
+    monkeypatch.setattr(controller.audit_syslog, "AuditForwarder", FakeForwarder)
+    controller.main(["serve"])
+    assert started == []
+
+    settings(audit_syslog_address="udp://syslog.example.com:514")
+    controller.main(["serve"])
+    assert started == ["udp://syslog.example.com:514", "start", "stop"]
+
+
+def test_serve_refuses_an_invalid_syslog_address(settings, captured_run, capsys):
+    settings(audit_syslog_address="syslog.example.com:514")
+
+    with pytest.raises(SystemExit) as exc:
+        controller.main(["serve"])
+
+    assert exc.value.code == 2 and not captured_run
+    assert "SECREVIEW_AUDIT_SYSLOG_ADDRESS" in capsys.readouterr().err

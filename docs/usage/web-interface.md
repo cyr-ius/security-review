@@ -25,9 +25,15 @@ The screens are reached from the sidebar: **Supervision** (projects, reports) fo
 then **Reference** (rules, checklists, standards) and **Administration** (users, groups, roles,
 tokens, audit log, OIDC, report language, outgoing proxy, OSV database), each shown only to the
 accounts that hold its [permission](../advanced/access-control.md#permissions). The bottom
-of the sidebar shows the connected client, its role and the version (a link to **About**), with the **My account** and logout buttons; on a
-small screen, the sidebar opens with the menu button. The light or dark theme is chosen at the
-top right, including on the login page, and is remembered by the browser.
+of the sidebar shows the connected client, its role and the version (a link to **About**), with the **My account** and logout buttons.
+On a small screen, the sidebar is reduced to its icons (each one names its screen when hovered)
+and the button at the top left opens it in full; on a large screen, the same button reduces it
+to its icons or expands it, a choice remembered by the browser.
+
+The theme button at the top right, also on the login page, moves from **automatic** (the theme
+of the system, followed live) to **light** and **dark**. The choice of a logged-in user is kept
+in its account (`GET` and `PUT /api/v1/me/preferences`), for every browser it uses; the browser
+remembers the last one for the login page.
 
 The interface is available in **English**, **French** and **Spanish**. The language is chosen in
 the picker at the top right, including on the login page. The change is immediate and is
@@ -36,9 +42,12 @@ browser, or English if it offers none of them. This choice only concerns the int
 language of the review reports is set in **Report language**, and the detailed error messages sent
 back by the API stay in English.
 
-The **About** page gives the version of the controller, the links of the documentation, of the
-source code and to report an issue, the link of the Swagger documentation when it is enabled, and
-the status of the backend (`/api/health`, checked again with **Check again**). When the
+The **About** page gives the version of the controller, whether a **New version** is available
+on GitHub (only with `SECREVIEW_UPDATE_CHECK_ENABLED=true`, see
+[outgoing connections](../reference/security.md#security-of-the-server-itself)), the links of the
+documentation, of the source code and to report an issue, the link of the Swagger documentation
+when it is enabled, and the status of the backend (`/api/health`, checked again with **Check
+again**). When the
 application loads, it checks `/api/health` first: if the controller does not answer (or stops
 answering later), the **Backend unavailable** page opens, and its **Retry** button goes back to
 the requested page once the controller answers again.
@@ -272,8 +281,9 @@ permission), with the actor `token:triage-bot` or `user:<name>`.
 !!! warning "Authentication required for the web UI"
     The API of the interface refuses the requests with status `503` while no user and no token
     exist; the login form stays displayed and says that authentication must be configured.
-    Enable `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` (the case in the Docker image), or create an
-    account with `security-review-controller user create`. This restriction concerns the web
+    `security-review-controller serve` creates the [first administrator](#first-administrator)
+    at its first start, so this only happens before it; an account can also be created with
+    `security-review-controller user create`. This restriction concerns the web
     UI; MCP authentication stays independent (a user account never opens `/mcp`). With the
     [OIDC login](../advanced/sso.md), the API asks for a login (`401`) even without any
     user or token in the database.
@@ -330,18 +340,31 @@ reset and **My account** refuse it.
 
 ### First administrator
 
-With `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (the case in the Docker image), the controller
-creates at first start the **`admin`** user, member of the `administrators` group (`admin`
-role), while no account exists.
-Its password is shown only once in the logs of the controller:
+At its first start, while no account exists, the controller creates the local account
+**`admin`** (`SECREVIEW_ADMIN_USERNAME`), member of the `administrators` group (`admin` role):
+
+- with `SECREVIEW_ADMIN_PASSWORD`, it gets that password (it must follow the password policy,
+  otherwise the controller refuses to start), never written to the logs;
+- otherwise it gets a random password, which nobody knows: set one with the CLI, which prints it
+  once, then log in with it:
+
+```bash
+security-review-controller user reset-password admin
+# {"id": 1, "username": "admin", …, "must_change_password": true, "password": "q3V…"}
+```
 
 ```
-WARNING security_review_mcp.controller: Initial Web UI administrator created: user 'admin', password (shown once): …
+WARNING security_review_mcp.controller: Initial Web UI administrator 'admin' created with a random password: set one with `security-review-controller user reset-password admin`
 ```
 
-Handle this password as a secret: restrict access to the logs and log in with `admin`. The
-interface then **requires a new password** before anything else: it opens **My account**, and
-the API refuses every other route (`403`) until the password is changed.
+For a first test only, `SECREVIEW_ADMIN_PASSWORD_LOG=true` writes the random password once in
+the logs of the controller instead (`Initial Web UI administrator created: user 'admin', password
+(shown once): …`): logs are often kept and shared, so prefer the CLI.
+
+Handle this password as a secret and log in with `admin`. The interface then **requires a new
+password** before anything else: it opens **My account**, and the API refuses every other route
+(`403`) until the password is changed. If it is lost, generate a new one (the old one is
+invalidated at once): `security-review-controller user reset-password admin`.
 
 The same applies to every password set by someone else: a local account created or reset by an
 administrator (screen or CLI) changes its password at its first login. The **Users** screen shows
@@ -413,11 +436,11 @@ from the database:
   closes every session of the account; `PUT /api/v1/me/password` hands a new session to the tab
   that changed the password.
 
-Sessions are signed with `SECREVIEW_SESSION_SECRET` (at least 32 characters), shared by every
-replica of the controller. Without it, the secret is read from `SECREVIEW_SESSION_SECRET_FILE`
-(`session-secret` in the working directory, `/var/lib/secreview` in Docker), generated there at the first
+Sessions are signed with `SECREVIEW_SECRET_KEY` (at least 32 characters), shared by every
+replica of the controller. Without it, the secret is read from `SECREVIEW_SECRET_KEY_FILE`
+(`secret-key` in the working directory, `/var/lib/secreview` in Docker), generated there at the first
 start with mode `0600`: sessions survive a restart, and the replicas that share the volume share
-the secret. Replicas without a shared volume must share `SECREVIEW_SESSION_SECRET`.
+the secret. Replicas without a shared volume must share `SECREVIEW_SECRET_KEY`.
 
 Login failures are limited: after **5 failures in 15 minutes** for a user name from the same
 address, or **20 failures** from an address all user names together, the login is refused
@@ -472,9 +495,12 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 |---|---|---|
 | `SECREVIEW_WEB_UI` | `true` | Serves the interface on `/ui`; when `false`, the controller only serves the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the application (default: the one of the package) |
-| `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Creates the `admin` account at the first start of the controller, while no account exists; `true` in Docker |
-| `SECREVIEW_SESSION_SECRET` | — | Signing secret of the sessions (at least 32 characters), identical on every replica |
-| `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | File of the secret when `SECREVIEW_SESSION_SECRET` is unset, generated at the first start |
+| `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](#first-administrator), created at the first start of the controller while no account exists |
+| `SECREVIEW_ADMIN_PASSWORD` | — | Its initial password (to change at the first login); unset: random, set with `user reset-password` |
+| `SECREVIEW_ADMIN_PASSWORD_LOG` | `false` | Writes the random password once in the logs (first test only) |
+| `SECREVIEW_OIDC_ONLY` | `false` | With OIDC enabled, refuses the password login of the local accounts ([OIDC only](../advanced/sso.md#oidc-only)) |
+| `SECREVIEW_SECRET_KEY` | — | Signing secret of the sessions (at least 32 characters), identical on every replica |
+| `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | File of the secret when `SECREVIEW_SECRET_KEY` is unset, generated at the first start |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or OIDC login |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [OIDC account](../advanced/sso.md#oidc-accounts) at the first login; otherwise an administrator creates it |
 | `SECREVIEW_ENROLLMENT` | `true` | Token requests by the projects (on the MCP server), approved in the **Tokens** screen |

@@ -110,12 +110,18 @@ async def open_session(request: Request, user_id: int, response: Response) -> Lo
     return LoginSession(**session)
 
 
+def _oidc_only(login: oidc.OidcLogin | None) -> bool:
+    """True when SECREVIEW_OIDC_ONLY refuses the local logins: only while OIDC works, so that
+    a disabled or invalid OIDC configuration never locks every user out."""
+    return get_settings().oidc_only and login is not None
+
+
 @router.get("/config")
 async def auth_config(request: Request) -> AuthConfig:
-    """Tell the login page whether single sign-on (OIDC) is available."""
+    """Tell the login page which login methods are available."""
     login = await current_oidc(request)
     return AuthConfig(
-        password=True,
+        password=not _oidc_only(login),
         oidc=login is not None,
         oidc_display_name=login.display_name if login else None,
     )
@@ -131,6 +137,15 @@ async def password_login(request: Request, body: PasswordLogin, response: Respon
     throttle: rate_limit.LoginThrottle = request.app.state.login_throttle
     address = client_address(request)
     username = body.username.strip()
+    if _oidc_only(await current_oidc(request)):
+        logger.warning(
+            "Web login of %s from %s refused: local logins are disabled (SECREVIEW_OIDC_ONLY)",
+            _log_name(username),
+            address,
+        )
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, "Local logins are disabled: use single sign-on"
+        )
     if await run_in_threadpool(throttle.blocked, username, address):
         logger.warning(
             "Web login of %s from %s refused: too many failures", _log_name(username), address

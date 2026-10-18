@@ -191,8 +191,8 @@ def test_old_events_are_purged(database):
         session.add(old)
         session.commit()
 
-    assert audit.prune_events(0) == {"retention_days": 0, "deleted": 0}
-    assert audit.prune_events() == {"retention_days": 365, "deleted": 1}
+    assert audit.prune_events(0) == {"retention_days": 0, "max_events": 0, "deleted": 0}
+    assert audit.prune_events() == {"retention_days": 365, "max_events": 0, "deleted": 1}
     assert [event["details"]["label"] for event in audit.list_events()["events"]] == ["new"]
     with pytest.raises(ValueError):
         audit.prune_events(-1)
@@ -214,13 +214,20 @@ def test_audit_cli_lists_and_purges(capsys):
     assert json.loads(capsys.readouterr().out)["total"] == 0
 
     assert cli.run(["audit", "prune", "--days", "30"]) == cli.EXIT_PASSED
-    assert json.loads(capsys.readouterr().out) == {"retention_days": 30, "deleted": 0}
+    assert json.loads(capsys.readouterr().out) == {
+        "retention_days": 30,
+        "max_events": 0,
+        "deleted": 0,
+    }
+    assert cli.run(["audit", "prune", "--days", "0", "--max-events", "1"]) == cli.EXIT_PASSED
+    assert json.loads(capsys.readouterr().out)["deleted"] == 0  # a single event
 
 
 def test_audit_cli_refuses_bad_values(capsys):
     assert cli.run(["audit", "list", "--limit", "0"]) == cli.EXIT_ERROR
     assert "limit" in json.loads(capsys.readouterr().err)["error"]
     assert cli.run(["audit", "prune", "--days", "-1"]) == cli.EXIT_ERROR
+    assert cli.run(["audit", "prune", "--max-events", "-1"]) == cli.EXIT_ERROR
     with pytest.raises(SystemExit) as exc:
         cli.run(["audit", "list", "--since", "yesterday"])
     assert exc.value.code == cli.EXIT_ERROR
@@ -238,3 +245,16 @@ def test_the_web_interface_knows_every_kind_of_event():
         assert f"'{action.value}'" in listed and f"'{action.value}'" in typed, action
         # en, fr and es
         assert labels.count(f"'audit.action.{action.value}'") == 3, action
+
+
+def test_the_oldest_events_beyond_the_limit_are_purged():
+    for label in ("first", "second", "third", "fourth"):
+        token_store.create_token(label, Role.MCP)
+
+    assert audit.prune_events(0, 2) == {"retention_days": 0, "max_events": 2, "deleted": 2}
+    labels = [event["details"]["label"] for event in audit.list_events()["events"]]
+    assert labels == ["fourth", "third"]
+    # Under the limit: nothing more is deleted
+    assert audit.prune_events(0, 5)["deleted"] == 0
+    with pytest.raises(ValueError, match="max_events"):
+        audit.prune_events(0, -1)

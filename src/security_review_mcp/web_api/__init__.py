@@ -193,7 +193,7 @@ def create_app(
     app.state.signer = signer or (
         oidc_login.signer
         if oidc_login
-        else oidc.SessionSigner(secret_value(settings.session_secret), settings.session_hours)
+        else oidc.SessionSigner(secret_value(settings.secret_key), settings.session_hours)
     )
     app.state.oidc = OidcLogins(app.state.signer, oidc_login)
     app.state.login_throttle = rate_limit.LoginThrottle()

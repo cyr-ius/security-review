@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ROLE_META } from '../core/constants/labels';
@@ -9,7 +9,20 @@ import { ApiService } from '../core/services/api.service';
 import { AuthService } from '../core/services/auth.service';
 import { ThemeService } from '../core/services/theme.service';
 import { LanguageSelectComponent } from '../shared/components/language-select/language-select.component';
+import { ThemeButtonComponent } from '../shared/components/theme-button/theme-button.component';
 import { SessionExpiredComponent } from './session-expired/session-expired.component';
+
+/** Below Bootstrap's lg breakpoint the sidebar is a rail of icons. */
+const NARROW_QUERY = '(max-width: 991.98px)';
+const COLLAPSED_KEY = 'secreview.sidebarCollapsed';
+
+function storedCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
 
 /** One entry of the sidebar. */
 interface NavItem {
@@ -30,6 +43,7 @@ interface NavItem {
     TranslatePipe,
     LanguageSelectComponent,
     SessionExpiredComponent,
+    ThemeButtonComponent,
   ],
   templateUrl: './layout.component.html',
   styleUrl: './layout.component.css',
@@ -91,8 +105,17 @@ export class LayoutComponent {
     },
   ];
 
-  /** Sidebar shown as a drawer on small screens. */
+  /** Sidebar opened in full over the page (small screens, or after the expand button). */
   readonly menuOpen = signal(false);
+
+  /** Large screens: the user reduced the sidebar to its icons (remembered by the browser). */
+  readonly collapsed = signal(storedCollapsed());
+
+  /** Small screen: the sidebar is reduced to its icons unless opened. */
+  readonly narrow = signal(false);
+
+  /** Sidebar shown as a rail of icons. */
+  readonly rail = computed(() => !this.menuOpen() && (this.narrow() || this.collapsed()));
 
   /** Entries of the Référentiel section the current user may open. */
   readonly referenceNav = computed(() => this.allowed(this.referenceItems));
@@ -108,6 +131,38 @@ export class LayoutComponent {
     const letters = words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? '?').slice(0, 2);
     return letters.toUpperCase();
   });
+
+  constructor() {
+    // The theme kept in the account of the user replaces the one of this browser
+    void this.theme.load();
+    try {
+      const query = window.matchMedia(NARROW_QUERY);
+      this.narrow.set(query.matches);
+      const onChange = (event: MediaQueryListEvent) => {
+        this.narrow.set(event.matches);
+        this.menuOpen.set(false);
+      };
+      query.addEventListener('change', onChange);
+      inject(DestroyRef).onDestroy(() => query.removeEventListener('change', onChange));
+    } catch {
+      // No media queries (tests): the large-screen layout applies
+    }
+  }
+
+  /** Expand or reduce the sidebar: a drawer on small screens, remembered on large ones. */
+  toggleSidebar(): void {
+    if (this.narrow()) {
+      this.menuOpen.update((open) => !open);
+      return;
+    }
+    const collapsed = !this.collapsed();
+    this.collapsed.set(collapsed);
+    try {
+      localStorage.setItem(COLLAPSED_KEY, String(collapsed));
+    } catch {
+      // Not remembered by the browser
+    }
+  }
 
   /** Items whose permission the current user holds. */
   private allowed(items: readonly NavItem[]): NavItem[] {
