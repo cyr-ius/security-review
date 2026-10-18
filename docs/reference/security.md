@@ -108,7 +108,11 @@
 - **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
   stores a proposal (reason masked and bounded, author taken from the token) without changing
   the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a
-  finding. Pages are served with a strict CSP and the anti-clickjacking headers; the token is
+  finding. Pages are served with a strict CSP and the anti-clickjacking headers, and every
+  answer of the controller (API, refusals included) carries `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, a closed CSP when the route sets
+  none and, over HTTPS (TLS of the controller, or `X-Forwarded-Proto` of a proxy listed in
+  `SECREVIEW_FORWARDED_ALLOW_IPS`), `Strict-Transport-Security: max-age=31536000`; the token is
   kept in the `sessionStorage` of the tab. The Swagger documentation and its OpenAPI schema
   are disabled by default (`SECREVIEW_SWAGGER_ENABLED`); once enabled they are public, served
   from local files only with a strict CSP, and the data routes stay protected. The check is made twice: by the Bearer

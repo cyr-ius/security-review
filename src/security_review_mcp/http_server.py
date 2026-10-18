@@ -535,6 +535,43 @@ def build_mcp_app(
     )
 
 
+# Headers of every answer of the controller; a header already set by the route (the CSP of the
+# web interface and of Swagger) is kept
+SECURITY_HEADERS: tuple[tuple[bytes, bytes], ...] = (
+    (b"x-content-type-options", b"nosniff"),
+    (b"referrer-policy", b"no-referrer"),
+    (b"x-frame-options", b"DENY"),
+    (b"content-security-policy", b"default-src 'none'; frame-ancestors 'none'"),
+)
+# HTTPS only (TLS of uvicorn, or X-Forwarded-Proto of a trusted proxy): one year
+HSTS_HEADER = (b"strict-transport-security", b"max-age=31536000")
+
+
+class SecurityHeadersMiddleware:
+    """Add the security headers to every HTTP answer, and HSTS to the HTTPS ones."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Add the missing security headers at the start of the answer."""
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        extra = SECURITY_HEADERS + ((HSTS_HEADER,) if scope.get("scheme") == "https" else ())
+
+        async def send_with_headers(message: dict[str, Any]) -> None:
+            """Complete the headers of the answer."""
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                present = {name.lower() for name, _ in headers}
+                headers.extend((name, value) for name, value in extra if name not in present)
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
+
+
 def build_controller_app(
     web_app: ASGIApp,
     store: TokenStore,
@@ -543,7 +580,8 @@ def build_controller_app(
     settings: Settings | None = None,
 ) -> ASGIApp:
     """Build the HTTP app of the controller (see web_api.create_app), protected by ``store``
-    and by the session tokens of ``sessions`` (password and OIDC logins).
+    and by the session tokens of ``sessions`` (password and OIDC logins), with the security
+    headers on every answer (see SecurityHeadersMiddleware).
 
     ``require_auth`` (OIDC enabled) asks for a login even while no token nor user is stored.
     With ``settings`` and SECREVIEW_RATE_LIMIT_ENABLED, the requests of each address are
@@ -560,7 +598,8 @@ def build_controller_app(
             window=settings.rate_limit_window_seconds,
             auth_prefix=AUTH_PREFIX,
         )
-    return app
+    # Outermost: the refusals (401, 429) get the headers too
+    return SecurityHeadersMiddleware(app)
 
 
 def _log_exposure(

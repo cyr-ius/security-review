@@ -109,7 +109,11 @@
   `propose_finding_status`, qui enregistre une proposition (motif masqué et borné, auteur tiré du
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt
   ne peut pas neutraliser un finding. Pages servies avec une CSP
-  stricte et les en-têtes anti-clickjacking ; jeton gardé dans le `sessionStorage` de l'onglet.
+  stricte et les en-têtes anti-clickjacking, et chaque réponse du contrôleur (API, refus
+  compris) porte `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
+  `X-Frame-Options: DENY`, une CSP fermée quand la route n'en définit pas et, en HTTPS (TLS du
+  contrôleur, ou `X-Forwarded-Proto` d'un proxy listé dans `SECREVIEW_FORWARDED_ALLOW_IPS`),
+  `Strict-Transport-Security: max-age=31536000` ; jeton gardé dans le `sessionStorage` de l'onglet.
   La documentation Swagger et son schéma OpenAPI sont désactivés par défaut
   (`SECREVIEW_SWAGGER_ENABLED`) ; une fois activés, ils sont publics, servis depuis des fichiers
   locaux uniquement avec une CSP stricte, et les routes de données
