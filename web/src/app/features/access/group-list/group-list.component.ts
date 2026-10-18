@@ -9,12 +9,18 @@ import { UserGroup } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
-  RoleBindingDraft,
-  RoleBindingsComponent,
-  roleDraftsComplete,
-  toRoleBindings,
-  toRoleDrafts,
+    RoleBindingDraft,
+    RoleBindingsComponent,
+    roleDraftsComplete,
+    toRoleBindings,
+    toRoleDrafts,
 } from '../../../shared/components/role-bindings/role-bindings.component';
+import {
+    TableControlFilter,
+    TableControlFilterChange,
+    TableControlsComponent,
+} from '../../../shared/components/table-controls/table-controls.component';
+import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 import { describeAccessError } from '../access-errors';
 
 /** Name, description and OIDC switch of the group being created or edited. */
@@ -26,6 +32,8 @@ interface GroupFormModel {
 
 const EMPTY_GROUP: GroupFormModel = { name: '', description: '', sso: true };
 
+type GroupSortKey = 'name' | 'roles' | 'members' | 'created';
+
 /**
  * Administrator page for the groups of web users: their roles (each on every project or on some
  * projects) and their members. A group open to OIDC also gets, at each login, the OIDC users whose
@@ -33,7 +41,14 @@ const EMPTY_GROUP: GroupFormModel = { name: '', description: '', sso: true };
  */
 @Component({
   selector: 'app-group-list',
-  imports: [FormField, RouterLink, RefreshButtonComponent, RoleBindingsComponent, TranslatePipe],
+  imports: [
+    FormField,
+    RouterLink,
+    RefreshButtonComponent,
+    RoleBindingsComponent,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './group-list.component.html',
   styleUrl: '../access.css',
 })
@@ -45,6 +60,67 @@ export class GroupListComponent {
   readonly roles = rxResource({ stream: () => this.api.roles() });
   readonly users = rxResource({ stream: () => this.api.users() });
   readonly projects = rxResource({ stream: () => this.api.projects() });
+  readonly tableSearch = signal('');
+  readonly tableSort = signal<GroupSortKey>('name');
+  readonly tableDirection = signal<'asc' | 'desc'>('asc');
+  readonly groupTypeFilter = signal<'all' | 'oidc' | 'local'>('all');
+  readonly tableSortOptions = computed(() => [
+    { value: 'name', label: this.i18n.translate('access.name') },
+    { value: 'roles', label: this.i18n.translate('layout.roles') },
+    { value: 'members', label: this.i18n.translate('groups.members') },
+    { value: 'created', label: this.i18n.translate('common.createdAt') },
+  ]);
+  readonly tableFilters = computed<TableControlFilter[]>(() => [
+    {
+      key: 'type',
+      label: this.i18n.translate('groups.type'),
+      value: this.groupTypeFilter(),
+      options: [
+        { value: 'all', label: this.i18n.translate('common.all') },
+        { value: 'oidc', label: this.i18n.translate('groups.sso') },
+        { value: 'local', label: this.i18n.translate('groups.localOnly') },
+      ],
+    },
+  ]);
+  readonly visibleGroups = computed(() => {
+    const type = this.groupTypeFilter();
+    const groups = (this.catalog.value()?.groups ?? []).filter(
+      (group) => type === 'all' || group.sso === (type === 'oidc'),
+    );
+    const sort = this.tableSort();
+    return filterAndSortRows(
+      groups,
+      this.tableSearch(),
+      this.tableDirection(),
+      (group) =>
+        [
+          group.name,
+          group.description,
+          group.roles.map((role) => `${role.name} ${role.projects?.join(' ') ?? ''}`).join(' '),
+          group.members.map((member) => member.username).join(' '),
+        ].join(' '),
+      (left, right) => {
+        if (sort === 'roles') {
+          return compareTableText(this.describeRoles(left), this.describeRoles(right));
+        }
+        if (sort === 'members') {
+          const leftMembers = left.members
+            .map((member) => member.username)
+            .sort()
+            .join(', ');
+          const rightMembers = right.members
+            .map((member) => member.username)
+            .sort()
+            .join(', ');
+          return compareTableText(leftMembers, rightMembers);
+        }
+        if (sort === 'created') {
+          return left.created_at.localeCompare(right.created_at);
+        }
+        return compareTableText(left.name, right.name);
+      },
+    );
+  });
 
   readonly groupModel = signal<GroupFormModel>({ ...EMPTY_GROUP });
   readonly groupForm = form(this.groupModel, (path) => {
@@ -62,6 +138,20 @@ export class GroupListComponent {
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
+
+  onGroupTableSort(value: string): void {
+    if (value === 'name' || value === 'roles' || value === 'members' || value === 'created') {
+      this.tableSort.set(value);
+    }
+  }
+
+  onGroupTableFilter(change: TableControlFilterChange): void {
+    if (change.key === 'type') {
+      this.groupTypeFilter.set(
+        change.value === 'oidc' || change.value === 'local' ? change.value : 'all',
+      );
+    }
+  }
 
   /** Names of the known projects. */
   readonly knownProjects = computed(() =>

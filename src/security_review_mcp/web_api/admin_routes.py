@@ -2,7 +2,7 @@
 
 import logging
 from datetime import UTC, date, datetime, time
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.concurrency import run_in_threadpool
@@ -30,6 +30,9 @@ async def audit_events(
     action: Annotated[audit.AuditAction | None, Query()] = None,
     project: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
     actor: Annotated[str | None, Query(min_length=1, max_length=audit.MAX_ACTOR_CHARS)] = None,
+    search: Annotated[str | None, Query(max_length=200)] = None,
+    sort_by: Literal["created_at", "action", "actor", "target", "project"] = "created_at",
+    sort_direction: Literal["asc", "desc"] = "desc",
     since: date | None = None,
     limit: Annotated[int, Query(ge=1)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
@@ -48,6 +51,9 @@ async def audit_events(
         start,
         limit,
         offset,
+        search,
+        sort_by,
+        sort_direction,
     )
 
 

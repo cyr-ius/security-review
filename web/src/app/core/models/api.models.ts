@@ -259,6 +259,9 @@ export interface AuditPage {
 export interface AuditQuery {
   action?: AuditAction | null;
   project?: string | null;
+  search?: string | null;
+  sort_by?: 'created_at' | 'action' | 'actor' | 'target' | 'project';
+  sort_direction?: 'asc' | 'desc';
   limit: number;
   offset: number;
 }
@@ -561,6 +564,10 @@ export interface Trend {
 export interface ReportQuery {
   project?: string;
   risk_level?: Severity | '';
+  search?: string;
+  sort_by?:
+    'created_at' | 'project' | 'risk_level' | 'review_type' | 'branch' | 'author' | 'summary';
+  sort_direction?: 'asc' | 'desc';
   limit: number;
   offset: number;
 }

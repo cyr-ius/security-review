@@ -1,12 +1,18 @@
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { Component, DestroyRef, computed, effect, inject } from '@angular/core';
+import { Component, DestroyRef, computed, effect, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
-import { AdvisoryEcosystemResult, AdvisoryUpdate } from '../../../core/models/api.models';
 import { msg } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { AdvisoryEcosystemResult, AdvisoryUpdate } from '../../../core/models/api.models';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
+import {
+    TableControlFilter,
+    TableControlFilterChange,
+    TableControlsComponent,
+} from '../../../shared/components/table-controls/table-controls.component';
+import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 import { SettingsPage } from '../settings-page';
 
 /** Delay between two refreshes of the OSV history while an update runs. */
@@ -35,7 +41,7 @@ export const TRIGGER_LABELS: Record<AdvisoryUpdate['trigger'], MessageKey> = {
  */
 @Component({
   selector: 'app-advisory-settings',
-  imports: [DatePipe, DecimalPipe, RefreshButtonComponent, TranslatePipe],
+  imports: [DatePipe, DecimalPipe, RefreshButtonComponent, TableControlsComponent, TranslatePipe],
   templateUrl: './advisory-settings.component.html',
   styleUrl: '../settings.css',
 })
@@ -44,6 +50,86 @@ export class AdvisorySettingsComponent extends SettingsPage {
 
   readonly statusMeta = UPDATE_STATUS_META;
   readonly triggerLabels = TRIGGER_LABELS;
+  readonly historySearch = signal('');
+  readonly historySort = signal<'started' | 'trigger' | 'status' | 'duration'>('started');
+  readonly historyDirection = signal<'asc' | 'desc'>('desc');
+  readonly historyStatusFilter = signal<AdvisoryUpdate['status'] | ''>('');
+  readonly historyTriggerFilter = signal<AdvisoryUpdate['trigger'] | ''>('');
+  readonly historySortOptions = computed(() => [
+    { value: 'started', label: this.i18n.translate('settings.start') },
+    { value: 'trigger', label: this.i18n.translate('settings.trigger') },
+    { value: 'status', label: this.i18n.translate('settings.status') },
+    { value: 'duration', label: this.i18n.translate('settings.duration') },
+  ]);
+  readonly historyFilters = computed<TableControlFilter[]>(() => [
+    {
+      key: 'status',
+      label: this.i18n.translate('settings.status'),
+      value: this.historyStatusFilter(),
+      options: [
+        { value: '', label: this.i18n.translate('common.all') },
+        ...Object.entries(this.statusMeta).map(([value, meta]) => ({
+          value,
+          label: this.i18n.translate(meta.label),
+        })),
+      ],
+    },
+    {
+      key: 'trigger',
+      label: this.i18n.translate('settings.trigger'),
+      value: this.historyTriggerFilter(),
+      options: [
+        { value: '', label: this.i18n.translate('common.all') },
+        ...Object.entries(this.triggerLabels).map(([value, label]) => ({
+          value,
+          label: this.i18n.translate(label),
+        })),
+      ],
+    },
+  ]);
+  readonly visibleUpdates = computed(() => {
+    const status = this.historyStatusFilter();
+    const trigger = this.historyTriggerFilter();
+    const updates = (this.advisories.value()?.updates ?? []).filter(
+      (update) => (!status || update.status === status) && (!trigger || update.trigger === trigger),
+    );
+    const sort = this.historySort();
+    return filterAndSortRows(
+      updates,
+      this.historySearch(),
+      this.historyDirection(),
+      (update) =>
+        [
+          update.started_at,
+          update.triggered_by ?? '',
+          this.i18n.translate(this.statusMeta[update.status].label),
+          this.i18n.translate(this.triggerLabels[update.trigger]),
+          JSON.stringify(update.results),
+        ].join(' '),
+      (left, right) => {
+        if (sort === 'trigger') {
+          return compareTableText(
+            this.i18n.translate(this.triggerLabels[left.trigger]),
+            this.i18n.translate(this.triggerLabels[right.trigger]),
+          );
+        }
+        if (sort === 'status') {
+          return compareTableText(
+            this.i18n.translate(this.statusMeta[left.status].label),
+            this.i18n.translate(this.statusMeta[right.status].label),
+          );
+        }
+        if (sort === 'duration') {
+          const elapsed = (update: AdvisoryUpdate) =>
+            update.finished_at
+              ? Date.parse(update.finished_at) - Date.parse(update.started_at)
+              : -1;
+          return elapsed(left) - elapsed(right);
+        }
+        return left.started_at.localeCompare(right.started_at);
+      },
+    );
+  });
 
   readonly ecosystems = computed(() =>
     Object.entries(this.advisories.value()?.database.by_ecosystem ?? {}).sort(([a], [b]) =>
@@ -52,6 +138,24 @@ export class AdvisorySettingsComponent extends SettingsPage {
   );
 
   private pollTimer: ReturnType<typeof setTimeout> | undefined;
+
+  onHistorySort(value: string): void {
+    if (value === 'started' || value === 'trigger' || value === 'status' || value === 'duration') {
+      this.historySort.set(value);
+    }
+  }
+
+  onHistoryFilter(change: TableControlFilterChange): void {
+    if (change.key === 'status') {
+      this.historyStatusFilter.set(
+        change.value in this.statusMeta ? (change.value as AdvisoryUpdate['status']) : '',
+      );
+    } else if (change.key === 'trigger') {
+      this.historyTriggerFilter.set(
+        change.value in this.triggerLabels ? (change.value as AdvisoryUpdate['trigger']) : '',
+      );
+    }
+  }
 
   constructor() {
     super();

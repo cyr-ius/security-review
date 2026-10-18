@@ -147,73 +147,89 @@
       <span class="visually-hidden">{{ 'common.loading' | t }}</span>
     </div>
   } @else if ((catalog.value()?.groups ?? []).length) {
-    <div class="table-responsive">
-      <table class="table table-hover align-middle">
-        <thead>
-          <tr>
-            <th scope="col">{{ 'access.name' | t }}</th>
-            <th scope="col">{{ 'layout.roles' | t }}</th>
-            <th scope="col">{{ 'groups.members' | t }}</th>
-            <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (group of catalog.value()?.groups ?? []; track group.id) {
+    <app-table-controls
+      idPrefix="groups"
+      [search]="tableSearch()"
+      [sort]="tableSort()"
+      [direction]="tableDirection()"
+      [sortOptions]="tableSortOptions()"
+      [filters]="tableFilters()"
+      (searchChange)="tableSearch.set($event)"
+      (sortChange)="onGroupTableSort($event)"
+      (directionChange)="tableDirection.set($event)"
+      (filterChange)="onGroupTableFilter($event)"
+    />
+    @if (visibleGroups().length) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
             <tr>
-              <td class="access-name">
-                <span class="font-monospace">{{ group.name }}</span>
-                @if (group.sso) {
-                  <span
-                    class="badge text-bg-primary bg-opacity-75 ms-1"
-                    [title]="'groups.ssoHelp' | t"
-                  >
-                    OIDC
-                  </span>
-                } @else {
-                  <span class="badge text-bg-secondary ms-1">{{ 'groups.localOnly' | t }}</span>
-                }
-                @if (group.description) {
-                  <div class="small text-body-secondary">{{ group.description }}</div>
-                }
-              </td>
-              <td class="small">{{ describeRoles(group) }}</td>
-              <td class="small">
-                @for (member of group.members; track member.user_id + member.source) {
-                  <span class="badge text-bg-light border me-1">
-                    @if (member.source === 'oidc') {
-                      <i class="bi bi-shield-lock" aria-hidden="true"></i>
-                    }
-                    {{ member.username }}
-                  </span>
-                } @empty {
-                  —
-                }
-              </td>
-              <td class="text-end text-nowrap">
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-secondary me-1"
-                  [disabled]="busy()"
-                  [attr.aria-label]="'groups.editOf' | t: { group: group.name }"
-                  (click)="edit(group)"
-                >
-                  <i class="bi bi-pencil" aria-hidden="true"></i>
-                </button>
-                <button
-                  type="button"
-                  class="btn btn-sm btn-outline-danger"
-                  [disabled]="busy()"
-                  [attr.aria-label]="'groups.deleteOf' | t: { group: group.name }"
-                  (click)="remove(group)"
-                >
-                  <i class="bi bi-trash" aria-hidden="true"></i>
-                </button>
-              </td>
+              <th scope="col">{{ 'access.name' | t }}</th>
+              <th scope="col">{{ 'layout.roles' | t }}</th>
+              <th scope="col">{{ 'groups.members' | t }}</th>
+              <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
             </tr>
-          }
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            @for (group of visibleGroups(); track group.id) {
+              <tr>
+                <td class="access-name">
+                  <span class="font-monospace">{{ group.name }}</span>
+                  @if (group.sso) {
+                    <span
+                      class="badge text-bg-primary bg-opacity-75 ms-1"
+                      [title]="'groups.ssoHelp' | t"
+                    >
+                      OIDC
+                    </span>
+                  } @else {
+                    <span class="badge text-bg-secondary ms-1">{{ 'groups.localOnly' | t }}</span>
+                  }
+                  @if (group.description) {
+                    <div class="small text-body-secondary">{{ group.description }}</div>
+                  }
+                </td>
+                <td class="small">{{ describeRoles(group) }}</td>
+                <td class="small">
+                  @for (member of group.members; track member.user_id + member.source) {
+                    <span class="badge text-bg-light border me-1">
+                      @if (member.source === 'oidc') {
+                        <i class="bi bi-shield-lock" aria-hidden="true"></i>
+                      }
+                      {{ member.username }}
+                    </span>
+                  } @empty {
+                    —
+                  }
+                </td>
+                <td class="text-end text-nowrap">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-secondary me-1"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'groups.editOf' | t: { group: group.name }"
+                    (click)="edit(group)"
+                  >
+                    <i class="bi bi-pencil" aria-hidden="true"></i>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-outline-danger"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'groups.deleteOf' | t: { group: group.name }"
+                    (click)="remove(group)"
+                  >
+                    <i class="bi bi-trash" aria-hidden="true"></i>
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary">{{ 'common.noMatches' | t }}</p>
+    }
   } @else {
     <p class="text-body-secondary">{{ 'groups.empty' | t }}</p>
   }

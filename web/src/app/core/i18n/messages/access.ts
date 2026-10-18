@@ -23,6 +23,9 @@ export const access = defineMessages({
       'This role holds permissions on the whole controller: a group always gives it on every project.',
     'roles.loadError': 'Could not load the roles.',
     'roles.system': 'system',
+    'roles.custom': 'Custom',
+    'roles.all': 'All roles',
+    'roles.type': 'Role type',
     'roles.readOnly': 'Read only',
     'roles.editOf': 'Edit the role {role}',
     'roles.deleteOf': 'Delete the role {role}',
@@ -32,6 +35,7 @@ export const access = defineMessages({
       'Delete the role “{role}”? The {count} group(s) that have it lose it at once.',
     'roles.deleted': 'Role “{role}” deleted.',
     'groups.subtitle': 'Groups of web users, their roles and their members',
+    'groups.type': 'Group type',
     'groups.ssoInactive':
       'OIDC login is not active: only the members added here belong to the groups.',
     'groups.claimBefore':
@@ -100,6 +104,9 @@ export const access = defineMessages({
       'Ce rôle contient des permissions sur tout le contrôleur : un groupe le donne toujours sur tous les projets.',
     'roles.loadError': 'Impossible de charger les rôles.',
     'roles.system': 'système',
+    'roles.custom': 'Personnalisé',
+    'roles.all': 'Tous les rôles',
+    'roles.type': 'Type de rôle',
     'roles.readOnly': 'Lecture seule',
     'roles.editOf': 'Modifier le rôle {role}',
     'roles.deleteOf': 'Supprimer le rôle {role}',
@@ -109,6 +116,7 @@ export const access = defineMessages({
       "Supprimer le rôle « {role} » ? Les {count} groupe(s) qui l'ont le perdent aussitôt.",
     'roles.deleted': 'Rôle « {role} » supprimé.',
     'groups.subtitle': "Groupes d'utilisateurs web, leurs rôles et leurs membres",
+    'groups.type': 'Type de groupe',
     'groups.ssoInactive':
       "La connexion OIDC n'est pas active : seuls les membres ajoutés ici appartiennent aux groupes.",
     'groups.claimBefore':
@@ -180,6 +188,9 @@ export const access = defineMessages({
       'Este rol contiene permisos sobre todo el controlador: un grupo siempre lo asigna en todos los proyectos.',
     'roles.loadError': 'No se pudieron cargar los roles.',
     'roles.system': 'sistema',
+    'roles.custom': 'Personalizado',
+    'roles.all': 'Todos los roles',
+    'roles.type': 'Tipo de rol',
     'roles.readOnly': 'Solo lectura',
     'roles.editOf': 'Editar el rol {role}',
     'roles.deleteOf': 'Eliminar el rol {role}',
@@ -189,6 +200,7 @@ export const access = defineMessages({
       '¿Eliminar el rol «{role}»? Los {count} grupo(s) que lo tienen lo pierden de inmediato.',
     'roles.deleted': 'Rol «{role}» eliminado.',
     'groups.subtitle': 'Grupos de usuarios web, sus roles y sus miembros',
+    'groups.type': 'Tipo de grupo',
     'groups.ssoInactive':
       'El inicio de sesión OIDC no está activo: solo los miembros añadidos aquí pertenecen a los grupos.',
     'groups.claimBefore':

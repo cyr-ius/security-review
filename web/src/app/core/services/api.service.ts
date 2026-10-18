@@ -2,54 +2,54 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
-  About,
-  AccessRole,
-  AccessRoleWrite,
-  AdvisoryOverview,
-  AppSettings,
-  AuditPage,
-  AuditQuery,
-  AuthConfig,
-  AuthSource,
-  ChecklistCatalog,
-  ChecklistItemWrite,
-  ChecklistReloadResult,
-  CustomRuleCatalog,
-  CustomRuleWrite,
-  DevStandard,
-  DevStandardCatalog,
-  DevStandardWrite,
-  EnrollmentApproved,
-  EnrollmentRequest,
-  Finding,
-  FindingDecision,
-  GroupCatalog,
-  Identity,
-  LoginSession,
-  OidcSettings,
-  OidcSettingsUpdate,
-  OidcTestResult,
-  PermissionInfo,
-  ProjectFindingPage,
-  ProjectFindingQuery,
-  ProjectSummary,
-  ProjectToken,
-  ProjectTokenCreated,
-  ProjectTokenRole,
-  ProxyUpdate,
-  Report,
-  ReportQuery,
-  ReportSummary,
-  RevokedUser,
-  RulePackImportResult,
-  RulePackSection,
-  RuleReloadResult,
-  StandardPackImportResult,
-  Trend,
-  UserGroup,
-  UserGroupWrite,
-  WebUser,
-  WebUserWithPassword,
+    About,
+    AccessRole,
+    AccessRoleWrite,
+    AdvisoryOverview,
+    AppSettings,
+    AuditPage,
+    AuditQuery,
+    AuthConfig,
+    AuthSource,
+    ChecklistCatalog,
+    ChecklistItemWrite,
+    ChecklistReloadResult,
+    CustomRuleCatalog,
+    CustomRuleWrite,
+    DevStandard,
+    DevStandardCatalog,
+    DevStandardWrite,
+    EnrollmentApproved,
+    EnrollmentRequest,
+    Finding,
+    FindingDecision,
+    GroupCatalog,
+    Identity,
+    LoginSession,
+    OidcSettings,
+    OidcSettingsUpdate,
+    OidcTestResult,
+    PermissionInfo,
+    ProjectFindingPage,
+    ProjectFindingQuery,
+    ProjectSummary,
+    ProjectToken,
+    ProjectTokenCreated,
+    ProjectTokenRole,
+    ProxyUpdate,
+    Report,
+    ReportQuery,
+    ReportSummary,
+    RevokedUser,
+    RulePackImportResult,
+    RulePackSection,
+    RuleReloadResult,
+    StandardPackImportResult,
+    Trend,
+    UserGroup,
+    UserGroupWrite,
+    WebUser,
+    WebUserWithPassword,
 } from '../models/api.models';
 
 /** Base path of the REST API (served by the same origin as the application). */
@@ -285,6 +285,15 @@ export class ApiService {
     if (query.project) {
       params = params.set('project', query.project);
     }
+    if (query.search) {
+      params = params.set('search', query.search);
+    }
+    if (query.sort_by) {
+      params = params.set('sort_by', query.sort_by);
+    }
+    if (query.sort_direction) {
+      params = params.set('sort_direction', query.sort_direction);
+    }
     return this.http.get<AuditPage>(`${API_URL}/audit`, { params });
   }
 
@@ -318,6 +327,15 @@ export class ApiService {
     }
     if (query.risk_level) {
       params = params.set('risk_level', query.risk_level);
+    }
+    if (query.search) {
+      params = params.set('search', query.search);
+    }
+    if (query.sort_by) {
+      params = params.set('sort_by', query.sort_by);
+    }
+    if (query.sort_direction) {
+      params = params.set('sort_direction', query.sort_direction);
     }
     return this.http.get<ReportSummary[]>(`${API_URL}/reports`, { params });
   }

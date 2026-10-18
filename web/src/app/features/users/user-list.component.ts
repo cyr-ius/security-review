@@ -13,6 +13,12 @@ import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { PasswordPolicyComponent } from '../../shared/components/password-policy/password-policy.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
+import {
+    TableControlFilter,
+    TableControlFilterChange,
+    TableControlsComponent,
+} from '../../shared/components/table-controls/table-controls.component';
+import { compareTableText, filterAndSortRows } from '../../shared/utils/table-utils';
 
 /** Message keys of the roles of a web user. */
 const ROLE_LABELS: Record<WebUserRole, MessageKey> = {
@@ -31,6 +37,9 @@ interface UserFormModel {
 
 const EMPTY_USER: UserFormModel = { source: 'local', username: '', password: '' };
 
+type UserSortKey = 'username' | 'created' | 'lastLogin' | 'access';
+type RevokedSortKey = 'username' | 'revoked_at' | 'revoked_by';
+
 /**
  * Administrator page for the web users, the only accounts of the web interface: local users
  * (username and password) and OIDC users (OpenID Connect, created here or at their first login),
@@ -39,7 +48,14 @@ const EMPTY_USER: UserFormModel = { source: 'local', username: '', password: '' 
  */
 @Component({
   selector: 'app-user-list',
-  imports: [DatePipe, FormField, PasswordPolicyComponent, RefreshButtonComponent, TranslatePipe],
+  imports: [
+    DatePipe,
+    FormField,
+    PasswordPolicyComponent,
+    RefreshButtonComponent,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './user-list.component.html',
   styleUrl: './user-list.component.css',
 })
@@ -55,6 +71,100 @@ export class UserListComponent {
   readonly groups = rxResource({ stream: () => this.api.groups() });
   /** Login methods of the controller: tells whether OIDC users can log in. */
   readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
+  readonly tableSearch = signal('');
+  readonly tableSort = signal<UserSortKey>('username');
+  readonly tableDirection = signal<'asc' | 'desc'>('asc');
+  readonly sourceFilter = signal<AuthSource | ''>('');
+  readonly tableSortOptions = computed(() => [
+    { value: 'username', label: this.i18n.translate('login.username') },
+    { value: 'created', label: this.i18n.translate('common.createdAt') },
+    { value: 'lastLogin', label: this.i18n.translate('users.lastLogin') },
+    { value: 'access', label: this.i18n.translate('users.access') },
+  ]);
+  readonly tableFilters = computed<TableControlFilter[]>(() => [
+    {
+      key: 'source',
+      label: this.i18n.translate('users.type'),
+      value: this.sourceFilter(),
+      options: [
+        { value: '', label: this.i18n.translate('common.all') },
+        { value: 'local', label: this.i18n.translate('users.localPassword') },
+        { value: 'oidc', label: 'OIDC' },
+      ],
+    },
+  ]);
+  readonly visibleUsers = computed(() => {
+    const source = this.sourceFilter();
+    const users = (this.users.value() ?? []).filter(
+      (user) => !source || user.auth_source === source,
+    );
+    const sort = this.tableSort();
+    return filterAndSortRows(
+      users,
+      this.tableSearch(),
+      this.tableDirection(),
+      (user) =>
+        [user.username, user.groups.map((group) => group.name).join(' '), this.describe(user)].join(
+          ' ',
+        ),
+      (left, right) => {
+        if (sort === 'created') {
+          return left.created_at.localeCompare(right.created_at);
+        }
+        if (sort === 'lastLogin') {
+          return (left.last_login_at ?? '').localeCompare(right.last_login_at ?? '');
+        }
+        if (sort === 'access') {
+          return compareTableText(this.describe(left), this.describe(right));
+        }
+        return compareTableText(left.username, right.username);
+      },
+    );
+  });
+  readonly revokedSearch = signal('');
+  readonly revokedSort = signal<RevokedSortKey>('revoked_at');
+  readonly revokedDirection = signal<'asc' | 'desc'>('desc');
+  readonly revokedByFilter = signal('');
+  readonly revokedSortOptions = computed(() => [
+    { value: 'username', label: this.i18n.translate('login.username') },
+    { value: 'revoked_at', label: this.i18n.translate('users.revokedAt') },
+    { value: 'revoked_by', label: this.i18n.translate('users.revokedBy') },
+  ]);
+  readonly revokedFilters = computed<TableControlFilter[]>(() => [
+    {
+      key: 'revoked_by',
+      label: this.i18n.translate('users.revokedBy'),
+      value: this.revokedByFilter(),
+      options: [
+        { value: '', label: this.i18n.translate('common.all') },
+        ...[
+          ...new Set((this.revoked.value() ?? []).map((user) => user.revoked_by).filter(Boolean)),
+        ].map((username) => ({ value: username as string, label: username as string })),
+      ],
+    },
+  ]);
+  readonly visibleRevoked = computed(() => {
+    const revokedBy = this.revokedByFilter();
+    const users = (this.revoked.value() ?? []).filter(
+      (user) => !revokedBy || user.revoked_by === revokedBy,
+    );
+    const sort = this.revokedSort();
+    return filterAndSortRows(
+      users,
+      this.revokedSearch(),
+      this.revokedDirection(),
+      (user) => [user.username, user.revoked_by ?? ''].join(' '),
+      (left, right) => {
+        if (sort === 'revoked_at') {
+          return left.revoked_at.localeCompare(right.revoked_at);
+        }
+        if (sort === 'revoked_by') {
+          return compareTableText(left.revoked_by ?? '', right.revoked_by ?? '');
+        }
+        return compareTableText(left.username, right.username);
+      },
+    );
+  });
 
   /** User whose groups are being edited (null: creation form). */
   readonly editing = signal<WebUser | null>(null);
@@ -80,6 +190,37 @@ export class UserListComponent {
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
+
+  onUserTableSort(value: string): void {
+    if (
+      value === 'username' ||
+      value === 'created' ||
+      value === 'lastLogin' ||
+      value === 'access'
+    ) {
+      this.tableSort.set(value);
+    }
+  }
+
+  onUserTableFilter(change: TableControlFilterChange): void {
+    if (change.key === 'source') {
+      this.sourceFilter.set(
+        change.value === 'local' || change.value === 'oidc' ? change.value : '',
+      );
+    }
+  }
+
+  onRevokedSort(value: string): void {
+    if (value === 'username' || value === 'revoked_at' || value === 'revoked_by') {
+      this.revokedSort.set(value);
+    }
+  }
+
+  onRevokedFilter(change: TableControlFilterChange): void {
+    if (change.key === 'revoked_by') {
+      this.revokedByFilter.set(change.value);
+    }
+  }
 
   /** Source of the user of the form (the edited one, or the one being created). */
   readonly formSource = computed(() => this.editing()?.auth_source ?? this.userModel().source);

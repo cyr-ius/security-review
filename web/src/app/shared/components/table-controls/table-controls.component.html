@@ -1,0 +1,73 @@
+<div
+  class="row g-2 align-items-end mb-3"
+  role="group"
+  [attr.aria-label]="'common.tableControls' | t"
+>
+  <div class="col-12 col-md-4">
+    <label class="form-label small" [for]="idPrefix() + '-search'">{{ 'common.search' | t }}</label>
+    <div class="input-group input-group-sm">
+      <span class="input-group-text"><i class="bi bi-search" aria-hidden="true"></i></span>
+      <input
+        [id]="idPrefix() + '-search'"
+        type="search"
+        class="form-control"
+        maxlength="200"
+        [placeholder]="'common.search' | t"
+        [value]="search()"
+        [attr.aria-label]="'common.search' | t"
+        (input)="onSearch($event)"
+      />
+    </div>
+  </div>
+
+  @if (sortOptions().length) {
+    <div class="col-8 col-md-3">
+      <label class="form-label small" [for]="idPrefix() + '-sort'">{{ 'common.sortBy' | t }}</label>
+      <select
+        [id]="idPrefix() + '-sort'"
+        class="form-select form-select-sm"
+        [value]="sort()"
+        (change)="onSort($event)"
+      >
+        @for (option of sortOptions(); track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+    <div class="col-4 col-md-auto">
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        [attr.aria-label]="
+          (direction() === 'asc' ? 'common.sortDescending' : 'common.sortAscending') | t
+        "
+        [title]="(direction() === 'asc' ? 'common.sortDescending' : 'common.sortAscending') | t"
+        (click)="toggleDirection()"
+      >
+        <i
+          class="bi"
+          [class]="direction() === 'asc' ? 'bi-sort-down' : 'bi-sort-up'"
+          aria-hidden="true"
+        ></i>
+      </button>
+    </div>
+  }
+
+  @for (filter of filters(); track filter.key) {
+    <div class="col-6 col-md-2">
+      <label class="form-label small" [for]="idPrefix() + '-filter-' + filter.key">
+        {{ filter.label }}
+      </label>
+      <select
+        [id]="idPrefix() + '-filter-' + filter.key"
+        class="form-select form-select-sm"
+        [value]="filter.value"
+        (change)="onFilter(filter.key, $event)"
+      >
+        @for (option of filter.options; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </div>
+  }
+</div>

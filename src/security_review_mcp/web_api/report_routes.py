@@ -3,7 +3,7 @@
 import json
 import logging
 from datetime import UTC, datetime, time
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.concurrency import run_in_threadpool
@@ -151,6 +151,11 @@ async def reports(
     risk_level: Severity | None = None,
     review_type: ReviewType | None = None,
     author: Annotated[str | None, Query(max_length=MAX_AUTHOR_CHARS)] = None,
+    search: Annotated[str | None, Query(max_length=200)] = None,
+    sort_by: Literal[
+        "created_at", "project", "risk_level", "review_type", "branch", "author", "summary"
+    ] = "created_at",
+    sort_direction: Literal["asc", "desc"] = "desc",
     limit: Annotated[int, Query(ge=1)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[ReportSummary]:
@@ -166,6 +171,9 @@ async def reports(
         identity.projects,
         review_type,
         author or None,
+        search,
+        sort_by,
+        sort_direction,
     )
 
 

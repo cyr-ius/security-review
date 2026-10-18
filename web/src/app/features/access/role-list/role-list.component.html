@@ -98,73 +98,89 @@
       <span class="visually-hidden">{{ 'common.loading' | t }}</span>
     </div>
   } @else {
-    <div class="table-responsive">
-      <table class="table table-hover align-middle">
-        <thead>
-          <tr>
-            <th scope="col">{{ 'access.name' | t }}</th>
-            <th scope="col">{{ 'roles.permissions' | t }}</th>
-            <th scope="col">{{ 'layout.groups' | t }}</th>
-            <th scope="col">{{ 'rules.origin' | t }}</th>
-            <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for (role of roles.value() ?? []; track role.id) {
+    <app-table-controls
+      idPrefix="roles"
+      [search]="tableSearch()"
+      [sort]="tableSort()"
+      [direction]="tableDirection()"
+      [sortOptions]="tableSortOptions()"
+      [filters]="tableFilters()"
+      (searchChange)="tableSearch.set($event)"
+      (sortChange)="onRoleTableSort($event)"
+      (directionChange)="tableDirection.set($event)"
+      (filterChange)="onRoleTableFilter($event)"
+    />
+    @if (visibleRoles().length) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle">
+          <thead>
             <tr>
-              <td class="access-name">
-                <strong>{{ role.name }}</strong>
-                @if (role.system) {
-                  <span class="badge text-bg-secondary ms-1">{{ 'roles.system' | t }}</span>
-                }
-                @if (role.description) {
-                  <div class="small text-body-secondary">{{ role.description }}</div>
-                }
-              </td>
-              <td>
-                <div class="permission-badges">
-                  @for (permission of role.permissions; track permission) {
-                    <span class="badge text-bg-light border" [title]="permission">
-                      {{ permissionMeta[permission].label | t }}
-                    </span>
-                  }
-                </div>
-              </td>
-              <td>{{ role.groups }}</td>
-              <td class="small">
-                {{ role.created_by ?? '—' }}
-                <span class="text-body-secondary">
-                  · {{ role.created_at | date: 'dd/MM/yyyy' }}
-                </span>
-              </td>
-              <td class="text-end text-nowrap">
-                @if (!role.system) {
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary me-1"
-                    [disabled]="busy()"
-                    [attr.aria-label]="'roles.editOf' | t: { role: role.name }"
-                    (click)="edit(role)"
-                  >
-                    <i class="bi bi-pencil" aria-hidden="true"></i>
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-danger"
-                    [disabled]="busy()"
-                    [attr.aria-label]="'roles.deleteOf' | t: { role: role.name }"
-                    (click)="remove(role)"
-                  >
-                    <i class="bi bi-trash" aria-hidden="true"></i>
-                  </button>
-                } @else {
-                  <span class="text-body-secondary small">{{ 'roles.readOnly' | t }}</span>
-                }
-              </td>
+              <th scope="col">{{ 'access.name' | t }}</th>
+              <th scope="col">{{ 'roles.permissions' | t }}</th>
+              <th scope="col">{{ 'layout.groups' | t }}</th>
+              <th scope="col">{{ 'rules.origin' | t }}</th>
+              <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
             </tr>
-          }
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            @for (role of visibleRoles(); track role.id) {
+              <tr>
+                <td class="access-name">
+                  <strong>{{ role.name }}</strong>
+                  @if (role.system) {
+                    <span class="badge text-bg-secondary ms-1">{{ 'roles.system' | t }}</span>
+                  }
+                  @if (role.description) {
+                    <div class="small text-body-secondary">{{ role.description }}</div>
+                  }
+                </td>
+                <td>
+                  <div class="permission-badges">
+                    @for (permission of role.permissions; track permission) {
+                      <span class="badge text-bg-light border" [title]="permission">
+                        {{ permissionMeta[permission].label | t }}
+                      </span>
+                    }
+                  </div>
+                </td>
+                <td>{{ role.groups }}</td>
+                <td class="small">
+                  {{ role.created_by ?? '—' }}
+                  <span class="text-body-secondary">
+                    · {{ role.created_at | date: 'dd/MM/yyyy' }}
+                  </span>
+                </td>
+                <td class="text-end text-nowrap">
+                  @if (!role.system) {
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary me-1"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'roles.editOf' | t: { role: role.name }"
+                      (click)="edit(role)"
+                    >
+                      <i class="bi bi-pencil" aria-hidden="true"></i>
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'roles.deleteOf' | t: { role: role.name }"
+                      (click)="remove(role)"
+                    >
+                      <i class="bi bi-trash" aria-hidden="true"></i>
+                    </button>
+                  } @else {
+                    <span class="text-body-secondary small">{{ 'roles.readOnly' | t }}</span>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="text-body-secondary">{{ 'common.noMatches' | t }}</p>
+    }
   }
 </section>

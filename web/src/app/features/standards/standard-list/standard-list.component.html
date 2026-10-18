@@ -39,20 +39,23 @@
     <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 } @else if (catalog.hasValue()) {
+  <app-table-controls
+    idPrefix="standards"
+    [search]="query()"
+    [sort]="sort()"
+    [direction]="direction()"
+    [sortOptions]="sortOptions()"
+    [filters]="filters()"
+    (searchChange)="setQuery($event)"
+    (sortChange)="onTableSort($event)"
+    (directionChange)="direction.set($event)"
+    (filterChange)="onTableFilter($event)"
+  />
   <div class="card">
     <div class="card-header d-flex flex-wrap gap-2 align-items-center">
       <span class="fw-semibold">{{
         'standards.count' | t: { count: visibleStandards().length }
       }}</span>
-      <label class="visually-hidden" for="standard-search">{{ 'standards.search' | t }}</label>
-      <input
-        id="standard-search"
-        type="search"
-        class="form-control form-control-sm w-auto ms-auto"
-        [placeholder]="'standards.searchPlaceholder' | t"
-        [value]="query()"
-        (input)="onQuery($event)"
-      />
     </div>
     @if (visibleStandards().length > 0) {
       <div class="table-responsive">
@@ -129,6 +132,8 @@
           </tbody>
         </table>
       </div>
+    } @else if (catalog.value().standards.length) {
+      <p class="text-body-secondary text-center my-4">{{ 'common.noMatches' | t }}</p>
     } @else {
       <p class="text-body-secondary text-center my-4">{{ 'standards.empty' | t }}</p>
     }

@@ -14,9 +14,9 @@ import json
 import logging
 from datetime import datetime, timedelta
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
-from sqlalchemy import delete
+from sqlalchemy import delete, or_
 from sqlmodel import Session, col, func, select
 
 from .config import MAX_RETENTION_DAYS, get_settings
@@ -139,6 +139,9 @@ def list_events(
     since: datetime | None = None,
     limit: int = 50,
     offset: int = 0,
+    search: str | None = None,
+    sort_by: Literal["created_at", "action", "actor", "target", "project"] = "created_at",
+    sort_direction: Literal["asc", "desc"] = "desc",
 ) -> dict[str, Any]:
     """Return audit events, newest first, and the number of matching events.
 
@@ -162,12 +165,36 @@ def list_events(
         conditions.append(AuditEvent.actor == actor)
     if since is not None:
         conditions.append(col(AuditEvent.created_at) >= as_utc(since))
+    if search:
+        escaped = search[:200].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{escaped}%"
+        conditions.append(
+            or_(
+                col(AuditEvent.action).ilike(pattern, escape="\\"),
+                col(AuditEvent.actor).ilike(pattern, escape="\\"),
+                col(AuditEvent.target_type).ilike(pattern, escape="\\"),
+                col(AuditEvent.target_id).ilike(pattern, escape="\\"),
+                col(AuditEvent.project).ilike(pattern, escape="\\"),
+                col(AuditEvent.details).ilike(pattern, escape="\\"),
+            )
+        )
+    sort_columns = {
+        "created_at": (col(AuditEvent.created_at),),
+        "action": (col(AuditEvent.action),),
+        "actor": (col(AuditEvent.actor),),
+        "target": (col(AuditEvent.target_type), col(AuditEvent.target_id)),
+        "project": (col(AuditEvent.project),),
+    }
+    sort_column = sort_columns[sort_by]
+    primary_order = tuple(
+        column.asc() if sort_direction == "asc" else column.desc() for column in sort_column
+    )
     with session_scope() as session:
         total = session.exec(select(func.count()).select_from(AuditEvent).where(*conditions)).one()
         rows = session.exec(
             select(AuditEvent)
             .where(*conditions)
-            .order_by(col(AuditEvent.created_at).desc(), col(AuditEvent.id).desc())
+            .order_by(*primary_order, col(AuditEvent.id).desc())
             .offset(offset)
             .limit(limit)
         ).all()

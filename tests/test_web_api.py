@@ -285,6 +285,28 @@ def test_reports_list_and_detail(client, reports):
     assert "# Security report" in markdown.text
 
 
+def test_report_list_search_sort_and_bounds(client):
+    services.save_report("z-project", "Needle report", [])
+    services.save_report("a-project", "Needle report", [])
+    services.save_report("ignored", "Different summary", [])
+
+    params = {
+        "search": "Needle",
+        "sort_by": "project",
+        "sort_direction": "asc",
+        "limit": 1,
+    }
+    first = client.get("/api/v1/reports", params=params)
+    assert first.status_code == 200
+    assert [report["project"] for report in first.json()] == ["a-project"]
+    params["offset"] = 1
+    second = client.get("/api/v1/reports", params=params)
+    assert [report["project"] for report in second.json()] == ["z-project"]
+    assert client.get("/api/v1/reports", params={"search": "missing"}).json() == []
+    assert client.get("/api/v1/reports", params={"search": "x" * 201}).status_code == 422
+    assert client.get("/api/v1/reports", params={"sort_by": "unknown"}).status_code == 422
+
+
 def test_unknown_report_is_404(client):
     response = client.get("/api/v1/reports/999")
     assert response.status_code == 404
@@ -2609,6 +2631,48 @@ def test_audit_route_filters_and_permissions(secured, reports):
     assert secured.get(url, params=params, headers=auth("admin")).status_code == 422
     for role in ("reader", "triager", "metrics"):
         assert secured.get(url, headers=auth(role)).status_code == 403
+
+
+def test_audit_route_search_sort_and_bounds(secured):
+    with session_scope() as session:
+        audit.record(
+            session,
+            audit.AuditAction.TOKEN_CREATED,
+            "user:zeta",
+            "token",
+            "z-token",
+            "shop-api",
+            {"label": "needle z"},
+        )
+        audit.record(
+            session,
+            audit.AuditAction.TOKEN_CREATED,
+            "user:alpha",
+            "token",
+            "a-token",
+            "shop-api",
+            {"label": "needle a"},
+        )
+
+    params = {
+        "search": "needle",
+        "project": "shop-api",
+        "sort_by": "actor",
+        "sort_direction": "asc",
+        "limit": 1,
+    }
+    first = secured.get("/api/v1/audit", params=params, headers=auth("admin")).json()
+    assert first["total"] == 2
+    assert [event["actor"] for event in first["events"]] == ["user:alpha"]
+    params["offset"] = 1
+    second = secured.get("/api/v1/audit", params=params, headers=auth("admin")).json()
+    assert [event["actor"] for event in second["events"]] == ["user:zeta"]
+    too_long = secured.get("/api/v1/audit", params={"search": "x" * 201}, headers=auth("admin"))
+    assert too_long.status_code == 422
+    invalid_sort = secured.get(
+        "/api/v1/audit", params={"sort_by": "unknown"}, headers=auth("admin")
+    )
+    assert invalid_sort.status_code == 422
 
 
 def test_metrics_need_a_metrics_or_admin_token(secured, reports):

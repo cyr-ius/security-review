@@ -43,8 +43,8 @@ application loads, it checks `/api/health` first: if the controller does not ans
 answering later), the **Backend unavailable** page opens, and its **Retry** button goes back to
 the requested page once the controller answers again.
 
-- **Projects**: every project with its open findings by severity, sorted by risk,
-  activity or name. The **Review open findings** button opens the findings to review of every
+- **Projects**: every project with its open findings by severity. Search by project name, sort
+  by risk, activity or name, and filter by worst open severity. The **Review open findings** button opens the findings to review of every
   project you can see (**Findings to review: all projects**), each with a link to its project.
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
@@ -59,22 +59,24 @@ the requested page once the controller answers again.
   screen and apply or reject the statuses proposed by the agents (see
   [triage of findings](#triage-of-findings)); a triaged finding stays displayed until the next
   reload.
-- **Reports**: list filtered by project and risk level (the filters are in the URL,
-  so a link can be shared), with the **Type** and the **Author** of each review.
+- **Reports**: list filtered by project and risk level, searchable across report metadata and
+  summary, and sortable by date, project, risk, type, branch, author or summary. Search, sort
+  and filters stay in the URL, so a view can be shared.
 - **Report**: summary, context (repository, branch, commit, review type, **Author** and
   **Sent by (token)**, see [author of a report](prompts-tools.md#author-of-a-report)), findings with
   location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
   `findings.triage` permission change the status of a finding directly from this screen.
 - **Standards**: the [development standards](../advanced/standards.md) handed to the AI
-  assistants by the `development-standards` prompt. Administrators search, read, create, edit
+  assistants by the `development-standards` prompt. Search and sort by title, identifier,
+  technology or file pattern, and filter by enabled state. Administrators read, create, edit
   (technologies, file patterns, Markdown content), disable or delete them. A change applies
   immediately. **Export** and **Import** copy them as a [TOML file](../advanced/standards.md#import-and-export).
-- **Checklists**: administrators browse the check items by domain, filter the list and create,
+- **Checklists**: administrators search and sort check items, and filter by domain and origin; they create,
   edit or delete the custom items. The default items can be edited, but not deleted. Every
   change is reloaded immediately by the server and included in the review prompts.
   **Export** and **Import** exchange [TOML packs](../advanced/rules.md#import-and-export-in-the-web-interface).
-- **Rules**: administrators browse every [rule](../advanced/rules.md) stored in the database,
-  filtered by origin (default or custom). They create, edit (in a modal window, without losing
+- **Rules**: administrators search and sort every [rule](../advanced/rules.md) stored in the database,
+  and filter by origin (default or custom) and severity. They create, edit (in a modal window, without losing
   the position in the list), enable or disable the rules, and delete the custom rules. A default
   rule can be edited ("Par défaut, modifiée" badge: default, edited) or disabled, but not
   deleted. The **Reload** button applies immediately a change made with the
@@ -83,21 +85,26 @@ the requested page once the controller answers again.
 - **Users**: administrators manage the [accounts](#user-accounts), the only
   ones to open the interface. Each account is **Local** (user name and password, entered or
   generated and shown only once) or **OIDC** (login through the identity provider, no password),
-  with a badge in the list. The administrator chooses its **Groups**, the only source of its
+  with a badge in the list. The account list is searchable, sortable and filterable by type.
+  Deleted OIDC accounts can be searched, sorted and filtered by the revoking administrator. The administrator chooses its **Groups**, the only source of its
   permissions; the **Groups** column shows the groups, with a shield for the OIDC groups found at
   the last login, and **Access** sums up what they give. The administrator changes the groups of
   an account, resets the password of a local account or deletes an account. A deleted OIDC account is no longer created again at its login:
   the **Deleted OIDC accounts** section lists them, with the **Allow again** button. The last
   holder of `users.manage` can be neither deleted nor lose it.
-- **Groups**: administrators create the groups, give them roles (on every project or on some
-  projects), add members and choose whether the group is **Open to OIDC** (see
+- **Groups**: administrators search and sort groups, and filter local groups from groups open to
+  OIDC. They create the groups, give them roles (on every project or on some projects), add
+  members and choose whether the group is **Open to OIDC** (see
   [Roles, groups and permissions](../advanced/access-control.md#groups)).
-- **Roles**: administrators create roles from the permissions; the system roles `reader`,
+- **Roles**: administrators search and sort roles, and filter system from custom roles. They
+  create roles from the permissions; the system roles `reader`,
   `triager` and `admin` are shown read only.
 - **My account**: shows the type of the account. A local user changes their
   password there (their other sessions are closed); the one of an OIDC user is managed by the
   identity provider.
-- **Tokens**: administrators create and revoke tokens for one or more projects, or for
+- **Tokens**: pending enrollment requests are searchable, sortable and filterable by request
+  type; active tokens are searchable, sortable and filterable by usage. Administrators create
+  and revoke tokens for one or more projects, or for
   **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role), **REST API** or **CI/CD pipeline**
   (`ci` role, for [`security-review-ci`](gate.md#pipeline-client-security-review-ci));
   for the REST API, **API rights** chooses **Read only** (`reader`) or **Read and triage**
@@ -126,7 +133,8 @@ the requested page once the controller answers again.
   [project read access at enrollment](../advanced/sso.md#project-read-access-at-enrollment)).
 - **Audit log**: administrators read the [audit log](../advanced/audit-metrics.md#audit-log): triage
   decisions, agent proposals, tokens and enrollment requests, newest first, with who made
-  them; filters by event and by project, **Load more** for the older events.
+  them; filter by event and project, search event details, sort by date/action/actor/target/project,
+  and use **Load more** for older events.
 - **OIDC**: administrators
   [configure the OIDC login](../advanced/sso.md#configuring-oidc-in-the-interface) (every stored value replaces its
   `SECREVIEW_OIDC_*` variable, with a connection test to the provider). What OIDC users may do
@@ -154,7 +162,7 @@ permission; the former `/ui/settings` address opens **Report language**).
 - **OSV database**: state of the OSV vulnerability database: number of advisories by
   ecosystem, date and age of the last import, download configuration, history of the last
   50 updates (scheduled, CLI or web interface, with status, duration and result by
-  ecosystem) and **Update now** button, only available if
+  ecosystem), searchable and sortable with status/trigger filters, and **Update now** button, only available if
   `SECREVIEW_OSV_AUTO_UPDATE=true`
   ([update by the controller](../advanced/dependencies.md#automatic-update-by-the-controller)).
 

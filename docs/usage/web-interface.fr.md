@@ -43,8 +43,9 @@ chargement, l'application interroge d'abord `/api/health` : si le contrôleur ne
 cesse de répondre ensuite), la page **Backend indisponible** s'ouvre, et son bouton **Réessayer**
 revient à la page demandée dès que le contrôleur répond de nouveau.
 
-- **Projets** : tous les projets avec leurs findings ouverts par sévérité, triés par risque,
-  activité ou nom. Le bouton **Revoir les findings ouverts** ouvre les findings à revoir de tous
+- **Projets** : tous les projets avec leurs findings ouverts par sévérité. Rechercher par nom,
+  trier par risque, activité ou nom, et filtrer par sévérité maximale. Le bouton
+  **Revoir les findings ouverts** ouvre les findings à revoir de tous
   les projets que vous pouvez voir (**Findings à revoir : tous les projets**), chacun avec un
   lien vers son projet.
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
@@ -61,25 +62,27 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   finding depuis cet écran et appliquent ou rejettent les statuts proposés par les agents (voir
   [triage des findings](#triage-des-findings)) ; un finding trié reste affiché jusqu'au
   rechargement.
-- **Rapports** : liste filtrable par projet et niveau de risque (les filtres sont dans l'URL, on
-  peut donc partager un lien), avec le **Type** et l'**Auteur** de chaque revue.
+- **Rapports** : liste filtrable par projet et niveau de risque, avec recherche dans les
+  métadonnées et le résumé, tri par date, projet, risque, type, branche, auteur ou résumé. La
+  recherche, le tri et les filtres restent dans l'URL, pour partager la vue.
 - **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** et
   **Envoyé par (jeton)**, voir [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)), findings avec
   emplacement, CWE, extrait de code et recommandation ; téléchargement Markdown et SARIF. Les
   utilisateurs qui ont la permission `findings.triage` changent le statut d'un finding directement
   depuis cet écran.
 - **Normes** : les [normes de développement](../advanced/standards.md) transmises aux assistants IA par le
-  prompt `development-standards`. Les administrateurs les recherchent, les lisent, les créent,
+  prompt `development-standards`. Rechercher et trier par titre, identifiant, technologie ou motif
+  de fichier, filtrer par état activé. Les administrateurs les lisent, les créent,
   les modifient (technologies, motifs de fichiers, contenu Markdown), les désactivent ou les
   suppriment. Un changement s'applique immédiatement. **Exporter** et **Importer** les copient
   sous forme de [fichier TOML](../advanced/standards.md#import-et-export).
-- **Checklists** : les administrateurs consultent les items de contrôle par domaine, filtrent la
-  liste et créent, modifient ou suppriment les items personnalisés. Les items par défaut peuvent
+- **Checklists** : les administrateurs recherchent et trient les items de contrôle, filtrent par
+  domaine et origine, et créent, modifient ou suppriment les items personnalisés. Les items par défaut peuvent
   être modifiés, mais pas supprimés. Toute modification est rechargée immédiatement par le serveur
   et intégrée aux prompts de revue. **Exporter** et **Importer** échangent des
   [packs TOML](../advanced/rules.md#import-et-export-dans-linterface-web).
-- **Règles** : les administrateurs consultent toutes les [règles](../advanced/rules.md) stockées en base,
-  filtrables par origine (par défaut ou personnalisée). Ils créent, modifient (dans une fenêtre
+- **Règles** : les administrateurs recherchent et trient toutes les [règles](../advanced/rules.md) stockées en base,
+  filtrables par origine (par défaut ou personnalisée) et sévérité. Ils créent, modifient (dans une fenêtre
   modale, sans quitter la position dans la liste), activent ou désactivent les règles, et
   suppriment les règles personnalisées. Une règle par défaut peut être
   modifiée (badge « Par défaut, modifiée ») ou désactivée, mais pas supprimée. Le bouton
@@ -89,22 +92,27 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
 - **Utilisateurs** : les administrateurs gèrent les [comptes](#comptes-utilisateurs), seuls
   à ouvrir l'interface. Chaque compte est **Local** (identifiant et mot de passe, saisi ou généré
   et affiché une seule fois) ou **OIDC** (connexion par le fournisseur d'identité, sans mot de
-  passe), avec un badge dans la liste. L'administrateur choisit ses **Groupes**, seule source de
+  passe), avec un badge dans la liste. La liste est recherchable, triable et filtrable par type.
+  Les comptes OIDC supprimés sont recherchables, triables et filtrables par administrateur de
+  révocation. L'administrateur choisit ses **Groupes**, seule source de
   ses permissions ; la colonne **Groupes** montre les groupes, avec un bouclier pour les groupes
   OIDC trouvés à la dernière connexion, et **Accès** résume ce qu'ils donnent. L'administrateur
   change les groupes d'un compte, réinitialise le mot de passe d'un compte local ou supprime un compte. Un compte OIDC supprimé
   n'est plus recréé à sa connexion : la section **Comptes OIDC supprimés** les liste, avec le
   bouton **Autoriser à nouveau**. Le dernier détenteur de `users.manage` ne peut être ni supprimé
   ni la perdre.
-- **Groupes** : les administrateurs créent les groupes, leur donnent des rôles (sur tous les
+- **Groupes** : les administrateurs recherchent et trient les groupes, et filtrent les groupes
+  locaux de ceux ouverts au OIDC. Ils créent les groupes, leur donnent des rôles (sur tous les
   projets ou sur certains), ajoutent des membres et choisissent si le groupe est **Ouvert au OIDC**
   (voir [Rôles, groupes et permissions](../advanced/access-control.md#groupes)).
-- **Rôles** : les administrateurs créent des rôles à partir des permissions ; les rôles système
+- **Rôles** : les administrateurs recherchent et trient les rôles, et filtrent les rôles système
+  des rôles personnalisés. Ils créent des rôles à partir des permissions ; les rôles système
   `reader`, `triager` et `admin` sont affichés en lecture seule.
 - **Mon compte** : affiche le type du compte. Un utilisateur local y change son mot de passe (ses
   autres sessions sont fermées) ; celui d'un utilisateur OIDC est géré par le fournisseur
   d'identité.
-- **Jetons** : les administrateurs créent et révoquent des jetons pour un ou plusieurs
+- **Jetons** : les demandes d'enrôlement sont recherchables, triables et filtrables par type ; les
+  jetons actifs le sont par usage. Les administrateurs créent et révoquent des jetons pour un ou plusieurs
   projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit **MCP** (rôle `mcp`), **API REST** ou **Pipeline CI/CD**
   (rôle `ci`, pour [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)) ;
   pour l'API REST, **Droits API** choisit **Lecture seule** (`reader`) ou **Lecture et triage**
@@ -131,8 +139,8 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   [lecture du projet à l'enrôlement](../advanced/sso.md#lecture-du-projet-a-lenrolement)).
 - **Journal d'audit** : les administrateurs consultent le [journal d'audit](../advanced/audit-metrics.md#journal-daudit) :
   décisions de triage, propositions des agents, jetons et demandes d'enrôlement, du plus récent
-  au plus ancien, avec leur auteur ; filtres par événement et par projet, **Afficher plus** pour
-  les événements plus anciens.
+  au plus ancien, avec leur auteur ; filtres par événement et projet, recherche dans les détails,
+  tri par date/action/auteur/cible/projet et **Afficher plus** pour les événements plus anciens.
 - **OIDC** : les administrateurs [configurent la connexion OIDC](../advanced/sso.md#configurer-le-oidc-dans-linterface)
   (chaque valeur enregistrée remplace sa variable `SECREVIEW_OIDC_*`, avec un test de connexion
   au fournisseur). Ce que peuvent faire les utilisateurs OIDC vient des groupes ouverts au OIDC
@@ -161,7 +169,8 @@ variables d'environnement et partagés par le serveur MCP et le contrôleur (per
   variable, `"url": ""` force la connexion directe, un champ absent est inchangé).
 - **Base OSV** : état de la base de vulnérabilités OSV : nombre d'avis par écosystème, date et âge du dernier
   import, configuration du téléchargement, historique des 50 dernières mises à jour
-  (planifiée, CLI ou interface web, avec statut, durée et résultat par écosystème) et bouton
+  (planifiée, CLI ou interface web, avec statut, durée et résultat par écosystème), recherchable,
+  triable et filtrable par statut/déclencheur, et bouton
   **Mettre à jour maintenant**, disponible seulement si `SECREVIEW_OSV_AUTO_UPDATE=true`
   ([mise à jour par le contrôleur](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur)).
 

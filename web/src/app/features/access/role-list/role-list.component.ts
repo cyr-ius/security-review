@@ -4,12 +4,20 @@ import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { PERMISSION_META } from '../../../core/constants/labels';
-import { AccessRole, Permission } from '../../../core/models/api.models';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { AccessRole, Permission } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
+import {
+    TableControlFilter,
+    TableControlFilterChange,
+    TableControlsComponent,
+} from '../../../shared/components/table-controls/table-controls.component';
+import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 import { describeAccessError } from '../access-errors';
+
+type RoleSortKey = 'name' | 'permissions' | 'groups' | 'created';
 
 /** Name and description of the role being created or edited. */
 interface RoleFormModel {
@@ -25,7 +33,7 @@ const EMPTY_ROLE: RoleFormModel = { name: '', description: '' };
  */
 @Component({
   selector: 'app-role-list',
-  imports: [DatePipe, FormField, RefreshButtonComponent, TranslatePipe],
+  imports: [DatePipe, FormField, RefreshButtonComponent, TableControlsComponent, TranslatePipe],
   templateUrl: './role-list.component.html',
   styleUrl: '../access.css',
 })
@@ -36,6 +44,67 @@ export class RoleListComponent {
   readonly permissionMeta = PERMISSION_META;
   readonly roles = rxResource({ stream: () => this.api.roles() });
   readonly permissions = rxResource({ stream: () => this.api.permissions() });
+  readonly tableSearch = signal('');
+  readonly tableSort = signal<RoleSortKey>('name');
+  readonly tableDirection = signal<'asc' | 'desc'>('asc');
+  readonly roleTypeFilter = signal<'all' | 'system' | 'custom'>('all');
+  readonly tableSortOptions = computed(() => [
+    { value: 'name', label: this.i18n.translate('access.name') },
+    { value: 'permissions', label: this.i18n.translate('roles.permissions') },
+    { value: 'groups', label: this.i18n.translate('layout.groups') },
+    { value: 'created', label: this.i18n.translate('common.createdAt') },
+  ]);
+  readonly tableFilters = computed<TableControlFilter[]>(() => [
+    {
+      key: 'type',
+      label: this.i18n.translate('roles.type'),
+      value: this.roleTypeFilter(),
+      options: [
+        { value: 'all', label: this.i18n.translate('roles.all') },
+        { value: 'system', label: this.i18n.translate('roles.system') },
+        { value: 'custom', label: this.i18n.translate('roles.custom') },
+      ],
+    },
+  ]);
+  readonly visibleRoles = computed(() => {
+    const type = this.roleTypeFilter();
+    const roles = (this.roles.value() ?? []).filter(
+      (role) => type === 'all' || role.system === (type === 'system'),
+    );
+    const sort = this.tableSort();
+    return filterAndSortRows(
+      roles,
+      this.tableSearch(),
+      this.tableDirection(),
+      (role) =>
+        [
+          role.name,
+          role.description,
+          role.permissions
+            .map((permission) => this.i18n.translate(this.permissionMeta[permission].label))
+            .join(' '),
+          role.created_by ?? '',
+        ].join(' '),
+      (left, right) => {
+        if (sort === 'permissions') {
+          const leftPermissions = left.permissions
+            .map((permission) => this.i18n.translate(this.permissionMeta[permission].label))
+            .join(', ');
+          const rightPermissions = right.permissions
+            .map((permission) => this.i18n.translate(this.permissionMeta[permission].label))
+            .join(', ');
+          return compareTableText(leftPermissions, rightPermissions);
+        }
+        if (sort === 'groups') {
+          return left.groups - right.groups || compareTableText(left.name, right.name);
+        }
+        if (sort === 'created') {
+          return left.created_at.localeCompare(right.created_at);
+        }
+        return compareTableText(left.name, right.name);
+      },
+    );
+  });
 
   readonly roleModel = signal<RoleFormModel>({ ...EMPTY_ROLE });
   readonly roleForm = form(this.roleModel, (path) => {
@@ -51,6 +120,20 @@ export class RoleListComponent {
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
+
+  onRoleTableSort(value: string): void {
+    if (value === 'name' || value === 'permissions' || value === 'groups' || value === 'created') {
+      this.tableSort.set(value);
+    }
+  }
+
+  onRoleTableFilter(change: TableControlFilterChange): void {
+    if (change.key === 'type') {
+      this.roleTypeFilter.set(
+        change.value === 'system' || change.value === 'custom' ? change.value : 'all',
+      );
+    }
+  }
 
   /** Only scoped permissions: the role may be limited to projects in a group. */
   readonly scoped = computed(() => {

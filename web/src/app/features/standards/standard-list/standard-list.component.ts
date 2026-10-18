@@ -3,17 +3,23 @@ import { Component, ElementRef, computed, inject, signal, viewChild } from '@ang
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, pattern, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { DevStandard, DevStandardSummary, DevStandardWrite } from '../../../core/models/api.models';
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { DevStandard, DevStandardSummary, DevStandardWrite } from '../../../core/models/api.models';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
-import {
-  PackFile,
-  PackFileError,
-  PackTransferComponent,
-} from '../../../shared/components/pack-transfer/pack-transfer.component';
 import { AuthService } from '../../../core/services/auth.service';
+import {
+    PackFile,
+    PackFileError,
+    PackTransferComponent,
+} from '../../../shared/components/pack-transfer/pack-transfer.component';
+import {
+    TableControlFilter,
+    TableControlFilterChange,
+    TableControlsComponent,
+} from '../../../shared/components/table-controls/table-controls.component';
+import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 
 /** Editable fields; the lists are typed as comma separated text. */
 interface StandardFormModel {
@@ -39,10 +45,12 @@ const EMPTY_STANDARD: StandardFormModel = {
 /** Same limits as the API (standards.py). */
 const MAX_CONTENT_CHARS = 50_000;
 
+type StandardSortKey = 'title' | 'slug' | 'technologies' | 'files';
+
 /** Development standards served to the developers' AI: read by everyone, edited by admins. */
 @Component({
   selector: 'app-standard-list',
-  imports: [PackTransferComponent, FormField, TranslatePipe],
+  imports: [PackTransferComponent, FormField, TableControlsComponent, TranslatePipe],
   templateUrl: './standard-list.component.html',
   styleUrl: './standard-list.component.css',
 })
@@ -56,19 +64,69 @@ export class StandardListComponent {
   readonly isAdmin = computed(() => this.auth.can('standards.manage'));
   readonly catalog = rxResource({ stream: () => this.api.devStandards() });
   readonly query = signal('');
+  readonly sort = signal<StandardSortKey>('title');
+  readonly direction = signal<'asc' | 'desc'>('asc');
+  readonly statusFilter = signal<'' | 'enabled' | 'disabled'>('');
+  readonly sortOptions = computed(() => [
+    { value: 'title', label: this.i18n.translate('standards.standard') },
+    { value: 'slug', label: this.i18n.translate('standards.slug') },
+    { value: 'technologies', label: this.i18n.translate('standards.technologies') },
+    { value: 'files', label: this.i18n.translate('standards.files') },
+  ]);
+  readonly filters = computed<TableControlFilter[]>(() => [
+    {
+      key: 'status',
+      label: this.i18n.translate('rules.state'),
+      value: this.statusFilter(),
+      options: [
+        { value: '', label: this.i18n.translate('common.all') },
+        { value: 'enabled', label: this.i18n.translate('rules.enabled') },
+        { value: 'disabled', label: this.i18n.translate('rules.disabled') },
+      ],
+    },
+  ]);
   readonly visibleStandards = computed(() => {
-    const standards = this.catalog.value()?.standards ?? [];
-    const query = this.query().trim().toLowerCase();
-    if (!query) {
-      return standards;
-    }
-    return standards.filter((item) =>
-      [item.slug, item.title, item.description, ...item.technologies, ...item.file_patterns]
-        .join(' ')
-        .toLowerCase()
-        .includes(query),
+    const status = this.statusFilter();
+    const standards = (this.catalog.value()?.standards ?? []).filter(
+      (item) => !status || item.enabled === (status === 'enabled'),
+    );
+    const sort = this.sort();
+    return filterAndSortRows(
+      standards,
+      this.query(),
+      this.direction(),
+      (item) =>
+        [item.slug, item.title, item.description, ...item.technologies, ...item.file_patterns].join(
+          ' ',
+        ),
+      (left, right) => {
+        if (sort === 'slug') {
+          return compareTableText(left.slug, right.slug);
+        }
+        if (sort === 'technologies') {
+          return compareTableText(left.technologies.join(', '), right.technologies.join(', '));
+        }
+        if (sort === 'files') {
+          return compareTableText(left.file_patterns.join(', '), right.file_patterns.join(', '));
+        }
+        return compareTableText(left.title, right.title);
+      },
     );
   });
+
+  onTableSort(value: string): void {
+    if (value === 'title' || value === 'slug' || value === 'technologies' || value === 'files') {
+      this.sort.set(value);
+    }
+  }
+
+  onTableFilter(change: TableControlFilterChange): void {
+    if (change.key === 'status') {
+      this.statusFilter.set(
+        change.value === 'enabled' || change.value === 'disabled' ? change.value : '',
+      );
+    }
+  }
 
   readonly formModel = signal<StandardFormModel>({ ...EMPTY_STANDARD });
   readonly standardForm = form(this.formModel, (path) => {

@@ -96,81 +96,99 @@
       }
 
       <h3 class="h6">{{ 'settings.osvConfig' | t }}</h3>
-      <table class="table table-sm env-table">
-        <tbody>
-          <tr>
-            <th scope="row">{{ 'settings.download' | t }}</th>
-            <td>
-              @if (current.osv.download_enabled) {
-                {{ 'settings.downloadEvery' | t: { hours: current.osv.update_interval_hours } }}
-              } @else {
-                {{ 'settings.downloadOff' | t }}
-              }
-            </td>
-          </tr>
-          <tr>
-            <th scope="row">{{ 'settings.source' | t }}</th>
-            <td class="font-monospace">{{ current.osv.url }}</td>
-          </tr>
-          <tr>
-            <th scope="row">{{ 'settings.ecosystems' | t }}</th>
-            <td>{{ current.osv.ecosystems }}</td>
-          </tr>
-          <tr>
-            <th scope="row">{{ 'settings.caBundle' | t }}</th>
-            <td class="font-monospace">{{ current.osv.cafile ?? ('settings.systemCa' | t) }}</td>
-          </tr>
-          <tr>
-            <th scope="row">{{ 'settings.maxSize' | t }}</th>
-            <td>{{ 'settings.maxSizeValue' | t: { size: current.osv.max_download_mb } }}</td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-responsive">
+        <table class="table table-sm env-table">
+          <tbody>
+            <tr>
+              <th scope="row">{{ 'settings.download' | t }}</th>
+              <td>
+                @if (current.osv.download_enabled) {
+                  {{ 'settings.downloadEvery' | t: { hours: current.osv.update_interval_hours } }}
+                } @else {
+                  {{ 'settings.downloadOff' | t }}
+                }
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">{{ 'settings.source' | t }}</th>
+              <td class="font-monospace">{{ current.osv.url }}</td>
+            </tr>
+            <tr>
+              <th scope="row">{{ 'settings.ecosystems' | t }}</th>
+              <td>{{ current.osv.ecosystems }}</td>
+            </tr>
+            <tr>
+              <th scope="row">{{ 'settings.caBundle' | t }}</th>
+              <td class="font-monospace">{{ current.osv.cafile ?? ('settings.systemCa' | t) }}</td>
+            </tr>
+            <tr>
+              <th scope="row">{{ 'settings.maxSize' | t }}</th>
+              <td>{{ 'settings.maxSizeValue' | t: { size: current.osv.max_download_mb } }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <h3 class="h6">{{ 'settings.history' | t }}</h3>
       @if (advisories.error()) {
         <div class="alert alert-danger" role="alert">{{ 'settings.historyError' | t }}</div>
       } @else if ((advisories.value()?.updates ?? []).length) {
-        <div class="table-responsive">
-          <table class="table table-hover align-middle small">
-            <thead>
-              <tr>
-                <th scope="col">{{ 'settings.start' | t }}</th>
-                <th scope="col">{{ 'settings.trigger' | t }}</th>
-                <th scope="col">{{ 'settings.status' | t }}</th>
-                <th scope="col">{{ 'settings.duration' | t }}</th>
-                <th scope="col">{{ 'settings.result' | t }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (update of advisories.value()?.updates ?? []; track update.id) {
+        <app-table-controls
+          idPrefix="advisory-history"
+          [search]="historySearch()"
+          [sort]="historySort()"
+          [direction]="historyDirection()"
+          [sortOptions]="historySortOptions()"
+          [filters]="historyFilters()"
+          (searchChange)="historySearch.set($event)"
+          (sortChange)="onHistorySort($event)"
+          (directionChange)="historyDirection.set($event)"
+          (filterChange)="onHistoryFilter($event)"
+        />
+        @if (visibleUpdates().length) {
+          <div class="table-responsive">
+            <table class="table table-hover align-middle small">
+              <thead>
                 <tr>
-                  <td class="text-nowrap">{{ update.started_at | date: 'dd/MM/yyyy HH:mm' }}</td>
-                  <td>
-                    {{ triggerLabels[update.trigger] | t }}
-                    @if (update.triggered_by) {
-                      <div class="text-body-secondary">{{ update.triggered_by }}</div>
-                    }
-                  </td>
-                  <td>
-                    <span class="badge" [class]="statusMeta[update.status].css">
-                      {{ statusMeta[update.status].label | t }}
-                    </span>
-                  </td>
-                  <td class="text-nowrap">{{ duration(update) }}</td>
-                  <td>
-                    @for (item of outcome(update); track item.name) {
-                      <div [class.text-danger]="item.failed" class="update-error">
-                        <strong>{{ item.name }}</strong
-                        >{{ 'settings.colonValue' | t: { value: item.text } }}
-                      </div>
-                    }
-                  </td>
+                  <th scope="col">{{ 'settings.start' | t }}</th>
+                  <th scope="col">{{ 'settings.trigger' | t }}</th>
+                  <th scope="col">{{ 'settings.status' | t }}</th>
+                  <th scope="col">{{ 'settings.duration' | t }}</th>
+                  <th scope="col">{{ 'settings.result' | t }}</th>
                 </tr>
-              }
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                @for (update of visibleUpdates(); track update.id) {
+                  <tr>
+                    <td class="text-nowrap">{{ update.started_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                    <td>
+                      {{ triggerLabels[update.trigger] | t }}
+                      @if (update.triggered_by) {
+                        <div class="text-body-secondary">{{ update.triggered_by }}</div>
+                      }
+                    </td>
+                    <td>
+                      <span class="badge" [class]="statusMeta[update.status].css">
+                        {{ statusMeta[update.status].label | t }}
+                      </span>
+                    </td>
+                    <td class="text-nowrap">{{ duration(update) }}</td>
+                    <td>
+                      @for (item of outcome(update); track item.name) {
+                        <div [class.text-danger]="item.failed" class="update-error">
+                          <strong>{{ item.name }}</strong
+                          >{{ 'settings.colonValue' | t: { value: item.text } }}
+                        </div>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        } @else {
+          <p class="text-body-secondary">{{ 'common.noMatches' | t }}</p>
+        }
       } @else if (!advisories.isLoading()) {
         <p class="text-body-secondary mb-0">{{ 'settings.noHistory' | t }}</p>
       }

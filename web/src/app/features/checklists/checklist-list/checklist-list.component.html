@@ -39,25 +39,23 @@
     <div class="alert alert-warning py-2" role="status">{{ issue }}</div>
   }
 
+  <app-table-controls
+    idPrefix="checklists"
+    [search]="search()"
+    [sort]="sort()"
+    [direction]="direction()"
+    [sortOptions]="sortOptions()"
+    [filters]="filters()"
+    (searchChange)="search.set($event)"
+    (sortChange)="onTableSort($event)"
+    (directionChange)="direction.set($event)"
+    (filterChange)="onTableFilter($event)"
+  />
   <div class="card">
     <div class="card-header d-flex flex-wrap gap-2 align-items-center">
       <span class="fw-semibold">{{
         'checklists.count' | t: { count: visibleItems().length }
       }}</span>
-      <label class="visually-hidden" for="checklist-domain-filter">{{
-        'checklists.domain' | t
-      }}</label>
-      <select
-        id="checklist-domain-filter"
-        class="form-select form-select-sm w-auto ms-auto"
-        [value]="domainFilter()"
-        (change)="onDomainFilter($event)"
-      >
-        <option value="">{{ 'checklists.allDomains' | t }}</option>
-        @for (domain of domains(); track domain) {
-          <option [value]="domain">{{ domain }}</option>
-        }
-      </select>
     </div>
     @if (visibleItems().length > 0) {
       <div class="table-responsive">
@@ -121,6 +119,8 @@
           </tbody>
         </table>
       </div>
+    } @else if (data.checklist_items.length) {
+      <p class="text-body-secondary text-center my-4">{{ 'common.noMatches' | t }}</p>
     } @else {
       <p class="text-body-secondary text-center my-4">{{ 'checklists.empty' | t }}</p>
     }

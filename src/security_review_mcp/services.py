@@ -5,6 +5,7 @@ import re
 from collections import Counter
 from collections.abc import Collection
 from datetime import datetime, timedelta
+from typing import Literal
 
 from sqlalchemy import ColumnElement, and_, case, func, or_
 from sqlalchemy.orm import selectinload
@@ -214,6 +215,11 @@ def list_reports(
     projects: Collection[str] | None = None,
     review_type: ReviewType | None = None,
     author: str | None = None,
+    search: str | None = None,
+    sort_by: Literal[
+        "created_at", "project", "risk_level", "review_type", "branch", "author", "summary"
+    ] = "created_at",
+    sort_direction: Literal["asc", "desc"] = "desc",
 ) -> list[dict]:
     """List reports, newest first, with their number of open findings.
 
@@ -236,11 +242,33 @@ def list_reports(
             statement = statement.where(SecurityReport.review_type == review_type)
         if author:
             statement = statement.where(SecurityReport.author == author)
-        statement = (
-            statement.order_by(col(SecurityReport.created_at).desc(), col(SecurityReport.id).desc())
-            .offset(offset)
-            .limit(limit)
-        )
+        if search:
+            escaped = search[:200].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+            pattern = f"%{escaped}%"
+            statement = statement.where(
+                or_(
+                    col(SecurityReport.project).ilike(pattern, escape="\\"),
+                    col(SecurityReport.branch).ilike(pattern, escape="\\"),
+                    col(SecurityReport.commit_sha).ilike(pattern, escape="\\"),
+                    col(SecurityReport.reviewer).ilike(pattern, escape="\\"),
+                    col(SecurityReport.author).ilike(pattern, escape="\\"),
+                    col(SecurityReport.submitted_by).ilike(pattern, escape="\\"),
+                    col(SecurityReport.summary).ilike(pattern, escape="\\"),
+                )
+            )
+        sort_columns = {
+            "created_at": col(SecurityReport.created_at),
+            "project": col(SecurityReport.project),
+            "risk_level": col(SecurityReport.risk_level),
+            "review_type": col(SecurityReport.review_type),
+            "branch": col(SecurityReport.branch),
+            "author": col(SecurityReport.author),
+            "summary": col(SecurityReport.summary),
+        }
+        sort_column = sort_columns[sort_by]
+        primary_order = sort_column.asc() if sort_direction == "asc" else sort_column.desc()
+        statement = statement.order_by(primary_order, col(SecurityReport.id).desc())
+        statement = statement.offset(offset).limit(limit)
         reports = session.exec(statement).all()
         ids = [r.id for r in reports if r.id is not None]
 
