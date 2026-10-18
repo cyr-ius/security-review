@@ -25,11 +25,6 @@ export const login = defineMessages({
     'login.showPassword': 'Show the password',
     'login.checking': 'Checking…',
     'login.submit': 'Log in',
-    'login.helpAccount': 'Local account created by your administrator (at first start: user',
-    'login.helpPassword': ', password shown in the controller logs)',
-    'login.helpSso': ', or your company account through SSO',
-    'login.helpTokens':
-      '. Access tokens are for the MCP server and the REST API, not for the interface. The session stays in this tab and ends when it is closed.',
     'login.foot': 'Security Review MCP · security-oriented code review',
     'login.usernameRequired': 'The username is required',
     'login.usernameTooLong': 'The username is at most 64 characters',
@@ -83,12 +78,6 @@ export const login = defineMessages({
     'login.showPassword': 'Afficher le mot de passe',
     'login.checking': 'Vérification…',
     'login.submit': 'Se connecter',
-    'login.helpAccount':
-      'Compte local créé par votre administrateur (au premier démarrage : utilisateur',
-    'login.helpPassword': ', mot de passe affiché dans les journaux du contrôleur)',
-    'login.helpSso': ", ou votre compte d'entreprise via le SSO",
-    'login.helpTokens':
-      ". Les jetons d'accès servent au serveur MCP et à l'API REST, pas à l'interface. La session reste dans cet onglet et disparaît à sa fermeture.",
     'login.foot': 'Security Review MCP · revue de code orientée sécurité',
     'login.usernameRequired': "L'identifiant est obligatoire",
     'login.usernameTooLong': "L'identifiant ne dépasse pas 64 caractères",
@@ -145,11 +134,6 @@ export const login = defineMessages({
     'login.showPassword': 'Mostrar la contraseña',
     'login.checking': 'Comprobando…',
     'login.submit': 'Iniciar sesión',
-    'login.helpAccount': 'Cuenta local creada por su administrador (en el primer arranque: usuario',
-    'login.helpPassword': ', contraseña mostrada en los registros del controlador)',
-    'login.helpSso': ', o su cuenta de empresa mediante SSO',
-    'login.helpTokens':
-      '. Los tokens de acceso sirven para el servidor MCP y la API REST, no para la interfaz. La sesión permanece en esta pestaña y desaparece al cerrarla.',
     'login.foot': 'Security Review MCP · revisión de código orientada a la seguridad',
     'login.usernameRequired': 'El usuario es obligatorio',
     'login.usernameTooLong': 'El usuario tiene como máximo 64 caracteres',

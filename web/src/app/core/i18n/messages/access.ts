@@ -35,7 +35,7 @@ export const access = defineMessages({
     'groups.ssoInactive':
       'SSO login is not active: only the members added here belong to the groups.',
     'groups.claimBefore':
-      'At each login, an SSO user joins the groups open to SSO whose name is a value of its claim',
+      'Upon each login, an SSO user joins the groups whose names are included in their claim.',
     'groups.claimAfter': ': the names must be identical.',
     'groups.adminGroups': 'Created with the admin role at the first login of a member: {groups}.',
     'groups.defaultGroup': 'Every SSO user joins {group}.',
@@ -112,7 +112,7 @@ export const access = defineMessages({
     'groups.ssoInactive':
       "La connexion SSO n'est pas active : seuls les membres ajoutés ici appartiennent aux groupes.",
     'groups.claimBefore':
-      'À chaque connexion, un utilisateur SSO rejoint les groupes ouverts au SSO dont le nom figure dans son claim',
+      'À chaque connexion, un utilisateur SSO rejoint les groupes dont le nom figure dans son claim',
     'groups.claimAfter': ' : les noms doivent être identiques.',
     'groups.adminGroups':
       "Créés avec le rôle admin à la première connexion d'un membre : {groups}.",
