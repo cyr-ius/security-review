@@ -86,6 +86,9 @@ ENROLL_PATH = "/api/v1/enroll"
 ENROLLMENT_SERVER_TITLE = "Security Review (enrollment)"
 # Public liveness endpoint of both processes (container and Kubernetes probes)
 HEALTH_PATH = "/healthz"
+# Public liveness endpoint of the controller API, polled by the web interface at load: it tells
+# whether the controller answers, nothing about its version or configuration
+API_HEALTH_PATH = "/api/health"
 # Prometheus endpoint of the controller (see metrics)
 METRICS_PATH = "/metrics"
 # Public files of the controller: the API documentation and the application icon
@@ -164,7 +167,8 @@ AUTH_REJECTIONS: Counter[str] = Counter()
 def is_controller_public_path(path: str) -> bool:
     """Controller paths reachable without a token: the web UI shell, the API documentation,
     the application icon, the health check and the login routes."""
-    return path in ("/", UI_PREFIX, DOCS_PATH, OPENAPI_PATH, FAVICON_PATH, HEALTH_PATH) or (
+    public = ("/", UI_PREFIX, DOCS_PATH, OPENAPI_PATH, FAVICON_PATH, HEALTH_PATH, API_HEALTH_PATH)
+    return path in public or (
         path.startswith((UI_PREFIX + "/", AUTH_PREFIX, DOCS_ASSETS_PREFIX + "/"))
     )
 

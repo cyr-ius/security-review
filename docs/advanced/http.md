@@ -59,7 +59,7 @@ Projects can also request their token themselves: see
 
 The MCP endpoint and the controller API require `Authorization: Bearer <token>`. Still public: `/healthz` on both processes, `/api/v1/enroll`
 on the MCP server, and on the controller the static files of `/ui/`, the `/api/favicon.svg`
-icon and, with `SECREVIEW_SWAGGER_ENABLED=true` (disabled by default), the Swagger
+icon, the `/api/health` liveness of the API and, with `SECREVIEW_SWAGGER_ENABLED=true` (disabled by default), the Swagger
 documentation (`/api/docs`, `/api/openapi.json` schema, `/api/swagger/` files). While no token exists, the controller API answers `503` and the MCP server **stays closed**: a
 client without a token only reaches [enrollment](#enrollment-a-project-requests-its-token), any
 other request gets `401`, whatever the bearer value (a warning is logged at start-up). `/mcp` is

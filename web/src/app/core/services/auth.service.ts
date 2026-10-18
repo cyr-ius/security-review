@@ -13,12 +13,16 @@ const TOKEN_KEY = 'secreview.token';
 export class AuthService {
   private readonly tokenValue = signal<string | null>(readStoredToken());
   private readonly identityValue = signal<Identity | null>(null);
+  private readonly sessionExpiredValue = signal(false);
 
   /** Session token of the login (null when not logged in). */
   readonly token = this.tokenValue.asReadonly();
 
   /** Identity returned by /api/v1/me once the token has been checked. */
   readonly identity = this.identityValue.asReadonly();
+
+  /** True once the session was refused while browsing: the "Session expired" dialog shows. */
+  readonly sessionExpired = this.sessionExpiredValue.asReadonly();
 
   readonly canTriage = computed(() => this.identity()?.can_triage ?? false);
 
@@ -39,12 +43,24 @@ export class AuthService {
 
   /** Store a token (the identity is loaded by the guard). */
   login(token: string): void {
+    this.sessionExpiredValue.set(false);
     this.tokenValue.set(token);
     try {
       sessionStorage.setItem(TOKEN_KEY, token);
     } catch {
       // Storage may be disabled: the token then only lives in memory
     }
+  }
+
+  /** End a session the controller no longer accepts, and say so to the user. */
+  expire(): void {
+    this.logout();
+    this.sessionExpiredValue.set(true);
+  }
+
+  /** The user read the "Session expired" dialog. */
+  acknowledgeExpiry(): void {
+    this.sessionExpiredValue.set(false);
   }
 
   /** Forget the token and the identity. */

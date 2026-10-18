@@ -1,14 +1,17 @@
 """Routes of the caller itself: liveness probe, identity and password of a web user."""
 
 import logging
+from functools import lru_cache
+from importlib.metadata import PackageNotFoundError, metadata
 
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 
-from .. import rate_limit, web_users
+from .. import __version__, rate_limit, web_users
+from ..http_server import API_HEALTH_PATH, DOCS_PATH
 from .auth_routes import open_session
 from .deps import CurrentIdentity, client_address
-from .schemas import HealthStatus, Identity, LoginSession, PasswordChange
+from .schemas import About, HealthStatus, Identity, LoginSession, PasswordChange
 
 logger = logging.getLogger("security_review_mcp.web")
 
@@ -19,6 +22,34 @@ router = APIRouter(tags=["account"])
 async def health() -> HealthStatus:
     """Liveness probe."""
     return HealthStatus()
+
+
+@lru_cache(maxsize=1)
+def project_urls() -> dict[str, str]:
+    """Links of the project ([project.urls] of pyproject.toml), by lowercase name."""
+    try:
+        entries = metadata("security-review-mcp").get_all("Project-URL") or []
+    except PackageNotFoundError:
+        return {}
+    urls = {}
+    for entry in entries:
+        name, _, url = entry.partition(",")
+        urls[name.strip().lower()] = url.strip()
+    return urls
+
+
+@router.get("/about")
+async def about(request: Request) -> About:
+    """Version of the controller and links of the About page (any web user)."""
+    urls = project_urls()
+    return About(
+        version=__version__,
+        documentation_url=urls.get("documentation"),
+        repository_url=urls.get("repository"),
+        issues_url=urls.get("issues"),
+        swagger_url=DOCS_PATH if request.app.state.swagger_served else None,
+        health_url=API_HEALTH_PATH,
+    )
 
 
 @router.get("/me")

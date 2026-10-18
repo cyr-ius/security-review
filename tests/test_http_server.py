@@ -72,6 +72,7 @@ def protected_client(
             Route("/api/v1/auth/config", whoami),
             Route("/api/docs", whoami),
             Route("/api/openapi.json", whoami),
+            Route("/api/health", whoami),
             Route("/api/swagger/swagger-ui.css", whoami),
             Route("/api/favicon.svg", whoami),
             Route("/ui/", whoami),
@@ -150,6 +151,7 @@ def test_web_ui_files_are_public_but_not_the_api():
     client = protected_client(web=True)
     assert client.get("/ui/").status_code == 200
     assert client.get("/healthz").status_code == 200
+    assert client.get("/api/health").status_code == 200
     assert client.get("/api/v1/me").status_code == 401
     assert client.get("/api/docs").status_code == 200
     assert client.get("/api/openapi.json").status_code == 200

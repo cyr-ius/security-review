@@ -1,4 +1,5 @@
 import { LANGUAGES, Language } from '../catalog';
+import { about } from './about';
 import { account } from './account';
 import { audit } from './audit';
 import { checklists } from './checklists';
@@ -22,6 +23,7 @@ const CATALOGS = [
   layout,
   login,
   account,
+  about,
   projects,
   reports,
   rules,

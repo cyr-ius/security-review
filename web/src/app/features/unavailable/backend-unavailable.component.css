@@ -1,0 +1,8 @@
+.unavailable {
+  min-height: 100vh;
+}
+
+.unavailable-card {
+  width: 100%;
+  max-width: 28rem;
+}
