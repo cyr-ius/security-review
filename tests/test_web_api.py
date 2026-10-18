@@ -2021,44 +2021,29 @@ def test_users_are_managed_by_administrators(accounts, caplog):
     assert bob["password"] not in caplog.text
 
 
-def test_projects_are_given_directly_to_a_user(accounts):
+def test_roles_are_never_given_directly_to_a_user(accounts):
     make_user("root", USER_PASSWORD, "admin")
-    make_user("reader", USER_PASSWORD, "reader")
-    admin, reader = session_headers(accounts, "root"), session_headers(accounts, "reader")
+    admin = session_headers(accounts, "root")
     roles = {role["name"]: role["id"] for role in access_control.list_roles()}
-    body = {
-        "username": "bob",
-        "group_ids": [group_for("reader", ["shop"])],
-        "roles": [{"role_id": roles["triager"], "projects": ["crm"]}],
-    }
+    direct = [{"role_id": roles["admin"], "projects": []}]
+    body = {"username": "bob", "group_ids": [group_for("reader", ["shop"])], "roles": direct}
 
+    # A user has no role of its own: the field is refused, not silently ignored
+    assert accounts.post("/api/v1/users", json=body, headers=admin).status_code == 422
+    assert web_users.list_users()[-1]["username"] == "root"
+    del body["roles"]
     created = accounts.post("/api/v1/users", json=body, headers=admin)
     assert created.status_code == 201
     bob = created.json()
-    assert bob["roles"] == [{"role_id": roles["triager"], "name": "triager", "projects": ["crm"]}]
-    assert bob["permissions"] == {"findings.triage": ["crm"], "reports.read": ["crm", "shop"]}
+    assert "roles" not in bob
+    assert bob["permissions"] == {"reports.read": ["shop"]}
 
     url = f"/api/v1/users/{bob['id']}"
-    change = {"roles": [{"role_id": roles["reader"], "projects": ["billing", "crm"]}]}
-    assert accounts.put(url, json=change, headers=reader).status_code == 403
-    updated = accounts.put(url, json=change, headers=admin)
-    assert updated.status_code == 200
-    # Without group_ids, the groups are unchanged
-    assert [group["name"] for group in updated.json()["groups"]] == ["reader:shop"]
-    assert updated.json()["permissions"] == {"reports.read": ["billing", "crm", "shop"]}
-    # The session of bob reads the project given directly
-    bob_session = session_headers(accounts, "bob", bob["password"])
-    me = accounts.get("/api/v1/me", headers=bob_session).json()
-    assert me["permissions"] == {"reports.read": ["billing", "crm", "shop"]}
-
-    refused = {"roles": [{"role_id": roles["admin"], "projects": ["shop"]}]}
-    assert accounts.put(url, json=refused, headers=admin).status_code == 422
-    missing = {"roles": [{"role_id": 999, "projects": []}]}
-    assert accounts.put(url, json=missing, headers=admin).status_code == 404
-    too_many = {"roles": [{"role_id": roles["reader"]}] * 21}
-    assert accounts.put(url, json=too_many, headers=admin).status_code == 422
-    cleared = accounts.put(url, json={"roles": []}, headers=admin).json()
-    assert (cleared["roles"], cleared["permissions"]) == ([], {"reports.read": ["shop"]})
+    assert accounts.put(url, json={"roles": direct}, headers=admin).status_code == 422
+    assert web_users.find_user("bob")["permissions"] == {"reports.read": ["shop"]}
+    # The roles screen counts the groups of a role, never users
+    listed = accounts.get("/api/v1/roles", headers=admin).json()
+    assert all("users" not in role for role in listed)
 
 
 def test_sso_users_are_managed_by_administrators(accounts, caplog):

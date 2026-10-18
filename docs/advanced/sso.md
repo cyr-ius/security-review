@@ -181,12 +181,12 @@ browses its reports.
 - The name designates an account of the **Users** screen, local or OIDC. With OIDC
   enabled, an unknown name becomes an **OIDC account**, ready for its first login; without OIDC,
   the account must exist. Giving this access needs the `users.manage` permission.
-- An account that already reads every project is unchanged. Otherwise the project is added to
-  its [direct](access-control.md#direct-roles-and-projects-of-an-account) `reader` role (given on
-  this project only when missing). An approved additional request for the same user adds the
-  project the same way.
+- An account that already reads this project is unchanged. Otherwise it joins, as a local
+  member, the [project group](access-control.md#project-groups) `project:<project>` (`reader` on
+  this project only, created when missing), shared by every developer enrolled on the project.
+  An approved additional request for the same user adds the project the same way.
 
-The access then shows on the account, where it is changed like the others. It is independent of
+The access then shows in the groups of the account, where it is changed like the others. It is independent of
 the MCP token: revoking the token does not remove it.
 
 ```bash

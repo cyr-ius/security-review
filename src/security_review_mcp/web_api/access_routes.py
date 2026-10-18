@@ -281,7 +281,6 @@ async def create_user(
             identity.client,
             body.auth_source,
             actor_of(identity),
-            [(item.role_id, item.projects) for item in body.roles],
         )
     except ValueError as exc:
         if "already exists" in str(exc):
@@ -314,12 +313,11 @@ async def lift_user_revocation(username: UsernamePath, identity: UsersManager) -
 
 @router.put("/users/{user_id}")
 async def update_user(user_id: int, body: WebUserUpdate, identity: UsersManager) -> WebUser:
-    """Replace the groups an administrator gave to a web user and its direct roles (applies to
-    its sessions at once); a missing field is left unchanged."""
-    roles = None if body.roles is None else [(item.role_id, item.projects) for item in body.roles]
+    """Replace the groups an administrator gave to a web user (applies to its sessions at once);
+    a missing field is left unchanged."""
     try:
         updated = await run_in_threadpool(
-            web_users.update_user, user_id, body.group_ids, actor_of(identity), roles
+            web_users.update_user, user_id, body.group_ids, actor_of(identity)
         )
     except ValueError as exc:
         raise unprocessable(exc) from exc

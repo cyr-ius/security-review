@@ -97,36 +97,27 @@ export class ApiService {
   }
 
   /**
-   * Create a web user, member of these groups, with these direct roles (an empty project list
-   * reaches every project). A local one without password gets a generated one, returned once;
-   * an OIDC one has no password and also joins its OIDC groups at each login.
+   * Create a web user, member of these groups (the only source of its permissions). A local one
+   * without password gets a generated one, returned once; an OIDC one has no password and also
+   * joins its OIDC groups at each login.
    */
   createUser(
     username: string,
     authSource: AuthSource,
     groupIds: number[],
     password: string | null,
-    roles: { role_id: number; projects: string[] }[] = [],
   ): Observable<WebUserWithPassword> {
     return this.http.post<WebUserWithPassword>(`${API_URL}/users`, {
       username,
       auth_source: authSource,
       group_ids: groupIds,
       password,
-      roles,
     });
   }
 
-  /**
-   * Replace the groups given to a web user (its OIDC groups are kept) and its direct roles (an
-   * empty project list reaches every project).
-   */
-  updateUser(
-    id: number,
-    groupIds: number[],
-    roles: { role_id: number; projects: string[] }[],
-  ): Observable<WebUser> {
-    return this.http.put<WebUser>(`${API_URL}/users/${id}`, { group_ids: groupIds, roles });
+  /** Replace the groups given to a web user (its OIDC groups are kept). */
+  updateUser(id: number, groupIds: number[]): Observable<WebUser> {
+    return this.http.put<WebUser>(`${API_URL}/users/${id}`, { group_ids: groupIds });
   }
 
   /** Replace the password of a web user (generated when null) and end its sessions. */

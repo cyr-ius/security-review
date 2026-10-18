@@ -87,12 +87,10 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
 - **Utilisateurs** : les administrateurs gèrent les [comptes](#comptes-utilisateurs), seuls
   à ouvrir l'interface. Chaque compte est **Local** (identifiant et mot de passe, saisi ou généré
   et affiché une seule fois) ou **OIDC** (connexion par le fournisseur d'identité, sans mot de
-  passe), avec un badge dans la liste. L'administrateur choisit ses **Groupes** et ses **Rôles et
-  projets directs** (un rôle sur tous les projets ou sur les projets cochés, pour ce seul compte) ;
-  la colonne **Groupes** montre les groupes, avec un bouclier pour les groupes OIDC trouvés à la
-  dernière connexion, la colonne **Rôles et projets directs** les rôles directs, et **Accès**
-  résume ce qu'ils donnent. L'administrateur change les groupes et les rôles directs d'un compte,
-  réinitialise le mot de passe d'un compte local ou supprime un compte. Un compte OIDC supprimé
+  passe), avec un badge dans la liste. L'administrateur choisit ses **Groupes**, seule source de
+  ses permissions ; la colonne **Groupes** montre les groupes, avec un bouclier pour les groupes
+  OIDC trouvés à la dernière connexion, et **Accès** résume ce qu'ils donnent. L'administrateur
+  change les groupes d'un compte, réinitialise le mot de passe d'un compte local ou supprime un compte. Un compte OIDC supprimé
   n'est plus recréé à sa connexion : la section **Comptes OIDC supprimés** les liste, avec le
   bouton **Autoriser à nouveau**. Le dernier détenteur de `users.manage` ne peut être ni supprimé
   ni la perdre.
@@ -281,8 +279,9 @@ et écrit dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit)
 ## Comptes utilisateurs
 
 Un compte associe un **identifiant** (lettres, chiffres et `. _ @ -`, 64 caractères au plus), un
-**type**, des **groupes** et des **rôles directs** (un rôle sur tous les projets ou sur certains,
-donné à ce seul compte) : leurs rôles donnent ses [permissions](../advanced/access-control.md#roles-et-projets-directs-dun-compte).
+**type** et des **groupes** : les rôles de ses groupes donnent ses
+[permissions](../advanced/access-control.md#ce-quun-utilisateur-peut-faire). Un compte n'a ni rôle
+ni projet propre.
 
 | Type (`auth_source`) | Connexion | Création |
 |---|---|---|
@@ -302,22 +301,21 @@ security-review-controller user create carol@example.com --sso   # groupes OIDC 
 security-review-controller user list
 security-review-controller user set-groups alice --group readers --group auditors
 security-review-controller user set-groups alice --group administrators   # créé s'il manque
-security-review-controller user set-roles alice --role triager:shop,billing   # rôles directs
 security-review-controller user reset-password alice   # compte local : nouveau mot de passe, sessions fermées
 security-review-controller user delete alice
 security-review-controller group list    # groupes, leurs rôles et leurs membres
 ```
 
 Par l'API, un compte OIDC se crée avec `"auth_source": "oidc"`, sans `password` ; `group_ids`
-liste ses groupes et `roles` ses rôles directs (`projects` vide : tous les projets) :
+liste ses groupes :
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"username": "carol@example.com", "auth_source": "oidc", "group_ids": [4], "roles": [{"role_id": 3, "projects": ["crm"]}]}'
+  -d '{"username": "carol@example.com", "auth_source": "oidc", "group_ids": [4]}'
 ```
 
-Un compte sans aucun groupe ni rôle direct n'a aucune permission et ne peut pas se connecter.
+Un compte sans aucun groupe n'a aucune permission et ne peut pas se connecter.
 
 Pour un compte local, sans `--password-stdin` (ou sans mot de passe dans l'interface), un mot de
 passe aléatoire de 24 caractères est généré et affiché **une seule fois**. Un mot de passe choisi

@@ -658,27 +658,31 @@ def test_last_administrator_by_its_sso_groups_is_kept():
 # ── Access given at the approval of an enrollment ────────────────────────────
 
 
-def test_grant_project_extends_the_direct_reader_role_of_a_restricted_user():
+def test_grant_project_adds_a_restricted_user_to_the_project_group():
     make_user("alice", PASSWORD, "triager", ["shop"])
     granted = web_users.grant_project("alice", "billing", "admin", create_sso=False)
     assert granted["permissions"]["reports.read"] == ["billing", "shop"]
     assert granted["permissions"]["findings.triage"] == ["shop"]
-    # No personal group: the project goes to a role of the user
-    assert [group["name"] for group in granted["groups"]] == ["triager:shop"]
-    assert granted["roles"] == [
-        {"role_id": granted["roles"][0]["role_id"], "name": "reader", "projects": ["billing"]}
+    # No role of its own: the user joins the project group, as a local member
+    assert "roles" not in granted
+    assert [(g["name"], g["source"]) for g in granted["groups"]] == [
+        ("project:billing", "local"),
+        ("triager:shop", "local"),
     ]
-    granted = web_users.grant_project("alice", "crm", "admin", False, actor="user:admin")
-    assert granted["roles"][0]["projects"] == ["billing", "crm"]
-    # Each added project is audited
-    events = audit.list_events(action="user.roles_changed")["events"]
-    assert [(e["actor"], e["details"]) for e in events] == [
-        ("user:admin", {"roles": ["reader:billing,crm"]}),
-        ("admin", {"roles": ["reader:billing"]}),
+    make_user("bob", PASSWORD, "reader", ["crm"])
+    granted = web_users.grant_project("bob", "billing", "admin", False, actor="user:admin")
+    # Both developers share the group of the project
+    (group,) = [g for g in access_control.list_groups() if g["name"] == "project:billing"]
+    assert [m["username"] for m in group["members"]] == ["alice", "bob"]
+    events = audit.list_events(action="user.groups_changed")["events"]
+    assert [e["actor"] for e in events if e["details"]["added"] == [group["id"]]] == [
+        "user:admin",
+        "admin",
     ]
     # Already reached: unchanged
     granted = web_users.grant_project("alice", "shop", "admin", False)
-    assert granted["permissions"]["reports.read"] == ["billing", "crm", "shop"]
+    assert granted["permissions"]["reports.read"] == ["billing", "shop"]
+    assert len(granted["groups"]) == 2
 
 
 def test_grant_project_leaves_an_unrestricted_user_unchanged():
@@ -716,7 +720,7 @@ def test_grant_project_creates_an_sso_user_only_when_allowed():
 def test_grant_project_is_bounded(monkeypatch):
     web_users.create_user("alice", PASSWORD)
     web_users.grant_project("alice", "shop", None, False)
-    monkeypatch.setattr(web_users, "MAX_PROJECTS_PER_TOKEN", 1)
+    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 1)
     with pytest.raises(ValueError, match="already reaches 1 projects"):
         web_users.check_project_grant("alice", False)
     monkeypatch.setattr(web_users, "MAX_USERS", 1)
@@ -751,28 +755,14 @@ def test_user_cli_create_list_set_groups_delete(capsys):
     assert (code, deleted["username"]) == (cli.EXIT_PASSED, "alice")
 
 
-def test_user_cli_gives_direct_roles(capsys):
-    group_for("reader", ["shop"], name="shop-readers")
-    code, created = run_cli(
-        capsys, "create", "alice", "--group", "shop-readers", "--role", "triager:crm,billing"
-    )
-    assert code == cli.EXIT_PASSED
-    assert [(r["name"], r["projects"]) for r in created["roles"]] == [
-        ("triager", ["crm", "billing"])
-    ]
-    assert created["permissions"]["reports.read"] == ["billing", "crm", "shop"]
-
-    code, updated = run_cli(capsys, "set-roles", "alice", "--role", "reader")
-    assert code == cli.EXIT_PASSED
-    assert [(r["name"], r["projects"]) for r in updated["roles"]] == [("reader", None)]
-    # The groups are kept by set-roles
-    assert [group["name"] for group in updated["groups"]] == ["shop-readers"]
-    code, updated = run_cli(capsys, "set-roles", "alice")
-    assert (code, updated["roles"]) == (cli.EXIT_PASSED, [])
-    assert cli.run(["user", "set-roles", "alice", "--role", "ghost"]) == cli.EXIT_ERROR
-    assert "Role 'ghost' not found" in json.loads(capsys.readouterr().err)["error"]
-    assert cli.run(["user", "set-roles", "alice", "--role", "admin:shop"]) == cli.EXIT_ERROR
-    assert "cannot list projects" in json.loads(capsys.readouterr().err)["error"]
+def test_user_cli_gives_no_role_of_its_own(capsys):
+    with pytest.raises(SystemExit) as exited:
+        cli.run(["user", "create", "alice", "--role", "reader"])
+    assert exited.value.code == 2
+    with pytest.raises(SystemExit):
+        cli.run(["user", "set-roles", "alice"])
+    capsys.readouterr()
+    assert web_users.list_users() == []
 
 
 def test_user_cli_restores_the_administrators_group(capsys):

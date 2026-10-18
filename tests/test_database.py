@@ -122,11 +122,9 @@ def test_user_grants_become_sso_web_users(empty_engine):
         "admin",
     )
     # Revision 0013 moved the role of the user into its personal group, 0014 into a direct role
+    # and 0018 into the groups of its projects
     assert alice["permissions"] == {"reports.read": ["billing", "shop-api"]}
-    assert alice["groups"] == []
-    assert [(role["name"], role["projects"]) for role in alice["roles"]] == [
-        ("reader", ["shop-api", "billing"])
-    ]
+    assert [group["name"] for group in alice["groups"]] == ["project:billing", "project:shop-api"]
     assert (users["bob"]["auth_source"], users["bob"]["effective_role"]) == ("local", "admin")
 
 
@@ -177,8 +175,9 @@ def test_roles_and_mappings_become_groups(empty_engine):
     columns = {column["name"] for column in inspect(empty_engine).get_columns("webuser")}
     assert not columns & {"role", "projects", "sso_role", "sso_projects"}
     groups = {group["name"]: group for group in access_control.list_groups()}
-    # The personal group user:rita of revision 0013 became a direct role in revision 0014
-    assert set(groups) == {"administrators", "triagers", "sec-team", "devs"}
+    # The personal group user:rita of revision 0013 became a direct role in revision 0014, then
+    # the group of its project in revision 0018
+    assert set(groups) == {"administrators", "triagers", "sec-team", "devs", "project:shop"}
     assert [m["username"] for m in groups["administrators"]["members"]] == ["root"]
     assert groups["administrators"]["sso"] is False
     assert groups["sec-team"]["sso"] is True and groups["sec-team"]["members"] == []
@@ -188,9 +187,7 @@ def test_roles_and_mappings_become_groups(empty_engine):
     }
     users = {user["username"]: user for user in web_users.list_users()}
     assert users["rita"]["permissions"] == {"reports.read": ["shop"]}
-    assert [(role["name"], role["projects"]) for role in users["rita"]["roles"]] == [
-        ("reader", ["shop"])
-    ]
+    assert [group["name"] for group in users["rita"]["groups"]] == ["project:shop"]
     assert users["tess"]["effective_role"] == "triager"
     # The access given by the OIDC groups at the last login is computed again at the next one
     assert users["sam"]["permissions"] == {}
@@ -207,8 +204,6 @@ def test_roles_and_mappings_become_groups(empty_engine):
 def test_personal_groups_become_direct_roles(empty_engine):
     from alembic import command
     from sqlalchemy import text
-
-    from security_review_mcp import access_control
 
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0013")
@@ -248,17 +243,11 @@ def test_personal_groups_become_direct_roles(empty_engine):
                 ),
                 {"group": group_id, "user": user_id, "now": now},
             )
-        command.upgrade(database.alembic_config(connection), "head")
-
-    groups = {group["name"] for group in access_control.list_groups()}
+        command.upgrade(database.alembic_config(connection), "0014")
+        groups = set(connection.execute(text("SELECT name FROM usergroup")).scalars())
+        direct = connection.execute(text("SELECT user_id, projects FROM userrole")).all()
     assert groups == {"administrators", "user:sam", "user:nobody"}
-    users = {user["username"]: user for user in web_users.list_users()}
-    assert users["rita"]["groups"] == []
-    assert [(r["name"], r["projects"]) for r in users["rita"]["roles"]] == [
-        ("reader", ["shop", "crm"])
-    ]
-    assert users["rita"]["permissions"] == {"reports.read": ["crm", "shop"]}
-    assert users["sam"]["roles"] == []
+    assert [tuple(row) for row in direct] == [(1, '["shop", "crm"]')]
 
     # Downgrading moves the direct roles back into personal groups
     with empty_engine.begin() as connection:
@@ -272,6 +261,100 @@ def test_personal_groups_become_direct_roles(empty_engine):
         ).all()
     assert [tuple(row) for row in rows] == [("user:rita", '["shop", "crm"]')]
     assert not inspect(empty_engine).has_table("userrole")
+
+
+def test_direct_roles_become_groups(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    from security_review_mcp import access_control
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0017")
+        now = "2026-10-01 10:00:00"
+        for user_id, name in ((1, "root"), (2, "rita"), (3, "tess"), (4, "sam")):
+            connection.execute(
+                text(
+                    "INSERT INTO webuser (id, username, auth_source, created_at, updated_at, "
+                    "session_version, must_change_password) "
+                    "VALUES (:id, :name, 'local', :now, :now, 1, 0)"
+                ),
+                {"id": user_id, "name": name, "now": now},
+            )
+        roles = dict(connection.execute(text("SELECT name, id FROM accessrole")).all())
+        # A group made by an administrator with reader on shop alone is reused; the name
+        # project:crm is taken by a group with another role
+        for group_id, name, role, projects in (
+            (10, "Shop team", "reader", '["shop"]'),
+            (11, "project:crm", "triager", '["crm"]'),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO usergroup (id, name, description, sso, created_at, updated_at) "
+                    "VALUES (:id, :name, '', 0, :now, :now)"
+                ),
+                {"id": group_id, "name": name, "now": now},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO grouprole (group_id, role_id, projects) "
+                    "VALUES (:id, :role, :projects)"
+                ),
+                {"id": group_id, "role": roles[role], "projects": projects},
+            )
+        for user_id, role, projects in (
+            (1, "admin", "[]"),
+            (2, "reader", '["shop", "crm"]'),
+            (3, "triager", '["shop"]'),
+            (3, "reader", '["crm"]'),
+            (4, "reader", '["crm"]'),
+            (4, "triager", "[]"),
+        ):
+            connection.execute(
+                text("INSERT INTO userrole (user_id, role_id, projects) VALUES (:u, :r, :p)"),
+                {"u": user_id, "r": roles[role], "p": projects},
+            )
+        command.upgrade(database.alembic_config(connection), "head")
+
+    assert not inspect(empty_engine).has_table("userrole")
+    groups = {group["name"]: group for group in access_control.list_groups()}
+    # administrators (created by revision 0013) holds admin alone on every project: reused
+    assert set(groups) == {
+        "Shop team",
+        "administrators",
+        "project:crm",
+        "project:crm (2)",
+        "project:shop:triager",
+        "role:triager",
+    }
+    assert all(group["sso"] is False for group in groups.values())
+    assert [(r["name"], r["projects"]) for r in groups["project:crm (2)"]["roles"]] == [
+        ("reader", ["crm"])
+    ]
+    members = {name: [m["username"] for m in group["members"]] for name, group in groups.items()}
+    assert members == {
+        "Shop team": ["rita"],
+        "project:crm": [],
+        "project:crm (2)": ["rita", "sam", "tess"],
+        "project:shop:triager": ["tess"],
+        "administrators": ["root"],
+        "role:triager": ["sam"],
+    }
+    # Nobody loses or gains any access, the last administrator included
+    users = {user["username"]: user for user in web_users.list_users()}
+    assert users["root"]["effective_role"] == "admin"
+    assert users["rita"]["permissions"] == {"reports.read": ["crm", "shop"]}
+    assert users["tess"]["permissions"] == {
+        "findings.triage": ["shop"],
+        "reports.read": ["crm", "shop"],
+    }
+    assert users["sam"]["permissions"] == {"findings.triage": None, "reports.read": None}
+
+    # Downgrading creates the table again, empty, and keeps the groups
+    with empty_engine.begin() as connection:
+        command.downgrade(database.alembic_config(connection), "0017")
+        assert connection.execute(text("SELECT count(*) FROM userrole")).scalar_one() == 0
+        assert connection.execute(text("SELECT count(*) FROM usergroup")).scalar_one() == 6
 
 
 def test_old_dismissals_expire_after_a_grace_period(empty_engine):

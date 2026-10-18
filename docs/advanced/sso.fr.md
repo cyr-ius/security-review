@@ -186,12 +186,12 @@ alors les rapports.
 - Le nom désigne un compte de l'écran **Utilisateurs**, local ou OIDC. Avec le OIDC activé, un nom
   inconnu devient un **compte OIDC**, prêt pour sa première connexion ; sans OIDC, le compte doit
   exister. Donner cet accès demande la permission `users.manage`.
-- Un compte qui lit déjà tous les projets est inchangé. Sinon le projet est ajouté à son rôle
-  `reader` [direct](access-control.md#roles-et-projets-directs-dun-compte) (donné sur ce seul
-  projet s'il manque). Une demande complémentaire approuvée pour le même utilisateur ajoute le
-  projet de la même façon.
+- Un compte qui lit déjà ce projet est inchangé. Sinon il rejoint, comme membre local, le
+  [groupe de projet](access-control.md#groupes-de-projet) `project:<projet>` (`reader` sur ce seul
+  projet, créé s'il manque), partagé par tous les développeurs enrôlés sur le projet. Une demande
+  complémentaire approuvée pour le même utilisateur ajoute le projet de la même façon.
 
-L'accès figure ensuite sur le compte, où il se modifie comme les autres. Il est indépendant du
+L'accès figure ensuite dans les groupes du compte, où il se modifie comme les autres. Il est indépendant du
 jeton MCP : révoquer le jeton ne le supprime pas.
 
 ```bash

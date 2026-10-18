@@ -22,10 +22,10 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `enrollment.approved` | Un administrateur approuve une demande |
 | `enrollment.rejected` | Un administrateur rejette une demande |
 | `role.created`, `role.updated`, `role.deleted` | Un administrateur crée, modifie (avec les permissions précédentes) ou supprime un [rôle](access-control.md#roles) |
-| `group.created`, `group.updated`, `group.deleted` | Un administrateur crée, renomme ou modifie, ou supprime un [groupe](access-control.md#groupes) |
+| `group.created`, `group.updated`, `group.deleted` | Un administrateur crée, renomme ou modifie, ou supprime un [groupe](access-control.md#groupes) ; l'approbation d'un enrôlement crée un [groupe de projet](access-control.md#groupes-de-projet) manquant (`project` dans le détail) |
 | `group.roles_changed`, `group.members_changed` | Un administrateur remplace les rôles (avec leurs projets) ou les membres (identifiants ajoutés et retirés) d'un groupe |
-| `user.groups_changed` | Un administrateur remplace les groupes donnés à un compte (identifiants de groupes ajoutés et retirés) |
-| `user.roles_changed` | Un administrateur remplace les rôles directs d'un compte, ou l'approbation d'un enrôlement lui ajoute un projet (`roles` : `rôle` ou `rôle:projet,projet`) |
+| `user.groups_changed` | Un administrateur remplace les groupes donnés à un compte, ou l'approbation d'un enrôlement l'ajoute à un [groupe de projet](access-control.md#groupes-de-projet) (identifiants de groupes ajoutés et retirés) |
+| `user.roles_changed` | Anciens rôles directs d'un compte (`roles` : `rôle` ou `rôle:projet,projet`) : plus enregistré depuis que les comptes n'ont plus de rôle propre, gardé dans l'historique |
 | `user.login` | Un utilisateur web se connecte (méthode `password` ou `oidc`, adresse) |
 | `user.login_failed` | Une connexion échoue : mot de passe incorrect, connexion OIDC refusée (méthode, adresse, et l'identifiant seulement s'il est valide) |
 | `user.logout` | Un utilisateur web se déconnecte avec **Déconnexion** (adresse) |

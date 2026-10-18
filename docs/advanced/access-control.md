@@ -1,9 +1,9 @@
 # Roles, groups and permissions
 
 What a [user account](../usage/web-interface.md#user-accounts) may do in the web interface and the
-REST API comes from **roles**, a role being a set of **permissions**: the roles of its **groups**
-and the roles given **directly to the account**, each on every project or on a list of projects.
-Administrators manage them in the **Groups**, **Roles** and **Users** screens (`users.manage`
+REST API comes only from **roles**, a role being a set of **permissions**, given to its
+**groups**, each on every project or on a list of projects. An account never holds a role or a
+project of its own: to give a person access, add them to a group. Administrators manage them in the **Groups**, **Roles** and **Users** screens (`users.manage`
 permission), or through the `/api/v1/groups`, `/api/v1/roles` and `/api/v1/users` API.
 
 Bearer tokens are not concerned: they keep their fixed role (`mcp`, `reader`, `triager`, `admin`,
@@ -39,8 +39,7 @@ the start and can be neither changed nor deleted:
 
 Administrators create other roles (100 at most), for example an *Auditor* role with
 `audit.read` and `reports.read`. A change of a role applies at once to the open sessions of the
-members of its groups and of the accounts that have it directly; deleting a role removes it from
-its groups and from these accounts.
+members of its groups; deleting a role removes it from its groups.
 
 ## Groups
 
@@ -59,31 +58,25 @@ Members come from two sources:
 
 Renaming a group, or closing it to OIDC, removes its OIDC members at once.
 
-## Direct roles and projects of an account
+## Project groups
 
-In addition to its groups, an account can receive roles of its own, in the **Direct roles and
-projects** part of its form in the **Users** screen: for example `triager` on `shop` and
-`billing` for one person, without creating a group for them. The rules are those of the roles of
-a group: a role made of per-project permissions applies to every project or to a list of projects
-(50 at most), a role holding a permission on the whole controller always applies to every
-project, and an account has 20 direct roles at most.
-
-Direct roles are kept when the account changes groups, including the OIDC groups recomputed at
-each login. The approval of an enrollment with read access in the portal adds the project to the
-direct `reader` role of the account (see
-[OIDC](sso.md#project-read-access-at-enrollment)).
+The approval of an enrollment with read access in the portal (see
+[OIDC](sso.md#project-read-access-at-enrollment)) adds the account, as a local member, to the
+**project group** of the project: a group not open to OIDC whose only role is `reader` on that
+project alone. An existing group of this kind is reused (even one made by an administrator,
+whatever its name); otherwise the group `project:<project>` is created (with a number, such as
+`project:shop (2)`, when another group already has this name). All the developers enrolled on a
+project thus share one group, which an administrator manages like any other.
 
 ## What a user may do
 
-The permissions of a user are the union of the permissions of the roles of **all its groups**
-and of its **direct roles**.
+The permissions of a user are the union of the permissions of the roles of **all its groups**.
 Each permission keeps its own projects: it reaches every project when one of its roles does,
 otherwise the union of their projects (200 at most per permission: beyond that, the account has
 no access). A user who is `reader` on every project through one group and `triager` on `crm`
-through a direct role reads every project and triages `crm` only.
+through another reads every project and triages `crm` only.
 
-A change of a group (roles, members), of a role or of the direct roles of an account applies at
-once to the open sessions. An
+A change of a group (roles, members) or of a role applies at once to the open sessions. An
 account without any permission cannot log in, and its open sessions stop.
 
 `GET /api/v1/me` returns the permissions of the caller; `role` sums them up for the display:
@@ -98,7 +91,7 @@ otherwise.
 ## The last administrator
 
 At least one account keeps `users.manage`: deleting this account, removing its group, the role
-of its group, its direct role or the permission of its role is refused (`409` or `422`). An OIDC login that removes
+of its group or the permission of its role is refused (`409` or `422`). An OIDC login that removes
 the last holder from its OIDC group is not blocked: the identity provider remains the authority.
 Preferably keep a local administrator.
 
@@ -127,10 +120,10 @@ curl -X PUT https://secreview.example.com/api/v1/groups/4/roles \
 curl -X PUT https://secreview.example.com/api/v1/groups/4/members \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
   -d '{"user_ids": [7, 9]}'
-# Account 7 also triages "crm" through a direct role (its groups are unchanged)
+# The local groups of account 7 (its OIDC groups are kept)
 curl -X PUT https://secreview.example.com/api/v1/users/7 \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"roles": [{"role_id": 3, "projects": ["crm"]}]}'
+  -d '{"group_ids": [4]}'
 ```
 
 | Route | Effect |
@@ -140,14 +133,15 @@ curl -X PUT https://secreview.example.com/api/v1/users/7 \
 | `GET`, `POST /api/v1/groups`; `PUT`, `DELETE /api/v1/groups/{id}` | Groups (`GET` also returns the OIDC settings that use them) |
 | `PUT /api/v1/groups/{id}/roles` | Replaces the roles of a group |
 | `PUT /api/v1/groups/{id}/members` | Replaces the local members of a group (OIDC members are kept) |
-| `POST /api/v1/users` | Creates a user, with `group_ids` and `roles` (direct roles) |
-| `PUT /api/v1/users/{id}` | Replaces the local groups (`group_ids`) and the direct roles (`roles`, each `{"role_id": 3, "projects": ["crm"]}`, empty `projects`: every project) of a user; a missing field is left unchanged |
+| `POST /api/v1/users` | Creates a user, member of the groups `group_ids` |
+| `PUT /api/v1/users/{id}` | Replaces the local groups (`group_ids`) of a user; a missing field is left unchanged |
+
+A `roles` field in the body of these two routes is refused (`422`): an account has no role of its
+own.
 
 Every change is written to the [audit log](audit-metrics.md#audit-log) (`role.*`, `group.*`,
-`user.groups_changed`, `user.roles_changed`). From the CLI, `security-review-controller user
-set-groups` changes the groups of an account, `user set-roles` its direct roles
-(`--role triager:crm,billing`, `--role reader` for every project), and
-`security-review-controller group list` / `group roles` lists the groups and the roles (see
+`user.groups_changed`). From the CLI, `security-review-controller user set-groups` changes the
+groups of an account, and `security-review-controller group list` / `group roles` lists the groups and the roles (see
 [CLI](../reference/cli.md)).
 
 ## Upgrading from the fixed roles
@@ -162,6 +156,14 @@ Schema migration `0013` moves the former access into groups:
 Schema migration `0014` then turns each personal group `user:<name>` whose only member is that
 account (added by an administrator) into direct roles of the account, on the same projects, and
 deletes the group. A personal group with other members, or open to OIDC, is kept.
+
+Schema migration `0018` removes these direct roles: each one becomes the local membership of a
+group not open to OIDC holding the same role on the same projects, so that nobody loses or gains
+any access (the last administrator included). A role on a list of projects gives one group per
+project, `project:<project>` for `reader` (the [project group](#project-groups)), otherwise
+`project:<project>:<role>`; a role on every project gives the group `role:<role>`. An existing
+group not open to OIDC whose only role is the same one (such as `administrators` for `admin`) is
+reused.
 
 The role given to an OIDC account by its groups at its last login is computed again at its next
 login. The `SECREVIEW_OIDC_TRIAGER_GROUPS`, `SECREVIEW_OIDC_READER_GROUPS` and

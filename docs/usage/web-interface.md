@@ -82,12 +82,10 @@ the requested page once the controller answers again.
 - **Users**: administrators manage the [accounts](#user-accounts), the only
   ones to open the interface. Each account is **Local** (user name and password, entered or
   generated and shown only once) or **OIDC** (login through the identity provider, no password),
-  with a badge in the list. The administrator chooses its **Groups** and its **Direct roles and
-  projects** (a role on every project or on selected projects, for this account only); the
-  **Groups** column shows the groups, with a shield for the OIDC groups found at the last login,
-  the **Direct roles and projects** column the direct roles, and **Access** sums up what they
-  give. The administrator changes the groups and direct roles of an account, resets the password of a local
-  account or deletes an account. A deleted OIDC account is no longer created again at its login:
+  with a badge in the list. The administrator chooses its **Groups**, the only source of its
+  permissions; the **Groups** column shows the groups, with a shield for the OIDC groups found at
+  the last login, and **Access** sums up what they give. The administrator changes the groups of
+  an account, resets the password of a local account or deletes an account. A deleted OIDC account is no longer created again at its login:
   the **Deleted OIDC accounts** section lists them, with the **Allow again** button. The last
   holder of `users.manage` can be neither deleted nor lose it.
 - **Groups**: administrators create the groups, give them roles (on every project or on some
@@ -274,8 +272,9 @@ permission), with the actor `token:triage-bot` or `user:<name>`.
 ## User accounts
 
 An account ties a **user name** (letters, digits and `. _ @ -`, 64 characters at most), a
-**type**, **groups** and **direct roles** (a role on every project or on some projects, given to
-this account only): their roles give its [permissions](../advanced/access-control.md#direct-roles-and-projects-of-an-account).
+**type** and **groups**: the roles of its groups give its
+[permissions](../advanced/access-control.md#what-a-user-may-do). An account has no role or
+project of its own.
 
 | Type (`auth_source`) | Login | Creation |
 |---|---|---|
@@ -295,22 +294,21 @@ security-review-controller user create carol@example.com --sso   # OIDC groups o
 security-review-controller user list
 security-review-controller user set-groups alice --group readers --group auditors
 security-review-controller user set-groups alice --group administrators   # created if missing
-security-review-controller user set-roles alice --role triager:shop,billing   # direct roles
 security-review-controller user reset-password alice   # local account: new password, sessions closed
 security-review-controller user delete alice
 security-review-controller group list    # groups, their roles and members
 ```
 
 Through the API, an OIDC account is created with `"auth_source": "oidc"`, without `password`;
-`group_ids` lists its groups and `roles` its direct roles (empty `projects`: every project):
+`group_ids` lists its groups:
 
 ```bash
 curl -X POST https://secreview.example.com/api/v1/users \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"username": "carol@example.com", "auth_source": "oidc", "group_ids": [4], "roles": [{"role_id": 3, "projects": ["crm"]}]}'
+  -d '{"username": "carol@example.com", "auth_source": "oidc", "group_ids": [4]}'
 ```
 
-An account without any group or direct role has no permission and cannot log in.
+An account without any group has no permission and cannot log in.
 
 For a local account, without `--password-stdin` (or without a password in the interface), a
 random 24-character password is generated and shown **only once**. A chosen password follows

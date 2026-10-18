@@ -509,14 +509,6 @@ class UserGroupMembership(BaseModel):
     source: AuthSource
 
 
-class UserRole(BaseModel):
-    """A role given directly to a user, on every project (None) or on some projects."""
-
-    role_id: int
-    name: str
-    projects: list[str] | None
-
-
 class WebUser(BaseModel):
     """A web user, local or OIDC; never its password hash nor its subject."""
 
@@ -524,8 +516,6 @@ class WebUser(BaseModel):
     username: str
     auth_source: AuthSource
     groups: list[UserGroupMembership]
-    # Roles given directly to the user, in addition to those of its groups
-    roles: list[UserRole]
     permissions: dict[str, list[str] | None]
     # Web role that sums up the permissions; None: no permission
     effective_role: Role | None
@@ -562,19 +552,13 @@ class EnrollmentApproved(EnrollmentRequest):
     portal_user: WebUser | None = None
 
 
-class UserRoleBinding(BaseModel):
-    """A role given directly to a user, on every project (empty ``projects``) or on some."""
-
-    role_id: int = Field(ge=1)
-    projects: list[_ProjectName] = Field(
-        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
-    )
-
-
 class WebUserCreate(BaseModel):
-    """A web user, its groups and its direct roles. A local one without ``password`` gets a
-    random one, returned once; an OIDC one (``auth_source="oidc"``) has no password and also joins
-    its OIDC groups at each login."""
+    """A web user and its groups, the only source of its permissions. A local one without
+    ``password`` gets a random one, returned once; an OIDC one (``auth_source="oidc"``) has no
+    password and also joins its OIDC groups at each login."""
+
+    # A user has no role of its own: an unknown field (such as "roles") is refused, not ignored
+    model_config = ConfigDict(extra="forbid")
 
     username: str = Field(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)
     auth_source: AuthSource = "local"
@@ -586,20 +570,17 @@ class WebUserCreate(BaseModel):
     group_ids: list[Annotated[int, Field(ge=1)]] = Field(
         default_factory=list, max_length=access_control.MAX_GROUPS
     )
-    roles: list[UserRoleBinding] = Field(
-        default_factory=list, max_length=access_control.MAX_ROLES_PER_USER
-    )
 
 
 class WebUserUpdate(BaseModel):
-    """Groups an administrator gives to a web user (its OIDC groups are kept) and its direct
-    roles; a missing field is left unchanged."""
+    """Groups an administrator gives to a web user (its OIDC groups are kept); a missing field
+    is left unchanged."""
+
+    # A user has no role of its own: an unknown field (such as "roles") is refused, not ignored
+    model_config = ConfigDict(extra="forbid")
 
     group_ids: list[Annotated[int, Field(ge=1)]] | None = Field(
         default=None, max_length=access_control.MAX_GROUPS
-    )
-    roles: list[UserRoleBinding] | None = Field(
-        default=None, max_length=access_control.MAX_ROLES_PER_USER
     )
 
 
@@ -631,7 +612,7 @@ class RoleWrite(BaseModel):
 
 
 class AccessRole(BaseModel):
-    """A role: a named set of permissions, given to groups and to users."""
+    """A role: a named set of permissions, given to groups."""
 
     id: int
     name: str
@@ -639,12 +620,10 @@ class AccessRole(BaseModel):
     permissions: list[access_control.Permission]
     # reader, triager and admin: neither changed nor deleted
     system: bool
-    # Only scoped permissions: the role may be limited to projects (group or user)
+    # Only scoped permissions: the role may be limited to projects in a group
     scoped: bool
     # Number of groups that have the role
     groups: int
-    # Number of users that have the role directly
-    users: int
     created_at: str
     updated_at: str
     created_by: str | None

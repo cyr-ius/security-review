@@ -22,10 +22,10 @@ exists exactly when the change was committed.
 | `enrollment.approved` | An administrator approves a request |
 | `enrollment.rejected` | An administrator rejects a request |
 | `role.created`, `role.updated`, `role.deleted` | An administrator creates, changes (with the previous permissions) or deletes a [role](access-control.md#roles) |
-| `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](access-control.md#groups) |
+| `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](access-control.md#groups); the approval of an enrollment creates a missing [project group](access-control.md#project-groups) (`project` in the details) |
 | `group.roles_changed`, `group.members_changed` | An administrator replaces the roles (with their projects) or the members (added and removed user ids) of a group |
-| `user.groups_changed` | An administrator replaces the groups given to an account (added and removed group ids) |
-| `user.roles_changed` | An administrator replaces the direct roles of an account, or the approval of an enrollment adds a project to it (`roles`: `role` or `role:project,project`) |
+| `user.groups_changed` | An administrator replaces the groups given to an account, or the approval of an enrollment adds it to a [project group](access-control.md#project-groups) (added and removed group ids) |
+| `user.roles_changed` | Former direct roles of an account (`roles`: `role` or `role:project,project`): no longer recorded since accounts have no role of their own, kept in the history |
 | `user.login` | A web user logs in (method `password` or `oidc`, address) |
 | `user.login_failed` | A login fails: wrong password, refused OIDC login (method, address, and the user name only when it is valid) |
 | `user.logout` | A web user logs out with **Log out** (address) |

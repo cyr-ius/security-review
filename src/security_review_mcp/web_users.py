@@ -13,8 +13,9 @@ server and the REST API (scripts, CI). A web user has an ``auth_source``:
   deleted OIDC user is revoked (``RevokedSsoUser``): a login never creates it again, until an
   administrator creates it again.
 
-What a web user may do comes from the roles of its groups (see access_control): the groups an
-administrator gave it (or the approval of an enrollment, see grant_project) and, for an OIDC
+What a web user may do comes only from the roles of its groups (see access_control): a user
+never holds a role or a project of its own. Its groups are those an administrator gave it (or
+the project group joined at the approval of an enrollment, see grant_project) and, for an OIDC
 user, the groups named by its groups claim at its last login.
 
 The session token (see oidc.SessionSigner) carries the id of the user. At each request,
@@ -52,11 +53,11 @@ from . import access_control, audit
 from .audit import AuditAction
 from .config import Settings
 from .database import session_scope
-from .http_server import Role, TokenInfo
+from .http_server import TokenInfo
 from .models import RevokedSsoUser, WebUser, utcnow
 from .oidc import MAX_LABEL_CHARS, OidcError, OidcIdentity, SessionSigner, same_value
 from .services import NotFoundError
-from .token_store import MAX_PROJECTS_PER_TOKEN, _clean_project
+from .token_store import _clean_project
 
 Permission = access_control.Permission
 
@@ -262,8 +263,7 @@ def _label(row: WebUser) -> str:
 
 
 def _grants(session: Session, row: WebUser) -> dict[str, Any]:
-    """Permissions of a user through its groups and direct roles; empty when it has none (or too
-    many projects)."""
+    """Permissions of a user through its groups; empty when it has none (or too many projects)."""
     if row.id is None:
         return {}
     try:
@@ -281,7 +281,6 @@ def _public(session: Session, row: WebUser) -> dict[str, Any]:
         "username": row.username,
         "auth_source": row.auth_source,
         "groups": access_control.user_groups(session, row.id) if row.id is not None else [],
-        "roles": access_control.user_roles(session, row.id) if row.id is not None else [],
         "permissions": {
             name: None if projects is None else sorted(projects)
             for name, projects in sorted(grants.items())
@@ -387,16 +386,13 @@ def create_user(
     created_by: str | None = None,
     auth_source: str = AUTH_LOCAL,
     actor: str | None = None,
-    roles: Iterable[tuple[int, Iterable[str] | None]] | None = None,
 ) -> dict[str, Any]:
-    """Create a user, member of ``groups`` (ids), with the direct ``roles`` (role id, projects or
-    None for every project); a local one without ``password`` gets a random one. ``actor`` is
-    written to the audit log (default: ``created_by``).
+    """Create a user, member of ``groups`` (ids); a local one without ``password`` gets a random
+    one. ``actor`` is written to the audit log (default: ``created_by``).
 
     An OIDC user (``auth_source="oidc"``) has no password; its OIDC groups are added at each
     login. Returns the user and, when generated, its ``password`` (shown exactly once). Raises
-    ValueError when invalid, duplicated or over the limit, NotFoundError for an unknown group or
-    role.
+    ValueError when invalid, duplicated or over the limit, NotFoundError for an unknown group.
     """
     source = clean_auth_source(auth_source)
     name = clean_username(username)
@@ -425,8 +421,6 @@ def create_user(
             session.flush()
             if groups:
                 access_control.set_user_groups(session, row.id, groups, actor or created_by)  # type: ignore[arg-type]
-            if roles:
-                access_control.set_user_roles(session, row.id, roles, actor or created_by)  # type: ignore[arg-type]
             session.refresh(row)
             created = _public(session, row)
     except IntegrityError as exc:
@@ -439,21 +433,17 @@ def update_user(
     user_id: int,
     groups: Iterable[int] | None,
     updated_by: str | None = None,
-    roles: Iterable[tuple[int, Iterable[str] | None]] | None = None,
 ) -> dict[str, Any]:
-    """Replace the groups an administrator gave to a user and its direct roles (role id,
-    projects or None for every project); applies to its sessions at once.
+    """Replace the groups an administrator gave to a user; applies to its sessions at once.
 
-    ``None`` leaves the groups or the roles unchanged. Its OIDC groups are kept. The last user
-    that holds ``users.manage`` cannot lose it.
+    ``None`` leaves the groups unchanged. Its OIDC groups are kept. The last user that holds
+    ``users.manage`` cannot lose it.
     """
     with session_scope() as session:
         row = _get(session, user_id)
         before = access_control.managers(session)
         if groups is not None:
             access_control.set_user_groups(session, user_id, groups, updated_by)
-        if roles is not None:
-            access_control.set_user_roles(session, user_id, roles, updated_by)
         if before and not access_control.managers(session):
             raise ValueError("At least one user must keep the users.manage permission")
         row.updated_at = utcnow()
@@ -611,17 +601,6 @@ def ensure_bootstrap_admin() -> str | None:
 # ── Access given at the approval of an enrollment ────────────────────────────
 
 
-def _reader_projects(session: Session, user_id: int | None) -> list[str] | None:
-    """Projects of the direct ``reader`` role of a user (None when it has none)."""
-    if user_id is None:
-        return None
-    reader = access_control.ensure_system_roles(session)[Role.READER.value]
-    for binding in access_control.user_roles(session, user_id):
-        if binding["role_id"] == reader:
-            return binding["projects"] or []
-    return None
-
-
 def check_project_grant(username: str, create_sso: bool) -> str:
     """Check that ``grant_project`` can give a project to this user; return the clean name.
 
@@ -636,9 +615,12 @@ def check_project_grant(username: str, create_sso: bool) -> str:
             if not create_sso:
                 raise ValueError(f"Web user '{name}' not found (OIDC is not enabled)")
             _check_capacity(session)
-        projects = _reader_projects(session, row.id if row is not None else None)
-        if projects is not None and len(projects) >= MAX_PROJECTS_PER_TOKEN:
-            raise ValueError(f"Web user '{name}' already reaches {MAX_PROJECTS_PER_TOKEN} projects")
+            return name
+        projects = _grants(session, row).get(Permission.REPORTS_READ, frozenset())
+        if projects is not None and len(projects) >= access_control.MAX_SESSION_PROJECTS:
+            raise ValueError(
+                f"Web user '{name}' already reaches {access_control.MAX_SESSION_PROJECTS} projects"
+            )
     return name
 
 
@@ -651,9 +633,10 @@ def grant_project(
 ) -> dict[str, Any]:
     """Let a web user read ``project`` (usually the project of an approved enrollment).
 
-    A user that can already read every project is unchanged. Otherwise the project is added to
-    its direct role ``reader`` (given on this project only when it has none). With
-    ``create_sso``, an unknown name becomes an OIDC user, ready for its first login.
+    A user that can already read this project is unchanged. Otherwise it joins, as a local
+    member, the project group of ``project`` (``project:<project>``, created when missing, see
+    access_control.ensure_project_group). With ``create_sso``, an unknown name becomes an OIDC
+    user, ready for its first login.
 
     Raises:
         ValueError: Invalid name or project, unknown user without ``create_sso``, or a limit.
@@ -679,9 +662,9 @@ def grant_project(
             # Same user created twice at the same time
             raise ValueError(f"Web user '{name}' was created concurrently; retry") from None
         user_id: int = row.id  # type: ignore[assignment]
-        if _grants(session, row).get(Permission.REPORTS_READ, frozenset()) is not None:
-            reader = access_control.ensure_system_roles(session)[Role.READER.value]
-            access_control.add_user_project(session, user_id, reader, added, actor or created_by)
+        if not access_control.allows(_grants(session, row), Permission.REPORTS_READ, added):
+            group = access_control.ensure_project_group(session, added, actor or created_by)
+            access_control.add_user_to_group(session, user_id, group.id, actor or created_by)  # type: ignore[arg-type]
         session.refresh(row)
         return _public(session, row)
 

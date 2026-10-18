@@ -76,9 +76,6 @@ export const users = defineMessages({
     'users.ssoGroup': 'Named by the groups claim at the last login',
     'users.givenGroup': 'Given by an administrator',
     'users.access': 'Access',
-    'users.directRoles': 'Direct roles and projects',
-    'users.directRolesHelp':
-      'Roles given to this user only, in addition to those of its groups: for example triager on two projects.',
   },
   fr: {
     'users.mustChange': 'mot de passe à changer',
@@ -158,16 +155,13 @@ export const users = defineMessages({
     'users.ssoGroup': 'Nommé par le claim des groupes à la dernière connexion',
     'users.givenGroup': 'Donné par un administrateur',
     'users.access': 'Accès',
-    'users.directRoles': 'Rôles et projets directs',
-    'users.directRolesHelp':
-      'Rôles donnés à cet utilisateur seul, en plus de ceux de ses groupes : par exemple triager sur deux projets.',
   },
   es: {
     'users.mustChange': 'contraseña por cambiar',
     'users.subtitle':
       'Cuentas de la interfaz web: locales (usuario y contraseña) o OIDC (proveedor de identidad)',
     'users.help':
-      'Solo estas cuentas abren la interfaz; los tokens sirven al servidor MCP y a la API REST. Lo que un usuario puede hacer viene de los roles de sus grupos (los asignados aquí y, para un usuario OIDC, los nombrados por su claim de grupos en su último inicio de sesión) y de los roles que se le asignan directamente, cada uno en todos los proyectos o en algunos. Un cambio se aplica de inmediato a las sesiones abiertas; un restablecimiento de contraseña o una eliminación las cierra. El último titular del permiso users.manage no puede ser eliminado ni perderlo.',
+      'Solo estas cuentas abren la interfaz; los tokens sirven al servidor MCP y a la API REST. Lo que un usuario puede hacer viene solo de los roles de sus grupos (los asignados aquí y, para un usuario OIDC, los nombrados por su claim de grupos en su último inicio de sesión). Un cambio se aplica de inmediato a las sesiones abiertas; un restablecimiento de contraseña o una eliminación las cierra. El último titular del permiso users.manage no puede ser eliminado ni perderlo.',
     'users.generatedPassword': 'Contraseña generada',
     'users.passwordOf': 'Contraseña de «{user}»',
     'users.copyNow': 'Cópiela ahora: no se volverá a mostrar.',
@@ -237,8 +231,5 @@ export const users = defineMessages({
     'users.ssoGroup': 'Nombrado por el claim de grupos en el último inicio de sesión',
     'users.givenGroup': 'Asignado por un administrador',
     'users.access': 'Acceso',
-    'users.directRoles': 'Roles y proyectos directos',
-    'users.directRolesHelp':
-      'Roles asignados solo a este usuario, además de los de sus grupos: por ejemplo triager en dos proyectos.',
   },
 });

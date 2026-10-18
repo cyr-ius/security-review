@@ -1,9 +1,10 @@
 # Rôles, groupes et permissions
 
 Ce qu'un [compte utilisateur](../usage/web-interface.md#comptes-utilisateurs) peut faire dans
-l'interface web et l'API REST vient de **rôles**, un rôle étant un ensemble de **permissions** :
-les rôles de ses **groupes** et les rôles donnés **directement au compte**, chacun sur tous les
-projets ou sur une liste de projets. Les administrateurs les gèrent dans les écrans **Groupes**,
+l'interface web et l'API REST vient uniquement de **rôles**, un rôle étant un ensemble de
+**permissions**, donnés à ses **groupes**, chacun sur tous les projets ou sur une liste de
+projets. Un compte n'a jamais de rôle ni de projet propre : pour donner un accès à une personne,
+ajoutez-la à un groupe. Les administrateurs les gèrent dans les écrans **Groupes**,
 **Rôles** et **Utilisateurs** (permission `users.manage`), ou par l'API `/api/v1/groups`,
 `/api/v1/roles` et `/api/v1/users`.
 
@@ -40,8 +41,7 @@ dès le départ et ne peuvent être ni modifiés ni supprimés :
 
 Les administrateurs créent d'autres rôles (100 au plus), par exemple un rôle *Auditeur* avec
 `audit.read` et `reports.read`. La modification d'un rôle s'applique aussitôt aux sessions
-ouvertes des membres de ses groupes et des comptes qui l'ont directement ; supprimer un rôle le
-retire de ses groupes et de ces comptes.
+ouvertes des membres de ses groupes ; supprimer un rôle le retire de ses groupes.
 
 ## Groupes
 
@@ -62,31 +62,25 @@ Les membres ont deux origines :
 
 Renommer un groupe, ou le fermer au OIDC, retire aussitôt ses membres OIDC.
 
-## Rôles et projets directs d'un compte
+## Groupes de projet
 
-En plus de ses groupes, un compte peut recevoir des rôles propres, dans la partie **Rôles et
-projets directs** de son formulaire de l'écran **Utilisateurs** : par exemple `triager` sur `shop`
-et `billing` pour une personne, sans créer de groupe pour elle. Les règles sont celles des rôles
-d'un groupe : un rôle fait de permissions par projet s'applique à tous les projets ou à une liste
-de projets (50 au plus), un rôle qui contient une permission sur tout le contrôleur s'applique
-toujours à tous les projets, et un compte a 20 rôles directs au plus.
-
-Les rôles directs sont gardés quand le compte change de groupes, y compris les groupes OIDC
-recalculés à chaque connexion. L'approbation d'un enrôlement avec lecture dans le portail ajoute
-le projet au rôle direct `reader` du compte (voir
-[OIDC](sso.md#lecture-du-projet-a-lenrolement)).
+L'approbation d'un enrôlement avec lecture dans le portail (voir
+[OIDC](sso.md#lecture-du-projet-a-lenrolement)) ajoute le compte, comme membre local, au **groupe
+de projet** du projet : un groupe non ouvert au OIDC dont le seul rôle est `reader` sur ce seul
+projet. Un groupe existant de ce type est réutilisé (même créé par un administrateur, quel que
+soit son nom) ; sinon le groupe `project:<projet>` est créé (avec un numéro, par exemple
+`project:shop (2)`, quand un autre groupe porte déjà ce nom). Tous les développeurs enrôlés sur un
+projet partagent ainsi un groupe, qu'un administrateur gère comme les autres.
 
 ## Ce qu'un utilisateur peut faire
 
-Les permissions d'un utilisateur sont l'union des permissions des rôles de **tous ses groupes**
-et de ses **rôles directs**.
+Les permissions d'un utilisateur sont l'union des permissions des rôles de **tous ses groupes**.
 Chaque permission garde ses propres projets : elle couvre tous les projets si l'un de ses rôles
 les couvre, sinon l'union de leurs projets (200 au plus par permission : au-delà, le compte n'a
 aucun accès). Un utilisateur `reader` sur tous les projets par un groupe et `triager` sur `crm`
-par un rôle direct lit tous les projets et ne trie que `crm`.
+par un autre lit tous les projets et ne trie que `crm`.
 
-Un changement de groupe (rôles, membres), de rôle ou des rôles directs d'un compte s'applique
-aussitôt aux sessions ouvertes. Un
+Un changement de groupe (rôles, membres) ou de rôle s'applique aussitôt aux sessions ouvertes. Un
 compte sans aucune permission ne peut pas se connecter, et ses sessions ouvertes s'arrêtent.
 
 `GET /api/v1/me` renvoie les permissions de l'appelant ; `role` les résume pour l'affichage :
@@ -100,8 +94,8 @@ compte sans aucune permission ne peut pas se connecter, et ses sessions ouvertes
 
 ## Le dernier administrateur
 
-Au moins un compte garde `users.manage` : supprimer ce compte, son groupe, le rôle de son groupe,
-son rôle direct ou la permission de son rôle est refusé (`409` ou `422`). Une connexion OIDC qui retire le dernier
+Au moins un compte garde `users.manage` : supprimer ce compte, son groupe, le rôle de son groupe
+ou la permission de son rôle est refusé (`409` ou `422`). Une connexion OIDC qui retire le dernier
 détenteur de son groupe OIDC n'est pas bloquée : le fournisseur d'identité reste l'autorité.
 Gardez de préférence un administrateur local.
 
@@ -130,10 +124,10 @@ curl -X PUT https://secreview.example.com/api/v1/groups/4/roles \
 curl -X PUT https://secreview.example.com/api/v1/groups/4/members \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
   -d '{"user_ids": [7, 9]}'
-# Le compte 7 trie aussi « crm » par un rôle direct (ses groupes ne changent pas)
+# Les groupes locaux du compte 7 (ses groupes OIDC sont gardés)
 curl -X PUT https://secreview.example.com/api/v1/users/7 \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"roles": [{"role_id": 3, "projects": ["crm"]}]}'
+  -d '{"group_ids": [4]}'
 ```
 
 | Route | Effet |
@@ -143,14 +137,15 @@ curl -X PUT https://secreview.example.com/api/v1/users/7 \
 | `GET`, `POST /api/v1/groups` ; `PUT`, `DELETE /api/v1/groups/{id}` | Groupes (`GET` renvoie aussi la configuration OIDC qui les utilise) |
 | `PUT /api/v1/groups/{id}/roles` | Remplace les rôles d'un groupe |
 | `PUT /api/v1/groups/{id}/members` | Remplace les membres locaux d'un groupe (les membres OIDC sont gardés) |
-| `POST /api/v1/users` | Crée un utilisateur, avec `group_ids` et `roles` (rôles directs) |
-| `PUT /api/v1/users/{id}` | Remplace les groupes locaux (`group_ids`) et les rôles directs (`roles`, chacun `{"role_id": 3, "projects": ["crm"]}`, `projects` vide : tous les projets) d'un utilisateur ; un champ absent reste inchangé |
+| `POST /api/v1/users` | Crée un utilisateur, membre des groupes `group_ids` |
+| `PUT /api/v1/users/{id}` | Remplace les groupes locaux (`group_ids`) d'un utilisateur ; un champ absent reste inchangé |
+
+Un champ `roles` dans le corps de ces deux routes est refusé (`422`) : un compte n'a pas de rôle
+propre.
 
 Chaque modification est écrite au [journal d'audit](audit-metrics.md#journal-daudit) (`role.*`,
-`group.*`, `user.groups_changed`, `user.roles_changed`). En CLI, `security-review-controller user
-set-groups` change les groupes d'un compte, `user set-roles` ses rôles directs
-(`--role triager:crm,billing`, `--role reader` pour tous les projets), et
-`security-review-controller group list` / `group roles` liste les groupes et les rôles (voir
+`group.*`, `user.groups_changed`). En CLI, `security-review-controller user set-groups` change les
+groupes d'un compte, et `security-review-controller group list` / `group roles` liste les groupes et les rôles (voir
 [CLI](../reference/cli.md)).
 
 ## Mise à jour depuis les rôles fixes
@@ -167,6 +162,14 @@ La migration de schéma `0014` transforme ensuite chaque groupe personnel `user:
 membre est ce compte (ajouté par un administrateur) en rôles directs du compte, sur les mêmes
 projets, et supprime le groupe. Un groupe personnel qui a d'autres membres, ou ouvert au OIDC, est
 gardé.
+
+La migration de schéma `0018` supprime ces rôles directs : chacun devient l'appartenance locale à
+un groupe non ouvert au OIDC qui a le même rôle sur les mêmes projets, de sorte que personne ne
+perd ni ne gagne d'accès (dernier administrateur compris). Un rôle sur une liste de projets donne
+un groupe par projet, `project:<projet>` pour `reader` (le [groupe de projet](#groupes-de-projet)),
+sinon `project:<projet>:<rôle>` ; un rôle sur tous les projets donne le groupe `role:<rôle>`. Un
+groupe existant non ouvert au OIDC dont le seul rôle est le même (comme `administrators` pour
+`admin`) est réutilisé.
 
 Le rôle donné à un compte OIDC par ses groupes à sa dernière connexion est recalculé à sa
 prochaine connexion. Les variables `SECREVIEW_OIDC_TRIAGER_GROUPS`, `SECREVIEW_OIDC_READER_GROUPS`

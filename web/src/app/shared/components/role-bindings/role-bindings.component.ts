@@ -39,7 +39,7 @@ export function roleDraftsComplete(drafts: RoleBindingDraft[]): boolean {
 }
 
 /**
- * Editor of the roles given to a group or directly to a user: each role applies to every project
+ * Editor of the roles given to a group: each role applies to every project
  * or, when it is made of per-project permissions only, to the selected projects.
  */
 @Component({
