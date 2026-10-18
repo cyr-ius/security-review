@@ -126,12 +126,16 @@ created at the first start, with its password in the logs.
 
 Before applying it, replace the image `registry.example.com/security-review-mcp:pg` with an
 image that contains the PostgreSQL driver, for example `ghcr.io/cyr-ius/security-review-mcp:latest-pg`
-(see [Installation](installation.md)).
+(see [Installation](installation.md)). The `secreview-controller` Secret holds the signing
+secret of the web sessions: the file system of the containers is read-only, the controller
+cannot generate it.
 
 ```bash
 kubectl create namespace secreview
 kubectl -n secreview create secret generic secreview-db \
     --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
+kubectl -n secreview create secret generic secreview-controller \
+    --from-literal=SECREVIEW_SESSION_SECRET="$(openssl rand -hex 32)"
 kubectl -n secreview apply -f examples/kubernetes/security-review.yaml
 kubectl -n secreview logs deploy/secreview-controller -c controller   # initial admin password
 kubectl -n secreview exec deploy/secreview-controller -c controller -- \

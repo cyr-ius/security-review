@@ -4,8 +4,10 @@
 #   kubectl create namespace secreview
 #   kubectl -n secreview create secret generic secreview-db \
 #       --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
+#   kubectl -n secreview create secret generic secreview-controller \
+#       --from-literal=SECREVIEW_SESSION_SECRET="$(openssl rand -hex 32)"
 #   kubectl -n secreview apply -f examples/kubernetes/security-review.yaml
-#   kubectl -n secreview logs deploy/secreview-controller   # one-time admin password
+#   kubectl -n secreview logs deploy/secreview-controller -c controller   # one-time admin password
 #
 # The image must be built with the PostgreSQL driver (--build-arg EXTRAS=postgres) and pushed
 # to your registry: replace the image below.
@@ -14,6 +16,10 @@
 # single migration at a time). The MCP pods only check the schema: they restart until the
 # controller has migrated it. Expose the MCP Service to the agents and CI (Ingress with TLS);
 # keep the controller internal (port-forward, VPN or an Ingress restricted to administrators).
+#
+# The root file system is read-only: the controller cannot generate its session secret file,
+# so the secreview-controller Secret gives SECREVIEW_SESSION_SECRET (sessions survive restarts
+# and are shared by the replicas). Put the proxy credentials there too.
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -84,14 +90,26 @@ spec:
               "--port",
               "8000",
             ]
-          envFrom: *env
+          envFrom:
+            - configMapRef:
+                name: secreview-config
+            - secretRef:
+                name: secreview-db
+            # SECREVIEW_SESSION_SECRET (and the proxy variables when they hold credentials)
+            - secretRef:
+                name: secreview-controller
           env:
             - name: SECREVIEW_AUTH_BOOTSTRAP_ADMIN
               value: "true"
+            # Swagger documentation of the REST API on /api/docs (disabled by default)
+            # - name: SECREVIEW_SWAGGER_ENABLED
+            #   value: "true"
             # Daily download of the OSV advisories (needs egress to osv.dev or a mirror);
-            # put credentials of the proxy in the Secret rather than here
+            # put credentials of the proxy in the secreview-controller Secret rather than here
             # - name: SECREVIEW_OSV_AUTO_UPDATE
             #   value: "true"
+            # - name: SECREVIEW_OSV_ECOSYSTEMS
+            #   value: PyPI,npm,Maven
             # Proxy of the OSV download and of the OIDC provider (standard variables)
             # - name: HTTPS_PROXY
             #   value: http://proxy.example.com:3128
