@@ -134,12 +134,15 @@
             class="form-control form-control-sm"
             [id]="'reason-' + finding().id"
             rows="3"
+            [attr.aria-describedby]="'reason-help-' + finding().id"
             [formField]="dismissalForm.reason"
             [class.is-invalid]="
               dismissalForm.reason().touched() && dismissalForm.reason().invalid()
             "
           ></textarea>
-          <div class="form-text">{{ 'report.dismissReasonHelp' | t }}</div>
+          <div class="form-text" [id]="'reason-help-' + finding().id">
+            {{ 'report.dismissReasonHelp' | t }}
+          </div>
         </div>
         <div class="mb-3">
           <label class="form-label" [for]="'expiry-' + finding().id">{{
@@ -150,12 +153,15 @@
             class="form-control form-control-sm expiry"
             [id]="'expiry-' + finding().id"
             [min]="minExpiry"
+            [attr.aria-describedby]="'expiry-help-' + finding().id"
             [formField]="dismissalForm.expiresOn"
             [class.is-invalid]="
               dismissalForm.expiresOn().touched() && dismissalForm.expiresOn().invalid()
             "
           />
-          <div class="form-text">{{ 'report.dismissExpiryHelp' | t }}</div>
+          <div class="form-text" [id]="'expiry-help-' + finding().id">
+            {{ 'report.dismissExpiryHelp' | t }}
+          </div>
         </div>
         <div class="d-flex gap-2">
           <button

@@ -54,6 +54,7 @@
               list="language-suggestions"
               autocomplete="off"
               placeholder="French, fr, pt-BR…"
+              aria-describedby="language-value-error"
               [class.is-invalid]="!languageValid()"
               [formField]="languageForm.language"
             />
@@ -62,7 +63,9 @@
                 <option [value]="name"></option>
               }
             </datalist>
-            <div class="invalid-feedback">{{ 'settings.languagePattern' | t }}</div>
+            <div id="language-value-error" class="invalid-feedback">
+              {{ 'settings.languagePattern' | t }}
+            </div>
           </div>
         }
         <div class="col-md-3">
