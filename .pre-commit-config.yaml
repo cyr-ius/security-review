@@ -26,6 +26,6 @@ repos:
         types_or: [python, pyi]
       - id: scan-deps
         name: dependency scan
-        entry: uv run --frozen security-review-mcp scan-deps --skip-unconfigured --require-database
+        entry: uv run --frozen security-review-mcp scan-deps --skip-unconfigured --require-database --allow-http
         language: system
         files: ^(uv\.lock|pyproject\.toml|web/package(-lock)?\.json)$
