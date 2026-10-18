@@ -237,7 +237,7 @@ a.icon-btn {
 }
 
 .content {
-  max-width: 88rem;
+  max-width: 150rem;
   margin: 0 auto;
   padding: clamp(1rem, 3vw, 2rem);
 }
