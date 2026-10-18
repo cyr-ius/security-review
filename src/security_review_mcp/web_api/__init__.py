@@ -86,7 +86,7 @@ SECURITY_HEADERS = {
 SWAGGER_FILES = ("swagger-ui-bundle.js", "swagger-ui.css")
 # Swagger UI never sends the schema to the online validator of swagger.io
 SWAGGER_PARAMETERS = {"validatorUrl": None}
-_INLINE_SCRIPT = re.compile(r"<script>(.*?)</script>", re.DOTALL)
+_INLINE_SCRIPT = re.compile(r"<script>(.*?)</script>", re.DOTALL | re.IGNORECASE)
 
 
 def swagger_assets_dir(configured: str | None) -> Path | None:
