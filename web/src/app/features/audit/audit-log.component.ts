@@ -9,10 +9,10 @@ import { AUDIT_ACTIONS, AuditAction, AuditEvent } from '../../core/models/api.mo
 import { ApiService } from '../../core/services/api.service';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import {
-    TableControlFilter,
-    TableControlFilterChange,
-    TableControlsComponent,
-    TableSortDirection,
+  TableControlFilter,
+  TableControlFilterChange,
+  TableControlsComponent,
+  TableSortDirection,
 } from '../../shared/components/table-controls/table-controls.component';
 
 /** Events loaded per page (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */

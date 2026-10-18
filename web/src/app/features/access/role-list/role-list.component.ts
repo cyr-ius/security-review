@@ -10,9 +10,9 @@ import { AccessRole, Permission } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
-    TableControlFilter,
-    TableControlFilterChange,
-    TableControlsComponent,
+  TableControlFilter,
+  TableControlFilterChange,
+  TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 import { describeAccessError } from '../access-errors';

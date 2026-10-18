@@ -9,8 +9,8 @@ import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { ReportTableComponent } from '../../../shared/components/report-table/report-table.component';
 import {
-    TableControlsComponent,
-    TableSortDirection,
+  TableControlsComponent,
+  TableSortDirection,
 } from '../../../shared/components/table-controls/table-controls.component';
 
 const PAGE_SIZE = 25;

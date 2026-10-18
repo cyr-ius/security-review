@@ -10,14 +10,14 @@ import { DevStandard, DevStandardSummary, DevStandardWrite } from '../../../core
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import {
-    PackFile,
-    PackFileError,
-    PackTransferComponent,
+  PackFile,
+  PackFileError,
+  PackTransferComponent,
 } from '../../../shared/components/pack-transfer/pack-transfer.component';
 import {
-    TableControlFilter,
-    TableControlFilterChange,
-    TableControlsComponent,
+  TableControlFilter,
+  TableControlFilterChange,
+  TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 

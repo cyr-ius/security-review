@@ -5,17 +5,17 @@ import { REVIEW_TYPE_META } from '../../../core/constants/labels';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
-    ReportSummary,
-    SEVERITIES,
-    SEVERITY_RANK,
-    Severity,
+  ReportSummary,
+  SEVERITIES,
+  SEVERITY_RANK,
+  Severity,
 } from '../../../core/models/api.models';
 import { compareTableText, filterAndSortRows } from '../../utils/table-utils';
 import { SeverityBadgeComponent } from '../severity-badge/severity-badge.component';
 import {
-    TableControlFilter,
-    TableControlFilterChange,
-    TableControlsComponent,
+  TableControlFilter,
+  TableControlFilterChange,
+  TableControlsComponent,
 } from '../table-controls/table-controls.component';
 
 type ReportSortKey =

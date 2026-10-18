@@ -6,19 +6,19 @@ import { SEVERITY_META } from '../../../core/constants/labels';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
-    SEVERITIES,
-    SEVERITY_RANK,
-    Severity,
-    SeverityCounts,
+  SEVERITIES,
+  SEVERITY_RANK,
+  Severity,
+  SeverityCounts,
 } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
 import { SeverityCountsComponent } from '../../../shared/components/severity-counts/severity-counts.component';
 import {
-    TableControlFilter,
-    TableControlFilterChange,
-    TableControlsComponent,
+  TableControlFilter,
+  TableControlFilterChange,
+  TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
 import { filterAndSortRows } from '../../../shared/utils/table-utils';
 
