@@ -238,10 +238,19 @@ class GroupMembersUpdate(BaseModel):
     )
 
 
+class UserRoleBinding(BaseModel):
+    """A role given directly to a user, on every project (empty ``projects``) or on some."""
+
+    role_id: int = Field(ge=1)
+    projects: _ProjectList = Field(
+        default_factory=list, max_length=token_store.MAX_PROJECTS_PER_TOKEN
+    )
+
+
 class WebUserCreate(BaseModel):
-    """A web user and its groups. A local one without ``password`` gets a random one, returned
-    once; an SSO one (``auth_source="oidc"``) has no password and also joins its SSO groups at
-    each login."""
+    """A web user, its groups and its direct roles. A local one without ``password`` gets a
+    random one, returned once; an SSO one (``auth_source="oidc"``) has no password and also joins
+    its SSO groups at each login."""
 
     username: str = Field(min_length=1, max_length=web_users.MAX_USERNAME_CHARS)
     auth_source: Literal["local", "oidc"] = "local"
@@ -253,12 +262,21 @@ class WebUserCreate(BaseModel):
     group_ids: list[Annotated[int, Field(ge=1)]] = Field(
         default_factory=list, max_length=access_control.MAX_GROUPS
     )
+    roles: list[UserRoleBinding] = Field(
+        default_factory=list, max_length=access_control.MAX_ROLES_PER_USER
+    )
 
 
 class WebUserUpdate(BaseModel):
-    """Groups an administrator gives to a web user (its SSO groups are kept)."""
+    """Groups an administrator gives to a web user (its SSO groups are kept) and its direct
+    roles; a missing field is left unchanged."""
 
-    group_ids: list[Annotated[int, Field(ge=1)]] = Field(max_length=access_control.MAX_GROUPS)
+    group_ids: list[Annotated[int, Field(ge=1)]] | None = Field(
+        default=None, max_length=access_control.MAX_GROUPS
+    )
+    roles: list[UserRoleBinding] | None = Field(
+        default=None, max_length=access_control.MAX_ROLES_PER_USER
+    )
 
 
 class PasswordReset(BaseModel):
@@ -1606,7 +1624,12 @@ async def approve_enrollment(
         return approved
     try:
         user = await run_in_threadpool(
-            web_users.grant_project, portal_user, approved["project"], identity.client, create_sso
+            web_users.grant_project,
+            portal_user,
+            approved["project"],
+            identity.client,
+            create_sso,
+            actor_of(identity),
         )
     except ValueError as exc:
         # Checked before the approval: only a concurrent change gets here
@@ -1968,6 +1991,7 @@ async def create_user(body: WebUserCreate, identity: UsersManager) -> JSONRespon
             identity.client,
             body.auth_source,
             actor_of(identity),
+            [(item.role_id, item.projects) for item in body.roles],
         )
     except ValueError as exc:
         code = status.HTTP_409_CONFLICT if "already exists" in str(exc) else 422
@@ -1983,14 +2007,16 @@ async def create_user(body: WebUserCreate, identity: UsersManager) -> JSONRespon
 
 @router.put("/users/{user_id}")
 async def update_user(user_id: int, body: WebUserUpdate, identity: UsersManager) -> dict[str, Any]:
-    """Replace the groups an administrator gave to a web user (applies to its sessions at once)."""
+    """Replace the groups an administrator gave to a web user and its direct roles (applies to
+    its sessions at once); a missing field is left unchanged."""
+    roles = None if body.roles is None else [(item.role_id, item.projects) for item in body.roles]
     try:
         updated = await run_in_threadpool(
-            web_users.update_user, user_id, body.group_ids, actor_of(identity)
+            web_users.update_user, user_id, body.group_ids, actor_of(identity), roles
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
-    logger.info("Groups of web user %s changed by %s", updated["username"], identity.client)
+    logger.info("Access of web user %s changed by %s", updated["username"], identity.client)
     return updated
 
 

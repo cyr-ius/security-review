@@ -1878,8 +1878,48 @@ def test_users_are_managed_by_administrators(accounts, caplog):
     assert accounts.delete(f"/api/v1/users/{bob['id']}", headers=admin).status_code == 204
     assert accounts.delete(f"/api/v1/users/{bob['id']}", headers=admin).status_code == 404
     assert "Web user bob (local) created by root" in caplog.text
-    assert "Groups of web user bob changed by root" in caplog.text
+    assert "Access of web user bob changed by root" in caplog.text
     assert bob["password"] not in caplog.text
+
+
+def test_projects_are_given_directly_to_a_user(accounts):
+    make_user("root", USER_PASSWORD, "admin")
+    make_user("reader", USER_PASSWORD, "reader")
+    admin, reader = session_headers(accounts, "root"), session_headers(accounts, "reader")
+    roles = {role["name"]: role["id"] for role in access_control.list_roles()}
+    body = {
+        "username": "bob",
+        "group_ids": [group_for("reader", ["shop"])],
+        "roles": [{"role_id": roles["triager"], "projects": ["crm"]}],
+    }
+
+    created = accounts.post("/api/v1/users", json=body, headers=admin)
+    assert created.status_code == 201
+    bob = created.json()
+    assert bob["roles"] == [{"role_id": roles["triager"], "name": "triager", "projects": ["crm"]}]
+    assert bob["permissions"] == {"findings.triage": ["crm"], "reports.read": ["crm", "shop"]}
+
+    url = f"/api/v1/users/{bob['id']}"
+    change = {"roles": [{"role_id": roles["reader"], "projects": ["billing", "crm"]}]}
+    assert accounts.put(url, json=change, headers=reader).status_code == 403
+    updated = accounts.put(url, json=change, headers=admin)
+    assert updated.status_code == 200
+    # Without group_ids, the groups are unchanged
+    assert [group["name"] for group in updated.json()["groups"]] == ["reader:shop"]
+    assert updated.json()["permissions"] == {"reports.read": ["billing", "crm", "shop"]}
+    # The session of bob reads the project given directly
+    bob_session = session_headers(accounts, "bob", bob["password"])
+    me = accounts.get("/api/v1/me", headers=bob_session).json()
+    assert me["permissions"] == {"reports.read": ["billing", "crm", "shop"]}
+
+    refused = {"roles": [{"role_id": roles["admin"], "projects": ["shop"]}]}
+    assert accounts.put(url, json=refused, headers=admin).status_code == 422
+    missing = {"roles": [{"role_id": 999, "projects": []}]}
+    assert accounts.put(url, json=missing, headers=admin).status_code == 404
+    too_many = {"roles": [{"role_id": roles["reader"]}] * 21}
+    assert accounts.put(url, json=too_many, headers=admin).status_code == 422
+    cleared = accounts.put(url, json={"roles": []}, headers=admin).json()
+    assert (cleared["roles"], cleared["permissions"]) == ([], {"reports.read": ["shop"]})
 
 
 def test_sso_users_are_managed_by_administrators(accounts, caplog):

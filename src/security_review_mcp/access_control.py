@@ -15,11 +15,13 @@
   listed group of the claim that does not exist yet is created (with ``sso`` and the ``admin``
   role), so that a deployment that only uses SSO gets its first administrator.
   ``SECREVIEW_OIDC_DEFAULT_GROUP`` names a group every SSO user joins at each login.
+- A role may also be given **directly to a user** (UserRole), on every project or on a list of
+  projects, in addition to its groups (see set_user_roles).
 
 The grants of a user (see user_grants) are the union of the permissions of the roles of all its
-groups. A scoped permission reaches every project when one of its bindings does, otherwise the
-union of their projects. At least one user keeps ``users.manage``: a change that would remove
-the last one is refused (see _guard_managers).
+groups and of its direct roles. A scoped permission reaches every project when one of its
+bindings does, otherwise the union of their projects. At least one user keeps ``users.manage``:
+a change that would remove the last one is refused (see _guard_managers).
 
 The bearer tokens keep their fixed roles (see http_server.Role); token_grants gives the
 permissions of the ``reader``, ``triager`` and ``admin`` tokens.
@@ -37,7 +39,7 @@ from . import audit
 from .config import Settings
 from .database import session_scope
 from .http_server import Role
-from .models import AccessRole, GroupMember, GroupRole, UserGroup, WebUser, utcnow
+from .models import AccessRole, GroupMember, GroupRole, UserGroup, UserRole, WebUser, utcnow
 from .services import NotFoundError
 from .token_store import MAX_PROJECTS_PER_TOKEN, _clean_project
 
@@ -79,6 +81,7 @@ SOURCE_OIDC = "oidc"
 MAX_ROLES = 100
 MAX_GROUPS = 500
 MAX_ROLES_PER_GROUP = 20
+MAX_ROLES_PER_USER = 20
 MAX_MEMBERS_PER_CHANGE = 500
 MAX_ROLE_NAME_CHARS = 64
 MAX_GROUP_NAME_CHARS = 200
@@ -152,18 +155,26 @@ def summary_role(grants: Grants) -> Role:
 
 
 def _bindings(session: Session, user_id: int) -> list[tuple[frozenset[str], list[str] | None]]:
-    """Permissions and projects of every role of every group of a user."""
-    rows = session.exec(
-        select(AccessRole, GroupRole.projects)
-        .join(GroupRole, col(GroupRole.role_id) == col(AccessRole.id))
-        .join(GroupMember, col(GroupMember.group_id) == col(GroupRole.group_id))
-        .where(GroupMember.user_id == user_id)
+    """Permissions and projects of every role of every group of a user, and of its direct
+    roles."""
+    rows = list(
+        session.exec(
+            select(AccessRole, GroupRole.projects)
+            .join(GroupRole, col(GroupRole.role_id) == col(AccessRole.id))
+            .join(GroupMember, col(GroupMember.group_id) == col(GroupRole.group_id))
+            .where(GroupMember.user_id == user_id)
+        ).all()
+    )
+    rows += session.exec(
+        select(AccessRole, UserRole.projects)
+        .join(UserRole, col(UserRole.role_id) == col(AccessRole.id))
+        .where(UserRole.user_id == user_id)
     ).all()
     return [(_permissions(role), json.loads(projects) or None) for role, projects in rows]
 
 
 def user_grants(session: Session, user_id: int) -> dict[str, Any]:
-    """Grants of a web user through its groups (empty without any).
+    """Grants of a web user through its groups and its direct roles (empty without any).
 
     Raises:
         ValueError: If a permission reaches more than MAX_SESSION_PROJECTS projects.
@@ -172,17 +183,17 @@ def user_grants(session: Session, user_id: int) -> dict[str, Any]:
 
 
 def managers(session: Session) -> set[int]:
-    """Ids of the users that hold ``users.manage`` (through any of their groups)."""
+    """Ids of the users that hold ``users.manage`` (through a group or a direct role)."""
     roles = session.exec(select(AccessRole)).all()
     role_ids = [role.id for role in roles if Permission.USERS_MANAGE in _permissions(role)]
     if not role_ids:
         return set()
     group_ids = select(GroupRole.group_id).where(col(GroupRole.role_id).in_(role_ids))
-    return set(
-        session.exec(
-            select(GroupMember.user_id).where(col(GroupMember.group_id).in_(group_ids))
-        ).all()
-    )
+    members = session.exec(
+        select(GroupMember.user_id).where(col(GroupMember.group_id).in_(group_ids))
+    ).all()
+    direct = session.exec(select(UserRole.user_id).where(col(UserRole.role_id).in_(role_ids)))
+    return set(members) | set(direct.all())
 
 
 def _guard_managers(session: Session, before: set[int]) -> None:
@@ -279,9 +290,12 @@ def list_permissions() -> list[dict[str, Any]]:
 
 
 def _role_public(session: Session, row: AccessRole) -> dict[str, Any]:
-    """API view of a role, with the number of groups that have it."""
+    """API view of a role, with the number of groups and of users that have it directly."""
     groups = session.exec(
         select(func.count()).select_from(GroupRole).where(GroupRole.role_id == row.id)
+    ).one()
+    users = session.exec(
+        select(func.count()).select_from(UserRole).where(UserRole.role_id == row.id)
     ).one()
     return {
         "id": row.id,
@@ -291,6 +305,7 @@ def _role_public(session: Session, row: AccessRole) -> dict[str, Any]:
         "system": row.system,
         "scoped": _permissions(row) <= SCOPED_PERMISSIONS,
         "groups": groups,
+        "users": users,
         "created_at": row.created_at.isoformat(),
         "updated_at": row.updated_at.isoformat(),
         "created_by": row.created_by,
@@ -459,6 +474,14 @@ def update_role(
                         "This role is limited to projects in a group: it cannot hold permissions "
                         "on the whole controller"
                     )
+                limited_user = session.exec(
+                    select(UserRole).where(UserRole.role_id == role_id, UserRole.projects != "[]")
+                ).first()
+                if limited_user is not None:
+                    raise ValueError(
+                        "This role is limited to projects for a user: it cannot hold permissions "
+                        "on the whole controller"
+                    )
             previous = sorted(_permissions(row))
             if name is not None:
                 row.name = clean_role_name(name)
@@ -481,15 +504,17 @@ def update_role(
 
 
 def delete_role(role_id: int, actor: str | None = None) -> dict[str, Any]:
-    """Delete a custom role (the groups that have it lose it); raise NotFoundError, ValueError."""
+    """Delete a custom role (the groups and users that have it lose it); raise NotFoundError,
+    ValueError."""
     with session_scope() as session:
         row = _get_role(session, role_id)
         if row.system:
             raise ValueError(f"The system role {row.name} cannot be deleted")
         before = managers(session)
         deleted = _role_public(session, row)
-        for binding in session.exec(select(GroupRole).where(GroupRole.role_id == role_id)).all():
-            session.delete(binding)
+        for model in (GroupRole, UserRole):
+            for binding in session.exec(select(model).where(model.role_id == role_id)).all():
+                session.delete(binding)
         session.delete(row)
         _guard_managers(session, before)
         audit.record(
@@ -746,6 +771,20 @@ def find_groups(session: Session, names: Iterable[str]) -> list[int]:
     return ids
 
 
+def find_roles(session: Session, specs: Iterable[str]) -> list[tuple[int, list[str] | None]]:
+    """Direct roles named on the command line as ``role`` (every project) or
+    ``role:project,project``; raise NotFoundError for an unknown role."""
+    bindings: list[tuple[int, list[str] | None]] = []
+    for spec in specs:
+        name, _, projects = spec.partition(":")
+        row = session.exec(select(AccessRole).where(AccessRole.name == name.strip())).first()
+        if row is None:
+            raise NotFoundError(f"Role '{name.strip()}' not found")
+        listed = [item.strip() for item in projects.split(",") if item.strip()]
+        bindings.append((row.id, listed or None))  # type: ignore[arg-type]
+    return bindings
+
+
 def set_user_groups(
     session: Session, user_id: int, group_ids: Iterable[int], actor: str | None = None
 ) -> None:
@@ -794,10 +833,107 @@ def add_user_to_group(session: Session, user_id: int, group_id: int) -> None:
 
 
 def forget_user(session: Session, user_id: int) -> None:
-    """Delete every membership of a user (before the user itself)."""
-    for member in session.exec(select(GroupMember).where(GroupMember.user_id == user_id)).all():
-        session.delete(member)
+    """Delete every membership and direct role of a user (before the user itself)."""
+    for model in (GroupMember, UserRole):
+        for item in session.exec(select(model).where(model.user_id == user_id)).all():
+            session.delete(item)
     session.flush()
+
+
+# ── Direct roles of a user ───────────────────────────────────────────────────
+
+
+def user_roles(session: Session, user_id: int) -> list[dict[str, Any]]:
+    """Roles given directly to a user: id, name and projects (None: every project), by name."""
+    rows = session.exec(
+        select(UserRole, AccessRole)
+        .join(AccessRole, col(UserRole.role_id) == col(AccessRole.id))
+        .where(UserRole.user_id == user_id)
+        .order_by(col(AccessRole.name))
+    ).all()
+    return [
+        {"role_id": role.id, "name": role.name, "projects": json.loads(binding.projects) or None}
+        for binding, role in rows
+    ]
+
+
+def set_user_roles(
+    session: Session,
+    user_id: int,
+    bindings: Iterable[tuple[int, Iterable[str] | None]],
+    actor: str | None = None,
+) -> None:
+    """Replace the roles given directly to a user: ``bindings`` holds (role id, projects or
+    None). The roles of its groups are not concerned.
+
+    Runs in the session of the caller (web_users), which checks the last manager.
+    """
+    items = list(bindings)
+    if len(items) > MAX_ROLES_PER_USER:
+        raise ValueError(f"A user may have at most {MAX_ROLES_PER_USER} direct roles")
+    cleaned: dict[int, list[str]] = {}
+    # Written as on the command line: "role" (every project) or "role:project,project"
+    names: list[str] = []
+    for role_id, projects in items:
+        if role_id in cleaned:
+            raise ValueError(f"Role {role_id} is given twice to the user")
+        role = _get_role(session, role_id)
+        cleaned[role_id] = clean_projects(_permissions(role), projects)
+        names.append(":".join([role.name, ",".join(cleaned[role_id])] if projects else [role.name]))
+    current = session.exec(select(UserRole).where(UserRole.user_id == user_id)).all()
+    if {row.role_id: json.loads(row.projects) for row in current} == cleaned:
+        return
+    for row in current:
+        session.delete(row)
+    session.flush()
+    for role_id, projects in cleaned.items():
+        session.add(UserRole(user_id=user_id, role_id=role_id, projects=json.dumps(projects)))
+    session.flush()
+    audit.record(
+        session,
+        audit.AuditAction.USER_ROLES_CHANGED,
+        actor,
+        "user",
+        user_id,
+        details={"roles": sorted(names)},
+    )
+
+
+def add_user_project(
+    session: Session, user_id: int, role_id: int, project: str, actor: str | None = None
+) -> None:
+    """Add a project to the direct role ``role_id`` of a user (given on this project only when
+    the user does not have it yet); a role on every project is unchanged. The change is audited
+    as ``user.roles_changed``."""
+    row = session.exec(
+        select(UserRole).where(UserRole.user_id == user_id, UserRole.role_id == role_id)
+    ).first()
+    if row is None:
+        row = UserRole(user_id=user_id, role_id=role_id, projects="[]")
+    elif row.projects == "[]":
+        return
+    projects = list(dict.fromkeys([*json.loads(row.projects), _clean_project(project)]))
+    if len(projects) > MAX_PROJECTS_PER_TOKEN:
+        raise ValueError(f"A user may reach at most {MAX_PROJECTS_PER_TOKEN} projects")
+    if projects == json.loads(row.projects):
+        return
+    row.projects = json.dumps(projects)
+    session.add(row)
+    session.flush()
+    names = [
+        ":".join([binding["name"], ",".join(binding["projects"])])
+        if binding["projects"]
+        else binding["name"]
+        for binding in user_roles(session, user_id)
+    ]
+    audit.record(
+        session,
+        audit.AuditAction.USER_ROLES_CHANGED,
+        actor,
+        "user",
+        user_id,
+        details={"roles": sorted(names)},
+    )
 
 
 def sync_sso_groups(

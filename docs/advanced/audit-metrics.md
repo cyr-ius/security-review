@@ -25,6 +25,7 @@ exists exactly when the change was committed.
 | `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](access-control.md#groups) |
 | `group.roles_changed`, `group.members_changed` | An administrator replaces the roles (with their projects) or the members (added and removed user ids) of a group |
 | `user.groups_changed` | An administrator replaces the groups given to an account (added and removed group ids) |
+| `user.roles_changed` | An administrator replaces the direct roles of an account, or the approval of an enrollment adds a project to it (`roles`: `role` or `role:project,project`) |
 
 Each event holds its date, its **actor**, its target (`finding` and its id, `token` and its id,
 `enrollment` and the request id), the project when there is one, and details as JSON. The actor

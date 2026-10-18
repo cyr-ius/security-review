@@ -504,7 +504,7 @@ def token_command(argv: list[str]) -> int:
             result = token_store.approve_enrollment(args.token, audit.CLI_ACTOR)
             if portal_user is not None:
                 result["portal_user"] = web_users.grant_project(
-                    portal_user, result["project"], "cli", create_sso
+                    portal_user, result["project"], "cli", create_sso, audit.CLI_ACTOR
                 )
         elif args.action == "reject":
             result = token_store.reject_enrollment(args.token, audit.CLI_ACTOR)
@@ -625,6 +625,12 @@ def user_command(argv: list[str]) -> int:
         action="append",
         help="group the user joins (repeatable); its roles give the permissions of the user",
     )
+    creator.add_argument(
+        "--role",
+        action="append",
+        help="role given directly to the user, as ROLE (every project) or "
+        "ROLE:PROJECT,PROJECT (repeatable), in addition to its groups",
+    )
     creator.add_argument("--password-stdin", action="store_true", help="read the password on stdin")
     actions.add_parser("list", help="list the web users (never their password hash)")
     updater = actions.add_parser(
@@ -636,6 +642,16 @@ def user_command(argv: list[str]) -> int:
         action="append",
         help=f"group (repeatable; none: no group); {access_control.ADMIN_GROUP} is created "
         "with the admin role when missing",
+    )
+    role_setter = actions.add_parser(
+        "set-roles",
+        help="replace the roles given directly to a user (the roles of its groups are kept)",
+    )
+    role_setter.add_argument("username", help="username or id")
+    role_setter.add_argument(
+        "--role",
+        action="append",
+        help="ROLE (every project) or ROLE:PROJECT,PROJECT (repeatable; none: no direct role)",
     )
     resetter = actions.add_parser(
         "reset-password", help="replace the password of a user and end its sessions"
@@ -661,6 +677,7 @@ def user_command(argv: list[str]) -> int:
                 _group_ids(args.group),
                 "cli",
                 web_users.AUTH_OIDC if args.sso else web_users.AUTH_LOCAL,
+                roles=_role_bindings(args.role),
             )
         elif args.action == "list":
             result = web_users.list_users()
@@ -668,6 +685,8 @@ def user_command(argv: list[str]) -> int:
             user_id = web_users.find_user(args.username)["id"]
             if args.action == "set-groups":
                 result = web_users.update_user(user_id, _group_ids(args.group), "cli")
+            elif args.action == "set-roles":
+                result = web_users.update_user(user_id, None, "cli", _role_bindings(args.role))
             elif args.action == "reset-password":
                 result = web_users.set_password(user_id, _read_password(args.password_stdin))
             else:
@@ -685,6 +704,13 @@ def _group_ids(names: list[str] | None) -> list[int]:
         if access_control.ADMIN_GROUP in (names or []):
             access_control.ensure_admin_group(session)
         return access_control.find_groups(session, names or [])
+
+
+def _role_bindings(specs: list[str] | None) -> list[tuple[int, list[str] | None]]:
+    """Direct roles named on the command line (``ROLE`` or ``ROLE:PROJECT,PROJECT``)."""
+    with session_scope() as session:
+        access_control.ensure_system_roles(session)
+        return access_control.find_roles(session, specs or [])
 
 
 # ── group ────────────────────────────────────────────────────────────────────

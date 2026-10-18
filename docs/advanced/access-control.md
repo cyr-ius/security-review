@@ -1,9 +1,10 @@
 # Roles, groups and permissions
 
 What a [user account](../usage/web-interface.md#user-accounts) may do in the web interface and the
-REST API comes from **groups**: an account belongs to groups, a group has **roles**, a role is a
-set of **permissions**. Administrators manage them in the **Groups** and **Roles** screens (`users.manage`
-permission), or through the `/api/v1/groups` and `/api/v1/roles` API.
+REST API comes from **roles**, a role being a set of **permissions**: the roles of its **groups**
+and the roles given **directly to the account**, each on every project or on a list of projects.
+Administrators manage them in the **Groups**, **Roles** and **Users** screens (`users.manage`
+permission), or through the `/api/v1/groups`, `/api/v1/roles` and `/api/v1/users` API.
 
 Bearer tokens are not concerned: they keep their fixed role (`mcp`, `reader`, `triager`, `admin`,
 `ci`, `metrics`, see [Roles](../usage/web-interface.md#roles)).
@@ -38,7 +39,8 @@ the start and can be neither changed nor deleted:
 
 Administrators create other roles (100 at most), for example an *Auditor* role with
 `audit.read` and `reports.read`. A change of a role applies at once to the open sessions of the
-members of its groups; deleting a role removes it from its groups.
+members of its groups and of the accounts that have it directly; deleting a role removes it from
+its groups and from these accounts.
 
 ## Groups
 
@@ -57,15 +59,31 @@ Members come from two sources:
 
 Renaming a group, or closing it to SSO, removes its SSO members at once.
 
+## Direct roles and projects of an account
+
+In addition to its groups, an account can receive roles of its own, in the **Direct roles and
+projects** part of its form in the **Users** screen: for example `triager` on `shop` and
+`billing` for one person, without creating a group for them. The rules are those of the roles of
+a group: a role made of per-project permissions applies to every project or to a list of projects
+(50 at most), a role holding a permission on the whole controller always applies to every
+project, and an account has 20 direct roles at most.
+
+Direct roles are kept when the account changes groups, including the SSO groups recomputed at
+each login. The approval of an enrollment with read access in the portal adds the project to the
+direct `reader` role of the account (see
+[SSO](sso.md#project-read-access-at-enrollment)).
+
 ## What a user may do
 
-The permissions of a user are the union of the permissions of the roles of **all its groups**.
+The permissions of a user are the union of the permissions of the roles of **all its groups**
+and of its **direct roles**.
 Each permission keeps its own projects: it reaches every project when one of its roles does,
 otherwise the union of their projects (200 at most per permission: beyond that, the account has
 no access). A user who is `reader` on every project through one group and `triager` on `crm`
-through another reads every project and triages `crm` only.
+through a direct role reads every project and triages `crm` only.
 
-A change of a group (roles, members) or of a role applies at once to the open sessions. An
+A change of a group (roles, members), of a role or of the direct roles of an account applies at
+once to the open sessions. An
 account without any permission cannot log in, and its open sessions stop.
 
 `GET /api/v1/me` returns the permissions of the caller; `role` sums them up for the display:
@@ -80,7 +98,7 @@ otherwise.
 ## The last administrator
 
 At least one account keeps `users.manage`: deleting this account, removing its group, the role
-of its group or the permission of its role is refused (`409` or `422`). An SSO login that removes
+of its group, its direct role or the permission of its role is refused (`409` or `422`). An SSO login that removes
 the last holder from its SSO group is not blocked: the identity provider remains the authority.
 Preferably keep a local administrator.
 
@@ -108,6 +126,10 @@ curl -X PUT https://secreview.example.com/api/v1/groups/4/roles \
 curl -X PUT https://secreview.example.com/api/v1/groups/4/members \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
   -d '{"user_ids": [7, 9]}'
+# Account 7 also triages "crm" through a direct role (its groups are unchanged)
+curl -X PUT https://secreview.example.com/api/v1/users/7 \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"roles": [{"role_id": 3, "projects": ["crm"]}]}'
 ```
 
 | Route | Effect |
@@ -117,12 +139,15 @@ curl -X PUT https://secreview.example.com/api/v1/groups/4/members \
 | `GET`, `POST /api/v1/groups`; `PUT`, `DELETE /api/v1/groups/{id}` | Groups (`GET` also returns the SSO settings that use them) |
 | `PUT /api/v1/groups/{id}/roles` | Replaces the roles of a group |
 | `PUT /api/v1/groups/{id}/members` | Replaces the local members of a group (SSO members are kept) |
-| `PUT /api/v1/users/{id}` | Replaces the local groups of a user: `{"group_ids": [4]}` |
+| `POST /api/v1/users` | Creates a user, with `group_ids` and `roles` (direct roles) |
+| `PUT /api/v1/users/{id}` | Replaces the local groups (`group_ids`) and the direct roles (`roles`, each `{"role_id": 3, "projects": ["crm"]}`, empty `projects`: every project) of a user; a missing field is left unchanged |
 
 Every change is written to the [audit log](audit-metrics.md#audit-log) (`role.*`, `group.*`,
-`user.groups_changed`). From the CLI, `security-review-controller user set-groups` changes the
-groups of an account and `security-review-controller group list` / `group roles` lists the groups
-and the roles (see [CLI](../reference/cli.md)).
+`user.groups_changed`, `user.roles_changed`). From the CLI, `security-review-controller user
+set-groups` changes the groups of an account, `user set-roles` its direct roles
+(`--role triager:crm,billing`, `--role reader` for every project), and
+`security-review-controller group list` / `group roles` lists the groups and the roles (see
+[CLI](../reference/cli.md)).
 
 ## Upgrading from the fixed roles
 
@@ -132,6 +157,10 @@ Schema migration `0013` moves the former access into groups:
   mapping on the same projects;
 - each account with a role of its own joins `administrators`, `triagers` or `readers` (groups not
   open to SSO) when it reached every project, otherwise a personal group `user:<name>`.
+
+Schema migration `0014` then turns each personal group `user:<name>` whose only member is that
+account (added by an administrator) into direct roles of the account, on the same projects, and
+deletes the group. A personal group with other members, or open to SSO, is kept.
 
 The role given to an SSO account by its groups at its last login is computed again at its next
 login. The `SECREVIEW_OIDC_TRIAGER_GROUPS`, `SECREVIEW_OIDC_READER_GROUPS` and

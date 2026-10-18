@@ -157,6 +157,17 @@
         </div>
       }
     </fieldset>
+    <fieldset class="col-12 order-md-last">
+      <legend class="form-label">{{ 'users.directRoles' | t }}</legend>
+      <div class="form-text mt-0 mb-2">{{ 'users.directRolesHelp' | t }}</div>
+      <app-role-bindings
+        idPrefix="user-role"
+        [roles]="roles.value() ?? []"
+        [projects]="knownProjects()"
+        [projectsLoaded]="!projects.isLoading()"
+        [(bindings)]="bindings"
+      />
+    </fieldset>
     <div class="col-md-2 d-flex flex-column gap-2 pt-md-4">
       <button type="submit" class="btn btn-primary w-100" [disabled]="!canSubmit()">
         <i class="bi" [class]="editing() ? 'bi-check-lg' : 'bi-person-plus'" aria-hidden="true"></i>
@@ -183,6 +194,7 @@
             <th scope="col">{{ 'login.username' | t }}</th>
             <th scope="col">{{ 'users.type' | t }}</th>
             <th scope="col">{{ 'layout.groups' | t }}</th>
+            <th scope="col">{{ 'users.directRoles' | t }}</th>
             <th scope="col">{{ 'users.access' | t }}</th>
             <th scope="col">{{ 'users.lastLogin' | t }}</th>
             <th scope="col">{{ 'common.createdAt' | t }}</th>
@@ -234,6 +246,9 @@
                 } @empty {
                   —
                 }
+              </td>
+              <td class="small">
+                {{ user.roles.length ? describeRoles(user) : '—' }}
               </td>
               <td>
                 {{ describe(user) }}

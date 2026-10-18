@@ -118,7 +118,9 @@ export interface WebUser {
   username: string;
   auth_source: AuthSource;
   groups: UserGroupMembership[];
-  /** Permissions given by the roles of its groups. */
+  /** Roles given directly to the user, in addition to those of its groups. */
+  roles: GroupRoleBinding[];
+  /** Permissions given by the roles of its groups and its direct roles. */
   permissions: Grants;
   /** Web role that sums up the permissions; null: no permission. */
   effective_role: WebUserRole | null;
@@ -613,10 +615,12 @@ export interface AccessRole {
   permissions: Permission[];
   /** reader, triager and admin: neither changed nor deleted. */
   system: boolean;
-  /** Only scoped permissions: the role may be limited to projects in a group. */
+  /** Only scoped permissions: the role may be limited to projects (group or user). */
   scoped: boolean;
   /** Number of groups that have the role. */
   groups: number;
+  /** Number of users that have the role directly. */
+  users: number;
   created_at: string;
   updated_at: string;
   created_by: string | null;
@@ -629,7 +633,7 @@ export interface AccessRoleWrite {
   permissions: Permission[];
 }
 
-/** A role given to a group, on every project (null) or on some projects. */
+/** A role given to a group or to a user, on every project (null) or on some projects. */
 export interface GroupRoleBinding {
   role_id: number;
   name: string;

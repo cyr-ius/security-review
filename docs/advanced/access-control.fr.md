@@ -1,10 +1,11 @@
 # Rôles, groupes et permissions
 
 Ce qu'un [compte utilisateur](../usage/web-interface.md#comptes-utilisateurs) peut faire dans
-l'interface web et l'API REST vient de ses **groupes** : un compte appartient à des groupes, un
-groupe a des **rôles**, un rôle est un ensemble de **permissions**. Les administrateurs les gèrent
-dans les écrans **Groupes** et **Rôles** (permission `users.manage`), ou par l'API
-`/api/v1/groups` et `/api/v1/roles`.
+l'interface web et l'API REST vient de **rôles**, un rôle étant un ensemble de **permissions** :
+les rôles de ses **groupes** et les rôles donnés **directement au compte**, chacun sur tous les
+projets ou sur une liste de projets. Les administrateurs les gèrent dans les écrans **Groupes**,
+**Rôles** et **Utilisateurs** (permission `users.manage`), ou par l'API `/api/v1/groups`,
+`/api/v1/roles` et `/api/v1/users`.
 
 Les jetons Bearer ne sont pas concernés : ils gardent leur rôle fixe (`mcp`, `reader`, `triager`,
 `admin`, `ci`, `metrics`, voir [Rôles](../usage/web-interface.md#roles)).
@@ -39,7 +40,8 @@ dès le départ et ne peuvent être ni modifiés ni supprimés :
 
 Les administrateurs créent d'autres rôles (100 au plus), par exemple un rôle *Auditeur* avec
 `audit.read` et `reports.read`. La modification d'un rôle s'applique aussitôt aux sessions
-ouvertes des membres de ses groupes ; supprimer un rôle le retire de ses groupes.
+ouvertes des membres de ses groupes et des comptes qui l'ont directement ; supprimer un rôle le
+retire de ses groupes et de ces comptes.
 
 ## Groupes
 
@@ -60,15 +62,31 @@ Les membres ont deux origines :
 
 Renommer un groupe, ou le fermer au SSO, retire aussitôt ses membres SSO.
 
+## Rôles et projets directs d'un compte
+
+En plus de ses groupes, un compte peut recevoir des rôles propres, dans la partie **Rôles et
+projets directs** de son formulaire de l'écran **Utilisateurs** : par exemple `triager` sur `shop`
+et `billing` pour une personne, sans créer de groupe pour elle. Les règles sont celles des rôles
+d'un groupe : un rôle fait de permissions par projet s'applique à tous les projets ou à une liste
+de projets (50 au plus), un rôle qui contient une permission sur tout le contrôleur s'applique
+toujours à tous les projets, et un compte a 20 rôles directs au plus.
+
+Les rôles directs sont gardés quand le compte change de groupes, y compris les groupes SSO
+recalculés à chaque connexion. L'approbation d'un enrôlement avec lecture dans le portail ajoute
+le projet au rôle direct `reader` du compte (voir
+[SSO](sso.md#lecture-du-projet-a-lenrolement)).
+
 ## Ce qu'un utilisateur peut faire
 
-Les permissions d'un utilisateur sont l'union des permissions des rôles de **tous ses groupes**.
+Les permissions d'un utilisateur sont l'union des permissions des rôles de **tous ses groupes**
+et de ses **rôles directs**.
 Chaque permission garde ses propres projets : elle couvre tous les projets si l'un de ses rôles
 les couvre, sinon l'union de leurs projets (200 au plus par permission : au-delà, le compte n'a
 aucun accès). Un utilisateur `reader` sur tous les projets par un groupe et `triager` sur `crm`
-par un autre lit tous les projets et ne trie que `crm`.
+par un rôle direct lit tous les projets et ne trie que `crm`.
 
-Un changement de groupe (rôles, membres) ou de rôle s'applique aussitôt aux sessions ouvertes. Un
+Un changement de groupe (rôles, membres), de rôle ou des rôles directs d'un compte s'applique
+aussitôt aux sessions ouvertes. Un
 compte sans aucune permission ne peut pas se connecter, et ses sessions ouvertes s'arrêtent.
 
 `GET /api/v1/me` renvoie les permissions de l'appelant ; `role` les résume pour l'affichage :
@@ -82,8 +100,8 @@ compte sans aucune permission ne peut pas se connecter, et ses sessions ouvertes
 
 ## Le dernier administrateur
 
-Au moins un compte garde `users.manage` : supprimer ce compte, son groupe, le rôle de son groupe
-ou la permission de son rôle est refusé (`409` ou `422`). Une connexion SSO qui retire le dernier
+Au moins un compte garde `users.manage` : supprimer ce compte, son groupe, le rôle de son groupe,
+son rôle direct ou la permission de son rôle est refusé (`409` ou `422`). Une connexion SSO qui retire le dernier
 détenteur de son groupe SSO n'est pas bloquée : le fournisseur d'identité reste l'autorité.
 Gardez de préférence un administrateur local.
 
@@ -112,6 +130,10 @@ curl -X PUT https://secreview.example.com/api/v1/groups/4/roles \
 curl -X PUT https://secreview.example.com/api/v1/groups/4/members \
   -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
   -d '{"user_ids": [7, 9]}'
+# Le compte 7 trie aussi « crm » par un rôle direct (ses groupes ne changent pas)
+curl -X PUT https://secreview.example.com/api/v1/users/7 \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"roles": [{"role_id": 3, "projects": ["crm"]}]}'
 ```
 
 | Route | Effet |
@@ -121,12 +143,15 @@ curl -X PUT https://secreview.example.com/api/v1/groups/4/members \
 | `GET`, `POST /api/v1/groups` ; `PUT`, `DELETE /api/v1/groups/{id}` | Groupes (`GET` renvoie aussi la configuration SSO qui les utilise) |
 | `PUT /api/v1/groups/{id}/roles` | Remplace les rôles d'un groupe |
 | `PUT /api/v1/groups/{id}/members` | Remplace les membres locaux d'un groupe (les membres SSO sont gardés) |
-| `PUT /api/v1/users/{id}` | Remplace les groupes locaux d'un utilisateur : `{"group_ids": [4]}` |
+| `POST /api/v1/users` | Crée un utilisateur, avec `group_ids` et `roles` (rôles directs) |
+| `PUT /api/v1/users/{id}` | Remplace les groupes locaux (`group_ids`) et les rôles directs (`roles`, chacun `{"role_id": 3, "projects": ["crm"]}`, `projects` vide : tous les projets) d'un utilisateur ; un champ absent reste inchangé |
 
 Chaque modification est écrite au [journal d'audit](audit-metrics.md#journal-daudit) (`role.*`,
-`group.*`, `user.groups_changed`). En CLI, `security-review-controller user set-groups` change les
-groupes d'un compte et `security-review-controller group list` / `group roles` liste les groupes et
-les rôles (voir [CLI](../reference/cli.md)).
+`group.*`, `user.groups_changed`, `user.roles_changed`). En CLI, `security-review-controller user
+set-groups` change les groupes d'un compte, `user set-roles` ses rôles directs
+(`--role triager:crm,billing`, `--role reader` pour tous les projets), et
+`security-review-controller group list` / `group roles` liste les groupes et les rôles (voir
+[CLI](../reference/cli.md)).
 
 ## Mise à jour depuis les rôles fixes
 
@@ -137,6 +162,11 @@ La migration de schéma `0013` déplace les anciens accès dans des groupes :
 - chaque compte qui avait un rôle propre rejoint `administrators`, `triagers` ou `readers`
   (groupes non ouverts au SSO) s'il voyait tous les projets, sinon un groupe personnel
   `user:<nom>`.
+
+La migration de schéma `0014` transforme ensuite chaque groupe personnel `user:<nom>` dont le seul
+membre est ce compte (ajouté par un administrateur) en rôles directs du compte, sur les mêmes
+projets, et supprime le groupe. Un groupe personnel qui a d'autres membres, ou ouvert au SSO, est
+gardé.
 
 Le rôle donné à un compte SSO par ses groupes à sa dernière connexion est recalculé à sa
 prochaine connexion. Les variables `SECREVIEW_OIDC_TRIAGER_GROUPS`, `SECREVIEW_OIDC_READER_GROUPS`

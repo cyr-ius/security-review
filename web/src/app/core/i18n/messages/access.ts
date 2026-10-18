@@ -29,7 +29,7 @@ export const access = defineMessages({
     'roles.created': 'Role “{role}” created.',
     'roles.updated': 'Role “{role}” updated.',
     'roles.confirmDelete':
-      'Delete the role “{role}”? The {count} group(s) that have it lose it at once.',
+      'Delete the role “{role}”? The {count} group(s) and the {users} user(s) that have it lose it at once.',
     'roles.deleted': 'Role “{role}” deleted.',
     'groups.subtitle': 'Groups of web users, their roles and their members',
     'groups.ssoInactive':
@@ -106,7 +106,7 @@ export const access = defineMessages({
     'roles.created': 'Rôle « {role} » créé.',
     'roles.updated': 'Rôle « {role} » modifié.',
     'roles.confirmDelete':
-      "Supprimer le rôle « {role} » ? Les {count} groupe(s) qui l'ont le perdent aussitôt.",
+      "Supprimer le rôle « {role} » ? Les {count} groupe(s) et les {users} utilisateur(s) qui l'ont le perdent aussitôt.",
     'roles.deleted': 'Rôle « {role} » supprimé.',
     'groups.subtitle': "Groupes d'utilisateurs web, leurs rôles et leurs membres",
     'groups.ssoInactive':
@@ -186,7 +186,7 @@ export const access = defineMessages({
     'roles.created': 'Rol «{role}» creado.',
     'roles.updated': 'Rol «{role}» actualizado.',
     'roles.confirmDelete':
-      '¿Eliminar el rol «{role}»? Los {count} grupo(s) que lo tienen lo pierden de inmediato.',
+      '¿Eliminar el rol «{role}»? Los {count} grupo(s) y los {users} usuario(s) que lo tienen lo pierden de inmediato.',
     'roles.deleted': 'Rol «{role}» eliminado.',
     'groups.subtitle': 'Grupos de usuarios web, sus roles y sus miembros',
     'groups.ssoInactive':

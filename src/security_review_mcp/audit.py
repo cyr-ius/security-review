@@ -56,6 +56,7 @@ class AuditAction(StrEnum):
     GROUP_ROLES_CHANGED = "group.roles_changed"
     GROUP_MEMBERS_CHANGED = "group.members_changed"
     USER_GROUPS_CHANGED = "user.groups_changed"
+    USER_ROLES_CHANGED = "user.roles_changed"
 
 
 def user_actor(username: str) -> str:

@@ -107,6 +107,7 @@ export class RoleListComponent {
     const question = this.i18n.translate('roles.confirmDelete', {
       role: role.name,
       count: role.groups,
+      users: role.users,
     });
     if (this.busy() || !window.confirm(question)) {
       return;

@@ -159,8 +159,7 @@ groupe du même nom pour en utiliser une. Les rôles du groupe, et leurs projets
 | `SECREVIEW_OIDC_ADMIN_GROUPS` | Groupes séparés par des virgules qui ont le rôle `admin` : un tel groupe, absent à la connexion de l'un de ses membres, est créé ouvert au SSO avec le rôle `admin`. Un groupe existant reste tel que les administrateurs l'ont modifié. Sert à nommer le premier administrateur |
 | `SECREVIEW_OIDC_DEFAULT_GROUP` | Nom d'un groupe que tout utilisateur SSO rejoint à chaque connexion, quel que soit son claim (vide par défaut : aucun). Un groupe absent ne donne rien |
 
-Un groupe **non ouvert au SSO** (par exemple `administrators`, ou le groupe personnel
-`user:<nom>`) n'est jamais rejoint par le claim, même quand une valeur porte son nom. Une session
+Un groupe **non ouvert au SSO** (par exemple `administrators`) n'est jamais rejoint par le claim, même quand une valeur porte son nom. Une session
 restreinte se comporte comme un [jeton restreint à un projet](http.md#jetons-restreints-a-un-projet) :
 les autres projets, leurs rapports et leurs findings sont traités comme inexistants.
 
@@ -184,9 +183,10 @@ alors les rapports.
 - Le nom désigne un compte de l'écran **Utilisateurs**, local ou SSO. Avec le SSO activé, un nom
   inconnu devient un **compte SSO**, prêt pour sa première connexion ; sans SSO, le compte doit
   exister. Donner cet accès demande la permission `users.manage`.
-- Un compte qui lit déjà tous les projets est inchangé. Sinon le projet est ajouté au rôle
-  `reader` de son **groupe personnel** `user:<nom>` (non ouvert au SSO, créé s'il manque). Une
-  demande complémentaire approuvée pour le même utilisateur ajoute le projet de la même façon.
+- Un compte qui lit déjà tous les projets est inchangé. Sinon le projet est ajouté à son rôle
+  `reader` [direct](access-control.md#roles-et-projets-directs-dun-compte) (donné sur ce seul
+  projet s'il manque). Une demande complémentaire approuvée pour le même utilisateur ajoute le
+  projet de la même façon.
 
 L'accès figure ensuite sur le compte, où il se modifie comme les autres. Il est indépendant du
 jeton MCP : révoquer le jeton ne le supprime pas.
