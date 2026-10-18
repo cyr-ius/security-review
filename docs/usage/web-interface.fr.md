@@ -114,23 +114,27 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   locaux de ceux ouverts au OIDC. Ils créent les groupes, leur donnent des rôles (sur tous les
   projets ou sur certains), ajoutent des membres et choisissent si le groupe est **Ouvert au OIDC**
   (voir [Rôles, groupes et permissions](../advanced/access-control.md#groupes)).
-- **Rôles** : les administrateurs recherchent et trient les rôles, et filtrent les rôles système
-  des rôles personnalisés. Ils créent des rôles à partir des permissions ; les rôles système
-  `reader`, `triager` et `admin` sont affichés en lecture seule.
+- **Rôles** : les administrateurs recherchent et trient les rôles, et filtrent les rôles intégrés
+  des rôles personnalisés. Ils créent des rôles à partir des permissions ; les rôles intégrés
+  `reader` et `admin` sont affichés en lecture seule. `triager` (lecture et triage), créé avec la
+  base, est un rôle ordinaire : il peut être modifié ou supprimé.
 - **Mon compte** : affiche le type du compte. Un utilisateur local y change son mot de passe (ses
   autres sessions sont fermées) ; celui d'un utilisateur OIDC est géré par le fournisseur
-  d'identité.
+  d'identité. **Jetons API** crée et révoque des [jetons API](#jetons-api) personnels (API REST
+  et Swagger) qui portent les droits du compte.
 - **Jetons** : les demandes d'enrôlement sont recherchables, triables et filtrables par type ; les
   jetons actifs le sont par usage. Les administrateurs créent et révoquent des jetons pour un ou plusieurs
-  projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit **MCP** (rôle `mcp`), **API REST** ou **Pipeline CI/CD**
-  (rôle `ci`, pour [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)) ;
-  pour l'API REST, **Droits API** choisit **Lecture seule** (`reader`) ou **Lecture et triage**
-  (`triager`). Sous **Projets autorisés**, **Tous les projets** donne tous les projets, y
+  projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit
+  **MCP** (rôle `mcp`), **Pipeline CI/CD** (rôle `ci`, pour
+  [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)) ou **API REST** (rôle
+  `api`, avec le **Rôle** qu'il porte, voir [jetons API](#jetons-api)) : les jetons sont destinés
+  aux machines, une personne lit et trie avec un [compte utilisateur](#comptes-utilisateurs).
+  Sous **Projets autorisés**, **Tous les projets** donne tous les projets, y
   compris ceux revus plus tard, et **Projets sélectionnés** affiche les cases des projets que voit
   le jeton ;
   **Validité** fixe sa durée de vie (30 jours à 1 an, ou le défaut du serveur,
-  `SECREVIEW_TOKEN_MAX_DAYS`). La liste affiche l'usage de chaque jeton `mcp`, `reader`,
-  `triager` et `ci`, ses projets et sa date d'expiration (**Expiré** une fois passée).
+  `SECREVIEW_TOKEN_MAX_DAYS`). La liste affiche l'usage de chaque jeton `mcp` et `ci`, ses
+  projets et sa date d'expiration (**Expiré** une fois passée).
   **Projets** change les projets d'un jeton existant, ou lui donne **Tous les projets** après
   confirmation, sans changer son secret : le changement s'applique dès la requête suivante ; une
   demande en attente pour un projet désormais accordé est approuvée avec lui. **Renouveler** remplace le secret d'un jeton et affiche le
@@ -203,7 +207,7 @@ MCP `propose_finding_status`, voir [statut d'un finding](prompts-tools.md#statut
   décision supprime la proposition en attente.
 
 Seule une session (compte local ou OIDC) peut accepter un risque ou marquer un faux positif : un
-jeton Bearer, même `triager` ou `admin`, reçoit `403`. Par l'API REST :
+jeton Bearer, même `admin`, reçoit `403`. Par l'API REST :
 
 ```bash
 curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -223,16 +227,16 @@ nouveau la gate.
 
 ## Rôles
 
-Les **jetons** donnent accès au serveur MCP et à l'API REST (agents, CI, scripts) ; les
-**utilisateurs** (comptes locaux ou OIDC) sont les seuls à ouvrir l'interface web. Chaque jeton
-porte un rôle, qui détermine les endpoints accessibles :
+Les **jetons** sont destinés aux machines (agents MCP, pipelines CI/CD, Prometheus, scripts
+d'administration) ; les **utilisateurs** (comptes locaux ou OIDC) sont les personnes : eux seuls
+ouvrent l'interface web, et leurs droits viennent des rôles de leurs groupes. Chaque jeton porte
+un rôle, qui détermine les endpoints accessibles :
 
 | Rôle | Usage (écran **Jetons**) | `/mcp` | API REST (lecture) | Changement de statut |
 |---|---|---|---|---|
 | `mcp` (défaut) | MCP | ✅ | — | — |
-| `reader` | API REST — lecture seule | — | ✅ | — |
-| `triager` | API REST — lecture et triage | — | ✅ | `open`, `fixed` ¹ |
 | `admin` | CLI uniquement | ✅ | ✅ | `open`, `fixed` ¹ |
+| `api` | API REST — Swagger et scripts ([jetons API](#jetons-api)) | — | ✅ avec les permissions de son rôle ou de son utilisateur | `open`, `fixed` ¹ avec `findings.triage` |
 | `ci` | Pipeline CI/CD — gate, SARIF, tendance et scans | — | routes de pipeline seulement (`/api/v1/ci/`), dont les scans qui enregistrent des rapports | — |
 | `metrics` | CLI seulement | — | `/metrics` seulement ([Prometheus](../advanced/audit-metrics.md#metriques-prometheus)) | — |
 
@@ -240,29 +244,30 @@ porte un rôle, qui détermine les endpoints accessibles :
 avec la permission `findings.triage` ([triage des findings](#triage-des-findings)). Sur `/mcp`,
 aucun rôle ne change un statut : les agents ne font que le proposer.
 
-Un jeton `mcp`, `reader` ou `triager` restreint avec `--project` ne voit et ne trie que les
-projets autorisés ; un jeton `ci` est toujours restreint à ses projets (voir
+Un jeton `mcp` restreint avec `--project` ne voit que les projets autorisés ; un jeton `ci` est toujours restreint à ses projets (voir
 [jeton `ci`](gate.md#jeton-ci-et-projets-visibles)) ; l'option peut être répétée (voir
 [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)).
 
 Les personnes se connectent avec un [compte utilisateur](#comptes-utilisateurs) : local
 (identifiant et mot de passe) ou [OIDC](../advanced/sso.md). Ce qu'un compte peut faire vient
 des rôles de ses groupes (voir [Rôles, groupes et permissions](../advanced/access-control.md)) ;
-un compte n'ouvre jamais `/mcp`. Un jeton créé sans rôle reste `mcp` : il sert aux agents et à la
-CI, pas à l'interface web. Un jeton `reader`, `triager` ou `admin` appelle l'API
-REST, par exemple depuis un script, mais **n'ouvre pas l'interface** (la page de connexion ne
-propose que les comptes) :
+un compte n'ouvre jamais `/mcp`. Un jeton créé sans rôle reste `mcp` : il sert aux agents, pas à
+l'interface web. Il n'existe pas de jeton de lecture ou de triage : pour donner à une personne la
+lecture ou le triage, ajoutez son compte à un groupe qui a le rôle `reader` ou `triager` (sur
+certains projets ou sur tous). Un jeton `admin` appelle toute l'API REST, par exemple depuis un
+script d'administration, mais **n'ouvre pas l'interface** (la page de connexion ne propose que
+les comptes) :
 
 ```bash
-security-review-controller token create --label triage-bot --role triager
-# {"id": "…", "label": "triage-bot", "role": "triager", "project": null, "created_at": "…", "token": "UJB7…"}
+security-review-controller token create --label ops-script --role admin
+# {"id": "…", "label": "ops-script", "role": "admin", "project": null, "created_at": "…", "token": "UJB7…"}
 curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/projects
 ```
 
-Le même jeton liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
+L'API REST liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
 du plus grave au moins grave (filtres `status`, `severity` et `review_type`, `limit` plafonné par
 `SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer).
-Sans `project`, il liste les findings de tous les projets du périmètre du jeton
+Sans `project`, elle liste les findings de tous les projets que lit l'appelant
 (`"project": null`) :
 
 ```bash
@@ -279,15 +284,15 @@ curl -H "Authorization: Bearer $TOKEN" \
   "https://secreview.example.com/api/v1/reports?project=shop-api&author=alice@example.com"
 ```
 
-Révoquez-le avec `security-review-controller token revoke triage-bot`. Chaque changement de
+Révoquez-le avec `security-review-controller token revoke ops-script`. Chaque changement de
 statut est journalisé avec le label du jeton ou du compte :
 
 ```
-INFO security_review_mcp.web: Finding 42 set to fixed by triage-bot
+INFO security_review_mcp.web: Finding 42 set to fixed by ops-script
 ```
 
 et écrit dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit) (`GET /api/v1/audit`, permission
-`audit.read`), avec l'acteur `token:triage-bot` ou `user:<nom>`.
+`audit.read`), avec l'acteur `token:ops-script` ou `user:<nom>`.
 
 !!! warning "Authentification requise pour la Web UI"
     L'API de l'interface refuse les requêtes avec le statut `503` tant qu'aucun utilisateur ni
@@ -298,6 +303,32 @@ et écrit dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit)
     la Web UI ; l'authentification MCP reste indépendante (un compte utilisateur n'ouvre jamais
     `/mcp`). Avec la [connexion OIDC](../advanced/sso.md), l'API demande une connexion
     (`401`) même sans utilisateur ni jeton en base.
+
+### Jetons API
+
+Un jeton `api` appelle l'API REST, depuis un script ou depuis la documentation Swagger
+(`/api/docs`, bouton **Authorize**), avec les droits du contrôle d'accès, lus à chaque requête.
+Il n'atteint jamais `/mcp`, n'ouvre jamais l'interface et, comme tout jeton, n'accepte jamais un
+risque et ne marque jamais un faux positif. Il en existe deux sortes :
+
+- **Jeton personnel** : un utilisateur le crée pour lui-même dans **Mon compte** > **Jetons API**
+  (10 au plus, label `<utilisateur>:<label>`, avec un `:` qu'aucun autre label de jeton ne peut contenir, validité bornée par `SECREVIEW_TOKEN_MAX_DAYS`). Il
+  porte les droits actuels du compte, qui viennent de ses groupes : il n'atteint plus rien dès que
+  le compte les perd, et il est supprimé avec le compte. Personne ne peut le renouveler ni changer
+  ses projets ; un administrateur peut le révoquer depuis l'écran **Jetons**.
+- **Jeton de rôle** : un administrateur (`tokens.manage`) le crée dans l'écran **Jetons** avec
+  l'**Usage** **API REST** et un **Rôle**. Il porte les permissions de ce rôle sur ses projets
+  (tous les projets, ou une liste quand le rôle ne détient que des permissions par projet). Son
+  créateur doit détenir chacune de ces permissions sur ces projets ; un rôle utilisé par un jeton
+  ne peut pas être supprimé.
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "swagger", "expires_in_days": 30}'
+# {"id": "…", "label": "alice:swagger", "role": "api", "personal": true, "access_role_id": null, …, "token": "Zq3…"}
+curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
+# {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
+```
 
 ## Comptes utilisateurs
 
@@ -469,7 +500,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 ## Sécurité
 
 - Les fichiers statiques de `/ui/` sont publics (ils ne contiennent aucune donnée) ; l'API
-  `/api/v1/` exige une session ou un jeton `reader`, `triager` ou `admin`. Seules les routes de
+  `/api/v1/` exige une session ou un jeton `admin` ou `api`. Seules les routes de
   connexion (`/api/v1/auth/…`) sont publiques.
 - Les mots de passe des comptes ne sont jamais stockés : seule une empreinte **scrypt** salée
   (N=2¹⁴, r=8, p=5) est enregistrée et aucune réponse de l'API ne la renvoie. La vérification
@@ -480,7 +511,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   n'est chargé depuis Internet, et Swagger n'envoie jamais le schéma au validateur en ligne.
   Dans Swagger, le cadenas d'une route indique qu'elle exige un jeton : il reste **ouvert**
   tant que vous n'avez pas saisi de jeton avec **Authorize**, et ne veut pas dire que la route
-  est accessible sans jeton.
+  est accessible sans jeton. Saisissez-y un [jeton API](#jetons-api).
 - Le contrôleur n'expose aucune route d'écriture sans jeton. Les demandes
   d'[enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton) sont déposées sur
   le **serveur MCP** (`POST /api/v1/enroll`, public) ; le contrôleur les liste et les traite

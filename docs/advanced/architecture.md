@@ -17,7 +17,7 @@ run in two containers, two pods or on two machines.
 |---|---|---|
 | Command | `security-review-mcp --transport streamable-http` | `security-review-controller serve` |
 | Serves | `/mcp`, public enrollment `POST /api/v1/enroll`, `/healthz` | REST API `/api/v1`, interface `/ui`, `/healthz` |
-| Accepted tokens | `mcp` and `admin` roles | `reader`, `triager` and `admin` roles; `ci` on the pipeline routes `/api/v1/ci/` only (gate, SARIF, trend, scans) |
+| Accepted credentials | `mcp` and `admin` tokens | web sessions (users), `admin` and `api` tokens; `ci` tokens on the pipeline routes `/api/v1/ci/` only (gate, SARIF, trend, scans) |
 | Routes without a token | enrollment, `/healthz` | `/ui` files, API documentation, `/healthz` (read only) |
 | Database schema | only checks it | migrates it (unless `SECREVIEW_DB_AUTO_UPGRADE=false`) |
 | Advised exposure | agents and CI, with TLS | internal network or access restricted to administrators |

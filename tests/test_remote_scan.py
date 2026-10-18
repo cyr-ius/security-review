@@ -159,9 +159,9 @@ async def test_scan_reaching_the_enrollment_server_suggests_enrollment(token):
 
 
 @pytest.mark.anyio
-async def test_scan_with_a_web_token_is_forbidden(shared_server):
+async def test_scan_with_a_token_without_mcp_is_forbidden(shared_server):
     factory, _ = shared_server
-    reader = token_store.create_token("viewer", Role.READER)["token"]
+    reader = token_store.create_token("viewer", Role.METRICS)["token"]
     with pytest.raises(ValueError, match=r"refused the request \(403\)"):
         await remote_scan.scan_files_async(
             "http://127.0.0.1:8000", [LOCKFILE], token=reader, http_client_factory=factory

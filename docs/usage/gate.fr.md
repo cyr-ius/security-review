@@ -58,8 +58,8 @@ security-review-controller token create --label jenkins-portal --role ci \
   --project portal --project portal-api
 ```
 
-Les jetons `reader`, `triager` et `admin` peuvent aussi appeler les routes du gate, du SARIF et
-de la tendance (dans leurs propres projets) ; les jetons `mcp`, non. Les scans, qui enregistrent
+Les sessions web et les jetons `api` (dans les projets qu'ils lisent) et les jetons `admin`
+peuvent aussi appeler les routes du gate, du SARIF et de la tendance ; les jetons `mcp`, non. Les scans, qui enregistrent
 des rapports, demandent un jeton `ci` ou `admin` (`403` sinon, sessions web comprises).
 
 ### Exemples

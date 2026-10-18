@@ -40,7 +40,7 @@ def test_project_token_is_stored_as_hash_and_revoked(database):
     assert row.token_hash == digest_of(created["token"]).hex()
     assert created["token"] not in row.model_dump_json()
     assert STORE.lookup(digest_of(created["token"])) == TokenInfo(
-        "ci", Role.READER, projects=frozenset({"shop-api"}), token_id=created["id"]
+        "ci", Role.MCP, projects=frozenset({"shop-api"}), token_id=created["id"]
     )
     listed = token_store.list_project_tokens()
     assert listed == [{key: value for key, value in created.items() if key != "token"}]
@@ -65,7 +65,7 @@ def test_token_validation():
         token_store.create_token("boss", "boss")
     with pytest.raises(ValueError, match="admin token cannot be restricted"):
         token_store.create_token("boss-admin", Role.ADMIN, "billing")
-    for role in (Role.MCP, Role.READER, Role.TRIAGER):
+    for role in (Role.MCP, Role.CI):
         created = token_store.create_token(f"{role}-billing", role, "billing")
         assert (created["project"], created["projects"]) == ("billing", ["billing"])
     with pytest.raises(ValueError, match="between 1 and 64"):
@@ -74,6 +74,22 @@ def test_token_validation():
         token_store.create_project_token("other", "p" * 201)
     with pytest.raises(ValueError, match="at least one project"):
         token_store.create_project_token("other", [])
+
+
+@pytest.mark.parametrize("role", [Role.READER, Role.TRIAGER])
+def test_a_token_is_never_given_to_a_person(database, role):
+    """reader and triager are reached through a web session and its groups, never a token."""
+    with pytest.raises(ValueError, match="through a group"):
+        token_store.create_token("person", role)
+    with pytest.raises(ValueError, match="cannot be created in the web interface"):
+        token_store.create_project_token("person", ["shop-api"], role)
+    assert stored_rows(database) == []
+
+    # A row left by an older version authenticates nothing (fail closed)
+    with Session(database) as session:
+        session.add(ApiToken(id="t1", label="old", role=role.value, token_hash="ab" * 32))
+        session.commit()
+    assert STORE.lookup(bytes.fromhex("ab" * 32)) is None
 
 
 def test_ci_token_is_always_restricted_to_projects():
@@ -89,7 +105,7 @@ def test_ci_token_is_always_restricted_to_projects():
 
 def test_unrestricted_ci_row_reaches_no_project(database):
     # A ci row without projects (written outside create_token) fails closed
-    created = token_store.create_token("jenkins", Role.READER)
+    created = token_store.create_token("jenkins", Role.MCP)
     with Session(database) as session:
         row = session.get(ApiToken, created["id"])
         row.role = Role.CI.value
@@ -409,7 +425,7 @@ def test_complementary_requests_count_in_the_pending_limit_and_expire(monkeypatc
 def test_legacy_project_tokens_are_migrated(database):
     with Session(database) as session:
         session.add(
-            ApiToken(id="t1", label="old", role="reader", project="shop-api", token_hash="ab" * 32)
+            ApiToken(id="t1", label="old", role="mcp", project="shop-api", token_hash="ab" * 32)
         )
         session.add(ApiToken(id="t2", label="admin", role="admin", token_hash="cd" * 32))
         session.add(
@@ -555,7 +571,7 @@ def test_a_metrics_token_cannot_be_restricted_to_projects():
 def test_token_counts_by_role_and_state(database):
     token_store.create_token("dev", Role.MCP)
     token_store.create_token("soon", Role.MCP, expires_in_days=3)
-    token_store.create_token("old", Role.READER, expires_in_days=30)
+    token_store.create_token("old", Role.ADMIN, expires_in_days=30)
     _set_dates(database, "old", expires_at=datetime.now(UTC) - timedelta(days=1))
     token_store.request_enrollment("shop-api")
 
@@ -563,7 +579,7 @@ def test_token_counts_by_role_and_state(database):
 
     assert counts["by_role_and_state"] == {
         ("mcp", "active"): 2,
-        ("reader", "expired"): 1,
+        ("admin", "expired"): 1,
         ("mcp", "pending"): 1,
     }
     assert counts["expiring_soon"] == 1
@@ -574,11 +590,11 @@ def test_token_counts_by_role_and_state(database):
 
 
 def test_web_token_for_every_project():
-    created = token_store.create_project_token("portal", None, Role.TRIAGER)
+    created = token_store.create_project_token("portal", None, Role.MCP)
 
     assert (created["project"], created["projects"]) == (None, None)
     info = STORE.lookup(digest_of(created["token"]))
-    assert (info.role, info.projects) == (Role.TRIAGER, None)
+    assert (info.role, info.projects) == (Role.MCP, None)
     assert [token["label"] for token in token_store.list_project_tokens()] == ["portal"]
     # An empty list is refused, never read as every project
     with pytest.raises(ValueError, match="at least one project"):
@@ -648,3 +664,60 @@ def test_set_token_projects_refusals():
     # Nothing changed
     assert STORE.lookup(digest_of(ci["token"])).projects == frozenset({"shop-api"})
     assert STORE.lookup(digest_of(admin["token"])).projects is None
+
+
+# ── api tokens ───────────────────────────────────────────────────────────────
+
+
+def test_an_api_token_needs_a_role_or_an_owner(database):
+    with pytest.raises(ValueError, match="created with a role"):
+        token_store.create_token("swagger", Role.API)
+    with pytest.raises(ValueError, match="needs a role"):
+        token_store.create_project_token("swagger", None, Role.API)
+
+    # A stored api row without role nor owner authenticates nothing (fail closed)
+    with Session(database) as session:
+        session.add(ApiToken(id="t1", label="orphan", role="api", token_hash="ab" * 32))
+        session.commit()
+    assert STORE.lookup(bytes.fromhex("ab" * 32)) is None
+
+
+def test_a_role_api_token_without_its_role_authenticates_nothing(database):
+    from security_review_mcp import access_control
+
+    role = access_control.create_role("Auditor", ["audit.read"])
+    created = token_store.create_project_token("audit", None, Role.API, access_role_id=role["id"])
+    info = STORE.lookup(digest_of(created["token"]))
+    assert (info.role, dict(info.grants)) == (Role.API, {"audit.read": None})
+
+    with Session(database) as session:
+        row = session.get(ApiToken, created["id"])
+        row.access_role_id = 999
+        session.add(row)
+        session.commit()
+    assert STORE.lookup(digest_of(created["token"])) is None
+
+
+def test_the_label_of_a_personal_token_names_its_user():
+    from conftest import make_user
+
+    user = make_user("a" * 60, "Correct horse battery 9", "reader")
+
+    with pytest.raises(ValueError, match="at most 3 characters"):
+        token_store.create_personal_token(user["id"], "four")
+    created = token_store.create_personal_token(user["id"], "abc")
+    assert created["label"] == "a" * 60 + ":abc"
+    with pytest.raises(ValueError, match="cannot be rotated"):
+        token_store.rotate_token(created["id"])
+    with pytest.raises(ValueError, match="not found"):
+        token_store.create_personal_token(999, "x")
+
+
+def test_only_a_personal_token_has_a_colon_in_its_label():
+    """``<username>:<label>`` names the user of a personal token: no other token imitates it."""
+    with pytest.raises(ValueError, match="must not contain ':'"):
+        token_store.create_token("alice:swagger", Role.MCP)
+    with pytest.raises(ValueError, match="must not contain ':'"):
+        token_store.create_project_token("alice:swagger", None, Role.MCP)
+    request = token_store.request_enrollment("shop-api", label="alice:swagger")
+    assert ":" not in request["label"] and request["label"].startswith("alice-swagger")

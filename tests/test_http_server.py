@@ -125,13 +125,14 @@ def test_missing_or_wrong_token_is_rejected(headers):
     "role, mcp_status, api_status",
     [
         ("mcp", 200, 403),
-        ("reader", 403, 200),
-        ("triager", 403, 200),
         ("admin", 200, 200),
+        ("ci", 403, 403),
+        ("metrics", 403, 403),
     ],
 )
 def test_roles_select_the_process(role, mcp_status, api_status):
-    token = token_store.create_token("user", role)["token"]
+    projects = ["shop-api"] if role == "ci" else None
+    token = token_store.create_token("user", role, projects)["token"]
     assert protected_client().get("/mcp", headers=bearer(token)).status_code == mcp_status
     response = protected_client(web=True).get("/api/v1/me", headers=bearer(token))
     assert response.status_code == api_status
@@ -285,17 +286,17 @@ def test_pending_requests_do_not_close_an_open_server():
 def test_tokens_are_checked_in_the_database_on_each_request():
     mcp_client, web_client = protected_client(), protected_client(web=True)
     password = token_store.create_token("ops", Role.ADMIN)["token"]
-    created = token_store.create_project_token("ci", "shop-api")
-    reader = bearer(created["token"])
+    created = token_store.create_project_token("agent", "shop-api")
+    agent = bearer(created["token"])
     assert web_client.get("/api/v1/me", headers=bearer(password)).text == "ops/admin"
     assert mcp_client.get("/mcp", headers=bearer(password)).status_code == 200
-    assert web_client.get("/api/v1/me", headers=reader).text == "ci/reader"
-    assert mcp_client.get("/mcp", headers=reader).status_code == 403
+    assert mcp_client.get("/mcp", headers=agent).text == "agent/mcp"
+    assert web_client.get("/api/v1/me", headers=agent).status_code == 403
     assert mcp_client.get("/mcp").status_code == 401
 
     # A revocation (from the controller or another instance) applies to the next request
-    token_store.revoke_token("ci")
-    assert web_client.get("/api/v1/me", headers=reader).status_code == 401
+    token_store.revoke_token("agent")
+    assert mcp_client.get("/mcp", headers=agent).status_code == 401
 
 
 def test_path_dispatcher_routes_exact_paths():
@@ -358,7 +359,7 @@ def headers_client(scheme: str = "http") -> TestClient:
 
 def test_every_controller_answer_has_the_security_headers():
     client = headers_client()
-    token = token_store.create_token("reader", Role.READER)["token"]
+    token = token_store.create_token("ops", Role.ADMIN)["token"]
 
     for response in (
         client.get("/api/v1/me", headers={"Authorization": f"Bearer {token}"}),
@@ -647,9 +648,7 @@ def test_token_create_list_revoke(capsys):
     assert (created["label"], created["role"], created["project"]) == ("ci", "mcp", None)
     assert STORE.lookup(hash_token(created["token"])).label == "ci"
 
-    code, reader = run_cli(
-        capsys, "create", "--label", "shop", "--role", "reader", "--project", "shop-api"
-    )
+    code, reader = run_cli(capsys, "create", "--label", "shop", "--project", "shop-api")
     assert code == cli.EXIT_PASSED and reader["project"] == "shop-api"
 
     code, listed = run_cli(capsys, "list")
@@ -685,6 +684,15 @@ def test_token_create_list_revoke(capsys):
 def test_token_command_errors(capsys, argv, message):
     assert cli.run(["token", *argv]) == cli.EXIT_ERROR
     assert message in json.loads(capsys.readouterr().err)["error"]
+
+
+@pytest.mark.parametrize("role", ["reader", "triager", "api"])
+def test_token_create_refuses_a_role_of_a_person(capsys, role):
+    with pytest.raises(SystemExit) as exited:
+        cli.run(["token", "create", "--label", "x", "--role", role])
+    assert exited.value.code == cli.EXIT_ERROR
+    assert "invalid choice" in capsys.readouterr().err
+    assert token_store.list_tokens() == []
 
 
 def test_token_approve_and_reject_enrollment_requests(capsys):

@@ -484,7 +484,7 @@ def test_deps_scan_refuses_symlinks_and_unsupported_files(
 
 
 def test_scans_need_a_ci_or_admin_token(controller, monkeypatch, capsys, tmp_path):
-    reader = token_store.create_token("viewer", Role.READER)["token"]
+    reader = token_store.create_token("viewer", Role.MCP)["token"]
     manifest = tmp_path / "requirements.txt"
     manifest.write_text("flask==1.0\n", encoding="utf-8")
 

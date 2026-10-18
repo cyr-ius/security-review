@@ -277,6 +277,10 @@ class ApiToken(SQLModel, table=True):
     rotated_at: datetime | None = Field(default=None)
     previous_token_hash: str | None = Field(default=None, index=True, max_length=64)
     previous_expires_at: datetime | None = Field(default=None)
+    # ``api`` token: the web user of a personal token (it holds the current rights of the user),
+    # or the role of a role token (it holds the permissions of the role on its projects)
+    user_id: int | None = Field(default=None, foreign_key="webuser.id", index=True)
+    access_role_id: int | None = Field(default=None, foreign_key="accessrole.id", index=True)
 
 
 class ApiTokenProject(SQLModel, table=True):
@@ -483,7 +487,7 @@ class AccessRole(SQLModel, table=True):
     """Role of the web interface: a named set of permissions, given to groups.
 
     ``permissions`` is the JSON list of the permission names (access_control.Permission). A
-    ``system`` role (``reader``, ``triager``, ``admin``) can be neither changed nor deleted: its
+    ``system`` (built-in) role, ``reader`` or ``admin``, can be neither changed nor deleted: its
     permissions are those of the code, not of this column.
     """
 

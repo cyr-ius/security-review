@@ -11,7 +11,7 @@ export const access = defineMessages({
     'access.failed': 'The management of the access failed.',
     'roles.subtitle': 'Named sets of permissions, given to groups',
     'roles.help':
-      'A role holds permissions; a group gives its roles to its members. The system roles reader, triager and admin can be neither changed nor deleted. A role made only of permissions marked “per project” can be limited to projects in a group. A change applies at once to the open sessions.',
+      'A role holds permissions; a group gives its roles to its members. The built-in roles reader and admin can be neither changed nor deleted; triager, like every other role, can. A role made only of permissions marked “per project” can be limited to projects in a group. A change applies at once to the open sessions.',
     'roles.editTitle': 'Edit the role “{role}”',
     'roles.createTitle': 'Create a role',
     'roles.namePlaceholder': 'e.g. Auditor',
@@ -22,7 +22,7 @@ export const access = defineMessages({
     'roles.globalHelp':
       'This role holds permissions on the whole controller: a group always gives it on every project.',
     'roles.loadError': 'Could not load the roles.',
-    'roles.system': 'system',
+    'roles.system': 'built-in',
     'roles.custom': 'Custom',
     'roles.all': 'All roles',
     'roles.type': 'Role type',
@@ -92,7 +92,7 @@ export const access = defineMessages({
     'access.failed': 'La gestion des accès a échoué.',
     'roles.subtitle': 'Ensembles nommés de permissions, donnés aux groupes',
     'roles.help':
-      "Un rôle regroupe des permissions ; un groupe donne ses rôles à ses membres. Les rôles système reader, triager et admin ne peuvent être ni modifiés ni supprimés. Un rôle fait uniquement de permissions marquées « par projet » peut être limité à des projets dans un groupe. Une modification s'applique aussitôt aux sessions ouvertes.",
+      "Un rôle regroupe des permissions ; un groupe donne ses rôles à ses membres. Les rôles intégrés reader et admin ne peuvent être ni modifiés ni supprimés ; triager, comme tout autre rôle, peut l'être. Un rôle fait uniquement de permissions marquées « par projet » peut être limité à des projets dans un groupe. Une modification s'applique aussitôt aux sessions ouvertes.",
     'roles.editTitle': 'Modifier le rôle « {role} »',
     'roles.createTitle': 'Créer un rôle',
     'roles.namePlaceholder': 'ex. Auditeur',
@@ -103,7 +103,7 @@ export const access = defineMessages({
     'roles.globalHelp':
       'Ce rôle contient des permissions sur tout le contrôleur : un groupe le donne toujours sur tous les projets.',
     'roles.loadError': 'Impossible de charger les rôles.',
-    'roles.system': 'système',
+    'roles.system': 'intégré',
     'roles.custom': 'Personnalisé',
     'roles.all': 'Tous les rôles',
     'roles.type': 'Type de rôle',
@@ -176,7 +176,7 @@ export const access = defineMessages({
     'access.failed': 'La gestión de los accesos falló.',
     'roles.subtitle': 'Conjuntos con nombre de permisos, asignados a grupos',
     'roles.help':
-      'Un rol agrupa permisos; un grupo asigna sus roles a sus miembros. Los roles de sistema reader, triager y admin no se pueden modificar ni eliminar. Un rol formado solo por permisos marcados «por proyecto» puede limitarse a proyectos en un grupo. Un cambio se aplica de inmediato a las sesiones abiertas.',
+      'Un rol agrupa permisos; un grupo asigna sus roles a sus miembros. Los roles integrados reader y admin no se pueden modificar ni eliminar; triager, como cualquier otro rol, sí. Un rol formado solo por permisos marcados «por proyecto» puede limitarse a proyectos en un grupo. Un cambio se aplica de inmediato a las sesiones abiertas.',
     'roles.editTitle': 'Editar el rol «{role}»',
     'roles.createTitle': 'Crear un rol',
     'roles.namePlaceholder': 'p. ej. Auditor',
@@ -187,7 +187,7 @@ export const access = defineMessages({
     'roles.globalHelp':
       'Este rol contiene permisos sobre todo el controlador: un grupo siempre lo asigna en todos los proyectos.',
     'roles.loadError': 'No se pudieron cargar los roles.',
-    'roles.system': 'sistema',
+    'roles.system': 'integrado',
     'roles.custom': 'Personalizado',
     'roles.all': 'Todos los roles',
     'roles.type': 'Tipo de rol',

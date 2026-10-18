@@ -18,9 +18,25 @@ nothing but stays listed, so that an administrator rotates or revokes it. A rota
 secret of a token (same id, label, role and projects); the previous secret may keep working
 during a grace period, so that its clients are updated without an interruption.
 
-The web interface manages the ``mcp``, ``reader``, ``triager`` and ``ci`` tokens (WEB_TOKEN_ROLES):
-an administrator creates them for some projects or for every project, changes their projects,
+A token has one of the roles of http_server.TOKEN_ROLES: tokens are for machines (MCP agent,
+pipeline, Prometheus, administration). A person reaches the web API through a session, whose
+rights come from its groups (see access_control). A stored token of another role (``reader`` or
+``triager``, from an older version) authenticates nothing.
+
+The web interface manages the ``mcp``, ``ci`` and ``api`` tokens (WEB_TOKEN_ROLES): an
+administrator creates them for some projects or for every project, changes their projects,
 rotates and revokes them. The ``admin`` and ``metrics`` tokens are managed with the CLI only.
+
+An ``api`` token reaches the REST API (Swagger, scripts) with the rights of the access control
+(see access_control), read at each request:
+
+- a **role token** (``access_role_id``), created on the Tokens screen, holds the permissions of
+  one role on its projects (every project, or a list for a role made of scoped permissions);
+- a **personal token** (``user_id``), created by a web user for itself (label
+  ``<username>:<label>``), holds the current rights of that user, and is deleted with it. Its
+  projects and its secret cannot be changed; an administrator may revoke it.
+
+Like every token, an ``api`` token never accepts a risk nor marks a false positive.
 
 Every creation, rotation, revocation, change of projects and enrollment decision is written to
 the audit log.
@@ -41,7 +57,7 @@ from . import audit
 from .audit import AuditAction
 from .config import MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
-from .http_server import Role, TokenInfo, hash_token
+from .http_server import TOKEN_ROLES, Role, TokenInfo, hash_token
 from .models import ApiToken, ApiTokenProject, WebUser, as_utc, utcnow
 from .scanner import redact_secrets
 
@@ -70,7 +86,9 @@ MAX_ROTATION_GRACE_HOURS = 168
 # Roles whose rights cannot be scoped to projects
 UNSCOPED_ROLES = frozenset({Role.ADMIN, Role.METRICS})
 # Roles of the tokens managed in the web interface (admin and metrics tokens: CLI only)
-WEB_TOKEN_ROLES = frozenset({Role.MCP, Role.READER, Role.TRIAGER, Role.CI})
+WEB_TOKEN_ROLES = frozenset({Role.MCP, Role.CI, Role.API})
+# Personal api tokens one web user may hold
+MAX_PERSONAL_TOKENS = 10
 
 
 def _is_pending(row: ApiToken) -> bool:
@@ -179,6 +197,8 @@ def _public(row: ApiToken, links: list[ApiTokenProject]) -> dict[str, Any]:
         "expired": _is_expired(row, now),
         "rotated_at": _iso(row.rotated_at),
         "grace_until": _iso(grace) if grace is not None and as_utc(grace) > now else None,
+        "access_role_id": row.access_role_id,
+        "personal": row.user_id is not None,
     }
 
 
@@ -222,9 +242,12 @@ class DatabaseTokenStore:
                     or_(ApiToken.token_hash == hexdigest, ApiToken.previous_token_hash == hexdigest)
                 )
             ).first()
-            if row is None or not _matches(row, digest):
+            if row is None or row.role not in TOKEN_ROLES or not _matches(row, digest):
                 return None
-            return _info(row, _links(session, [row.id])[row.id])
+            info = _info(row, _links(session, [row.id])[row.id])
+            if row.role == Role.API:
+                return _api_info(session, row, info)
+            return info
 
     def has_tokens(self) -> bool:
         """True when at least one active token is stored.
@@ -239,6 +262,40 @@ class DatabaseTokenStore:
             return (
                 self.include_users and session.exec(select(WebUser.id).limit(1)).first() is not None
             )
+
+
+def _api_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | None:
+    """Identity of an ``api`` token, with its grants read now: those of its user (personal
+    token) or of its role on its projects (role token). None when the user or the role is gone,
+    or when the token grants nothing (fail closed)."""
+    from . import access_control  # access_control depends on this module
+
+    must_change = False
+    if row.user_id is not None:
+        user = session.get(WebUser, row.user_id)
+        if user is None:
+            return None
+        try:
+            grants = access_control.user_grants(session, row.user_id)
+        except ValueError:
+            return None
+        must_change = user.must_change_password
+    elif row.access_role_id is not None and info.projects != frozenset():
+        grants = access_control.role_token_grants(session, row.access_role_id, info.projects)
+    else:
+        return None
+    if not grants:
+        return None
+    return TokenInfo(
+        info.label,
+        Role.API,
+        projects=access_control.scope(grants, access_control.Permission.REPORTS_READ),
+        token_id=info.token_id,
+        pending=info.pending,
+        expired=info.expired,
+        grants=grants,
+        must_change_password=must_change,
+    )
 
 
 def _matches(row: ApiToken, digest: bytes) -> bool:
@@ -271,10 +328,13 @@ def _insert(
     projects: list[str] | None = None,
     expires_in_days: int | None = None,
     event: tuple[AuditAction, str | None] = (AuditAction.TOKEN_CREATED, None),
+    user_id: int | None = None,
+    access_role_id: int | None = None,
     **fields: str | None,
 ) -> tuple[ApiToken, list[ApiTokenProject], str]:
     """Generate a token, store its digest and projects and return (row, project rows, token).
 
+    ``user_id`` and ``access_role_id`` set the owner or the role of an ``api`` token.
     ``fields`` sets the enrollment columns (status, requested_by, requested_from); the project
     rows get the status of the token. ``event`` is the audit action and actor written with the
     token. A duplicate label raises ValueError; the token limit is enforced here.
@@ -296,6 +356,8 @@ def _insert(
         requested_by=fields.get("requested_by"),
         requested_from=fields.get("requested_from"),
         expires_at=expires_at,
+        user_id=user_id,
+        access_role_id=access_role_id,
     )
     links = [
         _new_link(
@@ -327,6 +389,8 @@ def _insert(
                     "expires_at": _iso(expires_at),
                     "requested_by": fields.get("requested_by"),
                     "requested_from": fields.get("requested_from"),
+                    "access_role_id": access_role_id,
+                    "personal": user_id is not None,
                 },
             )
             session.flush()
@@ -352,10 +416,16 @@ def _delete_token(session: Session, row: ApiToken) -> None:
 
 
 def _clean_label(label: str) -> str:
-    """Strip a token label and check its length."""
+    """Strip a token label and check its length.
+
+    ``:`` is refused: it separates the user from the label of a personal token
+    (``<username>:<label>``), so that no other token passes for one in the logs and the audit.
+    """
     label = label.strip()
     if not 1 <= len(label) <= MAX_LABEL_CHARS:
         raise ValueError(f"Token label must contain between 1 and {MAX_LABEL_CHARS} characters")
+    if ":" in label:
+        raise ValueError("Token label must not contain ':' (it names the user of a personal token)")
     return label
 
 
@@ -389,18 +459,29 @@ def create_token(
 ) -> dict[str, Any]:
     """Create a token and return its metadata with the raw secret, shown exactly once.
 
-    ``projects`` (one name or several) restricts the token to these projects, for the MCP
-    tools and the web interface. It is refused for ``admin``, whose rights (rules, every
-    project) cannot be scoped, and for ``metrics`` (whole database), and required for ``ci``,
-    the pipeline token. ``expires_in_days`` defaults to SECREVIEW_TOKEN_MAX_DAYS (0: no
-    expiry). The creation is audited with ``actor`` (default ``cli``).
+    ``role`` is one of TOKEN_ROLES. ``projects`` (one name or several) restricts the token to
+    these projects, for the MCP tools and the pipeline routes. It is refused for ``admin``,
+    whose rights (rules, every project) cannot be scoped, and for ``metrics`` (whole database),
+    and required for ``ci``, the pipeline token. ``expires_in_days`` defaults to
+    SECREVIEW_TOKEN_MAX_DAYS (0: no expiry). The creation is audited with ``actor`` (default
+    ``cli``).
     """
     label = _clean_label(label)
+    allowed = ", ".join(sorted(r.value for r in TOKEN_ROLES))
     try:
         role = Role(str(role).strip().lower())
     except ValueError:
-        allowed = ", ".join(r.value for r in Role)
         raise ValueError(f"Unknown role '{role}' (allowed: {allowed})") from None
+    if role not in TOKEN_ROLES:
+        raise ValueError(
+            f"A token cannot have the role '{role.value}' (allowed: {allowed}): give a person "
+            "web access through a group"
+        )
+    if role == Role.API:
+        raise ValueError(
+            "An api token is created with a role on the Tokens screen, or by a web user for "
+            "itself in My account"
+        )
     cleaned = _clean_projects(projects)
     if cleaned is not None and role in UNSCOPED_ROLES:
         raise ValueError(f"A {role.value} token cannot be restricted to a project")
@@ -497,6 +578,9 @@ def rotate_token(
             raise ValueError(f"{kind} '{reference}' was not found")
         if _is_pending(row):
             raise ValueError("An enrollment request waiting for approval cannot be rotated")
+        if row.user_id is not None:
+            # Its new secret would carry the rights of the user to whoever rotates it
+            raise ValueError("A personal token cannot be rotated: its user creates a new one")
         grace = grace_hours if not _is_expired(row, now) else 0
         row.previous_token_hash = row.token_hash if grace else None
         row.previous_expires_at = now + timedelta(hours=grace) if grace else None
@@ -555,7 +639,7 @@ def _web_token_query(token_id: str) -> Any:
 def list_project_tokens() -> list[dict[str, Any]]:
     """Return the metadata of the active tokens managed in the web interface.
 
-    They are the ``mcp``, ``reader``, ``triager`` and ``ci`` tokens, restricted to projects
+    They are the ``mcp`` and ``ci`` tokens, restricted to projects
     (``projects`` lists them) or reaching every project (``projects`` None).
     """
     return [
@@ -568,18 +652,47 @@ def list_project_tokens() -> list[dict[str, Any]]:
 def create_project_token(
     label: str,
     projects: str | Iterable[str] | None,
-    role: Role | str = Role.READER,
+    role: Role | str = Role.MCP,
     expires_in_days: int | None = None,
     actor: str | None = None,
+    access_role_id: int | None = None,
 ) -> dict[str, Any]:
     """Create a token of WEB_TOKEN_ROLES for one or several projects, or for every project
-    (``projects`` None; refused for ``ci``, see create_token)."""
+    (``projects`` None; refused for ``ci``, see create_token).
+
+    An ``api`` token needs ``access_role_id``, the role whose permissions it holds: a list of
+    projects is only accepted for a role made of scoped permissions.
+
+    Raises:
+        ValueError: Role refused, ``access_role_id`` missing or given to another role, invalid
+            projects or label.
+        NotFoundError: Unknown ``access_role_id``.
+    """
     try:
-        if Role(str(role).strip().lower()) not in WEB_TOKEN_ROLES:
+        kind = Role(str(role).strip().lower())
+        if kind not in WEB_TOKEN_ROLES:
             raise ValueError
     except ValueError:
         raise ValueError(f"A {role} token cannot be created in the web interface") from None
-    return create_token(label, role, _scope(projects), expires_in_days, actor)
+    if kind != Role.API:
+        if access_role_id is not None:
+            raise ValueError("Only an api token has a role of the access control")
+        return create_token(label, kind, _scope(projects), expires_in_days, actor)
+    if access_role_id is None:
+        raise ValueError("An api token needs a role")
+    # Import here: access_control depends on this module
+    from . import access_control
+
+    _, cleaned = access_control.role_token_scope(access_role_id, _scope(projects))
+    row, links, token = _insert(
+        _clean_label(label),
+        Role.API,
+        cleaned,
+        expires_in_days,
+        (AuditAction.TOKEN_CREATED, actor),
+        access_role_id=access_role_id,
+    )
+    return _public(row, links) | {"token": token}
 
 
 def _scope(projects: str | Iterable[str] | None) -> list[str] | None:
@@ -615,6 +728,12 @@ def set_token_projects(
             raise ValueError("An enrollment request waiting for approval cannot be changed")
         if cleaned is None and row.role == Role.CI:
             raise ValueError("A ci token must be restricted to at least one project")
+        if row.user_id is not None:
+            raise ValueError("A personal token holds the rights of its user: no projects")
+        if row.access_role_id is not None and cleaned is not None:
+            from . import access_control  # access_control depends on this module
+
+            access_control.role_token_scope(row.access_role_id, cleaned)
         links = _links(session, [row.id])[row.id]
         previous = _active_projects(row, links)
         # Pending requests for other projects keep waiting (dropped with every project)
@@ -658,6 +777,81 @@ def revoke_project_token(token_id: str, actor: str | None = None) -> None:
         revoked = _public(row, _links(session, [row.id])[row.id])
         _delete_token(session, row)
         _audit_token(session, AuditAction.TOKEN_REVOKED, actor, revoked)
+
+
+# ── Personal api tokens (web users) ──────────────────────────────────────────
+
+
+def _personal_label(username: str, label: str) -> str:
+    """Label of a personal token: ``<username>:<label>``, within MAX_LABEL_CHARS."""
+    full = f"{username}:{_clean_label(label)}"
+    if len(full) > MAX_LABEL_CHARS:
+        room = MAX_LABEL_CHARS - len(username) - 1
+        raise ValueError(f"The label of your token must contain at most {room} characters")
+    return full
+
+
+def create_personal_token(
+    user_id: int, label: str, expires_in_days: int | None = None
+) -> dict[str, Any]:
+    """Create an ``api`` token of a web user for itself and return it with its secret, shown
+    once. The token holds the current rights of the user (see _api_info).
+
+    Raises:
+        ValueError: Unknown user, invalid label or validity, or MAX_PERSONAL_TOKENS reached.
+    """
+    with session_scope() as session:
+        user = session.get(WebUser, user_id)
+        if user is None:
+            raise ValueError(f"User {user_id} not found")
+        username = user.username
+        count = session.exec(
+            select(func.count()).select_from(ApiToken).where(ApiToken.user_id == user_id)
+        ).one()
+    if count >= MAX_PERSONAL_TOKENS:
+        raise ValueError(f"A user may hold at most {MAX_PERSONAL_TOKENS} API tokens")
+    row, links, token = _insert(
+        _personal_label(username, label),
+        Role.API,
+        None,
+        expires_in_days,
+        (AuditAction.TOKEN_CREATED, f"user:{username}"),
+        user_id=user_id,
+    )
+    return _public(row, links) | {"token": token}
+
+
+def list_personal_tokens(user_id: int) -> list[dict[str, Any]]:
+    """Return the metadata of the api tokens of a web user (never their secret)."""
+    with session_scope() as session:
+        rows = session.exec(
+            select(ApiToken)
+            .where(ApiToken.user_id == user_id)
+            .order_by(col(ApiToken.created_at), col(ApiToken.label))
+        ).all()
+        return [_public(row, []) for row in rows]
+
+
+def revoke_personal_token(user_id: int, token_id: str, actor: str | None = None) -> None:
+    """Delete an api token of a web user; the token of another user is not found."""
+    with session_scope() as session:
+        row = session.exec(
+            select(ApiToken).where(ApiToken.id == token_id, ApiToken.user_id == user_id)
+        ).first()
+        if row is None:
+            raise ValueError(f"Token '{token_id}' was not found")
+        revoked = _public(row, [])
+        _delete_token(session, row)
+        _audit_token(session, AuditAction.TOKEN_REVOKED, actor, revoked)
+
+
+def delete_user_tokens(session: Session, user_id: int, actor: str | None = None) -> None:
+    """Delete the personal tokens of a web user (before the user), each one audited."""
+    for row in session.exec(select(ApiToken).where(ApiToken.user_id == user_id)).all():
+        revoked = _public(row, [])
+        _delete_token(session, row)
+        _audit_token(session, AuditAction.TOKEN_REVOKED, actor, revoked)
+    session.flush()
 
 
 # ── Enrollment requests ──────────────────────────────────────────────────────
@@ -745,6 +939,7 @@ def request_enrollment(
     # The requester never picks the exact label: a random suffix keeps labels unique without
     # telling an anonymous client which labels already exist
     base = label.strip() if label is not None and label.strip() else f"{project}-enroll"
+    base = base.replace(":", "-")  # reserved for the personal tokens (see _clean_label)
     suffix = f"-{secrets.token_hex(3)}"
     label = _clean_label(base[: MAX_LABEL_CHARS - len(suffix)] + suffix)
     requested_by, requested_from = _clean_requester(requested_by, requested_from)

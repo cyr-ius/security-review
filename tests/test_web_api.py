@@ -43,8 +43,12 @@ from security_review_mcp.models import (
     Severity,
 )
 
-# Raw secret of one token per role, created in the database by the ``secured`` fixture
+# Bearer value of each role, set by the ``secured`` fixture: the raw secret of a token for the
+# token roles, a session of a web user (in the group of that role) for reader and triager
 TOKENS: dict[str, str] = {}
+# Roles reached through a web session: a token never has them
+SESSION_ROLES = ("reader", "triager")
+USER_PASSWORD = "Correct horse battery 9"
 
 
 def make_finding(severity: Severity = Severity.HIGH, **kwargs) -> FindingCreate:
@@ -86,15 +90,32 @@ def client(ui_dir) -> TestClient:
 
 @pytest.fixture
 def secured(ui_dir) -> TestClient:
-    """The controller app protected by one token per role."""
+    """The controller app protected by one token per token role (sessions: see web_sessions)."""
     TOKENS.clear()
-    for role in Role:
-        if role != Role.CI:  # see ci_token: a ci token is always restricted to projects
-            TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
+    # ci: see ci_token (always restricted to projects); api: a role or an owner (see api tests)
+    for role in http_server.TOKEN_ROLES - {Role.CI, Role.API}:
+        TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
+    signer = oidc.SessionSigner("s" * 40)
     app = http_server.build_controller_app(
-        web_api.create_app(ui_dir=str(ui_dir), swagger=True), token_store.DatabaseTokenStore()
+        web_api.create_app(ui_dir=str(ui_dir), swagger=True, signer=signer),
+        token_store.DatabaseTokenStore(include_users=True),
+        web_users.SessionVerifier(signer),
     )
     return TestClient(app, base_url="http://127.0.0.1")
+
+
+@pytest.fixture
+def web_sessions(secured) -> TestClient:
+    """secured, with one web user per session role (in the group of that role, every project),
+    logged in: auth("reader") and auth("triager") give their sessions."""
+    for role in SESSION_ROLES:
+        make_user(role, USER_PASSWORD, role)
+        response = secured.post(
+            "/api/v1/auth/login", json={"username": role, "password": USER_PASSWORD}
+        )
+        assert response.status_code == 200, response.text
+        TOKENS[role] = response.json()["session"]
+    return secured
 
 
 @pytest.fixture
@@ -241,7 +262,7 @@ def test_api_health_is_public_and_tells_nothing_else(secured):
     assert response.json() == {"status": "ok"}
 
 
-def test_about_gives_the_version_and_the_links(secured, ui_dir):
+def test_about_gives_the_version_and_the_links(secured, web_sessions, ui_dir):
     assert secured.get("/api/v1/about").status_code == 401
 
     about = secured.get("/api/v1/about", headers=auth("reader")).json()
@@ -256,7 +277,7 @@ def test_about_gives_the_version_and_the_links(secured, ui_dir):
     assert bare.get("/api/v1/about").json()["swagger_url"] is None
 
 
-def test_about_update_is_disabled_by_default(secured, monkeypatch):
+def test_about_update_is_disabled_by_default(secured, web_sessions, monkeypatch):
     assert secured.get("/api/v1/about/update").status_code == 401
     monkeypatch.setattr(
         update_check, "fetch_latest", lambda settings: pytest.fail("GitHub must not be called")
@@ -275,7 +296,7 @@ def test_about_update_is_disabled_by_default(secured, monkeypatch):
     }
 
 
-def test_about_update_reports_a_newer_release_through_the_proxy(secured, monkeypatch):
+def test_about_update_reports_a_newer_release_through_the_proxy(secured, web_sessions, monkeypatch):
     update_check.clear_cache()
     enabled = get_settings().model_copy(update={"update_check_enabled": True})
     monkeypatch.setattr(web_api.account_routes, "get_settings", lambda: enabled)
@@ -430,10 +451,10 @@ def test_findings_of_every_project(client, reports):
     assert {f["project"] for f in shop["findings"]} == {"shop-api"}
 
 
-def test_findings_of_every_project_stay_in_the_scope_of_a_project_token(secured, reports):
+def test_findings_of_every_project_stay_in_the_scope_of_a_project_reader(secured, reports):
     services.save_report("billing", "Second review", [make_finding(Severity.CRITICAL)])
-    token = token_store.create_token("shop-only", Role.READER, ["shop-api"])["token"]
-    headers = {"Authorization": f"Bearer {token}"}
+    make_user("shop-only", USER_PASSWORD, "reader", ["shop-api"])
+    headers = session_headers(secured, "shop-only")
     page = secured.get("/api/v1/findings", headers=headers).json()
     assert page["total"] == 2
     assert {f["project"] for f in page["findings"]} == {"shop-api"}
@@ -600,7 +621,7 @@ def test_default_checklist_item_can_be_updated_but_not_deleted(client):
     assert client.delete("/api/v1/checklists/python/PY-01").status_code == 422
 
 
-def test_checklist_management_requires_admin(secured):
+def test_checklist_management_requires_admin(secured, web_sessions):
     assert secured.get("/api/v1/checklists", headers=auth("reader")).status_code == 403
     assert secured.get("/api/v1/checklists", headers=auth("admin")).status_code == 200
 
@@ -644,7 +665,7 @@ def test_rule_creation_and_reload(client):
     assert any(hit["rule_id"] == "ACME-003" for hit in registry.scan("compile(x)", "python")[0])
 
 
-def test_rule_validation_and_admin_permissions(client, secured):
+def test_rule_validation_and_admin_permissions(client, secured, web_sessions):
     invalid = client.post(
         "/api/v1/rules",
         json={
@@ -673,7 +694,7 @@ def test_rule_validation_and_admin_permissions(client, secured):
 # ── Permissions ──────────────────────────────────────────────────────────────
 
 
-def test_reader_can_read_but_not_triage(secured, reports):
+def test_reader_can_read_but_not_triage(secured, web_sessions, reports):
     me = secured.get("/api/v1/me", headers=auth("reader")).json()
     assert (me["client"], me["role"], me["can_triage"]) == ("reader", "reader", False)
     assert secured.get("/api/v1/projects", headers=auth("reader")).status_code == 200
@@ -687,7 +708,7 @@ def test_reader_can_read_but_not_triage(secured, reports):
     assert response.status_code == 403
 
 
-def test_triager_token_can_fix_but_never_dismiss(secured, reports):
+def test_a_token_can_fix_but_never_dismiss(secured, reports):
     """A bearer token (an agent may hold one) cannot accept a risk or mark a false positive."""
     expires_on = (date.today() + timedelta(days=30)).isoformat()
     for dismissal in ("false_positive", "accepted"):
@@ -696,16 +717,13 @@ def test_triager_token_can_fix_but_never_dismiss(secured, reports):
             "reason": "Not reachable from outside",
             "expires_on": expires_on,
         }
-        for role in ("triager", "admin"):
-            response = secured.patch("/api/v1/findings/1", json=body, headers=auth(role))
-            assert response.status_code == 403, (dismissal, role)
-            assert "logged in to the web interface" in response.json()["detail"]
+        response = secured.patch("/api/v1/findings/1", json=body, headers=auth("admin"))
+        assert response.status_code == 403, dismissal
+        assert "logged in to the web interface" in response.json()["detail"]
 
-    response = secured.patch(
-        "/api/v1/findings/1", json={"status": "fixed"}, headers=auth("triager")
-    )
+    response = secured.patch("/api/v1/findings/1", json={"status": "fixed"}, headers=auth("admin"))
     assert response.status_code == 200
-    assert (response.json()["status"], response.json()["status_approver"]) == ("fixed", "triager")
+    assert (response.json()["status"], response.json()["status_approver"]) == ("fixed", "admin")
 
 
 def test_mcp_token_cannot_use_the_api(secured):
@@ -794,7 +812,7 @@ def test_web_api_refuses_a_ci_identity_even_without_the_middleware_check(ui_dir,
     assert client.get("/api/v1/ci/gate", params={"project": "shop-api"}).status_code == 200
 
 
-def test_other_api_roles_may_use_the_pipeline_routes(secured, reports):
+def test_other_api_roles_may_use_the_pipeline_routes(secured, web_sessions, reports):
     for role in ("reader", "triager", "admin"):
         response = secured.get("/api/v1/ci/gate", params={"project": "billing"}, headers=auth(role))
         assert (response.status_code, response.json()["passed"]) == (200, True)
@@ -904,7 +922,7 @@ def test_a_new_token_secret_is_never_cached(secured, reports):
     assert rotated.headers["cache-control"] == "no-store"
 
 
-def test_roles_are_managed_with_users_manage(secured, caplog):
+def test_roles_are_managed_with_users_manage(secured, web_sessions, caplog):
     caplog.set_level(logging.INFO, logger="security_review_mcp.web")
     url = "/api/v1/roles"
     body = {"name": "Auditor", "description": "Reads the log", "permissions": ["audit.read"]}
@@ -927,7 +945,8 @@ def test_roles_are_managed_with_users_manage(secured, caplog):
     assert role["created_by"] == "token:admin"
     assert "Role Auditor created by admin" in caplog.text
     listed = secured.get(url, headers=auth("admin")).json()
-    assert [item["name"] for item in listed] == ["admin", "reader", "triager", "Auditor"]
+    # Built-in roles first, then by name: triager is an ordinary role
+    assert [item["name"] for item in listed] == ["admin", "reader", "Auditor", "triager"]
 
     body["permissions"] = ["audit.read", "rules.manage"]
     updated = secured.put(f"{url}/{role['id']}", json=body, headers=auth("admin"))
@@ -956,7 +975,7 @@ def test_invalid_roles_are_refused(secured, body):
     assert response.status_code == 422
 
 
-def test_groups_are_managed_with_users_manage(secured, caplog):
+def test_groups_are_managed_with_users_manage(secured, web_sessions, caplog):
     caplog.set_level(logging.INFO, logger="security_review_mcp.web")
     url = "/api/v1/groups"
     admin = auth("admin")
@@ -996,7 +1015,8 @@ def test_groups_are_managed_with_users_manage(secured, caplog):
         "groups",
         None,
     )
-    assert [item["name"] for item in listed["groups"]] == ["devs"]
+    # reader and triager: groups of the users of web_sessions
+    assert [item["name"] for item in listed["groups"]] == ["devs", "reader", "triager"]
     renamed = secured.put(
         f"{url}/{group['id']}", json={"name": "developers", "sso": False}, headers=admin
     ).json()
@@ -1118,7 +1138,6 @@ def test_a_token_never_grants_more_than_its_creator(accounts, reports):
     for body in (
         {"label": "other", "projects": ["billing"]},
         {"label": "all", "projects": None},
-        {"label": "triage", "role": "triager", "projects": ["shop-api"]},
     ):
         response = accounts.post(url, json=body, headers=headers)
         assert response.status_code == 403, body
@@ -1172,8 +1191,9 @@ def test_portal_access_at_approval_needs_users_manage(accounts):
     assert accounts.post(url, headers=headers).json()["status"] == "active"
 
 
-def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, reports, database):
-    shop_report_id, billing_report_id = reports
+def test_admin_creates_project_token_scoped_to_one_project(
+    secured, web_sessions, reports, database
+):
     created_response = secured.post(
         "/api/v1/project-tokens",
         json={"label": "shop-ci", "projects": ["shop-api"]},
@@ -1185,7 +1205,8 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, 
     token = created["token"]
     with Session(database) as session:
         row = session.exec(select(ApiToken).where(ApiToken.label == "shop-ci")).one()
-    assert (row.label, row.role, row.project) == ("shop-ci", "reader", "shop-api")
+    # Default role: mcp (a person reaches the web API through a session, never a token)
+    assert (row.label, row.role, row.project) == ("shop-ci", "mcp", "shop-api")
     assert row.token_hash == http_server.hash_token(token).hex()
     assert token not in row.model_dump_json()
 
@@ -1206,6 +1227,19 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, 
     )
 
     project_headers = {"Authorization": f"Bearer {token}"}
+    # A valid mcp token: refused by the web API (403), not unknown (401)
+    assert secured.get("/api/v1/me", headers=project_headers).status_code == 403
+
+    revoked = secured.delete(f"/api/v1/project-tokens/{created['id']}", headers=auth("admin"))
+    assert revoked.status_code == 204
+    assert secured.get("/api/v1/me", headers=project_headers).status_code == 401
+    assert listed_tokens(secured) == []
+
+
+def test_a_project_reader_only_sees_its_project(secured, reports):
+    shop_report_id, billing_report_id = reports
+    make_user("shop-dev", USER_PASSWORD, "reader", ["shop-api"])
+    project_headers = session_headers(secured, "shop-dev")
     identity = secured.get("/api/v1/me", headers=project_headers).json()
     assert (identity["role"], identity["projects"], identity["can_triage"]) == (
         "reader",
@@ -1287,7 +1321,6 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, 
         ).status_code
         == 404
     )
-    assert mcp_server.get("/mcp", headers=project_headers).status_code == 403
     assert (
         secured.patch(
             "/api/v1/findings/1",
@@ -1297,17 +1330,12 @@ def test_admin_creates_project_token_scoped_to_one_project(secured, mcp_server, 
         == 403
     )
 
-    revoked = secured.delete(f"/api/v1/project-tokens/{created['id']}", headers=auth("admin"))
-    assert revoked.status_code == 204
-    assert secured.get("/api/v1/me", headers=project_headers).status_code == 401
-    assert listed_tokens(secured) == []
-
 
 def test_hidden_report_answers_like_a_missing_one(secured, reports):
     _, billing_report_id = reports
     missing_id = billing_report_id + 1000
-    token = token_store.create_project_token("shop-ci", ["shop-api"], "reader")["token"]
-    headers = {"Authorization": f"Bearer {token}"}
+    make_user("shop-dev", USER_PASSWORD, "reader", ["shop-api"])
+    headers = session_headers(secured, "shop-dev")
 
     for path, params in (
         ("/api/v1/reports/{id}", None),
@@ -1327,7 +1355,7 @@ def test_hidden_report_answers_like_a_missing_one(secured, reports):
         assert answers[0] == answers[1] == (404, "Report N not found")
 
 
-def test_project_token_errors(secured, reports):
+def test_project_token_errors(secured, web_sessions, reports):
     def create(label: str, *projects: str):
         return secured.post(
             "/api/v1/project-tokens",
@@ -1338,7 +1366,7 @@ def test_project_token_errors(secured, reports):
     assert create("ci").status_code == 201
     # Labels are unique among all the tokens
     assert create("ci").status_code == 422
-    assert create("triager").status_code == 422
+    assert create("admin").status_code == 422
     assert create("other", "unknown-project").status_code == 404
     assert create("other", "shop-api", "unknown-project").status_code == 404
     assert (
@@ -1353,7 +1381,7 @@ def test_project_token_errors(secured, reports):
     assert secured.get("/api/v1/project-tokens", headers=auth("triager")).status_code == 403
 
 
-@pytest.mark.parametrize("role", ["mcp", "reader", "triager"])
+@pytest.mark.parametrize("role", ["mcp", "ci"])
 def test_admin_creates_project_token_with_selected_role(secured, reports, role):
     response = secured.post(
         "/api/v1/project-tokens",
@@ -1363,6 +1391,19 @@ def test_admin_creates_project_token_with_selected_role(secured, reports, role):
 
     assert response.status_code == 201
     assert response.json()["role"] == role
+
+
+@pytest.mark.parametrize("role", ["reader", "triager"])
+def test_a_token_for_a_person_cannot_be_created(secured, reports, role):
+    """A person reaches the web API through a session and its groups, never a token."""
+    response = secured.post(
+        "/api/v1/project-tokens",
+        json={"label": f"{role}-client", "role": role, "projects": ["shop-api"]},
+        headers=auth("admin"),
+    )
+
+    assert response.status_code == 422
+    assert f"{role}-client" not in {row.label for row in _stored_tokens()}
 
 
 def test_project_token_creation_rejects_admin_role(secured, reports):
@@ -1388,20 +1429,13 @@ def test_admin_token_cannot_be_revoked_as_a_project_token(secured):
 def test_admin_creates_a_token_for_every_project(secured, reports):
     response = secured.post(
         "/api/v1/project-tokens",
-        json={"label": "portal", "role": "reader", "projects": None},
+        json={"label": "portal", "role": "mcp", "projects": None},
         headers=auth("admin"),
     )
 
     assert response.status_code == 201
     created = response.json()
     assert (created["project"], created["projects"]) == (None, None)
-    headers = {"Authorization": f"Bearer {created['token']}"}
-    assert {
-        item["project"] for item in secured.get("/api/v1/projects", headers=headers).json()
-    } == {
-        "shop-api",
-        "billing",
-    }
     assert [item["label"] for item in listed_tokens(secured)] == ["portal"]
     # Every project is an explicit choice: a missing field or an empty list is refused
     for body in ({"label": "implicit"}, {"label": "empty", "projects": []}):
@@ -1415,28 +1449,25 @@ def test_admin_creates_a_token_for_every_project(secured, reports):
 
 
 def test_admin_changes_the_projects_of_a_token(secured, reports):
-    created = token_store.create_project_token("dev", ["shop-api"], "reader")
-    headers = {"Authorization": f"Bearer {created['token']}"}
+    created = token_store.create_project_token("dev", ["shop-api"], "mcp")
     path = f"/api/v1/project-tokens/{created['id']}/projects"
 
     widened = secured.put(path, json={"projects": None}, headers=auth("admin"))
 
     assert widened.status_code == 200
     assert widened.json()["projects"] is None and "token" not in widened.json()
-    assert len(secured.get("/api/v1/projects", headers=headers).json()) == 2
     narrowed = secured.put(path, json={"projects": ["billing"]}, headers=auth("admin"))
     assert narrowed.status_code == 200 and narrowed.json()["projects"] == ["billing"]
-    assert [
-        item["project"] for item in secured.get("/api/v1/projects", headers=headers).json()
-    ] == ["billing"]
+    (stored,) = [item for item in token_store.list_tokens() if item["label"] == "dev"]
+    assert stored["projects"] == ["billing"]
     (event, *_) = secured.get(
         "/api/v1/audit", params={"action": "token.projects_changed"}, headers=auth("admin")
     ).json()["events"]
     assert (event["actor"], event["details"]["previous_projects"]) == ("token:admin", None)
 
 
-def test_changing_the_projects_of_a_token_errors(secured, reports):
-    reader = token_store.create_project_token("dev", ["shop-api"], "reader")
+def test_changing_the_projects_of_a_token_errors(secured, web_sessions, reports):
+    reader = token_store.create_project_token("dev", ["shop-api"], "mcp")
     pipeline = token_store.create_project_token("pipeline", ["shop-api"], "ci")
     admin_id = next(row.id for row in _stored_tokens() if row.label == "admin")
 
@@ -1463,7 +1494,7 @@ def test_changing_the_projects_of_a_token_errors(secured, reports):
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 
-def test_public_enrollment_then_admin_approval(secured, mcp_server):
+def test_public_enrollment_then_admin_approval(secured, web_sessions, mcp_server):
     response = mcp_server.post(
         "/api/v1/enroll", json={"project": "new-service", "requested_by": "alice@example.com"}
     )
@@ -1609,7 +1640,7 @@ def test_failed_approval_grants_no_web_access(sso_secured):
     assert web_users.list_users() == []
 
 
-def test_admin_rejects_enrollment(secured, mcp_server):
+def test_admin_rejects_enrollment(secured, web_sessions, mcp_server):
     created = mcp_server.post("/api/v1/enroll", json={"project": "new-service"}).json()
 
     assert secured.delete("/api/v1/enrollments/unknown", headers=auth("admin")).status_code == 404
@@ -1628,17 +1659,12 @@ def test_admin_rejects_enrollment(secured, mcp_server):
     assert response.status_code == 404
 
 
-def test_token_with_several_projects_in_the_web_interface(secured, reports, database):
+def test_reader_of_several_projects_in_the_web_interface(secured, reports):
     shop_report_id, billing_report_id = reports
     services.save_report("crm", "Hidden review", [])
-    created = secured.post(
-        "/api/v1/project-tokens",
-        json={"label": "multi", "projects": ["shop-api", "billing"]},
-        headers=auth("admin"),
-    ).json()
-    headers = {"Authorization": f"Bearer {created['token']}"}
+    make_user("multi", USER_PASSWORD, "reader", ["shop-api", "billing"])
+    headers = session_headers(secured, "multi")
 
-    assert created["projects"] == ["shop-api", "billing"]
     assert secured.get("/api/v1/me", headers=headers).json()["projects"] == [
         "billing",
         "shop-api",
@@ -1746,13 +1772,13 @@ def test_loopback_server_rejects_foreign_host(ui_dir):
         assert TestClient(app, base_url=base_url).get("/healthz").status_code == expected
 
 
-def test_project_triager_only_changes_findings_of_its_project(secured, mcp_server, reports):
+def test_project_triager_only_changes_findings_of_its_project(secured, reports):
     shop_report_id, _ = reports
     billing = services.save_report("billing", "Billing review", [make_finding()])
     billing_finding = services.get_report(billing["report_id"]).findings[0].id
     shop_finding = services.get_report(shop_report_id).findings[0].id
-    token = token_store.create_token("shop-triage", Role.TRIAGER, "shop-api")["token"]
-    headers = {"Authorization": f"Bearer {token}"}
+    make_user("shop-triage", USER_PASSWORD, "triager", ["shop-api"])
+    headers = session_headers(secured, "shop-triage")
 
     response = secured.patch(
         f"/api/v1/findings/{billing_finding}", json={"status": "fixed"}, headers=headers
@@ -1763,7 +1789,6 @@ def test_project_triager_only_changes_findings_of_its_project(secured, mcp_serve
         f"/api/v1/findings/{shop_finding}", json={"status": "fixed"}, headers=headers
     )
     assert response.status_code == 200
-    assert mcp_server.get("/mcp", headers=headers).status_code == 403
 
 
 # ── Settings and OSV updates ─────────────────────────────────────────────────
@@ -1779,7 +1804,7 @@ def test_project_triager_only_changes_findings_of_its_project(secured, mcp_serve
         ("post", "/api/v1/advisories/update"),
     ],
 )
-def test_settings_and_advisories_are_admin_only(secured, method, path):
+def test_settings_and_advisories_are_admin_only(secured, web_sessions, method, path):
     assert secured.request(method, path).status_code == 401
     for role in ("reader", "triager"):
         response = secured.request(method, path, headers=auth(role), json={"mode": "env"})
@@ -1898,8 +1923,6 @@ def test_advisory_update_is_refused_while_one_runs(client, monkeypatch):
 
 # ── Web users ────────────────────────────────────────────────────────────────
 
-USER_PASSWORD = "Correct horse battery 9"
-
 
 @pytest.fixture
 def accounts(ui_dir) -> TestClient:
@@ -1977,7 +2000,7 @@ def test_reader_session_cannot_dismiss(accounts, reports):
     assert response.status_code == 403
 
 
-def test_triager_rejects_an_agent_proposal(secured, reports):
+def test_triager_rejects_an_agent_proposal(secured, web_sessions, reports):
     finding_id = services.get_report(reports[0]).findings[0].id
     services.propose_finding_status(finding_id, FindingStatus.FIXED, "The query is bound", "ci")
     url = f"/api/v1/findings/{finding_id}/proposal"
@@ -2240,8 +2263,8 @@ def test_users_keep_their_theme_on_every_browser(accounts):
 
 
 def test_a_token_has_no_preferences(secured):
-    assert secured.get("/api/v1/me/preferences", headers=auth("reader")).status_code == 403
-    response = secured.put("/api/v1/me/preferences", json={"theme": "dark"}, headers=auth("reader"))
+    assert secured.get("/api/v1/me/preferences", headers=auth("admin")).status_code == 403
+    response = secured.put("/api/v1/me/preferences", json={"theme": "dark"}, headers=auth("admin"))
     assert response.status_code == 403
 
 
@@ -2287,7 +2310,7 @@ def test_logins_failures_and_logouts_are_audited(accounts):
 
 
 def test_a_token_has_no_session_to_log_out(secured):
-    response = secured.post("/api/v1/me/logout", headers=auth("reader"))
+    response = secured.post("/api/v1/me/logout", headers=auth("admin"))
 
     assert response.status_code == 403
     assert audit.list_events(action="user.logout")["total"] == 0
@@ -2382,7 +2405,7 @@ def test_invalid_development_standards_are_refused(client, changes):
     assert client.get("/api/v1/standards").json()["standards"] == []
 
 
-def test_development_standards_are_read_and_written_by_admins_only(secured):
+def test_development_standards_are_read_and_written_by_admins_only(secured, web_sessions):
     assert secured.post("/api/v1/standards", json=STANDARD).status_code == 401
     assert secured.get("/api/v1/standards").status_code == 401
     created = secured.post("/api/v1/standards", json=STANDARD, headers=auth("admin"))
@@ -2470,7 +2493,7 @@ def test_rule_pack_export_and_import(client):
     assert "ACME-002" not in {row["id"] for row in custom_rules(client)}
 
 
-def test_packs_need_their_permission(secured):
+def test_packs_need_their_permission(secured, web_sessions):
     body = {"content": '[[standards]]\nslug = "a"\ntitle = "t"\ncontent = "c"'}
     for path in ("/api/v1/packs/rules", "/api/v1/packs/standards"):
         assert secured.get(path).status_code == 401
@@ -2503,7 +2526,7 @@ OIDC_SETTINGS = {
         ("post", "/api/v1/oidc/settings/test"),
     ],
 )
-def test_sso_settings_are_admin_only(secured, method, path):
+def test_sso_settings_are_admin_only(secured, web_sessions, method, path):
     assert secured.request(method, path, json={}).status_code == 401
     for role in ("reader", "triager"):
         response = secured.request(method, path, headers=auth(role), json={})
@@ -2608,7 +2631,7 @@ def test_sso_settings_test_contacts_the_given_provider_without_storing(client, m
 
 
 def test_an_expired_token_gets_401(secured):
-    token = token_store.create_token("old", Role.READER, expires_in_days=1)["token"]
+    token = token_store.create_token("old", Role.MCP, expires_in_days=1)["token"]
     with session_scope() as session:
         row = session.exec(select(ApiToken).where(ApiToken.label == "old")).one()
         row.expires_at = datetime.now(UTC) - timedelta(minutes=1)
@@ -2657,7 +2680,7 @@ def test_project_token_rotation_errors(client):
     assert response.status_code == 422
 
 
-def test_rotation_needs_an_admin(secured):
+def test_rotation_needs_an_admin(secured, web_sessions):
     token = token_store.create_token("ci", Role.MCP, ["shop-api"])
     for role in ("reader", "triager"):
         response = secured.post(f"/api/v1/project-tokens/{token['id']}/rotate", headers=auth(role))
@@ -2682,7 +2705,7 @@ def test_web_actions_are_audited_with_the_user_or_the_token(accounts, secured, r
     ]
 
 
-def test_audit_route_filters_and_permissions(secured, reports):
+def test_audit_route_filters_and_permissions(secured, web_sessions, reports):
     token_store.create_token("ci", Role.MCP, ["shop-api"], actor="cli")
     url = "/api/v1/audit"
 
@@ -2741,7 +2764,7 @@ def test_audit_route_search_sort_and_bounds(secured):
     assert invalid_sort.status_code == 422
 
 
-def test_metrics_need_a_metrics_or_admin_token(secured, reports):
+def test_metrics_need_a_metrics_or_admin_token(secured, web_sessions, reports):
     assert secured.get("/metrics").status_code == 401
     for role in ("metrics", "admin"):
         response = secured.get("/metrics", headers=auth(role))
@@ -2836,7 +2859,7 @@ def test_scans_stay_in_the_projects_of_the_token(secured, ci_token):
     assert services.list_reports(project="billing") == []
 
 
-def test_scans_need_a_ci_or_admin_token(secured, ci_token):
+def test_scans_need_a_ci_or_admin_token(secured, web_sessions, ci_token):
     for role in ("reader", "triager", "mcp", "metrics"):
         response = secured.post("/api/v1/ci/scan/code", json=code_scan_body(), headers=auth(role))
         assert response.status_code == 403, role
@@ -2899,3 +2922,194 @@ def test_scan_logs_cannot_be_forged_with_the_project_name(secured, caplog):
         record.getMessage() for record in caplog.records if "Code scan" in record.getMessage()
     ]
     assert messages and all("\n" not in message for message in messages)
+
+
+# ── api tokens (REST API and Swagger) ────────────────────────────────────────
+
+
+def _bearer(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _role_id(name: str) -> int:
+    return next(role["id"] for role in access_control.list_roles() if role["name"] == name)
+
+
+def test_a_personal_api_token_holds_the_current_rights_of_its_user(secured, reports):
+    shop_report_id, _ = reports
+    make_user("alice", USER_PASSWORD, "reader", ["shop-api"])
+    headers = session_headers(secured, "alice")
+
+    created = secured.post("/api/v1/me/tokens", json={"label": "swagger"}, headers=headers)
+    assert created.status_code == 201
+    assert created.headers["cache-control"] == "no-store"
+    body = created.json()
+    assert (body["label"], body["role"], body["personal"]) == ("alice:swagger", "api", True)
+    token = _bearer(body["token"])
+    listed = secured.get("/api/v1/me/tokens", headers=headers).json()
+    assert [item["id"] for item in listed] == [body["id"]] and body["token"] not in str(listed)
+
+    me = secured.get("/api/v1/me", headers=token).json()
+    assert (me["client"], me["role"], me["projects"]) == ("alice:swagger", "api", ["shop-api"])
+    assert me["permissions"] == {"reports.read": ["shop-api"]}
+    projects = secured.get("/api/v1/projects", headers=token).json()
+    assert [item["project"] for item in projects] == ["shop-api"]
+    assert secured.get(f"/api/v1/reports/{shop_report_id}", headers=token).status_code == 200
+    patched = secured.patch("/api/v1/findings/1", json={"status": "fixed"}, headers=token)
+    assert patched.status_code == 403
+    # A token never creates another token, nor changes the preferences of its user
+    assert secured.post("/api/v1/me/tokens", json={"label": "x"}, headers=token).status_code == 403
+    assert secured.get("/api/v1/me/preferences", headers=token).status_code == 403
+    assert secured.post("/api/v1/me/logout", headers=token).status_code == 403
+
+    # The rights of the user are read at each request
+    alice = web_users.find_user("alice")
+    web_users.update_user(alice["id"], [group_for("triager", ["shop-api"])])
+    patched = secured.patch("/api/v1/findings/1", json={"status": "fixed"}, headers=token)
+    assert patched.status_code == 200
+    web_users.update_user(alice["id"], [])
+    assert secured.get("/api/v1/me", headers=token).status_code == 401
+
+
+def test_an_api_token_never_dismisses_a_finding(secured, reports):
+    make_user("tess", USER_PASSWORD, "triager")
+    headers = session_headers(secured, "tess")
+    token = secured.post("/api/v1/me/tokens", json={"label": "bot"}, headers=headers).json()
+    expires_on = (date.today() + timedelta(days=30)).isoformat()
+    body = {"status": "accepted", "reason": "Not reachable at all", "expires_on": expires_on}
+
+    response = secured.patch("/api/v1/findings/1", json=body, headers=_bearer(token["token"]))
+
+    assert response.status_code == 403
+    assert "logged in to the web interface" in response.json()["detail"]
+
+
+def test_personal_api_tokens_are_bounded_and_private(secured, reports):
+    make_user("alice", USER_PASSWORD, "reader")
+    make_user("bob", USER_PASSWORD, "reader")
+    alice, bob = session_headers(secured, "alice"), session_headers(secured, "bob")
+    url = "/api/v1/me/tokens"
+    token = secured.post(url, json={"label": "swagger"}, headers=alice).json()
+
+    # Labels are unique per user, not across users
+    assert secured.post(url, json={"label": "swagger"}, headers=alice).status_code == 422
+    assert secured.post(url, json={"label": "swagger"}, headers=bob).status_code == 201
+    assert secured.post(url, json={"label": "x" * 65}, headers=alice).status_code == 422
+    assert [item["label"] for item in secured.get(url, headers=bob).json()] == ["bob:swagger"]
+    # Another user cannot revoke it
+    assert secured.delete(f"{url}/{token['id']}", headers=bob).status_code == 404
+    for index in range(token_store.MAX_PERSONAL_TOKENS - 1):
+        assert secured.post(url, json={"label": f"t{index}"}, headers=alice).status_code == 201
+    refused = secured.post(url, json={"label": "one-more"}, headers=alice)
+    assert refused.status_code == 422 and "at most" in refused.json()["detail"]
+    assert secured.delete(f"{url}/{token['id']}", headers=alice).status_code == 204
+    assert secured.get("/api/v1/me", headers=_bearer(token["token"])).status_code == 401
+    (event, *_) = audit.list_events(action="token.revoked")["events"]
+    assert (event["actor"], event["details"]["label"]) == ("user:alice", "alice:swagger")
+
+
+def test_a_personal_api_token_is_deleted_with_its_user(secured, web_sessions, reports):
+    make_user("alice", USER_PASSWORD, "reader")
+    headers = session_headers(secured, "alice")
+    token = secured.post("/api/v1/me/tokens", json={"label": "swagger"}, headers=headers).json()
+    # Listed for the administrators, who may revoke it but neither rotate it nor change it
+    listed = {item["id"]: item for item in listed_tokens(secured)}
+    assert listed[token["id"]]["personal"] is True
+    url = f"/api/v1/project-tokens/{token['id']}"
+    assert secured.post(f"{url}/rotate", headers=auth("admin")).status_code == 422
+    changed = secured.put(f"{url}/projects", json={"projects": ["shop-api"]}, headers=auth("admin"))
+    assert changed.status_code == 422
+
+    web_users.delete_user(web_users.find_user("alice")["id"], "token:admin")
+
+    assert secured.get("/api/v1/me", headers=_bearer(token["token"])).status_code == 401
+    assert token["id"] not in {row.id for row in _stored_tokens()}
+
+
+def test_a_role_api_token_holds_the_permissions_of_its_role(secured, reports):
+    _, billing_report_id = reports
+    triager = _role_id("triager")
+    created = secured.post(
+        "/api/v1/project-tokens",
+        json={
+            "label": "swagger",
+            "role": "api",
+            "access_role_id": triager,
+            "projects": ["shop-api"],
+        },
+        headers=auth("admin"),
+    )
+    assert created.status_code == 201
+    body = created.json()
+    assert (body["role"], body["access_role_id"], body["personal"]) == ("api", triager, False)
+    token = _bearer(body["token"])
+
+    me = secured.get("/api/v1/me", headers=token).json()
+    assert me["permissions"] == {"findings.triage": ["shop-api"], "reports.read": ["shop-api"]}
+    assert secured.patch("/api/v1/findings/1", json={"status": "fixed"}, headers=token).json()[
+        "status"
+    ] == ("fixed")
+    assert secured.get(f"/api/v1/reports/{billing_report_id}", headers=token).status_code == 404
+    assert secured.get("/api/v1/roles", headers=token).status_code == 403
+    gate = secured.get("/api/v1/ci/gate", params={"project": "shop-api"}, headers=token)
+    assert gate.status_code == 200
+
+    # A change of the role applies at once; a role used by a token cannot be deleted
+    access_control.update_role(triager, ["reports.read"])
+    patched = secured.patch("/api/v1/findings/1", json={"status": "open"}, headers=token)
+    assert patched.status_code == 403
+    assert secured.delete(f"/api/v1/roles/{triager}", headers=auth("admin")).status_code == 409
+    with pytest.raises(ValueError, match="limited to projects"):
+        access_control.update_role(triager, ["reports.read", "audit.read"])
+
+
+def test_role_api_token_errors(secured, reports):
+    url = "/api/v1/project-tokens"
+    admin_role = _role_id("admin")
+
+    def create(**body):
+        return secured.post(
+            url, json={"label": "api", "projects": None} | body, headers=auth("admin")
+        )
+
+    # A role is required for an api token, refused for the others
+    assert create(role="api").status_code == 422
+    assert create(role="mcp", access_role_id=admin_role).status_code == 422
+    assert create(role="api", access_role_id=999).status_code == 404
+    # A role with a permission on the whole controller reaches every project
+    assert create(role="api", access_role_id=admin_role, projects=["shop-api"]).status_code == 422
+    assert create(role="api", access_role_id=admin_role).status_code == 201
+    roles = secured.get(f"{url}/roles", headers=auth("admin")).json()
+    assert {"id": admin_role, "name": "admin", "scoped": False} == {
+        key: value for key, value in roles[0].items() if key != "permissions"
+    }
+
+
+def test_a_role_api_token_never_grants_more_than_its_creator(accounts, reports):
+    make_user("root", USER_PASSWORD, "admin")
+    keeper = access_control.create_role("Token keeper", ["tokens.manage"])
+    group = access_control.create_group("keepers")
+    access_control.set_group_roles(
+        group["id"], [(keeper["id"], None), (_role_id("reader"), ["shop-api"])]
+    )
+    make_user("kim", USER_PASSWORD, group_ids=[group["id"]])
+    headers = session_headers(accounts, "kim")
+    url = "/api/v1/project-tokens"
+
+    def create(role: str, projects: list[str] | None):
+        body = {
+            "label": role,
+            "role": "api",
+            "access_role_id": _role_id(role),
+            "projects": projects,
+        }
+        return accounts.post(url, json=body, headers=headers)
+
+    assert create("triager", ["shop-api"]).status_code == 403
+    assert create("admin", None).status_code == 403
+    assert create("reader", ["shop-api"]).status_code == 201
+    # Rotating a role token hands over its rights: same check
+    token = token_store.create_project_token(
+        "billing-api", None, "api", access_role_id=_role_id("triager")
+    )
+    assert accounts.post(f"{url}/{token['id']}/rotate", headers=headers).status_code == 403

@@ -15,11 +15,11 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .. import __version__, access_control, audit, services, web_users
 from ..http_server import (
+    API_ROLES,
     BEARER_CHALLENGE,
     CI_ROUTE_ROLES,
     METRICS_ROLES,
     SCAN_ROUTE_ROLES,
-    WEB_ROLES,
     Role,
 )
 from ..models import SecurityReportPublic
@@ -31,7 +31,8 @@ logger = logging.getLogger("security_review_mcp.web")
 # itself is validated by the bearer middleware: auto_error=False leaves the 401 to
 # current_identity, which also covers an app served without that middleware.
 bearer_scheme = HTTPBearer(
-    auto_error=False, description="API token (`security-review-controller token create`)"
+    auto_error=False,
+    description="API token: personal (My account > API tokens) or of a role (Tokens screen)",
 )
 
 Permission = access_control.Permission
@@ -105,9 +106,10 @@ def current_identity(
     request: Request,
     _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> Identity:
-    """Identity of a web role (reader, triager, admin): a ``ci`` or ``metrics`` token is refused
-    here even if the bearer middleware let it through (it only reaches its own routes)."""
-    return _identity_with_role(request, WEB_ROLES)
+    """Identity of a web session or an ``admin`` or ``api`` token: a ``ci`` or ``metrics`` token
+    is refused here even if the bearer middleware let it through (it only reaches its own
+    routes)."""
+    return _identity_with_role(request, API_ROLES)
 
 
 def pipeline_identity(
