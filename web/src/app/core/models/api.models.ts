@@ -196,6 +196,7 @@ export type AuditAction =
   | 'group.roles_changed'
   | 'group.members_changed'
   | 'user.groups_changed'
+  | 'user.roles_changed'
   | 'user.login'
   | 'user.login_failed'
   | 'user.logout';
@@ -220,6 +221,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'group.roles_changed',
   'group.members_changed',
   'user.groups_changed',
+  'user.roles_changed',
   'user.login',
   'user.login_failed',
   'user.logout',
