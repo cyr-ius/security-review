@@ -91,7 +91,7 @@
   (`SECREVIEW_OIDC_ENABLED`, désactivée par défaut), le contrôleur contacte aussi le fournisseur
   d'identité configuré : HTTPS uniquement (HTTP seulement sur localhost), redirections limitées
   à HTTPS, réponses bornées à 1 Mio, délai de 10 secondes. Cette configuration peut aussi être
-  [modifiée dans l'interface](../advanced/sso.md#configurer-le-sso-dans-linterface)
+  [modifiée dans l'interface](../advanced/sso.md#configurer-le-oidc-dans-linterface)
   par un administrateur, avec les mêmes contrôles (refus d'une configuration invalide) ; le
   bouton **Tester la connexion** contacte l'émetteur saisi, sous les mêmes conditions. Le
   **secret client** saisi dans l'interface est enregistré en base **en clair** : l'API ne le

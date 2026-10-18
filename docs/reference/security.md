@@ -91,7 +91,7 @@
   disabled by default), the controller also contacts the configured identity provider: HTTPS
   only (HTTP only on localhost), redirects limited to HTTPS, answers bounded to 1 MiB, 10 second
   timeout. This configuration can also be
-  [changed in the interface](../advanced/sso.md#configuring-sso-in-the-interface) by an
+  [changed in the interface](../advanced/sso.md#configuring-oidc-in-the-interface) by an
   administrator, with the same checks (an invalid configuration is refused); the **Test the
   connection** button contacts the entered issuer, under the same conditions. The **client
   secret** entered in the interface is stored in the database **in clear**: the API never
