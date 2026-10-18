@@ -561,7 +561,7 @@ def test_unknown_sso_user_is_refused_without_auto_creation(tmp_path):
 
 
 def test_sso_login_never_opens_a_local_account(controller, provider):
-    make_user("alice", "correct horse battery", "admin")
+    make_user("alice", "Correct horse battery 9", "admin")
     state = start_login(controller, provider)
     response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
     assert error_of(response) == "conflict"

@@ -313,7 +313,11 @@ Un compte sans aucun groupe ni rôle direct n'a aucune permission et ne peut pas
 
 Pour un compte local, sans `--password-stdin` (ou sans mot de passe dans l'interface), un mot de
 passe aléatoire de 24 caractères est généré et affiché **une seule fois**. Un mot de passe choisi
-compte 12 à 256 caractères. Un compte SSO n'a jamais de mot de passe : la connexion par
+respecte la **politique de mot de passe** : 12 à 256 caractères, avec au moins une minuscule, une
+majuscule, un chiffre et un caractère qui n'est ni une lettre ni un chiffre. Les écrans affichent
+ces règles sous le champ et cochent chacune pendant la saisie, et **Mon compte** indique aussitôt
+si la confirmation correspond. La politique s'applique aux nouveaux mots de passe : un mot de passe
+défini avant reste valable jusqu'à son changement. Un compte SSO n'a jamais de mot de passe : la connexion par
 identifiant et mot de passe, la réinitialisation et **Mon compte** le refusent.
 
 ### Premier administrateur

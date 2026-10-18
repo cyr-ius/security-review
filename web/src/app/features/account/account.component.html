@@ -57,9 +57,15 @@
           class="form-control"
           type="password"
           autocomplete="new-password"
+          aria-describedby="new-password-policy"
+          [class.is-invalid]="passwordForm.next().touched() && passwordForm.next().invalid()"
           [formField]="passwordForm.next"
         />
-        <div class="form-text">{{ 'account.minChars' | t: { count: minPassword } }}</div>
+        <app-password-policy
+          id="new-password-policy"
+          [password]="passwordModel().next"
+          [confirmation]="passwordModel().confirmation"
+        />
       </div>
       <div class="mb-3">
         <label for="confirm-password" class="form-label">{{ 'account.confirmation' | t }}</label>
@@ -68,12 +74,10 @@
           class="form-control"
           type="password"
           autocomplete="new-password"
+          aria-describedby="new-password-policy"
           [class.is-invalid]="mismatch()"
           [formField]="passwordForm.confirmation"
         />
-        @if (mismatch()) {
-          <div class="invalid-feedback">{{ 'account.mismatch' | t }}</div>
-        }
       </div>
       <button type="submit" class="btn btn-primary" [disabled]="!canSubmit()">
         @if (busy()) {

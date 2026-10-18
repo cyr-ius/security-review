@@ -172,7 +172,7 @@ def test_serve_requires_a_login_once_a_web_user_exists(settings, captured_run, u
     client = TestClient(captured_run[0]["app"], base_url="http://127.0.0.1")
     assert client.get("/api/v1/me").status_code == 503
 
-    make_user("alice", "correct horse battery", "reader")
+    make_user("alice", "Correct horse battery 9", "reader")
 
     assert client.get("/api/v1/me").status_code == 401
     assert STORE.has_tokens() is False

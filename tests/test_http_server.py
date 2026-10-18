@@ -714,7 +714,7 @@ def test_token_approve_can_give_web_read_access(capsys, monkeypatch):
     assert "not found" in json.loads(capsys.readouterr().err)["error"]
     assert STORE.lookup(hash_token(first["token"])).pending is True
 
-    make_user("alice", "correct horse battery", "reader", ["billing"])
+    make_user("alice", "Correct horse battery 9", "reader", ["billing"])
     code, approved = run_cli(capsys, "approve", first["label"], "--portal-user", "alice")
 
     assert code == cli.EXIT_PASSED and approved["status"] == "active"

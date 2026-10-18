@@ -29,7 +29,7 @@ def test_metrics_count_findings_tokens_and_users(triage):
     token_store.create_token("dev", Role.MCP)
     token_store.create_token("soon", Role.MCP, expires_in_days=3)
     token_store.request_enrollment("shop-api")
-    make_user("alice", "correct horse battery", "reader")
+    make_user("alice", "Correct horse battery 9", "reader")
 
     text = metrics.render()
 

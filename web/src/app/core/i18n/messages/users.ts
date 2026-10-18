@@ -26,8 +26,7 @@ export const users = defineMessages({
     'users.roleAdmin': 'Administration',
     'users.roleAllProjects': '{role} (all projects)',
     'users.passwordPlaceholder': 'Empty: generated',
-    'users.passwordHelp':
-      'At least {count} characters; left empty, it is generated and shown once.',
+    'users.passwordHelp': 'Left empty, a password is generated and shown once.',
     'users.someProjects': 'Selected projects',
     'users.noProjects': 'No project available.',
     'users.accounts': 'Accounts',
@@ -104,8 +103,7 @@ export const users = defineMessages({
     'users.roleAdmin': 'Administration',
     'users.roleAllProjects': '{role} (tous les projets)',
     'users.passwordPlaceholder': 'Vide : généré',
-    'users.passwordHelp':
-      '{count} caractères au moins ; laissé vide, il est généré et affiché une fois.',
+    'users.passwordHelp': 'Laissé vide, un mot de passe est généré et affiché une fois.',
     'users.someProjects': 'Projets sélectionnés',
     'users.noProjects': 'Aucun projet disponible.',
     'users.accounts': 'Comptes',
@@ -186,8 +184,7 @@ export const users = defineMessages({
     'users.roleAdmin': 'Administración',
     'users.roleAllProjects': '{role} (todos los proyectos)',
     'users.passwordPlaceholder': 'Vacío: generada',
-    'users.passwordHelp':
-      'Al menos {count} caracteres; si se deja vacía, se genera y se muestra una vez.',
+    'users.passwordHelp': 'Si se deja vacía, se genera una contraseña y se muestra una vez.',
     'users.someProjects': 'Proyectos seleccionados',
     'users.noProjects': 'Ningún proyecto disponible.',
     'users.accounts': 'Cuentas',

@@ -305,8 +305,12 @@ curl -X POST https://secreview.example.com/api/v1/users \
 An account without any group or direct role has no permission and cannot log in.
 
 For a local account, without `--password-stdin` (or without a password in the interface), a
-random 24-character password is generated and shown **only once**. A chosen password has 12 to
-256 characters. An SSO account never has a password: the user name and password login, the
+random 24-character password is generated and shown **only once**. A chosen password follows
+the **password policy**: 12 to 256 characters, with at least a lowercase letter, an uppercase
+letter, a digit and a character that is neither a letter nor a digit. The screens list these
+rules under the field and tick each one while the password is typed, and **My account** says at
+once whether the confirmation matches. The policy applies to new passwords: a password set
+before keeps working until it is changed. An SSO account never has a password: the user name and password login, the
 reset and **My account** refuse it.
 
 ### First administrator

@@ -127,7 +127,9 @@
 - **Comptes utilisateurs** ([identifiant et mot de passe](../usage/web-interface.md#comptes-utilisateurs)) :
   seule une empreinte **scrypt** salée (N=2¹⁴, r=8, p=5, sel aléatoire de 16 octets) est
   stockée ; une empreinte stockée aux paramètres hors bornes est refusée au lieu d'épuiser la
-  mémoire. Mots de passe de 12 à 256 caractères, identifiants limités à `[A-Za-z0-9._@-]`. La
+  mémoire. Mots de passe de 12 à 256 caractères, avec une
+  minuscule, une majuscule, un chiffre et un caractère qui n'est ni l'un ni l'autre (contrôlés par
+  le contrôleur, mots de passe générés compris), identifiants limités à `[A-Za-z0-9._@-]`. La
   vérification coûte le même temps que l'identifiant existe ou non (empreinte factice), et
   l'échec renvoie toujours le même `401`. Les échecs sont limités en base, partagés par toutes
   les réplicas (5 par identifiant et adresse, 20 par adresse, sur 15 minutes, puis `429`), comme

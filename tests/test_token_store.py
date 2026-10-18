@@ -150,7 +150,7 @@ def test_list_tokens_filters_by_project_and_hides_hashes(database):
 
 
 def test_web_users_count_as_credentials_of_the_controller_only():
-    make_user("alice", "correct horse battery", "reader")
+    make_user("alice", "Correct horse battery 9", "reader")
 
     assert STORE.has_tokens() is False
     assert token_store.DatabaseTokenStore(include_users=True).has_tokens() is True

@@ -39,6 +39,7 @@ import hmac
 import logging
 import re
 import secrets
+import string
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from functools import cache
@@ -68,7 +69,8 @@ MAX_SUBJECT_CHARS = 255
 MIN_PASSWORD_CHARS = 12
 # Bounded: the hash cost does not depend on the length, but the request body does
 MAX_PASSWORD_CHARS = 256
-GENERATED_PASSWORD_BYTES = 18
+# Length of a generated password (letters, digits and symbols: about 150 bits of entropy)
+GENERATED_PASSWORD_CHARS = 24
 # Random session versions fit in a signed 64-bit integer column
 SESSION_VERSION_BITS = 62
 USERNAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@-]*")
@@ -164,9 +166,39 @@ def new_session_version() -> int:
     return secrets.randbits(SESSION_VERSION_BITS)
 
 
+# Characters of a generated password: each class of PASSWORD_RULES is drawn at least once
+_PASSWORD_CLASSES = (
+    string.ascii_lowercase,
+    string.ascii_uppercase,
+    string.digits,
+    "-_.~!@#%^*+=",
+)
+
+
 def generate_password() -> str:
-    """Return a random password (24 URL-safe characters)."""
-    return secrets.token_urlsafe(GENERATED_PASSWORD_BYTES)
+    """Return a random password of GENERATED_PASSWORD_CHARS characters that follows the
+    password policy (one character of each class at least)."""
+    alphabet = "".join(_PASSWORD_CLASSES)
+    chosen = [secrets.choice(characters) for characters in _PASSWORD_CLASSES]
+    chosen += [secrets.choice(alphabet) for _ in range(GENERATED_PASSWORD_CHARS - len(chosen))]
+    secrets.SystemRandom().shuffle(chosen)
+    return "".join(chosen)
+
+
+def password_problems(password: str) -> list[str]:
+    """Rules of the password policy that ``password`` breaks (empty: it follows them all)."""
+    problems = []
+    if not MIN_PASSWORD_CHARS <= len(password) <= MAX_PASSWORD_CHARS:
+        problems.append(f"between {MIN_PASSWORD_CHARS} and {MAX_PASSWORD_CHARS} characters")
+    if not any(character.islower() for character in password):
+        problems.append("a lowercase letter")
+    if not any(character.isupper() for character in password):
+        problems.append("an uppercase letter")
+    if not any(character.isdigit() for character in password):
+        problems.append("a digit")
+    if all(character.isalnum() for character in password):
+        problems.append("a character that is neither a letter nor a digit")
+    return problems
 
 
 # ── Validation ───────────────────────────────────────────────────────────────
@@ -186,12 +218,13 @@ def clean_username(username: str) -> str:
 
 
 def clean_password(password: str) -> str:
-    """Validate a new password (kept as typed: spaces are significant)."""
-    if not MIN_PASSWORD_CHARS <= len(password) <= MAX_PASSWORD_CHARS:
-        raise ValueError(
-            f"Password must contain between {MIN_PASSWORD_CHARS} and {MAX_PASSWORD_CHARS} "
-            "characters"
-        )
+    """Validate a new password against the policy (kept as typed: spaces are significant).
+
+    The policy applies to new passwords only: a stored one keeps working.
+    """
+    problems = password_problems(password)
+    if problems:
+        raise ValueError("Password must contain " + ", ".join(problems))
     if not password.strip() or not password.isprintable():
         raise ValueError("Password must not be blank nor contain control characters")
     return password

@@ -1429,7 +1429,7 @@ def test_approval_can_give_web_read_access_to_the_developer(secured, mcp_server,
         assert response.status_code == 422
     assert len(secured.get("/api/v1/enrollments", headers=auth("admin")).json()) == 1
 
-    make_user("alice", "correct horse battery", "reader", ["billing"])
+    make_user("alice", "Correct horse battery 9", "reader", ["billing"])
     approved = secured.post(url, json={"portal_user": " alice "}, headers=auth("admin"))
 
     assert approved.status_code == 200 and approved.json()["status"] == "active"
@@ -1785,7 +1785,7 @@ def test_advisory_update_is_refused_while_one_runs(client, monkeypatch):
 
 # ── Web users ────────────────────────────────────────────────────────────────
 
-USER_PASSWORD = "correct horse battery"
+USER_PASSWORD = "Correct horse battery 9"
 
 
 @pytest.fixture
@@ -2108,7 +2108,7 @@ def test_last_administrator_cannot_be_deleted_from_the_api(accounts):
 def test_users_change_their_own_password(accounts):
     make_user("alice", USER_PASSWORD, "reader")
     headers = session_headers(accounts, "alice")
-    body = {"current_password": USER_PASSWORD, "new_password": "another long secret"}
+    body = {"current_password": USER_PASSWORD, "new_password": "Another long secret 2"}
 
     wrong = accounts.put(
         "/api/v1/me/password", json={**body, "current_password": "nope"}, headers=headers
@@ -2120,12 +2120,25 @@ def test_users_change_their_own_password(accounts):
     new_headers = {"Authorization": f"Bearer {changed.json()['session']}"}
     assert accounts.get("/api/v1/me", headers=new_headers).status_code == 200
     assert login(accounts, "alice").status_code == 401
-    assert login(accounts, "alice", "another long secret").status_code == 200
+    assert login(accounts, "alice", "Another long secret 2").status_code == 200
+
+
+def test_a_weak_new_password_is_refused_with_the_broken_rules(accounts):
+    make_user("alice", USER_PASSWORD, "reader")
+    headers = session_headers(accounts, "alice")
+    body = {"current_password": USER_PASSWORD, "new_password": "only lowercase letters"}
+
+    refused = accounts.put("/api/v1/me/password", json=body, headers=headers)
+
+    assert refused.status_code == 422
+    detail = refused.json()["detail"]
+    assert "an uppercase letter" in detail and "a digit" in detail
+    assert login(accounts, "alice").status_code == 200
 
 
 def test_a_token_has_no_password_to_change(accounts):
     secret = token_store.create_token("ops", "admin")["token"]
-    body = {"current_password": "x", "new_password": "another long secret"}
+    body = {"current_password": "x", "new_password": "Another long secret 2"}
 
     response = accounts.put(
         "/api/v1/me/password", json=body, headers={"Authorization": f"Bearer {secret}"}

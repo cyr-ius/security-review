@@ -13,7 +13,7 @@ from security_review_mcp.http_server import Role
 from security_review_mcp.models import WebUser
 from security_review_mcp.services import NotFoundError
 
-PASSWORD = "correct horse battery"
+PASSWORD = "Correct horse battery 9"
 SECRET = "s" * 40
 
 
@@ -54,15 +54,41 @@ def test_malformed_or_oversized_hashes_never_match(stored_hash):
 @pytest.mark.parametrize(
     ("password", "message"),
     [
-        ("short", "between 12 and 256"),
-        ("x" * 257, "between 12 and 256"),
-        (" " * 12, "blank"),
-        ("abcdefghijk\n", "control characters"),
+        ("Sh0rt!", "between 12 and 256"),
+        ("Xx1!" * 65, "between 12 and 256"),
+        ("only lowercase 1!", "an uppercase letter"),
+        ("ONLY UPPERCASE 1!", "a lowercase letter"),
+        ("No digit at all!", "a digit"),
+        ("NoSymbolAtAll123", "neither a letter nor a digit"),
+        (" " * 12, "a lowercase letter, an uppercase letter, a digit"),
+        ("Abcdefghij1\n", "control characters"),
     ],
 )
 def test_weak_or_invalid_passwords_are_refused(password, message):
     with pytest.raises(ValueError, match=message):
         make_user("alice", password, "reader")
+
+
+def test_generated_passwords_follow_the_policy():
+    passwords = {web_users.generate_password() for _ in range(500)}
+
+    assert len(passwords) == 500
+    assert all(len(password) == web_users.GENERATED_PASSWORD_CHARS for password in passwords)
+    assert all(web_users.password_problems(password) == [] for password in passwords)
+
+
+def test_the_policy_applies_to_new_passwords_only(database):
+    # A password stored before the policy (written directly) keeps working
+    user = make_user("alice", PASSWORD, "reader")
+    with Session(database) as session:
+        row = session.get(WebUser, user["id"])
+        row.password_hash = web_users.hash_password("old weak password")
+        session.add(row)
+        session.commit()
+
+    assert web_users.authenticate("alice", "old weak password") is not None
+    with pytest.raises(ValueError, match="an uppercase letter"):
+        web_users.change_own_password(user["id"], "old weak password", "another weak one")
 
 
 @pytest.mark.parametrize("username", ["", " ", "a" * 65, "bob smith", "-bob", "bo\nb", "é"])
@@ -161,12 +187,12 @@ def test_change_own_password_needs_the_current_one():
     user = make_user("alice", PASSWORD, "reader")
 
     with pytest.raises(ValueError, match="current password is wrong"):
-        web_users.change_own_password(user["id"], "not the password", "another long secret")
+        web_users.change_own_password(user["id"], "not the password", "Another long secret 2")
     with pytest.raises(ValueError, match="must differ"):
         web_users.change_own_password(user["id"], PASSWORD, PASSWORD)
-    web_users.change_own_password(user["id"], PASSWORD, "another long secret")
+    web_users.change_own_password(user["id"], PASSWORD, "Another long secret 2")
     assert web_users.authenticate("alice", PASSWORD) is None
-    assert web_users.authenticate("alice", "another long secret") is not None
+    assert web_users.authenticate("alice", "Another long secret 2") is not None
 
 
 def test_bootstrap_admin_is_created_once_while_no_user_exists():
@@ -221,7 +247,7 @@ def test_password_change_ends_the_previous_sessions():
     assert verifier.verify_session(before) is not None
 
     # Even within the same second as the session: the version, not the time, is compared
-    web_users.set_password(user["id"], "another long secret")
+    web_users.set_password(user["id"], "Another long secret 2")
 
     assert verifier.verify_session(before) is None
     after = web_users.new_session(signer, user["id"])
