@@ -4,9 +4,13 @@ export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 /** Lifecycle status of a finding. */
 export type FindingStatus = 'open' | 'fixed' | 'accepted' | 'false_positive';
 
-/** Role attached to the bearer token. */
-export type Role = 'mcp' | 'reader' | 'triager' | 'admin' | 'ci';
-export type ProjectTokenRole = Exclude<Role, 'admin'>;
+/** Role of a bearer token: tokens are for machines, a person signs in with a web user. */
+export type TokenRole = 'mcp' | 'admin' | 'ci' | 'api';
+/** Role of the caller: the role of its token or, for a web user, the web role that sums up
+ * the permissions of its groups (reader, triager or admin). */
+export type Role = TokenRole | 'reader' | 'triager';
+/** Role of a token managed in the web interface. */
+export type ProjectTokenRole = Exclude<TokenRole, 'admin'>;
 
 export const SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 
@@ -95,9 +99,29 @@ export interface About {
   health_url: string;
 }
 
+/** GET /api/v1/about/update: latest release on GitHub (SECREVIEW_UPDATE_CHECK_ENABLED). */
+export interface UpdateStatus {
+  enabled: boolean;
+  current: string;
+  latest: string | null;
+  update_available: boolean;
+  release_url: string | null;
+  checked_at: string | null;
+  /** Why the latest release is unknown while enabled. */
+  error: 'unreachable' | 'invalid' | null;
+}
+
+/** Theme of the web interface; auto follows the system preference. */
+export type ThemeChoice = 'light' | 'dark' | 'auto';
+
+/** GET and PUT /api/v1/me/preferences: preferences of the logged-in web user. */
+export interface Preferences {
+  theme: ThemeChoice;
+}
+
 /** GET /api/v1/auth/config: login methods offered on the login page. */
 export interface AuthConfig {
-  /** Username and password of a web user. */
+  /** Username and password of a local web user (false with SECREVIEW_OIDC_ONLY). */
   password?: boolean;
   oidc: boolean;
   oidc_display_name: string | null;
@@ -168,7 +192,11 @@ export interface WebUserWithPassword extends WebUser {
 export interface ProjectToken {
   id: string;
   label: string;
-  role: Role;
+  role: ProjectTokenRole;
+  /** api token: its role (role token); null for a personal token or another usage. */
+  access_role_id: number | null;
+  /** api token created by a web user for itself: it holds the current rights of that user. */
+  personal: boolean;
   project: string | null;
   projects: string[] | null;
   pending_projects: string[];
@@ -271,7 +299,7 @@ export interface EnrollmentRequest {
   id: string;
   token_id: string;
   label: string;
-  role: Role;
+  role: ProjectTokenRole;
   project: string;
   kind: 'new' | 'additional';
   status: 'pending';
@@ -290,6 +318,15 @@ export interface EnrollmentApproved extends Omit<EnrollmentRequest, 'status'> {
 /** Response returned once when a project-scoped token is created. */
 export interface ProjectTokenCreated extends ProjectToken {
   token: string;
+}
+
+/** A role an api token may hold (GET /api/v1/project-tokens/roles). */
+export interface TokenRoleChoice {
+  id: number;
+  name: string;
+  permissions: Permission[];
+  /** Only permissions per project: the token may be limited to projects. */
+  scoped: boolean;
 }
 
 /** Origin of a stored rule: shipped default (seeded on the first run) or custom. */
@@ -729,7 +766,7 @@ export type OidcSettingName =
   | 'client_id'
   | 'client_secret'
   | 'redirect_uri'
-  | 'scopes'
+  | 'scope'
   | 'roles_claim'
   | 'username_claim'
   | 'admin_groups'

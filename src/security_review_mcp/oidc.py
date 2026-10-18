@@ -12,7 +12,7 @@ flow with PKCE:
 3. web_users.oidc_login finds the OIDC web user of that identity (or creates it when
    ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is set), records the groups of its groups claim
    (see access_control) and issues a **session token**: a JWT signed with a key derived from
-   ``SECREVIEW_SESSION_SECRET``, valid ``SECREVIEW_SESSION_HOURS``, handed to the web application
+   ``SECREVIEW_SECRET_KEY``, valid ``SECREVIEW_SESSION_HOURS``, handed to the web application
    in the URL fragment of ``/ui/login``. The application sends it as a bearer token; the bearer
    middleware of the controller verifies it (see http_server.BearerAuthMiddleware) and reads the
    user again at each request. It never reaches the MCP server. The password login of the local
@@ -66,7 +66,7 @@ DISCOVERY_TTL_SECONDS = 3600
 # Minimum delay between two JWKS downloads triggered by an unknown key id
 JWKS_REFRESH_SECONDS = 30
 CLOCK_LEEWAY_SECONDS = 60
-MIN_SESSION_SECRET_CHARS = 32
+MIN_SECRET_KEY_CHARS = 32
 MAX_LABEL_CHARS = 64
 MAX_RETURN_URL_CHARS = 512
 MAX_DISPLAY_NAME_CHARS = 40
@@ -122,8 +122,8 @@ def validate_settings(settings: Settings) -> None:
             f"https://secreview.example.com{CALLBACK_PATH}"
         )
     _check_url("SECREVIEW_OIDC_REDIRECT_URI", settings.oidc_redirect_uri)
-    if "openid" not in settings.oidc_scopes.split():
-        raise ValueError("SECREVIEW_OIDC_SCOPES must include openid")
+    if "openid" not in settings.oidc_scope.split():
+        raise ValueError("SECREVIEW_OIDC_SCOPE must include openid")
     if len(settings.oidc_default_group.strip()) > MAX_GROUP_NAME_CHARS:
         raise ValueError(
             f"SECREVIEW_OIDC_DEFAULT_GROUP must hold at most {MAX_GROUP_NAME_CHARS} characters"
@@ -210,13 +210,13 @@ def pkce_challenge(verifier: str) -> str:
 
 
 def validate_session_settings(settings: Settings) -> None:
-    """Check SECREVIEW_SESSION_HOURS and SECREVIEW_SESSION_SECRET; raise ValueError."""
+    """Check SECREVIEW_SESSION_HOURS and SECREVIEW_SECRET_KEY; raise ValueError."""
     if not 1 <= settings.session_hours <= 24:
         raise ValueError("SECREVIEW_SESSION_HOURS must be between 1 and 24")
-    secret = secret_value(settings.session_secret)
-    if secret is not None and len(secret) < MIN_SESSION_SECRET_CHARS:
+    secret = secret_value(settings.secret_key)
+    if secret is not None and len(secret) < MIN_SECRET_KEY_CHARS:
         raise ValueError(
-            f"SECREVIEW_SESSION_SECRET must hold at least {MIN_SESSION_SECRET_CHARS} characters"
+            f"SECREVIEW_SECRET_KEY must hold at least {MIN_SECRET_KEY_CHARS} characters"
         )
 
 
@@ -224,37 +224,37 @@ def session_signer(settings: Settings) -> SessionSigner:
     """Return the signer of the web sessions of the controller (password and OIDC logins).
 
     Raises:
-        ValueError: If ``SECREVIEW_SESSION_HOURS`` or ``SECREVIEW_SESSION_SECRET`` is invalid.
+        ValueError: If ``SECREVIEW_SESSION_HOURS`` or ``SECREVIEW_SECRET_KEY`` is invalid.
     """
     validate_session_settings(settings)
-    secret = secret_value(settings.session_secret)
-    if not secret and settings.session_secret_file:
+    secret = secret_value(settings.secret_key)
+    if not secret and settings.secret_key_file:
         try:
-            secret = stored_session_secret(Path(settings.session_secret_file))
+            secret = stored_secret_key(Path(settings.secret_key_file))
         except OSError as exc:
             logger.warning("Session secret file not usable: %s", exc.strerror or exc)
     if not secret:
         logger.warning(
-            "No session secret (SECREVIEW_SESSION_SECRET or SECREVIEW_SESSION_SECRET_FILE): web "
+            "No session secret (SECREVIEW_SECRET_KEY or SECREVIEW_SECRET_KEY_FILE): web "
             "sessions end when the controller restarts and are not shared between replicas"
         )
     return SessionSigner(secret, settings.session_hours)
 
 
-def _read_session_secret(path: Path) -> str:
+def _read_secret_key(path: Path) -> str:
     """Read a stored session secret; raise ValueError when it is too short."""
     secret = path.read_text(encoding="utf-8").strip()
-    if len(secret) < MIN_SESSION_SECRET_CHARS:
+    if len(secret) < MIN_SECRET_KEY_CHARS:
         raise ValueError(
-            f"SECREVIEW_SESSION_SECRET_FILE ({path}) must hold at least "
-            f"{MIN_SESSION_SECRET_CHARS} characters"
+            f"SECREVIEW_SECRET_KEY_FILE ({path}) must hold at least "
+            f"{MIN_SECRET_KEY_CHARS} characters"
         )
     if path.stat().st_mode & 0o077:
         logger.warning("Session secret file %s is readable by other users: chmod 600 it", path)
     return secret
 
 
-def stored_session_secret(path: Path) -> str:
+def stored_secret_key(path: Path) -> str:
     """Return the session secret stored in ``path``, generated there at the first start.
 
     The file is written once, with mode 0600, by an atomic hard link of a complete temporary
@@ -266,13 +266,13 @@ def stored_session_secret(path: Path) -> str:
         ValueError: If the stored secret is too short.
     """
     try:
-        return _read_session_secret(path)
+        return _read_secret_key(path)
     except FileNotFoundError:
         pass
     path.parent.mkdir(parents=True, exist_ok=True)
     secret = secrets.token_urlsafe(48)
     # mkstemp creates the file with mode 0600
-    handle, temporary = tempfile.mkstemp(dir=path.parent, prefix=".session-secret-")
+    handle, temporary = tempfile.mkstemp(dir=path.parent, prefix=".secret-key-")
     try:
         with os.fdopen(handle, "w", encoding="utf-8") as file:
             file.write(secret + "\n")
@@ -280,7 +280,7 @@ def stored_session_secret(path: Path) -> str:
             os.link(temporary, path)
         except FileExistsError:
             # Created by another process in the meantime: use its secret
-            return _read_session_secret(path)
+            return _read_secret_key(path)
     finally:
         os.unlink(temporary)
     logger.info("Session secret generated in %s (keep it private)", path)
@@ -292,7 +292,7 @@ class SessionSigner:
 
     Two keys are derived from the secret, so that a state cookie can never be used as a session
     token. Without a configured secret a random one is generated: sessions then end when the
-    controller restarts, and replicas must share ``SECREVIEW_SESSION_SECRET``.
+    controller restarts, and replicas must share ``SECREVIEW_SECRET_KEY``.
     """
 
     def __init__(self, secret: str | None, session_hours: int = 8) -> None:
@@ -432,7 +432,7 @@ class OidcLogin:
         self.issuer = settings.oidc_issuer.rstrip("/")
         self.display_name = settings.oidc_display_name.strip()
         self.signer = signer or SessionSigner(
-            secret_value(settings.session_secret), settings.session_hours
+            secret_value(settings.secret_key), settings.session_hours
         )
         # The state cookie is only sent back to the callback (path as seen by the browser)
         self.secure_cookie = settings.oidc_redirect_uri.startswith("https://")
@@ -538,7 +538,7 @@ class OidcLogin:
             "response_type": "code",
             "client_id": self.settings.oidc_client_id,
             "redirect_uri": self.settings.oidc_redirect_uri,
-            "scope": self.settings.oidc_scopes,
+            "scope": self.settings.oidc_scope,
             "state": state,
             "nonce": nonce,
             "code_challenge": pkce_challenge(verifier),

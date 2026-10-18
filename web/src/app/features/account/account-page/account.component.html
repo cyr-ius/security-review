@@ -100,3 +100,7 @@
     {{ 'account.ssoInfo' | t }}
   </div>
 }
+
+@if (auth.identity()?.auth_source && !auth.identity()?.must_change_password) {
+  <app-api-tokens />
+}

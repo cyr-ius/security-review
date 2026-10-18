@@ -193,7 +193,7 @@ def create_app(
     app.state.signer = signer or (
         oidc_login.signer
         if oidc_login
-        else oidc.SessionSigner(secret_value(settings.session_secret), settings.session_hours)
+        else oidc.SessionSigner(secret_value(settings.secret_key), settings.session_hours)
     )
     app.state.oidc = OidcLogins(app.state.signer, oidc_login)
     app.state.login_throttle = rate_limit.LoginThrottle()
@@ -278,6 +278,8 @@ def create_app(
     elif ui:
         logger.warning("Web interface not built: only the REST API is served (/api/v1)")
 
+    # Bounds the body of the pipeline scans before FastAPI parses it
+    app.add_middleware(ci_routes.ScanBodyLimit)
     if host in LOOPBACK_HOSTS:
         # Same protection as the MCP endpoint against DNS rebinding on a local server
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "[::1]"])

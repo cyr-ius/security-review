@@ -192,7 +192,10 @@ def test_roles_and_mappings_become_groups(empty_engine):
     # The access given by the OIDC groups at the last login is computed again at the next one
     assert users["sam"]["permissions"] == {}
     roles = {role["name"]: role for role in access_control.list_roles()}
-    assert all(roles[name]["system"] for name in ("reader", "triager", "admin"))
+    assert all(roles[name]["system"] for name in ("reader", "admin"))
+    # Revision 0021: triager is an ordinary role, with the permissions it had
+    assert not roles["triager"]["system"]
+    assert roles["triager"]["permissions"] == ["findings.triage", "reports.read"]
 
     # Downgrading drops the access control tables
     with empty_engine.begin() as connection:
@@ -462,3 +465,132 @@ def test_the_reports_of_the_cli_scans_get_their_review_type(empty_engine):
         command.downgrade(database.alembic_config(connection), "0008")
         columns = {c["name"] for c in inspect(connection).get_columns("securityreport")}
     assert "review_type" not in columns
+
+
+def test_the_stored_oidc_scope_follows_the_renamed_variable(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0018")
+        for key, value in (
+            ("proxy", "http://proxy:3128"),
+            ("no_proxy", "internal"),
+            ("oidc_scopes", "openid email"),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO appsetting (key, value, updated_at, updated_by) "
+                    "VALUES (:key, :value, '2026-10-01 10:00:00', 'admin')"
+                ),
+                {"key": key, "value": value},
+            )
+        command.upgrade(database.alembic_config(connection), "0019")
+        rows = dict(connection.execute(text("SELECT key, value FROM appsetting")).all())
+    assert rows == {
+        "proxy": "http://proxy:3128",
+        "no_proxy": "internal",
+        "oidc_scope": "openid email",
+    }
+
+    with empty_engine.begin() as connection:
+        command.downgrade(database.alembic_config(connection), "0018")
+        rows = dict(connection.execute(text("SELECT key, value FROM appsetting")).all())
+    assert set(rows) == {"proxy", "no_proxy", "oidc_scopes"}
+
+
+def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    from security_review_mcp import access_control, audit, token_store
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0020")
+        # A built-in role took its permissions from the code, not from its row
+        connection.execute(
+            text("UPDATE accessrole SET permissions = '[]' WHERE name = 'triager' AND system")
+        )
+        for token_id, role, project in (
+            ("t1", "reader", "shop"),
+            ("t2", "triager", None),
+            ("t3", "mcp", "shop"),
+            ("t4", "ci", "shop"),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO apitoken (id, label, role, project, token_hash, created_at) "
+                    "VALUES (:id, :label, :role, :project, :digest, '2026-10-01')"
+                ),
+                {
+                    "id": token_id,
+                    "label": f"{role}-token",
+                    "role": role,
+                    "project": project,
+                    "digest": token_id * 32,
+                },
+            )
+            if project:
+                connection.execute(
+                    text(
+                        "INSERT INTO apitokenproject (id, token_id, project, status, created_at) "
+                        "VALUES (:id, :token, :project, 'active', '2026-10-01')"
+                    ),
+                    {"id": f"p{token_id}", "token": token_id, "project": project},
+                )
+        command.upgrade(database.alembic_config(connection), "head")
+        links = connection.execute(text("SELECT token_id FROM apitokenproject")).scalars().all()
+
+    assert sorted(token["label"] for token in token_store.list_tokens()) == [
+        "ci-token",
+        "mcp-token",
+    ]
+    assert sorted(links) == ["t3", "t4"]
+    events = audit.list_events(action="token.revoked")["events"]
+    assert sorted((e["actor"], e["target_id"], e["details"]["role"]) for e in events) == [
+        ("migration", "t1", "reader"),
+        ("migration", "t2", "triager"),
+    ]
+    assert events[0]["details"]["projects"] in (["shop"], None)
+    roles = {role["name"]: role for role in access_control.list_roles()}
+    assert not roles["triager"]["system"]
+    assert roles["triager"]["permissions"] == ["findings.triage", "reports.read"]
+
+    with empty_engine.begin() as connection:
+        command.downgrade(database.alembic_config(connection), "0020")
+        system = connection.execute(
+            text("SELECT system FROM accessrole WHERE name = 'triager'")
+        ).scalar_one()
+    assert system
+
+
+def test_a_new_database_gets_an_ordinary_triager_role(empty_engine):
+    from security_review_mcp import access_control
+
+    database.upgrade_db()
+
+    roles = {role["name"]: role for role in access_control.list_roles()}
+    assert [name for name, role in roles.items() if role["system"]] == ["admin", "reader"]
+    assert roles["triager"]["permissions"] == ["findings.triage", "reports.read"]
+
+
+def test_downgrading_the_api_tokens_deletes_them(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "head")
+        for token_id, role in (("t1", "api"), ("t2", "mcp")):
+            connection.execute(
+                text(
+                    "INSERT INTO apitoken (id, label, role, token_hash, created_at) "
+                    "VALUES (:id, :id, :role, :digest, '2026-10-01')"
+                ),
+                {"id": token_id, "role": role, "digest": token_id * 32},
+            )
+        command.downgrade(database.alembic_config(connection), "0021")
+        rows = connection.execute(text("SELECT id FROM apitoken")).scalars().all()
+        columns = {column["name"] for column in inspect(connection).get_columns("apitoken")}
+
+    assert rows == ["t2"]
+    assert not columns & {"user_id", "access_role_id"}

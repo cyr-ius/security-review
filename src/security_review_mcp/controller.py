@@ -14,6 +14,7 @@ import sys
 
 from . import (
     advisory_sync,
+    audit_syslog,
     cli,
     http_server,
     oidc,
@@ -23,7 +24,7 @@ from . import (
     web_api,
     web_users,
 )
-from .config import configure_logging, get_settings
+from .config import Settings, configure_logging, get_settings
 from .database import SchemaError, init_db
 
 logger = logging.getLogger("security_review_mcp.controller")
@@ -42,12 +43,23 @@ commands:
   audit        read or purge the audit log (triage decisions, tokens, enrollments, access)
   rules        manage the internal rules and checklists
   advisories   import, download or inspect the OSV advisory database
-  code         pattern-scan every file of a codebase
-  deps         scan dependency manifests and lockfiles
 
 Run `security-review-controller COMMAND --help` for the options of a command.
-Pipeline commands (gate, sarif, trend) are run by security-review-ci.
+Pipeline commands (gate, sarif, trend, code-scan, deps-scan) are run by security-review-ci.
 """
+
+
+def _log_bootstrap_admin(created: bool, settings: Settings) -> None:
+    """Tell the operator how to set the password of the initial administrator, once created."""
+    if not created:
+        return
+    name = settings.admin_username.strip()
+    logger.warning(
+        "Initial Web UI administrator '%s' created: set its password with "
+        "`security-review-controller user reset-password %s`",
+        name,
+        name,
+    )
 
 
 def serve(argv: list[str]) -> None:
@@ -73,18 +85,12 @@ def serve(argv: list[str]) -> None:
         web_app = web_api.create_app(args.host, ui=settings.web_ui, signer=signer)
         if settings.osv_auto_update:
             advisory_sync.validate_settings(settings)
+        audit_syslog.validate_settings(settings)
+        bootstrap_created = web_users.ensure_bootstrap_admin(settings.admin_username)
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
     registry.reload()
-    bootstrap_password = (
-        web_users.ensure_bootstrap_admin() if settings.auth_bootstrap_admin else None
-    )
-    if bootstrap_password:
-        logger.warning(
-            "Initial Web UI administrator created: user '%s', password (shown once): %s",
-            web_users.BOOTSTRAP_USERNAME,
-            bootstrap_password,
-        )
+    _log_bootstrap_admin(bootstrap_created, settings)
     if settings.web_ui:
         logger.info("Web interface enabled on /ui (REST API on /api/v1)")
     oidc_login = web_app.state.oidc.current()
@@ -92,13 +98,17 @@ def serve(argv: list[str]) -> None:
     if updater:
         updater.start()
     days, audit_days = settings.empty_report_retention_days, settings.audit_retention_days
+    audit_max = settings.audit_max_events
     pruner = (
-        retention.ReportPruner(days, audit_retention_days=audit_days)
-        if days or audit_days
+        retention.ReportPruner(days, audit_retention_days=audit_days, audit_max_events=audit_max)
+        if days or audit_days or audit_max
         else None
     )
     if pruner:
         pruner.start()
+    forwarder = audit_syslog.AuditForwarder(settings) if settings.audit_syslog_address else None
+    if forwarder:
+        forwarder.start()
     try:
         http_server.serve(
             http_server.build_controller_app(
@@ -120,6 +130,8 @@ def serve(argv: list[str]) -> None:
             updater.stop()
         if pruner:
             pruner.stop()
+        if forwarder:
+            forwarder.stop()
 
 
 def main(argv: list[str] | None = None) -> None:

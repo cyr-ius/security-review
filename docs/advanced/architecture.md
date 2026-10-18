@@ -17,7 +17,7 @@ run in two containers, two pods or on two machines.
 |---|---|---|
 | Command | `security-review-mcp --transport streamable-http` | `security-review-controller serve` |
 | Serves | `/mcp`, public enrollment `POST /api/v1/enroll`, `/healthz` | REST API `/api/v1`, interface `/ui`, `/healthz` |
-| Accepted tokens | `mcp` and `admin` roles | `reader`, `triager` and `admin` roles; `ci` on the pipeline routes `/api/v1/ci/` only |
+| Accepted credentials | `mcp` and `admin` tokens | web sessions (users), `admin` and `api` tokens; `ci` tokens on the pipeline routes `/api/v1/ci/` only (gate, SARIF, trend, scans) |
 | Routes without a token | enrollment, `/healthz` | `/ui` files, API documentation, `/healthz` (read only) |
 | Database schema | only checks it | migrates it (unless `SECREVIEW_DB_AUTO_UPGRADE=false`) |
 | Advised exposure | agents and CI, with TLS | internal network or access restricted to administrators |
@@ -72,8 +72,10 @@ example deploys both processes on an existing PostgreSQL database:
 kubectl create namespace secreview
 kubectl -n secreview create secret generic secreview-db \
     --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
+kubectl -n secreview create secret generic secreview-controller \
+    --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
 kubectl -n secreview apply -f examples/kubernetes/security-review.yaml
-kubectl -n secreview logs deploy/secreview-controller -c controller   # initial admin password
+kubectl -n secreview exec deploy/secreview-controller -c controller -- security-review-controller user reset-password admin   # initial admin password
 ```
 
 It contains:
@@ -81,6 +83,11 @@ It contains:
 - a **`secreview-controller` Deployment** (one replica, `Recreate` strategy) whose init
   container runs `security-review-controller db upgrade` at every deployment;
 - a **`secreview-mcp` Deployment**, which only checks the schema;
+- the **`secreview-controller` Secret**, created by hand, with `SECREVIEW_SECRET_KEY`: the
+  root file system is read-only, so the controller cannot write its
+  `SECREVIEW_SECRET_KEY_FILE`; without it, the web sessions would end at every restart and
+  would not be shared by the replicas (see
+  [Login and sessions](../usage/web-interface.md#login-and-sessions));
 - one Service per process, `readiness` and `liveness` probes on `/healthz`, non-root
   containers with a read-only file system, without any Linux capability;
 - a **NetworkPolicy** that limits access to the controller to the pods of the namespace and to
@@ -99,9 +106,11 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 ```
 
 For the [daily update of the OSV advisories](dependencies.md#automatic-update-by-the-controller),
-uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and if needed `HTTPS_PROXY` and `NO_PROXY`, in the Secret if it
-holds credentials) on the `controller` container, and allow its egress to osv.dev or your
-mirror (or the proxy) if an egress NetworkPolicy applies. The MCP server needs no egress.
+uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and if needed `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY`
+and `NO_PROXY`, in the `secreview-controller` Secret if the proxy holds credentials) on the
+`controller` container, and allow its egress to osv.dev or your mirror (or the proxy) if an
+egress NetworkPolicy applies. The MCP server needs no egress. The Swagger documentation of the
+REST API (`/api/docs`) stays disabled unless you uncomment `SECREVIEW_SWAGGER_ENABLED`.
 
 !!! warning "Several replicas of the MCP server"
     MCP sessions (streamable HTTP transport) are kept in memory by the pod that opened them.

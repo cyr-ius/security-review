@@ -31,8 +31,8 @@ secret is shown only once, at creation. Manage them with the `token` command (se
 
 ```bash
 security-review-controller token create --label ci                      # mcp role by default
-security-review-controller token create --label triage-bot --role triager
-security-review-controller token create --label shop-ci --role reader --project shop-api
+security-review-controller token create --label jenkins --role ci --project shop-api
+security-review-controller token create --label ops-script --role admin
 # {"id": "6f1c…", "label": "ci", "role": "mcp", "project": null, "created_at": "…", "token": "UJB7…"}
 security-review-controller token list [--project shop-api]             # never the secret nor the digest
 security-review-controller token revoke ci                              # by label or by id
@@ -42,18 +42,22 @@ Projects can also request their token themselves: see
 [enrollment](#enrollment-a-project-requests-its-token).
 
 - Give `token` to the client; the unique `label` appears in the logs.
-- `--role` is `mcp` by default (MCP server); `reader` (read only) and `triager` (read and
-  triage) give access to the REST API of the controller, never to the web interface; `ci`
-  (always with `--project`) only reaches the pipeline routes used by
+- `--role` is `mcp` by default (MCP server); `admin` reaches the MCP server and the whole REST
+  API of the controller, never the web interface; `ci` (always with `--project`) only reaches the pipeline routes used by
   [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci): see the
   [roles](../usage/web-interface.md#roles); `metrics` (never with `--project`) only reaches the
-  [Prometheus metrics](audit-metrics.md#prometheus-metrics) of the controller.
+  [Prometheus metrics](audit-metrics.md#prometheus-metrics) of the controller. Tokens are for
+  machines: there is no `reader` or `triager` token, a person reads and triages with a
+  [user account](../usage/web-interface.md#user-accounts) and its
+  [groups](access-control.md). The `api` tokens of the REST API and its Swagger, which hold the
+  rights of a user or of a role, are created in the web interface
+  ([API tokens](../usage/web-interface.md#api-tokens)).
 - `--expires-in-days` sets the validity of the token: see
   [expiry and rotation](#expiry-and-rotation-of-tokens).
 - `--project` limits the token to one or more projects (repeat the option), for the MCP tools
-  as for the REST API (`mcp`, `reader` and `triager` roles; refused for `admin` and `metrics`). See
+  and the pipeline routes (`mcp` and `ci` roles; refused for `admin` and `metrics`). See
   [tokens restricted to a project](#tokens-restricted-to-a-project). Administrators can also
-  create and revoke restricted `reader` tokens from the **Tokens** screen.
+  create and revoke restricted `mcp` and `ci` tokens from the **Tokens** screen.
 - The server reads the database at every request: a creation or a revocation applies
   immediately, including to the other instances sharing the same PostgreSQL database.
 
@@ -104,7 +108,7 @@ On a server shared by several teams, give each pipeline a token limited to its p
 
 ```bash
 security-review-controller token create --label shop-ci --project shop-api            # mcp role
-security-review-controller token create --label shop-triage --role triager --project shop-api
+security-review-controller token create --label shop-gate --role ci --project shop-api
 ```
 
 A token without `--project` reaches every project. In the web interface, the
@@ -113,7 +117,7 @@ or for **All projects**, and changes the projects of an existing token (except `
 `metrics`; a `ci` token always keeps at least one project). A restricted token:
 
 - only saves reports (`save_security_report`) for its project;
-- only reads, lists, exports and triages (`propose_finding_status`, `PATCH` of the web API) the
+- only reads, lists, exports and proposes a status for (`propose_finding_status`) the
   reports and findings of its project; `list_security_reports` without a filter only returns
   those;
 - gets, for any other project, report or finding, the same "not found" error as for a missing
@@ -125,11 +129,13 @@ With stdio, there is no token, hence no restriction.
 
 ### Initial administrator password
 
-With `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (the case in the Docker image), the **controller**
-creates at first start the `admin` [account](../usage/web-interface.md#user-accounts) of the
-web interface, with a random password shown only once in its logs. This account only opens
+At its first start, the **controller** creates the `admin`
+[account](../usage/web-interface.md#user-accounts) of the web interface
+(`SECREVIEW_ADMIN_USERNAME`), with a random password that nobody knows: set it with the CLI,
+which prints it once (the old one is invalidated at once), see the
+[first administrator](../usage/web-interface.md#first-administrator). This account only opens
 the web interface and the REST API, never `/mcp`: for an agent, create a token
-(`token create`). If it is lost, replace the password (the old one is invalidated at once):
+(`token create`).
 
 ```bash
 security-review-controller user reset-password admin

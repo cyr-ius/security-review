@@ -8,8 +8,12 @@ ajoutez-la à un groupe. Les administrateurs les gèrent dans les écrans **Grou
 **Rôles** et **Utilisateurs** (permission `users.manage`), ou par l'API `/api/v1/groups`,
 `/api/v1/roles` et `/api/v1/users`.
 
-Les jetons Bearer ne sont pas concernés : ils gardent leur rôle fixe (`mcp`, `reader`, `triager`,
-`admin`, `ci`, `metrics`, voir [Rôles](../usage/web-interface.md#roles)).
+Les jetons Bearer sont destinés aux machines et gardent leur rôle fixe (`mcp`, `admin`, `ci`,
+`metrics`, voir [Rôles](../usage/web-interface.md#roles)), sauf les jetons `api` de l'API REST et
+de son Swagger, qui suivent ce modèle (voir [jetons API](../usage/web-interface.md#jetons-api)) :
+un jeton personnel porte les droits actuels de son utilisateur, un jeton de rôle les permissions
+d'un rôle sur ses projets. Une personne obtient la lecture ou le triage par les groupes de son
+compte.
 
 ## Permissions
 
@@ -30,14 +34,16 @@ de l'interface web, jamais un jeton (voir [triage des findings](../usage/web-int
 
 ## Rôles
 
-Un rôle est un nom, une description et au moins une permission. Trois rôles **système** existent
-dès le départ et ne peuvent être ni modifiés ni supprimés :
+Un rôle est un nom, une description et au moins une permission. Deux rôles **intégrés** existent
+dès le départ et ne peuvent être ni modifiés ni supprimés, car le contrôleur s'appuie sur eux :
 
-| Rôle système | Permissions |
-|---|---|
-| `reader` | `reports.read` |
-| `triager` | `reports.read`, `findings.triage` |
-| `admin` | toutes les permissions |
+| Rôle intégré | Permissions | Utilisé par |
+|---|---|---|
+| `reader` | `reports.read` | les [groupes de projet](#groupes-de-projet) créés à l'approbation d'un enrôlement |
+| `admin` | toutes les permissions (y compris celles qu'ajoute une version ultérieure) | le groupe `administrators` du premier administrateur, `SECREVIEW_OIDC_ADMIN_GROUPS` |
+
+Le rôle `triager` (`reports.read`, `findings.triage`) est lui aussi créé avec la base, mais c'est
+un rôle ordinaire : les administrateurs le modifient ou le suppriment comme n'importe quel autre.
 
 Les administrateurs créent d'autres rôles (100 au plus), par exemple un rôle *Auditeur* avec
 `audit.read` et `reports.read`. La modification d'un rôle s'applique aussitôt aux sessions
@@ -103,8 +109,8 @@ Gardez de préférence un administrateur local.
 
 Un jeton ne donne jamais plus que ce que détient son créateur : créer un jeton, changer ses
 projets, renouveler son secret, le révoquer, ou approuver ou rejeter une demande d'enrôlement
-demande `reports.read` sur tous les projets du jeton, avant et après un changement de ses projets
-(et `findings.triage` pour un jeton `triager`) ; l'écran **Jetons** ne liste que les jetons et demandes des projets que l'utilisateur
+demande `reports.read` sur tous les projets du jeton, avant et après un changement de ses
+projets, et, pour un jeton `api` de rôle, chaque permission de son rôle sur ces projets ; l'écran **Jetons** ne liste que les jetons et demandes des projets que l'utilisateur
 lit. Donner à un utilisateur
 la lecture d'un projet à l'approbation d'un enrôlement demande aussi `users.manage`.
 
@@ -175,3 +181,15 @@ Le rôle donné à un compte OIDC par ses groupes à sa dernière connexion est 
 prochaine connexion. Les variables `SECREVIEW_OIDC_TRIAGER_GROUPS`, `SECREVIEW_OIDC_READER_GROUPS`
 et `SECREVIEW_OIDC_DEFAULT_ROLE` disparaissent : créez les groupes de mêmes noms avec le rôle
 `triager` ou `reader`, et utilisez `SECREVIEW_OIDC_DEFAULT_GROUP` à la place du rôle par défaut.
+
+## Mise à jour depuis les jetons reader et triager
+
+La migration de schéma `0021` réserve les jetons aux machines :
+
+- les jetons `reader` et `triager` sont révoqués ; chaque révocation est écrite dans le
+  [journal d'audit](audit-metrics.md) (`token.revoked`, acteur `migration`). Donnez aux personnes
+  qui les utilisaient un [compte utilisateur](../usage/web-interface.md#comptes-utilisateurs) dans
+  un groupe qui a le rôle `reader` ou `triager` sur les mêmes projets ; un script
+  d'administration utilise un jeton `admin` ;
+- le rôle `triager` n'est plus intégré : il garde ses permissions et ses groupes, et peut
+  désormais être modifié ou supprimé.

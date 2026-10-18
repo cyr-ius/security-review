@@ -221,10 +221,11 @@ def test_bootstrap_admin_must_change_its_password():
 
 
 def test_bootstrap_admin_is_created_once_while_no_user_exists():
-    password = web_users.ensure_bootstrap_admin()
-
-    assert password is not None
-    assert web_users.ensure_bootstrap_admin() is None
+    assert web_users.ensure_bootstrap_admin() is True
+    assert web_users.ensure_bootstrap_admin() is False
+    # Its random password is never handed out: the operator sets one with the CLI
+    admin = web_users.find_user("admin")
+    password = web_users.set_password(admin["id"])["password"]
     user = web_users.authenticate("admin", password)
     assert (user["effective_role"], user["created_by"]) == ("admin", "bootstrap")
     assert [group["name"] for group in user["groups"]] == ["administrators"]
@@ -233,7 +234,7 @@ def test_bootstrap_admin_is_created_once_while_no_user_exists():
 def test_no_bootstrap_admin_once_another_user_exists():
     make_user("alice", PASSWORD, "reader")
 
-    assert web_users.ensure_bootstrap_admin() is None
+    assert web_users.ensure_bootstrap_admin() is False
     assert [user["username"] for user in web_users.list_users()] == ["alice"]
 
 
@@ -848,3 +849,13 @@ def test_session_of_a_deleted_user_never_opens_a_recreated_account():
         assert recreated["id"] == alice["id"]
         assert verifier.verify_session(session) is None
         web_users.delete_user(recreated["id"])
+
+
+def test_the_theme_of_a_user_is_checked_and_kept():
+    user = make_user("alice", PASSWORD, "reader")
+
+    assert web_users.get_preferences(user["id"]) == {"theme": "auto"}
+    assert web_users.set_theme(user["id"], "light") == {"theme": "light"}
+    assert web_users.get_preferences(user["id"]) == {"theme": "light"}
+    with pytest.raises(ValueError, match="theme"):
+        web_users.set_theme(user["id"], "<script>")

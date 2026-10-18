@@ -38,20 +38,7 @@
   <section class="panel">
     <div class="panel-tools">
       <app-language-select />
-      <button
-        type="button"
-        class="btn btn-sm btn-outline-secondary"
-        (click)="theme.toggle()"
-        [attr.aria-label]="
-          (theme.theme() === 'dark' ? 'layout.lightTheme' : 'layout.darkTheme') | t
-        "
-      >
-        <i
-          class="bi"
-          [class]="theme.theme() === 'dark' ? 'bi-sun' : 'bi-moon-stars'"
-          aria-hidden="true"
-        ></i>
-      </button>
+      <app-theme-button />
     </div>
 
     <div class="login-box">
@@ -81,83 +68,87 @@
           <i class="bi bi-person-badge me-1" aria-hidden="true"></i>
           {{ 'login.ssoButton' | t: { name } }}
         </a>
-        <div class="separator my-4">
-          <span>{{ 'login.orLocal' | t }}</span>
-        </div>
+        @if (passwordLogin()) {
+          <div class="separator my-4">
+            <span>{{ 'login.orLocal' | t }}</span>
+          </div>
+        }
       }
 
-      <form (submit)="onAccountSubmit($event)" novalidate>
-        <label for="username" class="form-label">{{ 'login.username' | t }}</label>
-        <div class="input-group input-group-lg">
-          <span class="input-group-text"><i class="bi bi-person" aria-hidden="true"></i></span>
-          <input
-            id="username"
-            class="form-control"
-            autocomplete="username"
-            autocapitalize="none"
-            spellcheck="false"
-            autofocus
-            aria-describedby="username-errors"
-            [formField]="accountForm.username"
-            [class.is-invalid]="
-              accountForm.username().touched() && accountForm.username().invalid()
-            "
-          />
-        </div>
-        <div id="username-errors" class="mb-3" aria-live="polite">
-          @if (accountForm.username().touched() && accountForm.username().invalid()) {
-            @for (err of accountForm.username().errors(); track err.kind) {
-              <div class="invalid-feedback d-block">{{ err.message }}</div>
+      @if (passwordLogin()) {
+        <form (submit)="onAccountSubmit($event)" novalidate>
+          <label for="username" class="form-label">{{ 'login.username' | t }}</label>
+          <div class="input-group input-group-lg">
+            <span class="input-group-text"><i class="bi bi-person" aria-hidden="true"></i></span>
+            <input
+              id="username"
+              class="form-control"
+              autocomplete="username"
+              autocapitalize="none"
+              spellcheck="false"
+              autofocus
+              aria-describedby="username-errors"
+              [formField]="accountForm.username"
+              [class.is-invalid]="
+                accountForm.username().touched() && accountForm.username().invalid()
+              "
+            />
+          </div>
+          <div id="username-errors" class="mb-3" aria-live="polite">
+            @if (accountForm.username().touched() && accountForm.username().invalid()) {
+              @for (err of accountForm.username().errors(); track err.kind) {
+                <div class="invalid-feedback d-block">{{ err.message }}</div>
+              }
             }
-          }
-        </div>
-        <label for="password" class="form-label">{{ 'login.password' | t }}</label>
-        <div class="input-group input-group-lg secret-group mb-1">
-          <span class="input-group-text"><i class="bi bi-lock" aria-hidden="true"></i></span>
-          <input
-            id="password"
-            class="form-control"
-            [type]="reveal() ? 'text' : 'password'"
-            autocomplete="current-password"
-            spellcheck="false"
-            aria-describedby="password-errors"
-            [formField]="accountForm.password"
-            [class.is-invalid]="
-              accountForm.password().touched() && accountForm.password().invalid()
-            "
-          />
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            (click)="reveal.set(!reveal())"
-            [attr.aria-label]="(reveal() ? 'login.hidePassword' : 'login.showPassword') | t"
-            [attr.aria-pressed]="reveal()"
-          >
-            <i class="bi" [class]="reveal() ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true"></i>
-          </button>
-        </div>
-        <div id="password-errors" aria-live="polite">
-          @if (accountForm.password().touched() && accountForm.password().invalid()) {
-            @for (err of accountForm.password().errors(); track err.kind) {
-              <div class="invalid-feedback d-block">{{ err.message }}</div>
+          </div>
+          <label for="password" class="form-label">{{ 'login.password' | t }}</label>
+          <div class="input-group input-group-lg secret-group mb-1">
+            <span class="input-group-text"><i class="bi bi-lock" aria-hidden="true"></i></span>
+            <input
+              id="password"
+              class="form-control"
+              [type]="reveal() ? 'text' : 'password'"
+              autocomplete="current-password"
+              spellcheck="false"
+              aria-describedby="password-errors"
+              [formField]="accountForm.password"
+              [class.is-invalid]="
+                accountForm.password().touched() && accountForm.password().invalid()
+              "
+            />
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              (click)="reveal.set(!reveal())"
+              [attr.aria-label]="(reveal() ? 'login.hidePassword' : 'login.showPassword') | t"
+              [attr.aria-pressed]="reveal()"
+            >
+              <i class="bi" [class]="reveal() ? 'bi-eye-slash' : 'bi-eye'" aria-hidden="true"></i>
+            </button>
+          </div>
+          <div id="password-errors" aria-live="polite">
+            @if (accountForm.password().touched() && accountForm.password().invalid()) {
+              @for (err of accountForm.password().errors(); track err.kind) {
+                <div class="invalid-feedback d-block">{{ err.message }}</div>
+              }
             }
-          }
-        </div>
+          </div>
 
-        <button
-          type="submit"
-          class="btn btn-primary btn-lg w-100 mt-4"
-          [disabled]="accountForm().submitting()"
-        >
-          @if (accountForm().submitting()) {
-            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-            {{ 'login.checking' | t }}
-          } @else {
-            {{ 'login.submit' | t }}
-            <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
-          }
-        </button>
-      </form>
+          <button
+            type="submit"
+            class="btn btn-primary btn-lg w-100 mt-4"
+            [disabled]="accountForm().submitting()"
+          >
+            @if (accountForm().submitting()) {
+              <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+              {{ 'login.checking' | t }}
+            } @else {
+              {{ 'login.submit' | t }}
+              <i class="bi bi-arrow-right ms-1" aria-hidden="true"></i>
+            }
+          </button>
+        </form>
+      }
     </div>
 
     <p class="panel-foot">{{ 'login.foot' | t }}</p>

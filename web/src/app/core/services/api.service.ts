@@ -30,12 +30,14 @@ import {
   OidcSettingsUpdate,
   OidcTestResult,
   PermissionInfo,
+  Preferences,
   ProjectFindingPage,
   ProjectFindingQuery,
   ProjectSummary,
   ProjectToken,
   ProjectTokenCreated,
   ProjectTokenRole,
+  TokenRoleChoice,
   ProxyUpdate,
   Report,
   ReportQuery,
@@ -46,6 +48,7 @@ import {
   RuleReloadResult,
   StandardPackImportResult,
   Trend,
+  UpdateStatus,
   UserGroup,
   UserGroupWrite,
   WebUser,
@@ -63,6 +66,20 @@ export class ApiService {
   /** Version and links of the About page. */
   about(): Observable<About> {
     return this.http.get<About>(`${API_URL}/about`);
+  }
+
+  /** Latest release on GitHub against the running version. */
+  aboutUpdate(): Observable<UpdateStatus> {
+    return this.http.get<UpdateStatus>(`${API_URL}/about/update`);
+  }
+
+  /** Preferences of the logged-in web user, kept for every browser it uses. */
+  preferences(): Observable<Preferences> {
+    return this.http.get<Preferences>(`${API_URL}/me/preferences`);
+  }
+
+  setPreferences(preferences: Preferences): Observable<Preferences> {
+    return this.http.put<Preferences>(`${API_URL}/me/preferences`, preferences);
   }
 
   me(): Observable<Identity> {
@@ -245,20 +262,44 @@ export class ApiService {
 
   /**
    * projects null: every project (refused for a CI/CD token). expiresInDays null: the default
-   * validity of the server (SECREVIEW_TOKEN_MAX_DAYS).
+   * validity of the server (SECREVIEW_TOKEN_MAX_DAYS). accessRoleId: the role of an api token.
    */
   createProjectToken(
     label: string,
     projects: string[] | null,
     role: ProjectTokenRole,
     expiresInDays: number | null = null,
+    accessRoleId: number | null = null,
   ): Observable<ProjectTokenCreated> {
     return this.http.post<ProjectTokenCreated>(`${API_URL}/project-tokens`, {
       label,
       projects,
       role,
       expires_in_days: expiresInDays,
+      access_role_id: accessRoleId,
     });
+  }
+
+  /** The roles an api token may hold. */
+  tokenRoles(): Observable<TokenRoleChoice[]> {
+    return this.http.get<TokenRoleChoice[]>(`${API_URL}/project-tokens/roles`);
+  }
+
+  /** The api tokens of the logged-in user. */
+  myTokens(): Observable<ProjectToken[]> {
+    return this.http.get<ProjectToken[]>(`${API_URL}/me/tokens`);
+  }
+
+  /** Create an api token of the logged-in user, with its rights; its secret is shown once. */
+  createMyToken(label: string, expiresInDays: number | null): Observable<ProjectTokenCreated> {
+    return this.http.post<ProjectTokenCreated>(`${API_URL}/me/tokens`, {
+      label,
+      expires_in_days: expiresInDays,
+    });
+  }
+
+  deleteMyToken(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/me/tokens/${encodeURIComponent(id)}`);
   }
 
   /** Change the projects of a token (null: every project); its secret stays the same. */

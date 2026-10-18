@@ -159,17 +159,21 @@
       <label for="token-usage" class="form-label">{{ 'tokens.usage' | t }}</label>
       <select id="token-usage" class="form-select" [formField]="tokenForm.usage">
         <option value="mcp">MCP</option>
-        <option value="api">{{ 'tokens.restApi' | t }}</option>
         <option value="ci">{{ 'tokens.pipeline' | t }}</option>
+        <option value="api">{{ 'role.api' | t }}</option>
       </select>
     </div>
-    <div class="col-md-2">
-      <label for="token-api-role" class="form-label">{{ 'tokens.apiRights' | t }}</label>
-      <select id="token-api-role" class="form-select" [formField]="tokenForm.apiRole">
-        <option value="reader">{{ 'tokens.readOnly' | t }}</option>
-        <option value="triager">{{ 'tokens.readTriage' | t }}</option>
-      </select>
-    </div>
+    @if (formModel().usage === 'api') {
+      <div class="col-md-2">
+        <label for="token-access-role" class="form-label">{{ 'tokens.accessRole' | t }}</label>
+        <select id="token-access-role" class="form-select" [formField]="tokenForm.accessRoleId">
+          <option value="">{{ 'tokens.chooseRole' | t }}</option>
+          @for (role of tokenRoles.value() ?? []; track role.id) {
+            <option [value]="role.id">{{ role.name }}</option>
+          }
+        </select>
+      </div>
+    }
     <div class="col-md-2">
       <label for="token-validity" class="form-label">{{ 'tokens.validity' | t }}</label>
       <select id="token-validity" class="form-select" [formField]="tokenForm.validity">
@@ -201,6 +205,7 @@
           type="radio"
           name="token-scope"
           id="token-scope-some"
+          [disabled]="wholeControllerRole()"
           [checked]="!creationAllProjects()"
           (change)="allProjects.set(false)"
         />
@@ -210,6 +215,8 @@
       </div>
       @if (formModel().usage === 'ci') {
         <div class="form-text">{{ 'tokens.pipelineProjects' | t }}</div>
+      } @else if (wholeControllerRole()) {
+        <div class="form-text">{{ 'tokens.wholeControllerRole' | t }}</div>
       } @else if (creationAllProjects()) {
         <div class="form-text">{{ 'tokens.allProjectsHelp' | t }}</div>
       }
@@ -237,6 +244,10 @@
     @if (formModel().usage === 'ci') {
       <p class="col-12 order-last form-text mb-0">{{ 'tokens.pipelineHelp' | t }}</p>
     }
+    @if (formModel().usage === 'api') {
+      <p class="col-12 order-last form-text mb-0">{{ 'tokens.apiHelp' | t }}</p>
+    }
+    <p class="col-12 order-last form-text mb-0">{{ 'tokens.machinesHelp' | t }}</p>
     <div class="col-md-2">
       <button
         type="submit"
@@ -396,7 +407,7 @@
                     </div>
                   }
                 </td>
-                <td>{{ roleLabel(token.role) | t }}</td>
+                <td>{{ usageLabel(token) }}</td>
                 <td>
                   {{ token.created_at | date: 'dd/MM/yyyy HH:mm' }}
                   @if (token.rotated_at) {
@@ -430,26 +441,31 @@
                   }
                 </td>
                 <td class="text-end text-nowrap">
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary me-1"
-                    [disabled]="busy() || editing()?.id === token.id"
-                    [attr.aria-label]="'tokens.editProjectsOf' | t: { label: token.label }"
-                    (click)="editProjects(token)"
-                  >
-                    <i class="bi bi-pencil" aria-hidden="true"></i>
-                    {{ 'tokens.editProjects' | t }}
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-secondary me-1"
-                    [disabled]="busy()"
-                    [attr.aria-label]="'tokens.rotateToken' | t: { label: token.label }"
-                    (click)="rotate(token.id, token.label)"
-                  >
-                    <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
-                    {{ 'tokens.rotate' | t }}
-                  </button>
+                  @if (canEditProjects(token)) {
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary me-1"
+                      [disabled]="busy() || editing()?.id === token.id"
+                      [attr.aria-label]="'tokens.editProjectsOf' | t: { label: token.label }"
+                      (click)="editProjects(token)"
+                    >
+                      <i class="bi bi-pencil" aria-hidden="true"></i>
+                      {{ 'tokens.editProjects' | t }}
+                    </button>
+                  }
+                  <!-- A personal token is rotated by nobody: its user creates a new one -->
+                  @if (!token.personal) {
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-secondary me-1"
+                      [disabled]="busy()"
+                      [attr.aria-label]="'tokens.rotateToken' | t: { label: token.label }"
+                      (click)="rotate(token.id, token.label)"
+                    >
+                      <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+                      {{ 'tokens.rotate' | t }}
+                    </button>
+                  }
                   <button
                     type="button"
                     class="btn btn-sm btn-outline-danger"

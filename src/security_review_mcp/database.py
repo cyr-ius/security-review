@@ -86,7 +86,7 @@ def upgrade_db() -> None:
     An empty database is created and a database created by version 1.x (no revision yet) is
     completed by the baseline revision. On the first run the default rules and checklists
     (``default_rules.toml``) are copied into the database; later runs add the new defaults
-    (see ``rule_store.seed_defaults``). The system roles are created when missing (see
+    (see ``rule_store.seed_defaults``). The built-in roles are created when missing (see
     ``access_control.ensure_system_roles``).
     """
     # Import here because rule_store and access_control depend on this module

@@ -59,18 +59,16 @@ def test_combine_bounds_the_projects_of_a_permission(monkeypatch):
 @pytest.mark.parametrize(
     ("role", "projects", "expected"),
     [
-        (Role.READER, ["shop"], {"reports.read": frozenset({"shop"})}),
-        (
-            Role.TRIAGER,
-            None,
-            {"reports.read": None, "findings.triage": None},
-        ),
         (Role.ADMIN, None, {permission.value: None for permission in Permission}),
         (Role.MCP, None, {}),
         (Role.CI, ["shop"], {}),
+        (Role.METRICS, None, {}),
+        # Never the role of a token (a stored one authenticates nothing): no permission either
+        (Role.READER, ["shop"], {}),
+        (Role.TRIAGER, None, {}),
     ],
 )
-def test_token_grants_follow_the_system_roles(role, projects, expected):
+def test_token_grants_only_give_permissions_to_admin(role, projects, expected):
     assert access_control.token_grants(role, projects) == expected
 
 
@@ -99,14 +97,10 @@ def test_allows_and_scope():
 # ── Roles ────────────────────────────────────────────────────────────────────
 
 
-def test_system_roles_exist_and_cannot_change():
+def test_built_in_roles_exist_and_cannot_change():
     roles = {role["name"]: role for role in access_control.list_roles()}
 
-    assert [name for name, role in roles.items() if role["system"]] == [
-        "admin",
-        "reader",
-        "triager",
-    ]
+    assert [name for name, role in roles.items() if role["system"]] == ["admin", "reader"]
     assert roles["admin"]["permissions"] == sorted(p.value for p in Permission)
     assert roles["reader"]["scoped"] and not roles["admin"]["scoped"]
     with pytest.raises(ValueError, match="cannot be changed"):
@@ -114,7 +108,24 @@ def test_system_roles_exist_and_cannot_change():
     with pytest.raises(ValueError, match="cannot be deleted"):
         access_control.delete_role(roles["admin"]["id"])
     # Created once
-    assert access_control.ensure_system_roles() == {name: roles[name]["id"] for name in roles}
+    built_in = {name: roles[name]["id"] for name in ("admin", "reader")}
+    assert access_control.ensure_system_roles() == built_in
+
+
+def test_triager_is_an_ordinary_role():
+    roles = {role["name"]: role for role in access_control.list_roles()}
+    triager = roles["triager"]
+    assert not triager["system"] and triager["scoped"]
+    assert triager["permissions"] == ["findings.triage", "reports.read"]
+
+    changed = access_control.update_role(
+        triager["id"], ["findings.triage", "reports.read"], "Triage of a team"
+    )
+    assert changed["description"] == "Triage of a team"
+    access_control.delete_role(triager["id"])
+    # Not created again: only the built-in roles are
+    access_control.ensure_system_roles()
+    assert "triager" not in {role["name"] for role in access_control.list_roles()}
 
 
 def test_custom_roles_are_created_updated_and_deleted():

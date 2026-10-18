@@ -14,7 +14,14 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .. import __version__, access_control, audit, services, web_users
-from ..http_server import BEARER_CHALLENGE, CI_ROUTE_ROLES, METRICS_ROLES, WEB_ROLES, Role
+from ..http_server import (
+    API_ROLES,
+    BEARER_CHALLENGE,
+    CI_ROUTE_ROLES,
+    METRICS_ROLES,
+    SCAN_ROUTE_ROLES,
+    Role,
+)
 from ..models import SecurityReportPublic
 from .schemas import Identity
 
@@ -24,7 +31,8 @@ logger = logging.getLogger("security_review_mcp.web")
 # itself is validated by the bearer middleware: auto_error=False leaves the 401 to
 # current_identity, which also covers an app served without that middleware.
 bearer_scheme = HTTPBearer(
-    auto_error=False, description="API token (`security-review-controller token create`)"
+    auto_error=False,
+    description="API token: personal (My account > API tokens) or of a role (Tokens screen)",
 )
 
 Permission = access_control.Permission
@@ -69,7 +77,9 @@ def _scope_identity(request: Request) -> Identity:
 
 
 # Routes a web user who must change its password still reaches
-PASSWORD_CHANGE_PATHS = frozenset({"/api/v1/me", "/api/v1/me/password", "/api/v1/me/logout"})
+PASSWORD_CHANGE_PATHS = frozenset(
+    {"/api/v1/me", "/api/v1/me/password", "/api/v1/me/logout", "/api/v1/me/preferences"}
+)
 
 
 def _identity_with_role(request: Request, allowed: frozenset[Role] | set[Role]) -> Identity:
@@ -96,9 +106,10 @@ def current_identity(
     request: Request,
     _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> Identity:
-    """Identity of a web role (reader, triager, admin): a ``ci`` or ``metrics`` token is refused
-    here even if the bearer middleware let it through (it only reaches its own routes)."""
-    return _identity_with_role(request, WEB_ROLES)
+    """Identity of a web session or an ``admin`` or ``api`` token: a ``ci`` or ``metrics`` token
+    is refused here even if the bearer middleware let it through (it only reaches its own
+    routes)."""
+    return _identity_with_role(request, API_ROLES)
 
 
 def pipeline_identity(
@@ -107,6 +118,21 @@ def pipeline_identity(
 ) -> Identity:
     """Identity of the pipeline routes: a ``ci`` token or a web role, scoped to its projects."""
     return _identity_with_role(request, CI_ROUTE_ROLES)
+
+
+def scan_identity(
+    request: Request,
+    _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+) -> Identity:
+    """Identity of the pipeline scans, which may store a report: a ``ci`` or ``admin`` token,
+    scoped to its projects (a web session or a reader or triager token is refused)."""
+    identity = _identity_with_role(request, SCAN_ROUTE_ROLES)
+    if identity.auth_source is not None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="The pipeline scans need a ci or admin token, not a web session",
+        )
+    return identity
 
 
 def metrics_identity(
@@ -126,6 +152,7 @@ def actor_of(identity: Identity) -> str:
 
 CurrentIdentity = Annotated[Identity, Depends(current_identity)]
 PipelineIdentity = Annotated[Identity, Depends(pipeline_identity)]
+ScanIdentity = Annotated[Identity, Depends(scan_identity)]
 MetricsIdentity = Annotated[Identity, Depends(metrics_identity)]
 
 

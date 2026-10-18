@@ -3,9 +3,12 @@
 - A **permission** (Permission) allows one kind of action. ``reports.read`` and
   ``findings.triage`` are *scoped*: a role made only of scoped permissions may be given to a
   group on a list of projects. The other permissions concern the whole controller.
-- A **role** (AccessRole) is a named set of permissions. The system roles ``reader``,
-  ``triager`` and ``admin`` can be neither changed nor deleted: their permissions are those of
-  SYSTEM_ROLES, so that a new permission reaches ``admin`` without a migration.
+- A **role** (AccessRole) is a named set of permissions. The two built-in roles ``reader`` and
+  ``admin`` can be neither changed nor deleted, because the code relies on them: ``admin`` is
+  given to the first administrator and to SECREVIEW_OIDC_ADMIN_GROUPS, ``reader`` to the project
+  groups. Their permissions are those of SYSTEM_ROLES, so that a new permission reaches
+  ``admin`` without a migration. Every other role, ``triager`` included (created with the
+  database), is an ordinary role that an administrator changes or deletes.
 - A **group** (UserGroup) has roles (GroupRole, each on every project or on a list of projects)
   and members (GroupMember). An administrator adds members (``local``); for a group with
   ``sso``, the OIDC users whose groups claim holds the name of the group are members too
@@ -24,8 +27,11 @@ groups. A scoped permission reaches every project when one of its
 bindings does, otherwise the union of their projects. At least one user keeps ``users.manage``:
 a change that would remove the last one is refused (see _guard_managers).
 
-The bearer tokens keep their fixed roles (see http_server.Role); token_grants gives the
-permissions of the ``reader``, ``triager`` and ``admin`` tokens.
+The bearer tokens are for machines and keep their fixed roles (see http_server.TOKEN_ROLES):
+token_grants gives every permission to an ``admin`` token, none to the others. An ``api`` token
+follows this model instead: a personal token holds the grants of its user (user_grants), a role
+token the permissions of its role on its projects (role_token_grants), both read at each
+request. A role used by a token cannot be deleted.
 """
 
 import json
@@ -40,7 +46,7 @@ from . import audit
 from .config import Settings
 from .database import session_scope
 from .http_server import Role
-from .models import AccessRole, GroupMember, GroupRole, UserGroup, WebUser, utcnow
+from .models import AccessRole, ApiToken, GroupMember, GroupRole, UserGroup, WebUser, utcnow
 from .services import NotFoundError
 from .token_store import MAX_PROJECTS_PER_TOKEN, _clean_project
 
@@ -69,9 +75,9 @@ class Permission(StrEnum):
 # Permissions limited to the projects of a binding (the others concern the whole controller)
 SCOPED_PERMISSIONS = frozenset({Permission.REPORTS_READ, Permission.FINDINGS_TRIAGE})
 ALL_PERMISSIONS = frozenset(Permission)
+# Built-in roles, which the code relies on (the ``triager`` role is an ordinary one)
 SYSTEM_ROLES: dict[str, frozenset[Permission]] = {
     Role.READER.value: frozenset({Permission.REPORTS_READ}),
-    Role.TRIAGER.value: frozenset({Permission.REPORTS_READ, Permission.FINDINGS_TRIAGE}),
     Role.ADMIN.value: ALL_PERMISSIONS,
 }
 # Group of the first administrator (not matched against the OIDC groups claim)
@@ -123,8 +129,9 @@ def combine(bindings: Iterable[tuple[Iterable[str], Iterable[str] | None]]) -> d
 
 
 def token_grants(role: Role, projects: Iterable[str] | None) -> dict[str, Any]:
-    """Grants of a bearer token: those of the system role of the same name (none otherwise)."""
-    permissions = SYSTEM_ROLES.get(role.value, frozenset())
+    """Grants of a bearer token: every permission for ``admin``, none otherwise (an ``mcp``,
+    ``ci`` or ``metrics`` token only reaches its own endpoints)."""
+    permissions = ALL_PERMISSIONS if role == Role.ADMIN else frozenset()
     return combine([(permissions, None if projects is None else list(projects))])
 
 
@@ -268,7 +275,7 @@ def parse_groups(value: str) -> set[str]:
 
 
 def _permissions(row: AccessRole) -> frozenset[str]:
-    """Permissions of a role: those of the code for a system role."""
+    """Permissions of a role: those of the code for a built-in role."""
     if row.system and row.name in SYSTEM_ROLES:
         return frozenset(SYSTEM_ROLES[row.name])
     return frozenset(json.loads(row.permissions)) & ALL_PERMISSIONS
@@ -358,7 +365,7 @@ def _get_group(session: Session, group_id: int) -> UserGroup:
 
 
 def ensure_system_roles(session: Session | None = None) -> dict[str, int]:
-    """Create the missing system roles; return the id of each one by name."""
+    """Create the missing built-in roles; return the id of each one by name."""
     if session is None:
         with session_scope() as scoped:
             return ensure_system_roles(scoped)
@@ -388,7 +395,7 @@ def ensure_admin_group(session: Session, name: str = ADMIN_GROUP, sso: bool = Fa
 
 
 def list_roles() -> list[dict[str, Any]]:
-    """Return every role, system roles first, then by name."""
+    """Return every role, built-in roles first, then by name."""
     with session_scope() as session:
         rows = session.exec(
             select(AccessRole).order_by(col(AccessRole.system).desc(), col(AccessRole.name))
@@ -439,7 +446,7 @@ def update_role(
     name: str | None = None,
     actor: str | None = None,
 ) -> dict[str, Any]:
-    """Replace the name, description and permissions of a custom role (not a system role).
+    """Replace the name, description and permissions of a custom role (not a built-in role).
 
     The groups that have the role keep it: a role that gains a permission on the whole
     controller cannot stay limited to projects in a group (ValueError).
@@ -450,14 +457,21 @@ def update_role(
         with session_scope() as session:
             row = _get_role(session, role_id)
             if row.system:
-                raise ValueError(f"The system role {row.name} cannot be changed")
+                raise ValueError(f"The built-in role {row.name} cannot be changed")
             before = managers(session)
             if not set(cleaned) <= SCOPED_PERMISSIONS:
-                limited = session.exec(
-                    select(GroupRole).where(
-                        GroupRole.role_id == role_id, GroupRole.projects != "[]"
-                    )
-                ).first()
+                limited = (
+                    session.exec(
+                        select(GroupRole).where(
+                            GroupRole.role_id == role_id, GroupRole.projects != "[]"
+                        )
+                    ).first()
+                    or session.exec(
+                        select(ApiToken).where(
+                            ApiToken.access_role_id == role_id, col(ApiToken.project).is_not(None)
+                        )
+                    ).first()
+                )
                 if limited is not None:
                     raise ValueError(
                         "This role is limited to projects in a group: it cannot hold permissions "
@@ -489,7 +503,14 @@ def delete_role(role_id: int, actor: str | None = None) -> dict[str, Any]:
     with session_scope() as session:
         row = _get_role(session, role_id)
         if row.system:
-            raise ValueError(f"The system role {row.name} cannot be deleted")
+            raise ValueError(f"The built-in role {row.name} cannot be deleted")
+        tokens = session.exec(
+            select(func.count()).select_from(ApiToken).where(ApiToken.access_role_id == role_id)
+        ).one()
+        if tokens:
+            raise ValueError(
+                f"The role {row.name} is used by {tokens} API token(s): revoke them first"
+            )
         before = managers(session)
         deleted = _role_public(session, row)
         for binding in session.exec(select(GroupRole).where(GroupRole.role_id == role_id)).all():
@@ -505,6 +526,57 @@ def delete_role(role_id: int, actor: str | None = None) -> dict[str, Any]:
             details={"name": deleted["name"]},
         )
         return deleted
+
+
+# ── Role tokens ──────────────────────────────────────────────────────────────
+
+
+def list_token_roles() -> list[dict[str, Any]]:
+    """The roles a role ``api`` token may have: every role, with its permissions."""
+    with session_scope() as session:
+        rows = session.exec(
+            select(AccessRole).order_by(col(AccessRole.system).desc(), col(AccessRole.name))
+        ).all()
+        return [
+            {
+                "id": row.id,
+                "name": row.name,
+                "permissions": sorted(_permissions(row)),
+                "scoped": _permissions(row) <= SCOPED_PERMISSIONS,
+            }
+            for row in rows
+        ]
+
+
+def role_token_scope(
+    role_id: int, projects: Iterable[str] | None
+) -> tuple[list[str], list[str] | None]:
+    """Permissions of the role of a new role token, and its validated projects (None: every
+    project). Only a role made of scoped permissions may be limited to projects.
+
+    Raises:
+        NotFoundError: Unknown role.
+        ValueError: Projects refused for this role, or an empty list.
+    """
+    with session_scope() as session:
+        permissions = sorted(_permissions(_get_role(session, role_id)))
+    if projects is None:
+        return permissions, None
+    cleaned = clean_projects(permissions, projects)
+    if not cleaned:
+        raise ValueError("A token needs at least one project (None: every project)")
+    return permissions, cleaned
+
+
+def role_token_grants(
+    session: Session, role_id: int, projects: Iterable[str] | None
+) -> dict[str, Any] | None:
+    """Grants of a role ``api`` token: the permissions of its role (read now) on its projects
+    (None: every project); None when the role no longer exists."""
+    row = session.get(AccessRole, role_id)
+    if row is None:
+        return None
+    return combine([(_permissions(row), None if projects is None else list(projects))])
 
 
 # ── Groups ───────────────────────────────────────────────────────────────────

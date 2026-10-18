@@ -166,7 +166,7 @@ OIDC_FIELDS: dict[str, type] = {
     "client_id": str,
     "client_secret": str,
     "redirect_uri": str,
-    "scopes": str,
+    "scope": str,
     "roles_claim": str,
     "username_claim": str,
     "admin_groups": str,

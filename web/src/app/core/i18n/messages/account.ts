@@ -20,6 +20,11 @@ export const account = defineMessages({
     'account.refusedDetail': 'Password refused: {detail}',
     'account.refused': 'Password refused.',
     'account.failed': 'The password change failed.',
+    'apiTokens.title': 'API tokens',
+    'apiTokens.help':
+      'A personal API token calls the REST API (Swagger “Authorize” button, scripts) with your current rights, which come from your groups. It stops working when your account is deleted or loses its rights. Like every token, it never accepts a risk nor marks a false positive.',
+    'apiTokens.create': 'Create a token',
+    'apiTokens.empty': 'No API tokens.',
   },
   fr: {
     'account.mustChange':
@@ -40,6 +45,11 @@ export const account = defineMessages({
     'account.refusedDetail': 'Mot de passe refusé : {detail}',
     'account.refused': 'Mot de passe refusé.',
     'account.failed': 'Le changement de mot de passe a échoué.',
+    'apiTokens.title': 'Jetons API',
+    'apiTokens.help':
+      "Un jeton API personnel appelle l'API REST (bouton « Authorize » du Swagger, scripts) avec vos droits actuels, qui viennent de vos groupes. Il cesse de fonctionner quand votre compte est supprimé ou perd ses droits. Comme tout jeton, il n'accepte jamais un risque et ne marque jamais un faux positif.",
+    'apiTokens.create': 'Créer un jeton',
+    'apiTokens.empty': 'Aucun jeton API.',
   },
   es: {
     'account.mustChange':
@@ -60,5 +70,10 @@ export const account = defineMessages({
     'account.refusedDetail': 'Contraseña rechazada: {detail}',
     'account.refused': 'Contraseña rechazada.',
     'account.failed': 'El cambio de contraseña ha fallado.',
+    'apiTokens.title': 'Tokens API',
+    'apiTokens.help':
+      'Un token API personal llama a la API REST (botón «Authorize» de Swagger, scripts) con sus permisos actuales, que provienen de sus grupos. Deja de funcionar cuando su cuenta se elimina o pierde sus permisos. Como todo token, nunca acepta un riesgo ni marca un falso positivo.',
+    'apiTokens.create': 'Crear un token',
+    'apiTokens.empty': 'No hay tokens API.',
   },
 });

@@ -1,5 +1,12 @@
 import { MessageKey } from '../i18n/messages';
-import { FindingStatus, Permission, ReviewType, Role, Severity } from '../models/api.models';
+import {
+  FindingStatus,
+  Permission,
+  ReviewType,
+  Role,
+  Severity,
+  TokenRole,
+} from '../models/api.models';
 
 /** Message key and icon of each severity (color is never the only cue). */
 export const SEVERITY_META: Record<Severity, { label: MessageKey; icon: string }> = {
@@ -44,15 +51,14 @@ export const ROLE_META: Record<Role, { label: MessageKey; icon: string }> = {
   triager: { label: 'role.triager', icon: 'bi-funnel-fill' },
   reader: { label: 'role.reader', icon: 'bi-eye-fill' },
   mcp: { label: 'role.mcp', icon: 'bi-plug-fill' },
+  api: { label: 'role.api', icon: 'bi-key-fill' },
   ci: { label: 'role.ci', icon: 'bi-gear-wide-connected' },
 };
 
-/** What a token is used for, by role: the MCP server, the REST API (and its rights) or a
- * CI/CD pipeline. */
-export const TOKEN_ROLE_LABELS: Record<Role, MessageKey> = {
+/** What a token is used for, by role: the MCP server, a CI/CD pipeline or the administration. */
+export const TOKEN_ROLE_LABELS: Record<TokenRole, MessageKey> = {
   mcp: 'tokenRole.mcp',
-  reader: 'tokenRole.reader',
-  triager: 'tokenRole.triager',
+  api: 'tokenRole.api',
   admin: 'tokenRole.admin',
   ci: 'tokenRole.ci',
 };

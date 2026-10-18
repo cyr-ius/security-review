@@ -1,0 +1,11 @@
+<button
+  type="button"
+  class="btn btn-sm btn-outline-secondary"
+  (click)="onClick()"
+  [attr.aria-label]="
+    'theme.button' | t: { current: (current().label | t), next: (next().label | t) }
+  "
+  [title]="'theme.button' | t: { current: (current().label | t), next: (next().label | t) }"
+>
+  <i class="bi" [class]="current().icon" aria-hidden="true"></i>
+</button>

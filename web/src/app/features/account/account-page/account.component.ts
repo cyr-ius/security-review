@@ -2,21 +2,22 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormField, form, maxLength, required, validate } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { ROLE_META } from '../../core/constants/labels';
-import { MAX_PASSWORD_CHARS, followsPasswordPolicy } from '../../core/constants/passwords';
-import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { ApiService } from '../../core/services/api.service';
-import { AuthService } from '../../core/services/auth.service';
-import { PasswordPolicyComponent } from '../../shared/components/password-policy/password-policy.component';
+import { ROLE_META } from '../../../core/constants/labels';
+import { MAX_PASSWORD_CHARS, followsPasswordPolicy } from '../../../core/constants/passwords';
+import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { PasswordPolicyComponent } from '../../../shared/components/password-policy/password-policy.component';
+import { ApiTokensComponent } from '../api-tokens/api-tokens.component';
 
 /**
  * Account page: who is logged in and, for a web user, the change of its own password (the
- * other sessions of the user end, this tab gets a new session).
+ * other sessions of the user end, this tab gets a new session) and its API tokens.
  */
 @Component({
   selector: 'app-account',
-  imports: [FormField, PasswordPolicyComponent, TranslatePipe],
+  imports: [ApiTokensComponent, FormField, PasswordPolicyComponent, TranslatePipe],
   templateUrl: './account.component.html',
 })
 export class AccountComponent {

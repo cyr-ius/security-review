@@ -32,7 +32,7 @@ const TEXT_SETTINGS: readonly TextSettingName[] = [
   'client_id',
   'client_secret',
   'redirect_uri',
-  'scopes',
+  'scope',
   'roles_claim',
   'username_claim',
   'admin_groups',
@@ -76,7 +76,7 @@ const PROVIDER_FIELDS: FieldMeta[] = [
     kind: 'text',
     placeholder: 'https://secreview.example.com/api/v1/auth/oidc/callback',
   },
-  { name: 'scopes', label: 'sso.scopes', kind: 'text', placeholder: 'openid profile email' },
+  { name: 'scope', label: 'sso.scopes', kind: 'text', placeholder: 'openid profile email' },
   { name: 'display_name', label: 'sso.displayName', kind: 'text', placeholder: 'OIDC' },
 ];
 

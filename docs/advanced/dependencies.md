@@ -20,7 +20,7 @@ SBOM of the resolved dependency tree in the pipeline and scan it:
 ```bash
 # Maven: writes target/bom.json and target/bom.xml
 mvn org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
-security-review-controller deps scan target/bom.json --require-database
+security-review-ci deps-scan target/bom.json --project my-project --require-database
 ```
 
 With Gradle, the `cyclonedxBom` task of the `org.cyclonedx.bom` plugin produces the same file;
@@ -129,19 +129,29 @@ security-review-controller advisories update --ecosystem npm  # repeatable optio
 The controller downloads at most a few hundred MiB a day (the npm export is the largest): plan
 the matching space in its temporary folder (`/tmp`).
 
-## Pipeline scan
+## Scan in a pipeline (`security-review-ci deps-scan`)
 
-For large lockfiles, prefer the CLI to the MCP tool, limited to
-`SECREVIEW_MAX_DEPENDENCY_CHARS`:
+In a pipeline, the [pipeline client](../usage/gate.md#pipeline-client-security-review-ci) sends
+the dependency files to the controller, which checks them against its advisory database and,
+with `--save`, stores a `dependency-scan` report of the project. The pipeline needs neither the
+database nor the package, only a [`ci` token](../usage/gate.md#ci-token-and-visible-projects)
+(or `admin`) of the project:
 
 ```bash
-security-review-controller deps scan package-lock.json requirements.txt \
+export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
+export SECREVIEW_TOKEN=...   # ci token restricted to my-project
+security-review-ci deps-scan package-lock.json requirements.txt \
     --fail-on high --require-database --project my-project --save
 # exit code: 0 = ok, 1 = blocked, 2 = error
 ```
 
-With `--save`, `--author` stores the username of the developer with the report (see
-[author of a report](../usage/prompts-tools.md#author-of-a-report)).
+- `--require-database` refuses the scan (code `2`, nothing stored) when the vulnerability check
+  cannot run for a file.
+- With `--save`, `--author` stores the username of the developer with the report (see
+  [author of a report](../usage/prompts-tools.md#author-of-a-report)), `--repository`,
+  `--branch` and `--commit` the context; the label of the token is stored as the device.
+- Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the controller, the request
+  to `SECREVIEW_MAX_SCAN_REQUEST_MB`. Symbolic links are not read.
 
 ## Scan with a shared server (commit hook)
 
@@ -161,8 +171,8 @@ A refused token (missing, unknown, revoked, expired or not approved yet) ends wi
 suggests `security-review-mcp enroll` (see
 [rejected token](http.md#rejected-token-new-enrollment)).
 
-- Same options and output as `deps scan` (`--fail-on`, `--format`, `--require-database`);
-  nothing is stored (no `--save`).
+- Same options and output as `security-review-ci deps-scan` (`--fail-on`, `--format`,
+  `--require-database`); nothing is stored (no `--save`).
 - `--url` replaces `SECREVIEW_SERVER_URL`, `--token-stdin` reads the token on stdin instead of
   `SECREVIEW_TOKEN`. Both variables can also be set in the `.env` file of the folder (never
   commit it).

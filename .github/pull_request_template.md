@@ -27,7 +27,7 @@
 
 <!-- Revue faite avec le serveur MCP `security-review` (voir AGENTS.md).
      Si le serveur n'était pas disponible, dites-le et collez le résultat de :
-     uv run security-review-controller code scan . --exclude tests/ -->
+     uv run security-review-ci code-scan . --project security-review-mcp --exclude tests/ -->
 
 - Rapport n° : …
 - Prompt utilisé : `security-review` / `api-security-review` / `configuration-review` /

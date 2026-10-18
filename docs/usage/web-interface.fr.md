@@ -26,8 +26,15 @@ tous les comptes, puis **Référentiel** (règles, checklists, normes) et **Admi
 (utilisateurs, groupes, rôles, jetons, journal d'audit, OIDC, langue des rapports, proxy sortant,
 base OSV), chaque écran n'étant affiché qu'aux comptes qui ont sa
 [permission](../advanced/access-control.md#permissions). Le bas de la barre affiche le client connecté, son rôle et la
-version (un lien vers **À propos**), avec les boutons **Mon compte** et de déconnexion ; sur petit écran, la barre s'ouvre avec le bouton de menu. Le thème clair ou sombre se choisit en haut
-à droite, y compris sur la page de connexion, et reste mémorisé dans le navigateur.
+version (un lien vers **À propos**), avec les boutons **Mon compte** et de déconnexion.
+Sur petit écran, la barre est réduite à ses icônes (chacune nomme son écran au survol) et le
+bouton en haut à gauche l'ouvre en entier ; sur grand écran, le même bouton la réduit à ses icônes
+ou la déplie, un choix mémorisé par le navigateur.
+
+Le bouton de thème en haut à droite, y compris sur la page de connexion, passe d'**automatique**
+(le thème du système, suivi en direct) à **clair** puis **sombre**. Le choix d'un utilisateur
+connecté est conservé dans son compte (`GET` et `PUT /api/v1/me/preferences`), pour tous les
+navigateurs qu'il utilise ; le navigateur retient le dernier pour la page de connexion.
 
 L'interface est proposée en **anglais**, **français** et **espagnol**. La langue se choisit dans
 le sélecteur en haut à droite, y compris sur la page de connexion. Le changement est immédiat et
@@ -36,8 +43,10 @@ navigateur, ou l'anglais si elle n'en propose aucune. Ce choix ne concerne que l
 langue des rapports de revue se règle dans **Langue des rapports**, et les messages d'erreur détaillés
 renvoyés par l'API restent en anglais.
 
-La page **À propos** donne la version du contrôleur, les liens de la documentation, du code
-source et pour signaler un problème, le lien de la documentation Swagger quand elle est activée,
+La page **À propos** donne la version du contrôleur, si une **Nouvelle version** est disponible
+sur GitHub (seulement avec `SECREVIEW_UPDATE_CHECK_ENABLED=true`, voir les
+[connexions sortantes](../reference/security.md#securite-du-serveur-lui-meme)), les liens de la
+documentation, du code source et pour signaler un problème, le lien de la documentation Swagger quand elle est activée,
 et l'état du backend (`/api/health`, vérifié à nouveau avec **Vérifier à nouveau**). Au
 chargement, l'application interroge d'abord `/api/health` : si le contrôleur ne répond pas (ou
 cesse de répondre ensuite), la page **Backend indisponible** s'ouvre, et son bouton **Réessayer**
@@ -105,23 +114,27 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   locaux de ceux ouverts au OIDC. Ils créent les groupes, leur donnent des rôles (sur tous les
   projets ou sur certains), ajoutent des membres et choisissent si le groupe est **Ouvert au OIDC**
   (voir [Rôles, groupes et permissions](../advanced/access-control.md#groupes)).
-- **Rôles** : les administrateurs recherchent et trient les rôles, et filtrent les rôles système
-  des rôles personnalisés. Ils créent des rôles à partir des permissions ; les rôles système
-  `reader`, `triager` et `admin` sont affichés en lecture seule.
+- **Rôles** : les administrateurs recherchent et trient les rôles, et filtrent les rôles intégrés
+  des rôles personnalisés. Ils créent des rôles à partir des permissions ; les rôles intégrés
+  `reader` et `admin` sont affichés en lecture seule. `triager` (lecture et triage), créé avec la
+  base, est un rôle ordinaire : il peut être modifié ou supprimé.
 - **Mon compte** : affiche le type du compte. Un utilisateur local y change son mot de passe (ses
   autres sessions sont fermées) ; celui d'un utilisateur OIDC est géré par le fournisseur
-  d'identité.
+  d'identité. **Jetons API** crée et révoque des [jetons API](#jetons-api) personnels (API REST
+  et Swagger) qui portent les droits du compte.
 - **Jetons** : les demandes d'enrôlement sont recherchables, triables et filtrables par type ; les
   jetons actifs le sont par usage. Les administrateurs créent et révoquent des jetons pour un ou plusieurs
-  projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit **MCP** (rôle `mcp`), **API REST** ou **Pipeline CI/CD**
-  (rôle `ci`, pour [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)) ;
-  pour l'API REST, **Droits API** choisit **Lecture seule** (`reader`) ou **Lecture et triage**
-  (`triager`). Sous **Projets autorisés**, **Tous les projets** donne tous les projets, y
+  projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit
+  **MCP** (rôle `mcp`), **Pipeline CI/CD** (rôle `ci`, pour
+  [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)) ou **API REST** (rôle
+  `api`, avec le **Rôle** qu'il porte, voir [jetons API](#jetons-api)) : les jetons sont destinés
+  aux machines, une personne lit et trie avec un [compte utilisateur](#comptes-utilisateurs).
+  Sous **Projets autorisés**, **Tous les projets** donne tous les projets, y
   compris ceux revus plus tard, et **Projets sélectionnés** affiche les cases des projets que voit
   le jeton ;
   **Validité** fixe sa durée de vie (30 jours à 1 an, ou le défaut du serveur,
-  `SECREVIEW_TOKEN_MAX_DAYS`). La liste affiche l'usage de chaque jeton `mcp`, `reader`,
-  `triager` et `ci`, ses projets et sa date d'expiration (**Expiré** une fois passée).
+  `SECREVIEW_TOKEN_MAX_DAYS`). La liste affiche l'usage de chaque jeton `mcp` et `ci`, ses
+  projets et sa date d'expiration (**Expiré** une fois passée).
   **Projets** change les projets d'un jeton existant, ou lui donne **Tous les projets** après
   confirmation, sans changer son secret : le changement s'applique dès la requête suivante ; une
   demande en attente pour un projet désormais accordé est approuvée avec lui. **Renouveler** remplace le secret d'un jeton et affiche le
@@ -194,7 +207,7 @@ MCP `propose_finding_status`, voir [statut d'un finding](prompts-tools.md#statut
   décision supprime la proposition en attente.
 
 Seule une session (compte local ou OIDC) peut accepter un risque ou marquer un faux positif : un
-jeton Bearer, même `triager` ou `admin`, reçoit `403`. Par l'API REST :
+jeton Bearer, même `admin`, reçoit `403`. Par l'API REST :
 
 ```bash
 curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -214,46 +227,47 @@ nouveau la gate.
 
 ## Rôles
 
-Les **jetons** donnent accès au serveur MCP et à l'API REST (agents, CI, scripts) ; les
-**utilisateurs** (comptes locaux ou OIDC) sont les seuls à ouvrir l'interface web. Chaque jeton
-porte un rôle, qui détermine les endpoints accessibles :
+Les **jetons** sont destinés aux machines (agents MCP, pipelines CI/CD, Prometheus, scripts
+d'administration) ; les **utilisateurs** (comptes locaux ou OIDC) sont les personnes : eux seuls
+ouvrent l'interface web, et leurs droits viennent des rôles de leurs groupes. Chaque jeton porte
+un rôle, qui détermine les endpoints accessibles :
 
 | Rôle | Usage (écran **Jetons**) | `/mcp` | API REST (lecture) | Changement de statut |
 |---|---|---|---|---|
 | `mcp` (défaut) | MCP | ✅ | — | — |
-| `reader` | API REST — lecture seule | — | ✅ | — |
-| `triager` | API REST — lecture et triage | — | ✅ | `open`, `fixed` ¹ |
 | `admin` | CLI uniquement | ✅ | ✅ | `open`, `fixed` ¹ |
-| `ci` | Pipeline CI/CD — gate, SARIF et tendance | — | routes de pipeline seulement (`/api/v1/ci/`) | — |
+| `api` | API REST — Swagger et scripts ([jetons API](#jetons-api)) | — | ✅ avec les permissions de son rôle ou de son utilisateur | `open`, `fixed` ¹ avec `findings.triage` |
+| `ci` | Pipeline CI/CD — gate, SARIF, tendance et scans | — | routes de pipeline seulement (`/api/v1/ci/`), dont les scans qui enregistrent des rapports | — |
 | `metrics` | CLI seulement | — | `/metrics` seulement ([Prometheus](../advanced/audit-metrics.md#metriques-prometheus)) | — |
 
 ¹ Avec un jeton. `accepted` et `false_positive` exigent une personne connectée à l'interface
 avec la permission `findings.triage` ([triage des findings](#triage-des-findings)). Sur `/mcp`,
 aucun rôle ne change un statut : les agents ne font que le proposer.
 
-Un jeton `mcp`, `reader` ou `triager` restreint avec `--project` ne voit et ne trie que les
-projets autorisés ; un jeton `ci` est toujours restreint à ses projets (voir
+Un jeton `mcp` restreint avec `--project` ne voit que les projets autorisés ; un jeton `ci` est toujours restreint à ses projets (voir
 [jeton `ci`](gate.md#jeton-ci-et-projets-visibles)) ; l'option peut être répétée (voir
 [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)).
 
 Les personnes se connectent avec un [compte utilisateur](#comptes-utilisateurs) : local
 (identifiant et mot de passe) ou [OIDC](../advanced/sso.md). Ce qu'un compte peut faire vient
 des rôles de ses groupes (voir [Rôles, groupes et permissions](../advanced/access-control.md)) ;
-un compte n'ouvre jamais `/mcp`. Un jeton créé sans rôle reste `mcp` : il sert aux agents et à la
-CI, pas à l'interface web. Un jeton `reader`, `triager` ou `admin` appelle l'API
-REST, par exemple depuis un script, mais **n'ouvre pas l'interface** (la page de connexion ne
-propose que les comptes) :
+un compte n'ouvre jamais `/mcp`. Un jeton créé sans rôle reste `mcp` : il sert aux agents, pas à
+l'interface web. Il n'existe pas de jeton de lecture ou de triage : pour donner à une personne la
+lecture ou le triage, ajoutez son compte à un groupe qui a le rôle `reader` ou `triager` (sur
+certains projets ou sur tous). Un jeton `admin` appelle toute l'API REST, par exemple depuis un
+script d'administration, mais **n'ouvre pas l'interface** (la page de connexion ne propose que
+les comptes) :
 
 ```bash
-security-review-controller token create --label triage-bot --role triager
-# {"id": "…", "label": "triage-bot", "role": "triager", "project": null, "created_at": "…", "token": "UJB7…"}
+security-review-controller token create --label ops-script --role admin
+# {"id": "…", "label": "ops-script", "role": "admin", "project": null, "created_at": "…", "token": "UJB7…"}
 curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/projects
 ```
 
-Le même jeton liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
+L'API REST liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
 du plus grave au moins grave (filtres `status`, `severity` et `review_type`, `limit` plafonné par
 `SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer).
-Sans `project`, il liste les findings de tous les projets du périmètre du jeton
+Sans `project`, elle liste les findings de tous les projets que lit l'appelant
 (`"project": null`) :
 
 ```bash
@@ -270,24 +284,51 @@ curl -H "Authorization: Bearer $TOKEN" \
   "https://secreview.example.com/api/v1/reports?project=shop-api&author=alice@example.com"
 ```
 
-Révoquez-le avec `security-review-controller token revoke triage-bot`. Chaque changement de
+Révoquez-le avec `security-review-controller token revoke ops-script`. Chaque changement de
 statut est journalisé avec le label du jeton ou du compte :
 
 ```
-INFO security_review_mcp.web: Finding 42 set to fixed by triage-bot
+INFO security_review_mcp.web: Finding 42 set to fixed by ops-script
 ```
 
 et écrit dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit) (`GET /api/v1/audit`, permission
-`audit.read`), avec l'acteur `token:triage-bot` ou `user:<nom>`.
+`audit.read`), avec l'acteur `token:ops-script` ou `user:<nom>`.
 
 !!! warning "Authentification requise pour la Web UI"
     L'API de l'interface refuse les requêtes avec le statut `503` tant qu'aucun utilisateur ni
     jeton n'existe ; la mire de connexion reste affichée et indique que l'authentification doit
-    être configurée. Activez `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` (c'est le cas dans l'image Docker),
-    ou créez un compte avec `security-review-controller user create`. Cette restriction concerne
+    être configurée. `security-review-controller serve` crée le
+    [premier administrateur](#premier-administrateur) à son premier démarrage : cela n'arrive donc
+    qu'avant ; un compte peut aussi être créé avec `security-review-controller user create`. Cette restriction concerne
     la Web UI ; l'authentification MCP reste indépendante (un compte utilisateur n'ouvre jamais
     `/mcp`). Avec la [connexion OIDC](../advanced/sso.md), l'API demande une connexion
     (`401`) même sans utilisateur ni jeton en base.
+
+### Jetons API
+
+Un jeton `api` appelle l'API REST, depuis un script ou depuis la documentation Swagger
+(`/api/docs`, bouton **Authorize**), avec les droits du contrôle d'accès, lus à chaque requête.
+Il n'atteint jamais `/mcp`, n'ouvre jamais l'interface et, comme tout jeton, n'accepte jamais un
+risque et ne marque jamais un faux positif. Il en existe deux sortes :
+
+- **Jeton personnel** : un utilisateur le crée pour lui-même dans **Mon compte** > **Jetons API**
+  (10 au plus, label `<utilisateur>:<label>`, avec un `:` qu'aucun autre label de jeton ne peut contenir, validité bornée par `SECREVIEW_TOKEN_MAX_DAYS`). Il
+  porte les droits actuels du compte, qui viennent de ses groupes : il n'atteint plus rien dès que
+  le compte les perd, et il est supprimé avec le compte. Personne ne peut le renouveler ni changer
+  ses projets ; un administrateur peut le révoquer depuis l'écran **Jetons**.
+- **Jeton de rôle** : un administrateur (`tokens.manage`) le crée dans l'écran **Jetons** avec
+  l'**Usage** **API REST** et un **Rôle**. Il porte les permissions de ce rôle sur ses projets
+  (tous les projets, ou une liste quand le rôle ne détient que des permissions par projet). Son
+  créateur doit détenir chacune de ces permissions sur ces projets ; un rôle utilisé par un jeton
+  ne peut pas être supprimé.
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "swagger", "expires_in_days": 30}'
+# {"id": "…", "label": "alice:swagger", "role": "api", "personal": true, "access_role_id": null, …, "token": "Zq3…"}
+curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
+# {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
+```
 
 ## Comptes utilisateurs
 
@@ -341,20 +382,25 @@ identifiant et mot de passe, la réinitialisation et **Mon compte** le refusent.
 
 ### Premier administrateur
 
-Avec `SECREVIEW_AUTH_BOOTSTRAP_ADMIN=true` (c'est le cas dans l'image Docker), le contrôleur crée
-au premier démarrage l'utilisateur **`admin`**, membre du groupe `administrators` (rôle `admin`),
-tant qu'aucun compte n'existe.
-Son mot de passe est affiché une seule fois dans les journaux du contrôleur :
+À son premier démarrage, tant qu'aucun compte n'existe, le contrôleur crée le compte local
+**`admin`** (`SECREVIEW_ADMIN_USERNAME`), membre du groupe `administrators` (rôle `admin`),
+avec un mot de passe aléatoire que personne ne connaît et qui n'est jamais écrit dans les
+journaux. Le seul moyen d'obtenir un mot de passe est la CLI, qui en définit un nouveau et
+l'affiche une fois :
+
+```bash
+security-review-controller user reset-password admin
+# {"id": 1, "username": "admin", …, "must_change_password": true, "password": "q3V…"}
+```
 
 ```
-WARNING security_review_mcp.controller: Initial Web UI administrator created: user 'admin', password (shown once): …
+WARNING security_review_mcp.controller: Initial Web UI administrator 'admin' created: set its password with `security-review-controller user reset-password admin`
 ```
 
-Traitez ce mot de passe comme un secret : restreignez l'accès aux journaux et connectez-vous avec
-`admin`. L'interface **exige alors un nouveau mot de passe** avant toute autre chose : elle ouvre
-**Mon compte**, et l'API refuse toutes les autres routes (`403`) tant que le mot de passe n'est pas
-changé. S'il est perdu, générez-en un nouveau (l'ancien est aussitôt invalidé) :
-`security-review-controller user reset-password admin`.
+Traitez ce mot de passe comme un secret et connectez-vous avec `admin`. L'interface **exige alors
+un nouveau mot de passe** avant toute autre chose : elle ouvre **Mon compte**, et l'API refuse
+toutes les autres routes (`403`) tant que le mot de passe n'est pas changé. S'il est perdu,
+voir [mot de passe perdu](#mot-de-passe-perdu).
 
 Il en va de même de tout mot de passe défini par quelqu'un d'autre : un compte local créé ou
 réinitialisé par un administrateur (écran ou CLI) change son mot de passe à sa première connexion.
@@ -365,6 +411,41 @@ L'écran **Utilisateurs** affiche **mot de passe à changer** jusque-là.
     base existante, ce jeton reste valable ; le compte `admin` est créé au démarrage suivant s'il
     n'existe aucun compte. Une fois connecté avec le compte, révoquez l'ancien jeton :
     `security-review-controller token revoke bootstrap-admin`.
+
+#### Mot de passe perdu
+
+Le mot de passe est stocké sous forme d'empreinte scrypt : il est impossible de le relire.
+Remplacez-le avec la CLI du contrôleur, sur la même base :
+
+```bash
+security-review-controller user reset-password admin
+```
+
+La commande affiche le compte en JSON, avec un mot de passe généré dans le champ `password`
+(`| jq -r .password` pour ne garder que lui). L'ancien mot de passe est aussitôt invalidé, les
+sessions ouvertes du compte prennent fin et le nouveau mot de passe doit être changé à la
+prochaine connexion. Pour le choisir, donnez-le sur la première ligne de l'entrée standard (il
+n'apparaît alors ni dans l'historique du shell ni dans la liste des processus, et le JSON n'a pas
+de champ `password`) :
+
+```bash
+printf '%s\n' "$NEW_PASSWORD" | security-review-controller user reset-password admin --password-stdin
+```
+
+Lancez-la là où tourne le contrôleur :
+
+```bash
+# Docker Compose
+docker compose exec controller security-review-controller user reset-password admin
+# Kubernetes
+kubectl -n secreview exec deploy/secreview-controller -c controller -- \
+    security-review-controller user reset-password admin
+```
+
+Un compte OIDC n'a pas de mot de passe (code de sortie `2`). S'il ne reste aucun administrateur,
+créez-en un avec `security-review-controller user create NAME --group administrators` (mot de
+passe généré, affiché de la même façon) : le compte `admin` n'est créé au démarrage que tant
+qu'aucun compte n'existe.
 
 ### Connexion et sessions
 
@@ -393,12 +474,12 @@ base :
   par un administrateur) ferme toutes les sessions du compte ; `PUT /api/v1/me/password` remet une
   nouvelle session à l'onglet qui a changé le mot de passe.
 
-Les sessions sont signées avec `SECREVIEW_SESSION_SECRET` (32 caractères au moins), partagé par
+Les sessions sont signées avec `SECREVIEW_SECRET_KEY` (32 caractères au moins), partagé par
 toutes les répliques du contrôleur. Sans lui, le secret est lu dans
-`SECREVIEW_SESSION_SECRET_FILE` (`session-secret` dans le répertoire de travail, `/var/lib/secreview` en
+`SECREVIEW_SECRET_KEY_FILE` (`secret-key` dans le répertoire de travail, `/var/lib/secreview` en
 Docker), où il est généré au premier démarrage avec les droits `0600` : les sessions survivent à
 un redémarrage, et les répliques qui partagent le volume partagent le secret. Des répliques sans
-volume partagé doivent partager `SECREVIEW_SESSION_SECRET`.
+volume partagé doivent partager `SECREVIEW_SECRET_KEY`.
 
 Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour un identifiant
 depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
@@ -419,7 +500,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 ## Sécurité
 
 - Les fichiers statiques de `/ui/` sont publics (ils ne contiennent aucune donnée) ; l'API
-  `/api/v1/` exige une session ou un jeton `reader`, `triager` ou `admin`. Seules les routes de
+  `/api/v1/` exige une session ou un jeton `admin` ou `api`. Seules les routes de
   connexion (`/api/v1/auth/…`) sont publiques.
 - Les mots de passe des comptes ne sont jamais stockés : seule une empreinte **scrypt** salée
   (N=2¹⁴, r=8, p=5) est enregistrée et aucune réponse de l'API ne la renvoie. La vérification
@@ -430,7 +511,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   n'est chargé depuis Internet, et Swagger n'envoie jamais le schéma au validateur en ligne.
   Dans Swagger, le cadenas d'une route indique qu'elle exige un jeton : il reste **ouvert**
   tant que vous n'avez pas saisi de jeton avec **Authorize**, et ne veut pas dire que la route
-  est accessible sans jeton.
+  est accessible sans jeton. Saisissez-y un [jeton API](#jetons-api).
 - Le contrôleur n'expose aucune route d'écriture sans jeton. Les demandes
   d'[enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton) sont déposées sur
   le **serveur MCP** (`POST /api/v1/enroll`, public) ; le contrôleur les liste et les traite
@@ -454,9 +535,10 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 |---|---|---|
 | `SECREVIEW_WEB_UI` | `true` | Sert l'interface sur `/ui` ; à `false`, le contrôleur ne sert que l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
-| `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Crée le compte `admin` au premier démarrage du contrôleur, tant qu'aucun compte n'existe ; `true` dans Docker |
-| `SECREVIEW_SESSION_SECRET` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques |
-| `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | Fichier du secret quand `SECREVIEW_SESSION_SECRET` n'est pas défini, généré au premier démarrage |
+| `SECREVIEW_ADMIN_USERNAME` | `admin` | Nom du [premier administrateur](#premier-administrateur), créé au premier démarrage du contrôleur tant qu'aucun compte n'existe ; son mot de passe se définit avec `user reset-password` |
+| `SECREVIEW_OIDC_ONLY` | `false` | Avec le OIDC activé, refuse la connexion par mot de passe des comptes locaux ([OIDC seul](../advanced/sso.md#oidc-seul)) |
+| `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques |
+| `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | Fichier du secret quand `SECREVIEW_SECRET_KEY` n'est pas défini, généré au premier démarrage |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session (1 à 24 heures), connexion par compte local ou OIDC |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le [compte OIDC](../advanced/sso.md#comptes-oidc) à la première connexion ; sinon un administrateur le crée |
 | `SECREVIEW_ENROLLMENT` | `true` | Demandes de jetons par les projets (sur le serveur MCP), validées dans l'écran **Jetons** |

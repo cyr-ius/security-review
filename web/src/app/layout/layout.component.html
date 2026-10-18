@@ -1,46 +1,62 @@
-<div class="shell" [class.menu-open]="menuOpen()">
+<div class="shell" [class.menu-open]="menuOpen()" [class.rail]="rail()" [class.narrow]="narrow()">
   <aside class="sidebar" id="app-sidebar" [attr.aria-label]="'layout.mainNav' | t">
-    <a class="brand" routerLink="/" (click)="closeMenu()">
+    <a
+      class="brand"
+      [class.justify-content-center]="rail()"
+      [class.px-0]="rail()"
+      routerLink="/"
+      (click)="closeMenu()"
+    >
       <span class="brand-mark" aria-hidden="true"><i class="bi bi-shield-lock-fill"></i></span>
-      <span class="brand-text">
+      <span class="brand-text" [class.visually-hidden]="rail()">
         <span class="brand-name">Security Review</span>
         <span class="brand-sub">{{ 'layout.subtitle' | t }}</span>
       </span>
     </a>
 
     <nav class="nav-scroll">
-      <p class="nav-section">{{ 'layout.sectionSupervision' | t }}</p>
+      <p class="nav-section" [class.visually-hidden]="rail()">
+        {{ 'layout.sectionSupervision' | t }}
+      </p>
       <ul class="nav-list">
         @for (item of mainNav; track item.path) {
           <li>
             <a
               class="nav-entry"
+              [attr.title]="rail() ? (item.label | t) : null"
+              [class.justify-content-center]="rail()"
+              [class.px-0]="rail()"
               [routerLink]="item.path"
               routerLinkActive="active"
               ariaCurrentWhenActive="page"
               (click)="closeMenu()"
             >
               <i class="bi" [class]="item.icon" aria-hidden="true"></i>
-              {{ item.label | t }}
+              <span class="nav-label" [class.visually-hidden]="rail()">{{ item.label | t }}</span>
             </a>
           </li>
         }
       </ul>
 
       @if (referenceNav().length) {
-        <p class="nav-section">{{ 'layout.sectionReference' | t }}</p>
+        <p class="nav-section" [class.visually-hidden]="rail()">
+          {{ 'layout.sectionReference' | t }}
+        </p>
         <ul class="nav-list">
           @for (item of referenceNav(); track item.path) {
             <li>
               <a
                 class="nav-entry"
+                [attr.title]="rail() ? (item.label | t) : null"
+                [class.justify-content-center]="rail()"
+                [class.px-0]="rail()"
                 [routerLink]="item.path"
                 routerLinkActive="active"
                 ariaCurrentWhenActive="page"
                 (click)="closeMenu()"
               >
                 <i class="bi" [class]="item.icon" aria-hidden="true"></i>
-                {{ item.label | t }}
+                <span class="nav-label" [class.visually-hidden]="rail()">{{ item.label | t }}</span>
               </a>
             </li>
           }
@@ -48,19 +64,22 @@
       }
 
       @if (adminNav().length) {
-        <p class="nav-section">{{ 'layout.sectionAdmin' | t }}</p>
+        <p class="nav-section" [class.visually-hidden]="rail()">{{ 'layout.sectionAdmin' | t }}</p>
         <ul class="nav-list">
           @for (item of adminNav(); track item.path) {
             <li>
               <a
                 class="nav-entry"
+                [attr.title]="rail() ? (item.label | t) : null"
+                [class.justify-content-center]="rail()"
+                [class.px-0]="rail()"
                 [routerLink]="item.path"
                 routerLinkActive="active"
                 ariaCurrentWhenActive="page"
                 (click)="closeMenu()"
               >
                 <i class="bi" [class]="item.icon" aria-hidden="true"></i>
-                {{ item.label | t }}
+                <span class="nav-label" [class.visually-hidden]="rail()">{{ item.label | t }}</span>
               </a>
             </li>
           }
@@ -69,9 +88,14 @@
     </nav>
 
     @if (auth.identity(); as identity) {
-      <div class="user-card">
+      <div
+        class="user-card"
+        [class.flex-column]="rail()"
+        [class.px-1]="rail()"
+        [class.py-2]="rail()"
+      >
         <span class="avatar" aria-hidden="true">{{ initials() }}</span>
-        <span class="user-text">
+        <span class="user-text" [class.visually-hidden]="rail()">
           <span class="user-name" [title]="identity.client">{{ identity.client }}</span>
           <span class="user-role">
             <i class="bi" [class]="role().icon" aria-hidden="true"></i>
@@ -103,7 +127,8 @@
         (click)="closeMenu()"
         [attr.aria-label]="('about.title' | t) + ' · v' + identity.version"
       >
-        <i class="bi bi-info-circle" aria-hidden="true"></i> v{{ identity.version }}
+        <i class="bi bi-info-circle" aria-hidden="true"></i>
+        <span class="version-text" [class.visually-hidden]="rail()">v{{ identity.version }}</span>
       </a>
     }
   </aside>
@@ -114,38 +139,26 @@
     <header class="topbar">
       <button
         type="button"
-        class="btn btn-sm btn-outline-secondary d-lg-none"
-        (click)="menuOpen.set(!menuOpen())"
+        class="btn btn-sm btn-outline-secondary"
+        (click)="toggleSidebar()"
         aria-controls="app-sidebar"
-        [attr.aria-expanded]="menuOpen()"
-        [attr.aria-label]="'layout.menu' | t"
+        [attr.aria-expanded]="!rail()"
+        [attr.aria-label]="(rail() ? 'layout.expandMenu' : 'layout.collapseMenu') | t"
+        [title]="(rail() ? 'layout.expandMenu' : 'layout.collapseMenu') | t"
       >
-        <i class="bi bi-list" aria-hidden="true"></i>
+        <i
+          class="bi"
+          [class]="rail() ? 'bi-layout-sidebar' : 'bi-layout-sidebar-inset'"
+          aria-hidden="true"
+        ></i>
       </button>
-      <span class="brand-mark small-mark d-lg-none" aria-hidden="true">
-        <i class="bi bi-shield-lock-fill"></i>
-      </span>
       <span class="ms-auto"></span>
       <span class="status-pill d-none d-md-inline-flex">
         <span class="dot" aria-hidden="true"></span>
         {{ 'layout.connected' | t }}
       </span>
       <app-language-select />
-      <button
-        type="button"
-        class="btn btn-sm btn-outline-secondary"
-        (click)="theme.toggle()"
-        [attr.aria-label]="
-          (theme.theme() === 'dark' ? 'layout.lightTheme' : 'layout.darkTheme') | t
-        "
-        [title]="(theme.theme() === 'dark' ? 'layout.lightTheme' : 'layout.darkTheme') | t"
-      >
-        <i
-          class="bi"
-          [class]="theme.theme() === 'dark' ? 'bi-sun' : 'bi-moon-stars'"
-          aria-hidden="true"
-        ></i>
-      </button>
+      <app-theme-button />
     </header>
 
     <main class="content">

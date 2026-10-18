@@ -25,10 +25,11 @@ new projects apply at once, and a password change ends the sessions opened befor
 session must name the same username, so that a session never opens another account that reuses
 the id of a deleted one.
 
-The first administrator is the local user ``admin``, created with a random password on the first
-start of the controller (``SECREVIEW_AUTH_BOOTSTRAP_ADMIN``), member of the group
-``administrators``. The last user that holds ``users.manage`` can be neither deleted nor lose
-that permission, so that the web interface always keeps an administrator.
+The first administrator is the local user ``SECREVIEW_ADMIN_USERNAME`` (``admin``), created on
+the first start of the controller with a random password that only ``user reset-password`` sets,
+member of the group ``administrators``. The last user that holds ``users.manage`` can be
+neither deleted nor lose that permission, so that the web interface always keeps an
+administrator.
 
 Failed logins are throttled per username and address and per address, in the database
 (rate_limit.LoginThrottle): every worker and replica of the controller shares the counts.
@@ -49,7 +50,7 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, select
 
-from . import access_control, audit
+from . import access_control, audit, token_store
 from .audit import AuditAction
 from .config import Settings
 from .database import session_scope
@@ -63,7 +64,6 @@ Permission = access_control.Permission
 
 logger = logging.getLogger("security_review_mcp.web")
 
-BOOTSTRAP_USERNAME = "admin"
 MAX_USERS = 500
 MAX_USERNAME_CHARS = 64
 # Length of the sub claim of OpenID Connect (and of WebUser.oidc_subject)
@@ -77,6 +77,8 @@ GENERATED_PASSWORD_CHARS = 24
 SESSION_VERSION_BITS = 62
 USERNAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@-]*")
 AUTH_LOCAL = "local"
+# Themes of the web interface; auto follows the system preference
+THEMES = ("light", "dark", "auto")
 AUTH_OIDC = "oidc"
 AUTH_SOURCES = (AUTH_LOCAL, AUTH_OIDC)
 
@@ -494,6 +496,23 @@ def change_own_password(user_id: int, current: str, new: str) -> dict[str, Any]:
     return set_password(user_id, new, must_change=False)
 
 
+def get_preferences(user_id: int) -> dict[str, str]:
+    """Preferences of a web user in the web interface (its theme)."""
+    with session_scope() as session:
+        return {"theme": _get(session, user_id).theme}
+
+
+def set_theme(user_id: int, theme: str) -> dict[str, str]:
+    """Remember the theme of a web user; raise ValueError when it is not one of THEMES."""
+    if theme not in THEMES:
+        raise ValueError(f"theme must be one of: {', '.join(THEMES)}")
+    with session_scope() as session:
+        row = _get(session, user_id)
+        row.theme = theme
+        session.add(row)
+    return {"theme": theme}
+
+
 def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
     """Delete a user (its sessions stop at once); the last administrator is kept.
 
@@ -508,6 +527,7 @@ def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
         if row.auth_source == AUTH_OIDC and not _is_revoked(session, row.username):
             session.add(RevokedSsoUser(username=row.username, revoked_by=deleted_by))
         access_control.forget_user(session, user_id)
+        token_store.delete_user_tokens(session, user_id, deleted_by)
         session.delete(row)
     return deleted
 
@@ -580,22 +600,28 @@ def authenticate(username: str, password: str, address: str | None = None) -> di
     return None
 
 
-def ensure_bootstrap_admin() -> str | None:
-    """Create the local user ``admin`` with a random password while no web user exists.
+def ensure_bootstrap_admin(username: str = "admin") -> bool:
+    """Create the local administrator ``username`` while no web user exists; True if created.
 
     The user joins the group ``administrators`` (created with the ``admin`` role when missing).
-    Return the password only when the user was created.
+    Its random password is never returned nor logged: an operator sets one with
+    ``security-review-controller user reset-password``, and the user changes it at its first
+    login.
+
+    Raises:
+        ValueError: If the username is invalid.
     """
+    name = clean_username(username)
     if has_users():
-        return None
+        return False
     with session_scope() as session:
         group_id = access_control.ensure_admin_group(session).id
     try:
-        created = create_user(BOOTSTRAP_USERNAME, None, [group_id], created_by="bootstrap")  # type: ignore[list-item]
+        create_user(name, None, [group_id], created_by="bootstrap")  # type: ignore[list-item]
     except ValueError:
         # Another instance sharing the database created it first
-        return None
-    return created["password"]
+        return False
+    return True
 
 
 # ── Access given at the approval of an enrollment ────────────────────────────

@@ -43,74 +43,6 @@ def text_of(result) -> str:
     return "".join(block.text for block in result.content if hasattr(block, "text"))
 
 
-# ── deps scan ────────────────────────────────────────────────────────────────
-
-
-def test_deps_scan_blocks_on_vulnerability(tmp_path, capsys):
-    assert cli.run(["advisories", "import", str(import_osv(tmp_path, severity="HIGH"))]) == 0
-    manifest = tmp_path / "requirements.txt"
-    manifest.write_text("requests==2.19.0\n", encoding="utf-8")
-    capsys.readouterr()
-    assert cli.run(["deps", "scan", str(manifest)]) == cli.EXIT_BLOCKED
-    out = capsys.readouterr().out
-    assert "PYSEC-1" in out and "upgrade to 2.20.0" in out and "BLOCKED" in out
-
-
-def test_deps_scan_fail_on_threshold(tmp_path):
-    cli.run(["advisories", "import", str(import_osv(tmp_path, severity="HIGH"))])
-    manifest = tmp_path / "requirements.txt"
-    manifest.write_text("requests==2.19.0\n", encoding="utf-8")
-    assert cli.run(["deps", "scan", str(manifest), "--fail-on", "critical"]) == cli.EXIT_PASSED
-
-
-def test_deps_scan_json_and_save(tmp_path, capsys):
-    cli.run(["advisories", "import", str(import_osv(tmp_path, severity="HIGH"))])
-    manifest = tmp_path / "requirements.txt"
-    manifest.write_text("requests==2.19.0\n", encoding="utf-8")
-    capsys.readouterr()
-    code = cli.run(
-        ["deps", "scan", str(manifest), "--format", "json", "--save", "--project", "demo"]
-    )
-    data = json.loads(capsys.readouterr().out)
-    assert code == cli.EXIT_BLOCKED and data["blocked"] is True
-    assert data["saved_report"]["report_id"] >= 1
-    assert data["saved_report"]["review_type"] == "dependency-scan"
-    assert services.list_reports(project="demo")
-
-
-def test_deps_scan_saves_the_author_and_refuses_an_invalid_one(tmp_path, capsys):
-    manifest = tmp_path / "requirements.txt"
-    manifest.write_text("flask==1.0\n", encoding="utf-8")
-    base = ["deps", "scan", str(manifest), "--format", "json", "--save", "--project", "demo"]
-    assert cli.run([*base, "--author", "alice"]) == cli.EXIT_PASSED
-    saved = json.loads(capsys.readouterr().out)["saved_report"]
-    assert services.get_report(saved["report_id"]).author == "alice"
-    assert cli.run([*base, "--author", "a" * 201]) == cli.EXIT_ERROR
-    assert "at most 200" in capsys.readouterr().err
-    assert len(services.list_reports(project="demo")) == 1
-
-
-def test_deps_scan_save_needs_a_project(tmp_path):
-    manifest = tmp_path / "requirements.txt"
-    manifest.write_text("flask==1.0\n", encoding="utf-8")
-    assert cli.run(["deps", "scan", str(manifest), "--save"]) == cli.EXIT_ERROR
-
-
-def test_deps_scan_require_database(tmp_path, capsys):
-    manifest = tmp_path / "requirements.txt"
-    manifest.write_text("flask==1.0\n", encoding="utf-8")
-    assert cli.run(["deps", "scan", str(manifest)]) == cli.EXIT_PASSED
-    assert "warning" in capsys.readouterr().err
-    assert cli.run(["deps", "scan", str(manifest), "--require-database"]) == cli.EXIT_ERROR
-
-
-def test_deps_scan_errors(tmp_path):
-    assert cli.run(["deps", "scan", str(tmp_path / "missing.txt")]) == cli.EXIT_ERROR
-    other = tmp_path / "notes.md"
-    other.write_text("x", encoding="utf-8")
-    assert cli.run(["deps", "scan", str(other)]) == cli.EXIT_ERROR
-
-
 # ── advisories / sarif / trend ───────────────────────────────────────────────
 
 
@@ -262,21 +194,6 @@ async def test_scan_dependencies_tool(tmp_path):
         assert status["loaded"] is True
 
 
-def test_deps_scan_accepts_a_cyclonedx_sbom(tmp_path, capsys):
-    cli.run(["advisories", "import", str(import_osv(tmp_path, severity="HIGH"))])
-    sbom = tmp_path / "bom.json"
-    sbom.write_text(
-        json.dumps(
-            {"bomFormat": "CycloneDX", "components": [{"purl": "pkg:pypi/requests@2.19.0"}]}
-        ),
-        encoding="utf-8",
-    )
-    capsys.readouterr()
-    assert cli.run(["deps", "scan", str(sbom), "--require-database"]) == cli.EXIT_BLOCKED
-    out = capsys.readouterr().out
-    assert "bom.json (PyPI, lockfile)" in out and "PYSEC-1" in out
-
-
 @pytest.mark.anyio
 async def test_scan_dependencies_tool_accepts_a_cyclonedx_sbom(tmp_path):
     cli.run(["advisories", "import", str(import_osv(tmp_path, severity="HIGH"))])
@@ -298,7 +215,7 @@ async def test_scan_dependencies_tool_limits_and_errors(monkeypatch):
         big = await client.call_tool(
             "scan_dependencies", {"content": "flask==1.0\n" * 10, "filename": "requirements.txt"}
         )
-        assert big.is_error and "deps scan" in text_of(big)
+        assert big.is_error and "security-review-ci deps-scan" in text_of(big)
         bad = await client.call_tool("scan_dependencies", {"content": "x", "filename": "notes.md"})
         assert bad.is_error and "Unsupported" in text_of(bad)
 
@@ -352,7 +269,7 @@ def test_init_db_moves_legacy_project_tokens():
         conn.execute(
             text(
                 "INSERT INTO apitoken (id, label, role, project, token_hash, created_at) "
-                "VALUES ('t1', 'old', 'reader', 'shop-api', :digest, CURRENT_TIMESTAMP)"
+                "VALUES ('t1', 'old', 'mcp', 'shop-api', :digest, CURRENT_TIMESTAMP)"
             ),
             {"digest": "ab" * 32},
         )

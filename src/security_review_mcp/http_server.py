@@ -15,9 +15,9 @@ Two apps are built, meant to run in separate processes (containers, pods) sharin
   application under ``/ui`` (see web_api).
 
 Each token carries a role that decides which of the two it may use. A ``ci`` token only reaches
-the read-only pipeline routes of the controller (``/api/v1/ci/``, see web_api and ci_client), a
-``metrics`` token only its Prometheus endpoint (``/metrics``, see metrics). An expired token
-authenticates nothing.
+the pipeline routes of the controller (``/api/v1/ci/``, see web_api and ci_client: gate, SARIF,
+trend, and the scans that store reports of its projects), a ``metrics`` token only its
+Prometheus endpoint (``/metrics``, see metrics). An expired token authenticates nothing.
 """
 
 import argparse
@@ -49,15 +49,22 @@ LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 
 
 class Role(StrEnum):
-    """What a token may do.
+    """What a bearer credential may do.
 
-    ``mcp`` (default) only reaches the MCP endpoint; ``reader`` and ``triager`` only reach the
-    web API; ``admin`` reaches both MCP and the web API; ``ci`` (always restricted to projects)
-    only reaches the pipeline routes of the web API (gate, SARIF, trend); ``metrics`` (never
-    restricted to projects) only reaches the Prometheus endpoint of the controller.
+    Tokens (TOKEN_ROLES): ``mcp`` (default) only reaches the MCP endpoint; ``admin`` reaches
+    both MCP and the web API; ``api`` only reaches the web API (Swagger, scripts), with the
+    permissions of its owner (personal token) or of its role (role token, see token_store);
+    ``ci`` (always restricted to projects) only reaches the pipeline
+    routes of the web API (gate, SARIF, trend, and the code and dependency scans, which store
+    reports); ``metrics`` (never restricted to projects) only reaches the Prometheus endpoint of
+    the controller.
+
+    ``reader`` and ``triager`` are never the role of a token: they only sum up the permissions of
+    a web session (see access_control.summary_role), whose rights come from its groups.
     """
 
     MCP = "mcp"
+    API = "api"
     READER = "reader"
     TRIAGER = "triager"
     ADMIN = "admin"
@@ -66,11 +73,16 @@ class Role(StrEnum):
 
 
 DEFAULT_ROLE = Role.MCP
+# Roles a bearer token may have (a person reaches the web API through a session only)
+TOKEN_ROLES = frozenset({Role.MCP, Role.API, Role.ADMIN, Role.CI, Role.METRICS})
 MCP_ROLES = frozenset({Role.MCP, Role.ADMIN})
 WEB_ROLES = frozenset({Role.READER, Role.TRIAGER, Role.ADMIN})
-TRIAGE_ROLES = frozenset({Role.TRIAGER, Role.ADMIN})
-# Roles accepted by the pipeline routes of the controller (read only, scoped to projects)
-CI_ROUTE_ROLES = WEB_ROLES | {Role.CI}
+# Roles accepted by the REST API of the controller: web sessions, admin and api tokens
+API_ROLES = WEB_ROLES | {Role.API}
+# Roles accepted by the pipeline routes of the controller (scoped to projects)
+CI_ROUTE_ROLES = API_ROLES | {Role.CI}
+# Roles accepted by the scans of the pipeline routes, which may store a report
+SCAN_ROUTE_ROLES = frozenset({Role.CI, Role.ADMIN})
 # Roles accepted by the Prometheus endpoint of the controller
 METRICS_ROLES = frozenset({Role.METRICS, Role.ADMIN})
 
@@ -259,7 +271,7 @@ class BearerAuthMiddleware:
             return role in METRICS_ROLES
         if path.startswith(CI_PREFIX):
             return role in CI_ROUTE_ROLES
-        return role in WEB_ROLES
+        return role in API_ROLES
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":

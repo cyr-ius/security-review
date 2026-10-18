@@ -5,8 +5,9 @@
 - **Deux processus** : le serveur MCP (exposé aux agents) et le contrôleur (API REST, interface
   web, administration) tournent séparément et ne partagent que la base (voir
   [Architecture et déploiement](../advanced/architecture.md)). Le serveur MCP n'accepte que les
-  rôles `mcp` et `admin`, le contrôleur que `reader`, `triager` et `admin`, plus `ci` sur ses
-  routes de pipeline en lecture seule (`/api/v1/ci/`) et nulle part ailleurs. Le contrôleur
+  jetons `mcp` et `admin`, le contrôleur que les sessions web et les jetons `admin` et `api`, plus `ci` sur ses
+  routes de pipeline (`/api/v1/ci/` : gate, SARIF et tendance en lecture seule, scans qui
+  enregistrent des rapports de ses projets) et nulle part ailleurs. Le contrôleur
   n'expose aucune route d'écriture sans jeton : il peut rester sur un réseau interne, et la
   compromission du serveur MCP exposé ne donne pas accès à l'interface d'administration.
 - **Transport HTTP** : authentification MCP par jeton Bearer et TLS intégrés mais facultatifs (voir
@@ -14,7 +15,7 @@
   base et seules leurs empreintes SHA-256 sont conservées. Chaque requête recherche l'empreinte
   du jeton présenté, ce qui ne révèle rien d'exploitable sans préimage, puis la vérifie en temps
   constant : une révocation est donc immédiate sur toutes les instances. Un jeton créé avec
-  `--project` est limité à ce projet dans les outils MCP et l'API web : tout autre projet,
+  `--project` est limité à ce projet dans les outils MCP et les routes de pipeline : tout autre projet,
   rapport ou finding est traité comme inexistant (voir
   [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)). Tant
   qu'aucun jeton n'existe, le serveur MCP reste fermé (seul l'enrôlement est accessible), sauf
@@ -24,8 +25,13 @@
   l'opérateur, signé par une
   [autorité de certification](../advanced/http.md#autorite-de-certification). Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
-  (`mcp`, `reader`, `triager`, `admin`, `ci`, `metrics`) ; un jeton `mcp` sans projet accède à
-  tous les outils MCP et à tous les projets.
+  (`mcp`, `api`, `admin`, `ci`, `metrics`) ; un jeton `reader` ou `triager` stocké, laissé par une
+  version antérieure, n'authentifie rien. Un jeton `api` ne porte que des droits du contrôle
+  d'accès, lus à chaque requête : ceux de son utilisateur (jeton personnel, supprimé avec
+  l'utilisateur, jamais renouvelé par un tiers, dont le nouveau secret porterait les droits de
+  l'utilisateur) ou ceux de son rôle sur ses projets (jeton de rôle, dont le créateur doit détenir
+  chaque permission). Un jeton ne crée jamais un autre jeton personnel. Un jeton `mcp` sans projet
+  accède à tous les outils MCP et à tous les projets.
 - **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`,
   ou seulement le [serveur d'enrôlement](../advanced/http.md#jeton-refuse-nouvel-enrolement) sur
   `/mcp`), et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons
@@ -97,10 +103,28 @@
   **secret client** saisi dans l'interface est enregistré en base **en clair** : l'API ne le
   renvoie jamais (`***`) et les journaux ne citent que le nom des réglages modifiés ; préférez
   `SECREVIEW_OIDC_CLIENT_SECRET` (secret Kubernetes) si la base n'est pas protégée comme un
-  secret.
-- **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton de rôle web ;
-  sans utilisateur ni jeton, elle répond `503` au lieu d'accorder les droits anonymes. Seuls `triager` et `admin` changent
-  le statut d'un finding (action journalisée avec le label du jeton), et seule une personne
+  secret. Avec `SECREVIEW_UPDATE_CHECK_ENABLED=true` (désactivé par défaut), la page **À
+  propos** demande à `api.github.com` la dernière version publiée du dépôt : HTTPS uniquement,
+  par le proxy sortant, redirections limitées au HTTPS, réponse bornée à 512 Kio, délai de
+  10 secondes, au plus une requête par processus du contrôleur toutes les 6 heures (15 minutes
+  après un échec) ; seuls la version et le lien de la version sont conservés (un lien hors des
+  versions du dépôt est remplacé), et la page ne reçoit qu'un code d'erreur court. Avec
+  `SECREVIEW_AUDIT_SYSLOG_ADDRESS` (désactivé par défaut), le contrôleur envoie les
+  [événements d'audit](../advanced/audit-metrics.md#envoi-vers-syslog) à ce serveur syslog (UDP,
+  TCP ou socket Unix, ni TLS ni proxy : passez par un relais local pour le TLS) ; les
+  événements ne contiennent aucun secret (détails masqués), et le serveur MCP ne se connecte
+  toujours nulle part.
+- **Administrateur initial** : créé par le contrôleur à son premier démarrage avec un mot de
+  passe aléatoire que personne ne connaît, jamais journalisé ni passé par une variable ; le seul
+  moyen d'obtenir un mot de passe est `security-review-controller user reset-password`, lancé par
+  un opérateur, qui l'affiche une fois. Avec `SECREVIEW_OIDC_ONLY=true` et le OIDC activé, la connexion par mot
+  de passe des comptes locaux est refusée (`403`) ; une configuration OIDC désactivée ou invalide
+  ne bloque jamais les comptes locaux.
+- **Interface web** (contrôleur) : l'API REST exige toujours une session ou un jeton `admin` ou
+  `api` ;
+  sans utilisateur ni jeton, elle répond `503` au lieu d'accorder les droits anonymes. Seuls une
+  session ou un jeton `api` qui ont la permission `findings.triage`, ou un jeton `admin`, changent le statut d'un
+  finding (action journalisée avec l'utilisateur ou le label du jeton), et seule une personne
   connectée à l'interface (session) accepte un risque ou marque un faux positif : un jeton Bearer
   est refusé (`403`), même `admin`. Ces deux décisions exigent un motif et une date d'expiration
   (au plus `SECREVIEW_MAX_DISMISSAL_DAYS` jours) ; l'approbateur est l'utilisateur connecté, et le
@@ -142,7 +166,7 @@
   `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` laisse tout client choisir son adresse et contourner les
   limites). Seuls les identifiants valides sont
   journalisés, jamais les mots de passe. La session est un jeton signé avec
-  `SECREVIEW_SESSION_SECRET`, comme celle du OIDC, mais le compte est **relu en base à chaque
+  `SECREVIEW_SECRET_KEY`, comme celle du OIDC, mais le compte est **relu en base à chaque
   requête** : suppression, nouveau rôle ou nouveaux projets s'appliquent immédiatement, et un
   changement de mot de passe tire une nouvelle version de session aléatoire qui invalide toutes
   les sessions précédentes. La session doit aussi porter l'identifiant du compte : elle n'ouvre
@@ -167,22 +191,29 @@
   administrateur ne l'a pas recréé ou autorisé à nouveau.
   Vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant de lui donner la lecture
   du projet. Une session restreinte à des projets l'est comme un jeton `--project`. La session est
-  un jeton signé (HMAC-SHA256, clé dérivée de `SECREVIEW_SESSION_SECRET`) qui désigne le compte,
+  un jeton signé (HMAC-SHA256, clé dérivée de `SECREVIEW_SECRET_KEY`) qui désigne le compte,
   relu à chaque requête : la suppression du compte la coupe aussitôt. Elle est acceptée par le
   contrôleur seulement, jamais par le serveur MCP. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
   jetons et secrets ne sont jamais journalisés par le contrôleur ; le code d'autorisation
   apparaît toutefois dans les journaux d'accès d'un reverse proxy ou d'uvicorn, ce qui est
   sans danger : il est à usage unique et inutilisable sans le vérificateur PKCE du cookie. Les
-  réglages secrets (`SECREVIEW_SESSION_SECRET`, `SECREVIEW_OIDC_CLIENT_SECRET`,
+  réglages secrets (`SECREVIEW_SECRET_KEY`, `SECREVIEW_OIDC_CLIENT_SECRET`,
   `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`) sont typés comme secrets : ils
-  n'apparaissent jamais dans un affichage des réglages. Sans `SECREVIEW_SESSION_SECRET`, le
-  secret de session généré est écrit une seule fois dans `SECREVIEW_SESSION_SECRET_FILE` avec les
+  n'apparaissent jamais dans un affichage des réglages. Sans `SECREVIEW_SECRET_KEY`, le
+  secret de session généré est écrit une seule fois dans `SECREVIEW_SECRET_KEY_FILE` avec les
   droits `0600` (un avertissement est journalisé si le fichier est lisible par d'autres
   utilisateurs).
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
-  serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Le scan du dépôt
-  complet est réservé à la CLI (`code scan`), lancée par l'opérateur sur un dossier qu'il
-  choisit ; elle ne suit pas les liens symboliques.
+  serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Pour le scan du
+  dépôt complet, le client de pipeline (`security-review-ci code-scan`), lancé par l'opérateur
+  sur un dossier qu'il choisit, lit les fichiers sans suivre les liens symboliques et envoie
+  leur contenu au contrôleur, qui le scanne sans lire son propre disque.
+- **Scans de pipeline** : `POST /api/v1/ci/scan/code` et `/scan/deps` demandent un jeton `ci` ou
+  `admin` (une session web est refusée) et restent dans les
+  projets du jeton ; ils n'enregistrent un rapport qu'avec `save`. Le corps de la requête est
+  borné (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` au-delà, lu après la vérification du jeton),
+  comme le nombre de fichiers (`SECREVIEW_MAX_SCAN_FILES`) et leur taille ; les secrets sont
+  masqués dans les extraits et dans le rapport enregistré.
 - **Base de données** : les requêtes SQL passent par l'ORM (paramètres liés) ; les tailles
   d'entrée, le nombre de findings et la pagination sont bornés. Le schéma est migré par
   Alembic ; le serveur MCP HTTP ne le modifie jamais et refuse de servir une base qui n'est pas

@@ -2,35 +2,59 @@
 
 The review prompts work on what the agent gives them, often the diff of a merge request, and
 `scan_code` is limited to `SECREVIEW_MAX_CONTENT_CHARS` per call. To cover the **whole**
-repository, use the CLI:
+repository, use the [pipeline client](../usage/gate.md#pipeline-client-security-review-ci)
+`security-review-ci code-scan`: it reads the files of the repository and sends their content
+to the controller, which scans them with the [rules](rules.md) of its database.
 
 ```bash
-security-review-controller code scan .                               # text summary, exit code 0/1/2
-security-review-controller code scan . --format json -o scan.json    # for the codebase-review prompt
-security-review-controller code scan . --format sarif -o code.sarif  # GitHub code scanning, Jenkins...
-security-review-controller code scan . --save --project portal --commit "$CI_COMMIT_SHA"
+export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
+export SECREVIEW_TOKEN=...   # ci token restricted to the project (or admin token)
+
+security-review-ci code-scan . --project portal                               # text summary, exit code 0/1/2
+security-review-ci code-scan . --project portal --format json -o scan.json    # for the codebase-review prompt
+security-review-ci code-scan . --project portal --format sarif -o code.sarif  # GitHub code scanning, Jenkins...
+security-review-ci code-scan . --project portal --save --commit "$CI_COMMIT_SHA"
 ```
 
+The pipeline needs neither the database nor the package: only Python and the
+[`ci` token](../usage/gate.md#ci-token-and-visible-projects) of the project.
+
 ## File selection
+
+The client chooses the files; the controller never reads its own disk.
 
 - Files come from `git ls-files` (tracked + untracked not ignored: `.gitignore` is honored).
   Outside a git repository, or with `--no-git`, the tree is walked, skipping `node_modules`,
   `.venv`, `dist`, `build`, `target`, etc.
 - The language is inferred from the name: `.py`, `.java`, `.ts`, `.js`, `.html` (Angular
   templates), `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
-  `.gitlab-ci.yml`. Lockfiles, `*.min.js` and `*.d.ts` are skipped.
-- Skipped and reported files: `--exclude GLOB` (repeatable, e.g. `--exclude tests/`), beyond
-  `--max-file-bytes` (1 MiB by default), binaries, symbolic links.
+  `.gitlab-ci.yml`. Lockfiles, `*.min.js` and `*.d.ts` are skipped. Only these files are sent.
+- Skipped files: `--exclude GLOB` (repeatable, e.g. `--exclude tests/`, only counted), and,
+  reported, files beyond `--max-file-bytes` (1 MiB by default), binaries and symbolic links.
+
+!!! note "The content leaves the build agent"
+    The source code is sent to the controller (HTTPS, or plain HTTP to a loopback address or
+    with `--allow-http`). Exclude what must not leave the agent with `--exclude`.
+
+## Limits of the controller
+
+| Variable | Default | Effect |
+|---|---|---|
+| `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Size of the request: beyond it, the controller answers `413` (exit code `2`) |
+| `SECREVIEW_MAX_SCAN_FILES` | `10000` | Files per request: beyond it, `422` |
+| `SECREVIEW_MAX_SCAN_FILE_CHARS` | `1048576` | A larger file is not scanned and is listed as skipped |
 
 ## Threshold and saving
 
 - `--fail-on` (default `high`) sets the blocking threshold; the [rules](rules.md) of the
-  database (`SECREVIEW_DATABASE_URL`) and the `secreview:ignore` markers apply as for
-  `scan_code`. If the database cannot be reached, the default rules (`default_rules.toml`)
-  apply and a warning is written on stderr.
-- `--save` stores the matches as findings (at most `SECREVIEW_MAX_FINDINGS_PER_REPORT`, the most
-  severe first) and the list of files not analyzed in `scope`; `--author` adds the username of
-  the developer (see [author of a report](../usage/prompts-tools.md#author-of-a-report)).
+  database and the `secreview:ignore` markers apply as for `scan_code`.
+- `--save` stores the matches as a `code-scan` report (at most
+  `SECREVIEW_MAX_FINDINGS_PER_REPORT` findings, the most severe first), with the list of files
+  not analyzed in `scope` and the label of the token as the device that saved it; `--author`
+  adds the username of the developer (see
+  [author of a report](../usage/prompts-tools.md#author-of-a-report)), `--repository`,
+  `--branch` and `--commit` the context.
+- With `--save --format sarif`, the SARIF log carries the ids of the stored findings.
 
 !!! warning "Triage before blocking"
     Matches are **leads**. Triage them (`triage-report` prompt) before making a

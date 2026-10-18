@@ -5,8 +5,9 @@
 - **Two processes**: the MCP server (exposed to the agents) and the controller (REST API, web
   interface, administration) run separately and only share the database (see
   [Architecture and deployment](../advanced/architecture.md)). The MCP server only accepts
-  the `mcp` and `admin` roles, the controller only `reader`, `triager` and `admin`, plus `ci`
-  on its read-only pipeline routes (`/api/v1/ci/`) and nowhere else. The
+  the `mcp` and `admin` tokens, the controller only web sessions and `admin` and `api` tokens, plus `ci`
+  on its pipeline routes (`/api/v1/ci/`: gate, SARIF and trend in read only, scans that store
+  reports of its projects) and nowhere else. The
   controller exposes no write route without a token: it can stay on an internal network, and the
   compromise of the exposed MCP server gives no access to the administration interface.
 - **HTTP transport**: MCP authentication by Bearer token and TLS are built in but optional (see
@@ -14,8 +15,8 @@
   database and only their SHA-256 digests are kept. Every request looks up the digest of the
   presented token, which reveals nothing usable without a preimage, then checks it in constant
   time: a revocation is therefore immediate on every instance. A token created with `--project`
-  is limited to that project in the MCP tools and the web API: any other project, report or
-  finding is handled as missing (see
+  is limited to that project in the MCP tools and the pipeline routes: any other project, report
+  or finding is handled as missing (see
   [tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
   While no token exists, the MCP server stays closed (fail closed: only enrollment is reachable),
   unless it listens on localhost or `SECREVIEW_ALLOW_UNAUTHENTICATED=true`.
@@ -23,9 +24,13 @@
   The server never generates a TLS certificate: HTTPS uses the certificate given by the
   operator, signed by a [certificate authority](../advanced/http.md#certificate-authority).
   There is no rate limiting.
-  Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `reader`, `triager`,
-  `admin`, `ci`, `metrics`); an `mcp` token without a project reaches every MCP tool and every
-  project.
+  Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `api`, `admin`, `ci`,
+  `metrics`); a stored `reader` or `triager` token, left by an older version, authenticates
+  nothing. An `api` token only holds rights of the access control, read at each request: those
+  of its user (personal token, deleted with the user, never rotated by someone else, whose new
+  secret would carry the rights of the user) or of its role on its projects (role token, whose
+  creator must hold each permission). A token never creates another personal token. An `mcp`
+  token without a project reaches every MCP tool and every project.
 - **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`, or only the
   [enrollment server](../advanced/http.md#rejected-token-new-enrollment) on `/mcp`), and
   `SECREVIEW_TOKEN_MAX_DAYS` bounds the validity of every token created or rotated. Expired
@@ -97,11 +102,27 @@
   secret** entered in the interface is stored in the database **in clear**: the API never
   returns it (`***`) and the logs only name the changed settings; prefer
   `SECREVIEW_OIDC_CLIENT_SECRET` (Kubernetes secret) if the database is not protected like a
-  secret.
-- **Web interface** (controller): the REST API always requires a session or a token with a web
-  role; without a user or a token, it answers `503` instead of granting anonymous rights. Only
-  `triager` and `admin` change the status of a finding (action logged with the label of the
-  token), and only a person logged in to the interface (session) accepts a risk or marks a false
+  secret. With `SECREVIEW_UPDATE_CHECK_ENABLED=true` (disabled by default), the **About** page
+  asks `api.github.com` for the latest release of the repository: HTTPS only, through the
+  outgoing proxy, redirects limited to HTTPS, answer bounded to 512 KiB, 10 second timeout, at
+  most one request per controller process every 6 hours (15 minutes after a failure); only the
+  version and the link of the release are kept (a link outside the releases of the repository
+  is replaced), and the page only gets a short error code. With
+  `SECREVIEW_AUDIT_SYSLOG_ADDRESS` (disabled by default), the controller sends the
+  [audit events](../advanced/audit-metrics.md#forwarding-to-syslog) to that syslog server (UDP,
+  TCP or Unix socket, neither TLS nor proxy: use a local relay for TLS); the events hold no
+  secret (masked details), and the MCP server still connects nowhere.
+- **Initial administrator**: created by the controller at its first start with a random
+  password that nobody knows, never logged nor passed through a variable; the only way to a
+  password is `security-review-controller user reset-password`, run by an operator, which
+  prints it once. With `SECREVIEW_OIDC_ONLY=true` and OIDC enabled, the
+  password login of the local accounts is refused (`403`); a disabled or invalid OIDC
+  configuration never locks the local accounts out.
+- **Web interface** (controller): the REST API always requires a session or an `admin` or `api`
+  token;
+  without a user or a token, it answers `503` instead of granting anonymous rights. Only a
+  session or an `api` token with the `findings.triage` permission, or an `admin` token, changes the status of a
+  finding (action logged with the user or the label of the token), and only a person logged in to the interface (session) accepts a risk or marks a false
   positive: a bearer token is refused (`403`), even `admin`. These two decisions need a reason
   and an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the
   logged-in user, and the finding counts as open again once the date has passed.
@@ -136,7 +157,7 @@
   guessing tokens is limited too; the counters store SHA-256 digests, never the addresses); behind a reverse proxy, the client address is only read from
   `X-Forwarded-For` for the proxies listed in `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` lets any
   client choose its address and get round the limits). Only valid user names are logged, never passwords. The session is a
-  token signed with `SECREVIEW_SESSION_SECRET`, like the OIDC one, but the account is **read
+  token signed with `SECREVIEW_SECRET_KEY`, like the OIDC one, but the account is **read
   again from the database at every request**: deletion, new role or new projects apply
   immediately, and a password change draws a new random session version that invalidates every
   previous session. The session must also carry the identifier of the account: it never opens
@@ -162,21 +183,28 @@
   creates it again or allows it again. Check the requester of an enrollment (free text, not
   verified) before giving them read access to the project. A session restricted to projects is
   restricted like a `--project` token. The session is a signed token (HMAC-SHA256, key derived
-  from `SECREVIEW_SESSION_SECRET`) that names the account, read again at every request: the
+  from `SECREVIEW_SECRET_KEY`) that names the account, read again at every request: the
   deletion of the account cuts it at once. It is accepted by the controller only, never by the
   MCP server. The return URL after login is limited to local paths. Codes, tokens and secrets
   are never logged by the controller; the authorization code does appear in the access logs of
   a reverse proxy or of uvicorn, which is harmless: it is single-use and useless without the
-  PKCE verifier of the cookie. The secret settings (`SECREVIEW_SESSION_SECRET`,
+  PKCE verifier of the cookie. The secret settings (`SECREVIEW_SECRET_KEY`,
   `SECREVIEW_OIDC_CLIENT_SECRET`, `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`)
   are typed as secrets: they never appear in a dump of the settings. Without
-  `SECREVIEW_SESSION_SECRET`, the generated session secret is written once to
-  `SECREVIEW_SESSION_SECRET_FILE` with mode `0600` (a warning is logged if the file is readable
+  `SECREVIEW_SECRET_KEY`, the generated session secret is written once to
+  `SECREVIEW_SECRET_KEY_FILE` with mode `0600` (a warning is logged if the file is readable
   by other users).
 - **No disk access on the MCP side**: `scan_code` only works on the given content; the server
-  reads no file from the disk, which avoids path traversals. The whole repository scan is
-  reserved for the CLI (`code scan`), run by the operator on a folder they choose; it does not
-  follow symbolic links.
+  reads no file from the disk, which avoids path traversals. For the whole repository scan,
+  the pipeline client (`security-review-ci code-scan`), run by the operator on a folder they
+  choose, reads the files without following symbolic links and sends their content to the
+  controller, which scans it without reading its own disk.
+- **Pipeline scans**: `POST /api/v1/ci/scan/code` and `/scan/deps` need a `ci` or `admin`
+  token (a web session is refused) and stay within the projects
+  of the token; they store a report only with `save`. The request body is bounded
+  (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` beyond, read after the token check), as are the
+  number of files (`SECREVIEW_MAX_SCAN_FILES`) and their size; secrets are masked in the
+  excerpts and in the stored report.
 - **Database**: SQL queries go through the ORM (bound parameters); input sizes, the number of
   findings and the pagination are bounded. The schema is migrated by Alembic; the HTTP MCP
   server never changes it and refuses to serve a database that is not at the expected

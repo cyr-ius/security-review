@@ -1,4 +1,5 @@
-"""Pipeline client (security-review-ci): gate, SARIF and trend through the controller REST API."""
+"""Pipeline client (security-review-ci): gate, SARIF, trend and scans through the controller REST
+API, and the listing of the files of a code scan."""
 
 import io
 import json
@@ -8,8 +9,10 @@ from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
+from test_advisories import osv
 
-from security_review_mcp import ci_client, http_server, services, token_store, web_api
+from security_review_mcp import advisories, ci_client, http_server, services, token_store, web_api
+from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role
 from security_review_mcp.models import FindingCreate, Severity
 
@@ -46,8 +49,10 @@ def ci_token(controller) -> str:
 def fetch_from(client: TestClient) -> ci_client.Fetch:
     """Fetch function that sends the requests to the in-process controller."""
 
-    def fetch(url: str, headers: dict[str, str]) -> tuple[int, str, bytes]:
-        response = client.get(url, headers=headers)
+    def fetch(
+        method: str, url: str, headers: dict[str, str], body: bytes | None
+    ) -> tuple[int, str, bytes]:
+        response = client.request(method, url, headers=headers, content=body)
         return response.status_code, response.headers.get("content-type", ""), response.content
 
     return fetch
@@ -212,3 +217,279 @@ def test_client_runs_as_a_standalone_file(tmp_path):
 
 def test_printable_removes_terminal_escapes():
     assert ci_client.printable("# shop\x1b[31m-api\x07\n\tok\x7f") == "# shop[31m-api\n\tok"
+
+
+# ── File listing ─────────────────────────────────────────────────────────────
+
+
+def make_tree(root):
+    """Create a small project with issues in several languages."""
+    root.mkdir(exist_ok=True)
+    (root / "app").mkdir()
+    (root / "app" / "views.py").write_text(
+        "import subprocess\nsubprocess.run(cmd, shell=True)\n", encoding="utf-8"
+    )
+    (root / "app" / "ok.py").write_text("print('hello')\n", encoding="utf-8")
+    (root / "Dockerfile").write_text("FROM python:latest\nUSER root\n", encoding="utf-8")
+    (root / "settings.properties").write_text('password = "Sup3rSecret99"\n', encoding="utf-8")
+    (root / "README.md").write_text("subprocess.run(x, shell=True)\n", encoding="utf-8")
+    (root / "node_modules").mkdir()
+    (root / "node_modules" / "lib.js").write_text("eval(userInput)\n", encoding="utf-8")
+    return root
+
+
+def git_init(root):
+    """Turn root into a git work tree."""
+    subprocess.run(["git", "init", "-q"], cwd=root, check=True)
+
+
+@pytest.mark.parametrize(
+    ("path", "language"),
+    [
+        ("src/app.py", "python"),
+        ("Main.java", "java"),
+        ("src/app/app.component.ts", "typescript"),
+        ("src/app/app.component.html", "angular"),
+        ("web/index.mjs", "javascript"),
+        ("Dockerfile", "docker"),
+        ("docker/Dockerfile.prod", "docker"),
+        ("Jenkinsfile", "jenkins"),
+        (".gitlab-ci.yml", "gitlab-ci"),
+        (".gitlab-ci/build.yml", "gitlab-ci"),
+        ("k8s/deploy.yaml", "yaml"),
+        (".env.production", "config"),
+        ("application.properties", "config"),
+        ("README.md", None),
+        ("dist/app.min.js", None),
+        ("types/index.d.ts", None),
+        ("package-lock.json", None),
+        ("logo.png", None),
+    ],
+)
+def test_detect_language(path, language):
+    assert ci_client.detect_language(path) == language
+
+
+def test_collect_sources_walks_and_skips_dependency_folders(tmp_path):
+    sources = ci_client.collect_sources(make_tree(tmp_path), use_git=False)
+    files = {entry["path"] for entry in sources["files"]}
+    assert sources["listing"] == "walk"
+    assert files == {"app/views.py", "app/ok.py", "Dockerfile", "settings.properties"}
+    assert sources["unsupported"] >= 1
+
+
+def test_collect_sources_uses_git_and_honours_gitignore(tmp_path):
+    make_tree(tmp_path)
+    (tmp_path / ".gitignore").write_text("app/ok.py\n", encoding="utf-8")
+    git_init(tmp_path)
+    sources = ci_client.collect_sources(tmp_path)
+    files = {entry["path"] for entry in sources["files"]}
+    assert sources["listing"] == "git"
+    assert "app/views.py" in files and "app/ok.py" not in files
+
+
+def test_collect_sources_ignores_repository_fsmonitor_command(tmp_path):
+    repo = make_tree(tmp_path / "repo")
+    git_init(repo)
+    marker = tmp_path / "executed"
+    hook = tmp_path / "hook.sh"
+    hook.write_text(f"#!/bin/sh\ntouch {marker}\n", encoding="utf-8")
+    hook.chmod(0o755)
+    subprocess.run(["git", "config", "core.fsmonitor", str(hook)], cwd=repo, check=True)
+    sources = ci_client.collect_sources(repo)
+    assert sources["listing"] == "git" and sources["files"]
+    assert not marker.exists()
+
+
+def test_collect_sources_excludes_large_binary_and_symlinks(tmp_path):
+    make_tree(tmp_path)
+    (tmp_path / "big.py").write_text("x = 1\n" * 100, encoding="utf-8")
+    (tmp_path / "blob.py").write_bytes(b"\0\1\2eval(x)")
+    (tmp_path / "link.py").symlink_to(tmp_path / "app" / "views.py")
+    sources = ci_client.collect_sources(
+        tmp_path, excludes=["app/", "*.properties"], max_file_bytes=200, use_git=False
+    )
+    reasons = {entry["file"]: entry["reason"] for entry in sources["skipped"]}
+    assert sources["excluded"] == 3
+    assert reasons["big.py"].startswith("larger than")
+    assert reasons["blob.py"] == "binary file"
+    assert reasons["link.py"] == "symbolic link"
+    assert {entry["path"] for entry in sources["files"]} == {"Dockerfile"}
+
+
+def test_collect_sources_rejects_a_file(tmp_path):
+    target = tmp_path / "a.py"
+    target.write_text("", encoding="utf-8")
+    with pytest.raises(ValueError, match="Not a directory"):
+        ci_client.collect_sources(target)
+
+
+# ── code-scan ────────────────────────────────────────────────────────────────
+
+
+def test_code_scan_blocks_and_prints_the_matches(
+    controller, ci_token, monkeypatch, capsys, tmp_path
+):
+    make_tree(tmp_path / "repo")
+    argv = ["code-scan", str(tmp_path / "repo"), "--no-git", "--project", "shop-api"]
+
+    assert run(controller, monkeypatch, argv, ci_token) == 1
+    out = capsys.readouterr().out
+    assert "app/views.py:2 [HIGH] PY-004" in out and "BLOCKED" in out
+    assert "Sup3rSecret99" not in out
+    # Nothing is stored without --save
+    assert len(services.list_reports(project="shop-api")) == 1
+
+
+def test_code_scan_passes_below_the_threshold(controller, ci_token, monkeypatch, tmp_path):
+    (tmp_path / "a.py").write_text("print('ok')\n", encoding="utf-8")
+    argv = ["code-scan", str(tmp_path), "--no-git", "--project", "shop-api"]
+    assert run(controller, monkeypatch, argv, ci_token) == 0
+
+
+def test_code_scan_saves_a_report_of_the_token(controller, ci_token, monkeypatch, capsys, tmp_path):
+    make_tree(tmp_path / "repo")
+    argv = ["code-scan", str(tmp_path / "repo"), "--no-git", "--project", "shop-api", "--save"]
+    argv += ["--format", "json", "--author", "alice", "--branch", "main", "--commit", "abc123"]
+
+    assert run(controller, monkeypatch, argv, ci_token) == 1
+    data = json.loads(capsys.readouterr().out)
+    assert data["blocked"] is True and "sarif" not in data
+    report = services.get_report(data["saved_report"]["report_id"])
+    assert (report.project, report.review_type, report.author) == ("shop-api", "code-scan", "alice")
+    assert (report.submitted_by, report.branch, report.commit_sha) == ("jenkins", "main", "abc123")
+    assert report.reviewer == "security-review-ci code-scan"
+    assert {f.file_path for f in report.findings} >= {"app/views.py"}
+
+
+def test_code_scan_writes_a_sarif_log(controller, ci_token, monkeypatch, capsys, tmp_path):
+    make_tree(tmp_path / "repo")
+    output = tmp_path / "out.sarif"
+    argv = ["code-scan", str(tmp_path / "repo"), "--no-git", "--project", "shop-api"]
+    argv += ["--format", "sarif", "-o", str(output)]
+
+    assert run(controller, monkeypatch, argv, ci_token) == 1
+    log = json.loads(output.read_text(encoding="utf-8"))
+    results = log["runs"][0]["results"]
+    uris = {r["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] for r in results}
+    assert "app/views.py" in uris
+    assert "written to" in capsys.readouterr().err
+
+
+def test_code_scan_of_another_project_is_refused(
+    controller, ci_token, monkeypatch, capsys, tmp_path
+):
+    (tmp_path / "a.py").write_text("eval(x)\n", encoding="utf-8")
+    argv = ["code-scan", str(tmp_path), "--no-git", "--project", "billing", "--save"]
+
+    assert run(controller, monkeypatch, argv, ci_token) == 2
+    assert "(404)" in json.loads(capsys.readouterr().err)["error"]
+    assert len(services.list_reports(project="billing")) == 1
+
+
+def test_code_scan_too_large_request_is_explained(
+    controller, ci_token, monkeypatch, capsys, tmp_path
+):
+    monkeypatch.setattr(get_settings(), "max_scan_request_mb", 1)
+    (tmp_path / "a.py").write_text("x = 1\n" * 300_000, encoding="utf-8")
+    argv = ["code-scan", str(tmp_path), "--no-git", "--project", "shop-api"]
+    argv += ["--max-file-bytes", str(4 * 1024 * 1024)]
+
+    assert run(controller, monkeypatch, argv, ci_token) == 2
+    error = json.loads(capsys.readouterr().err)["error"]
+    assert "(413)" in error and "SECREVIEW_MAX_SCAN_REQUEST_MB" in error
+
+
+def test_code_scan_of_a_missing_directory_is_a_usage_error(
+    controller, ci_token, monkeypatch, capsys, tmp_path
+):
+    argv = ["code-scan", str(tmp_path / "missing"), "--project", "shop-api"]
+    assert run(controller, monkeypatch, argv, ci_token) == 2
+    assert "Not a directory" in capsys.readouterr().err
+
+
+# ── deps-scan ────────────────────────────────────────────────────────────────
+
+
+def import_advisory(tmp_path, severity="HIGH"):
+    """Import one OSV record (requests < 2.20.0) into the advisory database."""
+    folder = tmp_path / "osv"
+    folder.mkdir()
+    (folder / "adv.json").write_text(json.dumps(osv(severity=severity, fixed="2.20.0")))
+    advisories.import_advisories(folder)
+
+
+def test_deps_scan_blocks_on_a_vulnerability(controller, ci_token, monkeypatch, capsys, tmp_path):
+    import_advisory(tmp_path)
+    manifest = tmp_path / "requirements.txt"
+    manifest.write_text("requests==2.19.0\n", encoding="utf-8")
+    argv = ["deps-scan", str(manifest), "--project", "shop-api"]
+
+    assert run(controller, monkeypatch, argv, ci_token) == 1
+    out = capsys.readouterr().out
+    assert "PYSEC-1" in out and "upgrade to 2.20.0" in out and "BLOCKED" in out
+    assert run(controller, monkeypatch, [*argv, "--fail-on", "critical"], ci_token) == 0
+
+
+def test_deps_scan_saves_a_report(controller, ci_token, monkeypatch, capsys, tmp_path):
+    import_advisory(tmp_path)
+    manifest = tmp_path / "requirements.txt"
+    manifest.write_text("requests==2.19.0\n", encoding="utf-8")
+    argv = ["deps-scan", str(manifest), "--project", "shop-api", "--save", "--format", "json"]
+
+    assert run(controller, monkeypatch, [*argv, "--author", "alice"], ci_token) == 1
+    data = json.loads(capsys.readouterr().out)
+    assert data["blocked"] is True and "components" not in data["files"][0]
+    saved = data["saved_report"]
+    assert saved["review_type"] == "dependency-scan"
+    report = services.get_report(saved["report_id"])
+    assert (report.author, report.submitted_by) == ("alice", "jenkins")
+
+    assert run(controller, monkeypatch, [*argv, "--author", "a" * 201], ci_token) == 2
+    assert "(422)" in capsys.readouterr().err
+
+
+def test_deps_scan_require_database(controller, ci_token, monkeypatch, capsys, tmp_path):
+    manifest = tmp_path / "requirements.txt"
+    manifest.write_text("flask==1.0\n", encoding="utf-8")
+    argv = ["deps-scan", str(manifest), "--project", "shop-api"]
+
+    assert run(controller, monkeypatch, argv, ci_token) == 0
+    assert "warning: vulnerability check did not run" in capsys.readouterr().err
+    assert run(controller, monkeypatch, [*argv, "--require-database", "--save"], ci_token) == 2
+    assert "require_database" in capsys.readouterr().err
+    assert len(services.list_reports(project="shop-api")) == 1
+
+
+def test_deps_scan_refuses_symlinks_and_unsupported_files(
+    controller, ci_token, monkeypatch, capsys, tmp_path
+):
+    manifest = tmp_path / "requirements.txt"
+    manifest.write_text("flask==1.0\n", encoding="utf-8")
+    link = tmp_path / "link.txt"
+    link.symlink_to(manifest)
+    assert (
+        run(controller, monkeypatch, ["deps-scan", str(link), "--project", "shop-api"], ci_token)
+        == 2
+    )
+    assert "symbolic link" in capsys.readouterr().err
+
+    other = tmp_path / "notes.md"
+    other.write_text("x", encoding="utf-8")
+    argv = ["deps-scan", str(other), "--project", "shop-api"]
+    assert run(controller, monkeypatch, argv, ci_token) == 2
+    assert "(422)" in capsys.readouterr().err
+    argv = ["deps-scan", str(tmp_path / "missing.txt"), "--project", "shop-api"]
+    assert run(controller, monkeypatch, argv, ci_token) == 2
+
+
+def test_scans_need_a_ci_or_admin_token(controller, monkeypatch, capsys, tmp_path):
+    reader = token_store.create_token("viewer", Role.MCP)["token"]
+    manifest = tmp_path / "requirements.txt"
+    manifest.write_text("flask==1.0\n", encoding="utf-8")
+
+    argv = ["deps-scan", str(manifest), "--project", "shop-api"]
+    assert run(controller, monkeypatch, argv, reader) == 2
+    assert "(403)" in json.loads(capsys.readouterr().err)["error"]
+    admin = token_store.create_token("root", Role.ADMIN)["token"]
+    assert run(controller, monkeypatch, argv, admin) == 0

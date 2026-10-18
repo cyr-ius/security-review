@@ -1,241 +1,112 @@
-"""Whole-codebase pattern scan, run from the command line on a directory chosen by the operator.
+"""Whole-codebase pattern scan, run by the controller on the files sent by ``security-review-ci``.
 
-The MCP server never reads the disk; this module is only used by the ``code scan`` CLI command.
-Files are listed with ``git ls-files`` when the directory is a git work tree (so ``.gitignore``
-is honoured), otherwise by walking the tree and skipping the usual build and dependency folders.
+The client (``ci_client.collect_sources``) lists and reads the files of a directory chosen by the
+operator and sends their content to ``POST /api/v1/ci/scan/code``; this module scans that
+content with the active rules and stores the matches as a report. It never reads the disk: the
+paths are only labels, and the language of each file is detected again from its name.
 Like ``scan_code``, the matches are leads to verify, not confirmed vulnerabilities.
 """
 
-import fnmatch
-import os
-import subprocess
-from pathlib import Path, PurePosixPath
+from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
-from . import registry
-from .models import SEVERITY_RANK, FindingCreate, FindingPublic, FindingStatus, Severity
+from . import registry, sarif, services
+from .ci_client import detect_language
+from .config import get_settings
+from .models import (
+    SEVERITY_RANK,
+    FindingCreate,
+    FindingPublic,
+    FindingStatus,
+    ReviewType,
+    Severity,
+)
 
-DEFAULT_MAX_FILE_BYTES = 1024 * 1024
 MAX_MATCHES_PER_FILE = 200
-_BINARY_SNIFF_BYTES = 8192
-
-# Skipped when the tree is walked without git
-SKIPPED_DIRS = frozenset(
-    {
-        ".git",
-        ".hg",
-        ".svn",
-        ".venv",
-        "venv",
-        "env",
-        "__pycache__",
-        ".mypy_cache",
-        ".pytest_cache",
-        ".ruff_cache",
-        ".tox",
-        "node_modules",
-        "bower_components",
-        ".angular",
-        "dist",
-        "build",
-        "target",
-        "out",
-        "coverage",
-        ".gradle",
-        ".idea",
-    }
-)
-
-# Generated files: huge and never hand-written
-SKIPPED_NAMES = frozenset(
-    {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "Pipfile.lock", "uv.lock"}
-)
-
-_EXTENSIONS = {
-    ".py": "python",
-    ".pyw": "python",
-    ".java": "java",
-    ".ts": "typescript",
-    ".tsx": "typescript",
-    ".mts": "typescript",
-    ".cts": "typescript",
-    ".js": "javascript",
-    ".jsx": "javascript",
-    ".mjs": "javascript",
-    ".cjs": "javascript",
-    ".html": "angular",  # Angular templates ([innerHTML], bypassSecurityTrust...)
-    ".yml": "yaml",
-    ".yaml": "yaml",
-    ".properties": "config",
-    ".ini": "config",
-    ".cfg": "config",
-    ".conf": "config",
-    ".toml": "config",
-    ".env": "config",
-    ".groovy": "jenkins",
-    ".jenkinsfile": "jenkins",
-    ".dockerfile": "docker",
-}
+# Files not scanned listed in the scope of a stored report
+MAX_SKIPPED_IN_SCOPE = 50
+REVIEWER = "security-review-ci code-scan"
 
 
-def detect_language(path: str) -> str | None:
-    """Return the scanner language of a file from its name, or None when it is not scanned."""
-    name = PurePosixPath(path).name
-    lower = name.lower()
-    if name in SKIPPED_NAMES or lower.endswith((".min.js", ".d.ts")):
-        return None
-    if lower in ("dockerfile", "containerfile") or lower.startswith(
-        ("dockerfile.", "containerfile.")
-    ):
-        return "docker"
-    if lower == "jenkinsfile" or lower.startswith("jenkinsfile."):
-        return "jenkins"
-    if lower == ".gitlab-ci.yml" or (
-        lower.endswith((".yml", ".yaml")) and ".gitlab-ci" in PurePosixPath(path).parts[:-1]
-    ):
-        return "gitlab-ci"
-    if lower == ".env" or lower.startswith(".env."):
-        return "config"
-    return _EXTENSIONS.get(PurePosixPath(lower).suffix)
+@dataclass(frozen=True)
+class SourceFile:
+    """A file sent by the client: its relative path (a label) and its content."""
+
+    path: str
+    content: str
 
 
-# The scanned repository's .git/config is untrusted: some keys make git run a command
-# (core.fsmonitor). Options given with -c override the repository configuration.
-_GIT_SAFE_OPTIONS = ("-c", "core.fsmonitor=false", "-c", "core.untrackedCache=false")
-
-
-def _git_files(root: Path) -> list[str] | None:
-    """List tracked and untracked (not ignored) files with git, or None if git is unusable."""
-    try:
-        completed = subprocess.run(
-            ["git", *_GIT_SAFE_OPTIONS, "ls-files", "-z", "--cached", "--others"]
-            + ["--exclude-standard"],
-            cwd=root,
-            capture_output=True,
-            check=True,
-            timeout=60,
-        )
-    except OSError, subprocess.SubprocessError:
-        return None
-    names = completed.stdout.decode("utf-8", errors="replace").split("\0")
-    return sorted({name for name in names if name})
-
-
-def _walk_files(root: Path) -> list[str]:
-    """List files under root, skipping dependency, build and VCS directories."""
-    found: list[str] = []
-    for current, dirs, files in os.walk(root):
-        dirs[:] = sorted(d for d in dirs if d not in SKIPPED_DIRS)
-        base = Path(current).relative_to(root)
-        found.extend((base / name).as_posix() for name in sorted(files))
-    return found
-
-
-def list_files(root: Path, use_git: bool = True) -> tuple[list[str], str]:
-    """Return the relative paths of the files to consider and the listing method used."""
-    if use_git:
-        names = _git_files(root)
-        if names is not None:
-            return names, "git"
-    return _walk_files(root), "walk"
-
-
-def _excluded(path: str, patterns: list[str]) -> bool:
-    """Tell whether a relative path matches one of the exclusion globs."""
-    return any(
-        fnmatch.fnmatch(path, pattern) or path.startswith(pattern.rstrip("/") + "/")
-        for pattern in patterns
-    )
-
-
-def _read_source(path: Path, max_bytes: int) -> tuple[str | None, str | None]:
-    """Read a text file; return ``(content, None)`` or ``(None, reason it was skipped)``."""
-    if path.is_symlink():
-        return None, "symbolic link"
-    if not path.is_file():
-        return None, "not a regular file"
-    size = path.stat().st_size
-    if size > max_bytes:
-        return None, f"larger than {max_bytes} bytes"
-    data = path.read_bytes()
-    if b"\0" in data[:_BINARY_SNIFF_BYTES]:
-        return None, "binary file"
-    return data.decode("utf-8", errors="replace"), None
-
-
-def scan_tree(
-    root: str | Path,
-    excludes: list[str] | None = None,
-    max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
-    use_git: bool = True,
+def scan_files(
+    files: Sequence[SourceFile],
+    skipped: Sequence[tuple[str, str]] = (),
+    listing: str = "git",
+    root: str = ".",
+    excluded: int = 0,
+    unsupported: int = 0,
 ) -> dict:
-    """Scan every supported file under ``root`` with the active rules.
+    """Scan the files sent by the client with the active rules.
 
     Args:
-        root: Directory to scan.
-        excludes: Glob patterns (relative to root) of files or directories to skip.
-        max_file_bytes: Files above this size are skipped and reported.
-        use_git: List files with ``git ls-files`` when possible.
+        files: Files read by the client.
+        skipped: Files the client could not send, with the reason (binary, too large...).
+        listing: How the client listed the files (``git`` or ``walk``).
+        root: Scanned directory, as given to the client (only shown in the report).
+        excluded: Files skipped by an exclusion glob of the client (counted only).
+        unsupported: Files of a type the scan does not support, counted by the client.
 
     Returns:
         The matches per file, the suppressed matches, the files skipped with their reason,
-        and totals. Paths are relative to ``root``, with forward slashes.
+        and totals.
 
     Raises:
-        ValueError: If root is not a directory.
+        ValueError: If there are more files than SECREVIEW_MAX_SCAN_FILES.
     """
-    base = Path(root).resolve()
-    if not base.is_dir():
-        raise ValueError(f"Not a directory: {root}")
-    patterns = list(excludes or [])
-    names, method = list_files(base, use_git)
-
-    files: list[dict] = []
-    skipped: list[dict] = []
-    unsupported = 0
-    for name in names:
-        language = detect_language(name)
+    settings = get_settings()
+    if len(files) + len(skipped) > settings.max_scan_files:
+        raise ValueError(
+            f"Too many files ({len(files) + len(skipped)}); the limit is "
+            f"{settings.max_scan_files} (SECREVIEW_MAX_SCAN_FILES): exclude some of them"
+        )
+    results: list[dict] = []
+    not_scanned = [{"file": path, "reason": reason} for path, reason in skipped]
+    for source in files:
+        language = detect_language(source.path)
         if language is None:
             unsupported += 1
             continue
-        if _excluded(name, patterns):
-            skipped.append({"file": name, "reason": "excluded"})
+        if len(source.content) > settings.max_scan_file_chars:
+            reason = f"larger than {settings.max_scan_file_chars} characters on the controller"
+            not_scanned.append({"file": source.path, "reason": reason})
             continue
-        try:
-            content, reason = _read_source(base / name, max_file_bytes)
-        except OSError as exc:
-            content, reason = None, f"unreadable: {exc.strerror or exc}"
-        if content is None:
-            skipped.append({"file": name, "reason": reason})
-            continue
-        matches, suppressed = registry.scan(content, language, MAX_MATCHES_PER_FILE)
-        files.append(
+        matches, suppressed = registry.scan(source.content, language, MAX_MATCHES_PER_FILE)
+        results.append(
             {
-                "file": name,
+                "file": source.path,
                 "language": language,
-                "lines": len(content.splitlines()),
+                "lines": len(source.content.splitlines()),
                 "matches": matches,
                 "suppressed": suppressed,
                 "truncated": len(matches) >= MAX_MATCHES_PER_FILE,
             }
         )
 
-    matches_count = sum(len(f["matches"]) for f in files)
     by_severity = {s.value: 0 for s in Severity}
-    for entry in files:
+    for entry in results:
         for match in entry["matches"]:
             by_severity[match["severity"]] += 1
     return {
-        "root": str(base),
-        "listing": method,
-        "files_scanned": len(files),
-        "files_skipped": len(skipped),
+        "root": root,
+        "listing": listing,
+        "files_scanned": len(results),
+        "files_skipped": len(not_scanned) + excluded,
         "files_unsupported": unsupported,
-        "lines_scanned": sum(f["lines"] for f in files),
-        "matches_count": matches_count,
-        "suppressed_count": sum(len(f["suppressed"]) for f in files),
+        "lines_scanned": sum(f["lines"] for f in results),
+        "matches_count": sum(len(f["matches"]) for f in results),
+        "suppressed_count": sum(len(f["suppressed"]) for f in results),
         "by_severity": by_severity,
-        "files": files,
-        "skipped": skipped,
+        "files": results,
+        "skipped": not_scanned,
     }
 
 
@@ -295,3 +166,68 @@ def to_public(findings: list[FindingCreate]) -> list[FindingPublic]:
         FindingPublic(**f.model_dump(), id=index, report_id=0, status=FindingStatus.OPEN)
         for index, f in enumerate(findings, start=1)
     ]
+
+
+def to_sarif(
+    result: dict,
+    project: str,
+    saved: dict | None = None,
+    repository: str | None = None,
+    branch: str | None = None,
+    commit_sha: str | None = None,
+) -> dict:
+    """Return the matches as a SARIF 2.1.0 log: the stored findings when the scan was saved
+    (their ids are those of the database), the unsaved matches otherwise."""
+    if saved:
+        name, items = services.collect_sarif_items(saved["report_id"], None)
+    else:
+        name, now = project, datetime.now(UTC)
+        items = [
+            sarif.SarifItem(f, 0, name, repository, branch, commit_sha, now)
+            for f in to_public(to_findings(result))
+        ]
+    return sarif.build_sarif(items, name)
+
+
+def save(
+    result: dict,
+    project: str,
+    repository: str | None = None,
+    branch: str | None = None,
+    commit_sha: str | None = None,
+    author: str | None = None,
+    submitted_by: str | None = None,
+) -> dict:
+    """Store the matches as a report; keep the most severe ones when there are too many.
+
+    Raises:
+        ValueError: Invalid report fields (author...).
+    """
+    findings = to_findings(result)
+    limit = get_settings().max_findings_per_report
+    summary = (
+        f"Pattern scan of the whole codebase: {result['files_scanned']} file(s), "
+        f"{result['matches_count']} match(es) to verify, {result['suppressed_count']} suppressed."
+    )
+    if len(findings) > limit:
+        summary += f" Only the {limit} most severe matches are stored."
+        findings = findings[:limit]
+    skipped = [s["file"] for s in result["skipped"]]
+    scope = f"Codebase {result['root']} ({result['files_scanned']} files scanned)"
+    if skipped:
+        scope += f"; not scanned: {', '.join(skipped[:MAX_SKIPPED_IN_SCOPE])}"
+        if len(skipped) > MAX_SKIPPED_IN_SCOPE:
+            scope += f" and {len(skipped) - MAX_SKIPPED_IN_SCOPE} more"
+    return services.save_report(
+        project=project,
+        summary=summary,
+        findings=findings,
+        repository=repository,
+        branch=branch,
+        commit_sha=commit_sha,
+        reviewer=REVIEWER,
+        scope=scope,
+        review_type=ReviewType.CODE_SCAN,
+        author=author,
+        submitted_by=submitted_by,
+    )

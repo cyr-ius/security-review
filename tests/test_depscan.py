@@ -3,12 +3,14 @@
 import json
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from sqlmodel import select
 from test_advisories import osv
 
 from security_review_mcp import advisories, depscan, services
+from security_review_mcp.config import get_settings
 from security_review_mcp.database import session_scope
-from security_review_mcp.models import Advisory
+from security_review_mcp.models import Advisory, Severity
 
 REQUIREMENTS = "flask==1.0\nrequests==2.19.0\n"
 
@@ -140,3 +142,44 @@ def test_findings_can_be_saved_as_a_report(tmp_path):
     saved = services.save_report(project="demo", summary="Dependency scan", findings=findings)
     assert saved["findings_count"] == 2
     assert saved["risk_level"] == "critical"
+
+
+# ── Scans sent by security-review-ci deps-scan ───────────────────────────────
+
+
+def test_scan_files_uses_the_file_name_and_counts_blocking_entries(tmp_path):
+    load(osv(severity="HIGH", fixed="2.20.0"), tmp_path=tmp_path)
+    results = depscan.scan_files([("backend/requirements.txt", "requests==2.19.0\nflask\n")])
+    assert results[0]["file"] == "requirements.txt"
+    assert depscan.blocking_count(results, Severity.HIGH) == 1
+    assert depscan.blocking_count(results, Severity.LOW) == 2
+    assert depscan.blocking_count(results, Severity.CRITICAL) == 0
+
+
+def test_scan_files_limits_and_errors(monkeypatch):
+    with pytest.raises(ValueError, match="No dependency file"):
+        depscan.scan_files([])
+    with pytest.raises(ValueError, match="Unsupported"):
+        depscan.scan_files([("notes.md", "x")])
+    monkeypatch.setattr(get_settings(), "max_scan_files", 1)
+    with pytest.raises(ValueError, match="SECREVIEW_MAX_SCAN_FILES"):
+        depscan.scan_files([("requirements.txt", "flask==1.0\n")] * 2)
+    monkeypatch.setattr(get_settings(), "max_dependency_chars", 5)
+    with pytest.raises(ValueError, match="SECREVIEW_MAX_DEPENDENCY_CHARS"):
+        depscan.scan_files([("requirements.txt", "flask==1.0\n")])
+
+
+def test_scan_files_require_database():
+    assert depscan.scan_files([("requirements.txt", "flask==1.0\n")])
+    with pytest.raises(ValueError, match="require_database"):
+        depscan.scan_files([("requirements.txt", "flask==1.0\n")], require_database=True)
+
+
+def test_save_stores_a_dependency_scan_report(tmp_path):
+    load(osv(severity="CRITICAL", fixed="2.20.0"), tmp_path=tmp_path)
+    results = depscan.scan_files([("requirements.txt", "requests==2.19.0\n")])
+    saved = depscan.save(results, "demo", commit_sha="abc123", author="alice", submitted_by="ci")
+    report = services.get_report(saved["report_id"])
+    assert (saved["review_type"], saved["risk_level"]) == ("dependency-scan", "critical")
+    assert report.reviewer == "security-review-ci deps-scan"
+    assert (report.author, report.submitted_by, report.scope) == ("alice", "ci", "requirements.txt")

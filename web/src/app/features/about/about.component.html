@@ -16,6 +16,42 @@
           <dl class="row mb-0">
             <dt class="col-sm-5">{{ 'about.version' | t }}</dt>
             <dd class="col-sm-7 font-monospace">v{{ info.version }}</dd>
+            <dt class="col-sm-5">{{ 'about.update' | t }}</dt>
+            <dd class="col-sm-7" role="status">
+              @if (update.value(); as status) {
+                @if (!status.enabled) {
+                  <span class="text-body-secondary">{{ 'about.updateOff' | t }}</span>
+                } @else if (status.error) {
+                  <span class="text-body-secondary">
+                    <i class="bi bi-cloud-slash" aria-hidden="true"></i>
+                    {{ 'about.updateUnknown' | t }}
+                  </span>
+                } @else if (status.update_available && status.release_url) {
+                  <a
+                    class="badge text-bg-warning text-decoration-none"
+                    [href]="status.release_url"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <i class="bi bi-arrow-up-circle" aria-hidden="true"></i>
+                    {{ 'about.updateAvailable' | t: { version: status.latest ?? '' } }}
+                  </a>
+                } @else {
+                  <span class="badge text-bg-success">
+                    <i class="bi bi-check-circle" aria-hidden="true"></i>
+                    {{ 'about.upToDate' | t }}
+                  </span>
+                }
+              } @else if (update.error()) {
+                <span class="text-body-secondary">{{ 'about.updateUnknown' | t }}</span>
+              } @else {
+                <span
+                  class="spinner-border spinner-border-sm text-secondary"
+                  aria-hidden="true"
+                ></span>
+                <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+              }
+            </dd>
             @if (info.documentation_url; as url) {
               <dt class="col-sm-5">{{ 'about.documentation' | t }}</dt>
               <dd class="col-sm-7">

@@ -1,8 +1,10 @@
 """Command line helpers for pipelines and administrators (no MCP client or agent needed).
 
-``security-review-controller`` runs ``db``, ``advisories``, ``deps``, ``code``, ``rules``,
-``token``, ``user``, ``group`` and ``audit`` (CONTROLLER_COMMANDS);
-``security-review-mcp`` runs ``enroll`` and ``scan-deps`` (MCP_COMMANDS). Exit codes follow the
+``security-review-controller`` runs ``db``, ``advisories``, ``rules``, ``token``, ``user``,
+``group`` and ``audit`` (CONTROLLER_COMMANDS);
+``security-review-mcp`` runs ``enroll`` and ``scan-deps`` (MCP_COMMANDS). The code and
+dependency scans of a pipeline are run by ``security-review-ci`` (see ci_client), which sends
+the files to the controller. Exit codes follow the
 same convention everywhere: 0 success, 1 blocked (findings found, schema not up to date),
 2 usage or data error.
 """
@@ -22,22 +24,20 @@ from . import (
     advisory_sync,
     app_settings,
     audit,
-    codescan,
-    depscan,
+    ci_client,
     enrollment,
     http_server,
     registry,
     remote_scan,
     rule_store,
     rules_loader,
-    sarif,
     services,
     token_store,
     web_users,
 )
 from .config import get_settings
 from .database import SchemaError, init_db, schema_status, session_scope, upgrade_db
-from .models import SEVERITY_RANK, ReviewType, Severity
+from .models import SEVERITY_RANK, Severity
 from .services import NotFoundError
 
 EXIT_PASSED = 0
@@ -116,7 +116,7 @@ def _advisories_update(names: list[str] | None) -> int:
     return EXIT_ERROR if failed else EXIT_PASSED
 
 
-# ── deps ─────────────────────────────────────────────────────────────────────
+# ── scan-deps output ─────────────────────────────────────────────────────────
 
 
 def _blocking(result: dict, threshold: int) -> int:
@@ -125,126 +125,7 @@ def _blocking(result: dict, threshold: int) -> int:
     return sum(1 for e in entries if SEVERITY_RANK[Severity(e["severity"])] >= threshold)
 
 
-def _printable(value: object) -> str:
-    """Return ``value`` as text without control characters (terminal escape sequences): scan
-    results come from advisories or from a remote server."""
-    return "".join(c if c.isprintable() else "?" for c in str(value))
-
-
-def _print_text(results: list[dict], blocked: int, fail_on: str) -> None:
-    """Print a short human-readable summary of the scans."""
-    for result in results:
-        kind = "lockfile" if result["is_lockfile"] else "manifest"
-        print(
-            _printable(
-                f"{result['file']} ({result['ecosystem']}, {kind}): {result['components_total']} "
-                f"component(s), vulnerability check: {result['vulnerability_check']}"
-            )
-        )
-        for vuln in result["vulnerabilities"]:
-            upgrade = vuln["recommended_upgrade"]
-            fix = f" -> upgrade to {upgrade}" if upgrade else ""
-            line = (
-                f"[{vuln['severity'].upper()}] {vuln['package']} {vuln['version']} "
-                f"{vuln['advisory_id']}{fix}"
-            )
-            print(f"  {_printable(line)}")
-        for issue in result["hygiene"]:
-            line = f"[{issue['severity'].upper()}] {issue['rule_id']} {issue['message']}"
-            print(f"  {_printable(line)}")
-        for note in result["notes"]:
-            print(f"  note: {_printable(note)}")
-    verdict = f"BLOCKED ({blocked} finding(s) >= {fail_on})" if blocked else "OK"
-    print(f"RESULT: {verdict}")
-
-
-def deps_command(argv: list[str]) -> int:
-    """Run ``security-review-controller deps scan``: scan dependency files of a workspace."""
-    parser = argparse.ArgumentParser(
-        prog="security-review-controller deps",
-        description="Scan dependency manifests and lockfiles.",
-    )
-    parser.add_argument("action", choices=["scan"])
-    parser.add_argument("files", nargs="+", help="manifests or lockfiles")
-    parser.add_argument("--fail-on", choices=_SEVERITY_CHOICES, default=Severity.HIGH.value)
-    parser.add_argument("--format", choices=["json", "text"], default="text")
-    parser.add_argument(
-        "--require-database",
-        action="store_true",
-        help="exit 2 when the vulnerability check could not run (no advisory database)",
-    )
-    parser.add_argument("--project", help="project name (required with --save)")
-    parser.add_argument("--save", action="store_true", help="store the findings as a report")
-    parser.add_argument("--repository")
-    parser.add_argument("--branch")
-    parser.add_argument("--commit")
-    parser.add_argument(
-        "--author", help="username of the developer, stored with the report (with --save)"
-    )
-    args = parser.parse_args(argv)
-    if args.save and not args.project:
-        return _fail("--save requires --project")
-
-    results: list[dict] = []
-    try:
-        init_db()
-        for name in args.files:
-            path = Path(name)
-            results.append(depscan.scan_dependencies(_read_text(path), path.name))
-    except (ValueError, OSError) as exc:
-        return _fail(str(exc))
-
-    if (error := _check_vulnerability_check(results, args.require_database)) is not None:
-        return error
-
-    saved = None
-    if args.save:
-        findings = [f for r in results for f in depscan.to_findings(r)]
-        vulnerabilities = sum(r["vulnerabilities_count"] for r in results)
-        hygiene = sum(r["hygiene_count"] for r in results)
-        try:
-            saved = services.save_report(
-                project=args.project,
-                summary=(
-                    f"Dependency scan of {len(results)} file(s): {vulnerabilities} vulnerable "
-                    f"component(s), {hygiene} hygiene issue(s)."
-                ),
-                findings=findings,
-                repository=args.repository,
-                branch=args.branch,
-                commit_sha=args.commit,
-                reviewer="security-review-controller deps scan",
-                scope=", ".join(r["file"] for r in results),
-                review_type=ReviewType.DEPENDENCY_SCAN,
-                author=args.author,
-            )
-        except ValueError as exc:
-            return _fail(str(exc))
-    return _print_deps(results, args.fail_on, args.format, saved, args.project)
-
-
-def _check_vulnerability_check(results: list[dict], require_database: bool) -> int | None:
-    """Warn about the files whose vulnerability check did not run; return the error exit code
-    when ``require_database`` is set, None otherwise."""
-    skipped = [r["file"] for r in results if r["vulnerability_check"] != "performed"]
-    if skipped:
-        print(
-            f"warning: vulnerability check did not run for: {', '.join(skipped)} "
-            "(no advisory database for this ecosystem)",
-            file=sys.stderr,
-        )
-    if skipped and require_database:
-        return _fail("vulnerability check could not run and --require-database was given")
-    return None
-
-
-def _print_deps(
-    results: list[dict],
-    fail_on: str,
-    output_format: str,
-    saved: dict | None = None,
-    project: str | None = None,
-) -> int:
+def _print_deps(results: list[dict], fail_on: str, output_format: str) -> int:
     """Print the dependency scans and return the exit code (blocked at ``fail_on``)."""
     threshold = SEVERITY_RANK[Severity(fail_on)]
     blocked = sum(_blocking(r, threshold) for r in results)
@@ -252,164 +133,11 @@ def _print_deps(
         slim = [{k: v for k, v in r.items() if k != "components"} for r in results]
         print(
             json.dumps(
-                {
-                    "blocked": blocked > 0,
-                    "blocking_findings": blocked,
-                    "saved_report": saved,
-                    "files": slim,
-                },
-                indent=2,
+                {"blocked": blocked > 0, "blocking_findings": blocked, "files": slim}, indent=2
             )
         )
     else:
-        _print_text(results, blocked, fail_on)
-        if saved:
-            print(f"Report #{saved['report_id']} saved for project {project}")
-    return EXIT_BLOCKED if blocked else EXIT_PASSED
-
-
-# ── code ─────────────────────────────────────────────────────────────────────
-
-
-def _print_code_text(result: dict, blocked: int, fail_on: str) -> None:
-    """Print a short human-readable summary of the codebase scan."""
-    for entry in result["files"]:
-        for match in entry["matches"]:
-            print(
-                f"{entry['file']}:{match['line']} [{match['severity'].upper()}] "
-                f"{match['rule_id']} {match['title']}"
-            )
-    for entry in result["skipped"]:
-        if entry["reason"] != "excluded":
-            print(f"skipped: {entry['file']} ({entry['reason']})", file=sys.stderr)
-    counts = ", ".join(f"{k}: {v}" for k, v in result["by_severity"].items() if v)
-    print(
-        f"{result['files_scanned']} file(s) scanned ({result['lines_scanned']} lines, listed with "
-        f"{result['listing']}), {result['files_skipped']} skipped, "
-        f"{result['matches_count']} match(es){f' ({counts})' if counts else ''}, "
-        f"{result['suppressed_count']} suppressed"
-    )
-    verdict = f"BLOCKED ({blocked} match(es) >= {fail_on})" if blocked else "OK"
-    print(f"RESULT: {verdict}")
-
-
-def _save_code_scan(args: argparse.Namespace, result: dict) -> dict:
-    """Store the matches as a report; keep the most severe ones when there are too many."""
-    findings = codescan.to_findings(result)
-    limit = get_settings().max_findings_per_report
-    summary = (
-        f"Pattern scan of the whole codebase: {result['files_scanned']} file(s), "
-        f"{result['matches_count']} match(es) to verify, {result['suppressed_count']} suppressed."
-    )
-    if len(findings) > limit:
-        summary += f" Only the {limit} most severe matches are stored."
-        findings = findings[:limit]
-    skipped = [s["file"] for s in result["skipped"] if s["reason"] != "excluded"]
-    scope = f"Codebase {args.path} ({result['files_scanned']} files scanned)"
-    if skipped:
-        scope += f"; not scanned: {', '.join(skipped[:50])}"
-        scope += f" and {len(skipped) - 50} more" if len(skipped) > 50 else ""
-    return services.save_report(
-        project=args.project,
-        summary=summary,
-        findings=findings,
-        repository=args.repository,
-        branch=args.branch,
-        commit_sha=args.commit,
-        reviewer="security-review-controller code scan",
-        scope=scope,
-        review_type=ReviewType.CODE_SCAN,
-        author=args.author,
-    )
-
-
-def code_command(argv: list[str]) -> int:
-    """Run ``security-review-controller code scan``: pattern-scan every file of a codebase."""
-    parser = argparse.ArgumentParser(
-        prog="security-review-controller code",
-        description="Pattern-scan a whole codebase (leads to verify, not a full SAST).",
-    )
-    parser.add_argument("action", choices=["scan"])
-    parser.add_argument("path", nargs="?", default=".", help="directory to scan (default: .)")
-    parser.add_argument(
-        "--exclude",
-        action="append",
-        default=[],
-        metavar="GLOB",
-        help="file or directory glob to skip, relative to the path; repeat the option",
-    )
-    parser.add_argument(
-        "--max-file-bytes",
-        type=int,
-        default=codescan.DEFAULT_MAX_FILE_BYTES,
-        help="skip larger files (default: 1 MiB)",
-    )
-    parser.add_argument(
-        "--no-git", action="store_true", help="walk the tree instead of using git ls-files"
-    )
-    parser.add_argument("--fail-on", choices=_SEVERITY_CHOICES, default=Severity.HIGH.value)
-    parser.add_argument("--format", choices=["text", "json", "sarif"], default="text")
-    parser.add_argument("--output", "-o", help="file to write (default: standard output)")
-    parser.add_argument("--project", help="project name (required with --save)")
-    parser.add_argument("--save", action="store_true", help="store the matches as a report")
-    parser.add_argument("--repository")
-    parser.add_argument("--branch")
-    parser.add_argument("--commit")
-    parser.add_argument(
-        "--author", help="username of the developer, stored with the report (with --save)"
-    )
-    args = parser.parse_args(argv)
-    if args.save and not args.project:
-        return _fail("--save requires --project")
-
-    try:
-        # Internal rules live in the database; without it, only the built-in rules apply
-        try:
-            init_db()
-        except SQLAlchemyError:
-            if args.save:
-                raise
-        for message in registry.snapshot().errors:
-            print(f"warning: {message}", file=sys.stderr)
-        result = codescan.scan_tree(args.path, args.exclude, args.max_file_bytes, not args.no_git)
-        saved = _save_code_scan(args, result) if args.save else None
-    except (ValueError, OSError) as exc:
-        return _fail(str(exc))
-
-    blocked = codescan.blocking_count(result, Severity(args.fail_on))
-    if args.format == "text":
-        _print_code_text(result, blocked, args.fail_on)
-        if saved:
-            print(f"Report #{saved['report_id']} saved for project {args.project}")
-        return EXIT_BLOCKED if blocked else EXIT_PASSED
-
-    if args.format == "sarif":
-        if saved:
-            name, items = services.collect_sarif_items(saved["report_id"], None)
-        else:
-            name = args.project or Path(result["root"]).name
-            now = datetime.now(UTC)
-            items = [
-                sarif.SarifItem(f, 0, name, args.repository, args.branch, args.commit, now)
-                for f in codescan.to_public(codescan.to_findings(result))
-            ]
-        document = sarif.build_sarif(items, name)
-    else:
-        document = {
-            "blocked": blocked > 0,
-            "blocking_findings": blocked,
-            "saved_report": saved,
-            **result,
-        }
-    text = json.dumps(document, indent=2)
-    if args.output:
-        try:
-            Path(args.output).write_text(text + "\n", encoding="utf-8")
-        except OSError as exc:
-            return _fail(str(exc))
-        print(f"{result['matches_count']} match(es) written to {args.output}", file=sys.stderr)
-    else:
-        print(text)
+        ci_client.print_deps_text(results, blocked, fail_on)
     return EXIT_BLOCKED if blocked else EXIT_PASSED
 
 
@@ -427,11 +155,13 @@ def token_command(argv: list[str]) -> int:
     creator.add_argument("--label", required=True, help="unique name of the client (in the logs)")
     creator.add_argument(
         "--role",
-        choices=[role.value for role in http_server.Role],
+        # api tokens have a role or an owner: created in the web interface
+        choices=sorted(role.value for role in http_server.TOKEN_ROLES - {http_server.Role.API}),
         default=http_server.DEFAULT_ROLE.value,
-        help="mcp (default): MCP endpoint; reader: REST API read only; triager: REST API read "
-        "and triage; admin: both; ci: pipeline routes only (security-review-ci), needs --project; "
-        "metrics: Prometheus endpoint of the controller only",
+        help="mcp (default): MCP endpoint; admin: MCP and REST API; ci: pipeline routes only "
+        "(security-review-ci), needs --project; metrics: Prometheus endpoint of the controller "
+        "only. A person reaches the web interface with a web user and its groups; api tokens "
+        "(REST API, Swagger) are created in the web interface",
     )
     creator.add_argument(
         "--project",
@@ -562,19 +292,27 @@ def audit_command(argv: list[str]) -> int:
     )
     lister.add_argument("--limit", type=int, default=50, help="capped by SECREVIEW_MAX_LIST_LIMIT")
     lister.add_argument("--offset", type=int, default=0)
-    pruner = actions.add_parser("prune", help="delete the events older than the retention period")
+    pruner = actions.add_parser(
+        "prune", help="delete the events older than the retention period, then beyond the limit"
+    )
     pruner.add_argument(
         "--days",
         type=int,
         default=None,
         help="retention in days (default: SECREVIEW_AUDIT_RETENTION_DAYS; 0 keeps all)",
     )
+    pruner.add_argument(
+        "--max-events",
+        type=int,
+        default=None,
+        help="events kept at most (default: SECREVIEW_AUDIT_MAX_EVENTS; 0: no limit)",
+    )
     args = parser.parse_args(argv)
 
     try:
         init_db()
         if args.action == "prune":
-            result = audit.prune_events(args.days)
+            result = audit.prune_events(args.days, args.max_events)
         else:
             result = audit.list_events(
                 args.event, args.project, args.actor, args.since, args.limit, args.offset
@@ -840,8 +578,8 @@ def scan_deps_command(argv: list[str]) -> int:
     except (ValueError, OSError) as exc:
         return _fail(str(exc))
 
-    if (error := _check_vulnerability_check(results, args.require_database)) is not None:
-        return error
+    if ci_client.warn_unchecked(results) and args.require_database:
+        return _fail("vulnerability check could not run and --require-database was given")
     return _print_deps(results, args.fail_on, args.format)
 
 
@@ -997,8 +735,6 @@ def db_command(argv: list[str]) -> int:
 CONTROLLER_COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "db": db_command,
     "advisories": advisories_command,
-    "deps": deps_command,
-    "code": code_command,
     "rules": rules_command,
     "token": token_command,
     "audit": audit_command,
