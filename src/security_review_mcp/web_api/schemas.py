@@ -94,6 +94,18 @@ class HealthStatus(BaseModel):
     status: Literal["ok"] = "ok"
 
 
+class About(BaseModel):
+    """What the About page shows: version, links, Swagger and backend status."""
+
+    version: str
+    documentation_url: str | None
+    repository_url: str | None
+    issues_url: str | None
+    # The Swagger documentation is served (SECREVIEW_SWAGGER_ENABLED and its files built)
+    swagger_url: str | None
+    health_url: str
+
+
 # ── Projects, reports and findings ───────────────────────────────────────────
 
 

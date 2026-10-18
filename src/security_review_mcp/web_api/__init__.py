@@ -29,6 +29,7 @@ from starlette.types import Scope
 from .. import __version__, metrics, oidc, rate_limit, services
 from ..config import get_settings, secret_value
 from ..http_server import (
+    API_HEALTH_PATH,
     DOCS_ASSETS_PREFIX,
     DOCS_PATH,
     FAVICON_PATH,
@@ -205,6 +206,11 @@ def create_app(
         """Public liveness probe (containers, Kubernetes)."""
         return HealthStatus()
 
+    @app.get(API_HEALTH_PATH, tags=["account"])
+    async def api_health() -> HealthStatus:
+        """Public liveness probe of the API, polled by the web interface at load."""
+        return HealthStatus()
+
     if settings.metrics_enabled:
 
         @app.get(METRICS_PATH, include_in_schema=False)
@@ -230,6 +236,7 @@ def create_app(
         )
 
     assets = swagger_assets_dir(configured) if swagger else None
+    app.state.swagger_served = assets is not None
     if assets is not None:
         app.mount(DOCS_ASSETS_PREFIX, StaticFiles(directory=assets), name="swagger")
 

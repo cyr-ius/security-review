@@ -12,6 +12,7 @@ from sqlmodel import Session, select
 from starlette.testclient import TestClient
 
 from security_review_mcp import (
+    __version__,
     access_control,
     advisory_sync,
     app_settings,
@@ -229,6 +230,28 @@ def test_swagger_without_the_web_interface_build_is_not_served(tmp_path, caplog)
     assert empty.get("/api/docs").status_code == 404
     assert "Swagger UI files of the web interface build are missing" in caplog.text
     assert bare.get("/api/openapi.json").status_code == 200
+
+
+def test_api_health_is_public_and_tells_nothing_else(secured):
+    response = secured.get("/api/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_about_gives_the_version_and_the_links(secured, ui_dir):
+    assert secured.get("/api/v1/about").status_code == 401
+
+    about = secured.get("/api/v1/about", headers=auth("reader")).json()
+
+    assert about["version"] == __version__
+    assert about["repository_url"] == "https://github.com/cyr-ius/security-review-mcp"
+    assert about["issues_url"].endswith("/issues")
+    assert about["documentation_url"].startswith("https://")
+    assert (about["swagger_url"], about["health_url"]) == ("/api/docs", "/api/health")
+    # Swagger disabled: no link
+    bare = TestClient(as_admin(web_api.create_app(ui_dir=str(ui_dir))), base_url="http://127.0.0.1")
+    assert bare.get("/api/v1/about").json()["swagger_url"] is None
 
 
 def test_documentation_uses_the_web_interface_favicon():
