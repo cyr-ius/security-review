@@ -8,8 +8,8 @@
 .hero {
   position: relative;
   overflow: hidden;
-  color: #e2e8f0;
-  background: linear-gradient(160deg, #0f172a 0%, #1e1b4b 55%, #0c4a6e 100%);
+  color: var(--app-brand-fg);
+  background: var(--app-brand-bg);
 }
 
 /* Faint grid, faded towards the edges */
@@ -18,10 +18,10 @@
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgb(255 255 255 / 5%) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(255 255 255 / 5%) 1px, transparent 1px);
+    linear-gradient(rgba(var(--bs-white-rgb), 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--bs-white-rgb), 0.05) 1px, transparent 1px);
   background-size: 2.5rem 2.5rem;
-  mask-image: radial-gradient(ellipse at 30% 40%, #000 20%, transparent 75%);
+  mask-image: radial-gradient(ellipse at 30% 40%, var(--bs-black) 20%, transparent 75%);
 }
 
 .hero-glow {
@@ -31,7 +31,7 @@
   width: 32rem;
   height: 32rem;
   border-radius: 50%;
-  background: radial-gradient(circle, rgb(99 102 241 / 45%), transparent 65%);
+  background: radial-gradient(circle, rgba(var(--app-brand-glow-rgb), 0.45), transparent 65%);
   filter: blur(20px);
 }
 
@@ -46,14 +46,14 @@
 }
 
 .hero-brand {
-  color: #fff;
+  color: var(--bs-white);
   font-size: 1.25rem;
   font-weight: 700;
 }
 
 .hero-title {
   max-width: 32rem;
-  color: #fff;
+  color: var(--bs-white);
   font-size: clamp(2rem, 3.4vw, 3rem);
   font-weight: 800;
   line-height: 1.1;
@@ -61,7 +61,7 @@
 }
 
 .gradient-text {
-  background: linear-gradient(90deg, #a5b4fc, #38bdf8);
+  background: linear-gradient(90deg, var(--app-brand-accent), var(--app-brand-accent-2));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -70,7 +70,7 @@
 .hero-lead {
   max-width: 30rem;
   margin: 1.25rem 0 2rem;
-  color: #94a3b8;
+  color: var(--app-brand-muted);
   font-size: 1.05rem;
 }
 
@@ -81,7 +81,7 @@
   padding: 0;
   list-style: none;
   font-size: 0.9rem;
-  color: #94a3b8;
+  color: var(--app-brand-muted);
 }
 
 .features li {
@@ -90,7 +90,7 @@
 }
 
 .features strong {
-  color: #e2e8f0;
+  color: var(--app-brand-fg);
   font-weight: 600;
 }
 
@@ -100,16 +100,16 @@
   flex: none;
   width: 2.25rem;
   height: 2.25rem;
-  border: 1px solid rgb(255 255 255 / 10%);
+  border: 1px solid rgba(var(--bs-white-rgb), 0.1);
   border-radius: 0.625rem;
-  color: #a5b4fc;
-  background: rgb(255 255 255 / 6%);
+  color: var(--app-brand-accent);
+  background: rgba(var(--bs-white-rgb), 0.06);
 }
 
 .hero-foot {
   margin: 0;
   font-size: 0.8rem;
-  color: #64748b;
+  color: var(--app-brand-subtle);
 }
 
 /* ── Form panel ── */

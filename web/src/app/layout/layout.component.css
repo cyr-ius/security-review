@@ -14,9 +14,9 @@
   padding: 1.25rem 0.875rem 0.75rem;
   color: var(--app-sidebar-fg);
   background:
-    radial-gradient(120% 50% at 0% 0%, rgb(99 102 241 / 18%), transparent 60%),
+    radial-gradient(120% 50% at 0% 0%, rgba(var(--app-brand-glow-rgb), 0.18), transparent 60%),
     var(--app-sidebar-bg);
-  border-right: 1px solid rgb(255 255 255 / 6%);
+  border-right: 1px solid rgba(var(--bs-white-rgb), 0.06);
   transition: transform 0.25s ease;
 }
 
@@ -25,7 +25,7 @@
   align-items: center;
   gap: 0.75rem;
   padding: 0 0.5rem 1.25rem;
-  color: #fff;
+  color: var(--bs-white);
   text-decoration: none;
 }
 
@@ -90,17 +90,17 @@
 }
 
 .nav-entry:hover {
-  color: #fff;
-  background: rgb(255 255 255 / 6%);
+  color: var(--bs-white);
+  background: rgba(var(--bs-white-rgb), 0.06);
 }
 
 .nav-entry.active {
-  color: #fff;
+  color: var(--bs-white);
   background: var(--app-sidebar-active);
 }
 
 .nav-entry.active .bi {
-  color: #a5b4fc;
+  color: var(--app-brand-accent);
   opacity: 1;
 }
 
@@ -112,12 +112,12 @@
   bottom: 0.5rem;
   width: 3px;
   border-radius: 0 3px 3px 0;
-  background: linear-gradient(#818cf8, #38bdf8);
+  background: linear-gradient(var(--app-brand-accent-strong), var(--app-brand-accent-2));
 }
 
 .nav-entry:focus-visible,
 .icon-btn:focus-visible {
-  outline: 2px solid #818cf8;
+  outline: 2px solid var(--app-brand-accent-strong);
   outline-offset: 2px;
 }
 
@@ -127,9 +127,9 @@
   align-items: center;
   gap: 0.625rem;
   padding: 0.625rem;
-  border: 1px solid rgb(255 255 255 / 8%);
+  border: 1px solid rgba(var(--bs-white-rgb), 0.08);
   border-radius: 0.75rem;
-  background: rgb(255 255 255 / 4%);
+  background: rgba(var(--bs-white-rgb), 0.04);
 }
 
 .avatar {
@@ -139,15 +139,15 @@
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 50%;
-  color: #fff;
+  color: var(--bs-white);
   font-size: 0.8rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #334155, #475569);
+  background: var(--app-brand-avatar);
 }
 
 .user-name {
   overflow: hidden;
-  color: #fff;
+  color: var(--bs-white);
   font-size: 0.875rem;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -169,8 +169,8 @@
 }
 
 .icon-btn:hover {
-  color: #fff;
-  background: rgb(255 255 255 / 8%);
+  color: var(--bs-white);
+  background: rgba(var(--bs-white-rgb), 0.08);
 }
 
 /* Several buttons: only the first one is pushed to the right */
@@ -229,8 +229,8 @@ a.icon-btn {
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 0 3px rgb(34 197 94 / 20%);
+  background: var(--bs-success);
+  box-shadow: 0 0 0 3px rgba(var(--bs-success-rgb), 0.2);
 }
 
 .content {
@@ -263,7 +263,7 @@ a.icon-btn {
     inset: 0;
     z-index: 1030;
     display: block;
-    background: rgb(2 6 23 / 50%);
+    background: var(--app-backdrop);
     backdrop-filter: blur(2px);
   }
 }
