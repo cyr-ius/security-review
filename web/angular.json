@@ -53,7 +53,24 @@
               "base": "../src/security_review_mcp/webui",
               "browser": ""
             },
-            "baseHref": "/ui/"
+            "baseHref": "/ui/",
+            "assets": [
+              {
+                "glob": "swagger-ui-bundle.js",
+                "input": "node_modules/swagger-ui-dist",
+                "output": "swagger"
+              },
+              {
+                "glob": "swagger-ui.css",
+                "input": "node_modules/swagger-ui-dist",
+                "output": "swagger"
+              },
+              {
+                "glob": "LICENSE",
+                "input": "node_modules/swagger-ui-dist",
+                "output": "swagger"
+              }
+            ]
           },
           "configurations": {
             "production": {

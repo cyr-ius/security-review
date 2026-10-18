@@ -28,6 +28,7 @@ or both.
 | `SECREVIEW_FORWARDED_ALLOW_IPS` | — | both | Reverse proxies (IP addresses or CIDR ranges separated by commas, `*` for any) whose `X-Forwarded-For` gives the client address, used by the login throttling, the enrollment limits and the logs; without it, the uvicorn default (`FORWARDED_ALLOW_IPS` variable, else `127.0.0.1`). Set it behind an Ingress or a reverse proxy, or every client shares the address of the proxy |
 | `SECREVIEW_WEB_UI` | `true` | Controller | Serves the [web interface](../usage/web-interface.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Controller | Folder of another build of the web interface |
+| `SECREVIEW_SWAGGER_ENABLED` | `false` | Controller | Serve the Swagger documentation (`/api/docs`) and the OpenAPI schema (`/api/openapi.json`), from the files of the web interface build |
 | `SECREVIEW_OIDC_ENABLED` | `false` | Controller | Enables the [OpenID Connect SSO login](../advanced/sso.md) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` can also be changed in the **SSO** screen, whose stored values replace them ([configuring SSO in the interface](../advanced/sso.md#configuring-sso-in-the-interface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | Controller | URL of the issuer (HTTPS; HTTP only on localhost), whose `/.well-known/openid-configuration` is read |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Controller | Identifier of the client declared at the provider |

@@ -58,8 +58,9 @@ Projects can also request their token themselves: see
   immediately, including to the other instances sharing the same PostgreSQL database.
 
 The MCP endpoint and the controller API require `Authorization: Bearer <token>`. Still public: `/healthz` on both processes, `/api/v1/enroll`
-on the MCP server, and on the controller the static files of `/ui/` and the Swagger
-documentation (`/api/docs`, `/api/openapi.json` schema, `/api/favicon.svg` icon). While no token exists, the controller API answers `503` and the MCP server **stays closed**: a
+on the MCP server, and on the controller the static files of `/ui/`, the `/api/favicon.svg`
+icon and, with `SECREVIEW_SWAGGER_ENABLED=true` (disabled by default), the Swagger
+documentation (`/api/docs`, `/api/openapi.json` schema, `/api/swagger/` files). While no token exists, the controller API answers `503` and the MCP server **stays closed**: a
 client without a token only reaches [enrollment](#enrollment-a-project-requests-its-token), any
 other request gets `401`, whatever the bearer value (a warning is logged at start-up). `/mcp` is
 only open in that case when the server listens on localhost (`127.0.0.1`, `::1`) or when

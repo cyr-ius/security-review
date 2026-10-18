@@ -110,7 +110,8 @@
   the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a
   finding. Pages are served with a strict CSP and the anti-clickjacking headers; the token is
   kept in the `sessionStorage` of the tab. The Swagger documentation and its OpenAPI schema
-  are public, but the data routes stay protected. The check is made twice: by the Bearer
+  are disabled by default (`SECREVIEW_SWAGGER_ENABLED`); once enabled they are public, served
+  from local files only with a strict CSP, and the data routes stay protected. The check is made twice: by the Bearer
   middleware, then by every route of the API, which refuses (`401`) any request without an
   authenticated identity. The API thus never grants rights by default, even if it is served
   without the middleware. Every JSON answer goes through its declared response model: a field

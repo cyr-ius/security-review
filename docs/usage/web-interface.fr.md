@@ -9,7 +9,7 @@ base de données (voir [Architecture et déploiement](../advanced/architecture.m
 |---|---|
 | `/ui/` | Application web (Angular) |
 | `/api/v1/…` | API REST utilisée par l'application |
-| `/api/docs` | Documentation OpenAPI de l'API REST (publique, sans données) |
+| `/api/docs` | Documentation OpenAPI de l'API REST (publique, sans données), avec `SECREVIEW_SWAGGER_ENABLED=true` |
 | `/api/favicon.svg` | Icône de l'interface web et de la documentation Swagger (publique) |
 | `/healthz` | Sonde de vie (publique) |
 
@@ -386,7 +386,10 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 - Les mots de passe des comptes ne sont jamais stockés : seule une empreinte **scrypt** salée
   (N=2¹⁴, r=8, p=5) est enregistrée et aucune réponse de l'API ne la renvoie. La vérification
   prend le même temps que l'identifiant existe ou non, et la réponse d'échec est identique. La documentation Swagger (`/api/docs`)
-  et son schéma (`/api/openapi.json`) sont publics et ne donnent accès à aucune donnée.
+  et son schéma (`/api/openapi.json`) sont **désactivés par défaut**
+  (`SECREVIEW_SWAGGER_ENABLED=true` les sert) ; une fois activés, ils sont publics et ne donnent
+  accès à aucune donnée. Leurs fichiers sont fournis avec la build de l'interface web : rien
+  n'est chargé depuis Internet, et Swagger n'envoie jamais le schéma au validateur en ligne.
   Dans Swagger, le cadenas d'une route indique qu'elle exige un jeton : il reste **ouvert**
   tant que vous n'avez pas saisi de jeton avec **Authorize**, et ne veut pas dire que la route
   est accessible sans jeton.

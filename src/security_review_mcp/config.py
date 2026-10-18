@@ -102,6 +102,10 @@ class Settings(BaseSettings):
     # web_ui_dir overrides the directory of the built application (default: bundled files).
     web_ui: bool = True
     web_ui_dir: str | None = None
+    # Controller: Swagger documentation of the REST API (/api/docs) and its OpenAPI schema
+    # (/api/openapi.json), disabled by default. Its files come with the web interface build:
+    # nothing is loaded from the Internet.
+    swagger_enabled: bool = False
 
     # Controller only: OpenID Connect login to the web interface (authorization code + PKCE),
     # disabled by default. oidc_redirect_uri is the public URL of /api/v1/auth/oidc/callback,

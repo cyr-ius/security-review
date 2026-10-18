@@ -9,7 +9,7 @@ the findings** (fixed, accepted risk, false positive) without an MCP client. It 
 |---|---|
 | `/ui/` | Web application (Angular) |
 | `/api/v1/…` | REST API used by the application |
-| `/api/docs` | OpenAPI documentation of the REST API (public, no data) |
+| `/api/docs` | OpenAPI documentation of the REST API (public, no data), when `SECREVIEW_SWAGGER_ENABLED=true` |
 | `/api/favicon.svg` | Icon of the web interface and of the Swagger documentation (public) |
 | `/healthz` | Liveness probe (public) |
 
@@ -378,7 +378,10 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 - Account passwords are never stored: only a salted **scrypt** digest (N=2¹⁴, r=8, p=5) is
   stored and no API answer returns it. The check takes the same time whether the user name
   exists or not, and the failure answer is identical. The Swagger documentation (`/api/docs`)
-  and its schema (`/api/openapi.json`) are public and give access to no data. In Swagger, the
+  and its schema (`/api/openapi.json`) are **disabled by default**
+  (`SECREVIEW_SWAGGER_ENABLED=true` serves them); once enabled, they are public and give access
+  to no data. Their files come with the web interface build: nothing is loaded from the
+  Internet, and Swagger never sends the schema to the online validator. In Swagger, the
   padlock of a route says that it requires a token: it stays **open** while you have not entered
   a token with **Authorize**, and does not mean that the route can be reached without a token.
 - The controller exposes no write route without a token. The

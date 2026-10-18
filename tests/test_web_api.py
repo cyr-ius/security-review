@@ -54,6 +54,10 @@ def ui_dir(tmp_path):
     """A fake Angular build."""
     (tmp_path / "index.html").write_text("<html>app</html>", encoding="utf-8")
     (tmp_path / "main.js").write_text("console.log(1)", encoding="utf-8")
+    # Files of Swagger UI, copied by the Angular build
+    (tmp_path / "swagger").mkdir()
+    for name in web_api.SWAGGER_FILES:
+        (tmp_path / "swagger" / name).write_text("/* swagger */", encoding="utf-8")
     return tmp_path
 
 
@@ -84,7 +88,7 @@ def secured(ui_dir) -> TestClient:
         if role != Role.CI:  # see ci_token: a ci token is always restricted to projects
             TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
     app = http_server.build_controller_app(
-        web_api.create_app(ui_dir=str(ui_dir)), token_store.DatabaseTokenStore()
+        web_api.create_app(ui_dir=str(ui_dir), swagger=True), token_store.DatabaseTokenStore()
     )
     return TestClient(app, base_url="http://127.0.0.1")
 
@@ -154,7 +158,9 @@ def test_me(client):
 def test_api_without_middleware_fails_closed(ui_dir, method, path):
     # Defense in depth: served without the bearer middleware, the API refuses every request
     # instead of treating the caller as an administrator
-    bare = TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+    bare = TestClient(
+        web_api.create_app(ui_dir=str(ui_dir), swagger=True), base_url="http://127.0.0.1"
+    )
     response = bare.request(method, path, json={"status": "accepted"})
     assert response.status_code == 401
     assert response.headers["www-authenticate"].startswith("Bearer ")
@@ -164,7 +170,9 @@ def test_api_without_middleware_fails_closed(ui_dir, method, path):
 
 
 def test_favicon_is_served_and_used_by_swagger(ui_dir):
-    bare = TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+    bare = TestClient(
+        web_api.create_app(ui_dir=str(ui_dir), swagger=True), base_url="http://127.0.0.1"
+    )
 
     icon = bare.get("/api/favicon.svg")
     assert icon.status_code == 200
@@ -181,6 +189,45 @@ def test_favicon_is_served_and_used_by_swagger(ui_dir):
     # Neither is part of the API schema
     paths = bare.get("/api/openapi.json").json()["paths"]
     assert "/api/favicon.svg" not in paths and "/api/docs" not in paths
+
+
+def test_swagger_is_disabled_by_default(ui_dir):
+    bare = TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+
+    for path in ("/api/docs", "/api/openapi.json", "/api/swagger/swagger-ui-bundle.js"):
+        assert bare.get(path).status_code == 404, path
+
+
+def test_swagger_is_served_without_any_external_resource(secured):
+    docs = secured.get("/api/docs")
+
+    assert docs.status_code == 200
+    assert "cdn" not in docs.text and "https://" not in docs.text
+    assert 'src="/api/swagger/swagger-ui-bundle.js"' in docs.text
+    assert 'href="/api/swagger/swagger-ui.css"' in docs.text
+    # The schema is never sent to the online validator of swagger.io
+    assert '"validatorUrl": null' in docs.text
+    # Only its own files, and its inline script by its digest
+    policy = docs.headers["content-security-policy"]
+    assert policy.startswith("default-src 'none'; script-src 'self' 'sha256-")
+    assert "unsafe-inline" not in policy and "connect-src 'self'" in policy
+    # Public, like the page: reachable without a token
+    assert secured.get("/api/swagger/swagger-ui-bundle.js").status_code == 200
+
+
+def test_swagger_without_the_web_interface_build_is_not_served(tmp_path, caplog):
+    bare = TestClient(
+        web_api.create_app(ui_dir=None, ui=False, swagger=True), base_url="http://127.0.0.1"
+    )
+    # The bundled build may hold the files: point to an empty directory instead
+    empty = TestClient(
+        web_api.create_app(ui_dir=str(tmp_path), ui=False, swagger=True),
+        base_url="http://127.0.0.1",
+    )
+
+    assert empty.get("/api/docs").status_code == 404
+    assert "Swagger UI files of the web interface build are missing" in caplog.text
+    assert bare.get("/api/openapi.json").status_code == 200
 
 
 def test_documentation_uses_the_web_interface_favicon():

@@ -90,6 +90,8 @@ METRICS_PATH = "/metrics"
 # Public files of the controller: the API documentation and the application icon
 DOCS_PATH = "/api/docs"
 OPENAPI_PATH = "/api/openapi.json"
+# Files of Swagger UI, served by the controller (never from a CDN)
+DOCS_ASSETS_PREFIX = "/api/swagger"
 FAVICON_PATH = "/api/favicon.svg"
 # Public login routes of the controller (OpenID Connect, see oidc)
 AUTH_PREFIX = "/api/v1/auth/"
@@ -160,7 +162,7 @@ def is_controller_public_path(path: str) -> bool:
     """Controller paths reachable without a token: the web UI shell, the API documentation,
     the application icon, the health check and the login routes."""
     return path in ("/", UI_PREFIX, DOCS_PATH, OPENAPI_PATH, FAVICON_PATH, HEALTH_PATH) or (
-        path.startswith((UI_PREFIX + "/", AUTH_PREFIX))
+        path.startswith((UI_PREFIX + "/", AUTH_PREFIX, DOCS_ASSETS_PREFIX + "/"))
     )
 
 

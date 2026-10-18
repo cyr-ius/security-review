@@ -110,7 +110,9 @@
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt
   ne peut pas neutraliser un finding. Pages servies avec une CSP
   stricte et les en-têtes anti-clickjacking ; jeton gardé dans le `sessionStorage` de l'onglet.
-  La documentation Swagger et son schéma OpenAPI sont publics, mais les routes de données
+  La documentation Swagger et son schéma OpenAPI sont désactivés par défaut
+  (`SECREVIEW_SWAGGER_ENABLED`) ; une fois activés, ils sont publics, servis depuis des fichiers
+  locaux uniquement avec une CSP stricte, et les routes de données
   restent protégées. Le contrôle est fait deux fois : par le middleware Bearer, puis par
   chaque route de l'API, qui refuse (`401`) toute requête sans identité authentifiée. Ainsi,
   l'API ne donne jamais de droits par défaut, même si elle est servie sans le middleware.

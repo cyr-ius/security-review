@@ -60,8 +60,9 @@ Les projets peuvent aussi demander eux-mêmes leur jeton : voir
   immédiatement, y compris aux autres instances qui partagent la même base PostgreSQL.
 
 L'endpoint MCP et l'API du contrôleur exigent `Authorization: Bearer <jeton>`. Restent publics : `/healthz` sur les deux processus,
-`/api/v1/enroll` sur le serveur MCP, et sur le contrôleur les fichiers statiques de `/ui/` et la
-documentation Swagger (`/api/docs`, schéma `/api/openapi.json`, icône `/api/favicon.svg`). Tant qu'aucun jeton n'existe,
+`/api/v1/enroll` sur le serveur MCP, et sur le contrôleur les fichiers statiques de `/ui/`,
+l'icône `/api/favicon.svg` et, avec `SECREVIEW_SWAGGER_ENABLED=true` (désactivé par défaut), la
+documentation Swagger (`/api/docs`, schéma `/api/openapi.json`, fichiers `/api/swagger/`). Tant qu'aucun jeton n'existe,
 l'API du contrôleur répond `503` et le serveur MCP **reste fermé** : un client sans jeton
 n'atteint que l'[enrôlement](#enrolement-un-projet-demande-son-jeton), toute autre requête reçoit
 `401`, quelle que soit la valeur Bearer (un avertissement est journalisé au démarrage). `/mcp`

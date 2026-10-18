@@ -72,6 +72,7 @@ def protected_client(
             Route("/api/v1/auth/config", whoami),
             Route("/api/docs", whoami),
             Route("/api/openapi.json", whoami),
+            Route("/api/swagger/swagger-ui.css", whoami),
             Route("/api/favicon.svg", whoami),
             Route("/ui/", whoami),
             Route("/healthz", whoami),
@@ -152,6 +153,7 @@ def test_web_ui_files_are_public_but_not_the_api():
     assert client.get("/api/v1/me").status_code == 401
     assert client.get("/api/docs").status_code == 200
     assert client.get("/api/openapi.json").status_code == 200
+    assert client.get("/api/swagger/swagger-ui.css").status_code == 200
     assert client.get("/api/favicon.svg").status_code == 200
     # The controller does not serve the public enrollment endpoint
     assert client.post("/api/v1/enroll").status_code == 401
@@ -159,6 +161,7 @@ def test_web_ui_files_are_public_but_not_the_api():
     mcp_client = protected_client()
     assert mcp_client.get("/ui/").status_code == 401
     assert mcp_client.get("/api/docs").status_code == 401
+    assert mcp_client.get("/api/swagger/swagger-ui.css").status_code == 401
     assert mcp_client.get("/api/favicon.svg").status_code == 401
     assert mcp_client.get("/healthz").status_code == 200
     assert mcp_client.post("/api/v1/enroll").status_code == 200
