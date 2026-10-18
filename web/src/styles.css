@@ -274,8 +274,12 @@ dialog::backdrop {
   scrollbar-color: var(--bs-border-color) transparent;
 }
 
+/*
+ * Loading indicators (Bootstrap spinners, turning refresh icon) are left out: they are the only
+ * sign that work is running, and they already turn slower under reduced motion.
+ */
 @media (prefers-reduced-motion: reduce) {
-  *,
+  :not(.spinner-border, .spinner-grow, .spinning),
   *::before,
   *::after {
     transition: none !important;

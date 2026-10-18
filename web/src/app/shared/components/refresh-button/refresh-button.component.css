@@ -1,17 +1,15 @@
 /*
- * The icon box is reduced to the glyph (1em square, the offset of Bootstrap Icons moved from
- * ::before to the box) so that the rotation turns the arrow around its own center instead of
- * the center of a taller line box.
+ * The icon box is reduced to the glyph (a flex box has no line box of its own, and takes the
+ * baseline of the glyph), with the offset of Bootstrap Icons moved from ::before to the box, so
+ * that the rotation turns the arrow around its own center.
  */
 .bi {
-  display: inline-block;
-  line-height: 1;
+  display: inline-flex;
   vertical-align: -0.125em;
-  transform-origin: 50% 50%;
 }
 
 .bi::before {
-  vertical-align: top;
+  vertical-align: baseline;
 }
 
 .spinning {
