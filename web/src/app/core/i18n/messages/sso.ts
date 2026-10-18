@@ -7,9 +7,9 @@ export const sso = defineMessages({
     'sso.title': 'SSO settings',
     'sso.active': 'SSO login active',
     'sso.inactive': 'SSO login inactive',
-    'sso.helpBefore': 'Each value saved here replaces its variable',
+    'sso.helpBefore': 'Each value replaces its variable',
     'sso.helpAfter':
-      '; “Variable” applies the variable again. A change applies at the next login, without restarting the controller.',
+      '. The "Variable" button reapplies the variable. The change takes effect upon the next login; no restart is required.',
     'sso.loadError': 'Could not load the SSO settings.',
     'sso.enable': 'Enable SSO login',
     'sso.provider': 'Identity provider',
@@ -38,7 +38,7 @@ export const sso = defineMessages({
     'sso.displayName': 'Button label',
     'sso.rolesClaim': 'Groups claim',
     'sso.rolesClaimHelp':
-      'Its values are matched against the names of the groups open to SSO. Dotted path accepted (realm_access.roles).',
+      'Its values ​​are compared against the group names. A dot-notated path is accepted (realm_access.roles).',
     'sso.usernameClaim': 'Username claim',
     'sso.adminGroups': 'Administration groups',
     'sso.autoCreate': 'Create the users at their first login',
@@ -56,21 +56,21 @@ export const sso = defineMessages({
     'sso.failed': 'The SSO configuration failed.',
     'sso.subtitle': 'OpenID Connect login settings',
     'sso.groupsBefore':
-      'What an SSO user may do comes from its groups: at each login, it joins the groups open to SSO whose name is a value of its groups claim (screen',
+      'What an SSO user can do comes from their groups: at each login, they join the groups whose name appears in their group claim (screen',
     'sso.groupsAfter': '). The other values of the claim are ignored.',
     'sso.adminGroupsHelp':
       'Separated by commas: such a group is created with the admin role at the first login of one of its members (first administrator).',
     'sso.defaultGroup': 'Default group',
-    'sso.defaultGroupHelp': 'Name of a group every SSO user joins at each login (empty: none).',
+    'sso.defaultGroupHelp': 'Name of a group assigned by default upon each connection (empty: none).',
   },
   fr: {
     'common.add': 'Ajouter',
     'sso.title': 'Configuration SSO',
     'sso.active': 'Connexion SSO active',
     'sso.inactive': 'Connexion SSO inactive',
-    'sso.helpBefore': 'Chaque valeur enregistrée ici remplace sa variable',
+    'sso.helpBefore': 'Chaque valeur remplace sa variable',
     'sso.helpAfter':
-      " ; « Variable » applique de nouveau la variable. Un changement s'applique à la prochaine connexion, sans redémarrer le contrôleur.",
+      ". Le bouton « Variable » applique de nouveau la variable. Le changement s'applique à la prochaine connexion, aucun redémarrage nécessaire.",
     'sso.loadError': 'Impossible de charger la configuration SSO.',
     'sso.enable': 'Activer la connexion SSO',
     'sso.provider': "Fournisseur d'identité",
@@ -99,7 +99,7 @@ export const sso = defineMessages({
     'sso.displayName': 'Libellé du bouton',
     'sso.rolesClaim': 'Claim des groupes',
     'sso.rolesClaimHelp':
-      'Ses valeurs sont comparées aux noms des groupes ouverts au SSO. Chemin pointé accepté (realm_access.roles).',
+      'Ses valeurs sont comparées aux noms des groupes. Chemin pointé accepté (realm_access.roles).',
     'sso.usernameClaim': "Claim du nom d'utilisateur",
     'sso.adminGroups': 'Groupes administration',
     'sso.autoCreate': 'Créer les utilisateurs à leur première connexion',
@@ -118,13 +118,13 @@ export const sso = defineMessages({
     'sso.failed': 'La configuration SSO a échoué.',
     'sso.subtitle': 'Configuration de la connexion OpenID Connect',
     'sso.groupsBefore':
-      "Ce qu'un utilisateur SSO peut faire vient de ses groupes : à chaque connexion, il rejoint les groupes ouverts au SSO dont le nom figure dans son claim des groupes (écran",
+      "Ce qu'un utilisateur SSO peut faire vient de ses groupes : à chaque connexion, il rejoint les groupes dont le nom figure dans son claim des groupes (écran",
     'sso.groupsAfter': '). Les autres valeurs du claim sont ignorées.',
     'sso.adminGroupsHelp':
       "Séparés par des virgules : un tel groupe est créé avec le rôle admin à la première connexion de l'un de ses membres (premier administrateur).",
     'sso.defaultGroup': 'Groupe par défaut',
     'sso.defaultGroupHelp':
-      "Nom d'un groupe que tout utilisateur SSO rejoint à chaque connexion (vide : aucun).",
+      "Nom d'un groupe affecté par défaut à chaque connexion (vide : aucun).",
   },
   es: {
     'common.add': 'Añadir',

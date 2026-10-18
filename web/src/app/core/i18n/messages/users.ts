@@ -7,7 +7,7 @@ export const users = defineMessages({
     'users.subtitle':
       'Accounts of the web interface: local (username and password) or SSO (identity provider)',
     'users.help':
-      'Only these accounts open the interface; tokens are for the MCP server and the REST API. What a user may do comes from the roles of its groups (those given here and, for an SSO user, those named by its groups claim at its last login) and from the roles given to it directly, each on every project or on some projects. A change applies at once to the open sessions; a password reset or a deletion closes them. The last holder of the users.manage permission can be neither deleted nor lose it.',
+      'Only accounts can access the interface. Any changes take effect immediately for active sessions; a password reset or account deletion will terminate those sessions. The final account possessing the `users.manage` permission cannot be deleted, nor can that permission be removed from it.',
     'users.generatedPassword': 'Generated password',
     'users.passwordOf': 'Password of “{user}”',
     'users.copyNow': 'Copy it now: it will not be shown again.',
@@ -85,7 +85,7 @@ export const users = defineMessages({
     'users.subtitle':
       "Comptes de l'interface web : locaux (identifiant et mot de passe) ou SSO (fournisseur d'identité)",
     'users.help':
-      "Seuls ces comptes ouvrent l'interface ; les jetons servent au serveur MCP et à l'API REST. Ce qu'un utilisateur peut faire vient des rôles de ses groupes (ceux donnés ici et, pour un utilisateur SSO, ceux nommés par son claim des groupes à sa dernière connexion) et des rôles qui lui sont donnés directement, chacun sur tous les projets ou sur certains. Une modification s'applique aussitôt aux sessions ouvertes ; une réinitialisation du mot de passe ou une suppression les ferme. Le dernier détenteur de la permission users.manage ne peut être ni supprimé ni la perdre.",
+      "Seuls les comptes ouvrent l'interface. Une modification s'applique aussitôt aux sessions ouvertes ; une réinitialisation du mot de passe ou une suppression les ferme. Le dernier compte qui possède la permission users.manage ne peut être ni supprimé ni la perdre.",
     'users.generatedPassword': 'Mot de passe généré',
     'users.passwordOf': 'Mot de passe de « {user} »',
     'users.copyNow': 'Copiez-le maintenant : il ne sera plus affiché.',
