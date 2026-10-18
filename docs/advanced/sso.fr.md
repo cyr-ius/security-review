@@ -222,8 +222,7 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
   (32 caractères au moins), comme celui des [comptes locaux](../usage/web-interface.md#connexion-et-sessions), et désigne
   le compte SSO, relu à chaque requête : supprimer le compte ou changer ses groupes ou leurs
   rôles s'applique aussitôt. Toutes les répliques du contrôleur doivent partager ce secret ; sans lui,
-  un secret aléatoire est tiré à chaque démarrage et les sessions se terminent au redémarrage (un
-  avertissement est journalisé).
+  le secret de `SECREVIEW_SESSION_SECRET_FILE` est utilisé, généré au premier démarrage.
 - Un changement de groupe chez le fournisseur ne s'applique qu'à la connexion suivante. Pour
   couper toutes les sessions avant leur expiration, supprimez le compte, ou changez
   `SECREVIEW_SESSION_SECRET` et redémarrez le contrôleur (toutes les sessions sont coupées).

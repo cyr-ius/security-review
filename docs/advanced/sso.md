@@ -217,8 +217,7 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
   (at least 32 characters), like the one of the [local accounts](../usage/web-interface.md#login-and-sessions), and
   names the SSO account, read again at every request: deleting the account or changing its
   groups or their roles applies at once. Every replica of the controller must share this secret; without
-  it, a random secret is drawn at every start and the sessions end at restart (a warning is
-  logged).
+  it, the secret of `SECREVIEW_SESSION_SECRET_FILE` is used, generated at the first start.
 - A group change at the provider only applies at the next login. To cut every session before it
   expires, delete the account, or change `SECREVIEW_SESSION_SECRET` and restart the controller
   (every session is cut).

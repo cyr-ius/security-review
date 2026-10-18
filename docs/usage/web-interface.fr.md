@@ -361,8 +361,11 @@ base :
   nouvelle session à l'onglet qui a changé le mot de passe.
 
 Les sessions sont signées avec `SECREVIEW_SESSION_SECRET` (32 caractères au moins), partagé par
-toutes les répliques du contrôleur ; sans lui, un secret aléatoire est tiré à chaque démarrage et
-les sessions se terminent au redémarrage (un avertissement est journalisé).
+toutes les répliques du contrôleur. Sans lui, le secret est lu dans
+`SECREVIEW_SESSION_SECRET_FILE` (`session-secret` dans le répertoire de travail, `/data` en
+Docker), où il est généré au premier démarrage avec les droits `0600` : les sessions survivent à
+un redémarrage, et les répliques qui partagent le volume partagent le secret. Des répliques sans
+volume partagé doivent partager `SECREVIEW_SESSION_SECRET`.
 
 Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour un identifiant
 depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
@@ -420,6 +423,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Crée le compte `admin` au premier démarrage du contrôleur, tant qu'aucun compte n'existe ; `true` dans Docker |
 | `SECREVIEW_SESSION_SECRET` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques |
+| `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | Fichier du secret quand `SECREVIEW_SESSION_SECRET` n'est pas défini, généré au premier démarrage |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session (1 à 24 heures), connexion par compte local ou SSO |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le [compte SSO](../advanced/sso.md#comptes-sso) à la première connexion ; sinon un administrateur le crée |
 | `SECREVIEW_ENROLLMENT` | `true` | Demandes de jetons par les projets (sur le serveur MCP), validées dans l'écran **Jetons** |

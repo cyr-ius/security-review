@@ -27,7 +27,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Scope
 
 from .. import __version__, metrics, oidc, rate_limit, services
-from ..config import get_settings
+from ..config import get_settings, secret_value
 from ..http_server import (
     DOCS_ASSETS_PREFIX,
     DOCS_PATH,
@@ -192,7 +192,7 @@ def create_app(
     app.state.signer = signer or (
         oidc_login.signer
         if oidc_login
-        else oidc.SessionSigner(settings.session_secret, settings.session_hours)
+        else oidc.SessionSigner(secret_value(settings.session_secret), settings.session_hours)
     )
     app.state.oidc = OidcLogins(app.state.signer, oidc_login)
     app.state.login_throttle = rate_limit.LoginThrottle()

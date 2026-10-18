@@ -160,7 +160,12 @@
   MCP server. The return URL after login is limited to local paths. Codes, tokens and secrets
   are never logged by the controller; the authorization code does appear in the access logs of
   a reverse proxy or of uvicorn, which is harmless: it is single-use and useless without the
-  PKCE verifier of the cookie.
+  PKCE verifier of the cookie. The secret settings (`SECREVIEW_SESSION_SECRET`,
+  `SECREVIEW_OIDC_CLIENT_SECRET`, `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`)
+  are typed as secrets: they never appear in a dump of the settings. Without
+  `SECREVIEW_SESSION_SECRET`, the generated session secret is written once to
+  `SECREVIEW_SESSION_SECRET_FILE` with mode `0600` (a warning is logged if the file is readable
+  by other users).
 - **No disk access on the MCP side**: `scan_code` only works on the given content; the server
   reads no file from the disk, which avoids path traversals. The whole repository scan is
   reserved for the CLI (`code scan`), run by the operator on a folder they choose; it does not

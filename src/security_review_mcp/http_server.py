@@ -40,7 +40,7 @@ from starlette.applications import Starlette
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from .config import Settings
+from .config import Settings, secret_value
 from .rate_limit import RateLimitMiddleware
 
 logger = logging.getLogger("security_review_mcp.http")
@@ -448,7 +448,7 @@ def tls_options(settings: Settings) -> TLSOptions | None:
     return TLSOptions(
         certfile=settings.tls_certfile,
         keyfile=settings.tls_keyfile,
-        keyfile_password=settings.tls_keyfile_password,
+        keyfile_password=secret_value(settings.tls_keyfile_password),
         client_ca=settings.tls_client_ca,
     )
 

@@ -5,7 +5,7 @@ import logging
 import sys
 from functools import lru_cache
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Language name or code given to the agent (for example "French", "fr", "pt-BR"): letters,
@@ -41,7 +41,8 @@ class Settings(BaseSettings):
 
     # SQLite by default (zero setup).
     # PostgreSQL: postgresql+psycopg2://user:pass@host:5432/db  # secreview:ignore GEN-007
-    database_url: str = "sqlite:///./security_reports.db"
+    # A secret (it may hold a password): never shown in a repr nor in a log
+    database_url: SecretStr = SecretStr("sqlite:///./security_reports.db")
     database_echo: bool = False
     # Migrate the schema (Alembic) when the controller, the stdio MCP server or a CLI command
     # starts. Set it to false when a dedicated job runs `security-review-controller db upgrade`
@@ -67,9 +68,12 @@ class Settings(BaseSettings):
     allow_unauthenticated: bool = False
 
     # Controller only: sessions of the web interface (password and OIDC logins), tokens signed
-    # with session_secret (at least 32 characters, shared by the replicas; random per start when
-    # unset) and valid session_hours (1 to 24).
-    session_secret: str | None = None
+    # with session_secret (at least 32 characters, shared by the replicas) and valid
+    # session_hours (1 to 24). Unset, the secret is read from session_secret_file, generated
+    # there (mode 0600) at the first start; "" for session_secret_file draws a random secret at
+    # each start (sessions then end at restart).
+    session_secret: SecretStr | None = None
+    session_secret_file: str = "session-secret"
     session_hours: int = 8
 
     # Enrollment (HTTP MCP server, once a token exists): a client without a token reaches a
@@ -88,7 +92,7 @@ class Settings(BaseSettings):
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).
     tls_certfile: str | None = None
     tls_keyfile: str | None = None
-    tls_keyfile_password: str | None = None
+    tls_keyfile_password: SecretStr | None = None
     tls_client_ca: str | None = None
 
     # Reverse proxies (comma-separated IP addresses or CIDR ranges, "*" for any) whose
@@ -130,7 +134,7 @@ class Settings(BaseSettings):
     oidc_enabled: bool = False
     oidc_issuer: str = ""
     oidc_client_id: str = ""
-    oidc_client_secret: str | None = None
+    oidc_client_secret: SecretStr | None = None
     oidc_redirect_uri: str = ""
     oidc_scopes: str = "openid profile email"
     oidc_roles_claim: str = "groups"
@@ -224,6 +228,11 @@ class Settings(BaseSettings):
     def _check_report_language(cls, value: str) -> str:
         """Reject a report language that is not a plain language name or code."""
         return check_report_language(value)
+
+
+def secret_value(secret: SecretStr | None) -> str | None:
+    """Clear value of a secret setting (None when unset)."""
+    return None if secret is None else secret.get_secret_value()
 
 
 @lru_cache

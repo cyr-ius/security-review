@@ -164,7 +164,13 @@
   contrôleur seulement, jamais par le serveur MCP. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
   jetons et secrets ne sont jamais journalisés par le contrôleur ; le code d'autorisation
   apparaît toutefois dans les journaux d'accès d'un reverse proxy ou d'uvicorn, ce qui est
-  sans danger : il est à usage unique et inutilisable sans le vérificateur PKCE du cookie.
+  sans danger : il est à usage unique et inutilisable sans le vérificateur PKCE du cookie. Les
+  réglages secrets (`SECREVIEW_SESSION_SECRET`, `SECREVIEW_OIDC_CLIENT_SECRET`,
+  `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`) sont typés comme secrets : ils
+  n'apparaissent jamais dans un affichage des réglages. Sans `SECREVIEW_SESSION_SECRET`, le
+  secret de session généré est écrit une seule fois dans `SECREVIEW_SESSION_SECRET_FILE` avec les
+  droits `0600` (un avertissement est journalisé si le fichier est lisible par d'autres
+  utilisateurs).
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
   serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Le scan du dépôt
   complet est réservé à la CLI (`code scan`), lancée par l'opérateur sur un dossier qu'il

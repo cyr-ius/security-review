@@ -15,7 +15,8 @@ or both.
 | `SECREVIEW_PORT` | `8000` | both | Listening port (HTTP) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Controller | Creates the [`admin` account](../usage/web-interface.md#first-administrator) at first start, while no account exists; its random password is logged once (only the scrypt digest in the database) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | MCP | While no token exists, accepts every request on `/mcp` even when the server does not listen on localhost (by default it then stays closed, see [Bearer tokens](../advanced/http.md#bearer-tokens)); only for tests on an isolated network |
-| `SECREVIEW_SESSION_SECRET` | — | Controller | Signing secret of the web interface sessions (accounts and SSO), at least 32 characters, identical on every replica; without it, random at every start |
+| `SECREVIEW_SESSION_SECRET` | — | Controller | Signing secret of the web interface sessions (accounts and SSO), at least 32 characters, identical on every replica; without it, read from `SECREVIEW_SESSION_SECRET_FILE` |
+| `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | Controller | File of the session secret when `SECREVIEW_SESSION_SECRET` is unset: generated at the first start (mode `0600`), read at the next ones; `""`: a random secret at every start (sessions end at restart) |
 | `SECREVIEW_SESSION_HOURS` | `8` | Controller | Lifetime of a web interface session (1 to 24 hours) |
 | `SECREVIEW_ENROLLMENT` | `true` | MCP | [Enrollment](../advanced/http.md#enrollment-a-project-requests-its-token): a client without a token can request a project token (restricted MCP server, `POST /api/v1/enroll`), active after approval on the controller |
 | `SECREVIEW_SERVER_URL` | — | Client | URL of the shared MCP server used by [`security-review-mcp scan-deps`](../advanced/dependencies.md#scan-with-a-shared-server-commit-hook) (default of `--url`); never used by the servers |

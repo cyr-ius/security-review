@@ -27,11 +27,11 @@ def get_engine() -> Engine:
     if _engine is None:
         settings = get_settings()
         connect_args = {}
-        if settings.database_url.startswith("sqlite"):
+        if settings.database_url.get_secret_value().startswith("sqlite"):
             # The MCP server may serve requests from several threads
             connect_args["check_same_thread"] = False
         _engine = create_engine(
-            settings.database_url,
+            settings.database_url.get_secret_value(),
             echo=settings.database_echo,
             connect_args=connect_args,
             pool_pre_ping=True,

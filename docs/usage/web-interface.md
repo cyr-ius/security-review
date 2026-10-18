@@ -354,8 +354,10 @@ from the database:
   that changed the password.
 
 Sessions are signed with `SECREVIEW_SESSION_SECRET` (at least 32 characters), shared by every
-replica of the controller; without it, a random secret is drawn at every start and the sessions
-end at restart (a warning is logged).
+replica of the controller. Without it, the secret is read from `SECREVIEW_SESSION_SECRET_FILE`
+(`session-secret` in the working directory, `/data` in Docker), generated there at the first
+start with mode `0600`: sessions survive a restart, and the replicas that share the volume share
+the secret. Replicas without a shared volume must share `SECREVIEW_SESSION_SECRET`.
 
 Login failures are limited: after **5 failures in 15 minutes** for a user name from the same
 address, or **20 failures** from an address all user names together, the login is refused
@@ -412,6 +414,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the application (default: the one of the package) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Creates the `admin` account at the first start of the controller, while no account exists; `true` in Docker |
 | `SECREVIEW_SESSION_SECRET` | — | Signing secret of the sessions (at least 32 characters), identical on every replica |
+| `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | File of the secret when `SECREVIEW_SESSION_SECRET` is unset, generated at the first start |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or SSO login |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [SSO account](../advanced/sso.md#sso-accounts) at the first login; otherwise an administrator creates it |
 | `SECREVIEW_ENROLLMENT` | `true` | Token requests by the projects (on the MCP server), approved in the **Tokens** screen |
