@@ -3,12 +3,13 @@ import { defineMessages } from '../catalog';
 /** My account page. */
 export const account = defineMessages({
   en: {
+    'account.mustChange':
+      'Your password was set by an administrator: choose your own before using the interface.',
     'account.sso': 'SSO account',
     'account.local': 'Local account',
     'account.passwordTitle': 'Change password',
     'account.current': 'Current password',
     'account.new': 'New password',
-    'account.minChars': 'At least {count} characters.',
     'account.confirmation': 'Confirmation',
     'account.mismatch': 'The two passwords differ.',
     'account.submit': 'Change the password',
@@ -21,12 +22,13 @@ export const account = defineMessages({
     'account.failed': 'The password change failed.',
   },
   fr: {
+    'account.mustChange':
+      'Votre mot de passe a été défini par un administrateur : choisissez le vôtre avant d’utiliser l’interface.',
     'account.sso': 'Compte SSO',
     'account.local': 'Compte local',
     'account.passwordTitle': 'Changer de mot de passe',
     'account.current': 'Mot de passe actuel',
     'account.new': 'Nouveau mot de passe',
-    'account.minChars': '{count} caractères au moins.',
     'account.confirmation': 'Confirmation',
     'account.mismatch': 'Les deux mots de passe diffèrent.',
     'account.submit': 'Changer le mot de passe',
@@ -40,12 +42,13 @@ export const account = defineMessages({
     'account.failed': 'Le changement de mot de passe a échoué.',
   },
   es: {
+    'account.mustChange':
+      'Un administrador definió su contraseña: elija la suya antes de usar la interfaz.',
     'account.sso': 'Cuenta SSO',
     'account.local': 'Cuenta local',
     'account.passwordTitle': 'Cambiar la contraseña',
     'account.current': 'Contraseña actual',
     'account.new': 'Nueva contraseña',
-    'account.minChars': 'Al menos {count} caracteres.',
     'account.confirmation': 'Confirmación',
     'account.mismatch': 'Las dos contraseñas no coinciden.',
     'account.submit': 'Cambiar la contraseña',

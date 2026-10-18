@@ -109,8 +109,14 @@
   `propose_finding_status`, qui enregistre une proposition (motif masqué et borné, auteur tiré du
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt
   ne peut pas neutraliser un finding. Pages servies avec une CSP
-  stricte et les en-têtes anti-clickjacking ; jeton gardé dans le `sessionStorage` de l'onglet.
-  La documentation Swagger et son schéma OpenAPI sont publics, mais les routes de données
+  stricte et les en-têtes anti-clickjacking, et chaque réponse du contrôleur (API, refus
+  compris) porte `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
+  `X-Frame-Options: DENY`, une CSP fermée quand la route n'en définit pas et, en HTTPS (TLS du
+  contrôleur, ou `X-Forwarded-Proto` d'un proxy listé dans `SECREVIEW_FORWARDED_ALLOW_IPS`),
+  `Strict-Transport-Security: max-age=31536000` ; jeton gardé dans le `sessionStorage` de l'onglet.
+  La documentation Swagger et son schéma OpenAPI sont désactivés par défaut
+  (`SECREVIEW_SWAGGER_ENABLED`) ; une fois activés, ils sont publics, servis depuis des fichiers
+  locaux uniquement avec une CSP stricte, et les routes de données
   restent protégées. Le contrôle est fait deux fois : par le middleware Bearer, puis par
   chaque route de l'API, qui refuse (`401`) toute requête sans identité authentifiée. Ainsi,
   l'API ne donne jamais de droits par défaut, même si elle est servie sans le middleware.
@@ -121,10 +127,17 @@
 - **Comptes utilisateurs** ([identifiant et mot de passe](../usage/web-interface.md#comptes-utilisateurs)) :
   seule une empreinte **scrypt** salée (N=2¹⁴, r=8, p=5, sel aléatoire de 16 octets) est
   stockée ; une empreinte stockée aux paramètres hors bornes est refusée au lieu d'épuiser la
-  mémoire. Mots de passe de 12 à 256 caractères, identifiants limités à `[A-Za-z0-9._@-]`. La
+  mémoire. Mots de passe de 12 à 256 caractères, avec une
+  minuscule, une majuscule, un chiffre et un caractère qui n'est ni l'un ni l'autre (contrôlés par
+  le contrôleur, mots de passe générés compris) ; un mot de passe défini par quelqu'un d'autre
+  (premier administrateur, création ou réinitialisation par un administrateur) doit être changé
+  à la première connexion : jusque-là, la session n'atteint que **Mon compte** (`403` ailleurs), identifiants limités à `[A-Za-z0-9._@-]`. La
   vérification coûte le même temps que l'identifiant existe ou non (empreinte factice), et
-  l'échec renvoie toujours le même `401`. Les échecs sont limités en mémoire (5 par identifiant
-  et adresse, 20 par adresse, sur 15 minutes, puis `429`) ; derrière un reverse proxy,
+  l'échec renvoie toujours le même `401`. Les échecs sont limités en base, partagés par toutes
+  les réplicas (5 par identifiant et adresse, 20 par adresse, sur 15 minutes, puis `429`), comme
+  les requêtes d'une adresse vers l'API REST (`SECREVIEW_RATE_LIMIT_*`, comptées avant le
+  contrôle du jeton, pour limiter aussi les essais de jetons ; les compteurs enregistrent des
+  empreintes SHA-256, jamais les adresses) ; derrière un reverse proxy,
   l'adresse du client n'est lue dans `X-Forwarded-For` que pour les proxies listés dans
   `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` laisse tout client choisir son adresse et contourner les
   limites). Seuls les identifiants valides sont
@@ -148,7 +161,8 @@
   un identifiant valide) : choisissez un claim que l'utilisateur ne peut pas modifier chez le
   fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte SSO créé par
   un administrateur peut se connecter. Une connexion SSO n'ouvre jamais un compte local du même
-  nom, et le compte est lié au `sub` de sa première connexion : un autre `sub` est refusé. Un
+  nom, et le compte est lié à l'émetteur et au `sub` de sa première connexion : un autre `sub`
+  ou un autre émetteur est refusé. Un
   compte SSO supprimé est révoqué : la création automatique ne le recrée pas, tant qu'un
   administrateur ne l'a pas recréé ou autorisé à nouveau.
   Vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant de lui donner la lecture
@@ -158,7 +172,13 @@
   contrôleur seulement, jamais par le serveur MCP. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
   jetons et secrets ne sont jamais journalisés par le contrôleur ; le code d'autorisation
   apparaît toutefois dans les journaux d'accès d'un reverse proxy ou d'uvicorn, ce qui est
-  sans danger : il est à usage unique et inutilisable sans le vérificateur PKCE du cookie.
+  sans danger : il est à usage unique et inutilisable sans le vérificateur PKCE du cookie. Les
+  réglages secrets (`SECREVIEW_SESSION_SECRET`, `SECREVIEW_OIDC_CLIENT_SECRET`,
+  `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`) sont typés comme secrets : ils
+  n'apparaissent jamais dans un affichage des réglages. Sans `SECREVIEW_SESSION_SECRET`, le
+  secret de session généré est écrit une seule fois dans `SECREVIEW_SESSION_SECRET_FILE` avec les
+  droits `0600` (un avertissement est journalisé si le fichier est lisible par d'autres
+  utilisateurs).
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
   serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Le scan du dépôt
   complet est réservé à la CLI (`code scan`), lancée par l'opérateur sur un dossier qu'il

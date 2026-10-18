@@ -11,7 +11,10 @@ The routes are split by domain (``*_routes`` modules) and every answer has a res
 thread pool.
 """
 
+import base64
+import hashlib
 import logging
+import re
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, FastAPI, Request, status
@@ -23,9 +26,10 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Scope
 
-from .. import __version__, metrics, oidc, services, web_users
-from ..config import get_settings
+from .. import __version__, metrics, oidc, rate_limit, services
+from ..config import get_settings, secret_value
 from ..http_server import (
+    DOCS_ASSETS_PREFIX,
     DOCS_PATH,
     FAVICON_PATH,
     HEALTH_PATH,
@@ -76,6 +80,34 @@ SECURITY_HEADERS = {
     "X-Frame-Options": "DENY",
     "Referrer-Policy": "no-referrer",
 }
+
+# Files of Swagger UI in the web interface build (web/angular.json copies them)
+SWAGGER_FILES = ("swagger-ui-bundle.js", "swagger-ui.css")
+# Swagger UI never sends the schema to the online validator of swagger.io
+SWAGGER_PARAMETERS = {"validatorUrl": None}
+_INLINE_SCRIPT = re.compile(r"<script>(.*?)</script>", re.DOTALL)
+
+
+def swagger_assets_dir(configured: str | None) -> Path | None:
+    """Directory of the Swagger UI files of the web interface build, or None when missing."""
+    directory = (Path(configured) if configured else BUNDLED_UI_DIR) / "swagger"
+    if all((directory / name).is_file() for name in SWAGGER_FILES):
+        return directory
+    return None
+
+
+def docs_security_policy(html: str) -> str:
+    """CSP of the Swagger page: its own files only, and its inline script by its digest."""
+    digests = " ".join(
+        f"'sha256-{base64.b64encode(hashlib.sha256(script.encode()).digest()).decode()}'"
+        for script in _INLINE_SCRIPT.findall(html)
+    )
+    return (
+        f"default-src 'none'; script-src 'self' {digests}; style-src 'self'; "
+        "img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; "
+        "frame-ancestors 'none'"
+    )
+
 
 # Every route needs an authenticated identity, even those that do not use it (health)
 api_router = APIRouter(prefix="/api/v1", dependencies=[Depends(current_identity)])
@@ -130,6 +162,7 @@ def create_app(
     ui: bool = True,
     oidc_login: oidc.OidcLogin | None = None,
     signer: oidc.SessionSigner | None = None,
+    swagger: bool | None = None,
 ) -> FastAPI:
     """Build the controller app (REST API and, when it is built, the Angular application).
 
@@ -138,26 +171,31 @@ def create_app(
     ``oidc_login`` (tests) replaces them with a fixed flow.
     ``signer`` (see oidc.session_signer) signs the sessions of the password login; the
     session tokens are checked by the bearer middleware (build_controller_app).
+    ``swagger`` (default: SECREVIEW_SWAGGER_ENABLED) serves the Swagger documentation and the
+    OpenAPI schema; it needs the Swagger UI files of the web interface build.
 
     Raises:
         ValueError: If ``ui_dir`` (SECREVIEW_WEB_UI_DIR) is set but holds no application.
     """
     settings = get_settings()
+    configured = ui_dir if ui_dir is not None else settings.web_ui_dir
+    swagger = settings.swagger_enabled if swagger is None else swagger
     app = FastAPI(
         title="security-review-mcp",
         version=__version__,
         # Served below, with the application icon instead of the FastAPI one
         docs_url=None,
         redoc_url=None,
-        openapi_url=OPENAPI_PATH,
+        # Disabled: neither the schema nor the documentation is served
+        openapi_url=OPENAPI_PATH if swagger else None,
     )
     app.state.signer = signer or (
         oidc_login.signer
         if oidc_login
-        else oidc.SessionSigner(settings.session_secret, settings.session_hours)
+        else oidc.SessionSigner(secret_value(settings.session_secret), settings.session_hours)
     )
     app.state.oidc = OidcLogins(app.state.signer, oidc_login)
-    app.state.login_throttle = web_users.LoginThrottle()
+    app.state.login_throttle = rate_limit.LoginThrottle()
     app.include_router(auth_routes.router)
     app.include_router(api_router)
     app.include_router(ci_routes.router)
@@ -191,13 +229,30 @@ def create_app(
             },
         )
 
-    @app.get(DOCS_PATH, include_in_schema=False)
-    async def swagger_ui() -> Response:
-        """Public Swagger documentation of the REST API."""
-        return get_swagger_ui_html(
-            openapi_url=OPENAPI_PATH,
-            title=f"{app.title} - API",
-            swagger_favicon_url=FAVICON_PATH,
+    assets = swagger_assets_dir(configured) if swagger else None
+    if assets is not None:
+        app.mount(DOCS_ASSETS_PREFIX, StaticFiles(directory=assets), name="swagger")
+
+        @app.get(DOCS_PATH, include_in_schema=False)
+        async def swagger_ui() -> Response:
+            """Public Swagger documentation of the REST API, with local files only."""
+            page = get_swagger_ui_html(
+                openapi_url=OPENAPI_PATH,
+                title=f"{app.title} - API",
+                swagger_js_url=f"{DOCS_ASSETS_PREFIX}/{SWAGGER_FILES[0]}",
+                swagger_css_url=f"{DOCS_ASSETS_PREFIX}/{SWAGGER_FILES[1]}",
+                swagger_favicon_url=FAVICON_PATH,
+                swagger_ui_parameters=SWAGGER_PARAMETERS,
+            )
+            html = bytes(page.body).decode()
+            page.headers["Content-Security-Policy"] = docs_security_policy(html)
+            page.headers["X-Content-Type-Options"] = "nosniff"
+            page.headers["Referrer-Policy"] = "no-referrer"
+            return page
+    elif swagger:
+        logger.warning(
+            "Swagger documentation disabled: the Swagger UI files of the web interface build "
+            "are missing (npm run build)"
         )
 
     @app.exception_handler(services.NotFoundError)
@@ -205,7 +260,6 @@ def create_app(
         """404 answer for a missing resource."""
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"detail": str(exc)})
 
-    configured = ui_dir if ui_dir is not None else settings.web_ui_dir
     directory = resolve_ui_dir(configured) if ui else None
     if directory is not None:
         app.mount("/ui", SinglePageApp(directory=directory, html=True), name="ui")

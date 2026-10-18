@@ -1,6 +1,8 @@
 """OpenID Connect login to the web interface: settings, ID token checks, sessions and routes."""
 
 import logging
+import os
+import stat
 import time
 import urllib.error
 import urllib.request
@@ -11,10 +13,12 @@ import jwt
 import pytest
 from conftest import group_for, make_user
 from cryptography.hazmat.primitives.asymmetric import rsa
+from sqlmodel import select
 from starlette.testclient import TestClient
 
 from security_review_mcp import (
     access_control,
+    audit,
     http_server,
     oidc,
     server,
@@ -24,7 +28,9 @@ from security_review_mcp import (
     web_users,
 )
 from security_review_mcp.config import Settings
+from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
+from security_review_mcp.models import WebUser
 
 ISSUER = "https://idp.example.com/realms/acme"
 CLIENT_ID = "secreview"
@@ -188,10 +194,70 @@ def test_invalid_session_settings_are_refused(values, message):
         oidc.session_signer(make_settings(**values))
 
 
-def test_without_a_session_secret_a_warning_is_logged(caplog):
+def test_without_a_session_secret_nor_file_a_warning_is_logged(caplog):
+    settings = make_settings(session_secret=None, session_secret_file="")
     with caplog.at_level(logging.WARNING, logger="security_review_mcp.oidc"):
-        assert oidc.session_signer(make_settings(session_secret=None)) is not None
-    assert "SECREVIEW_SESSION_SECRET is not set" in caplog.text
+        assert oidc.session_signer(settings) is not None
+    assert "web sessions end when the controller restarts" in caplog.text
+
+
+def test_session_secret_is_generated_once_in_its_file(session_secret_file, caplog):
+    settings = make_settings(session_secret=None)
+    first = oidc.session_signer(settings)
+    token = first.issue_session("alice", Role.READER, None, 1, 1)
+
+    # Mode 0600, never logged; the next start (or another worker) reads the same secret
+    assert stat.S_IMODE(session_secret_file.stat().st_mode) == 0o600
+    secret = session_secret_file.read_text().strip()
+    assert len(secret) >= oidc.MIN_SESSION_SECRET_CHARS and secret not in caplog.text
+    assert oidc.session_signer(settings).decode_session(token) is not None
+    assert [p.name for p in session_secret_file.parent.iterdir()] == ["session-secret"]
+
+
+def test_a_secret_created_concurrently_is_used(session_secret_file, monkeypatch):
+    # Another worker creates the file between the read and the link: its secret is used
+    real_link = os.link
+
+    def link_after_another_worker(source, target):
+        session_secret_file.write_text("w" * 40 + "\n")
+        return real_link(source, target)
+
+    monkeypatch.setattr(os, "link", link_after_another_worker)
+
+    assert oidc.stored_session_secret(session_secret_file) == "w" * 40
+
+
+def test_a_short_or_shared_secret_file_is_reported(session_secret_file, caplog):
+    session_secret_file.write_text("short")
+    with pytest.raises(ValueError, match="at least 32"):
+        oidc.session_signer(make_settings(session_secret=None))
+
+    session_secret_file.write_text("s" * 40)
+    session_secret_file.chmod(0o644)
+    with caplog.at_level(logging.WARNING, logger="security_review_mcp.oidc"):
+        oidc.session_signer(make_settings(session_secret=None))
+    assert "readable by other users" in caplog.text
+
+
+def test_an_unwritable_secret_file_falls_back_to_a_random_secret(tmp_path, caplog):
+    blocker = tmp_path / "file"
+    blocker.write_text("")
+    settings = make_settings(session_secret=None, session_secret_file=str(blocker / "secret"))
+    with caplog.at_level(logging.WARNING, logger="security_review_mcp.oidc"):
+        assert oidc.session_signer(settings) is not None
+    assert "Session secret file not usable" in caplog.text
+
+
+def test_secrets_are_never_shown_by_the_settings():
+    settings = make_settings(
+        session_secret="s3cr3t" * 6,
+        oidc_client_secret="client-s3cr3t",
+        tls_keyfile_password="key-s3cr3t",
+        database_url="postgresql+psycopg2://app:db-s3cr3t@db/app",
+    )
+    shown = repr(settings) + str(settings.model_dump())
+    for secret in ("s3cr3t" * 6, "client-s3cr3t", "key-s3cr3t", "db-s3cr3t"):
+        assert secret not in shown
 
 
 def test_the_oidc_login_uses_the_shared_signer():
@@ -373,6 +439,11 @@ def test_full_login_gives_a_session_accepted_by_the_api(controller, provider, ca
         "reader",
     )
     assert [(group["name"], group["source"]) for group in user["groups"]] == [("qa", "oidc")]
+    with session_scope() as db:
+        row = db.exec(select(WebUser).where(WebUser.username == "alice")).one()
+        assert (row.oidc_subject, row.oidc_issuer) == ("user-123", ISSUER)
+    (event,) = audit.list_events(action="user.login")["events"]
+    assert (event["actor"], event["details"]["method"]) == ("user:oidc:alice", "oidc")
     for secret in ("code-xyz", session, "access-abc", "client-secret"):
         assert secret not in logs
 
@@ -493,7 +564,7 @@ def test_unknown_sso_user_is_refused_without_auto_creation(tmp_path):
 
 
 def test_sso_login_never_opens_a_local_account(controller, provider):
-    make_user("alice", "correct horse battery", "admin")
+    make_user("alice", "Correct horse battery 9", "admin")
     state = start_login(controller, provider)
     response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
     assert error_of(response) == "conflict"

@@ -15,6 +15,7 @@ from security_review_mcp import (
     access_control,
     advisory_sync,
     app_settings,
+    audit,
     enrollment_api,
     http_server,
     oidc,
@@ -54,6 +55,10 @@ def ui_dir(tmp_path):
     """A fake Angular build."""
     (tmp_path / "index.html").write_text("<html>app</html>", encoding="utf-8")
     (tmp_path / "main.js").write_text("console.log(1)", encoding="utf-8")
+    # Files of Swagger UI, copied by the Angular build
+    (tmp_path / "swagger").mkdir()
+    for name in web_api.SWAGGER_FILES:
+        (tmp_path / "swagger" / name).write_text("/* swagger */", encoding="utf-8")
     return tmp_path
 
 
@@ -84,7 +89,7 @@ def secured(ui_dir) -> TestClient:
         if role != Role.CI:  # see ci_token: a ci token is always restricted to projects
             TOKENS[role.value] = token_store.create_token(role.value, role)["token"]
     app = http_server.build_controller_app(
-        web_api.create_app(ui_dir=str(ui_dir)), token_store.DatabaseTokenStore()
+        web_api.create_app(ui_dir=str(ui_dir), swagger=True), token_store.DatabaseTokenStore()
     )
     return TestClient(app, base_url="http://127.0.0.1")
 
@@ -154,7 +159,9 @@ def test_me(client):
 def test_api_without_middleware_fails_closed(ui_dir, method, path):
     # Defense in depth: served without the bearer middleware, the API refuses every request
     # instead of treating the caller as an administrator
-    bare = TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+    bare = TestClient(
+        web_api.create_app(ui_dir=str(ui_dir), swagger=True), base_url="http://127.0.0.1"
+    )
     response = bare.request(method, path, json={"status": "accepted"})
     assert response.status_code == 401
     assert response.headers["www-authenticate"].startswith("Bearer ")
@@ -164,7 +171,9 @@ def test_api_without_middleware_fails_closed(ui_dir, method, path):
 
 
 def test_favicon_is_served_and_used_by_swagger(ui_dir):
-    bare = TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+    bare = TestClient(
+        web_api.create_app(ui_dir=str(ui_dir), swagger=True), base_url="http://127.0.0.1"
+    )
 
     icon = bare.get("/api/favicon.svg")
     assert icon.status_code == 200
@@ -181,6 +190,45 @@ def test_favicon_is_served_and_used_by_swagger(ui_dir):
     # Neither is part of the API schema
     paths = bare.get("/api/openapi.json").json()["paths"]
     assert "/api/favicon.svg" not in paths and "/api/docs" not in paths
+
+
+def test_swagger_is_disabled_by_default(ui_dir):
+    bare = TestClient(web_api.create_app(ui_dir=str(ui_dir)), base_url="http://127.0.0.1")
+
+    for path in ("/api/docs", "/api/openapi.json", "/api/swagger/swagger-ui-bundle.js"):
+        assert bare.get(path).status_code == 404, path
+
+
+def test_swagger_is_served_without_any_external_resource(secured):
+    docs = secured.get("/api/docs")
+
+    assert docs.status_code == 200
+    assert "cdn" not in docs.text and "https://" not in docs.text
+    assert 'src="/api/swagger/swagger-ui-bundle.js"' in docs.text
+    assert 'href="/api/swagger/swagger-ui.css"' in docs.text
+    # The schema is never sent to the online validator of swagger.io
+    assert '"validatorUrl": null' in docs.text
+    # Only its own files, and its inline script by its digest
+    policy = docs.headers["content-security-policy"]
+    assert policy.startswith("default-src 'none'; script-src 'self' 'sha256-")
+    assert "unsafe-inline" not in policy and "connect-src 'self'" in policy
+    # Public, like the page: reachable without a token
+    assert secured.get("/api/swagger/swagger-ui-bundle.js").status_code == 200
+
+
+def test_swagger_without_the_web_interface_build_is_not_served(tmp_path, caplog):
+    bare = TestClient(
+        web_api.create_app(ui_dir=None, ui=False, swagger=True), base_url="http://127.0.0.1"
+    )
+    # The bundled build may hold the files: point to an empty directory instead
+    empty = TestClient(
+        web_api.create_app(ui_dir=str(tmp_path), ui=False, swagger=True),
+        base_url="http://127.0.0.1",
+    )
+
+    assert empty.get("/api/docs").status_code == 404
+    assert "Swagger UI files of the web interface build are missing" in caplog.text
+    assert bare.get("/api/openapi.json").status_code == 200
 
 
 def test_documentation_uses_the_web_interface_favicon():
@@ -877,7 +925,7 @@ def test_a_custom_role_opens_only_its_routes(accounts, reports):
     reader = next(role["id"] for role in access_control.list_roles() if role["name"] == "reader")
     group = access_control.create_group("auditors")
     access_control.set_group_roles(group["id"], [(auditor["id"], None), (reader, ["billing"])])
-    web_users.create_user("ann", USER_PASSWORD, [group["id"]])
+    make_user("ann", USER_PASSWORD, group_ids=[group["id"]])
     headers = session_headers(accounts, "ann")
 
     me = accounts.get("/api/v1/me", headers=headers).json()
@@ -905,7 +953,7 @@ def test_triage_is_limited_to_the_projects_of_the_triage_permission(accounts, re
     access_control.set_group_roles(
         group["id"], [(roles["reader"], None), (roles["triager"], ["crm"])]
     )
-    web_users.create_user("mia", USER_PASSWORD, [group["id"]])
+    make_user("mia", USER_PASSWORD, group_ids=[group["id"]])
     headers = session_headers(accounts, "mia")
     shop_finding = services.get_report(reports[0]).findings[0].id
     crm_finding = services.get_report(crm_report["report_id"]).findings[0].id
@@ -928,7 +976,7 @@ def test_sso_settings_need_users_manage(accounts):
     keeper = access_control.create_role("Settings keeper", ["settings.manage"])
     group = access_control.create_group("keepers")
     access_control.set_group_roles(group["id"], [(keeper["id"], None)])
-    web_users.create_user("sam", USER_PASSWORD, [group["id"]])
+    make_user("sam", USER_PASSWORD, group_ids=[group["id"]])
     headers = session_headers(accounts, "sam")
 
     # The SSO settings decide group membership: settings.manage alone cannot change them
@@ -951,7 +999,7 @@ def test_a_token_never_grants_more_than_its_creator(accounts, reports):
     access_control.set_group_roles(
         group["id"], [(keeper["id"], None), (roles["reader"], ["shop-api"])]
     )
-    web_users.create_user("kim", USER_PASSWORD, [group["id"]])
+    make_user("kim", USER_PASSWORD, group_ids=[group["id"]])
     headers = session_headers(accounts, "kim")
     url = "/api/v1/project-tokens"
 
@@ -1001,7 +1049,7 @@ def test_portal_access_at_approval_needs_users_manage(accounts):
     keeper = access_control.create_role("Token keeper", ["tokens.manage", "reports.read"])
     group = access_control.create_group("keepers")
     access_control.set_group_roles(group["id"], [(keeper["id"], None)])
-    web_users.create_user("kim", USER_PASSWORD, [group["id"]])
+    make_user("kim", USER_PASSWORD, group_ids=[group["id"]])
     make_user("dev", USER_PASSWORD)
     request = token_store.request_enrollment("shop-api", label="shop-dev")
     headers = session_headers(accounts, "kim")
@@ -1382,7 +1430,7 @@ def test_approval_can_give_web_read_access_to_the_developer(secured, mcp_server,
         assert response.status_code == 422
     assert len(secured.get("/api/v1/enrollments", headers=auth("admin")).json()) == 1
 
-    make_user("alice", "correct horse battery", "reader", ["billing"])
+    make_user("alice", "Correct horse battery 9", "reader", ["billing"])
     approved = secured.post(url, json={"portal_user": " alice "}, headers=auth("admin"))
 
     assert approved.status_code == 200 and approved.json()["status"] == "active"
@@ -1738,7 +1786,7 @@ def test_advisory_update_is_refused_while_one_runs(client, monkeypatch):
 
 # ── Web users ────────────────────────────────────────────────────────────────
 
-USER_PASSWORD = "correct horse battery"
+USER_PASSWORD = "Correct horse battery 9"
 
 
 @pytest.fixture
@@ -2061,7 +2109,7 @@ def test_last_administrator_cannot_be_deleted_from_the_api(accounts):
 def test_users_change_their_own_password(accounts):
     make_user("alice", USER_PASSWORD, "reader")
     headers = session_headers(accounts, "alice")
-    body = {"current_password": USER_PASSWORD, "new_password": "another long secret"}
+    body = {"current_password": USER_PASSWORD, "new_password": "Another long secret 2"}
 
     wrong = accounts.put(
         "/api/v1/me/password", json={**body, "current_password": "nope"}, headers=headers
@@ -2073,12 +2121,83 @@ def test_users_change_their_own_password(accounts):
     new_headers = {"Authorization": f"Bearer {changed.json()['session']}"}
     assert accounts.get("/api/v1/me", headers=new_headers).status_code == 200
     assert login(accounts, "alice").status_code == 401
-    assert login(accounts, "alice", "another long secret").status_code == 200
+    assert login(accounts, "alice", "Another long secret 2").status_code == 200
+
+
+def test_a_user_must_change_a_password_set_by_someone_else(accounts, reports):
+    make_user("alice", USER_PASSWORD, "reader", must_change=True)
+    logged = login(accounts, "alice")
+    assert logged.json()["must_change_password"] is True
+    headers = {"Authorization": f"Bearer {logged.json()['session']}"}
+
+    # Nothing but its identity and the change of its password
+    refused = accounts.get("/api/v1/projects", headers=headers)
+    assert refused.status_code == 403
+    assert refused.json()["detail"].startswith("Password change required")
+    me = accounts.get("/api/v1/me", headers=headers)
+    assert me.status_code == 200 and me.json()["must_change_password"] is True
+
+    body = {"current_password": USER_PASSWORD, "new_password": "Another long secret 2"}
+    changed = accounts.put("/api/v1/me/password", json=body, headers=headers)
+    assert changed.status_code == 200 and changed.json()["must_change_password"] is False
+    headers = {"Authorization": f"Bearer {changed.json()['session']}"}
+    assert accounts.get("/api/v1/projects", headers=headers).status_code == 200
+
+
+def test_logins_failures_and_logouts_are_audited(accounts):
+    make_user("alice", USER_PASSWORD, "reader")
+    assert login(accounts, "alice", "Wrong password 1!").status_code == 401
+    assert login(accounts, "bob smith", "Wrong password 1!").status_code == 401
+    headers = session_headers(accounts, "alice")
+
+    assert accounts.post("/api/v1/me/logout", headers=headers).status_code == 204
+
+    events = audit.list_events(project=None)["events"]
+    summary = [(e["action"], e["actor"], e["target_id"], e["details"]) for e in events]
+    password = {"address": "testclient", "method": "password"}
+    assert summary[:4] == [
+        ("user.logout", "user:alice", "alice", {"address": "testclient"}),
+        ("user.login", "user:alice", "alice", password),
+        # An invalid username is not written
+        ("user.login_failed", "anonymous", None, password),
+        ("user.login_failed", "anonymous", "alice", password),
+    ]
+    assert "Wrong password" not in str(events) and USER_PASSWORD not in str(events)
+
+
+def test_a_token_has_no_session_to_log_out(secured):
+    response = secured.post("/api/v1/me/logout", headers=auth("reader"))
+
+    assert response.status_code == 403
+    assert audit.list_events(action="user.logout")["total"] == 0
+
+
+def test_a_user_who_must_change_its_password_reaches_no_pipeline_route(accounts, reports):
+    make_user("alice", USER_PASSWORD, "reader", must_change=True)
+    headers = session_headers(accounts, "alice")
+
+    gate = accounts.get("/api/v1/ci/gate", params={"project": "shop-api"}, headers=headers)
+
+    assert gate.status_code == 403
+    assert gate.json()["detail"].startswith("Password change required")
+
+
+def test_a_weak_new_password_is_refused_with_the_broken_rules(accounts):
+    make_user("alice", USER_PASSWORD, "reader")
+    headers = session_headers(accounts, "alice")
+    body = {"current_password": USER_PASSWORD, "new_password": "only lowercase letters"}
+
+    refused = accounts.put("/api/v1/me/password", json=body, headers=headers)
+
+    assert refused.status_code == 422
+    detail = refused.json()["detail"]
+    assert "an uppercase letter" in detail and "a digit" in detail
+    assert login(accounts, "alice").status_code == 200
 
 
 def test_a_token_has_no_password_to_change(accounts):
     secret = token_store.create_token("ops", "admin")["token"]
-    body = {"current_password": "x", "new_password": "another long secret"}
+    body = {"current_password": "x", "new_password": "Another long secret 2"}
 
     response = accounts.put(
         "/api/v1/me/password", json=body, headers={"Authorization": f"Bearer {secret}"}

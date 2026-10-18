@@ -436,9 +436,10 @@ class WebUser(SQLModel, table=True):
     ``auth_source`` is ``local`` (password login, only a scrypt hash of the password is stored)
     or ``oidc`` (OpenID Connect login, no password). What a user may do comes from the roles of
     its groups (``GroupMember``) and from the roles given to it directly (``UserRole``, see
-    access_control). ``oidc_subject`` is the ``sub`` claim bound
-    at the first SSO login. ``session_version`` is drawn at random at creation and at each
-    password change: the sessions issued with another version are refused.
+    access_control). ``oidc_subject`` and ``oidc_issuer`` are the ``sub`` claim and the issuer
+    bound at the first SSO login: an account is identified by both, so that another identity
+    provider cannot reuse a subject. ``session_version`` is drawn at random at creation and at
+    each password change: the sessions issued with another version are refused.
     """
 
     id: int | None = Field(default=None, primary_key=True)
@@ -446,12 +447,31 @@ class WebUser(SQLModel, table=True):
     auth_source: str = Field(default="local", max_length=20)
     password_hash: str | None = Field(default=None, max_length=255)
     oidc_subject: str | None = Field(default=None, max_length=255)
+    oidc_issuer: str | None = Field(default=None, max_length=500)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
     password_changed_at: datetime | None = Field(default=None)
+    # Set by a password chosen or generated for the user (creation, reset, first administrator):
+    # its sessions reach nothing but the change of its own password until it changes it
+    must_change_password: bool = Field(default=False)
     session_version: int = Field(default=0, sa_type=BigInteger)
     last_login_at: datetime | None = Field(default=None)
     created_by: str | None = Field(default=None, max_length=64)
+
+
+# ── Rate limiting (see rate_limit) ───────────────────────────────────────────
+
+
+class RateLimitCounter(SQLModel, table=True):
+    """Events of a rate limit key in one fixed time window, shared by every process.
+
+    ``key`` is a SHA-256 digest of the limit and of what it counts (address, username...),
+    ``window_start`` the start of the window in seconds since the epoch.
+    """
+
+    key: str = Field(primary_key=True, max_length=64)
+    window_start: int = Field(primary_key=True, sa_type=BigInteger, index=True)
+    hits: int = Field(default=0)
 
 
 # ── Access control: roles, groups and members (see access_control) ───────────

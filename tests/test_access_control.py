@@ -9,7 +9,7 @@ from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
 from security_review_mcp.services import NotFoundError
 
-PASSWORD = "correct horse battery"
+PASSWORD = "Correct horse battery 9"
 
 
 def grants_of(user_id: int) -> dict:

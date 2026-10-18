@@ -15,7 +15,8 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_PORT` | `8000` | les deux | Port d'écoute (HTTP) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Contrôleur | Crée le [compte `admin`](../usage/web-interface.md#premier-administrateur) au premier démarrage, tant qu'aucun compte n'existe ; son mot de passe aléatoire est journalisé une fois (empreinte scrypt seule en base) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | MCP | Tant qu'aucun jeton n'existe, accepte toute requête sur `/mcp` même si le serveur n'écoute pas sur localhost (par défaut il reste alors fermé, voir [Jetons Bearer](../advanced/http.md#jetons-bearer)) ; à réserver aux tests sur un réseau isolé |
-| `SECREVIEW_SESSION_SECRET` | — | Contrôleur | Secret de signature des sessions de l'interface web (comptes et SSO), 32 caractères au moins, identique sur toutes les répliques ; sans lui, aléatoire à chaque démarrage |
+| `SECREVIEW_SESSION_SECRET` | — | Contrôleur | Secret de signature des sessions de l'interface web (comptes et SSO), 32 caractères au moins, identique sur toutes les répliques ; sans lui, lu dans `SECREVIEW_SESSION_SECRET_FILE` |
+| `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | Contrôleur | Fichier du secret de session quand `SECREVIEW_SESSION_SECRET` n'est pas défini : généré au premier démarrage (droits `0600`), relu aux suivants ; `""` : un secret aléatoire à chaque démarrage (les sessions se terminent au redémarrage) |
 | `SECREVIEW_SESSION_HOURS` | `8` | Contrôleur | Durée d'une session de l'interface web (1 à 24 heures) |
 | `SECREVIEW_ENROLLMENT` | `true` | MCP | [Enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton) : un client sans jeton peut demander un jeton de projet (serveur MCP restreint, `POST /api/v1/enroll`), actif après approbation sur le contrôleur |
 | `SECREVIEW_SERVER_URL` | — | Client | URL du serveur MCP partagé utilisé par [`security-review-mcp scan-deps`](../advanced/dependencies.md#scan-avec-un-serveur-partage-hook-de-commit) (valeur par défaut de `--url`) ; jamais utilisée par les serveurs |
@@ -26,8 +27,13 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | les deux | Mot de passe de la clé privée |
 | `SECREVIEW_TLS_CLIENT_CA` | — | les deux | CA cliente : active le TLS mutuel |
 | `SECREVIEW_FORWARDED_ALLOW_IPS` | — | les deux | Reverse proxies (adresses IP ou plages CIDR séparées par des virgules, `*` pour tous) dont l'en-tête `X-Forwarded-For` donne l'adresse du client, utilisée par la limitation des connexions, les limites d'enrôlement et les journaux ; sans elle, la valeur par défaut d'uvicorn (variable `FORWARDED_ALLOW_IPS`, sinon `127.0.0.1`). À définir derrière un Ingress ou un reverse proxy, sinon tous les clients partagent l'adresse du proxy |
+| `SECREVIEW_RATE_LIMIT_ENABLED` | `true` | Contrôleur | Limiter les requêtes de chaque adresse cliente vers l'API REST (`429` au-delà) ; comptées en base, partagées par toutes les réplicas |
+| `SECREVIEW_RATE_LIMIT_WINDOW_SECONDS` | `60` | Contrôleur | Fenêtre des limites, en secondes (1 à 3600) |
+| `SECREVIEW_RATE_LIMIT_MAX_REQUESTS` | `600` | Contrôleur | Requêtes d'une adresse vers `/api/` par fenêtre |
+| `SECREVIEW_RATE_LIMIT_AUTH_MAX_REQUESTS` | `30` | Contrôleur | Requêtes d'une adresse vers les routes de connexion (`/api/v1/auth/`) par fenêtre |
 | `SECREVIEW_WEB_UI` | `true` | Contrôleur | Sert l'[interface web](../usage/web-interface.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Contrôleur | Dossier d'une autre build de l'interface web |
+| `SECREVIEW_SWAGGER_ENABLED` | `false` | Contrôleur | Servir la documentation Swagger (`/api/docs`) et le schéma OpenAPI (`/api/openapi.json`), depuis les fichiers de la build de l'interface web |
 | `SECREVIEW_OIDC_ENABLED` | `false` | Contrôleur | Active la [connexion SSO OpenID Connect](../advanced/sso.md) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` se modifient aussi dans l'écran **SSO**, dont les valeurs enregistrées les remplacent ([configurer le SSO dans l'interface](../advanced/sso.md#configurer-le-sso-dans-linterface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | Contrôleur | URL de l'émetteur (HTTPS ; HTTP seulement sur localhost), dont `/.well-known/openid-configuration` est lu |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Contrôleur | Identifiant du client déclaré chez le fournisseur |

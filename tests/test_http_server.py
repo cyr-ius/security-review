@@ -9,7 +9,7 @@ from conftest import make_user
 from sqlmodel import select
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import PlainTextResponse
+from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
@@ -72,6 +72,7 @@ def protected_client(
             Route("/api/v1/auth/config", whoami),
             Route("/api/docs", whoami),
             Route("/api/openapi.json", whoami),
+            Route("/api/swagger/swagger-ui.css", whoami),
             Route("/api/favicon.svg", whoami),
             Route("/ui/", whoami),
             Route("/healthz", whoami),
@@ -152,6 +153,7 @@ def test_web_ui_files_are_public_but_not_the_api():
     assert client.get("/api/v1/me").status_code == 401
     assert client.get("/api/docs").status_code == 200
     assert client.get("/api/openapi.json").status_code == 200
+    assert client.get("/api/swagger/swagger-ui.css").status_code == 200
     assert client.get("/api/favicon.svg").status_code == 200
     # The controller does not serve the public enrollment endpoint
     assert client.post("/api/v1/enroll").status_code == 401
@@ -159,6 +161,7 @@ def test_web_ui_files_are_public_but_not_the_api():
     mcp_client = protected_client()
     assert mcp_client.get("/ui/").status_code == 401
     assert mcp_client.get("/api/docs").status_code == 401
+    assert mcp_client.get("/api/swagger/swagger-ui.css").status_code == 401
     assert mcp_client.get("/api/favicon.svg").status_code == 401
     assert mcp_client.get("/healthz").status_code == 200
     assert mcp_client.post("/api/v1/enroll").status_code == 200
@@ -329,7 +332,49 @@ def test_mcp_app_without_enrollment_keeps_the_enrollment_path_private():
 
 def test_controller_app_is_protected_by_the_store():
     app = http_server.build_controller_app(Starlette(), STORE)
-    assert isinstance(app, BearerAuthMiddleware) and app.web and app.enrollment_app is None
+    assert isinstance(app, http_server.SecurityHeadersMiddleware)
+    bearer = app.app
+    assert isinstance(bearer, BearerAuthMiddleware) and bearer.web
+    assert bearer.enrollment_app is None
+
+
+def json_answer(_request):
+    return JSONResponse({"ok": True})
+
+
+def html_answer(_request):
+    return HTMLResponse("<p>ok</p>", headers={"Content-Security-Policy": "default-src 'self'"})
+
+
+def headers_client(scheme: str = "http") -> TestClient:
+    token_store.create_token("dev", Role.ADMIN)
+    web = Starlette(routes=[Route("/api/v1/me", json_answer), Route("/ui/", html_answer)])
+    app = http_server.build_controller_app(web, token_store.DatabaseTokenStore())
+    return TestClient(app, base_url=f"{scheme}://127.0.0.1")
+
+
+def test_every_controller_answer_has_the_security_headers():
+    client = headers_client()
+    token = token_store.create_token("reader", Role.READER)["token"]
+
+    for response in (
+        client.get("/api/v1/me", headers={"Authorization": f"Bearer {token}"}),
+        client.get("/api/v1/me"),  # refused (401): headers too
+    ):
+        assert response.headers["x-content-type-options"] == "nosniff"
+        assert response.headers["referrer-policy"] == "no-referrer"
+        assert response.headers["x-frame-options"] == "DENY"
+        assert response.headers["content-security-policy"].startswith("default-src 'none'")
+        # Plain HTTP: no HSTS (the browser would ignore it, and it must not stick to http://)
+        assert "strict-transport-security" not in response.headers
+    # The CSP of a page (web interface, Swagger) is kept
+    assert client.get("/ui/").headers["content-security-policy"] == "default-src 'self'"
+
+
+def test_https_answers_have_hsts():
+    response = headers_client("https").get("/api/v1/me")
+
+    assert response.headers["strict-transport-security"] == "max-age=31536000"
 
 
 # ── TLS ──────────────────────────────────────────────────────────────────────
@@ -669,7 +714,7 @@ def test_token_approve_can_give_web_read_access(capsys, monkeypatch):
     assert "not found" in json.loads(capsys.readouterr().err)["error"]
     assert STORE.lookup(hash_token(first["token"])).pending is True
 
-    make_user("alice", "correct horse battery", "reader", ["billing"])
+    make_user("alice", "Correct horse battery 9", "reader", ["billing"])
     code, approved = run_cli(capsys, "approve", first["label"], "--portal-user", "alice")
 
     assert code == cli.EXIT_PASSED and approved["status"] == "active"

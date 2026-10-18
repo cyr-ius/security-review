@@ -108,9 +108,14 @@
 - **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
   stores a proposal (reason masked and bounded, author taken from the token) without changing
   the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a
-  finding. Pages are served with a strict CSP and the anti-clickjacking headers; the token is
+  finding. Pages are served with a strict CSP and the anti-clickjacking headers, and every
+  answer of the controller (API, refusals included) carries `X-Content-Type-Options: nosniff`,
+  `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, a closed CSP when the route sets
+  none and, over HTTPS (TLS of the controller, or `X-Forwarded-Proto` of a proxy listed in
+  `SECREVIEW_FORWARDED_ALLOW_IPS`), `Strict-Transport-Security: max-age=31536000`; the token is
   kept in the `sessionStorage` of the tab. The Swagger documentation and its OpenAPI schema
-  are public, but the data routes stay protected. The check is made twice: by the Bearer
+  are disabled by default (`SECREVIEW_SWAGGER_ENABLED`); once enabled they are public, served
+  from local files only with a strict CSP, and the data routes stay protected. The check is made twice: by the Bearer
   middleware, then by every route of the API, which refuses (`401`) any request without an
   authenticated identity. The API thus never grants rights by default, even if it is served
   without the middleware. Every JSON answer goes through its declared response model: a field
@@ -120,10 +125,15 @@
 - **User accounts** ([user name and password](../usage/web-interface.md#user-accounts)): only
   a salted **scrypt** digest (N=2¹⁴, r=8, p=5, random 16-byte salt) is stored; a stored digest
   with out-of-bounds parameters is refused instead of exhausting the memory. Passwords of 12 to
-  256 characters, user names limited to `[A-Za-z0-9._@-]`. The check takes the same time
+  256 characters, with a lowercase letter, an uppercase letter, a digit and a character that is
+  neither (checked by the controller, generated passwords included); a password set by someone
+  else (first administrator, creation or reset by an administrator) must be changed at the first
+  login: until then the session only reaches **My account** (`403` elsewhere), user names limited to `[A-Za-z0-9._@-]`. The check takes the same time
   whether the user name exists or not (dummy digest), and a failure always returns the same
-  `401`. Failures are limited in memory (5 per user name and address, 20 per address, over
-  15 minutes, then `429`); behind a reverse proxy, the client address is only read from
+  `401`. Failures are limited in the database, shared by every replica (5 per user name and
+  address, 20 per address, over 15 minutes, then `429`), and so are the requests of an address
+  to the REST API (`SECREVIEW_RATE_LIMIT_*`, counted before the token is checked, so that
+  guessing tokens is limited too; the counters store SHA-256 digests, never the addresses); behind a reverse proxy, the client address is only read from
   `X-Forwarded-For` for the proxies listed in `SECREVIEW_FORWARDED_ALLOW_IPS` (`*` lets any
   client choose its address and get round the limits). Only valid user names are logged, never passwords. The session is a
   token signed with `SECREVIEW_SESSION_SECRET`, like the SSO one, but the account is **read
@@ -146,7 +156,8 @@
   not a valid user name): choose a claim that the user cannot change at the provider. By
   default (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), only an SSO account created by an
   administrator can log in. An SSO login never opens a local account of the same name, and the
-  account is bound to the `sub` of its first login: another `sub` is refused. A deleted SSO
+  account is bound to the issuer and the `sub` of its first login: another `sub` or another
+  issuer is refused. A deleted SSO
   account is revoked: the automatic creation does not create it again, until an administrator
   creates it again or allows it again. Check the requester of an enrollment (free text, not
   verified) before giving them read access to the project. A session restricted to projects is
@@ -156,7 +167,12 @@
   MCP server. The return URL after login is limited to local paths. Codes, tokens and secrets
   are never logged by the controller; the authorization code does appear in the access logs of
   a reverse proxy or of uvicorn, which is harmless: it is single-use and useless without the
-  PKCE verifier of the cookie.
+  PKCE verifier of the cookie. The secret settings (`SECREVIEW_SESSION_SECRET`,
+  `SECREVIEW_OIDC_CLIENT_SECRET`, `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`)
+  are typed as secrets: they never appear in a dump of the settings. Without
+  `SECREVIEW_SESSION_SECRET`, the generated session secret is written once to
+  `SECREVIEW_SESSION_SECRET_FILE` with mode `0600` (a warning is logged if the file is readable
+  by other users).
 - **No disk access on the MCP side**: `scan_code` only works on the given content; the server
   reads no file from the disk, which avoids path traversals. The whole repository scan is
   reserved for the CLI (`code scan`), run by the operator on a folder they choose; it does not

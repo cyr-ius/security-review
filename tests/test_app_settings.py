@@ -4,7 +4,7 @@ import pytest
 from sqlmodel import select
 
 from security_review_mcp import app_settings
-from security_review_mcp.config import Settings, get_settings
+from security_review_mcp.config import Settings, get_settings, secret_value
 from security_review_mcp.database import session_scope
 from security_review_mcp.models import AppSetting
 
@@ -240,11 +240,11 @@ def test_oidc_client_secret_is_never_described_and_the_mask_keeps_it():
     }
 
     app_settings.set_oidc({"client_secret": "***", "client_id": "other"}, "admin", settings)
-    assert app_settings.effective_settings(settings).oidc_client_secret == "db-s3cr3t"
+    assert secret_value(app_settings.effective_settings(settings).oidc_client_secret) == "db-s3cr3t"
 
     # "" makes the client public, despite the variable
     app_settings.set_oidc({"client_secret": ""}, "admin", settings)
-    assert app_settings.effective_settings(settings).oidc_client_secret == ""
+    assert secret_value(app_settings.effective_settings(settings).oidc_client_secret) == ""
     assert app_settings.describe_oidc(settings)["fields"]["client_secret"]["value"] == ""
 
 

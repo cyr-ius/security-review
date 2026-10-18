@@ -26,6 +26,9 @@ exists exactly when the change was committed.
 | `group.roles_changed`, `group.members_changed` | An administrator replaces the roles (with their projects) or the members (added and removed user ids) of a group |
 | `user.groups_changed` | An administrator replaces the groups given to an account (added and removed group ids) |
 | `user.roles_changed` | An administrator replaces the direct roles of an account, or the approval of an enrollment adds a project to it (`roles`: `role` or `role:project,project`) |
+| `user.login` | A web user logs in (method `password` or `oidc`, address) |
+| `user.login_failed` | A login fails: wrong password, refused SSO login (method, address, and the user name only when it is valid) |
+| `user.logout` | A web user logs out with **Log out** (address) |
 
 Each event holds its date, its **actor**, its target (`finding` and its id, `token` and its id,
 `enrollment` and the request id), the project when there is one, and details as JSON. The actor
@@ -34,7 +37,7 @@ is:
 - `user:<name>`: a person logged in to the web interface (local or SSO account);
 - `token:<label>`: a bearer token (agent, API client, administrator token);
 - `cli`: a `security-review-controller` command;
-- `anonymous`: the public enrollment endpoint;
+- `anonymous`: the public enrollment endpoint, or a failed login;
 - `stdio`: an agent connected to the MCP server in stdio.
 
 The details never hold a secret: no token, no password, and the free text (reasons,

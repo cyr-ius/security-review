@@ -29,8 +29,8 @@ start of the controller (``SECREVIEW_AUTH_BOOTSTRAP_ADMIN``), member of the grou
 ``administrators``. The last user that holds ``users.manage`` can be neither deleted nor lose
 that permission, so that the web interface always keeps an administrator.
 
-Failed logins are throttled in memory (LoginThrottle), per username and address and per
-address: each controller replica counts its own failures.
+Failed logins are throttled per username and address and per address, in the database
+(rate_limit.LoginThrottle): every worker and replica of the controller shares the counts.
 """
 
 import base64
@@ -39,9 +39,7 @@ import hmac
 import logging
 import re
 import secrets
-import threading
-import time
-from collections import OrderedDict
+import string
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from functools import cache
@@ -50,7 +48,8 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, select
 
-from . import access_control
+from . import access_control, audit
+from .audit import AuditAction
 from .config import Settings
 from .database import session_scope
 from .http_server import Role, TokenInfo
@@ -71,7 +70,8 @@ MAX_SUBJECT_CHARS = 255
 MIN_PASSWORD_CHARS = 12
 # Bounded: the hash cost does not depend on the length, but the request body does
 MAX_PASSWORD_CHARS = 256
-GENERATED_PASSWORD_BYTES = 18
+# Length of a generated password (letters, digits and symbols: about 150 bits of entropy)
+GENERATED_PASSWORD_CHARS = 24
 # Random session versions fit in a signed 64-bit integer column
 SESSION_VERSION_BITS = 62
 USERNAME_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9._@-]*")
@@ -167,9 +167,39 @@ def new_session_version() -> int:
     return secrets.randbits(SESSION_VERSION_BITS)
 
 
+# Characters of a generated password: one of each class at least (see password_problems)
+_PASSWORD_CLASSES = (
+    string.ascii_lowercase,
+    string.ascii_uppercase,
+    string.digits,
+    "-_.~!@#%^*+=",
+)
+
+
 def generate_password() -> str:
-    """Return a random password (24 URL-safe characters)."""
-    return secrets.token_urlsafe(GENERATED_PASSWORD_BYTES)
+    """Return a random password of GENERATED_PASSWORD_CHARS characters that follows the
+    password policy (one character of each class at least)."""
+    alphabet = "".join(_PASSWORD_CLASSES)
+    chosen = [secrets.choice(characters) for characters in _PASSWORD_CLASSES]
+    chosen += [secrets.choice(alphabet) for _ in range(GENERATED_PASSWORD_CHARS - len(chosen))]
+    secrets.SystemRandom().shuffle(chosen)
+    return "".join(chosen)
+
+
+def password_problems(password: str) -> list[str]:
+    """Rules of the password policy that ``password`` breaks (empty: it follows them all)."""
+    problems = []
+    if not MIN_PASSWORD_CHARS <= len(password) <= MAX_PASSWORD_CHARS:
+        problems.append(f"between {MIN_PASSWORD_CHARS} and {MAX_PASSWORD_CHARS} characters")
+    if not any(character.islower() for character in password):
+        problems.append("a lowercase letter")
+    if not any(character.isupper() for character in password):
+        problems.append("an uppercase letter")
+    if not any(character.isdigit() for character in password):
+        problems.append("a digit")
+    if all(character.isalnum() for character in password):
+        problems.append("a character that is neither a letter nor a digit")
+    return problems
 
 
 # ── Validation ───────────────────────────────────────────────────────────────
@@ -189,12 +219,13 @@ def clean_username(username: str) -> str:
 
 
 def clean_password(password: str) -> str:
-    """Validate a new password (kept as typed: spaces are significant)."""
-    if not MIN_PASSWORD_CHARS <= len(password) <= MAX_PASSWORD_CHARS:
-        raise ValueError(
-            f"Password must contain between {MIN_PASSWORD_CHARS} and {MAX_PASSWORD_CHARS} "
-            "characters"
-        )
+    """Validate a new password against the policy (kept as typed: spaces are significant).
+
+    The policy applies to new passwords only: a stored one keeps working.
+    """
+    problems = password_problems(password)
+    if problems:
+        raise ValueError("Password must contain " + ", ".join(problems))
     if not password.strip() or not password.isprintable():
         raise ValueError("Password must not be blank nor contain control characters")
     return password
@@ -260,6 +291,7 @@ def _public(session: Session, row: WebUser) -> dict[str, Any]:
         "created_at": _iso(row.created_at),
         "updated_at": _iso(row.updated_at),
         "password_changed_at": _iso(row.password_changed_at),
+        "must_change_password": row.must_change_password,
         "last_login_at": _iso(row.last_login_at),
         "created_by": row.created_by,
     }
@@ -381,6 +413,8 @@ def create_user(
         auth_source=source,
         password_hash=hash_password(secret) if secret is not None else None,
         password_changed_at=utcnow() if secret is not None else None,
+        # Chosen or generated by someone else: the user sets its own at its first login
+        must_change_password=secret is not None,
         session_version=new_session_version(),
         created_by=created_by,
     )
@@ -429,11 +463,14 @@ def update_user(
         return _public(session, row)
 
 
-def set_password(user_id: int, password: str | None = None) -> dict[str, Any]:
+def set_password(
+    user_id: int, password: str | None = None, must_change: bool = True
+) -> dict[str, Any]:
     """Replace the password of a local user and end its open sessions.
 
     Without ``password`` a random one is generated and returned in ``password``. An SSO user has
-    no password (ValueError).
+    no password (ValueError). ``must_change`` (a password set by an administrator) makes the
+    user change it at its next login.
     """
     generated = password is None
     secret = generate_password() if password is None else clean_password(password)
@@ -444,6 +481,7 @@ def set_password(user_id: int, password: str | None = None) -> dict[str, Any]:
             raise ValueError("An SSO user has no password: it logs in with the identity provider")
         row.password_hash = password_hash
         row.password_changed_at = row.updated_at = utcnow()
+        row.must_change_password = must_change
         row.session_version = new_session_version()
         session.add(row)
         session.flush()
@@ -463,7 +501,7 @@ def change_own_password(user_id: int, current: str, new: str) -> dict[str, Any]:
         raise ValueError("The current password is wrong")
     if current == new:
         raise ValueError("The new password must differ from the current one")
-    return set_password(user_id, new)
+    return set_password(user_id, new, must_change=False)
 
 
 def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
@@ -484,23 +522,72 @@ def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
     return deleted
 
 
-def authenticate(username: str, password: str) -> dict[str, Any] | None:
+def _valid_name(username: str | None) -> str | None:
+    """A username as written to the audit log: only a valid one, never arbitrary input."""
+    try:
+        return clean_username(username or "")
+    except ValueError:
+        return None
+
+
+def record_login_failure(username: str | None, method: str, address: str | None) -> None:
+    """Write a failed login of the web interface to the audit log (never the password)."""
+    with session_scope() as session:
+        audit.record(
+            session,
+            AuditAction.USER_LOGIN_FAILED,
+            audit.ANONYMOUS_ACTOR,
+            "user",
+            _valid_name(username),
+            details={"method": method, "address": address},
+        )
+
+
+def _record_login(session: Session, row: WebUser, method: str, address: str | None) -> None:
+    """Write a successful login of the web interface to the audit log."""
+    audit.record(
+        session,
+        AuditAction.USER_LOGIN,
+        audit.user_actor(_label(row)),
+        "user",
+        row.username,
+        details={"method": method, "address": address},
+    )
+
+
+def record_logout(label: str, address: str | None) -> None:
+    """Write the logout of a web user (``label``: its session label) to the audit log."""
+    with session_scope() as session:
+        audit.record(
+            session,
+            AuditAction.USER_LOGOUT,
+            audit.user_actor(label),
+            "user",
+            label.removeprefix(f"{AUTH_OIDC}:"),
+            details={"address": address},
+        )
+
+
+def authenticate(username: str, password: str, address: str | None = None) -> dict[str, Any] | None:
     """Return the local user whose username and password match, or None.
 
     An SSO user never matches. The time spent does not depend on whether the username exists.
-    The last login time is recorded.
+    The last login time is recorded, and the login or its failure (from ``address``) is written
+    to the audit log.
     """
     with session_scope() as session:
         row = _by_name(session, username.strip())
         stored = row.password_hash if row is not None and row.auth_source == AUTH_LOCAL else None
         matches = verify_password(password[:MAX_PASSWORD_CHARS], stored or _dummy_hash())
-        if row is None or stored is None or not matches:
-            return None
-        row.last_login_at = utcnow()
-        session.add(row)
-        session.flush()
-        session.refresh(row)
-        return _public(session, row)
+        if row is not None and stored is not None and matches:
+            row.last_login_at = utcnow()
+            session.add(row)
+            _record_login(session, row, "password", address)
+            session.flush()
+            session.refresh(row)
+            return _public(session, row)
+    record_login_failure(username.strip(), "password", address)
+    return None
 
 
 def ensure_bootstrap_admin() -> str | None:
@@ -619,6 +706,7 @@ def _session(signer: SessionSigner, row: WebUser, grants: access_control.Grants)
         "expires_in": signer.session_seconds,
         "username": row.username,
         "role": role,
+        "must_change_password": row.must_change_password,
     }
 
 
@@ -629,11 +717,18 @@ def new_session(signer: SessionSigner, user_id: int) -> dict[str, Any]:
         return _session(signer, row, _grants(session, row))
 
 
-def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings) -> dict[str, Any]:
+def oidc_login(
+    signer: SessionSigner,
+    identity: OidcIdentity,
+    settings: Settings,
+    address: str | None = None,
+) -> dict[str, Any]:
     """Open the session of the SSO user of a verified OIDC login; raise OidcError.
 
     The user is named by the username claim. It is refused when the name belongs to a local
-    account, when it is bound to another subject, or when it does not exist and
+    account, when it is bound to another subject or to another identity provider (the account
+    is identified by the issuer and the subject; a user bound before the issuer was recorded
+    gets it at its next login), or when it does not exist and
     ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is off (``unknown_user``) or an administrator deleted it
     (``revoked``). Its SSO groups are replaced by those its groups claim names (see
     access_control.sync_sso_groups); the login is refused (``forbidden``) when its groups give
@@ -663,6 +758,13 @@ def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings
                         name,
                     )
                     raise OidcError("conflict", "This user is bound to another account")
+                if row.oidc_issuer is not None and not same_value(row.oidc_issuer, identity.issuer):
+                    logger.warning(
+                        "OIDC login of %s refused: user %s is bound to another provider",
+                        label,
+                        name,
+                    )
+                    raise OidcError("conflict", "This user is bound to another account")
             created = row is None
             if row is None:
                 if not settings.oidc_auto_create_users:
@@ -679,6 +781,7 @@ def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings
                     created_by="oidc",
                 )
             row.oidc_subject = identity.subject
+            row.oidc_issuer = identity.issuer
             row.last_login_at = utcnow()
             session.add(row)
             session.flush()
@@ -695,6 +798,8 @@ def oidc_login(signer: SessionSigner, identity: OidcIdentity, settings: Settings
                 raise OidcError("forbidden", "No web role granted to this user")
             if created:
                 logger.info("SSO web user %s created at its first login", name)
+            if grants:
+                _record_login(session, row, "oidc", address)
             result = _session(signer, row, grants) if grants else None
     except IntegrityError:
         # The same user logged in twice at the same time
@@ -733,6 +838,7 @@ def session_identity(user_id: int, version: int, username: str) -> TokenInfo | N
             user_id=row.id,
             auth_source=row.auth_source,
             grants=grants,
+            must_change_password=row.must_change_password,
         )
 
 
@@ -756,62 +862,3 @@ class SessionVerifier:
         if payload is None:
             return None
         return session_identity(payload["uid"], payload["uver"], payload["sub"])
-
-
-# ── Login throttling ─────────────────────────────────────────────────────────
-
-
-class LoginThrottle:
-    """Count the failed logins of the last ``window`` seconds, in memory.
-
-    A username is locked for an address after ``max_per_user`` failures, an address after
-    ``max_per_address`` failures on any username. At most ``max_keys`` keys are kept (the oldest
-    are dropped), so that memory stays bounded.
-    """
-
-    def __init__(
-        self,
-        max_per_user: int = 5,
-        max_per_address: int = 20,
-        window: float = 15 * 60,
-        max_keys: int = 10_000,
-    ) -> None:
-        self.max_per_user = max_per_user
-        self.max_per_address = max_per_address
-        self.window = window
-        self.max_keys = max_keys
-        self._failures: OrderedDict[tuple[str, ...], list[float]] = OrderedDict()
-        self._lock = threading.Lock()
-
-    def _recent(self, key: tuple[str, ...], now: float) -> list[float]:
-        """Failures of a key still inside the window (expired ones are dropped)."""
-        times = [t for t in self._failures.get(key, []) if now - t < self.window]
-        if times:
-            self._failures[key] = times
-        else:
-            self._failures.pop(key, None)
-        return times
-
-    def blocked(self, username: str, address: str) -> bool:
-        """True when this login must be refused without checking the password."""
-        now = time.monotonic()
-        with self._lock:
-            return (
-                len(self._recent(("user", username.lower(), address), now)) >= self.max_per_user
-                or len(self._recent(("address", address), now)) >= self.max_per_address
-            )
-
-    def failed(self, username: str, address: str) -> None:
-        """Record a failed login."""
-        now = time.monotonic()
-        with self._lock:
-            for key in (("user", username.lower(), address), ("address", address)):
-                self._failures.setdefault(key, []).append(now)
-                self._failures.move_to_end(key)
-            while len(self._failures) > self.max_keys:
-                self._failures.popitem(last=False)
-
-    def succeeded(self, username: str, address: str) -> None:
-        """Forget the failures of a username for an address after a successful login."""
-        with self._lock:
-            self._failures.pop(("user", username.lower(), address), None)

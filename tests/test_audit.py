@@ -2,6 +2,7 @@
 
 import json
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from sqlmodel import Session, select
@@ -223,3 +224,17 @@ def test_audit_cli_refuses_bad_values(capsys):
     with pytest.raises(SystemExit) as exc:
         cli.run(["audit", "list", "--since", "yesterday"])
     assert exc.value.code == cli.EXIT_ERROR
+
+
+def test_the_web_interface_knows_every_kind_of_event():
+    # The audit screen filters and labels the events: a new kind must be added there too
+    web = Path(__file__).parents[1] / "web" / "src" / "app" / "core"
+    models = (web / "models" / "api.models.ts").read_text(encoding="utf-8")
+    listed = models.split("export const AUDIT_ACTIONS", 1)[1].split("];", 1)[0]
+    typed = models.split("export type AuditAction =", 1)[1].split(";", 1)[0]
+    labels = (web / "i18n" / "messages" / "audit.ts").read_text(encoding="utf-8")
+
+    for action in audit.AuditAction:
+        assert f"'{action.value}'" in listed and f"'{action.value}'" in typed, action
+        # en, fr and es
+        assert labels.count(f"'audit.action.{action.value}'") == 3, action

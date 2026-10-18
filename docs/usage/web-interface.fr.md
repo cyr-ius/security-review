@@ -9,7 +9,7 @@ base de données (voir [Architecture et déploiement](../advanced/architecture.m
 |---|---|
 | `/ui/` | Application web (Angular) |
 | `/api/v1/…` | API REST utilisée par l'application |
-| `/api/docs` | Documentation OpenAPI de l'API REST (publique, sans données) |
+| `/api/docs` | Documentation OpenAPI de l'API REST (publique, sans données), avec `SECREVIEW_SWAGGER_ENABLED=true` |
 | `/api/favicon.svg` | Icône de l'interface web et de la documentation Swagger (publique) |
 | `/healthz` | Sonde de vie (publique) |
 
@@ -313,7 +313,11 @@ Un compte sans aucun groupe ni rôle direct n'a aucune permission et ne peut pas
 
 Pour un compte local, sans `--password-stdin` (ou sans mot de passe dans l'interface), un mot de
 passe aléatoire de 24 caractères est généré et affiché **une seule fois**. Un mot de passe choisi
-compte 12 à 256 caractères. Un compte SSO n'a jamais de mot de passe : la connexion par
+respecte la **politique de mot de passe** : 12 à 256 caractères, avec au moins une minuscule, une
+majuscule, un chiffre et un caractère qui n'est ni une lettre ni un chiffre. Les écrans affichent
+ces règles sous le champ et cochent chacune pendant la saisie, et **Mon compte** indique aussitôt
+si la confirmation correspond. La politique s'applique aux nouveaux mots de passe : un mot de passe
+défini avant reste valable jusqu'à son changement. Un compte SSO n'a jamais de mot de passe : la connexion par
 identifiant et mot de passe, la réinitialisation et **Mon compte** le refusent.
 
 ### Premier administrateur
@@ -327,9 +331,15 @@ Son mot de passe est affiché une seule fois dans les journaux du contrôleur :
 WARNING security_review_mcp.controller: Initial Web UI administrator created: user 'admin', password (shown once): …
 ```
 
-Traitez ce mot de passe comme un secret : restreignez l'accès aux journaux, connectez-vous avec
-`admin` et changez-le depuis **Mon compte**. S'il est perdu, générez-en un nouveau (l'ancien est
-aussitôt invalidé) : `security-review-controller user reset-password admin`.
+Traitez ce mot de passe comme un secret : restreignez l'accès aux journaux et connectez-vous avec
+`admin`. L'interface **exige alors un nouveau mot de passe** avant toute autre chose : elle ouvre
+**Mon compte**, et l'API refuse toutes les autres routes (`403`) tant que le mot de passe n'est pas
+changé. S'il est perdu, générez-en un nouveau (l'ancien est aussitôt invalidé) :
+`security-review-controller user reset-password admin`.
+
+Il en va de même de tout mot de passe défini par quelqu'un d'autre : un compte local créé ou
+réinitialisé par un administrateur (écran ou CLI) change son mot de passe à sa première connexion.
+L'écran **Utilisateurs** affiche **mot de passe à changer** jusque-là.
 
 !!! note "Mise à jour depuis le jeton `bootstrap-admin`"
     Les versions précédentes créaient un **jeton** `bootstrap-admin` à la place du compte. Sur une
@@ -361,13 +371,18 @@ base :
   nouvelle session à l'onglet qui a changé le mot de passe.
 
 Les sessions sont signées avec `SECREVIEW_SESSION_SECRET` (32 caractères au moins), partagé par
-toutes les répliques du contrôleur ; sans lui, un secret aléatoire est tiré à chaque démarrage et
-les sessions se terminent au redémarrage (un avertissement est journalisé).
+toutes les répliques du contrôleur. Sans lui, le secret est lu dans
+`SECREVIEW_SESSION_SECRET_FILE` (`session-secret` dans le répertoire de travail, `/data` en
+Docker), où il est généré au premier démarrage avec les droits `0600` : les sessions survivent à
+un redémarrage, et les répliques qui partagent le volume partagent le secret. Des répliques sans
+volume partagé doivent partager `SECREVIEW_SESSION_SECRET`.
 
 Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour un identifiant
 depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
-connexion est refusée (`429`, en-tête `Retry-After`), même avec le bon mot de passe. Le compteur
-est tenu en mémoire par chaque réplique. Derrière un reverse proxy, l'adresse vue est celle du
+connexion est refusée (`429`, en-tête `Retry-After`), même avec le bon mot de passe. Les
+compteurs sont tenus en base : tous les workers et réplicas du contrôleur les partagent. Chaque
+adresse est aussi limitée sur toute l'API REST (par défaut 600 requêtes par minute, 30 sur les
+routes de connexion, voir [`SECREVIEW_RATE_LIMIT_*`](../reference/configuration.md)). Derrière un reverse proxy, l'adresse vue est celle du
 proxy, et la limite s'appliquerait alors à tous les clients du proxy : déclarez le proxy dans
 [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md) pour que l'adresse du client
 soit lue dans `X-Forwarded-For`. Chaque connexion et chaque échec
@@ -386,7 +401,10 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 - Les mots de passe des comptes ne sont jamais stockés : seule une empreinte **scrypt** salée
   (N=2¹⁴, r=8, p=5) est enregistrée et aucune réponse de l'API ne la renvoie. La vérification
   prend le même temps que l'identifiant existe ou non, et la réponse d'échec est identique. La documentation Swagger (`/api/docs`)
-  et son schéma (`/api/openapi.json`) sont publics et ne donnent accès à aucune donnée.
+  et son schéma (`/api/openapi.json`) sont **désactivés par défaut**
+  (`SECREVIEW_SWAGGER_ENABLED=true` les sert) ; une fois activés, ils sont publics et ne donnent
+  accès à aucune donnée. Leurs fichiers sont fournis avec la build de l'interface web : rien
+  n'est chargé depuis Internet, et Swagger n'envoie jamais le schéma au validateur en ligne.
   Dans Swagger, le cadenas d'une route indique qu'elle exige un jeton : il reste **ouvert**
   tant que vous n'avez pas saisi de jeton avec **Authorize**, et ne veut pas dire que la route
   est accessible sans jeton.
@@ -415,6 +433,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Crée le compte `admin` au premier démarrage du contrôleur, tant qu'aucun compte n'existe ; `true` dans Docker |
 | `SECREVIEW_SESSION_SECRET` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques |
+| `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | Fichier du secret quand `SECREVIEW_SESSION_SECRET` n'est pas défini, généré au premier démarrage |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session (1 à 24 heures), connexion par compte local ou SSO |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le [compte SSO](../advanced/sso.md#comptes-sso) à la première connexion ; sinon un administrateur le crée |
 | `SECREVIEW_ENROLLMENT` | `true` | Demandes de jetons par les projets (sur le serveur MCP), validées dans l'écran **Jetons** |

@@ -1,4 +1,5 @@
-"""Audit log: who changed a finding status, a token, an enrollment request or an access.
+"""Audit log: who changed a finding status, a token, an enrollment request or an access, and
+who logged in to the web interface (or failed to) and out.
 
 Events are written by the business modules (services, token_store, access_control) in the same
 transaction as the change they describe, so that an event exists exactly when the change was
@@ -57,6 +58,9 @@ class AuditAction(StrEnum):
     GROUP_MEMBERS_CHANGED = "group.members_changed"
     USER_GROUPS_CHANGED = "user.groups_changed"
     USER_ROLES_CHANGED = "user.roles_changed"
+    USER_LOGIN = "user.login"
+    USER_LOGIN_FAILED = "user.login_failed"
+    USER_LOGOUT = "user.logout"
 
 
 def user_actor(username: str) -> str:

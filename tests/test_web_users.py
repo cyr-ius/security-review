@@ -13,7 +13,7 @@ from security_review_mcp.http_server import Role
 from security_review_mcp.models import WebUser
 from security_review_mcp.services import NotFoundError
 
-PASSWORD = "correct horse battery"
+PASSWORD = "Correct horse battery 9"
 SECRET = "s" * 40
 
 
@@ -54,15 +54,41 @@ def test_malformed_or_oversized_hashes_never_match(stored_hash):
 @pytest.mark.parametrize(
     ("password", "message"),
     [
-        ("short", "between 12 and 256"),
-        ("x" * 257, "between 12 and 256"),
-        (" " * 12, "blank"),
-        ("abcdefghijk\n", "control characters"),
+        ("Sh0rt!", "between 12 and 256"),
+        ("Xx1!" * 65, "between 12 and 256"),
+        ("only lowercase 1!", "an uppercase letter"),
+        ("ONLY UPPERCASE 1!", "a lowercase letter"),
+        ("No digit at all!", "a digit"),
+        ("NoSymbolAtAll123", "neither a letter nor a digit"),
+        (" " * 12, "a lowercase letter, an uppercase letter, a digit"),
+        ("Abcdefghij1\n", "control characters"),
     ],
 )
 def test_weak_or_invalid_passwords_are_refused(password, message):
     with pytest.raises(ValueError, match=message):
         make_user("alice", password, "reader")
+
+
+def test_generated_passwords_follow_the_policy():
+    passwords = {web_users.generate_password() for _ in range(500)}
+
+    assert len(passwords) == 500
+    assert all(len(password) == web_users.GENERATED_PASSWORD_CHARS for password in passwords)
+    assert all(web_users.password_problems(password) == [] for password in passwords)
+
+
+def test_the_policy_applies_to_new_passwords_only(database):
+    # A password stored before the policy (written directly) keeps working
+    user = make_user("alice", PASSWORD, "reader")
+    with Session(database) as session:
+        row = session.get(WebUser, user["id"])
+        row.password_hash = web_users.hash_password("old weak password")
+        session.add(row)
+        session.commit()
+
+    assert web_users.authenticate("alice", "old weak password") is not None
+    with pytest.raises(ValueError, match="an uppercase letter"):
+        web_users.change_own_password(user["id"], "old weak password", "another weak one")
 
 
 @pytest.mark.parametrize("username", ["", " ", "a" * 65, "bob smith", "-bob", "bo\nb", "é"])
@@ -161,12 +187,37 @@ def test_change_own_password_needs_the_current_one():
     user = make_user("alice", PASSWORD, "reader")
 
     with pytest.raises(ValueError, match="current password is wrong"):
-        web_users.change_own_password(user["id"], "not the password", "another long secret")
+        web_users.change_own_password(user["id"], "not the password", "Another long secret 2")
     with pytest.raises(ValueError, match="must differ"):
         web_users.change_own_password(user["id"], PASSWORD, PASSWORD)
-    web_users.change_own_password(user["id"], PASSWORD, "another long secret")
+    web_users.change_own_password(user["id"], PASSWORD, "Another long secret 2")
     assert web_users.authenticate("alice", PASSWORD) is None
-    assert web_users.authenticate("alice", "another long secret") is not None
+    assert web_users.authenticate("alice", "Another long secret 2") is not None
+
+
+def test_a_password_set_by_someone_else_must_be_changed(database):
+    signer = oidc.SessionSigner(SECRET)
+    created = web_users.create_user("alice", PASSWORD, [group_for("reader")], created_by="admin")
+    assert created["must_change_password"] is True
+    assert web_users.new_session(signer, created["id"])["must_change_password"] is True
+    session = web_users.new_session(signer, created["id"])["session"]
+    assert web_users.SessionVerifier(signer).verify_session(session).must_change_password
+
+    # Changed by the user itself: done
+    web_users.change_own_password(created["id"], PASSWORD, "Another long secret 2")
+    assert web_users.find_user("alice")["must_change_password"] is False
+    # Reset by an administrator: to change again
+    web_users.set_password(created["id"])
+    assert web_users.find_user("alice")["must_change_password"] is True
+    # An SSO user has no password to change
+    sso = web_users.create_user("bob", None, None, auth_source="oidc")
+    assert sso["must_change_password"] is False
+
+
+def test_bootstrap_admin_must_change_its_password():
+    web_users.ensure_bootstrap_admin()
+
+    assert web_users.find_user("admin")["must_change_password"] is True
 
 
 def test_bootstrap_admin_is_created_once_while_no_user_exists():
@@ -221,7 +272,7 @@ def test_password_change_ends_the_previous_sessions():
     assert verifier.verify_session(before) is not None
 
     # Even within the same second as the session: the version, not the time, is compared
-    web_users.set_password(user["id"], "another long secret")
+    web_users.set_password(user["id"], "Another long secret 2")
 
     assert verifier.verify_session(before) is None
     after = web_users.new_session(signer, user["id"])
@@ -277,11 +328,17 @@ def sso_settings(**values) -> Settings:
     return Settings(_env_file=None, **values)
 
 
-def identity(username: str | None = "alice", subject: str = "sub-1", *groups: str):
+ISSUER = "https://sso.example.com"
+
+
+def identity(
+    username: str | None = "alice", subject: str = "sub-1", *groups: str, issuer: str = ISSUER
+):
     """A verified OIDC login."""
     return oidc.OidcIdentity(
         username=username,
         subject=subject,
+        issuer=issuer,
         groups=frozenset(groups),
         label=f"oidc:{username}",
         return_url="/",
@@ -447,6 +504,34 @@ def test_sso_user_is_bound_to_its_first_subject():
     with pytest.raises(oidc.OidcError) as exc:
         login(signer, identity("alice", "sub-2"))
     assert exc.value.code == "conflict"
+
+
+def test_sso_user_is_bound_to_the_issuer_of_its_first_login(database):
+    signer = oidc.SessionSigner(SECRET)
+    make_user("alice", None, "reader", auth_source="oidc")
+    login(signer, identity("alice", "sub-1"))
+    assert stored(database, "alice").oidc_issuer == ISSUER
+
+    # Same subject, other identity provider: another account, refused
+    with pytest.raises(oidc.OidcError) as exc:
+        login(signer, identity("alice", "sub-1", issuer="https://evil.example.com"))
+    assert exc.value.code == "conflict"
+    assert stored(database, "alice").oidc_issuer == ISSUER
+
+
+def test_sso_user_bound_before_the_issuer_was_recorded_gets_it(database):
+    signer = oidc.SessionSigner(SECRET)
+    make_user("alice", None, "reader", auth_source="oidc")
+    login(signer, identity("alice", "sub-1"))
+    with Session(database) as session:
+        row = session.exec(select(WebUser).where(WebUser.username == "alice")).one()
+        row.oidc_issuer = None
+        session.add(row)
+        session.commit()
+
+    login(signer, identity("alice", "sub-1"))
+
+    assert stored(database, "alice").oidc_issuer == ISSUER
 
 
 @pytest.mark.parametrize("username", [None, "", "bob smith", "a" * 65, "bo\u200bb"])
@@ -637,49 +722,6 @@ def test_grant_project_is_bounded(monkeypatch):
     monkeypatch.setattr(web_users, "MAX_USERS", 1)
     with pytest.raises(ValueError, match="limit of 1 web users"):
         web_users.check_project_grant("bob", True)
-
-
-# ── Login throttling ─────────────────────────────────────────────────────────
-
-
-def test_throttle_locks_a_username_per_address():
-    throttle = web_users.LoginThrottle(max_per_user=2, max_per_address=10)
-
-    throttle.failed("Alice", "10.0.0.1")
-    assert not throttle.blocked("alice", "10.0.0.1")
-    throttle.failed("alice", "10.0.0.1")
-    assert throttle.blocked("ALICE", "10.0.0.1")
-    # Another address is not locked out by these failures
-    assert not throttle.blocked("alice", "10.0.0.2")
-
-
-def test_throttle_locks_an_address_trying_many_usernames():
-    throttle = web_users.LoginThrottle(max_per_user=5, max_per_address=3)
-
-    for name in ("a", "b", "c"):
-        throttle.failed(name, "10.0.0.1")
-
-    assert throttle.blocked("d", "10.0.0.1")
-
-
-def test_throttle_forgets_old_failures_and_successes():
-    throttle = web_users.LoginThrottle(max_per_user=1, max_per_address=10, window=0)
-    throttle.failed("alice", "10.0.0.1")
-    assert not throttle.blocked("alice", "10.0.0.1")
-
-    throttle = web_users.LoginThrottle(max_per_user=1, max_per_address=10)
-    throttle.failed("alice", "10.0.0.1")
-    throttle.succeeded("alice", "10.0.0.1")
-    assert not throttle.blocked("alice", "10.0.0.1")
-
-
-def test_throttle_memory_is_bounded():
-    throttle = web_users.LoginThrottle(max_keys=10)
-
-    for index in range(100):
-        throttle.failed(f"user{index}", f"10.0.0.{index}")
-
-    assert len(throttle._failures) == 10
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────

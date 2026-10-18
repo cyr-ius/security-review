@@ -107,12 +107,15 @@ refusée.
 | Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | Le compte est **créé** (`created_by` : `oidc`) si ses groupes lui donnent une permission ; sinon refus, sans création |
 | Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (défaut) | **Refus** : un administrateur doit d'abord créer le compte SSO |
 | Compte **local** du même nom | **Refus** : une connexion SSO n'ouvre jamais un compte local |
-| Compte SSO lié à un autre `sub` | **Refus** (voir ci-dessous) |
+| Compte SSO lié à un autre `sub` ou à un autre émetteur | **Refus** (voir ci-dessous) |
 | Compte SSO supprimé par un administrateur | **Refus**, même avec la création automatique (voir ci-dessous) |
 
-À la première connexion, le compte est **lié** au claim `sub` du fournisseur ; une connexion
-ultérieure avec le même identifiant mais un autre `sub` (compte du fournisseur supprimé puis
-recréé, renommé...) est refusée. Pour réattribuer l'identifiant, supprimez puis recréez le
+À la première connexion, le compte est **lié** à l'émetteur (issuer) et au claim `sub` du
+fournisseur : le compte est identifié par les deux. Une connexion ultérieure avec le même
+identifiant mais un autre `sub` (compte du fournisseur supprimé puis recréé, renommé...) ou
+venant d'un autre émetteur (un autre fournisseur d'identité, qui pourrait réutiliser le même
+`sub`) est refusée. Un compte lié quand seul le `sub` était enregistré reçoit l'émetteur de sa
+connexion suivante. Pour réattribuer l'identifiant, supprimez puis recréez le
 compte.
 
 Ce qu'un compte SSO peut faire vient de ses [groupes](access-control.md) : ceux qu'un
@@ -219,8 +222,7 @@ INFO security_review_mcp.web: Web access to shop-api given to web user alice by 
   (32 caractères au moins), comme celui des [comptes locaux](../usage/web-interface.md#connexion-et-sessions), et désigne
   le compte SSO, relu à chaque requête : supprimer le compte ou changer ses groupes ou leurs
   rôles s'applique aussitôt. Toutes les répliques du contrôleur doivent partager ce secret ; sans lui,
-  un secret aléatoire est tiré à chaque démarrage et les sessions se terminent au redémarrage (un
-  avertissement est journalisé).
+  le secret de `SECREVIEW_SESSION_SECRET_FILE` est utilisé, généré au premier démarrage.
 - Un changement de groupe chez le fournisseur ne s'applique qu'à la connexion suivante. Pour
   couper toutes les sessions avant leur expiration, supprimez le compte, ou changez
   `SECREVIEW_SESSION_SECRET` et redémarrez le contrôleur (toutes les sessions sont coupées).

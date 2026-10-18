@@ -4,13 +4,14 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, disabled, form, maxLength, required, validate } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
-import { MAX_PASSWORD_CHARS, MIN_PASSWORD_CHARS } from '../../core/constants/passwords';
+import { MAX_PASSWORD_CHARS, followsPasswordPolicy } from '../../core/constants/passwords';
 import { AuthSource, WebUser, WebUserRole } from '../../core/models/api.models';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
+import { PasswordPolicyComponent } from '../../shared/components/password-policy/password-policy.component';
 import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
 import {
   RoleBindingDraft,
@@ -45,7 +46,14 @@ const EMPTY_USER: UserFormModel = { source: 'local', username: '', password: '' 
  */
 @Component({
   selector: 'app-user-list',
-  imports: [DatePipe, FormField, RefreshButtonComponent, RoleBindingsComponent, TranslatePipe],
+  imports: [
+    DatePipe,
+    FormField,
+    PasswordPolicyComponent,
+    RefreshButtonComponent,
+    RoleBindingsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './user-list.component.html',
   styleUrl: './user-list.component.css',
 })
@@ -55,7 +63,6 @@ export class UserListComponent {
   private readonly i18n = inject(I18nService);
 
   readonly roleLabels = ROLE_LABELS;
-  readonly minPassword = MIN_PASSWORD_CHARS;
   readonly users = rxResource({ stream: () => this.api.users() });
   /** Deleted SSO users, never created again by a login. */
   readonly revoked = rxResource({ stream: () => this.api.revokedUsers() });
@@ -74,12 +81,10 @@ export class UserListComponent {
     // The name of an existing user never changes: only its groups are edited
     disabled(path.username, () => this.editing() !== null);
     maxLength(path.password, MAX_PASSWORD_CHARS);
+    // Empty: the controller generates one; typed: it follows the password policy
     validate(path.password, ({ value, valueOf }) =>
-      valueOf(path.source) === 'local' && value().length > 0 && value().length < MIN_PASSWORD_CHARS
-        ? {
-            kind: 'minLength',
-            message: this.i18n.translate('users.passwordHelp', { count: MIN_PASSWORD_CHARS }),
-          }
+      valueOf(path.source) === 'local' && value().length > 0 && !followsPasswordPolicy(value())
+        ? { kind: 'policy', message: this.i18n.translate('password.policy') }
         : undefined,
     );
   });
@@ -113,7 +118,7 @@ export class UserListComponent {
     (this.editing()?.groups ?? []).filter((group) => group.source === 'oidc'),
   );
 
-  readonly passwordTooShort = computed(
+  readonly passwordInvalid = computed(
     () => this.formSource() === 'local' && this.userForm.password().invalid(),
   );
 

@@ -13,6 +13,7 @@ import urllib.request
 from typing import Any
 from urllib.parse import urlsplit
 
+from pydantic import SecretStr
 from sqlmodel import select
 
 from .config import Settings, check_report_language, get_settings
@@ -199,7 +200,12 @@ def _oidc_overrides(stored: dict[str, str]) -> dict[str, Any]:
     for name, kind in OIDC_FIELDS.items():
         key = _oidc_key(name)
         if key in stored:
-            overrides[key] = stored[key] == "true" if kind is bool else stored[key]
+            if kind is bool:
+                overrides[key] = stored[key] == "true"
+            elif name == OIDC_SECRET:
+                overrides[key] = SecretStr(stored[key])
+            else:
+                overrides[key] = stored[key]
     return overrides
 
 
@@ -277,6 +283,8 @@ def oidc_candidate(values: dict[str, Any], settings: Settings | None = None) -> 
 
 def _shown(name: str, value: Any) -> Any:
     """Value of an OIDC setting as returned by the API: a set client secret is masked."""
+    if isinstance(value, SecretStr):
+        value = value.get_secret_value()
     if name == OIDC_SECRET and value:
         return PASSWORD_MASK
     return value

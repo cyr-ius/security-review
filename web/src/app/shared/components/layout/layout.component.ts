@@ -1,9 +1,11 @@
 import { Component, HostListener, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { ROLE_META } from '../../../core/constants/labels';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { MessageKey } from '../../../core/i18n/messages';
 import { Permission } from '../../../core/models/api.models';
+import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { LanguageSelectComponent } from '../language-select/language-select.component';
@@ -26,6 +28,7 @@ interface NavItem {
 })
 export class LayoutComponent {
   readonly auth = inject(AuthService);
+  private readonly api = inject(ApiService);
   readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
 
@@ -110,8 +113,14 @@ export class LayoutComponent {
     this.closeMenu();
   }
 
-  logout(): void {
+  async logout(): Promise<void> {
+    try {
+      // Written to the audit log; the tab drops its session whatever the answer
+      await firstValueFrom(this.api.logout());
+    } catch {
+      // Expired session or unreachable controller: nothing to record
+    }
     this.auth.logout();
-    this.router.navigate(['/login']);
+    await this.router.navigate(['/login']);
   }
 }

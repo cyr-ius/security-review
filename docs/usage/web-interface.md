@@ -9,7 +9,7 @@ the findings** (fixed, accepted risk, false positive) without an MCP client. It 
 |---|---|
 | `/ui/` | Web application (Angular) |
 | `/api/v1/…` | REST API used by the application |
-| `/api/docs` | OpenAPI documentation of the REST API (public, no data) |
+| `/api/docs` | OpenAPI documentation of the REST API (public, no data), when `SECREVIEW_SWAGGER_ENABLED=true` |
 | `/api/favicon.svg` | Icon of the web interface and of the Swagger documentation (public) |
 | `/healthz` | Liveness probe (public) |
 
@@ -305,8 +305,12 @@ curl -X POST https://secreview.example.com/api/v1/users \
 An account without any group or direct role has no permission and cannot log in.
 
 For a local account, without `--password-stdin` (or without a password in the interface), a
-random 24-character password is generated and shown **only once**. A chosen password has 12 to
-256 characters. An SSO account never has a password: the user name and password login, the
+random 24-character password is generated and shown **only once**. A chosen password follows
+the **password policy**: 12 to 256 characters, with at least a lowercase letter, an uppercase
+letter, a digit and a character that is neither a letter nor a digit. The screens list these
+rules under the field and tick each one while the password is typed, and **My account** says at
+once whether the confirmation matches. The policy applies to new passwords: a password set
+before keeps working until it is changed. An SSO account never has a password: the user name and password login, the
 reset and **My account** refuse it.
 
 ### First administrator
@@ -320,9 +324,15 @@ Its password is shown only once in the logs of the controller:
 WARNING security_review_mcp.controller: Initial Web UI administrator created: user 'admin', password (shown once): …
 ```
 
-Handle this password as a secret: restrict access to the logs, log in with `admin` and change
-it from **My account**. If it is lost, generate a new one (the old one is
-invalidated at once): `security-review-controller user reset-password admin`.
+Handle this password as a secret: restrict access to the logs and log in with `admin`. The
+interface then **requires a new password** before anything else: it opens **My account**, and
+the API refuses every other route (`403`) until the password is changed. If it is lost, generate
+a new one (the old one is invalidated at once):
+`security-review-controller user reset-password admin`.
+
+The same applies to every password set by someone else: a local account created or reset by an
+administrator (screen or CLI) changes its password at its first login. The **Users** screen shows
+**password to change** until then.
 
 !!! note "Upgrading from the `bootstrap-admin` token"
     Previous versions created a `bootstrap-admin` **token** instead of the account. On an
@@ -354,13 +364,17 @@ from the database:
   that changed the password.
 
 Sessions are signed with `SECREVIEW_SESSION_SECRET` (at least 32 characters), shared by every
-replica of the controller; without it, a random secret is drawn at every start and the sessions
-end at restart (a warning is logged).
+replica of the controller. Without it, the secret is read from `SECREVIEW_SESSION_SECRET_FILE`
+(`session-secret` in the working directory, `/data` in Docker), generated there at the first
+start with mode `0600`: sessions survive a restart, and the replicas that share the volume share
+the secret. Replicas without a shared volume must share `SECREVIEW_SESSION_SECRET`.
 
 Login failures are limited: after **5 failures in 15 minutes** for a user name from the same
 address, or **20 failures** from an address all user names together, the login is refused
-(`429`, `Retry-After` header), even with the right password. The counter is kept in memory by
-every replica. Behind a reverse proxy, the address seen is the proxy's, and the limit would then
+(`429`, `Retry-After` header), even with the right password. The counters are kept in the
+database: every worker and replica of the controller shares them. Every address is also limited
+on the whole REST API (by default 600 requests a minute, 30 on the login routes, see
+[`SECREVIEW_RATE_LIMIT_*`](../reference/configuration.md)). Behind a reverse proxy, the address seen is the proxy's, and the limit would then
 apply to every client of the proxy: list the proxy in
 [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md) so that the address of the
 client is read from `X-Forwarded-For`. Every login and every failure is logged, without the password:
@@ -378,7 +392,10 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 - Account passwords are never stored: only a salted **scrypt** digest (N=2¹⁴, r=8, p=5) is
   stored and no API answer returns it. The check takes the same time whether the user name
   exists or not, and the failure answer is identical. The Swagger documentation (`/api/docs`)
-  and its schema (`/api/openapi.json`) are public and give access to no data. In Swagger, the
+  and its schema (`/api/openapi.json`) are **disabled by default**
+  (`SECREVIEW_SWAGGER_ENABLED=true` serves them); once enabled, they are public and give access
+  to no data. Their files come with the web interface build: nothing is loaded from the
+  Internet, and Swagger never sends the schema to the online validator. In Swagger, the
   padlock of a route says that it requires a token: it stays **open** while you have not entered
   a token with **Authorize**, and does not mean that the route can be reached without a token.
 - The controller exposes no write route without a token. The
@@ -407,6 +424,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the application (default: the one of the package) |
 | `SECREVIEW_AUTH_BOOTSTRAP_ADMIN` | `false` | Creates the `admin` account at the first start of the controller, while no account exists; `true` in Docker |
 | `SECREVIEW_SESSION_SECRET` | — | Signing secret of the sessions (at least 32 characters), identical on every replica |
+| `SECREVIEW_SESSION_SECRET_FILE` | `session-secret` | File of the secret when `SECREVIEW_SESSION_SECRET` is unset, generated at the first start |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or SSO login |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [SSO account](../advanced/sso.md#sso-accounts) at the first login; otherwise an administrator creates it |
 | `SECREVIEW_ENROLLMENT` | `true` | Token requests by the projects (on the MCP server), approved in the **Tokens** screen |

@@ -30,8 +30,10 @@ import hashlib
 import hmac
 import json
 import logging
+import os
 import secrets
 import ssl
+import tempfile
 import threading
 import time
 import urllib.error
@@ -44,7 +46,7 @@ from typing import Any
 import jwt
 
 from . import __version__
-from .config import Settings
+from .config import Settings, secret_value
 from .http_server import AUTH_PREFIX, LOOPBACK_HOSTS, WEB_ROLES, Role
 from .proxy import masked_url, proxy_handler
 
@@ -211,7 +213,7 @@ def validate_session_settings(settings: Settings) -> None:
     """Check SECREVIEW_SESSION_HOURS and SECREVIEW_SESSION_SECRET; raise ValueError."""
     if not 1 <= settings.session_hours <= 24:
         raise ValueError("SECREVIEW_SESSION_HOURS must be between 1 and 24")
-    secret = settings.session_secret
+    secret = secret_value(settings.session_secret)
     if secret is not None and len(secret) < MIN_SESSION_SECRET_CHARS:
         raise ValueError(
             f"SECREVIEW_SESSION_SECRET must hold at least {MIN_SESSION_SECRET_CHARS} characters"
@@ -225,12 +227,64 @@ def session_signer(settings: Settings) -> SessionSigner:
         ValueError: If ``SECREVIEW_SESSION_HOURS`` or ``SECREVIEW_SESSION_SECRET`` is invalid.
     """
     validate_session_settings(settings)
-    if not settings.session_secret:
+    secret = secret_value(settings.session_secret)
+    if not secret and settings.session_secret_file:
+        try:
+            secret = stored_session_secret(Path(settings.session_secret_file))
+        except OSError as exc:
+            logger.warning("Session secret file not usable: %s", exc.strerror or exc)
+    if not secret:
         logger.warning(
-            "SECREVIEW_SESSION_SECRET is not set: web sessions end when the controller "
-            "restarts and are not shared between replicas"
+            "No session secret (SECREVIEW_SESSION_SECRET or SECREVIEW_SESSION_SECRET_FILE): web "
+            "sessions end when the controller restarts and are not shared between replicas"
         )
-    return SessionSigner(settings.session_secret, settings.session_hours)
+    return SessionSigner(secret, settings.session_hours)
+
+
+def _read_session_secret(path: Path) -> str:
+    """Read a stored session secret; raise ValueError when it is too short."""
+    secret = path.read_text(encoding="utf-8").strip()
+    if len(secret) < MIN_SESSION_SECRET_CHARS:
+        raise ValueError(
+            f"SECREVIEW_SESSION_SECRET_FILE ({path}) must hold at least "
+            f"{MIN_SESSION_SECRET_CHARS} characters"
+        )
+    if path.stat().st_mode & 0o077:
+        logger.warning("Session secret file %s is readable by other users: chmod 600 it", path)
+    return secret
+
+
+def stored_session_secret(path: Path) -> str:
+    """Return the session secret stored in ``path``, generated there at the first start.
+
+    The file is written once, with mode 0600, by an atomic hard link of a complete temporary
+    file: when several workers or replicas sharing the volume start together, one creates it
+    and the others read it.
+
+    Raises:
+        OSError: If the file can be neither read nor created.
+        ValueError: If the stored secret is too short.
+    """
+    try:
+        return _read_session_secret(path)
+    except FileNotFoundError:
+        pass
+    path.parent.mkdir(parents=True, exist_ok=True)
+    secret = secrets.token_urlsafe(48)
+    # mkstemp creates the file with mode 0600
+    handle, temporary = tempfile.mkstemp(dir=path.parent, prefix=".session-secret-")
+    try:
+        with os.fdopen(handle, "w", encoding="utf-8") as file:
+            file.write(secret + "\n")
+        try:
+            os.link(temporary, path)
+        except FileExistsError:
+            # Created by another process in the meantime: use its secret
+            return _read_session_secret(path)
+    finally:
+        os.unlink(temporary)
+    logger.info("Session secret generated in %s (keep it private)", path)
+    return secret
 
 
 class SessionSigner:
@@ -341,12 +395,13 @@ class OidcIdentity:
     """The user of a verified login, and the page to open.
 
     ``username`` is the raw username claim (see account_name, None when missing), ``subject``
-    the ``sub`` claim, ``groups`` the values of the groups or roles claim and ``label`` the name
-    written in the logs.
+    the ``sub`` claim, ``issuer`` the provider that signed the ID token, ``groups`` the values
+    of the groups or roles claim and ``label`` the name written in the logs.
     """
 
     username: str | None
     subject: str
+    issuer: str
     groups: frozenset[str]
     label: str
     return_url: str
@@ -376,7 +431,9 @@ class OidcLogin:
         self.settings = settings
         self.issuer = settings.oidc_issuer.rstrip("/")
         self.display_name = settings.oidc_display_name.strip()
-        self.signer = signer or SessionSigner(settings.session_secret, settings.session_hours)
+        self.signer = signer or SessionSigner(
+            secret_value(settings.session_secret), settings.session_hours
+        )
         # The state cookie is only sent back to the callback (path as seen by the browser)
         self.secure_cookie = settings.oidc_redirect_uri.startswith("https://")
         self.cookie_path = urllib.parse.urlsplit(settings.oidc_redirect_uri).path or "/"
@@ -514,6 +571,7 @@ class OidcLogin:
         return OidcIdentity(
             username=account_name(claims, self.settings),
             subject=claims["sub"],
+            issuer=self.issuer,
             groups=frozenset(claim_values(claims, self.settings.oidc_roles_claim)),
             label=user_label(claims, self.settings),
             return_url=safe_return_url(saved.get("return_url")),
@@ -530,7 +588,7 @@ class OidcLogin:
             "client_id": self.settings.oidc_client_id,
         }
         headers: dict[str, str] = {}
-        secret = self.settings.oidc_client_secret
+        secret = secret_value(self.settings.oidc_client_secret)
         if secret:
             methods = discovery.get("token_endpoint_auth_methods_supported") or [
                 "client_secret_basic"
