@@ -127,7 +127,7 @@ export class LoginComponent implements OnInit {
     this.auth.login(session);
     try {
       const identity = await firstValueFrom(this.api.me());
-      this.auth.identity.set(identity);
+      this.auth.setIdentity(identity);
       await this.router.navigateByUrl(this.returnUrl());
     } catch (err: unknown) {
       this.auth.logout();

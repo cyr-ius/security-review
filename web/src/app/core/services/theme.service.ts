@@ -7,11 +7,12 @@ const THEME_KEY = 'secreview.theme';
 /** Light / dark theme (Bootstrap color modes), remembered per browser. */
 @Injectable({ providedIn: 'root' })
 export class ThemeService {
-  readonly theme = signal<Theme>(initialTheme());
+  private readonly themeValue = signal<Theme>(initialTheme());
+  readonly theme = this.themeValue.asReadonly();
 
   constructor() {
     effect(() => {
-      const theme = this.theme();
+      const theme = this.themeValue();
       document.documentElement.setAttribute('data-bs-theme', theme);
       try {
         localStorage.setItem(THEME_KEY, theme);
@@ -22,7 +23,7 @@ export class ThemeService {
   }
 
   toggle(): void {
-    this.theme.update((theme) => (theme === 'dark' ? 'light' : 'dark'));
+    this.themeValue.update((theme) => (theme === 'dark' ? 'light' : 'dark'));
   }
 }
 
