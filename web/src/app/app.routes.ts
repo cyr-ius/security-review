@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 
 // Each title is a message key, translated by I18nTitleStrategy
 import { authGuard } from './core/guards/auth.guard';
+import { passwordChangeGuard } from './core/guards/password-change.guard';
 import { permissionGuard } from './core/guards/permission.guard';
 
 export const routes: Routes = [
@@ -13,6 +14,7 @@ export const routes: Routes = [
   {
     path: '',
     canActivate: [authGuard],
+    canActivateChild: [passwordChangeGuard],
     loadComponent: () =>
       import('./shared/components/layout/layout.component').then((m) => m.LayoutComponent),
     children: [

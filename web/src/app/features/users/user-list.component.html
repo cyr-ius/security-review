@@ -224,6 +224,9 @@
                   >
                     <i class="bi bi-person" aria-hidden="true"></i> Local
                   </span>
+                  @if (user.must_change_password) {
+                    <span class="badge text-bg-warning ms-1">{{ 'users.mustChange' | t }}</span>
+                  }
                 }
               </td>
               <td class="small">

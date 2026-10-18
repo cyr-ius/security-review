@@ -63,6 +63,7 @@ def _scope_identity(request: Request) -> Identity:
         },
         local_account=state.get("auth_source") == web_users.AUTH_LOCAL,
         auth_source=state.get("auth_source"),
+        must_change_password=bool(state.get("auth_must_change_password")),
         version=__version__,
     )
 
@@ -78,13 +79,27 @@ def _identity_with_role(request: Request, allowed: frozenset[Role] | set[Role]) 
     return identity
 
 
+# Routes a web user who must change its password still reaches
+PASSWORD_CHANGE_PATHS = frozenset({"/api/v1/me", "/api/v1/me/password", "/api/v1/me/logout"})
+
+
 def current_identity(
     request: Request,
     _credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
 ) -> Identity:
     """Identity of a web role (reader, triager, admin): a ``ci`` or ``metrics`` token is refused
-    here even if the bearer middleware let it through (it only reaches its own routes)."""
-    return _identity_with_role(request, WEB_ROLES)
+    here even if the bearer middleware let it through (it only reaches its own routes).
+
+    A web user whose password was set by someone else only reaches its identity and the change
+    of its password (403 elsewhere) until it changes it.
+    """
+    identity = _identity_with_role(request, WEB_ROLES)
+    if identity.must_change_password and request.url.path not in PASSWORD_CHANGE_PATHS:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password change required: change it in My account first",
+        )
+    return identity
 
 
 def pipeline_identity(

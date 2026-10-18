@@ -47,6 +47,8 @@ class Identity(BaseModel):
     local_account: bool = False
     # Source of the account of a web user ("local" or "oidc"); None for a bearer token
     auth_source: AuthSource | None = None
+    # A web user whose password was set by someone else: it must change it before anything else
+    must_change_password: bool = False
     version: str
 
 
@@ -73,6 +75,8 @@ class LoginSession(BaseModel):
     expires_in: int
     username: str
     role: Role
+    # True: only the change of the password is reachable until it is done
+    must_change_password: bool = False
 
 
 class PasswordChange(BaseModel):
@@ -519,6 +523,8 @@ class WebUser(BaseModel):
     updated_at: str | None
     # None for an SSO user (no password)
     password_changed_at: str | None
+    # Its password was set by someone else: it must change it at its next login
+    must_change_password: bool = False
     last_login_at: str | None
     created_by: str | None
 

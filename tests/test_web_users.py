@@ -195,6 +195,31 @@ def test_change_own_password_needs_the_current_one():
     assert web_users.authenticate("alice", "Another long secret 2") is not None
 
 
+def test_a_password_set_by_someone_else_must_be_changed(database):
+    signer = oidc.SessionSigner(SECRET)
+    created = web_users.create_user("alice", PASSWORD, [group_for("reader")], created_by="admin")
+    assert created["must_change_password"] is True
+    assert web_users.new_session(signer, created["id"])["must_change_password"] is True
+    session = web_users.new_session(signer, created["id"])["session"]
+    assert web_users.SessionVerifier(signer).verify_session(session).must_change_password
+
+    # Changed by the user itself: done
+    web_users.change_own_password(created["id"], PASSWORD, "Another long secret 2")
+    assert web_users.find_user("alice")["must_change_password"] is False
+    # Reset by an administrator: to change again
+    web_users.set_password(created["id"])
+    assert web_users.find_user("alice")["must_change_password"] is True
+    # An SSO user has no password to change
+    sso = web_users.create_user("bob", None, None, auth_source="oidc")
+    assert sso["must_change_password"] is False
+
+
+def test_bootstrap_admin_must_change_its_password():
+    web_users.ensure_bootstrap_admin()
+
+    assert web_users.find_user("admin")["must_change_password"] is True
+
+
 def test_bootstrap_admin_is_created_once_while_no_user_exists():
     password = web_users.ensure_bootstrap_admin()
 

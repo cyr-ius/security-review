@@ -129,7 +129,9 @@
   stockée ; une empreinte stockée aux paramètres hors bornes est refusée au lieu d'épuiser la
   mémoire. Mots de passe de 12 à 256 caractères, avec une
   minuscule, une majuscule, un chiffre et un caractère qui n'est ni l'un ni l'autre (contrôlés par
-  le contrôleur, mots de passe générés compris), identifiants limités à `[A-Za-z0-9._@-]`. La
+  le contrôleur, mots de passe générés compris) ; un mot de passe défini par quelqu'un d'autre
+  (premier administrateur, création ou réinitialisation par un administrateur) doit être changé
+  à la première connexion : jusque-là, la session n'atteint que **Mon compte** (`403` ailleurs), identifiants limités à `[A-Za-z0-9._@-]`. La
   vérification coûte le même temps que l'identifiant existe ou non (empreinte factice), et
   l'échec renvoie toujours le même `401`. Les échecs sont limités en base, partagés par toutes
   les réplicas (5 par identifiant et adresse, 20 par adresse, sur 15 minutes, puis `429`), comme

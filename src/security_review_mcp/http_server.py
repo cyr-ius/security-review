@@ -124,6 +124,8 @@ class TokenInfo:
     grants: Mapping[str, frozenset[str] | None] | None = field(
         default=None, compare=False, hash=False
     )
+    # A web user whose password was set by someone else: it may only change it
+    must_change_password: bool = False
 
 
 class TokenStore(Protocol):
@@ -335,6 +337,7 @@ class BearerAuthMiddleware:
         state["auth_user_id"] = info.user_id
         state["auth_source"] = info.auth_source
         state["auth_grants"] = info.grants
+        state["auth_must_change_password"] = info.must_change_password
         await self.app(scope, receive, send)
 
     async def enroll(

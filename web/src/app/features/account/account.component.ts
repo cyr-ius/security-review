@@ -68,6 +68,8 @@ export class AccountComponent {
       const login = await firstValueFrom(this.api.changePassword(current, next));
       // The previous session is no longer valid: keep working with the new one
       this.auth.login(login.session);
+      // The other pages open again once a required change is done
+      this.auth.identity.set(await firstValueFrom(this.api.me()));
       this.passwordForm().reset({ ...EMPTY_PASSWORDS });
       this.message.set(msg('account.changed'));
     } catch (error: unknown) {

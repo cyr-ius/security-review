@@ -3,6 +3,7 @@ import { defineMessages } from '../catalog';
 /** Users screen. */
 export const users = defineMessages({
   en: {
+    'users.mustChange': 'password to change',
     'users.subtitle':
       'Accounts of the web interface: local (username and password) or SSO (identity provider)',
     'users.help':
@@ -80,6 +81,7 @@ export const users = defineMessages({
       'Roles given to this user only, in addition to those of its groups: for example triager on two projects.',
   },
   fr: {
+    'users.mustChange': 'mot de passe à changer',
     'users.subtitle':
       "Comptes de l'interface web : locaux (identifiant et mot de passe) ou SSO (fournisseur d'identité)",
     'users.help':
@@ -161,6 +163,7 @@ export const users = defineMessages({
       'Rôles donnés à cet utilisateur seul, en plus de ceux de ses groupes : par exemple triager sur deux projets.',
   },
   es: {
+    'users.mustChange': 'contraseña por cambiar',
     'users.subtitle':
       'Cuentas de la interfaz web: locales (usuario y contraseña) o SSO (proveedor de identidad)',
     'users.help':

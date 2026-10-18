@@ -324,9 +324,15 @@ Its password is shown only once in the logs of the controller:
 WARNING security_review_mcp.controller: Initial Web UI administrator created: user 'admin', password (shown once): …
 ```
 
-Handle this password as a secret: restrict access to the logs, log in with `admin` and change
-it from **My account**. If it is lost, generate a new one (the old one is
-invalidated at once): `security-review-controller user reset-password admin`.
+Handle this password as a secret: restrict access to the logs and log in with `admin`. The
+interface then **requires a new password** before anything else: it opens **My account**, and
+the API refuses every other route (`403`) until the password is changed. If it is lost, generate
+a new one (the old one is invalidated at once):
+`security-review-controller user reset-password admin`.
+
+The same applies to every password set by someone else: a local account created or reset by an
+administrator (screen or CLI) changes its password at its first login. The **Users** screen shows
+**password to change** until then.
 
 !!! note "Upgrading from the `bootstrap-admin` token"
     Previous versions created a `bootstrap-admin` **token** instead of the account. On an

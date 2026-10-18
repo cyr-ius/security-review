@@ -924,7 +924,7 @@ def test_a_custom_role_opens_only_its_routes(accounts, reports):
     reader = next(role["id"] for role in access_control.list_roles() if role["name"] == "reader")
     group = access_control.create_group("auditors")
     access_control.set_group_roles(group["id"], [(auditor["id"], None), (reader, ["billing"])])
-    web_users.create_user("ann", USER_PASSWORD, [group["id"]])
+    make_user("ann", USER_PASSWORD, group_ids=[group["id"]])
     headers = session_headers(accounts, "ann")
 
     me = accounts.get("/api/v1/me", headers=headers).json()
@@ -952,7 +952,7 @@ def test_triage_is_limited_to_the_projects_of_the_triage_permission(accounts, re
     access_control.set_group_roles(
         group["id"], [(roles["reader"], None), (roles["triager"], ["crm"])]
     )
-    web_users.create_user("mia", USER_PASSWORD, [group["id"]])
+    make_user("mia", USER_PASSWORD, group_ids=[group["id"]])
     headers = session_headers(accounts, "mia")
     shop_finding = services.get_report(reports[0]).findings[0].id
     crm_finding = services.get_report(crm_report["report_id"]).findings[0].id
@@ -975,7 +975,7 @@ def test_sso_settings_need_users_manage(accounts):
     keeper = access_control.create_role("Settings keeper", ["settings.manage"])
     group = access_control.create_group("keepers")
     access_control.set_group_roles(group["id"], [(keeper["id"], None)])
-    web_users.create_user("sam", USER_PASSWORD, [group["id"]])
+    make_user("sam", USER_PASSWORD, group_ids=[group["id"]])
     headers = session_headers(accounts, "sam")
 
     # The SSO settings decide group membership: settings.manage alone cannot change them
@@ -998,7 +998,7 @@ def test_a_token_never_grants_more_than_its_creator(accounts, reports):
     access_control.set_group_roles(
         group["id"], [(keeper["id"], None), (roles["reader"], ["shop-api"])]
     )
-    web_users.create_user("kim", USER_PASSWORD, [group["id"]])
+    make_user("kim", USER_PASSWORD, group_ids=[group["id"]])
     headers = session_headers(accounts, "kim")
     url = "/api/v1/project-tokens"
 
@@ -1048,7 +1048,7 @@ def test_portal_access_at_approval_needs_users_manage(accounts):
     keeper = access_control.create_role("Token keeper", ["tokens.manage", "reports.read"])
     group = access_control.create_group("keepers")
     access_control.set_group_roles(group["id"], [(keeper["id"], None)])
-    web_users.create_user("kim", USER_PASSWORD, [group["id"]])
+    make_user("kim", USER_PASSWORD, group_ids=[group["id"]])
     make_user("dev", USER_PASSWORD)
     request = token_store.request_enrollment("shop-api", label="shop-dev")
     headers = session_headers(accounts, "kim")
@@ -2121,6 +2121,26 @@ def test_users_change_their_own_password(accounts):
     assert accounts.get("/api/v1/me", headers=new_headers).status_code == 200
     assert login(accounts, "alice").status_code == 401
     assert login(accounts, "alice", "Another long secret 2").status_code == 200
+
+
+def test_a_user_must_change_a_password_set_by_someone_else(accounts, reports):
+    make_user("alice", USER_PASSWORD, "reader", must_change=True)
+    logged = login(accounts, "alice")
+    assert logged.json()["must_change_password"] is True
+    headers = {"Authorization": f"Bearer {logged.json()['session']}"}
+
+    # Nothing but its identity and the change of its password
+    refused = accounts.get("/api/v1/projects", headers=headers)
+    assert refused.status_code == 403
+    assert refused.json()["detail"].startswith("Password change required")
+    me = accounts.get("/api/v1/me", headers=headers)
+    assert me.status_code == 200 and me.json()["must_change_password"] is True
+
+    body = {"current_password": USER_PASSWORD, "new_password": "Another long secret 2"}
+    changed = accounts.put("/api/v1/me/password", json=body, headers=headers)
+    assert changed.status_code == 200 and changed.json()["must_change_password"] is False
+    headers = {"Authorization": f"Bearer {changed.json()['session']}"}
+    assert accounts.get("/api/v1/projects", headers=headers).status_code == 200
 
 
 def test_a_weak_new_password_is_refused_with_the_broken_rules(accounts):

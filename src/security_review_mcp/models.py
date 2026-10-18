@@ -451,6 +451,9 @@ class WebUser(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
     password_changed_at: datetime | None = Field(default=None)
+    # Set by a password chosen or generated for the user (creation, reset, first administrator):
+    # its sessions reach nothing but the change of its own password until it changes it
+    must_change_password: bool = Field(default=False)
     session_version: int = Field(default=0, sa_type=BigInteger)
     last_login_at: datetime | None = Field(default=None)
     created_by: str | None = Field(default=None, max_length=64)

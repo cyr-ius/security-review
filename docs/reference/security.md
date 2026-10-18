@@ -126,7 +126,9 @@
   a salted **scrypt** digest (N=2¹⁴, r=8, p=5, random 16-byte salt) is stored; a stored digest
   with out-of-bounds parameters is refused instead of exhausting the memory. Passwords of 12 to
   256 characters, with a lowercase letter, an uppercase letter, a digit and a character that is
-  neither (checked by the controller, generated passwords included), user names limited to `[A-Za-z0-9._@-]`. The check takes the same time
+  neither (checked by the controller, generated passwords included); a password set by someone
+  else (first administrator, creation or reset by an administrator) must be changed at the first
+  login: until then the session only reaches **My account** (`403` elsewhere), user names limited to `[A-Za-z0-9._@-]`. The check takes the same time
   whether the user name exists or not (dummy digest), and a failure always returns the same
   `401`. Failures are limited in the database, shared by every replica (5 per user name and
   address, 20 per address, over 15 minutes, then `429`), and so are the requests of an address

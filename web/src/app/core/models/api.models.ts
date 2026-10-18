@@ -79,6 +79,8 @@ export interface Identity {
   local_account?: boolean;
   /** Source of the account of a web user; null for a bearer token (API). */
   auth_source?: AuthSource | null;
+  /** Password set by someone else: only My account is reachable until it is changed. */
+  must_change_password?: boolean;
   version: string;
 }
 
@@ -96,6 +98,8 @@ export interface LoginSession {
   expires_in: number;
   username: string;
   role: Role;
+  /** Password set by someone else: it must be changed before anything else. */
+  must_change_password?: boolean;
 }
 
 /** Web role of a web user. */
@@ -130,6 +134,8 @@ export interface WebUser {
   updated_at: string;
   /** null for an SSO user (no password). */
   password_changed_at: string | null;
+  /** Its password was set by someone else: it changes it at its next login. */
+  must_change_password: boolean;
   last_login_at: string | null;
   created_by: string | null;
 }
