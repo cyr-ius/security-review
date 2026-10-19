@@ -690,3 +690,48 @@ def test_users_sharing_an_oidc_identity_keep_it_on_the_last_one(empty_engine):
         command.downgrade(database.alembic_config(connection), "0022")
         indexes = {index["name"] for index in inspect(connection).get_indexes("webuser")}
     assert "ix_webuser_oidc_identity" not in indexes
+
+
+def test_the_reasons_of_existing_acceptances_become_their_first_comment(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0025")
+        connection.execute(
+            text(
+                "INSERT INTO securityreport (id, project, reviewer, summary, risk_level, "
+                "created_at) VALUES (1, 'shop', 'claude', 'Summary', 'LOW', '2026-10-01')"
+            )
+        )
+        for finding_id, status, reason in (
+            (1, "ACCEPTED", "Internal tool only"),
+            (2, "ACCEPTED", "Already discussed"),
+            (3, "FALSE_POSITIVE", "Test fixture"),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO finding (id, report_id, title, severity, category, description, "
+                    "recommendation, status, status_reason, status_approver, status_changed_at) "
+                    "VALUES (:id, 1, 'T', 'HIGH', 'code', 'D', 'R', :status, :reason, "
+                    "'alice', "
+                    "'2026-10-02 10:00:00')"
+                ),
+                {"id": finding_id, "status": status, "reason": reason},
+            )
+        connection.execute(
+            text(
+                "INSERT INTO findingcomment (finding_id, author, body, created_at) "
+                "VALUES (2, 'bob', 'Already discussed', '2026-10-03')"
+            )
+        )
+        command.upgrade(database.alembic_config(connection), "head")
+        rows = connection.execute(
+            text("SELECT finding_id, author, body FROM findingcomment ORDER BY finding_id")
+        ).all()
+
+    # Only the acceptances without comments get one; false positives are not acceptances
+    assert [tuple(row) for row in rows] == [
+        (1, "alice", "Internal tool only"),
+        (2, "bob", "Already discussed"),
+    ]

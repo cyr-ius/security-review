@@ -2192,7 +2192,9 @@ def test_risk_acceptances_and_their_append_only_comments(secured, web_sessions, 
     comment = response.json()
     assert (comment["author"], comment["body"]) == ("triager", "Renew it next quarter")
 
-    assert secured.get(url, headers=auth("reader")).json() == [comment]
+    # The reason of the acceptance opens the comments
+    reason, added = secured.get(url, headers=auth("reader")).json()
+    assert (reason["author"], reason["body"], added) == ("triager", "Internal tool only", comment)
     # No route edits or deletes a comment
     for method in ("PUT", "PATCH", "DELETE"):
         response = secured.request(method, f"{url}/{comment['id']}", headers=auth("triager"))
