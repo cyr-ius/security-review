@@ -60,12 +60,15 @@ shown), and the browser remembers the chosen sort for the next visits.
   by name, worst open finding or last report, and filter by worst open severity. The **Review open findings** button opens the findings to review of every
   project you can see (**Findings to review: all projects**), each with a link to its project.
   The **Risk acceptances** button lists the accepted risks of every project you can see.
-  With the `projects.create` permission, **New project** creates a project that you then read
-  (see [Creating a project](../advanced/access-control.md#creating-a-project)), and the
+  With the `projects.create` permission, **New project** (left of **Refresh**) opens a modal
+  window that creates a project you then read (see
+  [Creating a project](../advanced/access-control.md#creating-a-project)), and the
   **Pending projects** section lists the projects requested by an
   [enrollment](../advanced/http.md#enrollment-request-the-project) (requester, address, request
   and expiry dates): **Approve** creates the project without any member, **Reject** deletes the
-  request; a request not approved before its expiry is deleted.
+  request; a request not approved before its expiry is deleted. With `projects.delete`, the
+  trash button of a row deletes the project and everything that refers to it (see
+  [Deleting a project](../advanced/access-control.md#deleting-a-project)).
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
   The **Review open findings** button opens the next screen; **Risk acceptances** lists the
@@ -82,9 +85,9 @@ shown), and the browser remembers the chosen sort for the next visits.
   reload (**Refresh** button).
 - **Risk acceptances**: the accepted risks of the project (or of every project), expired ones
   included, nearest expiry first. Search, sort and filter by state (**Active**, **Expired**) and
-  severity; **Refresh** reloads the list. A click on a finding opens its details: reason,
-  comments, and for the `findings.triage` permission the forms to add a comment, change the
-  expiry date and remove the acceptance (see [risk acceptances](#risk-acceptances)).
+  severity; **Refresh** reloads the list. A click on a finding opens its details: its comments
+  (the first one is the reason of the acceptance), and for the `findings.triage` permission the
+  forms to add a comment, change the expiry date and remove the acceptance (see [risk acceptances](#risk-acceptances)).
 - **Reports**: list filtered by project and risk level, searchable across report metadata and
   summary, and sortable by date, project, risk, type, branch, author or summary. Search and
   filters stay in the URL, so a view can be shared; the sort is remembered by the browser.
@@ -242,13 +245,15 @@ The **Risk acceptances** screen (`/ui/risk-acceptances`, or per project from the
 **Project** screens) lists the accepted risks, expired ones included, so that they can be renewed
 before or after their end of validity. In the details of an acceptance:
 
-- **Comments**: every comment, oldest first, with its author and date. Anyone who reads the
-  project sees them. A comment **can be neither edited nor deleted**: no route of the API does
+- **Comments**: every comment, oldest first, with its author and date. The reason of the
+  acceptance is the first one: accepting a risk, or accepting it again with another reason,
+  adds it to the comments. Anyone who reads the project sees them. A comment **can be neither edited nor deleted**: no route of the API does
   it. They stay with the finding when its acceptance is removed.
 - **Add a comment** (at most 2000 characters, secrets masked) records the logged-in user as its
   author, in the audit log too (`finding.commented`).
 - **Change the expiry date** saves the acceptance again with the same reason and the new date
-  (same limits as above, **No expiry** included): the logged-in user becomes its approver.
+  (same limits as above, **No expiry** included), without adding a comment: the logged-in user
+  becomes its approver.
 - **Remove the acceptance** reopens the finding, after a confirmation.
 
 Like an acceptance, a comment needs a session with the `findings.triage` permission: a bearer

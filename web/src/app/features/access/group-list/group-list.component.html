@@ -34,7 +34,7 @@
   <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
 }
 
-<section class="mb-4" aria-labelledby="group-form-title">
+<section class="card card-body mb-4" aria-labelledby="group-form-title">
   <h2 id="group-form-title" class="h5">
     @if (editing(); as group) {
       {{ 'groups.editTitle' | t: { group: group.name } }}
@@ -137,7 +137,7 @@
   </form>
 </section>
 
-<section aria-labelledby="groups-title">
+<section class="card card-body mb-4" aria-labelledby="groups-title">
   <h2 id="groups-title" class="h5">{{ 'layout.groups' | t }}</h2>
   @if (catalog.error()) {
     <div class="alert alert-danger" role="alert">{{ 'groups.loadError' | t }}</div>

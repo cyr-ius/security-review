@@ -33,6 +33,7 @@ import {
   PermissionInfo,
   PersonalTokenRole,
   Preferences,
+  ProjectDeleted,
   ProjectFindingPage,
   ProjectFindingQuery,
   PendingProject,
@@ -279,6 +280,11 @@ export class ApiService {
   /** Reject a requested project: the request is deleted. */
   rejectPendingProject(id: number): Observable<void> {
     return this.http.delete<void>(`${API_URL}/projects/pending/${id}`);
+  }
+
+  /** DELETE /api/v1/projects/{project}: the project and its references (projects.delete). */
+  deleteProject(project: string): Observable<ProjectDeleted> {
+    return this.http.delete<ProjectDeleted>(`${API_URL}/projects/${encodeURIComponent(project)}`);
   }
 
   projectTokens(): Observable<ProjectToken[]> {

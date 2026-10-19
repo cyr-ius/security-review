@@ -205,6 +205,7 @@ SettingsManager = Annotated[Identity, Depends(require(Permission.SETTINGS_MANAGE
 UsersManager = Annotated[Identity, Depends(require(Permission.USERS_MANAGE))]
 AuditReader = Annotated[Identity, Depends(require(Permission.AUDIT_READ))]
 ProjectCreator = Annotated[Identity, Depends(require(Permission.PROJECTS_CREATE))]
+ProjectDeleter = Annotated[Identity, Depends(require(Permission.PROJECTS_DELETE))]
 
 
 def in_scope(identity: Identity, project: str) -> bool:

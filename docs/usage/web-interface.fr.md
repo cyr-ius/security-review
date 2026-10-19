@@ -62,12 +62,15 @@ suivantes.
   **Revoir les findings ouverts** ouvre les findings à revoir de tous
   les projets que vous pouvez voir (**Findings à revoir : tous les projets**), chacun avec un
   lien vers son projet. Le bouton **Acceptations de risque** liste les risques acceptés de tous
-  les projets que vous pouvez voir. Avec la permission `projects.create`, **Nouveau projet** crée un projet
-  que vous lisez ensuite (voir [Création d'un projet](../advanced/access-control.md#creation-dun-projet)),
-  et la section **Projets en attente** liste les projets demandés par un
+  les projets que vous pouvez voir. Avec la permission `projects.create`, **Nouveau projet** (à gauche
+  d'**Actualiser**) ouvre une fenêtre modale qui crée un projet que vous lisez ensuite (voir
+  [Création d'un projet](../advanced/access-control.md#creation-dun-projet)), et la section
+  **Projets en attente** liste les projets demandés par un
   [enrôlement](../advanced/http.md#enrolement-demander-le-projet) (demandeur, adresse, dates de
   demande et d'expiration) : **Valider** crée le projet sans aucun membre, **Refuser** supprime
-  la demande ; une demande non validée avant son expiration est supprimée.
+  la demande ; une demande non validée avant son expiration est supprimée. Avec
+  `projects.delete`, le bouton corbeille d'une ligne supprime le projet et tout ce qui s'y
+  rapporte (voir [Suppression d'un projet](../advanced/access-control.md#suppression-dun-projet)).
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, derniers rapports et
   export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant ;
@@ -86,9 +89,9 @@ suivantes.
 - **Acceptations de risque** : les risques acceptés du projet (ou de tous les projets), y compris
   expirés, de l'expiration la plus proche à la plus lointaine. Recherche, tri et filtres par état
   (**Active**, **Expirée**) et par sévérité ; **Actualiser** recharge la liste. Un clic sur un
-  finding ouvre ses détails : motif, commentaires et, avec la permission `findings.triage`, les
-  formulaires pour ajouter un commentaire, changer la date d'expiration et supprimer
-  l'acceptation (voir [acceptations de risque](#acceptations-de-risque)).
+  finding ouvre ses détails : ses commentaires (le premier est le motif de l'acceptation) et,
+  avec la permission `findings.triage`, les formulaires pour ajouter un commentaire, changer la
+  date d'expiration et supprimer l'acceptation (voir [acceptations de risque](#acceptations-de-risque)).
 - **Rapports** : liste filtrable par projet et niveau de risque, avec recherche dans les
   métadonnées et le résumé, tri par date, projet, risque, type, branche, auteur ou résumé. La
   recherche et les filtres restent dans l'URL, pour partager la vue ; le tri est mémorisé par le
@@ -260,14 +263,16 @@ L'écran **Acceptations de risque** (`/ui/risk-acceptances`, ou par projet depui
 avant ou après leur fin de validité. Dans les détails d'une acceptation :
 
 - **Commentaires** : tous les commentaires, du plus ancien au plus récent, avec leur auteur et
-  leur date. Toute personne qui lit le projet les voit. Un commentaire **ne peut être ni modifié
+  leur date. Le motif de l'acceptation est le premier : accepter un risque, ou l'accepter de
+  nouveau avec un autre motif, l'ajoute aux commentaires. Toute personne qui lit le projet les
+  voit. Un commentaire **ne peut être ni modifié
   ni supprimé** : aucune route de l'API ne le fait. Ils restent attachés au finding quand son
   acceptation est supprimée.
 - **Ajouter un commentaire** (2000 caractères au plus, secrets masqués) enregistre l'utilisateur
   connecté comme auteur, également dans le journal d'audit (`finding.commented`).
 - **Changer la date d'expiration** enregistre de nouveau l'acceptation avec le même motif et la
-  nouvelle date (mêmes limites que ci-dessus, **Sans expiration** compris) : l'utilisateur
-  connecté en devient l'approbateur.
+  nouvelle date (mêmes limites que ci-dessus, **Sans expiration** compris), sans ajouter de
+  commentaire : l'utilisateur connecté en devient l'approbateur.
 - **Supprimer l'acceptation** rouvre le finding, après confirmation.
 
 Comme une acceptation, un commentaire demande une session avec la permission `findings.triage` :

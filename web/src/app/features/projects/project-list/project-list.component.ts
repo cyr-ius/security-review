@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
@@ -53,6 +53,8 @@ export class ProjectListComponent {
   private readonly api = inject(ApiService);
   private readonly i18n = inject(I18nService);
   private readonly auth = inject(AuthService);
+  /** Modal dialog hosting the creation form. */
+  private readonly createDialog = viewChild<ElementRef<HTMLDialogElement>>('createDialog');
 
   /** A user with projects.create may create a new project, which it then reads. */
   readonly canCreate = computed(() => this.auth.can('projects.create'));
@@ -61,7 +63,12 @@ export class ProjectListComponent {
     required(path.project);
     maxLength(path.project, MAX_PROJECT_CHARS);
   });
+  /** A user with projects.delete may delete a project and everything that refers to it. */
+  readonly canDelete = computed(() => this.auth.can('projects.delete'));
   readonly creating = signal(false);
+  /** Project being deleted (its row button shows a spinner). */
+  readonly deleting = signal<string | null>(null);
+  readonly error = signal<Message | null>(null);
   readonly createError = signal<Message | null>(null);
   readonly notice = signal<Message | null>(null);
 
@@ -151,6 +158,20 @@ export class ProjectListComponent {
     );
   });
 
+  /** Opens the creation modal with an empty form. */
+  openCreate(): void {
+    this.newProject.set({ project: '' });
+    this.createError.set(null);
+    const dialog = this.createDialog()?.nativeElement;
+    if (dialog && !dialog.open) {
+      dialog.showModal();
+    }
+  }
+
+  closeCreate(): void {
+    this.createDialog()?.nativeElement.close();
+  }
+
   /** Create the project of the form; the session then reads it (its grants are reloaded). */
   async createProject(event: Event): Promise<void> {
     event.preventDefault();
@@ -161,9 +182,10 @@ export class ProjectListComponent {
     this.creating.set(true);
     this.createError.set(null);
     this.notice.set(null);
+    this.error.set(null);
     try {
       const created = await firstValueFrom(this.api.createProject(project));
-      this.newProject.set({ project: '' });
+      this.closeCreate();
       this.notice.set(msg('projects.created', { project: created.project }));
       this.auth.setIdentity(await firstValueFrom(this.api.me()));
       this.projects.reload();
@@ -228,6 +250,40 @@ export class ProjectListComponent {
     } finally {
       this.deciding.set(false);
       this.reload();
+    }
+  }
+
+  /** Delete a project with its reports, findings and references, after a confirmation. */
+  async deleteProject(project: string): Promise<void> {
+    if (
+      this.deleting() ||
+      !window.confirm(this.i18n.translate('projects.confirmDelete', { project }))
+    ) {
+      return;
+    }
+    this.deleting.set(project);
+    this.error.set(null);
+    this.notice.set(null);
+    try {
+      const deleted = await firstValueFrom(this.api.deleteProject(project));
+      this.notice.set(
+        msg('projects.deleted', {
+          project: deleted.project,
+          reports: deleted.reports,
+          findings: deleted.findings,
+          tokens: deleted.tokens_revoked,
+        }),
+      );
+      this.auth.setIdentity(await firstValueFrom(this.api.me()));
+      this.projects.reload();
+    } catch (error: unknown) {
+      this.error.set(
+        error instanceof HttpErrorResponse && typeof error.error?.detail === 'string'
+          ? serverDetail(error.error.detail)
+          : msg('projects.deleteFailed'),
+      );
+    } finally {
+      this.deleting.set(null);
     }
   }
 

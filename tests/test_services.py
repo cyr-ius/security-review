@@ -501,16 +501,25 @@ def test_risk_acceptances_list_expired_ones_and_comments(triage):
     assert page["total"] == 2
     rows = {row["id"]: row for row in page["acceptances"]}
     assert (rows[second]["expired"], rows[second]["status"]) == (True, FindingStatus.OPEN)
-    assert (rows[first]["expired"], rows[first]["comments_total"]) == (False, 1)
+    assert (rows[first]["expired"], rows[first]["comments_total"]) == (False, 2)
     assert services.list_risk_acceptances("shop", projects=["billing"])["total"] == 0
-    [comment] = services.list_finding_comments(first)
+    # The reason of the acceptance is its first comment
+    reason, comment = services.list_finding_comments(first)
+    assert (reason.author, reason.body) == ("alice", "Reviewed by the security team")
     assert comment.author == "bob"
     assert (
         comment.body.startswith("Renewed until the rewrite") and "abcd1234efgh" not in comment.body
     )
+    # A new expiry date alone adds no comment, a new reason does
+    later = utcnow() + timedelta(days=60)
+    services.update_finding_status(
+        first, FindingStatus.ACCEPTED, "bob", "Reviewed by the security team", later
+    )
+    services.update_finding_status(first, FindingStatus.ACCEPTED, "bob", "Kept until v2", later)
+    assert [c.body for c in services.list_finding_comments(first)][2:] == ["Kept until v2"]
     # The comments outlive the acceptance they discussed
     services.update_finding_status(first, FindingStatus.OPEN, "bob")
-    assert len(services.list_finding_comments(first)) == 1
+    assert len(services.list_finding_comments(first)) == 3
     with pytest.raises(ValueError, match="empty"):
         services.add_finding_comment(first, "bob", "   ")
     with pytest.raises(services.NotFoundError):

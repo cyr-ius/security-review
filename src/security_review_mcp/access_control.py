@@ -33,6 +33,10 @@
   project and its personal ``mcp`` token reaches it. A project already known (reports, roles of
   a group or tokens) is refused: the permission never grants the reading of an existing
   project.
+- A user with ``projects.delete`` may delete a project and everything that refers to it (see
+  delete_project): its reports, findings and comments, its project group, the project in the
+  roles of the other groups and in the tokens (a token left without project is revoked). The
+  audit log keeps its events.
 - A user needs ``mcp_tokens.create`` to create a personal ``mcp`` token, held by the ordinary
   role ``mcp-user`` (created with the database). A token already created keeps working
   without it: an administrator revokes it from the Tokens screen.
@@ -55,6 +59,7 @@ from datetime import timedelta
 from enum import StrEnum
 from typing import Any
 
+from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, select
 
@@ -66,6 +71,8 @@ from .models import (
     AccessRole,
     ApiToken,
     ApiTokenProject,
+    Finding,
+    FindingComment,
     GroupMember,
     GroupRole,
     ProjectEnrollment,
@@ -78,7 +85,7 @@ from .models import (
 from .rate_limit import RateLimit
 from .scanner import redact_secrets
 from .services import NotFoundError
-from .token_store import MAX_PROJECTS_PER_TOKEN, _clean_project
+from .token_store import MAX_PROJECTS_PER_TOKEN, _clean_project, forget_project
 
 
 class Permission(StrEnum):
@@ -102,6 +109,8 @@ class Permission(StrEnum):
     AUDIT_READ = "audit.read"
     # Create a new project, read by its creator (see create_project)
     PROJECTS_CREATE = "projects.create"
+    # Delete a project with its reports, findings and references (see delete_project)
+    PROJECTS_DELETE = "projects.delete"
     # Create a personal mcp token (My account), which reaches the projects its user may read
     MCP_TOKENS_CREATE = "mcp_tokens.create"
 
@@ -1047,6 +1056,126 @@ def create_project(user_id: int, project: str, actor: str | None = None) -> dict
             {"group": group.name, "user_id": user_id},
         )
         return {"project": cleaned, "group_id": group.id, "group": group.name}
+
+
+def _delete_reports(session: Session, project: str) -> dict[str, int]:
+    """Delete the reports of ``project`` with their findings and comments; return the counts."""
+    reports = select(SecurityReport.id).where(SecurityReport.project == project)
+    findings = select(Finding.id).where(col(Finding.report_id).in_(reports))
+    counts = {
+        "reports": session.exec(
+            select(func.count())
+            .select_from(SecurityReport)
+            .where(SecurityReport.project == project)
+        ).one(),
+        "findings": session.exec(
+            select(func.count()).select_from(Finding).where(col(Finding.report_id).in_(reports))
+        ).one(),
+    }
+    session.exec(delete(FindingComment).where(col(FindingComment.finding_id).in_(findings)))
+    session.exec(delete(Finding).where(col(Finding.report_id).in_(reports)))
+    session.exec(delete(SecurityReport).where(SecurityReport.project == project))
+    return counts
+
+
+def _forget_project_roles(
+    session: Session, project: str, actor: str | None
+) -> dict[str, list[str]]:
+    """Remove ``project`` from the roles of the groups and return the names of the groups.
+
+    A role left without project is removed (an empty list would reach every project). A
+    project group (``project:`` name, without OIDC) left without role is deleted with its
+    members; the other groups are kept. Each change is audited.
+    """
+    changed: set[int] = set()
+    for binding in session.exec(select(GroupRole).where(GroupRole.projects != "[]")).all():
+        projects = json.loads(binding.projects)
+        if project not in projects:
+            continue
+        remaining = [name for name in projects if name != project]
+        if remaining:
+            binding.projects = json.dumps(remaining)
+            session.add(binding)
+        else:
+            session.delete(binding)
+        changed.add(binding.group_id)
+    session.flush()
+    result: dict[str, list[str]] = {"groups_deleted": [], "groups_changed": []}
+    for group_id in sorted(changed):
+        row = session.get(UserGroup, group_id)
+        if row is None:
+            continue
+        roles = session.exec(
+            select(GroupRole, AccessRole)
+            .join(AccessRole, col(GroupRole.role_id) == col(AccessRole.id))
+            .where(GroupRole.group_id == group_id)
+        ).all()
+        if not roles and not row.sso and row.name.startswith(PROJECT_GROUP_PREFIX):
+            for member in session.exec(
+                select(GroupMember).where(GroupMember.group_id == group_id)
+            ).all():
+                session.delete(member)
+            session.delete(row)
+            result["groups_deleted"].append(row.name)
+            audit.record(
+                session,
+                audit.AuditAction.GROUP_DELETED,
+                actor,
+                "group",
+                group_id,
+                project,
+                {"name": row.name},
+            )
+            continue
+        row.updated_at = utcnow()
+        session.add(row)
+        result["groups_changed"].append(row.name)
+        audit.record(
+            session,
+            audit.AuditAction.GROUP_ROLES_CHANGED,
+            actor,
+            "group",
+            group_id,
+            project,
+            {
+                "name": row.name,
+                "roles": {
+                    role.name: json.loads(binding.projects) or None for binding, role in roles
+                },
+            },
+        )
+    session.flush()
+    return result
+
+
+def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
+    """Delete ``project`` and everything that refers to it (``projects.delete``), in one
+    transaction: its reports, findings and comments, the project in the roles of the groups
+    (see _forget_project_roles) and in the tokens (see token_store.forget_project). The audit
+    log keeps the events of the project and records ``project.deleted``.
+
+    Raises:
+        ValueError: Invalid name.
+        NotFoundError: If the project is not known (see project_exists).
+    """
+    cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
+    with session_scope() as session:
+        if not project_exists(session, cleaned):
+            raise NotFoundError(f"Project '{cleaned}' not found")
+        deleted: dict[str, Any] = {"project": cleaned}
+        deleted |= _delete_reports(session, cleaned)
+        deleted |= _forget_project_roles(session, cleaned, actor)
+        deleted |= forget_project(session, cleaned, actor)
+        audit.record(
+            session,
+            audit.AuditAction.PROJECT_DELETED,
+            actor,
+            "project",
+            cleaned,
+            cleaned,
+            {key: value for key, value in deleted.items() if key != "project"},
+        )
+        return deleted
 
 
 # ── Enrollment ───────────────────────────────────────────────────────────────

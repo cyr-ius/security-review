@@ -25,6 +25,7 @@ its projects. A person gets read or triage access through the groups of their ac
 | `users.manage` | Users, groups, roles and OIDC settings (they decide who joins which group) | |
 | `audit.read` | Audit log | |
 | `projects.create` | Create a new project, which its creator then reads (see [Creating a project](#creating-a-project)), and approve or reject the projects requested by an [enrollment](http.md#enrollment-request-the-project) | |
+| `projects.delete` | Delete a project with its reports, findings and references (see [Deleting a project](#deleting-a-project)) | |
 | `mcp_tokens.create` | Create a [personal MCP token](../usage/web-interface.md#personal-mcp-tokens) in **My account** | |
 
 `users.manage` lets its holder give itself every other permission: give it only to
@@ -84,8 +85,8 @@ developers of a project thus share one group, managed like any other.
 
 ## Creating a project
 
-A user whose groups hold `projects.create` creates a project with **New project** on the
-**Projects** screen (`POST /api/v1/projects`, from a session of the web interface only: a token
+A user whose groups hold `projects.create` creates a project with the **New project** button
+(left of **Refresh**) of the **Projects** screen, in a modal window (`POST /api/v1/projects`, from a session of the web interface only: a token
 never creates a project). The controller creates the [project group](#project-groups) of the
 project and adds the account to it as a local member: the account reads the project at once,
 and so does its [personal MCP token](../usage/web-interface.md#personal-mcp-tokens), which can
@@ -104,6 +105,31 @@ written to the audit log (`project.created`).
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
   https://secreview.example.com/api/v1/projects -d '{"project": "mobile-app"}'
 # {"project": "mobile-app", "reports_total": 0, "last_report_at": null, …}
+```
+
+## Deleting a project
+
+A user whose groups hold `projects.delete` (only `admin` by default) deletes a project with the
+trash button of its row on the **Projects** screen, after a confirmation
+(`DELETE /api/v1/projects/{project}`, from a session of the web interface only: a token never
+deletes a project). The deletion cannot be undone and removes, in one transaction, everything
+that refers to the project:
+
+- its reports, with their findings and the comments of those findings;
+- the project in the roles of the groups: a role left without project is removed (never left
+  reaching every project), and a [project group](#project-groups) left without role is deleted
+  with its members; any other group is kept;
+- the project in the tokens: a token that reaches no other project is
+  revoked (never left reaching every project), the others keep their other projects.
+
+The audit log keeps the events of the project and records `project.deleted`, with the counts in
+its details; each group and token changed or deleted has its own event (`group.deleted`,
+`group.roles_changed`, `token.revoked`, `token.projects_changed`). An unknown project gives 404.
+
+```bash
+curl -X DELETE -H "Authorization: Bearer $SESSION" \
+  https://secreview.example.com/api/v1/projects/mobile-app
+# {"project": "mobile-app", "reports": 3, "findings": 12, "groups_deleted": ["project:mobile-app"], …}
 ```
 
 ## What a user may do

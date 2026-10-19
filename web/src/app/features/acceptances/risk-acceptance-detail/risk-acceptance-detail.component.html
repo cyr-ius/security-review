@@ -31,9 +31,6 @@
       </div>
       <p class="prewrap small mb-3">{{ item.description }}</p>
 
-      <h3 class="h6">{{ 'acceptances.reason' | t }}</h3>
-      <p class="prewrap small mb-3">{{ item.status_reason }}</p>
-
       @if (canTriage()) {
         <form class="border rounded p-3 mb-3" (submit)="saveExpiry($event)" novalidate>
           <label class="form-label fw-semibold" [for]="'acc-expiry-' + item.id">{{

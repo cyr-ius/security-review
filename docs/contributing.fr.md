@@ -123,6 +123,7 @@ src/security_review_mcp/
 ├── default_rules.toml  # règles et checklists par défaut, copiées en base au premier lancement
 ├── checklists.py  # structure d'un item de checklist
 ├── scanner.py     # moteur de scan, suppression inline, masquage des secrets
+├── syntax_analysis.py # analyses structurelles Tree-sitter, séparées des règles ligne par ligne
 ├── rules_loader.py    # validation des règles, lecture des packs TOML et du fichier par défaut
 ├── rule_store.py  # règles en base : amorçage, import/export, activation, suppression
 ├── registry.py    # règles/checklists actives (lues en base), rechargement

@@ -5,8 +5,7 @@ import logging
 from datetime import UTC, datetime, time
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query, Request, status
-from fastapi import Path as APIPath
+from fastapi import APIRouter, HTTPException, Path, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse, Response
 
@@ -28,6 +27,7 @@ from .deps import (
     CurrentIdentity,
     Permission,
     ProjectCreator,
+    ProjectDeleter,
     Triager,
     actor_of,
     check_report_scope,
@@ -45,6 +45,7 @@ from .schemas import (
     PendingProject,
     PendingProjectApproved,
     ProjectCreate,
+    ProjectDeleted,
     ProjectFindingPage,
     ProjectPosture,
     ProjectSummary,
@@ -59,7 +60,7 @@ router = APIRouter(tags=["reports"])
 
 ProjectQuery = Annotated[ProjectName, Query()]
 TrendDays = Annotated[int, Query(ge=1, le=1095)]
-EnrollmentIdPath = Annotated[int, APIPath(ge=1)]
+EnrollmentIdPath = Annotated[int, Path(ge=1)]
 
 
 def sarif_response(name: str, items: list, include_resolved: bool, filename: str) -> Response:
@@ -162,6 +163,26 @@ async def reject_pending_project(
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
     logger.info("Project %s rejected by %s", rejected["project"], identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/projects/{project}")
+async def delete_project(
+    request: Request, project: Annotated[ProjectName, Path()], identity: ProjectDeleter
+) -> ProjectDeleted:
+    """Delete a project and everything that refers to it (``projects.delete``, logged-in web
+    user only): its reports, findings and comments, its project group, the project in the
+    roles of the other groups and in the tokens (a token left without project is revoked)."""
+    web_user_id(request)
+    try:
+        deleted = await run_in_threadpool(
+            access_control.delete_project, project, actor_of(identity)
+        )
+    except services.NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("Project %s deleted by %s", deleted["project"], identity.client)
+    return ProjectDeleted(**deleted)
 
 
 @router.get("/posture")

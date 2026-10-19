@@ -440,10 +440,16 @@ def creator() -> dict:
     return web_users.create_user("carol", PASSWORD, [group["id"]])
 
 
-def test_projects_create_is_a_permission_on_the_whole_controller():
-    assert Permission.PROJECTS_CREATE not in access_control.SCOPED_PERMISSIONS
-    assert Permission.PROJECTS_CREATE in access_control.SYSTEM_ROLES["admin"]
-    assert {"name": "projects.create", "scoped": False} in access_control.list_permissions()
+@pytest.mark.parametrize("permission", [Permission.PROJECTS_CREATE, Permission.PROJECTS_DELETE])
+def test_project_permissions_are_on_the_whole_controller(permission):
+    """projects.delete is never limited to projects: its route checks no project scope."""
+    assert permission not in access_control.SCOPED_PERMISSIONS
+    assert permission in access_control.SYSTEM_ROLES["admin"]
+    assert {"name": permission.value, "scoped": False} in access_control.list_permissions()
+    role = access_control.create_role(f"Role {permission.value}", [permission])
+    group = access_control.create_group(f"group {permission.value}")
+    with pytest.raises(ValueError, match="cannot list projects"):
+        access_control.set_group_roles(group["id"], [(role["id"], ["shop"])])
 
 
 def test_a_created_project_is_read_by_its_creator_only():
@@ -503,6 +509,56 @@ def test_project_creation_checks_the_name_and_the_user():
     with pytest.raises(NotFoundError):
         access_control.create_project(999, "shop")
     assert audit.list_events(action="project.created")["events"] == []
+
+
+def test_deleting_a_project_removes_everything_that_refers_to_it():
+    from sqlmodel import select
+
+    from security_review_mcp import services, token_store
+    from security_review_mcp.models import FindingComment, FindingCreate, Severity
+
+    finding = FindingCreate(title="SQL injection", severity=Severity.HIGH, description="Query")
+    shop = services.save_report("shop", "Review", [finding])
+    shop_finding = services.get_report(shop["report_id"]).findings[0]
+    services.add_finding_comment(shop_finding.id, "ann", "Seen")
+    kept = services.save_report("crm", "Review", [finding])
+    carol = creator()
+    access_control.create_project(carol["id"], "shop-mobile")
+    group = ensure_project_group("shop")
+    triage = access_control.create_group("triage")
+    access_control.set_group_roles(
+        triage["id"], [(role_id("triager"), ["shop", "crm"]), (role_id("reader"), ["shop"])]
+    )
+    token_store.create_token("ci-shop", Role.CI, projects=["shop"])
+    token_store.create_token("ci-both", Role.CI, projects=["shop", "crm"])
+
+    deleted = access_control.delete_project("Shop", "user:root")
+
+    assert deleted == {
+        "project": "shop",
+        "reports": 1,
+        "findings": 1,
+        "groups_deleted": [group["name"]],
+        "groups_changed": ["triage"],
+        "tokens_revoked": 1,
+        "tokens_changed": 1,
+    }
+    assert [item["project"] for item in services.list_projects(set())] == ["crm"]
+    with session_scope() as session:
+        assert session.exec(select(FindingComment)).all() == []
+        assert not access_control.project_exists(session, "shop")
+        assert access_control.project_exists(session, "shop-mobile")
+    assert services.get_report(kept["report_id"]).project == "crm"
+    # The reader role on "shop" alone is removed, never left reaching every project
+    roles = access_control.get_group(triage["id"])["roles"]
+    assert [(role["name"], role["projects"]) for role in roles] == [("triager", ["crm"])]
+    tokens = {token["label"]: token for token in token_store.list_tokens()}
+    assert "ci-shop" not in tokens
+    assert tokens["ci-both"]["projects"] == ["crm"]
+    (event,) = audit.list_events(action="project.deleted")["events"]
+    assert (event["actor"], event["project"]) == ("user:root", "shop")
+    with pytest.raises(NotFoundError):
+        access_control.delete_project("shop")
 
 
 # ── Enrollment ───────────────────────────────────────────────────────────────
