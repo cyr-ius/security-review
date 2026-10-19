@@ -229,6 +229,11 @@
   borné (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` au-delà, lu après la vérification du jeton),
   comme le nombre de fichiers (`SECREVIEW_MAX_SCAN_FILES`) et leur taille ; les secrets sont
   masqués dans les extraits et dans le rapport enregistré.
+- **Corps des requêtes du contrôleur** : chaque corps est borné avant d'être analysé, `413`
+  au-delà : 512 Kio pour les routes JSON, publiques comprises (connexion, SSO), 8 Mio pour les
+  imports de packs et `SECREVIEW_MAX_SCAN_REQUEST_MB` pour les scans de pipeline. Le
+  `Content-Length` déclaré est vérifié d'abord, un corps fragmenté (chunked) au fil de la
+  lecture.
 - **Base de données** : les requêtes SQL passent par l'ORM (paramètres liés) ; les tailles
   d'entrée, le nombre de findings et la pagination sont bornés. Chaque nom de projet est
   [normalisé](../usage/prompts-tools.md#nom-du-projet) avant usage : seuls des lettres, des

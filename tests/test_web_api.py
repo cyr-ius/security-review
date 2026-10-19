@@ -43,6 +43,7 @@ from security_review_mcp.models import (
     ReviewType,
     Severity,
 )
+from security_review_mcp.web_api.body_limit import MAX_BODY_BYTES
 
 # Bearer value of each role, set by the ``secured`` fixture: the raw secret of a token for the
 # token roles, a session of a web user (in the group of that role) for reader and triager
@@ -2080,8 +2081,13 @@ def test_password_login_bounds_its_input(accounts):
     response = accounts.post(
         "/api/v1/auth/login", json={"username": "alice", "password": "x" * 1000}
     )
-
     assert response.status_code == 422
+
+    # A public route too: the body is refused on its Content-Length, before it is parsed
+    oversized = {"username": "alice", "password": "x" * MAX_BODY_BYTES}
+    response = accounts.post("/api/v1/auth/login", json=oversized)
+    assert response.status_code == 413
+    assert "Request body too large" in response.json()["detail"]
 
 
 def test_sessions_follow_the_stored_user(accounts):

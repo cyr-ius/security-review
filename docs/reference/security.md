@@ -217,6 +217,10 @@
   (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` beyond, read after the token check), as are the
   number of files (`SECREVIEW_MAX_SCAN_FILES`) and their size; secrets are masked in the
   excerpts and in the stored report.
+- **Request bodies of the controller**: every body is bounded before it is parsed, `413`
+  beyond: 512 KiB for the JSON routes, public ones included (login, SSO), 8 MiB for the
+  pack imports and `SECREVIEW_MAX_SCAN_REQUEST_MB` for the pipeline scans. The declared
+  `Content-Length` is checked first, a chunked body as it is read.
 - **Database**: SQL queries go through the ORM (bound parameters); input sizes, the number of
   findings and the pagination are bounded. Every project name is
   [normalized](../usage/prompts-tools.md#project-name) before use: only letters, digits and

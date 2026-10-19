@@ -4,20 +4,17 @@ Scoped to the projects of the token; a ci token reaches nothing else. The gate, 
 only read. The scans (``/scan/code``, ``/scan/deps``) receive the content of the files of a
 pipeline, scan it with the rules or the advisory database of the controller and, with ``save``,
 store the result as a report: they need a ``ci`` or ``admin`` token (see deps.scan_identity),
-and their body is bounded by ScanBodyLimit before it is parsed.
+and their body is bounded by body_limit.BodyLimit before it is parsed.
 """
 
 import logging
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
-from starlette.datastructures import Headers
-from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from .. import codescan, depscan, services, trends
-from ..config import get_settings
 from ..models import Severity
 from .deps import (
     PipelineIdentity,
@@ -39,8 +36,6 @@ from .schemas import (
 )
 
 logger = logging.getLogger("security_review_mcp.web")
-
-SCAN_PREFIX = "/api/v1/ci/scan/"
 
 router = APIRouter(prefix="/api/v1/ci", tags=["ci"], dependencies=[Depends(pipeline_identity)])
 
@@ -97,67 +92,6 @@ async def ci_trend(
 
 
 # ── Scans (security-review-ci code-scan and deps-scan) ───────────────────────
-
-
-class ScanBodyLimit:
-    """Refuse (413) a scan request whose body exceeds SECREVIEW_MAX_SCAN_REQUEST_MB.
-
-    The scans receive the files of a whole codebase: the body is read here, bounded, before
-    FastAPI parses it. It runs inside the bearer middleware, so a request without a valid token
-    is refused before its body is read.
-    """
-
-    def __init__(self, app: ASGIApp) -> None:
-        self.app = app
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or not scope.get("path", "").startswith(SCAN_PREFIX):
-            await self.app(scope, receive, send)
-            return
-        limit = get_settings().max_scan_request_mb * 1024 * 1024
-        declared = Headers(scope=scope).get("content-length", "")
-        if declared.isdigit() and int(declared) > limit:
-            await self._too_large(scope, receive, send, limit)
-            return
-        chunks: list[bytes] = []
-        size = 0
-        more = True
-        while more:
-            message = await receive()
-            if message["type"] == "http.disconnect":
-                return
-            chunk = message.get("body", b"")
-            size += len(chunk)
-            if size > limit:
-                await self._too_large(scope, receive, send, limit)
-                return
-            chunks.append(chunk)
-            more = message.get("more_body", False)
-        body = b"".join(chunks)
-        replayed = False
-
-        async def replay() -> Message:
-            """Give the buffered body once, then the next messages of the connection."""
-            nonlocal replayed
-            if replayed:
-                return await receive()
-            replayed = True
-            return {"type": "http.request", "body": body, "more_body": False}
-
-        await self.app(scope, replay, send)
-
-    @staticmethod
-    async def _too_large(scope: Scope, receive: Receive, send: Send, limit: int) -> None:
-        """Send the 413 answer."""
-        logger.warning("Rejected scan request above %d bytes: %s", limit, scope.get("path"))
-        answer = JSONResponse(
-            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            content={
-                "detail": f"Request body too large (limit {limit} bytes, "
-                "SECREVIEW_MAX_SCAN_REQUEST_MB): exclude files or raise the limit"
-            },
-        )
-        await answer(scope, receive, send)
 
 
 def _verdict(blocking: int, request: CodeScanRequest | DependencyScanRequest) -> dict:
