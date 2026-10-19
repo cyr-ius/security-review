@@ -156,7 +156,7 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   tri par date/action/auteur/cible/projet et **Afficher plus** pour les événements plus anciens.
   Les détenteurs de `settings.manage` y règlent aussi le
   [serveur syslog](../advanced/audit-metrics.md#envoi-vers-syslog) qui reçoit les événements
-  (**Envoi vers syslog**).
+  (bouton **Syslog**, à côté de **Actualiser**).
 - **OIDC** : les administrateurs [configurent la connexion OIDC](../advanced/sso.md#configurer-le-oidc-dans-linterface)
   (une valeur enregistrée s'applique quand sa variable `SECREVIEW_OIDC_*` n'est pas définie,
   avec un test de connexion au fournisseur). Ce que peuvent faire les utilisateurs OIDC vient des groupes ouverts au OIDC

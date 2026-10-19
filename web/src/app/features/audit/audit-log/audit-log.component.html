@@ -3,12 +3,13 @@
     <h1 class="h3 mb-0">{{ 'layout.audit' | t }}</h1>
     <p class="text-body-secondary mb-0">{{ 'audit.subtitle' | t }}</p>
   </div>
-  <app-refresh-button [loading]="firstPage.isLoading()" (refresh)="firstPage.reload()" />
+  <div class="d-flex gap-2">
+    @if (canManageSyslog()) {
+      <app-audit-syslog />
+    }
+    <app-refresh-button [loading]="firstPage.isLoading()" (refresh)="firstPage.reload()" />
+  </div>
 </div>
-
-@if (canManageSyslog()) {
-  <app-audit-syslog />
-}
 
 <form class="row g-2 mb-3" (submit)="$event.preventDefault()">
   <div class="col-md-4">

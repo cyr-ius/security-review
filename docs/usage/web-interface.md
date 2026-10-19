@@ -148,7 +148,7 @@ the requested page once the controller answers again.
   them; filter by event and project, search event details, sort by date/action/actor/target/project,
   and use **Load more** for older events. Holders of `settings.manage` also set there the
   [syslog server](../advanced/audit-metrics.md#forwarding-to-syslog) the events are forwarded to
-  (**Syslog forwarding**).
+  (**Syslog** button, next to **Refresh**).
 - **OIDC**: administrators
   [configure the OIDC login](../advanced/sso.md#configuring-oidc-in-the-interface) (a value stored there applies when its
   `SECREVIEW_OIDC_*` variable is not set, with a connection test to the provider). What OIDC users may do

@@ -42,7 +42,7 @@ export class AuditLogComponent {
   private readonly i18n = inject(I18nService);
   private readonly auth = inject(AuthService);
 
-  /** The syslog card is shown to the holders of settings.manage only. */
+  /** The syslog button is shown to the holders of settings.manage only. */
   readonly canManageSyslog = computed(() => this.auth.can('settings.manage'));
 
   readonly actions = AUDIT_ACTIONS;

@@ -1,5 +1,13 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  computed,
+  inject,
+  linkedSignal,
+  signal,
+  viewChild,
+} from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
@@ -33,15 +41,16 @@ interface SyslogFormModel {
 }
 
 /**
- * Card of the audit log page, for the holders of settings.manage: syslog server the controller
- * forwards the audit events to. SECREVIEW_AUDIT_SYSLOG_ADDRESS and
- * SECREVIEW_AUDIT_SYSLOG_FACILITY, when set, take precedence: their field is then only shown.
- * Folded by default, it then only shows the server in use.
+ * Button of the audit log page header, for the holders of settings.manage: its icon tells
+ * whether the audit events are forwarded to a syslog server, and it opens the dialog that sets
+ * that server. SECREVIEW_AUDIT_SYSLOG_ADDRESS and SECREVIEW_AUDIT_SYSLOG_FACILITY, when set,
+ * take precedence: their field is then only shown.
  */
 @Component({
   selector: 'app-audit-syslog',
   imports: [FormField, NgTemplateOutlet, TranslatePipe],
   templateUrl: './audit-syslog.component.html',
+  styleUrl: './audit-syslog.component.css',
 })
 export class AuditSyslogComponent {
   private readonly api = inject(ApiService);
@@ -50,8 +59,16 @@ export class AuditSyslogComponent {
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
-  /** The card starts folded: only its title and the server in use show. */
-  readonly expanded = signal(false);
+
+  /** Modal dialog hosting the syslog settings. */
+  private readonly dialog = viewChild.required<ElementRef<HTMLDialogElement>>('syslogDialog');
+
+  /** True when the controller forwards the audit events to a syslog server. */
+  readonly forwarding = computed(() => !!this.syslog.value()?.effective.address);
+  readonly buttonTitle = computed<Message>(() => {
+    const address = this.syslog.value()?.effective.address;
+    return address ? msg('audit.syslogOnTitle', { address }) : msg('audit.syslogOffTitle');
+  });
 
   /** Filled with the stored values each time they are loaded, then edited by the form. */
   readonly model = linkedSignal<SyslogFormModel>(() => {
@@ -71,6 +88,26 @@ export class AuditSyslogComponent {
     const source = this.syslog.value()?.effective.source;
     return source ? SYSLOG_SOURCE_LABELS[source] : null;
   });
+
+  /** Open the dialog with the settings in use (reloaded: unsaved edits are dropped). */
+  open(): void {
+    this.syslog.reload();
+    const dialog = this.dialog().nativeElement;
+    if (!dialog.open) {
+      dialog.showModal();
+    }
+  }
+
+  /** Close the dialog; its `close` event then clears the messages. */
+  close(): void {
+    this.dialog().nativeElement.close();
+  }
+
+  /** Clear the messages when the dialog closes (button or Escape key). */
+  onClosed(): void {
+    this.message.set(null);
+    this.error.set(null);
+  }
 
   async save(event: Event): Promise<void> {
     event.preventDefault();

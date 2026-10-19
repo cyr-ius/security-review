@@ -87,8 +87,9 @@ SECREVIEW_AUDIT_SYSLOG_FACILITY=local0                        # par défaut
 ```
 
 Les administrateurs (permission `settings.manage`) peuvent aussi le régler sur la page **Journal
-d'audit** de l'interface web, dans la carte **Envoi vers syslog** (repliée : son titre indique le
-serveur utilisé, un clic l'ouvre) : **Aucun envoi** ou **Défini ici** (`udp://hôte:port` ou
+d'audit** de l'interface web, avec le bouton **Syslog** à côté de **Actualiser** (icône d'envoi
+cochée quand les événements sont envoyés, barrée sinon ; son infobulle indique le serveur). Il
+ouvre la fenêtre **Envoi vers syslog** : **Aucun envoi** ou **Défini ici** (`udp://hôte:port` ou
 `tcp://hôte:port`), et la *facility*. **Une variable définie est
 prioritaire** : son champ est alors verrouillé, et une valeur définie là auparavant est ignorée
 (**Supprimer** l'efface) ; un `SECREVIEW_AUDIT_SYSLOG_ADDRESS` vide compte comme non défini. Une

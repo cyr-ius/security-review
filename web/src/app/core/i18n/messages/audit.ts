@@ -41,6 +41,9 @@ export const audit = defineMessages({
     'audit.action.user.logout': 'Logout',
     'audit.action.audit_syslog.changed': 'Syslog forwarding changed',
     'audit.syslogTitle': 'Syslog forwarding',
+    'audit.syslogButton': 'Syslog',
+    'audit.syslogOnTitle': 'Audit events forwarded to {address}',
+    'audit.syslogOffTitle': 'Audit events not forwarded to syslog',
     'audit.syslogHelp':
       'The controller sends each new audit event, as JSON, to this syslog server. A value set here applies within seconds, without a restart, unless its variable is set; the change is recorded in the audit log.',
     'audit.syslogApplied': 'Server in use:',
@@ -95,6 +98,9 @@ export const audit = defineMessages({
     'audit.action.user.logout': 'Déconnexion',
     'audit.action.audit_syslog.changed': 'Envoi syslog modifié',
     'audit.syslogTitle': 'Envoi vers syslog',
+    'audit.syslogButton': 'Syslog',
+    'audit.syslogOnTitle': 'Événements d’audit envoyés à {address}',
+    'audit.syslogOffTitle': 'Événements d’audit non envoyés à syslog',
     'audit.syslogHelp':
       'Le contrôleur envoie chaque nouvel événement d’audit, en JSON, à ce serveur syslog. Une valeur définie ici s’applique en quelques secondes, sans redémarrage, sauf si sa variable est définie ; la modification est inscrite au journal d’audit.',
     'audit.syslogApplied': 'Serveur utilisé :',
@@ -149,6 +155,9 @@ export const audit = defineMessages({
     'audit.action.user.logout': 'Cierre de sesión',
     'audit.action.audit_syslog.changed': 'Envío a syslog modificado',
     'audit.syslogTitle': 'Envío a syslog',
+    'audit.syslogButton': 'Syslog',
+    'audit.syslogOnTitle': 'Eventos de auditoría enviados a {address}',
+    'audit.syslogOffTitle': 'Eventos de auditoría no enviados a syslog',
     'audit.syslogHelp':
       'El controlador envía cada nuevo evento de auditoría, en JSON, a este servidor syslog. Un valor definido aquí se aplica en unos segundos, sin reiniciar, salvo si su variable está definida; el cambio queda registrado en el registro de auditoría.',
     'audit.syslogApplied': 'Servidor en uso:',

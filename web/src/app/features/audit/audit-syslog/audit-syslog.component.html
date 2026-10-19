@@ -1,176 +1,189 @@
-<section class="card mb-4" aria-labelledby="audit-syslog-title">
-  <h2 id="audit-syslog-title" class="h6 mb-0">
-    <button
-      type="button"
-      class="btn w-100 d-flex flex-wrap align-items-center gap-2 text-start px-3 py-2"
-      aria-controls="audit-syslog-body"
-      [attr.aria-expanded]="expanded()"
-      (click)="expanded.set(!expanded())"
-    >
-      <i
-        class="bi"
-        [class.bi-chevron-right]="!expanded()"
-        [class.bi-chevron-down]="expanded()"
-        aria-hidden="true"
-      ></i>
-      <span class="fw-semibold">{{ 'audit.syslogTitle' | t }}</span>
-      @if (syslog.value(); as current) {
-        <span class="ms-auto small text-body-secondary text-truncate">
-          @if (current.effective.address; as address) {
-            <span class="font-monospace">{{ address }}</span>
-          } @else {
-            {{ 'audit.syslogNone' | t }}
-          }
-        </span>
+<button
+  type="button"
+  class="btn btn-sm"
+  [class.btn-outline-success]="forwarding()"
+  [class.btn-outline-secondary]="!forwarding()"
+  aria-haspopup="dialog"
+  [title]="buttonTitle() | t"
+  (click)="open()"
+>
+  <i
+    class="bi"
+    [class.bi-send-check]="forwarding()"
+    [class.bi-send-slash]="!forwarding()"
+    aria-hidden="true"
+  ></i>
+  {{ 'audit.syslogButton' | t }}
+  <span class="visually-hidden">({{ buttonTitle() | t }})</span>
+</button>
+
+<dialog
+  #syslogDialog
+  class="syslog-dialog shadow"
+  aria-labelledby="audit-syslog-title"
+  (close)="onClosed()"
+>
+  <div class="card syslog-card">
+    <div class="card-header d-flex align-items-center">
+      <h2 id="audit-syslog-title" class="h6 mb-0">{{ 'audit.syslogTitle' | t }}</h2>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary ms-auto"
+        [attr.aria-label]="'common.closeForm' | t"
+        (click)="close()"
+      >
+        <i class="bi bi-x-lg" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="card-body">
+      <p class="text-body-secondary small">{{ 'audit.syslogHelp' | t }}</p>
+
+      @if (error(); as text) {
+        <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
       }
-    </button>
-  </h2>
-  <div id="audit-syslog-body" class="card-body border-top" [hidden]="!expanded()">
-    <p class="text-body-secondary small">{{ 'audit.syslogHelp' | t }}</p>
+      @if (message(); as text) {
+        <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+      }
 
-    @if (error(); as text) {
-      <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
-    }
-    @if (message(); as text) {
-      <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
-    }
-
-    @if (syslog.error()) {
-      <div class="alert alert-danger mb-0" role="alert">{{ 'audit.syslogLoadError' | t }}</div>
-    } @else if (syslog.isLoading() && !syslog.hasValue()) {
-      <div class="text-center my-2">
-        <span class="spinner-border spinner-border-sm text-secondary" aria-hidden="true"></span>
-        <span class="visually-hidden">{{ 'common.loading' | t }}</span>
-      </div>
-    } @else if (syslog.value(); as current) {
-      <p class="mb-3">
-        {{ 'audit.syslogApplied' | t }}
-        @if (current.effective.address; as address) {
-          <strong class="font-monospace">{{ address }}</strong>
-          <span class="font-monospace">({{ current.effective.facility }})</span>
-        } @else {
-          <strong>{{ 'audit.syslogOff' | t }}</strong>
-        }
-        @if (source(); as label) {
-          <span class="text-body-secondary">({{ label | t }})</span>
-        }
-      </p>
-
-      <form (submit)="save($event)" novalidate>
-        <fieldset class="mb-3">
-          <legend class="form-label fs-6">{{ 'audit.syslogAddress' | t }}</legend>
-          @if (current.address.env_set) {
-            <ng-container
-              [ngTemplateOutlet]="locked"
-              [ngTemplateOutletContext]="{
-                variable: 'SECREVIEW_AUDIT_SYSLOG_ADDRESS',
-                env: current.address.env,
-                stored: current.address.value,
-                field: 'address',
-              }"
-            />
+      @if (syslog.error()) {
+        <div class="alert alert-danger mb-0" role="alert">{{ 'audit.syslogLoadError' | t }}</div>
+      } @else if (syslog.isLoading() && !syslog.hasValue()) {
+        <div class="text-center my-2">
+          <span class="spinner-border spinner-border-sm text-secondary" aria-hidden="true"></span>
+          <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+        </div>
+      } @else if (syslog.value(); as current) {
+        <p class="mb-3">
+          {{ 'audit.syslogApplied' | t }}
+          @if (current.effective.address; as address) {
+            <strong class="font-monospace">{{ address }}</strong>
+            <span class="font-monospace">({{ current.effective.facility }})</span>
           } @else {
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="radio"
-                id="syslog-none"
-                value="none"
-                [formField]="syslogForm.mode"
-              />
-              <label class="form-check-label" for="syslog-none">{{ 'audit.syslogNone' | t }}</label>
-            </div>
-            <div class="form-check">
-              <input
-                class="form-check-input"
-                type="radio"
-                id="syslog-custom"
-                value="custom"
-                [formField]="syslogForm.mode"
-              />
-              <label class="form-check-label" for="syslog-custom">{{
-                'audit.syslogCustom' | t
-              }}</label>
-            </div>
-            @if (model().mode === 'custom') {
-              <div class="mt-2">
-                <label for="syslog-address" class="form-label">{{ 'settings.url' | t }}</label>
-                <input
-                  id="syslog-address"
-                  class="form-control font-monospace"
-                  type="text"
-                  autocomplete="off"
-                  spellcheck="false"
-                  placeholder="udp://syslog.example.com:514"
-                  [formField]="syslogForm.address"
-                />
-                <div class="form-text">{{ 'audit.syslogAddressHelp' | t }}</div>
-              </div>
-            }
+            <strong>{{ 'audit.syslogOff' | t }}</strong>
           }
-        </fieldset>
+          @if (source(); as label) {
+            <span class="text-body-secondary">({{ label | t }})</span>
+          }
+        </p>
 
-        @if (current.address.env_set || model().mode === 'custom') {
-          <div class="mb-3">
-            @if (current.facility.env_set) {
-              <div class="form-label">{{ 'audit.syslogFacility' | t }}</div>
+        <form (submit)="save($event)" novalidate>
+          <fieldset class="mb-3">
+            <legend class="form-label fs-6">{{ 'audit.syslogAddress' | t }}</legend>
+            @if (current.address.env_set) {
               <ng-container
                 [ngTemplateOutlet]="locked"
                 [ngTemplateOutletContext]="{
-                  variable: 'SECREVIEW_AUDIT_SYSLOG_FACILITY',
-                  env: current.facility.env,
-                  stored: current.facility.value,
-                  field: 'facility',
+                  variable: 'SECREVIEW_AUDIT_SYSLOG_ADDRESS',
+                  env: current.address.env,
+                  stored: current.address.value,
+                  field: 'address',
                 }"
               />
             } @else {
-              <label for="syslog-facility" class="form-label">{{
-                'audit.syslogFacility' | t
-              }}</label>
-              <select id="syslog-facility" class="form-select" [formField]="syslogForm.facility">
-                <option value="">
-                  {{ 'audit.syslogFacilityDefault' | t: { value: current.facility.env ?? '' } }}
-                </option>
-                @for (name of current.facilities; track name) {
-                  <option [value]="name">{{ name }}</option>
-                }
-              </select>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  id="syslog-none"
+                  value="none"
+                  [formField]="syslogForm.mode"
+                />
+                <label class="form-check-label" for="syslog-none">{{
+                  'audit.syslogNone' | t
+                }}</label>
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  id="syslog-custom"
+                  value="custom"
+                  [formField]="syslogForm.mode"
+                />
+                <label class="form-check-label" for="syslog-custom">{{
+                  'audit.syslogCustom' | t
+                }}</label>
+              </div>
+              @if (model().mode === 'custom') {
+                <div class="mt-2">
+                  <label for="syslog-address" class="form-label">{{ 'settings.url' | t }}</label>
+                  <input
+                    id="syslog-address"
+                    class="form-control font-monospace"
+                    type="text"
+                    autocomplete="off"
+                    spellcheck="false"
+                    placeholder="udp://syslog.example.com:514"
+                    [formField]="syslogForm.address"
+                  />
+                  <div class="form-text">{{ 'audit.syslogAddressHelp' | t }}</div>
+                </div>
+              }
             }
-          </div>
-        }
+          </fieldset>
 
-        @if (!current.address.env_set || !current.facility.env_set) {
-          <button type="submit" class="btn btn-primary" [disabled]="busy()">
-            <i class="bi bi-check-lg" aria-hidden="true"></i>
-            {{ 'common.save' | t }}
-          </button>
-        }
-      </form>
+          @if (current.address.env_set || model().mode === 'custom') {
+            <div class="mb-3">
+              @if (current.facility.env_set) {
+                <div class="form-label">{{ 'audit.syslogFacility' | t }}</div>
+                <ng-container
+                  [ngTemplateOutlet]="locked"
+                  [ngTemplateOutletContext]="{
+                    variable: 'SECREVIEW_AUDIT_SYSLOG_FACILITY',
+                    env: current.facility.env,
+                    stored: current.facility.value,
+                    field: 'facility',
+                  }"
+                />
+              } @else {
+                <label for="syslog-facility" class="form-label">{{
+                  'audit.syslogFacility' | t
+                }}</label>
+                <select id="syslog-facility" class="form-select" [formField]="syslogForm.facility">
+                  <option value="">
+                    {{ 'audit.syslogFacilityDefault' | t: { value: current.facility.env ?? '' } }}
+                  </option>
+                  @for (name of current.facilities; track name) {
+                    <option [value]="name">{{ name }}</option>
+                  }
+                </select>
+              }
+            </div>
+          }
 
-      <ng-template
-        #locked
-        let-variable="variable"
-        let-env="env"
-        let-stored="stored"
-        let-field="field"
-      >
-        <div class="alert alert-info py-2 mb-0" role="status">
-          <i class="bi bi-lock" aria-hidden="true"></i>
-          {{ 'settings.variableLocked' | t: { variable: variable, value: env } }}
-          @if (stored !== null) {
-            <br />
-            {{ 'settings.storedIgnored' | t: { value: stored } }}
-            <button
-              type="button"
-              class="btn btn-link btn-sm p-0 align-baseline"
-              [disabled]="busy()"
-              (click)="deleteStored(field)"
-            >
-              {{ 'common.delete' | t }}
+          @if (!current.address.env_set || !current.facility.env_set) {
+            <button type="submit" class="btn btn-primary" [disabled]="busy()">
+              <i class="bi bi-check-lg" aria-hidden="true"></i>
+              {{ 'common.save' | t }}
             </button>
           }
-        </div>
-      </ng-template>
-    }
+        </form>
+
+        <ng-template
+          #locked
+          let-variable="variable"
+          let-env="env"
+          let-stored="stored"
+          let-field="field"
+        >
+          <div class="alert alert-info py-2 mb-0" role="status">
+            <i class="bi bi-lock" aria-hidden="true"></i>
+            {{ 'settings.variableLocked' | t: { variable: variable, value: env } }}
+            @if (stored !== null) {
+              <br />
+              {{ 'settings.storedIgnored' | t: { value: stored } }}
+              <button
+                type="button"
+                class="btn btn-link btn-sm p-0 align-baseline"
+                [disabled]="busy()"
+                (click)="deleteStored(field)"
+              >
+                {{ 'common.delete' | t }}
+              </button>
+            }
+          </div>
+        </ng-template>
+      }
+    </div>
   </div>
-</section>
+</dialog>
