@@ -88,7 +88,6 @@ SCAN_ROUTE_ROLES = frozenset({Role.CI, Role.ADMIN})
 # Roles accepted by the Prometheus endpoint of the controller
 METRICS_ROLES = frozenset({Role.METRICS, Role.ADMIN})
 
-API_PREFIX = "/api/"
 # Pipeline routes of the controller, the only ones a ``ci`` token reaches
 CI_PREFIX = "/api/v1/ci/"
 UI_PREFIX = "/ui"

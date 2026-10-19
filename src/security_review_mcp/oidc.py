@@ -50,8 +50,7 @@ from .proxy import masked_url, proxy_handler
 
 logger = logging.getLogger("security_review_mcp.oidc")
 
-# Paths of the login flow, public on the controller (see http_server.is_controller_public_path)
-LOGIN_PATH = f"{AUTH_PREFIX}oidc/login"
+# Callback of the login flow, public on the controller (see http_server.is_controller_public_path)
 CALLBACK_PATH = f"{AUTH_PREFIX}oidc/callback"
 # Page of the web application that receives the session token or the error
 UI_LOGIN_PATH = "/ui/login"
@@ -89,11 +88,6 @@ class OidcError(Exception):
 
 
 # ── Settings ─────────────────────────────────────────────────────────────────
-
-
-def _split(value: str) -> frozenset[str]:
-    """Parse a comma-separated list of groups or roles."""
-    return frozenset(item.strip() for item in value.split(",") if item.strip())
 
 
 def _check_url(name: str, value: str) -> urllib.parse.SplitResult:

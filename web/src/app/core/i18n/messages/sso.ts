@@ -3,7 +3,6 @@ import { defineMessages } from '../catalog';
 /** OIDC screen: settings of the OpenID Connect login. */
 export const sso = defineMessages({
   en: {
-    'common.add': 'Add',
     'sso.title': 'OIDC settings',
     'sso.active': 'OIDC login active',
     'sso.inactive': 'OIDC login inactive',
@@ -68,7 +67,6 @@ export const sso = defineMessages({
       'Name of a group assigned by default upon each connection (empty: none).',
   },
   fr: {
-    'common.add': 'Ajouter',
     'sso.title': 'Configuration OIDC',
     'sso.active': 'Connexion OIDC active',
     'sso.inactive': 'Connexion OIDC inactive',
@@ -132,7 +130,6 @@ export const sso = defineMessages({
     'sso.defaultGroupHelp': "Nom d'un groupe affecté par défaut à chaque connexion (vide : aucun).",
   },
   es: {
-    'common.add': 'Añadir',
     'sso.title': 'Configuración OIDC',
     'sso.active': 'Inicio de sesión OIDC activo',
     'sso.inactive': 'Inicio de sesión OIDC inactivo',
