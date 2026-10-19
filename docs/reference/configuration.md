@@ -5,6 +5,11 @@ The MCP server and the controller read environment variables prefixed with `SECR
 uses the variable: `MCP` (`security-review-mcp`), `Controller` (`security-review-controller`)
 or both.
 
+Some settings can also be set in the [web interface](../usage/web-interface.md#screens): report
+language, outgoing proxy and OIDC login. **A variable that is set always takes precedence**
+over the value of the interface, which only applies when the variable is not set (the screen
+then locks the field).
+
 | Variable | Default | Process | Role |
 |---|---|---|---|
 | `SECREVIEW_DATABASE_URL` | `sqlite:///./security_reports.db` | both | SQLAlchemy URL of the database, **shared** by both processes |
@@ -34,7 +39,7 @@ or both.
 | `SECREVIEW_WEB_UI` | `true` | Controller | Serves the [web interface](../usage/web-interface.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Controller | Folder of another build of the web interface |
 | `SECREVIEW_SWAGGER_ENABLED` | `false` | Controller | Serve the Swagger documentation (`/api/docs`) and the OpenAPI schema (`/api/openapi.json`), from the files of the web interface build |
-| `SECREVIEW_OIDC_ENABLED` | `false` | Controller | Enables the [OpenID Connect OIDC login](../advanced/sso.md) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` and `SECREVIEW_OIDC_ONLY` can also be changed in the **OIDC** screen, whose stored values replace them ([configuring OIDC in the interface](../advanced/sso.md#configuring-oidc-in-the-interface)) |
+| `SECREVIEW_OIDC_ENABLED` | `false` | Controller | Enables the [OpenID Connect OIDC login](../advanced/sso.md) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` and `SECREVIEW_OIDC_ONLY` can also be set in the **OIDC** screen, whose stored values apply when the variable is not set ([configuring OIDC in the interface](../advanced/sso.md#configuring-oidc-in-the-interface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | Controller | URL of the issuer (HTTPS; HTTP only on localhost), whose `/.well-known/openid-configuration` is read |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Controller | Identifier of the client declared at the provider |
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Controller | Secret of the client; empty for a public client (PKCE only) |
@@ -48,15 +53,15 @@ or both.
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `OIDC` | Controller | Name shown on the login button (40 characters at most) |
 | `SECREVIEW_OIDC_CAFILE` | — | Controller | CA bundle to reach the provider (internal CA); the proxy is the one of `HTTPS_PROXY` |
 | `SECREVIEW_OIDC_ONLY` | `false` | Controller | With OIDC enabled, refuses the password login of the local accounts ([OIDC only](../advanced/sso.md#oidc-only)); a variable only, never changed in the interface |
-| `HTTPS_PROXY` (else `HTTP_PROXY`) | — | Controller | Standard variable, without the `SECREVIEW_` prefix (lowercase name accepted): HTTP proxy of the outgoing connections of the controller, OSV download and OIDC provider (`http://[user:password@]host:port`, `host:port` meaning `http://host:port`); without it, the connection is direct. Replaced by the proxy chosen in the [**Outgoing proxy**](../usage/web-interface.md#screens) screen (or the direct connection) |
-| `NO_PROXY` | — | Controller | Standard variable: [hosts reached without the proxy](../advanced/dependencies.md#hosts-without-proxy), comma separated: domains (subdomains included), IP addresses, `*` (no CIDR ranges); the loopback is always direct. Replaced by the list of the **Outgoing proxy** screen |
+| `HTTPS_PROXY` (else `HTTP_PROXY`) | — | Controller | Standard variable, without the `SECREVIEW_` prefix (lowercase name accepted): HTTP proxy of the outgoing connections of the controller, OSV download and OIDC provider (`http://[user:password@]host:port`, `host:port` meaning `http://host:port`); without it, the connection is direct, or uses the proxy chosen in the [**Outgoing proxy**](../usage/web-interface.md#screens) screen. When set (not empty), takes precedence over that screen |
+| `NO_PROXY` | — | Controller | Standard variable: [hosts reached without the proxy](../advanced/dependencies.md#hosts-without-proxy), comma separated: domains (subdomains included), IP addresses, `*` (no CIDR ranges); the loopback is always direct. When set (not empty), takes precedence over the list of the **Outgoing proxy** screen |
 | `SECREVIEW_OSV_AUTO_UPDATE` | `false` | Controller | [Daily update](../advanced/dependencies.md#automatic-update-by-the-controller) of the OSV database by `serve` |
 | `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Controller | Age of the database beyond which `serve` updates it (minimum `1`) |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Controller | Source of the `<URL>/<ecosystem>/all.zip` exports (HTTPS only, mirror possible) |
 | `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven` | Controller | Downloaded ecosystems, comma separated |
 | `SECREVIEW_OSV_CAFILE` | — | Controller | CA bundle used instead of the system one (internal mirror, proxy that inspects TLS) |
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Controller | Maximum size of a downloaded archive |
-| `SECREVIEW_REPORT_LANGUAGE` | — | MCP | [Report language](../usage/prompts-tools.md#report-language) asked by the review prompts (`French`, `fr`...) when the `report_language` argument is missing and no language is chosen in the [**Report language**](../usage/web-interface.md#screens) screen; empty: the agent chooses |
+| `SECREVIEW_REPORT_LANGUAGE` | — | MCP | [Report language](../usage/prompts-tools.md#report-language) asked by the review prompts (`French`, `fr`...) when the `report_language` argument is missing; when set (even empty: the agent chooses), takes precedence over the language chosen in the [**Report language**](../usage/web-interface.md#screens) screen |
 | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Controller | Age in days beyond which `serve` deletes the [reports without findings](#retention-of-reports-without-findings); `0` keeps every report |
 | `SECREVIEW_MAX_DISMISSAL_DAYS` | `365` | Controller | Longest validity in days of an `accepted` or `false_positive` [decision](../usage/web-interface.md#triage-of-findings): its expiry date may not be later |
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Controller | Longest validity in days of a bearer token created or [rotated](../advanced/http.md#expiry-and-rotation-of-tokens) (CLI, web interface, enrollment), which is also its default validity; `0`: tokens do not expire unless a validity is asked for |

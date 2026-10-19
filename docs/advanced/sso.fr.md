@@ -52,13 +52,15 @@ le fournisseur par son proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou l'écran **
 
 Les mêmes réglages se modifient dans l'écran **OIDC** (permission `users.manage` : la
 configuration OIDC décide qui rejoint quel groupe), sans redémarrer le contrôleur. Comme pour
-l'écran **Proxy sortant**, une valeur
-enregistrée en base **remplace sa variable** `SECREVIEW_OIDC_*`, champ par champ ; un champ jamais
-modifié suit sa variable :
+l'écran **Proxy sortant**, **une variable `SECREVIEW_OIDC_*` définie est toujours
+prioritaire**, champ par champ ; une valeur enregistrée en base ne s'applique qu'aux champs dont
+la variable n'est pas définie :
 
-- chaque champ porte le badge **Variable** (la variable s'applique, sa valeur est rappelée sous le
-  champ) ou **Interface web** (valeur enregistrée) ; le lien **Variable** d'un champ enregistré
-  supprime la valeur stockée et applique de nouveau la variable ;
+- un champ dont la variable est définie porte le badge **Variable** (avec un cadenas) : il
+  affiche la variable et ne se modifie pas ; une valeur enregistrée avant que la variable soit
+  définie est signalée *valeur définie ici ignorée*, avec un lien **Supprimer** ;
+- sinon le champ porte le badge **Interface web** (valeur enregistrée ; **Réinitialiser** la
+  supprime et la valeur par défaut s'applique de nouveau) ou **Par défaut** ;
 - le **secret client** n'est jamais réaffiché : laissé vide, le secret actuel est conservé ;
   **Supprimer** enregistre un secret vide (client public, PKCE seul) ;
 - **Tester la connexion** contacte le fournisseur avec les valeurs du formulaire, sans les
@@ -74,11 +76,14 @@ déjà ouvertes restent valides jusqu'à leur expiration. Restent des variables 
 `SECREVIEW_OIDC_CAFILE` (un fichier du déploiement) et les réglages de session
 (`SECREVIEW_SECRET_KEY`, `SECREVIEW_SESSION_HOURS`). Si une variable modifiée après coup rend
 invalide la combinaison avec les valeurs enregistrées, le contrôleur démarre quand même : la
-connexion OIDC est désactivée et l'erreur journalisée, à corriger dans l'écran.
+connexion OIDC est désactivée et l'erreur journalisée, à corriger dans l'écran ou dans les
+variables.
 
 Par l'API (`/api/v1/oidc/settings`, permission `users.manage`) : `GET` décrit chaque réglage (`value`
-enregistrée ou `null`, `env`, `effective` ; un secret défini vaut `***`), `PUT` modifie les champs
-envoyés (`null` applique de nouveau la variable, un champ absent est inchangé) et
+enregistrée ou `null`, `env`, `env_set` : la variable est définie et prioritaire, `effective` ;
+un secret défini vaut `***`), `PUT` modifie les champs envoyés (`null` supprime la valeur
+enregistrée, un champ absent est inchangé, un champ dont la variable est définie est refusé
+avec `422`) et
 `POST /api/v1/oidc/settings/test` teste le fournisseur sans rien enregistrer :
 
 ```bash

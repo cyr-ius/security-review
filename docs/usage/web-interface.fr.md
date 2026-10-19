@@ -151,31 +151,36 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   au plus ancien, avec leur auteur ; filtres par événement et projet, recherche dans les détails,
   tri par date/action/auteur/cible/projet et **Afficher plus** pour les événements plus anciens.
 - **OIDC** : les administrateurs [configurent la connexion OIDC](../advanced/sso.md#configurer-le-oidc-dans-linterface)
-  (chaque valeur enregistrée remplace sa variable `SECREVIEW_OIDC_*`, avec un test de connexion
-  au fournisseur). Ce que peuvent faire les utilisateurs OIDC vient des groupes ouverts au OIDC
+  (une valeur enregistrée s'applique quand sa variable `SECREVIEW_OIDC_*` n'est pas définie,
+  avec un test de connexion au fournisseur). Ce que peuvent faire les utilisateurs OIDC vient des groupes ouverts au OIDC
   nommés par leur claim des groupes (voir
   [groupes du fournisseur d'identité](../advanced/sso.md#groupes-du-fournisseur-didentite)).
-Les trois écrans suivants portent des réglages enregistrés en base, prioritaires sur les
-variables d'environnement et partagés par le serveur MCP et le contrôleur (permission
-`settings.manage` ; l'ancienne adresse `/ui/settings` ouvre **Langue des rapports**).
+Les trois écrans suivants portent des réglages enregistrés en base et partagés par le serveur
+MCP et le contrôleur (permission `settings.manage` ; l'ancienne adresse `/ui/settings` ouvre
+**Langue des rapports**). **Une variable d'environnement définie (environnement ou fichier
+`.env`) est toujours prioritaire** sur la valeur saisie dans l'interface : son champ est alors
+verrouillé et affiche la variable, et une valeur enregistrée avant que la variable soit définie
+est signalée comme ignorée, avec un bouton **Supprimer**.
 
-- **Langue des rapports** : variable `SECREVIEW_REPORT_LANGUAGE`, choix laissé à l'agent ou
-  langue définie ici (`French`, `fr`, `pt-BR`…). Elle s'applique aux prochains prompts de
-  revue ; l'argument `report_language` d'un prompt reste prioritaire
+- **Langue des rapports** : choix laissé à l'agent ou langue définie ici (`French`, `fr`,
+  `pt-BR`…), quand `SECREVIEW_REPORT_LANGUAGE` n'est pas définie. Elle s'applique aux
+  prochains prompts de revue ; l'argument `report_language` d'un prompt reste prioritaire
   ([langue des rapports](prompts-tools.md#langue-des-rapports)).
 - **Proxy sortant** : proxy des connexions sortantes du contrôleur, utilisé par le
   téléchargement OSV **et** par la
-  [connexion OIDC](../advanced/sso.md). Comme pour la configuration OIDC, chaque
-  valeur définie ici remplace sa variable (badges **Variable** / **Interface web**) :
-  l'URL suit `HTTPS_PROXY` (sinon `HTTP_PROXY`), est définie ici, ou force la connexion
-  directe ; les **hôtes sans proxy** suivent `NO_PROXY` ou sont définis ici (voir
+  [connexion OIDC](../advanced/sso.md). Quand `HTTPS_PROXY` (sinon `HTTP_PROXY`) n'est pas
+  définie, le proxy est défini ici (ou **Aucun proxy (connexion directe)**) ; quand
+  `NO_PROXY` n'est pas définie, les **hôtes sans proxy** sont définis ici (voir
   [hôtes sans proxy](../advanced/dependencies.md#hotes-sans-proxy) : domaines, adresses IP,
-  `*`, pas de plages CIDR). Le changement s'applique au prochain
+  `*`, pas de plages CIDR). Une variable vide compte comme non définie. Le changement s'applique au prochain
   téléchargement et à la prochaine connexion OIDC, sans redémarrage. Le proxy appliqué, son
   origine et les variables sont affichés ; les mots de passe ne sont
   jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré. Par l'API :
-  `PUT /api/v1/settings/proxy` avec `url` et `no_proxy` (`null` applique de nouveau la
-  variable, `"url": ""` force la connexion directe, un champ absent est inchangé).
+  `PUT /api/v1/settings/proxy` avec `url` et `no_proxy` (`null` supprime la valeur
+  enregistrée, `"url": ""` force la connexion directe, un champ absent est inchangé ; une
+  valeur dont la variable est définie est refusée avec `422`). `GET /api/v1/settings` donne,
+  pour chaque réglage, la valeur enregistrée `value`, la variable `env`, `env_set` (la variable
+  est définie et prioritaire) et la valeur effective.
 - **Base OSV** : état de la base de vulnérabilités OSV : nombre d'avis par écosystème, date et âge du dernier
   import, configuration du téléchargement, historique des 50 dernières mises à jour
   (planifiée, CLI ou interface web, avec statut, durée et résultat par écosystème), recherchable,

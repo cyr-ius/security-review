@@ -111,9 +111,9 @@ NO_PROXY=.corp.example,10.0.0.5
 ```
 
 The proxy can also be chosen by an administrator in the [**Outgoing proxy**](../usage/web-interface.md#screens)
-screen of the web interface: proxy and hosts without proxy set there, or direct connection,
-take precedence over `HTTPS_PROXY`, `HTTP_PROXY` and `NO_PROXY`; they apply to
-the next download. The **OSV database** screen shows the state of the database, the history of the updates
+screen of the web interface, for the variables that are not set: `HTTPS_PROXY` (else
+`HTTP_PROXY`) and `NO_PROXY`, when set, take precedence over the values of the screen. They
+apply to the next download. The **OSV database** screen shows the state of the database, the history of the updates
 (scheduled, CLI or web) and an **Update now** button (run in the background, one update at a
 time), only available when `SECREVIEW_OSV_AUTO_UPDATE=true`.
 

@@ -42,119 +42,125 @@
 
       <form (submit)="saveProxy($event)" novalidate>
         <fieldset class="mb-3">
-          <legend class="form-label">
-            {{ 'settings.proxyUrl' | t }}
-            @if (current.proxy.url.value !== null) {
-              <span class="badge text-bg-primary ms-1">{{ 'sso.webInterface' | t }}</span>
-            } @else {
-              <span class="badge text-bg-secondary ms-1">{{ 'sso.variable' | t }}</span>
-            }
-          </legend>
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="radio"
-              id="proxy-env"
-              value="env"
-              [formField]="proxyForm.mode"
+          <legend class="form-label">{{ 'settings.proxyUrl' | t }}</legend>
+          @if (current.proxy.url.env_set) {
+            <ng-container
+              [ngTemplateOutlet]="locked"
+              [ngTemplateOutletContext]="{
+                variable: 'HTTPS_PROXY / HTTP_PROXY',
+                env: current.proxy.url.env,
+                stored: current.proxy.url.value,
+                field: 'url',
+              }"
             />
-            <label class="form-check-label" for="proxy-env">
-              {{ 'sso.variable' | t }} <code>HTTPS_PROXY</code> / <code>HTTP_PROXY</code> ({{
-                current.proxy.url.env ?? ('sso.empty' | t)
-              }})
-            </label>
-          </div>
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="radio"
-              id="proxy-custom"
-              value="custom"
-              [formField]="proxyForm.mode"
-            />
-            <label class="form-check-label" for="proxy-custom">{{
-              'settings.proxyCustom' | t
-            }}</label>
-          </div>
-          <div class="form-check">
-            <input
-              class="form-check-input"
-              type="radio"
-              id="proxy-none"
-              value="none"
-              [formField]="proxyForm.mode"
-            />
-            <label class="form-check-label" for="proxy-none">
-              {{ 'settings.proxyNone' | t }}
-            </label>
-          </div>
-        </fieldset>
-
-        @if (proxyModel().mode === 'custom') {
-          <div class="mb-3">
-            <label for="proxy-url" class="form-label">{{ 'settings.url' | t }}</label>
-            <input
-              id="proxy-url"
-              class="form-control font-monospace"
-              type="text"
-              autocomplete="off"
-              spellcheck="false"
-              [placeholder]="'settings.proxyPlaceholder' | t"
-              [formField]="proxyForm.url"
-            />
-            <div class="form-text">
-              {{ 'settings.proxyUrlHelpBefore' | t }} <code>***</code
-              >{{ 'settings.proxyUrlHelpAfter' | t }}
-            </div>
-          </div>
-        }
-
-        @if (proxyModel().mode !== 'none') {
-          <div class="mb-3">
-            <div class="form-check form-switch">
+          } @else {
+            <div class="form-check">
               <input
-                id="no-proxy-custom"
                 class="form-check-input"
-                type="checkbox"
-                role="switch"
-                [formField]="proxyForm.noProxyCustom"
+                type="radio"
+                id="proxy-none"
+                value="none"
+                [formField]="proxyForm.mode"
               />
-              <label class="form-check-label" for="no-proxy-custom">
-                {{ 'settings.noProxyCustom' | t }}
-                @if (current.proxy.no_proxy.value !== null) {
-                  <span class="badge text-bg-primary ms-1">{{ 'sso.webInterface' | t }}</span>
-                } @else {
-                  <span class="badge text-bg-secondary ms-1">{{ 'sso.variable' | t }}</span>
-                }
+              <label class="form-check-label" for="proxy-none">
+                {{ 'settings.proxyNone' | t }}
               </label>
             </div>
-            @if (proxyModel().noProxyCustom) {
+            <div class="form-check">
+              <input
+                class="form-check-input"
+                type="radio"
+                id="proxy-custom"
+                value="custom"
+                [formField]="proxyForm.mode"
+              />
+              <label class="form-check-label" for="proxy-custom">{{
+                'settings.proxyCustom' | t
+              }}</label>
+            </div>
+            @if (proxyModel().mode === 'custom') {
+              <div class="mt-2">
+                <label for="proxy-url" class="form-label">{{ 'settings.url' | t }}</label>
+                <input
+                  id="proxy-url"
+                  class="form-control font-monospace"
+                  type="text"
+                  autocomplete="off"
+                  spellcheck="false"
+                  [placeholder]="'settings.proxyPlaceholder' | t"
+                  [formField]="proxyForm.url"
+                />
+                <div class="form-text">
+                  {{ 'settings.proxyUrlHelpBefore' | t }} <code>***</code
+                  >{{ 'settings.proxyUrlHelpAfter' | t }}
+                </div>
+              </div>
+            }
+          }
+        </fieldset>
+
+        @if (current.proxy.url.env_set || proxyModel().mode === 'custom') {
+          <div class="mb-3">
+            @if (current.proxy.no_proxy.env_set) {
+              <div class="form-label">{{ 'settings.noProxyHosts' | t }}</div>
+              <ng-container
+                [ngTemplateOutlet]="locked"
+                [ngTemplateOutletContext]="{
+                  variable: 'NO_PROXY',
+                  env: current.proxy.no_proxy.env,
+                  stored: current.proxy.no_proxy.value,
+                  field: 'no_proxy',
+                }"
+              />
+            } @else {
+              <label for="no-proxy" class="form-label">{{ 'settings.noProxyHosts' | t }}</label>
               <input
                 id="no-proxy"
-                class="form-control font-monospace mt-2"
+                class="form-control font-monospace"
                 type="text"
                 autocomplete="off"
                 spellcheck="false"
-                [attr.aria-label]="'settings.noProxyHosts' | t"
                 placeholder=".corp.example, 10.0.0.5, fd00::5"
                 [formField]="proxyForm.noProxy"
               />
+              <div class="form-text">
+                {{ 'settings.noProxyHelp1' | t }} <code>*</code>{{ 'settings.noProxyHelp3' | t }}
+              </div>
             }
-            <div class="form-text">
-              {{ 'settings.noProxyHelp1' | t }} <code>*</code>{{ 'settings.noProxyHelp3' | t }}
-              <code>NO_PROXY</code>
-              {{
-                'settings.colonValue'
-                  | t: { value: current.proxy.no_proxy.env ?? ('sso.empty' | t) }
-              }}
-            </div>
           </div>
         }
-        <button type="submit" class="btn btn-primary" [disabled]="busy()">
-          <i class="bi bi-check-lg" aria-hidden="true"></i>
-          {{ 'common.save' | t }}
-        </button>
+        @if (!current.proxy.url.env_set || !current.proxy.no_proxy.env_set) {
+          <button type="submit" class="btn btn-primary" [disabled]="busy()">
+            <i class="bi bi-check-lg" aria-hidden="true"></i>
+            {{ 'common.save' | t }}
+          </button>
+        }
       </form>
+
+      <ng-template
+        #locked
+        let-variable="variable"
+        let-env="env"
+        let-stored="stored"
+        let-field="field"
+      >
+        <div class="alert alert-info py-2 mb-0" role="status">
+          <i class="bi bi-lock" aria-hidden="true"></i>
+          {{ 'settings.variableLocked' | t: { variable: variable, value: env } }}
+          @if (stored !== null) {
+            <br />
+            {{ 'settings.storedIgnored' | t: { value: stored || ('settings.sourceNone' | t) } }}
+            <button
+              type="button"
+              class="btn btn-link btn-sm p-0 align-baseline"
+              [disabled]="busy()"
+              (click)="deleteStored(field)"
+            >
+              {{ 'common.delete' | t }}
+            </button>
+          }
+        </div>
+      </ng-template>
     </div>
   </section>
 }

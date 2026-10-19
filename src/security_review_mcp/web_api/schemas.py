@@ -941,8 +941,8 @@ class AuditPage(BaseModel):
 
 
 class ReportLanguageUpdate(BaseModel):
-    """Body of PUT /settings/report-language: "" lets the agent choose, null restores the
-    SECREVIEW_REPORT_LANGUAGE variable."""
+    """Body of PUT /settings/report-language: "" lets the agent choose, null removes the stored
+    value. Refused (422) when SECREVIEW_REPORT_LANGUAGE is set: the variable takes precedence."""
 
     value: str | None = Field(default=None, max_length=REPORT_LANGUAGE_MAX_CHARS)
 
@@ -950,9 +950,10 @@ class ReportLanguageUpdate(BaseModel):
 class ProxyUpdate(BaseModel):
     """Body of PUT /settings/proxy: proxy of the outgoing connections of the controller.
 
-    A field left out is unchanged, ``null`` applies the variable again (HTTPS_PROXY, else
-    HTTP_PROXY, and NO_PROXY). ``url`` ``""`` connects directly, despite the variables; a password
-    sent back as returned by the API (``***``) keeps the stored one.
+    A field left out is unchanged, ``null`` removes the stored value. A value is refused (422)
+    when its variable is set (HTTPS_PROXY or HTTP_PROXY, NO_PROXY): the variable takes
+    precedence. ``url`` ``""`` connects directly; a password sent back as returned by the API
+    (``***``) keeps the stored one.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -962,18 +963,22 @@ class ProxyUpdate(BaseModel):
 
 
 class ReportLanguageSetting(BaseModel):
-    """Language of the reports: stored value (None: the variable applies), variable, effective."""
+    """Language of the reports: stored value, variable, whether the variable is set (it then
+    takes precedence over the stored value), effective value."""
 
     value: str | None
     env: str
+    env_set: bool
     effective: str
 
 
 class ProxyValue(BaseModel):
-    """A proxy setting: stored in the web interface (None: the variable applies) and variable."""
+    """A proxy setting: stored in the web interface, variable, and whether the variable is set
+    (it then takes precedence over the stored value)."""
 
     value: str | None
     env: str | None
+    env_set: bool
 
 
 class ProxyEffective(BaseModel):
@@ -1058,9 +1063,10 @@ _OidcText = Annotated[str, Field(max_length=app_settings.MAX_OIDC_VALUE_CHARS)]
 class OidcSettingsUpdate(BaseModel):
     """Body of PUT /oidc/settings and POST /oidc/settings/test.
 
-    A field left out is unchanged, ``null`` applies the ``SECREVIEW_OIDC_*`` variable again. A
-    client secret sent back as returned by the API (``***``) keeps the stored one; ``""`` makes
-    the client public.
+    A field left out is unchanged, ``null`` removes the stored value. A value is refused (422)
+    when its ``SECREVIEW_OIDC_*`` variable is set: the variable takes precedence. A client
+    secret sent back as returned by the API (``***``) keeps the stored one; ``""`` makes the
+    client public.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1080,10 +1086,12 @@ class OidcSettingsUpdate(BaseModel):
 
 
 class OidcSettingValue(BaseModel):
-    """One OIDC setting: stored value (None: the variable applies), variable, effective value."""
+    """One OIDC setting: stored value, variable, whether the variable is set (it then takes
+    precedence over the stored value), effective value."""
 
     value: bool | str | None
     env: bool | str | None
+    env_set: bool
     effective: bool | str | None
 
 

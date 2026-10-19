@@ -135,7 +135,8 @@ class Settings(BaseSettings):
     # named by oidc_username_claim: with oidc_auto_create_users it is created at the first login
     # (when its groups give it a permission), otherwise an administrator creates it first.
     # Sessions use secret_key and session_hours. oidc_cafile replaces the system CA bundle
-    # for the provider.
+    # for the provider. Every oidc_* setting but oidc_cafile can also be set in the web
+    # interface; a variable that is set takes precedence (see app_settings).
     oidc_enabled: bool = False
     oidc_issuer: str = ""
     oidc_client_id: str = ""
@@ -159,9 +160,10 @@ class Settings(BaseSettings):
     # accepted): HTTPS_PROXY, else HTTP_PROXY, http://[user:password@]host:port (host:port
     # means http://host:port), and NO_PROXY, the comma-separated hosts reached without it (a
     # domain also covers its subdomains, an IP address the URLs whose host is that address, *
-    # every host; the loopback interface is always direct). Both can be overridden in the web
-    # interface (Paramètres, see app_settings). Settings(https_proxy=...) sets the proxy (the
-    # aliases only: populating by name would read SECREVIEW_PROXY again).
+    # every host; the loopback interface is always direct). Each one not set can be set in the
+    # web interface (Paramètres, see app_settings); when set, it takes precedence there.
+    # An empty variable counts as unset. Settings(https_proxy=...) sets the proxy (the aliases
+    # only: populating by name would read SECREVIEW_PROXY again).
     proxy: str | None = Field(
         default=None, validation_alias=AliasChoices("https_proxy", "http_proxy")
     )
@@ -181,6 +183,7 @@ class Settings(BaseSettings):
     # Language of the review reports (reply and free-text fields of save_security_report), for
     # example "French". Empty: the agent chooses. The `report_language` argument of the review
     # prompts overrides it. Severities, categories, statuses and rule ids stay in English.
+    # When the variable is not set, an administrator can choose it in the web interface.
     report_language: str = ""
 
     # Controller only: delete the reports without any finding (clean reviews) older than

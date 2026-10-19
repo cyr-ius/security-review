@@ -113,9 +113,9 @@ NO_PROXY=.corp.example,10.0.0.5
 ```
 
 Le proxy peut aussi être choisi par un administrateur dans l'écran
-[**Proxy sortant**](../usage/web-interface.md#ecrans) de l'interface web : proxy et hôtes sans proxy
-définis ici, ou connexion directe, prioritaires sur `HTTPS_PROXY`, `HTTP_PROXY` et
-`NO_PROXY` ; ils s'appliquent au téléchargement suivant. L'écran **Base OSV** affiche l'état de
+[**Proxy sortant**](../usage/web-interface.md#ecrans) de l'interface web, pour les variables
+non définies : `HTTPS_PROXY` (sinon `HTTP_PROXY`) et `NO_PROXY`, quand elles sont définies,
+sont prioritaires sur les valeurs de l'écran. Elles s'appliquent au téléchargement suivant. L'écran **Base OSV** affiche l'état de
 la base, l'historique des mises à jour (planifiées, CLI ou web) et un bouton **Mettre à jour
 maintenant** (lancement en arrière-plan, une mise à jour à la fois), disponible seulement quand
 `SECREVIEW_OSV_AUTO_UPDATE=true`.
