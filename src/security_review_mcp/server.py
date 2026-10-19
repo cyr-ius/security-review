@@ -172,7 +172,7 @@ def _report_language(requested: str) -> str:
     description="Review Python, Java or Angular code for vulnerabilities and insecure settings.",
 )
 def security_review(
-    language: str = "python",
+    language: str = "",
     code: str = "",
     context: str = "",
     focus: str = "",
@@ -181,7 +181,8 @@ def security_review(
     """Build the general security-review prompt.
 
     Args:
-        language: python, java or angular.
+        language: Languages of the code, for example "python" or "python, angular" (selects
+            the checklists; aliases such as py or ts are accepted).
         code: Code or diff to review (leave empty to review the workspace files).
         context: Optional context (exposure, data sensitivity, authentication model...).
         focus: Optional areas to emphasize (for example "authentication, file upload").

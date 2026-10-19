@@ -2,7 +2,9 @@
 
 import re
 
-from .registry import company_checklist_markdown, render_checklist_markdown
+from . import scanner
+from .registry import COMPANY_DOMAIN, company_checklist_markdown, render_checklist_markdown
+from .registry import domains as checklist_domains
 
 # Reviewed code, scan excerpts and stored evidence may come from an attacker (a merge request
 # author): the agent must treat them as data and never act on instructions found inside them.
@@ -70,13 +72,65 @@ def _method(review_type: str) -> str:
 
 _PIPELINE_HINTS = ("gitlab", "jenkins", "pipeline", "ci/cd", "cicd", "stages:")
 
+# Checklist domains of each scan language (scanner.SUPPORTED_LANGUAGES)
+_LANGUAGE_DOMAINS = {
+    "python": ("python",),
+    "java": ("java",),
+    "angular": ("angular",),
+    "typescript": ("angular",),
+    "javascript": ("angular",),
+    "config": ("config",),
+    "yaml": ("config",),
+    "docker": ("config",),
+    "gitlab-ci": ("config", "cicd"),
+    "jenkins": ("config", "cicd"),
+}
 
-def _cicd_checklist(kind: str, content: str) -> str:
-    """Return the CI/CD checklist when the files look like pipeline definitions."""
+
+def _looks_like_pipeline(kind: str, content: str) -> bool:
+    """Tell whether configuration files look like CI/CD pipeline definitions."""
     haystack = f"{kind}\n{content[:2000]}".lower()
-    if any(hint in haystack for hint in _PIPELINE_HINTS):
-        return render_checklist_markdown("cicd")
-    return ""
+    return any(hint in haystack for hint in _PIPELINE_HINTS)
+
+
+def _words(languages: str) -> list[str]:
+    """Split a free-text language list ("python, angular") into lowercase words."""
+    return list(dict.fromkeys(x.lower() for x in languages.replace(",", " ").split()))
+
+
+def _known_languages(languages: str) -> list[str]:
+    """Return the canonical scan languages of a free-text list; aliases such as ``py`` or
+    ``ts`` are accepted and unknown words are ignored."""
+    known: list[str] = []
+    for word in _words(languages):
+        try:
+            known.append(scanner.normalize_language(word))
+        except ValueError:
+            continue
+    return known
+
+
+def _language_domains(languages: str) -> list[str]:
+    """Return the checklist domains of free-text languages."""
+    return [d for lang in _known_languages(languages) for d in _LANGUAGE_DOMAINS.get(lang, ())]
+
+
+def _checklists(domains: list[str]) -> str:
+    """Render the checklists of the domains and the company checklist, then name the other
+    available checklists (other languages, internal domains) so the agent can fetch them."""
+    available = checklist_domains()
+    included = [d for d in dict.fromkeys(domains) if d in available]
+    others = [d for d in available if d not in included and d != COMPANY_DOMAIN]
+    sections = [render_checklist_markdown(d) for d in included]
+    sections.append(company_checklist_markdown())
+    if others:
+        names = ", ".join(f"`{d}`" for d in others)
+        sections.append(
+            f"### Other checklists\nNot included above: {names}. Call `get_review_checklist` "
+            "for each one that applies to the code you review (its languages, frameworks, "
+            "configuration or business domain) and walk through it too."
+        )
+    return "\n\n".join(x for x in sections if x)
 
 
 def _context_block(context: str, focus: str) -> str:
@@ -117,20 +171,19 @@ def _code_block(code: str, language: str) -> str:
 def build_security_review_prompt(
     language: str, code: str, context: str, focus: str, report_language: str = ""
 ) -> str:
-    """Build the general security-review prompt for Python, Java or Angular code."""
-    lang = language.strip().lower() or "python"
-    domains = [lang if lang in ("python", "java", "angular") else None, "api"]
-    checklists = "\n\n".join(render_checklist_markdown(d) for d in domains if d)
-    checklists = "\n\n".join(x for x in (checklists, company_checklist_markdown()) if x)
+    """Build the general security-review prompt for one or more languages ("python, angular")."""
+    langs = _words(language)
+    subject = f"**{', '.join(langs)}** code" if langs else "code"
     sections = [
         f"You are a senior application security engineer performing a code review of "
-        f"**{lang}** code. Look for security vulnerabilities and insecure configuration "
+        f"{subject}. Look for security vulnerabilities and insecure configuration "
         "(OWASP Top 10, CWE).",
         _context_block(context, focus),
         report_language_block(report_language),
         _method("security-review"),
-        checklists,
-        _code_block(code, lang),
+        _checklists([*_language_domains(language), "api"]),
+        # Only a known language labels the fence: free text could break out of it
+        _code_block(code, next(iter(_known_languages(language)), "")),
     ]
     return "\n\n".join(s for s in sections if s)
 
@@ -151,8 +204,7 @@ def build_api_review_prompt(
         "established, how object ownership is verified, which fields are accepted and "
         "returned, and which limits apply (size, rate, pagination).",
         _method("api-security-review"),
-        render_checklist_markdown("api"),
-        company_checklist_markdown(),
+        _checklists(["api"]),
         _code_block(code, "text"),
     ]
     return "\n\n".join(s for s in sections if s)
@@ -172,9 +224,7 @@ def build_config_review_prompt(
         _method("configuration-review").replace(
             "`scan_code`", "`scan_code` (use language `config`, `yaml` or `docker`)"
         ),
-        render_checklist_markdown("config"),
-        _cicd_checklist(kind, content),
-        company_checklist_markdown(),
+        _checklists(["config", *(["cicd"] if _looks_like_pipeline(kind, content) else [])]),
         _code_block(content, "yaml"),
     ]
     return "\n\n".join(s for s in sections if s)
@@ -236,8 +286,7 @@ Reply with a short summary and the findings, then call `save_security_report` on
 `review_type` `dependency-review`. {_AUTHOR_RULE} Use category `dependency`, the advisory \
 id as `rule_id`, `CWE-1395` for vulnerable components and the manifest path as `file_path`.
 """,
-        render_checklist_markdown("dependencies"),
-        company_checklist_markdown(),
+        _checklists(["dependencies"]),
         (
             f"## Dependency files\n{fenced(files.strip())}"
             if files.strip()
@@ -290,10 +339,8 @@ def build_codebase_review_prompt(
     languages: str, scan_results: str, context: str, focus: str, report_language: str = ""
 ) -> str:
     """Build the whole-codebase review prompt (not limited to a diff)."""
-    langs = [x.strip().lower() for x in languages.replace(",", " ").split() if x.strip()]
-    domains = [x for x in dict.fromkeys(langs) if x in ("python", "java", "angular")]
-    domains += ["api", "config"]
-    checklists = "\n\n".join(render_checklist_markdown(d) for d in domains)
+    langs = _words(languages)
+    checklists = _checklists([*_language_domains(languages), "api", "config", "cicd"])
     results = scan_results.strip()
     scope = f" ({', '.join(langs)})" if langs else ""
     sections = [
@@ -305,7 +352,6 @@ def build_codebase_review_prompt(
         report_language_block(report_language),
         _CODEBASE_METHOD,
         checklists,
-        company_checklist_markdown(),
         f"## Scan results\n{fenced(results, 'json')}" if results else "",
     ]
     return "\n\n".join(s for s in sections if s)

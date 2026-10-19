@@ -148,7 +148,8 @@ A full example is provided in `examples/rules/company.toml`.
 
 - An `id` equal to a default rule **edits** it (it then shows as `modified` and is no longer
   updated by new versions of the server).
-- A new `domain` can be used at once with `get_review_checklist`.
+- A new `domain` can be used at once with `get_review_checklist`, and the review prompts name it
+  for the agent to fetch.
 - A change (CLI, web interface) is picked up by every running server **within a few seconds**,
   without restart; the `reload_rules` tool and the **Reload** button of the **Rules** screen apply
   it immediately. Changes made in the **Checklists** screen reload the registry immediately.
@@ -186,7 +187,21 @@ business flows, Kubernetes hardening, RBAC, proxy headers, lockfile integrity).
 
 Languages accepted by `scan_code`: `python`, `java`, `typescript`, `javascript`, `angular`,
 `config`, `yaml`, `docker`, `gitlab-ci`, `jenkins` (aliases: `jenkinsfile`, `groovy`, `gitlab`,
-`yml`...). A `cicd` checklist is added automatically to pipeline reviews.
+`yml`...).
+
+### Checklists in review prompts
+
+| Prompt | Embedded checklists |
+|---|---|
+| `security-review` | The checklists of `language` (`python`, `java`, `angular` for `typescript` and `javascript`, `config` and `cicd` for pipelines), then `api` |
+| `codebase-review` | The checklists of `languages`, then `api`, `config` and `cicd` |
+| `api-security-review` | `api` |
+| `configuration-review` | `config`, plus `cicd` when the files look like a pipeline |
+| `dependency-review` | `dependencies` |
+
+The `company` checklist is added to every prompt. The other domains, internal ones included, are
+named at the end of the checklists: the agent fetches with `get_review_checklist` those that
+apply to the code it reviews.
 
 ## Suppressing a false positive
 

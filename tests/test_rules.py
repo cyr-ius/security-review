@@ -79,6 +79,8 @@ def test_company_checklist_is_added_to_review_prompts(import_pack):
     text = prompts.build_security_review_prompt("python", "x = 1", "", "")
     assert "ACME-CL-01" in text
     assert "ACME-CL-01" in prompts.build_api_review_prompt("FastAPI", "", "", "")
+    # Other domains, such as an internal one, are named for get_review_checklist, not embedded
+    assert "`payments`" in text and "ACME-PAY-01" not in text
 
 
 def test_without_pack_there_is_no_company_section():

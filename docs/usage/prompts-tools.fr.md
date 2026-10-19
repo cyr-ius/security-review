@@ -4,7 +4,7 @@
 
 | Prompt | Usage | Arguments |
 |---|---|---|
-| `security-review` | Revue générale Python / Java / Angular | `language`, `code`, `context`, `focus`, `report_language` |
+| `security-review` | Revue générale de code Python, Java ou Angular (`language` : un ou plusieurs langages, par exemple `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
 | `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
 | `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
 | `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
@@ -15,6 +15,12 @@
 Si `code` est vide, le prompt demande à l'agent de relire les fichiers de son espace de travail.
 Chaque prompt de revue se termine par l'instruction d'appeler `save_security_report` une seule
 fois ; `development-standards` n'enregistre rien.
+
+Chaque prompt de revue intègre les checklists de son domaine (selon les langages pour
+`security-review` et `codebase-review`, alias comme `py` ou `ts` acceptés) et la checklist
+`company`, puis nomme les autres checklists disponibles, domaines internes compris, que l'agent
+récupère avec `get_review_checklist` quand elles s'appliquent
+([détails](../advanced/rules.md#checklists-des-prompts-de-revue)).
 
 ### Langue des rapports
 
@@ -43,7 +49,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 
 | Outil | Rôle |
 |---|---|
-| `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `api`, `config` |
+| `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
 | `scan_code` | Scan rapide par motifs et analyses Tree-sitter ciblées des flux SQL Python, DOM Angular et origines de messages non vérifiées (pistes à vérifier, **pas** un SAST complet). Extraits masqués |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |

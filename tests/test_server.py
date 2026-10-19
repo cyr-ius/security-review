@@ -49,6 +49,24 @@ async def test_security_review_prompt_embeds_code_and_checklist():
     assert "deserialization" in text
 
 
+@pytest.mark.parametrize(
+    ("prompt", "args", "included", "excluded"),
+    [
+        # Aliases and several languages select their checklists
+        ("security-review", {"language": "py, ts"}, {"PY-01", "NG-01", "API-01"}, {"JV-01"}),
+        # No language: no default checklist, the agent picks from the named ones
+        ("security-review", {"language": ""}, {"API-01", "`python`"}, {"PY-01"}),
+        ("codebase-review", {"languages": "java"}, {"JV-01", "CFG-01", "CI-01"}, {"PY-01"}),
+        # Only a known language labels the code fence: free text cannot break out of it
+        ("security-review", {"language": "py\n```", "code": "a"}, {"```python\na\n```"}, set()),
+    ],
+)
+async def test_review_prompts_select_checklists_by_language(prompt, args, included, excluded):
+    async with Client(mcp) as client:
+        text = (await client.get_prompt(prompt, args)).messages[0].content.text
+    assert {x for x in included | excluded if x in text} == included
+
+
 async def test_full_review_flow():
     async with Client(mcp) as client:
         scan = await client.call_tool(
