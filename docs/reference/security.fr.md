@@ -135,7 +135,9 @@
   connectée à l'interface (session) accepte un risque ou marque un faux positif : un jeton Bearer
   est refusé (`403`), même `admin`. Ces deux décisions exigent un motif et une date d'expiration
   (au plus `SECREVIEW_MAX_DISMISSAL_DAYS` jours) ; l'approbateur est l'utilisateur connecté, et le
-  finding est de nouveau compté comme ouvert une fois la date passée.
+  finding est de nouveau compté comme ouvert une fois la date passée. Seule une acceptation peut
+  être sans date d'expiration, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` : réglez-le
+  ainsi pour imposer une revue périodique de chaque risque accepté.
 - **Les agents ne ferment jamais un finding** : le serveur MCP n'offre que
   `propose_finding_status`, qui enregistre une proposition (motif masqué et borné, auteur tiré du
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt

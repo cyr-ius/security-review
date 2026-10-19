@@ -323,6 +323,19 @@ def _check_reason(reason: str | None, required: bool) -> str | None:
     return redact_secrets(reason)
 
 
+def _check_expiry(expires_at: datetime, now: datetime, longest: int) -> datetime:
+    """Return the expiry date of a dismissal, in the future and at most ``longest`` days away.
+
+    Raises:
+        ValueError: If the date is past or too far.
+    """
+    if expires_at <= now:
+        raise ValueError("The expiry date must be in the future")
+    if expires_at > now + timedelta(days=longest):
+        raise ValueError(f"The expiry date must be at most {longest} days away")
+    return expires_at
+
+
 def update_finding_status(
     finding_id: int,
     status: FindingStatus,
@@ -335,6 +348,7 @@ def update_finding_status(
 
     ``accepted`` and ``false_positive`` need a reason and an expiry date, in the future and at
     most SECREVIEW_MAX_DISMISSAL_DAYS days away: once expired, the finding counts as open again.
+    An acceptance may have no expiry date while SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
     ``fixed`` takes an optional reason; ``open`` clears the decision. Any decision clears the
     status proposed by an agent. The decision is written to the audit log (``actor``, default
     the approver).
@@ -349,14 +363,12 @@ def update_finding_status(
     now = utcnow()
     if status in DISMISSED_STATUSES:
         reason = _check_reason(reason, required=True)
+        settings = get_settings()
         if expires_at is None:
-            raise ValueError(f"An expiry date is required for the status '{status.value}'")
-        expires_at = as_utc(expires_at)
-        longest = get_settings().max_dismissal_days
-        if expires_at <= now:
-            raise ValueError("The expiry date must be in the future")
-        if expires_at > now + timedelta(days=longest):
-            raise ValueError(f"The expiry date must be at most {longest} days away")
+            if status != FindingStatus.ACCEPTED or not settings.permanent_acceptance_enabled:
+                raise ValueError(f"An expiry date is required for the status '{status.value}'")
+        else:
+            expires_at = _check_expiry(as_utc(expires_at), now, settings.max_dismissal_days)
     else:
         if expires_at is not None:
             raise ValueError(f"The status '{status.value}' takes no expiry date")

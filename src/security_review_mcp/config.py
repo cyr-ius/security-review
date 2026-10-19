@@ -194,6 +194,10 @@ class Settings(BaseSettings):
     # Longest validity, in days, of a triage decision "accepted" or "false_positive": its expiry
     # date may not be later. Once expired, the finding counts as open again (gate, posture).
     max_dismissal_days: int = Field(default=365, ge=1, le=MAX_RETENTION_DAYS)
+    # Controller only: a person may accept a risk without an expiry date ("No expiry" in the web
+    # interface); the acceptance then lasts until someone reopens the finding. False: every
+    # acceptance needs an expiry date. A false positive always needs one.
+    permanent_acceptance_enabled: bool = True
 
     # Longest validity, in days, of a bearer token created or rotated (CLI, web interface,
     # enrollment), which is also its default validity. 0: tokens never expire unless an expiry is

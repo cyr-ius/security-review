@@ -41,6 +41,7 @@ export const reports = defineMessages({
       'The decision on finding #{id} was refused: check the reason (10 characters or more) and the expiry date.',
     'report.decisionBy': 'Decided by {approver}',
     'report.decisionUntil': 'valid until {date}',
+    'report.decisionNoExpiry': 'no expiry',
     'report.decisionExpired': 'Decision expired on {date}: open again',
     'report.proposalBy': '{by} proposes "{status}" ({date})',
     'report.proposalUntrusted':
@@ -54,6 +55,8 @@ export const reports = defineMessages({
     'report.dismissExpiry': 'Expiry date',
     'report.dismissExpiryHelp':
       'From this day the finding counts as open again and blocks the gate.',
+    'report.dismissNoExpiry': 'No expiry',
+    'report.dismissNoExpiryHelp': 'The risk stays accepted until someone reopens the finding.',
     'report.dismissSave': 'Save the decision',
     'report.dismissCancel': 'Cancel',
   },
@@ -96,6 +99,7 @@ export const reports = defineMessages({
       "La décision sur le finding #{id} a été refusée : vérifiez le motif (10 caractères ou plus) et la date d'expiration.",
     'report.decisionBy': 'Décidé par {approver}',
     'report.decisionUntil': "valable jusqu'au {date}",
+    'report.decisionNoExpiry': 'sans expiration',
     'report.decisionExpired': 'Décision expirée le {date} : de nouveau ouvert',
     'report.proposalBy': '{by} propose « {status} » ({date})',
     'report.proposalUntrusted':
@@ -109,6 +113,9 @@ export const reports = defineMessages({
     'report.dismissExpiry': "Date d'expiration",
     'report.dismissExpiryHelp':
       'À partir de ce jour, le finding est de nouveau ouvert et bloque le gate.',
+    'report.dismissNoExpiry': 'Sans expiration',
+    'report.dismissNoExpiryHelp':
+      "Le risque reste accepté jusqu'à ce que quelqu'un rouvre le finding.",
     'report.dismissSave': 'Enregistrer la décision',
     'report.dismissCancel': 'Annuler',
   },
@@ -151,6 +158,7 @@ export const reports = defineMessages({
       'La decisión sobre el hallazgo #{id} fue rechazada: revise el motivo (10 caracteres o más) y la fecha de caducidad.',
     'report.decisionBy': 'Decidido por {approver}',
     'report.decisionUntil': 'válido hasta el {date}',
+    'report.decisionNoExpiry': 'sin caducidad',
     'report.decisionExpired': 'Decisión caducada el {date}: abierto de nuevo',
     'report.proposalBy': '{by} propone «{status}» ({date})',
     'report.proposalUntrusted':
@@ -164,6 +172,8 @@ export const reports = defineMessages({
     'report.dismissExpiry': 'Fecha de caducidad',
     'report.dismissExpiryHelp':
       'A partir de ese día el hallazgo vuelve a estar abierto y bloquea el gate.',
+    'report.dismissNoExpiry': 'Sin caducidad',
+    'report.dismissNoExpiryHelp': 'El riesgo sigue aceptado hasta que alguien reabra el hallazgo.',
     'report.dismissSave': 'Guardar la decisión',
     'report.dismissCancel': 'Cancelar',
   },

@@ -88,6 +88,8 @@ export interface Identity {
   auth_source?: AuthSource | null;
   /** Password set by someone else: only My account is reachable until it is changed. */
   must_change_password?: boolean;
+  /** A risk may be accepted without an expiry date (SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED). */
+  permanent_acceptance?: boolean;
   version: string;
 }
 
@@ -515,8 +517,8 @@ export const DISMISSED_STATUSES: readonly FindingStatus[] = ['accepted', 'false_
 export interface FindingDecision {
   status: FindingStatus;
   reason?: string;
-  /** YYYY-MM-DD: the finding counts as open again from that day. */
-  expires_on?: string;
+  /** YYYY-MM-DD: the finding counts as open again from that day; null: no expiry (accepted). */
+  expires_on?: string | null;
 }
 
 /** A finding of GET /api/v1/findings, with the context of its report. */
