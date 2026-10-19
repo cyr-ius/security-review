@@ -41,8 +41,7 @@ uv run mkdocs build --strict       # ce que fait la CI : un lien cassé fait éc
 ```
 
 La CI (`.github/workflows/`) lance ruff et pytest sur Python 3.14 et 3.15 avec
-`uv sync --locked` : après un changement de dépendances dans `pyproject.toml`, lancez `uv lock`
-et commitez `uv.lock`. Les actions des workflows sont épinglées sur le SHA complet d'un commit,
+`uv sync --locked` (d'où `uv lock` après un changement de dépendances). Les actions des workflows sont épinglées sur le SHA complet d'un commit,
 avec la version en commentaire (`@<sha> # vX.Y.Z`) : faites de même pour toute nouvelle action.
 
 ## Branches et versions
@@ -118,17 +117,16 @@ valident les entrées et appellent ces modules.
 disponibles via le serveur MCP `security-review`.** S'il est connecté, consultez-les avant
 d'écrire du code : prompt `development-standards`, outils `list_development_standards` et
 `get_development_standards` (par technologie ou par fichier), ressources `standards://catalog`
-et `standard://{slug}`. Elles complètent les règles ci-dessous ; en cas de conflit, ce fichier
-prévaut pour ce dépôt.
+et `standard://{slug}`. Les règles génériques qu'elles contiennent ne sont pas répétées ici :
+`conventions` (ruff, `uv lock`, Conventional Commits), `fastapi` (Python 3.14, annotations,
+docstrings, code et logs en anglais, `get_settings()`, ORM, Alembic, jetons hachés), `angular`
+et `tests-python` (méthode de test). Ce fichier ne garde que ce qui est propre à ce dépôt ; en
+cas de conflit, il prévaut.
 
-- Python ≥ 3.14, annotations de type partout, ruff (longueur 100, règles `E F W I B C4 UP`).
-- **Code, docstrings, commentaires, messages d'erreur et logs en anglais.** Chaque module et
-  chaque fonction a une docstring. La documentation utilisateur (`docs/`, README) est
-  **bilingue, anglais et français** (voir [Documentation](#documentation)).
+- La documentation utilisateur (`docs/`, README) est **bilingue, anglais et français** (voir
+  [Documentation](#documentation)).
 - Imitez le code voisin : mêmes noms, même densité de commentaires, pas de nouvelle dépendance
   sans nécessité (le serveur doit rester installable hors ligne).
-- Messages de commit : Conventional Commits en anglais (`feat:`, `fix:`, `docs:`, `test:`,
-  `chore:`, `ci:`).
 
 ### Outils et prompts MCP
 
@@ -147,11 +145,9 @@ prévaut pour ce dépôt.
 - Chaque route JSON du contrôleur déclare son modèle de réponse dans `web_api/schemas.py` (jamais
   `-> dict`) : il documente l'API et filtre les champs non déclarés. Un test le vérifie sur le
   schéma OpenAPI.
-- Angular : formulaires de saisie en Signal Forms, pas de `.subscribe()` dans les composants
-  (`rxResource` ou `firstValueFrom`), un dossier par composant quand une fonctionnalité en a
-  plusieurs, `linkedSignal` plutôt qu'un `effect()` qui recopie un signal, signaux des services en
-  `asReadonly()`, `shared/` sans service métier, couleurs par variables Bootstrap ou jetons de
-  `styles.css`. Le détail est dans `docs/contributing`.
+- Angular, en plus du standard `angular` : formulaires de saisie en Signal Forms (obligatoire),
+  aucun `.subscribe()` dans les composants (`rxResource` ou `firstValueFrom`), couleurs par
+  variables Bootstrap ou jetons de `styles.css`. Le détail est dans `docs/contributing`.
 
 ### Invariants de sécurité (ne jamais régresser)
 
@@ -199,8 +195,7 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 ### Paramètres
 
 Un nouveau paramètre s'ajoute dans `config.Settings` (préfixe `SECREVIEW_` automatique), avec
-un commentaire, puis dans `.env.example` et `docs/reference/configuration.md` (et `.fr.md`). Lisez-le via
-`get_settings()`, jamais avec `os.environ`.
+un commentaire, puis dans `.env.example` et `docs/reference/configuration.md` (et `.fr.md`).
 
 ### Règles de scan
 
@@ -221,40 +216,11 @@ seuil), `2` erreur d'usage ou de données (`_fail` écrit l'erreur en JSON sur s
 
 ## Tests
 
-Un test protège un **contrat** ou un **invariant**, pas une ligne de code. Il n'y a pas
-d'objectif de couverture : moins de tests, mais qui échouent pour une vraie raison. Les tests
-d'un changement sont dans le même commit que lui.
-
-**À tester (prioritaire)**
-
-- les invariants de sécurité (secret masqué, limite refusée, 401/403, aucun statut changé par un
-  agent, aucune lecture disque depuis un outil MCP) ;
-- les contrats publics : outils et prompts MCP, codes de sortie CLI, schéma de l'API REST,
-  migrations ;
-- toute correction de bug : **un** test de régression, qui échoue avant la correction ;
-- les règles de scan : un cas positif et un cas négatif, en lignes de `parametrize`.
-
-**À ne pas tester**
-
-- ce que garantit déjà une bibliothèque (validation Pydantic / FastAPI → 422, SQLModel,
-  argparse, Angular) ;
-- le détail d'implémentation (fonction privée, ordre des appels, mock d'un appel interne) ;
-- le texte exact d'un message ou d'un log, sauf s'il fait partie du contrat ;
-- chaque entrée invalide : **un** cas par catégorie d'erreur suffit ;
-- une refactorisation sans changement de comportement : les tests existants suffisent.
-
-**Méthode**
-
-- Avant d'écrire un test, cherchez celui qui couvre déjà le comportement dans
-  `tests/test_<module>.py` : **étendez-le** (assertion supplémentaire, ligne de `parametrize`)
-  plutôt que d'en créer un nouveau.
-- Ordre de grandeur : un changement ajoute **1 à 3 tests**. Au-delà, justifiez-le dans la
-  réponse ou la PR.
-- Vous pouvez **fusionner ou supprimer** un test redondant ou devenu obsolète du module modifié ;
-  signalez-le dans la réponse. Ne supprimez jamais le dernier test d'un invariant de sécurité ou
-  une régression de bug : fusionnez-les seulement.
-- Un invariant de sécurité est testé une fois, au plus près du module qui le garantit : ne
-  dupliquez pas ce test dans chaque couche (service, API, MCP).
+La méthode (un test protège un **contrat** ou un **invariant**, pas une ligne de code ; quoi
+tester et quoi ne pas tester ; étendre un test existant plutôt qu'en créer un ; **1 à 3 tests**
+par changement ; **un** test de régression qui échoue avant la correction ; un invariant de
+sécurité testé une fois, au plus près du module qui le garantit) est dans le standard
+`tests-python` du serveur MCP. Les tests d'un changement sont dans le même commit que lui.
 
 **Conventions**
 
