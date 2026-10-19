@@ -101,6 +101,18 @@ def test_built_in_roles_exist_and_cannot_change():
     assert access_control.ensure_system_roles() == built_in
 
 
+def test_mcp_user_is_an_ordinary_role_that_creates_mcp_tokens():
+    roles = {role["name"]: role for role in access_control.list_roles()}
+    mcp_user = roles["mcp-user"]
+    assert not mcp_user["system"] and not mcp_user["scoped"]
+    assert mcp_user["permissions"] == ["mcp_tokens.create"]
+    assert {"name": "mcp_tokens.create", "scoped": False} in access_control.list_permissions()
+    # A controller-wide permission: never limited to projects
+    with pytest.raises(ValueError):
+        access_control.clean_projects(["mcp_tokens.create"], ["shop"])
+    access_control.delete_role(mcp_user["id"])
+
+
 def test_triager_is_an_ordinary_role():
     roles = {role["name"]: role for role in access_control.list_roles()}
     triager = roles["triager"]

@@ -28,6 +28,7 @@ compte.
 | `users.manage` | Utilisateurs, groupes, rôles et configuration OIDC (elle décide qui rejoint quel groupe) | |
 | `audit.read` | Journal d'audit | |
 | `projects.create` | Créer un nouveau projet, que son créateur lit ensuite (voir [Création d'un projet](#creation-dun-projet)) | |
+| `mcp_tokens.create` | Créer un [jeton MCP personnel](../usage/web-interface.md#jetons-mcp-personnels) dans **Mon compte** | |
 
 `users.manage` permet à son détenteur de se donner toutes les autres permissions : ne la donnez
 qu'aux administrateurs. Accepter un risque ou marquer un faux positif demande en plus une session
@@ -43,8 +44,13 @@ dès le départ et ne peuvent être ni modifiés ni supprimés, car le contrôle
 | `reader` | `reports.read` | les [groupes de projet](#groupes-de-projet) créés à l'approbation d'un enrôlement |
 | `admin` | toutes les permissions (y compris celles qu'ajoute une version ultérieure) | le groupe `administrators` du premier administrateur, `SECREVIEW_OIDC_ADMIN_GROUPS` |
 
-Le rôle `triager` (`reports.read`, `findings.triage`) est lui aussi créé avec la base, mais c'est
-un rôle ordinaire : les administrateurs le modifient ou le suppriment comme n'importe quel autre.
+Deux rôles ordinaires sont aussi créés avec la base : les administrateurs les modifient ou les
+suppriment comme n'importe quel autre.
+
+| Rôle ordinaire | Permissions | Donne |
+|---|---|---|
+| `triager` | `reports.read`, `findings.triage` | le triage des findings |
+| `mcp-user` | `mcp_tokens.create` | la création d'un [jeton MCP personnel](../usage/web-interface.md#jetons-mcp-personnels) ; donnez-le avec un rôle de lecture, car le jeton atteint les projets que son utilisateur peut lire |
 
 Les administrateurs créent d'autres rôles (100 au plus), par exemple un rôle *Auditeur* avec
 `audit.read` et `reports.read`. La modification d'un rôle s'applique aussitôt aux sessions

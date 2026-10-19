@@ -1,6 +1,6 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
@@ -10,11 +10,12 @@ import { TOKEN_ROLE_LABELS } from '../../../core/constants/labels';
 import { MessageKey } from '../../../core/i18n/messages';
 import { PersonalTokenRole, ProjectToken } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 /**
  * Personal tokens of the logged-in user (My account): REST API tokens (Swagger, scripts), which
  * hold the current rights of the user, and MCP tokens for its agent, which reach the projects the
- * user may read. The secret is shown once.
+ * user may read (with the mcp_tokens.create permission). The secret is shown once.
  */
 @Component({
   selector: 'app-api-tokens',
@@ -25,6 +26,7 @@ import { ApiService } from '../../../core/services/api.service';
 export class ApiTokensComponent {
   private readonly api = inject(ApiService);
   private readonly i18n = inject(I18nService);
+  private readonly auth = inject(AuthService);
 
   readonly tokens = rxResource({ stream: () => this.api.myTokens() });
   readonly model = signal<ApiTokenFormModel>({ ...EMPTY_FORM });
@@ -33,7 +35,10 @@ export class ApiTokensComponent {
     maxLength(path.label, 64);
   });
   readonly validities = VALIDITY_DAYS;
-  readonly roles = PERSONAL_ROLES;
+  /** The MCP usage is offered only to a user with mcp_tokens.create (the server checks it). */
+  readonly roles = computed(() =>
+    PERSONAL_ROLES.filter((role) => role !== 'mcp' || this.auth.can('mcp_tokens.create')),
+  );
   readonly createdToken = signal<string | null>(null);
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);

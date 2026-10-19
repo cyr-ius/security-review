@@ -79,6 +79,10 @@ export const PERMISSION_META: Record<Permission, { label: MessageKey; help: Mess
     label: 'permission.projectsCreate',
     help: 'permission.projectsCreateHelp',
   },
+  'mcp_tokens.create': {
+    label: 'permission.mcpTokensCreate',
+    help: 'permission.mcpTokensCreateHelp',
+  },
 };
 
 /** Permissions limited to projects (the others concern the whole controller). */

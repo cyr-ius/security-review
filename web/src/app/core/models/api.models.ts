@@ -67,7 +67,8 @@ export type Permission =
   | 'settings.manage'
   | 'users.manage'
   | 'audit.read'
-  | 'projects.create';
+  | 'projects.create'
+  | 'mcp_tokens.create';
 
 /** Each permission held, with its projects (null: every project). */
 export type Grants = Partial<Record<Permission, string[] | null>>;

@@ -25,6 +25,7 @@ its projects. A person gets read or triage access through the groups of their ac
 | `users.manage` | Users, groups, roles and OIDC settings (they decide who joins which group) | |
 | `audit.read` | Audit log | |
 | `projects.create` | Create a new project, which its creator then reads (see [Creating a project](#creating-a-project)) | |
+| `mcp_tokens.create` | Create a [personal MCP token](../usage/web-interface.md#personal-mcp-tokens) in **My account** | |
 
 `users.manage` lets its holder give itself every other permission: give it only to
 administrators. Accepting a risk or marking a false positive also needs a session of the web
@@ -40,8 +41,13 @@ the start and can be neither changed nor deleted, because the controller relies 
 | `reader` | `reports.read` | the [project groups](#project-groups) created at the approval of an enrollment |
 | `admin` | every permission (including the ones a later version adds) | the `administrators` group of the first administrator, `SECREVIEW_OIDC_ADMIN_GROUPS` |
 
-The `triager` role (`reports.read`, `findings.triage`) is also created with the database, but it
-is an ordinary role: administrators change or delete it like any other.
+Two ordinary roles are also created with the database: administrators change or delete them like
+any other.
+
+| Ordinary role | Permissions | Gives |
+|---|---|---|
+| `triager` | `reports.read`, `findings.triage` | the triage of the findings |
+| `mcp-user` | `mcp_tokens.create` | the creation of a [personal MCP token](../usage/web-interface.md#personal-mcp-tokens); give it with a reading role, since the token reaches the projects its user may read |
 
 Administrators create other roles (100 at most), for example an *Auditor* role with
 `audit.read` and `reports.read`. A change of a role applies at once to the open sessions of the
