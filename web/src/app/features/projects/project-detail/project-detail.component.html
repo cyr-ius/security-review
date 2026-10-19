@@ -19,6 +19,13 @@
     </a>
     <a
       class="btn btn-sm btn-outline-secondary"
+      [routerLink]="['/projects', project(), 'risk-acceptances']"
+    >
+      <i class="bi bi-shield-exclamation" aria-hidden="true"></i>
+      {{ 'acceptances.title' | t }}
+    </a>
+    <a
+      class="btn btn-sm btn-outline-secondary"
       routerLink="/reports"
       [queryParams]="{ project: project() }"
     >

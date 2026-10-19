@@ -50,6 +50,8 @@ PROPOSABLE_STATUSES = frozenset(
     {FindingStatus.FIXED, FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE}
 )
 MAX_STATUS_REASON_CHARS = 1000
+# Longest comment of a person on a finding (see FindingComment)
+MAX_COMMENT_CHARS = 2000
 # Developer username declared with a report, and label of the token that saved it
 MAX_AUTHOR_CHARS = 200
 
@@ -138,6 +140,10 @@ class Finding(FindingBase, table=True):
     proposed_by: str | None = Field(default=None, max_length=200)
     proposed_at: datetime | None = Field(default=None)
     report: SecurityReport = Relationship(back_populates="findings")
+    comments: list[FindingComment] = Relationship(
+        back_populates="finding",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 class FindingCreate(FindingBase):
@@ -164,6 +170,30 @@ class FindingPublic(FindingBase):
         """Show an expired acceptance or false positive as open (its reason stays visible)."""
         self.status = effective_status(self.status, self.status_expires_at)
         return self
+
+
+class FindingComment(SQLModel, table=True):
+    """Comment of a person on a finding, mostly on its risk acceptance.
+
+    Append-only: no tool nor route edits or deletes a comment; it goes with its finding.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    finding_id: int = Field(foreign_key="finding.id", index=True)
+    author: str = Field(max_length=200)
+    body: str = Field(max_length=MAX_COMMENT_CHARS)
+    created_at: datetime = Field(default_factory=utcnow)
+    finding: Finding = Relationship(back_populates="comments")
+
+
+class FindingCommentPublic(SQLModel):
+    """Comment of a finding as returned to the web interface."""
+
+    id: int
+    finding_id: int
+    author: str
+    body: str
+    created_at: datetime
 
 
 # ── Reports ──────────────────────────────────────────────────────────────────

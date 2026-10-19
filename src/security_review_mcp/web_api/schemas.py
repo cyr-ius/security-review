@@ -25,6 +25,7 @@ from ..config import MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS
 from ..http_server import Role
 from ..models import (
     MAX_AUTHOR_CHARS,
+    MAX_COMMENT_CHARS,
     MAX_STATUS_REASON_CHARS,
     FindingPublic,
     FindingStatus,
@@ -208,6 +209,29 @@ class ProjectFindingPage(BaseModel):
     project: str | None
     total: int
     findings: list[ProjectFinding]
+
+
+class RiskAcceptance(ProjectFinding):
+    """An accepted risk: the finding, the context of its report, whether the acceptance has
+    expired (the finding counts as open again) and its number of comments."""
+
+    expired: bool
+    comments_total: int
+
+
+class RiskAcceptancePage(BaseModel):
+    """One page of the accepted risks of a project, or of every project in the scope of the
+    caller (``project`` None; ``total`` counts every acceptance)."""
+
+    project: str | None
+    total: int
+    acceptances: list[RiskAcceptance]
+
+
+class FindingCommentCreate(BaseModel):
+    """Body of POST /findings/{id}/comments: a comment, which can never be edited."""
+
+    body: str = Field(min_length=1, max_length=MAX_COMMENT_CHARS)
 
 
 class FindingStatusUpdate(BaseModel):

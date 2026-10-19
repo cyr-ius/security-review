@@ -2169,6 +2169,37 @@ def test_triager_rejects_an_agent_proposal(secured, web_sessions, reports):
     )
 
 
+def test_risk_acceptances_and_their_append_only_comments(secured, web_sessions, reports):
+    finding_id = services.get_report(reports[0]).findings[0].id
+    services.update_finding_status(
+        finding_id,
+        FindingStatus.ACCEPTED,
+        "triager",
+        "Internal tool only",
+        datetime.now(UTC) + timedelta(days=30),
+    )
+    page = secured.get(
+        "/api/v1/risk-acceptances", params={"project": "shop-api"}, headers=auth("reader")
+    ).json()
+    assert [(row["id"], row["expired"]) for row in page["acceptances"]] == [(finding_id, False)]
+    url = f"/api/v1/findings/{finding_id}/comments"
+
+    # Only a person logged in with the triage permission comments, never a bearer token
+    assert secured.post(url, json={"body": "Why?"}, headers=auth("reader")).status_code == 403
+    assert secured.post(url, json={"body": "Why?"}, headers=auth("admin")).status_code == 403
+    response = secured.post(url, json={"body": "Renew it next quarter"}, headers=auth("triager"))
+    assert response.status_code == 201
+    comment = response.json()
+    assert (comment["author"], comment["body"]) == ("triager", "Renew it next quarter")
+
+    assert secured.get(url, headers=auth("reader")).json() == [comment]
+    # No route edits or deletes a comment
+    for method in ("PUT", "PATCH", "DELETE"):
+        response = secured.request(method, f"{url}/{comment['id']}", headers=auth("triager"))
+        assert response.status_code in (404, 405), method
+    assert secured.get("/api/v1/findings/999/comments", headers=auth("reader")).status_code == 404
+
+
 def test_password_login_opens_a_session(accounts, caplog):
     caplog.set_level(logging.INFO, logger="security_review_mcp.web")
     make_user("alice", USER_PASSWORD, "reader", ["shop-api"])

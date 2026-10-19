@@ -17,10 +17,13 @@ from .database import session_scope
 from .models import (
     DISMISSED_STATUSES,
     MAX_AUTHOR_CHARS,
+    MAX_COMMENT_CHARS,
     MAX_STATUS_REASON_CHARS,
     PROPOSABLE_STATUSES,
     SEVERITY_RANK,
     Finding,
+    FindingComment,
+    FindingCommentPublic,
     FindingCreate,
     FindingPublic,
     FindingStatus,
@@ -656,6 +659,130 @@ def list_project_findings(
             for finding, report in rows
         ]
     return {"project": project, "total": total, "findings": findings}
+
+
+def list_risk_acceptances(
+    project: str | None,
+    projects: Collection[str] | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> dict:
+    """List the accepted risks of a project (or of every project), expired ones included.
+
+    Nearest expiry first, the acceptances without expiry date last. Each acceptance carries the
+    context of its report, ``expired`` (it counts as open again) and its number of comments.
+    ``limit`` is capped by SECREVIEW_MAX_LIST_LIMIT; ``total`` counts every acceptance, for
+    paging.
+    ``projects`` (the scope of a restricted caller) keeps only the acceptances of these projects.
+    """
+    settings = get_settings()
+    limit = max(1, min(limit or settings.max_list_limit, settings.max_list_limit))
+    offset = max(0, offset)
+    filters = [Finding.status == FindingStatus.ACCEPTED]
+    if project is not None:
+        filters.append(SecurityReport.project == normalize_project(project))
+    if projects is not None:
+        filters.append(col(SecurityReport.project).in_(list(projects)))
+    comments = (
+        select(func.count())
+        .select_from(FindingComment)
+        .where(FindingComment.finding_id == Finding.id)
+        .scalar_subquery()
+    )
+    now = utcnow()
+    with session_scope() as session:
+        total = session.exec(
+            select(func.count())
+            .select_from(Finding)
+            .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+            .where(*filters)
+        ).one()
+        rows = session.exec(
+            select(Finding, SecurityReport, comments)
+            .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+            .where(*filters)
+            .order_by(
+                col(Finding.status_expires_at).is_(None),
+                col(Finding.status_expires_at),
+                col(Finding.id),
+            )
+            .offset(offset)
+            .limit(limit)
+        ).all()
+        acceptances = [
+            {
+                **FindingPublic.model_validate(finding, from_attributes=True).model_dump(),
+                "project": report.project,
+                "branch": report.branch,
+                "commit_sha": report.commit_sha,
+                "review_type": report.review_type,
+                "report_created_at": report.created_at,
+                "expired": effective_status(finding.status, finding.status_expires_at, now)
+                == FindingStatus.OPEN,
+                "comments_total": comment_count,
+            }
+            for finding, report, comment_count in rows
+        ]
+    return {"project": project, "total": total, "acceptances": acceptances}
+
+
+def list_finding_comments(finding_id: int) -> list[FindingCommentPublic]:
+    """Return the comments of a finding, oldest first.
+
+    Raises:
+        NotFoundError: If the finding does not exist.
+    """
+    with session_scope() as session:
+        if session.get(Finding, finding_id) is None:
+            raise NotFoundError(f"Finding {finding_id} not found")
+        rows = session.exec(
+            select(FindingComment)
+            .where(FindingComment.finding_id == finding_id)
+            .order_by(col(FindingComment.created_at), col(FindingComment.id))
+        ).all()
+        return [FindingCommentPublic.model_validate(row, from_attributes=True) for row in rows]
+
+
+def add_finding_comment(
+    finding_id: int, author: str, body: str, actor: str | None = None
+) -> FindingCommentPublic:
+    """Add the comment of a person to a finding; secrets in the text are masked.
+
+    Comments are append-only: nothing edits or deletes one. The comment is written to the
+    audit log (``actor``, default the author).
+
+    Raises:
+        NotFoundError: If the finding does not exist.
+        ValueError: If the author is missing or the text is empty or too long.
+    """
+    author = author.strip()
+    if not author:
+        raise ValueError("An author is required")
+    body = body.strip()
+    if not body:
+        raise ValueError("The comment is empty")
+    if len(body) > MAX_COMMENT_CHARS:
+        raise ValueError(f"The comment must have at most {MAX_COMMENT_CHARS} characters")
+    # The mask of a secret may be longer than the secret: keep the size of the column
+    body = redact_secrets(body)[:MAX_COMMENT_CHARS]
+    with session_scope() as session:
+        finding = session.get(Finding, finding_id)
+        if finding is None:
+            raise NotFoundError(f"Finding {finding_id} not found")
+        comment = FindingComment(finding_id=finding_id, author=author[:200], body=body)
+        session.add(comment)
+        audit.record(
+            session,
+            audit.AuditAction.FINDING_COMMENTED,
+            actor or author,
+            "finding",
+            finding_id,
+            finding.report.project,
+            {"comment": body},
+        )
+        session.flush()
+        logger.info("Comment added to finding %s", finding_id)
+        return FindingCommentPublic.model_validate(comment, from_attributes=True)
 
 
 def prune_empty_reports(retention_days: int | None = None) -> dict:

@@ -11,6 +11,10 @@
         <span class="badge text-bg-light ms-1">{{ openTotal() }}</span>
       }
     </a>
+    <a class="btn btn-sm btn-outline-secondary" routerLink="/risk-acceptances">
+      <i class="bi bi-shield-exclamation" aria-hidden="true"></i>
+      {{ 'acceptances.title' | t }}
+    </a>
     <app-refresh-button [loading]="projects.isLoading()" (refresh)="projects.reload()" />
   </div>
 </div>

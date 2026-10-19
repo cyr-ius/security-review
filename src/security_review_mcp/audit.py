@@ -1,5 +1,5 @@
-"""Audit log: who changed a finding status, a token, an enrollment request or an access, and
-who logged in to the web interface (or failed to) and out.
+"""Audit log: who changed a finding status (or commented a finding), a token, an enrollment
+request or an access, and who logged in to the web interface (or failed to) and out.
 
 Events are written by the business modules (services, token_store, access_control) in the same
 transaction as the change they describe, so that an event exists exactly when the change was
@@ -43,6 +43,7 @@ class AuditAction(StrEnum):
     FINDING_STATUS_CHANGED = "finding.status_changed"
     FINDING_STATUS_PROPOSED = "finding.status_proposed"
     FINDING_PROPOSAL_REJECTED = "finding.proposal_rejected"
+    FINDING_COMMENTED = "finding.commented"
     TOKEN_CREATED = "token.created"
     TOKEN_ROTATED = "token.rotated"
     TOKEN_REVOKED = "token.revoked"
