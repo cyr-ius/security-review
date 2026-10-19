@@ -19,6 +19,8 @@ import {
   TableControlFilterChange,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
+import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
+import { TableSort } from '../../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 
 /** Editable fields; the lists are typed as comma separated text. */
@@ -45,12 +47,18 @@ const EMPTY_STANDARD: StandardFormModel = {
 /** Same limits as the API (standards.py). */
 const MAX_CONTENT_CHARS = 50_000;
 
-type StandardSortKey = 'title' | 'slug' | 'technologies' | 'files';
+type StandardSortKey = 'title' | 'technologies' | 'files';
 
 /** Development standards served to the developers' AI: read by everyone, edited by admins. */
 @Component({
   selector: 'app-standard-list',
-  imports: [PackTransferComponent, FormField, TableControlsComponent, TranslatePipe],
+  imports: [
+    PackTransferComponent,
+    FormField,
+    SortHeaderComponent,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './standard-list.component.html',
   styleUrl: './standard-list.component.css',
 })
@@ -64,15 +72,13 @@ export class StandardListComponent {
   readonly isAdmin = computed(() => this.auth.can('standards.manage'));
   readonly catalog = rxResource({ stream: () => this.api.devStandards() });
   readonly query = signal('');
-  readonly sort = signal<StandardSortKey>('title');
-  readonly direction = signal<'asc' | 'desc'>('asc');
+  readonly sort = new TableSort<StandardSortKey>(
+    'standards',
+    ['title', 'technologies', 'files'],
+    'title',
+    'asc',
+  );
   readonly statusFilter = signal<'' | 'enabled' | 'disabled'>('');
-  readonly sortOptions = computed(() => [
-    { value: 'title', label: this.i18n.translate('standards.standard') },
-    { value: 'slug', label: this.i18n.translate('standards.slug') },
-    { value: 'technologies', label: this.i18n.translate('standards.technologies') },
-    { value: 'files', label: this.i18n.translate('standards.files') },
-  ]);
   readonly filters = computed<TableControlFilter[]>(() => [
     {
       key: 'status',
@@ -90,19 +96,16 @@ export class StandardListComponent {
     const standards = (this.catalog.value()?.standards ?? []).filter(
       (item) => !status || item.enabled === (status === 'enabled'),
     );
-    const sort = this.sort();
+    const sort = this.sort.key();
     return filterAndSortRows(
       standards,
       this.query(),
-      this.direction(),
+      this.sort.direction(),
       (item) =>
         [item.slug, item.title, item.description, ...item.technologies, ...item.file_patterns].join(
           ' ',
         ),
       (left, right) => {
-        if (sort === 'slug') {
-          return compareTableText(left.slug, right.slug);
-        }
         if (sort === 'technologies') {
           return compareTableText(left.technologies.join(', '), right.technologies.join(', '));
         }
@@ -113,12 +116,6 @@ export class StandardListComponent {
       },
     );
   });
-
-  onTableSort(value: string): void {
-    if (value === 'title' || value === 'slug' || value === 'technologies' || value === 'files') {
-      this.sort.set(value);
-    }
-  }
 
   onTableFilter(change: TableControlFilterChange): void {
     if (change.key === 'status') {

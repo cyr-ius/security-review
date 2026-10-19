@@ -47,13 +47,8 @@
     <app-table-controls
       idPrefix="enrollments"
       [search]="enrollmentSearch()"
-      [sort]="enrollmentSort()"
-      [direction]="enrollmentDirection()"
-      [sortOptions]="enrollmentSortOptions()"
       [filters]="enrollmentFilters()"
       (searchChange)="enrollmentSearch.set($event)"
-      (sortChange)="onEnrollmentSort($event)"
-      (directionChange)="enrollmentDirection.set($event)"
       (filterChange)="onEnrollmentFilter($event)"
     />
     @if (visibleEnrollments().length) {
@@ -61,12 +56,20 @@
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">{{ 'tokens.label' | t }}</th>
+              <th scope="col" [appSortHeader]="enrollmentSort" sortKey="label">
+                {{ 'tokens.label' | t }}
+              </th>
               <th scope="col">{{ 'users.type' | t }}</th>
-              <th scope="col">{{ 'reportTable.project' | t }}</th>
-              <th scope="col">{{ 'tokens.requester' | t }}</th>
+              <th scope="col" [appSortHeader]="enrollmentSort" sortKey="project">
+                {{ 'reportTable.project' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="enrollmentSort" sortKey="requester">
+                {{ 'tokens.requester' | t }}
+              </th>
               <th scope="col">{{ 'tokens.address' | t }}</th>
-              <th scope="col">{{ 'tokens.requestedAt' | t }}</th>
+              <th scope="col" [appSortHeader]="enrollmentSort" sortKey="created">
+                {{ 'tokens.requestedAt' | t }}
+              </th>
               <th scope="col">{{ 'tokens.portalAccess' | t }}</th>
               <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
             </tr>
@@ -293,13 +296,8 @@
     <app-table-controls
       idPrefix="tokens"
       [search]="tokenSearch()"
-      [sort]="tokenSort()"
-      [direction]="tokenDirection()"
-      [sortOptions]="tokenSortOptions()"
       [filters]="tokenFilters()"
       (searchChange)="tokenSearch.set($event)"
-      (sortChange)="onTokenSort($event)"
-      (directionChange)="tokenDirection.set($event)"
       (filterChange)="onTokenFilter($event)"
     />
     @if (visibleTokens().length) {
@@ -307,11 +305,21 @@
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">{{ 'tokens.label' | t }}</th>
-              <th scope="col">{{ 'tokens.allowedProjects' | t }}</th>
-              <th scope="col">{{ 'tokens.usage' | t }}</th>
-              <th scope="col">{{ 'common.createdAt' | t }}</th>
-              <th scope="col">{{ 'tokens.expiresAt' | t }}</th>
+              <th scope="col" [appSortHeader]="tokenSort" sortKey="label">
+                {{ 'tokens.label' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tokenSort" sortKey="projects">
+                {{ 'tokens.allowedProjects' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tokenSort" sortKey="usage">
+                {{ 'tokens.usage' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tokenSort" sortKey="created">
+                {{ 'common.createdAt' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tokenSort" sortKey="expires">
+                {{ 'tokens.expiresAt' | t }}
+              </th>
               <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
             </tr>
           </thead>

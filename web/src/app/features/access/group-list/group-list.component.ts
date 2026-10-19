@@ -20,6 +20,8 @@ import {
   TableControlFilterChange,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
+import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
+import { TableSort } from '../../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 import { describeAccessError } from '../access-errors';
 
@@ -32,7 +34,7 @@ interface GroupFormModel {
 
 const EMPTY_GROUP: GroupFormModel = { name: '', description: '', sso: false };
 
-type GroupSortKey = 'name' | 'roles' | 'members' | 'created';
+type GroupSortKey = 'name' | 'roles' | 'members';
 
 /**
  * Administrator page for the groups of web users: their roles (each on every project or on some
@@ -46,6 +48,7 @@ type GroupSortKey = 'name' | 'roles' | 'members' | 'created';
     RouterLink,
     RefreshButtonComponent,
     RoleBindingsComponent,
+    SortHeaderComponent,
     TableControlsComponent,
     TranslatePipe,
   ],
@@ -61,15 +64,13 @@ export class GroupListComponent {
   readonly users = rxResource({ stream: () => this.api.users() });
   readonly projects = rxResource({ stream: () => this.api.projects() });
   readonly tableSearch = signal('');
-  readonly tableSort = signal<GroupSortKey>('name');
-  readonly tableDirection = signal<'asc' | 'desc'>('asc');
+  readonly tableSort = new TableSort<GroupSortKey>(
+    'groups',
+    ['name', 'roles', 'members'],
+    'name',
+    'asc',
+  );
   readonly groupTypeFilter = signal<'all' | 'oidc' | 'local'>('all');
-  readonly tableSortOptions = computed(() => [
-    { value: 'name', label: this.i18n.translate('access.name') },
-    { value: 'roles', label: this.i18n.translate('layout.roles') },
-    { value: 'members', label: this.i18n.translate('groups.members') },
-    { value: 'created', label: this.i18n.translate('common.createdAt') },
-  ]);
   readonly tableFilters = computed<TableControlFilter[]>(() => [
     {
       key: 'type',
@@ -87,11 +88,11 @@ export class GroupListComponent {
     const groups = (this.catalog.value()?.groups ?? []).filter(
       (group) => type === 'all' || group.sso === (type === 'oidc'),
     );
-    const sort = this.tableSort();
+    const sort = this.tableSort.key();
     return filterAndSortRows(
       groups,
       this.tableSearch(),
-      this.tableDirection(),
+      this.tableSort.direction(),
       (group) =>
         [
           group.name,
@@ -114,9 +115,6 @@ export class GroupListComponent {
             .join(', ');
           return compareTableText(leftMembers, rightMembers);
         }
-        if (sort === 'created') {
-          return left.created_at.localeCompare(right.created_at);
-        }
         return compareTableText(left.name, right.name);
       },
     );
@@ -138,12 +136,6 @@ export class GroupListComponent {
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
-
-  onGroupTableSort(value: string): void {
-    if (value === 'name' || value === 'roles' || value === 'members' || value === 'created') {
-      this.tableSort.set(value);
-    }
-  }
 
   onGroupTableFilter(change: TableControlFilterChange): void {
     if (change.key === 'type') {

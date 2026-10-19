@@ -136,13 +136,8 @@
         <app-table-controls
           idPrefix="advisory-history"
           [search]="historySearch()"
-          [sort]="historySort()"
-          [direction]="historyDirection()"
-          [sortOptions]="historySortOptions()"
           [filters]="historyFilters()"
           (searchChange)="historySearch.set($event)"
-          (sortChange)="onHistorySort($event)"
-          (directionChange)="historyDirection.set($event)"
           (filterChange)="onHistoryFilter($event)"
         />
         @if (visibleUpdates().length) {
@@ -150,10 +145,18 @@
             <table class="table table-hover align-middle small">
               <thead>
                 <tr>
-                  <th scope="col">{{ 'settings.start' | t }}</th>
-                  <th scope="col">{{ 'settings.trigger' | t }}</th>
-                  <th scope="col">{{ 'settings.status' | t }}</th>
-                  <th scope="col">{{ 'settings.duration' | t }}</th>
+                  <th scope="col" [appSortHeader]="historySort" sortKey="started">
+                    {{ 'settings.start' | t }}
+                  </th>
+                  <th scope="col" [appSortHeader]="historySort" sortKey="trigger">
+                    {{ 'settings.trigger' | t }}
+                  </th>
+                  <th scope="col" [appSortHeader]="historySort" sortKey="status">
+                    {{ 'settings.status' | t }}
+                  </th>
+                  <th scope="col" [appSortHeader]="historySort" sortKey="duration">
+                    {{ 'settings.duration' | t }}
+                  </th>
                   <th scope="col">{{ 'settings.result' | t }}</th>
                 </tr>
               </thead>

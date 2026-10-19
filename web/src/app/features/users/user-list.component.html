@@ -173,13 +173,8 @@
     <app-table-controls
       idPrefix="users"
       [search]="tableSearch()"
-      [sort]="tableSort()"
-      [direction]="tableDirection()"
-      [sortOptions]="tableSortOptions()"
       [filters]="tableFilters()"
       (searchChange)="tableSearch.set($event)"
-      (sortChange)="onUserTableSort($event)"
-      (directionChange)="tableDirection.set($event)"
       (filterChange)="onUserTableFilter($event)"
     />
     @if (visibleUsers().length) {
@@ -187,12 +182,20 @@
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">{{ 'login.username' | t }}</th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="username">
+                {{ 'login.username' | t }}
+              </th>
               <th scope="col">{{ 'users.type' | t }}</th>
               <th scope="col">{{ 'layout.groups' | t }}</th>
-              <th scope="col">{{ 'users.access' | t }}</th>
-              <th scope="col">{{ 'users.lastLogin' | t }}</th>
-              <th scope="col">{{ 'common.createdAt' | t }}</th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="access">
+                {{ 'users.access' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="lastLogin">
+                {{ 'users.lastLogin' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="created">
+                {{ 'common.createdAt' | t }}
+              </th>
               <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
             </tr>
           </thead>
@@ -310,13 +313,8 @@
     <app-table-controls
       idPrefix="revoked-users"
       [search]="revokedSearch()"
-      [sort]="revokedSort()"
-      [direction]="revokedDirection()"
-      [sortOptions]="revokedSortOptions()"
       [filters]="revokedFilters()"
       (searchChange)="revokedSearch.set($event)"
-      (sortChange)="onRevokedSort($event)"
-      (directionChange)="revokedDirection.set($event)"
       (filterChange)="onRevokedFilter($event)"
     />
     @if (visibleRevoked().length) {
@@ -324,9 +322,15 @@
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">{{ 'login.username' | t }}</th>
-              <th scope="col">{{ 'users.revokedBy' | t }}</th>
-              <th scope="col">{{ 'users.revokedAt' | t }}</th>
+              <th scope="col" [appSortHeader]="revokedSort" sortKey="username">
+                {{ 'login.username' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="revokedSort" sortKey="revoked_by">
+                {{ 'users.revokedBy' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="revokedSort" sortKey="revoked_at">
+                {{ 'users.revokedAt' | t }}
+              </th>
               <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
             </tr>
           </thead>

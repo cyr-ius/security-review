@@ -196,6 +196,10 @@ est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
   coquille de l'application est `layout/`.
 - **Templates** : liaisons de l'hôte dans `host: {}` (pas de `@HostListener`) ; un message qui
   explique pourquoi un champ est invalide lui est relié par `aria-describedby`.
+- **Tableaux** : `app-table-controls` porte la recherche et les filtres ; le tri se choisit sur les
+  en-têtes de colonne (`<th [appSortHeader]="sort" sortKey="name">`), avec un `TableSort` nommé
+  d'après le tableau (`shared/utils/table-sort.ts`) que le navigateur mémorise sous
+  `secreview.sort.<nom>`.
 - **Couleurs** : variables Bootstrap (`var(--bs-…)`) ou jetons de `styles.css` (`--app-…`),
   jamais une couleur écrite dans un composant, pour que les thèmes clair et sombre fonctionnent.
 

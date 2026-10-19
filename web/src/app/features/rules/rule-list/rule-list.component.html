@@ -49,13 +49,8 @@
   <app-table-controls
     idPrefix="rules"
     [search]="search()"
-    [sort]="sort()"
-    [direction]="direction()"
-    [sortOptions]="sortOptions()"
     [filters]="filters()"
     (searchChange)="search.set($event)"
-    (sortChange)="onTableSort($event)"
-    (directionChange)="direction.set($event)"
     (filterChange)="onTableFilter($event)"
   />
   <div class="card">
@@ -67,10 +62,14 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr>
-              <th scope="col">{{ 'rules.rule' | t }}</th>
-              <th scope="col">{{ 'rules.severity' | t }}</th>
+              <th scope="col" [appSortHeader]="sort" sortKey="id">{{ 'rules.rule' | t }}</th>
+              <th scope="col" [appSortHeader]="sort" sortKey="severity">
+                {{ 'rules.severity' | t }}
+              </th>
               <th scope="col">{{ 'rules.languages' | t }}</th>
-              <th scope="col">{{ 'rules.updatedAt' | t }}</th>
+              <th scope="col" [appSortHeader]="sort" sortKey="updated">
+                {{ 'rules.updatedAt' | t }}
+              </th>
               <th scope="col">{{ 'rules.state' | t }}</th>
               <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
             </tr>

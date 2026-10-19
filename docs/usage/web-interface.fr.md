@@ -52,8 +52,13 @@ chargement, l'application interroge d'abord `/api/health` : si le contrôleur ne
 cesse de répondre ensuite), la page **Backend indisponible** s'ouvre, et son bouton **Réessayer**
 revient à la page demandée dès que le contrôleur répond de nouveau.
 
+Les tableaux se trient en cliquant sur l'en-tête d'une colonne : une petite flèche indique la
+colonne triée et le sens du tri, un second clic l'inverse. Chaque tableau s'ouvre trié sur sa
+colonne par défaut (flèche affichée), et le navigateur mémorise le tri choisi pour les visites
+suivantes.
+
 - **Projets** : tous les projets avec leurs findings ouverts par sévérité. Rechercher par nom,
-  trier par risque, activité ou nom, et filtrer par sévérité maximale. Le bouton
+  trier par nom, pire finding ouvert ou dernier rapport, et filtrer par sévérité maximale. Le bouton
   **Revoir les findings ouverts** ouvre les findings à revoir de tous
   les projets que vous pouvez voir (**Findings à revoir : tous les projets**), chacun avec un
   lien vers son projet. Avec la permission `projects.create`, **Nouveau projet** crée un projet
@@ -74,14 +79,15 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   rechargement.
 - **Rapports** : liste filtrable par projet et niveau de risque, avec recherche dans les
   métadonnées et le résumé, tri par date, projet, risque, type, branche, auteur ou résumé. La
-  recherche, le tri et les filtres restent dans l'URL, pour partager la vue.
+  recherche et les filtres restent dans l'URL, pour partager la vue ; le tri est mémorisé par le
+  navigateur.
 - **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** et
   **Envoyé par (jeton)**, voir [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)), findings avec
   emplacement, CWE, extrait de code et recommandation ; téléchargement Markdown et SARIF. Les
   utilisateurs qui ont la permission `findings.triage` changent le statut d'un finding directement
   depuis cet écran.
 - **Normes** : les [normes de développement](../advanced/standards.md) transmises aux assistants IA par le
-  prompt `development-standards`. Rechercher et trier par titre, identifiant, technologie ou motif
+  prompt `development-standards`. Rechercher et trier par titre, technologie ou motif
   de fichier, filtrer par état activé. Les administrateurs les lisent, les créent,
   les modifient (technologies, motifs de fichiers, contenu Markdown), les désactivent ou les
   suppriment. Un changement s'applique immédiatement. **Exporter** et **Importer** les copient

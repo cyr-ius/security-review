@@ -42,13 +42,8 @@
   <app-table-controls
     idPrefix="standards"
     [search]="query()"
-    [sort]="sort()"
-    [direction]="direction()"
-    [sortOptions]="sortOptions()"
     [filters]="filters()"
     (searchChange)="setQuery($event)"
-    (sortChange)="onTableSort($event)"
-    (directionChange)="direction.set($event)"
     (filterChange)="onTableFilter($event)"
   />
   <div class="card">
@@ -62,9 +57,15 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr>
-              <th scope="col">{{ 'standards.standard' | t }}</th>
-              <th scope="col">{{ 'standards.technologies' | t }}</th>
-              <th scope="col">{{ 'standards.files' | t }}</th>
+              <th scope="col" [appSortHeader]="sort" sortKey="title">
+                {{ 'standards.standard' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="sort" sortKey="technologies">
+                {{ 'standards.technologies' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="sort" sortKey="files">
+                {{ 'standards.files' | t }}
+              </th>
               <th scope="col">{{ 'rules.state' | t }}</th>
               <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
             </tr>
