@@ -201,7 +201,8 @@ Languages accepted by `scan_code`: `python`, `java`, `typescript`, `javascript`,
 
 The `company` checklist is added to every prompt. The other domains, internal ones included, are
 named at the end of the checklists: the agent fetches with `get_review_checklist` those that
-apply to the code it reviews.
+apply to the code it reviews. It then declares the outcome of each item it walked through in
+`save_security_report` ([review coverage](../usage/prompts-tools.md#review-coverage)).
 
 ## Suppressing a false positive
 

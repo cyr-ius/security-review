@@ -92,7 +92,9 @@ shown), and the browser remembers the chosen sort for the next visits.
   summary, and sortable by date, project, risk, type, branch, author or summary. Search and
   filters stay in the URL, so a view can be shared; the sort is remembered by the browser.
 - **Report**: summary, context (repository, branch, commit, review type, **Author** and
-  **Sent by (token)**, see [author of a report](prompts-tools.md#author-of-a-report)), findings with
+  **Sent by (token)**, see [author of a report](prompts-tools.md#author-of-a-report)),
+  **Review coverage** (checklist items by outcome and rules that raised scan leads, those cited by
+  no finding marked **dismissed**, see [review coverage](prompts-tools.md#review-coverage)), findings with
   location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
   `findings.triage` permission change the status of a finding directly from this screen.
 - **Standards**: the [development standards](../advanced/standards.md) handed to the AI

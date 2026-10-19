@@ -131,6 +131,7 @@ async def test_review_prompts_ask_for_the_developer_username():
         for prompt in ("security-review", "dependency-review", "codebase-review"):
             result = await client.get_prompt(prompt, {})
             assert "git config user.email" in result.messages[0].content.text, prompt
+            assert "`checklist_results`" in result.messages[0].content.text, prompt
 
 
 async def test_save_report_with_an_author_and_filter_the_list():
@@ -153,6 +154,52 @@ async def test_save_report_with_an_author_and_filter_the_list():
     assert too_long.is_error and control.is_error
     assert "may only contain" in text_of(control)
     assert len(services.list_reports(project="authored")) == 2
+
+
+async def test_save_report_checks_and_stores_the_review_coverage():
+    report = {
+        "project": "covered",
+        "summary": "Covered review",
+        "findings": [
+            {"title": "Shell", "severity": "high", "description": "Shell", "rule_id": "py-004"},
+            {"title": "Ghost", "severity": "low", "description": "Ghost", "rule_id": "XX-001"},
+            {"title": "Advisory", "severity": "low", "description": "Dep", "rule_id": "CVE-2024-1"},
+        ],
+        "checklist_results": [
+            {"item_id": "py-01", "outcome": "issue"},
+            {"item_id": "PY-02", "outcome": "not_applicable"},
+            {"item_id": "BOGUS-01", "outcome": "ok"},
+        ],
+        "scan_rules": ["PY-004", "PY-008", "ZZ-999"],
+    }
+    async with Client(mcp) as client:
+        saved = json.loads(text_of(await client.call_tool("save_security_report", report)))
+        stored = await client.call_tool(
+            "get_security_report", {"report_id": saved["report_id"], "format": "json"}
+        )
+        markdown = await client.call_tool("get_security_report", {"report_id": saved["report_id"]})
+        bare = await client.call_tool(
+            "save_security_report", {"project": "covered", "summary": "No cov", "findings": []}
+        )
+        too_many = await client.call_tool(
+            "save_security_report",
+            {**report, "scan_rules": ["PY-004"] * 501},
+        )
+    # Unknown ids are reported and dropped; advisory ids are not checked
+    warnings = " ".join(saved["warnings"])
+    assert "BOGUS-01" in warnings and "ZZ-999" in warnings and "XX-001" in warnings
+    assert "CVE-2024-1" not in warnings
+    assert saved["coverage"]["checklist_by_outcome"]["issue"] == 1
+    assert "PY-03" in saved["coverage"]["not_covered"]
+    data = json.loads(text_of(stored))
+    results = {r["item_id"]: r for r in data["checklist_results"]}
+    assert results["PY-01"]["outcome"] == "issue" and results["PY-01"]["title"]
+    assert results["PY-03"]["outcome"] == "not_covered"  # skipped item of a used domain
+    assert "JV-01" not in results and "BOGUS-01" not in results
+    assert data["scan_rules"] == ["PY-004", "PY-008"]
+    assert "Dismissed (no finding): PY-008." in text_of(markdown)
+    assert "No checklist result" in " ".join(json.loads(text_of(bare))["warnings"])
+    assert too_many.is_error
 
 
 async def test_save_report_with_a_review_type_and_filter_the_list():

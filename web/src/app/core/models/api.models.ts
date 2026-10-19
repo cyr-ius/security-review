@@ -54,6 +54,35 @@ export const REVIEW_TYPES: readonly ReviewType[] = [
   'other',
 ];
 
+/** Result of a checklist item in a review; not_covered is set by the server. */
+export type ChecklistOutcome = 'issue' | 'not_verifiable' | 'not_covered' | 'not_applicable' | 'ok';
+
+/** Display order of the checklist outcomes, the ones that need attention first. */
+export const CHECKLIST_OUTCOMES: readonly ChecklistOutcome[] = [
+  'issue',
+  'not_verifiable',
+  'not_covered',
+  'not_applicable',
+  'ok',
+];
+
+/** One checklist item of the coverage of a report. */
+export interface ChecklistResult {
+  item_id: string;
+  title: string;
+  domain: string;
+  outcome: ChecklistOutcome;
+}
+
+/** Review types run by an agent with a review prompt: they declare their coverage. */
+export const PROMPT_REVIEW_TYPES: readonly ReviewType[] = [
+  'security-review',
+  'api-security-review',
+  'configuration-review',
+  'dependency-review',
+  'codebase-review',
+];
+
 /** Open findings counted by severity. */
 export type SeverityCounts = Record<Severity, number>;
 
@@ -600,6 +629,8 @@ export interface Report {
   summary: string;
   risk_level: Severity;
   created_at: string;
+  checklist_results: ChecklistResult[];
+  scan_rules: string[];
   findings: Finding[];
 }
 

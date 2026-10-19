@@ -1,5 +1,6 @@
 import { MessageKey } from '../i18n/messages';
 import {
+  ChecklistOutcome,
   FindingStatus,
   Permission,
   ReviewType,
@@ -35,6 +36,26 @@ export const REVIEW_TYPE_META: Record<ReviewType, { label: MessageKey; icon: str
   'code-scan': { label: 'reviewType.code-scan', icon: 'bi-terminal' },
   'dependency-scan': { label: 'reviewType.dependency-scan', icon: 'bi-terminal' },
   other: { label: 'reviewType.other', icon: 'bi-question-circle' },
+};
+
+/** Message key, icon and badge class of each checklist outcome (never color alone). */
+export const CHECKLIST_OUTCOME_META: Record<
+  ChecklistOutcome,
+  { label: MessageKey; icon: string; badge: string }
+> = {
+  issue: { label: 'outcome.issue', icon: 'bi-exclamation-triangle-fill', badge: 'text-bg-danger' },
+  not_verifiable: {
+    label: 'outcome.not_verifiable',
+    icon: 'bi-question-circle',
+    badge: 'text-bg-warning',
+  },
+  not_covered: { label: 'outcome.not_covered', icon: 'bi-dash-circle', badge: 'text-bg-warning' },
+  not_applicable: {
+    label: 'outcome.not_applicable',
+    icon: 'bi-slash-circle',
+    badge: 'text-bg-secondary',
+  },
+  ok: { label: 'outcome.ok', icon: 'bi-check-circle-fill', badge: 'text-bg-success' },
 };
 
 /** Trend direction returned by the API. */

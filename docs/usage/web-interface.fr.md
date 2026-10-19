@@ -97,7 +97,10 @@ suivantes.
   recherche et les filtres restent dans l'URL, pour partager la vue ; le tri est mémorisé par le
   navigateur.
 - **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** et
-  **Envoyé par (jeton)**, voir [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)), findings avec
+  **Envoyé par (jeton)**, voir [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)),
+  **Couverture de la revue** (points de checklist par résultat et règles qui ont remonté des
+  pistes, celles citées par aucun finding marquées **écartée**, voir
+  [couverture de la revue](prompts-tools.md#couverture-de-la-revue)), findings avec
   emplacement, CWE, extrait de code et recommandation ; téléchargement Markdown et SARIF. Les
   utilisateurs qui ont la permission `findings.triage` changent le statut d'un finding directement
   depuis cet écran.

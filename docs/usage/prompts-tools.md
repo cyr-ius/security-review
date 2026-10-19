@@ -100,7 +100,9 @@ See [enrollment](../advanced/http.md#enrollment-request-the-project).
   `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category`;
 - `repository`, `branch`, `commit_sha`, `reviewer`, `scope`;
 - `review_type`: the kind of review, given by each review prompt (see below);
-- `author`: the username of the developer (see [author of a report](#author-of-a-report)).
+- `author`: the username of the developer (see [author of a report](#author-of-a-report));
+- `checklist_results` and `scan_rules`: the coverage of the review (see
+  [review coverage](#review-coverage)).
 
 The **risk level** of the report is computed (highest severity of the findings). The
 `risk_level` parameter can only raise it, never lower it.
@@ -164,6 +166,32 @@ Markdown nor HTML, as it is copied into the Markdown export); a blank value is n
 It is **declared, not authenticated**: use it to see who to talk to and to filter the reports
 (`list_security_reports`, [web interface](web-interface.md)), never as a proof of identity;
 `submitted_by` says which token actually sent the report.
+
+### Review coverage
+
+The review prompts ask the agent to declare what it actually checked, so that a person can
+tell a clean review from one that skipped the checklist:
+
+| Field | Content |
+|---|---|
+| `checklist_results` | Each checklist item walked through, with its outcome: `ok` (verified, nothing found), `issue` (reported as a finding), `not_applicable`, `not_verifiable` (the reviewed code was not enough to judge it) |
+| `scan_rules` | The rule id of every lead returned by `scan_code`, confirmed or dismissed |
+
+The server checks them against the active rules and checklists when it stores the report:
+
+- an unknown checklist item or rule is **not stored** and is named in the `warnings` of the
+  answer; the report is never refused for it;
+- the title and domain of each item are taken from the server, not from the agent;
+- every item of a checklist domain the review used but did not report is stored as
+  `not_covered`, and listed in `coverage.not_covered` of the answer;
+- a finding `rule_id` that looks like a rule or checklist id (`PY-004`, `ACME-CL-01`) but
+  matches neither gets a warning; advisory ids (`GHSA-...`, `CVE-...`) are not checked;
+- a report without any checklist result gets a warning: its coverage is unknown.
+
+At most 500 checklist results and 500 rules per report. The coverage is **declared by the
+agent**: it shows what the agent says it did, not a proof; a rule of `scan_rules` cited by no
+finding is a lead the agent dismissed. The CLI scans declare no coverage. The report page of the
+[web interface](web-interface.md) and the Markdown export show it.
 
 ### Status of a finding
 

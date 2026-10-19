@@ -247,6 +247,9 @@
 - Rules are line-by-line patterns: they see neither the data flow nor the missing checks
   (missing authorization, for example). This work remains the agent's, guided by the
   checklists, and your SAST/SCA tools'.
+- The [coverage of a review](../usage/prompts-tools.md#review-coverage) (checklist results,
+  rules of the scan leads) is declared by the agent: the server only keeps the ids it knows and
+  marks the skipped items `not_covered`, it cannot check that the agent really read the code.
 - The `author` of a report (developer username) is declared by the client: anyone holding a
   token of the project can name someone else. Only `submitted_by`, the label of the token that
   saved the report, is set by the server (see
