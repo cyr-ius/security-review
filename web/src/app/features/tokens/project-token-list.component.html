@@ -29,7 +29,7 @@
   </section>
 }
 
-<section class="mb-4" aria-labelledby="enrollments-title">
+<section class="card card-body mb-4" aria-labelledby="enrollments-title">
   <h2 id="enrollments-title" class="h5">
     {{ 'tokens.pending' | t }}
     @if ((enrollments.value() ?? []).length; as count) {
@@ -146,7 +146,7 @@
   }
 </section>
 
-<section class="mb-4" aria-labelledby="create-token-title">
+<section class="card card-body mb-4" aria-labelledby="create-token-title">
   <h2 id="create-token-title" class="h5">{{ 'tokens.createTitle' | t }}</h2>
   <form class="row g-2 align-items-end" (submit)="create($event)">
     <div class="col-md-3">
@@ -266,7 +266,7 @@
   </form>
 </section>
 
-<section aria-labelledby="tokens-title">
+<section class="card card-body mb-4" aria-labelledby="tokens-title">
   <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-2">
     <h2 id="tokens-title" class="h5 mb-0">{{ 'tokens.active' | t }}</h2>
     <div class="d-flex align-items-center gap-2">

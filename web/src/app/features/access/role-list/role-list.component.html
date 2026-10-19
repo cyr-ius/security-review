@@ -15,7 +15,7 @@
   <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
 }
 
-<section class="mb-4" aria-labelledby="role-form-title">
+<section class="card card-body mb-4" aria-labelledby="role-form-title">
   <h2 id="role-form-title" class="h5">
     @if (editing(); as role) {
       {{ 'roles.editTitle' | t: { role: role.name } }}
@@ -88,7 +88,7 @@
   </form>
 </section>
 
-<section aria-labelledby="roles-title">
+<section class="card card-body mb-4" aria-labelledby="roles-title">
   <h2 id="roles-title" class="h5">{{ 'layout.roles' | t }}</h2>
   @if (roles.error()) {
     <div class="alert alert-danger" role="alert">{{ 'roles.loadError' | t }}</div>
