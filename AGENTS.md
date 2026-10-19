@@ -15,10 +15,10 @@ Deux processus partagent la base et ne s'appellent jamais : le **serveur MCP**
 ## Une tâche n'est terminée que si
 
 1. **Le comportement ajouté ou corrigé est vérifié par un test pertinent**, existant ou nouveau
-   (voir [Tests](#tests)), et `uv run pytest` passe.
-2. `uv run ruff check . && uv run ruff format --check .` passe.
-3. **La documentation `docs/` est à jour, en anglais et en français**, et
-   `uv run mkdocs build --strict` passe
+   (voir [Tests](#tests)).
+2. **Les vérifications qui correspondent aux fichiers modifiés passent**, et seulement
+   celles-là (voir [Vérifications selon les fichiers modifiés](#vérifications-selon-les-fichiers-modifiés)).
+3. **La documentation `docs/` est à jour, en anglais et en français**
    (voir [Documentation](#documentation)).
 4. **Les `README.md` (anglais) et `README.fr.md` (français) sont à jour, en restant
    synthétiques** (voir [README](#readme)).
@@ -28,7 +28,27 @@ Deux processus partagent la base et ne s'appellent jamais : le **serveur MCP**
 
 Si l'une de ces étapes est volontairement omise (ex. refactorisation interne sans effet visible
 sur la doc), dites-le explicitement dans votre réponse ou dans la description de PR, avec la
-raison. Ne déclarez jamais une tâche terminée sans avoir lancé les tests.
+raison. Ne déclarez jamais une tâche terminée sans avoir lancé les vérifications qui
+correspondent aux fichiers modifiés.
+
+### Vérifications selon les fichiers modifiés
+
+Lancez uniquement les vérifications des zones touchées par le changement (`git diff --stat`) :
+**ne lancez pas `pytest` ni `ruff` pour un changement qui ne touche que l'interface Angular ou
+la documentation**, ni le build Angular pour un changement Python. La CI relance tout de toute
+façon.
+
+| Fichiers modifiés | Vérifications |
+|---|---|
+| Python (`src/**/*.py`, `tests/`, `migrations/`), `default_rules.toml`, `pyproject.toml`, `uv.lock` | `uv run ruff check . && uv run ruff format --check .` puis `uv run pytest` |
+| Angular (`web/`) | `npm --prefix web run build` (et `npm --prefix web exec --no -- prettier --check` sur les fichiers modifiés) ; plus `uv run pytest tests/test_audit.py` si un catalogue `web/src/app/core/i18n/messages/audit.ts` change |
+| Documentation (`docs/`, `mkdocs.yml`) | `uv run mkdocs build --strict` |
+| `README.md`, `README.fr.md`, `AGENTS.md`, `.env.example` | aucune (relecture seulement) |
+| Workflows, `docker-compose.yml`, YAML / JSON | `npm --prefix web exec --no -- prettier --check` sur les fichiers modifiés |
+
+Un changement qui touche plusieurs zones cumule leurs vérifications. Pendant le développement,
+ciblez d'abord les tests du module modifié (`uv run pytest tests/test_<module>.py`), puis lancez
+`uv run pytest` complet une fois, à la fin, si du Python a changé.
 
 ## Commandes
 
