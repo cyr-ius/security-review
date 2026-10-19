@@ -128,7 +128,7 @@ export const routes: Routes = [
         title: 'layout.audit',
         canActivate: [permissionGuard('audit.read')],
         loadComponent: () =>
-          import('./features/audit/audit-log.component').then((m) => m.AuditLogComponent),
+          import('./features/audit/audit-log/audit-log.component').then((m) => m.AuditLogComponent),
       },
       {
         path: 'groups',

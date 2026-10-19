@@ -11,7 +11,16 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .. import access_control, app_settings, proxy, rules_loader, standards, token_store, web_users
+from .. import (
+    access_control,
+    app_settings,
+    audit_syslog,
+    proxy,
+    rules_loader,
+    standards,
+    token_store,
+    web_users,
+)
 from ..config import MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS
 from ..http_server import Role
 from ..models import (
@@ -1032,6 +1041,47 @@ class OsvSettings(BaseModel):
     ecosystems: str
     cafile: str | None
     max_download_mb: int
+
+
+class AuditSyslogUpdate(BaseModel):
+    """Body of PUT /settings/audit-syslog: syslog server of the audit log.
+
+    A field left out is unchanged, ``null`` (or an empty address) deletes the stored value. A
+    value whose variable is set (SECREVIEW_AUDIT_SYSLOG_ADDRESS, SECREVIEW_AUDIT_SYSLOG_FACILITY)
+    is refused: the variable takes precedence. Only udp:// and tcp:// addresses may be set here.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    address: str | None = Field(default=None, max_length=audit_syslog.MAX_ADDRESS_CHARS)
+    facility: str | None = Field(default=None, max_length=20)
+
+
+class SyslogValue(BaseModel):
+    """A syslog setting: stored in the web interface, variable, and whether the variable is set
+    (it then takes precedence and the stored value is ignored)."""
+
+    value: str | None
+    env: str | None
+    env_set: bool
+
+
+class SyslogEffective(BaseModel):
+    """Syslog server actually used and where it comes from."""
+
+    address: str | None
+    facility: str
+    # environment: SECREVIEW_AUDIT_SYSLOG_ADDRESS is set; none: the events are not forwarded
+    source: Literal["web", "environment", "none"]
+
+
+class AuditSyslogSettings(BaseModel):
+    """Syslog server of the audit log: stored values, variables and effective destination."""
+
+    address: SyslogValue
+    facility: SyslogValue
+    effective: SyslogEffective
+    facilities: list[str]
 
 
 class AppSettings(BaseModel):

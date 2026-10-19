@@ -1,9 +1,9 @@
-"""Settings changed in the web interface: report language, proxy and single sign-on."""
+"""Settings changed in the web interface: report language, proxy, single sign-on and syslog."""
 
 import pytest
 from sqlmodel import select
 
-from security_review_mcp import app_settings
+from security_review_mcp import app_settings, audit
 from security_review_mcp.config import Settings, secret_value
 from security_review_mcp.database import session_scope
 from security_review_mcp.models import AppSetting
@@ -366,3 +366,77 @@ def test_invalid_enabled_oidc_settings_are_refused_and_nothing_is_stored():
 def test_invalid_oidc_values_are_refused(values, message):
     with pytest.raises(ValueError, match=message):
         app_settings.set_oidc(values, "admin", make_settings())
+
+
+# ── syslog server of the audit log ───────────────────────────────────────────
+
+
+def test_syslog_settings_apply_when_the_variables_are_not_set_and_are_audited():
+    settings = make_settings()
+    described = app_settings.describe_audit_syslog(settings)
+    assert described["address"] == {"value": None, "env": None, "env_set": False}
+    assert described["effective"] == {"address": None, "facility": "local0", "source": "none"}
+    assert "local0" in described["facilities"]
+
+    app_settings.set_audit_syslog(
+        {"address": " tcp://siem.example.com:601 ", "facility": "AUTH"}, "user:alice", settings
+    )
+    effective = app_settings.effective_settings(settings)
+    assert effective.audit_syslog_address == "tcp://siem.example.com:601"
+    assert effective.audit_syslog_facility == "auth"
+    assert app_settings.describe_audit_syslog(settings)["effective"]["source"] == "web"
+    (event,) = audit.list_events()["events"]
+    assert event["action"] == "audit_syslog.changed" and event["actor"] == "user:alice"
+    assert event["details"] == {"address": "tcp://siem.example.com:601", "facility": "auth"}
+
+    # None (or an empty address) deletes the stored value: no forwarding without the variable
+    app_settings.set_audit_syslog({"address": "", "facility": None}, "user:alice", settings)
+    assert app_settings.effective_settings(settings).audit_syslog_address is None
+    described = app_settings.describe_audit_syslog(settings)
+    assert described["address"]["value"] is None and described["effective"]["source"] == "none"
+    assert audit.list_events()["total"] == 2
+
+
+def test_syslog_variables_take_precedence_over_the_web_interface():
+    app_settings.set_audit_syslog(
+        {"address": "udp://web.example.com", "facility": "auth"}, "user:alice", make_settings()
+    )
+    settings = make_settings(
+        audit_syslog_address="udp://env.example.com:514", audit_syslog_facility="local3"
+    )
+
+    described = app_settings.describe_audit_syslog(settings)
+    assert described["address"] == {
+        "value": "udp://web.example.com",
+        "env": "udp://env.example.com:514",
+        "env_set": True,
+    }
+    assert described["effective"] == {
+        "address": "udp://env.example.com:514",
+        "facility": "local3",
+        "source": "environment",
+    }
+    for values in ({"address": "udp://other"}, {"facility": "local1"}):
+        with pytest.raises(ValueError, match="takes precedence"):
+            app_settings.set_audit_syslog(values, "user:alice", settings)
+    # The stored value the variable hides can still be deleted
+    app_settings.set_audit_syslog({"address": None, "facility": None}, "user:alice", settings)
+    assert app_settings.describe_audit_syslog(settings)["address"]["value"] is None
+    # An empty variable counts as unset
+    assert not app_settings.env_set(make_settings(audit_syslog_address=" "), "audit_syslog_address")
+
+
+@pytest.mark.parametrize(
+    ("values", "message"),
+    [
+        ({"address": "unix:///dev/log"}, "Unix socket"),
+        ({"address": "syslog.example.com:514"}, "udp://host:port"),
+        ({"facility": "nope"}, "must be one of"),
+        ({"server": "udp://syslog"}, "unknown syslog setting"),
+    ],
+)
+def test_invalid_syslog_settings_are_refused_and_nothing_is_stored(values, message):
+    with pytest.raises(ValueError, match=message):
+        app_settings.set_audit_syslog(values, "user:alice", make_settings())
+    assert app_settings.describe_audit_syslog(make_settings())["address"]["value"] is None
+    assert audit.list_events()["total"] == 0

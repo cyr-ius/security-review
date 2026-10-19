@@ -1800,6 +1800,8 @@ def test_project_triager_only_changes_findings_of_its_project(secured, reports):
         ("get", "/api/v1/settings"),
         ("put", "/api/v1/settings/report-language"),
         ("put", "/api/v1/settings/proxy"),
+        ("get", "/api/v1/settings/audit-syslog"),
+        ("put", "/api/v1/settings/audit-syslog"),
         ("get", "/api/v1/advisories"),
         ("post", "/api/v1/advisories/update"),
     ],
@@ -1881,6 +1883,49 @@ def test_invalid_proxy_is_refused(client):
         {"url": "http://" + "a" * 500},
     ):
         assert client.put("/api/v1/settings/proxy", json=body).status_code == 422, body
+
+
+def test_admin_sets_the_syslog_server_of_the_audit_log(client):
+    response = client.put(
+        "/api/v1/settings/audit-syslog",
+        json={"address": "tcp://siem.example.com:601", "facility": "auth"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["effective"] == {
+        "address": "tcp://siem.example.com:601",
+        "facility": "auth",
+        "source": "web",
+    }
+    events = client.get("/api/v1/audit", params={"action": "audit_syslog.changed"}).json()
+    assert events["total"] == 1
+    # null deletes the stored value; a field left out is unchanged
+    stopped = client.put("/api/v1/settings/audit-syslog", json={"address": None}).json()
+    assert stopped["effective"]["source"] == "none"
+    assert stopped["facility"]["value"] == "auth"
+    assert client.get("/api/v1/settings/audit-syslog").json() == stopped
+
+
+def test_a_set_syslog_variable_locks_the_web_setting(client, monkeypatch):
+    monkeypatch.setattr(get_settings(), "audit_syslog_address", "udp://env.example.com:514")
+
+    response = client.put("/api/v1/settings/audit-syslog", json={"address": "udp://other"})
+
+    assert response.status_code == 422
+    assert "takes precedence" in response.json()["detail"]
+    body = client.get("/api/v1/settings/audit-syslog").json()
+    assert body["address"]["env_set"] is True and body["effective"]["source"] == "environment"
+
+
+def test_invalid_syslog_server_is_refused(client):
+    for body in (
+        {"address": "unix:///dev/log"},
+        {"address": "syslog.example.com:514"},
+        {"facility": "nope"},
+        {"server": "udp://syslog"},
+        {"address": "udp://" + "a" * 500},
+    ):
+        assert client.put("/api/v1/settings/audit-syslog", json=body).status_code == 422, body
 
 
 def test_a_proxy_change_rebuilds_the_sso_login(ui_dir):

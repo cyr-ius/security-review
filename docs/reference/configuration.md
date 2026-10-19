@@ -6,7 +6,7 @@ uses the variable: `MCP` (`security-review-mcp`), `Controller` (`security-review
 or both.
 
 Some settings can also be set in the [web interface](../usage/web-interface.md#screens): report
-language, outgoing proxy and OIDC login. **A variable that is set always takes precedence**
+language, outgoing proxy, OIDC login and syslog server of the audit log. **A variable that is set always takes precedence**
 over the value of the interface, which only applies when the variable is not set (the screen
 then locks the field).
 
@@ -67,8 +67,8 @@ then locks the field).
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Controller | Longest validity in days of a bearer token created or [rotated](../advanced/http.md#expiry-and-rotation-of-tokens) (CLI, web interface, enrollment), which is also its default validity; `0`: tokens do not expire unless a validity is asked for |
 | `SECREVIEW_AUDIT_RETENTION_DAYS` | `365` | Controller | Age in days beyond which `serve` deletes the events of the [audit log](../advanced/audit-metrics.md#audit-log); `0` keeps every event |
 | `SECREVIEW_AUDIT_MAX_EVENTS` | `0` | Controller | Number of [audit events](../advanced/audit-metrics.md#retention) kept at most by the same daily purge (the oldest are deleted); `0`: no limit |
-| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | Controller | [Forwards the audit events to syslog](../advanced/audit-metrics.md#forwarding-to-syslog): `udp://host:port`, `tcp://host:port` or `unix:///dev/log` (no TLS, no proxy); disabled when unset |
-| `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | Controller | Syslog facility of these messages (`local0` to `local7`, `auth`, `authpriv`, `daemon`...) |
+| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | Controller | [Forwards the audit events to syslog](../advanced/audit-metrics.md#forwarding-to-syslog): `udp://host:port`, `tcp://host:port` or `unix:///dev/log` (no TLS, no proxy); disabled when unset; without it, the server set on the **Audit log** page applies. When set (not empty), takes precedence over that page |
+| `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | Controller | Syslog facility of these messages (`local0` to `local7`, `auth`, `authpriv`, `daemon`...); when set, takes precedence over the one chosen on the **Audit log** page |
 | `SECREVIEW_METRICS_ENABLED` | `true` | Controller | Serves the [Prometheus metrics](../advanced/audit-metrics.md#prometheus-metrics) on `/metrics` (`metrics` or `admin` token); when `false`, `/metrics` answers 404 |
 | `SECREVIEW_UPDATE_CHECK_ENABLED` | `false` | Controller | The **About** page searches GitHub for a newer release (HTTPS, through the outgoing proxy, cached 6 hours, see [security](security.md#security-of-the-server-itself)) |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | both | Logging level (on stderr) |

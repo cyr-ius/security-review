@@ -39,6 +39,22 @@ export const audit = defineMessages({
     'audit.action.user.login': 'Login',
     'audit.action.user.login_failed': 'Failed login',
     'audit.action.user.logout': 'Logout',
+    'audit.action.audit_syslog.changed': 'Syslog forwarding changed',
+    'audit.syslogTitle': 'Syslog forwarding',
+    'audit.syslogHelp':
+      'The controller sends each new audit event, as JSON, to this syslog server. A value set here applies within seconds, without a restart, unless its variable is set; the change is recorded in the audit log.',
+    'audit.syslogApplied': 'Server in use:',
+    'audit.syslogOff': 'none, events are not forwarded',
+    'audit.syslogAddress': 'Server',
+    'audit.syslogCustom': 'Set here',
+    'audit.syslogNone': 'No forwarding',
+    'audit.syslogAddressHelp':
+      'udp://host:port or tcp://host:port (port 514 by default). A Unix socket is set with the variable only; for TLS, use a local relay such as rsyslog.',
+    'audit.syslogFacility': 'Facility',
+    'audit.syslogFacilityDefault': 'Default ({value})',
+    'audit.syslogMissing': 'Enter the address of the syslog server.',
+    'audit.syslogSaved': 'Syslog forwarding saved.',
+    'audit.syslogLoadError': 'Could not load the syslog settings.',
   },
   fr: {
     'audit.subtitle':
@@ -77,6 +93,22 @@ export const audit = defineMessages({
     'audit.action.user.login': 'Connexion',
     'audit.action.user.login_failed': 'Échec de connexion',
     'audit.action.user.logout': 'Déconnexion',
+    'audit.action.audit_syslog.changed': 'Envoi syslog modifié',
+    'audit.syslogTitle': 'Envoi vers syslog',
+    'audit.syslogHelp':
+      'Le contrôleur envoie chaque nouvel événement d’audit, en JSON, à ce serveur syslog. Une valeur définie ici s’applique en quelques secondes, sans redémarrage, sauf si sa variable est définie ; la modification est inscrite au journal d’audit.',
+    'audit.syslogApplied': 'Serveur utilisé :',
+    'audit.syslogOff': 'aucun, les événements ne sont pas envoyés',
+    'audit.syslogAddress': 'Serveur',
+    'audit.syslogCustom': 'Défini ici',
+    'audit.syslogNone': 'Aucun envoi',
+    'audit.syslogAddressHelp':
+      'udp://hôte:port ou tcp://hôte:port (port 514 par défaut). Un socket Unix se règle uniquement par la variable ; pour TLS, passez par un relais local comme rsyslog.',
+    'audit.syslogFacility': 'Facility',
+    'audit.syslogFacilityDefault': 'Par défaut ({value})',
+    'audit.syslogMissing': 'Saisissez l’adresse du serveur syslog.',
+    'audit.syslogSaved': 'Envoi syslog enregistré.',
+    'audit.syslogLoadError': 'Impossible de charger les réglages syslog.',
   },
   es: {
     'audit.subtitle':
@@ -115,5 +147,21 @@ export const audit = defineMessages({
     'audit.action.user.login': 'Inicio de sesión',
     'audit.action.user.login_failed': 'Inicio de sesión fallido',
     'audit.action.user.logout': 'Cierre de sesión',
+    'audit.action.audit_syslog.changed': 'Envío a syslog modificado',
+    'audit.syslogTitle': 'Envío a syslog',
+    'audit.syslogHelp':
+      'El controlador envía cada nuevo evento de auditoría, en JSON, a este servidor syslog. Un valor definido aquí se aplica en unos segundos, sin reiniciar, salvo si su variable está definida; el cambio queda registrado en el registro de auditoría.',
+    'audit.syslogApplied': 'Servidor en uso:',
+    'audit.syslogOff': 'ninguno, los eventos no se envían',
+    'audit.syslogAddress': 'Servidor',
+    'audit.syslogCustom': 'Definido aquí',
+    'audit.syslogNone': 'Sin envío',
+    'audit.syslogAddressHelp':
+      'udp://host:puerto o tcp://host:puerto (puerto 514 por defecto). Un socket Unix solo se configura con la variable; para TLS, use un relé local como rsyslog.',
+    'audit.syslogFacility': 'Facility',
+    'audit.syslogFacilityDefault': 'Por defecto ({value})',
+    'audit.syslogMissing': 'Introduzca la dirección del servidor syslog.',
+    'audit.syslogSaved': 'Envío a syslog guardado.',
+    'audit.syslogLoadError': 'No se pudo cargar la configuración de syslog.',
   },
 });

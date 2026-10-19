@@ -6,7 +6,7 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 (`security-review-controller`) ou les deux.
 
 Certains réglages se définissent aussi dans l'[interface web](../usage/web-interface.md#ecrans) :
-langue des rapports, proxy sortant et connexion OIDC. **Une variable définie est toujours
+langue des rapports, proxy sortant, connexion OIDC et serveur syslog du journal d'audit. **Une variable définie est toujours
 prioritaire** sur la valeur de l'interface, qui ne s'applique que si la variable n'est pas
 définie (l'écran verrouille alors le champ).
 
@@ -67,8 +67,8 @@ définie (l'écran verrouille alors le champ).
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Contrôleur | Validité maximale en jours d'un jeton Bearer créé ou [renouvelé](../advanced/http.md#expiration-et-renouvellement-des-jetons) (CLI, interface web, enrôlement), qui est aussi sa validité par défaut ; `0` : les jetons n'expirent pas, sauf validité demandée |
 | `SECREVIEW_AUDIT_RETENTION_DAYS` | `365` | Contrôleur | Âge en jours au-delà duquel `serve` supprime les événements du [journal d'audit](../advanced/audit-metrics.md#journal-daudit) ; `0` conserve tous les événements |
 | `SECREVIEW_AUDIT_MAX_EVENTS` | `0` | Contrôleur | Nombre d'[événements d'audit](../advanced/audit-metrics.md#conservation) conservés au plus par la même purge quotidienne (les plus anciens sont supprimés) ; `0` : sans limite |
-| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | Contrôleur | [Envoie les événements d'audit à syslog](../advanced/audit-metrics.md#envoi-vers-syslog) : `udp://hôte:port`, `tcp://hôte:port` ou `unix:///dev/log` (ni TLS ni proxy) ; désactivé si absent |
-| `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | Contrôleur | *Facility* syslog de ces messages (`local0` à `local7`, `auth`, `authpriv`, `daemon`...) |
+| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | Contrôleur | [Envoie les événements d'audit à syslog](../advanced/audit-metrics.md#envoi-vers-syslog) : `udp://hôte:port`, `tcp://hôte:port` ou `unix:///dev/log` (ni TLS ni proxy) ; désactivé si absent ; sans elle, le serveur défini sur la page **Journal d'audit** s'applique. Définie (non vide), elle est prioritaire sur cette page |
+| `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | Contrôleur | *Facility* syslog de ces messages (`local0` à `local7`, `auth`, `authpriv`, `daemon`...) ; définie, elle est prioritaire sur celle choisie sur la page **Journal d'audit** |
 | `SECREVIEW_METRICS_ENABLED` | `true` | Contrôleur | Sert les [métriques Prometheus](../advanced/audit-metrics.md#metriques-prometheus) sur `/metrics` (jeton `metrics` ou `admin`) ; à `false`, `/metrics` répond 404 |
 | `SECREVIEW_UPDATE_CHECK_ENABLED` | `false` | Contrôleur | La page **À propos** cherche une nouvelle version sur GitHub (HTTPS, par le proxy sortant, mise en cache 6 heures, voir la [sécurité](security.md#securite-du-serveur-lui-meme)) |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | les deux | Niveau de journalisation (sur stderr) |

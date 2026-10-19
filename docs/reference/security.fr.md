@@ -109,7 +109,9 @@
   10 secondes, au plus une requête par processus du contrôleur toutes les 6 heures (15 minutes
   après un échec) ; seuls la version et le lien de la version sont conservés (un lien hors des
   versions du dépôt est remplacé), et la page ne reçoit qu'un code d'erreur court. Avec
-  `SECREVIEW_AUDIT_SYSLOG_ADDRESS` (désactivé par défaut), le contrôleur envoie les
+  `SECREVIEW_AUDIT_SYSLOG_ADDRESS` ou un serveur défini sur la page **Journal d'audit**
+  (désactivé par défaut ; permission `settings.manage`, `udp://` ou `tcp://` uniquement,
+  modification inscrite au journal d'audit), le contrôleur envoie les
   [événements d'audit](../advanced/audit-metrics.md#envoi-vers-syslog) à ce serveur syslog (UDP,
   TCP ou socket Unix, ni TLS ni proxy : passez par un relais local pour le TLS) ; les
   événements ne contiennent aucun secret (détails masqués), et le serveur MCP ne se connecte

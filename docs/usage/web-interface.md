@@ -146,7 +146,9 @@ the requested page once the controller answers again.
 - **Audit log**: administrators read the [audit log](../advanced/audit-metrics.md#audit-log): triage
   decisions, agent proposals, tokens and enrollment requests, newest first, with who made
   them; filter by event and project, search event details, sort by date/action/actor/target/project,
-  and use **Load more** for older events.
+  and use **Load more** for older events. Holders of `settings.manage` also set there the
+  [syslog server](../advanced/audit-metrics.md#forwarding-to-syslog) the events are forwarded to
+  (**Syslog forwarding**).
 - **OIDC**: administrators
   [configure the OIDC login](../advanced/sso.md#configuring-oidc-in-the-interface) (a value stored there applies when its
   `SECREVIEW_OIDC_*` variable is not set, with a connection test to the provider). What OIDC users may do

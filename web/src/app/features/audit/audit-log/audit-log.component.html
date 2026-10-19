@@ -6,6 +6,10 @@
   <app-refresh-button [loading]="firstPage.isLoading()" (refresh)="firstPage.reload()" />
 </div>
 
+@if (canManageSyslog()) {
+  <app-audit-syslog />
+}
+
 <form class="row g-2 mb-3" (submit)="$event.preventDefault()">
   <div class="col-md-4">
     <label for="audit-project" class="form-label">{{ 'reportTable.project' | t }}</label>
