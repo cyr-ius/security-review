@@ -59,11 +59,13 @@ shown), and the browser remembers the chosen sort for the next visits.
 - **Projects**: every project with its open findings by severity. Search by project name, sort
   by name, worst open finding or last report, and filter by worst open severity. The **Review open findings** button opens the findings to review of every
   project you can see (**Findings to review: all projects**), each with a link to its project.
+  The **Risk acceptances** button lists the accepted risks of every project you can see.
   With the `projects.create` permission, **New project** creates a project that you then read
   (see [Creating a project](../advanced/access-control.md#creating-a-project)).
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
-  The **Review open findings** button opens the next screen.
+  The **Review open findings** button opens the next screen; **Risk acceptances** lists the
+  accepted risks of the project.
 - **Findings to review**: every open finding of the project across all its reports, worst
   severity first, then newest report first, for a review by a security expert. Each finding
   shows its description, code excerpt and recommendation, and a link to its report (date, review
@@ -74,6 +76,11 @@ shown), and the browser remembers the chosen sort for the next visits.
   screen and apply or reject the statuses proposed by the agents (see
   [triage of findings](#triage-of-findings)); a triaged finding stays displayed until the next
   reload (**Refresh** button).
+- **Risk acceptances**: the accepted risks of the project (or of every project), expired ones
+  included, nearest expiry first. Search, sort and filter by state (**Active**, **Expired**) and
+  severity; **Refresh** reloads the list. A click on a finding opens its details: reason,
+  comments, and for the `findings.triage` permission the forms to add a comment, change the
+  expiry date and remove the acceptance (see [risk acceptances](#risk-acceptances)).
 - **Reports**: list filtered by project and risk level, searchable across report metadata and
   summary, and sortable by date, project, risk, type, branch, author or summary. Search and
   filters stay in the URL, so a view can be shared; the sort is remembered by the browser.
@@ -231,6 +238,39 @@ date for `open` / `fixed` gets `422`. Without `expires_on`, an acceptance never 
 made before this feature had no reason nor approver: the database upgrade gives them an expiry
 date 30 days later, with a reason that asks to confirm them. Review them with the status filters
 before that date, or they block the gate again.
+
+### Risk acceptances
+
+The **Risk acceptances** screen (`/ui/risk-acceptances`, or per project from the **Projects** and
+**Project** screens) lists the accepted risks, expired ones included, so that they can be renewed
+before or after their end of validity. In the details of an acceptance:
+
+- **Comments**: every comment, oldest first, with its author and date. Anyone who reads the
+  project sees them. A comment **can be neither edited nor deleted**: no route of the API does
+  it. They stay with the finding when its acceptance is removed.
+- **Add a comment** (at most 2000 characters, secrets masked) records the logged-in user as its
+  author, in the audit log too (`finding.commented`).
+- **Change the expiry date** saves the acceptance again with the same reason and the new date
+  (same limits as above, **No expiry** included): the logged-in user becomes its approver.
+- **Remove the acceptance** reopens the finding, after a confirmation.
+
+Like an acceptance, a comment needs a session with the `findings.triage` permission: a bearer
+token gets `403`. Through the REST API:
+
+```bash
+curl -H "Authorization: Bearer $SESSION" \
+  "https://secreview.example.com/api/v1/risk-acceptances?project=shop-api"
+# {"project": "shop-api", "total": 1, "acceptances": [{"id": 42, "status": "accepted", "expired": false, "comments_total": 1, …}]}
+curl -H "Authorization: Bearer $SESSION" https://secreview.example.com/api/v1/findings/42/comments
+# [{"id": 7, "finding_id": 42, "author": "alice", "body": "Renew it after the audit", "created_at": "…"}]
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42/comments -d '{"body": "Renew it after the audit"}'
+curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42 -d '{"status": "open"}'    # remove the acceptance
+```
+
+`GET /api/v1/risk-acceptances` takes `limit` (capped by `SECREVIEW_MAX_LIST_LIMIT`) and
+`offset`; without `project`, it lists every project the caller can read.
 
 ## Roles
 

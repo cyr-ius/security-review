@@ -1,0 +1,13 @@
+.comments {
+  max-height: 24rem;
+  overflow-y: auto;
+}
+
+.expiry {
+  max-width: 12rem;
+}
+
+.prewrap {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

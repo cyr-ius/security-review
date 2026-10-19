@@ -24,6 +24,7 @@ import {
   EnrollmentApproved,
   EnrollmentRequest,
   Finding,
+  FindingComment,
   FindingDecision,
   GroupCatalog,
   Identity,
@@ -45,6 +46,8 @@ import {
   ReportQuery,
   ReportSummary,
   RevokedUser,
+  RiskAcceptancePage,
+  RiskAcceptanceQuery,
   RulePackImportResult,
   RulePackSection,
   RuleReloadResult,
@@ -433,6 +436,25 @@ export class ApiService {
   /** Reject the status proposed by an agent (the status does not change). */
   rejectFindingProposal(id: number): Observable<Finding> {
     return this.http.delete<Finding>(`${API_URL}/findings/${id}/proposal`);
+  }
+
+  /** Accepted risks of a project (or of every project), expired ones included. */
+  riskAcceptances(query: RiskAcceptanceQuery): Observable<RiskAcceptancePage> {
+    let params = new HttpParams().set('limit', query.limit).set('offset', query.offset);
+    if (query.project) {
+      params = params.set('project', query.project);
+    }
+    return this.http.get<RiskAcceptancePage>(`${API_URL}/risk-acceptances`, { params });
+  }
+
+  /** Comments of a finding, oldest first. */
+  findingComments(id: number): Observable<FindingComment[]> {
+    return this.http.get<FindingComment[]>(`${API_URL}/findings/${id}/comments`);
+  }
+
+  /** Comment a finding (a comment can never be edited nor deleted). */
+  addFindingComment(id: number, body: string): Observable<FindingComment> {
+    return this.http.post<FindingComment>(`${API_URL}/findings/${id}/comments`, { body });
   }
 
   /** Download the Markdown version of a report. */

@@ -14,6 +14,7 @@ exists exactly when the change was committed.
 | `finding.status_changed` | A person records a triage decision in the web interface (`PATCH /api/v1/findings/{id}`): previous status, new status, reason, expiry date and agent proposal it settled |
 | `finding.status_proposed` | An agent proposes a status with `propose_finding_status` (never applied) |
 | `finding.proposal_rejected` | A triager rejects the proposal of an agent |
+| `finding.commented` | A person comments a finding (`POST /api/v1/findings/{id}/comments`): the comment, secrets masked |
 | `token.created` | A token is created (CLI `token create`, **Tokens** screen) |
 | `token.rotated` | The secret of a token is replaced (`token rotate`, **Rotate** button), with the grace period |
 | `token.revoked` | A token is revoked |

@@ -217,6 +217,7 @@ export type AuditAction =
   | 'finding.status_changed'
   | 'finding.status_proposed'
   | 'finding.proposal_rejected'
+  | 'finding.commented'
   | 'token.created'
   | 'token.rotated'
   | 'token.revoked'
@@ -244,6 +245,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
   'finding.status_proposed',
   'finding.proposal_rejected',
+  'finding.commented',
   'token.created',
   'token.rotated',
   'token.revoked',
@@ -536,6 +538,36 @@ export interface ProjectFindingPage {
   project: string | null;
   total: number;
   findings: ProjectFinding[];
+}
+
+/** An accepted risk of GET /api/v1/risk-acceptances (an expired one counts as open again). */
+export interface RiskAcceptance extends ProjectFinding {
+  expired: boolean;
+  comments_total: number;
+}
+
+/** GET /api/v1/risk-acceptances: one page of the accepted risks (project null: every project). */
+export interface RiskAcceptancePage {
+  project: string | null;
+  total: number;
+  acceptances: RiskAcceptance[];
+}
+
+/** Query of GET /api/v1/risk-acceptances. */
+export interface RiskAcceptanceQuery {
+  /** Omitted: the acceptances of every project in the scope of the caller. */
+  project?: string;
+  limit: number;
+  offset: number;
+}
+
+/** GET /api/v1/findings/{id}/comments: a comment, never edited nor deleted. */
+export interface FindingComment {
+  id: number;
+  finding_id: number;
+  author: string;
+  body: string;
+  created_at: string;
 }
 
 /** Query of GET /api/v1/findings. */

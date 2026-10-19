@@ -1,5 +1,6 @@
 import { LANGUAGES, Language } from '../catalog';
 import { about } from './about';
+import { acceptances } from './acceptances';
 import { account } from './account';
 import { audit } from './audit';
 import { checklists } from './checklists';
@@ -26,6 +27,7 @@ const CATALOGS = [
   about,
   projects,
   reports,
+  acceptances,
   rules,
   checklists,
   standards,

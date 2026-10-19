@@ -61,6 +61,22 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'risk-acceptances',
+        title: 'acceptances.title',
+        loadComponent: () =>
+          import('./features/acceptances/risk-acceptance-list/risk-acceptance-list.component').then(
+            (m) => m.RiskAcceptanceListComponent,
+          ),
+      },
+      {
+        path: 'projects/:project/risk-acceptances',
+        title: 'acceptances.title',
+        loadComponent: () =>
+          import('./features/acceptances/risk-acceptance-list/risk-acceptance-list.component').then(
+            (m) => m.RiskAcceptanceListComponent,
+          ),
+      },
+      {
         path: 'reports',
         title: 'layout.reports',
         loadComponent: () =>

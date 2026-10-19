@@ -14,6 +14,7 @@ from ..database import session_scope
 from ..models import (
     DISMISSED_STATUSES,
     MAX_AUTHOR_CHARS,
+    FindingCommentPublic,
     FindingPublic,
     FindingStatus,
     ReviewType,
@@ -37,6 +38,7 @@ from .deps import (
     web_user_id,
 )
 from .schemas import (
+    FindingCommentCreate,
     FindingStatusUpdate,
     Granularity,
     ProjectCreate,
@@ -44,6 +46,7 @@ from .schemas import (
     ProjectPosture,
     ProjectSummary,
     ReportSummary,
+    RiskAcceptancePage,
     Trend,
 )
 
@@ -150,6 +153,22 @@ async def project_findings(
         offset,
         review_type,
         identity.projects,
+    )
+
+
+@router.get("/risk-acceptances")
+async def risk_acceptances(
+    identity: CurrentIdentity,
+    project: Annotated[ProjectName | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> RiskAcceptancePage:
+    """Accepted risks of a project (or of every project in the scope of the caller), expired
+    ones included, nearest expiry first. limit is capped by SECREVIEW_MAX_LIST_LIMIT."""
+    if project is not None:
+        scoped_project(identity, project)
+    return await run_in_threadpool(
+        services.list_risk_acceptances, project, identity.projects, limit, offset
     )
 
 
@@ -294,3 +313,45 @@ async def reject_finding_proposal(finding_id: int, identity: Triager) -> Finding
     )
     logger.info("Proposal for finding %s rejected by %s", finding_id, identity.client)
     return finding
+
+
+@router.get("/findings/{finding_id}/comments")
+async def finding_comments(
+    finding_id: int, identity: CurrentIdentity
+) -> list[FindingCommentPublic]:
+    """Comments of a finding, oldest first."""
+    await run_in_threadpool(services.check_finding_scope, identity.projects, finding_id)
+    return await run_in_threadpool(services.list_finding_comments, finding_id)
+
+
+@router.post("/findings/{finding_id}/comments", status_code=status.HTTP_201_CREATED)
+async def add_finding_comment(
+    finding_id: int, body: FindingCommentCreate, identity: Triager
+) -> FindingCommentPublic:
+    """Comment a finding (its risk acceptance); the caller is stored as its author and logged.
+
+    Only a person logged in to the web interface may comment: a bearer token is refused. A
+    comment is never edited nor deleted (no route does it).
+    """
+    if identity.auth_source is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only a person logged in to the web interface can comment a finding",
+        )
+    await run_in_threadpool(
+        services.check_finding_scope,
+        permission_scope(identity, Permission.FINDINGS_TRIAGE),
+        finding_id,
+    )
+    try:
+        comment = await run_in_threadpool(
+            services.add_finding_comment,
+            finding_id,
+            identity.client,
+            body.body,
+            actor_of(identity),
+        )
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("Finding %s commented by %s", finding_id, identity.client)
+    return comment

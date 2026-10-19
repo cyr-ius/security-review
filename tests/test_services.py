@@ -9,6 +9,7 @@ from security_review_mcp import services
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.models import (
+    Finding,
     FindingCreate,
     FindingStatus,
     ReviewType,
@@ -478,3 +479,39 @@ def test_triage_decision_masks_its_reason_and_clears_the_proposal():
     assert decided.proposed_status is None and decided.proposed_by is None
     with pytest.raises(services.NotFoundError):
         services.clear_finding_proposal(999)
+
+
+def test_risk_acceptances_list_expired_ones_and_comments(triage):
+    saved = services.save_report(
+        "shop", "summary", [make_finding(), make_finding(title="Weak hash"), make_finding()]
+    )
+    first, second, third = (f.id for f in services.get_report(saved["report_id"]).findings)
+    triage(first, "accepted")
+    triage(second, "accepted")
+    triage(third, "false_positive")
+    with session_scope() as session:
+        expired = session.get(Finding, second)
+        expired.status_expires_at = utcnow() - timedelta(days=1)
+        session.add(expired)
+    services.add_finding_comment(first, "bob", "  Renewed until the rewrite, token=abcd1234efgh  ")
+
+    page = services.list_risk_acceptances("shop")
+
+    # Expired acceptances stay listed (to renew them), false positives are not acceptances
+    assert page["total"] == 2
+    rows = {row["id"]: row for row in page["acceptances"]}
+    assert (rows[second]["expired"], rows[second]["status"]) == (True, FindingStatus.OPEN)
+    assert (rows[first]["expired"], rows[first]["comments_total"]) == (False, 1)
+    assert services.list_risk_acceptances("shop", projects=["billing"])["total"] == 0
+    [comment] = services.list_finding_comments(first)
+    assert comment.author == "bob"
+    assert (
+        comment.body.startswith("Renewed until the rewrite") and "abcd1234efgh" not in comment.body
+    )
+    # The comments outlive the acceptance they discussed
+    services.update_finding_status(first, FindingStatus.OPEN, "bob")
+    assert len(services.list_finding_comments(first)) == 1
+    with pytest.raises(ValueError, match="empty"):
+        services.add_finding_comment(first, "bob", "   ")
+    with pytest.raises(services.NotFoundError):
+        services.add_finding_comment(999, "bob", "Some comment")

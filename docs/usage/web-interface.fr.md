@@ -61,11 +61,13 @@ suivantes.
   trier par nom, pire finding ouvert ou dernier rapport, et filtrer par sévérité maximale. Le bouton
   **Revoir les findings ouverts** ouvre les findings à revoir de tous
   les projets que vous pouvez voir (**Findings à revoir : tous les projets**), chacun avec un
-  lien vers son projet. Avec la permission `projects.create`, **Nouveau projet** crée un projet
+  lien vers son projet. Le bouton **Acceptations de risque** liste les risques acceptés de tous
+  les projets que vous pouvez voir. Avec la permission `projects.create`, **Nouveau projet** crée un projet
   que vous lisez ensuite (voir [Création d'un projet](../advanced/access-control.md#creation-dun-projet)).
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, derniers rapports et
-  export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant.
+  export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant ;
+  **Acceptations de risque** liste les risques acceptés du projet.
 - **Findings à revoir** : tous les findings ouverts du projet, sur l'ensemble de ses rapports,
   du plus grave au moins grave puis du rapport le plus récent au plus ancien, pour une revue par
   un expert en cybersécurité. Chaque finding affiche sa description, son extrait de code et sa
@@ -77,6 +79,12 @@ suivantes.
   finding depuis cet écran et appliquent ou rejettent les statuts proposés par les agents (voir
   [triage des findings](#triage-des-findings)) ; un finding trié reste affiché jusqu'au
   rechargement (bouton **Actualiser**).
+- **Acceptations de risque** : les risques acceptés du projet (ou de tous les projets), y compris
+  expirés, de l'expiration la plus proche à la plus lointaine. Recherche, tri et filtres par état
+  (**Active**, **Expirée**) et par sévérité ; **Actualiser** recharge la liste. Un clic sur un
+  finding ouvre ses détails : motif, commentaires et, avec la permission `findings.triage`, les
+  formulaires pour ajouter un commentaire, changer la date d'expiration et supprimer
+  l'acceptation (voir [acceptations de risque](#acceptations-de-risque)).
 - **Rapports** : liste filtrable par projet et niveau de risque, avec recherche dans les
   métadonnées et le résumé, tri par date, projet, risque, type, branche, auteur ou résumé. La
   recherche et les filtres restent dans l'URL, pour partager la vue ; le tri est mémorisé par le
@@ -246,6 +254,41 @@ positif** prises avant cette fonctionnalité n'avaient ni motif ni approbateur :
 la base leur donne une date d'expiration 30 jours plus tard, avec un motif qui demande de les
 confirmer. Revoyez-les avec les filtres de statut avant cette date, sinon elles bloquent de
 nouveau la gate.
+
+### Acceptations de risque
+
+L'écran **Acceptations de risque** (`/ui/risk-acceptances`, ou par projet depuis les écrans
+**Projets** et **Projet**) liste les risques acceptés, y compris expirés, pour les renouveler
+avant ou après leur fin de validité. Dans les détails d'une acceptation :
+
+- **Commentaires** : tous les commentaires, du plus ancien au plus récent, avec leur auteur et
+  leur date. Toute personne qui lit le projet les voit. Un commentaire **ne peut être ni modifié
+  ni supprimé** : aucune route de l'API ne le fait. Ils restent attachés au finding quand son
+  acceptation est supprimée.
+- **Ajouter un commentaire** (2000 caractères au plus, secrets masqués) enregistre l'utilisateur
+  connecté comme auteur, également dans le journal d'audit (`finding.commented`).
+- **Changer la date d'expiration** enregistre de nouveau l'acceptation avec le même motif et la
+  nouvelle date (mêmes limites que ci-dessus, **Sans expiration** compris) : l'utilisateur
+  connecté en devient l'approbateur.
+- **Supprimer l'acceptation** rouvre le finding, après confirmation.
+
+Comme une acceptation, un commentaire demande une session avec la permission `findings.triage` :
+un jeton Bearer reçoit `403`. Par l'API REST :
+
+```bash
+curl -H "Authorization: Bearer $SESSION" \
+  "https://secreview.example.com/api/v1/risk-acceptances?project=shop-api"
+# {"project": "shop-api", "total": 1, "acceptances": [{"id": 42, "status": "accepted", "expired": false, "comments_total": 1, …}]}
+curl -H "Authorization: Bearer $SESSION" https://secreview.example.com/api/v1/findings/42/comments
+# [{"id": 7, "finding_id": 42, "author": "alice", "body": "Renew it after the audit", "created_at": "…"}]
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42/comments -d '{"body": "Renew it after the audit"}'
+curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42 -d '{"status": "open"}'    # supprimer l'acceptation
+```
+
+`GET /api/v1/risk-acceptances` accepte `limit` (plafonné par `SECREVIEW_MAX_LIST_LIMIT`) et
+`offset` ; sans `project`, il liste tous les projets que l'appelant peut lire.
 
 ## Rôles
 

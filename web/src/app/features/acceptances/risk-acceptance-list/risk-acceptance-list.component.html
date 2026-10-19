@@ -1,0 +1,188 @@
+<nav [attr.aria-label]="'common.breadcrumb' | t">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item">
+      <a routerLink="/projects">{{ 'layout.projects' | t }}</a>
+    </li>
+    @if (project(); as name) {
+      <li class="breadcrumb-item">
+        <a [routerLink]="['/projects', name]">{{ name }}</a>
+      </li>
+    }
+    <li class="breadcrumb-item active" aria-current="page">{{ 'acceptances.title' | t }}</li>
+  </ol>
+</nav>
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    @if (project(); as name) {
+      <h1 class="h3 mb-1 text-break">{{ 'acceptances.heading' | t: { project: name } }}</h1>
+    } @else {
+      <h1 class="h3 mb-1">{{ 'acceptances.title' | t }}</h1>
+    }
+    <p class="text-body-secondary small mb-0">{{ 'acceptances.subtitle' | t }}</p>
+  </div>
+  <app-refresh-button [loading]="firstPage.isLoading()" (refresh)="refresh()" />
+</div>
+
+@if (notice(); as message) {
+  <div class="alert alert-success alert-dismissible py-2" role="status">
+    {{ message | t }}
+    <button
+      type="button"
+      class="btn-close"
+      [attr.aria-label]="'common.close' | t"
+      (click)="notice.set(null)"
+    ></button>
+  </div>
+}
+
+@if (forbidden()) {
+  <div class="alert alert-warning" role="alert">{{ 'projectFindings.notFound' | t }}</div>
+} @else if (firstPage.error()) {
+  <div class="alert alert-danger" role="alert">
+    <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+    {{ 'acceptances.loadError' | t }}
+  </div>
+} @else if (firstPage.isLoading() && !firstPage.hasValue()) {
+  <div class="text-center my-5">
+    <span class="spinner-border text-secondary" aria-hidden="true"></span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+  </div>
+} @else {
+  <app-table-controls
+    idPrefix="risk-acceptances"
+    [search]="search()"
+    [filters]="filters()"
+    (searchChange)="search.set($event)"
+    (filterChange)="onFilter($event)"
+  />
+  <div class="card">
+    <div class="card-header small text-body-secondary" aria-live="polite">
+      {{ 'acceptances.count' | t: { shown: visible().length, total: total() - removedCount() } }}
+    </div>
+
+    @if (visible().length > 0) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col" [appSortHeader]="sort" sortKey="severity">
+                {{ 'rules.severity' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="sort" sortKey="title">
+                {{ 'acceptances.finding' | t }}
+              </th>
+              @if (!project()) {
+                <th scope="col" [appSortHeader]="sort" sortKey="project">
+                  {{ 'reportTable.project' | t }}
+                </th>
+              }
+              <th scope="col" [appSortHeader]="sort" sortKey="approver">
+                {{ 'acceptances.approver' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="sort" sortKey="accepted">
+                {{ 'acceptances.acceptedOn' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="sort" sortKey="expires">
+                {{ 'acceptances.expiresOn' | t }}
+              </th>
+              <th scope="col" class="text-end" [appSortHeader]="sort" sortKey="comments">
+                {{ 'acceptances.comments' | t }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of visible(); track row.id) {
+              <tr [class.table-active]="selectedId() === row.id">
+                <td><app-severity-badge [severity]="row.severity" /></td>
+                <td>
+                  <button
+                    type="button"
+                    class="btn btn-link p-0 text-start fw-semibold"
+                    [attr.aria-expanded]="selectedId() === row.id"
+                    [attr.aria-controls]="'acceptance-' + row.id"
+                    [attr.aria-label]="'acceptances.details' | t: { id: row.id }"
+                    (click)="toggle(row.id)"
+                  >
+                    <i
+                      class="bi"
+                      [class.bi-chevron-down]="selectedId() === row.id"
+                      [class.bi-chevron-right]="selectedId() !== row.id"
+                      aria-hidden="true"
+                    ></i>
+                    {{ row.title }}
+                  </button>
+                  @if (row.file_path) {
+                    <div class="small text-body-secondary text-break">
+                      <code>{{ row.file_path }}</code>
+                    </div>
+                  }
+                </td>
+                @if (!project()) {
+                  <td>
+                    <a [routerLink]="['/projects', row.project]" class="text-break">{{
+                      row.project
+                    }}</a>
+                  </td>
+                }
+                <td class="text-break">{{ row.status_approver }}</td>
+                <td class="text-nowrap">{{ row.status_changed_at | date: 'dd/MM/yyyy' }}</td>
+                <td class="text-nowrap">
+                  @if (row.status_expires_at) {
+                    {{ row.status_expires_at | date: 'dd/MM/yyyy' }}
+                    @if (row.expired) {
+                      <span class="badge text-bg-warning ms-1">
+                        <i class="bi bi-hourglass-bottom" aria-hidden="true"></i>
+                        {{ 'acceptances.expired' | t }}
+                      </span>
+                    }
+                  } @else {
+                    <span class="text-body-secondary">{{ 'acceptances.noExpiry' | t }}</span>
+                  }
+                </td>
+                <td class="text-end">{{ row.comments_total }}</td>
+              </tr>
+              @if (selectedId() === row.id) {
+                <tr class="details" [id]="'acceptance-' + row.id">
+                  <td [attr.colspan]="project() ? 6 : 7" class="p-0">
+                    <app-risk-acceptance-detail
+                      [acceptance]="row"
+                      [canTriage]="auth.canTriage()"
+                      [permanentAcceptance]="auth.permanentAcceptance()"
+                      (changed)="onChanged($event)"
+                      (removed)="onRemoved($event)"
+                      (commented)="onCommented(row.id)"
+                    />
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else if (acceptances().length) {
+      <p class="text-body-secondary text-center my-4">{{ 'common.noMatches' | t }}</p>
+    } @else {
+      <p class="text-body-secondary text-center my-4">
+        <i class="bi bi-inbox" aria-hidden="true"></i>
+        {{ 'acceptances.none' | t }}
+      </p>
+    }
+  </div>
+
+  @if (hasMore()) {
+    <div class="text-center my-3">
+      <button
+        type="button"
+        class="btn btn-outline-secondary"
+        (click)="loadMore()"
+        [disabled]="loadingMore()"
+      >
+        {{ 'projectFindings.loadMore' | t }}
+      </button>
+      @if (loadMoreFailed()) {
+        <p class="text-danger small mt-2 mb-0">{{ 'acceptances.loadError' | t }}</p>
+      }
+    </div>
+  }
+}
