@@ -114,6 +114,13 @@ valident les entrées et appellent ces modules.
 
 ## Conventions de code
 
+**Les normes et conventions de développement par technologie (Python, Angular...) sont
+disponibles via le serveur MCP `security-review`.** S'il est connecté, consultez-les avant
+d'écrire du code : prompt `development-standards`, outils `list_development_standards` et
+`get_development_standards` (par technologie ou par fichier), ressources `standards://catalog`
+et `standard://{slug}`. Elles complètent les règles ci-dessous ; en cas de conflit, ce fichier
+prévaut pour ce dépôt.
+
 - Python ≥ 3.14, annotations de type partout, ruff (longueur 100, règles `E F W I B C4 UP`).
 - **Code, docstrings, commentaires, messages d'erreur et logs en anglais.** Chaque module et
   chaque fonction a une docstring. La documentation utilisateur (`docs/`, README) est
