@@ -3,6 +3,7 @@
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
+from conftest import ADMIN_GRANTS, TRIAGER_GRANTS
 from sqlalchemy import inspect
 from sqlmodel import SQLModel, StaticPool, create_engine
 
@@ -116,16 +117,12 @@ def test_user_grants_become_sso_web_users(empty_engine):
     users = {user["username"]: user for user in web_users.list_users()}
     assert set(users) == {"alice", "bob"}
     alice = users["alice"]
-    assert (alice["auth_source"], alice["effective_role"], alice["created_by"]) == (
-        "oidc",
-        "reader",
-        "admin",
-    )
+    assert (alice["auth_source"], alice["created_by"]) == ("oidc", "admin")
     # Revision 0013 moved the role of the user into its personal group, 0014 into a direct role
     # and 0018 into the groups of its projects
     assert alice["permissions"] == {"reports.read": ["billing", "shop-api"]}
     assert [group["name"] for group in alice["groups"]] == ["project:billing", "project:shop-api"]
-    assert (users["bob"]["auth_source"], users["bob"]["effective_role"]) == ("local", "admin")
+    assert (users["bob"]["auth_source"], users["bob"]["permissions"]) == ("local", ADMIN_GRANTS)
 
 
 def test_roles_and_mappings_become_groups(empty_engine):
@@ -188,7 +185,7 @@ def test_roles_and_mappings_become_groups(empty_engine):
     users = {user["username"]: user for user in web_users.list_users()}
     assert users["rita"]["permissions"] == {"reports.read": ["shop"]}
     assert [group["name"] for group in users["rita"]["groups"]] == ["project:shop"]
-    assert users["tess"]["effective_role"] == "triager"
+    assert users["tess"]["permissions"] == TRIAGER_GRANTS
     # The access given by the OIDC groups at the last login is computed again at the next one
     assert users["sam"]["permissions"] == {}
     roles = {role["name"]: role for role in access_control.list_roles()}
@@ -345,7 +342,7 @@ def test_direct_roles_become_groups(empty_engine):
     }
     # Nobody loses or gains any access, the last administrator included
     users = {user["username"]: user for user in web_users.list_users()}
-    assert users["root"]["effective_role"] == "admin"
+    assert users["root"]["permissions"] == ADMIN_GRANTS
     assert users["rita"]["permissions"] == {"reports.read": ["crm", "shop"]}
     assert users["tess"]["permissions"] == {
         "findings.triage": ["shop"],

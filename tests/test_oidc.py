@@ -27,6 +27,7 @@ from security_review_mcp import (
     web_api,
     web_users,
 )
+from security_review_mcp.access_control import Permission
 from security_review_mcp.config import Settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
@@ -204,7 +205,7 @@ def test_without_a_secret_key_nor_file_a_warning_is_logged(caplog):
 def test_secret_key_is_generated_once_in_its_file(secret_key_file, caplog):
     settings = make_settings(secret_key=None)
     first = oidc.session_signer(settings)
-    token = first.issue_session("alice", Role.READER, None, 1, 1)
+    token = first.issue_session("alice", None, 1, 1)
 
     # Mode 0600, never logged; the next start (or another worker) reads the same secret
     assert stat.S_IMODE(secret_key_file.stat().st_mode) == 0o600
@@ -307,15 +308,12 @@ def test_return_url_stays_local(value, expected):
 
 def test_session_token_round_trip_and_rejections():
     signer = oidc.SessionSigner(SECRET, session_hours=1)
-    token = signer.issue_session("oidc:alice", Role.TRIAGER, None, 7, 42)
+    token = signer.issue_session("oidc:alice", None, 7, 42)
     assert signer.owns(token)
     payload = signer.decode_session(token)
-    assert (payload["sub"], payload["role"], payload["uid"], payload["uver"]) == (
-        "oidc:alice",
-        "triager",
-        7,
-        42,
-    )
+    # No role: the permissions of the user are read from the database at each request
+    assert (payload["sub"], payload["uid"], payload["uver"]) == ("oidc:alice", 7, 42)
+    assert "role" not in payload
 
     # Another secret, a tampered payload, a state cookie or a database token are refused
     assert oidc.SessionSigner("x" * 40).decode_session(token) is None
@@ -359,11 +357,6 @@ def test_session_tokens_always_name_a_web_user():
     for extra in ({}, {"uid": 1}, {"uid": "1", "uver": 0}, {"uid": 1, "uver": True}):
         forged = jwt.encode({**claims, **extra}, signer._session_key, algorithm="HS256")
         assert signer.decode_session(forged) is None
-
-
-def test_session_tokens_never_carry_the_mcp_role():
-    with pytest.raises(ValueError, match="cannot use the web interface"):
-        oidc.SessionSigner(SECRET).issue_session("oidc:bot", Role.MCP, None, 1, 0)
 
 
 # ── Login flow ───────────────────────────────────────────────────────────────
@@ -440,21 +433,22 @@ def test_full_login_gives_a_session_accepted_by_the_api(controller, provider, ca
 
     me = controller.get("/api/v1/me", headers={"Authorization": f"Bearer {session}"})
     assert me.status_code == 200
-    assert (me.json()["client"], me.json()["role"]) == ("oidc:alice", "reader")
+    assert (me.json()["client"], me.json()["role"]) == ("oidc:alice", "user")
+    assert me.json()["permissions"] == {"reports.read": None}
     # Nothing secret in the logs of the controller
     logs = "\n".join(
         record.getMessage()
         for record in caplog.records
         if record.name.startswith("security_review_mcp")
     )
-    assert "OIDC login of oidc:alice with role reader through 1 OIDC group(s)" in logs
+    assert "OIDC login of oidc:alice through 1 OIDC group(s)" in logs
     assert "OIDC web user alice created at its first login" in logs
     # The user now appears among the web users, as an OIDC user bound to its subject
     (user,) = web_users.list_users()
-    assert (user["username"], user["auth_source"], user["effective_role"]) == (
+    assert (user["username"], user["auth_source"], user["permissions"]) == (
         "alice",
         "oidc",
-        "reader",
+        {"reports.read": None},
     )
     assert [(group["name"], group["source"]) for group in user["groups"]] == [("qa", "oidc")]
     with session_scope() as db:
@@ -503,7 +497,11 @@ def test_admin_group_and_userinfo_groups(controller, provider):
         controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
     )
     me = controller.get("/api/v1/me", headers={"Authorization": f"Bearer {session}"}).json()
-    assert (me["client"], me["role"]) == ("oidc:bob", "admin")
+    assert (me["client"], me["role"], me["permissions"]) == (
+        "oidc:bob",
+        "user",
+        {permission.value: None for permission in Permission},
+    )
 
 
 def test_sso_group_restricts_the_session_to_its_projects(controller, provider):
@@ -518,7 +516,8 @@ def test_sso_group_restricts_the_session_to_its_projects(controller, provider):
     headers = {"Authorization": f"Bearer {session}"}
 
     me = controller.get("/api/v1/me", headers=headers).json()
-    assert (me["role"], me["projects"]) == ("triager", ["billing"])
+    assert (me["role"], me["projects"]) == ("user", ["billing"])
+    assert me["permissions"] == {"findings.triage": ["billing"], "reports.read": ["billing"]}
     assert me["permissions"] == {"findings.triage": ["billing"], "reports.read": ["billing"]}
     projects = controller.get("/api/v1/projects", headers=headers).json()
     assert [item["project"] for item in projects] == ["billing"]
@@ -538,7 +537,7 @@ def test_sso_user_created_by_an_administrator_reads_its_projects(controller, pro
     headers = {"Authorization": f"Bearer {session}"}
 
     me = controller.get("/api/v1/me", headers=headers).json()
-    assert (me["client"], me["role"], me["projects"]) == ("oidc:dave", "reader", ["shop-api"])
+    assert (me["client"], me["role"], me["projects"]) == ("oidc:dave", "user", ["shop-api"])
     assert (me["auth_source"], me["local_account"]) == ("oidc", False)
     projects = controller.get("/api/v1/projects", headers=headers).json()
     assert [item["project"] for item in projects] == ["shop-api"]
@@ -578,7 +577,7 @@ def test_unknown_sso_user_is_refused_without_auto_creation(tmp_path):
         client.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
     )
     me = client.get("/api/v1/me", headers={"Authorization": f"Bearer {session}"}).json()
-    assert me["role"] == "admin"
+    assert me["permissions"] == {permission.value: None for permission in Permission}
 
 
 def test_sso_login_never_opens_a_local_account(controller, provider):

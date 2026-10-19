@@ -12,6 +12,7 @@ from security_review_mcp import (  # noqa: F401  (register the tables)
     registry,
     rule_store,
 )
+from security_review_mcp.access_control import Permission
 from security_review_mcp.config import get_settings
 from security_review_mcp.database import set_engine
 from security_review_mcp.models import DISMISSED_STATUSES, FindingPublic, FindingStatus
@@ -150,6 +151,12 @@ def triage():
         return update_finding_status(finding_id, status, "alice")
 
     return _triage
+
+
+# Permissions of a user who holds a built-in role on every project (see group_for)
+READER_GRANTS = {"reports.read": None}
+TRIAGER_GRANTS = {"findings.triage": None, "reports.read": None}
+ADMIN_GRANTS = {permission.value: None for permission in Permission}
 
 
 def group_for(

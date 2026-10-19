@@ -59,14 +59,13 @@ class Role(StrEnum):
     reports); ``metrics`` (never restricted to projects) only reaches the Prometheus endpoint of
     the controller.
 
-    ``reader`` and ``triager`` are never the role of a token: they only sum up the permissions of
-    a web session (see access_control.summary_role), whose rights come from its groups.
+    ``user`` is never the role of a token: it marks a web session, whose rights are the
+    permissions of its groups (see access_control.user_grants), checked by each route.
     """
 
     MCP = "mcp"
     API = "api"
-    READER = "reader"
-    TRIAGER = "triager"
+    USER = "user"
     ADMIN = "admin"
     CI = "ci"
     METRICS = "metrics"
@@ -76,9 +75,10 @@ DEFAULT_ROLE = Role.MCP
 # Roles a bearer token may have (a person reaches the web API through a session only)
 TOKEN_ROLES = frozenset({Role.MCP, Role.API, Role.ADMIN, Role.CI, Role.METRICS})
 MCP_ROLES = frozenset({Role.MCP, Role.ADMIN})
-WEB_ROLES = frozenset({Role.READER, Role.TRIAGER, Role.ADMIN})
+# Role of a web session, whatever its permissions
+WEB_ROLES = frozenset({Role.USER})
 # Roles accepted by the REST API of the controller: web sessions, admin and api tokens
-API_ROLES = WEB_ROLES | {Role.API}
+API_ROLES = WEB_ROLES | {Role.API, Role.ADMIN}
 # Roles accepted by the pipeline routes of the controller (scoped to projects)
 CI_ROUTE_ROLES = API_ROLES | {Role.CI}
 # Roles accepted by the scans of the pipeline routes, which may store a report

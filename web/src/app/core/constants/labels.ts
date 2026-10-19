@@ -48,8 +48,7 @@ export const DIRECTION_META: Record<string, { label: MessageKey; icon: string }>
 /** Message key and icon of each role. */
 export const ROLE_META: Record<Role, { label: MessageKey; icon: string }> = {
   admin: { label: 'role.admin', icon: 'bi-shield-fill-check' },
-  triager: { label: 'role.triager', icon: 'bi-funnel-fill' },
-  reader: { label: 'role.reader', icon: 'bi-eye-fill' },
+  user: { label: 'role.user', icon: 'bi-person-fill' },
   mcp: { label: 'role.mcp', icon: 'bi-plug-fill' },
   api: { label: 'role.api', icon: 'bi-key-fill' },
   ci: { label: 'role.ci', icon: 'bi-gear-wide-connected' },
@@ -77,3 +76,9 @@ export const PERMISSION_META: Record<Permission, { label: MessageKey; help: Mess
   'users.manage': { label: 'permission.usersManage', help: 'permission.usersManageHelp' },
   'audit.read': { label: 'permission.auditRead', help: 'permission.auditReadHelp' },
 };
+
+/** Permissions limited to projects (the others concern the whole controller). */
+export const SCOPED_PERMISSIONS: ReadonlySet<Permission> = new Set([
+  'reports.read',
+  'findings.triage',
+]);

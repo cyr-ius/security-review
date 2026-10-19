@@ -6,9 +6,9 @@ export type FindingStatus = 'open' | 'fixed' | 'accepted' | 'false_positive';
 
 /** Role of a bearer token: tokens are for machines, a person signs in with a web user. */
 export type TokenRole = 'mcp' | 'admin' | 'ci' | 'api';
-/** Role of the caller: the role of its token or, for a web user, the web role that sums up
- * the permissions of its groups (reader, triager or admin). */
-export type Role = TokenRole | 'reader' | 'triager';
+/** Role of the caller: the role of its token, or `user` for a web user, whose rights are the
+ * permissions of its groups. */
+export type Role = TokenRole | 'user';
 /** Role of a token managed in the web interface. */
 export type ProjectTokenRole = Exclude<TokenRole, 'admin'>;
 
@@ -132,13 +132,9 @@ export interface LoginSession {
   session: string;
   expires_in: number;
   username: string;
-  role: Role;
   /** Password set by someone else: it must be changed before anything else. */
   must_change_password?: boolean;
 }
-
-/** Web role of a web user. */
-export type WebUserRole = 'reader' | 'triager' | 'admin';
 
 /** Source of a web user: local account (password) or OIDC account (OpenID Connect). */
 export type AuthSource = 'local' | 'oidc';
@@ -157,10 +153,8 @@ export interface WebUser {
   username: string;
   auth_source: AuthSource;
   groups: UserGroupMembership[];
-  /** Permissions given by the roles of its groups. */
+  /** Permissions given by the roles of its groups; empty: no access. */
   permissions: Grants;
-  /** Web role that sums up the permissions; null: no permission. */
-  effective_role: WebUserRole | null;
   /** True once an OIDC user logged in (bound to its identity provider account). */
   sso_linked: boolean;
   created_at: string;

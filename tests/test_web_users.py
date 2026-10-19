@@ -4,7 +4,7 @@ import json
 
 import jwt
 import pytest
-from conftest import group_for, make_user
+from conftest import ADMIN_GRANTS, TRIAGER_GRANTS, group_for, make_user
 from sqlmodel import Session, select
 
 from security_review_mcp import access_control, audit, cli, oidc, web_users
@@ -104,9 +104,8 @@ def test_create_user_stores_only_a_hash(database):
     created = make_user("alice", PASSWORD, "triager", ["shop-api"], "ops")
 
     assert "password" not in created
-    assert (created["username"], created["effective_role"], created["permissions"]) == (
+    assert (created["username"], created["permissions"]) == (
         "alice",
-        "triager",
         {"findings.triage": ["shop-api"], "reports.read": ["shop-api"]},
     )
     assert [group["name"] for group in created["groups"]] == ["triager:shop-api"]
@@ -138,7 +137,7 @@ def test_a_user_without_groups_has_no_permission():
     signer = oidc.SessionSigner(SECRET)
     user = web_users.create_user("alice", PASSWORD)
 
-    assert (user["groups"], user["permissions"], user["effective_role"]) == ([], {}, None)
+    assert (user["groups"], user["permissions"]) == ([], {})
     with pytest.raises(ValueError, match="no permission"):
         web_users.new_session(signer, user["id"])
 
@@ -171,7 +170,8 @@ def test_last_administrator_is_kept():
         web_users.update_user(admin["id"], [readers])
 
     other = make_user("root", PASSWORD, "admin")
-    assert web_users.update_user(admin["id"], [readers])["effective_role"] == "reader"
+    demoted = web_users.update_user(admin["id"], [readers])
+    assert demoted["permissions"] == {"reports.read": ["shop-api"]}
     with pytest.raises(ValueError, match="last holder of users.manage"):
         web_users.delete_user(other["id"])
 
@@ -227,7 +227,7 @@ def test_bootstrap_admin_is_created_once_while_no_user_exists():
     admin = web_users.find_user("admin")
     password = web_users.set_password(admin["id"])["password"]
     user = web_users.authenticate("admin", password)
-    assert (user["effective_role"], user["created_by"]) == ("admin", "bootstrap")
+    assert (user["permissions"], user["created_by"]) == (ADMIN_GRANTS, "bootstrap")
     assert [group["name"] for group in user["groups"]] == ["administrators"]
 
 
@@ -250,7 +250,7 @@ def test_session_follows_the_stored_user():
     info = verifier.verify_session(session)
     assert (info.label, info.role, info.projects, info.user_id) == (
         "alice",
-        Role.READER,
+        Role.USER,
         frozenset({"shop-api"}),
         user["id"],
     )
@@ -258,7 +258,7 @@ def test_session_follows_the_stored_user():
     # A new group applies to the open session at once
     web_users.update_user(user["id"], [group_for("triager")])
     info = verifier.verify_session(session)
-    assert (info.role, info.projects) == (Role.TRIAGER, None)
+    assert (info.role, info.projects, info.grants) == (Role.USER, None, TRIAGER_GRANTS)
     # A deleted user loses its sessions
     make_user("root", PASSWORD, "admin")
     web_users.delete_user(user["id"])
@@ -277,7 +277,7 @@ def test_password_change_ends_the_previous_sessions():
 
     assert verifier.verify_session(before) is None
     after = web_users.new_session(signer, user["id"])
-    assert (after["username"], after["role"]) == ("alice", Role.READER)
+    assert after["username"] == "alice"
     assert verifier.verify_session(after["session"]).user_id == user["id"]
 
 
@@ -317,7 +317,7 @@ def test_sessions_without_a_web_user_are_refused():
     assert verifier.verify_session(unbound) is None
     # A session signed with another secret is refused
     user = make_user("bob", PASSWORD, "admin")
-    other = oidc.SessionSigner("o" * 40).issue_session("bob", Role.ADMIN, None, user["id"], 0)
+    other = oidc.SessionSigner("o" * 40).issue_session("bob", None, user["id"], 0)
     assert verifier.verify_session(other) is None
 
 
@@ -354,10 +354,10 @@ def login(signer, user=None, **settings) -> dict:
 def test_sso_user_has_no_password_and_may_have_no_group(database):
     created = web_users.create_user("alice", None, None, created_by="admin", auth_source="oidc")
 
-    assert (created["auth_source"], created["groups"], created["effective_role"]) == (
+    assert (created["auth_source"], created["groups"], created["permissions"]) == (
         "oidc",
         [],
-        None,
+        {},
     )
     assert "password" not in created and created["password_changed_at"] is None
     assert stored(database, "alice").password_hash is None
@@ -400,11 +400,12 @@ def test_sso_login_creates_the_user_when_auto_creation_is_enabled(database):
         "oidc",
     )
     assert [(g["name"], g["source"]) for g in user["groups"]] == [("devs", "oidc")]
-    assert user["effective_role"] == "triager"
+    assert user["permissions"] == TRIAGER_GRANTS
     assert user["sso_linked"] and user["last_login_at"]
     assert stored(database, "alice").oidc_subject == "sub-1"
     info = verifier.verify_session(result["session"])
-    assert (info.label, info.role, info.auth_source) == ("oidc:alice", Role.TRIAGER, "oidc")
+    assert (info.label, info.role, info.auth_source) == ("oidc:alice", Role.USER, "oidc")
+    assert info.grants == TRIAGER_GRANTS
 
 
 def test_sso_login_never_creates_a_user_without_a_permission():
@@ -424,7 +425,7 @@ def test_sso_login_only_matches_the_groups_open_to_sso():
 
     login(signer, identity("alice", "sub-1", "local-admins"))
     user = web_users.find_user("alice")
-    assert user["effective_role"] == "reader"
+    assert user["permissions"] == {"reports.read": ["shop"]}
     assert [group["name"] for group in user["groups"]] == ["reader:shop"]
 
 
@@ -445,9 +446,9 @@ def test_sso_login_creates_the_admin_groups_of_the_settings():
     signer = oidc.SessionSigner(SECRET)
     settings = {"oidc_auto_create_users": True, "oidc_admin_groups": "sec-admins, ops"}
 
-    result = login(signer, identity("alice", "sub-1", "sec-admins"), **settings)
+    login(signer, identity("alice", "sub-1", "sec-admins"), **settings)
 
-    assert result["role"] == Role.ADMIN
+    assert web_users.find_user("alice")["permissions"] == ADMIN_GRANTS
     groups = {group["name"]: group for group in access_control.list_groups()}
     assert "ops" not in groups  # created only when one of its members logs in
     assert groups["sec-admins"]["sso"] is True
@@ -466,7 +467,7 @@ def test_sso_login_opens_a_user_created_by_an_administrator():
 
     # No OIDC group: the groups given by an administrator apply
     info = verifier.verify_session(login(signer)["session"])
-    assert (info.role, info.projects) == (Role.READER, frozenset({"shop"}))
+    assert (info.role, info.projects) == (Role.USER, frozenset({"shop"}))
 
 
 def test_sso_login_combines_the_given_groups_with_the_sso_ones(database):
@@ -477,10 +478,16 @@ def test_sso_login_combines_the_given_groups_with_the_sso_ones(database):
     group_for("triager", ["crm"], name="leads", sso=True)
 
     info = verifier.verify_session(login(signer, identity("alice", "sub-1", "devs"))["session"])
-    assert (info.role, info.projects) == (Role.READER, frozenset({"shop", "billing"}))
+    assert (info.projects, info.grants) == (
+        frozenset({"shop", "billing"}),
+        {"reports.read": frozenset({"shop", "billing"})},
+    )
     # Each permission keeps its own projects: reading is not narrowed by a triage group
     info = verifier.verify_session(login(signer, identity("alice", "sub-1", "leads"))["session"])
-    assert (info.role, info.projects) == (Role.TRIAGER, frozenset({"shop", "crm"}))
+    assert (info.projects, info.grants["findings.triage"]) == (
+        frozenset({"shop", "crm"}),
+        frozenset({"crm"}),
+    )
     assert info.grants["findings.triage"] == frozenset({"crm"})
     # The OIDC groups are replaced at each login
     login(signer, identity("alice", "sub-1"))
@@ -618,7 +625,7 @@ def test_deleting_an_sso_user_ends_its_sessions():
     verifier = web_users.SessionVerifier(signer)
     created = make_user("alice", None, "triager", auth_source="oidc")
     session = login(signer)["session"]
-    assert verifier.verify_session(session).role == Role.TRIAGER
+    assert verifier.verify_session(session).grants == TRIAGER_GRANTS
 
     web_users.delete_user(created["id"])
     assert verifier.verify_session(session) is None
@@ -711,7 +718,7 @@ def test_last_administrator_by_its_sso_groups_is_kept():
     web_users.create_user("alice", None, None, auth_source="oidc")
     login(signer, identity("alice", "sub-1", "secreview-admins"))
     alice = web_users.find_user("alice")
-    assert alice["effective_role"] == "admin"
+    assert alice["permissions"] == ADMIN_GRANTS
     root = make_user("root", PASSWORD, "admin")
 
     # Demoting the local admin keeps an administrator (alice, by its OIDC group)
@@ -719,7 +726,8 @@ def test_last_administrator_by_its_sso_groups_is_kept():
     with pytest.raises(ValueError, match="last holder of users.manage"):
         web_users.delete_user(alice["id"])
     # The groups given by hand may change: the OIDC group keeps it administrator
-    assert web_users.update_user(alice["id"], [group_for("reader")])["effective_role"] == "admin"
+    updated = web_users.update_user(alice["id"], [group_for("reader")])
+    assert updated["permissions"] == ADMIN_GRANTS
 
 
 # ── Access given at the approval of an enrollment ────────────────────────────
@@ -765,10 +773,7 @@ def test_grant_project_leaves_an_unrestricted_user_unchanged():
 def test_grant_project_gives_reader_to_an_sso_user_without_group():
     web_users.create_user("alice", None, None, auth_source="oidc")
     granted = web_users.grant_project("alice", "shop", None, False)
-    assert (granted["effective_role"], granted["permissions"]) == (
-        "reader",
-        {"reports.read": ["shop"]},
-    )
+    assert granted["permissions"] == {"reports.read": ["shop"]}
 
 
 def test_grant_project_creates_an_sso_user_only_when_allowed():
@@ -810,7 +815,7 @@ def test_user_cli_create_list_set_groups_delete(capsys):
     code, created = run_cli(capsys, "create", "alice", "--group", "shop-triagers")
 
     assert code == cli.EXIT_PASSED
-    assert (created["effective_role"], created["created_by"]) == ("triager", "cli")
+    assert created["created_by"] == "cli"
     assert created["permissions"]["findings.triage"] == ["shop"]
     assert web_users.authenticate("alice", created["password"]) is not None
     code, listed = run_cli(capsys, "list")
@@ -837,7 +842,7 @@ def test_user_cli_restores_the_administrators_group(capsys):
 
     code, updated = run_cli(capsys, "set-groups", "alice", "--group", "administrators")
 
-    assert (code, updated["effective_role"]) == (cli.EXIT_PASSED, "admin")
+    assert (code, updated["permissions"]) == (cli.EXIT_PASSED, ADMIN_GRANTS)
     assert [group["name"] for group in updated["groups"]] == ["administrators"]
 
 
@@ -849,7 +854,7 @@ def test_user_cli_creates_an_sso_user(capsys):
     assert "password" not in created
     group_for("triager")
     code, updated = run_cli(capsys, "set-groups", "alice@example.com", "--group", "triager")
-    assert (code, updated["effective_role"]) == (cli.EXIT_PASSED, "triager")
+    assert (code, updated["permissions"]) == (cli.EXIT_PASSED, TRIAGER_GRANTS)
     # An unknown group is refused; an OIDC user never has a password
     assert cli.run(["user", "create", "bob", "--group", "nope"]) == cli.EXIT_ERROR
     assert "Group 'nope' not found" in json.loads(capsys.readouterr().err)["error"]

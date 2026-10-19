@@ -90,12 +90,15 @@ par un autre lit tous les projets et ne trie que `crm`.
 Un changement de groupe (rôles, membres) ou de rôle s'applique aussitôt aux sessions ouvertes. Un
 compte sans aucune permission ne peut pas se connecter, et ses sessions ouvertes s'arrêtent.
 
-`GET /api/v1/me` renvoie les permissions de l'appelant ; `role` les résume pour l'affichage :
-`admin` avec toutes les permissions sur tous les projets, `triager` avec `findings.triage`,
-`reader` sinon.
+Un utilisateur n'a pas de rôle à lui : `GET /api/v1/me` renvoie ses permissions, chacune avec
+ses projets (`null` : tous les projets), et `role` vaut toujours `user` pour une session web (le
+rôle du jeton sinon). L'écran **Utilisateurs** et **Mon compte** affichent ces permissions telles
+quelles : un utilisateur qui ne gère que les jetons et les normes ne lit aucun projet. Une session
+web ne passe jamais pour un jeton `admin`, même avec toutes les permissions : les routes réservées
+aux jetons (`/metrics`, les scans de pipeline) la refusent.
 
 ```json
-{"client": "alice", "role": "triager", "projects": null,
+{"client": "alice", "role": "user", "projects": null,
  "permissions": {"reports.read": null, "findings.triage": ["crm"]}, …}
 ```
 

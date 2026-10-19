@@ -2,6 +2,7 @@ import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { ROLE_META } from '../core/constants/labels';
+import { I18nService } from '../core/i18n/i18n.service';
 import { TranslatePipe } from '../core/i18n/translate.pipe';
 import { MessageKey } from '../core/i18n/messages';
 import { Permission } from '../core/models/api.models';
@@ -10,6 +11,7 @@ import { AuthService } from '../core/services/auth.service';
 import { ThemeService } from '../core/services/theme.service';
 import { LanguageSelectComponent } from '../shared/components/language-select/language-select.component';
 import { ThemeButtonComponent } from '../shared/components/theme-button/theme-button.component';
+import { describeGrants } from '../shared/utils/permission-utils';
 import { SessionExpiredComponent } from './session-expired/session-expired.component';
 
 /** Below Bootstrap's lg breakpoint the sidebar is a rail of icons. */
@@ -55,6 +57,7 @@ export class LayoutComponent {
   private readonly api = inject(ApiService);
   readonly theme = inject(ThemeService);
   private readonly router = inject(Router);
+  private readonly i18n = inject(I18nService);
 
   readonly mainNav: readonly NavItem[] = [
     { path: '/projects', label: 'layout.projects', icon: 'bi-grid-1x2' },
@@ -123,7 +126,11 @@ export class LayoutComponent {
   /** Entries of the Administration section the current user may open. */
   readonly adminNav = computed(() => this.allowed(this.adminItems));
 
-  readonly role = computed(() => ROLE_META[this.auth.identity()?.role ?? 'reader']);
+  readonly role = computed(() => ROLE_META[this.auth.identity()?.role ?? 'user']);
+  /** Permissions of the caller, shown when hovering its role. */
+  readonly permissions = computed(() =>
+    describeGrants(this.auth.identity()?.permissions ?? {}, this.i18n).join('\n'),
+  );
 
   /** Up to two initials of the client name, for the avatar. */
   readonly initials = computed(() => {

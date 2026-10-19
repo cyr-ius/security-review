@@ -97,7 +97,7 @@
         <span class="avatar" aria-hidden="true">{{ initials() }}</span>
         <span class="user-text" [class.visually-hidden]="rail()">
           <span class="user-name" [title]="identity.client">{{ identity.client }}</span>
-          <span class="user-role">
+          <span class="user-role" [title]="permissions()">
             <i class="bi" [class]="role().icon" aria-hidden="true"></i>
             {{ role().label | t }}
           </span>

@@ -156,7 +156,7 @@ def test_serve_creates_the_admin_once_without_logging_any_password(
     identity = client.get("/api/v1/me", headers=headers).json()
     assert (identity["client"], identity["role"], identity["local_account"]) == (
         "admin",
-        "admin",
+        "user",
         True,
     )
     # The password is not a bearer token

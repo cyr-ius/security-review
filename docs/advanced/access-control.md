@@ -85,12 +85,15 @@ through another reads every project and triages `crm` only.
 A change of a group (roles, members) or of a role applies at once to the open sessions. An
 account without any permission cannot log in, and its open sessions stop.
 
-`GET /api/v1/me` returns the permissions of the caller; `role` sums them up for the display:
-`admin` with every permission on every project, `triager` with `findings.triage`, `reader`
-otherwise.
+A user holds no role of its own: `GET /api/v1/me` returns its permissions, each with its
+projects (`null`: every project), and `role` is always `user` for a web session (the role of the
+token otherwise). The **Users** screen and **My account** list these permissions as they are: a
+user who only manages the tokens and the standards reads no project. A web session never passes
+for an `admin` token, even with every permission: the routes reserved to tokens (`/metrics`, the
+pipeline scans) refuse it.
 
 ```json
-{"client": "alice", "role": "triager", "projects": null,
+{"client": "alice", "role": "user", "projects": null,
  "permissions": {"reports.read": null, "findings.triage": ["crm"]}, …}
 ```
 

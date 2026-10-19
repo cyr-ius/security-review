@@ -64,22 +64,11 @@ def test_combine_bounds_the_projects_of_a_permission(monkeypatch):
         (Role.CI, ["shop"], {}),
         (Role.METRICS, None, {}),
         # Never the role of a token (a stored one authenticates nothing): no permission either
-        (Role.READER, ["shop"], {}),
-        (Role.TRIAGER, None, {}),
+        (Role.USER, None, {}),
     ],
 )
 def test_token_grants_only_give_permissions_to_admin(role, projects, expected):
     assert access_control.token_grants(role, projects) == expected
-
-
-def test_summary_role_sums_up_the_grants():
-    assert access_control.summary_role(access_control.token_grants(Role.ADMIN, None)) == Role.ADMIN
-    # Every permission, but limited to projects: not an administrator
-    limited = {permission.value: None for permission in Permission} | {
-        "reports.read": frozenset({"shop"})
-    }
-    assert access_control.summary_role(limited) == Role.TRIAGER
-    assert access_control.summary_role({"audit.read": None}) == Role.READER
 
 
 def test_allows_and_scope():

@@ -162,7 +162,7 @@ async def password_login(request: Request, body: PasswordLogin, response: Respon
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
     await run_in_threadpool(throttle.succeeded, username, address)
     result = await open_session(request, user["id"], response)
-    logger.info("Web login of %s (role %s) from %s", result.username, result.role, address)
+    logger.info("Web login of %s from %s", result.username, address)
     return result
 
 
