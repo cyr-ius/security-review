@@ -1,5 +1,8 @@
 # Prompts and tools
 
+To understand when the rules, the checklists and the standards apply, and how to write the
+`AGENTS.md` file of a project, see [How a review works](how-it-works.md).
+
 ## Prompts
 
 | Prompt | Use | Arguments |

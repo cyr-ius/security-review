@@ -80,6 +80,7 @@ plugins:
             HTTP server, authentication and TLS: Serveur HTTP, authentification et TLS
             Architecture and deployment: Architecture et déploiement
             Usage: Utilisation
+            How a review works: Fonctionnement d'une revue
             Prompts and tools: Prompts et outils
             Whole codebase scan: Scan du code complet
             Dependency analysis: Analyse des dépendances
@@ -121,6 +122,7 @@ nav:
       - Deploying the server: getting-started/deploy.md
       - Connecting the host: getting-started/host.md
   - Usage:
+      - How a review works: usage/how-it-works.md
       - Prompts and tools: usage/prompts-tools.md
       - Web interface: usage/web-interface.md
       - Gate: usage/gate.md

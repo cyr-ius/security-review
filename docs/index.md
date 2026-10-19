@@ -99,7 +99,7 @@ you need to work; **Advanced** gathers the details and the optional features.
 | 1. Install the package on the server | [Installation](getting-started/installation.md) |
 | 2. Start the controller and the MCP server, create the first accounts | [Deploying the server](getting-started/deploy.md) |
 | 3. Connect VS Code or Claude, get a token | [Connecting the host](getting-started/host.md) |
-| 4. Run a review | [Prompts and tools](usage/prompts-tools.md) |
+| 4. Run a review | [How a review works](usage/how-it-works.md) (rules, checklists, `AGENTS.md`), [Prompts and tools](usage/prompts-tools.md) |
 | 5. Read and triage the reports | [Web interface](usage/web-interface.md) |
 | 6. Block a deployment on open findings | [Gate](usage/gate.md) |
 

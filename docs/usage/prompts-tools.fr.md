@@ -1,5 +1,8 @@
 # Prompts et outils
 
+Pour comprendre quand s'appliquent les règles, les checklists et les normes, et comment écrire
+le fichier `AGENTS.md` d'un projet, voir [Fonctionnement d'une revue](how-it-works.md).
+
 ## Prompts
 
 | Prompt | Usage | Arguments |

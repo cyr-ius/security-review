@@ -103,7 +103,7 @@ ce qu'il faut pour travailler ; **Avancé** regroupe les détails et les fonctio
 | 1. Installer le paquet sur le serveur | [Installation](getting-started/installation.md) |
 | 2. Lancer le contrôleur et le serveur MCP, créer les premiers comptes | [Mise en service du serveur](getting-started/deploy.md) |
 | 3. Connecter VS Code ou Claude, obtenir un jeton | [Connexion de l'hôte](getting-started/host.md) |
-| 4. Lancer une revue | [Prompts et outils](usage/prompts-tools.md) |
+| 4. Lancer une revue | [Fonctionnement d'une revue](usage/how-it-works.md) (règles, checklists, `AGENTS.md`), [Prompts et outils](usage/prompts-tools.md) |
 | 5. Consulter et trier les rapports | [Interface web](usage/web-interface.md) |
 | 6. Bloquer un déploiement sur des findings ouverts | [Gate](usage/gate.md) |
 
