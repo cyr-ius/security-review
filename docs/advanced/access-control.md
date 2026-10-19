@@ -61,7 +61,8 @@ Members come from two sources:
   the name of the group** join it at each login (see [OIDC](sso.md#groups-of-the-identity-provider)).
   The values of the claim that name no group are ignored.
 
-Renaming a group, or closing it to OIDC, removes its OIDC members at once.
+A new group is not open to OIDC unless asked (`"sso": true` through the API). Renaming a
+group, or closing it to OIDC, removes its OIDC members at once.
 
 ## Project groups
 

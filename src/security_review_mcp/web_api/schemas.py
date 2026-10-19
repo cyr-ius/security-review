@@ -878,7 +878,7 @@ class GroupWrite(BaseModel):
 
     name: str = Field(min_length=1, max_length=access_control.MAX_GROUP_NAME_CHARS)
     description: str = Field(default="", max_length=access_control.MAX_DESCRIPTION_CHARS)
-    sso: bool = True
+    sso: bool = False
 
 
 class GroupRoleBinding(BaseModel):

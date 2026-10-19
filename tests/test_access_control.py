@@ -255,6 +255,11 @@ def test_invalid_group_roles_are_refused(bindings, message):
         )
 
 
+def test_a_group_is_not_open_to_oidc_unless_asked():
+    assert access_control.create_group("devs")["sso"] is False
+    assert access_control.create_group("ops", sso=True)["sso"] is True
+
+
 def test_group_roles_and_members_are_bounded_and_checked(monkeypatch):
     group = access_control.create_group("devs")
     with pytest.raises(NotFoundError, match="Role 999"):

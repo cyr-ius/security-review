@@ -517,7 +517,7 @@ class UserGroup(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(unique=True, index=True, max_length=200)
     description: str = Field(default="", max_length=500)
-    sso: bool = Field(default=True)
+    sso: bool = Field(default=False)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
     created_by: str | None = Field(default=None, max_length=64)

@@ -985,7 +985,12 @@ def test_groups_are_managed_with_users_manage(secured, web_sessions, caplog):
     created = secured.post(url, json={"name": "devs", "description": "Developers"}, headers=admin)
     assert created.status_code == 201
     group = created.json()
-    assert (group["name"], group["sso"], group["roles"], group["members"]) == ("devs", True, [], [])
+    assert (group["name"], group["sso"], group["roles"], group["members"]) == (
+        "devs",
+        False,
+        [],
+        [],
+    )
     roles = {
         item["name"]: item["id"] for item in secured.get("/api/v1/roles", headers=admin).json()
     }

@@ -86,7 +86,8 @@ SECREVIEW_AUDIT_SYSLOG_FACILITY=local0                        # default
 ```
 
 Administrators (`settings.manage` permission) can also set it on the **Audit log** page of the
-web interface, in the **Syslog forwarding** card: **No forwarding** or **Set here**
+web interface, in the **Syslog forwarding** card (folded: its title shows the server in use,
+a click opens it): **No forwarding** or **Set here**
 (`udp://host:port` or `tcp://host:port`), and the facility. **A variable that is set takes
 precedence**: its field is then locked, and a value set there before is ignored (**Delete**
 removes it); an empty `SECREVIEW_AUDIT_SYSLOG_ADDRESS` counts as unset. A value set there

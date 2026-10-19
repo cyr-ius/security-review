@@ -30,7 +30,7 @@ interface GroupFormModel {
   sso: boolean;
 }
 
-const EMPTY_GROUP: GroupFormModel = { name: '', description: '', sso: true };
+const EMPTY_GROUP: GroupFormModel = { name: '', description: '', sso: false };
 
 type GroupSortKey = 'name' | 'roles' | 'members' | 'created';
 

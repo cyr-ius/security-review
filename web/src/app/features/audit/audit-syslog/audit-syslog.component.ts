@@ -36,6 +36,7 @@ interface SyslogFormModel {
  * Card of the audit log page, for the holders of settings.manage: syslog server the controller
  * forwards the audit events to. SECREVIEW_AUDIT_SYSLOG_ADDRESS and
  * SECREVIEW_AUDIT_SYSLOG_FACILITY, when set, take precedence: their field is then only shown.
+ * Folded by default, it then only shows the server in use.
  */
 @Component({
   selector: 'app-audit-syslog',
@@ -49,6 +50,8 @@ export class AuditSyslogComponent {
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
+  /** The card starts folded: only its title and the server in use show. */
+  readonly expanded = signal(false);
 
   /** Filled with the stored values each time they are loaded, then edited by the form. */
   readonly model = linkedSignal<SyslogFormModel>(() => {

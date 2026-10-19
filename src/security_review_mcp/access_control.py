@@ -598,7 +598,7 @@ def get_group(group_id: int) -> dict[str, Any]:
 def create_group(
     name: str,
     description: str | None = None,
-    sso: bool = True,
+    sso: bool = False,
     actor: str | None = None,
 ) -> dict[str, Any]:
     """Create a group (no role, no member); raise ValueError when invalid or duplicated."""
@@ -629,7 +629,7 @@ def update_group(
     group_id: int,
     name: str,
     description: str | None = None,
-    sso: bool = True,
+    sso: bool = False,
     actor: str | None = None,
 ) -> dict[str, Any]:
     """Rename a group, replace its description or its OIDC matching.

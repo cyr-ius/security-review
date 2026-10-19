@@ -66,6 +66,7 @@ Les membres ont deux origines :
   [OIDC](sso.md#groupes-du-fournisseur-didentite)). Les valeurs du claim qui ne nomment aucun groupe
   sont ignorées.
 
+Un nouveau groupe n'est ouvert au OIDC que sur demande (`"sso": true` par l'API).
 Renommer un groupe, ou le fermer au OIDC, retire aussitôt ses membres OIDC.
 
 ## Groupes de projet

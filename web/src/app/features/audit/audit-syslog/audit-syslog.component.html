@@ -1,6 +1,31 @@
 <section class="card mb-4" aria-labelledby="audit-syslog-title">
-  <div class="card-body">
-    <h2 id="audit-syslog-title" class="h5">{{ 'audit.syslogTitle' | t }}</h2>
+  <h2 id="audit-syslog-title" class="h6 mb-0">
+    <button
+      type="button"
+      class="btn w-100 d-flex flex-wrap align-items-center gap-2 text-start px-3 py-2"
+      aria-controls="audit-syslog-body"
+      [attr.aria-expanded]="expanded()"
+      (click)="expanded.set(!expanded())"
+    >
+      <i
+        class="bi"
+        [class.bi-chevron-right]="!expanded()"
+        [class.bi-chevron-down]="expanded()"
+        aria-hidden="true"
+      ></i>
+      <span class="fw-semibold">{{ 'audit.syslogTitle' | t }}</span>
+      @if (syslog.value(); as current) {
+        <span class="ms-auto small text-body-secondary text-truncate">
+          @if (current.effective.address; as address) {
+            <span class="font-monospace">{{ address }}</span>
+          } @else {
+            {{ 'audit.syslogNone' | t }}
+          }
+        </span>
+      }
+    </button>
+  </h2>
+  <div id="audit-syslog-body" class="card-body border-top" [hidden]="!expanded()">
     <p class="text-body-secondary small">{{ 'audit.syslogHelp' | t }}</p>
 
     @if (error(); as text) {
