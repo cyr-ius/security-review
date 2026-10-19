@@ -80,12 +80,19 @@ volumes are kept in volumes of the devcontainer: they do not mix with those of t
 
 ## Definition of done
 
-A contribution, human or produced by an AI agent, is only done if it includes tests, the `docs/`
-documentation is up to date in both languages and the `README.md` files, which stay summaries,
+A contribution, human or produced by an AI agent, is only done if the behavior it adds or fixes
+is checked by a relevant test, new or existing, the `docs/` documentation is up to date in both languages and the `README.md` files, which stay summaries,
 are too. When the `security-review` MCP server is up, the changes are also reviewed with it
 (the project reviews itself) and the report is saved. The detailed rules (conventions, security
 invariants, mapping from code to doc pages) are in `AGENTS.md` at the root of the repository;
 `CLAUDE.md` and `.github/copilot-instructions.md` point to it.
+
+A test protects a contract or an invariant, not a line of code, and there is no coverage
+target. Test first the security invariants, the public contracts (MCP tools and prompts, CLI exit
+codes, REST schema, migrations) and each fixed bug (one regression test). Do not test what a
+library already guarantees, implementation details or the exact text of a message. Before adding
+a test, extend the one that already covers the behavior (extra assertion, `parametrize` row): a
+change usually adds one to three tests.
 
 ## Code layout
 
