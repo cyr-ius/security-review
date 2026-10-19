@@ -134,6 +134,25 @@ pattern = '\btempfile\.mktemp\s*\('
 advice = "Use tempfile.mkstemp or NamedTemporaryFile."
 
 [[rules]]
+id = "PY-026"
+title = "User input reaches a dynamic SQL query"
+severity = "high"
+cwe = "CWE-89"
+languages = ["python"]
+# The AST engine handles this rule; this pattern intentionally never matches.
+pattern = '(?=a)b'
+advice = "Use bound parameters instead of interpolating user input into SQL."
+
+[[rules]]
+id = "PY-027"
+title = "JWT signature verification explicitly disabled"
+severity = "high"
+cwe = "CWE-347"
+languages = ["python"]
+pattern = '''['"]?verify_signature['"]?\s*[:=]\s*False|verify\s*=\s*False|algorithms\s*=\s*\[\s*['"]none['"]'''
+advice = "Verify JWT signatures with a fixed algorithm allow-list; never accept unsigned tokens."
+
+[[rules]]
 id = "JV-001"
 title = "Java deserialization"
 severity = "high"
@@ -249,6 +268,33 @@ cwe = "CWE-79"
 languages = ["angular", "typescript"]
 pattern = 'nativeElement\s*\.(innerHTML|outerHTML)'
 advice = "Use Angular bindings or Renderer2 with sanitized values."
+
+[[rules]]
+id = "NG-021"
+title = "URL input flows to an Angular HTML sink"
+severity = "high"
+cwe = "CWE-79"
+languages = ["angular", "typescript", "javascript"]
+pattern = '(?=a)b' # Structural rule evaluated by the Tree-sitter analyzer.
+advice = "Treat URL data as untrusted; render it as text or sanitize with a strict allow-list before using an HTML sink."
+
+[[rules]]
+id = "NG-022"
+title = "Message data read without checking its origin"
+severity = "medium"
+cwe = "CWE-346"
+languages = ["angular", "typescript", "javascript"]
+pattern = '(?=a)b' # Structural rule evaluated by the Tree-sitter analyzer.
+advice = "Before trusting event.data, compare event.origin with an explicit allow-list of expected origins."
+
+[[rules]]
+id = "NG-023"
+title = "Prototype chain mutation"
+severity = "high"
+cwe = "CWE-1321"
+languages = ["angular", "typescript", "javascript"]
+pattern = '''(?:\.__proto__|\[['"]__proto__['"]\]|\.constructor\.prototype)\s*(?:\.[\w$]+\s*)?(?:=|\+=)'''
+advice = "Avoid mutating object prototypes; validate object keys and use objects without a prototype for dictionaries."
 
 [[rules]]
 id = "CFG-001"
@@ -773,6 +819,24 @@ cwe = "CWE-502"
 languages = ["java"]
 pattern = '\bnew\s+XStream\s*\(|\bnew\s+Yaml\s*\(\s*\)|\bnew\s+Yaml\s*\(\s*new\s+Constructor\s*\('
 advice = "Configure an allow-list of types (XStream allowTypes, SnakeYAML SafeConstructor / LoaderOptions)."
+
+[[rules]]
+id = "JV-017"
+title = "Server-side request to a user-supplied URL"
+severity = "high"
+cwe = "CWE-918"
+languages = ["java"]
+pattern = '(new\s+URL|URI\.(create|parse)|getForObject|getForEntity|exchange|\.uri)\s*\([^;\n]*(getParameter|getQueryString|getHeader)\s*\('
+advice = "Do not fetch arbitrary client-supplied URLs; allow-list schemes and hosts, block private and link-local addresses, and revalidate resolved destinations."
+
+[[rules]]
+id = "JV-018"
+title = "JNDI lookup uses a request value"
+severity = "high"
+cwe = "CWE-74"
+languages = ["java"]
+pattern = '''\b(?:ctx|context|initialContext|ic)\s*\.\s*lookup\s*\([^;\n]*(?:getParameter|getQueryString|getHeader)\s*\('''
+advice = "Never build JNDI names from request data; use fixed names and validate any lookup key against an explicit allow-list."
 
 [[rules]]
 id = "NG-008"

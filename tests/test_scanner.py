@@ -31,6 +31,79 @@ def test_safe_python_has_no_match():
     assert scan_content(code, "python") == []
 
 
+def test_python_sql_taint_detects_dynamic_query_but_not_bound_parameters():
+    unsafe = """
+def handler(request, cursor):
+    user_id = request.args.get("id")
+    query = f"SELECT * FROM users WHERE id = {user_id}"
+    cursor.execute(query)
+"""
+    safe = """
+def handler(request, cursor):
+    user_id = request.args.get("id")
+    cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+"""
+
+    findings = scan_content(unsafe, "python")
+    assert [(finding["rule_id"], finding["line"]) for finding in findings] == [("PY-026", 5)]
+    assert "PY-026" not in rule_ids(safe, "python")
+
+
+def test_python_sql_taint_follows_local_function_arguments():
+    unsafe = """def execute_query(cursor, query):
+    cursor.execute(query)
+
+def handler(request, cursor):
+    user_id = request.args.get("id")
+    query = f"SELECT * FROM users WHERE id = {user_id}"
+    execute_query(cursor, query)
+"""
+    safe = """def execute_query(cursor, query, params):
+    cursor.execute(query, params)
+
+def handler(request, cursor):
+    user_id = request.args.get("id")
+    execute_query(cursor, "SELECT * FROM users WHERE id = %s", (user_id,))
+"""
+
+    assert ("PY-026", 2) in [
+        (finding["rule_id"], finding["line"]) for finding in scan_content(unsafe, "python")
+    ]
+    assert "PY-026" not in rule_ids(safe, "python")
+
+
+def test_python_sql_taint_follows_local_function_return_values():
+    unsafe = """def build_query(request):
+    user_id = request.args.get("id")
+    return f"SELECT * FROM users WHERE id = {user_id}"
+
+def handler(request, cursor):
+    query = build_query(request)
+    cursor.execute(query)
+"""
+    safe = """def build_query():
+    return "SELECT * FROM users WHERE id = %s"
+
+def handler(request, cursor):
+    user_id = request.args.get("id")
+    query = build_query()
+    cursor.execute(query, (user_id,))
+"""
+
+    assert ("PY-026", 7) in [
+        (finding["rule_id"], finding["line"]) for finding in scan_content(unsafe, "python")
+    ]
+    assert "PY-026" not in rule_ids(safe, "python")
+
+
+def test_python_jwt_rule_detects_disabled_signature_verification():
+    unsafe = 'jwt.decode(token, options={"verify_signature": False})'
+    safe = 'jwt.decode(token, key, algorithms=["HS256"])'
+
+    assert "PY-027" in rule_ids(unsafe, "python")
+    assert "PY-027" not in rule_ids(safe, "python")
+
+
 def test_java_rules():
     code = "\n".join(
         [
@@ -44,9 +117,120 @@ def test_java_rules():
     assert {"JV-001", "JV-003", "JV-005", "JV-007"} <= found
 
 
+def test_java_ssrf_rule_detects_direct_request_url_but_not_fixed_url():
+    unsafe = 'URL url = new URL(request.getParameter("target"));'
+    safe = 'URL url = new URL("https://api.example.com/status");'
+
+    assert "JV-017" in rule_ids(unsafe, "java")
+    assert "JV-017" not in rule_ids(safe, "java")
+
+
+def test_java_jndi_rule_detects_request_controlled_lookup():
+    unsafe = 'Object result = ctx.lookup(request.getParameter("name"));'
+    safe = 'Object result = ctx.lookup("java:comp/env/service");'
+
+    assert "JV-018" in rule_ids(unsafe, "java")
+    assert "JV-018" not in rule_ids(safe, "java")
+
+
+@pytest.mark.parametrize("language", ["typescript", "javascript"])
+def test_web_rules_detect_prototype_chain_mutation(language: str):
+    unsafe = 'target["__proto__"] = source;'
+    safe = "target.displayName = source;"
+
+    assert "NG-023" in rule_ids(unsafe, language)
+    assert "NG-023" not in rule_ids(safe, language)
+
+
 def test_angular_rules_accept_aliases():
     code = "this.s.bypassSecurityTrustHtml(x);\nel.innerHTML = y;"
     assert {"NG-001", "NG-002"} <= rule_ids(code, "ts")
+
+
+def test_angular_tree_sitter_detects_url_data_in_html_sink():
+    unsafe = """function render(route, el) {
+  const value = route.snapshot.queryParamMap.get('q');
+  el.innerHTML = value;
+}
+"""
+    safe = """function render(route, el) {
+  const value = route.snapshot.queryParamMap.get('q');
+  el.textContent = value;
+}
+"""
+    sanitized = """function render(route, el, sanitizer) {
+  const value = route.snapshot.queryParamMap.get('q');
+  el.innerHTML = sanitizer.sanitize(SecurityContext.HTML, value);
+}
+"""
+
+    findings = scan_content(unsafe, "angular")
+    assert ("NG-021", 3) in [(finding["rule_id"], finding["line"]) for finding in findings]
+    assert "NG-021" not in rule_ids(safe, "angular")
+    assert "NG-021" not in rule_ids(sanitized, "angular")
+
+
+@pytest.mark.parametrize("language", ["typescript", "javascript"])
+def test_angular_tree_sitter_follows_local_function_arguments(language: str):
+    unsafe = """function renderHtml(element, html) {
+  element.innerHTML = html;
+}
+function render(route, element) {
+  const value = route.snapshot.queryParamMap.get('q');
+  renderHtml(element, value);
+}
+"""
+    safe = """function renderHtml(element, html) {
+  element.textContent = html;
+}
+function render(route, element) {
+  const value = route.snapshot.queryParamMap.get('q');
+  renderHtml(element, value);
+}
+"""
+
+    assert "NG-021" in rule_ids(unsafe, language)
+    assert "NG-021" not in rule_ids(safe, language)
+
+
+@pytest.mark.parametrize("language", ["typescript", "javascript"])
+@pytest.mark.parametrize("function_style", ["declaration", "arrow"])
+def test_angular_tree_sitter_follows_local_function_return_values(
+    language: str, function_style: str
+):
+    builder = (
+        "function readValue(route) { return route.snapshot.queryParamMap.get('q'); }"
+        if function_style == "declaration"
+        else "const readValue = (route) => route.snapshot.queryParamMap.get('q');"
+    )
+    unsafe = f"""{builder}
+function render(route, element) {{
+  element.innerHTML = readValue(route);
+}}
+"""
+    safe = f"""{builder}
+function render(route, element) {{
+  element.textContent = readValue(route);
+}}
+"""
+
+    assert "NG-021" in rule_ids(unsafe, language)
+    assert "NG-021" not in rule_ids(safe, language)
+
+
+def test_angular_tree_sitter_requires_origin_check_for_message_data():
+    unsafe = """window.addEventListener('message', (event) => {
+  handle(event.data);
+});
+"""
+    safe = """window.addEventListener('message', (event) => {
+  if (event.origin === 'https://trusted.example') handle(event.data);
+});
+"""
+
+    findings = scan_content(unsafe, "angular")
+    assert ("NG-022", 1) in [(finding["rule_id"], finding["line"]) for finding in findings]
+    assert "NG-022" not in rule_ids(safe, "angular")
 
 
 def test_config_rules():

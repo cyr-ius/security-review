@@ -122,6 +122,7 @@ src/security_review_mcp/
 ├── default_rules.toml  # default rules and checklists, copied into the database at first start
 ├── checklists.py  # structure of a checklist item
 ├── scanner.py     # scan engine, inline suppression, secret masking
+├── syntax_analysis.py # Tree-sitter structural checks, separate from line-based rules
 ├── rules_loader.py    # rule validation, reading of the TOML packs and of the default file
 ├── rule_store.py  # rules in the database: seeding, import/export, enabling, deletion
 ├── registry.py    # active rules/checklists (read from the database), reload

@@ -28,6 +28,31 @@ Le serveur est livré avec un jeu de règles et de checklists par défaut, décr
   les règles du fichier : le scan ne tourne jamais sans règles.
 - Pour revenir aux règles par défaut, utilisez `rules import --replace` (voir plus bas).
 
+Les scans Python incluent aussi `PY-026`, une analyse Tree-sitter bornée des flux locaux directs depuis
+`input()` ou des champs de requête courants (`request.args`, `request.form` et équivalents) vers
+du SQL construit dynamiquement et transmis à `execute`, `executemany` ou `text`. Cette analyse
+reste volontairement ciblée et ne remplace pas un SAST complet. Elle suit les arguments et les
+valeurs de retour lors d'appels directs à des fonctions locales du même fichier. Les paramètres SQL
+liés ne sont pas signalés.
+
+Les scans TypeScript, JavaScript et Angular incluent aussi `NG-021`, qui suit les flux locaux
+simples des paramètres de requête ou de route vers les affectations à `innerHTML` ou les appels
+Angular `bypassSecurityTrust*`. Elle reconnaît `DomSanitizer.sanitize(SecurityContext.HTML, value)`
+comme barrière d'assainissement et ne signale pas les mises à jour du DOM en texte seul. Cette
+analyse ciblée ne couvre pas les wrappers d'assainissement ni les appels indirects. Elle suit les
+arguments contaminés et les valeurs de retour des fonctions déclarées et fléchées appelées
+directement dans le même fichier.
+
+Ces scans incluent aussi `NG-022` pour les écouteurs d'événements `message` qui lisent
+`event.data` sans vérifier `event.origin`. L'analyse se limite aux callbacks transmis directement
+à `addEventListener` ; elle ne déduit pas une validation déléguée à une autre fonction.
+
+D'autres ajouts ciblés comprennent `PY-027` pour la désactivation explicite de la vérification
+de signature JWT, `JV-018` lorsqu'une valeur directe de requête est passée à JNDI `lookup`, et
+`NG-023` pour les affectations qui modifient `__proto__` ou `constructor.prototype`. Ces règles
+examinent les motifs sur une ligne et ne déduisent pas les flux indirects ; vérifiez le code
+environnant avant de conclure qu'un finding est exploitable.
+
 ```bash
 security-review-controller rules import examples/rules/company.toml   # importer un pack
 security-review-controller rules list --custom                        # vérifier
@@ -141,9 +166,9 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 | Famille | Couverture principale |
 |---|---|
 | `GEN-*` (tous langages) | Identifiants en dur, clés privées, clés cloud, jetons au format connu (GitHub, GitLab, Slack, Google, Stripe, npm), identifiants dans une URL, JWT en dur, SSL/TLS obsolète, secrets écrits dans les journaux, HTTP en clair |
-| `PY-*` (Python) | `eval`/`exec`, désérialisation (pickle, `torch.load`, `joblib`...), YAML, commandes shell, SQL formaté, TLS désactivé, crypto faible ou mode ECB, aléa non cryptographique, XXE (lxml), SSTI, `SECRET_KEY` en dur, `ALLOWED_HOSTS = ['*']`, CSRF désactivé, `mark_safe`, cookies sans `Secure`/`HttpOnly`, SSRF, comparaison de secrets non constante, fichiers temporaires |
-| `JV-*` (Java) | Désérialisation (dont XStream, SnakeYAML), commandes OS, SQL et LDAP concaténés, XXE, CSRF, CORS, crypto faible, TLS « trust all », chemins et redirections construits depuis la requête, SpEL/EL, cookies, `Random`, `printStackTrace` |
-| `NG-*` (Angular, JavaScript, TypeScript) | Contournement du sanitizer, `innerHTML` et autres puits HTML, `eval`, `setTimeout` avec chaîne, jetons en web storage, `postMessage('*')`, XSRF désactivé, redirections ouvertes ; côté Node.js : commandes shell, SQL interpolé, `$where`, chemins de fichiers, CORS ouvert, TLS désactivé, `jwt.decode`, crypto faible |
+| `PY-*` (Python) | `eval`/`exec`, désérialisation (pickle, `torch.load`, `joblib`...), YAML, commandes shell, SQL formaté, TLS désactivé, crypto faible ou mode ECB, aléa non cryptographique, XXE (lxml), SSTI, `SECRET_KEY` en dur, `ALLOWED_HOSTS = ['*']`, CSRF désactivé, `mark_safe`, cookies sans `Secure`/`HttpOnly`, SSRF, comparaison de secrets non constante, fichiers temporaires, vérification de signature JWT désactivée |
+| `JV-*` (Java) | Désérialisation (dont XStream, SnakeYAML), commandes OS, SQL et LDAP concaténés, XXE, CSRF, CORS, crypto faible, TLS « trust all », chemins et redirections construits depuis la requête, SSRF via une URL directement issue de la requête, JNDI `lookup` contrôlé par la requête, SpEL/EL, cookies, `Random`, `printStackTrace` |
+| `NG-*` (Angular, JavaScript, TypeScript) | Contournement du sanitizer, `innerHTML` et autres puits HTML, flux URL-vers-DOM, origine `message` non vérifiée, mutation de la chaîne de prototypes, `eval`, `setTimeout` avec chaîne, jetons en web storage, `postMessage('*')`, XSRF désactivé, redirections ouvertes ; côté Node.js : commandes shell, SQL interpolé, `$where`, chemins de fichiers, CORS ouvert, TLS désactivé, `jwt.decode`, crypto faible |
 | `CFG-*` (Docker, Compose, Kubernetes, serveurs) | Conteneur privilégié ou root, socket Docker, namespaces de l'hôte, capacités dangereuses, élévation de privilèges, montages sensibles, ports de bases exposés, secrets dans `ENV`/`ARG`, `ADD` distant, mots de passe par défaut, services sans authentification, RBAC `*` ou `cluster-admin`, buckets publics, CORS `*`, listage de répertoires, SSH faible, `curl \| sh`, debug |
 | `GL-*` (GitLab CI) | `include` distant, secrets affichés, DinD sans TLS, `allow_failure`, jeton CI en ligne de commande, variables non fiables évaluées par un shell, `CI_DEBUG_TRACE`, artefacts publics, `GIT_SSL_NO_VERIFY` |
 | `JK-*` (Jenkinsfile) | Injection dans `sh`, bibliothèque partagée non épinglée, `agent any`, sandbox désactivée, identifiant interpolé dans une chaîne Groovy, API interne `Jenkins.instance` |
