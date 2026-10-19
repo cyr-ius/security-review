@@ -103,7 +103,8 @@ suivantes.
   [couverture de la revue](prompts-tools.md#couverture-de-la-revue)), findings avec
   emplacement, CWE, extrait de code et recommandation ; téléchargement Markdown et SARIF. Les
   utilisateurs qui ont la permission `findings.triage` changent le statut d'un finding directement
-  depuis cet écran.
+  depuis cet écran, et relèvent sa criticité avec une justification (voir
+  [criticité d'un finding](#criticite-dun-finding)).
 - **Normes** : les [normes de développement](../advanced/standards.md) transmises aux assistants IA par le
   prompt `development-standards`. Rechercher et trier par titre, technologie ou motif
   de fichier, filtrer par état activé. Les administrateurs les lisent, les créent,
@@ -264,6 +265,30 @@ positif** prises avant cette fonctionnalité n'avaient ni motif ni approbateur :
 la base leur donne une date d'expiration 30 jours plus tard, avec un motif qui demande de les
 confirmer. Revoyez-les avec les filtres de statut avant cette date, sinon elles bloquent de
 nouveau la gate.
+
+### Criticité d'un finding
+
+Un analyste de sécurité (une personne qui a la permission `findings.triage`) peut **relever** la
+criticité donnée par un rapport, par exemple quand le code est exposé à Internet ou que les
+données sont sensibles. **Relever la criticité**, en haut de la carte, ouvre un formulaire qui
+demande la **Nouvelle criticité** et une **Justification** (10 à 1000 caractères). La carte
+affiche ensuite la criticité du rapport, l'analyste, la date et la justification ; l'export
+Markdown et `get_security_report` les affichent aussi, et le changement est inscrit au journal
+d'audit (`finding.severity_changed`).
+
+La criticité relevée compte partout (filtres, posture, [gate](gate.md), SARIF, tendance), et le
+niveau de risque du rapport monte avec elle. Une criticité ne descend jamais sous celle du
+rapport : un analyste peut seulement y revenir, avec une justification, pour annuler la hausse.
+Pour clore un finding jugé moins grave, acceptez le risque. Seule une session peut le faire : un
+jeton Bearer, même `admin`, reçoit `403` ; une criticité plus basse ou inchangée, ou une
+justification absente, reçoit `422`.
+
+```bash
+curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42/severity \
+  -d '{"severity": "critical", "reason": "Endpoint reachable without authentication"}'
+# {"id": 42, "severity": "critical", "original_severity": "medium", "severity_changed_by": "alice", …}
+```
 
 ### Acceptations de risque
 

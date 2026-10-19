@@ -138,6 +138,8 @@
   date, still by a logged-in person who is recorded as approver; leave the variable empty to
   require them for every acceptance. Comments on a finding follow the
   same rule (session with `findings.triage`) and are append-only: no route edits or deletes one.
+  So does raising the severity of a finding: with a justification, logged, never below the
+  severity of the report (lowering a finding goes through a risk acceptance).
 - **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
   stores a proposal (reason masked and bounded, author taken from the token) without changing
   the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a

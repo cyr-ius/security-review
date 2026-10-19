@@ -14,7 +14,6 @@ import {
   CHECKLIST_OUTCOMES,
   FINDING_STATUSES,
   Finding,
-  FindingDecision,
   FindingStatus,
   PROMPT_REVIEW_TYPES,
   SEVERITIES,
@@ -24,7 +23,7 @@ import {
 import { Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { AuthService } from '../../../core/services/auth.service';
-import { TriageService } from '../../../core/services/triage.service';
+import { TriageChange, TriageService } from '../../../core/services/triage.service';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
@@ -112,11 +111,14 @@ export class ReportDetailComponent {
   }
 
   /** Save the triage decision of a finding card (``null``: reject the agent proposal). */
-  async decide(finding: Finding, decision: FindingDecision | null): Promise<void> {
+  async decide(finding: Finding, decision: TriageChange | null): Promise<void> {
     this.triageError.set(null);
     const result = await this.triage.decide(finding, decision);
     if ('error' in result) {
       this.triageError.set(result.error);
+    } else if (decision && 'severity' in decision) {
+      // A raised severity may raise the risk level of the report too
+      this.report.reload();
     } else {
       this.onUpdated(result.finding);
     }

@@ -24,6 +24,7 @@ import {
   Finding,
   FindingComment,
   FindingDecision,
+  FindingSeverityChange,
   GroupCatalog,
   Identity,
   LoginSession,
@@ -432,6 +433,11 @@ export class ApiService {
   /** Record a triage decision (accepted and false_positive need a reason and an expiry). */
   updateFindingStatus(id: number, decision: FindingDecision): Observable<Finding> {
     return this.http.patch<Finding>(`${API_URL}/findings/${id}`, decision);
+  }
+
+  /** Raise the severity of a finding, with the justification of the analyst. */
+  updateFindingSeverity(id: number, change: FindingSeverityChange): Observable<Finding> {
+    return this.http.patch<Finding>(`${API_URL}/findings/${id}/severity`, change);
   }
 
   /** Reject the status proposed by an agent (the status does not change). */

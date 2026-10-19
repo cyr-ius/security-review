@@ -96,7 +96,8 @@ shown), and the browser remembers the chosen sort for the next visits.
   **Review coverage** (checklist items by outcome and rules that raised scan leads, those cited by
   no finding marked **dismissed**, see [review coverage](prompts-tools.md#review-coverage)), findings with
   location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
-  `findings.triage` permission change the status of a finding directly from this screen.
+  `findings.triage` permission change the status of a finding directly from this screen, and
+  raise its severity with a justification (see [severity of a finding](#severity-of-a-finding)).
 - **Standards**: the [development standards](../advanced/standards.md) handed to the AI
   assistants by the `development-standards` prompt. Search and sort by title,
   technology or file pattern, and filter by enabled state. Administrators read, create, edit
@@ -246,6 +247,29 @@ date for `open` / `fixed` gets `422`. Without `expires_on`, an acceptance never 
 made before this feature had no reason nor approver: the database upgrade gives them an expiry
 date 30 days later, with a reason that asks to confirm them. Review them with the status filters
 before that date, or they block the gate again.
+
+### Severity of a finding
+
+A security analyst (a person with the `findings.triage` permission) may **raise** the severity
+given by a report, for example when the code is exposed to the Internet or the data is
+sensitive. **Raise the severity**, at the top of the card, opens a form that asks for the
+**New severity** and a **Justification** (10 to 1000 characters). The card then shows the
+severity of the report, the analyst, the date and the justification; the Markdown export and
+`get_security_report` show them too, and the change is written to the audit log
+(`finding.severity_changed`).
+
+The raised severity counts everywhere (filters, posture, [gate](gate.md), SARIF, trend), and
+the risk level of the report goes up with it. A severity never goes below the one of the
+report: an analyst can only go back to it, with a justification, to undo the escalation. To
+close a finding judged less serious, accept the risk. Only a session may do it: a bearer token,
+even `admin`, gets `403`; a lower or unchanged severity, or a missing justification, gets `422`.
+
+```bash
+curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42/severity \
+  -d '{"severity": "critical", "reason": "Endpoint reachable without authentication"}'
+# {"id": 42, "severity": "critical", "original_severity": "medium", "severity_changed_by": "alice", …}
+```
 
 ### Risk acceptances
 

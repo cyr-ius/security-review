@@ -498,6 +498,74 @@ def update_finding_status(
         return FindingPublic.model_validate(finding, from_attributes=True)
 
 
+def update_finding_severity(
+    finding_id: int,
+    severity: Severity,
+    analyst: str,
+    reason: str,
+    actor: str | None = None,
+) -> FindingPublic:
+    """Raise the severity of a finding, decided by a security analyst (web interface).
+
+    The new severity must be above the one given by the report, or equal to it to undo an
+    escalation: a finding is never made less severe than its report says (accepting a risk is
+    the way to close it). The justification is required. The severity of the report is kept
+    in ``original_severity`` and its risk level is raised with the finding. The change is
+    written to the audit log (``actor``, default the analyst).
+
+    Raises:
+        NotFoundError: If the finding does not exist.
+        ValueError: If the analyst or the justification is missing or invalid, or the
+            severity is unchanged or below the one of the report.
+    """
+    analyst = analyst.strip()
+    if not analyst:
+        raise ValueError("An analyst is required")
+    severity = Severity(severity)
+    checked = _check_reason(reason, required=True)
+    with session_scope() as session:
+        finding = session.get(Finding, finding_id)
+        if finding is None:
+            raise NotFoundError(f"Finding {finding_id} not found")
+        previous = Severity(finding.severity)
+        original = Severity(finding.original_severity or previous)
+        if severity == previous:
+            raise ValueError(f"The finding is already {severity.value}")
+        if SEVERITY_RANK[severity] < SEVERITY_RANK[original]:
+            raise ValueError(
+                f"The severity cannot go below the one of the report ({original.value})"
+            )
+        now = utcnow()
+        restored = severity == original
+        finding.severity = severity
+        finding.original_severity = None if restored else original
+        finding.severity_reason = checked
+        finding.severity_changed_by = analyst[:200]
+        finding.severity_changed_at = now
+        report = finding.report
+        if SEVERITY_RANK[severity] > SEVERITY_RANK[Severity(report.risk_level)]:
+            report.risk_level = severity
+            session.add(report)
+        session.add(finding)
+        audit.record(
+            session,
+            audit.AuditAction.FINDING_SEVERITY_CHANGED,
+            actor or analyst,
+            "finding",
+            finding_id,
+            report.project,
+            {
+                "previous_severity": previous.value,
+                "severity": severity.value,
+                "original_severity": original.value,
+                "reason": checked,
+            },
+        )
+        session.flush()
+        logger.info("Finding %s severity set to %s", finding_id, severity)
+        return FindingPublic.model_validate(finding, from_attributes=True)
+
+
 def propose_finding_status(
     finding_id: int,
     status: FindingStatus,
@@ -978,6 +1046,13 @@ def render_report_markdown(report: SecurityReportPublic) -> str:
             lines.append(f"- **Location**: `{location}`")
         if refs:
             lines.append(f"- **References**: {refs}")
+        if finding.original_severity:
+            # On one line: the justification is free text typed by a person
+            reason = " ".join((finding.severity_reason or "").split())
+            lines.append(
+                f"- **Severity raised** from {finding.original_severity.value} by "
+                f"{finding.severity_changed_by}: {reason}"
+            )
         lines += ["", finding.description]
         if finding.evidence:
             lines += ["", "```", finding.evidence, "```"]

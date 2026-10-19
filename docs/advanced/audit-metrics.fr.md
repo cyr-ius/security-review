@@ -15,6 +15,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `finding.status_proposed` | Un agent propose un statut avec `propose_finding_status` (jamais appliqué) |
 | `finding.proposal_rejected` | Un trieur rejette la proposition d'un agent |
 | `finding.commented` | Une personne commente un finding (`POST /api/v1/findings/{id}/comments`) : le commentaire, secrets masqués |
+| `finding.severity_changed` | Un analyste de sécurité relève la criticité d'un finding, ou rétablit celle du rapport (`PATCH /api/v1/findings/{id}/severity`) : criticité précédente, nouvelle et d'origine, justification |
 | `token.created` | Un jeton est créé (CLI `token create`, écran **Jetons**) |
 | `token.rotated` | Le secret d'un jeton est remplacé (`token rotate`, bouton **Renouveler**), avec le délai de grâce |
 | `token.revoked` | Un jeton est révoqué |

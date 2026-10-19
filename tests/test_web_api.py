@@ -1996,6 +1996,23 @@ def test_triager_rejects_an_agent_proposal(secured, web_sessions, reports):
     )
 
 
+def test_only_a_logged_in_triager_raises_a_severity(secured, web_sessions, reports):
+    finding = services.get_report(reports[0]).findings[0]
+    url = f"/api/v1/findings/{finding.id}/severity"
+    body = {"severity": "critical", "reason": "Exposed on the internet"}
+
+    # A bearer token, which an agent may hold, never changes a severity
+    assert secured.patch(url, json=body, headers=auth("admin")).status_code == 403
+    assert secured.patch(url, json=body, headers=auth("reader")).status_code == 403
+    response = secured.patch(url, json=body, headers=auth("triager"))
+    assert response.status_code == 200
+    raised = response.json()
+    assert (raised["severity"], raised["original_severity"]) == ("critical", finding.severity)
+    assert raised["severity_changed_by"] == "triager"
+    lowered = {"severity": "info", "reason": "Not that bad after all"}
+    assert secured.patch(url, json=lowered, headers=auth("triager")).status_code == 422
+
+
 def test_risk_acceptances_and_their_append_only_comments(secured, web_sessions, reports):
     finding_id = services.get_report(reports[0]).findings[0].id
     services.update_finding_status(

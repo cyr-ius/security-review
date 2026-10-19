@@ -1,7 +1,7 @@
 import { DatePipe } from '@angular/common';
 import { Component, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
 import { FormField, form, maxLength, required, validate } from '@angular/forms/signals';
-import { STATUS_META } from '../../../core/constants/labels';
+import { SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import { I18nService } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
@@ -10,9 +10,12 @@ import {
   Finding,
   FindingDecision,
   FindingStatus,
+  SEVERITIES,
+  SEVERITY_RANK,
   Severity,
   plainAcceptance,
 } from '../../../core/models/api.models';
+import { TriageChange } from '../../../core/services/triage.service';
 import { SeverityBadgeComponent } from '../severity-badge/severity-badge.component';
 import { StatusBadgeComponent } from '../status-badge/status-badge.component';
 
@@ -32,6 +35,12 @@ interface DismissalFormModel {
   noExpiry: boolean;
 }
 
+/** Severity raised by an analyst, with its justification. */
+interface SeverityFormModel {
+  severity: Severity;
+  reason: string;
+}
+
 /** YYYY-MM-DD of today plus ``days``, in UTC like the server. */
 function isoDay(days: number): string {
   return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
@@ -42,7 +51,8 @@ function isoDay(days: number): string {
  * Accepting a risk or marking a false positive asks for a reason and an expiry date (an
  * acceptance may have none when ``permanentAcceptance`` is set), except a risk less severe
  * than ``riskAcceptanceMinSeverity``, accepted at once like a fix; a status
- * proposed by an agent is shown apart, for the triager to apply or reject.
+ * proposed by an agent is shown apart, for the triager to apply or reject. A triager (a security
+ * analyst) may also raise the severity, with a justification, never below the report's one.
  * Extra details (report link...) can be projected at the end of the metadata line.
  *
  * The card only shows and asks: the page saves the decision it emits (see TriageService) and
@@ -67,13 +77,44 @@ export class FindingCardComponent {
   /** A decision on this finding is being saved. */
   readonly saving = input(false);
 
-  /** A triage decision to save. */
-  readonly decided = output<FindingDecision>();
+  /** A triage decision (status or raised severity) to save. */
+  readonly decided = output<TriageChange>();
   /** The status proposed by an agent is rejected. */
   readonly proposalRejected = output<void>();
 
   readonly statuses = FINDING_STATUSES;
   readonly statusMeta = STATUS_META;
+  readonly severityMeta = SEVERITY_META;
+
+  /** Severity form open (closed when the page passes the saved finding back). */
+  readonly severityOpen = linkedSignal<Finding, boolean>({
+    source: this.finding,
+    computation: () => false,
+  });
+  readonly severityModel = signal<SeverityFormModel>({ severity: 'critical', reason: '' });
+  readonly severityForm = form(this.severityModel, (path) => {
+    validate(path.reason, ({ value }) =>
+      value().trim().length < MIN_REASON_CHARS
+        ? { kind: 'minLength', message: this.i18n.translate('report.severityReasonHelp') }
+        : undefined,
+    );
+    maxLength(path.reason, MAX_REASON_CHARS);
+    validate(path.severity, ({ value }) =>
+      value() === this.finding().severity
+        ? { kind: 'unchanged', message: this.i18n.translate('report.severityHelp') }
+        : undefined,
+    );
+  });
+
+  /** Severity given by the report: the floor of an escalation. */
+  readonly reportSeverity = computed(
+    () => this.finding().original_severity ?? this.finding().severity,
+  );
+
+  /** Severities an analyst may choose: the report's one (undo) and every higher one. */
+  readonly raisableSeverities = computed(() =>
+    SEVERITIES.filter((s) => SEVERITY_RANK[s] >= SEVERITY_RANK[this.reportSeverity()]),
+  );
 
   /**
    * Accepted or false positive being decided: the form asks for a reason and an expiry. It
@@ -168,6 +209,7 @@ export class FindingCardComponent {
   /** Open the reason and expiry form for an acceptance or a false positive. */
   openDismissal(status: FindingStatus): void {
     this.dismissalForm().reset(newDismissal());
+    this.severityOpen.set(false);
     this.pendingStatus.set(status);
   }
 
@@ -185,6 +227,29 @@ export class FindingCardComponent {
     const { reason, expiresOn } = this.dismissalModel();
     const expires_on = this.withoutExpiry() ? null : expiresOn;
     this.save({ status, reason: reason.trim(), expires_on });
+  }
+
+  /** Open the severity form on the next severity above the current one. */
+  openSeverity(): void {
+    const current = this.finding().severity;
+    const higher = SEVERITIES.filter((s) => SEVERITY_RANK[s] > SEVERITY_RANK[current]);
+    this.severityForm().reset({ severity: higher.at(-1) ?? current, reason: '' });
+    this.pendingStatus.set(null);
+    this.severityOpen.set(true);
+  }
+
+  cancelSeverity(): void {
+    this.severityOpen.set(false);
+  }
+
+  submitSeverity(event: Event): void {
+    event.preventDefault();
+    if (this.severityForm().invalid()) {
+      this.severityForm().markAsTouched();
+      return;
+    }
+    const { severity, reason } = this.severityModel();
+    this.decided.emit({ severity, reason: reason.trim() });
   }
 
   /** Apply the status proposed by an agent: a dismissal still needs the triager's reason. */

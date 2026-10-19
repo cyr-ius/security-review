@@ -15,6 +15,7 @@ exists exactly when the change was committed.
 | `finding.status_proposed` | An agent proposes a status with `propose_finding_status` (never applied) |
 | `finding.proposal_rejected` | A triager rejects the proposal of an agent |
 | `finding.commented` | A person comments a finding (`POST /api/v1/findings/{id}/comments`): the comment, secrets masked |
+| `finding.severity_changed` | A security analyst raises the severity of a finding, or restores the report's one (`PATCH /api/v1/findings/{id}/severity`): previous, new and original severity, justification |
 | `token.created` | A token is created (CLI `token create`, **Tokens** screen) |
 | `token.rotated` | The secret of a token is replaced (`token rotate`, **Rotate** button), with the grace period |
 | `token.revoked` | A token is revoked |

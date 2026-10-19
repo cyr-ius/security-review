@@ -285,6 +285,17 @@ class FindingStatusUpdate(BaseModel):
     expires_on: date | None = None
 
 
+class FindingSeverityUpdate(BaseModel):
+    """Body of PATCH /findings/{id}/severity: a severity raised by a security analyst.
+
+    The severity must be above the one given by the report, or equal to it to undo an
+    escalation; the justification is required.
+    """
+
+    severity: Severity
+    reason: str = Field(min_length=1, max_length=MAX_STATUS_REASON_CHARS)
+
+
 class TrendPeriod(BaseModel):
     """One period of the trend of a project."""
 

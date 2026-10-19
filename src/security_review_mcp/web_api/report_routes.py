@@ -40,6 +40,7 @@ from .deps import (
 )
 from .schemas import (
     FindingCommentCreate,
+    FindingSeverityUpdate,
     FindingStatusUpdate,
     Granularity,
     PendingProject,
@@ -361,6 +362,42 @@ async def update_finding(
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info("Finding %s set to %s by %s", finding_id, body.status, identity.client)
+    return finding
+
+
+@router.patch("/findings/{finding_id}/severity")
+async def update_finding_severity(
+    finding_id: int,
+    body: FindingSeverityUpdate,
+    identity: Triager,
+) -> FindingPublic:
+    """Raise the severity of a finding with a justification; the caller is stored and logged.
+
+    Only a person logged in to the web interface may change a severity: a bearer token, which
+    an agent may hold, is refused.
+    """
+    if identity.auth_source is None:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Only a person logged in to the web interface can change the severity of a finding",
+        )
+    await run_in_threadpool(
+        services.check_finding_scope,
+        permission_scope(identity, Permission.FINDINGS_TRIAGE),
+        finding_id,
+    )
+    try:
+        finding = await run_in_threadpool(
+            services.update_finding_severity,
+            finding_id,
+            body.severity,
+            identity.client,
+            body.reason,
+            actor_of(identity),
+        )
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("Finding %s severity set to %s by %s", finding_id, body.severity, identity.client)
     return finding
 
 

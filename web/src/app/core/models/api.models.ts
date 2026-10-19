@@ -259,6 +259,7 @@ export type AuditAction =
   | 'finding.status_proposed'
   | 'finding.proposal_rejected'
   | 'finding.commented'
+  | 'finding.severity_changed'
   | 'token.created'
   | 'token.rotated'
   | 'token.revoked'
@@ -288,6 +289,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_proposed',
   'finding.proposal_rejected',
   'finding.commented',
+  'finding.severity_changed',
   'token.created',
   'token.rotated',
   'token.revoked',
@@ -547,6 +549,12 @@ export interface Finding {
   proposed_reason: string | null;
   proposed_by: string | null;
   proposed_at: string | null;
+  /** Severity given by the report, when a security analyst raised it (null: never raised). */
+  original_severity: Severity | null;
+  /** Justification, author and date of the latest severity change by an analyst. */
+  severity_reason: string | null;
+  severity_changed_by: string | null;
+  severity_changed_at: string | null;
   rule_id: string | null;
   category: string;
   cwe: string | null;
@@ -568,6 +576,15 @@ export interface FindingDecision {
   reason?: string;
   /** YYYY-MM-DD: the finding counts as open again from that day; null: no expiry (accepted). */
   expires_on?: string | null;
+}
+
+/**
+ * Body of PATCH /api/v1/findings/{id}/severity: a severity raised by a security analyst, above
+ * the one of the report (or equal to it, to undo the escalation), with its justification.
+ */
+export interface FindingSeverityChange {
+  severity: Severity;
+  reason: string;
 }
 
 /** A finding of GET /api/v1/findings, with the context of its report. */

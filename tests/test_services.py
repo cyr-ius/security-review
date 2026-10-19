@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlmodel import select
 
-from security_review_mcp import services
+from security_review_mcp import audit, services
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.models import (
@@ -447,6 +447,41 @@ def test_triage_decision_is_validated(status, reason, expires_in, error):
     with pytest.raises(ValueError, match="approver"):
         services.update_finding_status(finding_id, FindingStatus.FIXED, "  ")
     assert services.get_report(saved["report_id"]).findings[0].status == FindingStatus.OPEN
+
+
+def test_analyst_raises_the_severity_never_below_the_report():
+    saved = services.save_report("shop", "summary", [make_finding(Severity.MEDIUM)])
+    finding_id = services.get_report(saved["report_id"]).findings[0].id
+    assert services.evaluate_gate("shop", Severity.HIGH)["passed"] is True
+
+    raised = services.update_finding_severity(
+        finding_id, Severity.CRITICAL, "alice", "Reachable without authentication"
+    )
+
+    assert (raised.severity, raised.original_severity) == (Severity.CRITICAL, Severity.MEDIUM)
+    assert (raised.severity_changed_by, raised.severity_reason) == (
+        "alice",
+        "Reachable without authentication",
+    )
+    # The report, the gate and the audit log follow the raised severity
+    assert services.get_report(saved["report_id"]).risk_level == Severity.CRITICAL
+    assert services.evaluate_gate("shop", Severity.HIGH)["passed"] is False
+    (event,) = audit.list_events(action="finding.severity_changed")["events"]
+    assert (event["actor"], event["details"]["previous_severity"]) == ("alice", "medium")
+    for severity, reason, error in (
+        (Severity.LOW, "Only internal users reach it", "below the one of the report"),
+        (Severity.CRITICAL, "Reachable without authentication", "already critical"),
+        (Severity.HIGH, "short", "10 to 1000"),
+    ):
+        with pytest.raises(ValueError, match=error):
+            services.update_finding_severity(finding_id, severity, "alice", reason)
+
+    # Back to the severity of the report: the escalation is undone, not hidden
+    restored = services.update_finding_severity(
+        finding_id, Severity.MEDIUM, "bob", "Authentication added upstream"
+    )
+    assert (restored.severity, restored.original_severity) == (Severity.MEDIUM, None)
+    assert restored.severity_changed_by == "bob"
 
 
 def test_risk_acceptance_without_expiry_unless_disabled(monkeypatch):

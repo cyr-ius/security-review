@@ -177,6 +177,12 @@ class Finding(FindingBase, table=True):
     proposed_reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
     proposed_by: str | None = Field(default=None, max_length=200)
     proposed_at: datetime | None = Field(default=None)
+    # Severity raised by a security analyst in the web interface, with its justification:
+    # ``severity`` holds the raised value, ``original_severity`` the one of the report
+    original_severity: Severity | None = Field(default=None, sa_type=String(10))
+    severity_reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
+    severity_changed_by: str | None = Field(default=None, max_length=200)
+    severity_changed_at: datetime | None = Field(default=None)
     report: SecurityReport = Relationship(back_populates="findings")
     comments: list[FindingComment] = Relationship(
         back_populates="finding",
@@ -202,6 +208,10 @@ class FindingPublic(FindingBase):
     proposed_reason: str | None = None
     proposed_by: str | None = None
     proposed_at: datetime | None = None
+    original_severity: Severity | None = None
+    severity_reason: str | None = None
+    severity_changed_by: str | None = None
+    severity_changed_at: datetime | None = None
 
     @model_validator(mode="after")
     def _expire_dismissal(self) -> FindingPublic:

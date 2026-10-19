@@ -3,6 +3,15 @@
     <app-severity-badge [severity]="finding().severity" />
     <h3 class="h6 mb-0 me-auto">{{ finding().title }}</h3>
     @if (canTriage()) {
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-danger"
+        [disabled]="saving() || severityOpen()"
+        (click)="openSeverity()"
+      >
+        <i class="bi bi-arrow-up-circle" aria-hidden="true"></i>
+        {{ 'report.severityRaise' | t }}
+      </button>
       <select
         class="form-select form-select-sm status-select"
         [attr.aria-label]="'report.findingStatus' | t: { id: finding().id }"
@@ -82,6 +91,87 @@
           <div class="prewrap">{{ finding().status_reason }}</div>
         }
       </div>
+    }
+    @if (finding().severity_changed_at) {
+      <div class="decision small mb-2">
+        <div>
+          <i class="bi bi-arrow-up-circle" aria-hidden="true"></i>
+          @if (finding().original_severity; as original) {
+            {{
+              'report.severityRaisedBy'
+                | t
+                  : {
+                      from: severityMeta[original].label | t,
+                      by: finding().severity_changed_by ?? '',
+                      date: (finding().severity_changed_at | date: 'dd/MM/yyyy') ?? '',
+                    }
+            }}
+          } @else {
+            {{
+              'report.severityChangedBy'
+                | t
+                  : {
+                      by: finding().severity_changed_by ?? '',
+                      date: (finding().severity_changed_at | date: 'dd/MM/yyyy') ?? '',
+                    }
+            }}
+          }
+        </div>
+        @if (finding().severity_reason) {
+          <div class="prewrap">{{ finding().severity_reason }}</div>
+        }
+      </div>
+    }
+    @if (severityOpen()) {
+      <form class="dismissal border rounded p-3 mb-2" (submit)="submitSeverity($event)" novalidate>
+        <p class="fw-semibold mb-2">{{ 'report.severityTitle' | t: { id: finding().id } }}</p>
+        <div class="mb-2">
+          <label class="form-label" [for]="'severity-' + finding().id">{{
+            'report.severityNew' | t
+          }}</label>
+          <select
+            class="form-select form-select-sm status-select"
+            [id]="'severity-' + finding().id"
+            [attr.aria-describedby]="'severity-help-' + finding().id"
+            [formField]="severityForm.severity"
+          >
+            @for (severity of raisableSeverities(); track severity) {
+              <option [value]="severity">{{ severityMeta[severity].label | t }}</option>
+            }
+          </select>
+          <div class="form-text" [id]="'severity-help-' + finding().id">
+            {{ 'report.severityHelp' | t: { severity: severityMeta[reportSeverity()].label | t } }}
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label" [for]="'severity-reason-' + finding().id">{{
+            'report.severityReason' | t
+          }}</label>
+          <textarea
+            class="form-control form-control-sm"
+            [id]="'severity-reason-' + finding().id"
+            rows="3"
+            [attr.aria-describedby]="'severity-reason-help-' + finding().id"
+            [formField]="severityForm.reason"
+            [class.is-invalid]="severityForm.reason().touched() && severityForm.reason().invalid()"
+          ></textarea>
+          <div class="form-text" [id]="'severity-reason-help-' + finding().id">
+            {{ 'report.severityReasonHelp' | t }}
+          </div>
+        </div>
+        <div class="d-flex gap-2">
+          <button
+            type="submit"
+            class="btn btn-sm btn-primary"
+            [disabled]="saving() || severityForm().invalid()"
+          >
+            {{ 'report.severitySave' | t }}
+          </button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelSeverity()">
+            {{ 'report.dismissCancel' | t }}
+          </button>
+        </div>
+      </form>
     }
     @if (finding().proposed_status; as proposed) {
       <div class="proposal small mb-2" role="note">
