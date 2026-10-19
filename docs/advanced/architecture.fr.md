@@ -24,8 +24,8 @@ données. Ils peuvent tourner dans deux conteneurs, deux pods ou sur deux machin
 
 Les deux processus ne s'appellent jamais : tout passe par la base. Un jeton créé ou révoqué sur
 le contrôleur s'applique à la requête suivante du serveur MCP. Une règle modifiée est rechargée
-en quelques secondes. Une demande d'enrôlement déposée sur le serveur MCP apparaît dans l'écran
-**Jetons** du contrôleur.
+en quelques secondes. Un projet demandé sur le serveur MCP attend sa validation dans
+l'écran **Projets** du contrôleur.
 
 L'enrôlement est servi par le serveur MCP parce que le client ne connaît que son URL. Le
 contrôleur n'expose ainsi **aucune route d'écriture sans authentification**.
@@ -104,7 +104,7 @@ commandes d'administration s'exécutent dans son pod :
 
 ```bash
 kubectl -n secreview exec deploy/secreview-controller -c controller -- \
-    security-review-controller token list --pending
+    security-review-controller token list
 ```
 
 Pour la [mise à jour quotidienne des avis OSV](dependencies.md#mise-a-jour-automatique-par-le-controleur),

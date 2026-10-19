@@ -4,6 +4,7 @@ import ipaddress
 import logging
 import sys
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -82,10 +83,17 @@ class Settings(BaseSettings):
     session_hours: int = 8
 
     # Enrollment (HTTP MCP server, once a token exists): a client without a token reaches a
-    # restricted MCP server that only lets it request a project token, and POST /api/v1/enroll
-    # on the MCP server accepts the same request. The token works once an administrator
-    # approves it on the controller.
+    # restricted MCP server that only lets it request its project, and POST /api/v1/enroll on
+    # the MCP server accepts the same request. The project stays pending until a user holding
+    # projects.create approves it (Projects screen or `project approve`); a request nobody
+    # approved within project_enrollment_ttl_days is deleted. No token is created: the developer
+    # signs in to the web interface and creates a personal MCP token there.
     enrollment: bool = True
+    project_enrollment_ttl_days: int = Field(default=7, ge=1, le=365)
+    # Public URL of the web interface (controller), e.g. https://secreview.example.com/ui. The
+    # MCP server gives it to the clients without a valid token (enrollment, 401), so that the
+    # user knows where to sign in and create a personal MCP token. Unset: no link is given.
+    web_url: str | None = None
 
     # Client commands only (`security-review-mcp scan-deps`, used by commit hooks and
     # pipelines): URL of the shared MCP server (default of --url) and the bearer token sent to
@@ -245,7 +253,7 @@ class Settings(BaseSettings):
     max_scan_files: int = Field(default=10_000, ge=1)
     max_scan_file_chars: int = Field(default=1_048_576, ge=1)
 
-    @field_validator("proxy", "no_proxy", "audit_syslog_address")
+    @field_validator("proxy", "no_proxy", "audit_syslog_address", "web_url")
     @classmethod
     def _empty_is_unset(cls, value: str | None) -> str | None:
         """An empty variable means no value (an empty stored proxy means a direct connection)."""
@@ -258,6 +266,19 @@ class Settings(BaseSettings):
         if value and "://" not in value:
             return f"http://{value}"
         return value
+
+    @field_validator("web_url")
+    @classmethod
+    def _check_web_url(cls, value: str | None) -> str | None:
+        """Accept an http(s) URL without credentials: it is shown to unauthenticated clients."""
+        if value is None:
+            return None
+        parts = urlsplit(value)
+        if parts.scheme not in ("http", "https") or not parts.hostname:
+            raise ValueError("SECREVIEW_WEB_URL must be an http(s) URL")
+        if parts.username or parts.password:
+            raise ValueError("SECREVIEW_WEB_URL must not contain credentials")
+        return value.rstrip("/")
 
     @field_validator("forwarded_allow_ips")
     @classmethod

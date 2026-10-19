@@ -200,8 +200,6 @@ export interface ProjectToken {
   personal: boolean;
   project: string | null;
   projects: string[] | null;
-  pending_projects: string[];
-  status: 'active' | 'pending';
   created_at: string;
   /** Expiry date; null: the token never expires. */
   expires_at: string | null;
@@ -301,27 +299,6 @@ export interface AuditQuery {
   sort_direction?: 'asc' | 'desc';
   limit: number;
   offset: number;
-}
-
-/** A project token requested by a client (enrollment), waiting for an administrator. */
-export interface EnrollmentRequest {
-  id: string;
-  token_id: string;
-  label: string;
-  role: ProjectTokenRole;
-  project: string;
-  kind: 'new' | 'additional';
-  status: 'pending';
-  requested_by: string | null;
-  requested_from: string | null;
-  created_at: string;
-}
-
-/** Response of an approval; portal_user is present when a web user got read access. */
-export interface EnrollmentApproved extends Omit<EnrollmentRequest, 'status'> {
-  status: 'active';
-  projects: string[];
-  portal_user?: WebUser;
 }
 
 /** Response returned once when a project-scoped token is created. */
@@ -458,6 +435,19 @@ export type DevStandardWrite = Pick<
   DevStandard,
   'slug' | 'title' | 'description' | 'technologies' | 'file_patterns' | 'content' | 'enabled'
 >;
+
+/** GET /api/v1/projects/pending: a project requested by an enrollment, waiting for an approval. */
+export interface PendingProject {
+  id: number;
+  project: string;
+  /** Free text given by the client (not verified), its address and its token (or anonymous). */
+  requested_by: string | null;
+  requested_from: string | null;
+  requested_with: string | null;
+  created_at: string;
+  /** The request is deleted at this date unless it is approved. */
+  expires_at: string;
+}
 
 /** GET /api/v1/projects */
 export interface ProjectSummary {

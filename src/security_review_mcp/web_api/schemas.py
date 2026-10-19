@@ -176,6 +176,27 @@ class ProjectDeleted(BaseModel):
     tokens_changed: int
 
 
+class PendingProject(BaseModel):
+    """A project requested by an enrollment, waiting for an approval (GET /projects/pending)."""
+
+    id: int
+    project: str
+    # Free text given by the client (not verified), its address and its token (or anonymous)
+    requested_by: str | None
+    requested_from: str | None
+    requested_with: str | None
+    created_at: str
+    # The request is deleted at this date unless it is approved
+    expires_at: str
+
+
+class PendingProjectApproved(PendingProject):
+    """An approved project: its project group, created without any member."""
+
+    group_id: int
+    group: str
+
+
 class ProjectPosture(BaseModel):
     """Open findings of a project across all its reports."""
 
@@ -676,7 +697,7 @@ class StandardCatalog(BaseModel):
     standards: list[StandardSummary]
 
 
-# ── Tokens and enrollments ───────────────────────────────────────────────────
+# ── Tokens ───────────────────────────────────────────────────────────────────
 
 _ProjectName = ProjectName
 
@@ -747,8 +768,6 @@ class ProjectToken(BaseModel):
     project: str | None
     # None: every project (personal mcp token: the projects its user may read now)
     projects: list[str] | None
-    pending_projects: list[str]
-    status: Literal["active", "pending"]
     created_at: str
     expires_at: str | None
     expired: bool
@@ -764,29 +783,6 @@ class ProjectTokenSecret(ProjectToken):
     """A token just created or rotated: ``token`` is its secret, returned exactly once."""
 
     token: str
-
-
-class EnrollmentApproval(BaseModel):
-    """Optional body of an approval: the web user who also reads the project on the web (an
-    unknown name becomes an OIDC user when OIDC is enabled)."""
-
-    portal_user: str | None = Field(default=None, max_length=web_users.MAX_USERNAME_CHARS)
-
-
-class EnrollmentRequest(BaseModel):
-    """A project token requested by a client, waiting for an administrator (never a secret)."""
-
-    id: str
-    token_id: str
-    label: str
-    role: Role
-    project: str
-    # new: first enrollment (new token); additional: one more project for an active token
-    kind: Literal["new", "additional"]
-    status: Literal["pending", "active"]
-    requested_by: str | None
-    requested_from: str | None
-    created_at: str
 
 
 # ── Web users, roles and groups ──────────────────────────────────────────────
@@ -834,13 +830,6 @@ class RevokedUser(BaseModel):
     username: str
     revoked_at: str | None
     revoked_by: str | None
-
-
-class EnrollmentApproved(EnrollmentRequest):
-    """An approved request; ``portal_user`` is present when a web user got read access."""
-
-    projects: list[str] | None
-    portal_user: WebUser | None = None
 
 
 class WebUserCreate(BaseModel):

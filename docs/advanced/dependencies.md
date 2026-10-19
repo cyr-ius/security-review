@@ -157,8 +157,8 @@ security-review-ci deps-scan package-lock.json requirements.txt \
 
 `security-review-mcp scan-deps` sends the dependency files to the `scan_dependencies` tool of a
 shared MCP server: the scan uses the advisory database of that server, without any local
-import. It needs a token with the `mcp` or `admin` role (see
-[enrollment](http.md#enrollment-a-project-requests-its-token)).
+import. It needs a token with the `mcp` or `admin` role, for instance a personal MCP token (see
+[enrollment](http.md#enrollment-request-the-project)).
 
 ```bash
 export SECREVIEW_SERVER_URL=https://secreview.example.com
@@ -167,9 +167,9 @@ security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
 # exit code: 0 = ok, 1 = blocked, 2 = error (server unreachable, token refused...)
 ```
 
-A refused token (missing, unknown, revoked, expired or not approved yet) ends with an error that
-suggests `security-review-mcp enroll` (see
-[rejected token](http.md#rejected-token-new-enrollment)).
+A missing or refused token (unknown, revoked or expired) ends with an error that tells you to
+sign in to the web interface and create a new personal MCP token (see
+[rejected token](http.md#rejected-token-sign-in-again)).
 
 - Same options and output as `security-review-ci deps-scan` (`--fail-on`, `--format`,
   `--require-database`); nothing is stored (no `--save`).

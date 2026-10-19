@@ -64,9 +64,13 @@ suivantes.
   lien vers son projet. Le bouton **Acceptations de risque** liste les risques acceptés de tous
   les projets que vous pouvez voir. Avec la permission `projects.create`, **Nouveau projet** (à gauche
   d'**Actualiser**) ouvre une fenêtre modale qui crée un projet que vous lisez ensuite (voir
-  [Création d'un projet](../advanced/access-control.md#creation-dun-projet)). Avec
-  `projects.delete`, le bouton corbeille d'une ligne supprime le projet et tout ce qui s'y rapporte
-  (voir [Suppression d'un projet](../advanced/access-control.md#suppression-dun-projet)).
+  [Création d'un projet](../advanced/access-control.md#creation-dun-projet)), et la section
+  **Projets en attente** liste les projets demandés par un
+  [enrôlement](../advanced/http.md#enrolement-demander-le-projet) (demandeur, adresse, dates de
+  demande et d'expiration) : **Valider** crée le projet sans aucun membre, **Refuser** supprime
+  la demande ; une demande non validée avant son expiration est supprimée. Avec
+  `projects.delete`, le bouton corbeille d'une ligne supprime le projet et tout ce qui s'y
+  rapporte (voir [Suppression d'un projet](../advanced/access-control.md#suppression-dun-projet)).
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, derniers rapports et
   export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant ;
@@ -142,8 +146,7 @@ suivantes.
   d'identité. **Jetons personnels** crée et révoque les jetons personnels du compte : des
   jetons [API REST](#jetons-api) (Swagger, scripts), qui portent ses droits, et des jetons
   [MCP](#jetons-mcp-personnels) pour son agent, qui atteignent les projets qu'il peut lire.
-- **Jetons** : les demandes d'enrôlement sont recherchables, triables et filtrables par type ; les
-  jetons actifs le sont par usage. Les administrateurs créent et révoquent des jetons pour un ou plusieurs
+- **Jetons** : les jetons sont recherchables, triables et filtrables par usage. Les administrateurs créent et révoquent des jetons pour un ou plusieurs
   projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit
   **MCP** (rôle `mcp`), **Pipeline CI/CD** (rôle `ci`, pour
   [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)) ou **API REST** (rôle
@@ -156,22 +159,17 @@ suivantes.
   `SECREVIEW_TOKEN_MAX_DAYS`). La liste affiche l'usage de chaque jeton `mcp` et `ci`, ses
   projets et sa date d'expiration (**Expiré** une fois passée).
   **Projets** change les projets d'un jeton existant, ou lui donne **Tous les projets** après
-  confirmation, sans changer son secret : le changement s'applique dès la requête suivante ; une
-  demande en attente pour un projet désormais accordé est approuvée avec lui. **Renouveler** remplace le secret d'un jeton et affiche le
+  confirmation, sans changer son secret : le changement s'applique dès la requête suivante. **Renouveler** remplace le secret d'un jeton et affiche le
   nouveau une fois ; l'ancien reste valable pendant le délai de grâce choisi au-dessus de la
   liste (aucun, 1 h, 24 h ou 7 jours, voir
   [expiration et renouvellement](../advanced/http.md#expiration-et-renouvellement-des-jetons)). Un jeton n'ouvre jamais l'interface web. Les jetons `admin` et `metrics` restent non
   restreints et se gèrent uniquement par la CLI. Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
-  données. Une révocation prend effet à la requête suivante. La section
-  **Demandes en attente** distingue les nouveaux jetons des demandes d'accès à un projet
-  supplémentaire ([enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton)) :
-  **Approuver** active le nouveau jeton ou ajoute le projet au jeton existant ; **Refuser** ne
-  supprime que la demande. Les projets autorisés et les ajouts encore en attente sont affichés
-  pour chaque jeton. La colonne **Lecture dans le portail** permet de donner en même temps au
-  développeur la lecture du projet dans l'interface web, sur son compte utilisateur (voir
-  [lecture du projet à l'enrôlement](../advanced/sso.md#lecture-du-projet-a-lenrolement)).
+  données. Une révocation prend effet à la requête suivante.
+  L'[enrôlement](../advanced/http.md#enrolement-demander-le-projet) ne crée aucun jeton : un
+  projet qu'il demande attend dans **Projets**, et une fois validé un administrateur en donne
+  l'accès à un développeur en l'ajoutant à son groupe `project:<projet>` (écran **Groupes**).
 - **Journal d'audit** : les administrateurs consultent le [journal d'audit](../advanced/audit-metrics.md#journal-daudit) :
-  décisions de triage, propositions des agents, jetons et demandes d'enrôlement, du plus récent
+  décisions de triage, propositions des agents, jetons et enrôlements, du plus récent
   au plus ancien, avec leur auteur ; filtres par événement et projet, recherche dans les détails,
   tri par date/action/auteur/cible/projet et **Afficher plus** pour les événements plus anciens.
   Les détenteurs de `settings.manage` y règlent aussi le
@@ -416,11 +414,12 @@ aucun projet quand il n'en a pas. La colonne **Projets** les affiche, de même q
 Un jeton déjà créé continue de fonctionner quand le compte perd `mcp_tokens.create` : un
 administrateur le révoque au besoin. Comme un jeton API REST personnel, il s'arrête tant que le compte doit changer un mot de passe
 défini par un administrateur, il est supprimé avec le compte, personne ne peut le renouveler
-ni changer ses projets, et un administrateur peut le révoquer. Il n'a pas d'enrôlement
-complémentaire : `request_enrollment` refuse un projet qu'il n'atteint pas, un administrateur
-donne plutôt au compte l'accès au projet (un groupe qui le lit), ou l'utilisateur le crée s'il
-est nouveau et qu'il porte `projects.create` (voir
-[Création d'un projet](../advanced/access-control.md#creation-dun-projet)). Il n'atteint jamais
+ni changer ses projets, et un administrateur peut le révoquer. Pour un projet qu'il n'atteint
+pas, un administrateur donne au compte l'accès au projet (un groupe qui le lit), ou
+l'utilisateur le crée depuis **Projets** s'il est nouveau et qu'il porte `projects.create` (voir
+[Création d'un projet](../advanced/access-control.md#creation-dun-projet)) ; un projet demandé par
+un [enrôlement](../advanced/http.md#enrolement-demander-le-projet) attend sa validation. Quand le serveur refuse le jeton (inconnu, révoqué ou expiré), l'agent reçoit
+un `401` qui invite l'utilisateur à se reconnecter pour en créer un nouveau. Il n'atteint jamais
 l'API REST.
 
 ```bash
@@ -439,7 +438,7 @@ ni projet propre.
 | Type (`auth_source`) | Connexion | Création |
 |---|---|---|
 | **Local** (`local`) | Identifiant et mot de passe | Par un administrateur, ou le compte `admin` initial |
-| **OIDC** (`oidc`) | [Fournisseur d'identité](../advanced/sso.md), sans mot de passe | Par un administrateur, à l'approbation d'un enrôlement, ou à la première connexion si `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
+| **OIDC** (`oidc`) | [Fournisseur d'identité](../advanced/sso.md), sans mot de passe | Par un administrateur, ou à la première connexion si `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
 Un compte OIDC rejoint aussi, à chaque connexion, les groupes ouverts au OIDC nommés par son claim
 des groupes (voir [comptes OIDC](../advanced/sso.md#comptes-oidc)). Les comptes se gèrent dans
@@ -611,11 +610,13 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   Dans Swagger, le cadenas d'une route indique qu'elle exige un jeton : il reste **ouvert**
   tant que vous n'avez pas saisi de jeton avec **Authorize**, et ne veut pas dire que la route
   est accessible sans jeton. Saisissez-y un [jeton API](#jetons-api).
-- Le contrôleur n'expose aucune route d'écriture sans jeton. Les demandes
-  d'[enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton) sont déposées sur
-  le **serveur MCP** (`POST /api/v1/enroll`, public) ; le contrôleur les liste et les traite
-  (`GET /api/v1/enrollments`, `POST /api/v1/enrollments/{id}/approve`,
-  `DELETE /api/v1/enrollments/{id}`, permission `tokens.manage`). Il peut donc rester sur un réseau interne.
+- Le contrôleur n'expose aucune route d'écriture sans jeton.
+  L'[enrôlement](../advanced/http.md#enrolement-demander-le-projet) est servi par le **serveur
+  MCP** (`POST /api/v1/enroll`, public) : il demande un projet, jamais un jeton ; le
+  contrôleur liste et traite les demandes (`GET /api/v1/projects/pending`,
+  `POST /api/v1/projects/pending/{id}/approve`, `DELETE /api/v1/projects/pending/{id}`,
+  permission `projects.create`). Le contrôleur
+  peut donc rester sur un réseau interne.
 - Le jeton est envoyé dans l'en-tête `Authorization` : pas de cookie, donc pas de CSRF.
   Seule la [connexion OIDC](../advanced/sso.md) pose un cookie, `HttpOnly`,
   `SameSite=Lax`, `Secure` en HTTPS, limité à l'URL de retour et valable 10 minutes : il lie le
@@ -640,7 +641,9 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | Fichier du secret quand `SECREVIEW_SECRET_KEY` n'est pas défini, généré au premier démarrage |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session (1 à 24 heures), connexion par compte local ou OIDC |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le [compte OIDC](../advanced/sso.md#comptes-oidc) à la première connexion ; sinon un administrateur le crée |
-| `SECREVIEW_ENROLLMENT` | `true` | Demandes de jetons par les projets (sur le serveur MCP), validées dans l'écran **Jetons** |
+| `SECREVIEW_ENROLLMENT` | `true` | Demandes de projet par les clients MCP sans jeton (sur le serveur MCP), validées dans l'écran **Projets** ; aucun jeton n'est créé |
+| `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | Jours pendant lesquels un projet demandé attend sa validation avant d'être supprimé |
+| `SECREVIEW_WEB_URL` | — | URL publique de l'interface web, donnée par le serveur MCP aux clients sans jeton valide |
 | `SECREVIEW_OIDC_*` | — | [Connexion OIDC](../advanced/sso.md), voir la [référence](../reference/configuration.md) |
 
 Le paquet publié et l'image Docker contiennent l'application déjà compilée. Si vous installez

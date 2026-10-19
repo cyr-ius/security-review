@@ -61,32 +61,30 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `request_enrollment` | Demande un jeton pour un premier projet ou l'ajout d'un projet au jeton présenté, après approbation par un administrateur ([enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton)) |
+| `request_enrollment` | Demande un projet qui n'existe pas encore, validé par un administrateur ; aucun jeton n'est créé et le jeton courant ne gagne aucun projet : un administrateur en donne l'accès ([enrôlement](../advanced/http.md#enrolement-demander-le-projet)) |
 | `list_development_standards` / `get_development_standards` | [Normes de développement](../advanced/standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
 | `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](../advanced/rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
 Sur le transport HTTP, un jeton restreint ne peut utiliser les outils de rapports que sur ses
 projets autorisés ; `reload_rules` lui est refusé (voir
 [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)).
-Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux ;
-`request_enrollment` demande l'ajout au jeton courant sans créer ni révéler un nouveau secret.
-Un [jeton MCP personnel](web-interface.md#jetons-mcp-personnels) atteint plutôt les projets de
-son utilisateur : `request_enrollment` le refuse, un administrateur donne à l'utilisateur l'accès
-au projet.
+Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux. Un
+[jeton MCP personnel](web-interface.md#jetons-mcp-personnels) atteint les projets de son
+utilisateur : pour un autre projet, un administrateur lui en donne l'accès (`request_enrollment`
+le demande d'abord s'il est nouveau).
 
 ### Serveur d'enrôlement
 
-Sur le transport HTTP, un client qui se connecte **sans jeton** (ou avec un jeton dont
-l'enrôlement n'est pas encore approuvé, ou un jeton inconnu, révoqué ou expiré) atteint un serveur restreint, du même nom, qui
-n'expose que :
+Sur le transport HTTP, un client qui se connecte **sans jeton** atteint un serveur restreint, du
+même nom, qui n'expose que (un jeton inconnu, révoqué ou expiré reçoit plutôt un `401`, voir
+[jeton refusé](../advanced/http.md#jeton-refuse-se-reconnecter)) :
 
 | Élément | Rôle |
 |---|---|
-| `request_enrollment` | Dépose la demande pour un projet et renvoie le jeton (affiché une fois), nommé d'après le nom d'utilisateur du développeur (`label`) |
-| `get_enrollment_status` | `pending` si le jeton présenté attend l'approbation, `not_enrolled` sans jeton, `token_rejected` (avec `reason`) pour un jeton inconnu, révoqué ou expiré : l'agent propose un nouvel enrôlement |
-| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Argument `project` facultatif ; expliquent à l'agent comment demander l'accès au lieu de lancer la revue |
+| `request_enrollment` | Demande le projet (`project`, `requested_by` facultatif), validé par un administrateur, et renvoie `web_url` et `next_steps` : l'utilisateur se connecte à l'interface web et crée un jeton MCP personnel ; jamais de jeton |
+| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Argument `project` facultatif ; expliquent à l'agent comment obtenir un jeton au lieu de lancer la revue |
 
-Voir [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton).
+Voir [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
 
 ## Ressources
 
@@ -154,8 +152,8 @@ type lors de la mise à jour de la base.
 
 ### Auteur d'un rapport
 
-Un jeton est enrôlé **par équipement**, pas par personne : plusieurs développeurs peuvent le
-partager, et son libellé ne dit pas qui a travaillé sur le code relu. Chaque rapport porte donc
+Un jeton est configuré sur un équipement, que plusieurs développeurs peuvent partager (jeton de
+pipeline, poste partagé) : son libellé ne dit pas qui a travaillé sur le code relu. Chaque rapport porte donc
 deux champs :
 
 | Champ | Rempli par | Valeur |
@@ -167,7 +165,7 @@ deux champs :
 (ni Markdown ni HTML, car il est recopié dans l'export Markdown) ; une valeur vide n'est pas
 enregistrée. Il est **déclaré, non authentifié** : il sert à savoir à qui s'adresser et à filtrer
 les rapports (`list_security_reports`, [interface web](web-interface.md)), jamais de preuve
-d'identité ; `submitted_by` indique quel équipement enrôlé a réellement envoyé le rapport.
+d'identité ; `submitted_by` indique quel jeton a réellement envoyé le rapport.
 
 ### Statut d'un finding
 

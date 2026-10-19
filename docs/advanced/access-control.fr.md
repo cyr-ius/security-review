@@ -23,11 +23,11 @@ compte.
 | `findings.triage` | Changer le statut d'un finding, rejeter la proposition d'un agent | ✅ |
 | `rules.manage` | Règles de scan et checklists | |
 | `standards.manage` | Normes de développement | |
-| `tokens.manage` | Jetons de projet et demandes d'enrôlement | |
+| `tokens.manage` | Jetons de projet | |
 | `settings.manage` | Langue des rapports, proxy sortant, base d'avis | |
 | `users.manage` | Utilisateurs, groupes, rôles et configuration OIDC (elle décide qui rejoint quel groupe) | |
 | `audit.read` | Journal d'audit | |
-| `projects.create` | Créer un nouveau projet, que son créateur lit ensuite (voir [Création d'un projet](#creation-dun-projet)) | |
+| `projects.create` | Créer un nouveau projet, que son créateur lit ensuite (voir [Création d'un projet](#creation-dun-projet)), et valider ou refuser les projets demandés par un [enrôlement](http.md#enrolement-demander-le-projet) | |
 | `projects.delete` | Supprimer un projet avec ses rapports, ses findings et ses références (voir [Suppression d'un projet](#suppression-dun-projet)) | |
 | `mcp_tokens.create` | Créer un [jeton MCP personnel](../usage/web-interface.md#jetons-mcp-personnels) dans **Mon compte** | |
 
@@ -42,7 +42,7 @@ dès le départ et ne peuvent être ni modifiés ni supprimés, car le contrôle
 
 | Rôle intégré | Permissions | Utilisé par |
 |---|---|---|
-| `reader` | `reports.read` | les [groupes de projet](#groupes-de-projet) créés à l'approbation d'un enrôlement |
+| `reader` | `reports.read` | les [groupes de projet](#groupes-de-projet) des projets validés ou créés |
 | `admin` | toutes les permissions (y compris celles qu'ajoute une version ultérieure) | le groupe `administrators` du premier administrateur, `SECREVIEW_OIDC_ADMIN_GROUPS` |
 
 Deux rôles ordinaires sont aussi créés avec la base : les administrateurs les modifient ou les
@@ -67,8 +67,7 @@ toujours à tous les projets.
 
 Les membres ont deux origines :
 
-- **locale** : ajoutés par un administrateur (écran **Groupes** ou **Utilisateurs**, CLI,
-  approbation d'un enrôlement) ;
+- **locale** : ajoutés par un administrateur (écran **Groupes** ou **Utilisateurs**, CLI) ;
 - **OIDC** : quand le groupe est **ouvert au OIDC**, les utilisateurs OIDC dont le claim des groupes
   contient **exactement le nom du groupe** le rejoignent à chaque connexion (voir
   [OIDC](sso.md#groupes-du-fournisseur-didentite)). Les valeurs du claim qui ne nomment aucun groupe
@@ -79,13 +78,15 @@ Renommer un groupe, ou le fermer au OIDC, retire aussitôt ses membres OIDC.
 
 ## Groupes de projet
 
-L'approbation d'un enrôlement avec lecture dans le portail (voir
-[OIDC](sso.md#lecture-du-projet-a-lenrolement)) ajoute le compte, comme membre local, au **groupe
-de projet** du projet : un groupe non ouvert au OIDC dont le seul rôle est `reader` sur ce seul
-projet. Un groupe existant de ce type est réutilisé (même créé par un administrateur, quel que
-soit son nom) ; sinon le groupe `project:<projet>` est créé (avec un numéro, par exemple
-`project:shop (2)`, quand un autre groupe porte déjà ce nom). Tous les développeurs enrôlés sur un
-projet partagent ainsi un groupe, qu'un administrateur gère comme les autres.
+Le **groupe de projet** d'un projet est un groupe non ouvert au OIDC dont le seul rôle est
+`reader` sur ce seul projet. La validation d'un [enrôlement](http.md#enrolement-demander-le-projet) le
+crée **sans aucun membre** (pour que le projet existe, sans donner d'accès), et la
+[création d'un projet](#creation-dun-projet) le crée avec son créateur. Un groupe existant de ce
+type est réutilisé (même créé par un administrateur, quel que soit son nom) ; sinon le groupe
+`project:<projet>` est créé (avec un numéro, par exemple `project:shop (2)`, quand un autre groupe
+porte déjà ce nom). Un administrateur donne à un développeur la lecture du projet en ajoutant son
+compte à ce groupe (voir [lecture du projet](sso.md#lecture-du-projet)) : tous les développeurs
+d'un projet partagent ainsi un groupe, géré comme les autres.
 
 ## Création d'un projet
 
@@ -100,7 +101,8 @@ enregistrer les rapports de son agent. Le projet apparaît sur l'écran **Projet
 
 Le nom est [normalisé](../usage/prompts-tools.md#nom-du-projet) (`Mobile App` crée
 `mobile-app`). Seul un **nouveau** projet peut être créé : un nom qui a déjà un rapport, qu'un rôle d'un groupe
-cite, ou qu'un jeton ou une demande d'enrôlement atteint est refusé (409), pour que cette
+cite (projet validé compris), ou qu'un jeton atteint est refusé (409) ; un projet encore en
+attente n'est pas encore connu : le créer solde sa demande, pour que cette
 permission n'ouvre jamais les rapports d'un projet existant. Le créateur n'obtient que `reader` ;
 un administrateur donne le triage ou d'autres membres par les groupes, comme d'habitude. Chaque
 création est inscrite au journal d'audit (`project.created`).
@@ -123,7 +125,7 @@ transaction, tout ce qui se rapporte au projet :
 - le projet dans les rôles des groupes : un rôle qui n'a plus de projet est retiré (jamais laissé
   sur tous les projets), et un [groupe de projet](#groupes-de-projet) qui n'a plus de rôle est
   supprimé avec ses membres ; tout autre groupe est conservé ;
-- le projet dans les jetons et les demandes d'enrôlement : un jeton qui n'atteint aucun autre
+- le projet dans les jetons : un jeton qui n'atteint aucun autre
   projet est révoqué (jamais laissé sur tous les projets), les autres gardent leurs autres projets.
 
 Le journal d'audit conserve les événements du projet et inscrit `project.deleted`, avec les
@@ -170,11 +172,9 @@ Gardez de préférence un administrateur local.
 ## Jetons créés depuis l'interface
 
 Un jeton ne donne jamais plus que ce que détient son créateur : créer un jeton, changer ses
-projets, renouveler son secret, le révoquer, ou approuver ou rejeter une demande d'enrôlement
-demande `reports.read` sur tous les projets du jeton, avant et après un changement de ses
-projets, et, pour un jeton `api` de rôle, chaque permission de son rôle sur ces projets ; l'écran **Jetons** ne liste que les jetons et demandes des projets que l'utilisateur
-lit. Donner à un utilisateur
-la lecture d'un projet à l'approbation d'un enrôlement demande aussi `users.manage`.
+projets, renouveler son secret ou le révoquer demande `reports.read` sur tous les projets du jeton, avant et après un changement de ses
+projets, et, pour un jeton `api` de rôle, chaque permission de son rôle sur ces projets ; l'écran **Jetons** ne liste que les jetons des projets que l'utilisateur
+lit.
 
 ## API
 

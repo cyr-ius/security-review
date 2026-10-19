@@ -21,7 +21,10 @@
         {{ 'projects.new' | t }}
       </button>
     }
-    <app-refresh-button [loading]="projects.isLoading()" (refresh)="projects.reload()" />
+    <app-refresh-button
+      [loading]="projects.isLoading() || pending.isLoading()"
+      (refresh)="reload()"
+    />
   </div>
 </div>
 
@@ -30,6 +33,76 @@
 }
 @if (error(); as message) {
   <div class="alert alert-danger py-2" role="alert">{{ message | t }}</div>
+}
+
+@if (canCreate() && (pending.error() || (pending.value() ?? []).length)) {
+  <section class="card mb-3" aria-labelledby="pending-projects-title">
+    <div class="card-body">
+      <h2 id="pending-projects-title" class="h6">
+        {{ 'projects.pending' | t }}
+        <span class="badge text-bg-warning align-middle">{{ (pending.value() ?? []).length }}</span>
+      </h2>
+      <p class="text-body-secondary small">{{ 'projects.pendingHelp' | t }}</p>
+      @if (pendingError(); as message) {
+        <div class="alert alert-danger py-2" role="alert">{{ message | t }}</div>
+      }
+      @if (pending.error()) {
+        <div class="alert alert-danger py-2 mb-0" role="alert">
+          {{ 'projects.pendingLoadError' | t }}
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th scope="col">{{ 'reportTable.project' | t }}</th>
+                <th scope="col">{{ 'projects.requester' | t }}</th>
+                <th scope="col">{{ 'projects.address' | t }}</th>
+                <th scope="col">{{ 'projects.requestedAt' | t }}</th>
+                <th scope="col">{{ 'projects.expiresAt' | t }}</th>
+                <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (request of pending.value() ?? []; track request.id) {
+                <tr>
+                  <td class="text-break">{{ request.project }}</td>
+                  <td class="text-break">{{ request.requested_by ?? '—' }}</td>
+                  <td class="font-monospace">{{ request.requested_from ?? '—' }}</td>
+                  <td>{{ request.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                  <td>{{ request.expires_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                  <td class="text-end text-nowrap">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-success me-1"
+                      [disabled]="deciding()"
+                      [attr.aria-label]="
+                        'projects.approveRequest' | t: { project: request.project }
+                      "
+                      (click)="approve(request)"
+                    >
+                      <i class="bi bi-check-lg" aria-hidden="true"></i>
+                      {{ 'projects.approve' | t }}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      [disabled]="deciding()"
+                      [attr.aria-label]="'projects.rejectRequest' | t: { project: request.project }"
+                      (click)="reject(request)"
+                    >
+                      <i class="bi bi-x-lg" aria-hidden="true"></i>
+                      {{ 'projects.reject' | t }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </section>
 }
 
 @if (projects.error()) {

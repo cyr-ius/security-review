@@ -74,7 +74,7 @@ export const access = defineMessages({
     'permission.standardsManage': 'Manage the standards',
     'permission.standardsManageHelp': 'Development standards.',
     'permission.tokensManage': 'Manage the tokens',
-    'permission.tokensManageHelp': 'Project tokens and enrollments, within the projects you read.',
+    'permission.tokensManageHelp': 'Project tokens, within the projects you read.',
     'permission.settingsManage': 'Manage the settings',
     'permission.settingsManageHelp': 'Report language, outgoing proxy and advisory database.',
     'permission.usersManage': 'Manage the users',
@@ -84,7 +84,7 @@ export const access = defineMessages({
     'permission.auditReadHelp': 'Who changed what, and when.',
     'permission.projectsCreate': 'Create projects',
     'permission.projectsCreateHelp':
-      'A new project, which its creator then reads (never an existing project).',
+      'A new project, which its creator then reads (never an existing project), and the approval of the projects requested by an enrollment.',
     'permission.projectsDelete': 'Delete projects',
     'permission.projectsDeleteHelp':
       'A project with its reports, findings, project group, and its place in the roles and tokens.',
@@ -168,8 +168,7 @@ export const access = defineMessages({
     'permission.standardsManage': 'Gérer les normes',
     'permission.standardsManageHelp': 'Normes de développement.',
     'permission.tokensManage': 'Gérer les jetons',
-    'permission.tokensManageHelp':
-      'Jetons de projet et enrôlements, dans les projets que vous lisez.',
+    'permission.tokensManageHelp': 'Jetons de projet, dans les projets que vous lisez.',
     'permission.settingsManage': 'Gérer les paramètres',
     'permission.settingsManageHelp': "Langue des rapports, proxy sortant et base d'avis.",
     'permission.usersManage': 'Gérer les utilisateurs',
@@ -179,7 +178,7 @@ export const access = defineMessages({
     'permission.auditReadHelp': 'Qui a changé quoi, et quand.',
     'permission.projectsCreate': 'Créer des projets',
     'permission.projectsCreateHelp':
-      'Un nouveau projet, que son créateur lit ensuite (jamais un projet existant).',
+      'Un nouveau projet, que son créateur lit ensuite (jamais un projet existant), et la validation des projets demandés par un enrôlement.',
     'permission.projectsDelete': 'Supprimer des projets',
     'permission.projectsDeleteHelp':
       'Un projet avec ses rapports, ses findings, son groupe de projet et sa place dans les rôles et les jetons.',
@@ -263,8 +262,7 @@ export const access = defineMessages({
     'permission.standardsManage': 'Gestionar las normas',
     'permission.standardsManageHelp': 'Normas de desarrollo.',
     'permission.tokensManage': 'Gestionar los tokens',
-    'permission.tokensManageHelp':
-      'Tokens de proyecto e inscripciones, dentro de los proyectos que lee.',
+    'permission.tokensManageHelp': 'Tokens de proyecto, dentro de los proyectos que lee.',
     'permission.settingsManage': 'Gestionar los parámetros',
     'permission.settingsManageHelp': 'Idioma de los informes, proxy saliente y base de avisos.',
     'permission.usersManage': 'Gestionar los usuarios',
@@ -274,7 +272,7 @@ export const access = defineMessages({
     'permission.auditReadHelp': 'Quién cambió qué, y cuándo.',
     'permission.projectsCreate': 'Crear proyectos',
     'permission.projectsCreateHelp':
-      'Un proyecto nuevo, que su creador lee después (nunca un proyecto existente).',
+      'Un proyecto nuevo, que su creador lee después (nunca un proyecto existente), y la aprobación de los proyectos solicitados por un registro.',
     'permission.projectsDelete': 'Eliminar proyectos',
     'permission.projectsDeleteHelp':
       'Un proyecto con sus informes, hallazgos, grupo de proyecto y su lugar en los roles y tokens.',

@@ -127,7 +127,7 @@ to the same identity. The upgrade keeps the identity on the account that logged 
 others keep their name, groups and history but can no longer log in: delete them in **Users**.
 
 What an OIDC account may do comes from its [groups](access-control.md): those an administrator
-gave it (**Users** or **Groups** screen, approval of an enrollment) and the groups open to OIDC
+gave it (**Users** or **Groups** screen) and the groups open to OIDC
 named by its groups claim, recorded at every login (see
 [groups of the identity provider](#groups-of-the-identity-provider)). An account without any
 permission is refused and its open sessions are closed. A change of its given groups applies at
@@ -138,8 +138,7 @@ once; a change of its groups at the provider, at the next login.
 user name and its identity (issuer and `sub`): an OIDC login no longer creates it again, under
 that name or another one (name changed at the provider), even with the automatic creation and
 groups that give it a permission ("compte supprimé" message, account deleted, on the login page). To give it
-access back, an administrator creates the account again (by hand or at the approval of an
-enrollment), or lifts the revocation (**Autoriser à nouveau**, Allow again,
+access back, an administrator creates the account again, or lifts the revocation (**Autoriser à nouveau**, Allow again,
 `DELETE /api/v1/users/revoked/{username}`): the account is then created again at its next
 login. `GET /api/v1/users/revoked` lists the revoked accounts, with the author and the date of
 the deletion.
@@ -180,41 +179,15 @@ Example: with the claim `["payments-team", "staff"]`, a group `payments-team` op
 The label of an OIDC session is `oidc:<username>`: it is the one that appears in the logs and
 in the triage history.
 
-## Project read access at enrollment
+## Project read access
 
-At the approval of an [enrollment](http.md#enrollment-a-project-requests-its-token)
-request, the administrator can also give the developer read access to the project in the
-portal, on their **user account**: the developer who requested an MCP token for a project then
-browses its reports.
-
-- In the **Project tokens** screen, the **Read access in the portal** column is prefilled with the requester (`requested_by`) when it is given, and
-  ticked when OIDC is enabled. This field is declared by the client and **is not verified**:
-  check or correct it before approving, or untick the box.
-- The name designates an account of the **Users** screen, local or OIDC. With OIDC
-  enabled, an unknown name becomes an **OIDC account**, ready for its first login; without OIDC,
-  the account must exist. Giving this access needs the `users.manage` permission.
-- An account that already reads this project is unchanged. Otherwise it joins, as a local
-  member, the [project group](access-control.md#project-groups) `project:<project>` (`reader` on
-  this project only, created when missing), shared by every developer enrolled on the project.
-  An approved additional request for the same user adds the project the same way.
-
-The access then shows in the groups of the account, where it is changed like the others. It is independent of
-the MCP token: revoking the token does not remove it.
-
-```bash
-# Approve a request and give the "alice" user read access to the project
-curl -X POST https://secreview.example.com/api/v1/enrollments/$REQUEST_ID/approve \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"portal_user": "alice"}'
-```
-
-The answer then contains `portal_user`, the updated account. An invalid user name, an unknown
-account without OIDC or a reached limit are refused (`422`) before the approval: the request
-stays pending. The log of the controller records the access:
-
-```
-INFO security_review_mcp.web: Web access to shop-api given to web user alice by admin
-```
+The approval of an [enrollment](http.md#enrollment-request-the-project) creates the project
+with its [project group](access-control.md#project-groups) `project:<project>`, without any
+member, and never a token nor an account. To let a developer read the project (and their personal MCP token
+reach it), an administrator adds their account to that group, from the **Groups** screen (or
+**Users**). With OIDC, the account exists once the developer has logged in (with
+`SECREVIEW_OIDC_AUTO_CREATE_USERS=true`), or an administrator creates it beforehand in **Users**.
+The access then shows in the groups of the account, where it is changed like the others.
 
 !!! note "Upgrading from the named accesses"
     Previous versions stored these accesses apart ("named accesses",

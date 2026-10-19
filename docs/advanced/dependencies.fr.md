@@ -160,8 +160,8 @@ security-review-ci deps-scan package-lock.json requirements.txt \
 
 `security-review-mcp scan-deps` envoie les fichiers de dépendances à l'outil `scan_dependencies`
 d'un serveur MCP partagé : le scan utilise la base d'avis de ce serveur, sans import local. Il
-faut un jeton de rôle `mcp` ou `admin` (voir
-[enrôlement](http.md#enrolement-un-projet-demande-son-jeton)).
+faut un jeton de rôle `mcp` ou `admin`, par exemple un jeton MCP personnel (voir
+[enrôlement](http.md#enrolement-demander-le-projet)).
 
 ```bash
 export SECREVIEW_SERVER_URL=https://secreview.example.com
@@ -170,9 +170,9 @@ security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (serveur injoignable, jeton refusé...)
 ```
 
-Un jeton refusé (absent, inconnu, révoqué, expiré ou pas encore approuvé) se termine par une
-erreur qui propose `security-review-mcp enroll` (voir
-[jeton refusé](http.md#jeton-refuse-nouvel-enrolement)).
+Un jeton absent ou refusé (inconnu, révoqué ou expiré) se termine par une erreur qui invite à
+se connecter à l'interface web pour créer un nouveau jeton MCP personnel (voir
+[jeton refusé](http.md#jeton-refuse-se-reconnecter)).
 
 - Mêmes options et même sortie que `security-review-ci deps-scan` (`--fail-on`, `--format`,
   `--require-database`) ; rien n'est enregistré (pas de `--save`).

@@ -9,6 +9,7 @@ import { SEVERITY_META } from '../../../core/constants/labels';
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
+  PendingProject,
   SEVERITIES,
   SEVERITY_RANK,
   Severity,
@@ -75,6 +76,14 @@ export class ProjectListComponent {
   readonly severityMeta = SEVERITY_META;
 
   readonly projects = rxResource({ stream: () => this.api.projects() });
+  /** Projects requested by an enrollment, approved or rejected by the holders of
+   * projects.create (not loaded for the others). */
+  readonly pending = rxResource({
+    params: () => (this.canCreate() ? true : undefined),
+    stream: () => this.api.pendingProjects(),
+  });
+  readonly deciding = signal(false);
+  readonly pendingError = signal<Message | null>(null);
 
   readonly search = signal('');
   readonly sort = new TableSort<'name' | 'risk' | 'activity'>(
@@ -188,6 +197,59 @@ export class ProjectListComponent {
       );
     } finally {
       this.creating.set(false);
+    }
+  }
+
+  /** Reload the projects and the pending projects. */
+  reload(): void {
+    this.projects.reload();
+    this.pending.reload();
+  }
+
+  async approve(request: PendingProject): Promise<void> {
+    const { id, project } = request;
+    if (!window.confirm(this.i18n.translate('projects.confirmApprove', { project }))) {
+      return;
+    }
+    await this.decide(
+      () => firstValueFrom(this.api.approvePendingProject(id)),
+      msg('projects.approved', { project }),
+    );
+  }
+
+  async reject(request: PendingProject): Promise<void> {
+    const { id, project } = request;
+    if (!window.confirm(this.i18n.translate('projects.confirmReject', { project }))) {
+      return;
+    }
+    await this.decide(
+      () => firstValueFrom(this.api.rejectPendingProject(id)),
+      msg('projects.rejected', { project }),
+    );
+  }
+
+  /** Apply a decision on a pending project and refresh both lists. */
+  private async decide(action: () => Promise<unknown>, success: Message): Promise<void> {
+    if (this.deciding()) {
+      return;
+    }
+    this.deciding.set(true);
+    this.pendingError.set(null);
+    this.notice.set(null);
+    try {
+      await action();
+      this.notice.set(success);
+    } catch (error: unknown) {
+      this.pendingError.set(
+        error instanceof HttpErrorResponse && error.status === 404
+          ? msg('projects.pendingGone')
+          : error instanceof HttpErrorResponse && typeof error.error?.detail === 'string'
+            ? serverDetail(error.error.detail)
+            : msg('projects.pendingFailed'),
+      );
+    } finally {
+      this.deciding.set(false);
+      this.reload();
     }
   }
 

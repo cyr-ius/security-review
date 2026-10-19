@@ -360,31 +360,29 @@ def build_codebase_review_prompt(
 _ENROLLMENT = """\
 # Enrollment required
 
-This security-review server needs a bearer token and the MCP client is connected without one \
-(or with a token whose enrollment is not approved yet, or with a token the server rejected). \
-The review cannot start before access is granted. Do this instead:
+This security-review server needs a bearer token and the MCP client is connected without one. \
+The review cannot start before the user has a token. Do this instead:
 
-1. Call `get_enrollment_status`. If a request is already `pending`, tell the user that an \
-administrator still has to approve it, and stop. If the status is `token_rejected`, tell the \
-user that their token is unknown, revoked or expired, and offer to enroll again: on their \
-agreement, go on with step 2.
-2. Otherwise call `request_enrollment` once, with the project name used for the reports \
-(usually the repository name, or the one given under "Project" below). Pass in `label` the \
-developer's username (the token is personal: it may later reach other projects) and in \
-`requested_by` who is asking (the user's name or team), if you know them.
-3. Show the user the returned `token` (it is displayed only once) and ask them to add it to \
-the MCP client configuration as the header `Authorization: Bearer <token>` (in place of the \
-rejected token, if any), then to reconnect.
-4. Explain that the token works as soon as an administrator approves the request (web \
-interface, **Jetons** screen, or `security-review-controller token approve <label>`). Then they \
-can run the review again.
+1. Call `request_enrollment` once, with the project name used for the reports (usually the \
+repository name, or the one given under "Project" below), and in `requested_by` who is asking \
+(the user's name or team), if you know them. It requests the project when it is new, for an \
+administrator to approve; it never returns a token.
+2. Tell the user to sign in to the web interface (the returned `web_url`, if any), to create a \
+personal MCP token in **My account** (it is shown only once) and to add it to the MCP client \
+configuration as the header `Authorization: Bearer <token>`, then to reconnect.
+3. Explain that the token reaches the projects their account may read: an administrator \
+approves a new project, then gives them access to it (the returned `next_steps` say how). Then \
+they can run the review again.
+
+If the server later refuses the token (unknown, revoked or expired), the user signs in to the \
+web interface again and creates a new personal MCP token.
 
 Do not try to review the code with this server: its other tools are not available.
 """
 
 
 def build_enrollment_prompt(project: str) -> str:
-    """Prompt served instead of a review when the client has no approved token yet."""
+    """Prompt served instead of a review when the client sends no token."""
     if not project.strip():
         return _ENROLLMENT
     return f"{_ENROLLMENT}\n## Project\n{_UNTRUSTED_RULE}\n{fenced(project.strip())}\n"

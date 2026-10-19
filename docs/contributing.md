@@ -22,7 +22,7 @@ In VS Code (`.vscode/`):
 | **MCP server + controller** | Runs the **Database upgrade** task, then both processes on the same database |
 | **MCP server (HTTP, port 8000)** | MCP server only; the database must already be migrated |
 | **Controller (web UI and API, port 8080)** | Controller only; migrates the database and shows the password of the initial `admin` account at first start |
-| **Controller CLI (prompt for arguments)** | A controller command (`db status`, `token list --pending`…) under the debugger |
+| **Controller CLI (prompt for arguments)** | A controller command (`db status`, `token list`…) under the debugger |
 | **Controller + web UI (Angular, port 4200)** | Controller and Angular application under the debugger, hot reload |
 | **Web UI + API (Angular dev server, port 4200)** | Runs the **Web UI + API: dev servers** task (controller on 8080 and `ng serve`), waits for them to be ready, then opens Chrome on `http://localhost:4200/ui/` with the TypeScript breakpoints |
 | **Pytest (current file)** | Tests of the open file |
@@ -102,13 +102,13 @@ src/security_review_mcp/
 ├── controller.py  # entry point of the controller (serve, db and administration commands)
 ├── http_server.py # HTTP of both processes: Bearer tokens and roles, TLS, /healthz, uvicorn
 ├── oidc.py        # OpenID Connect OIDC login to the web interface (controller)
-├── access_control.py # permissions, roles, groups and members of the web accounts
-├── token_store.py # Bearer tokens in the database: creation, expiry, rotation, revocation, enrollment
+├── access_control.py # permissions, roles, groups and members of the web accounts, project enrollment
+├── token_store.py # Bearer tokens in the database: creation, expiry, rotation, revocation
 ├── audit.py       # audit log: events of triage decisions, proposals, tokens and enrollments
 ├── audit_syslog.py # forwarding of the audit events to syslog by the controller (optional)
 ├── metrics.py     # Prometheus metrics of the controller (/metrics)
 ├── web_users.py   # web interface accounts, local (scrypt) or OIDC (created on the fly), sessions, initial admin
-├── enrollment.py  # `enroll` client: token request to a shared server
+├── enrollment.py  # `enroll` client: project enrollment on a shared server
 ├── remote_scan.py # `scan-deps` client: dependency scan with a shared server
 ├── ci_client.py   # `security-review-ci`: pipeline client of the controller, file listing (standard library only)
 ├── enrollment_api.py  # public POST /api/v1/enroll endpoint of the MCP server

@@ -39,7 +39,7 @@ see [HTTP server, authentication and TLS](../advanced/http.md)).
     `.mcp.json`, with the token read from the `SECURITY_REVIEW_TOKEN` environment variable of
     the workstation (client side, distinct from the `SECREVIEW_*` settings of the server). `:-`
     gives an empty value while the variable does not exist, which allows the
-    [enrollment](#getting-a-token-enrollment):
+    [enrollment](#getting-a-token):
 
     ```json
     {
@@ -72,15 +72,13 @@ repository, without `headers`:
     Never write the token in clear in a versioned configuration file: use an input
     (`${input:...}`) or an environment variable.
 
-## Getting a token (enrollment)
+## Getting a token
 
-On a shared server that requires a token, you do not need to ask the administrator for one
-before you start: configure the host as above, **without a token**, and run your first review.
-The token is requested along the way, then approved by an administrator (see
-[enrollment](../advanced/http.md#enrollment-a-project-requests-its-token)). With a web account,
-you may instead create a [personal MCP token](../usage/web-interface.md#personal-mcp-tokens) in
-**My account** if your groups hold the `mcp-user` role: it reaches the projects your account may
-read.
+On a shared server that requires a token, you use a **personal MCP token**, created in the web
+interface. You do not need to ask an administrator for it before you start: configure the host
+as above, **without a token**, and run your first review. The agent requests the project, then
+tells you where to create your token (see
+[enrollment](../advanced/http.md#enrollment-request-the-project)).
 
 1. **Configure the host without a token.** With the examples of the
    [HTTP transport](#http-transport) section, leave the token input empty (VS Code) or do not
@@ -88,25 +86,28 @@ read.
    enrollment server, which has the same `security-review` name.
 2. **Run a review**, for example the `security-review` prompt. Instead of reading the code, the
    agent calls the `request_enrollment` tool with the project name (usually the repository
-   name) and your username as label (the token is personal), and shows you the token, **only once**:
+   name): a new project waits for an administrator to approve it, and **no token** is returned:
 
     ```json
     {
-      "label": "alice-3fa9c1",
       "project": "shop-api",
-      "status": "pending",
-      "token": "UJB7…"
+      "web_url": "https://secreview.example.internal/ui",
+      "next_steps": "No token is created by the enrollment. Ask the user to sign in to …"
     }
     ```
 
-    Without an agent, request it from the command line:
+    Without an agent, enroll from the command line:
 
     ```bash
     security-review-mcp enroll --url https://secreview.example.internal:8443 \
         --project shop-api --requested-by "alice (shop team)"
     ```
 
-3. **Store the token in the host**, then restart the MCP server in the host:
+3. **Create your personal MCP token**: sign in to the web interface (`web_url`), open **My
+   account** > **Personal tokens** and create a token with the **MCP** usage (see
+   [personal MCP tokens](../usage/web-interface.md#personal-mcp-tokens); your groups need the
+   `mcp-user` role). It is shown **only once**.
+4. **Store the token in the host**, then restart the MCP server in the host:
 
     === "VS Code / GitHub Copilot"
 
@@ -120,24 +121,23 @@ read.
         Set the variable before starting Claude, for example in the shell profile:
 
         ```bash
-        export SECURITY_REVIEW_TOKEN='UJB7…'
+        export SECURITY_REVIEW_TOKEN='Zq3…'
         ```
 
-4. **Wait for the approval.** Tell the administrator the label of the token. While the request
-   is pending, the host stays on the enrollment server: the `get_enrollment_status` tool
-   answers `pending`. As soon as the administrator approves it (**Tokens** screen of the web
-   interface, or `security-review-controller token approve <label>`), the same token gives
-   access to the review tools. Run the review again, without reconfiguring anything.
+5. **Get access to the project.** The token reaches the projects your account may read: ask an
+   administrator to approve the project (**Projects** screen) and to add you to its group
+   `project:<project>` (an approved project has no member). Access applies at once: run the review again, without
+   reconfiguring anything.
 
-The token you get has the `mcp` role and is
-[restricted to the requested project](../advanced/http.md#tokens-restricted-to-a-project): it only saves
-and reads the reports of that project. For another project, the agent can request a new token
-with `request_enrollment`; `save_security_report` suggests it when it refuses the project.
+When the server refuses the token (unknown, revoked or expired), the host gets `401` with a
+message that tells you to sign in to the web interface again and create a new personal MCP
+token: replace it in the host as in step 4 (see
+[rejected token](../advanced/http.md#rejected-token-sign-in-again)).
 
 !!! note
     If the administrator disabled the enrollment (`SECREVIEW_ENROLLMENT=false`), a host without
-    a token, or with a rejected token, gets `401`: ask them for a token created with
-    `security-review-controller token create`.
+    a token gets `401`: create your personal MCP token in the web interface directly, and ask an
+    administrator to create the project if it is new.
 
 ## Other cases
 

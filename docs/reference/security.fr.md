@@ -37,24 +37,23 @@
   de passe défini par un administrateur. Un utilisateur web
   détient au plus `SECREVIEW_PERSONAL_TOKENS_PER_USER` jetons personnels de chaque rôle (1 par
   défaut).
-- **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`,
-  ou seulement le [serveur d'enrôlement](../advanced/http.md#jeton-refuse-nouvel-enrolement) sur
-  `/mcp`), et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons
+- **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`), et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons
   expirés comptent toujours comme configurés : un serveur dont tous les jetons ont expiré reste
   fermé. Un renouvellement n'enregistre que l'empreinte du nouveau secret ; l'empreinte
   précédente est conservée pendant le délai de grâce (168 heures au plus), comparée en temps
   constant comme l'actuelle, et l'ancien secret d'un jeton expiré ne revient jamais (voir
   [expiration et renouvellement](../advanced/http.md#expiration-et-renouvellement-des-jetons)).
-- **Jetons refusés sur `/mcp`** : avec l'enrôlement activé, un jeton inconnu, révoqué ou expiré
-  atteint le [serveur d'enrôlement](../advanced/http.md#jeton-refuse-nouvel-enrolement) au lieu
-  d'un `401`. Chaque refus reste journalisé en avertissement par le serveur MCP
-  (`Rejected unauthenticated request` / `Rejected expired token`, avec l'adresse du client) :
-  surveillez ces journaux, plutôt que les réponses `401` d'un reverse proxy, pour détecter des
-  essais de jetons sur `/mcp` ; la [métrique](../advanced/audit-metrics.md)
-  `secreview_auth_rejections_total` ne compte que les refus du contrôleur.
-  Positionnez `SECREVIEW_ENROLLMENT=false` quand une détection par codes HTTP est exigée.
+- **Jetons refusés sur `/mcp`** : un jeton inconnu, révoqué ou expiré reçoit un `401` dont la
+  description invite l'utilisateur à se connecter à l'interface web pour créer un nouveau jeton
+  MCP personnel (voir [jeton refusé](../advanced/http.md#jeton-refuse-se-reconnecter)) ; il
+  n'atteint jamais le serveur d'enrôlement. Chaque refus est aussi journalisé en avertissement
+  par le serveur MCP (`Rejected unauthenticated request` / `Rejected expired token`, avec
+  l'adresse du client) ; la [métrique](../advanced/audit-metrics.md)
+  `secreview_auth_rejections_total` ne compte que les refus du contrôleur. `SECREVIEW_WEB_URL`,
+  donnée dans cette description, est une URL publique : elle ne contient aucun identifiant
+  (refusé au démarrage).
 - **Journal d'audit** : les décisions de triage, les propositions des agents, les créations,
-  renouvellements et révocations de jetons, les demandes et décisions d'enrôlement sont écrits
+  renouvellements et révocations de jetons et les enrôlements sont écrits
   dans la même transaction que le changement, avec leur acteur (`user:`, `token:`, `cli`,
   `anonymous`). Les détails sont bornés et masqués, et ne contiennent jamais de jeton ni de mot
   de passe ; aucun outil ni aucune route ne modifie un événement, seule la purge de
@@ -73,14 +72,17 @@
   aucune base, ne lit le jeton que dans l'environnement ou sur stdin, refuse le HTTP en clair
   hors localhost, les identifiants dans l'URL et les redirections, et borne les réponses.
 - **Enrôlement** (actif par défaut, `SECREVIEW_ENROLLMENT`) : un client sans jeton atteint un
-  serveur MCP restreint qui ne permet que de déposer une demande, et `POST /api/v1/enroll` est
-  public sur le serveur MCP (corps limité à 4 Kio). L'approbation se fait sur le contrôleur. Une demande est un jeton `mcp` restreint au projet, **en attente** : il ne donne accès
-  à rien avant l'approbation d'un administrateur, et les demandes en attente n'activent jamais
-  l'authentification d'un serveur ouvert. Le nombre de demandes en attente est borné (20 en tout, 3 par adresse cliente) et
-  une demande non traitée expire après 7 jours ; le texte libre du demandeur est masqué et
-  tronqué. N'importe quel client qui atteint le serveur peut déposer une demande : vérifiez le
-  demandeur et l'adresse affichés avant d'approuver, ou désactivez l'enrôlement. Voir
-  [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton).
+  serveur MCP restreint qui ne permet que de demander son projet, et `POST /api/v1/enroll` est
+  public sur le serveur MCP (corps limité à 4 Kio). L'enrôlement **ne crée jamais de jeton** et
+  ne donne aucun accès : un projet demandé reste **en attente** jusqu'à ce qu'un utilisateur
+  portant `projects.create` le valide sur le contrôleur, ce qui crée son groupe de projet sans
+  aucun membre ; seul un administrateur y ajoute un utilisateur, et le développeur crée un jeton
+  MCP personnel dans l'interface web, après s'être connecté. La réponse est la même que le
+  projet existe ou non. Les enrôlements sont bornés (20 projets en attente, 5 par adresse
+  cliente et par heure, `429` au-delà), une demande que personne n'a validée sous
+  `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` est supprimée, et le texte libre du demandeur est
+  masqué et tronqué : vérifiez le demandeur et l'adresse avant de valider. Chaque enrôlement est audité. Voir
+  [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun. Les commandes
   `security-review-mcp enroll` et `scan-deps` contactent, à la demande de l'opérateur, l'URL qu'il
   indique (`scan-deps` envoie les fichiers de dépendances donnés sur sa ligne de commande, jamais

@@ -6,7 +6,7 @@ import pytest
 from conftest import ADMIN_GRANTS, TRIAGER_GRANTS, group_for, make_user
 from sqlmodel import Session, select
 
-from security_review_mcp import access_control, audit, cli, oidc, web_users
+from security_review_mcp import access_control, cli, oidc, web_users
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import Role
 from security_review_mcp.models import WebUser
@@ -599,14 +599,13 @@ def test_revocation_is_lifted_by_an_administrator():
     signer = oidc.SessionSigner(SECRET)
     group_for("reader", name="everyone")
     settings = {"oidc_auto_create_users": True, "oidc_default_group": "everyone"}
-    for name in ("alice", "bob", "carol"):
+    for name in ("alice", "carol"):
         created = web_users.create_user(name, None, None, auth_source="oidc")
         web_users.delete_user(created["id"])
-    assert len(web_users.list_revoked_users()) == 3
+    assert len(web_users.list_revoked_users()) == 2
 
-    # Created again by hand, by an enrollment approval, or revocation lifted
+    # Created again by hand, or revocation lifted
     make_user("alice", None, "reader", auth_source="oidc")
-    web_users.grant_project("bob", "shop", "admin", create_sso=True)
     web_users.lift_revocation("carol")
 
     assert web_users.list_revoked_users() == []
@@ -638,76 +637,6 @@ def test_last_administrator_by_its_sso_groups_is_kept():
     # The groups given by hand may change: the OIDC group keeps it administrator
     updated = web_users.update_user(alice["id"], [group_for("reader")])
     assert updated["permissions"] == ADMIN_GRANTS
-
-
-# ── Access given at the approval of an enrollment ────────────────────────────
-
-
-def test_grant_project_adds_a_restricted_user_to_the_project_group():
-    make_user("alice", PASSWORD, "triager", ["shop"])
-    granted = web_users.grant_project("alice", "billing", "admin", create_sso=False)
-    assert granted["permissions"]["reports.read"] == ["billing", "shop"]
-    assert granted["permissions"]["findings.triage"] == ["shop"]
-    # No role of its own: the user joins the project group, as a local member
-    assert "roles" not in granted
-    assert [(g["name"], g["source"]) for g in granted["groups"]] == [
-        ("project:billing", "local"),
-        ("triager:shop", "local"),
-    ]
-    make_user("bob", PASSWORD, "reader", ["crm"])
-    granted = web_users.grant_project("bob", "billing", "admin", False, actor="user:admin")
-    # Both developers share the group of the project
-    (group,) = [g for g in access_control.list_groups() if g["name"] == "project:billing"]
-    assert [m["username"] for m in group["members"]] == ["alice", "bob"]
-    events = audit.list_events(action="user.groups_changed")["events"]
-    assert [e["actor"] for e in events if e["details"]["added"] == [group["id"]]] == [
-        "user:admin",
-        "admin",
-    ]
-    # Already reached: unchanged
-    granted = web_users.grant_project("alice", "shop", "admin", False)
-    assert granted["permissions"]["reports.read"] == ["billing", "shop"]
-    assert len(granted["groups"]) == 2
-
-
-def test_grant_project_leaves_an_unrestricted_user_unchanged():
-    make_user("root", PASSWORD, "admin")
-    make_user("bob", PASSWORD, "reader")
-    root = web_users.grant_project("root", "shop", None, False)
-    assert root["permissions"]["reports.read"] is None
-    bob = web_users.grant_project("bob", "shop", None, False)
-    assert bob["permissions"]["reports.read"] is None
-    assert [group["name"] for group in bob["groups"]] == ["reader"]
-
-
-def test_grant_project_gives_reader_to_an_sso_user_without_group():
-    web_users.create_user("alice", None, None, auth_source="oidc")
-    granted = web_users.grant_project("alice", "shop", None, False)
-    assert granted["permissions"] == {"reports.read": ["shop"]}
-
-
-def test_grant_project_creates_an_sso_user_only_when_allowed():
-    with pytest.raises(ValueError, match="not found"):
-        web_users.check_project_grant("alice", create_sso=False)
-    assert web_users.list_users() == []
-
-    created = web_users.grant_project("alice", "shop", "admin", create_sso=True)
-    assert (created["auth_source"], created["permissions"]) == (
-        "oidc",
-        {"reports.read": ["shop"]},
-    )
-    assert created["created_by"] == "admin"
-
-
-def test_grant_project_is_bounded(monkeypatch):
-    web_users.create_user("alice", PASSWORD)
-    web_users.grant_project("alice", "shop", None, False)
-    monkeypatch.setattr(access_control, "MAX_SESSION_PROJECTS", 1)
-    with pytest.raises(ValueError, match="already reaches 1 projects"):
-        web_users.check_project_grant("alice", False)
-    monkeypatch.setattr(web_users, "MAX_USERS", 1)
-    with pytest.raises(ValueError, match="limit of 1 web users"):
-        web_users.check_project_grant("bob", True)
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────

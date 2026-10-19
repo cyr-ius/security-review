@@ -279,11 +279,10 @@ class AdvisoryAffected(SQLModel, table=True):
 
 
 class ApiToken(SQLModel, table=True):
-    """Bearer token of the HTTP transport (CLI, web project tokens, enrollment requests).
+    """Bearer token of the HTTP transport (CLI, project and personal tokens of the web).
 
-    Only the SHA-256 digest of the secret is stored. An enrollment request is a token whose
-    status is ``pending``: it authenticates nothing until an administrator approves it.
-    The projects a restricted token reaches are in ApiTokenProject.
+    Only the SHA-256 digest of the secret is stored. The projects a restricted token reaches
+    are in ApiTokenProject.
     """
 
     id: str = Field(primary_key=True, max_length=64)
@@ -295,11 +294,6 @@ class ApiToken(SQLModel, table=True):
     project: str | None = Field(default=None, index=True, max_length=200)
     token_hash: str = Field(unique=True, index=True, max_length=64)  # hex SHA-256
     created_at: datetime = Field(default_factory=utcnow)
-    # "active" or "pending"; None (rows created before enrollment existed) means active
-    status: str | None = Field(default=None, max_length=20)
-    # Who asked for the token (free text given by the requester) and from which address
-    requested_by: str | None = Field(default=None, max_length=200)
-    requested_from: str | None = Field(default=None, max_length=64)
     # After this date the token authenticates nothing (None: no expiry)
     expires_at: datetime | None = Field(default=None, index=True)
     # Rotation: the secret replaced by the latest rotation keeps working until
@@ -314,22 +308,33 @@ class ApiToken(SQLModel, table=True):
 
 
 class ApiTokenProject(SQLModel, table=True):
-    """A project reached by a restricted token.
-
-    A ``pending`` row is an enrollment request for that project: the request that created the
-    token, or a complementary request of an active token that needs one more project. Only
-    ``active`` rows grant access.
-    """
+    """A project reached by a restricted token."""
 
     __table_args__ = (UniqueConstraint("token_id", "project"),)
 
     id: str = Field(primary_key=True, max_length=64)
     token_id: str = Field(foreign_key="apitoken.id", index=True, max_length=64)
     project: str = Field(index=True, max_length=200)
-    status: str = Field(default="active", index=True, max_length=20)  # "active" or "pending"
     created_at: datetime = Field(default_factory=utcnow)
+
+
+# ── Enrolled projects (see access_control.enroll_project) ────────────────────
+
+
+class ProjectEnrollment(SQLModel, table=True):
+    """A project requested by an MCP client without a token, waiting for an administrator.
+
+    It gives no access and is not a project yet: an approval creates the project (its project
+    group), a rejection or the expiry (SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS) deletes the row.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    project: str = Field(unique=True, index=True, max_length=200)
+    # Who asked (free text given by the client, redacted), from which address, with which token
     requested_by: str | None = Field(default=None, max_length=200)
     requested_from: str | None = Field(default=None, max_length=64)
+    requested_with: str | None = Field(default=None, max_length=200)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
 
 
 # ── Audit log (see audit) ────────────────────────────────────────────────────

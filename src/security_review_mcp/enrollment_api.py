@@ -1,8 +1,10 @@
 """Public enrollment endpoint (``POST /api/v1/enroll``) served by the HTTP MCP server.
 
-Clients without a token (``security-review-mcp enroll``, scripts) request one here; an
-administrator approves the request on the controller. The endpoint lives next to the MCP
-endpoint, so the controller exposes no unauthenticated write endpoint and can stay private.
+Clients without a token (``security-review-mcp enroll``, scripts) request their project here:
+it waits for an administrator (see access_control.enroll_project) and no token is returned. The user
+then signs in to the web interface and creates a personal MCP token. The endpoint lives next to
+the MCP endpoint, so the controller exposes no unauthenticated write endpoint and can stay
+private.
 
 Plain Starlette (no FastAPI): the MCP server does not serve the web API. Errors use the same
 ``{"detail": ...}`` body as the controller API.
@@ -20,37 +22,31 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
-from . import token_store
+from . import access_control, token_store
 from .config import get_settings
-from .http_server import ENROLL_PATH, LOOPBACK_HOSTS, has_credentials, hash_token
+from .http_server import ENROLL_PATH, LOOPBACK_HOSTS
 from .project_names import ProjectName
 
 logger = logging.getLogger("security_review_mcp.enrollment")
 
-# The body holds three short fields: anything larger is refused before parsing
+# The body holds two short fields: anything larger is refused before parsing
 MAX_BODY_BYTES = 4096
 
 
 class EnrollmentRequest(BaseModel):
-    """Body of the public POST /enroll.
-
-    Without credentials it requests a new project token; with the bearer token of a client
-    already restricted to other projects it requests one more project for that token.
-    """
+    """Body of the public POST /enroll: the project to request and who asks for it."""
 
     project: ProjectName
-    label: str | None = Field(default=None, max_length=token_store.MAX_LABEL_CHARS)  # + suffix
-    requested_by: str | None = Field(default=None, max_length=token_store.MAX_REQUESTED_BY_CHARS)
+    requested_by: str | None = Field(default=None, max_length=access_control.MAX_REQUESTED_BY_CHARS)
 
 
 class EnrollmentError(Exception):
     """An enrollment request refused with an HTTP status."""
 
-    def __init__(self, status: int, detail: Any, headers: dict[str, str] | None = None) -> None:
+    def __init__(self, status: int, detail: Any) -> None:
         super().__init__(str(detail))
         self.status = status
         self.detail = detail
-        self.headers = headers
 
 
 async def _read_body(request: Request) -> bytes:
@@ -75,35 +71,8 @@ def _parse(body: bytes) -> EnrollmentRequest:
         raise EnrollmentError(422, errors) from exc
 
 
-async def _enrolled_token(request: Request) -> str | None:
-    """Id of the active token presented to the public enrollment endpoint, or None without one.
-
-    The endpoint is public (the middleware does not authenticate it), so the token is checked
-    here: a complementary enrollment must come from the holder of the token.
-    """
-    authorization = request.headers.get("authorization", "")
-    if not has_credentials(authorization):
-        return None
-    scheme, _, credentials = authorization.strip().partition(" ")
-    info = None
-    if scheme.lower() == "bearer":
-        lookup = token_store.DatabaseTokenStore().lookup
-        info = await run_in_threadpool(lookup, hash_token(credentials.strip()))
-    if info is None:
-        raise EnrollmentError(
-            401,
-            "Missing or invalid bearer token",
-            {"WWW-Authenticate": 'Bearer realm="security-review-mcp"'},
-        )
-    if info.pending:
-        raise EnrollmentError(
-            403, "This token is waiting for an administrator to approve its enrollment"
-        )
-    return info.token_id
-
-
 async def _enroll(request: Request) -> dict[str, Any]:
-    """Validate and store an enrollment request; return the created request."""
+    """Validate the request and enroll its project; return what the user does next."""
     if not get_settings().enrollment:
         raise EnrollmentError(404, "Enrollment is disabled")
     if request.app.state.allow_open and not await run_in_threadpool(
@@ -112,48 +81,29 @@ async def _enroll(request: Request) -> dict[str, Any]:
         raise EnrollmentError(409, "Authentication is not configured: no token is needed")
     body = _parse(await _read_body(request))
     address = request.client.host if request.client else None
-    token_id = await _enrolled_token(request)
     try:
-        if token_id is None:
-            created = await run_in_threadpool(
-                token_store.request_enrollment,
-                body.project,
-                body.label,
-                body.requested_by,
-                address,
-            )
-        else:
-            created = await run_in_threadpool(
-                token_store.request_additional_project,
-                token_id,
-                body.project,
-                body.requested_by,
-                address,
-            )
+        enrolled = await run_in_threadpool(
+            access_control.enroll_project, body.project, body.requested_by, address
+        )
+    except access_control.EnrollmentThrottled as exc:
+        raise EnrollmentError(429, str(exc)) from exc
     except ValueError as exc:
         raise EnrollmentError(422, str(exc)) from exc
-    logger.info(
-        "Enrollment (%s) requested for project %s (%s) from %s",
-        created["kind"],
-        created["project"],
-        created["label"],
-        address or "unknown",
-    )
-    return created
+    logger.info("Project %s enrolled from %s", enrolled["project"], address or "unknown")
+    return enrolled
 
 
 async def enroll(request: Request) -> JSONResponse:
-    """Request access to a project (public endpoint).
+    """Request a project (public endpoint): it waits for an administrator, no token is returned.
 
-    Without credentials a new token is returned once; it works only after an administrator
-    approves the request. With the bearer token of a client restricted to other projects, the
-    project is requested for that token (complementary enrollment, no new secret).
+    The answer (202, the same whether the project existed or not) gives the URL of the web
+    interface, where the user creates a personal MCP token, and the next steps.
     """
     try:
-        created = await _enroll(request)
+        enrolled = await _enroll(request)
     except EnrollmentError as exc:
-        return JSONResponse({"detail": exc.detail}, status_code=exc.status, headers=exc.headers)
-    return JSONResponse(created, status_code=201)
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status)
+    return JSONResponse(enrolled, status_code=202)
 
 
 def create_app(host: str = "127.0.0.1", allow_open: bool = False) -> Starlette:

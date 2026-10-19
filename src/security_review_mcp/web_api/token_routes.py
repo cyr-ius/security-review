@@ -1,4 +1,4 @@
-"""Routes of the project tokens and of the enrollment requests (``tokens.manage``).
+"""Routes of the project tokens (``tokens.manage``).
 
 A token never grants more than its creator holds: every change is checked against the
 projects the caller reads and, for an api token, the permissions of its role.
@@ -7,25 +7,21 @@ projects the caller reads and, for an api token, the permissions of its role.
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, HTTPException, Response, status
 from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 
-from .. import access_control, services, token_store, web_users
-from .auth_routes import LOGIN_HEADERS, current_oidc
+from .. import access_control, services, token_store
+from .auth_routes import LOGIN_HEADERS
 from .deps import (
     Identity,
     Permission,
     TokensManager,
     actor_of,
-    has_permission,
     permission_scope,
     unprocessable,
 )
 from .schemas import (
-    EnrollmentApproval,
-    EnrollmentApproved,
-    EnrollmentRequest,
     ProjectToken,
     ProjectTokenCreate,
     ProjectTokenProjects,
@@ -39,7 +35,6 @@ logger = logging.getLogger("security_review_mcp.web")
 router = APIRouter(tags=["tokens"])
 
 TokenIdPath = Annotated[str, APIPath(min_length=1, max_length=64)]
-RequestIdPath = Annotated[str, APIPath(min_length=1, max_length=64)]
 
 
 def _not_found_or_unprocessable(exc: ValueError) -> HTTPException:
@@ -93,14 +88,6 @@ def _reaches(identity: Identity, projects: list[str] | None) -> bool:
     """True when the caller reads every project of a token or request (None: every project)."""
     reached = permission_scope(identity, Permission.REPORTS_READ)
     return reached is None or (projects is not None and set(projects) <= set(reached))
-
-
-async def _check_enrollment_scope(identity: Identity, request_id: str) -> None:
-    """Refuse (403) to handle an enrollment request for a project the caller cannot read."""
-    pending = await run_in_threadpool(token_store.list_enrollments)
-    for item in pending:
-        if request_id in (item["id"], item["token_id"], item["label"]):
-            _check_delegation(identity, [item["project"]])
 
 
 async def _check_token_delegation(
@@ -238,102 +225,3 @@ async def rotate_project_token(
     )
     response.headers.update(LOGIN_HEADERS)
     return rotated
-
-
-# ── Enrollment requests ──────────────────────────────────────────────────────
-
-
-@router.get("/enrollments")
-async def enrollments(identity: TokensManager) -> list[EnrollmentRequest]:
-    """List the enrollment requests waiting for approval (never a secret).
-
-    ``kind`` is ``new`` for a first enrollment (new token) and ``additional`` for a
-    complementary one (one more project for an active token). Only the requests for the
-    projects the caller reads are listed.
-    """
-    pending = await run_in_threadpool(token_store.list_enrollments)
-    return [item for item in pending if _reaches(identity, [item["project"]])]
-
-
-@router.post("/enrollments/{request_id}/approve", response_model_exclude_unset=True)
-async def approve_enrollment(
-    request: Request,
-    request_id: RequestIdPath,
-    identity: TokensManager,
-    body: EnrollmentApproval | None = None,
-) -> EnrollmentApproved:
-    """Approve an enrollment request: the project is reachable from the next request.
-
-    With ``portal_user``, that web user also reads the project in the web interface (at once);
-    when OIDC is enabled, an unknown name becomes an OIDC user, ready for its first login. Giving
-    that access also needs the ``users.manage`` permission.
-    """
-    portal_user = body.portal_user if body is not None else None
-    create_sso = await current_oidc(request) is not None
-    # The approved token reaches the requested project: the caller must read it itself
-    await _check_enrollment_scope(identity, request_id)
-    if portal_user is not None:
-        if not has_permission(identity, Permission.USERS_MANAGE):
-            raise HTTPException(
-                status.HTTP_403_FORBIDDEN, f"Permission '{Permission.USERS_MANAGE}' required"
-            )
-        try:
-            portal_user = await run_in_threadpool(
-                web_users.check_project_grant, portal_user, create_sso
-            )
-        except ValueError as exc:
-            raise unprocessable(exc) from exc
-    try:
-        approved = await run_in_threadpool(
-            token_store.approve_enrollment, request_id, actor_of(identity)
-        )
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
-    logger.info(
-        "Enrollment %s for %s approved by %s",
-        approved["label"],
-        approved["project"],
-        identity.client,
-    )
-    if portal_user is None:
-        return EnrollmentApproved.model_validate(approved)
-    try:
-        user = await run_in_threadpool(
-            web_users.grant_project,
-            portal_user,
-            approved["project"],
-            identity.client,
-            create_sso,
-            actor_of(identity),
-        )
-    except ValueError as exc:
-        # Checked before the approval: only a concurrent change gets here
-        raise HTTPException(
-            status.HTTP_409_CONFLICT, f"Enrollment approved, web access not granted: {exc}"
-        ) from exc
-    logger.info(
-        "Web access to %s given to web user %s by %s",
-        approved["project"],
-        user["username"],
-        identity.client,
-    )
-    return EnrollmentApproved.model_validate(approved | {"portal_user": user})
-
-
-@router.delete("/enrollments/{request_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def reject_enrollment(request_id: RequestIdPath, identity: TokensManager) -> Response:
-    """Reject an enrollment request: a new token is deleted, an additional project dropped."""
-    await _check_enrollment_scope(identity, request_id)
-    try:
-        rejected = await run_in_threadpool(
-            token_store.reject_enrollment, request_id, actor_of(identity)
-        )
-    except ValueError as exc:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
-    logger.info(
-        "Enrollment %s for %s rejected by %s",
-        rejected["label"],
-        rejected["project"],
-        identity.client,
-    )
-    return Response(status_code=status.HTTP_204_NO_CONTENT)

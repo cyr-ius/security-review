@@ -62,9 +62,13 @@ shown), and the browser remembers the chosen sort for the next visits.
   The **Risk acceptances** button lists the accepted risks of every project you can see.
   With the `projects.create` permission, **New project** (left of **Refresh**) opens a modal
   window that creates a project you then read (see
-  [Creating a project](../advanced/access-control.md#creating-a-project)). With
-  `projects.delete`, the trash button of a row deletes the project and everything that refers to
-  it (see [Deleting a project](../advanced/access-control.md#deleting-a-project)).
+  [Creating a project](../advanced/access-control.md#creating-a-project)), and the
+  **Pending projects** section lists the projects requested by an
+  [enrollment](../advanced/http.md#enrollment-request-the-project) (requester, address, request
+  and expiry dates): **Approve** creates the project without any member, **Reject** deletes the
+  request; a request not approved before its expiry is deleted. With `projects.delete`, the
+  trash button of a row deletes the project and everything that refers to it (see
+  [Deleting a project](../advanced/access-control.md#deleting-a-project)).
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
   The **Review open findings** button opens the next screen; **Risk acceptances** lists the
@@ -130,8 +134,7 @@ shown), and the browser remembers the chosen sort for the next visits.
   identity provider. **Personal tokens** creates and revokes the personal tokens of the account:
   [REST API](#api-tokens) tokens (Swagger, scripts), which hold its rights, and
   [MCP](#personal-mcp-tokens) tokens for its agent, which reach the projects it may read.
-- **Tokens**: pending enrollment requests are searchable, sortable and filterable by request
-  type; active tokens are searchable, sortable and filterable by usage. Administrators create
+- **Tokens**: tokens are searchable, sortable and filterable by usage. Administrators create
   and revoke tokens for one or more projects, or for
   **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role),
   **CI/CD pipeline** (`ci` role, for
@@ -144,24 +147,18 @@ shown), and the browser remembers the chosen sort for the next visits.
   The list shows the usage of every `mcp` and `ci` token, its projects
   and its expiry date (**Expired** once past). **Projects** changes the projects of an existing
   token, or gives it **All projects** after a confirmation, without changing its secret: the
-  change applies from the next request; a pending request for a project now granted is approved
-  with it.
+  change applies from the next request.
   **Rotate** replaces the secret of a token and shows the new one once; the previous one keeps
   working for the grace period chosen above the list (none, 1 h, 24 h or 7 days, see
   [expiry and rotation](../advanced/http.md#expiry-and-rotation-of-tokens)).
   A token never opens the web interface. The `admin` and `metrics` tokens stay unrestricted and
   are managed from the CLI only. The secret is shown only once; only its digest is stored, in the database. A
-  revocation takes effect at the next request. The **Pending requests**
-  section tells new tokens apart from requests for access to an additional project
-  ([enrollment](../advanced/http.md#enrollment-a-project-requests-its-token)):
-  **Approve** activates the new token or adds the project to the existing token;
-  **Reject** only deletes the request. The allowed projects and the additions still
-  pending are shown for every token. The **Read access in the portal** column
-  lets you give the developer, at the same time, read access to the project in the web
-  interface, on their user account (see
-  [project read access at enrollment](../advanced/sso.md#project-read-access-at-enrollment)).
+  revocation takes effect at the next request. The
+  [enrollment](../advanced/http.md#enrollment-request-the-project) creates no token: a project
+  it requests waits in **Projects**, and once approved an administrator gives a developer
+  access to it by adding them to its group `project:<project>` (**Groups** screen).
 - **Audit log**: administrators read the [audit log](../advanced/audit-metrics.md#audit-log): triage
-  decisions, agent proposals, tokens and enrollment requests, newest first, with who made
+  decisions, agent proposals, tokens and enrollments, newest first, with who made
   them; filter by event and project, search event details, sort by date/action/actor/target/project,
   and use **Load more** for older events. Holders of `settings.manage` also set there the
   [syslog server](../advanced/audit-metrics.md#forwarding-to-syslog) the events are forwarded to
@@ -395,11 +392,13 @@ project, no project when it has none. The **Projects** column shows them, and so
 A token already created keeps working when the account loses `mcp_tokens.create`: an
 administrator revokes it if needed. Like a personal REST API token, it stops while the account
 must change a password set by an administrator, it is deleted with the account, nobody can
-rotate it nor change its projects, and an administrator can revoke it. It has no complementary enrollment:
-`request_enrollment` refuses a project it does not reach, an administrator gives the account
-access to the project instead (a group that reads it), or the user creates it if it is new and
-they hold `projects.create` (see [Creating a project](../advanced/access-control.md#creating-a-project)).
-It never reaches the REST API.
+rotate it nor change its projects, and an administrator can revoke it. For a project it does
+not reach, an administrator gives the account access to the project (a group that reads it), or
+the user creates it from **Projects** if it is new and they hold `projects.create` (see
+[Creating a project](../advanced/access-control.md#creating-a-project)); a project requested by an
+[enrollment](../advanced/http.md#enrollment-request-the-project) waits for an approval.
+When the server refuses the token (unknown, revoked or expired), the agent receives a `401` that
+tells the user to sign in again and create a new one. It never reaches the REST API.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -417,7 +416,7 @@ project of its own.
 | Type (`auth_source`) | Login | Creation |
 |---|---|---|
 | **Local** (`local`) | User name and password | By an administrator, or the initial `admin` account |
-| **OIDC** (`oidc`) | [Identity provider](../advanced/sso.md), no password | By an administrator, at the approval of an enrollment, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
+| **OIDC** (`oidc`) | [Identity provider](../advanced/sso.md), no password | By an administrator, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
 An OIDC account also joins, at each login, the groups open to OIDC named by its groups claim (see
 [OIDC accounts](../advanced/sso.md#oidc-accounts)). Accounts are managed in the **Users** screen,
@@ -584,11 +583,12 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   a token with **Authorize**, and does not mean that the route can be reached without a token.
   Enter an [API token](#api-tokens) there.
 - The controller exposes no write route without a token. The
-  [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token) requests are
-  filed on the **MCP server** (`POST /api/v1/enroll`, public); the controller lists and handles
-  them (`GET /api/v1/enrollments`, `POST /api/v1/enrollments/{id}/approve`,
-  `DELETE /api/v1/enrollments/{id}`, `tokens.manage` permission). It can therefore stay on an internal
-  network.
+  [enrollment](../advanced/http.md#enrollment-request-the-project) is served by the **MCP
+  server** (`POST /api/v1/enroll`, public): it requests a project, never a token; the
+  controller lists and handles the requests (`GET /api/v1/projects/pending`,
+  `POST /api/v1/projects/pending/{id}/approve`, `DELETE /api/v1/projects/pending/{id}`,
+  `projects.create` permission). The controller
+  can therefore stay on an internal network.
 - The token is sent in the `Authorization` header: no cookie, hence no CSRF. Only the
   [OIDC login](../advanced/sso.md) sets a cookie, `HttpOnly`, `SameSite=Lax`, `Secure`
   over HTTPS, limited to the return URL and valid 10 minutes: it binds the return from the
@@ -613,7 +613,9 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | File of the secret when `SECREVIEW_SECRET_KEY` is unset, generated at the first start |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or OIDC login |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [OIDC account](../advanced/sso.md#oidc-accounts) at the first login; otherwise an administrator creates it |
-| `SECREVIEW_ENROLLMENT` | `true` | Token requests by the projects (on the MCP server), approved in the **Tokens** screen |
+| `SECREVIEW_ENROLLMENT` | `true` | Project requests by the MCP clients without a token (on the MCP server), approved in the **Projects** screen; no token is created |
+| `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | Days a requested project waits for an approval before it is deleted |
+| `SECREVIEW_WEB_URL` | — | Public URL of the web interface, given by the MCP server to the clients without a valid token |
 | `SECREVIEW_OIDC_*` | — | [OIDC login](../advanced/sso.md), see the [reference](../reference/configuration.md) |
 
 The published package and the Docker image contain the application already built. If you

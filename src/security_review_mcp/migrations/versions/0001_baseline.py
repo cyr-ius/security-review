@@ -80,7 +80,8 @@ apitokenproject = sa.Table(
     sa.Column("id", _string(64), primary_key=True),
     sa.Column("token_id", _string(64), sa.ForeignKey("apitoken.id"), nullable=False, index=True),
     sa.Column("project", _string(200), nullable=False, index=True),
-    sa.Column("status", _string(20), nullable=False, index=True),
+    # Nullable: a database created without it (revision 0026 drops it) gets it back empty
+    sa.Column("status", _string(20), nullable=True, index=True),
     sa.Column("created_at", _timestamp(), nullable=False),
     sa.Column("requested_by", _string(200), nullable=True),
     sa.Column("requested_from", _string(64), nullable=True),
