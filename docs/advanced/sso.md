@@ -94,17 +94,21 @@ curl -X PUT https://secreview.example.com/api/v1/oidc/settings \
 
 ## OIDC accounts
 
-Every OIDC user is an account of the **Users** screen (**OIDC** badge), named by
-the value of the `SECREVIEW_OIDC_USERNAME_CLAIM` claim (`preferred_username` by default),
+Every OIDC user is an account of the **Users** screen (**OIDC** badge), **identified by the
+issuer and the `sub` claim** bound at its first login, never by a name. It is named at its
+creation by the value of the `SECREVIEW_OIDC_USERNAME_CLAIM` claim (`preferred_username` by default),
 compared exactly, case included. There is no fallback to `email` or `sub`, and a value that is
 not a valid user name (control or invisible character, space, more than 64 characters) is
 refused.
 
-At login, the controller looks for this account:
+At login, the controller first looks for the account bound to the issuer and the `sub` of the
+login: it opens, whatever the username claim says now (a name changed at the provider keeps the
+account and its user name). Only an identity bound to no account is looked up by its user name:
 
 | Situation | Result |
 |---|---|
-| Existing OIDC account | Login, with the permissions of its groups (below) |
+| Account bound to this issuer and `sub` | Login, with the permissions of its groups (below), even if the username claim changed |
+| OIDC account of this name, not bound yet (created by an administrator) | The account is **bound** to the issuer and `sub`, then login |
 | No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | The account is **created** (`created_by`: `oidc`) if its groups give it a permission; otherwise refused, without creation |
 | No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (default) | **Refused**: an administrator must first create the OIDC account |
 | **Local** account with the same name | **Refused**: an OIDC login never opens a local account |
@@ -112,11 +116,15 @@ At login, the controller looks for this account:
 | OIDC account deleted by an administrator | **Refused**, even with the automatic creation (see below) |
 
 At the first login, the account is **bound** to the issuer and to the `sub` claim of the
-provider: the account is identified by both. A later login with the same user name but another
-`sub` (provider account deleted then created again, renamed...) or from another issuer (another
-identity provider, which could reuse the same `sub`) is refused. An account bound when only
-the `sub` was recorded gets the issuer of its next login. To give the user name to someone else, delete then create the account
-again.
+provider: the account is identified by both, and no two accounts share them. A later login
+with the same user name but another `sub` (provider account deleted then created again...) or
+from another issuer (another identity provider, which could reuse the same `sub`) is refused.
+An account bound when only the `sub` was recorded gets the issuer of its next login. To give
+the user name to someone else, delete then create the account again.
+
+Before version 0023 of the schema, a name changed at the provider created a second account bound
+to the same identity. The upgrade keeps the identity on the account that logged in last; the
+others keep their name, groups and history but can no longer log in: delete them in **Users**.
 
 What an OIDC account may do comes from its [groups](access-control.md): those an administrator
 gave it (**Users** or **Groups** screen, approval of an enrollment) and the groups open to OIDC
@@ -127,8 +135,9 @@ once; a change of its groups at the provider, at the next login.
 
 **Deleting an OIDC account** (**Utilisateurs** screen, `DELETE /api/v1/users/{id}` or
 `security-review-controller user delete NAME`) closes its sessions at once and **revokes** its
-user name: an OIDC login no longer creates it again, even with the automatic creation and groups
-that give it a permission ("compte supprimé" message, account deleted, on the login page). To give it
+user name and its identity (issuer and `sub`): an OIDC login no longer creates it again, under
+that name or another one (name changed at the provider), even with the automatic creation and
+groups that give it a permission ("compte supprimé" message, account deleted, on the login page). To give it
 access back, an administrator creates the account again (by hand or at the approval of an
 enrollment), or lifts the revocation (**Autoriser à nouveau**, Allow again,
 `DELETE /api/v1/users/revoked/{username}`): the account is then created again at its next

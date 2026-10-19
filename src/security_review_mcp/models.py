@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import field_validator, model_validator
-from sqlalchemy import BigInteger, String, UniqueConstraint
+from sqlalchemy import BigInteger, Index, String, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -441,10 +441,15 @@ class WebUser(SQLModel, table=True):
     or ``oidc`` (OpenID Connect login, no password). What a user may do comes only from the
     roles of its groups (``GroupMember``, see access_control). ``oidc_subject`` and
     ``oidc_issuer`` are the ``sub`` claim and the issuer bound at the first OIDC login: an
-    account is identified by both, so that another identity provider cannot reuse a subject.
+    account is identified by both, so that another identity provider cannot reuse a subject, and
+    no two users share them (unique index).
     ``session_version`` is drawn at random at creation and at each password change: the sessions
     issued with another version are refused.
     """
+
+    __table_args__ = (
+        Index("ix_webuser_oidc_identity", "oidc_issuer", "oidc_subject", unique=True),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True, max_length=64)
@@ -553,10 +558,16 @@ class RevokedSsoUser(SQLModel, table=True):
     """Username of an OIDC web user deleted by an administrator (see web_users.delete_user).
 
     With ``SECREVIEW_OIDC_AUTO_CREATE_USERS``, an OIDC login never creates a web user with this
-    name again; an administrator who creates the user again lifts the revocation.
+    name again, nor with the identity (``oidc_issuer`` and ``oidc_subject``) the user was bound
+    to, whatever its username claim; an administrator who creates the user again lifts the
+    revocation.
     """
+
+    __table_args__ = (Index("ix_revokedssouser_oidc_identity", "oidc_issuer", "oidc_subject"),)
 
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True, max_length=64)
+    oidc_issuer: str | None = Field(default=None, max_length=500)
+    oidc_subject: str | None = Field(default=None, max_length=255)
     revoked_at: datetime = Field(default_factory=utcnow)
     revoked_by: str | None = Field(default=None, max_length=64)

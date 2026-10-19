@@ -594,3 +594,60 @@ def test_downgrading_the_api_tokens_deletes_them(empty_engine):
 
     assert rows == ["t2"]
     assert not columns & {"user_id", "access_role_id"}
+
+
+def test_users_sharing_an_oidc_identity_keep_it_on_the_last_one(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    issuer = "https://idp.example.com"
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0022")
+        for user_id, name, subject, last_login in (
+            (1, "alice", "sub-1", "2026-10-01 10:00:00"),
+            # The same person, renamed at the provider: a second user before 0023
+            (2, "alice.smith", "sub-1", "2026-10-05 10:00:00"),
+            (3, "a.smith", "sub-1", None),
+            (4, "bob", "sub-2", None),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO webuser (id, username, auth_source, oidc_subject, oidc_issuer, "
+                    "created_at, updated_at, must_change_password, session_version, "
+                    "last_login_at) VALUES (:id, :name, 'oidc', :subject, :issuer, "
+                    "'2026-10-01', '2026-10-01', 0, 1, :last_login)"
+                ),
+                {
+                    "id": user_id,
+                    "name": name,
+                    "subject": subject,
+                    "issuer": issuer,
+                    "last_login": last_login,
+                },
+            )
+        command.upgrade(database.alembic_config(connection), "head")
+        rows = connection.execute(
+            text("SELECT username, oidc_issuer, oidc_subject FROM webuser ORDER BY id")
+        ).all()
+    assert rows == [
+        ("alice", None, ""),
+        ("alice.smith", issuer, "sub-1"),
+        ("a.smith", None, ""),
+        ("bob", issuer, "sub-2"),
+    ]
+
+    # The index refuses a second user bound to the same identity
+    with pytest.raises(IntegrityError), empty_engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE webuser SET oidc_issuer = :issuer, oidc_subject = 'sub-2' "
+                "WHERE username = 'alice'"
+            ),
+            {"issuer": issuer},
+        )
+
+    with empty_engine.begin() as connection:
+        command.downgrade(database.alembic_config(connection), "0022")
+        indexes = {index["name"] for index in inspect(connection).get_indexes("webuser")}
+    assert "ix_webuser_oidc_identity" not in indexes

@@ -182,14 +182,16 @@
   viennent des [groupes](../advanced/access-control.md) du compte : ceux donnés par un
   administrateur et les groupes ouverts au OIDC dont le nom est exactement une valeur du claim des
   groupes (les autres valeurs sont ignorées, un groupe non ouvert au OIDC n'est jamais rejoint par
-  le claim) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est nommé par l'identifiant exact du claim
+  le claim) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est identifié par l'émetteur et le `sub` de
+  sa première connexion (uniques en base), jamais par un nom : un nom changé chez le fournisseur
+  garde le compte. Il est nommé à sa création par l'identifiant exact du claim
   `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si ce n'est pas
-  un identifiant valide) : choisissez un claim que l'utilisateur ne peut pas modifier chez le
-  fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte OIDC créé par
+  un identifiant valide), qui lie aussi un compte créé à l'avance par un administrateur :
+  choisissez un claim que l'utilisateur ne peut pas modifier chez le fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte OIDC créé par
   un administrateur peut se connecter. Une connexion OIDC n'ouvre jamais un compte local du même
   nom, et le compte est lié à l'émetteur et au `sub` de sa première connexion : un autre `sub`
   ou un autre émetteur est refusé. Un
-  compte OIDC supprimé est révoqué : la création automatique ne le recrée pas, tant qu'un
+  compte OIDC supprimé est révoqué, par son nom et par son émetteur et son `sub` : la création automatique ne le recrée pas, tant qu'un
   administrateur ne l'a pas recréé ou autorisé à nouveau.
   Vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant de lui donner la lecture
   du projet. Une session restreinte à des projets l'est comme un jeton `--project`. La session est

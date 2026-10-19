@@ -174,14 +174,17 @@
   [groups](../advanced/access-control.md) of the account: those given by an administrator and the
   groups open to OIDC whose name is exactly a value of the groups claim (other values are
   ignored, a group not open to OIDC is never joined through the claim); an OIDC session never
-  opens `/mcp`. The account is named by the exact identifier of the
-  `SECREVIEW_OIDC_USERNAME_CLAIM` claim (no fallback to `email` or `sub`, value refused if it is
-  not a valid user name): choose a claim that the user cannot change at the provider. By
+  opens `/mcp`. The account is identified by the issuer and the `sub` of its first login (unique
+  in the database), never by a name: a name changed at the provider keeps the account. It is
+  named at its creation by the exact identifier of the `SECREVIEW_OIDC_USERNAME_CLAIM` claim (no
+  fallback to `email` or `sub`, value refused if it is not a valid user name), which also binds
+  an account created beforehand by an administrator: choose a claim that the user cannot change
+  at the provider. By
   default (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), only an OIDC account created by an
   administrator can log in. An OIDC login never opens a local account of the same name, and the
   account is bound to the issuer and the `sub` of its first login: another `sub` or another
   issuer is refused. A deleted OIDC
-  account is revoked: the automatic creation does not create it again, until an administrator
+  account is revoked, by its name and its issuer and `sub`: the automatic creation does not create it again, until an administrator
   creates it again or allows it again. Check the requester of an enrollment (free text, not
   verified) before giving them read access to the project. A session restricted to projects is
   restricted like a `--project` token. The session is a signed token (HMAC-SHA256, key derived

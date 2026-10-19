@@ -520,6 +520,50 @@ def test_sso_user_is_bound_to_the_issuer_of_its_first_login(database):
     assert stored(database, "alice").oidc_issuer == ISSUER
 
 
+def test_sso_user_keeps_its_account_when_its_name_changes_at_the_provider(database):
+    signer = oidc.SessionSigner(SECRET)
+    verifier = web_users.SessionVerifier(signer)
+    group_for("reader", name="everyone")
+    settings = {"oidc_auto_create_users": True, "oidc_default_group": "everyone"}
+    login(signer, identity("alice", "sub-1"), **settings)
+
+    # Same issuer and subject, new username claim: the same account, under its first name
+    result = login(signer, identity("alice.smith", "sub-1"), **settings)
+
+    assert [user["username"] for user in web_users.list_users()] == ["alice"]
+    assert verifier.verify_session(result["session"]).label == "oidc:alice"
+
+
+def test_sso_login_opens_the_bound_user_before_a_user_of_its_name(database):
+    signer = oidc.SessionSigner(SECRET)
+    make_user("alice", None, "reader", ["shop"], auth_source="oidc")
+    make_user("bob", None, "reader", ["billing"], auth_source="oidc")
+    login(signer, identity("alice", "sub-1"))
+
+    # The username claim names bob, created beforehand and not bound: alice opens, bob stays free
+    result = login(signer, identity("bob", "sub-1"))
+
+    assert result["username"] == "alice"
+    assert stored(database, "bob").oidc_subject is None
+    # The same subject of another provider is another identity: it binds bob
+    login(signer, identity("bob", "sub-1", issuer="https://other.example.com"))
+    assert stored(database, "bob").oidc_issuer == "https://other.example.com"
+
+
+def test_sso_user_unbound_by_the_migration_never_logs_in_again(database):
+    signer = oidc.SessionSigner(SECRET)
+    make_user("alice", None, "reader", auth_source="oidc")
+    with Session(database) as session:
+        row = session.exec(select(WebUser).where(WebUser.username == "alice")).one()
+        row.oidc_subject, row.oidc_issuer = "", None
+        session.add(row)
+        session.commit()
+
+    with pytest.raises(oidc.OidcError) as exc:
+        login(signer, identity("alice", "sub-1"))
+    assert exc.value.code == "conflict"
+
+
 def test_sso_user_bound_before_the_issuer_was_recorded_gets_it(database):
     signer = oidc.SessionSigner(SECRET)
     make_user("alice", None, "reader", auth_source="oidc")
@@ -597,6 +641,28 @@ def test_deleted_sso_user_is_never_created_again_by_a_login():
         login(signer, **settings)
     assert exc.value.code == "revoked"
     assert web_users.list_users() == []
+
+
+def test_deleted_sso_user_renamed_at_the_provider_is_never_created_again():
+    signer = oidc.SessionSigner(SECRET)
+    group_for("reader", name="everyone")
+    settings = {"oidc_auto_create_users": True, "oidc_default_group": "everyone"}
+    login(signer, identity("alice", "sub-1"), **settings)
+    web_users.delete_user(web_users.find_user("alice")["id"], deleted_by="root")
+
+    # Same issuer and subject under a new name: still the deleted user
+    with pytest.raises(oidc.OidcError) as exc:
+        login(signer, identity("alice.smith", "sub-1"), **settings)
+    assert exc.value.code == "revoked"
+    # Another subject, or the same subject of another provider, is another person
+    login(signer, identity("carol", "sub-2"), **settings)
+    login(signer, identity("dave", "sub-1", issuer="https://other.example.com"), **settings)
+    assert sorted(user["username"] for user in web_users.list_users()) == ["carol", "dave"]
+
+    # Lifted by an administrator: the identity may log in again
+    web_users.lift_revocation("alice")
+    login(signer, identity("alice.smith", "sub-1"), **settings)
+    assert "alice.smith" in [user["username"] for user in web_users.list_users()]
 
 
 def test_revocation_is_lifted_by_an_administrator():

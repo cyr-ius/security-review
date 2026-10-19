@@ -97,17 +97,22 @@ curl -X PUT https://secreview.example.com/api/v1/oidc/settings \
 
 ## Comptes OIDC
 
-Chaque utilisateur OIDC est un compte de l'écran **Utilisateurs** (badge **OIDC**), nommé par la
-valeur du claim `SECREVIEW_OIDC_USERNAME_CLAIM` (`preferred_username` par défaut), comparée
+Chaque utilisateur OIDC est un compte de l'écran **Utilisateurs** (badge **OIDC**), **identifié par
+l'émetteur et le claim `sub`** liés à sa première connexion, jamais par un nom. Il est nommé à sa
+création par la valeur du claim `SECREVIEW_OIDC_USERNAME_CLAIM` (`preferred_username` par défaut), comparée
 exactement, casse comprise. Il n'y a pas de repli sur `email` ou `sub`, et une valeur qui n'est
 pas un identifiant valide (caractère de contrôle ou invisible, espace, plus de 64 caractères) est
 refusée.
 
-À la connexion, le contrôleur cherche ce compte :
+À la connexion, le contrôleur cherche d'abord le compte lié à l'émetteur et au `sub` de la
+connexion : il s'ouvre, quoi que dise maintenant le claim d'identifiant (un nom changé chez le
+fournisseur garde le compte et son identifiant). Seule une identité liée à aucun compte est
+cherchée par son identifiant :
 
 | Situation | Résultat |
 |---|---|
-| Compte OIDC existant | Connexion, avec les permissions de ses groupes (ci-dessous) |
+| Compte lié à cet émetteur et à ce `sub` | Connexion, avec les permissions de ses groupes (ci-dessous), même si le claim d'identifiant a changé |
+| Compte OIDC de ce nom, pas encore lié (créé par un administrateur) | Le compte est **lié** à l'émetteur et au `sub`, puis connexion |
 | Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | Le compte est **créé** (`created_by` : `oidc`) si ses groupes lui donnent une permission ; sinon refus, sans création |
 | Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (défaut) | **Refus** : un administrateur doit d'abord créer le compte OIDC |
 | Compte **local** du même nom | **Refus** : une connexion OIDC n'ouvre jamais un compte local |
@@ -115,12 +120,17 @@ refusée.
 | Compte OIDC supprimé par un administrateur | **Refus**, même avec la création automatique (voir ci-dessous) |
 
 À la première connexion, le compte est **lié** à l'émetteur (issuer) et au claim `sub` du
-fournisseur : le compte est identifié par les deux. Une connexion ultérieure avec le même
-identifiant mais un autre `sub` (compte du fournisseur supprimé puis recréé, renommé...) ou
-venant d'un autre émetteur (un autre fournisseur d'identité, qui pourrait réutiliser le même
-`sub`) est refusée. Un compte lié quand seul le `sub` était enregistré reçoit l'émetteur de sa
-connexion suivante. Pour réattribuer l'identifiant, supprimez puis recréez le
-compte.
+fournisseur : le compte est identifié par les deux, et deux comptes ne peuvent pas les partager.
+Une connexion ultérieure avec le même identifiant mais un autre `sub` (compte du fournisseur
+supprimé puis recréé...) ou venant d'un autre émetteur (un autre fournisseur d'identité, qui
+pourrait réutiliser le même `sub`) est refusée. Un compte lié quand seul le `sub` était
+enregistré reçoit l'émetteur de sa connexion suivante. Pour réattribuer l'identifiant, supprimez
+puis recréez le compte.
+
+Avant la version 0023 du schéma, un nom changé chez le fournisseur créait un second compte lié à
+la même identité. La mise à jour garde l'identité sur le compte connecté en dernier ; les autres
+gardent leur nom, leurs groupes et leur historique mais ne peuvent plus se connecter :
+supprimez-les dans **Utilisateurs**.
 
 Ce qu'un compte OIDC peut faire vient de ses [groupes](access-control.md) : ceux qu'un
 administrateur lui a donnés (écran **Utilisateurs** ou **Groupes**, approbation d'un enrôlement)
@@ -132,7 +142,8 @@ connexion.
 
 **Supprimer un compte OIDC** (écran **Utilisateurs**, `DELETE /api/v1/users/{id}` ou
 `security-review-controller user delete NOM`) ferme aussitôt ses sessions et **révoque** son
-identifiant : une connexion OIDC ne le recrée plus, même avec la création automatique et des
+identifiant et son identité (émetteur et `sub`) : une connexion OIDC ne le recrée plus, sous ce
+nom ni sous un autre (nom changé chez le fournisseur), même avec la création automatique et des
 groupes qui lui donnent une permission (message « compte supprimé » sur la page de connexion). Pour lui
 rendre l'accès, un administrateur recrée le compte (à la main ou à l'approbation d'un enrôlement),
 ou lève la révocation (**Autoriser à nouveau**, `DELETE /api/v1/users/revoked/{identifiant}`) :
