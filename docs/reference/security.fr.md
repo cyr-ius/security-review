@@ -215,9 +215,8 @@
   réglages secrets (`SECREVIEW_SECRET_KEY`, `SECREVIEW_OIDC_CLIENT_SECRET`,
   `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`) sont typés comme secrets : ils
   n'apparaissent jamais dans un affichage des réglages. Sans `SECREVIEW_SECRET_KEY`, le
-  secret de session généré est écrit une seule fois dans `SECREVIEW_SECRET_KEY_FILE` avec les
-  droits `0600` (un avertissement est journalisé si le fichier est lisible par d'autres
-  utilisateurs).
+  contrôleur tire un secret de session aléatoire à chaque démarrage, gardé en mémoire
+  seulement (un avertissement est journalisé) : les sessions se terminent au redémarrage.
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
   serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Pour le scan du
   dépôt complet, le client de pipeline (`security-review-ci scan-code`), lancé par l'opérateur

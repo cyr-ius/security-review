@@ -83,15 +83,46 @@ It contains:
 - a **`secreview-controller` Deployment** (one replica, `Recreate` strategy) whose init
   container runs `security-review-controller db upgrade` at every deployment;
 - a **`secreview-mcp` Deployment**, which only checks the schema;
-- the **`secreview-controller` Secret**, created by hand, with `SECREVIEW_SECRET_KEY`: the
-  root file system is read-only, so the controller cannot write its
-  `SECREVIEW_SECRET_KEY_FILE`; without it, the web sessions would end at every restart and
-  would not be shared by the replicas (see
-  [Login and sessions](../usage/web-interface.md#login-and-sessions));
+- the **`secreview-controller` Secret**, created by hand (see below), with
+  `SECREVIEW_SECRET_KEY`: without it, the controller draws a random session secret at every
+  start, so the web sessions would end at every restart and would not be shared by the
+  replicas (see [Login and sessions](../usage/web-interface.md#login-and-sessions));
 - one Service per process, `readiness` and `liveness` probes on `/healthz`, non-root
   containers with a read-only file system, without any Linux capability;
 - a **NetworkPolicy** that limits access to the controller to the pods of the namespace and to
   the ingress controller (adapt its label).
+
+The two Secrets are not in the example, so that `kubectl apply` never replaces their values. To
+declare them as manifests rather than with `kubectl create secret` (GitOps), use `kind: Secret`:
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secreview-db
+  namespace: secreview
+type: Opaque
+stringData:
+  SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:<password>@<host>:5432/secreview
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: secreview-controller
+  namespace: secreview
+type: Opaque
+stringData:
+  # openssl rand -hex 32 (at least 32 characters, never changed between deployments)
+  SECREVIEW_SECRET_KEY: <64 hexadecimal characters>
+  # Proxy holding credentials (OSV download, OIDC), optional
+  # HTTPS_PROXY: http://user:<password>@proxy.example.com:3128
+```
+
+`stringData` takes the values in clear; Kubernetes stores them base64-encoded in `data`. Never
+commit this file with real values: encrypt it (Sealed Secrets, SOPS) or let an operator such as
+External Secrets create it from your vault. The pods read the Secrets at start-up: after a
+change, restart them (`kubectl -n secreview rollout restart deploy/secreview-controller`).
+Changing `SECREVIEW_SECRET_KEY` ends every web session.
 
 Replace the image (`registry.example.com/security-review-mcp:pg`) with yours, built with the
 `postgres` extra. Expose the `secreview-mcp` Service to the agents and to the CI through an

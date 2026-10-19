@@ -30,10 +30,8 @@ import hashlib
 import hmac
 import json
 import logging
-import os
 import secrets
 import ssl
-import tempfile
 import threading
 import time
 import urllib.error
@@ -223,68 +221,20 @@ def validate_session_settings(settings: Settings) -> None:
 def session_signer(settings: Settings) -> SessionSigner:
     """Return the signer of the web sessions of the controller (password and OIDC logins).
 
+    Without ``SECREVIEW_SECRET_KEY`` a random secret is drawn at each start: sessions then end
+    when the controller restarts and are not shared between replicas.
+
     Raises:
         ValueError: If ``SECREVIEW_SESSION_HOURS`` or ``SECREVIEW_SECRET_KEY`` is invalid.
     """
     validate_session_settings(settings)
     secret = secret_value(settings.secret_key)
-    if not secret and settings.secret_key_file:
-        try:
-            secret = stored_secret_key(Path(settings.secret_key_file))
-        except OSError as exc:
-            logger.warning("Session secret file not usable: %s", exc.strerror or exc)
     if not secret:
         logger.warning(
-            "No session secret (SECREVIEW_SECRET_KEY or SECREVIEW_SECRET_KEY_FILE): web "
-            "sessions end when the controller restarts and are not shared between replicas"
+            "SECREVIEW_SECRET_KEY is not set: a random session secret is used, web sessions "
+            "end when the controller restarts and are not shared between replicas"
         )
     return SessionSigner(secret, settings.session_hours)
-
-
-def _read_secret_key(path: Path) -> str:
-    """Read a stored session secret; raise ValueError when it is too short."""
-    secret = path.read_text(encoding="utf-8").strip()
-    if len(secret) < MIN_SECRET_KEY_CHARS:
-        raise ValueError(
-            f"SECREVIEW_SECRET_KEY_FILE ({path}) must hold at least "
-            f"{MIN_SECRET_KEY_CHARS} characters"
-        )
-    if path.stat().st_mode & 0o077:
-        logger.warning("Session secret file %s is readable by other users: chmod 600 it", path)
-    return secret
-
-
-def stored_secret_key(path: Path) -> str:
-    """Return the session secret stored in ``path``, generated there at the first start.
-
-    The file is written once, with mode 0600, by an atomic hard link of a complete temporary
-    file: when several workers or replicas sharing the volume start together, one creates it
-    and the others read it.
-
-    Raises:
-        OSError: If the file can be neither read nor created.
-        ValueError: If the stored secret is too short.
-    """
-    try:
-        return _read_secret_key(path)
-    except FileNotFoundError:
-        pass
-    path.parent.mkdir(parents=True, exist_ok=True)
-    secret = secrets.token_urlsafe(48)
-    # mkstemp creates the file with mode 0600
-    handle, temporary = tempfile.mkstemp(dir=path.parent, prefix=".secret-key-")
-    try:
-        with os.fdopen(handle, "w", encoding="utf-8") as file:
-            file.write(secret + "\n")
-        try:
-            os.link(temporary, path)
-        except FileExistsError:
-            # Created by another process in the meantime: use its secret
-            return _read_secret_key(path)
-    finally:
-        os.unlink(temporary)
-    logger.info("Session secret generated in %s (keep it private)", path)
-    return secret
 
 
 class SessionSigner:

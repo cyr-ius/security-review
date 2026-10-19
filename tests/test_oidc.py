@@ -1,8 +1,6 @@
 """OpenID Connect login to the web interface: settings, ID token checks, sessions and routes."""
 
 import logging
-import os
-import stat
 import time
 import urllib.error
 import urllib.request
@@ -192,57 +190,15 @@ def test_invalid_session_settings_are_refused(values, message):
         oidc.session_signer(make_settings(**values))
 
 
-@pytest.mark.parametrize("secret_file", ["", "file/secret"])
-def test_without_a_usable_secret_file_a_random_secret_is_used(tmp_path, caplog, secret_file):
-    # No file configured, or a file that cannot be created (regression of cc550c6)
-    (tmp_path / "file").write_text("")
-    path = str(tmp_path / secret_file) if secret_file else ""
-    settings = make_settings(secret_key=None, secret_key_file=path)
+def test_without_a_secret_key_a_random_secret_is_drawn_at_each_start(tmp_path, monkeypatch, caplog):
+    monkeypatch.chdir(tmp_path)
+    settings = make_settings(secret_key=None)
     with caplog.at_level(logging.WARNING, logger="security_review_mcp.oidc"):
         token = oidc.session_signer(settings).issue_session("alice", None, 1, 1)
+    # Another start (or replica) does not accept the session, and nothing is written to disk
     assert oidc.session_signer(settings).decode_session(token) is None
-    assert any(
-        record.name == "security_review_mcp.oidc" and record.levelno == logging.WARNING
-        for record in caplog.records
-    )
-
-
-def test_secret_key_is_generated_once_in_its_file(secret_key_file, caplog):
-    settings = make_settings(secret_key=None)
-    first = oidc.session_signer(settings)
-    token = first.issue_session("alice", None, 1, 1)
-
-    # Mode 0600, never logged; the next start (or another worker) reads the same secret
-    assert stat.S_IMODE(secret_key_file.stat().st_mode) == 0o600
-    secret = secret_key_file.read_text().strip()
-    assert len(secret) >= oidc.MIN_SECRET_KEY_CHARS and secret not in caplog.text
-    assert oidc.session_signer(settings).decode_session(token) is not None
-    assert [p.name for p in secret_key_file.parent.iterdir()] == ["secret-key"]
-
-
-def test_a_secret_created_concurrently_is_used(secret_key_file, monkeypatch):
-    # Another worker creates the file between the read and the link: its secret is used
-    real_link = os.link
-
-    def link_after_another_worker(source, target):
-        secret_key_file.write_text("w" * 40 + "\n")
-        return real_link(source, target)
-
-    monkeypatch.setattr(os, "link", link_after_another_worker)
-
-    assert oidc.stored_secret_key(secret_key_file) == "w" * 40
-
-
-def test_a_short_or_shared_secret_file_is_reported(secret_key_file, caplog):
-    secret_key_file.write_text("short")
-    with pytest.raises(ValueError, match="at least 32"):
-        oidc.session_signer(make_settings(secret_key=None))
-
-    secret_key_file.write_text("s" * 40)
-    secret_key_file.chmod(0o644)
-    with caplog.at_level(logging.WARNING, logger="security_review_mcp.oidc"):
-        oidc.session_signer(make_settings(secret_key=None))
-    assert "readable by other users" in caplog.text
+    assert "SECREVIEW_SECRET_KEY is not set" in caplog.text
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_secrets_are_never_shown_by_the_settings():

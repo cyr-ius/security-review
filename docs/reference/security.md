@@ -203,9 +203,8 @@
   PKCE verifier of the cookie. The secret settings (`SECREVIEW_SECRET_KEY`,
   `SECREVIEW_OIDC_CLIENT_SECRET`, `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`)
   are typed as secrets: they never appear in a dump of the settings. Without
-  `SECREVIEW_SECRET_KEY`, the generated session secret is written once to
-  `SECREVIEW_SECRET_KEY_FILE` with mode `0600` (a warning is logged if the file is readable
-  by other users).
+  `SECREVIEW_SECRET_KEY`, the controller draws a random session secret at every start, kept in
+  memory only (a warning is logged): sessions end at restart.
 - **No disk access on the MCP side**: `scan_code` only works on the given content; the server
   reads no file from the disk, which avoids path traversals. For the whole repository scan,
   the pipeline client (`security-review-ci scan-code`), run by the operator on a folder they

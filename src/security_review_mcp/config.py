@@ -75,11 +75,9 @@ class Settings(BaseSettings):
 
     # Controller only: sessions of the web interface (password and OIDC logins), tokens signed
     # with secret_key (at least 32 characters, shared by the replicas) and valid
-    # session_hours (1 to 24). Unset, the secret is read from secret_key_file, generated
-    # there (mode 0600) at the first start; "" for secret_key_file draws a random secret at
-    # each start (sessions then end at restart).
+    # session_hours (1 to 24). Unset, a random secret is drawn at each start: sessions then
+    # end at restart and are not shared between replicas.
     secret_key: SecretStr | None = None
-    secret_key_file: str = "secret-key"
     session_hours: int = 8
 
     # Enrollment (HTTP MCP server, once a token exists): a client without a token reaches a

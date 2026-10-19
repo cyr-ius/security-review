@@ -68,8 +68,7 @@ Lues par `security-review-controller` uniquement.
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `SECREVIEW_ADMIN_USERNAME` | `admin` | Nom du [premier administrateur](../usage/web-interface.md#premier-administrateur), créé au premier démarrage tant qu'aucun compte n'existe (groupe `administrators`), avec un mot de passe aléatoire jamais journalisé : définissez-le avec `security-review-controller user reset-password` |
-| `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions de l'interface web (comptes et OIDC), 32 caractères au moins, identique sur toutes les répliques ; sans lui, lu dans `SECREVIEW_SECRET_KEY_FILE` |
-| `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | Fichier du secret de session quand `SECREVIEW_SECRET_KEY` n'est pas défini : généré au premier démarrage (droits `0600`), relu aux suivants ; `""` : un secret aléatoire à chaque démarrage (les sessions se terminent au redémarrage) |
+| `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions de l'interface web (comptes et OIDC), 32 caractères au moins, identique sur toutes les répliques ; non défini : un secret aléatoire à chaque démarrage (les sessions se terminent au redémarrage) |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session de l'interface web (1 à 24 heures) |
 | `SECREVIEW_WEB_UI` | `true` | Sert l'[interface web](../usage/web-interface.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'interface web |

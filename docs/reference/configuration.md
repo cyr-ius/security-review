@@ -68,8 +68,7 @@ Read by `security-review-controller` only.
 | Variable | Default | Role |
 |---|---|---|
 | `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](../usage/web-interface.md#first-administrator), created at the first start while no account exists (`administrators` group), with a random password never logged: set it with `security-review-controller user reset-password` |
-| `SECREVIEW_SECRET_KEY` | — | Signing secret of the web interface sessions (accounts and OIDC), at least 32 characters, identical on every replica; without it, read from `SECREVIEW_SECRET_KEY_FILE` |
-| `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | File of the session secret when `SECREVIEW_SECRET_KEY` is unset: generated at the first start (mode `0600`), read at the next ones; `""`: a random secret at every start (sessions end at restart) |
+| `SECREVIEW_SECRET_KEY` | — | Signing secret of the web interface sessions (accounts and OIDC), at least 32 characters, identical on every replica; unset: a random secret at every start (sessions end at restart) |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a web interface session (1 to 24 hours) |
 | `SECREVIEW_WEB_UI` | `true` | Serves the [web interface](../usage/web-interface.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the web interface |

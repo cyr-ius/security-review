@@ -549,10 +549,9 @@ from the database:
   that changed the password.
 
 Sessions are signed with `SECREVIEW_SECRET_KEY` (at least 32 characters), shared by every
-replica of the controller. Without it, the secret is read from `SECREVIEW_SECRET_KEY_FILE`
-(`secret-key` in the working directory, `/var/lib/secreview` in Docker), generated there at the first
-start with mode `0600`: sessions survive a restart, and the replicas that share the volume share
-the secret. Replicas without a shared volume must share `SECREVIEW_SECRET_KEY`.
+replica of the controller. Without it, a random secret is drawn at every start (a warning is
+logged): sessions end when the controller restarts and are not shared between replicas. Set it
+in production (in Kubernetes, from a `Secret`: see [Kubernetes](../advanced/architecture.md#kubernetes)).
 
 Login failures are limited: after **5 failures in 15 minutes** for a user name from the same
 address, or **20 failures** from an address all user names together, the login is refused
@@ -611,8 +610,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the application (default: the one of the package) |
 | `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](#first-administrator), created at the first start of the controller while no account exists; its password is set with `user reset-password` |
 | `SECREVIEW_OIDC_ONLY` | `false` | With OIDC enabled, refuses the password login of the local accounts ([OIDC only](../advanced/sso.md#oidc-only)) |
-| `SECREVIEW_SECRET_KEY` | — | Signing secret of the sessions (at least 32 characters), identical on every replica |
-| `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | File of the secret when `SECREVIEW_SECRET_KEY` is unset, generated at the first start |
+| `SECREVIEW_SECRET_KEY` | — | Signing secret of the sessions (at least 32 characters), identical on every replica; unset: random at every start |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or OIDC login |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [OIDC account](../advanced/sso.md#oidc-accounts) at the first login; otherwise an administrator creates it |
 | `SECREVIEW_ENROLLMENT` | `true` | Project requests by the MCP clients without a token (on the MCP server), approved in the **Projects** screen; no token is created |

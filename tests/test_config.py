@@ -20,8 +20,4 @@ def test_the_tests_ignore_the_env_file_of_the_working_directory(tmp_path, monkey
 
 def test_the_tests_ignore_the_secreview_variables_of_the_shell():
     # Only the variables set by the fixtures of conftest.py remain
-    assert [
-        name
-        for name in os.environ
-        if name.upper().startswith("SECREVIEW_") and name != "SECREVIEW_SECRET_KEY_FILE"
-    ] == []
+    assert [name for name in os.environ if name.upper().startswith("SECREVIEW_")] == []

@@ -576,11 +576,10 @@ base :
   nouvelle session à l'onglet qui a changé le mot de passe.
 
 Les sessions sont signées avec `SECREVIEW_SECRET_KEY` (32 caractères au moins), partagé par
-toutes les répliques du contrôleur. Sans lui, le secret est lu dans
-`SECREVIEW_SECRET_KEY_FILE` (`secret-key` dans le répertoire de travail, `/var/lib/secreview` en
-Docker), où il est généré au premier démarrage avec les droits `0600` : les sessions survivent à
-un redémarrage, et les répliques qui partagent le volume partagent le secret. Des répliques sans
-volume partagé doivent partager `SECREVIEW_SECRET_KEY`.
+toutes les répliques du contrôleur. Sans lui, un secret aléatoire est tiré à chaque démarrage
+(un avertissement est journalisé) : les sessions se terminent au redémarrage du contrôleur et ne
+sont pas partagées entre répliques. Définissez-le en production (en Kubernetes, depuis un
+`Secret` : voir [Kubernetes](../advanced/architecture.md#kubernetes)).
 
 Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour un identifiant
 depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
@@ -640,8 +639,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
 | `SECREVIEW_ADMIN_USERNAME` | `admin` | Nom du [premier administrateur](#premier-administrateur), créé au premier démarrage du contrôleur tant qu'aucun compte n'existe ; son mot de passe se définit avec `user reset-password` |
 | `SECREVIEW_OIDC_ONLY` | `false` | Avec le OIDC activé, refuse la connexion par mot de passe des comptes locaux ([OIDC seul](../advanced/sso.md#oidc-seul)) |
-| `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques |
-| `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | Fichier du secret quand `SECREVIEW_SECRET_KEY` n'est pas défini, généré au premier démarrage |
+| `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques ; non défini : aléatoire à chaque démarrage |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session (1 à 24 heures), connexion par compte local ou OIDC |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le [compte OIDC](../advanced/sso.md#comptes-oidc) à la première connexion ; sinon un administrateur le crée |
 | `SECREVIEW_ENROLLMENT` | `true` | Demandes de projet par les clients MCP sans jeton (sur le serveur MCP), validées dans l'écran **Projets** ; aucun jeton n'est créé |

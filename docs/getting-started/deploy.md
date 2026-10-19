@@ -129,8 +129,9 @@ created at the first start; set its password with the CLI, which prints it once.
 Before applying it, replace the image `registry.example.com/security-review-mcp:pg` with an
 image that contains the PostgreSQL driver, for example `ghcr.io/cyr-ius/security-review-mcp:latest-pg`
 (see [Installation](installation.md)). The `secreview-controller` Secret holds the signing
-secret of the web sessions: the file system of the containers is read-only, the controller
-cannot generate it.
+secret of the web sessions: without it, the controller draws a random one at every start and
+the sessions end at every restart (manifest of the Secret: see
+[Kubernetes](../advanced/architecture.md#kubernetes)).
 
 ```bash
 kubectl create namespace secreview
