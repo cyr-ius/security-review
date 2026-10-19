@@ -45,7 +45,8 @@ dédié (feature *docker-in-docker*) et une base **PostgreSQL 17**. `compose.yam
 services : `app`, le conteneur de développement, et `db`, la base, joignable depuis `app` sous
 le nom `db` et conservée dans le volume `secreview-dev-pg` entre deux reconstructions.
 `SECREVIEW_DATABASE_URL` y pointe par défaut : le serveur MCP, le contrôleur et la CLI utilisent
-PostgreSQL. Les tests, eux, utilisent toujours une base SQLite en mémoire.
+PostgreSQL. Les tests, eux, utilisent toujours une base SQLite en mémoire et ignorent votre
+fichier `.env` et les variables `SECREVIEW_*` du shell.
 
 À sa création, le devcontainer installe le client `psql`, les hooks `prek` et l'environnement
 complet (`uv sync --extra dev --extra docs --extra postgres`), puis migre la base. Il redirige les

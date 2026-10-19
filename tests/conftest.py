@@ -1,5 +1,6 @@
 """Shared fixtures: an isolated in-memory database (with the default rules) and a clean registry."""
 
+import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -13,10 +14,18 @@ from security_review_mcp import (  # noqa: F401  (register the tables)
     rule_store,
 )
 from security_review_mcp.access_control import Permission
-from security_review_mcp.config import get_settings
+from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.database import set_engine
 from security_review_mcp.models import DISMISSED_STATUSES, FindingPublic, FindingStatus
 from security_review_mcp.services import update_finding_status
+
+# The tests ignore the configuration of the machine running them: the developer's .env file and
+# the SECREVIEW_* variables of the shell (devcontainer database, Swagger...). A test that needs
+# a setting sets it itself (monkeypatch.setenv, Settings(...)).
+Settings.model_config["env_file"] = None
+for _name in [name for name in os.environ if name.upper().startswith("SECREVIEW_")]:
+    del os.environ[_name]
+get_settings.cache_clear()
 
 
 def _memory_engine() -> Engine:
