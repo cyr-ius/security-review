@@ -111,8 +111,9 @@ the requested page once the controller answers again.
   changed or deleted.
 - **My account**: shows the type of the account and **My permissions**. A local user changes their
   password there (their other sessions are closed); the one of an OIDC user is managed by the
-  identity provider. **API tokens** creates and revokes personal [API tokens](#api-tokens)
-  (REST API and Swagger) that hold the rights of the account.
+  identity provider. **Personal tokens** creates and revokes the personal tokens of the account:
+  [REST API](#api-tokens) tokens (Swagger, scripts), which hold its rights, and
+  [MCP](#personal-mcp-tokens) tokens for its agent, which reach the projects it may read.
 - **Tokens**: pending enrollment requests are searchable, sortable and filterable by request
   type; active tokens are searchable, sortable and filterable by usage. Administrators create
   and revoke tokens for one or more projects, or for
@@ -305,8 +306,9 @@ An `api` token calls the REST API, from a script or from the Swagger documentati
 reaches `/mcp`, never opens the interface and, like every token, never accepts a risk nor marks
 a false positive. There are two kinds:
 
-- **Personal token**: a user creates it for themselves in **My account** > **API tokens** (10 at
-  most, label `<user>:<label>`, a `:` that no other token label may hold, validity bounded by `SECREVIEW_TOKEN_MAX_DAYS`). It holds the
+- **Personal token**: a user creates it for themselves in **My account** > **Personal tokens**
+  with **Usage** **REST API — Swagger and scripts** (one at most by default,
+  `SECREVIEW_PERSONAL_TOKENS_PER_USER`: revoke it to create another; label `<user>:<label>`, a `:` that no other token label may hold, validity bounded by `SECREVIEW_TOKEN_MAX_DAYS`). It holds the
   current rights of the account, which come from its groups: it reaches nothing once the account
   loses them, and is deleted with the account. Nobody can rotate it nor change its projects; an
   administrator can revoke it from the **Tokens** screen.
@@ -321,6 +323,28 @@ curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/j
 # {"id": "…", "label": "alice:swagger", "role": "api", "personal": true, "access_role_id": null, …, "token": "Zq3…"}
 curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 # {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
+```
+
+### Personal MCP tokens
+
+A user connects their own MCP agent with a personal `mcp` token, created in **My account** >
+**Personal tokens** with **Usage** **MCP** (one at most by default,
+`SECREVIEW_PERSONAL_TOKENS_PER_USER`, besides the REST API token). It reaches the projects the
+account may read (`reports.read` of its groups), read at each request: a project given to or
+removed from the account applies at once, every project when one of its groups reads every
+project, no project when it has none. The **Projects** column shows them, and so does the
+**Tokens** screen for the administrators.
+
+Like a personal REST API token, it stops while the account must change a password set by an
+administrator, it is deleted with the account, nobody can rotate it nor change
+its projects, and an administrator can revoke it. It has no complementary enrollment:
+`request_enrollment` refuses a project it does not reach, an administrator gives the account
+access to the project instead (a group that reads it). It never reaches the REST API.
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "mcp"}'
+# {"id": "…", "label": "alice:laptop", "role": "mcp", "personal": true, …, "token": "Zq3…"}
 ```
 
 ## User accounts

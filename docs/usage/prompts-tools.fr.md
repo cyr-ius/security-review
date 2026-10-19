@@ -64,6 +64,9 @@ projets autorisés ; `reload_rules` lui est refusé (voir
 [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)).
 Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux ;
 `request_enrollment` demande l'ajout au jeton courant sans créer ni révéler un nouveau secret.
+Un [jeton MCP personnel](web-interface.md#jetons-mcp-personnels) atteint plutôt les projets de
+son utilisateur : `request_enrollment` le refuse, un administrateur donne à l'utilisateur l'accès
+au projet.
 
 ### Serveur d'enrôlement
 

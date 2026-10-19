@@ -199,6 +199,9 @@ class Settings(BaseSettings):
     # enrollment), which is also its default validity. 0: tokens never expire unless an expiry is
     # asked for at creation or rotation.
     token_max_days: int = Field(default=0, ge=0, le=MAX_RETENTION_DAYS)
+    # Controller only: personal tokens a web user may hold of each kind (REST API and MCP),
+    # created in My account. Revoke one to create another.
+    personal_tokens_per_user: int = Field(default=1, ge=1, le=10)
 
     # Controller only: delete the audit events older than audit_retention_days, checked at start
     # then every day. 0 keeps them forever.

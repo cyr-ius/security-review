@@ -662,9 +662,11 @@ class TokenRoleChoice(BaseModel):
 
 
 class PersonalTokenCreate(BaseModel):
-    """Body of POST /me/tokens: an api token of the logged-in user, with its rights."""
+    """Body of POST /me/tokens: a personal token of the logged-in user, ``api`` (REST API, with
+    the rights of the user) or ``mcp`` (MCP agent, on the projects the user may read)."""
 
     label: str = Field(min_length=1, max_length=64)
+    role: Literal["api", "mcp"] = "api"
     # Validity in days (null: SECREVIEW_TOKEN_MAX_DAYS, or no expiry when it is 0)
     expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
 
@@ -695,7 +697,7 @@ class ProjectToken(BaseModel):
     role: Role
     # First project of the token (kept for API compatibility)
     project: str | None
-    # None: every project
+    # None: every project (personal mcp token: the projects its user may read now)
     projects: list[str] | None
     pending_projects: list[str]
     status: Literal["active", "pending"]

@@ -272,9 +272,13 @@ export class ProjectTokenListComponent {
     this.selectedProjects.update((selected) => toggled(selected, project, event));
   }
 
-  /** Text of the projects of a token: their names, or "All projects". */
+  /** Text of the projects of a token: their names, "All projects", or "No project" (a personal
+   * MCP token whose user reads none). */
   describeProjects(projects: string[] | null): string {
-    return projects === null ? this.i18n.translate('reports.allProjects') : projects.join(', ');
+    if (projects === null) {
+      return this.i18n.translate('reports.allProjects');
+    }
+    return projects.length ? projects.join(', ') : this.i18n.translate('apiTokens.noProject');
   }
 
   /** Projects offered when changing a token: known projects plus those of the token. */

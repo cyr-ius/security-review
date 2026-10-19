@@ -32,6 +32,7 @@ import {
   OidcSettingsUpdate,
   OidcTestResult,
   PermissionInfo,
+  PersonalTokenRole,
   Preferences,
   ProjectFindingPage,
   ProjectFindingQuery,
@@ -39,7 +40,6 @@ import {
   ProjectToken,
   ProjectTokenCreated,
   ProjectTokenRole,
-  TokenRoleChoice,
   ProxyUpdate,
   Report,
   ReportQuery,
@@ -49,6 +49,7 @@ import {
   RulePackSection,
   RuleReloadResult,
   StandardPackImportResult,
+  TokenRoleChoice,
   Trend,
   UpdateStatus,
   UserGroup,
@@ -287,15 +288,21 @@ export class ApiService {
     return this.http.get<TokenRoleChoice[]>(`${API_URL}/project-tokens/roles`);
   }
 
-  /** The api tokens of the logged-in user. */
+  /** The personal tokens (REST API and MCP) of the logged-in user. */
   myTokens(): Observable<ProjectToken[]> {
     return this.http.get<ProjectToken[]>(`${API_URL}/me/tokens`);
   }
 
-  /** Create an api token of the logged-in user, with its rights; its secret is shown once. */
-  createMyToken(label: string, expiresInDays: number | null): Observable<ProjectTokenCreated> {
+  /** Create a personal token of the logged-in user: api (its rights) or mcp (the projects it
+   * may read); its secret is shown once. */
+  createMyToken(
+    label: string,
+    expiresInDays: number | null,
+    role: PersonalTokenRole = 'api',
+  ): Observable<ProjectTokenCreated> {
     return this.http.post<ProjectTokenCreated>(`${API_URL}/me/tokens`, {
       label,
+      role,
       expires_in_days: expiresInDays,
     });
   }

@@ -31,7 +31,12 @@
   l'utilisateur, jamais renouvelé par un tiers, dont le nouveau secret porterait les droits de
   l'utilisateur) ou ceux de son rôle sur ses projets (jeton de rôle, dont le créateur doit détenir
   chaque permission). Un jeton ne crée jamais un autre jeton personnel. Un jeton `mcp` sans projet
-  accède à tous les outils MCP et à tous les projets.
+  accède à tous les outils MCP et à tous les projets ; un jeton `mcp` personnel atteint les
+  projets que son utilisateur peut lire à l'instant, aucun quand l'utilisateur n'en a pas (jamais
+  tous les projets par défaut), et s'arrête quand l'utilisateur est supprimé ou doit changer un mot
+  de passe défini par un administrateur. Un utilisateur web
+  détient au plus `SECREVIEW_PERSONAL_TOKENS_PER_USER` jetons personnels de chaque rôle (1 par
+  défaut).
 - **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`,
   ou seulement le [serveur d'enrôlement](../advanced/http.md#jeton-refuse-nouvel-enrolement) sur
   `/mcp`), et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons

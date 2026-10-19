@@ -76,7 +76,9 @@ racine du dépôt, sans `headers` :
 Sur un serveur partagé qui exige un jeton, vous n'avez pas besoin d'en réclamer un à
 l'administrateur avant de commencer : configurez l'hôte comme ci-dessus, **sans jeton**, et
 lancez votre première revue. Le jeton est demandé au passage, puis validé par un administrateur
-(voir [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton)).
+(voir [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton)). Avec un
+compte web, vous pouvez plutôt créer un [jeton MCP personnel](../usage/web-interface.md#jetons-mcp-personnels)
+dans **Mon compte** : il atteint les projets que votre compte peut lire.
 
 1. **Configurez l'hôte sans jeton.** Avec les exemples de la section
    [Transport HTTP](#transport-http), laissez la saisie du jeton vide (VS Code) ou ne définissez

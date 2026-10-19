@@ -717,6 +717,80 @@ def test_the_label_of_a_personal_token_names_its_user():
         token_store.create_personal_token(999, "x")
 
 
+def test_a_personal_mcp_token_reaches_the_projects_its_user_may_read():
+    """The projects are read at each request: a project granted or removed applies at once."""
+    from conftest import group_for
+
+    from security_review_mcp import web_users
+
+    user = make_user("alice", "Correct horse battery 9", "reader", ["shop-api"])
+    created = token_store.create_personal_token(user["id"], "agent", role="mcp")
+    assert (created["role"], created["personal"], created["projects"]) == ("mcp", True, None)
+
+    info = STORE.lookup(digest_of(created["token"]))
+    assert (info.role, info.projects) == (Role.MCP, frozenset({"shop-api"}))
+    listed = token_store.list_personal_tokens(user["id"])
+    assert [item["projects"] for item in listed] == [["shop-api"]]
+    assert token_store.enrollment_status(created["id"])["projects"] == ["shop-api"]
+
+    web_users.update_user(user["id"], [group_for("reader", ["billing", "shop-api"])])
+    info = STORE.lookup(digest_of(created["token"]))
+    assert info.projects == frozenset({"billing", "shop-api"})
+    # Without any group, the token reaches no project (never every project)
+    web_users.update_user(user["id"], [])
+    assert STORE.lookup(digest_of(created["token"])).projects == frozenset()
+    web_users.update_user(user["id"], [group_for("reader")])
+    assert STORE.lookup(digest_of(created["token"])).projects is None
+
+
+def test_a_personal_mcp_token_has_no_complementary_enrollment():
+    user = make_user("alice", "Correct horse battery 9", "reader", ["shop-api"])
+    created = token_store.create_personal_token(user["id"], "agent", role="mcp")
+
+    with pytest.raises(ValueError, match="give your account access to project 'billing'"):
+        token_store.request_additional_project(created["id"], "billing")
+    with pytest.raises(ValueError, match="no projects"):
+        token_store.set_token_projects(created["id"], ["billing"])
+    with pytest.raises(ValueError, match="cannot be rotated"):
+        token_store.rotate_token(created["id"])
+    assert token_store.list_enrollments() == []
+
+
+def test_a_personal_mcp_token_stops_with_its_user():
+    from security_review_mcp import web_users
+
+    user = make_user("alice", "Correct horse battery 9", "reader", ["shop-api"])
+    created = token_store.create_personal_token(user["id"], "agent", role="mcp")
+
+    # A password set by an administrator stops it until the user chooses its own
+    web_users.set_password(user["id"], "Another horse battery 9")
+    assert STORE.lookup(digest_of(created["token"])) is None
+    web_users.set_password(user["id"], "Correct horse battery 9", must_change=False)
+    assert STORE.lookup(digest_of(created["token"])) is not None
+
+    web_users.delete_user(user["id"], "token:admin")
+
+    assert STORE.lookup(digest_of(created["token"])) is None
+
+
+def test_personal_tokens_are_bounded_per_role(monkeypatch):
+    user = make_user("alice", "Correct horse battery 9", "reader")
+    token_store.create_personal_token(user["id"], "rest")
+    token_store.create_personal_token(user["id"], "agent", role="mcp")
+
+    # One token of each role by default (SECREVIEW_PERSONAL_TOKENS_PER_USER)
+    with pytest.raises(ValueError, match="at most 1 personal api token"):
+        token_store.create_personal_token(user["id"], "rest-2")
+    with pytest.raises(ValueError, match="at most 1 personal mcp token"):
+        token_store.create_personal_token(user["id"], "agent-2", role="mcp")
+    monkeypatch.setattr(get_settings(), "personal_tokens_per_user", 2)
+    token_store.create_personal_token(user["id"], "agent-2", role="mcp")
+    # Only an api or an mcp token is personal
+    for role in ("ci", "admin", "metrics", "nope"):
+        with pytest.raises(ValueError, match="cannot create a personal"):
+            token_store.create_personal_token(user["id"], "other", role=role)
+
+
 def test_only_a_personal_token_has_a_colon_in_its_label():
     """``<username>:<label>`` names the user of a personal token: no other token imitates it."""
     with pytest.raises(ValueError, match="must not contain ':'"):

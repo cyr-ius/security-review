@@ -63,7 +63,9 @@ projects; `reload_rules` is refused to it (see
 [tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
 A token tied to several projects can use the report tools on each of them;
 `request_enrollment` requests the addition to the current token without creating nor revealing
-a new secret.
+a new secret. A [personal MCP token](web-interface.md#personal-mcp-tokens) reaches the projects
+of its user instead: `request_enrollment` refuses it, an administrator gives the user access to
+the project.
 
 ### Enrollment server
 
