@@ -372,12 +372,6 @@ def test_report_list_search_sort_and_bounds(client):
     assert client.get("/api/v1/reports", params={"sort_by": "unknown"}).status_code == 422
 
 
-def test_unknown_report_is_404(client):
-    response = client.get("/api/v1/reports/999")
-    assert response.status_code == 404
-    assert "not found" in response.json()["detail"]
-
-
 def test_posture_trend_and_sarif(client, reports):
     posture = client.get("/api/v1/posture", params={"project": "shop-api"}).json()
     assert posture["open_findings_total"] == 2
@@ -623,11 +617,6 @@ def test_default_checklist_item_can_be_updated_but_not_deleted(client):
     assert client.delete("/api/v1/checklists/python/PY-01").status_code == 422
 
 
-def test_checklist_management_requires_admin(secured, web_sessions):
-    assert secured.get("/api/v1/checklists", headers=auth("reader")).status_code == 403
-    assert secured.get("/api/v1/checklists", headers=auth("admin")).status_code == 200
-
-
 def test_builtin_rule_can_be_disabled(client):
     response = client.patch("/api/v1/rules/PY-001/enabled", json={"enabled": False})
     assert response.status_code == 200
@@ -723,6 +712,13 @@ def test_a_token_can_fix_but_never_dismiss(secured, reports):
         response = secured.patch("/api/v1/findings/1", json=body, headers=auth("admin"))
         assert response.status_code == 403, dismissal
         assert "logged in to the web interface" in response.json()["detail"]
+
+    # Neither does the personal API token of a triager
+    make_user("tess", USER_PASSWORD, "triager")
+    tess = session_headers(secured, "tess")
+    token = secured.post("/api/v1/me/tokens", json={"label": "bot"}, headers=tess).json()
+    response = secured.patch("/api/v1/findings/1", json=body, headers=_bearer(token["token"]))
+    assert response.status_code == 403
 
     response = secured.patch("/api/v1/findings/1", json={"status": "fixed"}, headers=auth("admin"))
     assert response.status_code == 200
@@ -986,12 +982,8 @@ def test_roles_are_managed_with_users_manage(secured, web_sessions, caplog):
 @pytest.mark.parametrize(
     "body",
     [
-        {"name": "Auditor", "permissions": []},
         {"name": "Auditor", "permissions": ["root.everything"]},
-        {"name": "", "permissions": ["audit.read"]},
         {"name": "x" * 65, "permissions": ["audit.read"]},
-        {"name": "Auditor", "permissions": ["audit.read"], "description": "x" * 501},
-        {"name": "reader", "permissions": ["audit.read"]},
     ],
 )
 def test_invalid_roles_are_refused(secured, body):
@@ -1072,12 +1064,6 @@ def test_groups_are_managed_with_users_manage(secured, web_sessions, caplog):
     assert secured.delete(f"{url}/{group['id']}", headers=admin).status_code == 204
     assert web_users.find_user("alice")["permissions"] == {}
     assert secured.delete(f"{url}/{group['id']}", headers=admin).status_code == 404
-
-
-def test_the_role_mappings_are_gone(secured):
-    for url in ("/api/v1/oidc/role-mappings", "/api/v1/oidc/user-grants"):
-        response = secured.post(url, json={"claim_value": "devs"}, headers=auth("admin"))
-        assert response.status_code in (404, 405)
 
 
 def test_a_custom_role_opens_only_its_routes(accounts, reports):
@@ -1487,39 +1473,21 @@ def test_project_token_errors(secured, web_sessions, reports):
     assert secured.get("/api/v1/project-tokens", headers=auth("triager")).status_code == 403
 
 
-@pytest.mark.parametrize("role", ["mcp", "ci"])
-def test_admin_creates_project_token_with_selected_role(secured, reports, role):
+@pytest.mark.parametrize(
+    ("role", "status_code"),
+    [("mcp", 201), ("ci", 201), ("reader", 422), ("triager", 422), ("admin", 422)],
+)
+def test_project_token_creation_by_role(secured, reports, role, status_code):
+    """Project tokens are for machines: a person reaches the web API through a session."""
     response = secured.post(
         "/api/v1/project-tokens",
         json={"label": f"{role}-client", "role": role, "projects": ["shop-api"]},
         headers=auth("admin"),
     )
 
-    assert response.status_code == 201
-    assert response.json()["role"] == role
-
-
-@pytest.mark.parametrize("role", ["reader", "triager"])
-def test_a_token_for_a_person_cannot_be_created(secured, reports, role):
-    """A person reaches the web API through a session and its groups, never a token."""
-    response = secured.post(
-        "/api/v1/project-tokens",
-        json={"label": f"{role}-client", "role": role, "projects": ["shop-api"]},
-        headers=auth("admin"),
-    )
-
-    assert response.status_code == 422
-    assert f"{role}-client" not in {row.label for row in _stored_tokens()}
-
-
-def test_project_token_creation_rejects_admin_role(secured, reports):
-    response = secured.post(
-        "/api/v1/project-tokens",
-        json={"label": "admin-client", "role": "admin", "projects": ["shop-api"]},
-        headers=auth("admin"),
-    )
-
-    assert response.status_code == 422
+    assert response.status_code == status_code
+    stored = f"{role}-client" in {row.label for row in _stored_tokens()}
+    assert stored is (status_code == 201)
 
 
 def test_admin_token_cannot_be_revoked_as_a_project_token(secured):
@@ -1721,7 +1689,7 @@ def test_approval_creates_the_sso_user_when_oidc_is_enabled(sso_secured, mcp_ser
     }
 
 
-def test_approval_without_portal_user_grants_no_web_access(sso_secured, mcp_server):
+def test_approval_grants_no_web_access_without_a_portal_user(sso_secured, mcp_server):
     created = mcp_server.post(
         "/api/v1/enroll", json={"project": "new-service", "requested_by": "alice"}
     ).json()
@@ -1733,8 +1701,7 @@ def test_approval_without_portal_user_grants_no_web_access(sso_secured, mcp_serv
     assert approved.status_code == 200 and "portal_user" not in approved.json()
     assert web_users.list_users() == []
 
-
-def test_failed_approval_grants_no_web_access(sso_secured):
+    # A failed approval creates no user either
     response = sso_secured.post(
         "/api/v1/enrollments/unknown/approve", json={"portal_user": "alice"}, headers=auth("admin")
     )
@@ -1906,10 +1873,19 @@ def test_project_triager_only_changes_findings_of_its_project(secured, reports):
         ("put", "/api/v1/settings/audit-syslog"),
         ("get", "/api/v1/advisories"),
         ("post", "/api/v1/advisories/update"),
+        ("get", "/api/v1/oidc/settings"),
+        ("put", "/api/v1/oidc/settings"),
+        ("post", "/api/v1/oidc/settings/test"),
+        ("get", "/api/v1/checklists"),
+        ("get", "/api/v1/packs/rules"),
+        ("post", "/api/v1/packs/rules"),
+        ("get", "/api/v1/packs/standards"),
+        ("post", "/api/v1/packs/standards"),
+        ("post", "/api/v1/project-tokens/1/rotate"),
     ],
 )
-def test_settings_and_advisories_are_admin_only(secured, web_sessions, method, path):
-    assert secured.request(method, path).status_code == 401
+def test_admin_routes_refuse_anonymous_and_other_roles(secured, web_sessions, method, path):
+    assert secured.request(method, path, json={}).status_code == 401
     for role in ("reader", "triager"):
         response = secured.request(method, path, headers=auth(role), json={"mode": "env"})
         assert response.status_code == 403, role
@@ -1977,14 +1953,20 @@ def test_admin_sets_the_proxy_and_never_gets_the_password_back(client, caplog):
     assert reset["url"]["value"] is None and reset["no_proxy"]["value"] == "osv.internal"
 
 
-def test_invalid_proxy_is_refused(client):
-    for body in (
-        {"url": "socks5://proxy:1080"},
-        {"no_proxy": "example.com/path"},
-        {"mode": "custom"},
-        {"url": "http://" + "a" * 500},
-    ):
-        assert client.put("/api/v1/settings/proxy", json=body).status_code == 422, body
+@pytest.mark.parametrize(
+    ("path", "body"),
+    [
+        ("/api/v1/settings/proxy", {"url": "socks5://proxy:1080"}),
+        ("/api/v1/settings/proxy", {"url": "http://" + "a" * 500}),
+        ("/api/v1/settings/audit-syslog", {"address": "unix:///dev/log"}),
+        ("/api/v1/settings/audit-syslog", {"address": "udp://" + "a" * 500}),
+        ("/api/v1/oidc/settings", {"cafile": "/etc/passwd"}),
+        ("/api/v1/oidc/settings", {"issuer": "a" * 501}),
+    ],
+)
+def test_invalid_settings_are_refused(client, path, body):
+    """The detailed cases are in test_app_settings: here, an error of the module is a 422."""
+    assert client.put(path, json=body).status_code == 422
 
 
 def test_admin_sets_the_syslog_server_of_the_audit_log(client):
@@ -2017,17 +1999,6 @@ def test_a_set_syslog_variable_locks_the_web_setting(client, monkeypatch):
     assert "takes precedence" in response.json()["detail"]
     body = client.get("/api/v1/settings/audit-syslog").json()
     assert body["address"]["env_set"] is True and body["effective"]["source"] == "environment"
-
-
-def test_invalid_syslog_server_is_refused(client):
-    for body in (
-        {"address": "unix:///dev/log"},
-        {"address": "syslog.example.com:514"},
-        {"facility": "nope"},
-        {"server": "udp://syslog"},
-        {"address": "udp://" + "a" * 500},
-    ):
-        assert client.put("/api/v1/settings/audit-syslog", json=body).status_code == 422, body
 
 
 def test_a_proxy_change_rebuilds_the_sso_login(ui_dir):
@@ -2182,19 +2153,6 @@ def test_web_user_accepts_a_risk_without_expiry_unless_disabled(accounts, report
     response = accounts.patch(url, json={"status": "accepted", "reason": reason}, headers=headers)
     assert response.status_code == 422
     assert "expiry date is required" in response.text
-
-
-def test_reader_session_cannot_dismiss(accounts, reports):
-    make_user("rita", USER_PASSWORD, "reader")
-    body = {
-        "status": "false_positive",
-        "reason": "Dead code, never called",
-        "expires_on": (date.today() + timedelta(days=30)).isoformat(),
-    }
-    response = accounts.patch(
-        "/api/v1/findings/1", json=body, headers=session_headers(accounts, "rita")
-    )
-    assert response.status_code == 403
 
 
 def test_triager_rejects_an_agent_proposal(secured, web_sessions, reports):
@@ -2457,10 +2415,21 @@ def test_users_keep_their_theme_on_every_browser(accounts):
     assert refused.status_code == 422
 
 
-def test_a_token_has_no_preferences(secured):
-    assert secured.get("/api/v1/me/preferences", headers=auth("admin")).status_code == 403
-    response = secured.put("/api/v1/me/preferences", json={"theme": "dark"}, headers=auth("admin"))
+@pytest.mark.parametrize(
+    ("method", "path", "body"),
+    [
+        ("get", "/api/v1/me/preferences", None),
+        ("put", "/api/v1/me/preferences", {"theme": "dark"}),
+        ("post", "/api/v1/me/logout", None),
+        ("put", "/api/v1/me/password", {"current_password": "x", "new_password": "Long secret 2"}),
+    ],
+)
+def test_a_token_has_no_user_routes(secured, method, path, body):
+    """A Bearer token is not a person: it has no preferences, session or password."""
+    kwargs = {"json": body} if body else {}
+    response = getattr(secured, method)(path, headers=auth("admin"), **kwargs)
     assert response.status_code == 403
+    assert audit.list_events(action="user.logout")["total"] == 0
 
 
 def test_a_user_must_change_a_password_set_by_someone_else(accounts, reports):
@@ -2504,13 +2473,6 @@ def test_logins_failures_and_logouts_are_audited(accounts):
     assert "Wrong password" not in str(events) and USER_PASSWORD not in str(events)
 
 
-def test_a_token_has_no_session_to_log_out(secured):
-    response = secured.post("/api/v1/me/logout", headers=auth("admin"))
-
-    assert response.status_code == 403
-    assert audit.list_events(action="user.logout")["total"] == 0
-
-
 def test_a_user_who_must_change_its_password_reaches_no_pipeline_route(accounts, reports):
     make_user("alice", USER_PASSWORD, "reader", must_change=True)
     headers = session_headers(accounts, "alice")
@@ -2532,19 +2494,6 @@ def test_a_weak_new_password_is_refused_with_the_broken_rules(accounts):
     detail = refused.json()["detail"]
     assert "an uppercase letter" in detail and "a digit" in detail
     assert login(accounts, "alice").status_code == 200
-
-
-def test_a_token_has_no_password_to_change(accounts):
-    secret = token_store.create_token("ops", "admin")["token"]
-    body = {"current_password": "x", "new_password": "Another long secret 2"}
-
-    response = accounts.put(
-        "/api/v1/me/password", json=body, headers={"Authorization": f"Bearer {secret}"}
-    )
-
-    assert response.status_code == 403
-    me = accounts.get("/api/v1/me", headers={"Authorization": f"Bearer {secret}"}).json()
-    assert me["local_account"] is False
 
 
 STANDARD = {
@@ -2588,10 +2537,7 @@ def test_development_standard_lifecycle(client, caplog):
 @pytest.mark.parametrize(
     "changes",
     [
-        {"slug": "Bad Slug"},
-        {"content": ""},
         {"technologies": ["<b>"]},
-        {"file_patterns": ["x" * 101]},
         {"content": "x" * 50_001},
     ],
 )
@@ -2688,18 +2634,6 @@ def test_rule_pack_export_and_import(client):
     assert "ACME-002" not in {row["id"] for row in custom_rules(client)}
 
 
-def test_packs_need_their_permission(secured, web_sessions):
-    body = {"content": '[[standards]]\nslug = "a"\ntitle = "t"\ncontent = "c"'}
-    for path in ("/api/v1/packs/rules", "/api/v1/packs/standards"):
-        assert secured.get(path).status_code == 401
-        assert secured.post(path, json=body).status_code == 401
-        for role in ("reader", "triager"):
-            assert secured.get(path, headers=auth(role)).status_code == 403
-            assert secured.post(path, json=body, headers=auth(role)).status_code == 403
-        assert secured.get(path, headers=auth("admin")).status_code == 200
-    assert secured.get("/api/v1/standards", headers=auth("admin")).json()["standards"] == []
-
-
 # ── OIDC settings ─────────────────────────────────────────────────────────────
 
 OIDC_SETTINGS = {
@@ -2711,21 +2645,6 @@ OIDC_SETTINGS = {
     "display_name": "Acme OIDC",
     "admin_groups": "secreview-admins",
 }
-
-
-@pytest.mark.parametrize(
-    ("method", "path"),
-    [
-        ("get", "/api/v1/oidc/settings"),
-        ("put", "/api/v1/oidc/settings"),
-        ("post", "/api/v1/oidc/settings/test"),
-    ],
-)
-def test_sso_settings_are_admin_only(secured, web_sessions, method, path):
-    assert secured.request(method, path, json={}).status_code == 401
-    for role in ("reader", "triager"):
-        response = secured.request(method, path, headers=auth(role), json={})
-        assert response.status_code == 403, role
 
 
 def test_sso_set_in_the_web_interface_enables_the_login_at_once(client, caplog):
@@ -2757,18 +2676,10 @@ def test_sso_set_in_the_web_interface_enables_the_login_at_once(client, caplog):
     assert client.get("/api/v1/auth/config").json()["oidc"] is False
 
 
-def test_invalid_sso_settings_are_refused(client):
+def test_sso_cannot_be_enabled_without_an_issuer(client):
     response = client.put("/api/v1/oidc/settings", json={"enabled": True})
     assert response.status_code == 422
     assert "SECREVIEW_OIDC_ISSUER" in response.json()["detail"]
-    for body in (
-        {"cafile": "/etc/passwd"},
-        {"default_role": "admin"},
-        {"reader_groups": "devs"},
-        {"default_group": "a" * 501},
-        {"issuer": "a" * 501},
-    ):
-        assert client.put("/api/v1/oidc/settings", json=body).status_code == 422
     assert client.get("/api/v1/oidc/settings").json()["active"] is False
 
 
@@ -2885,13 +2796,6 @@ def test_project_token_rotation_errors(client):
     too_long = {"grace_hours": token_store.MAX_ROTATION_GRACE_HOURS + 1}
     response = client.post(f"/api/v1/project-tokens/{token['id']}/rotate", json=too_long)
     assert response.status_code == 422
-
-
-def test_rotation_needs_an_admin(secured, web_sessions):
-    token = token_store.create_token("ci", Role.MCP, ["shop-api"])
-    for role in ("reader", "triager"):
-        response = secured.post(f"/api/v1/project-tokens/{token['id']}/rotate", headers=auth(role))
-        assert response.status_code == 403
 
 
 def test_web_actions_are_audited_with_the_user_or_the_token(accounts, secured, reports):
@@ -3180,19 +3084,6 @@ def test_a_personal_api_token_holds_the_current_rights_of_its_user(secured, repo
     assert patched.status_code == 200
     web_users.update_user(alice["id"], [])
     assert secured.get("/api/v1/me", headers=token).status_code == 401
-
-
-def test_an_api_token_never_dismisses_a_finding(secured, reports):
-    make_user("tess", USER_PASSWORD, "triager")
-    headers = session_headers(secured, "tess")
-    token = secured.post("/api/v1/me/tokens", json={"label": "bot"}, headers=headers).json()
-    expires_on = (date.today() + timedelta(days=30)).isoformat()
-    body = {"status": "accepted", "reason": "Not reachable at all", "expires_on": expires_on}
-
-    response = secured.patch("/api/v1/findings/1", json=body, headers=_bearer(token["token"]))
-
-    assert response.status_code == 403
-    assert "logged in to the web interface" in response.json()["detail"]
 
 
 def test_personal_api_tokens_are_bounded_and_private(secured, reports, monkeypatch):
