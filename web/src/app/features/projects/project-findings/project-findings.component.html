@@ -14,14 +14,17 @@
   </ol>
 </nav>
 
-<div class="mb-3">
-  @if (project(); as name) {
-    <h1 class="h3 mb-1 text-break">{{ 'projectFindings.heading' | t: { project: name } }}</h1>
-    <p class="text-body-secondary small mb-0">{{ 'projectFindings.subtitle' | t }}</p>
-  } @else {
-    <h1 class="h3 mb-1">{{ 'projectFindings.headingAll' | t }}</h1>
-    <p class="text-body-secondary small mb-0">{{ 'projectFindings.subtitleAll' | t }}</p>
-  }
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    @if (project(); as name) {
+      <h1 class="h3 mb-1 text-break">{{ 'projectFindings.heading' | t: { project: name } }}</h1>
+      <p class="text-body-secondary small mb-0">{{ 'projectFindings.subtitle' | t }}</p>
+    } @else {
+      <h1 class="h3 mb-1">{{ 'projectFindings.headingAll' | t }}</h1>
+      <p class="text-body-secondary small mb-0">{{ 'projectFindings.subtitleAll' | t }}</p>
+    }
+  </div>
+  <app-refresh-button [loading]="firstPage.isLoading()" (refresh)="firstPage.reload()" />
 </div>
 
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">

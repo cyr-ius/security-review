@@ -73,7 +73,7 @@ shown), and the browser remembers the chosen sort for the next visits.
   findings. Users with the `findings.triage` permission change the status of each finding from this
   screen and apply or reject the statuses proposed by the agents (see
   [triage of findings](#triage-of-findings)); a triaged finding stays displayed until the next
-  reload.
+  reload (**Refresh** button).
 - **Reports**: list filtered by project and risk level, searchable across report metadata and
   summary, and sortable by date, project, risk, type, branch, author or summary. Search and
   filters stay in the URL, so a view can be shared; the sort is remembered by the browser.
