@@ -76,9 +76,11 @@ class Permission(StrEnum):
 SCOPED_PERMISSIONS = frozenset({Permission.REPORTS_READ, Permission.FINDINGS_TRIAGE})
 ALL_PERMISSIONS = frozenset(Permission)
 # Built-in roles, which the code relies on (the ``triager`` role is an ordinary one)
+READER_ROLE = "reader"
+ADMIN_ROLE = "admin"
 SYSTEM_ROLES: dict[str, frozenset[Permission]] = {
-    Role.READER.value: frozenset({Permission.REPORTS_READ}),
-    Role.ADMIN.value: ALL_PERMISSIONS,
+    READER_ROLE: frozenset({Permission.REPORTS_READ}),
+    ADMIN_ROLE: ALL_PERMISSIONS,
 }
 # Group of the first administrator (not matched against the OIDC groups claim)
 ADMIN_GROUP = "administrators"
@@ -148,19 +150,6 @@ def scope(grants: Grants, permission: Permission) -> frozenset[str] | None:
     if permission not in grants:
         return frozenset()
     return grants[permission]
-
-
-def summary_role(grants: Grants) -> Role:
-    """Web role that sums up grants: ``admin`` with every permission on every project,
-    ``triager`` with the triage permission, ``reader`` otherwise.
-
-    Only the bearer middleware and the display use it: the routes check the permissions.
-    """
-    if all(grants.get(permission, frozenset()) is None for permission in ALL_PERMISSIONS):
-        return Role.ADMIN
-    if Permission.FINDINGS_TRIAGE in grants:
-        return Role.TRIAGER
-    return Role.READER
 
 
 def _bindings(session: Session, user_id: int) -> list[tuple[frozenset[str], list[str] | None]]:
@@ -385,7 +374,7 @@ def ensure_admin_group(session: Session, name: str = ADMIN_GROUP, sso: bool = Fa
     row = session.exec(select(UserGroup).where(UserGroup.name == name)).first()
     if row is not None:
         return row
-    role_id = ensure_system_roles(session)[Role.ADMIN.value]
+    role_id = ensure_system_roles(session)[ADMIN_ROLE]
     row = UserGroup(name=name, sso=sso, created_by="bootstrap")
     session.add(row)
     session.flush()
@@ -887,7 +876,7 @@ def add_user_to_group(
 def find_project_group(session: Session, project: str) -> UserGroup | None:
     """The project group of ``project``: a group without OIDC whose only role is ``reader`` on
     this project alone (the oldest one when there are several), or None."""
-    reader = ensure_system_roles(session)[Role.READER.value]
+    reader = ensure_system_roles(session)[READER_ROLE]
     candidates = session.exec(
         select(UserGroup)
         .join(GroupRole, col(GroupRole.group_id) == col(UserGroup.id))
@@ -934,7 +923,7 @@ def ensure_project_group(session: Session, project: str, actor: str | None = Non
         return row
     if session.exec(select(func.count()).select_from(UserGroup)).one() >= MAX_GROUPS:
         raise ValueError(f"At most {MAX_GROUPS} groups can be stored")
-    reader = ensure_system_roles(session)[Role.READER.value]
+    reader = ensure_system_roles(session)[READER_ROLE]
     row = UserGroup(name=_project_group_name(session, cleaned), sso=False, created_by=actor)
     session.add(row)
     try:

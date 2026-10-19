@@ -55,7 +55,7 @@ from . import access_control, audit, token_store
 from .audit import AuditAction
 from .config import Settings
 from .database import session_scope
-from .http_server import TokenInfo
+from .http_server import Role, TokenInfo
 from .models import RevokedSsoUser, WebUser, utcnow
 from .oidc import MAX_LABEL_CHARS, OidcError, OidcIdentity, SessionSigner, same_value
 from .services import NotFoundError
@@ -288,7 +288,6 @@ def _public(session: Session, row: WebUser) -> dict[str, Any]:
             name: None if projects is None else sorted(projects)
             for name, projects in sorted(grants.items())
         },
-        "effective_role": access_control.summary_role(grants).value if grants else None,
         "sso_linked": row.oidc_subject is not None,
         "created_at": _iso(row.created_at),
         "updated_at": _iso(row.updated_at),
@@ -732,10 +731,8 @@ def _session(signer: SessionSigner, row: WebUser, grants: access_control.Grants)
     """Issue a session token for a web user, with its current access and version."""
     if not grants or row.id is None:
         raise ValueError(f"Web user {row.username} has no permission")
-    role = access_control.summary_role(grants)
     token = signer.issue_session(
         _label(row),
-        role,
         access_control.scope(grants, Permission.REPORTS_READ),
         user_id=row.id,
         user_version=row.session_version,
@@ -744,7 +741,6 @@ def _session(signer: SessionSigner, row: WebUser, grants: access_control.Grants)
         "session": token,
         "expires_in": signer.session_seconds,
         "username": row.username,
-        "role": role,
         "must_change_password": row.must_change_password,
     }
 
@@ -859,9 +855,7 @@ def oidc_login(
         # The OIDC groups it lost are committed, so that its other sessions lose them too
         logger.warning("OIDC login of %s refused: no group gives it a permission", label)
         raise OidcError("forbidden", "No web role granted to this user")
-    logger.info(
-        "OIDC login of %s with role %s through %d OIDC group(s)", label, result["role"], len(joined)
-    )
+    logger.info("OIDC login of %s through %d OIDC group(s)", label, len(joined))
     return result
 
 
@@ -884,7 +878,7 @@ def session_identity(user_id: int, version: int, username: str) -> TokenInfo | N
             return None
         return TokenInfo(
             label=_label(row),
-            role=access_control.summary_role(grants),
+            role=Role.USER,
             projects=access_control.scope(grants, Permission.REPORTS_READ),
             user_id=row.id,
             auth_source=row.auth_source,

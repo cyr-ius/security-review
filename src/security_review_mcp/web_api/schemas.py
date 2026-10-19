@@ -43,7 +43,7 @@ class Identity(BaseModel):
     """Who is calling and what they may do."""
 
     client: str
-    # Role of a token; for a web user, the web role that sums up its permissions
+    # Role of a token; ``user`` for a web session, whose rights are its ``permissions``
     role: Role
     can_triage: bool
     # Always true: the API answers authenticated requests only (kept for API compatibility)
@@ -94,7 +94,6 @@ class LoginSession(BaseModel):
     session: str
     expires_in: int
     username: str
-    role: Role
     # True: only the change of the password is reachable until it is done
     must_change_password: bool = False
 
@@ -759,9 +758,8 @@ class WebUser(BaseModel):
     username: str
     auth_source: AuthSource
     groups: list[UserGroupMembership]
+    # Each permission with its projects (None: every project); empty: no access
     permissions: dict[str, list[str] | None]
-    # Web role that sums up the permissions; None: no permission
-    effective_role: Role | None
     # True once an OIDC user logged in (bound to its identity provider account)
     sso_linked: bool
     created_at: str | None

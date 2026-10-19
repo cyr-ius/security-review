@@ -749,10 +749,9 @@ def test_token_approve_creates_the_sso_user_when_oidc_is_enabled(capsys, monkeyp
 
     assert code == cli.EXIT_PASSED
     user = approved["portal_user"]
-    assert (user["username"], user["auth_source"], user["effective_role"], user["permissions"]) == (
+    assert (user["username"], user["auth_source"], user["permissions"]) == (
         "alice",
         "oidc",
-        "reader",
         {"reports.read": ["shop-api"]},
     )
     assert user["created_by"] == "cli"

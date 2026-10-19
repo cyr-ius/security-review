@@ -25,7 +25,7 @@ The screens are reached from the sidebar: **Supervision** (projects, reports) fo
 then **Reference** (rules, checklists, standards) and **Administration** (users, groups, roles,
 tokens, audit log, OIDC, report language, outgoing proxy, OSV database), each shown only to the
 accounts that hold its [permission](../advanced/access-control.md#permissions). The bottom
-of the sidebar shows the connected client, its role and the version (a link to **About**), with the **My account** and logout buttons.
+of the sidebar shows the connected client (its permissions when hovered) and the version (a link to **About**), with the **My account** and logout buttons.
 On a small screen, the sidebar is reduced to its icons (each one names its screen when hovered)
 and the button at the top left opens it in full; on a large screen, the same button reduces it
 to its icons or expands it, a choice remembered by the browser.
@@ -97,7 +97,7 @@ the requested page once the controller answers again.
   with a badge in the list. The account list is searchable, sortable and filterable by type.
   Deleted OIDC accounts can be searched, sorted and filtered by the revoking administrator. The administrator chooses its **Groups**, the only source of its
   permissions; the **Groups** column shows the groups, with a shield for the OIDC groups found at
-  the last login, and **Access** sums up what they give. The administrator changes the groups of
+  the last login, and **Access** lists the permissions they give, with their projects. The administrator changes the groups of
   an account, resets the password of a local account or deletes an account. A deleted OIDC account is no longer created again at its login:
   the **Deleted OIDC accounts** section lists them, with the **Allow again** button. The last
   holder of `users.manage` can be neither deleted nor lose it.
@@ -109,7 +109,7 @@ the requested page once the controller answers again.
   create roles from the permissions; the built-in roles `reader` and `admin` are shown read
   only. `triager` (read and triage), created with the database, is an ordinary role: it can be
   changed or deleted.
-- **My account**: shows the type of the account. A local user changes their
+- **My account**: shows the type of the account and **My permissions**. A local user changes their
   password there (their other sessions are closed); the one of an OIDC user is managed by the
   identity provider. **API tokens** creates and revokes personal [API tokens](#api-tokens)
   (REST API and Swagger) that hold the rights of the account.
@@ -342,7 +342,7 @@ through the `/api/v1/users` REST API (`users.manage` permission) or with the
 
 ```bash
 security-review-controller user create alice --group shop-triagers
-# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, "effective_role": "triager", …, "password": "q3V…"}
+# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
 security-review-controller user create carol@example.com --sso   # OIDC groups only
 security-review-controller user list
@@ -451,7 +451,7 @@ a Bearer token:
 ```bash
 curl -s -X POST https://secreview.example.com/api/v1/auth/login \
   -H 'Content-Type: application/json' -d '{"username": "alice", "password": "…"}'
-# {"session": "eyJ…", "expires_in": 28800, "username": "alice", "role": "triager"}
+# {"session": "eyJ…", "expires_in": 28800, "username": "alice"}
 ```
 
 Every session names an account (local or OIDC); at every request, the controller reads it again

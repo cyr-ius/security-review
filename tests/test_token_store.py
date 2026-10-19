@@ -76,10 +76,14 @@ def test_token_validation():
         token_store.create_project_token("other", [])
 
 
-@pytest.mark.parametrize("role", [Role.READER, Role.TRIAGER])
-def test_a_token_is_never_given_to_a_person(database, role):
-    """reader and triager are reached through a web session and its groups, never a token."""
-    with pytest.raises(ValueError, match="through a group"):
+@pytest.mark.parametrize(
+    ("role", "error"),
+    [(Role.USER, "through a group"), ("reader", "Unknown role"), ("triager", "Unknown role")],
+)
+def test_a_token_is_never_given_to_a_person(database, role, error):
+    """A person reaches the web API through a session and its groups, never a token (reader and
+    triager were the roles of a web session in older versions)."""
+    with pytest.raises(ValueError, match=error):
         token_store.create_token("person", role)
     with pytest.raises(ValueError, match="cannot be created in the web interface"):
         token_store.create_project_token("person", ["shop-api"], role)
@@ -87,7 +91,7 @@ def test_a_token_is_never_given_to_a_person(database, role):
 
     # A row left by an older version authenticates nothing (fail closed)
     with Session(database) as session:
-        session.add(ApiToken(id="t1", label="old", role=role.value, token_hash="ab" * 32))
+        session.add(ApiToken(id="t1", label="old", role=str(role), token_hash="ab" * 32))
         session.commit()
     assert STORE.lookup(bytes.fromhex("ab" * 32)) is None
 

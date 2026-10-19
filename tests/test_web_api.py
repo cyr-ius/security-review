@@ -7,7 +7,7 @@ from pathlib import Path
 
 import jwt
 import pytest
-from conftest import group_for, make_user
+from conftest import ADMIN_GRANTS, group_for, make_user
 from cryptography.hazmat.primitives.asymmetric import rsa
 from sqlmodel import Session, select
 from starlette.testclient import TestClient
@@ -696,7 +696,8 @@ def test_rule_validation_and_admin_permissions(client, secured, web_sessions):
 
 def test_reader_can_read_but_not_triage(secured, web_sessions, reports):
     me = secured.get("/api/v1/me", headers=auth("reader")).json()
-    assert (me["client"], me["role"], me["can_triage"]) == ("reader", "reader", False)
+    assert (me["client"], me["role"], me["can_triage"]) == ("reader", "user", False)
+    assert me["permissions"] == {"reports.read": None}
     assert secured.get("/api/v1/projects", headers=auth("reader")).status_code == 200
     findings = secured.get(
         "/api/v1/findings", params={"project": "shop-api"}, headers=auth("reader")
@@ -1061,7 +1062,7 @@ def test_a_custom_role_opens_only_its_routes(accounts, reports):
     headers = session_headers(accounts, "ann")
 
     me = accounts.get("/api/v1/me", headers=headers).json()
-    assert (me["role"], me["can_triage"], me["projects"]) == ("reader", False, ["billing"])
+    assert (me["role"], me["can_triage"], me["projects"]) == ("user", False, ["billing"])
     assert me["permissions"] == {"audit.read": None, "reports.read": ["billing"]}
     assert accounts.get("/api/v1/audit", headers=headers).status_code == 200
     projects = accounts.get("/api/v1/projects", headers=headers).json()
@@ -1121,6 +1122,26 @@ def test_sso_settings_need_users_manage(accounts):
     ):
         response = accounts.request(method, url, json=body, headers=headers)
         assert response.status_code == 403, url
+
+
+def test_a_manager_without_reports_read_reads_no_project(accounts, reports):
+    make_user("root", USER_PASSWORD, "admin")
+    keeper = access_control.create_role("Keeper", ["tokens.manage", "standards.manage"])
+    group = access_control.create_group("keepers")
+    access_control.set_group_roles(group["id"], [(keeper["id"], None)])
+    make_user("toto", USER_PASSWORD, group_ids=[group["id"]])
+    headers = session_headers(accounts, "toto")
+
+    # Managing tokens and standards gives no reading of the reports, whatever the summary role
+    me = accounts.get("/api/v1/me", headers=headers).json()
+    assert me["projects"] == []
+    assert "reports.read" not in me["permissions"]
+    assert accounts.get("/api/v1/projects", headers=headers).json() == []
+    assert accounts.get("/api/v1/reports", headers=headers).json() == []
+    assert accounts.get(f"/api/v1/reports/{reports[0]}", headers=headers).status_code == 404
+    root = session_headers(accounts, "root")
+    users = {user["username"]: user for user in accounts.get("/api/v1/users", headers=root).json()}
+    assert set(users["toto"]["permissions"]) == {"standards.manage", "tokens.manage"}
 
 
 def test_a_token_never_grants_more_than_its_creator(accounts, reports):
@@ -1242,7 +1263,7 @@ def test_a_project_reader_only_sees_its_project(secured, reports):
     project_headers = session_headers(secured, "shop-dev")
     identity = secured.get("/api/v1/me", headers=project_headers).json()
     assert (identity["role"], identity["projects"], identity["can_triage"]) == (
-        "reader",
+        "user",
         ["shop-api"],
         False,
     )
@@ -1598,11 +1619,7 @@ def test_approval_creates_the_sso_user_when_oidc_is_enabled(sso_secured, mcp_ser
 
     assert approved.status_code == 200
     user = approved.json()["portal_user"]
-    assert (user["username"], user["auth_source"], user["effective_role"]) == (
-        "alice",
-        "oidc",
-        "reader",
-    )
+    assert (user["username"], user["auth_source"]) == ("alice", "oidc")
     assert user["permissions"] == {"reports.read": ["new-service"]}
     assert user["created_by"] == "admin"
 
@@ -2093,7 +2110,8 @@ def test_password_login_opens_a_session(accounts, caplog):
     assert response.status_code == 200
     assert response.headers["cache-control"] == "no-store"
     body = response.json()
-    assert (body["username"], body["role"], body["expires_in"]) == ("alice", "reader", 8 * 3600)
+    assert (body["username"], body["expires_in"]) == ("alice", 8 * 3600)
+    assert "role" not in body
     identity = accounts.get(
         "/api/v1/me", headers={"Authorization": f"Bearer {body['session']}"}
     ).json()
@@ -2102,7 +2120,7 @@ def test_password_login_opens_a_session(accounts, caplog):
         ["shop-api"],
         True,
     )
-    assert "Web login of alice (role reader)" in caplog.text
+    assert "Web login of alice from" in caplog.text
     assert USER_PASSWORD not in caplog.text
 
 
@@ -2179,7 +2197,7 @@ def test_users_are_managed_by_administrators(accounts, caplog):
     updated = accounts.put(
         f"/api/v1/users/{bob['id']}", json={"group_ids": [group_for("admin")]}, headers=admin
     )
-    assert (updated.status_code, updated.json()["effective_role"]) == (200, "admin")
+    assert (updated.status_code, updated.json()["permissions"]) == (200, ADMIN_GRANTS)
     unknown = accounts.put(f"/api/v1/users/{bob['id']}", json={"group_ids": [999]}, headers=admin)
     assert unknown.status_code == 404
     assert (
@@ -2237,7 +2255,7 @@ def test_sso_users_are_managed_by_administrators(accounts, caplog):
     created = accounts.post("/api/v1/users", json=body, headers=admin)
     assert created.status_code == 201
     carol = created.json()
-    assert (carol["auth_source"], carol["groups"], carol["effective_role"]) == ("oidc", [], None)
+    assert (carol["auth_source"], carol["groups"], carol["permissions"]) == ("oidc", [], {})
     assert "password" not in carol
     assert "Web user carol@example.com (oidc) created by root" in caplog.text
     me = accounts.get("/api/v1/me", headers=admin).json()
@@ -2253,10 +2271,7 @@ def test_sso_users_are_managed_by_administrators(accounts, caplog):
         json={"group_ids": [group_for("reader", ["shop-api"])]},
         headers=admin,
     )
-    assert (updated.json()["effective_role"], updated.json()["permissions"]) == (
-        "reader",
-        {"reports.read": ["shop-api"]},
-    )
+    assert updated.json()["permissions"] == {"reports.read": ["shop-api"]}
     cleared = accounts.put(f"/api/v1/users/{carol['id']}", json={"group_ids": []}, headers=admin)
     assert cleared.json()["groups"] == []
     # An OIDC user never logs in with a password
@@ -2855,6 +2870,9 @@ def test_metrics_need_a_metrics_or_admin_token(secured, web_sessions, reports):
         assert 'secreview_open_findings{severity="high"} 1' in response.text
     for role in ("reader", "triager", "mcp"):
         assert secured.get("/metrics", headers=auth(role)).status_code == 403
+    # A web session never passes for an admin token, even with every permission
+    make_user("root", USER_PASSWORD, "admin")
+    assert secured.get("/metrics", headers=session_headers(secured, "root")).status_code == 403
 
 
 def test_a_metrics_token_reaches_nothing_else(secured, mcp_server, ci_token):
@@ -2956,7 +2974,8 @@ def test_scans_refuse_a_web_session(accounts):
 
     response = accounts.post("/api/v1/ci/scan/code", json=code_scan_body(), headers=headers)
 
-    assert response.status_code == 403 and "web session" in response.json()["detail"]
+    # Refused by its role, even with every permission: only a ci or admin token scans
+    assert response.status_code == 403
 
 
 def test_scan_request_body_is_bounded(secured, ci_token, monkeypatch):

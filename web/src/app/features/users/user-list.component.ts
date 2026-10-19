@@ -6,9 +6,8 @@ import { FormField, disabled, form, maxLength, required, validate } from '@angul
 import { firstValueFrom } from 'rxjs';
 import { MAX_PASSWORD_CHARS, followsPasswordPolicy } from '../../core/constants/passwords';
 import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
-import { MessageKey } from '../../core/i18n/messages';
 import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { AuthSource, WebUser, WebUserRole } from '../../core/models/api.models';
+import { AuthSource, WebUser } from '../../core/models/api.models';
 import { ApiService } from '../../core/services/api.service';
 import { AuthService } from '../../core/services/auth.service';
 import { PasswordPolicyComponent } from '../../shared/components/password-policy/password-policy.component';
@@ -18,14 +17,8 @@ import {
   TableControlFilterChange,
   TableControlsComponent,
 } from '../../shared/components/table-controls/table-controls.component';
+import { describeGrants } from '../../shared/utils/permission-utils';
 import { compareTableText, filterAndSortRows } from '../../shared/utils/table-utils';
-
-/** Message keys of the roles of a web user. */
-const ROLE_LABELS: Record<WebUserRole, MessageKey> = {
-  reader: 'users.roleReader',
-  triager: 'users.roleTriager',
-  admin: 'users.roleAdmin',
-};
 
 /** Account type, name and password of the user being created (or edited: name only). */
 interface UserFormModel {
@@ -64,7 +57,6 @@ export class UserListComponent {
   private readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);
 
-  readonly roleLabels = ROLE_LABELS;
   readonly users = rxResource({ stream: () => this.api.users() });
   /** Deleted OIDC users, never created again by a login. */
   readonly revoked = rxResource({ stream: () => this.api.revokedUsers() });
@@ -257,16 +249,14 @@ export class UserListComponent {
     return identity.client === label;
   }
 
-  /** Text of the access of a user, e.g. "Triage (shop-api, billing)". */
+  /** Permissions of a user, with their projects (empty: no access). */
+  access(user: WebUser): string[] {
+    return describeGrants(user.permissions, this.i18n);
+  }
+
+  /** Text of the access of a user, for the search and the sort. */
   describe(user: WebUser): string {
-    if (!user.effective_role) {
-      return '—';
-    }
-    const label = this.i18n.translate(ROLE_LABELS[user.effective_role]);
-    const projects = user.permissions['reports.read'];
-    return projects
-      ? `${label} (${projects.join(', ')})`
-      : this.i18n.translate('users.roleAllProjects', { role: label });
+    return this.access(user).join(', ');
   }
 
   toggleGroup(groupId: number, event: Event): void {

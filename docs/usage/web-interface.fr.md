@@ -25,7 +25,7 @@ Les écrans sont accessibles depuis la barre latérale : **Supervision** (projet
 tous les comptes, puis **Référentiel** (règles, checklists, normes) et **Administration**
 (utilisateurs, groupes, rôles, jetons, journal d'audit, OIDC, langue des rapports, proxy sortant,
 base OSV), chaque écran n'étant affiché qu'aux comptes qui ont sa
-[permission](../advanced/access-control.md#permissions). Le bas de la barre affiche le client connecté, son rôle et la
+[permission](../advanced/access-control.md#permissions). Le bas de la barre affiche le client connecté (ses permissions au survol) et la
 version (un lien vers **À propos**), avec les boutons **Mon compte** et de déconnexion.
 Sur petit écran, la barre est réduite à ses icônes (chacune nomme son écran au survol) et le
 bouton en haut à gauche l'ouvre en entier ; sur grand écran, le même bouton la réduit à ses icônes
@@ -105,7 +105,7 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   Les comptes OIDC supprimés sont recherchables, triables et filtrables par administrateur de
   révocation. L'administrateur choisit ses **Groupes**, seule source de
   ses permissions ; la colonne **Groupes** montre les groupes, avec un bouclier pour les groupes
-  OIDC trouvés à la dernière connexion, et **Accès** résume ce qu'ils donnent. L'administrateur
+  OIDC trouvés à la dernière connexion, et **Accès** liste les permissions qu'ils donnent, avec leurs projets. L'administrateur
   change les groupes d'un compte, réinitialise le mot de passe d'un compte local ou supprime un compte. Un compte OIDC supprimé
   n'est plus recréé à sa connexion : la section **Comptes OIDC supprimés** les liste, avec le
   bouton **Autoriser à nouveau**. Le dernier détenteur de `users.manage` ne peut être ni supprimé
@@ -118,7 +118,7 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   des rôles personnalisés. Ils créent des rôles à partir des permissions ; les rôles intégrés
   `reader` et `admin` sont affichés en lecture seule. `triager` (lecture et triage), créé avec la
   base, est un rôle ordinaire : il peut être modifié ou supprimé.
-- **Mon compte** : affiche le type du compte. Un utilisateur local y change son mot de passe (ses
+- **Mon compte** : affiche le type du compte et **Mes permissions**. Un utilisateur local y change son mot de passe (ses
   autres sessions sont fermées) ; celui d'un utilisateur OIDC est géré par le fournisseur
   d'identité. **Jetons API** crée et révoque des [jetons API](#jetons-api) personnels (API REST
   et Swagger) qui portent les droits du compte.
@@ -357,7 +357,7 @@ l'écran **Utilisateurs**, par l'API REST `/api/v1/users` (permission `users.man
 
 ```bash
 security-review-controller user create alice --group shop-triagers
-# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, "effective_role": "triager", …, "password": "q3V…"}
+# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
 security-review-controller user create carol@example.com --sso   # groupes OIDC seulement
 security-review-controller user list
@@ -470,7 +470,7 @@ que l'onglet utilise comme un jeton Bearer :
 ```bash
 curl -s -X POST https://secreview.example.com/api/v1/auth/login \
   -H 'Content-Type: application/json' -d '{"username": "alice", "password": "…"}'
-# {"session": "eyJ…", "expires_in": 28800, "username": "alice", "role": "triager"}
+# {"session": "eyJ…", "expires_in": 28800, "username": "alice"}
 ```
 
 Chaque session désigne un compte (local ou OIDC) ; à chaque requête, le contrôleur le relit en

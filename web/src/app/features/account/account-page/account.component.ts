@@ -9,6 +9,7 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { PasswordPolicyComponent } from '../../../shared/components/password-policy/password-policy.component';
+import { describeGrants } from '../../../shared/utils/permission-utils';
 import { ApiTokensComponent } from '../api-tokens/api-tokens.component';
 
 /**
@@ -25,7 +26,11 @@ export class AccountComponent {
   readonly auth = inject(AuthService);
   private readonly i18n = inject(I18nService);
 
-  readonly role = computed(() => ROLE_META[this.auth.identity()?.role ?? 'reader']);
+  readonly role = computed(() => ROLE_META[this.auth.identity()?.role ?? 'user']);
+  /** Permissions of the caller, with their projects. */
+  readonly permissions = computed(() =>
+    describeGrants(this.auth.identity()?.permissions ?? {}, this.i18n),
+  );
 
   readonly passwordModel = signal<PasswordFormModel>({ ...EMPTY_PASSWORDS });
   readonly passwordForm = form(this.passwordModel, (path) => {
