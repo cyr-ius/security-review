@@ -51,12 +51,15 @@ through its outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **Outgoing proxy*
 
 The same settings can be changed in the **OIDC** screen (`users.manage` permission: the OIDC
 settings decide who joins which group), without restarting the controller. As for
-the **Outgoing proxy** screen, a value stored in the database **replaces its
-`SECREVIEW_OIDC_*` variable**, field by field; a field never changed follows its variable:
+the **Outgoing proxy** screen, **a `SECREVIEW_OIDC_*` variable that is set always takes
+precedence**, field by field; a value stored in the database applies only to the fields whose
+variable is not set:
 
-- every field has the **Variable** badge (the variable applies, its value is shown under the
-  field) or **Interface web** (stored value); the **Variable** link of a stored field deletes
-  the stored value and applies the variable again;
+- a field whose variable is set has the **Variable** badge (with a lock): it shows the
+  variable and cannot be changed; a value stored before the variable was set is marked
+  *value set here ignored*, with a **Delete** link;
+- otherwise the field has the **Web interface** badge (stored value; **Reset** deletes it and
+  the default applies again) or **Default**;
 - the **client secret** is never shown again: left empty, the current secret is kept;
   **Delete** stores an empty secret (public client, PKCE only);
 - **Test the connection** contacts the provider with the values of the
@@ -72,11 +75,12 @@ valid until they expire. Still variables only: `SECREVIEW_OIDC_CAFILE` (a file o
 deployment) and the session settings (`SECREVIEW_SECRET_KEY`, `SECREVIEW_SESSION_HOURS`).
 If a variable changed later makes the combination with the stored values invalid, the
 controller starts anyway: the OIDC login is disabled and the error logged, to be fixed in the
-screen.
+screen or in the variables.
 
 Through the API (`/api/v1/oidc/settings`, `users.manage` permission): `GET` describes every setting (stored
-`value` or `null`, `env`, `effective`; a set secret reads `***`), `PUT` changes the sent fields
-(`null` applies the variable again, a missing field is unchanged) and
+`value` or `null`, `env`, `env_set`: the variable is set and takes precedence, `effective`; a
+set secret reads `***`), `PUT` changes the sent fields (`null` deletes the stored value, a
+missing field is unchanged, a field whose variable is set is refused with `422`) and
 `POST /api/v1/oidc/settings/test` tests the provider without storing anything:
 
 ```bash

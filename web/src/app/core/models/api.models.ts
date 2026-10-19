@@ -611,7 +611,7 @@ export interface ReportQuery {
 
 /** Body of PUT /api/v1/settings/proxy: a field left out is unchanged, null restores the variable. */
 export interface ProxyUpdate {
-  /** '' connects directly, despite the variables. */
+  /** '' connects directly; null deletes the stored value. Refused when the variable is set. */
   url?: string | null;
   no_proxy?: string | null;
 }
@@ -619,17 +619,19 @@ export interface ProxyUpdate {
 /** GET /api/v1/settings (proxy passwords are replaced by ***) */
 export interface AppSettings {
   report_language: {
-    /** Set in the web interface: null inherits SECREVIEW_REPORT_LANGUAGE, '' lets the agent choose. */
+    /** Set in the web interface ('' lets the agent choose); ignored when env_set. */
     value: string | null;
     env: string;
+    /** SECREVIEW_REPORT_LANGUAGE is set: it takes precedence over the stored value. */
+    env_set: boolean;
     effective: string;
   };
   /** Proxy of the outgoing connections of the controller (OSV download, OIDC provider). */
   proxy: {
-    /** value: set in the web interface (null: the variable applies, '': direct connection);
-     * env: HTTPS_PROXY (else HTTP_PROXY) and NO_PROXY. */
-    url: { value: string | null; env: string | null };
-    no_proxy: { value: string | null; env: string | null };
+    /** value: set in the web interface ('': direct connection); env: HTTPS_PROXY (else
+     * HTTP_PROXY) and NO_PROXY; env_set: the variable is set and takes precedence. */
+    url: { value: string | null; env: string | null; env_set: boolean };
+    no_proxy: { value: string | null; env: string | null; env_set: boolean };
     effective: {
       url: string | null;
       no_proxy: string | null;
@@ -774,10 +776,12 @@ export type OidcSettingName =
   | 'auto_create_users'
   | 'display_name';
 
-/** One OIDC setting: stored in the web interface (null: the variable applies), variable, effective. */
+/** One OIDC setting: stored in the web interface, variable, effective value. */
 export interface OidcSettingValue {
   value: string | boolean | null;
   env: string | boolean | null;
+  /** The SECREVIEW_OIDC_* variable is set: it takes precedence over the stored value. */
+  env_set: boolean;
   effective: string | boolean | null;
 }
 

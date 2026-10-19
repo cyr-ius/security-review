@@ -30,7 +30,7 @@ class OidcLogins:
     """Current OIDC login flow of the controller.
 
     A ``fixed`` flow (tests) is always used. Otherwise the flow follows the effective settings,
-    the ``SECREVIEW_OIDC_*`` variables overridden in the web interface (see
+    the ``SECREVIEW_OIDC_*`` variables, completed in the web interface (see
     app_settings.effective_settings), read at each call: it is rebuilt when they change, so that
     every replica applies a change at its next login.
     """

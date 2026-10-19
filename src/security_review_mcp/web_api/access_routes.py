@@ -225,9 +225,11 @@ async def get_oidc_settings(request: Request, identity: UsersManager) -> OidcSet
 async def set_oidc_settings(
     request: Request, body: OidcSettingsUpdate, identity: UsersManager
 ) -> OidcSettings:
-    """Change OIDC settings; they override the SECREVIEW_OIDC_* variables at the next login.
+    """Change OIDC settings; they apply at the next login where the SECREVIEW_OIDC_* variable
+    is not set.
 
-    Refused (422) when the resulting settings enable an invalid login.
+    Refused (422) when a changed setting has its variable set (it takes precedence), or when the
+    resulting settings enable an invalid login.
     """
     values = body.model_dump(exclude_unset=True)
     try:

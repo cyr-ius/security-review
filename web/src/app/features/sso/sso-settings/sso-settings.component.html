@@ -128,21 +128,36 @@
 
       <ng-template #source let-name let-current="current">
         <span class="ms-2 small">
-          @if (stored(current, name)) {
+          @if (current.fields[name].env_set) {
+            <span class="badge text-bg-secondary" [title]="variableOf(name)">
+              <i class="bi bi-lock" aria-hidden="true"></i>
+              {{ 'sso.variable' | t }}
+            </span>
+            @if (stored(current, name)) {
+              <span class="text-body-secondary ms-1">{{ 'sso.storedIgnored' | t }}</span>
+              <button
+                type="button"
+                class="btn btn-link btn-sm p-0 ms-1 align-baseline"
+                [disabled]="busy()"
+                [attr.aria-label]="'sso.deleteStored' | t: { variable: variableOf(name) }"
+                (click)="deleteStored(name)"
+              >
+                {{ 'common.delete' | t }}
+              </button>
+            }
+          } @else if (stored(current, name)) {
             <span class="badge text-bg-primary">{{ 'sso.webInterface' | t }}</span>
             <button
               type="button"
               class="btn btn-link btn-sm p-0 ms-1 align-baseline"
               [disabled]="busy()"
-              [attr.aria-label]="'sso.restoreVariable' | t: { variable: variableOf(name) }"
-              (click)="restore(name)"
+              [attr.aria-label]="'sso.deleteStored' | t: { variable: variableOf(name) }"
+              (click)="deleteStored(name)"
             >
-              {{ 'sso.variable' | t }}
+              {{ 'sso.reset' | t }}
             </button>
           } @else {
-            <span class="badge text-bg-secondary" [title]="variableOf(name)">{{
-              'sso.variable' | t
-            }}</span>
+            <span class="badge text-bg-light border">{{ 'sso.default' | t }}</span>
           }
         </span>
       </ng-template>
@@ -183,7 +198,7 @@
                 [placeholder]="secretPlaceholder(current)"
                 [formField]="textField(field.name)"
               />
-              @if (current.fields.client_secret.effective) {
+              @if (current.fields.client_secret.effective && !locked('client_secret')) {
                 <button
                   type="button"
                   class="btn btn-outline-danger"
@@ -194,9 +209,14 @@
                 </button>
               }
             </div>
-            @if (field.help) {
-              <div class="form-text">{{ field.help | t }}</div>
-            }
+            <div class="form-text">
+              @if (field.help && !locked(field.name)) {
+                {{ field.help | t }}
+              }
+              @if (locked(field.name)) {
+                {{ 'sso.lockedHelp' | t: { variable: variableOf(field.name) } }}
+              }
+            </div>
           }
           @default {
             <label class="form-label" [for]="'sso-' + field.name">
@@ -218,7 +238,9 @@
               @if (field.help) {
                 {{ field.help | t }}
               }
-              {{ 'sso.variableValue' | t: { value: envValue(current, field.name) } }}
+              @if (locked(field.name)) {
+                {{ 'sso.lockedHelp' | t: { variable: variableOf(field.name) } }}
+              }
             </div>
           }
         }

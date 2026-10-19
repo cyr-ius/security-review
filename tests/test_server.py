@@ -215,16 +215,23 @@ async def test_review_prompts_set_the_report_language(monkeypatch):
     assert "in **es**" in overridden.messages[0].content.text
 
 
-async def test_report_language_set_in_the_web_interface_overrides_the_variable(monkeypatch):
-    monkeypatch.setattr(get_settings(), "report_language", "German")
+async def test_report_language_set_in_the_web_interface_applies_without_the_variable(
+    monkeypatch,
+):
     app_settings.set_report_language("Italian", "admin")
     async with Client(mcp) as client:
         stored = await client.get_prompt("security-review", {})
         argument = await client.get_prompt("security-review", {"report_language": "es"})
+        # The variable takes precedence over the stored value
+        monkeypatch.setattr(get_settings(), "report_language", "German")
+        variable = await client.get_prompt("security-review", {})
+        monkeypatch.undo()
+        get_settings().model_fields_set.discard("report_language")
         app_settings.set_report_language("", "admin")  # the agent chooses
         free = await client.get_prompt("security-review", {})
     assert "in **Italian**" in stored.messages[0].content.text
     assert "in **es**" in argument.messages[0].content.text
+    assert "in **German**" in variable.messages[0].content.text
     assert "Report language" not in free.messages[0].content.text
 
 
@@ -232,7 +239,6 @@ async def test_review_tools_give_the_report_language_to_reviews_without_a_prompt
     async with Client(mcp) as client:
         free_scan = await client.call_tool("scan_code", {"content": "x = 1", "language": "python"})
         free_checklist = await client.call_tool("get_review_checklist", {"domain": "api"})
-        monkeypatch.setattr(get_settings(), "report_language", "German")
         app_settings.set_report_language("French", "admin")
         scan = await client.call_tool("scan_code", {"content": "x = 1", "language": "python"})
         checklist = await client.call_tool("get_review_checklist", {"domain": "api"})

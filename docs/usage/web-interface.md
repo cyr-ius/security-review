@@ -148,29 +148,34 @@ the requested page once the controller answers again.
   them; filter by event and project, search event details, sort by date/action/actor/target/project,
   and use **Load more** for older events.
 - **OIDC**: administrators
-  [configure the OIDC login](../advanced/sso.md#configuring-oidc-in-the-interface) (every stored value replaces its
-  `SECREVIEW_OIDC_*` variable, with a connection test to the provider). What OIDC users may do
+  [configure the OIDC login](../advanced/sso.md#configuring-oidc-in-the-interface) (a value stored there applies when its
+  `SECREVIEW_OIDC_*` variable is not set, with a connection test to the provider). What OIDC users may do
   comes from the groups open to OIDC named by their groups claim (see
   [groups of the identity provider](../advanced/sso.md#groups-of-the-identity-provider)).
-The next three screens hold settings stored in the database, taking precedence over the
-environment variables and shared by the MCP server and the controller (`settings.manage`
-permission; the former `/ui/settings` address opens **Report language**).
+The next three screens hold settings stored in the database and shared by the MCP server and
+the controller (`settings.manage` permission; the former `/ui/settings` address opens
+**Report language**). **An environment variable that is set (environment or `.env` file)
+always takes precedence** over the value set in the interface: its field is then locked and
+shows the variable, and a value stored before the variable was set is marked as ignored, with
+a **Delete** button.
 
-- **Report language**: `SECREVIEW_REPORT_LANGUAGE` variable, choice
-  left to the agent or language set here (`French`, `fr`, `pt-BR`…). It applies to the next
-  review prompts; the `report_language` argument of a prompt still takes precedence
+- **Report language**: choice left to the agent or language set here (`French`, `fr`,
+  `pt-BR`…), when `SECREVIEW_REPORT_LANGUAGE` is not set. It applies to the next review
+  prompts; the `report_language` argument of a prompt still takes precedence
   ([report language](prompts-tools.md#report-language)).
 - **Outgoing proxy**: proxy of the outgoing connections of the controller, used by the OSV
-  download **and** by the [OIDC login](../advanced/sso.md). As for the OIDC
-  configuration, every value set here replaces its variable (**Variable** / **Interface
-  web** badges): the URL follows `HTTPS_PROXY` (else `HTTP_PROXY`), is set here, or forces
-  the direct connection; the **hosts without proxy** follow `NO_PROXY` or are set here (see
+  download **and** by the [OIDC login](../advanced/sso.md). When `HTTPS_PROXY` (else
+  `HTTP_PROXY`) is not set, the proxy is set here (or **No proxy (direct connection)**); when
+  `NO_PROXY` is not set, the **hosts without proxy** are set here (see
   [hosts without proxy](../advanced/dependencies.md#hosts-without-proxy): domains, IP
-  addresses, `*`, no CIDR ranges). The change applies to the next download and to the next
+  addresses, `*`, no CIDR ranges). An empty variable counts as not set. The change applies to the next download and to the next
   OIDC login, without restart. The applied proxy, its origin and the variables are shown; passwords
   are never shown again (`***`): sending `***` back keeps the stored one. Through the API:
-  `PUT /api/v1/settings/proxy` with `url` and `no_proxy` (`null` applies the variable again,
-  `"url": ""` forces the direct connection, a missing field is unchanged).
+  `PUT /api/v1/settings/proxy` with `url` and `no_proxy` (`null` deletes the stored value,
+  `"url": ""` forces the direct connection, a missing field is unchanged; a value whose
+  variable is set is refused with `422`). `GET /api/v1/settings` gives, for each setting, the
+  stored `value`, the variable `env`, `env_set` (the variable is set and takes precedence) and
+  the effective value.
 - **OSV database**: state of the OSV vulnerability database: number of advisories by
   ecosystem, date and age of the last import, download configuration, history of the last
   50 updates (scheduled, CLI or web interface, with status, duration and result by

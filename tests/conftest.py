@@ -12,6 +12,7 @@ from security_review_mcp import (  # noqa: F401  (register the tables)
     registry,
     rule_store,
 )
+from security_review_mcp.config import get_settings
 from security_review_mcp.database import set_engine
 from security_review_mcp.models import DISMISSED_STATUSES, FindingPublic, FindingStatus
 from security_review_mcp.services import update_finding_status
@@ -97,6 +98,19 @@ def isolate_controller_environment(monkeypatch):
         "SECREVIEW_OSV_AUTO_UPDATE",
     ):
         monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture(scope="session")
+def settings_fields_set() -> set[str]:
+    """Fields of the cached settings set by a variable when the tests start."""
+    return set(get_settings().model_fields_set)
+
+
+@pytest.fixture(autouse=True)
+def reset_settings_fields_set(settings_fields_set):
+    """Reset which cached settings count as set by a variable (see app_settings.env_set):
+    monkeypatch.setattr marks a field as set, and so does undoing it."""
+    object.__setattr__(get_settings(), "__pydantic_fields_set__", set(settings_fields_set))
 
 
 @pytest.fixture(autouse=True)

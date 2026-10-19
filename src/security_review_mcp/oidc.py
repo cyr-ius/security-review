@@ -19,7 +19,7 @@ flow with PKCE:
    web users issues the same session tokens.
 
 This module stores nothing in the database: its settings are the ``SECREVIEW_OIDC_*`` variables,
-possibly overridden in the web interface (see app_settings.effective_settings). The provider is
+or the web interface for those not set (see app_settings.effective_settings). The provider is
 contacted only by the controller, over HTTPS (plain HTTP is accepted for a provider on the
 loopback interface, for development), through the proxy of the controller (see proxy), with
 bounded response sizes; tokens, codes and secrets are never logged.
