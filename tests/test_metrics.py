@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from conftest import make_user
 
-from security_review_mcp import http_server, metrics, services, token_store
+from security_review_mcp import access_control, http_server, metrics, services, token_store
 from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
 from security_review_mcp.models import AdvisoryUpdate, FindingCreate, FindingStatus, Severity
@@ -28,7 +28,7 @@ def test_metrics_count_findings_tokens_and_users(triage):
     services.save_report("billing", "Clean review", [])
     token_store.create_token("dev", Role.MCP)
     token_store.create_token("soon", Role.MCP, expires_in_days=3)
-    token_store.request_enrollment("shop-api")
+    access_control.enroll_project("crm")
     make_user("alice", "Correct horse battery 9", "reader")
 
     text = metrics.render()
@@ -44,9 +44,8 @@ def test_metrics_count_findings_tokens_and_users(triage):
         'secreview_project_open_findings{project="billing",severity="high"} 0',
         "secreview_finding_proposals_pending 1",
         'secreview_tokens{role="mcp",state="active"} 2',
-        'secreview_tokens{role="mcp",state="pending"} 1',
         "secreview_tokens_expiring_soon 1",
-        "secreview_enrollment_requests_pending 1",
+        "secreview_project_enrollments_pending 1",
         'secreview_web_users{auth_source="local"} 1',
         "secreview_advisories 0",
         'secreview_auth_rejections_total{reason="token_expired"} '

@@ -6,6 +6,7 @@ from datetime import UTC, datetime, time
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Request, status
+from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse, Response
 
@@ -41,6 +42,8 @@ from .schemas import (
     FindingCommentCreate,
     FindingStatusUpdate,
     Granularity,
+    PendingProject,
+    PendingProjectApproved,
     ProjectCreate,
     ProjectFindingPage,
     ProjectPosture,
@@ -56,6 +59,7 @@ router = APIRouter(tags=["reports"])
 
 ProjectQuery = Annotated[ProjectName, Query()]
 TrendDays = Annotated[int, Query(ge=1, le=1095)]
+EnrollmentIdPath = Annotated[int, APIPath(ge=1)]
 
 
 def sarif_response(name: str, items: list, include_resolved: bool, filename: str) -> Response:
@@ -119,6 +123,45 @@ async def create_project(
         open_findings_by_severity={severity.value: 0 for severity in Severity},
         worst_open_severity=None,
     )
+
+
+@router.get("/projects/pending")
+async def pending_projects(identity: ProjectCreator) -> list[PendingProject]:
+    """List the projects requested by an enrollment, oldest first (``projects.create``)."""
+    return await run_in_threadpool(access_control.list_enrollments)
+
+
+@router.post("/projects/pending/{enrollment_id}/approve")
+async def approve_pending_project(
+    enrollment_id: EnrollmentIdPath, identity: ProjectCreator
+) -> PendingProjectApproved:
+    """Approve a requested project (``projects.create``): its project group is created without
+    any member, so that the project exists; the caller gains no access."""
+    try:
+        approved = await run_in_threadpool(
+            access_control.approve_enrollment, enrollment_id, actor_of(identity)
+        )
+    except services.NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("Project %s approved by %s", approved["project"], identity.client)
+    return PendingProjectApproved.model_validate(approved)
+
+
+@router.delete("/projects/pending/{enrollment_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def reject_pending_project(
+    enrollment_id: EnrollmentIdPath, identity: ProjectCreator
+) -> Response:
+    """Reject a requested project (``projects.create``): the request is deleted."""
+    try:
+        rejected = await run_in_threadpool(
+            access_control.reject_enrollment, enrollment_id, actor_of(identity)
+        )
+    except services.NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    logger.info("Project %s rejected by %s", rejected["project"], identity.client)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/posture")

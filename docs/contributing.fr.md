@@ -23,7 +23,7 @@ Dans VS Code (`.vscode/`) :
 | **MCP server + controller** | Lance la tâche **Database upgrade**, puis les deux processus sur la même base |
 | **MCP server (HTTP, port 8000)** | Serveur MCP seul ; la base doit déjà être migrée |
 | **Controller (web UI and API, port 8080)** | Contrôleur seul ; migre la base et affiche le mot de passe du compte `admin` initial au premier démarrage |
-| **Controller CLI (prompt for arguments)** | Une commande du contrôleur (`db status`, `token list --pending`…) sous le débogueur |
+| **Controller CLI (prompt for arguments)** | Une commande du contrôleur (`db status`, `token list`…) sous le débogueur |
 | **Controller + web UI (Angular, port 4200)** | Contrôleur et application Angular sous le débogueur, rechargement à chaud |
 | **Web UI + API (Angular dev server, port 4200)** | Lance la tâche **Web UI + API: dev servers** (contrôleur sur 8080 et `ng serve`), attend qu'ils soient prêts, puis ouvre Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript |
 | **Pytest (current file)** | Tests du fichier ouvert |
@@ -103,13 +103,13 @@ src/security_review_mcp/
 ├── controller.py  # point d'entrée du contrôleur (serve, db et commandes d'administration)
 ├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
 ├── oidc.py        # connexion OIDC OpenID Connect à l'interface web (contrôleur)
-├── access_control.py # permissions, rôles, groupes et membres des comptes web
-├── token_store.py # jetons Bearer en base : création, expiration, renouvellement, révocation, enrôlement
+├── access_control.py # permissions, rôles, groupes et membres des comptes web, enrôlement des projets
+├── token_store.py # jetons Bearer en base : création, expiration, renouvellement, révocation
 ├── audit.py       # journal d'audit : événements des décisions de triage, propositions, jetons et enrôlements
 ├── audit_syslog.py # envoi des événements d'audit vers syslog par le contrôleur (facultatif)
 ├── metrics.py     # métriques Prometheus du contrôleur (/metrics)
 ├── web_users.py   # comptes de l'interface web, locaux (scrypt) ou OIDC (création à la volée), sessions, admin initial
-├── enrollment.py  # client de `enroll` : demande de jeton à un serveur partagé
+├── enrollment.py  # client de `enroll` : enrôlement d'un projet sur un serveur partagé
 ├── remote_scan.py # client de `scan-deps` : scan des dépendances par un serveur partagé
 ├── ci_client.py   # `security-review-ci` : client de pipeline du contrôleur, liste des fichiers (bibliothèque standard uniquement)
 ├── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP

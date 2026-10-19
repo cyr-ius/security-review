@@ -133,7 +133,7 @@ gardent leur nom, leurs groupes et leur historique mais ne peuvent plus se conne
 supprimez-les dans **Utilisateurs**.
 
 Ce qu'un compte OIDC peut faire vient de ses [groupes](access-control.md) : ceux qu'un
-administrateur lui a donnés (écran **Utilisateurs** ou **Groupes**, approbation d'un enrôlement)
+administrateur lui a donnés (écran **Utilisateurs** ou **Groupes**)
 et les groupes ouverts au OIDC nommés par son claim des groupes, enregistrés à chaque connexion
 (voir [groupes du fournisseur d'identité](#groupes-du-fournisseur-didentite)). Un compte sans
 aucune permission est refusé et ses sessions ouvertes se ferment. Un changement de ses groupes
@@ -145,7 +145,7 @@ connexion.
 identifiant et son identité (émetteur et `sub`) : une connexion OIDC ne le recrée plus, sous ce
 nom ni sous un autre (nom changé chez le fournisseur), même avec la création automatique et des
 groupes qui lui donnent une permission (message « compte supprimé » sur la page de connexion). Pour lui
-rendre l'accès, un administrateur recrée le compte (à la main ou à l'approbation d'un enrôlement),
+rendre l'accès, un administrateur recrée le compte,
 ou lève la révocation (**Autoriser à nouveau**, `DELETE /api/v1/users/revoked/{identifiant}`) :
 le compte est alors recréé à sa prochaine connexion. `GET /api/v1/users/revoked` liste les
 comptes révoqués, avec l'auteur et la date de la suppression.
@@ -187,42 +187,16 @@ le rôle `triager` sur `billing`, et aucun groupe `staff`, l'utilisateur ne trie
 Le label d'une session OIDC est `oidc:<identifiant>` : c'est lui qui apparaît dans les journaux et
 l'historique du triage.
 
-## Lecture du projet à l'enrôlement
+## Lecture du projet
 
-À l'approbation d'une demande d'[enrôlement](http.md#enrolement-un-projet-demande-son-jeton),
-l'administrateur peut aussi donner au développeur la lecture du projet dans le portail, sur son
-**compte utilisateur** : le développeur qui a demandé un jeton MCP pour un projet en consulte
-alors les rapports.
-
-- Dans l'écran **Jetons de projet**, la colonne **Lecture dans le portail** est préremplie avec le
-  demandeur (`requested_by`) quand il est renseigné, et cochée quand le OIDC est activé. Ce champ
-  est déclaré par le client et **n'est pas vérifié** : contrôlez-le ou corrigez-le avant
-  d'approuver, ou décochez la case.
-- Le nom désigne un compte de l'écran **Utilisateurs**, local ou OIDC. Avec le OIDC activé, un nom
-  inconnu devient un **compte OIDC**, prêt pour sa première connexion ; sans OIDC, le compte doit
-  exister. Donner cet accès demande la permission `users.manage`.
-- Un compte qui lit déjà ce projet est inchangé. Sinon il rejoint, comme membre local, le
-  [groupe de projet](access-control.md#groupes-de-projet) `project:<projet>` (`reader` sur ce seul
-  projet, créé s'il manque), partagé par tous les développeurs enrôlés sur le projet. Une demande
-  complémentaire approuvée pour le même utilisateur ajoute le projet de la même façon.
-
-L'accès figure ensuite dans les groupes du compte, où il se modifie comme les autres. Il est indépendant du
-jeton MCP : révoquer le jeton ne le supprime pas.
-
-```bash
-# Approuver une demande en donnant la lecture du projet à l'utilisateur « alice »
-curl -X POST https://secreview.example.com/api/v1/enrollments/$REQUEST_ID/approve \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"portal_user": "alice"}'
-```
-
-La réponse contient alors `portal_user`, le compte mis à jour. Un identifiant invalide, un compte
-inconnu sans OIDC ou une limite atteinte sont refusés (`422`) avant l'approbation : la demande reste
-en attente. Le journal du contrôleur trace l'accès :
-
-```
-INFO security_review_mcp.web: Web access to shop-api given to web user alice by admin
-```
+La validation d'un [enrôlement](http.md#enrolement-demander-le-projet) crée le projet avec son
+[groupe de projet](access-control.md#groupes-de-projet) `project:<projet>`, sans aucun membre,
+et jamais un jeton ni un compte. Pour qu'un développeur lise le projet (et que son jeton MCP
+personnel l'atteigne), un administrateur ajoute son compte à ce groupe, depuis l'écran
+**Groupes** (ou **Utilisateurs**). Avec le OIDC, le compte existe une fois que le développeur
+s'est connecté (avec `SECREVIEW_OIDC_AUTO_CREATE_USERS=true`), ou un administrateur le crée
+auparavant dans **Utilisateurs**. L'accès apparaît ensuite dans les groupes du compte, où il se
+modifie comme les autres.
 
 !!! note "Mise à jour depuis les accès nominatifs"
     Les versions précédentes enregistraient ces accès à part (« accès nominatifs », API

@@ -15,9 +15,9 @@ server and the REST API (scripts, CI). A web user has an ``auth_source``:
   creates it again, even under another name, until an administrator creates it again.
 
 What a web user may do comes only from the roles of its groups (see access_control): a user
-never holds a role or a project of its own. Its groups are those an administrator gave it (or
-the project group joined at the approval of an enrollment, see grant_project) and, for an OIDC
-user, the groups named by its groups claim at its last login.
+never holds a role or a project of its own. Its groups are those an administrator gave it (a
+project group among them, see access_control.ensure_project_group) and, for an OIDC user, the
+groups named by its groups claim at its last login.
 
 The session token (see oidc.SessionSigner) carries the id of the user. At each request,
 SessionVerifier reads the user again: a deleted user loses its sessions at once, a new role or
@@ -59,7 +59,6 @@ from .http_server import Role, TokenInfo
 from .models import RevokedSsoUser, WebUser, utcnow
 from .oidc import MAX_LABEL_CHARS, OidcError, OidcIdentity, SessionSigner, same_value
 from .services import NotFoundError
-from .token_store import _clean_project
 
 Permission = access_control.Permission
 
@@ -651,77 +650,6 @@ def ensure_bootstrap_admin(username: str = "admin") -> bool:
         # Another instance sharing the database created it first
         return False
     return True
-
-
-# ── Access given at the approval of an enrollment ────────────────────────────
-
-
-def check_project_grant(username: str, create_sso: bool) -> str:
-    """Check that ``grant_project`` can give a project to this user; return the clean name.
-
-    Called before approving an enrollment, so that a refused grant does not leave an approved
-    request without its web access. ``create_sso`` allows an unknown name (it becomes an OIDC
-    user).
-    """
-    name = clean_username(username)
-    with session_scope() as session:
-        row = _by_name(session, name)
-        if row is None:
-            if not create_sso:
-                raise ValueError(f"Web user '{name}' not found (OIDC is not enabled)")
-            _check_capacity(session)
-            return name
-        projects = _grants(session, row).get(Permission.REPORTS_READ, frozenset())
-        if projects is not None and len(projects) >= access_control.MAX_SESSION_PROJECTS:
-            raise ValueError(
-                f"Web user '{name}' already reaches {access_control.MAX_SESSION_PROJECTS} projects"
-            )
-    return name
-
-
-def grant_project(
-    username: str,
-    project: str,
-    created_by: str | None,
-    create_sso: bool,
-    actor: str | None = None,
-) -> dict[str, Any]:
-    """Let a web user read ``project`` (usually the project of an approved enrollment).
-
-    A user that can already read this project is unchanged. Otherwise it joins, as a local
-    member, the project group of ``project`` (``project:<project>``, created when missing, see
-    access_control.ensure_project_group). With ``create_sso``, an unknown name becomes an OIDC
-    user, ready for its first login.
-
-    Raises:
-        ValueError: Invalid name or project, unknown user without ``create_sso``, or a limit.
-    """
-    name = check_project_grant(username, create_sso)
-    added = _clean_project(project)
-    with session_scope() as session:
-        row = _by_name(session, name)
-        if row is None:
-            # Named by an administrator: a revoked user is created again
-            _lift_revocation(session, name)
-            row = WebUser(
-                username=name,
-                auth_source=AUTH_OIDC,
-                session_version=new_session_version(),
-                created_by=created_by,
-            )
-        row.updated_at = utcnow()
-        session.add(row)
-        try:
-            session.flush()
-        except IntegrityError:
-            # Same user created twice at the same time
-            raise ValueError(f"Web user '{name}' was created concurrently; retry") from None
-        user_id: int = row.id  # type: ignore[assignment]
-        if not access_control.allows(_grants(session, row), Permission.REPORTS_READ, added):
-            group = access_control.ensure_project_group(session, added, actor or created_by)
-            access_control.add_user_to_group(session, user_id, group.id, actor or created_by)  # type: ignore[arg-type]
-        session.refresh(row)
-        return _public(session, row)
 
 
 # ── Sessions ─────────────────────────────────────────────────────────────────

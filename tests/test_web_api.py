@@ -32,7 +32,7 @@ from security_review_mcp import (
     web_api,
     web_users,
 )
-from security_review_mcp.config import Settings, get_settings
+from security_review_mcp.config import get_settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
 from security_review_mcp.models import (
@@ -1250,37 +1250,10 @@ def test_a_token_never_grants_more_than_its_creator(accounts, reports):
     )
     assert moved.status_code == 403
     assert token_store.list_tokens()[-1]["projects"] == ["billing"]
-    # Approving an enrollment gives a token on its project: refused outside the scope
-    request = token_store.request_enrollment("billing", label="billing-dev")
-    response = accounts.post(
-        f"/api/v1/enrollments/{request['request_id']}/approve", headers=headers
-    )
-    assert response.status_code == 403
-    assert token_store.list_enrollments()[0]["status"] == "pending"
-    # Tokens and requests of other projects are neither listed, revoked nor rejected
+    # Tokens of other projects are neither listed nor revoked
     assert [item["label"] for item in accounts.get(url, headers=headers).json()] == ["ok"]
-    assert accounts.get("/api/v1/enrollments", headers=headers).json() == []
     assert accounts.delete(f"{url}/{other['id']}", headers=headers).status_code == 403
-    reject = accounts.delete(f"/api/v1/enrollments/{request['request_id']}", headers=headers)
-    assert reject.status_code == 403
-    assert token_store.list_enrollments()[0]["status"] == "pending"
     assert accounts.delete(f"{url}/{token_id}", headers=headers).status_code == 204
-
-
-def test_portal_access_at_approval_needs_users_manage(accounts):
-    make_user("root", USER_PASSWORD, "admin")
-    keeper = access_control.create_role("Token keeper", ["tokens.manage", "reports.read"])
-    group = access_control.create_group("keepers")
-    access_control.set_group_roles(group["id"], [(keeper["id"], None)])
-    make_user("kim", USER_PASSWORD, group_ids=[group["id"]])
-    make_user("dev", USER_PASSWORD)
-    request = token_store.request_enrollment("shop-api", label="shop-dev")
-    headers = session_headers(accounts, "kim")
-    url = f"/api/v1/enrollments/{request['request_id']}/approve"
-
-    response = accounts.post(url, json={"portal_user": "dev"}, headers=headers)
-    assert response.status_code == 403
-    assert accounts.post(url, headers=headers).json()["status"] == "active"
 
 
 def test_admin_creates_project_token_scoped_to_one_project(
@@ -1568,164 +1541,39 @@ def test_changing_the_projects_of_a_token_errors(secured, web_sessions, reports)
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 
-def test_public_enrollment_then_admin_approval(secured, web_sessions, mcp_server):
-    response = mcp_server.post(
-        "/api/v1/enroll", json={"project": "new-service", "requested_by": "alice@example.com"}
-    )
-
-    assert response.status_code == 201
-    created = response.json()
-    assert (created["project"], created["role"], created["status"]) == (
-        "new-service",
-        "mcp",
-        "pending",
-    )
-    assert created["requested_from"] == "testclient"
-    pending_headers = {"Authorization": f"Bearer {created['token']}"}
-    refused = secured.get("/api/v1/me", headers=pending_headers)
-    assert refused.status_code == 403 and refused.json()["error"] == "enrollment_pending"
-
-    listed = secured.get("/api/v1/enrollments", headers=auth("admin"))
-    assert listed.status_code == 200
-    assert [item["id"] for item in listed.json()] == [created["request_id"]]
-    assert (listed.json()[0]["token_id"], listed.json()[0]["kind"]) == (created["id"], "new")
-    assert listed.json()[0]["requested_by"] == "alice@example.com"
-    assert created["token"] not in listed.text
-    # Pending requests are not listed with the active project tokens
-    assert listed_tokens(secured) == []
-    for role in ("reader", "triager", "mcp"):
-        assert secured.get("/api/v1/enrollments", headers=auth(role)).status_code == 403
-        assert (
-            secured.post(
-                f"/api/v1/enrollments/{created['id']}/approve", headers=auth(role)
-            ).status_code
-            == 403
+def test_public_enrollment_waits_for_an_approval_on_the_projects_screen(
+    secured, web_sessions, mcp_server
+):
+    for project in ("new-service", "spam"):
+        response = mcp_server.post(
+            "/api/v1/enroll", json={"project": project, "requested_by": "alice@example.com"}
         )
+        assert response.status_code == 202 and "token" not in response.json()
+    url = "/api/v1/projects/pending"
 
-    approved = secured.post(f"/api/v1/enrollments/{created['id']}/approve", headers=auth("admin"))
+    pending = secured.get(url, headers=auth("admin"))
+    assert pending.status_code == 200
+    first, second = pending.json()
+    assert (first["project"], first["requested_by"]) == ("new-service", "alice@example.com")
+    assert first["expires_at"] > first["created_at"]
+    # Pending: not a project yet, and only projects.create handles the requests
+    assert "new-service" not in [
+        item["project"] for item in secured.get("/api/v1/projects", headers=auth("admin")).json()
+    ]
+    assert secured.get(url, headers=auth("reader")).status_code == 403
+    assert secured.post(f"{url}/{first['id']}/approve", headers=auth("reader")).status_code == 403
 
-    assert approved.status_code == 200 and approved.json()["status"] == "active"
-    assert secured.get("/api/v1/enrollments", headers=auth("admin")).json() == []
-    assert [item["id"] for item in listed_tokens(secured)] == [created["id"]]
-    # The approved token is an MCP token: it reaches /mcp, not the REST API
-    assert secured.get("/api/v1/me", headers=pending_headers).status_code == 403
-    assert secured.get("/api/v1/me", headers=pending_headers).json()["error"] == (
-        "insufficient_scope"
-    )
-    assert (
-        secured.post(f"/api/v1/enrollments/{created['id']}/approve", headers=auth("admin"))
-    ).status_code == 404
+    approved = secured.post(f"{url}/{first['id']}/approve", headers=auth("admin"))
+    assert approved.status_code == 200 and approved.json()["group"] == "project:new-service"
+    assert secured.delete(f"{url}/{second['id']}", headers=auth("admin")).status_code == 204
 
-
-@pytest.fixture
-def sso_secured(secured, ui_dir) -> TestClient:
-    """The controller app of secured (same tokens), with OIDC enabled (never contacted)."""
-    settings = Settings(
-        _env_file=None,
-        oidc_enabled=True,
-        oidc_issuer="https://sso.example.com/realms/acme",
-        oidc_client_id="secreview",
-        oidc_redirect_uri="https://secreview.example.com/api/v1/auth/oidc/callback",
-    )
-    app = web_api.create_app(ui_dir=str(ui_dir), oidc_login=oidc.OidcLogin(settings))
-    return TestClient(
-        http_server.build_controller_app(app, token_store.DatabaseTokenStore()),
-        base_url="http://127.0.0.1",
-    )
-
-
-def test_approval_can_give_web_read_access_to_the_developer(secured, mcp_server, caplog):
-    caplog.set_level(logging.INFO, logger="security_review_mcp.web")
-    created = mcp_server.post(
-        "/api/v1/enroll", json={"project": "new-service", "requested_by": "alice"}
-    ).json()
-    url = f"/api/v1/enrollments/{created['request_id']}/approve"
-
-    # An invalid or (without OIDC) unknown user is refused before the approval
-    for name in ("alice\nadmin", "alice"):
-        response = secured.post(url, json={"portal_user": name}, headers=auth("admin"))
-        assert response.status_code == 422
-    assert len(secured.get("/api/v1/enrollments", headers=auth("admin")).json()) == 1
-
-    make_user("alice", "Correct horse battery 9", "reader", ["billing"])
-    approved = secured.post(url, json={"portal_user": " alice "}, headers=auth("admin"))
-
-    assert approved.status_code == 200 and approved.json()["status"] == "active"
-    user = approved.json()["portal_user"]
-    assert (user["username"], user["auth_source"], user["permissions"]) == (
-        "alice",
-        "local",
-        {"reports.read": ["billing", "new-service"]},
-    )
-    assert "Web access to new-service given to web user alice by admin" in caplog.text
-
-
-def test_approval_creates_the_sso_user_when_oidc_is_enabled(sso_secured, mcp_server):
-    created = mcp_server.post(
-        "/api/v1/enroll", json={"project": "new-service", "requested_by": "alice"}
-    ).json()
-    approved = sso_secured.post(
-        f"/api/v1/enrollments/{created['request_id']}/approve",
-        json={"portal_user": "alice"},
-        headers=auth("admin"),
-    )
-
-    assert approved.status_code == 200
-    user = approved.json()["portal_user"]
-    assert (user["username"], user["auth_source"]) == ("alice", "oidc")
-    assert user["permissions"] == {"reports.read": ["new-service"]}
-    assert user["created_by"] == "admin"
-
-    # A complementary enrollment adds the project to the same user
-    headers = {"Authorization": f"Bearer {created['token']}"}
-    extra = mcp_server.post("/api/v1/enroll", json={"project": "billing"}, headers=headers).json()
-    approved = sso_secured.post(
-        f"/api/v1/enrollments/{extra['id']}/approve",
-        json={"portal_user": "alice"},
-        headers=auth("admin"),
-    )
-    assert approved.json()["portal_user"]["permissions"] == {
-        "reports.read": ["billing", "new-service"]
-    }
-
-
-def test_approval_grants_no_web_access_without_a_portal_user(sso_secured, mcp_server):
-    created = mcp_server.post(
-        "/api/v1/enroll", json={"project": "new-service", "requested_by": "alice"}
-    ).json()
-    approved = sso_secured.post(
-        f"/api/v1/enrollments/{created['request_id']}/approve",
-        json={"portal_user": None},
-        headers=auth("admin"),
-    )
-    assert approved.status_code == 200 and "portal_user" not in approved.json()
-    assert web_users.list_users() == []
-
-    # A failed approval creates no user either
-    response = sso_secured.post(
-        "/api/v1/enrollments/unknown/approve", json={"portal_user": "alice"}, headers=auth("admin")
-    )
-    assert response.status_code == 404
-    assert web_users.list_users() == []
-
-
-def test_admin_rejects_enrollment(secured, web_sessions, mcp_server):
-    created = mcp_server.post("/api/v1/enroll", json={"project": "new-service"}).json()
-
-    assert secured.delete("/api/v1/enrollments/unknown", headers=auth("admin")).status_code == 404
-    assert (
-        secured.delete(f"/api/v1/enrollments/{created['id']}", headers=auth("reader")).status_code
-        == 403
-    )
-    rejected = secured.delete(f"/api/v1/enrollments/{created['id']}", headers=auth("admin"))
-
-    assert rejected.status_code == 204
-    pending_headers = {"Authorization": f"Bearer {created['token']}"}
-    assert secured.get("/api/v1/me", headers=pending_headers).status_code == 401
-    # Active tokens cannot be deleted as enrollment requests
-    (admin_id,) = [row.id for row in _stored_tokens() if row.label == "admin"]
-    response = secured.delete(f"/api/v1/enrollments/{admin_id}", headers=auth("admin"))
-    assert response.status_code == 404
+    projects = [
+        item["project"] for item in secured.get("/api/v1/projects", headers=auth("admin")).json()
+    ]
+    assert "new-service" in projects and "spam" not in projects
+    assert secured.get(url, headers=auth("admin")).json() == []
+    assert secured.delete(f"{url}/{second['id']}", headers=auth("admin")).status_code == 404
+    assert listed_tokens(secured) == []
 
 
 def test_reader_of_several_projects_in_the_web_interface(secured, reports):
@@ -1759,50 +1607,6 @@ def test_reader_of_several_projects_in_the_web_interface(secured, reports):
         secured.get("/api/v1/sarif", params={"project": "billing"}, headers=headers).status_code
         == 200
     )
-
-
-def test_complementary_enrollment_over_rest(secured, mcp_server):
-    created = token_store.create_token("shop-ci", Role.MCP, "shop-api")
-    headers = {"Authorization": f"Bearer {created['token']}"}
-
-    response = mcp_server.post(
-        "/api/v1/enroll",
-        json={"project": "billing", "label": "ignored", "requested_by": "bob"},
-        headers=headers,
-    )
-
-    assert response.status_code == 201
-    request = response.json()
-    assert (request["kind"], request["token_id"], request["label"]) == (
-        "additional",
-        created["id"],
-        "shop-ci",
-    )
-    assert "token" not in request
-    duplicate = mcp_server.post("/api/v1/enroll", json={"project": "billing"}, headers=headers)
-    assert duplicate.status_code == 422 and "already waiting" in duplicate.json()["detail"]
-    (listed,) = secured.get("/api/v1/enrollments", headers=auth("admin")).json()
-    assert (listed["id"], listed["kind"], listed["project"]) == (
-        request["id"],
-        "additional",
-        "billing",
-    )
-
-    approved = secured.post(f"/api/v1/enrollments/{request['id']}/approve", headers=auth("admin"))
-
-    assert approved.status_code == 200
-    assert approved.json()["projects"] == ["shop-api", "billing"]
-    info = token_store.DatabaseTokenStore().lookup(http_server.hash_token(created["token"]))
-    assert info.projects == {"shop-api", "billing"}
-
-    # A rejected complementary request leaves the token as it was
-    other = mcp_server.post("/api/v1/enroll", json={"project": "crm"}, headers=headers).json()
-    assert (
-        secured.delete(f"/api/v1/enrollments/{other['id']}", headers=auth("admin")).status_code
-        == 204
-    )
-    info = token_store.DatabaseTokenStore().lookup(http_server.hash_token(created["token"]))
-    assert info.projects == {"shop-api", "billing"}
 
 
 def _stored_tokens() -> list[ApiToken]:

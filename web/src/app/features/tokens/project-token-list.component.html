@@ -3,10 +3,7 @@
     <h1 class="h3 mb-0">{{ 'tokens.title' | t }}</h1>
     <p class="text-body-secondary mb-0">{{ 'tokens.subtitle' | t }}</p>
   </div>
-  <app-refresh-button
-    [loading]="tokens.isLoading() || enrollments.isLoading() || projects.isLoading()"
-    (refresh)="reload()"
-  />
+  <app-refresh-button [loading]="tokens.isLoading() || projects.isLoading()" (refresh)="reload()" />
 </div>
 
 @if (error(); as text) {
@@ -28,123 +25,6 @@
     </div>
   </section>
 }
-
-<section class="mb-4" aria-labelledby="enrollments-title">
-  <h2 id="enrollments-title" class="h5">
-    {{ 'tokens.pending' | t }}
-    @if ((enrollments.value() ?? []).length; as count) {
-      <span class="badge text-bg-warning align-middle">{{ count }}</span>
-    }
-  </h2>
-  <p class="text-body-secondary small">
-    {{ 'tokens.pendingHelpTool' | t }} <code>request_enrollment</code>
-    {{ 'tokens.pendingHelpCommand' | t }} <code>enroll</code>{{ 'tokens.pendingHelp' | t }}
-    {{ (authConfig.value()?.oidc ? 'tokens.pendingHelpSso' : 'tokens.pendingHelpNoSso') | t }}
-  </p>
-  @if (enrollments.error()) {
-    <div class="alert alert-danger" role="alert">{{ 'tokens.pendingLoadError' | t }}</div>
-  } @else if ((enrollments.value() ?? []).length) {
-    <app-table-controls
-      idPrefix="enrollments"
-      [search]="enrollmentSearch()"
-      [filters]="enrollmentFilters()"
-      (searchChange)="enrollmentSearch.set($event)"
-      (filterChange)="onEnrollmentFilter($event)"
-    />
-    @if (visibleEnrollments().length) {
-      <div class="table-responsive">
-        <table class="table table-hover align-middle">
-          <thead>
-            <tr>
-              <th scope="col" [appSortHeader]="enrollmentSort" sortKey="label">
-                {{ 'tokens.label' | t }}
-              </th>
-              <th scope="col">{{ 'users.type' | t }}</th>
-              <th scope="col" [appSortHeader]="enrollmentSort" sortKey="project">
-                {{ 'reportTable.project' | t }}
-              </th>
-              <th scope="col" [appSortHeader]="enrollmentSort" sortKey="requester">
-                {{ 'tokens.requester' | t }}
-              </th>
-              <th scope="col">{{ 'tokens.address' | t }}</th>
-              <th scope="col" [appSortHeader]="enrollmentSort" sortKey="created">
-                {{ 'tokens.requestedAt' | t }}
-              </th>
-              <th scope="col">{{ 'tokens.portalAccess' | t }}</th>
-              <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            @for (request of visibleEnrollments(); track request.id) {
-              <tr>
-                <td>{{ request.label }}</td>
-                <td>
-                  {{
-                    (request.kind === 'additional' ? 'tokens.additional' : 'tokens.newToken') | t
-                  }}
-                </td>
-                <td>{{ request.project }}</td>
-                <td>{{ request.requested_by ?? '—' }}</td>
-                <td class="font-monospace">{{ request.requested_from ?? '—' }}</td>
-                <td>{{ request.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
-                <td>
-                  <div class="input-group input-group-sm portal-access">
-                    <div class="input-group-text">
-                      <input
-                        class="form-check-input mt-0"
-                        type="checkbox"
-                        [checked]="portalAccess(request).enabled"
-                        [attr.aria-label]="'tokens.portalGrant' | t: { project: request.project }"
-                        (change)="onPortalEnabledChange(request, $event)"
-                      />
-                    </div>
-                    <input
-                      class="form-control"
-                      maxlength="64"
-                      autocomplete="off"
-                      spellcheck="false"
-                      [placeholder]="'tokens.portalUser' | t"
-                      [disabled]="!portalAccess(request).enabled"
-                      [value]="portalAccess(request).user"
-                      [attr.aria-label]="'tokens.portalUserFor' | t: { label: request.label }"
-                      (input)="onPortalUserInput(request, $event)"
-                    />
-                  </div>
-                </td>
-                <td class="text-end text-nowrap">
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-success me-1"
-                    [disabled]="busy()"
-                    [attr.aria-label]="'tokens.approveRequest' | t: { label: request.label }"
-                    (click)="approve(request)"
-                  >
-                    <i class="bi bi-check-lg" aria-hidden="true"></i>
-                    {{ 'tokens.approve' | t }}
-                  </button>
-                  <button
-                    type="button"
-                    class="btn btn-sm btn-outline-danger"
-                    [disabled]="busy()"
-                    [attr.aria-label]="'tokens.rejectRequest' | t: { label: request.label }"
-                    (click)="reject(request.id, request.label)"
-                  >
-                    <i class="bi bi-x-lg" aria-hidden="true"></i>
-                    {{ 'tokens.reject' | t }}
-                  </button>
-                </td>
-              </tr>
-            }
-          </tbody>
-        </table>
-      </div>
-    } @else {
-      <p class="text-body-secondary">{{ 'common.noMatches' | t }}</p>
-    }
-  } @else if (!enrollments.isLoading()) {
-    <p class="text-body-secondary">{{ 'tokens.noPending' | t }}</p>
-  }
-</section>
 
 <section class="mb-4" aria-labelledby="create-token-title">
   <h2 id="create-token-title" class="h5">{{ 'tokens.createTitle' | t }}</h2>
@@ -405,14 +285,6 @@
                     </fieldset>
                   } @else {
                     {{ describeProjects(token.projects) }}
-                  }
-                  @if (token.pending_projects.length) {
-                    <div class="small text-body-secondary">
-                      {{
-                        'tokens.pendingProjects'
-                          | t: { projects: token.pending_projects.join(', ') }
-                      }}
-                    </div>
                   }
                 </td>
                 <td>{{ usageLabel(token) }}</td>

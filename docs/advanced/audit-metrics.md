@@ -19,14 +19,14 @@ exists exactly when the change was committed.
 | `token.rotated` | The secret of a token is replaced (`token rotate`, **Rotate** button), with the grace period |
 | `token.revoked` | A token is revoked |
 | `token.projects_changed` | An administrator changes the projects of a token (**Projects** button of the **Tokens** screen), with the previous projects (`null`: every project) |
-| `enrollment.requested` | A client requests a token or one more project ([enrollment](http.md#enrollment-a-project-requests-its-token)), with the requester and its address |
-| `enrollment.approved` | An administrator approves a request |
-| `enrollment.rejected` | An administrator rejects a request |
+| `enrollment.requested` | A client requests a project ([enrollment](http.md#enrollment-request-the-project)), with the requester, its address and whether a new request was filed (`requested`) |
+| `enrollment.approved` | A user with `projects.create` approves a pending project (its group in the details) |
+| `enrollment.rejected` | A user rejects a pending project, or it expires (actor `enrollment`, `reason`: `expired`) |
 | `role.created`, `role.updated`, `role.deleted` | An administrator creates, changes (with the previous permissions) or deletes a [role](access-control.md#roles) |
 | `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](access-control.md#groups); the approval of an enrollment creates a missing [project group](access-control.md#project-groups) (`project` in the details) |
 | `group.roles_changed`, `group.members_changed` | An administrator replaces the roles (with their projects) or the members (added and removed user ids) of a group |
 | `project.created` | A user with `projects.create` [creates a project](access-control.md#creating-a-project) (its project group and the user id in the details) |
-| `user.groups_changed` | An administrator replaces the groups given to an account, or the approval of an enrollment adds it to a [project group](access-control.md#project-groups) (added and removed group ids) |
+| `user.groups_changed` | An administrator replaces the groups given to an account, for instance to add it to a [project group](access-control.md#project-groups) (added and removed group ids) |
 | `user.roles_changed` | Former direct roles of an account (`roles`: `role` or `role:project,project`): no longer recorded since accounts have no role of their own, kept in the history |
 | `user.login` | A web user logs in (method `password` or `oidc`, address) |
 | `user.login_failed` | A login fails: wrong password, refused OIDC login (method, address, and the user name only when it is valid) |
@@ -34,7 +34,7 @@ exists exactly when the change was committed.
 | `audit_syslog.changed` | The [syslog server](#forwarding-to-syslog) is changed on the **Audit log** page (address and facility set, `null`: stored value deleted) |
 
 Each event holds its date, its **actor**, its target (`finding` and its id, `token` and its id,
-`enrollment` and the request id), the project when there is one, and details as JSON. The actor
+`project` and its name), the project when there is one, and details as JSON. The actor
 is:
 
 - `user:<name>`: a person logged in to the web interface (local or OIDC account);
@@ -150,13 +150,13 @@ scrape_configs:
 | `secreview_open_findings` | `severity` | Open findings by severity |
 | `secreview_project_open_findings` | `project`, `severity` | Open findings of each project |
 | `secreview_finding_proposals_pending` | | Agent proposals waiting for a person |
-| `secreview_tokens` | `role`, `state` | Tokens by role and state (`active`, `expired`, `pending`) |
+| `secreview_tokens` | `role`, `state` | Tokens by role and state (`active`, `expired`) |
 | `secreview_tokens_expiring_soon` | | Active tokens that expire within 14 days |
-| `secreview_enrollment_requests_pending` | | Enrollment requests waiting for an administrator |
+| `secreview_project_enrollments_pending` | | Projects requested by an enrollment, waiting for an approval |
 | `secreview_web_users` | `auth_source` | Web accounts (`local`, `oidc`) |
 | `secreview_advisories` | | Advisories in the database |
 | `secreview_advisory_last_update_timestamp_seconds` | | End of the latest successful OSV download (absent before the first one) |
-| `secreview_auth_rejections_total` | `reason` | Requests rejected by the authentication of the process that answers, since its start: `invalid_token`, `token_expired`, `enrollment_pending`, `insufficient_scope` |
+| `secreview_auth_rejections_total` | `reason` | Requests rejected by the authentication of the process that answers, since its start: `invalid_token`, `token_expired`, `insufficient_scope` |
 
 Every value except `secreview_auth_rejections_total` comes from the database. The metrics hold
 counts and project names, never a finding, a token label or a secret; label values are

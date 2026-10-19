@@ -7,7 +7,15 @@ import urllib.error
 import pytest
 from starlette.testclient import TestClient
 
-from security_review_mcp import cli, enrollment, enrollment_api, http_server, server, token_store
+from security_review_mcp import (
+    access_control,
+    cli,
+    enrollment,
+    enrollment_api,
+    http_server,
+    server,
+    token_store,
+)
 from security_review_mcp.http_server import Role
 
 
@@ -77,20 +85,15 @@ def test_plain_http_needs_an_explicit_flag():
     assert url == "http://secreview.internal/api/v1/enroll"
 
 
-def test_request_enrollment_creates_a_pending_token(opener):
-    answer = enrollment.request_enrollment(
-        "http://127.0.0.1/mcp", "shop-api", label="shop-dev", requested_by="alice"
-    )
+def test_request_enrollment_requests_the_project_and_no_token(opener):
+    answer = enrollment.request_enrollment("http://127.0.0.1/mcp", "shop-api", requested_by="alice")
 
-    assert answer["label"].startswith("shop-dev-")
-    assert (answer["project"], answer["status"]) == ("shop-api", "pending")
-    (pending,) = token_store.list_enrollments()
-    assert pending["requested_by"] == "alice"
-    assert json.loads(opener.requests[0].data) == {
-        "project": "shop-api",
-        "label": "shop-dev",
-        "requested_by": "alice",
-    }
+    assert set(answer) == {"project", "web_url", "next_steps"}
+    assert answer["project"] == "shop-api"
+    assert json.loads(opener.requests[0].data) == {"project": "shop-api", "requested_by": "alice"}
+    assert "Authorization" not in opener.requests[0].headers
+    assert [token["label"] for token in token_store.list_tokens()] == ["ops"]
+    assert [item["project"] for item in access_control.list_enrollments()] == ["shop-api"]
 
 
 def test_request_enrollment_reports_the_server_error(opener):
@@ -114,84 +117,23 @@ def test_redirects_are_not_followed():
     assert handler.redirect_request(None, None, 302, "Found", {}, "http://evil.example") is None
 
 
-def test_enroll_command(opener, capsys):
-    code = cli.run(
-        ["enroll", "--url", "http://127.0.0.1", "--project", "shop-api", "--requested-by", "bob"]
-    )
+@pytest.mark.parametrize("login, requested_by", [("alice", "alice"), (None, None)])
+def test_enroll_command_names_the_developer(opener, capsys, monkeypatch, login, requested_by):
+    def getuser() -> str:
+        if login is None:
+            raise OSError("No username set in the environment")
+        return login
 
-    assert code == cli.EXIT_PASSED
-    answer = json.loads(capsys.readouterr().out)
-    assert answer["status"] == "pending" and answer["token"]
-    assert token_store.DatabaseTokenStore().lookup(http_server.hash_token(answer["token"])).pending
-
-
-def test_enroll_command_names_the_token_after_the_developer(opener, capsys, monkeypatch):
-    monkeypatch.setattr(enrollment.getpass, "getuser", lambda: "alice")
+    monkeypatch.setattr(enrollment.getpass, "getuser", getuser)
 
     code = cli.run(["enroll", "--url", "http://127.0.0.1", "--project", "shop-api"])
 
     assert code == cli.EXIT_PASSED
-    assert json.loads(capsys.readouterr().out)["label"].startswith("alice-")
-    assert json.loads(opener.requests[0].data)["label"] == "alice"
-
-
-def test_enroll_command_label_option_wins_over_the_login_name(opener, capsys, monkeypatch):
-    monkeypatch.setattr(enrollment.getpass, "getuser", lambda: "alice")
-
-    args = ["enroll", "--url", "http://127.0.0.1", "--project", "shop-api", "--label", "ci"]
+    assert json.loads(capsys.readouterr().out)["project"] == "shop-api"
+    assert json.loads(opener.requests[0].data)["requested_by"] == requested_by
+    args = ["enroll", "--url", "http://127.0.0.1", "--project", "crm", "--requested-by", "bob"]
     assert cli.run(args) == cli.EXIT_PASSED
-    assert json.loads(capsys.readouterr().out)["label"].startswith("ci-")
-
-
-def test_enroll_command_without_login_name_falls_back_to_the_project(opener, capsys, monkeypatch):
-    def no_login() -> str:
-        raise OSError("No username set in the environment")
-
-    monkeypatch.setattr(enrollment.getpass, "getuser", no_login)
-
-    assert enrollment.local_username() is None
-    assert cli.run(["enroll", "--url", "http://127.0.0.1", "--project", "shop-api"]) == 0
-    assert json.loads(capsys.readouterr().out)["label"].startswith("shop-api-enroll-")
-
-
-def test_request_enrollment_with_a_token_asks_for_one_more_project(opener):
-    created = token_store.create_token("shop-ci", Role.MCP, "shop-api")
-
-    answer = enrollment.request_enrollment(
-        "http://127.0.0.1", "billing", requested_by="alice", token=created["token"]
-    )
-
-    assert (answer["kind"], answer["token_id"], answer["status"]) == (
-        "additional",
-        created["id"],
-        "pending",
-    )
-    assert opener.requests[0].headers["Authorization"] == f"Bearer {created['token']}"
-    with pytest.raises(ValueError, match=r"refused the request \(401\)"):
-        enrollment.request_enrollment("http://127.0.0.1", "billing", token="wrong")
-
-
-def test_enroll_command_reads_the_token_on_stdin(opener, capsys, monkeypatch):
-    created = token_store.create_token("shop-ci", Role.MCP, "shop-api")
-    monkeypatch.setattr("sys.stdin", io.StringIO(created["token"] + "\n"))
-
-    code = cli.run(["enroll", "--url", "http://127.0.0.1", "--project", "billing", "--token-stdin"])
-
-    assert code == cli.EXIT_PASSED
-    output = capsys.readouterr().out
-    answer = json.loads(output)
-    assert (answer["kind"], answer["project"]) == ("additional", "billing")
-    assert created["token"] not in output
-    assert [item["project"] for item in token_store.list_enrollments()] == ["billing"]
-
-
-def test_enroll_command_needs_a_token_on_stdin(capsys, monkeypatch):
-    monkeypatch.setattr("sys.stdin", io.StringIO(""))
-
-    code = cli.run(["enroll", "--url", "http://127.0.0.1", "--project", "billing", "--token-stdin"])
-
-    assert code == cli.EXIT_ERROR
-    assert "no token read on stdin" in json.loads(capsys.readouterr().err)["error"]
+    assert json.loads(opener.requests[1].data)["requested_by"] == "bob"
 
 
 def test_enroll_command_errors(capsys):

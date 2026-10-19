@@ -54,32 +54,30 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `get_trend_report` | Trend of a project: new / fixed, backlog, risk score, MTTR |
 | `scan_dependencies` | Analysis of a manifest, lockfile or CycloneDX SBOM: vulnerable versions + hygiene |
 | `get_advisory_status` | Size and age of the vulnerability database |
-| `request_enrollment` | Requests a token for a first project or the addition of a project to the presented token, after approval by an administrator ([enrollment](../advanced/http.md#enrollment-a-project-requests-its-token)) |
+| `request_enrollment` | Requests a project that does not exist yet, for an administrator to approve; no token is created and the current token gains no project: an administrator gives access to it ([enrollment](../advanced/http.md#enrollment-request-the-project)) |
 | `list_development_standards` / `get_development_standards` | [Development standards](../advanced/standards.md): catalog, then the standards to apply for technologies or file names |
 | `list_rules` / `reload_rules` | Active rules ([default and custom](../advanced/rules.md), stored in the database), loading errors, immediate reload |
 
 On the HTTP transport, a restricted token can only use the report tools on its allowed
 projects; `reload_rules` is refused to it (see
 [tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
-A token tied to several projects can use the report tools on each of them;
-`request_enrollment` requests the addition to the current token without creating nor revealing
-a new secret. A [personal MCP token](web-interface.md#personal-mcp-tokens) reaches the projects
-of its user instead: `request_enrollment` refuses it, an administrator gives the user access to
-the project.
+A token tied to several projects can use the report tools on each of them. A
+[personal MCP token](web-interface.md#personal-mcp-tokens) reaches the projects of its user: for
+another project, an administrator gives the user access to it (`request_enrollment` requests
+it first when it is new).
 
 ### Enrollment server
 
-On the HTTP transport, a client that connects **without a token** (or with a token whose
-enrollment is not approved yet, or a token that is unknown, revoked or expired) reaches a restricted server, with the same name, that only
-exposes:
+On the HTTP transport, a client that connects **without a token** reaches a restricted
+server, with the same name, that only exposes (a token that is unknown, revoked or expired gets
+a `401` instead, see [rejected token](../advanced/http.md#rejected-token-sign-in-again)):
 
 | Item | Role |
 |---|---|
-| `request_enrollment` | Files the request for a project and returns the token (shown once), named after the developer's username (`label`) |
-| `get_enrollment_status` | `pending` if the presented token awaits approval, `not_enrolled` without a token, `token_rejected` (with `reason`) for an unknown, revoked or expired token: the agent offers a new enrollment |
-| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Optional `project` argument; explain to the agent how to request access instead of running the review |
+| `request_enrollment` | Requests the project (`project`, optional `requested_by`), for an administrator to approve, and returns `web_url` and `next_steps`: the user signs in to the web interface and creates a personal MCP token; never a token |
+| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Optional `project` argument; explain to the agent how to get a token instead of running the review |
 
-See [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token).
+See [enrollment](../advanced/http.md#enrollment-request-the-project).
 
 ## Resources
 
@@ -148,8 +146,8 @@ upgraded.
 
 ### Author of a report
 
-A token is enrolled **per device**, not per person: several developers may share it, and its
-label does not say who worked on the reviewed code. Each report therefore carries two fields:
+A token is configured on a device, which several developers may share (a pipeline token, a
+shared workstation): its label does not say who worked on the reviewed code. Each report therefore carries two fields:
 
 | Field | Filled by | Value |
 |---|---|---|
@@ -160,7 +158,7 @@ label does not say who worked on the reviewed code. Each report therefore carrie
 Markdown nor HTML, as it is copied into the Markdown export); a blank value is not stored.
 It is **declared, not authenticated**: use it to see who to talk to and to filter the reports
 (`list_security_reports`, [web interface](web-interface.md)), never as a proof of identity;
-`submitted_by` says which enrolled device actually sent the report.
+`submitted_by` says which token actually sent the report.
 
 ### Status of a finding
 

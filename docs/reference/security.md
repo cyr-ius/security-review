@@ -35,24 +35,23 @@
   by default), and stops when the user is deleted or must change a password set by an
   administrator. A web user holds at most
   `SECREVIEW_PERSONAL_TOKENS_PER_USER` personal tokens of each role (1 by default).
-- **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`, or only the
-  [enrollment server](../advanced/http.md#rejected-token-new-enrollment) on `/mcp`), and
+- **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`), and
   `SECREVIEW_TOKEN_MAX_DAYS` bounds the validity of every token created or rotated. Expired
   tokens still count as configured: a server whose tokens have all expired stays closed. A
   rotation stores the digest of the new secret only; the previous digest is kept during the grace
   period (at most 168 hours), compared in constant time like the current one, and the previous
   secret of an expired token never comes back (see
   [expiry and rotation](../advanced/http.md#expiry-and-rotation-of-tokens)).
-- **Rejected tokens on `/mcp`**: with the enrollment enabled, an unknown, revoked or expired
-  token reaches the [enrollment server](../advanced/http.md#rejected-token-new-enrollment) instead
-  of a `401`. Each rejection is still logged as a warning by the MCP server
-  (`Rejected unauthenticated request` / `Rejected expired token`, with the client address): watch
-  these logs, not the `401` answers of a reverse proxy, to detect token guessing on `/mcp`; the
+- **Rejected tokens on `/mcp`**: an unknown, revoked or expired token gets a `401` whose
+  description tells the user to sign in to the web interface and create a new personal MCP
+  token (see [rejected token](../advanced/http.md#rejected-token-sign-in-again)); it never
+  reaches the enrollment server. Each rejection is also logged as a warning by the MCP server
+  (`Rejected unauthenticated request` / `Rejected expired token`, with the client address); the
   `secreview_auth_rejections_total` [metric](../advanced/audit-metrics.md) only counts the
-  rejections of the controller. Set `SECREVIEW_ENROLLMENT=false` when a detection
-  based on HTTP status codes is required.
+  rejections of the controller. `SECREVIEW_WEB_URL`, given in that description, is a public URL:
+  it holds no credentials (refused at start-up).
 - **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
-  tokens, enrollment requests and decisions are written in the same transaction as the change,
+  tokens and enrollments are written in the same transaction as the change,
   with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,
   and never hold a token or a password; no tool nor route edits an event, only the purge of
   `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-metrics.md#audit-log)).
@@ -69,16 +68,17 @@
   database, reads the token from the environment or stdin only, refuses plain HTTP outside
   localhost, credentials in the URL and redirects, and bounds the answers.
 - **Enrollment** (enabled by default, `SECREVIEW_ENROLLMENT`): a client without a token reaches
-  a restricted MCP server that only lets it file a request, and `POST /api/v1/enroll` is public
-  on the MCP server (body limited to 4 KiB). The approval happens on the controller. A request
-  is an `mcp` token restricted to the project, **pending**: it gives access to nothing before
-  the approval of an administrator, and pending requests never enable the authentication of an
-  open server. The number of pending requests is bounded (20 in all, 3 per client address) and a
-  request left unprocessed
-  expires after 7 days; the free text of the requester is masked and truncated. Any client that
-  reaches the server can file a request: check the requester and the address shown before
-  approving, or disable the enrollment. See
-  [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token).
+  a restricted MCP server that only lets it request its project, and `POST /api/v1/enroll` is
+  public on the MCP server (body limited to 4 KiB). The enrollment **never creates a token** and
+  never gives any access: a requested project is **pending** until a user with
+  `projects.create` approves it on the controller, which creates its project group without any
+  member; only an administrator adds a user to it, and the developer creates a personal MCP
+  token in the web interface, after logging in. The answer is the same whether the project
+  existed or not. The enrollments are bounded (20 pending projects, 5 per client address and
+  per hour, `429` beyond), a request nobody approved within
+  `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` is deleted, and the free text of the requester is
+  masked and truncated: check the requester and the address before approving. Every enrollment is audited. See
+  [enrollment](../advanced/http.md#enrollment-request-the-project).
 - **Outgoing network calls**: the MCP server makes none. The `security-review-mcp enroll` and
   `scan-deps` commands contact, at the request of the operator, the URL they give (`scan-deps`
   sends the dependency files given on its command line, never through a symbolic link); they

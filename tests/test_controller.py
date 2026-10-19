@@ -8,6 +8,7 @@ from sqlmodel import select
 from starlette.testclient import TestClient
 
 from security_review_mcp import (
+    access_control,
     app_settings,
     audit,
     cli,
@@ -127,7 +128,8 @@ def test_serve_does_not_serve_mcp_nor_the_public_enrollment(settings, captured_r
     assert client.post("/mcp", headers=headers).status_code == 404
     # Without a token, nothing but the public files: no unauthenticated write endpoint
     assert client.post("/api/v1/enroll", json={"project": "p"}).status_code == 401
-    assert token_store.list_enrollments() == []
+    with session_scope() as session:
+        assert not access_control.project_exists(session, "p")
 
 
 def test_serve_creates_the_admin_once_without_logging_any_password(
@@ -288,6 +290,26 @@ def test_administration_commands_run_from_the_controller(settings, capsys):
 
     assert exc.value.code == cli.EXIT_PASSED
     assert json.loads(capsys.readouterr().out)["label"] == "ci"
+
+
+def test_project_cli_approves_and_rejects_the_pending_projects(capsys):
+    for project in ("shop-api", "spam"):
+        access_control.enroll_project(project, "alice")
+
+    assert cli.run(["project", "list"]) == cli.EXIT_PASSED
+    shop, spam = json.loads(capsys.readouterr().out)
+    assert (shop["project"], shop["requested_by"]) == ("shop-api", "alice")
+    assert cli.run(["project", "approve", str(shop["id"])]) == cli.EXIT_PASSED
+    assert json.loads(capsys.readouterr().out)["group"] == "project:shop-api"
+    assert cli.run(["project", "reject", str(spam["id"])]) == cli.EXIT_PASSED
+    capsys.readouterr()
+
+    assert cli.run(["project", "reject", str(spam["id"])]) == cli.EXIT_ERROR
+    assert "not found" in json.loads(capsys.readouterr().err)["error"]
+    assert access_control.list_enrollments() == []
+    with session_scope() as session:
+        assert access_control.project_exists(session, "shop-api")
+        assert not access_control.project_exists(session, "spam")
 
 
 def test_token_cli_creates_with_an_expiry_and_rotates(settings, capsys):

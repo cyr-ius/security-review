@@ -54,7 +54,7 @@
       "justMyCode": false
     },
     {
-      // Any controller command, e.g. db status, token list --pending, rules list
+      // Any controller command, e.g. db status, token list, rules list
       "name": "Controller CLI (prompt for arguments)",
       "type": "debugpy",
       "request": "launch",

@@ -21,8 +21,6 @@ import {
   DevStandard,
   DevStandardCatalog,
   DevStandardWrite,
-  EnrollmentApproved,
-  EnrollmentRequest,
   Finding,
   FindingComment,
   FindingDecision,
@@ -37,6 +35,7 @@ import {
   Preferences,
   ProjectFindingPage,
   ProjectFindingQuery,
+  PendingProject,
   ProjectSummary,
   ProjectToken,
   ProjectTokenCreated,
@@ -267,6 +266,21 @@ export class ApiService {
     return this.http.post<ProjectSummary>(`${API_URL}/projects`, { project });
   }
 
+  /** GET /api/v1/projects/pending: projects requested by an enrollment (projects.create). */
+  pendingProjects(): Observable<PendingProject[]> {
+    return this.http.get<PendingProject[]>(`${API_URL}/projects/pending`);
+  }
+
+  /** Approve a requested project: it is created without any member. */
+  approvePendingProject(id: number): Observable<PendingProject> {
+    return this.http.post<PendingProject>(`${API_URL}/projects/pending/${id}/approve`, null);
+  }
+
+  /** Reject a requested project: the request is deleted. */
+  rejectPendingProject(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/projects/pending/${id}`);
+  }
+
   projectTokens(): Observable<ProjectToken[]> {
     return this.http.get<ProjectToken[]>(`${API_URL}/project-tokens`);
   }
@@ -357,25 +371,6 @@ export class ApiService {
 
   deleteProjectToken(id: string): Observable<void> {
     return this.http.delete<void>(`${API_URL}/project-tokens/${encodeURIComponent(id)}`);
-  }
-
-  enrollments(): Observable<EnrollmentRequest[]> {
-    return this.http.get<EnrollmentRequest[]>(`${API_URL}/enrollments`);
-  }
-
-  /**
-   * With portalUser, that web user also reads the project in the web UI (an unknown name
-   * becomes an OIDC user when OIDC is enabled).
-   */
-  approveEnrollment(id: string, portalUser: string | null = null): Observable<EnrollmentApproved> {
-    return this.http.post<EnrollmentApproved>(
-      `${API_URL}/enrollments/${encodeURIComponent(id)}/approve`,
-      { portal_user: portalUser },
-    );
-  }
-
-  rejectEnrollment(id: string): Observable<void> {
-    return this.http.delete<void>(`${API_URL}/enrollments/${encodeURIComponent(id)}`);
   }
 
   reports(query: ReportQuery): Observable<ReportSummary[]> {

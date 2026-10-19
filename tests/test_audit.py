@@ -107,28 +107,6 @@ def test_token_lifecycle_is_audited_without_any_secret(database):
         assert secret not in dumped
 
 
-def test_enrollment_requests_and_decisions_are_audited(database):
-    first = token_store.request_enrollment(
-        "shop-api", requested_by="dev", requested_from="10.0.0.1"
-    )
-    token_store.approve_enrollment(first["request_id"], "user:root")
-    token_store.request_additional_project(first["id"], "billing", "dev", "10.0.0.1")
-    token_store.reject_enrollment(first["id"], "cli")
-
-    assert actions(database) == [
-        "enrollment.requested",
-        "enrollment.approved",
-        "enrollment.requested",
-        "enrollment.rejected",
-    ]
-    requested, approved, additional, rejected = stored_events(database)
-    assert requested.actor == "anonymous"
-    assert json.loads(requested.details)["requested_from"] == "10.0.0.1"
-    assert (approved.actor, approved.project) == ("user:root", "shop-api")
-    assert additional.actor == f"token:{first['label']}"
-    assert (rejected.project, json.loads(rejected.details)["kind"]) == ("billing", "additional")
-
-
 def test_details_are_masked_and_bounded(database):
     with session_scope() as session:
         audit.record(

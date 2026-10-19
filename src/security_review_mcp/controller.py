@@ -38,9 +38,10 @@ Controller of security-review-mcp: web interface, REST API, database and adminis
 commands:
   serve        serve the REST API (/api/v1) and the web interface (/ui)
   db           migrate the schema (upgrade), show its revision (status), purge reports (prune)
-  token        manage the bearer tokens and the enrollment requests
+  token        manage the bearer tokens
   user         manage the web users (local and OIDC) and the groups they belong to
   group        list the groups of web users and the roles (with their permissions)
+  project      list, approve or reject the projects requested by an enrollment
   audit        read or purge the audit log (triage decisions, tokens, enrollments, access)
   rules        manage the internal rules and checklists
   advisories   import, download or inspect the OSV advisory database
