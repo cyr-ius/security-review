@@ -458,14 +458,16 @@ def test_serve_refuses_an_invalid_osv_setting(settings, captured_run, ui_dir, ca
     assert "SECREVIEW_OSV_URL" in capsys.readouterr().err
 
 
-def test_serve_forwards_the_audit_events_only_when_configured(
+def test_serve_always_runs_the_syslog_forwarder_with_the_web_settings(
     settings, captured_run, ui_dir, monkeypatch
 ):
     started: list[str] = []
+    forwarders = []
 
     class FakeForwarder:
-        def __init__(self, current) -> None:
-            started.append(current.audit_syslog_address)
+        def __init__(self, settings, current) -> None:
+            self.current = current
+            forwarders.append(self)
 
         def start(self) -> None:
             started.append("start")
@@ -475,11 +477,13 @@ def test_serve_forwards_the_audit_events_only_when_configured(
 
     monkeypatch.setattr(controller.audit_syslog, "AuditForwarder", FakeForwarder)
     controller.main(["serve"])
-    assert started == []
 
-    settings(audit_syslog_address="udp://syslog.example.com:514")
-    controller.main(["serve"])
-    assert started == ["udp://syslog.example.com:514", "start", "stop"]
+    # Started even without a variable: a server may be set in the web interface later
+    assert started == ["start", "stop"]
+    (forwarder,) = forwarders
+    assert forwarder.current().audit_syslog_address is None
+    app_settings.set_audit_syslog({"address": "tcp://siem.example.com:601"}, "user:admin")
+    assert forwarder.current().audit_syslog_address == "tcp://siem.example.com:601"
 
 
 def test_serve_refuses_an_invalid_syslog_address(settings, captured_run, capsys):

@@ -108,7 +108,9 @@
   most one request per controller process every 6 hours (15 minutes after a failure); only the
   version and the link of the release are kept (a link outside the releases of the repository
   is replaced), and the page only gets a short error code. With
-  `SECREVIEW_AUDIT_SYSLOG_ADDRESS` (disabled by default), the controller sends the
+  `SECREVIEW_AUDIT_SYSLOG_ADDRESS` or a server set on the **Audit log** page (disabled by
+  default; `settings.manage` permission, `udp://` or `tcp://` only, the change audited), the
+  controller sends the
   [audit events](../advanced/audit-metrics.md#forwarding-to-syslog) to that syslog server (UDP,
   TCP or Unix socket, neither TLS nor proxy: use a local relay for TLS); the events hold no
   secret (masked details), and the MCP server still connects nowhere.

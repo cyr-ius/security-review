@@ -2,18 +2,20 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
-import { I18nService } from '../../core/i18n/i18n.service';
-import { MessageKey } from '../../core/i18n/messages';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { AUDIT_ACTIONS, AuditAction, AuditEvent } from '../../core/models/api.models';
-import { ApiService } from '../../core/services/api.service';
-import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { MessageKey } from '../../../core/i18n/messages';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { AUDIT_ACTIONS, AuditAction, AuditEvent } from '../../../core/models/api.models';
+import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
   TableControlFilter,
   TableControlFilterChange,
   TableControlsComponent,
   TableSortDirection,
-} from '../../shared/components/table-controls/table-controls.component';
+} from '../../../shared/components/table-controls/table-controls.component';
+import { AuditSyslogComponent } from '../audit-syslog/audit-syslog.component';
 
 /** Events loaded per page (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
 const PAGE_SIZE = 50;
@@ -21,16 +23,27 @@ type AuditSortKey = 'created_at' | 'action' | 'actor' | 'target' | 'project';
 
 /**
  * Administrator page of the audit log: triage decisions, agent proposals, tokens and
- * enrollment requests, newest first. Read only: nobody edits an audit event.
+ * enrollment requests, newest first. Read only: nobody edits an audit event. The holders of
+ * settings.manage also set there the syslog server the events are forwarded to.
  */
 @Component({
   selector: 'app-audit-log',
-  imports: [DatePipe, RefreshButtonComponent, TableControlsComponent, TranslatePipe],
+  imports: [
+    AuditSyslogComponent,
+    DatePipe,
+    RefreshButtonComponent,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './audit-log.component.html',
 })
 export class AuditLogComponent {
   private readonly api = inject(ApiService);
   private readonly i18n = inject(I18nService);
+  private readonly auth = inject(AuthService);
+
+  /** The syslog card is shown to the holders of settings.manage only. */
+  readonly canManageSyslog = computed(() => this.auth.can('settings.manage'));
 
   readonly actions = AUDIT_ACTIONS;
   readonly actionFilter = signal<AuditAction | ''>('');

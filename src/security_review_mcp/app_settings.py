@@ -2,9 +2,10 @@
 
 A stored value applies when its variable is not set, for both processes since they share the
 database: the language of the review reports (read by the MCP server when it builds a review
-prompt), the proxy of the outgoing connections and the single sign-on settings (read by the
-controller, see effective_settings). A variable that is set (environment or ``.env`` file) always
-wins: the web interface cannot change it, and a value stored before is ignored (see env_set).
+prompt), the proxy of the outgoing connections, the single sign-on settings and the syslog server
+of the audit log (read by the controller, see effective_settings). A variable that is set
+(environment or ``.env`` file) always wins: the web interface cannot change it, and a value stored
+before is ignored (see env_set).
 
 The proxy URL and the OIDC client secret are secrets: they are stored as given, but never
 returned by the API nor logged (``masked_url``, PASSWORD_MASK).
@@ -14,8 +15,10 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from pydantic import SecretStr
-from sqlmodel import select
+from sqlmodel import Session, select
 
+from . import audit
+from .audit_syslog import FACILITIES, check_web_address, facility
 from .config import Settings, check_report_language, get_settings
 from .database import session_scope
 from .models import AppSetting, utcnow
@@ -27,12 +30,16 @@ REPORT_LANGUAGE = "report_language"
 # direct connection (when HTTPS_PROXY and HTTP_PROXY are not set).
 PROXY = "proxy"
 NO_PROXY = "no_proxy"
+# Keys of the syslog settings of the audit log, also the names of their Settings fields
+SYSLOG_ADDRESS = "audit_syslog_address"
+SYSLOG_FACILITY = "audit_syslog_facility"
 
 
 def env_set(settings: Settings, field: str) -> bool:
     """True when the variable of a Settings field is set (environment or ``.env`` file): it then
-    wins over the value stored in the web interface. An empty proxy variable counts as unset."""
-    if field in (PROXY, NO_PROXY):
+    wins over the value stored in the web interface. An empty proxy or syslog address variable
+    counts as unset."""
+    if field in (PROXY, NO_PROXY, SYSLOG_ADDRESS):
         return getattr(settings, field) is not None
     return field in settings.model_fields_set
 
@@ -53,21 +60,27 @@ def _stored() -> dict[str, str]:
         return {row.key: row.value for row in session.exec(select(AppSetting)).all()}
 
 
+def _apply(session: Session, values: dict[str, str | None], updated_by: str) -> None:
+    """Add the given values to ``session``; None removes the setting (the variable applies
+    again)."""
+    for key, value in values.items():
+        row = session.get(AppSetting, key)
+        if value is None:
+            if row is not None:
+                session.delete(row)
+            continue
+        if row is None:
+            row = AppSetting(key=key)
+        row.value = value
+        row.updated_at = utcnow()
+        row.updated_by = updated_by[:64]
+        session.add(row)
+
+
 def _write(values: dict[str, str | None], updated_by: str) -> None:
     """Store the given values; None removes the setting (the variable applies again)."""
     with session_scope() as session:
-        for key, value in values.items():
-            row = session.get(AppSetting, key)
-            if value is None:
-                if row is not None:
-                    session.delete(row)
-                continue
-            if row is None:
-                row = AppSetting(key=key)
-            row.value = value
-            row.updated_at = utcnow()
-            row.updated_by = updated_by[:64]
-            session.add(row)
+        _apply(session, values, updated_by)
 
 
 # ── Report language ──────────────────────────────────────────────────────────
@@ -182,14 +195,15 @@ def _describe_proxy(settings: Settings, stored: dict[str, str], effective: Setti
 
 
 def _overrides(stored: dict[str, str], settings: Settings) -> dict[str, Any]:
-    """Every stored value (proxy and OIDC) whose variable is not set."""
-    overrides = _proxy_overrides(stored) | _oidc_overrides(stored)
+    """Every stored value (proxy, OIDC and syslog) whose variable is not set."""
+    overrides = _proxy_overrides(stored) | _oidc_overrides(stored) | _syslog_overrides(stored)
     return {key: value for key, value in overrides.items() if not env_set(settings, key)}
 
 
 def effective_settings(settings: Settings | None = None) -> Settings:
-    """Return ``settings`` with the proxy and OIDC values stored in the web interface applied
-    where their variable is not set (read by the controller at each OSV download and login)."""
+    """Return ``settings`` with the proxy, OIDC and syslog values stored in the web interface
+    applied where their variable is not set (read by the controller at each OSV download, login
+    and batch of audit events)."""
     settings = settings or get_settings()
     overrides = _overrides(_stored(), settings)
     return settings.model_copy(update=overrides) if overrides else settings
@@ -344,6 +358,90 @@ def describe_oidc(settings: Settings | None = None) -> dict:
         "fields": fields,
         "cafile": settings.oidc_cafile,
         "callback_path": CALLBACK_PATH,
+    }
+
+
+# ── Syslog server of the audit log ───────────────────────────────────────────
+
+
+def _syslog_overrides(stored: dict[str, str]) -> dict[str, Any]:
+    """Stored syslog settings, keyed by Settings field."""
+    return {key: stored[key] for key in (SYSLOG_ADDRESS, SYSLOG_FACILITY) if key in stored}
+
+
+def set_audit_syslog(
+    values: dict[str, str | None], actor: str, settings: Settings | None = None
+) -> None:
+    """Store the syslog settings of the audit log: ``address`` and ``facility``; None (or an
+    empty address) removes the stored value, the names left out are unchanged.
+
+    The change is recorded in the audit log, in the same transaction: stopping the forwarding
+    leaves a trace. Only udp:// and tcp:// addresses may be set here; a Unix socket is a file of
+    the deployment and stays a variable.
+
+    Raises:
+        ValueError: If a name is unknown, a value is invalid, or its variable is set
+            (SECREVIEW_AUDIT_SYSLOG_ADDRESS, SECREVIEW_AUDIT_SYSLOG_FACILITY); nothing is stored
+            then.
+    """
+    settings = settings or get_settings()
+    changes: dict[str, str | None] = {}
+    for name, value in values.items():
+        if name == "address":
+            if value is None or value.strip() == "":
+                changes[SYSLOG_ADDRESS] = None
+            else:
+                _check_not_env(settings, SYSLOG_ADDRESS, "SECREVIEW_AUDIT_SYSLOG_ADDRESS")
+                changes[SYSLOG_ADDRESS] = check_web_address(value)
+        elif name == "facility":
+            if value is not None:
+                _check_not_env(settings, SYSLOG_FACILITY, "SECREVIEW_AUDIT_SYSLOG_FACILITY")
+                facility(value)
+                value = value.strip().lower()
+            changes[SYSLOG_FACILITY] = value
+        else:
+            raise ValueError(f"unknown syslog setting: {name}")
+    if not changes:
+        return
+    with session_scope() as session:
+        _apply(session, changes, actor)
+        audit.record(
+            session,
+            audit.AuditAction.AUDIT_SYSLOG_CHANGED,
+            actor,
+            "setting",
+            "audit_syslog",
+            details={key.removeprefix("audit_syslog_"): value for key, value in changes.items()},
+        )
+
+
+def describe_audit_syslog(settings: Settings | None = None) -> dict:
+    """Describe the syslog settings: stored values, variables (and whether they are set) and
+    effective destination."""
+    settings = settings or get_settings()
+    stored = _stored()
+    effective = settings.model_copy(update=_overrides(stored, settings))
+    if not effective.audit_syslog_address:
+        source = "none"
+    else:
+        source = "environment" if env_set(settings, SYSLOG_ADDRESS) else "web"
+    return {
+        "address": {
+            "value": stored.get(SYSLOG_ADDRESS),
+            "env": settings.audit_syslog_address,
+            "env_set": env_set(settings, SYSLOG_ADDRESS),
+        },
+        "facility": {
+            "value": stored.get(SYSLOG_FACILITY),
+            "env": settings.audit_syslog_facility,
+            "env_set": env_set(settings, SYSLOG_FACILITY),
+        },
+        "effective": {
+            "address": effective.audit_syslog_address,
+            "facility": effective.audit_syslog_facility,
+            "source": source,
+        },
+        "facilities": sorted(FACILITIES),
     }
 
 

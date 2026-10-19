@@ -210,6 +210,8 @@ class Settings(BaseSettings):
     # tcp://host:port or unix:///dev/log (no TLS: use a local relay such as rsyslog for it).
     # Disabled by default. The controller forwards the events of every process (MCP server and
     # CLI included) from the database, each event once even with several replicas. Not proxied.
+    # Each one not set can be set on the Audit log page of the web interface; when set, it takes
+    # precedence there. An empty address variable counts as unset.
     audit_syslog_address: str | None = None
     audit_syslog_facility: str = "local0"
 

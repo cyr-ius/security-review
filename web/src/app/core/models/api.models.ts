@@ -236,7 +236,8 @@ export type AuditAction =
   | 'user.roles_changed'
   | 'user.login'
   | 'user.login_failed'
-  | 'user.logout';
+  | 'user.logout'
+  | 'audit_syslog.changed';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
@@ -262,6 +263,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.login',
   'user.login_failed',
   'user.logout',
+  'audit_syslog.changed',
 ];
 
 /** One entry of the audit log (details never hold a secret). */
@@ -614,6 +616,31 @@ export interface ProxyUpdate {
   /** '' connects directly; null deletes the stored value. Refused when the variable is set. */
   url?: string | null;
   no_proxy?: string | null;
+}
+
+/**
+ * Body of PUT /api/v1/settings/audit-syslog: a field left out is unchanged, null deletes the
+ * stored value. Refused (422) when the variable of the field is set.
+ */
+export interface AuditSyslogUpdate {
+  /** udp:// or tcp:// only. */
+  address?: string | null;
+  facility?: string | null;
+}
+
+/** GET /api/v1/settings/audit-syslog: syslog server of the audit log. */
+export interface AuditSyslogSettings {
+  /** value: set in the web interface; env: SECREVIEW_AUDIT_SYSLOG_ADDRESS and
+   * SECREVIEW_AUDIT_SYSLOG_FACILITY; env_set: the variable is set and takes precedence. */
+  address: { value: string | null; env: string | null; env_set: boolean };
+  facility: { value: string | null; env: string | null; env_set: boolean };
+  effective: {
+    address: string | null;
+    facility: string;
+    source: 'web' | 'environment' | 'none';
+  };
+  /** Names of the syslog facilities (local0, auth...). */
+  facilities: string[];
 }
 
 /** GET /api/v1/settings (proxy passwords are replaced by ***) */

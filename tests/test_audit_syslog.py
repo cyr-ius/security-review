@@ -202,3 +202,81 @@ def test_the_forwarder_writes_to_a_unix_socket(database):
 def test_invalid_settings_refuse_the_forwarder():
     with pytest.raises(ValueError):
         audit_syslog.AuditForwarder(make_settings(audit_syslog_address="syslog:514"))
+
+
+@pytest.mark.parametrize("value", ["udp://syslog.example.com:514", " tcp://10.0.0.5:601 "])
+def test_web_addresses_are_udp_or_tcp(value):
+    assert audit_syslog.check_web_address(value) == value.strip()
+
+
+def test_a_unix_socket_cannot_be_set_in_the_web_interface():
+    with pytest.raises(ValueError, match="Unix socket"):
+        audit_syslog.check_web_address("unix:///dev/log")
+    with pytest.raises(ValueError, match="SECREVIEW_AUDIT_SYSLOG_ADDRESS"):
+        audit_syslog.check_web_address("syslog:514")
+
+
+def test_the_forwarder_follows_the_current_settings(database, monkeypatch):
+    built: list[tuple[str, str]] = []
+
+    def handler_of(settings):
+        built.append((settings.audit_syslog_address, settings.audit_syslog_facility))
+        return FakeHandler()
+
+    monkeypatch.setattr(audit_syslog, "make_handler", handler_of)
+    current = {"value": make_settings()}
+    forwarder = audit_syslog.AuditForwarder(make_settings(), current=lambda: current["value"])
+
+    # No server: nothing is read nor sent, and the cursor stays absent
+    token_store.create_token("unsent", Role.MCP)
+    age_events(database)
+    assert forwarder.forward_once() == 0
+    with Session(database) as session:
+        assert session.get(AppSetting, audit_syslog.AUDIT_SYSLOG_CURSOR) is None
+
+    # A server set later: the events of the meantime are not sent
+    current["value"] = make_settings(audit_syslog_address="udp://syslog")
+    assert forwarder.forward_once() == 0
+    token_store.create_token("sent", Role.MCP)
+    age_events(database)
+    assert forwarder.forward_once() == 1
+
+    # A new facility opens a new connection
+    current["value"] = make_settings(
+        audit_syslog_address="udp://syslog", audit_syslog_facility="auth"
+    )
+    token_store.create_token("again", Role.MCP)
+    age_events(database)
+    assert forwarder.forward_once() == 1
+    assert built == [("udp://syslog", "local0"), ("udp://syslog", "auth")]
+
+    # Disabled again: the pending events, even recent, go to the previous server (the SIEM
+    # receives the change), then the cursor is dropped so the history is skipped later
+    token_store.create_token("last", Role.MCP)
+    current["value"] = make_settings()
+    assert forwarder.forward_once() == 1
+    assert forwarder.forward_once() == 0
+    with Session(database) as session:
+        assert session.get(AppSetting, audit_syslog.AUDIT_SYSLOG_CURSOR) is None
+
+
+def test_unreadable_settings_keep_the_cursor(database, monkeypatch, caplog):
+    monkeypatch.setattr(audit_syslog, "make_handler", lambda settings: FakeHandler())
+    current = {"broken": False}
+
+    def read():
+        if current["broken"]:
+            raise RuntimeError("database unavailable")
+        return make_settings(audit_syslog_address="udp://syslog")
+
+    forwarder = audit_syslog.AuditForwarder(make_settings(), current=read)
+    forwarder.forward_once()
+    current["broken"] = True
+    token_store.create_token("delayed", Role.MCP)
+    age_events(database)
+
+    assert forwarder.forward_once() == 0
+    assert "Reading the syslog settings failed" in caplog.text
+    # Not lost: sent once the settings can be read again
+    current["broken"] = False
+    assert forwarder.forward_once() == 1

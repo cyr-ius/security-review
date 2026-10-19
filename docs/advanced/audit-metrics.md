@@ -29,6 +29,7 @@ exists exactly when the change was committed.
 | `user.login` | A web user logs in (method `password` or `oidc`, address) |
 | `user.login_failed` | A login fails: wrong password, refused OIDC login (method, address, and the user name only when it is valid) |
 | `user.logout` | A web user logs out with **Log out** (address) |
+| `audit_syslog.changed` | The [syslog server](#forwarding-to-syslog) is changed on the **Audit log** page (address and facility set, `null`: stored value deleted) |
 
 Each event holds its date, its **actor**, its target (`finding` and its id, `token` and its id,
 `enrollment` and the request id), the project when there is one, and details as JSON. The actor
@@ -84,6 +85,18 @@ SECREVIEW_AUDIT_SYSLOG_ADDRESS=udp://syslog.example.com:514   # or tcp://host:po
 SECREVIEW_AUDIT_SYSLOG_FACILITY=local0                        # default
 ```
 
+Administrators (`settings.manage` permission) can also set it on the **Audit log** page of the
+web interface, in the **Syslog forwarding** card: **No forwarding** or **Set here**
+(`udp://host:port` or `tcp://host:port`), and the facility. **A variable that is set takes
+precedence**: its field is then locked, and a value set there before is ignored (**Delete**
+removes it); an empty `SECREVIEW_AUDIT_SYSLOG_ADDRESS` counts as unset. A value set there
+applies within about ten seconds, without restart; the change itself is written to the audit log
+(`audit_syslog.changed`). When the forwarding is stopped, the pending events, this change
+included, are first sent to the previous server: the SIEM sees who stopped it. A Unix socket is a
+file of the deployment: it is set with the variable only. Through the API: `GET` and
+`PUT /api/v1/settings/audit-syslog` with `address` and `facility` (`null` deletes the stored
+value, a missing field is unchanged, a field whose variable is set is refused with 422).
+
 Each event is one message with the `info` severity, tagged `secreview-audit`, its body the event
 as JSON, the same fields as `audit list`:
 
@@ -93,12 +106,14 @@ as JSON, the same fields as `audit list`:
 
 - The controller forwards the events of **every** process, MCP server and CLI included, from the
   database: the MCP server keeps making no outgoing connection. An event leaves about 5 to 15
-  seconds after it is written; the history before the first start is not sent.
+  seconds after it is written; the history before the forwarding is enabled (at start or in
+  the web interface) is not sent.
 - Each event is sent **once**, even with several replicas of the controller: the id of the last
   forwarded event is kept in the database, and a replica moves it forward before sending. A batch
   whose sending fails is logged and not sent again (at most once).
 - No TLS nor proxy: to encrypt, send to a local relay (`rsyslog`, `syslog-ng`, Fluent Bit) that
-  forwards over TLS. An invalid address stops `serve` at start.
+  forwards over TLS. An invalid variable stops `serve` at start; an invalid address is refused by
+  the web interface.
 
 ## Prometheus metrics
 

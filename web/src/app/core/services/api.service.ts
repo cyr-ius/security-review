@@ -9,6 +9,8 @@ import {
   AppSettings,
   AuditPage,
   AuditQuery,
+  AuditSyslogSettings,
+  AuditSyslogUpdate,
   AuthConfig,
   AuthSource,
   ChecklistCatalog,
@@ -448,6 +450,15 @@ export class ApiService {
   /** A field left out is unchanged; null restores the variable, url '' connects directly. */
   setProxy(values: ProxyUpdate): Observable<AppSettings> {
     return this.http.put<AppSettings>(`${API_URL}/settings/proxy`, values);
+  }
+
+  auditSyslog(): Observable<AuditSyslogSettings> {
+    return this.http.get<AuditSyslogSettings>(`${API_URL}/settings/audit-syslog`);
+  }
+
+  /** A field left out is unchanged; null restores the variable, address '' stops forwarding. */
+  setAuditSyslog(values: AuditSyslogUpdate): Observable<AuditSyslogSettings> {
+    return this.http.put<AuditSyslogSettings>(`${API_URL}/settings/audit-syslog`, values);
   }
 
   advisories(): Observable<AdvisoryOverview> {

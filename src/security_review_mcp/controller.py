@@ -14,6 +14,7 @@ import sys
 
 from . import (
     advisory_sync,
+    app_settings,
     audit_syslog,
     cli,
     http_server,
@@ -106,9 +107,11 @@ def serve(argv: list[str]) -> None:
     )
     if pruner:
         pruner.start()
-    forwarder = audit_syslog.AuditForwarder(settings) if settings.audit_syslog_address else None
-    if forwarder:
-        forwarder.start()
+    # Always running: the syslog server may be set in the web interface at any time
+    forwarder = audit_syslog.AuditForwarder(
+        settings, current=lambda: app_settings.effective_settings(settings)
+    )
+    forwarder.start()
     try:
         http_server.serve(
             http_server.build_controller_app(
@@ -130,8 +133,7 @@ def serve(argv: list[str]) -> None:
             updater.stop()
         if pruner:
             pruner.stop()
-        if forwarder:
-            forwarder.stop()
+        forwarder.stop()
 
 
 def main(argv: list[str] | None = None) -> None:

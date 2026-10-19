@@ -1,9 +1,15 @@
 """Forwarding of the audit events to a syslog server (controller, optional).
 
 Every process writes its audit events in the database (see audit); only the controller connects
-to the syslog server of ``SECREVIEW_AUDIT_SYSLOG_ADDRESS``, so the MCP server keeps making no
-outgoing connection. A background thread reads the events added since the last forwarded one
-and sends each as one JSON message.
+to the syslog server, so the MCP server keeps making no outgoing connection. A background thread
+reads the events added since the last forwarded one and sends each as one JSON message.
+
+The server is ``SECREVIEW_AUDIT_SYSLOG_ADDRESS`` or, when it is not set, the one set in the web
+interface (see app_settings), read again before each batch: a change applies within one
+interval, without a restart. When the forwarding is stopped, a last batch, without the settle
+delay, is sent to the previous server, so that the SIEM receives the event of the change; while
+no server is set, the cursor is dropped, so that enabling the forwarding later does not send the
+events of the meantime.
 
 The id of the last forwarded event is kept in the ``appsetting`` table (AUDIT_SYSLOG_CURSOR,
 never shown in the web interface). A replica moves it forward with a conditional update before
@@ -19,11 +25,12 @@ import logging
 import logging.handlers
 import socket
 import threading
+from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
 from urllib.parse import urlsplit
 
-from sqlalchemy import update
+from sqlalchemy import delete, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, func, select
 
@@ -48,6 +55,8 @@ DEFAULT_SYSLOG_PORT = 514
 # Tag of the messages (RFC 3164 program name)
 SYSLOG_TAG = "secreview-audit"
 MAX_ADDRESS_CHARS = 500
+# Names of the syslog facilities (local0, auth...)
+FACILITIES = frozenset(logging.handlers.SysLogHandler.facility_names)
 
 
 def parse_address(value: str) -> tuple[str | tuple[str, int], socket.SocketKind]:
@@ -80,19 +89,33 @@ def parse_address(value: str) -> tuple[str | tuple[str, int], socket.SocketKind]
     return (parts.hostname, port or DEFAULT_SYSLOG_PORT), kind
 
 
+def check_web_address(value: str) -> str:
+    """Return the cleaned ``value`` when it may be set in the web interface: udp:// or tcp://.
+
+    A Unix socket is a file of the deployment: it stays a variable, as the OIDC CA file.
+
+    Raises:
+        ValueError: If the address is invalid or is a Unix socket.
+    """
+    text = value.strip()
+    parse_address(text)
+    if urlsplit(text).scheme == "unix":
+        raise ValueError("a Unix socket is set with SECREVIEW_AUDIT_SYSLOG_ADDRESS only")
+    return text
+
+
 def facility(name: str) -> int:
     """Syslog facility code of ``name`` (``local0``, ``auth``...).
 
     Raises:
         ValueError: If the name is not a syslog facility.
     """
-    names = logging.handlers.SysLogHandler.facility_names
     key = name.strip().lower()
-    if key not in names:
+    if key not in FACILITIES:
         raise ValueError(
-            f"SECREVIEW_AUDIT_SYSLOG_FACILITY must be one of: {', '.join(sorted(names))}"
+            f"SECREVIEW_AUDIT_SYSLOG_FACILITY must be one of: {', '.join(sorted(FACILITIES))}"
         )
-    return names[key]
+    return logging.handlers.SysLogHandler.facility_names[key]
 
 
 def validate_settings(settings: Settings) -> None:
@@ -107,7 +130,9 @@ def format_event(event: dict[str, Any]) -> str:
     return f"{SYSLOG_TAG}: {json.dumps(event, sort_keys=True, separators=(',', ':'))}"
 
 
-def claim_batch(limit: int = BATCH_SIZE) -> list[dict[str, Any]]:
+def claim_batch(
+    limit: int = BATCH_SIZE, settle_seconds: int = SETTLE_SECONDS
+) -> list[dict[str, Any]]:
     """Return the next events to forward and move the cursor past them.
 
     The first call stores the id of the newest event and returns nothing (the history is not
@@ -126,7 +151,7 @@ def claim_batch(limit: int = BATCH_SIZE) -> list[dict[str, Any]]:
                 session.rollback()  # created by another replica at the same time
             return []
         start = row.value
-        settled = utcnow() - timedelta(seconds=SETTLE_SECONDS)
+        settled = utcnow() - timedelta(seconds=settle_seconds)
         rows = session.exec(
             select(AuditEvent)
             .where(col(AuditEvent.id) > int(start or 0), col(AuditEvent.created_at) <= settled)
@@ -144,6 +169,13 @@ def claim_batch(limit: int = BATCH_SIZE) -> list[dict[str, Any]]:
         if moved.rowcount != 1:
             return []
         return events
+
+
+def drop_cursor() -> None:
+    """Forget the last forwarded event (no server set): the next start skips the history."""
+    with session_scope() as session:
+        if session.get(AppSetting, AUDIT_SYSLOG_CURSOR) is not None:
+            session.execute(delete(AppSetting).where(col(AppSetting.key) == AUDIT_SYSLOG_CURSOR))
 
 
 def make_handler(settings: Settings) -> logging.handlers.SysLogHandler:
@@ -167,14 +199,73 @@ def make_handler(settings: Settings) -> logging.handlers.SysLogHandler:
 class AuditForwarder:
     """Background thread of the controller that sends the new audit events to syslog."""
 
-    def __init__(self, settings: Settings, interval: float = INTERVAL_SECONDS) -> None:
-        """Prepare the forwarder; ``start`` launches the thread."""
+    def __init__(
+        self,
+        settings: Settings,
+        interval: float = INTERVAL_SECONDS,
+        current: Callable[[], Settings] | None = None,
+    ) -> None:
+        """Prepare the forwarder; ``start`` launches the thread.
+
+        ``current`` returns the settings to apply before each batch (the controller passes the
+        settings with the values of the web interface); by default ``settings`` stay.
+        """
         validate_settings(settings)
         self.settings = settings
         self.interval = interval
+        self._current = current or (lambda: settings)
         self._handler: logging.handlers.SysLogHandler | None = None
+        # Address and facility of the open handler
+        self._target: tuple[str, str] | None = None
         self._stop = threading.Event()
         self._thread = threading.Thread(target=self.run, name="audit-syslog", daemon=True)
+
+    def _read_target(self) -> tuple[Settings, tuple[str, str]]:
+        """Return the current settings and their address and facility ("" address: none).
+
+        Raises:
+            Exception: If the settings cannot be read or are invalid.
+        """
+        settings = self._current()
+        target = (settings.audit_syslog_address or "", settings.audit_syslog_facility)
+        if target[0]:
+            validate_settings(settings)
+        return settings, target
+
+    def _switch(self, settings: Settings, target: tuple[str, str]) -> int:
+        """Apply new settings; return the number of events of the last batch.
+
+        The connection is closed (opened again by the next batch). When the forwarding stops,
+        the pending events, the change included, are first sent to the previous server.
+        """
+        sent = 0
+        if self._target and self._target[0] and not target[0]:
+            sent = self._forward(claim_batch(settle_seconds=0))
+            logger.info("Audit events are no longer forwarded to syslog")
+        elif target[0]:
+            logger.info("Audit events are forwarded to syslog")
+        self.close()
+        self._target = target
+        self.settings = settings
+        return sent
+
+    def _forward(self, events: list[dict[str, Any]]) -> int:
+        """Send ``events``; return their number, 0 when the sending fails (logged)."""
+        if not events:
+            return 0
+        try:
+            self._send(events)
+        except OSError as exc:
+            self.close()
+            logger.error(
+                "Forwarding of %d audit events to syslog failed (ids %s to %s): %s",
+                len(events),
+                events[0]["id"],
+                events[-1]["id"],
+                type(exc).__name__,
+            )
+            return 0
+        return len(events)
 
     def _send(self, events: list[dict[str, Any]]) -> None:
         """Send ``events``; raise OSError when the server cannot be reached."""
@@ -207,25 +298,21 @@ class AuditForwarder:
     def forward_once(self) -> int:
         """Forward one batch; return the number of events sent. An error is logged."""
         try:
+            settings, target = self._read_target()
+        except Exception:
+            # The cursor is kept: the events are sent once the settings can be read again
+            logger.exception("Reading the syslog settings failed")
+            return 0
+        try:
+            sent = self._switch(settings, target) if target != self._target else 0
+            if not target[0]:
+                drop_cursor()
+                return sent
             events = claim_batch()
         except Exception:
             logger.exception("Reading the audit events to forward failed")
             return 0
-        if not events:
-            return 0
-        try:
-            self._send(events)
-        except OSError as exc:
-            self.close()
-            logger.error(
-                "Forwarding of %d audit events to syslog failed (ids %s to %s): %s",
-                len(events),
-                events[0]["id"],
-                events[-1]["id"],
-                type(exc).__name__,
-            )
-            return 0
-        return len(events)
+        return self._forward(events)
 
     def run(self) -> None:
         """Forward at once, then every interval (and at once while batches are full)."""
@@ -235,7 +322,6 @@ class AuditForwarder:
 
     def start(self) -> None:
         """Start the background thread."""
-        logger.info("Audit events are forwarded to syslog")
         self._thread.start()
 
     def close(self) -> None:

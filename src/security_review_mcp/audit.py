@@ -63,6 +63,7 @@ class AuditAction(StrEnum):
     USER_LOGIN = "user.login"
     USER_LOGIN_FAILED = "user.login_failed"
     USER_LOGOUT = "user.logout"
+    AUDIT_SYSLOG_CHANGED = "audit_syslog.changed"
 
 
 def user_actor(username: str) -> str:

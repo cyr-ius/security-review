@@ -29,6 +29,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `user.login` | Un utilisateur web se connecte (méthode `password` ou `oidc`, adresse) |
 | `user.login_failed` | Une connexion échoue : mot de passe incorrect, connexion OIDC refusée (méthode, adresse, et l'identifiant seulement s'il est valide) |
 | `user.logout` | Un utilisateur web se déconnecte avec **Déconnexion** (adresse) |
+| `audit_syslog.changed` | Le [serveur syslog](#envoi-vers-syslog) est modifié sur la page **Journal d'audit** (adresse et *facility* définies, `null` : valeur enregistrée supprimée) |
 
 Chaque événement porte sa date, son **acteur**, sa cible (`finding` et son id, `token` et son
 id, `enrollment` et l'id de la demande), le projet quand il y en a un, et des détails en JSON.
@@ -85,6 +86,19 @@ SECREVIEW_AUDIT_SYSLOG_ADDRESS=udp://syslog.example.com:514   # ou tcp://hôte:p
 SECREVIEW_AUDIT_SYSLOG_FACILITY=local0                        # par défaut
 ```
 
+Les administrateurs (permission `settings.manage`) peuvent aussi le régler sur la page **Journal
+d'audit** de l'interface web, dans la carte **Envoi vers syslog** : **Aucun envoi** ou **Défini
+ici** (`udp://hôte:port` ou `tcp://hôte:port`), et la *facility*. **Une variable définie est
+prioritaire** : son champ est alors verrouillé, et une valeur définie là auparavant est ignorée
+(**Supprimer** l'efface) ; un `SECREVIEW_AUDIT_SYSLOG_ADDRESS` vide compte comme non défini. Une
+valeur définie là s'applique en une dizaine de secondes, sans redémarrage ; la modification est
+elle-même inscrite au journal d'audit (`audit_syslog.changed`). À l'arrêt de l'envoi, les
+événements en attente, cette modification comprise, partent d'abord vers l'ancien serveur : le
+SIEM voit qui l'a arrêté. Un socket Unix est un fichier du déploiement : il se règle uniquement
+par la variable. Par l'API : `GET` et `PUT /api/v1/settings/audit-syslog` avec `address` et
+`facility` (`null` supprime la valeur enregistrée, un champ absent est inchangé, un champ dont la
+variable est définie est refusé avec 422).
+
 Chaque événement est un message de sévérité `info`, étiqueté `secreview-audit`, dont le corps est
 l'événement en JSON, avec les mêmes champs que `audit list` :
 
@@ -94,13 +108,14 @@ l'événement en JSON, avec les mêmes champs que `audit list` :
 
 - Le contrôleur envoie les événements de **tous** les processus, serveur MCP et CLI compris,
   depuis la base : le serveur MCP ne fait toujours aucune connexion sortante. Un événement part
-  environ 5 à 15 secondes après son écriture ; l'historique antérieur au premier démarrage n'est
-  pas envoyé.
+  environ 5 à 15 secondes après son écriture ; l'historique antérieur à l'activation de l'envoi
+  (au démarrage ou dans l'interface web) n'est pas envoyé.
 - Chaque événement est envoyé **une fois**, même avec plusieurs répliques du contrôleur : l'id du
   dernier événement envoyé est conservé en base, et une réplique l'avance avant d'envoyer. Un lot
   dont l'envoi échoue est journalisé et n'est pas renvoyé (au plus une fois).
 - Ni TLS ni proxy : pour chiffrer, envoyez à un relais local (`rsyslog`, `syslog-ng`, Fluent Bit)
-  qui transmet en TLS. Une adresse invalide arrête `serve` au démarrage.
+  qui transmet en TLS. Une variable invalide arrête `serve` au démarrage ; une adresse invalide
+  est refusée par l'interface web.
 
 ## Métriques Prometheus
 
