@@ -81,12 +81,19 @@ devcontainer : ils ne se mélangent pas avec ceux de l'hôte.
 
 ## Définition de « terminé »
 
-Une contribution, humaine ou produite par un agent IA, n'est terminée que si elle comprend des
-tests, que la documentation `docs/` est à jour dans les deux langues et que les `README.md`, qui
+Une contribution, humaine ou produite par un agent IA, n'est terminée que si le comportement
+qu'elle ajoute ou corrige est vérifié par un test pertinent, nouveau ou existant, que la documentation `docs/` est à jour dans les deux langues et que les `README.md`, qui
 restent des résumés, le sont aussi. Quand le serveur MCP `security-review` est opérationnel, les changements sont en outre
 relus avec lui (le projet se relit lui-même) et le rapport est enregistré. Les règles détaillées
 (conventions, invariants de sécurité, correspondance code → pages de doc) sont dans `AGENTS.md`
 à la racine du dépôt ; `CLAUDE.md` et `.github/copilot-instructions.md` y renvoient.
+
+Un test protège un contrat ou un invariant, pas une ligne de code, et il n'y a pas d'objectif de
+couverture. Testez d'abord les invariants de sécurité, les contrats publics (outils et prompts
+MCP, codes de sortie CLI, schéma REST, migrations) et chaque bug corrigé (un test de régression).
+Ne testez pas ce que garantit déjà une bibliothèque, le détail d'implémentation ni le texte exact
+d'un message. Avant d'ajouter un test, étendez celui qui couvre déjà le comportement (assertion
+supplémentaire, ligne de `parametrize`) : un changement ajoute en général un à trois tests.
 
 ## Structure du code
 

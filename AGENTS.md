@@ -14,7 +14,8 @@ Deux processus partagent la base et ne s'appellent jamais : le **serveur MCP**
 
 ## Une tâche n'est terminée que si
 
-1. **Des tests couvrent le changement** (voir [Tests](#tests)) et `uv run pytest` passe.
+1. **Le comportement ajouté ou corrigé est vérifié par un test pertinent**, existant ou nouveau
+   (voir [Tests](#tests)), et `uv run pytest` passe.
 2. `uv run ruff check . && uv run ruff format --check .` passe.
 3. **La documentation `docs/` est à jour, en anglais et en français**, et
    `uv run mkdocs build --strict` passe
@@ -213,9 +214,42 @@ seuil), `2` erreur d'usage ou de données (`_fail` écrit l'erreur en JSON sur s
 
 ## Tests
 
-**Tout changement de comportement s'accompagne de tests dans le même commit.** Une
-fonctionnalité sans test n'est pas terminée ; une correction de bug commence par un test qui
-échoue et reproduit le bug.
+Un test protège un **contrat** ou un **invariant**, pas une ligne de code. Il n'y a pas
+d'objectif de couverture : moins de tests, mais qui échouent pour une vraie raison. Les tests
+d'un changement sont dans le même commit que lui.
+
+**À tester (prioritaire)**
+
+- les invariants de sécurité (secret masqué, limite refusée, 401/403, aucun statut changé par un
+  agent, aucune lecture disque depuis un outil MCP) ;
+- les contrats publics : outils et prompts MCP, codes de sortie CLI, schéma de l'API REST,
+  migrations ;
+- toute correction de bug : **un** test de régression, qui échoue avant la correction ;
+- les règles de scan : un cas positif et un cas négatif, en lignes de `parametrize`.
+
+**À ne pas tester**
+
+- ce que garantit déjà une bibliothèque (validation Pydantic / FastAPI → 422, SQLModel,
+  argparse, Angular) ;
+- le détail d'implémentation (fonction privée, ordre des appels, mock d'un appel interne) ;
+- le texte exact d'un message ou d'un log, sauf s'il fait partie du contrat ;
+- chaque entrée invalide : **un** cas par catégorie d'erreur suffit ;
+- une refactorisation sans changement de comportement : les tests existants suffisent.
+
+**Méthode**
+
+- Avant d'écrire un test, cherchez celui qui couvre déjà le comportement dans
+  `tests/test_<module>.py` : **étendez-le** (assertion supplémentaire, ligne de `parametrize`)
+  plutôt que d'en créer un nouveau.
+- Ordre de grandeur : un changement ajoute **1 à 3 tests**. Au-delà, justifiez-le dans la
+  réponse ou la PR.
+- Vous pouvez **fusionner ou supprimer** un test redondant ou devenu obsolète du module modifié ;
+  signalez-le dans la réponse. Ne supprimez jamais le dernier test d'un invariant de sécurité ou
+  une régression de bug : fusionnez-les seulement.
+- Un invariant de sécurité est testé une fois, au plus près du module qui le garantit : ne
+  dupliquez pas ce test dans chaque couche (service, API, MCP).
+
+**Conventions**
 
 - Un fichier par module : `tests/test_<module>.py`. Ajoutez au fichier existant plutôt que d'en
   créer un nouveau.
@@ -225,14 +259,12 @@ fonctionnalité sans test n'est pas terminée ; une correction de bug commence p
   règles vide par test : n'utilisez pas la base réelle. Utilisez la fixture `import_pack` pour
   charger des règles internes (pack TOML importé en base), `tmp_path` pour les fichiers.
 - Outils, prompts et ressources MCP : test de bout en bout avec `mcp.client.Client(mcp)` (voir
-  `tests/test_server.py`, `pytestmark = pytest.mark.anyio`), y compris le cas d'erreur
-  (`ToolError` attendu).
+  `tests/test_server.py`, `pytestmark = pytest.mark.anyio`), avec un cas d'erreur
+  représentatif (`ToolError` attendu).
 - Règle de scan : au moins un cas **positif** (le motif vulnérable est détecté) et un cas
   **négatif** (le code sûr équivalent ne l'est pas), pour limiter les faux positifs.
 - CLI : appelez `server.main([...])` ou les fonctions de `cli.py`, vérifiez le **code de sortie**
   et la sortie (`capsys`).
-- Sécurité : testez explicitement les invariants touchés (secret masqué, limite dépassée
-  refusée, 401 sans jeton...).
 - Pas de réseau, pas de `sleep`, pas de dépendance à l'ordre des tests. Les clés et jetons de
   test sont factices.
 
