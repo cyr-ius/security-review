@@ -2,15 +2,28 @@
 
 import re
 
+import tree_sitter_java
 import tree_sitter_javascript
 import tree_sitter_python
 import tree_sitter_typescript
 from tree_sitter import Language, Node, Parser
 
 _PYTHON = Language(tree_sitter_python.language())
+_JAVA = Language(tree_sitter_java.language())
 _SQL_RE = re.compile(r"\b(select|insert|update|delete|replace)\b", re.IGNORECASE)
 _REQUEST_RE = re.compile(r"\brequest\.(?:args|form|values|GET|POST|query_params|json|data)\b")
+_JAVA_REQUEST_RE = re.compile(
+    r"\b(?:request|req|httpRequest)\.(?:getParameter|getHeader|getQueryString|getPathInfo)\s*\("
+)
 _SQL_SINKS = {"execute", "executemany", "text"}
+_JAVA_SQL_SINKS = {
+    "execute",
+    "executeQuery",
+    "executeUpdate",
+    "prepareStatement",
+    "createQuery",
+    "createNativeQuery",
+}
 _TYPESCRIPT = Language(tree_sitter_typescript.language_typescript())
 _JAVASCRIPT = Language(tree_sitter_javascript.language())
 _UNTRUSTED_WEB_INPUT = re.compile(
@@ -215,6 +228,201 @@ def python_sql_taint_lines(content: str) -> list[int]:
     source = content.encode("utf-8")
     tree = Parser(_PYTHON).parse(source)
     analyzer = _PythonSqlAnalyzer(source)
+    analyzer.analyze(tree.root_node)
+    return sorted(analyzer.lines)
+
+
+class _JavaSqlAnalyzer:
+    """Track local Java request-to-SQL flows across method arguments and returns."""
+
+    def __init__(self, source: bytes) -> None:
+        self.source = source
+        self.tainted: set[str] = set()
+        self.dynamic: set[str] = set()
+        self.sql_candidates: set[str] = set()
+        self.lines: set[int] = set()
+        self.methods: dict[str, Node] = {}
+        self.call_stack: set[str] = set()
+        self.return_stack: list[list[bool]] = []
+
+    def analyze(self, node: Node) -> None:
+        if node.type == "program":
+            self._collect_methods(node)
+        if node.type == "method_declaration":
+            self._method(node, set(), set(), set())
+            return
+        if node.type == "local_variable_declaration":
+            self._declaration(node)
+            return
+        if node.type == "assignment_expression":
+            self._assignment(node)
+            return
+        if node.type == "return_statement" and self.return_stack and node.named_children:
+            value = node.named_children[0]
+            summary = self.return_stack[-1]
+            summary[0] |= self._tainted(value)
+            summary[1] |= self._dynamic(value)
+            summary[2] |= self._sql_candidate(value)
+        if node.type == "method_invocation":
+            self._invocation(node)
+        for child in node.named_children:
+            self.analyze(child)
+
+    def _collect_methods(self, node: Node) -> None:
+        if node.type == "method_declaration":
+            name = node.child_by_field_name("name")
+            if name is not None:
+                self.methods[self._text(name)] = node
+        for child in node.named_children:
+            self._collect_methods(child)
+
+    def _method(
+        self,
+        node: Node,
+        tainted: set[str],
+        dynamic: set[str],
+        sql_candidates: set[str],
+    ) -> tuple[bool, bool, bool]:
+        name_node = node.child_by_field_name("name")
+        name = self._text(name_node) if name_node is not None else ""
+        if name in self.call_stack:
+            return False, False, False
+        state = self.tainted, self.dynamic, self.sql_candidates
+        self.tainted, self.dynamic, self.sql_candidates = tainted, dynamic, sql_candidates
+        self.call_stack.add(name)
+        summary = [False, False, False]
+        self.return_stack.append(summary)
+        body = node.child_by_field_name("body")
+        if body is not None:
+            self.analyze(body)
+        self.return_stack.pop()
+        self.call_stack.discard(name)
+        self.tainted, self.dynamic, self.sql_candidates = state
+        return tuple(summary)
+
+    def _declaration(self, node: Node) -> None:
+        for declarator in node.named_children:
+            if declarator.type != "variable_declarator":
+                continue
+            name = declarator.child_by_field_name("name")
+            value = declarator.child_by_field_name("value")
+            if name is None or name.type != "identifier" or value is None:
+                continue
+            identifier = self._text(name)
+            self._update_state(identifier, value)
+            self.analyze(value)
+
+    def _assignment(self, node: Node) -> None:
+        left = node.child_by_field_name("left")
+        right = node.child_by_field_name("right")
+        if left is None or right is None:
+            return
+        if left.type == "identifier":
+            self._update_state(self._text(left), right)
+        self.analyze(right)
+
+    def _update_state(self, name: str, value: Node) -> None:
+        if self._tainted(value):
+            self.tainted.add(name)
+        else:
+            self.tainted.discard(name)
+        if self._dynamic(value):
+            self.dynamic.add(name)
+        else:
+            self.dynamic.discard(name)
+        if self._sql_candidate(value):
+            self.sql_candidates.add(name)
+        else:
+            self.sql_candidates.discard(name)
+
+    def _invocation(self, node: Node) -> None:
+        name_node = node.child_by_field_name("name")
+        arguments = node.child_by_field_name("arguments")
+        if name_node is None or arguments is None:
+            return
+        name = self._text(name_node)
+        args = arguments.named_children
+        if name in _JAVA_SQL_SINKS:
+            for query in args:
+                if self._tainted(query) and self._dynamic(query) and self._sql_candidate(query):
+                    self.lines.add(node.start_point.row + 1)
+                    break
+        elif name in self.methods and name not in self.call_stack:
+            self._analyze_callee(self.methods[name], args)
+
+    def _analyze_callee(self, method: Node, arguments: list[Node]) -> tuple[bool, bool, bool]:
+        parameters = method.child_by_field_name("parameters")
+        if parameters is None:
+            return False, False, False
+        parameter_names = [
+            self._text(name)
+            for parameter in parameters.named_children
+            if (name := parameter.child_by_field_name("name")) is not None
+        ]
+        tainted: set[str] = set()
+        dynamic: set[str] = set()
+        sql_candidates: set[str] = set()
+        for parameter, argument in zip(parameter_names, arguments, strict=False):
+            if self._tainted(argument):
+                tainted.add(parameter)
+            if self._dynamic(argument):
+                dynamic.add(parameter)
+            if self._sql_candidate(argument):
+                sql_candidates.add(parameter)
+        return self._method(method, tainted, dynamic, sql_candidates)
+
+    def _tainted(self, node: Node) -> bool:
+        if node.type == "identifier" and self._text(node) in self.tainted:
+            return True
+        if node.type == "method_invocation":
+            name = node.child_by_field_name("name")
+            invocation_name = self._text(name) if name is not None else ""
+            if _JAVA_REQUEST_RE.search(self._text(node)):
+                return True
+            if invocation_name in self.methods and invocation_name not in self.call_stack:
+                arguments = node.child_by_field_name("arguments")
+                args = arguments.named_children if arguments is not None else []
+                return self._analyze_callee(self.methods[invocation_name], args)[0]
+        return any(self._tainted(child) for child in node.named_children)
+
+    def _dynamic(self, node: Node) -> bool:
+        if node.type == "identifier":
+            return self._text(node) in self.dynamic
+        if node.type == "binary_expression":
+            operator = next((child for child in node.children if not child.is_named), None)
+            return operator is not None and self._text(operator) == "+" and self._tainted(node)
+        if node.type == "method_invocation":
+            name = node.child_by_field_name("name")
+            invocation_name = self._text(name) if name is not None else ""
+            if invocation_name in self.methods and invocation_name not in self.call_stack:
+                arguments = node.child_by_field_name("arguments")
+                args = arguments.named_children if arguments is not None else []
+                return self._analyze_callee(self.methods[invocation_name], args)[1]
+        return False
+
+    def _sql_candidate(self, node: Node) -> bool:
+        if node.type == "identifier":
+            return self._text(node) in self.sql_candidates
+        if node.type == "method_invocation":
+            name = node.child_by_field_name("name")
+            invocation_name = self._text(name) if name is not None else ""
+            if invocation_name in self.methods and invocation_name not in self.call_stack:
+                arguments = node.child_by_field_name("arguments")
+                args = arguments.named_children if arguments is not None else []
+                return self._analyze_callee(self.methods[invocation_name], args)[2]
+        if _SQL_RE.search(self._text(node)):
+            return True
+        return any(self._sql_candidate(child) for child in node.named_children)
+
+    def _text(self, node: Node) -> str:
+        return self.source[node.start_byte : node.end_byte].decode("utf-8", errors="replace")
+
+
+def java_sql_taint_lines(content: str) -> list[int]:
+    """Return Java SQL sink lines reached by a request-controlled dynamic query."""
+    source = content.encode("utf-8")
+    tree = Parser(_JAVA).parse(source)
+    analyzer = _JavaSqlAnalyzer(source)
     analyzer.analyze(tree.root_node)
     return sorted(analyzer.lines)
 

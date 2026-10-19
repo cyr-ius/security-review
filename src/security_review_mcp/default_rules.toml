@@ -839,6 +839,15 @@ pattern = '''\b(?:ctx|context|initialContext|ic)\s*\.\s*lookup\s*\([^;\n]*(?:get
 advice = "Never build JNDI names from request data; use fixed names and validate any lookup key against an explicit allow-list."
 
 [[rules]]
+id = "JV-019"
+title = "Request data reaches a dynamic SQL query"
+severity = "high"
+cwe = "CWE-89"
+languages = ["java"]
+pattern = '(?=a)b'
+advice = "Use PreparedStatement placeholders or named parameters; do not concatenate request data into SQL."
+
+[[rules]]
 id = "NG-008"
 title = "Redirect to a user-supplied URL"
 severity = "medium"

@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from .models import Severity
 from .syntax_analysis import (
     angular_xss_taint_lines,
+    java_sql_taint_lines,
     message_origin_check_lines,
     python_sql_taint_lines,
 )
@@ -146,6 +147,27 @@ def scan_content_detailed(
         taint_rule = next((rule for rule in selected if rule.id == "PY-026"), None)
         if taint_rule is not None:
             for number in python_sql_taint_lines(content):
+                line = content.splitlines()[number - 1][:MAX_LINE_CHARS]
+                item = {
+                    "rule_id": taint_rule.id,
+                    "title": taint_rule.title,
+                    "severity": taint_rule.severity.value,
+                    "cwe": taint_rule.cwe,
+                    "line": number,
+                    "excerpt": redact_secrets(line.strip())[:300],
+                    "advice": taint_rule.advice,
+                }
+                ignored = _suppressed_ids(line)
+                if ignored is not None and (not ignored or taint_rule.id in ignored):
+                    suppressed.append(item)
+                else:
+                    matches.append(item)
+                    if len(matches) >= max_matches:
+                        break
+    if lang == "java" and len(matches) < max_matches:
+        taint_rule = next((rule for rule in selected if rule.id == "JV-019"), None)
+        if taint_rule is not None:
+            for number in java_sql_taint_lines(content):
                 line = content.splitlines()[number - 1][:MAX_LINE_CHARS]
                 item = {
                     "rule_id": taint_rule.id,

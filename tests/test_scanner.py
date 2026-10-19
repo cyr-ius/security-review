@@ -133,6 +133,35 @@ def test_java_jndi_rule_detects_request_controlled_lookup():
     assert "JV-018" not in rule_ids(safe, "java")
 
 
+def test_java_sql_taint_follows_method_arguments_and_returns_but_not_bound_values():
+    unsafe = """class UserStore {
+  String buildQuery(String id) {
+    return "SELECT * FROM users WHERE id = '" + id + "'";
+  }
+  void executeQuery(Statement statement, String query) throws Exception {
+    statement.executeQuery(query);
+  }
+  void handle(HttpServletRequest request, Statement statement) throws Exception {
+    String id = request.getParameter("id");
+    executeQuery(statement, buildQuery(id));
+  }
+}
+"""
+    safe = """class UserStore {
+  void handle(HttpServletRequest request, PreparedStatement statement) throws Exception {
+    String id = request.getParameter("id");
+    statement.setString(1, id);
+    statement.executeQuery();
+  }
+}
+"""
+
+    assert ("JV-019", 10) in [
+        (finding["rule_id"], finding["line"]) for finding in scan_content(unsafe, "java")
+    ]
+    assert "JV-019" not in rule_ids(safe, "java")
+
+
 @pytest.mark.parametrize("language", ["typescript", "javascript"])
 def test_web_rules_detect_prototype_chain_mutation(language: str):
     unsafe = 'target["__proto__"] = source;'

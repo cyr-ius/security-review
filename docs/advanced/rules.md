@@ -44,6 +44,12 @@ The same scans include `NG-022` for `message` event listeners that read `event.d
 checking `event.origin`. The check is limited to inline callbacks passed to `addEventListener`;
 origin validation delegated to another function is not inferred.
 
+Java scans also include `JV-019`, a bounded Tree-sitter check that follows request data through
+local method arguments and returned values into dynamically constructed SQL sent to common JDBC
+and JPA query methods. It does not report bound `PreparedStatement` values. The analysis is
+limited to direct calls and methods in the same file; it does not resolve overloads, fields,
+framework wrappers, or calls across files.
+
 Other focused additions include `PY-027` for explicitly disabled JWT signature verification,
 `JV-018` for a direct request value passed to JNDI `lookup`, and `NG-023` for assignments that
 mutate `__proto__` or `constructor.prototype`. These are line-level patterns and do not infer
@@ -160,7 +166,7 @@ A full example is provided in `examples/rules/company.toml`.
 |---|---|
 | `GEN-*` (every language) | Hard-coded credentials, private keys, cloud keys, tokens with a known format (GitHub, GitLab, Slack, Google, Stripe, npm), credentials in a URL, hard-coded JWT, obsolete SSL/TLS, secrets written to logs, plain HTTP |
 | `PY-*` (Python) | `eval`/`exec`, deserialization (pickle, `torch.load`, `joblib`...), YAML, shell commands, formatted SQL, disabled TLS, weak crypto or ECB mode, non-cryptographic randomness, XXE (lxml), SSTI, hard-coded `SECRET_KEY`, `ALLOWED_HOSTS = ['*']`, disabled CSRF, `mark_safe`, cookies without `Secure`/`HttpOnly`, SSRF, non-constant-time secret comparison, temporary files, disabled JWT signature verification |
-| `JV-*` (Java) | Deserialization (including XStream, SnakeYAML), OS commands, concatenated SQL and LDAP, XXE, CSRF, CORS, weak crypto, "trust all" TLS, paths and redirects built from the request, SSRF from direct request URLs, JNDI lookup from request data, SpEL/EL, cookies, `Random`, `printStackTrace` |
+| `JV-*` (Java) | Deserialization (including XStream, SnakeYAML), OS commands, concatenated SQL and LDAP, request-to-dynamic-SQL flows through local calls (`JV-019`), XXE, CSRF, CORS, weak crypto, "trust all" TLS, paths and redirects built from the request, SSRF from direct request URLs, JNDI lookup from request data, SpEL/EL, cookies, `Random`, `printStackTrace` |
 | `NG-*` (Angular, JavaScript, TypeScript) | Sanitizer bypass, `innerHTML` and other HTML sinks, URL-to-DOM flows, unchecked `message` origins, prototype chain mutation, `eval`, `setTimeout` with a string, tokens in web storage, `postMessage('*')`, disabled XSRF, open redirects; on the Node.js side: shell commands, interpolated SQL, `$where`, file paths, open CORS, disabled TLS, `jwt.decode`, weak crypto |
 | `CFG-*` (Docker, Compose, Kubernetes, servers) | Privileged or root container, Docker socket, host namespaces, dangerous capabilities, privilege escalation, sensitive mounts, exposed database ports, secrets in `ENV`/`ARG`, remote `ADD`, default passwords, services without authentication, `*` or `cluster-admin` RBAC, public buckets, `*` CORS, directory listing, weak SSH, `curl \| sh`, debug |
 | `GL-*` (GitLab CI) | Remote `include`, printed secrets, DinD without TLS, `allow_failure`, CI token on the command line, untrusted variables evaluated by a shell, `CI_DEBUG_TRACE`, public artifacts, `GIT_SSL_NO_VERIFY` |
