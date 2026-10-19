@@ -505,8 +505,7 @@ def scan_deps_command(argv: list[str]) -> int:
     parser.add_argument(
         "--url",
         default=settings.server_url,
-        help="server URL, for example https://secreview.example.com (default: "
-        "SECREVIEW_SERVER_URL)",
+        help="server URL, for example https://secreview.example.com (default: SECREVIEW_MCP_URL)",
     )
     parser.add_argument(
         "--fail-on",
@@ -540,11 +539,11 @@ def scan_deps_command(argv: list[str]) -> int:
     if not args.url:
         if args.skip_unconfigured:
             print(
-                "warning: dependency scan skipped (SECREVIEW_SERVER_URL is not set)",
+                "warning: dependency scan skipped (SECREVIEW_MCP_URL is not set)",
                 file=sys.stderr,
             )
             return EXIT_PASSED
-        return _fail("No server URL: give --url or set SECREVIEW_SERVER_URL")
+        return _fail("No server URL: give --url or set SECREVIEW_MCP_URL")
     token = settings.token
     if args.token_stdin:
         # Never on the command line: it would show in the process list and the shell history

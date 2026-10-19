@@ -283,7 +283,7 @@ def test_cli_require_database(tmp_path, settings_env, monkeypatch, capsys):
 def test_cli_without_server_url(tmp_path, settings_env, fake_scan, capsys):
     path = str(_lockfile(tmp_path))
     assert cli.run(["scan-deps", path]) == cli.EXIT_ERROR
-    assert "SECREVIEW_SERVER_URL" in json.loads(capsys.readouterr().err)["error"]
+    assert "SECREVIEW_MCP_URL" in json.loads(capsys.readouterr().err)["error"]
     assert cli.run(["scan-deps", path, "--skip-unconfigured"]) == cli.EXIT_PASSED
     assert "skipped" in capsys.readouterr().err
     assert fake_scan == []

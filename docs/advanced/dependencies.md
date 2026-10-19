@@ -161,7 +161,7 @@ import. It needs a token with the `mcp` or `admin` role, for instance a personal
 [enrollment](http.md#enrollment-request-the-project)).
 
 ```bash
-export SECREVIEW_SERVER_URL=https://secreview.example.com
+export SECREVIEW_MCP_URL=https://secreview.example.com
 export SECREVIEW_TOKEN=<token>
 security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
 # exit code: 0 = ok, 1 = blocked, 2 = error (server unreachable, token refused...)
@@ -173,7 +173,7 @@ sign in to the web interface and create a new personal MCP token (see
 
 - Same options and output as `security-review-ci deps-scan` (`--fail-on`, `--format`,
   `--require-database`); nothing is stored (no `--save`).
-- `--url` replaces `SECREVIEW_SERVER_URL`, `--token-stdin` reads the token on stdin instead of
+- `--url` replaces `SECREVIEW_MCP_URL`, `--token-stdin` reads the token on stdin instead of
   `SECREVIEW_TOKEN`. Both variables can also be set in the `.env` file of the folder (never
   commit it).
 - Plain HTTP is refused outside localhost (unless `--allow-http`), as are credentials in the URL

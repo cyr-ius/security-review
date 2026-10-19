@@ -164,7 +164,7 @@ faut un jeton de rôle `mcp` ou `admin`, par exemple un jeton MCP personnel (voi
 [enrôlement](http.md#enrolement-demander-le-projet)).
 
 ```bash
-export SECREVIEW_SERVER_URL=https://secreview.example.com
+export SECREVIEW_MCP_URL=https://secreview.example.com
 export SECREVIEW_TOKEN=<token>
 security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (serveur injoignable, jeton refusé...)
@@ -176,7 +176,7 @@ se connecter à l'interface web pour créer un nouveau jeton MCP personnel (voir
 
 - Mêmes options et même sortie que `security-review-ci deps-scan` (`--fail-on`, `--format`,
   `--require-database`) ; rien n'est enregistré (pas de `--save`).
-- `--url` remplace `SECREVIEW_SERVER_URL`, `--token-stdin` lit le jeton sur stdin au lieu de
+- `--url` remplace `SECREVIEW_MCP_URL`, `--token-stdin` lit le jeton sur stdin au lieu de
   `SECREVIEW_TOKEN`. Les deux variables peuvent aussi être définies dans le fichier `.env` du
   dossier (ne le commitez jamais).
 - HTTP en clair est refusé hors localhost (sauf `--allow-http`), comme les identifiants dans

@@ -7,7 +7,7 @@ uv sync --extra dev
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
 pre-commit install          # optional: same checks before every commit, and the dependency
-                            # scan when SECREVIEW_SERVER_URL is set
+                            # scan when SECREVIEW_MCP_URL is set
 ```
 
 The `prettier` hook formats the YAML and JSON files and the sources of `web/src/` with the

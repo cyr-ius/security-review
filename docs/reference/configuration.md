@@ -26,7 +26,7 @@ then locks the field).
 | `SECREVIEW_ENROLLMENT` | `true` | MCP | [Enrollment](../advanced/http.md#enrollment-request-the-project): a client without a token can request its project (restricted MCP server, `POST /api/v1/enroll`), which a user with `projects.create` approves on the controller; no token is created, the user creates a personal MCP token in the web interface |
 | `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | both | Days a project requested by an enrollment waits for an approval (1 to 365) before it is deleted |
 | `SECREVIEW_WEB_URL` | — | MCP | Public URL of the web interface (`https://…/ui`), given to the clients without a valid token (enrollment answer, `401` of `/mcp`) so that the user knows where to sign in and create a personal MCP token; without it, no link is given |
-| `SECREVIEW_SERVER_URL` | — | Client | URL of the shared MCP server used by [`security-review-mcp scan-deps`](../advanced/dependencies.md#scan-with-a-shared-server-commit-hook) (default of `--url`); never used by the servers |
+| `SECREVIEW_MCP_URL` | — | Client | URL of the shared MCP server used by [`security-review-mcp scan-deps`](../advanced/dependencies.md#scan-with-a-shared-server-commit-hook) (default of `--url`); never used by the servers |
 | `SECREVIEW_TOKEN` | — | Client | Bearer token sent by `scan-deps` to that server, and by [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci) to the controller (`ci` token); never used by the servers |
 | `SECREVIEW_CONTROLLER_URL` | — | Client | URL of the controller used by [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci) (default of `--url`); read from the environment only, never from `.env` |
 | `SECREVIEW_TLS_CERTFILE` | — | both | Certificate: enables TLS |
