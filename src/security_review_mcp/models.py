@@ -558,10 +558,16 @@ class RevokedSsoUser(SQLModel, table=True):
     """Username of an OIDC web user deleted by an administrator (see web_users.delete_user).
 
     With ``SECREVIEW_OIDC_AUTO_CREATE_USERS``, an OIDC login never creates a web user with this
-    name again; an administrator who creates the user again lifts the revocation.
+    name again, nor with the identity (``oidc_issuer`` and ``oidc_subject``) the user was bound
+    to, whatever its username claim; an administrator who creates the user again lifts the
+    revocation.
     """
+
+    __table_args__ = (Index("ix_revokedssouser_oidc_identity", "oidc_issuer", "oidc_subject"),)
 
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True, max_length=64)
+    oidc_issuer: str | None = Field(default=None, max_length=500)
+    oidc_subject: str | None = Field(default=None, max_length=255)
     revoked_at: datetime = Field(default_factory=utcnow)
     revoked_by: str | None = Field(default=None, max_length=64)

@@ -142,7 +142,8 @@ connexion.
 
 **Supprimer un compte OIDC** (écran **Utilisateurs**, `DELETE /api/v1/users/{id}` ou
 `security-review-controller user delete NOM`) ferme aussitôt ses sessions et **révoque** son
-identifiant : une connexion OIDC ne le recrée plus, même avec la création automatique et des
+identifiant et son identité (émetteur et `sub`) : une connexion OIDC ne le recrée plus, sous ce
+nom ni sous un autre (nom changé chez le fournisseur), même avec la création automatique et des
 groupes qui lui donnent une permission (message « compte supprimé » sur la page de connexion). Pour lui
 rendre l'accès, un administrateur recrée le compte (à la main ou à l'approbation d'un enrôlement),
 ou lève la révocation (**Autoriser à nouveau**, `DELETE /api/v1/users/revoked/{identifiant}`) :

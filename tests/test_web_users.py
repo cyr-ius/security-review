@@ -643,6 +643,28 @@ def test_deleted_sso_user_is_never_created_again_by_a_login():
     assert web_users.list_users() == []
 
 
+def test_deleted_sso_user_renamed_at_the_provider_is_never_created_again():
+    signer = oidc.SessionSigner(SECRET)
+    group_for("reader", name="everyone")
+    settings = {"oidc_auto_create_users": True, "oidc_default_group": "everyone"}
+    login(signer, identity("alice", "sub-1"), **settings)
+    web_users.delete_user(web_users.find_user("alice")["id"], deleted_by="root")
+
+    # Same issuer and subject under a new name: still the deleted user
+    with pytest.raises(oidc.OidcError) as exc:
+        login(signer, identity("alice.smith", "sub-1"), **settings)
+    assert exc.value.code == "revoked"
+    # Another subject, or the same subject of another provider, is another person
+    login(signer, identity("carol", "sub-2"), **settings)
+    login(signer, identity("dave", "sub-1", issuer="https://other.example.com"), **settings)
+    assert sorted(user["username"] for user in web_users.list_users()) == ["carol", "dave"]
+
+    # Lifted by an administrator: the identity may log in again
+    web_users.lift_revocation("alice")
+    login(signer, identity("alice.smith", "sub-1"), **settings)
+    assert "alice.smith" in [user["username"] for user in web_users.list_users()]
+
+
 def test_revocation_is_lifted_by_an_administrator():
     signer = oidc.SessionSigner(SECRET)
     group_for("reader", name="everyone")

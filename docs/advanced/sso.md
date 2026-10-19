@@ -135,8 +135,9 @@ once; a change of its groups at the provider, at the next login.
 
 **Deleting an OIDC account** (**Utilisateurs** screen, `DELETE /api/v1/users/{id}` or
 `security-review-controller user delete NAME`) closes its sessions at once and **revokes** its
-user name: an OIDC login no longer creates it again, even with the automatic creation and groups
-that give it a permission ("compte supprimé" message, account deleted, on the login page). To give it
+user name and its identity (issuer and `sub`): an OIDC login no longer creates it again, under
+that name or another one (name changed at the provider), even with the automatic creation and
+groups that give it a permission ("compte supprimé" message, account deleted, on the login page). To give it
 access back, an administrator creates the account again (by hand or at the approval of an
 enrollment), or lifts the revocation (**Autoriser à nouveau**, Allow again,
 `DELETE /api/v1/users/revoked/{username}`): the account is then created again at its next

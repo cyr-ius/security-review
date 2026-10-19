@@ -11,8 +11,8 @@ server and the REST API (scripts, CI). A web user has an ``auth_source``:
   user not bound yet: with ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` it is created at the first
   login, otherwise an administrator creates it beforehand. It never opens a local account nor a
   user bound to another identity, and a name changed at the provider keeps its account. A
-  deleted OIDC user is revoked (``RevokedSsoUser``): a login never creates it again, until an
-  administrator creates it again.
+  deleted OIDC user is revoked by its name and its identity (``RevokedSsoUser``): a login never
+  creates it again, even under another name, until an administrator creates it again.
 
 What a web user may do comes only from the roles of its groups (see access_control): a user
 never holds a role or a project of its own. Its groups are those an administrator gave it (or
@@ -49,7 +49,7 @@ from functools import cache
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, col, func, select
+from sqlmodel import Session, and_, col, func, or_, select
 
 from . import access_control, audit, token_store
 from .audit import AuditAction
@@ -329,10 +329,19 @@ def _lift_revocation(session: Any, username: str) -> None:
         session.delete(row)
 
 
-def _is_revoked(session: Any, username: str) -> bool:
-    """True when an administrator deleted the OIDC user with this name."""
-    query = select(RevokedSsoUser.id).where(RevokedSsoUser.username == username)
-    return session.exec(query).first() is not None
+def _is_revoked(session: Any, username: str, identity: OidcIdentity | None = None) -> bool:
+    """True when an administrator deleted the OIDC user with this name or, given an
+    ``identity``, the OIDC user bound to its issuer and subject (whatever its name now)."""
+    revoked = RevokedSsoUser.username == username
+    if identity is not None:
+        revoked = or_(
+            revoked,
+            and_(
+                RevokedSsoUser.oidc_issuer == identity.issuer,
+                RevokedSsoUser.oidc_subject == identity.subject,
+            ),
+        )
+    return session.exec(select(RevokedSsoUser.id).where(revoked)).first() is not None
 
 
 def lift_revocation(username: str) -> dict[str, Any]:
@@ -527,8 +536,9 @@ def set_theme(user_id: int, theme: str) -> dict[str, str]:
 def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
     """Delete a user (its sessions stop at once); the last administrator is kept.
 
-    A deleted OIDC user is revoked: a login never creates it again (even with
-    ``SECREVIEW_OIDC_AUTO_CREATE_USERS``), until an administrator creates it again.
+    A deleted OIDC user is revoked, by its name and its identity (issuer and subject): a login
+    never creates it again (even with ``SECREVIEW_OIDC_AUTO_CREATE_USERS``), under that name or
+    another one, until an administrator creates it again.
     """
     with session_scope() as session:
         row = _get(session, user_id)
@@ -536,7 +546,16 @@ def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
             raise ValueError("The last holder of users.manage cannot be deleted")
         deleted = _public(session, row)
         if row.auth_source == AUTH_OIDC and not _is_revoked(session, row.username):
-            session.add(RevokedSsoUser(username=row.username, revoked_by=deleted_by))
+            # The identity too, so that a name changed at the provider is not created again
+            bound = bool(row.oidc_subject) and row.oidc_issuer is not None
+            session.add(
+                RevokedSsoUser(
+                    username=row.username,
+                    oidc_issuer=row.oidc_issuer if bound else None,
+                    oidc_subject=row.oidc_subject if bound else None,
+                    revoked_by=deleted_by,
+                )
+            )
         access_control.forget_user(session, user_id)
         token_store.delete_user_tokens(session, user_id, deleted_by)
         session.delete(row)
@@ -802,7 +821,7 @@ def oidc_login(
                 if not settings.oidc_auto_create_users:
                     logger.warning("OIDC login of %s refused: no web user %s", label, name)
                     raise OidcError("unknown_user", "No web user for this account")
-                if _is_revoked(session, name):
+                if _is_revoked(session, name, identity):
                     logger.warning("OIDC login of %s refused: web user %s was deleted", label, name)
                     raise OidcError("revoked", "This web user was deleted by an administrator")
                 _check_capacity(session)
