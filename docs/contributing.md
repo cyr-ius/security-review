@@ -7,8 +7,13 @@ uv sync --extra dev
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
 pre-commit install          # optional: same checks before every commit, and the dependency
-                            # scan when SECREVIEW_SERVER_URL is set
+                            # scan when SECREVIEW_MCP_URL is set
 ```
+
+The `prettier` hook formats the YAML and JSON files and the sources of `web/src/` with the
+Prettier version locked by `web/package-lock.json` (the one of CI): run `npm ci` in `web/`
+before the first commit. CI checks the same files (`lint.yml`, **web** job). `.prettierrc` sets
+the width to 100 columns, like ruff; lock files are listed in `.prettierignore`.
 
 In VS Code (`.vscode/`):
 
@@ -17,7 +22,7 @@ In VS Code (`.vscode/`):
 | **MCP server + controller** | Runs the **Database upgrade** task, then both processes on the same database |
 | **MCP server (HTTP, port 8000)** | MCP server only; the database must already be migrated |
 | **Controller (web UI and API, port 8080)** | Controller only; migrates the database and shows the password of the initial `admin` account at first start |
-| **Controller CLI (prompt for arguments)** | A controller command (`db status`, `token list --pending`…) under the debugger |
+| **Controller CLI (prompt for arguments)** | A controller command (`db status`, `token list`…) under the debugger |
 | **Controller + web UI (Angular, port 4200)** | Controller and Angular application under the debugger, hot reload |
 | **Web UI + API (Angular dev server, port 4200)** | Runs the **Web UI + API: dev servers** task (controller on 8080 and `ng serve`), waits for them to be ready, then opens Chrome on `http://localhost:4200/ui/` with the TypeScript breakpoints |
 | **Pytest (current file)** | Tests of the open file |
@@ -39,7 +44,8 @@ Docker daemon (*docker-in-docker* feature) and a **PostgreSQL 17** database. `co
 describes two services: `app`, the development container, and `db`, the database, reachable
 from `app` under the `db` name and kept in the `secreview-dev-pg` volume between two rebuilds.
 `SECREVIEW_DATABASE_URL` points to it by default: the MCP server, the controller and the CLI use
-PostgreSQL. The tests always use an in-memory SQLite database.
+PostgreSQL. The tests always use an in-memory SQLite database, and ignore your `.env` file and
+the `SECREVIEW_*` variables of the shell.
 
 At creation, the devcontainer installs the `psql` client, the `prek` hooks and the full
 environment (`uv sync --extra dev --extra docs --extra postgres`), then migrates the database. It
@@ -48,7 +54,7 @@ forwards ports 8000 (MCP server), 8080 (controller), 4200 (Angular dev server), 
 
 ```bash
 psql -h db -U secreview secreview                     # password: secreview
-SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp   # back to SQLite for once
+SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # back to SQLite for once
 ```
 
 The Docker daemon lets you build and run the image of the [Dockerfile](advanced/docker.md)
@@ -59,7 +65,7 @@ docker build -t security-review-mcp .
 docker run --rm -p 8080:8000 -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
 docker run --rm -p 8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
-    --transport streamable-http --host 0.0.0.0 --port 8000
+    serve --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
 The ports are forwarded to the workstation: the web interface is on `http://localhost:8080/ui/`,
@@ -74,12 +80,19 @@ volumes are kept in volumes of the devcontainer: they do not mix with those of t
 
 ## Definition of done
 
-A contribution, human or produced by an AI agent, is only done if it includes tests, the `docs/`
-documentation is up to date in both languages and the `README.md` files, which stay summaries,
+A contribution, human or produced by an AI agent, is only done if the behavior it adds or fixes
+is checked by a relevant test, new or existing, the `docs/` documentation is up to date in both languages and the `README.md` files, which stay summaries,
 are too. When the `security-review` MCP server is up, the changes are also reviewed with it
 (the project reviews itself) and the report is saved. The detailed rules (conventions, security
 invariants, mapping from code to doc pages) are in `AGENTS.md` at the root of the repository;
 `CLAUDE.md` and `.github/copilot-instructions.md` point to it.
+
+A test protects a contract or an invariant, not a line of code, and there is no coverage
+target. Test first the security invariants, the public contracts (MCP tools and prompts, CLI exit
+codes, REST schema, migrations) and each fixed bug (one regression test). Do not test what a
+library already guarantees, implementation details or the exact text of a message. Before adding
+a test, extend the one that already covers the behavior (extra assertion, `parametrize` row): a
+change usually adds one to three tests.
 
 ## Code layout
 
@@ -89,13 +102,13 @@ src/security_review_mcp/
 ├── controller.py  # entry point of the controller (serve, db and administration commands)
 ├── http_server.py # HTTP of both processes: Bearer tokens and roles, TLS, /healthz, uvicorn
 ├── oidc.py        # OpenID Connect OIDC login to the web interface (controller)
-├── access_control.py # permissions, roles, groups and members of the web accounts
-├── token_store.py # Bearer tokens in the database: creation, expiry, rotation, revocation, enrollment
+├── access_control.py # permissions, roles, groups and members of the web accounts, project enrollment
+├── token_store.py # Bearer tokens in the database: creation, expiry, rotation, revocation
 ├── audit.py       # audit log: events of triage decisions, proposals, tokens and enrollments
 ├── audit_syslog.py # forwarding of the audit events to syslog by the controller (optional)
 ├── metrics.py     # Prometheus metrics of the controller (/metrics)
 ├── web_users.py   # web interface accounts, local (scrypt) or OIDC (created on the fly), sessions, initial admin
-├── enrollment.py  # `enroll` client: token request to a shared server
+├── enrollment.py  # `enroll` client: project enrollment on a shared server
 ├── remote_scan.py # `scan-deps` client: dependency scan with a shared server
 ├── ci_client.py   # `security-review-ci`: pipeline client of the controller, file listing (standard library only)
 ├── enrollment_api.py  # public POST /api/v1/enroll endpoint of the MCP server
@@ -109,6 +122,7 @@ src/security_review_mcp/
 ├── default_rules.toml  # default rules and checklists, copied into the database at first start
 ├── checklists.py  # structure of a checklist item
 ├── scanner.py     # scan engine, inline suppression, secret masking
+├── syntax_analysis.py # Tree-sitter structural checks, separate from line-based rules
 ├── rules_loader.py    # rule validation, reading of the TOML packs and of the default file
 ├── rule_store.py  # rules in the database: seeding, import/export, enabling, deletion
 ├── registry.py    # active rules/checklists (read from the database), reload
@@ -126,6 +140,8 @@ src/security_review_mcp/
 ├── dependencies.py    # manifest / lockfile parsers, hygiene
 ├── depscan.py     # dependency scan and conversion into findings
 ├── services.py    # persistence logic of the reports
+├── coverage.py    # checks the checklist results and scan rules declared with a report
+├── project_names.py # normalization of the project names (every input)
 ├── retention.py   # daily purge of the reports without findings and of the old audit events
 ├── models.py      # SQLModel models (tables + schemas)
 ├── database.py    # engine, sessions and migrations (Alembic)
@@ -181,6 +197,10 @@ local workstation and port 4200 is forwarded automatically.
   `layout/`.
 - **Templates**: host bindings in `host: {}` (no `@HostListener`); a message that explains why a
   field is invalid is linked to it with `aria-describedby`.
+- **Tables**: `app-table-controls` holds the search and the filters; the sort is chosen on the
+  column headers (`<th [appSortHeader]="sort" sortKey="name">`), with a `TableSort` named after
+  the table (`shared/utils/table-sort.ts`) that the browser remembers under
+  `secreview.sort.<name>`.
 - **Colors**: Bootstrap variables (`var(--bs-…)`) or the design tokens of `styles.css`
   (`--app-…`), never a color written in a component, so that the light and dark themes work.
 

@@ -22,10 +22,6 @@ export const users = defineMessages({
     'users.ssoUsernameHelp':
       'Exact value of the username claim of the provider (letters, digits and . _ @ -)',
     'users.localUsernameHelp': 'Letters, digits and . _ @ -',
-    'users.roleReader': 'Read',
-    'users.roleTriager': 'Triage',
-    'users.roleAdmin': 'Administration',
-    'users.roleAllProjects': '{role} (all projects)',
     'users.passwordPlaceholder': 'Empty: generated',
     'users.passwordHelp': 'Left empty, a password is generated and shown once.',
     'users.someProjects': 'Selected projects',
@@ -97,10 +93,6 @@ export const users = defineMessages({
     'users.ssoUsernameHelp':
       "Valeur exacte du claim d'identifiant du fournisseur (lettres, chiffres et . _ @ -)",
     'users.localUsernameHelp': 'Lettres, chiffres et . _ @ -',
-    'users.roleReader': 'Lecture',
-    'users.roleTriager': 'Triage',
-    'users.roleAdmin': 'Administration',
-    'users.roleAllProjects': '{role} (tous les projets)',
     'users.passwordPlaceholder': 'Vide : généré',
     'users.passwordHelp': 'Laissé vide, un mot de passe est généré et affiché une fois.',
     'users.someProjects': 'Projets sélectionnés',
@@ -176,10 +168,6 @@ export const users = defineMessages({
     'users.ssoUsernameHelp':
       'Valor exacto del claim de usuario del proveedor (letras, cifras y . _ @ -)',
     'users.localUsernameHelp': 'Letras, cifras y . _ @ -',
-    'users.roleReader': 'Lectura',
-    'users.roleTriager': 'Triaje',
-    'users.roleAdmin': 'Administración',
-    'users.roleAllProjects': '{role} (todos los proyectos)',
     'users.passwordPlaceholder': 'Vacío: generada',
     'users.passwordHelp': 'Si se deja vacía, se genera una contraseña y se muestra una vez.',
     'users.someProjects': 'Proyectos seleccionados',

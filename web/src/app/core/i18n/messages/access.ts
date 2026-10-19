@@ -11,7 +11,7 @@ export const access = defineMessages({
     'access.failed': 'The management of the access failed.',
     'roles.subtitle': 'Named sets of permissions, given to groups',
     'roles.help':
-      'A role holds permissions; a group gives its roles to its members. The built-in roles reader and admin can be neither changed nor deleted; triager, like every other role, can. A role made only of permissions marked “per project” can be limited to projects in a group. A change applies at once to the open sessions.',
+      'A role holds permissions; a group gives its roles to its members. The built-in roles reader and admin can be neither changed nor deleted; triager and mcp-user, like every other role, can. A role made only of permissions marked “per project” can be limited to projects in a group. A change applies at once to the open sessions.',
     'roles.editTitle': 'Edit the role “{role}”',
     'roles.createTitle': 'Create a role',
     'roles.namePlaceholder': 'e.g. Auditor',
@@ -74,7 +74,7 @@ export const access = defineMessages({
     'permission.standardsManage': 'Manage the standards',
     'permission.standardsManageHelp': 'Development standards.',
     'permission.tokensManage': 'Manage the tokens',
-    'permission.tokensManageHelp': 'Project tokens and enrollments, within the projects you read.',
+    'permission.tokensManageHelp': 'Project tokens, within the projects you read.',
     'permission.settingsManage': 'Manage the settings',
     'permission.settingsManageHelp': 'Report language, outgoing proxy and advisory database.',
     'permission.usersManage': 'Manage the users',
@@ -82,6 +82,17 @@ export const access = defineMessages({
       'Users, groups, roles and OIDC settings: gives every other permission.',
     'permission.auditRead': 'Read the audit log',
     'permission.auditReadHelp': 'Who changed what, and when.',
+    'permission.projectsCreate': 'Create projects',
+    'permission.projectsCreateHelp':
+      'A new project, which its creator then reads (never an existing project), and the approval of the projects requested by an enrollment.',
+    'permission.projectsDelete': 'Delete projects',
+    'permission.projectsDeleteHelp':
+      'A project with its reports, findings, project group, and its place in the roles and tokens.',
+    'permission.mcpTokensCreate': 'Create a personal MCP token',
+    'permission.mcpTokensCreateHelp':
+      'My account: a token for the MCP agent of the user, which reaches the projects the user may read.',
+    'permission.onProjects': '{permission} ({projects})',
+    'permission.onAllProjects': '{permission} (all projects)',
   },
   fr: {
     'access.name': 'Nom',
@@ -92,7 +103,7 @@ export const access = defineMessages({
     'access.failed': 'La gestion des accès a échoué.',
     'roles.subtitle': 'Ensembles nommés de permissions, donnés aux groupes',
     'roles.help':
-      "Un rôle regroupe des permissions ; un groupe donne ses rôles à ses membres. Les rôles intégrés reader et admin ne peuvent être ni modifiés ni supprimés ; triager, comme tout autre rôle, peut l'être. Un rôle fait uniquement de permissions marquées « par projet » peut être limité à des projets dans un groupe. Une modification s'applique aussitôt aux sessions ouvertes.",
+      "Un rôle regroupe des permissions ; un groupe donne ses rôles à ses membres. Les rôles intégrés reader et admin ne peuvent être ni modifiés ni supprimés ; triager et mcp-user, comme tout autre rôle, peuvent l'être. Un rôle fait uniquement de permissions marquées « par projet » peut être limité à des projets dans un groupe. Une modification s'applique aussitôt aux sessions ouvertes.",
     'roles.editTitle': 'Modifier le rôle « {role} »',
     'roles.createTitle': 'Créer un rôle',
     'roles.namePlaceholder': 'ex. Auditeur',
@@ -157,8 +168,7 @@ export const access = defineMessages({
     'permission.standardsManage': 'Gérer les normes',
     'permission.standardsManageHelp': 'Normes de développement.',
     'permission.tokensManage': 'Gérer les jetons',
-    'permission.tokensManageHelp':
-      'Jetons de projet et enrôlements, dans les projets que vous lisez.',
+    'permission.tokensManageHelp': 'Jetons de projet, dans les projets que vous lisez.',
     'permission.settingsManage': 'Gérer les paramètres',
     'permission.settingsManageHelp': "Langue des rapports, proxy sortant et base d'avis.",
     'permission.usersManage': 'Gérer les utilisateurs',
@@ -166,6 +176,17 @@ export const access = defineMessages({
       'Utilisateurs, groupes, rôles et configuration OIDC : donne toutes les autres permissions.',
     'permission.auditRead': "Lire le journal d'audit",
     'permission.auditReadHelp': 'Qui a changé quoi, et quand.',
+    'permission.projectsCreate': 'Créer des projets',
+    'permission.projectsCreateHelp':
+      'Un nouveau projet, que son créateur lit ensuite (jamais un projet existant), et la validation des projets demandés par un enrôlement.',
+    'permission.projectsDelete': 'Supprimer des projets',
+    'permission.projectsDeleteHelp':
+      'Un projet avec ses rapports, ses findings, son groupe de projet et sa place dans les rôles et les jetons.',
+    'permission.mcpTokensCreate': 'Créer un jeton MCP personnel',
+    'permission.mcpTokensCreateHelp':
+      "Mon compte : un jeton pour l'agent MCP de l'utilisateur, qui atteint les projets qu'il peut lire.",
+    'permission.onProjects': '{permission} ({projects})',
+    'permission.onAllProjects': '{permission} (tous les projets)',
   },
   es: {
     'access.name': 'Nombre',
@@ -176,7 +197,7 @@ export const access = defineMessages({
     'access.failed': 'La gestión de los accesos falló.',
     'roles.subtitle': 'Conjuntos con nombre de permisos, asignados a grupos',
     'roles.help':
-      'Un rol agrupa permisos; un grupo asigna sus roles a sus miembros. Los roles integrados reader y admin no se pueden modificar ni eliminar; triager, como cualquier otro rol, sí. Un rol formado solo por permisos marcados «por proyecto» puede limitarse a proyectos en un grupo. Un cambio se aplica de inmediato a las sesiones abiertas.',
+      'Un rol agrupa permisos; un grupo asigna sus roles a sus miembros. Los roles integrados reader y admin no se pueden modificar ni eliminar; triager y mcp-user, como cualquier otro rol, sí. Un rol formado solo por permisos marcados «por proyecto» puede limitarse a proyectos en un grupo. Un cambio se aplica de inmediato a las sesiones abiertas.',
     'roles.editTitle': 'Editar el rol «{role}»',
     'roles.createTitle': 'Crear un rol',
     'roles.namePlaceholder': 'p. ej. Auditor',
@@ -241,8 +262,7 @@ export const access = defineMessages({
     'permission.standardsManage': 'Gestionar las normas',
     'permission.standardsManageHelp': 'Normas de desarrollo.',
     'permission.tokensManage': 'Gestionar los tokens',
-    'permission.tokensManageHelp':
-      'Tokens de proyecto e inscripciones, dentro de los proyectos que lee.',
+    'permission.tokensManageHelp': 'Tokens de proyecto, dentro de los proyectos que lee.',
     'permission.settingsManage': 'Gestionar los parámetros',
     'permission.settingsManageHelp': 'Idioma de los informes, proxy saliente y base de avisos.',
     'permission.usersManage': 'Gestionar los usuarios',
@@ -250,5 +270,16 @@ export const access = defineMessages({
       'Usuarios, grupos, roles y configuración OIDC: da todos los demás permisos.',
     'permission.auditRead': 'Leer el registro de auditoría',
     'permission.auditReadHelp': 'Quién cambió qué, y cuándo.',
+    'permission.projectsCreate': 'Crear proyectos',
+    'permission.projectsCreateHelp':
+      'Un proyecto nuevo, que su creador lee después (nunca un proyecto existente), y la aprobación de los proyectos solicitados por un registro.',
+    'permission.projectsDelete': 'Eliminar proyectos',
+    'permission.projectsDeleteHelp':
+      'Un proyecto con sus informes, hallazgos, grupo de proyecto y su lugar en los roles y tokens.',
+    'permission.mcpTokensCreate': 'Crear un token MCP personal',
+    'permission.mcpTokensCreateHelp':
+      'Mi cuenta: un token para el agente MCP del usuario, que alcanza los proyectos que puede leer.',
+    'permission.onProjects': '{permission} ({projects})',
+    'permission.onAllProjects': '{permission} (todos los proyectos)',
   },
 });

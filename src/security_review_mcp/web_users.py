@@ -6,17 +6,18 @@ server and the REST API (scripts, CI). A web user has an ``auth_source``:
 - ``local``: a username and a password. Only a scrypt hash of the password is stored
   (``WebUser``); the parameters are part of the hash, so that they can be raised later.
   ``POST /api/v1/auth/login`` checks the password and issues a session token;
-- ``oidc``: an account of the identity provider (see oidc), without a password. The login looks
-  it up by the username claim; with ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` it is created at the
-  first login, otherwise an administrator creates it beforehand. It never opens a local account,
-  and its ``sub`` claim is bound at the first login: another subject is refused afterwards. A
-  deleted OIDC user is revoked (``RevokedSsoUser``): a login never creates it again, until an
-  administrator creates it again.
+- ``oidc``: an account of the identity provider (see oidc), without a password, identified by
+  the issuer and the ``sub`` claim bound at its first login. The username claim only names a
+  user not bound yet: with ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` it is created at the first
+  login, otherwise an administrator creates it beforehand. It never opens a local account nor a
+  user bound to another identity, and a name changed at the provider keeps its account. A
+  deleted OIDC user is revoked by its name and its identity (``RevokedSsoUser``): a login never
+  creates it again, even under another name, until an administrator creates it again.
 
 What a web user may do comes only from the roles of its groups (see access_control): a user
-never holds a role or a project of its own. Its groups are those an administrator gave it (or
-the project group joined at the approval of an enrollment, see grant_project) and, for an OIDC
-user, the groups named by its groups claim at its last login.
+never holds a role or a project of its own. Its groups are those an administrator gave it (a
+project group among them, see access_control.ensure_project_group) and, for an OIDC user, the
+groups named by its groups claim at its last login.
 
 The session token (see oidc.SessionSigner) carries the id of the user. At each request,
 SessionVerifier reads the user again: a deleted user loses its sessions at once, a new role or
@@ -48,17 +49,16 @@ from functools import cache
 from typing import Any
 
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import Session, col, func, select
+from sqlmodel import Session, and_, col, func, or_, select
 
 from . import access_control, audit, token_store
 from .audit import AuditAction
 from .config import Settings
 from .database import session_scope
-from .http_server import TokenInfo
+from .http_server import Role, TokenInfo
 from .models import RevokedSsoUser, WebUser, utcnow
 from .oidc import MAX_LABEL_CHARS, OidcError, OidcIdentity, SessionSigner, same_value
 from .services import NotFoundError
-from .token_store import _clean_project
 
 Permission = access_control.Permission
 
@@ -287,7 +287,6 @@ def _public(session: Session, row: WebUser) -> dict[str, Any]:
             name: None if projects is None else sorted(projects)
             for name, projects in sorted(grants.items())
         },
-        "effective_role": access_control.summary_role(grants).value if grants else None,
         "sso_linked": row.oidc_subject is not None,
         "created_at": _iso(row.created_at),
         "updated_at": _iso(row.updated_at),
@@ -311,6 +310,16 @@ def _by_name(session: Any, username: str) -> WebUser | None:
     return session.exec(select(WebUser).where(WebUser.username == username)).first()
 
 
+def _by_identity(session: Any, issuer: str, subject: str) -> WebUser | None:
+    """Return the OIDC user bound to this issuer and subject, or None."""
+    query = select(WebUser).where(
+        WebUser.auth_source == AUTH_OIDC,
+        WebUser.oidc_issuer == issuer,
+        WebUser.oidc_subject == subject,
+    )
+    return session.exec(query).first()
+
+
 def _lift_revocation(session: Any, username: str) -> None:
     """Forget the revocation of a name: an administrator creates that user again."""
     revoked = session.exec(select(RevokedSsoUser).where(RevokedSsoUser.username == username))
@@ -318,10 +327,19 @@ def _lift_revocation(session: Any, username: str) -> None:
         session.delete(row)
 
 
-def _is_revoked(session: Any, username: str) -> bool:
-    """True when an administrator deleted the OIDC user with this name."""
-    query = select(RevokedSsoUser.id).where(RevokedSsoUser.username == username)
-    return session.exec(query).first() is not None
+def _is_revoked(session: Any, username: str, identity: OidcIdentity | None = None) -> bool:
+    """True when an administrator deleted the OIDC user with this name or, given an
+    ``identity``, the OIDC user bound to its issuer and subject (whatever its name now)."""
+    revoked = RevokedSsoUser.username == username
+    if identity is not None:
+        revoked = or_(
+            revoked,
+            and_(
+                RevokedSsoUser.oidc_issuer == identity.issuer,
+                RevokedSsoUser.oidc_subject == identity.subject,
+            ),
+        )
+    return session.exec(select(RevokedSsoUser.id).where(revoked)).first() is not None
 
 
 def lift_revocation(username: str) -> dict[str, Any]:
@@ -516,8 +534,9 @@ def set_theme(user_id: int, theme: str) -> dict[str, str]:
 def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
     """Delete a user (its sessions stop at once); the last administrator is kept.
 
-    A deleted OIDC user is revoked: a login never creates it again (even with
-    ``SECREVIEW_OIDC_AUTO_CREATE_USERS``), until an administrator creates it again.
+    A deleted OIDC user is revoked, by its name and its identity (issuer and subject): a login
+    never creates it again (even with ``SECREVIEW_OIDC_AUTO_CREATE_USERS``), under that name or
+    another one, until an administrator creates it again.
     """
     with session_scope() as session:
         row = _get(session, user_id)
@@ -525,7 +544,16 @@ def delete_user(user_id: int, deleted_by: str | None = None) -> dict[str, Any]:
             raise ValueError("The last holder of users.manage cannot be deleted")
         deleted = _public(session, row)
         if row.auth_source == AUTH_OIDC and not _is_revoked(session, row.username):
-            session.add(RevokedSsoUser(username=row.username, revoked_by=deleted_by))
+            # The identity too, so that a name changed at the provider is not created again
+            bound = bool(row.oidc_subject) and row.oidc_issuer is not None
+            session.add(
+                RevokedSsoUser(
+                    username=row.username,
+                    oidc_issuer=row.oidc_issuer if bound else None,
+                    oidc_subject=row.oidc_subject if bound else None,
+                    revoked_by=deleted_by,
+                )
+            )
         access_control.forget_user(session, user_id)
         token_store.delete_user_tokens(session, user_id, deleted_by)
         session.delete(row)
@@ -624,77 +652,6 @@ def ensure_bootstrap_admin(username: str = "admin") -> bool:
     return True
 
 
-# ── Access given at the approval of an enrollment ────────────────────────────
-
-
-def check_project_grant(username: str, create_sso: bool) -> str:
-    """Check that ``grant_project`` can give a project to this user; return the clean name.
-
-    Called before approving an enrollment, so that a refused grant does not leave an approved
-    request without its web access. ``create_sso`` allows an unknown name (it becomes an OIDC
-    user).
-    """
-    name = clean_username(username)
-    with session_scope() as session:
-        row = _by_name(session, name)
-        if row is None:
-            if not create_sso:
-                raise ValueError(f"Web user '{name}' not found (OIDC is not enabled)")
-            _check_capacity(session)
-            return name
-        projects = _grants(session, row).get(Permission.REPORTS_READ, frozenset())
-        if projects is not None and len(projects) >= access_control.MAX_SESSION_PROJECTS:
-            raise ValueError(
-                f"Web user '{name}' already reaches {access_control.MAX_SESSION_PROJECTS} projects"
-            )
-    return name
-
-
-def grant_project(
-    username: str,
-    project: str,
-    created_by: str | None,
-    create_sso: bool,
-    actor: str | None = None,
-) -> dict[str, Any]:
-    """Let a web user read ``project`` (usually the project of an approved enrollment).
-
-    A user that can already read this project is unchanged. Otherwise it joins, as a local
-    member, the project group of ``project`` (``project:<project>``, created when missing, see
-    access_control.ensure_project_group). With ``create_sso``, an unknown name becomes an OIDC
-    user, ready for its first login.
-
-    Raises:
-        ValueError: Invalid name or project, unknown user without ``create_sso``, or a limit.
-    """
-    name = check_project_grant(username, create_sso)
-    added = _clean_project(project)
-    with session_scope() as session:
-        row = _by_name(session, name)
-        if row is None:
-            # Named by an administrator: a revoked user is created again
-            _lift_revocation(session, name)
-            row = WebUser(
-                username=name,
-                auth_source=AUTH_OIDC,
-                session_version=new_session_version(),
-                created_by=created_by,
-            )
-        row.updated_at = utcnow()
-        session.add(row)
-        try:
-            session.flush()
-        except IntegrityError:
-            # Same user created twice at the same time
-            raise ValueError(f"Web user '{name}' was created concurrently; retry") from None
-        user_id: int = row.id  # type: ignore[assignment]
-        if not access_control.allows(_grants(session, row), Permission.REPORTS_READ, added):
-            group = access_control.ensure_project_group(session, added, actor or created_by)
-            access_control.add_user_to_group(session, user_id, group.id, actor or created_by)  # type: ignore[arg-type]
-        session.refresh(row)
-        return _public(session, row)
-
-
 # ── Sessions ─────────────────────────────────────────────────────────────────
 
 
@@ -702,10 +659,8 @@ def _session(signer: SessionSigner, row: WebUser, grants: access_control.Grants)
     """Issue a session token for a web user, with its current access and version."""
     if not grants or row.id is None:
         raise ValueError(f"Web user {row.username} has no permission")
-    role = access_control.summary_role(grants)
     token = signer.issue_session(
         _label(row),
-        role,
         access_control.scope(grants, Permission.REPORTS_READ),
         user_id=row.id,
         user_version=row.session_version,
@@ -714,7 +669,6 @@ def _session(signer: SessionSigner, row: WebUser, grants: access_control.Grants)
         "session": token,
         "expires_in": signer.session_seconds,
         "username": row.username,
-        "role": role,
         "must_change_password": row.must_change_password,
     }
 
@@ -734,10 +688,12 @@ def oidc_login(
 ) -> dict[str, Any]:
     """Open the session of the OIDC user of a verified OIDC login; raise OidcError.
 
-    The user is named by the username claim. It is refused when the name belongs to a local
-    account, when it is bound to another subject or to another identity provider (the account
-    is identified by the issuer and the subject; a user bound before the issuer was recorded
-    gets it at its next login), or when it does not exist and
+    The account is identified by the issuer and the subject, never by a name: the user bound to
+    them opens, whatever its username claim says now (a name changed at the provider keeps the
+    account and its username). Only an identity bound to no user is looked up by its username
+    claim, to bind a user created beforehand (by an administrator, or bound before the issuer
+    was recorded: it gets it). It is refused when the name belongs to a local account, when it
+    is bound to another subject or to another identity provider, or when it does not exist and
     ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is off (``unknown_user``) or an administrator deleted it
     (``revoked``). Its OIDC groups are replaced by those its groups claim names (see
     access_control.sync_sso_groups); the login is refused (``forbidden``) when its groups give
@@ -755,7 +711,17 @@ def oidc_login(
         raise OidcError("username", "Missing or invalid username claim") from None
     try:
         with session_scope() as session:
-            row = _by_name(session, name)
+            row = _by_identity(session, identity.issuer, identity.subject)
+            if row is not None:
+                if row.username != name:
+                    logger.info(
+                        "OIDC login of %s opens user %s (username claim changed)",
+                        label,
+                        row.username,
+                    )
+                name = row.username
+            else:
+                row = _by_name(session, name)
             if row is not None and row.auth_source != AUTH_OIDC:
                 logger.warning("OIDC login of %s refused: %s is a local account", label, name)
                 raise OidcError("conflict", "This username belongs to a local account")
@@ -779,7 +745,7 @@ def oidc_login(
                 if not settings.oidc_auto_create_users:
                     logger.warning("OIDC login of %s refused: no web user %s", label, name)
                     raise OidcError("unknown_user", "No web user for this account")
-                if _is_revoked(session, name):
+                if _is_revoked(session, name, identity):
                     logger.warning("OIDC login of %s refused: web user %s was deleted", label, name)
                     raise OidcError("revoked", "This web user was deleted by an administrator")
                 _check_capacity(session)
@@ -817,9 +783,7 @@ def oidc_login(
         # The OIDC groups it lost are committed, so that its other sessions lose them too
         logger.warning("OIDC login of %s refused: no group gives it a permission", label)
         raise OidcError("forbidden", "No web role granted to this user")
-    logger.info(
-        "OIDC login of %s with role %s through %d OIDC group(s)", label, result["role"], len(joined)
-    )
+    logger.info("OIDC login of %s through %d OIDC group(s)", label, len(joined))
     return result
 
 
@@ -842,7 +806,7 @@ def session_identity(user_id: int, version: int, username: str) -> TokenInfo | N
             return None
         return TokenInfo(
             label=_label(row),
-            role=access_control.summary_role(grants),
+            role=Role.USER,
             projects=access_control.scope(grants, Permission.REPORTS_READ),
             user_id=row.id,
             auth_source=row.auth_source,

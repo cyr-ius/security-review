@@ -1,10 +1,11 @@
 """SQLModel models: table models (stored) and data models (MCP tool schemas)."""
 
+import json
 from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import field_validator, model_validator
-from sqlalchemy import BigInteger, String, UniqueConstraint
+from sqlalchemy import BigInteger, Index, String, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -50,8 +51,14 @@ PROPOSABLE_STATUSES = frozenset(
     {FindingStatus.FIXED, FindingStatus.ACCEPTED, FindingStatus.FALSE_POSITIVE}
 )
 MAX_STATUS_REASON_CHARS = 1000
+# Longest comment of a person on a finding (see FindingComment)
+MAX_COMMENT_CHARS = 2000
 # Developer username declared with a report, and label of the token that saved it
 MAX_AUTHOR_CHARS = 200
+# Review coverage declared with a report: checklist results and rules that raised scan leads
+MAX_CHECKLIST_RESULTS = 500
+MAX_SCAN_RULES = 500
+MAX_ITEM_ID_CHARS = 60
 
 
 def as_utc(value: datetime) -> datetime:
@@ -83,6 +90,33 @@ class ReviewType(StrEnum):
 
 
 # ── Findings ─────────────────────────────────────────────────────────────────
+
+
+class ChecklistOutcome(StrEnum):
+    """Result of one checklist item in a review."""
+
+    OK = "ok"  # verified, nothing found
+    ISSUE = "issue"  # verified, reported as a finding
+    NOT_APPLICABLE = "not_applicable"
+    NOT_VERIFIABLE = "not_verifiable"  # the reviewed code was not enough to judge it
+    # Set by the server: an item of a domain used by the review that got no result
+    NOT_COVERED = "not_covered"
+
+
+class ChecklistResult(SQLModel):
+    """Result of one checklist item, as declared by the reviewer."""
+
+    item_id: str = Field(
+        min_length=1, max_length=MAX_ITEM_ID_CHARS, description="Checklist item id (PY-01...)"
+    )
+    outcome: ChecklistOutcome = Field(description="ok, issue, not_applicable or not_verifiable")
+
+
+class StoredChecklistResult(ChecklistResult):
+    """A checklist result as stored: the server adds the item title and domain at save time."""
+
+    title: str = ""
+    domain: str = ""
 
 
 class FindingBase(SQLModel):
@@ -138,6 +172,10 @@ class Finding(FindingBase, table=True):
     proposed_by: str | None = Field(default=None, max_length=200)
     proposed_at: datetime | None = Field(default=None)
     report: SecurityReport = Relationship(back_populates="findings")
+    comments: list[FindingComment] = Relationship(
+        back_populates="finding",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 class FindingCreate(FindingBase):
@@ -164,6 +202,30 @@ class FindingPublic(FindingBase):
         """Show an expired acceptance or false positive as open (its reason stays visible)."""
         self.status = effective_status(self.status, self.status_expires_at)
         return self
+
+
+class FindingComment(SQLModel, table=True):
+    """Comment of a person on a finding, mostly on its risk acceptance.
+
+    Append-only: no tool nor route edits or deletes a comment; it goes with its finding.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    finding_id: int = Field(foreign_key="finding.id", index=True)
+    author: str = Field(max_length=200)
+    body: str = Field(max_length=MAX_COMMENT_CHARS)
+    created_at: datetime = Field(default_factory=utcnow)
+    finding: Finding = Relationship(back_populates="comments")
+
+
+class FindingCommentPublic(SQLModel):
+    """Comment of a finding as returned to the web interface."""
+
+    id: int
+    finding_id: int
+    author: str
+    body: str
+    created_at: datetime
 
 
 # ── Reports ──────────────────────────────────────────────────────────────────
@@ -203,6 +265,9 @@ class SecurityReport(SecurityReportBase, table=True):
     created_at: datetime = Field(default_factory=utcnow, index=True)
     # Label of the bearer token (enrolled device) that saved the report, set by the server
     submitted_by: str | None = Field(default=None, max_length=MAX_AUTHOR_CHARS)
+    # Review coverage, JSON lists: StoredChecklistResult objects and rule ids of scan leads
+    checklist_results: str = Field(default="[]")
+    scan_rules: str = Field(default="[]")
     findings: list[Finding] = Relationship(
         back_populates="report",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
@@ -216,7 +281,15 @@ class SecurityReportPublic(SecurityReportBase):
     risk_level: Severity
     created_at: datetime
     submitted_by: str | None = None
+    checklist_results: list[StoredChecklistResult] = []
+    scan_rules: list[str] = []
     findings: list[FindingPublic] = []
+
+    @field_validator("checklist_results", "scan_rules", mode="before")
+    @classmethod
+    def _parse_json(cls, value: object) -> object:
+        """Read the JSON lists stored in the report table."""
+        return json.loads(value) if isinstance(value, str) else value
 
 
 # ── Vulnerability advisories (OSV format, imported offline) ──────────────────
@@ -249,11 +322,10 @@ class AdvisoryAffected(SQLModel, table=True):
 
 
 class ApiToken(SQLModel, table=True):
-    """Bearer token of the HTTP transport (CLI, web project tokens, enrollment requests).
+    """Bearer token of the HTTP transport (CLI, project and personal tokens of the web).
 
-    Only the SHA-256 digest of the secret is stored. An enrollment request is a token whose
-    status is ``pending``: it authenticates nothing until an administrator approves it.
-    The projects a restricted token reaches are in ApiTokenProject.
+    Only the SHA-256 digest of the secret is stored. The projects a restricted token reaches
+    are in ApiTokenProject.
     """
 
     id: str = Field(primary_key=True, max_length=64)
@@ -265,11 +337,6 @@ class ApiToken(SQLModel, table=True):
     project: str | None = Field(default=None, index=True, max_length=200)
     token_hash: str = Field(unique=True, index=True, max_length=64)  # hex SHA-256
     created_at: datetime = Field(default_factory=utcnow)
-    # "active" or "pending"; None (rows created before enrollment existed) means active
-    status: str | None = Field(default=None, max_length=20)
-    # Who asked for the token (free text given by the requester) and from which address
-    requested_by: str | None = Field(default=None, max_length=200)
-    requested_from: str | None = Field(default=None, max_length=64)
     # After this date the token authenticates nothing (None: no expiry)
     expires_at: datetime | None = Field(default=None, index=True)
     # Rotation: the secret replaced by the latest rotation keeps working until
@@ -284,22 +351,33 @@ class ApiToken(SQLModel, table=True):
 
 
 class ApiTokenProject(SQLModel, table=True):
-    """A project reached by a restricted token.
-
-    A ``pending`` row is an enrollment request for that project: the request that created the
-    token, or a complementary request of an active token that needs one more project. Only
-    ``active`` rows grant access.
-    """
+    """A project reached by a restricted token."""
 
     __table_args__ = (UniqueConstraint("token_id", "project"),)
 
     id: str = Field(primary_key=True, max_length=64)
     token_id: str = Field(foreign_key="apitoken.id", index=True, max_length=64)
     project: str = Field(index=True, max_length=200)
-    status: str = Field(default="active", index=True, max_length=20)  # "active" or "pending"
     created_at: datetime = Field(default_factory=utcnow)
+
+
+# ── Enrolled projects (see access_control.enroll_project) ────────────────────
+
+
+class ProjectEnrollment(SQLModel, table=True):
+    """A project requested by an MCP client without a token, waiting for an administrator.
+
+    It gives no access and is not a project yet: an approval creates the project (its project
+    group), a rejection or the expiry (SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS) deletes the row.
+    """
+
+    id: int | None = Field(default=None, primary_key=True)
+    project: str = Field(unique=True, index=True, max_length=200)
+    # Who asked (free text given by the client, redacted), from which address, with which token
     requested_by: str | None = Field(default=None, max_length=200)
     requested_from: str | None = Field(default=None, max_length=64)
+    requested_with: str | None = Field(default=None, max_length=200)
+    created_at: datetime = Field(default_factory=utcnow, index=True)
 
 
 # ── Audit log (see audit) ────────────────────────────────────────────────────
@@ -441,10 +519,15 @@ class WebUser(SQLModel, table=True):
     or ``oidc`` (OpenID Connect login, no password). What a user may do comes only from the
     roles of its groups (``GroupMember``, see access_control). ``oidc_subject`` and
     ``oidc_issuer`` are the ``sub`` claim and the issuer bound at the first OIDC login: an
-    account is identified by both, so that another identity provider cannot reuse a subject.
+    account is identified by both, so that another identity provider cannot reuse a subject, and
+    no two users share them (unique index).
     ``session_version`` is drawn at random at creation and at each password change: the sessions
     issued with another version are refused.
     """
+
+    __table_args__ = (
+        Index("ix_webuser_oidc_identity", "oidc_issuer", "oidc_subject", unique=True),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True, max_length=64)
@@ -512,7 +595,7 @@ class UserGroup(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(unique=True, index=True, max_length=200)
     description: str = Field(default="", max_length=500)
-    sso: bool = Field(default=True)
+    sso: bool = Field(default=False)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow)
     created_by: str | None = Field(default=None, max_length=64)
@@ -553,10 +636,16 @@ class RevokedSsoUser(SQLModel, table=True):
     """Username of an OIDC web user deleted by an administrator (see web_users.delete_user).
 
     With ``SECREVIEW_OIDC_AUTO_CREATE_USERS``, an OIDC login never creates a web user with this
-    name again; an administrator who creates the user again lifts the revocation.
+    name again, nor with the identity (``oidc_issuer`` and ``oidc_subject``) the user was bound
+    to, whatever its username claim; an administrator who creates the user again lifts the
+    revocation.
     """
+
+    __table_args__ = (Index("ix_revokedssouser_oidc_identity", "oidc_issuer", "oidc_subject"),)
 
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True, max_length=64)
+    oidc_issuer: str | None = Field(default=None, max_length=500)
+    oidc_subject: str | None = Field(default=None, max_length=255)
     revoked_at: datetime = Field(default_factory=utcnow)
     revoked_by: str | None = Field(default=None, max_length=64)

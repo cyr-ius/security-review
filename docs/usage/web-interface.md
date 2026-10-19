@@ -25,7 +25,7 @@ The screens are reached from the sidebar: **Supervision** (projects, reports) fo
 then **Reference** (rules, checklists, standards) and **Administration** (users, groups, roles,
 tokens, audit log, OIDC, report language, outgoing proxy, OSV database), each shown only to the
 accounts that hold its [permission](../advanced/access-control.md#permissions). The bottom
-of the sidebar shows the connected client, its role and the version (a link to **About**), with the **My account** and logout buttons.
+of the sidebar shows the connected client (its permissions when hovered) and the version (a link to **About**), with the **My account** and logout buttons.
 On a small screen, the sidebar is reduced to its icons (each one names its screen when hovered)
 and the button at the top left opens it in full; on a large screen, the same button reduces it
 to its icons or expands it, a choice remembered by the browser.
@@ -52,12 +52,27 @@ application loads, it checks `/api/health` first: if the controller does not ans
 answering later), the **Backend unavailable** page opens, and its **Retry** button goes back to
 the requested page once the controller answers again.
 
+Tables are sorted by clicking a column header: a small arrow shows the sorted column and its
+direction, and a second click reverses it. Each table opens sorted by its default column (arrow
+shown), and the browser remembers the chosen sort for the next visits.
+
 - **Projects**: every project with its open findings by severity. Search by project name, sort
-  by risk, activity or name, and filter by worst open severity. The **Review open findings** button opens the findings to review of every
+  by name, worst open finding or last report, and filter by worst open severity. The **Review open findings** button opens the findings to review of every
   project you can see (**Findings to review: all projects**), each with a link to its project.
+  The **Risk acceptances** button lists the accepted risks of every project you can see.
+  With the `projects.create` permission, **New project** (left of **Refresh**) opens a modal
+  window that creates a project you then read (see
+  [Creating a project](../advanced/access-control.md#creating-a-project)), and the
+  **Pending projects** section lists the projects requested by an
+  [enrollment](../advanced/http.md#enrollment-request-the-project) (requester, address, request
+  and expiry dates): **Approve** creates the project without any member, **Reject** deletes the
+  request; a request not approved before its expiry is deleted. With `projects.delete`, the
+  trash button of a row deletes the project and everything that refers to it (see
+  [Deleting a project](../advanced/access-control.md#deleting-a-project)).
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
-  The **Review open findings** button opens the next screen.
+  The **Review open findings** button opens the next screen; **Risk acceptances** lists the
+  accepted risks of the project.
 - **Findings to review**: every open finding of the project across all its reports, worst
   severity first, then newest report first, for a review by a security expert. Each finding
   shows its description, code excerpt and recommendation, and a link to its report (date, review
@@ -67,16 +82,23 @@ the requested page once the controller answers again.
   findings. Users with the `findings.triage` permission change the status of each finding from this
   screen and apply or reject the statuses proposed by the agents (see
   [triage of findings](#triage-of-findings)); a triaged finding stays displayed until the next
-  reload.
+  reload (**Refresh** button).
+- **Risk acceptances**: the accepted risks of the project (or of every project), expired ones
+  included, nearest expiry first. Search, sort and filter by state (**Active**, **Expired**) and
+  severity; **Refresh** reloads the list. A click on a finding opens its details: its comments
+  (the first one is the reason of the acceptance), and for the `findings.triage` permission the
+  forms to add a comment, change the expiry date and remove the acceptance (see [risk acceptances](#risk-acceptances)).
 - **Reports**: list filtered by project and risk level, searchable across report metadata and
-  summary, and sortable by date, project, risk, type, branch, author or summary. Search, sort
-  and filters stay in the URL, so a view can be shared.
+  summary, and sortable by date, project, risk, type, branch, author or summary. Search and
+  filters stay in the URL, so a view can be shared; the sort is remembered by the browser.
 - **Report**: summary, context (repository, branch, commit, review type, **Author** and
-  **Sent by (token)**, see [author of a report](prompts-tools.md#author-of-a-report)), findings with
+  **Sent by (token)**, see [author of a report](prompts-tools.md#author-of-a-report)),
+  **Review coverage** (checklist items by outcome and rules that raised scan leads, those cited by
+  no finding marked **dismissed**, see [review coverage](prompts-tools.md#review-coverage)), findings with
   location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
   `findings.triage` permission change the status of a finding directly from this screen.
 - **Standards**: the [development standards](../advanced/standards.md) handed to the AI
-  assistants by the `development-standards` prompt. Search and sort by title, identifier,
+  assistants by the `development-standards` prompt. Search and sort by title,
   technology or file pattern, and filter by enabled state. Administrators read, create, edit
   (technologies, file patterns, Markdown content), disable or delete them. A change applies
   immediately. **Export** and **Import** copy them as a [TOML file](../advanced/standards.md#import-and-export).
@@ -97,7 +119,7 @@ the requested page once the controller answers again.
   with a badge in the list. The account list is searchable, sortable and filterable by type.
   Deleted OIDC accounts can be searched, sorted and filtered by the revoking administrator. The administrator chooses its **Groups**, the only source of its
   permissions; the **Groups** column shows the groups, with a shield for the OIDC groups found at
-  the last login, and **Access** sums up what they give. The administrator changes the groups of
+  the last login, and **Access** lists the permissions they give, with their projects. The administrator changes the groups of
   an account, resets the password of a local account or deletes an account. A deleted OIDC account is no longer created again at its login:
   the **Deleted OIDC accounts** section lists them, with the **Allow again** button. The last
   holder of `users.manage` can be neither deleted nor lose it.
@@ -107,14 +129,14 @@ the requested page once the controller answers again.
   [Roles, groups and permissions](../advanced/access-control.md#groups)).
 - **Roles**: administrators search and sort roles, and filter built-in from custom roles. They
   create roles from the permissions; the built-in roles `reader` and `admin` are shown read
-  only. `triager` (read and triage), created with the database, is an ordinary role: it can be
-  changed or deleted.
-- **My account**: shows the type of the account. A local user changes their
+  only. `triager` (read and triage) and `mcp-user` (personal MCP token), created with the
+  database, are ordinary roles: they can be changed or deleted.
+- **My account**: shows the type of the account and **My permissions**. A local user changes their
   password there (their other sessions are closed); the one of an OIDC user is managed by the
-  identity provider. **API tokens** creates and revokes personal [API tokens](#api-tokens)
-  (REST API and Swagger) that hold the rights of the account.
-- **Tokens**: pending enrollment requests are searchable, sortable and filterable by request
-  type; active tokens are searchable, sortable and filterable by usage. Administrators create
+  identity provider. **Personal tokens** creates and revokes the personal tokens of the account:
+  [REST API](#api-tokens) tokens (Swagger, scripts), which hold its rights, and
+  [MCP](#personal-mcp-tokens) tokens for its agent, which reach the projects it may read.
+- **Tokens**: tokens are searchable, sortable and filterable by usage. Administrators create
   and revoke tokens for one or more projects, or for
   **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role),
   **CI/CD pipeline** (`ci` role, for
@@ -127,50 +149,51 @@ the requested page once the controller answers again.
   The list shows the usage of every `mcp` and `ci` token, its projects
   and its expiry date (**Expired** once past). **Projects** changes the projects of an existing
   token, or gives it **All projects** after a confirmation, without changing its secret: the
-  change applies from the next request; a pending request for a project now granted is approved
-  with it.
+  change applies from the next request.
   **Rotate** replaces the secret of a token and shows the new one once; the previous one keeps
   working for the grace period chosen above the list (none, 1 h, 24 h or 7 days, see
   [expiry and rotation](../advanced/http.md#expiry-and-rotation-of-tokens)).
   A token never opens the web interface. The `admin` and `metrics` tokens stay unrestricted and
   are managed from the CLI only. The secret is shown only once; only its digest is stored, in the database. A
-  revocation takes effect at the next request. The **Pending requests**
-  section tells new tokens apart from requests for access to an additional project
-  ([enrollment](../advanced/http.md#enrollment-a-project-requests-its-token)):
-  **Approve** activates the new token or adds the project to the existing token;
-  **Reject** only deletes the request. The allowed projects and the additions still
-  pending are shown for every token. The **Read access in the portal** column
-  lets you give the developer, at the same time, read access to the project in the web
-  interface, on their user account (see
-  [project read access at enrollment](../advanced/sso.md#project-read-access-at-enrollment)).
+  revocation takes effect at the next request. The
+  [enrollment](../advanced/http.md#enrollment-request-the-project) creates no token: a project
+  it requests waits in **Projects**, and once approved an administrator gives a developer
+  access to it by adding them to its group `project:<project>` (**Groups** screen).
 - **Audit log**: administrators read the [audit log](../advanced/audit-metrics.md#audit-log): triage
-  decisions, agent proposals, tokens and enrollment requests, newest first, with who made
+  decisions, agent proposals, tokens and enrollments, newest first, with who made
   them; filter by event and project, search event details, sort by date/action/actor/target/project,
-  and use **Load more** for older events.
+  and use **Load more** for older events. Holders of `settings.manage` also set there the
+  [syslog server](../advanced/audit-metrics.md#forwarding-to-syslog) the events are forwarded to
+  (**Syslog** button, next to **Refresh**).
 - **OIDC**: administrators
-  [configure the OIDC login](../advanced/sso.md#configuring-oidc-in-the-interface) (every stored value replaces its
-  `SECREVIEW_OIDC_*` variable, with a connection test to the provider). What OIDC users may do
+  [configure the OIDC login](../advanced/sso.md#configuring-oidc-in-the-interface) (a value stored there applies when its
+  `SECREVIEW_OIDC_*` variable is not set, with a connection test to the provider). What OIDC users may do
   comes from the groups open to OIDC named by their groups claim (see
   [groups of the identity provider](../advanced/sso.md#groups-of-the-identity-provider)).
-The next three screens hold settings stored in the database, taking precedence over the
-environment variables and shared by the MCP server and the controller (`settings.manage`
-permission; the former `/ui/settings` address opens **Report language**).
+The next three screens hold settings stored in the database and shared by the MCP server and
+the controller (`settings.manage` permission; the former `/ui/settings` address opens
+**Report language**). **An environment variable that is set (environment or `.env` file)
+always takes precedence** over the value set in the interface: its field is then locked and
+shows the variable, and a value stored before the variable was set is marked as ignored, with
+a **Delete** button.
 
-- **Report language**: `SECREVIEW_REPORT_LANGUAGE` variable, choice
-  left to the agent or language set here (`French`, `fr`, `pt-BR`…). It applies to the next
-  review prompts; the `report_language` argument of a prompt still takes precedence
+- **Report language**: choice left to the agent or language set here (`French`, `fr`,
+  `pt-BR`…), when `SECREVIEW_REPORT_LANGUAGE` is not set. It applies to the next review
+  prompts; the `report_language` argument of a prompt still takes precedence
   ([report language](prompts-tools.md#report-language)).
 - **Outgoing proxy**: proxy of the outgoing connections of the controller, used by the OSV
-  download **and** by the [OIDC login](../advanced/sso.md). As for the OIDC
-  configuration, every value set here replaces its variable (**Variable** / **Interface
-  web** badges): the URL follows `HTTPS_PROXY` (else `HTTP_PROXY`), is set here, or forces
-  the direct connection; the **hosts without proxy** follow `NO_PROXY` or are set here (see
+  download **and** by the [OIDC login](../advanced/sso.md). When `HTTPS_PROXY` (else
+  `HTTP_PROXY`) is not set, the proxy is set here (or **No proxy (direct connection)**); when
+  `NO_PROXY` is not set, the **hosts without proxy** are set here (see
   [hosts without proxy](../advanced/dependencies.md#hosts-without-proxy): domains, IP
-  addresses, `*`, no CIDR ranges). The change applies to the next download and to the next
+  addresses, `*`, no CIDR ranges). An empty variable counts as not set. The change applies to the next download and to the next
   OIDC login, without restart. The applied proxy, its origin and the variables are shown; passwords
   are never shown again (`***`): sending `***` back keeps the stored one. Through the API:
-  `PUT /api/v1/settings/proxy` with `url` and `no_proxy` (`null` applies the variable again,
-  `"url": ""` forces the direct connection, a missing field is unchanged).
+  `PUT /api/v1/settings/proxy` with `url` and `no_proxy` (`null` deletes the stored value,
+  `"url": ""` forces the direct connection, a missing field is unchanged; a value whose
+  variable is set is refused with `422`). `GET /api/v1/settings` gives, for each setting, the
+  stored `value`, the variable `env`, `env_set` (the variable is set and takes precedence) and
+  the effective value.
 - **OSV database**: state of the OSV vulnerability database: number of advisories by
   ecosystem, date and age of the last import, download configuration, history of the last
   50 updates (scheduled, CLI or web interface, with status, duration and result by
@@ -192,7 +215,9 @@ The status of a finding is decided by a **person**; an agent only proposes it (M
   `SECREVIEW_MAX_DISMISSAL_DAYS`). The logged-in user is recorded as the approver; the card shows
   the approver, the reason and the end of validity. From the expiry date, the finding counts as
   open again (status filter, posture, [gate](gate.md), SARIF, trend) and the card says
-  that the decision has expired.
+  that the decision has expired. For **Risk accepted**, the **No expiry** box removes the date:
+  the risk stays accepted until someone reopens the finding (disabled with
+  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`). A false positive always needs a date.
 - **Open** and **Fixed** are saved at once (optional reason through the API). Any decision
   removes the pending proposal.
 
@@ -209,10 +234,47 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
 ```
 
 A reason that is missing or too short, an expiry date in the past or too far away, or an expiry
-date for `open` / `fixed` gets `422`. The **Risk accepted** and **False positive** decisions
+date for `open` / `fixed` gets `422`. Without `expires_on`, an acceptance never expires, unless
+`SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`); `GET /api/v1/me` returns
+`permanent_acceptance` to tell whether the caller may do it. The **Risk accepted** and **False positive** decisions
 made before this feature had no reason nor approver: the database upgrade gives them an expiry
 date 30 days later, with a reason that asks to confirm them. Review them with the status filters
 before that date, or they block the gate again.
+
+### Risk acceptances
+
+The **Risk acceptances** screen (`/ui/risk-acceptances`, or per project from the **Projects** and
+**Project** screens) lists the accepted risks, expired ones included, so that they can be renewed
+before or after their end of validity. In the details of an acceptance:
+
+- **Comments**: every comment, oldest first, with its author and date. The reason of the
+  acceptance is the first one: accepting a risk, or accepting it again with another reason,
+  adds it to the comments. Anyone who reads the project sees them. A comment **can be neither edited nor deleted**: no route of the API does
+  it. They stay with the finding when its acceptance is removed.
+- **Add a comment** (at most 2000 characters, secrets masked) records the logged-in user as its
+  author, in the audit log too (`finding.commented`).
+- **Change the expiry date** saves the acceptance again with the same reason and the new date
+  (same limits as above, **No expiry** included), without adding a comment: the logged-in user
+  becomes its approver.
+- **Remove the acceptance** reopens the finding, after a confirmation.
+
+Like an acceptance, a comment needs a session with the `findings.triage` permission: a bearer
+token gets `403`. Through the REST API:
+
+```bash
+curl -H "Authorization: Bearer $SESSION" \
+  "https://secreview.example.com/api/v1/risk-acceptances?project=shop-api"
+# {"project": "shop-api", "total": 1, "acceptances": [{"id": 42, "status": "accepted", "expired": false, "comments_total": 1, …}]}
+curl -H "Authorization: Bearer $SESSION" https://secreview.example.com/api/v1/findings/42/comments
+# [{"id": 7, "finding_id": 42, "author": "alice", "body": "Renew it after the audit", "created_at": "…"}]
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42/comments -d '{"body": "Renew it after the audit"}'
+curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42 -d '{"status": "open"}'    # remove the acceptance
+```
+
+`GET /api/v1/risk-acceptances` takes `limit` (capped by `SECREVIEW_MAX_LIST_LIMIT`) and
+`offset`; without `project`, it lists every project the caller can read.
 
 ## Roles
 
@@ -298,8 +360,9 @@ An `api` token calls the REST API, from a script or from the Swagger documentati
 reaches `/mcp`, never opens the interface and, like every token, never accepts a risk nor marks
 a false positive. There are two kinds:
 
-- **Personal token**: a user creates it for themselves in **My account** > **API tokens** (10 at
-  most, label `<user>:<label>`, a `:` that no other token label may hold, validity bounded by `SECREVIEW_TOKEN_MAX_DAYS`). It holds the
+- **Personal token**: a user creates it for themselves in **My account** > **Personal tokens**
+  with **Usage** **REST API — Swagger and scripts** (one at most by default,
+  `SECREVIEW_PERSONAL_TOKENS_PER_USER`: revoke it to create another; label `<user>:<label>`, a `:` that no other token label may hold, validity bounded by `SECREVIEW_TOKEN_MAX_DAYS`). It holds the
   current rights of the account, which come from its groups: it reaches nothing once the account
   loses them, and is deleted with the account. Nobody can rotate it nor change its projects; an
   administrator can revoke it from the **Tokens** screen.
@@ -316,6 +379,35 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 # {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
 ```
 
+### Personal MCP tokens
+
+A user connects their own MCP agent with a personal `mcp` token, created in **My account** >
+**Personal tokens** with **Usage** **MCP**, offered only when their groups hold the
+`mcp_tokens.create` permission (role `mcp-user`, see
+[Roles](../advanced/access-control.md#roles); 403 without it). One at most by default
+(`SECREVIEW_PERSONAL_TOKENS_PER_USER`), besides the REST API token. It reaches the projects the
+account may read (`reports.read` of its groups), read at each request: a project given to or
+removed from the account applies at once, every project when one of its groups reads every
+project, no project when it has none. The **Projects** column shows them, and so does the
+**Tokens** screen for the administrators.
+
+A token already created keeps working when the account loses `mcp_tokens.create`: an
+administrator revokes it if needed. Like a personal REST API token, it stops while the account
+must change a password set by an administrator, it is deleted with the account, nobody can
+rotate it nor change its projects, and an administrator can revoke it. For a project it does
+not reach, an administrator gives the account access to the project (a group that reads it), or
+the user creates it from **Projects** if it is new and they hold `projects.create` (see
+[Creating a project](../advanced/access-control.md#creating-a-project)); a project requested by an
+[enrollment](../advanced/http.md#enrollment-request-the-project) waits for an approval.
+When the server refuses the token (unknown, revoked or expired), the agent receives a `401` that
+tells the user to sign in again and create a new one. It never reaches the REST API.
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "mcp"}'
+# {"id": "…", "label": "alice:laptop", "role": "mcp", "personal": true, …, "token": "Zq3…"}
+```
+
 ## User accounts
 
 An account ties a **user name** (letters, digits and `. _ @ -`, 64 characters at most), a
@@ -326,7 +418,7 @@ project of its own.
 | Type (`auth_source`) | Login | Creation |
 |---|---|---|
 | **Local** (`local`) | User name and password | By an administrator, or the initial `admin` account |
-| **OIDC** (`oidc`) | [Identity provider](../advanced/sso.md), no password | By an administrator, at the approval of an enrollment, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
+| **OIDC** (`oidc`) | [Identity provider](../advanced/sso.md), no password | By an administrator, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
 An OIDC account also joins, at each login, the groups open to OIDC named by its groups claim (see
 [OIDC accounts](../advanced/sso.md#oidc-accounts)). Accounts are managed in the **Users** screen,
@@ -335,7 +427,7 @@ through the `/api/v1/users` REST API (`users.manage` permission) or with the
 
 ```bash
 security-review-controller user create alice --group shop-triagers
-# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, "effective_role": "triager", …, "password": "q3V…"}
+# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
 security-review-controller user create carol@example.com --sso   # OIDC groups only
 security-review-controller user list
@@ -444,7 +536,7 @@ a Bearer token:
 ```bash
 curl -s -X POST https://secreview.example.com/api/v1/auth/login \
   -H 'Content-Type: application/json' -d '{"username": "alice", "password": "…"}'
-# {"session": "eyJ…", "expires_in": 28800, "username": "alice", "role": "triager"}
+# {"session": "eyJ…", "expires_in": 28800, "username": "alice"}
 ```
 
 Every session names an account (local or OIDC); at every request, the controller reads it again
@@ -493,11 +585,12 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   a token with **Authorize**, and does not mean that the route can be reached without a token.
   Enter an [API token](#api-tokens) there.
 - The controller exposes no write route without a token. The
-  [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token) requests are
-  filed on the **MCP server** (`POST /api/v1/enroll`, public); the controller lists and handles
-  them (`GET /api/v1/enrollments`, `POST /api/v1/enrollments/{id}/approve`,
-  `DELETE /api/v1/enrollments/{id}`, `tokens.manage` permission). It can therefore stay on an internal
-  network.
+  [enrollment](../advanced/http.md#enrollment-request-the-project) is served by the **MCP
+  server** (`POST /api/v1/enroll`, public): it requests a project, never a token; the
+  controller lists and handles the requests (`GET /api/v1/projects/pending`,
+  `POST /api/v1/projects/pending/{id}/approve`, `DELETE /api/v1/projects/pending/{id}`,
+  `projects.create` permission). The controller
+  can therefore stay on an internal network.
 - The token is sent in the `Authorization` header: no cookie, hence no CSRF. Only the
   [OIDC login](../advanced/sso.md) sets a cookie, `HttpOnly`, `SameSite=Lax`, `Secure`
   over HTTPS, limited to the return URL and valid 10 minutes: it binds the return from the
@@ -522,7 +615,9 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | File of the secret when `SECREVIEW_SECRET_KEY` is unset, generated at the first start |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or OIDC login |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [OIDC account](../advanced/sso.md#oidc-accounts) at the first login; otherwise an administrator creates it |
-| `SECREVIEW_ENROLLMENT` | `true` | Token requests by the projects (on the MCP server), approved in the **Tokens** screen |
+| `SECREVIEW_ENROLLMENT` | `true` | Project requests by the MCP clients without a token (on the MCP server), approved in the **Projects** screen; no token is created |
+| `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | Days a requested project waits for an approval before it is deleted |
+| `SECREVIEW_WEB_URL` | — | Public URL of the web interface, given by the MCP server to the clients without a valid token |
 | `SECREVIEW_OIDC_*` | — | [OIDC login](../advanced/sso.md), see the [reference](../reference/configuration.md) |
 
 The published package and the Docker image contain the application already built. If you

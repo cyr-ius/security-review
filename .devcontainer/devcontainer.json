@@ -12,7 +12,6 @@
     "ghcr.io/devcontainers-extra/features/prek:1": {},
     "ghcr.io/devcontainers-extra/features/uv:1": {},
     "ghcr.io/devcontainers/features/node:2.1.1": {},
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {},
     "ghcr.io/devcontainers/features/docker-in-docker:4": {
       "moby": false
     }
@@ -37,8 +36,7 @@
         "charliermarsh.ruff",
         "esbenp.prettier-vscode",
         "ms-vscode-remote.remote-containers",
-        "streetsidesoftware.code-spell-checker",
-        "anthropic.claude-code"
+        "streetsidesoftware.code-spell-checker"
       ],
       "settings": {
         // ── Python ──────────────────────────────────────────────────────

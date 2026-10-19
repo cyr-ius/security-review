@@ -14,10 +14,12 @@ import {
   TableControlFilterChange,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
+import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
+import { TableSort } from '../../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 import { describeAccessError } from '../access-errors';
 
-type RoleSortKey = 'name' | 'permissions' | 'groups' | 'created';
+type RoleSortKey = 'name' | 'permissions' | 'groups';
 
 /** Name and description of the role being created or edited. */
 interface RoleFormModel {
@@ -33,7 +35,14 @@ const EMPTY_ROLE: RoleFormModel = { name: '', description: '' };
  */
 @Component({
   selector: 'app-role-list',
-  imports: [DatePipe, FormField, RefreshButtonComponent, TableControlsComponent, TranslatePipe],
+  imports: [
+    DatePipe,
+    FormField,
+    RefreshButtonComponent,
+    SortHeaderComponent,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './role-list.component.html',
   styleUrl: '../access.css',
 })
@@ -45,15 +54,13 @@ export class RoleListComponent {
   readonly roles = rxResource({ stream: () => this.api.roles() });
   readonly permissions = rxResource({ stream: () => this.api.permissions() });
   readonly tableSearch = signal('');
-  readonly tableSort = signal<RoleSortKey>('name');
-  readonly tableDirection = signal<'asc' | 'desc'>('asc');
+  readonly tableSort = new TableSort<RoleSortKey>(
+    'roles',
+    ['name', 'permissions', 'groups'],
+    'name',
+    'asc',
+  );
   readonly roleTypeFilter = signal<'all' | 'system' | 'custom'>('all');
-  readonly tableSortOptions = computed(() => [
-    { value: 'name', label: this.i18n.translate('access.name') },
-    { value: 'permissions', label: this.i18n.translate('roles.permissions') },
-    { value: 'groups', label: this.i18n.translate('layout.groups') },
-    { value: 'created', label: this.i18n.translate('common.createdAt') },
-  ]);
   readonly tableFilters = computed<TableControlFilter[]>(() => [
     {
       key: 'type',
@@ -71,11 +78,11 @@ export class RoleListComponent {
     const roles = (this.roles.value() ?? []).filter(
       (role) => type === 'all' || role.system === (type === 'system'),
     );
-    const sort = this.tableSort();
+    const sort = this.tableSort.key();
     return filterAndSortRows(
       roles,
       this.tableSearch(),
-      this.tableDirection(),
+      this.tableSort.direction(),
       (role) =>
         [
           role.name,
@@ -98,9 +105,6 @@ export class RoleListComponent {
         if (sort === 'groups') {
           return left.groups - right.groups || compareTableText(left.name, right.name);
         }
-        if (sort === 'created') {
-          return left.created_at.localeCompare(right.created_at);
-        }
         return compareTableText(left.name, right.name);
       },
     );
@@ -120,12 +124,6 @@ export class RoleListComponent {
   readonly message = signal<Message | null>(null);
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
-
-  onRoleTableSort(value: string): void {
-    if (value === 'name' || value === 'permissions' || value === 'groups' || value === 'created') {
-      this.tableSort.set(value);
-    }
-  }
 
   onRoleTableFilter(change: TableControlFilterChange): void {
     if (change.key === 'type') {

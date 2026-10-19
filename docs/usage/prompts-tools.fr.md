@@ -4,7 +4,7 @@
 
 | Prompt | Usage | Arguments |
 |---|---|---|
-| `security-review` | Revue générale Python / Java / Angular | `language`, `code`, `context`, `focus`, `report_language` |
+| `security-review` | Revue générale de code Python, Java ou Angular (`language` : un ou plusieurs langages, par exemple `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
 | `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
 | `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
 | `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
@@ -16,19 +16,25 @@ Si `code` est vide, le prompt demande à l'agent de relire les fichiers de son e
 Chaque prompt de revue se termine par l'instruction d'appeler `save_security_report` une seule
 fois ; `development-standards` n'enregistre rien.
 
+Chaque prompt de revue intègre les checklists de son domaine (selon les langages pour
+`security-review` et `codebase-review`, alias comme `py` ou `ts` acceptés) et la checklist
+`company`, puis nomme les autres checklists disponibles, domaines internes compris, que l'agent
+récupère avec `get_review_checklist` quand elles s'appliquent
+([détails](../advanced/rules.md#checklists-des-prompts-de-revue)).
+
 ### Langue des rapports
 
 `report_language` fixe la langue de la réponse de l'agent et des champs rédigés du rapport
 enregistré (résumé, périmètre, titres, descriptions, recommandations), par exemple `French`,
-`fr` ou `pt-BR`. Sans cet argument, le prompt reprend la langue choisie par un administrateur
-dans l'écran [**Langue des rapports**](web-interface.md#ecrans) de l'interface web, sinon
-[`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md) ; si aucune n'est définie, l'agent
-choisit (en général la langue de la conversation). L'écran peut aussi imposer « l'agent
-choisit » malgré la variable.
+`fr` ou `pt-BR`. Sans cet argument, le prompt reprend
+[`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md) quand elle est définie, sinon la
+langue choisie par un administrateur dans l'écran [**Langue des rapports**](web-interface.md#ecrans)
+de l'interface web ; si aucune n'est définie, l'agent choisit (en général la langue de la
+conversation).
 
 Un agent qui fait la revue **sans prompt**, avec les seuls outils (cas courant : un prompt MCP
 est une commande lancée par l'utilisateur, l'agent ne peut pas l'appeler lui-même), reçoit la
-même langue configurée (écran **Langue des rapports**, sinon variable) dans les résultats de
+même langue configurée (variable, sinon écran **Langue des rapports**) dans les résultats de
 `get_review_checklist` (section « Report language ») et de `scan_code` (champ
 `report_language`, `null` si l'agent choisit).
 
@@ -43,8 +49,8 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 
 | Outil | Rôle |
 |---|---|
-| `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `api`, `config` |
-| `scan_code` | Scan rapide par motifs (pistes à vérifier, **pas** un SAST). Extraits masqués |
+| `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
+| `scan_code` | Scan rapide par motifs et analyses Tree-sitter ciblées des flux SQL Python, DOM Angular et origines de messages non vérifiées (pistes à vérifier, **pas** un SAST complet). Extraits masqués |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
 | `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue / auteur, avec pagination |
@@ -55,29 +61,30 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `request_enrollment` | Demande un jeton pour un premier projet ou l'ajout d'un projet au jeton présenté, après approbation par un administrateur ([enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton)) |
+| `request_enrollment` | Demande un projet qui n'existe pas encore, validé par un administrateur ; aucun jeton n'est créé et le jeton courant ne gagne aucun projet : un administrateur en donne l'accès ([enrôlement](../advanced/http.md#enrolement-demander-le-projet)) |
 | `list_development_standards` / `get_development_standards` | [Normes de développement](../advanced/standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
 | `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](../advanced/rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
 Sur le transport HTTP, un jeton restreint ne peut utiliser les outils de rapports que sur ses
 projets autorisés ; `reload_rules` lui est refusé (voir
 [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)).
-Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux ;
-`request_enrollment` demande l'ajout au jeton courant sans créer ni révéler un nouveau secret.
+Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux. Un
+[jeton MCP personnel](web-interface.md#jetons-mcp-personnels) atteint les projets de son
+utilisateur : pour un autre projet, un administrateur lui en donne l'accès (`request_enrollment`
+le demande d'abord s'il est nouveau).
 
 ### Serveur d'enrôlement
 
-Sur le transport HTTP, un client qui se connecte **sans jeton** (ou avec un jeton dont
-l'enrôlement n'est pas encore approuvé, ou un jeton inconnu, révoqué ou expiré) atteint un serveur restreint, du même nom, qui
-n'expose que :
+Sur le transport HTTP, un client qui se connecte **sans jeton** atteint un serveur restreint, du
+même nom, qui n'expose que (un jeton inconnu, révoqué ou expiré reçoit plutôt un `401`, voir
+[jeton refusé](../advanced/http.md#jeton-refuse-se-reconnecter)) :
 
 | Élément | Rôle |
 |---|---|
-| `request_enrollment` | Dépose la demande pour un projet et renvoie le jeton (affiché une fois), nommé d'après le nom d'utilisateur du développeur (`label`) |
-| `get_enrollment_status` | `pending` si le jeton présenté attend l'approbation, `not_enrolled` sans jeton, `token_rejected` (avec `reason`) pour un jeton inconnu, révoqué ou expiré : l'agent propose un nouvel enrôlement |
-| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Argument `project` facultatif ; expliquent à l'agent comment demander l'accès au lieu de lancer la revue |
+| `request_enrollment` | Demande le projet (`project`, `requested_by` facultatif), validé par un administrateur, et renvoie `web_url` et `next_steps` : l'utilisateur se connecte à l'interface web et crée un jeton MCP personnel ; jamais de jeton |
+| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Argument `project` facultatif ; expliquent à l'agent comment obtenir un jeton au lieu de lancer la revue |
 
-Voir [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton).
+Voir [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
 
 ## Ressources
 
@@ -90,15 +97,38 @@ Voir [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton)
 
 `save_security_report` reçoit :
 
-- `project`, `summary` ;
+- `project` (normalisé, voir [nom du projet](#nom-du-projet)), `summary` ;
 - une liste de `findings` : `title`, `severity`, `description`, et optionnellement `cwe`,
   `owasp`, `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category` ;
 - `repository`, `branch`, `commit_sha`, `reviewer`, `scope` ;
 - `review_type` : le type de revue, indiqué par chaque prompt de revue (voir ci-dessous) ;
-- `author` : le nom d'utilisateur du développeur (voir [auteur d'un rapport](#auteur-dun-rapport)).
+- `author` : le nom d'utilisateur du développeur (voir [auteur d'un rapport](#auteur-dun-rapport)) ;
+- `checklist_results` et `scan_rules` : la couverture de la revue (voir
+  [couverture de la revue](#couverture-de-la-revue)).
 
 Le **niveau de risque** du rapport est calculé (sévérité maximale des findings). Le paramètre
 `risk_level` peut seulement le relever, jamais le baisser.
+
+### Nom du projet
+
+Rapports, jetons, rôles et gates sont regroupés par nom de projet. Le serveur **normalise**
+chaque nom de projet qu'il reçoit (outils MCP, API REST, client de pipeline, CLI), pour que les
+membres d'une équipe qui nomment différemment le même dépôt atteignent le même projet :
+
+- le nom est mis en minuscules (après normalisation Unicode NFKC) ;
+- une URL de remote git ou un chemin ne garde que son dernier segment, sans `.git` ;
+- toute suite de caractères autres que lettres et chiffres (espaces, points, soulignés, tirets,
+  ponctuation) devient un seul `-`, retiré aux deux extrémités.
+
+| Nom donné | Projet enregistré |
+|---|---|
+| `security-review-mcp`, `Security Review MCP`, `security_review_mcp` | `security-review-mcp` |
+| `cyr-ius/security-review-mcp`, `https://github.com/cyr-ius/security-review-mcp.git` | `security-review-mcp` |
+| `git@github.com:cyr-ius/Security_Review_MCP.git` | `security-review-mcp` |
+
+Un nom sans lettre ni chiffre, ou de plus de 200 caractères une fois normalisé, est refusé.
+Comme seul le nom du dépôt est gardé, deux dépôts de même nom dans des organisations ou groupes
+différents partagent un projet : donnez un nom distinct à l'un d'eux.
 
 ### Type de revue
 
@@ -124,8 +154,8 @@ type lors de la mise à jour de la base.
 
 ### Auteur d'un rapport
 
-Un jeton est enrôlé **par équipement**, pas par personne : plusieurs développeurs peuvent le
-partager, et son libellé ne dit pas qui a travaillé sur le code relu. Chaque rapport porte donc
+Un jeton est configuré sur un équipement, que plusieurs développeurs peuvent partager (jeton de
+pipeline, poste partagé) : son libellé ne dit pas qui a travaillé sur le code relu. Chaque rapport porte donc
 deux champs :
 
 | Champ | Rempli par | Valeur |
@@ -137,7 +167,36 @@ deux champs :
 (ni Markdown ni HTML, car il est recopié dans l'export Markdown) ; une valeur vide n'est pas
 enregistrée. Il est **déclaré, non authentifié** : il sert à savoir à qui s'adresser et à filtrer
 les rapports (`list_security_reports`, [interface web](web-interface.md)), jamais de preuve
-d'identité ; `submitted_by` indique quel équipement enrôlé a réellement envoyé le rapport.
+d'identité ; `submitted_by` indique quel jeton a réellement envoyé le rapport.
+
+### Couverture de la revue
+
+Les prompts de revue demandent à l'agent de déclarer ce qu'il a réellement vérifié, pour
+qu'une personne distingue une revue sans problème d'une revue qui a sauté la checklist :
+
+| Champ | Contenu |
+|---|---|
+| `checklist_results` | Chaque point de checklist parcouru, avec son résultat : `ok` (vérifié, rien trouvé), `issue` (signalé par un finding), `not_applicable`, `not_verifiable` (le code relu ne suffisait pas pour en juger) |
+| `scan_rules` | L'identifiant de règle de chaque piste renvoyée par `scan_code`, confirmée ou écartée |
+
+Le serveur les contrôle avec les règles et checklists actives quand il enregistre le rapport :
+
+- un point de checklist ou une règle inconnus ne sont **pas enregistrés** et sont cités dans les
+  `warnings` de la réponse ; le rapport n'est jamais refusé pour cela ;
+- l'intitulé et le domaine de chaque point viennent du serveur, pas de l'agent ;
+- chaque point d'un domaine de checklist utilisé par la revue mais non déclaré est enregistré en
+  `not_covered`, et listé dans `coverage.not_covered` de la réponse ;
+- un `rule_id` de finding qui ressemble à un identifiant de règle ou de checklist (`PY-004`,
+  `ACME-CL-01`) sans correspondre à aucun reçoit un avertissement ; les identifiants d'avis
+  (`GHSA-...`, `CVE-...`) ne sont pas contrôlés ;
+- un rapport sans aucun résultat de checklist reçoit un avertissement : sa couverture est
+  inconnue.
+
+Au plus 500 résultats de checklist et 500 règles par rapport. La couverture est **déclarée par
+l'agent** : elle montre ce que l'agent dit avoir fait, pas une preuve ; une règle de `scan_rules`
+citée par aucun finding est une piste que l'agent a écartée. Les scans CLI ne déclarent pas de
+couverture. La page du rapport dans l'[interface web](web-interface.md) et l'export Markdown
+l'affichent.
 
 ### Statut d'un finding
 

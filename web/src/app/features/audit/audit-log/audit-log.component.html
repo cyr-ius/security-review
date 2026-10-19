@@ -1,0 +1,98 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ 'layout.audit' | t }}</h1>
+    <p class="text-body-secondary mb-0">{{ 'audit.subtitle' | t }}</p>
+  </div>
+  <div class="d-flex gap-2">
+    @if (canManageSyslog()) {
+      <app-audit-syslog />
+    }
+    <app-refresh-button [loading]="firstPage.isLoading()" (refresh)="firstPage.reload()" />
+  </div>
+</div>
+
+<div class="card card-body mb-4">
+  <form class="row g-2 mb-3" (submit)="$event.preventDefault()">
+    <div class="col-md-4">
+      <label for="audit-project" class="form-label">{{ 'reportTable.project' | t }}</label>
+      <input
+        id="audit-project"
+        class="form-control"
+        maxlength="200"
+        autocomplete="off"
+        [placeholder]="'audit.allProjects' | t"
+        [value]="projectFilter()"
+        (change)="onProjectFilter($event)"
+      />
+    </div>
+  </form>
+
+  <app-table-controls
+    idPrefix="audit"
+    [search]="search()"
+    [filters]="filters()"
+    (searchChange)="search.set($event)"
+    (filterChange)="onTableFilter($event)"
+  />
+
+  @if (firstPage.error()) {
+    <div class="alert alert-danger" role="alert">{{ 'audit.loadError' | t }}</div>
+  } @else if (firstPage.isLoading() && !firstPage.hasValue()) {
+    <div class="text-center my-4">
+      <span class="spinner-border text-secondary" aria-hidden="true"></span>
+      <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+    </div>
+  } @else if (events().length) {
+    <p class="small text-body-secondary">
+      {{ 'audit.count' | t: { shown: events().length, total: total() } }}
+    </p>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th scope="col" [appSortHeader]="sort" sortKey="created_at">{{ 'audit.date' | t }}</th>
+            <th scope="col" [appSortHeader]="sort" sortKey="action">{{ 'audit.action' | t }}</th>
+            <th scope="col" [appSortHeader]="sort" sortKey="actor">{{ 'audit.actor' | t }}</th>
+            <th scope="col" [appSortHeader]="sort" sortKey="target">{{ 'audit.target' | t }}</th>
+            <th scope="col" [appSortHeader]="sort" sortKey="project">
+              {{ 'reportTable.project' | t }}
+            </th>
+            <th scope="col">{{ 'audit.details' | t }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (event of events(); track event.id) {
+            <tr>
+              <td class="text-nowrap">{{ event.created_at | date: 'dd/MM/yyyy HH:mm:ss' }}</td>
+              <td>{{ actionLabel(event.action) | t }}</td>
+              <td class="font-monospace small">{{ event.actor }}</td>
+              <td class="font-monospace small">
+                {{ event.target_type }}
+                @if (event.target_id) {
+                  {{ ' ' + event.target_id }}
+                }
+              </td>
+              <td>{{ event.project ?? '—' }}</td>
+              <td class="small text-break">{{ describe(event) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    @if (loadMoreFailed()) {
+      <div class="alert alert-danger py-2" role="alert">{{ 'audit.loadError' | t }}</div>
+    }
+    @if (hasMore()) {
+      <button
+        type="button"
+        class="btn btn-outline-secondary"
+        [disabled]="loadingMore()"
+        (click)="loadMore()"
+      >
+        {{ 'audit.loadMore' | t }}
+      </button>
+    }
+  } @else {
+    <p class="text-body-secondary">{{ 'audit.empty' | t }}</p>
+  }
+</div>

@@ -3,7 +3,7 @@
 A shared server (team, CI/CD) is made of **two processes** sharing the same database (see
 [Architecture and deployment](architecture.md)):
 
-- the **MCP server** (`security-review-mcp --transport streamable-http`): `/mcp` endpoint,
+- the **MCP server** (`security-review-mcp serve --transport streamable-http`): `/mcp` endpoint,
   public enrollment (`/api/v1/enroll`) and `/healthz` probe; it is the one exposed to the agents
   and to the CI;
 - the **controller** (`security-review-controller serve`): `/api/v1` REST API, `/ui/` web
@@ -16,7 +16,7 @@ a token. With stdio, the host starts the process itself and the controller is no
 security-review-controller db upgrade                        # creates or migrates the schema
 security-review-controller serve --host 127.0.0.1 --port 8080
 # web interface: http://127.0.0.1:8080/ui/
-security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
+security-review-mcp serve --transport streamable-http --host 127.0.0.1 --port 8000
 # MCP endpoint: http://127.0.0.1:8000/mcp
 ```
 
@@ -38,8 +38,8 @@ security-review-controller token list [--project shop-api]             # never t
 security-review-controller token revoke ci                              # by label or by id
 ```
 
-Projects can also request their token themselves: see
-[enrollment](#enrollment-a-project-requests-its-token).
+Developers can also create a personal MCP token in the web interface, after enrolling their
+project: see [enrollment](#enrollment-request-the-project).
 
 - Give `token` to the client; the unique `label` appears in the logs.
 - `--role` is `mcp` by default (MCP server); `admin` reaches the MCP server and the whole REST
@@ -65,21 +65,21 @@ The MCP endpoint and the controller API require `Authorization: Bearer <token>`.
 on the MCP server, and on the controller the static files of `/ui/`, the `/api/favicon.svg`
 icon, the `/api/health` liveness of the API and, with `SECREVIEW_SWAGGER_ENABLED=true` (disabled by default), the Swagger
 documentation (`/api/docs`, `/api/openapi.json` schema, `/api/swagger/` files). While no token exists, the controller API answers `503` and the MCP server **stays closed**: a
-client without a token only reaches [enrollment](#enrollment-a-project-requests-its-token), any
+client without a token only reaches [enrollment](#enrollment-request-the-project), any
 other request gets `401`, whatever the bearer value (a warning is logged at start-up). `/mcp` is
 only open in that case when the server listens on localhost (`127.0.0.1`, `::1`) or when
 `SECREVIEW_ALLOW_UNAUTHENTICATED=true`, to keep for tests on an isolated network: as soon as a
 token exists, it is required in every case. `token revoke` warns on stderr when it deletes the
 last token.
 
-Every creation, rotation and revocation of a token, and every enrollment request and decision,
-is written to the [audit log](audit-metrics.md#audit-log), with who made it.
+Every creation, rotation and revocation of a token, and every enrollment, is written to the
+[audit log](audit-metrics.md#audit-log), with who made it.
 
 ### Expiry and rotation of tokens
 
 A token may expire: after its expiry date it authenticates nothing (`401`, `error="invalid_token"`,
-description `The bearer token has expired`, or the [enrollment server](#rejected-token-new-enrollment)
-on `/mcp`), but it stays listed so that an administrator
+description `The bearer token has expired`, followed on `/mcp` by how to
+[get a new one](#rejected-token-sign-in-again)), but it stays listed so that an administrator
 rotates or revokes it. `SECREVIEW_TOKEN_MAX_DAYS` (default `0`) sets the longest validity of a
 token created or rotated, and its default validity; with `0`, tokens do not expire unless a
 validity is asked for.
@@ -95,8 +95,8 @@ new validity (`--expires-in-days`, default as at creation). During `--grace-hour
 default, at most `168`) the previous secret keeps working, the time to update the clients
 (`grace_until` in `token list`); after that, only the new one authenticates. The previous secret
 of an expired token never comes back. After a leak, rotate without a grace period (or revoke):
-the leaked secret then stops at once. An enrollment request still waiting for approval cannot
-be rotated. In the web interface, the **Tokens** screen rotates the project tokens (button
+the leaked secret then stops at once. A personal token cannot be rotated: its user creates a
+new one. In the web interface, the **Tokens** screen rotates the project tokens (button
 **Rotate**, grace period chosen above the list).
 
 Expired tokens still count as configured tokens: a server whose tokens have all expired stays
@@ -141,105 +141,79 @@ the web interface and the REST API, never `/mcp`: for an agent, create a token
 security-review-controller user reset-password admin
 ```
 
-### Enrollment: a project requests its token
+### Enrollment: request the project
 
-Rather than creating every token in advance, let the projects **request** theirs, then approve
-the request. It is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token is
-created (except on an [open server](#bearer-tokens), which needs no token).
+The enrollment **never creates a token**: it requests the project, which an administrator
+approves, and the developer creates a personal MCP token in the web interface. It is enabled by
+default (`SECREVIEW_ENROLLMENT=true`), even before the first token is created (except on an
+[open server](#bearer-tokens), which needs no token).
 
-1. **Request.** The client gets at once a token with the `mcp` role, restricted to the
-   requested project, but **pending**: it does not give access to anything yet. A token is
-   personal (it may later reach other projects), so its label is the **developer's username**:
-   the login name with `enroll`, the username passed by the agent; without a label, the project
-   name followed by `-enroll`. A random suffix is added. The token stays configured on a
-   device, which other people may use: each report therefore also names its developer (see
-   [author of a report](../usage/prompts-tools.md#author-of-a-report)). Three ways to request:
+1. **Request.** The client gives the name of its project (usually the repository name). A new
+   project is **pending**: it is not a project yet and gives no access. A project that already
+   exists, or is already pending, is unchanged, and the answer is the same in every case, so
+   that it does not tell which projects exist. Three ways to enroll:
     - **From the agent, at the first review.** An MCP client that connects **without** an
       `Authorization` header is not rejected: it reaches a restricted MCP server (same
-      `security-review` name) that only exposes the `request_enrollment` and
-      `get_enrollment_status` tools, and prompts named like the reviews (`security-review`,
-      `codebase-review`…) that explain the steps. The agent calls `request_enrollment` with the
-      project name and the developer's username, and hands the token to the user.
+      `security-review` name) that only exposes the `request_enrollment` tool, and prompts named
+      like the reviews (`security-review`, `codebase-review`…) that explain the steps. The agent
+      calls `request_enrollment` with the project name.
     - **From the command line**, from the developer workstation or the CI:
 
         ```bash
         security-review-mcp enroll --url https://secreview.example.internal:8443 \
             --project shop-api --requested-by "alice (shop team)"
-        # {"id": "…", "label": "alice-3fa9c1", "status": "pending", "token": "UJB7…", …}
+        # {"project": "shop-api", "web_url": "https://secreview.example.internal/ui", "next_steps": "…"}
         ```
 
     - **Through the MCP server API**: `POST /api/v1/enroll` (without a token) with
-      `{"project": "shop-api"}`. The controller does not serve this endpoint: it exposes no
-      unauthenticated write route.
-2. **Configuration.** The user puts the token at once in the
-   [host configuration](../getting-started/host.md#getting-a-token-enrollment). While it is pending, the client
-   stays on the enrollment server (`get_enrollment_status` answers `pending`) and the web API
-   answers `403 enrollment_pending`.
-3. **Approval.** An administrator approves or rejects the request in the **Tokens** screen of
-   the [web interface](../usage/web-interface.md), or from the CLI:
+      `{"project": "shop-api"}`, answered with `202`. The controller does not serve this
+      endpoint: it exposes no unauthenticated write route.
+2. **Approval.** A user holding `projects.create` (the `admin` role among others) approves or
+   rejects the request in the **Pending projects** section of the **Projects** screen, or from
+   the CLI:
 
     ```bash
-    security-review-controller token list --pending           # requester, address, date
-    security-review-controller token approve alice-3fa9c1
-    security-review-controller token reject alice-3fa9c1
+    security-review-controller project list          # requester, address, expiry
+    security-review-controller project approve 3     # id of the list
+    security-review-controller project reject 4
     ```
 
-    Once approved, the token works from the next request on, without reconfiguration. The
-    approval can also give the developer **read access to the project in the portal**, on
-    their user account (**Read access in the portal** column of the interface, or
-    `token approve ID --portal-user alice` from the CLI); with the
-    [OIDC login](sso.md), an unknown name becomes an
-    OIDC account. See
-    [project read access at enrollment](sso.md#project-read-access-at-enrollment).
+    The approval creates the project, with its group `project:<project>` **without any
+    member**: nobody gains any access, the approver included. A request nobody approved within
+    `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 days by default) is deleted.
+3. **Personal token.** The answer of the enrollment gives the URL of the web interface
+   (`web_url`, from [`SECREVIEW_WEB_URL`](../reference/configuration.md)) and the next steps:
+   the user signs in, creates a **personal MCP token** in **My account** (see
+   [personal MCP tokens](../usage/web-interface.md#personal-mcp-tokens)) and puts it in the
+   [host configuration](../getting-started/host.md#getting-a-token). The token reaches the
+   projects the user may read, at each request.
+4. **Access.** An administrator gives the user access to the project by adding them to the
+   group `project:<project>` (**Groups** screen, see [access control](access-control.md)); the
+   personal token reaches the project from the next request, without reconfiguration.
 
-### Rejected token: new enrollment
+An agent that already has a token may also call `request_enrollment` (for instance when
+`save_security_report` refuses a project its token does not reach): the project is requested
+the same way, and the token gains no project. When a user with `projects.create`
+[creates the project](access-control.md#creating-a-project) directly, its pending request is
+settled.
 
-When the enrollment is enabled, a client whose token is **unknown, revoked or expired** does
-not get `401` on `/mcp`: like a client without a token, it reaches the enrollment server, which
-only exposes `request_enrollment` and `get_enrollment_status`. `get_enrollment_status` then
-answers `token_rejected` with the reason (`invalid_token` or `token_expired`), and the agent
-offers the user to enroll again; the new token replaces the rejected one in the
-[host configuration](../getting-started/host.md#getting-a-token-enrollment), once approved. The
-rejection is still logged as a warning by the MCP server (`Rejected unauthenticated request` /
-`Rejected expired token`); the controller API and the `/api/v1/enroll` endpoint keep answering `401`.
+### Rejected token: sign in again
 
-`security-review-mcp scan-deps` recognizes this case and suggests running
-`security-review-mcp enroll`.
+A client whose token is **unknown, revoked or expired** gets `401` on `/mcp`
+(`error="invalid_token"`): the description tells the user to sign in to the web interface (with
+its URL when `SECREVIEW_WEB_URL` is set) and to create a new personal MCP token, then to replace
+it in the [host configuration](../getting-started/host.md#getting-a-token). Such a client never
+reaches the review tools nor the enrollment server. The rejection is logged as a warning by the
+MCP server (`Rejected unauthenticated request` / `Rejected expired token`).
+`security-review-mcp scan-deps` gives the same advice.
 
-### Additional enrollment
-
-A host that already has an active token restricted to one or more projects can request an
-additional project with **the same token**. The token keeps working for its current projects
-while the request is pending; no new secret is created. After approval, the project is added
-to its rights.
-
-- **From an MCP agent**: connected with the existing token, call `request_enrollment` for the
-  new project. `save_security_report` suggests this call if the requested project is not
-  allowed.
-- **From the command line**: pass the token on stdin, never as an argument:
-
-    ```bash
-    printf '%s\n' "$SECURITY_REVIEW_TOKEN" | security-review-mcp enroll \
-        --url https://secreview.example.internal:8443 --project billing \
-        --requested-by "alice (billing team)" --token-stdin
-    ```
-
-  The answer confirms the pending request without showing a new token. An administrator
-  approves or rejects it in the web interface or with
-  `security-review-controller token approve ID` / `security-review-controller token reject ID`.
-  The `token list --pending` command shows the requested project and the token concerned.
-
-An unrestricted token already reaches every project: it cannot make an additional enrollment.
-Create a restricted token if you need to limit its access.
-
-Safeguards: at most 20 pending requests at a time, 3 per client address (behind a reverse
-proxy, set [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md)), a request left unprocessed expires after
-7 days, a token with an invalid secret never reaches the review tools (only the
-[enrollment server](#rejected-token-new-enrollment)) and pending requests never enable
-the authentication of an open server. Check the requester before approving: any client that
-reaches the server can file a request. To disable the enrollment:
-`SECREVIEW_ENROLLMENT=false` (clients without a token, or with a rejected token, then get
-`401`).
+Safeguards: anybody who reaches the server may enroll, so at most 20 projects are pending at a
+time, a client address enrolls at most 5 times per hour (`429` beyond; behind a reverse proxy,
+set [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md)), and a pending project
+expires after `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Every request, approval, rejection and
+expiry is written to the [audit log](audit-metrics.md#audit-log) (`enrollment.requested`,
+`enrollment.approved`, `enrollment.rejected`, with the requester and the client address). To disable the enrollment: `SECREVIEW_ENROLLMENT=false`
+(clients without a token then get `401`, with the same advice).
 
 `--url` is the URL of the **MCP server** (with or without `/mcp`): it receives the requests.
 
@@ -254,7 +228,7 @@ Uvicorn serves HTTPS directly when a certificate is given, for the MCP server as
 controller (same options, same variables):
 
 ```bash
-security-review-mcp --transport streamable-http --host 0.0.0.0 --port 8443 \
+security-review-mcp serve --transport streamable-http --host 0.0.0.0 --port 8443 \
     --tls-certfile /etc/secreview/tls/cert.pem --tls-keyfile /etc/secreview/tls/key.pem
 security-review-controller serve --host 0.0.0.0 --port 9443 \
     --tls-certfile /etc/secreview/tls/cert.pem --tls-keyfile /etc/secreview/tls/key.pem
@@ -361,8 +335,8 @@ VS Code, with a token asked to the user (`.vscode/mcp.json`, see
 }
 ```
 
-For Claude and to get a token by enrollment from the host, see
-[Host configuration](../getting-started/host.md#getting-a-token-enrollment).
+For Claude and to get a token from the host, see
+[Host configuration](../getting-started/host.md#getting-a-token).
 
 ## Behind a reverse proxy
 

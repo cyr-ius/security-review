@@ -1,9 +1,10 @@
 """Report persistence service (business logic between MCP tools and the database)."""
 
+import json
 import logging
 import re
 from collections import Counter
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -11,16 +12,20 @@ from sqlalchemy import ColumnElement, and_, case, func, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from . import audit
+from . import audit, coverage
 from .config import MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
 from .models import (
     DISMISSED_STATUSES,
     MAX_AUTHOR_CHARS,
+    MAX_COMMENT_CHARS,
     MAX_STATUS_REASON_CHARS,
     PROPOSABLE_STATUSES,
     SEVERITY_RANK,
+    ChecklistResult,
     Finding,
+    FindingComment,
+    FindingCommentPublic,
     FindingCreate,
     FindingPublic,
     FindingStatus,
@@ -32,6 +37,7 @@ from .models import (
     effective_status,
     utcnow,
 )
+from .project_names import normalize_project
 from .scanner import redact_secrets
 
 logger = logging.getLogger(__name__)
@@ -119,6 +125,8 @@ def save_report(
     review_type: ReviewType | None = None,
     author: str | None = None,
     submitted_by: str | None = None,
+    checklist_results: list[ChecklistResult] | None = None,
+    scan_rules: list[str] | None = None,
 ) -> dict:
     """Persist a security report and its findings.
 
@@ -135,9 +143,13 @@ def save_report(
         review_type: Kind of review (the prompt used or the CLI scan).
         author: Username of the developer, declared by the client (not authenticated).
         submitted_by: Label of the token that saved the report (set by the server).
+        checklist_results: Checklist items walked through by the reviewer, with their
+            outcome; None for a report without declared coverage (CLI scans).
+        scan_rules: Rules that raised scan_code leads, confirmed or not.
 
     Returns:
-        Identifier, risk level and finding counts of the stored report.
+        Identifier, risk level and finding counts of the stored report; with declared
+        coverage, also its counts, the uncovered checklist items and the warnings.
 
     Raises:
         ValueError: If the report contains too many findings, an unknown review type or an
@@ -145,10 +157,8 @@ def save_report(
     """
     settings = get_settings()
     review_type = ReviewType(review_type) if review_type else None
-    project = project.strip()
+    project = normalize_project(project)
     summary = summary.strip()
-    if not project:
-        raise ValueError("project must not be empty")
     if len(summary) < 3:
         raise ValueError("summary must contain at least 3 characters")
     if len(findings) > settings.max_findings_per_report:
@@ -156,6 +166,9 @@ def save_report(
             f"Too many findings ({len(findings)}); the limit is {settings.max_findings_per_report}"
         )
     author = _check_author(author)
+    declared = None
+    if checklist_results is not None or scan_rules is not None:
+        declared = coverage.check(checklist_results or [], scan_rules or [], findings)
 
     rows = [_sanitize_finding(item) for item in findings]
     risk = compute_risk_level([row.severity for row in rows], risk_level)
@@ -175,6 +188,9 @@ def save_report(
             risk_level=risk,
             findings=rows,
         )
+        if declared is not None:
+            report.checklist_results = json.dumps([r.model_dump() for r in declared.checklist])
+            report.scan_rules = json.dumps(declared.scan_rules)
         session.add(report)
         session.flush()  # assigns ids before the commit
         result = {
@@ -186,6 +202,13 @@ def save_report(
             "findings_count": len(rows),
             "findings_by_severity": dict(Counter(row.severity.value for row in rows)),
         }
+        if declared is not None:
+            result["coverage"] = {
+                "checklist_by_outcome": dict(Counter(r.outcome.value for r in declared.checklist)),
+                "not_covered": declared.not_covered,
+                "scan_rules": len(declared.scan_rules),
+            }
+            result["warnings"] = declared.warnings
     logger.info("Report saved: id=%s project=%s risk=%s", result["report_id"], project, risk)
     return result
 
@@ -233,7 +256,7 @@ def list_reports(
     with session_scope() as session:
         statement = select(SecurityReport)
         if project:
-            statement = statement.where(SecurityReport.project == project)
+            statement = statement.where(SecurityReport.project == normalize_project(project))
         if projects is not None:
             statement = statement.where(col(SecurityReport.project).in_(list(projects)))
         if risk_level:
@@ -324,6 +347,19 @@ def _check_reason(reason: str | None, required: bool) -> str | None:
     return redact_secrets(reason)
 
 
+def _check_expiry(expires_at: datetime, now: datetime, longest: int) -> datetime:
+    """Return the expiry date of a dismissal, in the future and at most ``longest`` days away.
+
+    Raises:
+        ValueError: If the date is past or too far.
+    """
+    if expires_at <= now:
+        raise ValueError("The expiry date must be in the future")
+    if expires_at > now + timedelta(days=longest):
+        raise ValueError(f"The expiry date must be at most {longest} days away")
+    return expires_at
+
+
 def update_finding_status(
     finding_id: int,
     status: FindingStatus,
@@ -336,6 +372,8 @@ def update_finding_status(
 
     ``accepted`` and ``false_positive`` need a reason and an expiry date, in the future and at
     most SECREVIEW_MAX_DISMISSAL_DAYS days away: once expired, the finding counts as open again.
+    An acceptance may have no expiry date while SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
+    The reason of an acceptance is also its first comment (see ``add_finding_comment``).
     ``fixed`` takes an optional reason; ``open`` clears the decision. Any decision clears the
     status proposed by an agent. The decision is written to the audit log (``actor``, default
     the approver).
@@ -350,14 +388,12 @@ def update_finding_status(
     now = utcnow()
     if status in DISMISSED_STATUSES:
         reason = _check_reason(reason, required=True)
+        settings = get_settings()
         if expires_at is None:
-            raise ValueError(f"An expiry date is required for the status '{status.value}'")
-        expires_at = as_utc(expires_at)
-        longest = get_settings().max_dismissal_days
-        if expires_at <= now:
-            raise ValueError("The expiry date must be in the future")
-        if expires_at > now + timedelta(days=longest):
-            raise ValueError(f"The expiry date must be at most {longest} days away")
+            if status != FindingStatus.ACCEPTED or not settings.permanent_acceptance_enabled:
+                raise ValueError(f"An expiry date is required for the status '{status.value}'")
+        else:
+            expires_at = _check_expiry(as_utc(expires_at), now, settings.max_dismissal_days)
     else:
         if expires_at is not None:
             raise ValueError(f"The status '{status.value}' takes no expiry date")
@@ -370,6 +406,16 @@ def update_finding_status(
         previous = effective_status(finding.status, finding.status_expires_at, now)
         if previous != status:
             finding.status_changed_at = now
+        # The reason of an acceptance opens its comments: a new one is added when the risk is
+        # accepted or its reason changes, not when only the expiry date does
+        if status == FindingStatus.ACCEPTED and (
+            finding.status != status or finding.status_reason != reason
+        ):
+            session.add(
+                FindingComment(
+                    finding_id=finding_id, author=approver[:200], body=reason, created_at=now
+                )
+            )
         proposal = finding.proposed_status
         finding.status = status
         reopened = status == FindingStatus.OPEN
@@ -499,10 +545,11 @@ def finding_status_counts() -> dict[str, int]:
     return counts
 
 
-def list_projects() -> list[dict]:
-    """List the projects that have reports, with their open findings by severity.
+def list_projects(known: Iterable[str] = ()) -> list[dict]:
+    """List the projects that have reports, with their open findings by severity, and the
+    ``known`` projects without any report yet (created, or named by a role of a group).
 
-    Sorted by the date of the latest report, most recent first.
+    Sorted by the date of the latest report, most recent first; projects without a report last.
     """
     with session_scope() as session:
         report_rows = session.exec(
@@ -540,12 +587,25 @@ def list_projects() -> list[dict]:
                 "worst_open_severity": worst.value if open_total else None,
             }
         )
+    with_reports = {item["project"] for item in projects}
     projects.sort(key=lambda p: p["last_report_at"], reverse=True)
+    projects.extend(
+        {
+            "project": name,
+            "reports_total": 0,
+            "last_report_at": None,
+            "open_findings_total": 0,
+            "open_findings_by_severity": {severity.value: 0 for severity in Severity},
+            "worst_open_severity": None,
+        }
+        for name in sorted(set(known) - with_reports)
+    )
     return projects
 
 
 def project_posture(project: str) -> dict:
     """Summarize open findings of a project across all its reports (useful as a CI gate)."""
+    project = normalize_project(project)
     with session_scope() as session:
         rows = session.exec(
             select(Finding.severity, func.count())
@@ -595,7 +655,7 @@ def list_project_findings(
     offset = max(0, offset)
     filters = [_status_is(status)]
     if project is not None:
-        filters.append(SecurityReport.project == project)
+        filters.append(SecurityReport.project == normalize_project(project))
     if projects is not None:
         filters.append(col(SecurityReport.project).in_(list(projects)))
     if severity is not None:
@@ -631,6 +691,130 @@ def list_project_findings(
             for finding, report in rows
         ]
     return {"project": project, "total": total, "findings": findings}
+
+
+def list_risk_acceptances(
+    project: str | None,
+    projects: Collection[str] | None = None,
+    limit: int | None = None,
+    offset: int = 0,
+) -> dict:
+    """List the accepted risks of a project (or of every project), expired ones included.
+
+    Nearest expiry first, the acceptances without expiry date last. Each acceptance carries the
+    context of its report, ``expired`` (it counts as open again) and its number of comments.
+    ``limit`` is capped by SECREVIEW_MAX_LIST_LIMIT; ``total`` counts every acceptance, for
+    paging.
+    ``projects`` (the scope of a restricted caller) keeps only the acceptances of these projects.
+    """
+    settings = get_settings()
+    limit = max(1, min(limit or settings.max_list_limit, settings.max_list_limit))
+    offset = max(0, offset)
+    filters = [Finding.status == FindingStatus.ACCEPTED]
+    if project is not None:
+        filters.append(SecurityReport.project == normalize_project(project))
+    if projects is not None:
+        filters.append(col(SecurityReport.project).in_(list(projects)))
+    comments = (
+        select(func.count())
+        .select_from(FindingComment)
+        .where(FindingComment.finding_id == Finding.id)
+        .scalar_subquery()
+    )
+    now = utcnow()
+    with session_scope() as session:
+        total = session.exec(
+            select(func.count())
+            .select_from(Finding)
+            .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+            .where(*filters)
+        ).one()
+        rows = session.exec(
+            select(Finding, SecurityReport, comments)
+            .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+            .where(*filters)
+            .order_by(
+                col(Finding.status_expires_at).is_(None),
+                col(Finding.status_expires_at),
+                col(Finding.id),
+            )
+            .offset(offset)
+            .limit(limit)
+        ).all()
+        acceptances = [
+            {
+                **FindingPublic.model_validate(finding, from_attributes=True).model_dump(),
+                "project": report.project,
+                "branch": report.branch,
+                "commit_sha": report.commit_sha,
+                "review_type": report.review_type,
+                "report_created_at": report.created_at,
+                "expired": effective_status(finding.status, finding.status_expires_at, now)
+                == FindingStatus.OPEN,
+                "comments_total": comment_count,
+            }
+            for finding, report, comment_count in rows
+        ]
+    return {"project": project, "total": total, "acceptances": acceptances}
+
+
+def list_finding_comments(finding_id: int) -> list[FindingCommentPublic]:
+    """Return the comments of a finding, oldest first.
+
+    Raises:
+        NotFoundError: If the finding does not exist.
+    """
+    with session_scope() as session:
+        if session.get(Finding, finding_id) is None:
+            raise NotFoundError(f"Finding {finding_id} not found")
+        rows = session.exec(
+            select(FindingComment)
+            .where(FindingComment.finding_id == finding_id)
+            .order_by(col(FindingComment.created_at), col(FindingComment.id))
+        ).all()
+        return [FindingCommentPublic.model_validate(row, from_attributes=True) for row in rows]
+
+
+def add_finding_comment(
+    finding_id: int, author: str, body: str, actor: str | None = None
+) -> FindingCommentPublic:
+    """Add the comment of a person to a finding; secrets in the text are masked.
+
+    Comments are append-only: nothing edits or deletes one. The comment is written to the
+    audit log (``actor``, default the author).
+
+    Raises:
+        NotFoundError: If the finding does not exist.
+        ValueError: If the author is missing or the text is empty or too long.
+    """
+    author = author.strip()
+    if not author:
+        raise ValueError("An author is required")
+    body = body.strip()
+    if not body:
+        raise ValueError("The comment is empty")
+    if len(body) > MAX_COMMENT_CHARS:
+        raise ValueError(f"The comment must have at most {MAX_COMMENT_CHARS} characters")
+    # The mask of a secret may be longer than the secret: keep the size of the column
+    body = redact_secrets(body)[:MAX_COMMENT_CHARS]
+    with session_scope() as session:
+        finding = session.get(Finding, finding_id)
+        if finding is None:
+            raise NotFoundError(f"Finding {finding_id} not found")
+        comment = FindingComment(finding_id=finding_id, author=author[:200], body=body)
+        session.add(comment)
+        audit.record(
+            session,
+            audit.AuditAction.FINDING_COMMENTED,
+            actor or author,
+            "finding",
+            finding_id,
+            finding.report.project,
+            {"comment": body},
+        )
+        session.flush()
+        logger.info("Comment added to finding %s", finding_id)
+        return FindingCommentPublic.model_validate(comment, from_attributes=True)
 
 
 def prune_empty_reports(retention_days: int | None = None) -> dict:
@@ -671,6 +855,33 @@ def prune_empty_reports(retention_days: int | None = None) -> dict:
     return {"retention_days": days, "deleted": deleted}
 
 
+def _coverage_markdown(report: SecurityReportPublic) -> list[str]:
+    """Render the declared coverage of a report (nothing when none was declared)."""
+    if not report.checklist_results and not report.scan_rules:
+        return []
+    lines = ["", "## Coverage"]
+    if report.checklist_results:
+        counts = Counter(r.outcome.value for r in report.checklist_results)
+        lines += [
+            "",
+            "Checklist: " + ", ".join(f"{n} {o}" for o, n in sorted(counts.items())) + ".",
+            "",
+            "| Item | Title | Outcome |",
+            "|---|---|---|",
+        ]
+        lines += [
+            f"| {r.item_id} | {r.title.replace('|', '/')} | {r.outcome.value} |"
+            for r in report.checklist_results
+        ]
+    if report.scan_rules:
+        confirmed = {f.rule_id.strip().upper() for f in report.findings if f.rule_id}
+        dismissed = [x for x in report.scan_rules if x not in confirmed]
+        lines += ["", f"Scan leads: {', '.join(report.scan_rules)}."]
+        if dismissed:
+            lines.append(f"Dismissed (no finding): {', '.join(dismissed)}.")
+    return lines
+
+
 def render_report_markdown(report: SecurityReportPublic) -> str:
     """Render a stored report as Markdown (for humans, MRs and tickets)."""
     lines = [
@@ -691,7 +902,9 @@ def render_report_markdown(report: SecurityReportPublic) -> str:
     ):
         if value:
             lines.append(f"- **{label}**: {value}")
-    lines += ["", "## Summary", "", report.summary, "", f"## Findings ({len(report.findings)})"]
+    lines += ["", "## Summary", "", report.summary]
+    lines += _coverage_markdown(report)
+    lines += ["", f"## Findings ({len(report.findings)})"]
 
     ordered = sorted(report.findings, key=lambda f: (-SEVERITY_RANK[f.severity], f.id))
     if not ordered:
@@ -742,6 +955,7 @@ def evaluate_gate(
         NotFoundError: If ``report_id`` does not exist.
         ValueError: If the report belongs to another project.
     """
+    project = normalize_project(project)
     threshold = SEVERITY_RANK[fail_on]
     with session_scope() as session:
         statement = (
@@ -808,6 +1022,7 @@ def collect_sarif_items(
             project = report.project
             statement = statement.where(Finding.report_id == report_id)
         else:
+            project = normalize_project(str(project))
             statement = statement.where(SecurityReport.project == project)
         statement = statement.order_by(col(SecurityReport.created_at), col(SecurityReport.id))
 
@@ -868,6 +1083,7 @@ def check_project_scope(allowed: Collection[str] | None, project: str) -> None:
     Raises:
         NotFoundError: If ``allowed`` is set and does not contain ``project``.
     """
+    project = normalize_project(project)
     if allowed is not None and project not in allowed:
         raise NotFoundError(f"Project '{project}' not found")
 

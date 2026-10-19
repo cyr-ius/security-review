@@ -4,6 +4,7 @@ import ipaddress
 import logging
 import sys
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -82,10 +83,17 @@ class Settings(BaseSettings):
     session_hours: int = 8
 
     # Enrollment (HTTP MCP server, once a token exists): a client without a token reaches a
-    # restricted MCP server that only lets it request a project token, and POST /api/v1/enroll
-    # on the MCP server accepts the same request. The token works once an administrator
-    # approves it on the controller.
+    # restricted MCP server that only lets it request its project, and POST /api/v1/enroll on
+    # the MCP server accepts the same request. The project stays pending until a user holding
+    # projects.create approves it (Projects screen or `project approve`); a request nobody
+    # approved within project_enrollment_ttl_days is deleted. No token is created: the developer
+    # signs in to the web interface and creates a personal MCP token there.
     enrollment: bool = True
+    project_enrollment_ttl_days: int = Field(default=7, ge=1, le=365)
+    # Public URL of the web interface (controller), e.g. https://secreview.example.com/ui. The
+    # MCP server gives it to the clients without a valid token (enrollment, 401), so that the
+    # user knows where to sign in and create a personal MCP token. Unset: no link is given.
+    web_url: str | None = None
 
     # Client commands only (`security-review-mcp scan-deps`, used by commit hooks and
     # pipelines): URL of the shared MCP server (default of --url) and the bearer token sent to
@@ -135,7 +143,8 @@ class Settings(BaseSettings):
     # named by oidc_username_claim: with oidc_auto_create_users it is created at the first login
     # (when its groups give it a permission), otherwise an administrator creates it first.
     # Sessions use secret_key and session_hours. oidc_cafile replaces the system CA bundle
-    # for the provider.
+    # for the provider. Every oidc_* setting but oidc_cafile can also be set in the web
+    # interface; a variable that is set takes precedence (see app_settings).
     oidc_enabled: bool = False
     oidc_issuer: str = ""
     oidc_client_id: str = ""
@@ -159,9 +168,10 @@ class Settings(BaseSettings):
     # accepted): HTTPS_PROXY, else HTTP_PROXY, http://[user:password@]host:port (host:port
     # means http://host:port), and NO_PROXY, the comma-separated hosts reached without it (a
     # domain also covers its subdomains, an IP address the URLs whose host is that address, *
-    # every host; the loopback interface is always direct). Both can be overridden in the web
-    # interface (Paramètres, see app_settings). Settings(https_proxy=...) sets the proxy (the
-    # aliases only: populating by name would read SECREVIEW_PROXY again).
+    # every host; the loopback interface is always direct). Each one not set can be set in the
+    # web interface (Paramètres, see app_settings); when set, it takes precedence there.
+    # An empty variable counts as unset. Settings(https_proxy=...) sets the proxy (the aliases
+    # only: populating by name would read SECREVIEW_PROXY again).
     proxy: str | None = Field(
         default=None, validation_alias=AliasChoices("https_proxy", "http_proxy")
     )
@@ -181,6 +191,7 @@ class Settings(BaseSettings):
     # Language of the review reports (reply and free-text fields of save_security_report), for
     # example "French". Empty: the agent chooses. The `report_language` argument of the review
     # prompts overrides it. Severities, categories, statuses and rule ids stay in English.
+    # When the variable is not set, an administrator can choose it in the web interface.
     report_language: str = ""
 
     # Controller only: delete the reports without any finding (clean reviews) older than
@@ -191,11 +202,18 @@ class Settings(BaseSettings):
     # Longest validity, in days, of a triage decision "accepted" or "false_positive": its expiry
     # date may not be later. Once expired, the finding counts as open again (gate, posture).
     max_dismissal_days: int = Field(default=365, ge=1, le=MAX_RETENTION_DAYS)
+    # Controller only: a person may accept a risk without an expiry date ("No expiry" in the web
+    # interface); the acceptance then lasts until someone reopens the finding. False: every
+    # acceptance needs an expiry date. A false positive always needs one.
+    permanent_acceptance_enabled: bool = True
 
     # Longest validity, in days, of a bearer token created or rotated (CLI, web interface,
     # enrollment), which is also its default validity. 0: tokens never expire unless an expiry is
     # asked for at creation or rotation.
     token_max_days: int = Field(default=0, ge=0, le=MAX_RETENTION_DAYS)
+    # Controller only: personal tokens a web user may hold of each kind (REST API and MCP),
+    # created in My account. Revoke one to create another.
+    personal_tokens_per_user: int = Field(default=1, ge=1, le=10)
 
     # Controller only: delete the audit events older than audit_retention_days, checked at start
     # then every day. 0 keeps them forever.
@@ -207,6 +225,8 @@ class Settings(BaseSettings):
     # tcp://host:port or unix:///dev/log (no TLS: use a local relay such as rsyslog for it).
     # Disabled by default. The controller forwards the events of every process (MCP server and
     # CLI included) from the database, each event once even with several replicas. Not proxied.
+    # Each one not set can be set on the Audit log page of the web interface; when set, it takes
+    # precedence there. An empty address variable counts as unset.
     audit_syslog_address: str | None = None
     audit_syslog_facility: str = "local0"
 
@@ -233,7 +253,7 @@ class Settings(BaseSettings):
     max_scan_files: int = Field(default=10_000, ge=1)
     max_scan_file_chars: int = Field(default=1_048_576, ge=1)
 
-    @field_validator("proxy", "no_proxy", "audit_syslog_address")
+    @field_validator("proxy", "no_proxy", "audit_syslog_address", "web_url")
     @classmethod
     def _empty_is_unset(cls, value: str | None) -> str | None:
         """An empty variable means no value (an empty stored proxy means a direct connection)."""
@@ -246,6 +266,19 @@ class Settings(BaseSettings):
         if value and "://" not in value:
             return f"http://{value}"
         return value
+
+    @field_validator("web_url")
+    @classmethod
+    def _check_web_url(cls, value: str | None) -> str | None:
+        """Accept an http(s) URL without credentials: it is shown to unauthenticated clients."""
+        if value is None:
+            return None
+        parts = urlsplit(value)
+        if parts.scheme not in ("http", "https") or not parts.hostname:
+            raise ValueError("SECREVIEW_WEB_URL must be an http(s) URL")
+        if parts.username or parts.password:
+            raise ValueError("SECREVIEW_WEB_URL must not contain credentials")
+        return value.rstrip("/")
 
     @field_validator("forwarded_allow_ips")
     @classmethod

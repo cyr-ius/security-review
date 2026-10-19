@@ -2,8 +2,9 @@
 
 Serveur MCP pour la **revue de code orientée sécurité** (failles et mauvaises configurations),
 utilisable depuis VS Code / Copilot, Claude ou un agent CI/CD. Il fournit des prompts de revue,
-des checklists, un scan par motifs, une analyse de dépendances hors ligne et une base de
-rapports (SQLite ou PostgreSQL) exploitable en pipeline.
+des checklists, un scan par motifs avec des analyses Tree-sitter ciblées des flux SQL Python, DOM Angular et origines de messages non vérifiées,
+une analyse de dépendances hors ligne et une base de rapports (SQLite ou PostgreSQL) exploitable
+en pipeline.
 
 📖 **Documentation complète : <https://cyr-ius.github.io/security-review-mcp/fr/>**
 
@@ -14,7 +15,7 @@ rapports (SQLite ou PostgreSQL) exploitable en pipeline.
 | | |
 |---|---|
 | **Prompts** | `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review`, `triage-report`, `development-standards` |
-| **Outils** | checklists, `scan_code`, `scan_dependencies`, enregistrement et lecture des rapports, [propositions de statut](https://cyr-ius.github.io/security-review-mcp/fr/usage/prompts-tools/#statut-dun-finding) (`propose_finding_status` : un agent ne ferme jamais un finding), posture et gate projet, export SARIF, tendances, gestion des règles |
+| **Outils** | checklists, `scan_code`, `scan_dependencies`, enregistrement et lecture des rapports avec leur [couverture de checklist](https://cyr-ius.github.io/security-review-mcp/fr/usage/prompts-tools/#couverture-de-la-revue) (regroupés par un [nom de projet normalisé](https://cyr-ius.github.io/security-review-mcp/fr/usage/prompts-tools/#nom-du-projet)), [propositions de statut](https://cyr-ius.github.io/security-review-mcp/fr/usage/prompts-tools/#statut-dun-finding) (`propose_finding_status` : un agent ne ferme jamais un finding), posture et gate projet, export SARIF, tendances, gestion des règles |
 | **CLI** | `security-review-mcp` (serveur MCP, `enroll`, [`scan-deps`](https://cyr-ius.github.io/security-review-mcp/fr/advanced/dependencies/#scan-avec-un-serveur-partage-hook-de-commit) pour un hook de commit) et `security-review-controller` (`serve`, `db`, `advisories`, `rules`, `token`, `user`, `audit`), codes de sortie 0 / 1 / 2 |
 | **Pipelines** | [`security-review-ci`](https://cyr-ius.github.io/security-review-mcp/fr/usage/gate/#client-de-pipeline-security-review-ci) (`gate`, `sarif`, `trend`, [`code-scan`](https://cyr-ius.github.io/security-review-mcp/fr/advanced/code-scan/), [`deps-scan`](https://cyr-ius.github.io/security-review-mcp/fr/advanced/dependencies/#scan-dans-un-pipeline-security-review-ci-deps-scan), qui enregistrent leurs rapports par l'API) : client léger de l'API REST pour Jenkins, GitLab ou GitHub, avec un jeton `ci` restreint aux projets sélectionnés, sans pilote de base |
 | **Règles** | Plus de 120 règles et plus de 75 items de checklist : Python, Java, Angular / Node.js, Docker, Kubernetes, configuration, GitLab CI, Jenkins, Spring, FastAPI, copiés en base au premier lancement, plus vos [règles internes](https://cyr-ius.github.io/security-review-mcp/fr/advanced/rules/) (import/export TOML en CLI ou dans l'interface web) |
@@ -23,8 +24,8 @@ rapports (SQLite ou PostgreSQL) exploitable en pipeline.
 | **Transport** | HTTP (serveur partagé) ou stdio (mode local), avec jetons Bearer stockés en base (CLI `token`), avec [expiration et renouvellement](https://cyr-ius.github.io/security-review-mcp/fr/advanced/http/#expiration-et-renouvellement-des-jetons), et TLS (éventuellement mutuel) facultatifs |
 | **Audit et métriques** | [journal d'audit](https://cyr-ius.github.io/security-review-mcp/fr/advanced/audit-metrics/#journal-daudit) des décisions de triage, des jetons et des enrôlements, et [métriques Prometheus](https://cyr-ius.github.io/security-review-mcp/fr/advanced/audit-metrics/#metriques-prometheus) sur `/metrics` (jeton `metrics`) |
 | **Déploiement** | serveur MCP et contrôleur (API REST, interface web) [séparés](https://cyr-ius.github.io/security-review-mcp/fr/advanced/architecture/) sur une base partagée, migrations Alembic, exemples Docker Compose et Kubernetes |
-| **Enrôlement** | un projet [demande son jeton ou un accès supplémentaire](https://cyr-ius.github.io/security-review-mcp/fr/advanced/http/#enrolement-un-projet-demande-son-jeton) (outil MCP `request_enrollment` ou CLI `enroll`), un administrateur valide la demande |
-| **Interface web** | en anglais, français ou espagnol : tableau de bord, [triage par une personne](https://cyr-ius.github.io/security-review-mcp/fr/usage/web-interface/#triage-des-findings) (motif, approbateur et expiration des risques acceptés et faux positifs), [liste des findings ouverts par projet](https://cyr-ius.github.io/security-review-mcp/fr/usage/web-interface/#ecrans) pour une revue par un expert, gestion des [règles, checklists, jetons (par projet ou pour tous les projets), langue des rapports, proxy sortant (OSV et OIDC) et mises à jour OSV](https://cyr-ius.github.io/security-review-mcp/fr/usage/web-interface/), [comptes utilisateurs](https://cyr-ius.github.io/security-review-mcp/fr/usage/web-interface/#comptes-utilisateurs) locaux ou OIDC, seuls à ouvrir l'interface (les jetons sont destinés aux machines : agents MCP, pipelines, scripts ; [jetons API](https://cyr-ius.github.io/security-review-mcp/fr/usage/web-interface/#jetons-api) personnels ou de rôle pour l'API REST et le Swagger ; compte `admin` initial dans les logs), [connexion OIDC OpenID Connect](https://cyr-ius.github.io/security-review-mcp/fr/advanced/sso/) facultative, [configurable dans l'interface](https://cyr-ius.github.io/security-review-mcp/fr/advanced/sso/#configurer-le-sso-dans-linterface), avec création des comptes à la volée, et [rôles, groupes et permissions](https://cyr-ius.github.io/security-review-mcp/fr/advanced/access-control/) (groupes rapprochés par leur nom du claim des groupes OIDC, rôles par projet donnés aux groupes, jamais directement aux comptes) |
+| **Enrôlement** | un client MCP sans jeton [demande son projet](https://cyr-ius.github.io/security-review-mcp/fr/advanced/http/#enrolement-demander-le-projet) (outil MCP `request_enrollment` ou CLI `enroll`), un administrateur le valide, puis l'utilisateur crée un jeton MCP personnel dans l'interface web ; un jeton refusé reçoit un `401` qui indique comment en obtenir un nouveau |
+| **Interface web** | en anglais, français ou espagnol : tableau de bord, [triage par une personne](https://cyr-ius.github.io/security-review-mcp/fr/usage/web-interface/#triage-des-findings) (motif, approbateur et expiration des risques acceptés et faux positifs), [acceptations de risque](https://cyr-ius.github.io/security-review-mcp/fr/usage/web-interface/#acceptations-de-risque) à renouveler ou supprimer, avec commentaires en ajout seul, [liste des findings ouverts par projet](https://cyr-ius.github.io/security-review-mcp/fr/usage/web-interface/#ecrans) pour une revue par un expert, gestion des [règles, checklists, jetons (par projet ou pour tous les projets), langue des rapports, proxy sortant (OSV et OIDC) et mises à jour OSV](https://cyr-ius.github.io/security-review-mcp/fr/usage/web-interface/), [comptes utilisateurs](https://cyr-ius.github.io/security-review-mcp/fr/usage/web-interface/#comptes-utilisateurs) locaux ou OIDC, seuls à ouvrir l'interface (les jetons sont destinés aux machines : agents MCP, pipelines, scripts ; [jetons API](https://cyr-ius.github.io/security-review-mcp/fr/usage/web-interface/#jetons-api) personnels ou de rôle pour l'API REST et le Swagger, [jetons MCP personnels](https://cyr-ius.github.io/security-review-mcp/fr/usage/web-interface/#jetons-mcp-personnels) sur les projets de l'utilisateur, avec le rôle `mcp-user` ; compte `admin` initial dans les logs), [connexion OIDC OpenID Connect](https://cyr-ius.github.io/security-review-mcp/fr/advanced/sso/) facultative, [configurable dans l'interface](https://cyr-ius.github.io/security-review-mcp/fr/advanced/sso/#configurer-le-sso-dans-linterface), avec création des comptes à la volée, et [rôles, groupes et permissions](https://cyr-ius.github.io/security-review-mcp/fr/advanced/access-control/) (groupes rapprochés par leur nom du claim des groupes OIDC, rôles par projet donnés aux groupes, jamais directement aux comptes) |
 
 Détail : [prompts et outils](https://cyr-ius.github.io/security-review-mcp/fr/usage/prompts-tools/),
 [scan du code complet](https://cyr-ius.github.io/security-review-mcp/fr/advanced/code-scan/),
@@ -48,7 +49,7 @@ security-review-controller db upgrade                              # schéma (Al
 security-review-controller user create admin --group administrators   # compte de l'interface web
 security-review-controller token create --label alice              # jeton de l'agent
 security-review-controller serve --port 8080                       # interface /ui et API REST
-security-review-mcp --transport streamable-http --port 8000        # endpoint /mcp
+security-review-mcp serve --transport streamable-http --port 8000  # endpoint /mcp
 
 security-review-ci gate --url http://localhost:8080 --project portal  # bloquer un pipeline (jeton ci : SECREVIEW_TOKEN)
 ```
@@ -82,8 +83,8 @@ Autres cas : [installation hors ligne](https://cyr-ius.github.io/security-review
 
 ## Limites
 
-Le scan par motifs produit des pistes, avec des faux positifs. Il ne remplace ni un SAST, ni une
-analyse SCA complète, ni une relecture humaine. Voir
+Le scan produit des pistes, avec des faux positifs. Son analyse Tree-sitter Python ne couvre que des flux
+SQL locaux simples. Il ne remplace ni un SAST ou une analyse SCA complète, ni une relecture humaine. Voir
 [sécurité et limites](https://cyr-ius.github.io/security-review-mcp/fr/reference/security/).
 
 ## Contribuer

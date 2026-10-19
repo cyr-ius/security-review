@@ -4,12 +4,19 @@ import { Component, computed, inject, input, linkedSignal, signal } from '@angul
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { REVIEW_TYPE_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import {
+  CHECKLIST_OUTCOME_META,
+  REVIEW_TYPE_META,
+  SEVERITY_META,
+  STATUS_META,
+} from '../../../core/constants/labels';
+import {
+  CHECKLIST_OUTCOMES,
   FINDING_STATUSES,
   Finding,
   FindingDecision,
   FindingStatus,
+  PROMPT_REVIEW_TYPES,
   SEVERITIES,
   SEVERITY_RANK,
   Severity,
@@ -42,6 +49,7 @@ export class ReportDetailComponent {
   readonly severityMeta = SEVERITY_META;
   readonly statusMeta = STATUS_META;
   readonly reviewTypeMeta = REVIEW_TYPE_META;
+  readonly outcomeMeta = CHECKLIST_OUTCOME_META;
 
   readonly reportId = computed(() => Number.parseInt(this.id(), 10));
 
@@ -70,6 +78,28 @@ export class ReportDetailComponent {
       .filter((f) => !this.statusFilter() || f.status === this.statusFilter())
       .sort((a, b) => SEVERITY_RANK[b.severity] - SEVERITY_RANK[a.severity] || a.id - b.id),
   );
+
+  /** Declared coverage: checklist items by outcome (attention first) and the scan leads. */
+  readonly coverage = computed(() => {
+    const data = this.report.value();
+    if (!data) {
+      return null;
+    }
+    const items = [...data.checklist_results].sort(
+      (a, b) =>
+        CHECKLIST_OUTCOMES.indexOf(a.outcome) - CHECKLIST_OUTCOMES.indexOf(b.outcome) ||
+        a.item_id.localeCompare(b.item_id),
+    );
+    const counts = CHECKLIST_OUTCOMES.map((outcome) => ({
+      outcome,
+      count: items.filter((r) => r.outcome === outcome).length,
+    })).filter((entry) => entry.count > 0);
+    const cited = new Set(data.findings.map((f) => f.rule_id?.trim().toUpperCase()));
+    const leads = data.scan_rules.map((rule) => ({ rule, dismissed: !cited.has(rule) }));
+    const declared = items.length > 0 || leads.length > 0;
+    const expected = !!data.review_type && PROMPT_REVIEW_TYPES.includes(data.review_type);
+    return declared || expected ? { items, counts, leads, declared } : null;
+  });
 
   readonly openCount = computed(() => this.findings().filter((f) => f.status === 'open').length);
 

@@ -81,15 +81,7 @@ spec:
       containers:
         - name: controller
           image: registry.example.com/security-review-mcp:pg
-          command:
-            [
-              "security-review-controller",
-              "serve",
-              "--host",
-              "0.0.0.0",
-              "--port",
-              "8000",
-            ]
+          command: ["security-review-controller", "serve", "--host", "0.0.0.0", "--port", "8000"]
           envFrom:
             - configMapRef:
                 name: secreview-config
@@ -180,15 +172,7 @@ spec:
       containers:
         - name: mcp
           image: registry.example.com/security-review-mcp:pg
-          args:
-            [
-              "--transport",
-              "streamable-http",
-              "--host",
-              "0.0.0.0",
-              "--port",
-              "8000",
-            ]
+          args: ["serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
           envFrom:
             - configMapRef:
                 name: secreview-config

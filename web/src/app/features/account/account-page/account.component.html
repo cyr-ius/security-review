@@ -18,8 +18,17 @@
   }
 </div>
 
+<section class="card card-body mb-4" aria-labelledby="permissions-title">
+  <h2 id="permissions-title" class="h5">{{ 'account.permissionsTitle' | t }}</h2>
+  <ul class="list-unstyled mb-0">
+    @for (permission of permissions(); track permission) {
+      <li><i class="bi bi-check2 text-success" aria-hidden="true"></i> {{ permission }}</li>
+    }
+  </ul>
+</section>
+
 @if (auth.identity()?.local_account) {
-  <section class="col-lg-6" aria-labelledby="password-title">
+  <section class="card card-body col-lg-6" aria-labelledby="password-title">
     <h2 id="password-title" class="h5">{{ 'account.passwordTitle' | t }}</h2>
 
     @if (auth.identity()?.must_change_password) {

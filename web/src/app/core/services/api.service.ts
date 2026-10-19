@@ -9,6 +9,8 @@ import {
   AppSettings,
   AuditPage,
   AuditQuery,
+  AuditSyslogSettings,
+  AuditSyslogUpdate,
   AuthConfig,
   AuthSource,
   ChecklistCatalog,
@@ -19,9 +21,8 @@ import {
   DevStandard,
   DevStandardCatalog,
   DevStandardWrite,
-  EnrollmentApproved,
-  EnrollmentRequest,
   Finding,
+  FindingComment,
   FindingDecision,
   GroupCatalog,
   Identity,
@@ -30,23 +31,28 @@ import {
   OidcSettingsUpdate,
   OidcTestResult,
   PermissionInfo,
+  PersonalTokenRole,
   Preferences,
+  ProjectDeleted,
   ProjectFindingPage,
   ProjectFindingQuery,
+  PendingProject,
   ProjectSummary,
   ProjectToken,
   ProjectTokenCreated,
   ProjectTokenRole,
-  TokenRoleChoice,
   ProxyUpdate,
   Report,
   ReportQuery,
   ReportSummary,
   RevokedUser,
+  RiskAcceptancePage,
+  RiskAcceptanceQuery,
   RulePackImportResult,
   RulePackSection,
   RuleReloadResult,
   StandardPackImportResult,
+  TokenRoleChoice,
   Trend,
   UpdateStatus,
   UserGroup,
@@ -256,6 +262,31 @@ export class ApiService {
     return this.http.get<ProjectSummary[]>(`${API_URL}/projects`);
   }
 
+  /** POST /api/v1/projects: a new project, read by its creator (projects.create). */
+  createProject(project: string): Observable<ProjectSummary> {
+    return this.http.post<ProjectSummary>(`${API_URL}/projects`, { project });
+  }
+
+  /** GET /api/v1/projects/pending: projects requested by an enrollment (projects.create). */
+  pendingProjects(): Observable<PendingProject[]> {
+    return this.http.get<PendingProject[]>(`${API_URL}/projects/pending`);
+  }
+
+  /** Approve a requested project: it is created without any member. */
+  approvePendingProject(id: number): Observable<PendingProject> {
+    return this.http.post<PendingProject>(`${API_URL}/projects/pending/${id}/approve`, null);
+  }
+
+  /** Reject a requested project: the request is deleted. */
+  rejectPendingProject(id: number): Observable<void> {
+    return this.http.delete<void>(`${API_URL}/projects/pending/${id}`);
+  }
+
+  /** DELETE /api/v1/projects/{project}: the project and its references (projects.delete). */
+  deleteProject(project: string): Observable<ProjectDeleted> {
+    return this.http.delete<ProjectDeleted>(`${API_URL}/projects/${encodeURIComponent(project)}`);
+  }
+
   projectTokens(): Observable<ProjectToken[]> {
     return this.http.get<ProjectToken[]>(`${API_URL}/project-tokens`);
   }
@@ -285,15 +316,21 @@ export class ApiService {
     return this.http.get<TokenRoleChoice[]>(`${API_URL}/project-tokens/roles`);
   }
 
-  /** The api tokens of the logged-in user. */
+  /** The personal tokens (REST API and MCP) of the logged-in user. */
   myTokens(): Observable<ProjectToken[]> {
     return this.http.get<ProjectToken[]>(`${API_URL}/me/tokens`);
   }
 
-  /** Create an api token of the logged-in user, with its rights; its secret is shown once. */
-  createMyToken(label: string, expiresInDays: number | null): Observable<ProjectTokenCreated> {
+  /** Create a personal token of the logged-in user: api (its rights) or mcp (the projects it
+   * may read); its secret is shown once. */
+  createMyToken(
+    label: string,
+    expiresInDays: number | null,
+    role: PersonalTokenRole = 'api',
+  ): Observable<ProjectTokenCreated> {
     return this.http.post<ProjectTokenCreated>(`${API_URL}/me/tokens`, {
       label,
+      role,
       expires_in_days: expiresInDays,
     });
   }
@@ -340,25 +377,6 @@ export class ApiService {
 
   deleteProjectToken(id: string): Observable<void> {
     return this.http.delete<void>(`${API_URL}/project-tokens/${encodeURIComponent(id)}`);
-  }
-
-  enrollments(): Observable<EnrollmentRequest[]> {
-    return this.http.get<EnrollmentRequest[]>(`${API_URL}/enrollments`);
-  }
-
-  /**
-   * With portalUser, that web user also reads the project in the web UI (an unknown name
-   * becomes an OIDC user when OIDC is enabled).
-   */
-  approveEnrollment(id: string, portalUser: string | null = null): Observable<EnrollmentApproved> {
-    return this.http.post<EnrollmentApproved>(
-      `${API_URL}/enrollments/${encodeURIComponent(id)}/approve`,
-      { portal_user: portalUser },
-    );
-  }
-
-  rejectEnrollment(id: string): Observable<void> {
-    return this.http.delete<void>(`${API_URL}/enrollments/${encodeURIComponent(id)}`);
   }
 
   reports(query: ReportQuery): Observable<ReportSummary[]> {
@@ -421,6 +439,25 @@ export class ApiService {
     return this.http.delete<Finding>(`${API_URL}/findings/${id}/proposal`);
   }
 
+  /** Accepted risks of a project (or of every project), expired ones included. */
+  riskAcceptances(query: RiskAcceptanceQuery): Observable<RiskAcceptancePage> {
+    let params = new HttpParams().set('limit', query.limit).set('offset', query.offset);
+    if (query.project) {
+      params = params.set('project', query.project);
+    }
+    return this.http.get<RiskAcceptancePage>(`${API_URL}/risk-acceptances`, { params });
+  }
+
+  /** Comments of a finding, oldest first. */
+  findingComments(id: number): Observable<FindingComment[]> {
+    return this.http.get<FindingComment[]>(`${API_URL}/findings/${id}/comments`);
+  }
+
+  /** Comment a finding (a comment can never be edited nor deleted). */
+  addFindingComment(id: number, body: string): Observable<FindingComment> {
+    return this.http.post<FindingComment>(`${API_URL}/findings/${id}/comments`, { body });
+  }
+
   /** Download the Markdown version of a report. */
   reportMarkdown(id: number): Observable<Blob> {
     return this.http.get(`${API_URL}/reports/${id}/markdown`, { responseType: 'blob' });
@@ -448,6 +485,15 @@ export class ApiService {
   /** A field left out is unchanged; null restores the variable, url '' connects directly. */
   setProxy(values: ProxyUpdate): Observable<AppSettings> {
     return this.http.put<AppSettings>(`${API_URL}/settings/proxy`, values);
+  }
+
+  auditSyslog(): Observable<AuditSyslogSettings> {
+    return this.http.get<AuditSyslogSettings>(`${API_URL}/settings/audit-syslog`);
+  }
+
+  /** A field left out is unchanged; null restores the variable, address '' stops forwarding. */
+  setAuditSyslog(values: AuditSyslogUpdate): Observable<AuditSyslogSettings> {
+    return this.http.put<AuditSyslogSettings>(`${API_URL}/settings/audit-syslog`, values);
   }
 
   advisories(): Observable<AdvisoryOverview> {

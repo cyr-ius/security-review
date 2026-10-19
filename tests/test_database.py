@@ -3,6 +3,7 @@
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
+from conftest import ADMIN_GRANTS, TRIAGER_GRANTS
 from sqlalchemy import inspect
 from sqlmodel import SQLModel, StaticPool, create_engine
 
@@ -116,16 +117,12 @@ def test_user_grants_become_sso_web_users(empty_engine):
     users = {user["username"]: user for user in web_users.list_users()}
     assert set(users) == {"alice", "bob"}
     alice = users["alice"]
-    assert (alice["auth_source"], alice["effective_role"], alice["created_by"]) == (
-        "oidc",
-        "reader",
-        "admin",
-    )
+    assert (alice["auth_source"], alice["created_by"]) == ("oidc", "admin")
     # Revision 0013 moved the role of the user into its personal group, 0014 into a direct role
     # and 0018 into the groups of its projects
     assert alice["permissions"] == {"reports.read": ["billing", "shop-api"]}
     assert [group["name"] for group in alice["groups"]] == ["project:billing", "project:shop-api"]
-    assert (users["bob"]["auth_source"], users["bob"]["effective_role"]) == ("local", "admin")
+    assert (users["bob"]["auth_source"], users["bob"]["permissions"]) == ("local", ADMIN_GRANTS)
 
 
 def test_roles_and_mappings_become_groups(empty_engine):
@@ -188,7 +185,7 @@ def test_roles_and_mappings_become_groups(empty_engine):
     users = {user["username"]: user for user in web_users.list_users()}
     assert users["rita"]["permissions"] == {"reports.read": ["shop"]}
     assert [group["name"] for group in users["rita"]["groups"]] == ["project:shop"]
-    assert users["tess"]["effective_role"] == "triager"
+    assert users["tess"]["permissions"] == TRIAGER_GRANTS
     # The access given by the OIDC groups at the last login is computed again at the next one
     assert users["sam"]["permissions"] == {}
     roles = {role["name"]: role for role in access_control.list_roles()}
@@ -345,7 +342,7 @@ def test_direct_roles_become_groups(empty_engine):
     }
     # Nobody loses or gains any access, the last administrator included
     users = {user["username"]: user for user in web_users.list_users()}
-    assert users["root"]["effective_role"] == "admin"
+    assert users["root"]["permissions"] == ADMIN_GRANTS
     assert users["rita"]["permissions"] == {"reports.read": ["crm", "shop"]}
     assert users["tess"]["permissions"] == {
         "findings.triage": ["shop"],
@@ -572,6 +569,48 @@ def test_a_new_database_gets_an_ordinary_triager_role(empty_engine):
     roles = {role["name"]: role for role in access_control.list_roles()}
     assert [name for name, role in roles.items() if role["system"]] == ["admin", "reader"]
     assert roles["triager"]["permissions"] == ["findings.triage", "reports.read"]
+    assert not roles["mcp-user"]["system"]
+    assert roles["mcp-user"]["permissions"] == ["mcp_tokens.create"]
+
+
+def test_the_mcp_user_role_is_kept_on_downgrade_while_a_group_holds_it(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        config = database.alembic_config(connection)
+        command.upgrade(config, "head")
+        command.downgrade(config, "0023")
+        assert not connection.execute(
+            text("SELECT id FROM accessrole WHERE name = 'mcp-user'")
+        ).first()
+        command.upgrade(config, "head")
+        role_id = connection.execute(
+            text("SELECT id FROM accessrole WHERE name = 'mcp-user'")
+        ).scalar_one()
+        group_id = connection.execute(
+            text(
+                "INSERT INTO usergroup (name, description, sso, created_at, updated_at) "
+                "VALUES ('agents', '', 0, '2026-10-01', '2026-10-01') RETURNING id"
+            )
+        ).scalar_one()
+        connection.execute(
+            text(
+                "INSERT INTO grouprole (group_id, role_id, projects) VALUES (:group, :role, '[]')"
+            ),
+            {"group": group_id, "role": role_id},
+        )
+        command.downgrade(config, "0023")
+        kept = connection.execute(
+            text("SELECT id FROM accessrole WHERE name = 'mcp-user'")
+        ).scalar_one()
+        # Upgrading again keeps the role of that name
+        command.upgrade(config, "head")
+        count = connection.execute(
+            text("SELECT COUNT(*) FROM accessrole WHERE name = 'mcp-user'")
+        ).scalar_one()
+
+    assert (kept, count) == (role_id, 1)
 
 
 def test_downgrading_the_api_tokens_deletes_them(empty_engine):
@@ -594,3 +633,105 @@ def test_downgrading_the_api_tokens_deletes_them(empty_engine):
 
     assert rows == ["t2"]
     assert not columns & {"user_id", "access_role_id"}
+
+
+def test_users_sharing_an_oidc_identity_keep_it_on_the_last_one(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError
+
+    issuer = "https://idp.example.com"
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0022")
+        for user_id, name, subject, last_login in (
+            (1, "alice", "sub-1", "2026-10-01 10:00:00"),
+            # The same person, renamed at the provider: a second user before 0023
+            (2, "alice.smith", "sub-1", "2026-10-05 10:00:00"),
+            (3, "a.smith", "sub-1", None),
+            (4, "bob", "sub-2", None),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO webuser (id, username, auth_source, oidc_subject, oidc_issuer, "
+                    "created_at, updated_at, must_change_password, session_version, "
+                    "last_login_at) VALUES (:id, :name, 'oidc', :subject, :issuer, "
+                    "'2026-10-01', '2026-10-01', 0, 1, :last_login)"
+                ),
+                {
+                    "id": user_id,
+                    "name": name,
+                    "subject": subject,
+                    "issuer": issuer,
+                    "last_login": last_login,
+                },
+            )
+        command.upgrade(database.alembic_config(connection), "head")
+        rows = connection.execute(
+            text("SELECT username, oidc_issuer, oidc_subject FROM webuser ORDER BY id")
+        ).all()
+    assert rows == [
+        ("alice", None, ""),
+        ("alice.smith", issuer, "sub-1"),
+        ("a.smith", None, ""),
+        ("bob", issuer, "sub-2"),
+    ]
+
+    # The index refuses a second user bound to the same identity
+    with pytest.raises(IntegrityError), empty_engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE webuser SET oidc_issuer = :issuer, oidc_subject = 'sub-2' "
+                "WHERE username = 'alice'"
+            ),
+            {"issuer": issuer},
+        )
+
+    with empty_engine.begin() as connection:
+        command.downgrade(database.alembic_config(connection), "0022")
+        indexes = {index["name"] for index in inspect(connection).get_indexes("webuser")}
+    assert "ix_webuser_oidc_identity" not in indexes
+
+
+def test_the_reasons_of_existing_acceptances_become_their_first_comment(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0025")
+        connection.execute(
+            text(
+                "INSERT INTO securityreport (id, project, reviewer, summary, risk_level, "
+                "created_at) VALUES (1, 'shop', 'claude', 'Summary', 'LOW', '2026-10-01')"
+            )
+        )
+        for finding_id, status, reason in (
+            (1, "ACCEPTED", "Internal tool only"),
+            (2, "ACCEPTED", "Already discussed"),
+            (3, "FALSE_POSITIVE", "Test fixture"),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO finding (id, report_id, title, severity, category, description, "
+                    "recommendation, status, status_reason, status_approver, status_changed_at) "
+                    "VALUES (:id, 1, 'T', 'HIGH', 'code', 'D', 'R', :status, :reason, "
+                    "'alice', "
+                    "'2026-10-02 10:00:00')"
+                ),
+                {"id": finding_id, "status": status, "reason": reason},
+            )
+        connection.execute(
+            text(
+                "INSERT INTO findingcomment (finding_id, author, body, created_at) "
+                "VALUES (2, 'bob', 'Already discussed', '2026-10-03')"
+            )
+        )
+        command.upgrade(database.alembic_config(connection), "head")
+        rows = connection.execute(
+            text("SELECT finding_id, author, body FROM findingcomment ORDER BY finding_id")
+        ).all()
+
+    # Only the acceptances without comments get one; false positives are not acceptances
+    assert [tuple(row) for row in rows] == [
+        (1, "alice", "Internal tool only"),
+        (2, "bob", "Already discussed"),
+    ]

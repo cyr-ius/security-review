@@ -31,25 +31,29 @@
   l'utilisateur, jamais renouvelé par un tiers, dont le nouveau secret porterait les droits de
   l'utilisateur) ou ceux de son rôle sur ses projets (jeton de rôle, dont le créateur doit détenir
   chaque permission). Un jeton ne crée jamais un autre jeton personnel. Un jeton `mcp` sans projet
-  accède à tous les outils MCP et à tous les projets.
-- **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`,
-  ou seulement le [serveur d'enrôlement](../advanced/http.md#jeton-refuse-nouvel-enrolement) sur
-  `/mcp`), et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons
+  accède à tous les outils MCP et à tous les projets ; un jeton `mcp` personnel atteint les
+  projets que son utilisateur peut lire à l'instant, aucun quand l'utilisateur n'en a pas (jamais
+  tous les projets par défaut), et s'arrête quand l'utilisateur est supprimé ou doit changer un mot
+  de passe défini par un administrateur. Un utilisateur web
+  détient au plus `SECREVIEW_PERSONAL_TOKENS_PER_USER` jetons personnels de chaque rôle (1 par
+  défaut).
+- **Expiration et renouvellement des jetons** : un jeton expiré n'authentifie plus rien (`401`), et `SECREVIEW_TOKEN_MAX_DAYS` borne la validité de tout jeton créé ou renouvelé. Les jetons
   expirés comptent toujours comme configurés : un serveur dont tous les jetons ont expiré reste
   fermé. Un renouvellement n'enregistre que l'empreinte du nouveau secret ; l'empreinte
   précédente est conservée pendant le délai de grâce (168 heures au plus), comparée en temps
   constant comme l'actuelle, et l'ancien secret d'un jeton expiré ne revient jamais (voir
   [expiration et renouvellement](../advanced/http.md#expiration-et-renouvellement-des-jetons)).
-- **Jetons refusés sur `/mcp`** : avec l'enrôlement activé, un jeton inconnu, révoqué ou expiré
-  atteint le [serveur d'enrôlement](../advanced/http.md#jeton-refuse-nouvel-enrolement) au lieu
-  d'un `401`. Chaque refus reste journalisé en avertissement par le serveur MCP
-  (`Rejected unauthenticated request` / `Rejected expired token`, avec l'adresse du client) :
-  surveillez ces journaux, plutôt que les réponses `401` d'un reverse proxy, pour détecter des
-  essais de jetons sur `/mcp` ; la [métrique](../advanced/audit-metrics.md)
-  `secreview_auth_rejections_total` ne compte que les refus du contrôleur.
-  Positionnez `SECREVIEW_ENROLLMENT=false` quand une détection par codes HTTP est exigée.
+- **Jetons refusés sur `/mcp`** : un jeton inconnu, révoqué ou expiré reçoit un `401` dont la
+  description invite l'utilisateur à se connecter à l'interface web pour créer un nouveau jeton
+  MCP personnel (voir [jeton refusé](../advanced/http.md#jeton-refuse-se-reconnecter)) ; il
+  n'atteint jamais le serveur d'enrôlement. Chaque refus est aussi journalisé en avertissement
+  par le serveur MCP (`Rejected unauthenticated request` / `Rejected expired token`, avec
+  l'adresse du client) ; la [métrique](../advanced/audit-metrics.md)
+  `secreview_auth_rejections_total` ne compte que les refus du contrôleur. `SECREVIEW_WEB_URL`,
+  donnée dans cette description, est une URL publique : elle ne contient aucun identifiant
+  (refusé au démarrage).
 - **Journal d'audit** : les décisions de triage, les propositions des agents, les créations,
-  renouvellements et révocations de jetons, les demandes et décisions d'enrôlement sont écrits
+  renouvellements et révocations de jetons et les enrôlements sont écrits
   dans la même transaction que le changement, avec leur acteur (`user:`, `token:`, `cli`,
   `anonymous`). Les détails sont bornés et masqués, et ne contiennent jamais de jeton ni de mot
   de passe ; aucun outil ni aucune route ne modifie un événement, seule la purge de
@@ -68,14 +72,17 @@
   aucune base, ne lit le jeton que dans l'environnement ou sur stdin, refuse le HTTP en clair
   hors localhost, les identifiants dans l'URL et les redirections, et borne les réponses.
 - **Enrôlement** (actif par défaut, `SECREVIEW_ENROLLMENT`) : un client sans jeton atteint un
-  serveur MCP restreint qui ne permet que de déposer une demande, et `POST /api/v1/enroll` est
-  public sur le serveur MCP (corps limité à 4 Kio). L'approbation se fait sur le contrôleur. Une demande est un jeton `mcp` restreint au projet, **en attente** : il ne donne accès
-  à rien avant l'approbation d'un administrateur, et les demandes en attente n'activent jamais
-  l'authentification d'un serveur ouvert. Le nombre de demandes en attente est borné (20 en tout, 3 par adresse cliente) et
-  une demande non traitée expire après 7 jours ; le texte libre du demandeur est masqué et
-  tronqué. N'importe quel client qui atteint le serveur peut déposer une demande : vérifiez le
-  demandeur et l'adresse affichés avant d'approuver, ou désactivez l'enrôlement. Voir
-  [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton).
+  serveur MCP restreint qui ne permet que de demander son projet, et `POST /api/v1/enroll` est
+  public sur le serveur MCP (corps limité à 4 Kio). L'enrôlement **ne crée jamais de jeton** et
+  ne donne aucun accès : un projet demandé reste **en attente** jusqu'à ce qu'un utilisateur
+  portant `projects.create` le valide sur le contrôleur, ce qui crée son groupe de projet sans
+  aucun membre ; seul un administrateur y ajoute un utilisateur, et le développeur crée un jeton
+  MCP personnel dans l'interface web, après s'être connecté. La réponse est la même que le
+  projet existe ou non. Les enrôlements sont bornés (20 projets en attente, 5 par adresse
+  cliente et par heure, `429` au-delà), une demande que personne n'a validée sous
+  `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` est supprimée, et le texte libre du demandeur est
+  masqué et tronqué : vérifiez le demandeur et l'adresse avant de valider. Chaque enrôlement est audité. Voir
+  [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun. Les commandes
   `security-review-mcp enroll` et `scan-deps` contactent, à la demande de l'opérateur, l'URL qu'il
   indique (`scan-deps` envoie les fichiers de dépendances donnés sur sa ligne de commande, jamais
@@ -109,7 +116,9 @@
   10 secondes, au plus une requête par processus du contrôleur toutes les 6 heures (15 minutes
   après un échec) ; seuls la version et le lien de la version sont conservés (un lien hors des
   versions du dépôt est remplacé), et la page ne reçoit qu'un code d'erreur court. Avec
-  `SECREVIEW_AUDIT_SYSLOG_ADDRESS` (désactivé par défaut), le contrôleur envoie les
+  `SECREVIEW_AUDIT_SYSLOG_ADDRESS` ou un serveur défini sur la page **Journal d'audit**
+  (désactivé par défaut ; permission `settings.manage`, `udp://` ou `tcp://` uniquement,
+  modification inscrite au journal d'audit), le contrôleur envoie les
   [événements d'audit](../advanced/audit-metrics.md#envoi-vers-syslog) à ce serveur syslog (UDP,
   TCP ou socket Unix, ni TLS ni proxy : passez par un relais local pour le TLS) ; les
   événements ne contiennent aucun secret (détails masqués), et le serveur MCP ne se connecte
@@ -128,7 +137,11 @@
   connectée à l'interface (session) accepte un risque ou marque un faux positif : un jeton Bearer
   est refusé (`403`), même `admin`. Ces deux décisions exigent un motif et une date d'expiration
   (au plus `SECREVIEW_MAX_DISMISSAL_DAYS` jours) ; l'approbateur est l'utilisateur connecté, et le
-  finding est de nouveau compté comme ouvert une fois la date passée.
+  finding est de nouveau compté comme ouvert une fois la date passée. Seule une acceptation peut
+  être sans date d'expiration, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` : réglez-le
+  ainsi pour imposer une revue périodique de chaque risque accepté. Les commentaires d'un finding
+  suivent la même règle (session avec `findings.triage`) et sont en ajout seul : aucune route ne
+  les modifie ni ne les supprime.
 - **Les agents ne ferment jamais un finding** : le serveur MCP n'offre que
   `propose_finding_status`, qui enregistre une proposition (motif masqué et borné, auteur tiré du
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt
@@ -180,14 +193,16 @@
   viennent des [groupes](../advanced/access-control.md) du compte : ceux donnés par un
   administrateur et les groupes ouverts au OIDC dont le nom est exactement une valeur du claim des
   groupes (les autres valeurs sont ignorées, un groupe non ouvert au OIDC n'est jamais rejoint par
-  le claim) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est nommé par l'identifiant exact du claim
+  le claim) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est identifié par l'émetteur et le `sub` de
+  sa première connexion (uniques en base), jamais par un nom : un nom changé chez le fournisseur
+  garde le compte. Il est nommé à sa création par l'identifiant exact du claim
   `SECREVIEW_OIDC_USERNAME_CLAIM` (sans repli sur `email` ou `sub`, valeur refusée si ce n'est pas
-  un identifiant valide) : choisissez un claim que l'utilisateur ne peut pas modifier chez le
-  fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte OIDC créé par
+  un identifiant valide), qui lie aussi un compte créé à l'avance par un administrateur :
+  choisissez un claim que l'utilisateur ne peut pas modifier chez le fournisseur. Par défaut (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), seul un compte OIDC créé par
   un administrateur peut se connecter. Une connexion OIDC n'ouvre jamais un compte local du même
   nom, et le compte est lié à l'émetteur et au `sub` de sa première connexion : un autre `sub`
   ou un autre émetteur est refusé. Un
-  compte OIDC supprimé est révoqué : la création automatique ne le recrée pas, tant qu'un
+  compte OIDC supprimé est révoqué, par son nom et par son émetteur et son `sub` : la création automatique ne le recrée pas, tant qu'un
   administrateur ne l'a pas recréé ou autorisé à nouveau.
   Vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant de lui donner la lecture
   du projet. Une session restreinte à des projets l'est comme un jeton `--project`. La session est
@@ -214,8 +229,16 @@
   borné (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` au-delà, lu après la vérification du jeton),
   comme le nombre de fichiers (`SECREVIEW_MAX_SCAN_FILES`) et leur taille ; les secrets sont
   masqués dans les extraits et dans le rapport enregistré.
+- **Corps des requêtes du contrôleur** : chaque corps est borné avant d'être analysé, `413`
+  au-delà : 512 Kio pour les routes JSON, publiques comprises (connexion, SSO), 8 Mio pour les
+  imports de packs et `SECREVIEW_MAX_SCAN_REQUEST_MB` pour les scans de pipeline. Le
+  `Content-Length` déclaré est vérifié d'abord, un corps fragmenté (chunked) au fil de la
+  lecture.
 - **Base de données** : les requêtes SQL passent par l'ORM (paramètres liés) ; les tailles
-  d'entrée, le nombre de findings et la pagination sont bornés. Le schéma est migré par
+  d'entrée, le nombre de findings et la pagination sont bornés. Chaque nom de projet est
+  [normalisé](../usage/prompts-tools.md#nom-du-projet) avant usage : seuls des lettres, des
+  chiffres et des tirets simples atteignent la base, les journaux, les libellés des métriques et
+  les noms de fichiers. Le schéma est migré par
   Alembic ; le serveur MCP HTTP ne le modifie jamais et refuse de servir une base qui n'est pas
   à la révision attendue.
 - **Règles de scan** : les règles par défaut (`default_rules.toml`) sont copiées en base au
@@ -243,6 +266,10 @@
 - Les règles sont des motifs ligne par ligne : elles ne voient ni le flux de données ni les
   contrôles absents (autorisation manquante, par exemple). Ce travail reste celui de l'agent
   guidé par les checklists, et de vos outils SAST/SCA.
+- La [couverture d'une revue](../usage/prompts-tools.md#couverture-de-la-revue) (résultats de
+  checklist, règles des pistes du scan) est déclarée par l'agent : le serveur ne garde que les
+  identifiants qu'il connaît et marque `not_covered` les points sautés, il ne peut pas vérifier
+  que l'agent a réellement lu le code.
 - L'`author` d'un rapport (nom d'utilisateur du développeur) est déclaré par le client :
   quiconque détient un jeton du projet peut nommer quelqu'un d'autre. Seul `submitted_by`, le
   libellé du jeton qui a enregistré le rapport, est fixé par le serveur (voir

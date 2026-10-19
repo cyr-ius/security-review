@@ -3,8 +3,9 @@
 Suivez les consignes de [`AGENTS.md`](../AGENTS.md) à la racine du dépôt : c'est la référence
 unique pour tous les agents. En résumé, un changement n'est terminé que si :
 
-- des **tests** pytest couvrent le comportement ajouté ou corrigé (cas positif et négatif pour
-  une règle, test de bout en bout `mcp.client.Client` pour un outil ou un prompt) ;
+- le comportement ajouté ou corrigé est vérifié par un **test pertinent**, existant ou nouveau
+  (contrat ou invariant, pas une ligne de code ; étendre un test existant plutôt qu'en créer un,
+  1 à 3 tests par changement, voir `AGENTS.md`) ;
 - `uv run pytest`, `uv run ruff check .` et `uv run ruff format --check .` passent ;
 - la **documentation** `docs/` (français) est à jour et `uv run mkdocs build --strict` passe ;
 - le **README** est à jour mais reste **synthétique** : une ligne par capacité et un lien vers

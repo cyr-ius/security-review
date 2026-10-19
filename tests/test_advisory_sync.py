@@ -330,23 +330,29 @@ def test_cli_update_refuses_an_unknown_ecosystem(opener, capsys):
 # ── proxy set in the web interface ───────────────────────────────────────────
 
 
-def test_opener_uses_the_proxy_set_in_the_web_interface(monkeypatch):
-    monkeypatch.setenv("HTTPS_PROXY", "http://other:8080")
+def test_opener_uses_the_proxy_set_in_the_web_interface():
     app_settings.set_proxy({"url": "http://web-proxy:3128"}, "admin")
-    settings = app_settings.effective_settings(make_settings(https_proxy=PROXY))
+    settings = app_settings.effective_settings(make_settings())
 
     opener = advisory_sync.build_opener(settings)
 
     assert proxies_of(opener) == {"http": "http://web-proxy:3128", "https": "http://web-proxy:3128"}
 
 
-def test_opener_connects_directly_when_the_web_interface_says_so(monkeypatch):
-    monkeypatch.setenv("HTTPS_PROXY", "http://corporate:8080")
-    app_settings.set_proxy({"url": ""}, "admin")
+def test_opener_uses_the_proxy_variable_over_the_web_interface():
+    app_settings.set_proxy({"url": "http://web-proxy:3128"}, "admin")
 
     opener = advisory_sync.build_opener(
         app_settings.effective_settings(make_settings(https_proxy=PROXY))
     )
+
+    assert proxies_of(opener) == {"http": PROXY, "https": PROXY}
+
+
+def test_opener_connects_directly_when_the_web_interface_says_so():
+    app_settings.set_proxy({"url": ""}, "admin")
+
+    opener = advisory_sync.build_opener(app_settings.effective_settings(make_settings()))
 
     # An empty ProxyHandler replaces the default one (which reads HTTPS_PROXY) and opens nothing
     assert not [h for h in opener.handlers if isinstance(h, urllib.request.ProxyHandler)]
@@ -361,13 +367,13 @@ def test_update_reads_the_proxy_set_in_the_web_interface_at_each_run(monkeypatch
 
     monkeypatch.setattr(advisory_sync, "build_opener", build)
     opener.bodies = {url_of("PyPI"): osv_zip(osv())}
-    settings = make_settings(osv_ecosystems="PyPI", https_proxy=PROXY)
+    settings = make_settings(osv_ecosystems="PyPI")
 
     advisory_sync.update_advisories(settings)
     app_settings.set_proxy({"url": "http://web-proxy:3128"}, "admin")
     advisory_sync.update_advisories(settings)
 
-    assert used == [PROXY, "http://web-proxy:3128"]
+    assert used == [None, "http://web-proxy:3128"]
 
 
 # ── history ──────────────────────────────────────────────────────────────────

@@ -97,6 +97,73 @@
     </div>
   </div>
 
+  @if (coverage(); as cov) {
+    <div class="card mb-4">
+      <div class="card-header fw-semibold">{{ 'report.coverage' | t }}</div>
+      <div class="card-body">
+        @if (!cov.declared) {
+          <p class="text-body-secondary mb-0">
+            <i class="bi bi-question-circle" aria-hidden="true"></i>
+            {{ 'report.coverageNone' | t }}
+          </p>
+        }
+        @if (cov.items.length) {
+          <div class="d-flex flex-wrap gap-2 mb-2">
+            @for (entry of cov.counts; track entry.outcome) {
+              <span class="badge {{ outcomeMeta[entry.outcome].badge }}">
+                <i class="bi {{ outcomeMeta[entry.outcome].icon }}" aria-hidden="true"></i>
+                {{ outcomeMeta[entry.outcome].label | t }} {{ entry.count }}
+              </span>
+            }
+          </div>
+          <details>
+            <summary>{{ 'report.coverageItems' | t: { count: cov.items.length } }}</summary>
+            <div class="table-responsive mt-2">
+              <table class="table table-sm align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th scope="col">{{ 'report.coverageItem' | t }}</th>
+                    <th scope="col">{{ 'report.coverageTitle' | t }}</th>
+                    <th scope="col">{{ 'report.coverageOutcome' | t }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of cov.items; track item.item_id) {
+                    <tr>
+                      <td class="text-nowrap">
+                        <code>{{ item.item_id }}</code>
+                      </td>
+                      <td>{{ item.title }}</td>
+                      <td class="text-nowrap">
+                        <i class="bi {{ outcomeMeta[item.outcome].icon }}" aria-hidden="true"></i>
+                        {{ outcomeMeta[item.outcome].label | t }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </details>
+        }
+        @if (cov.leads.length) {
+          <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
+            <span class="text-body-secondary small">{{ 'report.scanLeads' | t }}</span>
+            @for (lead of cov.leads; track lead.rule) {
+              <code>{{ lead.rule }}</code>
+              @if (lead.dismissed) {
+                <span
+                  class="badge text-bg-secondary"
+                  [attr.title]="'report.scanLeadDismissedHelp' | t"
+                  >{{ 'report.scanLeadDismissed' | t }}</span
+                >
+              }
+            }
+          </div>
+        }
+      </div>
+    </div>
+  }
+
   <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <h2 class="h5 mb-0 me-auto">{{ 'report.findings' | t }}</h2>
     <select
@@ -137,6 +204,7 @@
     <app-finding-card
       [finding]="finding"
       [canTriage]="auth.canTriage()"
+      [permanentAcceptance]="auth.permanentAcceptance()"
       [saving]="triage.saving() === finding.id"
       (decided)="decide(finding, $event)"
       (proposalRejected)="decide(finding, null)"

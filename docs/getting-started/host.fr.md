@@ -5,7 +5,7 @@ doit déjà tourner : voir [Mise en service du serveur](deploy.md).
 
 ## Transport HTTP
 
-Pour un serveur partagé, lancé avec `--transport streamable-http`, l'hôte se connecte à
+Pour un serveur partagé, lancé avec `serve --transport streamable-http`, l'hôte se connecte à
 l'endpoint `/mcp` au lieu de lancer un processus. Si l'authentification est activée, il envoie
 le jeton dans l'en-tête `Authorization: Bearer <jeton>` (génération des jetons, TLS et
 démarrage du serveur : voir [Serveur HTTP, authentification et TLS](../advanced/http.md)).
@@ -38,7 +38,7 @@ démarrage du serveur : voir [Serveur HTTP, authentification et TLS](../advanced
 
     `.mcp.json`, avec le jeton lu dans la variable d'environnement `SECURITY_REVIEW_TOKEN` du
     poste (côté client, distincte des paramètres `SECREVIEW_*` du serveur). `:-` donne une
-    valeur vide tant que la variable n'existe pas, ce qui permet l'[enrôlement](#obtenir-un-jeton-enrolement) :
+    valeur vide tant que la variable n'existe pas, ce qui permet l'[enrôlement](#obtenir-un-jeton) :
 
     ```json
     {
@@ -71,12 +71,13 @@ racine du dépôt, sans `headers` :
     N'écrivez jamais le jeton en clair dans un fichier de configuration versionné : utilisez une
     saisie (`${input:...}`) ou une variable d'environnement.
 
-## Obtenir un jeton (enrôlement)
+## Obtenir un jeton
 
-Sur un serveur partagé qui exige un jeton, vous n'avez pas besoin d'en réclamer un à
-l'administrateur avant de commencer : configurez l'hôte comme ci-dessus, **sans jeton**, et
-lancez votre première revue. Le jeton est demandé au passage, puis validé par un administrateur
-(voir [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton)).
+Sur un serveur partagé qui exige un jeton, vous utilisez un **jeton MCP personnel**, créé dans
+l'interface web. Inutile d'en réclamer un à un administrateur avant de commencer : configurez
+l'hôte comme ci-dessus, **sans jeton**, et lancez votre première revue. L'agent demande le projet,
+puis vous indique où créer votre jeton (voir
+[l'enrôlement](../advanced/http.md#enrolement-demander-le-projet)).
 
 1. **Configurez l'hôte sans jeton.** Avec les exemples de la section
    [Transport HTTP](#transport-http), laissez la saisie du jeton vide (VS Code) ou ne définissez
@@ -84,25 +85,29 @@ lancez votre première revue. Le jeton est demandé au passage, puis validé par
    d'enrôlement, qui porte le même nom `security-review`.
 2. **Lancez une revue**, par exemple le prompt `security-review`. Au lieu de relire le code,
    l'agent appelle l'outil `request_enrollment` avec le nom du projet (le nom du dépôt en
-   général) et votre nom d'utilisateur comme label (le jeton est personnel), et vous affiche le jeton, **une seule fois** :
+   général) : un nouveau projet attend la validation d'un administrateur, et **aucun jeton**
+   n'est renvoyé :
 
     ```json
     {
-      "label": "alice-3fa9c1",
       "project": "shop-api",
-      "status": "pending",
-      "token": "UJB7…"
+      "web_url": "https://secreview.example.internal/ui",
+      "next_steps": "No token is created by the enrollment. Ask the user to sign in to …"
     }
     ```
 
-    Sans agent, demandez-le en ligne de commande :
+    Sans agent, enrôlez le projet en ligne de commande :
 
     ```bash
     security-review-mcp enroll --url https://secreview.example.internal:8443 \
         --project shop-api --requested-by "alice (équipe shop)"
     ```
 
-3. **Enregistrez le jeton dans l'hôte**, puis redémarrez le serveur MCP dans l'hôte :
+3. **Créez votre jeton MCP personnel** : connectez-vous à l'interface web (`web_url`), ouvrez
+   **Mon compte** > **Jetons personnels** et créez un jeton d'usage **MCP** (voir
+   [jetons MCP personnels](../usage/web-interface.md#jetons-mcp-personnels) ; vos groupes doivent
+   avoir le rôle `mcp-user`). Il n'est affiché **qu'une seule fois**.
+4. **Enregistrez le jeton dans l'hôte**, puis redémarrez le serveur MCP dans l'hôte :
 
     === "VS Code / GitHub Copilot"
 
@@ -115,24 +120,23 @@ lancez votre première revue. Le jeton est demandé au passage, puis validé par
         Définissez la variable avant de lancer Claude, par exemple dans le profil du shell :
 
         ```bash
-        export SECURITY_REVIEW_TOKEN='UJB7…'
+        export SECURITY_REVIEW_TOKEN='Zq3…'
         ```
 
-4. **Attendez l'approbation.** Prévenez l'administrateur en lui donnant le label du jeton. Tant
-   que la demande est en attente, l'hôte reste sur le serveur d'enrôlement : l'outil
-   `get_enrollment_status` répond `pending`. Dès que l'administrateur l'approuve (écran
-   **Jetons** de l'interface web, ou `security-review-controller token approve <label>`), le même
-   jeton donne accès aux outils de revue. Il suffit de relancer la revue, sans rien
+5. **Obtenez l'accès au projet.** Le jeton atteint les projets que votre compte peut lire :
+   demandez à un administrateur de valider le projet (écran **Projets**) et de vous ajouter à
+   son groupe `project:<projet>` (un projet validé n'a aucun membre). L'accès s'applique aussitôt : relancez la revue, sans rien
    reconfigurer.
 
-Le jeton obtenu est de rôle `mcp` et [restreint au projet](../advanced/http.md#jetons-restreints-a-un-projet)
-demandé : il n'enregistre et ne lit que les rapports de ce projet. Pour un autre projet,
-l'agent peut demander un nouveau jeton avec `request_enrollment` ; `save_security_report` le
-lui propose quand il refuse le projet.
+Quand le serveur refuse le jeton (inconnu, révoqué ou expiré), l'hôte reçoit `401` avec un
+message qui vous invite à vous reconnecter à l'interface web pour créer un nouveau jeton MCP
+personnel : remplacez-le dans l'hôte comme à l'étape 4 (voir
+[jeton refusé](../advanced/http.md#jeton-refuse-se-reconnecter)).
 
 !!! note
     Si l'administrateur a désactivé l'enrôlement (`SECREVIEW_ENROLLMENT=false`), un hôte sans
-    jeton, ou avec un jeton refusé, reçoit `401` : demandez-lui un jeton créé avec `security-review-controller token create`.
+    jeton reçoit `401` : créez directement votre jeton MCP personnel dans l'interface web, et
+    demandez à un administrateur de créer le projet s'il est nouveau.
 
 ## Autres cas
 

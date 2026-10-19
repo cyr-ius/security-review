@@ -15,7 +15,7 @@
   <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
 }
 
-<section class="mb-4" aria-labelledby="role-form-title">
+<section class="card card-body mb-4" aria-labelledby="role-form-title">
   <h2 id="role-form-title" class="h5">
     @if (editing(); as role) {
       {{ 'roles.editTitle' | t: { role: role.name } }}
@@ -88,7 +88,7 @@
   </form>
 </section>
 
-<section aria-labelledby="roles-title">
+<section class="card card-body mb-4" aria-labelledby="roles-title">
   <h2 id="roles-title" class="h5">{{ 'layout.roles' | t }}</h2>
   @if (roles.error()) {
     <div class="alert alert-danger" role="alert">{{ 'roles.loadError' | t }}</div>
@@ -101,13 +101,8 @@
     <app-table-controls
       idPrefix="roles"
       [search]="tableSearch()"
-      [sort]="tableSort()"
-      [direction]="tableDirection()"
-      [sortOptions]="tableSortOptions()"
       [filters]="tableFilters()"
       (searchChange)="tableSearch.set($event)"
-      (sortChange)="onRoleTableSort($event)"
-      (directionChange)="tableDirection.set($event)"
       (filterChange)="onRoleTableFilter($event)"
     />
     @if (visibleRoles().length) {
@@ -115,9 +110,15 @@
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">{{ 'access.name' | t }}</th>
-              <th scope="col">{{ 'roles.permissions' | t }}</th>
-              <th scope="col">{{ 'layout.groups' | t }}</th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="name">
+                {{ 'access.name' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="permissions">
+                {{ 'roles.permissions' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="groups">
+                {{ 'layout.groups' | t }}
+              </th>
               <th scope="col">{{ 'rules.origin' | t }}</th>
               <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
             </tr>

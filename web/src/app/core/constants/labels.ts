@@ -1,5 +1,6 @@
 import { MessageKey } from '../i18n/messages';
 import {
+  ChecklistOutcome,
   FindingStatus,
   Permission,
   ReviewType,
@@ -37,6 +38,26 @@ export const REVIEW_TYPE_META: Record<ReviewType, { label: MessageKey; icon: str
   other: { label: 'reviewType.other', icon: 'bi-question-circle' },
 };
 
+/** Message key, icon and badge class of each checklist outcome (never color alone). */
+export const CHECKLIST_OUTCOME_META: Record<
+  ChecklistOutcome,
+  { label: MessageKey; icon: string; badge: string }
+> = {
+  issue: { label: 'outcome.issue', icon: 'bi-exclamation-triangle-fill', badge: 'text-bg-danger' },
+  not_verifiable: {
+    label: 'outcome.not_verifiable',
+    icon: 'bi-question-circle',
+    badge: 'text-bg-warning',
+  },
+  not_covered: { label: 'outcome.not_covered', icon: 'bi-dash-circle', badge: 'text-bg-warning' },
+  not_applicable: {
+    label: 'outcome.not_applicable',
+    icon: 'bi-slash-circle',
+    badge: 'text-bg-secondary',
+  },
+  ok: { label: 'outcome.ok', icon: 'bi-check-circle-fill', badge: 'text-bg-success' },
+};
+
 /** Trend direction returned by the API. */
 export const DIRECTION_META: Record<string, { label: MessageKey; icon: string }> = {
   improving: { label: 'direction.improving', icon: 'bi-arrow-down-right' },
@@ -48,8 +69,7 @@ export const DIRECTION_META: Record<string, { label: MessageKey; icon: string }>
 /** Message key and icon of each role. */
 export const ROLE_META: Record<Role, { label: MessageKey; icon: string }> = {
   admin: { label: 'role.admin', icon: 'bi-shield-fill-check' },
-  triager: { label: 'role.triager', icon: 'bi-funnel-fill' },
-  reader: { label: 'role.reader', icon: 'bi-eye-fill' },
+  user: { label: 'role.user', icon: 'bi-person-fill' },
   mcp: { label: 'role.mcp', icon: 'bi-plug-fill' },
   api: { label: 'role.api', icon: 'bi-key-fill' },
   ci: { label: 'role.ci', icon: 'bi-gear-wide-connected' },
@@ -76,4 +96,22 @@ export const PERMISSION_META: Record<Permission, { label: MessageKey; help: Mess
   'settings.manage': { label: 'permission.settingsManage', help: 'permission.settingsManageHelp' },
   'users.manage': { label: 'permission.usersManage', help: 'permission.usersManageHelp' },
   'audit.read': { label: 'permission.auditRead', help: 'permission.auditReadHelp' },
+  'projects.create': {
+    label: 'permission.projectsCreate',
+    help: 'permission.projectsCreateHelp',
+  },
+  'projects.delete': {
+    label: 'permission.projectsDelete',
+    help: 'permission.projectsDeleteHelp',
+  },
+  'mcp_tokens.create': {
+    label: 'permission.mcpTokensCreate',
+    help: 'permission.mcpTokensCreateHelp',
+  },
 };
+
+/** Permissions limited to projects (the others concern the whole controller). */
+export const SCOPED_PERMISSIONS: ReadonlySet<Permission> = new Set([
+  'reports.read',
+  'findings.triage',
+]);

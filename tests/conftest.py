@@ -1,5 +1,6 @@
 """Shared fixtures: an isolated in-memory database (with the default rules) and a clean registry."""
 
+import os
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -12,9 +13,19 @@ from security_review_mcp import (  # noqa: F401  (register the tables)
     registry,
     rule_store,
 )
+from security_review_mcp.access_control import Permission
+from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.database import set_engine
 from security_review_mcp.models import DISMISSED_STATUSES, FindingPublic, FindingStatus
 from security_review_mcp.services import update_finding_status
+
+# The tests ignore the configuration of the machine running them: the developer's .env file and
+# the SECREVIEW_* variables of the shell (devcontainer database, Swagger...). A test that needs
+# a setting sets it itself (monkeypatch.setenv, Settings(...)).
+Settings.model_config["env_file"] = None
+for _name in [name for name in os.environ if name.upper().startswith("SECREVIEW_")]:
+    del os.environ[_name]
+get_settings.cache_clear()
 
 
 def _memory_engine() -> Engine:
@@ -26,14 +37,20 @@ def _memory_engine() -> Engine:
     )
 
 
-def _add_triager_role(engine: Engine) -> None:
-    """Create the ordinary ``triager`` role, as migration 0021 does on a real database."""
+def _add_ordinary_roles(engine: Engine) -> None:
+    """Create the ordinary ``triager`` and ``mcp-user`` roles, as migrations 0021 and 0024 do
+    on a real database."""
     with Session(engine) as session:
         session.add(
             models.AccessRole(
                 name="triager",
                 permissions='["findings.triage", "reports.read"]',
                 created_by="migration",
+            )
+        )
+        session.add(
+            models.AccessRole(
+                name="mcp-user", permissions='["mcp_tokens.create"]', created_by="migration"
             )
         )
         session.commit()
@@ -50,7 +67,7 @@ def seeded_template():
     set_engine(engine)
     rule_store.seed_defaults()
     access_control.ensure_system_roles()
-    _add_triager_role(engine)
+    _add_ordinary_roles(engine)
     set_engine(None)
     yield engine
     engine.dispose()
@@ -99,6 +116,19 @@ def isolate_controller_environment(monkeypatch):
         monkeypatch.delenv(name, raising=False)
 
 
+@pytest.fixture(scope="session")
+def settings_fields_set() -> set[str]:
+    """Fields of the cached settings set by a variable when the tests start."""
+    return set(get_settings().model_fields_set)
+
+
+@pytest.fixture(autouse=True)
+def reset_settings_fields_set(settings_fields_set):
+    """Reset which cached settings count as set by a variable (see app_settings.env_set):
+    monkeypatch.setattr marks a field as set, and so does undoing it."""
+    object.__setattr__(get_settings(), "__pydantic_fields_set__", set(settings_fields_set))
+
+
 @pytest.fixture(autouse=True)
 def clean_registry():
     """Start every test with an unloaded registry and drop what it loaded."""
@@ -136,6 +166,12 @@ def triage():
         return update_finding_status(finding_id, status, "alice")
 
     return _triage
+
+
+# Permissions of a user who holds a built-in role on every project (see group_for)
+READER_GRANTS = {"reports.read": None}
+TRIAGER_GRANTS = {"findings.triage": None, "reports.read": None}
+ADMIN_GRANTS = {permission.value: None for permission in Permission}
 
 
 def group_for(

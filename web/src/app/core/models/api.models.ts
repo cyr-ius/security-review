@@ -6,11 +6,13 @@ export type FindingStatus = 'open' | 'fixed' | 'accepted' | 'false_positive';
 
 /** Role of a bearer token: tokens are for machines, a person signs in with a web user. */
 export type TokenRole = 'mcp' | 'admin' | 'ci' | 'api';
-/** Role of the caller: the role of its token or, for a web user, the web role that sums up
- * the permissions of its groups (reader, triager or admin). */
-export type Role = TokenRole | 'reader' | 'triager';
+/** Role of the caller: the role of its token, or `user` for a web user, whose rights are the
+ * permissions of its groups. */
+export type Role = TokenRole | 'user';
 /** Role of a token managed in the web interface. */
 export type ProjectTokenRole = Exclude<TokenRole, 'admin'>;
+/** Role of a personal token of a web user (My account). */
+export type PersonalTokenRole = Extract<TokenRole, 'api' | 'mcp'>;
 
 export const SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 
@@ -52,6 +54,35 @@ export const REVIEW_TYPES: readonly ReviewType[] = [
   'other',
 ];
 
+/** Result of a checklist item in a review; not_covered is set by the server. */
+export type ChecklistOutcome = 'issue' | 'not_verifiable' | 'not_covered' | 'not_applicable' | 'ok';
+
+/** Display order of the checklist outcomes, the ones that need attention first. */
+export const CHECKLIST_OUTCOMES: readonly ChecklistOutcome[] = [
+  'issue',
+  'not_verifiable',
+  'not_covered',
+  'not_applicable',
+  'ok',
+];
+
+/** One checklist item of the coverage of a report. */
+export interface ChecklistResult {
+  item_id: string;
+  title: string;
+  domain: string;
+  outcome: ChecklistOutcome;
+}
+
+/** Review types run by an agent with a review prompt: they declare their coverage. */
+export const PROMPT_REVIEW_TYPES: readonly ReviewType[] = [
+  'security-review',
+  'api-security-review',
+  'configuration-review',
+  'dependency-review',
+  'codebase-review',
+];
+
 /** Open findings counted by severity. */
 export type SeverityCounts = Record<Severity, number>;
 
@@ -64,7 +95,10 @@ export type Permission =
   | 'tokens.manage'
   | 'settings.manage'
   | 'users.manage'
-  | 'audit.read';
+  | 'audit.read'
+  | 'projects.create'
+  | 'projects.delete'
+  | 'mcp_tokens.create';
 
 /** Each permission held, with its projects (null: every project). */
 export type Grants = Partial<Record<Permission, string[] | null>>;
@@ -85,6 +119,8 @@ export interface Identity {
   auth_source?: AuthSource | null;
   /** Password set by someone else: only My account is reachable until it is changed. */
   must_change_password?: boolean;
+  /** A risk may be accepted without an expiry date (SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED). */
+  permanent_acceptance?: boolean;
   version: string;
 }
 
@@ -132,13 +168,9 @@ export interface LoginSession {
   session: string;
   expires_in: number;
   username: string;
-  role: Role;
   /** Password set by someone else: it must be changed before anything else. */
   must_change_password?: boolean;
 }
-
-/** Web role of a web user. */
-export type WebUserRole = 'reader' | 'triager' | 'admin';
 
 /** Source of a web user: local account (password) or OIDC account (OpenID Connect). */
 export type AuthSource = 'local' | 'oidc';
@@ -157,10 +189,8 @@ export interface WebUser {
   username: string;
   auth_source: AuthSource;
   groups: UserGroupMembership[];
-  /** Permissions given by the roles of its groups. */
+  /** Permissions given by the roles of its groups; empty: no access. */
   permissions: Grants;
-  /** Web role that sums up the permissions; null: no permission. */
-  effective_role: WebUserRole | null;
   /** True once an OIDC user logged in (bound to its identity provider account). */
   sso_linked: boolean;
   created_at: string;
@@ -199,8 +229,6 @@ export interface ProjectToken {
   personal: boolean;
   project: string | null;
   projects: string[] | null;
-  pending_projects: string[];
-  status: 'active' | 'pending';
   created_at: string;
   /** Expiry date; null: the token never expires. */
   expires_at: string | null;
@@ -217,6 +245,7 @@ export type AuditAction =
   | 'finding.status_changed'
   | 'finding.status_proposed'
   | 'finding.proposal_rejected'
+  | 'finding.commented'
   | 'token.created'
   | 'token.rotated'
   | 'token.revoked'
@@ -233,15 +262,19 @@ export type AuditAction =
   | 'group.roles_changed'
   | 'group.members_changed'
   | 'user.groups_changed'
+  | 'project.created'
+  | 'project.deleted'
   | 'user.roles_changed'
   | 'user.login'
   | 'user.login_failed'
-  | 'user.logout';
+  | 'user.logout'
+  | 'audit_syslog.changed';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
   'finding.status_proposed',
   'finding.proposal_rejected',
+  'finding.commented',
   'token.created',
   'token.rotated',
   'token.revoked',
@@ -258,10 +291,13 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'group.roles_changed',
   'group.members_changed',
   'user.groups_changed',
+  'project.created',
+  'project.deleted',
   'user.roles_changed',
   'user.login',
   'user.login_failed',
   'user.logout',
+  'audit_syslog.changed',
 ];
 
 /** One entry of the audit log (details never hold a secret). */
@@ -292,27 +328,6 @@ export interface AuditQuery {
   sort_direction?: 'asc' | 'desc';
   limit: number;
   offset: number;
-}
-
-/** A project token requested by a client (enrollment), waiting for an administrator. */
-export interface EnrollmentRequest {
-  id: string;
-  token_id: string;
-  label: string;
-  role: ProjectTokenRole;
-  project: string;
-  kind: 'new' | 'additional';
-  status: 'pending';
-  requested_by: string | null;
-  requested_from: string | null;
-  created_at: string;
-}
-
-/** Response of an approval; portal_user is present when a web user got read access. */
-export interface EnrollmentApproved extends Omit<EnrollmentRequest, 'status'> {
-  status: 'active';
-  projects: string[];
-  portal_user?: WebUser;
 }
 
 /** Response returned once when a project-scoped token is created. */
@@ -450,14 +465,39 @@ export type DevStandardWrite = Pick<
   'slug' | 'title' | 'description' | 'technologies' | 'file_patterns' | 'content' | 'enabled'
 >;
 
+/** GET /api/v1/projects/pending: a project requested by an enrollment, waiting for an approval. */
+export interface PendingProject {
+  id: number;
+  project: string;
+  /** Free text given by the client (not verified), its address and its token (or anonymous). */
+  requested_by: string | null;
+  requested_from: string | null;
+  requested_with: string | null;
+  created_at: string;
+  /** The request is deleted at this date unless it is approved. */
+  expires_at: string;
+}
+
 /** GET /api/v1/projects */
 export interface ProjectSummary {
   project: string;
   reports_total: number;
-  last_report_at: string;
+  /** Null for a project without any report yet. */
+  last_report_at: string | null;
   open_findings_total: number;
   open_findings_by_severity: SeverityCounts;
   worst_open_severity: Severity | null;
+}
+
+/** DELETE /api/v1/projects/{project}: what the deletion removed. */
+export interface ProjectDeleted {
+  project: string;
+  reports: number;
+  findings: number;
+  groups_deleted: string[];
+  groups_changed: string[];
+  tokens_revoked: number;
+  tokens_changed: number;
 }
 
 /** GET /api/v1/reports */
@@ -513,8 +553,8 @@ export const DISMISSED_STATUSES: readonly FindingStatus[] = ['accepted', 'false_
 export interface FindingDecision {
   status: FindingStatus;
   reason?: string;
-  /** YYYY-MM-DD: the finding counts as open again from that day. */
-  expires_on?: string;
+  /** YYYY-MM-DD: the finding counts as open again from that day; null: no expiry (accepted). */
+  expires_on?: string | null;
 }
 
 /** A finding of GET /api/v1/findings, with the context of its report. */
@@ -531,6 +571,36 @@ export interface ProjectFindingPage {
   project: string | null;
   total: number;
   findings: ProjectFinding[];
+}
+
+/** An accepted risk of GET /api/v1/risk-acceptances (an expired one counts as open again). */
+export interface RiskAcceptance extends ProjectFinding {
+  expired: boolean;
+  comments_total: number;
+}
+
+/** GET /api/v1/risk-acceptances: one page of the accepted risks (project null: every project). */
+export interface RiskAcceptancePage {
+  project: string | null;
+  total: number;
+  acceptances: RiskAcceptance[];
+}
+
+/** Query of GET /api/v1/risk-acceptances. */
+export interface RiskAcceptanceQuery {
+  /** Omitted: the acceptances of every project in the scope of the caller. */
+  project?: string;
+  limit: number;
+  offset: number;
+}
+
+/** GET /api/v1/findings/{id}/comments: a comment, never edited nor deleted. */
+export interface FindingComment {
+  id: number;
+  finding_id: number;
+  author: string;
+  body: string;
+  created_at: string;
 }
 
 /** Query of GET /api/v1/findings. */
@@ -559,6 +629,8 @@ export interface Report {
   summary: string;
   risk_level: Severity;
   created_at: string;
+  checklist_results: ChecklistResult[];
+  scan_rules: string[];
   findings: Finding[];
 }
 
@@ -611,25 +683,52 @@ export interface ReportQuery {
 
 /** Body of PUT /api/v1/settings/proxy: a field left out is unchanged, null restores the variable. */
 export interface ProxyUpdate {
-  /** '' connects directly, despite the variables. */
+  /** '' connects directly; null deletes the stored value. Refused when the variable is set. */
   url?: string | null;
   no_proxy?: string | null;
+}
+
+/**
+ * Body of PUT /api/v1/settings/audit-syslog: a field left out is unchanged, null deletes the
+ * stored value. Refused (422) when the variable of the field is set.
+ */
+export interface AuditSyslogUpdate {
+  /** udp:// or tcp:// only. */
+  address?: string | null;
+  facility?: string | null;
+}
+
+/** GET /api/v1/settings/audit-syslog: syslog server of the audit log. */
+export interface AuditSyslogSettings {
+  /** value: set in the web interface; env: SECREVIEW_AUDIT_SYSLOG_ADDRESS and
+   * SECREVIEW_AUDIT_SYSLOG_FACILITY; env_set: the variable is set and takes precedence. */
+  address: { value: string | null; env: string | null; env_set: boolean };
+  facility: { value: string | null; env: string | null; env_set: boolean };
+  effective: {
+    address: string | null;
+    facility: string;
+    source: 'web' | 'environment' | 'none';
+  };
+  /** Names of the syslog facilities (local0, auth...). */
+  facilities: string[];
 }
 
 /** GET /api/v1/settings (proxy passwords are replaced by ***) */
 export interface AppSettings {
   report_language: {
-    /** Set in the web interface: null inherits SECREVIEW_REPORT_LANGUAGE, '' lets the agent choose. */
+    /** Set in the web interface ('' lets the agent choose); ignored when env_set. */
     value: string | null;
     env: string;
+    /** SECREVIEW_REPORT_LANGUAGE is set: it takes precedence over the stored value. */
+    env_set: boolean;
     effective: string;
   };
   /** Proxy of the outgoing connections of the controller (OSV download, OIDC provider). */
   proxy: {
-    /** value: set in the web interface (null: the variable applies, '': direct connection);
-     * env: HTTPS_PROXY (else HTTP_PROXY) and NO_PROXY. */
-    url: { value: string | null; env: string | null };
-    no_proxy: { value: string | null; env: string | null };
+    /** value: set in the web interface ('': direct connection); env: HTTPS_PROXY (else
+     * HTTP_PROXY) and NO_PROXY; env_set: the variable is set and takes precedence. */
+    url: { value: string | null; env: string | null; env_set: boolean };
+    no_proxy: { value: string | null; env: string | null; env_set: boolean };
     effective: {
       url: string | null;
       no_proxy: string | null;
@@ -774,10 +873,12 @@ export type OidcSettingName =
   | 'auto_create_users'
   | 'display_name';
 
-/** One OIDC setting: stored in the web interface (null: the variable applies), variable, effective. */
+/** One OIDC setting: stored in the web interface, variable, effective value. */
 export interface OidcSettingValue {
   value: string | boolean | null;
   env: string | boolean | null;
+  /** The SECREVIEW_OIDC_* variable is set: it takes precedence over the stored value. */
+  env_set: boolean;
   effective: string | boolean | null;
 }
 

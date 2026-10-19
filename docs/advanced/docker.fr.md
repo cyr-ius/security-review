@@ -44,7 +44,8 @@ passez la configuration avec `-e` ou `--env-file`.
 Une seule image, deux conteneurs qui partagent la base (voir
 [Architecture et déploiement](architecture.md)) :
 
-- le **serveur MCP**, point d'entrée par défaut de l'image (`security-review-mcp`) ;
+- le **serveur MCP**, point d'entrée par défaut de l'image (`security-review-mcp`, commande par
+  défaut `serve` : stdio ; ajoutez `--transport streamable-http` pour HTTP) ;
 - le **contrôleur** (API REST, interface web, administration), lancé avec
   `--entrypoint security-review-controller`.
 
@@ -70,7 +71,7 @@ docker run -d --name secreview-mcp -p 8443:8443 \
     -v ./tls:/etc/secreview/tls:ro \
     -e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
     -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
-    security-review-mcp:pg --transport streamable-http --host 0.0.0.0 --port 8443
+    security-review-mcp:pg serve --transport streamable-http --host 0.0.0.0 --port 8443
 ```
 
 Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Le
@@ -119,8 +120,10 @@ docker compose exec controller security-review-controller user reset-password ad
 - Les ports ne sont publiés que sur `127.0.0.1` par défaut. Pour les exposer, activez le
   [TLS intégré](http.md) ou placez-les derrière un reverse proxy, puis indiquez l'adresse de
   l'hôte à utiliser dans `.env` : `DOCKER_PUBLISH_ADDRESS=192.168.1.10` (une interface) ou
-  `DOCKER_PUBLISH_ADDRESS=0.0.0.0` (toutes les interfaces). Cette variable ne sert qu'à Compose. Le
-  contrôleur n'expose aucune route d'écriture sans jeton : il peut rester interne.
+  `DOCKER_PUBLISH_ADDRESS=0.0.0.0` (toutes les interfaces), et les ports de l'hôte dans
+  `DOCKER_MCP_PORT` et `DOCKER_CONTROLLER_PORT`. Ces variables ne servent qu'à Compose : dans les
+  conteneurs, les deux serveurs écoutent sur 8000. Le contrôleur n'expose aucune route
+  d'écriture sans jeton : il peut rester interne.
 - Les variables de `.env` ne servent qu'à Compose : ajoutez-les sous `environment` pour
   qu'elles atteignent les conteneurs (par exemple `SECREVIEW_TLS_CERTFILE` et
   `SECREVIEW_TLS_KEYFILE`, avec les fichiers du certificat montés en lecture seule, voir

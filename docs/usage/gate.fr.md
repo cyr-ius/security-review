@@ -47,7 +47,8 @@ contrôleur), `--allow-http`, `--timeout` (secondes, 60 par défaut).
 Un jeton `ci` n'atteint que les routes de pipeline : ni `/mcp`, ni le reste de l'API REST, ni
 l'interface web. Il est **toujours restreint à des projets** : il ne voit le gate, le journal
 SARIF et la tendance que des projets sélectionnés, et n'enregistre des rapports de scan que pour
-eux ; un autre projet répond `404`, comme un projet inexistant.
+eux ; un autre projet répond `404`, comme un projet inexistant. `--project` est
+[normalisé](prompts-tools.md#nom-du-projet) comme le projet d'une revue : donnez le nom du dépôt.
 
 - Dans l'interface web, écran **Jetons** : **Usage** **Pipeline CI/CD**, puis cochez les
   **Projets autorisés**. Le secret n'est affiché qu'une fois.
@@ -101,7 +102,7 @@ des rapports, demandent un jeton `ci` ou `admin` (`403` sinon, sessions web comp
       image: python:3.14-slim
       script:
         - pip install security-review-mcp
-        - security-review-ci gate --project "$CI_PROJECT_PATH_SLUG" --fail-on high
+        - security-review-ci gate --project "$CI_PROJECT_NAME" --fail-on high
       variables:
         SECREVIEW_CONTROLLER_URL: https://secreview.example.com
         # SECREVIEW_TOKEN : variable CI/CD masquée et protégée (jeton ci)

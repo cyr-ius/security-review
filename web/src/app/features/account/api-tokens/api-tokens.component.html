@@ -1,4 +1,4 @@
-<section class="mt-4" aria-labelledby="api-tokens-title">
+<section class="card card-body mt-4" aria-labelledby="api-tokens-title">
   <h2 id="api-tokens-title" class="h5">{{ 'apiTokens.title' | t }}</h2>
   <p class="text-body-secondary small">{{ 'apiTokens.help' | t }}</p>
 
@@ -23,7 +23,15 @@
   }
 
   <form class="row g-2 align-items-end mb-3" (submit)="create($event)">
-    <div class="col-md-4">
+    <div class="col-md-3">
+      <label for="api-token-role" class="form-label">{{ 'tokens.usage' | t }}</label>
+      <select id="api-token-role" class="form-select" [formField]="tokenForm.role">
+        @for (role of roles(); track role) {
+          <option [value]="role">{{ roleLabel(role) | t }}</option>
+        }
+      </select>
+    </div>
+    <div class="col-md-3">
       <label for="api-token-label" class="form-label">{{ 'tokens.label' | t }}</label>
       <input
         id="api-token-label"
@@ -32,7 +40,7 @@
         [formField]="tokenForm.label"
       />
     </div>
-    <div class="col-md-3">
+    <div class="col-md-2">
       <label for="api-token-validity" class="form-label">{{ 'tokens.validity' | t }}</label>
       <select id="api-token-validity" class="form-select" [formField]="tokenForm.validity">
         <option value="">{{ 'tokens.validityDefault' | t }}</option>
@@ -61,6 +69,8 @@
         <thead>
           <tr>
             <th scope="col">{{ 'tokens.label' | t }}</th>
+            <th scope="col">{{ 'tokens.usage' | t }}</th>
+            <th scope="col">{{ 'apiTokens.projects' | t }}</th>
             <th scope="col">{{ 'common.createdAt' | t }}</th>
             <th scope="col">{{ 'tokens.expiresAt' | t }}</th>
             <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
@@ -70,6 +80,8 @@
           @for (token of tokens.value() ?? []; track token.id) {
             <tr>
               <td>{{ token.label }}</td>
+              <td>{{ roleLabel(token.role === 'mcp' ? 'mcp' : 'api') | t }}</td>
+              <td>{{ projectsText(token) }}</td>
               <td>{{ token.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
               <td>
                 @if (token.expired) {

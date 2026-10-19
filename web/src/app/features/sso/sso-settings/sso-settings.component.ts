@@ -2,7 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, linkedSignal, output, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
-import { FieldTree, FormField, form, maxLength } from '@angular/forms/signals';
+import { FieldTree, FormField, disabled, form, maxLength } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
@@ -119,9 +119,10 @@ export function variableOf(name: OidcSettingName): string {
 }
 
 /**
- * Settings of the single sign-on login (OpenID Connect): each value stored here overrides its
- * SECREVIEW_OIDC_* variable, and "Variable" applies the variable again. Changes apply at the next
- * login, without restarting the controller.
+ * Settings of the single sign-on login (OpenID Connect): a value stored here applies when its
+ * SECREVIEW_OIDC_* variable is not set; a variable that is set takes precedence and locks its
+ * field. "Reset" deletes the stored value. Changes apply at the next login, without restarting
+ * the controller.
  */
 @Component({
   selector: 'app-sso-settings',
@@ -149,6 +150,10 @@ export class SsoSettingsComponent {
   readonly ssoForm = form(this.draft, (path) => {
     for (const name of TEXT_SETTINGS) {
       maxLength(path[name], MAX_VALUE_CHARS);
+      disabled(path[name], () => this.locked(name));
+    }
+    for (const name of BOOL_SETTINGS) {
+      disabled(path[name], () => this.locked(name));
     }
   });
   /** A test result describes the values it was run with: any edit clears it. */
@@ -169,6 +174,9 @@ export class SsoSettingsComponent {
     const changes: OidcSettingsUpdate = {};
     for (const [name, value] of Object.entries(this.draft())) {
       const key = name as OidcSettingName;
+      if (current.fields[key].env_set) {
+        continue;
+      }
       if (key === 'client_secret') {
         if (value !== '') {
           changes[key] = value;
@@ -194,18 +202,14 @@ export class SsoSettingsComponent {
     return this.ssoForm[name as TextSettingName];
   }
 
+  /** True when the SECREVIEW_OIDC_* variable of this setting is set: it takes precedence. */
+  locked(name: OidcSettingName): boolean {
+    return this.settings.value()?.fields[name].env_set ?? false;
+  }
+
   /** True when the value of this setting is stored in the web interface. */
   stored(current: OidcSettings, name: OidcSettingName): boolean {
     return current.fields[name].value !== null;
-  }
-
-  /** Value of the variable, as shown next to the field. */
-  envValue(current: OidcSettings, name: OidcSettingName): string {
-    const env = current.fields[name].env;
-    if (typeof env === 'boolean') {
-      return env ? 'true' : 'false';
-    }
-    return env ? env : this.i18n.translate('sso.empty');
   }
 
   /** Placeholder of the client secret field. */
@@ -226,14 +230,14 @@ export class SsoSettingsComponent {
     });
   }
 
-  /** Apply the SECREVIEW_OIDC_* variable of one setting again. */
-  async restore(name: OidcSettingName): Promise<void> {
+  /** Delete the value stored for one setting: its variable, else its default, applies. */
+  async deleteStored(name: OidcSettingName): Promise<void> {
     if (this.busy()) {
       return;
     }
     await this.run(async () => {
       await firstValueFrom(this.api.setOidcSettings({ [name]: null }));
-      return msg('sso.restored', { variable: variableOf(name) });
+      return msg('sso.storedDeleted', { variable: variableOf(name) });
     });
   }
 

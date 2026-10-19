@@ -1,0 +1,14 @@
+/*
+ * The open row and its panel read as one block: an accent bar on the left and the panel on the
+ * card surface rather than a grey band. The second shadow keeps Bootstrap's row tint.
+ */
+.table-active > td:first-child {
+  box-shadow:
+    inset 3px 0 0 var(--app-accent),
+    inset 0 0 0 9999px var(--bs-table-bg-state, var(--bs-table-bg-type, var(--bs-table-accent-bg)));
+}
+
+.details > td {
+  background-color: var(--app-surface);
+  box-shadow: inset 3px 0 0 var(--app-accent);
+}

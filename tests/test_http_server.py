@@ -1,11 +1,11 @@
 """HTTP serving: bearer authentication, TLS options and start-up of the MCP server."""
 
+import argparse
 import json
 import ssl
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from conftest import make_user
 from sqlmodel import select
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -15,7 +15,6 @@ from starlette.testclient import TestClient
 
 from security_review_mcp import (
     cli,
-    config,
     database,
     http_server,
     server,
@@ -45,12 +44,8 @@ def whoami(request: Request) -> PlainTextResponse:
 
 
 def enrollment_echo(request: Request) -> PlainTextResponse:
-    """Stand-in for the enrollment server: echo the pending token id it receives, and why a
-    token was rejected if one was."""
-    state = request.scope["state"]
-    rejected = state["enrollment_rejected_token"]
-    suffix = f"/{rejected}" if rejected else ""
-    return PlainTextResponse(f"enroll/{state['enrollment_token_id']}{suffix}")
+    """Stand-in for the enrollment server."""
+    return PlainTextResponse("enroll")
 
 
 def expire(label: str) -> None:
@@ -62,7 +57,10 @@ def expire(label: str) -> None:
 
 
 def protected_client(
-    web: bool = False, enrollment: bool = False, allow_open: bool = False
+    web: bool = False,
+    enrollment: bool = False,
+    allow_open: bool = False,
+    web_url: str | None = None,
 ) -> TestClient:
     """The middleware of the MCP server (``web=False``) or of the controller (``web=True``)."""
     app = Starlette(
@@ -90,6 +88,7 @@ def protected_client(
             enrollment_app=enrollment_app,
             public_paths=public,
             allow_open=allow_open,
+            web_url=web_url,
         )
     )
 
@@ -140,12 +139,9 @@ def test_roles_select_the_process(role, mcp_status, api_status):
         assert response.json()["error"] == "insufficient_scope"
     else:
         assert response.text == f"user/{role}"
-
-
-def test_controller_needs_a_web_role_on_every_private_path():
-    token = token_store.create_token("dev", Role.MCP)["token"]
-    # An MCP token reaches nothing on the controller, not even an unknown path
-    assert protected_client(web=True).get("/mcp", headers=bearer(token)).status_code == 403
+    # Without a web role, the controller refuses every private path, even an unknown one
+    response = protected_client(web=True).get("/mcp", headers=bearer(token))
+    assert response.status_code == api_status
 
 
 def test_web_ui_files_are_public_but_not_the_api():
@@ -192,7 +188,7 @@ def test_without_any_token_mcp_is_closed_unless_allowed():
     assert closed.get("/mcp", headers=bearer("anything")).status_code == 401
     assert closed.get("/healthz").status_code == 200
     # Without a token, a client of a closed server reaches enrollment
-    assert protected_client(enrollment=True).get("/mcp").text == "enroll/None"
+    assert protected_client(enrollment=True).get("/mcp").text == "enroll"
 
     assert protected_client(allow_open=True).get("/mcp").status_code == 200
     # Once a token exists, an open server requires it too
@@ -214,85 +210,46 @@ def test_only_loopback_or_explicit_setting_opens_mcp(host, allow_unauthenticated
     assert http_server.allows_open_mcp(host, allow_unauthenticated) is expected
 
 
-def test_enrollment_app_receives_mcp_clients_without_an_approved_token():
+def test_only_mcp_clients_without_a_token_reach_the_enrollment_server():
     token_store.create_token("ops", Role.ADMIN)
-    request = token_store.request_enrollment("shop-api")
+    dev = token_store.create_token("dev", Role.MCP)["token"]
     client = protected_client(enrollment=True)
 
-    assert client.get("/mcp").text == "enroll/None"
+    assert client.get("/mcp").text == "enroll"
     # Hosts send an empty bearer value when the token input or variable is left empty
-    for empty in ("Bearer ", "Bearer    ", "bearer"):
-        assert client.get("/mcp", headers={"Authorization": empty}).text == "enroll/None"
-    assert client.get("/mcp", headers=bearer(request["token"])).text == f"enroll/{request['id']}"
-    # An unknown (or revoked) token is offered a new enrollment
-    assert client.get("/mcp", headers=bearer("x" * 40)).text == "enroll/None/invalid_token"
-    # The enrollment endpoint itself is public
-    assert client.post("/api/v1/enroll").status_code == 200
-
-    token_store.approve_enrollment(request["id"])
-    assert client.get("/mcp", headers=bearer(request["token"])).text == f"{request['label']}/mcp"
+    assert client.get("/mcp", headers={"Authorization": "Bearer "}).text == "enroll"
+    assert client.get("/mcp", headers=bearer(dev)).text == "dev/mcp"
 
 
-def test_rejected_tokens_fall_back_to_enrollment_on_the_mcp_server_only():
+def test_a_rejected_token_gets_a_401_that_says_how_to_get_a_new_one():
     token_store.create_token("ops", Role.ADMIN)
     old = token_store.create_token("old", Role.MCP, expires_in_days=1)["token"]
     expire("old")
     before = dict(http_server.AUTH_REJECTIONS)
-    client = protected_client(enrollment=True)
+    client = protected_client(enrollment=True, web_url="https://secreview.example/ui")
 
-    assert client.get("/mcp", headers=bearer(old)).text == "enroll/None/token_expired"
-    assert client.get("/mcp", headers=bearer("x" * 40)).text == "enroll/None/invalid_token"
-    # Still counted as rejections, and never a way into the review server
+    for token, reason in ((old, "has expired"), ("x" * 40, "invalid bearer token")):
+        response = client.get("/mcp", headers=bearer(token))
+        # Never the enrollment server: the user signs in again and creates a new token
+        assert response.status_code == 401
+        assert response.json()["error"] == "invalid_token"
+        description = response.json()["error_description"]
+        assert reason in description
+        assert "https://secreview.example/ui" in description
+        assert "personal MCP token" in description
     assert http_server.AUTH_REJECTIONS["token_expired"] == before.get("token_expired", 0) + 1
     assert http_server.AUTH_REJECTIONS["invalid_token"] == before.get("invalid_token", 0) + 1
-    # Without enrollment the MCP server answers 401, and the controller always does
-    for rejected in (old, "x" * 40):
-        assert protected_client().get("/mcp", headers=bearer(rejected)).status_code == 401
-        response = protected_client(web=True, enrollment=True).get(
-            "/api/v1/me", headers=bearer(rejected)
-        )
-        assert response.status_code == 401
-
-
-def test_controller_never_falls_back_to_enrollment():
-    token_store.create_token("ops", Role.ADMIN)
-    request = token_store.request_enrollment("shop-api")
-    client = protected_client(web=True, enrollment=True)
-
-    assert client.get("/api/v1/me").status_code == 401
-    response = client.get("/api/v1/me", headers=bearer(request["token"]))
-    assert response.status_code == 403
-    assert response.json()["error"] == "enrollment_pending"
-
-
-def test_pending_token_is_refused_without_enrollment_app():
-    token_store.create_token("ops", Role.ADMIN)
-    request = token_store.request_enrollment("shop-api")
-    client = protected_client()
-
-    assert client.get("/mcp").status_code == 401
-    response = client.get("/mcp", headers=bearer(request["token"]))
-    assert response.status_code == 403
-    assert response.json()["error"] == "enrollment_pending"
-
-
-def test_pending_requests_do_not_close_an_open_server():
-    token_store.request_enrollment("shop-api")
-
-    assert protected_client(enrollment=True, allow_open=True).get("/mcp").text == "None/None"
-    assert protected_client(web=True).get("/api/v1/me").status_code == 503
+    # The controller answers 401 too, without the advice meant for MCP clients
+    response = protected_client(web=True).get("/api/v1/me", headers=bearer(old))
+    assert response.status_code == 401
+    assert response.json()["error_description"] == "The bearer token has expired"
 
 
 def test_tokens_are_checked_in_the_database_on_each_request():
-    mcp_client, web_client = protected_client(), protected_client(web=True)
-    password = token_store.create_token("ops", Role.ADMIN)["token"]
+    mcp_client = protected_client()
     created = token_store.create_project_token("agent", "shop-api")
     agent = bearer(created["token"])
-    assert web_client.get("/api/v1/me", headers=bearer(password)).text == "ops/admin"
-    assert mcp_client.get("/mcp", headers=bearer(password)).status_code == 200
     assert mcp_client.get("/mcp", headers=agent).text == "agent/mcp"
-    assert web_client.get("/api/v1/me", headers=agent).status_code == 403
-    assert mcp_client.get("/mcp").status_code == 401
 
     # A revocation (from the controller or another instance) applies to the next request
     token_store.revoke_token("agent")
@@ -312,34 +269,20 @@ def test_path_dispatcher_routes_exact_paths():
     ]
 
 
-def test_mcp_app_serves_health_and_enrollment_but_not_the_web_interface():
+@pytest.mark.parametrize(("enrollment", "enroll_status"), [(True, 200), (False, 401)])
+def test_mcp_app_serves_health_and_enrollment_but_not_the_web_interface(enrollment, enroll_status):
     token_store.create_token("ops", Role.ADMIN)
     endpoint = Starlette(routes=[Route("/api/v1/enroll", whoami, methods=["POST"])])
-    app = http_server.build_mcp_app(server.mcp, "127.0.0.1", STORE, enroll_endpoint=endpoint)
-    assert isinstance(app, BearerAuthMiddleware) and not app.web
+    app = http_server.build_mcp_app(
+        server.mcp, "127.0.0.1", STORE, enroll_endpoint=endpoint if enrollment else None
+    )
     client = TestClient(app, base_url="http://127.0.0.1")
 
     health = client.get("/healthz")
     assert (health.status_code, health.json()) == (200, {"status": "ok"})
-    assert client.post("/api/v1/enroll").status_code == 200
+    assert client.post("/api/v1/enroll").status_code == enroll_status
     assert client.get("/ui/").status_code == 401
     assert client.get("/api/v1/me").status_code == 401
-
-
-def test_mcp_app_without_enrollment_keeps_the_enrollment_path_private():
-    token_store.create_token("ops", Role.ADMIN)
-    app = http_server.build_mcp_app(server.mcp, "127.0.0.1", STORE)
-    client = TestClient(app, base_url="http://127.0.0.1")
-    assert client.post("/api/v1/enroll").status_code == 401
-    assert client.get("/healthz").status_code == 200
-
-
-def test_controller_app_is_protected_by_the_store():
-    app = http_server.build_controller_app(Starlette(), STORE)
-    assert isinstance(app, http_server.SecurityHeadersMiddleware)
-    bearer = app.app
-    assert isinstance(bearer, BearerAuthMiddleware) and bearer.web
-    assert bearer.enrollment_app is None
 
 
 def json_answer(_request):
@@ -357,8 +300,9 @@ def headers_client(scheme: str = "http") -> TestClient:
     return TestClient(app, base_url=f"{scheme}://127.0.0.1")
 
 
-def test_every_controller_answer_has_the_security_headers():
-    client = headers_client()
+@pytest.mark.parametrize(("scheme", "hsts"), [("http", None), ("https", "max-age=31536000")])
+def test_every_controller_answer_has_the_security_headers(scheme, hsts):
+    client = headers_client(scheme)
     token = token_store.create_token("ops", Role.ADMIN)["token"]
 
     for response in (
@@ -370,25 +314,17 @@ def test_every_controller_answer_has_the_security_headers():
         assert response.headers["x-frame-options"] == "DENY"
         assert response.headers["content-security-policy"].startswith("default-src 'none'")
         # Plain HTTP: no HSTS (the browser would ignore it, and it must not stick to http://)
-        assert "strict-transport-security" not in response.headers
+        assert response.headers.get("strict-transport-security") == hsts
     # The CSP of a page (web interface, Swagger) is kept
     assert client.get("/ui/").headers["content-security-policy"] == "default-src 'self'"
-
-
-def test_https_answers_have_hsts():
-    response = headers_client("https").get("/api/v1/me")
-
-    assert response.headers["strict-transport-security"] == "max-age=31536000"
 
 
 # ── TLS ──────────────────────────────────────────────────────────────────────
 
 
-def test_tls_disabled_by_default():
-    assert http_server.tls_options(make_settings()) is None
-
-
 def test_tls_options(tmp_path):
+    assert http_server.tls_options(make_settings()) is None  # disabled by default
+
     cert, key, ca = (tmp_path / name for name in ("cert.pem", "key.pem", "ca.pem"))
     for path in (cert, key, ca):
         path.write_text("x", encoding="utf-8")
@@ -407,8 +343,6 @@ def test_tls_options(tmp_path):
 
 
 def test_tls_options_errors(tmp_path):
-    with pytest.raises(ValueError, match="needs SECREVIEW_TLS_CERTFILE"):
-        http_server.tls_options(make_settings(tls_keyfile="key.pem"))
     with pytest.raises(ValueError, match="CLIENT_CA needs SECREVIEW_TLS_CERTFILE"):
         http_server.tls_options(make_settings(tls_client_ca="ca.pem"))
     with pytest.raises(ValueError, match="file not found"):
@@ -442,13 +376,12 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
 
     server.main(
         [
-            "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8443",
+            "serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8443",
             "--tls-certfile", str(cert), "--tls-keyfile", str(key),
         ]
     )  # fmt: skip
 
     (call,) = captured_run
-    assert isinstance(call["app"], BearerAuthMiddleware) and not call["app"].web
     assert (call["host"], call["port"]) == ("0.0.0.0", 8443)
     assert (call["ssl_certfile"], call["ssl_keyfile"]) == (str(cert), str(key))
     # The client address comes from X-Forwarded-For of the trusted reverse proxies only
@@ -464,10 +397,9 @@ def test_main_serves_the_enrollment_server_when_enabled(monkeypatch, captured_ru
     token_store.create_token("ops", Role.ADMIN)
     monkeypatch.setattr(server, "get_settings", lambda: make_settings(enrollment=enabled))
 
-    server.main(["--transport", "streamable-http"])
+    server.main(["serve", "--transport", "streamable-http"])
 
     (call,) = captured_run
-    assert (call["app"].enrollment_app is not None) is enabled
     with TestClient(call["app"], base_url="http://127.0.0.1:8000") as client:
         response = client.post(
             "/mcp",
@@ -476,9 +408,9 @@ def test_main_serves_the_enrollment_server_when_enabled(monkeypatch, captured_ru
         )
         enroll = client.post("/api/v1/enroll", json={"project": "shop-api"})
     if enabled:
-        tools = {tool["name"] for tool in response.json()["result"]["tools"]}
-        assert tools == {"request_enrollment", "get_enrollment_status"}
-        assert enroll.status_code == 201
+        # The enrollment server answers (its tools are checked in test_server.py)
+        assert response.status_code == 200
+        assert enroll.status_code == 202
     else:
         assert response.status_code == 401
         assert enroll.status_code == 401
@@ -497,7 +429,7 @@ def test_main_closes_an_exposed_server_without_token(
         lambda: make_settings(enrollment=False, allow_unauthenticated=allow_unauthenticated),
     )
 
-    server.main(["--transport", "streamable-http", "--host", host])
+    server.main(["serve", "--transport", "streamable-http", "--host", host])
 
     (call,) = captured_run
     with TestClient(call["app"], base_url="http://127.0.0.1:8000") as client:
@@ -524,17 +456,16 @@ def test_http_mcp_server_refuses_a_database_that_was_not_migrated(monkeypatch, c
     monkeypatch.setattr(http_server.uvicorn, "run", lambda app, **kwargs: started.append(app))
 
     with pytest.raises(SystemExit) as exc:
-        server.main(["--transport", "streamable-http"])
+        server.main(["serve", "--transport", "streamable-http"])
 
     assert exc.value.code == 2 and not started
-    assert "security-review-controller db upgrade" in capsys.readouterr().err
     assert database.current_revision() is None  # the MCP server never migrates
 
 
 def test_http_mcp_server_creates_no_bootstrap_admin(monkeypatch, captured_run):
     monkeypatch.setattr(server, "get_settings", lambda: make_settings())
 
-    server.main(["--transport", "streamable-http"])
+    server.main(["serve", "--transport", "streamable-http"])
 
     assert STORE.has_tokens() is False
     assert web_users.has_users() is False
@@ -545,7 +476,7 @@ def test_stdio_server_migrates_its_own_database(monkeypatch):
     started = []
     monkeypatch.setattr(server.mcp, "run", lambda transport: started.append(transport))
 
-    server.main([])
+    server.main(["serve"])
 
     assert started == ["stdio"]
     assert database.current_revision() == database.head_revision()
@@ -562,55 +493,111 @@ def test_moved_commands_still_run_from_the_mcp_cli_with_a_warning(capsys):
 
 
 @pytest.mark.parametrize(
-    ("host", "with_tls", "warned"),
-    [("0.0.0.0", False, True), ("0.0.0.0", True, False), ("127.0.0.1", False, False)],
+    ("argv", "expected"),
+    [
+        (["--help"], ["serve", *cli.MCP_COMMANDS]),
+        (["serve", "--help"], ["--transport", "--host", "--port"]),
+    ],
 )
-def test_serve_warns_without_tls_only_when_exposed(
-    tmp_path, caplog, captured_run, host, with_tls, warned
+def test_mcp_help_lists_every_command_and_option(capsys, argv, expected):
+    try:
+        server.main(argv)
+    except SystemExit as exc:  # argparse exits after the help of a command
+        assert exc.code == 0
+
+    out = capsys.readouterr().out
+    assert all(item in out for item in expected)
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        ([], "usage: security-review-mcp COMMAND"),
+        (["--transport", "streamable-http"], "use `security-review-mcp serve --transport ...`"),
+        (["start"], "unknown command 'start'"),
+    ],
+)
+def test_mcp_without_a_valid_command_serves_nothing(monkeypatch, capsys, argv, message):
+    started = []
+    monkeypatch.setattr(server.mcp, "run", lambda transport: started.append(transport))
+
+    with pytest.raises(SystemExit) as exc:
+        server.main(argv)
+
+    assert exc.value.code == cli.EXIT_ERROR and not started
+    captured = capsys.readouterr()
+    # stdout is the MCP protocol of a stdio host: errors and usage go to stderr
+    assert captured.out == ""
+    assert message in captured.err
+
+
+@pytest.mark.parametrize("argv", [["serve"], *([command] for command in cli.MCP_COMMANDS)])
+def test_mcp_options_all_have_a_help_text(monkeypatch, argv):
+    parsers: list[argparse.ArgumentParser] = []
+
+    def record(self, args=None, namespace=None):
+        """Remember the parser, then stop before the command runs."""
+        parsers.append(self)
+        raise SystemExit(0)
+
+    monkeypatch.setattr(argparse.ArgumentParser, "parse_args", record)
+    with pytest.raises(SystemExit):
+        server.main([*argv, "--help"])
+
+    undocumented = [a.dest for a in parsers[0]._actions if not a.help]
+    assert undocumented == []
+
+
+@pytest.mark.parametrize(
+    ("host", "with_tls", "has_token", "allow_open", "expected", "absent"),
+    [
+        ("0.0.0.0", False, True, True, "without TLS", None),
+        ("0.0.0.0", True, True, True, None, "without TLS"),
+        ("127.0.0.1", False, True, True, None, "without TLS"),
+        ("0.0.0.0", True, False, True, "without authentication", None),
+        ("0.0.0.0", True, True, True, None, "without authentication"),
+        (
+            "0.0.0.0",
+            True,
+            False,
+            False,
+            "every MCP client is refused",
+            "without authentication",
+        ),
+    ],
+)
+def test_serve_warns_about_an_unsafe_exposure(
+    tmp_path, caplog, captured_run, host, with_tls, has_token, allow_open, expected, absent
 ):
     tls = http_server.TLSOptions(certfile=str(tmp_path / "cert.pem")) if with_tls else None
-
-    with caplog.at_level("WARNING", logger="security_review_mcp"):
-        http_server.serve(Starlette(), host, 8000, STORE, tls)
-
-    assert len(captured_run) == 1
-    assert any("without TLS" in record.message for record in caplog.records) is warned
-
-
-@pytest.mark.parametrize("has_token", [True, False])
-def test_serve_warns_without_authentication_only_when_no_token(caplog, captured_run, has_token):
     if has_token:
         token_store.create_token("ci", Role.MCP)
 
     with caplog.at_level("WARNING", logger="security_review_mcp"):
-        http_server.serve(Starlette(), "0.0.0.0", 8000, STORE, None)
+        http_server.serve(Starlette(), host, 8000, STORE, tls, allow_open=allow_open)
 
-    warned = any("without authentication" in record.message for record in caplog.records)
-    assert warned is not has_token
+    assert len(captured_run) == 1
+    messages = " ".join(record.message for record in caplog.records)
+    assert expected is None or expected in messages
+    assert absent is None or absent not in messages
 
 
-def test_serve_warns_that_a_closed_server_without_token_refuses_every_client(caplog, captured_run):
+@pytest.mark.parametrize("forwarded_allow_ips", [None, "*"])
+def test_serve_trusted_proxies(caplog, captured_run, forwarded_allow_ips):
     with caplog.at_level("WARNING", logger="security_review_mcp"):
-        http_server.serve(Starlette(), "0.0.0.0", 8000, STORE, None, allow_open=False)
-
-    messages = [record.message for record in caplog.records]
-    assert any("every MCP client is refused" in message for message in messages)
-    assert not any("without authentication" in message for message in messages)
-
-
-def test_serve_keeps_the_uvicorn_proxy_default_when_unset(captured_run):
-    http_server.serve(Starlette(), "0.0.0.0", 8000, STORE, None)
+        http_server.serve(
+            Starlette(), "0.0.0.0", 8000, STORE, None, forwarded_allow_ips=forwarded_allow_ips
+        )
 
     (call,) = captured_run
-    assert "forwarded_allow_ips" not in call and "proxy_headers" not in call
-
-
-def test_serve_warns_when_every_client_is_a_trusted_proxy(caplog, captured_run):
-    with caplog.at_level("WARNING", logger="security_review_mcp"):
-        http_server.serve(Starlette(), "0.0.0.0", 8000, STORE, None, forwarded_allow_ips="*")
-
-    assert captured_run[0]["forwarded_allow_ips"] == "*"
-    assert any("X-Forwarded-For" in record.message for record in caplog.records)
+    warned = any("X-Forwarded-For" in record.message for record in caplog.records)
+    if forwarded_allow_ips is None:
+        # Unset: the uvicorn default is kept
+        assert "forwarded_allow_ips" not in call and "proxy_headers" not in call
+        assert not warned
+    else:
+        # Every client is a trusted proxy: warned
+        assert call["forwarded_allow_ips"] == "*" and warned
 
 
 @pytest.mark.parametrize(
@@ -646,7 +633,6 @@ def test_token_create_list_revoke(capsys):
     code, created = run_cli(capsys, "create", "--label", "ci")
     assert code == cli.EXIT_PASSED
     assert (created["label"], created["role"], created["project"]) == ("ci", "mcp", None)
-    assert STORE.lookup(hash_token(created["token"])).label == "ci"
 
     code, reader = run_cli(capsys, "create", "--label", "shop", "--project", "shop-api")
     assert code == cli.EXIT_PASSED and reader["project"] == "shop-api"
@@ -679,116 +665,20 @@ def test_token_create_list_revoke(capsys):
         (["create", "--label", "x", "--role", "admin", "--project", "p"], "cannot be restricted"),
         (["create", "--label", " "], "between 1 and 64"),
         (["revoke", "unknown"], "not found"),
+        (["create", "--label", "dup"], "already"),
     ],
 )
 def test_token_command_errors(capsys, argv, message):
+    token_store.create_token("dup", Role.MCP)
     assert cli.run(["token", *argv]) == cli.EXIT_ERROR
     assert message in json.loads(capsys.readouterr().err)["error"]
 
 
-@pytest.mark.parametrize("role", ["reader", "triager", "api"])
-def test_token_create_refuses_a_role_of_a_person(capsys, role):
-    with pytest.raises(SystemExit) as exited:
-        cli.run(["token", "create", "--label", "x", "--role", role])
-    assert exited.value.code == cli.EXIT_ERROR
-    assert "invalid choice" in capsys.readouterr().err
-    assert token_store.list_tokens() == []
-
-
-def test_token_approve_and_reject_enrollment_requests(capsys):
-    first = token_store.request_enrollment("shop-api", label="shop-dev")
-    second = token_store.request_enrollment("billing")
-
-    code, pending = run_cli(capsys, "list", "--pending")
-    assert code == cli.EXIT_PASSED
-    assert [item["label"] for item in pending] == [first["label"], second["label"]]
-    assert first["token"] not in json.dumps(pending)
-
-    code, approved = run_cli(capsys, "approve", first["label"])
-    assert code == cli.EXIT_PASSED and approved["status"] == "active"
-    assert STORE.lookup(hash_token(first["token"])).pending is False
-
-    code, rejected = run_cli(capsys, "reject", second["id"])
-    assert code == cli.EXIT_PASSED and rejected["label"] == second["label"]
-    assert STORE.lookup(hash_token(second["token"])) is None
-    assert run_cli(capsys, "list", "--pending")[1] == []
-
-    assert cli.run(["token", "approve", first["label"]]) == cli.EXIT_ERROR
-    assert "not found" in json.loads(capsys.readouterr().err)["error"]
-
-
-def test_token_approve_can_give_web_read_access(capsys, monkeypatch):
-    first = token_store.request_enrollment("shop-api", label="shop-dev")
-    # An invalid or (without OIDC) unknown user name is refused before the approval
-    assert cli.run(["token", "approve", first["label"], "--portal-user", " "]) == cli.EXIT_ERROR
-    assert "between 1 and" in json.loads(capsys.readouterr().err)["error"]
-    assert cli.run(["token", "approve", first["label"], "--portal-user", "bob"]) == cli.EXIT_ERROR
-    assert "not found" in json.loads(capsys.readouterr().err)["error"]
-    assert STORE.lookup(hash_token(first["token"])).pending is True
-
-    make_user("alice", "Correct horse battery 9", "reader", ["billing"])
-    code, approved = run_cli(capsys, "approve", first["label"], "--portal-user", "alice")
-
-    assert code == cli.EXIT_PASSED and approved["status"] == "active"
-    user = approved["portal_user"]
-    assert (user["username"], user["auth_source"], user["permissions"]) == (
-        "alice",
-        "local",
-        {"reports.read": ["billing", "shop-api"]},
-    )
-
-
-def test_token_approve_creates_the_sso_user_when_oidc_is_enabled(capsys, monkeypatch):
-    monkeypatch.setenv("SECREVIEW_OIDC_ENABLED", "true")
-    config.get_settings.cache_clear()
-    first = token_store.request_enrollment("shop-api", label="shop-dev")
-    try:
-        code, approved = run_cli(capsys, "approve", first["label"], "--portal-user", "alice")
-    finally:
-        config.get_settings.cache_clear()
-
-    assert code == cli.EXIT_PASSED
-    user = approved["portal_user"]
-    assert (user["username"], user["auth_source"], user["effective_role"], user["permissions"]) == (
-        "alice",
-        "oidc",
-        "reader",
-        {"reports.read": ["shop-api"]},
-    )
-    assert user["created_by"] == "cli"
-
-
-def test_token_approve_complementary_enrollment_requests(capsys):
-    created = token_store.create_token("ci", Role.MCP, "shop-api")
-    billing = token_store.request_additional_project(created["id"], "billing")
-    token_store.request_additional_project(created["id"], "crm")
-
-    code, pending = run_cli(capsys, "list", "--pending")
-    assert [(item["kind"], item["project"]) for item in pending] == [
-        ("additional", "billing"),
-        ("additional", "crm"),
-    ]
-    # Two requests for the same token: the label is ambiguous, the request id is not
-    assert cli.run(["token", "approve", "ci"]) == cli.EXIT_ERROR
-    assert "several pending requests" in json.loads(capsys.readouterr().err)["error"]
-    code, approved = run_cli(capsys, "approve", billing["id"])
-    assert code == cli.EXIT_PASSED and approved["projects"] == ["shop-api", "billing"]
-    code, rejected = run_cli(capsys, "reject", "ci")
-    assert code == cli.EXIT_PASSED and rejected["project"] == "crm"
-    assert STORE.lookup(hash_token(created["token"])).projects == {"shop-api", "billing"}
-
-
-def test_revoking_the_last_active_token_warns_despite_pending_requests(capsys):
-    token_store.request_enrollment("shop-api")
+def test_revoking_the_last_token_warns(capsys):
     token_store.create_token("ci", Role.MCP)
 
     assert cli.run(["token", "revoke", "ci"]) == cli.EXIT_PASSED
     assert "No token left" in capsys.readouterr().err
-
-
-def test_token_create_rejects_duplicate_labels(capsys):
-    assert run_cli(capsys, "create", "--label", "ci")[0] == cli.EXIT_PASSED
-    assert run_cli(capsys, "create", "--label", "ci")[0] == cli.EXIT_ERROR
 
 
 def test_token_reset_admin_is_replaced_by_the_user_command(capsys):

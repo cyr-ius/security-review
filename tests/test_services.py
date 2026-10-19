@@ -6,9 +6,10 @@ import pytest
 from sqlmodel import select
 
 from security_review_mcp import services
-from security_review_mcp.config import Settings
+from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.models import (
+    Finding,
     FindingCreate,
     FindingStatus,
     ReviewType,
@@ -277,9 +278,29 @@ def test_markdown_rendering_orders_by_severity():
     assert "exec(x)" in markdown
 
 
+def test_project_name_is_normalized_for_storage_and_lookups(triage):
+    saved = services.save_report(
+        "https://github.com/acme/Shop_API.git", "Review", [make_finding(Severity.HIGH)]
+    )
+    services.save_report("acme/shop-api", "Second review", [])
+
+    assert saved["project"] == "shop-api"
+    assert [item["project"] for item in services.list_projects()] == ["shop-api"]
+    assert len(services.list_reports(project="Shop API")) == 2
+    assert services.project_posture("SHOP_API")["open_findings_total"] == 1
+    assert services.evaluate_gate("Shop.Api")["passed"] is False
+    assert services.list_project_findings("shop_api")["total"] == 1
+    assert services.collect_sarif_items(project="Acme/Shop-API")[0] == "shop-api"
+    services.check_project_scope({"shop-api"}, "Shop_API")
+    with pytest.raises(services.NotFoundError, match="Project 'billing' not found"):
+        services.check_project_scope({"shop-api"}, "https://user:secret@example.com/Billing")
+
+
 def test_blank_project_or_summary_is_rejected():
     with pytest.raises(ValueError):
         services.save_report("  ", "A valid summary", [])
+    with pytest.raises(ValueError):
+        services.save_report("--- ///", "A valid summary", [])
     with pytest.raises(ValueError):
         services.save_report("project", "ab", [])
 
@@ -304,6 +325,24 @@ def test_list_projects(triage):
     assert (
         billing["last_report_at"] == services.get_report(clean["report_id"]).created_at.isoformat()
     )
+
+
+def test_list_projects_adds_the_known_projects_without_report():
+    services.save_report("shop", "First", [make_finding(Severity.HIGH)])
+
+    projects = services.list_projects(["shop", "zeta", "alpha"])
+
+    # A known project that has reports is listed once, with them
+    assert [p["project"] for p in projects] == ["shop", "alpha", "zeta"]
+    assert projects[0]["reports_total"] == 1
+    assert projects[1] == {
+        "project": "alpha",
+        "reports_total": 0,
+        "last_report_at": None,
+        "open_findings_total": 0,
+        "open_findings_by_severity": {severity.value: 0 for severity in Severity},
+        "worst_open_severity": None,
+    }
 
 
 def age_report(report_id: int, days: int) -> None:
@@ -398,6 +437,28 @@ def test_triage_decision_is_validated(status, reason, expires_in, error):
     assert services.get_report(saved["report_id"]).findings[0].status == FindingStatus.OPEN
 
 
+def test_risk_acceptance_without_expiry_unless_disabled(monkeypatch):
+    saved = services.save_report("shop", "summary", [make_finding()])
+    finding_id = services.get_report(saved["report_id"]).findings[0].id
+    assert Settings(_env_file=None).permanent_acceptance_enabled is True
+
+    decided = services.update_finding_status(
+        finding_id, FindingStatus.ACCEPTED, "alice", "Internal tool only"
+    )
+    assert (decided.status, decided.status_expires_at) == (FindingStatus.ACCEPTED, None)
+    # A permanent acceptance never expires: the finding stays dismissed
+    counts = services.finding_status_counts()
+    assert (counts["accepted"], counts["open"]) == (1, 0)
+
+    services.update_finding_status(finding_id, FindingStatus.OPEN, "alice")
+    monkeypatch.setattr(get_settings(), "permanent_acceptance_enabled", False)
+    with pytest.raises(ValueError, match="expiry date is required"):
+        services.update_finding_status(
+            finding_id, FindingStatus.ACCEPTED, "alice", "Internal tool only"
+        )
+    assert services.get_report(saved["report_id"]).findings[0].status == FindingStatus.OPEN
+
+
 def test_triage_decision_masks_its_reason_and_clears_the_proposal():
     saved = services.save_report("shop", "summary", [make_finding()])
     finding_id = services.get_report(saved["report_id"]).findings[0].id
@@ -418,3 +479,48 @@ def test_triage_decision_masks_its_reason_and_clears_the_proposal():
     assert decided.proposed_status is None and decided.proposed_by is None
     with pytest.raises(services.NotFoundError):
         services.clear_finding_proposal(999)
+
+
+def test_risk_acceptances_list_expired_ones_and_comments(triage):
+    saved = services.save_report(
+        "shop", "summary", [make_finding(), make_finding(title="Weak hash"), make_finding()]
+    )
+    first, second, third = (f.id for f in services.get_report(saved["report_id"]).findings)
+    triage(first, "accepted")
+    triage(second, "accepted")
+    triage(third, "false_positive")
+    with session_scope() as session:
+        expired = session.get(Finding, second)
+        expired.status_expires_at = utcnow() - timedelta(days=1)
+        session.add(expired)
+    services.add_finding_comment(first, "bob", "  Renewed until the rewrite, token=abcd1234efgh  ")
+
+    page = services.list_risk_acceptances("shop")
+
+    # Expired acceptances stay listed (to renew them), false positives are not acceptances
+    assert page["total"] == 2
+    rows = {row["id"]: row for row in page["acceptances"]}
+    assert (rows[second]["expired"], rows[second]["status"]) == (True, FindingStatus.OPEN)
+    assert (rows[first]["expired"], rows[first]["comments_total"]) == (False, 2)
+    assert services.list_risk_acceptances("shop", projects=["billing"])["total"] == 0
+    # The reason of the acceptance is its first comment
+    reason, comment = services.list_finding_comments(first)
+    assert (reason.author, reason.body) == ("alice", "Reviewed by the security team")
+    assert comment.author == "bob"
+    assert (
+        comment.body.startswith("Renewed until the rewrite") and "abcd1234efgh" not in comment.body
+    )
+    # A new expiry date alone adds no comment, a new reason does
+    later = utcnow() + timedelta(days=60)
+    services.update_finding_status(
+        first, FindingStatus.ACCEPTED, "bob", "Reviewed by the security team", later
+    )
+    services.update_finding_status(first, FindingStatus.ACCEPTED, "bob", "Kept until v2", later)
+    assert [c.body for c in services.list_finding_comments(first)][2:] == ["Kept until v2"]
+    # The comments outlive the acceptance they discussed
+    services.update_finding_status(first, FindingStatus.OPEN, "bob")
+    assert len(services.list_finding_comments(first)) == 3
+    with pytest.raises(ValueError, match="empty"):
+        services.add_finding_comment(first, "bob", "   ")
+    with pytest.raises(services.NotFoundError):
+        services.add_finding_comment(999, "bob", "Some comment")

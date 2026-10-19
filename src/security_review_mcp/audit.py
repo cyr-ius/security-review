@@ -1,5 +1,5 @@
-"""Audit log: who changed a finding status, a token, an enrollment request or an access, and
-who logged in to the web interface (or failed to) and out.
+"""Audit log: who changed a finding status (or commented a finding), a token or an access, who
+enrolled a project, and who logged in to the web interface (or failed to) and out.
 
 Events are written by the business modules (services, token_store, access_control) in the same
 transaction as the change they describe, so that an event exists exactly when the change was
@@ -23,6 +23,7 @@ from sqlmodel import Session, col, func, select
 from .config import MAX_AUDIT_EVENTS, MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
 from .models import AuditEvent, as_utc, utcnow
+from .project_names import normalize_project
 from .scanner import redact_secrets
 
 logger = logging.getLogger(__name__)
@@ -42,11 +43,14 @@ class AuditAction(StrEnum):
     FINDING_STATUS_CHANGED = "finding.status_changed"
     FINDING_STATUS_PROPOSED = "finding.status_proposed"
     FINDING_PROPOSAL_REJECTED = "finding.proposal_rejected"
+    FINDING_COMMENTED = "finding.commented"
     TOKEN_CREATED = "token.created"
     TOKEN_ROTATED = "token.rotated"
     TOKEN_REVOKED = "token.revoked"
     TOKEN_PROJECTS_CHANGED = "token.projects_changed"
+    # A project enrolled by an MCP client (see access_control.enroll_project)
     ENROLLMENT_REQUESTED = "enrollment.requested"
+    # Decisions on the enrollment requests of older versions: kept for the history
     ENROLLMENT_APPROVED = "enrollment.approved"
     ENROLLMENT_REJECTED = "enrollment.rejected"
     ROLE_CREATED = "role.created"
@@ -58,11 +62,14 @@ class AuditAction(StrEnum):
     GROUP_ROLES_CHANGED = "group.roles_changed"
     GROUP_MEMBERS_CHANGED = "group.members_changed"
     USER_GROUPS_CHANGED = "user.groups_changed"
+    PROJECT_CREATED = "project.created"
+    PROJECT_DELETED = "project.deleted"
     # Recorded by the direct roles of a user, removed since revision 0018: kept for the history
     USER_ROLES_CHANGED = "user.roles_changed"
     USER_LOGIN = "user.login"
     USER_LOGIN_FAILED = "user.login_failed"
     USER_LOGOUT = "user.logout"
+    AUDIT_SYSLOG_CHANGED = "audit_syslog.changed"
 
 
 def user_actor(username: str) -> str:
@@ -161,7 +168,7 @@ def list_events(
     if action is not None:
         conditions.append(AuditEvent.action == action)
     if project is not None:
-        conditions.append(AuditEvent.project == project)
+        conditions.append(AuditEvent.project == normalize_project(project))
     if actor is not None:
         conditions.append(AuditEvent.actor == actor)
     if since is not None:

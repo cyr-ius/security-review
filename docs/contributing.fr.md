@@ -7,8 +7,14 @@ uv sync --extra dev
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
 pre-commit install          # facultatif : mêmes contrôles avant chaque commit, et le scan des
-                            # dépendances si SECREVIEW_SERVER_URL est défini
+                            # dépendances si SECREVIEW_MCP_URL est défini
 ```
+
+Le hook `prettier` formate les fichiers YAML et JSON et les sources de `web/src/` avec la
+version de Prettier verrouillée par `web/package-lock.json` (celle de la CI) : lancez `npm ci`
+dans `web/` avant le premier commit. La CI vérifie les mêmes fichiers (`lint.yml`, job **web**).
+`.prettierrc` fixe la largeur à 100 colonnes, comme ruff ; les fichiers de verrouillage sont
+listés dans `.prettierignore`.
 
 Dans VS Code (`.vscode/`) :
 
@@ -17,7 +23,7 @@ Dans VS Code (`.vscode/`) :
 | **MCP server + controller** | Lance la tâche **Database upgrade**, puis les deux processus sur la même base |
 | **MCP server (HTTP, port 8000)** | Serveur MCP seul ; la base doit déjà être migrée |
 | **Controller (web UI and API, port 8080)** | Contrôleur seul ; migre la base et affiche le mot de passe du compte `admin` initial au premier démarrage |
-| **Controller CLI (prompt for arguments)** | Une commande du contrôleur (`db status`, `token list --pending`…) sous le débogueur |
+| **Controller CLI (prompt for arguments)** | Une commande du contrôleur (`db status`, `token list`…) sous le débogueur |
 | **Controller + web UI (Angular, port 4200)** | Contrôleur et application Angular sous le débogueur, rechargement à chaud |
 | **Web UI + API (Angular dev server, port 4200)** | Lance la tâche **Web UI + API: dev servers** (contrôleur sur 8080 et `ng serve`), attend qu'ils soient prêts, puis ouvre Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript |
 | **Pytest (current file)** | Tests du fichier ouvert |
@@ -39,7 +45,8 @@ dédié (feature *docker-in-docker*) et une base **PostgreSQL 17**. `compose.yam
 services : `app`, le conteneur de développement, et `db`, la base, joignable depuis `app` sous
 le nom `db` et conservée dans le volume `secreview-dev-pg` entre deux reconstructions.
 `SECREVIEW_DATABASE_URL` y pointe par défaut : le serveur MCP, le contrôleur et la CLI utilisent
-PostgreSQL. Les tests, eux, utilisent toujours une base SQLite en mémoire.
+PostgreSQL. Les tests, eux, utilisent toujours une base SQLite en mémoire et ignorent votre
+fichier `.env` et les variables `SECREVIEW_*` du shell.
 
 À sa création, le devcontainer installe le client `psql`, les hooks `prek` et l'environnement
 complet (`uv sync --extra dev --extra docs --extra postgres`), puis migre la base. Il redirige les
@@ -48,7 +55,7 @@ ports 8000 (serveur MCP), 8080 (contrôleur), 4200 (serveur de dev Angular), 800
 
 ```bash
 psql -h db -U secreview secreview                     # mot de passe : secreview
-SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp   # revenir ponctuellement à SQLite
+SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # revenir ponctuellement à SQLite
 ```
 
 Le démon Docker permet de construire et de lancer l'image du
@@ -59,7 +66,7 @@ docker build -t security-review-mcp .
 docker run --rm -p 8080:8000 -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
 docker run --rm -p 8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
-    --transport streamable-http --host 0.0.0.0 --port 8000
+    serve --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
 Les ports sont redirigés vers le poste : l'interface web est sur `http://localhost:8080/ui/`,
@@ -74,12 +81,19 @@ devcontainer : ils ne se mélangent pas avec ceux de l'hôte.
 
 ## Définition de « terminé »
 
-Une contribution, humaine ou produite par un agent IA, n'est terminée que si elle comprend des
-tests, que la documentation `docs/` est à jour dans les deux langues et que les `README.md`, qui
+Une contribution, humaine ou produite par un agent IA, n'est terminée que si le comportement
+qu'elle ajoute ou corrige est vérifié par un test pertinent, nouveau ou existant, que la documentation `docs/` est à jour dans les deux langues et que les `README.md`, qui
 restent des résumés, le sont aussi. Quand le serveur MCP `security-review` est opérationnel, les changements sont en outre
 relus avec lui (le projet se relit lui-même) et le rapport est enregistré. Les règles détaillées
 (conventions, invariants de sécurité, correspondance code → pages de doc) sont dans `AGENTS.md`
 à la racine du dépôt ; `CLAUDE.md` et `.github/copilot-instructions.md` y renvoient.
+
+Un test protège un contrat ou un invariant, pas une ligne de code, et il n'y a pas d'objectif de
+couverture. Testez d'abord les invariants de sécurité, les contrats publics (outils et prompts
+MCP, codes de sortie CLI, schéma REST, migrations) et chaque bug corrigé (un test de régression).
+Ne testez pas ce que garantit déjà une bibliothèque, le détail d'implémentation ni le texte exact
+d'un message. Avant d'ajouter un test, étendez celui qui couvre déjà le comportement (assertion
+supplémentaire, ligne de `parametrize`) : un changement ajoute en général un à trois tests.
 
 ## Structure du code
 
@@ -89,13 +103,13 @@ src/security_review_mcp/
 ├── controller.py  # point d'entrée du contrôleur (serve, db et commandes d'administration)
 ├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
 ├── oidc.py        # connexion OIDC OpenID Connect à l'interface web (contrôleur)
-├── access_control.py # permissions, rôles, groupes et membres des comptes web
-├── token_store.py # jetons Bearer en base : création, expiration, renouvellement, révocation, enrôlement
+├── access_control.py # permissions, rôles, groupes et membres des comptes web, enrôlement des projets
+├── token_store.py # jetons Bearer en base : création, expiration, renouvellement, révocation
 ├── audit.py       # journal d'audit : événements des décisions de triage, propositions, jetons et enrôlements
 ├── audit_syslog.py # envoi des événements d'audit vers syslog par le contrôleur (facultatif)
 ├── metrics.py     # métriques Prometheus du contrôleur (/metrics)
 ├── web_users.py   # comptes de l'interface web, locaux (scrypt) ou OIDC (création à la volée), sessions, admin initial
-├── enrollment.py  # client de `enroll` : demande de jeton à un serveur partagé
+├── enrollment.py  # client de `enroll` : enrôlement d'un projet sur un serveur partagé
 ├── remote_scan.py # client de `scan-deps` : scan des dépendances par un serveur partagé
 ├── ci_client.py   # `security-review-ci` : client de pipeline du contrôleur, liste des fichiers (bibliothèque standard uniquement)
 ├── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP
@@ -109,6 +123,7 @@ src/security_review_mcp/
 ├── default_rules.toml  # règles et checklists par défaut, copiées en base au premier lancement
 ├── checklists.py  # structure d'un item de checklist
 ├── scanner.py     # moteur de scan, suppression inline, masquage des secrets
+├── syntax_analysis.py # analyses structurelles Tree-sitter, séparées des règles ligne par ligne
 ├── rules_loader.py    # validation des règles, lecture des packs TOML et du fichier par défaut
 ├── rule_store.py  # règles en base : amorçage, import/export, activation, suppression
 ├── registry.py    # règles/checklists actives (lues en base), rechargement
@@ -126,6 +141,8 @@ src/security_review_mcp/
 ├── dependencies.py    # analyseurs de manifestes / lockfiles, hygiène
 ├── depscan.py     # scan de dépendances et conversion en findings
 ├── services.py    # logique de persistance des rapports
+├── coverage.py    # contrôle les résultats de checklist et règles déclarés avec un rapport
+├── project_names.py # normalisation des noms de projet (toute entrée)
 ├── retention.py   # purge quotidienne des rapports sans findings et des anciens événements d'audit
 ├── models.py      # modèles SQLModel (tables + schémas)
 ├── database.py    # moteur, sessions et migrations (Alembic)
@@ -181,6 +198,10 @@ est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
   coquille de l'application est `layout/`.
 - **Templates** : liaisons de l'hôte dans `host: {}` (pas de `@HostListener`) ; un message qui
   explique pourquoi un champ est invalide lui est relié par `aria-describedby`.
+- **Tableaux** : `app-table-controls` porte la recherche et les filtres ; le tri se choisit sur les
+  en-têtes de colonne (`<th [appSortHeader]="sort" sortKey="name">`), avec un `TableSort` nommé
+  d'après le tableau (`shared/utils/table-sort.ts`) que le navigateur mémorise sous
+  `secreview.sort.<nom>`.
 - **Couleurs** : variables Bootstrap (`var(--bs-…)`) ou jetons de `styles.css` (`--app-…`),
   jamais une couleur écrite dans un composant, pour que les thèmes clair et sombre fonctionnent.
 

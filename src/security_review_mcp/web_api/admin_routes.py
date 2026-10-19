@@ -9,12 +9,15 @@ from fastapi.concurrency import run_in_threadpool
 
 from .. import advisories, advisory_sync, app_settings, audit
 from ..config import get_settings
-from .deps import AuditReader, SettingsManager, unprocessable
+from ..project_names import ProjectName
+from .deps import AuditReader, SettingsManager, actor_of, unprocessable
 from .schemas import (
     AdvisoryOverview,
     AdvisoryUpdateStarted,
     AppSettings,
     AuditPage,
+    AuditSyslogSettings,
+    AuditSyslogUpdate,
     ProxyUpdate,
     ReportLanguageUpdate,
 )
@@ -28,7 +31,7 @@ router = APIRouter(tags=["administration"])
 async def audit_events(
     identity: AuditReader,
     action: Annotated[audit.AuditAction | None, Query()] = None,
-    project: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+    project: Annotated[ProjectName | None, Query()] = None,
     actor: Annotated[str | None, Query(min_length=1, max_length=audit.MAX_ACTOR_CHARS)] = None,
     search: Annotated[str | None, Query(max_length=200)] = None,
     sort_by: Literal["created_at", "action", "actor", "target", "project"] = "created_at",
@@ -55,6 +58,30 @@ async def audit_events(
         sort_by,
         sort_direction,
     )
+
+
+@router.get("/settings/audit-syslog")
+async def get_audit_syslog(identity: SettingsManager) -> AuditSyslogSettings:
+    """Return the syslog server of the audit log: stored values, variables, effective one."""
+    return await run_in_threadpool(app_settings.describe_audit_syslog)
+
+
+@router.put("/settings/audit-syslog")
+async def set_audit_syslog(
+    body: AuditSyslogUpdate, identity: SettingsManager
+) -> AuditSyslogSettings:
+    """Set the syslog server of the audit log (applied by the controller within seconds).
+
+    Refused (422) for a value whose variable is set. The change is itself recorded in the audit
+    log.
+    """
+    values = body.model_dump(exclude_unset=True)
+    try:
+        await run_in_threadpool(app_settings.set_audit_syslog, values, actor_of(identity))
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("Syslog settings %s changed by %s", ", ".join(sorted(values)), identity.client)
+    return await run_in_threadpool(app_settings.describe_audit_syslog)
 
 
 @router.get("/settings")

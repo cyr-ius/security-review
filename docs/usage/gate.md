@@ -45,7 +45,9 @@ on stdin instead of `SECREVIEW_TOKEN`), `--cafile` (CA of the controller certifi
 A `ci` token only reaches the pipeline routes: neither `/mcp`, nor the rest of the REST API,
 nor the web interface. It is **always restricted to projects**: it sees the gate, the SARIF
 log and the trend of the selected projects only, and only stores scan reports for them; another
-project answers `404`, like a project that does not exist.
+project answers `404`, like a project that does not exist. `--project` is
+[normalized](prompts-tools.md#project-name) like the project of a review: give the repository
+name.
 
 - In the web interface, **Tokens** screen: **Usage** **CI/CD pipeline**, then tick the
   **Allowed projects**. The secret is shown once.
@@ -99,7 +101,7 @@ the gate, SARIF and trend routes; `mcp` tokens may not. The scans, which store r
       image: python:3.14-slim
       script:
         - pip install security-review-mcp
-        - security-review-ci gate --project "$CI_PROJECT_PATH_SLUG" --fail-on high
+        - security-review-ci gate --project "$CI_PROJECT_NAME" --fail-on high
       variables:
         SECREVIEW_CONTROLLER_URL: https://secreview.example.com
         # SECREVIEW_TOKEN: masked and protected CI/CD variable (ci token)

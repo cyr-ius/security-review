@@ -7,7 +7,7 @@ from mcp.client import Client
 from mcp.shared.exceptions import MCPError
 from pydantic import ValidationError
 
-from security_review_mcp import app_settings, audit, services, token_store
+from security_review_mcp import access_control, app_settings, audit, services, token_store
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.models import FindingCreate, ReviewType, Severity
 from security_review_mcp.prompts import fenced
@@ -47,6 +47,24 @@ async def test_security_review_prompt_embeds_code_and_checklist():
     assert "API-01" in text  # API checklist is always included
     assert "save_security_report" in text
     assert "deserialization" in text
+
+
+@pytest.mark.parametrize(
+    ("prompt", "args", "included", "excluded"),
+    [
+        # Aliases and several languages select their checklists
+        ("security-review", {"language": "py, ts"}, {"PY-01", "NG-01", "API-01"}, {"JV-01"}),
+        # No language: no default checklist, the agent picks from the named ones
+        ("security-review", {"language": ""}, {"API-01", "`python`"}, {"PY-01"}),
+        ("codebase-review", {"languages": "java"}, {"JV-01", "CFG-01", "CI-01"}, {"PY-01"}),
+        # Only a known language labels the code fence: free text cannot break out of it
+        ("security-review", {"language": "py\n```", "code": "a"}, {"```python\na\n```"}, set()),
+    ],
+)
+async def test_review_prompts_select_checklists_by_language(prompt, args, included, excluded):
+    async with Client(mcp) as client:
+        text = (await client.get_prompt(prompt, args)).messages[0].content.text
+    assert {x for x in included | excluded if x in text} == included
 
 
 async def test_full_review_flow():
@@ -113,6 +131,7 @@ async def test_review_prompts_ask_for_the_developer_username():
         for prompt in ("security-review", "dependency-review", "codebase-review"):
             result = await client.get_prompt(prompt, {})
             assert "git config user.email" in result.messages[0].content.text, prompt
+            assert "`checklist_results`" in result.messages[0].content.text, prompt
 
 
 async def test_save_report_with_an_author_and_filter_the_list():
@@ -135,6 +154,52 @@ async def test_save_report_with_an_author_and_filter_the_list():
     assert too_long.is_error and control.is_error
     assert "may only contain" in text_of(control)
     assert len(services.list_reports(project="authored")) == 2
+
+
+async def test_save_report_checks_and_stores_the_review_coverage():
+    report = {
+        "project": "covered",
+        "summary": "Covered review",
+        "findings": [
+            {"title": "Shell", "severity": "high", "description": "Shell", "rule_id": "py-004"},
+            {"title": "Ghost", "severity": "low", "description": "Ghost", "rule_id": "XX-001"},
+            {"title": "Advisory", "severity": "low", "description": "Dep", "rule_id": "CVE-2024-1"},
+        ],
+        "checklist_results": [
+            {"item_id": "py-01", "outcome": "issue"},
+            {"item_id": "PY-02", "outcome": "not_applicable"},
+            {"item_id": "BOGUS-01", "outcome": "ok"},
+        ],
+        "scan_rules": ["PY-004", "PY-008", "ZZ-999"],
+    }
+    async with Client(mcp) as client:
+        saved = json.loads(text_of(await client.call_tool("save_security_report", report)))
+        stored = await client.call_tool(
+            "get_security_report", {"report_id": saved["report_id"], "format": "json"}
+        )
+        markdown = await client.call_tool("get_security_report", {"report_id": saved["report_id"]})
+        bare = await client.call_tool(
+            "save_security_report", {"project": "covered", "summary": "No cov", "findings": []}
+        )
+        too_many = await client.call_tool(
+            "save_security_report",
+            {**report, "scan_rules": ["PY-004"] * 501},
+        )
+    # Unknown ids are reported and dropped; advisory ids are not checked
+    warnings = " ".join(saved["warnings"])
+    assert "BOGUS-01" in warnings and "ZZ-999" in warnings and "XX-001" in warnings
+    assert "CVE-2024-1" not in warnings
+    assert saved["coverage"]["checklist_by_outcome"]["issue"] == 1
+    assert "PY-03" in saved["coverage"]["not_covered"]
+    data = json.loads(text_of(stored))
+    results = {r["item_id"]: r for r in data["checklist_results"]}
+    assert results["PY-01"]["outcome"] == "issue" and results["PY-01"]["title"]
+    assert results["PY-03"]["outcome"] == "not_covered"  # skipped item of a used domain
+    assert "JV-01" not in results and "BOGUS-01" not in results
+    assert data["scan_rules"] == ["PY-004", "PY-008"]
+    assert "Dismissed (no finding): PY-008." in text_of(markdown)
+    assert "No checklist result" in " ".join(json.loads(text_of(bare))["warnings"])
+    assert too_many.is_error
 
 
 async def test_save_report_with_a_review_type_and_filter_the_list():
@@ -215,16 +280,23 @@ async def test_review_prompts_set_the_report_language(monkeypatch):
     assert "in **es**" in overridden.messages[0].content.text
 
 
-async def test_report_language_set_in_the_web_interface_overrides_the_variable(monkeypatch):
-    monkeypatch.setattr(get_settings(), "report_language", "German")
+async def test_report_language_set_in_the_web_interface_applies_without_the_variable(
+    monkeypatch,
+):
     app_settings.set_report_language("Italian", "admin")
     async with Client(mcp) as client:
         stored = await client.get_prompt("security-review", {})
         argument = await client.get_prompt("security-review", {"report_language": "es"})
+        # The variable takes precedence over the stored value
+        monkeypatch.setattr(get_settings(), "report_language", "German")
+        variable = await client.get_prompt("security-review", {})
+        monkeypatch.undo()
+        get_settings().model_fields_set.discard("report_language")
         app_settings.set_report_language("", "admin")  # the agent chooses
         free = await client.get_prompt("security-review", {})
     assert "in **Italian**" in stored.messages[0].content.text
     assert "in **es**" in argument.messages[0].content.text
+    assert "in **German**" in variable.messages[0].content.text
     assert "Report language" not in free.messages[0].content.text
 
 
@@ -232,7 +304,6 @@ async def test_review_tools_give_the_report_language_to_reviews_without_a_prompt
     async with Client(mcp) as client:
         free_scan = await client.call_tool("scan_code", {"content": "x = 1", "language": "python"})
         free_checklist = await client.call_tool("get_review_checklist", {"domain": "api"})
-        monkeypatch.setattr(get_settings(), "report_language", "German")
         app_settings.set_report_language("French", "admin")
         scan = await client.call_tool("scan_code", {"content": "x = 1", "language": "python"})
         checklist = await client.call_tool("get_review_checklist", {"domain": "api"})
@@ -521,22 +592,21 @@ def test_unrestricted_token_reaches_every_project(http_app, two_projects):
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 
-async def test_request_enrollment_tool_creates_a_pending_project_token():
+async def test_request_enrollment_tool_requests_the_project_and_no_token(monkeypatch):
+    monkeypatch.setattr(get_settings(), "web_url", "https://secreview.example/ui")
     async with Client(mcp) as client:
         result = await client.call_tool(
-            "request_enrollment", {"project": "shop-api", "requested_by": "alice"}
+            "request_enrollment", {"project": "Acme/Shop_API", "requested_by": "alice"}
         )
-    created = json.loads(text_of(result))
-    assert (created["project"], created["role"], created["status"]) == (
+    enrolled = json.loads(text_of(result))
+    assert set(enrolled) == {"project", "web_url", "next_steps"}
+    assert (enrolled["project"], enrolled["web_url"]) == (
         "shop-api",
-        "mcp",
-        "pending",
+        "https://secreview.example/ui",
     )
-    assert created["requested_by"] == "alice"
-    assert "token approve" in created["next_steps"]
-    (listed,) = token_store.list_enrollments()
-    assert (listed["id"], listed["token_id"]) == (created["request_id"], created["id"])
-    assert created["token"] not in json.dumps(listed)
+    assert "personal MCP token" in enrolled["next_steps"]
+    assert token_store.list_tokens() == []
+    assert [item["project"] for item in access_control.list_enrollments()] == ["shop-api"]
 
 
 async def test_request_enrollment_errors(monkeypatch):
@@ -560,50 +630,76 @@ async def test_save_report_outside_token_project_suggests_enrollment(http_app):
     assert is_error and "request_enrollment" in text
 
 
+async def test_tools_normalize_the_project_name():
+    async with Client(mcp) as client:
+        saved = await client.call_tool(
+            "save_security_report",
+            {"project": "Acme/Shop_API", "summary": "Review", "findings": []},
+        )
+        posture = await client.call_tool(
+            "get_project_security_posture", {"project": "git@github.com:acme/shop-api.git"}
+        )
+        listed = await client.call_tool("list_security_reports", {"project": "SHOP API"})
+        invalid = await client.call_tool("get_project_security_posture", {"project": "---"})
+    assert json.loads(text_of(saved))["project"] == "shop-api"
+    assert json.loads(text_of(posture))["reports_total"] == 1
+    assert [row["project"] for row in listed.structured_content["result"]] == ["shop-api"]
+    assert invalid.is_error and "between 1 and 200" in text_of(invalid)
+
+
+async def test_a_restricted_token_saves_under_a_variant_of_its_project(http_app):
+    token = token_store.create_token("shop-ci", "mcp", "shop-api")["token"]
+    session = McpOverHttp(http_app, token)
+
+    is_error, text = session.call(
+        "save_security_report",
+        {"project": "https://github.com/acme/Shop_API.git", "summary": "Review", "findings": []},
+    )
+
+    assert not is_error, text
+    assert json.loads(text)["project"] == "shop-api"
+
+
 async def test_enrollment_server_only_exposes_enrollment():
     async with Client(enrollment_mcp) as client:
         tools = {t.name for t in (await client.list_tools()).tools}
         prompts = {p.name for p in (await client.list_prompts()).prompts}
         prompt = await client.get_prompt("security-review", {"project": "shop-api"})
-        status = await client.call_tool("get_enrollment_status", {})
-    assert tools == {"request_enrollment", "get_enrollment_status"}
+    assert tools == {"request_enrollment"}
     assert {"security-review", "codebase-review", "dependency-review"} <= prompts
     text = prompt.messages[0].content.text
     assert "request_enrollment" in text and "Authorization: Bearer" in text
-    assert "`label` the developer's username" in text
-    assert "`token_rejected`" in text and "enroll again" in text
+    assert "personal MCP token" in text and "never returns a token" in text
     assert "```\nshop-api\n```" in text and "untrusted" in text
-    assert json.loads(text_of(status)) == {"status": "not_enrolled"}
 
 
-async def test_client_without_token_enrolls_over_http(enrolling_app):
+def test_client_without_token_enrolls_over_http(enrolling_app):
     anonymous = McpOverHttp(enrolling_app, None)
     is_error, text = anonymous.call("request_enrollment", {"project": "shop-api"})
     assert not is_error, text
-    created = json.loads(text)
-    assert created["requested_from"] == "testclient"
+    assert json.loads(text)["project"] == "shop-api"
     # The review tools stay out of reach of an anonymous client
     hidden = anonymous.request("tools/call", {"name": "list_security_reports", "arguments": {}})
     assert hidden["result"]["isError"] is True
+    (event,) = audit.list_events(action="enrollment.requested")["events"]
+    assert (event["actor"], event["details"]["requested_from"]) == ("anonymous", "testclient")
+    assert [token["label"] for token in token_store.list_tokens()] == ["ops"]
 
-    # The pending token still only reaches the enrollment server
-    pending = McpOverHttp(enrolling_app, created["token"])
-    is_error, text = pending.call("get_enrollment_status")
-    assert not is_error and json.loads(text)["status"] == "pending"
-    is_error, text = pending.call("request_enrollment", {"project": "other"})
-    assert is_error and "waiting for approval" in text
-    assert len(token_store.list_enrollments()) == 1
 
-    token_store.approve_enrollment(created["label"])
-    approved = McpOverHttp(enrolling_app, created["token"])
-    is_error, _ = approved.call(
-        "save_security_report", {"project": "shop-api", "summary": "Review", "findings": []}
-    )
-    assert not is_error
-    is_error, text = approved.call(
+def test_request_enrollment_with_a_token_gives_it_no_project(http_app):
+    created = token_store.create_token("shop-ci", "mcp", "shop-api")
+    client = McpOverHttp(http_app, created["token"])
+
+    is_error, text = client.call("request_enrollment", {"project": "billing"})
+
+    assert not is_error, text
+    assert "administrator" in json.loads(text)["next_steps"]
+    is_error, text = client.call(
         "save_security_report", {"project": "billing", "summary": "Review", "findings": []}
     )
     assert is_error and "only save reports for 'shop-api'" in text
+    (event,) = audit.list_events(action="enrollment.requested")["events"]
+    assert (event["actor"], event["project"]) == ("token:shop-ci", "billing")
 
 
 def test_token_with_several_projects_reaches_only_them(http_app, two_projects):
@@ -620,99 +716,6 @@ def test_token_with_several_projects_reaches_only_them(http_app, two_projects):
         "save_security_report", {"project": "crm", "summary": "Review", "findings": []}
     )
     assert is_error and "'billing', 'shop-api'" in text
-
-
-def test_complementary_enrollment_over_mcp(http_app):
-    created = token_store.create_token("shop-ci", "mcp", "shop-api")
-    client = McpOverHttp(http_app, created["token"])
-    save_billing = {"project": "billing", "summary": "Review", "findings": []}
-
-    is_error, text = client.call(
-        "request_enrollment", {"project": "billing", "requested_by": "alice"}
-    )
-
-    assert not is_error, text
-    request = json.loads(text)
-    assert (request["kind"], request["token_id"], request["project"]) == (
-        "additional",
-        created["id"],
-        "billing",
-    )
-    assert "token" not in request and "No new token" in request["next_steps"]
-    assert request["requested_from"] == "testclient"
-    # Waiting for approval: the first project still works, the new one not yet
-    assert client.call("save_security_report", save_billing)[0] is True
-    is_error, text = client.call(
-        "save_security_report", {"project": "shop-api", "summary": "Review", "findings": []}
-    )
-    assert not is_error
-    is_error, text = client.call("get_enrollment_status")
-    assert not is_error
-    assert json.loads(text)["pending_projects"] == ["billing"]
-    is_error, text = client.call("request_enrollment", {"project": "billing"})
-    assert is_error and "already waiting" in text
-
-    token_store.approve_enrollment(request["id"])
-
-    assert client.call("save_security_report", save_billing)[0] is False
-    assert client.projects_listed() == {"shop-api", "billing"}
-    status = json.loads(client.call("get_enrollment_status")[1])
-    assert (status["projects"], status["pending_projects"]) == (["shop-api", "billing"], [])
-
-
-def test_unrestricted_token_needs_no_complementary_enrollment(http_app):
-    client = McpOverHttp(http_app, token_store.create_token("ci", "mcp")["token"])
-
-    is_error, text = client.call("request_enrollment", {"project": "billing"})
-
-    assert is_error and "already reaches every project" in text
-    assert token_store.list_enrollments() == []
-
-
-async def test_get_enrollment_status_without_token():
-    async with Client(mcp) as client:
-        status = await client.call_tool("get_enrollment_status", {})
-    assert json.loads(text_of(status)) == {"status": "not_enrolled"}
-
-
-def test_wrong_token_is_offered_a_new_enrollment(enrolling_app):
-    client = McpOverHttp(enrolling_app, "wrong")
-
-    # Only the enrollment server answers: the review tools stay out of reach
-    hidden = client.request("tools/call", {"name": "list_security_reports", "arguments": {}})
-    assert hidden["result"]["isError"] is True
-    is_error, text = client.call("get_enrollment_status")
-    assert not is_error
-    status = json.loads(text)
-    assert (status["status"], status["reason"]) == ("token_rejected", "invalid_token")
-    assert "request_enrollment" in status["next_steps"]
-
-    is_error, text = client.call("request_enrollment", {"project": "shop-api"})
-    assert not is_error, text
-    created = json.loads(text)
-    assert created["token"] != "wrong"
-    assert "replaces the rejected one" in created["next_steps"]
-    assert len(token_store.list_enrollments()) == 1
-
-
-def test_expired_token_is_offered_a_new_enrollment(enrolling_app):
-    from datetime import UTC, datetime, timedelta
-
-    from sqlmodel import select
-
-    from security_review_mcp.database import session_scope
-    from security_review_mcp.models import ApiToken
-
-    token = token_store.create_token("old", "mcp", "shop-api", expires_in_days=1)["token"]
-    with session_scope() as session:
-        row = session.exec(select(ApiToken).where(ApiToken.label == "old")).one()
-        row.expires_at = datetime.now(UTC) - timedelta(minutes=1)
-        session.add(row)
-
-    status = json.loads(McpOverHttp(enrolling_app, token).call("get_enrollment_status")[1])
-
-    assert (status["status"], status["reason"]) == ("token_rejected", "token_expired")
-    assert "expired" in status["next_steps"]
 
 
 def test_wrong_token_is_rejected_without_enrollment(http_app):

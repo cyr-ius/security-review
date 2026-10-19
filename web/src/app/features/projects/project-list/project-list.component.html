@@ -11,9 +11,99 @@
         <span class="badge text-bg-light ms-1">{{ openTotal() }}</span>
       }
     </a>
-    <app-refresh-button [loading]="projects.isLoading()" (refresh)="projects.reload()" />
+    <a class="btn btn-sm btn-outline-secondary" routerLink="/risk-acceptances">
+      <i class="bi bi-shield-exclamation" aria-hidden="true"></i>
+      {{ 'acceptances.title' | t }}
+    </a>
+    @if (canCreate()) {
+      <button type="button" class="btn btn-sm btn-outline-primary" (click)="openCreate()">
+        <i class="bi bi-plus-lg" aria-hidden="true"></i>
+        {{ 'projects.new' | t }}
+      </button>
+    }
+    <app-refresh-button
+      [loading]="projects.isLoading() || pending.isLoading()"
+      (refresh)="reload()"
+    />
   </div>
 </div>
+
+@if (notice(); as message) {
+  <div class="alert alert-success py-2" role="status">{{ message | t }}</div>
+}
+@if (error(); as message) {
+  <div class="alert alert-danger py-2" role="alert">{{ message | t }}</div>
+}
+
+@if (canCreate() && (pending.error() || (pending.value() ?? []).length)) {
+  <section class="card mb-3" aria-labelledby="pending-projects-title">
+    <div class="card-body">
+      <h2 id="pending-projects-title" class="h6">
+        {{ 'projects.pending' | t }}
+        <span class="badge text-bg-warning align-middle">{{ (pending.value() ?? []).length }}</span>
+      </h2>
+      <p class="text-body-secondary small">{{ 'projects.pendingHelp' | t }}</p>
+      @if (pendingError(); as message) {
+        <div class="alert alert-danger py-2" role="alert">{{ message | t }}</div>
+      }
+      @if (pending.error()) {
+        <div class="alert alert-danger py-2 mb-0" role="alert">
+          {{ 'projects.pendingLoadError' | t }}
+        </div>
+      } @else {
+        <div class="table-responsive">
+          <table class="table table-sm align-middle mb-0">
+            <thead>
+              <tr>
+                <th scope="col">{{ 'reportTable.project' | t }}</th>
+                <th scope="col">{{ 'projects.requester' | t }}</th>
+                <th scope="col">{{ 'projects.address' | t }}</th>
+                <th scope="col">{{ 'projects.requestedAt' | t }}</th>
+                <th scope="col">{{ 'projects.expiresAt' | t }}</th>
+                <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (request of pending.value() ?? []; track request.id) {
+                <tr>
+                  <td class="text-break">{{ request.project }}</td>
+                  <td class="text-break">{{ request.requested_by ?? '—' }}</td>
+                  <td class="font-monospace">{{ request.requested_from ?? '—' }}</td>
+                  <td>{{ request.created_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                  <td>{{ request.expires_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                  <td class="text-end text-nowrap">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-success me-1"
+                      [disabled]="deciding()"
+                      [attr.aria-label]="
+                        'projects.approveRequest' | t: { project: request.project }
+                      "
+                      (click)="approve(request)"
+                    >
+                      <i class="bi bi-check-lg" aria-hidden="true"></i>
+                      {{ 'projects.approve' | t }}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger"
+                      [disabled]="deciding()"
+                      [attr.aria-label]="'projects.rejectRequest' | t: { project: request.project }"
+                      (click)="reject(request)"
+                    >
+                      <i class="bi bi-x-lg" aria-hidden="true"></i>
+                      {{ 'projects.reject' | t }}
+                    </button>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </section>
+}
 
 @if (projects.error()) {
   <div class="alert alert-danger" role="alert">
@@ -33,13 +123,8 @@
   <app-table-controls
     idPrefix="projects"
     [search]="search()"
-    [sort]="sort()"
-    [direction]="direction()"
-    [sortOptions]="sortOptions()"
     [filters]="filters()"
     (searchChange)="search.set($event)"
-    (sortChange)="onSortValue($event)"
-    (directionChange)="direction.set($event)"
     (filterChange)="onProjectTableFilter($event)"
   />
   <div class="card">
@@ -54,13 +139,24 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr>
-              <th scope="col">{{ 'reportTable.project' | t }}</th>
-              <th scope="col">{{ 'projects.worst' | t }}</th>
+              <th scope="col" [appSortHeader]="sort" sortKey="name">
+                {{ 'reportTable.project' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="sort" sortKey="risk">
+                {{ 'projects.worst' | t }}
+              </th>
               @for (severity of severities; track severity) {
                 <th scope="col" class="text-end">{{ severityMeta[severity].label | t }}</th>
               }
               <th scope="col" class="text-end">{{ 'trend.reports' | t }}</th>
-              <th scope="col">{{ 'projects.lastReport' | t }}</th>
+              <th scope="col" [appSortHeader]="sort" sortKey="activity">
+                {{ 'projects.lastReport' | t }}
+              </th>
+              @if (canDelete()) {
+                <th scope="col" class="text-end">
+                  <span class="visually-hidden">{{ 'common.actions' | t }}</span>
+                </th>
+              }
             </tr>
           </thead>
           <tbody>
@@ -90,7 +186,31 @@
                   </td>
                 }
                 <td class="text-end numeric">{{ project.reports_total }}</td>
-                <td class="text-nowrap">{{ project.last_report_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="text-nowrap">
+                  @if (project.last_report_at) {
+                    {{ project.last_report_at | date: 'dd/MM/yyyy HH:mm' }}
+                  } @else {
+                    <span class="text-body-secondary">{{ 'projects.noReport' | t }}</span>
+                  }
+                </td>
+                @if (canDelete()) {
+                  <td class="text-end">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger action-button"
+                      [disabled]="deleting() !== null"
+                      [attr.aria-label]="'projects.delete' | t: { project: project.project }"
+                      [attr.title]="'projects.delete' | t: { project: project.project }"
+                      (click)="deleteProject(project.project)"
+                    >
+                      @if (deleting() === project.project) {
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                      } @else {
+                        <i class="bi bi-trash" aria-hidden="true"></i>
+                      }
+                    </button>
+                  </td>
+                }
               </tr>
             }
           </tbody>
@@ -105,4 +225,55 @@
       </p>
     }
   </div>
+}
+
+@if (canCreate()) {
+  <dialog
+    #createDialog
+    class="project-dialog shadow"
+    aria-labelledby="project-dialog-title"
+    (close)="createError.set(null)"
+  >
+    <form class="card" (submit)="createProject($event)" novalidate>
+      <div class="card-header d-flex align-items-center">
+        <h2 id="project-dialog-title" class="h6 mb-0">{{ 'projects.new' | t }}</h2>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary ms-auto"
+          [attr.aria-label]="'common.closeForm' | t"
+          (click)="closeCreate()"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        <label for="new-project" class="form-label fw-semibold">{{ 'projects.newName' | t }}</label>
+        <input
+          id="new-project"
+          type="text"
+          class="form-control"
+          autocomplete="off"
+          aria-describedby="new-project-help"
+          [formField]="newProjectForm.project"
+        />
+        <div id="new-project-help" class="form-text">{{ 'projects.newHelp' | t }}</div>
+        @if (createError(); as message) {
+          <div class="alert alert-danger py-2 mt-2 mb-0" role="alert">{{ message | t }}</div>
+        }
+      </div>
+      <div class="card-footer d-flex justify-content-end gap-2">
+        <button type="button" class="btn btn-outline-secondary" (click)="closeCreate()">
+          {{ 'common.cancel' | t }}
+        </button>
+        <button
+          type="submit"
+          class="btn btn-primary"
+          [disabled]="creating() || newProjectForm().invalid()"
+        >
+          <i class="bi bi-plus-lg" aria-hidden="true"></i>
+          {{ 'projects.create' | t }}
+        </button>
+      </div>
+    </form>
+  </dialog>
 }

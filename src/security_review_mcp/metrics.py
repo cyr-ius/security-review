@@ -12,7 +12,7 @@ from datetime import timedelta
 
 from sqlmodel import func, select
 
-from . import __version__, advisories, http_server, services, token_store
+from . import __version__, access_control, advisories, http_server, services, token_store
 from .database import session_scope
 from .models import AdvisoryUpdate, Severity, WebUser, as_utc
 
@@ -20,7 +20,7 @@ CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 # Active tokens counted by secreview_tokens_expiring_soon
 TOKEN_EXPIRY_WARNING = timedelta(days=14)
 # Reasons of secreview_auth_rejections_total, always exposed (0 until the first rejection)
-REJECTION_REASONS = ("invalid_token", "token_expired", "enrollment_pending", "insufficient_scope")
+REJECTION_REASONS = ("invalid_token", "token_expired", "insufficient_scope")
 
 Labels = dict[str, str]
 
@@ -135,7 +135,7 @@ def render() -> str:
     lines += _family(
         "secreview_tokens",
         "gauge",
-        "Bearer tokens by role and state (active, expired, pending).",
+        "Bearer tokens by role and state (active, expired).",
         [
             (count, {"role": role, "state": state})
             for (role, state), count in sorted(tokens["by_role_and_state"].items())
@@ -148,10 +148,10 @@ def render() -> str:
         [(tokens["expiring_soon"], None)],
     )
     lines += _family(
-        "secreview_enrollment_requests_pending",
+        "secreview_project_enrollments_pending",
         "gauge",
-        "Enrollment requests waiting for an administrator.",
-        [(tokens["pending_enrollments"], None)],
+        "Projects requested by an enrollment, waiting for an administrator.",
+        [(access_control.pending_project_count(), None)],
     )
     lines += _family(
         "secreview_web_users",

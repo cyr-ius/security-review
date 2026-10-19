@@ -20,39 +20,6 @@
     </div>
   </div>
 
-  @if (sortOptions().length) {
-    <div class="col-8 col-md-3">
-      <label class="form-label small" [for]="idPrefix() + '-sort'">{{ 'common.sortBy' | t }}</label>
-      <select
-        [id]="idPrefix() + '-sort'"
-        class="form-select form-select-sm"
-        [value]="sort()"
-        (change)="onSort($event)"
-      >
-        @for (option of sortOptions(); track option.value) {
-          <option [value]="option.value">{{ option.label }}</option>
-        }
-      </select>
-    </div>
-    <div class="col-4 col-md-auto">
-      <button
-        type="button"
-        class="btn btn-sm btn-outline-secondary"
-        [attr.aria-label]="
-          (direction() === 'asc' ? 'common.sortDescending' : 'common.sortAscending') | t
-        "
-        [title]="(direction() === 'asc' ? 'common.sortDescending' : 'common.sortAscending') | t"
-        (click)="toggleDirection()"
-      >
-        <i
-          class="bi"
-          [class]="direction() === 'asc' ? 'bi-sort-down' : 'bi-sort-up'"
-          aria-hidden="true"
-        ></i>
-      </button>
-    </div>
-  }
-
   @for (filter of filters(); track filter.key) {
     <div class="col-6 col-md-2">
       <label class="form-label small" [for]="idPrefix() + '-filter-' + filter.key">

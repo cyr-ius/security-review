@@ -30,7 +30,7 @@ class OidcLogins:
     """Current OIDC login flow of the controller.
 
     A ``fixed`` flow (tests) is always used. Otherwise the flow follows the effective settings,
-    the ``SECREVIEW_OIDC_*`` variables overridden in the web interface (see
+    the ``SECREVIEW_OIDC_*`` variables, completed in the web interface (see
     app_settings.effective_settings), read at each call: it is rebuilt when they change, so that
     every replica applies a change at its next login.
     """
@@ -162,7 +162,7 @@ async def password_login(request: Request, body: PasswordLogin, response: Respon
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid username or password")
     await run_in_threadpool(throttle.succeeded, username, address)
     result = await open_session(request, user["id"], response)
-    logger.info("Web login of %s (role %s) from %s", result.username, result.role, address)
+    logger.info("Web login of %s from %s", result.username, address)
     return result
 
 

@@ -34,7 +34,7 @@
   </section>
 }
 
-<section class="mb-4" aria-labelledby="user-form-title">
+<section class="card card-body mb-4" aria-labelledby="user-form-title">
   <h2 id="user-form-title" class="h5">
     @if (editing(); as user) {
       {{ 'users.editTitle' | t: { user: user.username } }}
@@ -83,6 +83,10 @@
         id="user-name"
         class="form-control"
         autocomplete="off"
+        data-1p-ignore
+        data-lpignore="true"
+        data-bwignore
+        data-form-type="other"
         autocapitalize="none"
         spellcheck="false"
         [placeholder]="
@@ -106,6 +110,10 @@
           class="form-control"
           type="password"
           autocomplete="new-password"
+          data-1p-ignore
+          data-lpignore="true"
+          data-bwignore
+          data-form-type="other"
           aria-describedby="user-password-help user-password-policy"
           [placeholder]="'users.passwordPlaceholder' | t"
           [class.is-invalid]="passwordInvalid()"
@@ -165,7 +173,7 @@
   </form>
 </section>
 
-<section aria-labelledby="users-title">
+<section class="card card-body mb-4" aria-labelledby="users-title">
   <h2 id="users-title" class="h5">{{ 'users.accounts' | t }}</h2>
   @if (users.error()) {
     <div class="alert alert-danger" role="alert">{{ 'users.loadError' | t }}</div>
@@ -173,13 +181,8 @@
     <app-table-controls
       idPrefix="users"
       [search]="tableSearch()"
-      [sort]="tableSort()"
-      [direction]="tableDirection()"
-      [sortOptions]="tableSortOptions()"
       [filters]="tableFilters()"
       (searchChange)="tableSearch.set($event)"
-      (sortChange)="onUserTableSort($event)"
-      (directionChange)="tableDirection.set($event)"
       (filterChange)="onUserTableFilter($event)"
     />
     @if (visibleUsers().length) {
@@ -187,12 +190,20 @@
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">{{ 'login.username' | t }}</th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="username">
+                {{ 'login.username' | t }}
+              </th>
               <th scope="col">{{ 'users.type' | t }}</th>
               <th scope="col">{{ 'layout.groups' | t }}</th>
-              <th scope="col">{{ 'users.access' | t }}</th>
-              <th scope="col">{{ 'users.lastLogin' | t }}</th>
-              <th scope="col">{{ 'common.createdAt' | t }}</th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="access">
+                {{ 'users.access' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="lastLogin">
+                {{ 'users.lastLogin' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="created">
+                {{ 'common.createdAt' | t }}
+              </th>
               <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
             </tr>
           </thead>
@@ -248,9 +259,10 @@
                   }
                 </td>
                 <td>
-                  {{ describe(user) }}
-                  @if (!user.effective_role) {
-                    <span class="badge text-bg-warning ms-1">{{ 'users.noAccess' | t }}</span>
+                  @for (permission of access(user); track permission) {
+                    <div class="text-nowrap">{{ permission }}</div>
+                  } @empty {
+                    <span class="badge text-bg-warning">{{ 'users.noAccess' | t }}</span>
                   }
                 </td>
                 <td>
@@ -303,19 +315,14 @@
 </section>
 
 @if ((revoked.value() ?? []).length) {
-  <section class="mt-4" aria-labelledby="revoked-title">
+  <section class="card card-body mb-4" aria-labelledby="revoked-title">
     <h2 id="revoked-title" class="h5">{{ 'users.revokedTitle' | t }}</h2>
     <p class="text-body-secondary small">{{ 'users.revokedHelp' | t }}</p>
     <app-table-controls
       idPrefix="revoked-users"
       [search]="revokedSearch()"
-      [sort]="revokedSort()"
-      [direction]="revokedDirection()"
-      [sortOptions]="revokedSortOptions()"
       [filters]="revokedFilters()"
       (searchChange)="revokedSearch.set($event)"
-      (sortChange)="onRevokedSort($event)"
-      (directionChange)="revokedDirection.set($event)"
       (filterChange)="onRevokedFilter($event)"
     />
     @if (visibleRevoked().length) {
@@ -323,9 +330,15 @@
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">{{ 'login.username' | t }}</th>
-              <th scope="col">{{ 'users.revokedBy' | t }}</th>
-              <th scope="col">{{ 'users.revokedAt' | t }}</th>
+              <th scope="col" [appSortHeader]="revokedSort" sortKey="username">
+                {{ 'login.username' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="revokedSort" sortKey="revoked_by">
+                {{ 'users.revokedBy' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="revokedSort" sortKey="revoked_at">
+                {{ 'users.revokedAt' | t }}
+              </th>
               <th scope="col" class="text-end">{{ 'common.action' | t }}</th>
             </tr>
           </thead>

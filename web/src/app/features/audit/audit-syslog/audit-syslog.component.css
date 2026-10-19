@@ -1,0 +1,21 @@
+.syslog-dialog {
+  inline-size: min(40rem, calc(100vw - 2rem));
+  max-block-size: calc(100dvh - 2rem);
+  padding: 0;
+  border: 0;
+  border-radius: var(--bs-border-radius-lg);
+  background: transparent;
+  color: var(--bs-body-color);
+}
+
+.syslog-dialog::backdrop {
+  background: var(--app-backdrop);
+}
+
+.syslog-card {
+  max-block-size: calc(100dvh - 2rem);
+}
+
+.syslog-card .card-body {
+  overflow-y: auto;
+}

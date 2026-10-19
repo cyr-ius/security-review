@@ -52,13 +52,15 @@ le fournisseur par son proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou l'écran **
 
 Les mêmes réglages se modifient dans l'écran **OIDC** (permission `users.manage` : la
 configuration OIDC décide qui rejoint quel groupe), sans redémarrer le contrôleur. Comme pour
-l'écran **Proxy sortant**, une valeur
-enregistrée en base **remplace sa variable** `SECREVIEW_OIDC_*`, champ par champ ; un champ jamais
-modifié suit sa variable :
+l'écran **Proxy sortant**, **une variable `SECREVIEW_OIDC_*` définie est toujours
+prioritaire**, champ par champ ; une valeur enregistrée en base ne s'applique qu'aux champs dont
+la variable n'est pas définie :
 
-- chaque champ porte le badge **Variable** (la variable s'applique, sa valeur est rappelée sous le
-  champ) ou **Interface web** (valeur enregistrée) ; le lien **Variable** d'un champ enregistré
-  supprime la valeur stockée et applique de nouveau la variable ;
+- un champ dont la variable est définie porte le badge **Variable** (avec un cadenas) : il
+  affiche la variable et ne se modifie pas ; une valeur enregistrée avant que la variable soit
+  définie est signalée *valeur définie ici ignorée*, avec un lien **Supprimer** ;
+- sinon le champ porte le badge **Interface web** (valeur enregistrée ; **Réinitialiser** la
+  supprime et la valeur par défaut s'applique de nouveau) ou **Par défaut** ;
 - le **secret client** n'est jamais réaffiché : laissé vide, le secret actuel est conservé ;
   **Supprimer** enregistre un secret vide (client public, PKCE seul) ;
 - **Tester la connexion** contacte le fournisseur avec les valeurs du formulaire, sans les
@@ -74,11 +76,14 @@ déjà ouvertes restent valides jusqu'à leur expiration. Restent des variables 
 `SECREVIEW_OIDC_CAFILE` (un fichier du déploiement) et les réglages de session
 (`SECREVIEW_SECRET_KEY`, `SECREVIEW_SESSION_HOURS`). Si une variable modifiée après coup rend
 invalide la combinaison avec les valeurs enregistrées, le contrôleur démarre quand même : la
-connexion OIDC est désactivée et l'erreur journalisée, à corriger dans l'écran.
+connexion OIDC est désactivée et l'erreur journalisée, à corriger dans l'écran ou dans les
+variables.
 
 Par l'API (`/api/v1/oidc/settings`, permission `users.manage`) : `GET` décrit chaque réglage (`value`
-enregistrée ou `null`, `env`, `effective` ; un secret défini vaut `***`), `PUT` modifie les champs
-envoyés (`null` applique de nouveau la variable, un champ absent est inchangé) et
+enregistrée ou `null`, `env`, `env_set` : la variable est définie et prioritaire, `effective` ;
+un secret défini vaut `***`), `PUT` modifie les champs envoyés (`null` supprime la valeur
+enregistrée, un champ absent est inchangé, un champ dont la variable est définie est refusé
+avec `422`) et
 `POST /api/v1/oidc/settings/test` teste le fournisseur sans rien enregistrer :
 
 ```bash
@@ -92,17 +97,22 @@ curl -X PUT https://secreview.example.com/api/v1/oidc/settings \
 
 ## Comptes OIDC
 
-Chaque utilisateur OIDC est un compte de l'écran **Utilisateurs** (badge **OIDC**), nommé par la
-valeur du claim `SECREVIEW_OIDC_USERNAME_CLAIM` (`preferred_username` par défaut), comparée
+Chaque utilisateur OIDC est un compte de l'écran **Utilisateurs** (badge **OIDC**), **identifié par
+l'émetteur et le claim `sub`** liés à sa première connexion, jamais par un nom. Il est nommé à sa
+création par la valeur du claim `SECREVIEW_OIDC_USERNAME_CLAIM` (`preferred_username` par défaut), comparée
 exactement, casse comprise. Il n'y a pas de repli sur `email` ou `sub`, et une valeur qui n'est
 pas un identifiant valide (caractère de contrôle ou invisible, espace, plus de 64 caractères) est
 refusée.
 
-À la connexion, le contrôleur cherche ce compte :
+À la connexion, le contrôleur cherche d'abord le compte lié à l'émetteur et au `sub` de la
+connexion : il s'ouvre, quoi que dise maintenant le claim d'identifiant (un nom changé chez le
+fournisseur garde le compte et son identifiant). Seule une identité liée à aucun compte est
+cherchée par son identifiant :
 
 | Situation | Résultat |
 |---|---|
-| Compte OIDC existant | Connexion, avec les permissions de ses groupes (ci-dessous) |
+| Compte lié à cet émetteur et à ce `sub` | Connexion, avec les permissions de ses groupes (ci-dessous), même si le claim d'identifiant a changé |
+| Compte OIDC de ce nom, pas encore lié (créé par un administrateur) | Le compte est **lié** à l'émetteur et au `sub`, puis connexion |
 | Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | Le compte est **créé** (`created_by` : `oidc`) si ses groupes lui donnent une permission ; sinon refus, sans création |
 | Aucun compte, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (défaut) | **Refus** : un administrateur doit d'abord créer le compte OIDC |
 | Compte **local** du même nom | **Refus** : une connexion OIDC n'ouvre jamais un compte local |
@@ -110,15 +120,20 @@ refusée.
 | Compte OIDC supprimé par un administrateur | **Refus**, même avec la création automatique (voir ci-dessous) |
 
 À la première connexion, le compte est **lié** à l'émetteur (issuer) et au claim `sub` du
-fournisseur : le compte est identifié par les deux. Une connexion ultérieure avec le même
-identifiant mais un autre `sub` (compte du fournisseur supprimé puis recréé, renommé...) ou
-venant d'un autre émetteur (un autre fournisseur d'identité, qui pourrait réutiliser le même
-`sub`) est refusée. Un compte lié quand seul le `sub` était enregistré reçoit l'émetteur de sa
-connexion suivante. Pour réattribuer l'identifiant, supprimez puis recréez le
-compte.
+fournisseur : le compte est identifié par les deux, et deux comptes ne peuvent pas les partager.
+Une connexion ultérieure avec le même identifiant mais un autre `sub` (compte du fournisseur
+supprimé puis recréé...) ou venant d'un autre émetteur (un autre fournisseur d'identité, qui
+pourrait réutiliser le même `sub`) est refusée. Un compte lié quand seul le `sub` était
+enregistré reçoit l'émetteur de sa connexion suivante. Pour réattribuer l'identifiant, supprimez
+puis recréez le compte.
+
+Avant la version 0023 du schéma, un nom changé chez le fournisseur créait un second compte lié à
+la même identité. La mise à jour garde l'identité sur le compte connecté en dernier ; les autres
+gardent leur nom, leurs groupes et leur historique mais ne peuvent plus se connecter :
+supprimez-les dans **Utilisateurs**.
 
 Ce qu'un compte OIDC peut faire vient de ses [groupes](access-control.md) : ceux qu'un
-administrateur lui a donnés (écran **Utilisateurs** ou **Groupes**, approbation d'un enrôlement)
+administrateur lui a donnés (écran **Utilisateurs** ou **Groupes**)
 et les groupes ouverts au OIDC nommés par son claim des groupes, enregistrés à chaque connexion
 (voir [groupes du fournisseur d'identité](#groupes-du-fournisseur-didentite)). Un compte sans
 aucune permission est refusé et ses sessions ouvertes se ferment. Un changement de ses groupes
@@ -127,9 +142,10 @@ connexion.
 
 **Supprimer un compte OIDC** (écran **Utilisateurs**, `DELETE /api/v1/users/{id}` ou
 `security-review-controller user delete NOM`) ferme aussitôt ses sessions et **révoque** son
-identifiant : une connexion OIDC ne le recrée plus, même avec la création automatique et des
+identifiant et son identité (émetteur et `sub`) : une connexion OIDC ne le recrée plus, sous ce
+nom ni sous un autre (nom changé chez le fournisseur), même avec la création automatique et des
 groupes qui lui donnent une permission (message « compte supprimé » sur la page de connexion). Pour lui
-rendre l'accès, un administrateur recrée le compte (à la main ou à l'approbation d'un enrôlement),
+rendre l'accès, un administrateur recrée le compte,
 ou lève la révocation (**Autoriser à nouveau**, `DELETE /api/v1/users/revoked/{identifiant}`) :
 le compte est alors recréé à sa prochaine connexion. `GET /api/v1/users/revoked` liste les
 comptes révoqués, avec l'auteur et la date de la suppression.
@@ -171,42 +187,16 @@ le rôle `triager` sur `billing`, et aucun groupe `staff`, l'utilisateur ne trie
 Le label d'une session OIDC est `oidc:<identifiant>` : c'est lui qui apparaît dans les journaux et
 l'historique du triage.
 
-## Lecture du projet à l'enrôlement
+## Lecture du projet
 
-À l'approbation d'une demande d'[enrôlement](http.md#enrolement-un-projet-demande-son-jeton),
-l'administrateur peut aussi donner au développeur la lecture du projet dans le portail, sur son
-**compte utilisateur** : le développeur qui a demandé un jeton MCP pour un projet en consulte
-alors les rapports.
-
-- Dans l'écran **Jetons de projet**, la colonne **Lecture dans le portail** est préremplie avec le
-  demandeur (`requested_by`) quand il est renseigné, et cochée quand le OIDC est activé. Ce champ
-  est déclaré par le client et **n'est pas vérifié** : contrôlez-le ou corrigez-le avant
-  d'approuver, ou décochez la case.
-- Le nom désigne un compte de l'écran **Utilisateurs**, local ou OIDC. Avec le OIDC activé, un nom
-  inconnu devient un **compte OIDC**, prêt pour sa première connexion ; sans OIDC, le compte doit
-  exister. Donner cet accès demande la permission `users.manage`.
-- Un compte qui lit déjà ce projet est inchangé. Sinon il rejoint, comme membre local, le
-  [groupe de projet](access-control.md#groupes-de-projet) `project:<projet>` (`reader` sur ce seul
-  projet, créé s'il manque), partagé par tous les développeurs enrôlés sur le projet. Une demande
-  complémentaire approuvée pour le même utilisateur ajoute le projet de la même façon.
-
-L'accès figure ensuite dans les groupes du compte, où il se modifie comme les autres. Il est indépendant du
-jeton MCP : révoquer le jeton ne le supprime pas.
-
-```bash
-# Approuver une demande en donnant la lecture du projet à l'utilisateur « alice »
-curl -X POST https://secreview.example.com/api/v1/enrollments/$REQUEST_ID/approve \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"portal_user": "alice"}'
-```
-
-La réponse contient alors `portal_user`, le compte mis à jour. Un identifiant invalide, un compte
-inconnu sans OIDC ou une limite atteinte sont refusés (`422`) avant l'approbation : la demande reste
-en attente. Le journal du contrôleur trace l'accès :
-
-```
-INFO security_review_mcp.web: Web access to shop-api given to web user alice by admin
-```
+La validation d'un [enrôlement](http.md#enrolement-demander-le-projet) crée le projet avec son
+[groupe de projet](access-control.md#groupes-de-projet) `project:<projet>`, sans aucun membre,
+et jamais un jeton ni un compte. Pour qu'un développeur lise le projet (et que son jeton MCP
+personnel l'atteigne), un administrateur ajoute son compte à ce groupe, depuis l'écran
+**Groupes** (ou **Utilisateurs**). Avec le OIDC, le compte existe une fois que le développeur
+s'est connecté (avec `SECREVIEW_OIDC_AUTO_CREATE_USERS=true`), ou un administrateur le crée
+auparavant dans **Utilisateurs**. L'accès apparaît ensuite dans les groupes du compte, où il se
+modifie comme les autres.
 
 !!! note "Mise à jour depuis les accès nominatifs"
     Les versions précédentes enregistraient ces accès à part (« accès nominatifs », API

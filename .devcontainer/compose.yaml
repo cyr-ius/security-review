@@ -15,9 +15,7 @@ services:
       - ..:/workspaces/security-review-mcp:cached
       - ${HOME}/.claude:/home/vscode/.claude:cached
     environment:
-      # Used by the MCP server, the controller and the CLI (tests use an in-memory database).
-      # Development-only credentials of the db service below.
-      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:secreview@db:5432/secreview  # secreview:ignore GEN-007 local dev database
+      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:secreview@db:5432/secreview # secreview:ignore GEN-007 local dev database
     depends_on:
       db:
         condition: service_healthy
@@ -30,7 +28,7 @@ services:
       POSTGRES_USER: secreview
       POSTGRES_PASSWORD: secreview
     volumes:
-      - secreview-dev-pg:/var/lib/postgresql/data
+      - secreview-dev-pg:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U secreview -d secreview"]
       interval: 5s

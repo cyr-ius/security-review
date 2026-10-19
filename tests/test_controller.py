@@ -8,6 +8,7 @@ from sqlmodel import select
 from starlette.testclient import TestClient
 
 from security_review_mcp import (
+    access_control,
     app_settings,
     audit,
     cli,
@@ -127,7 +128,8 @@ def test_serve_does_not_serve_mcp_nor_the_public_enrollment(settings, captured_r
     assert client.post("/mcp", headers=headers).status_code == 404
     # Without a token, nothing but the public files: no unauthenticated write endpoint
     assert client.post("/api/v1/enroll", json={"project": "p"}).status_code == 401
-    assert token_store.list_enrollments() == []
+    with session_scope() as session:
+        assert not access_control.project_exists(session, "p")
 
 
 def test_serve_creates_the_admin_once_without_logging_any_password(
@@ -156,7 +158,7 @@ def test_serve_creates_the_admin_once_without_logging_any_password(
     identity = client.get("/api/v1/me", headers=headers).json()
     assert (identity["client"], identity["role"], identity["local_account"]) == (
         "admin",
-        "admin",
+        "user",
         True,
     )
     # The password is not a bearer token
@@ -288,6 +290,26 @@ def test_administration_commands_run_from_the_controller(settings, capsys):
 
     assert exc.value.code == cli.EXIT_PASSED
     assert json.loads(capsys.readouterr().out)["label"] == "ci"
+
+
+def test_project_cli_approves_and_rejects_the_pending_projects(capsys):
+    for project in ("shop-api", "spam"):
+        access_control.enroll_project(project, "alice")
+
+    assert cli.run(["project", "list"]) == cli.EXIT_PASSED
+    shop, spam = json.loads(capsys.readouterr().out)
+    assert (shop["project"], shop["requested_by"]) == ("shop-api", "alice")
+    assert cli.run(["project", "approve", str(shop["id"])]) == cli.EXIT_PASSED
+    assert json.loads(capsys.readouterr().out)["group"] == "project:shop-api"
+    assert cli.run(["project", "reject", str(spam["id"])]) == cli.EXIT_PASSED
+    capsys.readouterr()
+
+    assert cli.run(["project", "reject", str(spam["id"])]) == cli.EXIT_ERROR
+    assert "not found" in json.loads(capsys.readouterr().err)["error"]
+    assert access_control.list_enrollments() == []
+    with session_scope() as session:
+        assert access_control.project_exists(session, "shop-api")
+        assert not access_control.project_exists(session, "spam")
 
 
 def test_token_cli_creates_with_an_expiry_and_rotates(settings, capsys):
@@ -458,14 +480,16 @@ def test_serve_refuses_an_invalid_osv_setting(settings, captured_run, ui_dir, ca
     assert "SECREVIEW_OSV_URL" in capsys.readouterr().err
 
 
-def test_serve_forwards_the_audit_events_only_when_configured(
+def test_serve_always_runs_the_syslog_forwarder_with_the_web_settings(
     settings, captured_run, ui_dir, monkeypatch
 ):
     started: list[str] = []
+    forwarders = []
 
     class FakeForwarder:
-        def __init__(self, current) -> None:
-            started.append(current.audit_syslog_address)
+        def __init__(self, settings, current) -> None:
+            self.current = current
+            forwarders.append(self)
 
         def start(self) -> None:
             started.append("start")
@@ -475,11 +499,13 @@ def test_serve_forwards_the_audit_events_only_when_configured(
 
     monkeypatch.setattr(controller.audit_syslog, "AuditForwarder", FakeForwarder)
     controller.main(["serve"])
-    assert started == []
 
-    settings(audit_syslog_address="udp://syslog.example.com:514")
-    controller.main(["serve"])
-    assert started == ["udp://syslog.example.com:514", "start", "stop"]
+    # Started even without a variable: a server may be set in the web interface later
+    assert started == ["start", "stop"]
+    (forwarder,) = forwarders
+    assert forwarder.current().audit_syslog_address is None
+    app_settings.set_audit_syslog({"address": "tcp://siem.example.com:601"}, "user:admin")
+    assert forwarder.current().audit_syslog_address == "tcp://siem.example.com:601"
 
 
 def test_serve_refuses_an_invalid_syslog_address(settings, captured_run, capsys):

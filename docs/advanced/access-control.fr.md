@@ -23,10 +23,13 @@ compte.
 | `findings.triage` | Changer le statut d'un finding, rejeter la proposition d'un agent | ✅ |
 | `rules.manage` | Règles de scan et checklists | |
 | `standards.manage` | Normes de développement | |
-| `tokens.manage` | Jetons de projet et demandes d'enrôlement | |
+| `tokens.manage` | Jetons de projet | |
 | `settings.manage` | Langue des rapports, proxy sortant, base d'avis | |
 | `users.manage` | Utilisateurs, groupes, rôles et configuration OIDC (elle décide qui rejoint quel groupe) | |
 | `audit.read` | Journal d'audit | |
+| `projects.create` | Créer un nouveau projet, que son créateur lit ensuite (voir [Création d'un projet](#creation-dun-projet)), et valider ou refuser les projets demandés par un [enrôlement](http.md#enrolement-demander-le-projet) | |
+| `projects.delete` | Supprimer un projet avec ses rapports, ses findings et ses références (voir [Suppression d'un projet](#suppression-dun-projet)) | |
+| `mcp_tokens.create` | Créer un [jeton MCP personnel](../usage/web-interface.md#jetons-mcp-personnels) dans **Mon compte** | |
 
 `users.manage` permet à son détenteur de se donner toutes les autres permissions : ne la donnez
 qu'aux administrateurs. Accepter un risque ou marquer un faux positif demande en plus une session
@@ -39,11 +42,16 @@ dès le départ et ne peuvent être ni modifiés ni supprimés, car le contrôle
 
 | Rôle intégré | Permissions | Utilisé par |
 |---|---|---|
-| `reader` | `reports.read` | les [groupes de projet](#groupes-de-projet) créés à l'approbation d'un enrôlement |
+| `reader` | `reports.read` | les [groupes de projet](#groupes-de-projet) des projets validés ou créés |
 | `admin` | toutes les permissions (y compris celles qu'ajoute une version ultérieure) | le groupe `administrators` du premier administrateur, `SECREVIEW_OIDC_ADMIN_GROUPS` |
 
-Le rôle `triager` (`reports.read`, `findings.triage`) est lui aussi créé avec la base, mais c'est
-un rôle ordinaire : les administrateurs le modifient ou le suppriment comme n'importe quel autre.
+Deux rôles ordinaires sont aussi créés avec la base : les administrateurs les modifient ou les
+suppriment comme n'importe quel autre.
+
+| Rôle ordinaire | Permissions | Donne |
+|---|---|---|
+| `triager` | `reports.read`, `findings.triage` | le triage des findings |
+| `mcp-user` | `mcp_tokens.create` | la création d'un [jeton MCP personnel](../usage/web-interface.md#jetons-mcp-personnels) ; donnez-le avec un rôle de lecture, car le jeton atteint les projets que son utilisateur peut lire |
 
 Les administrateurs créent d'autres rôles (100 au plus), par exemple un rôle *Auditeur* avec
 `audit.read` et `reports.read`. La modification d'un rôle s'applique aussitôt aux sessions
@@ -59,24 +67,77 @@ toujours à tous les projets.
 
 Les membres ont deux origines :
 
-- **locale** : ajoutés par un administrateur (écran **Groupes** ou **Utilisateurs**, CLI,
-  approbation d'un enrôlement) ;
+- **locale** : ajoutés par un administrateur (écran **Groupes** ou **Utilisateurs**, CLI) ;
 - **OIDC** : quand le groupe est **ouvert au OIDC**, les utilisateurs OIDC dont le claim des groupes
   contient **exactement le nom du groupe** le rejoignent à chaque connexion (voir
   [OIDC](sso.md#groupes-du-fournisseur-didentite)). Les valeurs du claim qui ne nomment aucun groupe
   sont ignorées.
 
+Un nouveau groupe n'est ouvert au OIDC que sur demande (`"sso": true` par l'API).
 Renommer un groupe, ou le fermer au OIDC, retire aussitôt ses membres OIDC.
 
 ## Groupes de projet
 
-L'approbation d'un enrôlement avec lecture dans le portail (voir
-[OIDC](sso.md#lecture-du-projet-a-lenrolement)) ajoute le compte, comme membre local, au **groupe
-de projet** du projet : un groupe non ouvert au OIDC dont le seul rôle est `reader` sur ce seul
-projet. Un groupe existant de ce type est réutilisé (même créé par un administrateur, quel que
-soit son nom) ; sinon le groupe `project:<projet>` est créé (avec un numéro, par exemple
-`project:shop (2)`, quand un autre groupe porte déjà ce nom). Tous les développeurs enrôlés sur un
-projet partagent ainsi un groupe, qu'un administrateur gère comme les autres.
+Le **groupe de projet** d'un projet est un groupe non ouvert au OIDC dont le seul rôle est
+`reader` sur ce seul projet. La validation d'un [enrôlement](http.md#enrolement-demander-le-projet) le
+crée **sans aucun membre** (pour que le projet existe, sans donner d'accès), et la
+[création d'un projet](#creation-dun-projet) le crée avec son créateur. Un groupe existant de ce
+type est réutilisé (même créé par un administrateur, quel que soit son nom) ; sinon le groupe
+`project:<projet>` est créé (avec un numéro, par exemple `project:shop (2)`, quand un autre groupe
+porte déjà ce nom). Un administrateur donne à un développeur la lecture du projet en ajoutant son
+compte à ce groupe (voir [lecture du projet](sso.md#lecture-du-projet)) : tous les développeurs
+d'un projet partagent ainsi un groupe, géré comme les autres.
+
+## Création d'un projet
+
+Un utilisateur dont les groupes portent `projects.create` crée un projet avec le bouton
+**Nouveau projet** (à gauche d'**Actualiser**) de l'écran **Projets**, dans une fenêtre modale (`POST /api/v1/projects`, depuis une session de l'interface web
+uniquement : un jeton ne crée jamais de projet). Le contrôleur crée le
+[groupe de projet](#groupes-de-projet) du projet et y ajoute le compte comme membre local : le
+compte lit aussitôt le projet, de même que son
+[jeton MCP personnel](../usage/web-interface.md#jetons-mcp-personnels), qui peut alors y
+enregistrer les rapports de son agent. Le projet apparaît sur l'écran **Projets**,
+**Aucun rapport**, jusqu'à son premier rapport.
+
+Le nom est [normalisé](../usage/prompts-tools.md#nom-du-projet) (`Mobile App` crée
+`mobile-app`). Seul un **nouveau** projet peut être créé : un nom qui a déjà un rapport, qu'un rôle d'un groupe
+cite (projet validé compris), ou qu'un jeton atteint est refusé (409) ; un projet encore en
+attente n'est pas encore connu : le créer solde sa demande, pour que cette
+permission n'ouvre jamais les rapports d'un projet existant. Le créateur n'obtient que `reader` ;
+un administrateur donne le triage ou d'autres membres par les groupes, comme d'habitude. Chaque
+création est inscrite au journal d'audit (`project.created`).
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/projects -d '{"project": "mobile-app"}'
+# {"project": "mobile-app", "reports_total": 0, "last_report_at": null, …}
+```
+
+## Suppression d'un projet
+
+Un utilisateur dont les groupes portent `projects.delete` (seul `admin` par défaut) supprime un
+projet avec le bouton corbeille de sa ligne sur l'écran **Projets**, après confirmation
+(`DELETE /api/v1/projects/{project}`, depuis une session de l'interface web uniquement : un
+jeton ne supprime jamais de projet). La suppression est irréversible et retire, en une seule
+transaction, tout ce qui se rapporte au projet :
+
+- ses rapports, avec leurs findings et les commentaires de ces findings ;
+- le projet dans les rôles des groupes : un rôle qui n'a plus de projet est retiré (jamais laissé
+  sur tous les projets), et un [groupe de projet](#groupes-de-projet) qui n'a plus de rôle est
+  supprimé avec ses membres ; tout autre groupe est conservé ;
+- le projet dans les jetons : un jeton qui n'atteint aucun autre
+  projet est révoqué (jamais laissé sur tous les projets), les autres gardent leurs autres projets.
+
+Le journal d'audit conserve les événements du projet et inscrit `project.deleted`, avec les
+comptes dans son détail ; chaque groupe et jeton modifié ou supprimé a son propre événement
+(`group.deleted`, `group.roles_changed`, `token.revoked`, `token.projects_changed`). Un projet
+inconnu donne 404.
+
+```bash
+curl -X DELETE -H "Authorization: Bearer $SESSION" \
+  https://secreview.example.com/api/v1/projects/mobile-app
+# {"project": "mobile-app", "reports": 3, "findings": 12, "groups_deleted": ["project:mobile-app"], …}
+```
 
 ## Ce qu'un utilisateur peut faire
 
@@ -89,12 +150,15 @@ par un autre lit tous les projets et ne trie que `crm`.
 Un changement de groupe (rôles, membres) ou de rôle s'applique aussitôt aux sessions ouvertes. Un
 compte sans aucune permission ne peut pas se connecter, et ses sessions ouvertes s'arrêtent.
 
-`GET /api/v1/me` renvoie les permissions de l'appelant ; `role` les résume pour l'affichage :
-`admin` avec toutes les permissions sur tous les projets, `triager` avec `findings.triage`,
-`reader` sinon.
+Un utilisateur n'a pas de rôle à lui : `GET /api/v1/me` renvoie ses permissions, chacune avec
+ses projets (`null` : tous les projets), et `role` vaut toujours `user` pour une session web (le
+rôle du jeton sinon). L'écran **Utilisateurs** et **Mon compte** affichent ces permissions telles
+quelles : un utilisateur qui ne gère que les jetons et les normes ne lit aucun projet. Une session
+web ne passe jamais pour un jeton `admin`, même avec toutes les permissions : les routes réservées
+aux jetons (`/metrics`, les scans de pipeline) la refusent.
 
 ```json
-{"client": "alice", "role": "triager", "projects": null,
+{"client": "alice", "role": "user", "projects": null,
  "permissions": {"reports.read": null, "findings.triage": ["crm"]}, …}
 ```
 
@@ -108,11 +172,9 @@ Gardez de préférence un administrateur local.
 ## Jetons créés depuis l'interface
 
 Un jeton ne donne jamais plus que ce que détient son créateur : créer un jeton, changer ses
-projets, renouveler son secret, le révoquer, ou approuver ou rejeter une demande d'enrôlement
-demande `reports.read` sur tous les projets du jeton, avant et après un changement de ses
-projets, et, pour un jeton `api` de rôle, chaque permission de son rôle sur ces projets ; l'écran **Jetons** ne liste que les jetons et demandes des projets que l'utilisateur
-lit. Donner à un utilisateur
-la lecture d'un projet à l'approbation d'un enrôlement demande aussi `users.manage`.
+projets, renouveler son secret ou le révoquer demande `reports.read` sur tous les projets du jeton, avant et après un changement de ses
+projets, et, pour un jeton `api` de rôle, chaque permission de son rôle sur ces projets ; l'écran **Jetons** ne liste que les jetons des projets que l'utilisateur
+lit.
 
 ## API
 

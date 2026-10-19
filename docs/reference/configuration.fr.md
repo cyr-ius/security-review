@@ -5,6 +5,11 @@ un fichier `.env` dans le répertoire courant (voir `.env.example`). La colonne 
 indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 (`security-review-controller`) ou les deux.
 
+Certains réglages se définissent aussi dans l'[interface web](../usage/web-interface.md#ecrans) :
+langue des rapports, proxy sortant, connexion OIDC et serveur syslog du journal d'audit. **Une variable définie est toujours
+prioritaire** sur la valeur de l'interface, qui ne s'applique que si la variable n'est pas
+définie (l'écran verrouille alors le champ).
+
 | Variable | Défaut | Processus | Rôle |
 |---|---|---|---|
 | `SECREVIEW_DATABASE_URL` | `sqlite:///./security_reports.db` | les deux | URL SQLAlchemy de la base, **partagée** par les deux processus |
@@ -12,14 +17,16 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_DB_AUTO_UPGRADE` | `true` | les deux | Migre le schéma au démarrage du contrôleur, du serveur MCP stdio et des commandes CLI ; à `false`, ils vérifient seulement qu'il est à jour (voir [migrations](../advanced/architecture.md#migrations-du-schema)). Le serveur MCP HTTP ne migre jamais |
 | `SECREVIEW_TRANSPORT` | `stdio` | MCP | `stdio` ou `streamable-http` |
 | `SECREVIEW_HOST` | `127.0.0.1` | les deux | Adresse d'écoute (HTTP) |
-| `DOCKER_MCP_PORT` | `8000` | les deux | Port d'écoute (HTTP) |
+| `SECREVIEW_PORT` | `8000` | les deux | Port d'écoute (HTTP) |
 | `SECREVIEW_ADMIN_USERNAME` | `admin` | Contrôleur | Nom du [premier administrateur](../usage/web-interface.md#premier-administrateur), créé au premier démarrage tant qu'aucun compte n'existe (groupe `administrators`), avec un mot de passe aléatoire jamais journalisé : définissez-le avec `security-review-controller user reset-password` |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | MCP | Tant qu'aucun jeton n'existe, accepte toute requête sur `/mcp` même si le serveur n'écoute pas sur localhost (par défaut il reste alors fermé, voir [Jetons Bearer](../advanced/http.md#jetons-bearer)) ; à réserver aux tests sur un réseau isolé |
 | `SECREVIEW_SECRET_KEY` | — | Contrôleur | Secret de signature des sessions de l'interface web (comptes et OIDC), 32 caractères au moins, identique sur toutes les répliques ; sans lui, lu dans `SECREVIEW_SECRET_KEY_FILE` |
 | `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | Contrôleur | Fichier du secret de session quand `SECREVIEW_SECRET_KEY` n'est pas défini : généré au premier démarrage (droits `0600`), relu aux suivants ; `""` : un secret aléatoire à chaque démarrage (les sessions se terminent au redémarrage) |
 | `SECREVIEW_SESSION_HOURS` | `8` | Contrôleur | Durée d'une session de l'interface web (1 à 24 heures) |
-| `SECREVIEW_ENROLLMENT` | `true` | MCP | [Enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton) : un client sans jeton peut demander un jeton de projet (serveur MCP restreint, `POST /api/v1/enroll`), actif après approbation sur le contrôleur |
-| `SECREVIEW_SERVER_URL` | — | Client | URL du serveur MCP partagé utilisé par [`security-review-mcp scan-deps`](../advanced/dependencies.md#scan-avec-un-serveur-partage-hook-de-commit) (valeur par défaut de `--url`) ; jamais utilisée par les serveurs |
+| `SECREVIEW_ENROLLMENT` | `true` | MCP | [Enrôlement](../advanced/http.md#enrolement-demander-le-projet) : un client sans jeton peut demander son projet (serveur MCP restreint, `POST /api/v1/enroll`), qu'un utilisateur portant `projects.create` valide sur le contrôleur ; aucun jeton n'est créé, l'utilisateur crée un jeton MCP personnel dans l'interface web |
+| `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | les deux | Jours pendant lesquels un projet demandé par un enrôlement attend sa validation (1 à 365) avant d'être supprimé |
+| `SECREVIEW_WEB_URL` | — | MCP | URL publique de l'interface web (`https://…/ui`), donnée aux clients sans jeton valide (réponse de l'enrôlement, `401` de `/mcp`) pour que l'utilisateur sache où se connecter et créer un jeton MCP personnel ; sans elle, aucun lien n'est donné |
+| `SECREVIEW_MCP_URL` | — | Client | URL du serveur MCP partagé utilisé par [`security-review-mcp scan-deps`](../advanced/dependencies.md#scan-avec-un-serveur-partage-hook-de-commit) (valeur par défaut de `--url`) ; jamais utilisée par les serveurs |
 | `SECREVIEW_TOKEN` | — | Client | Jeton Bearer envoyé par `scan-deps` à ce serveur, et par [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) au contrôleur (jeton `ci`) ; jamais utilisé par les serveurs |
 | `SECREVIEW_CONTROLLER_URL` | — | Client | URL du contrôleur utilisée par [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) (valeur par défaut de `--url`) ; lue dans l'environnement uniquement, jamais dans `.env` |
 | `SECREVIEW_TLS_CERTFILE` | — | les deux | Certificat : active le TLS |
@@ -34,7 +41,7 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_WEB_UI` | `true` | Contrôleur | Sert l'[interface web](../usage/web-interface.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Contrôleur | Dossier d'une autre build de l'interface web |
 | `SECREVIEW_SWAGGER_ENABLED` | `false` | Contrôleur | Servir la documentation Swagger (`/api/docs`) et le schéma OpenAPI (`/api/openapi.json`), depuis les fichiers de la build de l'interface web |
-| `SECREVIEW_OIDC_ENABLED` | `false` | Contrôleur | Active la [connexion OIDC OpenID Connect](../advanced/sso.md) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` et `SECREVIEW_OIDC_ONLY` se modifient aussi dans l'écran **OIDC**, dont les valeurs enregistrées les remplacent ([configurer le OIDC dans l'interface](../advanced/sso.md#configurer-le-oidc-dans-linterface)) |
+| `SECREVIEW_OIDC_ENABLED` | `false` | Contrôleur | Active la [connexion OIDC OpenID Connect](../advanced/sso.md) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` et `SECREVIEW_OIDC_ONLY` se définissent aussi dans l'écran **OIDC**, dont les valeurs enregistrées s'appliquent quand la variable n'est pas définie ([configurer le OIDC dans l'interface](../advanced/sso.md#configurer-le-oidc-dans-linterface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | Contrôleur | URL de l'émetteur (HTTPS ; HTTP seulement sur localhost), dont `/.well-known/openid-configuration` est lu |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Contrôleur | Identifiant du client déclaré chez le fournisseur |
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Contrôleur | Secret du client ; vide pour un client public (PKCE seul) |
@@ -48,22 +55,24 @@ indique qui utilise la variable : `MCP` (`security-review-mcp`), `Contrôleur`
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `OIDC` | Contrôleur | Nom affiché sur le bouton de connexion (40 caractères au plus) |
 | `SECREVIEW_OIDC_CAFILE` | — | Contrôleur | Bundle de CA pour joindre le fournisseur (CA interne) ; le proxy est celui de `HTTPS_PROXY` |
 | `SECREVIEW_OIDC_ONLY` | `false` | Contrôleur | Avec le OIDC activé, refuse la connexion par mot de passe des comptes locaux ([OIDC seul](../advanced/sso.md#oidc-seul)) ; une variable uniquement, jamais modifiée dans l'interface |
-| `HTTPS_PROXY` (sinon `HTTP_PROXY`) | — | Contrôleur | Variable standard, sans le préfixe `SECREVIEW_` (nom en minuscules accepté) : proxy HTTP des connexions sortantes du contrôleur, téléchargement OSV et fournisseur OIDC (`http://[utilisateur:mot de passe@]hôte:port`, `hôte:port` valant `http://hôte:port`) ; sans elle, la connexion est directe. Remplacé par le proxy choisi dans l'écran [**Proxy sortant**](../usage/web-interface.md#ecrans) (ou la connexion directe) |
-| `NO_PROXY` | — | Contrôleur | Variable standard : [hôtes joints sans le proxy](../advanced/dependencies.md#hotes-sans-proxy), séparés par des virgules : domaines (sous-domaines compris), adresses IP, `*` (pas de plages CIDR) ; la boucle locale est toujours directe. Remplacé par la liste de l'écran **Proxy sortant** |
+| `HTTPS_PROXY` (sinon `HTTP_PROXY`) | — | Contrôleur | Variable standard, sans le préfixe `SECREVIEW_` (nom en minuscules accepté) : proxy HTTP des connexions sortantes du contrôleur, téléchargement OSV et fournisseur OIDC (`http://[utilisateur:mot de passe@]hôte:port`, `hôte:port` valant `http://hôte:port`) ; sans elle, la connexion est directe, ou passe par le proxy choisi dans l'écran [**Proxy sortant**](../usage/web-interface.md#ecrans). Définie (non vide), elle est prioritaire sur cet écran |
+| `NO_PROXY` | — | Contrôleur | Variable standard : [hôtes joints sans le proxy](../advanced/dependencies.md#hotes-sans-proxy), séparés par des virgules : domaines (sous-domaines compris), adresses IP, `*` (pas de plages CIDR) ; la boucle locale est toujours directe. Définie (non vide), elle est prioritaire sur la liste de l'écran **Proxy sortant** |
 | `SECREVIEW_OSV_AUTO_UPDATE` | `false` | Contrôleur | [Mise à jour quotidienne](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur) de la base OSV par `serve` |
 | `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Contrôleur | Âge de la base au-delà duquel `serve` la met à jour (minimum `1`) |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Contrôleur | Source des exports `<URL>/<écosystème>/all.zip` (HTTPS uniquement, miroir possible) |
 | `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven` | Contrôleur | Écosystèmes téléchargés, séparés par des virgules |
 | `SECREVIEW_OSV_CAFILE` | — | Contrôleur | Bundle de CA utilisé à la place de celui du système (miroir interne, proxy qui inspecte le TLS) |
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Contrôleur | Taille maximale d'une archive téléchargée |
-| `SECREVIEW_REPORT_LANGUAGE` | — | MCP | [Langue des rapports](../usage/prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent et qu'aucune langue n'est choisie dans l'écran [**Langue des rapports**](../usage/web-interface.md#ecrans) ; vide : l'agent choisit |
+| `SECREVIEW_REPORT_LANGUAGE` | — | MCP | [Langue des rapports](../usage/prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent ; définie (même vide : l'agent choisit), elle est prioritaire sur la langue choisie dans l'écran [**Langue des rapports**](../usage/web-interface.md#ecrans) |
 | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Contrôleur | Âge en jours au-delà duquel `serve` supprime les [rapports sans findings](#conservation-des-rapports-sans-findings) ; `0` conserve tous les rapports |
 | `SECREVIEW_MAX_DISMISSAL_DAYS` | `365` | Contrôleur | Validité maximale en jours d'une [décision](../usage/web-interface.md#triage-des-findings) `accepted` ou `false_positive` : sa date d'expiration ne peut pas être plus lointaine |
-| `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Contrôleur | Validité maximale en jours d'un jeton Bearer créé ou [renouvelé](../advanced/http.md#expiration-et-renouvellement-des-jetons) (CLI, interface web, enrôlement), qui est aussi sa validité par défaut ; `0` : les jetons n'expirent pas, sauf validité demandée |
+| `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | Contrôleur | Une personne peut [accepter un risque](../usage/web-interface.md#triage-des-findings) **Sans expiration** : l'acceptation dure jusqu'à ce que quelqu'un rouvre le finding. `false` : toute acceptation exige une date d'expiration. Un faux positif en exige toujours une |
+| `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Contrôleur | Validité maximale en jours d'un jeton Bearer créé ou [renouvelé](../advanced/http.md#expiration-et-renouvellement-des-jetons) (CLI, interface web), qui est aussi sa validité par défaut ; `0` : les jetons n'expirent pas, sauf validité demandée |
+| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Contrôleur | Jetons personnels qu'un utilisateur web peut détenir de chaque rôle, [API REST](../usage/web-interface.md#jetons-api) et [MCP](../usage/web-interface.md#jetons-mcp-personnels), de `1` à `10` : révoquez-en un pour en créer un autre |
 | `SECREVIEW_AUDIT_RETENTION_DAYS` | `365` | Contrôleur | Âge en jours au-delà duquel `serve` supprime les événements du [journal d'audit](../advanced/audit-metrics.md#journal-daudit) ; `0` conserve tous les événements |
 | `SECREVIEW_AUDIT_MAX_EVENTS` | `0` | Contrôleur | Nombre d'[événements d'audit](../advanced/audit-metrics.md#conservation) conservés au plus par la même purge quotidienne (les plus anciens sont supprimés) ; `0` : sans limite |
-| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | Contrôleur | [Envoie les événements d'audit à syslog](../advanced/audit-metrics.md#envoi-vers-syslog) : `udp://hôte:port`, `tcp://hôte:port` ou `unix:///dev/log` (ni TLS ni proxy) ; désactivé si absent |
-| `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | Contrôleur | *Facility* syslog de ces messages (`local0` à `local7`, `auth`, `authpriv`, `daemon`...) |
+| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | Contrôleur | [Envoie les événements d'audit à syslog](../advanced/audit-metrics.md#envoi-vers-syslog) : `udp://hôte:port`, `tcp://hôte:port` ou `unix:///dev/log` (ni TLS ni proxy) ; désactivé si absent ; sans elle, le serveur défini sur la page **Journal d'audit** s'applique. Définie (non vide), elle est prioritaire sur cette page |
+| `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | Contrôleur | *Facility* syslog de ces messages (`local0` à `local7`, `auth`, `authpriv`, `daemon`...) ; définie, elle est prioritaire sur celle choisie sur la page **Journal d'audit** |
 | `SECREVIEW_METRICS_ENABLED` | `true` | Contrôleur | Sert les [métriques Prometheus](../advanced/audit-metrics.md#metriques-prometheus) sur `/metrics` (jeton `metrics` ou `admin`) ; à `false`, `/metrics` répond 404 |
 | `SECREVIEW_UPDATE_CHECK_ENABLED` | `false` | Contrôleur | La page **À propos** cherche une nouvelle version sur GitHub (HTTPS, par le proxy sortant, mise en cache 6 heures, voir la [sécurité](security.md#securite-du-serveur-lui-meme)) |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | les deux | Niveau de journalisation (sur stderr) |

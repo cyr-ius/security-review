@@ -39,7 +39,8 @@ export abstract class SettingsPage {
   }
 }
 
-function describeError(error: unknown): Message {
+/** Message of a failed settings request (the API detail of a refusal, translated if known). */
+export function describeError(error: unknown): Message {
   if (error instanceof HttpErrorResponse && (error.status === 409 || error.status === 422)) {
     const detail = error.error?.detail;
     if (typeof detail === 'string') {

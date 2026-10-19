@@ -31,50 +31,73 @@
         {{ 'settings.languageApplied' | t }}
         <strong>{{ current.report_language.effective || ('settings.languageByAgent' | t) }}</strong>
       </p>
-      <form class="row g-2 align-items-end" (submit)="saveLanguage($event)" novalidate>
-        <div class="col-md-5">
-          <label for="language-mode" class="form-label">{{ 'settings.source' | t }}</label>
-          <select id="language-mode" class="form-select" [formField]="languageForm.mode">
-            <option value="inherit">
-              {{
-                'settings.languageInherit'
-                  | t: { value: current.report_language.env || ('sso.empty' | t) }
-              }}
-            </option>
-            <option value="agent">{{ 'settings.languageAgent' | t }}</option>
-            <option value="custom">{{ 'settings.languageCustom' | t }}</option>
-          </select>
+      @if (current.report_language.env_set) {
+        <div class="alert alert-info py-2 mb-0" role="status">
+          <i class="bi bi-lock" aria-hidden="true"></i>
+          {{
+            'settings.variableLocked'
+              | t
+                : {
+                    variable: 'SECREVIEW_REPORT_LANGUAGE',
+                    value: current.report_language.env || ('settings.languageByAgent' | t),
+                  }
+          }}
+          @if (current.report_language.value !== null) {
+            <br />
+            {{
+              'settings.storedIgnored'
+                | t: { value: current.report_language.value || ('settings.languageByAgent' | t) }
+            }}
+            <button
+              type="button"
+              class="btn btn-link btn-sm p-0 align-baseline"
+              [disabled]="busy()"
+              (click)="deleteStored()"
+            >
+              {{ 'common.delete' | t }}
+            </button>
+          }
         </div>
-        @if (languageMode() === 'custom') {
-          <div class="col-md-4">
-            <label for="language-value" class="form-label">{{ 'common.language' | t }}</label>
-            <input
-              id="language-value"
-              class="form-control"
-              list="language-suggestions"
-              autocomplete="off"
-              placeholder="French, fr, pt-BR…"
-              aria-describedby="language-value-error"
-              [class.is-invalid]="!languageValid()"
-              [formField]="languageForm.language"
-            />
-            <datalist id="language-suggestions">
-              @for (name of languageSuggestions; track name) {
-                <option [value]="name"></option>
-              }
-            </datalist>
-            <div id="language-value-error" class="invalid-feedback">
-              {{ 'settings.languagePattern' | t }}
-            </div>
+      } @else {
+        <form class="row g-2 align-items-end" (submit)="saveLanguage($event)" novalidate>
+          <div class="col-md-5">
+            <label for="language-mode" class="form-label">{{ 'settings.source' | t }}</label>
+            <select id="language-mode" class="form-select" [formField]="languageForm.mode">
+              <option value="agent">{{ 'settings.languageAgent' | t }}</option>
+              <option value="custom">{{ 'settings.languageCustom' | t }}</option>
+            </select>
           </div>
-        }
-        <div class="col-md-3">
-          <button type="submit" class="btn btn-primary" [disabled]="busy() || !languageValid()">
-            <i class="bi bi-check-lg" aria-hidden="true"></i>
-            {{ 'common.save' | t }}
-          </button>
-        </div>
-      </form>
+          @if (languageMode() === 'custom') {
+            <div class="col-md-4">
+              <label for="language-value" class="form-label">{{ 'common.language' | t }}</label>
+              <input
+                id="language-value"
+                class="form-control"
+                list="language-suggestions"
+                autocomplete="off"
+                placeholder="French, fr, pt-BR…"
+                aria-describedby="language-value-error"
+                [class.is-invalid]="!languageValid()"
+                [formField]="languageForm.language"
+              />
+              <datalist id="language-suggestions">
+                @for (name of languageSuggestions; track name) {
+                  <option [value]="name"></option>
+                }
+              </datalist>
+              <div id="language-value-error" class="invalid-feedback">
+                {{ 'settings.languagePattern' | t }}
+              </div>
+            </div>
+          }
+          <div class="col-md-3">
+            <button type="submit" class="btn btn-primary" [disabled]="busy() || !languageValid()">
+              <i class="bi bi-check-lg" aria-hidden="true"></i>
+              {{ 'common.save' | t }}
+            </button>
+          </div>
+        </form>
+      }
     </div>
   </section>
 }

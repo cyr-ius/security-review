@@ -3,7 +3,6 @@
 #
 #   echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env
 #   docker compose up -d --build
-#   docker compose logs controller   # one-time admin password, shown at first start
 #
 # The advisory database is empty at first: add SECREVIEW_OSV_AUTO_UPDATE=true to .env to let the
 # controller download the OSV advisories at start-up, then every 24 h.
@@ -90,7 +89,7 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-    command: ["--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:${DOCKER_MCP_PORT:-8000}:8000"
 

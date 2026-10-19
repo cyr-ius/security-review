@@ -2,6 +2,7 @@
 
 import pytest
 from conftest import group_for, make_user
+from sqlmodel import select
 
 from security_review_mcp import access_control, audit, web_users
 from security_review_mcp.access_control import Permission
@@ -64,22 +65,11 @@ def test_combine_bounds_the_projects_of_a_permission(monkeypatch):
         (Role.CI, ["shop"], {}),
         (Role.METRICS, None, {}),
         # Never the role of a token (a stored one authenticates nothing): no permission either
-        (Role.READER, ["shop"], {}),
-        (Role.TRIAGER, None, {}),
+        (Role.USER, None, {}),
     ],
 )
 def test_token_grants_only_give_permissions_to_admin(role, projects, expected):
     assert access_control.token_grants(role, projects) == expected
-
-
-def test_summary_role_sums_up_the_grants():
-    assert access_control.summary_role(access_control.token_grants(Role.ADMIN, None)) == Role.ADMIN
-    # Every permission, but limited to projects: not an administrator
-    limited = {permission.value: None for permission in Permission} | {
-        "reports.read": frozenset({"shop"})
-    }
-    assert access_control.summary_role(limited) == Role.TRIAGER
-    assert access_control.summary_role({"audit.read": None}) == Role.READER
 
 
 def test_allows_and_scope():
@@ -110,6 +100,18 @@ def test_built_in_roles_exist_and_cannot_change():
     # Created once
     built_in = {name: roles[name]["id"] for name in ("admin", "reader")}
     assert access_control.ensure_system_roles() == built_in
+
+
+def test_mcp_user_is_an_ordinary_role_that_creates_mcp_tokens():
+    roles = {role["name"]: role for role in access_control.list_roles()}
+    mcp_user = roles["mcp-user"]
+    assert not mcp_user["system"] and not mcp_user["scoped"]
+    assert mcp_user["permissions"] == ["mcp_tokens.create"]
+    assert {"name": "mcp_tokens.create", "scoped": False} in access_control.list_permissions()
+    # A controller-wide permission: never limited to projects
+    with pytest.raises(ValueError):
+        access_control.clean_projects(["mcp_tokens.create"], ["shop"])
+    access_control.delete_role(mcp_user["id"])
 
 
 def test_triager_is_an_ordinary_role():
@@ -244,7 +246,7 @@ def test_groups_are_created_with_roles_and_members():
         ([("admin", ["shop"])], "cannot list projects"),
         ([("reader", ["shop"]), ("reader", None)], "given twice"),
         ([("reader", [f"p{i}" for i in range(51)])], "at most 50 projects"),
-        ([("reader", ["bad\x01"])], "control characters"),
+        ([("reader", ["\x01"])], "between 1 and 200"),
     ],
 )
 def test_invalid_group_roles_are_refused(bindings, message):
@@ -253,6 +255,11 @@ def test_invalid_group_roles_are_refused(bindings, message):
         access_control.set_group_roles(
             group["id"], [(role_id(name), projects) for name, projects in bindings]
         )
+
+
+def test_a_group_is_not_open_to_oidc_unless_asked():
+    assert access_control.create_group("devs")["sso"] is False
+    assert access_control.create_group("ops", sso=True)["sso"] is True
 
 
 def test_group_roles_and_members_are_bounded_and_checked(monkeypatch):
@@ -393,8 +400,8 @@ def test_the_name_of_a_project_group_fits_a_group_name():
 
 
 def test_project_groups_are_bounded_and_checked(monkeypatch):
-    with pytest.raises(ValueError, match="control characters"):
-        ensure_project_group("bad\x00name")
+    # The project is normalized: no control character reaches the group name
+    assert ensure_project_group("Bad\x00Name")["name"] == "project:bad-name"
     with pytest.raises(ValueError, match="between 1 and"):
         ensure_project_group(" ")
     access_control.create_group("devs")
@@ -412,6 +419,241 @@ def test_a_project_group_created_concurrently_is_refused(monkeypatch):
     with pytest.raises(ValueError, match="created concurrently; retry"):
         ensure_project_group("shop")
     assert [group["name"] for group in access_control.list_groups()] == ["project:shop"]
+
+
+# ── Project creation ─────────────────────────────────────────────────────────
+
+
+def enrolled(project: str) -> int:
+    """Id of the pending project ``project``, requested by an enrollment."""
+    access_control.enroll_project(project)
+    return next(
+        item["id"] for item in access_control.list_enrollments() if item["project"] == project
+    )
+
+
+def creator() -> dict:
+    """A web user whose only role holds ``projects.create``."""
+    role = access_control.create_role("Creator", [Permission.PROJECTS_CREATE])
+    group = access_control.create_group("creators")
+    access_control.set_group_roles(group["id"], [(role["id"], None)])
+    return web_users.create_user("carol", PASSWORD, [group["id"]])
+
+
+@pytest.mark.parametrize("permission", [Permission.PROJECTS_CREATE, Permission.PROJECTS_DELETE])
+def test_project_permissions_are_on_the_whole_controller(permission):
+    """projects.delete is never limited to projects: its route checks no project scope."""
+    assert permission not in access_control.SCOPED_PERMISSIONS
+    assert permission in access_control.SYSTEM_ROLES["admin"]
+    assert {"name": permission.value, "scoped": False} in access_control.list_permissions()
+    role = access_control.create_role(f"Role {permission.value}", [permission])
+    group = access_control.create_group(f"group {permission.value}")
+    with pytest.raises(ValueError, match="cannot list projects"):
+        access_control.set_group_roles(group["id"], [(role["id"], ["shop"])])
+
+
+def test_a_created_project_is_read_by_its_creator_only():
+    carol = creator()
+    other = web_users.create_user("dave", PASSWORD)
+
+    created = access_control.create_project(carol["id"], " mobile-app ", "user:carol")
+
+    assert (created["project"], created["group"]) == ("mobile-app", "project:mobile-app")
+    assert grants_of(carol["id"]) == {
+        "projects.create": None,
+        "reports.read": frozenset({"mobile-app"}),
+    }
+    assert grants_of(other["id"]) == {}
+    (event,) = audit.list_events(action="project.created")["events"]
+    assert (event["actor"], event["project"], event["target_id"]) == (
+        "user:carol",
+        "mobile-app",
+        "mobile-app",
+    )
+    assert event["details"] == {"group": "project:mobile-app", "user_id": carol["id"]}
+
+
+def test_creating_a_project_never_opens_an_existing_one():
+    """projects.create would otherwise let its holder read the reports of any project."""
+    from security_review_mcp import services, token_store
+
+    carol = creator()
+    services.save_report("shop", "Review", [])
+    ensure_project_group("crm")
+    triage = access_control.create_group("triage")
+    access_control.set_group_roles(triage["id"], [(role_id("triager"), ["billing"])])
+    token_store.create_token("ci-hr", Role.CI, projects=["hr"])
+    access_control.approve_enrollment(enrolled("payroll"))
+
+    for project in ("shop", "crm", "billing", "hr", "payroll"):
+        with pytest.raises(ValueError, match=f"Project '{project}' already exists"):
+            access_control.create_project(carol["id"], project, "user:carol")
+    # A variant of a known name is the same project once normalized: refused too
+    for variant in ("SHOP", "acme/Shop.git", "https://git.example.com/hr/Payroll"):
+        with pytest.raises(ValueError, match="already exists"):
+            access_control.create_project(carol["id"], variant, "user:carol")
+    # The second creation of a project is refused too
+    access_control.create_project(carol["id"], "new", "user:carol")
+    with pytest.raises(ValueError, match="already exists"):
+        access_control.create_project(carol["id"], "new", "user:carol")
+    assert grants_of(carol["id"])["reports.read"] == frozenset({"new"})
+
+
+def test_project_creation_checks_the_name_and_the_user():
+    carol = creator()
+    # The name is normalized: control characters alone leave nothing
+    with pytest.raises(ValueError, match="between 1 and"):
+        access_control.create_project(carol["id"], "\x00\x01")
+    with pytest.raises(ValueError, match="between 1 and"):
+        access_control.create_project(carol["id"], " ")
+    with pytest.raises(NotFoundError):
+        access_control.create_project(999, "shop")
+    assert audit.list_events(action="project.created")["events"] == []
+
+
+def test_deleting_a_project_removes_everything_that_refers_to_it():
+    from sqlmodel import select
+
+    from security_review_mcp import services, token_store
+    from security_review_mcp.models import FindingComment, FindingCreate, Severity
+
+    finding = FindingCreate(title="SQL injection", severity=Severity.HIGH, description="Query")
+    shop = services.save_report("shop", "Review", [finding])
+    shop_finding = services.get_report(shop["report_id"]).findings[0]
+    services.add_finding_comment(shop_finding.id, "ann", "Seen")
+    kept = services.save_report("crm", "Review", [finding])
+    carol = creator()
+    access_control.create_project(carol["id"], "shop-mobile")
+    group = ensure_project_group("shop")
+    triage = access_control.create_group("triage")
+    access_control.set_group_roles(
+        triage["id"], [(role_id("triager"), ["shop", "crm"]), (role_id("reader"), ["shop"])]
+    )
+    token_store.create_token("ci-shop", Role.CI, projects=["shop"])
+    token_store.create_token("ci-both", Role.CI, projects=["shop", "crm"])
+
+    deleted = access_control.delete_project("Shop", "user:root")
+
+    assert deleted == {
+        "project": "shop",
+        "reports": 1,
+        "findings": 1,
+        "groups_deleted": [group["name"]],
+        "groups_changed": ["triage"],
+        "tokens_revoked": 1,
+        "tokens_changed": 1,
+    }
+    assert [item["project"] for item in services.list_projects(set())] == ["crm"]
+    with session_scope() as session:
+        assert session.exec(select(FindingComment)).all() == []
+        assert not access_control.project_exists(session, "shop")
+        assert access_control.project_exists(session, "shop-mobile")
+    assert services.get_report(kept["report_id"]).project == "crm"
+    # The reader role on "shop" alone is removed, never left reaching every project
+    roles = access_control.get_group(triage["id"])["roles"]
+    assert [(role["name"], role["projects"]) for role in roles] == [("triager", ["crm"])]
+    tokens = {token["label"]: token for token in token_store.list_tokens()}
+    assert "ci-shop" not in tokens
+    assert tokens["ci-both"]["projects"] == ["crm"]
+    (event,) = audit.list_events(action="project.deleted")["events"]
+    assert (event["actor"], event["project"]) == ("user:root", "shop")
+    with pytest.raises(NotFoundError):
+        access_control.delete_project("shop")
+
+
+# ── Enrollment ───────────────────────────────────────────────────────────────
+
+
+def test_an_enrolled_project_waits_for_an_approval_and_gives_no_access():
+    """Anybody may enroll: the project waits, its approval creates it without any member, and
+    the answer never tells whether the project existed."""
+    from security_review_mcp import services
+
+    services.save_report("shop", "Review", [])
+    requested = access_control.enroll_project(" Mobile-App ", "alice password=hunter2", "10.0.0.1")
+    known = access_control.enroll_project("shop")
+
+    assert requested["project"] == "mobile-app"
+    assert {key: str(value).replace("shop", "P") for key, value in known.items()} == {
+        key: str(value).replace("mobile-app", "P") for key, value in requested.items()
+    }
+    (pending,) = access_control.list_enrollments()
+    assert (pending["project"], pending["requested_from"]) == ("mobile-app", "10.0.0.1")
+    assert "hunter2" not in pending["requested_by"]
+    with session_scope() as session:
+        # Pending: not a project yet
+        assert not access_control.project_exists(session, "mobile-app")
+
+    approved = access_control.approve_enrollment(pending["id"], "user:root")
+
+    assert approved["group"] == "project:mobile-app"
+    assert access_control.list_enrollments() == []
+    group = access_control.get_group(approved["group_id"])
+    assert (group["members"], group["created_by"]) == ([], "user:root")
+    assert grants_of(web_users.create_user("root", PASSWORD)["id"]) == {}
+    events = audit.list_events(project="mobile-app")["events"]
+    approved_event = next(e for e in events if e["action"] == "enrollment.approved")
+    assert (approved_event["actor"], approved_event["details"]["group"]) == (
+        "user:root",
+        "project:mobile-app",
+    )
+    requested_event = next(e for e in events if e["action"] == "enrollment.requested")
+    assert (requested_event["actor"], requested_event["details"]["requested"]) == (
+        "anonymous",
+        True,
+    )
+    with pytest.raises(NotFoundError):
+        access_control.reject_enrollment(pending["id"])
+
+
+def test_enrollments_are_bounded_and_expire(monkeypatch):
+    from datetime import timedelta
+
+    from security_review_mcp.config import get_settings
+    from security_review_mcp.models import ProjectEnrollment, utcnow
+
+    monkeypatch.setattr(access_control, "MAX_PENDING_PROJECTS", 2)
+    monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_ADDRESS", 3)
+    access_control.enroll_project("first", requested_from="10.0.0.1")
+    access_control.enroll_project("second", requested_from="10.0.0.2")
+
+    with pytest.raises(ValueError, match="Too many projects"):
+        access_control.enroll_project("third")
+    # A pending project is never refused by the limit, nor requested twice
+    access_control.enroll_project("first")
+    access_control.enroll_project("first", requested_from="10.0.0.1")
+    access_control.enroll_project("first", requested_from="10.0.0.1")
+    with pytest.raises(access_control.EnrollmentThrottled, match="retry later"):
+        access_control.enroll_project("first", requested_from="10.0.0.1")
+    assert [item["project"] for item in access_control.list_enrollments()] == ["first", "second"]
+    # Rejected: deleted, no project; "first", nobody approved it in time, is deleted too
+    second = access_control.list_enrollments()[1]
+    access_control.reject_enrollment(second["id"], "user:root")
+    monkeypatch.setattr(get_settings(), "project_enrollment_ttl_days", 3)
+    with session_scope() as session:
+        for row in session.exec(select(ProjectEnrollment)).all():
+            row.created_at = utcnow() - timedelta(days=3, minutes=1)
+            session.add(row)
+    access_control.enroll_project("third")
+
+    assert [item["project"] for item in access_control.list_enrollments()] == ["third"]
+    with session_scope() as session:
+        assert not access_control.project_exists(session, "first")
+    rejected = audit.list_events(action="enrollment.rejected")["events"]
+    assert [(event["project"], event["actor"]) for event in rejected] == [
+        ("first", "enrollment"),
+        ("second", "user:root"),
+    ]
+
+
+def test_creating_a_project_settles_its_pending_request():
+    carol = creator()
+    access_control.enroll_project("mobile-app")
+
+    access_control.create_project(carol["id"], "mobile-app", "user:carol")
+
+    assert access_control.list_enrollments() == []
+    assert grants_of(carol["id"])["reports.read"] == frozenset({"mobile-app"})
 
 
 def test_adding_a_user_to_a_group_is_audited_once():

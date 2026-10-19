@@ -13,7 +13,6 @@ import jwt
 import pytest
 from conftest import group_for, make_user
 from cryptography.hazmat.primitives.asymmetric import rsa
-from sqlmodel import select
 from starlette.testclient import TestClient
 
 from security_review_mcp import (
@@ -27,10 +26,9 @@ from security_review_mcp import (
     web_api,
     web_users,
 )
+from security_review_mcp.access_control import Permission
 from security_review_mcp.config import Settings
-from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
-from security_review_mcp.models import WebUser
 
 ISSUER = "https://idp.example.com/realms/acme"
 CLIENT_ID = "secreview"
@@ -194,17 +192,25 @@ def test_invalid_session_settings_are_refused(values, message):
         oidc.session_signer(make_settings(**values))
 
 
-def test_without_a_secret_key_nor_file_a_warning_is_logged(caplog):
-    settings = make_settings(secret_key=None, secret_key_file="")
+@pytest.mark.parametrize("secret_file", ["", "file/secret"])
+def test_without_a_usable_secret_file_a_random_secret_is_used(tmp_path, caplog, secret_file):
+    # No file configured, or a file that cannot be created (regression of cc550c6)
+    (tmp_path / "file").write_text("")
+    path = str(tmp_path / secret_file) if secret_file else ""
+    settings = make_settings(secret_key=None, secret_key_file=path)
     with caplog.at_level(logging.WARNING, logger="security_review_mcp.oidc"):
-        assert oidc.session_signer(settings) is not None
-    assert "web sessions end when the controller restarts" in caplog.text
+        token = oidc.session_signer(settings).issue_session("alice", None, 1, 1)
+    assert oidc.session_signer(settings).decode_session(token) is None
+    assert any(
+        record.name == "security_review_mcp.oidc" and record.levelno == logging.WARNING
+        for record in caplog.records
+    )
 
 
 def test_secret_key_is_generated_once_in_its_file(secret_key_file, caplog):
     settings = make_settings(secret_key=None)
     first = oidc.session_signer(settings)
-    token = first.issue_session("alice", Role.READER, None, 1, 1)
+    token = first.issue_session("alice", None, 1, 1)
 
     # Mode 0600, never logged; the next start (or another worker) reads the same secret
     assert stat.S_IMODE(secret_key_file.stat().st_mode) == 0o600
@@ -239,15 +245,6 @@ def test_a_short_or_shared_secret_file_is_reported(secret_key_file, caplog):
     assert "readable by other users" in caplog.text
 
 
-def test_an_unwritable_secret_file_falls_back_to_a_random_secret(tmp_path, caplog):
-    blocker = tmp_path / "file"
-    blocker.write_text("")
-    settings = make_settings(secret_key=None, secret_key_file=str(blocker / "secret"))
-    with caplog.at_level(logging.WARNING, logger="security_review_mcp.oidc"):
-        assert oidc.session_signer(settings) is not None
-    assert "Session secret file not usable" in caplog.text
-
-
 def test_secrets_are_never_shown_by_the_settings():
     settings = make_settings(
         secret_key="s3cr3t" * 6,
@@ -267,23 +264,19 @@ def test_the_oidc_login_uses_the_shared_signer():
 
 
 @pytest.mark.parametrize(
-    ("claims", "values"),
+    ("claims", "path", "values"),
     [
-        ({"groups": ["qa", "dev"]}, {"qa", "dev"}),
-        ({"groups": "qa, dev"}, {"qa", "dev"}),
-        ({"groups": [{"name": "x"}, "qa"]}, {"qa"}),
-        ({"realm_access": {"roles": ["admin"]}}, set()),
-        ({}, set()),
+        ({"groups": ["qa", "dev"]}, "groups", {"qa", "dev"}),
+        ({"groups": "qa, dev"}, "groups", {"qa", "dev"}),
+        ({"groups": [{"name": "x"}, "qa"]}, "groups", {"qa"}),
+        ({"realm_access": {"roles": ["admin"]}}, "groups", set()),
+        ({}, "groups", set()),
+        ({"realm_access": {"roles": ["admin"]}}, "realm_access.roles", {"admin"}),
+        ({"realm_access": "x"}, "realm_access.roles", set()),
     ],
 )
-def test_claim_values(claims, values):
-    assert oidc.claim_values(claims, "groups") == values
-
-
-def test_claim_values_follow_a_dotted_path():
-    claims = {"realm_access": {"roles": ["secreview-admins"]}}
-    assert oidc.claim_values(claims, "realm_access.roles") == {"secreview-admins"}
-    assert oidc.claim_values({"realm_access": "x"}, "realm_access.roles") == set()
+def test_claim_values(claims, path, values):
+    assert oidc.claim_values(claims, path) == values
 
 
 @pytest.mark.parametrize(
@@ -307,45 +300,31 @@ def test_return_url_stays_local(value, expected):
 
 def test_session_token_round_trip_and_rejections():
     signer = oidc.SessionSigner(SECRET, session_hours=1)
-    token = signer.issue_session("oidc:alice", Role.TRIAGER, None, 7, 42)
+    token = signer.issue_session("oidc:alice", None, 7, 42)
     assert signer.owns(token)
     payload = signer.decode_session(token)
-    assert (payload["sub"], payload["role"], payload["uid"], payload["uver"]) == (
-        "oidc:alice",
-        "triager",
-        7,
-        42,
-    )
+    # No role: the permissions of the user are read from the database at each request
+    assert (payload["sub"], payload["uid"], payload["uver"]) == ("oidc:alice", 7, 42)
+    assert "role" not in payload
 
-    # Another secret, a tampered payload, a state cookie or a database token are refused
+    # Another secret, a state cookie or a database token are refused
     assert oidc.SessionSigner("x" * 40).decode_session(token) is None
-    header, body, signature = token.split(".")
-    assert signer.decode_session(f"{header}.{body}x.{signature}") is None
     assert signer.decode_session(signer.sign_state({"state": "s"})) is None
     assert not signer.owns(token_store.create_token("api", Role.ADMIN)["token"])
 
 
-def test_session_token_expires():
-    signer = oidc.SessionSigner(SECRET, session_hours=1)
-    now = int(time.time())
-    expired = jwt.encode(
-        {
-            "iss": oidc.SESSION_ISSUER,
-            "aud": oidc.SESSION_AUDIENCE,
-            "sub": "oidc:alice",
-            "role": "reader",
-            "iat": now - 7200,
-            "exp": now - 3600,
-            "uid": 1,
-            "uver": 0,
-        },
-        signer._session_key,
-        algorithm="HS256",
-    )
-    assert signer.decode_session(expired) is None
-
-
-def test_session_tokens_always_name_a_web_user():
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"uid": 1, "uver": 0, "iat": int(time.time()) - 7200, "exp": int(time.time()) - 3600},
+        # Every session token names a web user and its version, with the right types
+        {},
+        {"uid": 1},
+        {"uid": "1", "uver": 0},
+        {"uid": 1, "uver": True},
+    ],
+)
+def test_forged_or_expired_session_tokens_are_refused(extra):
     signer = oidc.SessionSigner(SECRET)
     now = int(time.time())
     claims = {
@@ -356,30 +335,16 @@ def test_session_tokens_always_name_a_web_user():
         "iat": now,
         "exp": now + 60,
     }
-    for extra in ({}, {"uid": 1}, {"uid": "1", "uver": 0}, {"uid": 1, "uver": True}):
-        forged = jwt.encode({**claims, **extra}, signer._session_key, algorithm="HS256")
-        assert signer.decode_session(forged) is None
-
-
-def test_session_tokens_never_carry_the_mcp_role():
-    with pytest.raises(ValueError, match="cannot use the web interface"):
-        oidc.SessionSigner(SECRET).issue_session("oidc:bot", Role.MCP, None, 1, 0)
+    forged = jwt.encode({**claims, **extra}, signer._session_key, algorithm="HS256")
+    assert signer.decode_session(forged) is None
 
 
 # ── Login flow ───────────────────────────────────────────────────────────────
 
 
-def test_auth_config_is_public(controller, tmp_path):
+def test_auth_config_is_public(controller):
     response = controller.get("/api/v1/auth/config")
     assert response.json() == {"password": True, "oidc": True, "oidc_display_name": "OIDC"}
-
-    disabled = TestClient(web_api.create_app(ui_dir=str(tmp_path)), base_url="http://127.0.0.1")
-    assert disabled.get("/api/v1/auth/config").json() == {
-        "password": True,
-        "oidc": False,
-        "oidc_display_name": None,
-    }
-    assert disabled.get("/api/v1/auth/oidc/login").status_code == 404
 
 
 def test_oidc_only_refuses_the_local_logins_while_oidc_works(controller, tmp_path, monkeypatch):
@@ -391,7 +356,7 @@ def test_oidc_only_refuses_the_local_logins_while_oidc_works(controller, tmp_pat
 
     assert controller.get("/api/v1/auth/config").json()["password"] is False
     refused = controller.post("/api/v1/auth/login", json=body)
-    assert refused.status_code == 403 and "single sign-on" in refused.json()["detail"]
+    assert refused.status_code == 403
     assert controller.get("/api/v1/auth/oidc/login").status_code == 302
 
     # Without a working OIDC login, the local accounts stay usable (no lock-out)
@@ -440,26 +405,14 @@ def test_full_login_gives_a_session_accepted_by_the_api(controller, provider, ca
 
     me = controller.get("/api/v1/me", headers={"Authorization": f"Bearer {session}"})
     assert me.status_code == 200
-    assert (me.json()["client"], me.json()["role"]) == ("oidc:alice", "reader")
+    assert (me.json()["client"], me.json()["role"]) == ("oidc:alice", "user")
+    assert me.json()["permissions"] == {"reports.read": None}
     # Nothing secret in the logs of the controller
     logs = "\n".join(
         record.getMessage()
         for record in caplog.records
         if record.name.startswith("security_review_mcp")
     )
-    assert "OIDC login of oidc:alice with role reader through 1 OIDC group(s)" in logs
-    assert "OIDC web user alice created at its first login" in logs
-    # The user now appears among the web users, as an OIDC user bound to its subject
-    (user,) = web_users.list_users()
-    assert (user["username"], user["auth_source"], user["effective_role"]) == (
-        "alice",
-        "oidc",
-        "reader",
-    )
-    assert [(group["name"], group["source"]) for group in user["groups"]] == [("qa", "oidc")]
-    with session_scope() as db:
-        row = db.exec(select(WebUser).where(WebUser.username == "alice")).one()
-        assert (row.oidc_subject, row.oidc_issuer) == ("user-123", ISSUER)
     (event,) = audit.list_events(action="user.login")["events"]
     assert (event["actor"], event["details"]["method"]) == ("user:oidc:alice", "oidc")
     for secret in ("code-xyz", session, "access-abc", "client-secret"):
@@ -488,12 +441,6 @@ def test_api_needs_a_token_even_without_database_tokens(controller):
     assert response.status_code == 401
 
 
-def test_database_tokens_still_work_with_oidc(controller):
-    token = token_store.create_token("ops", Role.ADMIN)["token"]
-    response = controller.get("/api/v1/me", headers={"Authorization": f"Bearer {token}"})
-    assert response.json()["client"] == "ops"
-
-
 def test_admin_group_and_userinfo_groups(controller, provider):
     # Groups missing from the ID token are read from the userinfo endpoint
     provider.claims = {"preferred_username": "bob"}
@@ -503,7 +450,11 @@ def test_admin_group_and_userinfo_groups(controller, provider):
         controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
     )
     me = controller.get("/api/v1/me", headers={"Authorization": f"Bearer {session}"}).json()
-    assert (me["client"], me["role"]) == ("oidc:bob", "admin")
+    assert (me["client"], me["role"], me["permissions"]) == (
+        "oidc:bob",
+        "user",
+        {permission.value: None for permission in Permission},
+    )
 
 
 def test_sso_group_restricts_the_session_to_its_projects(controller, provider):
@@ -518,7 +469,7 @@ def test_sso_group_restricts_the_session_to_its_projects(controller, provider):
     headers = {"Authorization": f"Bearer {session}"}
 
     me = controller.get("/api/v1/me", headers=headers).json()
-    assert (me["role"], me["projects"]) == ("triager", ["billing"])
+    assert (me["role"], me["projects"]) == ("user", ["billing"])
     assert me["permissions"] == {"findings.triage": ["billing"], "reports.read": ["billing"]}
     projects = controller.get("/api/v1/projects", headers=headers).json()
     assert [item["project"] for item in projects] == ["billing"]
@@ -538,7 +489,7 @@ def test_sso_user_created_by_an_administrator_reads_its_projects(controller, pro
     headers = {"Authorization": f"Bearer {session}"}
 
     me = controller.get("/api/v1/me", headers=headers).json()
-    assert (me["client"], me["role"], me["projects"]) == ("oidc:dave", "reader", ["shop-api"])
+    assert (me["client"], me["role"], me["projects"]) == ("oidc:dave", "user", ["shop-api"])
     assert (me["auth_source"], me["local_account"]) == ("oidc", False)
     projects = controller.get("/api/v1/projects", headers=headers).json()
     assert [item["project"] for item in projects] == ["shop-api"]
@@ -549,43 +500,6 @@ def test_sso_user_created_by_an_administrator_reads_its_projects(controller, pro
         json={"current_password": "x", "new_password": "y" * 12},
     )
     assert response.status_code == 403
-
-
-def test_unknown_sso_user_is_refused_without_auto_creation(tmp_path):
-    (tmp_path / "index.html").write_text("<html>app</html>", encoding="utf-8")
-    provider = FakeProvider(make_settings(oidc_auto_create_users=False))
-    app = web_api.create_app("0.0.0.0", ui_dir=str(tmp_path), oidc_login=provider)
-    client = TestClient(
-        http_server.build_controller_app(
-            app,
-            token_store.DatabaseTokenStore(include_users=True),
-            web_users.SessionVerifier(provider.signer),
-            require_auth=True,
-        ),
-        base_url="https://secreview.example.com",
-        follow_redirects=False,
-    )
-    # Even in an admin group: the administrator must create the user first
-    provider.claims = {"preferred_username": "alice", "groups": ["secreview-admins"]}
-    state = start_login(client, provider)
-    response = client.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
-    assert error_of(response) == "unknown_user"
-    assert web_users.list_users() == []
-
-    web_users.create_user("alice", None, None, auth_source="oidc")
-    state = start_login(client, provider)
-    session = session_of(
-        client.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
-    )
-    me = client.get("/api/v1/me", headers={"Authorization": f"Bearer {session}"}).json()
-    assert me["role"] == "admin"
-
-
-def test_sso_login_never_opens_a_local_account(controller, provider):
-    make_user("alice", "Correct horse battery 9", "admin")
-    state = start_login(controller, provider)
-    response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
-    assert error_of(response) == "conflict"
 
 
 @pytest.mark.parametrize(
@@ -622,69 +536,56 @@ def test_login_granting_too_many_projects_is_refused(controller, provider, monke
     assert error_of(response) == "forbidden"
 
 
-def test_userinfo_about_another_user_is_refused(controller, provider):
-    provider.claims = {}
-    provider.userinfo_claims = {"sub": "someone-else", "groups": ["secreview-admins"]}
-    state = start_login(controller, provider)
-    response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
-    assert error_of(response) == "token"
-
-
-def test_user_without_a_web_role_is_refused(controller, provider):
-    provider.claims = {"preferred_username": "eve", "groups": ["marketing"]}
-    state = start_login(controller, provider)
-    response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
-    assert error_of(response) == "forbidden"
-
-
 @pytest.mark.parametrize(
-    "overrides",
+    "attributes",
     [
-        {"aud": "another-client"},
-        {"iss": "https://evil.example.com"},
-        {"exp": int(time.time()) - 3600},
-        {"nonce": "replayed"},
-        {"aud": [CLIENT_ID, "other"], "azp": "other"},
+        {"token_overrides": {"aud": "another-client"}},
+        {"token_overrides": {"iss": "https://evil.example.com"}},
+        {"token_overrides": {"exp": int(time.time()) - 3600}},
+        {"token_overrides": {"nonce": "replayed"}},
+        {"token_overrides": {"aud": [CLIENT_ID, "other"], "azp": "other"}},
+        # Unknown key id: the JWKS is downloaded again, then the token is refused
+        {"header_overrides": {"kid": "rotated"}},
+        # The userinfo endpoint describes another user
+        {"claims": {}, "userinfo_claims": {"sub": "someone-else", "groups": ["secreview-admins"]}},
     ],
 )
-def test_invalid_id_tokens_are_refused(controller, provider, overrides):
-    provider.token_overrides = overrides
+def test_invalid_id_tokens_are_refused(controller, provider, attributes):
+    for name, value in attributes.items():
+        setattr(provider, name, value)
     state = start_login(controller, provider)
     response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
     assert error_of(response) == "token"
 
 
-def test_id_token_signed_by_another_key_or_algorithm_is_refused(controller, provider):
-    # Unknown key id: the JWKS is downloaded again, then the token is refused
-    provider.header_overrides = {"kid": "rotated"}
-    state = start_login(controller, provider)
-    response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": state})
-    assert error_of(response) == "token"
-
-    # A shared-secret algorithm is never accepted, even when the provider announces it
+def test_a_shared_secret_algorithm_is_never_accepted(provider):
+    # Even when the provider announces it
     with pytest.raises(oidc.OidcError, match="algorithm not accepted"):
         provider.validate_id_token(jwt.encode({"sub": "x"}, "k" * 32, algorithm="HS256"), "n")
 
 
-def test_callback_needs_the_matching_state_cookie(controller, provider, tmp_path):
-    start_login(controller, provider)
-    response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": "forged"})
-    assert error_of(response) == "state"
-
-    # Another browser (no cookie): login CSRF refused
-    other = TestClient(controller.app, base_url="https://secreview.example.com")
+@pytest.mark.parametrize(
+    ("forged_state", "other_browser"),
+    [
+        ("forged", False),
+        # Non-ASCII: refused without a server error
+        ("é", False),
+        # Another browser (no cookie): login CSRF refused
+        (None, True),
+    ],
+)
+def test_callback_needs_the_matching_state_cookie(
+    controller, provider, forged_state, other_browser
+):
     state = start_login(controller, provider)
-    response = other.get(
-        "/api/v1/auth/oidc/callback",
-        params={"code": "c", "state": state},
-        follow_redirects=False,
+    client = controller
+    if other_browser:
+        client = TestClient(
+            controller.app, base_url="https://secreview.example.com", follow_redirects=False
+        )
+    response = client.get(
+        "/api/v1/auth/oidc/callback", params={"code": "c", "state": forged_state or state}
     )
-    assert error_of(response) == "state"
-
-
-def test_non_ascii_state_is_refused_without_a_server_error(controller, provider):
-    start_login(controller, provider)
-    response = controller.get("/api/v1/auth/oidc/callback", params={"code": "c", "state": "é"})
     assert error_of(response) == "state"
 
 

@@ -111,9 +111,9 @@ NO_PROXY=.corp.example,10.0.0.5
 ```
 
 The proxy can also be chosen by an administrator in the [**Outgoing proxy**](../usage/web-interface.md#screens)
-screen of the web interface: proxy and hosts without proxy set there, or direct connection,
-take precedence over `HTTPS_PROXY`, `HTTP_PROXY` and `NO_PROXY`; they apply to
-the next download. The **OSV database** screen shows the state of the database, the history of the updates
+screen of the web interface, for the variables that are not set: `HTTPS_PROXY` (else
+`HTTP_PROXY`) and `NO_PROXY`, when set, take precedence over the values of the screen. They
+apply to the next download. The **OSV database** screen shows the state of the database, the history of the updates
 (scheduled, CLI or web) and an **Update now** button (run in the background, one update at a
 time), only available when `SECREVIEW_OSV_AUTO_UPDATE=true`.
 
@@ -157,23 +157,23 @@ security-review-ci deps-scan package-lock.json requirements.txt \
 
 `security-review-mcp scan-deps` sends the dependency files to the `scan_dependencies` tool of a
 shared MCP server: the scan uses the advisory database of that server, without any local
-import. It needs a token with the `mcp` or `admin` role (see
-[enrollment](http.md#enrollment-a-project-requests-its-token)).
+import. It needs a token with the `mcp` or `admin` role, for instance a personal MCP token (see
+[enrollment](http.md#enrollment-request-the-project)).
 
 ```bash
-export SECREVIEW_SERVER_URL=https://secreview.example.com
+export SECREVIEW_MCP_URL=https://secreview.example.com
 export SECREVIEW_TOKEN=<token>
 security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
 # exit code: 0 = ok, 1 = blocked, 2 = error (server unreachable, token refused...)
 ```
 
-A refused token (missing, unknown, revoked, expired or not approved yet) ends with an error that
-suggests `security-review-mcp enroll` (see
-[rejected token](http.md#rejected-token-new-enrollment)).
+A missing or refused token (unknown, revoked or expired) ends with an error that tells you to
+sign in to the web interface and create a new personal MCP token (see
+[rejected token](http.md#rejected-token-sign-in-again)).
 
 - Same options and output as `security-review-ci deps-scan` (`--fail-on`, `--format`,
   `--require-database`); nothing is stored (no `--save`).
-- `--url` replaces `SECREVIEW_SERVER_URL`, `--token-stdin` reads the token on stdin instead of
+- `--url` replaces `SECREVIEW_MCP_URL`, `--token-stdin` reads the token on stdin instead of
   `SECREVIEW_TOKEN`. Both variables can also be set in the `.env` file of the folder (never
   commit it).
 - Plain HTTP is refused outside localhost (unless `--allow-http`), as are credentials in the URL

@@ -1,10 +1,10 @@
 """Health check of the Docker image: ``python -m security_review_mcp.healthcheck``.
 
-The image runs the MCP server in stdio by default (no port), the HTTP MCP server
-(``--transport streamable-http``) or the controller (``serve``). The check reads the command of
-the container (process 1) and, for the two HTTP processes only, requests ``/healthz`` on the
-loopback interface; in stdio there is nothing to check and it succeeds. Exit code 0: healthy,
-1: unhealthy (Docker convention).
+The image runs the MCP server in stdio by default (``serve``, no port), the HTTP MCP server
+(``serve --transport streamable-http``) or the controller (``security-review-controller serve``).
+The check reads the command of the container (process 1) and, for the two HTTP processes only,
+requests ``/healthz`` on the loopback interface; in stdio there is nothing to check and it
+succeeds. Exit code 0: healthy, 1: unhealthy (Docker convention).
 
 Only the standard library and the settings are imported, so that the check stays fast.
 """
@@ -19,6 +19,8 @@ from .config import get_settings
 # Same path as http_server.HEALTH_PATH (not imported: it loads the whole web stack)
 HEALTH_PATH = "/healthz"
 TIMEOUT_SECONDS = 3
+# Script or module of the controller in its command line (`python -m` included)
+CONTROLLER_PROGRAMS = frozenset({"security-review-controller", "security_review_mcp.controller"})
 # Command line of the main process of the container
 PROCESS_CMDLINE = Path("/proc/1/cmdline")
 
@@ -50,7 +52,8 @@ def health_url(args: list[str]) -> str | None:
     settings.
     """
     settings = get_settings()
-    controller = "serve" in args
+    # Both programs have a `serve` command: only the controller's is always HTTP
+    controller = "serve" in args and any(Path(arg).name in CONTROLLER_PROGRAMS for arg in args)
     transport = _option(args, "--transport") or settings.transport
     if not controller and transport != "streamable-http":
         return None

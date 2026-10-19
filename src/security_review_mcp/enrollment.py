@@ -1,5 +1,7 @@
-"""Client side of the enrollment: request a project token, or one more project for an
-existing token (complementary enrollment), from a shared server.
+"""Client side of the enrollment: request the project of a repository on a shared server.
+
+No token is returned: the user signs in to the web interface of the server and creates a
+personal MCP token there.
 
 Used by ``security-review-mcp enroll``. With ``remote_scan`` (``scan-deps``), the only client
 commands that open an outgoing connection, and only to the server URL the operator gives: the
@@ -20,7 +22,7 @@ DEFAULT_TIMEOUT = 30.0
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    """Refuse redirects: the token must never be sent or received elsewhere (or over HTTP)."""
+    """Refuse redirects: a request must never be sent elsewhere (or over HTTP)."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001, ANN201
         """Return None so that urllib raises an HTTPError for the 3xx answer."""
@@ -28,11 +30,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 
 def local_username() -> str | None:
-    """Login name of the developer on this machine, used as default token label, or None.
-
-    A token is personal (it may reach several projects through complementary enrollment), so
-    it is named after the person rather than after the first project requested.
-    """
+    """Login name of the developer on this machine, the default requester, or None."""
     try:
         name = getpass.getuser().strip()
     except OSError, KeyError:
@@ -79,27 +77,20 @@ def _error_detail(error: urllib.error.HTTPError) -> str:
 def request_enrollment(
     server_url: str,
     project: str,
-    label: str | None = None,
     requested_by: str | None = None,
     cafile: str | None = None,
     allow_http: bool = False,
     timeout: float = DEFAULT_TIMEOUT,
-    token: str | None = None,
 ) -> dict:
-    """Send an enrollment request to a shared server and return its answer.
-
-    Without ``token`` the answer carries a new token. With the token of a client restricted to
-    other projects, the project is requested for that token (no new secret); the token is only
-    sent to the enrollment URL, which refuses plain HTTP and redirects like any request.
+    """Enroll a project on a shared server and return its answer (``project``, ``web_url``,
+    ``next_steps``): a new project waits for an administrator, no token is returned.
 
     Raises:
         ValueError: Invalid URL, unreachable server or request refused by the server.
     """
     url = enrollment_url(server_url, allow_http)
-    payload = {"project": project, "label": label, "requested_by": requested_by}
+    payload = {"project": project, "requested_by": requested_by}
     headers = {"Content-Type": "application/json", "Accept": "application/json"}
-    if token is not None:
-        headers["Authorization"] = f"Bearer {token}"
     request = urllib.request.Request(
         url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST"
     )
@@ -120,7 +111,6 @@ def request_enrollment(
         answer = json.loads(body)
     except ValueError as exc:
         raise ValueError(f"Unexpected answer from {url}") from exc
-    expected = "status" if token is not None else "token"
-    if not isinstance(answer, dict) or expected not in answer:
+    if not isinstance(answer, dict) or "project" not in answer:
         raise ValueError(f"Unexpected answer from {url}")
     return answer

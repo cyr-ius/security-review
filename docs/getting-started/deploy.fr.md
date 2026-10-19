@@ -57,7 +57,7 @@ localhost ou sur un réseau interne (voir [Architecture et déploiement](../adva
 Sur la machine seule (essai) :
 
 ```bash
-security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
+security-review-mcp serve --transport streamable-http --host 127.0.0.1 --port 8000
 # endpoint MCP : http://127.0.0.1:8000/mcp
 ```
 
@@ -65,7 +65,7 @@ Pour les développeurs et la CI, exposez-le **avec TLS**, avec un certificat rec
 postes (voir [TLS](../advanced/http.md#tls)) :
 
 ```bash
-security-review-mcp --transport streamable-http --host 0.0.0.0 --port 8443 \
+security-review-mcp serve --transport streamable-http --host 0.0.0.0 --port 8443 \
     --tls-certfile /etc/secreview/tls/cert.pem --tls-keyfile /etc/secreview/tls/key.pem
 # endpoint MCP : https://secreview.example.internal:8443/mcp
 ```
@@ -75,7 +75,7 @@ Le serveur MCP refuse de démarrer tant que le schéma n'est pas migré (étape 
 ### 5. Donner l'accès aux agents
 
 Le serveur MCP exige un jeton, même tant qu'aucun n'existe en base (il n'accepte alors que les
-demandes d'enrôlement). Créez le premier maintenant :
+enrôlements). Créez le premier maintenant :
 
 ```bash
 security-review-controller token create --label alice   # jeton mcp, affiché une fois
@@ -88,9 +88,12 @@ security-review-controller token create --label alice   # jeton mcp, affiché un
 
 Ensuite, deux façons de donner un jeton à chaque développeur et à chaque pipeline :
 
-- **Enrôlement** (activé par défaut) : le développeur connecte son hôte sans jeton, l'agent en
-  demande un à la première revue, et un administrateur l'approuve dans l'écran **Jetons**.
-  Rien à préparer : voir [Obtenir un jeton](host.md#obtenir-un-jeton-enrolement).
+- **Jeton personnel** (avec l'enrôlement, activé par défaut) : le développeur connecte son hôte
+  sans jeton, l'agent demande le projet à la première revue et l'envoie vers l'interface web, où
+  il crée un jeton MCP personnel ; un administrateur valide le projet (écran **Projets**) et
+  l'ajoute à son groupe. Définissez
+  `SECREVIEW_WEB_URL` pour que l'agent donne le lien : voir
+  [Obtenir un jeton](host.md#obtenir-un-jeton).
 - **Créé par l'administrateur** : `security-review-controller token create --label <nom>`, par
   exemple pour un pipeline, puis remis à son propriétaire.
 

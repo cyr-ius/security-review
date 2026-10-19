@@ -1,7 +1,7 @@
 """Command line helpers for pipelines and administrators (no MCP client or agent needed).
 
 ``security-review-controller`` runs ``db``, ``advisories``, ``rules``, ``token``, ``user``,
-``group`` and ``audit`` (CONTROLLER_COMMANDS);
+``group``, ``project`` and ``audit`` (CONTROLLER_COMMANDS);
 ``security-review-mcp`` runs ``enroll`` and ``scan-deps`` (MCP_COMMANDS). The code and
 dependency scans of a pipeline are run by ``security-review-ci`` (see ci_client), which sends
 the files to the controller. Exit codes follow the
@@ -22,7 +22,6 @@ from . import (
     access_control,
     advisories,
     advisory_sync,
-    app_settings,
     audit,
     ci_client,
     enrollment,
@@ -176,9 +175,6 @@ def token_command(argv: list[str]) -> int:
     )
     lister = actions.add_parser("list", help="list the tokens (never their secret or hash)")
     lister.add_argument("--project", help="only the tokens that reach this project")
-    lister.add_argument(
-        "--pending", action="store_true", help="only the enrollment requests waiting for approval"
-    )
     revoker = actions.add_parser("revoke", help="delete a token by id or label")
     revoker.add_argument("token", help="token id or label")
     rotator = actions.add_parser(
@@ -197,19 +193,6 @@ def token_command(argv: list[str]) -> int:
         type=int,
         help="validity of the new secret (default: SECREVIEW_TOKEN_MAX_DAYS, no expiry when 0)",
     )
-    approver = actions.add_parser("approve", help="approve a pending enrollment request")
-    approver.add_argument(
-        "token", help="request id, or token id or label when the token has one request"
-    )
-    approver.add_argument(
-        "--portal-user",
-        help="also let this web user read the project in the web interface: it joins the group "
-        "project:<project> (with OIDC enabled, an unknown name becomes an OIDC user)",
-    )
-    rejecter = actions.add_parser("reject", help="reject a pending enrollment request")
-    rejecter.add_argument(
-        "token", help="request id, or token id or label when the token has one request"
-    )
     args = parser.parse_args(argv)
 
     try:
@@ -219,25 +202,7 @@ def token_command(argv: list[str]) -> int:
                 args.label, args.role, args.project, args.expires_in_days, audit.CLI_ACTOR
             )
         elif args.action == "list":
-            result = (
-                token_store.list_enrollments()
-                if args.pending
-                else token_store.list_tokens(args.project)
-            )
-        elif args.action == "approve":
-            create_sso = app_settings.effective_settings().oidc_enabled
-            portal_user = (
-                web_users.check_project_grant(args.portal_user, create_sso)
-                if args.portal_user
-                else None
-            )
-            result = token_store.approve_enrollment(args.token, audit.CLI_ACTOR)
-            if portal_user is not None:
-                result["portal_user"] = web_users.grant_project(
-                    portal_user, result["project"], "cli", create_sso, audit.CLI_ACTOR
-                )
-        elif args.action == "reject":
-            result = token_store.reject_enrollment(args.token, audit.CLI_ACTOR)
+            result = token_store.list_tokens(args.project)
         elif args.action == "rotate":
             result = token_store.rotate_token(
                 args.token, args.grace_hours, args.expires_in_days, audit.CLI_ACTOR
@@ -247,8 +212,8 @@ def token_command(argv: list[str]) -> int:
             if not token_store.DatabaseTokenStore().has_tokens():
                 # Without any token the HTTP MCP server refuses every client (fail closed)
                 warning = (
-                    "No token left: the MCP endpoint refuses every client except enrollment "
-                    "requests (it is open if it listens on localhost or with "
+                    "No token left: the MCP endpoint refuses every client except enrollments "
+                    "(it is open if it listens on localhost or with "
                     "SECREVIEW_ALLOW_UNAUTHENTICATED)"
                 )
                 print(json.dumps({"warning": warning}), file=sys.stderr)
@@ -275,7 +240,7 @@ def audit_command(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
         prog="security-review-controller audit",
         description="Read the audit log: triage decisions, agent proposals, tokens and "
-        "enrollment requests, newest first.",
+        "enrollments, newest first.",
     )
     actions = parser.add_subparsers(dest="action", required=True)
     lister = actions.add_parser("list", help="print the audit events as JSON")
@@ -451,56 +416,72 @@ def group_command(argv: list[str]) -> int:
     return EXIT_PASSED
 
 
+# ── project ──────────────────────────────────────────────────────────────────
+
+
+def project_command(argv: list[str]) -> int:
+    """Run ``security-review-controller project``: handle the projects requested by enrollment."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-controller project",
+        description="List, approve or reject the projects requested by an enrollment. An "
+        "approval creates the project (its group project:<project>, without any member); a "
+        "request nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.",
+    )
+    actions = parser.add_subparsers(dest="action", required=True)
+    actions.add_parser("list", help="list the pending projects (requester, address, expiry)")
+    approver = actions.add_parser("approve", help="create a pending project")
+    approver.add_argument("id", type=int, help="id of the pending project (see list)")
+    rejecter = actions.add_parser("reject", help="delete a pending project request")
+    rejecter.add_argument("id", type=int, help="id of the pending project (see list)")
+    args = parser.parse_args(argv)
+    try:
+        init_db()
+        if args.action == "list":
+            result: object = access_control.list_enrollments()
+        elif args.action == "approve":
+            result = access_control.approve_enrollment(args.id, audit.CLI_ACTOR)
+        else:
+            result = access_control.reject_enrollment(args.id, audit.CLI_ACTOR)
+    except (ValueError, NotFoundError) as exc:
+        return _fail(str(exc))
+    print(json.dumps(result, indent=2))
+    return EXIT_PASSED
+
+
 # ── enroll ───────────────────────────────────────────────────────────────────
 
 
 def enroll_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp enroll``: request access to a project from a shared server."""
+    """Run ``security-review-mcp enroll``: request the project of a repository on a server."""
     parser = argparse.ArgumentParser(
         prog="security-review-mcp enroll",
-        description="Request a token restricted to one project from a shared server. The token "
-        "is printed once and works after an administrator approves the request. With "
-        "--token-stdin, ask instead for one more project on an existing token (complementary "
-        "enrollment).",
+        description="Request a project on a shared server (unchanged when it exists); an "
+        "administrator approves it. No token is created: sign in to the web interface of the "
+        "server (web_url of the answer), create a personal MCP token there and ask an "
+        "administrator for access to the project.",
     )
     parser.add_argument(
         "--url", required=True, help="server URL, for example https://secreview.example.com"
     )
     parser.add_argument("--project", required=True, help="project name used for the reports")
     parser.add_argument(
-        "--label",
-        help="name of the token (default: your login name, as a token is personal); a random "
-        "suffix is added",
-    )
-    parser.add_argument("--requested-by", help="who asks (name, email or team), for the admin")
-    parser.add_argument(
-        "--token-stdin",
-        action="store_true",
-        help="read an existing token on stdin and request the project for it (complementary "
-        "enrollment)",
+        "--requested-by",
+        help="who asks (name, email or team), for the administrator (default: your login name)",
     )
     parser.add_argument("--cafile", help="CA bundle used to verify the server certificate")
     parser.add_argument(
         "--allow-http",
         action="store_true",
-        help="allow plain HTTP to a non-loopback server (the token would travel in clear)",
+        help="allow plain HTTP to a non-loopback server",
     )
     args = parser.parse_args(argv)
-    token = None
-    if args.token_stdin:
-        # Never on the command line: it would show in the process list and the shell history
-        token = sys.stdin.readline().strip()
-        if not token:
-            return _fail("--token-stdin: no token read on stdin")
     try:
         result = enrollment.request_enrollment(
             args.url,
             args.project,
-            label=args.label or enrollment.local_username(),
-            requested_by=args.requested_by,
+            requested_by=args.requested_by or enrollment.local_username(),
             cafile=args.cafile,
             allow_http=args.allow_http,
-            token=token,
         )
     except ValueError as exc:
         return _fail(str(exc))
@@ -524,11 +505,17 @@ def scan_deps_command(argv: list[str]) -> int:
     parser.add_argument(
         "--url",
         default=settings.server_url,
-        help="server URL, for example https://secreview.example.com (default: "
-        "SECREVIEW_SERVER_URL)",
+        help="server URL, for example https://secreview.example.com (default: SECREVIEW_MCP_URL)",
     )
-    parser.add_argument("--fail-on", choices=_SEVERITY_CHOICES, default=Severity.HIGH.value)
-    parser.add_argument("--format", choices=["json", "text"], default="text")
+    parser.add_argument(
+        "--fail-on",
+        choices=_SEVERITY_CHOICES,
+        default=Severity.HIGH.value,
+        help="exit 1 when a finding reaches this severity (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--format", choices=["json", "text"], default="text", help="output (default: %(default)s)"
+    )
     parser.add_argument(
         "--require-database",
         action="store_true",
@@ -552,11 +539,11 @@ def scan_deps_command(argv: list[str]) -> int:
     if not args.url:
         if args.skip_unconfigured:
             print(
-                "warning: dependency scan skipped (SECREVIEW_SERVER_URL is not set)",
+                "warning: dependency scan skipped (SECREVIEW_MCP_URL is not set)",
                 file=sys.stderr,
             )
             return EXIT_PASSED
-        return _fail("No server URL: give --url or set SECREVIEW_SERVER_URL")
+        return _fail("No server URL: give --url or set SECREVIEW_MCP_URL")
     token = settings.token
     if args.token_stdin:
         # Never on the command line: it would show in the process list and the shell history
@@ -740,6 +727,7 @@ CONTROLLER_COMMANDS: dict[str, Callable[[list[str]], int]] = {
     "audit": audit_command,
     "user": user_command,
     "group": group_command,
+    "project": project_command,
 }
 # Commands of security-review-mcp (client side of a shared MCP server)
 MCP_COMMANDS: dict[str, Callable[[list[str]], int]] = {

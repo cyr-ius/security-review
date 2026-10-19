@@ -27,6 +27,38 @@ The server ships with a set of default rules and checklists, described in the
   the file directly: the scan never runs without rules.
 - To go back to the default rules, use `rules import --replace` (see below).
 
+Python scans also include `PY-026`, a bounded Tree-sitter analysis for direct local flows from
+`input()` or common request fields (`request.args`, `request.form`, and similar) into dynamically
+constructed SQL passed to `execute`, `executemany`, or `text`. It is intentionally narrow and
+does not replace a full SAST analysis. It follows arguments and returned values through direct
+calls to local functions in the same file. Bound query parameters are not reported.
+
+TypeScript, JavaScript, and Angular scans also include `NG-021`, which tracks simple local flows
+from URL query/route data into `innerHTML` assignments or Angular `bypassSecurityTrust*` calls.
+It recognizes `DomSanitizer.sanitize(SecurityContext.HTML, value)` as a sanitizer barrier and does
+not report text-only DOM updates. This focused check is not a full browser taint analysis; it does
+not infer sanitizer wrappers or indirect calls. It follows tainted arguments and returned values
+through directly called local function declarations and arrow functions in the same file.
+
+The same scans include `NG-022` for `message` event listeners that read `event.data` without
+checking `event.origin`. The check is limited to inline callbacks passed to `addEventListener`;
+origin validation delegated to another function is not inferred.
+
+Java scans also include `JV-019`, a bounded Tree-sitter check that follows request data through
+Servlet request getters and Spring `@RequestParam`, `@PathVariable`, `@RequestBody`, and
+`@RequestHeader` parameters are treated as untrusted sources. The analysis tracks local
+assignments, string concatenation, `String.format`, `concat`, `StringBuilder.append` and
+`toString`, plus arguments and returned values across direct local method calls. SQL execution
+methods on JDBC/JPA APIs are sinks. It does not report values bound separately with
+`PreparedStatement` or JPA `setParameter`. The analysis does not resolve overloads, fields,
+framework wrappers, or calls across files, and does not infer arbitrary validation or escaping
+as a sanitizer.
+
+Other focused additions include `PY-027` for explicitly disabled JWT signature verification,
+`JV-018` for a direct request value passed to JNDI `lookup`, and `NG-023` for assignments that
+mutate `__proto__` or `constructor.prototype`. These are line-level patterns and do not infer
+indirect data flows; review the surrounding code before deciding whether a finding is exploitable.
+
 ```bash
 security-review-controller rules import examples/rules/company.toml   # import a pack
 security-review-controller rules list --custom                        # check
@@ -116,7 +148,8 @@ A full example is provided in `examples/rules/company.toml`.
 
 - An `id` equal to a default rule **edits** it (it then shows as `modified` and is no longer
   updated by new versions of the server).
-- A new `domain` can be used at once with `get_review_checklist`.
+- A new `domain` can be used at once with `get_review_checklist`, and the review prompts name it
+  for the agent to fetch.
 - A change (CLI, web interface) is picked up by every running server **within a few seconds**,
   without restart; the `reload_rules` tool and the **Reload** button of the **Rules** screen apply
   it immediately. Changes made in the **Checklists** screen reload the registry immediately.
@@ -137,9 +170,9 @@ A full example is provided in `examples/rules/company.toml`.
 | Family | Main coverage |
 |---|---|
 | `GEN-*` (every language) | Hard-coded credentials, private keys, cloud keys, tokens with a known format (GitHub, GitLab, Slack, Google, Stripe, npm), credentials in a URL, hard-coded JWT, obsolete SSL/TLS, secrets written to logs, plain HTTP |
-| `PY-*` (Python) | `eval`/`exec`, deserialization (pickle, `torch.load`, `joblib`...), YAML, shell commands, formatted SQL, disabled TLS, weak crypto or ECB mode, non-cryptographic randomness, XXE (lxml), SSTI, hard-coded `SECRET_KEY`, `ALLOWED_HOSTS = ['*']`, disabled CSRF, `mark_safe`, cookies without `Secure`/`HttpOnly`, SSRF, non-constant-time secret comparison, temporary files |
-| `JV-*` (Java) | Deserialization (including XStream, SnakeYAML), OS commands, concatenated SQL and LDAP, XXE, CSRF, CORS, weak crypto, "trust all" TLS, paths and redirects built from the request, SpEL/EL, cookies, `Random`, `printStackTrace` |
-| `NG-*` (Angular, JavaScript, TypeScript) | Sanitizer bypass, `innerHTML` and other HTML sinks, `eval`, `setTimeout` with a string, tokens in web storage, `postMessage('*')`, disabled XSRF, open redirects; on the Node.js side: shell commands, interpolated SQL, `$where`, file paths, open CORS, disabled TLS, `jwt.decode`, weak crypto |
+| `PY-*` (Python) | `eval`/`exec`, deserialization (pickle, `torch.load`, `joblib`...), YAML, shell commands, formatted SQL, disabled TLS, weak crypto or ECB mode, non-cryptographic randomness, XXE (lxml), SSTI, hard-coded `SECRET_KEY`, `ALLOWED_HOSTS = ['*']`, disabled CSRF, `mark_safe`, cookies without `Secure`/`HttpOnly`, SSRF, non-constant-time secret comparison, temporary files, disabled JWT signature verification |
+| `JV-*` (Java) | Deserialization (including XStream, SnakeYAML), OS commands, concatenated SQL and LDAP, request-to-dynamic-SQL flows through local calls (`JV-019`), XXE, CSRF, CORS, weak crypto, "trust all" TLS, paths and redirects built from the request, SSRF from direct request URLs, JNDI lookup from request data, SpEL/EL, cookies, `Random`, `printStackTrace` |
+| `NG-*` (Angular, JavaScript, TypeScript) | Sanitizer bypass, `innerHTML` and other HTML sinks, URL-to-DOM flows, unchecked `message` origins, prototype chain mutation, `eval`, `setTimeout` with a string, tokens in web storage, `postMessage('*')`, disabled XSRF, open redirects; on the Node.js side: shell commands, interpolated SQL, `$where`, file paths, open CORS, disabled TLS, `jwt.decode`, weak crypto |
 | `CFG-*` (Docker, Compose, Kubernetes, servers) | Privileged or root container, Docker socket, host namespaces, dangerous capabilities, privilege escalation, sensitive mounts, exposed database ports, secrets in `ENV`/`ARG`, remote `ADD`, default passwords, services without authentication, `*` or `cluster-admin` RBAC, public buckets, `*` CORS, directory listing, weak SSH, `curl \| sh`, debug |
 | `GL-*` (GitLab CI) | Remote `include`, printed secrets, DinD without TLS, `allow_failure`, CI token on the command line, untrusted variables evaluated by a shell, `CI_DEBUG_TRACE`, public artifacts, `GIT_SSL_NO_VERIFY` |
 | `JK-*` (Jenkinsfile) | Injection in `sh`, unpinned shared library, `agent any`, disabled sandbox, credential interpolated in a Groovy string, internal `Jenkins.instance` API |
@@ -154,7 +187,22 @@ business flows, Kubernetes hardening, RBAC, proxy headers, lockfile integrity).
 
 Languages accepted by `scan_code`: `python`, `java`, `typescript`, `javascript`, `angular`,
 `config`, `yaml`, `docker`, `gitlab-ci`, `jenkins` (aliases: `jenkinsfile`, `groovy`, `gitlab`,
-`yml`...). A `cicd` checklist is added automatically to pipeline reviews.
+`yml`...).
+
+### Checklists in review prompts
+
+| Prompt | Embedded checklists |
+|---|---|
+| `security-review` | The checklists of `language` (`python`, `java`, `angular` for `typescript` and `javascript`, `config` and `cicd` for pipelines), then `api` |
+| `codebase-review` | The checklists of `languages`, then `api`, `config` and `cicd` |
+| `api-security-review` | `api` |
+| `configuration-review` | `config`, plus `cicd` when the files look like a pipeline |
+| `dependency-review` | `dependencies` |
+
+The `company` checklist is added to every prompt. The other domains, internal ones included, are
+named at the end of the checklists: the agent fetches with `get_review_checklist` those that
+apply to the code it reviews. It then declares the outcome of each item it walked through in
+`save_security_report` ([review coverage](../usage/prompts-tools.md#review-coverage)).
 
 ## Suppressing a false positive
 

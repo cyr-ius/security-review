@@ -25,7 +25,7 @@ Les écrans sont accessibles depuis la barre latérale : **Supervision** (projet
 tous les comptes, puis **Référentiel** (règles, checklists, normes) et **Administration**
 (utilisateurs, groupes, rôles, jetons, journal d'audit, OIDC, langue des rapports, proxy sortant,
 base OSV), chaque écran n'étant affiché qu'aux comptes qui ont sa
-[permission](../advanced/access-control.md#permissions). Le bas de la barre affiche le client connecté, son rôle et la
+[permission](../advanced/access-control.md#permissions). Le bas de la barre affiche le client connecté (ses permissions au survol) et la
 version (un lien vers **À propos**), avec les boutons **Mon compte** et de déconnexion.
 Sur petit écran, la barre est réduite à ses icônes (chacune nomme son écran au survol) et le
 bouton en haut à gauche l'ouvre en entier ; sur grand écran, le même bouton la réduit à ses icônes
@@ -52,14 +52,29 @@ chargement, l'application interroge d'abord `/api/health` : si le contrôleur ne
 cesse de répondre ensuite), la page **Backend indisponible** s'ouvre, et son bouton **Réessayer**
 revient à la page demandée dès que le contrôleur répond de nouveau.
 
+Les tableaux se trient en cliquant sur l'en-tête d'une colonne : une petite flèche indique la
+colonne triée et le sens du tri, un second clic l'inverse. Chaque tableau s'ouvre trié sur sa
+colonne par défaut (flèche affichée), et le navigateur mémorise le tri choisi pour les visites
+suivantes.
+
 - **Projets** : tous les projets avec leurs findings ouverts par sévérité. Rechercher par nom,
-  trier par risque, activité ou nom, et filtrer par sévérité maximale. Le bouton
+  trier par nom, pire finding ouvert ou dernier rapport, et filtrer par sévérité maximale. Le bouton
   **Revoir les findings ouverts** ouvre les findings à revoir de tous
   les projets que vous pouvez voir (**Findings à revoir : tous les projets**), chacun avec un
-  lien vers son projet.
+  lien vers son projet. Le bouton **Acceptations de risque** liste les risques acceptés de tous
+  les projets que vous pouvez voir. Avec la permission `projects.create`, **Nouveau projet** (à gauche
+  d'**Actualiser**) ouvre une fenêtre modale qui crée un projet que vous lisez ensuite (voir
+  [Création d'un projet](../advanced/access-control.md#creation-dun-projet)), et la section
+  **Projets en attente** liste les projets demandés par un
+  [enrôlement](../advanced/http.md#enrolement-demander-le-projet) (demandeur, adresse, dates de
+  demande et d'expiration) : **Valider** crée le projet sans aucun membre, **Refuser** supprime
+  la demande ; une demande non validée avant son expiration est supprimée. Avec
+  `projects.delete`, le bouton corbeille d'une ligne supprime le projet et tout ce qui s'y
+  rapporte (voir [Suppression d'un projet](../advanced/access-control.md#suppression-dun-projet)).
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, derniers rapports et
-  export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant.
+  export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant ;
+  **Acceptations de risque** liste les risques acceptés du projet.
 - **Findings à revoir** : tous les findings ouverts du projet, sur l'ensemble de ses rapports,
   du plus grave au moins grave puis du rapport le plus récent au plus ancien, pour une revue par
   un expert en cybersécurité. Chaque finding affiche sa description, son extrait de code et sa
@@ -70,17 +85,27 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   suivants. Les utilisateurs qui ont la permission `findings.triage` changent le statut de chaque
   finding depuis cet écran et appliquent ou rejettent les statuts proposés par les agents (voir
   [triage des findings](#triage-des-findings)) ; un finding trié reste affiché jusqu'au
-  rechargement.
+  rechargement (bouton **Actualiser**).
+- **Acceptations de risque** : les risques acceptés du projet (ou de tous les projets), y compris
+  expirés, de l'expiration la plus proche à la plus lointaine. Recherche, tri et filtres par état
+  (**Active**, **Expirée**) et par sévérité ; **Actualiser** recharge la liste. Un clic sur un
+  finding ouvre ses détails : ses commentaires (le premier est le motif de l'acceptation) et,
+  avec la permission `findings.triage`, les formulaires pour ajouter un commentaire, changer la
+  date d'expiration et supprimer l'acceptation (voir [acceptations de risque](#acceptations-de-risque)).
 - **Rapports** : liste filtrable par projet et niveau de risque, avec recherche dans les
   métadonnées et le résumé, tri par date, projet, risque, type, branche, auteur ou résumé. La
-  recherche, le tri et les filtres restent dans l'URL, pour partager la vue.
+  recherche et les filtres restent dans l'URL, pour partager la vue ; le tri est mémorisé par le
+  navigateur.
 - **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** et
-  **Envoyé par (jeton)**, voir [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)), findings avec
+  **Envoyé par (jeton)**, voir [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)),
+  **Couverture de la revue** (points de checklist par résultat et règles qui ont remonté des
+  pistes, celles citées par aucun finding marquées **écartée**, voir
+  [couverture de la revue](prompts-tools.md#couverture-de-la-revue)), findings avec
   emplacement, CWE, extrait de code et recommandation ; téléchargement Markdown et SARIF. Les
   utilisateurs qui ont la permission `findings.triage` changent le statut d'un finding directement
   depuis cet écran.
 - **Normes** : les [normes de développement](../advanced/standards.md) transmises aux assistants IA par le
-  prompt `development-standards`. Rechercher et trier par titre, identifiant, technologie ou motif
+  prompt `development-standards`. Rechercher et trier par titre, technologie ou motif
   de fichier, filtrer par état activé. Les administrateurs les lisent, les créent,
   les modifient (technologies, motifs de fichiers, contenu Markdown), les désactivent ou les
   suppriment. Un changement s'applique immédiatement. **Exporter** et **Importer** les copient
@@ -105,7 +130,7 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   Les comptes OIDC supprimés sont recherchables, triables et filtrables par administrateur de
   révocation. L'administrateur choisit ses **Groupes**, seule source de
   ses permissions ; la colonne **Groupes** montre les groupes, avec un bouclier pour les groupes
-  OIDC trouvés à la dernière connexion, et **Accès** résume ce qu'ils donnent. L'administrateur
+  OIDC trouvés à la dernière connexion, et **Accès** liste les permissions qu'ils donnent, avec leurs projets. L'administrateur
   change les groupes d'un compte, réinitialise le mot de passe d'un compte local ou supprime un compte. Un compte OIDC supprimé
   n'est plus recréé à sa connexion : la section **Comptes OIDC supprimés** les liste, avec le
   bouton **Autoriser à nouveau**. Le dernier détenteur de `users.manage` ne peut être ni supprimé
@@ -116,14 +141,15 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   (voir [Rôles, groupes et permissions](../advanced/access-control.md#groupes)).
 - **Rôles** : les administrateurs recherchent et trient les rôles, et filtrent les rôles intégrés
   des rôles personnalisés. Ils créent des rôles à partir des permissions ; les rôles intégrés
-  `reader` et `admin` sont affichés en lecture seule. `triager` (lecture et triage), créé avec la
-  base, est un rôle ordinaire : il peut être modifié ou supprimé.
-- **Mon compte** : affiche le type du compte. Un utilisateur local y change son mot de passe (ses
+  `reader` et `admin` sont affichés en lecture seule. `triager` (lecture et triage) et `mcp-user`
+  (jeton MCP personnel), créés avec la base, sont des rôles ordinaires : ils peuvent être modifiés
+  ou supprimés.
+- **Mon compte** : affiche le type du compte et **Mes permissions**. Un utilisateur local y change son mot de passe (ses
   autres sessions sont fermées) ; celui d'un utilisateur OIDC est géré par le fournisseur
-  d'identité. **Jetons API** crée et révoque des [jetons API](#jetons-api) personnels (API REST
-  et Swagger) qui portent les droits du compte.
-- **Jetons** : les demandes d'enrôlement sont recherchables, triables et filtrables par type ; les
-  jetons actifs le sont par usage. Les administrateurs créent et révoquent des jetons pour un ou plusieurs
+  d'identité. **Jetons personnels** crée et révoque les jetons personnels du compte : des
+  jetons [API REST](#jetons-api) (Swagger, scripts), qui portent ses droits, et des jetons
+  [MCP](#jetons-mcp-personnels) pour son agent, qui atteignent les projets qu'il peut lire.
+- **Jetons** : les jetons sont recherchables, triables et filtrables par usage. Les administrateurs créent et révoquent des jetons pour un ou plusieurs
   projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit
   **MCP** (rôle `mcp`), **Pipeline CI/CD** (rôle `ci`, pour
   [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)) ou **API REST** (rôle
@@ -136,50 +162,53 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   `SECREVIEW_TOKEN_MAX_DAYS`). La liste affiche l'usage de chaque jeton `mcp` et `ci`, ses
   projets et sa date d'expiration (**Expiré** une fois passée).
   **Projets** change les projets d'un jeton existant, ou lui donne **Tous les projets** après
-  confirmation, sans changer son secret : le changement s'applique dès la requête suivante ; une
-  demande en attente pour un projet désormais accordé est approuvée avec lui. **Renouveler** remplace le secret d'un jeton et affiche le
+  confirmation, sans changer son secret : le changement s'applique dès la requête suivante. **Renouveler** remplace le secret d'un jeton et affiche le
   nouveau une fois ; l'ancien reste valable pendant le délai de grâce choisi au-dessus de la
   liste (aucun, 1 h, 24 h ou 7 jours, voir
   [expiration et renouvellement](../advanced/http.md#expiration-et-renouvellement-des-jetons)). Un jeton n'ouvre jamais l'interface web. Les jetons `admin` et `metrics` restent non
   restreints et se gèrent uniquement par la CLI. Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
-  données. Une révocation prend effet à la requête suivante. La section
-  **Demandes en attente** distingue les nouveaux jetons des demandes d'accès à un projet
-  supplémentaire ([enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton)) :
-  **Approuver** active le nouveau jeton ou ajoute le projet au jeton existant ; **Refuser** ne
-  supprime que la demande. Les projets autorisés et les ajouts encore en attente sont affichés
-  pour chaque jeton. La colonne **Lecture dans le portail** permet de donner en même temps au
-  développeur la lecture du projet dans l'interface web, sur son compte utilisateur (voir
-  [lecture du projet à l'enrôlement](../advanced/sso.md#lecture-du-projet-a-lenrolement)).
+  données. Une révocation prend effet à la requête suivante.
+  L'[enrôlement](../advanced/http.md#enrolement-demander-le-projet) ne crée aucun jeton : un
+  projet qu'il demande attend dans **Projets**, et une fois validé un administrateur en donne
+  l'accès à un développeur en l'ajoutant à son groupe `project:<projet>` (écran **Groupes**).
 - **Journal d'audit** : les administrateurs consultent le [journal d'audit](../advanced/audit-metrics.md#journal-daudit) :
-  décisions de triage, propositions des agents, jetons et demandes d'enrôlement, du plus récent
+  décisions de triage, propositions des agents, jetons et enrôlements, du plus récent
   au plus ancien, avec leur auteur ; filtres par événement et projet, recherche dans les détails,
   tri par date/action/auteur/cible/projet et **Afficher plus** pour les événements plus anciens.
+  Les détenteurs de `settings.manage` y règlent aussi le
+  [serveur syslog](../advanced/audit-metrics.md#envoi-vers-syslog) qui reçoit les événements
+  (bouton **Syslog**, à côté de **Actualiser**).
 - **OIDC** : les administrateurs [configurent la connexion OIDC](../advanced/sso.md#configurer-le-oidc-dans-linterface)
-  (chaque valeur enregistrée remplace sa variable `SECREVIEW_OIDC_*`, avec un test de connexion
-  au fournisseur). Ce que peuvent faire les utilisateurs OIDC vient des groupes ouverts au OIDC
+  (une valeur enregistrée s'applique quand sa variable `SECREVIEW_OIDC_*` n'est pas définie,
+  avec un test de connexion au fournisseur). Ce que peuvent faire les utilisateurs OIDC vient des groupes ouverts au OIDC
   nommés par leur claim des groupes (voir
   [groupes du fournisseur d'identité](../advanced/sso.md#groupes-du-fournisseur-didentite)).
-Les trois écrans suivants portent des réglages enregistrés en base, prioritaires sur les
-variables d'environnement et partagés par le serveur MCP et le contrôleur (permission
-`settings.manage` ; l'ancienne adresse `/ui/settings` ouvre **Langue des rapports**).
+Les trois écrans suivants portent des réglages enregistrés en base et partagés par le serveur
+MCP et le contrôleur (permission `settings.manage` ; l'ancienne adresse `/ui/settings` ouvre
+**Langue des rapports**). **Une variable d'environnement définie (environnement ou fichier
+`.env`) est toujours prioritaire** sur la valeur saisie dans l'interface : son champ est alors
+verrouillé et affiche la variable, et une valeur enregistrée avant que la variable soit définie
+est signalée comme ignorée, avec un bouton **Supprimer**.
 
-- **Langue des rapports** : variable `SECREVIEW_REPORT_LANGUAGE`, choix laissé à l'agent ou
-  langue définie ici (`French`, `fr`, `pt-BR`…). Elle s'applique aux prochains prompts de
-  revue ; l'argument `report_language` d'un prompt reste prioritaire
+- **Langue des rapports** : choix laissé à l'agent ou langue définie ici (`French`, `fr`,
+  `pt-BR`…), quand `SECREVIEW_REPORT_LANGUAGE` n'est pas définie. Elle s'applique aux
+  prochains prompts de revue ; l'argument `report_language` d'un prompt reste prioritaire
   ([langue des rapports](prompts-tools.md#langue-des-rapports)).
 - **Proxy sortant** : proxy des connexions sortantes du contrôleur, utilisé par le
   téléchargement OSV **et** par la
-  [connexion OIDC](../advanced/sso.md). Comme pour la configuration OIDC, chaque
-  valeur définie ici remplace sa variable (badges **Variable** / **Interface web**) :
-  l'URL suit `HTTPS_PROXY` (sinon `HTTP_PROXY`), est définie ici, ou force la connexion
-  directe ; les **hôtes sans proxy** suivent `NO_PROXY` ou sont définis ici (voir
+  [connexion OIDC](../advanced/sso.md). Quand `HTTPS_PROXY` (sinon `HTTP_PROXY`) n'est pas
+  définie, le proxy est défini ici (ou **Aucun proxy (connexion directe)**) ; quand
+  `NO_PROXY` n'est pas définie, les **hôtes sans proxy** sont définis ici (voir
   [hôtes sans proxy](../advanced/dependencies.md#hotes-sans-proxy) : domaines, adresses IP,
-  `*`, pas de plages CIDR). Le changement s'applique au prochain
+  `*`, pas de plages CIDR). Une variable vide compte comme non définie. Le changement s'applique au prochain
   téléchargement et à la prochaine connexion OIDC, sans redémarrage. Le proxy appliqué, son
   origine et les variables sont affichés ; les mots de passe ne sont
   jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré. Par l'API :
-  `PUT /api/v1/settings/proxy` avec `url` et `no_proxy` (`null` applique de nouveau la
-  variable, `"url": ""` force la connexion directe, un champ absent est inchangé).
+  `PUT /api/v1/settings/proxy` avec `url` et `no_proxy` (`null` supprime la valeur
+  enregistrée, `"url": ""` force la connexion directe, un champ absent est inchangé ; une
+  valeur dont la variable est définie est refusée avec `422`). `GET /api/v1/settings` donne,
+  pour chaque réglage, la valeur enregistrée `value`, la variable `env`, `env_set` (la variable
+  est définie et prioritaire) et la valeur effective.
 - **Base OSV** : état de la base de vulnérabilités OSV : nombre d'avis par écosystème, date et âge du dernier
   import, configuration du téléchargement, historique des 50 dernières mises à jour
   (planifiée, CLI ou interface web, avec statut, durée et résultat par écosystème), recherchable,
@@ -202,7 +231,10 @@ MCP `propose_finding_status`, voir [statut d'un finding](prompts-tools.md#statut
   `SECREVIEW_MAX_DISMISSAL_DAYS`). L'utilisateur connecté est enregistré comme approbateur ; la
   carte affiche l'approbateur, le motif et la fin de validité. À partir de la date d'expiration,
   le finding est de nouveau compté comme ouvert (filtre de statut, posture,
-  [gate](gate.md), SARIF, tendance) et la carte indique que la décision a expiré.
+  [gate](gate.md), SARIF, tendance) et la carte indique que la décision a expiré. Pour
+  **Risque accepté**, la case **Sans expiration** supprime la date : le risque reste accepté
+  jusqu'à ce que quelqu'un rouvre le finding (désactivée par
+  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`). Un faux positif exige toujours une date.
 - **Ouvert** et **Corrigé** sont enregistrés immédiatement (motif facultatif par l'API). Toute
   décision supprime la proposition en attente.
 
@@ -219,11 +251,50 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
 ```
 
 Un motif absent ou trop court, une date d'expiration passée ou trop lointaine, ou une date
-d'expiration pour `open` / `fixed` reçoit `422`. Les décisions **Risque accepté** et **Faux
+d'expiration pour `open` / `fixed` reçoit `422`. Sans `expires_on`, une acceptation n'expire
+jamais, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`) ; `GET /api/v1/me` renvoie
+`permanent_acceptance` pour indiquer si l'appelant peut le faire. Les décisions **Risque accepté** et **Faux
 positif** prises avant cette fonctionnalité n'avaient ni motif ni approbateur : la mise à jour de
 la base leur donne une date d'expiration 30 jours plus tard, avec un motif qui demande de les
 confirmer. Revoyez-les avec les filtres de statut avant cette date, sinon elles bloquent de
 nouveau la gate.
+
+### Acceptations de risque
+
+L'écran **Acceptations de risque** (`/ui/risk-acceptances`, ou par projet depuis les écrans
+**Projets** et **Projet**) liste les risques acceptés, y compris expirés, pour les renouveler
+avant ou après leur fin de validité. Dans les détails d'une acceptation :
+
+- **Commentaires** : tous les commentaires, du plus ancien au plus récent, avec leur auteur et
+  leur date. Le motif de l'acceptation est le premier : accepter un risque, ou l'accepter de
+  nouveau avec un autre motif, l'ajoute aux commentaires. Toute personne qui lit le projet les
+  voit. Un commentaire **ne peut être ni modifié
+  ni supprimé** : aucune route de l'API ne le fait. Ils restent attachés au finding quand son
+  acceptation est supprimée.
+- **Ajouter un commentaire** (2000 caractères au plus, secrets masqués) enregistre l'utilisateur
+  connecté comme auteur, également dans le journal d'audit (`finding.commented`).
+- **Changer la date d'expiration** enregistre de nouveau l'acceptation avec le même motif et la
+  nouvelle date (mêmes limites que ci-dessus, **Sans expiration** compris), sans ajouter de
+  commentaire : l'utilisateur connecté en devient l'approbateur.
+- **Supprimer l'acceptation** rouvre le finding, après confirmation.
+
+Comme une acceptation, un commentaire demande une session avec la permission `findings.triage` :
+un jeton Bearer reçoit `403`. Par l'API REST :
+
+```bash
+curl -H "Authorization: Bearer $SESSION" \
+  "https://secreview.example.com/api/v1/risk-acceptances?project=shop-api"
+# {"project": "shop-api", "total": 1, "acceptances": [{"id": 42, "status": "accepted", "expired": false, "comments_total": 1, …}]}
+curl -H "Authorization: Bearer $SESSION" https://secreview.example.com/api/v1/findings/42/comments
+# [{"id": 7, "finding_id": 42, "author": "alice", "body": "Renew it after the audit", "created_at": "…"}]
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42/comments -d '{"body": "Renew it after the audit"}'
+curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42 -d '{"status": "open"}'    # supprimer l'acceptation
+```
+
+`GET /api/v1/risk-acceptances` accepte `limit` (plafonné par `SECREVIEW_MAX_LIST_LIMIT`) et
+`offset` ; sans `project`, il liste tous les projets que l'appelant peut lire.
 
 ## Rôles
 
@@ -311,8 +382,9 @@ Un jeton `api` appelle l'API REST, depuis un script ou depuis la documentation S
 Il n'atteint jamais `/mcp`, n'ouvre jamais l'interface et, comme tout jeton, n'accepte jamais un
 risque et ne marque jamais un faux positif. Il en existe deux sortes :
 
-- **Jeton personnel** : un utilisateur le crée pour lui-même dans **Mon compte** > **Jetons API**
-  (10 au plus, label `<utilisateur>:<label>`, avec un `:` qu'aucun autre label de jeton ne peut contenir, validité bornée par `SECREVIEW_TOKEN_MAX_DAYS`). Il
+- **Jeton personnel** : un utilisateur le crée pour lui-même dans **Mon compte** > **Jetons
+  personnels** avec l'**Usage** **API REST — Swagger et scripts** (un au plus par défaut,
+  `SECREVIEW_PERSONAL_TOKENS_PER_USER` : révoquez-le pour en créer un autre ; label `<utilisateur>:<label>`, avec un `:` qu'aucun autre label de jeton ne peut contenir, validité bornée par `SECREVIEW_TOKEN_MAX_DAYS`). Il
   porte les droits actuels du compte, qui viennent de ses groupes : il n'atteint plus rien dès que
   le compte les perd, et il est supprimé avec le compte. Personne ne peut le renouveler ni changer
   ses projets ; un administrateur peut le révoquer depuis l'écran **Jetons**.
@@ -330,6 +402,35 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 # {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
 ```
 
+### Jetons MCP personnels
+
+Un utilisateur connecte son propre agent MCP avec un jeton `mcp` personnel, créé dans **Mon
+compte** > **Jetons personnels** avec l'**Usage** **MCP**, proposé seulement quand ses groupes
+portent la permission `mcp_tokens.create` (rôle `mcp-user`, voir
+[Rôles](../advanced/access-control.md#roles) ; 403 sans elle). Un au plus par défaut
+(`SECREVIEW_PERSONAL_TOKENS_PER_USER`), en plus du jeton API REST. Il atteint les projets que le
+compte peut lire (`reports.read` de ses groupes), lus à chaque requête : un projet donné au compte
+ou retiré s'applique aussitôt, tous les projets quand l'un de ses groupes lit tous les projets,
+aucun projet quand il n'en a pas. La colonne **Projets** les affiche, de même que l'écran
+**Jetons** pour les administrateurs.
+
+Un jeton déjà créé continue de fonctionner quand le compte perd `mcp_tokens.create` : un
+administrateur le révoque au besoin. Comme un jeton API REST personnel, il s'arrête tant que le compte doit changer un mot de passe
+défini par un administrateur, il est supprimé avec le compte, personne ne peut le renouveler
+ni changer ses projets, et un administrateur peut le révoquer. Pour un projet qu'il n'atteint
+pas, un administrateur donne au compte l'accès au projet (un groupe qui le lit), ou
+l'utilisateur le crée depuis **Projets** s'il est nouveau et qu'il porte `projects.create` (voir
+[Création d'un projet](../advanced/access-control.md#creation-dun-projet)) ; un projet demandé par
+un [enrôlement](../advanced/http.md#enrolement-demander-le-projet) attend sa validation. Quand le serveur refuse le jeton (inconnu, révoqué ou expiré), l'agent reçoit
+un `401` qui invite l'utilisateur à se reconnecter pour en créer un nouveau. Il n'atteint jamais
+l'API REST.
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "mcp"}'
+# {"id": "…", "label": "alice:laptop", "role": "mcp", "personal": true, …, "token": "Zq3…"}
+```
+
 ## Comptes utilisateurs
 
 Un compte associe un **identifiant** (lettres, chiffres et `. _ @ -`, 64 caractères au plus), un
@@ -340,7 +441,7 @@ ni projet propre.
 | Type (`auth_source`) | Connexion | Création |
 |---|---|---|
 | **Local** (`local`) | Identifiant et mot de passe | Par un administrateur, ou le compte `admin` initial |
-| **OIDC** (`oidc`) | [Fournisseur d'identité](../advanced/sso.md), sans mot de passe | Par un administrateur, à l'approbation d'un enrôlement, ou à la première connexion si `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
+| **OIDC** (`oidc`) | [Fournisseur d'identité](../advanced/sso.md), sans mot de passe | Par un administrateur, ou à la première connexion si `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
 Un compte OIDC rejoint aussi, à chaque connexion, les groupes ouverts au OIDC nommés par son claim
 des groupes (voir [comptes OIDC](../advanced/sso.md#comptes-oidc)). Les comptes se gèrent dans
@@ -349,7 +450,7 @@ l'écran **Utilisateurs**, par l'API REST `/api/v1/users` (permission `users.man
 
 ```bash
 security-review-controller user create alice --group shop-triagers
-# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, "effective_role": "triager", …, "password": "q3V…"}
+# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, …, "password": "q3V…"}
 printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
 security-review-controller user create carol@example.com --sso   # groupes OIDC seulement
 security-review-controller user list
@@ -462,7 +563,7 @@ que l'onglet utilise comme un jeton Bearer :
 ```bash
 curl -s -X POST https://secreview.example.com/api/v1/auth/login \
   -H 'Content-Type: application/json' -d '{"username": "alice", "password": "…"}'
-# {"session": "eyJ…", "expires_in": 28800, "username": "alice", "role": "triager"}
+# {"session": "eyJ…", "expires_in": 28800, "username": "alice"}
 ```
 
 Chaque session désigne un compte (local ou OIDC) ; à chaque requête, le contrôleur le relit en
@@ -512,11 +613,13 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   Dans Swagger, le cadenas d'une route indique qu'elle exige un jeton : il reste **ouvert**
   tant que vous n'avez pas saisi de jeton avec **Authorize**, et ne veut pas dire que la route
   est accessible sans jeton. Saisissez-y un [jeton API](#jetons-api).
-- Le contrôleur n'expose aucune route d'écriture sans jeton. Les demandes
-  d'[enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton) sont déposées sur
-  le **serveur MCP** (`POST /api/v1/enroll`, public) ; le contrôleur les liste et les traite
-  (`GET /api/v1/enrollments`, `POST /api/v1/enrollments/{id}/approve`,
-  `DELETE /api/v1/enrollments/{id}`, permission `tokens.manage`). Il peut donc rester sur un réseau interne.
+- Le contrôleur n'expose aucune route d'écriture sans jeton.
+  L'[enrôlement](../advanced/http.md#enrolement-demander-le-projet) est servi par le **serveur
+  MCP** (`POST /api/v1/enroll`, public) : il demande un projet, jamais un jeton ; le
+  contrôleur liste et traite les demandes (`GET /api/v1/projects/pending`,
+  `POST /api/v1/projects/pending/{id}/approve`, `DELETE /api/v1/projects/pending/{id}`,
+  permission `projects.create`). Le contrôleur
+  peut donc rester sur un réseau interne.
 - Le jeton est envoyé dans l'en-tête `Authorization` : pas de cookie, donc pas de CSRF.
   Seule la [connexion OIDC](../advanced/sso.md) pose un cookie, `HttpOnly`,
   `SameSite=Lax`, `Secure` en HTTPS, limité à l'URL de retour et valable 10 minutes : il lie le
@@ -541,7 +644,9 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | Fichier du secret quand `SECREVIEW_SECRET_KEY` n'est pas défini, généré au premier démarrage |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session (1 à 24 heures), connexion par compte local ou OIDC |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le [compte OIDC](../advanced/sso.md#comptes-oidc) à la première connexion ; sinon un administrateur le crée |
-| `SECREVIEW_ENROLLMENT` | `true` | Demandes de jetons par les projets (sur le serveur MCP), validées dans l'écran **Jetons** |
+| `SECREVIEW_ENROLLMENT` | `true` | Demandes de projet par les clients MCP sans jeton (sur le serveur MCP), validées dans l'écran **Projets** ; aucun jeton n'est créé |
+| `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | Jours pendant lesquels un projet demandé attend sa validation avant d'être supprimé |
+| `SECREVIEW_WEB_URL` | — | URL publique de l'interface web, donnée par le serveur MCP aux clients sans jeton valide |
 | `SECREVIEW_OIDC_*` | — | [Connexion OIDC](../advanced/sso.md), voir la [référence](../reference/configuration.md) |
 
 Le paquet publié et l'image Docker contiennent l'application déjà compilée. Si vous installez

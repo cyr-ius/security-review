@@ -59,7 +59,7 @@ security-review-controller token create --label alice      # mcp token, shown on
 # 2. Start the two services (two terminals)
 security-review-controller serve --host 127.0.0.1 --port 8080
 # web interface: http://127.0.0.1:8080/ui/
-security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
+security-review-mcp serve --transport streamable-http --host 127.0.0.1 --port 8000
 # MCP endpoint: http://127.0.0.1:8000/mcp
 ```
 

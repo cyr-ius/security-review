@@ -14,10 +14,11 @@ Deux processus partagent la base et ne s'appellent jamais : le **serveur MCP**
 
 ## Une tâche n'est terminée que si
 
-1. **Des tests couvrent le changement** (voir [Tests](#tests)) et `uv run pytest` passe.
-2. `uv run ruff check . && uv run ruff format --check .` passe.
-3. **La documentation `docs/` est à jour, en anglais et en français**, et
-   `uv run mkdocs build --strict` passe
+1. **Le comportement ajouté ou corrigé est vérifié par un test pertinent**, existant ou nouveau
+   (voir [Tests](#tests)).
+2. **Les vérifications qui correspondent aux fichiers modifiés passent**, et seulement
+   celles-là (voir [Vérifications selon les fichiers modifiés](#vérifications-selon-les-fichiers-modifiés)).
+3. **La documentation `docs/` est à jour, en anglais et en français**
    (voir [Documentation](#documentation)).
 4. **Les `README.md` (anglais) et `README.fr.md` (français) sont à jour, en restant
    synthétiques** (voir [README](#readme)).
@@ -27,7 +28,27 @@ Deux processus partagent la base et ne s'appellent jamais : le **serveur MCP**
 
 Si l'une de ces étapes est volontairement omise (ex. refactorisation interne sans effet visible
 sur la doc), dites-le explicitement dans votre réponse ou dans la description de PR, avec la
-raison. Ne déclarez jamais une tâche terminée sans avoir lancé les tests.
+raison. Ne déclarez jamais une tâche terminée sans avoir lancé les vérifications qui
+correspondent aux fichiers modifiés.
+
+### Vérifications selon les fichiers modifiés
+
+Lancez uniquement les vérifications des zones touchées par le changement (`git diff --stat`) :
+**ne lancez pas `pytest` ni `ruff` pour un changement qui ne touche que l'interface Angular ou
+la documentation**, ni le build Angular pour un changement Python. La CI relance tout de toute
+façon.
+
+| Fichiers modifiés | Vérifications |
+|---|---|
+| Python (`src/**/*.py`, `tests/`, `migrations/`), `default_rules.toml`, `pyproject.toml`, `uv.lock` | `uv run ruff check . && uv run ruff format --check .` puis `uv run pytest` |
+| Angular (`web/`) | `npm --prefix web run build` (et `npm --prefix web exec --no -- prettier --check` sur les fichiers modifiés) ; plus `uv run pytest tests/test_audit.py` si un catalogue `web/src/app/core/i18n/messages/audit.ts` change |
+| Documentation (`docs/`, `mkdocs.yml`) | `uv run mkdocs build --strict` |
+| `README.md`, `README.fr.md`, `AGENTS.md`, `.env.example` | aucune (relecture seulement) |
+| Workflows, `docker-compose.yml`, YAML / JSON | `npm --prefix web exec --no -- prettier --check` sur les fichiers modifiés |
+
+Un changement qui touche plusieurs zones cumule leurs vérifications. Pendant le développement,
+ciblez d'abord les tests du module modifié (`uv run pytest tests/test_<module>.py`), puis lancez
+`uv run pytest` complet une fois, à la fin, si du Python a changé.
 
 ## Commandes
 
@@ -40,8 +61,7 @@ uv run mkdocs build --strict       # ce que fait la CI : un lien cassé fait éc
 ```
 
 La CI (`.github/workflows/`) lance ruff et pytest sur Python 3.14 et 3.15 avec
-`uv sync --locked` : après un changement de dépendances dans `pyproject.toml`, lancez `uv lock`
-et commitez `uv.lock`. Les actions des workflows sont épinglées sur le SHA complet d'un commit,
+`uv sync --locked` (d'où `uv lock` après un changement de dépendances). Les actions des workflows sont épinglées sur le SHA complet d'un commit,
 avec la version en commentaire (`@<sha> # vX.Y.Z`) : faites de même pour toute nouvelle action.
 
 ## Branches et versions
@@ -94,9 +114,10 @@ l'utiliser.
 | Moteur de scan, masquage des secrets | `scanner.py` |
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `code-scan` et `deps-scan` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `codescan.py`, `depscan.py`, `web_api/ci_routes.py`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`), `ci_client.py` |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `project`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `code-scan` et `deps-scan` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `codescan.py`, `depscan.py`, `web_api/ci_routes.py`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`), `ci_client.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` ; `proxy.py` |
-| Persistance, schéma (purge des rapports sans findings et de l'audit : `retention.py`) | `models.py`, `services.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
+| Normalisation des noms de projet (minuscules, nom du dépôt, `-` seul séparateur), appliquée à toute entrée | `project_names.py` |
+| Persistance, schéma (purge des rapports sans findings et de l'audit : `retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `coverage.py`) | `models.py`, `services.py`, `coverage.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
 | Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement ; envoi syslog facultatif par le contrôleur) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `audit.py`, `audit_syslog.py` ; `metrics.py` |
 | Export et tendances | `sarif.py`, `trends.py` |
 | HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim) : `access_control.py` |
@@ -112,14 +133,20 @@ valident les entrées et appellent ces modules.
 
 ## Conventions de code
 
-- Python ≥ 3.14, annotations de type partout, ruff (longueur 100, règles `E F W I B C4 UP`).
-- **Code, docstrings, commentaires, messages d'erreur et logs en anglais.** Chaque module et
-  chaque fonction a une docstring. La documentation utilisateur (`docs/`, README) est
-  **bilingue, anglais et français** (voir [Documentation](#documentation)).
+**Les normes et conventions de développement par technologie (Python, Angular...) sont
+disponibles via le serveur MCP `security-review`.** S'il est connecté, consultez-les avant
+d'écrire du code : prompt `development-standards`, outils `list_development_standards` et
+`get_development_standards` (par technologie ou par fichier), ressources `standards://catalog`
+et `standard://{slug}`. Les règles génériques qu'elles contiennent ne sont pas répétées ici :
+`conventions` (ruff, `uv lock`, Conventional Commits), `fastapi` (Python 3.14, annotations,
+docstrings, code et logs en anglais, `get_settings()`, ORM, Alembic, jetons hachés), `angular`
+et `tests-python` (méthode de test). Ce fichier ne garde que ce qui est propre à ce dépôt ; en
+cas de conflit, il prévaut.
+
+- La documentation utilisateur (`docs/`, README) est **bilingue, anglais et français** (voir
+  [Documentation](#documentation)).
 - Imitez le code voisin : mêmes noms, même densité de commentaires, pas de nouvelle dépendance
   sans nécessité (le serveur doit rester installable hors ligne).
-- Messages de commit : Conventional Commits en anglais (`feat:`, `fix:`, `docs:`, `test:`,
-  `chore:`, `ci:`).
 
 ### Outils et prompts MCP
 
@@ -138,11 +165,9 @@ valident les entrées et appellent ces modules.
 - Chaque route JSON du contrôleur déclare son modèle de réponse dans `web_api/schemas.py` (jamais
   `-> dict`) : il documente l'API et filtre les champs non déclarés. Un test le vérifie sur le
   schéma OpenAPI.
-- Angular : formulaires de saisie en Signal Forms, pas de `.subscribe()` dans les composants
-  (`rxResource` ou `firstValueFrom`), un dossier par composant quand une fonctionnalité en a
-  plusieurs, `linkedSignal` plutôt qu'un `effect()` qui recopie un signal, signaux des services en
-  `asReadonly()`, `shared/` sans service métier, couleurs par variables Bootstrap ou jetons de
-  `styles.css`. Le détail est dans `docs/contributing`.
+- Angular, en plus du standard `angular` : formulaires de saisie en Signal Forms (obligatoire),
+  aucun `.subscribe()` dans les composants (`rxResource` ou `firstValueFrom`), couleurs par
+  variables Bootstrap ou jetons de `styles.css`. Le détail est dans `docs/contributing`.
 
 ### Invariants de sécurité (ne jamais régresser)
 
@@ -183,14 +208,14 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - **Un agent ne ferme jamais un finding** : aucun outil MCP ne change un statut
   (`propose_finding_status` enregistre seulement une proposition). `accepted` et
   `false_positive` sont décidés par une personne connectée à l'interface (session, jamais un
-  jeton Bearer), avec motif, approbateur et date d'expiration ; une décision expirée compte comme
-  ouverte (gate, posture, SARIF, tendances).
+  jeton Bearer), avec motif, approbateur et date d'expiration (seule une acceptation peut en être
+  dépourvue, tant que `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` est actif) ; une décision expirée
+  compte comme ouverte (gate, posture, SARIF, tendances).
 
 ### Paramètres
 
 Un nouveau paramètre s'ajoute dans `config.Settings` (préfixe `SECREVIEW_` automatique), avec
-un commentaire, puis dans `.env.example` et `docs/reference/configuration.md` (et `.fr.md`). Lisez-le via
-`get_settings()`, jamais avec `os.environ`.
+un commentaire, puis dans `.env.example` et `docs/reference/configuration.md` (et `.fr.md`).
 
 ### Règles de scan
 
@@ -211,24 +236,28 @@ seuil), `2` erreur d'usage ou de données (`_fail` écrit l'erreur en JSON sur s
 
 ## Tests
 
-**Tout changement de comportement s'accompagne de tests dans le même commit.** Une
-fonctionnalité sans test n'est pas terminée ; une correction de bug commence par un test qui
-échoue et reproduit le bug.
+La méthode (un test protège un **contrat** ou un **invariant**, pas une ligne de code ; quoi
+tester et quoi ne pas tester ; étendre un test existant plutôt qu'en créer un ; **1 à 3 tests**
+par changement ; **un** test de régression qui échoue avant la correction ; un invariant de
+sécurité testé une fois, au plus près du module qui le garantit) est dans le standard
+`tests-python` du serveur MCP. Les tests d'un changement sont dans le même commit que lui.
+
+**Conventions**
 
 - Un fichier par module : `tests/test_<module>.py`. Ajoutez au fichier existant plutôt que d'en
   créer un nouveau.
+- `tests/conftest.py` ignore le `.env` du développeur et les variables `SECREVIEW_*` du shell :
+  un test qui a besoin d'un réglage le définit lui-même (`monkeypatch.setenv`, `Settings(...)`).
 - `tests/conftest.py` fournit automatiquement une base SQLite en mémoire et un registre de
   règles vide par test : n'utilisez pas la base réelle. Utilisez la fixture `import_pack` pour
   charger des règles internes (pack TOML importé en base), `tmp_path` pour les fichiers.
 - Outils, prompts et ressources MCP : test de bout en bout avec `mcp.client.Client(mcp)` (voir
-  `tests/test_server.py`, `pytestmark = pytest.mark.anyio`), y compris le cas d'erreur
-  (`ToolError` attendu).
+  `tests/test_server.py`, `pytestmark = pytest.mark.anyio`), avec un cas d'erreur
+  représentatif (`ToolError` attendu).
 - Règle de scan : au moins un cas **positif** (le motif vulnérable est détecté) et un cas
   **négatif** (le code sûr équivalent ne l'est pas), pour limiter les faux positifs.
 - CLI : appelez `server.main([...])` ou les fonctions de `cli.py`, vérifiez le **code de sortie**
   et la sortie (`capsys`).
-- Sécurité : testez explicitement les invariants touchés (secret masqué, limite dépassée
-  refusée, 401 sans jeton...).
 - Pas de réseau, pas de `sleep`, pas de dépendance à l'ordre des tests. Les clés et jetons de
   test sont factices.
 

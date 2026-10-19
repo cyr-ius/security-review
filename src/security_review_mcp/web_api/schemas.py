@@ -11,17 +11,28 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from .. import access_control, app_settings, proxy, rules_loader, standards, token_store, web_users
+from .. import (
+    access_control,
+    app_settings,
+    audit_syslog,
+    proxy,
+    rules_loader,
+    standards,
+    token_store,
+    web_users,
+)
 from ..config import MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS
 from ..http_server import Role
 from ..models import (
     MAX_AUTHOR_CHARS,
+    MAX_COMMENT_CHARS,
     MAX_STATUS_REASON_CHARS,
     FindingPublic,
     FindingStatus,
     ReviewType,
     Severity,
 )
+from ..project_names import ProjectName
 
 AuthSource = Literal["local", "oidc"]
 Origin = Literal["builtin", "custom"]
@@ -34,7 +45,7 @@ class Identity(BaseModel):
     """Who is calling and what they may do."""
 
     client: str
-    # Role of a token; for a web user, the web role that sums up its permissions
+    # Role of a token; ``user`` for a web session, whose rights are its ``permissions``
     role: Role
     can_triage: bool
     # Always true: the API answers authenticated requests only (kept for API compatibility)
@@ -50,6 +61,9 @@ class Identity(BaseModel):
     auth_source: AuthSource | None = None
     # A web user whose password was set by someone else: it must change it before anything else
     must_change_password: bool = False
+    # A web user who triages may accept a risk without an expiry date
+    # (SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED); always false for a bearer token
+    permanent_acceptance: bool = False
     version: str
 
 
@@ -85,7 +99,6 @@ class LoginSession(BaseModel):
     session: str
     expires_in: int
     username: str
-    role: Role
     # True: only the change of the password is reachable until it is done
     must_change_password: bool = False
 
@@ -138,10 +151,50 @@ class ProjectSummary(BaseModel):
 
     project: str
     reports_total: int
-    last_report_at: str
+    # None for a project without any report yet
+    last_report_at: str | None
     open_findings_total: int
     open_findings_by_severity: dict[str, int]
     worst_open_severity: Severity | None
+
+
+class ProjectCreate(BaseModel):
+    """Name of a new project (POST /projects), normalized."""
+
+    project: ProjectName
+
+
+class ProjectDeleted(BaseModel):
+    """What the deletion of a project removed (DELETE /projects/{project})."""
+
+    project: str
+    reports: int
+    findings: int
+    groups_deleted: list[str]
+    groups_changed: list[str]
+    tokens_revoked: int
+    tokens_changed: int
+
+
+class PendingProject(BaseModel):
+    """A project requested by an enrollment, waiting for an approval (GET /projects/pending)."""
+
+    id: int
+    project: str
+    # Free text given by the client (not verified), its address and its token (or anonymous)
+    requested_by: str | None
+    requested_from: str | None
+    requested_with: str | None
+    created_at: str
+    # The request is deleted at this date unless it is approved
+    expires_at: str
+
+
+class PendingProjectApproved(PendingProject):
+    """An approved project: its project group, created without any member."""
+
+    group_id: int
+    group: str
 
 
 class ProjectPosture(BaseModel):
@@ -191,11 +244,35 @@ class ProjectFindingPage(BaseModel):
     findings: list[ProjectFinding]
 
 
+class RiskAcceptance(ProjectFinding):
+    """An accepted risk: the finding, the context of its report, whether the acceptance has
+    expired (the finding counts as open again) and its number of comments."""
+
+    expired: bool
+    comments_total: int
+
+
+class RiskAcceptancePage(BaseModel):
+    """One page of the accepted risks of a project, or of every project in the scope of the
+    caller (``project`` None; ``total`` counts every acceptance)."""
+
+    project: str | None
+    total: int
+    acceptances: list[RiskAcceptance]
+
+
+class FindingCommentCreate(BaseModel):
+    """Body of POST /findings/{id}/comments: a comment, which can never be edited."""
+
+    body: str = Field(min_length=1, max_length=MAX_COMMENT_CHARS)
+
+
 class FindingStatusUpdate(BaseModel):
     """Body of PATCH /findings/{id}: a triage decision.
 
     ``accepted`` and ``false_positive`` need a reason and an expiry date (the finding counts as
-    open again from that day, 00:00 UTC).
+    open again from that day, 00:00 UTC). An acceptance may leave it out (no expiry) while
+    SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
     """
 
     status: FindingStatus
@@ -301,7 +378,7 @@ class SkippedFile(BaseModel):
 class ScanRequest(BaseModel):
     """Fields shared by the scan requests: project, threshold and report to store."""
 
-    project: str = Field(min_length=1, max_length=200)
+    project: ProjectName
     fail_on: Severity = Severity.HIGH
     # Store the result as a report of the project
     save: bool = False
@@ -620,9 +697,9 @@ class StandardCatalog(BaseModel):
     standards: list[StandardSummary]
 
 
-# ── Tokens and enrollments ───────────────────────────────────────────────────
+# ── Tokens ───────────────────────────────────────────────────────────────────
 
-_ProjectName = Annotated[str, Field(min_length=1, max_length=200)]
+_ProjectName = ProjectName
 
 
 class ProjectTokenCreate(BaseModel):
@@ -654,9 +731,11 @@ class TokenRoleChoice(BaseModel):
 
 
 class PersonalTokenCreate(BaseModel):
-    """Body of POST /me/tokens: an api token of the logged-in user, with its rights."""
+    """Body of POST /me/tokens: a personal token of the logged-in user, ``api`` (REST API, with
+    the rights of the user) or ``mcp`` (MCP agent, on the projects the user may read)."""
 
     label: str = Field(min_length=1, max_length=64)
+    role: Literal["api", "mcp"] = "api"
     # Validity in days (null: SECREVIEW_TOKEN_MAX_DAYS, or no expiry when it is 0)
     expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
 
@@ -687,10 +766,8 @@ class ProjectToken(BaseModel):
     role: Role
     # First project of the token (kept for API compatibility)
     project: str | None
-    # None: every project
+    # None: every project (personal mcp token: the projects its user may read now)
     projects: list[str] | None
-    pending_projects: list[str]
-    status: Literal["active", "pending"]
     created_at: str
     expires_at: str | None
     expired: bool
@@ -706,29 +783,6 @@ class ProjectTokenSecret(ProjectToken):
     """A token just created or rotated: ``token`` is its secret, returned exactly once."""
 
     token: str
-
-
-class EnrollmentApproval(BaseModel):
-    """Optional body of an approval: the web user who also reads the project on the web (an
-    unknown name becomes an OIDC user when OIDC is enabled)."""
-
-    portal_user: str | None = Field(default=None, max_length=web_users.MAX_USERNAME_CHARS)
-
-
-class EnrollmentRequest(BaseModel):
-    """A project token requested by a client, waiting for an administrator (never a secret)."""
-
-    id: str
-    token_id: str
-    label: str
-    role: Role
-    project: str
-    # new: first enrollment (new token); additional: one more project for an active token
-    kind: Literal["new", "additional"]
-    status: Literal["pending", "active"]
-    requested_by: str | None
-    requested_from: str | None
-    created_at: str
 
 
 # ── Web users, roles and groups ──────────────────────────────────────────────
@@ -750,9 +804,8 @@ class WebUser(BaseModel):
     username: str
     auth_source: AuthSource
     groups: list[UserGroupMembership]
+    # Each permission with its projects (None: every project); empty: no access
     permissions: dict[str, list[str] | None]
-    # Web role that sums up the permissions; None: no permission
-    effective_role: Role | None
     # True once an OIDC user logged in (bound to its identity provider account)
     sso_linked: bool
     created_at: str | None
@@ -777,13 +830,6 @@ class RevokedUser(BaseModel):
     username: str
     revoked_at: str | None
     revoked_by: str | None
-
-
-class EnrollmentApproved(EnrollmentRequest):
-    """An approved request; ``portal_user`` is present when a web user got read access."""
-
-    projects: list[str] | None
-    portal_user: WebUser | None = None
 
 
 class WebUserCreate(BaseModel):
@@ -869,7 +915,7 @@ class GroupWrite(BaseModel):
 
     name: str = Field(min_length=1, max_length=access_control.MAX_GROUP_NAME_CHARS)
     description: str = Field(default="", max_length=access_control.MAX_DESCRIPTION_CHARS)
-    sso: bool = True
+    sso: bool = False
 
 
 class GroupRoleBinding(BaseModel):
@@ -966,8 +1012,8 @@ class AuditPage(BaseModel):
 
 
 class ReportLanguageUpdate(BaseModel):
-    """Body of PUT /settings/report-language: "" lets the agent choose, null restores the
-    SECREVIEW_REPORT_LANGUAGE variable."""
+    """Body of PUT /settings/report-language: "" lets the agent choose, null removes the stored
+    value. Refused (422) when SECREVIEW_REPORT_LANGUAGE is set: the variable takes precedence."""
 
     value: str | None = Field(default=None, max_length=REPORT_LANGUAGE_MAX_CHARS)
 
@@ -975,9 +1021,10 @@ class ReportLanguageUpdate(BaseModel):
 class ProxyUpdate(BaseModel):
     """Body of PUT /settings/proxy: proxy of the outgoing connections of the controller.
 
-    A field left out is unchanged, ``null`` applies the variable again (HTTPS_PROXY, else
-    HTTP_PROXY, and NO_PROXY). ``url`` ``""`` connects directly, despite the variables; a password
-    sent back as returned by the API (``***``) keeps the stored one.
+    A field left out is unchanged, ``null`` removes the stored value. A value is refused (422)
+    when its variable is set (HTTPS_PROXY or HTTP_PROXY, NO_PROXY): the variable takes
+    precedence. ``url`` ``""`` connects directly; a password sent back as returned by the API
+    (``***``) keeps the stored one.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -987,18 +1034,22 @@ class ProxyUpdate(BaseModel):
 
 
 class ReportLanguageSetting(BaseModel):
-    """Language of the reports: stored value (None: the variable applies), variable, effective."""
+    """Language of the reports: stored value, variable, whether the variable is set (it then
+    takes precedence over the stored value), effective value."""
 
     value: str | None
     env: str
+    env_set: bool
     effective: str
 
 
 class ProxyValue(BaseModel):
-    """A proxy setting: stored in the web interface (None: the variable applies) and variable."""
+    """A proxy setting: stored in the web interface, variable, and whether the variable is set
+    (it then takes precedence over the stored value)."""
 
     value: str | None
     env: str | None
+    env_set: bool
 
 
 class ProxyEffective(BaseModel):
@@ -1027,6 +1078,47 @@ class OsvSettings(BaseModel):
     ecosystems: str
     cafile: str | None
     max_download_mb: int
+
+
+class AuditSyslogUpdate(BaseModel):
+    """Body of PUT /settings/audit-syslog: syslog server of the audit log.
+
+    A field left out is unchanged, ``null`` (or an empty address) deletes the stored value. A
+    value whose variable is set (SECREVIEW_AUDIT_SYSLOG_ADDRESS, SECREVIEW_AUDIT_SYSLOG_FACILITY)
+    is refused: the variable takes precedence. Only udp:// and tcp:// addresses may be set here.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    address: str | None = Field(default=None, max_length=audit_syslog.MAX_ADDRESS_CHARS)
+    facility: str | None = Field(default=None, max_length=20)
+
+
+class SyslogValue(BaseModel):
+    """A syslog setting: stored in the web interface, variable, and whether the variable is set
+    (it then takes precedence and the stored value is ignored)."""
+
+    value: str | None
+    env: str | None
+    env_set: bool
+
+
+class SyslogEffective(BaseModel):
+    """Syslog server actually used and where it comes from."""
+
+    address: str | None
+    facility: str
+    # environment: SECREVIEW_AUDIT_SYSLOG_ADDRESS is set; none: the events are not forwarded
+    source: Literal["web", "environment", "none"]
+
+
+class AuditSyslogSettings(BaseModel):
+    """Syslog server of the audit log: stored values, variables and effective destination."""
+
+    address: SyslogValue
+    facility: SyslogValue
+    effective: SyslogEffective
+    facilities: list[str]
 
 
 class AppSettings(BaseModel):
@@ -1083,9 +1175,10 @@ _OidcText = Annotated[str, Field(max_length=app_settings.MAX_OIDC_VALUE_CHARS)]
 class OidcSettingsUpdate(BaseModel):
     """Body of PUT /oidc/settings and POST /oidc/settings/test.
 
-    A field left out is unchanged, ``null`` applies the ``SECREVIEW_OIDC_*`` variable again. A
-    client secret sent back as returned by the API (``***``) keeps the stored one; ``""`` makes
-    the client public.
+    A field left out is unchanged, ``null`` removes the stored value. A value is refused (422)
+    when its ``SECREVIEW_OIDC_*`` variable is set: the variable takes precedence. A client
+    secret sent back as returned by the API (``***``) keeps the stored one; ``""`` makes the
+    client public.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -1105,10 +1198,12 @@ class OidcSettingsUpdate(BaseModel):
 
 
 class OidcSettingValue(BaseModel):
-    """One OIDC setting: stored value (None: the variable applies), variable, effective value."""
+    """One OIDC setting: stored value, variable, whether the variable is set (it then takes
+    precedence over the stored value), effective value."""
 
     value: bool | str | None
     env: bool | str | None
+    env_set: bool
     effective: bool | str | None
 
 

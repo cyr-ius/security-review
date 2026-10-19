@@ -19,7 +19,7 @@ flow with PKCE:
    web users issues the same session tokens.
 
 This module stores nothing in the database: its settings are the ``SECREVIEW_OIDC_*`` variables,
-possibly overridden in the web interface (see app_settings.effective_settings). The provider is
+or the web interface for those not set (see app_settings.effective_settings). The provider is
 contacted only by the controller, over HTTPS (plain HTTP is accepted for a provider on the
 loopback interface, for development), through the proxy of the controller (see proxy), with
 bounded response sizes; tokens, codes and secrets are never logged.
@@ -47,7 +47,7 @@ import jwt
 
 from . import __version__
 from .config import Settings, secret_value
-from .http_server import AUTH_PREFIX, LOOPBACK_HOSTS, WEB_ROLES, Role
+from .http_server import AUTH_PREFIX, LOOPBACK_HOSTS
 from .proxy import masked_url, proxy_handler
 
 logger = logging.getLogger("security_review_mcp.oidc")
@@ -304,25 +304,21 @@ class SessionSigner:
     def issue_session(
         self,
         label: str,
-        role: Role,
         projects: frozenset[str] | None,
         user_id: int,
         user_version: int,
     ) -> str:
-        """Return a session token of a web user, with its role and projects (None: all).
+        """Return a session token of a web user, with the projects it reads (None: all).
 
-        ``user_id`` names the web user, whose current role and projects are read from the
-        database at each request (see web_users.session_identity); ``user_version`` is its
-        session version, changed by a password change.
+        ``user_id`` names the web user, whose current permissions are read from the database
+        at each request (see web_users.session_identity); ``user_version`` is its session
+        version, changed by a password change.
         """
-        if role not in WEB_ROLES:
-            raise ValueError(f"Role '{role}' cannot use the web interface")
         now = int(time.time())
         payload: dict[str, Any] = {
             "iss": SESSION_ISSUER,
             "aud": SESSION_AUDIENCE,
             "sub": label,
-            "role": role.value,
             "projects": None if projects is None else sorted(projects),
             "iat": now,
             "exp": now + self.session_seconds,

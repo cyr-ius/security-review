@@ -1,0 +1,172 @@
+<div class="p-3">
+  @let item = acceptance();
+  @if (error(); as message) {
+    <div class="alert alert-danger alert-dismissible py-2" role="alert">
+      {{ message | t }}
+      <button
+        type="button"
+        class="btn-close"
+        [attr.aria-label]="'common.close' | t"
+        (click)="error.set(null)"
+      ></button>
+    </div>
+  }
+
+  <div class="row g-3">
+    <div class="col-lg-6">
+      <div class="d-flex flex-wrap gap-3 small text-body-secondary mb-2">
+        <span>#{{ item.id }}</span>
+        @if (location(); as loc) {
+          <span
+            ><i class="bi bi-file-earmark-code" aria-hidden="true"></i> <code>{{ loc }}</code></span
+          >
+        }
+        @if (item.rule_id) {
+          <span><i class="bi bi-tag" aria-hidden="true"></i> {{ item.rule_id }}</span>
+        }
+        <a [routerLink]="['/reports', item.report_id]">
+          <i class="bi bi-file-earmark-text" aria-hidden="true"></i>
+          {{ 'report.title' | t: { id: item.report_id } }}
+        </a>
+      </div>
+      <p class="prewrap small mb-3">{{ item.description }}</p>
+
+      @if (canTriage()) {
+        <form class="border rounded p-3 mb-3" (submit)="saveExpiry($event)" novalidate>
+          <label class="form-label fw-semibold" [for]="'acc-expiry-' + item.id">{{
+            'acceptances.expiryTitle' | t
+          }}</label>
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            @if (!withoutExpiry()) {
+              <input
+                type="date"
+                class="form-control form-control-sm expiry"
+                [id]="'acc-expiry-' + item.id"
+                [min]="minExpiry"
+                [attr.aria-describedby]="'acc-expiry-help-' + item.id"
+                [formField]="expiryForm.expiresOn"
+                [class.is-invalid]="
+                  expiryForm.expiresOn().touched() && expiryForm.expiresOn().invalid()
+                "
+              />
+            }
+            @if (permanentAcceptance()) {
+              <div class="form-check mb-0">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  [id]="'acc-no-expiry-' + item.id"
+                  [formField]="expiryForm.noExpiry"
+                />
+                <label class="form-check-label" [for]="'acc-no-expiry-' + item.id">{{
+                  'report.dismissNoExpiry' | t
+                }}</label>
+              </div>
+            }
+            <button
+              type="submit"
+              class="btn btn-sm btn-primary"
+              [disabled]="saving() || expiryForm().invalid()"
+            >
+              {{ 'acceptances.expirySave' | t }}
+            </button>
+          </div>
+          <div class="form-text" [id]="'acc-expiry-help-' + item.id">
+            {{ (withoutExpiry() ? 'report.dismissNoExpiryHelp' : 'report.dismissExpiryHelp') | t }}
+          </div>
+        </form>
+
+        @if (confirmingRemoval()) {
+          <div class="alert alert-warning py-2" role="alert">
+            <p class="mb-2">{{ 'acceptances.removeConfirm' | t }}</p>
+            <div class="d-flex gap-2">
+              <button
+                type="button"
+                class="btn btn-sm btn-danger"
+                [disabled]="saving()"
+                (click)="remove()"
+              >
+                {{ 'acceptances.remove' | t }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                (click)="confirmingRemoval.set(false)"
+              >
+                {{ 'common.cancel' | t }}
+              </button>
+            </div>
+          </div>
+        } @else {
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger"
+            [disabled]="saving()"
+            (click)="confirmingRemoval.set(true)"
+          >
+            <i class="bi bi-trash" aria-hidden="true"></i>
+            {{ 'acceptances.remove' | t }}
+          </button>
+        }
+      } @else {
+        <p class="small text-body-secondary mb-0">{{ 'acceptances.readOnly' | t }}</p>
+      }
+    </div>
+
+    <div class="col-lg-6">
+      <h3 class="h6">
+        {{ 'acceptances.comments' | t }}
+        @if (comments.value(); as list) {
+          <span class="badge text-bg-secondary ms-1">{{ list.length }}</span>
+        }
+      </h3>
+      @if (comments.error()) {
+        <p class="text-danger small">{{ 'acceptances.commentsLoadError' | t }}</p>
+      } @else if (comments.value(); as list) {
+        <ol class="list-unstyled comments mb-3">
+          @for (comment of list; track comment.id) {
+            <li class="border-start border-3 ps-2 mb-2">
+              <div class="small text-body-secondary">
+                <i class="bi bi-person" aria-hidden="true"></i>
+                {{ comment.author }} · {{ comment.created_at | date: 'dd/MM/yyyy HH:mm' }}
+              </div>
+              <div class="prewrap small">{{ comment.body }}</div>
+            </li>
+          } @empty {
+            <li class="small text-body-secondary">{{ 'acceptances.commentsEmpty' | t }}</li>
+          }
+        </ol>
+      } @else {
+        <span class="spinner-border spinner-border-sm text-secondary" aria-hidden="true"></span>
+        <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+      }
+
+      @if (canTriage()) {
+        <form (submit)="addComment($event)" novalidate>
+          <label class="form-label fw-semibold" [for]="'acc-comment-' + item.id">{{
+            'acceptances.commentAdd' | t
+          }}</label>
+          <textarea
+            class="form-control form-control-sm"
+            rows="3"
+            [id]="'acc-comment-' + item.id"
+            [attr.aria-describedby]="'acc-comment-help-' + item.id"
+            [formField]="commentForm.body"
+            [class.is-invalid]="commentForm.body().touched() && commentForm.body().invalid()"
+          ></textarea>
+          <div class="form-text" [id]="'acc-comment-help-' + item.id">
+            {{ 'acceptances.commentHelp' | t }}
+          </div>
+          <button
+            type="submit"
+            class="btn btn-sm btn-primary mt-2"
+            [disabled]="saving() || commentForm().invalid()"
+          >
+            <i class="bi bi-chat-left-text" aria-hidden="true"></i>
+            {{ 'acceptances.commentSave' | t }}
+          </button>
+        </form>
+      }
+    </div>
+  </div>
+</div>

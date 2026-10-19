@@ -51,12 +51,15 @@ through its outgoing proxy (`HTTPS_PROXY` / `NO_PROXY`, or the **Outgoing proxy*
 
 The same settings can be changed in the **OIDC** screen (`users.manage` permission: the OIDC
 settings decide who joins which group), without restarting the controller. As for
-the **Outgoing proxy** screen, a value stored in the database **replaces its
-`SECREVIEW_OIDC_*` variable**, field by field; a field never changed follows its variable:
+the **Outgoing proxy** screen, **a `SECREVIEW_OIDC_*` variable that is set always takes
+precedence**, field by field; a value stored in the database applies only to the fields whose
+variable is not set:
 
-- every field has the **Variable** badge (the variable applies, its value is shown under the
-  field) or **Interface web** (stored value); the **Variable** link of a stored field deletes
-  the stored value and applies the variable again;
+- a field whose variable is set has the **Variable** badge (with a lock): it shows the
+  variable and cannot be changed; a value stored before the variable was set is marked
+  *value set here ignored*, with a **Delete** link;
+- otherwise the field has the **Web interface** badge (stored value; **Reset** deletes it and
+  the default applies again) or **Default**;
 - the **client secret** is never shown again: left empty, the current secret is kept;
   **Delete** stores an empty secret (public client, PKCE only);
 - **Test the connection** contacts the provider with the values of the
@@ -72,11 +75,12 @@ valid until they expire. Still variables only: `SECREVIEW_OIDC_CAFILE` (a file o
 deployment) and the session settings (`SECREVIEW_SECRET_KEY`, `SECREVIEW_SESSION_HOURS`).
 If a variable changed later makes the combination with the stored values invalid, the
 controller starts anyway: the OIDC login is disabled and the error logged, to be fixed in the
-screen.
+screen or in the variables.
 
 Through the API (`/api/v1/oidc/settings`, `users.manage` permission): `GET` describes every setting (stored
-`value` or `null`, `env`, `effective`; a set secret reads `***`), `PUT` changes the sent fields
-(`null` applies the variable again, a missing field is unchanged) and
+`value` or `null`, `env`, `env_set`: the variable is set and takes precedence, `effective`; a
+set secret reads `***`), `PUT` changes the sent fields (`null` deletes the stored value, a
+missing field is unchanged, a field whose variable is set is refused with `422`) and
 `POST /api/v1/oidc/settings/test` tests the provider without storing anything:
 
 ```bash
@@ -90,17 +94,21 @@ curl -X PUT https://secreview.example.com/api/v1/oidc/settings \
 
 ## OIDC accounts
 
-Every OIDC user is an account of the **Users** screen (**OIDC** badge), named by
-the value of the `SECREVIEW_OIDC_USERNAME_CLAIM` claim (`preferred_username` by default),
+Every OIDC user is an account of the **Users** screen (**OIDC** badge), **identified by the
+issuer and the `sub` claim** bound at its first login, never by a name. It is named at its
+creation by the value of the `SECREVIEW_OIDC_USERNAME_CLAIM` claim (`preferred_username` by default),
 compared exactly, case included. There is no fallback to `email` or `sub`, and a value that is
 not a valid user name (control or invisible character, space, more than 64 characters) is
 refused.
 
-At login, the controller looks for this account:
+At login, the controller first looks for the account bound to the issuer and the `sub` of the
+login: it opens, whatever the username claim says now (a name changed at the provider keeps the
+account and its user name). Only an identity bound to no account is looked up by its user name:
 
 | Situation | Result |
 |---|---|
-| Existing OIDC account | Login, with the permissions of its groups (below) |
+| Account bound to this issuer and `sub` | Login, with the permissions of its groups (below), even if the username claim changed |
+| OIDC account of this name, not bound yet (created by an administrator) | The account is **bound** to the issuer and `sub`, then login |
 | No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` | The account is **created** (`created_by`: `oidc`) if its groups give it a permission; otherwise refused, without creation |
 | No account, `SECREVIEW_OIDC_AUTO_CREATE_USERS=false` (default) | **Refused**: an administrator must first create the OIDC account |
 | **Local** account with the same name | **Refused**: an OIDC login never opens a local account |
@@ -108,14 +116,18 @@ At login, the controller looks for this account:
 | OIDC account deleted by an administrator | **Refused**, even with the automatic creation (see below) |
 
 At the first login, the account is **bound** to the issuer and to the `sub` claim of the
-provider: the account is identified by both. A later login with the same user name but another
-`sub` (provider account deleted then created again, renamed...) or from another issuer (another
-identity provider, which could reuse the same `sub`) is refused. An account bound when only
-the `sub` was recorded gets the issuer of its next login. To give the user name to someone else, delete then create the account
-again.
+provider: the account is identified by both, and no two accounts share them. A later login
+with the same user name but another `sub` (provider account deleted then created again...) or
+from another issuer (another identity provider, which could reuse the same `sub`) is refused.
+An account bound when only the `sub` was recorded gets the issuer of its next login. To give
+the user name to someone else, delete then create the account again.
+
+Before version 0023 of the schema, a name changed at the provider created a second account bound
+to the same identity. The upgrade keeps the identity on the account that logged in last; the
+others keep their name, groups and history but can no longer log in: delete them in **Users**.
 
 What an OIDC account may do comes from its [groups](access-control.md): those an administrator
-gave it (**Users** or **Groups** screen, approval of an enrollment) and the groups open to OIDC
+gave it (**Users** or **Groups** screen) and the groups open to OIDC
 named by its groups claim, recorded at every login (see
 [groups of the identity provider](#groups-of-the-identity-provider)). An account without any
 permission is refused and its open sessions are closed. A change of its given groups applies at
@@ -123,10 +135,10 @@ once; a change of its groups at the provider, at the next login.
 
 **Deleting an OIDC account** (**Utilisateurs** screen, `DELETE /api/v1/users/{id}` or
 `security-review-controller user delete NAME`) closes its sessions at once and **revokes** its
-user name: an OIDC login no longer creates it again, even with the automatic creation and groups
-that give it a permission ("compte supprimé" message, account deleted, on the login page). To give it
-access back, an administrator creates the account again (by hand or at the approval of an
-enrollment), or lifts the revocation (**Autoriser à nouveau**, Allow again,
+user name and its identity (issuer and `sub`): an OIDC login no longer creates it again, under
+that name or another one (name changed at the provider), even with the automatic creation and
+groups that give it a permission ("compte supprimé" message, account deleted, on the login page). To give it
+access back, an administrator creates the account again, or lifts the revocation (**Autoriser à nouveau**, Allow again,
 `DELETE /api/v1/users/revoked/{username}`): the account is then created again at its next
 login. `GET /api/v1/users/revoked` lists the revoked accounts, with the author and the date of
 the deletion.
@@ -167,41 +179,15 @@ Example: with the claim `["payments-team", "staff"]`, a group `payments-team` op
 The label of an OIDC session is `oidc:<username>`: it is the one that appears in the logs and
 in the triage history.
 
-## Project read access at enrollment
+## Project read access
 
-At the approval of an [enrollment](http.md#enrollment-a-project-requests-its-token)
-request, the administrator can also give the developer read access to the project in the
-portal, on their **user account**: the developer who requested an MCP token for a project then
-browses its reports.
-
-- In the **Project tokens** screen, the **Read access in the portal** column is prefilled with the requester (`requested_by`) when it is given, and
-  ticked when OIDC is enabled. This field is declared by the client and **is not verified**:
-  check or correct it before approving, or untick the box.
-- The name designates an account of the **Users** screen, local or OIDC. With OIDC
-  enabled, an unknown name becomes an **OIDC account**, ready for its first login; without OIDC,
-  the account must exist. Giving this access needs the `users.manage` permission.
-- An account that already reads this project is unchanged. Otherwise it joins, as a local
-  member, the [project group](access-control.md#project-groups) `project:<project>` (`reader` on
-  this project only, created when missing), shared by every developer enrolled on the project.
-  An approved additional request for the same user adds the project the same way.
-
-The access then shows in the groups of the account, where it is changed like the others. It is independent of
-the MCP token: revoking the token does not remove it.
-
-```bash
-# Approve a request and give the "alice" user read access to the project
-curl -X POST https://secreview.example.com/api/v1/enrollments/$REQUEST_ID/approve \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"portal_user": "alice"}'
-```
-
-The answer then contains `portal_user`, the updated account. An invalid user name, an unknown
-account without OIDC or a reached limit are refused (`422`) before the approval: the request
-stays pending. The log of the controller records the access:
-
-```
-INFO security_review_mcp.web: Web access to shop-api given to web user alice by admin
-```
+The approval of an [enrollment](http.md#enrollment-request-the-project) creates the project
+with its [project group](access-control.md#project-groups) `project:<project>`, without any
+member, and never a token nor an account. To let a developer read the project (and their personal MCP token
+reach it), an administrator adds their account to that group, from the **Groups** screen (or
+**Users**). With OIDC, the account exists once the developer has logged in (with
+`SECREVIEW_OIDC_AUTO_CREATE_USERS=true`), or an administrator creates it beforehand in **Users**.
+The access then shows in the groups of the account, where it is changed like the others.
 
 !!! note "Upgrading from the named accesses"
     Previous versions stored these accesses apart ("named accesses",

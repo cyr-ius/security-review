@@ -2,18 +2,21 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { firstValueFrom } from 'rxjs';
-import { I18nService } from '../../core/i18n/i18n.service';
-import { MessageKey } from '../../core/i18n/messages';
-import { TranslatePipe } from '../../core/i18n/translate.pipe';
-import { AUDIT_ACTIONS, AuditAction, AuditEvent } from '../../core/models/api.models';
-import { ApiService } from '../../core/services/api.service';
-import { RefreshButtonComponent } from '../../shared/components/refresh-button/refresh-button.component';
+import { I18nService } from '../../../core/i18n/i18n.service';
+import { MessageKey } from '../../../core/i18n/messages';
+import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { AUDIT_ACTIONS, AuditAction, AuditEvent } from '../../../core/models/api.models';
+import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import {
   TableControlFilter,
   TableControlFilterChange,
   TableControlsComponent,
-  TableSortDirection,
-} from '../../shared/components/table-controls/table-controls.component';
+} from '../../../shared/components/table-controls/table-controls.component';
+import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
+import { TableSort } from '../../../shared/utils/table-sort';
+import { AuditSyslogComponent } from '../audit-syslog/audit-syslog.component';
 
 /** Events loaded per page (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
 const PAGE_SIZE = 50;
@@ -21,30 +24,39 @@ type AuditSortKey = 'created_at' | 'action' | 'actor' | 'target' | 'project';
 
 /**
  * Administrator page of the audit log: triage decisions, agent proposals, tokens and
- * enrollment requests, newest first. Read only: nobody edits an audit event.
+ * enrollments, newest first. Read only: nobody edits an audit event. The holders of
+ * settings.manage also set there the syslog server the events are forwarded to.
  */
 @Component({
   selector: 'app-audit-log',
-  imports: [DatePipe, RefreshButtonComponent, TableControlsComponent, TranslatePipe],
+  imports: [
+    AuditSyslogComponent,
+    DatePipe,
+    RefreshButtonComponent,
+    SortHeaderComponent,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './audit-log.component.html',
 })
 export class AuditLogComponent {
   private readonly api = inject(ApiService);
   private readonly i18n = inject(I18nService);
+  private readonly auth = inject(AuthService);
+
+  /** The syslog button is shown to the holders of settings.manage only. */
+  readonly canManageSyslog = computed(() => this.auth.can('settings.manage'));
 
   readonly actions = AUDIT_ACTIONS;
   readonly actionFilter = signal<AuditAction | ''>('');
   readonly projectFilter = signal('');
   readonly search = signal('');
-  readonly sortBy = signal<AuditSortKey>('created_at');
-  readonly sortDirection = signal<TableSortDirection>('desc');
-  readonly sortOptions = computed(() => [
-    { value: 'created_at', label: this.i18n.translate('audit.date') },
-    { value: 'action', label: this.i18n.translate('audit.action') },
-    { value: 'actor', label: this.i18n.translate('audit.actor') },
-    { value: 'target', label: this.i18n.translate('audit.target') },
-    { value: 'project', label: this.i18n.translate('reportTable.project') },
-  ]);
+  readonly sort = new TableSort<AuditSortKey>(
+    'audit',
+    ['created_at', 'action', 'actor', 'target', 'project'],
+    'created_at',
+    'desc',
+  );
   readonly filters = computed<TableControlFilter[]>(() => [
     {
       key: 'action',
@@ -66,8 +78,8 @@ export class AuditLogComponent {
       action: this.actionFilter() || null,
       project: this.projectFilter().trim() || null,
       search: this.search().trim() || null,
-      sort_by: this.sortBy(),
-      sort_direction: this.sortDirection(),
+      sort_by: this.sort.key(),
+      sort_direction: this.sort.direction(),
       limit: PAGE_SIZE,
       offset: 0,
     }),
@@ -98,18 +110,6 @@ export class AuditLogComponent {
     this.actionFilter.set((event.target as HTMLSelectElement).value as AuditAction | '');
   }
 
-  onTableSort(value: string): void {
-    if (
-      value === 'created_at' ||
-      value === 'action' ||
-      value === 'actor' ||
-      value === 'target' ||
-      value === 'project'
-    ) {
-      this.sortBy.set(value);
-    }
-  }
-
   onTableFilter(change: TableControlFilterChange): void {
     if (change.key === 'action') {
       this.actionFilter.set(
@@ -130,8 +130,8 @@ export class AuditLogComponent {
       action: this.actionFilter() || null,
       project: this.projectFilter().trim() || null,
       search: this.search().trim() || null,
-      sort_by: this.sortBy(),
-      sort_direction: this.sortDirection(),
+      sort_by: this.sort.key(),
+      sort_direction: this.sort.direction(),
       limit: PAGE_SIZE,
       offset: this.events().length,
     });

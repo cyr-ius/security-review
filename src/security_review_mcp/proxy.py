@@ -1,8 +1,8 @@
 """HTTP proxy of the outgoing connections of the controller (OSV download, OIDC provider).
 
 The effective proxy is ``Settings.proxy`` and ``Settings.no_proxy``, read from the standard
-``HTTPS_PROXY`` (else ``HTTP_PROXY``) and ``NO_PROXY`` variables and possibly overridden in the
-web interface (see app_settings.effective_settings):
+``HTTPS_PROXY`` (else ``HTTP_PROXY``) and ``NO_PROXY`` variables, or from the web interface for
+those not set (see app_settings.effective_settings):
 
 - ``proxy`` None or ``""`` (direct connection set in the web interface): no proxy;
 - otherwise every connection goes through that proxy, except to the hosts of ``no_proxy`` and

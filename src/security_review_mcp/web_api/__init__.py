@@ -3,8 +3,7 @@
 Served by ``security-review-controller serve``, in its own process, apart from the MCP server
 (see http_server). The bearer middleware authenticates the requests and stores the token label
 and role in the ASGI scope; ``deps`` checks the permissions of each route. The public
-enrollment endpoint is served by the MCP server (see enrollment_api); approving or rejecting
-the requests is done here.
+enrollment endpoint is served by the MCP server (see enrollment_api).
 
 The routes are split by domain (``*_routes`` modules) and every answer has a response model
 (``schemas``). The services are synchronous (SQLModel sessions), so every call runs in the
@@ -49,6 +48,7 @@ from . import (
     token_routes,
 )
 from .auth_routes import OidcLogins
+from .body_limit import BodyLimit
 from .deps import MetricsIdentity, current_identity
 from .schemas import HealthStatus, Identity
 
@@ -278,8 +278,8 @@ def create_app(
     elif ui:
         logger.warning("Web interface not built: only the REST API is served (/api/v1)")
 
-    # Bounds the body of the pipeline scans before FastAPI parses it
-    app.add_middleware(ci_routes.ScanBodyLimit)
+    # Bounds the body of every request before FastAPI parses it
+    app.add_middleware(BodyLimit)
     if host in LOOPBACK_HOSTS:
         # Same protection as the MCP endpoint against DNS rebinding on a local server
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "[::1]"])

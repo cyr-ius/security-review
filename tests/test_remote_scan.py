@@ -126,17 +126,20 @@ async def test_scan_without_a_valid_token_is_refused(shared_server, token):
 
 
 @pytest.mark.anyio
-async def test_scan_without_a_valid_token_suggests_enrollment(shared_server):
+async def test_scan_with_a_rejected_token_suggests_a_new_personal_token(shared_server):
     factory, _ = shared_server
-    with pytest.raises(ValueError, match="security-review-mcp enroll"):
+    with pytest.raises(ValueError, match="create a new personal MCP token"):
         await remote_scan.scan_files_async(
             "http://127.0.0.1:8000", [LOCKFILE], token="nope", http_client_factory=factory
         )
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize("token", [None, "not-a-valid-token"])
-async def test_scan_reaching_the_enrollment_server_suggests_enrollment(token):
+@pytest.mark.parametrize(
+    ("token", "message"),
+    [(None, "received no token"), ("not-a-valid-token", "create a new personal MCP token")],
+)
+async def test_scan_without_a_valid_token_on_a_server_with_enrollment(token, message):
     token_store.create_token("ops", Role.ADMIN)
     app = http_server.build_mcp_app(
         server.mcp,
@@ -150,11 +153,10 @@ async def test_scan_reaching_the_enrollment_server_suggests_enrollment(token):
         return httpx2.AsyncClient(transport=httpx2.ASGITransport(app=app), headers=headers)
 
     async with server.mcp.session_manager.run(), server.enrollment_mcp.session_manager.run():
-        with pytest.raises(ValueError, match="did not accept the token") as error:
+        with pytest.raises(ValueError, match=message) as error:
             await remote_scan.scan_files_async(
                 "http://127.0.0.1:8000", [LOCKFILE], token=token, http_client_factory=factory
             )
-    assert "security-review-mcp enroll" in str(error.value)
     assert "not-a-valid-token" not in str(error.value)
 
 
@@ -281,7 +283,7 @@ def test_cli_require_database(tmp_path, settings_env, monkeypatch, capsys):
 def test_cli_without_server_url(tmp_path, settings_env, fake_scan, capsys):
     path = str(_lockfile(tmp_path))
     assert cli.run(["scan-deps", path]) == cli.EXIT_ERROR
-    assert "SECREVIEW_SERVER_URL" in json.loads(capsys.readouterr().err)["error"]
+    assert "SECREVIEW_MCP_URL" in json.loads(capsys.readouterr().err)["error"]
     assert cli.run(["scan-deps", path, "--skip-unconfigured"]) == cli.EXIT_PASSED
     assert "skipped" in capsys.readouterr().err
     assert fake_scan == []

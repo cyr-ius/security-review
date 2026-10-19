@@ -11,7 +11,15 @@ from .. import __version__, app_settings, rate_limit, token_store, update_check,
 from ..config import get_settings
 from ..http_server import API_HEALTH_PATH, DOCS_PATH
 from .auth_routes import LOGIN_HEADERS, open_session
-from .deps import CurrentIdentity, actor_of, client_address, unprocessable
+from .deps import (
+    CurrentIdentity,
+    Permission,
+    actor_of,
+    client_address,
+    has_permission,
+    unprocessable,
+    web_user_id,
+)
 from .schemas import (
     About,
     HealthStatus,
@@ -76,8 +84,13 @@ async def about_update() -> UpdateStatus:
 
 @router.get("/me")
 async def me(identity: CurrentIdentity) -> Identity:
-    """Return the identity and permissions of the caller."""
-    return identity
+    """Return the identity and permissions of the caller, with the triage options it has."""
+    permanent = (
+        identity.can_triage
+        and identity.auth_source is not None
+        and get_settings().permanent_acceptance_enabled
+    )
+    return identity.model_copy(update={"permanent_acceptance": permanent})
 
 
 @router.post("/me/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -93,19 +106,10 @@ async def logout(request: Request, identity: CurrentIdentity) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-def _web_user_id(request: Request) -> int:
-    """Id of the logged-in web user; 403 for a bearer token (an api token included: a token
-    never creates another token nor changes the preferences of its user)."""
-    user_id = (request.scope.get("state") or {}).get("auth_user_id")
-    if user_id is None:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only a web user logged in may do this")
-    return user_id
-
-
 @router.get("/me/tokens")
 async def my_tokens(request: Request, _: CurrentIdentity) -> list[ProjectToken]:
-    """The api tokens of the logged-in web user (never their secret)."""
-    user_id = _web_user_id(request)
+    """The personal tokens (api and mcp) of the logged-in web user (never their secret)."""
+    user_id = web_user_id(request)
     return await run_in_threadpool(token_store.list_personal_tokens, user_id)
 
 
@@ -113,17 +117,29 @@ async def my_tokens(request: Request, _: CurrentIdentity) -> list[ProjectToken]:
 async def create_my_token(
     request: Request, body: PersonalTokenCreate, identity: CurrentIdentity, response: Response
 ) -> ProjectTokenSecret:
-    """Create an api token of the logged-in web user, for the REST API and Swagger, and return
-    its secret exactly once. The token holds the current rights of the user, read at each
-    request; like every token, it never accepts a risk nor marks a false positive."""
-    user_id = _web_user_id(request)
+    """Create a personal token of the logged-in web user and return its secret exactly once.
+
+    An ``api`` token (REST API, Swagger) holds the current rights of the user; an ``mcp`` token
+    (MCP agent) reaches the projects the user may read. Both are read at each request; like
+    every token, they never accept a risk nor mark a false positive. An ``mcp`` token needs
+    the ``mcp_tokens.create`` permission (403 without it). A user holds at most
+    SECREVIEW_PERSONAL_TOKENS_PER_USER tokens of each role (422 beyond)."""
+    user_id = web_user_id(request)
+    if body.role == "mcp" and not has_permission(identity, Permission.MCP_TOKENS_CREATE):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, f"Permission '{Permission.MCP_TOKENS_CREATE}' required"
+        )
     try:
         created = await run_in_threadpool(
-            token_store.create_personal_token, user_id, body.label, body.expires_in_days
+            token_store.create_personal_token,
+            user_id,
+            body.label,
+            body.expires_in_days,
+            body.role,
         )
     except ValueError as exc:
         raise unprocessable(exc) from exc
-    logger.info("API token %s created by %s", created["label"], identity.client)
+    logger.info("Personal %s token %s created by %s", body.role, created["label"], identity.client)
     # The secret is shown once: never cached
     response.headers.update(LOGIN_HEADERS)
     return created
@@ -131,22 +147,22 @@ async def create_my_token(
 
 @router.delete("/me/tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_token(request: Request, token_id: str, identity: CurrentIdentity) -> Response:
-    """Revoke an api token of the logged-in web user (the token of another user is not found)."""
-    user_id = _web_user_id(request)
+    """Revoke a personal token of the logged-in web user (that of another user is not found)."""
+    user_id = web_user_id(request)
     try:
         await run_in_threadpool(
             token_store.revoke_personal_token, user_id, token_id[:64], actor_of(identity)
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
-    logger.info("API token %s revoked by %s", token_id[:64], identity.client)
+    logger.info("Personal token %s revoked by %s", token_id[:64], identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/me/preferences")
 async def my_preferences(request: Request, _: CurrentIdentity) -> Preferences:
     """Preferences of the logged-in web user (its theme)."""
-    return Preferences(**await run_in_threadpool(web_users.get_preferences, _web_user_id(request)))
+    return Preferences(**await run_in_threadpool(web_users.get_preferences, web_user_id(request)))
 
 
 @router.put("/me/preferences")
@@ -154,7 +170,7 @@ async def set_my_preferences(
     request: Request, body: Preferences, _: CurrentIdentity
 ) -> Preferences:
     """Remember the preferences of the logged-in web user, for every browser it uses."""
-    user_id = _web_user_id(request)
+    user_id = web_user_id(request)
     return Preferences(**await run_in_threadpool(web_users.set_theme, user_id, body.theme))
 
 

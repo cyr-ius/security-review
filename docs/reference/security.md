@@ -30,25 +30,28 @@
   of its user (personal token, deleted with the user, never rotated by someone else, whose new
   secret would carry the rights of the user) or of its role on its projects (role token, whose
   creator must hold each permission). A token never creates another personal token. An `mcp`
-  token without a project reaches every MCP tool and every project.
-- **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`, or only the
-  [enrollment server](../advanced/http.md#rejected-token-new-enrollment) on `/mcp`), and
+  token without a project reaches every MCP tool and every project; a personal `mcp` token
+  reaches the projects its user may read now, none when the user has none (never every project
+  by default), and stops when the user is deleted or must change a password set by an
+  administrator. A web user holds at most
+  `SECREVIEW_PERSONAL_TOKENS_PER_USER` personal tokens of each role (1 by default).
+- **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`), and
   `SECREVIEW_TOKEN_MAX_DAYS` bounds the validity of every token created or rotated. Expired
   tokens still count as configured: a server whose tokens have all expired stays closed. A
   rotation stores the digest of the new secret only; the previous digest is kept during the grace
   period (at most 168 hours), compared in constant time like the current one, and the previous
   secret of an expired token never comes back (see
   [expiry and rotation](../advanced/http.md#expiry-and-rotation-of-tokens)).
-- **Rejected tokens on `/mcp`**: with the enrollment enabled, an unknown, revoked or expired
-  token reaches the [enrollment server](../advanced/http.md#rejected-token-new-enrollment) instead
-  of a `401`. Each rejection is still logged as a warning by the MCP server
-  (`Rejected unauthenticated request` / `Rejected expired token`, with the client address): watch
-  these logs, not the `401` answers of a reverse proxy, to detect token guessing on `/mcp`; the
+- **Rejected tokens on `/mcp`**: an unknown, revoked or expired token gets a `401` whose
+  description tells the user to sign in to the web interface and create a new personal MCP
+  token (see [rejected token](../advanced/http.md#rejected-token-sign-in-again)); it never
+  reaches the enrollment server. Each rejection is also logged as a warning by the MCP server
+  (`Rejected unauthenticated request` / `Rejected expired token`, with the client address); the
   `secreview_auth_rejections_total` [metric](../advanced/audit-metrics.md) only counts the
-  rejections of the controller. Set `SECREVIEW_ENROLLMENT=false` when a detection
-  based on HTTP status codes is required.
+  rejections of the controller. `SECREVIEW_WEB_URL`, given in that description, is a public URL:
+  it holds no credentials (refused at start-up).
 - **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
-  tokens, enrollment requests and decisions are written in the same transaction as the change,
+  tokens and enrollments are written in the same transaction as the change,
   with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,
   and never hold a token or a password; no tool nor route edits an event, only the purge of
   `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-metrics.md#audit-log)).
@@ -65,16 +68,17 @@
   database, reads the token from the environment or stdin only, refuses plain HTTP outside
   localhost, credentials in the URL and redirects, and bounds the answers.
 - **Enrollment** (enabled by default, `SECREVIEW_ENROLLMENT`): a client without a token reaches
-  a restricted MCP server that only lets it file a request, and `POST /api/v1/enroll` is public
-  on the MCP server (body limited to 4 KiB). The approval happens on the controller. A request
-  is an `mcp` token restricted to the project, **pending**: it gives access to nothing before
-  the approval of an administrator, and pending requests never enable the authentication of an
-  open server. The number of pending requests is bounded (20 in all, 3 per client address) and a
-  request left unprocessed
-  expires after 7 days; the free text of the requester is masked and truncated. Any client that
-  reaches the server can file a request: check the requester and the address shown before
-  approving, or disable the enrollment. See
-  [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token).
+  a restricted MCP server that only lets it request its project, and `POST /api/v1/enroll` is
+  public on the MCP server (body limited to 4 KiB). The enrollment **never creates a token** and
+  never gives any access: a requested project is **pending** until a user with
+  `projects.create` approves it on the controller, which creates its project group without any
+  member; only an administrator adds a user to it, and the developer creates a personal MCP
+  token in the web interface, after logging in. The answer is the same whether the project
+  existed or not. The enrollments are bounded (20 pending projects, 5 per client address and
+  per hour, `429` beyond), a request nobody approved within
+  `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` is deleted, and the free text of the requester is
+  masked and truncated: check the requester and the address before approving. Every enrollment is audited. See
+  [enrollment](../advanced/http.md#enrollment-request-the-project).
 - **Outgoing network calls**: the MCP server makes none. The `security-review-mcp enroll` and
   `scan-deps` commands contact, at the request of the operator, the URL they give (`scan-deps`
   sends the dependency files given on its command line, never through a symbolic link); they
@@ -108,7 +112,9 @@
   most one request per controller process every 6 hours (15 minutes after a failure); only the
   version and the link of the release are kept (a link outside the releases of the repository
   is replaced), and the page only gets a short error code. With
-  `SECREVIEW_AUDIT_SYSLOG_ADDRESS` (disabled by default), the controller sends the
+  `SECREVIEW_AUDIT_SYSLOG_ADDRESS` or a server set on the **Audit log** page (disabled by
+  default; `settings.manage` permission, `udp://` or `tcp://` only, the change audited), the
+  controller sends the
   [audit events](../advanced/audit-metrics.md#forwarding-to-syslog) to that syslog server (UDP,
   TCP or Unix socket, neither TLS nor proxy: use a local relay for TLS); the events hold no
   secret (masked details), and the MCP server still connects nowhere.
@@ -125,7 +131,10 @@
   finding (action logged with the user or the label of the token), and only a person logged in to the interface (session) accepts a risk or marks a false
   positive: a bearer token is refused (`403`), even `admin`. These two decisions need a reason
   and an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the
-  logged-in user, and the finding counts as open again once the date has passed.
+  logged-in user, and the finding counts as open again once the date has passed. Only an
+  acceptance may have no expiry date, unless `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`:
+  set it to force a periodic review of every accepted risk. Comments on a finding follow the
+  same rule (session with `findings.triage`) and are append-only: no route edits or deletes one.
 - **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
   stores a proposal (reason masked and bounded, author taken from the token) without changing
   the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a
@@ -172,14 +181,17 @@
   [groups](../advanced/access-control.md) of the account: those given by an administrator and the
   groups open to OIDC whose name is exactly a value of the groups claim (other values are
   ignored, a group not open to OIDC is never joined through the claim); an OIDC session never
-  opens `/mcp`. The account is named by the exact identifier of the
-  `SECREVIEW_OIDC_USERNAME_CLAIM` claim (no fallback to `email` or `sub`, value refused if it is
-  not a valid user name): choose a claim that the user cannot change at the provider. By
+  opens `/mcp`. The account is identified by the issuer and the `sub` of its first login (unique
+  in the database), never by a name: a name changed at the provider keeps the account. It is
+  named at its creation by the exact identifier of the `SECREVIEW_OIDC_USERNAME_CLAIM` claim (no
+  fallback to `email` or `sub`, value refused if it is not a valid user name), which also binds
+  an account created beforehand by an administrator: choose a claim that the user cannot change
+  at the provider. By
   default (`SECREVIEW_OIDC_AUTO_CREATE_USERS=false`), only an OIDC account created by an
   administrator can log in. An OIDC login never opens a local account of the same name, and the
   account is bound to the issuer and the `sub` of its first login: another `sub` or another
   issuer is refused. A deleted OIDC
-  account is revoked: the automatic creation does not create it again, until an administrator
+  account is revoked, by its name and its issuer and `sub`: the automatic creation does not create it again, until an administrator
   creates it again or allows it again. Check the requester of an enrollment (free text, not
   verified) before giving them read access to the project. A session restricted to projects is
   restricted like a `--project` token. The session is a signed token (HMAC-SHA256, key derived
@@ -205,8 +217,14 @@
   (`SECREVIEW_MAX_SCAN_REQUEST_MB`, `413` beyond, read after the token check), as are the
   number of files (`SECREVIEW_MAX_SCAN_FILES`) and their size; secrets are masked in the
   excerpts and in the stored report.
+- **Request bodies of the controller**: every body is bounded before it is parsed, `413`
+  beyond: 512 KiB for the JSON routes, public ones included (login, SSO), 8 MiB for the
+  pack imports and `SECREVIEW_MAX_SCAN_REQUEST_MB` for the pipeline scans. The declared
+  `Content-Length` is checked first, a chunked body as it is read.
 - **Database**: SQL queries go through the ORM (bound parameters); input sizes, the number of
-  findings and the pagination are bounded. The schema is migrated by Alembic; the HTTP MCP
+  findings and the pagination are bounded. Every project name is
+  [normalized](../usage/prompts-tools.md#project-name) before use: only letters, digits and
+  single dashes reach the database, the logs, the metric labels and the file names. The schema is migrated by Alembic; the HTTP MCP
   server never changes it and refuses to serve a database that is not at the expected
   revision.
 - **Scan rules**: the default rules (`default_rules.toml`) are copied into the database at first
@@ -233,6 +251,9 @@
 - Rules are line-by-line patterns: they see neither the data flow nor the missing checks
   (missing authorization, for example). This work remains the agent's, guided by the
   checklists, and your SAST/SCA tools'.
+- The [coverage of a review](../usage/prompts-tools.md#review-coverage) (checklist results,
+  rules of the scan leads) is declared by the agent: the server only keeps the ids it knows and
+  marks the skipped items `not_covered`, it cannot check that the agent really read the code.
 - The `author` of a report (developer username) is declared by the client: anyone holding a
   token of the project can name someone else. Only `submitted_by`, the label of the token that
   saved the report, is set by the server (see

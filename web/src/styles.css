@@ -41,6 +41,8 @@
   --bs-tertiary-bg: #eef1f7;
   --bs-border-color: #e3e7ef;
   --bs-border-color-translucent: rgb(15 23 42 / 8%);
+  /* Field outlines (inputs, selects, checkboxes): at least 3:1 against the surface (WCAG 1.4.11) */
+  --app-input-border: #7c8799;
   --bs-primary: var(--app-accent);
   --bs-primary-rgb: var(--app-accent-rgb);
   --bs-primary-bg-subtle: #eef2ff;
@@ -75,6 +77,7 @@
   --bs-tertiary-bg: #172033;
   --bs-border-color: #243045;
   --bs-border-color-translucent: rgb(255 255 255 / 8%);
+  --app-input-border: #5b6b85;
   --bs-primary-bg-subtle: rgb(129 140 248 / 15%);
   --bs-primary-text-emphasis: #c7d2fe;
   --bs-link-hover-color-rgb: 165, 180, 252;
@@ -183,8 +186,9 @@ h1,
 
 .form-control,
 .form-select,
+.form-check-input,
 .input-group-text {
-  border-color: var(--bs-border-color);
+  border-color: var(--app-input-border);
 }
 
 .form-control,
@@ -232,6 +236,7 @@ h1,
   --bs-table-bg: transparent;
   --bs-table-border-color: var(--bs-border-color);
   --bs-table-hover-bg: rgba(var(--app-accent-rgb), 0.04);
+  --bs-table-active-bg: rgba(var(--app-accent-rgb), 0.08);
 }
 
 .table > thead th {

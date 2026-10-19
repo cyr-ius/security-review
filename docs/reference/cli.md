@@ -13,9 +13,12 @@ The package installs two commands, one per process (see
 
 | Command | Role | Page |
 |---|---|---|
-| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server | [Installation](../getting-started/deploy.md) |
-| `enroll --url URL --project P [--label L] [--requested-by WHO] [--token-stdin] [--cafile CA] [--allow-http]` | Requests a new token (label: `--label`, by default your login name) or, with `--token-stdin`, additional access for the token read on stdin | [Enrollment](../advanced/http.md#enrollment-a-project-requests-its-token) |
+| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server (stdio by default, `streamable-http` for a shared server) | [Installation](../getting-started/deploy.md) |
+| `enroll --url URL --project P [--requested-by WHO] [--cafile CA] [--allow-http]` | Requests the project on a shared server, for an administrator to approve (unchanged when it exists or is pending; requester: `--requested-by`, by default your login name); no token is created: the answer gives the URL of the web interface where you create a personal MCP token | [Enrollment](../advanced/http.md#enrollment-request-the-project) |
 | `scan-deps FILE… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http]` | Scans manifests and lockfiles with the advisory database of a shared MCP server (token: `SECREVIEW_TOKEN`), for a commit hook | [Dependencies](../advanced/dependencies.md#scan-with-a-shared-server-commit-hook) |
+
+Without a command, `security-review-mcp` prints its usage on stderr and exits with code `2`
+(`security-review-mcp --help` prints it on stdout): an MCP host must start `security-review-mcp serve`.
 
 With stdio, the server migrates its database itself at start-up (unless
 `SECREVIEW_DB_AUTO_UPGRADE=false`). With HTTP, it **only checks** the schema: it refuses to
@@ -34,13 +37,13 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 | `db upgrade` / `db status` | Migrates the schema (Alembic) and seeds the default rules, or shows the revision | [Architecture and deployment](../advanced/architecture.md#schema-migrations) |
 | `db prune [--days N]` | Deletes the reports without findings older than `N` days (default `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS`), except the latest of each project | [Retention](configuration.md#retention-of-reports-without-findings) |
 | `token create --label NAME [--role ROLE] [--project P …] [--expires-in-days N]` | Creates a Bearer token, possibly limited to several projects and with a validity, and shows its secret once | [Bearer tokens](../advanced/http.md#bearer-tokens), [roles](../usage/web-interface.md#roles) |
-| `token list [--project P] [--pending]` / `token revoke ID\|LABEL` | Lists (or only the pending enrollment requests) or revokes the tokens | [Bearer tokens](../advanced/http.md#bearer-tokens) |
+| `token list [--project P]` / `token revoke ID\|LABEL` | Lists or revokes the tokens | [Bearer tokens](../advanced/http.md#bearer-tokens) |
 | `token rotate ID\|LABEL [--grace-hours H] [--expires-in-days N]` | Replaces the secret of a token (same label, role and projects) and shows the new one once; the previous one works for `H` more hours (`0` to `168`) | [Expiry and rotation](../advanced/http.md#expiry-and-rotation-of-tokens) |
-| `token approve ID\|LABEL` / `token reject ID\|LABEL` | Approves or rejects an enrollment request; `approve --portal-user NAME` also gives this user account read access to the project in the portal, by adding it to the [project group](../advanced/access-control.md#project-groups) `project:<project>` (with OIDC enabled, an unknown name becomes an OIDC account) | [Enrollment](../advanced/http.md#enrollment-a-project-requests-its-token), [read access at enrollment](../advanced/sso.md#project-read-access-at-enrollment) |
 | `audit list [--action A] [--project P] [--actor WHO] [--since DATE] [--limit N] [--offset N]` / `audit prune [--days N] [--max-events N]` | Reads the audit log (JSON, newest first) or deletes the events older than `N` days (default `SECREVIEW_AUDIT_RETENTION_DAYS`), then the oldest beyond `--max-events` (default `SECREVIEW_AUDIT_MAX_EVENTS`) | [Audit log](../advanced/audit-metrics.md#audit-log) |
 | `user create NAME [--sso] [--group G …] [--password-stdin]` | Creates a [web interface account](../usage/web-interface.md#user-accounts), member of the groups `G` (the only source of its permissions): local (without `--password-stdin`, the password is generated and shown once) or OIDC with `--sso` (no password; it also joins its OIDC groups at each login) | [User accounts](../usage/web-interface.md#user-accounts) |
 | `user list` / `user set-groups NAME [--group G …]` / `user delete NAME` | Lists the accounts (never their digest) with their groups and permissions, replaces the groups given to an account (its OIDC groups are kept; `administrators` is created with the `admin` role when missing, to restore an administrator) or deletes it (a deleted OIDC account is no longer created again by a login); the last holder of `users.manage` is kept | [User accounts](../usage/web-interface.md#user-accounts) |
 | `group list` / `group roles` | Lists the groups (roles, projects, members) or the roles (permissions); they are managed in the web interface | [Roles, groups and permissions](../advanced/access-control.md) |
+| `project list` / `project approve ID` / `project reject ID` | Lists the projects requested by an enrollment (requester, address, expiry), creates one (its group `project:<project>`, without any member) or deletes the request | [Enrollment](../advanced/http.md#enrollment-request-the-project) |
 | `user reset-password NAME [--password-stdin]` | Replaces the password of a local account (generated by default) and closes its sessions | [Lost password](../usage/web-interface.md#lost-password) |
 | `rules list` / `rules import PATH…` / `rules export` | Lists, imports (TOML packs) or exports the rules stored in the database | [Internal rules](../advanced/rules.md#rules-command) |
 | `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Enables, disables (default or custom rules) or deletes custom rules | [Internal rules](../advanced/rules.md#rules-command) |
@@ -58,7 +61,8 @@ REST API.
 
 Options of every sub-command: `--project P` (required), `--url URL` (default
 `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (default: `SECREVIEW_TOKEN`), `--cafile CA`,
-`--allow-http`, `--timeout S`.
+`--allow-http`, `--timeout S`. Without arguments, `security-review-ci` prints its help and
+exits with code `2`.
 
 | Command | Role | Page |
 |---|---|---|

@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { Component, computed, linkedSignal } from '@angular/core';
 import { FormField, form, maxLength } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
@@ -8,8 +9,8 @@ import { AppSettings, ProxyUpdate } from '../../../core/models/api.models';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SettingsPage } from '../settings-page';
 
-/** How the proxy URL is chosen: variable, set here, or direct connection. */
-type ProxyMode = 'env' | 'custom' | 'none';
+/** Proxy URL chosen here, when HTTPS_PROXY and HTTP_PROXY are not set. */
+type ProxyMode = 'none' | 'custom';
 
 const PROXY_SOURCE_LABELS: Record<AppSettings['proxy']['effective']['source'], MessageKey> = {
   web: 'settings.sourceWeb',
@@ -24,18 +25,21 @@ const MAX_PROXY_CHARS = 500;
 interface ProxyFormModel {
   mode: ProxyMode;
   url: string;
-  /** The no_proxy list follows NO_PROXY (false) or is set here (true). */
-  noProxyCustom: boolean;
+  /** Hosts reached without proxy, when NO_PROXY is not set. */
   noProxy: string;
 }
 
+/** A proxy setting that can be deleted when its variable hides it. */
+type ProxyField = 'url' | 'no_proxy';
+
 /**
  * Administrator page: proxy of the outgoing connections of the controller (OSV download and OIDC
- * provider); each value set here overrides its variable.
+ * provider). HTTPS_PROXY / HTTP_PROXY and NO_PROXY, when set, take precedence: their field is
+ * then only shown.
  */
 @Component({
   selector: 'app-proxy-settings',
-  imports: [FormField, RefreshButtonComponent, TranslatePipe],
+  imports: [FormField, NgTemplateOutlet, RefreshButtonComponent, TranslatePipe],
   templateUrl: './proxy-settings.component.html',
   styleUrl: '../settings.css',
 })
@@ -43,15 +47,11 @@ export class ProxySettingsComponent extends SettingsPage {
   /** Filled with the stored values each time they are loaded, then edited by the form. */
   readonly proxyModel = linkedSignal<ProxyFormModel>(() => {
     const proxy = this.settings.value()?.proxy;
-    if (!proxy) {
-      return { mode: 'env', url: '', noProxyCustom: false, noProxy: '' };
-    }
-    const url = proxy.url.value;
+    const url = proxy?.url.value;
     return {
-      mode: url === null ? 'env' : url === '' ? 'none' : 'custom',
+      mode: url ? 'custom' : 'none',
       url: url ?? '',
-      noProxyCustom: proxy.no_proxy.value !== null,
-      noProxy: proxy.no_proxy.value ?? proxy.no_proxy.env ?? '',
+      noProxy: proxy?.no_proxy.value ?? '',
     };
   });
   readonly proxyForm = form(this.proxyModel, (path) => {
@@ -66,17 +66,31 @@ export class ProxySettingsComponent extends SettingsPage {
 
   async saveProxy(event: Event): Promise<void> {
     event.preventDefault();
-    const model = this.proxyModel();
-    const mode = model.mode;
-    const url = model.url.trim();
-    if (this.proxyForm().invalid() || (mode === 'custom' && !url)) {
-      this.error.set(msg('settings.proxyMissing'));
+    const proxy = this.settings.value()?.proxy;
+    if (!proxy) {
       return;
     }
-    const values: ProxyUpdate = {
-      url: mode === 'env' ? null : mode === 'none' ? '' : url,
-      no_proxy: model.noProxyCustom ? model.noProxy.trim() : null,
-    };
+    const model = this.proxyModel();
+    const url = model.url.trim();
+    const values: ProxyUpdate = {};
+    if (!proxy.url.env_set) {
+      if (this.proxyForm().invalid() || (model.mode === 'custom' && !url)) {
+        this.error.set(msg('settings.proxyMissing'));
+        return;
+      }
+      values.url = model.mode === 'none' ? null : url;
+    }
+    if (!proxy.no_proxy.env_set) {
+      values.no_proxy = model.noProxy.trim() || null;
+    }
     await this.run(() => firstValueFrom(this.api.setProxy(values)), msg('settings.proxySaved'));
+  }
+
+  /** Delete a stored value that its variable hides. */
+  async deleteStored(field: ProxyField): Promise<void> {
+    await this.run(
+      () => firstValueFrom(this.api.setProxy({ [field]: null })),
+      msg('settings.storedDeleted'),
+    );
   }
 }

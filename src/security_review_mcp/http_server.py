@@ -7,10 +7,12 @@ so the apps are wrapped in a small ASGI middleware and served by uvicorn directl
 Two apps are built, meant to run in separate processes (containers, pods) sharing the database:
 
 - the MCP server (``build_mcp_app``): the MCP endpoint, the public enrollment endpoint and
-  ``/healthz``. With enrollment, an MCP client that presents no token (or a token still waiting
-  for approval) is sent to a restricted MCP server that only lets it request a project token.
-  It requires a token even while none is stored (fail closed), except on a loopback address
-  or with ``SECREVIEW_ALLOW_UNAUTHENTICATED`` (see allows_open_mcp);
+  ``/healthz``. With enrollment, an MCP client that presents no token is sent to a restricted
+  MCP server that only lets it create its project; a token that is unknown, revoked or expired
+  gets a 401 that tells the user to sign in to the web interface and create a new personal MCP
+  token (see renew_token_hint). It requires a token even while none is stored (fail closed),
+  except on a loopback address or with ``SECREVIEW_ALLOW_UNAUTHENTICATED`` (see
+  allows_open_mcp);
 - the controller (``build_controller_app``): the REST API under ``/api`` and the Angular
   application under ``/ui`` (see web_api).
 
@@ -59,14 +61,13 @@ class Role(StrEnum):
     reports); ``metrics`` (never restricted to projects) only reaches the Prometheus endpoint of
     the controller.
 
-    ``reader`` and ``triager`` are never the role of a token: they only sum up the permissions of
-    a web session (see access_control.summary_role), whose rights come from its groups.
+    ``user`` is never the role of a token: it marks a web session, whose rights are the
+    permissions of its groups (see access_control.user_grants), checked by each route.
     """
 
     MCP = "mcp"
     API = "api"
-    READER = "reader"
-    TRIAGER = "triager"
+    USER = "user"
     ADMIN = "admin"
     CI = "ci"
     METRICS = "metrics"
@@ -76,9 +77,10 @@ DEFAULT_ROLE = Role.MCP
 # Roles a bearer token may have (a person reaches the web API through a session only)
 TOKEN_ROLES = frozenset({Role.MCP, Role.API, Role.ADMIN, Role.CI, Role.METRICS})
 MCP_ROLES = frozenset({Role.MCP, Role.ADMIN})
-WEB_ROLES = frozenset({Role.READER, Role.TRIAGER, Role.ADMIN})
+# Role of a web session, whatever its permissions
+WEB_ROLES = frozenset({Role.USER})
 # Roles accepted by the REST API of the controller: web sessions, admin and api tokens
-API_ROLES = WEB_ROLES | {Role.API}
+API_ROLES = WEB_ROLES | {Role.API, Role.ADMIN}
 # Roles accepted by the pipeline routes of the controller (scoped to projects)
 CI_ROUTE_ROLES = API_ROLES | {Role.CI}
 # Roles accepted by the scans of the pipeline routes, which may store a report
@@ -93,8 +95,8 @@ UI_PREFIX = "/ui"
 # Public endpoint of the MCP server where a client without a token requests one
 # (see enrollment_api)
 ENROLL_PATH = "/api/v1/enroll"
-# Title of the MCP server that the clients without an approved token reach (see
-# server.enrollment_mcp): scan-deps recognizes it to suggest a new enrollment
+# Title of the MCP server that the clients without a token reach (see
+# server.enrollment_mcp): scan-deps recognizes it to report a missing token
 ENROLLMENT_SERVER_TITLE = "Security Review (enrollment)"
 # Public liveness endpoint of both processes (container and Kubernetes probes)
 HEALTH_PATH = "/healthz"
@@ -120,7 +122,6 @@ class TokenInfo:
     """Identity attached to a token: a label for the logs and a role.
 
     ``projects`` lists the projects a restricted token reaches (None: every project).
-    ``pending`` marks an enrollment request not approved yet: it grants no access.
     ``expired`` marks a token past its expiry date: it grants no access either.
     ``user_id`` and ``auth_source`` (``local`` or ``oidc``) are set for the session of a web
     user (see web_users), None for a token. ``grants`` holds the permissions of a web user, each
@@ -132,7 +133,6 @@ class TokenInfo:
     role: Role = DEFAULT_ROLE
     projects: frozenset[str] | None = None
     token_id: str | None = None
-    pending: bool = False
     expired: bool = False
     user_id: int | None = None
     auth_source: str | None = None
@@ -172,7 +172,7 @@ def hash_token(token: str) -> bytes:
 # ── Middleware ───────────────────────────────────────────────────────────────
 
 # Requests rejected by the bearer middleware of this process since it started, by reason
-# (invalid_token, token_expired, enrollment_pending, insufficient_scope), see metrics
+# (invalid_token, token_expired, insufficient_scope), see metrics
 AUTH_REJECTIONS: Counter[str] = Counter()
 
 
@@ -182,6 +182,16 @@ def is_controller_public_path(path: str) -> bool:
     public = ("/", UI_PREFIX, DOCS_PATH, OPENAPI_PATH, FAVICON_PATH, HEALTH_PATH, API_HEALTH_PATH)
     return path in public or (
         path.startswith((UI_PREFIX + "/", AUTH_PREFIX, DOCS_ASSETS_PREFIX + "/"))
+    )
+
+
+def renew_token_hint(web_url: str | None) -> str:
+    """What a user does when the MCP server refuses its token (or receives none): sign in to the
+    web interface (``web_url``, SECREVIEW_WEB_URL, when known) and create a personal MCP token."""
+    where = f"the web interface ({web_url})" if web_url else "the web interface"
+    return (
+        f"sign in to {where} and create a new personal MCP token, then put it in the MCP "
+        "client configuration as 'Authorization: Bearer <token>'"
     )
 
 
@@ -210,10 +220,9 @@ class BearerAuthMiddleware:
     ``allow_open`` (see allows_open_mcp) lets every request through.
 
     ``enrollment_app`` receives the MCP requests sent without an ``Authorization`` header (or
-    with an empty bearer value), with a pending enrollment token, or with a token that is
-    unknown, revoked or expired; ``scope["state"]["enrollment_token_id"]`` then holds the id of
-    that pending token (None otherwise) and ``scope["state"]["enrollment_rejected_token"]`` the
-    reason a token was rejected (None otherwise). Without it they get 401 / 403.
+    with an empty bearer value): the client may create its project there. A token that is
+    unknown, revoked or expired always gets a 401; on the MCP server, its description tells the
+    user to sign in to the web interface (``web_url``) and create a new personal MCP token.
 
     ``sessions`` (controller only) also accepts the session tokens issued after a login.
     ``require_auth`` (controller with OIDC) asks for credentials even while the store holds no
@@ -230,6 +239,7 @@ class BearerAuthMiddleware:
         sessions: SessionVerifier | None = None,
         require_auth: bool = False,
         allow_open: bool = False,
+        web_url: str | None = None,
     ) -> None:
         self.app = app
         self.store = store
@@ -239,6 +249,7 @@ class BearerAuthMiddleware:
         self.sessions = sessions if web else None
         self.require_auth = require_auth and web
         self.allow_open = allow_open and not web
+        self.web_url = web_url
 
     async def identify(self, authorization: str) -> TokenInfo | None:
         """Return the identity of the presented bearer token, or None."""
@@ -302,37 +313,23 @@ class BearerAuthMiddleware:
         address = client[0] if client else "unknown"
         authorization = Headers(scope=scope).get("authorization", "")
         if self.enrollment_app is not None and not has_credentials(authorization):
-            await self.enroll(scope, receive, send, None)
+            # No token yet: the client may create its project on the enrollment server
+            await self.enrollment_app(scope, receive, send)
             return
         info = await self.identify(authorization)
         if info is None:
             AUTH_REJECTIONS["invalid_token"] += 1
             logger.warning("Rejected unauthenticated request from %s to %s", address, path)
-            if self.enrollment_app is not None:
-                # Unknown or revoked token: the client is offered a new enrollment
-                await self.enroll(scope, receive, send, None, rejection="invalid_token")
-                return
-            await _send_error(send, 401, "invalid_token", "Missing or invalid bearer token")
+            await _send_error(
+                send, 401, "invalid_token", self.refusal("Missing or invalid bearer token")
+            )
             return
         if info.expired:
             AUTH_REJECTIONS["token_expired"] += 1
             logger.warning("Rejected expired token %s from %s to %s", info.label, address, path)
-            if self.enrollment_app is not None:
-                await self.enroll(scope, receive, send, None, rejection="token_expired")
-                return
             # RFC 6750: an expired token is an invalid_token
-            await _send_error(send, 401, "invalid_token", "The bearer token has expired")
-            return
-        if info.pending:
-            if self.enrollment_app is not None:
-                await self.enroll(scope, receive, send, info.token_id)
-                return
-            AUTH_REJECTIONS["enrollment_pending"] += 1
             await _send_error(
-                send,
-                403,
-                "enrollment_pending",
-                "This token is waiting for an administrator to approve its enrollment",
+                send, 401, "invalid_token", self.refusal("The bearer token has expired")
             )
             return
         if not self.role_allowed(info.role, path):
@@ -356,26 +353,10 @@ class BearerAuthMiddleware:
         state["auth_must_change_password"] = info.must_change_password
         await self.app(scope, receive, send)
 
-    async def enroll(
-        self,
-        scope: Scope,
-        receive: Receive,
-        send: Send,
-        token_id: str | None,
-        rejection: str | None = None,
-    ) -> None:
-        """Forward a request to the enrollment MCP server, with the pending token id if any.
-
-        ``rejection`` (``invalid_token`` or ``token_expired``) tells the enrollment server
-        that the client presented a token that no longer grants access, so that the model
-        offers a new enrollment.
-        """
-        if self.enrollment_app is None:
-            raise RuntimeError("Enrollment is not enabled")
-        state = scope.setdefault("state", {})
-        state["enrollment_token_id"] = token_id
-        state["enrollment_rejected_token"] = rejection
-        await self.enrollment_app(scope, receive, send)
+    def refusal(self, reason: str) -> str:
+        """Description of a 401: on the MCP server, ``reason`` followed by how the user gets a
+        new token (see renew_token_hint)."""
+        return reason if self.web else f"{reason}: {renew_token_hint(self.web_url)}"
 
 
 async def _send_error(send: Send, status: int, error: str, description: str) -> None:
@@ -474,8 +455,17 @@ def tls_options(settings: Settings) -> TLSOptions | None:
 
 def add_listen_arguments(parser: argparse.ArgumentParser, settings: Settings) -> None:
     """Add the --host, --port and TLS options shared by the MCP server and the controller."""
-    parser.add_argument("--host", default=settings.host)
-    parser.add_argument("--port", type=int, default=settings.port)
+    parser.add_argument(
+        "--host",
+        default=settings.host,
+        help="listening address (overrides SECREVIEW_HOST, default: %(default)s)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=settings.port,
+        help="listening port (overrides SECREVIEW_PORT, default: %(default)s)",
+    )
     parser.add_argument("--tls-certfile", help="enable TLS (overrides SECREVIEW_TLS_CERTFILE)")
     parser.add_argument("--tls-keyfile", help="private key (overrides SECREVIEW_TLS_KEYFILE)")
 
@@ -531,12 +521,14 @@ def build_mcp_app(
     enrollment_server: MCPServer | None = None,
     enroll_endpoint: ASGIApp | None = None,
     allow_open: bool = False,
+    web_url: str | None = None,
 ) -> ASGIApp:
     """Build the HTTP app of the MCP server, protected by the bearer tokens of ``store``.
 
     ``enrollment_server`` answers the MCP clients that have no token yet and
     ``enroll_endpoint`` (see enrollment_api.create_app) serves the public ``ENROLL_PATH``.
     ``allow_open`` (see allows_open_mcp) lets every request through while no token is stored.
+    ``web_url`` (SECREVIEW_WEB_URL) is given in the 401 answers, where a new token is created.
     """
     main = server.streamable_http_app(host=host)
     enrollment_app = (
@@ -551,6 +543,7 @@ def build_mcp_app(
         enrollment_app=enrollment_app,
         public_paths=frozenset(routes),
         allow_open=allow_open,
+        web_url=web_url,
     )
 
 
@@ -635,8 +628,8 @@ def _log_exposure(
     elif not allow_open:
         logger.warning(
             "No token stored: every MCP client is refused (except enrollment requests) until "
-            "an administrator creates a token with `security-review-controller token create` "
-            "or approves an enrollment."
+            "a token exists: a personal MCP token created in the web interface, or a token "
+            "created with `security-review-controller token create`."
         )
     elif exposed and not (tls and tls.client_ca):
         logger.warning(
