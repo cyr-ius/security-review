@@ -23,6 +23,7 @@ from ..http_server import (
     Role,
 )
 from ..models import SecurityReportPublic
+from ..project_names import normalize_project
 from .schemas import Identity
 
 logger = logging.getLogger("security_review_mcp.web")
@@ -212,10 +213,15 @@ def in_scope(identity: Identity, project: str) -> bool:
 
 
 def scoped_project(identity: Identity, requested: str) -> str:
-    """Refuse a project outside a project token's scope without disclosing other projects."""
-    if not in_scope(identity, requested):
+    """Normalize a project name and refuse it (404) outside a project token's scope without
+    disclosing other projects; 422 for an invalid name."""
+    try:
+        project = normalize_project(requested)
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    if not in_scope(identity, project):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not found")
-    return requested
+    return project
 
 
 def ensure_report_scope(identity: Identity, report: SecurityReportPublic) -> None:

@@ -32,6 +32,7 @@ from .models import (
     effective_status,
     utcnow,
 )
+from .project_names import normalize_project
 from .scanner import redact_secrets
 
 logger = logging.getLogger(__name__)
@@ -145,10 +146,8 @@ def save_report(
     """
     settings = get_settings()
     review_type = ReviewType(review_type) if review_type else None
-    project = project.strip()
+    project = normalize_project(project)
     summary = summary.strip()
-    if not project:
-        raise ValueError("project must not be empty")
     if len(summary) < 3:
         raise ValueError("summary must contain at least 3 characters")
     if len(findings) > settings.max_findings_per_report:
@@ -233,7 +232,7 @@ def list_reports(
     with session_scope() as session:
         statement = select(SecurityReport)
         if project:
-            statement = statement.where(SecurityReport.project == project)
+            statement = statement.where(SecurityReport.project == normalize_project(project))
         if projects is not None:
             statement = statement.where(col(SecurityReport.project).in_(list(projects)))
         if risk_level:
@@ -559,6 +558,7 @@ def list_projects(known: Iterable[str] = ()) -> list[dict]:
 
 def project_posture(project: str) -> dict:
     """Summarize open findings of a project across all its reports (useful as a CI gate)."""
+    project = normalize_project(project)
     with session_scope() as session:
         rows = session.exec(
             select(Finding.severity, func.count())
@@ -608,7 +608,7 @@ def list_project_findings(
     offset = max(0, offset)
     filters = [_status_is(status)]
     if project is not None:
-        filters.append(SecurityReport.project == project)
+        filters.append(SecurityReport.project == normalize_project(project))
     if projects is not None:
         filters.append(col(SecurityReport.project).in_(list(projects)))
     if severity is not None:
@@ -755,6 +755,7 @@ def evaluate_gate(
         NotFoundError: If ``report_id`` does not exist.
         ValueError: If the report belongs to another project.
     """
+    project = normalize_project(project)
     threshold = SEVERITY_RANK[fail_on]
     with session_scope() as session:
         statement = (
@@ -821,6 +822,7 @@ def collect_sarif_items(
             project = report.project
             statement = statement.where(Finding.report_id == report_id)
         else:
+            project = normalize_project(str(project))
             statement = statement.where(SecurityReport.project == project)
         statement = statement.order_by(col(SecurityReport.created_at), col(SecurityReport.id))
 
@@ -881,6 +883,7 @@ def check_project_scope(allowed: Collection[str] | None, project: str) -> None:
     Raises:
         NotFoundError: If ``allowed`` is set and does not contain ``project``.
     """
+    project = normalize_project(project)
     if allowed is not None and project not in allowed:
         raise NotFoundError(f"Project '{project}' not found")
 

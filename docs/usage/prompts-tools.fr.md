@@ -93,7 +93,7 @@ Voir [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton)
 
 `save_security_report` reçoit :
 
-- `project`, `summary` ;
+- `project` (normalisé, voir [nom du projet](#nom-du-projet)), `summary` ;
 - une liste de `findings` : `title`, `severity`, `description`, et optionnellement `cwe`,
   `owasp`, `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category` ;
 - `repository`, `branch`, `commit_sha`, `reviewer`, `scope` ;
@@ -102,6 +102,27 @@ Voir [l'enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton)
 
 Le **niveau de risque** du rapport est calculé (sévérité maximale des findings). Le paramètre
 `risk_level` peut seulement le relever, jamais le baisser.
+
+### Nom du projet
+
+Rapports, jetons, rôles et gates sont regroupés par nom de projet. Le serveur **normalise**
+chaque nom de projet qu'il reçoit (outils MCP, API REST, client de pipeline, CLI), pour que les
+membres d'une équipe qui nomment différemment le même dépôt atteignent le même projet :
+
+- le nom est mis en minuscules (après normalisation Unicode NFKC) ;
+- une URL de remote git ou un chemin ne garde que son dernier segment, sans `.git` ;
+- toute suite de caractères autres que lettres et chiffres (espaces, points, soulignés, tirets,
+  ponctuation) devient un seul `-`, retiré aux deux extrémités.
+
+| Nom donné | Projet enregistré |
+|---|---|
+| `security-review-mcp`, `Security Review MCP`, `security_review_mcp` | `security-review-mcp` |
+| `cyr-ius/security-review-mcp`, `https://github.com/cyr-ius/security-review-mcp.git` | `security-review-mcp` |
+| `git@github.com:cyr-ius/Security_Review_MCP.git` | `security-review-mcp` |
+
+Un nom sans lettre ni chiffre, ou de plus de 200 caractères une fois normalisé, est refusé.
+Comme seul le nom du dépôt est gardé, deux dépôts de même nom dans des organisations ou groupes
+différents partagent un projet : donnez un nom distinct à l'un d'eux.
 
 ### Type de revue
 

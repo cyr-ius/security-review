@@ -85,7 +85,8 @@ and so does its [personal MCP token](../usage/web-interface.md#personal-mcp-toke
 then save the reports of its agent there. The project shows on the **Projects** screen,
 **No report yet**, until its first report.
 
-Only a **new** project can be created: a name that already has a report, that a role of a group
+The name is [normalized](../usage/prompts-tools.md#project-name) (`Mobile App` creates
+`mobile-app`). Only a **new** project can be created: a name that already has a report, that a role of a group
 names, or that a token or an enrollment request reaches is refused (409), so that this
 permission never opens the reports of an existing project. The creator only gets `reader`; an
 administrator gives triage or other members through the groups as usual. Each creation is

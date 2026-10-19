@@ -37,9 +37,16 @@ def test_enrollment_creates_a_pending_token(public):
     assert [item["id"] for item in token_store.list_enrollments()] == [created["request_id"]]
 
 
+def test_enrollment_normalizes_the_project(public):
+    response = public.post("/api/v1/enroll", json={"project": "git@github.com:acme/Shop_API.git"})
+
+    assert response.status_code == 201 and response.json()["project"] == "shop-api"
+
+
 def test_enrollment_endpoint_errors(public, monkeypatch):
     assert public.post("/api/v1/enroll", json={"project": ""}).status_code == 422
     assert public.post("/api/v1/enroll", json={"project": "p" * 201}).status_code == 422
+    assert public.post("/api/v1/enroll", json={"project": "-/-"}).status_code == 422
     assert public.post("/api/v1/enroll", json={"project": "p", "label": "x" * 65}).status_code == (
         422
     )

@@ -545,6 +545,13 @@ async def test_request_enrollment_tool_creates_a_pending_project_token():
     assert created["token"] not in json.dumps(listed)
 
 
+async def test_request_enrollment_normalizes_the_project():
+    async with Client(mcp) as client:
+        result = await client.call_tool("request_enrollment", {"project": "Acme/Shop_API"})
+    assert json.loads(text_of(result))["project"] == "shop-api"
+    assert [item["project"] for item in token_store.list_enrollments()] == ["shop-api"]
+
+
 async def test_request_enrollment_errors(monkeypatch):
     async with Client(mcp) as client:
         blank = await client.call_tool("request_enrollment", {"project": "  "})
@@ -564,6 +571,36 @@ async def test_save_report_outside_token_project_suggests_enrollment(http_app):
     )
 
     assert is_error and "request_enrollment" in text
+
+
+async def test_tools_normalize_the_project_name():
+    async with Client(mcp) as client:
+        saved = await client.call_tool(
+            "save_security_report",
+            {"project": "Acme/Shop_API", "summary": "Review", "findings": []},
+        )
+        posture = await client.call_tool(
+            "get_project_security_posture", {"project": "git@github.com:acme/shop-api.git"}
+        )
+        listed = await client.call_tool("list_security_reports", {"project": "SHOP API"})
+        invalid = await client.call_tool("get_project_security_posture", {"project": "---"})
+    assert json.loads(text_of(saved))["project"] == "shop-api"
+    assert json.loads(text_of(posture))["reports_total"] == 1
+    assert [row["project"] for row in listed.structured_content["result"]] == ["shop-api"]
+    assert invalid.is_error and "between 1 and 200" in text_of(invalid)
+
+
+async def test_a_restricted_token_saves_under_a_variant_of_its_project(http_app):
+    token = token_store.create_token("shop-ci", "mcp", "shop-api")["token"]
+    session = McpOverHttp(http_app, token)
+
+    is_error, text = session.call(
+        "save_security_report",
+        {"project": "https://github.com/acme/Shop_API.git", "summary": "Review", "findings": []},
+    )
+
+    assert not is_error, text
+    assert json.loads(text)["project"] == "shop-api"
 
 
 async def test_enrollment_server_only_exposes_enrollment():

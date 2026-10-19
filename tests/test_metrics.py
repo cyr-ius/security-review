@@ -66,7 +66,8 @@ def test_every_line_follows_the_exposition_format():
     for line in text.splitlines():
         assert line.startswith("# HELP ") or line.startswith("# TYPE ") or SAMPLE.match(line), line
     assert "\nsecreview_fake" not in text
-    assert 'project="evil\\"} 1\\nsecreview_fake 9"' in text
+    # The project name is normalized before storage: no quote or newline reaches the label
+    assert 'project="evil-1-secreview-fake-9"' in text
 
 
 def test_escape_label():

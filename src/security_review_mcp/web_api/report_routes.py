@@ -20,6 +20,7 @@ from ..models import (
     SecurityReportPublic,
     Severity,
 )
+from ..project_names import MAX_RAW_PROJECT_CHARS, ProjectName
 from ..sarif import build_sarif
 from .deps import (
     CurrentIdentity,
@@ -50,7 +51,7 @@ logger = logging.getLogger("security_review_mcp.web")
 
 router = APIRouter(tags=["reports"])
 
-ProjectQuery = Annotated[str, Query(min_length=1, max_length=200)]
+ProjectQuery = Annotated[ProjectName, Query()]
 TrendDays = Annotated[int, Query(ge=1, le=1095)]
 
 
@@ -126,7 +127,7 @@ async def posture(project: ProjectQuery, identity: CurrentIdentity) -> ProjectPo
 @router.get("/findings")
 async def project_findings(
     identity: CurrentIdentity,
-    project: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+    project: Annotated[ProjectName | None, Query()] = None,
     finding_status: Annotated[FindingStatus, Query(alias="status")] = FindingStatus.OPEN,
     severity: Severity | None = None,
     review_type: ReviewType | None = None,
@@ -166,7 +167,7 @@ async def trend(
 @router.get("/sarif", response_class=Response)
 async def sarif(
     identity: CurrentIdentity,
-    project: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+    project: Annotated[ProjectName | None, Query()] = None,
     report_id: Annotated[int | None, Query(ge=1)] = None,
     include_resolved: bool = False,
 ) -> Response:
@@ -189,7 +190,7 @@ async def sarif(
 @router.get("/reports")
 async def reports(
     identity: CurrentIdentity,
-    project: Annotated[str | None, Query(max_length=200)] = None,
+    project: Annotated[str | None, Query(max_length=MAX_RAW_PROJECT_CHARS)] = None,
     risk_level: Severity | None = None,
     review_type: ReviewType | None = None,
     author: Annotated[str | None, Query(max_length=MAX_AUTHOR_CHARS)] = None,
@@ -203,7 +204,7 @@ async def reports(
 ) -> list[ReportSummary]:
     """List reports, newest first (limit is capped by SECREVIEW_MAX_LIST_LIMIT)."""
     if project:
-        scoped_project(identity, project)
+        project = scoped_project(identity, project)
     return await run_in_threadpool(
         services.list_reports,
         project or None,

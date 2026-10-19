@@ -233,7 +233,7 @@ def test_groups_are_created_with_roles_and_members():
         ([("admin", ["shop"])], "cannot list projects"),
         ([("reader", ["shop"]), ("reader", None)], "given twice"),
         ([("reader", [f"p{i}" for i in range(51)])], "at most 50 projects"),
-        ([("reader", ["bad\x01"])], "control characters"),
+        ([("reader", ["\x01"])], "between 1 and 200"),
     ],
 )
 def test_invalid_group_roles_are_refused(bindings, message):
@@ -387,8 +387,8 @@ def test_the_name_of_a_project_group_fits_a_group_name():
 
 
 def test_project_groups_are_bounded_and_checked(monkeypatch):
-    with pytest.raises(ValueError, match="control characters"):
-        ensure_project_group("bad\x00name")
+    # The project is normalized: no control character reaches the group name
+    assert ensure_project_group("Bad\x00Name")["name"] == "project:bad-name"
     with pytest.raises(ValueError, match="between 1 and"):
         ensure_project_group(" ")
     access_control.create_group("devs")
@@ -461,6 +461,10 @@ def test_creating_a_project_never_opens_an_existing_one():
     for project in ("shop", "crm", "billing", "hr", "payroll"):
         with pytest.raises(ValueError, match=f"Project '{project}' already exists"):
             access_control.create_project(carol["id"], project, "user:carol")
+    # A variant of a known name is the same project once normalized: refused too
+    for variant in ("SHOP", "acme/Shop.git", "https://git.example.com/hr/Payroll"):
+        with pytest.raises(ValueError, match="already exists"):
+            access_control.create_project(carol["id"], variant, "user:carol")
     # The second creation of a project is refused too
     access_control.create_project(carol["id"], "new", "user:carol")
     with pytest.raises(ValueError, match="already exists"):
@@ -470,8 +474,9 @@ def test_creating_a_project_never_opens_an_existing_one():
 
 def test_project_creation_checks_the_name_and_the_user():
     carol = creator()
-    with pytest.raises(ValueError, match="control characters"):
-        access_control.create_project(carol["id"], "bad\x00name")
+    # The name is normalized: control characters alone leave nothing
+    with pytest.raises(ValueError, match="between 1 and"):
+        access_control.create_project(carol["id"], "\x00\x01")
     with pytest.raises(ValueError, match="between 1 and"):
         access_control.create_project(carol["id"], " ")
     with pytest.raises(NotFoundError):

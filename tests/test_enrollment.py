@@ -94,7 +94,7 @@ def test_request_enrollment_creates_a_pending_token(opener):
 
 
 def test_request_enrollment_reports_the_server_error(opener):
-    with pytest.raises(ValueError, match=r"refused the request \(422\).*at least 1 character"):
+    with pytest.raises(ValueError, match=r"refused the request \(422\).*between 1 and 200"):
         enrollment.request_enrollment("http://127.0.0.1", "")
 
 

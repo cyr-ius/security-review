@@ -9,6 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from .. import advisories, advisory_sync, app_settings, audit
 from ..config import get_settings
+from ..project_names import ProjectName
 from .deps import AuditReader, SettingsManager, actor_of, unprocessable
 from .schemas import (
     AdvisoryOverview,
@@ -30,7 +31,7 @@ router = APIRouter(tags=["administration"])
 async def audit_events(
     identity: AuditReader,
     action: Annotated[audit.AuditAction | None, Query()] = None,
-    project: Annotated[str | None, Query(min_length=1, max_length=200)] = None,
+    project: Annotated[ProjectName | None, Query()] = None,
     actor: Annotated[str | None, Query(min_length=1, max_length=audit.MAX_ACTOR_CHARS)] = None,
     search: Annotated[str | None, Query(max_length=200)] = None,
     sort_by: Literal["created_at", "action", "actor", "target", "project"] = "created_at",

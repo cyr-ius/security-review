@@ -41,6 +41,7 @@ from .models import (
     ReviewType,
     Severity,
 )
+from .project_names import ProjectName
 
 logger = logging.getLogger("security_review_mcp")
 
@@ -500,7 +501,13 @@ def get_development_standards(
 @_tool_errors
 def save_security_report(
     ctx: Context,
-    project: Annotated[str, Field(description="Project name, used to group reports")],
+    project: Annotated[
+        ProjectName,
+        Field(
+            description="Project name, used to group reports: the repository name (the server "
+            "normalizes it: lowercase, last segment of a remote URL, '-' as separator)"
+        ),
+    ],
     summary: Annotated[str, Field(description="Executive summary of the review")],
     findings: Annotated[
         list[FindingCreate], Field(description="Confirmed findings (empty list if none)")
@@ -583,7 +590,7 @@ def get_security_report(
 @_tool_errors
 def list_security_reports(
     ctx: Context,
-    project: str | None = None,
+    project: ProjectName | None = None,
     risk_level: Severity | None = None,
     limit: Annotated[int, Field(ge=1, le=100)] = 20,
     offset: Annotated[int, Field(ge=0)] = 0,
@@ -646,7 +653,7 @@ def propose_finding_status(
 
 @mcp.tool(annotations=READ_ONLY)
 @_tool_errors
-def get_project_security_posture(ctx: Context, project: str) -> dict:
+def get_project_security_posture(ctx: Context, project: ProjectName) -> dict:
     """Summarize the open findings of a project (counts by severity, worst open severity).
 
     Useful as a CI/CD gate: fail the pipeline when the worst open severity is too high.
@@ -659,7 +666,7 @@ def get_project_security_posture(ctx: Context, project: str) -> dict:
 @_tool_errors
 def check_project_gate(
     ctx: Context,
-    project: str,
+    project: ProjectName,
     fail_on: Annotated[
         Severity, Field(description="Lowest severity that blocks (default: high)")
     ] = Severity.HIGH,
@@ -681,7 +688,9 @@ def check_project_gate(
 def export_sarif(
     ctx: Context,
     report_id: Annotated[int | None, Field(description="Export one report")] = None,
-    project: Annotated[str | None, Field(description="Export all the reports of a project")] = None,
+    project: Annotated[
+        ProjectName | None, Field(description="Export all the reports of a project")
+    ] = None,
     include_resolved: Annotated[
         bool, Field(description="Also export fixed, accepted and false-positive findings")
     ] = False,
@@ -704,7 +713,7 @@ def export_sarif(
 @_tool_errors
 def get_trend_report(
     ctx: Context,
-    project: str,
+    project: ProjectName,
     days: Annotated[int, Field(ge=1, le=1095)] = 90,
     granularity: Literal["day", "week", "month"] = "week",
     format: Literal["markdown", "json"] = "markdown",
@@ -805,7 +814,8 @@ def standard_resource(slug: str) -> str:
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 ProjectArg = Annotated[
-    str, Field(description="Project the token is requested for (usually the repository name)")
+    ProjectName,
+    Field(description="Project the token is requested for (usually the repository name)"),
 ]
 LabelArg = Annotated[
     str | None,

@@ -256,13 +256,11 @@ def clean_permissions(permissions: Iterable[str]) -> list[str]:
 
 
 def clean_projects(permissions: Iterable[str], projects: Iterable[str] | None) -> list[str]:
-    """Validate the projects of a binding (empty: every project).
+    """Validate and normalize the projects of a binding (empty: every project).
 
     Only a role made of scoped permissions may list projects.
     """
     cleaned = list(dict.fromkeys(_clean_project(name) for name in projects or ()))
-    if not all(name.isprintable() for name in cleaned):
-        raise ValueError("Project must not contain control characters")
     if cleaned and not set(permissions) <= SCOPED_PERMISSIONS:
         raise ValueError(
             "This role holds permissions on the whole controller: it cannot list projects"

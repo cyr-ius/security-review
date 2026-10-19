@@ -65,11 +65,11 @@ from .config import MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
 from .http_server import TOKEN_ROLES, Role, TokenInfo, hash_token
 from .models import ApiToken, ApiTokenProject, WebUser, as_utc, utcnow
+from .project_names import normalize_project
 from .scanner import redact_secrets
 
 MAX_TOKENS = 500
 MAX_LABEL_CHARS = 64
-MAX_PROJECT_CHARS = 200
 # Projects one token may reach (granted or requested)
 MAX_PROJECTS_PER_TOKEN = 50
 
@@ -474,11 +474,8 @@ def _clean_label(label: str) -> str:
 
 
 def _clean_project(project: str) -> str:
-    """Strip a project name and check its length."""
-    project = project.strip()
-    if not 1 <= len(project) <= MAX_PROJECT_CHARS:
-        raise ValueError(f"Project must contain between 1 and {MAX_PROJECT_CHARS} characters")
-    return project
+    """Normalize a project name (see project_names.normalize_project)."""
+    return normalize_project(project)
 
 
 def _clean_projects(projects: str | Iterable[str] | None) -> list[str] | None:
@@ -544,6 +541,7 @@ def list_tokens(project: str | None = None) -> list[dict[str, Any]]:
     """
     statement = select(ApiToken).order_by(col(ApiToken.created_at), col(ApiToken.label))
     if project is not None:
+        project = normalize_project(project)
         granted = select(ApiTokenProject.token_id).where(
             ApiTokenProject.project == project, ApiTokenProject.status == ACTIVE
         )

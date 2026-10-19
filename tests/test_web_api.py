@@ -764,6 +764,21 @@ def test_ci_token_runs_the_gate_sarif_and_trend_of_its_project(secured, ci_token
     assert "shop-api" in markdown.text
 
 
+def test_project_names_are_normalized_by_the_api(secured, ci_token, reports):
+    gate = secured.get("/api/v1/ci/gate", params={"project": "Acme/Shop_API"}, headers=auth("ci"))
+    assert gate.status_code == 200 and gate.json()["project"] == "shop-api"
+    listed = secured.get("/api/v1/reports", params={"project": "SHOP API"}, headers=auth("admin"))
+    assert [item["project"] for item in listed.json()] == ["shop-api"]
+    posture = secured.get("/api/v1/posture", params={"project": "shop_api"}, headers=auth("admin"))
+    assert posture.json()["open_findings_total"] == 2
+    for route, role in (("ci/gate", "ci"), ("reports", "admin"), ("posture", "admin")):
+        invalid = secured.get(f"/api/v1/{route}", params={"project": "---"}, headers=auth(role))
+        assert invalid.status_code == 422, route
+    # A variant of a project outside the scope is still hidden
+    hidden = secured.get("/api/v1/ci/gate", params={"project": "Billing"}, headers=auth("ci"))
+    assert hidden.status_code == 404
+
+
 def test_ci_token_only_sees_its_projects(secured, ci_token, reports):
     _, billing_report_id = reports
 
@@ -1118,8 +1133,11 @@ def test_a_web_user_with_projects_create_creates_a_project(accounts, reports):
         response = accounts.post("/api/v1/projects", json={"project": project}, headers=headers)
         assert response.status_code == 409, project
     assert accounts.get("/api/v1/projects", headers=headers).json()[0]["project"] == "mobile-app"
-    response = accounts.post("/api/v1/projects", json={"project": "bad\x00"}, headers=headers)
+    response = accounts.post("/api/v1/projects", json={"project": "\x00-"}, headers=headers)
     assert response.status_code == 422
+    # A variant of a known project is the same project once normalized
+    response = accounts.post("/api/v1/projects", json={"project": "Acme/Shop_API"}, headers=headers)
+    assert response.status_code == 409
     response = accounts.post("/api/v1/projects", json={"project": ""}, headers=headers)
     assert response.status_code == 422
 

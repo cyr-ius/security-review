@@ -23,6 +23,7 @@ from starlette.routing import Route
 from . import token_store
 from .config import get_settings
 from .http_server import ENROLL_PATH, LOOPBACK_HOSTS, has_credentials, hash_token
+from .project_names import ProjectName
 
 logger = logging.getLogger("security_review_mcp.enrollment")
 
@@ -37,7 +38,7 @@ class EnrollmentRequest(BaseModel):
     already restricted to other projects it requests one more project for that token.
     """
 
-    project: str = Field(min_length=1, max_length=token_store.MAX_PROJECT_CHARS)
+    project: ProjectName
     label: str | None = Field(default=None, max_length=token_store.MAX_LABEL_CHARS)  # + suffix
     requested_by: str | None = Field(default=None, max_length=token_store.MAX_REQUESTED_BY_CHARS)
 

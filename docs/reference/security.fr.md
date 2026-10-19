@@ -224,7 +224,10 @@
   comme le nombre de fichiers (`SECREVIEW_MAX_SCAN_FILES`) et leur taille ; les secrets sont
   masqués dans les extraits et dans le rapport enregistré.
 - **Base de données** : les requêtes SQL passent par l'ORM (paramètres liés) ; les tailles
-  d'entrée, le nombre de findings et la pagination sont bornés. Le schéma est migré par
+  d'entrée, le nombre de findings et la pagination sont bornés. Chaque nom de projet est
+  [normalisé](../usage/prompts-tools.md#nom-du-projet) avant usage : seuls des lettres, des
+  chiffres et des tirets simples atteignent la base, les journaux, les libellés des métriques et
+  les noms de fichiers. Le schéma est migré par
   Alembic ; le serveur MCP HTTP ne le modifie jamais et refuse de servir une base qui n'est pas
   à la révision attendue.
 - **Règles de scan** : les règles par défaut (`default_rules.toml`) sont copiées en base au

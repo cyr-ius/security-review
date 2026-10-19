@@ -215,7 +215,9 @@
   number of files (`SECREVIEW_MAX_SCAN_FILES`) and their size; secrets are masked in the
   excerpts and in the stored report.
 - **Database**: SQL queries go through the ORM (bound parameters); input sizes, the number of
-  findings and the pagination are bounded. The schema is migrated by Alembic; the HTTP MCP
+  findings and the pagination are bounded. Every project name is
+  [normalized](../usage/prompts-tools.md#project-name) before use: only letters, digits and
+  single dashes reach the database, the logs, the metric labels and the file names. The schema is migrated by Alembic; the HTTP MCP
   server never changes it and refuses to serve a database that is not at the expected
   revision.
 - **Scan rules**: the default rules (`default_rules.toml`) are copied into the database at first

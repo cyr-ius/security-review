@@ -10,6 +10,7 @@ from sqlmodel import col, select
 
 from .database import session_scope
 from .models import SEVERITY_RANK, Finding, FindingStatus, SecurityReport, Severity
+from .project_names import normalize_project
 
 Granularity = Literal["day", "week", "month"]
 
@@ -268,6 +269,7 @@ def get_trend(
     now: datetime | None = None,
 ) -> dict:
     """Load the data of a project and compute its trend."""
+    project = normalize_project(project)
     with session_scope() as session:
         finding_rows = session.exec(
             select(
