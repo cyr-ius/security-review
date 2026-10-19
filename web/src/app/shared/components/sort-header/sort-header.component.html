@@ -1,0 +1,22 @@
+<!-- The label is projected once, then placed in the button or left plain -->
+<ng-template #label><ng-content /></ng-template>
+@if (sortable()) {
+  <button
+    type="button"
+    class="sort-header"
+    [class.active]="active()"
+    [title]="(active() === 'asc' ? 'common.sortDescending' : 'common.sortAscending') | t"
+    (click)="toggle()"
+  >
+    <ng-container [ngTemplateOutlet]="label" />
+    <i
+      class="bi sort-arrow"
+      [class.bi-caret-up-fill]="active() === 'asc'"
+      [class.bi-caret-down-fill]="active() === 'desc'"
+      [class.bi-arrow-down-up]="!active()"
+      aria-hidden="true"
+    ></i>
+  </button>
+} @else {
+  <ng-container [ngTemplateOutlet]="label" />
+}

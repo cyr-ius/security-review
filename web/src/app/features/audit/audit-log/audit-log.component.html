@@ -29,13 +29,8 @@
 <app-table-controls
   idPrefix="audit"
   [search]="search()"
-  [sort]="sortBy()"
-  [direction]="sortDirection()"
-  [sortOptions]="sortOptions()"
   [filters]="filters()"
   (searchChange)="search.set($event)"
-  (sortChange)="onTableSort($event)"
-  (directionChange)="sortDirection.set($event)"
   (filterChange)="onTableFilter($event)"
 />
 
@@ -54,11 +49,13 @@
     <table class="table table-hover align-middle">
       <thead>
         <tr>
-          <th scope="col">{{ 'audit.date' | t }}</th>
-          <th scope="col">{{ 'audit.action' | t }}</th>
-          <th scope="col">{{ 'audit.actor' | t }}</th>
-          <th scope="col">{{ 'audit.target' | t }}</th>
-          <th scope="col">{{ 'reportTable.project' | t }}</th>
+          <th scope="col" [appSortHeader]="sort" sortKey="created_at">{{ 'audit.date' | t }}</th>
+          <th scope="col" [appSortHeader]="sort" sortKey="action">{{ 'audit.action' | t }}</th>
+          <th scope="col" [appSortHeader]="sort" sortKey="actor">{{ 'audit.actor' | t }}</th>
+          <th scope="col" [appSortHeader]="sort" sortKey="target">{{ 'audit.target' | t }}</th>
+          <th scope="col" [appSortHeader]="sort" sortKey="project">
+            {{ 'reportTable.project' | t }}
+          </th>
           <th scope="col">{{ 'audit.details' | t }}</th>
         </tr>
       </thead>

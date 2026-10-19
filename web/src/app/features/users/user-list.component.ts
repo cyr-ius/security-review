@@ -17,6 +17,8 @@ import {
   TableControlFilterChange,
   TableControlsComponent,
 } from '../../shared/components/table-controls/table-controls.component';
+import { SortHeaderComponent } from '../../shared/components/sort-header/sort-header.component';
+import { TableSort } from '../../shared/utils/table-sort';
 import { describeGrants } from '../../shared/utils/permission-utils';
 import { compareTableText, filterAndSortRows } from '../../shared/utils/table-utils';
 
@@ -46,6 +48,7 @@ type RevokedSortKey = 'username' | 'revoked_at' | 'revoked_by';
     FormField,
     PasswordPolicyComponent,
     RefreshButtonComponent,
+    SortHeaderComponent,
     TableControlsComponent,
     TranslatePipe,
   ],
@@ -64,15 +67,13 @@ export class UserListComponent {
   /** Login methods of the controller: tells whether OIDC users can log in. */
   readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
   readonly tableSearch = signal('');
-  readonly tableSort = signal<UserSortKey>('username');
-  readonly tableDirection = signal<'asc' | 'desc'>('asc');
+  readonly tableSort = new TableSort<UserSortKey>(
+    'users',
+    ['username', 'access', 'lastLogin', 'created'],
+    'username',
+    'asc',
+  );
   readonly sourceFilter = signal<AuthSource | ''>('');
-  readonly tableSortOptions = computed(() => [
-    { value: 'username', label: this.i18n.translate('login.username') },
-    { value: 'created', label: this.i18n.translate('common.createdAt') },
-    { value: 'lastLogin', label: this.i18n.translate('users.lastLogin') },
-    { value: 'access', label: this.i18n.translate('users.access') },
-  ]);
   readonly tableFilters = computed<TableControlFilter[]>(() => [
     {
       key: 'source',
@@ -90,11 +91,11 @@ export class UserListComponent {
     const users = (this.users.value() ?? []).filter(
       (user) => !source || user.auth_source === source,
     );
-    const sort = this.tableSort();
+    const sort = this.tableSort.key();
     return filterAndSortRows(
       users,
       this.tableSearch(),
-      this.tableDirection(),
+      this.tableSort.direction(),
       (user) =>
         [user.username, user.groups.map((group) => group.name).join(' '), this.describe(user)].join(
           ' ',
@@ -114,14 +115,13 @@ export class UserListComponent {
     );
   });
   readonly revokedSearch = signal('');
-  readonly revokedSort = signal<RevokedSortKey>('revoked_at');
-  readonly revokedDirection = signal<'asc' | 'desc'>('desc');
+  readonly revokedSort = new TableSort<RevokedSortKey>(
+    'revoked-users',
+    ['username', 'revoked_by', 'revoked_at'],
+    'revoked_at',
+    'desc',
+  );
   readonly revokedByFilter = signal('');
-  readonly revokedSortOptions = computed(() => [
-    { value: 'username', label: this.i18n.translate('login.username') },
-    { value: 'revoked_at', label: this.i18n.translate('users.revokedAt') },
-    { value: 'revoked_by', label: this.i18n.translate('users.revokedBy') },
-  ]);
   readonly revokedFilters = computed<TableControlFilter[]>(() => [
     {
       key: 'revoked_by',
@@ -140,11 +140,11 @@ export class UserListComponent {
     const users = (this.revoked.value() ?? []).filter(
       (user) => !revokedBy || user.revoked_by === revokedBy,
     );
-    const sort = this.revokedSort();
+    const sort = this.revokedSort.key();
     return filterAndSortRows(
       users,
       this.revokedSearch(),
-      this.revokedDirection(),
+      this.revokedSort.direction(),
       (user) => [user.username, user.revoked_by ?? ''].join(' '),
       (left, right) => {
         if (sort === 'revoked_at') {
@@ -183,28 +183,11 @@ export class UserListComponent {
   readonly error = signal<Message | null>(null);
   readonly busy = signal(false);
 
-  onUserTableSort(value: string): void {
-    if (
-      value === 'username' ||
-      value === 'created' ||
-      value === 'lastLogin' ||
-      value === 'access'
-    ) {
-      this.tableSort.set(value);
-    }
-  }
-
   onUserTableFilter(change: TableControlFilterChange): void {
     if (change.key === 'source') {
       this.sourceFilter.set(
         change.value === 'local' || change.value === 'oidc' ? change.value : '',
       );
-    }
-  }
-
-  onRevokedSort(value: string): void {
-    if (value === 'username' || value === 'revoked_at' || value === 'revoked_by') {
-      this.revokedSort.set(value);
     }
   }
 

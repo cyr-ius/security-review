@@ -68,13 +68,8 @@
   <app-table-controls
     idPrefix="projects"
     [search]="search()"
-    [sort]="sort()"
-    [direction]="direction()"
-    [sortOptions]="sortOptions()"
     [filters]="filters()"
     (searchChange)="search.set($event)"
-    (sortChange)="onSortValue($event)"
-    (directionChange)="direction.set($event)"
     (filterChange)="onProjectTableFilter($event)"
   />
   <div class="card">
@@ -89,13 +84,19 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr>
-              <th scope="col">{{ 'reportTable.project' | t }}</th>
-              <th scope="col">{{ 'projects.worst' | t }}</th>
+              <th scope="col" [appSortHeader]="sort" sortKey="name">
+                {{ 'reportTable.project' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="sort" sortKey="risk">
+                {{ 'projects.worst' | t }}
+              </th>
               @for (severity of severities; track severity) {
                 <th scope="col" class="text-end">{{ severityMeta[severity].label | t }}</th>
               }
               <th scope="col" class="text-end">{{ 'trend.reports' | t }}</th>
-              <th scope="col">{{ 'projects.lastReport' | t }}</th>
+              <th scope="col" [appSortHeader]="sort" sortKey="activity">
+                {{ 'projects.lastReport' | t }}
+              </th>
             </tr>
           </thead>
           <tbody>

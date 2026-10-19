@@ -12,6 +12,8 @@ import {
   TableControlFilterChange,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
+import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
+import { TableSort } from '../../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 import { SettingsPage } from '../settings-page';
 
@@ -41,7 +43,14 @@ export const TRIGGER_LABELS: Record<AdvisoryUpdate['trigger'], MessageKey> = {
  */
 @Component({
   selector: 'app-advisory-settings',
-  imports: [DatePipe, DecimalPipe, RefreshButtonComponent, TableControlsComponent, TranslatePipe],
+  imports: [
+    DatePipe,
+    DecimalPipe,
+    RefreshButtonComponent,
+    SortHeaderComponent,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './advisory-settings.component.html',
   styleUrl: '../settings.css',
 })
@@ -51,16 +60,14 @@ export class AdvisorySettingsComponent extends SettingsPage {
   readonly statusMeta = UPDATE_STATUS_META;
   readonly triggerLabels = TRIGGER_LABELS;
   readonly historySearch = signal('');
-  readonly historySort = signal<'started' | 'trigger' | 'status' | 'duration'>('started');
-  readonly historyDirection = signal<'asc' | 'desc'>('desc');
+  readonly historySort = new TableSort<'started' | 'trigger' | 'status' | 'duration'>(
+    'advisory-history',
+    ['started', 'trigger', 'status', 'duration'],
+    'started',
+    'desc',
+  );
   readonly historyStatusFilter = signal<AdvisoryUpdate['status'] | ''>('');
   readonly historyTriggerFilter = signal<AdvisoryUpdate['trigger'] | ''>('');
-  readonly historySortOptions = computed(() => [
-    { value: 'started', label: this.i18n.translate('settings.start') },
-    { value: 'trigger', label: this.i18n.translate('settings.trigger') },
-    { value: 'status', label: this.i18n.translate('settings.status') },
-    { value: 'duration', label: this.i18n.translate('settings.duration') },
-  ]);
   readonly historyFilters = computed<TableControlFilter[]>(() => [
     {
       key: 'status',
@@ -93,11 +100,11 @@ export class AdvisorySettingsComponent extends SettingsPage {
     const updates = (this.advisories.value()?.updates ?? []).filter(
       (update) => (!status || update.status === status) && (!trigger || update.trigger === trigger),
     );
-    const sort = this.historySort();
+    const sort = this.historySort.key();
     return filterAndSortRows(
       updates,
       this.historySearch(),
-      this.historyDirection(),
+      this.historySort.direction(),
       (update) =>
         [
           update.started_at,
@@ -138,12 +145,6 @@ export class AdvisorySettingsComponent extends SettingsPage {
   );
 
   private pollTimer: ReturnType<typeof setTimeout> | undefined;
-
-  onHistorySort(value: string): void {
-    if (value === 'started' || value === 'trigger' || value === 'status' || value === 'duration') {
-      this.historySort.set(value);
-    }
-  }
 
   onHistoryFilter(change: TableControlFilterChange): void {
     if (change.key === 'status') {

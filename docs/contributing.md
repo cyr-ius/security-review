@@ -195,6 +195,10 @@ local workstation and port 4200 is forwarded automatically.
   `layout/`.
 - **Templates**: host bindings in `host: {}` (no `@HostListener`); a message that explains why a
   field is invalid is linked to it with `aria-describedby`.
+- **Tables**: `app-table-controls` holds the search and the filters; the sort is chosen on the
+  column headers (`<th [appSortHeader]="sort" sortKey="name">`), with a `TableSort` named after
+  the table (`shared/utils/table-sort.ts`) that the browser remembers under
+  `secreview.sort.<name>`.
 - **Colors**: Bootstrap variables (`var(--bs-…)`) or the design tokens of `styles.css`
   (`--app-…`), never a color written in a component, so that the light and dark themes work.
 

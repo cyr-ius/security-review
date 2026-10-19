@@ -17,6 +17,8 @@ import {
   TableControlFilterChange,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
+import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
+import { TableSort } from '../../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 
 interface ChecklistFormModel {
@@ -35,12 +37,18 @@ const EMPTY_ITEM: ChecklistFormModel = {
   cwe: '',
 };
 
-type ChecklistSortKey = 'domain' | 'id' | 'title';
+type ChecklistSortKey = 'domain' | 'title';
 
 /** Admin view for checklist items grouped by their review domain. */
 @Component({
   selector: 'app-checklist-list',
-  imports: [PackTransferComponent, FormField, TableControlsComponent, TranslatePipe],
+  imports: [
+    PackTransferComponent,
+    FormField,
+    SortHeaderComponent,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './checklist-list.component.html',
   styleUrl: './checklist-list.component.css',
 })
@@ -52,17 +60,16 @@ export class ChecklistListComponent {
   readonly catalog = rxResource({ stream: () => this.api.checklistItems() });
   readonly domainFilter = signal('');
   readonly search = signal('');
-  readonly sort = signal<ChecklistSortKey>('domain');
-  readonly direction = signal<'asc' | 'desc'>('asc');
+  readonly sort = new TableSort<ChecklistSortKey>(
+    'checklists',
+    ['domain', 'title'],
+    'domain',
+    'asc',
+  );
   readonly originFilter = signal<'all' | 'builtin' | 'custom'>('all');
   readonly domains = computed(() =>
     [...new Set((this.catalog.value()?.checklist_items ?? []).map((item) => item.domain))].sort(),
   );
-  readonly sortOptions = computed(() => [
-    { value: 'domain', label: this.i18n.translate('checklists.domain') },
-    { value: 'id', label: this.i18n.translate('checklists.domainId') },
-    { value: 'title', label: this.i18n.translate('checklists.check') },
-  ]);
   readonly filters = computed<TableControlFilter[]>(() => [
     {
       key: 'domain',
@@ -90,11 +97,11 @@ export class ChecklistListComponent {
     const items = (this.catalog.value()?.checklist_items ?? []).filter(
       (item) => (!domain || item.domain === domain) && (origin === 'all' || item.origin === origin),
     );
-    const sort = this.sort();
+    const sort = this.sort.key();
     return filterAndSortRows(
       items,
       this.search(),
-      this.direction(),
+      this.sort.direction(),
       (item) => [item.domain, item.id, item.title, item.what_to_look_for, item.cwe].join(' '),
       (left, right) =>
         compareTableText(left[sort], right[sort]) ||
@@ -131,12 +138,6 @@ export class ChecklistListComponent {
 
   setDomainFilter(value: string): void {
     this.domainFilter.set(value);
-  }
-
-  onTableSort(value: string): void {
-    if (value === 'domain' || value === 'id' || value === 'title') {
-      this.sort.set(value);
-    }
   }
 
   onTableFilter(change: TableControlFilterChange): void {

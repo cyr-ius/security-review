@@ -10,15 +10,17 @@ import {
   SEVERITY_RANK,
   Severity,
 } from '../../../core/models/api.models';
+import { TableSort } from '../../utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../utils/table-utils';
 import { SeverityBadgeComponent } from '../severity-badge/severity-badge.component';
+import { SortHeaderComponent } from '../sort-header/sort-header.component';
 import {
   TableControlFilter,
   TableControlFilterChange,
   TableControlsComponent,
 } from '../table-controls/table-controls.component';
 
-type ReportSortKey =
+export type ReportSortKey =
   | 'created_at'
   | 'project'
   | 'risk_level'
@@ -36,6 +38,7 @@ type ReportSortKey =
     DatePipe,
     SlicePipe,
     SeverityBadgeComponent,
+    SortHeaderComponent,
     TableControlsComponent,
     TranslatePipe,
   ],
@@ -48,24 +51,31 @@ export class ReportTableComponent {
   /** Hide the project column on a project page. */
   readonly showProject = input(true);
   readonly enableControls = input(false);
+  /**
+   * Sort applied by the server to the given reports (paginated list): the rows are shown in
+   * their order. Without it, the table sorts its rows itself.
+   */
+  readonly serverSort = input<TableSort<ReportSortKey> | null>(null);
 
   private readonly i18n = inject(I18nService);
   readonly search = signal('');
-  readonly sort = signal<ReportSortKey>('created_at');
-  readonly direction = signal<'asc' | 'desc'>('desc');
+  private readonly localSort = new TableSort<ReportSortKey>(
+    'project-reports',
+    [
+      'created_at',
+      'project',
+      'risk_level',
+      'review_type',
+      'findings_open',
+      'branch',
+      'author',
+      'summary',
+    ],
+    'created_at',
+    'desc',
+  );
+  readonly sort = computed(() => this.serverSort() ?? this.localSort);
   readonly riskFilter = signal<Severity | ''>('');
-  readonly sortOptions = computed(() => [
-    { value: 'created_at', label: this.i18n.translate('reportTable.date') },
-    ...(this.showProject()
-      ? [{ value: 'project', label: this.i18n.translate('reportTable.project') }]
-      : []),
-    { value: 'risk_level', label: this.i18n.translate('reportTable.risk') },
-    { value: 'review_type', label: this.i18n.translate('reportTable.reviewType') },
-    { value: 'findings_open', label: this.i18n.translate('reportTable.openTotal') },
-    { value: 'branch', label: this.i18n.translate('reportTable.branch') },
-    { value: 'author', label: this.i18n.translate('reportTable.author') },
-    { value: 'summary', label: this.i18n.translate('reportTable.summary') },
-  ]);
   readonly filters = computed<TableControlFilter[]>(() => [
     {
       key: 'risk',
@@ -81,16 +91,16 @@ export class ReportTableComponent {
     },
   ]);
   readonly visibleReports = computed(() => {
-    if (!this.enableControls()) {
+    if (this.serverSort()) {
       return this.reports();
     }
-    const risk = this.riskFilter();
+    const risk = this.enableControls() ? this.riskFilter() : '';
     const reports = this.reports().filter((report) => !risk || report.risk_level === risk);
-    const sort = this.sort();
+    const sort = this.localSort.key();
     return filterAndSortRows(
       reports,
-      this.search(),
-      this.direction(),
+      this.enableControls() ? this.search() : '',
+      this.localSort.direction(),
       (report) =>
         [
           report.report_id,
@@ -131,12 +141,6 @@ export class ReportTableComponent {
   });
 
   readonly reviewTypeMeta = REVIEW_TYPE_META;
-
-  onSort(value: string): void {
-    if (this.sortOptions().some((option) => option.value === value)) {
-      this.sort.set(value as ReportSortKey);
-    }
-  }
 
   onFilter(change: TableControlFilterChange): void {
     if (change.key === 'risk') {

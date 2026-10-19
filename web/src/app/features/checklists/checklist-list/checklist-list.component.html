@@ -42,13 +42,8 @@
   <app-table-controls
     idPrefix="checklists"
     [search]="search()"
-    [sort]="sort()"
-    [direction]="direction()"
-    [sortOptions]="sortOptions()"
     [filters]="filters()"
     (searchChange)="search.set($event)"
-    (sortChange)="onTableSort($event)"
-    (directionChange)="direction.set($event)"
     (filterChange)="onTableFilter($event)"
   />
   <div class="card">
@@ -62,8 +57,12 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr>
-              <th scope="col">{{ 'checklists.domainId' | t }}</th>
-              <th scope="col">{{ 'checklists.check' | t }}</th>
+              <th scope="col" [appSortHeader]="sort" sortKey="domain">
+                {{ 'checklists.domainId' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="sort" sortKey="title">
+                {{ 'checklists.check' | t }}
+              </th>
               <th scope="col">CWE</th>
               <th scope="col">{{ 'rules.origin' | t }}</th>
               <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>

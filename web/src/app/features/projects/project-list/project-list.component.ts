@@ -19,14 +19,14 @@ import { AuthService } from '../../../core/services/auth.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
 import { SeverityCountsComponent } from '../../../shared/components/severity-counts/severity-counts.component';
+import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
 import {
   TableControlFilter,
   TableControlFilterChange,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
+import { TableSort } from '../../../shared/utils/table-sort';
 import { filterAndSortRows } from '../../../shared/utils/table-utils';
-
-type SortKey = 'risk' | 'activity' | 'name';
 
 /** Longest project name accepted by the server (token_store._clean_project). */
 const MAX_PROJECT_CHARS = 200;
@@ -41,6 +41,7 @@ const MAX_PROJECT_CHARS = 200;
     SeverityBadgeComponent,
     SeverityCountsComponent,
     RefreshButtonComponent,
+    SortHeaderComponent,
     TableControlsComponent,
     TranslatePipe,
   ],
@@ -69,14 +70,13 @@ export class ProjectListComponent {
   readonly projects = rxResource({ stream: () => this.api.projects() });
 
   readonly search = signal('');
-  readonly sort = signal<SortKey>('risk');
-  readonly direction = signal<'asc' | 'desc'>('desc');
+  readonly sort = new TableSort<'name' | 'risk' | 'activity'>(
+    'projects',
+    ['name', 'risk', 'activity'],
+    'risk',
+    'desc',
+  );
   readonly severityFilter = signal<Severity | 'none' | ''>('');
-  readonly sortOptions = computed(() => [
-    { value: 'risk', label: this.i18n.translate('projects.sortRisk') },
-    { value: 'activity', label: this.i18n.translate('projects.sortActivity') },
-    { value: 'name', label: this.i18n.translate('projects.sortName') },
-  ]);
   readonly filters = computed<TableControlFilter[]>(() => [
     {
       key: 'severity',
@@ -118,11 +118,11 @@ export class ProjectListComponent {
           ? project.worst_open_severity === null
           : project.worst_open_severity === severity),
     );
-    const sort = this.sort();
+    const sort = this.sort.key();
     return filterAndSortRows(
       rows,
       this.search(),
-      this.direction(),
+      this.sort.direction(),
       (project) => project.project,
       (a, b) => {
         if (sort === 'name') {
@@ -166,12 +166,6 @@ export class ProjectListComponent {
       );
     } finally {
       this.creating.set(false);
-    }
-  }
-
-  onSortValue(value: string): void {
-    if (value === 'risk' || value === 'activity' || value === 'name') {
-      this.sort.set(value);
     }
   }
 

@@ -27,6 +27,8 @@ import {
   TableControlFilterChange,
   TableControlsComponent,
 } from '../../../shared/components/table-controls/table-controls.component';
+import { SortHeaderComponent } from '../../../shared/components/sort-header/sort-header.component';
+import { TableSort } from '../../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../../shared/utils/table-utils';
 
 interface RuleFormModel {
@@ -51,7 +53,7 @@ const EMPTY_RULE: RuleFormModel = {
   ignore_case: true,
 };
 
-type RuleSortKey = 'id' | 'title' | 'severity' | 'updated';
+type RuleSortKey = 'id' | 'severity' | 'updated';
 
 /** Admin view for the scan rules stored in the database (default and custom). */
 @Component({
@@ -61,6 +63,7 @@ type RuleSortKey = 'id' | 'title' | 'severity' | 'updated';
     DatePipe,
     FormField,
     RefreshButtonComponent,
+    SortHeaderComponent,
     TableControlsComponent,
     TranslatePipe,
   ],
@@ -79,15 +82,8 @@ export class RuleListComponent {
   /** Origin filter of the table ('' shows every rule). */
   readonly originFilter = signal<RuleOrigin | ''>('');
   readonly search = signal('');
-  readonly sort = signal<RuleSortKey>('id');
-  readonly direction = signal<'asc' | 'desc'>('asc');
+  readonly sort = new TableSort<RuleSortKey>('rules', ['id', 'severity', 'updated'], 'id', 'asc');
   readonly severityFilter = signal<Severity | ''>('');
-  readonly sortOptions = computed(() => [
-    { value: 'id', label: this.i18n.translate('rules.rule') },
-    { value: 'title', label: this.i18n.translate('rules.title') },
-    { value: 'severity', label: this.i18n.translate('rules.severity') },
-    { value: 'updated', label: this.i18n.translate('rules.updatedAt') },
-  ]);
   readonly filters = computed<TableControlFilter[]>(() => [
     {
       key: 'origin',
@@ -119,19 +115,16 @@ export class RuleListComponent {
     const filtered = rules.filter(
       (rule) => (!origin || rule.origin === origin) && (!severity || rule.severity === severity),
     );
-    const sort = this.sort();
+    const sort = this.sort.key();
     return filterAndSortRows(
       filtered,
       this.search(),
-      this.direction(),
+      this.sort.direction(),
       (rule) =>
         [rule.id, rule.title, rule.cwe, rule.languages.join(' '), rule.pattern, rule.advice].join(
           ' ',
         ),
       (left, right) => {
-        if (sort === 'title') {
-          return compareTableText(left.title, right.title);
-        }
         if (sort === 'severity') {
           return SEVERITY_RANK[left.severity] - SEVERITY_RANK[right.severity];
         }
@@ -269,12 +262,6 @@ export class RuleListComponent {
 
   setOriginFilter(value: string): void {
     this.originFilter.set(value === 'builtin' || value === 'custom' ? value : '');
-  }
-
-  onTableSort(value: string): void {
-    if (value === 'id' || value === 'title' || value === 'severity' || value === 'updated') {
-      this.sort.set(value);
-    }
   }
 
   onTableFilter(change: TableControlFilterChange): void {

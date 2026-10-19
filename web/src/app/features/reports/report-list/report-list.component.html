@@ -6,12 +6,7 @@
 <app-table-controls
   idPrefix="reports"
   [search]="search() ?? ''"
-  [sort]="sortKey()"
-  [direction]="sortDirection()"
-  [sortOptions]="sortOptions()"
   (searchChange)="onSearch($event)"
-  (sortChange)="onSort($event)"
-  (directionChange)="onDirection($event)"
 />
 
 <div class="card">
@@ -51,7 +46,7 @@
       <span class="visually-hidden">{{ 'common.loading' | t }}</span>
     </div>
   } @else {
-    <app-report-table [reports]="rows()" />
+    <app-report-table [reports]="rows()" [serverSort]="sort" />
   }
 
   @if (pageNumber() > 1 || hasNext()) {

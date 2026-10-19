@@ -101,13 +101,8 @@
     <app-table-controls
       idPrefix="roles"
       [search]="tableSearch()"
-      [sort]="tableSort()"
-      [direction]="tableDirection()"
-      [sortOptions]="tableSortOptions()"
       [filters]="tableFilters()"
       (searchChange)="tableSearch.set($event)"
-      (sortChange)="onRoleTableSort($event)"
-      (directionChange)="tableDirection.set($event)"
       (filterChange)="onRoleTableFilter($event)"
     />
     @if (visibleRoles().length) {
@@ -115,9 +110,15 @@
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">{{ 'access.name' | t }}</th>
-              <th scope="col">{{ 'roles.permissions' | t }}</th>
-              <th scope="col">{{ 'layout.groups' | t }}</th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="name">
+                {{ 'access.name' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="permissions">
+                {{ 'roles.permissions' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="groups">
+                {{ 'layout.groups' | t }}
+              </th>
               <th scope="col">{{ 'rules.origin' | t }}</th>
               <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
             </tr>

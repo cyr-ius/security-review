@@ -52,8 +52,12 @@ application loads, it checks `/api/health` first: if the controller does not ans
 answering later), the **Backend unavailable** page opens, and its **Retry** button goes back to
 the requested page once the controller answers again.
 
+Tables are sorted by clicking a column header: a small arrow shows the sorted column and its
+direction, and a second click reverses it. Each table opens sorted by its default column (arrow
+shown), and the browser remembers the chosen sort for the next visits.
+
 - **Projects**: every project with its open findings by severity. Search by project name, sort
-  by risk, activity or name, and filter by worst open severity. The **Review open findings** button opens the findings to review of every
+  by name, worst open finding or last report, and filter by worst open severity. The **Review open findings** button opens the findings to review of every
   project you can see (**Findings to review: all projects**), each with a link to its project.
   With the `projects.create` permission, **New project** creates a project that you then read
   (see [Creating a project](../advanced/access-control.md#creating-a-project)).
@@ -71,14 +75,14 @@ the requested page once the controller answers again.
   [triage of findings](#triage-of-findings)); a triaged finding stays displayed until the next
   reload.
 - **Reports**: list filtered by project and risk level, searchable across report metadata and
-  summary, and sortable by date, project, risk, type, branch, author or summary. Search, sort
-  and filters stay in the URL, so a view can be shared.
+  summary, and sortable by date, project, risk, type, branch, author or summary. Search and
+  filters stay in the URL, so a view can be shared; the sort is remembered by the browser.
 - **Report**: summary, context (repository, branch, commit, review type, **Author** and
   **Sent by (token)**, see [author of a report](prompts-tools.md#author-of-a-report)), findings with
   location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
   `findings.triage` permission change the status of a finding directly from this screen.
 - **Standards**: the [development standards](../advanced/standards.md) handed to the AI
-  assistants by the `development-standards` prompt. Search and sort by title, identifier,
+  assistants by the `development-standards` prompt. Search and sort by title,
   technology or file pattern, and filter by enabled state. Administrators read, create, edit
   (technologies, file patterns, Markdown content), disable or delete them. A change applies
   immediately. **Export** and **Import** copy them as a [TOML file](../advanced/standards.md#import-and-export).

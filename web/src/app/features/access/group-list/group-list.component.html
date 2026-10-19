@@ -150,13 +150,8 @@
     <app-table-controls
       idPrefix="groups"
       [search]="tableSearch()"
-      [sort]="tableSort()"
-      [direction]="tableDirection()"
-      [sortOptions]="tableSortOptions()"
       [filters]="tableFilters()"
       (searchChange)="tableSearch.set($event)"
-      (sortChange)="onGroupTableSort($event)"
-      (directionChange)="tableDirection.set($event)"
       (filterChange)="onGroupTableFilter($event)"
     />
     @if (visibleGroups().length) {
@@ -164,9 +159,15 @@
         <table class="table table-hover align-middle">
           <thead>
             <tr>
-              <th scope="col">{{ 'access.name' | t }}</th>
-              <th scope="col">{{ 'layout.roles' | t }}</th>
-              <th scope="col">{{ 'groups.members' | t }}</th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="name">
+                {{ 'access.name' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="roles">
+                {{ 'layout.roles' | t }}
+              </th>
+              <th scope="col" [appSortHeader]="tableSort" sortKey="members">
+                {{ 'groups.members' | t }}
+              </th>
               <th scope="col" class="text-end">{{ 'common.actions' | t }}</th>
             </tr>
           </thead>

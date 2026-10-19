@@ -22,6 +22,8 @@ import {
   TableControlFilterChange,
   TableControlsComponent,
 } from '../../shared/components/table-controls/table-controls.component';
+import { SortHeaderComponent } from '../../shared/components/sort-header/sort-header.component';
+import { TableSort } from '../../shared/utils/table-sort';
 import { compareTableText, filterAndSortRows } from '../../shared/utils/table-utils';
 
 type EnrollmentSortKey = 'label' | 'project' | 'requester' | 'created';
@@ -34,7 +36,14 @@ type TokenSortKey = 'label' | 'projects' | 'usage' | 'created' | 'expires';
  */
 @Component({
   selector: 'app-project-token-list',
-  imports: [DatePipe, FormField, RefreshButtonComponent, TableControlsComponent, TranslatePipe],
+  imports: [
+    DatePipe,
+    FormField,
+    RefreshButtonComponent,
+    SortHeaderComponent,
+    TableControlsComponent,
+    TranslatePipe,
+  ],
   templateUrl: './project-token-list.component.html',
   styleUrl: './project-token-list.component.css',
 })
@@ -50,15 +59,13 @@ export class ProjectTokenListComponent {
   /** Whether OIDC is enabled: approvals then offer web read access to the developer. */
   readonly authConfig = rxResource({ stream: () => this.api.authConfig() });
   readonly enrollmentSearch = signal('');
-  readonly enrollmentSort = signal<EnrollmentSortKey>('created');
-  readonly enrollmentDirection = signal<'asc' | 'desc'>('desc');
+  readonly enrollmentSort = new TableSort<EnrollmentSortKey>(
+    'enrollments',
+    ['label', 'project', 'requester', 'created'],
+    'created',
+    'desc',
+  );
   readonly enrollmentKindFilter = signal<'' | 'new' | 'additional'>('');
-  readonly enrollmentSortOptions = computed(() => [
-    { value: 'label', label: this.i18n.translate('tokens.label') },
-    { value: 'project', label: this.i18n.translate('reportTable.project') },
-    { value: 'requester', label: this.i18n.translate('tokens.requester') },
-    { value: 'created', label: this.i18n.translate('tokens.requestedAt') },
-  ]);
   readonly enrollmentFilters = computed<TableControlFilter[]>(() => [
     {
       key: 'kind',
@@ -76,11 +83,11 @@ export class ProjectTokenListComponent {
     const requests = (this.enrollments.value() ?? []).filter(
       (request) => !kind || request.kind === kind,
     );
-    const sort = this.enrollmentSort();
+    const sort = this.enrollmentSort.key();
     return filterAndSortRows(
       requests,
       this.enrollmentSearch(),
-      this.enrollmentDirection(),
+      this.enrollmentSort.direction(),
       (request) =>
         [
           request.label,
@@ -107,16 +114,13 @@ export class ProjectTokenListComponent {
     );
   });
   readonly tokenSearch = signal('');
-  readonly tokenSort = signal<TokenSortKey>('created');
-  readonly tokenDirection = signal<'asc' | 'desc'>('desc');
+  readonly tokenSort = new TableSort<TokenSortKey>(
+    'project-tokens',
+    ['label', 'projects', 'usage', 'created', 'expires'],
+    'created',
+    'desc',
+  );
   readonly tokenRoleFilter = signal<'' | ProjectTokenRole>('');
-  readonly tokenSortOptions = computed(() => [
-    { value: 'label', label: this.i18n.translate('tokens.label') },
-    { value: 'projects', label: this.i18n.translate('tokens.allowedProjects') },
-    { value: 'usage', label: this.i18n.translate('tokens.usage') },
-    { value: 'created', label: this.i18n.translate('common.createdAt') },
-    { value: 'expires', label: this.i18n.translate('tokens.expiresAt') },
-  ]);
   readonly tokenFilters = computed<TableControlFilter[]>(() => [
     {
       key: 'role',
@@ -134,11 +138,11 @@ export class ProjectTokenListComponent {
   readonly visibleTokens = computed(() => {
     const role = this.tokenRoleFilter();
     const items = (this.tokens.value() ?? []).filter((token) => !role || token.role === role);
-    const sort = this.tokenSort();
+    const sort = this.tokenSort.key();
     return filterAndSortRows(
       items,
       this.tokenSearch(),
-      this.tokenDirection(),
+      this.tokenSort.direction(),
       (token) =>
         [
           token.label,
@@ -208,29 +212,11 @@ export class ProjectTokenListComponent {
   /** Hours during which the previous secret keeps working after a rotation. */
   readonly graceHours = signal(0);
 
-  onEnrollmentSort(value: string): void {
-    if (value === 'label' || value === 'project' || value === 'requester' || value === 'created') {
-      this.enrollmentSort.set(value);
-    }
-  }
-
   onEnrollmentFilter(change: TableControlFilterChange): void {
     if (change.key === 'kind') {
       this.enrollmentKindFilter.set(
         change.value === 'new' || change.value === 'additional' ? change.value : '',
       );
-    }
-  }
-
-  onTokenSort(value: string): void {
-    if (
-      value === 'label' ||
-      value === 'projects' ||
-      value === 'usage' ||
-      value === 'created' ||
-      value === 'expires'
-    ) {
-      this.tokenSort.set(value);
     }
   }
 

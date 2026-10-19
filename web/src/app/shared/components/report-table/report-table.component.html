@@ -3,13 +3,8 @@
     <app-table-controls
       idPrefix="project-reports"
       [search]="search()"
-      [sort]="sort()"
-      [direction]="direction()"
-      [sortOptions]="sortOptions()"
       [filters]="filters()"
       (searchChange)="search.set($event)"
-      (sortChange)="onSort($event)"
-      (directionChange)="direction.set($event)"
       (filterChange)="onFilter($event)"
     />
   }
@@ -19,16 +14,32 @@
         <thead>
           <tr>
             <th scope="col">#</th>
-            <th scope="col">{{ 'reportTable.date' | t }}</th>
+            <th scope="col" [appSortHeader]="sort()" sortKey="created_at">
+              {{ 'reportTable.date' | t }}
+            </th>
             @if (showProject()) {
-              <th scope="col">{{ 'reportTable.project' | t }}</th>
+              <th scope="col" [appSortHeader]="sort()" sortKey="project">
+                {{ 'reportTable.project' | t }}
+              </th>
             }
-            <th scope="col">{{ 'reportTable.risk' | t }}</th>
-            <th scope="col">{{ 'reportTable.reviewType' | t }}</th>
-            <th scope="col" class="text-end">{{ 'reportTable.openTotal' | t }}</th>
-            <th scope="col">{{ 'reportTable.branch' | t }}</th>
-            <th scope="col">{{ 'reportTable.author' | t }}</th>
-            <th scope="col">{{ 'reportTable.summary' | t }}</th>
+            <th scope="col" [appSortHeader]="sort()" sortKey="risk_level">
+              {{ 'reportTable.risk' | t }}
+            </th>
+            <th scope="col" [appSortHeader]="sort()" sortKey="review_type">
+              {{ 'reportTable.reviewType' | t }}
+            </th>
+            <th scope="col" class="text-end" [appSortHeader]="sort()" sortKey="findings_open">
+              {{ 'reportTable.openTotal' | t }}
+            </th>
+            <th scope="col" [appSortHeader]="sort()" sortKey="branch">
+              {{ 'reportTable.branch' | t }}
+            </th>
+            <th scope="col" [appSortHeader]="sort()" sortKey="author">
+              {{ 'reportTable.author' | t }}
+            </th>
+            <th scope="col" [appSortHeader]="sort()" sortKey="summary">
+              {{ 'reportTable.summary' | t }}
+            </th>
           </tr>
         </thead>
         <tbody>
