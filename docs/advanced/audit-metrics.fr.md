@@ -26,6 +26,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `group.created`, `group.updated`, `group.deleted` | Un administrateur crée, renomme ou modifie, ou supprime un [groupe](access-control.md#groupes) ; l'approbation d'un enrôlement crée un [groupe de projet](access-control.md#groupes-de-projet) manquant (`project` dans le détail) |
 | `group.roles_changed`, `group.members_changed` | Un administrateur remplace les rôles (avec leurs projets) ou les membres (identifiants ajoutés et retirés) d'un groupe |
 | `project.created` | Un utilisateur avec `projects.create` [crée un projet](access-control.md#creation-dun-projet) (son groupe de projet et l'identifiant de l'utilisateur dans le détail) |
+| `project.deleted` | Un utilisateur avec `projects.delete` [supprime un projet](access-control.md#suppression-dun-projet) (nombre de rapports, de findings et de jetons, groupes supprimés ou modifiés dans le détail) |
 | `user.groups_changed` | Un administrateur remplace les groupes donnés à un compte, ou l'approbation d'un enrôlement l'ajoute à un [groupe de projet](access-control.md#groupes-de-projet) (identifiants de groupes ajoutés et retirés) |
 | `user.roles_changed` | Anciens rôles directs d'un compte (`roles` : `rôle` ou `rôle:projet,projet`) : plus enregistré depuis que les comptes n'ont plus de rôle propre, gardé dans l'historique |
 | `user.login` | Un utilisateur web se connecte (méthode `password` ou `oidc`, adresse) |

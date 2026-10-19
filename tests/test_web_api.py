@@ -1149,6 +1149,27 @@ def test_creating_a_project_needs_the_permission_and_a_web_session(accounts, sec
     assert "web user" in response.json()["detail"]
 
 
+def test_deleting_a_project_needs_the_permission_and_a_web_session(accounts, secured, reports):
+    make_user("root", USER_PASSWORD, "admin")
+    make_user("ann", USER_PASSWORD, "reader")
+    reader = session_headers(accounts, "ann")
+    response = accounts.delete("/api/v1/projects/shop-api", headers=reader)
+    assert response.status_code == 403
+    assert "projects.delete" in response.json()["detail"]
+    # An admin token holds every permission, but a token never deletes a project
+    response = secured.delete("/api/v1/projects/shop-api", headers=auth("admin"))
+    assert response.status_code == 403
+
+    admin = session_headers(accounts, "root")
+    response = accounts.delete("/api/v1/projects/Shop_API", headers=admin)
+
+    assert response.status_code == 200, response.text
+    assert (response.json()["project"], response.json()["reports"]) == ("shop-api", 1)
+    listed = accounts.get("/api/v1/projects", headers=admin).json()
+    assert [item["project"] for item in listed] == ["billing"]
+    assert accounts.delete("/api/v1/projects/shop-api", headers=admin).status_code == 404
+
+
 def test_triage_is_limited_to_the_projects_of_the_triage_permission(accounts, reports):
     make_user("root", USER_PASSWORD, "admin")
     crm_report = services.save_report("crm", "Review", [make_finding(Severity.HIGH)])

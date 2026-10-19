@@ -22,6 +22,12 @@ export const projects = defineMessages({
     'projects.create': 'Create',
     'projects.created': 'Project {project} created.',
     'projects.createFailed': 'Could not create the project.',
+    'projects.delete': 'Delete project {project}',
+    'projects.confirmDelete':
+      'Delete project {project}? Its reports, findings and comments, its project group and its place in the roles of the groups and in the tokens are deleted (a token left without project is revoked). This cannot be undone.',
+    'projects.deleted':
+      'Project {project} deleted: {reports} report(s), {findings} finding(s), {tokens} token(s) revoked.',
+    'projects.deleteFailed': 'Could not delete the project.',
     'projects.noReport': 'No report yet',
     'project.allReports': 'All reports',
     'project.exportSarif': 'SARIF export',
@@ -77,6 +83,12 @@ export const projects = defineMessages({
     'projects.create': 'Créer',
     'projects.created': 'Projet {project} créé.',
     'projects.createFailed': 'Impossible de créer le projet.',
+    'projects.delete': 'Supprimer le projet {project}',
+    'projects.confirmDelete':
+      'Supprimer le projet {project} ? Ses rapports, findings et commentaires, son groupe de projet et sa place dans les rôles des groupes et dans les jetons sont supprimés (un jeton qui n’a plus de projet est révoqué). Cette action est irréversible.',
+    'projects.deleted':
+      'Projet {project} supprimé : {reports} rapport(s), {findings} finding(s), {tokens} jeton(s) révoqué(s).',
+    'projects.deleteFailed': 'Impossible de supprimer le projet.',
     'projects.noReport': 'Aucun rapport',
     'project.allReports': 'Tous les rapports',
     'project.exportSarif': 'Export SARIF',
@@ -132,6 +144,12 @@ export const projects = defineMessages({
     'projects.create': 'Crear',
     'projects.created': 'Proyecto {project} creado.',
     'projects.createFailed': 'No se pudo crear el proyecto.',
+    'projects.delete': 'Eliminar el proyecto {project}',
+    'projects.confirmDelete':
+      '¿Eliminar el proyecto {project}? Se eliminan sus informes, hallazgos y comentarios, su grupo de proyecto y su lugar en los roles de los grupos y en los tokens (un token que se queda sin proyecto se revoca). Esta acción no se puede deshacer.',
+    'projects.deleted':
+      'Proyecto {project} eliminado: {reports} informe(s), {findings} hallazgo(s), {tokens} token(s) revocado(s).',
+    'projects.deleteFailed': 'No se pudo eliminar el proyecto.',
     'projects.noReport': 'Sin informes',
     'project.allReports': 'Todos los informes',
     'project.exportSarif': 'Exportar SARIF',

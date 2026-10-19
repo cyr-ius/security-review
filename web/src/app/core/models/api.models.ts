@@ -68,6 +68,7 @@ export type Permission =
   | 'users.manage'
   | 'audit.read'
   | 'projects.create'
+  | 'projects.delete'
   | 'mcp_tokens.create';
 
 /** Each permission held, with its projects (null: every project). */
@@ -235,6 +236,7 @@ export type AuditAction =
   | 'group.members_changed'
   | 'user.groups_changed'
   | 'project.created'
+  | 'project.deleted'
   | 'user.roles_changed'
   | 'user.login'
   | 'user.login_failed'
@@ -263,6 +265,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'group.members_changed',
   'user.groups_changed',
   'project.created',
+  'project.deleted',
   'user.roles_changed',
   'user.login',
   'user.login_failed',
@@ -465,6 +468,17 @@ export interface ProjectSummary {
   open_findings_total: number;
   open_findings_by_severity: SeverityCounts;
   worst_open_severity: Severity | null;
+}
+
+/** DELETE /api/v1/projects/{project}: what the deletion removed. */
+export interface ProjectDeleted {
+  project: string;
+  reports: number;
+  findings: number;
+  groups_deleted: string[];
+  groups_changed: string[];
+  tokens_revoked: number;
+  tokens_changed: number;
 }
 
 /** GET /api/v1/reports */

@@ -85,6 +85,9 @@ export const access = defineMessages({
     'permission.projectsCreate': 'Create projects',
     'permission.projectsCreateHelp':
       'A new project, which its creator then reads (never an existing project).',
+    'permission.projectsDelete': 'Delete projects',
+    'permission.projectsDeleteHelp':
+      'A project with its reports, findings, project group, and its place in the roles and tokens.',
     'permission.mcpTokensCreate': 'Create a personal MCP token',
     'permission.mcpTokensCreateHelp':
       'My account: a token for the MCP agent of the user, which reaches the projects the user may read.',
@@ -177,6 +180,9 @@ export const access = defineMessages({
     'permission.projectsCreate': 'Créer des projets',
     'permission.projectsCreateHelp':
       'Un nouveau projet, que son créateur lit ensuite (jamais un projet existant).',
+    'permission.projectsDelete': 'Supprimer des projets',
+    'permission.projectsDeleteHelp':
+      'Un projet avec ses rapports, ses findings, son groupe de projet et sa place dans les rôles et les jetons.',
     'permission.mcpTokensCreate': 'Créer un jeton MCP personnel',
     'permission.mcpTokensCreateHelp':
       "Mon compte : un jeton pour l'agent MCP de l'utilisateur, qui atteint les projets qu'il peut lire.",
@@ -269,6 +275,9 @@ export const access = defineMessages({
     'permission.projectsCreate': 'Crear proyectos',
     'permission.projectsCreateHelp':
       'Un proyecto nuevo, que su creador lee después (nunca un proyecto existente).',
+    'permission.projectsDelete': 'Eliminar proyectos',
+    'permission.projectsDeleteHelp':
+      'Un proyecto con sus informes, hallazgos, grupo de proyecto y su lugar en los roles y tokens.',
     'permission.mcpTokensCreate': 'Crear un token MCP personal',
     'permission.mcpTokensCreateHelp':
       'Mi cuenta: un token para el agente MCP del usuario, que alcanza los proyectos que puede leer.',

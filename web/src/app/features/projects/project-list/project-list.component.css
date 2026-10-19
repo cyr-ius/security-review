@@ -9,3 +9,22 @@
 .numeric {
   font-variant-numeric: tabular-nums;
 }
+
+.project-dialog {
+  inline-size: min(32rem, calc(100vw - 2rem));
+  padding: 0;
+  border: 0;
+  border-radius: var(--bs-border-radius-lg);
+  background: transparent;
+  color: var(--bs-body-color);
+}
+
+.project-dialog::backdrop {
+  background: var(--app-backdrop);
+}
+
+.action-button {
+  inline-size: 2rem;
+  block-size: 2rem;
+  padding: 0;
+}

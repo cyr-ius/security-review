@@ -28,6 +28,7 @@ compte.
 | `users.manage` | Utilisateurs, groupes, rôles et configuration OIDC (elle décide qui rejoint quel groupe) | |
 | `audit.read` | Journal d'audit | |
 | `projects.create` | Créer un nouveau projet, que son créateur lit ensuite (voir [Création d'un projet](#creation-dun-projet)) | |
+| `projects.delete` | Supprimer un projet avec ses rapports, ses findings et ses références (voir [Suppression d'un projet](#suppression-dun-projet)) | |
 | `mcp_tokens.create` | Créer un [jeton MCP personnel](../usage/web-interface.md#jetons-mcp-personnels) dans **Mon compte** | |
 
 `users.manage` permet à son détenteur de se donner toutes les autres permissions : ne la donnez
@@ -88,8 +89,8 @@ projet partagent ainsi un groupe, qu'un administrateur gère comme les autres.
 
 ## Création d'un projet
 
-Un utilisateur dont les groupes portent `projects.create` crée un projet avec **Nouveau projet**
-sur l'écran **Projets** (`POST /api/v1/projects`, depuis une session de l'interface web
+Un utilisateur dont les groupes portent `projects.create` crée un projet avec le bouton
+**Nouveau projet** (à gauche d'**Actualiser**) de l'écran **Projets**, dans une fenêtre modale (`POST /api/v1/projects`, depuis une session de l'interface web
 uniquement : un jeton ne crée jamais de projet). Le contrôleur crée le
 [groupe de projet](#groupes-de-projet) du projet et y ajoute le compte comme membre local : le
 compte lit aussitôt le projet, de même que son
@@ -108,6 +109,32 @@ création est inscrite au journal d'audit (`project.created`).
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
   https://secreview.example.com/api/v1/projects -d '{"project": "mobile-app"}'
 # {"project": "mobile-app", "reports_total": 0, "last_report_at": null, …}
+```
+
+## Suppression d'un projet
+
+Un utilisateur dont les groupes portent `projects.delete` (seul `admin` par défaut) supprime un
+projet avec le bouton corbeille de sa ligne sur l'écran **Projets**, après confirmation
+(`DELETE /api/v1/projects/{project}`, depuis une session de l'interface web uniquement : un
+jeton ne supprime jamais de projet). La suppression est irréversible et retire, en une seule
+transaction, tout ce qui se rapporte au projet :
+
+- ses rapports, avec leurs findings et les commentaires de ces findings ;
+- le projet dans les rôles des groupes : un rôle qui n'a plus de projet est retiré (jamais laissé
+  sur tous les projets), et un [groupe de projet](#groupes-de-projet) qui n'a plus de rôle est
+  supprimé avec ses membres ; tout autre groupe est conservé ;
+- le projet dans les jetons et les demandes d'enrôlement : un jeton qui n'atteint aucun autre
+  projet est révoqué (jamais laissé sur tous les projets), les autres gardent leurs autres projets.
+
+Le journal d'audit conserve les événements du projet et inscrit `project.deleted`, avec les
+comptes dans son détail ; chaque groupe et jeton modifié ou supprimé a son propre événement
+(`group.deleted`, `group.roles_changed`, `token.revoked`, `token.projects_changed`). Un projet
+inconnu donne 404.
+
+```bash
+curl -X DELETE -H "Authorization: Bearer $SESSION" \
+  https://secreview.example.com/api/v1/projects/mobile-app
+# {"project": "mobile-app", "reports": 3, "findings": 12, "groups_deleted": ["project:mobile-app"], …}
 ```
 
 ## Ce qu'un utilisateur peut faire

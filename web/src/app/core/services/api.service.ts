@@ -35,6 +35,7 @@ import {
   PermissionInfo,
   PersonalTokenRole,
   Preferences,
+  ProjectDeleted,
   ProjectFindingPage,
   ProjectFindingQuery,
   ProjectSummary,
@@ -265,6 +266,11 @@ export class ApiService {
   /** POST /api/v1/projects: a new project, read by its creator (projects.create). */
   createProject(project: string): Observable<ProjectSummary> {
     return this.http.post<ProjectSummary>(`${API_URL}/projects`, { project });
+  }
+
+  /** DELETE /api/v1/projects/{project}: the project and its references (projects.delete). */
+  deleteProject(project: string): Observable<ProjectDeleted> {
+    return this.http.delete<ProjectDeleted>(`${API_URL}/projects/${encodeURIComponent(project)}`);
   }
 
   projectTokens(): Observable<ProjectToken[]> {

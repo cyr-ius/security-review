@@ -826,6 +826,47 @@ def revoke_project_token(token_id: str, actor: str | None = None) -> None:
         _audit_token(session, AuditAction.TOKEN_REVOKED, actor, revoked)
 
 
+def forget_project(session: Session, project: str, actor: str | None = None) -> dict[str, int]:
+    """Remove a deleted ``project`` from every token in ``session`` and return the counts.
+
+    A token that reaches no other project (pending requests included) is revoked: it is never
+    left without project rows, which would make it reach every project. Each change is audited.
+    """
+    ids = set(
+        session.exec(select(ApiTokenProject.token_id).where(ApiTokenProject.project == project))
+    ) | set(session.exec(select(ApiToken.id).where(ApiToken.project == project)))
+    counts = {"tokens_revoked": 0, "tokens_changed": 0}
+    if not ids:
+        return counts
+    rows = session.exec(select(ApiToken).where(col(ApiToken.id).in_(ids))).all()
+    for row in rows:
+        links = _links(session, [row.id])[row.id]
+        before = _public(row, links)
+        kept = [link for link in links if link.project != project]
+        if not kept:
+            _delete_token(session, row)
+            _audit_token(session, AuditAction.TOKEN_REVOKED, actor, before)
+            counts["tokens_revoked"] += 1
+            continue
+        for link in links:
+            if link.project == project:
+                session.delete(link)
+        active = [link.project for link in kept if link.status == ACTIVE]
+        row.project = (active or [link.project for link in kept])[0]
+        session.add(row)
+        session.flush()
+        _audit_token(
+            session,
+            AuditAction.TOKEN_PROJECTS_CHANGED,
+            actor,
+            _public(row, _links(session, [row.id])[row.id]),
+            previous_projects=before["projects"],
+        )
+        counts["tokens_changed"] += 1
+    session.flush()
+    return counts
+
+
 # ── Personal api tokens (web users) ──────────────────────────────────────────
 
 

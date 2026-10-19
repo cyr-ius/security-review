@@ -164,6 +164,18 @@ class ProjectCreate(BaseModel):
     project: ProjectName
 
 
+class ProjectDeleted(BaseModel):
+    """What the deletion of a project removed (DELETE /projects/{project})."""
+
+    project: str
+    reports: int
+    findings: int
+    groups_deleted: list[str]
+    groups_changed: list[str]
+    tokens_revoked: int
+    tokens_changed: int
+
+
 class ProjectPosture(BaseModel):
     """Open findings of a project across all its reports."""
 

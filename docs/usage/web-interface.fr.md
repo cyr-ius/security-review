@@ -62,8 +62,11 @@ suivantes.
   **Revoir les findings ouverts** ouvre les findings à revoir de tous
   les projets que vous pouvez voir (**Findings à revoir : tous les projets**), chacun avec un
   lien vers son projet. Le bouton **Acceptations de risque** liste les risques acceptés de tous
-  les projets que vous pouvez voir. Avec la permission `projects.create`, **Nouveau projet** crée un projet
-  que vous lisez ensuite (voir [Création d'un projet](../advanced/access-control.md#creation-dun-projet)).
+  les projets que vous pouvez voir. Avec la permission `projects.create`, **Nouveau projet** (à gauche
+  d'**Actualiser**) ouvre une fenêtre modale qui crée un projet que vous lisez ensuite (voir
+  [Création d'un projet](../advanced/access-control.md#creation-dun-projet)). Avec
+  `projects.delete`, le bouton corbeille d'une ligne supprime le projet et tout ce qui s'y rapporte
+  (voir [Suppression d'un projet](../advanced/access-control.md#suppression-dun-projet)).
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, derniers rapports et
   export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant ;

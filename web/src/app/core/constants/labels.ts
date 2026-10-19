@@ -79,6 +79,10 @@ export const PERMISSION_META: Record<Permission, { label: MessageKey; help: Mess
     label: 'permission.projectsCreate',
     help: 'permission.projectsCreateHelp',
   },
+  'projects.delete': {
+    label: 'permission.projectsDelete',
+    help: 'permission.projectsDeleteHelp',
+  },
   'mcp_tokens.create': {
     label: 'permission.mcpTokensCreate',
     help: 'permission.mcpTokensCreateHelp',

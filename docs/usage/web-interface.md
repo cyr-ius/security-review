@@ -60,8 +60,11 @@ shown), and the browser remembers the chosen sort for the next visits.
   by name, worst open finding or last report, and filter by worst open severity. The **Review open findings** button opens the findings to review of every
   project you can see (**Findings to review: all projects**), each with a link to its project.
   The **Risk acceptances** button lists the accepted risks of every project you can see.
-  With the `projects.create` permission, **New project** creates a project that you then read
-  (see [Creating a project](../advanced/access-control.md#creating-a-project)).
+  With the `projects.create` permission, **New project** (left of **Refresh**) opens a modal
+  window that creates a project you then read (see
+  [Creating a project](../advanced/access-control.md#creating-a-project)). With
+  `projects.delete`, the trash button of a row deletes the project and everything that refers to
+  it (see [Deleting a project](../advanced/access-control.md#deleting-a-project)).
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
   The **Review open findings** button opens the next screen; **Risk acceptances** lists the
