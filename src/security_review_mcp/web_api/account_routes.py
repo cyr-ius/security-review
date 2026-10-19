@@ -104,7 +104,7 @@ def _web_user_id(request: Request) -> int:
 
 @router.get("/me/tokens")
 async def my_tokens(request: Request, _: CurrentIdentity) -> list[ProjectToken]:
-    """The api tokens of the logged-in web user (never their secret)."""
+    """The personal tokens (api and mcp) of the logged-in web user (never their secret)."""
     user_id = _web_user_id(request)
     return await run_in_threadpool(token_store.list_personal_tokens, user_id)
 
@@ -113,17 +113,24 @@ async def my_tokens(request: Request, _: CurrentIdentity) -> list[ProjectToken]:
 async def create_my_token(
     request: Request, body: PersonalTokenCreate, identity: CurrentIdentity, response: Response
 ) -> ProjectTokenSecret:
-    """Create an api token of the logged-in web user, for the REST API and Swagger, and return
-    its secret exactly once. The token holds the current rights of the user, read at each
-    request; like every token, it never accepts a risk nor marks a false positive."""
+    """Create a personal token of the logged-in web user and return its secret exactly once.
+
+    An ``api`` token (REST API, Swagger) holds the current rights of the user; an ``mcp`` token
+    (MCP agent) reaches the projects the user may read. Both are read at each request; like
+    every token, they never accept a risk nor mark a false positive. A user holds at most
+    SECREVIEW_PERSONAL_TOKENS_PER_USER tokens of each role (422 beyond)."""
     user_id = _web_user_id(request)
     try:
         created = await run_in_threadpool(
-            token_store.create_personal_token, user_id, body.label, body.expires_in_days
+            token_store.create_personal_token,
+            user_id,
+            body.label,
+            body.expires_in_days,
+            body.role,
         )
     except ValueError as exc:
         raise unprocessable(exc) from exc
-    logger.info("API token %s created by %s", created["label"], identity.client)
+    logger.info("Personal %s token %s created by %s", body.role, created["label"], identity.client)
     # The secret is shown once: never cached
     response.headers.update(LOGIN_HEADERS)
     return created
@@ -131,7 +138,7 @@ async def create_my_token(
 
 @router.delete("/me/tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_token(request: Request, token_id: str, identity: CurrentIdentity) -> Response:
-    """Revoke an api token of the logged-in web user (the token of another user is not found)."""
+    """Revoke a personal token of the logged-in web user (that of another user is not found)."""
     user_id = _web_user_id(request)
     try:
         await run_in_threadpool(
@@ -139,7 +146,7 @@ async def delete_my_token(request: Request, token_id: str, identity: CurrentIden
         )
     except ValueError as exc:
         raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
-    logger.info("API token %s revoked by %s", token_id[:64], identity.client)
+    logger.info("Personal token %s revoked by %s", token_id[:64], identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

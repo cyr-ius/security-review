@@ -61,7 +61,9 @@ web interface. The gate keeps blocking until then.
 - If `save_security_report` refuses the project because the token is restricted to other \
 projects, call `request_enrollment` to ask an administrator to add this project to the token \
 (complementary enrollment: the token keeps working for its other projects), then \
-`get_enrollment_status` to know whether it was approved.
+`get_enrollment_status` to know whether it was approved. A personal token, created by a user in \
+the web interface, reaches the projects of that user: ask an administrator to give the user \
+access to the project instead.
 - Before writing code, use the prompt `development-standards` (or the tool \
 `get_development_standards`) to get the development standards of the technologies you work on.
 """

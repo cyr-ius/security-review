@@ -30,7 +30,11 @@
   of its user (personal token, deleted with the user, never rotated by someone else, whose new
   secret would carry the rights of the user) or of its role on its projects (role token, whose
   creator must hold each permission). A token never creates another personal token. An `mcp`
-  token without a project reaches every MCP tool and every project.
+  token without a project reaches every MCP tool and every project; a personal `mcp` token
+  reaches the projects its user may read now, none when the user has none (never every project
+  by default), and stops when the user is deleted or must change a password set by an
+  administrator. A web user holds at most
+  `SECREVIEW_PERSONAL_TOKENS_PER_USER` personal tokens of each role (1 by default).
 - **Expiry and rotation of tokens**: an expired token authenticates nothing (`401`, or only the
   [enrollment server](../advanced/http.md#rejected-token-new-enrollment) on `/mcp`), and
   `SECREVIEW_TOKEN_MAX_DAYS` bounds the validity of every token created or rotated. Expired

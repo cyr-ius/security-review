@@ -36,6 +36,12 @@ An ``api`` token reaches the REST API (Swagger, scripts) with the rights of the 
   ``<username>:<label>``), holds the current rights of that user, and is deleted with it. Its
   projects and its secret cannot be changed; an administrator may revoke it.
 
+A web user may also create a **personal** ``mcp`` token for its MCP agent: it reaches the
+projects the user may read (``reports.read`` of its groups), read at each request, so that a
+project granted to or removed from the user applies at once. It has no project rows and no
+complementary enrollment: an administrator grants the project to the user instead. A web user
+holds at most SECREVIEW_PERSONAL_TOKENS_PER_USER personal tokens of each role.
+
 Like every token, an ``api`` token never accepts a risk nor marks a false positive.
 
 Every creation, rotation, revocation, change of projects and enrollment decision is written to
@@ -87,8 +93,8 @@ MAX_ROTATION_GRACE_HOURS = 168
 UNSCOPED_ROLES = frozenset({Role.ADMIN, Role.METRICS})
 # Roles of the tokens managed in the web interface (admin and metrics tokens: CLI only)
 WEB_TOKEN_ROLES = frozenset({Role.MCP, Role.CI, Role.API})
-# Personal api tokens one web user may hold
-MAX_PERSONAL_TOKENS = 10
+# Roles of the personal tokens of a web user (REST API, MCP agent)
+PERSONAL_TOKEN_ROLES = frozenset({Role.API, Role.MCP})
 
 
 def _is_pending(row: ApiToken) -> bool:
@@ -247,6 +253,8 @@ class DatabaseTokenStore:
             info = _info(row, _links(session, [row.id])[row.id])
             if row.role == Role.API:
                 return _api_info(session, row, info)
+            if row.user_id is not None:
+                return _personal_mcp_info(session, row, info)
             return info
 
     def has_tokens(self) -> bool:
@@ -295,6 +303,42 @@ def _api_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | N
         expired=info.expired,
         grants=grants,
         must_change_password=must_change,
+    )
+
+
+def _user_projects(session: Session, user_id: int) -> frozenset[str] | None:
+    """Projects a web user may read now (None: every project, empty: none).
+
+    Raises:
+        ValueError: If the user is gone or its grants are too large.
+    """
+    from . import access_control  # access_control depends on this module
+
+    if session.get(WebUser, user_id) is None:
+        raise ValueError(f"User {user_id} not found")
+    grants = access_control.user_grants(session, user_id)
+    return access_control.scope(grants, access_control.Permission.REPORTS_READ)
+
+
+def _personal_mcp_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | None:
+    """Identity of a personal ``mcp`` token: the projects its user may read now. None when the
+    user is gone, must change a password set by an administrator (as its api tokens, see
+    web_api.deps) or its grants cannot be read (fail closed); a user without any project gets a
+    token that reaches none."""
+    user = session.get(WebUser, row.user_id)
+    if user is None or user.must_change_password:
+        return None
+    try:
+        projects = _user_projects(session, user.id)  # type: ignore[arg-type]
+    except ValueError:
+        return None
+    return TokenInfo(
+        info.label,
+        Role.MCP,
+        projects=projects,
+        token_id=info.token_id,
+        pending=info.pending,
+        expired=info.expired,
     )
 
 
@@ -510,7 +554,12 @@ def list_tokens(project: str | None = None) -> list[dict[str, Any]]:
     with session_scope() as session:
         rows = session.exec(statement).all()
         links = _links(session, [row.id for row in rows])
-        return [_public(row, links[row.id]) for row in rows]
+        return [
+            _personal_public(session, row)
+            if row.user_id is not None
+            else _public(row, links[row.id])
+            for row in rows
+        ]
 
 
 def _audit_token(
@@ -791,28 +840,51 @@ def _personal_label(username: str, label: str) -> str:
     return full
 
 
-def create_personal_token(
-    user_id: int, label: str, expires_in_days: int | None = None
-) -> dict[str, Any]:
-    """Create an ``api`` token of a web user for itself and return it with its secret, shown
-    once. The token holds the current rights of the user (see _api_info).
+def _personal_role(role: Role | str) -> Role:
+    """Role of a personal token (PERSONAL_TOKEN_ROLES).
 
     Raises:
-        ValueError: Unknown user, invalid label or validity, or MAX_PERSONAL_TOKENS reached.
+        ValueError: For another role.
     """
+    try:
+        kind = Role(str(role).strip().lower())
+    except ValueError:
+        kind = None
+    if kind not in PERSONAL_TOKEN_ROLES:
+        raise ValueError(f"A web user cannot create a personal {role} token")
+    return kind  # type: ignore[return-value]
+
+
+def create_personal_token(
+    user_id: int, label: str, expires_in_days: int | None = None, role: Role | str = Role.API
+) -> dict[str, Any]:
+    """Create a personal token of a web user for itself and return it with its secret, shown
+    once: an ``api`` token holds the current rights of the user (see _api_info), an ``mcp``
+    token reaches the projects the user may read (see _personal_mcp_info).
+
+    Raises:
+        ValueError: Unknown user, role other than ``api`` or ``mcp``, invalid label or
+            validity, or SECREVIEW_PERSONAL_TOKENS_PER_USER tokens of this role held already.
+    """
+    kind = _personal_role(role)
+    limit = get_settings().personal_tokens_per_user
     with session_scope() as session:
         user = session.get(WebUser, user_id)
         if user is None:
             raise ValueError(f"User {user_id} not found")
         username = user.username
         count = session.exec(
-            select(func.count()).select_from(ApiToken).where(ApiToken.user_id == user_id)
+            select(func.count())
+            .select_from(ApiToken)
+            .where(ApiToken.user_id == user_id, ApiToken.role == kind.value)
         ).one()
-    if count >= MAX_PERSONAL_TOKENS:
-        raise ValueError(f"A user may hold at most {MAX_PERSONAL_TOKENS} API tokens")
+    if count >= limit:
+        raise ValueError(
+            f"A user may hold at most {limit} personal {kind.value} token(s): revoke one first"
+        )
     row, links, token = _insert(
         _personal_label(username, label),
-        Role.API,
+        kind,
         None,
         expires_in_days,
         (AuditAction.TOKEN_CREATED, f"user:{username}"),
@@ -821,15 +893,28 @@ def create_personal_token(
     return _public(row, links) | {"token": token}
 
 
+def _personal_public(session: Session, row: ApiToken) -> dict[str, Any]:
+    """Metadata of a personal token; for an ``mcp`` token, ``projects`` are those its user may
+    read now (empty when they cannot be read)."""
+    public = _public(row, [])
+    if row.role == Role.MCP and row.user_id is not None:
+        try:
+            projects = _user_projects(session, row.user_id)
+        except ValueError:
+            projects = frozenset()
+        public["projects"] = None if projects is None else sorted(projects)
+    return public
+
+
 def list_personal_tokens(user_id: int) -> list[dict[str, Any]]:
-    """Return the metadata of the api tokens of a web user (never their secret)."""
+    """Return the metadata of the personal tokens of a web user (never their secret)."""
     with session_scope() as session:
         rows = session.exec(
             select(ApiToken)
             .where(ApiToken.user_id == user_id)
             .order_by(col(ApiToken.created_at), col(ApiToken.label))
         ).all()
-        return [_public(row, []) for row in rows]
+        return [_personal_public(session, row) for row in rows]
 
 
 def revoke_personal_token(user_id: int, token_id: str, actor: str | None = None) -> None:
@@ -989,6 +1074,11 @@ def request_additional_project(
             raise ValueError("This token is still waiting for the approval of its first request")
         if _is_expired(row):
             raise ValueError("This token has expired")
+        if row.user_id is not None:
+            raise ValueError(
+                "A personal token reaches the projects of its user: ask an administrator to "
+                f"give your account access to project '{project}'"
+            )
         links = _links(session, [row.id])[row.id]
         if _active_projects(row, links) is None:
             raise ValueError("This token is not restricted: it already reaches every project")
@@ -1137,7 +1227,11 @@ def enrollment_status(token_id: str | None) -> dict[str, Any]:
         with session_scope() as session:
             row = session.get(ApiToken, token_id)
             if row is not None:
-                public = _public(row, _links(session, [row.id])[row.id])
+                public = (
+                    _personal_public(session, row)
+                    if row.user_id is not None
+                    else _public(row, _links(session, [row.id])[row.id])
+                )
                 return {
                     "status": public["status"],
                     "label": row.label,

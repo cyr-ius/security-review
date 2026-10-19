@@ -120,8 +120,9 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   base, est un rôle ordinaire : il peut être modifié ou supprimé.
 - **Mon compte** : affiche le type du compte et **Mes permissions**. Un utilisateur local y change son mot de passe (ses
   autres sessions sont fermées) ; celui d'un utilisateur OIDC est géré par le fournisseur
-  d'identité. **Jetons API** crée et révoque des [jetons API](#jetons-api) personnels (API REST
-  et Swagger) qui portent les droits du compte.
+  d'identité. **Jetons personnels** crée et révoque les jetons personnels du compte : des
+  jetons [API REST](#jetons-api) (Swagger, scripts), qui portent ses droits, et des jetons
+  [MCP](#jetons-mcp-personnels) pour son agent, qui atteignent les projets qu'il peut lire.
 - **Jetons** : les demandes d'enrôlement sont recherchables, triables et filtrables par type ; les
   jetons actifs le sont par usage. Les administrateurs créent et révoquent des jetons pour un ou plusieurs
   projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit
@@ -319,8 +320,9 @@ Un jeton `api` appelle l'API REST, depuis un script ou depuis la documentation S
 Il n'atteint jamais `/mcp`, n'ouvre jamais l'interface et, comme tout jeton, n'accepte jamais un
 risque et ne marque jamais un faux positif. Il en existe deux sortes :
 
-- **Jeton personnel** : un utilisateur le crée pour lui-même dans **Mon compte** > **Jetons API**
-  (10 au plus, label `<utilisateur>:<label>`, avec un `:` qu'aucun autre label de jeton ne peut contenir, validité bornée par `SECREVIEW_TOKEN_MAX_DAYS`). Il
+- **Jeton personnel** : un utilisateur le crée pour lui-même dans **Mon compte** > **Jetons
+  personnels** avec l'**Usage** **API REST — Swagger et scripts** (un au plus par défaut,
+  `SECREVIEW_PERSONAL_TOKENS_PER_USER` : révoquez-le pour en créer un autre ; label `<utilisateur>:<label>`, avec un `:` qu'aucun autre label de jeton ne peut contenir, validité bornée par `SECREVIEW_TOKEN_MAX_DAYS`). Il
   porte les droits actuels du compte, qui viennent de ses groupes : il n'atteint plus rien dès que
   le compte les perd, et il est supprimé avec le compte. Personne ne peut le renouveler ni changer
   ses projets ; un administrateur peut le révoquer depuis l'écran **Jetons**.
@@ -336,6 +338,28 @@ curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/j
 # {"id": "…", "label": "alice:swagger", "role": "api", "personal": true, "access_role_id": null, …, "token": "Zq3…"}
 curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 # {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
+```
+
+### Jetons MCP personnels
+
+Un utilisateur connecte son propre agent MCP avec un jeton `mcp` personnel, créé dans **Mon
+compte** > **Jetons personnels** avec l'**Usage** **MCP** (un au plus par défaut,
+`SECREVIEW_PERSONAL_TOKENS_PER_USER`, en plus du jeton API REST). Il atteint les projets que le
+compte peut lire (`reports.read` de ses groupes), lus à chaque requête : un projet donné au compte
+ou retiré s'applique aussitôt, tous les projets quand l'un de ses groupes lit tous les projets,
+aucun projet quand il n'en a pas. La colonne **Projets** les affiche, de même que l'écran
+**Jetons** pour les administrateurs.
+
+Comme un jeton API REST personnel, il s'arrête tant que le compte doit changer un mot de passe
+défini par un administrateur, il est supprimé avec le compte, personne ne peut le renouveler
+ni changer ses projets, et un administrateur peut le révoquer. Il n'a pas d'enrôlement
+complémentaire : `request_enrollment` refuse un projet qu'il n'atteint pas, un administrateur
+donne plutôt au compte l'accès au projet (un groupe qui le lit). Il n'atteint jamais l'API REST.
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "mcp"}'
+# {"id": "…", "label": "alice:laptop", "role": "mcp", "personal": true, …, "token": "Zq3…"}
 ```
 
 ## Comptes utilisateurs

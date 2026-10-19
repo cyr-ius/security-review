@@ -3090,7 +3090,8 @@ def test_an_api_token_never_dismisses_a_finding(secured, reports):
     assert "logged in to the web interface" in response.json()["detail"]
 
 
-def test_personal_api_tokens_are_bounded_and_private(secured, reports):
+def test_personal_api_tokens_are_bounded_and_private(secured, reports, monkeypatch):
+    monkeypatch.setattr(get_settings(), "personal_tokens_per_user", 3)
     make_user("alice", USER_PASSWORD, "reader")
     make_user("bob", USER_PASSWORD, "reader")
     alice, bob = session_headers(secured, "alice"), session_headers(secured, "bob")
@@ -3104,7 +3105,7 @@ def test_personal_api_tokens_are_bounded_and_private(secured, reports):
     assert [item["label"] for item in secured.get(url, headers=bob).json()] == ["bob:swagger"]
     # Another user cannot revoke it
     assert secured.delete(f"{url}/{token['id']}", headers=bob).status_code == 404
-    for index in range(token_store.MAX_PERSONAL_TOKENS - 1):
+    for index in range(2):
         assert secured.post(url, json={"label": f"t{index}"}, headers=alice).status_code == 201
     refused = secured.post(url, json={"label": "one-more"}, headers=alice)
     assert refused.status_code == 422 and "at most" in refused.json()["detail"]
@@ -3112,6 +3113,32 @@ def test_personal_api_tokens_are_bounded_and_private(secured, reports):
     assert secured.get("/api/v1/me", headers=_bearer(token["token"])).status_code == 401
     (event, *_) = audit.list_events(action="token.revoked")["events"]
     assert (event["actor"], event["details"]["label"]) == ("user:alice", "alice:swagger")
+
+
+def test_a_web_user_creates_one_personal_mcp_token(secured, reports):
+    make_user("alice", USER_PASSWORD, "reader", ["shop-api"])
+    headers = session_headers(secured, "alice")
+    url = "/api/v1/me/tokens"
+
+    created = secured.post(url, json={"label": "agent", "role": "mcp"}, headers=headers)
+    assert created.status_code == 201
+    assert created.headers["cache-control"] == "no-store"
+    body = created.json()
+    assert (body["label"], body["role"], body["personal"]) == ("alice:agent", "mcp", True)
+    listed = secured.get(url, headers=headers).json()
+    assert [(item["role"], item["projects"]) for item in listed] == [("mcp", ["shop-api"])]
+    # The administrators see the projects it inherits
+    assert {item["id"]: item for item in listed_tokens(secured)}[body["id"]]["projects"] == [
+        "shop-api"
+    ]
+    # One mcp token by default, besides the api token
+    refused = secured.post(url, json={"label": "agent-2", "role": "mcp"}, headers=headers)
+    assert refused.status_code == 422 and "at most 1" in refused.json()["detail"]
+    assert secured.post(url, json={"label": "rest"}, headers=headers).status_code == 201
+    other = secured.post(url, json={"label": "pipeline", "role": "ci"}, headers=headers)
+    assert other.status_code == 422
+    # An mcp token never reaches the REST API
+    assert secured.get("/api/v1/me", headers=_bearer(body["token"])).status_code == 403
 
 
 def test_a_personal_api_token_is_deleted_with_its_user(secured, web_sessions, reports):
