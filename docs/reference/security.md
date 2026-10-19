@@ -131,7 +131,9 @@
   finding (action logged with the user or the label of the token), and only a person logged in to the interface (session) accepts a risk or marks a false
   positive: a bearer token is refused (`403`), even `admin`. These two decisions need a reason
   and an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the
-  logged-in user, and the finding counts as open again once the date has passed.
+  logged-in user, and the finding counts as open again once the date has passed. Only an
+  acceptance may have no expiry date, unless `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`:
+  set it to force a periodic review of every accepted risk.
 - **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
   stores a proposal (reason masked and bounded, author taken from the token) without changing
   the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a

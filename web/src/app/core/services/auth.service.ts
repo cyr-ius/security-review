@@ -26,6 +26,9 @@ export class AuthService {
 
   readonly canTriage = computed(() => this.identity()?.can_triage ?? false);
 
+  /** A risk may be accepted without an expiry date. */
+  readonly permanentAcceptance = computed(() => this.identity()?.permanent_acceptance ?? false);
+
   /** True when the user holds ``permission`` (on ``project`` when one is given). */
   can(permission: Permission, project?: string): boolean {
     const grants = this.identity()?.permissions ?? {};

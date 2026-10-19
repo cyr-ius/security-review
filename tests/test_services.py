@@ -6,7 +6,7 @@ import pytest
 from sqlmodel import select
 
 from security_review_mcp import services
-from security_review_mcp.config import Settings
+from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.models import (
     FindingCreate,
@@ -433,6 +433,28 @@ def test_triage_decision_is_validated(status, reason, expires_in, error):
         services.update_finding_status(finding_id, status, "alice", reason, expires_at)
     with pytest.raises(ValueError, match="approver"):
         services.update_finding_status(finding_id, FindingStatus.FIXED, "  ")
+    assert services.get_report(saved["report_id"]).findings[0].status == FindingStatus.OPEN
+
+
+def test_risk_acceptance_without_expiry_unless_disabled(monkeypatch):
+    saved = services.save_report("shop", "summary", [make_finding()])
+    finding_id = services.get_report(saved["report_id"]).findings[0].id
+    assert Settings(_env_file=None).permanent_acceptance_enabled is True
+
+    decided = services.update_finding_status(
+        finding_id, FindingStatus.ACCEPTED, "alice", "Internal tool only"
+    )
+    assert (decided.status, decided.status_expires_at) == (FindingStatus.ACCEPTED, None)
+    # A permanent acceptance never expires: the finding stays dismissed
+    counts = services.finding_status_counts()
+    assert (counts["accepted"], counts["open"]) == (1, 0)
+
+    services.update_finding_status(finding_id, FindingStatus.OPEN, "alice")
+    monkeypatch.setattr(get_settings(), "permanent_acceptance_enabled", False)
+    with pytest.raises(ValueError, match="expiry date is required"):
+        services.update_finding_status(
+            finding_id, FindingStatus.ACCEPTED, "alice", "Internal tool only"
+        )
     assert services.get_report(saved["report_id"]).findings[0].status == FindingStatus.OPEN
 
 

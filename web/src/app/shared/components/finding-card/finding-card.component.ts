@@ -26,6 +26,8 @@ const MAX_REASON_CHARS = 1000;
 interface DismissalFormModel {
   reason: string;
   expiresOn: string;
+  /** Acceptance without an expiry date (only offered for ``accepted``). */
+  noExpiry: boolean;
 }
 
 /** YYYY-MM-DD of today plus ``days``, in UTC like the server. */
@@ -35,7 +37,8 @@ function isoDay(days: number): string {
 
 /**
  * One finding: description, evidence and recommendation, with a status select for triagers.
- * Accepting a risk or marking a false positive asks for a reason and an expiry date; a status
+ * Accepting a risk or marking a false positive asks for a reason and an expiry date (an
+ * acceptance may have none when ``permanentAcceptance`` is set); a status
  * proposed by an agent is shown apart, for the triager to apply or reject.
  * Extra details (report link...) can be projected at the end of the metadata line.
  *
@@ -54,6 +57,8 @@ export class FindingCardComponent {
   readonly finding = input.required<Finding>();
   /** The user may record triage decisions (findings.triage). */
   readonly canTriage = input(false);
+  /** A risk may be accepted without an expiry date (server setting). */
+  readonly permanentAcceptance = input(false);
   /** A decision on this finding is being saved. */
   readonly saving = input(false);
 
@@ -86,13 +91,21 @@ export class FindingCardComponent {
         : undefined,
     );
     maxLength(path.reason, MAX_REASON_CHARS);
-    required(path.expiresOn);
+    required(path.expiresOn, { when: () => !this.withoutExpiry() });
     validate(path.expiresOn, ({ value }) =>
-      value() && value() < this.minExpiry
+      !this.withoutExpiry() && value() && value() < this.minExpiry
         ? { kind: 'minDate', message: this.i18n.translate('report.dismissExpiryHelp') }
         : undefined,
     );
   });
+
+  /** The "No expiry" choice is offered: an acceptance, while the server allows it. */
+  readonly noExpiryOffered = computed(
+    () => this.permanentAcceptance() && this.pendingStatus() === 'accepted',
+  );
+
+  /** The decision being made has no expiry date. */
+  readonly withoutExpiry = computed(() => this.noExpiryOffered() && this.dismissalModel().noExpiry);
 
   /** The acceptance or false positive has expired: the finding counts as open again. */
   readonly expired = computed(() => {
@@ -161,7 +174,8 @@ export class FindingCardComponent {
       return;
     }
     const { reason, expiresOn } = this.dismissalModel();
-    this.save({ status, reason: reason.trim(), expires_on: expiresOn });
+    const expires_on = this.withoutExpiry() ? null : expiresOn;
+    this.save({ status, reason: reason.trim(), expires_on });
   }
 
   /** Apply the status proposed by an agent: a dismissal still needs the triager's reason. */
@@ -188,5 +202,5 @@ export class FindingCardComponent {
 
 /** Empty reason, default expiry. */
 function newDismissal(): DismissalFormModel {
-  return { reason: '', expiresOn: isoDay(DEFAULT_DISMISSAL_DAYS) };
+  return { reason: '', expiresOn: isoDay(DEFAULT_DISMISSAL_DAYS), noExpiry: false };
 }
