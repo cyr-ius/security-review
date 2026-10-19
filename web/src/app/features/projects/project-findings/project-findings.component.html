@@ -90,6 +90,7 @@
     <app-finding-card
       [finding]="finding"
       [canTriage]="auth.canTriage()"
+      [permanentAcceptance]="auth.permanentAcceptance()"
       [saving]="triage.saving() === finding.id"
       (decided)="decide(finding, $event)"
       (proposalRejected)="decide(finding, null)"

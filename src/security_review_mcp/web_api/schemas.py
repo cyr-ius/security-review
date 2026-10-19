@@ -60,6 +60,9 @@ class Identity(BaseModel):
     auth_source: AuthSource | None = None
     # A web user whose password was set by someone else: it must change it before anything else
     must_change_password: bool = False
+    # A web user who triages may accept a risk without an expiry date
+    # (SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED); always false for a bearer token
+    permanent_acceptance: bool = False
     version: str
 
 
@@ -211,7 +214,8 @@ class FindingStatusUpdate(BaseModel):
     """Body of PATCH /findings/{id}: a triage decision.
 
     ``accepted`` and ``false_positive`` need a reason and an expiry date (the finding counts as
-    open again from that day, 00:00 UTC).
+    open again from that day, 00:00 UTC). An acceptance may leave it out (no expiry) while
+    SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
     """
 
     status: FindingStatus

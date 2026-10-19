@@ -213,7 +213,10 @@ MCP `propose_finding_status`, voir [statut d'un finding](prompts-tools.md#statut
   `SECREVIEW_MAX_DISMISSAL_DAYS`). L'utilisateur connecté est enregistré comme approbateur ; la
   carte affiche l'approbateur, le motif et la fin de validité. À partir de la date d'expiration,
   le finding est de nouveau compté comme ouvert (filtre de statut, posture,
-  [gate](gate.md), SARIF, tendance) et la carte indique que la décision a expiré.
+  [gate](gate.md), SARIF, tendance) et la carte indique que la décision a expiré. Pour
+  **Risque accepté**, la case **Sans expiration** supprime la date : le risque reste accepté
+  jusqu'à ce que quelqu'un rouvre le finding (désactivée par
+  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`). Un faux positif exige toujours une date.
 - **Ouvert** et **Corrigé** sont enregistrés immédiatement (motif facultatif par l'API). Toute
   décision supprime la proposition en attente.
 
@@ -230,7 +233,9 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
 ```
 
 Un motif absent ou trop court, une date d'expiration passée ou trop lointaine, ou une date
-d'expiration pour `open` / `fixed` reçoit `422`. Les décisions **Risque accepté** et **Faux
+d'expiration pour `open` / `fixed` reçoit `422`. Sans `expires_on`, une acceptation n'expire
+jamais, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`) ; `GET /api/v1/me` renvoie
+`permanent_acceptance` pour indiquer si l'appelant peut le faire. Les décisions **Risque accepté** et **Faux
 positif** prises avant cette fonctionnalité n'avaient ni motif ni approbateur : la mise à jour de
 la base leur donne une date d'expiration 30 jours plus tard, avec un motif qui demande de les
 confirmer. Revoyez-les avec les filtres de statut avant cette date, sinon elles bloquent de

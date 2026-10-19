@@ -170,6 +170,7 @@ def test_me(client):
     assert body["role"] == "admin"
     assert body["can_triage"] is True
     assert body["auth_enabled"] is True
+    assert body["permanent_acceptance"] is False  # a bearer token never accepts a risk
 
 
 @pytest.mark.parametrize(
@@ -2156,6 +2157,31 @@ def test_web_user_accepts_a_risk_with_a_reason_and_an_expiry(accounts, reports):
         None,
         None,
     )
+
+
+def test_web_user_accepts_a_risk_without_expiry_unless_disabled(accounts, reports, monkeypatch):
+    make_user("tess", USER_PASSWORD, "triager")
+    make_user("rita", USER_PASSWORD, "reader")
+    headers = session_headers(accounts, "tess")
+    assert accounts.get("/api/v1/me", headers=headers).json()["permanent_acceptance"] is True
+    reader = session_headers(accounts, "rita")
+    assert accounts.get("/api/v1/me", headers=reader).json()["permanent_acceptance"] is False
+    url = f"/api/v1/findings/{services.get_report(reports[0]).findings[0].id}"
+    reason = "Internal tool only"
+
+    # A false positive always needs an expiry date
+    body = {"status": "false_positive", "reason": reason, "expires_on": None}
+    assert accounts.patch(url, json=body, headers=headers).status_code == 422
+    saved = accounts.patch(url, json={"status": "accepted", "reason": reason}, headers=headers)
+    assert saved.status_code == 200
+    assert (saved.json()["status"], saved.json()["status_expires_at"]) == ("accepted", None)
+
+    accounts.patch(url, json={"status": "open"}, headers=headers)
+    monkeypatch.setattr(get_settings(), "permanent_acceptance_enabled", False)
+    assert accounts.get("/api/v1/me", headers=headers).json()["permanent_acceptance"] is False
+    response = accounts.patch(url, json={"status": "accepted", "reason": reason}, headers=headers)
+    assert response.status_code == 422
+    assert "expiry date is required" in response.text
 
 
 def test_reader_session_cannot_dismiss(accounts, reports):

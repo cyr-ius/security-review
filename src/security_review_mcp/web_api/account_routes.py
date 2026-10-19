@@ -84,8 +84,13 @@ async def about_update() -> UpdateStatus:
 
 @router.get("/me")
 async def me(identity: CurrentIdentity) -> Identity:
-    """Return the identity and permissions of the caller."""
-    return identity
+    """Return the identity and permissions of the caller, with the triage options it has."""
+    permanent = (
+        identity.can_triage
+        and identity.auth_source is not None
+        and get_settings().permanent_acceptance_enabled
+    )
+    return identity.model_copy(update={"permanent_acceptance": permanent})
 
 
 @router.post("/me/logout", status_code=status.HTTP_204_NO_CONTENT)

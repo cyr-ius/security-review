@@ -202,7 +202,9 @@ The status of a finding is decided by a **person**; an agent only proposes it (M
   `SECREVIEW_MAX_DISMISSAL_DAYS`). The logged-in user is recorded as the approver; the card shows
   the approver, the reason and the end of validity. From the expiry date, the finding counts as
   open again (status filter, posture, [gate](gate.md), SARIF, trend) and the card says
-  that the decision has expired.
+  that the decision has expired. For **Risk accepted**, the **No expiry** box removes the date:
+  the risk stays accepted until someone reopens the finding (disabled with
+  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`). A false positive always needs a date.
 - **Open** and **Fixed** are saved at once (optional reason through the API). Any decision
   removes the pending proposal.
 
@@ -219,7 +221,9 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
 ```
 
 A reason that is missing or too short, an expiry date in the past or too far away, or an expiry
-date for `open` / `fixed` gets `422`. The **Risk accepted** and **False positive** decisions
+date for `open` / `fixed` gets `422`. Without `expires_on`, an acceptance never expires, unless
+`SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`); `GET /api/v1/me` returns
+`permanent_acceptance` to tell whether the caller may do it. The **Risk accepted** and **False positive** decisions
 made before this feature had no reason nor approver: the database upgrade gives them an expiry
 date 30 days later, with a reason that asks to confirm them. Review them with the status filters
 before that date, or they block the gate again.
