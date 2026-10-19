@@ -156,7 +156,33 @@ def test_java_sql_taint_follows_method_arguments_and_returns_but_not_bound_value
 }
 """
 
-    assert ("JV-019", 10) in [
+    assert ("JV-019", 6) in [
+        (finding["rule_id"], finding["line"]) for finding in scan_content(unsafe, "java")
+    ]
+    assert "JV-019" not in rule_ids(safe, "java")
+
+
+def test_java_sql_taint_recognizes_request_annotations_and_string_builder():
+    unsafe = """class UserStore {
+  void execute(EntityManager entityManager, String query) {
+    entityManager.createNativeQuery(query);
+  }
+  void handle(@RequestParam String id, EntityManager entityManager) {
+    StringBuilder query = new StringBuilder("SELECT * FROM users WHERE id = '");
+    query.append(id);
+    execute(entityManager, query.toString());
+  }
+}
+"""
+    safe = """class UserStore {
+  void handle(@RequestParam String id, EntityManager entityManager) {
+    Query query = entityManager.createQuery("SELECT u FROM User u WHERE u.id = :id");
+    query.setParameter("id", id);
+  }
+}
+"""
+
+    assert ("JV-019", 3) in [
         (finding["rule_id"], finding["line"]) for finding in scan_content(unsafe, "java")
     ]
     assert "JV-019" not in rule_ids(safe, "java")

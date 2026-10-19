@@ -15,6 +15,9 @@ _REQUEST_RE = re.compile(r"\brequest\.(?:args|form|values|GET|POST|query_params|
 _JAVA_REQUEST_RE = re.compile(
     r"\b(?:request|req|httpRequest)\.(?:getParameter|getHeader|getQueryString|getPathInfo)\s*\("
 )
+_JAVA_REQUEST_ANNOTATION_RE = re.compile(
+    r"@(?:RequestParam|PathVariable|RequestBody|RequestHeader)\b"
+)
 _SQL_SINKS = {"execute", "executemany", "text"}
 _JAVA_SQL_SINKS = {
     "execute",
@@ -289,6 +292,14 @@ class _JavaSqlAnalyzer:
             return False, False, False
         state = self.tainted, self.dynamic, self.sql_candidates
         self.tainted, self.dynamic, self.sql_candidates = tainted, dynamic, sql_candidates
+        parameters = node.child_by_field_name("parameters")
+        if parameters is not None:
+            for parameter in parameters.named_children:
+                parameter_name = parameter.child_by_field_name("name")
+                if parameter_name is not None and _JAVA_REQUEST_ANNOTATION_RE.search(
+                    self._text(parameter)
+                ):
+                    self.tainted.add(self._text(parameter_name))
         self.call_stack.add(name)
         summary = [False, False, False]
         self.return_stack.append(summary)
@@ -342,13 +353,23 @@ class _JavaSqlAnalyzer:
             return
         name = self._text(name_node)
         args = arguments.named_children
-        if name in _JAVA_SQL_SINKS:
+        receiver = node.child_by_field_name("object")
+        if name == "append" and receiver is not None and receiver.type == "identifier":
+            receiver_name = self._text(receiver)
+            if any(self._tainted(argument) for argument in args):
+                self.tainted.add(receiver_name)
+                self.dynamic.add(receiver_name)
+                if self._sql_candidate(receiver) or any(
+                    self._sql_candidate(argument) for argument in args
+                ):
+                    self.sql_candidates.add(receiver_name)
+        if name in self.methods and name not in self.call_stack:
+            self._analyze_callee(self.methods[name], args)
+        elif name in _JAVA_SQL_SINKS:
             for query in args:
                 if self._tainted(query) and self._dynamic(query) and self._sql_candidate(query):
                     self.lines.add(node.start_point.row + 1)
                     break
-        elif name in self.methods and name not in self.call_stack:
-            self._analyze_callee(self.methods[name], args)
 
     def _analyze_callee(self, method: Node, arguments: list[Node]) -> tuple[bool, bool, bool]:
         parameters = method.child_by_field_name("parameters")
@@ -394,6 +415,12 @@ class _JavaSqlAnalyzer:
         if node.type == "method_invocation":
             name = node.child_by_field_name("name")
             invocation_name = self._text(name) if name is not None else ""
+            if invocation_name in {"format", "concat", "append"} and self._tainted(node):
+                return True
+            if invocation_name == "toString":
+                receiver = node.child_by_field_name("object")
+                if receiver is not None and self._dynamic(receiver):
+                    return True
             if invocation_name in self.methods and invocation_name not in self.call_stack:
                 arguments = node.child_by_field_name("arguments")
                 args = arguments.named_children if arguments is not None else []

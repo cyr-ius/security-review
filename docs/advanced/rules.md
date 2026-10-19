@@ -45,10 +45,14 @@ checking `event.origin`. The check is limited to inline callbacks passed to `add
 origin validation delegated to another function is not inferred.
 
 Java scans also include `JV-019`, a bounded Tree-sitter check that follows request data through
-local method arguments and returned values into dynamically constructed SQL sent to common JDBC
-and JPA query methods. It does not report bound `PreparedStatement` values. The analysis is
-limited to direct calls and methods in the same file; it does not resolve overloads, fields,
-framework wrappers, or calls across files.
+Servlet request getters and Spring `@RequestParam`, `@PathVariable`, `@RequestBody`, and
+`@RequestHeader` parameters are treated as untrusted sources. The analysis tracks local
+assignments, string concatenation, `String.format`, `concat`, `StringBuilder.append` and
+`toString`, plus arguments and returned values across direct local method calls. SQL execution
+methods on JDBC/JPA APIs are sinks. It does not report values bound separately with
+`PreparedStatement` or JPA `setParameter`. The analysis does not resolve overloads, fields,
+framework wrappers, or calls across files, and does not infer arbitrary validation or escaping
+as a sanitizer.
 
 Other focused additions include `PY-027` for explicitly disabled JWT signature verification,
 `JV-018` for a direct request value passed to JNDI `lookup`, and `NG-023` for assignments that

@@ -47,12 +47,15 @@ Ces scans incluent aussi `NG-022` pour les écouteurs d'événements `message` q
 `event.data` sans vérifier `event.origin`. L'analyse se limite aux callbacks transmis directement
 à `addEventListener` ; elle ne déduit pas une validation déléguée à une autre fonction.
 
-Les scans Java incluent aussi `JV-019`, une analyse Tree-sitter bornée qui suit les données de
-requête à travers les arguments et les valeurs de retour des méthodes locales jusqu'aux requêtes
-SQL construites dynamiquement et transmises aux méthodes JDBC et JPA courantes. Les valeurs liées
-avec `PreparedStatement` ne sont pas signalées. L'analyse se limite aux appels directs et aux
-méthodes du même fichier ; elle ne résout pas les surcharges, les champs, les wrappers de
-framework ni les appels entre fichiers.
+Les scans Java incluent aussi `JV-019`, une analyse Tree-sitter bornée qui traite les accesseurs
+de requête Servlet et les paramètres annotés Spring `@RequestParam`, `@PathVariable`,
+`@RequestBody` et `@RequestHeader` comme des sources non fiables. Elle suit les affectations
+locales, la concaténation, `String.format`, `concat`, `StringBuilder.append` et `toString`, ainsi
+que les arguments et valeurs de retour lors d'appels directs à des méthodes locales. Les méthodes
+d'exécution SQL JDBC/JPA sont les puits. Les valeurs liées séparément avec `PreparedStatement` ou
+JPA `setParameter` ne sont pas signalées. L'analyse ne résout ni les surcharges, ni les champs,
+ni les wrappers de framework, ni les appels entre fichiers ; elle ne déduit pas non plus qu'une
+validation ou un échappement arbitraire assainit la valeur.
 
 D'autres ajouts ciblés comprennent `PY-027` pour la désactivation explicite de la vérification
 de signature JWT, `JV-018` lorsqu'une valeur directe de requête est passée à JNDI `lookup`, et
