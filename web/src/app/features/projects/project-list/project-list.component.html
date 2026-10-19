@@ -15,6 +15,41 @@
   </div>
 </div>
 
+@if (notice(); as message) {
+  <div class="alert alert-success py-2" role="status">{{ message | t }}</div>
+}
+
+@if (canCreate()) {
+  <form class="card mb-3" (submit)="createProject($event)" novalidate>
+    <div class="card-body">
+      <label for="new-project" class="form-label fw-semibold">{{ 'projects.new' | t }}</label>
+      <div class="d-flex flex-wrap gap-2">
+        <input
+          id="new-project"
+          type="text"
+          class="form-control flex-grow-1 w-auto"
+          autocomplete="off"
+          aria-describedby="new-project-help"
+          [attr.placeholder]="'projects.newName' | t"
+          [formField]="newProjectForm.project"
+        />
+        <button
+          type="submit"
+          class="btn btn-primary"
+          [disabled]="creating() || newProjectForm().invalid()"
+        >
+          <i class="bi bi-plus-lg" aria-hidden="true"></i>
+          {{ 'projects.create' | t }}
+        </button>
+      </div>
+      <div id="new-project-help" class="form-text">{{ 'projects.newHelp' | t }}</div>
+      @if (createError(); as message) {
+        <div class="alert alert-danger py-2 mt-2 mb-0" role="alert">{{ message | t }}</div>
+      }
+    </div>
+  </form>
+}
+
 @if (projects.error()) {
   <div class="alert alert-danger" role="alert">
     <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
@@ -90,7 +125,13 @@
                   </td>
                 }
                 <td class="text-end numeric">{{ project.reports_total }}</td>
-                <td class="text-nowrap">{{ project.last_report_at | date: 'dd/MM/yyyy HH:mm' }}</td>
+                <td class="text-nowrap">
+                  @if (project.last_report_at) {
+                    {{ project.last_report_at | date: 'dd/MM/yyyy HH:mm' }}
+                  } @else {
+                    <span class="text-body-secondary">{{ 'projects.noReport' | t }}</span>
+                  }
+                </td>
               </tr>
             }
           </tbody>

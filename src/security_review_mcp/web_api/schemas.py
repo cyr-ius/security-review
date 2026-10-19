@@ -146,10 +146,17 @@ class ProjectSummary(BaseModel):
 
     project: str
     reports_total: int
-    last_report_at: str
+    # None for a project without any report yet
+    last_report_at: str | None
     open_findings_total: int
     open_findings_by_severity: dict[str, int]
     worst_open_severity: Severity | None
+
+
+class ProjectCreate(BaseModel):
+    """Name of a new project (POST /projects)."""
+
+    project: str = Field(min_length=1, max_length=200)
 
 
 class ProjectPosture(BaseModel):

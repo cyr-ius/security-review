@@ -408,6 +408,77 @@ def test_a_project_group_created_concurrently_is_refused(monkeypatch):
     assert [group["name"] for group in access_control.list_groups()] == ["project:shop"]
 
 
+# ── Project creation ─────────────────────────────────────────────────────────
+
+
+def creator() -> dict:
+    """A web user whose only role holds ``projects.create``."""
+    role = access_control.create_role("Creator", [Permission.PROJECTS_CREATE])
+    group = access_control.create_group("creators")
+    access_control.set_group_roles(group["id"], [(role["id"], None)])
+    return web_users.create_user("carol", PASSWORD, [group["id"]])
+
+
+def test_projects_create_is_a_permission_on_the_whole_controller():
+    assert Permission.PROJECTS_CREATE not in access_control.SCOPED_PERMISSIONS
+    assert Permission.PROJECTS_CREATE in access_control.SYSTEM_ROLES["admin"]
+    assert {"name": "projects.create", "scoped": False} in access_control.list_permissions()
+
+
+def test_a_created_project_is_read_by_its_creator_only():
+    carol = creator()
+    other = web_users.create_user("dave", PASSWORD)
+
+    created = access_control.create_project(carol["id"], " mobile-app ", "user:carol")
+
+    assert (created["project"], created["group"]) == ("mobile-app", "project:mobile-app")
+    assert grants_of(carol["id"]) == {
+        "projects.create": None,
+        "reports.read": frozenset({"mobile-app"}),
+    }
+    assert grants_of(other["id"]) == {}
+    (event,) = audit.list_events(action="project.created")["events"]
+    assert (event["actor"], event["project"], event["target_id"]) == (
+        "user:carol",
+        "mobile-app",
+        "mobile-app",
+    )
+    assert event["details"] == {"group": "project:mobile-app", "user_id": carol["id"]}
+
+
+def test_creating_a_project_never_opens_an_existing_one():
+    """projects.create would otherwise let its holder read the reports of any project."""
+    from security_review_mcp import services, token_store
+
+    carol = creator()
+    services.save_report("shop", "Review", [])
+    ensure_project_group("crm")
+    triage = access_control.create_group("triage")
+    access_control.set_group_roles(triage["id"], [(role_id("triager"), ["billing"])])
+    token_store.create_token("ci-hr", Role.CI, projects=["hr"])
+    token_store.request_enrollment("payroll")
+
+    for project in ("shop", "crm", "billing", "hr", "payroll"):
+        with pytest.raises(ValueError, match=f"Project '{project}' already exists"):
+            access_control.create_project(carol["id"], project, "user:carol")
+    # The second creation of a project is refused too
+    access_control.create_project(carol["id"], "new", "user:carol")
+    with pytest.raises(ValueError, match="already exists"):
+        access_control.create_project(carol["id"], "new", "user:carol")
+    assert grants_of(carol["id"])["reports.read"] == frozenset({"new"})
+
+
+def test_project_creation_checks_the_name_and_the_user():
+    carol = creator()
+    with pytest.raises(ValueError, match="control characters"):
+        access_control.create_project(carol["id"], "bad\x00name")
+    with pytest.raises(ValueError, match="between 1 and"):
+        access_control.create_project(carol["id"], " ")
+    with pytest.raises(NotFoundError):
+        access_control.create_project(999, "shop")
+    assert audit.list_events(action="project.created")["events"] == []
+
+
 def test_adding_a_user_to_a_group_is_audited_once():
     alice = web_users.create_user("alice", PASSWORD)
     group = ensure_project_group("shop")

@@ -187,6 +187,15 @@ def require(permission: Permission) -> Callable[[Identity], Identity]:
     return dependency
 
 
+def web_user_id(request: Request) -> int:
+    """Id of the logged-in web user; 403 for a bearer token (an api token included: a token
+    never creates another token, a project nor changes the preferences of its user)."""
+    user_id = (request.scope.get("state") or {}).get("auth_user_id")
+    if user_id is None:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only a web user logged in may do this")
+    return user_id
+
+
 Triager = Annotated[Identity, Depends(require(Permission.FINDINGS_TRIAGE))]
 RulesManager = Annotated[Identity, Depends(require(Permission.RULES_MANAGE))]
 StandardsManager = Annotated[Identity, Depends(require(Permission.STANDARDS_MANAGE))]
@@ -194,6 +203,7 @@ TokensManager = Annotated[Identity, Depends(require(Permission.TOKENS_MANAGE))]
 SettingsManager = Annotated[Identity, Depends(require(Permission.SETTINGS_MANAGE))]
 UsersManager = Annotated[Identity, Depends(require(Permission.USERS_MANAGE))]
 AuditReader = Annotated[Identity, Depends(require(Permission.AUDIT_READ))]
+ProjectCreator = Annotated[Identity, Depends(require(Permission.PROJECTS_CREATE))]
 
 
 def in_scope(identity: Identity, project: str) -> bool:

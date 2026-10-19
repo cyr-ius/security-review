@@ -3,7 +3,7 @@
 import logging
 import re
 from collections import Counter
-from collections.abc import Collection
+from collections.abc import Collection, Iterable
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -499,10 +499,11 @@ def finding_status_counts() -> dict[str, int]:
     return counts
 
 
-def list_projects() -> list[dict]:
-    """List the projects that have reports, with their open findings by severity.
+def list_projects(known: Iterable[str] = ()) -> list[dict]:
+    """List the projects that have reports, with their open findings by severity, and the
+    ``known`` projects without any report yet (created, or named by a role of a group).
 
-    Sorted by the date of the latest report, most recent first.
+    Sorted by the date of the latest report, most recent first; projects without a report last.
     """
     with session_scope() as session:
         report_rows = session.exec(
@@ -540,7 +541,19 @@ def list_projects() -> list[dict]:
                 "worst_open_severity": worst.value if open_total else None,
             }
         )
+    with_reports = {item["project"] for item in projects}
     projects.sort(key=lambda p: p["last_report_at"], reverse=True)
+    projects.extend(
+        {
+            "project": name,
+            "reports_total": 0,
+            "last_report_at": None,
+            "open_findings_total": 0,
+            "open_findings_by_severity": {severity.value: 0 for severity in Severity},
+            "worst_open_severity": None,
+        }
+        for name in sorted(set(known) - with_reports)
+    )
     return projects
 
 

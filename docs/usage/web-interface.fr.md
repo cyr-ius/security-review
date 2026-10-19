@@ -56,7 +56,8 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   trier par risque, activité ou nom, et filtrer par sévérité maximale. Le bouton
   **Revoir les findings ouverts** ouvre les findings à revoir de tous
   les projets que vous pouvez voir (**Findings à revoir : tous les projets**), chacun avec un
-  lien vers son projet.
+  lien vers son projet. Avec la permission `projects.create`, **Nouveau projet** crée un projet
+  que vous lisez ensuite (voir [Création d'un projet](../advanced/access-control.md#creation-dun-projet)).
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, derniers rapports et
   export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant.
@@ -354,7 +355,10 @@ Comme un jeton API REST personnel, il s'arrête tant que le compte doit changer 
 défini par un administrateur, il est supprimé avec le compte, personne ne peut le renouveler
 ni changer ses projets, et un administrateur peut le révoquer. Il n'a pas d'enrôlement
 complémentaire : `request_enrollment` refuse un projet qu'il n'atteint pas, un administrateur
-donne plutôt au compte l'accès au projet (un groupe qui le lit). Il n'atteint jamais l'API REST.
+donne plutôt au compte l'accès au projet (un groupe qui le lit), ou l'utilisateur le crée s'il
+est nouveau et qu'il porte `projects.create` (voir
+[Création d'un projet](../advanced/access-control.md#creation-dun-projet)). Il n'atteint jamais
+l'API REST.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \

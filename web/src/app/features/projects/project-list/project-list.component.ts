@@ -1,9 +1,12 @@
 import { DatePipe } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
+import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { RouterLink } from '@angular/router';
+import { firstValueFrom } from 'rxjs';
 import { SEVERITY_META } from '../../../core/constants/labels';
-import { I18nService } from '../../../core/i18n/i18n.service';
+import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
   SEVERITIES,
@@ -12,6 +15,7 @@ import {
   SeverityCounts,
 } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
 import { SeverityCountsComponent } from '../../../shared/components/severity-counts/severity-counts.component';
@@ -24,12 +28,16 @@ import { filterAndSortRows } from '../../../shared/utils/table-utils';
 
 type SortKey = 'risk' | 'activity' | 'name';
 
+/** Longest project name accepted by the server (token_store._clean_project). */
+const MAX_PROJECT_CHARS = 200;
+
 /** Dashboard: every project with its open findings. */
 @Component({
   selector: 'app-project-list',
   imports: [
     RouterLink,
     DatePipe,
+    FormField,
     SeverityBadgeComponent,
     SeverityCountsComponent,
     RefreshButtonComponent,
@@ -42,6 +50,18 @@ type SortKey = 'risk' | 'activity' | 'name';
 export class ProjectListComponent {
   private readonly api = inject(ApiService);
   private readonly i18n = inject(I18nService);
+  private readonly auth = inject(AuthService);
+
+  /** A user with projects.create may create a new project, which it then reads. */
+  readonly canCreate = computed(() => this.auth.can('projects.create'));
+  readonly newProject = signal({ project: '' });
+  readonly newProjectForm = form(this.newProject, (path) => {
+    required(path.project);
+    maxLength(path.project, MAX_PROJECT_CHARS);
+  });
+  readonly creating = signal(false);
+  readonly createError = signal<Message | null>(null);
+  readonly notice = signal<Message | null>(null);
 
   readonly severities = SEVERITIES;
   readonly severityMeta = SEVERITY_META;
@@ -112,7 +132,7 @@ export class ProjectListComponent {
           });
         }
         if (sort === 'activity') {
-          return a.last_report_at.localeCompare(b.last_report_at);
+          return (a.last_report_at ?? '').localeCompare(b.last_report_at ?? '');
         }
         return (
           rank(a.worst_open_severity) - rank(b.worst_open_severity) ||
@@ -121,6 +141,33 @@ export class ProjectListComponent {
       },
     );
   });
+
+  /** Create the project of the form; the session then reads it (its grants are reloaded). */
+  async createProject(event: Event): Promise<void> {
+    event.preventDefault();
+    const project = this.newProject().project.trim();
+    if (this.newProjectForm().invalid() || !project) {
+      return;
+    }
+    this.creating.set(true);
+    this.createError.set(null);
+    this.notice.set(null);
+    try {
+      const created = await firstValueFrom(this.api.createProject(project));
+      this.newProject.set({ project: '' });
+      this.notice.set(msg('projects.created', { project: created.project }));
+      this.auth.setIdentity(await firstValueFrom(this.api.me()));
+      this.projects.reload();
+    } catch (error: unknown) {
+      this.createError.set(
+        error instanceof HttpErrorResponse && typeof error.error?.detail === 'string'
+          ? serverDetail(error.error.detail)
+          : msg('projects.createFailed'),
+      );
+    } finally {
+      this.creating.set(false);
+    }
+  }
 
   onSortValue(value: string): void {
     if (value === 'risk' || value === 'activity' || value === 'name') {

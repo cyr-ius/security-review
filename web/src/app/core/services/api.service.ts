@@ -259,6 +259,11 @@ export class ApiService {
     return this.http.get<ProjectSummary[]>(`${API_URL}/projects`);
   }
 
+  /** POST /api/v1/projects: a new project, read by its creator (projects.create). */
+  createProject(project: string): Observable<ProjectSummary> {
+    return this.http.post<ProjectSummary>(`${API_URL}/projects`, { project });
+  }
+
   projectTokens(): Observable<ProjectToken[]> {
     return this.http.get<ProjectToken[]>(`${API_URL}/project-tokens`);
   }

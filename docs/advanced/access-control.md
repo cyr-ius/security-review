@@ -24,6 +24,7 @@ its projects. A person gets read or triage access through the groups of their ac
 | `settings.manage` | Report language, outgoing proxy, advisory database | |
 | `users.manage` | Users, groups, roles and OIDC settings (they decide who joins which group) | |
 | `audit.read` | Audit log | |
+| `projects.create` | Create a new project, which its creator then reads (see [Creating a project](#creating-a-project)) | |
 
 `users.manage` lets its holder give itself every other permission: give it only to
 administrators. Accepting a risk or marking a false positive also needs a session of the web
@@ -73,6 +74,28 @@ project alone. An existing group of this kind is reused (even one made by an adm
 whatever its name); otherwise the group `project:<project>` is created (with a number, such as
 `project:shop (2)`, when another group already has this name). All the developers enrolled on a
 project thus share one group, which an administrator manages like any other.
+
+## Creating a project
+
+A user whose groups hold `projects.create` creates a project with **New project** on the
+**Projects** screen (`POST /api/v1/projects`, from a session of the web interface only: a token
+never creates a project). The controller creates the [project group](#project-groups) of the
+project and adds the account to it as a local member: the account reads the project at once,
+and so does its [personal MCP token](../usage/web-interface.md#personal-mcp-tokens), which can
+then save the reports of its agent there. The project shows on the **Projects** screen,
+**No report yet**, until its first report.
+
+Only a **new** project can be created: a name that already has a report, that a role of a group
+names, or that a token or an enrollment request reaches is refused (409), so that this
+permission never opens the reports of an existing project. The creator only gets `reader`; an
+administrator gives triage or other members through the groups as usual. Each creation is
+written to the audit log (`project.created`).
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/projects -d '{"project": "mobile-app"}'
+# {"project": "mobile-app", "reports_total": 0, "last_report_at": null, …}
+```
 
 ## What a user may do
 

@@ -306,6 +306,24 @@ def test_list_projects(triage):
     )
 
 
+def test_list_projects_adds_the_known_projects_without_report():
+    services.save_report("shop", "First", [make_finding(Severity.HIGH)])
+
+    projects = services.list_projects(["shop", "zeta", "alpha"])
+
+    # A known project that has reports is listed once, with them
+    assert [p["project"] for p in projects] == ["shop", "alpha", "zeta"]
+    assert projects[0]["reports_total"] == 1
+    assert projects[1] == {
+        "project": "alpha",
+        "reports_total": 0,
+        "last_report_at": None,
+        "open_findings_total": 0,
+        "open_findings_by_severity": {severity.value: 0 for severity in Severity},
+        "worst_open_severity": None,
+    }
+
+
 def age_report(report_id: int, days: int) -> None:
     """Move the creation date of a report ``days`` days back."""
     with session_scope() as session:

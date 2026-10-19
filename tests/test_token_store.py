@@ -743,6 +743,21 @@ def test_a_personal_mcp_token_reaches_the_projects_its_user_may_read():
     assert STORE.lookup(digest_of(created["token"])).projects is None
 
 
+def test_a_personal_mcp_token_reaches_a_project_its_user_creates():
+    from security_review_mcp import access_control
+
+    role = access_control.create_role("Creator", ["projects.create"])
+    group = access_control.create_group("creators")
+    access_control.set_group_roles(group["id"], [(role["id"], None)])
+    user = make_user("carol", "Correct horse battery 9", group_ids=[group["id"]])
+    created = token_store.create_personal_token(user["id"], "agent", role="mcp")
+    assert STORE.lookup(digest_of(created["token"])).projects == frozenset()
+
+    access_control.create_project(user["id"], "mobile-app")
+
+    assert STORE.lookup(digest_of(created["token"])).projects == frozenset({"mobile-app"})
+
+
 def test_a_personal_mcp_token_has_no_complementary_enrollment():
     user = make_user("alice", "Correct horse battery 9", "reader", ["shop-api"])
     created = token_store.create_personal_token(user["id"], "agent", role="mcp")

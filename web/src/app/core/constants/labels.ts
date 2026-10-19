@@ -75,6 +75,10 @@ export const PERMISSION_META: Record<Permission, { label: MessageKey; help: Mess
   'settings.manage': { label: 'permission.settingsManage', help: 'permission.settingsManageHelp' },
   'users.manage': { label: 'permission.usersManage', help: 'permission.usersManageHelp' },
   'audit.read': { label: 'permission.auditRead', help: 'permission.auditReadHelp' },
+  'projects.create': {
+    label: 'permission.projectsCreate',
+    help: 'permission.projectsCreateHelp',
+  },
 };
 
 /** Permissions limited to projects (the others concern the whole controller). */

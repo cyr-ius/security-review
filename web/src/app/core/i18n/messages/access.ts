@@ -82,6 +82,9 @@ export const access = defineMessages({
       'Users, groups, roles and OIDC settings: gives every other permission.',
     'permission.auditRead': 'Read the audit log',
     'permission.auditReadHelp': 'Who changed what, and when.',
+    'permission.projectsCreate': 'Create projects',
+    'permission.projectsCreateHelp':
+      'A new project, which its creator then reads (never an existing project).',
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (all projects)',
   },
@@ -168,6 +171,9 @@ export const access = defineMessages({
       'Utilisateurs, groupes, rôles et configuration OIDC : donne toutes les autres permissions.',
     'permission.auditRead': "Lire le journal d'audit",
     'permission.auditReadHelp': 'Qui a changé quoi, et quand.',
+    'permission.projectsCreate': 'Créer des projets',
+    'permission.projectsCreateHelp':
+      'Un nouveau projet, que son créateur lit ensuite (jamais un projet existant).',
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (tous les projets)',
   },
@@ -254,6 +260,9 @@ export const access = defineMessages({
       'Usuarios, grupos, roles y configuración OIDC: da todos los demás permisos.',
     'permission.auditRead': 'Leer el registro de auditoría',
     'permission.auditReadHelp': 'Quién cambió qué, y cuándo.',
+    'permission.projectsCreate': 'Crear proyectos',
+    'permission.projectsCreateHelp':
+      'Un proyecto nuevo, que su creador lee después (nunca un proyecto existente).',
     'permission.onProjects': '{permission} ({projects})',
     'permission.onAllProjects': '{permission} (todos los proyectos)',
   },

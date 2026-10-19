@@ -21,6 +21,11 @@
 - A user never holds a role of its own: every permission comes from a group. The approval of an
   enrollment adds the developer to the **project group** of the project (see
   ensure_project_group): a group without OIDC whose only role is ``reader`` on that project.
+- A user with ``projects.create`` may create a **new** project (see create_project): the
+  controller creates its project group and adds the user to it, so that the user reads the
+  project and its personal ``mcp`` token reaches it. A project already known (reports, roles of
+  a group, tokens or enrollment requests) is refused: the permission never grants the reading
+  of an existing project.
 
 The grants of a user (see user_grants) are the union of the permissions of the roles of all its
 groups. A scoped permission reaches every project when one of its
@@ -46,7 +51,17 @@ from . import audit
 from .config import Settings
 from .database import session_scope
 from .http_server import Role
-from .models import AccessRole, ApiToken, GroupMember, GroupRole, UserGroup, WebUser, utcnow
+from .models import (
+    AccessRole,
+    ApiToken,
+    ApiTokenProject,
+    GroupMember,
+    GroupRole,
+    SecurityReport,
+    UserGroup,
+    WebUser,
+    utcnow,
+)
 from .services import NotFoundError
 from .token_store import MAX_PROJECTS_PER_TOKEN, _clean_project
 
@@ -70,6 +85,8 @@ class Permission(StrEnum):
     USERS_MANAGE = "users.manage"
     # Audit log
     AUDIT_READ = "audit.read"
+    # Create a new project, read by its creator (see create_project)
+    PROJECTS_CREATE = "projects.create"
 
 
 # Permissions limited to the projects of a binding (the others concern the whole controller)
@@ -944,6 +961,55 @@ def ensure_project_group(session: Session, project: str, actor: str | None = Non
         details={"name": row.name, "sso": False, "project": cleaned},
     )
     return row
+
+
+def bound_projects(session: Session) -> set[str]:
+    """Projects named by the roles of the groups (a role on every project names none)."""
+    rows = session.exec(select(GroupRole.projects).where(GroupRole.projects != "[]")).all()
+    return {name for projects in rows for name in json.loads(projects)}
+
+
+def project_exists(session: Session, project: str) -> bool:
+    """True when ``project`` is known: it has a report, a role of a group names it, or a token
+    or an enrollment request (pending included) reaches it."""
+    checks = (
+        select(SecurityReport.id).where(SecurityReport.project == project),
+        select(ApiTokenProject.id).where(ApiTokenProject.project == project),
+        select(ApiToken.id).where(ApiToken.project == project),
+    )
+    if any(session.exec(query.limit(1)).first() is not None for query in checks):
+        return True
+    return project in bound_projects(session)
+
+
+def create_project(user_id: int, project: str, actor: str | None = None) -> dict[str, Any]:
+    """Create a new project for the web user ``user_id`` (``projects.create``): its project
+    group (see ensure_project_group) is created and the user added to it, so that the user
+    reads the project and its personal ``mcp`` token reaches it.
+
+    Raises:
+        ValueError: Invalid name, project already known (see project_exists: the permission
+            never opens an existing project), or MAX_GROUPS groups already stored.
+        NotFoundError: If the user does not exist.
+    """
+    cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
+    with session_scope() as session:
+        if session.get(WebUser, user_id) is None:
+            raise NotFoundError(f"Web user {user_id} not found")
+        if project_exists(session, cleaned):
+            raise ValueError(f"Project '{cleaned}' already exists")
+        group = ensure_project_group(session, cleaned, actor)
+        add_user_to_group(session, user_id, group.id, actor)  # type: ignore[arg-type]
+        audit.record(
+            session,
+            audit.AuditAction.PROJECT_CREATED,
+            actor,
+            "project",
+            cleaned,
+            cleaned,
+            {"group": group.name, "user_id": user_id},
+        )
+        return {"project": cleaned, "group_id": group.id, "group": group.name}
 
 
 def forget_user(session: Session, user_id: int) -> None:
