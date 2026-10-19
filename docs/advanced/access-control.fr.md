@@ -91,7 +91,8 @@ compte lit aussitôt le projet, de même que son
 enregistrer les rapports de son agent. Le projet apparaît sur l'écran **Projets**,
 **Aucun rapport**, jusqu'à son premier rapport.
 
-Seul un **nouveau** projet peut être créé : un nom qui a déjà un rapport, qu'un rôle d'un groupe
+Le nom est [normalisé](../usage/prompts-tools.md#nom-du-projet) (`Mobile App` crée
+`mobile-app`). Seul un **nouveau** projet peut être créé : un nom qui a déjà un rapport, qu'un rôle d'un groupe
 cite, ou qu'un jeton ou une demande d'enrôlement atteint est refusé (409), pour que cette
 permission n'ouvre jamais les rapports d'un projet existant. Le créateur n'obtient que `reader` ;
 un administrateur donne le triage ou d'autres membres par les groupes, comme d'habitude. Chaque

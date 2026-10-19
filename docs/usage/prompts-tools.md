@@ -92,7 +92,7 @@ See [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token).
 
 `save_security_report` receives:
 
-- `project`, `summary`;
+- `project` (normalized, see [project name](#project-name)), `summary`;
 - a list of `findings`: `title`, `severity`, `description`, and optionally `cwe`, `owasp`,
   `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category`;
 - `repository`, `branch`, `commit_sha`, `reviewer`, `scope`;
@@ -101,6 +101,27 @@ See [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token).
 
 The **risk level** of the report is computed (highest severity of the findings). The
 `risk_level` parameter can only raise it, never lower it.
+
+### Project name
+
+Reports, tokens, roles and gates are grouped by project name. The server **normalizes** every
+project name it receives (MCP tools, REST API, pipeline client, CLI), so that the members of a
+team who name the same repository differently reach the same project:
+
+- the name is lowercased (after Unicode NFKC normalization);
+- a git remote URL or a path keeps its last segment, without `.git`;
+- every run of characters other than letters and digits (spaces, dots, underscores, dashes,
+  punctuation) becomes a single `-`, removed at both ends.
+
+| Given name | Stored project |
+|---|---|
+| `security-review-mcp`, `Security Review MCP`, `security_review_mcp` | `security-review-mcp` |
+| `cyr-ius/security-review-mcp`, `https://github.com/cyr-ius/security-review-mcp.git` | `security-review-mcp` |
+| `git@github.com:cyr-ius/Security_Review_MCP.git` | `security-review-mcp` |
+
+A name with no letter or digit, or longer than 200 characters once normalized, is refused.
+Since only the repository name is kept, two repositories with the same name in different
+organizations or groups share one project: give one of them a distinct name.
 
 ### Review type
 

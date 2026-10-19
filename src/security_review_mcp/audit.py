@@ -23,6 +23,7 @@ from sqlmodel import Session, col, func, select
 from .config import MAX_AUDIT_EVENTS, MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
 from .models import AuditEvent, as_utc, utcnow
+from .project_names import normalize_project
 from .scanner import redact_secrets
 
 logger = logging.getLogger(__name__)
@@ -163,7 +164,7 @@ def list_events(
     if action is not None:
         conditions.append(AuditEvent.action == action)
     if project is not None:
-        conditions.append(AuditEvent.project == project)
+        conditions.append(AuditEvent.project == normalize_project(project))
     if actor is not None:
         conditions.append(AuditEvent.actor == actor)
     if since is not None:

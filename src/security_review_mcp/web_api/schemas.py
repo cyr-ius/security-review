@@ -31,6 +31,7 @@ from ..models import (
     ReviewType,
     Severity,
 )
+from ..project_names import ProjectName
 
 AuthSource = Literal["local", "oidc"]
 Origin = Literal["builtin", "custom"]
@@ -154,9 +155,9 @@ class ProjectSummary(BaseModel):
 
 
 class ProjectCreate(BaseModel):
-    """Name of a new project (POST /projects)."""
+    """Name of a new project (POST /projects), normalized."""
 
-    project: str = Field(min_length=1, max_length=200)
+    project: ProjectName
 
 
 class ProjectPosture(BaseModel):
@@ -316,7 +317,7 @@ class SkippedFile(BaseModel):
 class ScanRequest(BaseModel):
     """Fields shared by the scan requests: project, threshold and report to store."""
 
-    project: str = Field(min_length=1, max_length=200)
+    project: ProjectName
     fail_on: Severity = Severity.HIGH
     # Store the result as a report of the project
     save: bool = False
@@ -637,7 +638,7 @@ class StandardCatalog(BaseModel):
 
 # ── Tokens and enrollments ───────────────────────────────────────────────────
 
-_ProjectName = Annotated[str, Field(min_length=1, max_length=200)]
+_ProjectName = ProjectName
 
 
 class ProjectTokenCreate(BaseModel):

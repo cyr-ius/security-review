@@ -107,6 +107,19 @@ def test_ci_token_is_always_restricted_to_projects():
     assert (info.role, info.projects) == (Role.CI, frozenset({"shop-api", "billing"}))
 
 
+def test_project_names_of_a_token_are_normalized():
+    created = token_store.create_project_token(
+        "jenkins", ["Acme/Shop_API", "shop-api", "git@github.com:acme/Billing.git"], "ci"
+    )
+    info = STORE.lookup(digest_of(created["token"]))
+    assert info.projects == frozenset({"shop-api", "billing"})
+    assert [token["label"] for token in token_store.list_tokens(project="SHOP API")] == [
+        created["label"]
+    ]
+    with pytest.raises(ValueError, match="between 1 and 200"):
+        token_store.create_project_token("jenkins", ["---"], "ci")
+
+
 def test_unrestricted_ci_row_reaches_no_project(database):
     # A ci row without projects (written outside create_token) fails closed
     created = token_store.create_token("jenkins", Role.MCP)

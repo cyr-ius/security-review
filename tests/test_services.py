@@ -277,9 +277,29 @@ def test_markdown_rendering_orders_by_severity():
     assert "exec(x)" in markdown
 
 
+def test_project_name_is_normalized_for_storage_and_lookups(triage):
+    saved = services.save_report(
+        "https://github.com/acme/Shop_API.git", "Review", [make_finding(Severity.HIGH)]
+    )
+    services.save_report("acme/shop-api", "Second review", [])
+
+    assert saved["project"] == "shop-api"
+    assert [item["project"] for item in services.list_projects()] == ["shop-api"]
+    assert len(services.list_reports(project="Shop API")) == 2
+    assert services.project_posture("SHOP_API")["open_findings_total"] == 1
+    assert services.evaluate_gate("Shop.Api")["passed"] is False
+    assert services.list_project_findings("shop_api")["total"] == 1
+    assert services.collect_sarif_items(project="Acme/Shop-API")[0] == "shop-api"
+    services.check_project_scope({"shop-api"}, "Shop_API")
+    with pytest.raises(services.NotFoundError, match="Project 'billing' not found"):
+        services.check_project_scope({"shop-api"}, "https://user:secret@example.com/Billing")
+
+
 def test_blank_project_or_summary_is_rejected():
     with pytest.raises(ValueError):
         services.save_report("  ", "A valid summary", [])
+    with pytest.raises(ValueError):
+        services.save_report("--- ///", "A valid summary", [])
     with pytest.raises(ValueError):
         services.save_report("project", "ab", [])
 
