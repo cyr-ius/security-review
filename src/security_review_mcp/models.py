@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 
 from pydantic import field_validator, model_validator
-from sqlalchemy import BigInteger, String, UniqueConstraint
+from sqlalchemy import BigInteger, Index, String, UniqueConstraint
 from sqlmodel import Field, Relationship, SQLModel
 
 
@@ -441,10 +441,15 @@ class WebUser(SQLModel, table=True):
     or ``oidc`` (OpenID Connect login, no password). What a user may do comes only from the
     roles of its groups (``GroupMember``, see access_control). ``oidc_subject`` and
     ``oidc_issuer`` are the ``sub`` claim and the issuer bound at the first OIDC login: an
-    account is identified by both, so that another identity provider cannot reuse a subject.
+    account is identified by both, so that another identity provider cannot reuse a subject, and
+    no two users share them (unique index).
     ``session_version`` is drawn at random at creation and at each password change: the sessions
     issued with another version are refused.
     """
+
+    __table_args__ = (
+        Index("ix_webuser_oidc_identity", "oidc_issuer", "oidc_subject", unique=True),
+    )
 
     id: int | None = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True, max_length=64)

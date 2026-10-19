@@ -6,10 +6,11 @@ server and the REST API (scripts, CI). A web user has an ``auth_source``:
 - ``local``: a username and a password. Only a scrypt hash of the password is stored
   (``WebUser``); the parameters are part of the hash, so that they can be raised later.
   ``POST /api/v1/auth/login`` checks the password and issues a session token;
-- ``oidc``: an account of the identity provider (see oidc), without a password. The login looks
-  it up by the username claim; with ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` it is created at the
-  first login, otherwise an administrator creates it beforehand. It never opens a local account,
-  and its ``sub`` claim is bound at the first login: another subject is refused afterwards. A
+- ``oidc``: an account of the identity provider (see oidc), without a password, identified by
+  the issuer and the ``sub`` claim bound at its first login. The username claim only names a
+  user not bound yet: with ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` it is created at the first
+  login, otherwise an administrator creates it beforehand. It never opens a local account nor a
+  user bound to another identity, and a name changed at the provider keeps its account. A
   deleted OIDC user is revoked (``RevokedSsoUser``): a login never creates it again, until an
   administrator creates it again.
 
@@ -309,6 +310,16 @@ def _get(session: Any, user_id: int) -> WebUser:
 def _by_name(session: Any, username: str) -> WebUser | None:
     """Return the user with this exact username, or None."""
     return session.exec(select(WebUser).where(WebUser.username == username)).first()
+
+
+def _by_identity(session: Any, issuer: str, subject: str) -> WebUser | None:
+    """Return the OIDC user bound to this issuer and subject, or None."""
+    query = select(WebUser).where(
+        WebUser.auth_source == AUTH_OIDC,
+        WebUser.oidc_issuer == issuer,
+        WebUser.oidc_subject == subject,
+    )
+    return session.exec(query).first()
 
 
 def _lift_revocation(session: Any, username: str) -> None:
@@ -734,10 +745,12 @@ def oidc_login(
 ) -> dict[str, Any]:
     """Open the session of the OIDC user of a verified OIDC login; raise OidcError.
 
-    The user is named by the username claim. It is refused when the name belongs to a local
-    account, when it is bound to another subject or to another identity provider (the account
-    is identified by the issuer and the subject; a user bound before the issuer was recorded
-    gets it at its next login), or when it does not exist and
+    The account is identified by the issuer and the subject, never by a name: the user bound to
+    them opens, whatever its username claim says now (a name changed at the provider keeps the
+    account and its username). Only an identity bound to no user is looked up by its username
+    claim, to bind a user created beforehand (by an administrator, or bound before the issuer
+    was recorded: it gets it). It is refused when the name belongs to a local account, when it
+    is bound to another subject or to another identity provider, or when it does not exist and
     ``SECREVIEW_OIDC_AUTO_CREATE_USERS`` is off (``unknown_user``) or an administrator deleted it
     (``revoked``). Its OIDC groups are replaced by those its groups claim names (see
     access_control.sync_sso_groups); the login is refused (``forbidden``) when its groups give
@@ -755,7 +768,17 @@ def oidc_login(
         raise OidcError("username", "Missing or invalid username claim") from None
     try:
         with session_scope() as session:
-            row = _by_name(session, name)
+            row = _by_identity(session, identity.issuer, identity.subject)
+            if row is not None:
+                if row.username != name:
+                    logger.info(
+                        "OIDC login of %s opens user %s (username claim changed)",
+                        label,
+                        row.username,
+                    )
+                name = row.username
+            else:
+                row = _by_name(session, name)
             if row is not None and row.auth_source != AUTH_OIDC:
                 logger.warning("OIDC login of %s refused: %s is a local account", label, name)
                 raise OidcError("conflict", "This username belongs to a local account")
