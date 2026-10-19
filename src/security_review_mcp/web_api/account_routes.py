@@ -11,7 +11,15 @@ from .. import __version__, app_settings, rate_limit, token_store, update_check,
 from ..config import get_settings
 from ..http_server import API_HEALTH_PATH, DOCS_PATH
 from .auth_routes import LOGIN_HEADERS, open_session
-from .deps import CurrentIdentity, actor_of, client_address, unprocessable, web_user_id
+from .deps import (
+    CurrentIdentity,
+    Permission,
+    actor_of,
+    client_address,
+    has_permission,
+    unprocessable,
+    web_user_id,
+)
 from .schemas import (
     About,
     HealthStatus,
@@ -108,9 +116,14 @@ async def create_my_token(
 
     An ``api`` token (REST API, Swagger) holds the current rights of the user; an ``mcp`` token
     (MCP agent) reaches the projects the user may read. Both are read at each request; like
-    every token, they never accept a risk nor mark a false positive. A user holds at most
+    every token, they never accept a risk nor mark a false positive. An ``mcp`` token needs
+    the ``mcp_tokens.create`` permission (403 without it). A user holds at most
     SECREVIEW_PERSONAL_TOKENS_PER_USER tokens of each role (422 beyond)."""
     user_id = web_user_id(request)
+    if body.role == "mcp" and not has_permission(identity, Permission.MCP_TOKENS_CREATE):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN, f"Permission '{Permission.MCP_TOKENS_CREATE}' required"
+        )
     try:
         created = await run_in_threadpool(
             token_store.create_personal_token,

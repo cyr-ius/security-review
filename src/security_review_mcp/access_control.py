@@ -7,8 +7,8 @@
   ``admin`` can be neither changed nor deleted, because the code relies on them: ``admin`` is
   given to the first administrator and to SECREVIEW_OIDC_ADMIN_GROUPS, ``reader`` to the project
   groups. Their permissions are those of SYSTEM_ROLES, so that a new permission reaches
-  ``admin`` without a migration. Every other role, ``triager`` included (created with the
-  database), is an ordinary role that an administrator changes or deletes.
+  ``admin`` without a migration. Every other role, ``triager`` and ``mcp-user`` included
+  (created with the database), is an ordinary role that an administrator changes or deletes.
 - A **group** (UserGroup) has roles (GroupRole, each on every project or on a list of projects)
   and members (GroupMember). An administrator adds members (``local``); for a group with
   ``sso``, the OIDC users whose groups claim holds the name of the group are members too
@@ -26,6 +26,9 @@
   project and its personal ``mcp`` token reaches it. A project already known (reports, roles of
   a group, tokens or enrollment requests) is refused: the permission never grants the reading
   of an existing project.
+- A user needs ``mcp_tokens.create`` to create a personal ``mcp`` token, held by the ordinary
+  role ``mcp-user`` (created with the database). A token already created keeps working
+  without it: an administrator revokes it from the Tokens screen.
 
 The grants of a user (see user_grants) are the union of the permissions of the roles of all its
 groups. A scoped permission reaches every project when one of its
@@ -87,12 +90,14 @@ class Permission(StrEnum):
     AUDIT_READ = "audit.read"
     # Create a new project, read by its creator (see create_project)
     PROJECTS_CREATE = "projects.create"
+    # Create a personal mcp token (My account), which reaches the projects its user may read
+    MCP_TOKENS_CREATE = "mcp_tokens.create"
 
 
 # Permissions limited to the projects of a binding (the others concern the whole controller)
 SCOPED_PERMISSIONS = frozenset({Permission.REPORTS_READ, Permission.FINDINGS_TRIAGE})
 ALL_PERMISSIONS = frozenset(Permission)
-# Built-in roles, which the code relies on (the ``triager`` role is an ordinary one)
+# Built-in roles, which the code relies on (``triager`` and ``mcp-user`` are ordinary ones)
 READER_ROLE = "reader"
 ADMIN_ROLE = "admin"
 SYSTEM_ROLES: dict[str, frozenset[Permission]] = {

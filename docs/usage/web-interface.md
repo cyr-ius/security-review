@@ -109,8 +109,8 @@ the requested page once the controller answers again.
   [Roles, groups and permissions](../advanced/access-control.md#groups)).
 - **Roles**: administrators search and sort roles, and filter built-in from custom roles. They
   create roles from the permissions; the built-in roles `reader` and `admin` are shown read
-  only. `triager` (read and triage), created with the database, is an ordinary role: it can be
-  changed or deleted.
+  only. `triager` (read and triage) and `mcp-user` (personal MCP token), created with the
+  database, are ordinary roles: they can be changed or deleted.
 - **My account**: shows the type of the account and **My permissions**. A local user changes their
   password there (their other sessions are closed); the one of an OIDC user is managed by the
   identity provider. **Personal tokens** creates and revokes the personal tokens of the account:
@@ -330,16 +330,19 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 ### Personal MCP tokens
 
 A user connects their own MCP agent with a personal `mcp` token, created in **My account** >
-**Personal tokens** with **Usage** **MCP** (one at most by default,
-`SECREVIEW_PERSONAL_TOKENS_PER_USER`, besides the REST API token). It reaches the projects the
+**Personal tokens** with **Usage** **MCP**, offered only when their groups hold the
+`mcp_tokens.create` permission (role `mcp-user`, see
+[Roles](../advanced/access-control.md#roles); 403 without it). One at most by default
+(`SECREVIEW_PERSONAL_TOKENS_PER_USER`), besides the REST API token. It reaches the projects the
 account may read (`reports.read` of its groups), read at each request: a project given to or
 removed from the account applies at once, every project when one of its groups reads every
 project, no project when it has none. The **Projects** column shows them, and so does the
 **Tokens** screen for the administrators.
 
-Like a personal REST API token, it stops while the account must change a password set by an
-administrator, it is deleted with the account, nobody can rotate it nor change
-its projects, and an administrator can revoke it. It has no complementary enrollment:
+A token already created keeps working when the account loses `mcp_tokens.create`: an
+administrator revokes it if needed. Like a personal REST API token, it stops while the account
+must change a password set by an administrator, it is deleted with the account, nobody can
+rotate it nor change its projects, and an administrator can revoke it. It has no complementary enrollment:
 `request_enrollment` refuses a project it does not reach, an administrator gives the account
 access to the project instead (a group that reads it), or the user creates it if it is new and
 they hold `projects.create` (see [Creating a project](../advanced/access-control.md#creating-a-project)).

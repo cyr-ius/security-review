@@ -79,7 +79,8 @@ before you start: configure the host as above, **without a token**, and run your
 The token is requested along the way, then approved by an administrator (see
 [enrollment](../advanced/http.md#enrollment-a-project-requests-its-token)). With a web account,
 you may instead create a [personal MCP token](../usage/web-interface.md#personal-mcp-tokens) in
-**My account**: it reaches the projects your account may read.
+**My account** if your groups hold the `mcp-user` role: it reaches the projects your account may
+read.
 
 1. **Configure the host without a token.** With the examples of the
    [HTTP transport](#http-transport) section, leave the token input empty (VS Code) or do not

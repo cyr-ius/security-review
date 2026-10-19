@@ -117,8 +117,9 @@ revient à la page demandée dès que le contrôleur répond de nouveau.
   (voir [Rôles, groupes et permissions](../advanced/access-control.md#groupes)).
 - **Rôles** : les administrateurs recherchent et trient les rôles, et filtrent les rôles intégrés
   des rôles personnalisés. Ils créent des rôles à partir des permissions ; les rôles intégrés
-  `reader` et `admin` sont affichés en lecture seule. `triager` (lecture et triage), créé avec la
-  base, est un rôle ordinaire : il peut être modifié ou supprimé.
+  `reader` et `admin` sont affichés en lecture seule. `triager` (lecture et triage) et `mcp-user`
+  (jeton MCP personnel), créés avec la base, sont des rôles ordinaires : ils peuvent être modifiés
+  ou supprimés.
 - **Mon compte** : affiche le type du compte et **Mes permissions**. Un utilisateur local y change son mot de passe (ses
   autres sessions sont fermées) ; celui d'un utilisateur OIDC est géré par le fournisseur
   d'identité. **Jetons personnels** crée et révoque les jetons personnels du compte : des
@@ -344,14 +345,17 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 ### Jetons MCP personnels
 
 Un utilisateur connecte son propre agent MCP avec un jeton `mcp` personnel, créé dans **Mon
-compte** > **Jetons personnels** avec l'**Usage** **MCP** (un au plus par défaut,
-`SECREVIEW_PERSONAL_TOKENS_PER_USER`, en plus du jeton API REST). Il atteint les projets que le
+compte** > **Jetons personnels** avec l'**Usage** **MCP**, proposé seulement quand ses groupes
+portent la permission `mcp_tokens.create` (rôle `mcp-user`, voir
+[Rôles](../advanced/access-control.md#roles) ; 403 sans elle). Un au plus par défaut
+(`SECREVIEW_PERSONAL_TOKENS_PER_USER`), en plus du jeton API REST. Il atteint les projets que le
 compte peut lire (`reports.read` de ses groupes), lus à chaque requête : un projet donné au compte
 ou retiré s'applique aussitôt, tous les projets quand l'un de ses groupes lit tous les projets,
 aucun projet quand il n'en a pas. La colonne **Projets** les affiche, de même que l'écran
 **Jetons** pour les administrateurs.
 
-Comme un jeton API REST personnel, il s'arrête tant que le compte doit changer un mot de passe
+Un jeton déjà créé continue de fonctionner quand le compte perd `mcp_tokens.create` : un
+administrateur le révoque au besoin. Comme un jeton API REST personnel, il s'arrête tant que le compte doit changer un mot de passe
 défini par un administrateur, il est supprimé avec le compte, personne ne peut le renouveler
 ni changer ses projets, et un administrateur peut le révoquer. Il n'a pas d'enrôlement
 complémentaire : `request_enrollment` refuse un projet qu'il n'atteint pas, un administrateur

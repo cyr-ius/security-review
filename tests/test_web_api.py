@@ -1,5 +1,6 @@
 """Web interface: REST API, permissions and static files."""
 
+import hashlib
 import json
 import logging
 from datetime import UTC, date, datetime, timedelta
@@ -962,7 +963,13 @@ def test_roles_are_managed_with_users_manage(secured, web_sessions, caplog):
     assert "Role Auditor created by admin" in caplog.text
     listed = secured.get(url, headers=auth("admin")).json()
     # Built-in roles first, then by name: triager is an ordinary role
-    assert [item["name"] for item in listed] == ["admin", "reader", "Auditor", "triager"]
+    assert [item["name"] for item in listed] == [
+        "admin",
+        "reader",
+        "Auditor",
+        "mcp-user",
+        "triager",
+    ]
 
     body["permissions"] = ["audit.read", "rules.manage"]
     updated = secured.put(f"{url}/{role['id']}", json=body, headers=auth("admin"))
@@ -3188,7 +3195,8 @@ def test_personal_api_tokens_are_bounded_and_private(secured, reports, monkeypat
 
 
 def test_a_web_user_creates_one_personal_mcp_token(secured, reports):
-    make_user("alice", USER_PASSWORD, "reader", ["shop-api"])
+    groups = [group_for("reader", ["shop-api"]), group_for("mcp-user")]
+    make_user("alice", USER_PASSWORD, group_ids=groups)
     headers = session_headers(secured, "alice")
     url = "/api/v1/me/tokens"
 
@@ -3211,6 +3219,33 @@ def test_a_web_user_creates_one_personal_mcp_token(secured, reports):
     assert other.status_code == 422
     # An mcp token never reaches the REST API
     assert secured.get("/api/v1/me", headers=_bearer(body["token"])).status_code == 403
+
+
+def test_a_personal_mcp_token_needs_the_mcp_tokens_create_permission(secured, reports):
+    make_user("alice", USER_PASSWORD, "reader", ["shop-api"])
+    headers = session_headers(secured, "alice")
+    url = "/api/v1/me/tokens"
+
+    refused = secured.post(url, json={"label": "agent", "role": "mcp"}, headers=headers)
+    assert refused.status_code == 403
+    assert "mcp_tokens.create" in refused.json()["detail"]
+    assert secured.get(url, headers=headers).json() == []
+    # The api token does not need it
+    assert secured.post(url, json={"label": "rest"}, headers=headers).status_code == 201
+
+    # The mcp-user role gives it; a token created keeps working once it is taken back
+    alice = web_users.find_user("alice")
+    reader = group_for("reader", ["shop-api"])
+    web_users.update_user(alice["id"], [reader, group_for("mcp-user")])
+    me = secured.get("/api/v1/me", headers=headers).json()
+    assert me["permissions"]["mcp_tokens.create"] is None
+    created = secured.post(url, json={"label": "agent", "role": "mcp"}, headers=headers)
+    assert created.status_code == 201
+    web_users.update_user(alice["id"], [reader])
+    listed = secured.get(url, headers=headers).json()
+    assert [item["role"] for item in listed if item["role"] == "mcp"] == ["mcp"]
+    digest = hashlib.sha256(created.json()["token"].encode()).digest()
+    assert token_store.DatabaseTokenStore().lookup(digest).projects == frozenset({"shop-api"})
 
 
 def test_a_personal_api_token_is_deleted_with_its_user(secured, web_sessions, reports):

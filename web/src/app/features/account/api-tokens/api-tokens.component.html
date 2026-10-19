@@ -26,7 +26,7 @@
     <div class="col-md-3">
       <label for="api-token-role" class="form-label">{{ 'tokens.usage' | t }}</label>
       <select id="api-token-role" class="form-select" [formField]="tokenForm.role">
-        @for (role of roles; track role) {
+        @for (role of roles(); track role) {
           <option [value]="role">{{ roleLabel(role) | t }}</option>
         }
       </select>

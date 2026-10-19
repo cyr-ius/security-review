@@ -569,6 +569,48 @@ def test_a_new_database_gets_an_ordinary_triager_role(empty_engine):
     roles = {role["name"]: role for role in access_control.list_roles()}
     assert [name for name, role in roles.items() if role["system"]] == ["admin", "reader"]
     assert roles["triager"]["permissions"] == ["findings.triage", "reports.read"]
+    assert not roles["mcp-user"]["system"]
+    assert roles["mcp-user"]["permissions"] == ["mcp_tokens.create"]
+
+
+def test_the_mcp_user_role_is_kept_on_downgrade_while_a_group_holds_it(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    with empty_engine.begin() as connection:
+        config = database.alembic_config(connection)
+        command.upgrade(config, "head")
+        command.downgrade(config, "0023")
+        assert not connection.execute(
+            text("SELECT id FROM accessrole WHERE name = 'mcp-user'")
+        ).first()
+        command.upgrade(config, "head")
+        role_id = connection.execute(
+            text("SELECT id FROM accessrole WHERE name = 'mcp-user'")
+        ).scalar_one()
+        group_id = connection.execute(
+            text(
+                "INSERT INTO usergroup (name, description, sso, created_at, updated_at) "
+                "VALUES ('agents', '', 0, '2026-10-01', '2026-10-01') RETURNING id"
+            )
+        ).scalar_one()
+        connection.execute(
+            text(
+                "INSERT INTO grouprole (group_id, role_id, projects) VALUES (:group, :role, '[]')"
+            ),
+            {"group": group_id, "role": role_id},
+        )
+        command.downgrade(config, "0023")
+        kept = connection.execute(
+            text("SELECT id FROM accessrole WHERE name = 'mcp-user'")
+        ).scalar_one()
+        # Upgrading again keeps the role of that name
+        command.upgrade(config, "head")
+        count = connection.execute(
+            text("SELECT COUNT(*) FROM accessrole WHERE name = 'mcp-user'")
+        ).scalar_one()
+
+    assert (kept, count) == (role_id, 1)
 
 
 def test_downgrading_the_api_tokens_deletes_them(empty_engine):
