@@ -118,8 +118,9 @@ docker compose exec controller security-review-controller user reset-password ad
 - The ports are only published on `127.0.0.1` by default. To expose them, enable the
   [built-in TLS](http.md) or put them behind a reverse proxy, then give the host address to use
   in `.env`: `DOCKER_PUBLISH_ADDRESS=192.168.1.10` (one interface) or `DOCKER_PUBLISH_ADDRESS=0.0.0.0`
-  (every interface). This variable is only used by Compose. The controller exposes no write
-  route without a token: it can stay internal.
+  (every interface), and the host ports in `DOCKER_MCP_PORT` and `DOCKER_CONTROLLER_PORT`.
+  These variables are only used by Compose: inside the containers, both servers listen on 8000.
+  The controller exposes no write route without a token: it can stay internal.
 - The variables of `.env` are only used by Compose: add them under `environment` so that they
   reach the containers (for example `SECREVIEW_TLS_CERTFILE` and `SECREVIEW_TLS_KEYFILE`, with
   the certificate files mounted read-only, see [Certificate authority](http.md#certificate-authority)).
