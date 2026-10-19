@@ -352,6 +352,7 @@ def update_finding_status(
     ``accepted`` and ``false_positive`` need a reason and an expiry date, in the future and at
     most SECREVIEW_MAX_DISMISSAL_DAYS days away: once expired, the finding counts as open again.
     An acceptance may have no expiry date while SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
+    The reason of an acceptance is also its first comment (see ``add_finding_comment``).
     ``fixed`` takes an optional reason; ``open`` clears the decision. Any decision clears the
     status proposed by an agent. The decision is written to the audit log (``actor``, default
     the approver).
@@ -384,6 +385,16 @@ def update_finding_status(
         previous = effective_status(finding.status, finding.status_expires_at, now)
         if previous != status:
             finding.status_changed_at = now
+        # The reason of an acceptance opens its comments: a new one is added when the risk is
+        # accepted or its reason changes, not when only the expiry date does
+        if status == FindingStatus.ACCEPTED and (
+            finding.status != status or finding.status_reason != reason
+        ):
+            session.add(
+                FindingComment(
+                    finding_id=finding_id, author=approver[:200], body=reason, created_at=now
+                )
+            )
         proposal = finding.proposed_status
         finding.status = status
         reopened = status == FindingStatus.OPEN

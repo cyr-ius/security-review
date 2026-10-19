@@ -36,7 +36,7 @@ function refusal(error: unknown, fallback: MessageKey): Message {
 }
 
 /**
- * One risk acceptance: its reason and comments, with the forms of a triager to add a comment,
+ * One risk acceptance: its comments (the first one is the reason of the acceptance), with the forms of a triager to add a comment,
  * change the expiry date or remove the acceptance (the finding is open again). Comments are
  * only added: the server has no route to edit or delete one.
  */
@@ -145,7 +145,7 @@ export class RiskAcceptanceDetailComponent {
       const saved = await firstValueFrom(
         this.api.updateFindingStatus(acceptance.id, {
           status: 'accepted',
-          // The reason stays the one of the acceptance: the comments explain the change
+          // Same reason: the server adds no comment for a new expiry date alone
           reason: acceptance.status_reason ?? '',
           expires_on: this.withoutExpiry() ? null : this.expiryModel().expiresOn,
         }),
