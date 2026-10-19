@@ -11,7 +11,7 @@ from .. import __version__, app_settings, rate_limit, token_store, update_check,
 from ..config import get_settings
 from ..http_server import API_HEALTH_PATH, DOCS_PATH
 from .auth_routes import LOGIN_HEADERS, open_session
-from .deps import CurrentIdentity, actor_of, client_address, unprocessable
+from .deps import CurrentIdentity, actor_of, client_address, unprocessable, web_user_id
 from .schemas import (
     About,
     HealthStatus,
@@ -93,19 +93,10 @@ async def logout(request: Request, identity: CurrentIdentity) -> Response:
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-def _web_user_id(request: Request) -> int:
-    """Id of the logged-in web user; 403 for a bearer token (an api token included: a token
-    never creates another token nor changes the preferences of its user)."""
-    user_id = (request.scope.get("state") or {}).get("auth_user_id")
-    if user_id is None:
-        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only a web user logged in may do this")
-    return user_id
-
-
 @router.get("/me/tokens")
 async def my_tokens(request: Request, _: CurrentIdentity) -> list[ProjectToken]:
     """The personal tokens (api and mcp) of the logged-in web user (never their secret)."""
-    user_id = _web_user_id(request)
+    user_id = web_user_id(request)
     return await run_in_threadpool(token_store.list_personal_tokens, user_id)
 
 
@@ -119,7 +110,7 @@ async def create_my_token(
     (MCP agent) reaches the projects the user may read. Both are read at each request; like
     every token, they never accept a risk nor mark a false positive. A user holds at most
     SECREVIEW_PERSONAL_TOKENS_PER_USER tokens of each role (422 beyond)."""
-    user_id = _web_user_id(request)
+    user_id = web_user_id(request)
     try:
         created = await run_in_threadpool(
             token_store.create_personal_token,
@@ -139,7 +130,7 @@ async def create_my_token(
 @router.delete("/me/tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_my_token(request: Request, token_id: str, identity: CurrentIdentity) -> Response:
     """Revoke a personal token of the logged-in web user (that of another user is not found)."""
-    user_id = _web_user_id(request)
+    user_id = web_user_id(request)
     try:
         await run_in_threadpool(
             token_store.revoke_personal_token, user_id, token_id[:64], actor_of(identity)
@@ -153,7 +144,7 @@ async def delete_my_token(request: Request, token_id: str, identity: CurrentIden
 @router.get("/me/preferences")
 async def my_preferences(request: Request, _: CurrentIdentity) -> Preferences:
     """Preferences of the logged-in web user (its theme)."""
-    return Preferences(**await run_in_threadpool(web_users.get_preferences, _web_user_id(request)))
+    return Preferences(**await run_in_threadpool(web_users.get_preferences, web_user_id(request)))
 
 
 @router.put("/me/preferences")
@@ -161,7 +152,7 @@ async def set_my_preferences(
     request: Request, body: Preferences, _: CurrentIdentity
 ) -> Preferences:
     """Remember the preferences of the logged-in web user, for every browser it uses."""
-    user_id = _web_user_id(request)
+    user_id = web_user_id(request)
     return Preferences(**await run_in_threadpool(web_users.set_theme, user_id, body.theme))
 
 

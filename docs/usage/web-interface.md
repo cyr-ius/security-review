@@ -55,6 +55,8 @@ the requested page once the controller answers again.
 - **Projects**: every project with its open findings by severity. Search by project name, sort
   by risk, activity or name, and filter by worst open severity. The **Review open findings** button opens the findings to review of every
   project you can see (**Findings to review: all projects**), each with a link to its project.
+  With the `projects.create` permission, **New project** creates a project that you then read
+  (see [Creating a project](../advanced/access-control.md#creating-a-project)).
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
   The **Review open findings** button opens the next screen.
@@ -339,7 +341,9 @@ Like a personal REST API token, it stops while the account must change a passwor
 administrator, it is deleted with the account, nobody can rotate it nor change
 its projects, and an administrator can revoke it. It has no complementary enrollment:
 `request_enrollment` refuses a project it does not reach, an administrator gives the account
-access to the project instead (a group that reads it). It never reaches the REST API.
+access to the project instead (a group that reads it), or the user creates it if it is new and
+they hold `projects.create` (see [Creating a project](../advanced/access-control.md#creating-a-project)).
+It never reaches the REST API.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \

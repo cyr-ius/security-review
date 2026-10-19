@@ -27,6 +27,7 @@ compte.
 | `settings.manage` | Langue des rapports, proxy sortant, base d'avis | |
 | `users.manage` | Utilisateurs, groupes, rôles et configuration OIDC (elle décide qui rejoint quel groupe) | |
 | `audit.read` | Journal d'audit | |
+| `projects.create` | Créer un nouveau projet, que son créateur lit ensuite (voir [Création d'un projet](#creation-dun-projet)) | |
 
 `users.manage` permet à son détenteur de se donner toutes les autres permissions : ne la donnez
 qu'aux administrateurs. Accepter un risque ou marquer un faux positif demande en plus une session
@@ -78,6 +79,29 @@ projet. Un groupe existant de ce type est réutilisé (même créé par un admin
 soit son nom) ; sinon le groupe `project:<projet>` est créé (avec un numéro, par exemple
 `project:shop (2)`, quand un autre groupe porte déjà ce nom). Tous les développeurs enrôlés sur un
 projet partagent ainsi un groupe, qu'un administrateur gère comme les autres.
+
+## Création d'un projet
+
+Un utilisateur dont les groupes portent `projects.create` crée un projet avec **Nouveau projet**
+sur l'écran **Projets** (`POST /api/v1/projects`, depuis une session de l'interface web
+uniquement : un jeton ne crée jamais de projet). Le contrôleur crée le
+[groupe de projet](#groupes-de-projet) du projet et y ajoute le compte comme membre local : le
+compte lit aussitôt le projet, de même que son
+[jeton MCP personnel](../usage/web-interface.md#jetons-mcp-personnels), qui peut alors y
+enregistrer les rapports de son agent. Le projet apparaît sur l'écran **Projets**,
+**Aucun rapport**, jusqu'à son premier rapport.
+
+Seul un **nouveau** projet peut être créé : un nom qui a déjà un rapport, qu'un rôle d'un groupe
+cite, ou qu'un jeton ou une demande d'enrôlement atteint est refusé (409), pour que cette
+permission n'ouvre jamais les rapports d'un projet existant. Le créateur n'obtient que `reader` ;
+un administrateur donne le triage ou d'autres membres par les groupes, comme d'habitude. Chaque
+création est inscrite au journal d'audit (`project.created`).
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/projects -d '{"project": "mobile-app"}'
+# {"project": "mobile-app", "reports_total": 0, "last_report_at": null, …}
+```
 
 ## Ce qu'un utilisateur peut faire
 

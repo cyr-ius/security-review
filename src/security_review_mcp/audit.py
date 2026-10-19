@@ -58,6 +58,7 @@ class AuditAction(StrEnum):
     GROUP_ROLES_CHANGED = "group.roles_changed"
     GROUP_MEMBERS_CHANGED = "group.members_changed"
     USER_GROUPS_CHANGED = "user.groups_changed"
+    PROJECT_CREATED = "project.created"
     # Recorded by the direct roles of a user, removed since revision 0018: kept for the history
     USER_ROLES_CHANGED = "user.roles_changed"
     USER_LOGIN = "user.login"

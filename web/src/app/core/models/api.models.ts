@@ -66,7 +66,8 @@ export type Permission =
   | 'tokens.manage'
   | 'settings.manage'
   | 'users.manage'
-  | 'audit.read';
+  | 'audit.read'
+  | 'projects.create';
 
 /** Each permission held, with its projects (null: every project). */
 export type Grants = Partial<Record<Permission, string[] | null>>;
@@ -229,6 +230,7 @@ export type AuditAction =
   | 'group.roles_changed'
   | 'group.members_changed'
   | 'user.groups_changed'
+  | 'project.created'
   | 'user.roles_changed'
   | 'user.login'
   | 'user.login_failed'
@@ -255,6 +257,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'group.roles_changed',
   'group.members_changed',
   'user.groups_changed',
+  'project.created',
   'user.roles_changed',
   'user.login',
   'user.login_failed',
@@ -452,7 +455,8 @@ export type DevStandardWrite = Pick<
 export interface ProjectSummary {
   project: string;
   reports_total: number;
-  last_report_at: string;
+  /** Null for a project without any report yet. */
+  last_report_at: string | null;
   open_findings_total: number;
   open_findings_by_severity: SeverityCounts;
   worst_open_severity: Severity | null;

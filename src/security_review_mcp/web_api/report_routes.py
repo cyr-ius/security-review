@@ -5,11 +5,12 @@ import logging
 from datetime import UTC, datetime, time
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse, Response
 
-from .. import services, trends
+from .. import access_control, services, trends
+from ..database import session_scope
 from ..models import (
     DISMISSED_STATUSES,
     MAX_AUTHOR_CHARS,
@@ -23,6 +24,7 @@ from ..sarif import build_sarif
 from .deps import (
     CurrentIdentity,
     Permission,
+    ProjectCreator,
     Triager,
     actor_of,
     check_report_scope,
@@ -31,10 +33,12 @@ from .deps import (
     permission_scope,
     scoped_project,
     unprocessable,
+    web_user_id,
 )
 from .schemas import (
     FindingStatusUpdate,
     Granularity,
+    ProjectCreate,
     ProjectFindingPage,
     ProjectPosture,
     ProjectSummary,
@@ -68,11 +72,49 @@ async def project_trend(project: str, days: int, granularity: Granularity) -> di
         raise unprocessable(exc) from exc
 
 
+def _known_projects() -> list[dict]:
+    """Projects with reports, then those without any report that a role of a group names."""
+    with session_scope() as session:
+        bound = access_control.bound_projects(session)
+    return services.list_projects(bound)
+
+
 @router.get("/projects")
 async def projects(identity: CurrentIdentity) -> list[ProjectSummary]:
-    """List the projects with their open findings, latest activity first."""
-    projects = await run_in_threadpool(services.list_projects)
+    """List the projects with their open findings, latest activity first (then the projects
+    without any report yet)."""
+    projects = await run_in_threadpool(_known_projects)
     return [item for item in projects if in_scope(identity, item["project"])]
+
+
+@router.post("/projects", status_code=status.HTTP_201_CREATED)
+async def create_project(
+    request: Request, body: ProjectCreate, identity: ProjectCreator
+) -> ProjectSummary:
+    """Create a new project (``projects.create``, logged-in web user only): the controller
+    creates its project group and adds the caller to it, so that the caller reads the project
+    and its personal ``mcp`` token reaches it. A project already known is refused (409): the
+    permission never opens an existing project."""
+    user_id = web_user_id(request)
+    try:
+        created = await run_in_threadpool(
+            access_control.create_project, user_id, body.project, actor_of(identity)
+        )
+    except services.NotFoundError as exc:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, str(exc)) from exc
+    except ValueError as exc:
+        if "already exists" in str(exc):
+            raise HTTPException(status.HTTP_409_CONFLICT, str(exc)) from exc
+        raise unprocessable(exc) from exc
+    logger.info("Project %s created by %s", created["project"], identity.client)
+    return ProjectSummary(
+        project=created["project"],
+        reports_total=0,
+        last_report_at=None,
+        open_findings_total=0,
+        open_findings_by_severity={severity.value: 0 for severity in Severity},
+        worst_open_severity=None,
+    )
 
 
 @router.get("/posture")

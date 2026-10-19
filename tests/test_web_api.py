@@ -1083,6 +1083,60 @@ def test_a_custom_role_opens_only_its_routes(accounts, reports):
     assert response.status_code == 403
 
 
+def test_a_web_user_with_projects_create_creates_a_project(accounts, reports):
+    make_user("root", USER_PASSWORD, "admin")
+    creators = access_control.create_role("Creator", ["projects.create"])
+    group = access_control.create_group("creators")
+    access_control.set_group_roles(group["id"], [(creators["id"], None)])
+    make_user("carol", USER_PASSWORD, group_ids=[group["id"]])
+    make_user("ann", USER_PASSWORD, "reader", ["billing"])
+    headers = session_headers(accounts, "carol")
+    assert accounts.get("/api/v1/projects", headers=headers).json() == []
+
+    response = accounts.post("/api/v1/projects", json={"project": "mobile-app"}, headers=headers)
+
+    assert response.status_code == 201, response.text
+    assert response.json() == {
+        "project": "mobile-app",
+        "reports_total": 0,
+        "last_report_at": None,
+        "open_findings_total": 0,
+        "open_findings_by_severity": dict.fromkeys([severity.value for severity in Severity], 0),
+        "worst_open_severity": None,
+    }
+    me = accounts.get("/api/v1/me", headers=headers).json()
+    assert me["permissions"] == {"projects.create": None, "reports.read": ["mobile-app"]}
+    listed = accounts.get("/api/v1/projects", headers=headers).json()
+    assert [item["project"] for item in listed] == ["mobile-app"]
+    # An administrator sees it too, after the projects that have reports
+    admin = session_headers(accounts, "root")
+    listed = accounts.get("/api/v1/projects", headers=admin).json()
+    assert [item["project"] for item in listed][-1] == "mobile-app"
+
+    # A known project is never opened to its "creator"
+    for project in ("mobile-app", "shop-api"):
+        response = accounts.post("/api/v1/projects", json={"project": project}, headers=headers)
+        assert response.status_code == 409, project
+    assert accounts.get("/api/v1/projects", headers=headers).json()[0]["project"] == "mobile-app"
+    response = accounts.post("/api/v1/projects", json={"project": "bad\x00"}, headers=headers)
+    assert response.status_code == 422
+    response = accounts.post("/api/v1/projects", json={"project": ""}, headers=headers)
+    assert response.status_code == 422
+
+
+def test_creating_a_project_needs_the_permission_and_a_web_session(accounts, secured):
+    make_user("root", USER_PASSWORD, "admin")
+    make_user("ann", USER_PASSWORD, "reader")
+    reader = session_headers(accounts, "ann")
+    response = accounts.post("/api/v1/projects", json={"project": "new"}, headers=reader)
+    assert response.status_code == 403
+    assert "projects.create" in response.json()["detail"]
+    # An admin token holds every permission, but a token never creates a project
+    response = secured.post("/api/v1/projects", json={"project": "new"}, headers=auth("admin"))
+    assert response.status_code == 403
+    assert "web user" in response.json()["detail"]
+
+
 def test_triage_is_limited_to_the_projects_of_the_triage_permission(accounts, reports):
     make_user("root", USER_PASSWORD, "admin")
     crm_report = services.save_report("crm", "Review", [make_finding(Severity.HIGH)])
