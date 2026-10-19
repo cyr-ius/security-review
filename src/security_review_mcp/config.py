@@ -4,6 +4,7 @@ import ipaddress
 import logging
 import sys
 from functools import lru_cache
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator
@@ -204,6 +205,13 @@ class Settings(BaseSettings):
     # interface); the acceptance then lasts until someone reopens the finding. False: every
     # acceptance needs an expiry date. A false positive always needs one.
     permanent_acceptance_enabled: bool = True
+    # Controller only: lowest severity whose risk acceptance needs a reason and an expiry date
+    # (see permanent_acceptance_enabled). A less severe finding is accepted by a plain
+    # validation, which closes it with no reason and no expiry date. Empty: every acceptance
+    # needs them.
+    risk_acceptance_min_severity: Literal["critical", "high", "medium", "low", "info"] | None = (
+        "medium"
+    )
 
     # Longest validity, in days, of a bearer token created or rotated (CLI, web interface,
     # enrollment), which is also its default validity. 0: tokens never expire unless an expiry is
@@ -259,6 +267,14 @@ class Settings(BaseSettings):
     def _empty_is_unset(cls, value: str | None) -> str | None:
         """An empty variable means no value (an empty stored proxy means a direct connection)."""
         return value.strip() or None if value is not None else None
+
+    @field_validator("risk_acceptance_min_severity", mode="before")
+    @classmethod
+    def _empty_severity_is_unset(cls, value: object) -> object:
+        """An empty variable means no threshold: every acceptance needs a reason and a date."""
+        if isinstance(value, str):
+            return value.strip().lower() or None
+        return value
 
     @field_validator("proxy")
     @classmethod

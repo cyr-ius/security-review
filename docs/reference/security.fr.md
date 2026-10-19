@@ -139,7 +139,10 @@
   (au plus `SECREVIEW_MAX_DISMISSAL_DAYS` jours) ; l'approbateur est l'utilisateur connecté, et le
   finding est de nouveau compté comme ouvert une fois la date passée. Seule une acceptation peut
   être sans date d'expiration, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` : réglez-le
-  ainsi pour imposer une revue périodique de chaque risque accepté. Les commentaires d'un finding
+  ainsi pour imposer une revue périodique de chaque risque accepté. Un risque moins grave que
+  `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` par défaut) est accepté sans motif ni date,
+  toujours par une personne connectée, enregistrée comme approbateur ; laissez la variable vide
+  pour les exiger à chaque acceptation. Les commentaires d'un finding
   suivent la même règle (session avec `findings.triage`) et sont en ajout seul : aucune route ne
   les modifie ni ne les supprime.
 - **Les agents ne ferment jamais un finding** : le serveur MCP n'offre que

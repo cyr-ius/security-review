@@ -1960,7 +1960,8 @@ def test_web_user_accepts_a_risk_without_expiry_unless_disabled(accounts, report
     make_user("tess", USER_PASSWORD, "triager")
     make_user("rita", USER_PASSWORD, "reader")
     headers = session_headers(accounts, "tess")
-    assert accounts.get("/api/v1/me", headers=headers).json()["permanent_acceptance"] is True
+    me = accounts.get("/api/v1/me", headers=headers).json()
+    assert (me["permanent_acceptance"], me["risk_acceptance_min_severity"]) == (True, "medium")
     reader = session_headers(accounts, "rita")
     assert accounts.get("/api/v1/me", headers=reader).json()["permanent_acceptance"] is False
     url = f"/api/v1/findings/{services.get_report(reports[0]).findings[0].id}"

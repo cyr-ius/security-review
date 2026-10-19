@@ -218,6 +218,9 @@ The status of a finding is decided by a **person**; an agent only proposes it (M
   that the decision has expired. For **Risk accepted**, the **No expiry** box removes the date:
   the risk stays accepted until someone reopens the finding (disabled with
   `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`). A false positive always needs a date.
+- **Risk accepted** below `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` by default, so a
+  `low` or `info` finding): a plain validation, saved at once with no reason and no expiry date.
+  Empty variable: every acceptance goes through the form above.
 - **Open** and **Fixed** are saved at once (optional reason through the API). Any decision
   removes the pending proposal.
 
@@ -236,7 +239,10 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
 A reason that is missing or too short, an expiry date in the past or too far away, or an expiry
 date for `open` / `fixed` gets `422`. Without `expires_on`, an acceptance never expires, unless
 `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`); `GET /api/v1/me` returns
-`permanent_acceptance` to tell whether the caller may do it. The **Risk accepted** and **False positive** decisions
+`permanent_acceptance` to tell whether the caller may do it. Below
+`SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` and `expires_on` are optional for
+`accepted` (`{"status": "accepted"}` is enough); `GET /api/v1/me` returns this threshold as
+`risk_acceptance_min_severity` (`null`: every acceptance needs them). The **Risk accepted** and **False positive** decisions
 made before this feature had no reason nor approver: the database upgrade gives them an expiry
 date 30 days later, with a reason that asks to confirm them. Review them with the status filters
 before that date, or they block the gate again.

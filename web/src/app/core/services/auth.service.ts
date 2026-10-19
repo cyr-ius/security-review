@@ -29,6 +29,11 @@ export class AuthService {
   /** A risk may be accepted without an expiry date. */
   readonly permanentAcceptance = computed(() => this.identity()?.permanent_acceptance ?? false);
 
+  /** Lowest severity whose acceptance needs a reason and an expiry date (null: every one). */
+  readonly riskAcceptanceMinSeverity = computed(
+    () => this.identity()?.risk_acceptance_min_severity ?? null,
+  );
+
   /** True when the user holds ``permission`` (on ``project`` when one is given). */
   can(permission: Permission, project?: string): boolean {
     const grants = this.identity()?.permissions ?? {};

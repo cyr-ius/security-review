@@ -94,6 +94,7 @@
       [finding]="finding"
       [canTriage]="auth.canTriage()"
       [permanentAcceptance]="auth.permanentAcceptance()"
+      [riskAcceptanceMinSeverity]="auth.riskAcceptanceMinSeverity()"
       [saving]="triage.saving() === finding.id"
       (decided)="decide(finding, $event)"
       (proposalRejected)="decide(finding, null)"

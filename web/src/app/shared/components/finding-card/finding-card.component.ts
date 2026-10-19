@@ -10,6 +10,8 @@ import {
   Finding,
   FindingDecision,
   FindingStatus,
+  Severity,
+  plainAcceptance,
 } from '../../../core/models/api.models';
 import { SeverityBadgeComponent } from '../severity-badge/severity-badge.component';
 import { StatusBadgeComponent } from '../status-badge/status-badge.component';
@@ -38,7 +40,8 @@ function isoDay(days: number): string {
 /**
  * One finding: description, evidence and recommendation, with a status select for triagers.
  * Accepting a risk or marking a false positive asks for a reason and an expiry date (an
- * acceptance may have none when ``permanentAcceptance`` is set); a status
+ * acceptance may have none when ``permanentAcceptance`` is set), except a risk less severe
+ * than ``riskAcceptanceMinSeverity``, accepted at once like a fix; a status
  * proposed by an agent is shown apart, for the triager to apply or reject.
  * Extra details (report link...) can be projected at the end of the metadata line.
  *
@@ -59,6 +62,8 @@ export class FindingCardComponent {
   readonly canTriage = input(false);
   /** A risk may be accepted without an expiry date (server setting). */
   readonly permanentAcceptance = input(false);
+  /** Lowest severity whose acceptance needs a reason and an expiry date (null: every one). */
+  readonly riskAcceptanceMinSeverity = input<Severity | null>(null);
   /** A decision on this finding is being saved. */
   readonly saving = input(false);
 
@@ -104,6 +109,11 @@ export class FindingCardComponent {
     () => this.permanentAcceptance() && this.pendingStatus() === 'accepted',
   );
 
+  /** Accepting this risk is a plain validation, saved at once with no reason and no expiry. */
+  readonly plainAcceptance = computed(() =>
+    plainAcceptance(this.finding().severity, this.riskAcceptanceMinSeverity()),
+  );
+
   /** The decision being made has no expiry date. */
   readonly withoutExpiry = computed(() => this.noExpiryOffered() && this.dismissalModel().noExpiry);
 
@@ -139,7 +149,10 @@ export class FindingCardComponent {
     return id ? `https://cwe.mitre.org/data/definitions/${id}.html` : null;
   });
 
-  /** Status select: open and fixed are saved at once, a dismissal opens the form. */
+  /**
+   * Status select: open, fixed and a plain acceptance are saved at once, a dismissal opens the
+   * form.
+   */
   changeStatus(event: Event): void {
     const finding = this.finding();
     const select = event.target as HTMLSelectElement;
@@ -149,11 +162,7 @@ export class FindingCardComponent {
     if (status === finding.status) {
       return;
     }
-    if (DISMISSED_STATUSES.includes(status)) {
-      this.openDismissal(status);
-      return;
-    }
-    this.save({ status });
+    this.decide(status);
   }
 
   /** Open the reason and expiry form for an acceptance or a false positive. */
@@ -184,15 +193,21 @@ export class FindingCardComponent {
     if (!proposed) {
       return;
     }
-    if (DISMISSED_STATUSES.includes(proposed)) {
-      this.openDismissal(proposed);
-    } else {
-      this.save({ status: proposed });
-    }
+    this.decide(proposed);
   }
 
   rejectProposal(): void {
     this.proposalRejected.emit();
+  }
+
+  /** Save ``status`` at once, or open the form when it needs a reason and an expiry. */
+  private decide(status: FindingStatus): void {
+    const plain = status === 'accepted' && this.plainAcceptance();
+    if (DISMISSED_STATUSES.includes(status) && !plain) {
+      this.openDismissal(status);
+    } else {
+      this.save({ status });
+    }
   }
 
   private save(decision: FindingDecision): void {

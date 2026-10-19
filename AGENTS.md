@@ -209,7 +209,8 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   (`propose_finding_status` enregistre seulement une proposition). `accepted` et
   `false_positive` sont décidés par une personne connectée à l'interface (session, jamais un
   jeton Bearer), avec motif, approbateur et date d'expiration (seule une acceptation peut en être
-  dépourvue, tant que `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` est actif) ; une décision expirée
+  dépourvue, tant que `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` est actif ; sous
+  `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, une acceptation n'exige ni motif ni date) ; une décision expirée
   compte comme ouverte (gate, posture, SARIF, tendances).
 
 ### Paramètres

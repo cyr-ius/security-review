@@ -393,6 +393,16 @@ def _check_expiry(expires_at: datetime, now: datetime, longest: int) -> datetime
     return expires_at
 
 
+def needs_formal_acceptance(severity: Severity | str) -> bool:
+    """Whether accepting the risk of a finding of this severity needs a reason and an expiry.
+
+    True from SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY up, and for every severity when it is
+    empty; a less severe finding is accepted by a plain validation.
+    """
+    threshold = get_settings().risk_acceptance_min_severity
+    return threshold is None or SEVERITY_RANK[Severity(severity)] >= SEVERITY_RANK[threshold]
+
+
 def update_finding_status(
     finding_id: int,
     status: FindingStatus,
@@ -406,6 +416,8 @@ def update_finding_status(
     ``accepted`` and ``false_positive`` need a reason and an expiry date, in the future and at
     most SECREVIEW_MAX_DISMISSAL_DAYS days away: once expired, the finding counts as open again.
     An acceptance may have no expiry date while SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
+    A finding less severe than SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY is accepted by a plain
+    validation: its reason and its expiry date are optional.
     The reason of an acceptance is also its first comment (see ``add_finding_comment``).
     ``fixed`` takes an optional reason; ``open`` clears the decision. Any decision clears the
     status proposed by an agent. The decision is written to the audit log (``actor``, default
@@ -419,30 +431,36 @@ def update_finding_status(
     if not approver:
         raise ValueError("An approver is required")
     now = utcnow()
-    if status in DISMISSED_STATUSES:
-        reason = _check_reason(reason, required=True)
-        settings = get_settings()
-        if expires_at is None:
-            if status != FindingStatus.ACCEPTED or not settings.permanent_acceptance_enabled:
-                raise ValueError(f"An expiry date is required for the status '{status.value}'")
-        else:
-            expires_at = _check_expiry(as_utc(expires_at), now, settings.max_dismissal_days)
-    else:
-        if expires_at is not None:
-            raise ValueError(f"The status '{status.value}' takes no expiry date")
-        reason = _check_reason(reason, required=False) if status != FindingStatus.OPEN else None
-
     with session_scope() as session:
         finding = session.get(Finding, finding_id)
         if finding is None:
             raise NotFoundError(f"Finding {finding_id} not found")
+        if status in DISMISSED_STATUSES:
+            settings = get_settings()
+            plain = status == FindingStatus.ACCEPTED and not needs_formal_acceptance(
+                finding.severity
+            )
+            reason = _check_reason(reason, required=not plain)
+            if expires_at is None:
+                if not plain and (
+                    status != FindingStatus.ACCEPTED or not settings.permanent_acceptance_enabled
+                ):
+                    raise ValueError(f"An expiry date is required for the status '{status.value}'")
+            else:
+                expires_at = _check_expiry(as_utc(expires_at), now, settings.max_dismissal_days)
+        else:
+            if expires_at is not None:
+                raise ValueError(f"The status '{status.value}' takes no expiry date")
+            reason = _check_reason(reason, required=False) if status != FindingStatus.OPEN else None
         previous = effective_status(finding.status, finding.status_expires_at, now)
         if previous != status:
             finding.status_changed_at = now
         # The reason of an acceptance opens its comments: a new one is added when the risk is
         # accepted or its reason changes, not when only the expiry date does
-        if status == FindingStatus.ACCEPTED and (
-            finding.status != status or finding.status_reason != reason
+        if (
+            status == FindingStatus.ACCEPTED
+            and reason
+            and (finding.status != status or finding.status_reason != reason)
         ):
             session.add(
                 FindingComment(

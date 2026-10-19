@@ -471,6 +471,39 @@ def test_risk_acceptance_without_expiry_unless_disabled(monkeypatch):
     assert services.get_report(saved["report_id"]).findings[0].status == FindingStatus.OPEN
 
 
+def test_risk_below_the_threshold_is_accepted_without_reason_or_expiry(monkeypatch):
+    saved = services.save_report(
+        "shop", "summary", [make_finding(Severity.LOW), make_finding(Severity.MEDIUM)]
+    )
+    low, medium = (f.id for f in services.get_report(saved["report_id"]).findings)
+    assert Settings(_env_file=None).risk_acceptance_min_severity == "medium"
+    assert (
+        Settings(_env_file=None, risk_acceptance_min_severity=" ").risk_acceptance_min_severity
+        is None
+    )
+    monkeypatch.setattr(get_settings(), "permanent_acceptance_enabled", False)
+
+    decided = services.update_finding_status(low, FindingStatus.ACCEPTED, "alice")
+    assert (decided.status, decided.status_reason, decided.status_expires_at) == (
+        FindingStatus.ACCEPTED,
+        None,
+        None,
+    )
+    assert services.list_finding_comments(low) == []
+    # From the threshold up, an acceptance still needs a reason and an expiry date
+    with pytest.raises(ValueError, match="reason is required"):
+        services.update_finding_status(medium, FindingStatus.ACCEPTED, "alice")
+    # A false positive is never a plain validation
+    with pytest.raises(ValueError, match="reason is required"):
+        services.update_finding_status(low, FindingStatus.FALSE_POSITIVE, "alice")
+
+    # Empty threshold: every acceptance needs them
+    services.update_finding_status(low, FindingStatus.OPEN, "alice")
+    monkeypatch.setattr(get_settings(), "risk_acceptance_min_severity", None)
+    with pytest.raises(ValueError, match="reason is required"):
+        services.update_finding_status(low, FindingStatus.ACCEPTED, "alice")
+
+
 def test_triage_decision_masks_its_reason_and_clears_the_proposal():
     saved = services.save_report("shop", "summary", [make_finding()])
     finding_id = services.get_report(saved["report_id"]).findings[0].id

@@ -64,6 +64,10 @@ class Identity(BaseModel):
     # A web user who triages may accept a risk without an expiry date
     # (SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED); always false for a bearer token
     permanent_acceptance: bool = False
+    # Lowest severity whose risk acceptance needs a reason and an expiry date
+    # (SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY); a less severe finding is accepted by a plain
+    # validation. None: every acceptance needs them
+    risk_acceptance_min_severity: Severity | None = None
     version: str
 
 
@@ -272,7 +276,8 @@ class FindingStatusUpdate(BaseModel):
 
     ``accepted`` and ``false_positive`` need a reason and an expiry date (the finding counts as
     open again from that day, 00:00 UTC). An acceptance may leave it out (no expiry) while
-    SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
+    SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on. Both are optional to accept a finding less
+    severe than SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY.
     """
 
     status: FindingStatus

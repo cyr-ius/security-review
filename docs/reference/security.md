@@ -133,7 +133,10 @@
   and an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the
   logged-in user, and the finding counts as open again once the date has passed. Only an
   acceptance may have no expiry date, unless `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`:
-  set it to force a periodic review of every accepted risk. Comments on a finding follow the
+  set it to force a periodic review of every accepted risk. A risk less severe than
+  `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` by default) is accepted with no reason nor
+  date, still by a logged-in person who is recorded as approver; leave the variable empty to
+  require them for every acceptance. Comments on a finding follow the
   same rule (session with `findings.triage`) and are append-only: no route edits or deletes one.
 - **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
   stores a proposal (reason masked and bounded, author taken from the token) without changing

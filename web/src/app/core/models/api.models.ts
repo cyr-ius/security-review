@@ -25,6 +25,14 @@ export const SEVERITY_RANK: Record<Severity, number> = {
   info: 0,
 };
 
+/**
+ * A risk of this severity is accepted by a plain validation, with no reason and no expiry date:
+ * it is less severe than ``minSeverity`` (SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY; null: never).
+ */
+export function plainAcceptance(severity: Severity, minSeverity: Severity | null): boolean {
+  return minSeverity !== null && SEVERITY_RANK[severity] < SEVERITY_RANK[minSeverity];
+}
+
 export const FINDING_STATUSES: readonly FindingStatus[] = [
   'open',
   'fixed',
@@ -121,6 +129,11 @@ export interface Identity {
   must_change_password?: boolean;
   /** A risk may be accepted without an expiry date (SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED). */
   permanent_acceptance?: boolean;
+  /**
+   * Lowest severity whose acceptance needs a reason and an expiry date
+   * (SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY); null: every acceptance needs them.
+   */
+  risk_acceptance_min_severity?: Severity | null;
   version: string;
 }
 

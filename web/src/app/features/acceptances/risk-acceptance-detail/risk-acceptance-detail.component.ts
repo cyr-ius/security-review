@@ -8,7 +8,12 @@ import { firstValueFrom } from 'rxjs';
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { Finding, RiskAcceptance } from '../../../core/models/api.models';
+import {
+  Finding,
+  RiskAcceptance,
+  Severity,
+  plainAcceptance,
+} from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 
 /** Longest comment accepted by the server (models.MAX_COMMENT_CHARS). */
@@ -55,6 +60,8 @@ export class RiskAcceptanceDetailComponent {
   readonly canTriage = input(false);
   /** A risk may be accepted without an expiry date (server setting). */
   readonly permanentAcceptance = input(false);
+  /** Lowest severity whose acceptance needs a reason and an expiry date (null: every one). */
+  readonly riskAcceptanceMinSeverity = input<Severity | null>(null);
 
   /** The acceptance was saved with a new expiry date. */
   readonly changed = output<Finding>();
@@ -104,10 +111,18 @@ export class RiskAcceptanceDetailComponent {
     );
   });
 
-  /** The new expiry has no date: offered while the server allows a permanent acceptance. */
-  readonly withoutExpiry = computed(
-    () => this.permanentAcceptance() && this.expiryModel().noExpiry,
+  /**
+   * "No expiry" is offered while the server allows a permanent acceptance, and always for a risk
+   * accepted by a plain validation.
+   */
+  readonly noExpiryOffered = computed(
+    () =>
+      this.permanentAcceptance() ||
+      plainAcceptance(this.acceptance().severity, this.riskAcceptanceMinSeverity()),
   );
+
+  /** The new expiry has no date. */
+  readonly withoutExpiry = computed(() => this.noExpiryOffered() && this.expiryModel().noExpiry);
 
   /** "file.py:10" */
   readonly location = computed(() => {

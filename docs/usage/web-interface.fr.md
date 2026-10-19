@@ -235,6 +235,9 @@ MCP `propose_finding_status`, voir [statut d'un finding](prompts-tools.md#statut
   **Risque accepté**, la case **Sans expiration** supprime la date : le risque reste accepté
   jusqu'à ce que quelqu'un rouvre le finding (désactivée par
   `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`). Un faux positif exige toujours une date.
+- **Risque accepté** sous `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` par défaut, donc
+  un finding `low` ou `info`) : une simple validation, enregistrée immédiatement sans motif ni
+  date d'expiration. Variable vide : toute acceptation passe par le formulaire ci-dessus.
 - **Ouvert** et **Corrigé** sont enregistrés immédiatement (motif facultatif par l'API). Toute
   décision supprime la proposition en attente.
 
@@ -253,7 +256,10 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
 Un motif absent ou trop court, une date d'expiration passée ou trop lointaine, ou une date
 d'expiration pour `open` / `fixed` reçoit `422`. Sans `expires_on`, une acceptation n'expire
 jamais, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`) ; `GET /api/v1/me` renvoie
-`permanent_acceptance` pour indiquer si l'appelant peut le faire. Les décisions **Risque accepté** et **Faux
+`permanent_acceptance` pour indiquer si l'appelant peut le faire. Sous
+`SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` et `expires_on` sont facultatifs pour
+`accepted` (`{"status": "accepted"}` suffit) ; `GET /api/v1/me` renvoie ce seuil dans
+`risk_acceptance_min_severity` (`null` : toute acceptation les exige). Les décisions **Risque accepté** et **Faux
 positif** prises avant cette fonctionnalité n'avaient ni motif ni approbateur : la mise à jour de
 la base leur donne une date d'expiration 30 jours plus tard, avec un motif qui demande de les
 confirmer. Revoyez-les avec les filtres de statut avant cette date, sinon elles bloquent de
