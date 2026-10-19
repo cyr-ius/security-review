@@ -4,7 +4,7 @@ Scoped to the projects of the token; a ci token reaches nothing else. The gate, 
 only read. The scans (``/scan/code``, ``/scan/deps``) receive the content of the files of a
 pipeline, scan it with the rules or the advisory database of the controller and, with ``save``,
 store the result as a report: they need a ``ci`` or ``admin`` token (see deps.scan_identity),
-and their body is bounded by body_limit.BodyLimit before it is parsed.
+and their body is bounded by http_server.BodyLimit (see body_limit) before it is parsed.
 """
 
 import logging

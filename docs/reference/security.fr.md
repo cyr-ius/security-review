@@ -234,6 +234,10 @@
   imports de packs et `SECREVIEW_MAX_SCAN_REQUEST_MB` pour les scans de pipeline. Le
   `Content-Length` déclaré est vérifié d'abord, un corps fragmenté (chunked) au fil de la
   lecture.
+- **Corps des requêtes du serveur MCP** : un corps sur `/mcp` n'est lu qu'après la
+  vérification du jeton et il est borné (`413` au-delà) : `SECREVIEW_MAX_MCP_REQUEST_MB` pour un
+  client authentifié, 64 Kio pour un client sans jeton servi par le serveur d'enrôlement. Un
+  jeton refusé reçoit son `401` avant que son corps soit lu.
 - **Base de données** : les requêtes SQL passent par l'ORM (paramètres liés) ; les tailles
   d'entrée, le nombre de findings et la pagination sont bornés. Chaque nom de projet est
   [normalisé](../usage/prompts-tools.md#nom-du-projet) avant usage : seuls des lettres, des

@@ -18,7 +18,11 @@ from .database import session_scope
 from .models import (
     DISMISSED_STATUSES,
     MAX_AUTHOR_CHARS,
+    MAX_BRANCH_CHARS,
     MAX_COMMENT_CHARS,
+    MAX_COMMIT_SHA_CHARS,
+    MAX_REPOSITORY_CHARS,
+    MAX_REVIEWER_CHARS,
     MAX_STATUS_REASON_CHARS,
     PROPOSABLE_STATUSES,
     SEVERITY_RANK,
@@ -112,6 +116,20 @@ def _sanitize_finding(data: FindingCreate) -> Finding:
     return Finding(**values)
 
 
+def _check_lengths(*fields: tuple[str, str | None, int]) -> None:
+    """Refuse a field (name, value, limit) longer than its limit, before it is masked or stored.
+
+    The table models do not validate their max_length: a longer value would be stored and
+    break the reading of the report.
+
+    Raises:
+        ValueError: Naming the first field that is too long.
+    """
+    for name, value, limit in fields:
+        if value is not None and len(value) > limit:
+            raise ValueError(f"{name} too long ({len(value)} chars); the limit is {limit}")
+
+
 def save_report(
     project: str,
     summary: str,
@@ -152,7 +170,8 @@ def save_report(
         coverage, also its counts, the uncovered checklist items and the warnings.
 
     Raises:
-        ValueError: If the report contains too many findings, an unknown review type or an
+        ValueError: If the report contains too many findings, a field longer than its column
+            or a text longer than SECREVIEW_MAX_CONTENT_CHARS, an unknown review type or an
             invalid author.
     """
     settings = get_settings()
@@ -165,6 +184,20 @@ def save_report(
         raise ValueError(
             f"Too many findings ({len(findings)}); the limit is {settings.max_findings_per_report}"
         )
+    content = settings.max_content_chars
+    _check_lengths(
+        ("repository", repository, MAX_REPOSITORY_CHARS),
+        ("branch", branch, MAX_BRANCH_CHARS),
+        ("commit_sha", commit_sha, MAX_COMMIT_SHA_CHARS),
+        ("reviewer", reviewer, MAX_REVIEWER_CHARS),
+        ("summary", summary, content),
+        ("scope", scope, content),
+        *(
+            (f"findings[{index}].{name}", getattr(item, name), content)
+            for index, item in enumerate(findings)
+            for name in ("description", "evidence", "recommendation")
+        ),
+    )
     author = _check_author(author)
     declared = None
     if checklist_results is not None or scan_rules is not None:

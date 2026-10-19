@@ -221,6 +221,10 @@
   beyond: 512 KiB for the JSON routes, public ones included (login, SSO), 8 MiB for the
   pack imports and `SECREVIEW_MAX_SCAN_REQUEST_MB` for the pipeline scans. The declared
   `Content-Length` is checked first, a chunked body as it is read.
+- **Request bodies of the MCP server**: a body on `/mcp` is read only after the token check
+  and bounded (`413` beyond): `SECREVIEW_MAX_MCP_REQUEST_MB` for an authenticated client,
+  64 KiB for a client without a token served by the enrollment server. A rejected token gets
+  its `401` before its body is read.
 - **Database**: SQL queries go through the ORM (bound parameters); input sizes, the number of
   findings and the pagination are bounded. Every project name is
   [normalized](../usage/prompts-tools.md#project-name) before use: only letters, digits and

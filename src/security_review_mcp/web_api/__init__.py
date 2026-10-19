@@ -36,6 +36,7 @@ from ..http_server import (
     LOOPBACK_HOSTS,
     METRICS_PATH,
     OPENAPI_PATH,
+    BodyLimit,
 )
 from . import (
     access_routes,
@@ -48,7 +49,7 @@ from . import (
     token_routes,
 )
 from .auth_routes import OidcLogins
-from .body_limit import BodyLimit
+from .body_limit import body_limit
 from .deps import MetricsIdentity, current_identity
 from .schemas import HealthStatus, Identity
 
@@ -279,7 +280,7 @@ def create_app(
         logger.warning("Web interface not built: only the REST API is served (/api/v1)")
 
     # Bounds the body of every request before FastAPI parses it
-    app.add_middleware(BodyLimit)
+    app.add_middleware(BodyLimit, limits=body_limit)
     if host in LOOPBACK_HOSTS:
         # Same protection as the MCP endpoint against DNS rebinding on a local server
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "[::1]"])

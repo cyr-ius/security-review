@@ -246,6 +246,9 @@ class Settings(BaseSettings):
     max_findings_per_report: int = 500
     max_dependency_chars: int = 1_000_000
     max_list_limit: int = 100
+    # MCP server only: size of the body of a request of an authenticated MCP client (413 above);
+    # a client without a token, sent to the enrollment server, gets a fixed bound of 64 KiB
+    max_mcp_request_mb: int = Field(default=16, ge=1, le=1024)
     # Controller only: bounds of the scans sent by security-review-ci (POST /api/v1/ci/scan/...):
     # size of the request body (413 above), files per request, and size of one scanned source
     # file (a larger one is reported as skipped)

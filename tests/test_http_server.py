@@ -21,7 +21,7 @@ from security_review_mcp import (
     token_store,
     web_users,
 )
-from security_review_mcp.config import Settings
+from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
 from security_review_mcp.models import ApiToken
 
@@ -283,6 +283,32 @@ def test_mcp_app_serves_health_and_enrollment_but_not_the_web_interface(enrollme
     assert client.post("/api/v1/enroll").status_code == enroll_status
     assert client.get("/ui/").status_code == 401
     assert client.get("/api/v1/me").status_code == 401
+
+
+def test_mcp_bodies_are_bounded_after_authentication(monkeypatch):
+    token_store.create_token("ops", Role.ADMIN)
+    dev = bearer(token_store.create_token("dev", Role.MCP)["token"])
+    monkeypatch.setattr(get_settings(), "max_mcp_request_mb", 1)
+    app = http_server.build_mcp_app(
+        server.mcp, "127.0.0.1", STORE, enrollment_server=server.enrollment_mcp
+    )
+    headers = {"content-type": "application/json", "accept": "application/json, text/event-stream"}
+    above_enrollment = b"x" * (http_server.MAX_ENROLLMENT_BODY_BYTES + 1)
+    above_mcp = b"x" * (1024 * 1024 + 1)
+
+    with TestClient(app, base_url="http://127.0.0.1:8000") as client:
+        # Without a token, the enrollment server only takes a small body
+        assert client.post("/mcp", content=above_enrollment, headers=headers).status_code == 413
+        # A rejected token is refused before its body is read
+        rejected = client.post("/mcp", content=above_mcp, headers=headers | bearer("x" * 40))
+        assert rejected.status_code == 401
+        # An authenticated client is bounded by SECREVIEW_MAX_MCP_REQUEST_MB
+        response = client.post("/mcp", content=above_mcp, headers=headers | dev)
+        assert response.status_code == 413
+        assert "SECREVIEW_MAX_MCP_REQUEST_MB" in response.json()["detail"]
+        # Below it, the body reaches the MCP endpoint (which refuses it as invalid JSON)
+        below = client.post("/mcp", content=above_enrollment, headers=headers | dev)
+        assert below.status_code == 400
 
 
 def json_answer(_request):

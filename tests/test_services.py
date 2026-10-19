@@ -89,6 +89,18 @@ def test_too_many_findings_rejected(monkeypatch):
         services.save_report("p", "summary", [make_finding() for _ in range(3)])
 
 
+@pytest.mark.parametrize(
+    ("fields", "finding"),
+    [({"branch": "b" * 201}, {}), ({"scope": "s" * 1001}, {}), ({}, {"evidence": "e" * 1001})],
+)
+def test_too_long_fields_are_rejected_before_storage(monkeypatch, fields, finding):
+    # A branch longer than its column was stored, then the report could not be read any more
+    monkeypatch.setattr(services.get_settings(), "max_content_chars", 1000)
+    with pytest.raises(ValueError, match="too long"):
+        services.save_report("p", "summary", [make_finding(**finding)], **fields)
+    assert services.list_reports() == []
+
+
 def test_invalid_finding_is_rejected():
     with pytest.raises(ValueError):
         make_finding(cwe="not-a-cwe")

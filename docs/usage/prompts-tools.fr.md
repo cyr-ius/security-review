@@ -106,6 +106,11 @@ Voir [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
 - `checklist_results` et `scan_rules` : la couverture de la revue (voir
   [couverture de la revue](#couverture-de-la-revue)).
 
+Chaque champ est borné : `repository` (500 caractères), `branch` (200), `commit_sha` (64),
+`reviewer` (200), et chaque texte (`summary`, `scope`, et `description`, `evidence` et
+`recommendation` d'un finding) à `SECREVIEW_MAX_CONTENT_CHARS` ; une valeur plus longue fait
+refuser le rapport.
+
 Le **niveau de risque** du rapport est calculé (sévérité maximale des findings). Le paramètre
 `risk_level` peut seulement le relever, jamais le baisser.
 

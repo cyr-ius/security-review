@@ -55,6 +55,12 @@ MAX_STATUS_REASON_CHARS = 1000
 MAX_COMMENT_CHARS = 2000
 # Developer username declared with a report, and label of the token that saved it
 MAX_AUTHOR_CHARS = 200
+# Short fields of a report, the size of their column (the text fields are bounded by
+# SECREVIEW_MAX_CONTENT_CHARS, see services.save_report)
+MAX_REPOSITORY_CHARS = 500
+MAX_BRANCH_CHARS = 200
+MAX_COMMIT_SHA_CHARS = 64
+MAX_REVIEWER_CHARS = 200
 # Review coverage declared with a report: checklist results and rules that raised scan leads
 MAX_CHECKLIST_RESULTS = 500
 MAX_SCAN_RULES = 500
@@ -235,10 +241,12 @@ class SecurityReportBase(SQLModel):
     """Fields shared by every SecurityReport variant."""
 
     project: str = Field(index=True, min_length=1, max_length=200)
-    repository: str | None = Field(default=None, max_length=500)
-    branch: str | None = Field(default=None, max_length=200)
-    commit_sha: str | None = Field(default=None, max_length=64, index=True)
-    reviewer: str | None = Field(default=None, max_length=200, description="Agent or person")
+    repository: str | None = Field(default=None, max_length=MAX_REPOSITORY_CHARS)
+    branch: str | None = Field(default=None, max_length=MAX_BRANCH_CHARS)
+    commit_sha: str | None = Field(default=None, max_length=MAX_COMMIT_SHA_CHARS, index=True)
+    reviewer: str | None = Field(
+        default=None, max_length=MAX_REVIEWER_CHARS, description="Agent or person"
+    )
     # Declared by the client (not authenticated): one enrolled device may serve several people
     author: str | None = Field(
         default=None,

@@ -104,6 +104,11 @@ See [enrollment](../advanced/http.md#enrollment-request-the-project).
 - `checklist_results` and `scan_rules`: the coverage of the review (see
   [review coverage](#review-coverage)).
 
+Each field is bounded: `repository` (500 characters), `branch` (200), `commit_sha` (64),
+`reviewer` (200), and each text (`summary`, `scope`, and the `description`, `evidence` and
+`recommendation` of a finding) to `SECREVIEW_MAX_CONTENT_CHARS`; a longer value refuses the
+report.
+
 The **risk level** of the report is computed (highest severity of the findings). The
 `risk_level` parameter can only raise it, never lower it.
 

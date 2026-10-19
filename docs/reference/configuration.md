@@ -76,7 +76,8 @@ then locks the field).
 | `SECREVIEW_METRICS_ENABLED` | `true` | Controller | Serves the [Prometheus metrics](../advanced/audit-metrics.md#prometheus-metrics) on `/metrics` (`metrics` or `admin` token); when `false`, `/metrics` answers 404 |
 | `SECREVIEW_UPDATE_CHECK_ENABLED` | `false` | Controller | The **About** page searches GitHub for a newer release (HTTPS, through the outgoing proxy, cached 6 hours, see [security](security.md#security-of-the-server-itself)) |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | both | Logging level (on stderr) |
-| `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | MCP | Maximum size of the content passed to `scan_code` |
+| `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | MCP | Maximum size of the content passed to `scan_code`, and of each text of a report (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
+| `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | MCP | Maximum size of a request of an authenticated MCP client on `/mcp` (`413` beyond); a client without a token, sent to the enrollment server, is bounded to 64 KiB |
 | `SECREVIEW_MAX_FINDINGS_PER_REPORT` | `500` | both | Maximum number of findings per report |
 | `SECREVIEW_MAX_DEPENDENCY_CHARS` | `1000000` | both | Maximum size of a manifest passed to `scan_dependencies` or sent by `security-review-ci scan-deps` |
 | `SECREVIEW_MAX_LIST_LIMIT` | `100` | both | Maximum size of a page of results |
