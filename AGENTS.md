@@ -217,6 +217,8 @@ fonctionnalité sans test n'est pas terminée ; une correction de bug commence p
 
 - Un fichier par module : `tests/test_<module>.py`. Ajoutez au fichier existant plutôt que d'en
   créer un nouveau.
+- `tests/conftest.py` ignore le `.env` du développeur et les variables `SECREVIEW_*` du shell :
+  un test qui a besoin d'un réglage le définit lui-même (`monkeypatch.setenv`, `Settings(...)`).
 - `tests/conftest.py` fournit automatiquement une base SQLite en mémoire et un registre de
   règles vide par test : n'utilisez pas la base réelle. Utilisez la fixture `import_pack` pour
   charger des règles internes (pack TOML importé en base), `tmp_path` pour les fichiers.

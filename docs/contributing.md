@@ -44,7 +44,8 @@ Docker daemon (*docker-in-docker* feature) and a **PostgreSQL 17** database. `co
 describes two services: `app`, the development container, and `db`, the database, reachable
 from `app` under the `db` name and kept in the `secreview-dev-pg` volume between two rebuilds.
 `SECREVIEW_DATABASE_URL` points to it by default: the MCP server, the controller and the CLI use
-PostgreSQL. The tests always use an in-memory SQLite database.
+PostgreSQL. The tests always use an in-memory SQLite database, and ignore your `.env` file and
+the `SECREVIEW_*` variables of the shell.
 
 At creation, the devcontainer installs the `psql` client, the `prek` hooks and the full
 environment (`uv sync --extra dev --extra docs --extra postgres`), then migrates the database. It
