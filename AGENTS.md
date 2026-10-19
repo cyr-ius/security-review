@@ -114,7 +114,7 @@ l'utiliser.
 | Moteur de scan, masquage des secrets | `scanner.py` |
 | Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `project`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `code-scan` et `deps-scan` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `codescan.py`, `depscan.py`, `web_api/ci_routes.py`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`), `ci_client.py` |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `project`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `codescan.py`, `depscan.py`, `web_api/ci_routes.py`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`), `ci_client.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` ; `proxy.py` |
 | Normalisation des noms de projet (minuscules, nom du dépôt, `-` seul séparateur), appliquée à toute entrée | `project_names.py` |
 | Persistance, schéma (purge des rapports sans findings et de l'audit : `retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `coverage.py`) | `models.py`, `services.py`, `coverage.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
@@ -284,7 +284,7 @@ une PR, quelle que soit la taille du changement :
 
 Si le serveur n'est pas connecté ou ne répond pas, dites-le explicitement : ne prétendez pas
 avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt
-(`uv run security-review-ci code-scan . --project security-review-mcp --exclude tests/`, avec
+(`uv run security-review-ci scan-code . --project security-review-mcp --exclude tests/`, avec
 `SECREVIEW_CONTROLLER_URL` et un jeton `ci` dans `SECREVIEW_TOKEN`) et signalez ses résultats ;
 si aucun contrôleur n'est joignable, dites-le aussi.
 
@@ -306,7 +306,7 @@ essentielles.
 | Si vous modifiez... | Mettez à jour (`.md` et `.fr.md`) |
 |---|---|
 | Un prompt ou un outil MCP (nom, argument, comportement) | `docs/usage/prompts-tools` |
-| Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/advanced/rules` (et `code-scan` si le scan du dépôt change) |
+| Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/advanced/rules` (et `advanced/code-scan` si le scan du dépôt change) |
 | Le format des packs TOML internes | `docs/advanced/rules`, `examples/rules/company.toml` |
 | L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/advanced/dependencies` |
 | Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`usage/gate`, `advanced/code-scan`, `advanced/sarif`...) |

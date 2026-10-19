@@ -208,7 +208,7 @@
   by other users).
 - **No disk access on the MCP side**: `scan_code` only works on the given content; the server
   reads no file from the disk, which avoids path traversals. For the whole repository scan,
-  the pipeline client (`security-review-ci code-scan`), run by the operator on a folder they
+  the pipeline client (`security-review-ci scan-code`), run by the operator on a folder they
   choose, reads the files without following symbolic links and sends their content to the
   controller, which scans it without reading its own disk.
 - **Pipeline scans**: `POST /api/v1/ci/scan/code` and `/scan/deps` need a `ci` or `admin`

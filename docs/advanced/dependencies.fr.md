@@ -21,7 +21,7 @@ analysez-le :
 ```bash
 # Maven : écrit target/bom.json et target/bom.xml
 mvn org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
-security-review-ci deps-scan target/bom.json --project mon-projet --require-database
+security-review-ci scan-deps target/bom.json --project mon-projet --require-database
 ```
 
 Avec Gradle, la tâche `cyclonedxBom` du plugin `org.cyclonedx.bom` produit le même fichier ;
@@ -132,7 +132,7 @@ security-review-controller advisories update --ecosystem npm  # option répétab
 Le contrôleur télécharge au plus quelques centaines de Mio par jour (l'export npm est le plus
 gros) : prévoyez l'espace correspondant dans son dossier temporaire (`/tmp`).
 
-## Scan dans un pipeline (`security-review-ci deps-scan`)
+## Scan dans un pipeline (`security-review-ci scan-deps`)
 
 Dans un pipeline, le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci)
 envoie les fichiers de dépendances au contrôleur, qui les compare à sa base d'avis et, avec
@@ -143,7 +143,7 @@ base ni du paquet, seulement d'un [jeton `ci`](../usage/gate.md#jeton-ci-et-proj
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
 export SECREVIEW_TOKEN=...   # jeton ci limité à mon-projet
-security-review-ci deps-scan package-lock.json requirements.txt \
+security-review-ci scan-deps package-lock.json requirements.txt \
     --fail-on high --require-database --project mon-projet --save
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur
 ```
@@ -174,7 +174,7 @@ Un jeton absent ou refusé (inconnu, révoqué ou expiré) se termine par une er
 se connecter à l'interface web pour créer un nouveau jeton MCP personnel (voir
 [jeton refusé](http.md#jeton-refuse-se-reconnecter)).
 
-- Mêmes options et même sortie que `security-review-ci deps-scan` (`--fail-on`, `--format`,
+- Mêmes options et même sortie que `security-review-ci scan-deps` (`--fail-on`, `--format`,
   `--require-database`) ; rien n'est enregistré (pas de `--save`).
 - `--url` remplace `SECREVIEW_MCP_URL`, `--token-stdin` lit le jeton sur stdin au lieu de
   `SECREVIEW_TOKEN`. Les deux variables peuvent aussi être définies dans le fichier `.env` du

@@ -47,7 +47,7 @@ commands:
   advisories   import, download or inspect the OSV advisory database
 
 Run `security-review-controller COMMAND --help` for the options of a command.
-Pipeline commands (gate, sarif, trend, code-scan, deps-scan) are run by security-review-ci.
+Pipeline commands (gate, sarif, trend, scan-code, scan-deps) are run by security-review-ci.
 """
 
 

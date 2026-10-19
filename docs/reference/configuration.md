@@ -78,11 +78,11 @@ then locks the field).
 | `SECREVIEW_LOG_LEVEL` | `INFO` | both | Logging level (on stderr) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | MCP | Maximum size of the content passed to `scan_code` |
 | `SECREVIEW_MAX_FINDINGS_PER_REPORT` | `500` | both | Maximum number of findings per report |
-| `SECREVIEW_MAX_DEPENDENCY_CHARS` | `1000000` | both | Maximum size of a manifest passed to `scan_dependencies` or sent by `security-review-ci deps-scan` |
+| `SECREVIEW_MAX_DEPENDENCY_CHARS` | `1000000` | both | Maximum size of a manifest passed to `scan_dependencies` or sent by `security-review-ci scan-deps` |
 | `SECREVIEW_MAX_LIST_LIMIT` | `100` | both | Maximum size of a page of results |
-| `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Controller | Maximum size of a request of [`security-review-ci code-scan` or `deps-scan`](../advanced/code-scan.md#limits-of-the-controller) (`413` beyond) |
+| `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Controller | Maximum size of a request of [`security-review-ci scan-code` or `scan-deps`](../advanced/code-scan.md#limits-of-the-controller) (`413` beyond) |
 | `SECREVIEW_MAX_SCAN_FILES` | `10000` | Controller | Maximum number of files of a scan request (`422` beyond) |
-| `SECREVIEW_MAX_SCAN_FILE_CHARS` | `1048576` | Controller | Size beyond which a file sent by `code-scan` is not scanned (listed as skipped) |
+| `SECREVIEW_MAX_SCAN_FILE_CHARS` | `1048576` | Controller | Size beyond which a file sent by `scan-code` is not scanned (listed as skipped) |
 
 Bearer tokens are not configured by variable: they are stored in the database and managed with
 `security-review-controller token` (see

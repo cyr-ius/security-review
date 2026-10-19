@@ -91,7 +91,7 @@ async def ci_trend(
     return JSONResponse(Trend.model_validate(result).model_dump(mode="json"))
 
 
-# ── Scans (security-review-ci code-scan and deps-scan) ───────────────────────
+# ── Scans (security-review-ci scan-code and scan-deps) ───────────────────────
 
 
 def _verdict(blocking: int, request: CodeScanRequest | DependencyScanRequest) -> dict:
@@ -147,7 +147,7 @@ def _dependency_scan(request: DependencyScanRequest, client: str) -> dict:
 
 @router.post("/scan/code")
 async def ci_code_scan(request: CodeScanRequest, identity: ScanIdentity) -> CodeScanResult:
-    """Pattern-scan the files of a codebase sent by ``security-review-ci code-scan``.
+    """Pattern-scan the files of a codebase sent by ``security-review-ci scan-code``.
 
     The matches are leads to verify. With ``save``, they are stored as a ``code-scan`` report of
     the project (the most severe ones, up to SECREVIEW_MAX_FINDINGS_PER_REPORT); ``sarif`` also
@@ -173,7 +173,7 @@ async def ci_code_scan(request: CodeScanRequest, identity: ScanIdentity) -> Code
 async def ci_dependency_scan(
     request: DependencyScanRequest, identity: ScanIdentity
 ) -> DependencyScanResult:
-    """Scan the manifests and lockfiles sent by ``security-review-ci deps-scan``.
+    """Scan the manifests and lockfiles sent by ``security-review-ci scan-deps``.
 
     Vulnerable versions are found with the advisory database of the controller, hygiene issues
     without it. With ``save``, they are stored as a ``dependency-scan`` report of the project;

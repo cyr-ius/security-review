@@ -26,8 +26,8 @@ l'API REST (`/api/v1/ci/gate`, `/api/v1/ci/sarif`, `/api/v1/ci/trend`, et
 | `gate --project P [--fail-on S] [--report-id N]` | Gate du projet (voir ci-dessus) |
 | `sarif --project P [--include-resolved] [-o FICHIER]` | Journal SARIF 2.1.0 du projet ([Export SARIF](../advanced/sarif.md)) |
 | `trend --project P [--days N] [--granularity day\|week\|month] [--format markdown\|json]` | Rapport de tendance du projet ([Rapport de tendance](../advanced/trends.md)) |
-| `code-scan [PATH] --project P [--save] …` | Envoie les fichiers du dépôt au contrôleur, qui les scanne avec ses règles ([Scan du code complet](../advanced/code-scan.md)) |
-| `deps-scan FICHIER… --project P [--save] …` | Envoie manifestes et lockfiles au contrôleur, qui les compare à ses avis ([Dépendances](../advanced/dependencies.md#scan-dans-un-pipeline-security-review-ci-deps-scan)) |
+| `scan-code [PATH] --project P [--save] …` | Envoie les fichiers du dépôt au contrôleur, qui les scanne avec ses règles ([Scan du code complet](../advanced/code-scan.md)) |
+| `scan-deps FICHIER… --project P [--save] …` | Envoie manifestes et lockfiles au contrôleur, qui les compare à ses avis ([Dépendances](../advanced/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps)) |
 
 Options communes : `--url` (par défaut `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (lit le
 jeton sur l'entrée standard au lieu de `SECREVIEW_TOKEN`), `--cafile` (CA du certificat du

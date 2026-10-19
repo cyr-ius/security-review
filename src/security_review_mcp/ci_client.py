@@ -6,8 +6,8 @@ REST API (``/api/v1/ci/``), with a ``ci`` token restricted to the projects the p
 It is the only command line for these pipeline commands (the controller CLI does not run them)
 and opens no database: no database driver, no SQLModel, no database URL in the pipeline.
 
-``code-scan`` lists the files of a directory (``git ls-files`` or a walk of the tree) and
-``deps-scan`` reads the dependency files given by the operator; both send the content to the
+``scan-code`` lists the files of a directory (``git ls-files`` or a walk of the tree) and
+``scan-deps`` reads the dependency files given by the operator; both send the content to the
 controller, which scans it with its rules or its advisory database and stores the report with
 ``--save``. Symbolic links are never followed: the content leaves the build agent.
 
@@ -43,7 +43,7 @@ CI_PATH = "/api/v1/ci"
 DEFAULT_TIMEOUT = 60.0
 # Bound of an answer read from the controller (a SARIF log of a large project included)
 MAX_RESPONSE_BYTES = 64 * 1024 * 1024
-# Bound of a dependency file read by deps-scan (the controller applies its own limit)
+# Bound of a dependency file read by scan-deps (the controller applies its own limit)
 MAX_DEPENDENCY_FILE_BYTES = 50 * 1024 * 1024
 # Bound of the error messages taken from the controller
 MAX_ERROR_CHARS = 500
@@ -202,7 +202,7 @@ def _json(body: bytes, route: str) -> dict:
     return answer
 
 
-# ── File listing (code-scan, deps-scan) ──────────────────────────────────────
+# ── File listing (scan-code, scan-deps) ──────────────────────────────────────
 
 DEFAULT_MAX_FILE_BYTES = 1024 * 1024
 _BINARY_SNIFF_BYTES = 8192
@@ -579,7 +579,7 @@ def _parser() -> argparse.ArgumentParser:
     trend.add_argument("--format", choices=["markdown", "json"], default="markdown")
 
     code = commands.add_parser(
-        "code-scan",
+        "scan-code",
         parents=[common],
         help="pattern-scan a whole codebase with the rules of the controller",
     )
@@ -605,7 +605,7 @@ def _parser() -> argparse.ArgumentParser:
     _add_report_options(code)
 
     deps = commands.add_parser(
-        "deps-scan",
+        "scan-deps",
         parents=[common],
         help="scan dependency manifests and lockfiles with the advisories of the controller",
     )
@@ -631,7 +631,7 @@ def _read_token(from_stdin: bool) -> str:
 
 
 def _report_fields(args: argparse.Namespace) -> dict:
-    """Fields of a scan request shared by code-scan and deps-scan."""
+    """Fields of a scan request shared by scan-code and scan-deps."""
     return {
         "project": args.project,
         "fail_on": args.fail_on,
@@ -650,8 +650,8 @@ def _saved_line(result: dict, project: str) -> None:
         print(_clean(f"Report #{saved['report_id']} saved for project {project}"))
 
 
-def _code_scan(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> int:
-    """Run ``code-scan``: read the files, scan them on the controller, print the result."""
+def _scan_code(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> int:
+    """Run ``scan-code``: read the files, scan them on the controller, print the result."""
     sources = collect_sources(args.path, args.exclude, args.max_file_bytes, not args.no_git)
     payload = _report_fields(args) | {
         "root": args.path,
@@ -679,8 +679,8 @@ def _code_scan(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> 
     return code
 
 
-def _deps_scan(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> int:
-    """Run ``deps-scan``: read the files, scan them on the controller, print the result."""
+def _scan_deps(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> int:
+    """Run ``scan-deps``: read the files, scan them on the controller, print the result."""
     files = [read_dependency_file(name) for name in args.files]
     payload = _report_fields(args) | {
         "files": files,
@@ -717,10 +717,10 @@ def main(argv: list[str] | None = None, fetch: Fetch | None = None) -> int:
             """POST a scan request to the controller and return the answer."""
             return call(args.url, route, {}, token, fetch, args.allow_http, payload)[1]
 
-        if args.command == "code-scan":
-            return _code_scan(args, send)
-        if args.command == "deps-scan":
-            return _deps_scan(args, send)
+        if args.command == "scan-code":
+            return _scan_code(args, send)
+        if args.command == "scan-deps":
+            return _scan_deps(args, send)
         if args.command == "gate":
             params: dict[str, str | int | bool | None] = {
                 "project": args.project,

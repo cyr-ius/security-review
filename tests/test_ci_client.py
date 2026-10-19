@@ -144,7 +144,7 @@ def test_no_argument_prints_the_help(capsys):
     assert ci_client.main([]) == 2
     out = capsys.readouterr().out
     assert out.startswith("usage: security-review-ci")
-    for command in ("gate", "sarif", "trend", "code-scan", "deps-scan"):
+    for command in ("gate", "sarif", "trend", "scan-code", "scan-deps"):
         assert command in out
 
 
@@ -332,14 +332,14 @@ def test_collect_sources_rejects_a_file(tmp_path):
         ci_client.collect_sources(target)
 
 
-# ── code-scan ────────────────────────────────────────────────────────────────
+# ── scan-code ────────────────────────────────────────────────────────────────
 
 
-def test_code_scan_blocks_and_prints_the_matches(
+def test_scan_code_blocks_and_prints_the_matches(
     controller, ci_token, monkeypatch, capsys, tmp_path
 ):
     make_tree(tmp_path / "repo")
-    argv = ["code-scan", str(tmp_path / "repo"), "--no-git", "--project", "shop-api"]
+    argv = ["scan-code", str(tmp_path / "repo"), "--no-git", "--project", "shop-api"]
 
     assert run(controller, monkeypatch, argv, ci_token) == 1
     out = capsys.readouterr().out
@@ -349,15 +349,15 @@ def test_code_scan_blocks_and_prints_the_matches(
     assert len(services.list_reports(project="shop-api")) == 1
 
 
-def test_code_scan_passes_below_the_threshold(controller, ci_token, monkeypatch, tmp_path):
+def test_scan_code_passes_below_the_threshold(controller, ci_token, monkeypatch, tmp_path):
     (tmp_path / "a.py").write_text("print('ok')\n", encoding="utf-8")
-    argv = ["code-scan", str(tmp_path), "--no-git", "--project", "shop-api"]
+    argv = ["scan-code", str(tmp_path), "--no-git", "--project", "shop-api"]
     assert run(controller, monkeypatch, argv, ci_token) == 0
 
 
-def test_code_scan_saves_a_report_of_the_token(controller, ci_token, monkeypatch, capsys, tmp_path):
+def test_scan_code_saves_a_report_of_the_token(controller, ci_token, monkeypatch, capsys, tmp_path):
     make_tree(tmp_path / "repo")
-    argv = ["code-scan", str(tmp_path / "repo"), "--no-git", "--project", "shop-api", "--save"]
+    argv = ["scan-code", str(tmp_path / "repo"), "--no-git", "--project", "shop-api", "--save"]
     argv += ["--format", "json", "--author", "alice", "--branch", "main", "--commit", "abc123"]
 
     assert run(controller, monkeypatch, argv, ci_token) == 1
@@ -366,14 +366,14 @@ def test_code_scan_saves_a_report_of_the_token(controller, ci_token, monkeypatch
     report = services.get_report(data["saved_report"]["report_id"])
     assert (report.project, report.review_type, report.author) == ("shop-api", "code-scan", "alice")
     assert (report.submitted_by, report.branch, report.commit_sha) == ("jenkins", "main", "abc123")
-    assert report.reviewer == "security-review-ci code-scan"
+    assert report.reviewer == "security-review-ci scan-code"
     assert {f.file_path for f in report.findings} >= {"app/views.py"}
 
 
-def test_code_scan_writes_a_sarif_log(controller, ci_token, monkeypatch, capsys, tmp_path):
+def test_scan_code_writes_a_sarif_log(controller, ci_token, monkeypatch, capsys, tmp_path):
     make_tree(tmp_path / "repo")
     output = tmp_path / "out.sarif"
-    argv = ["code-scan", str(tmp_path / "repo"), "--no-git", "--project", "shop-api"]
+    argv = ["scan-code", str(tmp_path / "repo"), "--no-git", "--project", "shop-api"]
     argv += ["--format", "sarif", "-o", str(output)]
 
     assert run(controller, monkeypatch, argv, ci_token) == 1
@@ -384,23 +384,23 @@ def test_code_scan_writes_a_sarif_log(controller, ci_token, monkeypatch, capsys,
     assert "written to" in capsys.readouterr().err
 
 
-def test_code_scan_of_another_project_is_refused(
+def test_scan_code_of_another_project_is_refused(
     controller, ci_token, monkeypatch, capsys, tmp_path
 ):
     (tmp_path / "a.py").write_text("eval(x)\n", encoding="utf-8")
-    argv = ["code-scan", str(tmp_path), "--no-git", "--project", "billing", "--save"]
+    argv = ["scan-code", str(tmp_path), "--no-git", "--project", "billing", "--save"]
 
     assert run(controller, monkeypatch, argv, ci_token) == 2
     assert "(404)" in json.loads(capsys.readouterr().err)["error"]
     assert len(services.list_reports(project="billing")) == 1
 
 
-def test_code_scan_too_large_request_is_explained(
+def test_scan_code_too_large_request_is_explained(
     controller, ci_token, monkeypatch, capsys, tmp_path
 ):
     monkeypatch.setattr(get_settings(), "max_scan_request_mb", 1)
     (tmp_path / "a.py").write_text("x = 1\n" * 300_000, encoding="utf-8")
-    argv = ["code-scan", str(tmp_path), "--no-git", "--project", "shop-api"]
+    argv = ["scan-code", str(tmp_path), "--no-git", "--project", "shop-api"]
     argv += ["--max-file-bytes", str(4 * 1024 * 1024)]
 
     assert run(controller, monkeypatch, argv, ci_token) == 2
@@ -408,15 +408,15 @@ def test_code_scan_too_large_request_is_explained(
     assert "(413)" in error and "SECREVIEW_MAX_SCAN_REQUEST_MB" in error
 
 
-def test_code_scan_of_a_missing_directory_is_a_usage_error(
+def test_scan_code_of_a_missing_directory_is_a_usage_error(
     controller, ci_token, monkeypatch, capsys, tmp_path
 ):
-    argv = ["code-scan", str(tmp_path / "missing"), "--project", "shop-api"]
+    argv = ["scan-code", str(tmp_path / "missing"), "--project", "shop-api"]
     assert run(controller, monkeypatch, argv, ci_token) == 2
     assert "Not a directory" in capsys.readouterr().err
 
 
-# ── deps-scan ────────────────────────────────────────────────────────────────
+# ── scan-deps ────────────────────────────────────────────────────────────────
 
 
 def import_advisory(tmp_path, severity="HIGH"):
@@ -427,11 +427,11 @@ def import_advisory(tmp_path, severity="HIGH"):
     advisories.import_advisories(folder)
 
 
-def test_deps_scan_blocks_on_a_vulnerability(controller, ci_token, monkeypatch, capsys, tmp_path):
+def test_scan_deps_blocks_on_a_vulnerability(controller, ci_token, monkeypatch, capsys, tmp_path):
     import_advisory(tmp_path)
     manifest = tmp_path / "requirements.txt"
     manifest.write_text("requests==2.19.0\n", encoding="utf-8")
-    argv = ["deps-scan", str(manifest), "--project", "shop-api"]
+    argv = ["scan-deps", str(manifest), "--project", "shop-api"]
 
     assert run(controller, monkeypatch, argv, ci_token) == 1
     out = capsys.readouterr().out
@@ -439,11 +439,11 @@ def test_deps_scan_blocks_on_a_vulnerability(controller, ci_token, monkeypatch, 
     assert run(controller, monkeypatch, [*argv, "--fail-on", "critical"], ci_token) == 0
 
 
-def test_deps_scan_saves_a_report(controller, ci_token, monkeypatch, capsys, tmp_path):
+def test_scan_deps_saves_a_report(controller, ci_token, monkeypatch, capsys, tmp_path):
     import_advisory(tmp_path)
     manifest = tmp_path / "requirements.txt"
     manifest.write_text("requests==2.19.0\n", encoding="utf-8")
-    argv = ["deps-scan", str(manifest), "--project", "shop-api", "--save", "--format", "json"]
+    argv = ["scan-deps", str(manifest), "--project", "shop-api", "--save", "--format", "json"]
 
     assert run(controller, monkeypatch, [*argv, "--author", "alice"], ci_token) == 1
     data = json.loads(capsys.readouterr().out)
@@ -457,10 +457,10 @@ def test_deps_scan_saves_a_report(controller, ci_token, monkeypatch, capsys, tmp
     assert "(422)" in capsys.readouterr().err
 
 
-def test_deps_scan_require_database(controller, ci_token, monkeypatch, capsys, tmp_path):
+def test_scan_deps_require_database(controller, ci_token, monkeypatch, capsys, tmp_path):
     manifest = tmp_path / "requirements.txt"
     manifest.write_text("flask==1.0\n", encoding="utf-8")
-    argv = ["deps-scan", str(manifest), "--project", "shop-api"]
+    argv = ["scan-deps", str(manifest), "--project", "shop-api"]
 
     assert run(controller, monkeypatch, argv, ci_token) == 0
     assert "warning: vulnerability check did not run" in capsys.readouterr().err
@@ -469,7 +469,7 @@ def test_deps_scan_require_database(controller, ci_token, monkeypatch, capsys, t
     assert len(services.list_reports(project="shop-api")) == 1
 
 
-def test_deps_scan_refuses_symlinks_and_unsupported_files(
+def test_scan_deps_refuses_symlinks_and_unsupported_files(
     controller, ci_token, monkeypatch, capsys, tmp_path
 ):
     manifest = tmp_path / "requirements.txt"
@@ -477,17 +477,17 @@ def test_deps_scan_refuses_symlinks_and_unsupported_files(
     link = tmp_path / "link.txt"
     link.symlink_to(manifest)
     assert (
-        run(controller, monkeypatch, ["deps-scan", str(link), "--project", "shop-api"], ci_token)
+        run(controller, monkeypatch, ["scan-deps", str(link), "--project", "shop-api"], ci_token)
         == 2
     )
     assert "symbolic link" in capsys.readouterr().err
 
     other = tmp_path / "notes.md"
     other.write_text("x", encoding="utf-8")
-    argv = ["deps-scan", str(other), "--project", "shop-api"]
+    argv = ["scan-deps", str(other), "--project", "shop-api"]
     assert run(controller, monkeypatch, argv, ci_token) == 2
     assert "(422)" in capsys.readouterr().err
-    argv = ["deps-scan", str(tmp_path / "missing.txt"), "--project", "shop-api"]
+    argv = ["scan-deps", str(tmp_path / "missing.txt"), "--project", "shop-api"]
     assert run(controller, monkeypatch, argv, ci_token) == 2
 
 
@@ -496,7 +496,7 @@ def test_scans_need_a_ci_or_admin_token(controller, monkeypatch, capsys, tmp_pat
     manifest = tmp_path / "requirements.txt"
     manifest.write_text("flask==1.0\n", encoding="utf-8")
 
-    argv = ["deps-scan", str(manifest), "--project", "shop-api"]
+    argv = ["scan-deps", str(manifest), "--project", "shop-api"]
     assert run(controller, monkeypatch, argv, reader) == 2
     assert "(403)" in json.loads(capsys.readouterr().err)["error"]
     admin = token_store.create_token("root", Role.ADMIN)["token"]

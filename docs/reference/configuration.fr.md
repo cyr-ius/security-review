@@ -78,11 +78,11 @@ définie (l'écran verrouille alors le champ).
 | `SECREVIEW_LOG_LEVEL` | `INFO` | les deux | Niveau de journalisation (sur stderr) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | MCP | Taille maximale du contenu passé à `scan_code` |
 | `SECREVIEW_MAX_FINDINGS_PER_REPORT` | `500` | les deux | Nombre maximal de findings par rapport |
-| `SECREVIEW_MAX_DEPENDENCY_CHARS` | `1000000` | les deux | Taille maximale d'un manifeste passé à `scan_dependencies` ou envoyé par `security-review-ci deps-scan` |
+| `SECREVIEW_MAX_DEPENDENCY_CHARS` | `1000000` | les deux | Taille maximale d'un manifeste passé à `scan_dependencies` ou envoyé par `security-review-ci scan-deps` |
 | `SECREVIEW_MAX_LIST_LIMIT` | `100` | les deux | Taille maximale d'une page de résultats |
-| `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Contrôleur | Taille maximale d'une requête de [`security-review-ci code-scan` ou `deps-scan`](../advanced/code-scan.md#limites-du-controleur) (`413` au-delà) |
+| `SECREVIEW_MAX_SCAN_REQUEST_MB` | `64` | Contrôleur | Taille maximale d'une requête de [`security-review-ci scan-code` ou `scan-deps`](../advanced/code-scan.md#limites-du-controleur) (`413` au-delà) |
 | `SECREVIEW_MAX_SCAN_FILES` | `10000` | Contrôleur | Nombre maximal de fichiers d'une requête de scan (`422` au-delà) |
-| `SECREVIEW_MAX_SCAN_FILE_CHARS` | `1048576` | Contrôleur | Taille au-delà de laquelle un fichier envoyé par `code-scan` n'est pas scanné (signalé comme ignoré) |
+| `SECREVIEW_MAX_SCAN_FILE_CHARS` | `1048576` | Contrôleur | Taille au-delà de laquelle un fichier envoyé par `scan-code` n'est pas scanné (signalé comme ignoré) |
 
 Les jetons Bearer ne se configurent pas par variable : ils sont stockés en base et gérés avec
 `security-review-controller token` (voir [Serveur HTTP, authentification et TLS](../advanced/http.md)).

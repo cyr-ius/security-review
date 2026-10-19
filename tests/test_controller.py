@@ -370,9 +370,10 @@ def test_unknown_commands_print_the_usage(argv, capsys):
 
 
 def test_pipeline_commands_belong_to_the_ci_client():
-    pipeline = {"gate", "sarif", "trend", "code", "deps", "code-scan", "deps-scan"}
+    pipeline = {"gate", "sarif", "trend", "code", "deps", "scan-code", "scan-deps"}
     assert not pipeline & cli.CONTROLLER_COMMANDS.keys()
-    assert not pipeline & cli.COMMANDS.keys()
+    # security-review-mcp scan-deps is the MCP client of the same name, not the pipeline one
+    assert not pipeline & cli.COMMANDS.keys() - {"scan-deps"}
 
 
 def test_help(capsys):

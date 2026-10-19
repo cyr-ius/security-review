@@ -351,7 +351,7 @@ class GateResult(BaseModel):
     open_findings_by_severity: dict[str, int]
 
 
-# ── Pipeline scans (security-review-ci code-scan and deps-scan) ─────────────
+# ── Pipeline scans (security-review-ci scan-code and scan-deps) ─────────────
 
 # Bound of a file path: the file_path of a finding
 MAX_SCAN_PATH_CHARS = 500
@@ -390,7 +390,7 @@ class ScanRequest(BaseModel):
 
 
 class CodeScanRequest(ScanRequest):
-    """Files of a codebase listed and read by ``security-review-ci code-scan``."""
+    """Files of a codebase listed and read by ``security-review-ci scan-code``."""
 
     # Scanned directory as given to the client, only shown in the scope of the report
     root: str = Field(default=".", min_length=1, max_length=MAX_SCAN_PATH_CHARS)
@@ -406,7 +406,7 @@ class CodeScanRequest(ScanRequest):
 
 
 class DependencyScanRequest(ScanRequest):
-    """Manifests and lockfiles read by ``security-review-ci deps-scan``."""
+    """Manifests and lockfiles read by ``security-review-ci scan-deps``."""
 
     files: list[ScanFile] = Field(min_length=1)
     # Refuse the scan (422) when the vulnerability check cannot run for a file

@@ -3,17 +3,17 @@
 The review prompts work on what the agent gives them, often the diff of a merge request, and
 `scan_code` is limited to `SECREVIEW_MAX_CONTENT_CHARS` per call. To cover the **whole**
 repository, use the [pipeline client](../usage/gate.md#pipeline-client-security-review-ci)
-`security-review-ci code-scan`: it reads the files of the repository and sends their content
+`security-review-ci scan-code`: it reads the files of the repository and sends their content
 to the controller, which scans them with the [rules](rules.md) of its database.
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
 export SECREVIEW_TOKEN=...   # ci token restricted to the project (or admin token)
 
-security-review-ci code-scan . --project portal                               # text summary, exit code 0/1/2
-security-review-ci code-scan . --project portal --format json -o scan.json    # for the codebase-review prompt
-security-review-ci code-scan . --project portal --format sarif -o code.sarif  # GitHub code scanning, Jenkins...
-security-review-ci code-scan . --project portal --save --commit "$CI_COMMIT_SHA"
+security-review-ci scan-code . --project portal                               # text summary, exit code 0/1/2
+security-review-ci scan-code . --project portal --format json -o scan.json    # for the codebase-review prompt
+security-review-ci scan-code . --project portal --format sarif -o code.sarif  # GitHub code scanning, Jenkins...
+security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 ```
 
 The pipeline needs neither the database nor the package: only Python and the

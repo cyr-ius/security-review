@@ -1,7 +1,7 @@
 """Dependency scan: parse a manifest or lockfile, check it against the advisories, run hygiene.
 
 Used by the ``scan_dependencies`` MCP tool and by the controller for the files sent by
-``security-review-ci deps-scan`` (``POST /api/v1/ci/scan/deps``, see scan_files and save).
+``security-review-ci scan-deps`` (``POST /api/v1/ci/scan/deps``, see scan_files and save).
 """
 
 from collections.abc import Sequence
@@ -15,7 +15,7 @@ from .models import SEVERITY_RANK, FindingCreate, ReviewType, Severity
 
 MAX_COMPONENTS_LISTED = 200
 VULNERABLE_COMPONENT_CWE = "CWE-1395"  # Dependency on Vulnerable Third-Party Component
-REVIEWER = "security-review-ci deps-scan"
+REVIEWER = "security-review-ci scan-deps"
 
 
 def _check_state(parsed: Parsed, status: dict) -> tuple[str, list[str]]:

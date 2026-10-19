@@ -70,14 +70,14 @@ avec le code `2`.
 | `gate --project P [--fail-on SEV] [--report-id N]` | Gate de déploiement par l'API REST | [Client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci) |
 | `sarif --project P [--include-resolved] [-o FICHIER]` | Export SARIF 2.1.0 par l'API REST | [SARIF](../advanced/sarif.md) |
 | `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Rapport de tendance par l'API REST | [Tendances](../advanced/trends.md) |
-| `code-scan [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FICHIER] [--save]` | Lit les fichiers du dépôt et les fait scanner par le contrôleur avec ses règles ; `--save` enregistre un rapport | [Scan du code complet](../advanced/code-scan.md) |
-| `deps-scan FICHIER… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--save]` | Envoie des manifestes, lockfiles ou SBOM CycloneDX au contrôleur, qui les compare à sa base d'avis ; `--save` enregistre un rapport | [Dépendances](../advanced/dependencies.md#scan-dans-un-pipeline-security-review-ci-deps-scan) |
+| `scan-code [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FICHIER] [--save]` | Lit les fichiers du dépôt et les fait scanner par le contrôleur avec ses règles ; `--save` enregistre un rapport | [Scan du code complet](../advanced/code-scan.md) |
+| `scan-deps FICHIER… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--save]` | Envoie des manifestes, lockfiles ou SBOM CycloneDX au contrôleur, qui les compare à sa base d'avis ; `--save` enregistre un rapport | [Dépendances](../advanced/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps) |
 
-`code-scan` et `deps-scan` acceptent aussi `--repository`, `--branch`, `--commit` et `--author`,
+`scan-code` et `scan-deps` acceptent aussi `--repository`, `--branch`, `--commit` et `--author`,
 enregistrés avec le rapport. Ils demandent un jeton `ci` ou `admin`.
 ## Codes de sortie
 
-Les commandes de contrôle (`security-review-ci gate`, `code-scan` et `deps-scan`, `scan-deps`, `db status`) partagent la même
+Les commandes de contrôle (`security-review-ci gate`, `scan-code` et `scan-deps`, `security-review-mcp scan-deps`, `db status`) partagent la même
 convention :
 
 | Code | Signification |

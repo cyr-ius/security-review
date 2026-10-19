@@ -2769,7 +2769,7 @@ def test_metrics_can_be_disabled(ui_dir, monkeypatch):
     assert app.get("/metrics").status_code == 404
 
 
-# ── Pipeline scans (security-review-ci code-scan and deps-scan) ──────────────
+# ── Pipeline scans (security-review-ci scan-code and scan-deps) ──────────────
 
 SECRET_LINE = 'password = "Sup3rSecret99"\n'
 
