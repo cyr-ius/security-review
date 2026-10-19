@@ -994,6 +994,17 @@ for _name, _title in (
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 
+# Client commands of `security-review-mcp`, listed by --help (cli.MCP_COMMANDS)
+MCP_HELP_EPILOG = """\
+commands:
+  enroll       request a token from a shared server (or more projects for a token)
+  scan-deps    scan dependency files with the advisory database of a shared server
+
+Run `security-review-mcp COMMAND --help` for the options of a command.
+Administration (db, token, user, rules, advisories...) is run by security-review-controller.
+"""
+
+
 def main(argv: list[str] | None = None) -> None:
     """Run the MCP server (stdio by default, streamable HTTP for a shared server).
 
@@ -1016,9 +1027,15 @@ def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="security-review-mcp",
         description="Security review MCP server (administration: security-review-controller)",
+        epilog=MCP_HELP_EPILOG,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument(
-        "--transport", choices=["stdio", "streamable-http"], default=settings.transport
+        "--transport",
+        choices=["stdio", "streamable-http"],
+        default=settings.transport,
+        help="stdio for a local host, streamable-http for a shared server (overrides "
+        "SECREVIEW_TRANSPORT, default: %(default)s); --host, --port and TLS apply to HTTP only",
     )
     http_server.add_listen_arguments(parser, settings)
     args = parser.parse_args(arguments)

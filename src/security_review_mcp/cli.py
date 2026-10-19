@@ -527,8 +527,15 @@ def scan_deps_command(argv: list[str]) -> int:
         help="server URL, for example https://secreview.example.com (default: "
         "SECREVIEW_SERVER_URL)",
     )
-    parser.add_argument("--fail-on", choices=_SEVERITY_CHOICES, default=Severity.HIGH.value)
-    parser.add_argument("--format", choices=["json", "text"], default="text")
+    parser.add_argument(
+        "--fail-on",
+        choices=_SEVERITY_CHOICES,
+        default=Severity.HIGH.value,
+        help="exit 1 when a finding reaches this severity (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--format", choices=["json", "text"], default="text", help="output (default: %(default)s)"
+    )
     parser.add_argument(
         "--require-database",
         action="store_true",

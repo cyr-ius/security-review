@@ -474,8 +474,17 @@ def tls_options(settings: Settings) -> TLSOptions | None:
 
 def add_listen_arguments(parser: argparse.ArgumentParser, settings: Settings) -> None:
     """Add the --host, --port and TLS options shared by the MCP server and the controller."""
-    parser.add_argument("--host", default=settings.host)
-    parser.add_argument("--port", type=int, default=settings.port)
+    parser.add_argument(
+        "--host",
+        default=settings.host,
+        help="listening address (overrides SECREVIEW_HOST, default: %(default)s)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=settings.port,
+        help="listening port (overrides SECREVIEW_PORT, default: %(default)s)",
+    )
     parser.add_argument("--tls-certfile", help="enable TLS (overrides SECREVIEW_TLS_CERTFILE)")
     parser.add_argument("--tls-keyfile", help="private key (overrides SECREVIEW_TLS_KEYFILE)")
 

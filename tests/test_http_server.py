@@ -1,5 +1,6 @@
 """HTTP serving: bearer authentication, TLS options and start-up of the MCP server."""
 
+import argparse
 import json
 import ssl
 from datetime import UTC, datetime, timedelta
@@ -559,6 +560,34 @@ def test_moved_commands_still_run_from_the_mcp_cli_with_a_warning(capsys):
     captured = capsys.readouterr()
     assert "use `security-review-controller db`" in captured.err
     assert json.loads(captured.out)["up_to_date"] is False
+
+
+def test_mcp_help_documents_every_option_and_command(capsys):
+    with pytest.raises(SystemExit) as exc:
+        server.main(["--help"])
+
+    assert exc.value.code == 0
+    out = capsys.readouterr().out
+    assert all(command in out for command in cli.MCP_COMMANDS)
+    for option in ("--transport", "--host", "--port"):
+        assert f"overrides SECREVIEW_{option[2:].upper()}" in out
+
+
+@pytest.mark.parametrize("argv", [[], *([command] for command in cli.MCP_COMMANDS)])
+def test_mcp_options_all_have_a_help_text(monkeypatch, argv):
+    parsers: list[argparse.ArgumentParser] = []
+
+    def record(self, args=None, namespace=None):
+        """Remember the parser, then stop before the command runs."""
+        parsers.append(self)
+        raise SystemExit(0)
+
+    monkeypatch.setattr(argparse.ArgumentParser, "parse_args", record)
+    with pytest.raises(SystemExit):
+        server.main([*argv, "--help"])
+
+    undocumented = [a.dest for a in parsers[0]._actions if not a.help]
+    assert undocumented == []
 
 
 @pytest.mark.parametrize(
