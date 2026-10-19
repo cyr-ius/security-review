@@ -36,7 +36,11 @@ from .config import check_report_language, configure_logging, get_settings
 from .database import SchemaError, check_db, init_db
 from .models import (
     MAX_AUTHOR_CHARS,
+    MAX_CHECKLIST_RESULTS,
+    MAX_ITEM_ID_CHARS,
+    MAX_SCAN_RULES,
     MAX_STATUS_REASON_CHARS,
+    ChecklistResult,
     FindingCreate,
     FindingStatus,
     ReviewType,
@@ -538,6 +542,23 @@ def save_security_report(
             "when unknown, never guess",
         ),
     ] = None,
+    checklist_results: Annotated[
+        list[ChecklistResult] | None,
+        Field(
+            max_length=MAX_CHECKLIST_RESULTS,
+            description="Every checklist item you walked through (the checklists of the prompt "
+            "and those you fetched), with its outcome: ok (verified, nothing found), issue "
+            "(reported as a finding), not_applicable, not_verifiable (not_covered is set by the "
+            "server for the items you skipped)",
+        ),
+    ] = None,
+    scan_rules: Annotated[
+        list[Annotated[str, Field(max_length=MAX_ITEM_ID_CHARS)]] | None,
+        Field(
+            max_length=MAX_SCAN_RULES,
+            description="Rule ids of every lead returned by scan_code, confirmed or dismissed",
+        ),
+    ] = None,
 ) -> dict:
     """Store a security report and its findings in the database.
 
@@ -545,8 +566,9 @@ def save_security_report(
     language given by the review prompt, scan_code or get_review_checklist, if any, the
     review_type given by the review prompt and the developer's username as author. The
     server also records the label of the token (device) that saved the report. Secrets in
-    free-text fields are masked before storage. Returns the report id, the overall risk level
-    and the finding counts.
+    free-text fields are masked before storage. Returns the report id, the overall risk level,
+    the finding counts and the review coverage: checklist items of the domains you used that
+    got no result (not_covered) and warnings about unknown ids, which are not stored.
     """
     allowed = _caller_projects(ctx)
     if allowed is not None and project not in allowed:
@@ -568,6 +590,9 @@ def save_security_report(
         review_type=review_type,
         author=author,
         submitted_by=_auth_state(ctx).get("auth_client"),
+        # An empty list still checks the coverage: a review without it gets a warning
+        checklist_results=checklist_results or [],
+        scan_rules=scan_rules or [],
     )
 
 

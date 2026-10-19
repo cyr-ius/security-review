@@ -102,7 +102,9 @@ Voir [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
   `owasp`, `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category` ;
 - `repository`, `branch`, `commit_sha`, `reviewer`, `scope` ;
 - `review_type` : le type de revue, indiqué par chaque prompt de revue (voir ci-dessous) ;
-- `author` : le nom d'utilisateur du développeur (voir [auteur d'un rapport](#auteur-dun-rapport)).
+- `author` : le nom d'utilisateur du développeur (voir [auteur d'un rapport](#auteur-dun-rapport)) ;
+- `checklist_results` et `scan_rules` : la couverture de la revue (voir
+  [couverture de la revue](#couverture-de-la-revue)).
 
 Le **niveau de risque** du rapport est calculé (sévérité maximale des findings). Le paramètre
 `risk_level` peut seulement le relever, jamais le baisser.
@@ -166,6 +168,35 @@ deux champs :
 enregistrée. Il est **déclaré, non authentifié** : il sert à savoir à qui s'adresser et à filtrer
 les rapports (`list_security_reports`, [interface web](web-interface.md)), jamais de preuve
 d'identité ; `submitted_by` indique quel jeton a réellement envoyé le rapport.
+
+### Couverture de la revue
+
+Les prompts de revue demandent à l'agent de déclarer ce qu'il a réellement vérifié, pour
+qu'une personne distingue une revue sans problème d'une revue qui a sauté la checklist :
+
+| Champ | Contenu |
+|---|---|
+| `checklist_results` | Chaque point de checklist parcouru, avec son résultat : `ok` (vérifié, rien trouvé), `issue` (signalé par un finding), `not_applicable`, `not_verifiable` (le code relu ne suffisait pas pour en juger) |
+| `scan_rules` | L'identifiant de règle de chaque piste renvoyée par `scan_code`, confirmée ou écartée |
+
+Le serveur les contrôle avec les règles et checklists actives quand il enregistre le rapport :
+
+- un point de checklist ou une règle inconnus ne sont **pas enregistrés** et sont cités dans les
+  `warnings` de la réponse ; le rapport n'est jamais refusé pour cela ;
+- l'intitulé et le domaine de chaque point viennent du serveur, pas de l'agent ;
+- chaque point d'un domaine de checklist utilisé par la revue mais non déclaré est enregistré en
+  `not_covered`, et listé dans `coverage.not_covered` de la réponse ;
+- un `rule_id` de finding qui ressemble à un identifiant de règle ou de checklist (`PY-004`,
+  `ACME-CL-01`) sans correspondre à aucun reçoit un avertissement ; les identifiants d'avis
+  (`GHSA-...`, `CVE-...`) ne sont pas contrôlés ;
+- un rapport sans aucun résultat de checklist reçoit un avertissement : sa couverture est
+  inconnue.
+
+Au plus 500 résultats de checklist et 500 règles par rapport. La couverture est **déclarée par
+l'agent** : elle montre ce que l'agent dit avoir fait, pas une preuve ; une règle de `scan_rules`
+citée par aucun finding est une piste que l'agent a écartée. Les scans CLI ne déclarent pas de
+couverture. La page du rapport dans l'[interface web](web-interface.md) et l'export Markdown
+l'affichent.
 
 ### Statut d'un finding
 

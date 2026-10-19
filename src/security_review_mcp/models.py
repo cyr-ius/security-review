@@ -1,5 +1,6 @@
 """SQLModel models: table models (stored) and data models (MCP tool schemas)."""
 
+import json
 from datetime import UTC, datetime
 from enum import StrEnum
 
@@ -54,6 +55,10 @@ MAX_STATUS_REASON_CHARS = 1000
 MAX_COMMENT_CHARS = 2000
 # Developer username declared with a report, and label of the token that saved it
 MAX_AUTHOR_CHARS = 200
+# Review coverage declared with a report: checklist results and rules that raised scan leads
+MAX_CHECKLIST_RESULTS = 500
+MAX_SCAN_RULES = 500
+MAX_ITEM_ID_CHARS = 60
 
 
 def as_utc(value: datetime) -> datetime:
@@ -85,6 +90,33 @@ class ReviewType(StrEnum):
 
 
 # ── Findings ─────────────────────────────────────────────────────────────────
+
+
+class ChecklistOutcome(StrEnum):
+    """Result of one checklist item in a review."""
+
+    OK = "ok"  # verified, nothing found
+    ISSUE = "issue"  # verified, reported as a finding
+    NOT_APPLICABLE = "not_applicable"
+    NOT_VERIFIABLE = "not_verifiable"  # the reviewed code was not enough to judge it
+    # Set by the server: an item of a domain used by the review that got no result
+    NOT_COVERED = "not_covered"
+
+
+class ChecklistResult(SQLModel):
+    """Result of one checklist item, as declared by the reviewer."""
+
+    item_id: str = Field(
+        min_length=1, max_length=MAX_ITEM_ID_CHARS, description="Checklist item id (PY-01...)"
+    )
+    outcome: ChecklistOutcome = Field(description="ok, issue, not_applicable or not_verifiable")
+
+
+class StoredChecklistResult(ChecklistResult):
+    """A checklist result as stored: the server adds the item title and domain at save time."""
+
+    title: str = ""
+    domain: str = ""
 
 
 class FindingBase(SQLModel):
@@ -233,6 +265,9 @@ class SecurityReport(SecurityReportBase, table=True):
     created_at: datetime = Field(default_factory=utcnow, index=True)
     # Label of the bearer token (enrolled device) that saved the report, set by the server
     submitted_by: str | None = Field(default=None, max_length=MAX_AUTHOR_CHARS)
+    # Review coverage, JSON lists: StoredChecklistResult objects and rule ids of scan leads
+    checklist_results: str = Field(default="[]")
+    scan_rules: str = Field(default="[]")
     findings: list[Finding] = Relationship(
         back_populates="report",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
@@ -246,7 +281,15 @@ class SecurityReportPublic(SecurityReportBase):
     risk_level: Severity
     created_at: datetime
     submitted_by: str | None = None
+    checklist_results: list[StoredChecklistResult] = []
+    scan_rules: list[str] = []
     findings: list[FindingPublic] = []
+
+    @field_validator("checklist_results", "scan_rules", mode="before")
+    @classmethod
+    def _parse_json(cls, value: object) -> object:
+        """Read the JSON lists stored in the report table."""
+        return json.loads(value) if isinstance(value, str) else value
 
 
 # ── Vulnerability advisories (OSV format, imported offline) ──────────────────

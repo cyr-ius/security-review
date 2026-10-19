@@ -140,6 +140,7 @@ src/security_review_mcp/
 ├── dependencies.py    # manifest / lockfile parsers, hygiene
 ├── depscan.py     # dependency scan and conversion into findings
 ├── services.py    # persistence logic of the reports
+├── coverage.py    # checks the checklist results and scan rules declared with a report
 ├── project_names.py # normalization of the project names (every input)
 ├── retention.py   # daily purge of the reports without findings and of the old audit events
 ├── models.py      # SQLModel models (tables + schemas)

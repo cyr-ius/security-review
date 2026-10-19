@@ -1,5 +1,6 @@
 """Report persistence service (business logic between MCP tools and the database)."""
 
+import json
 import logging
 import re
 from collections import Counter
@@ -11,7 +12,7 @@ from sqlalchemy import ColumnElement, and_, case, func, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from . import audit
+from . import audit, coverage
 from .config import MAX_RETENTION_DAYS, get_settings
 from .database import session_scope
 from .models import (
@@ -21,6 +22,7 @@ from .models import (
     MAX_STATUS_REASON_CHARS,
     PROPOSABLE_STATUSES,
     SEVERITY_RANK,
+    ChecklistResult,
     Finding,
     FindingComment,
     FindingCommentPublic,
@@ -123,6 +125,8 @@ def save_report(
     review_type: ReviewType | None = None,
     author: str | None = None,
     submitted_by: str | None = None,
+    checklist_results: list[ChecklistResult] | None = None,
+    scan_rules: list[str] | None = None,
 ) -> dict:
     """Persist a security report and its findings.
 
@@ -139,9 +143,13 @@ def save_report(
         review_type: Kind of review (the prompt used or the CLI scan).
         author: Username of the developer, declared by the client (not authenticated).
         submitted_by: Label of the token that saved the report (set by the server).
+        checklist_results: Checklist items walked through by the reviewer, with their
+            outcome; None for a report without declared coverage (CLI scans).
+        scan_rules: Rules that raised scan_code leads, confirmed or not.
 
     Returns:
-        Identifier, risk level and finding counts of the stored report.
+        Identifier, risk level and finding counts of the stored report; with declared
+        coverage, also its counts, the uncovered checklist items and the warnings.
 
     Raises:
         ValueError: If the report contains too many findings, an unknown review type or an
@@ -158,6 +166,9 @@ def save_report(
             f"Too many findings ({len(findings)}); the limit is {settings.max_findings_per_report}"
         )
     author = _check_author(author)
+    declared = None
+    if checklist_results is not None or scan_rules is not None:
+        declared = coverage.check(checklist_results or [], scan_rules or [], findings)
 
     rows = [_sanitize_finding(item) for item in findings]
     risk = compute_risk_level([row.severity for row in rows], risk_level)
@@ -177,6 +188,9 @@ def save_report(
             risk_level=risk,
             findings=rows,
         )
+        if declared is not None:
+            report.checklist_results = json.dumps([r.model_dump() for r in declared.checklist])
+            report.scan_rules = json.dumps(declared.scan_rules)
         session.add(report)
         session.flush()  # assigns ids before the commit
         result = {
@@ -188,6 +202,13 @@ def save_report(
             "findings_count": len(rows),
             "findings_by_severity": dict(Counter(row.severity.value for row in rows)),
         }
+        if declared is not None:
+            result["coverage"] = {
+                "checklist_by_outcome": dict(Counter(r.outcome.value for r in declared.checklist)),
+                "not_covered": declared.not_covered,
+                "scan_rules": len(declared.scan_rules),
+            }
+            result["warnings"] = declared.warnings
     logger.info("Report saved: id=%s project=%s risk=%s", result["report_id"], project, risk)
     return result
 
@@ -834,6 +855,33 @@ def prune_empty_reports(retention_days: int | None = None) -> dict:
     return {"retention_days": days, "deleted": deleted}
 
 
+def _coverage_markdown(report: SecurityReportPublic) -> list[str]:
+    """Render the declared coverage of a report (nothing when none was declared)."""
+    if not report.checklist_results and not report.scan_rules:
+        return []
+    lines = ["", "## Coverage"]
+    if report.checklist_results:
+        counts = Counter(r.outcome.value for r in report.checklist_results)
+        lines += [
+            "",
+            "Checklist: " + ", ".join(f"{n} {o}" for o, n in sorted(counts.items())) + ".",
+            "",
+            "| Item | Title | Outcome |",
+            "|---|---|---|",
+        ]
+        lines += [
+            f"| {r.item_id} | {r.title.replace('|', '/')} | {r.outcome.value} |"
+            for r in report.checklist_results
+        ]
+    if report.scan_rules:
+        confirmed = {f.rule_id.strip().upper() for f in report.findings if f.rule_id}
+        dismissed = [x for x in report.scan_rules if x not in confirmed]
+        lines += ["", f"Scan leads: {', '.join(report.scan_rules)}."]
+        if dismissed:
+            lines.append(f"Dismissed (no finding): {', '.join(dismissed)}.")
+    return lines
+
+
 def render_report_markdown(report: SecurityReportPublic) -> str:
     """Render a stored report as Markdown (for humans, MRs and tickets)."""
     lines = [
@@ -854,7 +902,9 @@ def render_report_markdown(report: SecurityReportPublic) -> str:
     ):
         if value:
             lines.append(f"- **{label}**: {value}")
-    lines += ["", "## Summary", "", report.summary, "", f"## Findings ({len(report.findings)})"]
+    lines += ["", "## Summary", "", report.summary]
+    lines += _coverage_markdown(report)
+    lines += ["", f"## Findings ({len(report.findings)})"]
 
     ordered = sorted(report.findings, key=lambda f: (-SEVERITY_RANK[f.severity], f.id))
     if not ordered:

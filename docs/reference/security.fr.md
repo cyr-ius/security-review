@@ -261,6 +261,10 @@
 - Les règles sont des motifs ligne par ligne : elles ne voient ni le flux de données ni les
   contrôles absents (autorisation manquante, par exemple). Ce travail reste celui de l'agent
   guidé par les checklists, et de vos outils SAST/SCA.
+- La [couverture d'une revue](../usage/prompts-tools.md#couverture-de-la-revue) (résultats de
+  checklist, règles des pistes du scan) est déclarée par l'agent : le serveur ne garde que les
+  identifiants qu'il connaît et marque `not_covered` les points sautés, il ne peut pas vérifier
+  que l'agent a réellement lu le code.
 - L'`author` d'un rapport (nom d'utilisateur du développeur) est déclaré par le client :
   quiconque détient un jeton du projet peut nommer quelqu'un d'autre. Seul `submitted_by`, le
   libellé du jeton qui a enregistré le rapport, est fixé par le serveur (voir

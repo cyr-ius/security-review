@@ -186,3 +186,17 @@ def company_checklist_markdown() -> str:
     if COMPANY_DOMAIN in snapshot().checklists:
         return render_checklist_markdown(COMPANY_DOMAIN)
     return ""
+
+
+def known_rule_ids() -> frozenset[str]:
+    """Return the id of every stored rule, enabled or not."""
+    return frozenset(rule.id for rule in snapshot().catalog)
+
+
+def checklist_index() -> dict[str, tuple[str, CheckItem]]:
+    """Return every checklist item by id, with its domain (the first one wins on a clash)."""
+    index: dict[str, tuple[str, CheckItem]] = {}
+    for domain, items in snapshot().checklists.items():
+        for item in items:
+            index.setdefault(item.id, (domain, item))
+    return index
