@@ -59,7 +59,8 @@ dépendances) ne sont pas des commandes du contrôleur : elles sont exécutées 
 
 Options de toutes les sous-commandes : `--project P` (obligatoire), `--url URL` (par défaut
 `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (par défaut : `SECREVIEW_TOKEN`), `--cafile CA`,
-`--allow-http`, `--timeout S`.
+`--allow-http`, `--timeout S`. Sans argument, `security-review-ci` affiche son aide et sort
+avec le code `2`.
 
 | Commande | Rôle | Page |
 |---|---|---|

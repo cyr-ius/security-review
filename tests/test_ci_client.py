@@ -140,6 +140,14 @@ def test_missing_url_or_token_is_a_usage_error(controller, ci_token, monkeypatch
     assert "No token" in capsys.readouterr().err
 
 
+def test_no_argument_prints_the_help(capsys):
+    assert ci_client.main([]) == 2
+    out = capsys.readouterr().out
+    assert out.startswith("usage: security-review-ci")
+    for command in ("gate", "sarif", "trend", "code-scan", "deps-scan"):
+        assert command in out
+
+
 def test_oversized_answer_is_refused(controller, ci_token, monkeypatch, capsys):
     monkeypatch.setattr(ci_client, "MAX_RESPONSE_BYTES", 100)
 

@@ -700,7 +700,13 @@ def _deps_scan(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> 
 
 def main(argv: list[str] | None = None, fetch: Fetch | None = None) -> int:
     """Run ``security-review-ci`` and return its exit code (``fetch``: tests)."""
-    args = _parser().parse_args(sys.argv[1:] if argv is None else argv)
+    argv = sys.argv[1:] if argv is None else argv
+    parser = _parser()
+    if not argv:
+        # No sub-command: show the help rather than a bare usage error, still failing the step.
+        parser.print_help()
+        return EXIT_ERROR
+    args = parser.parse_args(argv)
     try:
         if not args.url:
             raise ValueError(f"No controller URL: give --url or set {URL_VARIABLE}")

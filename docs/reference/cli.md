@@ -58,7 +58,8 @@ REST API.
 
 Options of every sub-command: `--project P` (required), `--url URL` (default
 `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (default: `SECREVIEW_TOKEN`), `--cafile CA`,
-`--allow-http`, `--timeout S`.
+`--allow-http`, `--timeout S`. Without arguments, `security-review-ci` prints its help and
+exits with code `2`.
 
 | Command | Role | Page |
 |---|---|---|
