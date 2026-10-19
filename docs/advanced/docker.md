@@ -44,7 +44,8 @@ configuration with `-e` or `--env-file`.
 A single image, two containers sharing the database (see
 [Architecture and deployment](architecture.md)):
 
-- the **MCP server**, default entry point of the image (`security-review-mcp`);
+- the **MCP server**, default entry point of the image (`security-review-mcp`, default command
+  `serve`: stdio; add `--transport streamable-http` for HTTP);
 - the **controller** (REST API, web interface, administration), started with
   `--entrypoint security-review-controller`.
 
@@ -70,7 +71,7 @@ docker run -d --name secreview-mcp -p 8443:8443 \
     -v ./tls:/etc/secreview/tls:ro \
     -e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
     -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
-    security-review-mcp:pg --transport streamable-http --host 0.0.0.0 --port 8443
+    security-review-mcp:pg serve --transport streamable-http --host 0.0.0.0 --port 8443
 ```
 
 Mounted files must be readable by the container user (uid `10001`). The MCP server refuses to

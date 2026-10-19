@@ -15,7 +15,7 @@ run in two containers, two pods or on two machines.
 
 | | MCP server | Controller |
 |---|---|---|
-| Command | `security-review-mcp --transport streamable-http` | `security-review-controller serve` |
+| Command | `security-review-mcp serve --transport streamable-http` | `security-review-controller serve` |
 | Serves | `/mcp`, public enrollment `POST /api/v1/enroll`, `/healthz` | REST API `/api/v1`, interface `/ui`, `/healthz` |
 | Accepted credentials | `mcp` and `admin` tokens | web sessions (users), `admin` and `api` tokens; `ci` tokens on the pipeline routes `/api/v1/ci/` only (gate, SARIF, trend, scans) |
 | Routes without a token | enrollment, `/healthz` | `/ui` files, API documentation, `/healthz` (read only) |

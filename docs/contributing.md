@@ -53,7 +53,7 @@ forwards ports 8000 (MCP server), 8080 (controller), 4200 (Angular dev server), 
 
 ```bash
 psql -h db -U secreview secreview                     # password: secreview
-SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp   # back to SQLite for once
+SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # back to SQLite for once
 ```
 
 The Docker daemon lets you build and run the image of the [Dockerfile](advanced/docker.md)
@@ -64,7 +64,7 @@ docker build -t security-review-mcp .
 docker run --rm -p 8080:8000 -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
 docker run --rm -p 8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
-    --transport streamable-http --host 0.0.0.0 --port 8000
+    serve --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
 The ports are forwarded to the workstation: the web interface is on `http://localhost:8080/ui/`,

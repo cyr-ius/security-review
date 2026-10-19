@@ -14,9 +14,12 @@ Le paquet installe deux commandes, une par processus (voir
 
 | Commande | Rôle | Page |
 |---|---|---|
-| `security-review-mcp [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP | [Installation](../getting-started/deploy.md) |
+| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP (stdio par défaut, `streamable-http` pour un serveur partagé) | [Installation](../getting-started/deploy.md) |
 | `enroll --url URL --project P [--label L] [--requested-by QUI] [--token-stdin] [--cafile CA] [--allow-http]` | Demande un nouveau jeton (label : `--label`, par défaut votre nom de connexion) ou, avec `--token-stdin`, un accès complémentaire pour le jeton lu sur stdin | [Enrôlement](../advanced/http.md#enrolement-un-projet-demande-son-jeton) |
 | `scan-deps FICHIER… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http]` | Analyse manifestes et lockfiles avec la base d'avis d'un serveur MCP partagé (jeton : `SECREVIEW_TOKEN`), pour un hook de commit | [Dépendances](../advanced/dependencies.md#scan-avec-un-serveur-partage-hook-de-commit) |
+
+Sans commande, `security-review-mcp` affiche son aide sur stderr et sort avec le code `2`
+(`security-review-mcp --help` l'affiche sur stdout) : un hôte MCP doit lancer `security-review-mcp serve`.
 
 En stdio, le serveur migre lui-même sa base au démarrage (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`).
 En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`) tant que

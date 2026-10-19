@@ -994,9 +994,13 @@ for _name, _title in (
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 
-# Client commands of `security-review-mcp`, listed by --help (cli.MCP_COMMANDS)
-MCP_HELP_EPILOG = """\
+USAGE = """\
+usage: security-review-mcp COMMAND [options]
+
+Security review MCP server (administration: security-review-controller).
+
 commands:
+  serve        run the MCP server: stdio for a local host, streamable-http for a shared server
   enroll       request a token from a shared server (or more projects for a token)
   scan-deps    scan dependency files with the advisory database of a shared server
 
@@ -1006,29 +1010,46 @@ Administration (db, token, user, rules, advisories...) is run by security-review
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Run the MCP server (stdio by default, streamable HTTP for a shared server).
+    """Run a command of ``security-review-mcp``: ``serve`` or a client command.
 
-    The web interface, the REST API and the administration commands belong to the controller
-    (see controller.main), which runs in its own process and shares the database.
+    Without a command, the usage is written on stderr (never on stdout, which a stdio host
+    reads as the MCP protocol). The web interface, the REST API and the administration commands
+    belong to the controller (see controller.main), which runs in its own process and shares
+    the database.
     """
-    settings = get_settings()
     arguments = list(sys.argv[1:] if argv is None else argv)
-    if arguments[:1] and arguments[0] in cli.MCP_COMMANDS:
+    command = arguments[0] if arguments else None
+    if command == "serve":
+        serve(arguments[1:])
+    elif command in cli.MCP_COMMANDS:
         sys.exit(cli.run(arguments))
-    if arguments[:1] and arguments[0] in cli.CONTROLLER_COMMANDS:
+    elif command in cli.CONTROLLER_COMMANDS:
         # Kept for one major version: these commands moved to the controller CLI
         print(
-            f"warning: `security-review-mcp {arguments[0]}` is deprecated, "
-            f"use `security-review-controller {arguments[0]}`",
+            f"warning: `security-review-mcp {command}` is deprecated, "
+            f"use `security-review-controller {command}`",
             file=sys.stderr,
         )
         sys.exit(cli.run(arguments))
+    elif command in ("-h", "--help"):
+        print(USAGE, end="")
+    else:
+        print(USAGE, end="", file=sys.stderr)
+        if command is not None and command.startswith("--"):
+            # The server options moved under `serve`
+            print(f"\nerror: use `security-review-mcp serve {command} ...`", file=sys.stderr)
+        elif command is not None:
+            print(f"\nerror: unknown command '{command}'", file=sys.stderr)
+        sys.exit(cli.EXIT_ERROR)
 
+
+def serve(argv: list[str]) -> None:
+    """Run ``security-review-mcp serve``: stdio by default, streamable HTTP for a shared server."""
+    settings = get_settings()
     parser = argparse.ArgumentParser(
-        prog="security-review-mcp",
-        description="Security review MCP server (administration: security-review-controller)",
-        epilog=MCP_HELP_EPILOG,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+        prog="security-review-mcp serve",
+        description="Run the MCP server (stdio for a local host, streamable-http for a shared "
+        "server)",
     )
     parser.add_argument(
         "--transport",
@@ -1038,7 +1059,7 @@ def main(argv: list[str] | None = None) -> None:
         "SECREVIEW_TRANSPORT, default: %(default)s); --host, --port and TLS apply to HTTP only",
     )
     http_server.add_listen_arguments(parser, settings)
-    args = parser.parse_args(arguments)
+    args = parser.parse_args(argv)
     settings = http_server.with_tls_arguments(settings, args)
     configure_logging(settings.log_level)
 

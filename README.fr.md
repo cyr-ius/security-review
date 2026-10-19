@@ -48,7 +48,7 @@ security-review-controller db upgrade                              # schéma (Al
 security-review-controller user create admin --group administrators   # compte de l'interface web
 security-review-controller token create --label alice              # jeton de l'agent
 security-review-controller serve --port 8080                       # interface /ui et API REST
-security-review-mcp --transport streamable-http --port 8000        # endpoint /mcp
+security-review-mcp serve --transport streamable-http --port 8000  # endpoint /mcp
 
 security-review-ci gate --url http://localhost:8080 --project portal  # bloquer un pipeline (jeton ci : SECREVIEW_TOKEN)
 ```
