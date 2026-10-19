@@ -76,7 +76,7 @@ suivantes.
   suivants. Les utilisateurs qui ont la permission `findings.triage` changent le statut de chaque
   finding depuis cet écran et appliquent ou rejettent les statuts proposés par les agents (voir
   [triage des findings](#triage-des-findings)) ; un finding trié reste affiché jusqu'au
-  rechargement.
+  rechargement (bouton **Actualiser**).
 - **Rapports** : liste filtrable par projet et niveau de risque, avec recherche dans les
   métadonnées et le résumé, tri par date, projet, risque, type, branche, auteur ou résumé. La
   recherche et les filtres restent dans l'URL, pour partager la vue ; le tri est mémorisé par le

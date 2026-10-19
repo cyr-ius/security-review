@@ -22,6 +22,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { TriageService } from '../../../core/services/triage.service';
 import { ApiService } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
+import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 
 /** Findings loaded per request (the server caps it with SECREVIEW_MAX_LIST_LIMIT). */
 const PAGE_SIZE = 50;
@@ -33,7 +34,7 @@ const PAGE_SIZE = 50;
  */
 @Component({
   selector: 'app-project-findings',
-  imports: [RouterLink, DatePipe, FindingCardComponent, TranslatePipe],
+  imports: [RouterLink, DatePipe, FindingCardComponent, RefreshButtonComponent, TranslatePipe],
   templateUrl: './project-findings.component.html',
   styleUrl: './project-findings.component.css',
 })
