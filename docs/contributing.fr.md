@@ -10,6 +10,12 @@ pre-commit install          # facultatif : mêmes contrôles avant chaque commit
                             # dépendances si SECREVIEW_SERVER_URL est défini
 ```
 
+Le hook `prettier` formate les fichiers YAML et JSON et les sources de `web/src/` avec la
+version de Prettier verrouillée par `web/package-lock.json` (celle de la CI) : lancez `npm ci`
+dans `web/` avant le premier commit. La CI vérifie les mêmes fichiers (`lint.yml`, job **web**).
+`.prettierrc` fixe la largeur à 100 colonnes, comme ruff ; les fichiers de verrouillage sont
+listés dans `.prettierignore`.
+
 Dans VS Code (`.vscode/`) :
 
 | Configuration de `launch.json` | Rôle |

@@ -17,7 +17,7 @@ services:
     environment:
       # Used by the MCP server, the controller and the CLI (tests use an in-memory database).
       # Development-only credentials of the db service below.
-      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:secreview@db:5432/secreview  # secreview:ignore GEN-007 local dev database
+      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:secreview@db:5432/secreview # secreview:ignore GEN-007 local dev database
     depends_on:
       db:
         condition: service_healthy

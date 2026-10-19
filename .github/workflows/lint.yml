@@ -48,5 +48,8 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - name: Prettier
         run: npx prettier --check "src/**/*.{ts,html,css}"
+      - name: Prettier (YAML and JSON of the repository)
+        working-directory: .
+        run: npm --prefix web exec --no -- prettier --check "**/*.{yml,yaml,json}"
       - name: Build
         run: npm run build

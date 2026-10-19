@@ -1,0 +1,3 @@
+# Generated lock files: written by their tools, never formatted by hand
+package-lock.json
+.devcontainer/devcontainer-lock.json

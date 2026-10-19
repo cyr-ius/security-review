@@ -10,6 +10,11 @@ pre-commit install          # optional: same checks before every commit, and the
                             # scan when SECREVIEW_SERVER_URL is set
 ```
 
+The `prettier` hook formats the YAML and JSON files and the sources of `web/src/` with the
+Prettier version locked by `web/package-lock.json` (the one of CI): run `npm ci` in `web/`
+before the first commit. CI checks the same files (`lint.yml`, **web** job). `.prettierrc` sets
+the width to 100 columns, like ruff; lock files are listed in `.prettierignore`.
+
 In VS Code (`.vscode/`):
 
 | `launch.json` configuration | Role |

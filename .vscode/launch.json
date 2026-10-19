@@ -12,7 +12,10 @@
     {
       // Python controller and Angular app under the debugger, with live reload on save
       "name": "Controller + web UI (Angular, port 4200)",
-      "configurations": ["Controller (web UI and API, port 8080)", "Web UI (Angular dev server only)"],
+      "configurations": [
+        "Controller (web UI and API, port 8080)",
+        "Web UI (Angular dev server only)"
+      ],
       "stopAll": true
     }
   ],
@@ -90,9 +93,7 @@
       "type": "debugpy",
       "request": "attach",
       "connect": { "host": "127.0.0.1", "port": 5678 },
-      "pathMappings": [
-        { "localRoot": "${workspaceFolder}", "remoteRoot": "${workspaceFolder}" }
-      ],
+      "pathMappings": [{ "localRoot": "${workspaceFolder}", "remoteRoot": "${workspaceFolder}" }],
       "justMyCode": false
     },
     {

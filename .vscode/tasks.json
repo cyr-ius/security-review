@@ -68,7 +68,15 @@
       "detail": "security-review-controller serve (migrates the schema, REST API proxied by ng serve)",
       "type": "process",
       "command": "uv",
-      "args": ["run", "security-review-controller", "serve", "--host", "127.0.0.1", "--port", "8080"],
+      "args": [
+        "run",
+        "security-review-controller",
+        "serve",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8080"
+      ],
       "options": {
         "cwd": "${workspaceFolder}",
         "env": { "SECREVIEW_AUTH_BOOTSTRAP_ADMIN": "true", "SECREVIEW_LOG_LEVEL": "DEBUG" }
