@@ -3,7 +3,7 @@
 Un serveur partagé (équipe, CI/CD) se compose de **deux processus** qui partagent la même base
 de données (voir [Architecture et déploiement](architecture.md)) :
 
-- le **serveur MCP** (`security-review-mcp --transport streamable-http`) : endpoint `/mcp`,
+- le **serveur MCP** (`security-review-mcp serve --transport streamable-http`) : endpoint `/mcp`,
   enrôlement public (`/api/v1/enroll`) et sonde `/healthz` ; c'est lui qu'on expose aux agents et
   à la CI ;
 - le **contrôleur** (`security-review-controller serve`) : API REST `/api/v1`, interface web
@@ -17,7 +17,7 @@ nécessaire.
 security-review-controller db upgrade                        # crée ou migre le schéma
 security-review-controller serve --host 127.0.0.1 --port 8080
 # interface web : http://127.0.0.1:8080/ui/
-security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
+security-review-mcp serve --transport streamable-http --host 127.0.0.1 --port 8000
 # endpoint MCP : http://127.0.0.1:8000/mcp
 ```
 
@@ -263,7 +263,7 @@ Uvicorn sert directement en HTTPS quand un certificat est fourni, pour le serveu
 le contrôleur (mêmes options, mêmes variables) :
 
 ```bash
-security-review-mcp --transport streamable-http --host 0.0.0.0 --port 8443 \
+security-review-mcp serve --transport streamable-http --host 0.0.0.0 --port 8443 \
     --tls-certfile /etc/secreview/tls/cert.pem --tls-keyfile /etc/secreview/tls/key.pem
 security-review-controller serve --host 0.0.0.0 --port 9443 \
     --tls-certfile /etc/secreview/tls/cert.pem --tls-keyfile /etc/secreview/tls/key.pem

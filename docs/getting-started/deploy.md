@@ -54,7 +54,7 @@ an internal network (see [Architecture and deployment](../advanced/architecture.
 On the machine alone (test):
 
 ```bash
-security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
+security-review-mcp serve --transport streamable-http --host 127.0.0.1 --port 8000
 # MCP endpoint: http://127.0.0.1:8000/mcp
 ```
 
@@ -62,7 +62,7 @@ For the developers and the CI, expose it **with TLS**, with a certificate truste
 workstations (see [TLS](../advanced/http.md#tls)):
 
 ```bash
-security-review-mcp --transport streamable-http --host 0.0.0.0 --port 8443 \
+security-review-mcp serve --transport streamable-http --host 0.0.0.0 --port 8443 \
     --tls-certfile /etc/secreview/tls/cert.pem --tls-keyfile /etc/secreview/tls/key.pem
 # MCP endpoint: https://secreview.example.internal:8443/mcp
 ```

@@ -57,7 +57,7 @@ localhost ou sur un réseau interne (voir [Architecture et déploiement](../adva
 Sur la machine seule (essai) :
 
 ```bash
-security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
+security-review-mcp serve --transport streamable-http --host 127.0.0.1 --port 8000
 # endpoint MCP : http://127.0.0.1:8000/mcp
 ```
 
@@ -65,7 +65,7 @@ Pour les développeurs et la CI, exposez-le **avec TLS**, avec un certificat rec
 postes (voir [TLS](../advanced/http.md#tls)) :
 
 ```bash
-security-review-mcp --transport streamable-http --host 0.0.0.0 --port 8443 \
+security-review-mcp serve --transport streamable-http --host 0.0.0.0 --port 8443 \
     --tls-certfile /etc/secreview/tls/cert.pem --tls-keyfile /etc/secreview/tls/key.pem
 # endpoint MCP : https://secreview.example.internal:8443/mcp
 ```

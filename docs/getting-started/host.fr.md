@@ -5,7 +5,7 @@ doit déjà tourner : voir [Mise en service du serveur](deploy.md).
 
 ## Transport HTTP
 
-Pour un serveur partagé, lancé avec `--transport streamable-http`, l'hôte se connecte à
+Pour un serveur partagé, lancé avec `serve --transport streamable-http`, l'hôte se connecte à
 l'endpoint `/mcp` au lieu de lancer un processus. Si l'authentification est activée, il envoie
 le jeton dans l'en-tête `Authorization: Bearer <jeton>` (génération des jetons, TLS et
 démarrage du serveur : voir [Serveur HTTP, authentification et TLS](../advanced/http.md)).

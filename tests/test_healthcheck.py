@@ -56,16 +56,26 @@ def test_the_health_path_is_the_one_served_by_both_processes():
 @pytest.mark.parametrize(
     ("args", "expected"),
     [
-        (["security-review-mcp"], None),
+        (["security-review-mcp", "serve"], None),
+        (["/opt/venv/bin/python", "/opt/venv/bin/security-review-mcp", "serve"], None),
         (["security-review-mcp", "enroll", "--url", "https://mcp"], None),
         (
-            ["security-review-mcp", "--transport", "streamable-http", "--port", "9000"],
+            ["security-review-mcp", "serve", "--transport", "streamable-http", "--port", "9000"],
             "http://127.0.0.1:9000/healthz",
         ),
         (
-            ["security-review-mcp", "--transport=streamable-http"],
+            ["security-review-mcp", "serve", "--transport=streamable-http"],
             "http://127.0.0.1:8000/healthz",
         ),
+        (
+            ["/opt/venv/bin/python", "/opt/venv/bin/security-review-controller", "serve"],
+            "http://127.0.0.1:8000/healthz",
+        ),
+        (
+            ["python", "-m", "security_review_mcp.controller", "serve"],
+            "http://127.0.0.1:8000/healthz",
+        ),
+        (["python", "-m", "security_review_mcp", "serve"], None),
         (
             ["security-review-controller", "serve", "--host", "0.0.0.0"],
             "http://127.0.0.1:8000/healthz",
@@ -83,11 +93,13 @@ def test_the_url_follows_the_command_of_the_container(settings, args, expected):
 def test_the_url_follows_the_settings_without_options(settings):
     settings(transport="streamable-http", port=8443, tls_certfile="/certs/tls.crt")
 
-    assert healthcheck.health_url(["security-review-mcp"]) == "https://127.0.0.1:8443/healthz"
+    assert (
+        healthcheck.health_url(["security-review-mcp", "serve"]) == "https://127.0.0.1:8443/healthz"
+    )
 
 
 def test_stdio_is_healthy_without_any_request(settings, requests):
-    assert healthcheck.main(["security-review-mcp"]) == 0
+    assert healthcheck.main(["security-review-mcp", "serve"]) == 0
     assert requests[0] == []
 
 

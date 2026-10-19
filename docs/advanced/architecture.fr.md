@@ -15,7 +15,7 @@ données. Ils peuvent tourner dans deux conteneurs, deux pods ou sur deux machin
 
 | | Serveur MCP | Contrôleur |
 |---|---|---|
-| Commande | `security-review-mcp --transport streamable-http` | `security-review-controller serve` |
+| Commande | `security-review-mcp serve --transport streamable-http` | `security-review-controller serve` |
 | Sert | `/mcp`, enrôlement public `POST /api/v1/enroll`, `/healthz` | API REST `/api/v1`, interface `/ui`, `/healthz` |
 | Identifiants acceptés | jetons `mcp` et `admin` | sessions web (utilisateurs), jetons `admin` et `api` ; jetons `ci` sur les seules routes de pipeline `/api/v1/ci/` (gate, SARIF, tendance, scans) |
 | Routes sans jeton | enrôlement, `/healthz` | fichiers de `/ui`, documentation de l'API, `/healthz` (lecture seule) |

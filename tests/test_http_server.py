@@ -443,7 +443,7 @@ def test_main_serves_http_with_auth_and_tls(tmp_path, monkeypatch, captured_run)
 
     server.main(
         [
-            "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8443",
+            "serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8443",
             "--tls-certfile", str(cert), "--tls-keyfile", str(key),
         ]
     )  # fmt: skip
@@ -465,7 +465,7 @@ def test_main_serves_the_enrollment_server_when_enabled(monkeypatch, captured_ru
     token_store.create_token("ops", Role.ADMIN)
     monkeypatch.setattr(server, "get_settings", lambda: make_settings(enrollment=enabled))
 
-    server.main(["--transport", "streamable-http"])
+    server.main(["serve", "--transport", "streamable-http"])
 
     (call,) = captured_run
     assert (call["app"].enrollment_app is not None) is enabled
@@ -498,7 +498,7 @@ def test_main_closes_an_exposed_server_without_token(
         lambda: make_settings(enrollment=False, allow_unauthenticated=allow_unauthenticated),
     )
 
-    server.main(["--transport", "streamable-http", "--host", host])
+    server.main(["serve", "--transport", "streamable-http", "--host", host])
 
     (call,) = captured_run
     with TestClient(call["app"], base_url="http://127.0.0.1:8000") as client:
@@ -525,7 +525,7 @@ def test_http_mcp_server_refuses_a_database_that_was_not_migrated(monkeypatch, c
     monkeypatch.setattr(http_server.uvicorn, "run", lambda app, **kwargs: started.append(app))
 
     with pytest.raises(SystemExit) as exc:
-        server.main(["--transport", "streamable-http"])
+        server.main(["serve", "--transport", "streamable-http"])
 
     assert exc.value.code == 2 and not started
     assert "security-review-controller db upgrade" in capsys.readouterr().err
@@ -535,7 +535,7 @@ def test_http_mcp_server_refuses_a_database_that_was_not_migrated(monkeypatch, c
 def test_http_mcp_server_creates_no_bootstrap_admin(monkeypatch, captured_run):
     monkeypatch.setattr(server, "get_settings", lambda: make_settings())
 
-    server.main(["--transport", "streamable-http"])
+    server.main(["serve", "--transport", "streamable-http"])
 
     assert STORE.has_tokens() is False
     assert web_users.has_users() is False
@@ -546,7 +546,7 @@ def test_stdio_server_migrates_its_own_database(monkeypatch):
     started = []
     monkeypatch.setattr(server.mcp, "run", lambda transport: started.append(transport))
 
-    server.main([])
+    server.main(["serve"])
 
     assert started == ["stdio"]
     assert database.current_revision() == database.head_revision()
@@ -562,18 +562,53 @@ def test_moved_commands_still_run_from_the_mcp_cli_with_a_warning(capsys):
     assert json.loads(captured.out)["up_to_date"] is False
 
 
-def test_mcp_help_documents_every_option_and_command(capsys):
+def test_mcp_help_lists_every_command(capsys):
+    server.main(["--help"])
+
+    out = capsys.readouterr().out
+    assert all(command in out for command in ["serve", *cli.MCP_COMMANDS])
+
+
+def test_mcp_serve_help_documents_every_option(capsys):
     with pytest.raises(SystemExit) as exc:
-        server.main(["--help"])
+        server.main(["serve", "--help"])
 
     assert exc.value.code == 0
     out = capsys.readouterr().out
-    assert all(command in out for command in cli.MCP_COMMANDS)
     for option in ("--transport", "--host", "--port"):
         assert f"overrides SECREVIEW_{option[2:].upper()}" in out
 
 
-@pytest.mark.parametrize("argv", [[], *([command] for command in cli.MCP_COMMANDS)])
+def test_mcp_without_command_shows_the_usage_and_serves_nothing(monkeypatch, capsys):
+    started = []
+    monkeypatch.setattr(server.mcp, "run", lambda transport: started.append(transport))
+
+    with pytest.raises(SystemExit) as exc:
+        server.main([])
+
+    assert exc.value.code == cli.EXIT_ERROR and not started
+    captured = capsys.readouterr()
+    # stdout is the MCP protocol of a stdio host: the usage goes to stderr
+    assert captured.out == ""
+    assert "usage: security-review-mcp COMMAND" in captured.err
+
+
+@pytest.mark.parametrize(
+    ("argv", "message"),
+    [
+        (["--transport", "streamable-http"], "use `security-review-mcp serve --transport ...`"),
+        (["start"], "unknown command 'start'"),
+    ],
+)
+def test_mcp_rejects_an_unknown_command(capsys, argv, message):
+    with pytest.raises(SystemExit) as exc:
+        server.main(argv)
+
+    assert exc.value.code == cli.EXIT_ERROR
+    assert message in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("argv", [["serve"], *([command] for command in cli.MCP_COMMANDS)])
 def test_mcp_options_all_have_a_help_text(monkeypatch, argv):
     parsers: list[argparse.ArgumentParser] = []
 

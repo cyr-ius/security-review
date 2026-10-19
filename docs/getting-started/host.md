@@ -5,7 +5,7 @@ already be running: see [Deploying the server](deploy.md).
 
 ## HTTP transport
 
-For a shared server, started with `--transport streamable-http`, the host connects to the
+For a shared server, started with `serve --transport streamable-http`, the host connects to the
 `/mcp` endpoint instead of starting a process. If authentication is enabled, it sends the
 token in the `Authorization: Bearer <token>` header (token generation, TLS and server start:
 see [HTTP server, authentication and TLS](../advanced/http.md)).

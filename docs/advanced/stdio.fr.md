@@ -1,6 +1,6 @@
 # Mode local (stdio)
 
-En **mode local**, l'hôte (VS Code, Claude…) lance lui-même `security-review-mcp` sur le poste
+En **mode local**, l'hôte (VS Code, Claude…) lance lui-même `security-review-mcp serve` sur le poste
 du développeur et dialogue avec lui par stdin / stdout : pas de réseau, pas de jeton, pas de
 contrôleur.
 
@@ -13,7 +13,7 @@ contrôleur.
 ## Lancement
 
 ```bash
-security-review-mcp   # lancé par l'hôte, pas à la main
+security-review-mcp serve   # lancé par l'hôte, pas à la main
 ```
 
 La base SQLite locale (`./security_reports.db` par défaut, voir
@@ -23,7 +23,7 @@ automatiquement au démarrage. Le contrôleur n'est pas nécessaire.
 ## Configuration de l'hôte
 
 En transport **stdio**, l'hôte (VS Code, Claude…) lance lui-même le processus du serveur.
-Indiquez le chemin de l'exécutable et, si besoin, les variables `SECREVIEW_*`
+Indiquez le chemin de l'exécutable, la commande `serve` et, si besoin, les variables `SECREVIEW_*`
 (voir [Configuration](../reference/configuration.md)).
 
 VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la racine du dépôt :
@@ -34,6 +34,7 @@ VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la raci
     "security-review": {
       "type": "stdio",
       "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
+      "args": ["serve"],
       "env": { "SECREVIEW_DATABASE_URL": "sqlite:////var/lib/secreview/security_reports.db" }
     }
   }

@@ -90,7 +90,7 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-    command: ["--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:${DOCKER_MCP_PORT:-8000}:8000"
 

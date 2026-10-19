@@ -54,7 +54,7 @@ ports 8000 (serveur MCP), 8080 (contrôleur), 4200 (serveur de dev Angular), 800
 
 ```bash
 psql -h db -U secreview secreview                     # mot de passe : secreview
-SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp   # revenir ponctuellement à SQLite
+SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # revenir ponctuellement à SQLite
 ```
 
 Le démon Docker permet de construire et de lancer l'image du
@@ -65,7 +65,7 @@ docker build -t security-review-mcp .
 docker run --rm -p 8080:8000 -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
 docker run --rm -p 8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
-    --transport streamable-http --host 0.0.0.0 --port 8000
+    serve --transport streamable-http --host 0.0.0.0 --port 8000
 ```
 
 Les ports sont redirigés vers le poste : l'interface web est sur `http://localhost:8080/ui/`,

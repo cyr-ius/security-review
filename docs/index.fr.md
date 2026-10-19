@@ -61,7 +61,7 @@ security-review-controller token create --label alice      # jeton mcp, affiché
 # 2. Lancer les deux services (deux terminaux)
 security-review-controller serve --host 127.0.0.1 --port 8080
 # interface web : http://127.0.0.1:8080/ui/
-security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
+security-review-mcp serve --transport streamable-http --host 127.0.0.1 --port 8000
 # endpoint MCP : http://127.0.0.1:8000/mcp
 ```
 

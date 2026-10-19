@@ -3,7 +3,7 @@
 A shared server (team, CI/CD) is made of **two processes** sharing the same database (see
 [Architecture and deployment](architecture.md)):
 
-- the **MCP server** (`security-review-mcp --transport streamable-http`): `/mcp` endpoint,
+- the **MCP server** (`security-review-mcp serve --transport streamable-http`): `/mcp` endpoint,
   public enrollment (`/api/v1/enroll`) and `/healthz` probe; it is the one exposed to the agents
   and to the CI;
 - the **controller** (`security-review-controller serve`): `/api/v1` REST API, `/ui/` web
@@ -16,7 +16,7 @@ a token. With stdio, the host starts the process itself and the controller is no
 security-review-controller db upgrade                        # creates or migrates the schema
 security-review-controller serve --host 127.0.0.1 --port 8080
 # web interface: http://127.0.0.1:8080/ui/
-security-review-mcp --transport streamable-http --host 127.0.0.1 --port 8000
+security-review-mcp serve --transport streamable-http --host 127.0.0.1 --port 8000
 # MCP endpoint: http://127.0.0.1:8000/mcp
 ```
 
@@ -254,7 +254,7 @@ Uvicorn serves HTTPS directly when a certificate is given, for the MCP server as
 controller (same options, same variables):
 
 ```bash
-security-review-mcp --transport streamable-http --host 0.0.0.0 --port 8443 \
+security-review-mcp serve --transport streamable-http --host 0.0.0.0 --port 8443 \
     --tls-certfile /etc/secreview/tls/cert.pem --tls-keyfile /etc/secreview/tls/key.pem
 security-review-controller serve --host 0.0.0.0 --port 9443 \
     --tls-certfile /etc/secreview/tls/cert.pem --tls-keyfile /etc/secreview/tls/key.pem
