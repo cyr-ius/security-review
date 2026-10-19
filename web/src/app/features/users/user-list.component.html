@@ -83,6 +83,10 @@
         id="user-name"
         class="form-control"
         autocomplete="off"
+        data-1p-ignore
+        data-lpignore="true"
+        data-bwignore
+        data-form-type="other"
         autocapitalize="none"
         spellcheck="false"
         [placeholder]="
@@ -106,6 +110,10 @@
           class="form-control"
           type="password"
           autocomplete="new-password"
+          data-1p-ignore
+          data-lpignore="true"
+          data-bwignore
+          data-form-type="other"
           aria-describedby="user-password-help user-password-policy"
           [placeholder]="'users.passwordPlaceholder' | t"
           [class.is-invalid]="passwordInvalid()"
