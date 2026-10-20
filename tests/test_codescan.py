@@ -96,7 +96,7 @@ def test_save_stores_a_code_scan_report():
     result = codescan.scan_files(FILES, [("blob.py", "binary file")], root="shop")
     saved = codescan.save(result, "demo", branch="main", author="alice", submitted_by="jenkins")
     report = services.get_report(saved["report_id"])
-    assert report.reviewer == "security-review-ci code-scan"
+    assert report.reviewer == "security-review-ci scan-code"
     assert (report.author, report.submitted_by, report.branch) == ("alice", "jenkins", "main")
     assert report.review_type == "code-scan"
     assert "Codebase shop" in report.scope and "not scanned: blob.py" in report.scope

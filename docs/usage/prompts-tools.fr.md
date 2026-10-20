@@ -1,5 +1,8 @@
 # Prompts et outils
 
+Pour comprendre quand s'appliquent les règles, les checklists et les normes, et comment écrire
+le fichier `AGENTS.md` d'un projet, voir [Fonctionnement d'une revue](how-it-works.md).
+
 ## Prompts
 
 | Prompt | Usage | Arguments |
@@ -106,6 +109,11 @@ Voir [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
 - `checklist_results` et `scan_rules` : la couverture de la revue (voir
   [couverture de la revue](#couverture-de-la-revue)).
 
+Chaque champ est borné : `repository` (500 caractères), `branch` (200), `commit_sha` (64),
+`reviewer` (200), et chaque texte (`summary`, `scope`, et `description`, `evidence` et
+`recommendation` d'un finding) à `SECREVIEW_MAX_CONTENT_CHARS` ; une valeur plus longue fait
+refuser le rapport.
+
 Le **niveau de risque** du rapport est calculé (sévérité maximale des findings). Le paramètre
 `risk_level` peut seulement le relever, jamais le baisser.
 
@@ -143,8 +151,8 @@ findings se distinguent et se filtrent ainsi dans l'[interface web](web-interfac
 | `configuration-review` | prompt `configuration-review` |
 | `dependency-review` | prompt `dependency-review` |
 | `codebase-review` | prompt `codebase-review` |
-| `code-scan` | `security-review-ci code-scan --save` |
-| `dependency-scan` | `security-review-ci deps-scan --save` |
+| `code-scan` | `security-review-ci scan-code --save` |
+| `dependency-scan` | `security-review-ci scan-deps --save` |
 | `other` | toute autre revue (manuelle, sans prompt) |
 
 Le champ est facultatif : un rapport enregistré sans lui n'a pas de type. Toute autre valeur est

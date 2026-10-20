@@ -133,8 +133,9 @@ au premier lancement ; définissez son mot de passe avec la CLI, qui l'affiche u
 Avant de l'appliquer, remplacez l'image `registry.example.com/security-review-mcp:pg` par une
 image qui contient le pilote PostgreSQL, par exemple `ghcr.io/cyr-ius/security-review-mcp:latest-pg`
 (voir [Installation](installation.md)). Le Secret `secreview-controller` contient le secret de
-signature des sessions web : le système de fichiers des conteneurs est en lecture seule, le
-contrôleur ne peut pas le générer.
+signature des sessions web : sans lui, le contrôleur en tire un aléatoire à chaque démarrage et
+les sessions se terminent à chaque redémarrage (manifeste du Secret : voir
+[Kubernetes](../advanced/architecture.md#kubernetes)).
 
 ```bash
 kubectl create namespace secreview

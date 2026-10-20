@@ -31,7 +31,7 @@ schéma officiel).
 Exemple GitHub Actions :
 
 ```yaml
-- run: security-review-ci code-scan . --project my-project --format sarif -o code.sarif
+- run: security-review-ci scan-code . --project my-project --format sarif -o code.sarif
   env:
     SECREVIEW_CONTROLLER_URL: https://secreview.example.com
     SECREVIEW_TOKEN: ${{ secrets.SECREVIEW_CI_TOKEN }}

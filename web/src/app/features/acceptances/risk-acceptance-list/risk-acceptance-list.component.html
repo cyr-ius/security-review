@@ -149,6 +149,7 @@
                       [acceptance]="row"
                       [canTriage]="auth.canTriage()"
                       [permanentAcceptance]="auth.permanentAcceptance()"
+                      [riskAcceptanceMinSeverity]="auth.riskAcceptanceMinSeverity()"
                       (changed)="onChanged($event)"
                       (removed)="onRemoved($event)"
                       (commented)="onCommented(row.id)"

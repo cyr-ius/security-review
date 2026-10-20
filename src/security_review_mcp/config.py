@@ -4,6 +4,7 @@ import ipaddress
 import logging
 import sys
 from functools import lru_cache
+from typing import Literal
 from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator
@@ -75,11 +76,9 @@ class Settings(BaseSettings):
 
     # Controller only: sessions of the web interface (password and OIDC logins), tokens signed
     # with secret_key (at least 32 characters, shared by the replicas) and valid
-    # session_hours (1 to 24). Unset, the secret is read from secret_key_file, generated
-    # there (mode 0600) at the first start; "" for secret_key_file draws a random secret at
-    # each start (sessions then end at restart).
+    # session_hours (1 to 24). Unset, a random secret is drawn at each start: sessions then
+    # end at restart and are not shared between replicas.
     secret_key: SecretStr | None = None
-    secret_key_file: str = "secret-key"
     session_hours: int = 8
 
     # Enrollment (HTTP MCP server, once a token exists): a client without a token reaches a
@@ -206,6 +205,13 @@ class Settings(BaseSettings):
     # interface); the acceptance then lasts until someone reopens the finding. False: every
     # acceptance needs an expiry date. A false positive always needs one.
     permanent_acceptance_enabled: bool = True
+    # Controller only: lowest severity whose risk acceptance needs a reason and an expiry date
+    # (see permanent_acceptance_enabled). A less severe finding is accepted by a plain
+    # validation, which closes it with no reason and no expiry date. Empty: every acceptance
+    # needs them.
+    risk_acceptance_min_severity: Literal["critical", "high", "medium", "low", "info"] | None = (
+        "medium"
+    )
 
     # Longest validity, in days, of a bearer token created or rotated (CLI, web interface,
     # enrollment), which is also its default validity. 0: tokens never expire unless an expiry is
@@ -246,6 +252,9 @@ class Settings(BaseSettings):
     max_findings_per_report: int = 500
     max_dependency_chars: int = 1_000_000
     max_list_limit: int = 100
+    # MCP server only: size of the body of a request of an authenticated MCP client (413 above);
+    # a client without a token, sent to the enrollment server, gets a fixed bound of 64 KiB
+    max_mcp_request_mb: int = Field(default=16, ge=1, le=1024)
     # Controller only: bounds of the scans sent by security-review-ci (POST /api/v1/ci/scan/...):
     # size of the request body (413 above), files per request, and size of one scanned source
     # file (a larger one is reported as skipped)
@@ -258,6 +267,14 @@ class Settings(BaseSettings):
     def _empty_is_unset(cls, value: str | None) -> str | None:
         """An empty variable means no value (an empty stored proxy means a direct connection)."""
         return value.strip() or None if value is not None else None
+
+    @field_validator("risk_acceptance_min_severity", mode="before")
+    @classmethod
+    def _empty_severity_is_unset(cls, value: object) -> object:
+        """An empty variable means no threshold: every acceptance needs a reason and a date."""
+        if isinstance(value, str):
+            return value.strip().lower() or None
+        return value
 
     @field_validator("proxy")
     @classmethod

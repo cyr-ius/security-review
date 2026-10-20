@@ -69,14 +69,14 @@ exits with code `2`.
 | `gate --project P [--fail-on SEV] [--report-id N]` | Deployment gate through the REST API | [Pipeline client](../usage/gate.md#pipeline-client-security-review-ci) |
 | `sarif --project P [--include-resolved] [-o FILE]` | SARIF 2.1.0 export through the REST API | [SARIF](../advanced/sarif.md) |
 | `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Trend report through the REST API | [Trends](../advanced/trends.md) |
-| `code-scan [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FILE] [--save]` | Reads the files of the repository and has the controller scan them with its rules; `--save` stores a report | [Whole codebase scan](../advanced/code-scan.md) |
-| `deps-scan FILE… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--save]` | Sends manifests, lockfiles or CycloneDX SBOMs to the controller, which checks them against its advisory database; `--save` stores a report | [Dependencies](../advanced/dependencies.md#scan-in-a-pipeline-security-review-ci-deps-scan) |
+| `scan-code [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FILE] [--save]` | Reads the files of the repository and has the controller scan them with its rules; `--save` stores a report | [Whole codebase scan](../advanced/code-scan.md) |
+| `scan-deps FILE… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--save]` | Sends manifests, lockfiles or CycloneDX SBOMs to the controller, which checks them against its advisory database; `--save` stores a report | [Dependencies](../advanced/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps) |
 
-`code-scan` and `deps-scan` also accept `--repository`, `--branch`, `--commit` and `--author`,
+`scan-code` and `scan-deps` also accept `--repository`, `--branch`, `--commit` and `--author`,
 stored with the report. They need a `ci` or `admin` token.
 ## Exit codes
 
-The check commands (`security-review-ci gate`, `code-scan` and `deps-scan`, `scan-deps`, `db status`) share the same convention:
+The check commands (`security-review-ci gate`, `scan-code` and `scan-deps`, `security-review-mcp scan-deps`, `db status`) share the same convention:
 
 | Code | Meaning |
 |---|---|

@@ -215,7 +215,7 @@ async def test_scan_dependencies_tool_limits_and_errors(monkeypatch):
         big = await client.call_tool(
             "scan_dependencies", {"content": "flask==1.0\n" * 10, "filename": "requirements.txt"}
         )
-        assert big.is_error and "security-review-ci deps-scan" in text_of(big)
+        assert big.is_error and "security-review-ci scan-deps" in text_of(big)
         bad = await client.call_tool("scan_dependencies", {"content": "x", "filename": "notes.md"})
         assert bad.is_error and "Unsupported" in text_of(bad)
 

@@ -55,6 +55,12 @@ MAX_STATUS_REASON_CHARS = 1000
 MAX_COMMENT_CHARS = 2000
 # Developer username declared with a report, and label of the token that saved it
 MAX_AUTHOR_CHARS = 200
+# Short fields of a report, the size of their column (the text fields are bounded by
+# SECREVIEW_MAX_CONTENT_CHARS, see services.save_report)
+MAX_REPOSITORY_CHARS = 500
+MAX_BRANCH_CHARS = 200
+MAX_COMMIT_SHA_CHARS = 64
+MAX_REVIEWER_CHARS = 200
 # Review coverage declared with a report: checklist results and rules that raised scan leads
 MAX_CHECKLIST_RESULTS = 500
 MAX_SCAN_RULES = 500
@@ -171,6 +177,12 @@ class Finding(FindingBase, table=True):
     proposed_reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
     proposed_by: str | None = Field(default=None, max_length=200)
     proposed_at: datetime | None = Field(default=None)
+    # Severity raised by a security analyst in the web interface, with its justification:
+    # ``severity`` holds the raised value, ``original_severity`` the one of the report
+    original_severity: Severity | None = Field(default=None, sa_type=String(10))
+    severity_reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
+    severity_changed_by: str | None = Field(default=None, max_length=200)
+    severity_changed_at: datetime | None = Field(default=None)
     report: SecurityReport = Relationship(back_populates="findings")
     comments: list[FindingComment] = Relationship(
         back_populates="finding",
@@ -196,6 +208,10 @@ class FindingPublic(FindingBase):
     proposed_reason: str | None = None
     proposed_by: str | None = None
     proposed_at: datetime | None = None
+    original_severity: Severity | None = None
+    severity_reason: str | None = None
+    severity_changed_by: str | None = None
+    severity_changed_at: datetime | None = None
 
     @model_validator(mode="after")
     def _expire_dismissal(self) -> FindingPublic:
@@ -235,10 +251,12 @@ class SecurityReportBase(SQLModel):
     """Fields shared by every SecurityReport variant."""
 
     project: str = Field(index=True, min_length=1, max_length=200)
-    repository: str | None = Field(default=None, max_length=500)
-    branch: str | None = Field(default=None, max_length=200)
-    commit_sha: str | None = Field(default=None, max_length=64, index=True)
-    reviewer: str | None = Field(default=None, max_length=200, description="Agent or person")
+    repository: str | None = Field(default=None, max_length=MAX_REPOSITORY_CHARS)
+    branch: str | None = Field(default=None, max_length=MAX_BRANCH_CHARS)
+    commit_sha: str | None = Field(default=None, max_length=MAX_COMMIT_SHA_CHARS, index=True)
+    reviewer: str | None = Field(
+        default=None, max_length=MAX_REVIEWER_CHARS, description="Agent or person"
+    )
     # Declared by the client (not authenticated): one enrolled device may serve several people
     author: str | None = Field(
         default=None,

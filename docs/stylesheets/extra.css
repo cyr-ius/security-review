@@ -1,0 +1,6 @@
+/* Identifiers in the first column of a table (variables, options, commands) only wrap at
+   spaces: never in the middle of a name such as SECREVIEW_DB_AUTO_UPGRADE. */
+.md-typeset table:not([class]) td:first-child code {
+  word-break: normal;
+  overflow-wrap: normal;
+}

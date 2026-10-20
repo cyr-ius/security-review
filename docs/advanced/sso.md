@@ -219,7 +219,7 @@ restart the controller, then log in with a local account (its password can be se
   (at least 32 characters), like the one of the [local accounts](../usage/web-interface.md#login-and-sessions), and
   names the OIDC account, read again at every request: deleting the account or changing its
   groups or their roles applies at once. Every replica of the controller must share this secret; without
-  it, the secret of `SECREVIEW_SECRET_KEY_FILE` is used, generated at the first start.
+  it, a random secret is drawn at every start and sessions end at restart.
 - A group change at the provider only applies at the next login. To cut every session before it
   expires, delete the account, or change `SECREVIEW_SECRET_KEY` and restart the controller
   (every session is cut).

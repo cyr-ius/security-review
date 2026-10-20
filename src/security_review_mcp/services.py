@@ -18,7 +18,11 @@ from .database import session_scope
 from .models import (
     DISMISSED_STATUSES,
     MAX_AUTHOR_CHARS,
+    MAX_BRANCH_CHARS,
     MAX_COMMENT_CHARS,
+    MAX_COMMIT_SHA_CHARS,
+    MAX_REPOSITORY_CHARS,
+    MAX_REVIEWER_CHARS,
     MAX_STATUS_REASON_CHARS,
     PROPOSABLE_STATUSES,
     SEVERITY_RANK,
@@ -112,6 +116,20 @@ def _sanitize_finding(data: FindingCreate) -> Finding:
     return Finding(**values)
 
 
+def _check_lengths(*fields: tuple[str, str | None, int]) -> None:
+    """Refuse a field (name, value, limit) longer than its limit, before it is masked or stored.
+
+    The table models do not validate their max_length: a longer value would be stored and
+    break the reading of the report.
+
+    Raises:
+        ValueError: Naming the first field that is too long.
+    """
+    for name, value, limit in fields:
+        if value is not None and len(value) > limit:
+            raise ValueError(f"{name} too long ({len(value)} chars); the limit is {limit}")
+
+
 def save_report(
     project: str,
     summary: str,
@@ -152,7 +170,8 @@ def save_report(
         coverage, also its counts, the uncovered checklist items and the warnings.
 
     Raises:
-        ValueError: If the report contains too many findings, an unknown review type or an
+        ValueError: If the report contains too many findings, a field longer than its column
+            or a text longer than SECREVIEW_MAX_CONTENT_CHARS, an unknown review type or an
             invalid author.
     """
     settings = get_settings()
@@ -165,6 +184,20 @@ def save_report(
         raise ValueError(
             f"Too many findings ({len(findings)}); the limit is {settings.max_findings_per_report}"
         )
+    content = settings.max_content_chars
+    _check_lengths(
+        ("repository", repository, MAX_REPOSITORY_CHARS),
+        ("branch", branch, MAX_BRANCH_CHARS),
+        ("commit_sha", commit_sha, MAX_COMMIT_SHA_CHARS),
+        ("reviewer", reviewer, MAX_REVIEWER_CHARS),
+        ("summary", summary, content),
+        ("scope", scope, content),
+        *(
+            (f"findings[{index}].{name}", getattr(item, name), content)
+            for index, item in enumerate(findings)
+            for name in ("description", "evidence", "recommendation")
+        ),
+    )
     author = _check_author(author)
     declared = None
     if checklist_results is not None or scan_rules is not None:
@@ -360,6 +393,16 @@ def _check_expiry(expires_at: datetime, now: datetime, longest: int) -> datetime
     return expires_at
 
 
+def needs_formal_acceptance(severity: Severity | str) -> bool:
+    """Whether accepting the risk of a finding of this severity needs a reason and an expiry.
+
+    True from SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY up, and for every severity when it is
+    empty; a less severe finding is accepted by a plain validation.
+    """
+    threshold = get_settings().risk_acceptance_min_severity
+    return threshold is None or SEVERITY_RANK[Severity(severity)] >= SEVERITY_RANK[threshold]
+
+
 def update_finding_status(
     finding_id: int,
     status: FindingStatus,
@@ -373,6 +416,8 @@ def update_finding_status(
     ``accepted`` and ``false_positive`` need a reason and an expiry date, in the future and at
     most SECREVIEW_MAX_DISMISSAL_DAYS days away: once expired, the finding counts as open again.
     An acceptance may have no expiry date while SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
+    A finding less severe than SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY is accepted by a plain
+    validation: its reason and its expiry date are optional.
     The reason of an acceptance is also its first comment (see ``add_finding_comment``).
     ``fixed`` takes an optional reason; ``open`` clears the decision. Any decision clears the
     status proposed by an agent. The decision is written to the audit log (``actor``, default
@@ -386,30 +431,36 @@ def update_finding_status(
     if not approver:
         raise ValueError("An approver is required")
     now = utcnow()
-    if status in DISMISSED_STATUSES:
-        reason = _check_reason(reason, required=True)
-        settings = get_settings()
-        if expires_at is None:
-            if status != FindingStatus.ACCEPTED or not settings.permanent_acceptance_enabled:
-                raise ValueError(f"An expiry date is required for the status '{status.value}'")
-        else:
-            expires_at = _check_expiry(as_utc(expires_at), now, settings.max_dismissal_days)
-    else:
-        if expires_at is not None:
-            raise ValueError(f"The status '{status.value}' takes no expiry date")
-        reason = _check_reason(reason, required=False) if status != FindingStatus.OPEN else None
-
     with session_scope() as session:
         finding = session.get(Finding, finding_id)
         if finding is None:
             raise NotFoundError(f"Finding {finding_id} not found")
+        if status in DISMISSED_STATUSES:
+            settings = get_settings()
+            plain = status == FindingStatus.ACCEPTED and not needs_formal_acceptance(
+                finding.severity
+            )
+            reason = _check_reason(reason, required=not plain)
+            if expires_at is None:
+                if not plain and (
+                    status != FindingStatus.ACCEPTED or not settings.permanent_acceptance_enabled
+                ):
+                    raise ValueError(f"An expiry date is required for the status '{status.value}'")
+            else:
+                expires_at = _check_expiry(as_utc(expires_at), now, settings.max_dismissal_days)
+        else:
+            if expires_at is not None:
+                raise ValueError(f"The status '{status.value}' takes no expiry date")
+            reason = _check_reason(reason, required=False) if status != FindingStatus.OPEN else None
         previous = effective_status(finding.status, finding.status_expires_at, now)
         if previous != status:
             finding.status_changed_at = now
         # The reason of an acceptance opens its comments: a new one is added when the risk is
         # accepted or its reason changes, not when only the expiry date does
-        if status == FindingStatus.ACCEPTED and (
-            finding.status != status or finding.status_reason != reason
+        if (
+            status == FindingStatus.ACCEPTED
+            and reason
+            and (finding.status != status or finding.status_reason != reason)
         ):
             session.add(
                 FindingComment(
@@ -444,6 +495,74 @@ def update_finding_status(
         )
         session.flush()
         logger.info("Finding %s set to %s", finding_id, status)
+        return FindingPublic.model_validate(finding, from_attributes=True)
+
+
+def update_finding_severity(
+    finding_id: int,
+    severity: Severity,
+    analyst: str,
+    reason: str,
+    actor: str | None = None,
+) -> FindingPublic:
+    """Raise the severity of a finding, decided by a security analyst (web interface).
+
+    The new severity must be above the one given by the report, or equal to it to undo an
+    escalation: a finding is never made less severe than its report says (accepting a risk is
+    the way to close it). The justification is required. The severity of the report is kept
+    in ``original_severity`` and its risk level is raised with the finding. The change is
+    written to the audit log (``actor``, default the analyst).
+
+    Raises:
+        NotFoundError: If the finding does not exist.
+        ValueError: If the analyst or the justification is missing or invalid, or the
+            severity is unchanged or below the one of the report.
+    """
+    analyst = analyst.strip()
+    if not analyst:
+        raise ValueError("An analyst is required")
+    severity = Severity(severity)
+    checked = _check_reason(reason, required=True)
+    with session_scope() as session:
+        finding = session.get(Finding, finding_id)
+        if finding is None:
+            raise NotFoundError(f"Finding {finding_id} not found")
+        previous = Severity(finding.severity)
+        original = Severity(finding.original_severity or previous)
+        if severity == previous:
+            raise ValueError(f"The finding is already {severity.value}")
+        if SEVERITY_RANK[severity] < SEVERITY_RANK[original]:
+            raise ValueError(
+                f"The severity cannot go below the one of the report ({original.value})"
+            )
+        now = utcnow()
+        restored = severity == original
+        finding.severity = severity
+        finding.original_severity = None if restored else original
+        finding.severity_reason = checked
+        finding.severity_changed_by = analyst[:200]
+        finding.severity_changed_at = now
+        report = finding.report
+        if SEVERITY_RANK[severity] > SEVERITY_RANK[Severity(report.risk_level)]:
+            report.risk_level = severity
+            session.add(report)
+        session.add(finding)
+        audit.record(
+            session,
+            audit.AuditAction.FINDING_SEVERITY_CHANGED,
+            actor or analyst,
+            "finding",
+            finding_id,
+            report.project,
+            {
+                "previous_severity": previous.value,
+                "severity": severity.value,
+                "original_severity": original.value,
+                "reason": checked,
+            },
+        )
+        session.flush()
+        logger.info("Finding %s severity set to %s", finding_id, severity)
         return FindingPublic.model_validate(finding, from_attributes=True)
 
 
@@ -927,6 +1046,13 @@ def render_report_markdown(report: SecurityReportPublic) -> str:
             lines.append(f"- **Location**: `{location}`")
         if refs:
             lines.append(f"- **References**: {refs}")
+        if finding.original_severity:
+            # On one line: the justification is free text typed by a person
+            reason = " ".join((finding.severity_reason or "").split())
+            lines.append(
+                f"- **Severity raised** from {finding.original_severity.value} by "
+                f"{finding.severity_changed_by}: {reason}"
+            )
         lines += ["", finding.description]
         if finding.evidence:
             lines += ["", "```", finding.evidence, "```"]

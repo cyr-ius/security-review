@@ -44,6 +44,7 @@ class AuditAction(StrEnum):
     FINDING_STATUS_PROPOSED = "finding.status_proposed"
     FINDING_PROPOSAL_REJECTED = "finding.proposal_rejected"
     FINDING_COMMENTED = "finding.commented"
+    FINDING_SEVERITY_CHANGED = "finding.severity_changed"
     TOKEN_CREATED = "token.created"
     TOKEN_ROTATED = "token.rotated"
     TOKEN_REVOKED = "token.revoked"

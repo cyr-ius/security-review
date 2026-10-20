@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlmodel import select
 
-from security_review_mcp import services
+from security_review_mcp import audit, services
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.database import session_scope
 from security_review_mcp.models import (
@@ -87,6 +87,18 @@ def test_too_many_findings_rejected(monkeypatch):
     monkeypatch.setattr(services.get_settings(), "max_findings_per_report", 2)
     with pytest.raises(ValueError):
         services.save_report("p", "summary", [make_finding() for _ in range(3)])
+
+
+@pytest.mark.parametrize(
+    ("fields", "finding"),
+    [({"branch": "b" * 201}, {}), ({"scope": "s" * 1001}, {}), ({}, {"evidence": "e" * 1001})],
+)
+def test_too_long_fields_are_rejected_before_storage(monkeypatch, fields, finding):
+    # A branch longer than its column was stored, then the report could not be read any more
+    monkeypatch.setattr(services.get_settings(), "max_content_chars", 1000)
+    with pytest.raises(ValueError, match="too long"):
+        services.save_report("p", "summary", [make_finding(**finding)], **fields)
+    assert services.list_reports() == []
 
 
 def test_invalid_finding_is_rejected():
@@ -437,6 +449,41 @@ def test_triage_decision_is_validated(status, reason, expires_in, error):
     assert services.get_report(saved["report_id"]).findings[0].status == FindingStatus.OPEN
 
 
+def test_analyst_raises_the_severity_never_below_the_report():
+    saved = services.save_report("shop", "summary", [make_finding(Severity.MEDIUM)])
+    finding_id = services.get_report(saved["report_id"]).findings[0].id
+    assert services.evaluate_gate("shop", Severity.HIGH)["passed"] is True
+
+    raised = services.update_finding_severity(
+        finding_id, Severity.CRITICAL, "alice", "Reachable without authentication"
+    )
+
+    assert (raised.severity, raised.original_severity) == (Severity.CRITICAL, Severity.MEDIUM)
+    assert (raised.severity_changed_by, raised.severity_reason) == (
+        "alice",
+        "Reachable without authentication",
+    )
+    # The report, the gate and the audit log follow the raised severity
+    assert services.get_report(saved["report_id"]).risk_level == Severity.CRITICAL
+    assert services.evaluate_gate("shop", Severity.HIGH)["passed"] is False
+    (event,) = audit.list_events(action="finding.severity_changed")["events"]
+    assert (event["actor"], event["details"]["previous_severity"]) == ("alice", "medium")
+    for severity, reason, error in (
+        (Severity.LOW, "Only internal users reach it", "below the one of the report"),
+        (Severity.CRITICAL, "Reachable without authentication", "already critical"),
+        (Severity.HIGH, "short", "10 to 1000"),
+    ):
+        with pytest.raises(ValueError, match=error):
+            services.update_finding_severity(finding_id, severity, "alice", reason)
+
+    # Back to the severity of the report: the escalation is undone, not hidden
+    restored = services.update_finding_severity(
+        finding_id, Severity.MEDIUM, "bob", "Authentication added upstream"
+    )
+    assert (restored.severity, restored.original_severity) == (Severity.MEDIUM, None)
+    assert restored.severity_changed_by == "bob"
+
+
 def test_risk_acceptance_without_expiry_unless_disabled(monkeypatch):
     saved = services.save_report("shop", "summary", [make_finding()])
     finding_id = services.get_report(saved["report_id"]).findings[0].id
@@ -457,6 +504,39 @@ def test_risk_acceptance_without_expiry_unless_disabled(monkeypatch):
             finding_id, FindingStatus.ACCEPTED, "alice", "Internal tool only"
         )
     assert services.get_report(saved["report_id"]).findings[0].status == FindingStatus.OPEN
+
+
+def test_risk_below_the_threshold_is_accepted_without_reason_or_expiry(monkeypatch):
+    saved = services.save_report(
+        "shop", "summary", [make_finding(Severity.LOW), make_finding(Severity.MEDIUM)]
+    )
+    low, medium = (f.id for f in services.get_report(saved["report_id"]).findings)
+    assert Settings(_env_file=None).risk_acceptance_min_severity == "medium"
+    assert (
+        Settings(_env_file=None, risk_acceptance_min_severity=" ").risk_acceptance_min_severity
+        is None
+    )
+    monkeypatch.setattr(get_settings(), "permanent_acceptance_enabled", False)
+
+    decided = services.update_finding_status(low, FindingStatus.ACCEPTED, "alice")
+    assert (decided.status, decided.status_reason, decided.status_expires_at) == (
+        FindingStatus.ACCEPTED,
+        None,
+        None,
+    )
+    assert services.list_finding_comments(low) == []
+    # From the threshold up, an acceptance still needs a reason and an expiry date
+    with pytest.raises(ValueError, match="reason is required"):
+        services.update_finding_status(medium, FindingStatus.ACCEPTED, "alice")
+    # A false positive is never a plain validation
+    with pytest.raises(ValueError, match="reason is required"):
+        services.update_finding_status(low, FindingStatus.FALSE_POSITIVE, "alice")
+
+    # Empty threshold: every acceptance needs them
+    services.update_finding_status(low, FindingStatus.OPEN, "alice")
+    monkeypatch.setattr(get_settings(), "risk_acceptance_min_severity", None)
+    with pytest.raises(ValueError, match="reason is required"):
+        services.update_finding_status(low, FindingStatus.ACCEPTED, "alice")
 
 
 def test_triage_decision_masks_its_reason_and_clears_the_proposal():

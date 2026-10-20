@@ -165,7 +165,7 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 - Les motifs avec quantificateurs imbriqués (`(a+)+`), trop longs (500 caractères) ou qui
   matchent la chaîne vide sont refusés. Les lignes de plus de 2000 caractères sont tronquées
   avant analyse.
-- `security-review-ci code-scan` applique les règles de la base du contrôleur.
+- `security-review-ci scan-code` applique les règles de la base du contrôleur.
 
 !!! warning "Contenu de confiance"
     Les règles internes sont du contenu **de confiance** : seuls les opérateurs qui ont accès à

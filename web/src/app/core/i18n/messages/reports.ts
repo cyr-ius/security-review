@@ -59,6 +59,20 @@ export const reports = defineMessages({
     'report.dismissNoExpiryHelp': 'The risk stays accepted until someone reopens the finding.',
     'report.dismissSave': 'Save the decision',
     'report.dismissCancel': 'Cancel',
+    'report.severityRaise': 'Raise the severity',
+    'report.severityTitle': 'Change the severity of finding #{id}',
+    'report.severityNew': 'New severity',
+    'report.severityReason': 'Justification',
+    'report.severityReasonHelp':
+      'Why this finding is more critical (exposure, exploitability, impact): 10 to 1000 characters.',
+    'report.severityHelp':
+      'Never below the severity of the report ({severity}); choosing it again undoes the escalation.',
+    'report.severitySave': 'Save the severity',
+    'report.severityRaisedBy': 'Severity raised from {from} by {by} ({date})',
+    'report.severityChangedBy': 'Severity changed by {by} ({date})',
+    'report.severityInvalid':
+      'The severity of finding #{id} was refused: choose a higher severity and justify it (10 characters or more).',
+    'report.severityFailed': 'The severity of finding #{id} could not be saved.',
     'report.coverage': 'Review coverage',
     'report.coverageNone': 'The reviewer did not declare which checklist items it walked through.',
     'report.coverageItems': 'Checklist items ({count})',
@@ -132,6 +146,20 @@ export const reports = defineMessages({
       "Le risque reste accepté jusqu'à ce que quelqu'un rouvre le finding.",
     'report.dismissSave': 'Enregistrer la décision',
     'report.dismissCancel': 'Annuler',
+    'report.severityRaise': 'Relever la criticité',
+    'report.severityTitle': 'Modifier la criticité du finding #{id}',
+    'report.severityNew': 'Nouvelle criticité',
+    'report.severityReason': 'Justification',
+    'report.severityReasonHelp':
+      'Pourquoi ce finding est plus critique (exposition, exploitabilité, impact) : 10 à 1000 caractères.',
+    'report.severityHelp':
+      'Jamais sous la criticité du rapport ({severity}) ; la choisir de nouveau annule la hausse.',
+    'report.severitySave': 'Enregistrer la criticité',
+    'report.severityRaisedBy': 'Criticité relevée depuis {from} par {by} ({date})',
+    'report.severityChangedBy': 'Criticité modifiée par {by} ({date})',
+    'report.severityInvalid':
+      'La criticité du finding #{id} a été refusée : choisissez une criticité plus élevée et justifiez-la (10 caractères ou plus).',
+    'report.severityFailed': "La criticité du finding #{id} n'a pas pu être enregistrée.",
     'report.coverage': 'Couverture de la revue',
     'report.coverageNone': "Le relecteur n'a pas déclaré les points de checklist qu'il a vérifiés.",
     'report.coverageItems': 'Points de checklist ({count})',
@@ -204,6 +232,20 @@ export const reports = defineMessages({
     'report.dismissNoExpiryHelp': 'El riesgo sigue aceptado hasta que alguien reabra el hallazgo.',
     'report.dismissSave': 'Guardar la decisión',
     'report.dismissCancel': 'Cancelar',
+    'report.severityRaise': 'Elevar la criticidad',
+    'report.severityTitle': 'Cambiar la criticidad del hallazgo #{id}',
+    'report.severityNew': 'Nueva criticidad',
+    'report.severityReason': 'Justificación',
+    'report.severityReasonHelp':
+      'Por qué este hallazgo es más crítico (exposición, explotabilidad, impacto): de 10 a 1000 caracteres.',
+    'report.severityHelp':
+      'Nunca por debajo de la criticidad del informe ({severity}); elegirla de nuevo anula la subida.',
+    'report.severitySave': 'Guardar la criticidad',
+    'report.severityRaisedBy': 'Criticidad elevada desde {from} por {by} ({date})',
+    'report.severityChangedBy': 'Criticidad cambiada por {by} ({date})',
+    'report.severityInvalid':
+      'Se rechazó la criticidad del hallazgo #{id}: elija una criticidad más alta y justifíquela (10 caracteres o más).',
+    'report.severityFailed': 'No se pudo guardar la criticidad del hallazgo #{id}.',
     'report.coverage': 'Cobertura de la revisión',
     'report.coverageNone': 'El revisor no declaró qué puntos de la lista de verificación revisó.',
     'report.coverageItems': 'Puntos de la lista de verificación ({count})',

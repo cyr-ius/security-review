@@ -20,7 +20,7 @@ SBOM of the resolved dependency tree in the pipeline and scan it:
 ```bash
 # Maven: writes target/bom.json and target/bom.xml
 mvn org.cyclonedx:cyclonedx-maven-plugin:makeAggregateBom
-security-review-ci deps-scan target/bom.json --project my-project --require-database
+security-review-ci scan-deps target/bom.json --project my-project --require-database
 ```
 
 With Gradle, the `cyclonedxBom` task of the `org.cyclonedx.bom` plugin produces the same file;
@@ -129,7 +129,7 @@ security-review-controller advisories update --ecosystem npm  # repeatable optio
 The controller downloads at most a few hundred MiB a day (the npm export is the largest): plan
 the matching space in its temporary folder (`/tmp`).
 
-## Scan in a pipeline (`security-review-ci deps-scan`)
+## Scan in a pipeline (`security-review-ci scan-deps`)
 
 In a pipeline, the [pipeline client](../usage/gate.md#pipeline-client-security-review-ci) sends
 the dependency files to the controller, which checks them against its advisory database and,
@@ -140,7 +140,7 @@ database nor the package, only a [`ci` token](../usage/gate.md#ci-token-and-visi
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
 export SECREVIEW_TOKEN=...   # ci token restricted to my-project
-security-review-ci deps-scan package-lock.json requirements.txt \
+security-review-ci scan-deps package-lock.json requirements.txt \
     --fail-on high --require-database --project my-project --save
 # exit code: 0 = ok, 1 = blocked, 2 = error
 ```
@@ -171,7 +171,7 @@ A missing or refused token (unknown, revoked or expired) ends with an error that
 sign in to the web interface and create a new personal MCP token (see
 [rejected token](http.md#rejected-token-sign-in-again)).
 
-- Same options and output as `security-review-ci deps-scan` (`--fail-on`, `--format`,
+- Same options and output as `security-review-ci scan-deps` (`--fail-on`, `--format`,
   `--require-database`); nothing is stored (no `--save`).
 - `--url` replaces `SECREVIEW_MCP_URL`, `--token-stdin` reads the token on stdin instead of
   `SECREVIEW_TOKEN`. Both variables can also be set in the `.env` file of the folder (never

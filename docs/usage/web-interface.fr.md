@@ -103,7 +103,8 @@ suivantes.
   [couverture de la revue](prompts-tools.md#couverture-de-la-revue)), findings avec
   emplacement, CWE, extrait de code et recommandation ; téléchargement Markdown et SARIF. Les
   utilisateurs qui ont la permission `findings.triage` changent le statut d'un finding directement
-  depuis cet écran.
+  depuis cet écran, et relèvent sa criticité avec une justification (voir
+  [criticité d'un finding](#criticite-dun-finding)).
 - **Normes** : les [normes de développement](../advanced/standards.md) transmises aux assistants IA par le
   prompt `development-standards`. Rechercher et trier par titre, technologie ou motif
   de fichier, filtrer par état activé. Les administrateurs les lisent, les créent,
@@ -235,6 +236,9 @@ MCP `propose_finding_status`, voir [statut d'un finding](prompts-tools.md#statut
   **Risque accepté**, la case **Sans expiration** supprime la date : le risque reste accepté
   jusqu'à ce que quelqu'un rouvre le finding (désactivée par
   `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`). Un faux positif exige toujours une date.
+- **Risque accepté** sous `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` par défaut, donc
+  un finding `low` ou `info`) : une simple validation, enregistrée immédiatement sans motif ni
+  date d'expiration. Variable vide : toute acceptation passe par le formulaire ci-dessus.
 - **Ouvert** et **Corrigé** sont enregistrés immédiatement (motif facultatif par l'API). Toute
   décision supprime la proposition en attente.
 
@@ -253,11 +257,38 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
 Un motif absent ou trop court, une date d'expiration passée ou trop lointaine, ou une date
 d'expiration pour `open` / `fixed` reçoit `422`. Sans `expires_on`, une acceptation n'expire
 jamais, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`) ; `GET /api/v1/me` renvoie
-`permanent_acceptance` pour indiquer si l'appelant peut le faire. Les décisions **Risque accepté** et **Faux
+`permanent_acceptance` pour indiquer si l'appelant peut le faire. Sous
+`SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` et `expires_on` sont facultatifs pour
+`accepted` (`{"status": "accepted"}` suffit) ; `GET /api/v1/me` renvoie ce seuil dans
+`risk_acceptance_min_severity` (`null` : toute acceptation les exige). Les décisions **Risque accepté** et **Faux
 positif** prises avant cette fonctionnalité n'avaient ni motif ni approbateur : la mise à jour de
 la base leur donne une date d'expiration 30 jours plus tard, avec un motif qui demande de les
 confirmer. Revoyez-les avec les filtres de statut avant cette date, sinon elles bloquent de
 nouveau la gate.
+
+### Criticité d'un finding
+
+Un analyste de sécurité (une personne qui a la permission `findings.triage`) peut **relever** la
+criticité donnée par un rapport, par exemple quand le code est exposé à Internet ou que les
+données sont sensibles. **Relever la criticité**, en haut de la carte, ouvre un formulaire qui
+demande la **Nouvelle criticité** et une **Justification** (10 à 1000 caractères). La carte
+affiche ensuite la criticité du rapport, l'analyste, la date et la justification ; l'export
+Markdown et `get_security_report` les affichent aussi, et le changement est inscrit au journal
+d'audit (`finding.severity_changed`).
+
+La criticité relevée compte partout (filtres, posture, [gate](gate.md), SARIF, tendance), et le
+niveau de risque du rapport monte avec elle. Une criticité ne descend jamais sous celle du
+rapport : un analyste peut seulement y revenir, avec une justification, pour annuler la hausse.
+Pour clore un finding jugé moins grave, acceptez le risque. Seule une session peut le faire : un
+jeton Bearer, même `admin`, reçoit `403` ; une criticité plus basse ou inchangée, ou une
+justification absente, reçoit `422`.
+
+```bash
+curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/findings/42/severity \
+  -d '{"severity": "critical", "reason": "Endpoint reachable without authentication"}'
+# {"id": 42, "severity": "critical", "original_severity": "medium", "severity_changed_by": "alice", …}
+```
 
 ### Acceptations de risque
 
@@ -576,11 +607,10 @@ base :
   nouvelle session à l'onglet qui a changé le mot de passe.
 
 Les sessions sont signées avec `SECREVIEW_SECRET_KEY` (32 caractères au moins), partagé par
-toutes les répliques du contrôleur. Sans lui, le secret est lu dans
-`SECREVIEW_SECRET_KEY_FILE` (`secret-key` dans le répertoire de travail, `/var/lib/secreview` en
-Docker), où il est généré au premier démarrage avec les droits `0600` : les sessions survivent à
-un redémarrage, et les répliques qui partagent le volume partagent le secret. Des répliques sans
-volume partagé doivent partager `SECREVIEW_SECRET_KEY`.
+toutes les répliques du contrôleur. Sans lui, un secret aléatoire est tiré à chaque démarrage
+(un avertissement est journalisé) : les sessions se terminent au redémarrage du contrôleur et ne
+sont pas partagées entre répliques. Définissez-le en production (en Kubernetes, depuis un
+`Secret` : voir [Kubernetes](../advanced/architecture.md#kubernetes)).
 
 Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour un identifiant
 depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
@@ -640,8 +670,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'application (défaut : celle du paquet) |
 | `SECREVIEW_ADMIN_USERNAME` | `admin` | Nom du [premier administrateur](#premier-administrateur), créé au premier démarrage du contrôleur tant qu'aucun compte n'existe ; son mot de passe se définit avec `user reset-password` |
 | `SECREVIEW_OIDC_ONLY` | `false` | Avec le OIDC activé, refuse la connexion par mot de passe des comptes locaux ([OIDC seul](../advanced/sso.md#oidc-seul)) |
-| `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques |
-| `SECREVIEW_SECRET_KEY_FILE` | `secret-key` | Fichier du secret quand `SECREVIEW_SECRET_KEY` n'est pas défini, généré au premier démarrage |
+| `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions (32 caractères au moins), identique sur toutes les répliques ; non défini : aléatoire à chaque démarrage |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session (1 à 24 heures), connexion par compte local ou OIDC |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le [compte OIDC](../advanced/sso.md#comptes-oidc) à la première connexion ; sinon un administrateur le crée |
 | `SECREVIEW_ENROLLMENT` | `true` | Demandes de projet par les clients MCP sans jeton (sur le serveur MCP), validées dans l'écran **Projets** ; aucun jeton n'est créé |

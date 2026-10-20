@@ -144,7 +144,7 @@ def test_findings_can_be_saved_as_a_report(tmp_path):
     assert saved["risk_level"] == "critical"
 
 
-# ── Scans sent by security-review-ci deps-scan ───────────────────────────────
+# ── Scans sent by security-review-ci scan-deps ───────────────────────────────
 
 
 def test_scan_files_uses_the_file_name_and_counts_blocking_entries(tmp_path):
@@ -181,5 +181,5 @@ def test_save_stores_a_dependency_scan_report(tmp_path):
     saved = depscan.save(results, "demo", commit_sha="abc123", author="alice", submitted_by="ci")
     report = services.get_report(saved["report_id"])
     assert (saved["review_type"], saved["risk_level"]) == ("dependency-scan", "critical")
-    assert report.reviewer == "security-review-ci deps-scan"
+    assert report.reviewer == "security-review-ci scan-deps"
     assert (report.author, report.submitted_by, report.scope) == ("alice", "ci", "requirements.txt")

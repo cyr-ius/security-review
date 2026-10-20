@@ -36,8 +36,12 @@ from .config import check_report_language, configure_logging, get_settings
 from .database import SchemaError, check_db, init_db
 from .models import (
     MAX_AUTHOR_CHARS,
+    MAX_BRANCH_CHARS,
     MAX_CHECKLIST_RESULTS,
+    MAX_COMMIT_SHA_CHARS,
     MAX_ITEM_ID_CHARS,
+    MAX_REPOSITORY_CHARS,
+    MAX_REVIEWER_CHARS,
     MAX_SCAN_RULES,
     MAX_STATUS_REASON_CHARS,
     ChecklistResult,
@@ -266,7 +270,7 @@ def codebase_review(
     Args:
         languages: Main languages, for example "python, angular" (selects the checklists).
         scan_results: Optional output of
-            `security-review-ci code-scan . --project <name> --format json`.
+            `security-review-ci scan-code . --project <name> --format json`.
         context: Optional context (exposure, data sensitivity, authentication model...).
         focus: Optional areas to emphasize.
         report_language: Language of the reply and of the stored report.
@@ -516,10 +520,13 @@ def save_security_report(
     findings: Annotated[
         list[FindingCreate], Field(description="Confirmed findings (empty list if none)")
     ],
-    repository: str | None = None,
-    branch: str | None = None,
-    commit_sha: str | None = None,
-    reviewer: Annotated[str | None, Field(description="Agent or person who reviewed")] = None,
+    repository: Annotated[str | None, Field(max_length=MAX_REPOSITORY_CHARS)] = None,
+    branch: Annotated[str | None, Field(max_length=MAX_BRANCH_CHARS)] = None,
+    commit_sha: Annotated[str | None, Field(max_length=MAX_COMMIT_SHA_CHARS)] = None,
+    reviewer: Annotated[
+        str | None,
+        Field(max_length=MAX_REVIEWER_CHARS, description="Agent or person who reviewed"),
+    ] = None,
     scope: Annotated[str | None, Field(description="What was reviewed")] = None,
     risk_level: Annotated[
         Severity | None,
@@ -566,9 +573,11 @@ def save_security_report(
     language given by the review prompt, scan_code or get_review_checklist, if any, the
     review_type given by the review prompt and the developer's username as author. The
     server also records the label of the token (device) that saved the report. Secrets in
-    free-text fields are masked before storage. Returns the report id, the overall risk level,
-    the finding counts and the review coverage: checklist items of the domains you used that
-    got no result (not_covered) and warnings about unknown ids, which are not stored.
+    free-text fields are masked before storage. Each text (summary, scope, and description,
+    evidence and recommendation of a finding) is limited to SECREVIEW_MAX_CONTENT_CHARS.
+    Returns the report id, the overall risk level, the finding counts and the review
+    coverage: checklist items of the domains you used that got no result (not_covered) and
+    warnings about unknown ids, which are not stored.
     """
     allowed = _caller_projects(ctx)
     if allowed is not None and project not in allowed:
@@ -770,7 +779,7 @@ def scan_dependencies(
     if len(content) > limit:
         raise ValueError(
             f"File too large for a tool call ({len(content)} chars, limit {limit}): run "
-            "`security-review-ci deps-scan <file> --project <name>` in the pipeline instead"
+            "`security-review-ci scan-deps <file> --project <name>` in the pipeline instead"
         )
     return depscan.scan_dependencies(content, filename)
 

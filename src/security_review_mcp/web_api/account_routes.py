@@ -10,6 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 from .. import __version__, app_settings, rate_limit, token_store, update_check, web_users
 from ..config import get_settings
 from ..http_server import API_HEALTH_PATH, DOCS_PATH
+from ..models import Severity
 from .auth_routes import LOGIN_HEADERS, open_session
 from .deps import (
     CurrentIdentity,
@@ -85,12 +86,22 @@ async def about_update() -> UpdateStatus:
 @router.get("/me")
 async def me(identity: CurrentIdentity) -> Identity:
     """Return the identity and permissions of the caller, with the triage options it has."""
+    settings = get_settings()
     permanent = (
         identity.can_triage
         and identity.auth_source is not None
-        and get_settings().permanent_acceptance_enabled
+        and settings.permanent_acceptance_enabled
     )
-    return identity.model_copy(update={"permanent_acceptance": permanent})
+    return identity.model_copy(
+        update={
+            "permanent_acceptance": permanent,
+            "risk_acceptance_min_severity": (
+                Severity(settings.risk_acceptance_min_severity)
+                if settings.risk_acceptance_min_severity
+                else None
+            ),
+        }
+    )
 
 
 @router.post("/me/logout", status_code=status.HTTP_204_NO_CONTENT)

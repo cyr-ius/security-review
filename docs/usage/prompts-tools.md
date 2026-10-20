@@ -1,5 +1,8 @@
 # Prompts and tools
 
+To understand when the rules, the checklists and the standards apply, and how to write the
+`AGENTS.md` file of a project, see [How a review works](how-it-works.md).
+
 ## Prompts
 
 | Prompt | Use | Arguments |
@@ -104,6 +107,11 @@ See [enrollment](../advanced/http.md#enrollment-request-the-project).
 - `checklist_results` and `scan_rules`: the coverage of the review (see
   [review coverage](#review-coverage)).
 
+Each field is bounded: `repository` (500 characters), `branch` (200), `commit_sha` (64),
+`reviewer` (200), and each text (`summary`, `scope`, and the `description`, `evidence` and
+`recommendation` of a finding) to `SECREVIEW_MAX_CONTENT_CHARS`; a longer value refuses the
+report.
+
 The **risk level** of the report is computed (highest severity of the findings). The
 `risk_level` parameter can only raise it, never lower it.
 
@@ -141,8 +149,8 @@ findings can be told apart and filtered in the [web interface](web-interface.md)
 | `configuration-review` | prompt `configuration-review` |
 | `dependency-review` | prompt `dependency-review` |
 | `codebase-review` | prompt `codebase-review` |
-| `code-scan` | `security-review-ci code-scan --save` |
-| `dependency-scan` | `security-review-ci deps-scan --save` |
+| `code-scan` | `security-review-ci scan-code --save` |
+| `dependency-scan` | `security-review-ci scan-deps --save` |
 | `other` | any other review (manual, without a prompt) |
 
 The field is optional: a report saved without it has no type. Any other value is refused.

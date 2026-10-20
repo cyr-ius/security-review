@@ -3,17 +3,17 @@
 Les prompts de revue travaillent sur ce que l'agent leur donne, souvent le diff d'une MR, et
 `scan_code` est limité à `SECREVIEW_MAX_CONTENT_CHARS` par appel. Pour couvrir **tout** le
 dépôt, utilisez le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci)
-`security-review-ci code-scan` : il lit les fichiers du dépôt et envoie leur contenu au
+`security-review-ci scan-code` : il lit les fichiers du dépôt et envoie leur contenu au
 contrôleur, qui les scanne avec les [règles](rules.md) de sa base.
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
 export SECREVIEW_TOKEN=...   # jeton ci limité au projet (ou jeton admin)
 
-security-review-ci code-scan . --project portal                               # résumé texte, code de sortie 0/1/2
-security-review-ci code-scan . --project portal --format json -o scan.json    # pour le prompt codebase-review
-security-review-ci code-scan . --project portal --format sarif -o code.sarif  # GitHub code scanning, Jenkins...
-security-review-ci code-scan . --project portal --save --commit "$CI_COMMIT_SHA"
+security-review-ci scan-code . --project portal                               # résumé texte, code de sortie 0/1/2
+security-review-ci scan-code . --project portal --format json -o scan.json    # pour le prompt codebase-review
+security-review-ci scan-code . --project portal --format sarif -o code.sarif  # GitHub code scanning, Jenkins...
+security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 ```
 
 Le pipeline n'a besoin ni de la base ni du paquet : seulement de Python et du

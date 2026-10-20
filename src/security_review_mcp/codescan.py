@@ -26,7 +26,7 @@ from .models import (
 MAX_MATCHES_PER_FILE = 200
 # Files not scanned listed in the scope of a stored report
 MAX_SKIPPED_IN_SCOPE = 50
-REVIEWER = "security-review-ci code-scan"
+REVIEWER = "security-review-ci scan-code"
 
 
 @dataclass(frozen=True)

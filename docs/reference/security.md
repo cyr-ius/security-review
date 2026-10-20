@@ -133,8 +133,13 @@
   and an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the
   logged-in user, and the finding counts as open again once the date has passed. Only an
   acceptance may have no expiry date, unless `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`:
-  set it to force a periodic review of every accepted risk. Comments on a finding follow the
+  set it to force a periodic review of every accepted risk. A risk less severe than
+  `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` by default) is accepted with no reason nor
+  date, still by a logged-in person who is recorded as approver; leave the variable empty to
+  require them for every acceptance. Comments on a finding follow the
   same rule (session with `findings.triage`) and are append-only: no route edits or deletes one.
+  So does raising the severity of a finding: with a justification, logged, never below the
+  severity of the report (lowering a finding goes through a risk acceptance).
 - **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
   stores a proposal (reason masked and bounded, author taken from the token) without changing
   the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a
@@ -203,12 +208,11 @@
   PKCE verifier of the cookie. The secret settings (`SECREVIEW_SECRET_KEY`,
   `SECREVIEW_OIDC_CLIENT_SECRET`, `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`)
   are typed as secrets: they never appear in a dump of the settings. Without
-  `SECREVIEW_SECRET_KEY`, the generated session secret is written once to
-  `SECREVIEW_SECRET_KEY_FILE` with mode `0600` (a warning is logged if the file is readable
-  by other users).
+  `SECREVIEW_SECRET_KEY`, the controller draws a random session secret at every start, kept in
+  memory only (a warning is logged): sessions end at restart.
 - **No disk access on the MCP side**: `scan_code` only works on the given content; the server
   reads no file from the disk, which avoids path traversals. For the whole repository scan,
-  the pipeline client (`security-review-ci code-scan`), run by the operator on a folder they
+  the pipeline client (`security-review-ci scan-code`), run by the operator on a folder they
   choose, reads the files without following symbolic links and sends their content to the
   controller, which scans it without reading its own disk.
 - **Pipeline scans**: `POST /api/v1/ci/scan/code` and `/scan/deps` need a `ci` or `admin`
@@ -221,6 +225,10 @@
   beyond: 512 KiB for the JSON routes, public ones included (login, SSO), 8 MiB for the
   pack imports and `SECREVIEW_MAX_SCAN_REQUEST_MB` for the pipeline scans. The declared
   `Content-Length` is checked first, a chunked body as it is read.
+- **Request bodies of the MCP server**: a body on `/mcp` is read only after the token check
+  and bounded (`413` beyond): `SECREVIEW_MAX_MCP_REQUEST_MB` for an authenticated client,
+  64 KiB for a client without a token served by the enrollment server. A rejected token gets
+  its `401` before its body is read.
 - **Database**: SQL queries go through the ORM (bound parameters); input sizes, the number of
   findings and the pagination are bounded. Every project name is
   [normalized](../usage/prompts-tools.md#project-name) before use: only letters, digits and

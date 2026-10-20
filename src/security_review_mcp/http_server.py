@@ -28,7 +28,7 @@ import json
 import logging
 import ssl
 from collections import Counter
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -40,9 +40,9 @@ import uvicorn
 from mcp.server.mcpserver import MCPServer
 from starlette.applications import Starlette
 from starlette.datastructures import Headers
-from starlette.types import ASGIApp, Receive, Scope, Send
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from .config import Settings, secret_value
+from .config import Settings, get_settings, secret_value
 from .rate_limit import RateLimitMiddleware
 
 logger = logging.getLogger("security_review_mcp.http")
@@ -88,7 +88,6 @@ SCAN_ROUTE_ROLES = frozenset({Role.CI, Role.ADMIN})
 # Roles accepted by the Prometheus endpoint of the controller
 METRICS_ROLES = frozenset({Role.METRICS, Role.ADMIN})
 
-API_PREFIX = "/api/"
 # Pipeline routes of the controller, the only ones a ``ci`` token reaches
 CI_PREFIX = "/api/v1/ci/"
 UI_PREFIX = "/ui"
@@ -100,6 +99,9 @@ ENROLL_PATH = "/api/v1/enroll"
 ENROLLMENT_SERVER_TITLE = "Security Review (enrollment)"
 # Public liveness endpoint of both processes (container and Kubernetes probes)
 HEALTH_PATH = "/healthz"
+# Body of a request of an MCP client without a token, served by the enrollment server (its
+# initialization and a request_enrollment call): a few KiB
+MAX_ENROLLMENT_BODY_BYTES = 64 * 1024
 # Public liveness endpoint of the controller API, polled by the web interface at load: it tells
 # whether the controller answers, nothing about its version or configuration
 API_HEALTH_PATH = "/api/health"
@@ -390,6 +392,83 @@ class PathDispatcher:
         await (app or self.main_app)(scope, receive, send)
 
 
+class BodyLimit:
+    """Refuse (413) a request whose body exceeds the bound of its path, before the app reads it.
+
+    ``limits`` gives the bound (in bytes) of a path and the hint of its 413 answer. The declared
+    ``Content-Length`` is checked first; a body without it (chunked) is read here, bounded, and
+    replayed to the application.
+    """
+
+    def __init__(self, app: ASGIApp, limits: Callable[[str], tuple[int, str]]) -> None:
+        self.app = app
+        self.limits = limits
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        limit, hint = self.limits(scope.get("path", ""))
+        declared = Headers(scope=scope).get("content-length", "")
+        if declared.isdigit() and int(declared) > limit:
+            await self._too_large(scope, send, limit, hint)
+            return
+        chunks: list[bytes] = []
+        size = 0
+        more = True
+        while more:
+            message = await receive()
+            if message["type"] == "http.disconnect":
+                return
+            chunk = message.get("body", b"")
+            size += len(chunk)
+            if size > limit:
+                await self._too_large(scope, send, limit, hint)
+                return
+            chunks.append(chunk)
+            more = message.get("more_body", False)
+        body = b"".join(chunks)
+        replayed = False
+
+        async def replay() -> Message:
+            """Give the buffered body once, then the next messages of the connection."""
+            nonlocal replayed
+            if replayed:
+                return await receive()
+            replayed = True
+            return {"type": "http.request", "body": body, "more_body": False}
+
+        await self.app(scope, replay, send)
+
+    @staticmethod
+    async def _too_large(scope: Scope, send: Send, limit: int, hint: str) -> None:
+        """Send the 413 answer."""
+        logger.warning("Rejected request body above %d bytes: %s", limit, scope.get("path"))
+        detail = f"Request body too large (limit {limit} bytes, {hint}"
+        body = json.dumps({"detail": detail}).encode("utf-8")
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 413,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-length", str(len(body)).encode("ascii")),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+
+def mcp_body_limit(_path: str) -> tuple[int, str]:
+    """Bound of the body of an authenticated request to the MCP server (see BodyLimit)."""
+    return get_settings().max_mcp_request_mb * 1024 * 1024, "SECREVIEW_MAX_MCP_REQUEST_MB)"
+
+
+def enrollment_body_limit(_path: str) -> tuple[int, str]:
+    """Bound of the body of a request without a token, served by the enrollment server."""
+    return MAX_ENROLLMENT_BODY_BYTES, "request without a token)"
+
+
 async def health_app(scope: Scope, receive: Receive, send: Send) -> None:
     """Liveness probe: answers ``{"status": "ok"}`` without touching the database."""
     body = b'{"status":"ok"}'
@@ -532,13 +611,17 @@ def build_mcp_app(
     """
     main = server.streamable_http_app(host=host)
     enrollment_app = (
-        _enrollment_app(main, enrollment_server, host) if enrollment_server is not None else None
+        BodyLimit(_enrollment_app(main, enrollment_server, host), enrollment_body_limit)
+        if enrollment_server is not None
+        else None
     )
     routes: dict[str, ASGIApp] = {HEALTH_PATH: health_app}
     if enroll_endpoint is not None:
         routes[ENROLL_PATH] = enroll_endpoint
+    # The bodies are bounded after authentication: a request without a valid token is refused
+    # (or sent to the enrollment server, with its own small bound) before its body is read
     return BearerAuthMiddleware(
-        PathDispatcher(main, routes),
+        PathDispatcher(BodyLimit(main, mcp_body_limit), routes),
         store,
         enrollment_app=enrollment_app,
         public_paths=frozenset(routes),

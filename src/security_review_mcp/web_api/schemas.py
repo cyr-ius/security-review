@@ -64,6 +64,10 @@ class Identity(BaseModel):
     # A web user who triages may accept a risk without an expiry date
     # (SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED); always false for a bearer token
     permanent_acceptance: bool = False
+    # Lowest severity whose risk acceptance needs a reason and an expiry date
+    # (SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY); a less severe finding is accepted by a plain
+    # validation. None: every acceptance needs them
+    risk_acceptance_min_severity: Severity | None = None
     version: str
 
 
@@ -272,12 +276,24 @@ class FindingStatusUpdate(BaseModel):
 
     ``accepted`` and ``false_positive`` need a reason and an expiry date (the finding counts as
     open again from that day, 00:00 UTC). An acceptance may leave it out (no expiry) while
-    SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
+    SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on. Both are optional to accept a finding less
+    severe than SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY.
     """
 
     status: FindingStatus
     reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
     expires_on: date | None = None
+
+
+class FindingSeverityUpdate(BaseModel):
+    """Body of PATCH /findings/{id}/severity: a severity raised by a security analyst.
+
+    The severity must be above the one given by the report, or equal to it to undo an
+    escalation; the justification is required.
+    """
+
+    severity: Severity
+    reason: str = Field(min_length=1, max_length=MAX_STATUS_REASON_CHARS)
 
 
 class TrendPeriod(BaseModel):
@@ -351,7 +367,7 @@ class GateResult(BaseModel):
     open_findings_by_severity: dict[str, int]
 
 
-# ── Pipeline scans (security-review-ci code-scan and deps-scan) ─────────────
+# ── Pipeline scans (security-review-ci scan-code and scan-deps) ─────────────
 
 # Bound of a file path: the file_path of a finding
 MAX_SCAN_PATH_CHARS = 500
@@ -390,7 +406,7 @@ class ScanRequest(BaseModel):
 
 
 class CodeScanRequest(ScanRequest):
-    """Files of a codebase listed and read by ``security-review-ci code-scan``."""
+    """Files of a codebase listed and read by ``security-review-ci scan-code``."""
 
     # Scanned directory as given to the client, only shown in the scope of the report
     root: str = Field(default=".", min_length=1, max_length=MAX_SCAN_PATH_CHARS)
@@ -406,7 +422,7 @@ class CodeScanRequest(ScanRequest):
 
 
 class DependencyScanRequest(ScanRequest):
-    """Manifests and lockfiles read by ``security-review-ci deps-scan``."""
+    """Manifests and lockfiles read by ``security-review-ci scan-deps``."""
 
     files: list[ScanFile] = Field(min_length=1)
     # Refuse the scan (422) when the vulnerability check cannot run for a file

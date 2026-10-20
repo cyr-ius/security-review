@@ -139,9 +139,14 @@
   (au plus `SECREVIEW_MAX_DISMISSAL_DAYS` jours) ; l'approbateur est l'utilisateur connecté, et le
   finding est de nouveau compté comme ouvert une fois la date passée. Seule une acceptation peut
   être sans date d'expiration, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` : réglez-le
-  ainsi pour imposer une revue périodique de chaque risque accepté. Les commentaires d'un finding
+  ainsi pour imposer une revue périodique de chaque risque accepté. Un risque moins grave que
+  `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` par défaut) est accepté sans motif ni date,
+  toujours par une personne connectée, enregistrée comme approbateur ; laissez la variable vide
+  pour les exiger à chaque acceptation. Les commentaires d'un finding
   suivent la même règle (session avec `findings.triage`) et sont en ajout seul : aucune route ne
-  les modifie ni ne les supprime.
+  les modifie ni ne les supprime. De même pour relever la criticité d'un finding : avec une
+  justification, journalisé, jamais sous la criticité du rapport (baisser un finding passe par
+  une acceptation de risque).
 - **Les agents ne ferment jamais un finding** : le serveur MCP n'offre que
   `propose_finding_status`, qui enregistre une proposition (motif masqué et borné, auteur tiré du
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt
@@ -215,12 +220,11 @@
   réglages secrets (`SECREVIEW_SECRET_KEY`, `SECREVIEW_OIDC_CLIENT_SECRET`,
   `SECREVIEW_TLS_KEYFILE_PASSWORD`, `SECREVIEW_DATABASE_URL`) sont typés comme secrets : ils
   n'apparaissent jamais dans un affichage des réglages. Sans `SECREVIEW_SECRET_KEY`, le
-  secret de session généré est écrit une seule fois dans `SECREVIEW_SECRET_KEY_FILE` avec les
-  droits `0600` (un avertissement est journalisé si le fichier est lisible par d'autres
-  utilisateurs).
+  contrôleur tire un secret de session aléatoire à chaque démarrage, gardé en mémoire
+  seulement (un avertissement est journalisé) : les sessions se terminent au redémarrage.
 - **Pas d'accès disque côté MCP** : `scan_code` travaille uniquement sur le contenu fourni ; le
   serveur ne lit aucun fichier du disque, ce qui évite les traversées de chemin. Pour le scan du
-  dépôt complet, le client de pipeline (`security-review-ci code-scan`), lancé par l'opérateur
+  dépôt complet, le client de pipeline (`security-review-ci scan-code`), lancé par l'opérateur
   sur un dossier qu'il choisit, lit les fichiers sans suivre les liens symboliques et envoie
   leur contenu au contrôleur, qui le scanne sans lire son propre disque.
 - **Scans de pipeline** : `POST /api/v1/ci/scan/code` et `/scan/deps` demandent un jeton `ci` ou
@@ -234,6 +238,10 @@
   imports de packs et `SECREVIEW_MAX_SCAN_REQUEST_MB` pour les scans de pipeline. Le
   `Content-Length` déclaré est vérifié d'abord, un corps fragmenté (chunked) au fil de la
   lecture.
+- **Corps des requêtes du serveur MCP** : un corps sur `/mcp` n'est lu qu'après la
+  vérification du jeton et il est borné (`413` au-delà) : `SECREVIEW_MAX_MCP_REQUEST_MB` pour un
+  client authentifié, 64 Kio pour un client sans jeton servi par le serveur d'enrôlement. Un
+  jeton refusé reçoit son `401` avant que son corps soit lu.
 - **Base de données** : les requêtes SQL passent par l'ORM (paramètres liés) ; les tailles
   d'entrée, le nombre de findings et la pagination sont bornés. Chaque nom de projet est
   [normalisé](../usage/prompts-tools.md#nom-du-projet) avant usage : seuls des lettres, des

@@ -230,7 +230,7 @@ compte local (son mot de passe peut être défini avec
   (32 caractères au moins), comme celui des [comptes locaux](../usage/web-interface.md#connexion-et-sessions), et désigne
   le compte OIDC, relu à chaque requête : supprimer le compte ou changer ses groupes ou leurs
   rôles s'applique aussitôt. Toutes les répliques du contrôleur doivent partager ce secret ; sans lui,
-  le secret de `SECREVIEW_SECRET_KEY_FILE` est utilisé, généré au premier démarrage.
+  un secret aléatoire est tiré à chaque démarrage et les sessions se terminent au redémarrage.
 - Un changement de groupe chez le fournisseur ne s'applique qu'à la connexion suivante. Pour
   couper toutes les sessions avant leur expiration, supprimez le compte, ou changez
   `SECREVIEW_SECRET_KEY` et redémarrez le contrôleur (toutes les sessions sont coupées).

@@ -25,6 +25,14 @@ export const SEVERITY_RANK: Record<Severity, number> = {
   info: 0,
 };
 
+/**
+ * A risk of this severity is accepted by a plain validation, with no reason and no expiry date:
+ * it is less severe than ``minSeverity`` (SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY; null: never).
+ */
+export function plainAcceptance(severity: Severity, minSeverity: Severity | null): boolean {
+  return minSeverity !== null && SEVERITY_RANK[severity] < SEVERITY_RANK[minSeverity];
+}
+
 export const FINDING_STATUSES: readonly FindingStatus[] = [
   'open',
   'fixed',
@@ -121,6 +129,11 @@ export interface Identity {
   must_change_password?: boolean;
   /** A risk may be accepted without an expiry date (SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED). */
   permanent_acceptance?: boolean;
+  /**
+   * Lowest severity whose acceptance needs a reason and an expiry date
+   * (SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY); null: every acceptance needs them.
+   */
+  risk_acceptance_min_severity?: Severity | null;
   version: string;
 }
 
@@ -246,6 +259,7 @@ export type AuditAction =
   | 'finding.status_proposed'
   | 'finding.proposal_rejected'
   | 'finding.commented'
+  | 'finding.severity_changed'
   | 'token.created'
   | 'token.rotated'
   | 'token.revoked'
@@ -275,6 +289,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_proposed',
   'finding.proposal_rejected',
   'finding.commented',
+  'finding.severity_changed',
   'token.created',
   'token.rotated',
   'token.revoked',
@@ -534,6 +549,12 @@ export interface Finding {
   proposed_reason: string | null;
   proposed_by: string | null;
   proposed_at: string | null;
+  /** Severity given by the report, when a security analyst raised it (null: never raised). */
+  original_severity: Severity | null;
+  /** Justification, author and date of the latest severity change by an analyst. */
+  severity_reason: string | null;
+  severity_changed_by: string | null;
+  severity_changed_at: string | null;
   rule_id: string | null;
   category: string;
   cwe: string | null;
@@ -555,6 +576,15 @@ export interface FindingDecision {
   reason?: string;
   /** YYYY-MM-DD: the finding counts as open again from that day; null: no expiry (accepted). */
   expires_on?: string | null;
+}
+
+/**
+ * Body of PATCH /api/v1/findings/{id}/severity: a severity raised by a security analyst, above
+ * the one of the report (or equal to it, to undo the escalation), with its justification.
+ */
+export interface FindingSeverityChange {
+  severity: Severity;
+  reason: string;
 }
 
 /** A finding of GET /api/v1/findings, with the context of its report. */
