@@ -188,10 +188,87 @@ class Finding(FindingBase, table=True):
         back_populates="finding",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
+    tickets: list[FindingTicket] = Relationship(
+        back_populates="finding",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 class FindingCreate(FindingBase):
     """Finding as submitted by the host (no id, no status)."""
+
+
+class TicketState(StrEnum):
+    """State of the ticket of a finding."""
+
+    SENDING = "sending"  # claimed by a controller, request in progress
+    SENT = "sent"  # the ticket exists (created, or shared with a finding of same fingerprint)
+    FAILED = "failed"  # the last attempt failed, retried later (automatic sending)
+
+
+class FindingTicket(SQLModel, table=True):
+    """Ticket of a finding in a ticketing system: one per finding and kind (the ``kind`` of its
+    connector, see ticketing.api).
+
+    The row is inserted before the request (``sending``): the unique constraint makes it the
+    claim of the controller that sends it, so that two replicas never create two tickets.
+    ``fingerprint`` (see sarif.fingerprint) links the occurrences of one issue across the
+    reports of a project: a later occurrence reuses the ticket instead of creating another.
+    """
+
+    __table_args__ = (UniqueConstraint("finding_id", "kind"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    finding_id: int = Field(foreign_key="finding.id", index=True)
+    kind: str = Field(max_length=20)
+    project: str = Field(index=True, max_length=200)
+    fingerprint: str = Field(index=True, max_length=64)
+    state: TicketState = Field(default=TicketState.SENDING, sa_type=String(20), index=True)
+    # Key and link of the ticket (SEC-12, INC0010001), set once it exists
+    external_key: str | None = Field(default=None, max_length=100)
+    url: str | None = Field(default=None, max_length=1000)
+    # Short reason of the last failure (no secret, see ticketing.TicketingError)
+    error: str | None = Field(default=None, max_length=500)
+    attempts: int = Field(default=0)
+    # ``user:<name>``, ``token:<label>`` or ``auto`` (automatic sending)
+    created_by: str | None = Field(default=None, max_length=200)
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow, index=True)
+    finding: Finding = Relationship(back_populates="tickets")
+
+
+class FindingTicketPublic(SQLModel):
+    """Ticket of a finding as returned to the host and the web interface."""
+
+    kind: str
+    state: TicketState
+    external_key: str | None = None
+    url: str | None = None
+    error: str | None = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class TicketTarget(SQLModel, table=True):
+    """Where the findings of a project go in one ticketing system.
+
+    ``destination`` is what the connector asks for (Jira project key, ServiceNow assignment
+    group...). With
+    ``auto_min_severity``, the controller sends on its own every open finding at least that
+    severe, of the reports saved from ``auto_since`` (the findings older than the setting are
+    never sent automatically); None: only by hand.
+    """
+
+    __table_args__ = (UniqueConstraint("project", "kind"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    project: str = Field(index=True, max_length=200)
+    kind: str = Field(max_length=20)
+    destination: str = Field(default="", max_length=200)
+    auto_min_severity: Severity | None = Field(default=None, sa_type=String(10))
+    auto_since: datetime | None = Field(default=None)
+    updated_at: datetime = Field(default_factory=utcnow)
+    updated_by: str | None = Field(default=None, max_length=200)
 
 
 class FindingPublic(FindingBase):
@@ -212,6 +289,7 @@ class FindingPublic(FindingBase):
     severity_reason: str | None = None
     severity_changed_by: str | None = None
     severity_changed_at: datetime | None = None
+    tickets: list[FindingTicketPublic] = []
 
     @model_validator(mode="after")
     def _expire_dismissal(self) -> FindingPublic:

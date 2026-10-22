@@ -46,6 +46,7 @@ from . import (
     ci_routes,
     report_routes,
     rule_routes,
+    ticketing_routes,
     token_routes,
 )
 from .auth_routes import OidcLogins
@@ -120,6 +121,7 @@ for _domain in (
     token_routes,
     admin_routes,
     access_routes,
+    ticketing_routes,
 ):
     api_router.include_router(_domain.router)
 

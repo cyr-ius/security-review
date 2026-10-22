@@ -13,6 +13,7 @@ import {
   SEVERITIES,
   SEVERITY_RANK,
   Severity,
+  TicketKind,
   plainAcceptance,
 } from '../../../core/models/api.models';
 import { TriageChange } from '../../../core/services/triage.service';
@@ -56,7 +57,8 @@ function isoDay(days: number): string {
  * Extra details (report link...) can be projected at the end of the metadata line.
  *
  * The card only shows and asks: the page saves the decision it emits (see TriageService) and
- * passes the saved finding back, which closes the form.
+ * passes the saved finding back, which closes the form. Likewise, it shows the tickets of the
+ * finding and offers to send it to the systems of ``ticketKinds`` (see TicketService).
  */
 @Component({
   selector: 'app-finding-card',
@@ -76,15 +78,38 @@ export class FindingCardComponent {
   readonly riskAcceptanceMinSeverity = input<Severity | null>(null);
   /** A decision on this finding is being saved. */
   readonly saving = input(false);
+  /** Ticketing systems the user may send this finding to (its project has a destination). */
+  readonly ticketKinds = input<readonly TicketKind[]>([]);
+  /** The finding is being sent to a ticketing system. */
+  readonly ticketSending = input(false);
+  /** Names of the ticketing systems by kind (a ticket of an unknown kind shows its kind). */
+  readonly ticketSystemNames = input<ReadonlyMap<string, string>>(new Map());
 
   /** A triage decision (status or raised severity) to save. */
   readonly decided = output<TriageChange>();
   /** The status proposed by an agent is rejected. */
   readonly proposalRejected = output<void>();
+  /** Send the finding to a ticketing system. */
+  readonly ticketRequested = output<TicketKind>();
 
   readonly statuses = FINDING_STATUSES;
   readonly statusMeta = STATUS_META;
   readonly severityMeta = SEVERITY_META;
+
+  /** Name of a ticketing system. */
+  systemName(kind: TicketKind): string {
+    return this.ticketSystemNames().get(kind) ?? kind;
+  }
+
+  /** Systems offered: those without a ticket for this finding yet. */
+  readonly sendableKinds = computed(() => {
+    const sent = new Set(
+      this.finding()
+        .tickets.filter((t) => t.state === 'sent')
+        .map((t) => t.kind),
+    );
+    return this.ticketKinds().filter((kind) => !sent.has(kind));
+  });
 
   /** Severity form open (closed when the page passes the saved finding back). */
   readonly severityOpen = linkedSignal<Finding, boolean>({

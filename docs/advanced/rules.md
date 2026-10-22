@@ -169,11 +169,11 @@ A full example is provided in `examples/rules/company.toml`.
 
 | Family | Main coverage |
 |---|---|
-| `GEN-*` (every language) | Hard-coded credentials, private keys, cloud keys, tokens with a known format (GitHub, GitLab, Slack, Google, Stripe, npm), credentials in a URL, hard-coded JWT, obsolete SSL/TLS, secrets written to logs, plain HTTP |
+| `GEN-*` (every language) | Hard-coded credentials, private keys, cloud keys, tokens with a known format (GitHub, GitLab, Slack, Google, Stripe, npm), credentials in a URL, hard-coded JWT, obsolete SSL/TLS, secrets written to logs, plain HTTP, clear-text LDAP, FTP, AMQP, Redis, MQTT or Telnet URLs, TLS disabled in a connection setting (`sslmode=disable`, `useSSL=false`, Kafka `PLAINTEXT`), unverified certificate outside HTTP (`TLS_REQCERT never`, `trustServerCertificate=true`) |
 | `PY-*` (Python) | `eval`/`exec`, deserialization (pickle, `torch.load`, `joblib`...), YAML, shell commands, formatted SQL, disabled TLS, weak crypto or ECB mode, non-cryptographic randomness, XXE (lxml), SSTI, hard-coded `SECRET_KEY`, `ALLOWED_HOSTS = ['*']`, disabled CSRF, `mark_safe`, cookies without `Secure`/`HttpOnly`, SSRF, non-constant-time secret comparison, temporary files, disabled JWT signature verification |
 | `JV-*` (Java) | Deserialization (including XStream, SnakeYAML), OS commands, concatenated SQL and LDAP, request-to-dynamic-SQL flows through local calls (`JV-019`), XXE, CSRF, CORS, weak crypto, "trust all" TLS, paths and redirects built from the request, SSRF from direct request URLs, JNDI lookup from request data, SpEL/EL, cookies, `Random`, `printStackTrace` |
 | `NG-*` (Angular, JavaScript, TypeScript) | Sanitizer bypass, `innerHTML` and other HTML sinks, URL-to-DOM flows, unchecked `message` origins, prototype chain mutation, `eval`, `setTimeout` with a string, tokens in web storage, `postMessage('*')`, disabled XSRF, open redirects; on the Node.js side: shell commands, interpolated SQL, `$where`, file paths, open CORS, disabled TLS, `jwt.decode`, weak crypto |
-| `CFG-*` (Docker, Compose, Kubernetes, servers) | Privileged or root container, Docker socket, host namespaces, dangerous capabilities, privilege escalation, sensitive mounts, exposed database ports, secrets in `ENV`/`ARG`, remote `ADD`, default passwords, services without authentication, `*` or `cluster-admin` RBAC, public buckets, `*` CORS, directory listing, weak SSH, `curl \| sh`, debug |
+| `CFG-*` (Docker, Compose, Kubernetes, servers) | Privileged or root container, Docker socket, host namespaces, dangerous capabilities, privilege escalation, sensitive mounts, exposed database ports, secrets in `ENV`/`ARG`, remote `ADD`, default passwords, services without authentication, `*` or `cluster-admin` RBAC, public buckets, `*` CORS, directory listing, weak SSH, `curl \| sh`, debug, WAF disabled, in detection-only mode or with broad exclusions (ModSecurity, Coraza, Ingress NGINX) |
 | `GL-*` (GitLab CI) | Remote `include`, printed secrets, DinD without TLS, `allow_failure`, CI token on the command line, untrusted variables evaluated by a shell, `CI_DEBUG_TRACE`, public artifacts, `GIT_SSL_NO_VERIFY` |
 | `JK-*` (Jenkinsfile) | Injection in `sh`, unpinned shared library, `agent any`, disabled sandbox, credential interpolated in a Groovy string, internal `Jenkins.instance` API |
 | `CI-*` (common CI/CD) | Disabled TLS or signature verification, shell tracing, install without lockfile |
@@ -182,7 +182,9 @@ A full example is provided in `examples/rules/company.toml`.
 
 The default checklists cover the `python`, `java`, `angular`, `api`, `config`, `cicd` and
 `dependencies` domains (for example: validation of OAuth/OIDC tokens, webhooks, sensitive
-business flows, Kubernetes hardening, RBAC, proxy headers, lockfile integrity).
+business flows, HTTP desync, CRLF injection, validation before normalization, file upload,
+Kubernetes hardening, RBAC, proxy headers, WAF, encrypted connections to back-end services such
+as LDAPS, lockfile integrity).
 `get_review_checklist` and the **Checklists** screen of the web interface show them in full.
 
 Languages accepted by `scan_code`: `python`, `java`, `typescript`, `javascript`, `angular`,

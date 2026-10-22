@@ -282,7 +282,10 @@ export type AuditAction =
   | 'user.login'
   | 'user.login_failed'
   | 'user.logout'
-  | 'audit_syslog.changed';
+  | 'audit_syslog.changed'
+  | 'finding.ticket_created'
+  | 'ticketing.target_changed'
+  | 'ticketing.changed';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
@@ -313,6 +316,9 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.login_failed',
   'user.logout',
   'audit_syslog.changed',
+  'finding.ticket_created',
+  'ticketing.target_changed',
+  'ticketing.changed',
 ];
 
 /** One entry of the audit log (details never hold a secret). */
@@ -565,6 +571,108 @@ export interface Finding {
   description: string;
   evidence: string | null;
   recommendation: string | null;
+  /** Tickets of the finding in Jira or ServiceNow (one per system). */
+  tickets: FindingTicket[];
+}
+
+/** Kind of a ticketing connector: jira, servicenow or a third-party one. */
+export type TicketKind = string;
+
+/** GET /api/v1/ticketing/systems: an available ticketing system. */
+export interface TicketSystem {
+  kind: TicketKind;
+  name: string;
+}
+
+/** sending: request in progress; sent: the ticket exists; failed: the last attempt failed. */
+export type TicketState = 'sending' | 'sent' | 'failed';
+
+/** Ticket of a finding: key and link once it exists, short reason of the last failure. */
+export interface FindingTicket {
+  kind: TicketKind;
+  state: TicketState;
+  external_key: string | null;
+  url: string | null;
+  error: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** GET /api/v1/ticketing/destinations: a project and a system its findings can be sent to. */
+export interface TicketDestination {
+  project: string;
+  kind: TicketKind;
+}
+
+/** Where the findings of a project go in one system, and its automatic sending. */
+export interface TicketTarget {
+  project: string;
+  kind: TicketKind;
+  /** What the system asks for: Jira project key, ServiceNow assignment group... */
+  destination: string;
+  /** Lowest severity sent automatically (null: by hand only). */
+  auto_min_severity: Severity | null;
+  auto_since: string | null;
+  updated_at: string;
+  updated_by: string | null;
+}
+
+/** Body of PUT /api/v1/projects/{project}/ticket-targets/{kind}. */
+export interface TicketTargetUpdate {
+  destination: string;
+  auto_min_severity: Severity | null;
+}
+
+/** A field declared by a connector: English texts, translated by language when it can. */
+export interface TicketingFieldInfo {
+  name: string;
+  label: string;
+  help: string;
+  placeholder: string;
+  secret: boolean;
+  required: boolean;
+  /** {"fr": {"label": "...", "help": "..."}} */
+  translations: Record<string, Record<string, string>>;
+}
+
+/** A field of a connection; secrets are '***' when set. */
+export interface TicketingFieldState extends TicketingFieldInfo {
+  variable: string;
+  value: string | null;
+  env: string | null;
+  env_set: boolean;
+  effective: string | null;
+}
+
+/** A ticketing system: its connection and what a project chooses. */
+export interface TicketingConnector {
+  kind: TicketKind;
+  name: string;
+  builtin: boolean;
+  configured: boolean;
+  fields: TicketingFieldState[];
+  destination: TicketingFieldInfo;
+}
+
+/** GET /api/v1/settings/ticketing */
+export interface TicketingSettings {
+  /** SECREVIEW_TICKETING_ENABLED */
+  enabled: boolean;
+  interval_seconds: number;
+  cafile: string | null;
+  /** Third-party connectors allowed by SECREVIEW_TICKETING_PLUGINS */
+  plugins: string[];
+  connectors: TicketingConnector[];
+}
+
+/** Body of PUT /api/v1/settings/ticketing/{kind}: null or '' deletes the stored value. */
+export type TicketingUpdate = Record<string, string | null>;
+
+/** POST /api/v1/settings/ticketing/{kind}/test */
+export interface TicketingTestResult {
+  ok: boolean;
+  error: string | null;
+  message: string | null;
 }
 
 /** Statuses that need a reason and an expiry date, decided by a person only. */

@@ -641,6 +641,33 @@ pattern = '(SSLv[23]|TLSv1([._][01])?)\b(?![._]\d)'  # secreview:ignore GEN-009 
 advice = "Allow TLS 1.2 and 1.3 only."
 
 [[rules]]
+id = "GEN-010"
+title = "Clear-text protocol URL for a remote host"
+severity = "medium"
+cwe = "CWE-319"
+languages = ["*"]
+pattern = '''\b(ldap|ftp|amqp|redis|mqtt|telnet)://([^\s/@'"]*@)?(?!127\.0\.0\.1\b)[\w-]+\.[\w.-]+'''
+advice = "Use the TLS variant (ldaps://, ftps:// or sftp, amqps://, rediss://, mqtts://, ssh) or require STARTTLS; LDAP binds send passwords."
+
+[[rules]]
+id = "GEN-011"
+title = "TLS disabled in a connection setting"
+severity = "medium"
+cwe = "CWE-319"
+languages = ["*"]
+pattern = '''\b(PG)?sslmode\s*[=:]\s*['"]?(disable|allow|prefer)\b|[?&;]\s*(useSSL|requireSSL|encrypt|tls|ssl)\s*=\s*false\b|\bsecurity\.protocol\s*[=:]\s*['"]?(SASL_)?PLAINTEXT\b|\bstarttls\.enable\s*[=:]\s*['"]?false\b'''
+advice = "Require TLS with certificate verification (sslmode=verify-full, useSSL=true, encrypt=true, SASL_SSL, STARTTLS required)."
+
+[[rules]]
+id = "GEN-012"
+title = "Server certificate not verified for a non-HTTP connection"
+severity = "high"
+cwe = "CWE-295"
+languages = ["*"]
+pattern = '''\b(LDAPTLS_REQCERT|TLS_REQCERT)(\s*[=:]\s*|\s+)['"]?(never|allow|try)\b|\bOPT_X_TLS_(NEVER|ALLOW|TRY)\b|\btrustServerCertificate\s*[=:]\s*['"]?true\b|\b(PG)?sslmode\s*[=:]\s*['"]?require\b'''
+advice = "Verify the server certificate and host name (TLS_REQCERT demand, trustServerCertificate=false, sslmode=verify-full) with the CA of the server."
+
+[[rules]]
 id = "PY-014"
 title = "XML parser resolving entities or reaching the network"
 severity = "high"
@@ -1100,6 +1127,33 @@ pattern = '''^\s*protected-mode\s+no\b|\b(xpack\.security\.enabled|security\.aut
 advice = "Enable authentication on every data service, even on an internal network."
 
 [[rules]]
+id = "CFG-025"
+title = "Web application firewall disabled or in detection-only mode"
+severity = "medium"
+cwe = "CWE-693"
+languages = ["config", "yaml"]
+pattern = '''^\s*SecRuleEngine\s+(Off|DetectionOnly)\b|\bctl:ruleEngine=(Off|DetectionOnly)\b|^\s*modsecurity\s+off\s*;|enable-modsecurity['"]?\s*:\s*['"]?false\b'''
+advice = "Run the WAF with SecRuleEngine On once tuned; keep DetectionOnly for a short tuning period only."
+
+[[rules]]
+id = "CFG-026"
+title = "WAF does not inspect the whole request body"
+severity = "medium"
+cwe = "CWE-693"
+languages = ["config", "yaml"]
+pattern = '^\s*(SecRequestBodyAccess\s+Off|SecRequestBodyLimitAction\s+ProcessPartial)\b'
+advice = "Enable SecRequestBodyAccess and reject bodies over the limit (SecRequestBodyLimitAction Reject)."
+
+[[rules]]
+id = "CFG-027"
+title = "Broad WAF rule exclusion"
+severity = "medium"
+cwe = "CWE-693"
+languages = ["config", "yaml"]
+pattern = '''\bSecRuleRemoveById\s[^\n-]*\d-\d|(\bSecRuleRemoveByTag\s+|\bctl:ruleRemoveByTag=)['"]?(attack-|OWASP_CRS|paranoia-level)'''
+advice = "Exclude one rule for one parameter and one path (ctl:ruleRemoveTargetById) instead of whole rule ranges or attack families."
+
+[[rules]]
 id = "GL-006"
 title = "Untrusted CI variable evaluated by a shell"
 severity = "high"
@@ -1275,7 +1329,7 @@ cwe = "CWE-22"
 domain = "python"
 id = "PY-05"
 title = "Weak cryptography and randomness"
-what_to_look_for = "MD5/SHA1 for passwords, ECB mode, hard-coded keys/IV, random instead of secrets for tokens."
+what_to_look_for = "Passwords hashed with a fast hash (MD5, SHA-1, plain SHA-256) instead of argon2, bcrypt or scrypt; MD5/SHA-1 for signatures or integrity; ECB mode; hard-coded keys or IV; random instead of secrets for tokens."
 cwe = "CWE-327"
 
 [[checklist]]
@@ -1366,14 +1420,14 @@ cwe = "CWE-862"
 domain = "java"
 id = "JV-05"
 title = "Authentication and session"
-what_to_look_for = "Weak password encoders (NoOp, MD5, SHA-1), JWT without signature/exp/aud checks, alg=none acceptance."
+what_to_look_for = "Passwords stored with NoOpPasswordEncoder or a fast hash (MD5, SHA-1, plain SHA-256) instead of BCrypt, Argon2 or SCrypt; JWT without signature/exp/aud checks; alg=none accepted."
 cwe = "CWE-287"
 
 [[checklist]]
 domain = "java"
 id = "JV-06"
 title = "Weak cryptography"
-what_to_look_for = "MessageDigest MD5/SHA-1, DES, AES/ECB, static IV, java.util.Random for secrets, custom TrustManager accepting all certificates."
+what_to_look_for = "MessageDigest with MD5 or SHA-1 instead of SHA-256+; DES or AES/ECB instead of AES/GCM; static IV; java.util.Random instead of SecureRandom for secrets; custom TrustManager accepting all certificates."
 cwe = "CWE-327"
 
 [[checklist]]
@@ -1457,7 +1511,7 @@ cwe = "CWE-1104"
 domain = "angular"
 id = "NG-06"
 title = "Content Security Policy and headers"
-what_to_look_for = "Missing CSP, unsafe-inline/unsafe-eval, missing frame-ancestors, untrusted third-party scripts without SRI."
+what_to_look_for = "Missing CSP, or a CSP allowing 'unsafe-inline' or 'unsafe-eval'; missing frame-ancestors; untrusted third-party scripts without SRI."
 cwe = "CWE-1021"
 
 [[checklist]]
@@ -1485,7 +1539,7 @@ cwe = "CWE-1321"
 domain = "api"
 id = "API-01"
 title = "Broken object-level authorization (BOLA/IDOR)"
-what_to_look_for = "Every endpoint taking an id must verify that the caller owns or may access it."
+what_to_look_for = "Endpoints taking an object id that do not verify that the caller owns or may access that object."
 cwe = "CWE-639"
 
 [[checklist]]
@@ -1573,6 +1627,34 @@ what_to_look_for = "Stack traces, SQL errors or internal paths in responses; dif
 cwe = "CWE-209"
 
 [[checklist]]
+domain = "api"
+id = "API-14"
+title = "HTTP parsing and proxy desync"
+what_to_look_for = "Proxy and application that disagree on request boundaries (Content-Length and Transfer-Encoding both accepted, HTTP/2 downgraded without normalization); method override headers or parameters (X-HTTP-Method-Override, _method) that bypass checks made on the HTTP verb; duplicated parameters or headers read differently by the WAF, the proxy and the application (parameter pollution)."
+cwe = "CWE-444"
+
+[[checklist]]
+domain = "api"
+id = "API-15"
+title = "Header injection (CRLF) and Host header trust"
+what_to_look_for = "Request values copied into response headers, Location redirects or cookies without rejecting CR and LF characters; Host or X-Forwarded-Host header used to build absolute URLs (password reset links, redirects, cache keys) without an allow-list."
+cwe = "CWE-113"
+
+[[checklist]]
+domain = "api"
+id = "API-16"
+title = "Validation before normalization"
+what_to_look_for = "Allow-lists, deny-lists or path checks applied before URL decoding, Unicode normalization (NFKC), case folding or path resolution; values decoded twice; security decision made on the raw value while the code uses the decoded one."
+cwe = "CWE-180"
+
+[[checklist]]
+domain = "api"
+id = "API-17"
+title = "File upload"
+what_to_look_for = "Extension or Content-Type taken from the client without checking the content; uploaded files stored under the web root or served inline from the application origin; client file names used on disk; no limit on size, file count or archive expansion."
+cwe = "CWE-434"
+
+[[checklist]]
 domain = "config"
 id = "CFG-01"
 title = "Secrets in configuration"
@@ -1632,7 +1714,7 @@ cwe = "CWE-732"
 domain = "config"
 id = "CFG-09"
 title = "Kubernetes workload hardening"
-what_to_look_for = "securityContext missing runAsNonRoot, readOnlyRootFilesystem, allowPrivilegeEscalation: false and capabilities drop ALL; hostPath mounts; no resource limits; no NetworkPolicy."
+what_to_look_for = "securityContext without runAsNonRoot: true, readOnlyRootFilesystem: true, allowPrivilegeEscalation: false or capabilities drop ALL; hostPath mounts; no resource limits; no NetworkPolicy."
 cwe = "CWE-250"
 
 [[checklist]]
@@ -1653,8 +1735,22 @@ cwe = "CWE-693"
 domain = "config"
 id = "CFG-12"
 title = "Data services and storage"
-what_to_look_for = "Databases, caches or search engines without authentication, empty or default passwords, public buckets, no encryption at rest or in transit."
+what_to_look_for = "Databases, caches or search engines without authentication, empty or default passwords, public buckets, no encryption at rest, no TLS between the application and the service (see CFG-14)."
 cwe = "CWE-306"
+
+[[checklist]]
+domain = "config"
+id = "CFG-13"
+title = "WAF and request filtering"
+what_to_look_for = "WAF disabled, left in detection-only mode or not inspecting request bodies; broad rule exclusions (whole rule ranges or attack tags) instead of one rule for one parameter; backend reachable without going through the WAF or CDN; WAF used as the only fix for a known vulnerability."
+cwe = "CWE-693"
+
+[[checklist]]
+domain = "config"
+id = "CFG-14"
+title = "Encrypted connections to back-end services"
+what_to_look_for = "Directories, databases, message brokers, caches, mail or file servers reached in clear text (ldap://, ftp://, amqp://, redis://, sslmode=disable, useSSL=false, encrypt=false, Kafka PLAINTEXT) instead of their TLS variant (ldaps:// or required STARTTLS, sftp, amqps://, rediss://, SASL_SSL); optional STARTTLS that falls back to clear text; TLS without certificate or host name verification (TLS_REQCERT never, trustServerCertificate=true, sslmode=require instead of verify-full)."  # secreview:ignore GEN-011 GEN-012 (rule text, not configuration)
+cwe = "CWE-319"
 
 [[checklist]]
 domain = "cicd"
@@ -1737,7 +1833,7 @@ cwe = "CWE-1395"
 domain = "dependencies"
 id = "SC-02"
 title = "Reproducible resolution"
-what_to_look_for = "Lockfile committed and used by the build (npm ci, poetry install --no-update, pinned requirements with hashes); no wildcard, latest or dynamic versions."
+what_to_look_for = "No committed lockfile, or a build that ignores it (npm install instead of npm ci, unpinned requirements without hashes); wildcard, latest or dynamic versions."
 cwe = "CWE-1357"
 
 [[checklist]]

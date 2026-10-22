@@ -21,6 +21,7 @@ from . import (
     oidc,
     registry,
     retention,
+    ticketing,
     token_store,
     web_api,
     web_users,
@@ -88,6 +89,7 @@ def serve(argv: list[str]) -> None:
         if settings.osv_auto_update:
             advisory_sync.validate_settings(settings)
         audit_syslog.validate_settings(settings)
+        ticketing.validate_settings(settings)
         bootstrap_created = web_users.ensure_bootstrap_admin(settings.admin_username)
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
@@ -113,6 +115,15 @@ def serve(argv: list[str]) -> None:
         settings, current=lambda: app_settings.effective_settings(settings)
     )
     forwarder.start()
+    dispatcher = (
+        ticketing.TicketDispatcher(
+            settings, current=lambda: app_settings.effective_settings(settings)
+        )
+        if settings.ticketing_enabled
+        else None
+    )
+    if dispatcher:
+        dispatcher.start()
     try:
         http_server.serve(
             http_server.build_controller_app(
@@ -135,6 +146,8 @@ def serve(argv: list[str]) -> None:
         if pruner:
             pruner.stop()
         forwarder.stop()
+        if dispatcher:
+            dispatcher.stop()
 
 
 def main(argv: list[str] | None = None) -> None:

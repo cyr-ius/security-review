@@ -1,6 +1,7 @@
 """Web interface: REST API, permissions and static files."""
 
 import hashlib
+import io
 import json
 import logging
 from datetime import UTC, date, datetime, timedelta
@@ -43,6 +44,7 @@ from security_review_mcp.models import (
     ReviewType,
     Severity,
 )
+from security_review_mcp.ticketing import transport
 from security_review_mcp.web_api.body_limit import MAX_BODY_BYTES
 
 # Bearer value of each role, set by the ``secured`` fixture: the raw secret of a token for the
@@ -1825,6 +1827,54 @@ def test_a_set_syslog_variable_locks_the_web_setting(client, monkeypatch):
     assert "takes precedence" in response.json()["detail"]
     body = client.get("/api/v1/settings/audit-syslog").json()
     assert body["address"]["env_set"] is True and body["effective"]["source"] == "environment"
+
+
+def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
+    web_sessions, reports, monkeypatch
+):
+    monkeypatch.setattr(get_settings(), "ticketing_enabled", True)
+    admin, triager, reader = auth("admin"), auth("triager"), auth("reader")
+    jira = {"url": "https://acme.atlassian.net", "username": "bot", "api_token": "tok-test"}
+    configured = web_sessions.put("/api/v1/settings/ticketing/jira", headers=admin, json=jira)
+    systems = {item["kind"]: item for item in configured.json()["connectors"]}
+    assert systems["jira"]["configured"] is True
+    # An unknown system is not found
+    assert (
+        web_sessions.put("/api/v1/settings/ticketing/acme", headers=admin, json={}).status_code
+        == 404
+    )
+    target = "/api/v1/projects/shop-api/ticket-targets/jira"
+    # The destinations are settings: a triager cannot change them
+    assert web_sessions.put(target, headers=triager, json={"destination": "X"}).status_code == 403
+    assert web_sessions.put(target, headers=admin, json={"destination": "sec"}).status_code == 200
+    destinations = "/api/v1/ticketing/destinations"
+    assert web_sessions.get(destinations, headers=triager).json() == [
+        {"project": "shop-api", "kind": "jira"}
+    ]
+    assert web_sessions.get(destinations, headers=reader).json() == []
+    sent: list = []
+
+    class Opener:
+        def open(self, request, timeout):
+            sent.append(request)
+            return io.BytesIO(b'{"id": "1", "key": "SEC-1"}')
+
+    monkeypatch.setattr(transport, "_opener", lambda settings: Opener())
+    finding_id = services.get_report(reports[0]).findings[0].id
+    path = f"/api/v1/findings/{finding_id}/tickets/jira"
+
+    assert web_sessions.post(path, headers=reader).status_code == 403
+    response = web_sessions.post(path, headers=triager)
+
+    assert response.status_code == 201, response.text
+    assert response.json()["external_key"] == "SEC-1" and len(sent) == 1
+    report = web_sessions.get(f"/api/v1/reports/{reports[0]}", headers=reader).json()
+    assert report["findings"][0]["tickets"][0]["url"] == "https://acme.atlassian.net/browse/SEC-1"
+    # Without destination, sending is refused before any request
+    web_sessions.delete(target, headers=admin)
+    other = report["findings"][1]["id"]
+    refused = web_sessions.post(f"/api/v1/findings/{other}/tickets/jira", headers=triager)
+    assert refused.status_code == 409 and len(sent) == 1
 
 
 def test_a_proxy_change_rebuilds_the_sso_login(ui_dir):

@@ -1,0 +1,17 @@
+[project]
+name = "secreview-acme-connector"
+version = "0.1.0"
+description = "Example ticketing connector for security-review-mcp: findings as Acme risks"
+requires-python = ">=3.14"
+dependencies = ["security-review-mcp"]
+
+# The controller loads it only when SECREVIEW_TICKETING_PLUGINS lists "acme"
+[project.entry-points."security_review_mcp.ticketing"]
+acme = "acme_connector:AcmeConnector"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["acme_connector"]

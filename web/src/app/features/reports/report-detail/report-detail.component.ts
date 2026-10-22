@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
 import {
   CHECKLIST_OUTCOME_META,
   REVIEW_TYPE_META,
@@ -19,10 +19,12 @@ import {
   SEVERITIES,
   SEVERITY_RANK,
   Severity,
+  TicketKind,
 } from '../../../core/models/api.models';
 import { Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { AuthService } from '../../../core/services/auth.service';
+import { TicketService, kindsByProject, systemNames } from '../../../core/services/ticket.service';
 import { TriageChange, TriageService } from '../../../core/services/triage.service';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
@@ -39,6 +41,7 @@ export class ReportDetailComponent {
   private readonly api = inject(ApiService);
   readonly auth = inject(AuthService);
   readonly triage = inject(TriageService);
+  readonly tickets = inject(TicketService);
 
   /** Route parameter :id */
   readonly id = input.required<string>();
@@ -55,6 +58,23 @@ export class ReportDetailComponent {
   readonly report = rxResource({
     params: () => ({ id: this.reportId() }),
     stream: ({ params }) => this.api.report(params.id),
+  });
+
+  /** Names of the ticketing systems, to label the tickets. */
+  readonly systems = rxResource({ stream: () => this.api.ticketSystems() });
+  readonly systemNames = computed(() => systemNames(this.systems.value() ?? []));
+
+  /** Systems the user may send findings to, by project (none without findings.triage). */
+  readonly destinations = rxResource({
+    params: () => ({ triage: this.auth.canTriage() }),
+    stream: ({ params }) => (params.triage ? this.api.ticketDestinations() : of([])),
+  });
+
+  /** Systems the findings of this report may be sent to. */
+  readonly ticketKinds = computed<readonly TicketKind[]>(() => {
+    const project = this.report.value()?.project;
+    const destinations = this.destinations.value() ?? [];
+    return project ? (kindsByProject(destinations).get(project) ?? []) : [];
   });
 
   /** Local copy of the findings, updated in place after a triage decision. */
@@ -118,6 +138,19 @@ export class ReportDetailComponent {
       this.triageError.set(result.error);
     } else if (decision && 'severity' in decision) {
       // A raised severity may raise the risk level of the report too
+      this.report.reload();
+    } else {
+      this.onUpdated(result.finding);
+    }
+  }
+
+  /** Send a finding to a ticketing system and show its ticket. */
+  async sendTicket(finding: Finding, kind: TicketKind): Promise<void> {
+    this.triageError.set(null);
+    const result = await this.tickets.send(finding, kind);
+    if ('error' in result) {
+      this.triageError.set(result.error);
+      // A failure is stored on the finding: show it
       this.report.reload();
     } else {
       this.onUpdated(result.finding);

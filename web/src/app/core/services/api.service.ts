@@ -53,6 +53,15 @@ import {
   RulePackSection,
   RuleReloadResult,
   StandardPackImportResult,
+  TicketDestination,
+  TicketSystem,
+  TicketKind,
+  TicketTarget,
+  TicketTargetUpdate,
+  TicketingSettings,
+  TicketingTestResult,
+  TicketingUpdate,
+  FindingTicket,
   TokenRoleChoice,
   Trend,
   UpdateStatus,
@@ -500,6 +509,58 @@ export class ApiService {
   /** A field left out is unchanged; null restores the variable, address '' stops forwarding. */
   setAuditSyslog(values: AuditSyslogUpdate): Observable<AuditSyslogSettings> {
     return this.http.put<AuditSyslogSettings>(`${API_URL}/settings/audit-syslog`, values);
+  }
+
+  ticketing(): Observable<TicketingSettings> {
+    return this.http.get<TicketingSettings>(`${API_URL}/settings/ticketing`);
+  }
+
+  /** A field left out is unchanged; null or '' deletes it; a secret sent back as '***' is kept. */
+  setTicketing(kind: TicketKind, values: TicketingUpdate): Observable<TicketingSettings> {
+    return this.http.put<TicketingSettings>(`${API_URL}/settings/ticketing/${kind}`, values);
+  }
+
+  /** Test the connection with the stored values and ``values`` (not stored). */
+  testTicketing(kind: TicketKind, values: TicketingUpdate): Observable<TicketingTestResult> {
+    return this.http.post<TicketingTestResult>(
+      `${API_URL}/settings/ticketing/${kind}/test`,
+      values,
+    );
+  }
+
+  ticketTargets(): Observable<TicketTarget[]> {
+    return this.http.get<TicketTarget[]>(`${API_URL}/ticketing/targets`);
+  }
+
+  setTicketTarget(
+    project: string,
+    kind: TicketKind,
+    target: TicketTargetUpdate,
+  ): Observable<TicketTarget> {
+    return this.http.put<TicketTarget>(
+      `${API_URL}/projects/${encodeURIComponent(project)}/ticket-targets/${kind}`,
+      target,
+    );
+  }
+
+  deleteTicketTarget(project: string, kind: TicketKind): Observable<void> {
+    return this.http.delete<void>(
+      `${API_URL}/projects/${encodeURIComponent(project)}/ticket-targets/${kind}`,
+    );
+  }
+
+  /** Available ticketing systems, to label the tickets of the findings. */
+  ticketSystems(): Observable<TicketSystem[]> {
+    return this.http.get<TicketSystem[]>(`${API_URL}/ticketing/systems`);
+  }
+
+  /** Projects and systems the current user may send findings to now. */
+  ticketDestinations(): Observable<TicketDestination[]> {
+    return this.http.get<TicketDestination[]>(`${API_URL}/ticketing/destinations`);
+  }
+
+  sendFindingTicket(id: number, kind: TicketKind): Observable<FindingTicket> {
+    return this.http.post<FindingTicket>(`${API_URL}/findings/${id}/tickets/${kind}`, {});
   }
 
   advisories(): Observable<AdvisoryOverview> {

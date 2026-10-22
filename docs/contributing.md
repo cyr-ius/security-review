@@ -132,6 +132,8 @@ src/security_review_mcp/
 ├── trends.py      # trend report
 ├── versions.py    # version comparison
 ├── update_check.py # search for a newer release on GitHub (About page, optional)
+├── ticketing/     # tickets of the findings: api (connector API), registry, connections,
+│                  # transport (HTTP client), core (sending), jira, servicenow
 ├── healthcheck.py # HEALTHCHECK of the Docker image (/healthz of the HTTP processes)
 ├── advisories.py  # OSV import, version matching
 ├── advisory_sync.py  # OSV download by the controller (proxy, daily update, history)
@@ -308,8 +310,8 @@ A version is a tag pushed on `master`:
    GitHub release.
 
 The `.github/workflows/docker.yml` workflow builds the image (`linux/amd64`, `linux/arm64`,
-default and `-pg` variants) and checks that both entry points start. On a pull request that
-touches the `Dockerfile` or the dependencies, it only builds; on a version tag, it pushes the
+default and `-pg` variants) and checks that both entry points start. On every pull request
+(the protection of `master` requires these checks), it only builds; on a version tag, it pushes the
 images to `ghcr.io/cyr-ius/security-review-mcp` and `docker.io/cyrius44/security-review-mcp`
 (see [published images](advanced/docker.md#published-images)). A manual run (**Actions →
 Docker image → Run workflow**, `push` checked) publishes a branch image (`dev`, `dev-pg`).

@@ -202,8 +202,9 @@ def _overrides(stored: dict[str, str], settings: Settings) -> dict[str, Any]:
 
 def effective_settings(settings: Settings | None = None) -> Settings:
     """Return ``settings`` with the proxy, OIDC and syslog values stored in the web interface
-    applied where their variable is not set (read by the controller at each OSV download, login
-    and batch of audit events)."""
+    applied where their variable is not set (read by the controller at each OSV download, login,
+    batch of audit events and ticket; the connections of the ticketing systems are read by
+    ticketing.connections)."""
     settings = settings or get_settings()
     overrides = _overrides(_stored(), settings)
     return settings.model_copy(update=overrides) if overrides else settings

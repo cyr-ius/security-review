@@ -96,8 +96,12 @@
       [permanentAcceptance]="auth.permanentAcceptance()"
       [riskAcceptanceMinSeverity]="auth.riskAcceptanceMinSeverity()"
       [saving]="triage.saving() === finding.id"
+      [ticketKinds]="ticketKinds().get(finding.project) ?? noKinds"
+      [ticketSending]="tickets.sending() === finding.id"
+      [ticketSystemNames]="systemNames()"
       (decided)="decide(finding, $event)"
       (proposalRejected)="decide(finding, null)"
+      (ticketRequested)="sendTicket(finding, $event)"
     >
       @if (!project()) {
         <a [routerLink]="['/projects', finding.project]" class="text-break">

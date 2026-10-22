@@ -142,6 +142,18 @@ Read by `security-review-controller` only.
 | `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | Syslog facility of these messages (`local0` to `local7`, `auth`, `authpriv`, `daemon`...); when set, takes precedence over the one chosen on the **Audit log** page |
 | `SECREVIEW_METRICS_ENABLED` | `true` | Serves the [Prometheus metrics](../advanced/audit-metrics.md#prometheus-metrics) on `/metrics` (`metrics` or `admin` token); when `false`, `/metrics` answers 404 |
 
+### Ticketing
+
+| Variable | Default | Role |
+|---|---|---|
+| `SECREVIEW_TICKETING_ENABLED` | `false` | Sends findings to [Jira and ServiceNow](../advanced/ticketing.md), by hand or automatically (outgoing connections of the controller) |
+| `SECREVIEW_TICKETING_INTERVAL_SECONDS` | `300` | Period of the [automatic sending](../advanced/ticketing.md#sending-a-finding) (30 to 86400) |
+| `SECREVIEW_TICKETING_CAFILE` | — | CA bundle used instead of the system one (internal authority) |
+| `SECREVIEW_TICKETING_PLUGINS` | — | [Third-party connectors](../advanced/ticketing.md#third-party-connectors) allowed, by entry point name, comma separated; one installed but not listed is never loaded |
+| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Jira connection](../advanced/ticketing.md#connections); when set, takes precedence over the **Ticketing** screen |
+| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [ServiceNow connection](../advanced/ticketing.md#connections); when set, takes precedence over the **Ticketing** screen |
+| `SECREVIEW_<KIND>_<FIELD>` | — | Field of the connection of a [third-party connector](../advanced/ticketing.md#third-party-connectors) (`SECREVIEW_ACME_API_KEY`) |
+
 ### Pipeline scan limits
 
 | Variable | Default | Role |

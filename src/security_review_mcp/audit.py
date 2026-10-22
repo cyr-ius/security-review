@@ -71,6 +71,11 @@ class AuditAction(StrEnum):
     USER_LOGIN_FAILED = "user.login_failed"
     USER_LOGOUT = "user.logout"
     AUDIT_SYSLOG_CHANGED = "audit_syslog.changed"
+    # Ticketing (see ticketing): a ticket created or reused for a finding, the destination of a
+    # project, the connection of a system
+    FINDING_TICKET_CREATED = "finding.ticket_created"
+    TICKET_TARGET_CHANGED = "ticketing.target_changed"
+    TICKETING_CHANGED = "ticketing.changed"
 
 
 def user_actor(username: str) -> str:

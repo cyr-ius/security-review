@@ -1,0 +1,82 @@
+<section class="card setting-card mb-4" [attr.aria-labelledby]="'connection-' + connector().kind">
+  <div class="card-header d-flex flex-wrap align-items-center gap-2">
+    <h2 class="h5 mb-0 me-auto" [id]="'connection-' + connector().kind">
+      {{ connector().name }}
+    </h2>
+    @if (!connector().builtin) {
+      <span class="badge text-bg-info">{{ 'ticketing.plugin' | t }}</span>
+    }
+    @if (connector().configured) {
+      <span class="badge text-bg-success">
+        <i class="bi bi-check-circle" aria-hidden="true"></i> {{ 'ticketing.configured' | t }}
+      </span>
+    } @else {
+      <span class="badge text-bg-secondary">{{ 'ticketing.notConfigured' | t }}</span>
+    }
+  </div>
+  <div class="card-body">
+    @if (error(); as text) {
+      <div class="alert alert-danger py-2 text-break" role="alert">{{ text | t }}</div>
+    }
+    @if (message(); as text) {
+      <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+    }
+    <form (submit)="save($event)" novalidate>
+      @for (field of connector().fields; track field.name) {
+        @let id = connector().kind + '-' + field.name;
+        <div class="mb-3">
+          <label class="form-label" [for]="id">
+            {{ text(field, 'label') }}
+            @if (field.required) {
+              <span class="text-danger" aria-hidden="true">*</span>
+            }
+          </label>
+          @if (field.env_set) {
+            <div class="alert alert-info py-2 mb-0" role="status" [id]="id">
+              <i class="bi bi-lock" aria-hidden="true"></i>
+              {{
+                'settings.variableLocked' | t: { variable: field.variable, value: field.env ?? '' }
+              }}
+            </div>
+          } @else {
+            <input
+              class="form-control"
+              autocomplete="off"
+              spellcheck="false"
+              [class.font-monospace]="field.secret || field.name === 'url'"
+              [type]="field.secret ? 'password' : 'text'"
+              [id]="id"
+              [placeholder]="text(field, 'placeholder')"
+              [attr.aria-describedby]="id + '-help'"
+              [formField]="connectionForm[field.name]"
+            />
+            <div class="form-text" [id]="id + '-help'">
+              @if (text(field, 'help'); as help) {
+                {{ help }}
+              }
+              @if (field.secret) {
+                {{ 'ticketing.helpSecret' | t }}
+              }
+              <span class="font-monospace">{{ field.variable }}</span>
+            </div>
+          }
+        </div>
+      }
+      <div class="d-flex flex-wrap gap-2">
+        <button type="submit" class="btn btn-primary" [disabled]="busy() || !editable().length">
+          <i class="bi bi-check-lg" aria-hidden="true"></i>
+          {{ 'common.save' | t }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-outline-secondary"
+          [disabled]="busy()"
+          (click)="test()"
+        >
+          <i class="bi bi-plug" aria-hidden="true"></i>
+          {{ 'ticketing.test' | t }}
+        </button>
+      </div>
+    </form>
+  </div>
+</section>

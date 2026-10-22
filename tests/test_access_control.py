@@ -515,12 +515,32 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
     from sqlmodel import select
 
     from security_review_mcp import services, token_store
-    from security_review_mcp.models import FindingComment, FindingCreate, Severity
+    from security_review_mcp.models import (
+        FindingComment,
+        FindingCreate,
+        FindingTicket,
+        Severity,
+        TicketState,
+        TicketTarget,
+    )
+    from security_review_mcp.ticketing import registry, set_target
 
     finding = FindingCreate(title="SQL injection", severity=Severity.HIGH, description="Query")
     shop = services.save_report("shop", "Review", [finding])
     shop_finding = services.get_report(shop["report_id"]).findings[0]
     services.add_finding_comment(shop_finding.id, "ann", "Seen")
+    set_target("shop", registry.get("jira"), "SEC", None, "user:root")
+    with session_scope() as session:
+        session.add(
+            FindingTicket(
+                finding_id=shop_finding.id,
+                kind="jira",
+                project="shop",
+                fingerprint="f" * 32,
+                state=TicketState.SENT,
+                external_key="SEC-1",
+            )
+        )
     kept = services.save_report("crm", "Review", [finding])
     carol = creator()
     access_control.create_project(carol["id"], "shop-mobile")
@@ -546,6 +566,8 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
     assert [item["project"] for item in services.list_projects(set())] == ["crm"]
     with session_scope() as session:
         assert session.exec(select(FindingComment)).all() == []
+        assert session.exec(select(FindingTicket)).all() == []
+        assert session.exec(select(TicketTarget)).all() == []
         assert not access_control.project_exists(session, "shop")
         assert access_control.project_exists(session, "shop-mobile")
     assert services.get_report(kept["report_id"]).project == "crm"

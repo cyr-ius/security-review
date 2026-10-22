@@ -72,6 +72,49 @@
       }
       <ng-content />
     </div>
+    @if (finding().tickets.length || sendableKinds().length) {
+      <div class="d-flex flex-wrap align-items-center gap-2 small mb-2">
+        @for (ticket of finding().tickets; track ticket.kind) {
+          @if (ticket.state === 'sent' && ticket.url) {
+            <a
+              class="badge bg-body-secondary text-body border text-decoration-none"
+              [href]="ticket.url"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <i class="bi bi-ticket-detailed" aria-hidden="true"></i>
+              {{
+                'ticketing.ticket'
+                  | t: { system: systemName(ticket.kind), key: ticket.external_key ?? '' }
+              }}
+            </a>
+          } @else if (ticket.state === 'failed') {
+            <span class="text-danger-emphasis text-break">
+              <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
+              {{
+                'ticketing.ticketFailed'
+                  | t: { system: systemName(ticket.kind), error: ticket.error ?? '' }
+              }}
+            </span>
+          } @else if (ticket.state === 'sending') {
+            <span class="text-body-secondary">
+              {{ 'ticketing.ticketSending' | t: { system: systemName(ticket.kind) } }}
+            </span>
+          }
+        }
+        @for (kind of sendableKinds(); track kind) {
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            [disabled]="ticketSending()"
+            (click)="ticketRequested.emit(kind)"
+          >
+            <i class="bi bi-send" aria-hidden="true"></i>
+            {{ 'ticketing.send' | t: { system: systemName(kind) } }}
+          </button>
+        }
+      </div>
+    }
     @if (finding().status !== 'open' && (finding().status_reason || finding().status_approver)) {
       <div class="decision small mb-2">
         <div>
