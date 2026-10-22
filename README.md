@@ -1,4 +1,4 @@
-![Security Review MCP: a finding reported in the code](https://raw.githubusercontent.com/cyr-ius/security-review-mcp/dev/docs/assets/banner.svg)
+![Security Review MCP: a finding reported in the code](https://raw.githubusercontent.com/cyr-ius/security-review-mcp/master/docs/assets/banner.svg)
 
 # Security Review MCP
 
