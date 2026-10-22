@@ -1,3 +1,5 @@
+![Security Review MCP : un finding signalé dans le code](https://raw.githubusercontent.com/cyr-ius/security-review-mcp/master/docs/assets/banner.svg)
+
 # Security Review MCP
 
 Serveur MCP pour la **revue de code orientée sécurité** (failles et mauvaises configurations),
