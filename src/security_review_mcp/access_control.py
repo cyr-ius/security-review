@@ -63,7 +63,7 @@ from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, select
 
-from . import audit
+from . import audit, ticketing
 from .config import Settings, get_settings
 from .database import session_scope
 from .http_server import Role
@@ -73,6 +73,7 @@ from .models import (
     ApiTokenProject,
     Finding,
     FindingComment,
+    FindingTicket,
     GroupMember,
     GroupRole,
     ProjectEnrollment,
@@ -1059,7 +1060,8 @@ def create_project(user_id: int, project: str, actor: str | None = None) -> dict
 
 
 def _delete_reports(session: Session, project: str) -> dict[str, int]:
-    """Delete the reports of ``project`` with their findings and comments; return the counts."""
+    """Delete the reports of ``project`` with their findings, comments and tickets; return the
+    counts."""
     reports = select(SecurityReport.id).where(SecurityReport.project == project)
     findings = select(Finding.id).where(col(Finding.report_id).in_(reports))
     counts = {
@@ -1073,6 +1075,7 @@ def _delete_reports(session: Session, project: str) -> dict[str, int]:
         ).one(),
     }
     session.exec(delete(FindingComment).where(col(FindingComment.finding_id).in_(findings)))
+    session.exec(delete(FindingTicket).where(col(FindingTicket.finding_id).in_(findings)))
     session.exec(delete(Finding).where(col(Finding.report_id).in_(reports)))
     session.exec(delete(SecurityReport).where(SecurityReport.project == project))
     return counts
@@ -1166,6 +1169,7 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
         deleted |= _delete_reports(session, cleaned)
         deleted |= _forget_project_roles(session, cleaned, actor)
         deleted |= forget_project(session, cleaned, actor)
+        ticketing.forget_project(session, cleaned)
         audit.record(
             session,
             audit.AuditAction.PROJECT_DELETED,

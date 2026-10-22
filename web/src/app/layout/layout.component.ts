@@ -106,6 +106,12 @@ export class LayoutComponent {
       icon: 'bi-database',
       permission: 'settings.manage',
     },
+    {
+      path: '/settings/ticketing',
+      label: 'ticketing.title',
+      icon: 'bi-ticket-detailed',
+      permission: 'settings.manage',
+    },
   ];
 
   /** Sidebar opened in full over the page (small screens, or after the expand button). */

@@ -120,6 +120,7 @@ l'utiliser.
 | Persistance, schéma (purge des rapports sans findings et de l'audit : `retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `coverage.py`) | `models.py`, `services.py`, `coverage.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
 | Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement ; envoi syslog facultatif par le contrôleur) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `audit.py`, `audit_syslog.py` ; `metrics.py` |
 | Export et tendances | `sarif.py`, `trends.py` |
+| Tickets des findings (envoi manuel et automatique par le contrôleur) : API publique des connecteurs (contrat des connecteurs tiers, versionné), registre (intégrés + plugins autorisés par `SECREVIEW_TICKETING_PLUGINS`), connexions, client HTTP imposé, Jira et ServiceNow | paquet `ticketing/` (`api.py`, `registry.py`, `connections.py`, `transport.py`, `core.py`, `jira.py`, `servicenow.py`), `web_api/ticketing_routes.py`, exemple `examples/ticketing-connector/` |
 | HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim) : `access_control.py` |
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas.py` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
@@ -199,9 +200,15 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   connexion OIDC du contrôleur (`oidc`), **désactivée par défaut**, qui ne contacte que le
   fournisseur d'identité configuré, en HTTPS, réponses bornées, la recherche de nouvelle version
   du contrôleur (`update_check`, **désactivée par défaut**, HTTPS vers l'API GitHub, par le
-  proxy, réponse bornée et mise en cache) et l'envoi syslog du journal d'audit par le contrôleur
+  proxy, réponse bornée et mise en cache), l'envoi syslog du journal d'audit par le contrôleur
   (`audit_syslog`, **désactivé par défaut**, qui lit les événements en base : le serveur MCP n'y
-  participe pas).
+  participe pas) et la création de tickets par le contrôleur (`ticketing`, **désactivée par
+  défaut**) : un connecteur (Jira, ServiceNow ou tiers) ne sort que par `ticketing.transport`
+  (HTTPS, URL configurée uniquement, par le proxy, sans suivre de redirection, réponse bornée,
+  secrets jamais journalisés ni renvoyés, secret lié à l'hôte de son URL) ; un connecteur tiers
+  n'est chargé que s'il est listé dans `SECREVIEW_TICKETING_PLUGINS` ; à sens unique : un
+  ticket ne change jamais le statut d'un finding. Ne cassez pas `ticketing/api.py` sans
+  incrémenter `API_VERSION` : c'est le contrat des connecteurs tiers.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
   imbriqués) ; `rules_loader` les valide pour les règles internes.
 - Jetons Bearer : seules les empreintes SHA-256 sont conservées, comparaison en temps constant.

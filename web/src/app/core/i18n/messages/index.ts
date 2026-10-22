@@ -17,6 +17,7 @@ import { sso } from './sso';
 import { access } from './access';
 import { settings } from './settings';
 import { trend } from './trend';
+import { ticketing } from './ticketing';
 
 /** Messages of every screen; add the catalog of a new screen here. */
 const CATALOGS = [
@@ -38,6 +39,7 @@ const CATALOGS = [
   access,
   settings,
   trend,
+  ticketing,
 ] as const;
 
 type KeysOf<C> = C extends { en: Record<infer K, string> } ? K : never;

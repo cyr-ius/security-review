@@ -116,6 +116,14 @@
   10 secondes, au plus une requête par processus du contrôleur toutes les 6 heures (15 minutes
   après un échec) ; seuls la version et le lien de la version sont conservés (un lien hors des
   versions du dépôt est remplacé), et la page ne reçoit qu'un code d'erreur court. Avec
+  `SECREVIEW_TICKETING_ENABLED=true` (désactivé par défaut), le contrôleur crée des tickets dans
+  les Jira et ServiceNow configurés : HTTPS uniquement, par le proxy sortant, **aucune
+  redirection**, réponse bornée à 1 Mio, délai de 15 secondes ; les textes envoyés sont de
+  nouveau masqués et, dans Jira, jamais interprétés comme balisage wiki ; les secrets saisis
+  dans l'écran **Ticketing** sont stockés en clair, jamais renvoyés (`***`) et liés à l'hôte de
+  leur URL ; un connecteur tiers n'est chargé que si `SECREVIEW_TICKETING_PLUGINS` le nomme et
+  ne joint que son URL configurée par le client du contrôleur, voir
+  [ticketing](../advanced/ticketing.md#securite). Avec
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` ou un serveur défini sur la page **Journal d'audit**
   (désactivé par défaut ; permission `settings.manage`, `udp://` ou `tcp://` uniquement,
   modification inscrite au journal d'audit), le contrôleur envoie les

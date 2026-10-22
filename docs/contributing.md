@@ -132,6 +132,8 @@ src/security_review_mcp/
 ├── trends.py      # trend report
 ├── versions.py    # version comparison
 ├── update_check.py # search for a newer release on GitHub (About page, optional)
+├── ticketing/     # tickets of the findings: api (connector API), registry, connections,
+│                  # transport (HTTP client), core (sending), jira, servicenow
 ├── healthcheck.py # HEALTHCHECK of the Docker image (/healthz of the HTTP processes)
 ├── advisories.py  # OSV import, version matching
 ├── advisory_sync.py  # OSV download by the controller (proxy, daily update, history)

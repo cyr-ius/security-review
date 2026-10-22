@@ -3,7 +3,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
 import { REVIEW_TYPE_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import { Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
@@ -16,8 +16,10 @@ import {
   ReviewType,
   SEVERITIES,
   Severity,
+  TicketKind,
 } from '../../../core/models/api.models';
 import { AuthService } from '../../../core/services/auth.service';
+import { TicketService, kindsByProject, systemNames } from '../../../core/services/ticket.service';
 import { TriageChange, TriageService } from '../../../core/services/triage.service';
 import { ApiService } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
@@ -41,6 +43,7 @@ export class ProjectFindingsComponent {
   private readonly api = inject(ApiService);
   readonly auth = inject(AuthService);
   readonly triage = inject(TriageService);
+  readonly tickets = inject(TicketService);
 
   /** Route parameter :project (undefined at /findings: every project in the scope). */
   readonly project = input<string>();
@@ -68,6 +71,18 @@ export class ProjectFindingsComponent {
     }),
     stream: ({ params }) => this.api.projectFindings(params),
   });
+
+  /** Names of the ticketing systems, to label the tickets. */
+  readonly systems = rxResource({ stream: () => this.api.ticketSystems() });
+  readonly systemNames = computed(() => systemNames(this.systems.value() ?? []));
+
+  /** Systems the user may send findings to, by project (none without findings.triage). */
+  readonly destinations = rxResource({
+    params: () => ({ triage: this.auth.canTriage() }),
+    stream: ({ params }) => (params.triage ? this.api.ticketDestinations() : of([])),
+  });
+  readonly ticketKinds = computed(() => kindsByProject(this.destinations.value() ?? []));
+  readonly noKinds: readonly TicketKind[] = [];
 
   /** Loaded findings: the first page, then the pages added by "load more" and triage updates. */
   readonly findings = linkedSignal<ProjectFinding[]>(() => this.firstPage.value()?.findings ?? []);
@@ -129,6 +144,17 @@ export class ProjectFindingsComponent {
   async decide(finding: Finding, decision: TriageChange | null): Promise<void> {
     this.triageError.set(null);
     const result = await this.triage.decide(finding, decision);
+    if ('error' in result) {
+      this.triageError.set(result.error);
+    } else {
+      this.onUpdated(result.finding);
+    }
+  }
+
+  /** Send a finding to a ticketing system and show its ticket. */
+  async sendTicket(finding: ProjectFinding, kind: TicketKind): Promise<void> {
+    this.triageError.set(null);
+    const result = await this.tickets.send(finding, kind);
     if ('error' in result) {
       this.triageError.set(result.error);
     } else {

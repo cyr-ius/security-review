@@ -245,6 +245,20 @@ class Settings(BaseSettings):
     # outgoing connection.
     update_check_enabled: bool = False
 
+    # Controller only: send findings as tickets to ticketing systems (see ticketing): Jira and
+    # ServiceNow, plus the third-party connectors (Python entry points of the group
+    # security_review_mcp.ticketing) whose names ticketing_plugins lists, comma separated (a
+    # connector installed but not listed is never loaded). By hand from the web interface, or
+    # automatically for the projects given a severity threshold. Disabled by default: outgoing
+    # connections (HTTPS only, through the outgoing proxy). ticketing_interval_seconds is the
+    # period of the automatic sending; ticketing_cafile replaces the system CA bundle (internal
+    # certificate authority). The connection of each system is read from its own variables,
+    # SECREVIEW_<KIND>_<FIELD> (SECREVIEW_JIRA_URL...), or set in the web interface.
+    ticketing_enabled: bool = False
+    ticketing_interval_seconds: int = Field(default=300, ge=30, le=86_400)
+    ticketing_cafile: str | None = None
+    ticketing_plugins: str = ""
+
     log_level: str = "INFO"
 
     # Hard limits to protect the server and the database
@@ -262,7 +276,7 @@ class Settings(BaseSettings):
     max_scan_files: int = Field(default=10_000, ge=1)
     max_scan_file_chars: int = Field(default=1_048_576, ge=1)
 
-    @field_validator("proxy", "no_proxy", "audit_syslog_address", "web_url")
+    @field_validator("proxy", "no_proxy", "audit_syslog_address", "web_url", "ticketing_cafile")
     @classmethod
     def _empty_is_unset(cls, value: str | None) -> str | None:
         """An empty variable means no value (an empty stored proxy means a direct connection)."""

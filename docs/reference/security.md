@@ -112,6 +112,13 @@
   most one request per controller process every 6 hours (15 minutes after a failure); only the
   version and the link of the release are kept (a link outside the releases of the repository
   is replaced), and the page only gets a short error code. With
+  `SECREVIEW_TICKETING_ENABLED=true` (disabled by default), the controller creates tickets in
+  the configured Jira and ServiceNow: HTTPS only, through the outgoing proxy, **no redirect**,
+  answer bounded to 1 MiB, 15 second timeout; the texts sent are masked again and, in Jira,
+  never read as wiki markup; the secrets entered in the **Ticketing** screen are stored in clear
+  and never returned (`***`) and stay bound to the host of their URL; a third-party connector
+  is only loaded when `SECREVIEW_TICKETING_PLUGINS` names it and only reaches its configured
+  URL through the client of the controller, see [ticketing](../advanced/ticketing.md#security). With
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` or a server set on the **Audit log** page (disabled by
   default; `settings.manage` permission, `udp://` or `tcp://` only, the change audited), the
   controller sends the

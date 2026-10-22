@@ -194,6 +194,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'settings/ticketing',
+        title: 'ticketing.title',
+        canActivate: [permissionGuard('settings.manage')],
+        loadComponent: () =>
+          import('./features/settings/ticketing-settings/ticketing-settings.component').then(
+            (m) => m.TicketingSettingsComponent,
+          ),
+      },
+      {
         path: 'settings/advisories',
         title: 'settings.osvTitle',
         canActivate: [permissionGuard('settings.manage')],

@@ -23,7 +23,7 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 
 The screens are reached from the sidebar: **Supervision** (projects, reports) for every account,
 then **Reference** (rules, checklists, standards) and **Administration** (users, groups, roles,
-tokens, audit log, OIDC, report language, outgoing proxy, OSV database), each shown only to the
+tokens, audit log, OIDC, report language, outgoing proxy, OSV database, ticketing), each shown only to the
 accounts that hold its [permission](../advanced/access-control.md#permissions). The bottom
 of the sidebar shows the connected client (its permissions when hovered) and the version (a link to **About**), with the **My account** and logout buttons.
 On a small screen, the sidebar is reduced to its icons (each one names its screen when hovered)
@@ -201,11 +201,16 @@ a **Delete** button.
   ecosystem), searchable and sortable with status/trigger filters, and **Update now** button, only available if
   `SECREVIEW_OSV_AUTO_UPDATE=true`
   ([update by the controller](../advanced/dependencies.md#automatic-update-by-the-controller)).
+- **Ticketing**: connections of Jira and ServiceNow (with **Test the connection**) and
+  destination of each project, with its optional automatic sending
+  ([ticketing](../advanced/ticketing.md)).
 
 ## Triage of findings
 
 The status of a finding is decided by a **person**; an agent only proposes it (MCP tool
 `propose_finding_status`, see [status of a finding](prompts-tools.md#status-of-a-finding)).
+A triager may also send a finding to Jira or ServiceNow (**Send to Jira**), when its project
+has a destination: see [ticketing](../advanced/ticketing.md#sending-a-finding).
 
 - **Proposal of an agent**: shown on the finding in a separate box, with its author (label of
   the token), its date and its reason. The reason may come from the reviewed code: check it.

@@ -9,7 +9,7 @@ already ISO 8601 strings and are kept as such.
 from datetime import date, datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from .. import (
     access_control,
@@ -33,6 +33,7 @@ from ..models import (
     Severity,
 )
 from ..project_names import ProjectName
+from ..ticketing import api as ticketing_api
 
 AuthSource = Literal["local", "oidc"]
 Origin = Literal["builtin", "custom"]
@@ -1251,3 +1252,110 @@ class OidcTestResult(BaseModel):
 
 # Declared before AdvisoryDatabase, which it holds
 DependencyFileScan.model_rebuild()
+
+
+# ── Ticketing (see ticketing) ────────────────────────────────────────────────
+
+# Body of PUT /settings/ticketing/{kind}: field name to value (null or "" deletes the stored value)
+TicketingValues = Annotated[
+    dict[
+        Annotated[str, StringConstraints(max_length=18)],
+        Annotated[str | None, StringConstraints(max_length=ticketing_api.MAX_FIELD_CHARS)],
+    ],
+    Field(max_length=30),
+]
+
+
+class TicketingFieldInfo(BaseModel):
+    """A field declared by a connector: label, help and example in English, ``translations``
+    by language (``{"fr": {"label": ..., "help": ...}}``)."""
+
+    name: str
+    label: str
+    help: str
+    placeholder: str
+    secret: bool
+    required: bool
+    translations: dict[str, dict[str, str]]
+
+
+class TicketingFieldState(TicketingFieldInfo):
+    """A field of a connection: its variable, stored value, variable value, whether the variable
+    is set (it then takes precedence), effective value. Secrets are ``***`` when set."""
+
+    variable: str
+    value: str | None
+    env: str | None
+    env_set: bool
+    effective: str | None
+
+
+class TicketingConnector(BaseModel):
+    """A ticketing system: its connection and what a project chooses (``destination``)."""
+
+    kind: str
+    name: str
+    builtin: bool
+    configured: bool
+    fields: list[TicketingFieldState]
+    destination: TicketingFieldInfo
+
+
+class TicketingSettings(BaseModel):
+    """Ticketing: whether it is enabled (SECREVIEW_TICKETING_ENABLED), the allowed third-party
+    connectors (SECREVIEW_TICKETING_PLUGINS) and every available system."""
+
+    enabled: bool
+    interval_seconds: int
+    cafile: str | None
+    plugins: list[str]
+    connectors: list[TicketingConnector]
+
+
+class TicketingTestResult(BaseModel):
+    """Outcome of a connection test: ``error`` is a short code (auth, refused, unreachable...)
+    and ``message`` its detail, without secret."""
+
+    ok: bool
+    error: str | None = None
+    message: str | None = None
+
+
+class TicketTargetUpdate(BaseModel):
+    """Body of PUT /projects/{project}/ticket-targets/{kind}.
+
+    ``destination`` is what the system asks for (Jira project key, ServiceNow assignment
+    group...). ``auto_min_severity`` sends automatically the new open findings at least that
+    severe; ``null``: only by hand.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    destination: str = Field(default="", max_length=ticketing_api.MAX_FIELD_CHARS)
+    auto_min_severity: Severity | None = None
+
+
+class TicketTarget(BaseModel):
+    """Where the findings of a project go in one ticketing system."""
+
+    project: str
+    kind: str
+    destination: str
+    auto_min_severity: Severity | None
+    auto_since: datetime | None
+    updated_at: datetime
+    updated_by: str | None
+
+
+class TicketDestination(BaseModel):
+    """A project and a ticketing system its findings can be sent to now."""
+
+    project: str
+    kind: str
+
+
+class TicketSystem(BaseModel):
+    """A ticketing system: kind and display name."""
+
+    kind: str
+    name: str
