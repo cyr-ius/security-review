@@ -641,6 +641,33 @@ pattern = '(SSLv[23]|TLSv1([._][01])?)\b(?![._]\d)'  # secreview:ignore GEN-009 
 advice = "Allow TLS 1.2 and 1.3 only."
 
 [[rules]]
+id = "GEN-010"
+title = "Clear-text protocol URL for a remote host"
+severity = "medium"
+cwe = "CWE-319"
+languages = ["*"]
+pattern = '''\b(ldap|ftp|amqp|redis|mqtt|telnet)://([^\s/@'"]*@)?(?!127\.0\.0\.1\b)[\w-]+\.[\w.-]+'''
+advice = "Use the TLS variant (ldaps://, ftps:// or sftp, amqps://, rediss://, mqtts://, ssh) or require STARTTLS; LDAP binds send passwords."
+
+[[rules]]
+id = "GEN-011"
+title = "TLS disabled in a connection setting"
+severity = "medium"
+cwe = "CWE-319"
+languages = ["*"]
+pattern = '''\b(PG)?sslmode\s*[=:]\s*['"]?(disable|allow|prefer)\b|[?&;]\s*(useSSL|requireSSL|encrypt|tls|ssl)\s*=\s*false\b|\bsecurity\.protocol\s*[=:]\s*['"]?(SASL_)?PLAINTEXT\b|\bstarttls\.enable\s*[=:]\s*['"]?false\b'''
+advice = "Require TLS with certificate verification (sslmode=verify-full, useSSL=true, encrypt=true, SASL_SSL, STARTTLS required)."
+
+[[rules]]
+id = "GEN-012"
+title = "Server certificate not verified for a non-HTTP connection"
+severity = "high"
+cwe = "CWE-295"
+languages = ["*"]
+pattern = '''\b(LDAPTLS_REQCERT|TLS_REQCERT)(\s*[=:]\s*|\s+)['"]?(never|allow|try)\b|\bOPT_X_TLS_(NEVER|ALLOW|TRY)\b|\btrustServerCertificate\s*[=:]\s*['"]?true\b|\b(PG)?sslmode\s*[=:]\s*['"]?require\b'''
+advice = "Verify the server certificate and host name (TLS_REQCERT demand, trustServerCertificate=false, sslmode=verify-full) with the CA of the server."
+
+[[rules]]
 id = "PY-014"
 title = "XML parser resolving entities or reaching the network"
 severity = "high"
@@ -1708,7 +1735,7 @@ cwe = "CWE-693"
 domain = "config"
 id = "CFG-12"
 title = "Data services and storage"
-what_to_look_for = "Databases, caches or search engines without authentication, empty or default passwords, public buckets, no encryption at rest or in transit."
+what_to_look_for = "Databases, caches or search engines without authentication, empty or default passwords, public buckets, no encryption at rest, no TLS between the application and the service (see CFG-14)."
 cwe = "CWE-306"
 
 [[checklist]]
@@ -1717,6 +1744,13 @@ id = "CFG-13"
 title = "WAF and request filtering"
 what_to_look_for = "WAF disabled, left in detection-only mode or not inspecting request bodies; broad rule exclusions (whole rule ranges or attack tags) instead of one rule for one parameter; backend reachable without going through the WAF or CDN; WAF used as the only fix for a known vulnerability."
 cwe = "CWE-693"
+
+[[checklist]]
+domain = "config"
+id = "CFG-14"
+title = "Encrypted connections to back-end services"
+what_to_look_for = "Directories, databases, message brokers, caches, mail or file servers reached in clear text (ldap://, ftp://, amqp://, redis://, sslmode=disable, useSSL=false, encrypt=false, Kafka PLAINTEXT) instead of their TLS variant (ldaps:// or required STARTTLS, sftp, amqps://, rediss://, SASL_SSL); optional STARTTLS that falls back to clear text; TLS without certificate or host name verification (TLS_REQCERT never, trustServerCertificate=true, sslmode=require instead of verify-full)."  # secreview:ignore GEN-011 GEN-012 (rule text, not configuration)
+cwe = "CWE-319"
 
 [[checklist]]
 domain = "cicd"
