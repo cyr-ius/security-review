@@ -1275,7 +1275,7 @@ cwe = "CWE-22"
 domain = "python"
 id = "PY-05"
 title = "Weak cryptography and randomness"
-what_to_look_for = "MD5/SHA1 for passwords, ECB mode, hard-coded keys/IV, random instead of secrets for tokens."
+what_to_look_for = "Passwords hashed with a fast hash (MD5, SHA-1, plain SHA-256) instead of argon2, bcrypt or scrypt; MD5/SHA-1 for signatures or integrity; ECB mode; hard-coded keys or IV; random instead of secrets for tokens."
 cwe = "CWE-327"
 
 [[checklist]]
@@ -1366,14 +1366,14 @@ cwe = "CWE-862"
 domain = "java"
 id = "JV-05"
 title = "Authentication and session"
-what_to_look_for = "Weak password encoders (NoOp, MD5, SHA-1), JWT without signature/exp/aud checks, alg=none acceptance."
+what_to_look_for = "Passwords stored with NoOpPasswordEncoder or a fast hash (MD5, SHA-1, plain SHA-256) instead of BCrypt, Argon2 or SCrypt; JWT without signature/exp/aud checks; alg=none accepted."
 cwe = "CWE-287"
 
 [[checklist]]
 domain = "java"
 id = "JV-06"
 title = "Weak cryptography"
-what_to_look_for = "MessageDigest MD5/SHA-1, DES, AES/ECB, static IV, java.util.Random for secrets, custom TrustManager accepting all certificates."
+what_to_look_for = "MessageDigest with MD5 or SHA-1 instead of SHA-256+; DES or AES/ECB instead of AES/GCM; static IV; java.util.Random instead of SecureRandom for secrets; custom TrustManager accepting all certificates."
 cwe = "CWE-327"
 
 [[checklist]]
@@ -1457,7 +1457,7 @@ cwe = "CWE-1104"
 domain = "angular"
 id = "NG-06"
 title = "Content Security Policy and headers"
-what_to_look_for = "Missing CSP, unsafe-inline/unsafe-eval, missing frame-ancestors, untrusted third-party scripts without SRI."
+what_to_look_for = "Missing CSP, or a CSP allowing 'unsafe-inline' or 'unsafe-eval'; missing frame-ancestors; untrusted third-party scripts without SRI."
 cwe = "CWE-1021"
 
 [[checklist]]
@@ -1485,7 +1485,7 @@ cwe = "CWE-1321"
 domain = "api"
 id = "API-01"
 title = "Broken object-level authorization (BOLA/IDOR)"
-what_to_look_for = "Every endpoint taking an id must verify that the caller owns or may access it."
+what_to_look_for = "Endpoints taking an object id that do not verify that the caller owns or may access that object."
 cwe = "CWE-639"
 
 [[checklist]]
@@ -1632,7 +1632,7 @@ cwe = "CWE-732"
 domain = "config"
 id = "CFG-09"
 title = "Kubernetes workload hardening"
-what_to_look_for = "securityContext missing runAsNonRoot, readOnlyRootFilesystem, allowPrivilegeEscalation: false and capabilities drop ALL; hostPath mounts; no resource limits; no NetworkPolicy."
+what_to_look_for = "securityContext without runAsNonRoot: true, readOnlyRootFilesystem: true, allowPrivilegeEscalation: false or capabilities drop ALL; hostPath mounts; no resource limits; no NetworkPolicy."
 cwe = "CWE-250"
 
 [[checklist]]
@@ -1737,7 +1737,7 @@ cwe = "CWE-1395"
 domain = "dependencies"
 id = "SC-02"
 title = "Reproducible resolution"
-what_to_look_for = "Lockfile committed and used by the build (npm ci, poetry install --no-update, pinned requirements with hashes); no wildcard, latest or dynamic versions."
+what_to_look_for = "No committed lockfile, or a build that ignores it (npm install instead of npm ci, unpinned requirements without hashes); wildcard, latest or dynamic versions."
 cwe = "CWE-1357"
 
 [[checklist]]
