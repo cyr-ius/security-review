@@ -1,23 +1,16 @@
 name: Docker image
 
 # Builds the image (amd64 and arm64) in two variants: default (SQLite) and "-pg" (PostgreSQL
-# driver). Pull requests only build and smoke-test it; a release (called by publish.yml on a
-# vX.Y.Z tag) or a manual run with "push" publishes it to GitHub Container Registry and
-# Docker Hub.
+# driver). Every pull request builds and smoke-tests it, whatever files it touches: the image
+# holds the whole package, and the protection of master requires the "image" checks. A release
+# (called by publish.yml on a vX.Y.Z tag) or a manual run with "push" publishes it to GitHub
+# Container Registry and Docker Hub.
 #
 # Docker Hub needs the repository secret DOCKERHUB_TOKEN (access token with read/write scope
 # on the cyrius44/security-review-mcp repository). GHCR uses the workflow token.
 
 on:
   pull_request:
-    paths:
-      - "Dockerfile"
-      - ".dockerignore"
-      - "pyproject.toml"
-      - "uv.lock"
-      - "web/package.json"
-      - "web/package-lock.json"
-      - ".github/workflows/docker.yml"
   workflow_dispatch:
     inputs:
       push:
