@@ -202,9 +202,16 @@ def _changes(
 def _check_secrets_follow_url(
     connector: TicketConnector, changes: Mapping[str, str | None], state: ConnectionState
 ) -> None:
-    """Refuse a new host for the connection unless its secrets are entered again."""
+    """Refuse a URL stored in the web interface for secrets entered for another host.
+
+    A secret set by a variable only goes to a URL set by a variable. A secret stored in the web
+    interface goes to a new host (or to a URL set where there was none, after a deletion for
+    instance) only when it is entered again in the same change.
+    """
     new_url = changes.get(URL_FIELD)
-    if not new_url or not state.base_url or _origin(new_url) == _origin(state.base_url):
+    if not new_url:
+        return
+    if state.base_url and _origin(new_url) == _origin(state.base_url):
         return
     for spec in connector.fields:
         if not spec.secret or not state.values.get(spec.name):

@@ -33,9 +33,10 @@ keeps the stored one. **Test the connection** checks the entered values with a r
 request, without saving them.
 
 Every field of a connector has its variable, `SECREVIEW_<KIND>_<FIELD>`: those of the built-in
-connectors are below. A secret is bound to the host of its URL: changing the host requires
-entering the secrets again in the same change, and is refused in the screen when a secret comes
-from a variable (otherwise a stored token could be sent to another host).
+connectors are below. A secret is bound to the host of its URL: setting a URL for another host,
+or a URL where there was none (after deleting it, for instance), requires entering the secrets
+again in the same change. A secret set by a variable only goes to a URL set by a variable: the
+screen refuses the URL (otherwise a stored token could be sent to another host).
 
 | Variable | Default | Role |
 |---|---|---|
@@ -107,8 +108,9 @@ loaded from another site).
   like a secret.
 - A failure keeps a short code and a bounded excerpt of the error message of the system, masked
   and without the credentials.
-- A secret is bound to the host of its URL: a new host requires its secrets again (refused
-  when a secret comes from a variable), so that a stored token never reaches another host.
+- A secret is bound to the host of its URL: a new URL requires its secrets again, even after the
+  URL was deleted, and a secret set by a variable needs its URL set by a variable, so that a
+  stored token never reaches another host.
 - A third-party connector is loaded only when `SECREVIEW_TICKETING_PLUGINS` names it, and
   runs with the rights of the controller: install only code you trust.
 - Audit events: `ticketing.changed` (connection), `ticketing.target_changed` (destination of a

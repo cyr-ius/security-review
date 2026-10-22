@@ -250,14 +250,19 @@ def test_a_secret_never_follows_a_new_url_unless_entered_again(jira, monkeypatch
     moved = {"url": "https://jira.acme.example", "api_token": "new-token"}
     connections.set_connection(jira, moved, "user:root")
     assert connections.resolve(jira).values["api_token"] == "new-token"
+    # Deleting the URL first does not unbind the token: a URL set afterwards needs it again
+    connections.set_connection(jira, {"url": None}, "user:mallory")
+    with pytest.raises(ValueError, match="enter the API token again"):
+        connections.set_connection(jira, elsewhere, "user:mallory")
 
     # A variable takes precedence: its field cannot be stored, and a token set by a variable
-    # never goes to a URL chosen in the web interface
+    # never goes to a URL chosen in the web interface, even where no URL was set
     monkeypatch.setenv("SECREVIEW_JIRA_API_TOKEN", "env-token")
     with pytest.raises(ValueError, match="SECREVIEW_JIRA_API_TOKEN is set"):
         connections.set_connection(jira, {"api_token": "other"}, "user:root")
     with pytest.raises(ValueError, match="SECREVIEW_JIRA_API_TOKEN is set"):
         connections.set_connection(jira, {"url": "https://other.example"}, "user:root")
+    assert connections.resolve(jira).base_url == ""
     assert connections.resolve(jira).values["api_token"] == "env-token"
 
 

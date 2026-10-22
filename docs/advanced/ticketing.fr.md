@@ -33,9 +33,11 @@ est seulement affiché dans l'écran. Les secrets ne sont jamais réaffichés (`
 une requête en lecture seule, sans les enregistrer.
 
 Chaque champ d'un connecteur a sa variable, `SECREVIEW_<TYPE>_<CHAMP>` : celles des connecteurs
-intégrés sont ci-dessous. Un secret est lié à l'hôte de son URL : changer d'hôte exige de
-ressaisir les secrets dans la même modification, et c'est refusé dans l'écran quand un secret
-vient d'une variable (sinon un jeton enregistré pourrait partir vers un autre hôte).
+intégrés sont ci-dessous. Un secret est lié à l'hôte de son URL : définir une URL d'un autre
+hôte, ou une URL là où il n'y en avait pas (après l'avoir supprimée, par exemple), exige de
+ressaisir les secrets dans la même modification. Un secret défini par une variable ne part que
+vers une URL définie par une variable : l'écran refuse l'URL (sinon un jeton enregistré pourrait
+partir vers un autre hôte).
 
 | Variable | Défaut | Rôle |
 |---|---|---|
@@ -109,9 +111,9 @@ du balisage wiki (liens, images chargées depuis un autre site).
   protégée comme un secret.
 - Un échec conserve un code court et un extrait borné du message d'erreur du système, masqué et
   sans les identifiants.
-- Un secret est lié à l'hôte de son URL : un nouvel hôte exige de ressaisir ses secrets
-  (refusé quand un secret vient d'une variable), pour qu'un jeton enregistré ne parte jamais
-  vers un autre hôte.
+- Un secret est lié à l'hôte de son URL : une nouvelle URL exige de ressaisir ses secrets, même
+  après la suppression de l'URL, et un secret défini par une variable exige une URL définie par
+  une variable, pour qu'un jeton enregistré ne parte jamais vers un autre hôte.
 - Un connecteur tiers n'est chargé que si `SECREVIEW_TICKETING_PLUGINS` le nomme, et
   s'exécute avec les droits du contrôleur : n'installez que du code de confiance.
 - Événements d'audit : `ticketing.changed` (connexion), `ticketing.target_changed` (destination
