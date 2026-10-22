@@ -180,7 +180,7 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 | `PY-*` (Python) | `eval`/`exec`, désérialisation (pickle, `torch.load`, `joblib`...), YAML, commandes shell, SQL formaté, TLS désactivé, crypto faible ou mode ECB, aléa non cryptographique, XXE (lxml), SSTI, `SECRET_KEY` en dur, `ALLOWED_HOSTS = ['*']`, CSRF désactivé, `mark_safe`, cookies sans `Secure`/`HttpOnly`, SSRF, comparaison de secrets non constante, fichiers temporaires, vérification de signature JWT désactivée |
 | `JV-*` (Java) | Désérialisation (dont XStream, SnakeYAML), commandes OS, SQL et LDAP concaténés, flux requête vers SQL dynamique à travers des appels locaux (`JV-019`), XXE, CSRF, CORS, crypto faible, TLS « trust all », chemins et redirections construits depuis la requête, SSRF via une URL directement issue de la requête, JNDI `lookup` contrôlé par la requête, SpEL/EL, cookies, `Random`, `printStackTrace` |
 | `NG-*` (Angular, JavaScript, TypeScript) | Contournement du sanitizer, `innerHTML` et autres puits HTML, flux URL-vers-DOM, origine `message` non vérifiée, mutation de la chaîne de prototypes, `eval`, `setTimeout` avec chaîne, jetons en web storage, `postMessage('*')`, XSRF désactivé, redirections ouvertes ; côté Node.js : commandes shell, SQL interpolé, `$where`, chemins de fichiers, CORS ouvert, TLS désactivé, `jwt.decode`, crypto faible |
-| `CFG-*` (Docker, Compose, Kubernetes, serveurs) | Conteneur privilégié ou root, socket Docker, namespaces de l'hôte, capacités dangereuses, élévation de privilèges, montages sensibles, ports de bases exposés, secrets dans `ENV`/`ARG`, `ADD` distant, mots de passe par défaut, services sans authentification, RBAC `*` ou `cluster-admin`, buckets publics, CORS `*`, listage de répertoires, SSH faible, `curl \| sh`, debug |
+| `CFG-*` (Docker, Compose, Kubernetes, serveurs) | Conteneur privilégié ou root, socket Docker, namespaces de l'hôte, capacités dangereuses, élévation de privilèges, montages sensibles, ports de bases exposés, secrets dans `ENV`/`ARG`, `ADD` distant, mots de passe par défaut, services sans authentification, RBAC `*` ou `cluster-admin`, buckets publics, CORS `*`, listage de répertoires, SSH faible, `curl \| sh`, debug, WAF désactivé, en mode détection seule ou avec des exclusions trop larges (ModSecurity, Coraza, Ingress NGINX) |
 | `GL-*` (GitLab CI) | `include` distant, secrets affichés, DinD sans TLS, `allow_failure`, jeton CI en ligne de commande, variables non fiables évaluées par un shell, `CI_DEBUG_TRACE`, artefacts publics, `GIT_SSL_NO_VERIFY` |
 | `JK-*` (Jenkinsfile) | Injection dans `sh`, bibliothèque partagée non épinglée, `agent any`, sandbox désactivée, identifiant interpolé dans une chaîne Groovy, API interne `Jenkins.instance` |
 | `CI-*` (CI/CD commun) | Vérification TLS ou de signature désactivée, traçage shell, installation sans lockfile |
@@ -189,7 +189,8 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 
 Les checklists par défaut couvrent les domaines `python`, `java`, `angular`, `api`, `config`,
 `cicd` et `dependencies` (par exemple : validation des jetons OAuth/OIDC, webhooks, flux métier
-sensibles, durcissement Kubernetes, RBAC, en-têtes du proxy, intégrité des lockfiles).
+sensibles, désynchronisation HTTP, injection CRLF, validation avant normalisation, upload de
+fichiers, durcissement Kubernetes, RBAC, en-têtes du proxy, WAF, intégrité des lockfiles).
 `get_review_checklist` et l'écran **Checklists** de l'interface web les affichent en entier.
 
 Langages acceptés par `scan_code` : `python`, `java`, `typescript`, `javascript`, `angular`,

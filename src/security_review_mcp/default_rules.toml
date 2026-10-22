@@ -1100,6 +1100,33 @@ pattern = '''^\s*protected-mode\s+no\b|\b(xpack\.security\.enabled|security\.aut
 advice = "Enable authentication on every data service, even on an internal network."
 
 [[rules]]
+id = "CFG-025"
+title = "Web application firewall disabled or in detection-only mode"
+severity = "medium"
+cwe = "CWE-693"
+languages = ["config", "yaml"]
+pattern = '''^\s*SecRuleEngine\s+(Off|DetectionOnly)\b|\bctl:ruleEngine=(Off|DetectionOnly)\b|^\s*modsecurity\s+off\s*;|enable-modsecurity['"]?\s*:\s*['"]?false\b'''
+advice = "Run the WAF with SecRuleEngine On once tuned; keep DetectionOnly for a short tuning period only."
+
+[[rules]]
+id = "CFG-026"
+title = "WAF does not inspect the whole request body"
+severity = "medium"
+cwe = "CWE-693"
+languages = ["config", "yaml"]
+pattern = '^\s*(SecRequestBodyAccess\s+Off|SecRequestBodyLimitAction\s+ProcessPartial)\b'
+advice = "Enable SecRequestBodyAccess and reject bodies over the limit (SecRequestBodyLimitAction Reject)."
+
+[[rules]]
+id = "CFG-027"
+title = "Broad WAF rule exclusion"
+severity = "medium"
+cwe = "CWE-693"
+languages = ["config", "yaml"]
+pattern = '''\bSecRuleRemoveById\s[^\n-]*\d-\d|(\bSecRuleRemoveByTag\s+|\bctl:ruleRemoveByTag=)['"]?(attack-|OWASP_CRS|paranoia-level)'''
+advice = "Exclude one rule for one parameter and one path (ctl:ruleRemoveTargetById) instead of whole rule ranges or attack families."
+
+[[rules]]
 id = "GL-006"
 title = "Untrusted CI variable evaluated by a shell"
 severity = "high"
@@ -1573,6 +1600,34 @@ what_to_look_for = "Stack traces, SQL errors or internal paths in responses; dif
 cwe = "CWE-209"
 
 [[checklist]]
+domain = "api"
+id = "API-14"
+title = "HTTP parsing and proxy desync"
+what_to_look_for = "Proxy and application that disagree on request boundaries (Content-Length and Transfer-Encoding both accepted, HTTP/2 downgraded without normalization); method override headers or parameters (X-HTTP-Method-Override, _method) that bypass checks made on the HTTP verb; duplicated parameters or headers read differently by the WAF, the proxy and the application (parameter pollution)."
+cwe = "CWE-444"
+
+[[checklist]]
+domain = "api"
+id = "API-15"
+title = "Header injection (CRLF) and Host header trust"
+what_to_look_for = "Request values copied into response headers, Location redirects or cookies without rejecting CR and LF characters; Host or X-Forwarded-Host header used to build absolute URLs (password reset links, redirects, cache keys) without an allow-list."
+cwe = "CWE-113"
+
+[[checklist]]
+domain = "api"
+id = "API-16"
+title = "Validation before normalization"
+what_to_look_for = "Allow-lists, deny-lists or path checks applied before URL decoding, Unicode normalization (NFKC), case folding or path resolution; values decoded twice; security decision made on the raw value while the code uses the decoded one."
+cwe = "CWE-180"
+
+[[checklist]]
+domain = "api"
+id = "API-17"
+title = "File upload"
+what_to_look_for = "Extension or Content-Type taken from the client without checking the content; uploaded files stored under the web root or served inline from the application origin; client file names used on disk; no limit on size, file count or archive expansion."
+cwe = "CWE-434"
+
+[[checklist]]
 domain = "config"
 id = "CFG-01"
 title = "Secrets in configuration"
@@ -1655,6 +1710,13 @@ id = "CFG-12"
 title = "Data services and storage"
 what_to_look_for = "Databases, caches or search engines without authentication, empty or default passwords, public buckets, no encryption at rest or in transit."
 cwe = "CWE-306"
+
+[[checklist]]
+domain = "config"
+id = "CFG-13"
+title = "WAF and request filtering"
+what_to_look_for = "WAF disabled, left in detection-only mode or not inspecting request bodies; broad rule exclusions (whole rule ranges or attack tags) instead of one rule for one parameter; backend reachable without going through the WAF or CDN; WAF used as the only fix for a known vulnerability."
+cwe = "CWE-693"
 
 [[checklist]]
 domain = "cicd"
