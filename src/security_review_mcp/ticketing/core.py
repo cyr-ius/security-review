@@ -82,10 +82,10 @@ def _connection(settings: Settings, connector: TicketConnector) -> Connection:
     """The configured connection of ``connector``.
 
     Raises:
-        TicketingError: If ticketing is disabled or the connection is not configured.
+        TicketingError: If the connector is switched off or its connection is not configured.
     """
-    if not settings.ticketing_enabled:
-        raise TicketingError("disabled", "ticketing is disabled (SECREVIEW_TICKETING_ENABLED)")
+    if not connections.enabled(connector, settings):
+        raise TicketingError("disabled", f"the {connector.name} connector is switched off")
     return connection_of(settings, connections.resolve(connector))
 
 
@@ -109,13 +109,14 @@ def connection_of(settings: Settings, state: connections.ConnectionState) -> Con
 
 
 def test_connection(settings: Settings, state: connections.ConnectionState) -> None:
-    """Check a connection with the read-only request of its connector.
+    """Check a connection with the read-only request of its connector, switched on or not (to
+    test it before switching it on), unless SECREVIEW_TICKETING_ENABLED is false.
 
     Raises:
         TicketingError: If the connection cannot be used.
     """
     if not settings.ticketing_enabled:
-        raise TicketingError("disabled", "ticketing is disabled (SECREVIEW_TICKETING_ENABLED)")
+        raise TicketingError("disabled", "ticketing is locked off (SECREVIEW_TICKETING_ENABLED)")
     connection = connection_of(settings, state)
     _guarded(state.connector, connection, lambda: state.connector.test_connection(connection))
 
@@ -308,12 +309,10 @@ def forget_project(session: Session, project: str) -> int:
 
 def destinations(settings: Settings, projects: Collection[str] | None) -> list[dict[str, str]]:
     """Projects (in ``projects``, None: all) and systems a finding can be sent to now."""
-    if not settings.ticketing_enabled:
-        return []
     ready = {
         kind
         for kind, connector in registry.connectors(settings).items()
-        if connections.resolve(connector).configured
+        if connections.enabled(connector, settings) and connections.resolve(connector).configured
     }
     return [
         {"project": target["project"], "kind": target["kind"]}
@@ -568,12 +567,12 @@ def pending_findings(kind: str, now: datetime | None = None, limit: int = BATCH_
 
 
 def dispatch(settings: Settings) -> dict[str, int]:
-    """Send the findings the automatic sending owes, for each configured system; return the
-    number of tickets sent and of failures."""
+    """Send the findings the automatic sending owes, for each system switched on and
+    configured; return the number of tickets sent and of failures."""
     counts = {"sent": 0, "failed": 0}
-    if not settings.ticketing_enabled:
-        return counts
     for kind, connector in registry.connectors(settings).items():
+        if not connections.enabled(connector, settings):
+            continue
         if not connections.resolve(connector).configured:
             continue
         for finding_id in pending_findings(kind):
@@ -618,7 +617,7 @@ class TicketDispatcher:
     def start(self) -> None:
         """Start the background thread."""
         logger.info(
-            "Ticketing enabled (automatic sending every %d s)",
+            "Automatic ticket sending every %d s (connectors switched on only)",
             self.settings.ticketing_interval_seconds,
         )
         self._thread.start()

@@ -35,3 +35,12 @@ repos:
         entry: uv run --frozen security-review-mcp scan-deps --skip-unconfigured --require-database --allow-http
         language: system
         files: ^(uv\.lock|pyproject\.toml|web/package(-lock)?\.json)$
+      # Security review of each commit by Claude Code, in the background (opt-in:
+      # `prek install --hook-type post-commit`); see docs/contributing
+      - id: agent-review
+        name: agent security review
+        entry: scripts/agent-review.sh
+        language: system
+        stages: [post-commit]
+        always_run: true
+        pass_filenames: false

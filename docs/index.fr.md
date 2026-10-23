@@ -46,9 +46,9 @@ navigateur, décider d'un finding, ni créer les jetons des agents.
 
 ## Démarrage rapide (serveur HTTP)
 
-Sur une machine, depuis le **même répertoire** (les deux processus partagent le fichier SQLite
-`./security_reports.db` ; passez à PostgreSQL dès qu'ils tournent sur des machines
-différentes) :
+Sur une machine, avec le **même utilisateur** (les deux processus partagent le fichier SQLite
+`~/.local/share/security-review-mcp/security_reports.db` ; passez à PostgreSQL dès qu'ils
+tournent sur des machines différentes) :
 
 ```bash
 pip install security-review-mcp

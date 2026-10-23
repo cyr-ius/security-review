@@ -1832,12 +1832,22 @@ def test_a_set_syslog_variable_locks_the_web_setting(client, monkeypatch):
 def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
     web_sessions, reports, monkeypatch
 ):
-    monkeypatch.setattr(get_settings(), "ticketing_enabled", True)
     admin, triager, reader = auth("admin"), auth("triager"), auth("reader")
     jira = {"url": "https://acme.atlassian.net", "username": "bot", "api_token": "tok-test"}
     configured = web_sessions.put("/api/v1/settings/ticketing/jira", headers=admin, json=jira)
     systems = {item["kind"]: item for item in configured.json()["connectors"]}
-    assert systems["jira"]["configured"] is True
+    assert systems["jira"]["configured"] is True and systems["jira"]["enabled"] is False
+    # Switched on by an administrator once configured
+    switch = "/api/v1/settings/ticketing/{}/enabled"
+    on = {"enabled": True}
+    assert web_sessions.put(switch.format("jira"), headers=triager, json=on).status_code == 403
+    assert web_sessions.put(switch.format("servicenow"), headers=admin, json=on).status_code == 422
+    switched = web_sessions.put(switch.format("jira"), headers=admin, json=on)
+    assert switched.status_code == 200 and switched.json()["enabled"] is True
+    assert {c["kind"]: c["enabled"] for c in switched.json()["connectors"]} == {
+        "jira": True,
+        "servicenow": False,
+    }
     # An unknown system is not found
     assert (
         web_sessions.put("/api/v1/settings/ticketing/acme", headers=admin, json={}).status_code
@@ -1875,6 +1885,13 @@ def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
     other = report["findings"][1]["id"]
     refused = web_sessions.post(f"/api/v1/findings/{other}/tickets/jira", headers=triager)
     assert refused.status_code == 409 and len(sent) == 1
+    # Switched off: nothing more is offered nor sent
+    web_sessions.put(target, headers=admin, json={"destination": "sec"})
+    web_sessions.put(switch.format("jira"), headers=admin, json={"enabled": False})
+    assert web_sessions.get(destinations, headers=triager).json() == []
+    refused = web_sessions.post(f"/api/v1/findings/{other}/tickets/jira", headers=triager)
+    assert refused.status_code == 409 and "switched off" in refused.json()["detail"]
+    assert len(sent) == 1
 
 
 def test_a_proxy_change_rebuilds_the_sso_login(ui_dir):

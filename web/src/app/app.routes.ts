@@ -194,14 +194,16 @@ export const routes: Routes = [
           ),
       },
       {
-        path: 'settings/ticketing',
-        title: 'ticketing.title',
+        path: 'settings/connectors',
+        title: 'connectors.title',
         canActivate: [permissionGuard('settings.manage')],
         loadComponent: () =>
-          import('./features/settings/ticketing-settings/ticketing-settings.component').then(
-            (m) => m.TicketingSettingsComponent,
+          import('./features/settings/connectors/connectors.component').then(
+            (m) => m.ConnectorsComponent,
           ),
       },
+      // Former address of the Connectors screen
+      { path: 'settings/ticketing', redirectTo: 'settings/connectors' },
       {
         path: 'settings/advisories',
         title: 'settings.osvTitle',

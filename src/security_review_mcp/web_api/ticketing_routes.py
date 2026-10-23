@@ -26,6 +26,7 @@ from .deps import (
 from .schemas import (
     TicketDestination,
     TicketingSettings,
+    TicketingSwitch,
     TicketingTestResult,
     TicketingValues,
     TicketSystem,
@@ -60,7 +61,7 @@ def _describe() -> dict:
         "cafile": settings.ticketing_cafile,
         "plugins": registry.plugin_names(settings.ticketing_plugins),
         "connectors": [
-            connections.describe(connector, registry.is_builtin(connector))
+            connections.describe(connector, registry.is_builtin(connector), settings)
             for connector in registry.connectors(settings).values()
         ],
     }
@@ -97,12 +98,32 @@ async def set_ticketing(
     return await run_in_threadpool(_describe)
 
 
+@router.put("/settings/ticketing/{kind}/enabled")
+async def switch_ticketing(
+    kind: KindPath, body: TicketingSwitch, identity: SettingsManager
+) -> TicketingSettings:
+    """Switch a connector on or off: nothing is sent through a connector switched off. Refused
+    (422) when SECREVIEW_TICKETING_ENABLED is false, or to switch on a connection that is not
+    configured. The change is recorded in the audit log."""
+    connector = _connector(kind)
+    try:
+        await run_in_threadpool(
+            connections.set_enabled, connector, body.enabled, actor_of(identity), get_settings()
+        )
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    state = "on" if body.enabled else "off"
+    logger.info("%s connector switched %s by %s", kind, state, identity.client)
+    return await run_in_threadpool(_describe)
+
+
 @router.post("/settings/ticketing/{kind}/test")
 async def test_ticketing(
     kind: KindPath, body: Annotated[TicketingValues, Body()], identity: SettingsManager
 ) -> TicketingTestResult:
     """Test the connection with the stored values and those of the body (not stored), with a
-    read-only request to the system. The same checks as a change apply."""
+    read-only request to the system, the connector switched on or not. The same checks as a
+    change apply."""
     connector = _connector(kind)
     try:
         state = await run_in_threadpool(connections.candidate, connector, body)
@@ -163,8 +184,8 @@ async def delete_ticket_target(
 
 @router.get("/ticketing/destinations")
 async def ticket_destinations(identity: CurrentIdentity) -> list[TicketDestination]:
-    """Projects and systems the caller may send findings to now: ticketing enabled, connection
-    configured, project with a destination and triaged by the caller."""
+    """Projects and systems the caller may send findings to now: connector switched on,
+    connection configured, project with a destination and triaged by the caller."""
     scope = permission_scope(identity, Permission.FINDINGS_TRIAGE)
     if scope == []:
         return []
@@ -181,7 +202,7 @@ async def send_finding_ticket(
     (the ticket of the same issue found earlier in the project is reused; a finding that
     already has its ticket returns it).
 
-    409 when ticketing is disabled, the connection or the destination of the project is
+    409 when the connector is switched off, the connection or the destination of the project is
     missing, or the ticket is being created; 502 when the system refuses it or cannot be
     reached (``detail`` gives the reason).
     """

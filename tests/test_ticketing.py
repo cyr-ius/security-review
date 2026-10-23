@@ -50,19 +50,21 @@ def fresh_registry():
 
 @pytest.fixture
 def jira():
-    """The Jira connector, with its connection stored in the web interface."""
+    """The Jira connector, with its connection stored in the web interface, switched on."""
     connector = registry.get("jira")
     values = {"url": "https://acme.atlassian.net", "username": "bot@acme.example"}
     connections.set_connection(connector, values | {"api_token": JIRA_TOKEN}, "user:root")
+    connections.set_enabled(connector, True, "user:root", make_settings())
     return connector
 
 
 @pytest.fixture
 def servicenow():
-    """The ServiceNow connector, with its connection stored in the web interface."""
+    """The ServiceNow connector, with its connection stored in the web interface, switched on."""
     connector = registry.get("servicenow")
     values = {"url": "https://acme.service-now.com", "username": "secreview"}
     connections.set_connection(connector, values | {"password": SN_PASSWORD}, "user:root")
+    connections.set_enabled(connector, True, "user:root", make_settings())
     return connector
 
 
@@ -161,18 +163,24 @@ def test_a_refused_ticket_keeps_a_short_reason_without_secret(remote, jira, capl
 
 
 @pytest.mark.parametrize(
-    ("settings", "configured", "target", "code"),
+    ("settings", "switched", "configured", "target", "code"),
     [
-        ({"ticketing_enabled": False}, True, True, "disabled"),
-        ({}, False, True, "not_configured"),
-        ({}, True, False, "no_target"),
+        ({"ticketing_enabled": False}, True, True, True, "disabled"),
+        ({}, False, True, True, "disabled"),
+        ({}, True, False, True, "not_configured"),
+        ({}, True, True, False, "no_target"),
     ],
 )
-def test_nothing_is_sent_without_its_configuration(remote, settings, configured, target, code):
+def test_nothing_is_sent_without_its_configuration(
+    remote, settings, switched, configured, target, code
+):
     connector = registry.get("jira")
-    if configured:
-        values = {"url": "https://acme.atlassian.net", "api_token": JIRA_TOKEN}
-        connections.set_connection(connector, values, "user:root")
+    values = {"url": "https://acme.atlassian.net", "api_token": JIRA_TOKEN}
+    connections.set_connection(connector, values, "user:root")
+    if switched:
+        connections.set_enabled(connector, True, "user:root", make_settings())
+    if not configured:
+        connections.set_connection(connector, {"url": None}, "user:root")
     if target:
         set_target("shop", connector, "SEC", None, "user:root")
     finding = save_finding()
@@ -182,6 +190,27 @@ def test_nothing_is_sent_without_its_configuration(remote, settings, configured,
         send_finding(finding, connector, "user:ann", make_settings(**settings))
 
     assert raised.value.code == code and opener.requests == []
+
+
+def test_a_connector_sends_only_once_switched_on_unless_locked():
+    # Allowed by default, every connector off until switched on
+    settings = Settings(_env_file=None)
+    assert settings.ticketing_enabled is True
+    jira = registry.get("jira")
+    values = {"url": "https://acme.atlassian.net", "api_token": JIRA_TOKEN}
+    connections.set_connection(jira, values, "user:root")
+    assert connections.enabled(jira, settings) is False
+    servicenow = registry.get("servicenow")
+    with pytest.raises(ValueError, match="before switching it on"):
+        connections.set_enabled(servicenow, True, "user:root", settings)
+
+    connections.set_enabled(jira, True, "user:root", settings)
+    assert connections.enabled(jira, settings) is True
+    # The lock of the operator wins over the stored switch
+    locked = make_settings(ticketing_enabled=False)
+    assert connections.enabled(jira, locked) is False
+    with pytest.raises(ValueError, match="locked off"):
+        connections.set_enabled(jira, False, "user:root", locked)
 
 
 def test_automatic_sending_follows_the_threshold_from_its_setting(remote, servicenow):
@@ -226,11 +255,12 @@ def test_a_connection_is_stored_audited_and_never_shows_its_secret(jira):
     state = connections.resolve(jira)
     assert state.configured and state.values["api_token"] == JIRA_TOKEN
     assert state.values["issue_type"] == "Bug"  # default of the connector
-    described = connections.describe(jira, builtin=True)
+    described = connections.describe(jira, builtin=True, settings=make_settings())
     assert JIRA_TOKEN not in str(described)
     token = next(f for f in described["fields"] if f["name"] == "api_token")
     assert (token["value"], token["variable"]) == ("***", "SECREVIEW_JIRA_API_TOKEN")
-    (event,) = audit.list_events(action="ticketing.changed")["events"]
+    # The connection, then the switch of the fixture
+    event, _ = audit.list_events(action="ticketing.changed")["events"][::-1]
     assert JIRA_TOKEN not in str(event) and event["details"]["api_token"] == "***"
     # The mask sent back keeps the stored secret
     connections.set_connection(jira, {"api_token": "***", "issue_type": "Task"}, "user:root")
@@ -345,6 +375,7 @@ def test_a_third_party_connector_is_loaded_only_when_allowed(plugins, remote):
 
     values = {"url": "https://risk.acme.example", "api_key": "acme-key-not-real"}
     connections.set_connection(acme, values, "user:root")
+    connections.set_enabled(acme, True, "user:root", settings)
     set_target("shop", acme, "AppSec", None, "user:root")
     finding = save_finding()
     opener = remote({"id": "R-1"})

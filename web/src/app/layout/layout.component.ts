@@ -107,9 +107,9 @@ export class LayoutComponent {
       permission: 'settings.manage',
     },
     {
-      path: '/settings/ticketing',
-      label: 'ticketing.title',
-      icon: 'bi-ticket-detailed',
+      path: '/settings/connectors',
+      label: 'connectors.title',
+      icon: 'bi-plug',
       permission: 'settings.manage',
     },
   ];

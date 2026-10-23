@@ -19,7 +19,7 @@ Read by the MCP server and by the controller.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_DATABASE_URL` | `sqlite:///./security_reports.db` | SQLAlchemy URL of the database, **shared** by both processes |
+| `SECREVIEW_DATABASE_URL` | SQLite file of the user (see [Database](#database)) | SQLAlchemy URL of the database, **shared** by both processes |
 | `SECREVIEW_DATABASE_ECHO` | `false` | Logs the SQL queries |
 | `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migrates the schema at start-up of the controller, of the stdio MCP server and of the CLI commands; when `false`, they only check that it is up to date (see [migrations](../advanced/architecture.md#schema-migrations)). The HTTP MCP server never migrates |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | Logging level (on stderr) |
@@ -146,12 +146,12 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_TICKETING_ENABLED` | `false` | Sends findings to [Jira and ServiceNow](../advanced/ticketing.md), by hand or automatically (outgoing connections of the controller) |
+| `SECREVIEW_TICKETING_ENABLED` | `true` | Lock of the [connectors](../advanced/ticketing.md#enabling) (Jira, ServiceNow, third-party; outgoing connections of the controller): `true`, each one is switched on in the **Connectors** screen (all off by default); `false`, all locked off |
 | `SECREVIEW_TICKETING_INTERVAL_SECONDS` | `300` | Period of the [automatic sending](../advanced/ticketing.md#sending-a-finding) (30 to 86400) |
 | `SECREVIEW_TICKETING_CAFILE` | — | CA bundle used instead of the system one (internal authority) |
 | `SECREVIEW_TICKETING_PLUGINS` | — | [Third-party connectors](../advanced/ticketing.md#third-party-connectors) allowed, by entry point name, comma separated; one installed but not listed is never loaded |
-| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Jira connection](../advanced/ticketing.md#connections); when set, takes precedence over the **Ticketing** screen |
-| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [ServiceNow connection](../advanced/ticketing.md#connections); when set, takes precedence over the **Ticketing** screen |
+| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Jira connection](../advanced/ticketing.md#connections); when set, takes precedence over the **Connectors** screen |
+| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [ServiceNow connection](../advanced/ticketing.md#connections); when set, takes precedence over the **Connectors** screen |
 | `SECREVIEW_<KIND>_<FIELD>` | — | Field of the connection of a [third-party connector](../advanced/ticketing.md#third-party-connectors) (`SECREVIEW_ACME_API_KEY`) |
 
 ### Pipeline scan limits
@@ -180,7 +180,16 @@ they are stored in the database and managed with `security-review-controller rul
 
 ## Database
 
-SQLite by default. For PostgreSQL (`postgres` extra):
+SQLite by default, in the data directory of the user:
+`$XDG_DATA_HOME/security-review-mcp/security_reports.db`, that is
+`~/.local/share/security-review-mcp/security_reports.db` when `XDG_DATA_HOME` is not set. The
+file is the same whatever the directory the server starts from, and its directory is created
+private (`0700`), since the reports quote the reviewed code. Version 1.0 used
+`./security_reports.db` in the working directory: when that file exists and
+`SECREVIEW_DATABASE_URL` is not set, a warning gives the setting that keeps using it
+(`sqlite:////absolute/path/security_reports.db`).
+
+For PostgreSQL (`postgres` extra):
 
 ```bash
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview

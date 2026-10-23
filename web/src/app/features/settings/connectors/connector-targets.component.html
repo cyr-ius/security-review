@@ -1,0 +1,104 @@
+@let kind = connector().kind;
+<p class="text-body-secondary small">{{ 'connectors.targetsHelp' | t }}</p>
+@if (error(); as text) {
+  <div class="alert alert-danger py-2 text-break" role="alert">{{ text | t }}</div>
+}
+@if (message(); as text) {
+  <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+}
+
+@if (targets().length) {
+  <div class="table-responsive mb-3">
+    <table class="table table-sm align-middle mb-0">
+      <thead>
+        <tr>
+          <th scope="col">{{ 'connectors.project' | t }}</th>
+          <th scope="col">{{ destinationLabel() }}</th>
+          <th scope="col">{{ 'connectors.auto' | t }}</th>
+          <th scope="col">{{ 'connectors.updatedBy' | t }}</th>
+          <th scope="col">
+            <span class="visually-hidden">{{ 'common.delete' | t }}</span>
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (target of targets(); track target.project) {
+          <tr>
+            <td class="text-break">
+              <button type="button" class="btn btn-link p-0 text-start" (click)="edit(target)">
+                {{ target.project }}
+              </button>
+            </td>
+            <td class="font-monospace text-break">{{ target.destination || '-' }}</td>
+            <td>
+              @if (target.auto_min_severity; as severity) {
+                {{ 'connectors.autoFrom' | t: { severity: severityMeta[severity].label | t } }}
+              } @else {
+                {{ 'connectors.autoNone' | t }}
+              }
+            </td>
+            <td class="small text-body-secondary">
+              {{ target.updated_by ?? '' }} · {{ target.updated_at | date: 'dd/MM/yyyy' }}
+            </td>
+            <td class="text-end">
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger"
+                [disabled]="busy()"
+                [attr.aria-label]="'connectors.targetDelete' | t: { project: target.project }"
+                (click)="delete(target)"
+              >
+                <i class="bi bi-trash" aria-hidden="true"></i>
+              </button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+} @else {
+  <p class="text-body-secondary">{{ 'connectors.targetsNone' | t }}</p>
+}
+
+<form class="row g-2 align-items-end" (submit)="save($event)" novalidate>
+  <div class="col-12 col-md-4">
+    <label class="form-label" [for]="kind + '-target-project'">{{
+      'connectors.project' | t
+    }}</label>
+    <select [id]="kind + '-target-project'" class="form-select" [formField]="targetForm.project">
+      <option value="">-</option>
+      @for (name of projectNames(); track name) {
+        <option [value]="name">{{ name }}</option>
+      }
+    </select>
+  </div>
+  <div class="col-12 col-md-4">
+    <label class="form-label" [for]="kind + '-target-destination'">{{ destinationLabel() }}</label>
+    <input
+      [id]="kind + '-target-destination'"
+      class="form-control font-monospace"
+      type="text"
+      autocomplete="off"
+      spellcheck="false"
+      [placeholder]="destinationPlaceholder()"
+      [formField]="targetForm.destination"
+    />
+  </div>
+  <div class="col-12 col-md-4">
+    <label class="form-label" [for]="kind + '-target-auto'">{{ 'connectors.auto' | t }}</label>
+    <select [id]="kind + '-target-auto'" class="form-select" [formField]="targetForm.auto">
+      <option value="">{{ 'connectors.autoNone' | t }}</option>
+      @for (severity of severities; track severity) {
+        <option [value]="severity">
+          {{ 'connectors.autoFrom' | t: { severity: severityMeta[severity].label | t } }}
+        </option>
+      }
+    </select>
+  </div>
+  <div class="col-12">
+    <button type="submit" class="btn btn-primary" [disabled]="busy()">
+      <i class="bi bi-check-lg" aria-hidden="true"></i>
+      {{ 'common.save' | t }}
+    </button>
+  </div>
+</form>

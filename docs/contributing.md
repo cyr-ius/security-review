@@ -15,6 +15,28 @@ Prettier version locked by `web/package-lock.json` (the one of CI): run `npm ci`
 before the first commit. CI checks the same files (`lint.yml`, **web** job). `.prettierrc` sets
 the width to 100 columns, like ruff; lock files are listed in `.prettierignore`.
 
+### Security review of each commit
+
+The optional `agent-review` hook (`scripts/agent-review.sh`) asks Claude Code to review each of
+your commits for security, in the background, with the `security-review` MCP server of your
+`.mcp.json`. The review follows the security review procedure of `AGENTS.md` and saves
+one report, which you read in the web interface. Enable it once:
+
+```bash
+prek install --hook-type post-commit
+SKIP=agent-review git commit ...      # skip it for one commit
+```
+
+- The commit is never blocked: the review runs after it, and its log is in
+  `.git/agent-review/<commit>.log`.
+- The agent receives the commit in its prompt and may only read the repository and call the
+  review tools of the server (`--restricted`, `--permission-mode dontAsk`): it edits no file,
+  runs no command, proposes no finding status and cannot read `.env`, `.mcp.json` or any file
+  outside the repository.
+- The hook does nothing for a commit made by Claude Code (already reviewed in its session),
+  during a rebase or a cherry-pick, or when the `claude` CLI or `.mcp.json` is missing.
+- Each review consumes model usage on your Claude account.
+
 In VS Code (`.vscode/`):
 
 | `launch.json` configuration | Role |

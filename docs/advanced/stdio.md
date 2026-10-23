@@ -16,9 +16,11 @@ controller.
 security-review-mcp serve   # started by the host, not by hand
 ```
 
-The local SQLite database (`./security_reports.db` by default, see
+The local SQLite database (`~/.local/share/security-review-mcp/security_reports.db` by default, the same file whatever
+the repository open in the host, see
 [`SECREVIEW_DATABASE_URL`](../reference/configuration.md#database)) is created or migrated
-automatically at start-up. The controller is not needed.
+automatically at start-up. It is the only file the server writes: delete it to remove every
+trace. The controller is not needed.
 
 ## Host configuration
 

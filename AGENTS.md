@@ -202,8 +202,9 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   du contrôleur (`update_check`, **désactivée par défaut**, HTTPS vers l'API GitHub, par le
   proxy, réponse bornée et mise en cache), l'envoi syslog du journal d'audit par le contrôleur
   (`audit_syslog`, **désactivé par défaut**, qui lit les événements en base : le serveur MCP n'y
-  participe pas) et la création de tickets par le contrôleur (`ticketing`, **désactivée par
-  défaut**) : un connecteur (Jira, ServiceNow ou tiers) ne sort que par `ticketing.transport`
+  participe pas) et la création de tickets par le contrôleur (`ticketing`, **chaque connecteur
+  désactivé par défaut**, activé dans l'interface par un administrateur, tous verrouillés par
+  `SECREVIEW_TICKETING_ENABLED=false`) : un connecteur (Jira, ServiceNow ou tiers) ne sort que par `ticketing.transport`
   (HTTPS, URL configurée uniquement, par le proxy, sans suivre de redirection, réponse bornée,
   secrets jamais journalisés ni renvoyés, secret lié à l'hôte de son URL) ; un connecteur tiers
   n'est chargé que s'il est listé dans `SECREVIEW_TICKETING_PLUGINS` ; à sens unique : un

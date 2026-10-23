@@ -520,6 +520,13 @@ export class ApiService {
     return this.http.put<TicketingSettings>(`${API_URL}/settings/ticketing/${kind}`, values);
   }
 
+  /** Switch a connector on or off (refused while its connection is not configured). */
+  switchTicketing(kind: TicketKind, enabled: boolean): Observable<TicketingSettings> {
+    return this.http.put<TicketingSettings>(`${API_URL}/settings/ticketing/${kind}/enabled`, {
+      enabled,
+    });
+  }
+
   /** Test the connection with the stored values and ``values`` (not stored). */
   testTicketing(kind: TicketKind, values: TicketingUpdate): Observable<TicketingTestResult> {
     return this.http.post<TicketingTestResult>(

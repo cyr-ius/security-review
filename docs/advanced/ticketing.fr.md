@@ -14,23 +14,40 @@ Seul le contrôleur se connecte à ces systèmes et charge les connecteurs ; le 
 
 ## Activation
 
-Le ticketing est **désactivé par défaut** : définissez `SECREVIEW_TICKETING_ENABLED=true` sur le
-contrôleur. D'ici là, les connexions et les destinations peuvent être préparées, mais rien n'est
-envoyé.
+L'écran **Connecteurs** (Administration, permission `settings.manage`) présente chaque connecteur
+disponible sous forme de carte : son état, le nombre de projets qui l'utilisent, un
+**interrupteur** et une **roue crantée** qui ouvre ses paramètres (onglets **Connexion** et
+**Projets**).
+
+Chaque connecteur est **désactivé par défaut** : rien ne passe par lui tant qu'un administrateur
+ne l'a pas activé. Un connecteur ne peut être activé qu'une fois sa connexion configurée ; le
+désactiver arrête aussitôt l'envoi à la main et l'envoi automatique. Chaque changement est
+enregistré dans le journal d'audit (`ticketing.changed`, `{"enabled": true}`).
+
+`SECREVIEW_TICKETING_ENABLED` est le verrou de l'opérateur :
+
+| Valeur | Effet |
+|---|---|
+| `true` (défaut) | Les interrupteurs de l'écran décident ; chaque connecteur est désactivé tant qu'il n'a pas été activé |
+| `false` | Tous les connecteurs sont verrouillés : rien n'est envoyé, les interrupteurs ne peuvent pas être activés, **Tester la connexion** est refusé |
+
+!!! note "Mise à jour depuis la 1.0"
+    En 1.0, `SECREVIEW_TICKETING_ENABLED=true` suffisait pour envoyer par chaque connecteur
+    configuré. Depuis les interrupteurs, activez chaque connecteur utilisé dans l'écran
+    **Connecteurs** après la mise à jour : d'ici là, rien n'est envoyé.
 
 ```bash
-SECREVIEW_TICKETING_ENABLED=true
 SECREVIEW_TICKETING_INTERVAL_SECONDS=300   # période de l'envoi automatique
 SECREVIEW_TICKETING_CAFILE=/etc/ssl/corp-ca.pem   # facultatif : autorité de certification interne
 ```
 
 ## Connexions
 
-Chaque système a sa connexion, définie par ses variables ou dans l'écran **Ticketing**
-(Administration, permission `settings.manage`). Une variable définie est prioritaire : son champ
+Chaque système a sa connexion, définie par ses variables ou dans l'onglet **Connexion** de sa
+roue crantée, dans l'écran **Connecteurs**. Une variable définie est prioritaire : son champ
 est seulement affiché dans l'écran. Les secrets ne sont jamais réaffichés (`***`) ; renvoyer
 `***` conserve celui qui est enregistré. **Tester la connexion** vérifie les valeurs saisies par
-une requête en lecture seule, sans les enregistrer.
+une requête en lecture seule, sans les enregistrer, avant d'activer le connecteur.
 
 Chaque champ d'un connecteur a sa variable, `SECREVIEW_<TYPE>_<CHAMP>` : celles des connecteurs
 intégrés sont ci-dessous. Un secret est lié à l'hôte de son URL : définir une URL d'un autre
@@ -58,7 +75,8 @@ des enregistrements dans la table (le rôle `itil` pour `incident`).
 
 Un projet a besoin d'une **destination** pour envoyer ses findings vers un système : la **clé du
 projet Jira** (`SEC`), ou le **groupe d'affectation ServiceNow** (facultatif, son nom). Les
-destinations se définissent en bas de l'écran **Ticketing**.
+destinations se définissent dans l'onglet **Projets** de la roue crantée du connecteur, dans
+l'écran **Connecteurs**.
 
 Chaque destination peut avoir un seuil d'**envoi automatique** : chaque nouveau finding
 **ouvert** au moins aussi sévère est alors envoyé par le contrôleur. Le seuil ne s'applique
@@ -100,7 +118,8 @@ du balisage wiki (liens, images chargées depuis un autre site).
 
 ## Sécurité
 
-- Connexions sortantes du **contrôleur** uniquement, désactivées par défaut, en **HTTPS** avec
+- Connexions sortantes du **contrôleur** uniquement, chaque connecteur désactivé par défaut
+  (activé par un administrateur, ou verrouillé par `SECREVIEW_TICKETING_ENABLED=false`), en **HTTPS** avec
   vérification du certificat (`SECREVIEW_TICKETING_CAFILE` pour une autorité interne), par le
   [proxy sortant](../reference/configuration.md#proxy-sortant).
 - **Les redirections sont refusées** : elles emporteraient les identifiants ailleurs. Délai de
@@ -116,7 +135,7 @@ du balisage wiki (liens, images chargées depuis un autre site).
   une variable, pour qu'un jeton enregistré ne parte jamais vers un autre hôte.
 - Un connecteur tiers n'est chargé que si `SECREVIEW_TICKETING_PLUGINS` le nomme, et
   s'exécute avec les droits du contrôleur : n'installez que du code de confiance.
-- Événements d'audit : `ticketing.changed` (connexion), `ticketing.target_changed` (destination
+- Événements d'audit : `ticketing.changed` (connexion ou interrupteur), `ticketing.target_changed` (destination
   d'un projet), `finding.ticket_created` (ticket créé ou réutilisé, avec sa clé ; acteur `auto`
   pour l'envoi automatique).
 
@@ -135,8 +154,8 @@ SECREVIEW_ACME_API_KEY=...
 
 Le contrôleur charge les connecteurs autorisés au démarrage et refuse de démarrer si l'un
 manque, est écrit pour une autre version de l'API, ou déclare une variable du serveur lui-même
-(`SECREVIEW_<TYPE>_<CHAMP>` ne doit pas être un réglage existant). L'écran **Ticketing** l'affiche
-avec ses champs, marqué **Connecteur tiers**. Un connecteur s'exécute dans le contrôleur avec ses
+(`SECREVIEW_<TYPE>_<CHAMP>` ne doit pas être un réglage existant). L'écran **Connecteurs** l'affiche
+sous forme de carte marquée **Tiers**, désactivé tant qu'il n'a pas été activé. Un connecteur s'exécute dans le contrôleur avec ses
 droits : n'installez et n'autorisez que du code de confiance, comme toute dépendance.
 
 ## Écrire un connecteur
@@ -229,15 +248,16 @@ ni modifier autre chose que le ticket qu'il crée.
 
 | Route | Permission | Rôle |
 |---|---|---|
-| `GET /api/v1/settings/ticketing` | `settings.manage` | Chaque connecteur avec ses champs et sa connexion (secrets `***`), plugins autorisés, activation du ticketing |
+| `GET /api/v1/settings/ticketing` | `settings.manage` | Chaque connecteur avec ses champs et sa connexion (secrets `***`) et son interrupteur (`enabled`), plugins autorisés, `SECREVIEW_TICKETING_ENABLED` (`enabled`) |
 | `GET /api/v1/ticketing/systems` | toutes | Systèmes disponibles (`kind`, `name`) |
 | `PUT /api/v1/settings/ticketing/{kind}` | `settings.manage` | Modifie des champs d'une connexion (`{"url": ..., "api_token": ...}`) ; `null` ou `""` supprime la valeur enregistrée ; `404` pour un système inconnu |
-| `POST /api/v1/settings/ticketing/{kind}/test` | `settings.manage` | Teste les valeurs enregistrées et celles du corps, non enregistrées |
+| `PUT /api/v1/settings/ticketing/{kind}/enabled` | `settings.manage` | Active ou désactive un connecteur (`{"enabled": true}`) ; `422` tant que sa connexion n'est pas configurée ou si `SECREVIEW_TICKETING_ENABLED=false` |
+| `POST /api/v1/settings/ticketing/{kind}/test` | `settings.manage` | Teste les valeurs enregistrées et celles du corps, non enregistrées, que le connecteur soit activé ou non |
 | `GET /api/v1/ticketing/targets` | `settings.manage` | Destinations des projets |
 | `PUT /api/v1/projects/{project}/ticket-targets/{kind}` | `settings.manage` | `{"destination": "SEC", "auto_min_severity": "high"}` (`null` : à la main uniquement) |
 | `DELETE /api/v1/projects/{project}/ticket-targets/{kind}` | `settings.manage` | Supprime une destination (les tickets sont conservés) |
 | `GET /api/v1/ticketing/destinations` | toutes | Projets et systèmes vers lesquels l'appelant peut envoyer des findings |
-| `POST /api/v1/findings/{id}/tickets/{kind}` | `findings.triage` | Envoie un finding : `201` avec le ticket ; `409` si le ticketing, la connexion ou la destination manque ; `502` si le système le refuse |
+| `POST /api/v1/findings/{id}/tickets/{kind}` | `findings.triage` | Envoie un finding : `201` avec le ticket ; `409` si le connecteur est désactivé, ou si la connexion ou la destination manque ; `502` si le système le refuse |
 
 ```bash
 curl -X POST -H "Authorization: Bearer $TOKEN" \

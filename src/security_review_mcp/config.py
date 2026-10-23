@@ -2,8 +2,10 @@
 
 import ipaddress
 import logging
+import os
 import sys
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -32,6 +34,21 @@ def check_report_language(value: str) -> str:
     return language
 
 
+def default_database_url() -> SecretStr:
+    """SQLite file of the user: ``$XDG_DATA_HOME/security-review-mcp/security_reports.db``.
+
+    ``XDG_DATA_HOME`` defaults to ``~/.local/share`` (a relative value is ignored, as the XDG
+    specification requires). Without a home directory (container run with an arbitrary user),
+    the file is ``./security_reports.db``, as in version 1.0.
+    """
+    data_home = os.environ.get("XDG_DATA_HOME", "")
+    try:
+        base = Path(data_home) if Path(data_home).is_absolute() else Path.home() / ".local/share"
+    except RuntimeError:
+        return SecretStr("sqlite:///./security_reports.db")
+    return SecretStr(f"sqlite:///{base / 'security-review-mcp' / 'security_reports.db'}")
+
+
 class Settings(BaseSettings):
     """Server settings (prefix: SECREVIEW_)."""
 
@@ -43,10 +60,11 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # SQLite by default (zero setup).
+    # SQLite by default (zero setup), in the user data directory: the same file whatever the
+    # directory the host starts the server from (see default_database_url).
     # PostgreSQL: postgresql+psycopg2://user:pass@host:5432/db  # secreview:ignore GEN-007
     # A secret (it may hold a password): never shown in a repr nor in a log
-    database_url: SecretStr = SecretStr("sqlite:///./security_reports.db")
+    database_url: SecretStr = Field(default_factory=default_database_url)
     database_echo: bool = False
     # Migrate the schema (Alembic) when the controller, the stdio MCP server or a CLI command
     # starts. Set it to false when a dedicated job runs `security-review-controller db upgrade`
@@ -249,12 +267,14 @@ class Settings(BaseSettings):
     # ServiceNow, plus the third-party connectors (Python entry points of the group
     # security_review_mcp.ticketing) whose names ticketing_plugins lists, comma separated (a
     # connector installed but not listed is never loaded). By hand from the web interface, or
-    # automatically for the projects given a severity threshold. Disabled by default: outgoing
-    # connections (HTTPS only, through the outgoing proxy). ticketing_interval_seconds is the
-    # period of the automatic sending; ticketing_cafile replaces the system CA bundle (internal
-    # certificate authority). The connection of each system is read from its own variables,
-    # SECREVIEW_<KIND>_<FIELD> (SECREVIEW_JIRA_URL...), or set in the web interface.
-    ticketing_enabled: bool = False
+    # automatically for the projects given a severity threshold. Outgoing connections (HTTPS
+    # only, through the outgoing proxy): every connector is off until an administrator switches
+    # it on in the web interface (Connectors screen). ticketing_enabled is the lock of the
+    # operator: false, nothing is sent and the switches are locked off. ticketing_interval_seconds
+    # is the period of the automatic sending; ticketing_cafile replaces the system CA bundle
+    # (internal certificate authority). The connection of each system is read from its own
+    # variables, SECREVIEW_<KIND>_<FIELD> (SECREVIEW_JIRA_URL...), or set in the web interface.
+    ticketing_enabled: bool = True
     ticketing_interval_seconds: int = Field(default=300, ge=30, le=86_400)
     ticketing_cafile: str | None = None
     ticketing_plugins: str = ""
@@ -281,6 +301,14 @@ class Settings(BaseSettings):
     def _empty_is_unset(cls, value: str | None) -> str | None:
         """An empty variable means no value (an empty stored proxy means a direct connection)."""
         return value.strip() or None if value is not None else None
+
+    @field_validator("ticketing_enabled", mode="before")
+    @classmethod
+    def _empty_lock_is_open(cls, value: object) -> object:
+        """An empty variable leaves the switches of the web interface in charge."""
+        if isinstance(value, str) and not value.strip():
+            return True
+        return value
 
     @field_validator("risk_acceptance_min_severity", mode="before")
     @classmethod
