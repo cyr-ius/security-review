@@ -16,6 +16,28 @@ dans `web/` avant le premier commit. La CI vérifie les mêmes fichiers (`lint.y
 `.prettierrc` fixe la largeur à 100 colonnes, comme ruff ; les fichiers de verrouillage sont
 listés dans `.prettierignore`.
 
+### Revue de sécurité de chaque commit
+
+Le hook facultatif `agent-review` (`scripts/agent-review.sh`) demande à Claude Code de relire
+chacun de vos commits sous l'angle de la sécurité, en arrière-plan, avec le serveur MCP
+`security-review` de votre `.mcp.json`. La revue suit la procédure de revue de sécurité de
+`AGENTS.md` et enregistre un rapport, que vous lisez dans l'interface web. Activez-le une fois :
+
+```bash
+prek install --hook-type post-commit
+SKIP=agent-review git commit ...      # la sauter pour un commit
+```
+
+- Le commit n'est jamais bloqué : la revue s'exécute après lui, et son journal est dans
+  `.git/agent-review/<commit>.log`.
+- L'agent reçoit le commit dans son prompt et peut seulement lire le dépôt et appeler les outils
+  de revue du serveur (`--restricted`, `--permission-mode dontAsk`) : il ne modifie aucun
+  fichier, ne lance aucune commande, ne propose aucun statut de finding et ne peut lire ni
+  `.env`, ni `.mcp.json`, ni aucun fichier hors du dépôt.
+- Le hook ne fait rien pour un commit fait par Claude Code (déjà relu dans sa session), pendant
+  un rebase ou un cherry-pick, ou si le CLI `claude` ou `.mcp.json` manque.
+- Chaque revue consomme de l'usage du modèle sur votre compte Claude.
+
 Dans VS Code (`.vscode/`) :
 
 | Configuration de `launch.json` | Rôle |
