@@ -2,8 +2,10 @@
 
 import ipaddress
 import logging
+import os
 import sys
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
@@ -32,6 +34,21 @@ def check_report_language(value: str) -> str:
     return language
 
 
+def default_database_url() -> SecretStr:
+    """SQLite file of the user: ``$XDG_DATA_HOME/security-review-mcp/security_reports.db``.
+
+    ``XDG_DATA_HOME`` defaults to ``~/.local/share`` (a relative value is ignored, as the XDG
+    specification requires). Without a home directory (container run with an arbitrary user),
+    the file is ``./security_reports.db``, as in version 1.0.
+    """
+    data_home = os.environ.get("XDG_DATA_HOME", "")
+    try:
+        base = Path(data_home) if Path(data_home).is_absolute() else Path.home() / ".local/share"
+    except RuntimeError:
+        return SecretStr("sqlite:///./security_reports.db")
+    return SecretStr(f"sqlite:///{base / 'security-review-mcp' / 'security_reports.db'}")
+
+
 class Settings(BaseSettings):
     """Server settings (prefix: SECREVIEW_)."""
 
@@ -43,10 +60,11 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # SQLite by default (zero setup).
+    # SQLite by default (zero setup), in the user data directory: the same file whatever the
+    # directory the host starts the server from (see default_database_url).
     # PostgreSQL: postgresql+psycopg2://user:pass@host:5432/db  # secreview:ignore GEN-007
     # A secret (it may hold a password): never shown in a repr nor in a log
-    database_url: SecretStr = SecretStr("sqlite:///./security_reports.db")
+    database_url: SecretStr = Field(default_factory=default_database_url)
     database_echo: bool = False
     # Migrate the schema (Alembic) when the controller, the stdio MCP server or a CLI command
     # starts. Set it to false when a dedicated job runs `security-review-controller db upgrade`

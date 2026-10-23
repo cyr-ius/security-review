@@ -9,7 +9,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.engine import Connection, Engine, make_url
 from sqlmodel import Session, create_engine
 
 from .config import get_settings
@@ -17,6 +17,8 @@ from .config import get_settings
 logger = logging.getLogger(__name__)
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
+# Default database of version 1.0, relative to the working directory
+LEGACY_DATABASE = Path("security_reports.db")
 
 _engine: Engine | None = None
 
@@ -26,12 +28,24 @@ def get_engine() -> Engine:
     global _engine
     if _engine is None:
         settings = get_settings()
+        url = make_url(settings.database_url.get_secret_value())
         connect_args = {}
-        if settings.database_url.get_secret_value().startswith("sqlite"):
+        if url.get_backend_name() == "sqlite":
             # The MCP server may serve requests from several threads
             connect_args["check_same_thread"] = False
+            if url.database and url.database != ":memory:":
+                # SQLite creates the file but not its directory, kept private: the reports
+                # quote the reviewed code
+                Path(url.database).parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        if "database_url" not in settings.model_fields_set and LEGACY_DATABASE.is_file():
+            logger.warning(
+                "%s is no longer the default database: set "
+                "SECREVIEW_DATABASE_URL=sqlite:///%s to keep using it",
+                LEGACY_DATABASE.resolve(),
+                LEGACY_DATABASE.resolve(),
+            )
         _engine = create_engine(
-            settings.database_url.get_secret_value(),
+            url,
             echo=settings.database_echo,
             connect_args=connect_args,
             pool_pre_ping=True,

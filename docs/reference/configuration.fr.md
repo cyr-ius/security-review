@@ -19,7 +19,7 @@ Lues par le serveur MCP et par le contrôleur.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_DATABASE_URL` | `sqlite:///./security_reports.db` | URL SQLAlchemy de la base, **partagée** par les deux processus |
+| `SECREVIEW_DATABASE_URL` | Fichier SQLite de l'utilisateur (voir [Base de données](#base-de-donnees)) | URL SQLAlchemy de la base, **partagée** par les deux processus |
 | `SECREVIEW_DATABASE_ECHO` | `false` | Journalise les requêtes SQL |
 | `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migre le schéma au démarrage du contrôleur, du serveur MCP stdio et des commandes CLI ; à `false`, ils vérifient seulement qu'il est à jour (voir [migrations](../advanced/architecture.md#migrations-du-schema)). Le serveur MCP HTTP ne migre jamais |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | Niveau de journalisation (sur stderr) |
@@ -179,7 +179,16 @@ Les règles internes non plus : elles sont stockées en base et gérées avec
 
 ## Base de données
 
-SQLite par défaut. Pour PostgreSQL (extra `postgres`) :
+SQLite par défaut, dans le dossier de données de l'utilisateur :
+`$XDG_DATA_HOME/security-review-mcp/security_reports.db`, soit
+`~/.local/share/security-review-mcp/security_reports.db` quand `XDG_DATA_HOME` n'est pas défini.
+Le fichier est le même quel que soit le dossier de lancement du serveur, et son dossier est créé
+privé (`0700`), car les rapports citent le code relu. La version 1.0 utilisait
+`./security_reports.db` dans le dossier courant : si ce fichier existe et que
+`SECREVIEW_DATABASE_URL` n'est pas défini, un avertissement donne le réglage qui permet de
+continuer à l'utiliser (`sqlite:////chemin/absolu/security_reports.db`).
+
+Pour PostgreSQL (extra `postgres`) :
 
 ```bash
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview

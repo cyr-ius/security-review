@@ -45,8 +45,9 @@ finding, nor create the tokens of the agents.
 
 ## Quick start (HTTP server)
 
-On one machine, from the **same directory** (both processes share the SQLite file
-`./security_reports.db`; use PostgreSQL as soon as they run on different machines):
+On one machine, as the **same user** (both processes share the SQLite file
+`~/.local/share/security-review-mcp/security_reports.db`; use PostgreSQL as soon as they run on
+different machines):
 
 ```bash
 pip install security-review-mcp

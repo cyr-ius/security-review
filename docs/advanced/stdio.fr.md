@@ -16,9 +16,11 @@ contrôleur.
 security-review-mcp serve   # lancé par l'hôte, pas à la main
 ```
 
-La base SQLite locale (`./security_reports.db` par défaut, voir
+La base SQLite locale (`~/.local/share/security-review-mcp/security_reports.db` par défaut, le même fichier quel que
+soit le dépôt ouvert dans l'hôte, voir
 [`SECREVIEW_DATABASE_URL`](../reference/configuration.md#base-de-donnees)) est créée ou migrée
-automatiquement au démarrage. Le contrôleur n'est pas nécessaire.
+automatiquement au démarrage. C'est le seul fichier écrit par le serveur : supprimez-le pour
+effacer toute trace. Le contrôleur n'est pas nécessaire.
 
 ## Configuration de l'hôte
 

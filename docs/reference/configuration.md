@@ -19,7 +19,7 @@ Read by the MCP server and by the controller.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_DATABASE_URL` | `sqlite:///./security_reports.db` | SQLAlchemy URL of the database, **shared** by both processes |
+| `SECREVIEW_DATABASE_URL` | SQLite file of the user (see [Database](#database)) | SQLAlchemy URL of the database, **shared** by both processes |
 | `SECREVIEW_DATABASE_ECHO` | `false` | Logs the SQL queries |
 | `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migrates the schema at start-up of the controller, of the stdio MCP server and of the CLI commands; when `false`, they only check that it is up to date (see [migrations](../advanced/architecture.md#schema-migrations)). The HTTP MCP server never migrates |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | Logging level (on stderr) |
@@ -180,7 +180,16 @@ they are stored in the database and managed with `security-review-controller rul
 
 ## Database
 
-SQLite by default. For PostgreSQL (`postgres` extra):
+SQLite by default, in the data directory of the user:
+`$XDG_DATA_HOME/security-review-mcp/security_reports.db`, that is
+`~/.local/share/security-review-mcp/security_reports.db` when `XDG_DATA_HOME` is not set. The
+file is the same whatever the directory the server starts from, and its directory is created
+private (`0700`), since the reports quote the reviewed code. Version 1.0 used
+`./security_reports.db` in the working directory: when that file exists and
+`SECREVIEW_DATABASE_URL` is not set, a warning gives the setting that keeps using it
+(`sqlite:////absolute/path/security_reports.db`).
+
+For PostgreSQL (`postgres` extra):
 
 ```bash
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview

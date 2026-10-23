@@ -78,6 +78,26 @@ def test_init_db_only_checks_without_auto_upgrade(empty_engine, no_auto_upgrade)
     assert not inspect(empty_engine).has_table("securityreport")
 
 
+def test_the_default_database_is_a_private_file_of_the_user(tmp_path, monkeypatch, caplog):
+    # Whatever directory the host starts the server from, one file in the data directory of the
+    # user; the old default in the working directory is reported, not used
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "security_reports.db").touch()
+    config.get_settings.cache_clear()
+    database.set_engine(None)
+    try:
+        engine = database.get_engine()
+    finally:
+        config.get_settings.cache_clear()
+
+    directory = tmp_path / "data" / "security-review-mcp"
+    assert engine.url.database == str(directory / "security_reports.db")
+    assert directory.stat().st_mode & 0o777 == 0o700
+    assert "no longer the default database" in caplog.text
+    engine.dispose()
+
+
 def test_init_db_upgrades_by_default(empty_engine):
     database.init_db()
 
