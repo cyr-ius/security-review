@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --quiet --script \"$CLAUDE_PROJECT_DIR/.claude/hooks/read_guard.py\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -175,7 +175,9 @@
   text becomes readable. The
   [`AI-*` rules](../advanced/rules.md#default-rules-by-platform) report hidden characters and
   text addressed to an AI assistant, so the gate can block them. The server only sees what the
-  agent sends: it cannot filter the files that the host reads with its own tools.
+  agent sends: it cannot filter the files that the host reads with its own tools; the
+  [read guard](../advanced/read-guard.md), a host-side hook, checks them before the assistant
+  reads them.
 - **User accounts** ([user name and password](../usage/web-interface.md#user-accounts)): only
   a salted **scrypt** digest (N=2¹⁴, r=8, p=5, random 16-byte salt) is stored; a stored digest
   with out-of-bounds parameters is refused instead of exhausting the memory. Passwords of 12 to

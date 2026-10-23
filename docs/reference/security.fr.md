@@ -187,7 +187,8 @@
   [règles `AI-*`](../advanced/rules.md#regles-par-defaut-par-plateforme) signalent les caractères
   cachés et le texte adressé à un assistant IA, pour que la gate puisse les bloquer. Le serveur
   ne voit que ce que l'agent lui envoie : il ne peut pas filtrer les fichiers que l'hôte lit avec
-  ses propres outils.
+  ses propres outils ; la [garde de lecture](../advanced/read-guard.md), un hook côté hôte, les
+  vérifie avant que l'assistant ne les lise.
 - **Comptes utilisateurs** ([identifiant et mot de passe](../usage/web-interface.md#comptes-utilisateurs)) :
   seule une empreinte **scrypt** salée (N=2¹⁴, r=8, p=5, sel aléatoire de 16 octets) est
   stockée ; une empreinte stockée aux paramètres hors bornes est refusée au lieu d'épuiser la
