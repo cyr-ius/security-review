@@ -43,7 +43,7 @@ from .models import (
 )
 from .project_names import normalize_project
 from .prompts import fenced
-from .scanner import redact_secrets
+from .scanner import redact_secrets, sanitize_untrusted
 
 logger = logging.getLogger(__name__)
 
@@ -106,12 +106,15 @@ def _check_author(author: str | None) -> str | None:
     return author
 
 
-def _sanitize_finding(data: FindingCreate) -> Finding:
-    """Build a Finding row, masking secrets that may appear in free-text fields."""
+def _sanitize_finding(data: FindingCreate, limit: int) -> Finding:
+    """Build a Finding row, masking secrets and revealing hidden characters in free text.
+
+    A revealed character takes up to 9 characters: the text is cut again at ``limit``.
+    """
     values = data.model_dump()
     for field in ("description", "evidence", "recommendation"):
         if values.get(field):
-            values[field] = redact_secrets(values[field])
+            values[field] = sanitize_untrusted(values[field])[:limit]
     if values["line_start"] and values["line_end"] and values["line_end"] < values["line_start"]:
         values["line_end"] = values["line_start"]
     return Finding(**values)
@@ -204,7 +207,7 @@ def save_report(
     if checklist_results is not None or scan_rules is not None:
         declared = coverage.check(checklist_results or [], scan_rules or [], findings)
 
-    rows = [_sanitize_finding(item) for item in findings]
+    rows = [_sanitize_finding(item, content) for item in findings]
     risk = compute_risk_level([row.severity for row in rows], risk_level)
 
     with session_scope() as session:
@@ -218,7 +221,7 @@ def save_report(
             review_type=review_type,
             author=author,
             submitted_by=submitted_by,
-            summary=redact_secrets(summary),
+            summary=sanitize_untrusted(summary)[:content],
             risk_level=risk,
             findings=rows,
         )

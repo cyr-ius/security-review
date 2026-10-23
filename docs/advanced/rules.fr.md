@@ -186,17 +186,19 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 | `CI-*` (CI/CD commun) | Vérification TLS ou de signature désactivée, traçage shell, installation sans lockfile |
 | `SP-*` (Spring) | Actuator exposé ou non protégé, console H2, TLS désactivé, logs SQL, `permitAll`, entités liées au corps de requête, détails d'erreur renvoyés, mot de passe dans la configuration, `web.ignoring()`, en-têtes de sécurité désactivés |
 | `FA-*` (FastAPI) | CORS `*` ou regex `.*`, signature JWT non vérifiée, mode `reload` |
+| `AI-*` (tous langages, instructions d'assistants IA) | Texte caché à une personne mais lu par un assistant IA : Unicode tags et sélecteurs de variante supplémentaires (`AI-001`), contrôles bidirectionnels de Trojan Source (`AI-002`), caractères de largeur nulle (`AI-003`) ; texte adressé à l'assistant (remplacement de ses instructions, jetons de modèle de conversation comme `<\|im_start\|>`, `AI-004`) ou demandant d'écarter un finding (`AI-005`) |
 
 Les checklists par défaut couvrent les domaines `python`, `java`, `angular`, `api`, `config`,
 `cicd` et `dependencies` (par exemple : validation des jetons OAuth/OIDC, webhooks, flux métier
 sensibles, désynchronisation HTTP, injection CRLF, validation avant normalisation, upload de
 fichiers, durcissement Kubernetes, RBAC, en-têtes du proxy, WAF, connexions chiffrées vers les
-services (LDAPS par exemple), intégrité des lockfiles).
+services (LDAPS par exemple), instructions des assistants IA, intégrité des lockfiles).
 `get_review_checklist` et l'écran **Checklists** de l'interface web les affichent en entier.
 
 Langages acceptés par `scan_code` : `python`, `java`, `typescript`, `javascript`, `angular`,
-`config`, `yaml`, `docker`, `gitlab-ci`, `jenkins` (alias : `jenkinsfile`, `groovy`, `gitlab`,
-`yml`...).
+`config`, `yaml`, `docker`, `gitlab-ci`, `jenkins`, `agent-instructions` (fichiers qui pilotent
+un assistant IA : `AGENTS.md`, `CLAUDE.md`, `.cursorrules`... ; seules les règles de tous les
+langages s'y appliquent) (alias : `jenkinsfile`, `groovy`, `gitlab`, `yml`...).
 
 ### Checklists des prompts de revue
 

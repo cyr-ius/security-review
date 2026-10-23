@@ -179,17 +179,19 @@ A full example is provided in `examples/rules/company.toml`.
 | `CI-*` (common CI/CD) | Disabled TLS or signature verification, shell tracing, install without lockfile |
 | `SP-*` (Spring) | Exposed or unprotected Actuator, H2 console, disabled TLS, SQL logs, `permitAll`, entities bound to the request body, returned error details, password in the configuration, `web.ignoring()`, disabled security headers |
 | `FA-*` (FastAPI) | `*` CORS or `.*` regex, unverified JWT signature, `reload` mode |
+| `AI-*` (every language, AI assistant instructions) | Text hidden from a person but read by an AI assistant: Unicode tags and supplementary variation selectors (`AI-001`), bidirectional controls of Trojan Source (`AI-002`), zero-width characters (`AI-003`); text addressed to the assistant (override of its instructions, chat-template tokens such as `<\|im_start\|>`, `AI-004`) or asking to dismiss a finding (`AI-005`) |
 
 The default checklists cover the `python`, `java`, `angular`, `api`, `config`, `cicd` and
 `dependencies` domains (for example: validation of OAuth/OIDC tokens, webhooks, sensitive
 business flows, HTTP desync, CRLF injection, validation before normalization, file upload,
 Kubernetes hardening, RBAC, proxy headers, WAF, encrypted connections to back-end services such
-as LDAPS, lockfile integrity).
+as LDAPS, instructions for AI assistants, lockfile integrity).
 `get_review_checklist` and the **Checklists** screen of the web interface show them in full.
 
 Languages accepted by `scan_code`: `python`, `java`, `typescript`, `javascript`, `angular`,
-`config`, `yaml`, `docker`, `gitlab-ci`, `jenkins` (aliases: `jenkinsfile`, `groovy`, `gitlab`,
-`yml`...).
+`config`, `yaml`, `docker`, `gitlab-ci`, `jenkins`, `agent-instructions` (files that steer an
+AI assistant: `AGENTS.md`, `CLAUDE.md`, `.cursorrules`...; only the rules of every language
+apply) (aliases: `jenkinsfile`, `groovy`, `gitlab`, `yml`...).
 
 ### Checklists in review prompts
 

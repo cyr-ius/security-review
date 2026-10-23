@@ -230,7 +230,7 @@ un commentaire, puis dans `.env.example` et `docs/reference/configuration.md` (e
 
 Identifiants `PRÉFIXE-NNN` par famille : `PY`, `JV`, `NG` (Angular), `CFG`, `GEN`, `GL`
 (GitLab CI), `JK` (Jenkins), `CI`, `SP` (Spring), `FA` (FastAPI), `DEP` (hygiène des
-dépendances). Ne réutilisez et ne renumérotez jamais un identifiant existant : les utilisateurs
+dépendances), `AI` (texte caché ou instructions adressées à un assistant IA). Ne réutilisez et ne renumérotez jamais un identifiant existant : les utilisateurs
 les citent dans `secreview:ignore` et `disabled_rules`. Indiquez la CWE quand elle existe.
 
 Les règles et checklists par défaut sont dans `src/security_review_mcp/default_rules.toml`,

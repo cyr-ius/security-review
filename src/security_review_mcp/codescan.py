@@ -128,7 +128,7 @@ def _category(language: str, cwe: str | None) -> str:
     """Pick the finding category from the file language and the rule CWE."""
     if cwe in _SECRET_CWES:
         return "secret"
-    if language in ("config", "yaml", "docker", "gitlab-ci", "jenkins"):
+    if language in ("config", "yaml", "docker", "gitlab-ci", "jenkins", "agent-instructions"):
         return "configuration"
     return "code"
 

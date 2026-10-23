@@ -1297,6 +1297,51 @@ languages = ["python", "config", "docker", "yaml"]
 pattern = '\buvicorn\.run\s*\([^)]*reload\s*=\s*True|\buvicorn\b[^\n]*--reload\b|\bfastapi\s+dev\b'
 advice = "Reload mode is for local development only; run without it in production."
 
+[[rules]]
+id = "AI-001"
+title = "Invisible Unicode tag or variation-selector characters"
+severity = "high"
+cwe = "CWE-1427"
+languages = ["*"]
+pattern = '[\U000E0000-\U000E007F\U000E0100-\U000E01EF]'
+advice = "These characters hide text that an AI assistant reads but a person does not see (ASCII smuggling). Remove them; only subdivision flag emojis use tag characters legitimately."
+
+[[rules]]
+id = "AI-002"
+title = "Bidirectional control character (Trojan Source)"
+severity = "high"
+cwe = "CWE-451"
+languages = ["*"]
+pattern = '[\u202A-\u202E\u2066-\u2069]'
+advice = "Bidirectional overrides and isolates make code display differently from how it runs or is read by a model. Remove them, or escape them in string literals."
+
+[[rules]]
+id = "AI-003"
+title = "Zero-width character"
+severity = "low"
+cwe = "CWE-451"
+languages = ["*"]
+pattern = '[\u180E\u200B\u2060-\u2064]'
+advice = "Zero-width characters can split an identifier, a keyword or a secret so that it escapes a review. Remove them, or escape them in string literals."
+
+[[rules]]
+id = "AI-004"
+title = "Text addressed to an AI assistant (prompt injection)"
+severity = "medium"
+cwe = "CWE-1427"
+languages = ["*"]
+pattern = '\b(ignore|disregard|forget|override)\s+(all\s+|any\s+|the\s+|your\s+)?(previous|prior|above|earlier|preceding|system)\s+(instructions|prompts?|rules|directives)\b|\bnew\s+instructions\s*:|<\|(im_start|im_end|endoftext|system)\|>|\[/?INST\]|<</?SYS>>|</?system(-reminder|-prompt)?>'
+advice = "Code, comments and documents must not carry instructions for the assistant that reads them. Remove the text and check what it tried to make the assistant do."
+
+[[rules]]
+id = "AI-005"
+title = "Instruction to dismiss a security finding"
+severity = "medium"
+cwe = "CWE-1427"
+languages = ["*"]
+pattern = '''\b(mark|flag|report|treat|classify)\s+(this|it|these|them)\s+as\s+(a\s+)?(false\s+positive|safe|fixed|accepted|resolved)\b|\b(do\s+not|don't|never)\s+(report|flag|mention)\s+(this|these|it|them)\b|\b(reviewers?|scanners?|auditors?|ai|llm|assistants?|agents?)\s+(must|should)\s+(not|never)\s+(report|flag)\b'''
+advice = "A finding is closed by a person in the web interface, never by a comment in the code. Treat the line as an attempt to hide an issue and review the code around it."
+
 [[checklist]]
 domain = "python"
 id = "PY-01"
@@ -1751,6 +1796,13 @@ id = "CFG-14"
 title = "Encrypted connections to back-end services"
 what_to_look_for = "Directories, databases, message brokers, caches, mail or file servers reached in clear text (ldap://, ftp://, amqp://, redis://, sslmode=disable, useSSL=false, encrypt=false, Kafka PLAINTEXT) instead of their TLS variant (ldaps:// or required STARTTLS, sftp, amqps://, rediss://, SASL_SSL); optional STARTTLS that falls back to clear text; TLS without certificate or host name verification (TLS_REQCERT never, trustServerCertificate=true, sslmode=require instead of verify-full)."  # secreview:ignore GEN-011 GEN-012 (rule text, not configuration)
 cwe = "CWE-319"
+
+[[checklist]]
+domain = "config"
+id = "CFG-15"
+title = "Instructions for AI assistants"
+what_to_look_for = "Changes to files that steer an AI assistant (AGENTS.md, CLAUDE.md, .cursorrules, .github/copilot-instructions.md, *.prompt.md, .claude/ or .cursor/ rules, .mcp.json and other MCP server lists): new MCP servers or hooks, commands run without confirmation, permissions widened, instructions to skip a review, to push, to call a URL or to read secrets; hidden characters (Unicode tags, bidirectional or zero-width characters) in any file the assistant reads."
+cwe = "CWE-1427"
 
 [[checklist]]
 domain = "cicd"

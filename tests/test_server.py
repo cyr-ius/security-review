@@ -241,6 +241,7 @@ def test_fenced_cannot_be_closed_by_the_content():
     fence = block.split("\n", 1)[0].removesuffix("python")
     assert fence == "`" * 5 and block.endswith("\n" + fence)
     assert fenced("plain").startswith("```\n")
+    assert fenced("a\u202eb\U000e0041") == "```\na<U+202E>b<U+E0041>\n```"
 
 
 async def test_prompts_treat_reviewed_content_as_untrusted():

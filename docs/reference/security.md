@@ -165,6 +165,17 @@
   a service would add by mistake (a digest, a secret) is dropped instead of being returned. The
   answers that hold a secret (session, new or rotated token, generated password) are sent with
   `Cache-Control: no-store`.
+- **Prompt injection through the reviewed code**: the content that the server hands back to a
+  model is marked as data. The code of the prompts and the stored evidence of a finding are
+  wrapped in a code fence longer than any backtick run they contain, so they cannot close their
+  block. Invisible characters (zero-width, bidirectional controls, Unicode tags and supplementary
+  variation selectors) are replaced with a visible `<U+XXXX>` marker in these blocks, in the
+  excerpts of `scan_code` and in the summary, description, evidence and recommendation stored
+  in a report (then cut again at `SECREVIEW_MAX_CONTENT_CHARS`): nothing is removed, the hidden
+  text becomes readable. The
+  [`AI-*` rules](../advanced/rules.md#default-rules-by-platform) report hidden characters and
+  text addressed to an AI assistant, so the gate can block them. The server only sees what the
+  agent sends: it cannot filter the files that the host reads with its own tools.
 - **User accounts** ([user name and password](../usage/web-interface.md#user-accounts)): only
   a salted **scrypt** digest (N=2¹⁴, r=8, p=5, random 16-byte salt) is stored; a stored digest
   with out-of-bounds parameters is refused instead of exhausting the memory. Passwords of 12 to

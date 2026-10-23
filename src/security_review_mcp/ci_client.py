@@ -265,6 +265,20 @@ _EXTENSIONS = {
     ".dockerfile": "docker",
 }
 
+# Files that steer an AI assistant: scanned for hidden characters and injected instructions
+_AGENT_INSTRUCTION_NAMES = frozenset(
+    {
+        "agents.md",
+        "claude.md",
+        "gemini.md",
+        "copilot-instructions.md",
+        ".cursorrules",
+        ".windsurfrules",
+        ".clinerules",
+    }
+)
+_AGENT_INSTRUCTION_DIRS = frozenset({".claude", ".cursor", ".windsurf", ".clinerules"})
+
 
 def detect_language(path: str) -> str | None:
     """Return the scanner language of a file from its name, or None when it is not scanned."""
@@ -284,6 +298,12 @@ def detect_language(path: str) -> str | None:
         return "gitlab-ci"
     if lower == ".env" or lower.startswith(".env."):
         return "config"
+    if (
+        lower in _AGENT_INSTRUCTION_NAMES
+        or lower.endswith((".mdc", ".instructions.md", ".prompt.md"))
+        or (lower.endswith(".md") and _AGENT_INSTRUCTION_DIRS & set(PurePosixPath(path).parts))
+    ):
+        return "agent-instructions"
     return _EXTENSIONS.get(PurePosixPath(lower).suffix)
 
 

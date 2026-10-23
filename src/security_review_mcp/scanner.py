@@ -41,6 +41,7 @@ SUPPORTED_LANGUAGES: tuple[str, ...] = (
     "docker",
     "gitlab-ci",
     "jenkins",
+    "agent-instructions",
 )
 
 _LANGUAGE_ALIASES = {
@@ -94,6 +95,11 @@ def _suppressed_ids(line: str) -> set[str] | None:
     return set(_RULE_ID_RE.findall(found.group("rest")))
 
 
+def _excerpt(line: str) -> str:
+    """Return the excerpt of a matched line: secrets masked, hidden characters revealed."""
+    return sanitize_untrusted(line.strip())[:300]
+
+
 def scan_content_detailed(
     content: str,
     language: str,
@@ -134,7 +140,7 @@ def scan_content_detailed(
                 "severity": rule.severity.value,
                 "cwe": rule.cwe,
                 "line": number,
-                "excerpt": redact_secrets(line.strip())[:300],
+                "excerpt": _excerpt(line),
                 "advice": rule.advice,
             }
             if ignored is not None and (not ignored or rule.id in ignored):
@@ -154,7 +160,7 @@ def scan_content_detailed(
                     "severity": taint_rule.severity.value,
                     "cwe": taint_rule.cwe,
                     "line": number,
-                    "excerpt": redact_secrets(line.strip())[:300],
+                    "excerpt": _excerpt(line),
                     "advice": taint_rule.advice,
                 }
                 ignored = _suppressed_ids(line)
@@ -175,7 +181,7 @@ def scan_content_detailed(
                     "severity": taint_rule.severity.value,
                     "cwe": taint_rule.cwe,
                     "line": number,
-                    "excerpt": redact_secrets(line.strip())[:300],
+                    "excerpt": _excerpt(line),
                     "advice": taint_rule.advice,
                 }
                 ignored = _suppressed_ids(line)
@@ -198,7 +204,7 @@ def scan_content_detailed(
                     "severity": taint_rule.severity.value,
                     "cwe": taint_rule.cwe,
                     "line": number,
-                    "excerpt": redact_secrets(line.strip())[:300],
+                    "excerpt": _excerpt(line),
                     "advice": taint_rule.advice,
                 }
                 ignored = _suppressed_ids(line)
@@ -220,7 +226,7 @@ def scan_content_detailed(
                     "severity": message_rule.severity.value,
                     "cwe": message_rule.cwe,
                     "line": number,
-                    "excerpt": redact_secrets(line.strip())[:300],
+                    "excerpt": _excerpt(line),
                     "advice": message_rule.advice,
                 }
                 ignored = _suppressed_ids(line)
@@ -279,3 +285,24 @@ def redact_secrets(text: str) -> str:
     for pattern in _REDACTION_PATTERNS:
         text = pattern.sub(lambda m: f"{m.group(1)}{REDACTED}", text)
     return text
+
+
+# ── Hidden characters ────────────────────────────────────────────────────────
+
+# Characters that display as nothing but are read by a model: zero-width characters, the byte
+# order mark, bidirectional controls (Trojan Source), Unicode tags and supplementary variation
+# selectors (text smuggled to an AI assistant)
+_HIDDEN_CHARS_RE = re.compile(
+    "[\u061c\u180e\u200b-\u200f\u202a-\u202e\u2060-\u2064\u2066-\u2069\ufeff"
+    "\U000e0000-\U000e007f\U000e0100-\U000e01ef]"
+)
+
+
+def reveal_hidden_characters(text: str) -> str:
+    """Replace each invisible character with a visible ``<U+XXXX>`` marker (nothing is removed)."""
+    return _HIDDEN_CHARS_RE.sub(lambda m: f"<U+{ord(m.group()):04X}>", text)
+
+
+def sanitize_untrusted(text: str) -> str:
+    """Mask the secrets and reveal the hidden characters of text that a model will read."""
+    return reveal_hidden_characters(redact_secrets(text))

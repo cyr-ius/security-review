@@ -28,8 +28,12 @@ Le client choisit les fichiers ; le contrôleur ne lit jamais son propre disque.
   `node_modules`, `.venv`, `dist`, `build`, `target`, etc.
 - Le langage est déduit du nom : `.py`, `.java`, `.ts`, `.js`, `.html` (templates Angular),
   `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
-  `.gitlab-ci.yml`. Les lockfiles, `*.min.js` et `*.d.ts` sont ignorés. Seuls ces fichiers
-  sont envoyés.
+  `.gitlab-ci.yml`, et les fichiers qui pilotent un assistant IA (`AGENTS.md`, `CLAUDE.md`,
+  `GEMINI.md`, `copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`,
+  `*.mdc`, `*.instructions.md`, `*.prompt.md`, `*.md` sous `.claude/`, `.cursor/`, `.windsurf/`
+  ou `.clinerules/`), analysés pour y trouver du texte caché et des instructions injectées
+  (règles `AI-*`). Les lockfiles, `*.min.js` et `*.d.ts` sont ignorés. Seuls ces fichiers sont
+  envoyés.
 - Fichiers ignorés : `--exclude GLOB` (répétable, ex. `--exclude tests/`, seulement comptés),
   et, signalés, les fichiers au-delà de `--max-file-bytes` (1 Mio par défaut), les binaires et
   les liens symboliques.
