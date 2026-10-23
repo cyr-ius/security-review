@@ -26,8 +26,9 @@ def settings_env(monkeypatch):
     """Set client settings (SECREVIEW_*) for one test and reload them."""
 
     def _set(**values: str) -> None:
-        for name in ("server_url", "token"):
-            monkeypatch.setenv(f"SECREVIEW_{name.upper()}", values.get(name, ""))
+        # The documented variable names, not the field names
+        for name, variable in (("server_url", "SECREVIEW_MCP_URL"), ("token", "SECREVIEW_TOKEN")):
+            monkeypatch.setenv(variable, values.get(name, ""))
         get_settings.cache_clear()
 
     _set()
