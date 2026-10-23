@@ -152,7 +152,7 @@ findings se distinguent et se filtrent ainsi dans l'[interface web](web-interfac
 | `dependency-review` | prompt `dependency-review` |
 | `codebase-review` | prompt `codebase-review` |
 | `code-scan` | `security-review-ci scan-code --save` |
-| `dependency-scan` | `security-review-ci scan-deps --save` |
+| `dependency-scan` | `security-review-ci scan-deps --save`, `security-review-mcp scan-deps --save` |
 | `other` | toute autre revue (manuelle, sans prompt) |
 
 Le champ est facultatif : un rapport enregistré sans lui n'a pas de type. Toute autre valeur est

@@ -172,7 +172,12 @@ sign in to the web interface and create a new personal MCP token (see
 [rejected token](http.md#rejected-token-sign-in-again)).
 
 - Same options and output as `security-review-ci scan-deps` (`--fail-on`, `--format`,
-  `--require-database`); nothing is stored (no `--save`).
+  `--require-database`).
+- `--save --project P` stores the result as a `dependency-scan` report of the project, with
+  the `save_security_report` tool of the same server and the same token: the token must reach
+  the project (otherwise, [request the project](http.md#enrollment-request-the-project)).
+  `--author`, `--repository`, `--branch` and `--commit` are stored with the report. Without
+  `--save`, nothing is stored.
 - `--url` replaces `SECREVIEW_MCP_URL`, `--token-stdin` reads the token on stdin instead of
   `SECREVIEW_TOKEN`. Both variables can also be set in the `.env` file of the folder (never
   commit it).

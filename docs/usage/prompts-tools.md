@@ -150,7 +150,7 @@ findings can be told apart and filtered in the [web interface](web-interface.md)
 | `dependency-review` | prompt `dependency-review` |
 | `codebase-review` | prompt `codebase-review` |
 | `code-scan` | `security-review-ci scan-code --save` |
-| `dependency-scan` | `security-review-ci scan-deps --save` |
+| `dependency-scan` | `security-review-ci scan-deps --save`, `security-review-mcp scan-deps --save` |
 | `other` | any other review (manual, without a prompt) |
 
 The field is optional: a report saved without it has no type. Any other value is refused.

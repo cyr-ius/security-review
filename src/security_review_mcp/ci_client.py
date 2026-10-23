@@ -643,7 +643,7 @@ def _report_fields(args: argparse.Namespace) -> dict:
     }
 
 
-def _saved_line(result: dict, project: str) -> None:
+def print_saved_line(result: dict, project: str) -> None:
     """Print the id of the stored report, if any."""
     saved = result.get("saved_report")
     if saved:
@@ -668,7 +668,7 @@ def _scan_code(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> 
     code = EXIT_BLOCKED if result["blocked"] else EXIT_PASSED
     if args.format == "text":
         print_code_text(result, args.fail_on)
-        _saved_line(result, args.project)
+        print_saved_line(result, args.project)
         return code
     log = result.pop("sarif", None)
     document = log if args.format == "sarif" else result
@@ -694,7 +694,7 @@ def _scan_deps(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> 
         print(json.dumps(result, indent=2))
     else:
         print_deps_text(result["files"], result["blocking_findings"], args.fail_on)
-        _saved_line(result, args.project)
+        print_saved_line(result, args.project)
     return EXIT_BLOCKED if result["blocked"] else EXIT_PASSED
 
 
