@@ -42,6 +42,7 @@ from .models import (
     utcnow,
 )
 from .project_names import normalize_project
+from .prompts import fenced
 from .scanner import redact_secrets
 
 logger = logging.getLogger(__name__)
@@ -1055,7 +1056,8 @@ def render_report_markdown(report: SecurityReportPublic) -> str:
             )
         lines += ["", finding.description]
         if finding.evidence:
-            lines += ["", "```", finding.evidence, "```"]
+            # The evidence comes from the reviewed code: it must not close its block
+            lines += ["", fenced(finding.evidence)]
         if finding.recommendation:
             lines += ["", f"**Recommendation**: {finding.recommendation}"]
     return "\n".join(lines) + "\n"
