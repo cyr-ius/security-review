@@ -74,7 +74,8 @@ suivantes.
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, derniers rapports et
   export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant ;
-  **Acceptations de risque** liste les risques acceptés du projet.
+  **Acceptations de risque** liste les risques acceptés du projet ; **Actualiser** recharge la
+  tendance et les rapports.
 - **Findings à revoir** : tous les findings ouverts du projet, sur l'ensemble de ses rapports,
   du plus grave au moins grave puis du rapport le plus récent au plus ancien, pour une revue par
   un expert en cybersécurité. Chaque finding affiche sa description, son extrait de code et sa

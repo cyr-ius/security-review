@@ -8,6 +8,7 @@ import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { SEVERITIES, Severity, Trend } from '../../../core/models/api.models';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
+import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { ReportTableComponent } from '../../../shared/components/report-table/report-table.component';
 import { SeverityCountsComponent } from '../../../shared/components/severity-counts/severity-counts.component';
 import { TrendChartComponent } from '../../../shared/components/trend-chart/trend-chart.component';
@@ -34,6 +35,7 @@ const RECENT_REPORTS = 20;
   imports: [
     RouterLink,
     DecimalPipe,
+    RefreshButtonComponent,
     ReportTableComponent,
     SeverityCountsComponent,
     TrendChartComponent,
@@ -86,6 +88,12 @@ export class ProjectDetailComponent {
       days: oldest[s as Severity] ?? 0,
     }));
   });
+
+  /** Reload the trend and the latest reports. */
+  reload(): void {
+    this.trend.reload();
+    this.reports.reload();
+  }
 
   selectWindow(window: TrendWindow): void {
     this.window.set(window);

@@ -41,6 +41,7 @@
       <i class="bi bi-download" aria-hidden="true"></i>
       {{ 'project.exportSarif' | t }}
     </button>
+    <app-refresh-button [loading]="trend.isLoading() || reports.isLoading()" (refresh)="reload()" />
   </div>
 </div>
 
