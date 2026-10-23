@@ -650,14 +650,16 @@ export interface TicketingConnector {
   name: string;
   builtin: boolean;
   configured: boolean;
+  /** Switched on: tickets may be sent through it. */
+  enabled: boolean;
   fields: TicketingFieldState[];
   destination: TicketingFieldInfo;
 }
 
 /** GET /api/v1/settings/ticketing */
 export interface TicketingSettings {
-  /** SECREVIEW_TICKETING_ENABLED */
-  enabled: boolean;
+  /** SECREVIEW_TICKETING_ENABLED (null: unset, the switches decide; false: every connector locked off) */
+  enabled: boolean | null;
   interval_seconds: number;
   cafile: string | null;
   /** Third-party connectors allowed by SECREVIEW_TICKETING_PLUGINS */

@@ -23,7 +23,7 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 
 The screens are reached from the sidebar: **Supervision** (projects, reports) for every account,
 then **Reference** (rules, checklists, standards) and **Administration** (users, groups, roles,
-tokens, audit log, OIDC, report language, outgoing proxy, OSV database, ticketing), each shown only to the
+tokens, audit log, OIDC, report language, outgoing proxy, OSV database, connectors), each shown only to the
 accounts that hold its [permission](../advanced/access-control.md#permissions). The bottom
 of the sidebar shows the connected client (its permissions when hovered) and the version (a link to **About**), with the **My account** and logout buttons.
 On a small screen, the sidebar is reduced to its icons (each one names its screen when hovered)
@@ -201,9 +201,9 @@ a **Delete** button.
   ecosystem), searchable and sortable with status/trigger filters, and **Update now** button, only available if
   `SECREVIEW_OSV_AUTO_UPDATE=true`
   ([update by the controller](../advanced/dependencies.md#automatic-update-by-the-controller)).
-- **Ticketing**: connections of Jira and ServiceNow (with **Test the connection**) and
-  destination of each project, with its optional automatic sending
-  ([ticketing](../advanced/ticketing.md)).
+- **Connectors**: one card per connector (Jira, ServiceNow, third-party) with its switch and a
+  gear for its settings: connection (with **Test the connection**) and destination of each
+  project, with its optional automatic sending ([ticketing](../advanced/ticketing.md)).
 
 ## Triage of findings
 

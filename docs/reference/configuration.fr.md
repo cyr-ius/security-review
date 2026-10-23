@@ -146,12 +146,12 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_TICKETING_ENABLED` | `false` | Envoie les findings vers [Jira et ServiceNow](../advanced/ticketing.md), à la main ou automatiquement (connexions sortantes du contrôleur) |
+| `SECREVIEW_TICKETING_ENABLED` | — | Verrou des [connecteurs](../advanced/ticketing.md#activation) (Jira, ServiceNow, tiers ; connexions sortantes du contrôleur) : non définie, chacun s'active dans l'écran **Connecteurs** (tous désactivés par défaut) ; `false`, tous verrouillés ; `true`, un connecteur jamais basculé est activé |
 | `SECREVIEW_TICKETING_INTERVAL_SECONDS` | `300` | Période de l'[envoi automatique](../advanced/ticketing.md#envoi-dun-finding) (30 à 86400) |
 | `SECREVIEW_TICKETING_CAFILE` | — | Bundle de CA utilisé à la place de celui du système (autorité interne) |
 | `SECREVIEW_TICKETING_PLUGINS` | — | [Connecteurs tiers](../advanced/ticketing.md#connecteurs-tiers) autorisés, par nom de point d'entrée, séparés par des virgules ; un connecteur installé mais non listé n'est jamais chargé |
-| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Connexion Jira](../advanced/ticketing.md#connexions) ; définies, elles sont prioritaires sur l'écran **Ticketing** |
-| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [Connexion ServiceNow](../advanced/ticketing.md#connexions) ; définies, elles sont prioritaires sur l'écran **Ticketing** |
+| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Connexion Jira](../advanced/ticketing.md#connexions) ; définies, elles sont prioritaires sur l'écran **Connecteurs** |
+| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [Connexion ServiceNow](../advanced/ticketing.md#connexions) ; définies, elles sont prioritaires sur l'écran **Connecteurs** |
 | `SECREVIEW_<TYPE>_<CHAMP>` | — | Champ de la connexion d'un [connecteur tiers](../advanced/ticketing.md#connecteurs-tiers) (`SECREVIEW_ACME_API_KEY`) |
 
 ### Limites des scans de pipeline

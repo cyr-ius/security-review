@@ -24,7 +24,7 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 Les écrans sont accessibles depuis la barre latérale : **Supervision** (projets, rapports) pour
 tous les comptes, puis **Référentiel** (règles, checklists, normes) et **Administration**
 (utilisateurs, groupes, rôles, jetons, journal d'audit, OIDC, langue des rapports, proxy sortant,
-base OSV, ticketing), chaque écran n'étant affiché qu'aux comptes qui ont sa
+base OSV, connecteurs), chaque écran n'étant affiché qu'aux comptes qui ont sa
 [permission](../advanced/access-control.md#permissions). Le bas de la barre affiche le client connecté (ses permissions au survol) et la
 version (un lien vers **À propos**), avec les boutons **Mon compte** et de déconnexion.
 Sur petit écran, la barre est réduite à ses icônes (chacune nomme son écran au survol) et le
@@ -216,9 +216,9 @@ est signalée comme ignorée, avec un bouton **Supprimer**.
   triable et filtrable par statut/déclencheur, et bouton
   **Mettre à jour maintenant**, disponible seulement si `SECREVIEW_OSV_AUTO_UPDATE=true`
   ([mise à jour par le contrôleur](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur)).
-- **Ticketing** : connexions de Jira et ServiceNow (avec **Tester la connexion**) et
-  destination de chaque projet, avec son envoi automatique facultatif
-  ([ticketing](../advanced/ticketing.md)).
+- **Connecteurs** : une carte par connecteur (Jira, ServiceNow, tiers) avec son interrupteur et
+  une roue crantée pour ses paramètres : connexion (avec **Tester la connexion**) et destination
+  de chaque projet, avec son envoi automatique facultatif ([ticketing](../advanced/ticketing.md)).
 
 ## Triage des findings
 

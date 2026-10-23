@@ -184,6 +184,27 @@ def test_nothing_is_sent_without_its_configuration(remote, settings, configured,
     assert raised.value.code == code and opener.requests == []
 
 
+@pytest.mark.parametrize(
+    ("variable", "default", "switchable"),
+    [(None, False, True), (True, True, True), (False, False, False)],
+)
+def test_a_connector_sends_only_once_switched_on_unless_locked(jira, variable, default, switchable):
+    settings = make_settings(ticketing_enabled=variable)
+    assert connections.enabled(jira, settings) is default
+
+    if not switchable:
+        with pytest.raises(ValueError, match="locked off"):
+            connections.set_enabled(jira, True, "user:root", settings)
+        return
+    connections.set_enabled(jira, not default, "user:root", settings)
+    assert connections.enabled(jira, settings) is not default
+    # The stored switch counts until the variable locks every connector
+    assert connections.enabled(jira, make_settings(ticketing_enabled=False)) is False
+    servicenow = registry.get("servicenow")
+    with pytest.raises(ValueError, match="before switching it on"):
+        connections.set_enabled(servicenow, True, "user:root", settings)
+
+
 def test_automatic_sending_follows_the_threshold_from_its_setting(remote, servicenow):
     old = save_finding(severity=Severity.CRITICAL, title="Older finding")
     set_target("shop", servicenow, " AppSec Team ", Severity.HIGH, "user:root")
@@ -226,7 +247,7 @@ def test_a_connection_is_stored_audited_and_never_shows_its_secret(jira):
     state = connections.resolve(jira)
     assert state.configured and state.values["api_token"] == JIRA_TOKEN
     assert state.values["issue_type"] == "Bug"  # default of the connector
-    described = connections.describe(jira, builtin=True)
+    described = connections.describe(jira, builtin=True, settings=make_settings())
     assert JIRA_TOKEN not in str(described)
     token = next(f for f in described["fields"] if f["name"] == "api_token")
     assert (token["value"], token["variable"]) == ("***", "SECREVIEW_JIRA_API_TOKEN")

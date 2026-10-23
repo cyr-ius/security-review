@@ -119,7 +119,7 @@ def serve(argv: list[str]) -> None:
         ticketing.TicketDispatcher(
             settings, current=lambda: app_settings.effective_settings(settings)
         )
-        if settings.ticketing_enabled
+        if settings.ticketing_enabled is not False
         else None
     )
     if dispatcher:

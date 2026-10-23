@@ -10,6 +10,10 @@ stored one. A secret is bound to its URL: changing the host of a connection requ
 its secrets again in the same change, and is refused when a secret comes from a variable.
 Otherwise whoever may change the settings could send a stored token to a host of their choice
 (a send or a connection test).
+
+Each connector has its switch (key ``ticketing:<kind>:enabled``, ``:`` never being in a field
+key): nothing is sent through a connector switched off. SECREVIEW_TICKETING_ENABLED locks them
+all off when false, and switches on the connectors never switched when true (see enabled).
 """
 
 from collections.abc import Mapping
@@ -83,6 +87,46 @@ def variable(connector: TicketConnector, name: str) -> str:
 def _key(connector: TicketConnector, name: str) -> str:
     """Key of a stored field."""
     return f"ticketing_{connector.kind}_{name}"
+
+
+def _enabled_key(connector: TicketConnector) -> str:
+    """Key of the stored switch of a connector."""
+    return f"ticketing:{connector.kind}:enabled"
+
+
+def enabled(connector: TicketConnector, settings: Settings) -> bool:
+    """True when the controller may send tickets through ``connector``: not locked by
+    SECREVIEW_TICKETING_ENABLED=false, and switched on (a connector never switched is on only
+    when the variable is true)."""
+    if settings.ticketing_enabled is False:
+        return False
+    stored = _stored().get(_enabled_key(connector))
+    if stored is None:
+        return settings.ticketing_enabled is True
+    return stored == "true"
+
+
+def set_enabled(connector: TicketConnector, on: bool, actor: str, settings: Settings) -> None:
+    """Switch a connector on or off; the change is audited.
+
+    Raises:
+        ValueError: If the variable locks the switches, or the connection to switch on is not
+            configured.
+    """
+    if settings.ticketing_enabled is False:
+        raise ValueError("SECREVIEW_TICKETING_ENABLED is false: the connectors are locked off")
+    if on and not resolve(connector).configured:
+        raise ValueError(f"configure the {connector.name} connection before switching it on")
+    with session_scope() as session:
+        _apply(session, {_enabled_key(connector): "true" if on else "false"}, actor)
+        audit.record(
+            session,
+            audit.AuditAction.TICKETING_CHANGED,
+            actor,
+            "setting",
+            connector.kind,
+            details={"enabled": on},
+        )
 
 
 def check_value(connector: TicketConnector, spec: ConnectorField, value: str) -> str:
@@ -291,15 +335,16 @@ def _describe_field(spec: ConnectorField) -> dict[str, Any]:
     }
 
 
-def describe(connector: TicketConnector, builtin: bool) -> dict[str, Any]:
+def describe(connector: TicketConnector, builtin: bool, settings: Settings) -> dict[str, Any]:
     """Describe a connection: its fields (declaration, stored value, variable, effective value,
-    secrets masked), whether it is configured, and its destination field."""
+    secrets masked), whether it is configured and switched on, and its destination field."""
     state = resolve(connector)
     return {
         "kind": connector.kind,
         "name": connector.name,
         "builtin": builtin,
         "configured": state.configured,
+        "enabled": enabled(connector, settings),
         "fields": [
             _describe_field(spec)
             | {

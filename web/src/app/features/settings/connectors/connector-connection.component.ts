@@ -1,5 +1,5 @@
 import { Component, computed, inject, input, linkedSignal, output, signal } from '@angular/core';
-import { FormField, form, maxLength } from '@angular/forms/signals';
+import { FormField, applyEach, form, maxLength } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
@@ -16,17 +16,16 @@ import { describeError } from '../settings-page';
 const MAX_VALUE_CHARS = 500;
 
 /**
- * Connection of one ticketing system. Its fields are those the connector declares (the URL
- * first): a field whose SECREVIEW_* variable is set is only shown; a secret is never sent back
- * by the server ('***', kept when saved unchanged).
+ * Connection of one connector, in its settings dialog. Its fields are those the connector
+ * declares (the URL first): a field whose SECREVIEW_* variable is set is only shown; a secret is
+ * never sent back by the server ('***', kept when saved unchanged).
  */
 @Component({
-  selector: 'app-ticketing-connection',
+  selector: 'app-connector-connection',
   imports: [FormField, TranslatePipe],
-  templateUrl: './ticketing-connection.component.html',
-  styleUrl: '../settings.css',
+  templateUrl: './connector-connection.component.html',
 })
-export class TicketingConnectionComponent {
+export class ConnectorConnectionComponent {
   private readonly api = inject(ApiService);
   private readonly i18n = inject(I18nService);
 
@@ -38,10 +37,10 @@ export class TicketingConnectionComponent {
   readonly model = linkedSignal<Record<string, string>>(() =>
     Object.fromEntries(this.connector().fields.map((f) => [f.name, f.value ?? ''])),
   );
+  // Every field has the same bound: the schema must not read the input (not set yet when the
+  // form is built)
   readonly connectionForm = form(this.model, (path) => {
-    for (const field of this.connector().fields) {
-      maxLength(path[field.name], MAX_VALUE_CHARS);
-    }
+    applyEach(path, (value) => maxLength(value, MAX_VALUE_CHARS));
   });
 
   /** Fields the web interface may change. */
@@ -74,7 +73,7 @@ export class TicketingConnectionComponent {
     }
     await this.run(async () => {
       await firstValueFrom(this.api.setTicketing(this.connector().kind, this.values()));
-      this.message.set(msg('ticketing.saved'));
+      this.message.set(msg('connectors.saved'));
       this.changed.emit();
     });
   }
@@ -85,9 +84,9 @@ export class TicketingConnectionComponent {
       const kind = this.connector().kind;
       const result = await firstValueFrom(this.api.testTicketing(kind, this.values()));
       if (result.ok) {
-        this.message.set(msg('ticketing.testOk'));
+        this.message.set(msg('connectors.testOk'));
       } else {
-        this.error.set(msg('ticketing.testFailed', { message: result.message ?? '' }));
+        this.error.set(msg('connectors.testFailed', { message: result.message ?? '' }));
       }
     });
   }

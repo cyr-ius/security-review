@@ -1297,19 +1297,30 @@ class TicketingConnector(BaseModel):
     name: str
     builtin: bool
     configured: bool
+    # Switched on: tickets may be sent (see ticketing.connections.enabled)
+    enabled: bool
     fields: list[TicketingFieldState]
     destination: TicketingFieldInfo
 
 
 class TicketingSettings(BaseModel):
-    """Ticketing: whether it is enabled (SECREVIEW_TICKETING_ENABLED), the allowed third-party
-    connectors (SECREVIEW_TICKETING_PLUGINS) and every available system."""
+    """Ticketing: SECREVIEW_TICKETING_ENABLED (``null``: unset, the switches of the connectors
+    decide; ``false``: every connector locked off), the allowed third-party connectors
+    (SECREVIEW_TICKETING_PLUGINS) and every available system."""
 
-    enabled: bool
+    enabled: bool | None
     interval_seconds: int
     cafile: str | None
     plugins: list[str]
     connectors: list[TicketingConnector]
+
+
+class TicketingSwitch(BaseModel):
+    """Body of PUT /settings/ticketing/{kind}/enabled."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool
 
 
 class TicketingTestResult(BaseModel):

@@ -15,22 +15,35 @@ does.
 
 ## Enabling
 
-Ticketing is **disabled by default**: set `SECREVIEW_TICKETING_ENABLED=true` on the controller.
-Until then, the connections and the destinations can be prepared, but nothing is sent.
+The **Connectors** screen (Administration, `settings.manage` permission) shows every available
+connector as a card: its state, the number of projects that use it, a **switch** and a **gear**
+that opens its settings (**Connection** and **Projects** tabs).
+
+Every connector is **disabled by default**: nothing is sent through it until an administrator
+switches it on. A connector can only be switched on once its connection is configured; switching
+it off stops the sending by hand and the automatic sending at once. Each change is recorded in
+the audit log (`ticketing.changed`, `{"enabled": true}`).
+
+`SECREVIEW_TICKETING_ENABLED` is the lock of the operator:
+
+| Value | Effect |
+|---|---|
+| unset (default) | The switches of the screen decide; every connector is off until switched on |
+| `false` | Every connector is locked off: nothing is sent, the switches cannot be turned on, **Test the connection** is refused |
+| `true` | A connector never switched in the screen is on (behaviour of the versions without switch); a switch turned off still applies |
 
 ```bash
-SECREVIEW_TICKETING_ENABLED=true
 SECREVIEW_TICKETING_INTERVAL_SECONDS=300   # period of the automatic sending
 SECREVIEW_TICKETING_CAFILE=/etc/ssl/corp-ca.pem   # optional: internal certificate authority
 ```
 
 ## Connections
 
-Each system has its connection, set by its variables or in the **Ticketing** screen
-(Administration, `settings.manage` permission). A variable that is set takes precedence: its
+Each system has its connection, set by its variables or in the **Connection** tab of its gear in
+the **Connectors** screen. A variable that is set takes precedence: its
 field is only shown in the screen. Secrets are never shown again (`***`); sending `***` back
 keeps the stored one. **Test the connection** checks the entered values with a read-only
-request, without saving them.
+request, without saving them, before the connector is switched on.
 
 Every field of a connector has its variable, `SECREVIEW_<KIND>_<FIELD>`: those of the built-in
 connectors are below. A secret is bound to the host of its URL: setting a URL for another host,
@@ -57,7 +70,7 @@ permissions on the projects used; in ServiceNow, the right to create records in 
 
 A project needs a **destination** to send its findings to a system: the **Jira project key**
 (`SEC`), or the **ServiceNow assignment group** (optional, its name). The destinations are set
-at the bottom of the **Ticketing** screen.
+in the **Projects** tab of the gear of the connector, in the **Connectors** screen.
 
 Each destination may have an **automatic sending** threshold: every new **open** finding at
 least that severe is then sent by the controller. The threshold only applies to the reports
@@ -97,7 +110,8 @@ loaded from another site).
 
 ## Security
 
-- Outgoing connections of the **controller** only, disabled by default, over **HTTPS** with
+- Outgoing connections of the **controller** only, every connector disabled by default (switched
+  on by an administrator, or locked off by `SECREVIEW_TICKETING_ENABLED=false`), over **HTTPS** with
   certificate verification (`SECREVIEW_TICKETING_CAFILE` for an internal authority), through the
   [outgoing proxy](../reference/configuration.md#outgoing-proxy).
 - **Redirects are refused**: they would carry the credentials elsewhere. Timeout 15 seconds,
@@ -113,7 +127,7 @@ loaded from another site).
   stored token never reaches another host.
 - A third-party connector is loaded only when `SECREVIEW_TICKETING_PLUGINS` names it, and
   runs with the rights of the controller: install only code you trust.
-- Audit events: `ticketing.changed` (connection), `ticketing.target_changed` (destination of a
+- Audit events: `ticketing.changed` (connection or switch), `ticketing.target_changed` (destination of a
   project), `finding.ticket_created` (ticket created or reused, with its key; actor `auto` for
   the automatic sending).
 
@@ -132,8 +146,8 @@ SECREVIEW_ACME_API_KEY=...
 
 The controller loads the allowed connectors at start and refuses to start if one is missing,
 written for another version of the API, or declares a variable of the server itself
-(`SECREVIEW_<KIND>_<FIELD>` must not be an existing setting). The **Ticketing** screen shows it
-with its fields, marked **Third-party connector**. A connector runs in the controller with its
+(`SECREVIEW_<KIND>_<FIELD>` must not be an existing setting). The **Connectors** screen shows it
+as a card marked **Third-party**, off until switched on. A connector runs in the controller with its
 rights: only install and allow code you trust, like any dependency.
 
 ## Writing a connector
@@ -226,15 +240,16 @@ anything but the ticket it creates.
 
 | Route | Permission | Role |
 |---|---|---|
-| `GET /api/v1/settings/ticketing` | `settings.manage` | Every connector with its fields and connection (secrets `***`), allowed plugins, whether ticketing is enabled |
+| `GET /api/v1/settings/ticketing` | `settings.manage` | Every connector with its fields and connection (secrets `***`) and its switch (`enabled`), allowed plugins, `SECREVIEW_TICKETING_ENABLED` (`enabled`: `null` when unset) |
 | `GET /api/v1/ticketing/systems` | any | Available systems (`kind`, `name`) |
 | `PUT /api/v1/settings/ticketing/{kind}` | `settings.manage` | Changes fields of a connection (`{"url": ..., "api_token": ...}`); `null` or `""` deletes the stored value; `404` for an unknown system |
-| `POST /api/v1/settings/ticketing/{kind}/test` | `settings.manage` | Tests the stored values and those of the body, not saved |
+| `PUT /api/v1/settings/ticketing/{kind}/enabled` | `settings.manage` | Switches a connector on or off (`{"enabled": true}`); `422` while its connection is not configured or when `SECREVIEW_TICKETING_ENABLED=false` |
+| `POST /api/v1/settings/ticketing/{kind}/test` | `settings.manage` | Tests the stored values and those of the body, not saved, the connector switched on or not |
 | `GET /api/v1/ticketing/targets` | `settings.manage` | Destinations of the projects |
 | `PUT /api/v1/projects/{project}/ticket-targets/{kind}` | `settings.manage` | `{"destination": "SEC", "auto_min_severity": "high"}` (`null`: by hand only) |
 | `DELETE /api/v1/projects/{project}/ticket-targets/{kind}` | `settings.manage` | Deletes a destination (the tickets are kept) |
 | `GET /api/v1/ticketing/destinations` | any | Projects and systems the caller may send findings to now |
-| `POST /api/v1/findings/{id}/tickets/{kind}` | `findings.triage` | Sends a finding: `201` with the ticket; `409` when ticketing, the connection or the destination is missing; `502` when the system refuses it |
+| `POST /api/v1/findings/{id}/tickets/{kind}` | `findings.triage` | Sends a finding: `201` with the ticket; `409` when the connector is switched off, or the connection or the destination is missing; `502` when the system refuses it |
 
 ```bash
 curl -X POST -H "Authorization: Bearer $TOKEN" \

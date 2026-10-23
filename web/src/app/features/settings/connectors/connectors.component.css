@@ -1,0 +1,72 @@
+.connector-card {
+  transition:
+    border-color 0.15s ease-in-out,
+    box-shadow 0.15s ease-in-out;
+}
+
+.connector-card:hover {
+  box-shadow: var(--app-shadow-lg);
+}
+
+.connector-card.is-on {
+  border-color: var(--bs-success-border-subtle);
+}
+
+.connector-add {
+  border-style: dashed;
+  background: transparent;
+}
+
+.connector-logo {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  inline-size: 3rem;
+  block-size: 3rem;
+  border-radius: var(--bs-border-radius-lg);
+  background: var(--bs-secondary-bg-subtle);
+  color: var(--bs-secondary-text-emphasis);
+  font-size: 1.5rem;
+}
+
+.connector-logo-sm {
+  inline-size: 2rem;
+  block-size: 2rem;
+  font-size: 1rem;
+}
+
+.connector-logo.logo-jira {
+  background: var(--bs-primary-bg-subtle);
+  color: var(--bs-primary-text-emphasis);
+}
+
+.connector-logo.logo-servicenow {
+  background: var(--bs-success-bg-subtle);
+  color: var(--bs-success-text-emphasis);
+}
+
+.min-w-0 {
+  min-inline-size: 0;
+}
+
+.connector-dialog {
+  inline-size: min(48rem, calc(100vw - 2rem));
+  max-block-size: calc(100dvh - 2rem);
+  padding: 0;
+  border: 0;
+  border-radius: var(--bs-border-radius-lg);
+  background: transparent;
+  color: var(--bs-body-color);
+}
+
+.connector-dialog::backdrop {
+  background: var(--app-backdrop);
+}
+
+.connector-dialog-card {
+  max-block-size: calc(100dvh - 2rem);
+}
+
+.connector-dialog-card .card-body {
+  overflow-y: auto;
+}

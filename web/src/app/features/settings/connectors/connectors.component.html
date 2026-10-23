@@ -1,0 +1,239 @@
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h1 class="h3 mb-0">{{ 'connectors.title' | t }}</h1>
+    <p class="text-body-secondary mb-0">{{ 'connectors.subtitle' | t }}</p>
+  </div>
+  <app-refresh-button [loading]="loading()" (refresh)="reload()" />
+</div>
+
+@if (settings.error()) {
+  <div class="alert alert-danger" role="alert">{{ 'connectors.loadError' | t }}</div>
+} @else if (settings.isLoading() && !settings.hasValue()) {
+  <div class="text-center my-4">
+    <span class="spinner-border text-secondary" aria-hidden="true"></span>
+    <span class="visually-hidden">{{ 'common.loading' | t }}</span>
+  </div>
+} @else if (settings.value(); as current) {
+  @if (locked()) {
+    <div class="alert alert-warning py-2" role="status">
+      <i class="bi bi-lock" aria-hidden="true"></i>
+      {{ 'connectors.locked' | t }}
+    </div>
+  }
+  @if (error(); as text) {
+    <div class="alert alert-danger py-2 text-break" role="alert">{{ text | t }}</div>
+  }
+  @if (message(); as text) {
+    <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+  }
+
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xxl-3 g-3 mb-3">
+    @for (connector of current.connectors; track connector.kind) {
+      @let look = this.look(connector);
+      @let badge = this.badge(connector);
+      @let switchId = 'switch-' + connector.kind;
+      <div class="col">
+        <article
+          class="card connector-card h-100"
+          [class.is-on]="connector.enabled && !locked()"
+          [attr.aria-labelledby]="'connector-' + connector.kind"
+        >
+          <div class="card-body d-flex gap-3">
+            <div
+              class="connector-logo"
+              [class.logo-jira]="connector.builtin && connector.kind === 'jira'"
+              [class.logo-servicenow]="connector.builtin && connector.kind === 'servicenow'"
+              aria-hidden="true"
+            >
+              <i class="bi" [class]="look.icon"></i>
+            </div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="d-flex flex-wrap align-items-center gap-2 mb-1">
+                <h2 class="h5 mb-0 me-auto text-break" [id]="'connector-' + connector.kind">
+                  {{ connector.name }}
+                </h2>
+                <span class="badge" [class]="badge.css">
+                  <i class="bi" [class]="badge.icon" aria-hidden="true"></i>
+                  {{ badge.label | t }}
+                </span>
+              </div>
+              <p class="small text-body-secondary mb-2">{{ look.about | t }}</p>
+              <div class="d-flex flex-wrap gap-2 small text-body-secondary">
+                <span class="badge rounded-pill bg-body-tertiary text-body-secondary border">
+                  {{ (connector.builtin ? 'connectors.builtin' : 'connectors.plugin') | t }}
+                </span>
+                <span>
+                  <i class="bi bi-folder2" aria-hidden="true"></i>
+                  {{ 'connectors.projects' | t: { count: targetsOf(connector).length } }}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div class="card-footer d-flex align-items-center gap-2">
+            <div class="form-check form-switch mb-0 me-auto">
+              <input
+                class="form-check-input"
+                type="checkbox"
+                role="switch"
+                [id]="switchId"
+                [checked]="connector.enabled && !locked()"
+                [disabled]="!switchable(connector) || switching() === connector.kind"
+                [attr.aria-describedby]="switchable(connector) ? null : switchId + '-why'"
+                (change)="toggle(connector, $event)"
+              />
+              <label class="form-check-label" [for]="switchId">
+                {{ 'connectors.switch' | t: { name: connector.name } }}
+              </label>
+              @if (!switchable(connector) && !locked()) {
+                <div class="form-text mt-0" [id]="switchId + '-why'">
+                  {{ 'connectors.switchUnconfigured' | t }}
+                </div>
+              }
+            </div>
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              aria-haspopup="dialog"
+              [title]="'connectors.settings' | t: { name: connector.name }"
+              [attr.aria-label]="'connectors.settings' | t: { name: connector.name }"
+              (click)="open(connector)"
+            >
+              <i class="bi bi-gear" aria-hidden="true"></i>
+            </button>
+          </div>
+        </article>
+      </div>
+    }
+    <div class="col">
+      <aside class="card connector-add h-100" aria-labelledby="connector-add-title">
+        <div class="card-body d-flex gap-3">
+          <div class="connector-logo" aria-hidden="true">
+            <i class="bi bi-plus-lg"></i>
+          </div>
+          <div class="min-w-0">
+            <h2 class="h6 mb-1" id="connector-add-title">{{ 'connectors.addTitle' | t }}</h2>
+            <p class="small text-body-secondary mb-1">{{ 'connectors.addHelp' | t }}</p>
+            <p class="small text-body-secondary mb-0 text-break">
+              {{ 'connectors.allowed' | t }}
+              <span class="font-monospace">{{
+                current.plugins.length ? current.plugins.join(', ') : ('settings.none' | t)
+              }}</span>
+            </p>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <p class="small text-body-secondary">
+    {{ 'connectors.interval' | t: { seconds: current.interval_seconds } }}
+  </p>
+}
+
+<dialog
+  #connectorDialog
+  class="connector-dialog shadow"
+  aria-labelledby="connector-dialog-title"
+  (close)="onClosed()"
+>
+  @if (opened(); as connector) {
+    <div class="card connector-dialog-card">
+      <div class="card-header d-flex align-items-center gap-2">
+        <div
+          class="connector-logo connector-logo-sm"
+          [class.logo-jira]="connector.builtin && connector.kind === 'jira'"
+          [class.logo-servicenow]="connector.builtin && connector.kind === 'servicenow'"
+          aria-hidden="true"
+        >
+          <i class="bi" [class]="look(connector).icon"></i>
+        </div>
+        <h2 id="connector-dialog-title" class="h6 mb-0 me-auto">
+          {{ 'connectors.settings' | t: { name: connector.name } }}
+        </h2>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          [attr.aria-label]="'common.closeForm' | t"
+          (click)="close()"
+        >
+          <i class="bi bi-x-lg" aria-hidden="true"></i>
+        </button>
+      </div>
+      <div class="card-body">
+        <div class="form-check form-switch mb-3">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            role="switch"
+            id="dialog-switch"
+            [checked]="connector.enabled && !locked()"
+            [disabled]="!switchable(connector) || switching() === connector.kind"
+            (change)="toggle(connector, $event)"
+          />
+          <label class="form-check-label" for="dialog-switch">
+            {{ 'connectors.enabled' | t }}
+          </label>
+          @if (locked()) {
+            <div class="form-text mt-0">{{ 'connectors.locked' | t }}</div>
+          } @else if (!switchable(connector)) {
+            <div class="form-text mt-0">{{ 'connectors.switchUnconfigured' | t }}</div>
+          }
+        </div>
+        @if (error(); as text) {
+          <div class="alert alert-danger py-2 text-break" role="alert">{{ text | t }}</div>
+        }
+
+        <ul class="nav nav-tabs mb-3" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button
+              type="button"
+              class="nav-link"
+              role="tab"
+              id="tab-connection"
+              aria-controls="panel-connection"
+              [class.active]="tab() === 'connection'"
+              [attr.aria-selected]="tab() === 'connection'"
+              (click)="tab.set('connection')"
+            >
+              <i class="bi bi-plug" aria-hidden="true"></i>
+              {{ 'connectors.tab.connection' | t }}
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button
+              type="button"
+              class="nav-link"
+              role="tab"
+              id="tab-projects"
+              aria-controls="panel-projects"
+              [class.active]="tab() === 'projects'"
+              [attr.aria-selected]="tab() === 'projects'"
+              (click)="tab.set('projects')"
+            >
+              <i class="bi bi-folder2" aria-hidden="true"></i>
+              {{ 'connectors.tab.projects' | t }}
+              <span class="badge rounded-pill text-bg-secondary">{{
+                targetsOf(connector).length
+              }}</span>
+            </button>
+          </li>
+        </ul>
+
+        @if (tab() === 'connection') {
+          <div role="tabpanel" id="panel-connection" aria-labelledby="tab-connection">
+            <app-connector-connection [connector]="connector" (changed)="settings.reload()" />
+          </div>
+        } @else {
+          <div role="tabpanel" id="panel-projects" aria-labelledby="tab-projects">
+            <app-connector-targets
+              [connector]="connector"
+              [targets]="targetsOf(connector)"
+              [projectNames]="projectNames()"
+              (changed)="targets.reload()"
+            />
+          </div>
+        }
+      </div>
+    </div>
+  }
+</dialog>
