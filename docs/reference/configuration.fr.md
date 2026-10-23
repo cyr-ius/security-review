@@ -146,7 +146,7 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_TICKETING_ENABLED` | — | Verrou des [connecteurs](../advanced/ticketing.md#activation) (Jira, ServiceNow, tiers ; connexions sortantes du contrôleur) : non définie, chacun s'active dans l'écran **Connecteurs** (tous désactivés par défaut) ; `false`, tous verrouillés ; `true`, un connecteur jamais basculé est activé |
+| `SECREVIEW_TICKETING_ENABLED` | `true` | Verrou des [connecteurs](../advanced/ticketing.md#activation) (Jira, ServiceNow, tiers ; connexions sortantes du contrôleur) : `true`, chacun s'active dans l'écran **Connecteurs** (tous désactivés par défaut) ; `false`, tous verrouillés |
 | `SECREVIEW_TICKETING_INTERVAL_SECONDS` | `300` | Période de l'[envoi automatique](../advanced/ticketing.md#envoi-dun-finding) (30 à 86400) |
 | `SECREVIEW_TICKETING_CAFILE` | — | Bundle de CA utilisé à la place de celui du système (autorité interne) |
 | `SECREVIEW_TICKETING_PLUGINS` | — | [Connecteurs tiers](../advanced/ticketing.md#connecteurs-tiers) autorisés, par nom de point d'entrée, séparés par des virgules ; un connecteur installé mais non listé n'est jamais chargé |

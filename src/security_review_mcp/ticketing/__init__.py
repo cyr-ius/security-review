@@ -1,7 +1,7 @@
 """Tickets of the findings in ticketing systems, created by the controller (optional).
 
-Disabled by default: each connector is switched on in the web interface, unless the operator
-locks them all (SECREVIEW_TICKETING_ENABLED=false, see connections.enabled). Outgoing
+Every connector is off until switched on in the web interface, unless the operator locks them
+all (SECREVIEW_TICKETING_ENABLED=false, see connections.enabled). Outgoing
 connections of the controller, never of the MCP server. The systems are **connectors** (see
 api): Jira and ServiceNow are built in, and a third-party package adds others through an entry
 point, loaded only when the operator allows it (SECREVIEW_TICKETING_PLUGINS, see registry).

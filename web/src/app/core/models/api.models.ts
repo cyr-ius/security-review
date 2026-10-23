@@ -658,8 +658,8 @@ export interface TicketingConnector {
 
 /** GET /api/v1/settings/ticketing */
 export interface TicketingSettings {
-  /** SECREVIEW_TICKETING_ENABLED (null: unset, the switches decide; false: every connector locked off) */
-  enabled: boolean | null;
+  /** SECREVIEW_TICKETING_ENABLED (false: every connector locked off) */
+  enabled: boolean;
   interval_seconds: number;
   cafile: string | null;
   /** Third-party connectors allowed by SECREVIEW_TICKETING_PLUGINS */

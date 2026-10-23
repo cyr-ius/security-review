@@ -115,7 +115,7 @@ def test_connection(settings: Settings, state: connections.ConnectionState) -> N
     Raises:
         TicketingError: If the connection cannot be used.
     """
-    if settings.ticketing_enabled is False:
+    if not settings.ticketing_enabled:
         raise TicketingError("disabled", "ticketing is locked off (SECREVIEW_TICKETING_ENABLED)")
     connection = connection_of(settings, state)
     _guarded(state.connector, connection, lambda: state.connector.test_connection(connection))

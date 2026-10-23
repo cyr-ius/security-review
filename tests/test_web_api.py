@@ -1837,13 +1837,13 @@ def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
     configured = web_sessions.put("/api/v1/settings/ticketing/jira", headers=admin, json=jira)
     systems = {item["kind"]: item for item in configured.json()["connectors"]}
     assert systems["jira"]["configured"] is True and systems["jira"]["enabled"] is False
-    # Switched on by an administrator once configured (SECREVIEW_TICKETING_ENABLED unset)
+    # Switched on by an administrator once configured
     switch = "/api/v1/settings/ticketing/{}/enabled"
     on = {"enabled": True}
     assert web_sessions.put(switch.format("jira"), headers=triager, json=on).status_code == 403
     assert web_sessions.put(switch.format("servicenow"), headers=admin, json=on).status_code == 422
     switched = web_sessions.put(switch.format("jira"), headers=admin, json=on)
-    assert switched.status_code == 200 and switched.json()["enabled"] is None
+    assert switched.status_code == 200 and switched.json()["enabled"] is True
     assert {c["kind"]: c["enabled"] for c in switched.json()["connectors"]} == {
         "jira": True,
         "servicenow": False,

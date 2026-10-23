@@ -146,7 +146,7 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_TICKETING_ENABLED` | — | Lock of the [connectors](../advanced/ticketing.md#enabling) (Jira, ServiceNow, third-party; outgoing connections of the controller): unset, each one is switched on in the **Connectors** screen (all off by default); `false`, all locked off; `true`, a connector never switched is on |
+| `SECREVIEW_TICKETING_ENABLED` | `true` | Lock of the [connectors](../advanced/ticketing.md#enabling) (Jira, ServiceNow, third-party; outgoing connections of the controller): `true`, each one is switched on in the **Connectors** screen (all off by default); `false`, all locked off |
 | `SECREVIEW_TICKETING_INTERVAL_SECONDS` | `300` | Period of the [automatic sending](../advanced/ticketing.md#sending-a-finding) (30 to 86400) |
 | `SECREVIEW_TICKETING_CAFILE` | — | CA bundle used instead of the system one (internal authority) |
 | `SECREVIEW_TICKETING_PLUGINS` | — | [Third-party connectors](../advanced/ticketing.md#third-party-connectors) allowed, by entry point name, comma separated; one installed but not listed is never loaded |

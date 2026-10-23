@@ -28,9 +28,13 @@ the audit log (`ticketing.changed`, `{"enabled": true}`).
 
 | Value | Effect |
 |---|---|
-| unset (default) | The switches of the screen decide; every connector is off until switched on |
+| `true` (default) | The switches of the screen decide; every connector is off until switched on |
 | `false` | Every connector is locked off: nothing is sent, the switches cannot be turned on, **Test the connection** is refused |
-| `true` | A connector never switched in the screen is on (behaviour of the versions without switch); a switch turned off still applies |
+
+!!! note "Upgrade from 1.0"
+    In 1.0, `SECREVIEW_TICKETING_ENABLED=true` was enough to send through every configured
+    connector. Since the switches, switch on each connector used in the **Connectors** screen
+    after the upgrade: until then, nothing is sent.
 
 ```bash
 SECREVIEW_TICKETING_INTERVAL_SECONDS=300   # period of the automatic sending
@@ -240,7 +244,7 @@ anything but the ticket it creates.
 
 | Route | Permission | Role |
 |---|---|---|
-| `GET /api/v1/settings/ticketing` | `settings.manage` | Every connector with its fields and connection (secrets `***`) and its switch (`enabled`), allowed plugins, `SECREVIEW_TICKETING_ENABLED` (`enabled`: `null` when unset) |
+| `GET /api/v1/settings/ticketing` | `settings.manage` | Every connector with its fields and connection (secrets `***`) and its switch (`enabled`), allowed plugins, `SECREVIEW_TICKETING_ENABLED` (`enabled`) |
 | `GET /api/v1/ticketing/systems` | any | Available systems (`kind`, `name`) |
 | `PUT /api/v1/settings/ticketing/{kind}` | `settings.manage` | Changes fields of a connection (`{"url": ..., "api_token": ...}`); `null` or `""` deletes the stored value; `404` for an unknown system |
 | `PUT /api/v1/settings/ticketing/{kind}/enabled` | `settings.manage` | Switches a connector on or off (`{"enabled": true}`); `422` while its connection is not configured or when `SECREVIEW_TICKETING_ENABLED=false` |

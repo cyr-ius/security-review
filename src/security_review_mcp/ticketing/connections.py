@@ -12,8 +12,8 @@ Otherwise whoever may change the settings could send a stored token to a host of
 (a send or a connection test).
 
 Each connector has its switch (key ``ticketing:<kind>:enabled``, ``:`` never being in a field
-key): nothing is sent through a connector switched off. SECREVIEW_TICKETING_ENABLED locks them
-all off when false, and switches on the connectors never switched when true (see enabled).
+key), off until an administrator switches it on: nothing is sent through a connector switched
+off. SECREVIEW_TICKETING_ENABLED=false locks them all off (see enabled).
 """
 
 from collections.abc import Mapping
@@ -96,14 +96,10 @@ def _enabled_key(connector: TicketConnector) -> str:
 
 def enabled(connector: TicketConnector, settings: Settings) -> bool:
     """True when the controller may send tickets through ``connector``: not locked by
-    SECREVIEW_TICKETING_ENABLED=false, and switched on (a connector never switched is on only
-    when the variable is true)."""
-    if settings.ticketing_enabled is False:
+    SECREVIEW_TICKETING_ENABLED=false, and switched on (a connector never switched is off)."""
+    if not settings.ticketing_enabled:
         return False
-    stored = _stored().get(_enabled_key(connector))
-    if stored is None:
-        return settings.ticketing_enabled is True
-    return stored == "true"
+    return _stored().get(_enabled_key(connector)) == "true"
 
 
 def set_enabled(connector: TicketConnector, on: bool, actor: str, settings: Settings) -> None:
@@ -113,7 +109,7 @@ def set_enabled(connector: TicketConnector, on: bool, actor: str, settings: Sett
         ValueError: If the variable locks the switches, or the connection to switch on is not
             configured.
     """
-    if settings.ticketing_enabled is False:
+    if not settings.ticketing_enabled:
         raise ValueError("SECREVIEW_TICKETING_ENABLED is false: the connectors are locked off")
     if on and not resolve(connector).configured:
         raise ValueError(f"configure the {connector.name} connection before switching it on")

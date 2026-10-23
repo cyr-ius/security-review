@@ -1304,11 +1304,10 @@ class TicketingConnector(BaseModel):
 
 
 class TicketingSettings(BaseModel):
-    """Ticketing: SECREVIEW_TICKETING_ENABLED (``null``: unset, the switches of the connectors
-    decide; ``false``: every connector locked off), the allowed third-party connectors
-    (SECREVIEW_TICKETING_PLUGINS) and every available system."""
+    """Ticketing: SECREVIEW_TICKETING_ENABLED (``false``: every connector locked off), the
+    allowed third-party connectors (SECREVIEW_TICKETING_PLUGINS) and every available system."""
 
-    enabled: bool | None
+    enabled: bool
     interval_seconds: int
     cafile: str | None
     plugins: list[str]

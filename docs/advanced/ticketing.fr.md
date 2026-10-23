@@ -28,9 +28,13 @@ enregistré dans le journal d'audit (`ticketing.changed`, `{"enabled": true}`).
 
 | Valeur | Effet |
 |---|---|
-| non définie (défaut) | Les interrupteurs de l'écran décident ; chaque connecteur est désactivé tant qu'il n'a pas été activé |
+| `true` (défaut) | Les interrupteurs de l'écran décident ; chaque connecteur est désactivé tant qu'il n'a pas été activé |
 | `false` | Tous les connecteurs sont verrouillés : rien n'est envoyé, les interrupteurs ne peuvent pas être activés, **Tester la connexion** est refusé |
-| `true` | Un connecteur jamais basculé dans l'écran est activé (comportement des versions sans interrupteur) ; un interrupteur désactivé s'applique toujours |
+
+!!! note "Mise à jour depuis la 1.0"
+    En 1.0, `SECREVIEW_TICKETING_ENABLED=true` suffisait pour envoyer par chaque connecteur
+    configuré. Depuis les interrupteurs, activez chaque connecteur utilisé dans l'écran
+    **Connecteurs** après la mise à jour : d'ici là, rien n'est envoyé.
 
 ```bash
 SECREVIEW_TICKETING_INTERVAL_SECONDS=300   # période de l'envoi automatique
@@ -244,7 +248,7 @@ ni modifier autre chose que le ticket qu'il crée.
 
 | Route | Permission | Rôle |
 |---|---|---|
-| `GET /api/v1/settings/ticketing` | `settings.manage` | Chaque connecteur avec ses champs et sa connexion (secrets `***`) et son interrupteur (`enabled`), plugins autorisés, `SECREVIEW_TICKETING_ENABLED` (`enabled` : `null` si non définie) |
+| `GET /api/v1/settings/ticketing` | `settings.manage` | Chaque connecteur avec ses champs et sa connexion (secrets `***`) et son interrupteur (`enabled`), plugins autorisés, `SECREVIEW_TICKETING_ENABLED` (`enabled`) |
 | `GET /api/v1/ticketing/systems` | toutes | Systèmes disponibles (`kind`, `name`) |
 | `PUT /api/v1/settings/ticketing/{kind}` | `settings.manage` | Modifie des champs d'une connexion (`{"url": ..., "api_token": ...}`) ; `null` ou `""` supprime la valeur enregistrée ; `404` pour un système inconnu |
 | `PUT /api/v1/settings/ticketing/{kind}/enabled` | `settings.manage` | Active ou désactive un connecteur (`{"enabled": true}`) ; `422` tant que sa connexion n'est pas configurée ou si `SECREVIEW_TICKETING_ENABLED=false` |
