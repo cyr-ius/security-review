@@ -20,6 +20,7 @@ x-secreview-env: &secreview-env
   SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
   SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
   SECREVIEW_DB_AUTO_UPGRADE: "false"
+  SECREVIEW_SECRET_KEY: ${SECREVIEW_SECRET_KEY:?set SECREVIEW_SECRET_KEY in .env}
 
 x-secreview: &secreview
   build:
