@@ -116,6 +116,13 @@ security-review-controller rules list --custom                        # vérifie
   dépôt revu et les déployer depuis la CI).
 - `enable`, `disable` et `delete` refusent un identifiant inconnu sans rien modifier. Une règle
   ou un item de checklist par défaut ne peut pas être supprimé : désactivez ou modifiez-le.
+- Une **nouvelle** règle ou un **nouvel** item de checklist personnalisé ne peut pas utiliser le
+  préfixe d'une famille par défaut (`PY`, `GEN`, `API`, `DEP`... voir
+  [Règles par défaut par plateforme](#regles-par-defaut-par-plateforme)) : ces préfixes sont
+  réservés aux règles par défaut des versions suivantes, qui ne sont jamais copiées sur une
+  entrée existante. Utilisez votre propre préfixe, par exemple `ACME-001`. Reprendre
+  l'identifiant d'une entrée par défaut reste permis : cela modifie cette entrée. L'import, la
+  CLI et l'interface web refusent un tel identifiant en donnant la raison.
 - La commande ne suit pas les liens symboliques ; un pack est limité à 256 Kio.
 
 ```bash
@@ -168,7 +175,7 @@ advice = "Utiliser la DataSource gérée."
 ignore_case = true                           # optionnel (vrai par défaut)
 
 [[checklist]]
-domain = "company"                           # "company" est ajouté à TOUS les prompts de revue
+domain = "company"                           # "company" et "*" sont ajoutés à TOUS les prompts de revue
 id = "ACME-CL-01"
 title = "Isolation des tenants"
 what_to_look_for = "Chaque requête est filtrée par le tenant du jeton."

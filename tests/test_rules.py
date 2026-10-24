@@ -26,6 +26,12 @@ what_to_look_for = "Queries are scoped by tenant."
 cwe = "CWE-639"
 
 [[checklist]]
+domain = "*"
+id = "ACME-ALL-01"
+title = "No internal hostnames"
+what_to_look_for = "Responses do not reveal internal hostnames."
+
+[[checklist]]
 domain = "payments"
 id = "ACME-PAY-01"
 title = "Idempotency"
@@ -75,17 +81,17 @@ pattern = 'verify\\s*=\\s*False'
     assert hit["severity"] == "critical"
 
 
-def test_company_checklist_is_added_to_review_prompts(import_pack):
+def test_company_and_all_languages_checklists_are_added_to_review_prompts(import_pack):
     import_pack(VALID_PACK)
     text = prompts.build_security_review_prompt("python", "x = 1", "", "")
-    assert "ACME-CL-01" in text
-    assert "ACME-CL-01" in prompts.build_api_review_prompt("FastAPI", "", "", "")
+    assert "ACME-CL-01" in text and "ACME-ALL-01" in text
+    assert "ACME-ALL-01" in prompts.build_api_review_prompt("FastAPI", "", "", "")
     # Other domains, such as an internal one, are named for get_review_checklist, not embedded
     assert "`payments`" in text and "ACME-PAY-01" not in text
+    assert "`*`" not in text and "`company`" not in text
 
 
 def test_without_pack_there_is_no_company_section():
-    assert registry.company_checklist_markdown() == ""
     assert "ACME" not in prompts.build_security_review_prompt("java", "", "", "")
 
 
@@ -111,6 +117,13 @@ def test_invalid_rules_are_reported(entry, fragment):
     result = parse_pack(f"[[rules]]\n{entry}\n", "bad.toml")
     assert result.rules == []
     assert any(fragment in error and "bad.toml" in error for error in result.errors), result.errors
+
+
+def test_checklist_domain_accepts_only_the_star_as_a_symbol():
+    item = 'id = "A-1"\ntitle = "t"\nwhat_to_look_for = "w"'
+    assert "*" in parse_pack(f'[[checklist]]\ndomain = "*"\n{item}\n', "p.toml").checklist
+    result = parse_pack(f'[[checklist]]\ndomain = "py*"\n{item}\n', "p.toml")
+    assert result.checklist == {} and "invalid domain" in result.errors[0]
 
 
 def test_broken_pack_is_reported():
@@ -159,7 +172,7 @@ def test_default_rules_file_is_valid_and_complete():
     assert {rule_id.split("-")[0] for rule_id in ids} <= families
     # The review prompts rely on these checklist domains
     domains = {"python", "java", "angular", "api", "config", "cicd", "dependencies"}
-    domains |= {"go", "csharp", "rust", "node"}
+    domains |= {"go", "csharp", "rust", "node", "*"}
     assert domains <= set(defaults.checklist)
 
 

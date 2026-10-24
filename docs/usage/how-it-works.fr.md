@@ -39,8 +39,8 @@ Détail des règles : [Règles](rules.md).
   jeton ».
 - Les checklists couvrent ce qu'un motif ne voit pas : la logique métier, les droits, les flux
   entre fichiers.
-- La checklist `company` contient les exigences de votre organisation. Elle s'ajoute à
-  **toutes** les revues.
+- La checklist `*` contient les points valables pour tous les langages, et la checklist
+  `company` les exigences de votre organisation. Elles s'ajoutent à **toutes** les revues.
 
 Détail des checklists : [Checklists](checklists.md).
 
@@ -75,7 +75,7 @@ L'agent peut seulement **proposer** un statut. Il ne ferme jamais un finding.
 | Moment | Contrôle | Déclenché par |
 |---|---|---|
 | Avant de coder | Normes (`development-standards`, `get_development_standards`) | Le développeur ou l'agent |
-| Revue d'un changement | Règles (`scan_code`) + checklists du langage + `company` | Le développeur (prompt) ou l'agent (outils) |
+| Revue d'un changement | Règles (`scan_code`) + checklists du langage + `*` et `company` | Le développeur (prompt) ou l'agent (outils) |
 | Revue d'une API ou d'une configuration | Règles + checklist `api`, ou `config` et `cicd` | Le développeur (prompt) |
 | Revue des dépendances | Base de vulnérabilités OSV (`scan_dependencies`) + checklist `dependencies` | Le développeur (prompt) ou l'agent (outil) |
 | Revue du dépôt complet | Résultats de `security-review-ci scan-code` + toutes les checklists utiles | Le développeur (prompt) |
@@ -110,7 +110,7 @@ Le choix dépend du **prompt** lancé, puis du jugement de l'agent.
 | `dependency-review` | `dependencies` |
 | `codebase-review` | Celles des langages, puis `api`, `config` et `cicd` |
 
-- La checklist `company` est ajoutée à tous les prompts.
+- Les checklists `*` et `company` sont ajoutées à tous les prompts.
 - Le prompt nomme ensuite les **autres** checklists disponibles, y compris vos domaines internes.
 - L'agent récupère avec `get_review_checklist` celles qui concernent le code. Exemple : un
   projet Python avec un `Dockerfile` reçoit `python`, puis l'agent demande `config`.
@@ -194,7 +194,7 @@ Un projet `shop-api` en Python (FastAPI), avec un `Dockerfile` :
 
 ## Avant de déclarer une tâche terminée
 1. Appelez `scan_code` sur chaque fichier modifié. Vérifiez chaque piste dans le code.
-2. Appelez `get_review_checklist` pour `python`, `api` et `company`.
+2. Appelez `get_review_checklist` pour `python`, `api`, `*` et `company`.
    Ajoutez `config` si le `Dockerfile` change.
 3. Si `pyproject.toml` ou `uv.lock` change, appelez `scan_dependencies`.
 4. Appelez `save_security_report` une seule fois :

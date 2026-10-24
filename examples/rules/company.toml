@@ -44,7 +44,7 @@ pattern = '''\bprint\s*\([^)]*(token|password|secret)'''
 advice = "Use the structured logger with the redaction filter."
 
 # ── Checklist ────────────────────────────────────────────────────────────────
-# The "company" domain is appended to every review prompt.
+# The "company" and "*" (every language) domains are appended to every review prompt.
 
 [[checklist]]
 domain = "company"

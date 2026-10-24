@@ -109,6 +109,12 @@ security-review-controller rules list --custom                        # check
   CI).
 - `enable`, `disable` and `delete` refuse an unknown identifier without changing anything. A
   default rule or checklist item cannot be deleted: disable or edit it.
+- A **new** custom rule or checklist item cannot use the prefix of a default family (`PY`,
+  `GEN`, `API`, `DEP`... see [Default rules by platform](#default-rules-by-platform)): these
+  prefixes are reserved for the defaults of later versions, which are never copied over an
+  existing entry. Use your own prefix, such as `ACME-001`. Reusing the identifier of a default
+  entry stays allowed: it edits that entry. The import, the CLI and the web interface refuse
+  such an identifier with the reason.
 - The command does not follow symbolic links; a pack is limited to 256 KiB.
 
 ```bash
@@ -160,7 +166,7 @@ advice = "Use the managed DataSource."
 ignore_case = true                           # optional (true by default)
 
 [[checklist]]
-domain = "company"                           # "company" is added to EVERY review prompt
+domain = "company"                           # "company" and "*" are added to EVERY review prompt
 id = "ACME-CL-01"
 title = "Tenant isolation"
 what_to_look_for = "Every query is filtered by the tenant of the token."

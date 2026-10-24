@@ -20,7 +20,8 @@ prompt ends with the instruction to call `save_security_report` once; `developme
 saves nothing.
 
 Each review prompt embeds the checklists of its domain (by language for `security-review` and
-`codebase-review`, aliases such as `py` or `ts` accepted) and the `company` checklist, then names
+`codebase-review`, aliases such as `py` or `ts` accepted), the `*` (every language) and `company`
+checklists, then names
 the other available checklists, internal domains included, for the agent to fetch with
 `get_review_checklist` when they apply ([details](checklists.md#checklists-in-review-prompts)).
 

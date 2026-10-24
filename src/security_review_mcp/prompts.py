@@ -3,7 +3,7 @@
 import re
 
 from .rules import scanner
-from .rules.registry import COMPANY_DOMAIN, company_checklist_markdown, render_checklist_markdown
+from .rules.registry import ALWAYS_INCLUDED_DOMAINS, render_checklist_markdown
 from .rules.registry import domains as checklist_domains
 
 # Reviewed code, scan excerpts and stored evidence may come from an attacker (a merge request
@@ -134,13 +134,13 @@ def _language_domains(languages: str) -> list[str]:
 
 
 def _checklists(domains: list[str]) -> str:
-    """Render the checklists of the domains and the company checklist, then name the other
-    available checklists (other languages, internal domains) so the agent can fetch them."""
+    """Render the checklists of the domains, then the ones of every review (all languages,
+    company), then name the other available checklists (other languages, internal domains) so
+    the agent can fetch them."""
     available = checklist_domains()
-    included = [d for d in dict.fromkeys(domains) if d in available]
-    others = [d for d in available if d not in included and d != COMPANY_DOMAIN]
+    included = [d for d in dict.fromkeys([*domains, *ALWAYS_INCLUDED_DOMAINS]) if d in available]
+    others = [d for d in available if d not in included]
     sections = [render_checklist_markdown(d) for d in included]
-    sections.append(company_checklist_markdown())
     if others:
         names = ", ".join(f"`{d}`" for d in others)
         sections.append(

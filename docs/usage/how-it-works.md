@@ -36,8 +36,8 @@ Rule details: [Rules](rules.md).
   token".
 - Checklists cover what a pattern cannot see: business logic, access rights, flows across
   files.
-- The `company` checklist holds the requirements of your organization. It is added to
-  **every** review.
+- The `*` checklist holds the points that apply to every language, and the `company` checklist
+  the requirements of your organization. Both are added to **every** review.
 
 Checklist details: [Checklists](checklists.md).
 
@@ -72,7 +72,7 @@ The agent can only **propose** a status. It never closes a finding.
 | Moment | Check | Started by |
 |---|---|---|
 | Before coding | Standards (`development-standards`, `get_development_standards`) | The developer or the agent |
-| Review of a change | Rules (`scan_code`) + checklists of the language + `company` | The developer (prompt) or the agent (tools) |
+| Review of a change | Rules (`scan_code`) + checklists of the language + `*` and `company` | The developer (prompt) or the agent (tools) |
 | Review of an API or a configuration | Rules + `api` checklist, or `config` and `cicd` | The developer (prompt) |
 | Review of the dependencies | OSV vulnerability database (`scan_dependencies`) + `dependencies` checklist | The developer (prompt) or the agent (tool) |
 | Review of the whole repository | Results of `security-review-ci scan-code` + every useful checklist | The developer (prompt) |
@@ -107,7 +107,7 @@ The choice depends on the **prompt** you run, then on the agent's judgment.
 | `dependency-review` | `dependencies` |
 | `codebase-review` | Those of the languages, then `api`, `config` and `cicd` |
 
-- The `company` checklist is added to every prompt.
+- The `*` and `company` checklists are added to every prompt.
 - The prompt then names the **other** available checklists, your internal domains included.
 - The agent fetches with `get_review_checklist` those that apply to the code. Example: a Python
   project with a `Dockerfile` gets `python`, then the agent asks for `config`.
@@ -191,7 +191,7 @@ A `shop-api` project in Python (FastAPI), with a `Dockerfile`:
 
 ## Before saying a task is done
 1. Call `scan_code` on each changed file. Check each lead in the code.
-2. Call `get_review_checklist` for `python`, `api` and `company`.
+2. Call `get_review_checklist` for `python`, `api`, `*` and `company`.
    Add `config` if the `Dockerfile` changes.
 3. If `pyproject.toml` or `uv.lock` changes, call `scan_dependencies`.
 4. Call `save_security_report` once:

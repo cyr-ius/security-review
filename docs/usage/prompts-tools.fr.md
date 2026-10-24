@@ -20,8 +20,8 @@ Chaque prompt de revue se termine par l'instruction d'appeler `save_security_rep
 fois ; `development-standards` n'enregistre rien.
 
 Chaque prompt de revue intègre les checklists de son domaine (selon les langages pour
-`security-review` et `codebase-review`, alias comme `py` ou `ts` acceptés) et la checklist
-`company`, puis nomme les autres checklists disponibles, domaines internes compris, que l'agent
+`security-review` et `codebase-review`, alias comme `py` ou `ts` acceptés) et les checklists
+`*` (tous les langages) et `company`, puis nomme les autres checklists disponibles, domaines internes compris, que l'agent
 récupère avec `get_review_checklist` quand elles s'appliquent
 ([détails](checklists.md#checklists-des-prompts-de-revue)).
 

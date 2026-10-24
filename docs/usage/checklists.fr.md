@@ -16,6 +16,7 @@ premier démarrage, pour ces domaines :
 
 | Domaine | Exemples de points |
 |---|---|
+| `*` | Points valables pour tous les langages, par exemple la divulgation d'informations par les sorties, les journaux, les erreurs ou les réponses d'API |
 | `python`, `java`, `go`, `csharp`, `rust` | Pièges du langage et des frameworks |
 | `angular`, `node` | Front-end, et backend TypeScript et JavaScript |
 | `api` | Validation des jetons OAuth/OIDC, webhooks, flux métier sensibles, désynchronisation HTTP, injection CRLF, upload de fichiers |
@@ -26,8 +27,12 @@ premier démarrage, pour ces domaines :
 `get_review_checklist` et l'écran **Checklists** de l'interface web les affichent en entier.
 
 Vous pouvez créer n'importe quel autre domaine (lettres minuscules, chiffres, `-` et `_`,
-31 caractères au plus). Le domaine `company` est particulier : il contient les exigences de
-votre organisation et il est ajouté à **chaque** prompt de revue.
+31 caractères au plus). Deux domaines sont particuliers et ajoutés à **chaque** prompt de
+revue, quel que soit le langage :
+
+- `*` contient les points valables pour tous les langages (comme une règle avec
+  `languages = ["*"]`) ;
+- `company` contient les exigences de votre organisation.
 
 ## Checklists des prompts de revue
 
@@ -39,7 +44,7 @@ votre organisation et il est ajouté à **chaque** prompt de revue.
 | `configuration-review` | `config`, plus `cicd` quand les fichiers ressemblent à un pipeline |
 | `dependency-review` | `dependencies` |
 
-La checklist `company` est ajoutée à chaque prompt. Les autres domaines, internes compris, sont
+Les checklists `*` et `company` sont ajoutées à chaque prompt. Les autres domaines, internes compris, sont
 nommés à la fin des checklists : l'agent récupère avec `get_review_checklist` ceux qui
 s'appliquent au code qu'il relit. Sans prompt, l'agent appelle lui-même `list_checklists` puis
 `get_review_checklist` (voir [Fonctionnement d'une revue](how-it-works.md#comment-le-systeme-choisit-les-checklists)).
@@ -54,8 +59,8 @@ Un item a ces champs :
 
 | Champ | Contenu |
 |---|---|
-| `domain` | Domaine de l'item (`company`, `python`, ou un nouveau domaine) |
-| `id` | Identifiant unique, en majuscules avec au moins un tiret, par exemple `ACME-CL-01` (50 caractères au plus). Les agents le citent dans leurs rapports : ne le réutilisez jamais pour un autre point |
+| `domain` | Domaine de l'item (`*`, `company`, `python`, ou un nouveau domaine) |
+| `id` | Identifiant unique, en majuscules avec au moins un tiret, par exemple `ACME-CL-01` (50 caractères au plus). Les agents le citent dans leurs rapports : ne le réutilisez jamais pour un autre point. Il doit être unique tous domaines confondus, et un nouvel item ne peut pas utiliser le préfixe d'une famille par défaut (`PY`, `GEN`, `API`... : [réservés](rules.md#commande-rules)) |
 | `title` | Nom court du point (300 caractères au plus) |
 | `what_to_look_for` | Ce que l'agent doit vérifier (5000 caractères au plus) |
 | `cwe` | Facultatif, par exemple `CWE-639` |
@@ -75,7 +80,7 @@ des items par identifiant :
 
 ```toml
 [[checklist]]
-domain = "company"                           # "company" est ajouté à TOUS les prompts de revue
+domain = "company"                           # "company" et "*" sont ajoutés à TOUS les prompts de revue
 id = "ACME-CL-01"
 title = "Tenant isolation"
 what_to_look_for = "Every query is filtered by the tenant of the token."

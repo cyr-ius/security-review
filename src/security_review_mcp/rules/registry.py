@@ -9,13 +9,15 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from . import rule_store
 from .checklists import CheckItem
-from .rules_loader import LoadResult, default_content, rule_entry
+from .rules_loader import ALL_LANGUAGES_DOMAIN, LoadResult, default_content, rule_entry
 from .scanner import Rule, scan_content_detailed
 
 logger = logging.getLogger("security_review_mcp.registry")
 
-# Checklist domain appended to every review prompt (company-wide requirements)
+# Checklist domain of the company-wide requirements
 COMPANY_DOMAIN = "company"
+# Checklist domains appended to every review prompt, whatever the languages reviewed
+ALWAYS_INCLUDED_DOMAINS = (ALL_LANGUAGES_DOMAIN, COMPANY_DOMAIN)
 # How often a cached snapshot checks the database revision (changes made by another process)
 REFRESH_SECONDS = 5.0
 
@@ -179,13 +181,6 @@ def render_checklist_markdown(domain: str) -> str:
         cwe = f" ({item.cwe})" if item.cwe else ""
         lines.append(f"- **{item.id} - {item.title}**{cwe}: {item.what_to_look_for}")
     return "\n".join(lines)
-
-
-def company_checklist_markdown() -> str:
-    """Return the company-wide checklist, or an empty string when none is defined."""
-    if COMPANY_DOMAIN in snapshot().checklists:
-        return render_checklist_markdown(COMPANY_DOMAIN)
-    return ""
 
 
 def known_rule_ids() -> frozenset[str]:
