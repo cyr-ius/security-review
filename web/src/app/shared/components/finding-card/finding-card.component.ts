@@ -84,6 +84,8 @@ export class FindingCardComponent {
   readonly exporting = input(false);
   /** Names of the connectors by kind (an export of an unknown kind shows its kind). */
   readonly systemNamesByKind = input<ReadonlyMap<string, string>>(new Map());
+  /** The finding is the one a link points to (anchor ``#finding-<id>``). */
+  readonly highlighted = input(false);
 
   /** A triage decision (status or raised severity) to save. */
   readonly decided = output<TriageChange>();

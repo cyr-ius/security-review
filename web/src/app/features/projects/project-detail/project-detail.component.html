@@ -194,6 +194,7 @@
         <table class="table table-hover align-middle mb-0">
           <thead>
             <tr>
+              <th scope="col">{{ 'project.colNumber' | t }}</th>
               <th scope="col">{{ 'project.colSeverity' | t }}</th>
               <th scope="col">{{ 'project.colFinding' | t }}</th>
               <th scope="col">{{ 'project.colLocation' | t }}</th>
@@ -204,6 +205,14 @@
           <tbody>
             @for (finding of page.findings; track finding.id) {
               <tr>
+                <td class="text-nowrap">
+                  <a
+                    [routerLink]="['/reports', finding.report_id]"
+                    [fragment]="'finding-' + finding.id"
+                    [attr.aria-label]="'project.openFinding' | t: { id: finding.id }"
+                    >#{{ finding.id }}</a
+                  >
+                </td>
                 <td class="text-nowrap"><app-severity-badge [severity]="finding.severity" /></td>
                 <td>
                   <div class="text-break">{{ finding.title }}</div>

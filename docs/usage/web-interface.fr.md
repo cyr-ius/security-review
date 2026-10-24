@@ -73,7 +73,8 @@ suivantes.
   rapporte (voir [Suppression d'un projet](../advanced/access-control.md#suppression-dun-projet)).
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, les 20 findings ouverts
-  les plus graves (sévérité, règle, emplacement, rapport) et export SARIF ; **Tous les rapports**
+  les plus graves (numéro, sévérité, règle, emplacement, rapport : le numéro ouvre le rapport sur
+  ce finding) et export SARIF ; **Tous les rapports**
   liste ses rapports. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant ;
   **Acceptations de risque** liste les risques acceptés du projet ; **Actualiser** recharge la
   tendance et les findings ouverts.

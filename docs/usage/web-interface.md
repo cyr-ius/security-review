@@ -71,7 +71,8 @@ shown), and the browser remembers the chosen sort for the next visits.
   [Deleting a project](../advanced/access-control.md#deleting-a-project)).
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, the 20 worst open findings
-  (severity, rule, location, report) and SARIF export; **All reports** lists its reports.
+  (number, severity, rule, location, report: the number opens the report at that finding) and
+  SARIF export; **All reports** lists its reports.
   The **Review open findings** button opens the next screen; **Risk acceptances** lists the
   accepted risks of the project; **Refresh** reloads the trend and the open findings.
 - **Findings to review**: every open finding of the project across all its reports, each issue

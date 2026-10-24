@@ -10,6 +10,12 @@
 /* The severity stripe repeats the badge, which carries icon and name */
 .finding {
   border-left: 4px solid var(--sev-color);
+  scroll-margin-top: 1rem;
+}
+
+/* The finding a link points to */
+.finding.target {
+  box-shadow: 0 0 0 0.2rem var(--bs-primary-border-subtle);
 }
 
 .evidence {

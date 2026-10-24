@@ -1,4 +1,9 @@
-<article class="card finding mb-3" [class]="'sev-' + finding().severity">
+<article
+  class="card finding mb-3"
+  [class]="'sev-' + finding().severity"
+  [class.target]="highlighted()"
+  [id]="'finding-' + finding().id"
+>
   <div class="card-header d-flex flex-wrap align-items-center gap-2">
     <app-severity-badge [severity]="finding().severity" />
     <h3 class="h6 mb-0 me-auto">{{ finding().title }}</h3>

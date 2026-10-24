@@ -1,8 +1,16 @@
 import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, computed, inject, input, linkedSignal, signal } from '@angular/core';
-import { rxResource } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
+import {
+  Component,
+  afterRenderEffect,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+  signal,
+} from '@angular/core';
+import { rxResource, toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { firstValueFrom, of } from 'rxjs';
 import {
   CHECKLIST_OUTCOME_META,
@@ -121,6 +129,34 @@ export class ReportDetailComponent {
   });
 
   readonly openCount = computed(() => this.findings().filter((f) => f.status === 'open').length);
+
+  /** Finding a link points to, from the URL fragment ``#finding-<id>``. */
+  private readonly fragment = toSignal(inject(ActivatedRoute).fragment);
+  readonly targetId = computed(() => {
+    const match = /^finding-(\d+)$/.exec(this.fragment() ?? '');
+    return match ? Number(match[1]) : null;
+  });
+  /** Finding already scrolled to: a later triage update does not move the page again. */
+  private scrolledTo: number | null = null;
+
+  constructor() {
+    // The findings arrive after the navigation: scroll once their card is rendered
+    afterRenderEffect(() => {
+      const id = this.targetId();
+      if (
+        id === null ||
+        id === this.scrolledTo ||
+        !this.visibleFindings().some((f) => f.id === id)
+      ) {
+        return;
+      }
+      const card = document.getElementById(`finding-${id}`);
+      if (card) {
+        card.scrollIntoView({ block: 'start' });
+        this.scrolledTo = id;
+      }
+    });
+  }
 
   onSeverityFilter(event: Event): void {
     this.severityFilter.set((event.target as HTMLSelectElement).value as Severity | '');
