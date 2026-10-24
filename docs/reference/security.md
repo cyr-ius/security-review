@@ -80,7 +80,9 @@
   `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` is deleted, and the free text of the requester is
   masked and truncated: check the requester and the address before approving. Every enrollment is audited. See
   [enrollment](../advanced/http.md#enrollment-request-the-project).
-- **Outgoing network calls**: the MCP server makes none. The `security-review-mcp enroll` and
+- **Outgoing network calls**: the MCP server makes none, and does not even load the modules
+  of the controller that make them (advisory download, OIDC, syslog, tickets, version check):
+  a test checks it. The `security-review-mcp enroll` and
   `scan-deps` commands contact, at the request of the operator, the URL they give (`scan-deps`
   sends the dependency files given on its command line, never through a symbolic link); they
   refuse plain HTTP

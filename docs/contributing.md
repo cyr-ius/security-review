@@ -125,7 +125,7 @@ src/security_review_mcp/
 ├── standards.py   # development standards: storage, lookup by technology / file, rendering
 ├── controller.py  # entry point of the controller (serve, db and administration commands)
 ├── ci_client.py   # `security-review-ci`: pipeline client of the controller, file listing (standard library only)
-├── cli.py         # db, advisories, rules, token, audit, enroll, scan-deps commands
+├── cli.py         # controller commands: db, advisories, rules, token, user, group, project, audit
 ├── http_server.py # HTTP of both processes: Bearer tokens and roles, TLS, /healthz, uvicorn
 ├── healthcheck.py # HEALTHCHECK of the Docker image (/healthz of the HTTP processes)
 ├── config.py      # settings (SECREVIEW_*)
@@ -170,6 +170,7 @@ src/security_review_mcp/
 │   ├── audit_syslog.py    # forwarding of the audit events to syslog by the controller (optional)
 │   └── metrics.py         # Prometheus metrics of the controller (/metrics)
 ├── clients/       # CLI clients that contact the URL given by the operator
+│   ├── commands.py        # `enroll` and `scan-deps` commands of security-review-mcp
 │   ├── enrollment.py      # `enroll` client: project enrollment on a shared server
 │   └── remote_scan.py     # `scan-deps` client: dependency scan with a shared server
 ├── ticketing/     # tickets of the findings: api (connector API), registry, connections,
@@ -182,6 +183,12 @@ src/security_review_mcp/
 tests/             # pytest (scanner, services, end-to-end MCP client)
 web/               # Angular application (built into src/security_review_mcp/webui/)
 ```
+
+The MCP server never imports the modules of the controller that open outgoing connections or
+serve its routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
+`observability/audit_syslog`, `ticketing`, `update_check`, `web_api`), not even indirectly:
+`tests/test_server.py` checks it. A module shared by both processes (such as
+`app_settings`) imports them inside the function that needs them, never at the top.
 
 ## Web interface
 

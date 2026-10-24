@@ -126,7 +126,7 @@ src/security_review_mcp/
 ├── standards.py   # normes de développement : stockage, recherche par technologie / fichier, rendu
 ├── controller.py  # point d'entrée du contrôleur (serve, db et commandes d'administration)
 ├── ci_client.py   # `security-review-ci` : client de pipeline du contrôleur, liste des fichiers (bibliothèque standard uniquement)
-├── cli.py         # commandes db, advisories, rules, token, audit, enroll, scan-deps
+├── cli.py         # commandes du contrôleur : db, advisories, rules, token, user, group, project, audit
 ├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
 ├── healthcheck.py # HEALTHCHECK de l'image Docker (/healthz des processus HTTP)
 ├── config.py      # paramètres (SECREVIEW_*)
@@ -171,6 +171,7 @@ src/security_review_mcp/
 │   ├── audit_syslog.py    # envoi des événements d'audit vers syslog par le contrôleur (facultatif)
 │   └── metrics.py         # métriques Prometheus du contrôleur (/metrics)
 ├── clients/       # clients CLI qui contactent l'URL donnée par l'opérateur
+│   ├── commands.py        # commandes `enroll` et `scan-deps` de security-review-mcp
 │   ├── enrollment.py      # client de `enroll` : enrôlement d'un projet sur un serveur partagé
 │   └── remote_scan.py     # client de `scan-deps` : scan des dépendances par un serveur partagé
 ├── ticketing/     # tickets des findings : api (API des connecteurs), registry, connections,
@@ -183,6 +184,12 @@ src/security_review_mcp/
 tests/             # pytest (scanner, services, client MCP de bout en bout)
 web/               # application Angular (compilée dans src/security_review_mcp/webui/)
 ```
+
+Le serveur MCP n'importe jamais les modules du contrôleur qui ouvrent des connexions sortantes
+ou servent ses routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
+`observability/audit_syslog`, `ticketing`, `update_check`, `web_api`), même indirectement :
+`tests/test_server.py` le vérifie. Un module partagé par les deux processus (comme
+`app_settings`) les importe dans la fonction qui en a besoin, jamais en tête.
 
 ## Interface web
 

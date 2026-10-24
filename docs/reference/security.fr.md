@@ -85,7 +85,9 @@
   `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` est supprimée, et le texte libre du demandeur est
   masqué et tronqué : vérifiez le demandeur et l'adresse avant de valider. Chaque enrôlement est audité. Voir
   [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
-- **Appels réseau sortants** : le serveur MCP n'en fait aucun. Les commandes
+- **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
+  modules du contrôleur qui en font (téléchargement des avis, OIDC, syslog, tickets, recherche
+  de nouvelle version) : un test le vérifie. Les commandes
   `security-review-mcp enroll` et `scan-deps` contactent, à la demande de l'opérateur, l'URL qu'il
   indique (`scan-deps` envoie les fichiers de dépendances donnés sur sa ligne de commande, jamais
   via un lien symbolique) ; elles refusent HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les

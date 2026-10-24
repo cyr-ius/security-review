@@ -1,6 +1,8 @@
 """End-to-end tests: a real MCP client talking to the server in memory."""
 
 import json
+import subprocess
+import sys
 
 import pytest
 from mcp.client import Client
@@ -853,3 +855,27 @@ async def test_development_standards_prompt():
             await client.get_prompt(
                 "development-standards", {"technologies": ",".join(f"t{i}" for i in range(51))}
             )
+
+
+# Modules of the controller that open outgoing connections or serve its web routes
+CONTROLLER_MODULES = (
+    "security_review_mcp.controller",
+    "security_review_mcp.deps.advisory_sync",
+    "security_review_mcp.auth.oidc",
+    "security_review_mcp.observability.audit_syslog",
+    "security_review_mcp.ticketing",
+    "security_review_mcp.update_check",
+    "security_review_mcp.web_api",
+)
+
+
+def test_mcp_server_does_not_load_the_controller_modules():
+    # A fresh interpreter: the other tests import these modules in this one
+    code = (
+        "import sys, security_review_mcp.server\n"
+        f"print([m for m in {CONTROLLER_MODULES!r} if m in sys.modules])"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "[]"
