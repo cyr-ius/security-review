@@ -499,7 +499,7 @@ def test_retention_setting_defaults_to_90_days_and_rejects_negative_values():
         (FindingStatus.ACCEPTED, None, 30, "reason is required"),
         (FindingStatus.ACCEPTED, "too short", 30, "10 to 1000"),
         (FindingStatus.ACCEPTED, "x" * 1001, 30, "10 to 1000"),
-        (FindingStatus.FALSE_POSITIVE, None, None, "reason is required"),
+        (FindingStatus.FALSE_POSITIVE, "too short", None, "10 to 1000"),
         (FindingStatus.FALSE_POSITIVE, "Dead code, never called", -1, "in the future"),
         (FindingStatus.ACCEPTED, "Internal tool only", 366, "at most 365 days"),
         (FindingStatus.FIXED, "Query is bound now", 30, "takes no expiry date"),
@@ -600,9 +600,6 @@ def test_risk_below_the_threshold_is_accepted_without_reason_or_expiry(monkeypat
     # From the threshold up, an acceptance still needs a reason and an expiry date
     with pytest.raises(ValueError, match="reason is required"):
         services.update_finding_status(medium, FindingStatus.ACCEPTED, "alice")
-    # A false positive is never a plain validation
-    with pytest.raises(ValueError, match="reason is required"):
-        services.update_finding_status(low, FindingStatus.FALSE_POSITIVE, "alice")
 
     # Empty threshold: every acceptance needs them
     services.update_finding_status(low, FindingStatus.OPEN, "alice")

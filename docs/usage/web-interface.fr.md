@@ -247,8 +247,8 @@ son projet a une destination : voir [ticketing](../advanced/ticketing.md#envoi-d
   **Risque accepté**, la case **Sans expiration** supprime la date : le risque reste accepté
   jusqu'à ce que quelqu'un rouvre le finding (désactivée par
   `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`).
-- **Faux positif** : le formulaire ne demande qu'un **Motif** (10 à 1000 caractères), sans date
-  d'expiration : un faux positif dit que le code n'est pas vulnérable, il reste jusqu'à ce que
+- **Faux positif** : le formulaire ne demande qu'un **Motif** facultatif (10 à 1000 caractères
+  s'il est saisi), sans date d'expiration : un faux positif dit que le code n'est pas vulnérable, il reste jusqu'à ce que
   quelqu'un rouvre le finding. L'utilisateur connecté est enregistré comme approbateur.
 - **Risque accepté** sous `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` par défaut, donc
   un finding `low` ou `info`) : une simple validation, enregistrée immédiatement sans motif ni

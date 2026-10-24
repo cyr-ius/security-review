@@ -282,7 +282,7 @@
             "
           ></textarea>
           <div class="form-text" [id]="'reason-help-' + finding().id">
-            {{ 'report.dismissReasonHelp' | t }}
+            {{ reasonHelp() | t }}
           </div>
         </div>
         @if (expiryAsked()) {

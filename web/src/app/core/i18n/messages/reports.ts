@@ -53,6 +53,8 @@ export const reports = defineMessages({
     'report.dismissReason': 'Reason',
     'report.dismissReasonHelp':
       'Required, 10 characters or more. You are recorded as the approver.',
+    'report.dismissReasonOptionalHelp':
+      'Optional, 10 characters or more. You are recorded as the approver.',
     'report.dismissExpiry': 'Expiry date',
     'report.dismissExpiryHelp':
       'From this day the finding counts as open again and blocks the gate.',
@@ -140,6 +142,8 @@ export const reports = defineMessages({
     'report.dismissReason': 'Motif',
     'report.dismissReasonHelp':
       'Obligatoire, 10 caractères ou plus. Vous êtes enregistré comme approbateur.',
+    'report.dismissReasonOptionalHelp':
+      'Facultatif, 10 caractères ou plus. Vous êtes enregistré comme approbateur.',
     'report.dismissExpiry': "Date d'expiration",
     'report.dismissExpiryHelp':
       'À partir de ce jour, le finding est de nouveau ouvert et bloque le gate.',
@@ -228,6 +232,8 @@ export const reports = defineMessages({
     'report.dismissReason': 'Motivo',
     'report.dismissReasonHelp':
       'Obligatorio, 10 caracteres o más. Usted queda registrado como aprobador.',
+    'report.dismissReasonOptionalHelp':
+      'Opcional, 10 caracteres o más. Usted queda registrado como aprobador.',
     'report.dismissExpiry': 'Fecha de caducidad',
     'report.dismissExpiryHelp':
       'A partir de ese día el hallazgo vuelve a estar abierto y bloquea el gate.',

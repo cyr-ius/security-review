@@ -568,10 +568,10 @@ def update_finding_status(
 ) -> FindingPublic:
     """Record a triage decision made by a person (web interface), never by an agent.
 
-    ``accepted`` and ``false_positive`` need a reason; their expiry date, when given, is in the
-    future and at most SECREVIEW_MAX_DISMISSAL_DAYS days away: once expired, the finding counts
-    as open again. A false positive needs no expiry date; an acceptance needs one unless
-    SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
+    ``accepted`` needs a reason; the reason of a ``false_positive`` is optional. Their expiry
+    date, when given, is in the future and at most SECREVIEW_MAX_DISMISSAL_DAYS days away: once
+    expired, the finding counts as open again. A false positive needs no expiry date; an
+    acceptance needs one unless SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
     A finding less severe than SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY is accepted by a plain
     validation: its reason and its expiry date are optional.
     The reason of an acceptance is also its first comment (see ``add_finding_comment``).
@@ -597,14 +597,11 @@ def update_finding_status(
             plain = status == FindingStatus.ACCEPTED and not needs_formal_acceptance(
                 finding.severity
             )
-            reason = _check_reason(reason, required=not plain)
-            # A false positive states a fact about the code: it needs no expiry date
+            # A false positive states a fact about the code: it needs no reason nor expiry date
+            formal = status == FindingStatus.ACCEPTED and not plain
+            reason = _check_reason(reason, required=formal)
             if expires_at is None:
-                if (
-                    status == FindingStatus.ACCEPTED
-                    and not plain
-                    and not settings.permanent_acceptance_enabled
-                ):
+                if formal and not settings.permanent_acceptance_enabled:
                     raise ValueError(f"An expiry date is required for the status '{status.value}'")
             else:
                 expires_at = _check_expiry(as_utc(expires_at), now, settings.max_dismissal_days)

@@ -147,10 +147,12 @@
   session ou un jeton `api` qui ont la permission `findings.triage`, ou un jeton `admin`, changent le statut d'un
   finding (action journalisée avec l'utilisateur ou le label du jeton), et seule une personne
   connectée à l'interface (session) accepte un risque ou marque un faux positif : un jeton Bearer
-  est refusé (`403`), même `admin`. Ces deux décisions exigent un motif et une date d'expiration
-  (au plus `SECREVIEW_MAX_DISMISSAL_DAYS` jours) ; l'approbateur est l'utilisateur connecté, et le
-  finding est de nouveau compté comme ouvert une fois la date passée. Seule une acceptation peut
-  être sans date d'expiration, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` : réglez-le
+  est refusé (`403`), même `admin`. Une acceptation exige un motif et une date d'expiration (au
+  plus `SECREVIEW_MAX_DISMISSAL_DAYS` jours) ; l'approbateur est l'utilisateur connecté, et le
+  finding est de nouveau compté comme ouvert une fois la date passée. Un faux positif n'exige ni
+  l'un ni l'autre (son motif est facultatif) et enregistre aussi l'utilisateur connecté comme
+  approbateur. Une acceptation peut être sans date d'expiration, sauf si
+  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` : réglez-le
   ainsi pour imposer une revue périodique de chaque risque accepté. Un risque moins grave que
   `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` par défaut) est accepté sans motif ni date,
   toujours par une personne connectée, enregistrée comme approbateur ; laissez la variable vide

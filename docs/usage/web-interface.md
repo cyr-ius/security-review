@@ -229,8 +229,8 @@ has a destination: see [ticketing](../advanced/ticketing.md#sending-a-finding).
   that the decision has expired. For **Risk accepted**, the **No expiry** box removes the date:
   the risk stays accepted until someone reopens the finding (disabled with
   `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`).
-- **False positive**: the form only asks for a **Reason** (10 to 1000 characters), with no
-  expiry date: a false positive says the code is not vulnerable, it stays until someone reopens
+- **False positive**: the form only asks for an optional **Reason** (10 to 1000 characters
+  when given), with no expiry date: a false positive says the code is not vulnerable, it stays until someone reopens
   the finding. The logged-in user is recorded as the approver.
 - **Risk accepted** below `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` by default, so a
   `low` or `info` finding): a plain validation, saved at once with no reason and no expiry date.

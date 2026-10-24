@@ -439,7 +439,7 @@ export class ApiService {
     return this.http.get<ProjectFindingPage>(`${API_URL}/findings`, { params });
   }
 
-  /** Record a triage decision (accepted and false_positive need a reason and an expiry). */
+  /** Record a triage decision (accepted needs a reason and an expiry, false_positive neither). */
   updateFindingStatus(id: number, decision: FindingDecision): Observable<Finding> {
     return this.http.patch<Finding>(`${API_URL}/findings/${id}`, decision);
   }
