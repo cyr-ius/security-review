@@ -18,7 +18,7 @@ security-review-ci gate --project portal --fail-on high
 `security-review-ci` is a lightweight client of the controller: it calls the pipeline routes of
 the REST API (`/api/v1/ci/gate`, `/api/v1/ci/sarif`, `/api/v1/ci/trend`, and
 `/api/v1/ci/scan/code` and `/api/v1/ci/scan/deps` for the scans) and opens no database. It only
-uses the Python standard library (Python 3.10 or later), and is published alone on PyPI as
+uses the Python standard library (Python 3.14), and is published alone on PyPI as
 `security-review-ci`, at the version of the server, without its dependencies.
 
 ### Installation
@@ -26,7 +26,7 @@ uses the Python standard library (Python 3.10 or later), and is published alone 
 | Machine | Command |
 |---|---|
 | Workstation without Python (Linux, macOS, Windows) | [uv](https://docs.astral.sh/uv/getting-started/installation/), then `uv tool install security-review-ci`: uv downloads a Python when none is installed |
-| Build agent or workstation with Python ≥ 3.10 | `pip install security-review-ci` (or `pipx install security-review-ci`) |
+| Build agent or workstation with Python ≥ 3.14 | `pip install security-review-ci` (or `pipx install security-review-ci`) |
 | Agent without access to PyPI | Copy the single file `security_review_mcp/ci_client.py` (or the `security_review_ci` wheel attached to the GitHub release) and run it with `python3 ci_client.py` |
 | Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review-mcp …` |
 

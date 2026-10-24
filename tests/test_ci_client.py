@@ -245,14 +245,10 @@ def test_standalone_distribution_ships_the_client_at_the_server_version(tmp_path
     server = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
     assert metadata["project"]["name"] == "security-review-ci"
     assert metadata["project"]["version"] == server["project"]["version"]
+    assert metadata["project"]["requires-python"] == server["project"]["requires-python"]
     assert metadata["project"]["dependencies"] == []
     assert metadata["project"]["scripts"] == {"security-review-ci": "security_review_ci:main"}
     assert (project / "security_review_ci.py").read_bytes() == MODULE.read_bytes()
-    # ruff checks the module against the oldest Python of the distribution
-    target = server["tool"]["ruff"]["per-file-target-version"][
-        "src/security_review_mcp/ci_client.py"
-    ]
-    assert metadata["project"]["requires-python"] == ">=3." + target.removeprefix("py3")
 
 
 def test_printable_removes_terminal_escapes():

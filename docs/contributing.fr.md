@@ -343,9 +343,8 @@ Une version correspond à un tag poussé sur `master` :
 
 Le tag publie deux distributions PyPI à la même version : `security-review-mcp` et
 `security-review-ci`, le client de pipeline seul (sans dépendance), dont le projet est écrit par
-`scripts/build_ci_client.py` à partir de `ci_client.py`. Ce module doit tourner sous Python 3.10 :
-ruff le vérifie pour cette version (`per-file-target-version` dans `pyproject.toml`) et le job
-**ci-client** de `tests.yml` lance le wheel construit sous Python 3.10.
+`scripts/build_ci_client.py` à partir de `ci_client.py`, avec le `requires-python` du serveur.
+Le job **ci-client** de `tests.yml` le construit et lance le wheel seul, sans le serveur.
 
 Le workflow `.github/workflows/docker.yml` construit l'image (`linux/amd64`, `linux/arm64`,
 variantes par défaut et `-pg`) et vérifie que les deux points d'entrée démarrent. Sur chaque pull

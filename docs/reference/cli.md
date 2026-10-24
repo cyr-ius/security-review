@@ -9,7 +9,7 @@ The package installs two commands, one per process (see
 - `security-review-ci`: the **pipeline client** of the controller REST API (`ci` token, Python
   standard library only, no database access): gate, SARIF, trend, code and dependency scans.
   It is also published alone, without the server, as the `security-review-ci` package
-  (Python 3.10 or later, see [Installation](../usage/gate.md#installation)).
+  (Python 3.14, see [Installation](../usage/gate.md#installation)).
 
 ## `security-review-mcp`
 

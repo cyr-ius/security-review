@@ -341,9 +341,8 @@ A version is a tag pushed on `master`:
 
 The tag publishes two PyPI distributions at the same version: `security-review-mcp` and
 `security-review-ci`, the pipeline client alone (no dependency), whose project is written by
-`scripts/build_ci_client.py` from `ci_client.py`. That module must run on Python 3.10: ruff
-checks it against that version (`per-file-target-version` in `pyproject.toml`) and the
-**ci-client** job of `tests.yml` runs the built wheel on Python 3.10.
+`scripts/build_ci_client.py` from `ci_client.py`, with the `requires-python` of the server. The
+**ci-client** job of `tests.yml` builds it and runs the wheel alone, without the server.
 
 The `.github/workflows/docker.yml` workflow builds the image (`linux/amd64`, `linux/arm64`,
 default and `-pg` variants) and checks that both entry points start. On every pull request

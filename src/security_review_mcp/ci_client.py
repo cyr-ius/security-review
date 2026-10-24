@@ -331,7 +331,7 @@ def _git_files(root: Path) -> list[str] | None:
             check=True,
             timeout=60,
         )
-    except (OSError, subprocess.SubprocessError):
+    except OSError, subprocess.SubprocessError:
         return None
     names = completed.stdout.decode("utf-8", errors="replace").split("\0")
     return sorted({name for name in names if name})

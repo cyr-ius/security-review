@@ -62,8 +62,6 @@ pythonpath = ["src"]
 [tool.ruff]
 line-length = 100
 target-version = "py314"
-# The pipeline client is also published alone for older Pythons (scripts/build_ci_client.py)
-per-file-target-version = { "src/security_review_mcp/ci_client.py" = "py310" }
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "C4", "UP"]
