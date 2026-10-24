@@ -111,26 +111,30 @@ l'utiliser.
 |---|---|
 | Prompts, outils, ressources MCP, point d'entrée du serveur MCP | `server.py`, `prompts.py` |
 | Point d'entrée du contrôleur (`serve`, `db`, commandes d'administration) ; recherche de nouvelle version (page À propos) ; `HEALTHCHECK` de l'image Docker | `controller.py` ; `update_check.py` ; `healthcheck.py` |
-| Moteur de scan, masquage des secrets | `scanner.py` |
-| Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
-| Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `project`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `codescan.py`, `depscan.py`, `web_api/ci_routes.py`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`), `ci_client.py` |
-| Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` ; `proxy.py` |
-| Normalisation des noms de projet (minuscules, nom du dépôt, `-` seul séparateur), appliquée à toute entrée | `project_names.py` |
-| Persistance, schéma (purge des rapports sans findings et de l'audit : `retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `coverage.py`) | `models.py`, `services.py`, `coverage.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
-| Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement ; envoi syslog facultatif par le contrôleur) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `audit.py`, `audit_syslog.py` ; `metrics.py` |
-| Export et tendances | `sarif.py`, `trends.py` |
+| Moteur de scan, masquage des secrets | `rules/scanner.py` |
+| Règles et checklists par défaut (copiées en base au premier lancement) | `rules/default_rules.toml` |
+| Règles en base (amorçage, packs TOML), registre actif | `rules/rules_loader.py`, `rules/rule_store.py`, `rules/registry.py`, `rules/checklists.py` |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `project`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) | `cli.py`, `rules/codescan.py`, `clients/enrollment.py` (client de `enroll`), `clients/remote_scan.py` (client de `scan-deps`), `ci_client.py` |
+| Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `deps/advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `deps/dependencies.py`, `deps/depscan.py`, `deps/advisories.py`, `deps/advisory_sync.py`, `deps/versions.py` ; `proxy.py` |
+| Normalisation des noms de projet (minuscules, nom du dépôt, `-` seul séparateur), appliquée à toute entrée | `storage/project_names.py` |
+| Persistance, schéma (purge des rapports sans findings et de l'audit : `storage/retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `reports/coverage.py`) | `storage/models.py`, `reports/services.py`, `reports/coverage.py`, `storage/retention.py`, `storage/database.py`, `storage/migrations/` (Alembic) |
+| Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement ; envoi syslog facultatif par le contrôleur) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `observability/audit.py`, `observability/audit_syslog.py` ; `observability/metrics.py` |
+| Export et tendances | `reports/sarif.py`, `reports/trends.py` |
 | Tickets des findings (envoi manuel et automatique par le contrôleur) : API publique des connecteurs (contrat des connecteurs tiers, versionné), registre (intégrés + plugins autorisés par `SECREVIEW_TICKETING_PLUGINS`), connexions, client HTTP imposé, Jira et ServiceNow | paquet `ticketing/` (`api.py`, `registry.py`, `connections.py`, `transport.py`, `core.py`, `jira.py`, `servicenow.py`), `web_api/ticketing_routes.py`, exemple `examples/ticketing-connector/` |
-| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim) : `access_control.py` |
-| Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
+| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `auth/token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `auth/web_users.py` ; protocole OIDC du contrôleur : `auth/oidc.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim) : `auth/access_control.py` |
+| Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `auth/enrollment_api.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas.py` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
 | Normes de développement par technologie (prompt `development-standards`, écran « Normes ») | `standards.py` |
 | Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy sortant, configuration OIDC) | `config.py` ; `app_settings.py` |
 
-Tous les modules sont dans `src/security_review_mcp/`. L'application Angular (`web/`) est
-compilée par `npm run build` dans `src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules
-(`services.py`, `scanner.py`...) ; `server.py` et `cli.py` restent des couches minces qui
-valident les entrées et appellent ces modules.
+Tous les modules sont dans `src/security_review_mcp/` : à la racine, les points d'entrée et
+les briques communes (`config`, `http_server`, `proxy`...) ; ailleurs, un sous-paquet par
+domaine (`storage/`, `reports/`, `rules/`, `deps/`, `auth/`, `observability/`, `clients/`,
+`ticketing/`, `web_api/`). Un nouveau module va dans le sous-paquet de son domaine, pas à la
+racine. L'application Angular (`web/`) est compilée par `npm run build` dans
+`src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules
+(`reports/services.py`, `rules/scanner.py`...) ; `server.py` et `cli.py` restent des couches
+minces qui valident les entrées et appellent ces modules.
 
 ## Conventions de code
 
@@ -234,7 +238,7 @@ TypeScript / Node.js), `DEP` (hygiène des
 dépendances), `AI` (texte caché ou instructions adressées à un assistant IA). Ne réutilisez et ne renumérotez jamais un identifiant existant : les utilisateurs
 les citent dans `secreview:ignore` et `disabled_rules`. Indiquez la CWE quand elle existe.
 
-Les règles et checklists par défaut sont dans `src/security_review_mcp/default_rules.toml`,
+Les règles et checklists par défaut sont dans `src/security_review_mcp/rules/default_rules.toml`,
 jamais dans le code Python. Elles sont copiées en base au premier lancement
 (`rule_store.seed_defaults`, appelé par `init_db`). Une règle ajoutée ou corrigée dans ce
 fichier atteint les bases existantes au démarrage suivant, sauf si un administrateur l'a modifiée.

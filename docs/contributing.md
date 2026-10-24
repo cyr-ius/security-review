@@ -121,56 +121,64 @@ change usually adds one to three tests.
 ```
 src/security_review_mcp/
 ├── server.py      # prompts, tools, resources, entry point of the MCP server
-├── controller.py  # entry point of the controller (serve, db and administration commands)
-├── http_server.py # HTTP of both processes: Bearer tokens and roles, TLS, /healthz, uvicorn
-├── oidc.py        # OpenID Connect OIDC login to the web interface (controller)
-├── access_control.py # permissions, roles, groups and members of the web accounts, project enrollment
-├── token_store.py # Bearer tokens in the database: creation, expiry, rotation, revocation
-├── audit.py       # audit log: events of triage decisions, proposals, tokens and enrollments
-├── audit_syslog.py # forwarding of the audit events to syslog by the controller (optional)
-├── metrics.py     # Prometheus metrics of the controller (/metrics)
-├── web_users.py   # web interface accounts, local (scrypt) or OIDC (created on the fly), sessions, initial admin
-├── enrollment.py  # `enroll` client: project enrollment on a shared server
-├── remote_scan.py # `scan-deps` client: dependency scan with a shared server
-├── ci_client.py   # `security-review-ci`: pipeline client of the controller, file listing (standard library only)
-├── enrollment_api.py  # public POST /api/v1/enroll endpoint of the MCP server
-├── web_api/       # controller: REST API /api/v1 and files of the application (/ui)
-│   ├── __init__.py    # create_app, static files of /ui, assembly of the routers
-│   ├── schemas.py     # request and response models of every route
-│   ├── deps.py        # identity of the caller, permissions, project scope
-│   └── *_routes.py    # one router per domain (auth, account, report, ci, rule, token, admin, access)
 ├── prompts.py     # construction of the prompts
 ├── standards.py   # development standards: storage, lookup by technology / file, rendering
-├── default_rules.toml  # default rules and checklists, copied into the database at first start
-├── checklists.py  # structure of a checklist item
-├── scanner.py     # scan engine, inline suppression, secret masking
-├── syntax_analysis.py # Tree-sitter structural checks, separate from line-based rules
-├── rules_loader.py    # rule validation, reading of the TOML packs and of the default file
-├── rule_store.py  # rules in the database: seeding, import/export, enabling, deletion
-├── registry.py    # active rules/checklists (read from the database), reload
+├── controller.py  # entry point of the controller (serve, db and administration commands)
+├── ci_client.py   # `security-review-ci`: pipeline client of the controller, file listing (standard library only)
 ├── cli.py         # db, advisories, rules, token, audit, enroll, scan-deps commands
-├── codescan.py    # whole codebase scan of the files sent by security-review-ci (findings)
-├── sarif.py       # SARIF 2.1.0 export
-├── trends.py      # trend report
-├── versions.py    # version comparison
+├── http_server.py # HTTP of both processes: Bearer tokens and roles, TLS, /healthz, uvicorn
+├── healthcheck.py # HEALTHCHECK of the Docker image (/healthz of the HTTP processes)
+├── config.py      # settings (SECREVIEW_*)
+├── app_settings.py # settings changed in the interface (language, outgoing proxy, OIDC), in the database
+├── proxy.py       # outgoing proxy of the controller (OSV, OIDC): URL, no_proxy, urllib handler
 ├── update_check.py # search for a newer release on GitHub (About page, optional)
+├── storage/       # persistence
+│   ├── database.py        # engine, sessions and migrations (Alembic)
+│   ├── models.py          # SQLModel models (tables + schemas)
+│   ├── migrations/        # Alembic environment and schema revisions (versions/)
+│   ├── retention.py       # daily purge of the reports without findings and of the old audit events
+│   └── project_names.py   # normalization of the project names (every input)
+├── reports/       # security reports
+│   ├── services.py        # persistence logic of the reports
+│   ├── coverage.py        # checks the checklist results and scan rules declared with a report
+│   ├── sarif.py           # SARIF 2.1.0 export
+│   └── trends.py          # trend report
+├── rules/         # scan rules and checklists
+│   ├── scanner.py         # scan engine, inline suppression, secret masking
+│   ├── syntax_analysis.py # Tree-sitter structural checks, separate from line-based rules
+│   ├── codescan.py        # whole codebase scan of the files sent by security-review-ci (findings)
+│   ├── default_rules.toml # default rules and checklists, copied into the database at first start
+│   ├── rules_loader.py    # rule validation, reading of the TOML packs and of the default file
+│   ├── rule_store.py      # rules in the database: seeding, import/export, enabling, deletion
+│   ├── registry.py        # active rules/checklists (read from the database), reload
+│   └── checklists.py      # structure of a checklist item
+├── deps/          # dependency analysis
+│   ├── dependencies.py    # manifest / lockfile parsers, hygiene
+│   ├── depscan.py         # dependency scan and conversion into findings
+│   ├── advisories.py      # OSV import, version matching
+│   ├── advisory_sync.py   # OSV download by the controller (proxy, daily update, history)
+│   └── versions.py        # version comparison
+├── auth/          # identity and access
+│   ├── access_control.py  # permissions, roles, groups and members of the web accounts, project enrollment
+│   ├── token_store.py     # Bearer tokens in the database: creation, expiry, rotation, revocation
+│   ├── web_users.py       # web interface accounts, local (scrypt) or OIDC (created on the fly), sessions, initial admin
+│   ├── oidc.py            # OpenID Connect OIDC login to the web interface (controller)
+│   ├── rate_limit.py      # rate limits of the REST API and of the logins (sliding window in the database)
+│   └── enrollment_api.py  # public POST /api/v1/enroll endpoint of the MCP server
+├── observability/ # audit log and metrics
+│   ├── audit.py           # audit log: events of triage decisions, proposals, tokens and enrollments
+│   ├── audit_syslog.py    # forwarding of the audit events to syslog by the controller (optional)
+│   └── metrics.py         # Prometheus metrics of the controller (/metrics)
+├── clients/       # CLI clients that contact the URL given by the operator
+│   ├── enrollment.py      # `enroll` client: project enrollment on a shared server
+│   └── remote_scan.py     # `scan-deps` client: dependency scan with a shared server
 ├── ticketing/     # tickets of the findings: api (connector API), registry, connections,
 │                  # transport (HTTP client), core (sending), jira, servicenow
-├── healthcheck.py # HEALTHCHECK of the Docker image (/healthz of the HTTP processes)
-├── advisories.py  # OSV import, version matching
-├── advisory_sync.py  # OSV download by the controller (proxy, daily update, history)
-├── app_settings.py    # settings changed in the interface (language, outgoing proxy, OIDC), in the database
-├── proxy.py       # outgoing proxy of the controller (OSV, OIDC): URL, no_proxy, urllib handler
-├── dependencies.py    # manifest / lockfile parsers, hygiene
-├── depscan.py     # dependency scan and conversion into findings
-├── services.py    # persistence logic of the reports
-├── coverage.py    # checks the checklist results and scan rules declared with a report
-├── project_names.py # normalization of the project names (every input)
-├── retention.py   # daily purge of the reports without findings and of the old audit events
-├── models.py      # SQLModel models (tables + schemas)
-├── database.py    # engine, sessions and migrations (Alembic)
-├── migrations/    # Alembic environment and schema revisions (versions/)
-└── config.py      # settings (SECREVIEW_*)
+└── web_api/       # controller: REST API /api/v1 and files of the application (/ui)
+    ├── __init__.py    # create_app, static files of /ui, assembly of the routers
+    ├── schemas.py     # request and response models of every route
+    ├── deps.py        # identity of the caller, permissions, project scope
+    └── *_routes.py    # one router per domain (auth, account, report, ci, rule, token, admin, access)
 tests/             # pytest (scanner, services, end-to-end MCP client)
 web/               # Angular application (built into src/security_review_mcp/webui/)
 ```
@@ -256,7 +264,7 @@ The keys are typed: an unknown key, or a key missing in one of the three languag
 ## Schema migrations
 
 Every change of a table model (`models.py`) comes with an Alembic revision in
-`src/security_review_mcp/migrations/versions/`. The
+`src/security_review_mcp/storage/migrations/versions/`. The
 `test_upgrade_creates_the_schema_of_the_models` test (`tests/test_database.py`) fails as long
 as the migrations do not produce exactly the schema of the models. To generate a draft
 revision to review:
