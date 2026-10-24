@@ -53,7 +53,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | Outil | Rôle |
 |---|---|
 | `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
-| `scan_code` | Scan rapide par motifs et analyses Tree-sitter ciblées des flux SQL Python, DOM Angular et origines de messages non vérifiées (pistes à vérifier, **pas** un SAST complet). Extraits masqués |
+| `scan_code` | Scan rapide par motifs et analyses Tree-sitter ciblées des flux SQL Python, DOM Angular et origines de messages non vérifiées (pistes à vérifier, **pas** un SAST complet). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
 | `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue / auteur, avec pagination |
@@ -152,7 +152,7 @@ findings se distinguent et se filtrent ainsi dans l'[interface web](web-interfac
 | `dependency-review` | prompt `dependency-review` |
 | `codebase-review` | prompt `codebase-review` |
 | `code-scan` | `security-review-ci scan-code --save` |
-| `dependency-scan` | `security-review-ci scan-deps --save` |
+| `dependency-scan` | `security-review-ci scan-deps --save`, `security-review-mcp scan-deps --save` |
 | `other` | toute autre revue (manuelle, sans prompt) |
 
 Le champ est facultatif : un rapport enregistré sans lui n'a pas de type. Toute autre valeur est
@@ -210,7 +210,9 @@ l'affichent.
 
 Un finding est `open` à son enregistrement. **Un agent ne le ferme jamais** : le code relu est
 une entrée non fiable, et une injection de prompt dans un commentaire pourrait sinon amener
-l'agent à neutraliser ses propres findings et à débloquer la [gate](gate.md).
+l'agent à neutraliser ses propres findings et à débloquer la [gate](gate.md). Le serveur rend
+aussi visible le texte caché dans ce qu'il renvoie à l'agent et signale les instructions
+injectées ([injection de prompt](../reference/security.md#securite-du-serveur-lui-meme)).
 
 - `propose_finding_status` enregistre une **proposition** (`fixed`, `accepted` ou
   `false_positive`) avec le motif de l'agent (10 à 1000 caractères, secrets masqués) et le label

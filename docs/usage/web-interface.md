@@ -72,7 +72,7 @@ shown), and the browser remembers the chosen sort for the next visits.
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
   The **Review open findings** button opens the next screen; **Risk acceptances** lists the
-  accepted risks of the project.
+  accepted risks of the project; **Refresh** reloads the trend and the reports.
 - **Findings to review**: every open finding of the project across all its reports, worst
   severity first, then newest report first, for a review by a security expert. Each finding
   shows its description, code excerpt and recommendation, and a link to its report (date, review

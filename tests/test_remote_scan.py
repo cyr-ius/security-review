@@ -7,9 +7,18 @@ import httpx2
 import pytest
 from test_advisories import osv
 
-from security_review_mcp import advisories, cli, http_server, remote_scan, server, token_store
+from security_review_mcp import (
+    advisories,
+    cli,
+    http_server,
+    remote_scan,
+    server,
+    services,
+    token_store,
+)
 from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role
+from security_review_mcp.models import ReviewType
 
 LOCKFILE = ("requirements.txt", "requests==2.19.0\n")
 
@@ -26,8 +35,9 @@ def settings_env(monkeypatch):
     """Set client settings (SECREVIEW_*) for one test and reload them."""
 
     def _set(**values: str) -> None:
-        for name in ("server_url", "token"):
-            monkeypatch.setenv(f"SECREVIEW_{name.upper()}", values.get(name, ""))
+        # The documented variable names, not the field names
+        for name, variable in (("server_url", "SECREVIEW_MCP_URL"), ("token", "SECREVIEW_TOKEN")):
+            monkeypatch.setenv(variable, values.get(name, ""))
         get_settings.cache_clear()
 
     _set()
@@ -182,6 +192,26 @@ async def test_tool_error_names_the_file(shared_server):
         )
 
 
+@pytest.mark.anyio
+async def test_save_stores_a_dependency_scan_report_on_the_server(tmp_path, shared_server):
+    factory, secret = shared_server
+    import_advisory(tmp_path)
+    options = {"token": secret, "http_client_factory": factory}
+    results = await remote_scan.scan_files_async("http://127.0.0.1:8000", [LOCKFILE], **options)
+    saved = await remote_scan.save_report_async(
+        "http://127.0.0.1:8000", results, "Demo", {"branch": "dev", "author": None}, **options
+    )
+    report = services.get_report(saved["report_id"])
+    assert (report.project, report.branch) == ("demo", "dev")
+    assert report.review_type == ReviewType.DEPENDENCY_SCAN
+    assert report.reviewer == remote_scan.REVIEWER
+    assert [f.rule_id for f in report.findings] == ["PYSEC-1"]
+    # A result without the fields of a finding (other server version) is an error, not a crash
+    del results[0]["vulnerabilities"][0]["also_known_as"]
+    with pytest.raises(ValueError, match="the report cannot be built"):
+        await remote_scan.save_report_async("http://127.0.0.1:8000", results, "demo", **options)
+
+
 # ── CLI ──────────────────────────────────────────────────────────────────────
 
 
@@ -328,3 +358,25 @@ def test_cli_text_output_drops_terminal_escapes(tmp_path, settings_env, monkeypa
     out = capsys.readouterr().out
     assert "\x1b" not in out and "\x07" not in out
     assert "requests?[2J?]0;pwned?" in out
+
+
+def test_cli_save_stores_the_report_with_the_scan_token(
+    tmp_path, settings_env, fake_scan, monkeypatch, capsys
+):
+    settings_env(server_url="https://secreview.example.com", token="tok-123")
+    saved: list[dict] = []
+
+    def save(server_url, results, project, fields, **kwargs):
+        saved.append({"project": project, "fields": fields, **kwargs})
+        return {"report_id": 7, "project": project}
+
+    monkeypatch.setattr(remote_scan, "save_report", save)
+    path = str(_lockfile(tmp_path))
+    assert cli.run(["scan-deps", path, "--save"]) == cli.EXIT_ERROR
+    assert "--project" in json.loads(capsys.readouterr().err)["error"]
+    assert fake_scan == []
+    args = ["scan-deps", path, "--save", "--project", "demo", "--branch", "dev"]
+    assert cli.run(args) == cli.EXIT_PASSED
+    (call,) = saved
+    assert (call["project"], call["fields"]["branch"], call["token"]) == ("demo", "dev", "tok-123")
+    assert "Report #7 saved for project demo" in capsys.readouterr().out

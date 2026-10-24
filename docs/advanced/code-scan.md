@@ -28,7 +28,11 @@ The client chooses the files; the controller never reads its own disk.
   `.venv`, `dist`, `build`, `target`, etc.
 - The language is inferred from the name: `.py`, `.java`, `.ts`, `.js`, `.html` (Angular
   templates), `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
-  `.gitlab-ci.yml`. Lockfiles, `*.min.js` and `*.d.ts` are skipped. Only these files are sent.
+  `.gitlab-ci.yml`, and the files that steer an AI assistant (`AGENTS.md`, `CLAUDE.md`,
+  `GEMINI.md`, `copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`,
+  `*.mdc`, `*.instructions.md`, `*.prompt.md`, `*.md` under `.claude/`, `.cursor/`, `.windsurf/`
+  or `.clinerules/`), scanned for hidden text and injected instructions (`AI-*` rules).
+  Lockfiles, `*.min.js` and `*.d.ts` are skipped. Only these files are sent.
 - Skipped files: `--exclude GLOB` (repeatable, e.g. `--exclude tests/`, only counted), and,
   reported, files beyond `--max-file-bytes` (1 MiB by default), binaries and symbolic links.
 

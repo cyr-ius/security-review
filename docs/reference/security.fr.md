@@ -175,6 +175,20 @@
   par erreur (une empreinte, un secret) est retiré au lieu d'être renvoyé. Les réponses qui
   contiennent un secret (session, jeton créé ou renouvelé, mot de passe généré) sont envoyées
   avec `Cache-Control: no-store`.
+- **Injection de prompt par le code relu** : le contenu que le serveur renvoie à un modèle est
+  balisé comme une donnée. Le code des prompts et les preuves enregistrées d'un finding sont
+  entourés d'une clôture de code plus longue que toute suite d'accents graves qu'ils contiennent :
+  ils ne peuvent pas fermer leur bloc. Les caractères invisibles (largeur nulle, contrôles
+  bidirectionnels, Unicode tags et sélecteurs de variante supplémentaires) sont remplacés par un
+  marqueur visible `<U+XXXX>` dans ces blocs, dans les extraits de `scan_code` et dans le
+  résumé, la description, la preuve et la recommandation enregistrés dans un rapport (puis coupés
+  de nouveau à `SECREVIEW_MAX_CONTENT_CHARS`) : rien n'est supprimé, le texte caché devient
+  lisible. Les
+  [règles `AI-*`](../advanced/rules.md#regles-par-defaut-par-plateforme) signalent les caractères
+  cachés et le texte adressé à un assistant IA, pour que la gate puisse les bloquer. Le serveur
+  ne voit que ce que l'agent lui envoie : il ne peut pas filtrer les fichiers que l'hôte lit avec
+  ses propres outils ; la [garde de lecture](../advanced/read-guard.md), un hook côté hôte, les
+  vérifie avant que l'assistant ne les lise.
 - **Comptes utilisateurs** ([identifiant et mot de passe](../usage/web-interface.md#comptes-utilisateurs)) :
   seule une empreinte **scrypt** salée (N=2¹⁴, r=8, p=5, sel aléatoire de 16 octets) est
   stockée ; une empreinte stockée aux paramètres hors bornes est refusée au lieu d'épuiser la

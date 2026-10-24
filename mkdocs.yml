@@ -86,6 +86,7 @@ plugins:
             Dependency analysis: Analyse des dépendances
             Internal rules: Règles internes
             Development standards: Normes de développement
+            Read guard for AI assistants: Garde de lecture des assistants IA
             Web interface: Interface web
             Audit log and metrics: Journal d'audit et métriques
             "Ticketing: Jira and ServiceNow": "Ticketing : Jira et ServiceNow"
@@ -141,6 +142,7 @@ nav:
           - Dependency analysis: advanced/dependencies.md
           - Internal rules: advanced/rules.md
           - Development standards: advanced/standards.md
+          - Read guard for AI assistants: advanced/read-guard.md
       - Reports and monitoring:
           - SARIF export: advanced/sarif.md
           - Trend report: advanced/trends.md

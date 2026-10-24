@@ -175,7 +175,12 @@ se connecter à l'interface web pour créer un nouveau jeton MCP personnel (voir
 [jeton refusé](http.md#jeton-refuse-se-reconnecter)).
 
 - Mêmes options et même sortie que `security-review-ci scan-deps` (`--fail-on`, `--format`,
-  `--require-database`) ; rien n'est enregistré (pas de `--save`).
+  `--require-database`).
+- `--save --project P` enregistre le résultat comme rapport `dependency-scan` du projet, avec
+  l'outil `save_security_report` du même serveur et le même jeton : le jeton doit atteindre le
+  projet (sinon, [demandez le projet](http.md#enrolement-demander-le-projet)). `--author`,
+  `--repository`, `--branch` et `--commit` sont enregistrés avec le rapport. Sans `--save`, rien
+  n'est enregistré.
 - `--url` remplace `SECREVIEW_MCP_URL`, `--token-stdin` lit le jeton sur stdin au lieu de
   `SECREVIEW_TOKEN`. Les deux variables peuvent aussi être définies dans le fichier `.env` du
   dossier (ne le commitez jamais).

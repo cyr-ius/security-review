@@ -2,6 +2,7 @@
 
 Used by the ``scan_dependencies`` MCP tool and by the controller for the files sent by
 ``security-review-ci scan-deps`` (``POST /api/v1/ci/scan/deps``, see scan_files and save).
+``security-review-mcp scan-deps --save`` builds its report with report_content.
 """
 
 from collections.abc import Sequence
@@ -223,6 +224,26 @@ def blocking_count(results: Sequence[dict], fail_on: Severity) -> int:
     )
 
 
+def report_content(results: Sequence[dict], reviewer: str = REVIEWER) -> dict:
+    """Summary, findings, scope, reviewer and review type of the report of the scans.
+
+    Shared by ``save`` (controller) and ``security-review-mcp scan-deps --save``, which sends
+    them to the ``save_security_report`` tool of a shared MCP server.
+    """
+    vulnerabilities = sum(r["vulnerabilities_count"] for r in results)
+    hygiene = sum(r["hygiene_count"] for r in results)
+    return {
+        "summary": (
+            f"Dependency scan of {len(results)} file(s): {vulnerabilities} vulnerable "
+            f"component(s), {hygiene} hygiene issue(s)."
+        ),
+        "findings": [f for r in results for f in to_findings(r)],
+        "reviewer": reviewer,
+        "scope": ", ".join(r["file"] for r in results),
+        "review_type": ReviewType.DEPENDENCY_SCAN,
+    }
+
+
 def save(
     results: Sequence[dict],
     project: str,
@@ -237,22 +258,12 @@ def save(
     Raises:
         ValueError: Too many findings or invalid report fields (author...).
     """
-    findings = [f for r in results for f in to_findings(r)]
-    vulnerabilities = sum(r["vulnerabilities_count"] for r in results)
-    hygiene = sum(r["hygiene_count"] for r in results)
     return services.save_report(
         project=project,
-        summary=(
-            f"Dependency scan of {len(results)} file(s): {vulnerabilities} vulnerable "
-            f"component(s), {hygiene} hygiene issue(s)."
-        ),
-        findings=findings,
         repository=repository,
         branch=branch,
         commit_sha=commit_sha,
-        reviewer=REVIEWER,
-        scope=", ".join(r["file"] for r in results),
-        review_type=ReviewType.DEPENDENCY_SCAN,
         author=author,
         submitted_by=submitted_by,
+        **report_content(results),
     )

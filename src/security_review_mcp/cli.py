@@ -124,19 +124,25 @@ def _blocking(result: dict, threshold: int) -> int:
     return sum(1 for e in entries if SEVERITY_RANK[Severity(e["severity"])] >= threshold)
 
 
-def _print_deps(results: list[dict], fail_on: str, output_format: str) -> int:
-    """Print the dependency scans and return the exit code (blocked at ``fail_on``)."""
+def _print_deps(
+    results: list[dict], fail_on: str, output_format: str, saved: dict | None = None
+) -> int:
+    """Print the dependency scans and return the exit code (blocked at ``fail_on``).
+
+    ``saved`` is the answer of save_security_report when the result was stored (--save).
+    """
     threshold = SEVERITY_RANK[Severity(fail_on)]
     blocked = sum(_blocking(r, threshold) for r in results)
     if output_format == "json":
         slim = [{k: v for k, v in r.items() if k != "components"} for r in results]
-        print(
-            json.dumps(
-                {"blocked": blocked > 0, "blocking_findings": blocked, "files": slim}, indent=2
-            )
-        )
+        answer = {"blocked": blocked > 0, "blocking_findings": blocked, "files": slim}
+        if saved:
+            answer["saved_report"] = saved
+        print(json.dumps(answer, indent=2))
     else:
         ci_client.print_deps_text(results, blocked, fail_on)
+        if saved:
+            ci_client.print_saved_line({"saved_report": saved}, saved.get("project", ""))
     return EXIT_BLOCKED if blocked else EXIT_PASSED
 
 
@@ -535,7 +541,19 @@ def scan_deps_command(argv: list[str]) -> int:
         action="store_true",
         help="allow plain HTTP to a non-loopback server (the token would travel in clear)",
     )
+    parser.add_argument(
+        "--save",
+        action="store_true",
+        help="store the result as a dependency-scan report of --project on the server",
+    )
+    parser.add_argument("--project", help="project name of the report (with --save)")
+    parser.add_argument("--repository", help="repository URL stored with the report")
+    parser.add_argument("--branch", help="branch stored with the report")
+    parser.add_argument("--commit", help="commit stored with the report")
+    parser.add_argument("--author", help="username of the developer, stored with the report")
     args = parser.parse_args(argv)
+    if args.save and not args.project:
+        return _fail("--save needs --project")
     if not args.url:
         if args.skip_unconfigured:
             print(
@@ -567,7 +585,27 @@ def scan_deps_command(argv: list[str]) -> int:
 
     if ci_client.warn_unchecked(results) and args.require_database:
         return _fail("vulnerability check could not run and --require-database was given")
-    return _print_deps(results, args.fail_on, args.format)
+    saved = None
+    if args.save:
+        fields = {
+            "repository": args.repository,
+            "branch": args.branch,
+            "commit_sha": args.commit,
+            "author": args.author,
+        }
+        try:
+            saved = remote_scan.save_report(
+                args.url,
+                results,
+                args.project,
+                fields,
+                token=token,
+                cafile=args.cafile,
+                allow_http=args.allow_http,
+            )
+        except ValueError as exc:
+            return _fail(str(exc))
+    return _print_deps(results, args.fail_on, args.format, saved)
 
 
 # ── rules ────────────────────────────────────────────────────────────────────

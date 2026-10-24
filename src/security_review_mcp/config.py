@@ -114,8 +114,8 @@ class Settings(BaseSettings):
 
     # Client commands only (`security-review-mcp scan-deps`, used by commit hooks and
     # pipelines): URL of the shared MCP server (default of --url) and the bearer token sent to
-    # it. Never used by the servers.
-    server_url: str | None = None
+    # it. Never used by the servers. Read from SECREVIEW_MCP_URL (an alias ignores env_prefix).
+    server_url: str | None = Field(default=None, validation_alias=AliasChoices("secreview_mcp_url"))
     token: str | None = None
 
     # Optional TLS served by uvicorn (HTTP MCP server and controller), enabled by tls_certfile.

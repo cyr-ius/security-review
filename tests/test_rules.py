@@ -153,7 +153,7 @@ def test_default_rules_file_is_valid_and_complete():
     defaults = default_content()
     ids = [rule.id for rule in defaults.rules]
     assert len(ids) == len(set(ids)) >= 120
-    families = {"PY", "JV", "NG", "CFG", "GEN", "GL", "JK", "CI", "SP", "FA"}
+    families = {"PY", "JV", "NG", "CFG", "GEN", "GL", "JK", "CI", "SP", "FA", "AI"}
     assert {rule_id.split("-")[0] for rule_id in ids} <= families
     # The review prompts rely on these checklist domains
     assert {"python", "java", "angular", "api", "config", "cicd", "dependencies"} <= set(

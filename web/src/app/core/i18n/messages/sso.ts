@@ -42,7 +42,7 @@ export const sso = defineMessages({
     'sso.displayName': 'Button label',
     'sso.rolesClaim': 'Groups claim',
     'sso.rolesClaimHelp':
-      'Its values ​​are compared against the group names. A dot-notated path is accepted (realm_access.roles).',
+      'Its values are compared against the group names. A dot-notated path is accepted (realm_access.roles).',
     'sso.usernameClaim': 'Username claim',
     'sso.adminGroups': 'Administration groups',
     'sso.autoCreate': 'Create the users at their first login',

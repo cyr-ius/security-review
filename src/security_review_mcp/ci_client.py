@@ -265,6 +265,20 @@ _EXTENSIONS = {
     ".dockerfile": "docker",
 }
 
+# Files that steer an AI assistant: scanned for hidden characters and injected instructions
+_AGENT_INSTRUCTION_NAMES = frozenset(
+    {
+        "agents.md",
+        "claude.md",
+        "gemini.md",
+        "copilot-instructions.md",
+        ".cursorrules",
+        ".windsurfrules",
+        ".clinerules",
+    }
+)
+_AGENT_INSTRUCTION_DIRS = frozenset({".claude", ".cursor", ".windsurf", ".clinerules"})
+
 
 def detect_language(path: str) -> str | None:
     """Return the scanner language of a file from its name, or None when it is not scanned."""
@@ -284,6 +298,12 @@ def detect_language(path: str) -> str | None:
         return "gitlab-ci"
     if lower == ".env" or lower.startswith(".env."):
         return "config"
+    if (
+        lower in _AGENT_INSTRUCTION_NAMES
+        or lower.endswith((".mdc", ".instructions.md", ".prompt.md"))
+        or (lower.endswith(".md") and _AGENT_INSTRUCTION_DIRS & set(PurePosixPath(path).parts))
+    ):
+        return "agent-instructions"
     return _EXTENSIONS.get(PurePosixPath(lower).suffix)
 
 
@@ -643,7 +663,7 @@ def _report_fields(args: argparse.Namespace) -> dict:
     }
 
 
-def _saved_line(result: dict, project: str) -> None:
+def print_saved_line(result: dict, project: str) -> None:
     """Print the id of the stored report, if any."""
     saved = result.get("saved_report")
     if saved:
@@ -668,7 +688,7 @@ def _scan_code(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> 
     code = EXIT_BLOCKED if result["blocked"] else EXIT_PASSED
     if args.format == "text":
         print_code_text(result, args.fail_on)
-        _saved_line(result, args.project)
+        print_saved_line(result, args.project)
         return code
     log = result.pop("sarif", None)
     document = log if args.format == "sarif" else result
@@ -694,7 +714,7 @@ def _scan_deps(args: argparse.Namespace, send: Callable[[str, dict], bytes]) -> 
         print(json.dumps(result, indent=2))
     else:
         print_deps_text(result["files"], result["blocking_findings"], args.fail_on)
-        _saved_line(result, args.project)
+        print_saved_line(result, args.project)
     return EXIT_BLOCKED if result["blocked"] else EXIT_PASSED
 
 

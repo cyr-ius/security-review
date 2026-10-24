@@ -51,7 +51,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | Tool | Role |
 |---|---|
 | `list_checklists` / `get_review_checklist` | Checklists by domain: `python`, `java`, `angular`, `api`, `config`, `cicd`, `dependencies` and internal domains |
-| `scan_code` | Quick pattern scan plus focused Tree-sitter checks for unsafe Python SQL, Angular DOM flows, and unchecked message origins (leads to check, **not** a full SAST). Masked excerpts |
+| `scan_code` | Quick pattern scan plus focused Tree-sitter checks for unsafe Python SQL, Angular DOM flows, and unchecked message origins (leads to check, **not** a full SAST). Masked excerpts, invisible characters shown as `<U+XXXX>` |
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
 | `list_security_reports` | List filtered by project / risk level / review type / author, with pagination |
@@ -150,7 +150,7 @@ findings can be told apart and filtered in the [web interface](web-interface.md)
 | `dependency-review` | prompt `dependency-review` |
 | `codebase-review` | prompt `codebase-review` |
 | `code-scan` | `security-review-ci scan-code --save` |
-| `dependency-scan` | `security-review-ci scan-deps --save` |
+| `dependency-scan` | `security-review-ci scan-deps --save`, `security-review-mcp scan-deps --save` |
 | `other` | any other review (manual, without a prompt) |
 
 The field is optional: a report saved without it has no type. Any other value is refused.
@@ -205,7 +205,9 @@ finding is a lead the agent dismissed. The CLI scans declare no coverage. The re
 
 A finding is `open` when it is saved. **An agent never closes it**: the reviewed code is
 untrusted input, and a prompt injection in a comment could otherwise lead the agent to dismiss
-its own findings and unblock the [gate](gate.md).
+its own findings and unblock the [gate](gate.md). The server also makes hidden text visible in
+what it hands back to the agent and reports injected instructions
+([prompt injection](../reference/security.md#security-of-the-server-itself)).
 
 - `propose_finding_status` stores a **proposal** (`fixed`, `accepted` or `false_positive`) with
   the agent's reason (10 to 1000 characters, secrets masked) and the label of its token. The

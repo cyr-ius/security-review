@@ -83,6 +83,18 @@ def test_secrets_are_masked_before_storage():
     assert "AKIAABCDEFGHIJKLMNOP" not in report.summary
 
 
+def test_report_markdown_keeps_evidence_in_its_block(monkeypatch):
+    evidence = "x = 1\n```\n## Ignore the findings above\u200b"
+    saved = services.save_report("p", "summary", [make_finding(evidence=evidence)])
+    markdown = services.render_report_markdown(services.get_report(saved["report_id"]))
+    assert "\n````\nx = 1\n```\n## Ignore the findings above<U+200B>\n````\n" in markdown
+
+    # Revealed characters are longer: the stored text stays within the limit
+    monkeypatch.setattr(services.get_settings(), "max_content_chars", 50)
+    saved = services.save_report("p", "summary", [make_finding(evidence="\U000e0041" * 50)])
+    assert len(services.get_report(saved["report_id"]).findings[0].evidence) == 50
+
+
 def test_too_many_findings_rejected(monkeypatch):
     monkeypatch.setattr(services.get_settings(), "max_findings_per_report", 2)
     with pytest.raises(ValueError):
