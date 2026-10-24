@@ -23,8 +23,6 @@ from security_review_mcp import (
     enrollment_api,
     http_server,
     oidc,
-    registry,
-    rule_store,
     server,
     standards,
     token_store,
@@ -35,6 +33,7 @@ from security_review_mcp import (
 from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role
 from security_review_mcp.reports import services
+from security_review_mcp.rules import registry, rule_store
 from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import (
     ApiToken,

@@ -11,18 +11,10 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from .. import (
-    access_control,
-    app_settings,
-    audit_syslog,
-    proxy,
-    rules_loader,
-    standards,
-    token_store,
-    web_users,
-)
+from .. import access_control, app_settings, audit_syslog, proxy, standards, token_store, web_users
 from ..config import MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS
 from ..http_server import Role
+from ..rules import rules_loader
 from ..storage.models import (
     MAX_AUTHOR_CHARS,
     MAX_COMMENT_CHARS,

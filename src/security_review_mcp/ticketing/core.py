@@ -25,7 +25,7 @@ from .. import audit
 from ..config import Settings
 from ..reports.sarif import SarifItem, fingerprint
 from ..reports.services import NotFoundError, _status_is
-from ..scanner import redact_secrets
+from ..rules.scanner import redact_secrets
 from ..storage.database import session_scope
 from ..storage.models import (
     SEVERITY_RANK,

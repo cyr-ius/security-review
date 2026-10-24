@@ -19,7 +19,7 @@ from urllib.parse import urlencode, urlsplit
 from .. import __version__
 from ..config import Settings
 from ..proxy import masked_url, proxy_handler
-from ..scanner import redact_secrets
+from ..rules.scanner import redact_secrets
 from .api import TicketingError
 
 HTTP_TIMEOUT = 15

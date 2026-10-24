@@ -4,8 +4,8 @@ import tomllib
 
 import pytest
 
-from security_review_mcp import registry, rule_store
-from security_review_mcp.rules_loader import default_content
+from security_review_mcp.rules import registry, rule_store
+from security_review_mcp.rules.rules_loader import default_content
 
 PACK = """
 disabled_rules = ["PY-008"]

@@ -2,9 +2,9 @@
 
 import re
 
-from . import scanner
-from .registry import COMPANY_DOMAIN, company_checklist_markdown, render_checklist_markdown
-from .registry import domains as checklist_domains
+from .rules import scanner
+from .rules.registry import COMPANY_DOMAIN, company_checklist_markdown, render_checklist_markdown
+from .rules.registry import domains as checklist_domains
 
 # Reviewed code, scan excerpts and stored evidence may come from an attacker (a merge request
 # author): the agent must treat them as data and never act on instructions found inside them.

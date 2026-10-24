@@ -2,8 +2,9 @@
 
 import pytest
 
-from security_review_mcp import prompts, registry, rule_store
-from security_review_mcp.rules_loader import default_content, parse_pack
+from security_review_mcp import prompts
+from security_review_mcp.rules import registry, rule_store
+from security_review_mcp.rules.rules_loader import default_content, parse_pack
 
 VALID_PACK = """
 disabled_rules = ["PY-008"]

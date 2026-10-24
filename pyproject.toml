@@ -53,7 +53,7 @@ security-review-ci = "security_review_mcp.ci_client:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-security_review_mcp = ["default_rules.toml", "favicon.svg", "storage/migrations/script.py.mako", "webui/*", "webui/**/*"]
+security_review_mcp = ["rules/default_rules.toml", "favicon.svg", "storage/migrations/script.py.mako", "webui/*", "webui/**/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

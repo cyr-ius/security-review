@@ -104,7 +104,8 @@ def upgrade_db() -> None:
     ``access_control.ensure_system_roles``).
     """
     # Import here because rule_store and access_control depend on this module
-    from .. import access_control, rule_store
+    from .. import access_control
+    from ..rules import rule_store
 
     before = current_revision()
     with get_engine().begin() as connection:

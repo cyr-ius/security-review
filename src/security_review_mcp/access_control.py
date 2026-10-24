@@ -68,7 +68,7 @@ from .config import Settings, get_settings
 from .http_server import Role
 from .rate_limit import RateLimit
 from .reports.services import NotFoundError
-from .scanner import redact_secrets
+from .rules.scanner import redact_secrets
 from .storage.database import session_scope
 from .storage.models import (
     AccessRole,

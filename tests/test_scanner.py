@@ -5,7 +5,7 @@ import sys
 
 import pytest
 
-from security_review_mcp.scanner import normalize_language, redact_secrets, scan_content
+from security_review_mcp.rules.scanner import normalize_language, redact_secrets, scan_content
 
 
 def rule_ids(content: str, language: str) -> set[str]:
@@ -456,7 +456,7 @@ def test_many_findings_do_not_crash_the_garbage_collector():
     # at the next collection once a finding was past line 256
     script = (
         "import gc\n"
-        "from security_review_mcp.scanner import scan_content\n"
+        "from security_review_mcp.rules.scanner import scan_content\n"
         "code = \"def v():\\n    x = request.args['x']\\n"
         "    db.execute(f'SELECT * FROM t WHERE a = {x}')\\n\" * 300\n"
         "for _ in range(10):\n"

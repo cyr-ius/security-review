@@ -7,7 +7,8 @@ from fastapi import APIRouter, HTTPException, Query, Response, status
 from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 
-from .. import registry, rule_store, rules_loader, standards
+from .. import standards
+from ..rules import registry, rule_store, rules_loader
 from .deps import RulesManager, StandardsManager, unprocessable
 from .schemas import (
     ChecklistCatalog,

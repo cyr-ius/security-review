@@ -15,7 +15,7 @@ from sqlmodel import col, select
 from .. import audit
 from ..config import MAX_RETENTION_DAYS, get_settings
 from ..prompts import fenced
-from ..scanner import redact_secrets, sanitize_untrusted
+from ..rules.scanner import redact_secrets, sanitize_untrusted
 from ..storage.database import session_scope
 from ..storage.models import (
     DISMISSED_STATUSES,

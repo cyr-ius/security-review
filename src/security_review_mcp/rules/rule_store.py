@@ -21,6 +21,15 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, select
 
+from ..storage.database import session_scope
+from ..storage.models import (
+    CustomCheckItem,
+    CustomRule,
+    DefaultSeed,
+    DisabledRule,
+    RuleSetRevision,
+    utcnow,
+)
 from .rules_loader import (
     LoadResult,
     default_content,
@@ -29,15 +38,6 @@ from .rules_loader import (
     parse_rule,
     rule_entry,
     validate_id,
-)
-from .storage.database import session_scope
-from .storage.models import (
-    CustomCheckItem,
-    CustomRule,
-    DefaultSeed,
-    DisabledRule,
-    RuleSetRevision,
-    utcnow,
 )
 
 MAX_CUSTOM_RULES = 1000

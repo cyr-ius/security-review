@@ -24,13 +24,12 @@ from . import (
     enrollment_api,
     http_server,
     prompts,
-    registry,
-    scanner,
     standards,
     token_store,
 )
 from .config import check_report_language, configure_logging, get_settings
 from .reports import sarif, services, trends
+from .rules import registry, scanner
 from .storage.database import SchemaError, check_db, init_db
 from .storage.models import (
     MAX_AUTHOR_CHARS,

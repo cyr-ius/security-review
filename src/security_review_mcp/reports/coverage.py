@@ -9,7 +9,7 @@ not lost at its last step.
 import re
 from dataclasses import dataclass, field
 
-from .. import registry
+from ..rules import registry
 from ..storage.models import (
     MAX_CHECKLIST_RESULTS,
     MAX_SCAN_RULES,

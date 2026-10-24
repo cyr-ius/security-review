@@ -11,11 +11,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from . import registry
-from .ci_client import detect_language
-from .config import get_settings
-from .reports import sarif, services
-from .storage.models import (
+from ..ci_client import detect_language
+from ..config import get_settings
+from ..reports import sarif, services
+from ..storage.models import (
     SEVERITY_RANK,
     FindingCreate,
     FindingPublic,
@@ -23,6 +22,7 @@ from .storage.models import (
     ReviewType,
     Severity,
 )
+from . import registry
 
 MAX_MATCHES_PER_FILE = 200
 # Files not scanned listed in the scope of a stored report

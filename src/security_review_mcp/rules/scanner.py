@@ -11,7 +11,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from functools import partial
 
-from .storage.models import Severity
+from ..storage.models import Severity
 from .syntax_analysis import (
     angular_xss_taint_lines,
     java_sql_taint_lines,

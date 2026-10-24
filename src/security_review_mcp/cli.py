@@ -26,16 +26,14 @@ from . import (
     ci_client,
     enrollment,
     http_server,
-    registry,
     remote_scan,
-    rule_store,
-    rules_loader,
     token_store,
     web_users,
 )
 from .config import get_settings
 from .reports import services
 from .reports.services import NotFoundError
+from .rules import registry, rule_store, rules_loader
 from .storage.database import SchemaError, init_db, schema_status, session_scope, upgrade_db
 from .storage.models import SEVERITY_RANK, Severity
 

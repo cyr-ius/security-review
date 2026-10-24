@@ -34,9 +34,9 @@ import tomllib
 from dataclasses import dataclass, field
 from importlib import resources
 
+from ..storage.models import Severity
 from .checklists import CheckItem
 from .scanner import SUPPORTED_LANGUAGES, Rule
-from .storage.models import Severity
 
 DEFAULT_RULES_FILE = "default_rules.toml"
 MAX_PACK_BYTES = 256 * 1024

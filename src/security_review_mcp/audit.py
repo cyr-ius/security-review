@@ -21,7 +21,7 @@ from sqlalchemy import delete, or_
 from sqlmodel import Session, col, func, select
 
 from .config import MAX_AUDIT_EVENTS, MAX_RETENTION_DAYS, get_settings
-from .scanner import redact_secrets
+from .rules.scanner import redact_secrets
 from .storage.database import session_scope
 from .storage.models import AuditEvent, as_utc, utcnow
 from .storage.project_names import normalize_project

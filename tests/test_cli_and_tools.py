@@ -7,9 +7,10 @@ from mcp.client import Client
 from sqlalchemy import inspect, text
 from test_advisories import osv
 
-from security_review_mcp import cli, rule_store, rules_loader, server, token_store
+from security_review_mcp import cli, server, token_store
 from security_review_mcp.config import get_settings
 from security_review_mcp.reports import services
+from security_review_mcp.rules import rule_store, rules_loader
 from security_review_mcp.storage.database import get_engine, init_db
 from security_review_mcp.storage.models import FindingCreate, Severity
 
