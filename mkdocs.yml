@@ -126,14 +126,14 @@ nav:
       - Deploying the server: getting-started/deploy.md
       - Connecting the host: getting-started/host.md
   - Usage:
-      - Security review:
-          - How a review works: usage/how-it-works.md
-          - Rules: usage/rules.md
-          - Checklists: usage/checklists.md
-          - Development standards: usage/standards.md
       - Prompts and tools: usage/prompts-tools.md
       - Web interface: usage/web-interface.md
       - Gate: usage/gate.md
+  - Security review:
+      - How a review works: usage/how-it-works.md
+      - Rules: usage/rules.md
+      - Checklists: usage/checklists.md
+      - Development standards: usage/standards.md
   - Advanced:
       - Deployment:
           - Architecture and deployment: advanced/architecture.md

@@ -317,9 +317,9 @@ racine du site) et en français (`page.fr.md`, à côté, servie sous `/fr/`), a
 langues** :
 
 La doc est organisée en parcours de mise en œuvre : **Démarrage** (`getting-started/` :
-installation, mise en service du serveur, connexion de l'hôte) et **Utilisation** (`usage/` :
-revue de sécurité — fonctionnement, règles, checklists, normes —, prompts et outils, interface
-web, gate) ne contiennent que l'essentiel pour travailler ;
+installation, mise en service du serveur, connexion de l'hôte), **Utilisation** (`usage/` : prompts et outils, interface web, gate) et
+**Revue de sécurité** (`usage/` : fonctionnement, règles, checklists, normes) ne
+contiennent que l'essentiel pour travailler ;
 **Avancé** (`advanced/`) regroupe les détails et les fonctions facultatives. Une nouvelle
 explication détaillée va dans `advanced/`, avec au plus une ligne et un lien depuis les pages
 essentielles.

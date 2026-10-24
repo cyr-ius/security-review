@@ -308,8 +308,8 @@ uv run mkdocs build --strict # what the CI does: a broken link fails the build
 - Links between pages target the English file (`../reference/cli.md`): the plugin points them
   to the French page from a French page. Anchors follow the headings of each language
   (`#report-language` in English, `#langue-des-rapports` in French).
-- The pages follow the order of a set-up: **Getting started** (`getting-started/`) and
-  **Usage** (`usage/`) only hold what is needed to work; **Advanced** (`advanced/`) gathers the
+- The pages follow the order of a set-up: **Getting started** (`getting-started/`),
+  **Usage** and **Security review** (both in `usage/`) only hold what is needed to work; **Advanced** (`advanced/`) gathers the
   details and the optional features. Put a detailed explanation in `advanced/`, with at most a
   line and a link from the essential pages.
 - To add a page, create both files in `docs/`, declare the English one in the `nav` section of
