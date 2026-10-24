@@ -523,8 +523,8 @@ def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp import audit
     from security_review_mcp.auth import access_control, token_store
+    from security_review_mcp.observability import audit
 
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0020")

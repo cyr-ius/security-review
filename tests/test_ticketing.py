@@ -10,8 +10,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from security_review_mcp import audit
 from security_review_mcp.config import Settings
+from security_review_mcp.observability import audit
 from security_review_mcp.reports import services
 from security_review_mcp.storage.models import FindingCreate, Severity, TicketState
 from security_review_mcp.ticketing import (

@@ -57,10 +57,10 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, or_, select
 
-from .. import audit
-from ..audit import AuditAction
 from ..config import MAX_RETENTION_DAYS, get_settings
 from ..http_server import TOKEN_ROLES, Role, TokenInfo, hash_token
+from ..observability import audit
+from ..observability.audit import AuditAction
 from ..storage.database import session_scope
 from ..storage.models import ApiToken, ApiTokenProject, WebUser, as_utc, utcnow
 from ..storage.project_names import normalize_project

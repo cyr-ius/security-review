@@ -6,10 +6,10 @@ import pytest
 from conftest import make_user
 from sqlmodel import Session, select
 
-from security_review_mcp import audit
 from security_review_mcp.auth import token_store
 from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role, TokenInfo, hash_token
+from security_review_mcp.observability import audit
 from security_review_mcp.storage import database as database_module
 from security_review_mcp.storage.models import ApiToken, ApiTokenProject
 

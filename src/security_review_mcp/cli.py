@@ -18,10 +18,11 @@ from pathlib import Path
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from . import audit, ci_client, enrollment, http_server, remote_scan
+from . import ci_client, enrollment, http_server, remote_scan
 from .auth import access_control, token_store, web_users
 from .config import get_settings
 from .deps import advisories, advisory_sync
+from .observability import audit
 from .reports import services
 from .reports.services import NotFoundError
 from .rules import registry, rule_store, rules_loader

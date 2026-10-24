@@ -12,8 +12,8 @@ from sqlalchemy import ColumnElement, and_, case, func, or_
 from sqlalchemy.orm import selectinload
 from sqlmodel import col, select
 
-from .. import audit
 from ..config import MAX_RETENTION_DAYS, get_settings
+from ..observability import audit
 from ..prompts import fenced
 from ..rules.scanner import redact_secrets, sanitize_untrusted
 from ..storage.database import session_scope

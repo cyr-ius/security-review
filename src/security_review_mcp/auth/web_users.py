@@ -51,10 +51,10 @@ from typing import Any
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, and_, col, func, or_, select
 
-from .. import audit
-from ..audit import AuditAction
 from ..config import Settings
 from ..http_server import Role, TokenInfo
+from ..observability import audit
+from ..observability.audit import AuditAction
 from ..reports.services import NotFoundError
 from ..storage.database import session_scope
 from ..storage.models import RevokedSsoUser, WebUser, utcnow

@@ -12,12 +12,12 @@ from datetime import timedelta
 
 from sqlmodel import func, select
 
-from . import __version__, http_server
-from .auth import access_control, token_store
-from .deps import advisories
-from .reports import services
-from .storage.database import session_scope
-from .storage.models import AdvisoryUpdate, Severity, WebUser, as_utc
+from .. import __version__, http_server
+from ..auth import access_control, token_store
+from ..deps import advisories
+from ..reports import services
+from ..storage.database import session_scope
+from ..storage.models import AdvisoryUpdate, Severity, WebUser, as_utc
 
 CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 # Active tokens counted by secreview_tokens_expiring_soon

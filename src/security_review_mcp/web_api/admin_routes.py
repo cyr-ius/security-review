@@ -7,9 +7,10 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException, Query, status
 from fastapi.concurrency import run_in_threadpool
 
-from .. import app_settings, audit
+from .. import app_settings
 from ..config import get_settings
 from ..deps import advisories, advisory_sync
+from ..observability import audit
 from ..storage.project_names import ProjectName
 from .deps import AuditReader, SettingsManager, actor_of, unprocessable
 from .schemas import (

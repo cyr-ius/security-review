@@ -7,11 +7,12 @@ from pathlib import Path
 import pytest
 from sqlmodel import Session, select
 
-from security_review_mcp import audit, cli
-from security_review_mcp.audit import AuditAction
+from security_review_mcp import cli
 from security_review_mcp.auth import token_store
 from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role
+from security_review_mcp.observability import audit
+from security_review_mcp.observability.audit import AuditAction
 from security_review_mcp.reports import services
 from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import AuditEvent, FindingCreate, FindingStatus, Severity

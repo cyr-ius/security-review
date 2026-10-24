@@ -34,10 +34,10 @@ from sqlalchemy import delete, update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, func, select
 
+from ..config import Settings
+from ..storage.database import session_scope
+from ..storage.models import AppSetting, AuditEvent, utcnow
 from .audit import public_event
-from .config import Settings
-from .storage.database import session_scope
-from .storage.models import AppSetting, AuditEvent, utcnow
 
 logger = logging.getLogger("security_review_mcp.audit_syslog")
 

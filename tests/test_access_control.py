@@ -4,10 +4,10 @@ import pytest
 from conftest import group_for, make_user
 from sqlmodel import select
 
-from security_review_mcp import audit
 from security_review_mcp.auth import access_control, web_users
 from security_review_mcp.auth.access_control import Permission
 from security_review_mcp.http_server import Role
+from security_review_mcp.observability import audit
 from security_review_mcp.reports.services import NotFoundError
 from security_review_mcp.storage.database import session_scope
 

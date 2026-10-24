@@ -4,7 +4,7 @@ events."""
 import logging
 import threading
 
-from .. import audit
+from ..observability import audit
 from ..reports import services
 
 logger = logging.getLogger("security_review_mcp.retention")

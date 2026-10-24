@@ -7,9 +7,10 @@ from mcp.client import Client
 from mcp.shared.exceptions import MCPError
 from pydantic import ValidationError
 
-from security_review_mcp import app_settings, audit
+from security_review_mcp import app_settings
 from security_review_mcp.auth import access_control, token_store
 from security_review_mcp.config import Settings, get_settings
+from security_review_mcp.observability import audit
 from security_review_mcp.prompts import fenced
 from security_review_mcp.reports import services
 from security_review_mcp.server import enrollment_mcp, mcp

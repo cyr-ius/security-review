@@ -13,7 +13,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from .. import __version__, audit
+from .. import __version__
 from ..auth import access_control, web_users
 from ..http_server import (
     API_ROLES,
@@ -23,6 +23,7 @@ from ..http_server import (
     SCAN_ROUTE_ROLES,
     Role,
 )
+from ..observability import audit
 from ..reports import services
 from ..storage.models import SecurityReportPublic
 from ..storage.project_names import normalize_project

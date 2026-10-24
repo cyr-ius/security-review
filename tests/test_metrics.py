@@ -5,9 +5,10 @@ from datetime import UTC, datetime, timedelta
 
 from conftest import make_user
 
-from security_review_mcp import http_server, metrics
+from security_review_mcp import http_server
 from security_review_mcp.auth import access_control, token_store
 from security_review_mcp.http_server import Role
+from security_review_mcp.observability import metrics
 from security_review_mcp.reports import services
 from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import (

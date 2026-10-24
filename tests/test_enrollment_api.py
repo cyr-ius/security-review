@@ -3,9 +3,10 @@
 import pytest
 from starlette.testclient import TestClient
 
-from security_review_mcp import audit, http_server, server
+from security_review_mcp import http_server, server
 from security_review_mcp.auth import access_control, enrollment_api, token_store
 from security_review_mcp.http_server import Role
+from security_review_mcp.observability import audit
 
 
 @pytest.fixture

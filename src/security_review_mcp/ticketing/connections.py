@@ -24,9 +24,9 @@ from urllib.parse import urlsplit
 from pydantic import create_model
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from .. import audit
 from ..app_settings import PASSWORD_MASK, _apply, _stored
 from ..config import Settings
+from ..observability import audit
 from ..storage.database import session_scope
 from .api import MAX_FIELD_CHARS, URL_FIELD, ConnectorField, TicketConnector
 

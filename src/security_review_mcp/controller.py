@@ -12,10 +12,11 @@ import argparse
 import logging
 import sys
 
-from . import app_settings, audit_syslog, cli, http_server, ticketing, web_api
+from . import app_settings, cli, http_server, ticketing, web_api
 from .auth import oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
 from .deps import advisory_sync
+from .observability import audit_syslog
 from .rules import registry
 from .storage import retention
 from .storage.database import SchemaError, init_db

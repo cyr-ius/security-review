@@ -21,8 +21,8 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
-from .. import audit
 from ..config import Settings
+from ..observability import audit
 from ..reports.sarif import SarifItem, fingerprint
 from ..reports.services import NotFoundError, _status_is
 from ..rules.scanner import redact_secrets
