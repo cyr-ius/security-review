@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from .. import app_settings, proxy, standards
 from ..auth import access_control, token_store, web_users
 from ..config import MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS
+from ..connectors import api as connectors_api
 from ..http_server import Role
 from ..observability import audit_syslog
 from ..rules import rules_loader
@@ -27,7 +28,6 @@ from ..storage.models import (
     Severity,
 )
 from ..storage.project_names import ProjectName
-from ..ticketing import api as ticketing_api
 
 AuthSource = Literal["local", "oidc"]
 Origin = Literal["builtin", "custom"]
@@ -1256,19 +1256,20 @@ class OidcTestResult(BaseModel):
 DependencyFileScan.model_rebuild()
 
 
-# ── Ticketing (see ticketing) ────────────────────────────────────────────────
+# ── Connectors (see connectors) ──────────────────────────────────────────────
 
-# Body of PUT /settings/ticketing/{kind}: field name to value (null or "" deletes the stored value)
-TicketingValues = Annotated[
+# Body of PUT /settings/connectors/{kind}: field name to value (null or "" deletes the stored
+# value)
+ConnectorValues = Annotated[
     dict[
         Annotated[str, StringConstraints(max_length=18)],
-        Annotated[str | None, StringConstraints(max_length=ticketing_api.MAX_FIELD_CHARS)],
+        Annotated[str | None, StringConstraints(max_length=connectors_api.MAX_FIELD_CHARS)],
     ],
     Field(max_length=30),
 ]
 
 
-class TicketingFieldInfo(BaseModel):
+class ConnectorFieldInfo(BaseModel):
     """A field declared by a connector: label, help and example in English, ``translations``
     by language (``{"fr": {"label": ..., "help": ...}}``)."""
 
@@ -1281,7 +1282,7 @@ class TicketingFieldInfo(BaseModel):
     translations: dict[str, dict[str, str]]
 
 
-class TicketingFieldState(TicketingFieldInfo):
+class ConnectorFieldState(ConnectorFieldInfo):
     """A field of a connection: its variable, stored value, variable value, whether the variable
     is set (it then takes precedence), effective value. Secrets are ``***`` when set."""
 
@@ -1292,39 +1293,39 @@ class TicketingFieldState(TicketingFieldInfo):
     effective: str | None
 
 
-class TicketingConnector(BaseModel):
-    """A ticketing system: its connection and what a project chooses (``destination``)."""
+class ConnectorInfo(BaseModel):
+    """A connector: its connection and what a project chooses (``destination``)."""
 
     kind: str
     name: str
     builtin: bool
     configured: bool
-    # Switched on: tickets may be sent (see ticketing.connections.enabled)
+    # Switched on: findings may be sent (see connectors.connections.enabled)
     enabled: bool
-    fields: list[TicketingFieldState]
-    destination: TicketingFieldInfo
+    fields: list[ConnectorFieldState]
+    destination: ConnectorFieldInfo
 
 
-class TicketingSettings(BaseModel):
-    """Ticketing: SECREVIEW_TICKETING_ENABLED (``false``: every connector locked off), the
-    allowed third-party connectors (SECREVIEW_TICKETING_PLUGINS) and every available system."""
+class ConnectorSettings(BaseModel):
+    """Connectors: SECREVIEW_CONNECTORS_ENABLED (``false``: every connector locked off), the
+    allowed third-party connectors (SECREVIEW_CONNECTORS_PLUGINS) and every available connector."""
 
     enabled: bool
     interval_seconds: int
     cafile: str | None
     plugins: list[str]
-    connectors: list[TicketingConnector]
+    connectors: list[ConnectorInfo]
 
 
-class TicketingSwitch(BaseModel):
-    """Body of PUT /settings/ticketing/{kind}/enabled."""
+class ConnectorSwitch(BaseModel):
+    """Body of PUT /settings/connectors/{kind}/enabled."""
 
     model_config = ConfigDict(extra="forbid")
 
     enabled: bool
 
 
-class TicketingTestResult(BaseModel):
+class ConnectorTestResult(BaseModel):
     """Outcome of a connection test: ``error`` is a short code (auth, refused, unreachable...)
     and ``message`` its detail, without secret."""
 
@@ -1333,8 +1334,8 @@ class TicketingTestResult(BaseModel):
     message: str | None = None
 
 
-class TicketTargetUpdate(BaseModel):
-    """Body of PUT /projects/{project}/ticket-targets/{kind}.
+class ConnectorTargetUpdate(BaseModel):
+    """Body of PUT /projects/{project}/connector-targets/{kind}.
 
     ``destination`` is what the system asks for (Jira project key, ServiceNow assignment
     group...). ``auto_min_severity`` sends automatically the new open findings at least that
@@ -1343,12 +1344,12 @@ class TicketTargetUpdate(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    destination: str = Field(default="", max_length=ticketing_api.MAX_FIELD_CHARS)
+    destination: str = Field(default="", max_length=connectors_api.MAX_FIELD_CHARS)
     auto_min_severity: Severity | None = None
 
 
-class TicketTarget(BaseModel):
-    """Where the findings of a project go in one ticketing system."""
+class ConnectorTarget(BaseModel):
+    """Where the findings of a project go through one connector."""
 
     project: str
     kind: str
@@ -1359,15 +1360,15 @@ class TicketTarget(BaseModel):
     updated_by: str | None
 
 
-class TicketDestination(BaseModel):
-    """A project and a ticketing system its findings can be sent to now."""
+class ConnectorDestination(BaseModel):
+    """A project and a connector its findings can be sent to now."""
 
     project: str
     kind: str
 
 
-class TicketSystem(BaseModel):
-    """A ticketing system: kind and display name."""
+class ConnectorSystem(BaseModel):
+    """A connector: kind and display name."""
 
     kind: str
     name: str

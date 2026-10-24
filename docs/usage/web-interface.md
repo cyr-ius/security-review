@@ -208,14 +208,14 @@ a **Delete** button.
   ([update by the controller](../advanced/dependencies.md#automatic-update-by-the-controller)).
 - **Connectors**: one card per connector (Jira, ServiceNow, third-party) with its switch and a
   gear for its settings: connection (with **Test the connection**) and destination of each
-  project, with its optional automatic sending ([ticketing](../advanced/ticketing.md)).
+  project, with its optional automatic sending ([connectors](../connectors/index.md)).
 
 ## Triage of findings
 
 The status of a finding is decided by a **person**; an agent only proposes it (MCP tool
 `propose_finding_status`, see [status of a finding](prompts-tools.md#status-of-a-finding)).
 A triager may also send a finding to Jira or ServiceNow (**Send to Jira**), when its project
-has a destination: see [ticketing](../advanced/ticketing.md#sending-a-finding).
+has a destination: see [connectors](../connectors/index.md#sending-a-finding).
 
 - **Proposal of an agent**: shown on the finding in a separate box, with its author (label of
   the token), its date and its reason. The reason may come from the reviewed code: check it.
@@ -274,7 +274,7 @@ replaces the previous one.
   their number is unchanged (the code moved), else only on the same line: a new occurrence
   never inherits the decision taken on another one, it is open.
 - The previous occurrence stays in its report, marked **Reported again: see finding #N**; it
-  can no longer be triaged (`422` through the API) nor sent to a ticketing system (`409`).
+  can no longer be triaged (`422` through the API) nor sent through a connector (`409`).
 - **Findings to review**, the posture, the project [gate](gate.md), SARIF, the counters and
   the trend count the latest occurrence only; the trend and the time to remediate start at
   the first occurrence of the issue (`first_seen_at`).

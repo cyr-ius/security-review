@@ -224,14 +224,14 @@ est signalée comme ignorée, avec un bouton **Supprimer**.
   ([mise à jour par le contrôleur](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur)).
 - **Connecteurs** : une carte par connecteur (Jira, ServiceNow, tiers) avec son interrupteur et
   une roue crantée pour ses paramètres : connexion (avec **Tester la connexion**) et destination
-  de chaque projet, avec son envoi automatique facultatif ([ticketing](../advanced/ticketing.md)).
+  de chaque projet, avec son envoi automatique facultatif ([connecteurs](../connectors/index.md)).
 
 ## Triage des findings
 
 Le statut d'un finding est décidé par une **personne** ; un agent ne fait que le proposer (outil
 MCP `propose_finding_status`, voir [statut d'un finding](prompts-tools.md#statut-dun-finding)).
 Un trieur peut aussi envoyer un finding vers Jira ou ServiceNow (**Envoyer vers Jira**), quand
-son projet a une destination : voir [ticketing](../advanced/ticketing.md#envoi-dun-finding).
+son projet a une destination : voir [connecteurs](../connectors/index.md#envoi-dun-finding).
 
 - **Proposition d'un agent** : affichée sur le finding dans un encadré distinct, avec son auteur
   (label du jeton), sa date et son motif. Le motif peut venir du code relu : vérifiez-le.
@@ -293,8 +293,8 @@ occurrence remplace la précédente.
   même ligne : une nouvelle occurrence n'hérite jamais de la décision prise sur une autre, elle
   est ouverte.
 - L'occurrence précédente reste dans son rapport, marquée **Signalé de nouveau : voir le
-  finding #N** ; elle ne peut plus être triée (`422` par l'API) ni envoyée vers un outil de
-  tickets (`409`).
+  finding #N** ; elle ne peut plus être triée (`422` par l'API) ni envoyée par un
+  connecteur (`409`).
 - **Findings à revoir**, la posture, la [gate](gate.md) du projet, le SARIF, les compteurs et
   la tendance ne comptent que la dernière occurrence ; la tendance et le délai de correction
   partent de la première occurrence du problème (`first_seen_at`).

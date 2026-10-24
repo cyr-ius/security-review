@@ -283,9 +283,9 @@ export type AuditAction =
   | 'user.login_failed'
   | 'user.logout'
   | 'audit_syslog.changed'
-  | 'finding.ticket_created'
-  | 'ticketing.target_changed'
-  | 'ticketing.changed';
+  | 'finding.exported'
+  | 'connector.target_changed'
+  | 'connector.changed';
 
 export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'finding.status_changed',
@@ -316,9 +316,9 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.login_failed',
   'user.logout',
   'audit_syslog.changed',
-  'finding.ticket_created',
-  'ticketing.target_changed',
-  'ticketing.changed',
+  'finding.exported',
+  'connector.target_changed',
+  'connector.changed',
 ];
 
 /** One entry of the audit log (details never hold a secret). */
@@ -575,26 +575,26 @@ export interface Finding {
   description: string;
   evidence: string | null;
   recommendation: string | null;
-  /** Tickets of the finding in Jira or ServiceNow (one per system). */
-  tickets: FindingTicket[];
+  /** Exports of the finding through the connectors (one per connector). */
+  exports: FindingExport[];
 }
 
-/** Kind of a ticketing connector: jira, servicenow or a third-party one. */
-export type TicketKind = string;
+/** Kind of a connector: jira, servicenow or a third-party one. */
+export type ConnectorKind = string;
 
-/** GET /api/v1/ticketing/systems: an available ticketing system. */
-export interface TicketSystem {
-  kind: TicketKind;
+/** GET /api/v1/connectors: an available connector. */
+export interface ConnectorSystem {
+  kind: ConnectorKind;
   name: string;
 }
 
-/** sending: request in progress; sent: the ticket exists; failed: the last attempt failed. */
-export type TicketState = 'sending' | 'sent' | 'failed';
+/** sending: request in progress; sent: the record exists; failed: the last attempt failed. */
+export type ExportState = 'sending' | 'sent' | 'failed';
 
-/** Ticket of a finding: key and link once it exists, short reason of the last failure. */
-export interface FindingTicket {
-  kind: TicketKind;
-  state: TicketState;
+/** Export of a finding: key and link of its record once it exists, short reason of the last failure. */
+export interface FindingExport {
+  kind: ConnectorKind;
+  state: ExportState;
   external_key: string | null;
   url: string | null;
   error: string | null;
@@ -602,16 +602,16 @@ export interface FindingTicket {
   updated_at: string;
 }
 
-/** GET /api/v1/ticketing/destinations: a project and a system its findings can be sent to. */
-export interface TicketDestination {
+/** GET /api/v1/connectors/destinations: a project and a system its findings can be sent to. */
+export interface ConnectorDestination {
   project: string;
-  kind: TicketKind;
+  kind: ConnectorKind;
 }
 
 /** Where the findings of a project go in one system, and its automatic sending. */
-export interface TicketTarget {
+export interface ConnectorTarget {
   project: string;
-  kind: TicketKind;
+  kind: ConnectorKind;
   /** What the system asks for: Jira project key, ServiceNow assignment group... */
   destination: string;
   /** Lowest severity sent automatically (null: by hand only). */
@@ -621,14 +621,14 @@ export interface TicketTarget {
   updated_by: string | null;
 }
 
-/** Body of PUT /api/v1/projects/{project}/ticket-targets/{kind}. */
-export interface TicketTargetUpdate {
+/** Body of PUT /api/v1/projects/{project}/connector-targets/{kind}. */
+export interface ConnectorTargetUpdate {
   destination: string;
   auto_min_severity: Severity | null;
 }
 
 /** A field declared by a connector: English texts, translated by language when it can. */
-export interface TicketingFieldInfo {
+export interface ConnectorFieldInfo {
   name: string;
   label: string;
   help: string;
@@ -640,7 +640,7 @@ export interface TicketingFieldInfo {
 }
 
 /** A field of a connection; secrets are '***' when set. */
-export interface TicketingFieldState extends TicketingFieldInfo {
+export interface ConnectorFieldState extends ConnectorFieldInfo {
   variable: string;
   value: string | null;
   env: string | null;
@@ -648,34 +648,34 @@ export interface TicketingFieldState extends TicketingFieldInfo {
   effective: string | null;
 }
 
-/** A ticketing system: its connection and what a project chooses. */
-export interface TicketingConnector {
-  kind: TicketKind;
+/** A connector: its connection and what a project chooses. */
+export interface ConnectorInfo {
+  kind: ConnectorKind;
   name: string;
   builtin: boolean;
   configured: boolean;
-  /** Switched on: tickets may be sent through it. */
+  /** Switched on: findings may be sent through it. */
   enabled: boolean;
-  fields: TicketingFieldState[];
-  destination: TicketingFieldInfo;
+  fields: ConnectorFieldState[];
+  destination: ConnectorFieldInfo;
 }
 
-/** GET /api/v1/settings/ticketing */
-export interface TicketingSettings {
-  /** SECREVIEW_TICKETING_ENABLED (false: every connector locked off) */
+/** GET /api/v1/settings/connectors */
+export interface ConnectorSettings {
+  /** SECREVIEW_CONNECTORS_ENABLED (false: every connector locked off) */
   enabled: boolean;
   interval_seconds: number;
   cafile: string | null;
-  /** Third-party connectors allowed by SECREVIEW_TICKETING_PLUGINS */
+  /** Third-party connectors allowed by SECREVIEW_CONNECTORS_PLUGINS */
   plugins: string[];
-  connectors: TicketingConnector[];
+  connectors: ConnectorInfo[];
 }
 
-/** Body of PUT /api/v1/settings/ticketing/{kind}: null or '' deletes the stored value. */
-export type TicketingUpdate = Record<string, string | null>;
+/** Body of PUT /api/v1/settings/connectors/{kind}: null or '' deletes the stored value. */
+export type ConnectorUpdate = Record<string, string | null>;
 
-/** POST /api/v1/settings/ticketing/{kind}/test */
-export interface TicketingTestResult {
+/** POST /api/v1/settings/connectors/{kind}/test */
+export interface ConnectorTestResult {
   ok: boolean;
   error: string | null;
   message: string | null;

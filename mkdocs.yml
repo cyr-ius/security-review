@@ -91,7 +91,9 @@ plugins:
             Read guard for AI assistants: Garde de lecture des assistants IA
             Web interface: Interface web
             Audit log and metrics: Journal d'audit et métriques
-            "Ticketing: Jira and ServiceNow": "Ticketing : Jira et ServiceNow"
+            Connectors: Connecteurs
+            Overview: Présentation
+            Third-party connectors: Connecteurs tiers
             SARIF export: Export SARIF
             Trend report: Rapport de tendance
             Reference: Référence
@@ -134,6 +136,11 @@ nav:
       - Rules: usage/rules.md
       - Checklists: usage/checklists.md
       - Development standards: usage/standards.md
+  - Connectors:
+      - Overview: connectors/index.md
+      - Jira: connectors/jira.md
+      - ServiceNow: connectors/servicenow.md
+      - Third-party connectors: connectors/third-party.md
   - Advanced:
       - Deployment:
           - Architecture and deployment: advanced/architecture.md
@@ -151,7 +158,6 @@ nav:
           - SARIF export: advanced/sarif.md
           - Trend report: advanced/trends.md
           - Audit log and metrics: advanced/audit-metrics.md
-          - "Ticketing: Jira and ServiceNow": advanced/ticketing.md
   - Reference:
       - Configuration: reference/configuration.md
       - Command line: reference/cli.md

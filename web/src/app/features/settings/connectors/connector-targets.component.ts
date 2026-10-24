@@ -8,14 +8,14 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
   SEVERITIES,
   Severity,
-  TicketTarget,
-  TicketingConnector,
+  ConnectorTarget,
+  ConnectorInfo,
 } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
-import { fieldText } from '../../../core/services/ticket.service';
+import { fieldText } from '../../../core/services/export.service';
 import { describeError } from '../settings-page';
 
-/** Longest destination accepted by the server (ticketing.api.MAX_FIELD_CHARS). */
+/** Longest destination accepted by the server (connectors.api.MAX_FIELD_CHARS). */
 const MAX_DESTINATION_CHARS = 500;
 
 /** Destination of a project being set. */
@@ -39,9 +39,9 @@ export class ConnectorTargetsComponent {
   private readonly api = inject(ApiService);
   private readonly i18n = inject(I18nService);
 
-  readonly connector = input.required<TicketingConnector>();
+  readonly connector = input.required<ConnectorInfo>();
   /** Destinations of this connector. */
-  readonly targets = input.required<readonly TicketTarget[]>();
+  readonly targets = input.required<readonly ConnectorTarget[]>();
   readonly projectNames = input.required<readonly string[]>();
   /** A destination was saved or deleted: the page reloads them. */
   readonly changed = output<void>();
@@ -66,7 +66,7 @@ export class ConnectorTargetsComponent {
   readonly error = signal<Message | null>(null);
 
   /** Fill the form with a destination, to change it. */
-  edit(target: TicketTarget): void {
+  edit(target: ConnectorTarget): void {
     this.targetModel.set({
       project: target.project,
       destination: target.destination,
@@ -86,7 +86,7 @@ export class ConnectorTargetsComponent {
     }
     await this.run(async () => {
       await firstValueFrom(
-        this.api.setTicketTarget(project, this.connector().kind, {
+        this.api.setConnectorTarget(project, this.connector().kind, {
           destination: destination.trim(),
           auto_min_severity: auto || null,
         }),
@@ -96,9 +96,9 @@ export class ConnectorTargetsComponent {
     });
   }
 
-  async delete(target: TicketTarget): Promise<void> {
+  async delete(target: ConnectorTarget): Promise<void> {
     await this.run(async () => {
-      await firstValueFrom(this.api.deleteTicketTarget(target.project, target.kind));
+      await firstValueFrom(this.api.deleteConnectorTarget(target.project, target.kind));
       return msg('connectors.targetDeleted');
     });
   }

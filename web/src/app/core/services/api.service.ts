@@ -53,15 +53,15 @@ import {
   RulePackSection,
   RuleReloadResult,
   StandardPackImportResult,
-  TicketDestination,
-  TicketSystem,
-  TicketKind,
-  TicketTarget,
-  TicketTargetUpdate,
-  TicketingSettings,
-  TicketingTestResult,
-  TicketingUpdate,
-  FindingTicket,
+  ConnectorDestination,
+  ConnectorSystem,
+  ConnectorKind,
+  ConnectorTarget,
+  ConnectorTargetUpdate,
+  ConnectorSettings,
+  ConnectorTestResult,
+  ConnectorUpdate,
+  FindingExport,
   TokenRoleChoice,
   Trend,
   UpdateStatus,
@@ -511,63 +511,63 @@ export class ApiService {
     return this.http.put<AuditSyslogSettings>(`${API_URL}/settings/audit-syslog`, values);
   }
 
-  ticketing(): Observable<TicketingSettings> {
-    return this.http.get<TicketingSettings>(`${API_URL}/settings/ticketing`);
+  connectors(): Observable<ConnectorSettings> {
+    return this.http.get<ConnectorSettings>(`${API_URL}/settings/connectors`);
   }
 
   /** A field left out is unchanged; null or '' deletes it; a secret sent back as '***' is kept. */
-  setTicketing(kind: TicketKind, values: TicketingUpdate): Observable<TicketingSettings> {
-    return this.http.put<TicketingSettings>(`${API_URL}/settings/ticketing/${kind}`, values);
+  setConnector(kind: ConnectorKind, values: ConnectorUpdate): Observable<ConnectorSettings> {
+    return this.http.put<ConnectorSettings>(`${API_URL}/settings/connectors/${kind}`, values);
   }
 
   /** Switch a connector on or off (refused while its connection is not configured). */
-  switchTicketing(kind: TicketKind, enabled: boolean): Observable<TicketingSettings> {
-    return this.http.put<TicketingSettings>(`${API_URL}/settings/ticketing/${kind}/enabled`, {
+  switchConnector(kind: ConnectorKind, enabled: boolean): Observable<ConnectorSettings> {
+    return this.http.put<ConnectorSettings>(`${API_URL}/settings/connectors/${kind}/enabled`, {
       enabled,
     });
   }
 
   /** Test the connection with the stored values and ``values`` (not stored). */
-  testTicketing(kind: TicketKind, values: TicketingUpdate): Observable<TicketingTestResult> {
-    return this.http.post<TicketingTestResult>(
-      `${API_URL}/settings/ticketing/${kind}/test`,
+  testConnector(kind: ConnectorKind, values: ConnectorUpdate): Observable<ConnectorTestResult> {
+    return this.http.post<ConnectorTestResult>(
+      `${API_URL}/settings/connectors/${kind}/test`,
       values,
     );
   }
 
-  ticketTargets(): Observable<TicketTarget[]> {
-    return this.http.get<TicketTarget[]>(`${API_URL}/ticketing/targets`);
+  connectorTargets(): Observable<ConnectorTarget[]> {
+    return this.http.get<ConnectorTarget[]>(`${API_URL}/connectors/targets`);
   }
 
-  setTicketTarget(
+  setConnectorTarget(
     project: string,
-    kind: TicketKind,
-    target: TicketTargetUpdate,
-  ): Observable<TicketTarget> {
-    return this.http.put<TicketTarget>(
-      `${API_URL}/projects/${encodeURIComponent(project)}/ticket-targets/${kind}`,
+    kind: ConnectorKind,
+    target: ConnectorTargetUpdate,
+  ): Observable<ConnectorTarget> {
+    return this.http.put<ConnectorTarget>(
+      `${API_URL}/projects/${encodeURIComponent(project)}/connector-targets/${kind}`,
       target,
     );
   }
 
-  deleteTicketTarget(project: string, kind: TicketKind): Observable<void> {
+  deleteConnectorTarget(project: string, kind: ConnectorKind): Observable<void> {
     return this.http.delete<void>(
-      `${API_URL}/projects/${encodeURIComponent(project)}/ticket-targets/${kind}`,
+      `${API_URL}/projects/${encodeURIComponent(project)}/connector-targets/${kind}`,
     );
   }
 
-  /** Available ticketing systems, to label the tickets of the findings. */
-  ticketSystems(): Observable<TicketSystem[]> {
-    return this.http.get<TicketSystem[]>(`${API_URL}/ticketing/systems`);
+  /** Available connectors, to label the exports of the findings. */
+  connectorSystems(): Observable<ConnectorSystem[]> {
+    return this.http.get<ConnectorSystem[]>(`${API_URL}/connectors`);
   }
 
   /** Projects and systems the current user may send findings to now. */
-  ticketDestinations(): Observable<TicketDestination[]> {
-    return this.http.get<TicketDestination[]>(`${API_URL}/ticketing/destinations`);
+  connectorDestinations(): Observable<ConnectorDestination[]> {
+    return this.http.get<ConnectorDestination[]>(`${API_URL}/connectors/destinations`);
   }
 
-  sendFindingTicket(id: number, kind: TicketKind): Observable<FindingTicket> {
-    return this.http.post<FindingTicket>(`${API_URL}/findings/${id}/tickets/${kind}`, {});
+  exportFinding(id: number, kind: ConnectorKind): Observable<FindingExport> {
+    return this.http.post<FindingExport>(`${API_URL}/findings/${id}/exports/${kind}`, {});
   }
 
   advisories(): Observable<AdvisoryOverview> {

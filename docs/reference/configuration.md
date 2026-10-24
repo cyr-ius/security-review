@@ -143,17 +143,17 @@ Read by `security-review-controller` only.
 | `SECREVIEW_AUDIT_SYSLOG_CAFILE` | — | CA bundle that verifies the certificate of a `tls://` syslog server (internal certificate authority); default: the system CA bundle. A variable only |
 | `SECREVIEW_METRICS_ENABLED` | `true` | Serves the [Prometheus metrics](../advanced/audit-metrics.md#prometheus-metrics) on `/metrics` (`metrics` or `admin` token); when `false`, `/metrics` answers 404 |
 
-### Ticketing
+### Connectors
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_TICKETING_ENABLED` | `true` | Lock of the [connectors](../advanced/ticketing.md#enabling) (Jira, ServiceNow, third-party; outgoing connections of the controller): `true`, each one is switched on in the **Connectors** screen (all off by default); `false`, all locked off |
-| `SECREVIEW_TICKETING_INTERVAL_SECONDS` | `300` | Period of the [automatic sending](../advanced/ticketing.md#sending-a-finding) (30 to 86400) |
-| `SECREVIEW_TICKETING_CAFILE` | — | CA bundle used instead of the system one (internal authority) |
-| `SECREVIEW_TICKETING_PLUGINS` | — | [Third-party connectors](../advanced/ticketing.md#third-party-connectors) allowed, by entry point name, comma separated; one installed but not listed is never loaded |
-| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Jira connection](../advanced/ticketing.md#connections); when set, takes precedence over the **Connectors** screen |
-| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [ServiceNow connection](../advanced/ticketing.md#connections); when set, takes precedence over the **Connectors** screen |
-| `SECREVIEW_<KIND>_<FIELD>` | — | Field of the connection of a [third-party connector](../advanced/ticketing.md#third-party-connectors) (`SECREVIEW_ACME_API_KEY`) |
+| `SECREVIEW_CONNECTORS_ENABLED` | `true` | Lock of the [connectors](../connectors/index.md#enabling) (Jira, ServiceNow, third-party; outgoing connections of the controller): `true`, each one is switched on in the **Connectors** screen (all off by default); `false`, all locked off |
+| `SECREVIEW_CONNECTORS_INTERVAL_SECONDS` | `300` | Period of the [automatic sending](../connectors/index.md#sending-a-finding) (30 to 86400) |
+| `SECREVIEW_CONNECTORS_CAFILE` | — | CA bundle used instead of the system one (internal authority) |
+| `SECREVIEW_CONNECTORS_PLUGINS` | — | [Third-party connectors](../connectors/third-party.md) allowed, by entry point name, comma separated; one installed but not listed is never loaded |
+| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Jira connection](../connectors/jira.md#connection); when set, takes precedence over the **Connectors** screen |
+| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [ServiceNow connection](../connectors/servicenow.md#connection); when set, takes precedence over the **Connectors** screen |
+| `SECREVIEW_<KIND>_<FIELD>` | — | Field of the connection of a [third-party connector](../connectors/third-party.md) (`SECREVIEW_ACME_API_KEY`) |
 
 ### Pipeline scan limits
 

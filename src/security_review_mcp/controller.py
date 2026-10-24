@@ -12,7 +12,7 @@ import argparse
 import logging
 import sys
 
-from . import app_settings, cli, http_server, ticketing, web_api
+from . import app_settings, cli, connectors, http_server, web_api
 from .auth import oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
 from .deps import advisory_sync
@@ -81,7 +81,7 @@ def serve(argv: list[str]) -> None:
         if settings.osv_auto_update:
             advisory_sync.validate_settings(settings)
         audit_syslog.validate_settings(settings)
-        ticketing.validate_settings(settings)
+        connectors.validate_settings(settings)
         bootstrap_created = web_users.ensure_bootstrap_admin(settings.admin_username)
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
@@ -108,10 +108,10 @@ def serve(argv: list[str]) -> None:
     )
     forwarder.start()
     dispatcher = (
-        ticketing.TicketDispatcher(
+        connectors.ExportDispatcher(
             settings, current=lambda: app_settings.effective_settings(settings)
         )
-        if settings.ticketing_enabled
+        if settings.connectors_enabled
         else None
     )
     if dispatcher:

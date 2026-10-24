@@ -194,7 +194,7 @@ class Finding(FindingBase, table=True):
         back_populates="finding",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
-    tickets: list[FindingTicket] = Relationship(
+    exports: list[FindingExport] = Relationship(
         back_populates="finding",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
@@ -204,22 +204,22 @@ class FindingCreate(FindingBase):
     """Finding as submitted by the host (no id, no status)."""
 
 
-class TicketState(StrEnum):
-    """State of the ticket of a finding."""
+class ExportState(StrEnum):
+    """State of the export of a finding to a connector."""
 
     SENDING = "sending"  # claimed by a controller, request in progress
-    SENT = "sent"  # the ticket exists (created, or shared with a finding of same fingerprint)
+    SENT = "sent"  # the record exists (created, or shared with a finding of same fingerprint)
     FAILED = "failed"  # the last attempt failed, retried later (automatic sending)
 
 
-class FindingTicket(SQLModel, table=True):
-    """Ticket of a finding in a ticketing system: one per finding and kind (the ``kind`` of its
-    connector, see ticketing.api).
+class FindingExport(SQLModel, table=True):
+    """Export of a finding to an external system (ticket, vulnerability register...): one per
+    finding and kind (the ``kind`` of its connector, see connectors.api).
 
     The row is inserted before the request (``sending``): the unique constraint makes it the
-    claim of the controller that sends it, so that two replicas never create two tickets.
+    claim of the controller that sends it, so that two replicas never create two records.
     ``fingerprint`` (see sarif.fingerprint) links the occurrences of one issue across the
-    reports of a project: a later occurrence reuses the ticket instead of creating another.
+    reports of a project: a later occurrence reuses the record instead of creating another.
     """
 
     __table_args__ = (UniqueConstraint("finding_id", "kind"),)
@@ -229,25 +229,25 @@ class FindingTicket(SQLModel, table=True):
     kind: str = Field(max_length=20)
     project: str = Field(index=True, max_length=200)
     fingerprint: str = Field(index=True, max_length=64)
-    state: TicketState = Field(default=TicketState.SENDING, sa_type=String(20), index=True)
-    # Key and link of the ticket (SEC-12, INC0010001), set once it exists
+    state: ExportState = Field(default=ExportState.SENDING, sa_type=String(20), index=True)
+    # Key and link of the external record (SEC-12, INC0010001), set once it exists
     external_key: str | None = Field(default=None, max_length=100)
     url: str | None = Field(default=None, max_length=1000)
-    # Short reason of the last failure (no secret, see ticketing.TicketingError)
+    # Short reason of the last failure (no secret, see connectors.ConnectorError)
     error: str | None = Field(default=None, max_length=500)
     attempts: int = Field(default=0)
     # ``user:<name>``, ``token:<label>`` or ``auto`` (automatic sending)
     created_by: str | None = Field(default=None, max_length=200)
     created_at: datetime = Field(default_factory=utcnow)
     updated_at: datetime = Field(default_factory=utcnow, index=True)
-    finding: Finding = Relationship(back_populates="tickets")
+    finding: Finding = Relationship(back_populates="exports")
 
 
-class FindingTicketPublic(SQLModel):
-    """Ticket of a finding as returned to the host and the web interface."""
+class FindingExportPublic(SQLModel):
+    """Export of a finding as returned to the host and the web interface."""
 
     kind: str
-    state: TicketState
+    state: ExportState
     external_key: str | None = None
     url: str | None = None
     error: str | None = None
@@ -255,8 +255,8 @@ class FindingTicketPublic(SQLModel):
     updated_at: datetime
 
 
-class TicketTarget(SQLModel, table=True):
-    """Where the findings of a project go in one ticketing system.
+class ConnectorTarget(SQLModel, table=True):
+    """Where the findings of a project go through one connector.
 
     ``destination`` is what the connector asks for (Jira project key, ServiceNow assignment
     group...). With
@@ -297,7 +297,7 @@ class FindingPublic(FindingBase):
     severity_changed_at: datetime | None = None
     superseded_by: int | None = None
     first_seen_at: datetime | None = None
-    tickets: list[FindingTicketPublic] = []
+    exports: list[FindingExportPublic] = []
 
     @model_validator(mode="after")
     def _expire_dismissal(self) -> FindingPublic:

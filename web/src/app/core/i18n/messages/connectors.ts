@@ -1,13 +1,13 @@
 import { defineMessages } from '../catalog';
 
-/** Connectors: the ticketing systems, their switch, connection and destinations of the projects. */
+/** Connectors: the external systems the findings are sent to, their switch, connection and destinations of the projects. */
 export const connectors = defineMessages({
   en: {
     'connectors.title': 'Connectors',
     'connectors.subtitle': 'Send findings to the tools of your teams',
     'connectors.loadError': 'Could not load the connectors.',
     'connectors.locked':
-      'SECREVIEW_TICKETING_ENABLED is false: the operator locked every connector off.',
+      'SECREVIEW_CONNECTORS_ENABLED is false: the operator locked every connector off.',
     'connectors.interval':
       'A connector switched on sends the findings by hand from their card, and every {seconds} s for the projects given an automatic sending.',
     'connectors.builtin': 'Built-in',
@@ -15,7 +15,7 @@ export const connectors = defineMessages({
     'connectors.about.jira': 'Create a Jira issue for each finding, in the project of your choice.',
     'connectors.about.servicenow':
       'Open a ServiceNow incident for each finding, assigned to the group of your choice.',
-    'connectors.about.plugin': 'Third-party connector allowed by SECREVIEW_TICKETING_PLUGINS.',
+    'connectors.about.plugin': 'Third-party connector allowed by SECREVIEW_CONNECTORS_PLUGINS.',
     'connectors.state.on': 'Active',
     'connectors.state.off': 'Inactive',
     'connectors.state.unconfigured': 'To configure',
@@ -29,7 +29,7 @@ export const connectors = defineMessages({
     'connectors.enabled': 'Connector enabled',
     'connectors.addTitle': 'Add a connector',
     'connectors.addHelp':
-      'Install the package of a third-party connector on the controller, then list its name in SECREVIEW_TICKETING_PLUGINS.',
+      'Install the package of a third-party connector on the controller, then list its name in SECREVIEW_CONNECTORS_PLUGINS.',
     'connectors.allowed': 'Allowed:',
     'connectors.tab.connection': 'Connection',
     'connectors.tab.projects': 'Projects',
@@ -56,7 +56,7 @@ export const connectors = defineMessages({
     'connectors.subtitle': 'Envoyez les findings vers les outils de vos équipes',
     'connectors.loadError': 'Impossible de charger les connecteurs.',
     'connectors.locked':
-      "SECREVIEW_TICKETING_ENABLED vaut false : l'opérateur a verrouillé tous les connecteurs.",
+      "SECREVIEW_CONNECTORS_ENABLED vaut false : l'opérateur a verrouillé tous les connecteurs.",
     'connectors.interval':
       'Un connecteur activé envoie les findings à la main depuis leur carte, et toutes les {seconds} s pour les projets en envoi automatique.',
     'connectors.builtin': 'Intégré',
@@ -65,7 +65,7 @@ export const connectors = defineMessages({
       'Crée un ticket Jira pour chaque finding, dans le projet de votre choix.',
     'connectors.about.servicenow':
       'Ouvre un incident ServiceNow pour chaque finding, assigné au groupe de votre choix.',
-    'connectors.about.plugin': 'Connecteur tiers autorisé par SECREVIEW_TICKETING_PLUGINS.',
+    'connectors.about.plugin': 'Connecteur tiers autorisé par SECREVIEW_CONNECTORS_PLUGINS.',
     'connectors.state.on': 'Actif',
     'connectors.state.off': 'Inactif',
     'connectors.state.unconfigured': 'À configurer',
@@ -79,7 +79,7 @@ export const connectors = defineMessages({
     'connectors.enabled': 'Connecteur activé',
     'connectors.addTitle': 'Ajouter un connecteur',
     'connectors.addHelp':
-      'Installez le paquet d’un connecteur tiers sur le contrôleur, puis ajoutez son nom à SECREVIEW_TICKETING_PLUGINS.',
+      'Installez le paquet d’un connecteur tiers sur le contrôleur, puis ajoutez son nom à SECREVIEW_CONNECTORS_PLUGINS.',
     'connectors.allowed': 'Autorisés :',
     'connectors.tab.connection': 'Connexion',
     'connectors.tab.projects': 'Projets',
@@ -106,7 +106,7 @@ export const connectors = defineMessages({
     'connectors.subtitle': 'Envíe los hallazgos a las herramientas de sus equipos',
     'connectors.loadError': 'No se pudieron cargar los conectores.',
     'connectors.locked':
-      'SECREVIEW_TICKETING_ENABLED vale false: el operador bloqueó todos los conectores.',
+      'SECREVIEW_CONNECTORS_ENABLED vale false: el operador bloqueó todos los conectores.',
     'connectors.interval':
       'Un conector activado envía los hallazgos a mano desde su tarjeta, y cada {seconds} s para los proyectos con envío automático.',
     'connectors.builtin': 'Integrado',
@@ -115,7 +115,7 @@ export const connectors = defineMessages({
       'Crea una incidencia de Jira por cada hallazgo, en el proyecto que elija.',
     'connectors.about.servicenow':
       'Abre un incidente de ServiceNow por cada hallazgo, asignado al grupo que elija.',
-    'connectors.about.plugin': 'Conector de terceros autorizado por SECREVIEW_TICKETING_PLUGINS.',
+    'connectors.about.plugin': 'Conector de terceros autorizado por SECREVIEW_CONNECTORS_PLUGINS.',
     'connectors.state.on': 'Activo',
     'connectors.state.off': 'Inactivo',
     'connectors.state.unconfigured': 'Por configurar',
@@ -129,7 +129,7 @@ export const connectors = defineMessages({
     'connectors.enabled': 'Conector activado',
     'connectors.addTitle': 'Añadir un conector',
     'connectors.addHelp':
-      'Instale el paquete de un conector de terceros en el controlador y añada su nombre a SECREVIEW_TICKETING_PLUGINS.',
+      'Instale el paquete de un conector de terceros en el controlador y añada su nombre a SECREVIEW_CONNECTORS_PLUGINS.',
     'connectors.allowed': 'Autorizados:',
     'connectors.tab.connection': 'Conexión',
     'connectors.tab.projects': 'Proyectos',

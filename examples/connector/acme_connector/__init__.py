@@ -1,33 +1,33 @@
-"""Example ticketing connector: each finding becomes a risk in a (fictitious) Acme register.
+"""Example connector: each finding becomes a risk in a (fictitious) Acme register.
 
-Copy this package to write a connector for your own tool (a GRC platform, an internal tracker):
-change the kind, the fields, the destination and the two requests.
+Copy this package to write a connector for your own tool (a vulnerability register, a GRC
+platform, an internal tracker): change the kind, the fields, the destination and the two requests.
 
 Install it next to the controller, then allow it::
 
-    pip install ./examples/ticketing-connector
-    SECREVIEW_TICKETING_PLUGINS=acme
+    pip install ./examples/connector
+    SECREVIEW_CONNECTORS_PLUGINS=acme
 
-Its connection is then set on the Ticketing screen, or with the variables SECREVIEW_ACME_URL and
+Its connection is then set on the Connectors screen, or with the variables SECREVIEW_ACME_URL and
 SECREVIEW_ACME_API_KEY.
 """
 
 from collections.abc import Mapping
 
-from security_review_mcp.ticketing.api import (
+from security_review_mcp.connectors.api import (
     Connection,
+    Connector,
+    ConnectorError,
     ConnectorField,
-    CreatedTicket,
-    TicketConnector,
-    TicketContent,
-    TicketingError,
+    ExportedFinding,
+    FindingContent,
 )
 
 # Acme ratings of each severity
 RATINGS = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
 
 
-class AcmeConnector(TicketConnector):
+class AcmeConnector(Connector):
     """Findings as risks of an Acme register, one register per security-review project."""
 
     kind = "acme"
@@ -56,9 +56,9 @@ class AcmeConnector(TicketConnector):
         """The API key goes in a header; the controller never logs it."""
         return {"X-Api-Key": values["api_key"]}
 
-    def create_ticket(
-        self, connection: Connection, destination: str, content: TicketContent
-    ) -> CreatedTicket:
+    def export_finding(
+        self, connection: Connection, destination: str, content: FindingContent
+    ) -> ExportedFinding:
         """Create the risk. ``content`` is already masked; plain text needs no escaping."""
         answer = connection.http.request(
             "POST",
@@ -72,8 +72,8 @@ class AcmeConnector(TicketConnector):
         )
         risk_id = answer.get("id")
         if not isinstance(risk_id, str) or not risk_id.isalnum():
-            raise TicketingError("invalid", "acme sent no risk id")
-        return CreatedTicket(key=risk_id, url=f"{connection.base_url}/risks/{risk_id}")
+            raise ConnectorError("invalid", "acme sent no risk id")
+        return ExportedFinding(key=risk_id, url=f"{connection.base_url}/risks/{risk_id}")
 
     def test_connection(self, connection: Connection) -> None:
         """A read-only request that needs valid credentials."""

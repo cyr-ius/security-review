@@ -4,7 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { Message, msg } from '../../../core/i18n/i18n.service';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
-import { TicketTarget, TicketingConnector } from '../../../core/models/api.models';
+import { ConnectorTarget, ConnectorInfo } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
 import { describeError } from '../settings-page';
@@ -53,19 +53,19 @@ const PLUGIN_LOOK = { icon: 'bi-puzzle', about: 'connectors.about.plugin' as Mes
 export class ConnectorsComponent {
   private readonly api = inject(ApiService);
 
-  readonly settings = rxResource({ stream: () => this.api.ticketing() });
-  readonly targets = rxResource({ stream: () => this.api.ticketTargets() });
+  readonly settings = rxResource({ stream: () => this.api.connectors() });
+  readonly targets = rxResource({ stream: () => this.api.connectorTargets() });
   readonly projects = rxResource({ stream: () => this.api.projects() });
 
   readonly connectors = computed(() => this.settings.value()?.connectors ?? []);
-  /** SECREVIEW_TICKETING_ENABLED=false: every switch is locked off. */
+  /** SECREVIEW_CONNECTORS_ENABLED=false: every switch is locked off. */
   readonly locked = computed(() => this.settings.value()?.enabled === false);
   readonly projectNames = computed(() =>
     (this.projects.value() ?? []).map((p) => p.project).sort((a, b) => a.localeCompare(b)),
   );
   /** Destinations by connector kind. */
   readonly targetsByKind = computed(() => {
-    const found = new Map<string, TicketTarget[]>();
+    const found = new Map<string, ConnectorTarget[]>();
     for (const target of this.targets.value() ?? []) {
       found.set(target.kind, [...(found.get(target.kind) ?? []), target]);
     }
@@ -92,7 +92,7 @@ export class ConnectorsComponent {
     this.projects.reload();
   }
 
-  state(connector: TicketingConnector): ConnectorState {
+  state(connector: ConnectorInfo): ConnectorState {
     if (this.locked()) {
       return 'locked';
     }
@@ -102,31 +102,31 @@ export class ConnectorsComponent {
     return connector.configured ? 'off' : 'unconfigured';
   }
 
-  badge(connector: TicketingConnector) {
+  badge(connector: ConnectorInfo) {
     return STATE_BADGES[this.state(connector)];
   }
 
-  look(connector: TicketingConnector) {
+  look(connector: ConnectorInfo) {
     return (connector.builtin && BUILTIN_LOOK[connector.kind]) || PLUGIN_LOOK;
   }
 
-  targetsOf(connector: TicketingConnector): readonly TicketTarget[] {
+  targetsOf(connector: ConnectorInfo): readonly ConnectorTarget[] {
     return this.targetsByKind().get(connector.kind) ?? [];
   }
 
   /** The switch can be turned on once configured, and always turned off (unless locked). */
-  switchable(connector: TicketingConnector): boolean {
+  switchable(connector: ConnectorInfo): boolean {
     return !this.locked() && (connector.enabled || connector.configured);
   }
 
-  async toggle(connector: TicketingConnector, event: Event): Promise<void> {
+  async toggle(connector: ConnectorInfo, event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const on = input.checked;
     this.switching.set(connector.kind);
     this.message.set(null);
     this.error.set(null);
     try {
-      const updated = await firstValueFrom(this.api.switchTicketing(connector.kind, on));
+      const updated = await firstValueFrom(this.api.switchConnector(connector.kind, on));
       this.settings.set(updated);
       const key = on ? 'connectors.switchedOn' : 'connectors.switchedOff';
       this.message.set(msg(key, { name: connector.name }));
@@ -139,7 +139,7 @@ export class ConnectorsComponent {
   }
 
   /** Open the settings of a connector, on its connection tab. */
-  open(connector: TicketingConnector): void {
+  open(connector: ConnectorInfo): void {
     this.openKind.set(connector.kind);
     this.tab.set('connection');
     const dialog = this.dialog().nativeElement;

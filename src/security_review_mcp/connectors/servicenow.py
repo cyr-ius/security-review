@@ -13,11 +13,11 @@ from urllib.parse import urlencode
 from .api import (
     MAX_KEY_CHARS,
     Connection,
+    Connector,
+    ConnectorError,
     ConnectorField,
-    CreatedTicket,
-    TicketConnector,
-    TicketContent,
-    TicketingError,
+    ExportedFinding,
+    FindingContent,
 )
 
 TABLE = r"[a-z][a-z0-9_]{0,79}"
@@ -31,7 +31,7 @@ LEVELS = {
 }
 
 
-class ServiceNowConnector(TicketConnector):
+class ServiceNowConnector(Connector):
     """ServiceNow records, one per finding, assigned to the group chosen per project."""
 
     kind = "servicenow"
@@ -88,9 +88,9 @@ class ServiceNowConnector(TicketConnector):
         raw = f"{values.get('username', '')}:{values.get('password', '')}"
         return {"Authorization": f"Basic {base64.b64encode(raw.encode()).decode('ascii')}"}
 
-    def create_ticket(
-        self, connection: Connection, destination: str, content: TicketContent
-    ) -> CreatedTicket:
+    def export_finding(
+        self, connection: Connection, destination: str, content: FindingContent
+    ) -> ExportedFinding:
         """Create the record; its id is checked before it is kept."""
         table = connection.values.get("table") or "incident"
         urgency, impact = LEVELS.get(content.severity, ("3", "3"))
@@ -114,12 +114,12 @@ class ServiceNowConnector(TicketConnector):
         sys_id = result.get("sys_id") if isinstance(result, dict) else None
         number = result.get("number") if isinstance(result, dict) else None
         if not isinstance(sys_id, str) or not re.fullmatch(r"[0-9a-f]{32}", sys_id):
-            raise TicketingError("invalid", "servicenow sent no record id")
+            raise ConnectorError("invalid", "servicenow sent no record id")
         key = number if isinstance(number, str) and number.isalnum() else sys_id
         link = (
             f"{connection.base_url}/nav_to.do?{urlencode({'uri': f'{table}.do?sys_id={sys_id}'})}"
         )
-        return CreatedTicket(key=key[:MAX_KEY_CHARS], url=link)
+        return ExportedFinding(key=key[:MAX_KEY_CHARS], url=link)
 
     def test_connection(self, connection: Connection) -> None:
         """Read one record of the table."""

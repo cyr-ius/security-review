@@ -1,10 +1,10 @@
 """HTTP client given to the connectors (see api.HttpClient): the only way they reach a system.
 
 Every request goes to the configured URL of the connection only (a path relative to it), over
-HTTPS with certificate verification (SECREVIEW_TICKETING_CAFILE for an internal authority),
+HTTPS with certificate verification (SECREVIEW_CONNECTORS_CAFILE for an internal authority),
 through the outgoing proxy, with a timeout; redirects are refused (they would carry the
 credentials elsewhere) and the answer, a JSON object, is bounded. A failure raises
-TicketingError with a short code and a bounded excerpt of the error message of the system,
+ConnectorError with a short code and a bounded excerpt of the error message of the system,
 without the secrets of the connection nor those that redact_secrets recognizes.
 """
 
@@ -20,7 +20,7 @@ from .. import __version__
 from ..config import Settings
 from ..proxy import masked_url, proxy_handler
 from ..rules.scanner import redact_secrets
-from .api import TicketingError
+from .api import ConnectorError
 
 HTTP_TIMEOUT = 15
 MAX_RESPONSE_BYTES = 1024 * 1024
@@ -39,7 +39,7 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def _opener(settings: Settings) -> urllib.request.OpenerDirector:
     """HTTPS opener with the proxy of the controller and the optional CA bundle."""
-    context = ssl.create_default_context(cafile=settings.ticketing_cafile)
+    context = ssl.create_default_context(cafile=settings.connectors_cafile)
     return urllib.request.build_opener(
         urllib.request.HTTPSHandler(context=context), _NoRedirect(), proxy_handler(settings)
     )
@@ -102,11 +102,11 @@ class ConnectionClient:
             # Encoded dots and slashes, which the remote server may decode
             or any(encoded in path.lower() for encoded in ("%2e", "%2f", "%5c"))
         ):
-            raise TicketingError("invalid", f"{self.name}: invalid request path")
+            raise ConnectorError("invalid", f"{self.name}: invalid request path")
         url = f"{self.base_url}{path}"
         parts = urlsplit(url)
         if (parts.scheme, parts.netloc) != (self._origin.scheme, self._origin.netloc):
-            raise TicketingError("invalid", f"{self.name}: request outside the configured URL")
+            raise ConnectorError("invalid", f"{self.name}: request outside the configured URL")
         if query:
             url += f"?{urlencode(dict(query))}"
         return url
@@ -121,7 +121,7 @@ class ConnectionClient:
     ) -> dict[str, Any]:
         """Send a request to the system and return its JSON answer (see api.HttpClient)."""
         if method not in METHODS:
-            raise TicketingError("invalid", f"{self.name}: method {method} not allowed")
+            raise ConnectorError("invalid", f"{self.name}: method {method} not allowed")
         headers = {
             "Accept": "application/json",
             "User-Agent": f"security-review-mcp/{__version__}",
@@ -140,21 +140,21 @@ class ConnectionClient:
         except urllib.error.HTTPError as exc:
             self._raise_http(exc)
         except (urllib.error.URLError, OSError) as exc:
-            raise TicketingError(
+            raise ConnectorError(
                 "unreachable", self.scrub(f"{self.name} unreachable: {exc}")[:MAX_ERROR_CHARS]
             ) from None
         if len(raw) > MAX_RESPONSE_BYTES:
-            raise TicketingError("invalid", f"{self.name} answer too large")
+            raise ConnectorError("invalid", f"{self.name} answer too large")
         try:
             document = json.loads(raw)
         except ValueError:
-            raise TicketingError("invalid", f"{self.name} sent invalid JSON") from None
+            raise ConnectorError("invalid", f"{self.name} sent invalid JSON") from None
         if not isinstance(document, dict):
-            raise TicketingError("invalid", f"{self.name} sent an unexpected answer")
+            raise ConnectorError("invalid", f"{self.name} sent an unexpected answer")
         return document
 
     def _raise_http(self, exc: urllib.error.HTTPError) -> None:
-        """Raise the TicketingError of an HTTP error answer."""
+        """Raise the ConnectorError of an HTTP error answer."""
         raw = exc.read(MAX_ERROR_BYTES) if exc.fp else b""
         try:
             messages = _error_messages(json.loads(raw))
@@ -169,4 +169,4 @@ class ConnectionClient:
             code, message = "refused", f"{self.name} refused the request ({detail})"
         else:
             code, message = "unreachable", f"{self.name} answered {detail}"
-        raise TicketingError(code, message) from None
+        raise ConnectorError(code, message) from None

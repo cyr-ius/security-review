@@ -173,8 +173,8 @@ src/security_review_mcp/
 ├── clients/       # clients CLI qui contactent l'URL donnée par l'opérateur
 │   ├── commands.py        # commande `enroll` de security-review-mcp
 │   └── enrollment.py      # client de `enroll` : enrôlement d'un projet sur un serveur partagé
-├── ticketing/     # tickets des findings : api (API des connecteurs), registry, connections,
-│                  # transport (client HTTP), core (envoi), jira, servicenow
+├── connectors/    # findings envoyés vers des systèmes externes : api (API des connecteurs),
+│                  # registry, connections, transport (client HTTP), core (envoi), jira, servicenow
 └── web_api/       # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
     ├── __init__.py    # create_app, fichiers statiques de /ui, assemblage des routeurs
     ├── schemas.py     # modèles de requête et de réponse de chaque route
@@ -186,7 +186,7 @@ web/               # application Angular (compilée dans src/security_review_mcp
 
 Le serveur MCP n'importe jamais les modules du contrôleur qui ouvrent des connexions sortantes
 ou servent ses routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
-`observability/audit_syslog`, `ticketing`, `update_check`, `web_api`), même indirectement :
+`observability/audit_syslog`, `connectors`, `update_check`, `web_api`), même indirectement :
 `tests/test_server.py` le vérifie. Un module partagé par les deux processus (comme
 `app_settings`) les importe dans la fonction qui en a besoin, jamais en tête.
 

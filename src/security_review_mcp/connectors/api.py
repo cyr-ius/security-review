@@ -1,23 +1,27 @@
-"""Public API of the ticketing connectors: what a connector (built-in or third party) implements.
+"""Public API of the connectors: what a connector (built-in or third party) implements.
 
-A connector is a subclass of :class:`TicketConnector`. A third-party package publishes it under
-the entry point group ``security_review_mcp.ticketing``::
+A connector sends the findings to an external system: a ticket in Jira or ServiceNow, an entry
+in a vulnerability register, a risk in a GRC tool... Whatever it creates there is called the
+*record* of the finding.
+
+A connector is a subclass of :class:`Connector`. A third-party package publishes it under
+the entry point group ``security_review_mcp.connectors``::
 
     # pyproject.toml of the package
-    [project.entry-points."security_review_mcp.ticketing"]
-    acme = "acme_tickets:AcmeConnector"
+    [project.entry-points."security_review_mcp.connectors"]
+    acme = "acme_connector:AcmeConnector"
 
 The controller loads it only when the operator lists its entry point name in
-``SECREVIEW_TICKETING_PLUGINS`` (``acme``); the MCP server never loads a connector.
+``SECREVIEW_CONNECTORS_PLUGINS`` (``acme``); the MCP server never loads a connector.
 
 What the connector does:
 
-- it declares its ``kind`` (identifier stored with the tickets, in URLs and variables), its
+- it declares its ``kind`` (identifier stored with the exports, in URLs and variables), its
   display ``name``, the ``fields`` of its connection and its ``destination`` field (what an
   administrator chooses per project);
 - it gives the authentication headers of its connection (``auth_headers``);
-- it creates a ticket from a :class:`TicketContent` (``create_ticket``) and checks a connection
-  with a read-only request (``test_connection``).
+- it creates the record of a finding from a :class:`FindingContent` (``export_finding``) and
+  checks a connection with a read-only request (``test_connection``).
 
 What the controller does for it, so that every connector keeps the same guarantees:
 
@@ -27,13 +31,13 @@ What the controller does for it, so that every connector keeps the same guarante
 - requests only go through :attr:`Connection.http`: to the configured URL only, HTTPS, through the
   outgoing proxy, without following redirects, with a timeout and a bounded JSON answer; the
   errors never hold a secret;
-- the content of the finding is masked (secrets) before the connector receives it, the ticket is
-  claimed before the request (no duplicate across replicas) and an earlier ticket of the same
+- the content of the finding is masked (secrets) before the connector receives it, the export is
+  claimed before the request (no duplicate across replicas) and an earlier record of the same
   issue is reused;
 - the outcome is stored, audited and retried by the automatic sending.
 
 A connector must never open a connection by itself, log the values of its fields, nor change
-anything but the ticket it creates: a ticket never changes the status of a finding.
+anything but the record it creates: an export never changes the status of a finding.
 
 The contract is versioned by API_VERSION: a connector built for another version is refused.
 """
@@ -44,8 +48,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Protocol
 
-API_VERSION = 1
-ENTRY_POINT_GROUP = "security_review_mcp.ticketing"
+API_VERSION = 2
+ENTRY_POINT_GROUP = "security_review_mcp.connectors"
 
 KIND_PATTERN = re.compile(r"[a-z][a-z0-9_]{1,19}")
 FIELD_PATTERN = re.compile(r"[a-z][a-z0-9_]{0,17}")
@@ -54,13 +58,13 @@ URL_FIELD = "url"
 MAX_FIELD_CHARS = 500
 MAX_NAME_CHARS = 40
 MAX_KEY_CHARS = 100
-MAX_TICKET_URL_CHARS = 1000
-# Longest description of a ticket built by TicketContent.text (Jira refuses 32 767 characters)
+MAX_EXPORT_URL_CHARS = 1000
+# Longest description of a record built by FindingContent.text (Jira refuses 32 767 characters)
 MAX_DESCRIPTION_CHARS = 30_000
 
 
-class TicketingError(Exception):
-    """A ticket could not be created or a connection used.
+class ConnectorError(Exception):
+    """A finding could not be exported or a connection used.
 
     ``code`` is returned to the user, the message shown to whoever may send findings: it must
     not hold a secret. Codes raised by a connector: ``auth`` (credentials refused), ``refused``
@@ -108,8 +112,8 @@ class ConnectorField:
 
 
 @dataclass(frozen=True)
-class TicketContent:
-    """What a ticket says about a finding. Every text is already masked (secrets).
+class FindingContent:
+    """What the record of a finding says about it. Every text is already masked (secrets).
 
     ``facts`` are short (name, value) pairs (project, severity, location...); ``sections`` are
     the free texts of the report, (title, text), written by an agent: a connector that renders
@@ -140,8 +144,9 @@ class TicketContent:
 
 
 @dataclass(frozen=True)
-class CreatedTicket:
-    """A ticket created by a connector: its key (SEC-12, INC0010001) and its https:// link."""
+class ExportedFinding:
+    """The record a connector created for a finding: its key (SEC-12, INC0010001) and its https://
+    link."""
 
     key: str
     url: str
@@ -152,7 +157,7 @@ class HttpClient(Protocol):
 
     ``path`` is relative to the configured URL (``/rest/api/2/issue``): no other host can be
     reached. The authentication headers of the connector are added. The answer is the decoded
-    JSON object; any failure raises TicketingError (``auth``, ``refused``, ``unreachable``,
+    JSON object; any failure raises ConnectorError (``auth``, ``refused``, ``unreachable``,
     ``invalid``), without secret.
     """
 
@@ -178,8 +183,9 @@ class Connection:
     http: HttpClient
 
 
-class TicketConnector(ABC):
-    """A ticketing system. Subclass it, set the class attributes and implement the methods.
+class Connector(ABC):
+    """An external system the findings are sent to. Subclass it, set the class attributes and
+    implement the methods.
 
     The controller creates one instance per process: keep no state between calls.
     """
@@ -211,13 +217,13 @@ class TicketConnector(ABC):
         """HTTP headers that authenticate a request (``Authorization``...)."""
 
     @abstractmethod
-    def create_ticket(
-        self, connection: Connection, destination: str, content: TicketContent
-    ) -> CreatedTicket:
-        """Create the ticket of a finding at ``destination`` and return it.
+    def export_finding(
+        self, connection: Connection, destination: str, content: FindingContent
+    ) -> ExportedFinding:
+        """Create the record of a finding at ``destination`` and return it.
 
         Raises:
-            TicketingError: If the system refuses it or answers unexpectedly.
+            ConnectorError: If the system refuses it or answers unexpectedly.
         """
 
     @abstractmethod
@@ -225,7 +231,7 @@ class TicketConnector(ABC):
         """Check the URL and the credentials with a read-only request.
 
         Raises:
-            TicketingError: If the connection cannot be used.
+            ConnectorError: If the connection cannot be used.
         """
 
 
@@ -234,9 +240,9 @@ __all__ = [
     "ENTRY_POINT_GROUP",
     "Connection",
     "ConnectorField",
-    "CreatedTicket",
+    "ExportedFinding",
     "HttpClient",
-    "TicketConnector",
-    "TicketContent",
-    "TicketingError",
+    "Connector",
+    "FindingContent",
+    "ConnectorError",
 ]

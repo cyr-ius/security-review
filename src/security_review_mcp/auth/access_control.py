@@ -73,14 +73,14 @@ from ..storage.models import (
     AccessRole,
     ApiToken,
     ApiTokenProject,
+    ConnectorTarget,
     Finding,
     FindingComment,
-    FindingTicket,
+    FindingExport,
     GroupMember,
     GroupRole,
     ProjectEnrollment,
     SecurityReport,
-    TicketTarget,
     UserGroup,
     WebUser,
     as_utc,
@@ -1061,7 +1061,7 @@ def create_project(user_id: int, project: str, actor: str | None = None) -> dict
 
 
 def _delete_reports(session: Session, project: str) -> dict[str, int]:
-    """Delete the reports of ``project`` with their findings, comments and tickets; return the
+    """Delete the reports of ``project`` with their findings, comments and exports; return the
     counts."""
     reports = select(SecurityReport.id).where(SecurityReport.project == project)
     findings = select(Finding.id).where(col(Finding.report_id).in_(reports))
@@ -1076,7 +1076,7 @@ def _delete_reports(session: Session, project: str) -> dict[str, int]:
         ).one(),
     }
     session.exec(delete(FindingComment).where(col(FindingComment.finding_id).in_(findings)))
-    session.exec(delete(FindingTicket).where(col(FindingTicket.finding_id).in_(findings)))
+    session.exec(delete(FindingExport).where(col(FindingExport.finding_id).in_(findings)))
     session.exec(delete(Finding).where(col(Finding.report_id).in_(reports)))
     session.exec(delete(SecurityReport).where(SecurityReport.project == project))
     return counts
@@ -1155,7 +1155,7 @@ def _forget_project_roles(
 def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
     """Delete ``project`` and everything that refers to it (``projects.delete``), in one
     transaction: its reports, findings and comments, the project in the roles of the groups
-    (see _forget_project_roles), in the tokens (see token_store.forget_project) and its ticket
+    (see _forget_project_roles), in the tokens (see token_store.forget_project) and its connector
     destinations. The audit log keeps the events of the project and records
     ``project.deleted``.
 
@@ -1171,9 +1171,9 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
         deleted |= _delete_reports(session, cleaned)
         deleted |= _forget_project_roles(session, cleaned, actor)
         deleted |= forget_project(session, cleaned, actor)
-        # Its ticket destinations (its tickets went with its findings), deleted here rather
-        # than by ticketing: the MCP server imports this module, never the connectors
-        session.exec(delete(TicketTarget).where(TicketTarget.project == cleaned))
+        # Its connector destinations (its exports went with its findings), deleted here rather
+        # than by connectors: the MCP server imports this module, never the connectors
+        session.exec(delete(ConnectorTarget).where(ConnectorTarget.project == cleaned))
         audit.record(
             session,
             audit.AuditAction.PROJECT_DELETED,

@@ -81,7 +81,7 @@
   masked and truncated: check the requester and the address before approving. Every enrollment is audited. See
   [enrollment](../advanced/http.md#enrollment-request-the-project).
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
-  of the controller that make them (advisory download, OIDC, syslog, tickets, version check):
+  of the controller that make them (advisory download, OIDC, syslog, connectors, version check):
   a test checks it. The `security-review-mcp enroll` command contacts, at the request of the
   operator, the URL it gives; it refuses plain HTTP
   outside localhost (unless `--allow-http`), credentials in the URL and redirects. The
@@ -114,13 +114,13 @@
   version and the link of the release are kept (a link outside the releases of the repository
   is replaced), and the page only gets a short error code. Once a
   connector is switched on in the **Connectors** screen (every one off by default, all locked
-  off by `SECREVIEW_TICKETING_ENABLED=false`), the controller creates tickets in the configured
-  Jira and ServiceNow: HTTPS only, through the outgoing proxy, **no redirect**,
-  answer bounded to 1 MiB, 15 second timeout; the texts sent are masked again and, in Jira,
+  off by `SECREVIEW_CONNECTORS_ENABLED=false`), the controller sends the findings through it
+  (tickets in the configured Jira and ServiceNow, records of a third-party connector): HTTPS
+  only, through the outgoing proxy, **no redirect**, answer bounded to 1 MiB, 15 second timeout; the texts sent are masked again and, in Jira,
   never read as wiki markup; the secrets entered in the **Connectors** screen are stored in clear
   and never returned (`***`) and stay bound to the host of their URL; a third-party connector
-  is only loaded when `SECREVIEW_TICKETING_PLUGINS` names it and only reaches its configured
-  URL through the client of the controller, see [ticketing](../advanced/ticketing.md#security). With
+  is only loaded when `SECREVIEW_CONNECTORS_PLUGINS` names it and only reaches its configured
+  URL through the client of the controller, see [connectors](../connectors/index.md#security). With
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` or a server set on the **Audit log** page (disabled by
   default; `settings.manage` permission, `udp://`, `tcp://` or `tls://` only, the change
   audited), the controller sends the

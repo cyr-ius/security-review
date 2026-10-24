@@ -259,21 +259,22 @@ class Settings(BaseSettings):
     # outgoing connection.
     update_check_enabled: bool = False
 
-    # Controller only: send findings as tickets to ticketing systems (see ticketing): Jira and
-    # ServiceNow, plus the third-party connectors (Python entry points of the group
-    # security_review_mcp.ticketing) whose names ticketing_plugins lists, comma separated (a
-    # connector installed but not listed is never loaded). By hand from the web interface, or
-    # automatically for the projects given a severity threshold. Outgoing connections (HTTPS
-    # only, through the outgoing proxy): every connector is off until an administrator switches
-    # it on in the web interface (Connectors screen). ticketing_enabled is the lock of the
-    # operator: false, nothing is sent and the switches are locked off. ticketing_interval_seconds
-    # is the period of the automatic sending; ticketing_cafile replaces the system CA bundle
-    # (internal certificate authority). The connection of each system is read from its own
-    # variables, SECREVIEW_<KIND>_<FIELD> (SECREVIEW_JIRA_URL...), or set in the web interface.
-    ticketing_enabled: bool = True
-    ticketing_interval_seconds: int = Field(default=300, ge=30, le=86_400)
-    ticketing_cafile: str | None = None
-    ticketing_plugins: str = ""
+    # Controller only: send findings to external systems through connectors (see connectors):
+    # tickets in Jira and ServiceNow, plus the third-party connectors (Python entry points of the
+    # group security_review_mcp.connectors) whose names connectors_plugins lists, comma
+    # separated (a connector installed but not listed is never loaded). By hand from the web
+    # interface, or automatically for the projects given a severity threshold. Outgoing
+    # connections (HTTPS only, through the outgoing proxy): every connector is off until an
+    # administrator switches it on in the web interface (Connectors screen). connectors_enabled
+    # is the lock of the operator: false, nothing is sent and the switches are locked off.
+    # connectors_interval_seconds is the period of the automatic sending; connectors_cafile
+    # replaces the system CA bundle (internal certificate authority). The connection of each
+    # system is read from its own variables, SECREVIEW_<KIND>_<FIELD> (SECREVIEW_JIRA_URL...), or
+    # set in the web interface.
+    connectors_enabled: bool = True
+    connectors_interval_seconds: int = Field(default=300, ge=30, le=86_400)
+    connectors_cafile: str | None = None
+    connectors_plugins: str = ""
 
     log_level: str = "INFO"
 
@@ -298,14 +299,14 @@ class Settings(BaseSettings):
         "audit_syslog_address",
         "audit_syslog_cafile",
         "web_url",
-        "ticketing_cafile",
+        "connectors_cafile",
     )
     @classmethod
     def _empty_is_unset(cls, value: str | None) -> str | None:
         """An empty variable means no value (an empty stored proxy means a direct connection)."""
         return value.strip() or None if value is not None else None
 
-    @field_validator("ticketing_enabled", mode="before")
+    @field_validator("connectors_enabled", mode="before")
     @classmethod
     def _empty_lock_is_open(cls, value: object) -> object:
         """An empty variable leaves the switches of the web interface in charge."""

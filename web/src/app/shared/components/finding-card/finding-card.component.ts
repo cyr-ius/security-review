@@ -13,7 +13,7 @@ import {
   SEVERITIES,
   SEVERITY_RANK,
   Severity,
-  TicketKind,
+  ConnectorKind,
   plainAcceptance,
 } from '../../../core/models/api.models';
 import { TriageChange } from '../../../core/services/triage.service';
@@ -57,8 +57,8 @@ function isoDay(days: number): string {
  * Extra details (report link...) can be projected at the end of the metadata line.
  *
  * The card only shows and asks: the page saves the decision it emits (see TriageService) and
- * passes the saved finding back, which closes the form. Likewise, it shows the tickets of the
- * finding and offers to send it to the systems of ``ticketKinds`` (see TicketService).
+ * passes the saved finding back, which closes the form. Likewise, it shows the exports of the
+ * finding and offers to send it to the systems of ``exportKinds`` (see ExportService).
  */
 @Component({
   selector: 'app-finding-card',
@@ -78,43 +78,43 @@ export class FindingCardComponent {
   readonly riskAcceptanceMinSeverity = input<Severity | null>(null);
   /** A decision on this finding is being saved. */
   readonly saving = input(false);
-  /** Ticketing systems the user may send this finding to (its project has a destination). */
-  readonly ticketKinds = input<readonly TicketKind[]>([]);
-  /** The finding is being sent to a ticketing system. */
-  readonly ticketSending = input(false);
-  /** Names of the ticketing systems by kind (a ticket of an unknown kind shows its kind). */
-  readonly ticketSystemNames = input<ReadonlyMap<string, string>>(new Map());
+  /** Connectors the user may send this finding through (its project has a destination). */
+  readonly exportKinds = input<readonly ConnectorKind[]>([]);
+  /** The finding is being sent through a connector. */
+  readonly exporting = input(false);
+  /** Names of the connectors by kind (an export of an unknown kind shows its kind). */
+  readonly systemNamesByKind = input<ReadonlyMap<string, string>>(new Map());
 
   /** A triage decision (status or raised severity) to save. */
   readonly decided = output<TriageChange>();
   /** The status proposed by an agent is rejected. */
   readonly proposalRejected = output<void>();
-  /** Send the finding to a ticketing system. */
-  readonly ticketRequested = output<TicketKind>();
+  /** Send the finding through a connector. */
+  readonly exportRequested = output<ConnectorKind>();
 
   readonly statuses = FINDING_STATUSES;
   readonly statusMeta = STATUS_META;
   readonly severityMeta = SEVERITY_META;
 
-  /** Name of a ticketing system. */
-  systemName(kind: TicketKind): string {
-    return this.ticketSystemNames().get(kind) ?? kind;
+  /** Name of a connector. */
+  systemName(kind: ConnectorKind): string {
+    return this.systemNamesByKind().get(kind) ?? kind;
   }
 
   /** Triage offered: a finding reported again is triaged on its latest occurrence. */
   readonly triageable = computed(() => this.canTriage() && this.finding().superseded_by === null);
 
-  /** Systems offered: those without a ticket for this finding yet (none once reported again). */
+  /** Connectors offered: those without a record for this finding yet (none once reported again). */
   readonly sendableKinds = computed(() => {
     if (this.finding().superseded_by !== null) {
       return [];
     }
     const sent = new Set(
       this.finding()
-        .tickets.filter((t) => t.state === 'sent')
+        .exports.filter((e) => e.state === 'sent')
         .map((t) => t.kind),
     );
-    return this.ticketKinds().filter((kind) => !sent.has(kind));
+    return this.exportKinds().filter((kind) => !sent.has(kind));
   });
 
   /** Severity form open (closed when the page passes the saved finding back). */

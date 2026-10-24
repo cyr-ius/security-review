@@ -25,6 +25,7 @@ from security_review_mcp import (
 )
 from security_review_mcp.auth import access_control, enrollment_api, oidc, token_store, web_users
 from security_review_mcp.config import get_settings
+from security_review_mcp.connectors import transport
 from security_review_mcp.deps import advisory_sync
 from security_review_mcp.http_server import Role
 from security_review_mcp.observability import audit
@@ -39,7 +40,6 @@ from security_review_mcp.storage.models import (
     ReviewType,
     Severity,
 )
-from security_review_mcp.ticketing import transport
 from security_review_mcp.web_api.body_limit import MAX_BODY_BYTES
 
 # Bearer value of each role, set by the ``secured`` fixture: the raw secret of a token for the
@@ -1854,11 +1854,11 @@ def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
 ):
     admin, triager, reader = auth("admin"), auth("triager"), auth("reader")
     jira = {"url": "https://acme.atlassian.net", "username": "bot", "api_token": "tok-test"}
-    configured = web_sessions.put("/api/v1/settings/ticketing/jira", headers=admin, json=jira)
+    configured = web_sessions.put("/api/v1/settings/connectors/jira", headers=admin, json=jira)
     systems = {item["kind"]: item for item in configured.json()["connectors"]}
     assert systems["jira"]["configured"] is True and systems["jira"]["enabled"] is False
     # Switched on by an administrator once configured
-    switch = "/api/v1/settings/ticketing/{}/enabled"
+    switch = "/api/v1/settings/connectors/{}/enabled"
     on = {"enabled": True}
     assert web_sessions.put(switch.format("jira"), headers=triager, json=on).status_code == 403
     assert web_sessions.put(switch.format("servicenow"), headers=admin, json=on).status_code == 422
@@ -1870,14 +1870,14 @@ def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
     }
     # An unknown system is not found
     assert (
-        web_sessions.put("/api/v1/settings/ticketing/acme", headers=admin, json={}).status_code
+        web_sessions.put("/api/v1/settings/connectors/acme", headers=admin, json={}).status_code
         == 404
     )
-    target = "/api/v1/projects/shop-api/ticket-targets/jira"
+    target = "/api/v1/projects/shop-api/connector-targets/jira"
     # The destinations are settings: a triager cannot change them
     assert web_sessions.put(target, headers=triager, json={"destination": "X"}).status_code == 403
     assert web_sessions.put(target, headers=admin, json={"destination": "sec"}).status_code == 200
-    destinations = "/api/v1/ticketing/destinations"
+    destinations = "/api/v1/connectors/destinations"
     assert web_sessions.get(destinations, headers=triager).json() == [
         {"project": "shop-api", "kind": "jira"}
     ]
@@ -1891,7 +1891,7 @@ def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
 
     monkeypatch.setattr(transport, "_opener", lambda settings: Opener())
     finding_id = services.get_report(reports[0]).findings[0].id
-    path = f"/api/v1/findings/{finding_id}/tickets/jira"
+    path = f"/api/v1/findings/{finding_id}/exports/jira"
 
     assert web_sessions.post(path, headers=reader).status_code == 403
     response = web_sessions.post(path, headers=triager)
@@ -1899,17 +1899,17 @@ def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
     assert response.status_code == 201, response.text
     assert response.json()["external_key"] == "SEC-1" and len(sent) == 1
     report = web_sessions.get(f"/api/v1/reports/{reports[0]}", headers=reader).json()
-    assert report["findings"][0]["tickets"][0]["url"] == "https://acme.atlassian.net/browse/SEC-1"
+    assert report["findings"][0]["exports"][0]["url"] == "https://acme.atlassian.net/browse/SEC-1"
     # Without destination, sending is refused before any request
     web_sessions.delete(target, headers=admin)
     other = report["findings"][1]["id"]
-    refused = web_sessions.post(f"/api/v1/findings/{other}/tickets/jira", headers=triager)
+    refused = web_sessions.post(f"/api/v1/findings/{other}/exports/jira", headers=triager)
     assert refused.status_code == 409 and len(sent) == 1
     # Switched off: nothing more is offered nor sent
     web_sessions.put(target, headers=admin, json={"destination": "sec"})
     web_sessions.put(switch.format("jira"), headers=admin, json={"enabled": False})
     assert web_sessions.get(destinations, headers=triager).json() == []
-    refused = web_sessions.post(f"/api/v1/findings/{other}/tickets/jira", headers=triager)
+    refused = web_sessions.post(f"/api/v1/findings/{other}/exports/jira", headers=triager)
     assert refused.status_code == 409 and "switched off" in refused.json()["detail"]
     assert len(sent) == 1
 

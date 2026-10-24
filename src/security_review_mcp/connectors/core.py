@@ -1,14 +1,14 @@
-"""Sending of the findings: destinations of the projects, tickets, automatic sending.
+"""Sending of the findings: destinations of the projects, exports, automatic sending.
 
 A finding is sent by hand by a user who may triage its project, or automatically by a
-background thread of the controller (TicketDispatcher) for the projects whose destination
-(TicketTarget) has a severity threshold: every open finding at least that severe, of the reports
+background thread of the controller (ExportDispatcher) for the projects whose destination
+(ConnectorTarget) has a severity threshold: every open finding at least that severe, of the reports
 saved since the threshold was set.
 
-The ticket row is inserted before the request (``sending``): its unique constraint is the claim
-of the controller that sends it, so that two replicas never create two tickets. An issue found
-again by a later report (same fingerprint, see sarif.fingerprint) reuses its ticket. Sending is
-one way: a ticket never changes the status of a finding.
+The export row is inserted before the request (``sending``): its unique constraint is the claim
+of the controller that sends it, so that two replicas never create two records. An issue found
+again by a later report (same fingerprint, see sarif.fingerprint) reuses its record. Sending is
+one way: an export never changes the status of a finding.
 """
 
 import logging
@@ -17,6 +17,7 @@ from collections.abc import Callable, Collection
 from datetime import datetime, timedelta
 from typing import Any
 
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
@@ -29,32 +30,32 @@ from ..rules.scanner import redact_secrets
 from ..storage.database import session_scope
 from ..storage.models import (
     SEVERITY_RANK,
+    ConnectorTarget,
+    ExportState,
     Finding,
+    FindingExport,
+    FindingExportPublic,
     FindingPublic,
     FindingStatus,
-    FindingTicket,
-    FindingTicketPublic,
     SecurityReport,
     Severity,
-    TicketState,
-    TicketTarget,
     as_utc,
     utcnow,
 )
 from ..storage.project_names import normalize_project
 from . import connections, registry
 from .api import (
+    MAX_EXPORT_URL_CHARS,
     MAX_KEY_CHARS,
-    MAX_TICKET_URL_CHARS,
     Connection,
-    CreatedTicket,
-    TicketConnector,
-    TicketContent,
-    TicketingError,
+    Connector,
+    ConnectorError,
+    ExportedFinding,
+    FindingContent,
 )
 from .transport import ConnectionClient
 
-logger = logging.getLogger("security_review_mcp.ticketing")
+logger = logging.getLogger("security_review_mcp.connectors")
 
 MAX_SUMMARY_CHARS = 250
 MAX_STORED_ERROR_CHARS = 500
@@ -72,20 +73,49 @@ def validate_settings(settings: Settings) -> None:
     """Load the connectors and check the variables of their connections (controller start).
 
     Raises:
-        ValueError: If an allowed connector is missing or invalid, or a variable is invalid.
+        ValueError: If an allowed connector is missing or invalid, a variable is invalid, or a
+            variable of the former ticketing name is still set.
     """
+    _refuse_former_variables()
     for connector in registry.connectors(settings).values():
         connections.validate_environment(connector)
 
 
-def _connection(settings: Settings, connector: TicketConnector) -> Connection:
+class _FormerVariables(BaseSettings):
+    """SECREVIEW_TICKETING_* variables, renamed SECREVIEW_CONNECTORS_* (environment, then the
+    .env file of the controller)."""
+
+    model_config = SettingsConfigDict(
+        env_prefix="SECREVIEW_TICKETING_",
+        env_file=Settings.model_config.get("env_file"),
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
+
+    enabled: str | None = None
+    interval_seconds: str | None = None
+    cafile: str | None = None
+    plugins: str | None = None
+
+
+def _refuse_former_variables() -> None:
+    """Refuse to start while a SECREVIEW_TICKETING_* variable is set: ignoring it would drop a
+    lock of the operator (SECREVIEW_TICKETING_ENABLED=false) without a word."""
+    found = [name for name, value in _FormerVariables().model_dump().items() if value]
+    if found:
+        names = ", ".join(f"SECREVIEW_TICKETING_{name.upper()}" for name in found)
+        raise ValueError(f"{names}: renamed SECREVIEW_CONNECTORS_* (see the Connectors page)")
+
+
+def _connection(settings: Settings, connector: Connector) -> Connection:
     """The configured connection of ``connector``.
 
     Raises:
-        TicketingError: If the connector is switched off or its connection is not configured.
+        ConnectorError: If the connector is switched off or its connection is not configured.
     """
     if not connections.enabled(connector, settings):
-        raise TicketingError("disabled", f"the {connector.name} connector is switched off")
+        raise ConnectorError("disabled", f"the {connector.name} connector is switched off")
     return connection_of(settings, connections.resolve(connector))
 
 
@@ -93,11 +123,11 @@ def connection_of(settings: Settings, state: connections.ConnectionState) -> Con
     """Connection of a set of values (stored or candidate), with its HTTP client.
 
     Raises:
-        TicketingError: If the connection is not configured.
+        ConnectorError: If the connection is not configured.
     """
     connector = state.connector
     if not state.configured:
-        raise TicketingError("not_configured", f"the {connector.name} connection is not configured")
+        raise ConnectorError("not_configured", f"the {connector.name} connection is not configured")
     client = ConnectionClient(
         settings,
         connector.name,
@@ -110,33 +140,35 @@ def connection_of(settings: Settings, state: connections.ConnectionState) -> Con
 
 def test_connection(settings: Settings, state: connections.ConnectionState) -> None:
     """Check a connection with the read-only request of its connector, switched on or not (to
-    test it before switching it on), unless SECREVIEW_TICKETING_ENABLED is false.
+    test it before switching it on), unless SECREVIEW_CONNECTORS_ENABLED is false.
 
     Raises:
-        TicketingError: If the connection cannot be used.
+        ConnectorError: If the connection cannot be used.
     """
-    if not settings.ticketing_enabled:
-        raise TicketingError("disabled", "ticketing is locked off (SECREVIEW_TICKETING_ENABLED)")
+    if not settings.connectors_enabled:
+        raise ConnectorError(
+            "disabled", "the connectors are locked off (SECREVIEW_CONNECTORS_ENABLED)"
+        )
     connection = connection_of(settings, state)
     _guarded(state.connector, connection, lambda: state.connector.test_connection(connection))
 
 
-def _guarded(connector: TicketConnector, connection: Connection, call: Callable[[], Any]) -> Any:
-    """Run a call of a connector; any other error than TicketingError becomes ``invalid``,
+def _guarded(connector: Connector, connection: Connection, call: Callable[[], Any]) -> Any:
+    """Run a call of a connector; any other error than ConnectorError becomes ``invalid``,
     without its message (it may hold a value of the connection)."""
     try:
         return call()
-    except TicketingError as exc:
+    except ConnectorError as exc:
         scrub = getattr(connection.http, "scrub", None)
         if scrub is not None:
-            raise TicketingError(exc.code, scrub(str(exc))[:MAX_STORED_ERROR_CHARS]) from None
+            raise ConnectorError(exc.code, scrub(str(exc))[:MAX_STORED_ERROR_CHARS]) from None
         raise
     except Exception:
-        logger.exception("Ticketing connector %s failed", connector.kind)
-        raise TicketingError("invalid", f"{connector.name} connector failed") from None
+        logger.exception("Connector %s failed", connector.kind)
+        raise ConnectorError("invalid", f"{connector.name} connector failed") from None
 
 
-# ── Content of a ticket ──────────────────────────────────────────────────────
+# ── Content of a record ──────────────────────────────────────────────────────
 
 
 def _clean(text: str | None) -> str:
@@ -144,8 +176,8 @@ def _clean(text: str | None) -> str:
     return redact_secrets(text or "").strip()
 
 
-def build_content(item: SarifItem, settings: Settings) -> TicketContent:
-    """What the ticket of a finding says: facts, masked texts of the report, fingerprint."""
+def build_content(item: SarifItem, settings: Settings) -> FindingContent:
+    """What the record of a finding says: facts, masked texts of the report, fingerprint."""
     finding = item.finding
     title = _clean(finding.title)
     summary = f"[{finding.severity.value.upper()}] {item.project}: {title}"
@@ -174,7 +206,7 @@ def build_content(item: SarifItem, settings: Settings) -> TicketContent:
         )
         if _clean(text)
     ]
-    return TicketContent(
+    return FindingContent(
         finding_id=finding.id,
         project=item.project,
         severity=finding.severity.value,
@@ -187,26 +219,26 @@ def build_content(item: SarifItem, settings: Settings) -> TicketContent:
     )
 
 
-def _check_created(connector: TicketConnector, created: Any) -> CreatedTicket:
-    """The ticket a connector returned, or TicketingError when it is not usable."""
+def _check_created(connector: Connector, created: Any) -> ExportedFinding:
+    """The record a connector returned, or ConnectorError when it is not usable."""
     if (
-        not isinstance(created, CreatedTicket)
+        not isinstance(created, ExportedFinding)
         or not isinstance(created.key, str)
         or not 0 < len(created.key) <= MAX_KEY_CHARS
         or not created.key.isprintable()
         or not isinstance(created.url, str)
         or not created.url.startswith("https://")
-        or len(created.url) > MAX_TICKET_URL_CHARS
+        or len(created.url) > MAX_EXPORT_URL_CHARS
         or any(c.isspace() or not c.isprintable() for c in created.url)
     ):
-        raise TicketingError("invalid", f"{connector.name} returned an invalid ticket")
+        raise ConnectorError("invalid", f"{connector.name} returned an invalid record")
     return created
 
 
 # ── Destinations of the projects ─────────────────────────────────────────────
 
 
-def _target_public(target: TicketTarget) -> dict[str, Any]:
+def _target_public(target: ConnectorTarget) -> dict[str, Any]:
     """A destination as returned by the API."""
     return {
         "project": target.project,
@@ -222,15 +254,17 @@ def _target_public(target: TicketTarget) -> dict[str, Any]:
 def list_targets(projects: Collection[str] | None = None) -> list[dict[str, Any]]:
     """Destinations of every project (or of ``projects``), by project then kind."""
     with session_scope() as session:
-        query = select(TicketTarget).order_by(col(TicketTarget.project), col(TicketTarget.kind))
+        query = select(ConnectorTarget).order_by(
+            col(ConnectorTarget.project), col(ConnectorTarget.kind)
+        )
         if projects is not None:
-            query = query.where(col(TicketTarget.project).in_(list(projects)))
+            query = query.where(col(ConnectorTarget.project).in_(list(projects)))
         return [_target_public(row) for row in session.exec(query).all()]
 
 
 def set_target(
     project: str,
-    connector: TicketConnector,
+    connector: Connector,
     destination: str,
     auto_min_severity: Severity | None,
     actor: str,
@@ -248,10 +282,12 @@ def set_target(
     kind = connector.kind
     with session_scope() as session:
         target = session.exec(
-            select(TicketTarget).where(TicketTarget.project == project, TicketTarget.kind == kind)
+            select(ConnectorTarget).where(
+                ConnectorTarget.project == project, ConnectorTarget.kind == kind
+            )
         ).first()
         if target is None:
-            target = TicketTarget(project=project, kind=kind)
+            target = ConnectorTarget(project=project, kind=kind)
         if auto_min_severity is None:
             target.auto_since = None
         elif target.auto_min_severity is None:
@@ -263,9 +299,9 @@ def set_target(
         session.add(target)
         audit.record(
             session,
-            audit.AuditAction.TICKET_TARGET_CHANGED,
+            audit.AuditAction.CONNECTOR_TARGET_CHANGED,
             actor,
-            "ticket_target",
+            "connector_target",
             kind,
             project=project,
             details={"destination": destination, "auto_min_severity": auto_min_severity},
@@ -275,7 +311,7 @@ def set_target(
 
 
 def delete_target(project: str, kind: str, actor: str) -> None:
-    """Delete the destination of ``project`` in a system (the tickets already sent are kept).
+    """Delete the destination of ``project`` in a system (the records already sent are kept).
 
     Raises:
         NotFoundError: If the project has no destination in this system.
@@ -283,16 +319,18 @@ def delete_target(project: str, kind: str, actor: str) -> None:
     project = normalize_project(project)
     with session_scope() as session:
         target = session.exec(
-            select(TicketTarget).where(TicketTarget.project == project, TicketTarget.kind == kind)
+            select(ConnectorTarget).where(
+                ConnectorTarget.project == project, ConnectorTarget.kind == kind
+            )
         ).first()
         if target is None:
             raise NotFoundError(f"Project {project} has no {kind} destination")
         session.delete(target)
         audit.record(
             session,
-            audit.AuditAction.TICKET_TARGET_CHANGED,
+            audit.AuditAction.CONNECTOR_TARGET_CHANGED,
             actor,
-            "ticket_target",
+            "connector_target",
             kind,
             project=project,
             details={"deleted": True},
@@ -345,35 +383,37 @@ def _destination(session: Session, project: str, kind: str) -> str:
     """Destination of ``project`` in a system.
 
     Raises:
-        TicketingError: If the project has none.
+        ConnectorError: If the project has none.
     """
     target = session.exec(
-        select(TicketTarget).where(TicketTarget.project == project, TicketTarget.kind == kind)
+        select(ConnectorTarget).where(
+            ConnectorTarget.project == project, ConnectorTarget.kind == kind
+        )
     ).first()
     if target is None:
-        raise TicketingError("no_target", f"project {project} has no {kind} destination")
+        raise ConnectorError("no_target", f"project {project} has no {kind} destination")
     return target.destination
 
 
 class _AlreadySent(Exception):
-    """The finding already has its ticket (``ticket_id``)."""
+    """The finding already has its record (``export_id``)."""
 
-    def __init__(self, ticket_id: int) -> None:
-        super().__init__(ticket_id)
-        self.ticket_id = ticket_id
+    def __init__(self, export_id: int) -> None:
+        super().__init__(export_id)
+        self.export_id = export_id
 
 
 def _claim(finding_id: int, kind: str, project: str, digest: str, actor: str) -> int:
-    """Insert (or take over) the ticket row of a finding in ``sending`` state; return its id.
+    """Insert (or take over) the export row of a finding in ``sending`` state; return its id.
 
     Raises:
-        TicketingError: ``in_progress`` when another request is sending it.
-        _AlreadySent: When the finding already has its ticket.
+        ConnectorError: ``in_progress`` when another request is sending it.
+        _AlreadySent: When the finding already has its record.
     """
     now = utcnow()
     try:
         with session_scope() as session:
-            row = FindingTicket(
+            row = FindingExport(
                 finding_id=finding_id,
                 kind=kind,
                 project=project,
@@ -389,75 +429,75 @@ def _claim(finding_id: int, kind: str, project: str, digest: str, actor: str) ->
         pass
     with session_scope() as session:
         row = session.exec(
-            select(FindingTicket).where(
-                FindingTicket.finding_id == finding_id, FindingTicket.kind == kind
+            select(FindingExport).where(
+                FindingExport.finding_id == finding_id, FindingExport.kind == kind
             )
         ).one()
-        if row.state == TicketState.SENT:
+        if row.state == ExportState.SENT:
             raise _AlreadySent(row.id or 0)
-        if row.state == TicketState.SENDING and as_utc(row.updated_at) > now - STALE_CLAIM:
-            raise TicketingError("in_progress", "the ticket is being created")
+        if row.state == ExportState.SENDING and as_utc(row.updated_at) > now - STALE_CLAIM:
+            raise ConnectorError("in_progress", "the finding is being exported")
         # Take the failed (or stale) row over, unless another controller just did
         taken = session.exec(  # type: ignore[call-overload]
-            update(FindingTicket)
+            update(FindingExport)
             .where(
-                col(FindingTicket.id) == row.id,
-                col(FindingTicket.state) == row.state,
-                col(FindingTicket.updated_at) == row.updated_at,
+                col(FindingExport.id) == row.id,
+                col(FindingExport.state) == row.state,
+                col(FindingExport.updated_at) == row.updated_at,
             )
-            .values(state=TicketState.SENDING, updated_at=now, created_by=actor[:200])
+            .values(state=ExportState.SENDING, updated_at=now, created_by=actor[:200])
         )
         if taken.rowcount != 1:
-            raise TicketingError("in_progress", "the ticket is being created")
+            raise ConnectorError("in_progress", "the finding is being exported")
         return row.id or 0
 
 
 def _finish(
-    ticket_id: int,
-    state: TicketState,
+    export_id: int,
+    state: ExportState,
     actor: str,
-    ticket: tuple[str, str | None] | None = None,
+    record: tuple[str, str | None] | None = None,
     error: str | None = None,
     created: bool = False,
-) -> FindingTicketPublic:
-    """Store the outcome of a sending; a ticket that now exists is audited."""
+) -> FindingExportPublic:
+    """Store the outcome of a sending; a record that now exists is audited."""
     with session_scope() as session:
-        row = session.get(FindingTicket, ticket_id)
+        row = session.get(FindingExport, export_id)
         if row is None:  # deleted with its project meanwhile
             raise NotFoundError("the finding was deleted")
         row.state = state
         row.updated_at = utcnow()
         row.attempts += 1
         row.error = None if error is None else error[:MAX_STORED_ERROR_CHARS]
-        if ticket is not None:
-            row.external_key, row.url = ticket
+        if record is not None:
+            row.external_key, row.url = record
         session.add(row)
-        if state == TicketState.SENT:
+        if state == ExportState.SENT:
             audit.record(
                 session,
-                audit.AuditAction.FINDING_TICKET_CREATED,
+                audit.AuditAction.FINDING_EXPORTED,
                 actor,
                 "finding",
                 row.finding_id,
                 project=row.project,
-                details={"kind": row.kind, "ticket": row.external_key, "reused": not created},
+                details={"kind": row.kind, "record": row.external_key, "reused": not created},
             )
         session.flush()
-        return FindingTicketPublic.model_validate(row, from_attributes=True)
+        return FindingExportPublic.model_validate(row, from_attributes=True)
 
 
-def _existing_ticket(project: str, kind: str, digest: str) -> tuple[str, str | None] | None:
-    """Key and link of the ticket already created for the same issue of ``project``."""
+def _existing_record(project: str, kind: str, digest: str) -> tuple[str, str | None] | None:
+    """Key and link of the record already created for the same issue of ``project``."""
     with session_scope() as session:
         row = session.exec(
-            select(FindingTicket)
+            select(FindingExport)
             .where(
-                FindingTicket.project == project,
-                FindingTicket.kind == kind,
-                FindingTicket.fingerprint == digest,
-                FindingTicket.state == TicketState.SENT,
+                FindingExport.project == project,
+                FindingExport.kind == kind,
+                FindingExport.fingerprint == digest,
+                FindingExport.state == ExportState.SENT,
             )
-            .order_by(col(FindingTicket.id))
+            .order_by(col(FindingExport.id))
         ).first()
         if row is None or row.external_key is None:
             return None
@@ -465,80 +505,80 @@ def _existing_ticket(project: str, kind: str, digest: str) -> tuple[str, str | N
 
 
 def send_finding(
-    finding_id: int, connector: TicketConnector, actor: str, settings: Settings
-) -> FindingTicketPublic:
-    """Create the ticket of a finding in a system (or return the one it already has).
+    finding_id: int, connector: Connector, actor: str, settings: Settings
+) -> FindingExportPublic:
+    """Create the record of a finding in a system (or return the one it already has).
 
-    The ticket of an earlier occurrence of the same issue in the project is reused. A failure
+    The record of an earlier occurrence of the same issue in the project is reused. A failure
     is stored on the finding, then raised.
 
     Raises:
         NotFoundError: If the finding does not exist.
-        TicketingError: If ticketing is disabled or not configured, the project has no
+        ConnectorError: If the connector is disabled or not configured, the project has no
             destination, the finding was reported again (its latest occurrence is sent), the
-            ticket is being created, or the system refused it.
+            finding is being exported, or the system refused it.
     """
     kind = connector.kind
     connection = _connection(settings, connector)
     with session_scope() as session:
         item = _item(session, finding_id)
         if item.finding.superseded_by is not None:
-            raise TicketingError(
+            raise ConnectorError(
                 "superseded",
                 f"the finding was reported again: send finding {item.finding.superseded_by}",
             )
         destination = _destination(session, item.project, kind)
     content = build_content(item, settings)
     try:
-        ticket_id = _claim(finding_id, kind, item.project, content.fingerprint, actor)
+        export_id = _claim(finding_id, kind, item.project, content.fingerprint, actor)
     except _AlreadySent as sent:
         with session_scope() as session:
-            row = session.get(FindingTicket, sent.ticket_id)
-            return FindingTicketPublic.model_validate(row, from_attributes=True)
-    existing = _existing_ticket(item.project, kind, content.fingerprint)
+            row = session.get(FindingExport, sent.export_id)
+            return FindingExportPublic.model_validate(row, from_attributes=True)
+    existing = _existing_record(item.project, kind, content.fingerprint)
     if existing is not None:
-        return _finish(ticket_id, TicketState.SENT, actor, existing)
+        return _finish(export_id, ExportState.SENT, actor, existing)
     try:
         created = _check_created(
             connector,
             _guarded(
                 connector,
                 connection,
-                lambda: connector.create_ticket(connection, destination, content),
+                lambda: connector.export_finding(connection, destination, content),
             ),
         )
-    except TicketingError as exc:
-        _finish(ticket_id, TicketState.FAILED, actor, error=f"{exc.code}: {exc}")
+    except ConnectorError as exc:
+        _finish(export_id, ExportState.FAILED, actor, error=f"{exc.code}: {exc}")
         raise
-    logger.info("Ticket %s created in %s for finding %d", created.key, kind, finding_id)
-    return _finish(ticket_id, TicketState.SENT, actor, (created.key, created.url), created=True)
+    logger.info("Record %s created in %s for finding %d", created.key, kind, finding_id)
+    return _finish(export_id, ExportState.SENT, actor, (created.key, created.url), created=True)
 
 
 def pending_findings(kind: str, now: datetime | None = None, limit: int = BATCH_SIZE) -> list[int]:
     """Ids of the findings the automatic sending owes to a system, worst first.
 
     An open finding of a project whose destination has a threshold, at least that severe, of a
-    report saved since the threshold was set, without a ticket, or whose last attempt failed
+    report saved since the threshold was set, without a record, or whose last attempt failed
     long enough ago (the delay doubles at each attempt, up to MAX_ATTEMPTS).
     """
     now = now or utcnow()
     found: list[tuple[int, int]] = []
     with session_scope() as session:
         targets = session.exec(
-            select(TicketTarget).where(
-                TicketTarget.kind == kind, col(TicketTarget.auto_min_severity).is_not(None)
+            select(ConnectorTarget).where(
+                ConnectorTarget.kind == kind, col(ConnectorTarget.auto_min_severity).is_not(None)
             )
         ).all()
         for target in targets:
             threshold = SEVERITY_RANK[Severity(target.auto_min_severity)]
             severities = [s for s, rank in SEVERITY_RANK.items() if rank >= threshold]
             rows = session.exec(
-                select(Finding.id, Finding.severity, FindingTicket)
+                select(Finding.id, Finding.severity, FindingExport)
                 .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
                 .outerjoin(
-                    FindingTicket,
-                    (col(FindingTicket.finding_id) == col(Finding.id))
-                    & (col(FindingTicket.kind) == kind),
+                    FindingExport,
+                    (col(FindingExport.finding_id) == col(Finding.id))
+                    & (col(FindingExport.kind) == kind),
                 )
                 .where(
                     SecurityReport.project == target.project,
@@ -546,19 +586,19 @@ def pending_findings(kind: str, now: datetime | None = None, limit: int = BATCH_
                     col(Finding.severity).in_(severities),
                     _status_is(FindingStatus.OPEN, now),
                     col(Finding.superseded_by).is_(None),
-                    (col(FindingTicket.id).is_(None))
+                    (col(FindingExport.id).is_(None))
                     | (
-                        (col(FindingTicket.state) == TicketState.FAILED)
-                        & (col(FindingTicket.attempts) < MAX_ATTEMPTS)
+                        (col(FindingExport.state) == ExportState.FAILED)
+                        & (col(FindingExport.attempts) < MAX_ATTEMPTS)
                     ),
                 )
                 .order_by(col(Finding.id))
                 .limit(limit)
             ).all()
-            for finding_id, severity, ticket in rows:
-                if ticket is not None:
-                    wait = RETRY_DELAY * 2 ** max(ticket.attempts - 1, 0)
-                    if as_utc(ticket.updated_at) + wait > now:
+            for finding_id, severity, export in rows:
+                if export is not None:
+                    wait = RETRY_DELAY * 2 ** max(export.attempts - 1, 0)
+                    if as_utc(export.updated_at) + wait > now:
                         continue
                 found.append((SEVERITY_RANK[Severity(severity)], finding_id))
     found.sort(key=lambda pair: (-pair[0], pair[1]))
@@ -567,7 +607,7 @@ def pending_findings(kind: str, now: datetime | None = None, limit: int = BATCH_
 
 def dispatch(settings: Settings) -> dict[str, int]:
     """Send the findings the automatic sending owes, for each system switched on and
-    configured; return the number of tickets sent and of failures."""
+    configured; return the number of findings sent and of failures."""
     counts = {"sent": 0, "failed": 0}
     for kind, connector in registry.connectors(settings).items():
         if not connections.enabled(connector, settings):
@@ -578,17 +618,17 @@ def dispatch(settings: Settings) -> dict[str, int]:
             try:
                 send_finding(finding_id, connector, AUTO_ACTOR, settings)
                 counts["sent"] += 1
-            except (TicketingError, NotFoundError) as exc:
+            except (ConnectorError, NotFoundError) as exc:
                 logger.warning(
-                    "Automatic %s ticket of finding %d failed: %s", kind, finding_id, exc
+                    "Automatic %s export of finding %d failed: %s", kind, finding_id, exc
                 )
                 counts["failed"] += 1
     return counts
 
 
-class TicketDispatcher:
-    """Background thread of the controller that sends the findings owed to the ticketing
-    systems every SECREVIEW_TICKETING_INTERVAL_SECONDS.
+class ExportDispatcher:
+    """Background thread of the controller that sends the findings owed to the
+    connectors every SECREVIEW_CONNECTORS_INTERVAL_SECONDS.
 
     ``current`` returns the effective settings (a proxy changed in the web interface applies at
     the next round; the connections are read at each round).
@@ -599,25 +639,25 @@ class TicketDispatcher:
         self.settings = settings
         self.current = current or (lambda: settings)
         self._stop = threading.Event()
-        self._thread = threading.Thread(target=self.run, name="ticketing", daemon=True)
+        self._thread = threading.Thread(target=self.run, name="connectors", daemon=True)
 
     def run(self) -> None:
         """Send what is owed, then wait for the next round, until ``stop`` is called."""
-        while not self._stop.wait(self.settings.ticketing_interval_seconds):
+        while not self._stop.wait(self.settings.connectors_interval_seconds):
             try:
                 counts = dispatch(self.current())
                 if counts["sent"] or counts["failed"]:
                     logger.info(
-                        "Automatic tickets: %d sent, %d failed", counts["sent"], counts["failed"]
+                        "Automatic exports: %d sent, %d failed", counts["sent"], counts["failed"]
                     )
             except Exception:
-                logger.exception("Automatic ticket sending failed")
+                logger.exception("Automatic export failed")
 
     def start(self) -> None:
         """Start the background thread."""
         logger.info(
-            "Automatic ticket sending every %d s (connectors switched on only)",
-            self.settings.ticketing_interval_seconds,
+            "Automatic export every %d s (connectors switched on only)",
+            self.settings.connectors_interval_seconds,
         )
         self._thread.start()
 

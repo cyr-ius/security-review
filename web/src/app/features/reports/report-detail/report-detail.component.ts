@@ -19,12 +19,12 @@ import {
   SEVERITIES,
   SEVERITY_RANK,
   Severity,
-  TicketKind,
+  ConnectorKind,
 } from '../../../core/models/api.models';
 import { Message } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { AuthService } from '../../../core/services/auth.service';
-import { TicketService, kindsByProject, systemNames } from '../../../core/services/ticket.service';
+import { ExportService, kindsByProject, systemNames } from '../../../core/services/export.service';
 import { TriageChange, TriageService } from '../../../core/services/triage.service';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { FindingCardComponent } from '../../../shared/components/finding-card/finding-card.component';
@@ -41,7 +41,7 @@ export class ReportDetailComponent {
   private readonly api = inject(ApiService);
   readonly auth = inject(AuthService);
   readonly triage = inject(TriageService);
-  readonly tickets = inject(TicketService);
+  readonly exports = inject(ExportService);
 
   /** Route parameter :id */
   readonly id = input.required<string>();
@@ -60,18 +60,18 @@ export class ReportDetailComponent {
     stream: ({ params }) => this.api.report(params.id),
   });
 
-  /** Names of the ticketing systems, to label the tickets. */
-  readonly systems = rxResource({ stream: () => this.api.ticketSystems() });
+  /** Names of the connectors, to label the exports. */
+  readonly systems = rxResource({ stream: () => this.api.connectorSystems() });
   readonly systemNames = computed(() => systemNames(this.systems.value() ?? []));
 
   /** Systems the user may send findings to, by project (none without findings.triage). */
   readonly destinations = rxResource({
     params: () => ({ triage: this.auth.canTriage() }),
-    stream: ({ params }) => (params.triage ? this.api.ticketDestinations() : of([])),
+    stream: ({ params }) => (params.triage ? this.api.connectorDestinations() : of([])),
   });
 
   /** Systems the findings of this report may be sent to. */
-  readonly ticketKinds = computed<readonly TicketKind[]>(() => {
+  readonly exportKinds = computed<readonly ConnectorKind[]>(() => {
     const project = this.report.value()?.project;
     const destinations = this.destinations.value() ?? [];
     return project ? (kindsByProject(destinations).get(project) ?? []) : [];
@@ -144,10 +144,10 @@ export class ReportDetailComponent {
     }
   }
 
-  /** Send a finding to a ticketing system and show its ticket. */
-  async sendTicket(finding: Finding, kind: TicketKind): Promise<void> {
+  /** Send a finding through a connector and show its record. */
+  async exportFinding(finding: Finding, kind: ConnectorKind): Promise<void> {
     this.triageError.set(null);
-    const result = await this.tickets.send(finding, kind);
+    const result = await this.exports.send(finding, kind);
     if ('error' in result) {
       this.triageError.set(result.error);
       // A failure is stored on the finding: show it

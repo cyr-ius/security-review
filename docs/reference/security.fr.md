@@ -86,7 +86,7 @@
   masqué et tronqué : vérifiez le demandeur et l'adresse avant de valider. Chaque enrôlement est audité. Voir
   [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
-  modules du contrôleur qui en font (téléchargement des avis, OIDC, syslog, tickets, recherche
+  modules du contrôleur qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
   de nouvelle version) : un test le vérifie. La commande
   `security-review-mcp enroll` contacte, à la demande de l'opérateur, l'URL qu'il indique ; elle
   refuse HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
@@ -120,14 +120,14 @@
   après un échec) ; seuls la version et le lien de la version sont conservés (un lien hors des
   versions du dépôt est remplacé), et la page ne reçoit qu'un code d'erreur court. Une fois
   un connecteur activé dans l'écran **Connecteurs** (tous désactivés par défaut, tous verrouillés
-  par `SECREVIEW_TICKETING_ENABLED=false`), le contrôleur crée des tickets dans les Jira et
-  ServiceNow configurés : HTTPS uniquement, par le proxy sortant, **aucune
-  redirection**, réponse bornée à 1 Mio, délai de 15 secondes ; les textes envoyés sont de
+  par `SECREVIEW_CONNECTORS_ENABLED=false`), le contrôleur envoie les findings par ce connecteur
+  (tickets dans les Jira et ServiceNow configurés, enregistrements d'un connecteur tiers) :
+  HTTPS uniquement, par le proxy sortant, **aucune redirection**, réponse bornée à 1 Mio, délai de 15 secondes ; les textes envoyés sont de
   nouveau masqués et, dans Jira, jamais interprétés comme balisage wiki ; les secrets saisis
   dans l'écran **Connecteurs** sont stockés en clair, jamais renvoyés (`***`) et liés à l'hôte de
-  leur URL ; un connecteur tiers n'est chargé que si `SECREVIEW_TICKETING_PLUGINS` le nomme et
+  leur URL ; un connecteur tiers n'est chargé que si `SECREVIEW_CONNECTORS_PLUGINS` le nomme et
   ne joint que son URL configurée par le client du contrôleur, voir
-  [ticketing](../advanced/ticketing.md#securite). Avec
+  [connecteurs](../connectors/index.md#securite). Avec
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` ou un serveur défini sur la page **Journal d'audit**
   (désactivé par défaut ; permission `settings.manage`, `udp://`, `tcp://` ou `tls://`
   uniquement, modification inscrite au journal d'audit), le contrôleur envoie les
