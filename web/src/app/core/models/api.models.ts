@@ -833,7 +833,7 @@ export interface ProxyUpdate {
  * stored value. Refused (422) when the variable of the field is set.
  */
 export interface AuditSyslogUpdate {
-  /** udp:// or tcp:// only. */
+  /** udp://, tcp:// or tls:// only. */
   address?: string | null;
   facility?: string | null;
 }

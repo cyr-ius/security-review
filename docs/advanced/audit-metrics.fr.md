@@ -86,22 +86,29 @@ Le contrôleur peut aussi envoyer chaque événement à un serveur syslog, pour 
 la base (SIEM, journal central). Désactivé par défaut :
 
 ```bash
-SECREVIEW_AUDIT_SYSLOG_ADDRESS=udp://syslog.example.com:514   # ou tcp://hôte:port, unix:///dev/log
+SECREVIEW_AUDIT_SYSLOG_ADDRESS=udp://syslog.example.com:514   # ou tcp://hôte:port, tls://hôte:port, unix:///dev/log
 SECREVIEW_AUDIT_SYSLOG_FACILITY=local0                        # par défaut
 ```
+
+Pour chiffrer les événements, utilisez `tls://hôte:port` (syslog sur TLS, RFC 5425, port 6514
+par défaut) : le contrôleur vérifie le certificat du serveur et son nom d'hôte avec les autorités
+du système, ou avec `SECREVIEW_AUDIT_SYSLOG_CAFILE` (autorité de certification interne, variable
+uniquement). Chaque message est alors précédé de sa longueur (*octet counting*), comme l'exige la
+RFC 5425 : sur rsyslog, `imtcp` avec `StreamDriver.Mode="1"` ; sur syslog-ng, la source
+`syslog()` avec `transport("tls")`.
 
 Les administrateurs (permission `settings.manage`) peuvent aussi le régler sur la page **Journal
 d'audit** de l'interface web, avec le bouton **Syslog** à côté de **Actualiser** (icône d'envoi
 cochée quand les événements sont envoyés, barrée sinon ; son infobulle indique le serveur). Il
-ouvre la fenêtre **Envoi vers syslog** : **Aucun envoi** ou **Défini ici** (`udp://hôte:port` ou
-`tcp://hôte:port`), et la *facility*. **Une variable définie est
+ouvre la fenêtre **Envoi vers syslog** : **Aucun envoi** ou **Défini ici** (`udp://hôte:port`,
+`tcp://hôte:port` ou `tls://hôte:port`), et la *facility*. **Une variable définie est
 prioritaire** : son champ est alors verrouillé, et une valeur définie là auparavant est ignorée
 (**Supprimer** l'efface) ; un `SECREVIEW_AUDIT_SYSLOG_ADDRESS` vide compte comme non défini. Une
 valeur définie là s'applique en une dizaine de secondes, sans redémarrage ; la modification est
 elle-même inscrite au journal d'audit (`audit_syslog.changed`). À l'arrêt de l'envoi, les
 événements en attente, cette modification comprise, partent d'abord vers l'ancien serveur : le
 SIEM voit qui l'a arrêté. Un socket Unix est un fichier du déploiement : il se règle uniquement
-par la variable. Par l'API : `GET` et `PUT /api/v1/settings/audit-syslog` avec `address` et
+par la variable, comme le fichier d'autorité de TLS. Par l'API : `GET` et `PUT /api/v1/settings/audit-syslog` avec `address` et
 `facility` (`null` supprime la valeur enregistrée, un champ absent est inchangé, un champ dont la
 variable est définie est refusé avec 422).
 
@@ -119,9 +126,11 @@ l'événement en JSON, avec les mêmes champs que `audit list` :
 - Chaque événement est envoyé **une fois**, même avec plusieurs répliques du contrôleur : l'id du
   dernier événement envoyé est conservé en base, et une réplique l'avance avant d'envoyer. Un lot
   dont l'envoi échoue est journalisé et n'est pas renvoyé (au plus une fois).
-- Ni TLS ni proxy : pour chiffrer, envoyez à un relais local (`rsyslog`, `syslog-ng`, Fluent Bit)
-  qui transmet en TLS. Une variable invalide arrête `serve` au démarrage ; une adresse invalide
-  est refusée par l'interface web.
+- `udp://` et `tcp://` envoient les événements en clair : réservez-les à un réseau de confiance
+  ou à un relais local, et utilisez `tls://` sinon. Pas de proxy. Un certificat refusé est
+  journalisé comme un envoi en échec (le lot n'est pas renvoyé). Une variable invalide, ou un
+  fichier d'autorité introuvable, arrête `serve` au démarrage ; une adresse invalide est refusée
+  par l'interface web.
 
 ## Métriques Prometheus
 

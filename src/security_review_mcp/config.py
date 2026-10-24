@@ -240,13 +240,15 @@ class Settings(BaseSettings):
     # same daily purge). 0: no limit.
     audit_max_events: int = Field(default=0, ge=0, le=MAX_AUDIT_EVENTS)
     # Controller only: send each audit event, as JSON, to a syslog server: udp://host:port,
-    # tcp://host:port or unix:///dev/log (no TLS: use a local relay such as rsyslog for it).
+    # tcp://host:port, tls://host:port (RFC 5425, port 6514 by default) or unix:///dev/log.
     # Disabled by default. The controller forwards the events of every process (MCP server and
     # CLI included) from the database, each event once even with several replicas. Not proxied.
     # Each one not set can be set on the Audit log page of the web interface; when set, it takes
-    # precedence there. An empty address variable counts as unset.
+    # precedence there. An empty address variable counts as unset. audit_syslog_cafile (a
+    # variable only) replaces the system CA bundle to verify the certificate of a tls:// server.
     audit_syslog_address: str | None = None
     audit_syslog_facility: str = "local0"
+    audit_syslog_cafile: str | None = None
 
     # Controller only: Prometheus metrics on /metrics, reached with a token of role "metrics" or
     # "admin". false: /metrics answers 404.
@@ -290,7 +292,14 @@ class Settings(BaseSettings):
     max_scan_files: int = Field(default=10_000, ge=1)
     max_scan_file_chars: int = Field(default=1_048_576, ge=1)
 
-    @field_validator("proxy", "no_proxy", "audit_syslog_address", "web_url", "ticketing_cafile")
+    @field_validator(
+        "proxy",
+        "no_proxy",
+        "audit_syslog_address",
+        "audit_syslog_cafile",
+        "web_url",
+        "ticketing_cafile",
+    )
     @classmethod
     def _empty_is_unset(cls, value: str | None) -> str | None:
         """An empty variable means no value (an empty stored proxy means a direct connection)."""

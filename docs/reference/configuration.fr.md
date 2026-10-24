@@ -138,8 +138,9 @@ Lues par `security-review-controller` uniquement.
 |---|---|---|
 | `SECREVIEW_AUDIT_RETENTION_DAYS` | `365` | Âge en jours au-delà duquel `serve` supprime les événements du [journal d'audit](../advanced/audit-metrics.md#journal-daudit) ; `0` conserve tous les événements |
 | `SECREVIEW_AUDIT_MAX_EVENTS` | `0` | Nombre d'[événements d'audit](../advanced/audit-metrics.md#conservation) conservés au plus par la même purge quotidienne (les plus anciens sont supprimés) ; `0` : sans limite |
-| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | [Envoie les événements d'audit à syslog](../advanced/audit-metrics.md#envoi-vers-syslog) : `udp://hôte:port`, `tcp://hôte:port` ou `unix:///dev/log` (ni TLS ni proxy) ; désactivé si absent ; sans elle, le serveur défini sur la page **Journal d'audit** s'applique. Définie (non vide), elle est prioritaire sur cette page |
+| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | [Envoie les événements d'audit à syslog](../advanced/audit-metrics.md#envoi-vers-syslog) : `udp://hôte:port`, `tcp://hôte:port`, `tls://hôte:port` (RFC 5425, port 6514 par défaut) ou `unix:///dev/log` (pas de proxy) ; désactivé si absent ; sans elle, le serveur défini sur la page **Journal d'audit** s'applique. Définie (non vide), elle est prioritaire sur cette page |
 | `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | *Facility* syslog de ces messages (`local0` à `local7`, `auth`, `authpriv`, `daemon`...) ; définie, elle est prioritaire sur celle choisie sur la page **Journal d'audit** |
+| `SECREVIEW_AUDIT_SYSLOG_CAFILE` | — | Autorités de certification qui vérifient le certificat d'un serveur syslog `tls://` (autorité interne) ; par défaut, celles du système. Variable uniquement |
 | `SECREVIEW_METRICS_ENABLED` | `true` | Sert les [métriques Prometheus](../advanced/audit-metrics.md#metriques-prometheus) sur `/metrics` (jeton `metrics` ou `admin`) ; à `false`, `/metrics` répond 404 |
 
 ### Ticketing

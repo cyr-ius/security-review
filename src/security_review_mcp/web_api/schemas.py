@@ -1097,7 +1097,8 @@ class AuditSyslogUpdate(BaseModel):
 
     A field left out is unchanged, ``null`` (or an empty address) deletes the stored value. A
     value whose variable is set (SECREVIEW_AUDIT_SYSLOG_ADDRESS, SECREVIEW_AUDIT_SYSLOG_FACILITY)
-    is refused: the variable takes precedence. Only udp:// and tcp:// addresses may be set here.
+    is refused: the variable takes precedence. Only udp://, tcp:// and tls:// addresses may be set
+    here.
     """
 
     model_config = ConfigDict(extra="forbid")

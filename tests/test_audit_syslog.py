@@ -2,11 +2,17 @@
 
 import json
 import socket
+import ssl
 import tempfile
+import threading
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
+from cryptography import x509
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.x509.oid import NameOID
 from sqlmodel import Session, select
 
 from security_review_mcp.auth import token_store
@@ -69,6 +75,7 @@ class FakeHandler:
         ("udp://syslog.example.com", (("syslog.example.com", 514), socket.SOCK_DGRAM)),
         ("udp://10.0.0.5:5514", (("10.0.0.5", 5514), socket.SOCK_DGRAM)),
         ("tcp://syslog.example.com:601", (("syslog.example.com", 601), socket.SOCK_STREAM)),
+        ("tls://syslog.example.com", (("syslog.example.com", 6514), socket.SOCK_STREAM)),
         ("unix:///dev/log", ("/dev/log", socket.SOCK_DGRAM)),
     ],
 )
@@ -200,13 +207,102 @@ def test_the_forwarder_writes_to_a_unix_socket(database):
             server.close()
 
 
+def self_signed(directory: Path) -> tuple[Path, Path]:
+    """Write a self-signed certificate of localhost and its key; return their paths."""
+    key = ec.generate_private_key(ec.SECP256R1())
+    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "localhost")])
+    now = datetime.now(UTC)
+    cert = (
+        x509.CertificateBuilder()
+        .subject_name(name)
+        .issuer_name(name)
+        .public_key(key.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(now - timedelta(minutes=1))
+        .not_valid_after(now + timedelta(hours=1))
+        .add_extension(x509.SubjectAlternativeName([x509.DNSName("localhost")]), critical=False)
+        .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
+        .sign(key, hashes.SHA256())
+    )
+    cert_path, key_path = directory / "cert.pem", directory / "key.pem"
+    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    key_path.write_bytes(
+        key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+    )
+    return cert_path, key_path
+
+
+def test_the_forwarder_sends_over_tls_and_verifies_the_server(database, tmp_path, caplog):
+    cert, key = self_signed(tmp_path)
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(cert, key)
+    listener = socket.create_server(("127.0.0.1", 0))
+    listener.settimeout(5)
+    received: list[bytes] = []
+
+    def serve(connections: int) -> None:
+        for _ in range(connections):
+            conn, _ = listener.accept()
+            try:
+                with context.wrap_socket(conn, server_side=True) as tls:
+                    tls.settimeout(5)
+                    while chunk := tls.recv(65536):
+                        received.append(chunk)
+            except OSError:
+                pass  # the client refused the certificate
+
+    address = f"tls://localhost:{listener.getsockname()[1]}"
+    server = threading.Thread(target=serve, args=(2,), daemon=True)
+    server.start()
+    # The system CA bundle does not know the certificate: nothing is sent
+    untrusted = audit_syslog.AuditForwarder(make_settings(audit_syslog_address=address))
+    trusted = audit_syslog.AuditForwarder(
+        make_settings(audit_syslog_address=address, audit_syslog_cafile=str(cert))
+    )
+    try:
+        untrusted.forward_once()
+        trusted.forward_once()
+        token_store.create_token("ci", Role.MCP)
+        age_events(database)
+
+        assert untrusted.forward_once() == 0
+        assert "SSLCertVerificationError" in caplog.text
+        token_store.create_token("other", Role.MCP)
+        age_events(database)
+        assert trusted.forward_once() == 1
+    finally:
+        untrusted.stop()
+        trusted.stop()
+        server.join(5)
+        listener.close()
+    # Octet counting of RFC 5425: the message is preceded by its length
+    length, _, message = b"".join(received).partition(b" ")
+    assert int(length) == len(message) and message.startswith(b"<134>secreview-audit: {")
+    assert json.loads(message.partition(b": ")[2])["details"]["label"] == "other"
+
+
+def test_a_missing_ca_file_refuses_the_forwarder(tmp_path):
+    with pytest.raises(ValueError, match="SECREVIEW_AUDIT_SYSLOG_CAFILE"):
+        audit_syslog.AuditForwarder(
+            make_settings(
+                audit_syslog_address="tls://syslog", audit_syslog_cafile=str(tmp_path / "ca.pem")
+            )
+        )
+
+
 def test_invalid_settings_refuse_the_forwarder():
     with pytest.raises(ValueError):
         audit_syslog.AuditForwarder(make_settings(audit_syslog_address="syslog:514"))
 
 
-@pytest.mark.parametrize("value", ["udp://syslog.example.com:514", " tcp://10.0.0.5:601 "])
-def test_web_addresses_are_udp_or_tcp(value):
+@pytest.mark.parametrize(
+    "value", ["udp://syslog.example.com:514", " tcp://10.0.0.5:601 ", "tls://syslog.example.com"]
+)
+def test_web_addresses_are_udp_tcp_or_tls(value):
     assert audit_syslog.check_web_address(value) == value.strip()
 
 

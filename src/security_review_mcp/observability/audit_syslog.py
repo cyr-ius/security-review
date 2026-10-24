@@ -17,16 +17,20 @@ sending a batch: when two replicas read the same batch, only one sends it. The d
 most once: a batch whose sending fails is logged, not sent again. The first start forwards the
 events created from then on, not the history.
 
-``details`` is already masked and bounded by audit.record: no secret is sent.
+``details`` is already masked and bounded by audit.record: no secret is sent. With
+``tls://``, the connection is encrypted and the certificate and host name of the server are
+verified (``SECREVIEW_AUDIT_SYSLOG_CAFILE`` or the system CA bundle), with the framing of RFC 5425.
 """
 
 import json
 import logging
 import logging.handlers
 import socket
+import ssl
 import threading
 from collections.abc import Callable
 from datetime import timedelta
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
@@ -52,6 +56,8 @@ SETTLE_SECONDS = 5
 # Timeout of the connection to the syslog server (TCP)
 CONNECT_TIMEOUT_SECONDS = 5.0
 DEFAULT_SYSLOG_PORT = 514
+# Port of syslog over TLS (RFC 5425)
+DEFAULT_TLS_PORT = 6514
 # Tag of the messages (RFC 3164 program name)
 SYSLOG_TAG = "secreview-audit"
 MAX_ADDRESS_CHARS = 500
@@ -60,8 +66,8 @@ FACILITIES = frozenset(logging.handlers.SysLogHandler.facility_names)
 
 
 def parse_address(value: str) -> tuple[str | tuple[str, int], socket.SocketKind]:
-    """Return the address and socket type of ``udp://host[:port]``, ``tcp://host[:port]`` or
-    ``unix:///path``.
+    """Return the address and socket type of ``udp://host[:port]``, ``tcp://host[:port]``,
+    ``tls://host[:port]`` or ``unix:///path``.
 
     Raises:
         ValueError: If the address is not one of these forms.
@@ -78,19 +84,22 @@ def parse_address(value: str) -> tuple[str | tuple[str, int], socket.SocketKind]
         if parts.netloc or not parts.path.startswith("/"):
             raise ValueError("SECREVIEW_AUDIT_SYSLOG_ADDRESS: write unix:///path/of/the/socket")
         return parts.path, socket.SOCK_DGRAM
-    if parts.scheme not in ("udp", "tcp") or not parts.hostname:
+    if parts.scheme not in ("udp", "tcp", "tls") or not parts.hostname:
         raise ValueError(
-            "SECREVIEW_AUDIT_SYSLOG_ADDRESS must be udp://host:port, tcp://host:port or "
-            "unix:///path"
+            "SECREVIEW_AUDIT_SYSLOG_ADDRESS must be udp://host:port, tcp://host:port, "
+            "tls://host:port or unix:///path"
         )
     if parts.path not in ("", "/") or parts.query or parts.fragment or parts.username:
         raise ValueError("SECREVIEW_AUDIT_SYSLOG_ADDRESS must not have a path, a query or a user")
-    kind = socket.SOCK_STREAM if parts.scheme == "tcp" else socket.SOCK_DGRAM
-    return (parts.hostname, port or DEFAULT_SYSLOG_PORT), kind
+    if parts.scheme == "udp":
+        return (parts.hostname, port or DEFAULT_SYSLOG_PORT), socket.SOCK_DGRAM
+    default = DEFAULT_TLS_PORT if parts.scheme == "tls" else DEFAULT_SYSLOG_PORT
+    return (parts.hostname, port or default), socket.SOCK_STREAM
 
 
 def check_web_address(value: str) -> str:
-    """Return the cleaned ``value`` when it may be set in the web interface: udp:// or tcp://.
+    """Return the cleaned ``value`` when it may be set in the web interface: udp://, tcp://
+    or tls://.
 
     A Unix socket is a file of the deployment: it stays a variable, as the OIDC CA file.
 
@@ -123,6 +132,10 @@ def validate_settings(settings: Settings) -> None:
     if settings.audit_syslog_address:
         parse_address(settings.audit_syslog_address)
         facility(settings.audit_syslog_facility)
+    if settings.audit_syslog_cafile and not Path(settings.audit_syslog_cafile).is_file():
+        raise ValueError(
+            f"SECREVIEW_AUDIT_SYSLOG_CAFILE: file not found: {settings.audit_syslog_cafile}"
+        )
 
 
 def format_event(event: dict[str, Any]) -> str:
@@ -178,20 +191,48 @@ def drop_cursor() -> None:
             session.execute(delete(AppSetting).where(col(AppSetting.key) == AUDIT_SYSLOG_CURSOR))
 
 
+class TLSSysLogHandler(logging.handlers.SysLogHandler):
+    """Syslog handler over TLS: the TCP connection is wrapped by ``context``, which verifies
+    the certificate of the server and its host name."""
+
+    def __init__(self, context: ssl.SSLContext, **kwargs: Any) -> None:
+        """Connect to ``kwargs["address"]`` (see SysLogHandler) over TLS."""
+        self.context = context
+        super().__init__(**kwargs)
+
+    def createSocket(self) -> None:  # noqa: N802 (logging API)
+        """Open the TCP connection, then the TLS session (the handshake raises on failure)."""
+        super().createSocket()
+        host = self.address[0]
+        try:
+            self.socket = self.context.wrap_socket(self.socket, server_hostname=host)
+        except OSError:
+            self.socket.close()
+            self.socket = None
+            raise
+
+
 def make_handler(settings: Settings) -> logging.handlers.SysLogHandler:
-    """Syslog handler of the settings (connects at once for TCP and a Unix socket).
+    """Syslog handler of the settings (connects at once for TCP, TLS and a Unix socket).
 
     Raises:
         ValueError: If the settings are invalid.
-        OSError: If the server cannot be reached.
+        OSError: If the server cannot be reached, or its certificate is refused (TLS).
     """
-    address, kind = parse_address(settings.audit_syslog_address or "")
-    handler = logging.handlers.SysLogHandler(
-        address=address,
-        facility=facility(settings.audit_syslog_facility),
-        socktype=kind,
-        timeout=CONNECT_TIMEOUT_SECONDS,
-    )
+    text = settings.audit_syslog_address or ""
+    address, kind = parse_address(text)
+    options: dict[str, Any] = {
+        "address": address,
+        "facility": facility(settings.audit_syslog_facility),
+        "socktype": kind,
+        "timeout": CONNECT_TIMEOUT_SECONDS,
+    }
+    handler: logging.handlers.SysLogHandler
+    if urlsplit(text.strip()).scheme == "tls":
+        context = ssl.create_default_context(cafile=settings.audit_syslog_cafile)
+        handler = TLSSysLogHandler(context, **options)
+    else:
+        handler = logging.handlers.SysLogHandler(**options)
     handler.setFormatter(logging.Formatter("%(message)s"))
     return handler
 
@@ -292,6 +333,9 @@ class AuditForwarder:
             handler.socket.send(payload)
         elif handler.socktype == socket.SOCK_DGRAM:
             handler.socket.sendto(payload, handler.address)
+        elif isinstance(handler, TLSSysLogHandler):
+            # Octet counting of RFC 5425: the length of the message, a space, the message
+            handler.socket.sendall(f"{len(payload)} ".encode() + payload)
         else:
             handler.socket.sendall(payload + b"\n")
 

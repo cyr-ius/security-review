@@ -128,12 +128,12 @@
   ne joint que son URL configurée par le client du contrôleur, voir
   [ticketing](../advanced/ticketing.md#securite). Avec
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` ou un serveur défini sur la page **Journal d'audit**
-  (désactivé par défaut ; permission `settings.manage`, `udp://` ou `tcp://` uniquement,
-  modification inscrite au journal d'audit), le contrôleur envoie les
-  [événements d'audit](../advanced/audit-metrics.md#envoi-vers-syslog) à ce serveur syslog (UDP,
-  TCP ou socket Unix, ni TLS ni proxy : passez par un relais local pour le TLS) ; les
-  événements ne contiennent aucun secret (détails masqués), et le serveur MCP ne se connecte
-  toujours nulle part.
+  (désactivé par défaut ; permission `settings.manage`, `udp://`, `tcp://` ou `tls://`
+  uniquement, modification inscrite au journal d'audit), le contrôleur envoie les
+  [événements d'audit](../advanced/audit-metrics.md#envoi-vers-syslog) à ce serveur syslog (UDP
+  ou TCP en clair, TLS avec vérification du certificat et du nom d'hôte du serveur, ou socket
+  Unix ; pas de proxy) ; les événements ne contiennent aucun secret (détails masqués), et le
+  serveur MCP ne se connecte toujours nulle part.
 - **Administrateur initial** : créé par le contrôleur à son premier démarrage avec un mot de
   passe aléatoire que personne ne connaît, jamais journalisé ni passé par une variable ; le seul
   moyen d'obtenir un mot de passe est `security-review-controller user reset-password`, lancé par

@@ -121,11 +121,12 @@
   is only loaded when `SECREVIEW_TICKETING_PLUGINS` names it and only reaches its configured
   URL through the client of the controller, see [ticketing](../advanced/ticketing.md#security). With
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` or a server set on the **Audit log** page (disabled by
-  default; `settings.manage` permission, `udp://` or `tcp://` only, the change audited), the
-  controller sends the
-  [audit events](../advanced/audit-metrics.md#forwarding-to-syslog) to that syslog server (UDP,
-  TCP or Unix socket, neither TLS nor proxy: use a local relay for TLS); the events hold no
-  secret (masked details), and the MCP server still connects nowhere.
+  default; `settings.manage` permission, `udp://`, `tcp://` or `tls://` only, the change
+  audited), the controller sends the
+  [audit events](../advanced/audit-metrics.md#forwarding-to-syslog) to that syslog server (UDP
+  or TCP in clear, TLS with the certificate and host name of the server verified, or Unix
+  socket; no proxy); the events hold no secret (masked details), and the MCP server still
+  connects nowhere.
 - **Initial administrator**: created by the controller at its first start with a random
   password that nobody knows, never logged nor passed through a variable; the only way to a
   password is `security-review-controller user reset-password`, run by an operator, which

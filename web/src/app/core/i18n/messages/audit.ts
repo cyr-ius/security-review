@@ -59,7 +59,7 @@ export const audit = defineMessages({
     'audit.syslogCustom': 'Set here',
     'audit.syslogNone': 'No forwarding',
     'audit.syslogAddressHelp':
-      'udp://host:port or tcp://host:port (port 514 by default). A Unix socket is set with the variable only; for TLS, use a local relay such as rsyslog.',
+      'udp://host:port, tcp://host:port (port 514 by default) or tls://host:port (encrypted, port 6514 by default). A Unix socket and the CA file of TLS are set with variables only.',
     'audit.syslogFacility': 'Facility',
     'audit.syslogFacilityDefault': 'Default ({value})',
     'audit.syslogMissing': 'Enter the address of the syslog server.',
@@ -123,7 +123,7 @@ export const audit = defineMessages({
     'audit.syslogCustom': 'Défini ici',
     'audit.syslogNone': 'Aucun envoi',
     'audit.syslogAddressHelp':
-      'udp://hôte:port ou tcp://hôte:port (port 514 par défaut). Un socket Unix se règle uniquement par la variable ; pour TLS, passez par un relais local comme rsyslog.',
+      'udp://hôte:port, tcp://hôte:port (port 514 par défaut) ou tls://hôte:port (chiffré, port 6514 par défaut). Un socket Unix et le fichier d’autorité de TLS se règlent uniquement par des variables.',
     'audit.syslogFacility': 'Facility',
     'audit.syslogFacilityDefault': 'Par défaut ({value})',
     'audit.syslogMissing': 'Saisissez l’adresse du serveur syslog.',
@@ -187,7 +187,7 @@ export const audit = defineMessages({
     'audit.syslogCustom': 'Definido aquí',
     'audit.syslogNone': 'Sin envío',
     'audit.syslogAddressHelp':
-      'udp://host:puerto o tcp://host:puerto (puerto 514 por defecto). Un socket Unix solo se configura con la variable; para TLS, use un relé local como rsyslog.',
+      'udp://host:puerto, tcp://host:puerto (puerto 514 por defecto) o tls://host:puerto (cifrado, puerto 6514 por defecto). Un socket Unix y el archivo de autoridad de TLS solo se configuran con variables.',
     'audit.syslogFacility': 'Facility',
     'audit.syslogFacilityDefault': 'Por defecto ({value})',
     'audit.syslogMissing': 'Introduzca la dirección del servidor syslog.',

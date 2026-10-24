@@ -383,8 +383,8 @@ def set_audit_syslog(
     empty address) removes the stored value, the names left out are unchanged.
 
     The change is recorded in the audit log, in the same transaction: stopping the forwarding
-    leaves a trace. Only udp:// and tcp:// addresses may be set here; a Unix socket is a file of
-    the deployment and stays a variable.
+    leaves a trace. Only udp://, tcp:// and tls:// addresses may be set here; a Unix socket is a
+    file of the deployment and stays a variable, as the CA file of tls://.
 
     Raises:
         ValueError: If a name is unknown, a value is invalid, or its variable is set
