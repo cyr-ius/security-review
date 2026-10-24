@@ -3,7 +3,7 @@
 The package installs two commands, one per process (see
 [Architecture and deployment](../advanced/architecture.md)), and a pipeline client:
 
-- `security-review-mcp`: the **MCP server** (stdio or HTTP), plus `enroll` and `scan-deps` on the client side;
+- `security-review-mcp`: the **MCP server** (stdio or HTTP), plus `enroll` on the client side;
 - `security-review-controller`: the **controller** (REST API and web interface), the database
   and the administration;
 - `security-review-ci`: the **pipeline client** of the controller REST API (`ci` token, Python
@@ -17,7 +17,6 @@ The package installs two commands, one per process (see
 |---|---|---|
 | `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server (stdio by default, `streamable-http` for a shared server) | [Installation](../getting-started/deploy.md) |
 | `enroll --url URL --project P [--requested-by WHO] [--cafile CA] [--allow-http]` | Requests the project on a shared server, for an administrator to approve (unchanged when it exists or is pending; requester: `--requested-by`, by default your login name); no token is created: the answer gives the URL of the web interface where you create a personal MCP token | [Enrollment](../advanced/http.md#enrollment-request-the-project) |
-| `scan-deps FILE… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http] [--save --project P [--author A] [--repository R] [--branch B] [--commit C]]` | **Deprecated** (warning on stderr): use `security-review-ci scan-deps`. Scans manifests and lockfiles with the advisory database of a shared MCP server (token: `SECREVIEW_TOKEN`); `--save` stores a report of the project on that server | [Dependencies](../advanced/dependencies.md#security-review-mcp-scan-deps-deprecated) |
 
 Without a command, `security-review-mcp` prints its usage on stderr and exits with code `2`
 (`security-review-mcp --help` prints it on stdout): an MCP host must start `security-review-mcp serve`.
@@ -26,10 +25,11 @@ With stdio, the server migrates its database itself at start-up (unless
 `SECREVIEW_DB_AUTO_UPGRADE=false`). With HTTP, it **only checks** the schema: it refuses to
 start (code `2`) while `security-review-controller db upgrade` has not been run.
 
-!!! note "Old subcommands"
-    `security-review-mcp token|rules|advisories|db` are deprecated:
-    they print a warning on stderr and run the controller command. Replace them with
-    `security-review-controller …`.
+!!! note "Removed in 2.0"
+    `security-review-mcp scan-deps` is replaced by
+    [`security-review-ci scan-deps`](#security-review-ci) (controller URL and a personal `ci`
+    token), and `security-review-mcp token|rules|advisories|db…` by
+    `security-review-controller …`: they now end with `unknown command` (code `2`).
 
 ## `security-review-controller`
 
@@ -80,7 +80,7 @@ stored with the report. They need a `ci` or `admin` token (on a workstation, a
 `--skip-unconfigured` exits with `0` and a warning when no controller URL is set (commit hook).
 ## Exit codes
 
-The check commands (`security-review-ci gate`, `scan-code` and `scan-deps`, `security-review-mcp scan-deps`, `db status`) share the same convention:
+The check commands (`security-review-ci gate`, `scan-code` and `scan-deps`, `db status`) share the same convention:
 
 | Code | Meaning |
 |---|---|

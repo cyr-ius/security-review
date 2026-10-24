@@ -208,7 +208,7 @@ Un client dont le jeton est **inconnu, révoqué ou expiré** reçoit `401` sur 
 puis à le remplacer dans la [configuration de l'hôte](../getting-started/host.md#obtenir-un-jeton).
 Un tel client n'atteint jamais les outils de revue ni le serveur d'enrôlement. Le refus est
 journalisé en avertissement par le serveur MCP (`Rejected unauthenticated request` /
-`Rejected expired token`). `security-review-mcp scan-deps` donne le même conseil.
+`Rejected expired token`).
 
 Garde-fous : quiconque atteint le serveur peut s'enrôler, donc au plus 20 projets sont en
 attente à la fois, une adresse cliente s'enrôle au plus 5 fois par heure (`429` au-delà ;

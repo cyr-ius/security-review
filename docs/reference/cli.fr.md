@@ -3,7 +3,7 @@
 Le paquet installe deux commandes, une par processus (voir
 [Architecture et déploiement](../advanced/architecture.md)), et un client de pipeline :
 
-- `security-review-mcp` : le **serveur MCP** (stdio ou HTTP), plus `enroll` et `scan-deps` côté client ;
+- `security-review-mcp` : le **serveur MCP** (stdio ou HTTP), plus `enroll` côté client ;
 - `security-review-controller` : le **contrôleur** (API REST et interface web), la base de
   données et l'administration ;
 - `security-review-ci` : le **client de pipeline** de l'API REST du contrôleur (jeton `ci`,
@@ -18,7 +18,6 @@ Le paquet installe deux commandes, une par processus (voir
 |---|---|---|
 | `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP (stdio par défaut, `streamable-http` pour un serveur partagé) | [Installation](../getting-started/deploy.md) |
 | `enroll --url URL --project P [--requested-by QUI] [--cafile CA] [--allow-http]` | Demande le projet sur un serveur partagé, validé par un administrateur (inchangé s'il existe ou est en attente ; demandeur : `--requested-by`, par défaut votre nom de connexion) ; aucun jeton n'est créé : la réponse donne l'URL de l'interface web où créer un jeton MCP personnel | [Enrôlement](../advanced/http.md#enrolement-demander-le-projet) |
-| `scan-deps FICHIER… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http] [--save --project P [--author A] [--repository R] [--branch B] [--commit C]]` | **Obsolète** (avertissement sur stderr) : utilisez `security-review-ci scan-deps`. Analyse manifestes et lockfiles avec la base d'avis d'un serveur MCP partagé (jeton : `SECREVIEW_TOKEN`) ; `--save` enregistre un rapport du projet sur ce serveur | [Dépendances](../advanced/dependencies.md#security-review-mcp-scan-deps-obsolete) |
 
 Sans commande, `security-review-mcp` affiche son aide sur stderr et sort avec le code `2`
 (`security-review-mcp --help` l'affiche sur stdout) : un hôte MCP doit lancer `security-review-mcp serve`.
@@ -27,10 +26,11 @@ En stdio, le serveur migre lui-même sa base au démarrage (sauf `SECREVIEW_DB_A
 En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`) tant que
 `security-review-controller db upgrade` n'a pas été lancé.
 
-!!! note "Anciennes sous-commandes"
-    `security-review-mcp token|rules|advisories|db` sont dépréciées :
-    elles affichent un avertissement sur stderr et exécutent la commande
-    du contrôleur. Remplacez-les par `security-review-controller …`.
+!!! note "Retirées en 2.0"
+    `security-review-mcp scan-deps` est remplacée par
+    [`security-review-ci scan-deps`](#security-review-ci) (URL du contrôleur et jeton `ci`
+    personnel), et `security-review-mcp token|rules|advisories|db…` par
+    `security-review-controller …` : elles se terminent désormais par `unknown command` (code `2`).
 
 ## `security-review-controller`
 
@@ -82,7 +82,7 @@ enregistrés avec le rapport. Ils demandent un jeton `ci` ou `admin` (sur un pos
 définie (hook de commit).
 ## Codes de sortie
 
-Les commandes de contrôle (`security-review-ci gate`, `scan-code` et `scan-deps`, `security-review-mcp scan-deps`, `db status`) partagent la même
+Les commandes de contrôle (`security-review-ci gate`, `scan-code` et `scan-deps`, `db status`) partagent la même
 convention :
 
 | Code | Signification |

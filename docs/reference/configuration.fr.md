@@ -164,12 +164,11 @@ Lues par `security-review-controller` uniquement.
 
 ## Clients
 
-Lues par les commandes clientes (`security-review-mcp scan-deps`, `security-review-ci`), jamais par les serveurs.
+Lues par le client de pipeline `security-review-ci`, jamais par les serveurs.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_MCP_URL` | — | URL du serveur MCP partagé utilisé par la commande obsolète [`security-review-mcp scan-deps`](../advanced/dependencies.md#security-review-mcp-scan-deps-obsolete) (valeur par défaut de `--url`) ; jamais utilisée par les serveurs |
-| `SECREVIEW_TOKEN` | — | Jeton Bearer envoyé par `scan-deps` à ce serveur, et par [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) au contrôleur (jeton `ci`) ; jamais utilisé par les serveurs |
+| `SECREVIEW_TOKEN` | — | Jeton Bearer envoyé par [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) au contrôleur (jeton `ci`) ; jamais utilisé par les serveurs |
 | `SECREVIEW_CONTROLLER_URL` | — | URL du contrôleur utilisée par [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) (valeur par défaut de `--url`) ; lue dans l'environnement uniquement, jamais dans `.env` |
 
 Les jetons Bearer ne se configurent pas par variable : ils sont stockés en base et gérés avec

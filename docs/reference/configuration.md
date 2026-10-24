@@ -164,12 +164,11 @@ Read by `security-review-controller` only.
 
 ## Clients
 
-Read by the client commands (`security-review-mcp scan-deps`, `security-review-ci`), never by the servers.
+Read by the pipeline client `security-review-ci`, never by the servers.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_MCP_URL` | — | URL of the shared MCP server used by the deprecated [`security-review-mcp scan-deps`](../advanced/dependencies.md#security-review-mcp-scan-deps-deprecated) (default of `--url`); never used by the servers |
-| `SECREVIEW_TOKEN` | — | Bearer token sent by `scan-deps` to that server, and by [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci) to the controller (`ci` token); never used by the servers |
+| `SECREVIEW_TOKEN` | — | Bearer token sent by [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci) to the controller (`ci` token); never used by the servers |
 | `SECREVIEW_CONTROLLER_URL` | — | URL of the controller used by [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci) (default of `--url`); read from the environment only, never from `.env` |
 
 Bearer tokens are not configured by variable: they are stored in the database and managed with

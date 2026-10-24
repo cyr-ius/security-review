@@ -202,18 +202,6 @@ With the client already installed (`uv tool install`), `language: system` runs i
 is not set (contributors without a controller). The two variables are read from the
 environment only, never from the `.env` file.
 
-### `security-review-mcp scan-deps` (deprecated)
-
-`security-review-mcp scan-deps` is **deprecated** and will be removed in a major version: it
-prints a warning on stderr. It sends the dependency files to the `scan_dependencies` tool of a
-shared MCP server (`SECREVIEW_MCP_URL`, read from the environment or the `.env` file), with a
-token of the `mcp` or `admin` role, and `--save --project P` stores the report with the
-`save_security_report` tool of the same server. Its options are those of
-`security-review-ci scan-deps`, plus `--url`, `--token-stdin`, `--cafile`, `--allow-http` and
-`--skip-unconfigured`; a refused token ends with an error that tells you to create a new
-personal MCP token (see [rejected token](http.md#rejected-token-sign-in-again)). Replace it with
-`security-review-ci scan-deps` and a personal `ci` token.
-
 ## Reading the result
 
 The `vulnerability_check` field says whether the check took place:

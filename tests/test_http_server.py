@@ -504,14 +504,14 @@ def test_stdio_server_migrates_its_own_database(monkeypatch):
     assert database.current_revision() == database.head_revision()
 
 
-def test_moved_commands_still_run_from_the_mcp_cli_with_a_warning(capsys):
+def test_the_mcp_cli_no_longer_runs_the_controller_commands(capsys):
     with pytest.raises(SystemExit) as exc:
         server.main(["db", "status"])
 
-    assert exc.value.code == cli.EXIT_BLOCKED  # not migrated yet
+    assert exc.value.code == cli.EXIT_ERROR
     captured = capsys.readouterr()
-    assert "use `security-review-controller db`" in captured.err
-    assert json.loads(captured.out)["up_to_date"] is False
+    assert "unknown command 'db'" in captured.err
+    assert captured.out == ""
 
 
 @pytest.mark.parametrize(

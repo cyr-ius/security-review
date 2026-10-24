@@ -3,9 +3,9 @@
 No token is returned: the user signs in to the web interface of the server and creates a
 personal MCP token there.
 
-Used by ``security-review-mcp enroll``. With ``remote_scan`` (``scan-deps``), the only client
-commands that open an outgoing connection, and only to the server URL the operator gives: the
-MCP server itself never does.
+Used by ``security-review-mcp enroll``, the only client command of ``security-review-mcp`` that
+opens an outgoing connection, and only to the server URL the operator gives: the MCP server
+itself never does.
 """
 
 import getpass

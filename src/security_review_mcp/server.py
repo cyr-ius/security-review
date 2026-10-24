@@ -4,7 +4,7 @@ import argparse
 import functools
 import logging
 import sys
-from collections.abc import Callable, Collection
+from collections.abc import Callable
 from typing import Annotated, Any, Literal
 
 from mcp.server.mcpserver import Context, MCPServer
@@ -931,22 +931,10 @@ Security review MCP server (administration: security-review-controller).
 commands:
   serve        run the MCP server: stdio for a local host, streamable-http for a shared server
   enroll       request the project of a repository on a shared server (no token is created)
-  scan-deps    deprecated: use security-review-ci scan-deps
 
 Run `security-review-mcp COMMAND --help` for the options of a command.
 Administration (db, token, user, rules, advisories...) is run by security-review-controller.
 """
-
-
-def _controller_commands() -> Collection[str]:
-    """Names of the controller commands, still accepted by ``security-review-mcp`` (deprecated).
-
-    cli is imported here, never at the top of the module: it loads the controller modules
-    (advisory download, ticketing...), which the MCP server must not load.
-    """
-    from . import cli
-
-    return cli.CONTROLLER_COMMANDS.keys()
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -965,16 +953,6 @@ def main(argv: list[str] | None = None) -> None:
         sys.exit(commands.run(arguments))
     elif command in ("-h", "--help"):
         print(USAGE, end="")
-    elif command in _controller_commands():
-        # Kept for one major version: these commands moved to the controller CLI
-        print(
-            f"warning: `security-review-mcp {command}` is deprecated, "
-            f"use `security-review-controller {command}`",
-            file=sys.stderr,
-        )
-        from . import cli
-
-        sys.exit(cli.run(arguments))
     else:
         print(USAGE, end="", file=sys.stderr)
         if command is not None and command.startswith("--"):

@@ -204,18 +204,6 @@ Avec le client déjà installé (`uv tool install`), `language: system` le lance
 `SECREVIEW_CONTROLLER_URL` n'est pas défini (contributeurs sans contrôleur). Les deux variables
 sont lues dans l'environnement uniquement, jamais dans le fichier `.env`.
 
-### `security-review-mcp scan-deps` (obsolète)
-
-`security-review-mcp scan-deps` est **obsolète** et sera retiré dans une version majeure : il
-affiche un avertissement sur stderr. Il envoie les fichiers de dépendances à l'outil
-`scan_dependencies` d'un serveur MCP partagé (`SECREVIEW_MCP_URL`, lu dans l'environnement ou le
-fichier `.env`), avec un jeton de rôle `mcp` ou `admin`, et `--save --project P` enregistre le
-rapport avec l'outil `save_security_report` du même serveur. Ses options sont celles de
-`security-review-ci scan-deps`, plus `--url`, `--token-stdin`, `--cafile`, `--allow-http` et
-`--skip-unconfigured` ; un jeton refusé se termine par une erreur qui invite à créer un nouveau
-jeton MCP personnel (voir [jeton refusé](http.md#jeton-refuse-se-reconnecter)). Remplacez-le par
-`security-review-ci scan-deps` et un jeton `ci` personnel.
-
 ## Lire le résultat
 
 Le champ `vulnerability_check` dit si la vérification a eu lieu :

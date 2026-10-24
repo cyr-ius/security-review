@@ -205,7 +205,6 @@ its URL when `SECREVIEW_WEB_URL` is set) and to create a new personal MCP token,
 it in the [host configuration](../getting-started/host.md#getting-a-token). Such a client never
 reaches the review tools nor the enrollment server. The rejection is logged as a warning by the
 MCP server (`Rejected unauthenticated request` / `Rejected expired token`).
-`security-review-mcp scan-deps` gives the same advice.
 
 Safeguards: anybody who reaches the server may enroll, so at most 20 projects are pending at a
 time, a client address enrolls at most 5 times per hour (`429` beyond; behind a reverse proxy,

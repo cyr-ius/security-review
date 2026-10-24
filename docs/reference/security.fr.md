@@ -87,10 +87,9 @@
   [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
   modules du contrôleur qui en font (téléchargement des avis, OIDC, syslog, tickets, recherche
-  de nouvelle version) : un test le vérifie. Les commandes
-  `security-review-mcp enroll` et `scan-deps` contactent, à la demande de l'opérateur, l'URL qu'il
-  indique (`scan-deps` envoie les fichiers de dépendances donnés sur sa ligne de commande, jamais
-  via un lien symbolique) ; elles refusent HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
+  de nouvelle version) : un test le vérifie. La commande
+  `security-review-mcp enroll` contacte, à la demande de l'opérateur, l'URL qu'il indique ; elle
+  refuse HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
   redirections. Le contrôleur ne télécharge les avis OSV que si un administrateur l'active
   (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée

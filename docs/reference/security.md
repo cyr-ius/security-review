@@ -82,10 +82,8 @@
   [enrollment](../advanced/http.md#enrollment-request-the-project).
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
   of the controller that make them (advisory download, OIDC, syslog, tickets, version check):
-  a test checks it. The `security-review-mcp enroll` and
-  `scan-deps` commands contact, at the request of the operator, the URL they give (`scan-deps`
-  sends the dependency files given on its command line, never through a symbolic link); they
-  refuse plain HTTP
+  a test checks it. The `security-review-mcp enroll` command contacts, at the request of the
+  operator, the URL it gives; it refuses plain HTTP
   outside localhost (unless `--allow-http`), credentials in the URL and redirects. The
   controller only downloads the OSV advisories if an administrator enables it
   (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over

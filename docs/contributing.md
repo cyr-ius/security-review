@@ -7,7 +7,7 @@ uv sync --extra dev
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
 pre-commit install          # optional: same checks before every commit, and the dependency
-                            # scan when SECREVIEW_MCP_URL is set
+                            # scan when SECREVIEW_CONTROLLER_URL is set
 ```
 
 The `prettier` hook formats the YAML and JSON files and the sources of `web/src/` with the
@@ -170,9 +170,8 @@ src/security_review_mcp/
 │   ├── audit_syslog.py    # forwarding of the audit events to syslog by the controller (optional)
 │   └── metrics.py         # Prometheus metrics of the controller (/metrics)
 ├── clients/       # CLI clients that contact the URL given by the operator
-│   ├── commands.py        # `enroll` and `scan-deps` commands of security-review-mcp
-│   ├── enrollment.py      # `enroll` client: project enrollment on a shared server
-│   └── remote_scan.py     # `scan-deps` client: dependency scan with a shared server
+│   ├── commands.py        # `enroll` command of security-review-mcp
+│   └── enrollment.py      # `enroll` client: project enrollment on a shared server
 ├── ticketing/     # tickets of the findings: api (connector API), registry, connections,
 │                  # transport (HTTP client), core (sending), jira, servicenow
 └── web_api/       # controller: REST API /api/v1 and files of the application (/ui)

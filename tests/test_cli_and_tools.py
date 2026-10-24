@@ -59,12 +59,6 @@ def test_advisories_import_and_status(tmp_path, capsys):
     assert cli.run(["advisories", "import", str(tmp_path / "nope.json")]) == cli.EXIT_ERROR
 
 
-def test_main_dispatches_cli_commands():
-    with pytest.raises(SystemExit) as stop:
-        server.main(["advisories", "status"])
-    assert stop.value.code == 0
-
-
 # ── rules ────────────────────────────────────────────────────────────────────
 
 RULE_PACK = """
