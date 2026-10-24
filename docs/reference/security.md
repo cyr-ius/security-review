@@ -139,9 +139,10 @@
   without a user or a token, it answers `503` instead of granting anonymous rights. Only a
   session or an `api` token with the `findings.triage` permission, or an `admin` token, changes the status of a
   finding (action logged with the user or the label of the token), and only a person logged in to the interface (session) accepts a risk or marks a false
-  positive: a bearer token is refused (`403`), even `admin`. These two decisions need a reason
-  and an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the
-  logged-in user, and the finding counts as open again once the date has passed. Only an
+  positive: a bearer token is refused (`403`), even `admin`. An acceptance needs a reason and
+  an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the logged-in
+  user, and the finding counts as open again once the date has passed. A false positive needs
+  neither (its reason is optional) and still records the logged-in user as approver. An
   acceptance may have no expiry date, unless `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`:
   set it to force a periodic review of every accepted risk. A risk less severe than
   `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` by default) is accepted with no reason nor

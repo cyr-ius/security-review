@@ -51,7 +51,7 @@ function isoDay(days: number): string {
  * One finding: description, evidence and recommendation, with a status select for triagers.
  * Accepting a risk asks for a reason and an expiry date (none when ``permanentAcceptance`` is
  * set), except a risk less severe than ``riskAcceptanceMinSeverity``, accepted at once like a
- * fix; marking a false positive asks for a reason only, with no expiry date. A status
+ * fix; marking a false positive asks for an optional reason only, with no expiry date. A status
  * proposed by an agent is shown apart, for the triager to apply or reject. A triager (a security
  * analyst) may also raise the severity, with a justification, never below the report's one.
  * Extra details (report link...) can be projected at the end of the metadata line.
@@ -160,12 +160,12 @@ export class FindingCardComponent {
   readonly minExpiry = isoDay(1);
   readonly dismissalModel = signal<DismissalFormModel>(newDismissal());
   readonly dismissalForm = form(this.dismissalModel, (path) => {
-    // Counted without the surrounding spaces, like the server
+    // Counted without the surrounding spaces, like the server; optional for a false positive
     validate(path.reason, ({ value }) =>
-      value().trim().length < MIN_REASON_CHARS
+      value().trim().length < MIN_REASON_CHARS && (this.reasonRequired() || value().trim())
         ? {
             kind: 'minLength',
-            message: this.i18n.translate('report.dismissReasonHelp'),
+            message: this.i18n.translate(this.reasonHelp()),
           }
         : undefined,
     );
@@ -190,6 +190,14 @@ export class FindingCardComponent {
 
   /** A false positive states a fact about the code: it is saved with no expiry date. */
   readonly expiryAsked = computed(() => this.pendingStatus() !== 'false_positive');
+
+  /** Only an acceptance needs a reason: it is optional for a false positive. */
+  readonly reasonRequired = computed(() => this.pendingStatus() !== 'false_positive');
+
+  /** Help text of the reason field, which says whether the reason is required. */
+  readonly reasonHelp = computed(() =>
+    this.reasonRequired() ? 'report.dismissReasonHelp' : 'report.dismissReasonOptionalHelp',
+  );
 
   /** The decision being made has no expiry date. */
   readonly withoutExpiry = computed(

@@ -225,9 +225,10 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - **Un agent ne ferme jamais un finding** : aucun outil MCP ne change un statut
   (`propose_finding_status` enregistre seulement une proposition). `accepted` et
   `false_positive` sont décidés par une personne connectée à l'interface (session, jamais un
-  jeton Bearer), avec motif et approbateur ; une acceptation a aussi une date d'expiration (elle
-  peut en être dépourvue tant que `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` est actif ; un faux
-  positif n'en exige jamais ; sous
+  jeton Bearer), qui est enregistrée comme approbateur ; une acceptation exige aussi un motif et
+  une date d'expiration (elle peut en être dépourvue tant que
+  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` est actif ; un faux positif n'exige ni motif ni date ;
+  sous
   `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, une acceptation n'exige ni motif ni date) ; une décision expirée
   compte comme ouverte (gate, posture, SARIF, tendances).
 

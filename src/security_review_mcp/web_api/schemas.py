@@ -269,9 +269,9 @@ class FindingCommentCreate(BaseModel):
 class FindingStatusUpdate(BaseModel):
     """Body of PATCH /findings/{id}: a triage decision.
 
-    ``accepted`` and ``false_positive`` need a reason; ``accepted`` also needs an expiry date
-    (the finding counts as open again from that day, 00:00 UTC), unless
-    SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on. A false positive needs no expiry date. Reason
+    ``accepted`` needs a reason and an expiry date (the finding counts as open again from that
+    day, 00:00 UTC), unless SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on for the date. A false
+    positive needs no expiry date and its reason is optional. Reason
     and expiry are optional to accept a finding less severe than
     SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY.
     """
