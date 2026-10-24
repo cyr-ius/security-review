@@ -105,7 +105,7 @@ tells you where to create your token (see
 
 3. **Create your personal MCP token**: sign in to the web interface (`web_url`), open **My
    account** > **Personal tokens** and create a token with the **MCP** usage (see
-   [personal MCP tokens](../usage/web-interface.md#personal-mcp-tokens); your groups need the
+   [personal MCP tokens](../usage/web-interface.md#personal-mcp-and-ci-tokens); your groups need the
    `mcp-user` role). It is shown **only once**.
 4. **Store the token in the host**, then restart the MCP server in the host:
 

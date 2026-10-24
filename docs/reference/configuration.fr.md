@@ -130,7 +130,7 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | Une personne peut [accepter un risque](../usage/web-interface.md#triage-des-findings) **Sans expiration** : l'acceptation dure jusqu'à ce que quelqu'un rouvre le finding. `false` : toute acceptation exige une date d'expiration. Un faux positif en exige toujours une |
 | `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Gravité minimale (`critical`, `high`, `medium`, `low`, `info`) dont l'[acceptation de risque](../usage/web-interface.md#triage-des-findings) exige un motif et une date d'expiration. Un finding moins grave est accepté par une simple validation, qui le ferme sans motif ni date. Vide : toute acceptation les exige |
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Validité maximale en jours d'un jeton Bearer créé ou [renouvelé](../advanced/http.md#expiration-et-renouvellement-des-jetons) (CLI, interface web), qui est aussi sa validité par défaut ; `0` : les jetons n'expirent pas, sauf validité demandée |
-| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Jetons personnels qu'un utilisateur web peut détenir de chaque rôle, [API REST](../usage/web-interface.md#jetons-api) et [MCP](../usage/web-interface.md#jetons-mcp-personnels), de `1` à `10` : révoquez-en un pour en créer un autre |
+| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Jetons personnels qu'un utilisateur web peut détenir de chaque rôle, [API REST](../usage/web-interface.md#jetons-api) et [MCP](../usage/web-interface.md#jetons-mcp-et-ci-personnels), de `1` à `10` : révoquez-en un pour en créer un autre |
 
 ### Audit et métriques
 
@@ -168,7 +168,7 @@ Lues par les commandes clientes (`security-review-mcp scan-deps`, `security-revi
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_MCP_URL` | — | URL du serveur MCP partagé utilisé par [`security-review-mcp scan-deps`](../advanced/dependencies.md#scan-avec-un-serveur-partage-hook-de-commit) (valeur par défaut de `--url`) ; jamais utilisée par les serveurs |
+| `SECREVIEW_MCP_URL` | — | URL du serveur MCP partagé utilisé par la commande obsolète [`security-review-mcp scan-deps`](../advanced/dependencies.md#security-review-mcp-scan-deps-obsolete) (valeur par défaut de `--url`) ; jamais utilisée par les serveurs |
 | `SECREVIEW_TOKEN` | — | Jeton Bearer envoyé par `scan-deps` à ce serveur, et par [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) au contrôleur (jeton `ci`) ; jamais utilisé par les serveurs |
 | `SECREVIEW_CONTROLLER_URL` | — | URL du contrôleur utilisée par [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) (valeur par défaut de `--url`) ; lue dans l'environnement uniquement, jamais dans `.env` |
 

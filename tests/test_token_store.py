@@ -461,18 +461,19 @@ def test_the_label_of_a_personal_token_names_its_user():
         token_store.create_personal_token(999, "x")
 
 
-def test_a_personal_mcp_token_reaches_the_projects_its_user_may_read():
+@pytest.mark.parametrize("role", [Role.MCP, Role.CI])
+def test_a_personal_token_reaches_the_projects_its_user_may_read(role):
     """The projects are read at each request: a project granted or removed applies at once."""
     from conftest import group_for
 
     from security_review_mcp import web_users
 
     user = make_user("alice", "Correct horse battery 9", "reader", ["shop-api"])
-    created = token_store.create_personal_token(user["id"], "agent", role="mcp")
-    assert (created["role"], created["personal"], created["projects"]) == ("mcp", True, None)
+    created = token_store.create_personal_token(user["id"], "agent", role=role)
+    assert (created["role"], created["personal"], created["projects"]) == (role, True, None)
 
     info = STORE.lookup(digest_of(created["token"]))
-    assert (info.role, info.projects) == (Role.MCP, frozenset({"shop-api"}))
+    assert (info.role, info.projects) == (role, frozenset({"shop-api"}))
     listed = token_store.list_personal_tokens(user["id"])
     assert [item["projects"] for item in listed] == [["shop-api"]]
 
@@ -540,8 +541,8 @@ def test_personal_tokens_are_bounded_per_role(monkeypatch):
         token_store.create_personal_token(user["id"], "agent-2", role="mcp")
     monkeypatch.setattr(get_settings(), "personal_tokens_per_user", 2)
     token_store.create_personal_token(user["id"], "agent-2", role="mcp")
-    # Only an api or an mcp token is personal
-    for role in ("ci", "admin", "metrics", "nope"):
+    # Only an api, mcp or ci token is personal
+    for role in ("admin", "metrics", "nope"):
         with pytest.raises(ValueError, match="cannot create a personal"):
             token_store.create_personal_token(user["id"], "other", role=role)
 

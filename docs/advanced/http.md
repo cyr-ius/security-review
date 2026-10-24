@@ -184,7 +184,7 @@ default (`SECREVIEW_ENROLLMENT=true`), even before the first token is created (e
 3. **Personal token.** The answer of the enrollment gives the URL of the web interface
    (`web_url`, from [`SECREVIEW_WEB_URL`](../reference/configuration.md)) and the next steps:
    the user signs in, creates a **personal MCP token** in **My account** (see
-   [personal MCP tokens](../usage/web-interface.md#personal-mcp-tokens)) and puts it in the
+   [personal MCP tokens](../usage/web-interface.md#personal-mcp-and-ci-tokens)) and puts it in the
    [host configuration](../getting-started/host.md#getting-a-token). The token reaches the
    projects the user may read, at each request.
 4. **Access.** An administrator gives the user access to the project by adding them to the

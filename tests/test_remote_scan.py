@@ -313,7 +313,9 @@ def test_cli_require_database(tmp_path, settings_env, monkeypatch, capsys):
 def test_cli_without_server_url(tmp_path, settings_env, fake_scan, capsys):
     path = str(_lockfile(tmp_path))
     assert cli.run(["scan-deps", path]) == cli.EXIT_ERROR
-    assert "SECREVIEW_MCP_URL" in json.loads(capsys.readouterr().err)["error"]
+    deprecation, error = capsys.readouterr().err.splitlines()
+    assert "security-review-ci scan-deps" in deprecation
+    assert "SECREVIEW_MCP_URL" in json.loads(error)["error"]
     assert cli.run(["scan-deps", path, "--skip-unconfigured"]) == cli.EXIT_PASSED
     assert "skipped" in capsys.readouterr().err
     assert fake_scan == []
@@ -324,7 +326,7 @@ def test_cli_refuses_a_symbolic_link(tmp_path, settings_env, fake_scan, capsys):
     link = tmp_path / "uv.lock"
     link.symlink_to(_lockfile(tmp_path))
     assert cli.run(["scan-deps", str(link)]) == cli.EXIT_ERROR
-    assert "symbolic link" in json.loads(capsys.readouterr().err)["error"]
+    assert "symbolic link" in json.loads(capsys.readouterr().err.splitlines()[-1])["error"]
     assert fake_scan == []
 
 
@@ -338,7 +340,7 @@ def test_cli_empty_token_on_stdin(tmp_path, settings_env, fake_scan, monkeypatch
 def test_cli_refuses_plain_http_before_reading_the_token(tmp_path, settings_env, capsys):
     settings_env(server_url="http://secreview.example.com", token="tok-123")
     assert cli.run(["scan-deps", str(_lockfile(tmp_path))]) == cli.EXIT_ERROR
-    assert "plain HTTP" in json.loads(capsys.readouterr().err)["error"]
+    assert "plain HTTP" in json.loads(capsys.readouterr().err.splitlines()[-1])["error"]
 
 
 def test_scan_deps_is_a_command_of_the_mcp_entry_point(tmp_path, settings_env, fake_scan):
@@ -373,7 +375,7 @@ def test_cli_save_stores_the_report_with_the_scan_token(
     monkeypatch.setattr(remote_scan, "save_report", save)
     path = str(_lockfile(tmp_path))
     assert cli.run(["scan-deps", path, "--save"]) == cli.EXIT_ERROR
-    assert "--project" in json.loads(capsys.readouterr().err)["error"]
+    assert "--project" in json.loads(capsys.readouterr().err.splitlines()[-1])["error"]
     assert fake_scan == []
     args = ["scan-deps", path, "--save", "--project", "demo", "--branch", "dev"]
     assert cli.run(args) == cli.EXIT_PASSED

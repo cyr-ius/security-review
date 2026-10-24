@@ -34,10 +34,12 @@ An ``api`` token reaches the REST API (Swagger, scripts) with the rights of the 
   ``<username>:<label>``), holds the current rights of that user, and is deleted with it. Its
   projects and its secret cannot be changed; an administrator may revoke it.
 
-A web user may also create a **personal** ``mcp`` token for its MCP agent: it reaches the
-projects the user may read (``reports.read`` of its groups), read at each request, so that a
-project granted to or removed from the user applies at once. It has no project rows and no
-change of projects: an administrator grants the project to the user instead. A web user
+A web user may also create a **personal** ``mcp`` token for its MCP agent, or a **personal**
+``ci`` token for ``security-review-ci`` on its workstation (code and dependency scans, gate):
+it reaches the projects the user may read (``reports.read`` of its groups), read at each
+request, so that a project granted to or removed from the user applies at once. It has no
+project rows and no change of projects: an administrator grants the project to the user
+instead. A web user
 holds at most SECREVIEW_PERSONAL_TOKENS_PER_USER personal tokens of each role.
 
 Like every token, an ``api`` token never accepts a risk nor marks a false positive.
@@ -75,8 +77,10 @@ MAX_ROTATION_GRACE_HOURS = 168
 UNSCOPED_ROLES = frozenset({Role.ADMIN, Role.METRICS})
 # Roles of the tokens managed in the web interface (admin and metrics tokens: CLI only)
 WEB_TOKEN_ROLES = frozenset({Role.MCP, Role.CI, Role.API})
-# Roles of the personal tokens of a web user (REST API, MCP agent)
-PERSONAL_TOKEN_ROLES = frozenset({Role.API, Role.MCP})
+# Roles of the personal tokens of a web user (REST API, MCP agent, workstation scans)
+PERSONAL_TOKEN_ROLES = frozenset({Role.API, Role.MCP, Role.CI})
+# Personal tokens that reach the projects their user may read (see _personal_scoped_info)
+SCOPED_PERSONAL_ROLES = frozenset({Role.MCP, Role.CI})
 
 
 def _is_expired(row: ApiToken, now: datetime | None = None) -> bool:
@@ -207,7 +211,7 @@ class DatabaseTokenStore:
             if row.role == Role.API:
                 return _api_info(session, row, info)
             if row.user_id is not None:
-                return _personal_mcp_info(session, row, info)
+                return _personal_scoped_info(session, row, info)
             return info
 
     def has_tokens(self) -> bool:
@@ -270,11 +274,13 @@ def _user_projects(session: Session, user_id: int) -> frozenset[str] | None:
     return access_control.scope(grants, access_control.Permission.REPORTS_READ)
 
 
-def _personal_mcp_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | None:
-    """Identity of a personal ``mcp`` token: the projects its user may read now. None when the
-    user is gone, must change a password set by an administrator (as its api tokens, see
-    web_api.deps) or its grants cannot be read (fail closed); a user without any project gets a
-    token that reaches none."""
+def _personal_scoped_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | None:
+    """Identity of a personal ``mcp`` or ``ci`` token: the projects its user may read now. None
+    when the user is gone, must change a password set by an administrator (as its api tokens,
+    see web_api.deps), its grants cannot be read or the role is not a scoped personal one (fail
+    closed); a user without any project gets a token that reaches none."""
+    if info.role not in SCOPED_PERSONAL_ROLES:
+        return None
     user = session.get(WebUser, row.user_id)
     if user is None or user.must_change_password:
         return None
@@ -284,7 +290,7 @@ def _personal_mcp_info(session: Session, row: ApiToken, info: TokenInfo) -> Toke
         return None
     return TokenInfo(
         info.label,
-        Role.MCP,
+        info.role,
         projects=projects,
         token_id=info.token_id,
         expired=info.expired,
@@ -790,11 +796,11 @@ def create_personal_token(
     user_id: int, label: str, expires_in_days: int | None = None, role: Role | str = Role.API
 ) -> dict[str, Any]:
     """Create a personal token of a web user for itself and return it with its secret, shown
-    once: an ``api`` token holds the current rights of the user (see _api_info), an ``mcp``
-    token reaches the projects the user may read (see _personal_mcp_info).
+    once: an ``api`` token holds the current rights of the user (see _api_info), an ``mcp`` or
+    ``ci`` token reaches the projects the user may read (see _personal_scoped_info).
 
     Raises:
-        ValueError: Unknown user, role other than ``api`` or ``mcp``, invalid label or
+        ValueError: Unknown user, role other than ``api``, ``mcp`` or ``ci``, invalid label or
             validity, or SECREVIEW_PERSONAL_TOKENS_PER_USER tokens of this role held already.
     """
     kind = _personal_role(role)
@@ -825,10 +831,10 @@ def create_personal_token(
 
 
 def _personal_public(session: Session, row: ApiToken) -> dict[str, Any]:
-    """Metadata of a personal token; for an ``mcp`` token, ``projects`` are those its user may
-    read now (empty when they cannot be read)."""
+    """Metadata of a personal token; for an ``mcp`` or ``ci`` token, ``projects`` are those its
+    user may read now (empty when they cannot be read)."""
     public = _public(row, [])
-    if row.role == Role.MCP and row.user_id is not None:
+    if row.role in SCOPED_PERSONAL_ROLES and row.user_id is not None:
         try:
             projects = _user_projects(session, row.user_id)
         except ValueError:

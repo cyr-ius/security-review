@@ -139,7 +139,7 @@ shown), and the browser remembers the chosen sort for the next visits.
   password there (their other sessions are closed); the one of an OIDC user is managed by the
   identity provider. **Personal tokens** creates and revokes the personal tokens of the account:
   [REST API](#api-tokens) tokens (Swagger, scripts), which hold its rights, and
-  [MCP](#personal-mcp-tokens) tokens for its agent, which reach the projects it may read.
+  [MCP](#personal-mcp-and-ci-tokens) tokens for its agent, which reach the projects it may read.
 - **Tokens**: tokens are searchable, sortable and filterable by usage. Administrators create
   and revoke tokens for one or more projects, or for
   **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role),
@@ -419,7 +419,7 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 # {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
 ```
 
-### Personal MCP tokens
+### Personal MCP and CI tokens
 
 A user connects their own MCP agent with a personal `mcp` token, created in **My account** >
 **Personal tokens** with **Usage** **MCP**, offered only when their groups hold the
@@ -446,6 +446,20 @@ tells the user to sign in again and create a new one. It never reaches the REST 
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
   https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "mcp"}'
 # {"id": "…", "label": "alice:laptop", "role": "mcp", "personal": true, …, "token": "Zq3…"}
+```
+
+A personal `ci` token (**Usage** **CI/CD pipeline**, same `mcp_tokens.create` permission, one at
+most by default) lets [`security-review-ci`](gate.md#pipeline-client-security-review-ci) run
+the code and dependency scans, the gate, the SARIF export and the trend from the workstation of
+the user, on the same projects as a personal `mcp` token and with the same rules. It reaches
+only the pipeline routes (`/api/v1/ci/`), never `/mcp` nor the rest of the REST API. A report
+it stores is submitted by the token (`alice:laptop`). See
+[scan from a workstation](../advanced/dependencies.md#scan-from-a-workstation-commit-hook).
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "ci"}'
+# {"id": "…", "label": "alice:laptop", "role": "ci", "personal": true, …, "token": "Zq3…"}
 ```
 
 ## User accounts

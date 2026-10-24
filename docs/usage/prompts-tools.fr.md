@@ -72,7 +72,7 @@ Sur le transport HTTP, un jeton restreint ne peut utiliser les outils de rapport
 projets autorisés ; `reload_rules` lui est refusé (voir
 [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)).
 Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux. Un
-[jeton MCP personnel](web-interface.md#jetons-mcp-personnels) atteint les projets de son
+[jeton MCP personnel](web-interface.md#jetons-mcp-et-ci-personnels) atteint les projets de son
 utilisateur : pour un autre projet, un administrateur lui en donne l'accès (`request_enrollment`
 le demande d'abord s'il est nouveau).
 

@@ -70,7 +70,7 @@ On the HTTP transport, a restricted token can only use the report tools on its a
 projects; `reload_rules` is refused to it (see
 [tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
 A token tied to several projects can use the report tools on each of them. A
-[personal MCP token](web-interface.md#personal-mcp-tokens) reaches the projects of its user: for
+[personal MCP token](web-interface.md#personal-mcp-and-ci-tokens) reaches the projects of its user: for
 another project, an administrator gives the user access to it (`request_enrollment` requests
 it first when it is new).
 

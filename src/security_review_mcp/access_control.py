@@ -37,8 +37,8 @@
   delete_project): its reports, findings and comments, its project group, the project in the
   roles of the other groups and in the tokens (a token left without project is revoked). The
   audit log keeps its events.
-- A user needs ``mcp_tokens.create`` to create a personal ``mcp`` token, held by the ordinary
-  role ``mcp-user`` (created with the database). A token already created keeps working
+- A user needs ``mcp_tokens.create`` to create a personal ``mcp`` or ``ci`` token, held by the
+  ordinary role ``mcp-user`` (created with the database). A token already created keeps working
   without it: an administrator revokes it from the Tokens screen.
 
 The grants of a user (see user_grants) are the union of the permissions of the roles of all its
@@ -112,7 +112,7 @@ class Permission(StrEnum):
     PROJECTS_CREATE = "projects.create"
     # Delete a project with its reports, findings and references (see delete_project)
     PROJECTS_DELETE = "projects.delete"
-    # Create a personal mcp token (My account), which reaches the projects its user may read
+    # Create a personal mcp or ci token (My account), which reaches the projects its user may read
     MCP_TOKENS_CREATE = "mcp_tokens.create"
 
 

@@ -153,7 +153,7 @@ suivantes.
   autres sessions sont fermées) ; celui d'un utilisateur OIDC est géré par le fournisseur
   d'identité. **Jetons personnels** crée et révoque les jetons personnels du compte : des
   jetons [API REST](#jetons-api) (Swagger, scripts), qui portent ses droits, et des jetons
-  [MCP](#jetons-mcp-personnels) pour son agent, qui atteignent les projets qu'il peut lire.
+  [MCP](#jetons-mcp-et-ci-personnels) pour son agent, qui atteignent les projets qu'il peut lire.
 - **Jetons** : les jetons sont recherchables, triables et filtrables par usage. Les administrateurs créent et révoquent des jetons pour un ou plusieurs
   projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit
   **MCP** (rôle `mcp`), **Pipeline CI/CD** (rôle `ci`, pour
@@ -445,7 +445,7 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 # {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
 ```
 
-### Jetons MCP personnels
+### Jetons MCP et CI personnels
 
 Un utilisateur connecte son propre agent MCP avec un jeton `mcp` personnel, créé dans **Mon
 compte** > **Jetons personnels** avec l'**Usage** **MCP**, proposé seulement quand ses groupes
@@ -472,6 +472,20 @@ l'API REST.
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
   https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "mcp"}'
 # {"id": "…", "label": "alice:laptop", "role": "mcp", "personal": true, …, "token": "Zq3…"}
+```
+
+Un jeton `ci` personnel (**Usage** **Pipeline CI/CD**, même permission `mcp_tokens.create`, un au
+plus par défaut) permet à [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)
+de lancer les scans de code et de dépendances, la gate, l'export SARIF et la tendance depuis le
+poste de l'utilisateur, sur les mêmes projets qu'un jeton `mcp` personnel et avec les mêmes
+règles. Il n'atteint que les routes de pipeline (`/api/v1/ci/`), jamais `/mcp` ni le reste de
+l'API REST. Un rapport qu'il enregistre est soumis par le jeton (`alice:laptop`). Voir
+[scan depuis un poste de travail](../advanced/dependencies.md#scan-depuis-un-poste-de-travail-hook-de-commit).
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "ci"}'
+# {"id": "…", "label": "alice:laptop", "role": "ci", "personal": true, …, "token": "Zq3…"}
 ```
 
 ## Comptes utilisateurs

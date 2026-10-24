@@ -65,7 +65,9 @@
   finding, un label de jeton ou un secret, et chaque valeur de label est échappée (voir
   [métriques Prometheus](../advanced/audit-metrics.md#metriques-prometheus)).
 - **Jetons de pipeline** (`ci`) : toujours restreints à des projets (un jeton `ci` sans projet
-  ne peut pas être créé, et un jeton trouvé sans projet n'en atteint aucun). Il ne lit que le
+  ne peut pas être créé, et un jeton trouvé sans projet n'en atteint aucun) ; un jeton `ci`
+  personnel atteint les projets que son utilisateur peut lire à l'instant, comme un jeton `mcp`
+  personnel. Il ne lit que le
   gate, le journal SARIF et la tendance de ses projets ; les autres routes du contrôleur, `/mcp`
   et l'interface web répondent `403`, les autres projets `404`. Le client de pipeline
   ([`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci)) n'ouvre

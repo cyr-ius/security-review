@@ -15,7 +15,7 @@ The package installs two commands, one per process (see
 |---|---|---|
 | `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server (stdio by default, `streamable-http` for a shared server) | [Installation](../getting-started/deploy.md) |
 | `enroll --url URL --project P [--requested-by WHO] [--cafile CA] [--allow-http]` | Requests the project on a shared server, for an administrator to approve (unchanged when it exists or is pending; requester: `--requested-by`, by default your login name); no token is created: the answer gives the URL of the web interface where you create a personal MCP token | [Enrollment](../advanced/http.md#enrollment-request-the-project) |
-| `scan-deps FILE… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http] [--save --project P [--author A] [--repository R] [--branch B] [--commit C]]` | Scans manifests and lockfiles with the advisory database of a shared MCP server (token: `SECREVIEW_TOKEN`), for a commit hook; `--save` stores a report of the project on that server | [Dependencies](../advanced/dependencies.md#scan-with-a-shared-server-commit-hook) |
+| `scan-deps FILE… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http] [--save --project P [--author A] [--repository R] [--branch B] [--commit C]]` | **Deprecated** (warning on stderr): use `security-review-ci scan-deps`. Scans manifests and lockfiles with the advisory database of a shared MCP server (token: `SECREVIEW_TOKEN`); `--save` stores a report of the project on that server | [Dependencies](../advanced/dependencies.md#security-review-mcp-scan-deps-deprecated) |
 
 Without a command, `security-review-mcp` prints its usage on stderr and exits with code `2`
 (`security-review-mcp --help` prints it on stdout): an MCP host must start `security-review-mcp serve`.
@@ -70,10 +70,12 @@ exits with code `2`.
 | `sarif --project P [--include-resolved] [-o FILE]` | SARIF 2.1.0 export through the REST API | [SARIF](../advanced/sarif.md) |
 | `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Trend report through the REST API | [Trends](../advanced/trends.md) |
 | `scan-code [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FILE] [--save]` | Reads the files of the repository and has the controller scan them with its rules; `--save` stores a report | [Whole codebase scan](../advanced/code-scan.md) |
-| `scan-deps FILE… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--save]` | Sends manifests, lockfiles or CycloneDX SBOMs to the controller, which checks them against its advisory database; `--save` stores a report | [Dependencies](../advanced/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps) |
+| `scan-deps FILE… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Sends manifests, lockfiles or CycloneDX SBOMs to the controller, which checks them against its advisory database; `--save` stores a report | [Dependencies](../advanced/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps) |
 
 `scan-code` and `scan-deps` also accept `--repository`, `--branch`, `--commit` and `--author`,
-stored with the report. They need a `ci` or `admin` token.
+stored with the report. They need a `ci` or `admin` token (on a workstation, a
+[personal `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens)).
+`--skip-unconfigured` exits with `0` and a warning when no controller URL is set (commit hook).
 ## Exit codes
 
 The check commands (`security-review-ci gate`, `scan-code` and `scan-deps`, `security-review-mcp scan-deps`, `db status`) share the same convention:

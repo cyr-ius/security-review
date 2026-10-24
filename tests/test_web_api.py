@@ -3106,10 +3106,30 @@ def test_a_web_user_creates_one_personal_mcp_token(secured, reports):
     refused = secured.post(url, json={"label": "agent-2", "role": "mcp"}, headers=headers)
     assert refused.status_code == 422 and "at most 1" in refused.json()["detail"]
     assert secured.post(url, json={"label": "rest"}, headers=headers).status_code == 201
-    other = secured.post(url, json={"label": "pipeline", "role": "ci"}, headers=headers)
+    other = secured.post(url, json={"label": "pipeline", "role": "admin"}, headers=headers)
     assert other.status_code == 422
     # An mcp token never reaches the REST API
     assert secured.get("/api/v1/me", headers=_bearer(body["token"])).status_code == 403
+
+
+def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports):
+    groups = [group_for("reader", ["shop-api"]), group_for("mcp-user")]
+    make_user("alice", USER_PASSWORD, group_ids=groups)
+    headers = session_headers(secured, "alice")
+
+    created = secured.post(
+        "/api/v1/me/tokens", json={"label": "laptop", "role": "ci"}, headers=headers
+    )
+    assert created.status_code == 201, created.text
+    token = _bearer(created.json()["token"])
+    saved = secured.post("/api/v1/ci/scan/code", json=code_scan_body(save=True), headers=token)
+    assert saved.status_code == 200, saved.text
+    report = services.get_report(saved.json()["saved_report"]["report_id"])
+    assert (report.project, report.submitted_by) == ("shop-api", "alice:laptop")
+    # Only the projects its user may read, and only the pipeline routes
+    other = secured.post("/api/v1/ci/scan/code", json=code_scan_body("billing"), headers=token)
+    assert other.status_code == 404
+    assert secured.get("/api/v1/me", headers=token).status_code == 403
 
 
 def test_a_personal_mcp_token_needs_the_mcp_tokens_create_permission(secured, reports):

@@ -783,7 +783,7 @@ def scan_dependencies(
     if len(content) > limit:
         raise ValueError(
             f"File too large for a tool call ({len(content)} chars, limit {limit}): run "
-            "`security-review-ci scan-deps <file> --project <name>` in the pipeline instead"
+            "`security-review-ci scan-deps <file> --project <name>` instead"
         )
     return depscan.scan_dependencies(content, filename)
 
@@ -943,7 +943,7 @@ Security review MCP server (administration: security-review-controller).
 commands:
   serve        run the MCP server: stdio for a local host, streamable-http for a shared server
   enroll       request the project of a repository on a shared server (no token is created)
-  scan-deps    scan dependency files with the advisory database of a shared server
+  scan-deps    deprecated: use security-review-ci scan-deps
 
 Run `security-review-mcp COMMAND --help` for the options of a command.
 Administration (db, token, user, rules, advisories...) is run by security-review-controller.

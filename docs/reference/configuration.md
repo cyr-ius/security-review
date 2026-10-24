@@ -130,7 +130,7 @@ Read by `security-review-controller` only.
 | `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | A person may [accept a risk](../usage/web-interface.md#triage-of-findings) with **No expiry**: the acceptance lasts until someone reopens the finding. `false`: every acceptance needs an expiry date. A false positive always needs one |
 | `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Lowest severity (`critical`, `high`, `medium`, `low`, `info`) whose [risk acceptance](../usage/web-interface.md#triage-of-findings) needs a reason and an expiry date. A less severe finding is accepted by a plain validation, which closes it with no reason and no date. Empty: every acceptance needs them |
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Longest validity in days of a bearer token created or [rotated](../advanced/http.md#expiry-and-rotation-of-tokens) (CLI, web interface), which is also its default validity; `0`: tokens do not expire unless a validity is asked for |
-| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Personal tokens a web user may hold of each role, [REST API](../usage/web-interface.md#api-tokens) and [MCP](../usage/web-interface.md#personal-mcp-tokens), from `1` to `10`: revoke one to create another |
+| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Personal tokens a web user may hold of each role, [REST API](../usage/web-interface.md#api-tokens) and [MCP](../usage/web-interface.md#personal-mcp-and-ci-tokens), from `1` to `10`: revoke one to create another |
 
 ### Audit and metrics
 
@@ -168,7 +168,7 @@ Read by the client commands (`security-review-mcp scan-deps`, `security-review-c
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_MCP_URL` | — | URL of the shared MCP server used by [`security-review-mcp scan-deps`](../advanced/dependencies.md#scan-with-a-shared-server-commit-hook) (default of `--url`); never used by the servers |
+| `SECREVIEW_MCP_URL` | — | URL of the shared MCP server used by the deprecated [`security-review-mcp scan-deps`](../advanced/dependencies.md#security-review-mcp-scan-deps-deprecated) (default of `--url`); never used by the servers |
 | `SECREVIEW_TOKEN` | — | Bearer token sent by `scan-deps` to that server, and by [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci) to the controller (`ci` token); never used by the servers |
 | `SECREVIEW_CONTROLLER_URL` | — | URL of the controller used by [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci) (default of `--url`); read from the environment only, never from `.env` |
 

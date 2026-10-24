@@ -12,7 +12,7 @@ export type Role = TokenRole | 'user';
 /** Role of a token managed in the web interface. */
 export type ProjectTokenRole = Exclude<TokenRole, 'admin'>;
 /** Role of a personal token of a web user (My account). */
-export type PersonalTokenRole = Extract<TokenRole, 'api' | 'mcp'>;
+export type PersonalTokenRole = Extract<TokenRole, 'api' | 'mcp' | 'ci'>;
 
 export const SEVERITIES: readonly Severity[] = ['critical', 'high', 'medium', 'low', 'info'];
 

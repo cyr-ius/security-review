@@ -145,6 +145,18 @@ async def test_review_prompts_ask_for_the_developer_username():
             assert "`checklist_results`" in result.messages[0].content.text, prompt
 
 
+@pytest.mark.parametrize(
+    ("prompt", "command"),
+    [("dependency-review", "scan-deps"), ("codebase-review", "scan-code")],
+)
+async def test_whole_repository_prompts_send_the_files_with_the_pipeline_client(prompt, command):
+    """The files leave the workstation as they are, not copied by the model into a tool call."""
+    async with Client(mcp) as client:
+        result = await client.get_prompt(prompt, {})
+    text = result.messages[0].content.text
+    assert f"security-review-ci {command}" in text and "personal ci token" in text
+
+
 async def test_save_report_with_an_author_and_filter_the_list():
     report = {"project": "authored", "summary": "Authored review", "findings": []}
     async with Client(mcp) as client:

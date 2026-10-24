@@ -498,14 +498,25 @@ def enroll_command(argv: list[str]) -> int:
 
 # ── scan-deps ────────────────────────────────────────────────────────────────
 
+DEPRECATED_SCAN_DEPS = (
+    "warning: security-review-mcp scan-deps is deprecated and will be removed in a major "
+    "version: use security-review-ci scan-deps (controller URL and a personal ci token)"
+)
+
 
 def scan_deps_command(argv: list[str]) -> int:
-    """Run ``security-review-mcp scan-deps``: scan dependency files with a shared server."""
+    """Run ``security-review-mcp scan-deps``: scan dependency files with a shared server.
+
+    Deprecated: ``security-review-ci scan-deps`` sends the files to the controller instead, with
+    a ci token (personal on a workstation); this command will be removed in a major version.
+    """
+    print(DEPRECATED_SCAN_DEPS, file=sys.stderr)
     settings = get_settings()
     parser = argparse.ArgumentParser(
         prog="security-review-mcp scan-deps",
-        description="Scan dependency manifests and lockfiles with the advisory database of a "
-        "shared MCP server (commit hooks, pipelines). The token is read from SECREVIEW_TOKEN "
+        description="Deprecated: use security-review-ci scan-deps. Scan dependency manifests "
+        "and lockfiles with the advisory database of a shared MCP server (commit hooks, "
+        "pipelines). The token is read from SECREVIEW_TOKEN "
         "or, with --token-stdin, from the standard input.",
     )
     parser.add_argument("files", nargs="+", help="manifests or lockfiles")

@@ -135,6 +135,10 @@ def test_missing_url_or_token_is_a_usage_error(controller, ci_token, monkeypatch
     monkeypatch.setenv(ci_client.TOKEN_VARIABLE, ci_token)
     assert ci_client.main(["gate", "--project", "shop-api"], fetch=fetch_from(controller)) == 2
     assert "No controller URL" in capsys.readouterr().err
+    # A commit hook lets the commit through when the controller is not configured
+    hook = ["scan-deps", "uv.lock", "--project", "shop-api", "--skip-unconfigured"]
+    assert ci_client.main(hook, fetch=fetch_from(controller)) == 0
+    assert "skipped" in capsys.readouterr().err
 
     assert run(controller, monkeypatch, ["gate", "--project", "shop-api"], None) == 2
     assert "No token" in capsys.readouterr().err

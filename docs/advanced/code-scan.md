@@ -17,7 +17,8 @@ security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 ```
 
 The pipeline needs neither the database nor the package: only Python and the
-[`ci` token](../usage/gate.md#ci-token-and-visible-projects) of the project.
+[`ci` token](../usage/gate.md#ci-token-and-visible-projects) of the project. On a workstation,
+use a [personal `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens).
 
 ## File selection
 
@@ -68,4 +69,8 @@ The client chooses the files; the controller never reads its own disk.
 
 Then, the `codebase-review` prompt (`scan_results` argument = the JSON, possibly filtered)
 guides the agent: inventory, prioritization of the entry points, tracing of the flows between
-files, checklists, and a **coverage** section that says what was not read.
+files, checklists, and a **coverage** section that says what was not read. Without `scan_results`, the
+prompt asks an agent that can run commands to launch `security-review-ci scan-code` itself (with
+a personal `ci` token): the files reach the controller as they are, instead of being copied by
+the model into `scan_code` calls. The `dependency-review` prompt does the same with
+`security-review-ci scan-deps`.

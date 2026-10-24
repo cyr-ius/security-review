@@ -162,38 +162,19 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 - Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the controller, the request
   to `SECREVIEW_MAX_SCAN_REQUEST_MB`. Symbolic links are not read.
 
-## Scan with a shared server (commit hook)
+## Scan from a workstation (commit hook)
 
-`security-review-mcp scan-deps` sends the dependency files to the `scan_dependencies` tool of a
-shared MCP server: the scan uses the advisory database of that server, without any local
-import. It needs a token with the `mcp` or `admin` role, for instance a personal MCP token (see
-[enrollment](http.md#enrollment-request-the-project)).
+A developer runs the same `security-review-ci scan-deps` on their workstation, with a
+[personal `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens) created in
+**My account**: it reaches the projects the developer may read, and the files are sent to the
+controller exactly as they are on disk.
 
 ```bash
-export SECREVIEW_MCP_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<token>
-security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
-# exit code: 0 = ok, 1 = blocked, 2 = error (server unreachable, token refused...)
+export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
+export SECREVIEW_TOKEN=<personal ci token>
+security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
+# exit code: 0 = ok, 1 = blocked, 2 = error (controller unreachable, token refused...)
 ```
-
-A missing or refused token (unknown, revoked or expired) ends with an error that tells you to
-sign in to the web interface and create a new personal MCP token (see
-[rejected token](http.md#rejected-token-sign-in-again)).
-
-- Same options and output as `security-review-ci scan-deps` (`--fail-on`, `--format`,
-  `--require-database`).
-- `--save --project P` stores the result as a `dependency-scan` report of the project, with
-  the `save_security_report` tool of the same server and the same token: the token must reach
-  the project (otherwise, [request the project](http.md#enrollment-request-the-project)).
-  `--author`, `--repository`, `--branch` and `--commit` are stored with the report. Without
-  `--save`, nothing is stored.
-- `--url` replaces `SECREVIEW_MCP_URL`, `--token-stdin` reads the token on stdin instead of
-  `SECREVIEW_TOKEN`. Both variables can also be set in the `.env` file of the folder (never
-  commit it).
-- Plain HTTP is refused outside localhost (unless `--allow-http`), as are credentials in the URL
-  and redirects to another origin; `--cafile` gives an internal CA. Symbolic links are not read,
-  as the content leaves the machine.
-- Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the server.
 
 Commit hook ([pre-commit](https://pre-commit.com) or prek), run when a manifest or a lockfile
 changes:
@@ -204,13 +185,26 @@ repos:
     hooks:
       - id: scan-deps
         name: dependency scan
-        entry: security-review-mcp scan-deps --skip-unconfigured --require-database
+        entry: security-review-ci scan-deps --skip-unconfigured --require-database --project my-project
         language: system
         files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
 ```
 
-`--skip-unconfigured` lets the commit through, with a warning, when no server URL is configured
-(contributors without a shared server).
+`--skip-unconfigured` lets the commit through, with a warning, when `SECREVIEW_CONTROLLER_URL`
+is not set (contributors without a controller). The two variables are read from the
+environment only, never from the `.env` file.
+
+### `security-review-mcp scan-deps` (deprecated)
+
+`security-review-mcp scan-deps` is **deprecated** and will be removed in a major version: it
+prints a warning on stderr. It sends the dependency files to the `scan_dependencies` tool of a
+shared MCP server (`SECREVIEW_MCP_URL`, read from the environment or the `.env` file), with a
+token of the `mcp` or `admin` role, and `--save --project P` stores the report with the
+`save_security_report` tool of the same server. Its options are those of
+`security-review-ci scan-deps`, plus `--url`, `--token-stdin`, `--cafile`, `--allow-http` and
+`--skip-unconfigured`; a refused token ends with an error that tells you to create a new
+personal MCP token (see [rejected token](http.md#rejected-token-sign-in-again)). Replace it with
+`security-review-ci scan-deps` and a personal `ci` token.
 
 ## Reading the result
 

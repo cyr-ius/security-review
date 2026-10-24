@@ -165,38 +165,19 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 - Chaque fichier est limité au `SECREVIEW_MAX_DEPENDENCY_CHARS` du contrôleur, la requête à
   `SECREVIEW_MAX_SCAN_REQUEST_MB`. Les liens symboliques ne sont pas lus.
 
-## Scan avec un serveur partagé (hook de commit)
+## Scan depuis un poste de travail (hook de commit)
 
-`security-review-mcp scan-deps` envoie les fichiers de dépendances à l'outil `scan_dependencies`
-d'un serveur MCP partagé : le scan utilise la base d'avis de ce serveur, sans import local. Il
-faut un jeton de rôle `mcp` ou `admin`, par exemple un jeton MCP personnel (voir
-[enrôlement](http.md#enrolement-demander-le-projet)).
+Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
+[jeton `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels) créé dans
+**Mon compte** : il atteint les projets que le développeur peut lire, et les fichiers sont
+envoyés au contrôleur exactement tels qu'ils sont sur le disque.
 
 ```bash
-export SECREVIEW_MCP_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<token>
-security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
-# code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (serveur injoignable, jeton refusé...)
+export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
+export SECREVIEW_TOKEN=<personal ci token>
+security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
+# code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (contrôleur injoignable, jeton refusé...)
 ```
-
-Un jeton absent ou refusé (inconnu, révoqué ou expiré) se termine par une erreur qui invite à
-se connecter à l'interface web pour créer un nouveau jeton MCP personnel (voir
-[jeton refusé](http.md#jeton-refuse-se-reconnecter)).
-
-- Mêmes options et même sortie que `security-review-ci scan-deps` (`--fail-on`, `--format`,
-  `--require-database`).
-- `--save --project P` enregistre le résultat comme rapport `dependency-scan` du projet, avec
-  l'outil `save_security_report` du même serveur et le même jeton : le jeton doit atteindre le
-  projet (sinon, [demandez le projet](http.md#enrolement-demander-le-projet)). `--author`,
-  `--repository`, `--branch` et `--commit` sont enregistrés avec le rapport. Sans `--save`, rien
-  n'est enregistré.
-- `--url` remplace `SECREVIEW_MCP_URL`, `--token-stdin` lit le jeton sur stdin au lieu de
-  `SECREVIEW_TOKEN`. Les deux variables peuvent aussi être définies dans le fichier `.env` du
-  dossier (ne le commitez jamais).
-- HTTP en clair est refusé hors localhost (sauf `--allow-http`), comme les identifiants dans
-  l'URL et les redirections vers une autre origine ; `--cafile` indique une CA interne. Les liens
-  symboliques ne sont pas lus, car le contenu quitte la machine.
-- Chaque fichier est limité par le `SECREVIEW_MAX_DEPENDENCY_CHARS` du serveur.
 
 Hook de commit ([pre-commit](https://pre-commit.com) ou prek), lancé quand un manifeste ou un
 lockfile change :
@@ -207,13 +188,26 @@ repos:
     hooks:
       - id: scan-deps
         name: dependency scan
-        entry: security-review-mcp scan-deps --skip-unconfigured --require-database
+        entry: security-review-ci scan-deps --skip-unconfigured --require-database --project my-project
         language: system
         files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
 ```
 
-`--skip-unconfigured` laisse passer le commit, avec un avertissement, quand aucune URL de serveur
-n'est configurée (contributeurs sans serveur partagé).
+`--skip-unconfigured` laisse passer le commit, avec un avertissement, quand
+`SECREVIEW_CONTROLLER_URL` n'est pas défini (contributeurs sans contrôleur). Les deux variables
+sont lues dans l'environnement uniquement, jamais dans le fichier `.env`.
+
+### `security-review-mcp scan-deps` (obsolète)
+
+`security-review-mcp scan-deps` est **obsolète** et sera retiré dans une version majeure : il
+affiche un avertissement sur stderr. Il envoie les fichiers de dépendances à l'outil
+`scan_dependencies` d'un serveur MCP partagé (`SECREVIEW_MCP_URL`, lu dans l'environnement ou le
+fichier `.env`), avec un jeton de rôle `mcp` ou `admin`, et `--save --project P` enregistre le
+rapport avec l'outil `save_security_report` du même serveur. Ses options sont celles de
+`security-review-ci scan-deps`, plus `--url`, `--token-stdin`, `--cafile`, `--allow-http` et
+`--skip-unconfigured` ; un jeton refusé se termine par une erreur qui invite à créer un nouveau
+jeton MCP personnel (voir [jeton refusé](http.md#jeton-refuse-se-reconnecter)). Remplacez-le par
+`security-review-ci scan-deps` et un jeton `ci` personnel.
 
 ## Lire le résultat
 

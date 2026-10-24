@@ -29,7 +29,7 @@ compte.
 | `audit.read` | Journal d'audit | |
 | `projects.create` | Créer un nouveau projet, que son créateur lit ensuite (voir [Création d'un projet](#creation-dun-projet)), et valider ou refuser les projets demandés par un [enrôlement](http.md#enrolement-demander-le-projet) | |
 | `projects.delete` | Supprimer un projet avec ses rapports, ses findings et ses références (voir [Suppression d'un projet](#suppression-dun-projet)) | |
-| `mcp_tokens.create` | Créer un [jeton MCP personnel](../usage/web-interface.md#jetons-mcp-personnels) dans **Mon compte** | |
+| `mcp_tokens.create` | Créer un [jeton MCP ou CI personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels) dans **Mon compte** | |
 
 `users.manage` permet à son détenteur de se donner toutes les autres permissions : ne la donnez
 qu'aux administrateurs. Accepter un risque ou marquer un faux positif demande en plus une session
@@ -51,7 +51,7 @@ suppriment comme n'importe quel autre.
 | Rôle ordinaire | Permissions | Donne |
 |---|---|---|
 | `triager` | `reports.read`, `findings.triage` | le triage des findings |
-| `mcp-user` | `mcp_tokens.create` | la création d'un [jeton MCP personnel](../usage/web-interface.md#jetons-mcp-personnels) ; donnez-le avec un rôle de lecture, car le jeton atteint les projets que son utilisateur peut lire |
+| `mcp-user` | `mcp_tokens.create` | la création d'un [jeton MCP ou CI personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels) ; donnez-le avec un rôle de lecture, car le jeton atteint les projets que son utilisateur peut lire |
 
 Les administrateurs créent d'autres rôles (100 au plus), par exemple un rôle *Auditeur* avec
 `audit.read` et `reports.read`. La modification d'un rôle s'applique aussitôt aux sessions
@@ -95,7 +95,7 @@ Un utilisateur dont les groupes portent `projects.create` crée un projet avec l
 uniquement : un jeton ne crée jamais de projet). Le contrôleur crée le
 [groupe de projet](#groupes-de-projet) du projet et y ajoute le compte comme membre local : le
 compte lit aussitôt le projet, de même que son
-[jeton MCP personnel](../usage/web-interface.md#jetons-mcp-personnels), qui peut alors y
+[jeton MCP personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels), qui peut alors y
 enregistrer les rapports de son agent. Le projet apparaît sur l'écran **Projets**,
 **Aucun rapport**, jusqu'à son premier rapport.
 

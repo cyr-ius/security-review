@@ -16,7 +16,7 @@ Le paquet installe deux commandes, une par processus (voir
 |---|---|---|
 | `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP (stdio par défaut, `streamable-http` pour un serveur partagé) | [Installation](../getting-started/deploy.md) |
 | `enroll --url URL --project P [--requested-by QUI] [--cafile CA] [--allow-http]` | Demande le projet sur un serveur partagé, validé par un administrateur (inchangé s'il existe ou est en attente ; demandeur : `--requested-by`, par défaut votre nom de connexion) ; aucun jeton n'est créé : la réponse donne l'URL de l'interface web où créer un jeton MCP personnel | [Enrôlement](../advanced/http.md#enrolement-demander-le-projet) |
-| `scan-deps FICHIER… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http] [--save --project P [--author A] [--repository R] [--branch B] [--commit C]]` | Analyse manifestes et lockfiles avec la base d'avis d'un serveur MCP partagé (jeton : `SECREVIEW_TOKEN`), pour un hook de commit ; `--save` enregistre un rapport du projet sur ce serveur | [Dépendances](../advanced/dependencies.md#scan-avec-un-serveur-partage-hook-de-commit) |
+| `scan-deps FICHIER… [--url URL] [--fail-on S] [--format json\|text] [--require-database] [--skip-unconfigured] [--token-stdin] [--cafile CA] [--allow-http] [--save --project P [--author A] [--repository R] [--branch B] [--commit C]]` | **Obsolète** (avertissement sur stderr) : utilisez `security-review-ci scan-deps`. Analyse manifestes et lockfiles avec la base d'avis d'un serveur MCP partagé (jeton : `SECREVIEW_TOKEN`) ; `--save` enregistre un rapport du projet sur ce serveur | [Dépendances](../advanced/dependencies.md#security-review-mcp-scan-deps-obsolete) |
 
 Sans commande, `security-review-mcp` affiche son aide sur stderr et sort avec le code `2`
 (`security-review-mcp --help` l'affiche sur stdout) : un hôte MCP doit lancer `security-review-mcp serve`.
@@ -71,10 +71,13 @@ avec le code `2`.
 | `sarif --project P [--include-resolved] [-o FICHIER]` | Export SARIF 2.1.0 par l'API REST | [SARIF](../advanced/sarif.md) |
 | `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Rapport de tendance par l'API REST | [Tendances](../advanced/trends.md) |
 | `scan-code [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FICHIER] [--save]` | Lit les fichiers du dépôt et les fait scanner par le contrôleur avec ses règles ; `--save` enregistre un rapport | [Scan du code complet](../advanced/code-scan.md) |
-| `scan-deps FICHIER… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--save]` | Envoie des manifestes, lockfiles ou SBOM CycloneDX au contrôleur, qui les compare à sa base d'avis ; `--save` enregistre un rapport | [Dépendances](../advanced/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps) |
+| `scan-deps FICHIER… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Envoie des manifestes, lockfiles ou SBOM CycloneDX au contrôleur, qui les compare à sa base d'avis ; `--save` enregistre un rapport | [Dépendances](../advanced/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps) |
 
 `scan-code` et `scan-deps` acceptent aussi `--repository`, `--branch`, `--commit` et `--author`,
-enregistrés avec le rapport. Ils demandent un jeton `ci` ou `admin`.
+enregistrés avec le rapport. Ils demandent un jeton `ci` ou `admin` (sur un poste de travail, un
+[jeton `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels)).
+`--skip-unconfigured` sort avec `0` et un avertissement quand aucune URL de contrôleur n'est
+définie (hook de commit).
 ## Codes de sortie
 
 Les commandes de contrôle (`security-review-ci gate`, `scan-code` et `scan-deps`, `security-review-mcp scan-deps`, `db status`) partagent la même
