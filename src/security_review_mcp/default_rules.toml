@@ -598,8 +598,8 @@ id = "GEN-005"
 title = "Sensitive value written to a log"
 severity = "medium"
 cwe = "CWE-532"
-languages = ["python", "java", "javascript", "typescript", "angular"]
-pattern = '''\b(log(ger|ging)?|console)\.(trace|debug|info|warn|warning|error|critical|exception|log)\s*\([^)\n]*[,+{]\s*[\w.]*(password|passwd|secret|token|api_?key|credentials?)\b'''
+languages = ["python", "java", "javascript", "typescript", "angular", "go", "csharp", "rust"]
+pattern = '''\b(_?log(ger|ging)?|console|slog)\.(trace|debug|info|warn|warning|error|critical|exception|log|print(f|ln)?|(debug|info|warn|error|fatal)f|log(trace|debug|information|warning|error|critical))\s*\([^)\n]*[,+{]\s*[\w.]*(password|passwd|secret|token|api_?key|credentials?)\b|\b(trace|debug|info|warn|error)!\s*\([^)\n]*[,{]\s*[\w.]*(password|passwd|secret|token|api_?key|credentials?)\b'''
 advice = "Never log credentials or tokens; log an identifier or a masked value instead."
 
 [[rules]]
@@ -1342,6 +1342,658 @@ languages = ["*"]
 pattern = '''\b(mark|flag|report|treat|classify)\s+(this|it|these|them)\s+as\s+(a\s+)?(false\s+positive|safe|fixed|accepted|resolved)\b|\b(do\s+not|don't|never)\s+(report|flag|mention)\s+(this|these|it|them)\b|\b(reviewers?|scanners?|auditors?|ai|llm|assistants?|agents?)\s+(must|should)\s+(not|never)\s+(report|flag)\b'''
 advice = "A finding is closed by a person in the web interface, never by a comment in the code. Treat the line as an attempt to hide an issue and review the code around it."
 
+[[rules]]
+id = "GO-001"
+title = "SQL built with fmt.Sprintf or concatenation (Go)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["go"]
+ignore_case = false
+pattern = '''\.(Query|QueryRow|QueryContext|QueryRowContext|Exec|ExecContext|Prepare|PrepareContext|Raw|Where|Select|Get)\s*\(\s*([\w&.]+\s*,\s*)?(fmt\.Sprintf\s*\(|"[^"]*"\s*\+)'''
+advice = "Use placeholders ($1, ?) and pass the values as arguments; never format the query text."
+
+[[rules]]
+id = "GO-002"
+title = "Command run through a shell (Go)"
+severity = "high"
+cwe = "CWE-78"
+languages = ["go"]
+pattern = '''\bexec\.Command(Context)?\s*\(\s*(ctx\s*,\s*)?"(/bin/|/usr/bin/)?(sh|bash|zsh|cmd|cmd\.exe|powershell|pwsh)"'''
+advice = "Call the program directly with exec.Command(name, args...) and validate the arguments."
+
+[[rules]]
+id = "GO-003"
+title = "TLS certificate verification disabled (Go)"
+severity = "high"
+cwe = "CWE-295"
+languages = ["go"]
+ignore_case = false
+pattern = '\bInsecureSkipVerify\s*:\s*true\b'
+advice = "Keep verification on; add the internal CA to RootCAs instead."
+
+[[rules]]
+id = "GO-004"
+title = "Weak hash or cipher (Go)"
+severity = "medium"
+cwe = "CWE-327"
+languages = ["go"]
+ignore_case = false
+pattern = '\b(md5|sha1)\.(New|Sum)\s*\(|\b(des|rc4)\.(NewCipher|NewTripleDESCipher)\s*\('
+advice = "Use SHA-256+ (crypto/sha256), AES-GCM (crypto/cipher) and bcrypt/argon2 for passwords."
+
+[[rules]]
+id = "GO-005"
+title = "Non-cryptographic random generator (Go)"
+severity = "low"
+cwe = "CWE-338"
+languages = ["go"]
+pattern = '"math/rand(/v2)?"'
+advice = "Use crypto/rand for tokens, keys, nonces and identifiers that must not be guessed."
+
+[[rules]]
+id = "GO-006"
+title = "Escaping bypassed with a template type conversion (Go)"
+severity = "medium"
+cwe = "CWE-79"
+languages = ["go"]
+ignore_case = false
+pattern = '\btemplate\.(HTML|HTMLAttr|JS|JSStr|URL|CSS|Srcset)\s*\('
+advice = "Let html/template escape the value; convert to template.HTML only constant or sanitized content."
+
+[[rules]]
+id = "GO-007"
+title = "File path built from the request (Go)"
+severity = "high"
+cwe = "CWE-22"
+languages = ["go"]
+pattern = '\b(os\.(Open|OpenFile|ReadFile|Create|Remove|RemoveAll|WriteFile)|ioutil\.ReadFile|http\.ServeFile|filepath\.Join|c\.(File|FileAttachment|SaveUploadedFile))\s*\([^;\n]*(URL\.Query\(\)|FormValue\(|PathValue\(|c\.(Param|Query|PostForm|DefaultQuery)\()'
+advice = "Clean the path, join it to a fixed base and check that the result stays inside it (os.Root on Go 1.24+)."
+
+[[rules]]
+id = "GO-008"
+title = "Server-side request to a user-supplied URL (Go)"
+severity = "high"
+cwe = "CWE-918"
+languages = ["go"]
+pattern = '\bhttp\.(Get|Post|Head|PostForm|NewRequest|NewRequestWithContext)\s*\([^;\n]*(URL\.Query\(\)|FormValue\(|PathValue\(|c\.(Param|Query|PostForm|DefaultQuery)\()'
+advice = "Check the URL against an allow-list of hosts and block private, loopback and metadata addresses."
+
+[[rules]]
+id = "GO-009"
+title = "Redirect to a user-supplied URL (Go)"
+severity = "medium"
+cwe = "CWE-601"
+languages = ["go"]
+pattern = '\b(http|c)\.Redirect\s*\([^;\n]*(URL\.Query\(\)|FormValue\(|c\.(Query|Param|DefaultQuery)\()'
+advice = "Redirect only to relative paths or to an allow-list of destinations."
+
+[[rules]]
+id = "GO-010"
+title = "HTTP server without timeouts (Go)"
+severity = "low"
+cwe = "CWE-400"
+languages = ["go"]
+ignore_case = false
+pattern = '\bhttp\.ListenAndServe(TLS)?\s*\('
+advice = "Use an http.Server with ReadHeaderTimeout, ReadTimeout, WriteTimeout and IdleTimeout (Slowloris)."
+
+[[rules]]
+id = "GO-011"
+title = "Archive entry name used as a path (zip slip, Go)"
+severity = "medium"
+cwe = "CWE-22"
+languages = ["go"]
+ignore_case = false
+pattern = '\bfilepath\.Join\s*\([^;\n]*\b(f|file|zf|hdr|header|entry)\.Name\s*\)'
+advice = "Reject entry names with .. or an absolute path and check that the result stays in the target directory."
+
+[[rules]]
+id = "GO-012"
+title = "JWT accepted without signature verification (Go)"
+severity = "high"
+cwe = "CWE-347"
+languages = ["go"]
+ignore_case = false
+pattern = '\.ParseUnverified\s*\(|\bUnsafeAllowNoneSignatureType\b|\bSigningMethodNone\b'
+advice = "Parse with a key function that checks the expected signing method, and validate exp, iss and aud."
+
+[[rules]]
+id = "GO-013"
+title = "CORS allows every origin (Go)"
+severity = "medium"
+cwe = "CWE-942"
+languages = ["go"]
+pattern = '''\bAllowAllOrigins\s*:\s*true|\bAllowedOrigins\s*:\s*\[\]string\s*\{\s*"\*"|\bAllowOrigins\s*:\s*\[\]string\s*\{\s*"\*"|"Access-Control-Allow-Origin"\s*,\s*"\*"'''
+advice = "List the allowed origins explicitly, especially when credentials are allowed."
+
+[[rules]]
+id = "GO-014"
+title = "Cookie without Secure or HttpOnly (Go)"
+severity = "medium"
+cwe = "CWE-614"
+languages = ["go"]
+ignore_case = false
+pattern = '\b(Secure|HttpOnly)\s*:\s*false\b'
+advice = "Set Secure, HttpOnly and SameSite on session and authentication cookies."
+
+[[rules]]
+id = "GO-015"
+title = "Profiling endpoints registered (net/http/pprof)"
+severity = "medium"
+cwe = "CWE-489"
+languages = ["go"]
+pattern = '"net/http/pprof"'
+advice = "pprof registers /debug/pprof on the default mux: serve it only on a separate, internal listener."
+
+[[rules]]
+id = "GO-016"
+title = "Obsolete TLS minimum version (Go)"
+severity = "medium"
+cwe = "CWE-326"
+languages = ["go"]
+ignore_case = false
+pattern = '\b(MinVersion|MaxVersion)\s*:\s*tls\.Version(SSL30|TLS10|TLS11)\b'
+advice = "Require TLS 1.2 or later (tls.VersionTLS12, ideally tls.VersionTLS13)."
+
+[[rules]]
+id = "GO-017"
+title = "World-writable file mode (Go)"
+severity = "low"
+cwe = "CWE-732"
+languages = ["go"]
+pattern = '\bos\.(WriteFile|OpenFile|Mkdir|MkdirAll|Chmod)\s*\([^\n]*\b0o?(777|666)\b'
+advice = "Use restrictive modes (0600 for secrets, 0644 or 0750 otherwise)."
+
+[[rules]]
+id = "GO-018"
+title = "Request body read without a size limit (Go)"
+severity = "low"
+cwe = "CWE-400"
+languages = ["go"]
+ignore_case = false
+pattern = '\b(io|ioutil)\.ReadAll\s*\(\s*(r|req|request|c\.Request)\.Body\s*\)'
+advice = "Wrap the body with http.MaxBytesReader (or io.LimitReader) before reading it."
+
+[[rules]]
+id = "CS-001"
+title = "SQL built with interpolation or concatenation (ADO.NET, EF Core)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["csharp"]
+ignore_case = false
+pattern = '''\b(Sql|Oracle|Npgsql|MySql|Sqlite|OleDb|Odbc)Command\s*\(\s*(\$@?"|@?"[^"]*"\s*\+)|\.(FromSqlRaw|ExecuteSqlRaw|ExecuteSqlRawAsync|SqlQueryRaw)\s*\(\s*(\$@?"|@?"[^"]*"\s*\+)|\.CommandText\s*=\s*(\$@?"|@?"[^"]*"\s*\+)'''
+advice = "Use parameters (SqlParameter, FromSql/FromSqlInterpolated, ExecuteSql) instead of building the SQL text."
+
+[[rules]]
+id = "CS-002"
+title = "SQL built with interpolation (Dapper)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["csharp"]
+ignore_case = false
+pattern = '''\.(Query|QueryAsync|QueryFirst|QueryFirstAsync|QueryFirstOrDefault|QueryFirstOrDefaultAsync|QuerySingle|QuerySingleAsync|Execute|ExecuteAsync|ExecuteScalar|ExecuteScalarAsync)\s*(<[^>\n]*>)?\s*\(\s*\$@?"'''
+advice = "Pass the values as Dapper parameters (new { id }) and keep the SQL text constant."
+
+[[rules]]
+id = "CS-003"
+title = "Unsafe deserializer or polymorphic type handling (.NET)"
+severity = "high"
+cwe = "CWE-502"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\b(BinaryFormatter|SoapFormatter|NetDataContractSerializer|LosFormatter|ObjectStateFormatter)\b|\bTypeNameHandling\s*=\s*TypeNameHandling\.(All|Auto|Objects|Arrays)\b|\bSimpleTypeResolver\b'
+advice = "Use System.Text.Json or DataContractSerializer with known types; never let the payload choose the type."
+
+[[rules]]
+id = "CS-004"
+title = "Process started through a shell (.NET)"
+severity = "high"
+cwe = "CWE-78"
+languages = ["csharp"]
+pattern = '''\bProcess\.Start\s*\(\s*"(cmd|cmd\.exe|powershell|powershell\.exe|pwsh|/bin/sh|/bin/bash|bash|sh)"|\bFileName\s*=\s*"(cmd|cmd\.exe|powershell|powershell\.exe|pwsh|/bin/sh|/bin/bash|bash|sh)"'''
+advice = "Start the program directly with ProcessStartInfo.ArgumentList and UseShellExecute = false."
+
+[[rules]]
+id = "CS-005"
+title = "TLS certificate validation disabled (.NET)"
+severity = "high"
+cwe = "CWE-295"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\bServerCertificate(Custom)?ValidationCallback\s*\+?=\s*[^;\n]*=>\s*true\b|\bDangerousAcceptAnyServerCertificateValidator\b'
+advice = "Keep the default validation; trust the internal CA in the system store or with a custom chain policy."
+
+[[rules]]
+id = "CS-006"
+title = "Weak hash or cipher (.NET)"
+severity = "medium"
+cwe = "CWE-327"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\b(MD5|SHA1|DES|TripleDES|RC2)\.(Create|HashData)\s*\(|\b(MD5|SHA1|DES|TripleDES|RC2)CryptoServiceProvider\b|\bSHA1Managed\b|\bCipherMode\.ECB\b'
+advice = "Use SHA-256+, AES-GCM (AesGcm) and PasswordHasher, PBKDF2 or Argon2 for passwords."
+
+[[rules]]
+id = "CS-007"
+title = "Predictable random generator (.NET)"
+severity = "low"
+cwe = "CWE-338"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\bnew\s+Random\s*\(|\bRandom\.Shared\b'
+advice = "Use RandomNumberGenerator for tokens, keys, codes and identifiers that must not be guessed."
+
+[[rules]]
+id = "CS-008"
+title = "XML external entities enabled (.NET)"
+severity = "high"
+cwe = "CWE-611"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\bDtdProcessing\s*=\s*DtdProcessing\.Parse\b|\bXmlResolver\s*=\s*new\s+XmlUrlResolver\b|\bProhibitDtd\s*=\s*false\b'
+advice = "Keep DtdProcessing.Prohibit and XmlResolver = null when parsing untrusted XML."
+
+[[rules]]
+id = "CS-009"
+title = "HTML encoding bypassed (Razor, Blazor)"
+severity = "medium"
+cwe = "CWE-79"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\bHtml\.Raw\s*\(|\bnew\s+HtmlString\s*\(|\(\s*MarkupString\s*\)'
+advice = "Let Razor encode the value; output raw HTML only after sanitizing it (HtmlSanitizer)."
+
+[[rules]]
+id = "CS-010"
+title = "Antiforgery protection disabled (ASP.NET Core)"
+severity = "medium"
+cwe = "CWE-352"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\[\s*IgnoreAntiforgeryToken\b|\.DisableAntiforgery\s*\(|\[\s*ValidateInput\s*\(\s*false\s*\)'
+advice = "Keep antiforgery validation on cookie-authenticated endpoints (AutoValidateAntiforgeryToken)."
+
+[[rules]]
+id = "CS-011"
+title = "CORS allows every origin (ASP.NET Core)"
+severity = "medium"
+cwe = "CWE-942"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\.AllowAnyOrigin\s*\(|\.SetIsOriginAllowed\s*\(\s*_?\w*\s*=>\s*true\s*\)'
+advice = "List the allowed origins with WithOrigins, especially when AllowCredentials is used."
+
+[[rules]]
+id = "CS-012"
+title = "Error details returned to clients (.NET)"
+severity = "low"
+cwe = "CWE-209"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\.UseDeveloperExceptionPage\s*\(|\bIncludeExceptionDetailInFaults\s*=\s*true\b|\bIncludeErrorDetails\s*=\s*true\b'
+advice = "Enable detailed errors only in Development; use UseExceptionHandler and ProblemDetails in production."
+
+[[rules]]
+id = "CS-013"
+title = "JWT validation weakened (.NET)"
+severity = "high"
+cwe = "CWE-347"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\b(ValidateIssuer|ValidateAudience|ValidateLifetime|ValidateIssuerSigningKey|RequireSignedTokens|RequireExpirationTime|RequireHttpsMetadata)\s*=\s*false\b'
+advice = "Validate the signature, issuer, audience and lifetime, and fetch the metadata over HTTPS."
+
+[[rules]]
+id = "CS-014"
+title = "Cookie without Secure or HttpOnly (.NET)"
+severity = "medium"
+cwe = "CWE-614"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\b(HttpOnly|Secure)\s*=\s*false\b|\bCookieSecurePolicy\.(None|SameAsRequest)\b'
+advice = "Use CookieSecurePolicy.Always, HttpOnly = true and SameSite Lax or Strict for session cookies."
+
+[[rules]]
+id = "CS-015"
+title = "File path built from the request (.NET)"
+severity = "high"
+cwe = "CWE-22"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\b(File\.(ReadAllText|ReadAllBytes|ReadAllLines|OpenRead|OpenWrite|Open|Create|Delete|WriteAllText|WriteAllBytes)|PhysicalFile|Path\.Combine|new\s+FileStream)\s*\([^;\n]*(Request\.(Query|Form|RouteValues)|\.FileName\b)'
+advice = "Use Path.GetFileName on uploaded names, combine with a fixed base and check the full path stays inside it."
+
+[[rules]]
+id = "CS-016"
+title = "Redirect to a user-supplied URL (.NET)"
+severity = "medium"
+cwe = "CWE-601"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\bRedirect(Permanent)?\s*\([^;\n]*(Request\.(Query|Form)|\breturnUrl\b)'
+advice = "Use LocalRedirect or check Url.IsLocalUrl before redirecting."
+
+[[rules]]
+id = "CS-017"
+title = "Server-side request to a user-supplied URL (.NET)"
+severity = "high"
+cwe = "CWE-918"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\.(GetAsync|GetStringAsync|GetStreamAsync|GetByteArrayAsync|PostAsync|PutAsync|SendAsync|DownloadString|DownloadFile)\s*\([^;\n]*Request\.(Query|Form|Headers)'
+advice = "Check the URL against an allow-list of hosts and block private, loopback and metadata addresses."
+
+[[rules]]
+id = "CS-018"
+title = "LDAP filter built from strings (.NET)"
+severity = "high"
+cwe = "CWE-90"
+languages = ["csharp"]
+pattern = '''"\([^"\n]*\b(sAMAccountName|uid|cn|mail|userPrincipalName)=("\s*\+|\{)'''
+advice = "Escape the values with an LDAP filter encoder (RFC 4515) before building the filter."
+
+[[rules]]
+id = "CS-019"
+title = "Obsolete SSL/TLS protocol (.NET)"
+severity = "medium"
+cwe = "CWE-326"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\bSslProtocols\.(Ssl2|Ssl3|Tls|Tls11)\b|\bSecurityProtocolType\.(Ssl3|Tls|Tls11)\b'
+advice = "Let the OS choose (SslProtocols.None) or require Tls12 / Tls13."
+
+[[rules]]
+id = "CS-020"
+title = "Script execution enabled in XSLT (.NET)"
+severity = "high"
+cwe = "CWE-94"
+languages = ["csharp"]
+ignore_case = false
+pattern = '\bEnableScript\s*=\s*true\b|\bXsltSettings\.TrustedXslt\b|new\s+XsltSettings\s*\(\s*true\s*,\s*true\s*\)'
+advice = "Keep XsltSettings.Default (no script, no document()) for stylesheets that are not fully trusted."
+
+[[rules]]
+id = "RS-001"
+title = "SQL built with format! (Rust)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["rust"]
+ignore_case = false
+pattern = '\b(query|query_as|query_scalar|sql_query|execute|batch_execute|prepare|query_row|query_one|query_opt)\s*(::<[^>\n]*>)?\s*\(\s*&?format!\s*\('
+advice = "Keep the SQL constant and bind the values (sqlx::query(..).bind, diesel DSL, params!)."
+
+[[rules]]
+id = "RS-002"
+title = "Command run through a shell (Rust)"
+severity = "high"
+cwe = "CWE-78"
+languages = ["rust"]
+pattern = '''\bCommand::new\s*\(\s*"(/bin/|/usr/bin/)?(sh|bash|zsh|cmd|cmd\.exe|powershell|pwsh)"'''
+advice = "Run the program directly with Command::new(program).args([...]) and validate the arguments."
+
+[[rules]]
+id = "RS-003"
+title = "TLS certificate verification disabled (Rust)"
+severity = "high"
+cwe = "CWE-295"
+languages = ["rust"]
+ignore_case = false
+pattern = '\bdanger_accept_invalid_(certs|hostnames)\s*\(\s*true\s*\)|\bSslVerifyMode::NONE\b|\.dangerous\s*\(\s*\)\s*\.\s*set_certificate_verifier\b'
+advice = "Keep verification on; add the internal CA with add_root_certificate or a custom root store."
+
+[[rules]]
+id = "RS-004"
+title = "Unsafe code block (Rust)"
+severity = "low"
+cwe = "CWE-119"
+languages = ["rust"]
+ignore_case = false
+pattern = '\bunsafe\s*\{|\bunsafe\s+(fn|impl|trait)\b'
+advice = "Keep unsafe minimal and documented (SAFETY comment), and prefer a safe abstraction; forbid it with #![forbid(unsafe_code)] where possible."
+
+[[rules]]
+id = "RS-005"
+title = "Memory-unsafe primitive (Rust)"
+severity = "medium"
+cwe = "CWE-119"
+languages = ["rust"]
+ignore_case = false
+pattern = '\bmem::(transmute|uninitialized|zeroed)\b|\bfrom_raw_parts(_mut)?\s*\(|\.set_len\s*\(|\bget_unchecked(_mut)?\s*\('
+advice = "Check the invariants (length, alignment, initialization, lifetime) or use a safe alternative (bytemuck, MaybeUninit, slice indexing)."
+
+[[rules]]
+id = "RS-006"
+title = "Weak hash or cipher (Rust)"
+severity = "medium"
+cwe = "CWE-327"
+languages = ["rust"]
+pattern = '\b(md5|sha1|md4|des|rc4)::(compute|new|digest|new_from_slice)\b|\becb::(Encryptor|Decryptor)\b'
+advice = "Use SHA-256+ (sha2), AES-GCM or ChaCha20-Poly1305 (aead), and argon2 for passwords."
+
+[[rules]]
+id = "RS-007"
+title = "Non-cryptographic or seeded random generator (Rust)"
+severity = "low"
+cwe = "CWE-338"
+languages = ["rust"]
+ignore_case = false
+pattern = '\bSmallRng\b|\bseed_from_u64\s*\(|\bfastrand::'
+advice = "Use OsRng, rand::rng()/thread_rng() or getrandom for tokens, keys and nonces."
+
+[[rules]]
+id = "RS-008"
+title = "File path built from the request (Rust)"
+severity = "high"
+cwe = "CWE-22"
+languages = ["rust"]
+ignore_case = false
+pattern = '\b(File::open|File::create|fs::read|fs::read_to_string|fs::write|fs::remove_file|NamedFile::open|NamedFile::open_async)\s*\([^;\n]*(match_info\(\)|query_string\(\)|\.uri\(\))'
+advice = "Reject .. and absolute paths, join to a fixed base and check that the canonical path stays inside it."
+
+[[rules]]
+id = "RS-009"
+title = "CORS allows every origin (Rust)"
+severity = "medium"
+cwe = "CWE-942"
+languages = ["rust"]
+ignore_case = false
+pattern = '''\bCors::permissive\s*\(|\bCorsLayer::(permissive|very_permissive)\s*\(|\.allow_any_origin\s*\(|\.allow_origin\s*\(\s*(Any\b|AllowOrigin::any\s*\(|"\*")'''
+advice = "List the allowed origins explicitly, especially when credentials are allowed."
+
+[[rules]]
+id = "RS-010"
+title = "JWT validation disabled (Rust)"
+severity = "high"
+cwe = "CWE-347"
+languages = ["rust"]
+ignore_case = false
+pattern = '\.insecure_disable_signature_validation\s*\(|\bdangerous_insecure_decode\w*\s*\(|\bvalidate_exp\s*=\s*false\b|\bvalidate_aud\s*=\s*false\b'
+advice = "Decode with the expected algorithm and key, and keep exp and aud validation."
+
+[[rules]]
+id = "RS-011"
+title = "Cookie without Secure or HttpOnly (Rust)"
+severity = "medium"
+cwe = "CWE-614"
+languages = ["rust"]
+ignore_case = false
+pattern = '\.(secure|http_only)\s*\(\s*false\s*\)'
+advice = "Set secure(true), http_only(true) and SameSite Lax or Strict on session cookies."
+
+[[rules]]
+id = "RS-012"
+title = "HTML built without escaping (Rust)"
+severity = "medium"
+cwe = "CWE-79"
+languages = ["rust"]
+ignore_case = false
+pattern = '\bPreEscaped\s*\(|\bHtml\s*\(\s*format!\s*\(|\.body\s*\(\s*format!\s*\(\s*"\s*<'
+advice = "Render HTML with an escaping template engine (askama, maud html!, tera) instead of format!."
+
+[[rules]]
+id = "RS-013"
+title = "Deserialization without a size limit (bincode)"
+severity = "low"
+cwe = "CWE-789"
+languages = ["rust"]
+ignore_case = false
+pattern = '\bbincode::deserialize(_from)?\s*\('
+advice = "Set a byte limit (bincode::options().with_limit, or bincode 2 config with_limit) on untrusted input."
+
+[[rules]]
+id = "RS-014"
+title = "Obsolete SSL/TLS protocol (Rust)"
+severity = "medium"
+cwe = "CWE-326"
+languages = ["rust"]
+ignore_case = false
+pattern = '\bSslVersion::(SSL3|TLS1|TLS1_1)\b|\bProtocol::(Sslv3|Tlsv10|Tlsv11)\b'  # secreview:ignore GEN-009 (rule text)
+advice = "Require TLS 1.2 or later (SslVersion::TLS1_2, Protocol::Tlsv12)."
+
+[[rules]]
+id = "TS-001"
+title = "Raw SQL with an unsafe ORM API (Prisma, TypeORM, Sequelize)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["typescript", "javascript"]
+ignore_case = false
+pattern = '''\$(queryRawUnsafe|executeRawUnsafe)\s*\(|\.(where|andWhere|orWhere|having|orderBy|addOrderBy|whereRaw|orderByRaw)\s*\(\s*(`[^`]*\$\{|['"][^'"]*['"]\s*\+)|\bliteral\s*\(\s*`[^`]*\$\{'''
+advice = "Use tagged $queryRaw, query builder parameters (:name) or replacements; never interpolate values into SQL."
+
+[[rules]]
+id = "TS-002"
+title = "Request object used as a NoSQL filter"
+severity = "high"
+cwe = "CWE-943"
+languages = ["typescript", "javascript"]
+ignore_case = false
+pattern = '\.(find|findOne|findOneAndUpdate|findOneAndDelete|updateOne|updateMany|deleteOne|deleteMany|countDocuments|exists)\s*\(\s*req\.(body|query|params)\b'
+advice = "Build the filter from validated scalar fields (or use mongo-sanitize): request objects can carry $ne, $gt or $regex operators."
+
+[[rules]]
+id = "TS-003"
+title = "Request body bound to a model (mass assignment)"
+severity = "medium"
+cwe = "CWE-915"
+languages = ["typescript", "javascript"]
+ignore_case = false
+pattern = '\bdata\s*:\s*req\.body\s*[,}]|\.(create|update|insert|save|build|upsert|findByIdAndUpdate|assign|merge)\s*\([^;\n]*(\.\.\.req\.body\b|\breq\.body\s*\))'
+advice = "Copy only the allowed fields (DTO with whitelist validation, pick) before writing to the model."
+
+[[rules]]
+id = "TS-004"
+title = "Code run with the vm module (Node.js)"
+severity = "high"
+cwe = "CWE-94"
+languages = ["typescript", "javascript"]
+ignore_case = false
+pattern = '''\bvm\.(runInNewContext|runInThisContext|runInContext|compileFunction)\s*\(|\bnew\s+vm\.Script\s*\(|\brequire\s*\(\s*['"]vm2['"]\s*\)|\bfrom\s+['"]vm2['"]'''
+advice = "node:vm is not a sandbox and vm2 is abandoned: do not run untrusted code, or isolate it in a separate process or isolate."
+
+[[rules]]
+id = "TS-005"
+title = "Unsafe deserialization (Node.js)"
+severity = "high"
+cwe = "CWE-502"
+languages = ["typescript", "javascript"]
+pattern = '''\bunserialize\s*\(|\brequire\s*\(\s*['"](node-serialize|funcster|cryo)['"]\s*\)|\bfrom\s+['"](node-serialize|funcster|cryo)['"]'''
+advice = "Exchange plain JSON validated by a schema; never deserialize functions or class instances from input."
+
+[[rules]]
+id = "TS-006"
+title = "Hard-coded JWT or cookie signing secret (Node.js)"
+severity = "high"
+cwe = "CWE-798"
+languages = ["typescript", "javascript"]
+pattern = '''\bjwt\.(sign|verify)\s*\([^,\n]*,\s*['"`][^'"`\n]{3,}['"`]|\bcookieParser\s*\(\s*['"`][^'"`\n]{3,}['"`]'''
+advice = "Load the secret from a vault or the environment, rotate it, and prefer asymmetric keys for JWT."
+
+[[rules]]
+id = "TS-007"
+title = "Session cookie without HttpOnly or Secure (Node.js)"
+severity = "medium"
+cwe = "CWE-614"
+languages = ["typescript", "javascript"]
+ignore_case = false
+pattern = '\bhttpOnly\s*:\s*false\b|\bcookie\s*:\s*\{[^}\n]*\bsecure\s*:\s*false\b'
+advice = "Set httpOnly, secure and sameSite on session and authentication cookies."
+
+[[rules]]
+id = "TS-008"
+title = "Server-side request to a user-supplied URL (Node.js)"
+severity = "high"
+cwe = "CWE-918"
+languages = ["typescript", "javascript"]
+ignore_case = false
+pattern = '\b(axios|fetch|got|needle|request|axios\.(get|post|put|patch|delete|request)|got\.(get|post)|https?\.(get|request)|superagent\.(get|post))\s*\(\s*(req\.(query|params|body)|`[^`]*\$\{\s*req\.(query|params|body))'
+advice = "Check the URL against an allow-list of hosts and block private, loopback and metadata addresses."
+
+[[rules]]
+id = "TS-009"
+title = "Regular expression built from the request (Node.js)"
+severity = "medium"
+cwe = "CWE-1333"
+languages = ["typescript", "javascript"]
+ignore_case = false
+pattern = '\bnew\s+RegExp\s*\(\s*req\.(query|params|body)|\$regex\s*:\s*req\.(query|params|body)'
+advice = "Escape the input (or match literally) and bound its length: user-built patterns allow ReDoS and filter bypass."
+
+[[rules]]
+id = "TS-010"
+title = "Request data reflected in the response (Node.js)"
+severity = "medium"
+cwe = "CWE-79"
+languages = ["typescript", "javascript"]
+ignore_case = false
+pattern = '\bres\.(send|write|end)\s*\([^;\n]*req\.(query|params|body)'
+advice = "Return JSON (res.json) or render through an escaping template; encode values written into HTML."
+
+[[rules]]
+id = "TS-011"
+title = "ValidationPipe without whitelist (NestJS)"
+severity = "low"
+cwe = "CWE-915"
+languages = ["typescript"]
+ignore_case = false
+pattern = '\bnew\s+ValidationPipe\s*\(\s*\)'
+advice = "Use new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true })."
+
+[[rules]]
+id = "TS-012"
+title = "Very large request body limit (Node.js)"
+severity = "low"
+cwe = "CWE-400"
+languages = ["typescript", "javascript"]
+pattern = '''\blimit\s*:\s*['"]\d{3,}\s*mb['"]|\blimit\s*:\s*['"]\d+\s*gb['"]|\bbodyLimit\s*:\s*\d{9,}\b'''
+advice = "Keep a small default limit (e.g. 100kb-1mb) and raise it only on the routes that need it."
+
+[[rules]]
+id = "TS-013"
+title = "Every proxy trusted for client IP (Express)"
+severity = "low"
+cwe = "CWE-348"
+languages = ["typescript", "javascript"]
+pattern = '''\bset\s*\(\s*['"]trust proxy['"]\s*,\s*true\s*\)|\btrustProxy\s*:\s*true\b'''
+advice = "Trust only the known proxy hops (a number or a list of addresses): X-Forwarded-For is otherwise spoofable (rate limiting, audit)."
+
+[[rules]]
+id = "TS-014"
+title = "Dotfiles or directory listing served (Express)"
+severity = "low"
+cwe = "CWE-548"
+languages = ["typescript", "javascript"]
+pattern = '''\bdotfiles\s*:\s*['"]allow['"]|\bserveIndex\s*\('''
+advice = "Do not serve dotfiles (.env, .git) or directory listings; serve only a dedicated public directory."
+
+[[rules]]
+id = "TS-015"
+title = "Secret compared with a non-constant-time operator (Node.js)"
+severity = "low"
+cwe = "CWE-208"
+languages = ["typescript", "javascript"]
+pattern = '\b\w*(signature|hmac|digest|apikey|api_key|secret|token)\s*(===|!==|==|!=)\s*[\w.]*(signature|hmac|digest|apikey|api_key|secret|token)\b'
+advice = "Compare secrets with crypto.timingSafeEqual on buffers of equal length."
+
 [[checklist]]
 domain = "python"
 id = "PY-01"
@@ -1579,6 +2231,265 @@ id = "NG-09"
 title = "Prototype pollution and unsafe merges"
 what_to_look_for = "Deep merge or set-by-path of user-controlled objects (lodash merge/set, Object.assign on parsed JSON) without blocking __proto__, constructor and prototype keys."
 cwe = "CWE-1321"
+
+[[checklist]]
+domain = "go"
+id = "GO-01"
+title = "Injection (SQL / command / template)"
+what_to_look_for = "Queries built with fmt.Sprintf or + instead of placeholders (database/sql, sqlx, GORM Raw/Where), exec.Command through sh -c or with user-chosen program names, text/template used to produce HTML."
+cwe = "CWE-89"
+
+[[checklist]]
+domain = "go"
+id = "GO-02"
+title = "Path traversal and file handling"
+what_to_look_for = "filepath.Join with request values or archive entry names (zip slip) without checking the result stays in the base directory (os.Root on Go 1.24+), http.ServeFile/http.Dir on user paths, world-writable modes."
+cwe = "CWE-22"
+
+[[checklist]]
+domain = "go"
+id = "GO-03"
+title = "TLS, SSRF and outgoing HTTP"
+what_to_look_for = "InsecureSkipVerify, MinVersion below TLS 1.2, http.Get on user URLs without host allow-list or private-address check (including after redirects), http.DefaultClient without timeout."
+cwe = "CWE-918"
+
+[[checklist]]
+domain = "go"
+id = "GO-04"
+title = "Cryptography and randomness"
+what_to_look_for = "math/rand for tokens or keys instead of crypto/rand, MD5/SHA-1/DES/RC4, passwords hashed without bcrypt or argon2, nonce reuse with AES-GCM, secrets compared with == instead of subtle.ConstantTimeCompare."
+cwe = "CWE-327"
+
+[[checklist]]
+domain = "go"
+id = "GO-05"
+title = "Authentication and JWT"
+what_to_look_for = "jwt.Parse key functions that do not check token.Method, ParseUnverified, missing exp/iss/aud validation, session cookies without Secure/HttpOnly/SameSite, missing CSRF protection on cookie-authenticated handlers."
+cwe = "CWE-347"
+
+[[checklist]]
+domain = "go"
+id = "GO-06"
+title = "Access control in handlers and middleware"
+what_to_look_for = "Routes registered outside the authentication middleware group, per-object ownership checks missing on IDs from the path (BOLA), authorization decided from headers set by the client."
+cwe = "CWE-862"
+
+[[checklist]]
+domain = "go"
+id = "GO-07"
+title = "Resource exhaustion"
+what_to_look_for = "http.ListenAndServe without ReadHeaderTimeout/ReadTimeout, io.ReadAll on bodies without http.MaxBytesReader, unbounded decompression, json.Decoder without limits, goroutines spawned per request without bound or context cancellation."
+cwe = "CWE-400"
+
+[[checklist]]
+domain = "go"
+id = "GO-08"
+title = "Concurrency and data races"
+what_to_look_for = "Maps or shared state written from several goroutines without a mutex (crash or corruption), check-then-act on balances, quotas or one-time tokens, request data stored in package-level variables."
+cwe = "CWE-362"
+
+[[checklist]]
+domain = "go"
+id = "GO-09"
+title = "Errors, logs and debug endpoints"
+what_to_look_for = "Ignored errors on security checks (_ = verify(...)), err.Error() returned to clients, secrets in log fields, net/http/pprof or expvar exposed on the public listener, panics without recovery middleware."
+cwe = "CWE-209"
+
+[[checklist]]
+domain = "go"
+id = "GO-10"
+title = "Unsafe code and cgo"
+what_to_look_for = "unsafe.Pointer conversions and reflect.SliceHeader tricks, cgo buffers sized from input, template.HTML/JS/URL conversions of untrusted data, reflection-driven binding of request data to structs (mass assignment)."
+cwe = "CWE-119"
+
+[[checklist]]
+domain = "csharp"
+id = "CS-01"
+title = "Injection (SQL / LDAP / OS / XPath)"
+what_to_look_for = "SqlCommand or CommandText built with + or $\"...\", FromSqlRaw/ExecuteSqlRaw with interpolated strings, Dapper with interpolated SQL, DirectorySearcher filters built from strings, Process.Start through cmd or powershell with user input."
+cwe = "CWE-89"
+
+[[checklist]]
+domain = "csharp"
+id = "CS-02"
+title = "Unsafe deserialization"
+what_to_look_for = "BinaryFormatter, SoapFormatter, NetDataContractSerializer, LosFormatter, ObjectStateFormatter, Json.NET TypeNameHandling other than None, JavaScriptSerializer with SimpleTypeResolver, ViewState without MAC."
+cwe = "CWE-502"
+
+[[checklist]]
+domain = "csharp"
+id = "CS-03"
+title = "XML, XSLT and parser hardening"
+what_to_look_for = "XmlDocument/XmlReader with DtdProcessing.Parse or an XmlUrlResolver, XslCompiledTransform with EnableScript or TrustedXslt, XPath built from strings."
+cwe = "CWE-611"
+
+[[checklist]]
+domain = "csharp"
+id = "CS-04"
+title = "ASP.NET Core authentication and authorization"
+what_to_look_for = "Controllers or minimal API endpoints without [Authorize] or RequireAuthorization and no fallback policy, [AllowAnonymous] on sensitive actions, missing resource-based authorization (BOLA), JwtBearer with ValidateIssuer/Audience/Lifetime/IssuerSigningKey disabled."
+cwe = "CWE-862"
+
+[[checklist]]
+domain = "csharp"
+id = "CS-05"
+title = "Model binding and over-posting"
+what_to_look_for = "EF entities bound directly from the request (TryUpdateModelAsync, [FromBody] Entity), writable IsAdmin/Role/OwnerId properties, missing DTOs or [Bind] lists, JsonPatchDocument applied to entities."
+cwe = "CWE-915"
+
+[[checklist]]
+domain = "csharp"
+id = "CS-06"
+title = "XSS, CSRF and cookies"
+what_to_look_for = "Html.Raw, HtmlString or (MarkupString) on user data, [IgnoreAntiforgeryToken] or DisableAntiforgery on cookie-authenticated endpoints, cookies without Secure/HttpOnly/SameSite, open redirects without LocalRedirect or Url.IsLocalUrl."
+cwe = "CWE-79"
+
+[[checklist]]
+domain = "csharp"
+id = "CS-07"
+title = "Cryptography and secrets"
+what_to_look_for = "MD5/SHA1/DES/TripleDES/ECB, System.Random for tokens instead of RandomNumberGenerator, custom password hashing instead of PasswordHasher/PBKDF2/Argon2, connection strings or keys in appsettings.json instead of user secrets, Key Vault or environment, Data Protection keys not persisted or not protected."
+cwe = "CWE-327"
+
+[[checklist]]
+domain = "csharp"
+id = "CS-08"
+title = "TLS, SSRF and HttpClient"
+what_to_look_for = "ServerCertificateCustomValidationCallback returning true, obsolete SslProtocols, HttpClient calls to user-supplied URLs without allow-list, new HttpClient per request instead of IHttpClientFactory, missing timeouts."
+cwe = "CWE-295"
+
+[[checklist]]
+domain = "csharp"
+id = "CS-09"
+title = "Errors, logging and configuration"
+what_to_look_for = "UseDeveloperExceptionPage or detailed errors outside Development, exception messages returned to clients, secrets or personal data in ILogger messages, Swagger exposed in production, missing UseHsts/UseHttpsRedirection, permissive CORS (AllowAnyOrigin, SetIsOriginAllowed(_ => true))."
+cwe = "CWE-209"
+
+[[checklist]]
+domain = "csharp"
+id = "CS-10"
+title = "Files, uploads and resource limits"
+what_to_look_for = "Path.Combine with IFormFile.FileName or request values, uploads stored under wwwroot, missing size limits (RequestSizeLimit, MultipartBodyLengthLimit), Regex on user input without a timeout (ReDoS), unbounded pagination."
+cwe = "CWE-22"
+
+[[checklist]]
+domain = "rust"
+id = "RS-01"
+title = "Unsafe code and FFI"
+what_to_look_for = "unsafe blocks without a SAFETY justification, transmute, from_raw_parts, set_len, get_unchecked, raw pointers from FFI with unchecked lengths or lifetimes, Send/Sync implemented manually; prefer #![forbid(unsafe_code)] in application crates."
+cwe = "CWE-119"
+
+[[checklist]]
+domain = "rust"
+id = "RS-02"
+title = "Injection (SQL / command)"
+what_to_look_for = "SQL built with format! (sqlx::query, diesel::sql_query, rusqlite execute) instead of bind parameters or the query! macros, Command::new(\"sh\").arg(\"-c\") with user input, program names chosen by the user."
+cwe = "CWE-89"
+
+[[checklist]]
+domain = "rust"
+id = "RS-03"
+title = "Panics and denial of service"
+what_to_look_for = "unwrap/expect, indexing or integer overflow on untrusted input in request handlers (a panic aborts the task or the process with panic = abort), unbounded bodies (axum DefaultBodyLimit, actix PayloadConfig), recursion on nested input, deserialization without size limits (bincode)."
+cwe = "CWE-400"
+
+[[checklist]]
+domain = "rust"
+id = "RS-04"
+title = "TLS and outgoing requests"
+what_to_look_for = "danger_accept_invalid_certs/hostnames, custom rustls certificate verifiers that accept everything, TLS below 1.2, reqwest calls to user-supplied URLs without allow-list or redirect policy, clients without timeout."
+cwe = "CWE-295"
+
+[[checklist]]
+domain = "rust"
+id = "RS-05"
+title = "Cryptography and randomness"
+what_to_look_for = "md5/sha1/des/rc4 crates, ECB mode, SmallRng or seed_from_u64 for secrets instead of OsRng, passwords hashed without argon2/bcrypt/scrypt, secrets compared with == instead of subtle::ConstantTimeEq, keys kept in memory without zeroize."
+cwe = "CWE-327"
+
+[[checklist]]
+domain = "rust"
+id = "RS-06"
+title = "Authentication, sessions and access control"
+what_to_look_for = "jsonwebtoken Validation with signature, exp or aud checks disabled, routes added outside the authentication layer (axum route_layer order, actix wrap), missing ownership checks on path IDs, cookies without Secure/HttpOnly/SameSite, permissive CORS layers."
+cwe = "CWE-862"
+
+[[checklist]]
+domain = "rust"
+id = "RS-07"
+title = "Paths, XSS and output"
+what_to_look_for = "Paths joined from request values without rejecting .. and absolute paths (Path::join replaces the base with an absolute path), HTML built with format! or PreEscaped, templates with escaping disabled (|safe)."
+cwe = "CWE-22"
+
+[[checklist]]
+domain = "rust"
+id = "RS-08"
+title = "Crates and build supply chain"
+what_to_look_for = "Dependencies with RustSec advisories (cargo audit, cargo deny), build.rs or proc macros downloading or running code, git dependencies without a pinned rev, Cargo.lock not committed for binaries."
+cwe = "CWE-1104"
+
+[[checklist]]
+domain = "node"
+id = "TS-01"
+title = "Injection (SQL / NoSQL / command)"
+what_to_look_for = "Template literals in query, $queryRawUnsafe, TypeORM where/orderBy strings, Sequelize literal, request objects passed as MongoDB filters ($ne, $gt, $regex operators), child_process exec or shell: true with user input."
+cwe = "CWE-89"
+
+[[checklist]]
+domain = "node"
+id = "TS-02"
+title = "Input validation and type confusion"
+what_to_look_for = "Handlers trusting TypeScript types at runtime instead of a schema (zod, class-validator, ajv), NestJS ValidationPipe without whitelist/forbidNonWhitelisted, arrays or objects where strings are expected (qs parsing, ?a[]=x), req.body spread into models (mass assignment)."
+cwe = "CWE-20"
+
+[[checklist]]
+domain = "node"
+id = "TS-03"
+title = "Authentication and JWT"
+what_to_look_for = "jwt.verify without a fixed algorithms list, jwt.decode used for authorization, hard-coded signing secrets, missing exp/iss/aud checks, Passport strategies that do not reject unknown users, session cookies without httpOnly/secure/sameSite, session not regenerated at login."
+cwe = "CWE-287"
+
+[[checklist]]
+domain = "node"
+id = "TS-04"
+title = "Authorization in routes, guards and resolvers"
+what_to_look_for = "Express routers or NestJS controllers without auth middleware/guards, guards that return true on errors, missing ownership checks on IDs (BOLA), GraphQL resolvers and field resolvers without authorization, introspection enabled in production."
+cwe = "CWE-862"
+
+[[checklist]]
+domain = "node"
+id = "TS-05"
+title = "Code execution and deserialization"
+what_to_look_for = "eval, new Function, vm or vm2 used as a sandbox, node-serialize unserialize, require/import with user-chosen paths, template engines compiling user templates (SSTI in pug, ejs, handlebars), prototype pollution through deep merges."
+cwe = "CWE-94"
+
+[[checklist]]
+domain = "node"
+id = "TS-06"
+title = "SSRF, redirects and outgoing requests"
+what_to_look_for = "axios/fetch/got on user-supplied URLs without host allow-list and private-address check (including after redirects and DNS rebinding), res.redirect to request values, rejectUnauthorized: false or NODE_TLS_REJECT_UNAUTHORIZED=0."  # secreview:ignore CFG-008 (rule text, not configuration)
+cwe = "CWE-918"
+
+[[checklist]]
+domain = "node"
+id = "TS-07"
+title = "HTTP hardening and resource limits"
+what_to_look_for = "Missing helmet (or equivalent headers), permissive CORS with credentials, huge body limits, no rate limiting on login and expensive routes, trust proxy set to true, express.static serving dotfiles or the project root, ReDoS in validation regexes."
+cwe = "CWE-400"
+
+[[checklist]]
+domain = "node"
+id = "TS-08"
+title = "Errors, logging and secrets"
+what_to_look_for = "Stack traces or error.message returned to clients, NODE_ENV not set to production, secrets or tokens in logs, .env files committed or served, secrets compared with === instead of crypto.timingSafeEqual."
+cwe = "CWE-209"
+
+[[checklist]]
+domain = "node"
+id = "TS-09"
+title = "Files and uploads"
+what_to_look_for = "Paths built from req.params or uploaded file names (path.join does not prevent ../), multer without file size, count and type limits, uploads stored in a served directory, archives extracted without entry name checks (zip slip)."
+cwe = "CWE-22"
 
 [[checklist]]
 domain = "api"

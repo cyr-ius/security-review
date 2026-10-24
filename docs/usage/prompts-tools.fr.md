@@ -7,7 +7,7 @@ le fichier `AGENTS.md` d'un projet, voir [Fonctionnement d'une revue](how-it-wor
 
 | Prompt | Usage | Arguments |
 |---|---|---|
-| `security-review` | Revue générale de code Python, Java ou Angular (`language` : un ou plusieurs langages, par exemple `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
+| `security-review` | Revue générale de code Python, Java, Go, C#, Rust, TypeScript/Node.js ou Angular (`language` : un ou plusieurs langages, par exemple `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
 | `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
 | `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
 | `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
@@ -52,7 +52,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 
 | Outil | Rôle |
 |---|---|
-| `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
+| `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
 | `scan_code` | Scan rapide par motifs et analyses Tree-sitter ciblées des flux SQL Python, DOM Angular et origines de messages non vérifiées (pistes à vérifier, **pas** un SAST complet). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |

@@ -180,6 +180,10 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 | `PY-*` (Python) | `eval`/`exec`, désérialisation (pickle, `torch.load`, `joblib`...), YAML, commandes shell, SQL formaté, TLS désactivé, crypto faible ou mode ECB, aléa non cryptographique, XXE (lxml), SSTI, `SECRET_KEY` en dur, `ALLOWED_HOSTS = ['*']`, CSRF désactivé, `mark_safe`, cookies sans `Secure`/`HttpOnly`, SSRF, comparaison de secrets non constante, fichiers temporaires, vérification de signature JWT désactivée |
 | `JV-*` (Java) | Désérialisation (dont XStream, SnakeYAML), commandes OS, SQL et LDAP concaténés, flux requête vers SQL dynamique à travers des appels locaux (`JV-019`), XXE, CSRF, CORS, crypto faible, TLS « trust all », chemins et redirections construits depuis la requête, SSRF via une URL directement issue de la requête, JNDI `lookup` contrôlé par la requête, SpEL/EL, cookies, `Random`, `printStackTrace` |
 | `NG-*` (Angular, JavaScript, TypeScript) | Contournement du sanitizer, `innerHTML` et autres puits HTML, flux URL-vers-DOM, origine `message` non vérifiée, mutation de la chaîne de prototypes, `eval`, `setTimeout` avec chaîne, jetons en web storage, `postMessage('*')`, XSRF désactivé, redirections ouvertes ; côté Node.js : commandes shell, SQL interpolé, `$where`, chemins de fichiers, CORS ouvert, TLS désactivé, `jwt.decode`, crypto faible |
+| `TS-*` (backend TypeScript et JavaScript : Express, NestJS, Fastify, Prisma, TypeORM, Sequelize) | SQL brut non sûr (`$queryRawUnsafe`, `where` interpolé, `literal`), objet de requête utilisé comme filtre NoSQL, corps de requête lié à un modèle, `vm`/`vm2`, `unserialize`, secret JWT ou de cookie en dur, cookie de session sans `httpOnly`/`secure`, SSRF, `RegExp` construite depuis la requête, réponse réfléchie, `ValidationPipe` sans whitelist, limite de corps énorme, `trust proxy` à `true`, fichiers cachés servis, comparaison de secrets non constante |
+| `GO-*` (Go) | SQL construit avec `fmt.Sprintf`, `sh -c`, `InsecureSkipVerify`, MD5/SHA-1/DES/RC4, `math/rand`, conversions `template.HTML`, chemins, SSRF et redirections depuis la requête, serveur sans timeouts, zip slip, JWT `ParseUnverified` et `none`, CORS ouvert, cookies, `net/http/pprof`, TLS obsolète, modes accessibles en écriture à tous, lecture du corps sans limite |
+| `CS-*` (C#, ASP.NET Core, Razor, Blazor) | SQL concaténé ou interpolé (ADO.NET, `FromSqlRaw`, Dapper), `BinaryFormatter` et `TypeNameHandling`, `cmd`/`powershell`, validation de certificat désactivée, crypto faible, `Random`, XXE, `Html.Raw`/`MarkupString`, antiforgery désactivé, CORS ouvert, page d'exception développeur, validation JWT affaiblie, cookies, chemins, redirections et SSRF depuis la requête, filtres LDAP, TLS obsolète, scripts XSLT |
+| `RS-*` (Rust) | SQL construit avec `format!`, `sh -c`, `danger_accept_invalid_certs`, blocs `unsafe` et primitives mémoire non sûres (`transmute`, `from_raw_parts`), crypto faible, générateur aléatoire initialisé ou non cryptographique, chemins depuis la requête, CORS permissif, validation JWT désactivée, cookies, HTML construit avec `format!` ou `PreEscaped`, `bincode` sans limite, TLS obsolète |
 | `CFG-*` (Docker, Compose, Kubernetes, serveurs) | Conteneur privilégié ou root, socket Docker, namespaces de l'hôte, capacités dangereuses, élévation de privilèges, montages sensibles, ports de bases exposés, secrets dans `ENV`/`ARG`, `ADD` distant, mots de passe par défaut, services sans authentification, RBAC `*` ou `cluster-admin`, buckets publics, CORS `*`, listage de répertoires, SSH faible, `curl \| sh`, debug, WAF désactivé, en mode détection seule ou avec des exclusions trop larges (ModSecurity, Coraza, Ingress NGINX) |
 | `GL-*` (GitLab CI) | `include` distant, secrets affichés, DinD sans TLS, `allow_failure`, jeton CI en ligne de commande, variables non fiables évaluées par un shell, `CI_DEBUG_TRACE`, artefacts publics, `GIT_SSL_NO_VERIFY` |
 | `JK-*` (Jenkinsfile) | Injection dans `sh`, bibliothèque partagée non épinglée, `agent any`, sandbox désactivée, identifiant interpolé dans une chaîne Groovy, API interne `Jenkins.instance` |
@@ -188,23 +192,23 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 | `FA-*` (FastAPI) | CORS `*` ou regex `.*`, signature JWT non vérifiée, mode `reload` |
 | `AI-*` (tous langages, instructions d'assistants IA) | Texte caché à une personne mais lu par un assistant IA : Unicode tags et sélecteurs de variante supplémentaires (`AI-001`), contrôles bidirectionnels de Trojan Source (`AI-002`), caractères de largeur nulle (`AI-003`) ; texte adressé à l'assistant (remplacement de ses instructions, jetons de modèle de conversation comme `<\|im_start\|>`, `AI-004`) ou demandant d'écarter un finding (`AI-005`) |
 
-Les checklists par défaut couvrent les domaines `python`, `java`, `angular`, `api`, `config`,
-`cicd` et `dependencies` (par exemple : validation des jetons OAuth/OIDC, webhooks, flux métier
+Les checklists par défaut couvrent les domaines `python`, `java`, `angular`, `node` (backend
+TypeScript et JavaScript), `go`, `csharp`, `rust`, `api`, `config`, `cicd` et `dependencies` (par exemple : validation des jetons OAuth/OIDC, webhooks, flux métier
 sensibles, désynchronisation HTTP, injection CRLF, validation avant normalisation, upload de
 fichiers, durcissement Kubernetes, RBAC, en-têtes du proxy, WAF, connexions chiffrées vers les
 services (LDAPS par exemple), instructions des assistants IA, intégrité des lockfiles).
 `get_review_checklist` et l'écran **Checklists** de l'interface web les affichent en entier.
 
 Langages acceptés par `scan_code` : `python`, `java`, `typescript`, `javascript`, `angular`,
-`config`, `yaml`, `docker`, `gitlab-ci`, `jenkins`, `agent-instructions` (fichiers qui pilotent
+`go`, `csharp`, `rust`, `config`, `yaml`, `docker`, `gitlab-ci`, `jenkins`, `agent-instructions` (fichiers qui pilotent
 un assistant IA : `AGENTS.md`, `CLAUDE.md`, `.cursorrules`... ; seules les règles de tous les
-langages s'y appliquent) (alias : `jenkinsfile`, `groovy`, `gitlab`, `yml`...).
+langages s'y appliquent) (alias : `golang`, `c#`, `cs`, `dotnet`, `rs`, `jenkinsfile`, `groovy`, `gitlab`, `yml`...).
 
 ### Checklists des prompts de revue
 
 | Prompt | Checklists intégrées |
 |---|---|
-| `security-review` | Celles de `language` (`python`, `java`, `angular` pour `typescript` et `javascript`, `config` et `cicd` pour les pipelines), puis `api` |
+| `security-review` | Celles de `language` (`python`, `java`, `go`, `csharp`, `rust`, `angular` et `node` pour `typescript` et `javascript`, `config` et `cicd` pour les pipelines), puis `api` |
 | `codebase-review` | Celles de `languages`, puis `api`, `config` et `cicd` |
 | `api-security-review` | `api` |
 | `configuration-review` | `config`, plus `cicd` quand les fichiers ressemblent à un pipeline |

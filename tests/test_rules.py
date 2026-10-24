@@ -154,11 +154,12 @@ def test_default_rules_file_is_valid_and_complete():
     ids = [rule.id for rule in defaults.rules]
     assert len(ids) == len(set(ids)) >= 120
     families = {"PY", "JV", "NG", "CFG", "GEN", "GL", "JK", "CI", "SP", "FA", "AI"}
+    families |= {"GO", "CS", "RS", "TS"}
     assert {rule_id.split("-")[0] for rule_id in ids} <= families
     # The review prompts rely on these checklist domains
-    assert {"python", "java", "angular", "api", "config", "cicd", "dependencies"} <= set(
-        defaults.checklist
-    )
+    domains = {"python", "java", "angular", "api", "config", "cicd", "dependencies"}
+    domains |= {"go", "csharp", "rust", "node"}
+    assert domains <= set(defaults.checklist)
 
 
 def test_reload_picks_up_changes():
@@ -509,6 +510,396 @@ ADDITIONAL_RULES = [
         'uvicorn.run(app, host="0.0.0.0")',
         "FA-004",
     ),
+    # Go
+    (
+        "go",
+        'rows, err := db.Query(fmt.Sprintf("SELECT * FROM users WHERE id = %s", id))',
+        'rows, err := db.Query("SELECT * FROM users WHERE id = $1", id)',
+        "GO-001",
+    ),
+    (
+        "go",
+        'err := sqlx.Get(&user, "SELECT * FROM users WHERE name = \'" + name + "\'")',
+        'err := sqlx.Get(&user, "SELECT * FROM users WHERE name = ?", name)',
+        "GO-001",
+    ),
+    (
+        "go",
+        'cmd := exec.Command("sh", "-c", "convert "+name)',
+        'cmd := exec.Command("convert", name, out)',
+        "GO-002",
+    ),
+    ("go", "tls.Config{InsecureSkipVerify: true}", "tls.Config{RootCAs: pool}", "GO-003"),
+    ("go", "sum := md5.Sum(data)", "sum := sha256.Sum256(data)", "GO-004"),
+    ("go", 'import "math/rand"', 'import "crypto/rand"', "GO-005"),
+    (
+        "go",
+        'data := template.HTML(r.FormValue("bio"))',
+        "data := template.HTMLEscapeString(bio)",
+        "GO-006",
+    ),
+    (
+        "go",
+        'f, err := os.Open(filepath.Join(base, r.URL.Query().Get("file")))',
+        'f, err := os.Open(filepath.Join(base, "index.html"))',
+        "GO-007",
+    ),
+    (
+        "go",
+        'resp, err := http.Get(r.URL.Query().Get("url"))',
+        "resp, err := http.Get(cfg.WebhookURL)",
+        "GO-008",
+    ),
+    (
+        "go",
+        'http.Redirect(w, r, r.FormValue("next"), http.StatusFound)',
+        'http.Redirect(w, r, "/login", http.StatusFound)',
+        "GO-009",
+    ),
+    (
+        "go",
+        'log.Fatal(http.ListenAndServe(":8080", mux))',
+        "log.Fatal(srv.ListenAndServe())",
+        "GO-010",
+    ),
+    (
+        "go",
+        "path := filepath.Join(dest, f.Name)",
+        "path := filepath.Join(dest, safeName)",
+        "GO-011",
+    ),
+    (
+        "go",
+        "token, _, err := p.ParseUnverified(raw, claims)",
+        "token, err := p.Parse(raw, keyFunc)",
+        "GO-012",
+    ),
+    (
+        "go",
+        'cors.Options{AllowedOrigins: []string{"*"}}',
+        'cors.Options{AllowedOrigins: []string{"https://app.example.com"}}',
+        "GO-013",
+    ),
+    (
+        "go",
+        'http.Cookie{Name: "sid", HttpOnly: false}',
+        'http.Cookie{Name: "sid", HttpOnly: true}',
+        "GO-014",
+    ),
+    ("go", 'import _ "net/http/pprof"', 'import "net/http"', "GO-015"),
+    ("go", "MinVersion: tls.VersionTLS10,", "MinVersion: tls.VersionTLS12,", "GO-016"),
+    (
+        "go",
+        'os.WriteFile("token", data, 0666)',
+        'os.WriteFile("token", data, 0600)',
+        "GO-017",
+    ),
+    (
+        "go",
+        "body, err := io.ReadAll(r.Body)",
+        "body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))",
+        "GO-018",
+    ),
+    ("go", 'log.Printf("login %s", user.Password)', 'log.Printf("login %s", user.Name)', "GEN-005"),
+    # C#
+    (
+        "csharp",
+        'var cmd = new SqlCommand("SELECT * FROM Users WHERE Name = \'" + name + "\'", conn);',
+        'var cmd = new SqlCommand("SELECT * FROM Users WHERE Name = @name", conn);',
+        "CS-001",
+    ),
+    (
+        "csharp",
+        'var users = db.Users.FromSqlRaw($"SELECT * FROM Users WHERE Id = {id}");',
+        'var users = db.Users.FromSql($"SELECT * FROM Users WHERE Id = {id}");',
+        "CS-001",
+    ),
+    (
+        "csharp",
+        'var u = conn.QueryFirstOrDefault<User>($"SELECT * FROM Users WHERE Id = {id}");',
+        'var u = conn.QueryFirstOrDefault<User>("SELECT * FROM Users WHERE Id = @id", new { id });',
+        "CS-002",
+    ),
+    (
+        "csharp",
+        "var formatter = new BinaryFormatter();",
+        "var options = new JsonSerializerOptions();",
+        "CS-003",
+    ),
+    (
+        "csharp",
+        "TypeNameHandling = TypeNameHandling.All",
+        "TypeNameHandling = TypeNameHandling.None",
+        "CS-003",
+    ),
+    (
+        "csharp",
+        'Process.Start("cmd.exe", "/c " + userInput);',
+        'Process.Start("convert", args);',
+        "CS-004",
+    ),
+    (
+        "csharp",
+        "handler.ServerCertificateCustomValidationCallback = (m, c, ch, e) => true;",
+        "handler.ServerCertificateCustomValidationCallback = ValidateWithPinnedCa;",
+        "CS-005",
+    ),
+    ("csharp", "using var md5 = MD5.Create();", "using var sha = SHA256.Create();", "CS-006"),
+    (
+        "csharp",
+        "var code = new Random().Next(100000, 999999);",
+        "var code = RandomNumberGenerator.GetInt32(100000, 999999);",
+        "CS-007",
+    ),
+    (
+        "csharp",
+        "settings.DtdProcessing = DtdProcessing.Parse;",
+        "settings.DtdProcessing = DtdProcessing.Prohibit;",
+        "CS-008",
+    ),
+    ("csharp", "<div>@Html.Raw(Model.Bio)</div>", "<div>@Model.Bio</div>", "CS-009"),
+    (
+        "csharp",
+        "[IgnoreAntiforgeryToken]",
+        "[ValidateAntiForgeryToken]",
+        "CS-010",
+    ),
+    (
+        "csharp",
+        "policy.AllowAnyOrigin().AllowAnyHeader();",
+        'policy.WithOrigins("https://app.example.com").AllowAnyHeader();',
+        "CS-011",
+    ),
+    (
+        "csharp",
+        "policy.SetIsOriginAllowed(_ => true).AllowCredentials();",
+        "policy.SetIsOriginAllowed(IsTrustedOrigin).AllowCredentials();",
+        "CS-011",
+    ),
+    ("csharp", "app.UseDeveloperExceptionPage();", 'app.UseExceptionHandler("/error");', "CS-012"),
+    ("csharp", "ValidateLifetime = false,", "ValidateLifetime = true,", "CS-013"),
+    (
+        "csharp",
+        "options.Cookie.SecurePolicy = CookieSecurePolicy.None;",
+        "options.Cookie.SecurePolicy = CookieSecurePolicy.Always;",
+        "CS-014",
+    ),
+    (
+        "csharp",
+        "var path = Path.Combine(_uploads, file.FileName);",
+        "var path = Path.Combine(_uploads, Guid.NewGuid().ToString());",
+        "CS-015",
+    ),
+    ("csharp", "return Redirect(returnUrl);", "return LocalRedirect(returnUrl);", "CS-016"),
+    (
+        "csharp",
+        'var body = await client.GetStringAsync(Request.Query["url"]);',
+        "var body = await client.GetStringAsync(_options.FeedUrl);",
+        "CS-017",
+    ),
+    (
+        "csharp",
+        'searcher.Filter = "(&(objectClass=user)(sAMAccountName=" + login + "))";',
+        "searcher.Filter = string.Format(UserFilter, LdapEncoder.FilterEncode(login));",
+        "CS-018",
+    ),
+    (
+        "csharp",
+        "ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls11;",
+        "ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;",
+        "CS-019",
+    ),
+    (
+        "csharp",
+        "xslt.Load(path, XsltSettings.TrustedXslt, resolver);",
+        "xslt.Load(path, XsltSettings.Default, null);",
+        "CS-020",
+    ),
+    (
+        "csharp",
+        '_logger.LogInformation("Login {User} {Password}", user, password);',
+        '_logger.LogInformation("Login {User}", user);',
+        "GEN-005",
+    ),
+    # Rust
+    (
+        "rust",
+        "let rows = sqlx::query(&format!(\"SELECT * FROM users WHERE name = '{}'\", name))",
+        'let rows = sqlx::query("SELECT * FROM users WHERE name = $1").bind(name)',
+        "RS-001",
+    ),
+    (
+        "rust",
+        'let out = Command::new("sh").arg("-c").arg(cmd).output()?;',
+        'let out = Command::new("convert").arg(input).output()?;',
+        "RS-002",
+    ),
+    (
+        "rust",
+        "let client = Client::builder().danger_accept_invalid_certs(true).build()?;",
+        "let client = Client::builder().add_root_certificate(ca).build()?;",
+        "RS-003",
+    ),
+    ("rust", "let v = unsafe { *ptr };", "let v = *reference;", "RS-004"),
+    (
+        "rust",
+        "let s = std::slice::from_raw_parts(ptr, len);",
+        "let s = &buffer[..len];",
+        "RS-005",
+    ),
+    ("rust", "let digest = md5::compute(data);", "let digest = Sha256::digest(data);", "RS-006"),
+    (
+        "rust",
+        "let mut rng = StdRng::seed_from_u64(42);",
+        "let mut rng = OsRng;",
+        "RS-007",
+    ),
+    (
+        "rust",
+        'let file = NamedFile::open(req.match_info().query("path"))?;',
+        'let file = NamedFile::open("static/index.html")?;',
+        "RS-008",
+    ),
+    (
+        "rust",
+        "let cors = CorsLayer::permissive();",
+        "let cors = CorsLayer::new().allow_origin(origin);",
+        "RS-009",
+    ),
+    (
+        "rust",
+        "validation.insecure_disable_signature_validation();",
+        'validation.set_audience(&["api"]);',
+        "RS-010",
+    ),
+    (
+        "rust",
+        'Cookie::build(("sid", id)).http_only(false)',
+        'Cookie::build(("sid", id)).http_only(true)',
+        "RS-011",
+    ),
+    (
+        "rust",
+        'Html(format!("<h1>Hello {}</h1>", name))',
+        "Html(template.render()?)",
+        "RS-012",
+    ),
+    (
+        "rust",
+        "let msg: Message = bincode::deserialize(&bytes)?;",
+        "let msg: Message = options.with_limit(1024).deserialize(&bytes)?;",
+        "RS-013",
+    ),
+    (
+        "rust",
+        "builder.set_min_proto_version(Some(SslVersion::TLS1_1))?;",
+        "builder.set_min_proto_version(Some(SslVersion::TLS1_2))?;",
+        "RS-014",
+    ),
+    ("rust", 'info!("login {} {}", user, token);', 'info!("login {}", user);', "GEN-005"),
+    # TypeScript / Node.js backend
+    (
+        "typescript",
+        "await prisma.$queryRawUnsafe(`SELECT * FROM users WHERE id = ${id}`);",
+        "await prisma.$queryRaw`SELECT * FROM users WHERE id = ${id}`;",
+        "TS-001",
+    ),
+    (
+        "typescript",
+        "qb.where(`user.name = '${name}'`)",
+        'qb.where("user.name = :name", { name })',
+        "TS-001",
+    ),
+    (
+        "typescript",
+        "const user = await User.findOne(req.body);",
+        "const user = await User.findOne({ email: String(req.body.email) });",
+        "TS-002",
+    ),
+    (
+        "typescript",
+        "await prisma.user.create({ data: req.body });",
+        "await prisma.user.create({ data: { email: dto.email } });",
+        "TS-003",
+    ),
+    (
+        "javascript",
+        "Object.assign(user, req.body);",
+        "Object.assign(user, pick(req.body, ['name']));",
+        "TS-003",
+    ),
+    (
+        "typescript",
+        "const result = vm.runInNewContext(code, sandbox);",
+        "const result = await worker.run(code);",
+        "TS-004",
+    ),
+    (
+        "javascript",
+        "const obj = serialize.unserialize(req.cookies.profile);",
+        "const obj = JSON.parse(req.cookies.profile);",
+        "TS-005",
+    ),
+    (
+        "typescript",
+        "const token = jwt.sign(payload, 'changeme123');",
+        "const token = jwt.sign(payload, process.env.JWT_SECRET);",
+        "TS-006",
+    ),
+    (
+        "typescript",
+        "app.use(session({ cookie: { secure: false } }));",
+        "app.use(session({ cookie: { secure: true } }));",
+        "TS-007",
+    ),
+    (
+        "typescript",
+        "const resp = await axios.get(req.query.url);",
+        "const resp = await axios.get(config.feedUrl);",
+        "TS-008",
+    ),
+    (
+        "typescript",
+        "const re = new RegExp(req.query.q);",
+        "const re = new RegExp(escapeRegExp(String(q)));",
+        "TS-009",
+    ),
+    (
+        "javascript",
+        "res.send(`<p>Hello ${req.query.name}</p>`);",
+        "res.json({ name: req.query.name });",
+        "TS-010",
+    ),
+    (
+        "typescript",
+        "app.useGlobalPipes(new ValidationPipe());",
+        "app.useGlobalPipes(new ValidationPipe({ whitelist: true }));",
+        "TS-011",
+    ),
+    (
+        "javascript",
+        "app.use(express.json({ limit: '500mb' }));",
+        "app.use(express.json({ limit: '1mb' }));",
+        "TS-012",
+    ),
+    (
+        "javascript",
+        "app.set('trust proxy', true);",
+        "app.set('trust proxy', 1);",
+        "TS-013",
+    ),
+    (
+        "javascript",
+        "app.use(express.static('public', { dotfiles: 'allow' }));",
+        "app.use(express.static('public', { dotfiles: 'ignore' }));",
+        "TS-014",
+    ),
+    (
+        "typescript",
+        "if (req.headers.signature === expectedSignature) {",
+        "if (crypto.timingSafeEqual(received, expected)) {",
+        "TS-015",
+    ),
 ]
 
 
@@ -528,6 +919,10 @@ def test_gitlab_ci_inherits_yaml_rules():
 def test_language_aliases():
     matches, _ = registry.scan("pipeline { agent any }", "Jenkinsfile")
     assert "JK-003" in ids(matches)
+    matches, _ = registry.scan("tls.Config{InsecureSkipVerify: true}", "golang")
+    assert "GO-003" in ids(matches)
+    matches, _ = registry.scan("var f = new BinaryFormatter();", "C#")
+    assert "CS-003" in ids(matches)
 
 
 # ── Inline suppression ───────────────────────────────────────────────────────

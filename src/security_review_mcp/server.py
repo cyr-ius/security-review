@@ -176,7 +176,10 @@ def _report_language(requested: str) -> str:
 @mcp.prompt(
     name="security-review",
     title="Security code review",
-    description="Review Python, Java or Angular code for vulnerabilities and insecure settings.",
+    description=(
+        "Review Python, Java, Go, C#, Rust, TypeScript/Node.js or Angular code for "
+        "vulnerabilities and insecure settings."
+    ),
 )
 def security_review(
     language: str = "",

@@ -230,6 +230,8 @@ SKIPPED_DIRS = frozenset(
         "out",
         "coverage",
         ".gradle",
+        "obj",  # .NET intermediate output
+        ".vs",
         ".idea",
     }
 )
@@ -251,6 +253,12 @@ _EXTENSIONS = {
     ".jsx": "javascript",
     ".mjs": "javascript",
     ".cjs": "javascript",
+    ".go": "go",
+    ".cs": "csharp",
+    ".csx": "csharp",
+    ".cshtml": "csharp",  # Razor views (Html.Raw...)
+    ".razor": "csharp",
+    ".rs": "rust",
     ".html": "angular",  # Angular templates ([innerHTML], bypassSecurityTrust...)
     ".yml": "yaml",
     ".yaml": "yaml",

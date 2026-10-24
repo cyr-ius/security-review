@@ -7,7 +7,7 @@ To understand when the rules, the checklists and the standards apply, and how to
 
 | Prompt | Use | Arguments |
 |---|---|---|
-| `security-review` | General review of Python, Java or Angular code (`language`: one or more languages, for example `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
+| `security-review` | General review of Python, Java, Go, C#, Rust, TypeScript/Node.js or Angular code (`language`: one or more languages, for example `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
 | `api-security-review` | REST API (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
 | `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
 | `codebase-review` | Review of the **whole repository** (not only a diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
@@ -50,7 +50,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 
 | Tool | Role |
 |---|---|
-| `list_checklists` / `get_review_checklist` | Checklists by domain: `python`, `java`, `angular`, `api`, `config`, `cicd`, `dependencies` and internal domains |
+| `list_checklists` / `get_review_checklist` | Checklists by domain: `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `api`, `config`, `cicd`, `dependencies` and internal domains |
 | `scan_code` | Quick pattern scan plus focused Tree-sitter checks for unsafe Python SQL, Angular DOM flows, and unchecked message origins (leads to check, **not** a full SAST). Masked excerpts, invisible characters shown as `<U+XXXX>` |
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |

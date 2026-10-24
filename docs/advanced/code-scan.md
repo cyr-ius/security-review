@@ -25,9 +25,9 @@ The client chooses the files; the controller never reads its own disk.
 
 - Files come from `git ls-files` (tracked + untracked not ignored: `.gitignore` is honored).
   Outside a git repository, or with `--no-git`, the tree is walked, skipping `node_modules`,
-  `.venv`, `dist`, `build`, `target`, etc.
-- The language is inferred from the name: `.py`, `.java`, `.ts`, `.js`, `.html` (Angular
-  templates), `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
+  `.venv`, `dist`, `build`, `target`, `obj`, etc.
+- The language is inferred from the name: `.py`, `.java`, `.go`, `.cs`/`.cshtml`/`.razor`, `.rs`, `.ts`,
+  `.js`, `.html` (Angular templates), `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
   `.gitlab-ci.yml`, and the files that steer an AI assistant (`AGENTS.md`, `CLAUDE.md`,
   `GEMINI.md`, `copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`,
   `*.mdc`, `*.instructions.md`, `*.prompt.md`, `*.md` under `.claude/`, `.cursor/`, `.windsurf/`

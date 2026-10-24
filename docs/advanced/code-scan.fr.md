@@ -25,8 +25,9 @@ Le client choisit les fichiers ; le contrôleur ne lit jamais son propre disque.
 
 - Les fichiers viennent de `git ls-files` (suivis + non suivis non ignorés : `.gitignore` est
   respecté). Hors dépôt git, ou avec `--no-git`, l'arborescence est parcourue en ignorant
-  `node_modules`, `.venv`, `dist`, `build`, `target`, etc.
-- Le langage est déduit du nom : `.py`, `.java`, `.ts`, `.js`, `.html` (templates Angular),
+  `node_modules`, `.venv`, `dist`, `build`, `target`, `obj`, etc.
+- Le langage est déduit du nom : `.py`, `.java`, `.go`, `.cs`/`.cshtml`/`.razor`, `.rs`, `.ts`, `.js`,
+  `.html` (templates Angular),
   `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
   `.gitlab-ci.yml`, et les fichiers qui pilotent un assistant IA (`AGENTS.md`, `CLAUDE.md`,
   `GEMINI.md`, `copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`,

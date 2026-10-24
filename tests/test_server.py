@@ -53,7 +53,18 @@ async def test_security_review_prompt_embeds_code_and_checklist():
     ("prompt", "args", "included", "excluded"),
     [
         # Aliases and several languages select their checklists
-        ("security-review", {"language": "py, ts"}, {"PY-01", "NG-01", "API-01"}, {"JV-01"}),
+        (
+            "security-review",
+            {"language": "py, ts"},
+            {"PY-01", "NG-01", "TS-01", "API-01"},
+            {"JV-01"},
+        ),
+        (
+            "security-review",
+            {"language": "golang, c#, rust"},
+            {"GO-01", "CS-01", "RS-01"},
+            {"PY-01"},
+        ),
         # No language: no default checklist, the agent picks from the named ones
         ("security-review", {"language": ""}, {"API-01", "`python`"}, {"PY-01"}),
         ("codebase-review", {"languages": "java"}, {"JV-01", "CFG-01", "CI-01"}, {"PY-01"}),
