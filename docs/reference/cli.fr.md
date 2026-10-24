@@ -71,7 +71,7 @@ avec le code `2`.
 
 `scan-code` et `scan-deps` acceptent aussi `--repository`, `--branch`, `--commit` et `--author`,
 enregistrés avec le rapport. Ils demandent un jeton `ci` ou `admin` (sur un poste de travail, un
-[jeton `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels)).
+[jeton `mcp` ou `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels)).
 `--skip-unconfigured` sort avec `0` et un avertissement quand aucune URL de contrôleur n'est
 définie (hook de commit).
 ## Codes de sortie

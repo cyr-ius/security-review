@@ -438,7 +438,10 @@ the user creates it from **Projects** if it is new and they hold `projects.creat
 [Creating a project](../advanced/access-control.md#creating-a-project)); a project requested by an
 [enrollment](../advanced/http.md#enrollment-request-the-project) waits for an approval.
 When the server refuses the token (unknown, revoked or expired), the agent receives a `401` that
-tells the user to sign in again and create a new one. It never reaches the REST API.
+tells the user to sign in again and create a new one. It never reaches the REST API, but it
+also works as a personal `ci` token (below) on the pipeline routes: one `SECREVIEW_TOKEN` on the
+workstation serves both the MCP agent and `security-review-ci`. A `mcp` token created by an
+administrator on the **Tokens** screen stays an MCP agent token only.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -449,7 +452,8 @@ curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/j
 A personal `ci` token (**Usage** **CI/CD pipeline**, same `mcp_tokens.create` permission, one at
 most by default) lets [`security-review-ci`](gate.md#pipeline-client-security-review-ci) run
 the code and dependency scans, the gate, the SARIF export and the trend from the workstation of
-the user, on the same projects as a personal `mcp` token and with the same rules. It reaches
+the user, on the same projects as a personal `mcp` token and with the same rules (a personal
+`mcp` token does the same, so this one is only needed to keep the two uses apart). It reaches
 only the pipeline routes (`/api/v1/ci/`), never `/mcp` nor the rest of the REST API. A report
 it stores is submitted by the token (`alice:laptop`). See
 [scan from a workstation](../advanced/dependencies.md#scan-from-a-workstation-commit-hook).

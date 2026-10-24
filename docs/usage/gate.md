@@ -72,11 +72,11 @@ security-review-controller token create --label jenkins-portal --role ci \
 ```
 
 On a workstation, a developer uses a
-[personal `ci` token](web-interface.md#personal-mcp-and-ci-tokens) instead, created in
+[personal `mcp` or `ci` token](web-interface.md#personal-mcp-and-ci-tokens) instead, created in
 **My account**: it reaches the projects the developer may read.
 
 Web sessions and `api` tokens (within the projects they read) and `admin` tokens may also call
-the gate, SARIF and trend routes; `mcp` tokens may not. The scans, which store reports, need a `ci` or
+the gate, SARIF and trend routes; `mcp` tokens may not, except a personal one, which acts as a `ci` token. The scans, which store reports, need a `ci` or
 `admin` token (`403` otherwise, web sessions included).
 
 ### Examples

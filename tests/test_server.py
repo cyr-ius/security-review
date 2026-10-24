@@ -159,7 +159,7 @@ async def test_whole_repository_prompts_send_the_files_with_the_pipeline_client(
     async with Client(mcp) as client:
         result = await client.get_prompt(prompt, {})
     text = result.messages[0].content.text
-    assert f"security-review-ci {command}" in text and "personal ci token" in text
+    assert f"security-review-ci {command}" in text and "personal mcp or ci token" in text
 
 
 async def test_save_report_with_an_author_and_filter_the_list():

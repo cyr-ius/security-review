@@ -168,7 +168,7 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 ## Scan depuis un poste de travail (hook de commit)
 
 Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
-[jeton `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels) créé dans
+[jeton `mcp` ou `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels) créé dans
 **Mon compte** : il atteint les projets que le développeur peut lire, et les fichiers sont
 envoyés au contrôleur exactement tels qu'ils sont sur le disque. Le poste n'a pas besoin de
 Python : installez le client avec uv (voir [Installation](../usage/gate.md#installation)).
@@ -176,7 +176,7 @@ Python : installez le client avec uv (voir [Installation](../usage/gate.md#insta
 ```bash
 uv tool install security-review-ci
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<personal ci token>
+export SECREVIEW_TOKEN=<personal mcp or ci token>
 security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (contrôleur injoignable, jeton refusé...)
 ```

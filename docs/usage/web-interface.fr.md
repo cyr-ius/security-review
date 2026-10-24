@@ -463,7 +463,9 @@ l'utilisateur le crée depuis **Projets** s'il est nouveau et qu'il porte `proje
 [Création d'un projet](../advanced/access-control.md#creation-dun-projet)) ; un projet demandé par
 un [enrôlement](../advanced/http.md#enrolement-demander-le-projet) attend sa validation. Quand le serveur refuse le jeton (inconnu, révoqué ou expiré), l'agent reçoit
 un `401` qui invite l'utilisateur à se reconnecter pour en créer un nouveau. Il n'atteint jamais
-l'API REST.
+l'API REST, mais il vaut aussi jeton `ci` personnel (ci-dessous) sur les routes de pipeline : un
+seul `SECREVIEW_TOKEN` sur le poste sert à la fois à l'agent MCP et à `security-review-ci`. Un
+jeton `mcp` créé par un administrateur sur l'écran **Jetons** reste un jeton d'agent MCP seulement.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -475,7 +477,7 @@ Un jeton `ci` personnel (**Usage** **Pipeline CI/CD**, même permission `mcp_tok
 plus par défaut) permet à [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)
 de lancer les scans de code et de dépendances, la gate, l'export SARIF et la tendance depuis le
 poste de l'utilisateur, sur les mêmes projets qu'un jeton `mcp` personnel et avec les mêmes
-règles. Il n'atteint que les routes de pipeline (`/api/v1/ci/`), jamais `/mcp` ni le reste de
+règles (un jeton `mcp` personnel en fait autant : celui-ci ne sert qu'à séparer les deux usages). Il n'atteint que les routes de pipeline (`/api/v1/ci/`), jamais `/mcp` ni le reste de
 l'API REST. Un rapport qu'il enregistre est soumis par le jeton (`alice:laptop`). Voir
 [scan depuis un poste de travail](../advanced/dependencies.md#scan-depuis-un-poste-de-travail-hook-de-commit).
 

@@ -3107,13 +3107,15 @@ def test_a_web_user_creates_one_personal_mcp_token(secured, reports):
     assert secured.get("/api/v1/me", headers=_bearer(body["token"])).status_code == 403
 
 
-def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports):
+@pytest.mark.parametrize("role", ["ci", "mcp"])
+def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports, role):
+    # A personal mcp token is also a ci token: one SECREVIEW_TOKEN on the workstation
     groups = [group_for("reader", ["shop-api"]), group_for("mcp-user")]
     make_user("alice", USER_PASSWORD, group_ids=groups)
     headers = session_headers(secured, "alice")
 
     created = secured.post(
-        "/api/v1/me/tokens", json={"label": "laptop", "role": "ci"}, headers=headers
+        "/api/v1/me/tokens", json={"label": "laptop", "role": role}, headers=headers
     )
     assert created.status_code == 201, created.text
     token = _bearer(created.json()["token"])
@@ -3125,6 +3127,12 @@ def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports):
     other = secured.post("/api/v1/ci/scan/code", json=code_scan_body("billing"), headers=token)
     assert other.status_code == 404
     assert secured.get("/api/v1/me", headers=token).status_code == 403
+    # An mcp token of an administrator stays an MCP agent token
+    shared = _bearer(token_store.create_token("agent", Role.MCP, projects=["shop-api"])["token"])
+    assert (
+        secured.post("/api/v1/ci/scan/code", json=code_scan_body(), headers=shared).status_code
+        == 403
+    )
 
 
 def test_a_personal_mcp_token_needs_the_mcp_tokens_create_permission(secured, reports):

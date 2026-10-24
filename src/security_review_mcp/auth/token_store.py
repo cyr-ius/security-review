@@ -39,7 +39,9 @@ A web user may also create a **personal** ``mcp`` token for its MCP agent, or a 
 it reaches the projects the user may read (``reports.read`` of its groups), read at each
 request, so that a project granted to or removed from the user applies at once. It has no
 project rows and no change of projects: an administrator grants the project to the user
-instead. A web user
+instead. A personal ``mcp`` token also reaches the pipeline routes, as a ``ci`` token (see
+http_server.TokenInfo.pipeline): a developer keeps one SECREVIEW_TOKEN for the MCP agent and
+``security-review-ci``. A web user
 holds at most SECREVIEW_PERSONAL_TOKENS_PER_USER personal tokens of each role.
 
 Like every token, an ``api`` token never accepts a risk nor marks a false positive.
@@ -294,6 +296,7 @@ def _personal_scoped_info(session: Session, row: ApiToken, info: TokenInfo) -> T
         projects=projects,
         token_id=info.token_id,
         expired=info.expired,
+        pipeline=info.role == Role.MCP,
     )
 
 

@@ -70,7 +70,7 @@ exits with code `2`.
 
 `scan-code` and `scan-deps` also accept `--repository`, `--branch`, `--commit` and `--author`,
 stored with the report. They need a `ci` or `admin` token (on a workstation, a
-[personal `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens)).
+[personal `mcp` or `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens)).
 `--skip-unconfigured` exits with `0` and a warning when no controller URL is set (commit hook).
 ## Exit codes
 
