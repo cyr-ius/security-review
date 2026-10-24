@@ -299,14 +299,6 @@ def delete_target(project: str, kind: str, actor: str) -> None:
         )
 
 
-def forget_project(session: Session, project: str) -> int:
-    """Delete the destinations of a deleted project (its tickets go with its findings)."""
-    rows = session.exec(select(TicketTarget).where(TicketTarget.project == project)).all()
-    for row in rows:
-        session.delete(row)
-    return len(rows)
-
-
 def destinations(settings: Settings, projects: Collection[str] | None) -> list[dict[str, str]]:
     """Projects (in ``projects``, None: all) and systems a finding can be sent to now."""
     ready = {

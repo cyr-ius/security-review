@@ -63,7 +63,6 @@ from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, select
 
-from .. import ticketing
 from ..config import Settings, get_settings
 from ..http_server import Role
 from ..observability import audit
@@ -81,6 +80,7 @@ from ..storage.models import (
     GroupRole,
     ProjectEnrollment,
     SecurityReport,
+    TicketTarget,
     UserGroup,
     WebUser,
     as_utc,
@@ -1155,8 +1155,9 @@ def _forget_project_roles(
 def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
     """Delete ``project`` and everything that refers to it (``projects.delete``), in one
     transaction: its reports, findings and comments, the project in the roles of the groups
-    (see _forget_project_roles) and in the tokens (see token_store.forget_project). The audit
-    log keeps the events of the project and records ``project.deleted``.
+    (see _forget_project_roles), in the tokens (see token_store.forget_project) and its ticket
+    destinations. The audit log keeps the events of the project and records
+    ``project.deleted``.
 
     Raises:
         ValueError: Invalid name.
@@ -1170,7 +1171,9 @@ def delete_project(project: str, actor: str | None = None) -> dict[str, Any]:
         deleted |= _delete_reports(session, cleaned)
         deleted |= _forget_project_roles(session, cleaned, actor)
         deleted |= forget_project(session, cleaned, actor)
-        ticketing.forget_project(session, cleaned)
+        # Its ticket destinations (its tickets went with its findings), deleted here rather
+        # than by ticketing: the MCP server imports this module, never the connectors
+        session.exec(delete(TicketTarget).where(TicketTarget.project == cleaned))
         audit.record(
             session,
             audit.AuditAction.PROJECT_DELETED,
