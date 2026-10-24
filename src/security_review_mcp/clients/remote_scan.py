@@ -19,9 +19,9 @@ from mcp.client import Client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import Implementation
 
+from ..deps import depscan
+from ..http_server import ENROLLMENT_SERVER_TITLE
 from . import enrollment
-from .deps import depscan
-from .http_server import ENROLLMENT_SERVER_TITLE
 
 MCP_PATH = "/mcp"
 TOOL_NAME = "scan_dependencies"

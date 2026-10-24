@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
 
-from .http_server import ENROLL_PATH, LOOPBACK_HOSTS
+from ..http_server import ENROLL_PATH, LOOPBACK_HOSTS
 
 MAX_RESPONSE_BYTES = 64 * 1024
 DEFAULT_TIMEOUT = 30.0
