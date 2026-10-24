@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from . import __version__
-from .models import FindingPublic, FindingStatus, Severity
+from .storage.models import FindingPublic, FindingStatus, Severity
 
 SARIF_SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json"
 SARIF_VERSION = "2.1.0"

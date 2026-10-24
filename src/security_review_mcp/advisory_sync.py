@@ -28,9 +28,9 @@ from sqlmodel import col, select
 
 from . import __version__, advisories, app_settings
 from .config import Settings, get_settings
-from .database import session_scope
-from .models import AdvisoryUpdate, utcnow
 from .proxy import check_proxy_url, proxy_handler
+from .storage.database import session_scope
+from .storage.models import AdvisoryUpdate, utcnow
 
 logger = logging.getLogger("security_review_mcp.advisory_sync")
 

@@ -22,8 +22,8 @@ from ..http_server import (
     SCAN_ROUTE_ROLES,
     Role,
 )
-from ..models import SecurityReportPublic
-from ..project_names import normalize_project
+from ..storage.models import SecurityReportPublic
+from ..storage.project_names import normalize_project
 from .schemas import Identity
 
 logger = logging.getLogger("security_review_mcp.web")

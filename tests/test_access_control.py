@@ -6,9 +6,9 @@ from sqlmodel import select
 
 from security_review_mcp import access_control, audit, web_users
 from security_review_mcp.access_control import Permission
-from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
 from security_review_mcp.services import NotFoundError
+from security_review_mcp.storage.database import session_scope
 
 PASSWORD = "Correct horse battery 9"
 
@@ -515,7 +515,7 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
     from sqlmodel import select
 
     from security_review_mcp import services, token_store
-    from security_review_mcp.models import (
+    from security_review_mcp.storage.models import (
         FindingComment,
         FindingCreate,
         FindingTicket,
@@ -632,7 +632,7 @@ def test_enrollments_are_bounded_and_expire(monkeypatch):
     from datetime import timedelta
 
     from security_review_mcp.config import get_settings
-    from security_review_mcp.models import ProjectEnrollment, utcnow
+    from security_review_mcp.storage.models import ProjectEnrollment, utcnow
 
     monkeypatch.setattr(access_control, "MAX_PENDING_PROJECTS", 2)
     monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_ADDRESS", 3)

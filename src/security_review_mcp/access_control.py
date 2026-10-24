@@ -65,9 +65,12 @@ from sqlmodel import Session, col, func, select
 
 from . import audit, ticketing
 from .config import Settings, get_settings
-from .database import session_scope
 from .http_server import Role
-from .models import (
+from .rate_limit import RateLimit
+from .scanner import redact_secrets
+from .services import NotFoundError
+from .storage.database import session_scope
+from .storage.models import (
     AccessRole,
     ApiToken,
     ApiTokenProject,
@@ -83,9 +86,6 @@ from .models import (
     as_utc,
     utcnow,
 )
-from .rate_limit import RateLimit
-from .scanner import redact_secrets
-from .services import NotFoundError
 from .token_store import MAX_PROJECTS_PER_TOKEN, _clean_project, forget_project
 
 

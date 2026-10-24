@@ -8,8 +8,8 @@ import pytest
 
 from security_review_mcp import advisories
 from security_review_mcp.advisories import Query
-from security_review_mcp.database import session_scope
-from security_review_mcp.models import Advisory
+from security_review_mcp.storage.database import session_scope
+from security_review_mcp.storage.models import Advisory
 from security_review_mcp.versions import compare_versions, sort_versions
 
 

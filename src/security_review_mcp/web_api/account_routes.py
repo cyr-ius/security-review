@@ -10,7 +10,7 @@ from fastapi.concurrency import run_in_threadpool
 from .. import __version__, app_settings, rate_limit, token_store, update_check, web_users
 from ..config import get_settings
 from ..http_server import API_HEALTH_PATH, DOCS_PATH
-from ..models import Severity
+from ..storage.models import Severity
 from .auth_routes import LOGIN_HEADERS, open_session
 from .deps import (
     CurrentIdentity,

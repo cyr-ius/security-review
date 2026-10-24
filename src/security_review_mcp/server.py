@@ -33,8 +33,8 @@ from . import (
     trends,
 )
 from .config import check_report_language, configure_logging, get_settings
-from .database import SchemaError, check_db, init_db
-from .models import (
+from .storage.database import SchemaError, check_db, init_db
+from .storage.models import (
     MAX_AUTHOR_CHARS,
     MAX_BRANCH_CHARS,
     MAX_CHECKLIST_RESULTS,
@@ -50,7 +50,7 @@ from .models import (
     ReviewType,
     Severity,
 )
-from .project_names import ProjectName
+from .storage.project_names import ProjectName
 
 logger = logging.getLogger("security_review_mcp")
 

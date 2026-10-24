@@ -7,7 +7,8 @@ from conftest import ADMIN_GRANTS, TRIAGER_GRANTS
 from sqlalchemy import inspect
 from sqlmodel import SQLModel, StaticPool, create_engine
 
-from security_review_mcp import config, database, rule_store, web_users
+from security_review_mcp import config, rule_store, web_users
+from security_review_mcp.storage import database
 
 
 @pytest.fixture

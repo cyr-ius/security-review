@@ -15,7 +15,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 
 from .. import codescan, depscan, services, trends
-from ..models import Severity
+from ..storage.models import Severity
 from .deps import (
     PipelineIdentity,
     ScanIdentity,

@@ -10,7 +10,7 @@ import re
 from dataclasses import dataclass, field
 
 from . import registry
-from .models import (
+from .storage.models import (
     MAX_CHECKLIST_RESULTS,
     MAX_SCAN_RULES,
     ChecklistOutcome,

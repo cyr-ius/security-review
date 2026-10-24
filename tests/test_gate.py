@@ -6,8 +6,8 @@ import pytest
 from mcp.client import Client
 
 from security_review_mcp import registry, rule_store, services
-from security_review_mcp.models import FindingCreate, FindingStatus, Severity
 from security_review_mcp.server import mcp
+from security_review_mcp.storage.models import FindingCreate, FindingStatus, Severity
 
 
 def finding(severity: Severity) -> FindingCreate:
@@ -100,8 +100,8 @@ async def test_new_tools_over_mcp():
 
 
 def test_gate_blocks_again_when_a_dismissal_expires(triage):
-    from security_review_mcp.database import session_scope
-    from security_review_mcp.models import Finding, utcnow
+    from security_review_mcp.storage.database import session_scope
+    from security_review_mcp.storage.models import Finding, utcnow
 
     saved = services.save_report("shop", "summary", [finding(Severity.CRITICAL)])
     finding_id = services.get_report(saved["report_id"]).findings[0].id

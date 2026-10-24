@@ -60,10 +60,10 @@ from sqlmodel import Session, col, func, or_, select
 from . import audit
 from .audit import AuditAction
 from .config import MAX_RETENTION_DAYS, get_settings
-from .database import session_scope
 from .http_server import TOKEN_ROLES, Role, TokenInfo, hash_token
-from .models import ApiToken, ApiTokenProject, WebUser, as_utc, utcnow
-from .project_names import normalize_project
+from .storage.database import session_scope
+from .storage.models import ApiToken, ApiTokenProject, WebUser, as_utc, utcnow
+from .storage.project_names import normalize_project
 
 MAX_TOKENS = 500
 MAX_LABEL_CHARS = 64

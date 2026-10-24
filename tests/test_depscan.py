@@ -9,8 +9,8 @@ from test_advisories import osv
 
 from security_review_mcp import advisories, depscan, services
 from security_review_mcp.config import get_settings
-from security_review_mcp.database import session_scope
-from security_review_mcp.models import Advisory, Severity
+from security_review_mcp.storage.database import session_scope
+from security_review_mcp.storage.models import Advisory, Severity
 
 REQUIREMENTS = "flask==1.0\nrequests==2.19.0\n"
 

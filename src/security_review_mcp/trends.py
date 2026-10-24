@@ -8,9 +8,9 @@ from typing import Literal
 
 from sqlmodel import col, select
 
-from .database import session_scope
-from .models import SEVERITY_RANK, Finding, FindingStatus, SecurityReport, Severity
-from .project_names import normalize_project
+from .storage.database import session_scope
+from .storage.models import SEVERITY_RANK, Finding, FindingStatus, SecurityReport, Severity
+from .storage.project_names import normalize_project
 
 Granularity = Literal["day", "week", "month"]
 

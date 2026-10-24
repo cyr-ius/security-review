@@ -21,9 +21,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, func, select
 
 from .config import get_settings
-from .database import session_scope
-from .models import DevStandard, utcnow
 from .services import NotFoundError
+from .storage.database import session_scope
+from .storage.models import DevStandard, utcnow
 
 MAX_STANDARDS = 200
 MAX_TITLE_CHARS = 200

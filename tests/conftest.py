@@ -7,17 +7,13 @@ import pytest
 from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, StaticPool, create_engine
 
-from security_review_mcp import (  # noqa: F401  (register the tables)
-    access_control,
-    models,
-    registry,
-    rule_store,
-)
+from security_review_mcp import access_control, registry, rule_store
 from security_review_mcp.access_control import Permission
 from security_review_mcp.config import Settings, get_settings
-from security_review_mcp.database import set_engine
-from security_review_mcp.models import DISMISSED_STATUSES, FindingPublic, FindingStatus
 from security_review_mcp.services import update_finding_status
+from security_review_mcp.storage import models
+from security_review_mcp.storage.database import set_engine
+from security_review_mcp.storage.models import DISMISSED_STATUSES, FindingPublic, FindingStatus
 
 # The tests ignore the configuration of the machine running them: the developer's .env file and
 # the SECREVIEW_* variables of the shell (devcontainer database, Swagger...). A test that needs
@@ -202,8 +198,8 @@ def make_user(
     groups of its own instead of the one of ``role``.
     """
     from security_review_mcp import web_users
-    from security_review_mcp.database import session_scope
-    from security_review_mcp.models import WebUser
+    from security_review_mcp.storage.database import session_scope
+    from security_review_mcp.storage.models import WebUser
 
     groups = group_ids if group_ids is not None else [group_for(role, projects)] if role else []
     created = web_users.create_user(username, password, groups, created_by, auth_source)

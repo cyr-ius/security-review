@@ -54,11 +54,11 @@ from sqlmodel import Session, and_, col, func, or_, select
 from . import access_control, audit, token_store
 from .audit import AuditAction
 from .config import Settings
-from .database import session_scope
 from .http_server import Role, TokenInfo
-from .models import RevokedSsoUser, WebUser, utcnow
 from .oidc import MAX_LABEL_CHARS, OidcError, OidcIdentity, SessionSigner, same_value
 from .services import NotFoundError
+from .storage.database import session_scope
+from .storage.models import RevokedSsoUser, WebUser, utcnow
 
 Permission = access_control.Permission
 

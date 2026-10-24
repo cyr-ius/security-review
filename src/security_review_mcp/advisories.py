@@ -20,8 +20,8 @@ from pathlib import Path
 from sqlalchemy import delete, func
 from sqlmodel import col, select
 
-from .database import session_scope
-from .models import Advisory, AdvisoryAffected, Severity, utcnow
+from .storage.database import session_scope
+from .storage.models import Advisory, AdvisoryAffected, Severity, utcnow
 from .versions import compare_versions, version_key
 
 logger = logging.getLogger("security_review_mcp.advisories")

@@ -5,8 +5,8 @@ from sqlmodel import select
 
 from security_review_mcp import app_settings, audit
 from security_review_mcp.config import Settings, secret_value
-from security_review_mcp.database import session_scope
-from security_review_mcp.models import AppSetting
+from security_review_mcp.storage.database import session_scope
+from security_review_mcp.storage.models import AppSetting
 
 PROXY = "http://alice:s3cr3t@proxy.internal:3128"
 

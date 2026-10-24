@@ -20,14 +20,14 @@ from . import (
     http_server,
     oidc,
     registry,
-    retention,
     ticketing,
     token_store,
     web_api,
     web_users,
 )
 from .config import Settings, configure_logging, get_settings
-from .database import SchemaError, init_db
+from .storage import retention
+from .storage.database import SchemaError, init_db
 
 logger = logging.getLogger("security_review_mcp.controller")
 

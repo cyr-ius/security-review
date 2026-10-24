@@ -12,7 +12,7 @@ from alembic.script import ScriptDirectory
 from sqlalchemy.engine import Connection, Engine, make_url
 from sqlmodel import Session, create_engine
 
-from .config import get_settings
+from ..config import get_settings
 
 logger = logging.getLogger("security_review_mcp.database")
 
@@ -104,7 +104,7 @@ def upgrade_db() -> None:
     ``access_control.ensure_system_roles``).
     """
     # Import here because rule_store and access_control depend on this module
-    from . import access_control, rule_store
+    from .. import access_control, rule_store
 
     before = current_revision()
     with get_engine().begin() as connection:

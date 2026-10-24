@@ -11,7 +11,7 @@ from starlette.testclient import TestClient
 
 from security_review_mcp import http_server, rate_limit, token_store
 from security_review_mcp.config import Settings
-from security_review_mcp.models import RateLimitCounter
+from security_review_mcp.storage.models import RateLimitCounter
 
 
 class Clock:

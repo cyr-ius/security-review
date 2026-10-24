@@ -14,8 +14,10 @@ from sqlmodel import col, select
 
 from . import audit, coverage
 from .config import MAX_RETENTION_DAYS, get_settings
-from .database import session_scope
-from .models import (
+from .prompts import fenced
+from .scanner import redact_secrets, sanitize_untrusted
+from .storage.database import session_scope
+from .storage.models import (
     DISMISSED_STATUSES,
     MAX_AUTHOR_CHARS,
     MAX_BRANCH_CHARS,
@@ -41,9 +43,7 @@ from .models import (
     effective_status,
     utcnow,
 )
-from .project_names import normalize_project
-from .prompts import fenced
-from .scanner import redact_secrets, sanitize_untrusted
+from .storage.project_names import normalize_project
 
 logger = logging.getLogger("security_review_mcp.services")
 

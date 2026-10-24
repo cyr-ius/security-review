@@ -6,9 +6,14 @@ from datetime import UTC, datetime, timedelta
 from conftest import make_user
 
 from security_review_mcp import access_control, http_server, metrics, services, token_store
-from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import Role
-from security_review_mcp.models import AdvisoryUpdate, FindingCreate, FindingStatus, Severity
+from security_review_mcp.storage.database import session_scope
+from security_review_mcp.storage.models import (
+    AdvisoryUpdate,
+    FindingCreate,
+    FindingStatus,
+    Severity,
+)
 
 # A sample line: name, optional labels, value
 SAMPLE = re.compile(r'^[a-z_]+(\{([a-z_]+="([^"\\\n]|\\.)*",?)*\})? -?[0-9.e+]+$')

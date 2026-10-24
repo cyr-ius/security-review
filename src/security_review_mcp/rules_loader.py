@@ -35,8 +35,8 @@ from dataclasses import dataclass, field
 from importlib import resources
 
 from .checklists import CheckItem
-from .models import Severity
 from .scanner import SUPPORTED_LANGUAGES, Rule
+from .storage.models import Severity
 
 DEFAULT_RULES_FILE = "default_rules.toml"
 MAX_PACK_BYTES = 256 * 1024

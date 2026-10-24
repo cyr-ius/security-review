@@ -14,7 +14,7 @@ from test_advisories import osv
 from security_review_mcp import advisories, ci_client, http_server, services, token_store, web_api
 from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role
-from security_review_mcp.models import FindingCreate, Severity
+from security_review_mcp.storage.models import FindingCreate, Severity
 
 URL = "http://127.0.0.1"
 MODULE = Path(ci_client.__file__)

@@ -36,8 +36,8 @@ from sqlmodel import col, func, select
 
 from .audit import public_event
 from .config import Settings
-from .database import session_scope
-from .models import AppSetting, AuditEvent, utcnow
+from .storage.database import session_scope
+from .storage.models import AppSetting, AuditEvent, utcnow
 
 logger = logging.getLogger("security_review_mcp.audit_syslog")
 

@@ -27,7 +27,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from .. import audit
 from ..app_settings import PASSWORD_MASK, _apply, _stored
 from ..config import Settings
-from ..database import session_scope
+from ..storage.database import session_scope
 from .api import MAX_FIELD_CHARS, URL_FIELD, ConnectorField, TicketConnector
 
 MAX_URL_CHARS = 500

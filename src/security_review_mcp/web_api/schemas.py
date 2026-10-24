@@ -23,7 +23,7 @@ from .. import (
 )
 from ..config import MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS
 from ..http_server import Role
-from ..models import (
+from ..storage.models import (
     MAX_AUTHOR_CHARS,
     MAX_COMMENT_CHARS,
     MAX_STATUS_REASON_CHARS,
@@ -32,7 +32,7 @@ from ..models import (
     ReviewType,
     Severity,
 )
-from ..project_names import ProjectName
+from ..storage.project_names import ProjectName
 from ..ticketing import api as ticketing_api
 
 AuthSource = Literal["local", "oidc"]

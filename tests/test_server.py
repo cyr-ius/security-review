@@ -9,9 +9,9 @@ from pydantic import ValidationError
 
 from security_review_mcp import access_control, app_settings, audit, services, token_store
 from security_review_mcp.config import Settings, get_settings
-from security_review_mcp.models import FindingCreate, ReviewType, Severity
 from security_review_mcp.prompts import fenced
 from security_review_mcp.server import enrollment_mcp, mcp
+from security_review_mcp.storage.models import FindingCreate, ReviewType, Severity
 
 pytestmark = pytest.mark.anyio
 

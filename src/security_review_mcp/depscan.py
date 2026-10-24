@@ -12,7 +12,7 @@ from . import services
 from .advisories import Query, advisory_status, find_vulnerabilities, severity_or_default
 from .config import get_settings
 from .dependencies import Parsed, parse_dependency_file
-from .models import SEVERITY_RANK, FindingCreate, ReviewType, Severity
+from .storage.models import SEVERITY_RANK, FindingCreate, ReviewType, Severity
 
 MAX_COMPONENTS_LISTED = 200
 VULNERABLE_COMPONENT_CWE = "CWE-1395"  # Dependency on Vulnerable Third-Party Component

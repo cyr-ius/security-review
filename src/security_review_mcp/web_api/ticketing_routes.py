@@ -10,8 +10,8 @@ from fastapi.concurrency import run_in_threadpool
 
 from .. import app_settings, services
 from ..config import get_settings
-from ..models import FindingTicketPublic
-from ..project_names import ProjectName
+from ..storage.models import FindingTicketPublic
+from ..storage.project_names import ProjectName
 from ..ticketing import TicketingError, connections, core, registry
 from ..ticketing.api import TicketConnector
 from .deps import (

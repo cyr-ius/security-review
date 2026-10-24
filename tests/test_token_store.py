@@ -7,10 +7,10 @@ from conftest import make_user
 from sqlmodel import Session, select
 
 from security_review_mcp import audit, token_store
-from security_review_mcp import database as database_module
 from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role, TokenInfo, hash_token
-from security_review_mcp.models import ApiToken, ApiTokenProject
+from security_review_mcp.storage import database as database_module
+from security_review_mcp.storage.models import ApiToken, ApiTokenProject
 
 STORE = token_store.DatabaseTokenStore()
 

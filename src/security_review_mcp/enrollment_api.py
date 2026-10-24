@@ -25,7 +25,7 @@ from starlette.routing import Route
 from . import access_control, token_store
 from .config import get_settings
 from .http_server import ENROLL_PATH, LOOPBACK_HOSTS
-from .project_names import ProjectName
+from .storage.project_names import ProjectName
 
 logger = logging.getLogger("security_review_mcp.enrollment")
 

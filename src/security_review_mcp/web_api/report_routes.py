@@ -10,8 +10,9 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse, Response
 
 from .. import access_control, services, trends
-from ..database import session_scope
-from ..models import (
+from ..sarif import build_sarif
+from ..storage.database import session_scope
+from ..storage.models import (
     DISMISSED_STATUSES,
     MAX_AUTHOR_CHARS,
     FindingCommentPublic,
@@ -21,8 +22,7 @@ from ..models import (
     SecurityReportPublic,
     Severity,
 )
-from ..project_names import MAX_RAW_PROJECT_CHARS, ProjectName
-from ..sarif import build_sarif
+from ..storage.project_names import MAX_RAW_PROJECT_CHARS, ProjectName
 from .deps import (
     CurrentIdentity,
     Permission,

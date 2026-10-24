@@ -23,8 +23,11 @@ from sqlmodel import Session, col, select
 
 from .. import audit
 from ..config import Settings
-from ..database import session_scope
-from ..models import (
+from ..sarif import SarifItem, fingerprint
+from ..scanner import redact_secrets
+from ..services import NotFoundError, _status_is
+from ..storage.database import session_scope
+from ..storage.models import (
     SEVERITY_RANK,
     Finding,
     FindingPublic,
@@ -38,10 +41,7 @@ from ..models import (
     as_utc,
     utcnow,
 )
-from ..project_names import normalize_project
-from ..sarif import SarifItem, fingerprint
-from ..scanner import redact_secrets
-from ..services import NotFoundError, _status_is
+from ..storage.project_names import normalize_project
 from . import connections, registry
 from .api import (
     MAX_KEY_CHARS,

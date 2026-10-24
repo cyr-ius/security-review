@@ -12,8 +12,8 @@ from test_advisories import osv
 
 from security_review_mcp import advisories, advisory_sync, app_settings, cli
 from security_review_mcp.config import Settings
-from security_review_mcp.database import session_scope
-from security_review_mcp.models import AdvisoryUpdate
+from security_review_mcp.storage.database import session_scope
+from security_review_mcp.storage.models import AdvisoryUpdate
 
 PROXY = "http://alice:s3cr3t@proxy.internal:3128"
 

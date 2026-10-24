@@ -13,8 +13,8 @@ from datetime import timedelta
 from sqlmodel import func, select
 
 from . import __version__, access_control, advisories, http_server, services, token_store
-from .database import session_scope
-from .models import AdvisoryUpdate, Severity, WebUser, as_utc
+from .storage.database import session_scope
+from .storage.models import AdvisoryUpdate, Severity, WebUser, as_utc
 
 CONTENT_TYPE = "text/plain; version=0.0.4; charset=utf-8"
 # Active tokens counted by secreview_tokens_expiring_soon

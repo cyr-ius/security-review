@@ -18,7 +18,7 @@ from security_review_mcp import (
 )
 from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role
-from security_review_mcp.models import ReviewType
+from security_review_mcp.storage.models import ReviewType
 
 LOCKFILE = ("requirements.txt", "requests==2.19.0\n")
 

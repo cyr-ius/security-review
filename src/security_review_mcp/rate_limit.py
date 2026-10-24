@@ -26,8 +26,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 from starlette.types import ASGIApp, Receive, Scope, Send
 
-from .database import session_scope
-from .models import RateLimitCounter
+from .storage.database import session_scope
+from .storage.models import RateLimitCounter
 
 logger = logging.getLogger("security_review_mcp.rate_limit")
 

@@ -8,7 +8,7 @@ use the engine of the application (and the in-memory engine of the tests).
 from alembic import context
 from sqlmodel import SQLModel
 
-from security_review_mcp import models  # noqa: F401  (register the tables on the metadata)
+from security_review_mcp.storage import models  # noqa: F401  (register the tables on the metadata)
 
 connection = context.config.attributes.get("connection")
 if connection is None:

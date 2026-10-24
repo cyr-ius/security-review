@@ -13,17 +13,11 @@ from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from security_review_mcp import (
-    cli,
-    database,
-    http_server,
-    server,
-    token_store,
-    web_users,
-)
+from security_review_mcp import cli, http_server, server, token_store, web_users
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
-from security_review_mcp.models import ApiToken
+from security_review_mcp.storage import database
+from security_review_mcp.storage.models import ApiToken
 
 STORE = token_store.DatabaseTokenStore()
 

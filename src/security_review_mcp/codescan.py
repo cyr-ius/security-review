@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from . import registry, sarif, services
 from .ci_client import detect_language
 from .config import get_settings
-from .models import (
+from .storage.models import (
     SEVERITY_RANK,
     FindingCreate,
     FindingPublic,

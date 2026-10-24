@@ -11,7 +11,7 @@ from sqlmodel import Session, select
 
 from security_review_mcp import audit_syslog, token_store
 from security_review_mcp.config import Settings
-from security_review_mcp.models import AppSetting, AuditEvent
+from security_review_mcp.storage.models import AppSetting, AuditEvent
 from security_review_mcp.token_store import Role
 
 

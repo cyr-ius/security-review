@@ -35,9 +35,9 @@ from . import (
     web_users,
 )
 from .config import get_settings
-from .database import SchemaError, init_db, schema_status, session_scope, upgrade_db
-from .models import SEVERITY_RANK, Severity
 from .services import NotFoundError
+from .storage.database import SchemaError, init_db, schema_status, session_scope, upgrade_db
+from .storage.models import SEVERITY_RANK, Severity
 
 EXIT_PASSED = 0
 EXIT_BLOCKED = 1

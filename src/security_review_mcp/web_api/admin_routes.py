@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 
 from .. import advisories, advisory_sync, app_settings, audit
 from ..config import get_settings
-from ..project_names import ProjectName
+from ..storage.project_names import ProjectName
 from .deps import AuditReader, SettingsManager, actor_of, unprocessable
 from .schemas import (
     AdvisoryOverview,

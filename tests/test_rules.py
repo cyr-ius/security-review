@@ -135,7 +135,7 @@ def test_unreadable_database_falls_back_to_the_default_rules(database):
 def test_unseeded_database_falls_back_to_the_default_rules(database):
     from sqlmodel import Session, delete
 
-    from security_review_mcp.models import CustomCheckItem, CustomRule, DefaultSeed
+    from security_review_mcp.storage.models import CustomCheckItem, CustomRule, DefaultSeed
 
     with Session(database) as session:  # tables created, defaults never seeded
         for model in (CustomRule, CustomCheckItem, DefaultSeed):

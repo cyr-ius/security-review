@@ -3,7 +3,7 @@
 import pytest
 
 from security_review_mcp import sarif, services
-from security_review_mcp.models import FindingCreate, FindingStatus, Severity
+from security_review_mcp.storage.models import FindingCreate, FindingStatus, Severity
 
 
 def make(severity=Severity.HIGH, **kwargs) -> FindingCreate:
