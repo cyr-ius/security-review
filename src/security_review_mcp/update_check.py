@@ -22,9 +22,9 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from . import __version__
+from .auth.oidc import _HttpsRedirectOnly
 from .config import Settings
 from .deps.versions import compare_versions
-from .oidc import _HttpsRedirectOnly
 from .proxy import masked_url, proxy_handler
 
 logger = logging.getLogger("security_review_mcp.update_check")

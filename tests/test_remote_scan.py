@@ -7,7 +7,8 @@ import httpx2
 import pytest
 from test_advisories import osv
 
-from security_review_mcp import cli, http_server, remote_scan, server, token_store
+from security_review_mcp import cli, http_server, remote_scan, server
+from security_review_mcp.auth import token_store
 from security_review_mcp.config import get_settings
 from security_review_mcp.deps import advisories
 from security_review_mcp.http_server import Role

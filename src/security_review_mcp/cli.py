@@ -18,16 +18,8 @@ from pathlib import Path
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from . import (
-    access_control,
-    audit,
-    ci_client,
-    enrollment,
-    http_server,
-    remote_scan,
-    token_store,
-    web_users,
-)
+from . import audit, ci_client, enrollment, http_server, remote_scan
+from .auth import access_control, token_store, web_users
 from .config import get_settings
 from .deps import advisories, advisory_sync
 from .reports import services

@@ -9,10 +9,11 @@ from pathlib import Path
 import pytest
 from sqlmodel import Session, select
 
-from security_review_mcp import audit_syslog, token_store
+from security_review_mcp import audit_syslog
+from security_review_mcp.auth import token_store
+from security_review_mcp.auth.token_store import Role
 from security_review_mcp.config import Settings
 from security_review_mcp.storage.models import AppSetting, AuditEvent
-from security_review_mcp.token_store import Role
 
 
 def make_settings(**values) -> Settings:

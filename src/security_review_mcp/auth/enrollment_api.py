@@ -22,10 +22,10 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 
+from ..config import get_settings
+from ..http_server import ENROLL_PATH, LOOPBACK_HOSTS
+from ..storage.project_names import ProjectName
 from . import access_control, token_store
-from .config import get_settings
-from .http_server import ENROLL_PATH, LOOPBACK_HOSTS
-from .storage.project_names import ProjectName
 
 logger = logging.getLogger("security_review_mcp.enrollment")
 

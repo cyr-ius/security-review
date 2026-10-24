@@ -7,8 +7,8 @@ import pytest
 from sqlalchemy import Engine
 from sqlmodel import Session, SQLModel, StaticPool, create_engine
 
-from security_review_mcp import access_control
-from security_review_mcp.access_control import Permission
+from security_review_mcp.auth import access_control
+from security_review_mcp.auth.access_control import Permission
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.reports.services import update_finding_status
 from security_review_mcp.rules import registry, rule_store
@@ -170,7 +170,7 @@ def group_for(
 
     Named ``name``, or after the role and its projects (``reader:shop,billing``).
     """
-    from security_review_mcp import access_control
+    from security_review_mcp.auth import access_control
 
     group_name = name or ":".join([role, ",".join(projects)] if projects else [role])
     existing = {group["name"]: group["id"] for group in access_control.list_groups()}
@@ -198,7 +198,7 @@ def make_user(
     is created as if it had already done it, unless ``must_change``. ``group_ids`` gives
     groups of its own instead of the one of ``role``.
     """
-    from security_review_mcp import web_users
+    from security_review_mcp.auth import web_users
     from security_review_mcp.storage.database import session_scope
     from security_review_mcp.storage.models import WebUser
 

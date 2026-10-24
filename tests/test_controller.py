@@ -7,20 +7,11 @@ import pytest
 from sqlmodel import select
 from starlette.testclient import TestClient
 
-from security_review_mcp import (
-    access_control,
-    app_settings,
-    audit,
-    cli,
-    controller,
-    http_server,
-    token_store,
-    web_api,
-    web_users,
-)
+from security_review_mcp import app_settings, audit, cli, controller, http_server, web_api
+from security_review_mcp.auth import access_control, token_store, web_users
+from security_review_mcp.auth.rate_limit import RateLimitMiddleware
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware, SecurityHeadersMiddleware
-from security_review_mcp.rate_limit import RateLimitMiddleware
 from security_review_mcp.reports import services
 from security_review_mcp.storage import database
 from security_review_mcp.storage.database import session_scope

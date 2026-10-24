@@ -16,19 +16,15 @@ from starlette.testclient import TestClient
 
 from security_review_mcp import (
     __version__,
-    access_control,
     app_settings,
     audit,
-    enrollment_api,
     http_server,
-    oidc,
     server,
     standards,
-    token_store,
     update_check,
     web_api,
-    web_users,
 )
+from security_review_mcp.auth import access_control, enrollment_api, oidc, token_store, web_users
 from security_review_mcp.config import get_settings
 from security_review_mcp.deps import advisory_sync
 from security_review_mcp.http_server import Role

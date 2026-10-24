@@ -11,7 +11,8 @@ import pytest
 from starlette.testclient import TestClient
 from test_advisories import osv
 
-from security_review_mcp import ci_client, http_server, token_store, web_api
+from security_review_mcp import ci_client, http_server, web_api
+from security_review_mcp.auth import token_store
 from security_review_mcp.config import get_settings
 from security_review_mcp.deps import advisories
 from security_review_mcp.http_server import Role

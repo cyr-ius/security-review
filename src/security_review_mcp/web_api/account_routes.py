@@ -7,7 +7,8 @@ from importlib.metadata import PackageNotFoundError, metadata
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 
-from .. import __version__, app_settings, rate_limit, token_store, update_check, web_users
+from .. import __version__, app_settings, update_check
+from ..auth import rate_limit, token_store, web_users
 from ..config import get_settings
 from ..http_server import API_HEALTH_PATH, DOCS_PATH
 from ..storage.models import Severity

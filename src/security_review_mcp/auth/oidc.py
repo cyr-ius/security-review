@@ -43,10 +43,10 @@ from typing import Any
 
 import jwt
 
-from . import __version__
-from .config import Settings, secret_value
-from .http_server import AUTH_PREFIX, LOOPBACK_HOSTS
-from .proxy import masked_url, proxy_handler
+from .. import __version__
+from ..config import Settings, secret_value
+from ..http_server import AUTH_PREFIX, LOOPBACK_HOSTS
+from ..proxy import masked_url, proxy_handler
 
 logger = logging.getLogger("security_review_mcp.oidc")
 

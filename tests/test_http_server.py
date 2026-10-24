@@ -13,7 +13,8 @@ from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from security_review_mcp import cli, http_server, server, token_store, web_users
+from security_review_mcp import cli, http_server, server
+from security_review_mcp.auth import token_store, web_users
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
 from security_review_mcp.storage import database

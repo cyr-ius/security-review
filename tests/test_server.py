@@ -7,7 +7,8 @@ from mcp.client import Client
 from mcp.shared.exceptions import MCPError
 from pydantic import ValidationError
 
-from security_review_mcp import access_control, app_settings, audit, token_store
+from security_review_mcp import app_settings, audit
+from security_review_mcp.auth import access_control, token_store
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.prompts import fenced
 from security_review_mcp.reports import services
@@ -501,7 +502,8 @@ def http_app():
     """The HTTP app (MCP endpoint only) with its lifespan running."""
     from starlette.testclient import TestClient
 
-    from security_review_mcp import http_server, token_store
+    from security_review_mcp import http_server
+    from security_review_mcp.auth import token_store
 
     app = http_server.build_mcp_app(mcp, "127.0.0.1", token_store.DatabaseTokenStore())
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:
@@ -513,7 +515,8 @@ def enrolling_app():
     """The HTTP app with the enrollment server, once an administrator token exists."""
     from starlette.testclient import TestClient
 
-    from security_review_mcp import http_server, token_store
+    from security_review_mcp import http_server
+    from security_review_mcp.auth import token_store
 
     token_store.create_token("ops", "admin")
     app = http_server.build_mcp_app(
@@ -538,7 +541,7 @@ def finding_id_of(report: dict) -> int:
 
 
 def test_project_token_cannot_reach_other_projects(http_app, two_projects):
-    from security_review_mcp import token_store
+    from security_review_mcp.auth import token_store
 
     token = token_store.create_token("shop-ci", "mcp", "shop-api")["token"]
     shop, billing = two_projects["shop-api"], two_projects["billing"]
@@ -604,7 +607,7 @@ def test_project_token_cannot_reach_other_projects(http_app, two_projects):
 
 
 def test_unrestricted_token_reaches_every_project(http_app, two_projects):
-    from security_review_mcp import token_store
+    from security_review_mcp.auth import token_store
 
     client = McpOverHttp(http_app, token_store.create_token("ci", "mcp")["token"])
 

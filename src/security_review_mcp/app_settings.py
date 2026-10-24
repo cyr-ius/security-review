@@ -19,8 +19,8 @@ from sqlmodel import Session, select
 
 from . import audit
 from .audit_syslog import FACILITIES, check_web_address, facility
+from .auth.oidc import CALLBACK_PATH, validate_settings
 from .config import Settings, check_report_language, get_settings
-from .oidc import CALLBACK_PATH, validate_settings
 from .proxy import PASSWORD_MASK, check_no_proxy, check_proxy_url, describe_proxy, masked_url
 from .storage.database import session_scope
 from .storage.models import AppSetting, utcnow

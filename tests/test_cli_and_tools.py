@@ -7,7 +7,8 @@ from mcp.client import Client
 from sqlalchemy import inspect, text
 from test_advisories import osv
 
-from security_review_mcp import cli, server, token_store
+from security_review_mcp import cli, server
+from security_review_mcp.auth import token_store
 from security_review_mcp.config import get_settings
 from security_review_mcp.reports import services
 from security_review_mcp.rules import rule_store, rules_loader

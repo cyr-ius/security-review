@@ -9,7 +9,7 @@ from fastapi import APIRouter, HTTPException, Path, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse, Response
 
-from .. import access_control
+from ..auth import access_control
 from ..reports import services, trends
 from ..reports.sarif import build_sarif
 from ..storage.database import session_scope

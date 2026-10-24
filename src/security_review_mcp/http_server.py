@@ -42,8 +42,8 @@ from starlette.applications import Starlette
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from .auth.rate_limit import RateLimitMiddleware
 from .config import Settings, get_settings, secret_value
-from .rate_limit import RateLimitMiddleware
 
 logger = logging.getLogger("security_review_mcp.http")
 

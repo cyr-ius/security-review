@@ -12,17 +12,8 @@ import argparse
 import logging
 import sys
 
-from . import (
-    app_settings,
-    audit_syslog,
-    cli,
-    http_server,
-    oidc,
-    ticketing,
-    token_store,
-    web_api,
-    web_users,
-)
+from . import app_settings, audit_syslog, cli, http_server, ticketing, web_api
+from .auth import oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
 from .deps import advisory_sync
 from .rules import registry

@@ -11,7 +11,7 @@ from fastapi import APIRouter, HTTPException, Response, status
 from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 
-from .. import access_control, token_store
+from ..auth import access_control, token_store
 from ..reports import services
 from .auth_routes import LOGIN_HEADERS
 from .deps import (

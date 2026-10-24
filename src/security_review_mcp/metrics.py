@@ -12,7 +12,8 @@ from datetime import timedelta
 
 from sqlmodel import func, select
 
-from . import __version__, access_control, http_server, token_store
+from . import __version__, http_server
+from .auth import access_control, token_store
 from .deps import advisories
 from .reports import services
 from .storage.database import session_scope

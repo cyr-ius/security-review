@@ -6,7 +6,8 @@ import pytest
 from conftest import ADMIN_GRANTS, TRIAGER_GRANTS, group_for, make_user
 from sqlmodel import Session, select
 
-from security_review_mcp import access_control, cli, oidc, web_users
+from security_review_mcp import cli
+from security_review_mcp.auth import access_control, oidc, web_users
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import Role
 from security_review_mcp.reports.services import NotFoundError

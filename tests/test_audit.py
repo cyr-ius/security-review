@@ -7,8 +7,9 @@ from pathlib import Path
 import pytest
 from sqlmodel import Session, select
 
-from security_review_mcp import audit, cli, token_store
+from security_review_mcp import audit, cli
 from security_review_mcp.audit import AuditAction
+from security_review_mcp.auth import token_store
 from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role
 from security_review_mcp.reports import services

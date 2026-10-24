@@ -13,18 +13,8 @@ from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, ToolAnnotations
 from pydantic import Field
 
-from . import (
-    __version__,
-    access_control,
-    app_settings,
-    audit,
-    cli,
-    enrollment_api,
-    http_server,
-    prompts,
-    standards,
-    token_store,
-)
+from . import __version__, app_settings, audit, cli, http_server, prompts, standards
+from .auth import access_control, enrollment_api, token_store
 from .config import check_report_language, configure_logging, get_settings
 from .deps import advisories, depscan
 from .reports import sarif, services, trends

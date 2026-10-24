@@ -13,17 +13,9 @@ from conftest import group_for, make_user
 from cryptography.hazmat.primitives.asymmetric import rsa
 from starlette.testclient import TestClient
 
-from security_review_mcp import (
-    access_control,
-    audit,
-    http_server,
-    oidc,
-    server,
-    token_store,
-    web_api,
-    web_users,
-)
-from security_review_mcp.access_control import Permission
+from security_review_mcp import audit, http_server, server, web_api
+from security_review_mcp.auth import access_control, oidc, token_store, web_users
+from security_review_mcp.auth.access_control import Permission
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import Role
 from security_review_mcp.reports import services

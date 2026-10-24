@@ -4,8 +4,9 @@ import pytest
 from conftest import group_for, make_user
 from sqlmodel import select
 
-from security_review_mcp import access_control, audit, web_users
-from security_review_mcp.access_control import Permission
+from security_review_mcp import audit
+from security_review_mcp.auth import access_control, web_users
+from security_review_mcp.auth.access_control import Permission
 from security_review_mcp.http_server import Role
 from security_review_mcp.reports.services import NotFoundError
 from security_review_mcp.storage.database import session_scope
@@ -475,7 +476,7 @@ def test_a_created_project_is_read_by_its_creator_only():
 
 def test_creating_a_project_never_opens_an_existing_one():
     """projects.create would otherwise let its holder read the reports of any project."""
-    from security_review_mcp import token_store
+    from security_review_mcp.auth import token_store
     from security_review_mcp.reports import services
 
     carol = creator()
@@ -515,7 +516,7 @@ def test_project_creation_checks_the_name_and_the_user():
 def test_deleting_a_project_removes_everything_that_refers_to_it():
     from sqlmodel import select
 
-    from security_review_mcp import token_store
+    from security_review_mcp.auth import token_store
     from security_review_mcp.reports import services
     from security_review_mcp.storage.models import (
         FindingComment,

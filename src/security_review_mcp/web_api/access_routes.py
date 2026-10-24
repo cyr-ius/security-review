@@ -8,7 +8,8 @@ from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi import Path as APIPath
 from fastapi.concurrency import run_in_threadpool
 
-from .. import access_control, app_settings, oidc, web_users
+from .. import app_settings
+from ..auth import access_control, oidc, web_users
 from .auth_routes import LOGIN_HEADERS, OidcLogins, current_oidc
 from .deps import UsersManager, actor_of, unprocessable
 from .schemas import (
