@@ -23,9 +23,9 @@ from urllib.parse import urlsplit
 
 from . import __version__
 from .config import Settings
+from .deps.versions import compare_versions
 from .oidc import _HttpsRedirectOnly
 from .proxy import masked_url, proxy_handler
-from .versions import compare_versions
 
 logger = logging.getLogger("security_review_mcp.update_check")
 

@@ -16,11 +16,9 @@ from pydantic import Field
 from . import (
     __version__,
     access_control,
-    advisories,
     app_settings,
     audit,
     cli,
-    depscan,
     enrollment_api,
     http_server,
     prompts,
@@ -28,6 +26,7 @@ from . import (
     token_store,
 )
 from .config import check_report_language, configure_logging, get_settings
+from .deps import advisories, depscan
 from .reports import sarif, services, trends
 from .rules import registry, scanner
 from .storage.database import SchemaError, check_db, init_db

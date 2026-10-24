@@ -10,8 +10,9 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from test_advisories import osv
 
-from security_review_mcp import advisories, advisory_sync, app_settings, cli
+from security_review_mcp import app_settings, cli
 from security_review_mcp.config import Settings
+from security_review_mcp.deps import advisories, advisory_sync
 from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import AdvisoryUpdate
 

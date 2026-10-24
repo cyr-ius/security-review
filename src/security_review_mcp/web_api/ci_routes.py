@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse, PlainTextResponse, Response
 
-from .. import depscan
+from ..deps import depscan
 from ..reports import services, trends
 from ..rules import codescan
 from ..storage.models import Severity

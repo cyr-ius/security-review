@@ -20,8 +20,6 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from . import (
     access_control,
-    advisories,
-    advisory_sync,
     audit,
     ci_client,
     enrollment,
@@ -31,6 +29,7 @@ from . import (
     web_users,
 )
 from .config import get_settings
+from .deps import advisories, advisory_sync
 from .reports import services
 from .reports.services import NotFoundError
 from .rules import registry, rule_store, rules_loader

@@ -13,7 +13,6 @@ import logging
 import sys
 
 from . import (
-    advisory_sync,
     app_settings,
     audit_syslog,
     cli,
@@ -25,6 +24,7 @@ from . import (
     web_users,
 )
 from .config import Settings, configure_logging, get_settings
+from .deps import advisory_sync
 from .rules import registry
 from .storage import retention
 from .storage.database import SchemaError, init_db

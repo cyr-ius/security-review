@@ -17,7 +17,6 @@ from starlette.testclient import TestClient
 from security_review_mcp import (
     __version__,
     access_control,
-    advisory_sync,
     app_settings,
     audit,
     enrollment_api,
@@ -31,6 +30,7 @@ from security_review_mcp import (
     web_users,
 )
 from security_review_mcp.config import get_settings
+from security_review_mcp.deps import advisory_sync
 from security_review_mcp.http_server import Role
 from security_review_mcp.reports import services
 from security_review_mcp.rules import registry, rule_store

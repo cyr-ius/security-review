@@ -8,11 +8,11 @@ Used by the ``scan_dependencies`` MCP tool and by the controller for the files s
 from collections.abc import Sequence
 from pathlib import PurePosixPath
 
+from ..config import get_settings
+from ..reports import services
+from ..storage.models import SEVERITY_RANK, FindingCreate, ReviewType, Severity
 from .advisories import Query, advisory_status, find_vulnerabilities, severity_or_default
-from .config import get_settings
 from .dependencies import Parsed, parse_dependency_file
-from .reports import services
-from .storage.models import SEVERITY_RANK, FindingCreate, ReviewType, Severity
 
 MAX_COMPONENTS_LISTED = 200
 VULNERABLE_COMPONENT_CWE = "CWE-1395"  # Dependency on Vulnerable Third-Party Component

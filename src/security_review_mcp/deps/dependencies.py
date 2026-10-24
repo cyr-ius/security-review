@@ -24,7 +24,7 @@ from functools import partial
 from pathlib import PurePosixPath
 from urllib.parse import unquote
 
-from .storage.models import Severity
+from ..storage.models import Severity
 
 SUPPORTED_FILES = (
     "requirements*.txt",

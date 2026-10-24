@@ -26,11 +26,12 @@ from urllib.parse import quote, urlsplit
 
 from sqlmodel import col, select
 
-from . import __version__, advisories, app_settings
-from .config import Settings, get_settings
-from .proxy import check_proxy_url, proxy_handler
-from .storage.database import session_scope
-from .storage.models import AdvisoryUpdate, utcnow
+from .. import __version__, app_settings
+from ..config import Settings, get_settings
+from ..proxy import check_proxy_url, proxy_handler
+from ..storage.database import session_scope
+from ..storage.models import AdvisoryUpdate, utcnow
+from . import advisories
 
 logger = logging.getLogger("security_review_mcp.advisory_sync")
 
