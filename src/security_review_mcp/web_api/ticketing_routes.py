@@ -42,7 +42,9 @@ router = APIRouter(tags=["ticketing"])
 ProjectPath = Annotated[ProjectName, Path()]
 KindPath = Annotated[str, Path(pattern=r"^[a-z][a-z0-9_]{1,19}$")]
 # Refused before any request: the configuration, not the remote system, is at fault
-_CONFLICT_CODES = frozenset({"disabled", "not_configured", "no_target", "in_progress"})
+_CONFLICT_CODES = frozenset(
+    {"disabled", "not_configured", "no_target", "in_progress", "superseded"}
+)
 
 
 def _connector(kind: str) -> TicketConnector:

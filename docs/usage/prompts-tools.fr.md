@@ -118,6 +118,10 @@ refuser le rapport.
 Le **niveau de risque** du rapport est calculé (sévérité maximale des findings). Le paramètre
 `risk_level` peut seulement le relever, jamais le baisser.
 
+Un finding déjà signalé par un rapport précédent du projet le remplace et garde la décision
+prise sur lui : le résultat donne `recurring_findings` et `carried_decisions` (voir
+[finding signalé de nouveau](web-interface.md#finding-signale-de-nouveau)).
+
 ### Nom du projet
 
 Rapports, jetons, rôles et gates sont regroupés par nom de projet. Le serveur **normalise**

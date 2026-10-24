@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal
 
-from sqlmodel import col, select
+from sqlmodel import col, func, select
 
 from ..storage.database import session_scope
 from ..storage.models import SEVERITY_RANK, Finding, FindingStatus, SecurityReport, Severity
@@ -35,7 +35,7 @@ class TrendFinding:
     severity: Severity
     status: FindingStatus
     cwe: str | None
-    created_at: datetime  # creation date of its report
+    created_at: datetime  # first seen: its first occurrence, else the date of its report
     status_changed_at: datetime | None
     status_expires_at: datetime | None = None  # end of an acceptance or a false positive
 
@@ -255,10 +255,6 @@ def _notes(reports_total: int, undated_closed: int) -> list[str]:
             f"{undated_closed} closed finding(s) predate status dating: they are treated as "
             "closed from their creation and are excluded from MTTR."
         )
-    notes.append(
-        "Backlog counts findings of every stored report: a finding re-reported in a later "
-        "report counts again until one of them is closed."
-    )
     return notes
 
 
@@ -276,12 +272,12 @@ def get_trend(
                 Finding.severity,
                 Finding.status,
                 Finding.cwe,
-                SecurityReport.created_at,
+                func.coalesce(Finding.first_seen_at, SecurityReport.created_at),
                 Finding.status_changed_at,
                 Finding.status_expires_at,
             )
             .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
-            .where(SecurityReport.project == project)
+            .where(SecurityReport.project == project, col(Finding.superseded_by).is_(None))
         ).all()
         report_rows = session.exec(
             select(SecurityReport.created_at, SecurityReport.risk_level).where(

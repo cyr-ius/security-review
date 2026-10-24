@@ -117,6 +117,10 @@ report.
 The **risk level** of the report is computed (highest severity of the findings). The
 `risk_level` parameter can only raise it, never lower it.
 
+A finding already raised by a previous report of the project replaces it and keeps the
+decision taken on it: the result gives `recurring_findings` and `carried_decisions` (see
+[finding reported again](web-interface.md#finding-reported-again)).
+
 ### Project name
 
 Reports, tokens, roles and gates are grouped by project name. The server **normalizes** every

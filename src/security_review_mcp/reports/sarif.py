@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from .. import __version__
-from ..storage.models import FindingPublic, FindingStatus, Severity
+from ..storage.models import FindingBase, FindingPublic, FindingStatus, Severity
 
 SARIF_SCHEMA = "https://json.schemastore.org/sarif-2.1.0.json"
 SARIF_VERSION = "2.1.0"
@@ -46,18 +46,23 @@ class SarifItem:
     created_at: datetime
 
 
-def rule_key(finding: FindingPublic) -> str:
+def rule_key(finding: FindingBase) -> str:
     """Return the SARIF rule id of a finding: its rule id, else its CWE, else its category."""
     return finding.rule_id or finding.cwe or f"secreview/{finding.category}"
 
 
-def fingerprint(item: SarifItem) -> str:
-    """Return a stable id for deduplication; it ignores line numbers so edits don't reset it."""
-    finding = item.finding
+def issue_fingerprint(project: str, finding: FindingBase) -> str:
+    """Return a stable id of an issue in a project; it ignores line numbers so edits don't
+    reset it. It links the occurrences of one issue across reports (services.save_report)."""
     raw = "|".join(
-        [item.project, rule_key(finding), finding.file_path or "", finding.title.strip().lower()]
+        [project, rule_key(finding), finding.file_path or "", finding.title.strip().lower()]
     )
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:32]
+
+
+def fingerprint(item: SarifItem) -> str:
+    """Return a stable id for deduplication (see ``issue_fingerprint``)."""
+    return issue_fingerprint(item.project, item.finding)
 
 
 def dedupe_latest(items: list[SarifItem]) -> list[SarifItem]:

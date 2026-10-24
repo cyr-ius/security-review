@@ -561,6 +561,10 @@ export interface Finding {
   severity_reason: string | null;
   severity_changed_by: string | null;
   severity_changed_at: string | null;
+  /** Later occurrence of the same issue that replaces this one (null: current). */
+  superseded_by: number | null;
+  /** Date of the first occurrence of the issue (reset when it comes back after a fix). */
+  first_seen_at: string | null;
   rule_id: string | null;
   category: string;
   cwe: string | null;

@@ -65,7 +65,7 @@ class TicketingError(Exception):
     ``code`` is returned to the user, the message shown to whoever may send findings: it must
     not hold a secret. Codes raised by a connector: ``auth`` (credentials refused), ``refused``
     (request refused), ``unreachable``, ``invalid`` (unexpected answer). The controller also uses
-    ``disabled``, ``not_configured``, ``no_target`` and ``in_progress``.
+    ``disabled``, ``not_configured``, ``no_target``, ``in_progress`` and ``superseded``.
     """
 
     def __init__(self, code: str, message: str) -> None:

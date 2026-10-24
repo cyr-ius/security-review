@@ -213,6 +213,57 @@ def test_list_project_findings_across_reports(monkeypatch, triage):
     assert len(services.list_project_findings("shop", limit=50)["findings"]) == 1
 
 
+def test_a_finding_reported_again_replaces_its_previous_occurrence(triage):
+    first = services.save_report(
+        "shop", "first", [make_finding(), make_finding(Severity.LOW, title="Weak hash")]
+    )
+    injection, weak = services.get_report(first["report_id"]).findings
+    triage(injection.id, FindingStatus.ACCEPTED)
+    services.add_finding_comment(injection.id, "bob", "Checked with the team")
+    triage(weak.id, FindingStatus.FIXED)
+
+    # Same issues, moved lines: the acceptance is carried, the fixed one is open again
+    second = services.save_report(
+        "shop",
+        "second",
+        [make_finding(line_start=40, line_end=41), make_finding(Severity.LOW, title="Weak hash")],
+    )
+    assert (second["recurring_findings"], second["carried_decisions"]) == (2, 1)
+    carried, back = services.get_report(second["report_id"]).findings
+    assert (carried.status, carried.status_approver) == (FindingStatus.ACCEPTED, "alice")
+    assert (
+        carried.status_expires_at
+        == services.get_report(first["report_id"]).findings[0].status_expires_at
+    )
+    assert [c.body for c in services.list_finding_comments(carried.id)][
+        -1
+    ] == "Checked with the team"
+    assert back.status == FindingStatus.OPEN
+
+    old = services.get_report(first["report_id"]).findings
+    assert [f.superseded_by for f in old] == [carried.id, back.id]
+    assert services.project_posture("shop")["open_findings_total"] == 1
+    assert services.evaluate_gate("shop", Severity.HIGH)["passed"]
+    assert services.list_project_findings("shop")["total"] == 1
+    with pytest.raises(ValueError, match=f"act on finding {carried.id}"):
+        triage(old[0].id, FindingStatus.OPEN)
+
+    # A third occurrence: every older one points to the latest
+    third = services.save_report("shop", "third", [make_finding()])
+    latest = services.get_report(third["report_id"]).findings[0]
+    assert latest.status == FindingStatus.ACCEPTED
+    assert latest.first_seen_at == carried.first_seen_at == old[0].first_seen_at
+    assert services.get_report(first["report_id"]).findings[0].superseded_by == latest.id
+
+    # A second occurrence appears: only the one on the same line keeps the acceptance
+    fourth = services.save_report(
+        "shop", "fourth", [make_finding(line_start=5, line_end=6), make_finding()]
+    )
+    assert (fourth["recurring_findings"], fourth["carried_decisions"]) == (1, 1)
+    statuses = {f.line_start: f.status for f in services.get_report(fourth["report_id"]).findings}
+    assert statuses == {5: FindingStatus.OPEN, 10: FindingStatus.ACCEPTED}
+
+
 def test_review_type_is_stored_listed_and_filtered():
     api = services.save_report(
         "shop",
@@ -221,9 +272,12 @@ def test_review_type_is_stored_listed_and_filtered():
         review_type=ReviewType.API_SECURITY_REVIEW,
     )
     services.save_report(
-        "shop", "Codebase review", [make_finding(Severity.LOW)], review_type="codebase-review"
+        "shop",
+        "Codebase review",
+        [make_finding(Severity.LOW, title="Weak hash")],
+        review_type="codebase-review",
     )
-    services.save_report("shop", "Untyped review", [make_finding(Severity.MEDIUM)])
+    services.save_report("shop", "Untyped review", [make_finding(Severity.MEDIUM, title="XSS")])
     assert api["review_type"] == "api-security-review"
     assert services.get_report(api["report_id"]).review_type == ReviewType.API_SECURITY_REVIEW
 

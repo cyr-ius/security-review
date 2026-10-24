@@ -138,4 +138,6 @@ A finding stops blocking when a person moves it to `fixed`, `accepted` or `false
 the [web interface](web-interface.md#triage-of-findings): the decision stays recorded in
 the database with its reason and its approver. An agent can only propose a status
 (`propose_finding_status`), which does not unblock the gate. An acceptance or a false positive
-expires: from its expiry date, the finding blocks again.
+expires: from its expiry date, the finding blocks again. A decision is carried to the same
+issue raised by a later report ([finding reported again](web-interface.md#finding-reported-again)):
+the next scan does not block on an accepted risk.

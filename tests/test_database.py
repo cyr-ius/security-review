@@ -759,3 +759,45 @@ def test_the_reasons_of_existing_acceptances_become_their_first_comment(empty_en
         (1, "alice", "Internal tool only"),
         (2, "bob", "Already discussed"),
     ]
+
+
+def test_stored_findings_get_their_occurrences(empty_engine):
+    from alembic import command
+    from sqlalchemy import text
+
+    from security_review_mcp.reports import services
+
+    with empty_engine.begin() as connection:
+        command.upgrade(database.alembic_config(connection), "0030")
+        for report_id, day in ((1, "01"), (2, "02"), (3, "03")):
+            connection.execute(
+                text(
+                    "INSERT INTO securityreport (id, project, summary, risk_level, created_at, "
+                    "checklist_results, scan_rules) VALUES (:id, 'shop', 'summary', 'HIGH', "
+                    ":at, '[]', '[]')"
+                ),
+                {"id": report_id, "at": f"2026-10-{day} 10:00:00"},
+            )
+        # SQL injection: fixed in report 1, back in reports 2 and 3; XSS only in report 1
+        for finding_id, report_id, title, status in (
+            (1, 1, "SQL injection", "FIXED"),
+            (2, 1, "XSS", "OPEN"),
+            (3, 2, "SQL injection", "OPEN"),
+            (4, 3, "SQL Injection ", "ACCEPTED"),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO finding (id, report_id, title, severity, category, cwe, "
+                    "file_path, description, status) VALUES (:id, :report, :title, 'HIGH', "
+                    "'code', 'CWE-89', 'app/db.py', 'Concatenated query', :status)"
+                ),
+                {"id": finding_id, "report": report_id, "title": title, "status": status},
+            )
+        command.upgrade(database.alembic_config(connection), "head")
+
+    findings = {f.id: f for r in (1, 2, 3) for f in services.get_report(r).findings}
+    assert {i: f.superseded_by for i, f in findings.items()} == {1: 4, 2: None, 3: 4, 4: None}
+    # The issue came back after its fix: first seen again in report 2
+    assert findings[4].first_seen_at.day == 2
+    assert [findings[i].status for i in (1, 3)] == ["fixed", "open"]  # statuses unchanged
+    assert services.project_posture("shop")["open_findings_total"] == 1

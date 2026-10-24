@@ -183,6 +183,12 @@ class Finding(FindingBase, table=True):
     severity_reason: str | None = Field(default=None, max_length=MAX_STATUS_REASON_CHARS)
     severity_changed_by: str | None = Field(default=None, max_length=200)
     severity_changed_at: datetime | None = Field(default=None)
+    # The same issue reported again by a later report of the project (see
+    # services.save_report): ``fingerprint`` links its occurrences, ``superseded_by`` points
+    # to the occurrence that replaces this one, ``first_seen_at`` dates the first occurrence
+    fingerprint: str | None = Field(default=None, index=True, max_length=64)
+    superseded_by: int | None = Field(default=None, index=True)
+    first_seen_at: datetime | None = Field(default=None)
     report: SecurityReport = Relationship(back_populates="findings")
     comments: list[FindingComment] = Relationship(
         back_populates="finding",
@@ -289,6 +295,8 @@ class FindingPublic(FindingBase):
     severity_reason: str | None = None
     severity_changed_by: str | None = None
     severity_changed_at: datetime | None = None
+    superseded_by: int | None = None
+    first_seen_at: datetime | None = None
     tickets: list[FindingTicketPublic] = []
 
     @model_validator(mode="after")

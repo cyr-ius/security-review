@@ -162,7 +162,10 @@
 - **Les agents ne ferment jamais un finding** : le serveur MCP n'offre que
   `propose_finding_status`, qui enregistre une proposition (motif masqué et borné, auteur tiré du
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt
-  ne peut pas neutraliser un finding. Pages servies avec une CSP
+  ne peut pas neutraliser un finding. Une décision reprise sur le même problème signalé par un
+  rapport ultérieur (mêmes projet, règle, fichier et titre : [finding signalé de
+  nouveau](../usage/web-interface.md#finding-signale-de-nouveau)) garde son approbateur et sa
+  date d'expiration : un nouveau rapport ne la prolonge jamais. Pages servies avec une CSP
   stricte et les en-têtes anti-clickjacking, et chaque réponse du contrôleur (API, refus
   compris) porte `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
   `X-Frame-Options: DENY`, une CSP fermée quand la route n'en définit pas et, en HTTPS (TLS du

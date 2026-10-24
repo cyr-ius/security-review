@@ -78,6 +78,7 @@ suivantes.
   **Acceptations de risque** liste les risques acceptés du projet ; **Actualiser** recharge la
   tendance et les findings ouverts.
 - **Findings à revoir** : tous les findings ouverts du projet, sur l'ensemble de ses rapports,
+  chaque problème une seule fois ([signalé de nouveau](#finding-signale-de-nouveau)),
   du plus grave au moins grave puis du rapport le plus récent au plus ancien, pour une revue par
   un expert en cybersécurité. Chaque finding affiche sa description, son extrait de code et sa
   recommandation, et un lien vers son rapport (date, type de revue, branche, commit). Filtres
@@ -274,6 +275,34 @@ jamais, une acceptation non plus, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLE
 `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` et `expires_on` sont facultatifs pour
 `accepted` (`{"status": "accepted"}` suffit) ; `GET /api/v1/me` renvoie ce seuil dans
 `risk_acceptance_min_severity` (`null` : toute acceptation les exige).
+
+### Finding signalé de nouveau
+
+Un rapport ultérieur du projet qui signale de nouveau le même problème n'ajoute pas un second
+finding à revoir : le serveur le reconnaît à son empreinte (projet, règle ou CWE, fichier et
+titre, sans le numéro de ligne, comme en [SARIF](../advanced/sarif.md)) et la nouvelle
+occurrence remplace la précédente.
+
+- Une **acceptation** ou un **faux positif** encore valide est repris sur la nouvelle
+  occurrence, avec son motif, son approbateur et sa date d'expiration ; de même pour une
+  proposition d'agent en attente de l'un d'eux, une criticité relevée par un analyste et les
+  commentaires. La gate ne bloque pas de nouveau.
+- Un finding **corrigé** qui revient est de nouveau **ouvert**.
+- Quand une règle trouve plusieurs lignes d'un fichier, les occurrences sont appariées dans
+  l'ordre des lignes si leur nombre n'a pas changé (le code a bougé), sinon seulement sur la
+  même ligne : une nouvelle occurrence n'hérite jamais de la décision prise sur une autre, elle
+  est ouverte.
+- L'occurrence précédente reste dans son rapport, marquée **Signalé de nouveau : voir le
+  finding #N** ; elle ne peut plus être triée (`422` par l'API) ni envoyée vers un outil de
+  tickets (`409`).
+- **Findings à revoir**, la posture, la [gate](gate.md) du projet, le SARIF, les compteurs et
+  la tendance ne comptent que la dernière occurrence ; la tendance et le délai de correction
+  partent de la première occurrence du problème (`first_seen_at`).
+- Un finding qu'un rapport ultérieur ne signale plus n'est pas fermé : la revue d'un diff ne
+  voit pas tout le code.
+
+`save_security_report` et les scans du pipeline renvoient `recurring_findings` (findings déjà
+signalés par un rapport précédent) et `carried_decisions` (décisions reprises sur eux).
 
 ### Criticité d'un finding
 

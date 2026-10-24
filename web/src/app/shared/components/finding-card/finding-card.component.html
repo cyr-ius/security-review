@@ -2,7 +2,7 @@
   <div class="card-header d-flex flex-wrap align-items-center gap-2">
     <app-severity-badge [severity]="finding().severity" />
     <h3 class="h6 mb-0 me-auto">{{ finding().title }}</h3>
-    @if (canTriage()) {
+    @if (triageable()) {
       <button
         type="button"
         class="btn btn-sm btn-outline-danger"
@@ -50,6 +50,12 @@
         <span>OWASP {{ finding().owasp }}</span>
       }
       <span>{{ finding().category }}</span>
+      @if (finding().superseded_by; as current) {
+        <span class="text-info-emphasis">
+          <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+          {{ 'report.supersededBy' | t: { id: current } }}
+        </span>
+      }
       @if (expired()) {
         <span class="text-warning-emphasis">
           <i class="bi bi-hourglass-bottom" aria-hidden="true"></i>
@@ -234,7 +240,7 @@
         @if (finding().proposed_reason) {
           <div class="prewrap mt-1">{{ finding().proposed_reason }}</div>
         }
-        @if (canTriage()) {
+        @if (triageable()) {
           <div class="d-flex gap-2 mt-2">
             <button
               type="button"

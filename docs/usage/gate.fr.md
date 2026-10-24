@@ -140,4 +140,7 @@ Un finding sort du blocage quand une personne le passe à `fixed`, `accepted` ou
 `false_positive` dans l'[interface web](web-interface.md#triage-des-findings) : la
 décision reste tracée en base avec son motif et son approbateur. Un agent peut seulement
 proposer un statut (`propose_finding_status`), ce qui ne débloque pas la gate. Une acceptation
-ou un faux positif expire : à partir de sa date d'expiration, le finding bloque de nouveau.
+ou un faux positif expire : à partir de sa date d'expiration, le finding bloque de nouveau. Une
+décision est reprise sur le même problème signalé par un rapport ultérieur
+([finding signalé de nouveau](web-interface.md#finding-signale-de-nouveau)) : le scan suivant
+ne bloque pas sur un risque accepté.

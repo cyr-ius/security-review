@@ -137,8 +137,9 @@ def test_a_finding_becomes_a_jira_issue_reused_by_its_next_occurrence(remote, ji
     second = save_finding()
     again = send_finding(second, jira, "user:ann", make_settings())
     assert again.external_key == "SEC-7" and len(opener.requests) == 1
-    resent = send_finding(first, jira, "user:ann", make_settings())
-    assert resent.external_key == "SEC-7" and len(opener.requests) == 1
+    with pytest.raises(TicketingError) as raised:  # replaced by the later occurrence
+        send_finding(first, jira, "user:ann", make_settings())
+    assert raised.value.code == "superseded" and len(opener.requests) == 1
     assert [t.external_key for t in services.get_report(1).findings[0].tickets] == ["SEC-7"]
     events = audit.list_events(action="finding.ticket_created")["events"]
     assert [(e["actor"], e["details"]["reused"]) for e in events] == [

@@ -101,8 +101,14 @@ export class FindingCardComponent {
     return this.ticketSystemNames().get(kind) ?? kind;
   }
 
-  /** Systems offered: those without a ticket for this finding yet. */
+  /** Triage offered: a finding reported again is triaged on its latest occurrence. */
+  readonly triageable = computed(() => this.canTriage() && this.finding().superseded_by === null);
+
+  /** Systems offered: those without a ticket for this finding yet (none once reported again). */
   readonly sendableKinds = computed(() => {
+    if (this.finding().superseded_by !== null) {
+      return [];
+    }
     const sent = new Set(
       this.finding()
         .tickets.filter((t) => t.state === 'sent')

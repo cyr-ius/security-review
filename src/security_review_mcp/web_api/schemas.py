@@ -436,6 +436,10 @@ class SavedReport(BaseModel):
     risk_level: Severity
     findings_count: int
     findings_by_severity: dict[str, int]
+    # Findings that a previous report of the project already raised, and the decisions of a
+    # person (acceptance, false positive) carried to them
+    recurring_findings: int = 0
+    carried_decisions: int = 0
 
 
 class CodeMatch(BaseModel):

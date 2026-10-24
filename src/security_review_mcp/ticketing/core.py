@@ -475,12 +475,18 @@ def send_finding(
     Raises:
         NotFoundError: If the finding does not exist.
         TicketingError: If ticketing is disabled or not configured, the project has no
-            destination, the ticket is being created, or the system refused it.
+            destination, the finding was reported again (its latest occurrence is sent), the
+            ticket is being created, or the system refused it.
     """
     kind = connector.kind
     connection = _connection(settings, connector)
     with session_scope() as session:
         item = _item(session, finding_id)
+        if item.finding.superseded_by is not None:
+            raise TicketingError(
+                "superseded",
+                f"the finding was reported again: send finding {item.finding.superseded_by}",
+            )
         destination = _destination(session, item.project, kind)
     content = build_content(item, settings)
     try:
@@ -539,6 +545,7 @@ def pending_findings(kind: str, now: datetime | None = None, limit: int = BATCH_
                     col(SecurityReport.created_at) >= (target.auto_since or now),
                     col(Finding.severity).in_(severities),
                     _status_is(FindingStatus.OPEN, now),
+                    col(Finding.superseded_by).is_(None),
                     (col(FindingTicket.id).is_(None))
                     | (
                         (col(FindingTicket.state) == TicketState.FAILED)

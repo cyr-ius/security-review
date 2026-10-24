@@ -74,7 +74,8 @@ shown), and the browser remembers the chosen sort for the next visits.
   (severity, rule, location, report) and SARIF export; **All reports** lists its reports.
   The **Review open findings** button opens the next screen; **Risk acceptances** lists the
   accepted risks of the project; **Refresh** reloads the trend and the open findings.
-- **Findings to review**: every open finding of the project across all its reports, worst
+- **Findings to review**: every open finding of the project across all its reports, each issue
+  once ([reported again](#finding-reported-again)), worst
   severity first, then newest report first, for a review by a security expert. Each finding
   shows its description, code excerpt and recommendation, and a link to its report (date, review
   type, branch, commit). Filters by status (to re-check accepted risks or false positives), by
@@ -257,6 +258,31 @@ does an acceptance, unless
 `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` and `expires_on` are optional for
 `accepted` (`{"status": "accepted"}` is enough); `GET /api/v1/me` returns this threshold as
 `risk_acceptance_min_severity` (`null`: every acceptance needs them).
+
+### Finding reported again
+
+A later report of the project that raises the same issue again does not add a second
+finding to review: the server recognizes it by its fingerprint (project, rule or CWE, file and
+title, without the line number, as in [SARIF](../advanced/sarif.md)) and the new occurrence
+replaces the previous one.
+
+- An **acceptance** or a **false positive** still valid is carried to the new occurrence, with
+  its reason, approver and expiry date; so is a pending agent proposal of one of them, a
+  severity raised by an analyst and the comments. The gate does not block again.
+- A **fixed** finding that comes back is **open** again.
+- When a rule matches several lines of a file, the occurrences are paired in line order if
+  their number is unchanged (the code moved), else only on the same line: a new occurrence
+  never inherits the decision taken on another one, it is open.
+- The previous occurrence stays in its report, marked **Reported again: see finding #N**; it
+  can no longer be triaged (`422` through the API) nor sent to a ticketing system (`409`).
+- **Findings to review**, the posture, the project [gate](gate.md), SARIF, the counters and
+  the trend count the latest occurrence only; the trend and the time to remediate start at
+  the first occurrence of the issue (`first_seen_at`).
+- A finding that a later report no longer raises is not closed: a review of a diff does not
+  see the whole code.
+
+`save_security_report` and the pipeline scans return `recurring_findings` (findings already
+raised by a previous report) and `carried_decisions` (decisions carried to them).
 
 ### Severity of a finding
 
