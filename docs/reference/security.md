@@ -289,9 +289,11 @@
 - The [coverage of a review](../usage/prompts-tools.md#review-coverage) (checklist results,
   rules of the scan leads) is declared by the agent: the server only keeps the ids it knows and
   marks the skipped items `not_covered`, it cannot check that the agent really read the code.
-- The `author` of a report (developer username) is declared by the client: anyone holding a
-  token of the project can name someone else. Only `submitted_by`, the label of the token that
-  saved the report, is set by the server (see
+- The `author` of a report (developer username) is the user of the personal token that saved
+  it, set by the server whatever the client passes. With a token without a user (enrolled
+  device, token created by an administrator), it is declared by the client: anyone holding such
+  a token of the project can name someone else. `submitted_by`, the label of the token that
+  saved the report, is always set by the server (see
   [author of a report](../usage/prompts-tools.md#author-of-a-report)). An `author` is often an
   email address, that is personal data, kept as long as the report: in the web interface and
   the REST API, only a holder of `users.manage` or `tokens.manage` sees it (nor can the others

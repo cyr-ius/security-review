@@ -28,7 +28,6 @@ fi
 
 sha=$(git rev-parse HEAD)
 branch=$(git rev-parse --abbrev-ref HEAD)
-author=$(git config user.email || git config user.name || true)
 log_dir=$(git rev-parse --git-path agent-review)
 mkdir -p "$log_dir"
 log="$log_dir/${sha:0:12}.log"
@@ -49,8 +48,8 @@ prompt="Security review of commit $sha (branch $branch), made by the developer.
 Follow the \"Revue de sécurité\" section of AGENTS.md with the security-review MCP server:
 use get_review_checklist for the technologies of the changed files and scan_code on their
 content, confirm each lead by reading the code, then call save_security_report exactly once
-with project \"security-review-mcp\", branch \"$branch\", commit_sha \"$sha\",
-author \"$author\" and reviewer \"Claude Code (post-commit hook)\".
+with project \"security-review-mcp\", branch \"$branch\", commit_sha \"$sha\" and
+reviewer \"Claude Code (post-commit hook)\" (the server takes the author from the token).
 
 You run unattended in the background: do not edit any file, do not fix anything and do not
 propose finding statuses. The developer reads the report in the web interface. The commit

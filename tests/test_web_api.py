@@ -3119,10 +3119,16 @@ def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports, ro
     )
     assert created.status_code == 201, created.text
     token = _bearer(created.json()["token"])
-    saved = secured.post("/api/v1/ci/scan/code", json=code_scan_body(save=True), headers=token)
+    body = code_scan_body(save=True, author="mallory")
+    saved = secured.post("/api/v1/ci/scan/code", json=body, headers=token)
     assert saved.status_code == 200, saved.text
     report = services.get_report(saved.json()["saved_report"]["report_id"])
-    assert (report.project, report.submitted_by) == ("shop-api", "alice:laptop")
+    # Its user is the author, whatever the client declares
+    assert (report.project, report.submitted_by, report.author) == (
+        "shop-api",
+        "alice:laptop",
+        "alice",
+    )
     # Only the projects its user may read, and only the pipeline routes
     other = secured.post("/api/v1/ci/scan/code", json=code_scan_body("billing"), headers=token)
     assert other.status_code == 404

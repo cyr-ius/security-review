@@ -59,7 +59,8 @@ Le client choisit les fichiers ; le contrôleur ne lit jamais son propre disque.
 - `--save` enregistre les correspondances comme un rapport `code-scan` (au plus
   `SECREVIEW_MAX_FINDINGS_PER_REPORT` findings, les plus sévères d'abord), avec la liste des
   fichiers non analysés dans `scope` et le libellé du jeton comme appareil qui l'a enregistré ;
-  `--author` ajoute le nom d'utilisateur du développeur (voir
+  l'utilisateur d'un jeton `ci` personnel en est l'auteur, sinon `--author` ajoute le nom
+  d'utilisateur du développeur (voir
   [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)), `--repository`,
   `--branch` et `--commit` le contexte.
 - Avec `--save --format sarif`, le journal SARIF porte les identifiants des findings

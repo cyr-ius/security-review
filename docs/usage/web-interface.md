@@ -91,7 +91,7 @@ shown), and the browser remembers the chosen sort for the next visits.
   forms to add a comment, change the expiry date and remove the acceptance (see [risk acceptances](#risk-acceptances)).
 - **Reports**: list filtered by project and risk level, searchable across report metadata and
   summary, and sortable by date, project, risk, type, branch, token or summary. The **Token**
-  column shows the label of the token that sent the report; hovering it shows the declared
+  column shows the label of the token that sent the report; hovering it shows the
   author to a holder of `users.manage` or `tokens.manage`. Search and
   filters stay in the URL, so a view can be shared; the sort is remembered by the browser.
 - **Report**: summary, context (repository, branch, commit, review type, **Author** (for a

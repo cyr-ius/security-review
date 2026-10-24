@@ -49,10 +49,9 @@ start a structured review, and `codebase-review` to review a whole repository (n
 - Use `get_review_checklist` and `scan_code` while reviewing. When their results give a report \
 language, write your reply and the free-text fields of the report in that language.
 - At the end of a review, call `save_security_report` once to store the report in the \
-database, with `author` set to the developer's username when you can find it (`git config \
-user.email`, else `git config user.name` or the login name): a token identifies a device, not \
-a person. Use `list_security_reports`, `get_security_report` and \
-`get_project_security_posture` to read stored results.
+database: the server records the user of the token as its author. Use \
+`list_security_reports`, `get_security_report` and `get_project_security_posture` to read \
+stored results.
 - You never change the status of a finding: `propose_finding_status` only records a proposal \
 (fixed, accepted, false_positive) with its reason, which a person approves or rejects in the \
 web interface. The gate keeps blocking until then.
@@ -535,9 +534,9 @@ def save_security_report(
         str | None,
         Field(
             max_length=MAX_AUTHOR_CHARS,
-            description="Username of the developer whose work was reviewed: the output of "
-            "`git config user.email` (else `git config user.name` or the login name); omit it "
-            "when unknown, never guess",
+            description="Not needed: the server records the user of a personal token as the "
+            "author, whatever is passed here. Only kept for a token without a user (enrolled "
+            "device), when the developer's username is known; never guess it",
         ),
     ] = None,
     checklist_results: Annotated[
@@ -562,8 +561,8 @@ def save_security_report(
 
     Call this once at the end of a review, with the free-text fields written in the report
     language given by the review prompt, scan_code or get_review_checklist, if any, the
-    review_type given by the review prompt and the developer's username as author. The
-    server also records the label of the token (device) that saved the report. Secrets in
+    review_type given by the review prompt. The server records the user of a personal token
+    as the author and the label of the token that saved the report. Secrets in
     free-text fields are masked before storage. Each text (summary, scope, and description,
     evidence and recommendation of a finding) is limited to SECREVIEW_MAX_CONTENT_CHARS.
     Returns the report id, the overall risk level, the finding counts and the review
@@ -588,7 +587,8 @@ def save_security_report(
         scope=scope,
         risk_level=risk_level,
         review_type=review_type,
-        author=author,
+        # The owner of a personal token is authenticated: it wins over a declared author
+        author=_auth_state(ctx).get("auth_owner") or author,
         submitted_by=_auth_state(ctx).get("auth_client"),
         # An empty list still checks the coverage: a review without it gets a warning
         checklist_results=checklist_results or [],

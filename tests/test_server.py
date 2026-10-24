@@ -142,12 +142,12 @@ async def test_review_prompts_give_their_review_type(prompt, review_type):
     assert ReviewType(review_type)
 
 
-async def test_review_prompts_ask_for_the_developer_username():
+async def test_review_prompts_leave_the_author_to_the_token():
     async with Client(mcp) as client:
         for prompt in ("security-review", "dependency-review", "codebase-review"):
-            result = await client.get_prompt(prompt, {})
-            assert "git config user.email" in result.messages[0].content.text, prompt
-            assert "`checklist_results`" in result.messages[0].content.text, prompt
+            text = (await client.get_prompt(prompt, {})).messages[0].content.text
+            assert "Do not pass `author`" in text and "git config" not in text, prompt
+            assert "`checklist_results`" in text, prompt
 
 
 @pytest.mark.parametrize(
@@ -618,6 +618,22 @@ def test_unrestricted_token_reaches_every_project(http_app, two_projects):
     billing = two_projects["billing"]
     assert client.call("get_security_report", {"report_id": billing["report_id"]})[0] is False
     assert client.call("reload_rules")[0] is False
+
+
+def test_a_personal_token_saves_its_user_as_the_author(http_app):
+    from conftest import make_user
+
+    user = make_user("alice", "Correct horse battery 9", "reader")
+    token = token_store.create_personal_token(user["id"], "agent", role="mcp")["token"]
+    client = McpOverHttp(http_app, token)
+
+    report = {"project": "shop-api", "summary": "Review", "findings": []}
+    for declared in ({}, {"author": "mallory"}):
+        is_error, text = client.call("save_security_report", {**report, **declared})
+        assert not is_error, text
+        # The authenticated owner wins over a declared author
+        saved = services.get_report(json.loads(text)["report_id"])
+        assert (saved.author, saved.submitted_by) == ("alice", "alice:agent")
 
 
 # ── Enrollment ───────────────────────────────────────────────────────────────

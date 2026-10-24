@@ -159,7 +159,8 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 
 - `--require-database` refuse le scan (code `2`, rien n'est enregistré) quand la vérification
   des vulnérabilités ne peut pas avoir lieu pour un fichier.
-- Avec `--save`, `--author` enregistre le nom d'utilisateur du développeur avec le rapport (voir
+- Avec `--save`, l'utilisateur d'un jeton `ci` personnel est l'auteur du rapport, sinon
+  `--author` enregistre le nom d'utilisateur du développeur avec lui (voir
   [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)), `--repository`,
   `--branch` et `--commit` le contexte ; le libellé du jeton est enregistré comme appareil.
 - Chaque fichier est limité au `SECREVIEW_MAX_DEPENDENCY_CHARS` du contrôleur, la requête à

@@ -396,7 +396,8 @@ class ScanRequest(BaseModel):
     repository: str | None = Field(default=None, max_length=500)
     branch: str | None = Field(default=None, max_length=200)
     commit_sha: str | None = Field(default=None, max_length=64)
-    # Username of the developer, declared by the client (not authenticated)
+    # Username of the developer, declared by the client (not authenticated); the user of a
+    # personal token is the author instead
     author: str | None = Field(default=None, max_length=MAX_AUTHOR_CHARS)
 
 

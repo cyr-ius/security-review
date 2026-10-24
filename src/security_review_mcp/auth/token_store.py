@@ -235,7 +235,7 @@ def _api_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | N
     or when the token grants nothing (fail closed)."""
     from . import access_control  # access_control depends on this module
 
-    must_change = False
+    must_change, owner = False, None
     if row.user_id is not None:
         user = session.get(WebUser, row.user_id)
         if user is None:
@@ -244,7 +244,7 @@ def _api_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | N
             grants = access_control.user_grants(session, row.user_id)
         except ValueError:
             return None
-        must_change = user.must_change_password
+        must_change, owner = user.must_change_password, user.username
     elif row.access_role_id is not None and info.projects != frozenset():
         grants = access_control.role_token_grants(session, row.access_role_id, info.projects)
     else:
@@ -257,6 +257,7 @@ def _api_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | N
         projects=access_control.scope(grants, access_control.Permission.REPORTS_READ),
         token_id=info.token_id,
         expired=info.expired,
+        owner=owner,
         grants=grants,
         must_change_password=must_change,
     )
@@ -297,6 +298,7 @@ def _personal_scoped_info(session: Session, row: ApiToken, info: TokenInfo) -> T
         token_id=info.token_id,
         expired=info.expired,
         pipeline=info.role == Role.MCP,
+        owner=user.username,
     )
 
 

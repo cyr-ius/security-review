@@ -551,7 +551,9 @@ def _add_report_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--branch", help="branch stored with the report")
     parser.add_argument("--commit", help="commit stored with the report")
     parser.add_argument(
-        "--author", help="username of the developer, stored with the report (with --save)"
+        "--author",
+        help="username of the developer, stored with the report (with --save); not needed "
+        "with a personal ci token, whose user is the author",
     )
     parser.add_argument(
         "--skip-unconfigured",

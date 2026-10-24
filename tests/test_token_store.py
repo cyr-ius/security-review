@@ -474,7 +474,9 @@ def test_a_personal_token_reaches_the_projects_its_user_may_read(role):
     assert (created["role"], created["personal"], created["projects"]) == (role, True, None)
 
     info = STORE.lookup(digest_of(created["token"]))
-    assert (info.role, info.projects) == (role, frozenset({"shop-api"}))
+    assert (info.role, info.projects, info.owner) == (role, frozenset({"shop-api"}), "alice")
+    # The owner names the author of a report, never a web session (user_id)
+    assert info.user_id is None
     listed = token_store.list_personal_tokens(user["id"])
     assert [item["projects"] for item in listed] == [["shop-api"]]
 

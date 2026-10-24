@@ -97,7 +97,7 @@ suivantes.
 - **Rapports** : liste filtrable par projet et niveau de risque, avec recherche dans les
   métadonnées et le résumé, tri par date, projet, risque, type, branche, jeton ou résumé. La
   colonne **Jeton** affiche le libellé du jeton qui a envoyé le rapport ; le survoler montre
-  l'auteur déclaré à qui détient `users.manage` ou `tokens.manage`. La
+  l'auteur à qui détient `users.manage` ou `tokens.manage`. La
   recherche et les filtres restent dans l'URL, pour partager la vue ; le tri est mémorisé par le
   navigateur.
 - **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** (pour qui

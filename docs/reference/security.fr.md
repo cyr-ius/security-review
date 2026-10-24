@@ -309,9 +309,12 @@
   checklist, règles des pistes du scan) est déclarée par l'agent : le serveur ne garde que les
   identifiants qu'il connaît et marque `not_covered` les points sautés, il ne peut pas vérifier
   que l'agent a réellement lu le code.
-- L'`author` d'un rapport (nom d'utilisateur du développeur) est déclaré par le client :
-  quiconque détient un jeton du projet peut nommer quelqu'un d'autre. Seul `submitted_by`, le
-  libellé du jeton qui a enregistré le rapport, est fixé par le serveur (voir
+- L'`author` d'un rapport (nom d'utilisateur du développeur) est l'utilisateur du jeton
+  personnel qui l'a enregistré, fixé par le serveur quelle que soit la valeur du client. Avec un
+  jeton sans utilisateur (équipement enrôlé, jeton créé par un administrateur), il est déclaré
+  par le client : quiconque détient un tel jeton du projet peut nommer quelqu'un d'autre.
+  `submitted_by`, le libellé du jeton qui a enregistré le rapport, est toujours fixé par le
+  serveur (voir
   [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)). Un `author` est souvent
   une adresse e-mail, donc une donnée personnelle, conservée aussi longtemps que le rapport :
   dans l'interface web et l'API REST, seul qui détient `users.manage` ou `tokens.manage` la voit

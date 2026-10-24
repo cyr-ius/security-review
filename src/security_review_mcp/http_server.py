@@ -126,9 +126,11 @@ class TokenInfo:
     ``projects`` lists the projects a restricted token reaches (None: every project).
     ``expired`` marks a token past its expiry date: it grants no access either.
     ``user_id`` and ``auth_source`` (``local`` or ``oidc``) are set for the session of a web
-    user (see web_users), None for a token. ``grants`` holds the permissions of a web user, each
-    with its projects (None: every project, see access_control); for a token they follow from
-    ``role`` and ``projects``, and ``role`` of a session only sums them up.
+    user (see web_users), None for a token. ``owner`` is the username of the web user who owns
+    a personal token, the author of the reports it saves (None otherwise). ``grants`` holds the
+    permissions of a web user, each with its projects (None: every project, see
+    access_control); for a token they follow from ``role`` and ``projects``, and ``role`` of a
+    session only sums them up.
     """
 
     label: str
@@ -138,6 +140,7 @@ class TokenInfo:
     expired: bool = False
     user_id: int | None = None
     auth_source: str | None = None
+    owner: str | None = None
     grants: Mapping[str, frozenset[str] | None] | None = field(
         default=None, compare=False, hash=False
     )
@@ -357,6 +360,7 @@ class BearerAuthMiddleware:
         state["auth_projects"] = info.projects
         state["auth_token_id"] = info.token_id
         state["auth_user_id"] = info.user_id
+        state["auth_owner"] = info.owner
         state["auth_source"] = info.auth_source
         state["auth_grants"] = info.grants
         state["auth_must_change_password"] = info.must_change_password

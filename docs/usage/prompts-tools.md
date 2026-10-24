@@ -103,7 +103,8 @@ See [enrollment](../advanced/http.md#enrollment-request-the-project).
   `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category`;
 - `repository`, `branch`, `commit_sha`, `reviewer`, `scope`;
 - `review_type`: the kind of review, given by each review prompt (see below);
-- `author`: the username of the developer (see [author of a report](#author-of-a-report));
+- `author`: not needed, the server takes the user of a personal token (see
+  [author of a report](#author-of-a-report));
 - `checklist_results` and `scan_rules`: the coverage of the review (see
   [review coverage](#review-coverage)).
 
@@ -159,19 +160,20 @@ nor changes a gate.
 
 ### Author of a report
 
-A token is configured on a device, which several developers may share (a pipeline token, a
-shared workstation): its label does not say who worked on the reviewed code. Each report therefore carries two fields:
+The author of a report is the user of the token that saved it: the agent and the CLI do not
+need to name it. Each report carries two fields:
 
 | Field | Filled by | Value |
 |---|---|---|
-| `author` | the client | Username of the developer: the review prompts ask the agent for the output of `git config user.email` (else `git config user.name` or the login name), and to omit it rather than guess. With the CLI scans: `--author`. |
+| `author` | the server | Username of the web user who owns the personal token (`mcp` or `ci`) that saved the report, whatever the client passes. Only for a token without a user (enrolled device, token created by an administrator) is it the value declared by the client (`author` of `save_security_report`, `--author` of the CLI scans), if any; the review prompts ask the agent not to pass it. |
 | `submitted_by` | the server | Label of the bearer token that saved the report (empty with stdio and the CLI). The client cannot change it. |
 
 `author` is at most 200 characters: letters, digits, spaces and `. @ _ + - ' ,` only (no
 Markdown nor HTML, as it is copied into the Markdown export); a blank value is not stored.
-It is **declared, not authenticated**: use it to see who to talk to and to filter the reports
-(`list_security_reports`, [web interface](web-interface.md)), never as a proof of identity;
-`submitted_by` says which token actually sent the report. In the web interface and the REST
+With a personal token, it is **authenticated**; declared by the client of a token without a
+user, it is not, and only says who to talk to. Use it to filter the reports
+(`list_security_reports`, [web interface](web-interface.md)); `submitted_by` says which token
+actually sent the report. In the web interface and the REST
 API, only a holder of `users.manage` or `tokens.manage` sees the `author`; the others see the
 token label.
 

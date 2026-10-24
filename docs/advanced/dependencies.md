@@ -156,7 +156,8 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 
 - `--require-database` refuses the scan (code `2`, nothing stored) when the vulnerability check
   cannot run for a file.
-- With `--save`, `--author` stores the username of the developer with the report (see
+- With `--save`, the user of a personal `ci` token is the author of the report, else
+  `--author` stores the username of the developer with it (see
   [author of a report](../usage/prompts-tools.md#author-of-a-report)), `--repository`,
   `--branch` and `--commit` the context; the label of the token is stored as the device.
 - Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the controller, the request

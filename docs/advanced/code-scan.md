@@ -55,8 +55,8 @@ The client chooses the files; the controller never reads its own disk.
   database and the `secreview:ignore` markers apply as for `scan_code`.
 - `--save` stores the matches as a `code-scan` report (at most
   `SECREVIEW_MAX_FINDINGS_PER_REPORT` findings, the most severe first), with the list of files
-  not analyzed in `scope` and the label of the token as the device that saved it; `--author`
-  adds the username of the developer (see
+  not analyzed in `scope` and the label of the token as the device that saved it; the user of a
+  personal `ci` token is the author, else `--author` adds the username of the developer (see
   [author of a report](../usage/prompts-tools.md#author-of-a-report)), `--repository`,
   `--branch` and `--commit` the context.
 - With `--save --format sarif`, the SARIF log carries the ids of the stored findings.

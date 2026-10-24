@@ -164,7 +164,8 @@ def save_report(
         scope: Description of what was reviewed.
         risk_level: Optional override; it can only raise the computed risk.
         review_type: Kind of review (the prompt used or the CLI scan).
-        author: Username of the developer, declared by the client (not authenticated).
+        author: Username of the developer: the user of a personal token, else declared by the
+            client (not authenticated).
         submitted_by: Label of the token that saved the report (set by the server).
         checklist_results: Checklist items walked through by the reviewer, with their
             outcome; None for a report without declared coverage (CLI scans).

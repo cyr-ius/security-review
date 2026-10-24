@@ -105,7 +105,8 @@ Voir [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
   `owasp`, `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category` ;
 - `repository`, `branch`, `commit_sha`, `reviewer`, `scope` ;
 - `review_type` : le type de revue, indiqué par chaque prompt de revue (voir ci-dessous) ;
-- `author` : le nom d'utilisateur du développeur (voir [auteur d'un rapport](#auteur-dun-rapport)) ;
+- `author` : inutile, le serveur prend l'utilisateur d'un jeton personnel (voir
+  [auteur d'un rapport](#auteur-dun-rapport)) ;
 - `checklist_results` et `scan_rules` : la couverture de la revue (voir
   [couverture de la revue](#couverture-de-la-revue)).
 
@@ -161,20 +162,20 @@ jamais de droit et ne change pas une gate.
 
 ### Auteur d'un rapport
 
-Un jeton est configuré sur un équipement, que plusieurs développeurs peuvent partager (jeton de
-pipeline, poste partagé) : son libellé ne dit pas qui a travaillé sur le code relu. Chaque rapport porte donc
-deux champs :
+L'auteur d'un rapport est l'utilisateur du jeton qui l'a enregistré : l'agent et la CLI n'ont
+pas à le préciser. Chaque rapport porte deux champs :
 
 | Champ | Rempli par | Valeur |
 |---|---|---|
-| `author` | le client | Nom d'utilisateur du développeur : les prompts de revue demandent à l'agent la sortie de `git config user.email` (sinon `git config user.name` ou le nom de connexion), et de l'omettre plutôt que de deviner. Avec les scans CLI : `--author`. |
+| `author` | le serveur | Nom de l'utilisateur web propriétaire du jeton personnel (`mcp` ou `ci`) qui a enregistré le rapport, quelle que soit la valeur passée par le client. Seulement pour un jeton sans utilisateur (équipement enrôlé, jeton créé par un administrateur), c'est la valeur déclarée par le client (`author` de `save_security_report`, `--author` des scans CLI), s'il y en a une ; les prompts de revue demandent à l'agent de ne pas la passer. |
 | `submitted_by` | le serveur | Libellé du jeton Bearer qui a enregistré le rapport (vide en stdio et avec la CLI). Le client ne peut pas le modifier. |
 
 `author` fait au plus 200 caractères : lettres, chiffres, espaces et `. @ _ + - ' ,` uniquement
 (ni Markdown ni HTML, car il est recopié dans l'export Markdown) ; une valeur vide n'est pas
-enregistrée. Il est **déclaré, non authentifié** : il sert à savoir à qui s'adresser et à filtrer
-les rapports (`list_security_reports`, [interface web](web-interface.md)), jamais de preuve
-d'identité ; `submitted_by` indique quel jeton a réellement envoyé le rapport. Dans l'interface
+enregistrée. Avec un jeton personnel, il est **authentifié** ; déclaré par le client d'un jeton sans
+utilisateur, il ne l'est pas et indique seulement à qui s'adresser. Il sert à filtrer les
+rapports (`list_security_reports`, [interface web](web-interface.md)) ; `submitted_by` indique
+quel jeton a réellement envoyé le rapport. Dans l'interface
 web et l'API REST, seul qui détient `users.manage` ou `tokens.manage` voit l'`author` ; les
 autres voient le libellé du jeton.
 
