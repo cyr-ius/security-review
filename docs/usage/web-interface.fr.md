@@ -237,7 +237,7 @@ son projet a une destination : voir [ticketing](../advanced/ticketing.md#envoi-d
   **Appliquer** enregistre `fixed` immédiatement, ou ouvre le formulaire ci-dessous pour
   `accepted` et `false_positive` ; **Rejeter** supprime la proposition. Aucun des deux ne change
   le statut à lui seul.
-- **Risque accepté** et **Faux positif** : la liste des statuts ouvre un formulaire qui demande
+- **Risque accepté** : la liste des statuts ouvre un formulaire qui demande
   un **Motif** (10 à 1000 caractères) et une **Date d'expiration** (90 jours par défaut, au plus
   `SECREVIEW_MAX_DISMISSAL_DAYS`). L'utilisateur connecté est enregistré comme approbateur ; la
   carte affiche l'approbateur, le motif et la fin de validité. À partir de la date d'expiration,
@@ -245,7 +245,10 @@ son projet a une destination : voir [ticketing](../advanced/ticketing.md#envoi-d
   [gate](gate.md), SARIF, tendance) et la carte indique que la décision a expiré. Pour
   **Risque accepté**, la case **Sans expiration** supprime la date : le risque reste accepté
   jusqu'à ce que quelqu'un rouvre le finding (désactivée par
-  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`). Un faux positif exige toujours une date.
+  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`).
+- **Faux positif** : le formulaire ne demande qu'un **Motif** (10 à 1000 caractères), sans date
+  d'expiration : un faux positif dit que le code n'est pas vulnérable, il reste jusqu'à ce que
+  quelqu'un rouvre le finding. L'utilisateur connecté est enregistré comme approbateur.
 - **Risque accepté** sous `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` par défaut, donc
   un finding `low` ou `info`) : une simple validation, enregistrée immédiatement sans motif ni
   date d'expiration. Variable vide : toute acceptation passe par le formulaire ci-dessus.
@@ -265,8 +268,8 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
 ```
 
 Un motif absent ou trop court, une date d'expiration passée ou trop lointaine, ou une date
-d'expiration pour `open` / `fixed` reçoit `422`. Sans `expires_on`, une acceptation n'expire
-jamais, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`) ; `GET /api/v1/me` renvoie
+d'expiration pour `open` / `fixed` reçoit `422`. Sans `expires_on`, un faux positif n'expire
+jamais, une acceptation non plus, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`) ; `GET /api/v1/me` renvoie
 `permanent_acceptance` pour indiquer si l'appelant peut le faire. Sous
 `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` et `expires_on` sont facultatifs pour
 `accepted` (`{"status": "accepted"}` suffit) ; `GET /api/v1/me` renvoie ce seuil dans

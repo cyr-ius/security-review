@@ -220,14 +220,17 @@ has a destination: see [ticketing](../advanced/ticketing.md#sending-a-finding).
   the token), its date and its reason. The reason may come from the reviewed code: check it.
   **Apply** saves `fixed` at once, or opens the form below for `accepted` and
   `false_positive`; **Reject** removes the proposal. Neither changes the status by itself.
-- **Risk accepted** and **False positive**: the status select opens a form that asks for a
+- **Risk accepted**: the status select opens a form that asks for a
   **Reason** (10 to 1000 characters) and an **Expiry date** (90 days by default, at most
   `SECREVIEW_MAX_DISMISSAL_DAYS`). The logged-in user is recorded as the approver; the card shows
   the approver, the reason and the end of validity. From the expiry date, the finding counts as
   open again (status filter, posture, [gate](gate.md), SARIF, trend) and the card says
   that the decision has expired. For **Risk accepted**, the **No expiry** box removes the date:
   the risk stays accepted until someone reopens the finding (disabled with
-  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`). A false positive always needs a date.
+  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`).
+- **False positive**: the form only asks for a **Reason** (10 to 1000 characters), with no
+  expiry date: a false positive says the code is not vulnerable, it stays until someone reopens
+  the finding. The logged-in user is recorded as the approver.
 - **Risk accepted** below `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` by default, so a
   `low` or `info` finding): a plain validation, saved at once with no reason and no expiry date.
   Empty variable: every acceptance goes through the form above.
@@ -247,7 +250,8 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
 ```
 
 A reason that is missing or too short, an expiry date in the past or too far away, or an expiry
-date for `open` / `fixed` gets `422`. Without `expires_on`, an acceptance never expires, unless
+date for `open` / `fixed` gets `422`. Without `expires_on`, a false positive never expires, nor
+does an acceptance, unless
 `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`); `GET /api/v1/me` returns
 `permanent_acceptance` to tell whether the caller may do it. Below
 `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` and `expires_on` are optional for

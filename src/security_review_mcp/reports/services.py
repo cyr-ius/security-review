@@ -436,9 +436,10 @@ def update_finding_status(
 ) -> FindingPublic:
     """Record a triage decision made by a person (web interface), never by an agent.
 
-    ``accepted`` and ``false_positive`` need a reason and an expiry date, in the future and at
-    most SECREVIEW_MAX_DISMISSAL_DAYS days away: once expired, the finding counts as open again.
-    An acceptance may have no expiry date while SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
+    ``accepted`` and ``false_positive`` need a reason; their expiry date, when given, is in the
+    future and at most SECREVIEW_MAX_DISMISSAL_DAYS days away: once expired, the finding counts
+    as open again. A false positive needs no expiry date; an acceptance needs one unless
+    SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
     A finding less severe than SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY is accepted by a plain
     validation: its reason and its expiry date are optional.
     The reason of an acceptance is also its first comment (see ``add_finding_comment``).
@@ -464,9 +465,12 @@ def update_finding_status(
                 finding.severity
             )
             reason = _check_reason(reason, required=not plain)
+            # A false positive states a fact about the code: it needs no expiry date
             if expires_at is None:
-                if not plain and (
-                    status != FindingStatus.ACCEPTED or not settings.permanent_acceptance_enabled
+                if (
+                    status == FindingStatus.ACCEPTED
+                    and not plain
+                    and not settings.permanent_acceptance_enabled
                 ):
                     raise ValueError(f"An expiry date is required for the status '{status.value}'")
             else:

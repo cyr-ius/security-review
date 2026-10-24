@@ -2013,7 +2013,7 @@ def test_web_user_accepts_a_risk_with_a_reason_and_an_expiry(accounts, reports):
     for body in (
         {"status": "accepted", "expires_on": in_30_days},  # no reason
         {"status": "accepted", "reason": "ok", "expires_on": in_30_days},  # reason too short
-        {"status": "false_positive", "reason": "Dead code, never called"},  # no expiry
+        {"status": "false_positive", "expires_on": in_30_days},  # no reason
         {"status": "accepted", "reason": "Internal tool only", "expires_on": "2020-01-01"},
         {
             "status": "accepted",
@@ -2054,9 +2054,10 @@ def test_web_user_accepts_a_risk_without_expiry_unless_disabled(accounts, report
     url = f"/api/v1/findings/{services.get_report(reports[0]).findings[0].id}"
     reason = "Internal tool only"
 
-    # A false positive always needs an expiry date
+    # A false positive never needs an expiry date
     body = {"status": "false_positive", "reason": reason, "expires_on": None}
-    assert accounts.patch(url, json=body, headers=headers).status_code == 422
+    saved = accounts.patch(url, json=body, headers=headers)
+    assert (saved.json()["status"], saved.json()["status_expires_at"]) == ("false_positive", None)
     saved = accounts.patch(url, json={"status": "accepted", "reason": reason}, headers=headers)
     assert saved.status_code == 200
     assert (saved.json()["status"], saved.json()["status_expires_at"]) == ("accepted", None)

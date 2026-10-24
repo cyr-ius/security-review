@@ -215,7 +215,7 @@ class Settings(BaseSettings):
     max_dismissal_days: int = Field(default=365, ge=1, le=MAX_RETENTION_DAYS)
     # Controller only: a person may accept a risk without an expiry date ("No expiry" in the web
     # interface); the acceptance then lasts until someone reopens the finding. False: every
-    # acceptance needs an expiry date. A false positive always needs one.
+    # acceptance needs an expiry date. A false positive never needs one.
     permanent_acceptance_enabled: bool = True
     # Controller only: lowest severity whose risk acceptance needs a reason and an expiry date
     # (see permanent_acceptance_enabled). A less severe finding is accepted by a plain

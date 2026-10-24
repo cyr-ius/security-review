@@ -49,9 +49,9 @@ function isoDay(days: number): string {
 
 /**
  * One finding: description, evidence and recommendation, with a status select for triagers.
- * Accepting a risk or marking a false positive asks for a reason and an expiry date (an
- * acceptance may have none when ``permanentAcceptance`` is set), except a risk less severe
- * than ``riskAcceptanceMinSeverity``, accepted at once like a fix; a status
+ * Accepting a risk asks for a reason and an expiry date (none when ``permanentAcceptance`` is
+ * set), except a risk less severe than ``riskAcceptanceMinSeverity``, accepted at once like a
+ * fix; marking a false positive asks for a reason only, with no expiry date. A status
  * proposed by an agent is shown apart, for the triager to apply or reject. A triager (a security
  * analyst) may also raise the severity, with a justification, never below the report's one.
  * Extra details (report link...) can be projected at the end of the metadata line.
@@ -180,8 +180,13 @@ export class FindingCardComponent {
     plainAcceptance(this.finding().severity, this.riskAcceptanceMinSeverity()),
   );
 
+  /** A false positive states a fact about the code: it is saved with no expiry date. */
+  readonly expiryAsked = computed(() => this.pendingStatus() !== 'false_positive');
+
   /** The decision being made has no expiry date. */
-  readonly withoutExpiry = computed(() => this.noExpiryOffered() && this.dismissalModel().noExpiry);
+  readonly withoutExpiry = computed(
+    () => !this.expiryAsked() || (this.noExpiryOffered() && this.dismissalModel().noExpiry),
+  );
 
   /** The acceptance or false positive has expired: the finding counts as open again. */
   readonly expired = computed(() => {
