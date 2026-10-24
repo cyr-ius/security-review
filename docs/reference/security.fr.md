@@ -319,4 +319,4 @@
   une adresse e-mail, donc une donnée personnelle, conservée aussi longtemps que le rapport :
   dans l'interface web et l'API REST, seul qui détient `users.manage` ou `tokens.manage` la voit
   (les autres ne peuvent pas non plus la retrouver par le filtre, la recherche ou le tri) ; les
-  outils MCP la renvoient toujours aux jetons qui atteignent le projet.
+  outils, ressources et prompts MCP ne la renvoient jamais et ne filtrent pas dessus.

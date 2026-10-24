@@ -162,26 +162,41 @@ async def test_whole_repository_prompts_send_the_files_with_the_pipeline_client(
     assert f"security-review-ci {command}" in text and "personal mcp or ci token" in text
 
 
-async def test_save_report_with_an_author_and_filter_the_list():
+async def test_the_author_of_a_report_is_stored_but_never_read_back():
     report = {"project": "authored", "summary": "Authored review", "findings": []}
     async with Client(mcp) as client:
         saved = await client.call_tool(
             "save_security_report", {**report, "author": "  alice@example.com "}
         )
         await client.call_tool("save_security_report", {**report, "author": "bob"})
+        report_id = json.loads(text_of(saved))["report_id"]
+        # The filter would tell whether alice wrote a report: it is ignored
         listed = await client.call_tool(
             "list_security_reports", {"project": "authored", "author": "alice@example.com"}
         )
+        as_json = await client.call_tool(
+            "get_security_report", {"report_id": report_id, "format": "json"}
+        )
+        as_markdown = await client.call_tool("get_security_report", {"report_id": report_id})
+        resource = await client.read_resource(f"report://{report_id}")
+        triage = await client.get_prompt("triage-report", {"report_id": str(report_id)})
         too_long = await client.call_tool("save_security_report", {**report, "author": "a" * 201})
         control = await client.call_tool(
             "save_security_report", {**report, "author": "alice\nINFO forged log line"}
         )
     assert json.loads(text_of(saved))["author"] == "alice@example.com"
+    assert services.get_report(report_id).author == "alice@example.com"
     rows = listed.structured_content["result"]
-    assert [(r["author"], r["submitted_by"]) for r in rows] == [("alice@example.com", None)]
+    assert [r["author"] for r in rows] == [None, None]
+    assert json.loads(text_of(as_json))["author"] is None
+    for text in (
+        text_of(as_markdown),
+        resource.contents[0].text,
+        triage.messages[0].content.text,
+    ):
+        assert "Authored review" in text and "alice" not in text
     assert too_long.is_error and control.is_error
     assert "may only contain" in text_of(control)
-    assert len(services.list_reports(project="authored")) == 2
 
 
 async def test_save_report_checks_and_stores_the_review_coverage():

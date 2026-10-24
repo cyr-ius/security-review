@@ -56,7 +56,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `scan_code` | Scan rapide par motifs et analyses Tree-sitter ciblées des flux requête vers SQL (Python, Java, Go, C#, Rust, Node.js), DOM Angular et origines de messages non vérifiées (pistes à vérifier, **pas** un SAST complet). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
-| `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue / auteur, avec pagination |
+| `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue, avec pagination |
 | `propose_finding_status` | **Propose** `fixed`, `accepted` ou `false_positive` avec un motif ; ne change jamais le statut ([statut d'un finding](#statut-dun-finding)) |
 | `get_project_security_posture` | Findings ouverts par sévérité (utile comme garde-fou CI) |
 | `check_project_gate` | Gate CI : `passed` est faux tant qu'un finding **ouvert** atteint le seuil `fail_on` |
@@ -174,10 +174,12 @@ pas à le préciser. Chaque rapport porte deux champs :
 (ni Markdown ni HTML, car il est recopié dans l'export Markdown) ; une valeur vide n'est pas
 enregistrée. Avec un jeton personnel, il est **authentifié** ; déclaré par le client d'un jeton sans
 utilisateur, il ne l'est pas et indique seulement à qui s'adresser. Il sert à filtrer les
-rapports (`list_security_reports`, [interface web](web-interface.md)) ; `submitted_by` indique
-quel jeton a réellement envoyé le rapport. Dans l'interface
-web et l'API REST, seul qui détient `users.manage` ou `tokens.manage` voit l'`author` ; les
-autres voient le libellé du jeton.
+rapports dans l'[interface web](web-interface.md) ; `submitted_by` indique quel jeton a
+réellement envoyé le rapport. Seul qui détient `users.manage` ou `tokens.manage` voit
+l'`author`, dans l'interface web et l'API REST ; les autres voient le libellé du jeton. Une fois
+enregistré, les outils, ressources et prompts MCP ne le renvoient jamais (`author` vaut `null`
+dans `list_security_reports` et `get_security_report`, et n'apparaît pas dans le Markdown), et
+l'argument `author` de `list_security_reports` est ignoré.
 
 ### Couverture de la revue
 

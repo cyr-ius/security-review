@@ -36,6 +36,7 @@ from .storage.models import (
     FindingCreate,
     FindingStatus,
     ReviewType,
+    SecurityReportPublic,
     Severity,
 )
 from .storage.project_names import ProjectName
@@ -314,11 +315,20 @@ def triage_report(
     """
     language = _report_language(report_language)
     try:
-        services.check_report_scope(_caller_projects(ctx), report_id)
-        report = services.get_report(report_id)
+        report = _visible_report(ctx, report_id)
     except services.NotFoundError as exc:
         raise MCPError(code=INVALID_PARAMS, message=str(exc)) from exc
     return prompts.build_triage_prompt(services.render_report_markdown(report), context, language)
+
+
+def _visible_report(ctx: Context, report_id: int) -> SecurityReportPublic:
+    """A report of the caller's scope, without its author.
+
+    The author is often an e-mail address: as in the REST API, only a manager of the users or
+    tokens sees it, in the web interface, and an MCP token is never one.
+    """
+    services.check_report_scope(_caller_projects(ctx), report_id)
+    return services.get_report(report_id).model_copy(update={"author": None})
 
 
 def _split_list(value: str) -> list[str]:
@@ -603,9 +613,9 @@ def get_security_report(
     report_id: int,
     format: Literal["json", "markdown"] = "markdown",
 ) -> dict | str:
-    """Return a stored report with its findings, as Markdown (default) or JSON."""
-    services.check_report_scope(_caller_projects(ctx), report_id)
-    report = services.get_report(report_id)
+    """Return a stored report with its findings, as Markdown (default) or JSON, without the
+    author of the report."""
+    report = _visible_report(ctx, report_id)
     if format == "markdown":
         return services.render_report_markdown(report)
     return report.model_dump(mode="json")
@@ -626,17 +636,19 @@ def list_security_reports(
         str | None,
         Field(
             max_length=MAX_AUTHOR_CHARS,
-            description="Keep only the reports of this developer username",
+            description="Deprecated and ignored: the author of a report is not shown here",
         ),
     ] = None,
 ) -> list[dict]:
-    """List stored reports, newest first, optionally filtered by project, risk, review type or
-    author."""
+    """List stored reports, newest first, optionally filtered by project, risk or review type.
+
+    The author of a report is neither returned nor used to filter (see _visible_report).
+    """
     allowed = _caller_projects(ctx)
     if allowed is not None and project:
         services.check_project_scope(allowed, project)
     return services.list_reports(
-        project, risk_level, limit, offset, allowed, review_type, author or None
+        project, risk_level, limit, offset, allowed, review_type, with_author=False
     )
 
 
@@ -797,8 +809,7 @@ def report_resource(report_id: str, ctx: Context) -> str:
     """Expose a stored report as a Markdown resource."""
     if not report_id.isdigit():
         raise ValueError("report_id must be a number")
-    services.check_report_scope(_caller_projects(ctx), int(report_id))
-    return services.render_report_markdown(services.get_report(int(report_id)))
+    return services.render_report_markdown(_visible_report(ctx, int(report_id)))
 
 
 @mcp.resource(

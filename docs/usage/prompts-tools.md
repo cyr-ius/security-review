@@ -55,7 +55,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `scan_code` | Quick pattern scan plus focused Tree-sitter checks for request-to-SQL flows (Python, Java, Go, C#, Rust, Node.js), Angular DOM flows, and unchecked message origins (leads to check, **not** a full SAST). Masked excerpts, invisible characters shown as `<U+XXXX>` |
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
-| `list_security_reports` | List filtered by project / risk level / review type / author, with pagination |
+| `list_security_reports` | List filtered by project / risk level / review type, with pagination |
 | `propose_finding_status` | **Proposes** `fixed`, `accepted` or `false_positive` with a reason; never changes the status ([status of a finding](#status-of-a-finding)) |
 | `get_project_security_posture` | Open findings by severity (useful as a CI safeguard) |
 | `check_project_gate` | CI gate: `passed` is false while an **open** finding reaches the `fail_on` threshold |
@@ -172,11 +172,12 @@ need to name it. Each report carries two fields:
 `author` is at most 200 characters: letters, digits, spaces and `. @ _ + - ' ,` only (no
 Markdown nor HTML, as it is copied into the Markdown export); a blank value is not stored.
 With a personal token, it is **authenticated**; declared by the client of a token without a
-user, it is not, and only says who to talk to. Use it to filter the reports
-(`list_security_reports`, [web interface](web-interface.md)); `submitted_by` says which token
-actually sent the report. In the web interface and the REST
-API, only a holder of `users.manage` or `tokens.manage` sees the `author`; the others see the
-token label.
+user, it is not, and only says who to talk to. Use it to filter the reports in the
+[web interface](web-interface.md); `submitted_by` says which token actually sent the report.
+Only a holder of `users.manage` or `tokens.manage` sees the `author`, in the web interface and
+the REST API; the others see the token label. Once stored, the MCP tools, resources and prompts
+never return it (`author` is `null` in `list_security_reports` and `get_security_report`, and
+absent from the Markdown), and the `author` argument of `list_security_reports` is ignored.
 
 ### Review coverage
 
