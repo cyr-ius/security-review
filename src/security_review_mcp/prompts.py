@@ -273,7 +273,7 @@ def build_dependency_review_prompt(
     ecosystem: str, files: str, context: str, report_language: str = ""
 ) -> str:
     """Build the dependency / supply-chain review prompt."""
-    scope = ecosystem.strip() or "PyPI, npm and Maven"
+    scope = ecosystem.strip() or "PyPI, npm, Maven, Go, crates.io and NuGet"
     sections = [
         f"You are a senior application security engineer reviewing the **dependencies** ({scope}) "
         "of a project: known vulnerabilities and supply-chain hygiene.",

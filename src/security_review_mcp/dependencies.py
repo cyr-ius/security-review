@@ -3,6 +3,9 @@
 Supported files: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock, uv.lock (PyPI);
 package.json, package-lock.json, npm-shrinkwrap.json, yarn.lock (npm);
 pom.xml, build.gradle, build.gradle.kts (Maven);
+go.mod (Go); Cargo.lock, Cargo.toml (crates.io);
+packages.lock.json, *.csproj / *.fsproj / *.vbproj, Directory.Packages.props,
+Directory.Build.props, packages.config, nuget.config (NuGet);
 CycloneDX SBOMs in JSON or XML (bom.json, bom.xml, *.cdx.json...), any of these ecosystems.
 
 Lockfiles and SBOMs list the exact resolved versions, including transitive dependencies: they
@@ -17,6 +20,7 @@ import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from functools import partial
 from pathlib import PurePosixPath
 from urllib.parse import unquote
 
@@ -35,6 +39,17 @@ SUPPORTED_FILES = (
     "pom.xml",
     "build.gradle",
     "build.gradle.kts",
+    "go.mod",
+    "Cargo.lock",
+    "Cargo.toml",
+    "packages.lock.json",
+    "*.csproj",
+    "*.fsproj",
+    "*.vbproj",
+    "Directory.Packages.props",
+    "Directory.Build.props",
+    "packages.config",
+    "nuget.config",
     "bom.json",
     "bom.xml",
     "*.cdx.json",
@@ -147,7 +162,8 @@ class _Builder:
             self.parsed.notes.append(
                 f"{unresolved} dependency version(s) are ranges or managed elsewhere and cannot be "
                 "checked against advisories: scan the lockfile (package-lock.json, poetry.lock, "
-                "Pipfile.lock, uv.lock, yarn.lock) or a CycloneDX SBOM (bom.json) instead."
+                "Pipfile.lock, uv.lock, yarn.lock, Cargo.lock, packages.lock.json) or a "
+                "CycloneDX SBOM (bom.json) instead."
             )
         return self.parsed
 
@@ -266,7 +282,7 @@ def _load_toml(content: str) -> dict:
 def _load_json(content: str) -> dict:
     """Parse a JSON object or raise a clear ValueError."""
     try:
-        data = json.loads(content)
+        data = json.loads(content.removeprefix("\ufeff"))  # BOM of files written on Windows
     except ValueError as exc:
         raise ValueError(f"Invalid JSON: {exc}") from exc
     except RecursionError as exc:
@@ -680,10 +696,264 @@ def parse_gradle(content: str) -> Parsed:
     return builder.finish()
 
 
+# ── Go ───────────────────────────────────────────────────────────────────────
+
+_GO_REQUIRE_RE = re.compile(r'^"?([^\s"]+)"?\s+"?(v[^\s"]+)"?$')
+_GO_REPLACE_RE = re.compile(
+    r'^"?([^\s"]+)"?(?:\s+"?(v[^\s"]+)"?)?\s*=>\s*"?([^\s"]+)"?(?:\s+"?(v[^\s"]+)"?)?$'
+)
+_GO_LOCAL_PATH = re.compile(r"^(\.{1,2}/|/|[A-Za-z]:[\\/])")
+
+
+def _go_directives(content: str) -> Iterator[tuple[int, str, str]]:
+    """Yield ``(line, verb, arguments)`` for each directive of a go.mod, blocks expanded."""
+    block: str | None = None
+    for number, raw in enumerate(content.splitlines(), start=1):
+        line = raw.split("//", 1)[0].strip()
+        if not line:
+            continue
+        if block is not None:
+            if line == ")":
+                block = None
+            else:
+                yield number, block, line
+            continue
+        verb, _, rest = line.partition(" ")
+        rest = rest.strip()
+        if rest == "(":
+            block = verb
+        elif rest:
+            yield number, verb, rest
+
+
+def parse_go_mod(content: str) -> Parsed:
+    """Parse a go.mod file.
+
+    Since Go 1.17, go.mod lists every module needed to build the main module (``// indirect``
+    included) at its selected version: it is matched like a lockfile. ``replace`` directives
+    are applied; the standard library (``go`` and ``toolchain`` directives) is not checked.
+    """
+    builder = _Builder("go.mod", "Go", True)
+    requires: list[tuple[int, str, str]] = []
+    replaces: dict[tuple[str, str | None], tuple[str, str | None]] = {}
+    for number, verb, args in _go_directives(content):
+        if verb == "require" and (found := _GO_REQUIRE_RE.match(args)):
+            requires.append((number, found.group(1), found.group(2)))
+        elif verb == "replace" and (found := _GO_REPLACE_RE.match(args)):
+            old, old_version, new, new_version = found.groups()
+            replaces[(old, old_version)] = (new, new_version)
+    for number, name, version in requires:
+        target = replaces.get((name, version)) or replaces.get((name, None))
+        if target is None:
+            builder.component(name, version, line=number)
+            continue
+        new, new_version = target
+        if new_version is None or _GO_LOCAL_PATH.match(new):
+            builder.component(name, None, spec=f"=> {new[:80]}", line=number)
+            builder.issue(
+                "DEP-007", f"{name} is replaced by the local path {new[:80]}", number, name
+            )
+            continue
+        builder.component(new, new_version, spec=f"replaces {name}", line=number)
+        if new != name:
+            builder.issue("DEP-003", f"{name} is replaced by {new} {new_version}", number, name)
+    return builder.finish()
+
+
+# ── Rust (Cargo) ─────────────────────────────────────────────────────────────
+
+_CRATES_IO_SOURCES = (
+    "registry+https://github.com/rust-lang/crates.io-index",
+    "sparse+https://index.crates.io/",
+)
+_CARGO_SECTIONS = (
+    ("dependencies", False),
+    ("dev-dependencies", True),
+    ("build-dependencies", False),
+)
+_CARGO_EXACT = re.compile(r"=\s*(\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.+-]+)?)")
+
+
+def parse_cargo_lock(content: str) -> Parsed:
+    """Parse a Cargo.lock file (every crate of the build, transitive included)."""
+    data = _load_toml(content)
+    builder = _Builder("Cargo.lock", "crates.io", True)
+    for package in data.get("package") or []:
+        name, version = package.get("name"), package.get("version")
+        source = str(package.get("source") or "")
+        if not isinstance(name, str) or not isinstance(version, str) or not source:
+            continue  # no source: a member of the workspace, the project itself
+        builder.component(name, version)
+        if source.startswith("git+"):
+            builder.issue("DEP-003", f"{name} comes from {source[:80]}", None, name)
+        elif not source.startswith(_CRATES_IO_SOURCES):
+            builder.issue("DEP-005", f"{name} comes from {source[:80]}", None, name)
+        if _is_insecure_url(source.split("+", 1)[-1]):
+            builder.issue("DEP-004", f"{name} is downloaded over HTTP", None, name)
+    return builder.finish()
+
+
+def _add_cargo_dependency(builder: _Builder, name: str, spec: object, dev: bool) -> None:
+    """Classify a dependency of a Cargo.toml (a version string or a table)."""
+    table = spec if isinstance(spec, dict) else {"version": spec}
+    if table.get("workspace") is True:
+        builder.component(name, None, spec="workspace", dev=dev)
+        builder.issue("DEP-009", f"{name} (workspace)", None, name)
+        return
+    if "git" in table:
+        url = str(table["git"])
+        builder.component(name, None, spec=url[:80], dev=dev)
+        builder.issue("DEP-003", f"{name}: {url[:80]}", None, name)
+        if _is_insecure_url(url):
+            builder.issue("DEP-004", f"{name} is downloaded over HTTP", None, name)
+        return
+    if "path" in table and "version" not in table:
+        builder.component(name, None, spec=str(table["path"])[:80], dev=dev)
+        builder.issue("DEP-007", f"{name}: path {str(table['path'])[:80]}", None, name)
+        return
+    text = str(table.get("version", "")).strip()
+    exact = _CARGO_EXACT.fullmatch(text)
+    builder.component(name, exact.group(1) if exact else None, spec=text, dev=dev)
+    if text in ("", "*"):
+        builder.issue("DEP-002", f'{name}: "{text or "*"}"', None, name)
+    elif re.fullmatch(r">=?\s*[\d.]+", text):
+        builder.issue("DEP-001", f"{name}: {text} has no upper bound", None, name)
+    if "registry" in table:
+        builder.issue(
+            "DEP-005", f"{name} comes from the registry {str(table['registry'])[:40]}", None, name
+        )
+    # "1.2" is a caret range, the normal practice when Cargo.lock is committed
+
+
+def parse_cargo_toml(content: str) -> Parsed:
+    """Parse a Cargo.toml file (versions are ranges: Cargo.lock holds the resolved ones)."""
+    data = _load_toml(content)
+    builder = _Builder("Cargo.toml", "crates.io", False)
+    tables = [data, data.get("workspace") or {}]
+    tables += [t for t in (data.get("target") or {}).values() if isinstance(t, dict)]
+    for table in tables:
+        for section, dev in _CARGO_SECTIONS:
+            for name, spec in (table.get(section) or {}).items():
+                _add_cargo_dependency(builder, name, spec, dev)
+    for registry, patches in (data.get("patch") or {}).items():
+        for name, spec in (patches or {}).items():
+            where = str(spec.get("git") or spec.get("path") if isinstance(spec, dict) else spec)
+            builder.issue(
+                "DEP-003", f"{name} is patched ({registry[:40]}) with {where[:80]}", None, name
+            )
+    return builder.finish()
+
+
+# ── NuGet (.NET) ─────────────────────────────────────────────────────────────
+
+_NUGET_EXACT = re.compile(r"\[?\s*(\d+(?:\.\d+){1,3}(?:-[0-9A-Za-z.-]+)?)\s*\]?")
+_MSBUILD_PROPERTY = re.compile(r"\$\(")
+
+
+def parse_packages_lock(content: str) -> Parsed:
+    """Parse a NuGet packages.lock.json (every package of each target framework)."""
+    data = _load_json(content)
+    builder = _Builder("packages.lock.json", "NuGet", True)
+    seen: set[tuple[str, str]] = set()
+    for framework in (data.get("dependencies") or {}).values():
+        for name, meta in (framework or {}).items():
+            if not isinstance(meta, dict) or meta.get("type") == "Project":
+                continue  # a project of the solution, not a package
+            version = meta.get("resolved")
+            if not isinstance(version, str):
+                continue
+            if (name.lower(), version) not in seen:
+                seen.add((name.lower(), version))
+                builder.component(name, version)
+    return builder.finish()
+
+
+def _add_nuget_reference(builder: _Builder, name: str, version: str, dev: bool) -> None:
+    """Classify a NuGet version: ``1.2.3`` is the version restored (lowest applicable)."""
+    text = version.strip()
+    if not text:
+        builder.component(name, None, dev=dev)
+        builder.issue("DEP-009", name, None, name)
+        return
+    if _MSBUILD_PROPERTY.search(text):
+        builder.component(name, None, spec=text, dev=dev)
+        builder.issue("DEP-009", f"{name} ({text})", None, name)
+        return
+    exact = _NUGET_EXACT.fullmatch(text)
+    builder.component(name, exact.group(1) if exact else None, spec=text, dev=dev)
+    if "*" in text:
+        builder.issue("DEP-002", f'{name}: "{text}" is a floating version', None, name)
+    elif re.fullmatch(r"\[\s*[\d.]+\s*,\s*\)", text):
+        builder.issue("DEP-001", f"{name}: {text} has no upper bound", None, name)
+
+
+def parse_msbuild_project(content: str, file_type: str) -> Parsed:
+    """Parse the NuGet references of an MSBuild file (*.csproj, Directory.Packages.props...)."""
+    root = _load_xml(content, file_type)
+    builder = _Builder(file_type, "NuGet", False)
+    for element in root.iter():
+        tag = _local(element.tag)
+        if tag not in ("PackageReference", "PackageVersion", "GlobalPackageReference"):
+            continue
+        name = element.get("Include") or element.get("Update")
+        if not name:
+            continue
+        version = (
+            element.get("VersionOverride") or element.get("Version") or _text(element, "Version")
+        )
+        assets = (element.get("PrivateAssets") or _text(element, "PrivateAssets")).lower()
+        _add_nuget_reference(builder, name, version, dev=assets == "all")
+    return builder.finish()
+
+
+def parse_packages_config(content: str) -> Parsed:
+    """Parse a legacy NuGet packages.config (exact versions of every package)."""
+    root = _load_xml(content, "packages.config")
+    builder = _Builder("packages.config", "NuGet", True)
+    for element in root.iter():
+        if _local(element.tag) == "package" and (name := element.get("id")):
+            dev = (element.get("developmentDependency") or "").lower() == "true"
+            _add_nuget_reference(builder, name, element.get("version") or "", dev)
+    return builder.finish()
+
+
+def parse_nuget_config(content: str) -> Parsed:
+    """Check the package sources of a nuget.config (no component)."""
+    root = _load_xml(content, "nuget.config")
+    builder = _Builder("nuget.config", "NuGet", False)
+    sources = [
+        (element.get("key") or "", element.get("value") or "")
+        for block in root.iter()
+        if _local(block.tag) == "packageSources"
+        for element in block
+        if _local(element.tag) == "add"
+    ]
+    for key, url in sources:
+        if _is_insecure_url(url):
+            builder.issue("DEP-004", f"source {key} uses HTTP: {url[:80]}", None, key)
+    mapped = any(_local(e.tag) == "packageSourceMapping" for e in root.iter())
+    if len(sources) > 1 and not mapped:
+        names = ", ".join(key for key, _ in sources)
+        builder.issue(
+            "DEP-005",
+            f"{len(sources)} package sources ({names}) without packageSourceMapping",
+            None,
+            "packageSources",
+        )
+    return builder.finish()
+
+
 # ── CycloneDX SBOM ───────────────────────────────────────────────────────────
 
-# Package URL type -> advisory ecosystem; the other types (golang, nuget...) are not checked
-_PURL_ECOSYSTEMS = {"pypi": "PyPI", "npm": "npm", "maven": "Maven"}
+# Package URL type -> advisory ecosystem; the other types (gem, composer...) are not checked
+_PURL_ECOSYSTEMS = {
+    "pypi": "PyPI",
+    "npm": "npm",
+    "maven": "Maven",
+    "golang": "Go",
+    "cargo": "crates.io",
+    "nuget": "NuGet",
+}
 _CYCLONEDX_XML_NS = "http://cyclonedx.org/schema/bom/"  # secreview:ignore GEN-004 XML namespace
 
 
@@ -711,7 +981,7 @@ def _parse_purl(purl: str) -> tuple[str, str, str | None] | None:
         if len(segments) < 2:
             return None
         return kind, f"{'.'.join(segments[:-1])}:{segments[-1]}", version
-    if kind == "npm":
+    if kind in ("npm", "golang"):  # the namespace is part of the name (@scope, github.com/x)
         return kind, "/".join(segments), version
     return kind, segments[-1], version
 
@@ -775,7 +1045,7 @@ def _parse_sbom(entries: Iterator[tuple[object, object, object]], file_type: str
     builder.parsed.ecosystem = ", ".join(ecosystems) or "none"
     notes = builder.parsed.notes
     if not components:
-        notes.append("The SBOM lists no PyPI, npm or Maven component: nothing could be checked.")
+        notes.append("The SBOM lists no component of a supported ecosystem: nothing was checked.")
     if missing := sum(1 for c in components if c.version is None):
         notes.append(f"{missing} component(s) have no version and cannot be checked.")
     if unsupported:
@@ -818,7 +1088,18 @@ _PARSERS = {
     "pom.xml": parse_pom,
     "build.gradle": parse_gradle,
     "build.gradle.kts": parse_gradle,
+    "go.mod": parse_go_mod,
+    "cargo.lock": parse_cargo_lock,
+    "cargo.toml": parse_cargo_toml,
+    "packages.lock.json": parse_packages_lock,
+    "packages.config": parse_packages_config,
+    "nuget.config": parse_nuget_config,
+    "directory.packages.props": partial(
+        parse_msbuild_project, file_type="Directory.Packages.props"
+    ),
+    "directory.build.props": partial(parse_msbuild_project, file_type="Directory.Build.props"),
 }
+_MSBUILD_PROJECTS = (".csproj", ".fsproj", ".vbproj")
 _REQUIREMENTS_NAME = re.compile(r"^[\w.-]*(requirements|constraints)[\w.-]*\.(txt|in)$")
 # CycloneDX SBOMs: bom.json, sbom.xml, app-bom.json, app.cdx.json...
 _SBOM_NAME = re.compile(r"^(?:[\w.-]*[._-])?(?:s?bom|cdx)\.(json|xml)$")
@@ -833,6 +1114,8 @@ def parse_dependency_file(content: str, filename: str) -> Parsed:
     path = PurePosixPath(filename.replace("\\", "/").lower())
     base = path.name
     parser = _PARSERS.get(base)
+    if parser is None and base.endswith(_MSBUILD_PROJECTS):
+        parser = partial(parse_msbuild_project, file_type=f"*{path.suffix}")
     if parser is None and (sbom := _SBOM_NAME.match(base)):
         parser = parse_cyclonedx_json if sbom.group(1) == "json" else parse_cyclonedx_xml
     if parser is not None:

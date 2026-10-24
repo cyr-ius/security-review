@@ -1,14 +1,20 @@
-"""Version comparison that works well enough for PyPI, npm and Maven.
+"""Version comparison that works well enough for PyPI, npm, Maven, Go, crates.io and NuGet.
 
-Each ecosystem has its own rules (PEP 440, semver, Maven ordering). This comparator covers the
-common cases: dotted numbers, and pre-release tags (alpha, beta, rc, SNAPSHOT...) that sort
-before the release. Exotic versions can be mis-ordered, so matches are leads to verify.
+Each ecosystem has its own rules (PEP 440, semver, Maven ordering, Go pseudo-versions). This
+comparator covers the common cases: dotted numbers, and pre-release tags (alpha, beta, rc,
+SNAPSHOT...) that sort before the release. Exotic versions can be mis-ordered, so matches are
+leads to verify.
 """
 
 import re
 from functools import cmp_to_key
 
 _TOKEN_RE = re.compile(r"\d+|[a-z]+")
+# Go pseudo-version after a release: v1.2.4-0.20210101000000-abcdef123456 comes after v1.2.3 and
+# before v1.2.4. The other forms (v0.0.0-<time>-<hash>, v1.2.3-pre.0.<time>-<hash>) only lose
+# their commit hash, which has no order.
+_GO_PSEUDO_AFTER_RELEASE = re.compile(r"-0\.(\d{14})-[0-9a-f]{12}$")
+_GO_PSEUDO_HASH = re.compile(r"[.-](\d{14})-[0-9a-f]{12}$")
 
 # Pre-release tags, from the oldest to the closest to the release
 _PRE_RANK = {
@@ -43,6 +49,8 @@ def tokenize(version: str) -> list[int | str]:
     text = text.split("+", 1)[0]
     text = re.sub(r"^\d+!", "", text)  # PEP 440 epoch
     text = text.removeprefix("v")
+    text = _GO_PSEUDO_AFTER_RELEASE.sub(r"-pre.\1", text)
+    text = _GO_PSEUDO_HASH.sub(r".\1", text)
     return [int(t) if t.isdigit() else t for t in _TOKEN_RE.findall(text)]
 
 

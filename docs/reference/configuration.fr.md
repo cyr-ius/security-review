@@ -117,7 +117,7 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Mise à jour quotidienne](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur) de la base OSV par `serve` |
 | `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Âge de la base au-delà duquel `serve` la met à jour (minimum `1`) |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Source des exports `<URL>/<écosystème>/all.zip` (HTTPS uniquement, miroir possible) |
-| `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven` | Écosystèmes téléchargés, séparés par des virgules |
+| `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven,Go,crates.io,NuGet` | Écosystèmes téléchargés, séparés par des virgules |
 | `SECREVIEW_OSV_CAFILE` | — | Bundle de CA utilisé à la place de celui du système (miroir interne, proxy qui inspecte le TLS) |
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Taille maximale d'une archive téléchargée |
 

@@ -3,7 +3,7 @@
 The server may have no Internet access, so advisories are imported from files that an
 administrator downloads elsewhere (for example the per-ecosystem ``all.zip`` archives
 published by osv.dev) and copied to the server. When it is allowed to, the controller downloads
-them itself (advisory_sync). Only PyPI, npm and Maven are kept.
+them itself (advisory_sync). Only PyPI, npm, Maven, Go, crates.io and NuGet are kept.
 """
 
 import json
@@ -26,7 +26,14 @@ from .versions import compare_versions, version_key
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_ECOSYSTEMS: dict[str, str] = {"pypi": "PyPI", "npm": "npm", "maven": "Maven"}
+SUPPORTED_ECOSYSTEMS: dict[str, str] = {
+    "pypi": "PyPI",
+    "npm": "npm",
+    "maven": "Maven",
+    "go": "Go",
+    "crates.io": "crates.io",
+    "nuget": "NuGet",
+}
 MAX_RECORD_BYTES = 5 * 1024 * 1024
 BATCH_SIZE = 400
 STALE_AFTER_DAYS = 30
@@ -41,7 +48,7 @@ _GHSA_SEVERITY = {
 
 
 def canonical_ecosystem(name: str) -> str | None:
-    """Return the canonical ecosystem name (PyPI, npm, Maven) or None if unsupported."""
+    """Return the canonical ecosystem name (PyPI, npm, Maven, Go...) or None if unsupported."""
     return SUPPORTED_ECOSYSTEMS.get(name.strip().lower())
 
 
@@ -50,6 +57,8 @@ def normalize_package(ecosystem: str, name: str) -> str:
     cleaned = name.strip().lower()
     if ecosystem == "PyPI":
         return re.sub(r"[-_.]+", "-", cleaned)
+    if ecosystem == "crates.io":  # crates.io treats - and _ as the same character
+        return cleaned.replace("_", "-")
     return cleaned
 
 
@@ -243,7 +252,7 @@ def import_advisories(path: str | Path, ecosystems: set[str] | None = None) -> d
 
     Args:
         path: ``.json`` file, directory of ``.json`` files, or ``.zip`` archive.
-        ecosystems: Ecosystems to keep (default: PyPI, npm and Maven).
+        ecosystems: Ecosystems to keep (default: every supported ecosystem).
 
     Returns:
         Counters: ``read``, ``imported``, ``skipped`` and a list of ``errors`` (capped).

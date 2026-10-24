@@ -300,7 +300,7 @@ def dependency_review(
     """Build the dependency review prompt.
 
     Args:
-        ecosystem: PyPI, npm or Maven (leave empty for all).
+        ecosystem: PyPI, npm, Maven, Go, crates.io or NuGet (leave empty for all).
         files: Dependency files with their names (leave empty to read the workspace files).
         context: Optional context (exposure, runtime vs dev usage...).
         report_language: Language of the reply and of the stored report.
@@ -774,9 +774,10 @@ def scan_dependencies(
     Check `vulnerability_check` first: when it is not `performed`, no vulnerability could be
     detected and an empty list does NOT mean the dependencies are safe. Lockfiles and SBOMs give
     the best results. Supported: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock,
-    uv.lock, package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts) and
-    CycloneDX SBOMs (bom.json, bom.xml, *.cdx.json): use an SBOM for the transitive
-    dependencies of a Maven or Gradle project.
+    uv.lock, package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts), go.mod,
+    Cargo.lock, Cargo.toml, packages.lock.json, *.csproj, Directory.Packages.props,
+    packages.config, nuget.config and CycloneDX SBOMs (bom.json, bom.xml, *.cdx.json): use an
+    SBOM for the transitive dependencies of a Maven or Gradle project.
     """
     limit = get_settings().max_dependency_chars
     if len(content) > limit:

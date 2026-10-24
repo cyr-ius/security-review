@@ -4,8 +4,16 @@
 
 `requirements*.txt`, `pyproject.toml` (PEP 621/735, Poetry), `poetry.lock`, `Pipfile.lock`,
 `uv.lock`, `package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 et
-berry), `pom.xml`, `build.gradle(.kts)`, SBOM CycloneDX (`bom.json`, `bom.xml`, `sbom.json`,
-`*.cdx.json`, `*.cdx.xml`...).
+berry), `pom.xml`, `build.gradle(.kts)`, `go.mod`, `Cargo.lock`, `Cargo.toml`,
+`packages.lock.json`, `*.csproj` / `*.fsproj` / `*.vbproj`, `Directory.Packages.props`,
+`Directory.Build.props`, `packages.config`, `nuget.config`, SBOM CycloneDX (`bom.json`,
+`bom.xml`, `sbom.json`, `*.cdx.json`, `*.cdx.xml`...).
+
+| Écosystème | Fichier à analyser en priorité | Remarques |
+|---|---|---|
+| Go | `go.mod` | Depuis Go 1.17, il liste tous les modules de la compilation (`// indirect` compris) à leur version sélectionnée : il est traité comme un lockfile. Les directives `replace` sont appliquées (un fork lève `DEP-003`, un chemin local `DEP-007`). Les pseudo-versions (`v0.0.0-<date>-<commit>`) sont comparées par date. La bibliothèque standard (directives `go` et `toolchain`) n'est pas vérifiée : analysez le binaire avec `govulncheck`. |
+| Rust (crates.io) | `Cargo.lock` | Toutes les crates de la compilation, transitives comprises ; les membres du workspace sont ignorés. Une source `git` lève `DEP-003`, un autre registre `DEP-005`. `Cargo.toml` ne contient que des plages (`"1.0"` vaut `^1.0`) : il est contrôlé pour l'hygiène (`*`, `git`, `path`, `registry`, `[patch]`, `workspace = true`). |
+| .NET (NuGet) | `packages.lock.json` | Activez-le avec `<RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>` ; les paquets de chaque framework cible sont vérifiés. Dans un `*.csproj`, `Version="1.2.3"` est la version restaurée (la plus basse applicable) et elle est vérifiée ; les versions flottantes (`1.*`) lèvent `DEP-002`, les versions gérées dans `Directory.Packages.props` ou par une propriété MSBuild `DEP-009`. `nuget.config` est contrôlé pour les sources HTTP (`DEP-004`) et pour plusieurs sources sans `packageSourceMapping` (`DEP-005`, confusion de dépendances). |
 
 Dans un `uv.lock`, le projet lui-même et les membres de son workspace (sources `editable` ou
 `virtual`) ne sont pas des dépendances et sont ignorés ; toute autre source `git`, `url`,
@@ -30,9 +38,10 @@ Avec Gradle, la tâche `cyclonedxBom` du plugin `org.cyclonedx.bom` produit le m
 - Le SBOM est lu en JSON (`bomFormat: "CycloneDX"`) ou en XML (espace de noms CycloneDX) ; les
   composants imbriqués sont inclus. Un SBOM XML contenant un `DOCTYPE` ou une `ENTITY` est refusé.
 - Chaque composant est identifié par son package URL (`purl`) : `pkg:maven/...` (Maven),
-  `pkg:npm/...` (npm) et `pkg:pypi/...` (PyPI). Un SBOM peut mélanger ces écosystèmes. Les
-  autres types (`pkg:golang`, `pkg:nuget`...) et les composants sans `purl` sont comptés dans une
-  note et ne sont pas vérifiés.
+  `pkg:npm/...` (npm), `pkg:pypi/...` (PyPI), `pkg:golang/...` (Go), `pkg:cargo/...`
+  (crates.io) et `pkg:nuget/...` (NuGet). Un SBOM peut mélanger ces écosystèmes. Les autres
+  types (`pkg:gem`, `pkg:composer`...) et les composants sans `purl` sont comptés dans une note
+  et ne sont pas vérifiés.
 - Les versions sont résolues : le SBOM est traité comme un lockfile. Un composant de portée
   `excluded` est marqué `dev` ; une version Maven `-SNAPSHOT` lève `DEP-002`.
 
@@ -48,8 +57,8 @@ base de données. Deux façons de l'alimenter :
 ### Import manuel
 
 Sur une machine connectée, téléchargez les exports d'osv.dev
-(`https://osv-vulnerabilities.storage.googleapis.com/PyPI/all.zip`, idem `npm` et `Maven`),
-transférez-les, puis importez-les (opération réservée à la CLI, idempotente) :
+(`https://osv-vulnerabilities.storage.googleapis.com/PyPI/all.zip`, idem `npm`, `Maven`, `Go`,
+`crates.io` et `NuGet`), transférez-les, puis importez-les (opération réservée à la CLI, idempotente) :
 
 ```bash
 security-review-controller advisories import PyPI.zip      # .json, dossier ou .zip
@@ -83,7 +92,7 @@ HTTPS_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
 - **Miroir** : `SECREVIEW_OSV_URL` remplace la source (Nexus, Artifactory, bucket interne…)
   tant qu'il sert `<URL>/<écosystème>/all.zip` en HTTPS. HTTP en clair, identifiants dans l'URL
   et redirections vers autre chose que HTTPS sont refusés.
-- `SECREVIEW_OSV_ECOSYSTEMS` (`PyPI,npm,Maven` par défaut) limite les exports téléchargés ;
+- `SECREVIEW_OSV_ECOSYSTEMS` (`PyPI,npm,Maven,Go,crates.io,NuGet` par défaut) limite les exports téléchargés ;
   chaque archive est bornée par `SECREVIEW_OSV_MAX_DOWNLOAD_MB` (1024 Mio), écrite dans un
   dossier temporaire puis supprimée.
 - Un écosystème en échec (réseau, taille, archive invalide) n'empêche pas les autres ; il est

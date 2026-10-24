@@ -85,7 +85,7 @@ def url_of(ecosystem: str) -> str:
         ({"osv_cafile": "/nonexistent/ca.pem"}, "SECREVIEW_OSV_CAFILE"),
         ({"osv_update_interval_hours": 0}, "SECREVIEW_OSV_UPDATE_INTERVAL_HOURS"),
         ({"osv_max_download_mb": 0}, "SECREVIEW_OSV_MAX_DOWNLOAD_MB"),
-        ({"osv_ecosystems": "PyPI,Go"}, "SECREVIEW_OSV_ECOSYSTEMS"),
+        ({"osv_ecosystems": "PyPI,RubyGems"}, "SECREVIEW_OSV_ECOSYSTEMS"),
         ({"osv_ecosystems": " , "}, "SECREVIEW_OSV_ECOSYSTEMS"),
     ],
 )
@@ -211,7 +211,8 @@ def test_update_reports_a_failed_ecosystem_and_continues(opener):
         url_of("Maven"): osv_zip(osv("GHSA-3", package="g:a", ecosystem="Maven")),
     }
 
-    result = advisory_sync.update_advisories(make_settings())["ecosystems"]
+    settings = make_settings(osv_ecosystems="PyPI,npm,Maven")
+    result = advisory_sync.update_advisories(settings)["ecosystems"]
 
     assert "proxy refused" in result["PyPI"]["error"]
     assert result["npm"]["error"].startswith("BadZipFile")
@@ -322,7 +323,7 @@ def test_cli_update_exits_2_when_an_ecosystem_fails(opener, capsys):
 
 
 def test_cli_update_refuses_an_unknown_ecosystem(opener, capsys):
-    assert cli.run(["advisories", "update", "--ecosystem", "Go"]) == cli.EXIT_ERROR
+    assert cli.run(["advisories", "update", "--ecosystem", "RubyGems"]) == cli.EXIT_ERROR
     assert "SECREVIEW_OSV_ECOSYSTEMS" in json.loads(capsys.readouterr().err)["error"]
     assert opener.requests == []
 
@@ -426,7 +427,7 @@ def test_run_update_records_an_unexpected_error(monkeypatch):
 
 def test_invalid_settings_are_not_recorded(opener):
     with pytest.raises(ValueError):
-        advisory_sync.run_update(make_settings(osv_ecosystems="Go"), "cli")
+        advisory_sync.run_update(make_settings(osv_ecosystems="RubyGems"), "cli")
     assert advisory_sync.list_updates() == []
 
 

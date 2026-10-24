@@ -201,7 +201,7 @@ class Settings(BaseSettings):
     osv_auto_update: bool = False
     osv_update_interval_hours: int = 24
     osv_url: str = "https://osv-vulnerabilities.storage.googleapis.com"
-    osv_ecosystems: str = "PyPI,npm,Maven"
+    osv_ecosystems: str = "PyPI,npm,Maven,Go,crates.io,NuGet"
     osv_cafile: str | None = None
     osv_max_download_mb: int = 1024
 

@@ -4,8 +4,16 @@
 
 `requirements*.txt`, `pyproject.toml` (PEP 621/735, Poetry), `poetry.lock`, `Pipfile.lock`,
 `uv.lock`, `package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 and
-berry), `pom.xml`, `build.gradle(.kts)`, CycloneDX SBOMs (`bom.json`, `bom.xml`, `sbom.json`,
-`*.cdx.json`, `*.cdx.xml`...).
+berry), `pom.xml`, `build.gradle(.kts)`, `go.mod`, `Cargo.lock`, `Cargo.toml`,
+`packages.lock.json`, `*.csproj` / `*.fsproj` / `*.vbproj`, `Directory.Packages.props`,
+`Directory.Build.props`, `packages.config`, `nuget.config`, CycloneDX SBOMs (`bom.json`,
+`bom.xml`, `sbom.json`, `*.cdx.json`, `*.cdx.xml`...).
+
+| Ecosystem | Best file to scan | Notes |
+|---|---|---|
+| Go | `go.mod` | Since Go 1.17, it lists every module of the build (`// indirect` included) at its selected version: it is handled like a lockfile. `replace` directives are applied (a fork raises `DEP-003`, a local path `DEP-007`). Pseudo-versions (`v0.0.0-<date>-<commit>`) are compared by date. The standard library (`go` and `toolchain` directives) is not checked: scan the binary with `govulncheck`. |
+| Rust (crates.io) | `Cargo.lock` | Every crate of the build, transitive included; the workspace members are skipped. A `git` source raises `DEP-003`, another registry `DEP-005`. `Cargo.toml` only holds ranges (`"1.0"` is `^1.0`): it is checked for hygiene (`*`, `git`, `path`, `registry`, `[patch]`, `workspace = true`). |
+| .NET (NuGet) | `packages.lock.json` | Enable it with `<RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>`; the packages of every target framework are checked. In a `*.csproj`, `Version="1.2.3"` is the version restored (lowest applicable) and is checked; floating versions (`1.*`) raise `DEP-002`, versions managed in `Directory.Packages.props` or by an MSBuild property `DEP-009`. `nuget.config` is checked for HTTP sources (`DEP-004`) and for several sources without `packageSourceMapping` (`DEP-005`, dependency confusion). |
 
 In a `uv.lock`, the project itself and its workspace members (editable or virtual sources) are
 not dependencies and are skipped; any other `git`, `url`, `path`, `directory` or `editable`
@@ -29,9 +37,10 @@ With Gradle, the `cyclonedxBom` task of the `org.cyclonedx.bom` plugin produces 
 - The SBOM is read in JSON (`bomFormat: "CycloneDX"`) or XML (CycloneDX namespace); nested
   components are included. An XML SBOM with a `DOCTYPE` or `ENTITY` is refused.
 - Each component is identified by its package URL (`purl`): `pkg:maven/...` (Maven),
-  `pkg:npm/...` (npm) and `pkg:pypi/...` (PyPI). An SBOM may mix these ecosystems. The other
-  types (`pkg:golang`, `pkg:nuget`...) and the components without a `purl` are counted in a
-  note and not checked.
+  `pkg:npm/...` (npm), `pkg:pypi/...` (PyPI), `pkg:golang/...` (Go), `pkg:cargo/...`
+  (crates.io) and `pkg:nuget/...` (NuGet). An SBOM may mix these ecosystems. The other types
+  (`pkg:gem`, `pkg:composer`...) and the components without a `purl` are counted in a note and
+  not checked.
 - The versions are resolved: the SBOM is handled like a lockfile. A component of scope
   `excluded` is marked `dev`; a Maven `-SNAPSHOT` version raises `DEP-002`.
 
@@ -47,8 +56,8 @@ database. Two ways to fill it:
 ### Manual import
 
 On a connected machine, download the osv.dev exports
-(`https://osv-vulnerabilities.storage.googleapis.com/PyPI/all.zip`, same for `npm` and
-`Maven`), transfer them, then import them (CLI-only operation, idempotent):
+(`https://osv-vulnerabilities.storage.googleapis.com/PyPI/all.zip`, same for `npm`, `Maven`,
+`Go`, `crates.io` and `NuGet`), transfer them, then import them (CLI-only operation, idempotent):
 
 ```bash
 security-review-controller advisories import PyPI.zip      # .json, folder or .zip
@@ -82,7 +91,7 @@ HTTPS_PROXY=http://user:password@proxy.example.com:3128
 - **Mirror**: `SECREVIEW_OSV_URL` replaces the source (Nexus, Artifactory, internal bucket…) as
   long as it serves `<URL>/<ecosystem>/all.zip` over HTTPS. Plain HTTP, credentials in the URL
   and redirects to anything other than HTTPS are refused.
-- `SECREVIEW_OSV_ECOSYSTEMS` (`PyPI,npm,Maven` by default) limits the downloaded exports; every
+- `SECREVIEW_OSV_ECOSYSTEMS` (`PyPI,npm,Maven,Go,crates.io,NuGet` by default) limits the downloaded exports; every
   archive is bounded by `SECREVIEW_OSV_MAX_DOWNLOAD_MB` (1024 MiB), written to a temporary
   folder then deleted.
 - A failed ecosystem (network, size, invalid archive) does not prevent the others; it is logged

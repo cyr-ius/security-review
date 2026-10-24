@@ -77,7 +77,8 @@ def advisories_command(argv: list[str]) -> int:
     importer.add_argument(
         "--ecosystem",
         action="append",
-        help="ecosystem to keep (PyPI, npm, Maven); repeat the option; default: all three",
+        help="ecosystem to keep (PyPI, npm, Maven, Go, crates.io, NuGet); repeat the option; "
+        "default: all of them",
     )
     actions.add_parser("status", help="show the size and age of the database")
     updater = actions.add_parser(
