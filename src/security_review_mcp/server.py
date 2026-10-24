@@ -4,7 +4,7 @@ import argparse
 import functools
 import logging
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from typing import Annotated, Any, Literal
 
 from mcp.server.mcpserver import Context, MCPServer
@@ -13,8 +13,9 @@ from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, ToolAnnotations
 from pydantic import Field
 
-from . import __version__, app_settings, cli, http_server, prompts, standards
+from . import __version__, app_settings, http_server, prompts, standards
 from .auth import access_control, enrollment_api, token_store
+from .clients import commands
 from .config import check_report_language, configure_logging, get_settings
 from .deps import advisories, depscan
 from .observability import audit
@@ -937,6 +938,17 @@ Administration (db, token, user, rules, advisories...) is run by security-review
 """
 
 
+def _controller_commands() -> Collection[str]:
+    """Names of the controller commands, still accepted by ``security-review-mcp`` (deprecated).
+
+    cli is imported here, never at the top of the module: it loads the controller modules
+    (advisory download, ticketing...), which the MCP server must not load.
+    """
+    from . import cli
+
+    return cli.CONTROLLER_COMMANDS.keys()
+
+
 def main(argv: list[str] | None = None) -> None:
     """Run a command of ``security-review-mcp``: ``serve`` or a client command.
 
@@ -949,18 +961,20 @@ def main(argv: list[str] | None = None) -> None:
     command = arguments[0] if arguments else None
     if command == "serve":
         serve(arguments[1:])
-    elif command in cli.MCP_COMMANDS:
-        sys.exit(cli.run(arguments))
-    elif command in cli.CONTROLLER_COMMANDS:
+    elif command in commands.MCP_COMMANDS:
+        sys.exit(commands.run(arguments))
+    elif command in ("-h", "--help"):
+        print(USAGE, end="")
+    elif command in _controller_commands():
         # Kept for one major version: these commands moved to the controller CLI
         print(
             f"warning: `security-review-mcp {command}` is deprecated, "
             f"use `security-review-controller {command}`",
             file=sys.stderr,
         )
+        from . import cli
+
         sys.exit(cli.run(arguments))
-    elif command in ("-h", "--help"):
-        print(USAGE, end="")
     else:
         print(USAGE, end="", file=sys.stderr)
         if command is not None and command.startswith("--"):
@@ -968,7 +982,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"\nerror: use `security-review-mcp serve {command} ...`", file=sys.stderr)
         elif command is not None:
             print(f"\nerror: unknown command '{command}'", file=sys.stderr)
-        sys.exit(cli.EXIT_ERROR)
+        sys.exit(commands.EXIT_ERROR)
 
 
 def serve(argv: list[str]) -> None:

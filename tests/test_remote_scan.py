@@ -7,9 +7,9 @@ import httpx2
 import pytest
 from test_advisories import osv
 
-from security_review_mcp import cli, http_server, server
+from security_review_mcp import http_server, server
 from security_review_mcp.auth import token_store
-from security_review_mcp.clients import remote_scan
+from security_review_mcp.clients import commands, remote_scan
 from security_review_mcp.config import get_settings
 from security_review_mcp.deps import advisories
 from security_review_mcp.http_server import Role
@@ -265,7 +265,7 @@ def test_cli_sends_the_files_and_the_token_of_the_settings(
     tmp_path, settings_env, fake_scan, capsys
 ):
     settings_env(server_url="https://secreview.example.com", token="tok-123")
-    assert cli.run(["scan-deps", str(_lockfile(tmp_path))]) == cli.EXIT_PASSED
+    assert commands.run(["scan-deps", str(_lockfile(tmp_path))]) == commands.EXIT_PASSED
     (call,) = fake_scan
     assert call["url"] == "https://secreview.example.com"
     assert call["files"] == [LOCKFILE]
@@ -277,7 +277,7 @@ def test_cli_url_option_and_token_on_stdin(tmp_path, settings_env, fake_scan, mo
     settings_env(server_url="https://ignored.example.com", token="from-env")
     monkeypatch.setattr("sys.stdin", io.StringIO("from-stdin\n"))
     args = ["scan-deps", str(_lockfile(tmp_path)), "--url", "https://s.example.com"]
-    assert cli.run([*args, "--token-stdin"]) == cli.EXIT_PASSED
+    assert commands.run([*args, "--token-stdin"]) == commands.EXIT_PASSED
     assert fake_scan[0]["url"] == "https://s.example.com"
     assert fake_scan[0]["token"] == "from-stdin"
 
@@ -288,9 +288,9 @@ def test_cli_blocks_on_a_vulnerability(tmp_path, settings_env, monkeypatch, caps
         remote_scan, "scan_files", lambda url, files, **kw: [_result(files[0][0], severity="high")]
     )
     path = str(_lockfile(tmp_path))
-    assert cli.run(["scan-deps", path]) == cli.EXIT_BLOCKED
+    assert commands.run(["scan-deps", path]) == commands.EXIT_BLOCKED
     assert "PYSEC-1" in capsys.readouterr().out
-    assert cli.run(["scan-deps", path, "--fail-on", "critical"]) == cli.EXIT_PASSED
+    assert commands.run(["scan-deps", path, "--fail-on", "critical"]) == commands.EXIT_PASSED
 
 
 def test_cli_require_database(tmp_path, settings_env, monkeypatch, capsys):
@@ -301,18 +301,18 @@ def test_cli_require_database(tmp_path, settings_env, monkeypatch, capsys):
         lambda url, files, **kw: [_result(files[0][0], check="skipped_no_advisory_database")],
     )
     path = str(_lockfile(tmp_path))
-    assert cli.run(["scan-deps", path]) == cli.EXIT_PASSED
-    assert cli.run(["scan-deps", path, "--require-database"]) == cli.EXIT_ERROR
+    assert commands.run(["scan-deps", path]) == commands.EXIT_PASSED
+    assert commands.run(["scan-deps", path, "--require-database"]) == commands.EXIT_ERROR
     assert "--require-database" in capsys.readouterr().err
 
 
 def test_cli_without_server_url(tmp_path, settings_env, fake_scan, capsys):
     path = str(_lockfile(tmp_path))
-    assert cli.run(["scan-deps", path]) == cli.EXIT_ERROR
+    assert commands.run(["scan-deps", path]) == commands.EXIT_ERROR
     deprecation, error = capsys.readouterr().err.splitlines()
     assert "security-review-ci scan-deps" in deprecation
     assert "SECREVIEW_MCP_URL" in json.loads(error)["error"]
-    assert cli.run(["scan-deps", path, "--skip-unconfigured"]) == cli.EXIT_PASSED
+    assert commands.run(["scan-deps", path, "--skip-unconfigured"]) == commands.EXIT_PASSED
     assert "skipped" in capsys.readouterr().err
     assert fake_scan == []
 
@@ -321,7 +321,7 @@ def test_cli_refuses_a_symbolic_link(tmp_path, settings_env, fake_scan, capsys):
     settings_env(server_url="https://secreview.example.com")
     link = tmp_path / "uv.lock"
     link.symlink_to(_lockfile(tmp_path))
-    assert cli.run(["scan-deps", str(link)]) == cli.EXIT_ERROR
+    assert commands.run(["scan-deps", str(link)]) == commands.EXIT_ERROR
     assert "symbolic link" in json.loads(capsys.readouterr().err.splitlines()[-1])["error"]
     assert fake_scan == []
 
@@ -329,13 +329,16 @@ def test_cli_refuses_a_symbolic_link(tmp_path, settings_env, fake_scan, capsys):
 def test_cli_empty_token_on_stdin(tmp_path, settings_env, fake_scan, monkeypatch):
     settings_env(server_url="https://secreview.example.com")
     monkeypatch.setattr("sys.stdin", io.StringIO("\n"))
-    assert cli.run(["scan-deps", str(_lockfile(tmp_path)), "--token-stdin"]) == cli.EXIT_ERROR
+    assert (
+        commands.run(["scan-deps", str(_lockfile(tmp_path)), "--token-stdin"])
+        == commands.EXIT_ERROR
+    )
     assert fake_scan == []
 
 
 def test_cli_refuses_plain_http_before_reading_the_token(tmp_path, settings_env, capsys):
     settings_env(server_url="http://secreview.example.com", token="tok-123")
-    assert cli.run(["scan-deps", str(_lockfile(tmp_path))]) == cli.EXIT_ERROR
+    assert commands.run(["scan-deps", str(_lockfile(tmp_path))]) == commands.EXIT_ERROR
     assert "plain HTTP" in json.loads(capsys.readouterr().err.splitlines()[-1])["error"]
 
 
@@ -343,7 +346,7 @@ def test_scan_deps_is_a_command_of_the_mcp_entry_point(tmp_path, settings_env, f
     settings_env(server_url="https://secreview.example.com")
     with pytest.raises(SystemExit) as exit_info:
         server.main(["scan-deps", str(_lockfile(tmp_path))])
-    assert exit_info.value.code == cli.EXIT_PASSED
+    assert exit_info.value.code == commands.EXIT_PASSED
 
 
 def test_cli_text_output_drops_terminal_escapes(tmp_path, settings_env, monkeypatch, capsys):
@@ -352,7 +355,7 @@ def test_cli_text_output_drops_terminal_escapes(tmp_path, settings_env, monkeypa
     result["vulnerabilities"][0]["package"] = "requests\x1b[2J\x1b]0;pwned\x07"
     result["notes"] = ["note\x1b[31m"]
     monkeypatch.setattr(remote_scan, "scan_files", lambda url, files, **kw: [result])
-    assert cli.run(["scan-deps", str(_lockfile(tmp_path))]) == cli.EXIT_BLOCKED
+    assert commands.run(["scan-deps", str(_lockfile(tmp_path))]) == commands.EXIT_BLOCKED
     out = capsys.readouterr().out
     assert "\x1b" not in out and "\x07" not in out
     assert "requests?[2J?]0;pwned?" in out
@@ -370,11 +373,11 @@ def test_cli_save_stores_the_report_with_the_scan_token(
 
     monkeypatch.setattr(remote_scan, "save_report", save)
     path = str(_lockfile(tmp_path))
-    assert cli.run(["scan-deps", path, "--save"]) == cli.EXIT_ERROR
+    assert commands.run(["scan-deps", path, "--save"]) == commands.EXIT_ERROR
     assert "--project" in json.loads(capsys.readouterr().err.splitlines()[-1])["error"]
     assert fake_scan == []
     args = ["scan-deps", path, "--save", "--project", "demo", "--branch", "dev"]
-    assert cli.run(args) == cli.EXIT_PASSED
+    assert commands.run(args) == commands.EXIT_PASSED
     (call,) = saved
     assert (call["project"], call["fields"]["branch"], call["token"]) == ("demo", "dev", "tok-123")
     assert "Report #7 saved for project demo" in capsys.readouterr().out

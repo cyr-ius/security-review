@@ -10,6 +10,7 @@ from starlette.testclient import TestClient
 from security_review_mcp import app_settings, cli, controller, http_server, web_api
 from security_review_mcp.auth import access_control, token_store, web_users
 from security_review_mcp.auth.rate_limit import RateLimitMiddleware
+from security_review_mcp.clients import commands
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware, SecurityHeadersMiddleware
 from security_review_mcp.observability import audit
@@ -365,7 +366,7 @@ def test_pipeline_commands_belong_to_the_ci_client():
     pipeline = {"gate", "sarif", "trend", "code", "deps", "scan-code", "scan-deps"}
     assert not pipeline & cli.CONTROLLER_COMMANDS.keys()
     # security-review-mcp scan-deps is the MCP client of the same name, not the pipeline one
-    assert not pipeline & cli.COMMANDS.keys() - {"scan-deps"}
+    assert not pipeline & commands.MCP_COMMANDS.keys() - {"scan-deps"}
 
 
 def test_help(capsys):
