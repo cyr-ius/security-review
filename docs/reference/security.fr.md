@@ -25,8 +25,7 @@
   l'opérateur, signé par une
   [autorité de certification](../advanced/http.md#autorite-de-certification). Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
-  (`mcp`, `api`, `admin`, `ci`, `metrics`) ; un jeton `reader` ou `triager` stocké, laissé par une
-  version antérieure, n'authentifie rien. Un jeton `api` ne porte que des droits du contrôle
+  (`mcp`, `api`, `admin`, `ci`, `metrics`). Un jeton `api` ne porte que des droits du contrôle
   d'accès, lus à chaque requête : ceux de son utilisateur (jeton personnel, supprimé avec
   l'utilisateur, jamais renouvelé par un tiers, dont le nouveau secret porterait les droits de
   l'utilisateur) ou ceux de son rôle sur ses projets (jeton de rôle, dont le créateur doit détenir

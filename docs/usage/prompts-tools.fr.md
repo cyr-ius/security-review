@@ -157,8 +157,7 @@ findings se distinguent et se filtrent ainsi dans l'[interface web](web-interfac
 
 Le champ est facultatif : un rapport enregistré sans lui n'a pas de type. Toute autre valeur est
 refusée. Le type est déclaré par le client : il étiquette et filtre les rapports, il n'accorde
-jamais de droit et ne change pas une gate. Les rapports des scans CLI enregistrés avant l'existence de ce champ reçoivent leur
-type lors de la mise à jour de la base.
+jamais de droit et ne change pas une gate.
 
 ### Auteur d'un rapport
 

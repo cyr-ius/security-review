@@ -156,8 +156,6 @@ findings can be told apart and filtered in the [web interface](web-interface.md)
 The field is optional: a report saved without it has no type. Any other value is refused.
 The type is declared by the client: it labels and filters reports, it never grants a right
 nor changes a gate.
-Reports saved by the CLI scans before this field existed get their type when the database is
-upgraded.
 
 ### Author of a report
 

@@ -25,12 +25,6 @@ With stdio, the server migrates its database itself at start-up (unless
 `SECREVIEW_DB_AUTO_UPGRADE=false`). With HTTP, it **only checks** the schema: it refuses to
 start (code `2`) while `security-review-controller db upgrade` has not been run.
 
-!!! note "Removed in 2.0"
-    `security-review-mcp scan-deps` is replaced by
-    [`security-review-ci scan-deps`](#security-review-ci) (controller URL and a personal `ci`
-    token), and `security-review-mcp token|rules|advisories|db…` by
-    `security-review-controller …`: they now end with `unknown command` (code `2`).
-
 ## `security-review-controller`
 
 | Command | Role | Page |

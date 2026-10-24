@@ -25,8 +25,7 @@
   operator, signed by a [certificate authority](../advanced/http.md#certificate-authority).
   There is no rate limiting.
   Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `api`, `admin`, `ci`,
-  `metrics`); a stored `reader` or `triager` token, left by an older version, authenticates
-  nothing. An `api` token only holds rights of the access control, read at each request: those
+  `metrics`). An `api` token only holds rights of the access control, read at each request: those
   of its user (personal token, deleted with the user, never rotated by someone else, whose new
   secret would carry the rights of the user) or of its role on its projects (role token, whose
   creator must hold each permission). A token never creates another personal token. An `mcp`

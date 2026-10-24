@@ -31,11 +31,6 @@ the audit log (`ticketing.changed`, `{"enabled": true}`).
 | `true` (default) | The switches of the screen decide; every connector is off until switched on |
 | `false` | Every connector is locked off: nothing is sent, the switches cannot be turned on, **Test the connection** is refused |
 
-!!! note "Upgrade from 1.0"
-    In 1.0, `SECREVIEW_TICKETING_ENABLED=true` was enough to send through every configured
-    connector. Since the switches, switch on each connector used in the **Connectors** screen
-    after the upgrade: until then, nothing is sent.
-
 ```bash
 SECREVIEW_TICKETING_INTERVAL_SECONDS=300   # period of the automatic sending
 SECREVIEW_TICKETING_CAFILE=/etc/ssl/corp-ca.pem   # optional: internal certificate authority

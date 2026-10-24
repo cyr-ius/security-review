@@ -270,11 +270,7 @@ jamais, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`) ; `GET /a
 `permanent_acceptance` pour indiquer si l'appelant peut le faire. Sous
 `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` et `expires_on` sont facultatifs pour
 `accepted` (`{"status": "accepted"}` suffit) ; `GET /api/v1/me` renvoie ce seuil dans
-`risk_acceptance_min_severity` (`null` : toute acceptation les exige). Les décisions **Risque accepté** et **Faux
-positif** prises avant cette fonctionnalité n'avaient ni motif ni approbateur : la mise à jour de
-la base leur donne une date d'expiration 30 jours plus tard, avec un motif qui demande de les
-confirmer. Revoyez-les avec les filtres de statut avant cette date, sinon elles bloquent de
-nouveau la gate.
+`risk_acceptance_min_severity` (`null` : toute acceptation les exige).
 
 ### Criticité d'un finding
 
@@ -564,12 +560,6 @@ voir [mot de passe perdu](#mot-de-passe-perdu).
 Il en va de même de tout mot de passe défini par quelqu'un d'autre : un compte local créé ou
 réinitialisé par un administrateur (écran ou CLI) change son mot de passe à sa première connexion.
 L'écran **Utilisateurs** affiche **mot de passe à changer** jusque-là.
-
-!!! note "Mise à jour depuis le jeton `bootstrap-admin`"
-    Les versions précédentes créaient un **jeton** `bootstrap-admin` à la place du compte. Sur une
-    base existante, ce jeton reste valable ; le compte `admin` est créé au démarrage suivant s'il
-    n'existe aucun compte. Une fois connecté avec le compte, révoquez l'ancien jeton :
-    `security-review-controller token revoke bootstrap-admin`.
 
 #### Mot de passe perdu
 

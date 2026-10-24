@@ -252,10 +252,7 @@ date for `open` / `fixed` gets `422`. Without `expires_on`, an acceptance never 
 `permanent_acceptance` to tell whether the caller may do it. Below
 `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` and `expires_on` are optional for
 `accepted` (`{"status": "accepted"}` is enough); `GET /api/v1/me` returns this threshold as
-`risk_acceptance_min_severity` (`null`: every acceptance needs them). The **Risk accepted** and **False positive** decisions
-made before this feature had no reason nor approver: the database upgrade gives them an expiry
-date 30 days later, with a reason that asks to confirm them. Review them with the status filters
-before that date, or they block the gate again.
+`risk_acceptance_min_severity` (`null`: every acceptance needs them).
 
 ### Severity of a finding
 
@@ -536,12 +533,6 @@ password** before anything else: it opens **My account**, and the API refuses ev
 The same applies to every password set by someone else: a local account created or reset by an
 administrator (screen or CLI) changes its password at its first login. The **Users** screen shows
 **password to change** until then.
-
-!!! note "Upgrading from the `bootstrap-admin` token"
-    Previous versions created a `bootstrap-admin` **token** instead of the account. On an
-    existing database, this token stays valid; the `admin` account is created at the next start
-    if no account exists. Once logged in with the account, revoke the old token:
-    `security-review-controller token revoke bootstrap-admin`.
 
 #### Lost password
 

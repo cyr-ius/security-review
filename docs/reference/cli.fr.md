@@ -26,12 +26,6 @@ En stdio, le serveur migre lui-même sa base au démarrage (sauf `SECREVIEW_DB_A
 En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`) tant que
 `security-review-controller db upgrade` n'a pas été lancé.
 
-!!! note "Retirées en 2.0"
-    `security-review-mcp scan-deps` est remplacée par
-    [`security-review-ci scan-deps`](#security-review-ci) (URL du contrôleur et jeton `ci`
-    personnel), et `security-review-mcp token|rules|advisories|db…` par
-    `security-review-controller …` : elles se terminent désormais par `unknown command` (code `2`).
-
 ## `security-review-controller`
 
 | Commande | Rôle | Page |
