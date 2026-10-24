@@ -37,6 +37,7 @@ Lancez uniquement les vérifications des zones touchées par le changement (`git
 **ne lancez pas `pytest` ni `ruff` pour un changement qui ne touche que l'interface Angular ou
 la documentation**, ni le build Angular pour un changement Python. La CI relance tout de toute
 façon.
+Ne pas hésiter à lancer les tests en arrière plan si cela permet d'avancer su le reste.
 
 | Fichiers modifiés | Vérifications |
 |---|---|
