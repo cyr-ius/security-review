@@ -77,8 +77,8 @@ avec la version en commentaire (`@<sha> # vX.Y.Z`) : faites de même pour toute 
 - Ne commitez jamais directement sur `master`.
 - **Une version = un tag sur `master`.** Pousser un tag `vX.Y.Z` déclenche `publish.yml` :
   lint et tests, vérification que le tag correspond à `version` dans `pyproject.toml`, puis
-  publication sur PyPI et des images Docker (GHCR et Docker Hub, `docker.yml`), et création de
-  la release GitHub. Procédure :
+  publication sur PyPI (`security-review-mcp` et le client seul `security-review-ci`) et des
+  images Docker (GHCR et Docker Hub, `docker.yml`), et création de la release GitHub. Procédure :
   1. sur `dev`, mettre à jour la version (`uv version X.Y.Z`) et commiter ;
   2. fusionner `dev` dans `master` ;
   3. sur `master` : `git tag vX.Y.Z && git push origin vX.Y.Z`.
@@ -114,7 +114,7 @@ l'utiliser.
 | Moteur de scan, masquage des secrets | `rules/scanner.py` |
 | Règles et checklists par défaut (copiées en base au premier lancement) | `rules/default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules/rules_loader.py`, `rules/rule_store.py`, `rules/registry.py`, `rules/checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `project`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) | `cli.py`, `rules/codescan.py`, `clients/enrollment.py` (client de `enroll`), `clients/remote_scan.py` (client de `scan-deps`), `ci_client.py` |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `project`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) | `cli.py`, `rules/codescan.py`, `clients/enrollment.py` (client de `enroll`), `clients/remote_scan.py` (client de `scan-deps`), `ci_client.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `deps/advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `deps/dependencies.py`, `deps/depscan.py`, `deps/advisories.py`, `deps/advisory_sync.py`, `deps/versions.py` ; `proxy.py` |
 | Normalisation des noms de projet (minuscules, nom du dépôt, `-` seul séparateur), appliquée à toute entrée | `storage/project_names.py` |
 | Persistance, schéma (purge des rapports sans findings et de l'audit : `storage/retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `reports/coverage.py`) | `storage/models.py`, `reports/services.py`, `reports/coverage.py`, `storage/retention.py`, `storage/database.py`, `storage/migrations/` (Alembic) |

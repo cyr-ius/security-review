@@ -167,17 +167,21 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 A developer runs the same `security-review-ci scan-deps` on their workstation, with a
 [personal `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens) created in
 **My account**: it reaches the projects the developer may read, and the files are sent to the
-controller exactly as they are on disk.
+controller exactly as they are on disk. The workstation needs no Python: install the client with
+uv (see [Installation](../usage/gate.md#installation)).
 
 ```bash
+uv tool install security-review-ci
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
 export SECREVIEW_TOKEN=<personal ci token>
 security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
 # exit code: 0 = ok, 1 = blocked, 2 = error (controller unreachable, token refused...)
 ```
 
-Commit hook ([pre-commit](https://pre-commit.com) or prek), run when a manifest or a lockfile
-changes:
+Commit hook ([prek](https://prek.j178.dev) or [pre-commit](https://pre-commit.com)), run when a
+manifest or a lockfile changes. With `language: python`, the hook installs `security-review-ci`
+in its own environment: nothing else to install. prek is a single binary that also downloads
+the Python of the hook (pre-commit needs a Python):
 
 ```yaml
 repos:
@@ -186,9 +190,13 @@ repos:
       - id: scan-deps
         name: dependency scan
         entry: security-review-ci scan-deps --skip-unconfigured --require-database --project my-project
-        language: system
+        language: python
+        additional_dependencies: ["security-review-ci==X.Y.Z"] # version of your controller
         files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
 ```
+
+With the client already installed (`uv tool install`), `language: system` runs it from the
+`PATH` instead.
 
 `--skip-unconfigured` lets the commit through, with a warning, when `SECREVIEW_CONTROLLER_URL`
 is not set (contributors without a controller). The two variables are read from the

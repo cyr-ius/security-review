@@ -8,7 +8,9 @@ Le paquet installe deux commandes, une par processus (voir
   données et l'administration ;
 - `security-review-ci` : le **client de pipeline** de l'API REST du contrôleur (jeton `ci`,
   bibliothèque standard de Python uniquement, sans accès à la base) : gate, SARIF, tendance,
-  scans du code et des dépendances.
+  scans du code et des dépendances. Il est aussi publié seul, sans le serveur, dans le paquet
+  `security-review-ci` (Python 3.10 ou plus récent, voir
+  [Installation](../usage/gate.md#installation)).
 
 ## `security-review-mcp`
 

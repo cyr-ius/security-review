@@ -1,10 +1,12 @@
 """Pipeline client (security-review-ci): gate, SARIF, trend and scans through the controller REST
 API, and the listing of the files of a code scan."""
 
+import importlib.util
 import io
 import json
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -228,6 +230,29 @@ def test_client_runs_as_a_standalone_file(tmp_path):
     )
     assert result.returncode == 2
     assert "No controller URL" in json.loads(result.stderr)["error"]
+
+
+def test_standalone_distribution_ships_the_client_at_the_server_version(tmp_path):
+    # security-review-ci on PyPI: the same module, released with the same tag, no dependency
+    root = MODULE.parents[2]
+    spec = importlib.util.spec_from_file_location(
+        "build_ci_client", root / "scripts/build_ci_client.py"
+    )
+    build = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(build)
+    project = build.write_project(tmp_path / "dist-project", root)
+    metadata = tomllib.loads((project / "pyproject.toml").read_text(encoding="utf-8"))
+    server = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    assert metadata["project"]["name"] == "security-review-ci"
+    assert metadata["project"]["version"] == server["project"]["version"]
+    assert metadata["project"]["dependencies"] == []
+    assert metadata["project"]["scripts"] == {"security-review-ci": "security_review_ci:main"}
+    assert (project / "security_review_ci.py").read_bytes() == MODULE.read_bytes()
+    # ruff checks the module against the oldest Python of the distribution
+    target = server["tool"]["ruff"]["per-file-target-version"][
+        "src/security_review_mcp/ci_client.py"
+    ]
+    assert metadata["project"]["requires-python"] == ">=3." + target.removeprefix("py3")
 
 
 def test_printable_removes_terminal_escapes():

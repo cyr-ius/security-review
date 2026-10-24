@@ -170,17 +170,21 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
 [jeton `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels) créé dans
 **Mon compte** : il atteint les projets que le développeur peut lire, et les fichiers sont
-envoyés au contrôleur exactement tels qu'ils sont sur le disque.
+envoyés au contrôleur exactement tels qu'ils sont sur le disque. Le poste n'a pas besoin de
+Python : installez le client avec uv (voir [Installation](../usage/gate.md#installation)).
 
 ```bash
+uv tool install security-review-ci
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
 export SECREVIEW_TOKEN=<personal ci token>
 security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (contrôleur injoignable, jeton refusé...)
 ```
 
-Hook de commit ([pre-commit](https://pre-commit.com) ou prek), lancé quand un manifeste ou un
-lockfile change :
+Hook de commit ([prek](https://prek.j178.dev) ou [pre-commit](https://pre-commit.com)), lancé
+quand un manifeste ou un lockfile change. Avec `language: python`, le hook installe
+`security-review-ci` dans son propre environnement : rien d'autre à installer. prek est un
+binaire unique qui télécharge aussi le Python du hook (pre-commit a besoin d'un Python) :
 
 ```yaml
 repos:
@@ -189,9 +193,12 @@ repos:
       - id: scan-deps
         name: dependency scan
         entry: security-review-ci scan-deps --skip-unconfigured --require-database --project my-project
-        language: system
+        language: python
+        additional_dependencies: ["security-review-ci==X.Y.Z"] # version de votre contrôleur
         files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
 ```
+
+Avec le client déjà installé (`uv tool install`), `language: system` le lance depuis le `PATH`.
 
 `--skip-unconfigured` laisse passer le commit, avec un avertissement, quand
 `SECREVIEW_CONTROLLER_URL` n'est pas défini (contributeurs sans contrôleur). Les deux variables
