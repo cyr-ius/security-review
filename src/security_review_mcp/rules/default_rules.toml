@@ -2038,6 +2038,14 @@ languages = ["typescript", "javascript"]
 pattern = '(?=a)b'
 advice = "Use placeholders with a values array, tagged $queryRaw or query builder parameters; do not interpolate request data into SQL."
 
+# The "*" domain applies to every language: it is added to every review prompt.
+[[checklist]]
+domain = "*"
+id = "GEN-01"
+title = "Prevent information disclosure"
+what_to_look_for = "Sensitive information exposed through program output, logs, debugging statements, error messages, API responses or tool execution output; complete objects, variables, data structures, environment variables, configurations or execution results dumped without checking that they are safe to disclose. Apply least disclosure: output only the minimum needed, redact sensitive data, never expose secrets or confidential information; when in doubt, do not disclose."
+cwe = "CWE-200"
+
 [[checklist]]
 domain = "python"
 id = "PY-01"

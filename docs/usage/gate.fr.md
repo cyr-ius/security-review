@@ -74,11 +74,11 @@ security-review-controller token create --label jenkins-portal --role ci \
 ```
 
 Sur un poste de travail, un développeur utilise plutôt un
-[jeton `ci` personnel](web-interface.md#jetons-mcp-et-ci-personnels), créé dans
+[jeton `mcp` ou `ci` personnel](web-interface.md#jetons-mcp-et-ci-personnels), créé dans
 **Mon compte** : il atteint les projets que le développeur peut lire.
 
 Les sessions web et les jetons `api` (dans les projets qu'ils lisent) et les jetons `admin`
-peuvent aussi appeler les routes du gate, du SARIF et de la tendance ; les jetons `mcp`, non. Les scans, qui enregistrent
+peuvent aussi appeler les routes du gate, du SARIF et de la tendance ; les jetons `mcp`, non, sauf un jeton personnel, qui vaut jeton `ci`. Les scans, qui enregistrent
 des rapports, demandent un jeton `ci` ou `admin` (`403` sinon, sessions web comprises).
 
 ### Exemples
@@ -140,4 +140,7 @@ Un finding sort du blocage quand une personne le passe à `fixed`, `accepted` ou
 `false_positive` dans l'[interface web](web-interface.md#triage-des-findings) : la
 décision reste tracée en base avec son motif et son approbateur. Un agent peut seulement
 proposer un statut (`propose_finding_status`), ce qui ne débloque pas la gate. Une acceptation
-ou un faux positif expire : à partir de sa date d'expiration, le finding bloque de nouveau.
+ou un faux positif expire : à partir de sa date d'expiration, le finding bloque de nouveau. Une
+décision est reprise sur le même problème signalé par un rapport ultérieur
+([finding signalé de nouveau](web-interface.md#finding-signale-de-nouveau)) : le scan suivant
+ne bloque pas sur un risque accepté.

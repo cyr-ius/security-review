@@ -1,8 +1,13 @@
-<article class="card finding mb-3" [class]="'sev-' + finding().severity">
+<article
+  class="card finding mb-3"
+  [class]="'sev-' + finding().severity"
+  [class.target]="highlighted()"
+  [id]="'finding-' + finding().id"
+>
   <div class="card-header d-flex flex-wrap align-items-center gap-2">
     <app-severity-badge [severity]="finding().severity" />
     <h3 class="h6 mb-0 me-auto">{{ finding().title }}</h3>
-    @if (canTriage()) {
+    @if (triageable()) {
       <button
         type="button"
         class="btn btn-sm btn-outline-danger"
@@ -50,6 +55,12 @@
         <span>OWASP {{ finding().owasp }}</span>
       }
       <span>{{ finding().category }}</span>
+      @if (finding().superseded_by; as current) {
+        <span class="text-info-emphasis">
+          <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+          {{ 'report.supersededBy' | t: { id: current } }}
+        </span>
+      }
       @if (expired()) {
         <span class="text-warning-emphasis">
           <i class="bi bi-hourglass-bottom" aria-hidden="true"></i>
@@ -72,33 +83,32 @@
       }
       <ng-content />
     </div>
-    @if (finding().tickets.length || sendableKinds().length) {
+    @if (finding().exports.length || sendableKinds().length) {
       <div class="d-flex flex-wrap align-items-center gap-2 small mb-2">
-        @for (ticket of finding().tickets; track ticket.kind) {
-          @if (ticket.state === 'sent' && ticket.url) {
+        @for (record of finding().exports; track record.kind) {
+          @if (record.state === 'sent' && record.url) {
             <a
               class="badge bg-body-secondary text-body border text-decoration-none"
-              [href]="ticket.url"
+              [href]="record.url"
               target="_blank"
               rel="noopener noreferrer"
             >
-              <i class="bi bi-ticket-detailed" aria-hidden="true"></i>
+              <i class="bi bi-box-arrow-up-right" aria-hidden="true"></i>
               {{
-                'ticketing.ticket'
-                  | t: { system: systemName(ticket.kind), key: ticket.external_key ?? '' }
+                'exports.record'
+                  | t: { system: systemName(record.kind), key: record.external_key ?? '' }
               }}
             </a>
-          } @else if (ticket.state === 'failed') {
+          } @else if (record.state === 'failed') {
             <span class="text-danger-emphasis text-break">
               <i class="bi bi-exclamation-triangle" aria-hidden="true"></i>
               {{
-                'ticketing.ticketFailed'
-                  | t: { system: systemName(ticket.kind), error: ticket.error ?? '' }
+                'exports.failed' | t: { system: systemName(record.kind), error: record.error ?? '' }
               }}
             </span>
-          } @else if (ticket.state === 'sending') {
+          } @else if (record.state === 'sending') {
             <span class="text-body-secondary">
-              {{ 'ticketing.ticketSending' | t: { system: systemName(ticket.kind) } }}
+              {{ 'exports.sending' | t: { system: systemName(record.kind) } }}
             </span>
           }
         }
@@ -106,11 +116,11 @@
           <button
             type="button"
             class="btn btn-sm btn-outline-secondary"
-            [disabled]="ticketSending()"
-            (click)="ticketRequested.emit(kind)"
+            [disabled]="exporting()"
+            (click)="exportRequested.emit(kind)"
           >
             <i class="bi bi-send" aria-hidden="true"></i>
-            {{ 'ticketing.send' | t: { system: systemName(kind) } }}
+            {{ 'exports.send' | t: { system: systemName(kind) } }}
           </button>
         }
       </div>
@@ -234,7 +244,7 @@
         @if (finding().proposed_reason) {
           <div class="prewrap mt-1">{{ finding().proposed_reason }}</div>
         }
-        @if (canTriage()) {
+        @if (triageable()) {
           <div class="d-flex gap-2 mt-2">
             <button
               type="button"
@@ -276,43 +286,47 @@
             "
           ></textarea>
           <div class="form-text" [id]="'reason-help-' + finding().id">
-            {{ 'report.dismissReasonHelp' | t }}
+            {{ reasonHelp() | t }}
           </div>
         </div>
-        <div class="mb-3">
-          <label class="form-label" [for]="'expiry-' + finding().id">{{
-            'report.dismissExpiry' | t
-          }}</label>
-          @if (!withoutExpiry()) {
-            <input
-              type="date"
-              class="form-control form-control-sm expiry"
-              [id]="'expiry-' + finding().id"
-              [min]="minExpiry"
-              [attr.aria-describedby]="'expiry-help-' + finding().id"
-              [formField]="dismissalForm.expiresOn"
-              [class.is-invalid]="
-                dismissalForm.expiresOn().touched() && dismissalForm.expiresOn().invalid()
-              "
-            />
-          }
-          @if (noExpiryOffered()) {
-            <div class="form-check mt-1">
+        @if (expiryAsked()) {
+          <div class="mb-3">
+            <label class="form-label" [for]="'expiry-' + finding().id">{{
+              'report.dismissExpiry' | t
+            }}</label>
+            @if (!withoutExpiry()) {
               <input
-                type="checkbox"
-                class="form-check-input"
-                [id]="'no-expiry-' + finding().id"
-                [formField]="dismissalForm.noExpiry"
+                type="date"
+                class="form-control form-control-sm expiry"
+                [id]="'expiry-' + finding().id"
+                [min]="minExpiry"
+                [attr.aria-describedby]="'expiry-help-' + finding().id"
+                [formField]="dismissalForm.expiresOn"
+                [class.is-invalid]="
+                  dismissalForm.expiresOn().touched() && dismissalForm.expiresOn().invalid()
+                "
               />
-              <label class="form-check-label" [for]="'no-expiry-' + finding().id">{{
-                'report.dismissNoExpiry' | t
-              }}</label>
+            }
+            @if (noExpiryOffered()) {
+              <div class="form-check mt-1">
+                <input
+                  type="checkbox"
+                  class="form-check-input"
+                  [id]="'no-expiry-' + finding().id"
+                  [formField]="dismissalForm.noExpiry"
+                />
+                <label class="form-check-label" [for]="'no-expiry-' + finding().id">{{
+                  'report.dismissNoExpiry' | t
+                }}</label>
+              </div>
+            }
+            <div class="form-text" [id]="'expiry-help-' + finding().id">
+              {{
+                (withoutExpiry() ? 'report.dismissNoExpiryHelp' : 'report.dismissExpiryHelp') | t
+              }}
             </div>
-          }
-          <div class="form-text" [id]="'expiry-help-' + finding().id">
-            {{ (withoutExpiry() ? 'report.dismissNoExpiryHelp' : 'report.dismissExpiryHelp') | t }}
           </div>
-        </div>
+        }
         <div class="d-flex gap-2">
           <button
             type="submit"

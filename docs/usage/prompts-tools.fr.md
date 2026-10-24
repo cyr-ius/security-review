@@ -20,8 +20,8 @@ Chaque prompt de revue se termine par l'instruction d'appeler `save_security_rep
 fois ; `development-standards` n'enregistre rien.
 
 Chaque prompt de revue intègre les checklists de son domaine (selon les langages pour
-`security-review` et `codebase-review`, alias comme `py` ou `ts` acceptés) et la checklist
-`company`, puis nomme les autres checklists disponibles, domaines internes compris, que l'agent
+`security-review` et `codebase-review`, alias comme `py` ou `ts` acceptés) et les checklists
+`*` (tous les langages) et `company`, puis nomme les autres checklists disponibles, domaines internes compris, que l'agent
 récupère avec `get_review_checklist` quand elles s'appliquent
 ([détails](checklists.md#checklists-des-prompts-de-revue)).
 
@@ -56,7 +56,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `scan_code` | Scan rapide par motifs et analyses Tree-sitter ciblées des flux requête vers SQL (Python, Java, Go, C#, Rust, Node.js), DOM Angular et origines de messages non vérifiées (pistes à vérifier, **pas** un SAST complet). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
-| `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue / auteur, avec pagination |
+| `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue, avec pagination |
 | `propose_finding_status` | **Propose** `fixed`, `accepted` ou `false_positive` avec un motif ; ne change jamais le statut ([statut d'un finding](#statut-dun-finding)) |
 | `get_project_security_posture` | Findings ouverts par sévérité (utile comme garde-fou CI) |
 | `check_project_gate` | Gate CI : `passed` est faux tant qu'un finding **ouvert** atteint le seuil `fail_on` |
@@ -105,7 +105,8 @@ Voir [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
   `owasp`, `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category` ;
 - `repository`, `branch`, `commit_sha`, `reviewer`, `scope` ;
 - `review_type` : le type de revue, indiqué par chaque prompt de revue (voir ci-dessous) ;
-- `author` : le nom d'utilisateur du développeur (voir [auteur d'un rapport](#auteur-dun-rapport)) ;
+- `author` : inutile, le serveur prend l'utilisateur d'un jeton personnel (voir
+  [auteur d'un rapport](#auteur-dun-rapport)) ;
 - `checklist_results` et `scan_rules` : la couverture de la revue (voir
   [couverture de la revue](#couverture-de-la-revue)).
 
@@ -116,6 +117,10 @@ refuser le rapport.
 
 Le **niveau de risque** du rapport est calculé (sévérité maximale des findings). Le paramètre
 `risk_level` peut seulement le relever, jamais le baisser.
+
+Un finding déjà signalé par un rapport précédent du projet le remplace et garde la décision
+prise sur lui : le résultat donne `recurring_findings` et `carried_decisions` (voir
+[finding signalé de nouveau](web-interface.md#finding-signale-de-nouveau)).
 
 ### Nom du projet
 
@@ -161,22 +166,24 @@ jamais de droit et ne change pas une gate.
 
 ### Auteur d'un rapport
 
-Un jeton est configuré sur un équipement, que plusieurs développeurs peuvent partager (jeton de
-pipeline, poste partagé) : son libellé ne dit pas qui a travaillé sur le code relu. Chaque rapport porte donc
-deux champs :
+L'auteur d'un rapport est l'utilisateur du jeton qui l'a enregistré : l'agent et la CLI n'ont
+pas à le préciser. Chaque rapport porte deux champs :
 
 | Champ | Rempli par | Valeur |
 |---|---|---|
-| `author` | le client | Nom d'utilisateur du développeur : les prompts de revue demandent à l'agent la sortie de `git config user.email` (sinon `git config user.name` ou le nom de connexion), et de l'omettre plutôt que de deviner. Avec les scans CLI : `--author`. |
+| `author` | le serveur | Nom de l'utilisateur web propriétaire du jeton personnel (`mcp` ou `ci`) qui a enregistré le rapport, quelle que soit la valeur passée par le client. Seulement pour un jeton sans utilisateur (équipement enrôlé, jeton créé par un administrateur), c'est la valeur déclarée par le client (`author` de `save_security_report`, `--author` des scans CLI), s'il y en a une ; les prompts de revue demandent à l'agent de ne pas la passer. |
 | `submitted_by` | le serveur | Libellé du jeton Bearer qui a enregistré le rapport (vide en stdio et avec la CLI). Le client ne peut pas le modifier. |
 
 `author` fait au plus 200 caractères : lettres, chiffres, espaces et `. @ _ + - ' ,` uniquement
 (ni Markdown ni HTML, car il est recopié dans l'export Markdown) ; une valeur vide n'est pas
-enregistrée. Il est **déclaré, non authentifié** : il sert à savoir à qui s'adresser et à filtrer
-les rapports (`list_security_reports`, [interface web](web-interface.md)), jamais de preuve
-d'identité ; `submitted_by` indique quel jeton a réellement envoyé le rapport. Dans l'interface
-web et l'API REST, seul qui détient `users.manage` ou `tokens.manage` voit l'`author` ; les
-autres voient le libellé du jeton.
+enregistrée. Avec un jeton personnel, il est **authentifié** ; déclaré par le client d'un jeton sans
+utilisateur, il ne l'est pas et indique seulement à qui s'adresser. Il sert à filtrer les
+rapports dans l'[interface web](web-interface.md) ; `submitted_by` indique quel jeton a
+réellement envoyé le rapport. Seul qui détient `users.manage` ou `tokens.manage` voit
+l'`author`, dans l'interface web et l'API REST ; les autres voient le libellé du jeton. Une fois
+enregistré, les outils, ressources et prompts MCP ne le renvoient jamais (`author` vaut `null`
+dans `list_security_reports` et `get_security_report`, et n'apparaît pas dans le Markdown), et
+l'argument `author` de `list_security_reports` est ignoré.
 
 ### Couverture de la revue
 

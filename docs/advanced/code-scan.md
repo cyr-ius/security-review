@@ -18,7 +18,7 @@ security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 
 The pipeline needs neither the database nor the package: only Python and the
 [`ci` token](../usage/gate.md#ci-token-and-visible-projects) of the project. On a workstation,
-use a [personal `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens).
+use a [personal `mcp` or `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens).
 
 ## File selection
 
@@ -55,8 +55,8 @@ The client chooses the files; the controller never reads its own disk.
   database and the `secreview:ignore` markers apply as for `scan_code`.
 - `--save` stores the matches as a `code-scan` report (at most
   `SECREVIEW_MAX_FINDINGS_PER_REPORT` findings, the most severe first), with the list of files
-  not analyzed in `scope` and the label of the token as the device that saved it; `--author`
-  adds the username of the developer (see
+  not analyzed in `scope` and the label of the token as the device that saved it; the user of a
+  personal `ci` token is the author, else `--author` adds the username of the developer (see
   [author of a report](../usage/prompts-tools.md#author-of-a-report)), `--repository`,
   `--branch` and `--commit` the context.
 - With `--save --format sarif`, the SARIF log carries the ids of the stored findings.
@@ -71,6 +71,6 @@ Then, the `codebase-review` prompt (`scan_results` argument = the JSON, possibly
 guides the agent: inventory, prioritization of the entry points, tracing of the flows between
 files, checklists, and a **coverage** section that says what was not read. Without `scan_results`, the
 prompt asks an agent that can run commands to launch `security-review-ci scan-code` itself (with
-a personal `ci` token): the files reach the controller as they are, instead of being copied by
+a personal `mcp` or `ci` token): the files reach the controller as they are, instead of being copied by
 the model into `scan_code` calls. The `dependency-review` prompt does the same with
 `security-review-ci scan-deps`.

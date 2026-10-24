@@ -17,7 +17,7 @@ import { sso } from './sso';
 import { access } from './access';
 import { settings } from './settings';
 import { trend } from './trend';
-import { ticketing } from './ticketing';
+import { exports } from './exports';
 import { connectors } from './connectors';
 
 /** Messages of every screen; add the catalog of a new screen here. */
@@ -40,7 +40,7 @@ const CATALOGS = [
   access,
   settings,
   trend,
-  ticketing,
+  exports,
   connectors,
 ] as const;
 

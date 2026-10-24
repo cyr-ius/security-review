@@ -20,7 +20,8 @@ prompt ends with the instruction to call `save_security_report` once; `developme
 saves nothing.
 
 Each review prompt embeds the checklists of its domain (by language for `security-review` and
-`codebase-review`, aliases such as `py` or `ts` accepted) and the `company` checklist, then names
+`codebase-review`, aliases such as `py` or `ts` accepted), the `*` (every language) and `company`
+checklists, then names
 the other available checklists, internal domains included, for the agent to fetch with
 `get_review_checklist` when they apply ([details](checklists.md#checklists-in-review-prompts)).
 
@@ -54,7 +55,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `scan_code` | Quick pattern scan plus focused Tree-sitter checks for request-to-SQL flows (Python, Java, Go, C#, Rust, Node.js), Angular DOM flows, and unchecked message origins (leads to check, **not** a full SAST). Masked excerpts, invisible characters shown as `<U+XXXX>` |
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
-| `list_security_reports` | List filtered by project / risk level / review type / author, with pagination |
+| `list_security_reports` | List filtered by project / risk level / review type, with pagination |
 | `propose_finding_status` | **Proposes** `fixed`, `accepted` or `false_positive` with a reason; never changes the status ([status of a finding](#status-of-a-finding)) |
 | `get_project_security_posture` | Open findings by severity (useful as a CI safeguard) |
 | `check_project_gate` | CI gate: `passed` is false while an **open** finding reaches the `fail_on` threshold |
@@ -103,7 +104,8 @@ See [enrollment](../advanced/http.md#enrollment-request-the-project).
   `file_path`, `line_start`, `line_end`, `evidence`, `recommendation`, `category`;
 - `repository`, `branch`, `commit_sha`, `reviewer`, `scope`;
 - `review_type`: the kind of review, given by each review prompt (see below);
-- `author`: the username of the developer (see [author of a report](#author-of-a-report));
+- `author`: not needed, the server takes the user of a personal token (see
+  [author of a report](#author-of-a-report));
 - `checklist_results` and `scan_rules`: the coverage of the review (see
   [review coverage](#review-coverage)).
 
@@ -114,6 +116,10 @@ report.
 
 The **risk level** of the report is computed (highest severity of the findings). The
 `risk_level` parameter can only raise it, never lower it.
+
+A finding already raised by a previous report of the project replaces it and keeps the
+decision taken on it: the result gives `recurring_findings` and `carried_decisions` (see
+[finding reported again](web-interface.md#finding-reported-again)).
 
 ### Project name
 
@@ -159,21 +165,23 @@ nor changes a gate.
 
 ### Author of a report
 
-A token is configured on a device, which several developers may share (a pipeline token, a
-shared workstation): its label does not say who worked on the reviewed code. Each report therefore carries two fields:
+The author of a report is the user of the token that saved it: the agent and the CLI do not
+need to name it. Each report carries two fields:
 
 | Field | Filled by | Value |
 |---|---|---|
-| `author` | the client | Username of the developer: the review prompts ask the agent for the output of `git config user.email` (else `git config user.name` or the login name), and to omit it rather than guess. With the CLI scans: `--author`. |
+| `author` | the server | Username of the web user who owns the personal token (`mcp` or `ci`) that saved the report, whatever the client passes. Only for a token without a user (enrolled device, token created by an administrator) is it the value declared by the client (`author` of `save_security_report`, `--author` of the CLI scans), if any; the review prompts ask the agent not to pass it. |
 | `submitted_by` | the server | Label of the bearer token that saved the report (empty with stdio and the CLI). The client cannot change it. |
 
 `author` is at most 200 characters: letters, digits, spaces and `. @ _ + - ' ,` only (no
 Markdown nor HTML, as it is copied into the Markdown export); a blank value is not stored.
-It is **declared, not authenticated**: use it to see who to talk to and to filter the reports
-(`list_security_reports`, [web interface](web-interface.md)), never as a proof of identity;
-`submitted_by` says which token actually sent the report. In the web interface and the REST
-API, only a holder of `users.manage` or `tokens.manage` sees the `author`; the others see the
-token label.
+With a personal token, it is **authenticated**; declared by the client of a token without a
+user, it is not, and only says who to talk to. Use it to filter the reports in the
+[web interface](web-interface.md); `submitted_by` says which token actually sent the report.
+Only a holder of `users.manage` or `tokens.manage` sees the `author`, in the web interface and
+the REST API; the others see the token label. Once stored, the MCP tools, resources and prompts
+never return it (`author` is `null` in `list_security_reports` and `get_security_report`, and
+absent from the Markdown), and the `author` argument of `list_security_reports` is ignored.
 
 ### Review coverage
 

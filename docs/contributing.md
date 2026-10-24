@@ -172,8 +172,8 @@ src/security_review_mcp/
 ├── clients/       # CLI clients that contact the URL given by the operator
 │   ├── commands.py        # `enroll` command of security-review-mcp
 │   └── enrollment.py      # `enroll` client: project enrollment on a shared server
-├── ticketing/     # tickets of the findings: api (connector API), registry, connections,
-│                  # transport (HTTP client), core (sending), jira, servicenow
+├── connectors/    # findings sent to external systems: api (connector API), registry,
+│                  # connections, transport (HTTP client), core (sending), jira, servicenow
 └── web_api/       # controller: REST API /api/v1 and files of the application (/ui)
     ├── __init__.py    # create_app, static files of /ui, assembly of the routers
     ├── schemas.py     # request and response models of every route
@@ -185,7 +185,7 @@ web/               # Angular application (built into src/security_review_mcp/web
 
 The MCP server never imports the modules of the controller that open outgoing connections or
 serve its routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
-`observability/audit_syslog`, `ticketing`, `update_check`, `web_api`), not even indirectly:
+`observability/audit_syslog`, `connectors`, `update_check`, `web_api`), not even indirectly:
 `tests/test_server.py` checks it. A module shared by both processes (such as
 `app_settings`) imports them inside the function that needs them, never at the top.
 
@@ -308,8 +308,8 @@ uv run mkdocs build --strict # what the CI does: a broken link fails the build
 - Links between pages target the English file (`../reference/cli.md`): the plugin points them
   to the French page from a French page. Anchors follow the headings of each language
   (`#report-language` in English, `#langue-des-rapports` in French).
-- The pages follow the order of a set-up: **Getting started** (`getting-started/`) and
-  **Usage** (`usage/`) only hold what is needed to work; **Advanced** (`advanced/`) gathers the
+- The pages follow the order of a set-up: **Getting started** (`getting-started/`),
+  **Usage** and **Security review** (both in `usage/`) only hold what is needed to work; **Advanced** (`advanced/`) gathers the
   details and the optional features. Put a detailed explanation in `advanced/`, with at most a
   line and a link from the essential pages.
 - To add a page, create both files in `docs/`, declare the English one in the `nav` section of

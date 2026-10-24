@@ -215,7 +215,7 @@ class Settings(BaseSettings):
     max_dismissal_days: int = Field(default=365, ge=1, le=MAX_RETENTION_DAYS)
     # Controller only: a person may accept a risk without an expiry date ("No expiry" in the web
     # interface); the acceptance then lasts until someone reopens the finding. False: every
-    # acceptance needs an expiry date. A false positive always needs one.
+    # acceptance needs an expiry date. A false positive never needs one.
     permanent_acceptance_enabled: bool = True
     # Controller only: lowest severity whose risk acceptance needs a reason and an expiry date
     # (see permanent_acceptance_enabled). A less severe finding is accepted by a plain
@@ -240,13 +240,15 @@ class Settings(BaseSettings):
     # same daily purge). 0: no limit.
     audit_max_events: int = Field(default=0, ge=0, le=MAX_AUDIT_EVENTS)
     # Controller only: send each audit event, as JSON, to a syslog server: udp://host:port,
-    # tcp://host:port or unix:///dev/log (no TLS: use a local relay such as rsyslog for it).
+    # tcp://host:port, tls://host:port (RFC 5425, port 6514 by default) or unix:///dev/log.
     # Disabled by default. The controller forwards the events of every process (MCP server and
     # CLI included) from the database, each event once even with several replicas. Not proxied.
     # Each one not set can be set on the Audit log page of the web interface; when set, it takes
-    # precedence there. An empty address variable counts as unset.
+    # precedence there. An empty address variable counts as unset. audit_syslog_cafile (a
+    # variable only) replaces the system CA bundle to verify the certificate of a tls:// server.
     audit_syslog_address: str | None = None
     audit_syslog_facility: str = "local0"
+    audit_syslog_cafile: str | None = None
 
     # Controller only: Prometheus metrics on /metrics, reached with a token of role "metrics" or
     # "admin". false: /metrics answers 404.
@@ -257,21 +259,22 @@ class Settings(BaseSettings):
     # outgoing connection.
     update_check_enabled: bool = False
 
-    # Controller only: send findings as tickets to ticketing systems (see ticketing): Jira and
-    # ServiceNow, plus the third-party connectors (Python entry points of the group
-    # security_review_mcp.ticketing) whose names ticketing_plugins lists, comma separated (a
-    # connector installed but not listed is never loaded). By hand from the web interface, or
-    # automatically for the projects given a severity threshold. Outgoing connections (HTTPS
-    # only, through the outgoing proxy): every connector is off until an administrator switches
-    # it on in the web interface (Connectors screen). ticketing_enabled is the lock of the
-    # operator: false, nothing is sent and the switches are locked off. ticketing_interval_seconds
-    # is the period of the automatic sending; ticketing_cafile replaces the system CA bundle
-    # (internal certificate authority). The connection of each system is read from its own
-    # variables, SECREVIEW_<KIND>_<FIELD> (SECREVIEW_JIRA_URL...), or set in the web interface.
-    ticketing_enabled: bool = True
-    ticketing_interval_seconds: int = Field(default=300, ge=30, le=86_400)
-    ticketing_cafile: str | None = None
-    ticketing_plugins: str = ""
+    # Controller only: send findings to external systems through connectors (see connectors):
+    # tickets in Jira and ServiceNow, plus the third-party connectors (Python entry points of the
+    # group security_review_mcp.connectors) whose names connectors_plugins lists, comma
+    # separated (a connector installed but not listed is never loaded). By hand from the web
+    # interface, or automatically for the projects given a severity threshold. Outgoing
+    # connections (HTTPS only, through the outgoing proxy): every connector is off until an
+    # administrator switches it on in the web interface (Connectors screen). connectors_enabled
+    # is the lock of the operator: false, nothing is sent and the switches are locked off.
+    # connectors_interval_seconds is the period of the automatic sending; connectors_cafile
+    # replaces the system CA bundle (internal certificate authority). The connection of each
+    # system is read from its own variables, SECREVIEW_<KIND>_<FIELD> (SECREVIEW_JIRA_URL...), or
+    # set in the web interface.
+    connectors_enabled: bool = True
+    connectors_interval_seconds: int = Field(default=300, ge=30, le=86_400)
+    connectors_cafile: str | None = None
+    connectors_plugins: str = ""
 
     log_level: str = "INFO"
 
@@ -290,13 +293,20 @@ class Settings(BaseSettings):
     max_scan_files: int = Field(default=10_000, ge=1)
     max_scan_file_chars: int = Field(default=1_048_576, ge=1)
 
-    @field_validator("proxy", "no_proxy", "audit_syslog_address", "web_url", "ticketing_cafile")
+    @field_validator(
+        "proxy",
+        "no_proxy",
+        "audit_syslog_address",
+        "audit_syslog_cafile",
+        "web_url",
+        "connectors_cafile",
+    )
     @classmethod
     def _empty_is_unset(cls, value: str | None) -> str | None:
         """An empty variable means no value (an empty stored proxy means a direct connection)."""
         return value.strip() or None if value is not None else None
 
-    @field_validator("ticketing_enabled", mode="before")
+    @field_validator("connectors_enabled", mode="before")
     @classmethod
     def _empty_lock_is_open(cls, value: object) -> object:
         """An empty variable leaves the switches of the web interface in charge."""

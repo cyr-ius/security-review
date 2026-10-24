@@ -517,16 +517,16 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
     from sqlmodel import select
 
     from security_review_mcp.auth import token_store
+    from security_review_mcp.connectors import registry, set_target
     from security_review_mcp.reports import services
     from security_review_mcp.storage.models import (
+        ConnectorTarget,
+        ExportState,
         FindingComment,
         FindingCreate,
-        FindingTicket,
+        FindingExport,
         Severity,
-        TicketState,
-        TicketTarget,
     )
-    from security_review_mcp.ticketing import registry, set_target
 
     finding = FindingCreate(title="SQL injection", severity=Severity.HIGH, description="Query")
     shop = services.save_report("shop", "Review", [finding])
@@ -535,12 +535,12 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
     set_target("shop", registry.get("jira"), "SEC", None, "user:root")
     with session_scope() as session:
         session.add(
-            FindingTicket(
+            FindingExport(
                 finding_id=shop_finding.id,
                 kind="jira",
                 project="shop",
                 fingerprint="f" * 32,
-                state=TicketState.SENT,
+                state=ExportState.SENT,
                 external_key="SEC-1",
             )
         )
@@ -569,8 +569,8 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
     assert [item["project"] for item in services.list_projects(set())] == ["crm"]
     with session_scope() as session:
         assert session.exec(select(FindingComment)).all() == []
-        assert session.exec(select(FindingTicket)).all() == []
-        assert session.exec(select(TicketTarget)).all() == []
+        assert session.exec(select(FindingExport)).all() == []
+        assert session.exec(select(ConnectorTarget)).all() == []
         assert not access_control.project_exists(session, "shop")
         assert access_control.project_exists(session, "shop-mobile")
     assert services.get_report(kept["report_id"]).project == "crm"

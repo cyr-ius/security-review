@@ -337,6 +337,24 @@ def test_create_update_and_revision():
         rule_store.update_rule("ACME-010", RULE | {"pattern": "(a*)*"})
 
 
+def test_new_ids_cannot_take_a_default_prefix_or_a_checklist_id_of_another_domain():
+    # A future PY-999 default would not be seeded over a custom PY-999
+    with pytest.raises(ValueError, match="prefix PY is reserved"):
+        rule_store.create_rule(RULE | {"id": "PY-999"})
+    item = {"domain": "company", "title": "t", "what_to_look_for": "w"}
+    with pytest.raises(ValueError, match="prefix GEN is reserved"):
+        rule_store.create_check_item(item | {"id": "GEN-99"})
+    rule_store.create_check_item(item | {"domain": "payments", "id": "ACME-PAY-01"})
+    with pytest.raises(ValueError, match="already used in domain payments"):
+        rule_store.create_check_item(item | {"id": "ACME-PAY-01"})
+    pack = '[[rules]]\nid = "DEP-900"\ntitle = "t"\nseverity = "low"\npattern = "x"\n'
+    with pytest.raises(ValueError, match="prefix DEP is reserved"):
+        rule_store.import_packs([("p.toml", pack)])
+    # Default ids stay editable through a pack
+    rule_store.import_packs([("p.toml", pack.replace("DEP-900", "PY-001"))])
+    assert stored_rule("PY-001")["modified"] is True
+
+
 def test_invalid_stored_row_is_reported_not_fatal(database):
     from sqlmodel import Session
 

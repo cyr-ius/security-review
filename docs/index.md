@@ -92,8 +92,8 @@ Docker Compose, tokens for every developer), follow [Deploying the server](getti
 
 ## Where to go next
 
-The documentation follows the order of a set-up. **Getting started** and **Usage** hold what
-you need to work; **Advanced** gathers the details and the optional features.
+The documentation follows the order of a set-up. **Getting started**, **Usage** and **Security review**
+hold what you need to work; **Advanced** gathers the details and the optional features.
 
 | Step | Page |
 |---|---|

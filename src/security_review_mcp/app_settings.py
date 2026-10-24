@@ -205,8 +205,8 @@ def _overrides(stored: dict[str, str], settings: Settings) -> dict[str, Any]:
 def effective_settings(settings: Settings | None = None) -> Settings:
     """Return ``settings`` with the proxy, OIDC and syslog values stored in the web interface
     applied where their variable is not set (read by the controller at each OSV download, login,
-    batch of audit events and ticket; the connections of the ticketing systems are read by
-    ticketing.connections)."""
+    batch of audit events and export; the connections of the connectors are read by
+    connectors.connections)."""
     settings = settings or get_settings()
     overrides = _overrides(_stored(), settings)
     return settings.model_copy(update=overrides) if overrides else settings
@@ -383,8 +383,8 @@ def set_audit_syslog(
     empty address) removes the stored value, the names left out are unchanged.
 
     The change is recorded in the audit log, in the same transaction: stopping the forwarding
-    leaves a trace. Only udp:// and tcp:// addresses may be set here; a Unix socket is a file of
-    the deployment and stays a variable.
+    leaves a trace. Only udp://, tcp:// and tls:// addresses may be set here; a Unix socket is a
+    file of the deployment and stays a variable, as the CA file of tls://.
 
     Raises:
         ValueError: If a name is unknown, a value is invalid, or its variable is set

@@ -173,8 +173,8 @@ src/security_review_mcp/
 ├── clients/       # clients CLI qui contactent l'URL donnée par l'opérateur
 │   ├── commands.py        # commande `enroll` de security-review-mcp
 │   └── enrollment.py      # client de `enroll` : enrôlement d'un projet sur un serveur partagé
-├── ticketing/     # tickets des findings : api (API des connecteurs), registry, connections,
-│                  # transport (client HTTP), core (envoi), jira, servicenow
+├── connectors/    # findings envoyés vers des systèmes externes : api (API des connecteurs),
+│                  # registry, connections, transport (client HTTP), core (envoi), jira, servicenow
 └── web_api/       # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
     ├── __init__.py    # create_app, fichiers statiques de /ui, assemblage des routeurs
     ├── schemas.py     # modèles de requête et de réponse de chaque route
@@ -186,7 +186,7 @@ web/               # application Angular (compilée dans src/security_review_mcp
 
 Le serveur MCP n'importe jamais les modules du contrôleur qui ouvrent des connexions sortantes
 ou servent ses routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
-`observability/audit_syslog`, `ticketing`, `update_check`, `web_api`), même indirectement :
+`observability/audit_syslog`, `connectors`, `update_check`, `web_api`), même indirectement :
 `tests/test_server.py` le vérifie. Un module partagé par les deux processus (comme
 `app_settings`) les importe dans la fonction qui en a besoin, jamais en tête.
 
@@ -309,8 +309,8 @@ uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer 
 - Les liens entre pages visent le fichier anglais (`../reference/cli.md`) : depuis une page
   française, le plugin les fait pointer vers la page française. Les ancres suivent les titres de
   chaque langue (`#report-language` en anglais, `#langue-des-rapports` en français).
-- Les pages suivent l'ordre d'une mise en œuvre : **Démarrage** (`getting-started/`) et
-  **Utilisation** (`usage/`) ne contiennent que l'essentiel pour travailler ; **Avancé**
+- Les pages suivent l'ordre d'une mise en œuvre : **Démarrage** (`getting-started/`),
+  **Utilisation** et **Revue de sécurité** (toutes deux dans `usage/`) ne contiennent que l'essentiel pour travailler ; **Avancé**
   (`advanced/`) regroupe les détails et les fonctions facultatives. Placez une explication
   détaillée dans `advanced/`, avec au plus une ligne et un lien depuis les pages essentielles.
 - Pour ajouter une page, créez les deux fichiers dans `docs/`, déclarez le fichier anglais dans

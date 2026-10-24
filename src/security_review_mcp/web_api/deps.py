@@ -154,10 +154,17 @@ def actor_of(identity: Identity) -> str:
     return audit.token_actor(identity.client)
 
 
+def token_owner(request: Request) -> str | None:
+    """Username of the web user who owns the personal token of the request, None otherwise:
+    the authenticated author of the reports it saves (see token_store)."""
+    return (request.scope.get("state") or {}).get("auth_owner")
+
+
 CurrentIdentity = Annotated[Identity, Depends(current_identity)]
 PipelineIdentity = Annotated[Identity, Depends(pipeline_identity)]
 ScanIdentity = Annotated[Identity, Depends(scan_identity)]
 MetricsIdentity = Annotated[Identity, Depends(metrics_identity)]
+TokenOwner = Annotated[str | None, Depends(token_owner)]
 
 
 def has_permission(identity: Identity, permission: Permission, project: str | None = None) -> bool:

@@ -43,6 +43,7 @@ export const reports = defineMessages({
     'report.decisionUntil': 'valid until {date}',
     'report.decisionNoExpiry': 'no expiry',
     'report.decisionExpired': 'Decision expired on {date}: open again',
+    'report.supersededBy': 'Reported again: see finding #{id}',
     'report.proposalBy': '{by} proposes "{status}" ({date})',
     'report.proposalUntrusted':
       'Proposed by an agent: its reason may come from the reviewed code. Check it before applying.',
@@ -52,6 +53,8 @@ export const reports = defineMessages({
     'report.dismissReason': 'Reason',
     'report.dismissReasonHelp':
       'Required, 10 characters or more. You are recorded as the approver.',
+    'report.dismissReasonOptionalHelp':
+      'Optional, 10 characters or more. You are recorded as the approver.',
     'report.dismissExpiry': 'Expiry date',
     'report.dismissExpiryHelp':
       'From this day the finding counts as open again and blocks the gate.',
@@ -129,6 +132,7 @@ export const reports = defineMessages({
     'report.decisionUntil': "valable jusqu'au {date}",
     'report.decisionNoExpiry': 'sans expiration',
     'report.decisionExpired': 'Décision expirée le {date} : de nouveau ouvert',
+    'report.supersededBy': 'Signalé de nouveau : voir le finding #{id}',
     'report.proposalBy': '{by} propose « {status} » ({date})',
     'report.proposalUntrusted':
       'Proposé par un agent : son motif peut venir du code relu. Vérifiez-le avant de l’appliquer.',
@@ -138,6 +142,8 @@ export const reports = defineMessages({
     'report.dismissReason': 'Motif',
     'report.dismissReasonHelp':
       'Obligatoire, 10 caractères ou plus. Vous êtes enregistré comme approbateur.',
+    'report.dismissReasonOptionalHelp':
+      'Facultatif, 10 caractères ou plus. Vous êtes enregistré comme approbateur.',
     'report.dismissExpiry': "Date d'expiration",
     'report.dismissExpiryHelp':
       'À partir de ce jour, le finding est de nouveau ouvert et bloque le gate.',
@@ -216,6 +222,7 @@ export const reports = defineMessages({
     'report.decisionUntil': 'válido hasta el {date}',
     'report.decisionNoExpiry': 'sin caducidad',
     'report.decisionExpired': 'Decisión caducada el {date}: abierto de nuevo',
+    'report.supersededBy': 'Notificado de nuevo: ver el hallazgo #{id}',
     'report.proposalBy': '{by} propone «{status}» ({date})',
     'report.proposalUntrusted':
       'Propuesto por un agente: su motivo puede venir del código revisado. Verifíquelo antes de aplicarlo.',
@@ -225,6 +232,8 @@ export const reports = defineMessages({
     'report.dismissReason': 'Motivo',
     'report.dismissReasonHelp':
       'Obligatorio, 10 caracteres o más. Usted queda registrado como aprobador.',
+    'report.dismissReasonOptionalHelp':
+      'Opcional, 10 caracteres o más. Usted queda registrado como aprobador.',
     'report.dismissExpiry': 'Fecha de caducidad',
     'report.dismissExpiryHelp':
       'A partir de ese día el hallazgo vuelve a estar abierto y bloquea el gate.',

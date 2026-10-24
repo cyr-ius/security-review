@@ -127,7 +127,7 @@ Lues par `security-review-controller` uniquement.
 |---|---|---|
 | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Âge en jours au-delà duquel `serve` supprime les [rapports sans findings](#conservation-des-rapports-sans-findings) ; `0` conserve tous les rapports |
 | `SECREVIEW_MAX_DISMISSAL_DAYS` | `365` | Validité maximale en jours d'une [décision](../usage/web-interface.md#triage-des-findings) `accepted` ou `false_positive` : sa date d'expiration ne peut pas être plus lointaine |
-| `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | Une personne peut [accepter un risque](../usage/web-interface.md#triage-des-findings) **Sans expiration** : l'acceptation dure jusqu'à ce que quelqu'un rouvre le finding. `false` : toute acceptation exige une date d'expiration. Un faux positif en exige toujours une |
+| `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | Une personne peut [accepter un risque](../usage/web-interface.md#triage-des-findings) **Sans expiration** : l'acceptation dure jusqu'à ce que quelqu'un rouvre le finding. `false` : toute acceptation exige une date d'expiration. Un faux positif n'en exige jamais |
 | `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Gravité minimale (`critical`, `high`, `medium`, `low`, `info`) dont l'[acceptation de risque](../usage/web-interface.md#triage-des-findings) exige un motif et une date d'expiration. Un finding moins grave est accepté par une simple validation, qui le ferme sans motif ni date. Vide : toute acceptation les exige |
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Validité maximale en jours d'un jeton Bearer créé ou [renouvelé](../advanced/http.md#expiration-et-renouvellement-des-jetons) (CLI, interface web), qui est aussi sa validité par défaut ; `0` : les jetons n'expirent pas, sauf validité demandée |
 | `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Jetons personnels qu'un utilisateur web peut détenir de chaque rôle, [API REST](../usage/web-interface.md#jetons-api) et [MCP](../usage/web-interface.md#jetons-mcp-et-ci-personnels), de `1` à `10` : révoquez-en un pour en créer un autre |
@@ -138,21 +138,22 @@ Lues par `security-review-controller` uniquement.
 |---|---|---|
 | `SECREVIEW_AUDIT_RETENTION_DAYS` | `365` | Âge en jours au-delà duquel `serve` supprime les événements du [journal d'audit](../advanced/audit-metrics.md#journal-daudit) ; `0` conserve tous les événements |
 | `SECREVIEW_AUDIT_MAX_EVENTS` | `0` | Nombre d'[événements d'audit](../advanced/audit-metrics.md#conservation) conservés au plus par la même purge quotidienne (les plus anciens sont supprimés) ; `0` : sans limite |
-| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | [Envoie les événements d'audit à syslog](../advanced/audit-metrics.md#envoi-vers-syslog) : `udp://hôte:port`, `tcp://hôte:port` ou `unix:///dev/log` (ni TLS ni proxy) ; désactivé si absent ; sans elle, le serveur défini sur la page **Journal d'audit** s'applique. Définie (non vide), elle est prioritaire sur cette page |
+| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | [Envoie les événements d'audit à syslog](../advanced/audit-metrics.md#envoi-vers-syslog) : `udp://hôte:port`, `tcp://hôte:port`, `tls://hôte:port` (RFC 5425, port 6514 par défaut) ou `unix:///dev/log` (pas de proxy) ; désactivé si absent ; sans elle, le serveur défini sur la page **Journal d'audit** s'applique. Définie (non vide), elle est prioritaire sur cette page |
 | `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | *Facility* syslog de ces messages (`local0` à `local7`, `auth`, `authpriv`, `daemon`...) ; définie, elle est prioritaire sur celle choisie sur la page **Journal d'audit** |
+| `SECREVIEW_AUDIT_SYSLOG_CAFILE` | — | Autorités de certification qui vérifient le certificat d'un serveur syslog `tls://` (autorité interne) ; par défaut, celles du système. Variable uniquement |
 | `SECREVIEW_METRICS_ENABLED` | `true` | Sert les [métriques Prometheus](../advanced/audit-metrics.md#metriques-prometheus) sur `/metrics` (jeton `metrics` ou `admin`) ; à `false`, `/metrics` répond 404 |
 
-### Ticketing
+### Connecteurs
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_TICKETING_ENABLED` | `true` | Verrou des [connecteurs](../advanced/ticketing.md#activation) (Jira, ServiceNow, tiers ; connexions sortantes du contrôleur) : `true`, chacun s'active dans l'écran **Connecteurs** (tous désactivés par défaut) ; `false`, tous verrouillés |
-| `SECREVIEW_TICKETING_INTERVAL_SECONDS` | `300` | Période de l'[envoi automatique](../advanced/ticketing.md#envoi-dun-finding) (30 à 86400) |
-| `SECREVIEW_TICKETING_CAFILE` | — | Bundle de CA utilisé à la place de celui du système (autorité interne) |
-| `SECREVIEW_TICKETING_PLUGINS` | — | [Connecteurs tiers](../advanced/ticketing.md#connecteurs-tiers) autorisés, par nom de point d'entrée, séparés par des virgules ; un connecteur installé mais non listé n'est jamais chargé |
-| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Connexion Jira](../advanced/ticketing.md#connexions) ; définies, elles sont prioritaires sur l'écran **Connecteurs** |
-| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [Connexion ServiceNow](../advanced/ticketing.md#connexions) ; définies, elles sont prioritaires sur l'écran **Connecteurs** |
-| `SECREVIEW_<TYPE>_<CHAMP>` | — | Champ de la connexion d'un [connecteur tiers](../advanced/ticketing.md#connecteurs-tiers) (`SECREVIEW_ACME_API_KEY`) |
+| `SECREVIEW_CONNECTORS_ENABLED` | `true` | Verrou des [connecteurs](../connectors/index.md#activation) (Jira, ServiceNow, tiers ; connexions sortantes du contrôleur) : `true`, chacun s'active dans l'écran **Connecteurs** (tous désactivés par défaut) ; `false`, tous verrouillés |
+| `SECREVIEW_CONNECTORS_INTERVAL_SECONDS` | `300` | Période de l'[envoi automatique](../connectors/index.md#envoi-dun-finding) (30 à 86400) |
+| `SECREVIEW_CONNECTORS_CAFILE` | — | Bundle de CA utilisé à la place de celui du système (autorité interne) |
+| `SECREVIEW_CONNECTORS_PLUGINS` | — | [Connecteurs tiers](../connectors/third-party.md) autorisés, par nom de point d'entrée, séparés par des virgules ; un connecteur installé mais non listé n'est jamais chargé |
+| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Connexion Jira](../connectors/jira.md#connexion) ; définies, elles sont prioritaires sur l'écran **Connecteurs** |
+| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [Connexion ServiceNow](../connectors/servicenow.md#connexion) ; définies, elles sont prioritaires sur l'écran **Connecteurs** |
+| `SECREVIEW_<TYPE>_<CHAMP>` | — | Champ de la connexion d'un [connecteur tiers](../connectors/third-party.md) (`SECREVIEW_ACME_API_KEY`) |
 
 ### Limites des scans de pipeline
 

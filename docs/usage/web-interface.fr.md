@@ -73,11 +73,13 @@ suivantes.
   rapporte (voir [Suppression d'un projet](../advanced/access-control.md#suppression-dun-projet)).
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, les 20 findings ouverts
-  les plus graves (sévérité, règle, emplacement, rapport) et export SARIF ; **Tous les rapports**
+  les plus graves (numéro, sévérité, règle, emplacement, rapport : le numéro ouvre le rapport sur
+  ce finding) et export SARIF ; **Tous les rapports**
   liste ses rapports. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant ;
   **Acceptations de risque** liste les risques acceptés du projet ; **Actualiser** recharge la
   tendance et les findings ouverts.
 - **Findings à revoir** : tous les findings ouverts du projet, sur l'ensemble de ses rapports,
+  chaque problème une seule fois ([signalé de nouveau](#finding-signale-de-nouveau)),
   du plus grave au moins grave puis du rapport le plus récent au plus ancien, pour une revue par
   un expert en cybersécurité. Chaque finding affiche sa description, son extrait de code et sa
   recommandation, et un lien vers son rapport (date, type de revue, branche, commit). Filtres
@@ -97,7 +99,7 @@ suivantes.
 - **Rapports** : liste filtrable par projet et niveau de risque, avec recherche dans les
   métadonnées et le résumé, tri par date, projet, risque, type, branche, jeton ou résumé. La
   colonne **Jeton** affiche le libellé du jeton qui a envoyé le rapport ; le survoler montre
-  l'auteur déclaré à qui détient `users.manage` ou `tokens.manage`. La
+  l'auteur à qui détient `users.manage` ou `tokens.manage`. La
   recherche et les filtres restent dans l'URL, pour partager la vue ; le tri est mémorisé par le
   navigateur.
 - **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** (pour qui
@@ -223,21 +225,21 @@ est signalée comme ignorée, avec un bouton **Supprimer**.
   ([mise à jour par le contrôleur](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur)).
 - **Connecteurs** : une carte par connecteur (Jira, ServiceNow, tiers) avec son interrupteur et
   une roue crantée pour ses paramètres : connexion (avec **Tester la connexion**) et destination
-  de chaque projet, avec son envoi automatique facultatif ([ticketing](../advanced/ticketing.md)).
+  de chaque projet, avec son envoi automatique facultatif ([connecteurs](../connectors/index.md)).
 
 ## Triage des findings
 
 Le statut d'un finding est décidé par une **personne** ; un agent ne fait que le proposer (outil
 MCP `propose_finding_status`, voir [statut d'un finding](prompts-tools.md#statut-dun-finding)).
 Un trieur peut aussi envoyer un finding vers Jira ou ServiceNow (**Envoyer vers Jira**), quand
-son projet a une destination : voir [ticketing](../advanced/ticketing.md#envoi-dun-finding).
+son projet a une destination : voir [connecteurs](../connectors/index.md#envoi-dun-finding).
 
 - **Proposition d'un agent** : affichée sur le finding dans un encadré distinct, avec son auteur
   (label du jeton), sa date et son motif. Le motif peut venir du code relu : vérifiez-le.
   **Appliquer** enregistre `fixed` immédiatement, ou ouvre le formulaire ci-dessous pour
   `accepted` et `false_positive` ; **Rejeter** supprime la proposition. Aucun des deux ne change
   le statut à lui seul.
-- **Risque accepté** et **Faux positif** : la liste des statuts ouvre un formulaire qui demande
+- **Risque accepté** : la liste des statuts ouvre un formulaire qui demande
   un **Motif** (10 à 1000 caractères) et une **Date d'expiration** (90 jours par défaut, au plus
   `SECREVIEW_MAX_DISMISSAL_DAYS`). L'utilisateur connecté est enregistré comme approbateur ; la
   carte affiche l'approbateur, le motif et la fin de validité. À partir de la date d'expiration,
@@ -245,7 +247,10 @@ son projet a une destination : voir [ticketing](../advanced/ticketing.md#envoi-d
   [gate](gate.md), SARIF, tendance) et la carte indique que la décision a expiré. Pour
   **Risque accepté**, la case **Sans expiration** supprime la date : le risque reste accepté
   jusqu'à ce que quelqu'un rouvre le finding (désactivée par
-  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`). Un faux positif exige toujours une date.
+  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`).
+- **Faux positif** : le formulaire ne demande qu'un **Motif** facultatif (10 à 1000 caractères
+  s'il est saisi), sans date d'expiration : un faux positif dit que le code n'est pas vulnérable, il reste jusqu'à ce que
+  quelqu'un rouvre le finding. L'utilisateur connecté est enregistré comme approbateur.
 - **Risque accepté** sous `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` par défaut, donc
   un finding `low` ou `info`) : une simple validation, enregistrée immédiatement sans motif ni
   date d'expiration. Variable vide : toute acceptation passe par le formulaire ci-dessus.
@@ -265,12 +270,40 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
 ```
 
 Un motif absent ou trop court, une date d'expiration passée ou trop lointaine, ou une date
-d'expiration pour `open` / `fixed` reçoit `422`. Sans `expires_on`, une acceptation n'expire
-jamais, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`) ; `GET /api/v1/me` renvoie
+d'expiration pour `open` / `fixed` reçoit `422`. Sans `expires_on`, un faux positif n'expire
+jamais, une acceptation non plus, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`) ; `GET /api/v1/me` renvoie
 `permanent_acceptance` pour indiquer si l'appelant peut le faire. Sous
 `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` et `expires_on` sont facultatifs pour
 `accepted` (`{"status": "accepted"}` suffit) ; `GET /api/v1/me` renvoie ce seuil dans
 `risk_acceptance_min_severity` (`null` : toute acceptation les exige).
+
+### Finding signalé de nouveau
+
+Un rapport ultérieur du projet qui signale de nouveau le même problème n'ajoute pas un second
+finding à revoir : le serveur le reconnaît à son empreinte (projet, règle ou CWE, fichier et
+titre, sans le numéro de ligne, comme en [SARIF](../advanced/sarif.md)) et la nouvelle
+occurrence remplace la précédente.
+
+- Une **acceptation** ou un **faux positif** encore valide est repris sur la nouvelle
+  occurrence, avec son motif, son approbateur et sa date d'expiration ; de même pour une
+  proposition d'agent en attente de l'un d'eux, une criticité relevée par un analyste et les
+  commentaires. La gate ne bloque pas de nouveau.
+- Un finding **corrigé** qui revient est de nouveau **ouvert**.
+- Quand une règle trouve plusieurs lignes d'un fichier, les occurrences sont appariées dans
+  l'ordre des lignes si leur nombre n'a pas changé (le code a bougé), sinon seulement sur la
+  même ligne : une nouvelle occurrence n'hérite jamais de la décision prise sur une autre, elle
+  est ouverte.
+- L'occurrence précédente reste dans son rapport, marquée **Signalé de nouveau : voir le
+  finding #N** ; elle ne peut plus être triée (`422` par l'API) ni envoyée par un
+  connecteur (`409`).
+- **Findings à revoir**, la posture, la [gate](gate.md) du projet, le SARIF, les compteurs et
+  la tendance ne comptent que la dernière occurrence ; la tendance et le délai de correction
+  partent de la première occurrence du problème (`first_seen_at`).
+- Un finding qu'un rapport ultérieur ne signale plus n'est pas fermé : la revue d'un diff ne
+  voit pas tout le code.
+
+`save_security_report` et les scans du pipeline renvoient `recurring_findings` (findings déjà
+signalés par un rapport précédent) et `carried_decisions` (décisions reprises sur eux).
 
 ### Criticité d'un finding
 
@@ -463,7 +496,9 @@ l'utilisateur le crée depuis **Projets** s'il est nouveau et qu'il porte `proje
 [Création d'un projet](../advanced/access-control.md#creation-dun-projet)) ; un projet demandé par
 un [enrôlement](../advanced/http.md#enrolement-demander-le-projet) attend sa validation. Quand le serveur refuse le jeton (inconnu, révoqué ou expiré), l'agent reçoit
 un `401` qui invite l'utilisateur à se reconnecter pour en créer un nouveau. Il n'atteint jamais
-l'API REST.
+l'API REST, mais il vaut aussi jeton `ci` personnel (ci-dessous) sur les routes de pipeline : un
+seul `SECREVIEW_TOKEN` sur le poste sert à la fois à l'agent MCP et à `security-review-ci`. Un
+jeton `mcp` créé par un administrateur sur l'écran **Jetons** reste un jeton d'agent MCP seulement.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -475,7 +510,7 @@ Un jeton `ci` personnel (**Usage** **Pipeline CI/CD**, même permission `mcp_tok
 plus par défaut) permet à [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)
 de lancer les scans de code et de dépendances, la gate, l'export SARIF et la tendance depuis le
 poste de l'utilisateur, sur les mêmes projets qu'un jeton `mcp` personnel et avec les mêmes
-règles. Il n'atteint que les routes de pipeline (`/api/v1/ci/`), jamais `/mcp` ni le reste de
+règles (un jeton `mcp` personnel en fait autant : celui-ci ne sert qu'à séparer les deux usages). Il n'atteint que les routes de pipeline (`/api/v1/ci/`), jamais `/mcp` ni le reste de
 l'API REST. Un rapport qu'il enregistre est soumis par le jeton (`alice:laptop`). Voir
 [scan depuis un poste de travail](../advanced/dependencies.md#scan-depuis-un-poste-de-travail-hook-de-commit).
 

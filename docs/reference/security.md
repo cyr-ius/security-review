@@ -61,7 +61,8 @@
   [Prometheus metrics](../advanced/audit-metrics.md#prometheus-metrics)).
 - **Pipeline tokens** (`ci`): always restricted to projects (a `ci` token without a project
   cannot be created, and one found without a project reaches none); a personal `ci` token
-  reaches the projects its user may read now, like a personal `mcp` token. It only reads the gate, the
+  reaches the projects its user may read now, like a personal `mcp` token, which also acts as a
+`ci` token on the pipeline routes (never an administrator's `mcp` token). It only reads the gate, the
   SARIF log and the trend of its projects; the other routes of the controller, `/mcp` and the
   web interface answer `403`, the other projects `404`. The pipeline client
   ([`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci)) opens no
@@ -80,7 +81,7 @@
   masked and truncated: check the requester and the address before approving. Every enrollment is audited. See
   [enrollment](../advanced/http.md#enrollment-request-the-project).
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
-  of the controller that make them (advisory download, OIDC, syslog, tickets, version check):
+  of the controller that make them (advisory download, OIDC, syslog, connectors, version check):
   a test checks it. The `security-review-mcp enroll` command contacts, at the request of the
   operator, the URL it gives; it refuses plain HTTP
   outside localhost (unless `--allow-http`), credentials in the URL and redirects. The
@@ -113,19 +114,20 @@
   version and the link of the release are kept (a link outside the releases of the repository
   is replaced), and the page only gets a short error code. Once a
   connector is switched on in the **Connectors** screen (every one off by default, all locked
-  off by `SECREVIEW_TICKETING_ENABLED=false`), the controller creates tickets in the configured
-  Jira and ServiceNow: HTTPS only, through the outgoing proxy, **no redirect**,
-  answer bounded to 1 MiB, 15 second timeout; the texts sent are masked again and, in Jira,
+  off by `SECREVIEW_CONNECTORS_ENABLED=false`), the controller sends the findings through it
+  (tickets in the configured Jira and ServiceNow, records of a third-party connector): HTTPS
+  only, through the outgoing proxy, **no redirect**, answer bounded to 1 MiB, 15 second timeout; the texts sent are masked again and, in Jira,
   never read as wiki markup; the secrets entered in the **Connectors** screen are stored in clear
   and never returned (`***`) and stay bound to the host of their URL; a third-party connector
-  is only loaded when `SECREVIEW_TICKETING_PLUGINS` names it and only reaches its configured
-  URL through the client of the controller, see [ticketing](../advanced/ticketing.md#security). With
+  is only loaded when `SECREVIEW_CONNECTORS_PLUGINS` names it and only reaches its configured
+  URL through the client of the controller, see [connectors](../connectors/index.md#security). With
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` or a server set on the **Audit log** page (disabled by
-  default; `settings.manage` permission, `udp://` or `tcp://` only, the change audited), the
-  controller sends the
-  [audit events](../advanced/audit-metrics.md#forwarding-to-syslog) to that syslog server (UDP,
-  TCP or Unix socket, neither TLS nor proxy: use a local relay for TLS); the events hold no
-  secret (masked details), and the MCP server still connects nowhere.
+  default; `settings.manage` permission, `udp://`, `tcp://` or `tls://` only, the change
+  audited), the controller sends the
+  [audit events](../advanced/audit-metrics.md#forwarding-to-syslog) to that syslog server (UDP
+  or TCP in clear, TLS with the certificate and host name of the server verified, or Unix
+  socket; no proxy); the events hold no secret (masked details), and the MCP server still
+  connects nowhere.
 - **Initial administrator**: created by the controller at its first start with a random
   password that nobody knows, never logged nor passed through a variable; the only way to a
   password is `security-review-controller user reset-password`, run by an operator, which
@@ -137,9 +139,10 @@
   without a user or a token, it answers `503` instead of granting anonymous rights. Only a
   session or an `api` token with the `findings.triage` permission, or an `admin` token, changes the status of a
   finding (action logged with the user or the label of the token), and only a person logged in to the interface (session) accepts a risk or marks a false
-  positive: a bearer token is refused (`403`), even `admin`. These two decisions need a reason
-  and an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the
-  logged-in user, and the finding counts as open again once the date has passed. Only an
+  positive: a bearer token is refused (`403`), even `admin`. An acceptance needs a reason and
+  an expiry date (at most `SECREVIEW_MAX_DISMISSAL_DAYS` days); the approver is the logged-in
+  user, and the finding counts as open again once the date has passed. A false positive needs
+  neither (its reason is optional) and still records the logged-in user as approver. An
   acceptance may have no expiry date, unless `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`:
   set it to force a periodic review of every accepted risk. A risk less severe than
   `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` by default) is accepted with no reason nor
@@ -151,7 +154,9 @@
 - **Agents never close a finding**: the MCP server only offers `propose_finding_status`, which
   stores a proposal (reason masked and bounded, author taken from the token) without changing
   the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a
-  finding. Pages are served with a strict CSP and the anti-clickjacking headers, and every
+  finding. A decision carried to the same issue raised by a later report (same project, rule,
+  file and title: [finding reported again](../usage/web-interface.md#finding-reported-again))
+  keeps its approver and its expiry date: a new report never extends it. Pages are served with a strict CSP and the anti-clickjacking headers, and every
   answer of the controller (API, refusals included) carries `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, a closed CSP when the route sets
   none and, over HTTPS (TLS of the controller, or `X-Forwarded-Proto` of a proxy listed in
@@ -287,11 +292,13 @@
 - The [coverage of a review](../usage/prompts-tools.md#review-coverage) (checklist results,
   rules of the scan leads) is declared by the agent: the server only keeps the ids it knows and
   marks the skipped items `not_covered`, it cannot check that the agent really read the code.
-- The `author` of a report (developer username) is declared by the client: anyone holding a
-  token of the project can name someone else. Only `submitted_by`, the label of the token that
-  saved the report, is set by the server (see
+- The `author` of a report (developer username) is the user of the personal token that saved
+  it, set by the server whatever the client passes. With a token without a user (enrolled
+  device, token created by an administrator), it is declared by the client: anyone holding such
+  a token of the project can name someone else. `submitted_by`, the label of the token that
+  saved the report, is always set by the server (see
   [author of a report](../usage/prompts-tools.md#author-of-a-report)). An `author` is often an
   email address, that is personal data, kept as long as the report: in the web interface and
   the REST API, only a holder of `users.manage` or `tokens.manage` sees it (nor can the others
-  find it by the filter, the search or the sort); the MCP tools still return it to the tokens
-  that reach the project.
+  find it by the filter, the search or the sort); the MCP tools, resources and prompts never
+  return it, nor filter by it.

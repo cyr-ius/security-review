@@ -203,7 +203,6 @@ export const routes: Routes = [
           ),
       },
       // Former address of the Connectors screen
-      { path: 'settings/ticketing', redirectTo: 'settings/connectors' },
       {
         path: 'settings/advisories',
         title: 'settings.osvTitle',

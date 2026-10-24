@@ -18,7 +18,7 @@ security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 
 Le pipeline n'a besoin ni de la base ni du paquet : seulement de Python et du
 [jeton `ci`](../usage/gate.md#jeton-ci-et-projets-visibles) du projet. Sur un poste de travail,
-utilisez un [jeton `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels).
+utilisez un [jeton `mcp` ou `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels).
 
 ## Sélection des fichiers
 
@@ -59,7 +59,8 @@ Le client choisit les fichiers ; le contrôleur ne lit jamais son propre disque.
 - `--save` enregistre les correspondances comme un rapport `code-scan` (au plus
   `SECREVIEW_MAX_FINDINGS_PER_REPORT` findings, les plus sévères d'abord), avec la liste des
   fichiers non analysés dans `scope` et le libellé du jeton comme appareil qui l'a enregistré ;
-  `--author` ajoute le nom d'utilisateur du développeur (voir
+  l'utilisateur d'un jeton `ci` personnel en est l'auteur, sinon `--author` ajoute le nom
+  d'utilisateur du développeur (voir
   [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)), `--repository`,
   `--branch` et `--commit` le contexte.
 - Avec `--save --format sarif`, le journal SARIF porte les identifiants des findings
@@ -75,6 +76,6 @@ Ensuite, le prompt `codebase-review` (argument `scan_results` = le JSON, éventu
 guide l'agent : inventaire, priorisation des points d'entrée, traçage des flux entre fichiers,
 checklists, et une section **couverture** qui dit ce qui n'a pas été relu. Sans `scan_results`,
 le prompt demande à un agent qui peut lancer des commandes d'exécuter lui-même
-`security-review-ci scan-code` (avec un jeton `ci` personnel) : les fichiers arrivent au
+`security-review-ci scan-code` (avec un jeton `mcp` ou `ci` personnel) : les fichiers arrivent au
 contrôleur tels quels, au lieu d'être recopiés par le modèle dans des appels à `scan_code`. Le
 prompt `dependency-review` fait de même avec `security-review-ci scan-deps`.

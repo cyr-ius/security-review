@@ -1,10 +1,13 @@
-"""Tickets of the findings in ticketing systems, created by the controller (optional).
+"""Connectors: the findings sent to external systems by the controller (optional).
+
+A connector creates the record of a finding in an external system: a ticket (Jira, ServiceNow),
+an entry in a vulnerability register, a risk in a GRC tool...
 
 Every connector is off until switched on in the web interface, unless the operator locks them
-all (SECREVIEW_TICKETING_ENABLED=false, see connections.enabled). Outgoing
-connections of the controller, never of the MCP server. The systems are **connectors** (see
+all (SECREVIEW_CONNECTORS_ENABLED=false, see connections.enabled). Outgoing
+connections of the controller, never of the MCP server. Each system has its connector (see
 api): Jira and ServiceNow are built in, and a third-party package adds others through an entry
-point, loaded only when the operator allows it (SECREVIEW_TICKETING_PLUGINS, see registry).
+point, loaded only when the operator allows it (SECREVIEW_CONNECTORS_PLUGINS, see registry).
 
 - api: the public API a connector implements;
 - registry: the available connectors;
@@ -13,10 +16,10 @@ point, loaded only when the operator allows it (SECREVIEW_TICKETING_PLUGINS, see
 - core: destinations of the projects, sending, automatic sending.
 """
 
-from .api import TicketingError
+from .api import ConnectorError
 from .core import (
     AUTO_ACTOR,
-    TicketDispatcher,
+    ExportDispatcher,
     delete_target,
     destinations,
     dispatch,
@@ -30,8 +33,8 @@ from .core import (
 
 __all__ = [
     "AUTO_ACTOR",
-    "TicketDispatcher",
-    "TicketingError",
+    "ExportDispatcher",
+    "ConnectorError",
     "delete_target",
     "destinations",
     "dispatch",

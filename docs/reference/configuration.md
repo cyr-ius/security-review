@@ -127,7 +127,7 @@ Read by `security-review-controller` only.
 |---|---|---|
 | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Age in days beyond which `serve` deletes the [reports without findings](#retention-of-reports-without-findings); `0` keeps every report |
 | `SECREVIEW_MAX_DISMISSAL_DAYS` | `365` | Longest validity in days of an `accepted` or `false_positive` [decision](../usage/web-interface.md#triage-of-findings): its expiry date may not be later |
-| `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | A person may [accept a risk](../usage/web-interface.md#triage-of-findings) with **No expiry**: the acceptance lasts until someone reopens the finding. `false`: every acceptance needs an expiry date. A false positive always needs one |
+| `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | A person may [accept a risk](../usage/web-interface.md#triage-of-findings) with **No expiry**: the acceptance lasts until someone reopens the finding. `false`: every acceptance needs an expiry date. A false positive never needs one |
 | `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Lowest severity (`critical`, `high`, `medium`, `low`, `info`) whose [risk acceptance](../usage/web-interface.md#triage-of-findings) needs a reason and an expiry date. A less severe finding is accepted by a plain validation, which closes it with no reason and no date. Empty: every acceptance needs them |
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Longest validity in days of a bearer token created or [rotated](../advanced/http.md#expiry-and-rotation-of-tokens) (CLI, web interface), which is also its default validity; `0`: tokens do not expire unless a validity is asked for |
 | `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Personal tokens a web user may hold of each role, [REST API](../usage/web-interface.md#api-tokens) and [MCP](../usage/web-interface.md#personal-mcp-and-ci-tokens), from `1` to `10`: revoke one to create another |
@@ -138,21 +138,22 @@ Read by `security-review-controller` only.
 |---|---|---|
 | `SECREVIEW_AUDIT_RETENTION_DAYS` | `365` | Age in days beyond which `serve` deletes the events of the [audit log](../advanced/audit-metrics.md#audit-log); `0` keeps every event |
 | `SECREVIEW_AUDIT_MAX_EVENTS` | `0` | Number of [audit events](../advanced/audit-metrics.md#retention) kept at most by the same daily purge (the oldest are deleted); `0`: no limit |
-| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | [Forwards the audit events to syslog](../advanced/audit-metrics.md#forwarding-to-syslog): `udp://host:port`, `tcp://host:port` or `unix:///dev/log` (no TLS, no proxy); disabled when unset; without it, the server set on the **Audit log** page applies. When set (not empty), takes precedence over that page |
+| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | [Forwards the audit events to syslog](../advanced/audit-metrics.md#forwarding-to-syslog): `udp://host:port`, `tcp://host:port`, `tls://host:port` (RFC 5425, port 6514 by default) or `unix:///dev/log` (no proxy); disabled when unset; without it, the server set on the **Audit log** page applies. When set (not empty), takes precedence over that page |
 | `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | Syslog facility of these messages (`local0` to `local7`, `auth`, `authpriv`, `daemon`...); when set, takes precedence over the one chosen on the **Audit log** page |
+| `SECREVIEW_AUDIT_SYSLOG_CAFILE` | — | CA bundle that verifies the certificate of a `tls://` syslog server (internal certificate authority); default: the system CA bundle. A variable only |
 | `SECREVIEW_METRICS_ENABLED` | `true` | Serves the [Prometheus metrics](../advanced/audit-metrics.md#prometheus-metrics) on `/metrics` (`metrics` or `admin` token); when `false`, `/metrics` answers 404 |
 
-### Ticketing
+### Connectors
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_TICKETING_ENABLED` | `true` | Lock of the [connectors](../advanced/ticketing.md#enabling) (Jira, ServiceNow, third-party; outgoing connections of the controller): `true`, each one is switched on in the **Connectors** screen (all off by default); `false`, all locked off |
-| `SECREVIEW_TICKETING_INTERVAL_SECONDS` | `300` | Period of the [automatic sending](../advanced/ticketing.md#sending-a-finding) (30 to 86400) |
-| `SECREVIEW_TICKETING_CAFILE` | — | CA bundle used instead of the system one (internal authority) |
-| `SECREVIEW_TICKETING_PLUGINS` | — | [Third-party connectors](../advanced/ticketing.md#third-party-connectors) allowed, by entry point name, comma separated; one installed but not listed is never loaded |
-| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Jira connection](../advanced/ticketing.md#connections); when set, takes precedence over the **Connectors** screen |
-| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [ServiceNow connection](../advanced/ticketing.md#connections); when set, takes precedence over the **Connectors** screen |
-| `SECREVIEW_<KIND>_<FIELD>` | — | Field of the connection of a [third-party connector](../advanced/ticketing.md#third-party-connectors) (`SECREVIEW_ACME_API_KEY`) |
+| `SECREVIEW_CONNECTORS_ENABLED` | `true` | Lock of the [connectors](../connectors/index.md#enabling) (Jira, ServiceNow, third-party; outgoing connections of the controller): `true`, each one is switched on in the **Connectors** screen (all off by default); `false`, all locked off |
+| `SECREVIEW_CONNECTORS_INTERVAL_SECONDS` | `300` | Period of the [automatic sending](../connectors/index.md#sending-a-finding) (30 to 86400) |
+| `SECREVIEW_CONNECTORS_CAFILE` | — | CA bundle used instead of the system one (internal authority) |
+| `SECREVIEW_CONNECTORS_PLUGINS` | — | [Third-party connectors](../connectors/third-party.md) allowed, by entry point name, comma separated; one installed but not listed is never loaded |
+| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Jira connection](../connectors/jira.md#connection); when set, takes precedence over the **Connectors** screen |
+| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [ServiceNow connection](../connectors/servicenow.md#connection); when set, takes precedence over the **Connectors** screen |
+| `SECREVIEW_<KIND>_<FIELD>` | — | Field of the connection of a [third-party connector](../connectors/third-party.md) (`SECREVIEW_ACME_API_KEY`) |
 
 ### Pipeline scan limits
 

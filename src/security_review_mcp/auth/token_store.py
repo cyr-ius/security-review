@@ -39,7 +39,9 @@ A web user may also create a **personal** ``mcp`` token for its MCP agent, or a 
 it reaches the projects the user may read (``reports.read`` of its groups), read at each
 request, so that a project granted to or removed from the user applies at once. It has no
 project rows and no change of projects: an administrator grants the project to the user
-instead. A web user
+instead. A personal ``mcp`` token also reaches the pipeline routes, as a ``ci`` token (see
+http_server.TokenInfo.pipeline): a developer keeps one SECREVIEW_TOKEN for the MCP agent and
+``security-review-ci``. A web user
 holds at most SECREVIEW_PERSONAL_TOKENS_PER_USER personal tokens of each role.
 
 Like every token, an ``api`` token never accepts a risk nor marks a false positive.
@@ -233,7 +235,7 @@ def _api_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | N
     or when the token grants nothing (fail closed)."""
     from . import access_control  # access_control depends on this module
 
-    must_change = False
+    must_change, owner = False, None
     if row.user_id is not None:
         user = session.get(WebUser, row.user_id)
         if user is None:
@@ -242,7 +244,7 @@ def _api_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | N
             grants = access_control.user_grants(session, row.user_id)
         except ValueError:
             return None
-        must_change = user.must_change_password
+        must_change, owner = user.must_change_password, user.username
     elif row.access_role_id is not None and info.projects != frozenset():
         grants = access_control.role_token_grants(session, row.access_role_id, info.projects)
     else:
@@ -255,6 +257,7 @@ def _api_info(session: Session, row: ApiToken, info: TokenInfo) -> TokenInfo | N
         projects=access_control.scope(grants, access_control.Permission.REPORTS_READ),
         token_id=info.token_id,
         expired=info.expired,
+        owner=owner,
         grants=grants,
         must_change_password=must_change,
     )
@@ -294,6 +297,8 @@ def _personal_scoped_info(session: Session, row: ApiToken, info: TokenInfo) -> T
         projects=projects,
         token_id=info.token_id,
         expired=info.expired,
+        pipeline=info.role == Role.MCP,
+        owner=user.username,
     )
 
 

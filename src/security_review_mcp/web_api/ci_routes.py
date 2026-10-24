@@ -21,6 +21,7 @@ from ..storage.models import Severity
 from .deps import (
     PipelineIdentity,
     ScanIdentity,
+    TokenOwner,
     check_report_scope,
     pipeline_identity,
     scoped_project,
@@ -101,8 +102,9 @@ def _verdict(blocking: int, request: CodeScanRequest | DependencyScanRequest) ->
     return {"fail_on": request.fail_on, "blocked": blocking > 0, "blocking_findings": blocking}
 
 
-def _code_scan(request: CodeScanRequest, client: str) -> dict:
-    """Scan the files of a code scan request, store the report with ``save``."""
+def _code_scan(request: CodeScanRequest, client: str, owner: str | None) -> dict:
+    """Scan the files of a code scan request, store the report with ``save`` (authored by the
+    ``owner`` of a personal token, else by the declared author)."""
     result = codescan.scan_files(
         [codescan.SourceFile(f.path, f.content) for f in request.files],
         [(s.file, s.reason) for s in request.skipped],
@@ -119,15 +121,20 @@ def _code_scan(request: CodeScanRequest, client: str) -> dict:
     saved = None
     if request.save:
         saved = codescan.save(
-            result, request.project, author=request.author, submitted_by=client, **fields
+            result,
+            request.project,
+            author=owner or request.author,
+            submitted_by=client,
+            **fields,
         )
     log = codescan.to_sarif(result, request.project, saved, **fields) if request.sarif else None
     blocking = codescan.blocking_count(result, request.fail_on)
     return result | _verdict(blocking, request) | {"saved_report": saved, "sarif": log}
 
 
-def _dependency_scan(request: DependencyScanRequest, client: str) -> dict:
-    """Scan the files of a dependency scan request, store the report with ``save``."""
+def _dependency_scan(request: DependencyScanRequest, client: str, owner: str | None) -> dict:
+    """Scan the files of a dependency scan request, store the report with ``save`` (authored by
+    the ``owner`` of a personal token, else by the declared author)."""
     results = depscan.scan_files(
         [(f.path, f.content) for f in request.files], request.require_database
     )
@@ -139,7 +146,7 @@ def _dependency_scan(request: DependencyScanRequest, client: str) -> dict:
             repository=request.repository,
             branch=request.branch,
             commit_sha=request.commit_sha,
-            author=request.author,
+            author=owner or request.author,
             submitted_by=client,
         )
     blocking = depscan.blocking_count(results, request.fail_on)
@@ -148,7 +155,9 @@ def _dependency_scan(request: DependencyScanRequest, client: str) -> dict:
 
 
 @router.post("/scan/code")
-async def ci_code_scan(request: CodeScanRequest, identity: ScanIdentity) -> CodeScanResult:
+async def ci_code_scan(
+    request: CodeScanRequest, identity: ScanIdentity, owner: TokenOwner
+) -> CodeScanResult:
     """Pattern-scan the files of a codebase sent by ``security-review-ci scan-code``.
 
     The matches are leads to verify. With ``save``, they are stored as a ``code-scan`` report of
@@ -157,7 +166,7 @@ async def ci_code_scan(request: CodeScanRequest, identity: ScanIdentity) -> Code
     """
     project = scoped_project(identity, request.project)
     try:
-        result = await run_in_threadpool(_code_scan, request, identity.client)
+        result = await run_in_threadpool(_code_scan, request, identity.client, owner)
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info(
@@ -173,7 +182,7 @@ async def ci_code_scan(request: CodeScanRequest, identity: ScanIdentity) -> Code
 
 @router.post("/scan/deps")
 async def ci_dependency_scan(
-    request: DependencyScanRequest, identity: ScanIdentity
+    request: DependencyScanRequest, identity: ScanIdentity, owner: TokenOwner
 ) -> DependencyScanResult:
     """Scan the manifests and lockfiles sent by ``security-review-ci scan-deps``.
 
@@ -183,7 +192,7 @@ async def ci_dependency_scan(
     """
     project = scoped_project(identity, request.project)
     try:
-        result = await run_in_threadpool(_dependency_scan, request, identity.client)
+        result = await run_in_threadpool(_dependency_scan, request, identity.client, owner)
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info(

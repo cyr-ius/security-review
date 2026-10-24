@@ -16,6 +16,7 @@ at first start, for these domains:
 
 | Domain | Examples of points |
 |---|---|
+| `*` | Points that apply to every language, for example information disclosure through output, logs, errors or API responses |
 | `python`, `java`, `go`, `csharp`, `rust` | Language and framework pitfalls |
 | `angular`, `node` | Front end, and TypeScript and JavaScript back end |
 | `api` | Validation of OAuth/OIDC tokens, webhooks, sensitive business flows, HTTP desync, CRLF injection, file upload |
@@ -26,8 +27,10 @@ at first start, for these domains:
 `get_review_checklist` and the **Checklists** screen of the web interface show them in full.
 
 You can create any other domain (lowercase letters, digits, `-` and `_`, 31 characters at most).
-The `company` domain is special: it holds the requirements of your organization and is added
-to **every** review prompt.
+Two domains are special and added to **every** review prompt, whatever the language:
+
+- `*` holds the points that apply to every language (like a rule with `languages = ["*"]`);
+- `company` holds the requirements of your organization.
 
 ## Checklists in review prompts
 
@@ -39,7 +42,7 @@ to **every** review prompt.
 | `configuration-review` | `config`, plus `cicd` when the files look like a pipeline |
 | `dependency-review` | `dependencies` |
 
-The `company` checklist is added to every prompt. The other domains, internal ones included, are
+The `*` and `company` checklists are added to every prompt. The other domains, internal ones included, are
 named at the end of the checklists: the agent fetches with `get_review_checklist` those that
 apply to the code it reviews. Without a prompt, the agent calls `list_checklists` then
 `get_review_checklist` itself (see [How a review works](how-it-works.md#how-the-system-picks-the-checklists)).
@@ -54,8 +57,8 @@ An item has these fields:
 
 | Field | Content |
 |---|---|
-| `domain` | Domain of the item (`company`, `python`, or a new domain) |
-| `id` | Unique identifier, in capitals with at least one dash, for example `ACME-CL-01` (50 characters at most). The agents cite it in their reports: never reuse it for another point |
+| `domain` | Domain of the item (`*`, `company`, `python`, or a new domain) |
+| `id` | Unique identifier, in capitals with at least one dash, for example `ACME-CL-01` (50 characters at most). The agents cite it in their reports: never reuse it for another point. It must be unique across all domains, and a new item cannot use the prefix of a default family (`PY`, `GEN`, `API`...: [reserved](rules.md#rules-command)) |
 | `title` | Short name of the point (300 characters at most) |
 | `what_to_look_for` | What the agent must check (5000 characters at most) |
 | `cwe` | Optional, for example `CWE-639` |
@@ -74,7 +77,7 @@ identifier:
 
 ```toml
 [[checklist]]
-domain = "company"                           # "company" is added to EVERY review prompt
+domain = "company"                           # "company" and "*" are added to EVERY review prompt
 id = "ACME-CL-01"
 title = "Tenant isolation"
 what_to_look_for = "Every query is filtered by the tenant of the token."

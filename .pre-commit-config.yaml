@@ -33,7 +33,7 @@ repos:
       # Needs SECREVIEW_CONTROLLER_URL and a personal ci token in SECREVIEW_TOKEN (environment only)
       - id: scan-deps
         name: dependency scan
-        entry: uvx --isolated security-review-ci scan-deps --skip-unconfigured --require-database --allow-http --save --project security-review-mcp
+        entry: uvx --isolated security-review-ci@2.0.0 scan-deps --skip-unconfigured --require-database --allow-http --save --project security-review-mcp
         language: system
         files: ^(uv\.lock|pyproject\.toml|web/package(-lock)?\.json)$
       # Security review of each commit by Claude Code, in the background (opt-in:

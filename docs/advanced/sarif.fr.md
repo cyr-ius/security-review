@@ -15,7 +15,8 @@ schéma officiel).
 - Seuls les findings **ouverts** sont exportés ; `--include-resolved` ajoute les autres
   (`baselineState: absent` pour les corrigés, `suppressions` pour les acceptés / faux positifs).
   Une acceptation ou un faux positif expiré est exporté comme ouvert.
-- Pour un projet, un finding signalé dans plusieurs rapports n'apparaît qu'une fois.
+- Pour un projet, un finding signalé dans plusieurs rapports n'apparaît qu'une fois (sa
+  dernière occurrence, voir [finding signalé de nouveau](../usage/web-interface.md#finding-signale-de-nouveau)).
 - L'empreinte (`partialFingerprints`) ignore le numéro de ligne : elle reste stable quand le
   code bouge.
 - Sans chemin de fichier, le finding n'a qu'une localisation logique.

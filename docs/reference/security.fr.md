@@ -66,7 +66,8 @@
 - **Jetons de pipeline** (`ci`) : toujours restreints à des projets (un jeton `ci` sans projet
   ne peut pas être créé, et un jeton trouvé sans projet n'en atteint aucun) ; un jeton `ci`
   personnel atteint les projets que son utilisateur peut lire à l'instant, comme un jeton `mcp`
-  personnel. Il ne lit que le
+  personnel, qui vaut aussi jeton `ci` sur les routes de pipeline (jamais un jeton `mcp` créé par
+  un administrateur). Il ne lit que le
   gate, le journal SARIF et la tendance de ses projets ; les autres routes du contrôleur, `/mcp`
   et l'interface web répondent `403`, les autres projets `404`. Le client de pipeline
   ([`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci)) n'ouvre
@@ -85,7 +86,7 @@
   masqué et tronqué : vérifiez le demandeur et l'adresse avant de valider. Chaque enrôlement est audité. Voir
   [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
-  modules du contrôleur qui en font (téléchargement des avis, OIDC, syslog, tickets, recherche
+  modules du contrôleur qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
   de nouvelle version) : un test le vérifie. La commande
   `security-review-mcp enroll` contacte, à la demande de l'opérateur, l'URL qu'il indique ; elle
   refuse HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
@@ -119,21 +120,21 @@
   après un échec) ; seuls la version et le lien de la version sont conservés (un lien hors des
   versions du dépôt est remplacé), et la page ne reçoit qu'un code d'erreur court. Une fois
   un connecteur activé dans l'écran **Connecteurs** (tous désactivés par défaut, tous verrouillés
-  par `SECREVIEW_TICKETING_ENABLED=false`), le contrôleur crée des tickets dans les Jira et
-  ServiceNow configurés : HTTPS uniquement, par le proxy sortant, **aucune
-  redirection**, réponse bornée à 1 Mio, délai de 15 secondes ; les textes envoyés sont de
+  par `SECREVIEW_CONNECTORS_ENABLED=false`), le contrôleur envoie les findings par ce connecteur
+  (tickets dans les Jira et ServiceNow configurés, enregistrements d'un connecteur tiers) :
+  HTTPS uniquement, par le proxy sortant, **aucune redirection**, réponse bornée à 1 Mio, délai de 15 secondes ; les textes envoyés sont de
   nouveau masqués et, dans Jira, jamais interprétés comme balisage wiki ; les secrets saisis
   dans l'écran **Connecteurs** sont stockés en clair, jamais renvoyés (`***`) et liés à l'hôte de
-  leur URL ; un connecteur tiers n'est chargé que si `SECREVIEW_TICKETING_PLUGINS` le nomme et
+  leur URL ; un connecteur tiers n'est chargé que si `SECREVIEW_CONNECTORS_PLUGINS` le nomme et
   ne joint que son URL configurée par le client du contrôleur, voir
-  [ticketing](../advanced/ticketing.md#securite). Avec
+  [connecteurs](../connectors/index.md#securite). Avec
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` ou un serveur défini sur la page **Journal d'audit**
-  (désactivé par défaut ; permission `settings.manage`, `udp://` ou `tcp://` uniquement,
-  modification inscrite au journal d'audit), le contrôleur envoie les
-  [événements d'audit](../advanced/audit-metrics.md#envoi-vers-syslog) à ce serveur syslog (UDP,
-  TCP ou socket Unix, ni TLS ni proxy : passez par un relais local pour le TLS) ; les
-  événements ne contiennent aucun secret (détails masqués), et le serveur MCP ne se connecte
-  toujours nulle part.
+  (désactivé par défaut ; permission `settings.manage`, `udp://`, `tcp://` ou `tls://`
+  uniquement, modification inscrite au journal d'audit), le contrôleur envoie les
+  [événements d'audit](../advanced/audit-metrics.md#envoi-vers-syslog) à ce serveur syslog (UDP
+  ou TCP en clair, TLS avec vérification du certificat et du nom d'hôte du serveur, ou socket
+  Unix ; pas de proxy) ; les événements ne contiennent aucun secret (détails masqués), et le
+  serveur MCP ne se connecte toujours nulle part.
 - **Administrateur initial** : créé par le contrôleur à son premier démarrage avec un mot de
   passe aléatoire que personne ne connaît, jamais journalisé ni passé par une variable ; le seul
   moyen d'obtenir un mot de passe est `security-review-controller user reset-password`, lancé par
@@ -146,10 +147,12 @@
   session ou un jeton `api` qui ont la permission `findings.triage`, ou un jeton `admin`, changent le statut d'un
   finding (action journalisée avec l'utilisateur ou le label du jeton), et seule une personne
   connectée à l'interface (session) accepte un risque ou marque un faux positif : un jeton Bearer
-  est refusé (`403`), même `admin`. Ces deux décisions exigent un motif et une date d'expiration
-  (au plus `SECREVIEW_MAX_DISMISSAL_DAYS` jours) ; l'approbateur est l'utilisateur connecté, et le
-  finding est de nouveau compté comme ouvert une fois la date passée. Seule une acceptation peut
-  être sans date d'expiration, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` : réglez-le
+  est refusé (`403`), même `admin`. Une acceptation exige un motif et une date d'expiration (au
+  plus `SECREVIEW_MAX_DISMISSAL_DAYS` jours) ; l'approbateur est l'utilisateur connecté, et le
+  finding est de nouveau compté comme ouvert une fois la date passée. Un faux positif n'exige ni
+  l'un ni l'autre (son motif est facultatif) et enregistre aussi l'utilisateur connecté comme
+  approbateur. Une acceptation peut être sans date d'expiration, sauf si
+  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` : réglez-le
   ainsi pour imposer une revue périodique de chaque risque accepté. Un risque moins grave que
   `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` par défaut) est accepté sans motif ni date,
   toujours par une personne connectée, enregistrée comme approbateur ; laissez la variable vide
@@ -161,7 +164,10 @@
 - **Les agents ne ferment jamais un finding** : le serveur MCP n'offre que
   `propose_finding_status`, qui enregistre une proposition (motif masqué et borné, auteur tiré du
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt
-  ne peut pas neutraliser un finding. Pages servies avec une CSP
+  ne peut pas neutraliser un finding. Une décision reprise sur le même problème signalé par un
+  rapport ultérieur (mêmes projet, règle, fichier et titre : [finding signalé de
+  nouveau](../usage/web-interface.md#finding-signale-de-nouveau)) garde son approbateur et sa
+  date d'expiration : un nouveau rapport ne la prolonge jamais. Pages servies avec une CSP
   stricte et les en-têtes anti-clickjacking, et chaque réponse du contrôleur (API, refus
   compris) porte `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
   `X-Frame-Options: DENY`, une CSP fermée quand la route n'en définit pas et, en HTTPS (TLS du
@@ -308,11 +314,14 @@
   checklist, règles des pistes du scan) est déclarée par l'agent : le serveur ne garde que les
   identifiants qu'il connaît et marque `not_covered` les points sautés, il ne peut pas vérifier
   que l'agent a réellement lu le code.
-- L'`author` d'un rapport (nom d'utilisateur du développeur) est déclaré par le client :
-  quiconque détient un jeton du projet peut nommer quelqu'un d'autre. Seul `submitted_by`, le
-  libellé du jeton qui a enregistré le rapport, est fixé par le serveur (voir
+- L'`author` d'un rapport (nom d'utilisateur du développeur) est l'utilisateur du jeton
+  personnel qui l'a enregistré, fixé par le serveur quelle que soit la valeur du client. Avec un
+  jeton sans utilisateur (équipement enrôlé, jeton créé par un administrateur), il est déclaré
+  par le client : quiconque détient un tel jeton du projet peut nommer quelqu'un d'autre.
+  `submitted_by`, le libellé du jeton qui a enregistré le rapport, est toujours fixé par le
+  serveur (voir
   [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)). Un `author` est souvent
   une adresse e-mail, donc une donnée personnelle, conservée aussi longtemps que le rapport :
   dans l'interface web et l'API REST, seul qui détient `users.manage` ou `tokens.manage` la voit
   (les autres ne peuvent pas non plus la retrouver par le filtre, la recherche ou le tri) ; les
-  outils MCP la renvoient toujours aux jetons qui atteignent le projet.
+  outils, ressources et prompts MCP ne la renvoient jamais et ne filtrent pas dessus.

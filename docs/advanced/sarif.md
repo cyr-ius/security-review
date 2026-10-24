@@ -14,7 +14,8 @@ official schema).
 - Only **open** findings are exported; `--include-resolved` adds the others
   (`baselineState: absent` for the fixed ones, `suppressions` for the accepted / false
   positives). An expired acceptance or false positive is exported as open.
-- For a project, a finding reported in several reports appears only once.
+- For a project, a finding reported in several reports appears only once (its latest
+  occurrence, see [finding reported again](../usage/web-interface.md#finding-reported-again)).
 - The fingerprint (`partialFingerprints`) ignores the line number: it stays stable when the
   code moves.
 - Without a file path, the finding only has a logical location.

@@ -70,8 +70,9 @@ avec le code `2`.
 | `scan-deps FICHIER… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Envoie des manifestes, lockfiles ou SBOM CycloneDX au contrôleur, qui les compare à sa base d'avis ; `--save` enregistre un rapport | [Dépendances](../advanced/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps) |
 
 `scan-code` et `scan-deps` acceptent aussi `--repository`, `--branch`, `--commit` et `--author`,
-enregistrés avec le rapport. Ils demandent un jeton `ci` ou `admin` (sur un poste de travail, un
-[jeton `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels)).
+enregistrés avec le rapport (`--author` est inutile avec un jeton personnel, dont l'utilisateur
+est l'auteur). Ils demandent un jeton `ci` ou `admin` (sur un poste de travail, un
+[jeton `mcp` ou `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels)).
 `--skip-unconfigured` sort avec `0` et un avertissement quand aucune URL de contrôleur n'est
 définie (hook de commit).
 ## Codes de sortie

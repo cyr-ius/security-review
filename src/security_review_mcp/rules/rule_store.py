@@ -69,6 +69,64 @@ def default_check_items() -> dict[tuple[str, str], dict]:
     }
 
 
+@functools.cache
+def reserved_prefixes() -> frozenset[str]:
+    """Return the id prefixes of the default content (PY, GEN, API...) and of the dependency
+    issues (DEP).
+
+    They are kept for the defaults of later versions: a default is never seeded over an
+    existing entry, so a custom id taking one would hide it.
+    """
+    ids = [*default_rules(), *(item_id for _, item_id in default_check_items())]
+    # DEP issues are raised by deps/dependencies.py, not by a stored rule
+    return frozenset(entry_id.split("-")[0] for entry_id in ids) | {"DEP"}
+
+
+def _check_new_ids(session: Session, rule_ids: list[str], item_keys: list[tuple[str, str]]) -> None:
+    """Refuse the new custom ids that take a reserved prefix, and the checklist ids already
+    used in another domain (stored entries and default ids are updates, always allowed).
+
+    Raises:
+        ValueError: Listing every refused id.
+    """
+    errors: list[str] = []
+    for rule_id in rule_ids:
+        if session.get(CustomRule, rule_id) is None and rule_id not in default_rules():
+            errors += _reserved_prefix_error("rule", rule_id)
+    for domain, item_id in item_keys:
+        if (domain, item_id) in default_check_items() or session.get(
+            CustomCheckItem, (domain, item_id)
+        ):
+            continue
+        errors += _reserved_prefix_error("checklist item", item_id)
+        others = {d for d, i in item_keys if i == item_id and d != domain}
+        others |= set(
+            session.exec(
+                select(CustomCheckItem.domain).where(
+                    CustomCheckItem.id == item_id, CustomCheckItem.domain != domain
+                )
+            ).all()
+        )
+        if others:
+            errors.append(
+                f"checklist item {domain}/{item_id}: the id is already used in domain "
+                f"{', '.join(sorted(others))}"
+            )
+    if errors:
+        raise ValueError("; ".join(errors[:20]))
+
+
+def _reserved_prefix_error(kind: str, entry_id: str) -> list[str]:
+    """Return the error of a new custom id that takes a reserved prefix, if any."""
+    prefix = entry_id.split("-")[0]
+    if prefix not in reserved_prefixes():
+        return []
+    return [
+        f"{kind} {entry_id}: the prefix {prefix} is reserved for the default content, "
+        "use your own prefix (for example ACME-001)"
+    ]
+
+
 def is_modified_default(entry: dict) -> bool:
     """Tell whether a stored rule is a default rule changed by an administrator."""
     default = default_rules().get(entry["id"])
@@ -330,6 +388,7 @@ def create_rule(entry: dict) -> None:
         rule_id = str(entry.get("id", ""))
         if session.get(CustomRule, rule_id) is not None:
             raise ValueError(f"Rule {rule_id} already exists")
+        _check_new_ids(session, [rule_id], [])
         _store_rule(session, entry)
         _check_limits(session)
         _bump(session)
@@ -356,6 +415,7 @@ def create_check_item(entry: dict) -> None:
     with session_scope() as session:
         if session.get(CustomCheckItem, (domain, item.id)) is not None:
             raise ValueError(f"Checklist item {domain}/{item.id} already exists")
+        _check_new_ids(session, [], [(domain, item.id)])
         _store_item(session, normalized)
         _check_limits(session)
         _bump(session)
@@ -471,6 +531,7 @@ def import_packs(packs: list[tuple[str, str]], replace: bool = False) -> dict:
     """Import TOML packs given as ``(name, text)``, all or nothing.
 
     Rules and checklist items are added or replaced by id, and ``disabled_rules`` are added.
+    A new id cannot take the prefix of the default content (see ``_check_new_ids``).
     With ``replace``, the stored content is first reset to the default content, so that the
     database matches the defaults plus the packs.
 
@@ -499,6 +560,7 @@ def import_packs(packs: list[tuple[str, str]], replace: bool = False) -> dict:
             session.flush()
             _seed(session)
             session.flush()
+        _check_new_ids(session, list(rules), list(items))
         for rule in rules.values():
             _store_rule(session, rule_entry(rule), session.get(CustomRule, rule.id))
         for (domain, _), item in items.items():

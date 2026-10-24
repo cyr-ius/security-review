@@ -159,7 +159,8 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 
 - `--require-database` refuse le scan (code `2`, rien n'est enregistré) quand la vérification
   des vulnérabilités ne peut pas avoir lieu pour un fichier.
-- Avec `--save`, `--author` enregistre le nom d'utilisateur du développeur avec le rapport (voir
+- Avec `--save`, l'utilisateur d'un jeton `ci` personnel est l'auteur du rapport, sinon
+  `--author` enregistre le nom d'utilisateur du développeur avec lui (voir
   [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)), `--repository`,
   `--branch` et `--commit` le contexte ; le libellé du jeton est enregistré comme appareil.
 - Chaque fichier est limité au `SECREVIEW_MAX_DEPENDENCY_CHARS` du contrôleur, la requête à
@@ -168,7 +169,7 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 ## Scan depuis un poste de travail (hook de commit)
 
 Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
-[jeton `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels) créé dans
+[jeton `mcp` ou `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels) créé dans
 **Mon compte** : il atteint les projets que le développeur peut lire, et les fichiers sont
 envoyés au contrôleur exactement tels qu'ils sont sur le disque. Le poste n'a pas besoin de
 Python : installez le client avec uv (voir [Installation](../usage/gate.md#installation)).
@@ -176,7 +177,7 @@ Python : installez le client avec uv (voir [Installation](../usage/gate.md#insta
 ```bash
 uv tool install security-review-ci
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<personal ci token>
+export SECREVIEW_TOKEN=<personal mcp or ci token>
 security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
 # code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (contrôleur injoignable, jeton refusé...)
 ```

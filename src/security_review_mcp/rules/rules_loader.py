@@ -17,7 +17,7 @@ default rules and checklists shipped with the package (``default_rules.toml``, s
     ignore_case = true                     # optional (default true)
 
     [[checklist]]                          # a checklist item (new domains allowed)
-    domain = "company"                     # "company" is added to every review prompt
+    domain = "company"                     # "company" and "*" are added to every review prompt
     id = "ACME-CL-01"
     title = "Tenant isolation"
     what_to_look_for = "Every query is filtered by tenant id."
@@ -47,6 +47,8 @@ MAX_TEXT_CHARS = 5000
 _ID_RE = re.compile(r"^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+$")
 _CWE_RE = re.compile(r"^CWE-\d+$")
 _DOMAIN_RE = re.compile(r"^[a-z][a-z0-9_-]{0,30}$")
+# Checklist domain of the items that apply to every language (like ``languages = ["*"]``)
+ALL_LANGUAGES_DOMAIN = "*"
 # Heuristic for catastrophic backtracking: a quantified group that itself contains a quantifier
 _NESTED_QUANTIFIER_RE = re.compile(r"\((?:[^()\\]|\\.)*[+*](?:[^()\\]|\\.)*\)\s*[+*{]")
 
@@ -137,8 +139,10 @@ def parse_rule(entry: dict) -> Rule:
 def parse_check_item(entry: dict) -> tuple[str, CheckItem]:
     """Validate one checklist entry and return ``(domain, item)``."""
     domain = str(entry.get("domain", "")).lower()
-    if not _DOMAIN_RE.match(domain):
-        raise ValueError(f"invalid domain '{domain[:31]}' (lowercase letters, digits, - and _)")
+    if domain != ALL_LANGUAGES_DOMAIN and not _DOMAIN_RE.match(domain):
+        raise ValueError(
+            f"invalid domain '{domain[:31]}' (\"*\", or lowercase letters, digits, - and _)"
+        )
     item_id = validate_id(str(entry.get("id", "")))
     title = _text(entry, "title", MAX_TITLE_CHARS)
     what = _text(entry, "what_to_look_for", MAX_TEXT_CHARS)

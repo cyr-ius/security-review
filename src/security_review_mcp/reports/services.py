@@ -8,9 +8,9 @@ from collections.abc import Collection, Iterable
 from datetime import datetime, timedelta
 from typing import Literal
 
-from sqlalchemy import ColumnElement, and_, case, func, or_
+from sqlalchemy import ColumnElement, and_, case, func, or_, update
 from sqlalchemy.orm import selectinload
-from sqlmodel import col, select
+from sqlmodel import Session, col, select
 
 from ..config import MAX_RETENTION_DAYS, get_settings
 from ..observability import audit
@@ -45,6 +45,7 @@ from ..storage.models import (
 )
 from ..storage.project_names import normalize_project
 from . import coverage
+from .sarif import issue_fingerprint
 
 logger = logging.getLogger("security_review_mcp.services")
 
@@ -121,6 +122,129 @@ def _sanitize_finding(data: FindingCreate, limit: int) -> Finding:
     return Finding(**values)
 
 
+def _current() -> ColumnElement[bool]:
+    """SQL condition: a finding not replaced by a later occurrence of the same issue."""
+    return col(Finding.superseded_by).is_(None)
+
+
+def _check_current(finding: Finding) -> None:
+    """Refuse to act on a finding replaced by a later occurrence of the same issue.
+
+    Raises:
+        ValueError: Naming the occurrence to act on.
+    """
+    if finding.superseded_by is not None:
+        raise ValueError(
+            f"Finding {finding.id} was reported again: act on finding {finding.superseded_by}"
+        )
+
+
+def _carry_over(previous: Finding, first_seen: datetime, row: Finding, now: datetime) -> bool:
+    """Carry what people decided on an occurrence of an issue to its new occurrence.
+
+    A pending acceptance or false positive is carried with its reason, approver and expiry
+    date, as is a proposal of one of them and a severity raised above the one of the new
+    report. A fixed issue that comes back is open, seen for the first time again. Return True
+    when a decision was carried.
+    """
+    status = effective_status(previous.status, previous.status_expires_at, now)
+    row.first_seen_at = None if status == FindingStatus.FIXED else first_seen
+    if previous.original_severity is not None and (
+        SEVERITY_RANK[previous.severity] > SEVERITY_RANK[row.severity]
+    ):
+        row.original_severity = row.severity
+        row.severity = previous.severity
+        row.severity_reason = previous.severity_reason
+        row.severity_changed_by = previous.severity_changed_by
+        row.severity_changed_at = previous.severity_changed_at
+    if previous.proposed_status in DISMISSED_STATUSES and status == FindingStatus.OPEN:
+        row.proposed_status = previous.proposed_status
+        row.proposed_reason = previous.proposed_reason
+        row.proposed_by = previous.proposed_by
+        row.proposed_at = previous.proposed_at
+    if status not in DISMISSED_STATUSES:
+        return False
+    row.status = previous.status
+    row.status_changed_at = previous.status_changed_at
+    row.status_reason = previous.status_reason
+    row.status_approver = previous.status_approver
+    row.status_expires_at = previous.status_expires_at
+    return True
+
+
+def _match_occurrences(
+    session: Session, project: str, rows: list[Finding], now: datetime
+) -> tuple[list[tuple[Finding, Finding]], int, int]:
+    """Pair the findings of a new report with the current occurrences of the same issues.
+
+    A rule may match several lines of a file: occurrences of one fingerprint are paired in line
+    order when their number is unchanged (the code moved), else only on the same line, so that
+    a new occurrence never inherits the decision taken on another one. A current occurrence
+    left unpaired is replaced, without carry, by the first new one. Return the (previous, new)
+    pairs, the number of new findings paired and the number of decisions carried.
+    """
+    reported: dict[str, list[Finding]] = {}
+    for row in rows:
+        row.fingerprint = issue_fingerprint(project, row)
+        reported.setdefault(row.fingerprint, []).append(row)
+    if not reported:
+        return [], 0, 0
+    current: dict[str, list[tuple[Finding, datetime]]] = {}
+    for previous, created_at in session.exec(
+        select(Finding, SecurityReport.created_at)
+        .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
+        .where(
+            SecurityReport.project == project,
+            col(Finding.fingerprint).in_(list(reported)),
+            _current(),
+        )
+        .order_by(col(Finding.line_start).is_(None), col(Finding.line_start), col(Finding.id))
+    ).all():
+        current.setdefault(str(previous.fingerprint), []).append((previous, created_at))
+
+    pairs: list[tuple[Finding, Finding]] = []
+    recurring = carried = 0
+    for digest, previous_rows in current.items():
+        new_rows = sorted(
+            reported[digest], key=lambda row: (row.line_start is None, row.line_start or 0)
+        )
+        if len(new_rows) == len(previous_rows):
+            matched = dict(enumerate(new_rows))
+        else:
+            by_line = {row.line_start: row for row in reversed(new_rows) if row.line_start}
+            matched = {}
+            for index, (previous, _created_at) in enumerate(previous_rows):
+                row = by_line.pop(previous.line_start, None) if previous.line_start else None
+                if row is not None:
+                    matched[index] = row
+        for index, (previous, created_at) in enumerate(previous_rows):
+            row = matched.get(index)
+            if row is not None:
+                recurring += 1
+                first_seen = previous.first_seen_at or created_at
+                carried += _carry_over(previous, first_seen, row, now)
+            pairs.append((previous, row or new_rows[0]))
+    return pairs, recurring, carried
+
+
+def _supersede(session: Session, pairs: list[tuple[Finding, Finding]]) -> None:
+    """Point the replaced occurrences (and those they replaced) to the new ones and move
+    their comments, which are about the issue."""
+    for previous, row in pairs:
+        session.exec(
+            update(Finding)
+            .where(col(Finding.superseded_by) == previous.id)
+            .values(superseded_by=row.id)
+        )
+        session.exec(
+            update(FindingComment)
+            .where(col(FindingComment.finding_id) == previous.id)
+            .values(finding_id=row.id)
+        )
+        previous.superseded_by = row.id
+        session.add(previous)
+
+
 def _check_lengths(*fields: tuple[str, str | None, int]) -> None:
     """Refuse a field (name, value, limit) longer than its limit, before it is masked or stored.
 
@@ -164,7 +288,8 @@ def save_report(
         scope: Description of what was reviewed.
         risk_level: Optional override; it can only raise the computed risk.
         review_type: Kind of review (the prompt used or the CLI scan).
-        author: Username of the developer, declared by the client (not authenticated).
+        author: Username of the developer: the user of a personal token, else declared by the
+            client (not authenticated).
         submitted_by: Label of the token that saved the report (set by the server).
         checklist_results: Checklist items walked through by the reviewer, with their
             outcome; None for a report without declared coverage (CLI scans).
@@ -209,9 +334,11 @@ def save_report(
         declared = coverage.check(checklist_results or [], scan_rules or [], findings)
 
     rows = [_sanitize_finding(item, content) for item in findings]
-    risk = compute_risk_level([row.severity for row in rows], risk_level)
+    now = utcnow()
 
     with session_scope() as session:
+        pairs, recurring, carried = _match_occurrences(session, project, rows, now)
+        risk = compute_risk_level([row.severity for row in rows], risk_level)
         report = SecurityReport(
             project=project,
             repository=repository,
@@ -225,12 +352,16 @@ def save_report(
             summary=sanitize_untrusted(summary)[:content],
             risk_level=risk,
             findings=rows,
+            created_at=now,
         )
+        for row in rows:
+            row.first_seen_at = row.first_seen_at or now
         if declared is not None:
             report.checklist_results = json.dumps([r.model_dump() for r in declared.checklist])
             report.scan_rules = json.dumps(declared.scan_rules)
         session.add(report)
         session.flush()  # assigns ids before the commit
+        _supersede(session, pairs)
         result = {
             "report_id": report.id,
             "project": report.project,
@@ -239,6 +370,8 @@ def save_report(
             "risk_level": risk.value,
             "findings_count": len(rows),
             "findings_by_severity": dict(Counter(row.severity.value for row in rows)),
+            "recurring_findings": recurring,
+            "carried_decisions": carried,
         }
         if declared is not None:
             result["coverage"] = {
@@ -353,7 +486,7 @@ def list_reports(
         # One query for all the counters (avoids N+1)
         counts: dict[int, dict[str, int]] = {i: {"total": 0, "open": 0} for i in ids}
         if ids:
-            is_open = case((_status_is(FindingStatus.OPEN), 1), else_=0)
+            is_open = case((and_(_status_is(FindingStatus.OPEN), _current()), 1), else_=0)
             rows = session.exec(
                 select(Finding.report_id, func.count(), func.sum(is_open))
                 .where(col(Finding.report_id).in_(ids))
@@ -435,9 +568,10 @@ def update_finding_status(
 ) -> FindingPublic:
     """Record a triage decision made by a person (web interface), never by an agent.
 
-    ``accepted`` and ``false_positive`` need a reason and an expiry date, in the future and at
-    most SECREVIEW_MAX_DISMISSAL_DAYS days away: once expired, the finding counts as open again.
-    An acceptance may have no expiry date while SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
+    ``accepted`` needs a reason; the reason of a ``false_positive`` is optional. Their expiry
+    date, when given, is in the future and at most SECREVIEW_MAX_DISMISSAL_DAYS days away: once
+    expired, the finding counts as open again. A false positive needs no expiry date; an
+    acceptance needs one unless SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED is on.
     A finding less severe than SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY is accepted by a plain
     validation: its reason and its expiry date are optional.
     The reason of an acceptance is also its first comment (see ``add_finding_comment``).
@@ -457,16 +591,17 @@ def update_finding_status(
         finding = session.get(Finding, finding_id)
         if finding is None:
             raise NotFoundError(f"Finding {finding_id} not found")
+        _check_current(finding)
         if status in DISMISSED_STATUSES:
             settings = get_settings()
             plain = status == FindingStatus.ACCEPTED and not needs_formal_acceptance(
                 finding.severity
             )
-            reason = _check_reason(reason, required=not plain)
+            # A false positive states a fact about the code: it needs no reason nor expiry date
+            formal = status == FindingStatus.ACCEPTED and not plain
+            reason = _check_reason(reason, required=formal)
             if expires_at is None:
-                if not plain and (
-                    status != FindingStatus.ACCEPTED or not settings.permanent_acceptance_enabled
-                ):
+                if formal and not settings.permanent_acceptance_enabled:
                     raise ValueError(f"An expiry date is required for the status '{status.value}'")
             else:
                 expires_at = _check_expiry(as_utc(expires_at), now, settings.max_dismissal_days)
@@ -549,6 +684,7 @@ def update_finding_severity(
         finding = session.get(Finding, finding_id)
         if finding is None:
             raise NotFoundError(f"Finding {finding_id} not found")
+        _check_current(finding)
         previous = Severity(finding.severity)
         original = Severity(finding.original_severity or previous)
         if severity == previous:
@@ -613,6 +749,7 @@ def propose_finding_status(
         finding = session.get(Finding, finding_id)
         if finding is None:
             raise NotFoundError(f"Finding {finding_id} not found")
+        _check_current(finding)
         finding.proposed_status = status
         finding.proposed_reason = checked
         finding.proposed_by = (proposed_by.strip() or "unknown")[:200]
@@ -674,14 +811,14 @@ def finding_status_counts() -> dict[str, int]:
     with session_scope() as session:
         counts = {
             status.value: session.exec(
-                select(func.count()).select_from(Finding).where(_status_is(status, now))
+                select(func.count()).select_from(Finding).where(_status_is(status, now), _current())
             ).one()
             for status in FindingStatus
         }
         counts["proposed"] = session.exec(
             select(func.count())
             .select_from(Finding)
-            .where(col(Finding.proposed_status).is_not(None))
+            .where(col(Finding.proposed_status).is_not(None), _current())
         ).one()
     return counts
 
@@ -703,7 +840,7 @@ def list_projects(known: Iterable[str] = ()) -> list[dict]:
         finding_rows = session.exec(
             select(SecurityReport.project, Finding.severity, func.count())
             .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
-            .where(_status_is(FindingStatus.OPEN))
+            .where(_status_is(FindingStatus.OPEN), _current())
             .group_by(SecurityReport.project, Finding.severity)  # type: ignore[arg-type]
         ).all()
 
@@ -745,13 +882,15 @@ def list_projects(known: Iterable[str] = ()) -> list[dict]:
 
 
 def project_posture(project: str) -> dict:
-    """Summarize open findings of a project across all its reports (useful as a CI gate)."""
+    """Summarize open findings of a project across all its reports (useful as a CI gate).
+
+    An issue reported again by a later report counts once (its latest occurrence)."""
     project = normalize_project(project)
     with session_scope() as session:
         rows = session.exec(
             select(Finding.severity, func.count())
             .join(SecurityReport, col(SecurityReport.id) == col(Finding.report_id))
-            .where(SecurityReport.project == project, _status_is(FindingStatus.OPEN))
+            .where(SecurityReport.project == project, _status_is(FindingStatus.OPEN), _current())
             .group_by(Finding.severity)  # type: ignore[arg-type]
         ).all()
         reports_total = session.exec(
@@ -785,6 +924,7 @@ def list_project_findings(
 ) -> dict:
     """List the findings of a project (or of every project) across all reports, for a review.
 
+    An issue reported again by a later report is listed once (its latest occurrence).
     Worst severity first, then newest report first. ``limit`` is capped by
     SECREVIEW_MAX_LIST_LIMIT; ``total`` counts every matching finding, for paging. Each finding
     carries the project, branch, commit, review type and date of its report; ``review_type``
@@ -794,7 +934,7 @@ def list_project_findings(
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
     offset = max(0, offset)
-    filters = [_status_is(status)]
+    filters = [_status_is(status), _current()]
     if project is not None:
         filters.append(SecurityReport.project == normalize_project(project))
     if projects is not None:
@@ -851,7 +991,7 @@ def list_risk_acceptances(
     settings = get_settings()
     limit = max(1, min(limit or settings.max_list_limit, settings.max_list_limit))
     offset = max(0, offset)
-    filters = [Finding.status == FindingStatus.ACCEPTED]
+    filters = [Finding.status == FindingStatus.ACCEPTED, _current()]
     if project is not None:
         filters.append(SecurityReport.project == normalize_project(project))
     if projects is not None:
@@ -942,6 +1082,7 @@ def add_finding_comment(
         finding = session.get(Finding, finding_id)
         if finding is None:
             raise NotFoundError(f"Finding {finding_id} not found")
+        _check_current(finding)
         comment = FindingComment(finding_id=finding_id, author=author[:200], body=body)
         session.add(comment)
         audit.record(
@@ -1093,7 +1234,8 @@ def evaluate_gate(
 
     The gate fails when at least one finding with status ``open`` has a severity greater than
     or equal to ``fail_on``. A triager unblocks it by marking findings ``fixed``, ``accepted``
-    or ``false_positive``; an expired acceptance or false positive blocks again.
+    or ``false_positive``; an expired acceptance or false positive blocks again. For the whole
+    project, an issue reported again by a later report counts once (its latest occurrence).
 
     Args:
         project: Project name.
@@ -1119,6 +1261,8 @@ def evaluate_gate(
             if report.project != project:
                 raise ValueError(f"Report {report_id} belongs to project '{report.project}'")
             statement = statement.where(Finding.report_id == report_id)
+        else:
+            statement = statement.where(_current())
         rows = session.exec(statement.group_by(Finding.severity)).all()  # type: ignore[arg-type]
 
     open_by_severity = {severity.value: 0 for severity in Severity}
@@ -1146,7 +1290,7 @@ def collect_sarif_items(
     """Collect the findings to export as SARIF, with their report context.
 
     Give exactly one of ``report_id`` or ``project``. For a project, the findings of all its
-    reports are merged and a finding reported several times is kept once (latest report).
+    reports are merged and a finding reported several times is kept once (latest occurrence).
 
     Returns:
         ``(project_name, items)``.
@@ -1172,7 +1316,7 @@ def collect_sarif_items(
             statement = statement.where(Finding.report_id == report_id)
         else:
             project = normalize_project(str(project))
-            statement = statement.where(SecurityReport.project == project)
+            statement = statement.where(SecurityReport.project == project, _current())
         statement = statement.order_by(col(SecurityReport.created_at), col(SecurityReport.id))
 
         items = [

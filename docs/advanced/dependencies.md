@@ -156,7 +156,8 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 
 - `--require-database` refuses the scan (code `2`, nothing stored) when the vulnerability check
   cannot run for a file.
-- With `--save`, `--author` stores the username of the developer with the report (see
+- With `--save`, the user of a personal `ci` token is the author of the report, else
+  `--author` stores the username of the developer with it (see
   [author of a report](../usage/prompts-tools.md#author-of-a-report)), `--repository`,
   `--branch` and `--commit` the context; the label of the token is stored as the device.
 - Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the controller, the request
@@ -165,7 +166,7 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 ## Scan from a workstation (commit hook)
 
 A developer runs the same `security-review-ci scan-deps` on their workstation, with a
-[personal `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens) created in
+[personal `mcp` or `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens) created in
 **My account**: it reaches the projects the developer may read, and the files are sent to the
 controller exactly as they are on disk. The workstation needs no Python: install the client with
 uv (see [Installation](../usage/gate.md#installation)).
@@ -173,7 +174,7 @@ uv (see [Installation](../usage/gate.md#installation)).
 ```bash
 uv tool install security-review-ci
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<personal ci token>
+export SECREVIEW_TOKEN=<personal mcp or ci token>
 security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
 # exit code: 0 = ok, 1 = blocked, 2 = error (controller unreachable, token refused...)
 ```

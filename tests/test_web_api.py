@@ -25,6 +25,7 @@ from security_review_mcp import (
 )
 from security_review_mcp.auth import access_control, enrollment_api, oidc, token_store, web_users
 from security_review_mcp.config import get_settings
+from security_review_mcp.connectors import transport
 from security_review_mcp.deps import advisory_sync
 from security_review_mcp.http_server import Role
 from security_review_mcp.observability import audit
@@ -39,7 +40,6 @@ from security_review_mcp.storage.models import (
     ReviewType,
     Severity,
 )
-from security_review_mcp.ticketing import transport
 from security_review_mcp.web_api.body_limit import MAX_BODY_BYTES
 
 # Bearer value of each role, set by the ``secured`` fixture: the raw secret of a token for the
@@ -1854,11 +1854,11 @@ def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
 ):
     admin, triager, reader = auth("admin"), auth("triager"), auth("reader")
     jira = {"url": "https://acme.atlassian.net", "username": "bot", "api_token": "tok-test"}
-    configured = web_sessions.put("/api/v1/settings/ticketing/jira", headers=admin, json=jira)
+    configured = web_sessions.put("/api/v1/settings/connectors/jira", headers=admin, json=jira)
     systems = {item["kind"]: item for item in configured.json()["connectors"]}
     assert systems["jira"]["configured"] is True and systems["jira"]["enabled"] is False
     # Switched on by an administrator once configured
-    switch = "/api/v1/settings/ticketing/{}/enabled"
+    switch = "/api/v1/settings/connectors/{}/enabled"
     on = {"enabled": True}
     assert web_sessions.put(switch.format("jira"), headers=triager, json=on).status_code == 403
     assert web_sessions.put(switch.format("servicenow"), headers=admin, json=on).status_code == 422
@@ -1870,14 +1870,14 @@ def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
     }
     # An unknown system is not found
     assert (
-        web_sessions.put("/api/v1/settings/ticketing/acme", headers=admin, json={}).status_code
+        web_sessions.put("/api/v1/settings/connectors/acme", headers=admin, json={}).status_code
         == 404
     )
-    target = "/api/v1/projects/shop-api/ticket-targets/jira"
+    target = "/api/v1/projects/shop-api/connector-targets/jira"
     # The destinations are settings: a triager cannot change them
     assert web_sessions.put(target, headers=triager, json={"destination": "X"}).status_code == 403
     assert web_sessions.put(target, headers=admin, json={"destination": "sec"}).status_code == 200
-    destinations = "/api/v1/ticketing/destinations"
+    destinations = "/api/v1/connectors/destinations"
     assert web_sessions.get(destinations, headers=triager).json() == [
         {"project": "shop-api", "kind": "jira"}
     ]
@@ -1891,7 +1891,7 @@ def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
 
     monkeypatch.setattr(transport, "_opener", lambda settings: Opener())
     finding_id = services.get_report(reports[0]).findings[0].id
-    path = f"/api/v1/findings/{finding_id}/tickets/jira"
+    path = f"/api/v1/findings/{finding_id}/exports/jira"
 
     assert web_sessions.post(path, headers=reader).status_code == 403
     response = web_sessions.post(path, headers=triager)
@@ -1899,17 +1899,17 @@ def test_a_triager_sends_a_finding_to_the_jira_project_set_by_an_administrator(
     assert response.status_code == 201, response.text
     assert response.json()["external_key"] == "SEC-1" and len(sent) == 1
     report = web_sessions.get(f"/api/v1/reports/{reports[0]}", headers=reader).json()
-    assert report["findings"][0]["tickets"][0]["url"] == "https://acme.atlassian.net/browse/SEC-1"
+    assert report["findings"][0]["exports"][0]["url"] == "https://acme.atlassian.net/browse/SEC-1"
     # Without destination, sending is refused before any request
     web_sessions.delete(target, headers=admin)
     other = report["findings"][1]["id"]
-    refused = web_sessions.post(f"/api/v1/findings/{other}/tickets/jira", headers=triager)
+    refused = web_sessions.post(f"/api/v1/findings/{other}/exports/jira", headers=triager)
     assert refused.status_code == 409 and len(sent) == 1
     # Switched off: nothing more is offered nor sent
     web_sessions.put(target, headers=admin, json={"destination": "sec"})
     web_sessions.put(switch.format("jira"), headers=admin, json={"enabled": False})
     assert web_sessions.get(destinations, headers=triager).json() == []
-    refused = web_sessions.post(f"/api/v1/findings/{other}/tickets/jira", headers=triager)
+    refused = web_sessions.post(f"/api/v1/findings/{other}/exports/jira", headers=triager)
     assert refused.status_code == 409 and "switched off" in refused.json()["detail"]
     assert len(sent) == 1
 
@@ -2013,7 +2013,7 @@ def test_web_user_accepts_a_risk_with_a_reason_and_an_expiry(accounts, reports):
     for body in (
         {"status": "accepted", "expires_on": in_30_days},  # no reason
         {"status": "accepted", "reason": "ok", "expires_on": in_30_days},  # reason too short
-        {"status": "false_positive", "reason": "Dead code, never called"},  # no expiry
+        {"status": "false_positive", "reason": "ok"},  # reason too short
         {"status": "accepted", "reason": "Internal tool only", "expires_on": "2020-01-01"},
         {
             "status": "accepted",
@@ -2054,9 +2054,15 @@ def test_web_user_accepts_a_risk_without_expiry_unless_disabled(accounts, report
     url = f"/api/v1/findings/{services.get_report(reports[0]).findings[0].id}"
     reason = "Internal tool only"
 
-    # A false positive always needs an expiry date
-    body = {"status": "false_positive", "reason": reason, "expires_on": None}
-    assert accounts.patch(url, json=body, headers=headers).status_code == 422
+    # A false positive never needs an expiry date, nor a reason
+    body = {"status": "false_positive", "expires_on": None}
+    saved = accounts.patch(url, json=body, headers=headers).json()
+    assert (saved["status"], saved["status_reason"], saved["status_expires_at"]) == (
+        "false_positive",
+        None,
+        None,
+    )
+    assert saved["status_approver"] == "tess"
     saved = accounts.patch(url, json={"status": "accepted", "reason": reason}, headers=headers)
     assert saved.status_code == 200
     assert (saved.json()["status"], saved.json()["status_expires_at"]) == ("accepted", None)
@@ -3107,24 +3113,38 @@ def test_a_web_user_creates_one_personal_mcp_token(secured, reports):
     assert secured.get("/api/v1/me", headers=_bearer(body["token"])).status_code == 403
 
 
-def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports):
+@pytest.mark.parametrize("role", ["ci", "mcp"])
+def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports, role):
+    # A personal mcp token is also a ci token: one SECREVIEW_TOKEN on the workstation
     groups = [group_for("reader", ["shop-api"]), group_for("mcp-user")]
     make_user("alice", USER_PASSWORD, group_ids=groups)
     headers = session_headers(secured, "alice")
 
     created = secured.post(
-        "/api/v1/me/tokens", json={"label": "laptop", "role": "ci"}, headers=headers
+        "/api/v1/me/tokens", json={"label": "laptop", "role": role}, headers=headers
     )
     assert created.status_code == 201, created.text
     token = _bearer(created.json()["token"])
-    saved = secured.post("/api/v1/ci/scan/code", json=code_scan_body(save=True), headers=token)
+    body = code_scan_body(save=True, author="mallory")
+    saved = secured.post("/api/v1/ci/scan/code", json=body, headers=token)
     assert saved.status_code == 200, saved.text
     report = services.get_report(saved.json()["saved_report"]["report_id"])
-    assert (report.project, report.submitted_by) == ("shop-api", "alice:laptop")
+    # Its user is the author, whatever the client declares
+    assert (report.project, report.submitted_by, report.author) == (
+        "shop-api",
+        "alice:laptop",
+        "alice",
+    )
     # Only the projects its user may read, and only the pipeline routes
     other = secured.post("/api/v1/ci/scan/code", json=code_scan_body("billing"), headers=token)
     assert other.status_code == 404
     assert secured.get("/api/v1/me", headers=token).status_code == 403
+    # An mcp token of an administrator stays an MCP agent token
+    shared = _bearer(token_store.create_token("agent", Role.MCP, projects=["shop-api"])["token"])
+    assert (
+        secured.post("/api/v1/ci/scan/code", json=code_scan_body(), headers=shared).status_code
+        == 403
+    )
 
 
 def test_a_personal_mcp_token_needs_the_mcp_tokens_create_permission(secured, reports):

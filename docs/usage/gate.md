@@ -72,11 +72,11 @@ security-review-controller token create --label jenkins-portal --role ci \
 ```
 
 On a workstation, a developer uses a
-[personal `ci` token](web-interface.md#personal-mcp-and-ci-tokens) instead, created in
+[personal `mcp` or `ci` token](web-interface.md#personal-mcp-and-ci-tokens) instead, created in
 **My account**: it reaches the projects the developer may read.
 
 Web sessions and `api` tokens (within the projects they read) and `admin` tokens may also call
-the gate, SARIF and trend routes; `mcp` tokens may not. The scans, which store reports, need a `ci` or
+the gate, SARIF and trend routes; `mcp` tokens may not, except a personal one, which acts as a `ci` token. The scans, which store reports, need a `ci` or
 `admin` token (`403` otherwise, web sessions included).
 
 ### Examples
@@ -138,4 +138,6 @@ A finding stops blocking when a person moves it to `fixed`, `accepted` or `false
 the [web interface](web-interface.md#triage-of-findings): the decision stays recorded in
 the database with its reason and its approver. An agent can only propose a status
 (`propose_finding_status`), which does not unblock the gate. An acceptance or a false positive
-expires: from its expiry date, the finding blocks again.
+expires: from its expiry date, the finding blocks again. A decision is carried to the same
+issue raised by a later report ([finding reported again](web-interface.md#finding-reported-again)):
+the next scan does not block on an accepted risk.

@@ -2,7 +2,7 @@
 
 It contacts the URL given by the operator. This module is kept apart from cli (the commands
 of the controller) so that the MCP server never loads the controller modules (advisory
-download, OIDC, syslog, ticketing): tests/test_server.py checks it. Exit codes follow the
+download, OIDC, syslog, connectors): tests/test_server.py checks it. Exit codes follow the
 convention of cli: 0 success, 1 blocked, 2 usage or data error.
 """
 

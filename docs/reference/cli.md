@@ -69,8 +69,9 @@ exits with code `2`.
 | `scan-deps FILE… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Sends manifests, lockfiles or CycloneDX SBOMs to the controller, which checks them against its advisory database; `--save` stores a report | [Dependencies](../advanced/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps) |
 
 `scan-code` and `scan-deps` also accept `--repository`, `--branch`, `--commit` and `--author`,
-stored with the report. They need a `ci` or `admin` token (on a workstation, a
-[personal `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens)).
+stored with the report (`--author` is not needed with a personal token, whose user is the
+author). They need a `ci` or `admin` token (on a workstation, a
+[personal `mcp` or `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens)).
 `--skip-unconfigured` exits with `0` and a warning when no controller URL is set (commit hook).
 ## Exit codes
 

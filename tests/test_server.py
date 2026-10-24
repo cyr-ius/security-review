@@ -142,12 +142,12 @@ async def test_review_prompts_give_their_review_type(prompt, review_type):
     assert ReviewType(review_type)
 
 
-async def test_review_prompts_ask_for_the_developer_username():
+async def test_review_prompts_leave_the_author_to_the_token():
     async with Client(mcp) as client:
         for prompt in ("security-review", "dependency-review", "codebase-review"):
-            result = await client.get_prompt(prompt, {})
-            assert "git config user.email" in result.messages[0].content.text, prompt
-            assert "`checklist_results`" in result.messages[0].content.text, prompt
+            text = (await client.get_prompt(prompt, {})).messages[0].content.text
+            assert "Do not pass `author`" in text and "git config" not in text, prompt
+            assert "`checklist_results`" in text, prompt
 
 
 @pytest.mark.parametrize(
@@ -159,29 +159,44 @@ async def test_whole_repository_prompts_send_the_files_with_the_pipeline_client(
     async with Client(mcp) as client:
         result = await client.get_prompt(prompt, {})
     text = result.messages[0].content.text
-    assert f"security-review-ci {command}" in text and "personal ci token" in text
+    assert f"security-review-ci {command}" in text and "personal mcp or ci token" in text
 
 
-async def test_save_report_with_an_author_and_filter_the_list():
+async def test_the_author_of_a_report_is_stored_but_never_read_back():
     report = {"project": "authored", "summary": "Authored review", "findings": []}
     async with Client(mcp) as client:
         saved = await client.call_tool(
             "save_security_report", {**report, "author": "  alice@example.com "}
         )
         await client.call_tool("save_security_report", {**report, "author": "bob"})
+        report_id = json.loads(text_of(saved))["report_id"]
+        # The filter would tell whether alice wrote a report: it is ignored
         listed = await client.call_tool(
             "list_security_reports", {"project": "authored", "author": "alice@example.com"}
         )
+        as_json = await client.call_tool(
+            "get_security_report", {"report_id": report_id, "format": "json"}
+        )
+        as_markdown = await client.call_tool("get_security_report", {"report_id": report_id})
+        resource = await client.read_resource(f"report://{report_id}")
+        triage = await client.get_prompt("triage-report", {"report_id": str(report_id)})
         too_long = await client.call_tool("save_security_report", {**report, "author": "a" * 201})
         control = await client.call_tool(
             "save_security_report", {**report, "author": "alice\nINFO forged log line"}
         )
     assert json.loads(text_of(saved))["author"] == "alice@example.com"
+    assert services.get_report(report_id).author == "alice@example.com"
     rows = listed.structured_content["result"]
-    assert [(r["author"], r["submitted_by"]) for r in rows] == [("alice@example.com", None)]
+    assert [r["author"] for r in rows] == [None, None]
+    assert json.loads(text_of(as_json))["author"] is None
+    for text in (
+        text_of(as_markdown),
+        resource.contents[0].text,
+        triage.messages[0].content.text,
+    ):
+        assert "Authored review" in text and "alice" not in text
     assert too_long.is_error and control.is_error
     assert "may only contain" in text_of(control)
-    assert len(services.list_reports(project="authored")) == 2
 
 
 async def test_save_report_checks_and_stores_the_review_coverage():
@@ -620,6 +635,22 @@ def test_unrestricted_token_reaches_every_project(http_app, two_projects):
     assert client.call("reload_rules")[0] is False
 
 
+def test_a_personal_token_saves_its_user_as_the_author(http_app):
+    from conftest import make_user
+
+    user = make_user("alice", "Correct horse battery 9", "reader")
+    token = token_store.create_personal_token(user["id"], "agent", role="mcp")["token"]
+    client = McpOverHttp(http_app, token)
+
+    report = {"project": "shop-api", "summary": "Review", "findings": []}
+    for declared in ({}, {"author": "mallory"}):
+        is_error, text = client.call("save_security_report", {**report, **declared})
+        assert not is_error, text
+        # The authenticated owner wins over a declared author
+        saved = services.get_report(json.loads(text)["report_id"])
+        assert (saved.author, saved.submitted_by) == ("alice", "alice:agent")
+
+
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 
@@ -863,7 +894,7 @@ CONTROLLER_MODULES = (
     "security_review_mcp.deps.advisory_sync",
     "security_review_mcp.auth.oidc",
     "security_review_mcp.observability.audit_syslog",
-    "security_review_mcp.ticketing",
+    "security_review_mcp.connectors",
     "security_review_mcp.update_check",
     "security_review_mcp.web_api",
 )

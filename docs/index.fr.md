@@ -95,8 +95,8 @@ PostgreSQL, Docker Compose, jetons pour chaque développeur), suivez
 
 ## Par où continuer
 
-La documentation suit l'ordre d'une mise en œuvre. **Démarrage** et **Utilisation** contiennent
-ce qu'il faut pour travailler ; **Avancé** regroupe les détails et les fonctions facultatives.
+La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Utilisation** et
+**Revue de sécurité** contiennent ce qu'il faut pour travailler ; **Avancé** regroupe les détails et les fonctions facultatives.
 
 | Étape | Page |
 |---|---|

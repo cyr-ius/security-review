@@ -121,7 +121,7 @@ l'utiliser.
 | Persistance, schéma (purge des rapports sans findings et de l'audit : `storage/retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `reports/coverage.py`) | `storage/models.py`, `reports/services.py`, `reports/coverage.py`, `storage/retention.py`, `storage/database.py`, `storage/migrations/` (Alembic) |
 | Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement ; envoi syslog facultatif par le contrôleur) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `observability/audit.py`, `observability/audit_syslog.py` ; `observability/metrics.py` |
 | Export et tendances | `reports/sarif.py`, `reports/trends.py` |
-| Tickets des findings (envoi manuel et automatique par le contrôleur) : API publique des connecteurs (contrat des connecteurs tiers, versionné), registre (intégrés + plugins autorisés par `SECREVIEW_TICKETING_PLUGINS`), connexions, client HTTP imposé, Jira et ServiceNow | paquet `ticketing/` (`api.py`, `registry.py`, `connections.py`, `transport.py`, `core.py`, `jira.py`, `servicenow.py`), `web_api/ticketing_routes.py`, exemple `examples/ticketing-connector/` |
+| Connecteurs : envoi des findings vers des systèmes externes (tickets, registre de vulnérabilités...), manuel et automatique par le contrôleur : API publique des connecteurs (contrat des connecteurs tiers, versionné), registre (intégrés + plugins autorisés par `SECREVIEW_CONNECTORS_PLUGINS`), connexions, client HTTP imposé, Jira et ServiceNow | paquet `connectors/` (`api.py`, `registry.py`, `connections.py`, `transport.py`, `core.py`, `jira.py`, `servicenow.py`), `web_api/connector_routes.py`, exemple `examples/connector/` |
 | HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `auth/token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `auth/web_users.py` ; protocole OIDC du contrôleur : `auth/oidc.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim) : `auth/access_control.py` |
 | Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `auth/enrollment_api.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas.py` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
@@ -131,7 +131,7 @@ l'utiliser.
 Tous les modules sont dans `src/security_review_mcp/` : à la racine, les points d'entrée et
 les briques communes (`config`, `http_server`, `proxy`...) ; ailleurs, un sous-paquet par
 domaine (`storage/`, `reports/`, `rules/`, `deps/`, `auth/`, `observability/`, `clients/`,
-`ticketing/`, `web_api/`). Un nouveau module va dans le sous-paquet de son domaine, pas à la
+`connectors/`, `web_api/`). Un nouveau module va dans le sous-paquet de son domaine, pas à la
 racine. L'application Angular (`web/`) est compilée par `npm run build` dans
 `src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules
 (`reports/services.py`, `rules/scanner.py`...) ; `server.py` et `cli.py` restent des couches
@@ -198,7 +198,7 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   `/healthz` ; le contrôleur n'expose aucune route d'écriture sans jeton. N'ajoutez pas de route
   web au serveur MCP ni d'endpoint MCP au contrôleur.
 - **Le serveur MCP ne charge aucun module du contrôleur** qui sort sur le réseau ou sert ses
-  routes (`controller`, `advisory_sync`, `oidc`, `audit_syslog`, `ticketing`, `update_check`,
+  routes (`controller`, `advisory_sync`, `oidc`, `audit_syslog`, `connectors`, `update_check`,
   `web_api`), même indirectement ; `tests/test_server.py` le vérifie. Un module partagé par les
   deux processus (comme `app_settings`) les importe dans la fonction qui s'en sert.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
@@ -211,13 +211,13 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   du contrôleur (`update_check`, **désactivée par défaut**, HTTPS vers l'API GitHub, par le
   proxy, réponse bornée et mise en cache), l'envoi syslog du journal d'audit par le contrôleur
   (`audit_syslog`, **désactivé par défaut**, qui lit les événements en base : le serveur MCP n'y
-  participe pas) et la création de tickets par le contrôleur (`ticketing`, **chaque connecteur
+  participe pas) et l'envoi des findings par les connecteurs du contrôleur (`connectors`, **chaque connecteur
   désactivé par défaut**, activé dans l'interface par un administrateur, tous verrouillés par
-  `SECREVIEW_TICKETING_ENABLED=false`) : un connecteur (Jira, ServiceNow ou tiers) ne sort que par `ticketing.transport`
+  `SECREVIEW_CONNECTORS_ENABLED=false`) : un connecteur (Jira, ServiceNow ou tiers) ne sort que par `connectors.transport`
   (HTTPS, URL configurée uniquement, par le proxy, sans suivre de redirection, réponse bornée,
   secrets jamais journalisés ni renvoyés, secret lié à l'hôte de son URL) ; un connecteur tiers
-  n'est chargé que s'il est listé dans `SECREVIEW_TICKETING_PLUGINS` ; à sens unique : un
-  ticket ne change jamais le statut d'un finding. Ne cassez pas `ticketing/api.py` sans
+  n'est chargé que s'il est listé dans `SECREVIEW_CONNECTORS_PLUGINS` ; à sens unique : un
+  envoi ne change jamais le statut d'un finding. Ne cassez pas `connectors/api.py` sans
   incrémenter `API_VERSION` : c'est le contrat des connecteurs tiers.
 - Les regex de règles doivent éviter le backtracking catastrophique (pas de quantificateurs
   imbriqués) ; `rules_loader` les valide pour les règles internes.
@@ -225,8 +225,10 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - **Un agent ne ferme jamais un finding** : aucun outil MCP ne change un statut
   (`propose_finding_status` enregistre seulement une proposition). `accepted` et
   `false_positive` sont décidés par une personne connectée à l'interface (session, jamais un
-  jeton Bearer), avec motif, approbateur et date d'expiration (seule une acceptation peut en être
-  dépourvue, tant que `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` est actif ; sous
+  jeton Bearer), qui est enregistrée comme approbateur ; une acceptation exige aussi un motif et
+  une date d'expiration (elle peut en être dépourvue tant que
+  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` est actif ; un faux positif n'exige ni motif ni date ;
+  sous
   `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, une acceptation n'exige ni motif ni date) ; une décision expirée
   compte comme ouverte (gate, posture, SARIF, tendances).
 
@@ -316,9 +318,10 @@ racine du site) et en français (`page.fr.md`, à côté, servie sous `/fr/`), a
 langues** :
 
 La doc est organisée en parcours de mise en œuvre : **Démarrage** (`getting-started/` :
-installation, mise en service du serveur, connexion de l'hôte) et **Utilisation** (`usage/` :
-revue de sécurité — fonctionnement, règles, checklists, normes —, prompts et outils, interface
-web, gate) ne contiennent que l'essentiel pour travailler ;
+installation, mise en service du serveur, connexion de l'hôte), **Utilisation** (`usage/` : prompts et outils, interface web, gate) et
+**Revue de sécurité** (`usage/` : fonctionnement, règles, checklists, normes) ne
+contiennent que l'essentiel pour travailler ; **Connecteurs** (`connectors/`) décrit l'envoi des
+findings vers d'autres outils, une page par connecteur intégré et une pour les connecteurs tiers ;
 **Avancé** (`advanced/`) regroupe les détails et les fonctions facultatives. Une nouvelle
 explication détaillée va dans `advanced/`, avec au plus une ligne et un lien depuis les pages
 essentielles.
@@ -335,6 +338,7 @@ essentielles.
 | Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/advanced/architecture`, `docs/getting-started/deploy`, `docker-compose.yml`, `examples/kubernetes/` |
 | Les normes de développement (prompt, outils, ressources, écran) | `docs/usage/standards` (+ `usage/prompts-tools`) |
 | L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` (connexion OIDC : `docs/advanced/sso`) |
+| Les connecteurs (contrat `connectors/api.py`, Jira, ServiceNow, écran **Connecteurs**, routes) | `docs/connectors/` (`index`, `jira`, `servicenow`, `third-party`), `examples/connector/` |
 | Installation, image Docker | `docs/getting-started/installation`, `docs/advanced/installation`, `docs/advanced/docker` |
 | Une garantie ou limite de sécurité | `docs/reference/security` |
 | La structure du code, l'outillage de dev | `docs/contributing` |

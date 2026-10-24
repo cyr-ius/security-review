@@ -15,17 +15,17 @@ from .api import (
     MAX_DESCRIPTION_CHARS,
     MAX_KEY_CHARS,
     Connection,
+    Connector,
+    ConnectorError,
     ConnectorField,
-    CreatedTicket,
-    TicketConnector,
-    TicketContent,
-    TicketingError,
+    ExportedFinding,
+    FindingContent,
 )
 
 PROJECT_KEY = r"[A-Z][A-Z0-9_]{0,49}"
 
 
-def wiki_description(content: TicketContent) -> str:
+def wiki_description(content: FindingContent) -> str:
     """Description of a Jira issue: the facts, then each section in a ``{noformat}`` block."""
     lines = [f"{name}: {value}" for name, value in content.facts]
     for title, text in content.sections:
@@ -40,7 +40,7 @@ def wiki_description(content: TicketContent) -> str:
     return description
 
 
-class JiraConnector(TicketConnector):
+class JiraConnector(Connector):
     """Jira issues, one per finding, in the project chosen per security-review project."""
 
     kind = "jira"
@@ -121,9 +121,9 @@ class JiraConnector(TicketConnector):
         raw = base64.b64encode(f"{values['username']}:{token}".encode()).decode("ascii")
         return {"Authorization": f"Basic {raw}"}
 
-    def create_ticket(
-        self, connection: Connection, destination: str, content: TicketContent
-    ) -> CreatedTicket:
+    def export_finding(
+        self, connection: Connection, destination: str, content: FindingContent
+    ) -> ExportedFinding:
         """Create the issue; its key is checked before it is kept."""
         body = {
             "fields": {
@@ -138,8 +138,8 @@ class JiraConnector(TicketConnector):
         key = answer.get("key")
         project, _, number = key.partition("-") if isinstance(key, str) else ("", "", "")
         if not (project == destination and number.isdigit()) or len(key) > MAX_KEY_CHARS:
-            raise TicketingError("invalid", "jira sent no issue key")
-        return CreatedTicket(key=key, url=f"{connection.base_url}/browse/{quote(key)}")
+            raise ConnectorError("invalid", "jira sent no issue key")
+        return ExportedFinding(key=key, url=f"{connection.base_url}/browse/{quote(key)}")
 
     def test_connection(self, connection: Connection) -> None:
         """Read the account of the credentials."""

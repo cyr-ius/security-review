@@ -1,8 +1,8 @@
-"""Connections of the ticketing systems: values of the fields of each connector.
+"""Connections of the connectors: values of the fields of each connector.
 
 Each field (the ``url`` added by the controller, then those the connector declares) is read from
 the variable ``SECREVIEW_<KIND>_<FIELD>`` (``SECREVIEW_JIRA_URL``), else from the value stored in
-the web interface (table ``appsetting``, key ``ticketing_<kind>_<field>``), else its default. A
+the web interface (table ``appsetting``, key ``connector_<kind>_<field>``), else its default. A
 variable that is set (not empty) always wins: the web interface cannot change it.
 
 Secrets are stored as given, never returned (``***``) nor logged; ``***`` sent back keeps the
@@ -11,9 +11,9 @@ its secrets again in the same change, and is refused when a secret comes from a 
 Otherwise whoever may change the settings could send a stored token to a host of their choice
 (a send or a connection test).
 
-Each connector has its switch (key ``ticketing:<kind>:enabled``, ``:`` never being in a field
+Each connector has its switch (key ``connector:<kind>:enabled``, ``:`` never being in a field
 key), off until an administrator switches it on: nothing is sent through a connector switched
-off. SECREVIEW_TICKETING_ENABLED=false locks them all off (see enabled).
+off. SECREVIEW_CONNECTORS_ENABLED=false locks them all off (see enabled).
 """
 
 from collections.abc import Mapping
@@ -28,7 +28,7 @@ from ..app_settings import PASSWORD_MASK, _apply, _stored
 from ..config import Settings
 from ..observability import audit
 from ..storage.database import session_scope
-from .api import MAX_FIELD_CHARS, URL_FIELD, ConnectorField, TicketConnector
+from .api import MAX_FIELD_CHARS, URL_FIELD, Connector, ConnectorField
 
 MAX_URL_CHARS = 500
 
@@ -61,7 +61,7 @@ def _origin(url: str) -> tuple[str, str]:
     return parts.scheme.lower(), parts.netloc.lower()
 
 
-def url_field(connector: TicketConnector) -> ConnectorField:
+def url_field(connector: Connector) -> ConnectorField:
     """The URL field every connector gets."""
     return ConnectorField(
         name=URL_FIELD,
@@ -74,50 +74,50 @@ def url_field(connector: TicketConnector) -> ConnectorField:
     )
 
 
-def all_fields(connector: TicketConnector) -> tuple[ConnectorField, ...]:
+def all_fields(connector: Connector) -> tuple[ConnectorField, ...]:
     """The fields of a connection: the URL, then those of the connector."""
     return (url_field(connector), *connector.fields)
 
 
-def variable(connector: TicketConnector, name: str) -> str:
+def variable(connector: Connector, name: str) -> str:
     """Variable of a field: SECREVIEW_JIRA_URL..."""
     return f"SECREVIEW_{connector.kind}_{name}".upper()
 
 
-def _key(connector: TicketConnector, name: str) -> str:
+def _key(connector: Connector, name: str) -> str:
     """Key of a stored field."""
-    return f"ticketing_{connector.kind}_{name}"
+    return f"connector_{connector.kind}_{name}"
 
 
-def _enabled_key(connector: TicketConnector) -> str:
+def _enabled_key(connector: Connector) -> str:
     """Key of the stored switch of a connector."""
-    return f"ticketing:{connector.kind}:enabled"
+    return f"connector:{connector.kind}:enabled"
 
 
-def enabled(connector: TicketConnector, settings: Settings) -> bool:
-    """True when the controller may send tickets through ``connector``: not locked by
-    SECREVIEW_TICKETING_ENABLED=false, and switched on (a connector never switched is off)."""
-    if not settings.ticketing_enabled:
+def enabled(connector: Connector, settings: Settings) -> bool:
+    """True when the controller may send findings through ``connector``: not locked by
+    SECREVIEW_CONNECTORS_ENABLED=false, and switched on (a connector never switched is off)."""
+    if not settings.connectors_enabled:
         return False
     return _stored().get(_enabled_key(connector)) == "true"
 
 
-def set_enabled(connector: TicketConnector, on: bool, actor: str, settings: Settings) -> None:
+def set_enabled(connector: Connector, on: bool, actor: str, settings: Settings) -> None:
     """Switch a connector on or off; the change is audited.
 
     Raises:
         ValueError: If the variable locks the switches, or the connection to switch on is not
             configured.
     """
-    if not settings.ticketing_enabled:
-        raise ValueError("SECREVIEW_TICKETING_ENABLED is false: the connectors are locked off")
+    if not settings.connectors_enabled:
+        raise ValueError("SECREVIEW_CONNECTORS_ENABLED is false: the connectors are locked off")
     if on and not resolve(connector).configured:
         raise ValueError(f"configure the {connector.name} connection before switching it on")
     with session_scope() as session:
         _apply(session, {_enabled_key(connector): "true" if on else "false"}, actor)
         audit.record(
             session,
-            audit.AuditAction.TICKETING_CHANGED,
+            audit.AuditAction.CONNECTOR_CHANGED,
             actor,
             "setting",
             connector.kind,
@@ -125,14 +125,14 @@ def set_enabled(connector: TicketConnector, on: bool, actor: str, settings: Sett
         )
 
 
-def check_value(connector: TicketConnector, spec: ConnectorField, value: str) -> str:
+def check_value(connector: Connector, spec: ConnectorField, value: str) -> str:
     """Return the value to store for a field, or raise ValueError."""
     if spec.name == URL_FIELD:
         return check_base_url(value, f"{connector.name} URL")
     return spec.check(value)
 
 
-def _environment(connector: TicketConnector) -> dict[str, str]:
+def _environment(connector: Connector) -> dict[str, str]:
     """Values of the fields set by a variable (not empty), read like the other settings
     (environment, then the .env file of the controller)."""
     config = SettingsConfigDict(
@@ -142,7 +142,7 @@ def _environment(connector: TicketConnector) -> dict[str, str]:
         case_sensitive=False,
         extra="ignore",
     )
-    base = type("TicketingVariables", (BaseSettings,), {"model_config": config})
+    base = type("ConnectorVariables", (BaseSettings,), {"model_config": config})
     model = create_model(  # type: ignore[call-overload]
         f"{connector.kind.title()}Variables",
         __base__=base,
@@ -156,7 +156,7 @@ def _environment(connector: TicketConnector) -> dict[str, str]:
 class ConnectionState:
     """Values of a connection: from the variables, stored, and effective (defaults applied)."""
 
-    connector: TicketConnector
+    connector: Connector
     env: Mapping[str, str]
     stored: Mapping[str, str]
     values: Mapping[str, str] = field(default_factory=dict)
@@ -183,7 +183,7 @@ class ConnectionState:
 
 
 def _state(
-    connector: TicketConnector, stored: Mapping[str, str], env: Mapping[str, str]
+    connector: Connector, stored: Mapping[str, str], env: Mapping[str, str]
 ) -> ConnectionState:
     """Effective values: variable, else stored, else default."""
     values = {
@@ -193,7 +193,7 @@ def _state(
     return ConnectionState(connector, env, stored, {k: v for k, v in values.items() if v})
 
 
-def _stored_values(connector: TicketConnector, rows: Mapping[str, str]) -> dict[str, str]:
+def _stored_values(connector: Connector, rows: Mapping[str, str]) -> dict[str, str]:
     """Stored values of a connector, by field name."""
     return {
         spec.name: rows[_key(connector, spec.name)]
@@ -202,13 +202,13 @@ def _stored_values(connector: TicketConnector, rows: Mapping[str, str]) -> dict[
     }
 
 
-def resolve(connector: TicketConnector) -> ConnectionState:
+def resolve(connector: Connector) -> ConnectionState:
     """Current values of the connection of ``connector``."""
     return _state(connector, _stored_values(connector, _stored()), _environment(connector))
 
 
 def _changes(
-    connector: TicketConnector, values: Mapping[str, str | None], state: ConnectionState
+    connector: Connector, values: Mapping[str, str | None], state: ConnectionState
 ) -> dict[str, str | None]:
     """Check ``values`` (field name to value; None or "" removes the stored value; a secret equal
     to PASSWORD_MASK is unchanged) and return them by field name.
@@ -240,7 +240,7 @@ def _changes(
 
 
 def _check_secrets_follow_url(
-    connector: TicketConnector, changes: Mapping[str, str | None], state: ConnectionState
+    connector: Connector, changes: Mapping[str, str | None], state: ConnectionState
 ) -> None:
     """Refuse a URL stored in the web interface for secrets entered for another host.
 
@@ -265,9 +265,7 @@ def _check_secrets_follow_url(
             raise ValueError(f"the URL changed: enter the {spec.label} again")
 
 
-def set_connection(
-    connector: TicketConnector, values: Mapping[str, str | None], actor: str
-) -> None:
+def set_connection(connector: Connector, values: Mapping[str, str | None], actor: str) -> None:
     """Store fields of a connection (see _changes); the change is audited, secrets masked.
 
     Raises:
@@ -285,7 +283,7 @@ def set_connection(
         _apply(session, {_key(connector, n): v for n, v in changes.items()}, actor)
         audit.record(
             session,
-            audit.AuditAction.TICKETING_CHANGED,
+            audit.AuditAction.CONNECTOR_CHANGED,
             actor,
             "setting",
             connector.kind,
@@ -293,7 +291,7 @@ def set_connection(
         )
 
 
-def candidate(connector: TicketConnector, values: Mapping[str, str | None]) -> ConnectionState:
+def candidate(connector: Connector, values: Mapping[str, str | None]) -> ConnectionState:
     """The connection ``values`` would give (see set_connection), without storing them, to test
     it before saving.
 
@@ -331,7 +329,7 @@ def _describe_field(spec: ConnectorField) -> dict[str, Any]:
     }
 
 
-def describe(connector: TicketConnector, builtin: bool, settings: Settings) -> dict[str, Any]:
+def describe(connector: Connector, builtin: bool, settings: Settings) -> dict[str, Any]:
     """Describe a connection: its fields (declaration, stored value, variable, effective value,
     secrets masked), whether it is configured and switched on, and its destination field."""
     state = resolve(connector)
@@ -356,7 +354,7 @@ def describe(connector: TicketConnector, builtin: bool, settings: Settings) -> d
     }
 
 
-def validate_environment(connector: TicketConnector) -> None:
+def validate_environment(connector: Connector) -> None:
     """Check the values the variables give to a connector (at the start of the controller).
 
     Raises:

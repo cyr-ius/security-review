@@ -4,15 +4,15 @@ import { firstValueFrom } from 'rxjs';
 import { I18nService, Message, msg } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import {
-  TicketingConnector,
-  TicketingFieldInfo,
-  TicketingUpdate,
+  ConnectorInfo,
+  ConnectorFieldInfo,
+  ConnectorUpdate,
 } from '../../../core/models/api.models';
 import { ApiService } from '../../../core/services/api.service';
-import { fieldText } from '../../../core/services/ticket.service';
+import { fieldText } from '../../../core/services/export.service';
 import { describeError } from '../settings-page';
 
-/** Longest value accepted by the server (ticketing.api.MAX_FIELD_CHARS). */
+/** Longest value accepted by the server (connectors.api.MAX_FIELD_CHARS). */
 const MAX_VALUE_CHARS = 500;
 
 /**
@@ -29,7 +29,7 @@ export class ConnectorConnectionComponent {
   private readonly api = inject(ApiService);
   private readonly i18n = inject(I18nService);
 
-  readonly connector = input.required<TicketingConnector>();
+  readonly connector = input.required<ConnectorInfo>();
   /** The connection was saved: the page reloads the settings. */
   readonly changed = output<void>();
 
@@ -51,14 +51,14 @@ export class ConnectorConnectionComponent {
   readonly error = signal<Message | null>(null);
 
   /** Text of a field in the language of the interface. */
-  text(field: TicketingFieldInfo, key: 'label' | 'help' | 'placeholder'): string {
+  text(field: ConnectorFieldInfo, key: 'label' | 'help' | 'placeholder'): string {
     return fieldText(field, key, this.i18n.language());
   }
 
   /** Values of the editable fields ('' deletes the stored value). */
-  private values(): TicketingUpdate {
+  private values(): ConnectorUpdate {
     const model = this.model();
-    const values: TicketingUpdate = {};
+    const values: ConnectorUpdate = {};
     for (const field of this.editable()) {
       const value = field.secret ? (model[field.name] ?? '') : (model[field.name] ?? '').trim();
       values[field.name] = value || null;
@@ -72,7 +72,7 @@ export class ConnectorConnectionComponent {
       return;
     }
     await this.run(async () => {
-      await firstValueFrom(this.api.setTicketing(this.connector().kind, this.values()));
+      await firstValueFrom(this.api.setConnector(this.connector().kind, this.values()));
       this.message.set(msg('connectors.saved'));
       this.changed.emit();
     });
@@ -82,7 +82,7 @@ export class ConnectorConnectionComponent {
   async test(): Promise<void> {
     await this.run(async () => {
       const kind = this.connector().kind;
-      const result = await firstValueFrom(this.api.testTicketing(kind, this.values()));
+      const result = await firstValueFrom(this.api.testConnector(kind, this.values()));
       if (result.ok) {
         this.message.set(msg('connectors.testOk'));
       } else {

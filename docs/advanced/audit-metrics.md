@@ -85,21 +85,28 @@ The controller can also send each event to a syslog server, to keep it outside t
 (SIEM, central log). Disabled by default:
 
 ```bash
-SECREVIEW_AUDIT_SYSLOG_ADDRESS=udp://syslog.example.com:514   # or tcp://host:port, unix:///dev/log
+SECREVIEW_AUDIT_SYSLOG_ADDRESS=udp://syslog.example.com:514   # or tcp://host:port, tls://host:port, unix:///dev/log
 SECREVIEW_AUDIT_SYSLOG_FACILITY=local0                        # default
 ```
+
+To encrypt the events, use `tls://host:port` (syslog over TLS, RFC 5425, port 6514 by default):
+the controller verifies the certificate of the server and its host name with the system CA
+bundle, or with `SECREVIEW_AUDIT_SYSLOG_CAFILE` (internal certificate authority, a variable
+only). Each message is then framed by its length (octet counting), as RFC 5425 requires: on
+rsyslog, `imtcp` with `StreamDriver.Mode="1"`; on syslog-ng, the `syslog()` source with
+`transport("tls")`.
 
 Administrators (`settings.manage` permission) can also set it on the **Audit log** page of the
 web interface, with the **Syslog** button next to **Refresh** (a send icon checked when the
 events are forwarded, crossed out when they are not; its tooltip gives the server). It opens the
-**Syslog forwarding** dialog: **No forwarding** or **Set here** (`udp://host:port` or
-`tcp://host:port`), and the facility. **A variable that is set takes
+**Syslog forwarding** dialog: **No forwarding** or **Set here** (`udp://host:port`,
+`tcp://host:port` or `tls://host:port`), and the facility. **A variable that is set takes
 precedence**: its field is then locked, and a value set there before is ignored (**Delete**
 removes it); an empty `SECREVIEW_AUDIT_SYSLOG_ADDRESS` counts as unset. A value set there
 applies within about ten seconds, without restart; the change itself is written to the audit log
 (`audit_syslog.changed`). When the forwarding is stopped, the pending events, this change
 included, are first sent to the previous server: the SIEM sees who stopped it. A Unix socket is a
-file of the deployment: it is set with the variable only. Through the API: `GET` and
+file of the deployment: it is set with the variable only, as the CA file of TLS. Through the API: `GET` and
 `PUT /api/v1/settings/audit-syslog` with `address` and `facility` (`null` deletes the stored
 value, a missing field is unchanged, a field whose variable is set is refused with 422).
 
@@ -117,9 +124,10 @@ as JSON, the same fields as `audit list`:
 - Each event is sent **once**, even with several replicas of the controller: the id of the last
   forwarded event is kept in the database, and a replica moves it forward before sending. A batch
   whose sending fails is logged and not sent again (at most once).
-- No TLS nor proxy: to encrypt, send to a local relay (`rsyslog`, `syslog-ng`, Fluent Bit) that
-  forwards over TLS. An invalid variable stops `serve` at start; an invalid address is refused by
-  the web interface.
+- `udp://` and `tcp://` send the events in clear: use them on a trusted network or towards a
+  local relay, and `tls://` otherwise. No proxy. A certificate that is refused is logged as a
+  failed sending (the batch is not sent again). An invalid variable, or a missing CA file, stops
+  `serve` at start; an invalid address is refused by the web interface.
 
 ## Prometheus metrics
 

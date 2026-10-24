@@ -71,10 +71,12 @@ shown), and the browser remembers the chosen sort for the next visits.
   [Deleting a project](../advanced/access-control.md#deleting-a-project)).
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, the 20 worst open findings
-  (severity, rule, location, report) and SARIF export; **All reports** lists its reports.
+  (number, severity, rule, location, report: the number opens the report at that finding) and
+  SARIF export; **All reports** lists its reports.
   The **Review open findings** button opens the next screen; **Risk acceptances** lists the
   accepted risks of the project; **Refresh** reloads the trend and the open findings.
-- **Findings to review**: every open finding of the project across all its reports, worst
+- **Findings to review**: every open finding of the project across all its reports, each issue
+  once ([reported again](#finding-reported-again)), worst
   severity first, then newest report first, for a review by a security expert. Each finding
   shows its description, code excerpt and recommendation, and a link to its report (date, review
   type, branch, commit). Filters by status (to re-check accepted risks or false positives), by
@@ -91,7 +93,7 @@ shown), and the browser remembers the chosen sort for the next visits.
   forms to add a comment, change the expiry date and remove the acceptance (see [risk acceptances](#risk-acceptances)).
 - **Reports**: list filtered by project and risk level, searchable across report metadata and
   summary, and sortable by date, project, risk, type, branch, token or summary. The **Token**
-  column shows the label of the token that sent the report; hovering it shows the declared
+  column shows the label of the token that sent the report; hovering it shows the
   author to a holder of `users.manage` or `tokens.manage`. Search and
   filters stay in the URL, so a view can be shared; the sort is remembered by the browser.
 - **Report**: summary, context (repository, branch, commit, review type, **Author** (for a
@@ -207,27 +209,30 @@ a **Delete** button.
   ([update by the controller](../advanced/dependencies.md#automatic-update-by-the-controller)).
 - **Connectors**: one card per connector (Jira, ServiceNow, third-party) with its switch and a
   gear for its settings: connection (with **Test the connection**) and destination of each
-  project, with its optional automatic sending ([ticketing](../advanced/ticketing.md)).
+  project, with its optional automatic sending ([connectors](../connectors/index.md)).
 
 ## Triage of findings
 
 The status of a finding is decided by a **person**; an agent only proposes it (MCP tool
 `propose_finding_status`, see [status of a finding](prompts-tools.md#status-of-a-finding)).
 A triager may also send a finding to Jira or ServiceNow (**Send to Jira**), when its project
-has a destination: see [ticketing](../advanced/ticketing.md#sending-a-finding).
+has a destination: see [connectors](../connectors/index.md#sending-a-finding).
 
 - **Proposal of an agent**: shown on the finding in a separate box, with its author (label of
   the token), its date and its reason. The reason may come from the reviewed code: check it.
   **Apply** saves `fixed` at once, or opens the form below for `accepted` and
   `false_positive`; **Reject** removes the proposal. Neither changes the status by itself.
-- **Risk accepted** and **False positive**: the status select opens a form that asks for a
+- **Risk accepted**: the status select opens a form that asks for a
   **Reason** (10 to 1000 characters) and an **Expiry date** (90 days by default, at most
   `SECREVIEW_MAX_DISMISSAL_DAYS`). The logged-in user is recorded as the approver; the card shows
   the approver, the reason and the end of validity. From the expiry date, the finding counts as
   open again (status filter, posture, [gate](gate.md), SARIF, trend) and the card says
   that the decision has expired. For **Risk accepted**, the **No expiry** box removes the date:
   the risk stays accepted until someone reopens the finding (disabled with
-  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`). A false positive always needs a date.
+  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`).
+- **False positive**: the form only asks for an optional **Reason** (10 to 1000 characters
+  when given), with no expiry date: a false positive says the code is not vulnerable, it stays until someone reopens
+  the finding. The logged-in user is recorded as the approver.
 - **Risk accepted** below `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` by default, so a
   `low` or `info` finding): a plain validation, saved at once with no reason and no expiry date.
   Empty variable: every acceptance goes through the form above.
@@ -247,12 +252,38 @@ curl -X DELETE -H "Authorization: Bearer $SESSION" \
 ```
 
 A reason that is missing or too short, an expiry date in the past or too far away, or an expiry
-date for `open` / `fixed` gets `422`. Without `expires_on`, an acceptance never expires, unless
+date for `open` / `fixed` gets `422`. Without `expires_on`, a false positive never expires, nor
+does an acceptance, unless
 `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`); `GET /api/v1/me` returns
 `permanent_acceptance` to tell whether the caller may do it. Below
 `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` and `expires_on` are optional for
 `accepted` (`{"status": "accepted"}` is enough); `GET /api/v1/me` returns this threshold as
 `risk_acceptance_min_severity` (`null`: every acceptance needs them).
+
+### Finding reported again
+
+A later report of the project that raises the same issue again does not add a second
+finding to review: the server recognizes it by its fingerprint (project, rule or CWE, file and
+title, without the line number, as in [SARIF](../advanced/sarif.md)) and the new occurrence
+replaces the previous one.
+
+- An **acceptance** or a **false positive** still valid is carried to the new occurrence, with
+  its reason, approver and expiry date; so is a pending agent proposal of one of them, a
+  severity raised by an analyst and the comments. The gate does not block again.
+- A **fixed** finding that comes back is **open** again.
+- When a rule matches several lines of a file, the occurrences are paired in line order if
+  their number is unchanged (the code moved), else only on the same line: a new occurrence
+  never inherits the decision taken on another one, it is open.
+- The previous occurrence stays in its report, marked **Reported again: see finding #N**; it
+  can no longer be triaged (`422` through the API) nor sent through a connector (`409`).
+- **Findings to review**, the posture, the project [gate](gate.md), SARIF, the counters and
+  the trend count the latest occurrence only; the trend and the time to remediate start at
+  the first occurrence of the issue (`first_seen_at`).
+- A finding that a later report no longer raises is not closed: a review of a diff does not
+  see the whole code.
+
+`save_security_report` and the pipeline scans return `recurring_findings` (findings already
+raised by a previous report) and `carried_decisions` (decisions carried to them).
 
 ### Severity of a finding
 
@@ -438,7 +469,10 @@ the user creates it from **Projects** if it is new and they hold `projects.creat
 [Creating a project](../advanced/access-control.md#creating-a-project)); a project requested by an
 [enrollment](../advanced/http.md#enrollment-request-the-project) waits for an approval.
 When the server refuses the token (unknown, revoked or expired), the agent receives a `401` that
-tells the user to sign in again and create a new one. It never reaches the REST API.
+tells the user to sign in again and create a new one. It never reaches the REST API, but it
+also works as a personal `ci` token (below) on the pipeline routes: one `SECREVIEW_TOKEN` on the
+workstation serves both the MCP agent and `security-review-ci`. A `mcp` token created by an
+administrator on the **Tokens** screen stays an MCP agent token only.
 
 ```bash
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
@@ -449,7 +483,8 @@ curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/j
 A personal `ci` token (**Usage** **CI/CD pipeline**, same `mcp_tokens.create` permission, one at
 most by default) lets [`security-review-ci`](gate.md#pipeline-client-security-review-ci) run
 the code and dependency scans, the gate, the SARIF export and the trend from the workstation of
-the user, on the same projects as a personal `mcp` token and with the same rules. It reaches
+the user, on the same projects as a personal `mcp` token and with the same rules (a personal
+`mcp` token does the same, so this one is only needed to keep the two uses apart). It reaches
 only the pipeline routes (`/api/v1/ci/`), never `/mcp` nor the rest of the REST API. A report
 it stores is submitted by the token (`alice:laptop`). See
 [scan from a workstation](../advanced/dependencies.md#scan-from-a-workstation-commit-hook).

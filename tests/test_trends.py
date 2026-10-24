@@ -128,6 +128,9 @@ def test_database_round_trip_and_markdown(triage):
         report = session.get(SecurityReport, saved["report_id"])
         report.created_at = datetime.now(UTC) - timedelta(days=10)
         session.add(report)
+        row = session.get(Finding, fixed_id)
+        row.first_seen_at = report.created_at
+        session.add(row)
     triage(fixed_id, FindingStatus.FIXED)
     with session_scope() as session:
         row = session.get(Finding, fixed_id)
