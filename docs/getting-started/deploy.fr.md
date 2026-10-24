@@ -104,6 +104,12 @@ curl http://127.0.0.1:8080/healthz   # contrôleur : {"status":"ok"}
 curl http://127.0.0.1:8000/healthz   # serveur MCP : {"status":"ok"}
 ```
 
+### 7. Connectez vous
+
+Connecter vous à l'interface
+
+http://127.0.0.1:8080/ui/
+
 ## Avec Docker Compose
 
 Le fichier `docker-compose.yml` du dépôt réalise les étapes 1 à 4 avec PostgreSQL : base,
@@ -117,10 +123,10 @@ docker compose exec controller security-review-controller user reset-password ad
 docker compose exec controller security-review-controller token create --label alice
 ```
 
-L'interface web répond sur `http://127.0.0.1:8080/ui/`, l'endpoint MCP sur
-`http://127.0.0.1:8000/mcp`. Les deux ports ne sont publiés que sur `127.0.0.1` : pour les
-ouvrir à l'équipe, ajoutez le TLS et renseignez `DOCKER_PUBLISH_ADDRESS` (voir
-[Docker Compose avec PostgreSQL](../advanced/docker.md#docker-compose-avec-postgresql)).
+L'interface web répond sur `http://127.0.0.1:8080/ui/`, l'endpoint MCP sur `http://127.0.0.1:8000/mcp`.
+Les deux ports ne sont publiés que sur `127.0.0.1`.
+
+Pour ouvrir à l'équipe, ajoutez le TLS et renseignez `DOCKER_PUBLISH_ADDRESS`. (voir [Docker Compose avec PostgreSQL](../advanced/docker.md#docker-compose-avec-postgresql)).
 
 ## Avec Kubernetes
 

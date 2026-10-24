@@ -11,6 +11,10 @@ The package installs two commands, one per process (see
   It is also published alone, without the server, as the `security-review-ci` package
   (Python 3.14, see [Installation](../usage/gate.md#installation)).
 
+```bash
+uv pip install security-review-ci
+```
+
 ## `security-review-mcp`
 
 | Command | Role | Page |
@@ -18,8 +22,7 @@ The package installs two commands, one per process (see
 | `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server (stdio by default, `streamable-http` for a shared server) | [Installation](../getting-started/deploy.md) |
 | `enroll --url URL --project P [--requested-by WHO] [--cafile CA] [--allow-http]` | Requests the project on a shared server, for an administrator to approve (unchanged when it exists or is pending; requester: `--requested-by`, by default your login name); no token is created: the answer gives the URL of the web interface where you create a personal MCP token | [Enrollment](../advanced/http.md#enrollment-request-the-project) |
 
-Without a command, `security-review-mcp` prints its usage on stderr and exits with code `2`
-(`security-review-mcp --help` prints it on stdout): an MCP host must start `security-review-mcp serve`.
+Without a command, `security-review-mcp` prints its usage.
 
 With stdio, the server migrates its database itself at start-up (unless
 `SECREVIEW_DB_AUTO_UPGRADE=false`). With HTTP, it **only checks** the schema: it refuses to
@@ -46,12 +49,8 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 | `advisories import PATH` / `advisories status` | Management of the offline OSV database | [Dependencies](../advanced/dependencies.md#offline-vulnerability-database-osv-format) |
 | `advisories update [--ecosystem E …]` | Downloads the OSV exports (`SECREVIEW_OSV_*`, optional proxy) and imports them; code `2` if an ecosystem fails | [Automatic update](../advanced/dependencies.md#automatic-update-by-the-controller) |
 
-`serve` and the commands that read or write the database first migrate the schema, unless
-`SECREVIEW_DB_AUTO_UPGRADE=false`: they then only check that it is up to date.
-
-The pipeline commands (gate, SARIF export, trend report, code and dependency scans) are not
-controller commands: they are run by [`security-review-ci`](#security-review-ci), through the
-REST API.
+When running `serve`, the data is verified, and a schema migration is performed if necessary.
+The variable `SECREVIEW_DB_AUTO_UPGRADE=false` disables schema migration.
 
 ## `security-review-ci`
 

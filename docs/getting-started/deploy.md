@@ -100,6 +100,13 @@ curl http://127.0.0.1:8080/healthz   # controller: {"status":"ok"}
 curl http://127.0.0.1:8000/healthz   # MCP server: {"status":"ok"}
 ```
 
+### 7. Connectez vous
+
+Log in to the interface
+
+http://127.0.0.1:8080/ui/
+
+
 ## With Docker Compose
 
 The `docker-compose.yml` file of the repository runs steps 1 to 4 with PostgreSQL: database,

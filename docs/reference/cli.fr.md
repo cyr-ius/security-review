@@ -9,8 +9,11 @@ Le paquet installe deux commandes, une par processus (voir
 - `security-review-ci` : le **client de pipeline** de l'API REST du contrôleur (jeton `ci`,
   bibliothèque standard de Python uniquement, sans accès à la base) : gate, SARIF, tendance,
   scans du code et des dépendances. Il est aussi publié seul, sans le serveur, dans le paquet
-  `security-review-ci` (Python 3.14, voir
-  [Installation](../usage/gate.md#installation)).
+  `security-review-ci` (Python 3.14, voir [Installation](../usage/gate.md#installation)).
+
+```bash
+uv pip install security-review-ci
+```
 
 ## `security-review-mcp`
 
@@ -19,8 +22,7 @@ Le paquet installe deux commandes, une par processus (voir
 | `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP (stdio par défaut, `streamable-http` pour un serveur partagé) | [Installation](../getting-started/deploy.md) |
 | `enroll --url URL --project P [--requested-by QUI] [--cafile CA] [--allow-http]` | Demande le projet sur un serveur partagé, validé par un administrateur (inchangé s'il existe ou est en attente ; demandeur : `--requested-by`, par défaut votre nom de connexion) ; aucun jeton n'est créé : la réponse donne l'URL de l'interface web où créer un jeton MCP personnel | [Enrôlement](../advanced/http.md#enrolement-demander-le-projet) |
 
-Sans commande, `security-review-mcp` affiche son aide sur stderr et sort avec le code `2`
-(`security-review-mcp --help` l'affiche sur stdout) : un hôte MCP doit lancer `security-review-mcp serve`.
+Sans commande, `security-review-mcp` affiche son aide.
 
 En stdio, le serveur migre lui-même sa base au démarrage (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`).
 En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`) tant que
@@ -47,12 +49,8 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | `advisories import PATH` / `advisories status` | Gestion de la base OSV hors ligne | [Dépendances](../advanced/dependencies.md#base-de-vulnerabilites-hors-ligne-format-osv) |
 | `advisories update [--ecosystem E …]` | Télécharge les exports OSV (`SECREVIEW_OSV_*`, proxy facultatif) et les importe ; code `2` si un écosystème échoue | [Mise à jour automatique](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur) |
 
-`serve` et les commandes qui lisent ou écrivent la base migrent d'abord le schéma, sauf avec
-`SECREVIEW_DB_AUTO_UPGRADE=false` : elles vérifient alors seulement qu'il est à jour.
-
-Les commandes de pipeline (gate, export SARIF, rapport de tendance, scans du code et des
-dépendances) ne sont pas des commandes du contrôleur : elles sont exécutées par
-[`security-review-ci`](#security-review-ci), par l'API REST.
+Lors de l'exécution de `serve`, la donnée de donnée est vérifier et la migration du schéma est réalisé si cela est nécessaire.
+La variable `SECREVIEW_DB_AUTO_UPGRADE=false` désactive la migration du schéma.
 
 ## `security-review-ci`
 

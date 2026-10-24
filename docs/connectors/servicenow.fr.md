@@ -1,8 +1,7 @@
 # ServiceNow
 
 Le connecteur intégré **ServiceNow** (type `servicenow`) crée un enregistrement pour chaque
-finding envoyé, dans la table `incident` par défaut. L'activation, les destinations et l'envoi
-sont communs à tous les connecteurs : voir [Connecteurs](index.md).
+finding envoyé, dans la table `incident` par défaut.
 
 ## Connexion
 

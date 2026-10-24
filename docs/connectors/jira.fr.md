@@ -1,8 +1,7 @@
 # Jira
 
 Le connecteur intégré **Jira** (type `jira`) crée un **ticket** pour chaque finding envoyé, dans
-Jira Cloud ou Jira Data Center. L'activation, les destinations et l'envoi sont communs à tous les
-connecteurs : voir [Connecteurs](index.md).
+Jira Cloud ou Jira Data Center.
 
 ## Connexion
 

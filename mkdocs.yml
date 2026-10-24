@@ -100,6 +100,8 @@ plugins:
             Command line: Ligne de commande
             Security and limits: Sécurité et limites
             Contributing: Contribuer
+            MCP and Controller: MCP et contrôleur
+            MCP standalone: MCP autonome
 
 extra_css:
   - stylesheets/extra.css
@@ -125,7 +127,9 @@ nav:
   - Home: index.md
   - Getting started:
       - Installation: getting-started/installation.md
-      - Deploying the server: getting-started/deploy.md
+      - Deployment:
+          - MCP and Controller: getting-started/deploy.md
+          - MCP standalone: getting-started/stdio.md
       - Connecting the host: getting-started/host.md
   - Usage:
       - Prompts and tools: usage/prompts-tools.md
@@ -149,7 +153,6 @@ nav:
           - OIDC login: advanced/sso.md
           - Roles, groups and permissions: advanced/access-control.md
           - "Installation: other cases": advanced/installation.md
-          - Local mode (stdio): advanced/stdio.md
       - Analysis:
           - Whole codebase scan: advanced/code-scan.md
           - Dependency analysis: advanced/dependencies.md

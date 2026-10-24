@@ -3,11 +3,12 @@
 ## Development environment
 
 ```bash
+git clone https://github.com/cyr-ius/security-review-mcp.git
 uv sync --extra dev
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
-pre-commit install          # optional: same checks before every commit, and the dependency
-                            # scan when SECREVIEW_CONTROLLER_URL is set
+prek install         # optional: same checks before every commit, and the dependency
+                     # scan when SECREVIEW_CONTROLLER_URL is set
 ```
 
 The `prettier` hook formats the YAML and JSON files and the sources of `web/src/` with the
