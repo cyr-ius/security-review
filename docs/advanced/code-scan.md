@@ -4,7 +4,7 @@ The review prompts work on what the agent gives them, often the diff of a merge 
 `scan_code` is limited to `SECREVIEW_MAX_CONTENT_CHARS` per call. To cover the **whole**
 repository, use the [pipeline client](../usage/gate.md#pipeline-client-security-review-ci)
 `security-review-ci scan-code`: it reads the files of the repository and sends their content
-to the controller, which scans them with the [rules](rules.md) of its database.
+to the controller, which scans them with the [rules](../usage/rules.md) of its database.
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
@@ -51,7 +51,7 @@ The client chooses the files; the controller never reads its own disk.
 
 ## Threshold and saving
 
-- `--fail-on` (default `high`) sets the blocking threshold; the [rules](rules.md) of the
+- `--fail-on` (default `high`) sets the blocking threshold; the [rules](../usage/rules.md) of the
   database and the `secreview:ignore` markers apply as for `scan_code`.
 - `--save` stores the matches as a `code-scan` report (at most
   `SECREVIEW_MAX_FINDINGS_PER_REPORT` findings, the most severe first), with the list of files

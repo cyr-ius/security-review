@@ -29,7 +29,7 @@ web. Un changement s'applique à tous les agents, sans redémarrage.
   code.
 - Aucun résultat ne veut pas dire « code sûr ». Ce n'est pas un SAST complet.
 
-Détail des règles : [Règles internes](../advanced/rules.md).
+Détail des règles : [Règles](rules.md).
 
 ### Les checklists : le regard de l'expert
 
@@ -42,13 +42,15 @@ Détail des règles : [Règles internes](../advanced/rules.md).
 - La checklist `company` contient les exigences de votre organisation. Elle s'ajoute à
   **toutes** les revues.
 
+Détail des checklists : [Checklists](checklists.md).
+
 ### Les normes : bien écrire dès le départ
 
 - Une norme décrit comment coder dans une technologie : nommage, tests, erreurs, sécurité.
 - L'agent la lit avant de coder. Le code suit vos conventions dès la première version.
 - Une norme ne remplace pas la revue. Elle réduit le nombre de findings.
 
-Détail des normes : [Normes de développement](../advanced/standards.md).
+Détail des normes : [Normes de développement](standards.md).
 
 ## Le déroulé d'une revue
 

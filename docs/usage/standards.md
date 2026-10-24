@@ -3,7 +3,7 @@
 The **development standards** are the conventions of your organization for each technology
 (Python, Angular, FastAPI, Spring…): naming, structure, typing, tests, error handling,
 dependencies, security. Administrators write them in the
-[web interface](../usage/web-interface.md#screens); the MCP server hands them to the developer's AI
+[web interface](web-interface.md#screens); the MCP server hands them to the developer's AI
 assistant **before it writes code**, so that the code it produces follows them from the start.
 
 They complete the security review: the standards guide the writing, the review prompts check

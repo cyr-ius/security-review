@@ -186,7 +186,7 @@
   résumé, la description, la preuve et la recommandation enregistrés dans un rapport (puis coupés
   de nouveau à `SECREVIEW_MAX_CONTENT_CHARS`) : rien n'est supprimé, le texte caché devient
   lisible. Les
-  [règles `AI-*`](../advanced/rules.md#regles-par-defaut-par-plateforme) signalent les caractères
+  [règles `AI-*`](../usage/rules.md#regles-par-defaut-par-plateforme) signalent les caractères
   cachés et le texte adressé à un assistant IA, pour que la gate puisse les bloquer. Le serveur
   ne voit que ce que l'agent lui envoie : il ne peut pas filtrer les fichiers que l'hôte lit avec
   ses propres outils ; la [garde de lecture](../advanced/read-guard.md), un hook côté hôte, les
@@ -278,13 +278,13 @@
   premier lancement. Si la base est inaccessible ou n'a jamais été initialisée, le serveur
   applique directement ce fichier : le scan ne tourne jamais sans règles. Une règle par défaut
   peut être modifiée ou désactivée par un administrateur, mais pas supprimée
-  (voir [Règles internes](../advanced/rules.md#regles-par-defaut)).
+  (voir [Règles](../usage/rules.md#regles-par-defaut)).
 - **Normes de développement** : leur contenu est transmis tel quel à l'assistant IA comme
   consignes ; seuls les administrateurs du contrôleur les écrivent (champs validés et bornés,
   200 normes de 50 000 caractères au plus). Le serveur MCP les lit seulement, et la tâche
   fournie au prompt `development-standards` est encadrée pour ne pas pouvoir en sortir. Le prompt
   rappelle qu'une norme ne prime jamais sur la sécurité (voir
-  [Normes de développement](../advanced/standards.md)).
+  [Normes de développement](../usage/standards.md)).
 - **Journaux** sur stderr (stdout est réservé au protocole en stdio).
 
 !!! warning "Protégez la base"
@@ -299,7 +299,7 @@
 - Les règles sont des motifs ligne par ligne : elles ne voient ni le flux de données ni les
   contrôles absents (autorisation manquante, par exemple). Ce travail reste celui de l'agent
   guidé par les checklists, et de vos outils SAST/SCA.
-- Les quelques [analyses Tree-sitter](../advanced/rules.md#regles-par-defaut) (`PY-026`, `JV-019`,
+- Les quelques [analyses Tree-sitter](../usage/rules.md#regles-par-defaut) (`PY-026`, `JV-019`,
   `NG-021`, `GO-019`, `CS-021`, `RS-015`, `TS-016`) ne suivent que des flux simples dans un seul
   fichier. Elles sont bornées pour qu'un fichier piégé ne puisse pas bloquer un scan : chaque
   fonction est analysée une fois par état d'entrée, et le code trop imbriqué n'est contrôlé que

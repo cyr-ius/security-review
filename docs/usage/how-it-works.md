@@ -26,7 +26,7 @@ change applies to every agent, without a restart.
 - A match is a **lead**, not a vulnerability. The agent must confirm it by reading the code.
 - No result does not mean "safe code". It is not a full SAST.
 
-Rule details: [Internal rules](../advanced/rules.md).
+Rule details: [Rules](rules.md).
 
 ### Checklists: the expert's eye
 
@@ -39,13 +39,15 @@ Rule details: [Internal rules](../advanced/rules.md).
 - The `company` checklist holds the requirements of your organization. It is added to
   **every** review.
 
+Checklist details: [Checklists](checklists.md).
+
 ### Standards: write it right from the start
 
 - A standard describes how to code in a technology: naming, tests, errors, security.
 - The agent reads it before coding. The code follows your conventions from the first version.
 - A standard does not replace the review. It reduces the number of findings.
 
-Standard details: [Development standards](../advanced/standards.md).
+Standard details: [Development standards](standards.md).
 
 ## Steps of a review
 

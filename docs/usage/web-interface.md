@@ -102,22 +102,22 @@ shown), and the browser remembers the chosen sort for the next visits.
   location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
   `findings.triage` permission change the status of a finding directly from this screen, and
   raise its severity with a justification (see [severity of a finding](#severity-of-a-finding)).
-- **Standards**: the [development standards](../advanced/standards.md) handed to the AI
+- **Standards**: the [development standards](standards.md) handed to the AI
   assistants by the `development-standards` prompt. Search and sort by title,
   technology or file pattern, and filter by enabled state. Administrators read, create, edit
   (technologies, file patterns, Markdown content), disable or delete them. A change applies
-  immediately. **Export** and **Import** copy them as a [TOML file](../advanced/standards.md#import-and-export).
-- **Checklists**: administrators search and sort check items, and filter by domain and origin; they create,
+  immediately. **Export** and **Import** copy them as a [TOML file](standards.md#import-and-export).
+- **Checklists**: the [checklists](checklists.md) of the reviews. Administrators search and sort check items, and filter by domain and origin; they create,
   edit or delete the custom items. The default items can be edited, but not deleted. Every
   change is reloaded immediately by the server and included in the review prompts.
-  **Export** and **Import** exchange [TOML packs](../advanced/rules.md#import-and-export-in-the-web-interface).
-- **Rules**: administrators search and sort every [rule](../advanced/rules.md) stored in the database,
+  **Export** and **Import** exchange [TOML packs](rules.md#import-and-export-in-the-web-interface).
+- **Rules**: administrators search and sort every [rule](rules.md) stored in the database,
   and filter by origin (default or custom) and severity. They create, edit (in a modal window, without losing
   the position in the list), enable or disable the rules, and delete the custom rules. A default
   rule can be edited ("Par défaut, modifiée" badge: default, edited) or disabled, but not
   deleted. The **Reload** button applies immediately a change made with the
   `security-review-controller rules` CLI. **Export** and **Import** exchange
-  [TOML packs](../advanced/rules.md#import-and-export-in-the-web-interface).
+  [TOML packs](rules.md#import-and-export-in-the-web-interface).
 - **Users**: administrators manage the [accounts](#user-accounts), the only
   ones to open the interface. Each account is **Local** (user name and password, entered or
   generated and shown only once) or **OIDC** (login through the identity provider, no password),

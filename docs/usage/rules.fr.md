@@ -1,15 +1,17 @@
-# Règles internes
+# Règles
 
-Toutes les règles de scan et les checklists sont stockées dans la **base de données** : toutes
-les instances du serveur qui partagent la base appliquent les mêmes règles. Vos équipes sécurité
-peuvent ajouter des règles de scan et des items de checklist, modifier les règles par défaut et
-activer ou désactiver n'importe quelle règle, **sans toucher au code**.
+Une règle de scan est un motif recherché dans le code par `scan_code` et
+`security-review-ci scan-code` : elle donne des pistes que l'agent confirme en lisant le code.
+Toutes les règles sont stockées dans la **base de données** : toutes les instances du serveur qui
+partagent la base appliquent les mêmes règles. Vos équipes sécurité peuvent ajouter des règles,
+modifier les règles par défaut et activer ou désactiver n'importe quelle règle, **sans toucher
+au code**.
 
 Les règles se gèrent avec la commande `security-review-controller rules` (import et export de packs
 TOML, activation, désactivation, suppression) ou depuis l'écran **Règles** de
-l'[interface web](../usage/web-interface.md). Les items de checklist se gèrent depuis l'écran
-**Checklists** de cette interface, ou avec les packs TOML de la commande `rules`. Ces deux écrans
-[importent et exportent aussi les packs TOML](#import-et-export-dans-linterface-web).
+l'[interface web](web-interface.md), qui
+[importe et exporte aussi les packs TOML](#import-et-export-dans-linterface-web). Les mêmes packs
+portent les [checklists](checklists.md).
 
 ## Règles par défaut
 
@@ -179,12 +181,9 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 
 - Un `id` identique à une règle par défaut la **modifie** (elle apparaît alors comme
   `modified` et n'est plus mise à jour par les nouvelles versions du serveur).
-- Un nouveau `domain` est immédiatement utilisable avec `get_review_checklist`, et les prompts
-  de revue le nomment pour que l'agent le récupère.
 - Une modification (CLI, interface web) est prise en compte par chaque serveur en cours
   d'exécution **en quelques secondes**, sans redémarrage ; l'outil `reload_rules` et le bouton
-  **Recharger** de l'écran Règles l'appliquent immédiatement. Les changements effectués dans
-  l'écran Checklists rechargent immédiatement le registre.
+  **Recharger** de l'écran Règles l'appliquent immédiatement.
 - Une règle stockée qui ne passe plus la validation est **ignorée et signalée** (outil
   `list_rules`, champ `load_errors`) ; si la base est inaccessible, les règles par défaut du
   fichier `default_rules.toml` s'appliquent.
@@ -218,32 +217,10 @@ Un exemple complet est fourni dans `examples/rules/company.toml`.
 | `FA-*` (FastAPI) | CORS `*` ou regex `.*`, signature JWT non vérifiée, mode `reload` |
 | `AI-*` (tous langages, instructions d'assistants IA) | Texte caché à une personne mais lu par un assistant IA : Unicode tags et sélecteurs de variante supplémentaires (`AI-001`), contrôles bidirectionnels de Trojan Source (`AI-002`), caractères de largeur nulle (`AI-003`) ; texte adressé à l'assistant (remplacement de ses instructions, jetons de modèle de conversation comme `<\|im_start\|>`, `AI-004`) ou demandant d'écarter un finding (`AI-005`) |
 
-Les checklists par défaut couvrent les domaines `python`, `java`, `angular`, `node` (backend
-TypeScript et JavaScript), `go`, `csharp`, `rust`, `api`, `config`, `cicd` et `dependencies` (par exemple : validation des jetons OAuth/OIDC, webhooks, flux métier
-sensibles, désynchronisation HTTP, injection CRLF, validation avant normalisation, upload de
-fichiers, durcissement Kubernetes, RBAC, en-têtes du proxy, WAF, connexions chiffrées vers les
-services (LDAPS par exemple), instructions des assistants IA, intégrité des lockfiles).
-`get_review_checklist` et l'écran **Checklists** de l'interface web les affichent en entier.
-
 Langages acceptés par `scan_code` : `python`, `java`, `typescript`, `javascript`, `angular`,
 `go`, `csharp`, `rust`, `config`, `yaml`, `docker`, `gitlab-ci`, `jenkins`, `agent-instructions` (fichiers qui pilotent
 un assistant IA : `AGENTS.md`, `CLAUDE.md`, `.cursorrules`... ; seules les règles de tous les
 langages s'y appliquent) (alias : `golang`, `c#`, `cs`, `dotnet`, `rs`, `jenkinsfile`, `groovy`, `gitlab`, `yml`...).
-
-### Checklists des prompts de revue
-
-| Prompt | Checklists intégrées |
-|---|---|
-| `security-review` | Celles de `language` (`python`, `java`, `go`, `csharp`, `rust`, `angular` et `node` pour `typescript` et `javascript`, `config` et `cicd` pour les pipelines), puis `api` |
-| `codebase-review` | Celles de `languages`, puis `api`, `config` et `cicd` |
-| `api-security-review` | `api` |
-| `configuration-review` | `config`, plus `cicd` quand les fichiers ressemblent à un pipeline |
-| `dependency-review` | `dependencies` |
-
-La checklist `company` est ajoutée à chaque prompt. Les autres domaines, internes compris, sont
-nommés à la fin des checklists : l'agent récupère avec `get_review_checklist` ceux qui
-s'appliquent au code qu'il relit. Il déclare ensuite le résultat de chaque point parcouru dans
-`save_security_report` ([couverture de la revue](../usage/prompts-tools.md#couverture-de-la-revue)).
 
 ## Supprimer un faux positif
 

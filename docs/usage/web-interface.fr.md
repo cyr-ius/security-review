@@ -110,25 +110,25 @@ suivantes.
   utilisateurs qui ont la permission `findings.triage` changent le statut d'un finding directement
   depuis cet écran, et relèvent sa criticité avec une justification (voir
   [criticité d'un finding](#criticite-dun-finding)).
-- **Normes** : les [normes de développement](../advanced/standards.md) transmises aux assistants IA par le
+- **Normes** : les [normes de développement](standards.md) transmises aux assistants IA par le
   prompt `development-standards`. Rechercher et trier par titre, technologie ou motif
   de fichier, filtrer par état activé. Les administrateurs les lisent, les créent,
   les modifient (technologies, motifs de fichiers, contenu Markdown), les désactivent ou les
   suppriment. Un changement s'applique immédiatement. **Exporter** et **Importer** les copient
-  sous forme de [fichier TOML](../advanced/standards.md#import-et-export).
-- **Checklists** : les administrateurs recherchent et trient les items de contrôle, filtrent par
+  sous forme de [fichier TOML](standards.md#import-et-export).
+- **Checklists** : les [checklists](checklists.md) des revues. Les administrateurs recherchent et trient les items de contrôle, filtrent par
   domaine et origine, et créent, modifient ou suppriment les items personnalisés. Les items par défaut peuvent
   être modifiés, mais pas supprimés. Toute modification est rechargée immédiatement par le serveur
   et intégrée aux prompts de revue. **Exporter** et **Importer** échangent des
-  [packs TOML](../advanced/rules.md#import-et-export-dans-linterface-web).
-- **Règles** : les administrateurs recherchent et trient toutes les [règles](../advanced/rules.md) stockées en base,
+  [packs TOML](rules.md#import-et-export-dans-linterface-web).
+- **Règles** : les administrateurs recherchent et trient toutes les [règles](rules.md) stockées en base,
   filtrables par origine (par défaut ou personnalisée) et sévérité. Ils créent, modifient (dans une fenêtre
   modale, sans quitter la position dans la liste), activent ou désactivent les règles, et
   suppriment les règles personnalisées. Une règle par défaut peut être
   modifiée (badge « Par défaut, modifiée ») ou désactivée, mais pas supprimée. Le bouton
   **Recharger** applique immédiatement un changement fait avec la CLI
   `security-review-controller rules`. **Exporter** et **Importer** échangent des
-  [packs TOML](../advanced/rules.md#import-et-export-dans-linterface-web).
+  [packs TOML](rules.md#import-et-export-dans-linterface-web).
 - **Utilisateurs** : les administrateurs gèrent les [comptes](#comptes-utilisateurs), seuls
   à ouvrir l'interface. Chaque compte est **Local** (identifiant et mot de passe, saisi ou généré
   et affiché une seule fois) ou **OIDC** (connexion par le fournisseur d'identité, sans mot de

@@ -42,8 +42,8 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | `group list` / `group roles` | Liste les groupes (rôles, projets, membres) ou les rôles (permissions) ; ils se gèrent dans l'interface web | [Rôles, groupes et permissions](../advanced/access-control.md) |
 | `project list` / `project approve ID` / `project reject ID` | Liste les projets demandés par un enrôlement (demandeur, adresse, expiration), en crée un (son groupe `project:<projet>`, sans aucun membre) ou supprime la demande | [Enrôlement](../advanced/http.md#enrolement-demander-le-projet) |
 | `user reset-password NOM [--password-stdin]` | Remplace le mot de passe d'un compte local (généré par défaut) et ferme ses sessions | [Mot de passe perdu](../usage/web-interface.md#mot-de-passe-perdu) |
-| `rules list` / `rules import PATH…` / `rules export` | Liste, importe (packs TOML) ou exporte les règles stockées en base | [Règles internes](../advanced/rules.md#commande-rules) |
-| `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Active, désactive (règles par défaut ou personnalisées) ou supprime des règles personnalisées | [Règles internes](../advanced/rules.md#commande-rules) |
+| `rules list` / `rules import PATH…` / `rules export` | Liste, importe (packs TOML) ou exporte les règles stockées en base | [Règles](../usage/rules.md#commande-rules) |
+| `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Active, désactive (règles par défaut ou personnalisées) ou supprime des règles personnalisées | [Règles](../usage/rules.md#commande-rules) |
 | `advisories import PATH` / `advisories status` | Gestion de la base OSV hors ligne | [Dépendances](../advanced/dependencies.md#base-de-vulnerabilites-hors-ligne-format-osv) |
 | `advisories update [--ecosystem E …]` | Télécharge les exports OSV (`SECREVIEW_OSV_*`, proxy facultatif) et les importe ; code `2` si un écosystème échoue | [Mise à jour automatique](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur) |
 

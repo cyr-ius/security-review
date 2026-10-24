@@ -175,7 +175,7 @@ Bearer tokens are not configured by variable: they are stored in the database an
 `security-review-controller token` (see
 [HTTP server, authentication and TLS](../advanced/http.md)). Neither are internal rules:
 they are stored in the database and managed with `security-review-controller rules` (see
-[Internal rules](../advanced/rules.md)).
+[Rules](../usage/rules.md)).
 
 ## Database
 

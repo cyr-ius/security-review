@@ -173,7 +173,7 @@
   excerpts of `scan_code` and in the summary, description, evidence and recommendation stored
   in a report (then cut again at `SECREVIEW_MAX_CONTENT_CHARS`): nothing is removed, the hidden
   text becomes readable. The
-  [`AI-*` rules](../advanced/rules.md#default-rules-by-platform) report hidden characters and
+  [`AI-*` rules](../usage/rules.md#default-rules-by-platform) report hidden characters and
   text addressed to an AI assistant, so the gate can block them. The server only sees what the
   agent sends: it cannot filter the files that the host reads with its own tools; the
   [read guard](../advanced/read-guard.md), a host-side hook, checks them before the assistant
@@ -259,13 +259,13 @@
 - **Scan rules**: the default rules (`default_rules.toml`) are copied into the database at first
   start. If the database cannot be reached or was never initialized, the server applies this
   file directly: the scan never runs without rules. A default rule can be edited or disabled by
-  an administrator, but not deleted (see [Internal rules](../advanced/rules.md#default-rules)).
+  an administrator, but not deleted (see [Rules](../usage/rules.md#default-rules)).
 - **Development standards**: their content is handed as is to the AI assistant as instructions;
   only the administrators of the controller write them (validated and bounded fields, 200
   standards of 50,000 characters at most). The MCP server only reads them, and the task given to
   the `development-standards` prompt is fenced so that it cannot escape. The prompt reminds that
   a standard never prevails over security (see
-  [Development standards](../advanced/standards.md)).
+  [Development standards](../usage/standards.md)).
 - **Logs** on stderr (stdout is reserved for the protocol with stdio).
 
 !!! warning "Protect the database"
@@ -280,7 +280,7 @@
 - Rules are line-by-line patterns: they see neither the data flow nor the missing checks
   (missing authorization, for example). This work remains the agent's, guided by the
   checklists, and your SAST/SCA tools'.
-- The few [Tree-sitter analyses](../advanced/rules.md#default-rules) (`PY-026`, `JV-019`,
+- The few [Tree-sitter analyses](../usage/rules.md#default-rules) (`PY-026`, `JV-019`,
   `NG-021`, `GO-019`, `CS-021`, `RS-015`, `TS-016`) only follow simple flows inside one file.
   They are bounded so that a crafted file cannot block a scan: each function is analyzed once
   per input state, and code nested too deeply is only checked by the patterns.

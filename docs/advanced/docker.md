@@ -198,7 +198,7 @@ Copilot and Claude):
 
 ## Internal rules and CLI
 
-[Internal rules](rules.md) are stored in the database: import a folder of TOML packs
+[Rules](../usage/rules.md) are stored in the database: import a folder of TOML packs
 with the controller CLI (the running servers apply them within a few seconds):
 
 ```bash

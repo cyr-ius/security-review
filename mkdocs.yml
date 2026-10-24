@@ -84,7 +84,9 @@ plugins:
             Prompts and tools: Prompts et outils
             Whole codebase scan: Scan du code complet
             Dependency analysis: Analyse des dépendances
-            Internal rules: Règles internes
+            Security review: Revue de sécurité
+            Rules: Règles
+            Checklists: Checklists
             Development standards: Normes de développement
             Read guard for AI assistants: Garde de lecture des assistants IA
             Web interface: Interface web
@@ -124,7 +126,11 @@ nav:
       - Deploying the server: getting-started/deploy.md
       - Connecting the host: getting-started/host.md
   - Usage:
-      - How a review works: usage/how-it-works.md
+      - Security review:
+          - How a review works: usage/how-it-works.md
+          - Rules: usage/rules.md
+          - Checklists: usage/checklists.md
+          - Development standards: usage/standards.md
       - Prompts and tools: usage/prompts-tools.md
       - Web interface: usage/web-interface.md
       - Gate: usage/gate.md
@@ -140,8 +146,6 @@ nav:
       - Analysis:
           - Whole codebase scan: advanced/code-scan.md
           - Dependency analysis: advanced/dependencies.md
-          - Internal rules: advanced/rules.md
-          - Development standards: advanced/standards.md
           - Read guard for AI assistants: advanced/read-guard.md
       - Reports and monitoring:
           - SARIF export: advanced/sarif.md

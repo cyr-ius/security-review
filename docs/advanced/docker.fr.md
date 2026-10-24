@@ -200,7 +200,7 @@ Claude) :
 
 ## Règles internes et CLI
 
-Les [règles internes](rules.md) sont stockées dans la base : importez un
+Les [règles](../usage/rules.md) sont stockées dans la base : importez un
 dossier de packs TOML avec la CLI du contrôleur (les serveurs en cours d'exécution les
 appliquent en quelques secondes) :
 

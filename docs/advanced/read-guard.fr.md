@@ -10,7 +10,7 @@ exemple dans `examples/agent-hooks/`.
 ## Ce qu'elle fait
 
 Avant chaque `Read` de l'assistant, le hook analyse le fichier localement avec les
-[règles `AI-*`](rules.md#regles-par-defaut-par-plateforme) du paquet (sans accès réseau, sans
+[règles `AI-*`](../usage/rules.md#regles-par-defaut-par-plateforme) du paquet (sans accès réseau, sans
 contrôleur), puis :
 
 | Résultat | Décision | Ce que reçoit l'assistant |

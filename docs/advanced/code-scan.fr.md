@@ -4,7 +4,7 @@ Les prompts de revue travaillent sur ce que l'agent leur donne, souvent le diff 
 `scan_code` est limité à `SECREVIEW_MAX_CONTENT_CHARS` par appel. Pour couvrir **tout** le
 dépôt, utilisez le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci)
 `security-review-ci scan-code` : il lit les fichiers du dépôt et envoie leur contenu au
-contrôleur, qui les scanne avec les [règles](rules.md) de sa base.
+contrôleur, qui les scanne avec les [règles](../usage/rules.md) de sa base.
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
@@ -54,7 +54,7 @@ Le client choisit les fichiers ; le contrôleur ne lit jamais son propre disque.
 
 ## Seuil et enregistrement
 
-- `--fail-on` (défaut `high`) fixe le seuil de blocage ; les [règles](rules.md) de la base et
+- `--fail-on` (défaut `high`) fixe le seuil de blocage ; les [règles](../usage/rules.md) de la base et
   les marqueurs `secreview:ignore` s'appliquent comme pour `scan_code`.
 - `--save` enregistre les correspondances comme un rapport `code-scan` (au plus
   `SECREVIEW_MAX_FINDINGS_PER_REPORT` findings, les plus sévères d'abord), avec la liste des
