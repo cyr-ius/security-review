@@ -37,6 +37,7 @@ Lancez uniquement les vérifications des zones touchées par le changement (`git
 **ne lancez pas `pytest` ni `ruff` pour un changement qui ne touche que l'interface Angular ou
 la documentation**, ni le build Angular pour un changement Python. La CI relance tout de toute
 façon.
+Ne pas hésiter à lancer les tests en arrière plan si cela permet d'avancer su le reste.
 
 | Fichiers modifiés | Vérifications |
 |---|---|
@@ -77,8 +78,8 @@ avec la version en commentaire (`@<sha> # vX.Y.Z`) : faites de même pour toute 
 - Ne commitez jamais directement sur `master`.
 - **Une version = un tag sur `master`.** Pousser un tag `vX.Y.Z` déclenche `publish.yml` :
   lint et tests, vérification que le tag correspond à `version` dans `pyproject.toml`, puis
-  publication sur PyPI et des images Docker (GHCR et Docker Hub, `docker.yml`), et création de
-  la release GitHub. Procédure :
+  publication sur PyPI (`security-review-mcp` et le client seul `security-review-ci`) et des
+  images Docker (GHCR et Docker Hub, `docker.yml`), et création de la release GitHub. Procédure :
   1. sur `dev`, mettre à jour la version (`uv version X.Y.Z`) et commiter ;
   2. fusionner `dev` dans `master` ;
   3. sur `master` : `git tag vX.Y.Z && git push origin vX.Y.Z`.
@@ -111,26 +112,30 @@ l'utiliser.
 |---|---|
 | Prompts, outils, ressources MCP, point d'entrée du serveur MCP | `server.py`, `prompts.py` |
 | Point d'entrée du contrôleur (`serve`, `db`, commandes d'administration) ; recherche de nouvelle version (page À propos) ; `HEALTHCHECK` de l'image Docker | `controller.py` ; `update_check.py` ; `healthcheck.py` |
-| Moteur de scan, masquage des secrets | `scanner.py` |
-| Règles et checklists par défaut (copiées en base au premier lancement) | `default_rules.toml` |
-| Règles en base (amorçage, packs TOML), registre actif | `rules_loader.py`, `rule_store.py`, `registry.py`, `checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `project`, `audit`) et `MCP_COMMANDS` (`enroll`, `scan-deps`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `codescan.py`, `depscan.py`, `web_api/ci_routes.py`) | `cli.py`, `codescan.py`, `enrollment.py` (client de `enroll`), `remote_scan.py` (client de `scan-deps`), `ci_client.py` |
-| Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `dependencies.py`, `depscan.py`, `advisories.py`, `advisory_sync.py`, `versions.py` ; `proxy.py` |
-| Normalisation des noms de projet (minuscules, nom du dépôt, `-` seul séparateur), appliquée à toute entrée | `project_names.py` |
-| Persistance, schéma (purge des rapports sans findings et de l'audit : `retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `coverage.py`) | `models.py`, `services.py`, `coverage.py`, `retention.py`, `database.py`, `migrations/` (Alembic) |
-| Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement ; envoi syslog facultatif par le contrôleur) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `audit.py`, `audit_syslog.py` ; `metrics.py` |
-| Export et tendances | `sarif.py`, `trends.py` |
+| Moteur de scan, masquage des secrets | `rules/scanner.py` |
+| Règles et checklists par défaut (copiées en base au premier lancement) | `rules/default_rules.toml` |
+| Règles en base (amorçage, packs TOML), registre actif | `rules/rules_loader.py`, `rules/rule_store.py`, `rules/registry.py`, `rules/checklists.py` |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `project`, `audit`) et `MCP_COMMANDS` (`enroll`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) | `cli.py` (`CONTROLLER_COMMANDS`), `clients/commands.py` (`MCP_COMMANDS`), `rules/codescan.py`, `clients/enrollment.py` (client de `enroll`), `ci_client.py` |
+| Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `deps/advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `deps/dependencies.py`, `deps/depscan.py`, `deps/advisories.py`, `deps/advisory_sync.py`, `deps/versions.py` ; `proxy.py` |
+| Normalisation des noms de projet (minuscules, nom du dépôt, `-` seul séparateur), appliquée à toute entrée | `storage/project_names.py` |
+| Persistance, schéma (purge des rapports sans findings et de l'audit : `storage/retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `reports/coverage.py`) | `storage/models.py`, `reports/services.py`, `reports/coverage.py`, `storage/retention.py`, `storage/database.py`, `storage/migrations/` (Alembic) |
+| Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement ; envoi syslog facultatif par le contrôleur) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `observability/audit.py`, `observability/audit_syslog.py` ; `observability/metrics.py` |
+| Export et tendances | `reports/sarif.py`, `reports/trends.py` |
 | Tickets des findings (envoi manuel et automatique par le contrôleur) : API publique des connecteurs (contrat des connecteurs tiers, versionné), registre (intégrés + plugins autorisés par `SECREVIEW_TICKETING_PLUGINS`), connexions, client HTTP imposé, Jira et ServiceNow | paquet `ticketing/` (`api.py`, `registry.py`, `connections.py`, `transport.py`, `core.py`, `jira.py`, `servicenow.py`), `web_api/ticketing_routes.py`, exemple `examples/ticketing-connector/` |
-| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `web_users.py` ; protocole OIDC du contrôleur : `oidc.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim) : `access_control.py` |
-| Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `enrollment_api.py` |
+| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `auth/token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `auth/web_users.py` ; protocole OIDC du contrôleur : `auth/oidc.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim) : `auth/access_control.py` |
+| Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `auth/enrollment_api.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas.py` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
 | Normes de développement par technologie (prompt `development-standards`, écran « Normes ») | `standards.py` |
 | Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy sortant, configuration OIDC) | `config.py` ; `app_settings.py` |
 
-Tous les modules sont dans `src/security_review_mcp/`. L'application Angular (`web/`) est
-compilée par `npm run build` dans `src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules
-(`services.py`, `scanner.py`...) ; `server.py` et `cli.py` restent des couches minces qui
-valident les entrées et appellent ces modules.
+Tous les modules sont dans `src/security_review_mcp/` : à la racine, les points d'entrée et
+les briques communes (`config`, `http_server`, `proxy`...) ; ailleurs, un sous-paquet par
+domaine (`storage/`, `reports/`, `rules/`, `deps/`, `auth/`, `observability/`, `clients/`,
+`ticketing/`, `web_api/`). Un nouveau module va dans le sous-paquet de son domaine, pas à la
+racine. L'application Angular (`web/`) est compilée par `npm run build` dans
+`src/security_review_mcp/webui/` (ignoré par git). La logique métier va dans les modules
+(`reports/services.py`, `rules/scanner.py`...) ; `server.py` et `cli.py` restent des couches
+minces qui valident les entrées et appellent ces modules.
 
 ## Conventions de code
 
@@ -192,8 +197,12 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
 - **Séparation MCP / contrôleur** : le serveur MCP n'expose que `/mcp`, l'enrôlement public et
   `/healthz` ; le contrôleur n'expose aucune route d'écriture sans jeton. N'ajoutez pas de route
   web au serveur MCP ni d'endpoint MCP au contrôleur.
+- **Le serveur MCP ne charge aucun module du contrôleur** qui sort sur le réseau ou sert ses
+  routes (`controller`, `advisory_sync`, `oidc`, `audit_syslog`, `ticketing`, `update_check`,
+  `web_api`), même indirectement ; `tests/test_server.py` le vérifie. Un module partagé par les
+  deux processus (comme `app_settings`) les importe dans la fonction qui s'en sert.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
-  CLI. Exceptions : les commandes CLI `enroll`, `scan-deps` et `security-review-ci`, qui contactent l'URL donnée par
+  CLI. Exceptions : la commande CLI `enroll` et `security-review-ci`, qui contactent l'URL donnée par
   l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
   uniquement, taille bornée, proxy facultatif (`proxy`, partagé avec le OIDC) jamais journalisé
   avec ses identifiants, et la
@@ -229,11 +238,12 @@ un commentaire, puis dans `.env.example` et `docs/reference/configuration.md` (e
 ### Règles de scan
 
 Identifiants `PRÉFIXE-NNN` par famille : `PY`, `JV`, `NG` (Angular), `CFG`, `GEN`, `GL`
-(GitLab CI), `JK` (Jenkins), `CI`, `SP` (Spring), `FA` (FastAPI), `DEP` (hygiène des
+(GitLab CI), `JK` (Jenkins), `CI`, `SP` (Spring), `FA` (FastAPI), `GO` (Go), `CS` (C#), `RS` (Rust), `TS` (backend
+TypeScript / Node.js), `DEP` (hygiène des
 dépendances), `AI` (texte caché ou instructions adressées à un assistant IA). Ne réutilisez et ne renumérotez jamais un identifiant existant : les utilisateurs
 les citent dans `secreview:ignore` et `disabled_rules`. Indiquez la CWE quand elle existe.
 
-Les règles et checklists par défaut sont dans `src/security_review_mcp/default_rules.toml`,
+Les règles et checklists par défaut sont dans `src/security_review_mcp/rules/default_rules.toml`,
 jamais dans le code Python. Elles sont copiées en base au premier lancement
 (`rule_store.seed_defaults`, appelé par `init_db`). Une règle ajoutée ou corrigée dans ce
 fichier atteint les bases existantes au démarrage suivant, sauf si un administrateur l'a modifiée.
@@ -307,7 +317,8 @@ langues** :
 
 La doc est organisée en parcours de mise en œuvre : **Démarrage** (`getting-started/` :
 installation, mise en service du serveur, connexion de l'hôte) et **Utilisation** (`usage/` :
-prompts et outils, interface web, gate) ne contiennent que l'essentiel pour travailler ;
+revue de sécurité — fonctionnement, règles, checklists, normes —, prompts et outils, interface
+web, gate) ne contiennent que l'essentiel pour travailler ;
 **Avancé** (`advanced/`) regroupe les détails et les fonctions facultatives. Une nouvelle
 explication détaillée va dans `advanced/`, avec au plus une ligne et un lien depuis les pages
 essentielles.
@@ -315,14 +326,14 @@ essentielles.
 | Si vous modifiez... | Mettez à jour (`.md` et `.fr.md`) |
 |---|---|
 | Un prompt ou un outil MCP (nom, argument, comportement) | `docs/usage/prompts-tools` |
-| Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/advanced/rules` (et `advanced/code-scan` si le scan du dépôt change) |
-| Le format des packs TOML internes | `docs/advanced/rules`, `examples/rules/company.toml` |
+| Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/usage/rules` ou `docs/usage/checklists` (et `advanced/code-scan` si le scan du dépôt change) |
+| Le format des packs TOML internes | `docs/usage/rules` (et `usage/checklists` pour `[[checklist]]`), `examples/rules/company.toml` |
 | L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/advanced/dependencies` |
 | Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`usage/gate`, `advanced/code-scan`, `advanced/sarif`...) |
 | Un paramètre `SECREVIEW_*` | `docs/reference/configuration`, `.env.example` |
 | Transport HTTP, authentification, TLS, enrôlement | `docs/advanced/http`, `docs/reference/security` (+ `getting-started/deploy` et `getting-started/host` si le parcours de base change) |
 | Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/advanced/architecture`, `docs/getting-started/deploy`, `docker-compose.yml`, `examples/kubernetes/` |
-| Les normes de développement (prompt, outils, ressources, écran) | `docs/advanced/standards` (+ `usage/prompts-tools`) |
+| Les normes de développement (prompt, outils, ressources, écran) | `docs/usage/standards` (+ `usage/prompts-tools`) |
 | L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` (connexion OIDC : `docs/advanced/sso`) |
 | Installation, image Docker | `docs/getting-started/installation`, `docs/advanced/installation`, `docs/advanced/docker` |
 | Une garantie ou limite de sécurité | `docs/reference/security` |

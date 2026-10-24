@@ -14,8 +14,9 @@ import { AuthService } from '../../../core/services/auth.service';
 
 /**
  * Personal tokens of the logged-in user (My account): REST API tokens (Swagger, scripts), which
- * hold the current rights of the user, and MCP tokens for its agent, which reach the projects the
- * user may read (with the mcp_tokens.create permission). The secret is shown once.
+ * hold the current rights of the user, MCP tokens for its agent and CI tokens for
+ * security-review-ci on its workstation, which reach the projects the user may read (with the
+ * mcp_tokens.create permission). The secret is shown once.
  */
 @Component({
   selector: 'app-api-tokens',
@@ -35,9 +36,9 @@ export class ApiTokensComponent {
     maxLength(path.label, 64);
   });
   readonly validities = VALIDITY_DAYS;
-  /** The MCP usage is offered only to a user with mcp_tokens.create (the server checks it). */
+  /** The MCP and CI usages are offered only to a user with mcp_tokens.create (the server checks it). */
   readonly roles = computed(() =>
-    PERSONAL_ROLES.filter((role) => role !== 'mcp' || this.auth.can('mcp_tokens.create')),
+    PERSONAL_ROLES.filter((role) => role === 'api' || this.auth.can('mcp_tokens.create')),
   );
   readonly createdToken = signal<string | null>(null);
   readonly message = signal<Message | null>(null);
@@ -68,14 +69,14 @@ export class ApiTokensComponent {
     }
   }
 
-  /** Message key of the usage of a token (REST API or MCP). */
+  /** Message key of the usage of a token (REST API, MCP or CI). */
   roleLabel(role: PersonalTokenRole): MessageKey {
     return TOKEN_ROLE_LABELS[role];
   }
 
-  /** Projects of a token: those an MCP token reaches now, the rights of the user for the API. */
+  /** Projects of a token: those an MCP or CI token reaches now, the rights of the user for the API. */
   projectsText(token: ProjectToken): string {
-    if (token.role !== 'mcp') {
+    if (token.role !== 'mcp' && token.role !== 'ci') {
       return this.i18n.translate('apiTokens.yourRights');
     }
     if (token.projects === null) {
@@ -130,7 +131,7 @@ interface ApiTokenFormModel {
 const EMPTY_FORM: ApiTokenFormModel = { label: '', validity: '', role: 'api' };
 
 /** Roles of the personal tokens, in display order. */
-const PERSONAL_ROLES: readonly PersonalTokenRole[] = ['api', 'mcp'];
+const PERSONAL_ROLES: readonly PersonalTokenRole[] = ['api', 'mcp', 'ci'];
 
 /** Validities offered at creation, in days. */
 const VALIDITY_DAYS: readonly string[] = ['30', '90', '180', '365'];

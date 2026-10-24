@@ -117,7 +117,7 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Mise à jour quotidienne](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur) de la base OSV par `serve` |
 | `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Âge de la base au-delà duquel `serve` la met à jour (minimum `1`) |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Source des exports `<URL>/<écosystème>/all.zip` (HTTPS uniquement, miroir possible) |
-| `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven` | Écosystèmes téléchargés, séparés par des virgules |
+| `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven,Go,crates.io,NuGet` | Écosystèmes téléchargés, séparés par des virgules |
 | `SECREVIEW_OSV_CAFILE` | — | Bundle de CA utilisé à la place de celui du système (miroir interne, proxy qui inspecte le TLS) |
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Taille maximale d'une archive téléchargée |
 
@@ -130,7 +130,7 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | Une personne peut [accepter un risque](../usage/web-interface.md#triage-des-findings) **Sans expiration** : l'acceptation dure jusqu'à ce que quelqu'un rouvre le finding. `false` : toute acceptation exige une date d'expiration. Un faux positif en exige toujours une |
 | `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Gravité minimale (`critical`, `high`, `medium`, `low`, `info`) dont l'[acceptation de risque](../usage/web-interface.md#triage-des-findings) exige un motif et une date d'expiration. Un finding moins grave est accepté par une simple validation, qui le ferme sans motif ni date. Vide : toute acceptation les exige |
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Validité maximale en jours d'un jeton Bearer créé ou [renouvelé](../advanced/http.md#expiration-et-renouvellement-des-jetons) (CLI, interface web), qui est aussi sa validité par défaut ; `0` : les jetons n'expirent pas, sauf validité demandée |
-| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Jetons personnels qu'un utilisateur web peut détenir de chaque rôle, [API REST](../usage/web-interface.md#jetons-api) et [MCP](../usage/web-interface.md#jetons-mcp-personnels), de `1` à `10` : révoquez-en un pour en créer un autre |
+| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Jetons personnels qu'un utilisateur web peut détenir de chaque rôle, [API REST](../usage/web-interface.md#jetons-api) et [MCP](../usage/web-interface.md#jetons-mcp-et-ci-personnels), de `1` à `10` : révoquez-en un pour en créer un autre |
 
 ### Audit et métriques
 
@@ -164,18 +164,17 @@ Lues par `security-review-controller` uniquement.
 
 ## Clients
 
-Lues par les commandes clientes (`security-review-mcp scan-deps`, `security-review-ci`), jamais par les serveurs.
+Lues par le client de pipeline `security-review-ci`, jamais par les serveurs.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_MCP_URL` | — | URL du serveur MCP partagé utilisé par [`security-review-mcp scan-deps`](../advanced/dependencies.md#scan-avec-un-serveur-partage-hook-de-commit) (valeur par défaut de `--url`) ; jamais utilisée par les serveurs |
-| `SECREVIEW_TOKEN` | — | Jeton Bearer envoyé par `scan-deps` à ce serveur, et par [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) au contrôleur (jeton `ci`) ; jamais utilisé par les serveurs |
+| `SECREVIEW_TOKEN` | — | Jeton Bearer envoyé par [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) au contrôleur (jeton `ci`) ; jamais utilisé par les serveurs |
 | `SECREVIEW_CONTROLLER_URL` | — | URL du contrôleur utilisée par [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) (valeur par défaut de `--url`) ; lue dans l'environnement uniquement, jamais dans `.env` |
 
 Les jetons Bearer ne se configurent pas par variable : ils sont stockés en base et gérés avec
 `security-review-controller token` (voir [Serveur HTTP, authentification et TLS](../advanced/http.md)).
 Les règles internes non plus : elles sont stockées en base et gérées avec
-`security-review-controller rules` (voir [Règles internes](../advanced/rules.md)).
+`security-review-controller rules` (voir [Règles](../usage/rules.md)).
 
 ## Base de données
 

@@ -17,9 +17,22 @@ security-review-ci gate --project portal --fail-on high
 
 `security-review-ci` is a lightweight client of the controller: it calls the pipeline routes of
 the REST API (`/api/v1/ci/gate`, `/api/v1/ci/sarif`, `/api/v1/ci/trend`, and
-`/api/v1/ci/scan/code` and `/api/v1/ci/scan/deps` for the scans) and opens no database. It only uses the Python standard library: install the package
-(`pip install security-review-mcp`), or copy the single file
-`security_review_mcp/ci_client.py` to the agent and run it with `python3 ci_client.py`.
+`/api/v1/ci/scan/code` and `/api/v1/ci/scan/deps` for the scans) and opens no database. It only
+uses the Python standard library (Python 3.14), and is published alone on PyPI as
+`security-review-ci`, at the version of the server, without its dependencies.
+
+### Installation
+
+| Machine | Command |
+|---|---|
+| Workstation without Python (Linux, macOS, Windows) | [uv](https://docs.astral.sh/uv/getting-started/installation/), then `uv tool install security-review-ci`: uv downloads a Python when none is installed |
+| Build agent or workstation with Python ≥ 3.14 | `pip install security-review-ci` (or `pipx install security-review-ci`) |
+| Agent without access to PyPI | Copy the single file `security_review_mcp/ci_client.py` (or the `security_review_ci` wheel attached to the GitHub release) and run it with `python3 ci_client.py` |
+| Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review-mcp …` |
+
+The `security-review-mcp` package also installs `security-review-ci`: do not install both
+packages in the same environment. Install the version of your controller
+(`uv tool install security-review-ci==X.Y.Z`); `uv tool upgrade security-review-ci` updates it.
 
 | Sub-command | Role |
 |---|---|
@@ -57,6 +70,10 @@ name.
 security-review-controller token create --label jenkins-portal --role ci \
   --project portal --project portal-api
 ```
+
+On a workstation, a developer uses a
+[personal `ci` token](web-interface.md#personal-mcp-and-ci-tokens) instead, created in
+**My account**: it reaches the projects the developer may read.
 
 Web sessions and `api` tokens (within the projects they read) and `admin` tokens may also call
 the gate, SARIF and trend routes; `mcp` tokens may not. The scans, which store reports, need a `ci` or

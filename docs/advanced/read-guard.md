@@ -10,7 +10,7 @@ To check a file **before** the assistant reads it, run the read guard on the hos
 ## What it does
 
 Before each `Read` of the assistant, the hook scans the file locally with the
-[`AI-*` rules](rules.md#default-rules-by-platform) of the package (no network access, no
+[`AI-*` rules](../usage/rules.md#default-rules-by-platform) of the package (no network access, no
 controller), then:
 
 | Result | Decision | What the assistant gets |

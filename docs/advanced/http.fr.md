@@ -188,7 +188,7 @@ le développeur crée un jeton MCP personnel dans l'interface web. Il est activ�
 3. **Jeton personnel.** La réponse de l'enrôlement donne l'URL de l'interface web (`web_url`,
    issue de [`SECREVIEW_WEB_URL`](../reference/configuration.md)) et la marche à suivre :
    l'utilisateur se connecte, crée un **jeton MCP personnel** dans **Mon compte** (voir
-   [jetons MCP personnels](../usage/web-interface.md#jetons-mcp-personnels)) et le place dans la
+   [jetons MCP personnels](../usage/web-interface.md#jetons-mcp-et-ci-personnels)) et le place dans la
    [configuration de l'hôte](../getting-started/host.md#obtenir-un-jeton). Le jeton atteint les
    projets que l'utilisateur peut lire, relus à chaque requête.
 4. **Accès.** Un administrateur donne à l'utilisateur l'accès au projet en l'ajoutant au groupe
@@ -208,7 +208,7 @@ Un client dont le jeton est **inconnu, révoqué ou expiré** reçoit `401` sur 
 puis à le remplacer dans la [configuration de l'hôte](../getting-started/host.md#obtenir-un-jeton).
 Un tel client n'atteint jamais les outils de revue ni le serveur d'enrôlement. Le refus est
 journalisé en avertissement par le serveur MCP (`Rejected unauthenticated request` /
-`Rejected expired token`). `security-review-mcp scan-deps` donne le même conseil.
+`Rejected expired token`).
 
 Garde-fous : quiconque atteint le serveur peut s'enrôler, donc au plus 20 projets sont en
 attente à la fois, une adresse cliente s'enrôle au plus 5 fois par heure (`429` au-delà ;

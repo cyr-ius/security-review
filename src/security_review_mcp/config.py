@@ -112,12 +112,6 @@ class Settings(BaseSettings):
     # user knows where to sign in and create a personal MCP token. Unset: no link is given.
     web_url: str | None = None
 
-    # Client commands only (`security-review-mcp scan-deps`, used by commit hooks and
-    # pipelines): URL of the shared MCP server (default of --url) and the bearer token sent to
-    # it. Never used by the servers. Read from SECREVIEW_MCP_URL (an alias ignores env_prefix).
-    server_url: str | None = Field(default=None, validation_alias=AliasChoices("secreview_mcp_url"))
-    token: str | None = None
-
     # Optional TLS served by uvicorn (HTTP MCP server and controller), enabled by tls_certfile.
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).
     tls_certfile: str | None = None
@@ -201,7 +195,7 @@ class Settings(BaseSettings):
     osv_auto_update: bool = False
     osv_update_interval_hours: int = 24
     osv_url: str = "https://osv-vulnerabilities.storage.googleapis.com"
-    osv_ecosystems: str = "PyPI,npm,Maven"
+    osv_ecosystems: str = "PyPI,npm,Maven,Go,crates.io,NuGet"
     osv_cafile: str | None = None
     osv_max_download_mb: int = 1024
 

@@ -4,8 +4,8 @@ import tomllib
 
 import pytest
 
-from security_review_mcp import registry, rule_store
-from security_review_mcp.rules_loader import default_content
+from security_review_mcp.rules import registry, rule_store
+from security_review_mcp.rules.rules_loader import default_content
 
 PACK = """
 disabled_rules = ["PY-008"]
@@ -81,7 +81,8 @@ def test_seeding_is_idempotent():
 
 
 def test_init_db_seeds_an_empty_database(tmp_path, monkeypatch):
-    from security_review_mcp import config, database
+    from security_review_mcp import config
+    from security_review_mcp.storage import database
 
     monkeypatch.setenv("SECREVIEW_DATABASE_URL", f"sqlite:///{tmp_path / 'fresh.db'}")
     config.get_settings.cache_clear()
@@ -119,7 +120,7 @@ def test_upgrade_updates_unmodified_defaults_and_adds_new_ones(monkeypatch):
 def test_upgrade_keeps_modified_and_deleted_defaults(monkeypatch, database):
     from sqlmodel import Session
 
-    from security_review_mcp.models import CustomRule
+    from security_review_mcp.storage.models import CustomRule
 
     rule_store.update_rule("PY-001", rule_store.default_rules()["PY-001"] | {"title": "Mine"})
     with Session(database) as session:  # removed by hand from the database
@@ -134,7 +135,7 @@ def test_upgrade_keeps_modified_and_deleted_defaults(monkeypatch, database):
 def test_first_seeding_keeps_an_existing_rule_with_a_default_id(database):
     from sqlmodel import Session, delete
 
-    from security_review_mcp.models import DefaultSeed
+    from security_review_mcp.storage.models import DefaultSeed
 
     # A database of the previous version: PY-001 overridden, nothing seeded yet
     rule_store.update_rule("PY-001", rule_store.default_rules()["PY-001"] | {"title": "Override"})
@@ -339,7 +340,7 @@ def test_create_update_and_revision():
 def test_invalid_stored_row_is_reported_not_fatal(database):
     from sqlmodel import Session
 
-    from security_review_mcp.models import CustomRule
+    from security_review_mcp.storage.models import CustomRule
 
     with Session(database) as session:
         session.add(CustomRule(id="ACME-099", title="t", severity="bogus", pattern="x"))

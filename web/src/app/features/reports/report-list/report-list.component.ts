@@ -41,7 +41,7 @@ export class ReportListComponent {
   /** Columns the server sorts by (not the open findings: they depend on the triage). */
   readonly sort = new TableSort<Exclude<ReportSortKey, 'findings_open'>>(
     'reports',
-    ['created_at', 'project', 'risk_level', 'review_type', 'branch', 'author', 'summary'],
+    ['created_at', 'project', 'risk_level', 'review_type', 'branch', 'submitted_by', 'summary'],
     'created_at',
     'desc',
     () => this.goToPage(1),

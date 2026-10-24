@@ -31,3 +31,22 @@ jobs:
           enable-cache: true
       - run: uv sync --locked --extra dev
       - run: uv run pytest
+
+  # The standalone security-review-ci distribution runs without the server and its dependencies
+  ci-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          python-version: "3.14"
+      - run: uv run --no-project python scripts/build_ci_client.py build/security-review-ci
+      - run: uv build build/security-review-ci --out-dir dist
+      # Without a controller URL, the client stops with the error exit code 2
+      - name: Run the built client
+        run: |
+          set +e
+          uvx --isolated --from ./dist/security_review_ci-*.whl security-review-ci gate --project demo
+          test $? -eq 2

@@ -25,8 +25,7 @@
   l'opérateur, signé par une
   [autorité de certification](../advanced/http.md#autorite-de-certification). Il n'y a
   pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
-  (`mcp`, `api`, `admin`, `ci`, `metrics`) ; un jeton `reader` ou `triager` stocké, laissé par une
-  version antérieure, n'authentifie rien. Un jeton `api` ne porte que des droits du contrôle
+  (`mcp`, `api`, `admin`, `ci`, `metrics`). Un jeton `api` ne porte que des droits du contrôle
   d'accès, lus à chaque requête : ceux de son utilisateur (jeton personnel, supprimé avec
   l'utilisateur, jamais renouvelé par un tiers, dont le nouveau secret porterait les droits de
   l'utilisateur) ou ceux de son rôle sur ses projets (jeton de rôle, dont le créateur doit détenir
@@ -65,7 +64,9 @@
   finding, un label de jeton ou un secret, et chaque valeur de label est échappée (voir
   [métriques Prometheus](../advanced/audit-metrics.md#metriques-prometheus)).
 - **Jetons de pipeline** (`ci`) : toujours restreints à des projets (un jeton `ci` sans projet
-  ne peut pas être créé, et un jeton trouvé sans projet n'en atteint aucun). Il ne lit que le
+  ne peut pas être créé, et un jeton trouvé sans projet n'en atteint aucun) ; un jeton `ci`
+  personnel atteint les projets que son utilisateur peut lire à l'instant, comme un jeton `mcp`
+  personnel. Il ne lit que le
   gate, le journal SARIF et la tendance de ses projets ; les autres routes du contrôleur, `/mcp`
   et l'interface web répondent `403`, les autres projets `404`. Le client de pipeline
   ([`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci)) n'ouvre
@@ -83,10 +84,11 @@
   `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` est supprimée, et le texte libre du demandeur est
   masqué et tronqué : vérifiez le demandeur et l'adresse avant de valider. Chaque enrôlement est audité. Voir
   [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
-- **Appels réseau sortants** : le serveur MCP n'en fait aucun. Les commandes
-  `security-review-mcp enroll` et `scan-deps` contactent, à la demande de l'opérateur, l'URL qu'il
-  indique (`scan-deps` envoie les fichiers de dépendances donnés sur sa ligne de commande, jamais
-  via un lien symbolique) ; elles refusent HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
+- **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
+  modules du contrôleur qui en font (téléchargement des avis, OIDC, syslog, tickets, recherche
+  de nouvelle version) : un test le vérifie. La commande
+  `security-review-mcp enroll` contacte, à la demande de l'opérateur, l'URL qu'il indique ; elle
+  refuse HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
   redirections. Le contrôleur ne télécharge les avis OSV que si un administrateur l'active
   (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
@@ -184,7 +186,7 @@
   résumé, la description, la preuve et la recommandation enregistrés dans un rapport (puis coupés
   de nouveau à `SECREVIEW_MAX_CONTENT_CHARS`) : rien n'est supprimé, le texte caché devient
   lisible. Les
-  [règles `AI-*`](../advanced/rules.md#regles-par-defaut-par-plateforme) signalent les caractères
+  [règles `AI-*`](../usage/rules.md#regles-par-defaut-par-plateforme) signalent les caractères
   cachés et le texte adressé à un assistant IA, pour que la gate puisse les bloquer. Le serveur
   ne voit que ce que l'agent lui envoie : il ne peut pas filtrer les fichiers que l'hôte lit avec
   ses propres outils ; la [garde de lecture](../advanced/read-guard.md), un hook côté hôte, les
@@ -276,13 +278,13 @@
   premier lancement. Si la base est inaccessible ou n'a jamais été initialisée, le serveur
   applique directement ce fichier : le scan ne tourne jamais sans règles. Une règle par défaut
   peut être modifiée ou désactivée par un administrateur, mais pas supprimée
-  (voir [Règles internes](../advanced/rules.md#regles-par-defaut)).
+  (voir [Règles](../usage/rules.md#regles-par-defaut)).
 - **Normes de développement** : leur contenu est transmis tel quel à l'assistant IA comme
   consignes ; seuls les administrateurs du contrôleur les écrivent (champs validés et bornés,
   200 normes de 50 000 caractères au plus). Le serveur MCP les lit seulement, et la tâche
   fournie au prompt `development-standards` est encadrée pour ne pas pouvoir en sortir. Le prompt
   rappelle qu'une norme ne prime jamais sur la sécurité (voir
-  [Normes de développement](../advanced/standards.md)).
+  [Normes de développement](../usage/standards.md)).
 - **Journaux** sur stderr (stdout est réservé au protocole en stdio).
 
 !!! warning "Protégez la base"
@@ -297,6 +299,11 @@
 - Les règles sont des motifs ligne par ligne : elles ne voient ni le flux de données ni les
   contrôles absents (autorisation manquante, par exemple). Ce travail reste celui de l'agent
   guidé par les checklists, et de vos outils SAST/SCA.
+- Les quelques [analyses Tree-sitter](../usage/rules.md#regles-par-defaut) (`PY-026`, `JV-019`,
+  `NG-021`, `GO-019`, `CS-021`, `RS-015`, `TS-016`) ne suivent que des flux simples dans un seul
+  fichier. Elles sont bornées pour qu'un fichier piégé ne puisse pas bloquer un scan : chaque
+  fonction est analysée une fois par état d'entrée, et le code trop imbriqué n'est contrôlé que
+  par les motifs.
 - La [couverture d'une revue](../usage/prompts-tools.md#couverture-de-la-revue) (résultats de
   checklist, règles des pistes du scan) est déclarée par l'agent : le serveur ne garde que les
   identifiants qu'il connaît et marque `not_covered` les points sautés, il ne peut pas vérifier
@@ -305,5 +312,7 @@
   quiconque détient un jeton du projet peut nommer quelqu'un d'autre. Seul `submitted_by`, le
   libellé du jeton qui a enregistré le rapport, est fixé par le serveur (voir
   [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)). Un `author` est souvent
-  une adresse e-mail, donc une donnée personnelle : elle est visible de tous ceux qui atteignent
-  le projet et conservée aussi longtemps que le rapport.
+  une adresse e-mail, donc une donnée personnelle, conservée aussi longtemps que le rapport :
+  dans l'interface web et l'API REST, seul qui détient `users.manage` ou `tokens.manage` la voit
+  (les autres ne peuvent pas non plus la retrouver par le filtre, la recherche ou le tri) ; les
+  outils MCP la renvoient toujours aux jetons qui atteignent le projet.

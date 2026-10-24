@@ -4,7 +4,7 @@ Les prompts de revue travaillent sur ce que l'agent leur donne, souvent le diff 
 `scan_code` est limité à `SECREVIEW_MAX_CONTENT_CHARS` par appel. Pour couvrir **tout** le
 dépôt, utilisez le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci)
 `security-review-ci scan-code` : il lit les fichiers du dépôt et envoie leur contenu au
-contrôleur, qui les scanne avec les [règles](rules.md) de sa base.
+contrôleur, qui les scanne avec les [règles](../usage/rules.md) de sa base.
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
@@ -17,7 +17,8 @@ security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 ```
 
 Le pipeline n'a besoin ni de la base ni du paquet : seulement de Python et du
-[jeton `ci`](../usage/gate.md#jeton-ci-et-projets-visibles) du projet.
+[jeton `ci`](../usage/gate.md#jeton-ci-et-projets-visibles) du projet. Sur un poste de travail,
+utilisez un [jeton `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels).
 
 ## Sélection des fichiers
 
@@ -25,8 +26,9 @@ Le client choisit les fichiers ; le contrôleur ne lit jamais son propre disque.
 
 - Les fichiers viennent de `git ls-files` (suivis + non suivis non ignorés : `.gitignore` est
   respecté). Hors dépôt git, ou avec `--no-git`, l'arborescence est parcourue en ignorant
-  `node_modules`, `.venv`, `dist`, `build`, `target`, etc.
-- Le langage est déduit du nom : `.py`, `.java`, `.ts`, `.js`, `.html` (templates Angular),
+  `node_modules`, `.venv`, `dist`, `build`, `target`, `obj`, etc.
+- Le langage est déduit du nom : `.py`, `.java`, `.go`, `.cs`/`.cshtml`/`.razor`, `.rs`, `.ts`, `.js`,
+  `.html` (templates Angular),
   `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
   `.gitlab-ci.yml`, et les fichiers qui pilotent un assistant IA (`AGENTS.md`, `CLAUDE.md`,
   `GEMINI.md`, `copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`,
@@ -52,7 +54,7 @@ Le client choisit les fichiers ; le contrôleur ne lit jamais son propre disque.
 
 ## Seuil et enregistrement
 
-- `--fail-on` (défaut `high`) fixe le seuil de blocage ; les [règles](rules.md) de la base et
+- `--fail-on` (défaut `high`) fixe le seuil de blocage ; les [règles](../usage/rules.md) de la base et
   les marqueurs `secreview:ignore` s'appliquent comme pour `scan_code`.
 - `--save` enregistre les correspondances comme un rapport `code-scan` (au plus
   `SECREVIEW_MAX_FINDINGS_PER_REPORT` findings, les plus sévères d'abord), avec la liste des
@@ -71,4 +73,8 @@ Le client choisit les fichiers ; le contrôleur ne lit jamais son propre disque.
 
 Ensuite, le prompt `codebase-review` (argument `scan_results` = le JSON, éventuellement filtré)
 guide l'agent : inventaire, priorisation des points d'entrée, traçage des flux entre fichiers,
-checklists, et une section **couverture** qui dit ce qui n'a pas été relu.
+checklists, et une section **couverture** qui dit ce qui n'a pas été relu. Sans `scan_results`,
+le prompt demande à un agent qui peut lancer des commandes d'exécuter lui-même
+`security-review-ci scan-code` (avec un jeton `ci` personnel) : les fichiers arrivent au
+contrôleur tels quels, au lieu d'être recopiés par le modèle dans des appels à `scan_code`. Le
+prompt `dependency-review` fait de même avec `security-review-ci scan-deps`.

@@ -12,22 +12,14 @@ import argparse
 import logging
 import sys
 
-from . import (
-    advisory_sync,
-    app_settings,
-    audit_syslog,
-    cli,
-    http_server,
-    oidc,
-    registry,
-    retention,
-    ticketing,
-    token_store,
-    web_api,
-    web_users,
-)
+from . import app_settings, cli, http_server, ticketing, web_api
+from .auth import oidc, token_store, web_users
 from .config import Settings, configure_logging, get_settings
-from .database import SchemaError, init_db
+from .deps import advisory_sync
+from .observability import audit_syslog
+from .rules import registry
+from .storage import retention
+from .storage.database import SchemaError, init_db
 
 logger = logging.getLogger("security_review_mcp.controller")
 

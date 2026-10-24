@@ -230,6 +230,8 @@ SKIPPED_DIRS = frozenset(
         "out",
         "coverage",
         ".gradle",
+        "obj",  # .NET intermediate output
+        ".vs",
         ".idea",
     }
 )
@@ -251,6 +253,12 @@ _EXTENSIONS = {
     ".jsx": "javascript",
     ".mjs": "javascript",
     ".cjs": "javascript",
+    ".go": "go",
+    ".cs": "csharp",
+    ".csx": "csharp",
+    ".cshtml": "csharp",  # Razor views (Html.Raw...)
+    ".razor": "csharp",
+    ".rs": "rust",
     ".html": "angular",  # Angular templates ([innerHTML], bypassSecurityTrust...)
     ".yml": "yaml",
     ".yaml": "yaml",
@@ -545,6 +553,11 @@ def _add_report_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--author", help="username of the developer, stored with the report (with --save)"
     )
+    parser.add_argument(
+        "--skip-unconfigured",
+        action="store_true",
+        help=f"exit 0 with a warning when {URL_VARIABLE} is not set (shared commit hooks)",
+    )
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -727,6 +740,9 @@ def main(argv: list[str] | None = None, fetch: Fetch | None = None) -> int:
         parser.print_help()
         return EXIT_ERROR
     args = parser.parse_args(argv)
+    if not args.url and getattr(args, "skip_unconfigured", False):
+        print(f"warning: {args.command} skipped ({URL_VARIABLE} is not set)", file=sys.stderr)
+        return EXIT_PASSED
     try:
         if not args.url:
             raise ValueError(f"No controller URL: give --url or set {URL_VARIABLE}")

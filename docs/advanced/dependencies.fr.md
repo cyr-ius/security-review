@@ -4,8 +4,16 @@
 
 `requirements*.txt`, `pyproject.toml` (PEP 621/735, Poetry), `poetry.lock`, `Pipfile.lock`,
 `uv.lock`, `package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 et
-berry), `pom.xml`, `build.gradle(.kts)`, SBOM CycloneDX (`bom.json`, `bom.xml`, `sbom.json`,
-`*.cdx.json`, `*.cdx.xml`...).
+berry), `pom.xml`, `build.gradle(.kts)`, `go.mod`, `Cargo.lock`, `Cargo.toml`,
+`packages.lock.json`, `*.csproj` / `*.fsproj` / `*.vbproj`, `Directory.Packages.props`,
+`Directory.Build.props`, `packages.config`, `nuget.config`, SBOM CycloneDX (`bom.json`,
+`bom.xml`, `sbom.json`, `*.cdx.json`, `*.cdx.xml`...).
+
+| Écosystème | Fichier à analyser en priorité | Remarques |
+|---|---|---|
+| Go | `go.mod` | Depuis Go 1.17, il liste tous les modules de la compilation (`// indirect` compris) à leur version sélectionnée : il est traité comme un lockfile. Les directives `replace` sont appliquées (un fork lève `DEP-003`, un chemin local `DEP-007`). Les pseudo-versions (`v0.0.0-<date>-<commit>`) sont comparées par date. La bibliothèque standard (directives `go` et `toolchain`) n'est pas vérifiée : analysez le binaire avec `govulncheck`. |
+| Rust (crates.io) | `Cargo.lock` | Toutes les crates de la compilation, transitives comprises ; les membres du workspace sont ignorés. Une source `git` lève `DEP-003`, un autre registre `DEP-005`. `Cargo.toml` ne contient que des plages (`"1.0"` vaut `^1.0`) : il est contrôlé pour l'hygiène (`*`, `git`, `path`, `registry`, `[patch]`, `workspace = true`). |
+| .NET (NuGet) | `packages.lock.json` | Activez-le avec `<RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>` ; les paquets de chaque framework cible sont vérifiés. Dans un `*.csproj`, `Version="1.2.3"` est la version restaurée (la plus basse applicable) et elle est vérifiée ; les versions flottantes (`1.*`) lèvent `DEP-002`, les versions gérées dans `Directory.Packages.props` ou par une propriété MSBuild `DEP-009`. `nuget.config` est contrôlé pour les sources HTTP (`DEP-004`) et pour plusieurs sources sans `packageSourceMapping` (`DEP-005`, confusion de dépendances). |
 
 Dans un `uv.lock`, le projet lui-même et les membres de son workspace (sources `editable` ou
 `virtual`) ne sont pas des dépendances et sont ignorés ; toute autre source `git`, `url`,
@@ -30,9 +38,10 @@ Avec Gradle, la tâche `cyclonedxBom` du plugin `org.cyclonedx.bom` produit le m
 - Le SBOM est lu en JSON (`bomFormat: "CycloneDX"`) ou en XML (espace de noms CycloneDX) ; les
   composants imbriqués sont inclus. Un SBOM XML contenant un `DOCTYPE` ou une `ENTITY` est refusé.
 - Chaque composant est identifié par son package URL (`purl`) : `pkg:maven/...` (Maven),
-  `pkg:npm/...` (npm) et `pkg:pypi/...` (PyPI). Un SBOM peut mélanger ces écosystèmes. Les
-  autres types (`pkg:golang`, `pkg:nuget`...) et les composants sans `purl` sont comptés dans une
-  note et ne sont pas vérifiés.
+  `pkg:npm/...` (npm), `pkg:pypi/...` (PyPI), `pkg:golang/...` (Go), `pkg:cargo/...`
+  (crates.io) et `pkg:nuget/...` (NuGet). Un SBOM peut mélanger ces écosystèmes. Les autres
+  types (`pkg:gem`, `pkg:composer`...) et les composants sans `purl` sont comptés dans une note
+  et ne sont pas vérifiés.
 - Les versions sont résolues : le SBOM est traité comme un lockfile. Un composant de portée
   `excluded` est marqué `dev` ; une version Maven `-SNAPSHOT` lève `DEP-002`.
 
@@ -48,8 +57,8 @@ base de données. Deux façons de l'alimenter :
 ### Import manuel
 
 Sur une machine connectée, téléchargez les exports d'osv.dev
-(`https://osv-vulnerabilities.storage.googleapis.com/PyPI/all.zip`, idem `npm` et `Maven`),
-transférez-les, puis importez-les (opération réservée à la CLI, idempotente) :
+(`https://osv-vulnerabilities.storage.googleapis.com/PyPI/all.zip`, idem `npm`, `Maven`, `Go`,
+`crates.io` et `NuGet`), transférez-les, puis importez-les (opération réservée à la CLI, idempotente) :
 
 ```bash
 security-review-controller advisories import PyPI.zip      # .json, dossier ou .zip
@@ -83,7 +92,7 @@ HTTPS_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
 - **Miroir** : `SECREVIEW_OSV_URL` remplace la source (Nexus, Artifactory, bucket interne…)
   tant qu'il sert `<URL>/<écosystème>/all.zip` en HTTPS. HTTP en clair, identifiants dans l'URL
   et redirections vers autre chose que HTTPS sont refusés.
-- `SECREVIEW_OSV_ECOSYSTEMS` (`PyPI,npm,Maven` par défaut) limite les exports téléchargés ;
+- `SECREVIEW_OSV_ECOSYSTEMS` (`PyPI,npm,Maven,Go,crates.io,NuGet` par défaut) limite les exports téléchargés ;
   chaque archive est bornée par `SECREVIEW_OSV_MAX_DOWNLOAD_MB` (1024 Mio), écrite dans un
   dossier temporaire puis supprimée.
 - Un écosystème en échec (réseau, taille, archive invalide) n'empêche pas les autres ; il est
@@ -156,41 +165,26 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 - Chaque fichier est limité au `SECREVIEW_MAX_DEPENDENCY_CHARS` du contrôleur, la requête à
   `SECREVIEW_MAX_SCAN_REQUEST_MB`. Les liens symboliques ne sont pas lus.
 
-## Scan avec un serveur partagé (hook de commit)
+## Scan depuis un poste de travail (hook de commit)
 
-`security-review-mcp scan-deps` envoie les fichiers de dépendances à l'outil `scan_dependencies`
-d'un serveur MCP partagé : le scan utilise la base d'avis de ce serveur, sans import local. Il
-faut un jeton de rôle `mcp` ou `admin`, par exemple un jeton MCP personnel (voir
-[enrôlement](http.md#enrolement-demander-le-projet)).
+Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
+[jeton `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels) créé dans
+**Mon compte** : il atteint les projets que le développeur peut lire, et les fichiers sont
+envoyés au contrôleur exactement tels qu'ils sont sur le disque. Le poste n'a pas besoin de
+Python : installez le client avec uv (voir [Installation](../usage/gate.md#installation)).
 
 ```bash
-export SECREVIEW_MCP_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<token>
-security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
-# code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (serveur injoignable, jeton refusé...)
+uv tool install security-review-ci
+export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
+export SECREVIEW_TOKEN=<personal ci token>
+security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
+# code de sortie : 0 = ok, 1 = bloqué, 2 = erreur (contrôleur injoignable, jeton refusé...)
 ```
 
-Un jeton absent ou refusé (inconnu, révoqué ou expiré) se termine par une erreur qui invite à
-se connecter à l'interface web pour créer un nouveau jeton MCP personnel (voir
-[jeton refusé](http.md#jeton-refuse-se-reconnecter)).
-
-- Mêmes options et même sortie que `security-review-ci scan-deps` (`--fail-on`, `--format`,
-  `--require-database`).
-- `--save --project P` enregistre le résultat comme rapport `dependency-scan` du projet, avec
-  l'outil `save_security_report` du même serveur et le même jeton : le jeton doit atteindre le
-  projet (sinon, [demandez le projet](http.md#enrolement-demander-le-projet)). `--author`,
-  `--repository`, `--branch` et `--commit` sont enregistrés avec le rapport. Sans `--save`, rien
-  n'est enregistré.
-- `--url` remplace `SECREVIEW_MCP_URL`, `--token-stdin` lit le jeton sur stdin au lieu de
-  `SECREVIEW_TOKEN`. Les deux variables peuvent aussi être définies dans le fichier `.env` du
-  dossier (ne le commitez jamais).
-- HTTP en clair est refusé hors localhost (sauf `--allow-http`), comme les identifiants dans
-  l'URL et les redirections vers une autre origine ; `--cafile` indique une CA interne. Les liens
-  symboliques ne sont pas lus, car le contenu quitte la machine.
-- Chaque fichier est limité par le `SECREVIEW_MAX_DEPENDENCY_CHARS` du serveur.
-
-Hook de commit ([pre-commit](https://pre-commit.com) ou prek), lancé quand un manifeste ou un
-lockfile change :
+Hook de commit ([prek](https://prek.j178.dev) ou [pre-commit](https://pre-commit.com)), lancé
+quand un manifeste ou un lockfile change. Avec `language: python`, le hook installe
+`security-review-ci` dans son propre environnement : rien d'autre à installer. prek est un
+binaire unique qui télécharge aussi le Python du hook (pre-commit a besoin d'un Python) :
 
 ```yaml
 repos:
@@ -198,13 +192,17 @@ repos:
     hooks:
       - id: scan-deps
         name: dependency scan
-        entry: security-review-mcp scan-deps --skip-unconfigured --require-database
-        language: system
+        entry: security-review-ci scan-deps --skip-unconfigured --require-database --project my-project
+        language: python
+        additional_dependencies: ["security-review-ci==X.Y.Z"] # version de votre contrôleur
         files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
 ```
 
-`--skip-unconfigured` laisse passer le commit, avec un avertissement, quand aucune URL de serveur
-n'est configurée (contributeurs sans serveur partagé).
+Avec le client déjà installé (`uv tool install`), `language: system` le lance depuis le `PATH`.
+
+`--skip-unconfigured` laisse passer le commit, avec un avertissement, quand
+`SECREVIEW_CONTROLLER_URL` n'est pas défini (contributeurs sans contrôleur). Les deux variables
+sont lues dans l'environnement uniquement, jamais dans le fichier `.env`.
 
 ## Lire le résultat
 

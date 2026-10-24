@@ -4,7 +4,7 @@ The review prompts work on what the agent gives them, often the diff of a merge 
 `scan_code` is limited to `SECREVIEW_MAX_CONTENT_CHARS` per call. To cover the **whole**
 repository, use the [pipeline client](../usage/gate.md#pipeline-client-security-review-ci)
 `security-review-ci scan-code`: it reads the files of the repository and sends their content
-to the controller, which scans them with the [rules](rules.md) of its database.
+to the controller, which scans them with the [rules](../usage/rules.md) of its database.
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
@@ -17,7 +17,8 @@ security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 ```
 
 The pipeline needs neither the database nor the package: only Python and the
-[`ci` token](../usage/gate.md#ci-token-and-visible-projects) of the project.
+[`ci` token](../usage/gate.md#ci-token-and-visible-projects) of the project. On a workstation,
+use a [personal `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens).
 
 ## File selection
 
@@ -25,9 +26,9 @@ The client chooses the files; the controller never reads its own disk.
 
 - Files come from `git ls-files` (tracked + untracked not ignored: `.gitignore` is honored).
   Outside a git repository, or with `--no-git`, the tree is walked, skipping `node_modules`,
-  `.venv`, `dist`, `build`, `target`, etc.
-- The language is inferred from the name: `.py`, `.java`, `.ts`, `.js`, `.html` (Angular
-  templates), `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
+  `.venv`, `dist`, `build`, `target`, `obj`, etc.
+- The language is inferred from the name: `.py`, `.java`, `.go`, `.cs`/`.cshtml`/`.razor`, `.rs`, `.ts`,
+  `.js`, `.html` (Angular templates), `.yml`/`.yaml`, `.properties`, `.toml`, `.env*`, `Dockerfile*`, `Jenkinsfile`,
   `.gitlab-ci.yml`, and the files that steer an AI assistant (`AGENTS.md`, `CLAUDE.md`,
   `GEMINI.md`, `copilot-instructions.md`, `.cursorrules`, `.windsurfrules`, `.clinerules`,
   `*.mdc`, `*.instructions.md`, `*.prompt.md`, `*.md` under `.claude/`, `.cursor/`, `.windsurf/`
@@ -50,7 +51,7 @@ The client chooses the files; the controller never reads its own disk.
 
 ## Threshold and saving
 
-- `--fail-on` (default `high`) sets the blocking threshold; the [rules](rules.md) of the
+- `--fail-on` (default `high`) sets the blocking threshold; the [rules](../usage/rules.md) of the
   database and the `secreview:ignore` markers apply as for `scan_code`.
 - `--save` stores the matches as a `code-scan` report (at most
   `SECREVIEW_MAX_FINDINGS_PER_REPORT` findings, the most severe first), with the list of files
@@ -68,4 +69,8 @@ The client chooses the files; the controller never reads its own disk.
 
 Then, the `codebase-review` prompt (`scan_results` argument = the JSON, possibly filtered)
 guides the agent: inventory, prioritization of the entry points, tracing of the flows between
-files, checklists, and a **coverage** section that says what was not read.
+files, checklists, and a **coverage** section that says what was not read. Without `scan_results`, the
+prompt asks an agent that can run commands to launch `security-review-ci scan-code` itself (with
+a personal `ci` token): the files reach the controller as they are, instead of being copied by
+the model into `scan_code` calls. The `dependency-review` prompt does the same with
+`security-review-ci scan-deps`.

@@ -9,9 +9,11 @@ from fastapi import APIRouter, HTTPException, Path, Query, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import PlainTextResponse, Response
 
-from .. import access_control, services, trends
-from ..database import session_scope
-from ..models import (
+from ..auth import access_control
+from ..reports import services, trends
+from ..reports.sarif import build_sarif
+from ..storage.database import session_scope
+from ..storage.models import (
     DISMISSED_STATUSES,
     MAX_AUTHOR_CHARS,
     FindingCommentPublic,
@@ -21,8 +23,7 @@ from ..models import (
     SecurityReportPublic,
     Severity,
 )
-from ..project_names import MAX_RAW_PROJECT_CHARS, ProjectName
-from ..sarif import build_sarif
+from ..storage.project_names import MAX_RAW_PROJECT_CHARS, ProjectName
 from .deps import (
     CurrentIdentity,
     Permission,
@@ -35,6 +36,7 @@ from .deps import (
     in_scope,
     permission_scope,
     scoped_project,
+    sees_authors,
     unprocessable,
     web_user_id,
 )
@@ -280,13 +282,23 @@ async def reports(
     author: Annotated[str | None, Query(max_length=MAX_AUTHOR_CHARS)] = None,
     search: Annotated[str | None, Query(max_length=200)] = None,
     sort_by: Literal[
-        "created_at", "project", "risk_level", "review_type", "branch", "author", "summary"
+        "created_at",
+        "project",
+        "risk_level",
+        "review_type",
+        "branch",
+        "author",
+        "submitted_by",
+        "summary",
     ] = "created_at",
     sort_direction: Literal["asc", "desc"] = "desc",
     limit: Annotated[int, Query(ge=1)] = 20,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[ReportSummary]:
-    """List reports, newest first (limit is capped by SECREVIEW_MAX_LIST_LIMIT)."""
+    """List reports, newest first (limit is capped by SECREVIEW_MAX_LIST_LIMIT).
+
+    The author is returned, filtered, searched and sorted only for a manager of the users or
+    of the tokens."""
     if project:
         project = scoped_project(identity, project)
     return await run_in_threadpool(
@@ -301,22 +313,29 @@ async def reports(
         search,
         sort_by,
         sort_direction,
+        sees_authors(identity),
     )
+
+
+async def _visible_report(report_id: int, identity: CurrentIdentity) -> SecurityReportPublic:
+    """A report of the caller's scope, without its author unless the caller may see it."""
+    stored = await run_in_threadpool(services.get_report, report_id)
+    ensure_report_scope(identity, stored)
+    if not sees_authors(identity):
+        stored = stored.model_copy(update={"author": None})
+    return stored
 
 
 @router.get("/reports/{report_id}")
 async def report(report_id: int, identity: CurrentIdentity) -> SecurityReportPublic:
     """Return a report with its findings."""
-    stored = await run_in_threadpool(services.get_report, report_id)
-    ensure_report_scope(identity, stored)
-    return stored
+    return await _visible_report(report_id, identity)
 
 
 @router.get("/reports/{report_id}/markdown", response_class=PlainTextResponse)
 async def report_markdown(report_id: int, identity: CurrentIdentity) -> PlainTextResponse:
     """Download a report as Markdown."""
-    stored = await run_in_threadpool(services.get_report, report_id)
-    ensure_report_scope(identity, stored)
+    stored = await _visible_report(report_id, identity)
     return PlainTextResponse(
         services.render_report_markdown(stored),
         media_type="text/markdown; charset=utf-8",

@@ -122,10 +122,6 @@ from another issuer (another identity provider, which could reuse the same `sub`
 An account bound when only the `sub` was recorded gets the issuer of its next login. To give
 the user name to someone else, delete then create the account again.
 
-Before version 0023 of the schema, a name changed at the provider created a second account bound
-to the same identity. The upgrade keeps the identity on the account that logged in last; the
-others keep their name, groups and history but can no longer log in: delete them in **Users**.
-
 What an OIDC account may do comes from its [groups](access-control.md): those an administrator
 gave it (**Users** or **Groups** screen) and the groups open to OIDC
 named by its groups claim, recorded at every login (see
@@ -188,13 +184,6 @@ reach it), an administrator adds their account to that group, from the **Groups*
 **Users**). With OIDC, the account exists once the developer has logged in (with
 `SECREVIEW_OIDC_AUTO_CREATE_USERS=true`), or an administrator creates it beforehand in **Users**.
 The access then shows in the groups of the account, where it is changed like the others.
-
-!!! note "Upgrading from the named accesses"
-    Previous versions stored these accesses apart ("named accesses",
-    `/api/v1/oidc/user-grants` API). Schema migration `0006` turns them into `reader` OIDC
-    accounts on the same projects, then deletes the table. An access whose name is not a valid
-    user name or that bears the name of a local account is dropped, with a warning in the log of
-    the migration.
 
 ## OIDC only
 

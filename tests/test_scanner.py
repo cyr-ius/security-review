@@ -1,8 +1,11 @@
 """Tests for the pattern scanner and secret redaction."""
 
+import subprocess
+import sys
+
 import pytest
 
-from security_review_mcp.scanner import normalize_language, redact_secrets, scan_content
+from security_review_mcp.rules.scanner import normalize_language, redact_secrets, scan_content
 
 
 def rule_ids(content: str, language: str) -> set[str]:
@@ -286,6 +289,182 @@ def test_angular_tree_sitter_requires_origin_check_for_message_data():
     findings = scan_content(unsafe, "angular")
     assert ("NG-022", 1) in [(finding["rule_id"], finding["line"]) for finding in findings]
     assert "NG-022" not in rule_ids(safe, "angular")
+
+
+SQL_FLOWS = [
+    (
+        "go",
+        """func list(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")
+	q := build(id)
+	rows, err := db.QueryContext(ctx, q)
+	var sb strings.Builder
+	sb.WriteString("DELETE FROM t WHERE n = ")
+	sb.WriteString(c.Query("n"))
+	db.Exec(sb.String())
+}
+func build(v string) string { return fmt.Sprintf("SELECT * FROM t WHERE id = '%s'", v) }
+""",
+        """func list(w http.ResponseWriter, r *http.Request) {
+	rows, err := db.QueryContext(ctx, "SELECT * FROM t WHERE id = $1", r.FormValue("id"))
+}
+""",
+        "GO-019",
+        [4, 8],
+    ),
+    (
+        "csharp",
+        """class UsersController {
+  public IActionResult Get([FromQuery] string name) {
+    var id = Request.Query["id"];
+    db.Database.ExecuteSqlRaw(Build(name));
+    var cmd = new SqlCommand($"SELECT * FROM t WHERE id = {id}", conn);
+    cmd.CommandText = "UPDATE t SET a = 1 WHERE n = '" + name + "'";
+    return Ok();
+  }
+  string Build(string s) => "SELECT * FROM t WHERE n = '" + s + "'";
+}
+""",
+        """class UsersController {
+  public IActionResult Get([FromQuery] string name) {
+    var users = conn.Query<User>("SELECT * FROM t WHERE n = @name", new { name });
+    db.Database.ExecuteSqlRaw("SELECT * FROM t WHERE n = {0}", name);
+    return Ok(users);
+  }
+}
+""",
+        "CS-021",
+        [4, 5, 6],
+    ),
+    (
+        "rust",
+        """async fn list(Query(p): Query<Params>, Path(id): Path<i64>) -> String {
+    let q = build(&p.name);
+    sqlx::query(&q).fetch_all(&pool).await;
+    let mut d = String::from("DELETE FROM t WHERE n = '");
+    d.push_str(&p.name);
+    sqlx::query(&d).execute(&pool).await;
+    sqlx::query(&format!("SELECT * FROM t WHERE id = {}", id)).fetch_all(&pool).await;
+    q
+}
+fn build(s: &str) -> String { format!("SELECT * FROM t WHERE n = '{}'", s) }
+""",
+        """async fn list(Query(p): Query<Params>) {
+    sqlx::query("SELECT * FROM t WHERE n = $1").bind(&p.name).fetch_all(&pool).await;
+}
+""",
+        "RS-015",
+        [3, 6],  # a numeric Path<i64> cannot carry SQL
+    ),
+    (
+        "typescript",
+        """app.get("/users", async (req, res) => {
+  const { id } = req.query;
+  let q = `SELECT * FROM t WHERE id = ${id}`;
+  await pool.query(q);
+});
+class UsersController {
+  find(@Query('n') n: string) { return this.repo.query(build(n)); }
+}
+function build(s: string) { return "SELECT * FROM t WHERE n = '" + s + "'"; }
+""",
+        """app.get("/users", async (req, res) => {
+  await pool.query("SELECT * FROM t WHERE id = $1", [req.query.id]);
+  await prisma.$queryRaw`SELECT * FROM t WHERE id = ${req.query.id}`;
+});
+""",
+        "TS-016",
+        [4, 7],
+    ),
+    (
+        "javascript",
+        """router.post("/x", (req, res) => {
+  let q = "DELETE FROM t WHERE n = '";
+  q += req.body.name + "'";
+  db.query(q);
+});
+""",
+        """router.post("/x", (req, res) => {
+  db.query("DELETE FROM t WHERE n = ?", [req.body.name]);
+});
+""",
+        "TS-016",
+        [4],
+    ),
+]
+
+
+@pytest.mark.parametrize(("language", "unsafe", "safe", "rule_id", "lines"), SQL_FLOWS)
+def test_sql_taint_of_go_csharp_rust_and_node(language, unsafe, safe, rule_id, lines):
+    found = [m["line"] for m in scan_content(unsafe, language) if m["rule_id"] == rule_id]
+    assert found == lines
+    assert rule_id not in rule_ids(safe, language)
+
+
+@pytest.mark.parametrize(
+    ("language", "code", "rule_id"),
+    [
+        ("python", "x = " + "[" * 3000 + "]" * 3000 + "\nyaml.load(stream)", "PY-003"),
+        ("go", "x := " + "(" * 3000 + "1" + ")" * 3000 + '\nimport _ "net/http/pprof"', "GO-015"),
+    ],
+)
+def test_deeply_nested_code_skips_the_tree_analysis_but_keeps_the_patterns(language, code, rule_id):
+    assert rule_id in rule_ids(code, language)
+
+
+@pytest.mark.parametrize("language", ["python", "java", "typescript", "go"])
+def test_chains_of_calls_are_analyzed_once_per_input_state(language):
+    # Each function calls the previous one twice: without summaries, 2**30 analyses
+    depth = 30
+    if language == "python":
+        code = "def f0(s):\n    return s\n" + "".join(
+            f"def f{i}(s):\n    a = f{i - 1}(s)\n    return f{i - 1}(a)\n" for i in range(1, depth)
+        )
+        code += f"def v():\n    db.execute('SELECT ' + f{depth - 1}(request.args['x']))\n"
+        rule_id = "PY-026"
+    elif language == "java":
+        code = "class A { String f0(String s) { return s; }\n" + "".join(
+            f"String f{i}(String s) {{ String a = f{i - 1}(s); return f{i - 1}(a); }}\n"
+            for i in range(1, depth)
+        )
+        code += (
+            "void h(HttpServletRequest request, Statement st) throws Exception {\n"
+            f'st.executeQuery("SELECT " + f{depth - 1}(request.getParameter("x"))); }}\n}}'
+        )
+        rule_id = "JV-019"
+    elif language == "typescript":
+        code = "function f0(s) { return s; }\n" + "".join(
+            f"function f{i}(s) {{ const a = f{i - 1}(s); return f{i - 1}(a); }}\n"
+            for i in range(1, depth)
+        )
+        code += f"el.innerHTML = f{depth - 1}(location.hash);\n"
+        rule_id = "NG-021"
+    else:
+        code = "func f0(s string) string { return s }\n" + "".join(
+            f"func f{i}(s string) string {{ a := f{i - 1}(s); return f{i - 1}(a) }}\n"
+            for i in range(1, depth)
+        )
+        code += (
+            f'func h(r *http.Request) {{ db.Query("SELECT " + f{depth - 1}(r.FormValue("x"))) }}\n'
+        )
+        rule_id = "GO-019"
+    assert rule_id in rule_ids(code, language)
+
+
+def test_many_findings_do_not_crash_the_garbage_collector():
+    # tree-sitter 0.26.0 releases the integers of Point.row too early: the interpreter crashed
+    # at the next collection once a finding was past line 256
+    script = (
+        "import gc\n"
+        "from security_review_mcp.rules.scanner import scan_content\n"
+        "code = \"def v():\\n    x = request.args['x']\\n"
+        "    db.execute(f'SELECT * FROM t WHERE a = {x}')\\n\" * 300\n"
+        "for _ in range(10):\n"
+        "    assert len(scan_content(code, 'python', max_matches=1000)) >= 300\n"
+        "    gc.collect()\n"
+    )
+    completed = subprocess.run([sys.executable, "-c", script], capture_output=True, timeout=120)
+    assert completed.returncode == 0, completed.stderr.decode()[-500:]
 
 
 def test_config_rules():

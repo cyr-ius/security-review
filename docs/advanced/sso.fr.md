@@ -127,11 +127,6 @@ pourrait réutiliser le même `sub`) est refusée. Un compte lié quand seul le 
 enregistré reçoit l'émetteur de sa connexion suivante. Pour réattribuer l'identifiant, supprimez
 puis recréez le compte.
 
-Avant la version 0023 du schéma, un nom changé chez le fournisseur créait un second compte lié à
-la même identité. La mise à jour garde l'identité sur le compte connecté en dernier ; les autres
-gardent leur nom, leurs groupes et leur historique mais ne peuvent plus se connecter :
-supprimez-les dans **Utilisateurs**.
-
 Ce qu'un compte OIDC peut faire vient de ses [groupes](access-control.md) : ceux qu'un
 administrateur lui a donnés (écran **Utilisateurs** ou **Groupes**)
 et les groupes ouverts au OIDC nommés par son claim des groupes, enregistrés à chaque connexion
@@ -197,13 +192,6 @@ personnel l'atteigne), un administrateur ajoute son compte à ce groupe, depuis 
 s'est connecté (avec `SECREVIEW_OIDC_AUTO_CREATE_USERS=true`), ou un administrateur le crée
 auparavant dans **Utilisateurs**. L'accès apparaît ensuite dans les groupes du compte, où il se
 modifie comme les autres.
-
-!!! note "Mise à jour depuis les accès nominatifs"
-    Les versions précédentes enregistraient ces accès à part (« accès nominatifs », API
-    `/api/v1/oidc/user-grants`). La migration de schéma `0006` les transforme en comptes OIDC
-    `reader` sur les mêmes projets, puis supprime la table. Un accès dont le nom n'est pas un
-    identifiant valide ou qui porte le nom d'un compte local est abandonné, avec un avertissement
-    dans le journal de la migration.
 
 ## OIDC seul
 

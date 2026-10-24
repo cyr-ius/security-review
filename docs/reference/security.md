@@ -25,8 +25,7 @@
   operator, signed by a [certificate authority](../advanced/http.md#certificate-authority).
   There is no rate limiting.
   Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `api`, `admin`, `ci`,
-  `metrics`); a stored `reader` or `triager` token, left by an older version, authenticates
-  nothing. An `api` token only holds rights of the access control, read at each request: those
+  `metrics`). An `api` token only holds rights of the access control, read at each request: those
   of its user (personal token, deleted with the user, never rotated by someone else, whose new
   secret would carry the rights of the user) or of its role on its projects (role token, whose
   creator must hold each permission). A token never creates another personal token. An `mcp`
@@ -61,7 +60,8 @@
   label or a secret, and every label value is escaped (see
   [Prometheus metrics](../advanced/audit-metrics.md#prometheus-metrics)).
 - **Pipeline tokens** (`ci`): always restricted to projects (a `ci` token without a project
-  cannot be created, and one found without a project reaches none). It only reads the gate, the
+  cannot be created, and one found without a project reaches none); a personal `ci` token
+  reaches the projects its user may read now, like a personal `mcp` token. It only reads the gate, the
   SARIF log and the trend of its projects; the other routes of the controller, `/mcp` and the
   web interface answer `403`, the other projects `404`. The pipeline client
   ([`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci)) opens no
@@ -79,10 +79,10 @@
   `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` is deleted, and the free text of the requester is
   masked and truncated: check the requester and the address before approving. Every enrollment is audited. See
   [enrollment](../advanced/http.md#enrollment-request-the-project).
-- **Outgoing network calls**: the MCP server makes none. The `security-review-mcp enroll` and
-  `scan-deps` commands contact, at the request of the operator, the URL they give (`scan-deps`
-  sends the dependency files given on its command line, never through a symbolic link); they
-  refuse plain HTTP
+- **Outgoing network calls**: the MCP server makes none, and does not even load the modules
+  of the controller that make them (advisory download, OIDC, syslog, tickets, version check):
+  a test checks it. The `security-review-mcp enroll` command contacts, at the request of the
+  operator, the URL it gives; it refuses plain HTTP
   outside localhost (unless `--allow-http`), credentials in the URL and redirects. The
   controller only downloads the OSV advisories if an administrator enables it
   (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over
@@ -173,7 +173,7 @@
   excerpts of `scan_code` and in the summary, description, evidence and recommendation stored
   in a report (then cut again at `SECREVIEW_MAX_CONTENT_CHARS`): nothing is removed, the hidden
   text becomes readable. The
-  [`AI-*` rules](../advanced/rules.md#default-rules-by-platform) report hidden characters and
+  [`AI-*` rules](../usage/rules.md#default-rules-by-platform) report hidden characters and
   text addressed to an AI assistant, so the gate can block them. The server only sees what the
   agent sends: it cannot filter the files that the host reads with its own tools; the
   [read guard](../advanced/read-guard.md), a host-side hook, checks them before the assistant
@@ -259,13 +259,13 @@
 - **Scan rules**: the default rules (`default_rules.toml`) are copied into the database at first
   start. If the database cannot be reached or was never initialized, the server applies this
   file directly: the scan never runs without rules. A default rule can be edited or disabled by
-  an administrator, but not deleted (see [Internal rules](../advanced/rules.md#default-rules)).
+  an administrator, but not deleted (see [Rules](../usage/rules.md#default-rules)).
 - **Development standards**: their content is handed as is to the AI assistant as instructions;
   only the administrators of the controller write them (validated and bounded fields, 200
   standards of 50,000 characters at most). The MCP server only reads them, and the task given to
   the `development-standards` prompt is fenced so that it cannot escape. The prompt reminds that
   a standard never prevails over security (see
-  [Development standards](../advanced/standards.md)).
+  [Development standards](../usage/standards.md)).
 - **Logs** on stderr (stdout is reserved for the protocol with stdio).
 
 !!! warning "Protect the database"
@@ -280,6 +280,10 @@
 - Rules are line-by-line patterns: they see neither the data flow nor the missing checks
   (missing authorization, for example). This work remains the agent's, guided by the
   checklists, and your SAST/SCA tools'.
+- The few [Tree-sitter analyses](../usage/rules.md#default-rules) (`PY-026`, `JV-019`,
+  `NG-021`, `GO-019`, `CS-021`, `RS-015`, `TS-016`) only follow simple flows inside one file.
+  They are bounded so that a crafted file cannot block a scan: each function is analyzed once
+  per input state, and code nested too deeply is only checked by the patterns.
 - The [coverage of a review](../usage/prompts-tools.md#review-coverage) (checklist results,
   rules of the scan leads) is declared by the agent: the server only keeps the ids it knows and
   marks the skipped items `not_covered`, it cannot check that the agent really read the code.
@@ -287,5 +291,7 @@
   token of the project can name someone else. Only `submitted_by`, the label of the token that
   saved the report, is set by the server (see
   [author of a report](../usage/prompts-tools.md#author-of-a-report)). An `author` is often an
-  email address, that is personal data: it is visible to everyone who reaches the project and
-  kept as long as the report.
+  email address, that is personal data, kept as long as the report: in the web interface and
+  the REST API, only a holder of `users.manage` or `tokens.manage` sees it (nor can the others
+  find it by the filter, the search or the sort); the MCP tools still return it to the tokens
+  that reach the project.

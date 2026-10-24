@@ -1,20 +1,25 @@
 """Pipeline client (security-review-ci): gate, SARIF, trend and scans through the controller REST
 API, and the listing of the files of a code scan."""
 
+import importlib.util
 import io
 import json
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
 from starlette.testclient import TestClient
 from test_advisories import osv
 
-from security_review_mcp import advisories, ci_client, http_server, services, token_store, web_api
+from security_review_mcp import ci_client, http_server, web_api
+from security_review_mcp.auth import token_store
 from security_review_mcp.config import get_settings
+from security_review_mcp.deps import advisories
 from security_review_mcp.http_server import Role
-from security_review_mcp.models import FindingCreate, Severity
+from security_review_mcp.reports import services
+from security_review_mcp.storage.models import FindingCreate, Severity
 
 URL = "http://127.0.0.1"
 MODULE = Path(ci_client.__file__)
@@ -135,6 +140,10 @@ def test_missing_url_or_token_is_a_usage_error(controller, ci_token, monkeypatch
     monkeypatch.setenv(ci_client.TOKEN_VARIABLE, ci_token)
     assert ci_client.main(["gate", "--project", "shop-api"], fetch=fetch_from(controller)) == 2
     assert "No controller URL" in capsys.readouterr().err
+    # A commit hook lets the commit through when the controller is not configured
+    hook = ["scan-deps", "uv.lock", "--project", "shop-api", "--skip-unconfigured"]
+    assert ci_client.main(hook, fetch=fetch_from(controller)) == 0
+    assert "skipped" in capsys.readouterr().err
 
     assert run(controller, monkeypatch, ["gate", "--project", "shop-api"], None) == 2
     assert "No token" in capsys.readouterr().err
@@ -223,6 +232,25 @@ def test_client_runs_as_a_standalone_file(tmp_path):
     assert "No controller URL" in json.loads(result.stderr)["error"]
 
 
+def test_standalone_distribution_ships_the_client_at_the_server_version(tmp_path):
+    # security-review-ci on PyPI: the same module, released with the same tag, no dependency
+    root = MODULE.parents[2]
+    spec = importlib.util.spec_from_file_location(
+        "build_ci_client", root / "scripts/build_ci_client.py"
+    )
+    build = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(build)
+    project = build.write_project(tmp_path / "dist-project", root)
+    metadata = tomllib.loads((project / "pyproject.toml").read_text(encoding="utf-8"))
+    server = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
+    assert metadata["project"]["name"] == "security-review-ci"
+    assert metadata["project"]["version"] == server["project"]["version"]
+    assert metadata["project"]["requires-python"] == server["project"]["requires-python"]
+    assert metadata["project"]["dependencies"] == []
+    assert metadata["project"]["scripts"] == {"security-review-ci": "security_review_ci:main"}
+    assert (project / "security_review_ci.py").read_bytes() == MODULE.read_bytes()
+
+
 def test_printable_removes_terminal_escapes():
     assert ci_client.printable("# shop\x1b[31m-api\x07\n\tok\x7f") == "# shop[31m-api\n\tok"
 
@@ -259,6 +287,11 @@ def git_init(root):
         ("src/app/app.component.ts", "typescript"),
         ("src/app/app.component.html", "angular"),
         ("web/index.mjs", "javascript"),
+        ("cmd/api/main.go", "go"),
+        ("src/Api/Program.cs", "csharp"),
+        ("Views/Home/Index.cshtml", "csharp"),
+        ("Pages/Counter.razor", "csharp"),
+        ("src/main.rs", "rust"),
         ("Dockerfile", "docker"),
         ("docker/Dockerfile.prod", "docker"),
         ("Jenkinsfile", "jenkins"),

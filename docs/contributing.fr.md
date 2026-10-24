@@ -7,7 +7,7 @@ uv sync --extra dev
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
 pre-commit install          # facultatif : mêmes contrôles avant chaque commit, et le scan des
-                            # dépendances si SECREVIEW_MCP_URL est défini
+                            # dépendances si SECREVIEW_CONTROLLER_URL est défini
 ```
 
 Le hook `prettier` formate les fichiers YAML et JSON et les sources de `web/src/` avec la
@@ -122,59 +122,73 @@ supplémentaire, ligne de `parametrize`) : un changement ajoute en général un 
 ```
 src/security_review_mcp/
 ├── server.py      # prompts, outils, ressources, point d'entrée du serveur MCP
-├── controller.py  # point d'entrée du contrôleur (serve, db et commandes d'administration)
-├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
-├── oidc.py        # connexion OIDC OpenID Connect à l'interface web (contrôleur)
-├── access_control.py # permissions, rôles, groupes et membres des comptes web, enrôlement des projets
-├── token_store.py # jetons Bearer en base : création, expiration, renouvellement, révocation
-├── audit.py       # journal d'audit : événements des décisions de triage, propositions, jetons et enrôlements
-├── audit_syslog.py # envoi des événements d'audit vers syslog par le contrôleur (facultatif)
-├── metrics.py     # métriques Prometheus du contrôleur (/metrics)
-├── web_users.py   # comptes de l'interface web, locaux (scrypt) ou OIDC (création à la volée), sessions, admin initial
-├── enrollment.py  # client de `enroll` : enrôlement d'un projet sur un serveur partagé
-├── remote_scan.py # client de `scan-deps` : scan des dépendances par un serveur partagé
-├── ci_client.py   # `security-review-ci` : client de pipeline du contrôleur, liste des fichiers (bibliothèque standard uniquement)
-├── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP
-├── web_api/       # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
-│   ├── __init__.py    # create_app, fichiers statiques de /ui, assemblage des routeurs
-│   ├── schemas.py     # modèles de requête et de réponse de chaque route
-│   ├── deps.py        # identité de l'appelant, permissions, portée projet
-│   └── *_routes.py    # un routeur par domaine (auth, account, report, ci, rule, token, admin, access)
 ├── prompts.py     # construction des prompts
 ├── standards.py   # normes de développement : stockage, recherche par technologie / fichier, rendu
-├── default_rules.toml  # règles et checklists par défaut, copiées en base au premier lancement
-├── checklists.py  # structure d'un item de checklist
-├── scanner.py     # moteur de scan, suppression inline, masquage des secrets
-├── syntax_analysis.py # analyses structurelles Tree-sitter, séparées des règles ligne par ligne
-├── rules_loader.py    # validation des règles, lecture des packs TOML et du fichier par défaut
-├── rule_store.py  # règles en base : amorçage, import/export, activation, suppression
-├── registry.py    # règles/checklists actives (lues en base), rechargement
-├── cli.py         # commandes db, advisories, rules, token, audit, enroll, scan-deps
-├── codescan.py    # scan du code complet des fichiers envoyés par security-review-ci (findings)
-├── sarif.py       # export SARIF 2.1.0
-├── trends.py      # rapport de tendance
-├── versions.py    # comparaison de versions
+├── controller.py  # point d'entrée du contrôleur (serve, db et commandes d'administration)
+├── ci_client.py   # `security-review-ci` : client de pipeline du contrôleur, liste des fichiers (bibliothèque standard uniquement)
+├── cli.py         # commandes du contrôleur : db, advisories, rules, token, user, group, project, audit
+├── http_server.py # HTTP des deux processus : jetons Bearer et rôles, TLS, /healthz, uvicorn
+├── healthcheck.py # HEALTHCHECK de l'image Docker (/healthz des processus HTTP)
+├── config.py      # paramètres (SECREVIEW_*)
+├── app_settings.py # réglages modifiables dans l'interface (langue, proxy sortant, OIDC), en base
+├── proxy.py       # proxy sortant du contrôleur (OSV, OIDC) : URL, no_proxy, handler urllib
 ├── update_check.py # recherche d'une nouvelle version sur GitHub (page À propos, facultatif)
+├── storage/       # persistance
+│   ├── database.py        # moteur, sessions et migrations (Alembic)
+│   ├── models.py          # modèles SQLModel (tables + schémas)
+│   ├── migrations/        # environnement Alembic et révisions du schéma (versions/)
+│   ├── retention.py       # purge quotidienne des rapports sans findings et des anciens événements d'audit
+│   └── project_names.py   # normalisation des noms de projet (toute entrée)
+├── reports/       # rapports de sécurité
+│   ├── services.py        # logique de persistance des rapports
+│   ├── coverage.py        # contrôle les résultats de checklist et règles déclarés avec un rapport
+│   ├── sarif.py           # export SARIF 2.1.0
+│   └── trends.py          # rapport de tendance
+├── rules/         # règles de scan et checklists
+│   ├── scanner.py         # moteur de scan, suppression inline, masquage des secrets
+│   ├── syntax_analysis.py # analyses structurelles Tree-sitter, séparées des règles ligne par ligne
+│   ├── codescan.py        # scan du code complet des fichiers envoyés par security-review-ci (findings)
+│   ├── default_rules.toml # règles et checklists par défaut, copiées en base au premier lancement
+│   ├── rules_loader.py    # validation des règles, lecture des packs TOML et du fichier par défaut
+│   ├── rule_store.py      # règles en base : amorçage, import/export, activation, suppression
+│   ├── registry.py        # règles/checklists actives (lues en base), rechargement
+│   └── checklists.py      # structure d'un item de checklist
+├── deps/          # analyse des dépendances
+│   ├── dependencies.py    # analyseurs de manifestes / lockfiles, hygiène
+│   ├── depscan.py         # scan de dépendances et conversion en findings
+│   ├── advisories.py      # import OSV, correspondance des versions
+│   ├── advisory_sync.py   # téléchargement OSV par le contrôleur (proxy, mise à jour quotidienne, historique)
+│   └── versions.py        # comparaison de versions
+├── auth/          # identité et accès
+│   ├── access_control.py  # permissions, rôles, groupes et membres des comptes web, enrôlement des projets
+│   ├── token_store.py     # jetons Bearer en base : création, expiration, renouvellement, révocation
+│   ├── web_users.py       # comptes de l'interface web, locaux (scrypt) ou OIDC (création à la volée), sessions, admin initial
+│   ├── oidc.py            # connexion OIDC OpenID Connect à l'interface web (contrôleur)
+│   ├── rate_limit.py      # limites de débit de l'API REST et des connexions (fenêtre glissante en base)
+│   └── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP
+├── observability/ # journal d'audit et métriques
+│   ├── audit.py           # journal d'audit : événements des décisions de triage, propositions, jetons et enrôlements
+│   ├── audit_syslog.py    # envoi des événements d'audit vers syslog par le contrôleur (facultatif)
+│   └── metrics.py         # métriques Prometheus du contrôleur (/metrics)
+├── clients/       # clients CLI qui contactent l'URL donnée par l'opérateur
+│   ├── commands.py        # commande `enroll` de security-review-mcp
+│   └── enrollment.py      # client de `enroll` : enrôlement d'un projet sur un serveur partagé
 ├── ticketing/     # tickets des findings : api (API des connecteurs), registry, connections,
 │                  # transport (client HTTP), core (envoi), jira, servicenow
-├── healthcheck.py # HEALTHCHECK de l'image Docker (/healthz des processus HTTP)
-├── advisories.py  # import OSV, correspondance des versions
-├── advisory_sync.py  # téléchargement OSV par le contrôleur (proxy, mise à jour quotidienne, historique)
-├── app_settings.py    # réglages modifiables dans l'interface (langue, proxy sortant, OIDC), en base
-├── proxy.py       # proxy sortant du contrôleur (OSV, OIDC) : URL, no_proxy, handler urllib
-├── dependencies.py    # analyseurs de manifestes / lockfiles, hygiène
-├── depscan.py     # scan de dépendances et conversion en findings
-├── services.py    # logique de persistance des rapports
-├── coverage.py    # contrôle les résultats de checklist et règles déclarés avec un rapport
-├── project_names.py # normalisation des noms de projet (toute entrée)
-├── retention.py   # purge quotidienne des rapports sans findings et des anciens événements d'audit
-├── models.py      # modèles SQLModel (tables + schémas)
-├── database.py    # moteur, sessions et migrations (Alembic)
-├── migrations/    # environnement Alembic et révisions du schéma (versions/)
-└── config.py      # paramètres (SECREVIEW_*)
+└── web_api/       # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
+    ├── __init__.py    # create_app, fichiers statiques de /ui, assemblage des routeurs
+    ├── schemas.py     # modèles de requête et de réponse de chaque route
+    ├── deps.py        # identité de l'appelant, permissions, portée projet
+    └── *_routes.py    # un routeur par domaine (auth, account, report, ci, rule, token, admin, access)
 tests/             # pytest (scanner, services, client MCP de bout en bout)
 web/               # application Angular (compilée dans src/security_review_mcp/webui/)
 ```
+
+Le serveur MCP n'importe jamais les modules du contrôleur qui ouvrent des connexions sortantes
+ou servent ses routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
+`observability/audit_syslog`, `ticketing`, `update_check`, `web_api`), même indirectement :
+`tests/test_server.py` le vérifie. Un module partagé par les deux processus (comme
+`app_settings`) les importe dans la fonction qui en a besoin, jamais en tête.
 
 ## Interface web
 
@@ -257,7 +271,7 @@ Les clés sont typées : une clé inconnue, ou absente d'une des trois langues, 
 ## Migrations du schéma
 
 Toute modification d'un modèle de table (`models.py`) s'accompagne d'une révision Alembic dans
-`src/security_review_mcp/migrations/versions/`. Le test
+`src/security_review_mcp/storage/migrations/versions/`. Le test
 `test_upgrade_creates_the_schema_of_the_models` (`tests/test_database.py`) échoue tant que les
 migrations ne produisent pas exactement le schéma des modèles. Pour générer un brouillon de
 révision à relire :
@@ -332,6 +346,11 @@ Une version correspond à un tag poussé sur `master` :
 4. Le push du tag déclenche `publish.yml` : lint et tests, vérification que le tag correspond à
    la version, publication sur PyPI et des images Docker (`docker.yml`), puis création de la
    release GitHub.
+
+Le tag publie deux distributions PyPI à la même version : `security-review-mcp` et
+`security-review-ci`, le client de pipeline seul (sans dépendance), dont le projet est écrit par
+`scripts/build_ci_client.py` à partir de `ci_client.py`, avec le `requires-python` du serveur.
+Le job **ci-client** de `tests.yml` le construit et lance le wheel seul, sans le serveur.
 
 Le workflow `.github/workflows/docker.yml` construit l'image (`linux/amd64`, `linux/arm64`,
 variantes par défaut et `-pg`) et vérifie que les deux points d'entrée démarrent. Sur chaque pull

@@ -7,13 +7,13 @@ le fichier `AGENTS.md` d'un projet, voir [Fonctionnement d'une revue](how-it-wor
 
 | Prompt | Usage | Arguments |
 |---|---|---|
-| `security-review` | Revue générale de code Python, Java ou Angular (`language` : un ou plusieurs langages, par exemple `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
+| `security-review` | Revue générale de code Python, Java, Go, C#, Rust, TypeScript/Node.js ou Angular (`language` : un ou plusieurs langages, par exemple `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
 | `api-security-review` | API REST (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
 | `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
 | `codebase-review` | Revue du **dépôt complet** (pas seulement un diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
 | `dependency-review` | Manifestes et lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
 | `triage-report` | Re-qualifier les findings d'un rapport stocké | `report_id`, `context`, `report_language` |
-| `development-standards` | Donne à l'assistant les [normes de développement](../advanced/standards.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
+| `development-standards` | Donne à l'assistant les [normes de développement](standards.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
 
 Si `code` est vide, le prompt demande à l'agent de relire les fichiers de son espace de travail.
 Chaque prompt de revue se termine par l'instruction d'appeler `save_security_report` une seule
@@ -23,7 +23,7 @@ Chaque prompt de revue intègre les checklists de son domaine (selon les langage
 `security-review` et `codebase-review`, alias comme `py` ou `ts` acceptés) et la checklist
 `company`, puis nomme les autres checklists disponibles, domaines internes compris, que l'agent
 récupère avec `get_review_checklist` quand elles s'appliquent
-([détails](../advanced/rules.md#checklists-des-prompts-de-revue)).
+([détails](checklists.md#checklists-des-prompts-de-revue)).
 
 ### Langue des rapports
 
@@ -52,8 +52,8 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 
 | Outil | Rôle |
 |---|---|
-| `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
-| `scan_code` | Scan rapide par motifs et analyses Tree-sitter ciblées des flux SQL Python, DOM Angular et origines de messages non vérifiées (pistes à vérifier, **pas** un SAST complet). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
+| `list_checklists` / `get_review_checklist` | Checklists par domaine : `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `api`, `config`, `cicd`, `dependencies` et domaines internes |
+| `scan_code` | Scan rapide par motifs et analyses Tree-sitter ciblées des flux requête vers SQL (Python, Java, Go, C#, Rust, Node.js), DOM Angular et origines de messages non vérifiées (pistes à vérifier, **pas** un SAST complet). Extraits masqués, caractères invisibles affichés en `<U+XXXX>` |
 | `save_security_report` | **Enregistre le rapport et ses findings en base** |
 | `get_security_report` | Relit un rapport (Markdown par défaut, ou JSON) |
 | `list_security_reports` | Liste filtrable par projet / niveau de risque / type de revue / auteur, avec pagination |
@@ -65,14 +65,14 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
 | `request_enrollment` | Demande un projet qui n'existe pas encore, validé par un administrateur ; aucun jeton n'est créé et le jeton courant ne gagne aucun projet : un administrateur en donne l'accès ([enrôlement](../advanced/http.md#enrolement-demander-le-projet)) |
-| `list_development_standards` / `get_development_standards` | [Normes de développement](../advanced/standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
-| `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](../advanced/rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
+| `list_development_standards` / `get_development_standards` | [Normes de développement](standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
+| `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
 Sur le transport HTTP, un jeton restreint ne peut utiliser les outils de rapports que sur ses
 projets autorisés ; `reload_rules` lui est refusé (voir
 [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)).
 Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux. Un
-[jeton MCP personnel](web-interface.md#jetons-mcp-personnels) atteint les projets de son
+[jeton MCP personnel](web-interface.md#jetons-mcp-et-ci-personnels) atteint les projets de son
 utilisateur : pour un autre projet, un administrateur lui en donne l'accès (`request_enrollment`
 le demande d'abord s'il est nouveau).
 
@@ -93,7 +93,7 @@ Voir [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
 
 - `report://{report_id}` : un rapport enregistré ;
 - `checklist://{domain}` : la checklist d'un domaine ;
-- `standards://catalog` : le catalogue des [normes de développement](../advanced/standards.md) ;
+- `standards://catalog` : le catalogue des [normes de développement](standards.md) ;
 - `standard://{slug}` : une norme de développement.
 
 ## Rapport enregistré
@@ -157,8 +157,7 @@ findings se distinguent et se filtrent ainsi dans l'[interface web](web-interfac
 
 Le champ est facultatif : un rapport enregistré sans lui n'a pas de type. Toute autre valeur est
 refusée. Le type est déclaré par le client : il étiquette et filtre les rapports, il n'accorde
-jamais de droit et ne change pas une gate. Les rapports des scans CLI enregistrés avant l'existence de ce champ reçoivent leur
-type lors de la mise à jour de la base.
+jamais de droit et ne change pas une gate.
 
 ### Auteur d'un rapport
 
@@ -175,7 +174,9 @@ deux champs :
 (ni Markdown ni HTML, car il est recopié dans l'export Markdown) ; une valeur vide n'est pas
 enregistrée. Il est **déclaré, non authentifié** : il sert à savoir à qui s'adresser et à filtrer
 les rapports (`list_security_reports`, [interface web](web-interface.md)), jamais de preuve
-d'identité ; `submitted_by` indique quel jeton a réellement envoyé le rapport.
+d'identité ; `submitted_by` indique quel jeton a réellement envoyé le rapport. Dans l'interface
+web et l'API REST, seul qui détient `users.manage` ou `tokens.manage` voit l'`author` ; les
+autres voient le libellé du jeton.
 
 ### Couverture de la revue
 

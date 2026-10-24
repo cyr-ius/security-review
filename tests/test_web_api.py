@@ -16,27 +16,22 @@ from starlette.testclient import TestClient
 
 from security_review_mcp import (
     __version__,
-    access_control,
-    advisory_sync,
     app_settings,
-    audit,
-    enrollment_api,
     http_server,
-    oidc,
-    registry,
-    rule_store,
     server,
-    services,
     standards,
-    token_store,
     update_check,
     web_api,
-    web_users,
 )
+from security_review_mcp.auth import access_control, enrollment_api, oidc, token_store, web_users
 from security_review_mcp.config import get_settings
-from security_review_mcp.database import session_scope
+from security_review_mcp.deps import advisory_sync
 from security_review_mcp.http_server import Role
-from security_review_mcp.models import (
+from security_review_mcp.observability import audit
+from security_review_mcp.reports import services
+from security_review_mcp.rules import registry, rule_store
+from security_review_mcp.storage.database import session_scope
+from security_review_mcp.storage.models import (
     ApiToken,
     Finding,
     FindingCreate,
@@ -502,6 +497,31 @@ def test_reports_show_and_filter_the_author(client):
     assert len(client.get("/api/v1/reports", params={"project": "authored"}).json()) == 2
     too_long = {"project": "authored", "author": "a" * 201}
     assert client.get("/api/v1/reports", params=too_long).status_code == 422
+
+
+def test_report_author_is_hidden_from_a_caller_who_manages_neither_users_nor_tokens(
+    web_sessions,
+):
+    saved = services.save_report(
+        "authored", "Review", [], author="alice@example.com", submitted_by="laptop-42"
+    )
+    services.save_report("authored", "Other review", [], author="bob")
+    reader = auth("reader")
+    listed = web_sessions.get("/api/v1/reports", headers=reader).json()
+    assert {(r["author"], r["submitted_by"]) for r in listed} == {(None, "laptop-42"), (None, None)}
+    # Neither the filter nor the search tells the author
+    for params, expected in (({"author": "alice@example.com"}, 2), ({"search": "alice"}, 0)):
+        found = web_sessions.get("/api/v1/reports", params=params, headers=reader).json()
+        assert len(found) == expected
+    detail = web_sessions.get(f"/api/v1/reports/{saved['report_id']}", headers=reader).json()
+    assert (detail["author"], detail["submitted_by"]) == (None, "laptop-42")
+    markdown = web_sessions.get(f"/api/v1/reports/{saved['report_id']}/markdown", headers=reader)
+    assert "alice" not in markdown.text
+    assert "laptop-42" in markdown.text
+    # A token manager sees it
+    admin = auth("admin")
+    searched = web_sessions.get("/api/v1/reports", params={"search": "alice"}, headers=admin)
+    assert [r["author"] for r in searched.json()] == ["alice@example.com"]
 
 
 def test_update_finding_status(client, reports):
@@ -3081,10 +3101,30 @@ def test_a_web_user_creates_one_personal_mcp_token(secured, reports):
     refused = secured.post(url, json={"label": "agent-2", "role": "mcp"}, headers=headers)
     assert refused.status_code == 422 and "at most 1" in refused.json()["detail"]
     assert secured.post(url, json={"label": "rest"}, headers=headers).status_code == 201
-    other = secured.post(url, json={"label": "pipeline", "role": "ci"}, headers=headers)
+    other = secured.post(url, json={"label": "pipeline", "role": "admin"}, headers=headers)
     assert other.status_code == 422
     # An mcp token never reaches the REST API
     assert secured.get("/api/v1/me", headers=_bearer(body["token"])).status_code == 403
+
+
+def test_a_personal_ci_token_scans_the_projects_of_its_user(secured, reports):
+    groups = [group_for("reader", ["shop-api"]), group_for("mcp-user")]
+    make_user("alice", USER_PASSWORD, group_ids=groups)
+    headers = session_headers(secured, "alice")
+
+    created = secured.post(
+        "/api/v1/me/tokens", json={"label": "laptop", "role": "ci"}, headers=headers
+    )
+    assert created.status_code == 201, created.text
+    token = _bearer(created.json()["token"])
+    saved = secured.post("/api/v1/ci/scan/code", json=code_scan_body(save=True), headers=token)
+    assert saved.status_code == 200, saved.text
+    report = services.get_report(saved.json()["saved_report"]["report_id"])
+    assert (report.project, report.submitted_by) == ("shop-api", "alice:laptop")
+    # Only the projects its user may read, and only the pipeline routes
+    other = secured.post("/api/v1/ci/scan/code", json=code_scan_body("billing"), headers=token)
+    assert other.status_code == 404
+    assert secured.get("/api/v1/me", headers=token).status_code == 403
 
 
 def test_a_personal_mcp_token_needs_the_mcp_tokens_create_permission(secured, reports):

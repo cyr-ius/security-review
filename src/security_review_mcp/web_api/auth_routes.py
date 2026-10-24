@@ -13,7 +13,8 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import RedirectResponse
 
-from .. import app_settings, oidc, rate_limit, web_users
+from .. import app_settings
+from ..auth import oidc, rate_limit, web_users
 from ..config import Settings, get_settings
 from .deps import client_address
 from .schemas import AuthConfig, LoginSession, PasswordLogin

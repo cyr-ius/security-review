@@ -11,19 +11,13 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
-from .. import (
-    access_control,
-    app_settings,
-    audit_syslog,
-    proxy,
-    rules_loader,
-    standards,
-    token_store,
-    web_users,
-)
+from .. import app_settings, proxy, standards
+from ..auth import access_control, token_store, web_users
 from ..config import MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS
 from ..http_server import Role
-from ..models import (
+from ..observability import audit_syslog
+from ..rules import rules_loader
+from ..storage.models import (
     MAX_AUTHOR_CHARS,
     MAX_COMMENT_CHARS,
     MAX_STATUS_REASON_CHARS,
@@ -32,7 +26,7 @@ from ..models import (
     ReviewType,
     Severity,
 )
-from ..project_names import ProjectName
+from ..storage.project_names import ProjectName
 from ..ticketing import api as ticketing_api
 
 AuthSource = Literal["local", "oidc"]
@@ -749,10 +743,11 @@ class TokenRoleChoice(BaseModel):
 
 class PersonalTokenCreate(BaseModel):
     """Body of POST /me/tokens: a personal token of the logged-in user, ``api`` (REST API, with
-    the rights of the user) or ``mcp`` (MCP agent, on the projects the user may read)."""
+    the rights of the user), ``mcp`` (MCP agent) or ``ci`` (security-review-ci on a workstation),
+    the last two on the projects the user may read."""
 
     label: str = Field(min_length=1, max_length=64)
-    role: Literal["api", "mcp"] = "api"
+    role: Literal["api", "mcp", "ci"] = "api"
     # Validity in days (null: SECREVIEW_TOKEN_MAX_DAYS, or no expiry when it is 0)
     expires_in_days: int | None = Field(default=None, ge=1, le=MAX_RETENTION_DAYS)
 
@@ -783,7 +778,7 @@ class ProjectToken(BaseModel):
     role: Role
     # First project of the token (kept for API compatibility)
     project: str | None
-    # None: every project (personal mcp token: the projects its user may read now)
+    # None: every project (personal mcp or ci token: the projects its user may read now)
     projects: list[str] | None
     created_at: str
     expires_at: str | None

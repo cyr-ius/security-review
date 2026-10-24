@@ -70,9 +70,10 @@ shown), and the browser remembers the chosen sort for the next visits.
   trash button of a row deletes the project and everything that refers to it (see
   [Deleting a project](../advanced/access-control.md#deleting-a-project)).
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
-  time to remediate, oldest open finding, most frequent CWEs, latest reports and SARIF export.
+  time to remediate, oldest open finding, most frequent CWEs, the 20 worst open findings
+  (severity, rule, location, report) and SARIF export; **All reports** lists its reports.
   The **Review open findings** button opens the next screen; **Risk acceptances** lists the
-  accepted risks of the project; **Refresh** reloads the trend and the reports.
+  accepted risks of the project; **Refresh** reloads the trend and the open findings.
 - **Findings to review**: every open finding of the project across all its reports, worst
   severity first, then newest report first, for a review by a security expert. Each finding
   shows its description, code excerpt and recommendation, and a link to its report (date, review
@@ -89,31 +90,34 @@ shown), and the browser remembers the chosen sort for the next visits.
   (the first one is the reason of the acceptance), and for the `findings.triage` permission the
   forms to add a comment, change the expiry date and remove the acceptance (see [risk acceptances](#risk-acceptances)).
 - **Reports**: list filtered by project and risk level, searchable across report metadata and
-  summary, and sortable by date, project, risk, type, branch, author or summary. Search and
+  summary, and sortable by date, project, risk, type, branch, token or summary. The **Token**
+  column shows the label of the token that sent the report; hovering it shows the declared
+  author to a holder of `users.manage` or `tokens.manage`. Search and
   filters stay in the URL, so a view can be shared; the sort is remembered by the browser.
-- **Report**: summary, context (repository, branch, commit, review type, **Author** and
+- **Report**: summary, context (repository, branch, commit, review type, **Author** (for a
+  holder of `users.manage` or `tokens.manage`) and
   **Sent by (token)**, see [author of a report](prompts-tools.md#author-of-a-report)),
   **Review coverage** (checklist items by outcome and rules that raised scan leads, those cited by
   no finding marked **dismissed**, see [review coverage](prompts-tools.md#review-coverage)), findings with
   location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
   `findings.triage` permission change the status of a finding directly from this screen, and
   raise its severity with a justification (see [severity of a finding](#severity-of-a-finding)).
-- **Standards**: the [development standards](../advanced/standards.md) handed to the AI
+- **Standards**: the [development standards](standards.md) handed to the AI
   assistants by the `development-standards` prompt. Search and sort by title,
   technology or file pattern, and filter by enabled state. Administrators read, create, edit
   (technologies, file patterns, Markdown content), disable or delete them. A change applies
-  immediately. **Export** and **Import** copy them as a [TOML file](../advanced/standards.md#import-and-export).
-- **Checklists**: administrators search and sort check items, and filter by domain and origin; they create,
+  immediately. **Export** and **Import** copy them as a [TOML file](standards.md#import-and-export).
+- **Checklists**: the [checklists](checklists.md) of the reviews. Administrators search and sort check items, and filter by domain and origin; they create,
   edit or delete the custom items. The default items can be edited, but not deleted. Every
   change is reloaded immediately by the server and included in the review prompts.
-  **Export** and **Import** exchange [TOML packs](../advanced/rules.md#import-and-export-in-the-web-interface).
-- **Rules**: administrators search and sort every [rule](../advanced/rules.md) stored in the database,
+  **Export** and **Import** exchange [TOML packs](rules.md#import-and-export-in-the-web-interface).
+- **Rules**: administrators search and sort every [rule](rules.md) stored in the database,
   and filter by origin (default or custom) and severity. They create, edit (in a modal window, without losing
   the position in the list), enable or disable the rules, and delete the custom rules. A default
   rule can be edited ("Par défaut, modifiée" badge: default, edited) or disabled, but not
   deleted. The **Reload** button applies immediately a change made with the
   `security-review-controller rules` CLI. **Export** and **Import** exchange
-  [TOML packs](../advanced/rules.md#import-and-export-in-the-web-interface).
+  [TOML packs](rules.md#import-and-export-in-the-web-interface).
 - **Users**: administrators manage the [accounts](#user-accounts), the only
   ones to open the interface. Each account is **Local** (user name and password, entered or
   generated and shown only once) or **OIDC** (login through the identity provider, no password),
@@ -136,7 +140,7 @@ shown), and the browser remembers the chosen sort for the next visits.
   password there (their other sessions are closed); the one of an OIDC user is managed by the
   identity provider. **Personal tokens** creates and revokes the personal tokens of the account:
   [REST API](#api-tokens) tokens (Swagger, scripts), which hold its rights, and
-  [MCP](#personal-mcp-tokens) tokens for its agent, which reach the projects it may read.
+  [MCP](#personal-mcp-and-ci-tokens) tokens for its agent, which reach the projects it may read.
 - **Tokens**: tokens are searchable, sortable and filterable by usage. Administrators create
   and revoke tokens for one or more projects, or for
   **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role),
@@ -248,10 +252,7 @@ date for `open` / `fixed` gets `422`. Without `expires_on`, an acceptance never 
 `permanent_acceptance` to tell whether the caller may do it. Below
 `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` and `expires_on` are optional for
 `accepted` (`{"status": "accepted"}` is enough); `GET /api/v1/me` returns this threshold as
-`risk_acceptance_min_severity` (`null`: every acceptance needs them). The **Risk accepted** and **False positive** decisions
-made before this feature had no reason nor approver: the database upgrade gives them an expiry
-date 30 days later, with a reason that asks to confirm them. Review them with the status filters
-before that date, or they block the gate again.
+`risk_acceptance_min_severity` (`null`: every acceptance needs them).
 
 ### Severity of a finding
 
@@ -361,7 +362,9 @@ curl -H "Authorization: Bearer $TOKEN" \
 ```
 
 `GET /api/v1/reports` lists the reports (`project`, `risk_level`, `review_type` and `author`
-filter), each with its `author` and `submitted_by`:
+filter), each with its `author` and `submitted_by`. The `author` is returned, filtered, searched
+and sorted only for a caller holding `users.manage` or `tokens.manage`: for the others it is
+`null` (in the report and its Markdown export too) and the `author` filter is ignored:
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
@@ -414,7 +417,7 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 # {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
 ```
 
-### Personal MCP tokens
+### Personal MCP and CI tokens
 
 A user connects their own MCP agent with a personal `mcp` token, created in **My account** >
 **Personal tokens** with **Usage** **MCP**, offered only when their groups hold the
@@ -441,6 +444,20 @@ tells the user to sign in again and create a new one. It never reaches the REST 
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
   https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "mcp"}'
 # {"id": "…", "label": "alice:laptop", "role": "mcp", "personal": true, …, "token": "Zq3…"}
+```
+
+A personal `ci` token (**Usage** **CI/CD pipeline**, same `mcp_tokens.create` permission, one at
+most by default) lets [`security-review-ci`](gate.md#pipeline-client-security-review-ci) run
+the code and dependency scans, the gate, the SARIF export and the trend from the workstation of
+the user, on the same projects as a personal `mcp` token and with the same rules. It reaches
+only the pipeline routes (`/api/v1/ci/`), never `/mcp` nor the rest of the REST API. A report
+it stores is submitted by the token (`alice:laptop`). See
+[scan from a workstation](../advanced/dependencies.md#scan-from-a-workstation-commit-hook).
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "ci"}'
+# {"id": "…", "label": "alice:laptop", "role": "ci", "personal": true, …, "token": "Zq3…"}
 ```
 
 ## User accounts
@@ -516,12 +533,6 @@ password** before anything else: it opens **My account**, and the API refuses ev
 The same applies to every password set by someone else: a local account created or reset by an
 administrator (screen or CLI) changes its password at its first login. The **Users** screen shows
 **password to change** until then.
-
-!!! note "Upgrading from the `bootstrap-admin` token"
-    Previous versions created a `bootstrap-admin` **token** instead of the account. On an
-    existing database, this token stays valid; the `admin` account is created at the next start
-    if no account exists. Once logged in with the account, revoke the old token:
-    `security-review-controller token revoke bootstrap-admin`.
 
 #### Lost password
 

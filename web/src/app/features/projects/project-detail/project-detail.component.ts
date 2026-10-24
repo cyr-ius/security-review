@@ -1,4 +1,4 @@
-import { DecimalPipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
@@ -9,7 +9,7 @@ import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { SEVERITIES, Severity, Trend } from '../../../core/models/api.models';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import { RefreshButtonComponent } from '../../../shared/components/refresh-button/refresh-button.component';
-import { ReportTableComponent } from '../../../shared/components/report-table/report-table.component';
+import { SeverityBadgeComponent } from '../../../shared/components/severity-badge/severity-badge.component';
 import { SeverityCountsComponent } from '../../../shared/components/severity-counts/severity-counts.component';
 import { TrendChartComponent } from '../../../shared/components/trend-chart/trend-chart.component';
 
@@ -27,16 +27,18 @@ const WINDOWS: readonly TrendWindow[] = [
   { days: 365, granularity: 'month', label: 'project.window365' },
 ];
 
-const RECENT_REPORTS = 20;
+/** Open findings listed on the page (the full list is at /projects/:project/findings). */
+const TOP_OPEN_FINDINGS = 20;
 
-/** One project: open findings, trend and latest reports. */
+/** One project: open findings, trend and the worst open findings. */
 @Component({
   selector: 'app-project-detail',
   imports: [
     RouterLink,
+    DatePipe,
     DecimalPipe,
     RefreshButtonComponent,
-    ReportTableComponent,
+    SeverityBadgeComponent,
     SeverityCountsComponent,
     TrendChartComponent,
     TranslatePipe,
@@ -61,9 +63,17 @@ export class ProjectDetailComponent {
       this.api.trend(params.project, params.window.days, params.window.granularity),
   });
 
-  readonly reports = rxResource({
-    params: () => ({ project: this.project(), limit: RECENT_REPORTS, offset: 0 }),
-    stream: ({ params }) => this.api.reports(params),
+  /** Worst open findings of the project, across all its reports. */
+  readonly openFindings = rxResource({
+    params: () => ({
+      project: this.project(),
+      status: 'open' as const,
+      severity: '' as const,
+      reviewType: '' as const,
+      limit: TOP_OPEN_FINDINGS,
+      offset: 0,
+    }),
+    stream: ({ params }) => this.api.projectFindings(params),
   });
 
   readonly direction = computed(() => {
@@ -89,10 +99,10 @@ export class ProjectDetailComponent {
     }));
   });
 
-  /** Reload the trend and the latest reports. */
+  /** Reload the trend and the open findings. */
   reload(): void {
     this.trend.reload();
-    this.reports.reload();
+    this.openFindings.reload();
   }
 
   selectWindow(window: TrendWindow): void {

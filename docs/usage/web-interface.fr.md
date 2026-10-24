@@ -72,10 +72,11 @@ suivantes.
   `projects.delete`, le bouton corbeille d'une ligne supprime le projet et tout ce qui s'y
   rapporte (voir [Suppression d'un projet](../advanced/access-control.md#suppression-dun-projet)).
 - **Projet** : findings ouverts, tendance sur 30 jours à 1 an (graphique et tableau), délai
-  moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, derniers rapports et
-  export SARIF. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant ;
+  moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, les 20 findings ouverts
+  les plus graves (sévérité, règle, emplacement, rapport) et export SARIF ; **Tous les rapports**
+  liste ses rapports. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant ;
   **Acceptations de risque** liste les risques acceptés du projet ; **Actualiser** recharge la
-  tendance et les rapports.
+  tendance et les findings ouverts.
 - **Findings à revoir** : tous les findings ouverts du projet, sur l'ensemble de ses rapports,
   du plus grave au moins grave puis du rapport le plus récent au plus ancien, pour une revue par
   un expert en cybersécurité. Chaque finding affiche sa description, son extrait de code et sa
@@ -94,10 +95,13 @@ suivantes.
   avec la permission `findings.triage`, les formulaires pour ajouter un commentaire, changer la
   date d'expiration et supprimer l'acceptation (voir [acceptations de risque](#acceptations-de-risque)).
 - **Rapports** : liste filtrable par projet et niveau de risque, avec recherche dans les
-  métadonnées et le résumé, tri par date, projet, risque, type, branche, auteur ou résumé. La
+  métadonnées et le résumé, tri par date, projet, risque, type, branche, jeton ou résumé. La
+  colonne **Jeton** affiche le libellé du jeton qui a envoyé le rapport ; le survoler montre
+  l'auteur déclaré à qui détient `users.manage` ou `tokens.manage`. La
   recherche et les filtres restent dans l'URL, pour partager la vue ; le tri est mémorisé par le
   navigateur.
-- **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** et
+- **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** (pour qui
+  détient `users.manage` ou `tokens.manage`) et
   **Envoyé par (jeton)**, voir [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)),
   **Couverture de la revue** (points de checklist par résultat et règles qui ont remonté des
   pistes, celles citées par aucun finding marquées **écartée**, voir
@@ -106,25 +110,25 @@ suivantes.
   utilisateurs qui ont la permission `findings.triage` changent le statut d'un finding directement
   depuis cet écran, et relèvent sa criticité avec une justification (voir
   [criticité d'un finding](#criticite-dun-finding)).
-- **Normes** : les [normes de développement](../advanced/standards.md) transmises aux assistants IA par le
+- **Normes** : les [normes de développement](standards.md) transmises aux assistants IA par le
   prompt `development-standards`. Rechercher et trier par titre, technologie ou motif
   de fichier, filtrer par état activé. Les administrateurs les lisent, les créent,
   les modifient (technologies, motifs de fichiers, contenu Markdown), les désactivent ou les
   suppriment. Un changement s'applique immédiatement. **Exporter** et **Importer** les copient
-  sous forme de [fichier TOML](../advanced/standards.md#import-et-export).
-- **Checklists** : les administrateurs recherchent et trient les items de contrôle, filtrent par
+  sous forme de [fichier TOML](standards.md#import-et-export).
+- **Checklists** : les [checklists](checklists.md) des revues. Les administrateurs recherchent et trient les items de contrôle, filtrent par
   domaine et origine, et créent, modifient ou suppriment les items personnalisés. Les items par défaut peuvent
   être modifiés, mais pas supprimés. Toute modification est rechargée immédiatement par le serveur
   et intégrée aux prompts de revue. **Exporter** et **Importer** échangent des
-  [packs TOML](../advanced/rules.md#import-et-export-dans-linterface-web).
-- **Règles** : les administrateurs recherchent et trient toutes les [règles](../advanced/rules.md) stockées en base,
+  [packs TOML](rules.md#import-et-export-dans-linterface-web).
+- **Règles** : les administrateurs recherchent et trient toutes les [règles](rules.md) stockées en base,
   filtrables par origine (par défaut ou personnalisée) et sévérité. Ils créent, modifient (dans une fenêtre
   modale, sans quitter la position dans la liste), activent ou désactivent les règles, et
   suppriment les règles personnalisées. Une règle par défaut peut être
   modifiée (badge « Par défaut, modifiée ») ou désactivée, mais pas supprimée. Le bouton
   **Recharger** applique immédiatement un changement fait avec la CLI
   `security-review-controller rules`. **Exporter** et **Importer** échangent des
-  [packs TOML](../advanced/rules.md#import-et-export-dans-linterface-web).
+  [packs TOML](rules.md#import-et-export-dans-linterface-web).
 - **Utilisateurs** : les administrateurs gèrent les [comptes](#comptes-utilisateurs), seuls
   à ouvrir l'interface. Chaque compte est **Local** (identifiant et mot de passe, saisi ou généré
   et affiché une seule fois) ou **OIDC** (connexion par le fournisseur d'identité, sans mot de
@@ -150,7 +154,7 @@ suivantes.
   autres sessions sont fermées) ; celui d'un utilisateur OIDC est géré par le fournisseur
   d'identité. **Jetons personnels** crée et révoque les jetons personnels du compte : des
   jetons [API REST](#jetons-api) (Swagger, scripts), qui portent ses droits, et des jetons
-  [MCP](#jetons-mcp-personnels) pour son agent, qui atteignent les projets qu'il peut lire.
+  [MCP](#jetons-mcp-et-ci-personnels) pour son agent, qui atteignent les projets qu'il peut lire.
 - **Jetons** : les jetons sont recherchables, triables et filtrables par usage. Les administrateurs créent et révoquent des jetons pour un ou plusieurs
   projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit
   **MCP** (rôle `mcp`), **Pipeline CI/CD** (rôle `ci`, pour
@@ -266,11 +270,7 @@ jamais, sauf si `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`) ; `GET /a
 `permanent_acceptance` pour indiquer si l'appelant peut le faire. Sous
 `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` et `expires_on` sont facultatifs pour
 `accepted` (`{"status": "accepted"}` suffit) ; `GET /api/v1/me` renvoie ce seuil dans
-`risk_acceptance_min_severity` (`null` : toute acceptation les exige). Les décisions **Risque accepté** et **Faux
-positif** prises avant cette fonctionnalité n'avaient ni motif ni approbateur : la mise à jour de
-la base leur donne une date d'expiration 30 jours plus tard, avec un motif qui demande de les
-confirmer. Revoyez-les avec les filtres de statut avant cette date, sinon elles bloquent de
-nouveau la gate.
+`risk_acceptance_min_severity` (`null` : toute acceptation les exige).
 
 ### Criticité d'un finding
 
@@ -385,7 +385,10 @@ curl -H "Authorization: Bearer $TOKEN" \
 ```
 
 `GET /api/v1/reports` liste les rapports (filtres `project`, `risk_level`, `review_type` et
-`author`), chacun avec son `author` et son `submitted_by` :
+`author`), chacun avec son `author` et son `submitted_by`. L'`author` n'est renvoyé, filtré,
+recherché et trié que pour un appelant qui détient `users.manage` ou `tokens.manage` : pour les
+autres, il vaut `null` (dans le rapport et son export Markdown aussi) et le filtre `author` est
+ignoré :
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \
@@ -439,7 +442,7 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
 # {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
 ```
 
-### Jetons MCP personnels
+### Jetons MCP et CI personnels
 
 Un utilisateur connecte son propre agent MCP avec un jeton `mcp` personnel, créé dans **Mon
 compte** > **Jetons personnels** avec l'**Usage** **MCP**, proposé seulement quand ses groupes
@@ -466,6 +469,20 @@ l'API REST.
 curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
   https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "mcp"}'
 # {"id": "…", "label": "alice:laptop", "role": "mcp", "personal": true, …, "token": "Zq3…"}
+```
+
+Un jeton `ci` personnel (**Usage** **Pipeline CI/CD**, même permission `mcp_tokens.create`, un au
+plus par défaut) permet à [`security-review-ci`](gate.md#client-de-pipeline-security-review-ci)
+de lancer les scans de code et de dépendances, la gate, l'export SARIF et la tendance depuis le
+poste de l'utilisateur, sur les mêmes projets qu'un jeton `mcp` personnel et avec les mêmes
+règles. Il n'atteint que les routes de pipeline (`/api/v1/ci/`), jamais `/mcp` ni le reste de
+l'API REST. Un rapport qu'il enregistre est soumis par le jeton (`alice:laptop`). Voir
+[scan depuis un poste de travail](../advanced/dependencies.md#scan-depuis-un-poste-de-travail-hook-de-commit).
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "ci"}'
+# {"id": "…", "label": "alice:laptop", "role": "ci", "personal": true, …, "token": "Zq3…"}
 ```
 
 ## Comptes utilisateurs
@@ -543,12 +560,6 @@ voir [mot de passe perdu](#mot-de-passe-perdu).
 Il en va de même de tout mot de passe défini par quelqu'un d'autre : un compte local créé ou
 réinitialisé par un administrateur (écran ou CLI) change son mot de passe à sa première connexion.
 L'écran **Utilisateurs** affiche **mot de passe à changer** jusque-là.
-
-!!! note "Mise à jour depuis le jeton `bootstrap-admin`"
-    Les versions précédentes créaient un **jeton** `bootstrap-admin` à la place du compte. Sur une
-    base existante, ce jeton reste valable ; le compte `admin` est créé au démarrage suivant s'il
-    n'existe aucun compte. Une fois connecté avec le compte, révoquez l'ancien jeton :
-    `security-review-controller token revoke bootstrap-admin`.
 
 #### Mot de passe perdu
 

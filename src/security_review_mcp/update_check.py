@@ -22,12 +22,12 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from . import __version__
+from .auth.oidc import _HttpsRedirectOnly
 from .config import Settings
-from .oidc import _HttpsRedirectOnly
+from .deps.versions import compare_versions
 from .proxy import masked_url, proxy_handler
-from .versions import compare_versions
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("security_review_mcp.update_check")
 
 GITHUB_REPOSITORY = "cyr-ius/security-review-mcp"
 LATEST_RELEASE_URL = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/releases/latest"

@@ -105,7 +105,7 @@ puis vous indique où créer votre jeton (voir
 
 3. **Créez votre jeton MCP personnel** : connectez-vous à l'interface web (`web_url`), ouvrez
    **Mon compte** > **Jetons personnels** et créez un jeton d'usage **MCP** (voir
-   [jetons MCP personnels](../usage/web-interface.md#jetons-mcp-personnels) ; vos groupes doivent
+   [jetons MCP personnels](../usage/web-interface.md#jetons-mcp-et-ci-personnels) ; vos groupes doivent
    avoir le rôle `mcp-user`). Il n'est affiché **qu'une seule fois**.
 4. **Enregistrez le jeton dans l'hôte**, puis redémarrez le serveur MCP dans l'hôte :
 

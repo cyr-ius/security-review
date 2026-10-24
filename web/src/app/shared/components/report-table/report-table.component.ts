@@ -27,7 +27,7 @@ export type ReportSortKey =
   | 'review_type'
   | 'findings_open'
   | 'branch'
-  | 'author'
+  | 'submitted_by'
   | 'summary';
 
 /** Table of reports, newest first. */
@@ -68,7 +68,7 @@ export class ReportTableComponent {
       'review_type',
       'findings_open',
       'branch',
-      'author',
+      'submitted_by',
       'summary',
     ],
     'created_at',
@@ -110,6 +110,7 @@ export class ReportTableComponent {
           report.review_type ? this.i18n.translate(`reviewType.${report.review_type}`) : '',
           report.branch ?? '',
           report.commit_sha ?? '',
+          report.submitted_by ?? '',
           report.author ?? '',
           report.summary,
         ].join(' '),
@@ -129,8 +130,8 @@ export class ReportTableComponent {
         if (sort === 'branch') {
           return compareTableText(left.branch ?? '', right.branch ?? '');
         }
-        if (sort === 'author') {
-          return compareTableText(left.author ?? '', right.author ?? '');
+        if (sort === 'submitted_by') {
+          return compareTableText(left.submitted_by ?? '', right.submitted_by ?? '');
         }
         if (sort === 'summary') {
           return compareTableText(left.summary, right.summary);

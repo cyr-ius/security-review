@@ -17,9 +17,23 @@ security-review-ci gate --project portal --fail-on high
 
 `security-review-ci` est un client léger du contrôleur : il appelle les routes de pipeline de
 l'API REST (`/api/v1/ci/gate`, `/api/v1/ci/sarif`, `/api/v1/ci/trend`, et
-`/api/v1/ci/scan/code` et `/api/v1/ci/scan/deps` pour les scans) et n'ouvre aucune base. Il n'utilise que la bibliothèque standard de Python : installez le paquet
-(`pip install security-review-mcp`), ou copiez le seul fichier
-`security_review_mcp/ci_client.py` sur l'agent et lancez-le avec `python3 ci_client.py`.
+`/api/v1/ci/scan/code` et `/api/v1/ci/scan/deps` pour les scans) et n'ouvre aucune base. Il
+n'utilise que la bibliothèque standard de Python (Python 3.14) et est publié seul
+sur PyPI sous le nom `security-review-ci`, à la version du serveur, sans ses dépendances.
+
+### Installation
+
+| Machine | Commande |
+|---|---|
+| Poste sans Python (Linux, macOS, Windows) | [uv](https://docs.astral.sh/uv/getting-started/installation/), puis `uv tool install security-review-ci` : uv télécharge un Python quand aucun n'est installé |
+| Agent de build ou poste avec Python ≥ 3.14 | `pip install security-review-ci` (ou `pipx install security-review-ci`) |
+| Agent sans accès à PyPI | Copiez le seul fichier `security_review_mcp/ci_client.py` (ou le wheel `security_review_ci` joint à la release GitHub) et lancez-le avec `python3 ci_client.py` |
+| Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review-mcp …` |
+
+Le paquet `security-review-mcp` installe aussi `security-review-ci` : n'installez pas les deux
+paquets dans le même environnement. Installez la version de votre contrôleur
+(`uv tool install security-review-ci==X.Y.Z`) ; `uv tool upgrade security-review-ci` le met à
+jour.
 
 | Sous-commande | Rôle |
 |---|---|
@@ -58,6 +72,10 @@ eux ; un autre projet répond `404`, comme un projet inexistant. `--project` est
 security-review-controller token create --label jenkins-portal --role ci \
   --project portal --project portal-api
 ```
+
+Sur un poste de travail, un développeur utilise plutôt un
+[jeton `ci` personnel](web-interface.md#jetons-mcp-et-ci-personnels), créé dans
+**Mon compte** : il atteint les projets que le développeur peut lire.
 
 Les sessions web et les jetons `api` (dans les projets qu'ils lisent) et les jetons `admin`
 peuvent aussi appeler les routes du gate, du SARIF et de la tendance ; les jetons `mcp`, non. Les scans, qui enregistrent

@@ -31,11 +31,6 @@ enregistré dans le journal d'audit (`ticketing.changed`, `{"enabled": true}`).
 | `true` (défaut) | Les interrupteurs de l'écran décident ; chaque connecteur est désactivé tant qu'il n'a pas été activé |
 | `false` | Tous les connecteurs sont verrouillés : rien n'est envoyé, les interrupteurs ne peuvent pas être activés, **Tester la connexion** est refusé |
 
-!!! note "Mise à jour depuis la 1.0"
-    En 1.0, `SECREVIEW_TICKETING_ENABLED=true` suffisait pour envoyer par chaque connecteur
-    configuré. Depuis les interrupteurs, activez chaque connecteur utilisé dans l'écran
-    **Connecteurs** après la mise à jour : d'ici là, rien n'est envoyé.
-
 ```bash
 SECREVIEW_TICKETING_INTERVAL_SECONDS=300   # période de l'envoi automatique
 SECREVIEW_TICKETING_CAFILE=/etc/ssl/corp-ca.pem   # facultatif : autorité de certification interne

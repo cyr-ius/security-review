@@ -41,7 +41,10 @@
       <i class="bi bi-download" aria-hidden="true"></i>
       {{ 'project.exportSarif' | t }}
     </button>
-    <app-refresh-button [loading]="trend.isLoading() || reports.isLoading()" (refresh)="reload()" />
+    <app-refresh-button
+      [loading]="trend.isLoading() || openFindings.isLoading()"
+      (refresh)="reload()"
+    />
   </div>
 </div>
 
@@ -169,10 +172,74 @@
 }
 
 <div class="card">
-  <div class="card-header fw-semibold">{{ 'project.latestReports' | t }}</div>
-  @if (reports.value(); as rows) {
-    <app-report-table [reports]="rows" [showProject]="false" [enableControls]="true" />
-  } @else if (reports.error()) {
-    <div class="card-body text-danger">{{ 'reports.loadError' | t }}</div>
+  <div class="card-header d-flex flex-wrap align-items-center gap-2">
+    <span class="fw-semibold">{{ 'project.openFindings' | t }}</span>
+    @if (openFindings.value(); as page) {
+      @if (page.total > page.findings.length) {
+        <span class="small text-body-secondary">
+          {{ 'projectFindings.count' | t: { shown: page.findings.length, total: page.total } }}
+        </span>
+      }
+      @if (page.total > 0) {
+        <a class="small ms-auto" [routerLink]="['/projects', project(), 'findings']">
+          {{ 'project.reviewFindings' | t }}
+          <i class="bi bi-arrow-right" aria-hidden="true"></i>
+        </a>
+      }
+    }
+  </div>
+  @if (openFindings.value(); as page) {
+    @if (page.findings.length > 0) {
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col">{{ 'project.colSeverity' | t }}</th>
+              <th scope="col">{{ 'project.colFinding' | t }}</th>
+              <th scope="col">{{ 'project.colLocation' | t }}</th>
+              <th scope="col">{{ 'project.colReport' | t }}</th>
+              <th scope="col">{{ 'reportTable.date' | t }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (finding of page.findings; track finding.id) {
+              <tr>
+                <td class="text-nowrap"><app-severity-badge [severity]="finding.severity" /></td>
+                <td>
+                  <div class="text-break">{{ finding.title }}</div>
+                  <div class="small text-body-secondary">
+                    @if (finding.rule_id) {
+                      <code>{{ finding.rule_id }}</code>
+                    }
+                    @if (finding.cwe) {
+                      <span class="ms-1">{{ finding.cwe }}</span>
+                    }
+                  </div>
+                </td>
+                <td class="small text-break">
+                  @if (finding.file_path) {
+                    <code
+                      >{{ finding.file_path
+                      }}{{ finding.line_start ? ':' + finding.line_start : '' }}</code
+                    >
+                  }
+                </td>
+                <td class="text-nowrap">
+                  <a [routerLink]="['/reports', finding.report_id]">#{{ finding.report_id }}</a>
+                </td>
+                <td class="text-nowrap">{{ finding.report_created_at | date: 'dd/MM/yyyy' }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    } @else {
+      <p class="card-body text-body-secondary text-center mb-0">
+        <i class="bi bi-check2-circle" aria-hidden="true"></i>
+        {{ 'projectFindings.none' | t }}
+      </p>
+    }
+  } @else if (openFindings.error()) {
+    <div class="card-body text-danger">{{ 'projectFindings.loadError' | t }}</div>
   }
 </div>

@@ -13,28 +13,16 @@ from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, ToolAnnotations
 from pydantic import Field
 
-from . import (
-    __version__,
-    access_control,
-    advisories,
-    app_settings,
-    audit,
-    cli,
-    depscan,
-    enrollment_api,
-    http_server,
-    prompts,
-    registry,
-    sarif,
-    scanner,
-    services,
-    standards,
-    token_store,
-    trends,
-)
+from . import __version__, app_settings, http_server, prompts, standards
+from .auth import access_control, enrollment_api, token_store
+from .clients import commands
 from .config import check_report_language, configure_logging, get_settings
-from .database import SchemaError, check_db, init_db
-from .models import (
+from .deps import advisories, depscan
+from .observability import audit
+from .reports import sarif, services, trends
+from .rules import registry, scanner
+from .storage.database import SchemaError, check_db, init_db
+from .storage.models import (
     MAX_AUTHOR_CHARS,
     MAX_BRANCH_CHARS,
     MAX_CHECKLIST_RESULTS,
@@ -50,7 +38,7 @@ from .models import (
     ReviewType,
     Severity,
 )
-from .project_names import ProjectName
+from .storage.project_names import ProjectName
 
 logger = logging.getLogger("security_review_mcp")
 
@@ -176,7 +164,10 @@ def _report_language(requested: str) -> str:
 @mcp.prompt(
     name="security-review",
     title="Security code review",
-    description="Review Python, Java or Angular code for vulnerabilities and insecure settings.",
+    description=(
+        "Review Python, Java, Go, C#, Rust, TypeScript/Node.js or Angular code for "
+        "vulnerabilities and insecure settings."
+    ),
 )
 def security_review(
     language: str = "",
@@ -297,7 +288,7 @@ def dependency_review(
     """Build the dependency review prompt.
 
     Args:
-        ecosystem: PyPI, npm or Maven (leave empty for all).
+        ecosystem: PyPI, npm, Maven, Go, crates.io or NuGet (leave empty for all).
         files: Dependency files with their names (leave empty to read the workspace files).
         context: Optional context (exposure, runtime vs dev usage...).
         report_language: Language of the reply and of the stored report.
@@ -771,15 +762,16 @@ def scan_dependencies(
     Check `vulnerability_check` first: when it is not `performed`, no vulnerability could be
     detected and an empty list does NOT mean the dependencies are safe. Lockfiles and SBOMs give
     the best results. Supported: requirements*.txt, pyproject.toml, poetry.lock, Pipfile.lock,
-    uv.lock, package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts) and
-    CycloneDX SBOMs (bom.json, bom.xml, *.cdx.json): use an SBOM for the transitive
-    dependencies of a Maven or Gradle project.
+    uv.lock, package.json, package-lock.json, yarn.lock, pom.xml, build.gradle(.kts), go.mod,
+    Cargo.lock, Cargo.toml, packages.lock.json, *.csproj, Directory.Packages.props,
+    packages.config, nuget.config and CycloneDX SBOMs (bom.json, bom.xml, *.cdx.json): use an
+    SBOM for the transitive dependencies of a Maven or Gradle project.
     """
     limit = get_settings().max_dependency_chars
     if len(content) > limit:
         raise ValueError(
             f"File too large for a tool call ({len(content)} chars, limit {limit}): run "
-            "`security-review-ci scan-deps <file> --project <name>` in the pipeline instead"
+            "`security-review-ci scan-deps <file> --project <name>` instead"
         )
     return depscan.scan_dependencies(content, filename)
 
@@ -939,7 +931,6 @@ Security review MCP server (administration: security-review-controller).
 commands:
   serve        run the MCP server: stdio for a local host, streamable-http for a shared server
   enroll       request the project of a repository on a shared server (no token is created)
-  scan-deps    scan dependency files with the advisory database of a shared server
 
 Run `security-review-mcp COMMAND --help` for the options of a command.
 Administration (db, token, user, rules, advisories...) is run by security-review-controller.
@@ -958,16 +949,8 @@ def main(argv: list[str] | None = None) -> None:
     command = arguments[0] if arguments else None
     if command == "serve":
         serve(arguments[1:])
-    elif command in cli.MCP_COMMANDS:
-        sys.exit(cli.run(arguments))
-    elif command in cli.CONTROLLER_COMMANDS:
-        # Kept for one major version: these commands moved to the controller CLI
-        print(
-            f"warning: `security-review-mcp {command}` is deprecated, "
-            f"use `security-review-controller {command}`",
-            file=sys.stderr,
-        )
-        sys.exit(cli.run(arguments))
+    elif command in commands.MCP_COMMANDS:
+        sys.exit(commands.run(arguments))
     elif command in ("-h", "--help"):
         print(USAGE, end="")
     else:
@@ -977,7 +960,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"\nerror: use `security-review-mcp serve {command} ...`", file=sys.stderr)
         elif command is not None:
             print(f"\nerror: unknown command '{command}'", file=sys.stderr)
-        sys.exit(cli.EXIT_ERROR)
+        sys.exit(commands.EXIT_ERROR)
 
 
 def serve(argv: list[str]) -> None:

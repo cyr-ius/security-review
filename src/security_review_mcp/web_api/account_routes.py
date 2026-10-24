@@ -7,10 +7,11 @@ from importlib.metadata import PackageNotFoundError, metadata
 from fastapi import APIRouter, HTTPException, Request, Response, status
 from fastapi.concurrency import run_in_threadpool
 
-from .. import __version__, app_settings, rate_limit, token_store, update_check, web_users
+from .. import __version__, app_settings, update_check
+from ..auth import rate_limit, token_store, web_users
 from ..config import get_settings
 from ..http_server import API_HEALTH_PATH, DOCS_PATH
-from ..models import Severity
+from ..storage.models import Severity
 from .auth_routes import LOGIN_HEADERS, open_session
 from .deps import (
     CurrentIdentity,
@@ -119,7 +120,7 @@ async def logout(request: Request, identity: CurrentIdentity) -> Response:
 
 @router.get("/me/tokens")
 async def my_tokens(request: Request, _: CurrentIdentity) -> list[ProjectToken]:
-    """The personal tokens (api and mcp) of the logged-in web user (never their secret)."""
+    """The personal tokens (api, mcp and ci) of the logged-in web user (never their secret)."""
     user_id = web_user_id(request)
     return await run_in_threadpool(token_store.list_personal_tokens, user_id)
 
@@ -131,12 +132,13 @@ async def create_my_token(
     """Create a personal token of the logged-in web user and return its secret exactly once.
 
     An ``api`` token (REST API, Swagger) holds the current rights of the user; an ``mcp`` token
-    (MCP agent) reaches the projects the user may read. Both are read at each request; like
-    every token, they never accept a risk nor mark a false positive. An ``mcp`` token needs
-    the ``mcp_tokens.create`` permission (403 without it). A user holds at most
+    (MCP agent) or a ``ci`` token (security-review-ci on a workstation: scans, gate) reaches the
+    projects the user may read. They are read at each request; like every token, they never
+    accept a risk nor mark a false positive. An ``mcp`` or ``ci`` token needs the
+    ``mcp_tokens.create`` permission (403 without it). A user holds at most
     SECREVIEW_PERSONAL_TOKENS_PER_USER tokens of each role (422 beyond)."""
     user_id = web_user_id(request)
-    if body.role == "mcp" and not has_permission(identity, Permission.MCP_TOKENS_CREATE):
+    if body.role in ("mcp", "ci") and not has_permission(identity, Permission.MCP_TOKENS_CREATE):
         raise HTTPException(
             status.HTTP_403_FORBIDDEN, f"Permission '{Permission.MCP_TOKENS_CREATE}' required"
         )

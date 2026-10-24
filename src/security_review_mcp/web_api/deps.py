@@ -13,7 +13,8 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from .. import __version__, access_control, audit, services, web_users
+from .. import __version__
+from ..auth import access_control, web_users
 from ..http_server import (
     API_ROLES,
     BEARER_CHALLENGE,
@@ -22,8 +23,10 @@ from ..http_server import (
     SCAN_ROUTE_ROLES,
     Role,
 )
-from ..models import SecurityReportPublic
-from ..project_names import normalize_project
+from ..observability import audit
+from ..reports import services
+from ..storage.models import SecurityReportPublic
+from ..storage.project_names import normalize_project
 from .schemas import Identity
 
 logger = logging.getLogger("security_review_mcp.web")
@@ -163,6 +166,14 @@ def has_permission(identity: Identity, permission: Permission, project: str | No
         return False
     projects = identity.permissions[permission]
     return project is None or projects is None or project in projects
+
+
+def sees_authors(identity: Identity) -> bool:
+    """True when the caller may see the declared author of a report (often an e-mail): a
+    manager of the users or of the tokens, who already knows who holds which token."""
+    return has_permission(identity, Permission.USERS_MANAGE) or has_permission(
+        identity, Permission.TOKENS_MANAGE
+    )
 
 
 def permission_scope(identity: Identity, permission: Permission) -> list[str] | None:

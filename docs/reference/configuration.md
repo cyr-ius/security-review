@@ -117,7 +117,7 @@ Read by `security-review-controller` only.
 | `SECREVIEW_OSV_AUTO_UPDATE` | `false` | [Daily update](../advanced/dependencies.md#automatic-update-by-the-controller) of the OSV database by `serve` |
 | `SECREVIEW_OSV_UPDATE_INTERVAL_HOURS` | `24` | Age of the database beyond which `serve` updates it (minimum `1`) |
 | `SECREVIEW_OSV_URL` | `https://osv-vulnerabilities.storage.googleapis.com` | Source of the `<URL>/<ecosystem>/all.zip` exports (HTTPS only, mirror possible) |
-| `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven` | Downloaded ecosystems, comma separated |
+| `SECREVIEW_OSV_ECOSYSTEMS` | `PyPI,npm,Maven,Go,crates.io,NuGet` | Downloaded ecosystems, comma separated |
 | `SECREVIEW_OSV_CAFILE` | — | CA bundle used instead of the system one (internal mirror, proxy that inspects TLS) |
 | `SECREVIEW_OSV_MAX_DOWNLOAD_MB` | `1024` | Maximum size of a downloaded archive |
 
@@ -130,7 +130,7 @@ Read by `security-review-controller` only.
 | `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | A person may [accept a risk](../usage/web-interface.md#triage-of-findings) with **No expiry**: the acceptance lasts until someone reopens the finding. `false`: every acceptance needs an expiry date. A false positive always needs one |
 | `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Lowest severity (`critical`, `high`, `medium`, `low`, `info`) whose [risk acceptance](../usage/web-interface.md#triage-of-findings) needs a reason and an expiry date. A less severe finding is accepted by a plain validation, which closes it with no reason and no date. Empty: every acceptance needs them |
 | `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Longest validity in days of a bearer token created or [rotated](../advanced/http.md#expiry-and-rotation-of-tokens) (CLI, web interface), which is also its default validity; `0`: tokens do not expire unless a validity is asked for |
-| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Personal tokens a web user may hold of each role, [REST API](../usage/web-interface.md#api-tokens) and [MCP](../usage/web-interface.md#personal-mcp-tokens), from `1` to `10`: revoke one to create another |
+| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Personal tokens a web user may hold of each role, [REST API](../usage/web-interface.md#api-tokens) and [MCP](../usage/web-interface.md#personal-mcp-and-ci-tokens), from `1` to `10`: revoke one to create another |
 
 ### Audit and metrics
 
@@ -164,19 +164,18 @@ Read by `security-review-controller` only.
 
 ## Clients
 
-Read by the client commands (`security-review-mcp scan-deps`, `security-review-ci`), never by the servers.
+Read by the pipeline client `security-review-ci`, never by the servers.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_MCP_URL` | — | URL of the shared MCP server used by [`security-review-mcp scan-deps`](../advanced/dependencies.md#scan-with-a-shared-server-commit-hook) (default of `--url`); never used by the servers |
-| `SECREVIEW_TOKEN` | — | Bearer token sent by `scan-deps` to that server, and by [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci) to the controller (`ci` token); never used by the servers |
+| `SECREVIEW_TOKEN` | — | Bearer token sent by [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci) to the controller (`ci` token); never used by the servers |
 | `SECREVIEW_CONTROLLER_URL` | — | URL of the controller used by [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci) (default of `--url`); read from the environment only, never from `.env` |
 
 Bearer tokens are not configured by variable: they are stored in the database and managed with
 `security-review-controller token` (see
 [HTTP server, authentication and TLS](../advanced/http.md)). Neither are internal rules:
 they are stored in the database and managed with `security-review-controller rules` (see
-[Internal rules](../advanced/rules.md)).
+[Rules](../usage/rules.md)).
 
 ## Database
 

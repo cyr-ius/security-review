@@ -7,24 +7,17 @@ import pytest
 from sqlmodel import select
 from starlette.testclient import TestClient
 
-from security_review_mcp import (
-    access_control,
-    app_settings,
-    audit,
-    cli,
-    controller,
-    database,
-    http_server,
-    services,
-    token_store,
-    web_api,
-    web_users,
-)
+from security_review_mcp import app_settings, cli, controller, http_server, web_api
+from security_review_mcp.auth import access_control, token_store, web_users
+from security_review_mcp.auth.rate_limit import RateLimitMiddleware
+from security_review_mcp.clients import commands
 from security_review_mcp.config import Settings
-from security_review_mcp.database import session_scope
 from security_review_mcp.http_server import BearerAuthMiddleware, SecurityHeadersMiddleware
-from security_review_mcp.models import SecurityReport, utcnow
-from security_review_mcp.rate_limit import RateLimitMiddleware
+from security_review_mcp.observability import audit
+from security_review_mcp.reports import services
+from security_review_mcp.storage import database
+from security_review_mcp.storage.database import session_scope
+from security_review_mcp.storage.models import SecurityReport, utcnow
 
 STORE = token_store.DatabaseTokenStore()
 
@@ -372,8 +365,7 @@ def test_unknown_commands_print_the_usage(argv, capsys):
 def test_pipeline_commands_belong_to_the_ci_client():
     pipeline = {"gate", "sarif", "trend", "code", "deps", "scan-code", "scan-deps"}
     assert not pipeline & cli.CONTROLLER_COMMANDS.keys()
-    # security-review-mcp scan-deps is the MCP client of the same name, not the pipeline one
-    assert not pipeline & cli.COMMANDS.keys() - {"scan-deps"}
+    assert not pipeline & commands.MCP_COMMANDS.keys()
 
 
 def test_help(capsys):

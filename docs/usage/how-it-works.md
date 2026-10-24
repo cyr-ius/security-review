@@ -21,11 +21,12 @@ change applies to every agent, without a restart.
 
 - A rule is a regular expression. It has an id (`PY-004`), a severity and a CWE.
 - A few rules go further. They follow the path of a value inside a file, with Tree-sitter
-  (`PY-026`, `NG-021`, `JV-019`).
+  (`PY-026`, `NG-021`, `JV-019`, and SQL flows in Go, C#, Rust and Node.js: `GO-019`, `CS-021`,
+  `RS-015`, `TS-016`).
 - A match is a **lead**, not a vulnerability. The agent must confirm it by reading the code.
 - No result does not mean "safe code". It is not a full SAST.
 
-Rule details: [Internal rules](../advanced/rules.md).
+Rule details: [Rules](rules.md).
 
 ### Checklists: the expert's eye
 
@@ -38,13 +39,15 @@ Rule details: [Internal rules](../advanced/rules.md).
 - The `company` checklist holds the requirements of your organization. It is added to
   **every** review.
 
+Checklist details: [Checklists](checklists.md).
+
 ### Standards: write it right from the start
 
 - A standard describes how to code in a technology: naming, tests, errors, security.
 - The agent reads it before coding. The code follows your conventions from the first version.
 - A standard does not replace the review. It reduces the number of findings.
 
-Standard details: [Development standards](../advanced/standards.md).
+Standard details: [Development standards](standards.md).
 
 ## Steps of a review
 

@@ -7,10 +7,11 @@ import pytest
 from sqlmodel import select
 from test_advisories import osv
 
-from security_review_mcp import advisories, depscan, services
 from security_review_mcp.config import get_settings
-from security_review_mcp.database import session_scope
-from security_review_mcp.models import Advisory, Severity
+from security_review_mcp.deps import advisories, depscan
+from security_review_mcp.reports import services
+from security_review_mcp.storage.database import session_scope
+from security_review_mcp.storage.models import Advisory, Severity
 
 REQUIREMENTS = "flask==1.0\nrequests==2.19.0\n"
 
@@ -102,6 +103,68 @@ def test_transitive_maven_dependency_is_found_in_a_cyclonedx_sbom(tmp_path):
     assert any("no npm advisory" in note for note in result["notes"])
     (finding,) = [f for f in depscan.to_findings(result) if f.rule_id == "GHSA-1"]
     assert finding.file_path == "bom.json" and finding.severity.value == "critical"
+
+
+GO_MOD = """module example.com/app
+
+go 1.22
+
+require (
+	github.com/gin-gonic/gin v1.9.0
+	golang.org/x/net v0.0.0-20220127200216-cd36cc0744dd // indirect
+)
+"""
+CARGO_LOCK = """version = 3
+
+[[package]]
+name = "app"
+version = "0.1.0"
+
+[[package]]
+name = "time"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+"""
+PACKAGES_LOCK = json.dumps(
+    {
+        "version": 1,
+        "dependencies": {
+            "net8.0": {"Newtonsoft.Json": {"type": "Direct", "resolved": "12.0.1"}},
+        },
+    }
+)
+
+
+@pytest.mark.parametrize(
+    ("content", "filename", "record", "expected"),
+    [
+        (
+            GO_MOD,
+            "go.mod",
+            osv("GO-1", "golang.org/x/net", "Go", fixed="0.7.0"),
+            ("golang.org/x/net", "v0.0.0-20220127200216-cd36cc0744dd", 7, "0.7.0"),
+        ),
+        (
+            CARGO_LOCK,
+            "Cargo.lock",
+            osv("RUSTSEC-1", "time", "crates.io", introduced="0.1.0", fixed="0.2.23"),
+            ("time", "0.1.43", None, "0.2.23"),
+        ),
+        (
+            PACKAGES_LOCK,
+            "packages.lock.json",
+            osv("GHSA-n", "newtonsoft.json", "NuGet", fixed="13.0.1"),
+            ("Newtonsoft.Json", "12.0.1", None, "13.0.1"),
+        ),
+    ],
+)
+def test_go_rust_and_nuget_components_are_matched(tmp_path, content, filename, record, expected):
+    load(record, tmp_path=tmp_path)
+    result = depscan.scan_dependencies(content, filename)
+    assert result["vulnerability_check"] == "performed" and result["is_lockfile"]
+    (vuln,) = result["vulnerabilities"]
+    found = (vuln["package"], vuln["version"], vuln["line"], vuln["recommended_upgrade"])
+    assert found == expected
 
 
 def test_sbom_without_advisories_for_any_of_its_ecosystems_is_skipped(tmp_path):

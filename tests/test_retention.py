@@ -2,7 +2,9 @@
 
 import logging
 
-from security_review_mcp import audit, retention, services
+from security_review_mcp.observability import audit
+from security_review_mcp.reports import services
+from security_review_mcp.storage import retention
 
 
 def test_pruner_purges_at_start_then_stops(monkeypatch):

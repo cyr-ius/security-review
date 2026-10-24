@@ -7,15 +7,9 @@ import urllib.error
 import pytest
 from starlette.testclient import TestClient
 
-from security_review_mcp import (
-    access_control,
-    cli,
-    enrollment,
-    enrollment_api,
-    http_server,
-    server,
-    token_store,
-)
+from security_review_mcp import http_server, server
+from security_review_mcp.auth import access_control, enrollment_api, token_store
+from security_review_mcp.clients import commands, enrollment
 from security_review_mcp.http_server import Role
 
 
@@ -126,18 +120,18 @@ def test_enroll_command_names_the_developer(opener, capsys, monkeypatch, login, 
 
     monkeypatch.setattr(enrollment.getpass, "getuser", getuser)
 
-    code = cli.run(["enroll", "--url", "http://127.0.0.1", "--project", "shop-api"])
+    code = commands.run(["enroll", "--url", "http://127.0.0.1", "--project", "shop-api"])
 
-    assert code == cli.EXIT_PASSED
+    assert code == commands.EXIT_PASSED
     assert json.loads(capsys.readouterr().out)["project"] == "shop-api"
     assert json.loads(opener.requests[0].data)["requested_by"] == requested_by
     args = ["enroll", "--url", "http://127.0.0.1", "--project", "crm", "--requested-by", "bob"]
-    assert cli.run(args) == cli.EXIT_PASSED
+    assert commands.run(args) == commands.EXIT_PASSED
     assert json.loads(opener.requests[1].data)["requested_by"] == "bob"
 
 
 def test_enroll_command_errors(capsys):
-    code = cli.run(["enroll", "--url", "http://secreview.example.com", "--project", "p"])
+    code = commands.run(["enroll", "--url", "http://secreview.example.com", "--project", "p"])
 
-    assert code == cli.EXIT_ERROR
+    assert code == commands.EXIT_ERROR
     assert "plain HTTP" in json.loads(capsys.readouterr().err)["error"]

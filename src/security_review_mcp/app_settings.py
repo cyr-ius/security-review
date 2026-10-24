@@ -9,6 +9,10 @@ before is ignored (see env_set).
 
 The proxy URL and the OIDC client secret are secrets: they are stored as given, but never
 returned by the API nor logged (``masked_url``, PASSWORD_MASK).
+
+The MCP server imports this module for the report language: the OIDC and syslog modules of the
+controller are imported in the functions that use them, never at the top (tests/test_server.py
+checks that the MCP server does not load them).
 """
 
 from typing import Any
@@ -17,13 +21,11 @@ from urllib.parse import urlsplit
 from pydantic import SecretStr
 from sqlmodel import Session, select
 
-from . import audit
-from .audit_syslog import FACILITIES, check_web_address, facility
 from .config import Settings, check_report_language, get_settings
-from .database import session_scope
-from .models import AppSetting, utcnow
-from .oidc import CALLBACK_PATH, validate_settings
+from .observability import audit
 from .proxy import PASSWORD_MASK, check_no_proxy, check_proxy_url, describe_proxy, masked_url
+from .storage.database import session_scope
+from .storage.models import AppSetting, utcnow
 
 REPORT_LANGUAGE = "report_language"
 # Keys of the proxy settings, also the names of their Settings fields. A stored proxy "" means a
@@ -297,6 +299,8 @@ def _oidc_changes(
 
 def _validate_oidc(effective: Settings) -> None:
     """Raise ValueError when ``effective`` cannot enable a login."""
+    from .auth.oidc import validate_settings  # controller only, see the module docstring
+
     try:
         validate_settings(effective)
     except ValueError as exc:
@@ -342,6 +346,8 @@ def _shown(name: str, value: Any) -> Any:
 def describe_oidc(settings: Settings | None = None) -> dict:
     """Describe each OIDC setting (stored value, variable, whether it is set, effective value),
     without secret."""
+    from .auth.oidc import CALLBACK_PATH  # controller only, see the module docstring
+
     settings = settings or get_settings()
     raw = _stored()
     stored = _oidc_overrides(raw)
@@ -385,6 +391,8 @@ def set_audit_syslog(
             (SECREVIEW_AUDIT_SYSLOG_ADDRESS, SECREVIEW_AUDIT_SYSLOG_FACILITY); nothing is stored
             then.
     """
+    from .observability.audit_syslog import check_web_address, facility  # controller only
+
     settings = settings or get_settings()
     changes: dict[str, str | None] = {}
     for name, value in values.items():
@@ -419,6 +427,8 @@ def set_audit_syslog(
 def describe_audit_syslog(settings: Settings | None = None) -> dict:
     """Describe the syslog settings: stored values, variables (and whether they are set) and
     effective destination."""
+    from .observability.audit_syslog import FACILITIES  # controller only
+
     settings = settings or get_settings()
     stored = _stored()
     effective = settings.model_copy(update=_overrides(stored, settings))

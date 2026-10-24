@@ -26,7 +26,7 @@ its projects. A person gets read or triage access through the groups of their ac
 | `audit.read` | Audit log | |
 | `projects.create` | Create a new project, which its creator then reads (see [Creating a project](#creating-a-project)), and approve or reject the projects requested by an [enrollment](http.md#enrollment-request-the-project) | |
 | `projects.delete` | Delete a project with its reports, findings and references (see [Deleting a project](#deleting-a-project)) | |
-| `mcp_tokens.create` | Create a [personal MCP token](../usage/web-interface.md#personal-mcp-tokens) in **My account** | |
+| `mcp_tokens.create` | Create a [personal MCP or CI token](../usage/web-interface.md#personal-mcp-and-ci-tokens) in **My account** | |
 
 `users.manage` lets its holder give itself every other permission: give it only to
 administrators. Accepting a risk or marking a false positive also needs a session of the web
@@ -48,7 +48,7 @@ any other.
 | Ordinary role | Permissions | Gives |
 |---|---|---|
 | `triager` | `reports.read`, `findings.triage` | the triage of the findings |
-| `mcp-user` | `mcp_tokens.create` | the creation of a [personal MCP token](../usage/web-interface.md#personal-mcp-tokens); give it with a reading role, since the token reaches the projects its user may read |
+| `mcp-user` | `mcp_tokens.create` | the creation of a [personal MCP or CI token](../usage/web-interface.md#personal-mcp-and-ci-tokens); give it with a reading role, since the token reaches the projects its user may read |
 
 Administrators create other roles (100 at most), for example an *Auditor* role with
 `audit.read` and `reports.read`. A change of a role applies at once to the open sessions of the
@@ -89,7 +89,7 @@ A user whose groups hold `projects.create` creates a project with the **New proj
 (left of **Refresh**) of the **Projects** screen, in a modal window (`POST /api/v1/projects`, from a session of the web interface only: a token
 never creates a project). The controller creates the [project group](#project-groups) of the
 project and adds the account to it as a local member: the account reads the project at once,
-and so does its [personal MCP token](../usage/web-interface.md#personal-mcp-tokens), which can
+and so does its [personal MCP token](../usage/web-interface.md#personal-mcp-and-ci-tokens), which can
 then save the reports of its agent there. The project shows on the **Projects** screen,
 **No report yet**, until its first report.
 
@@ -209,40 +209,3 @@ Every change is written to the [audit log](audit-metrics.md#audit-log) (`role.*`
 `user.groups_changed`). From the CLI, `security-review-controller user set-groups` changes the
 groups of an account, and `security-review-controller group list` / `group roles` lists the groups and the roles (see
 [CLI](../reference/cli.md)).
-
-## Upgrading from the fixed roles
-
-Schema migration `0013` moves the former access into groups:
-
-- each OIDC role mapping becomes a group open to OIDC named after its group, with the role of the
-  mapping on the same projects;
-- each account with a role of its own joins `administrators`, `triagers` or `readers` (groups not
-  open to OIDC) when it reached every project, otherwise a personal group `user:<name>`.
-
-Schema migration `0014` then turns each personal group `user:<name>` whose only member is that
-account (added by an administrator) into direct roles of the account, on the same projects, and
-deletes the group. A personal group with other members, or open to OIDC, is kept.
-
-Schema migration `0018` removes these direct roles: each one becomes the local membership of a
-group not open to OIDC holding the same role on the same projects, so that nobody loses or gains
-any access (the last administrator included). A role on a list of projects gives one group per
-project, `project:<project>` for `reader` (the [project group](#project-groups)), otherwise
-`project:<project>:<role>`; a role on every project gives the group `role:<role>`. An existing
-group not open to OIDC whose only role is the same one (such as `administrators` for `admin`) is
-reused.
-
-The role given to an OIDC account by its groups at its last login is computed again at its next
-login. The `SECREVIEW_OIDC_TRIAGER_GROUPS`, `SECREVIEW_OIDC_READER_GROUPS` and
-`SECREVIEW_OIDC_DEFAULT_ROLE` variables are gone: create the groups of the same names with the
-`triager` or `reader` role, and use `SECREVIEW_OIDC_DEFAULT_GROUP` instead of the default role.
-
-## Upgrading from the reader and triager tokens
-
-Schema migration `0021` makes tokens machine-only:
-
-- the `reader` and `triager` tokens are revoked; each revocation is written to the
-  [audit log](audit-metrics.md) (`token.revoked`, actor `migration`). Give the people who used
-  them a [user account](../usage/web-interface.md#user-accounts) in a group with the `reader` or
-  `triager` role on the same projects; an administration script uses an `admin` token;
-- the `triager` role stops being built in: it keeps its permissions and its groups, and can now
-  be changed or deleted.

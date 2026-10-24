@@ -5,8 +5,8 @@ import re
 
 import pytest
 
-from security_review_mcp import dependencies
-from security_review_mcp.dependencies import parse_dependency_file
+from security_review_mcp.deps import dependencies
+from security_review_mcp.deps.dependencies import parse_dependency_file
 
 
 def versions(parsed) -> dict[str, str | None]:
@@ -237,6 +237,8 @@ def test_uv_lock_invalid_toml():
         ("package.json", json.dumps({"dependencies": ["lodash"]})),
         ("package.json", json.dumps({"scripts": "postinstall"})),
         ("package-lock.json", json.dumps({"lockfileVersion": 1, "dependencies": "x"})),
+        ("Cargo.lock", "package = 3"),
+        ("packages.lock.json", json.dumps({"dependencies": {"net8.0": ["x"]}})),
     ],
 )
 def test_unexpected_structure_is_a_data_error(filename, content):
@@ -434,7 +436,7 @@ SBOM_JSON = {
         {"purl": "pkg:npm/@scope/raw@1.2.3"},
         {"purl": "pkg:pypi/requests@2.19.0"},
         {"purl": "pkg:pypi/noversion"},
-        {"purl": "pkg:golang/github.com/x/y@v1.0.0"},
+        {"purl": "pkg:gem/rails@7.0.0"},
         {"name": "no-purl", "version": "1.0"},
         {"purl": 1},
         "not an object",
@@ -461,7 +463,7 @@ def test_cyclonedx_json_sbom():
     assert next(c for c in parsed.components if c.name == "junit:junit").dev
     assert rules(parsed) == {"DEP-002"}
     notes = " ".join(parsed.notes)
-    assert "golang (1)" in notes and "no package URL" in notes and "no version" in notes
+    assert "gem (1)" in notes and "no package URL" in notes and "no version" in notes
 
 
 def test_cyclonedx_xml_sbom():
@@ -523,6 +525,139 @@ def test_deeply_nested_sbom_does_not_exhaust_the_stack():
     assert len(entries) == 5001 and entries[-1][0] == "pkg:npm/leaf@1.0.0"
 
 
+def test_go_mod_applies_replace_directives():
+    content = """module example.com/app
+
+go 1.22
+
+require (
+	github.com/gin-gonic/gin v1.9.0
+	github.com/foo/bar v1.2.0 // indirect
+	example.com/local v0.1.0
+)
+
+require github.com/pkg/errors v0.9.1
+
+replace github.com/foo/bar => github.com/fork/bar v1.2.1
+replace example.com/local => ../local
+"""
+    parsed = parse_dependency_file(content, "go.mod")
+    assert parsed.ecosystem == "Go" and parsed.is_lockfile
+    assert versions(parsed) == {
+        "github.com/gin-gonic/gin": "v1.9.0",
+        "github.com/fork/bar": "v1.2.1",  # the replacement is what gets built
+        "example.com/local": None,
+        "github.com/pkg/errors": "v0.9.1",
+    }
+    assert rules(parsed) == {"DEP-003", "DEP-007"}
+
+
+def test_cargo_lock_and_cargo_toml():
+    lock = """version = 3
+[[package]]
+name = "app"
+version = "0.1.0"
+[[package]]
+name = "time"
+version = "0.1.43"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+[[package]]
+name = "private"
+version = "1.0.0"
+source = "sparse+https://crates.example.com/index/"
+[[package]]
+name = "forked"
+version = "0.2.0"
+source = "git+https://github.com/x/forked?rev=abc#abc"
+"""
+    parsed = parse_dependency_file(lock, "Cargo.lock")
+    assert parsed.ecosystem == "crates.io" and parsed.is_lockfile
+    assert versions(parsed) == {"time": "0.1.43", "private": "1.0.0", "forked": "0.2.0"}
+    assert rules(parsed) == {"DEP-003", "DEP-005"}
+
+    manifest = """[dependencies]
+serde = "1.0"
+tokio = { version = "=1.38.0", features = ["full"] }
+anything = "*"
+mine = { path = "../mine" }
+shared = { workspace = true }
+[dev-dependencies]
+proptest = "1"
+[target.'cfg(unix)'.dependencies]
+nix = { git = "https://github.com/nix-rust/nix" }
+"""
+    parsed = parse_dependency_file(manifest, "Cargo.toml")
+    assert not parsed.is_lockfile
+    assert versions(parsed)["tokio"] == "1.38.0" and versions(parsed)["serde"] is None
+    assert next(c for c in parsed.components if c.name == "proptest").dev
+    assert rules(parsed) == {"DEP-002", "DEP-003", "DEP-007", "DEP-009"}
+    assert any("Cargo.lock" in note for note in parsed.notes)
+
+
+def test_nuget_files():
+    lock = "﻿" + json.dumps(
+        {
+            "version": 1,
+            "dependencies": {
+                "net8.0": {
+                    "Newtonsoft.Json": {"type": "Direct", "resolved": "12.0.1"},
+                    "System.Text.Json": {"type": "Transitive", "resolved": "4.7.0"},
+                    "MyLib": {"type": "Project"},
+                },
+                "net6.0": {"Newtonsoft.Json": {"type": "Direct", "resolved": "12.0.1"}},
+            },
+        }
+    )
+    parsed = parse_dependency_file(lock, "packages.lock.json")
+    assert parsed.is_lockfile and len(parsed.components) == 2
+    assert versions(parsed) == {"Newtonsoft.Json": "12.0.1", "System.Text.Json": "4.7.0"}
+
+    project = """<Project Sdk="Microsoft.NET.Sdk"><ItemGroup>
+  <PackageReference Include="Newtonsoft.Json" Version="12.0.1" />
+  <PackageReference Include="Serilog" Version="3.*" />
+  <PackageReference Include="Dapper"><Version>[2.0.0]</Version></PackageReference>
+  <PackageReference Include="StyleCop.Analyzers" Version="1.1.118" PrivateAssets="all" />
+  <PackageReference Include="Polly" />
+</ItemGroup></Project>"""
+    parsed = parse_dependency_file(project, "src/Api/Api.csproj")
+    assert parsed.ecosystem == "NuGet" and not parsed.is_lockfile
+    assert versions(parsed) == {
+        "Newtonsoft.Json": "12.0.1",  # NuGet restores the lowest applicable version
+        "Serilog": None,
+        "Dapper": "2.0.0",
+        "StyleCop.Analyzers": "1.1.118",
+        "Polly": None,  # central package management: Directory.Packages.props
+    }
+    assert next(c for c in parsed.components if c.name == "StyleCop.Analyzers").dev
+    assert rules(parsed) == {"DEP-002", "DEP-009"}
+
+    legacy = '<packages><package id="jQuery" version="1.7.1" targetFramework="net45" /></packages>'
+    assert versions(parse_dependency_file(legacy, "packages.config")) == {"jQuery": "1.7.1"}
+
+    config = """<configuration><packageSources>
+  <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+  <add key="internal" value="http://nexus.example.com/nuget" />
+</packageSources></configuration>"""
+    assert rules(parse_dependency_file(config, "NuGet.Config")) == {"DEP-004", "DEP-005"}
+
+
+def test_sbom_go_cargo_and_nuget_package_urls():
+    sbom = {
+        "bomFormat": "CycloneDX",
+        "components": [
+            {"purl": "pkg:golang/github.com/gin-gonic/gin@v1.9.0"},
+            {"purl": "pkg:cargo/time@0.1.43"},
+            {"purl": "pkg:nuget/Newtonsoft.Json@12.0.1"},
+        ],
+    }
+    parsed = parse_dependency_file(json.dumps(sbom), "bom.json")
+    assert {(c.ecosystem, c.name, c.version) for c in parsed.components} == {
+        ("Go", "github.com/gin-gonic/gin", "v1.9.0"),
+        ("crates.io", "time", "0.1.43"),
+        ("NuGet", "Newtonsoft.Json", "12.0.1"),
+    }
+
+
 def test_many_occurrences_are_merged_into_one_issue():
     deps = {f"dep{i}": f"git+https://example.com/dep{i}.git" for i in range(8)}
     parsed = parse_dependency_file(json.dumps({"dependencies": deps}), "package.json")
@@ -537,6 +672,7 @@ def test_many_occurrences_are_merged_into_one_issue():
         ("[1, 2]", "package.json", "object"),
         ("= nope", "pyproject.toml", "Invalid TOML"),
         ("<project>", "pom.xml", "Invalid XML"),
+        ('<!DOCTYPE p [<!ENTITY a "a">]><Project/>', "App.csproj", "DOCTYPE"),
         ("anything", "Makefile", "Unsupported file"),
         ('{"bomFormat": "SPDX"}', "bom.json", "Not a CycloneDX SBOM"),
         ("<project/>", "bom.xml", "Not a CycloneDX SBOM"),

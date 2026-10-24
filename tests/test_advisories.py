@@ -6,11 +6,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from security_review_mcp import advisories
-from security_review_mcp.advisories import Query
-from security_review_mcp.database import session_scope
-from security_review_mcp.models import Advisory
-from security_review_mcp.versions import compare_versions, sort_versions
+from security_review_mcp.deps import advisories
+from security_review_mcp.deps.advisories import Query
+from security_review_mcp.deps.versions import compare_versions, sort_versions
+from security_review_mcp.storage.database import session_scope
+from security_review_mcp.storage.models import Advisory
 
 
 def osv(
@@ -65,6 +65,11 @@ def osv(
         ("22.0.0-next.0", "22.0.0-rc.2", -1),
         ("22.0.0-next.3", "22.0.0", -1),
         ("19.0.0-canary-1", "19.0.0-beta.1", -1),
+        # Go: a pseudo-version after v1.2.3 sorts before v1.2.4; +incompatible is ignored
+        ("v1.2.4-0.20210101000000-abcdef123456", "1.2.4", -1),
+        ("v1.2.4-0.20210101000000-abcdef123456", "1.2.3", 1),
+        ("v0.0.0-20220127200216-cd36cc0744dd", "0.0.0-20211209124913-491a49abca63", 1),
+        ("v2.0.1+incompatible", "2.0.1", 0),
     ],
 )
 def test_compare_versions(left, right, expected):
@@ -181,7 +186,7 @@ def test_import_directory_and_find(tmp_path):
             osv("PYSEC-1", "Requests", fixed="2.20.0", severity="HIGH"),
             osv("GHSA-x", "left-pad", "npm", fixed="1.3.1"),
             osv("W-1", "x", withdrawn="2024-01-01T00:00:00Z"),
-            osv("G-1", "foo", "Go"),
+            osv("G-1", "foo", "RubyGems"),
             {
                 "id": "GIT-1",
                 "affected": [
@@ -231,6 +236,8 @@ def test_one_advisory_affecting_several_queried_packages(tmp_path):
 def test_pypi_names_are_normalized():
     assert advisories.normalize_package("PyPI", "Foo_Bar.baz") == "foo-bar-baz"
     assert advisories.normalize_package("Maven", "Org.Foo:Bar") == "org.foo:bar"
+    assert advisories.normalize_package("crates.io", "Serde_JSON") == "serde-json"
+    assert advisories.normalize_package("NuGet", "Newtonsoft.Json") == "newtonsoft.json"
 
 
 def test_import_zip_and_idempotence(tmp_path):

@@ -1,17 +1,22 @@
 """End-to-end tests: a real MCP client talking to the server in memory."""
 
 import json
+import subprocess
+import sys
 
 import pytest
 from mcp.client import Client
 from mcp.shared.exceptions import MCPError
 from pydantic import ValidationError
 
-from security_review_mcp import access_control, app_settings, audit, services, token_store
+from security_review_mcp import app_settings
+from security_review_mcp.auth import access_control, token_store
 from security_review_mcp.config import Settings, get_settings
-from security_review_mcp.models import FindingCreate, ReviewType, Severity
+from security_review_mcp.observability import audit
 from security_review_mcp.prompts import fenced
+from security_review_mcp.reports import services
 from security_review_mcp.server import enrollment_mcp, mcp
+from security_review_mcp.storage.models import FindingCreate, ReviewType, Severity
 
 pytestmark = pytest.mark.anyio
 
@@ -53,7 +58,18 @@ async def test_security_review_prompt_embeds_code_and_checklist():
     ("prompt", "args", "included", "excluded"),
     [
         # Aliases and several languages select their checklists
-        ("security-review", {"language": "py, ts"}, {"PY-01", "NG-01", "API-01"}, {"JV-01"}),
+        (
+            "security-review",
+            {"language": "py, ts"},
+            {"PY-01", "NG-01", "TS-01", "API-01"},
+            {"JV-01"},
+        ),
+        (
+            "security-review",
+            {"language": "golang, c#, rust"},
+            {"GO-01", "CS-01", "RS-01"},
+            {"PY-01"},
+        ),
         # No language: no default checklist, the agent picks from the named ones
         ("security-review", {"language": ""}, {"API-01", "`python`"}, {"PY-01"}),
         ("codebase-review", {"languages": "java"}, {"JV-01", "CFG-01", "CI-01"}, {"PY-01"}),
@@ -132,6 +148,18 @@ async def test_review_prompts_ask_for_the_developer_username():
             result = await client.get_prompt(prompt, {})
             assert "git config user.email" in result.messages[0].content.text, prompt
             assert "`checklist_results`" in result.messages[0].content.text, prompt
+
+
+@pytest.mark.parametrize(
+    ("prompt", "command"),
+    [("dependency-review", "scan-deps"), ("codebase-review", "scan-code")],
+)
+async def test_whole_repository_prompts_send_the_files_with_the_pipeline_client(prompt, command):
+    """The files leave the workstation as they are, not copied by the model into a tool call."""
+    async with Client(mcp) as client:
+        result = await client.get_prompt(prompt, {})
+    text = result.messages[0].content.text
+    assert f"security-review-ci {command}" in text and "personal ci token" in text
 
 
 async def test_save_report_with_an_author_and_filter_the_list():
@@ -477,7 +505,8 @@ def http_app():
     """The HTTP app (MCP endpoint only) with its lifespan running."""
     from starlette.testclient import TestClient
 
-    from security_review_mcp import http_server, token_store
+    from security_review_mcp import http_server
+    from security_review_mcp.auth import token_store
 
     app = http_server.build_mcp_app(mcp, "127.0.0.1", token_store.DatabaseTokenStore())
     with TestClient(app, base_url="http://127.0.0.1:8000") as client:
@@ -489,7 +518,8 @@ def enrolling_app():
     """The HTTP app with the enrollment server, once an administrator token exists."""
     from starlette.testclient import TestClient
 
-    from security_review_mcp import http_server, token_store
+    from security_review_mcp import http_server
+    from security_review_mcp.auth import token_store
 
     token_store.create_token("ops", "admin")
     app = http_server.build_mcp_app(
@@ -514,7 +544,7 @@ def finding_id_of(report: dict) -> int:
 
 
 def test_project_token_cannot_reach_other_projects(http_app, two_projects):
-    from security_review_mcp import token_store
+    from security_review_mcp.auth import token_store
 
     token = token_store.create_token("shop-ci", "mcp", "shop-api")["token"]
     shop, billing = two_projects["shop-api"], two_projects["billing"]
@@ -580,7 +610,7 @@ def test_project_token_cannot_reach_other_projects(http_app, two_projects):
 
 
 def test_unrestricted_token_reaches_every_project(http_app, two_projects):
-    from security_review_mcp import token_store
+    from security_review_mcp.auth import token_store
 
     client = McpOverHttp(http_app, token_store.create_token("ci", "mcp")["token"])
 
@@ -825,3 +855,27 @@ async def test_development_standards_prompt():
             await client.get_prompt(
                 "development-standards", {"technologies": ",".join(f"t{i}" for i in range(51))}
             )
+
+
+# Modules of the controller that open outgoing connections or serve its web routes
+CONTROLLER_MODULES = (
+    "security_review_mcp.controller",
+    "security_review_mcp.deps.advisory_sync",
+    "security_review_mcp.auth.oidc",
+    "security_review_mcp.observability.audit_syslog",
+    "security_review_mcp.ticketing",
+    "security_review_mcp.update_check",
+    "security_review_mcp.web_api",
+)
+
+
+def test_mcp_server_does_not_load_the_controller_modules():
+    # A fresh interpreter: the other tests import these modules in this one
+    code = (
+        "import sys, security_review_mcp.server\n"
+        f"print([m for m in {CONTROLLER_MODULES!r} if m in sys.modules])"
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    )
+    assert result.stdout.strip() == "[]"

@@ -21,10 +21,13 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
-from .. import audit
 from ..config import Settings
-from ..database import session_scope
-from ..models import (
+from ..observability import audit
+from ..reports.sarif import SarifItem, fingerprint
+from ..reports.services import NotFoundError, _status_is
+from ..rules.scanner import redact_secrets
+from ..storage.database import session_scope
+from ..storage.models import (
     SEVERITY_RANK,
     Finding,
     FindingPublic,
@@ -38,10 +41,7 @@ from ..models import (
     as_utc,
     utcnow,
 )
-from ..project_names import normalize_project
-from ..sarif import SarifItem, fingerprint
-from ..scanner import redact_secrets
-from ..services import NotFoundError, _status_is
+from ..storage.project_names import normalize_project
 from . import connections, registry
 from .api import (
     MAX_KEY_CHARS,
@@ -297,14 +297,6 @@ def delete_target(project: str, kind: str, actor: str) -> None:
             project=project,
             details={"deleted": True},
         )
-
-
-def forget_project(session: Session, project: str) -> int:
-    """Delete the destinations of a deleted project (its tickets go with its findings)."""
-    rows = session.exec(select(TicketTarget).where(TicketTarget.project == project)).all()
-    for row in rows:
-        session.delete(row)
-    return len(rows)
 
 
 def destinations(settings: Settings, projects: Collection[str] | None) -> list[dict[str, str]]:

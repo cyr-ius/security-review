@@ -7,13 +7,13 @@ To understand when the rules, the checklists and the standards apply, and how to
 
 | Prompt | Use | Arguments |
 |---|---|---|
-| `security-review` | General review of Python, Java or Angular code (`language`: one or more languages, for example `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
+| `security-review` | General review of Python, Java, Go, C#, Rust, TypeScript/Node.js or Angular code (`language`: one or more languages, for example `python, angular`) | `language`, `code`, `context`, `focus`, `report_language` |
 | `api-security-review` | REST API (OWASP API Top 10) | `framework`, `code`, `context`, `focus`, `report_language` |
 | `configuration-review` | Dockerfile, CI/CD, Spring, YAML, properties | `config_type`, `content`, `context`, `focus`, `report_language` |
 | `codebase-review` | Review of the **whole repository** (not only a diff) | `languages`, `scan_results`, `context`, `focus`, `report_language` |
 | `dependency-review` | Manifests and lockfiles (supply chain) | `ecosystem`, `files`, `context`, `report_language` |
 | `triage-report` | Re-qualify the findings of a stored report | `report_id`, `context`, `report_language` |
-| `development-standards` | Gives the assistant the [development standards](../advanced/standards.md) of its stack **before it writes code** | `technologies`, `files`, `task`, `context` |
+| `development-standards` | Gives the assistant the [development standards](standards.md) of its stack **before it writes code** | `technologies`, `files`, `task`, `context` |
 
 If `code` is empty, the prompt asks the agent to read the files of its workspace. Every review
 prompt ends with the instruction to call `save_security_report` once; `development-standards`
@@ -22,7 +22,7 @@ saves nothing.
 Each review prompt embeds the checklists of its domain (by language for `security-review` and
 `codebase-review`, aliases such as `py` or `ts` accepted) and the `company` checklist, then names
 the other available checklists, internal domains included, for the agent to fetch with
-`get_review_checklist` when they apply ([details](../advanced/rules.md#checklists-in-review-prompts)).
+`get_review_checklist` when they apply ([details](checklists.md#checklists-in-review-prompts)).
 
 ### Report language
 
@@ -50,8 +50,8 @@ that it cannot carry instructions; otherwise the prompt is refused.
 
 | Tool | Role |
 |---|---|
-| `list_checklists` / `get_review_checklist` | Checklists by domain: `python`, `java`, `angular`, `api`, `config`, `cicd`, `dependencies` and internal domains |
-| `scan_code` | Quick pattern scan plus focused Tree-sitter checks for unsafe Python SQL, Angular DOM flows, and unchecked message origins (leads to check, **not** a full SAST). Masked excerpts, invisible characters shown as `<U+XXXX>` |
+| `list_checklists` / `get_review_checklist` | Checklists by domain: `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `api`, `config`, `cicd`, `dependencies` and internal domains |
+| `scan_code` | Quick pattern scan plus focused Tree-sitter checks for request-to-SQL flows (Python, Java, Go, C#, Rust, Node.js), Angular DOM flows, and unchecked message origins (leads to check, **not** a full SAST). Masked excerpts, invisible characters shown as `<U+XXXX>` |
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
 | `list_security_reports` | List filtered by project / risk level / review type / author, with pagination |
@@ -63,14 +63,14 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `scan_dependencies` | Analysis of a manifest, lockfile or CycloneDX SBOM: vulnerable versions + hygiene |
 | `get_advisory_status` | Size and age of the vulnerability database |
 | `request_enrollment` | Requests a project that does not exist yet, for an administrator to approve; no token is created and the current token gains no project: an administrator gives access to it ([enrollment](../advanced/http.md#enrollment-request-the-project)) |
-| `list_development_standards` / `get_development_standards` | [Development standards](../advanced/standards.md): catalog, then the standards to apply for technologies or file names |
-| `list_rules` / `reload_rules` | Active rules ([default and custom](../advanced/rules.md), stored in the database), loading errors, immediate reload |
+| `list_development_standards` / `get_development_standards` | [Development standards](standards.md): catalog, then the standards to apply for technologies or file names |
+| `list_rules` / `reload_rules` | Active rules ([default and custom](rules.md), stored in the database), loading errors, immediate reload |
 
 On the HTTP transport, a restricted token can only use the report tools on its allowed
 projects; `reload_rules` is refused to it (see
 [tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
 A token tied to several projects can use the report tools on each of them. A
-[personal MCP token](web-interface.md#personal-mcp-tokens) reaches the projects of its user: for
+[personal MCP token](web-interface.md#personal-mcp-and-ci-tokens) reaches the projects of its user: for
 another project, an administrator gives the user access to it (`request_enrollment` requests
 it first when it is new).
 
@@ -91,7 +91,7 @@ See [enrollment](../advanced/http.md#enrollment-request-the-project).
 
 - `report://{report_id}`: a stored report;
 - `checklist://{domain}`: the checklist of a domain;
-- `standards://catalog`: the catalog of the [development standards](../advanced/standards.md);
+- `standards://catalog`: the catalog of the [development standards](standards.md);
 - `standard://{slug}`: a development standard.
 
 ## Stored report
@@ -156,8 +156,6 @@ findings can be told apart and filtered in the [web interface](web-interface.md)
 The field is optional: a report saved without it has no type. Any other value is refused.
 The type is declared by the client: it labels and filters reports, it never grants a right
 nor changes a gate.
-Reports saved by the CLI scans before this field existed get their type when the database is
-upgraded.
 
 ### Author of a report
 
@@ -173,7 +171,9 @@ shared workstation): its label does not say who worked on the reviewed code. Eac
 Markdown nor HTML, as it is copied into the Markdown export); a blank value is not stored.
 It is **declared, not authenticated**: use it to see who to talk to and to filter the reports
 (`list_security_reports`, [web interface](web-interface.md)), never as a proof of identity;
-`submitted_by` says which token actually sent the report.
+`submitted_by` says which token actually sent the report. In the web interface and the REST
+API, only a holder of `users.manage` or `tokens.manage` sees the `author`; the others see the
+token label.
 
 ### Review coverage
 

@@ -22,8 +22,8 @@ import json
 import sys
 from pathlib import Path
 
-from security_review_mcp.rules_loader import default_content
-from security_review_mcp.scanner import scan_content_detailed
+from security_review_mcp.rules.rules_loader import default_content
+from security_review_mcp.rules.scanner import scan_content_detailed
 
 MAX_FILE_BYTES = 2 * 1024 * 1024  # larger files are not scanned
 MAX_REPORTED_LINES = 10

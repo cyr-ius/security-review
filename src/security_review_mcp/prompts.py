@@ -2,9 +2,9 @@
 
 import re
 
-from . import scanner
-from .registry import COMPANY_DOMAIN, company_checklist_markdown, render_checklist_markdown
-from .registry import domains as checklist_domains
+from .rules import scanner
+from .rules.registry import COMPANY_DOMAIN, company_checklist_markdown, render_checklist_markdown
+from .rules.registry import domains as checklist_domains
 
 # Reviewed code, scan excerpts and stored evidence may come from an attacker (a merge request
 # author): the agent must treat them as data and never act on instructions found inside them.
@@ -92,8 +92,11 @@ _LANGUAGE_DOMAINS = {
     "python": ("python",),
     "java": ("java",),
     "angular": ("angular",),
-    "typescript": ("angular",),
-    "javascript": ("angular",),
+    "typescript": ("angular", "node"),
+    "javascript": ("angular", "node"),
+    "go": ("go",),
+    "csharp": ("csharp",),
+    "rust": ("rust",),
     "config": ("config",),
     "yaml": ("config",),
     "docker": ("config",),
@@ -270,7 +273,7 @@ def build_dependency_review_prompt(
     ecosystem: str, files: str, context: str, report_language: str = ""
 ) -> str:
     """Build the dependency / supply-chain review prompt."""
-    scope = ecosystem.strip() or "PyPI, npm and Maven"
+    scope = ecosystem.strip() or "PyPI, npm, Maven, Go, crates.io and NuGet"
     sections = [
         f"You are a senior application security engineer reviewing the **dependencies** ({scope}) "
         "of a project: known vulnerabilities and supply-chain hygiene.",
@@ -280,9 +283,12 @@ def build_dependency_review_prompt(
 ## Method
 1. List the dependency files of the project (manifests and lockfiles). Prefer lockfiles: they \
 contain the exact resolved versions, including transitive dependencies.
-2. For each file call the `scan_dependencies` tool with its content and its file name. Large \
-lockfiles do not fit in a tool call: tell the user to run \
-`security-review-ci scan-deps <file> --project <name> --save` in the pipeline instead.
+2. If you can run commands and `security-review-ci` is installed, run \
+`security-review-ci scan-deps <files> --project <name> --format json` (it needs \
+`SECREVIEW_CONTROLLER_URL` and a personal ci token in `SECREVIEW_TOKEN`): it sends the files \
+exactly as they are, without the size limit of a tool call. Otherwise call the \
+`scan_dependencies` tool for each file with its content and its file name; a lockfile too \
+large for a tool call needs that command.
 3. Read `vulnerability_check` first. If it is not `performed`, say clearly that vulnerable \
 versions could NOT be checked: never report "no vulnerability" in that case.
 4. Read `advisory_database`: report its age; a stale database means recent issues may be missing.
@@ -320,11 +326,13 @@ _CODEBASE_METHOD = f"""\
 1. **Inventory.** List the files of the repository (respect `.gitignore`; skip generated code, \
 vendored dependencies and build output). Identify the languages, frameworks, entry points \
 (HTTP routes, CLI, message consumers, scheduled jobs) and the configuration and CI/CD files.
-2. **Leads.** If scan results are given below, start from them. Otherwise ask the user to run \
-`security-review-ci scan-code . --project <name> --format json` (the controller scans every \
-file without the size limit of a tool call) and paste the output, or call `scan_code` file by \
-file on the files you read. A match is a lead, not a finding: confirm each one by reading the \
-surrounding code.
+2. **Leads.** If scan results are given below, start from them. Otherwise, if you can run \
+commands and `security-review-ci` is installed, run \
+`security-review-ci scan-code . --project <name> --format json` yourself (it needs \
+`SECREVIEW_CONTROLLER_URL` and a personal ci token in `SECREVIEW_TOKEN`; the controller scans \
+every file as it is, without the size limit of a tool call), or ask the user to run it and \
+paste the output. As a last resort, call `scan_code` file by file on the files you read. A \
+match is a lead, not a finding: confirm each one by reading the surrounding code.
 3. **Prioritize.** Read first what an attacker can reach: entry points, authentication and \
 authorization, input parsing and validation, database access, file and process handling, \
 deserialization, outbound requests, cryptography and secrets, then configuration and pipelines.

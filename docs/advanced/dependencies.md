@@ -4,8 +4,16 @@
 
 `requirements*.txt`, `pyproject.toml` (PEP 621/735, Poetry), `poetry.lock`, `Pipfile.lock`,
 `uv.lock`, `package.json`, `package-lock.json` / `npm-shrinkwrap.json`, `yarn.lock` (v1 and
-berry), `pom.xml`, `build.gradle(.kts)`, CycloneDX SBOMs (`bom.json`, `bom.xml`, `sbom.json`,
-`*.cdx.json`, `*.cdx.xml`...).
+berry), `pom.xml`, `build.gradle(.kts)`, `go.mod`, `Cargo.lock`, `Cargo.toml`,
+`packages.lock.json`, `*.csproj` / `*.fsproj` / `*.vbproj`, `Directory.Packages.props`,
+`Directory.Build.props`, `packages.config`, `nuget.config`, CycloneDX SBOMs (`bom.json`,
+`bom.xml`, `sbom.json`, `*.cdx.json`, `*.cdx.xml`...).
+
+| Ecosystem | Best file to scan | Notes |
+|---|---|---|
+| Go | `go.mod` | Since Go 1.17, it lists every module of the build (`// indirect` included) at its selected version: it is handled like a lockfile. `replace` directives are applied (a fork raises `DEP-003`, a local path `DEP-007`). Pseudo-versions (`v0.0.0-<date>-<commit>`) are compared by date. The standard library (`go` and `toolchain` directives) is not checked: scan the binary with `govulncheck`. |
+| Rust (crates.io) | `Cargo.lock` | Every crate of the build, transitive included; the workspace members are skipped. A `git` source raises `DEP-003`, another registry `DEP-005`. `Cargo.toml` only holds ranges (`"1.0"` is `^1.0`): it is checked for hygiene (`*`, `git`, `path`, `registry`, `[patch]`, `workspace = true`). |
+| .NET (NuGet) | `packages.lock.json` | Enable it with `<RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>`; the packages of every target framework are checked. In a `*.csproj`, `Version="1.2.3"` is the version restored (lowest applicable) and is checked; floating versions (`1.*`) raise `DEP-002`, versions managed in `Directory.Packages.props` or by an MSBuild property `DEP-009`. `nuget.config` is checked for HTTP sources (`DEP-004`) and for several sources without `packageSourceMapping` (`DEP-005`, dependency confusion). |
 
 In a `uv.lock`, the project itself and its workspace members (editable or virtual sources) are
 not dependencies and are skipped; any other `git`, `url`, `path`, `directory` or `editable`
@@ -29,9 +37,10 @@ With Gradle, the `cyclonedxBom` task of the `org.cyclonedx.bom` plugin produces 
 - The SBOM is read in JSON (`bomFormat: "CycloneDX"`) or XML (CycloneDX namespace); nested
   components are included. An XML SBOM with a `DOCTYPE` or `ENTITY` is refused.
 - Each component is identified by its package URL (`purl`): `pkg:maven/...` (Maven),
-  `pkg:npm/...` (npm) and `pkg:pypi/...` (PyPI). An SBOM may mix these ecosystems. The other
-  types (`pkg:golang`, `pkg:nuget`...) and the components without a `purl` are counted in a
-  note and not checked.
+  `pkg:npm/...` (npm), `pkg:pypi/...` (PyPI), `pkg:golang/...` (Go), `pkg:cargo/...`
+  (crates.io) and `pkg:nuget/...` (NuGet). An SBOM may mix these ecosystems. The other types
+  (`pkg:gem`, `pkg:composer`...) and the components without a `purl` are counted in a note and
+  not checked.
 - The versions are resolved: the SBOM is handled like a lockfile. A component of scope
   `excluded` is marked `dev`; a Maven `-SNAPSHOT` version raises `DEP-002`.
 
@@ -47,8 +56,8 @@ database. Two ways to fill it:
 ### Manual import
 
 On a connected machine, download the osv.dev exports
-(`https://osv-vulnerabilities.storage.googleapis.com/PyPI/all.zip`, same for `npm` and
-`Maven`), transfer them, then import them (CLI-only operation, idempotent):
+(`https://osv-vulnerabilities.storage.googleapis.com/PyPI/all.zip`, same for `npm`, `Maven`,
+`Go`, `crates.io` and `NuGet`), transfer them, then import them (CLI-only operation, idempotent):
 
 ```bash
 security-review-controller advisories import PyPI.zip      # .json, folder or .zip
@@ -82,7 +91,7 @@ HTTPS_PROXY=http://user:password@proxy.example.com:3128
 - **Mirror**: `SECREVIEW_OSV_URL` replaces the source (Nexus, Artifactory, internal bucket…) as
   long as it serves `<URL>/<ecosystem>/all.zip` over HTTPS. Plain HTTP, credentials in the URL
   and redirects to anything other than HTTPS are refused.
-- `SECREVIEW_OSV_ECOSYSTEMS` (`PyPI,npm,Maven` by default) limits the downloaded exports; every
+- `SECREVIEW_OSV_ECOSYSTEMS` (`PyPI,npm,Maven,Go,crates.io,NuGet` by default) limits the downloaded exports; every
   archive is bounded by `SECREVIEW_OSV_MAX_DOWNLOAD_MB` (1024 MiB), written to a temporary
   folder then deleted.
 - A failed ecosystem (network, size, invalid archive) does not prevent the others; it is logged
@@ -153,41 +162,26 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 - Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the controller, the request
   to `SECREVIEW_MAX_SCAN_REQUEST_MB`. Symbolic links are not read.
 
-## Scan with a shared server (commit hook)
+## Scan from a workstation (commit hook)
 
-`security-review-mcp scan-deps` sends the dependency files to the `scan_dependencies` tool of a
-shared MCP server: the scan uses the advisory database of that server, without any local
-import. It needs a token with the `mcp` or `admin` role, for instance a personal MCP token (see
-[enrollment](http.md#enrollment-request-the-project)).
+A developer runs the same `security-review-ci scan-deps` on their workstation, with a
+[personal `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens) created in
+**My account**: it reaches the projects the developer may read, and the files are sent to the
+controller exactly as they are on disk. The workstation needs no Python: install the client with
+uv (see [Installation](../usage/gate.md#installation)).
 
 ```bash
-export SECREVIEW_MCP_URL=https://secreview.example.com
-export SECREVIEW_TOKEN=<token>
-security-review-mcp scan-deps uv.lock web/package-lock.json --require-database
-# exit code: 0 = ok, 1 = blocked, 2 = error (server unreachable, token refused...)
+uv tool install security-review-ci
+export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
+export SECREVIEW_TOKEN=<personal ci token>
+security-review-ci scan-deps uv.lock web/package-lock.json --project my-project --require-database
+# exit code: 0 = ok, 1 = blocked, 2 = error (controller unreachable, token refused...)
 ```
 
-A missing or refused token (unknown, revoked or expired) ends with an error that tells you to
-sign in to the web interface and create a new personal MCP token (see
-[rejected token](http.md#rejected-token-sign-in-again)).
-
-- Same options and output as `security-review-ci scan-deps` (`--fail-on`, `--format`,
-  `--require-database`).
-- `--save --project P` stores the result as a `dependency-scan` report of the project, with
-  the `save_security_report` tool of the same server and the same token: the token must reach
-  the project (otherwise, [request the project](http.md#enrollment-request-the-project)).
-  `--author`, `--repository`, `--branch` and `--commit` are stored with the report. Without
-  `--save`, nothing is stored.
-- `--url` replaces `SECREVIEW_MCP_URL`, `--token-stdin` reads the token on stdin instead of
-  `SECREVIEW_TOKEN`. Both variables can also be set in the `.env` file of the folder (never
-  commit it).
-- Plain HTTP is refused outside localhost (unless `--allow-http`), as are credentials in the URL
-  and redirects to another origin; `--cafile` gives an internal CA. Symbolic links are not read,
-  as the content leaves the machine.
-- Each file is limited to the `SECREVIEW_MAX_DEPENDENCY_CHARS` of the server.
-
-Commit hook ([pre-commit](https://pre-commit.com) or prek), run when a manifest or a lockfile
-changes:
+Commit hook ([prek](https://prek.j178.dev) or [pre-commit](https://pre-commit.com)), run when a
+manifest or a lockfile changes. With `language: python`, the hook installs `security-review-ci`
+in its own environment: nothing else to install. prek is a single binary that also downloads
+the Python of the hook (pre-commit needs a Python):
 
 ```yaml
 repos:
@@ -195,13 +189,18 @@ repos:
     hooks:
       - id: scan-deps
         name: dependency scan
-        entry: security-review-mcp scan-deps --skip-unconfigured --require-database
-        language: system
+        entry: security-review-ci scan-deps --skip-unconfigured --require-database --project my-project
+        language: python
+        additional_dependencies: ["security-review-ci==X.Y.Z"] # version of your controller
         files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
 ```
 
-`--skip-unconfigured` lets the commit through, with a warning, when no server URL is configured
-(contributors without a shared server).
+With the client already installed (`uv tool install`), `language: system` runs it from the
+`PATH` instead.
+
+`--skip-unconfigured` lets the commit through, with a warning, when `SECREVIEW_CONTROLLER_URL`
+is not set (contributors without a controller). The two variables are read from the
+environment only, never from the `.env` file.
 
 ## Reading the result
 

@@ -7,7 +7,10 @@ from conftest import ADMIN_GRANTS, TRIAGER_GRANTS
 from sqlalchemy import inspect
 from sqlmodel import SQLModel, StaticPool, create_engine
 
-from security_review_mcp import config, database, rule_store, web_users
+from security_review_mcp import config
+from security_review_mcp.auth import web_users
+from security_review_mcp.rules import rule_store
+from security_review_mcp.storage import database
 
 
 @pytest.fixture
@@ -149,7 +152,7 @@ def test_roles_and_mappings_become_groups(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp import access_control
+    from security_review_mcp.auth import access_control
 
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0012")
@@ -287,7 +290,7 @@ def test_direct_roles_become_groups(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp import access_control
+    from security_review_mcp.auth import access_control
 
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0017")
@@ -383,7 +386,7 @@ def test_old_dismissals_expire_after_a_grace_period(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp import services
+    from security_review_mcp.reports import services
 
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0009")
@@ -520,7 +523,8 @@ def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp import access_control, audit, token_store
+    from security_review_mcp.auth import access_control, token_store
+    from security_review_mcp.observability import audit
 
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0020")
@@ -582,7 +586,7 @@ def test_person_tokens_are_revoked_and_triager_becomes_ordinary(empty_engine):
 
 
 def test_a_new_database_gets_an_ordinary_triager_role(empty_engine):
-    from security_review_mcp import access_control
+    from security_review_mcp.auth import access_control
 
     database.upgrade_db()
 

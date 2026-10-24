@@ -13,17 +13,13 @@ from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from starlette.routing import Route
 from starlette.testclient import TestClient
 
-from security_review_mcp import (
-    cli,
-    database,
-    http_server,
-    server,
-    token_store,
-    web_users,
-)
+from security_review_mcp import cli, http_server, server
+from security_review_mcp.auth import token_store, web_users
+from security_review_mcp.clients import commands
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
-from security_review_mcp.models import ApiToken
+from security_review_mcp.storage import database
+from security_review_mcp.storage.models import ApiToken
 
 STORE = token_store.DatabaseTokenStore()
 
@@ -508,20 +504,20 @@ def test_stdio_server_migrates_its_own_database(monkeypatch):
     assert database.current_revision() == database.head_revision()
 
 
-def test_moved_commands_still_run_from_the_mcp_cli_with_a_warning(capsys):
+def test_the_mcp_cli_no_longer_runs_the_controller_commands(capsys):
     with pytest.raises(SystemExit) as exc:
         server.main(["db", "status"])
 
-    assert exc.value.code == cli.EXIT_BLOCKED  # not migrated yet
+    assert exc.value.code == cli.EXIT_ERROR
     captured = capsys.readouterr()
-    assert "use `security-review-controller db`" in captured.err
-    assert json.loads(captured.out)["up_to_date"] is False
+    assert "unknown command 'db'" in captured.err
+    assert captured.out == ""
 
 
 @pytest.mark.parametrize(
     ("argv", "expected"),
     [
-        (["--help"], ["serve", *cli.MCP_COMMANDS]),
+        (["--help"], ["serve", *commands.MCP_COMMANDS]),
         (["serve", "--help"], ["--transport", "--host", "--port"]),
     ],
 )
@@ -557,7 +553,7 @@ def test_mcp_without_a_valid_command_serves_nothing(monkeypatch, capsys, argv, m
     assert message in captured.err
 
 
-@pytest.mark.parametrize("argv", [["serve"], *([command] for command in cli.MCP_COMMANDS)])
+@pytest.mark.parametrize("argv", [["serve"], *([command] for command in commands.MCP_COMMANDS)])
 def test_mcp_options_all_have_a_help_text(monkeypatch, argv):
     parsers: list[argparse.ArgumentParser] = []
 

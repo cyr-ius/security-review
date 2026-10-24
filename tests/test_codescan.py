@@ -8,11 +8,12 @@ import json
 import pytest
 from mcp.client import Client
 
-from security_review_mcp import codescan, rule_store, services
-from security_review_mcp.codescan import SourceFile
 from security_review_mcp.config import get_settings
-from security_review_mcp.models import Severity
+from security_review_mcp.reports import services
+from security_review_mcp.rules import codescan, rule_store
+from security_review_mcp.rules.codescan import SourceFile
 from security_review_mcp.server import mcp
+from security_review_mcp.storage.models import Severity
 
 FILES = [
     SourceFile("app/views.py", "import subprocess\nsubprocess.run(cmd, shell=True)\n"),

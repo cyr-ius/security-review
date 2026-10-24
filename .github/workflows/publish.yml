@@ -54,7 +54,12 @@ jobs:
         run: npm ci --no-audit --no-fund && npm run build
       - run: uv build
       - name: Check the web interface is in the wheel
-        run: unzip -l dist/*.whl | grep -q "security_review_mcp/webui/index.html"
+        run: unzip -l dist/security_review_mcp-*.whl | grep -q "security_review_mcp/webui/index.html"
+      # Standalone pipeline client (standard library only), same version
+      - name: Build security-review-ci
+        run: |
+          uv run --no-project python scripts/build_ci_client.py build/security-review-ci
+          uv build build/security-review-ci --out-dir dist
       - name: Check distributions
         run: uvx twine check --strict dist/*
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
