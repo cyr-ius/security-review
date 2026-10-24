@@ -45,7 +45,7 @@ from .project_names import normalize_project
 from .prompts import fenced
 from .scanner import redact_secrets, sanitize_untrusted
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("security_review_mcp.services")
 
 # Characters of a developer username or email (Unicode letters and digits included): no
 # Markdown or HTML syntax, as the author is copied as is into the Markdown export of a report

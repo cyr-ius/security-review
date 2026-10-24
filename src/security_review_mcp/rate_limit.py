@@ -29,7 +29,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from .database import session_scope
 from .models import RateLimitCounter
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("security_review_mcp.rate_limit")
 
 # Seconds between two purges of the expired counters, in each process
 PURGE_INTERVAL_SECONDS = 60

@@ -39,7 +39,7 @@ from .config import Settings
 from .database import session_scope
 from .models import AppSetting, AuditEvent, utcnow
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("security_review_mcp.audit_syslog")
 
 # Key of the id of the last forwarded event in the appsetting table
 AUDIT_SYSLOG_CURSOR = "audit_syslog_cursor"

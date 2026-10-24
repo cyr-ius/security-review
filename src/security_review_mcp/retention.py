@@ -6,7 +6,7 @@ import threading
 
 from . import audit, services
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("security_review_mcp.retention")
 
 # Seconds between two purges
 PRUNE_INTERVAL_SECONDS = 24 * 3600

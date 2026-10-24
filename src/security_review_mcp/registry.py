@@ -12,7 +12,7 @@ from .checklists import CheckItem
 from .rules_loader import LoadResult, default_content, rule_entry
 from .scanner import Rule, scan_content_detailed
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("security_review_mcp.registry")
 
 # Checklist domain appended to every review prompt (company-wide requirements)
 COMPANY_DOMAIN = "company"

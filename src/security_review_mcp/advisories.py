@@ -24,7 +24,7 @@ from .database import session_scope
 from .models import Advisory, AdvisoryAffected, Severity, utcnow
 from .versions import compare_versions, version_key
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("security_review_mcp.advisories")
 
 SUPPORTED_ECOSYSTEMS: dict[str, str] = {
     "pypi": "PyPI",

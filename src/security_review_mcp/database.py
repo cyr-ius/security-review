@@ -14,7 +14,7 @@ from sqlmodel import Session, create_engine
 
 from .config import get_settings
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("security_review_mcp.database")
 
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 # Default database of version 1.0, relative to the working directory

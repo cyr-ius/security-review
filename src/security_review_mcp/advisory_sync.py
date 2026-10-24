@@ -32,7 +32,7 @@ from .database import session_scope
 from .models import AdvisoryUpdate, utcnow
 from .proxy import check_proxy_url, proxy_handler
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("security_review_mcp.advisory_sync")
 
 DOWNLOAD_TIMEOUT = 60
 CHUNK_BYTES = 1024 * 1024

@@ -20,7 +20,7 @@ from .syntax_analysis import (
     sql_taint_lines,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("security_review_mcp.scanner")
 
 # Rule of the request-to-SQL flow analysis of each language
 _SQL_FLOW_RULES = {"go": "GO-019", "csharp": "CS-021", "rust": "RS-015"}

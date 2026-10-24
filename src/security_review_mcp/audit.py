@@ -26,7 +26,7 @@ from .models import AuditEvent, as_utc, utcnow
 from .project_names import normalize_project
 from .scanner import redact_secrets
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("security_review_mcp.audit")
 
 MAX_ACTOR_CHARS = 200
 MAX_TARGET_CHARS = 200
