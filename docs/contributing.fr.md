@@ -102,6 +102,25 @@ devcontainer : ils ne se mélangent pas avec ceux de l'hôte.
     reste isolé du démon de l'hôte. Après l'ajout de la feature, reconstruisez le conteneur
     (*Dev Containers: Rebuild Container*).
 
+## Construire l'image
+
+```bash
+docker build -t security-review-mcp .
+docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # pilote PostgreSQL
+```
+
+Le build compile aussi l'[interface web](../usage/web-interface.md) (étape Node.js) ;
+elle est servie sur `/ui/` par le contrôleur.
+
+L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. Son
+`HEALTHCHECK` (`python -m security_review_mcp.healthcheck`, toutes les 30 secondes) interroge
+`/healthz` du serveur MCP HTTP ou du contrôleur sur l'interface de bouclage, en HTTPS quand le
+TLS est activé (en ne faisant confiance qu'au certificat du conteneur) ; en stdio, rien n'écoute
+et le conteneur reste sain, et avec le TLS mutuel (`SECREVIEW_TLS_CLIENT_CA`) il n'interroge
+rien : appuyez-vous sur les sondes de l'orchestrateur. La
+base SQLite est dans le volume `/var/lib/secreview`. Le fichier `.env` n'est **pas** copié dans l'image :
+passez la configuration avec `-e` ou `--env-file`.
+
 ## Définition de « terminé »
 
 Une contribution, humaine ou produite par un agent IA, n'est terminée que si le comportement

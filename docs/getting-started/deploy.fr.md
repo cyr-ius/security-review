@@ -110,6 +110,60 @@ Connecter vous à l'interface
 
 http://127.0.0.1:8080/ui/
 
+### 8. Docker
+
+Les mêmes opérations au sein de containers Docker
+
+Une seule image, deux conteneurs qui partagent la base (voir [Architecture et déploiement](architecture.md)) :
+
+- le **serveur MCP**, point d'entrée par défaut de l'image (`security-review-mcp`, commande par
+  défaut `serve` : stdio ; ajoutez `--transport streamable-http` pour HTTP) ;
+- le **contrôleur** (API REST, interface web, administration), lancé avec
+  `--entrypoint security-review-controller`.
+
+Avec l'[authentification et le TLS intégrés](http.md) (ou derrière un reverse proxy qui s'en charge)
+
+
+```bash
+DB=postgresql+psycopg2://user:pass@db:5432/secreview
+
+# 1. Schéma (Alembic) : à relancer après chaque mise à jour de l'image
+docker run --rm -e SECREVIEW_DATABASE_URL=$DB \
+    --entrypoint security-review-controller security-review-mcp:pg db upgrade
+
+# 2. Contrôleur : interface web et API, de préférence sur un réseau interne
+docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
+    -e SECREVIEW_DATABASE_URL=$DB -e SECREVIEW_DB_AUTO_UPGRADE=false \
+    --entrypoint security-review-controller \
+    security-review-mcp:pg serve --host 0.0.0.0 --port 8000
+
+# 3. Serveur MCP : exposé aux agents et à la CI
+docker run -d --name secreview-mcp -p 8443:8443 \
+    -e SECREVIEW_DATABASE_URL=$DB \
+    -v ./tls:/etc/secreview/tls:ro \
+    -e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
+    -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
+    security-review-mcp:pg serve --transport streamable-http --host 0.0.0.0 --port 8443
+```
+
+Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Le
+serveur MCP refuse de démarrer tant que le schéma n'est pas migré. Au premier démarrage du
+contrôleur.
+
+Définissez-le mot de passe du compte `admin`via la commande
+`docker exec secreview-controller security-review-controller user reset-password admin`
+
+Connectez-vous sur l'interface (`/ui/`) avec l'identifiant `admin`, puis choisissez votre
+propre mot de passe dans **Mon compte**.
+Créez ensuite un compte par personne dans l'écran **Utilisateurs**
+(voir les [comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs)).
+
+!!! warning "La CLI est le seul moyen d'obtenir le mot de passe initial"
+    Aucune variable ne le définit et les journaux ne l'affichent jamais : lancez
+    `user reset-password admin` dans le conteneur, et traitez ce qu'elle affiche comme un secret.
+    Si vous le perdez, relancez la commande (l'ancien est aussitôt invalidé).
+
+
 ## Avec Docker Compose
 
 Le fichier `docker-compose.yml` du dépôt réalise les étapes 1 à 4 avec PostgreSQL : base,
@@ -132,16 +186,16 @@ Pour ouvrir à l'équipe, ajoutez le TLS et renseignez `DOCKER_PUBLISH_ADDRESS`.
 
 Le manifeste
 [`examples/kubernetes/security-review.yaml`](https://github.com/cyr-ius/security-review-mcp/blob/master/examples/kubernetes/security-review.yaml)
-réalise les étapes 2 à 4 sur une base PostgreSQL existante : un init container migre le schéma,
-puis le contrôleur et le serveur MCP démarrent dans deux Deployments. Le compte `admin` est créé
-au premier lancement ; définissez son mot de passe avec la CLI, qui l'affiche une fois.
+réalise les étapes 2 à 4 sur une base PostgreSQL existante.
+un init container migre le schéma, puis le contrôleur et le serveur MCP démarrent dans deux Deployments.
+Le compte `admin` est créé au premier lancement ; définissez son mot de passe avec la CLI, qui l'affiche une fois.
 
 Avant de l'appliquer, remplacez l'image `registry.example.com/security-review-mcp:pg` par une
 image qui contient le pilote PostgreSQL, par exemple `ghcr.io/cyr-ius/security-review-mcp:latest-pg`
-(voir [Installation](installation.md)). Le Secret `secreview-controller` contient le secret de
-signature des sessions web : sans lui, le contrôleur en tire un aléatoire à chaque démarrage et
-les sessions se terminent à chaque redémarrage (manifeste du Secret : voir
-[Kubernetes](../advanced/architecture.md#kubernetes)).
+(voir [Installation](installation.md)).
+
+Le Secret `secreview-controller` contient le secret de signature des sessions web : sans lui, le contrôleur le génère de façon aléatoire à chaque démarrage mettant fin aux sessions (manifeste du Secret : voir [Kubernetes](../advanced/architecture.md#kubernetes)).
+
 
 ```bash
 kubectl create namespace secreview
@@ -155,10 +209,11 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
     security-review-controller token create --label alice
 ```
 
-Le contrôleur reste interne : ouvrez l'interface web avec
-`kubectl -n secreview port-forward svc/secreview-controller 8080:80`, puis
-`http://127.0.0.1:8080/ui/`. Exposez le Service `secreview-mcp` aux développeurs et à la CI par
-un Ingress avec TLS, et réglez `SECREVIEW_FORWARDED_ALLOW_IPS` sur la plage d'adresses des pods
+Le contrôleur reste interne.
+
+Ouvrez l'interface web avec `kubectl -n secreview port-forward svc/secreview-controller 8080:80`.
+Exposez le Service `secreview-mcp` aux développeurs et à la CI par un Ingress avec TLS, et réglez
+ `SECREVIEW_FORWARDED_ALLOW_IPS` sur la plage d'adresses des pods
 de l'ingress controller. Contenu du manifeste, mise à jour OSV et réplicas multiples : voir
 [Kubernetes](../advanced/architecture.md#kubernetes).
 

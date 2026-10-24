@@ -101,6 +101,25 @@ volumes are kept in volumes of the devcontainer: they do not mix with those of t
     container, but stays isolated from the daemon of the host. After adding the feature, rebuild
     the container (*Dev Containers: Rebuild Container*).
 
+## Building the image
+
+```bash
+docker build -t security-review-mcp .
+docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # PostgreSQL driver
+```
+
+The build also compiles the [web interface](../usage/web-interface.md) (Node.js stage); the
+controller serves it on `/ui/`.
+
+The image runs as a non-root user (uid `10001`), without sources nor build tools. The SQLite
+database is in the `/var/lib/secreview` volume. Its `HEALTHCHECK`
+(`python -m security_review_mcp.healthcheck`, every 30 seconds) requests `/healthz` of the HTTP
+MCP server or of the controller on the loopback interface, over HTTPS when TLS is enabled
+(trusting only the certificate of the container); in stdio, nothing listens and the container
+stays healthy, and with mutual TLS (`SECREVIEW_TLS_CLIENT_CA`) it is not requested: rely on the
+probes of the orchestrator. The `.env` file is **not** copied into the image: pass the
+configuration with `-e` or `--env-file`.
+
 ## Definition of done
 
 A contribution, human or produced by an AI agent, is only done if the behavior it adds or fixes

@@ -15,83 +15,9 @@ docker pull ghcr.io/cyr-ius/security-review-mcp:latest-pg   # or docker.io/cyriu
 | `X.Y.Z-pg`, `X.Y-pg`, `X-pg`, `latest-pg` | Idem, avec le pilote PostgreSQL |
 | `X.Y.ZrcN` (`a`, `b`, `rc`) | Préversion : ce tag seulement, jamais `latest` |
 
-Fixez une version (`1.2.3-pg`) en production. Les images portent un SBOM et une attestation de
-provenance (`docker buildx imagetools inspect --format '{{ json .Provenance }}' IMAGE`). Dans
-les exemples de cette page, remplacez `security-review-mcp` et `security-review-mcp:pg` par
-l'image publiée, ou construisez-la.
-
-## Construire l'image
-
-```bash
-docker build -t security-review-mcp .
-docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # pilote PostgreSQL
-```
-
-Le build compile aussi l'[interface web](../usage/web-interface.md) (étape Node.js) ;
-elle est servie sur `/ui/` par le contrôleur.
-
-L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. Son
-`HEALTHCHECK` (`python -m security_review_mcp.healthcheck`, toutes les 30 secondes) interroge
-`/healthz` du serveur MCP HTTP ou du contrôleur sur l'interface de bouclage, en HTTPS quand le
-TLS est activé (en ne faisant confiance qu'au certificat du conteneur) ; en stdio, rien n'écoute
-et le conteneur reste sain, et avec le TLS mutuel (`SECREVIEW_TLS_CLIENT_CA`) il n'interroge
-rien : appuyez-vous sur les sondes de l'orchestrateur. La
-base SQLite est dans le volume `/var/lib/secreview`. Le fichier `.env` n'est **pas** copié dans l'image :
-passez la configuration avec `-e` ou `--env-file`.
-
-## Serveur partagé (HTTP)
-
-Une seule image, deux conteneurs qui partagent la base (voir
-[Architecture et déploiement](architecture.md)) :
-
-- le **serveur MCP**, point d'entrée par défaut de l'image (`security-review-mcp`, commande par
-  défaut `serve` : stdio ; ajoutez `--transport streamable-http` pour HTTP) ;
-- le **contrôleur** (API REST, interface web, administration), lancé avec
-  `--entrypoint security-review-controller`.
-
-Avec l'[authentification et le TLS intégrés](http.md) (ou derrière un reverse proxy qui s'en
-charge) :
-
-```bash
-DB=postgresql+psycopg2://user:pass@db:5432/secreview
-
-# 1. Schéma (Alembic) : à relancer après chaque mise à jour de l'image
-docker run --rm -e SECREVIEW_DATABASE_URL=$DB \
-    --entrypoint security-review-controller security-review-mcp:pg db upgrade
-
-# 2. Contrôleur : interface web et API, de préférence sur un réseau interne
-docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
-    -e SECREVIEW_DATABASE_URL=$DB -e SECREVIEW_DB_AUTO_UPGRADE=false \
-    --entrypoint security-review-controller \
-    security-review-mcp:pg serve --host 0.0.0.0 --port 8000
-
-# 3. Serveur MCP : exposé aux agents et à la CI
-docker run -d --name secreview-mcp -p 8443:8443 \
-    -e SECREVIEW_DATABASE_URL=$DB \
-    -v ./tls:/etc/secreview/tls:ro \
-    -e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
-    -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
-    security-review-mcp:pg serve --transport streamable-http --host 0.0.0.0 --port 8443
-```
-
-Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Le
-serveur MCP refuse de démarrer tant que le schéma n'est pas migré. Au premier démarrage du
-contrôleur, le compte `admin` est créé avec un mot de passe aléatoire que personne ne connaît
-et qui n'est jamais journalisé ; seule son empreinte est conservée, dans la base de données.
-Définissez-le avec
-`docker exec secreview-controller security-review-controller user reset-password admin`
-(affiché une fois), connectez-vous sur l'interface (`/ui/`) avec l'identifiant `admin`, puis
-choisissez votre propre mot de passe dans **Mon compte**. Créez ensuite un compte par
-personne dans l'écran **Utilisateurs** (voir les
-[comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs)).
-
-Les jetons projet créés depuis l'écran **Jetons** sont eux aussi stockés sous forme d'empreinte
-dans la base, comme tous les jetons (voir [jetons Bearer](http.md#jetons-bearer)).
-
-!!! warning "La CLI est le seul moyen d'obtenir le mot de passe initial"
-    Aucune variable ne le définit et les journaux ne l'affichent jamais : lancez
-    `user reset-password admin` dans le conteneur, et traitez ce qu'elle affiche comme un secret.
-    Si vous le perdez, relancez la commande (l'ancien est aussitôt invalidé).
+Les images portent un SBOM et une attestation de provenance (`docker buildx imagetools inspect --format '{{ json .Provenance }}' IMAGE`).
+Dans les exemples de cette page, remplacez `security-review-mcp` et `security-review-mcp:pg` par
+l'image publiée.
 
 ## Docker Compose avec PostgreSQL
 
@@ -177,26 +103,6 @@ docker compose up -d
 Le service `migrate` applique ensuite les révisions Alembic en attente, s'il y en a. L'export
 contient les rapports, les empreintes des mots de passe et des jetons : gardez-le hors du dépôt
 (lisible par vous seul, `umask 077`) et supprimez-le une fois la restauration vérifiée.
-
-## Poste développeur (stdio)
-
-L'hôte lance le conteneur. `.mcp.json` à la racine du dépôt (VS Code, GitHub Copilot et
-Claude) :
-
-```json
-{
-  "mcpServers": {
-    "security-review": {
-      "type": "stdio",
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "-v", "secreview-data:/var/lib/secreview", "security-review-mcp"]
-    }
-  }
-}
-```
-
-!!! warning "`-i` mais pas `-t`"
-    `-i` est indispensable (le protocole passe par stdin) ; ne mettez pas `-t`.
 
 ## Règles internes et CLI
 

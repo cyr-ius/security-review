@@ -106,6 +106,52 @@ Log in to the interface
 
 http://127.0.0.1:8080/ui/
 
+### 8. Docker
+
+The same operations, performed within Docker containers
+
+A single image, with two containers sharing the same base (see [Architecture and Deployment](architecture.md)):
+
+- the **MCP server**, the default entry point for the image (`security-review-mcp`, with a default command of `serve` using `stdio`; add `--transport streamable-http` for HTTP);
+- the **controller** (REST API, web interface, administration), launched using
+`--entrypoint security-review-controller`. With [built-in authentication and TLS](http.md) (or behind a reverse proxy that handles these)
+
+
+```bash
+DB=postgresql+psycopg2://user:pass@db:5432/secreview
+
+# 1. Schema (Alembic): must be run again after every image update
+docker run --rm -e SECREVIEW_DATABASE_URL=$DB \
+--entrypoint security-review-controller security-review-mcp:pg db upgrade
+
+# 2. Controller: web interface and API, preferably on an internal network
+docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
+-e SECREVIEW_DATABASE_URL=$DB -e SECREVIEW_DB_AUTO_UPGRADE=false \
+--entrypoint security-review-controller \
+security-review-mcp:pg serve --host 0.0.0.0 --port 8000
+
+# 3. MCP Server: exposed to agents and CI
+docker run -d --name secreview-mcp -p 8443:8443 \
+-e SECREVIEW_DATABASE_URL=$DB \
+-v ./tls:/etc/secreview/tls:ro \
+-e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
+-e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
+security-review-mcp:pg serve --transport streamable-http --host 0.0.0.0 --port 8443
+```
+
+Mounted files must be readable by the container user (UID `10001`). The
+MCP server will refuse to start until the schema has been migrated—which happens upon the
+first startup of the controller. Set the password for the `admin` account using the following command:
+`docker exec secreview-controller security-review-controller user reset-password admin`
+
+Log in to the interface (`/ui/`) using the `admin` username, then set your own password under **My Account**.
+Next, create an individual account for each person via the **Users** screen
+(see [User Accounts](../usage/web-interface.md#comptes-utilisateurs)).
+
+!!! warning "The CLI is the only way to obtain the initial password"
+    It is not defined by any variable, nor does it ever appear in the logs: run
+    `user reset-password admin` inside the container, and treat the output as a secret.
+    If you lose it, simply run the command again (the previous password will be invalidated immediately).
 
 ## With Docker Compose
 
