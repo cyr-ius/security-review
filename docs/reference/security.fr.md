@@ -297,6 +297,11 @@
 - Les règles sont des motifs ligne par ligne : elles ne voient ni le flux de données ni les
   contrôles absents (autorisation manquante, par exemple). Ce travail reste celui de l'agent
   guidé par les checklists, et de vos outils SAST/SCA.
+- Les quelques [analyses Tree-sitter](../advanced/rules.md#regles-par-defaut) (`PY-026`, `JV-019`,
+  `NG-021`, `GO-019`, `CS-021`, `RS-015`, `TS-016`) ne suivent que des flux simples dans un seul
+  fichier. Elles sont bornées pour qu'un fichier piégé ne puisse pas bloquer un scan : chaque
+  fonction est analysée une fois par état d'entrée, et le code trop imbriqué n'est contrôlé que
+  par les motifs.
 - La [couverture d'une revue](../usage/prompts-tools.md#couverture-de-la-revue) (résultats de
   checklist, règles des pistes du scan) est déclarée par l'agent : le serveur ne garde que les
   identifiants qu'il connaît et marque `not_covered` les points sautés, il ne peut pas vérifier

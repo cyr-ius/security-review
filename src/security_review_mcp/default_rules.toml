@@ -1514,6 +1514,17 @@ ignore_case = false
 pattern = '\b(io|ioutil)\.ReadAll\s*\(\s*(r|req|request|c\.Request)\.Body\s*\)'
 advice = "Wrap the body with http.MaxBytesReader (or io.LimitReader) before reading it."
 
+
+[[rules]]
+id = "GO-019"
+title = "Request data reaches a dynamic SQL query (Go)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["go"]
+# Structural rule evaluated by the Tree-sitter analyzer (syntax_analysis.sql_taint_lines).
+pattern = '(?=a)b'
+advice = "Keep the SQL constant and pass the request values as arguments ($1, ?); do not build the query with fmt.Sprintf, + or strings.Builder."
+
 [[rules]]
 id = "CS-001"
 title = "SQL built with interpolation or concatenation (ADO.NET, EF Core)"
@@ -1712,6 +1723,17 @@ ignore_case = false
 pattern = '\bEnableScript\s*=\s*true\b|\bXsltSettings\.TrustedXslt\b|new\s+XsltSettings\s*\(\s*true\s*,\s*true\s*\)'
 advice = "Keep XsltSettings.Default (no script, no document()) for stylesheets that are not fully trusted."
 
+
+[[rules]]
+id = "CS-021"
+title = "Request data reaches a dynamic SQL query (.NET)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["csharp"]
+# Structural rule evaluated by the Tree-sitter analyzer (syntax_analysis.sql_taint_lines).
+pattern = '(?=a)b'
+advice = "Use parameters (SqlParameter, Dapper parameters, FromSql or ExecuteSql with an interpolated string) instead of building the SQL text."
+
 [[rules]]
 id = "RS-001"
 title = "SQL built with format! (Rust)"
@@ -1849,6 +1871,17 @@ languages = ["rust"]
 ignore_case = false
 pattern = '\bSslVersion::(SSL3|TLS1|TLS1_1)\b|\bProtocol::(Sslv3|Tlsv10|Tlsv11)\b'  # secreview:ignore GEN-009 (rule text)
 advice = "Require TLS 1.2 or later (SslVersion::TLS1_2, Protocol::Tlsv12)."
+
+
+[[rules]]
+id = "RS-015"
+title = "Request data reaches a dynamic SQL query (Rust)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["rust"]
+# Structural rule evaluated by the Tree-sitter analyzer (syntax_analysis.sql_taint_lines).
+pattern = '(?=a)b'
+advice = "Keep the SQL constant and bind the values (sqlx::query(..).bind, the query! macros, diesel DSL, params!)."
 
 [[rules]]
 id = "TS-001"
@@ -1993,6 +2026,17 @@ cwe = "CWE-208"
 languages = ["typescript", "javascript"]
 pattern = '\b\w*(signature|hmac|digest|apikey|api_key|secret|token)\s*(===|!==|==|!=)\s*[\w.]*(signature|hmac|digest|apikey|api_key|secret|token)\b'
 advice = "Compare secrets with crypto.timingSafeEqual on buffers of equal length."
+
+
+[[rules]]
+id = "TS-016"
+title = "Request data reaches a dynamic SQL query (Node.js)"
+severity = "high"
+cwe = "CWE-89"
+languages = ["typescript", "javascript"]
+# Structural rule evaluated by the Tree-sitter analyzer (syntax_analysis.sql_taint_lines).
+pattern = '(?=a)b'
+advice = "Use placeholders with a values array, tagged $queryRaw or query builder parameters; do not interpolate request data into SQL."
 
 [[checklist]]
 domain = "python"

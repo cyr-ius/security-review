@@ -21,7 +21,8 @@ change applies to every agent, without a restart.
 
 - A rule is a regular expression. It has an id (`PY-004`), a severity and a CWE.
 - A few rules go further. They follow the path of a value inside a file, with Tree-sitter
-  (`PY-026`, `NG-021`, `JV-019`).
+  (`PY-026`, `NG-021`, `JV-019`, and SQL flows in Go, C#, Rust and Node.js: `GO-019`, `CS-021`,
+  `RS-015`, `TS-016`).
 - A match is a **lead**, not a vulnerability. The agent must confirm it by reading the code.
 - No result does not mean "safe code". It is not a full SAST.
 

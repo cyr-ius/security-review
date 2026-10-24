@@ -18,7 +18,7 @@
 
 MCP server for **security-oriented code review** (vulnerabilities and misconfigurations), usable
 from VS Code / Copilot, Claude or a CI/CD agent. It provides review prompts, checklists, a
-pattern scan with focused Tree-sitter checks for unsafe Python SQL, Angular DOM flows and unchecked message origins, an offline dependency analysis
+pattern scan with focused Tree-sitter checks for request-to-SQL flows (Python, Java, Go, C#, Rust, Node.js), Angular DOM flows and unchecked message origins, an offline dependency analysis
 and a report database (SQLite or PostgreSQL) usable in pipelines.
 
 📖 **Full documentation: <https://cyr-ius.github.io/security-review-mcp/>**
@@ -100,8 +100,8 @@ Other cases: [offline installation](https://cyr-ius.github.io/security-review-mc
 
 ## Limits
 
-The scan produces leads, with false positives. Its Python Tree-sitter check covers only simple local SQL
-flows. It replaces neither a full SAST or SCA analysis, nor a human review. See
+The scan produces leads, with false positives. Its Tree-sitter checks cover only simple local flows inside
+one file. It replaces neither a full SAST or SCA analysis, nor a human review. See
 [security and limits](https://cyr-ius.github.io/security-review-mcp/reference/security/).
 
 ## Contributing

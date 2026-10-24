@@ -54,6 +54,30 @@ methods on JDBC/JPA APIs are sinks. It does not report values bound separately w
 framework wrappers, or calls across files, and does not infer arbitrary validation or escaping
 as a sanitizer.
 
+Go, C#, Rust, TypeScript and JavaScript scans include `GO-019`, `CS-021`, `RS-015` and `TS-016`,
+the same bounded Tree-sitter analysis for each language. It follows request data through local
+assignments (destructuring included), concatenation, interpolated strings (`$"..."`, template
+literals, `format!`), formatting calls (`fmt.Sprintf`, `string.Format`), string builders
+(`strings.Builder.WriteString`, `StringBuilder.Append`, `push_str`) and `+=`, plus arguments and
+returned values across direct calls to local functions. A finding needs the three conditions:
+request data, a dynamically built text, and a text that looks like SQL.
+
+| Language | Sources | Sinks |
+|---|---|---|
+| Go | `r.URL.Query()`, `FormValue`, `PathValue`, `Header.Get`, `mux.Vars`, gin/echo/fiber `c.Query`, `c.Param`... | `database/sql`, sqlx and GORM `Query`, `QueryRow`, `Exec`, `Prepare`, `Raw`, `Get`, `Select`... |
+| C# | `Request.Query`, `Form`, `Headers`, `RouteValues`, `Cookies`; `[FromQuery]`, `[FromRoute]`, `[FromBody]`, `[FromForm]`, `[FromHeader]` parameters | `ExecuteSqlRaw`, `FromSqlRaw`, `SqlQueryRaw`, Dapper `Query*` / `Execute*`, `new SqlCommand(...)` (and other ADO.NET providers), `CommandText =` |
+| Rust | axum / actix-web `Query`, `Path`, `Json`, `Form` extractors (numeric paths and `Uuid` excluded), `match_info()`, `query_string()` | sqlx `query*`, diesel `sql_query`, rusqlite / tokio-postgres `execute`, `prepare`, `query_row`... |
+| TypeScript, JavaScript | `req.query`, `req.params`, `req.body`, `req.headers`, `req.cookies`, Koa `ctx.query`; NestJS `@Query`, `@Param`, `@Body`, `@Headers` parameters | `query`, `execute`, `raw`, Prisma `$queryRawUnsafe` / `$executeRawUnsafe`, Sequelize `literal`, Knex `whereRaw`... |
+
+Bound parameters are not reported, nor are APIs that bind interpolated values themselves (EF
+Core `FromSql($"...")`, Prisma tagged `` $queryRaw`...` ``, the sqlx `query!` macros). The
+analysis does not resolve methods across files, fields, dependency injection or framework
+wrappers, and does not treat validation as a sanitizer.
+
+The Tree-sitter analyses are bounded: each function is analyzed once per input state (a chain of
+calls stays linear), and code nested too deeply for the parser is only checked by the patterns
+(a warning is logged).
+
 Other focused additions include `PY-027` for explicitly disabled JWT signature verification,
 `JV-018` for a direct request value passed to JNDI `lookup`, and `NG-023` for assignments that
 mutate `__proto__` or `constructor.prototype`. These are line-level patterns and do not infer

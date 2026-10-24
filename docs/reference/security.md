@@ -280,6 +280,10 @@
 - Rules are line-by-line patterns: they see neither the data flow nor the missing checks
   (missing authorization, for example). This work remains the agent's, guided by the
   checklists, and your SAST/SCA tools'.
+- The few [Tree-sitter analyses](../advanced/rules.md#default-rules) (`PY-026`, `JV-019`,
+  `NG-021`, `GO-019`, `CS-021`, `RS-015`, `TS-016`) only follow simple flows inside one file.
+  They are bounded so that a crafted file cannot block a scan: each function is analyzed once
+  per input state, and code nested too deeply is only checked by the patterns.
 - The [coverage of a review](../usage/prompts-tools.md#review-coverage) (checklist results,
   rules of the scan leads) is declared by the agent: the server only keeps the ids it knows and
   marks the skipped items `not_covered`, it cannot check that the agent really read the code.

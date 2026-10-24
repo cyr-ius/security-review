@@ -5,8 +5,11 @@ replacement for SAST tools or for a real review: matches are leads to verify, an
 absence of a match proves nothing.
 """
 
+import logging
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
+from functools import partial
 
 from .models import Severity
 from .syntax_analysis import (
@@ -14,7 +17,13 @@ from .syntax_analysis import (
     java_sql_taint_lines,
     message_origin_check_lines,
     python_sql_taint_lines,
+    sql_taint_lines,
 )
+
+logger = logging.getLogger(__name__)
+
+# Rule of the request-to-SQL flow analysis of each language
+_SQL_FLOW_RULES = {"go": "GO-019", "csharp": "CS-021", "rust": "RS-015"}
 
 
 @dataclass(frozen=True)
@@ -109,6 +118,26 @@ def _excerpt(line: str) -> str:
     return sanitize_untrusted(line.strip())[:300]
 
 
+def _structural_analyses(lang: str) -> list[tuple[str, Callable[[str], list[int]]]]:
+    """Return the Tree-sitter analyses of a language: (rule id, function returning lines)."""
+    if lang == "python":
+        return [("PY-026", python_sql_taint_lines)]
+    if lang == "java":
+        return [("JV-019", java_sql_taint_lines)]
+    if lang in ("go", "csharp", "rust"):
+        return [(_SQL_FLOW_RULES[lang], partial(sql_taint_lines, language=lang))]
+    if lang in ("typescript", "javascript", "angular"):
+        grammar = "javascript" if lang == "javascript" else "typescript"
+        analyses: list[tuple[str, Callable[[str], list[int]]]] = [
+            ("NG-021", partial(angular_xss_taint_lines, language=grammar)),
+            ("NG-022", partial(message_origin_check_lines, language=grammar)),
+        ]
+        if lang != "angular":  # templates hold no SQL
+            analyses.append(("TS-016", partial(sql_taint_lines, language=grammar)))
+        return analyses
+    return []
+
+
 def scan_content_detailed(
     content: str,
     language: str,
@@ -158,93 +187,37 @@ def scan_content_detailed(
                 matches.append(item)
                 if len(matches) >= max_matches:
                     return matches, suppressed
-    if lang == "python" and len(matches) < max_matches:
-        taint_rule = next((rule for rule in selected if rule.id == "PY-026"), None)
-        if taint_rule is not None:
-            for number in python_sql_taint_lines(content):
-                line = content.splitlines()[number - 1][:MAX_LINE_CHARS]
-                item = {
-                    "rule_id": taint_rule.id,
-                    "title": taint_rule.title,
-                    "severity": taint_rule.severity.value,
-                    "cwe": taint_rule.cwe,
-                    "line": number,
-                    "excerpt": _excerpt(line),
-                    "advice": taint_rule.advice,
-                }
-                ignored = _suppressed_ids(line)
-                if ignored is not None and (not ignored or taint_rule.id in ignored):
-                    suppressed.append(item)
-                else:
-                    matches.append(item)
-                    if len(matches) >= max_matches:
-                        break
-    if lang == "java" and len(matches) < max_matches:
-        taint_rule = next((rule for rule in selected if rule.id == "JV-019"), None)
-        if taint_rule is not None:
-            for number in java_sql_taint_lines(content):
-                line = content.splitlines()[number - 1][:MAX_LINE_CHARS]
-                item = {
-                    "rule_id": taint_rule.id,
-                    "title": taint_rule.title,
-                    "severity": taint_rule.severity.value,
-                    "cwe": taint_rule.cwe,
-                    "line": number,
-                    "excerpt": _excerpt(line),
-                    "advice": taint_rule.advice,
-                }
-                ignored = _suppressed_ids(line)
-                if ignored is not None and (not ignored or taint_rule.id in ignored):
-                    suppressed.append(item)
-                else:
-                    matches.append(item)
-                    if len(matches) >= max_matches:
-                        break
-    if lang in {"typescript", "javascript", "angular"} and len(matches) < max_matches:
-        taint_rule = next((rule for rule in selected if rule.id == "NG-021"), None)
-        if taint_rule is not None:
-            for number in angular_xss_taint_lines(
-                content, "javascript" if lang == "javascript" else "typescript"
-            ):
-                line = content.splitlines()[number - 1][:MAX_LINE_CHARS]
-                item = {
-                    "rule_id": taint_rule.id,
-                    "title": taint_rule.title,
-                    "severity": taint_rule.severity.value,
-                    "cwe": taint_rule.cwe,
-                    "line": number,
-                    "excerpt": _excerpt(line),
-                    "advice": taint_rule.advice,
-                }
-                ignored = _suppressed_ids(line)
-                if ignored is not None and (not ignored or taint_rule.id in ignored):
-                    suppressed.append(item)
-                else:
-                    matches.append(item)
-                    if len(matches) >= max_matches:
-                        break
-    if lang in {"typescript", "javascript", "angular"} and len(matches) < max_matches:
-        message_rule = next((rule for rule in selected if rule.id == "NG-022"), None)
-        if message_rule is not None:
-            parser_language = "javascript" if lang == "javascript" else "typescript"
-            for number in message_origin_check_lines(content, parser_language):
-                line = content.splitlines()[number - 1][:MAX_LINE_CHARS]
-                item = {
-                    "rule_id": message_rule.id,
-                    "title": message_rule.title,
-                    "severity": message_rule.severity.value,
-                    "cwe": message_rule.cwe,
-                    "line": number,
-                    "excerpt": _excerpt(line),
-                    "advice": message_rule.advice,
-                }
-                ignored = _suppressed_ids(line)
-                if ignored is not None and (not ignored or message_rule.id in ignored):
-                    suppressed.append(item)
-                else:
-                    matches.append(item)
-                    if len(matches) >= max_matches:
-                        break
+    for rule_id, analysis in _structural_analyses(lang):
+        if len(matches) >= max_matches:
+            break
+        rule = next((rule for rule in selected if rule.id == rule_id), None)
+        if rule is None:
+            continue
+        try:
+            numbers = analysis(content)
+        except RecursionError:
+            # Deeply nested code: the structural check is skipped, the patterns still apply
+            logger.warning("%s skipped: the code is nested too deeply", rule_id)
+            continue
+        source_lines = content.splitlines()
+        for number in numbers:
+            line = source_lines[number - 1][:MAX_LINE_CHARS]
+            item = {
+                "rule_id": rule.id,
+                "title": rule.title,
+                "severity": rule.severity.value,
+                "cwe": rule.cwe,
+                "line": number,
+                "excerpt": _excerpt(line),
+                "advice": rule.advice,
+            }
+            ignored = _suppressed_ids(line)
+            if ignored is not None and (not ignored or rule.id in ignored):
+                suppressed.append(item)
+            else:
+                matches.append(item)
+                if len(matches) >= max_matches:
+                    break
     return matches, suppressed
 
 

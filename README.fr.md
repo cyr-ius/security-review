@@ -18,7 +18,7 @@
 
 Serveur MCP pour la **revue de code orientée sécurité** (failles et mauvaises configurations),
 utilisable depuis VS Code / Copilot, Claude ou un agent CI/CD. Il fournit des prompts de revue,
-des checklists, un scan par motifs avec des analyses Tree-sitter ciblées des flux SQL Python, DOM Angular et origines de messages non vérifiées,
+des checklists, un scan par motifs avec des analyses Tree-sitter ciblées des flux requête vers SQL (Python, Java, Go, C#, Rust, Node.js), DOM Angular et origines de messages non vérifiées,
 une analyse de dépendances hors ligne et une base de rapports (SQLite ou PostgreSQL) exploitable
 en pipeline.
 
@@ -101,8 +101,8 @@ Autres cas : [installation hors ligne](https://cyr-ius.github.io/security-review
 
 ## Limites
 
-Le scan produit des pistes, avec des faux positifs. Son analyse Tree-sitter Python ne couvre que des flux
-SQL locaux simples. Il ne remplace ni un SAST ou une analyse SCA complète, ni une relecture humaine. Voir
+Le scan produit des pistes, avec des faux positifs. Ses analyses Tree-sitter ne couvrent que des flux
+locaux simples, dans un seul fichier. Il ne remplace ni un SAST ou une analyse SCA complète, ni une relecture humaine. Voir
 [sécurité et limites](https://cyr-ius.github.io/security-review-mcp/fr/reference/security/).
 
 ## Contribuer

@@ -57,6 +57,32 @@ JPA `setParameter` ne sont pas signalées. L'analyse ne résout ni les surcharge
 ni les wrappers de framework, ni les appels entre fichiers ; elle ne déduit pas non plus qu'une
 validation ou un échappement arbitraire assainit la valeur.
 
+Les scans Go, C#, Rust, TypeScript et JavaScript incluent `GO-019`, `CS-021`, `RS-015` et
+`TS-016`, la même analyse Tree-sitter bornée pour chaque langage. Elle suit les données de
+requête à travers les affectations locales (déstructuration comprise), la concaténation, les
+chaînes interpolées (`$"..."`, gabarits littéraux, `format!`), les appels de formatage
+(`fmt.Sprintf`, `string.Format`), les constructeurs de chaînes (`strings.Builder.WriteString`,
+`StringBuilder.Append`, `push_str`) et `+=`, ainsi que les arguments et valeurs de retour lors
+d'appels directs à des fonctions locales. Un finding exige les trois conditions : une donnée de
+requête, un texte construit dynamiquement et un texte qui ressemble à du SQL.
+
+| Langage | Sources | Puits |
+|---|---|---|
+| Go | `r.URL.Query()`, `FormValue`, `PathValue`, `Header.Get`, `mux.Vars`, `c.Query`, `c.Param`... de gin/echo/fiber | `Query`, `QueryRow`, `Exec`, `Prepare`, `Raw`, `Get`, `Select`... de `database/sql`, sqlx et GORM |
+| C# | `Request.Query`, `Form`, `Headers`, `RouteValues`, `Cookies` ; paramètres `[FromQuery]`, `[FromRoute]`, `[FromBody]`, `[FromForm]`, `[FromHeader]` | `ExecuteSqlRaw`, `FromSqlRaw`, `SqlQueryRaw`, `Query*` / `Execute*` de Dapper, `new SqlCommand(...)` (et les autres fournisseurs ADO.NET), `CommandText =` |
+| Rust | extracteurs `Query`, `Path`, `Json`, `Form` d'axum / actix-web (chemins numériques et `Uuid` exclus), `match_info()`, `query_string()` | `query*` de sqlx, `sql_query` de diesel, `execute`, `prepare`, `query_row`... de rusqlite / tokio-postgres |
+| TypeScript, JavaScript | `req.query`, `req.params`, `req.body`, `req.headers`, `req.cookies`, `ctx.query` de Koa ; paramètres NestJS `@Query`, `@Param`, `@Body`, `@Headers` | `query`, `execute`, `raw`, `$queryRawUnsafe` / `$executeRawUnsafe` de Prisma, `literal` de Sequelize, `whereRaw` de Knex... |
+
+Les paramètres liés ne sont pas signalés, pas plus que les API qui lient elles-mêmes les valeurs
+interpolées (`FromSql($"...")` d'EF Core, `` $queryRaw`...` `` balisé de Prisma, macros `query!`
+de sqlx). L'analyse ne résout ni les méthodes d'autres fichiers, ni les champs, ni l'injection de
+dépendances, ni les wrappers de framework, et ne considère pas une validation comme un
+assainissement.
+
+Les analyses Tree-sitter sont bornées : chaque fonction est analysée une fois par état d'entrée
+(une chaîne d'appels reste linéaire), et le code trop imbriqué pour l'analyseur n'est contrôlé
+que par les motifs (un avertissement est journalisé).
+
 D'autres ajouts ciblés comprennent `PY-027` pour la désactivation explicite de la vérification
 de signature JWT, `JV-018` lorsqu'une valeur directe de requête est passée à JNDI `lookup`, et
 `NG-023` pour les affectations qui modifient `__proto__` ou `constructor.prototype`. Ces règles

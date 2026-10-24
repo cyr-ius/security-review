@@ -51,7 +51,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | Tool | Role |
 |---|---|
 | `list_checklists` / `get_review_checklist` | Checklists by domain: `python`, `java`, `angular`, `node`, `go`, `csharp`, `rust`, `api`, `config`, `cicd`, `dependencies` and internal domains |
-| `scan_code` | Quick pattern scan plus focused Tree-sitter checks for unsafe Python SQL, Angular DOM flows, and unchecked message origins (leads to check, **not** a full SAST). Masked excerpts, invisible characters shown as `<U+XXXX>` |
+| `scan_code` | Quick pattern scan plus focused Tree-sitter checks for request-to-SQL flows (Python, Java, Go, C#, Rust, Node.js), Angular DOM flows, and unchecked message origins (leads to check, **not** a full SAST). Masked excerpts, invisible characters shown as `<U+XXXX>` |
 | `save_security_report` | **Stores the report and its findings in the database** |
 | `get_security_report` | Reads a report back (Markdown by default, or JSON) |
 | `list_security_reports` | List filtered by project / risk level / review type / author, with pagination |
