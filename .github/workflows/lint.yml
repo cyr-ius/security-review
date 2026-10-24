@@ -2,7 +2,7 @@ name: Lint
 
 on:
   push:
-    branches: [main, master, dev]
+    branches: [dev]
   pull_request:
   workflow_dispatch:
   workflow_call:
