@@ -5,8 +5,9 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlmodel import select
 
-from security_review_mcp import audit, services
+from security_review_mcp import audit
 from security_review_mcp.config import Settings, get_settings
+from security_review_mcp.reports import services
 from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import (
     Finding,

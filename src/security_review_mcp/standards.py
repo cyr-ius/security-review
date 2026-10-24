@@ -21,7 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import col, func, select
 
 from .config import get_settings
-from .services import NotFoundError
+from .reports.services import NotFoundError
 from .storage.database import session_scope
 from .storage.models import DevStandard, utcnow
 

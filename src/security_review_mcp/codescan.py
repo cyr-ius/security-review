@@ -11,9 +11,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from . import registry, sarif, services
+from . import registry
 from .ci_client import detect_language
 from .config import get_settings
+from .reports import sarif, services
 from .storage.models import (
     SEVERITY_RANK,
     FindingCreate,

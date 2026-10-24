@@ -30,12 +30,12 @@ from . import (
     remote_scan,
     rule_store,
     rules_loader,
-    services,
     token_store,
     web_users,
 )
 from .config import get_settings
-from .services import NotFoundError
+from .reports import services
+from .reports.services import NotFoundError
 from .storage.database import SchemaError, init_db, schema_status, session_scope, upgrade_db
 from .storage.models import SEVERITY_RANK, Severity
 

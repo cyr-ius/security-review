@@ -4,7 +4,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from security_review_mcp import services, trends
+from security_review_mcp.reports import services, trends
+from security_review_mcp.reports.trends import TrendFinding, TrendReport
 from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import (
     Finding,
@@ -13,7 +14,6 @@ from security_review_mcp.storage.models import (
     SecurityReport,
     Severity,
 )
-from security_review_mcp.trends import TrendFinding, TrendReport
 
 NOW = datetime(2026, 10, 11, 12, 0, tzinfo=UTC)  # a Sunday
 

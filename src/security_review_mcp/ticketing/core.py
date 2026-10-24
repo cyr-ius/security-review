@@ -23,9 +23,9 @@ from sqlmodel import Session, col, select
 
 from .. import audit
 from ..config import Settings
-from ..sarif import SarifItem, fingerprint
+from ..reports.sarif import SarifItem, fingerprint
+from ..reports.services import NotFoundError, _status_is
 from ..scanner import redact_secrets
-from ..services import NotFoundError, _status_is
 from ..storage.database import session_scope
 from ..storage.models import (
     SEVERITY_RANK,

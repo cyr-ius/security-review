@@ -9,7 +9,7 @@ from sqlmodel import Session, select
 from security_review_mcp import access_control, cli, oidc, web_users
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import Role
-from security_review_mcp.services import NotFoundError
+from security_review_mcp.reports.services import NotFoundError
 from security_review_mcp.storage.models import WebUser
 
 PASSWORD = "Correct horse battery 9"

@@ -2,7 +2,7 @@
 
 import pytest
 
-from security_review_mcp import sarif, services
+from security_review_mcp.reports import sarif, services
 from security_review_mcp.storage.models import FindingCreate, FindingStatus, Severity
 
 

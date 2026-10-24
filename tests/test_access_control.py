@@ -7,7 +7,7 @@ from sqlmodel import select
 from security_review_mcp import access_control, audit, web_users
 from security_review_mcp.access_control import Permission
 from security_review_mcp.http_server import Role
-from security_review_mcp.services import NotFoundError
+from security_review_mcp.reports.services import NotFoundError
 from security_review_mcp.storage.database import session_scope
 
 PASSWORD = "Correct horse battery 9"
@@ -475,7 +475,8 @@ def test_a_created_project_is_read_by_its_creator_only():
 
 def test_creating_a_project_never_opens_an_existing_one():
     """projects.create would otherwise let its holder read the reports of any project."""
-    from security_review_mcp import services, token_store
+    from security_review_mcp import token_store
+    from security_review_mcp.reports import services
 
     carol = creator()
     services.save_report("shop", "Review", [])
@@ -514,7 +515,8 @@ def test_project_creation_checks_the_name_and_the_user():
 def test_deleting_a_project_removes_everything_that_refers_to_it():
     from sqlmodel import select
 
-    from security_review_mcp import services, token_store
+    from security_review_mcp import token_store
+    from security_review_mcp.reports import services
     from security_review_mcp.storage.models import (
         FindingComment,
         FindingCreate,
@@ -589,7 +591,7 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
 def test_an_enrolled_project_waits_for_an_approval_and_gives_no_access():
     """Anybody may enroll: the project waits, its approval creates it without any member, and
     the answer never tells whether the project existed."""
-    from security_review_mcp import services
+    from security_review_mcp.reports import services
 
     services.save_report("shop", "Review", [])
     requested = access_control.enroll_project(" Mobile-App ", "alice password=hunter2", "10.0.0.1")

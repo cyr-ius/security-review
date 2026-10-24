@@ -14,7 +14,6 @@ from security_review_mcp import (
     cli,
     controller,
     http_server,
-    services,
     token_store,
     web_api,
     web_users,
@@ -22,6 +21,7 @@ from security_review_mcp import (
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware, SecurityHeadersMiddleware
 from security_review_mcp.rate_limit import RateLimitMiddleware
+from security_review_mcp.reports import services
 from security_review_mcp.storage import database
 from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import SecurityReport, utcnow

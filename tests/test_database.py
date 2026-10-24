@@ -384,7 +384,7 @@ def test_old_dismissals_expire_after_a_grace_period(empty_engine):
     from alembic import command
     from sqlalchemy import text
 
-    from security_review_mcp import services
+    from security_review_mcp.reports import services
 
     with empty_engine.begin() as connection:
         command.upgrade(database.alembic_config(connection), "0009")

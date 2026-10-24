@@ -67,8 +67,8 @@ from . import audit, ticketing
 from .config import Settings, get_settings
 from .http_server import Role
 from .rate_limit import RateLimit
+from .reports.services import NotFoundError
 from .scanner import redact_secrets
-from .services import NotFoundError
 from .storage.database import session_scope
 from .storage.models import (
     AccessRole,

@@ -56,7 +56,7 @@ from .audit import AuditAction
 from .config import Settings
 from .http_server import Role, TokenInfo
 from .oidc import MAX_LABEL_CHARS, OidcError, OidcIdentity, SessionSigner, same_value
-from .services import NotFoundError
+from .reports.services import NotFoundError
 from .storage.database import session_scope
 from .storage.models import RevokedSsoUser, WebUser, utcnow
 

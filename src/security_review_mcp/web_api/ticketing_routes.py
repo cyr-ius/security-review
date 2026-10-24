@@ -8,8 +8,9 @@ from typing import Annotated
 from fastapi import APIRouter, Body, HTTPException, Path, Query, Response, status
 from fastapi.concurrency import run_in_threadpool
 
-from .. import app_settings, services
+from .. import app_settings
 from ..config import get_settings
+from ..reports import services
 from ..storage.models import FindingTicketPublic
 from ..storage.project_names import ProjectName
 from ..ticketing import TicketingError, connections, core, registry

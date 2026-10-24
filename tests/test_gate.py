@@ -5,7 +5,8 @@ from pathlib import Path
 import pytest
 from mcp.client import Client
 
-from security_review_mcp import registry, rule_store, services
+from security_review_mcp import registry, rule_store
+from security_review_mcp.reports import services
 from security_review_mcp.server import mcp
 from security_review_mcp.storage.models import FindingCreate, FindingStatus, Severity
 

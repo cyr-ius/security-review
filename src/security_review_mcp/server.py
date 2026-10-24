@@ -25,14 +25,12 @@ from . import (
     http_server,
     prompts,
     registry,
-    sarif,
     scanner,
-    services,
     standards,
     token_store,
-    trends,
 )
 from .config import check_report_language, configure_logging, get_settings
+from .reports import sarif, services, trends
 from .storage.database import SchemaError, check_db, init_db
 from .storage.models import (
     MAX_AUTHOR_CHARS,

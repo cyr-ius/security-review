@@ -26,7 +26,6 @@ from security_review_mcp import (
     registry,
     rule_store,
     server,
-    services,
     standards,
     token_store,
     update_check,
@@ -35,6 +34,7 @@ from security_review_mcp import (
 )
 from security_review_mcp.config import get_settings
 from security_review_mcp.http_server import Role
+from security_review_mcp.reports import services
 from security_review_mcp.storage.database import session_scope
 from security_review_mcp.storage.models import (
     ApiToken,

@@ -25,7 +25,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.types import Scope
 
-from .. import __version__, metrics, oidc, rate_limit, services
+from .. import __version__, metrics, oidc, rate_limit
 from ..config import get_settings, secret_value
 from ..http_server import (
     API_HEALTH_PATH,
@@ -38,6 +38,7 @@ from ..http_server import (
     OPENAPI_PATH,
     BodyLimit,
 )
+from ..reports import services
 from . import (
     access_routes,
     account_routes,

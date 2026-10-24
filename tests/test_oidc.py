@@ -19,7 +19,6 @@ from security_review_mcp import (
     http_server,
     oidc,
     server,
-    services,
     token_store,
     web_api,
     web_users,
@@ -27,6 +26,7 @@ from security_review_mcp import (
 from security_review_mcp.access_control import Permission
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import Role
+from security_review_mcp.reports import services
 
 ISSUER = "https://idp.example.com/realms/acme"
 CLIENT_ID = "secreview"

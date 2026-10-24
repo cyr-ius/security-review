@@ -10,7 +10,7 @@ from sqlmodel import Session, SQLModel, StaticPool, create_engine
 from security_review_mcp import access_control, registry, rule_store
 from security_review_mcp.access_control import Permission
 from security_review_mcp.config import Settings, get_settings
-from security_review_mcp.services import update_finding_status
+from security_review_mcp.reports.services import update_finding_status
 from security_review_mcp.storage import models
 from security_review_mcp.storage.database import set_engine
 from security_review_mcp.storage.models import DISMISSED_STATUSES, FindingPublic, FindingStatus
