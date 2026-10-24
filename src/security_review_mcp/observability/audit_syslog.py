@@ -230,6 +230,7 @@ def make_handler(settings: Settings) -> logging.handlers.SysLogHandler:
     handler: logging.handlers.SysLogHandler
     if urlsplit(text.strip()).scheme == "tls":
         context = ssl.create_default_context(cafile=settings.audit_syslog_cafile)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
         handler = TLSSysLogHandler(context, **options)
     else:
         handler = logging.handlers.SysLogHandler(**options)
