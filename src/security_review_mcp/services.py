@@ -277,18 +277,32 @@ def list_reports(
     author: str | None = None,
     search: str | None = None,
     sort_by: Literal[
-        "created_at", "project", "risk_level", "review_type", "branch", "author", "summary"
+        "created_at",
+        "project",
+        "risk_level",
+        "review_type",
+        "branch",
+        "author",
+        "submitted_by",
+        "summary",
     ] = "created_at",
     sort_direction: Literal["asc", "desc"] = "desc",
+    with_author: bool = True,
 ) -> list[dict]:
     """List reports, newest first, with their number of open findings.
 
     ``projects`` (the scope of a restricted caller) keeps only the reports of these projects;
-    ``author`` keeps only the reports declared for this developer username.
+    ``author`` keeps only the reports declared for this developer username. Without
+    ``with_author``, the author is neither returned nor used to filter, search or sort (the
+    caller cannot guess it from the order of the results).
     """
     settings = get_settings()
     limit = max(1, min(limit, settings.max_list_limit))
     offset = max(0, offset)
+    if not with_author:
+        author = None
+        if sort_by == "author":
+            sort_by = "submitted_by"
 
     with session_scope() as session:
         statement = select(SecurityReport)
@@ -305,16 +319,18 @@ def list_reports(
         if search:
             escaped = search[:200].replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             pattern = f"%{escaped}%"
+            searched = [
+                SecurityReport.project,
+                SecurityReport.branch,
+                SecurityReport.commit_sha,
+                SecurityReport.reviewer,
+                SecurityReport.submitted_by,
+                SecurityReport.summary,
+            ]
+            if with_author:
+                searched.append(SecurityReport.author)
             statement = statement.where(
-                or_(
-                    col(SecurityReport.project).ilike(pattern, escape="\\"),
-                    col(SecurityReport.branch).ilike(pattern, escape="\\"),
-                    col(SecurityReport.commit_sha).ilike(pattern, escape="\\"),
-                    col(SecurityReport.reviewer).ilike(pattern, escape="\\"),
-                    col(SecurityReport.author).ilike(pattern, escape="\\"),
-                    col(SecurityReport.submitted_by).ilike(pattern, escape="\\"),
-                    col(SecurityReport.summary).ilike(pattern, escape="\\"),
-                )
+                or_(*(col(column).ilike(pattern, escape="\\") for column in searched))
             )
         sort_columns = {
             "created_at": col(SecurityReport.created_at),
@@ -323,6 +339,7 @@ def list_reports(
             "review_type": col(SecurityReport.review_type),
             "branch": col(SecurityReport.branch),
             "author": col(SecurityReport.author),
+            "submitted_by": col(SecurityReport.submitted_by),
             "summary": col(SecurityReport.summary),
         }
         sort_column = sort_columns[sort_by]
@@ -354,7 +371,7 @@ def list_reports(
                 "review_type": r.review_type,
                 "risk_level": r.risk_level.value,
                 "reviewer": r.reviewer,
-                "author": r.author,
+                "author": r.author if with_author else None,
                 "submitted_by": r.submitted_by,
                 "created_at": r.created_at.isoformat(),
                 "findings_total": counts[r.id]["total"],

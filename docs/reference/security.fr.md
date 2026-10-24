@@ -305,5 +305,7 @@
   quiconque détient un jeton du projet peut nommer quelqu'un d'autre. Seul `submitted_by`, le
   libellé du jeton qui a enregistré le rapport, est fixé par le serveur (voir
   [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)). Un `author` est souvent
-  une adresse e-mail, donc une donnée personnelle : elle est visible de tous ceux qui atteignent
-  le projet et conservée aussi longtemps que le rapport.
+  une adresse e-mail, donc une donnée personnelle, conservée aussi longtemps que le rapport :
+  dans l'interface web et l'API REST, seul qui détient `users.manage` ou `tokens.manage` la voit
+  (les autres ne peuvent pas non plus la retrouver par le filtre, la recherche ou le tri) ; les
+  outils MCP la renvoient toujours aux jetons qui atteignent le projet.

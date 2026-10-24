@@ -165,6 +165,14 @@ def has_permission(identity: Identity, permission: Permission, project: str | No
     return project is None or projects is None or project in projects
 
 
+def sees_authors(identity: Identity) -> bool:
+    """True when the caller may see the declared author of a report (often an e-mail): a
+    manager of the users or of the tokens, who already knows who holds which token."""
+    return has_permission(identity, Permission.USERS_MANAGE) or has_permission(
+        identity, Permission.TOKENS_MANAGE
+    )
+
+
 def permission_scope(identity: Identity, permission: Permission) -> list[str] | None:
     """Projects a permission of the caller reaches: None for every project, [] for none."""
     if permission not in identity.permissions:

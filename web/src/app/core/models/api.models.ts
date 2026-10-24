@@ -815,7 +815,7 @@ export interface ReportQuery {
   risk_level?: Severity | '';
   search?: string;
   sort_by?:
-    'created_at' | 'project' | 'risk_level' | 'review_type' | 'branch' | 'author' | 'summary';
+    'created_at' | 'project' | 'risk_level' | 'review_type' | 'branch' | 'submitted_by' | 'summary';
   sort_direction?: 'asc' | 'desc';
   limit: number;
   offset: number;

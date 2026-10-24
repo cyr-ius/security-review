@@ -175,7 +175,9 @@ deux champs :
 (ni Markdown ni HTML, car il est recopié dans l'export Markdown) ; une valeur vide n'est pas
 enregistrée. Il est **déclaré, non authentifié** : il sert à savoir à qui s'adresser et à filtrer
 les rapports (`list_security_reports`, [interface web](web-interface.md)), jamais de preuve
-d'identité ; `submitted_by` indique quel jeton a réellement envoyé le rapport.
+d'identité ; `submitted_by` indique quel jeton a réellement envoyé le rapport. Dans l'interface
+web et l'API REST, seul qui détient `users.manage` ou `tokens.manage` voit l'`author` ; les
+autres voient le libellé du jeton.
 
 ### Couverture de la revue
 

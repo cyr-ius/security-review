@@ -89,9 +89,12 @@ shown), and the browser remembers the chosen sort for the next visits.
   (the first one is the reason of the acceptance), and for the `findings.triage` permission the
   forms to add a comment, change the expiry date and remove the acceptance (see [risk acceptances](#risk-acceptances)).
 - **Reports**: list filtered by project and risk level, searchable across report metadata and
-  summary, and sortable by date, project, risk, type, branch, author or summary. Search and
+  summary, and sortable by date, project, risk, type, branch, token or summary. The **Token**
+  column shows the label of the token that sent the report; hovering it shows the declared
+  author to a holder of `users.manage` or `tokens.manage`. Search and
   filters stay in the URL, so a view can be shared; the sort is remembered by the browser.
-- **Report**: summary, context (repository, branch, commit, review type, **Author** and
+- **Report**: summary, context (repository, branch, commit, review type, **Author** (for a
+  holder of `users.manage` or `tokens.manage`) and
   **Sent by (token)**, see [author of a report](prompts-tools.md#author-of-a-report)),
   **Review coverage** (checklist items by outcome and rules that raised scan leads, those cited by
   no finding marked **dismissed**, see [review coverage](prompts-tools.md#review-coverage)), findings with
@@ -361,7 +364,9 @@ curl -H "Authorization: Bearer $TOKEN" \
 ```
 
 `GET /api/v1/reports` lists the reports (`project`, `risk_level`, `review_type` and `author`
-filter), each with its `author` and `submitted_by`:
+filter), each with its `author` and `submitted_by`. The `author` is returned, filtered, searched
+and sorted only for a caller holding `users.manage` or `tokens.manage`: for the others it is
+`null` (in the report and its Markdown export too) and the `author` filter is ignored:
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \

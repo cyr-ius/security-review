@@ -94,10 +94,13 @@ suivantes.
   avec la permission `findings.triage`, les formulaires pour ajouter un commentaire, changer la
   date d'expiration et supprimer l'acceptation (voir [acceptations de risque](#acceptations-de-risque)).
 - **Rapports** : liste filtrable par projet et niveau de risque, avec recherche dans les
-  métadonnées et le résumé, tri par date, projet, risque, type, branche, auteur ou résumé. La
+  métadonnées et le résumé, tri par date, projet, risque, type, branche, jeton ou résumé. La
+  colonne **Jeton** affiche le libellé du jeton qui a envoyé le rapport ; le survoler montre
+  l'auteur déclaré à qui détient `users.manage` ou `tokens.manage`. La
   recherche et les filtres restent dans l'URL, pour partager la vue ; le tri est mémorisé par le
   navigateur.
-- **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** et
+- **Rapport** : résumé, contexte (dépôt, branche, commit, type de revue, **Auteur** (pour qui
+  détient `users.manage` ou `tokens.manage`) et
   **Envoyé par (jeton)**, voir [auteur d'un rapport](prompts-tools.md#auteur-dun-rapport)),
   **Couverture de la revue** (points de checklist par résultat et règles qui ont remonté des
   pistes, celles citées par aucun finding marquées **écartée**, voir
@@ -385,7 +388,10 @@ curl -H "Authorization: Bearer $TOKEN" \
 ```
 
 `GET /api/v1/reports` liste les rapports (filtres `project`, `risk_level`, `review_type` et
-`author`), chacun avec son `author` et son `submitted_by` :
+`author`), chacun avec son `author` et son `submitted_by`. L'`author` n'est renvoyé, filtré,
+recherché et trié que pour un appelant qui détient `users.manage` ou `tokens.manage` : pour les
+autres, il vaut `null` (dans le rapport et son export Markdown aussi) et le filtre `author` est
+ignoré :
 
 ```bash
 curl -H "Authorization: Bearer $TOKEN" \

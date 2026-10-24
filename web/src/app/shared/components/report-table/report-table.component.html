@@ -34,8 +34,8 @@
             <th scope="col" [appSortHeader]="sort()" sortKey="branch">
               {{ 'reportTable.branch' | t }}
             </th>
-            <th scope="col" [appSortHeader]="sort()" sortKey="author">
-              {{ 'reportTable.author' | t }}
+            <th scope="col" [appSortHeader]="sort()" sortKey="submitted_by">
+              {{ 'reportTable.token' | t }}
             </th>
             <th scope="col" [appSortHeader]="sort()" sortKey="summary">
               {{ 'reportTable.summary' | t }}
@@ -72,8 +72,19 @@
                   <code class="ms-1">{{ report.commit_sha | slice: 0 : 8 }}</code>
                 }
               </td>
+              <!-- The API gives the author only to a manager of the users or of the tokens -->
               <td class="text-nowrap">
-                @if (report.author) {
+                @if (report.submitted_by) {
+                  <span
+                    [title]="
+                      report.author
+                        ? ('reportTable.authorTitle' | t: { author: report.author })
+                        : ''
+                    "
+                  >
+                    <i class="bi bi-key" aria-hidden="true"></i> {{ report.submitted_by }}
+                  </span>
+                } @else if (report.author) {
                   <i class="bi bi-person" aria-hidden="true"></i> {{ report.author }}
                 }
               </td>

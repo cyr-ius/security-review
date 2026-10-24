@@ -287,5 +287,7 @@
   token of the project can name someone else. Only `submitted_by`, the label of the token that
   saved the report, is set by the server (see
   [author of a report](../usage/prompts-tools.md#author-of-a-report)). An `author` is often an
-  email address, that is personal data: it is visible to everyone who reaches the project and
-  kept as long as the report.
+  email address, that is personal data, kept as long as the report: in the web interface and
+  the REST API, only a holder of `users.manage` or `tokens.manage` sees it (nor can the others
+  find it by the filter, the search or the sort); the MCP tools still return it to the tokens
+  that reach the project.

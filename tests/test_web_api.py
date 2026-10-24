@@ -504,6 +504,31 @@ def test_reports_show_and_filter_the_author(client):
     assert client.get("/api/v1/reports", params=too_long).status_code == 422
 
 
+def test_report_author_is_hidden_from_a_caller_who_manages_neither_users_nor_tokens(
+    web_sessions,
+):
+    saved = services.save_report(
+        "authored", "Review", [], author="alice@example.com", submitted_by="laptop-42"
+    )
+    services.save_report("authored", "Other review", [], author="bob")
+    reader = auth("reader")
+    listed = web_sessions.get("/api/v1/reports", headers=reader).json()
+    assert {(r["author"], r["submitted_by"]) for r in listed} == {(None, "laptop-42"), (None, None)}
+    # Neither the filter nor the search tells the author
+    for params, expected in (({"author": "alice@example.com"}, 2), ({"search": "alice"}, 0)):
+        found = web_sessions.get("/api/v1/reports", params=params, headers=reader).json()
+        assert len(found) == expected
+    detail = web_sessions.get(f"/api/v1/reports/{saved['report_id']}", headers=reader).json()
+    assert (detail["author"], detail["submitted_by"]) == (None, "laptop-42")
+    markdown = web_sessions.get(f"/api/v1/reports/{saved['report_id']}/markdown", headers=reader)
+    assert "alice" not in markdown.text
+    assert "laptop-42" in markdown.text
+    # A token manager sees it
+    admin = auth("admin")
+    searched = web_sessions.get("/api/v1/reports", params={"search": "alice"}, headers=admin)
+    assert [r["author"] for r in searched.json()] == ["alice@example.com"]
+
+
 def test_update_finding_status(client, reports):
     finding = client.get(f"/api/v1/reports/{reports[0]}").json()["findings"][0]
     response = client.patch(

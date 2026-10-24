@@ -173,7 +173,9 @@ shared workstation): its label does not say who worked on the reviewed code. Eac
 Markdown nor HTML, as it is copied into the Markdown export); a blank value is not stored.
 It is **declared, not authenticated**: use it to see who to talk to and to filter the reports
 (`list_security_reports`, [web interface](web-interface.md)), never as a proof of identity;
-`submitted_by` says which token actually sent the report.
+`submitted_by` says which token actually sent the report. In the web interface and the REST
+API, only a holder of `users.manage` or `tokens.manage` sees the `author`; the others see the
+token label.
 
 ### Review coverage
 
