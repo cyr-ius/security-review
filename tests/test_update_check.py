@@ -66,7 +66,7 @@ def test_a_newer_release_is_reported_and_cached(github):
     opener = github(
         {
             "tag_name": "v99.1.0",
-            "html_url": "https://github.com/cyr-ius/security-review-mcp/releases/tag/v99.1.0",
+            "html_url": "https://github.com/cyr-ius/security-review/releases/tag/v99.1.0",
         }
     )
 

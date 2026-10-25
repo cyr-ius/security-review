@@ -20,13 +20,13 @@ The images include an SBOM and a provenance attestation (accessible via `docker 
 ## Docker Compose with PostgreSQL
 
 One file,
-[`examples/docker/docker-compose.yml`](https://github.com/cyr-ius/security-review-mcp/blob/{{ release_tag }}/examples/docker/docker-compose.yml),
+[`examples/docker/docker-compose.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.yml),
 starts everything with the published image: PostgreSQL, the migration of the schema, the
 controller and the MCP server. Copy and paste the block in an empty folder:
 
 ```bash
 mkdir security-review-mcp && cd security-review-mcp
-curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/docker/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.yml
 (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
 docker compose up -d --wait
 docker compose exec controller security-review-controller user reset-password admin   # initial admin password

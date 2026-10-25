@@ -56,8 +56,8 @@ minimale, un exemple de configuration d'hôte et des liens vers la documentation
 - Une capacité visible ajoutée (outil, prompt, commande, transport) reçoit **une ligne** dans le
   README, avec un lien vers sa page ; une capacité retirée ou renommée y est corrigée.
 - Modifiez les deux fichiers ensemble. Les liens visent le site publié :
-  `https://cyr-ius.github.io/security-review-mcp/...` depuis `README.md`,
-  `https://cyr-ius.github.io/security-review-mcp/fr/...` (ancres françaises) depuis
+  `https://cyr-ius.github.io/security-review/...` depuis `README.md`,
+  `https://cyr-ius.github.io/security-review/fr/...` (ancres françaises) depuis
   `README.fr.md`.
 
 ## Publication

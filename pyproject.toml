@@ -30,10 +30,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/cyr-ius/security-review-mcp"
-Documentation = "https://cyr-ius.github.io/security-review-mcp/"
-Repository = "https://github.com/cyr-ius/security-review-mcp"
-Issues = "https://github.com/cyr-ius/security-review-mcp/issues"
+Homepage = "https://github.com/cyr-ius/security-review"
+Documentation = "https://cyr-ius.github.io/security-review/"
+Repository = "https://github.com/cyr-ius/security-review"
+Issues = "https://github.com/cyr-ius/security-review/issues"
 
 [project.optional-dependencies]
 postgres = ["psycopg2-binary>=2.9"]

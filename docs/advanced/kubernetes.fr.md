@@ -1,9 +1,9 @@
 # Kubernetes
 
 Deux manifestes déploient tout dans le namespace `secreview` :
-[`examples/kubernetes/postgres.yaml`](https://github.com/cyr-ius/security-review-mcp/blob/{{ release_tag }}/examples/kubernetes/postgres.yaml)
+[`examples/kubernetes/postgres.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/postgres.yaml)
 (PostgreSQL, image officielle) et
-[`examples/kubernetes/security-review.yaml`](https://github.com/cyr-ius/security-review-mcp/blob/{{ release_tag }}/examples/kubernetes/security-review.yaml)
+[`examples/kubernetes/security-review.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/security-review.yaml)
 (contrôleur et serveur MCP, image publiée `ghcr.io/cyr-ius/security-review:latest`).
 
 ## Déploiement
@@ -23,13 +23,13 @@ Deux manifestes déploient tout dans le namespace `secreview` :
     kubectl -n secreview create secret generic secreview-db \
         --from-literal=SECREVIEW_DATABASE_URL="postgresql+psycopg2://secreview:${PGPASSWORD}@secreview-postgres:5432/secreview"
     unset PGPASSWORD
-    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/kubernetes/postgres.yaml
+    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/postgres.yaml
     kubectl -n secreview rollout status statefulset/secreview-postgres
 
     # 2. security-review-mcp : secret des sessions, contrôleur et serveur MCP
     kubectl -n secreview create secret generic secreview-controller \
         --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
-    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/kubernetes/security-review.yaml
+    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/security-review.yaml
     kubectl -n secreview rollout status deploy/secreview-controller
     kubectl -n secreview rollout status deploy/secreview-mcp
 
@@ -56,7 +56,7 @@ Deux manifestes déploient tout dans le namespace `secreview` :
         --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
     kubectl -n secreview create secret generic secreview-controller \
         --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
-    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/kubernetes/security-review.yaml
+    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/security-review.yaml
     kubectl -n secreview rollout status deploy/secreview-controller
     kubectl -n secreview rollout status deploy/secreview-mcp
     kubectl -n secreview exec deploy/secreview-controller -c controller -- \

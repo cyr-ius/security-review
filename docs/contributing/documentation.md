@@ -55,8 +55,8 @@ host configuration and links to the documentation.
 - A visible capability added (tool, prompt, command, transport) gets **one line** in the README,
   with a link to its page; a capability removed or renamed is fixed there.
 - Change both files together. The links target the published site:
-  `https://cyr-ius.github.io/security-review-mcp/...` from `README.md`,
-  `https://cyr-ius.github.io/security-review-mcp/fr/...` (French anchors) from `README.fr.md`.
+  `https://cyr-ius.github.io/security-review/...` from `README.md`,
+  `https://cyr-ius.github.io/security-review/fr/...` (French anchors) from `README.fr.md`.
 
 ## Publishing
 

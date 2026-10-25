@@ -169,7 +169,7 @@ donne le mot de passe du compte `admin` et un jeton pour votre agent :
 
 ```bash
 mkdir security-review-mcp && cd security-review-mcp
-curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/docker/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.yml
 (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
 docker compose up -d --wait
 docker compose exec controller security-review-controller user reset-password admin   # mot de passe affiché une fois

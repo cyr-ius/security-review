@@ -96,8 +96,8 @@ l'utiliser.
 
 - **git (push, fetch, pull)** : passez par **SSH**. Le remote `origin` est en HTTPS, sans
   identifiants : utilisez l'URL SSH, par ex.
-  `git push git@github.com:cyr-ius/security-review-mcp.git dev`
-  (ou `git remote set-url --push origin git@github.com:cyr-ius/security-review-mcp.git`).
+  `git push git@github.com:cyr-ius/security-review.git dev`
+  (ou `git remote set-url --push origin git@github.com:cyr-ius/security-review.git`).
 - **API GitHub (pull requests, issues, revues, commentaires, releases)** : passez par le
   **connecteur GitHub MCP**.
 - Si SSH est indisponible, le connecteur peut aussi pousser des fichiers (`push_files`). Il crée
@@ -386,6 +386,6 @@ Règles :
   ligne** au README avec un lien vers la page de doc ; quand vous en retirez ou renommez une,
   corrigez le README.
 - Modifiez toujours les deux fichiers ensemble.
-- Les liens vers la doc pointent sur le site publié : `https://cyr-ius.github.io/security-review-mcp/...`
-  depuis `README.md`, `https://cyr-ius.github.io/security-review-mcp/fr/...` (ancres
+- Les liens vers la doc pointent sur le site publié : `https://cyr-ius.github.io/security-review/...`
+  depuis `README.md`, `https://cyr-ius.github.io/security-review/fr/...` (ancres
   françaises) depuis `README.fr.md`.

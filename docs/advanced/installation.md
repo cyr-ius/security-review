@@ -7,8 +7,8 @@ covers the installation from the sources and without Internet access.
 ## From source
 
 ```bash
-git clone https://github.com/cyr-ius/security-review-mcp.git
-cd security-review-mcp
+git clone https://github.com/cyr-ius/security-review.git
+cd security-review
 uv sync --extra dev               # add --extra postgres for PostgreSQL
 cp .env.example .env
 uv run pytest && uv run ruff check .

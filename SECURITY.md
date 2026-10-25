@@ -12,7 +12,7 @@ PyPI and as Docker images). Upgrade to it before reporting a problem found on an
 Do **not** open a public issue, pull request or discussion for a vulnerability.
 
 Report it privately with GitHub's
-[private vulnerability reporting](https://github.com/cyr-ius/security-review-mcp/security/advisories/new)
+[private vulnerability reporting](https://github.com/cyr-ius/security-review/security/advisories/new)
 (**Security** tab of the repository, **Report a vulnerability**). Include:
 
 - the affected version or commit and how it is deployed (stdio, HTTP MCP server, controller,
@@ -41,4 +41,4 @@ advisory (Dependabot proposes their updates), and deployments that disable the d
 protections (for example `SECREVIEW_ALLOW_UNAUTHENTICATED` on an exposed server).
 
 The security guarantees and limits of the tool are described in the
-[security reference](https://cyr-ius.github.io/security-review-mcp/reference/security/).
+[security reference](https://cyr-ius.github.io/security-review/reference/security/).

@@ -29,7 +29,7 @@ from .proxy import masked_url, proxy_handler
 
 logger = logging.getLogger("security_review_mcp.update_check")
 
-GITHUB_REPOSITORY = "cyr-ius/security-review-mcp"
+GITHUB_REPOSITORY = "cyr-ius/security-review"
 LATEST_RELEASE_URL = f"https://api.github.com/repos/{GITHUB_REPOSITORY}/releases/latest"
 RELEASES_PAGE = f"https://github.com/{GITHUB_REPOSITORY}/releases/"
 HTTP_TIMEOUT = 10

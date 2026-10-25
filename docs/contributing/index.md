@@ -6,8 +6,8 @@ Python 3.14, [uv](https://docs.astral.sh/uv/) and Node.js 24 are needed (the
 [devcontainer](#devcontainer) provides them and installs the dependencies at creation):
 
 ```bash
-git clone https://github.com/cyr-ius/security-review-mcp.git
-cd security-review-mcp
+git clone https://github.com/cyr-ius/security-review.git
+cd security-review
 uv sync --extra dev --extra docs
 npm --prefix web ci                                   # Angular, Prettier (Node.js 24)
 npm --prefix web run build                            # interface served by the controller on /ui/

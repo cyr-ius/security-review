@@ -268,7 +268,7 @@ def test_about_gives_the_version_and_the_links(secured, web_sessions, ui_dir):
     about = secured.get("/api/v1/about", headers=auth("reader")).json()
 
     assert about["version"] == __version__
-    assert about["repository_url"] == "https://github.com/cyr-ius/security-review-mcp"
+    assert about["repository_url"] == "https://github.com/cyr-ius/security-review"
     assert about["issues_url"].endswith("/issues")
     assert about["documentation_url"].startswith("https://")
     assert (about["swagger_url"], about["health_url"]) == ("/api/docs", "/api/health")
