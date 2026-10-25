@@ -5,7 +5,6 @@
 ```bash
 git clone https://github.com/cyr-ius/security-review-mcp.git
 uv sync --extra dev
-uv run pytest
 ```
 
 Linters, formatters, hooks and security reviews: see
