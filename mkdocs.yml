@@ -100,6 +100,9 @@ plugins:
             Command line: Ligne de commande
             Security and limits: Sécurité et limites
             Contributing: Contribuer
+            MCP server: Serveur MCP
+            Controller (FastAPI): Contrôleur (FastAPI)
+            Web interface (Angular): Interface web (Angular)
             Shared mode (HTTP): Mode partagé (HTTP)
             Kubernetes: Kubernetes
             Manual installation (without containers): Installation manuelle (sans conteneur)
@@ -176,4 +179,8 @@ nav:
       - Configuration: reference/configuration.md
       - Command line: reference/cli.md
       - Security and limits: reference/security.md
-  - Contributing: contributing.md
+  - Contributing:
+      - Overview: contributing/index.md
+      - MCP server: contributing/mcp-server.md
+      - "Controller (FastAPI)": contributing/controller.md
+      - "Web interface (Angular)": contributing/web-ui.md

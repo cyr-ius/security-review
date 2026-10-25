@@ -732,4 +732,4 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 Le paquet publié et l'image Docker contiennent l'application déjà compilée. Si vous installez
 depuis les sources sans la compiler, le contrôleur ne sert que l'API REST et un avertissement est
-journalisé. Voir [Contribuer](../contributing.md#interface-web) pour la compiler.
+journalisé. Voir [Contribuer](../contributing/web-ui.md) pour la compiler.

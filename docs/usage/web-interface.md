@@ -701,4 +701,4 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 The published package and the Docker image contain the application already built. If you
 install from source without building it, the controller only serves the REST API and a warning
-is logged. See [Contributing](../contributing.md#web-interface) to build it.
+is logged. See [Contributing](../contributing/web-ui.md) to build it.

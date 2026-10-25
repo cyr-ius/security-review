@@ -80,7 +80,7 @@ psql -h db -U secreview secreview                     # password: secreview
 SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # back to SQLite for once
 ```
 
-The Docker daemon lets you build and run the image of the [Dockerfile](advanced/docker.md)
+The Docker daemon lets you build and run the image of the [Dockerfile](../advanced/docker.md)
 without leaving the container:
 
 ```bash
@@ -108,7 +108,7 @@ docker build -t security-review-mcp .
 docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # PostgreSQL driver
 ```
 
-The build also compiles the [web interface](usage/web-interface.md) (Node.js stage); the
+The build also compiles the [web interface](../usage/web-interface.md) (Node.js stage); the
 controller serves it on `/ui/`.
 
 The image runs as a non-root user (uid `10001`), without sources nor build tools. The SQLite
@@ -209,106 +209,21 @@ serve its routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
 `tests/test_server.py` checks it. A module shared by both processes (such as
 `app_settings`) imports them inside the function that needs them, never at the top.
 
-## Web interface
+## Development by component
 
-The Angular 22 application (signals, zoneless, Bootstrap 5) is in `web/`. Its build is written
-into `src/security_review_mcp/webui/`, from where the controller serves it on `/ui/` and the
-wheel embeds it.
+Each part of the project has its own page, with its conventions, its invariants and the way to
+test it:
 
-```bash
-cd web
-npm ci
-npm run build                 # production build (to redo before uv build)
-npm start                     # dev server on http://localhost:4200/ui/
-npm run format                # Prettier
-```
+| Page | Code | Content |
+|---|---|---|
+| [MCP server](mcp-server.md) | `server.py`, `prompts.py`, `rules/` | Tools, prompts and resources, scan rules, security invariants of the MCP process |
+| [Controller (FastAPI)](controller.md) | `web_api/`, `cli.py`, `storage/` | REST routes and their schemas, permissions, settings, CLI, schema migrations |
+| [Web interface (Angular)](web-ui.md) | `web/` | Build and dev server, code conventions, translations |
 
-`npm start` forwards `/api` to `http://127.0.0.1:8080` (`web/proxy.conf.json`): start the
-controller in parallel with `security-review-controller serve --port 8080`, or use the VS Code
-configuration **Web UI + API (Angular dev server, port 4200)**, which starts both
-(**Controller + web UI (Angular, port 4200)** if you also want to debug the Python): every save
-of a file of `web/src/` reloads the page (styles and templates without a full reload), and the
-breakpoints set in the `.ts` files are honored. In the devcontainer, Chrome is opened on the
-local workstation and port 4200 is forwarded automatically.
-
-### Code conventions
-
-- **REST API**: every route that answers JSON declares its response model (`web_api/schemas.py`):
-  FastAPI documents it in OpenAPI and drops any field that is not declared.
-  `test_openapi_documents_the_response_of_every_json_route` fails on a route that returns a bare
-  `dict`.
-- **Components**: template and styles in separate files. A feature with several screens has one
-  folder per component (`features/access/role-list/`); its shared files (styles, base class,
-  error messages) stay at the root of the feature.
-- **Forms**: the input forms use the Signal Forms (`form()`, `[formField]`, validators with a
-  translated message); the list filters and the dynamic lists of checkboxes stay plain event
-  handlers.
-- **HTTP calls**: through `rxResource` for the data of a screen, or `await
-  firstValueFrom(...)` for an action; no `.subscribe()` in the components.
-- **State**: `signal()` and `computed()`; a value derived from another one but still editable (a
-  form filled with the loaded settings) is a `linkedSignal()`. `effect()` is kept for real side
-  effects (document attributes, local storage, timers), never to copy a signal into another. A
-  service exposes its signals with `asReadonly()` and changes them through named methods.
-- **Folders**: `shared/` holds reusable components without business logic: they get their data
-  through inputs and report through outputs, never through a business service of `core/` (the
-  finding card emits the decision, `TriageService` saves it). The shell of the application is
-  `layout/`.
-- **Templates**: host bindings in `host: {}` (no `@HostListener`); a message that explains why a
-  field is invalid is linked to it with `aria-describedby`.
-- **Tables**: `app-table-controls` holds the search and the filters; the sort is chosen on the
-  column headers (`<th [appSortHeader]="sort" sortKey="name">`), with a `TableSort` named after
-  the table (`shared/utils/table-sort.ts`) that the browser remembers under
-  `secreview.sort.<name>`.
-- **Colors**: Bootstrap variables (`var(--bs-…)`) or the design tokens of `styles.css`
-  (`--app-…`), never a color written in a component, so that the light and dark themes work.
-
-### Interface translations
-
-The interface is translated into English, French and Spanish by an in-house service
-(`web/src/app/core/i18n/`), without any extra dependency. Each screen has its catalog in
-`core/i18n/messages/<screen>.ts`, declared in `messages/index.ts`, with its messages in the three
-languages:
-
-```ts
-export const tokens = defineMessages({
-  en: { 'tokens.created': 'Token “{label}” created.' },
-  fr: { 'tokens.created': 'Jeton « {label} » créé.' },
-  es: { 'tokens.created': 'Token «{label}» creado.' },
-});
-```
-
-- In a template: `{{ 'tokens.title' | t }}`, or with parameters
-  `{{ 'tokens.created' | t: { label: name } }}`.
-- In the code: `I18nService.translate(...)` (confirmations, messages of the Signal Forms
-  validators through `message: () => ...`). A message shown later (success, error) is kept as
-  `msg(key, parameters)` and translated in the template, so that it follows a change of language.
-- The title of the routes is a key, translated by `I18nTitleStrategy`.
-
-The keys are typed: an unknown key, or a key missing in one of the three languages, fails
-`npm run build`.
-
-## Schema migrations
-
-Every change of a table model (`models.py`) comes with an Alembic revision in
-`src/security_review_mcp/storage/migrations/versions/`. The
-`test_upgrade_creates_the_schema_of_the_models` test (`tests/test_database.py`) fails as long
-as the migrations do not produce exactly the schema of the models. To generate a draft
-revision to review:
-
-```bash
-uv run python - <<'PY'
-from alembic import command
-from security_review_mcp import database
-with database.get_engine().begin() as connection:
-    command.revision(
-        database.alembic_config(connection), "describe the change", autogenerate=True, rev_id="0002"
-    )
-PY
-```
-
-Run it with `SECREVIEW_DATABASE_URL` pointing to a throwaway SQLite database already up to date
-(`security-review-controller db upgrade`). Number the revisions in sequence (`0002`, `0003`…),
-review the generated file and never change a revision already published.
+The generic standards of each technology (Python and FastAPI, Angular, tests) are served by the
+project itself: prompt `development-standards`, tool `get_development_standards` (see
+[development standards](../usage/standards.md)). These pages only hold what is specific to
+this repository; when they conflict, they prevail.
 
 ## Documentation
 
@@ -381,7 +296,7 @@ The `.github/workflows/docker.yml` workflow builds the image (`linux/amd64`, `li
 default and `-pg` variants) and checks that both entry points start. On every pull request
 (the protection of `master` requires these checks), it only builds; on a version tag, it pushes the
 images to `ghcr.io/cyr-ius/security-review-mcp` and `docker.io/cyrius44/security-review-mcp`
-(see [published images](advanced/docker.md#published-images)). A manual run (**Actions →
+(see [published images](../advanced/docker.md#published-images)). A manual run (**Actions →
 Docker image → Run workflow**, `push` checked) publishes a branch image (`dev`, `dev-pg`).
 
 One-time setup: a Docker Hub access token (read and write) in the repository secret

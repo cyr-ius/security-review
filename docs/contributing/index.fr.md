@@ -82,7 +82,7 @@ SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # revenir 
 ```
 
 Le démon Docker permet de construire et de lancer l'image du
-[Dockerfile](advanced/docker.md) sans quitter le conteneur :
+[Dockerfile](../advanced/docker.md) sans quitter le conteneur :
 
 ```bash
 docker build -t security-review-mcp .
@@ -109,7 +109,7 @@ docker build -t security-review-mcp .
 docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # pilote PostgreSQL
 ```
 
-Le build compile aussi l'[interface web](usage/web-interface.md) (étape Node.js) ;
+Le build compile aussi l'[interface web](../usage/web-interface.md) (étape Node.js) ;
 elle est servie sur `/ui/` par le contrôleur.
 
 L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. Son
@@ -210,106 +210,21 @@ ou servent ses routes (`controller`, `deps/advisory_sync`, `auth/oidc`,
 `tests/test_server.py` le vérifie. Un module partagé par les deux processus (comme
 `app_settings`) les importe dans la fonction qui en a besoin, jamais en tête.
 
-## Interface web
+## Développement par composant
 
-L'application Angular 22 (signaux, zoneless, Bootstrap 5) est dans `web/`. Sa build est écrite
-dans `src/security_review_mcp/webui/`, d'où le contrôleur la sert sur `/ui/` et le wheel l'embarque.
+Chaque partie du projet a sa page, avec ses conventions, ses invariants et la façon de la
+tester :
 
-```bash
-cd web
-npm ci
-npm run build                 # build de production (à refaire avant uv build)
-npm start                     # serveur de dev sur http://localhost:4200/ui/
-npm run format                # Prettier
-```
+| Page | Code | Contenu |
+|---|---|---|
+| [Serveur MCP](mcp-server.md) | `server.py`, `prompts.py`, `rules/` | Outils, prompts et ressources, règles de scan, invariants de sécurité du processus MCP |
+| [Contrôleur (FastAPI)](controller.md) | `web_api/`, `cli.py`, `storage/` | Routes REST et leurs schémas, permissions, paramètres, CLI, migrations du schéma |
+| [Interface web (Angular)](web-ui.md) | `web/` | Build et serveur de développement, conventions de code, traductions |
 
-`npm start` redirige `/api` vers `http://127.0.0.1:8080` (`web/proxy.conf.json`) : lancez le
-contrôleur en parallèle avec `security-review-controller serve --port 8080`, ou utilisez la
-configuration VS Code **Web UI + API (Angular dev server, port 4200)**, qui démarre les deux
-(**Controller + web UI (Angular, port 4200)** si vous voulez aussi déboguer le Python) : chaque enregistrement d'un
-fichier de `web/src/` recharge la page (styles et templates sans rechargement complet), et les
-points d'arrêt posés dans les fichiers `.ts` sont pris en compte. Dans le devcontainer, Chrome
-est ouvert sur le poste local et le port 4200 est redirigé automatiquement.
-
-### Conventions de code
-
-- **API REST** : toute route qui répond en JSON déclare son modèle de réponse
-  (`web_api/schemas.py`) : FastAPI le documente dans OpenAPI et retire tout champ non déclaré.
-  `test_openapi_documents_the_response_of_every_json_route` échoue sur une route qui renvoie un
-  `dict` brut.
-- **Composants** : template et styles dans des fichiers séparés. Une fonctionnalité à plusieurs
-  écrans a un dossier par composant (`features/access/role-list/`) ; ses fichiers partagés
-  (styles, classe de base, messages d'erreur) restent à la racine de la fonctionnalité.
-- **Formulaires** : les formulaires de saisie utilisent les Signal Forms (`form()`,
-  `[formField]`, validateurs avec un message traduit) ; les filtres de liste et les listes
-  dynamiques de cases à cocher restent de simples gestionnaires d'événements.
-- **Appels HTTP** : par `rxResource` pour les données d'un écran, ou `await
-  firstValueFrom(...)` pour une action ; pas de `.subscribe()` dans les composants.
-- **État** : `signal()` et `computed()` ; une valeur dérivée d'une autre mais modifiable (un
-  formulaire rempli avec les réglages chargés) est un `linkedSignal()`. `effect()` est réservé aux
-  vrais effets de bord (attributs du document, stockage local, minuteries), jamais pour recopier
-  un signal dans un autre. Un service expose ses signaux avec `asReadonly()` et les modifie par
-  des méthodes nommées.
-- **Dossiers** : `shared/` contient des composants réutilisables sans logique métier : ils
-  reçoivent leurs données par des entrées et répondent par des sorties, jamais par un service
-  métier de `core/` (la fiche d'un finding émet la décision, `TriageService` l'enregistre). La
-  coquille de l'application est `layout/`.
-- **Templates** : liaisons de l'hôte dans `host: {}` (pas de `@HostListener`) ; un message qui
-  explique pourquoi un champ est invalide lui est relié par `aria-describedby`.
-- **Tableaux** : `app-table-controls` porte la recherche et les filtres ; le tri se choisit sur les
-  en-têtes de colonne (`<th [appSortHeader]="sort" sortKey="name">`), avec un `TableSort` nommé
-  d'après le tableau (`shared/utils/table-sort.ts`) que le navigateur mémorise sous
-  `secreview.sort.<nom>`.
-- **Couleurs** : variables Bootstrap (`var(--bs-…)`) ou jetons de `styles.css` (`--app-…`),
-  jamais une couleur écrite dans un composant, pour que les thèmes clair et sombre fonctionnent.
-
-### Traductions de l'interface
-
-L'interface est traduite en anglais, français et espagnol par un service maison
-(`web/src/app/core/i18n/`), sans dépendance supplémentaire. Chaque écran a son catalogue dans
-`core/i18n/messages/<écran>.ts`, déclaré dans `messages/index.ts`, avec ses messages dans les trois
-langues :
-
-```ts
-export const tokens = defineMessages({
-  en: { 'tokens.created': 'Token “{label}” created.' },
-  fr: { 'tokens.created': 'Jeton « {label} » créé.' },
-  es: { 'tokens.created': 'Token «{label}» creado.' },
-});
-```
-
-- Dans un template : `{{ 'tokens.title' | t }}`, ou avec des paramètres
-  `{{ 'tokens.created' | t: { label: name } }}`.
-- Dans le code : `I18nService.translate(...)` (confirmations, messages des validateurs Signal
-  Forms via `message: () => ...`). Un message affiché plus tard (succès, erreur) est gardé sous la
-  forme `msg(clé, paramètres)` et traduit dans le template, pour suivre un changement de langue.
-- Le titre des routes est une clé, traduite par `I18nTitleStrategy`.
-
-Les clés sont typées : une clé inconnue, ou absente d'une des trois langues, fait échouer
-`npm run build`.
-
-## Migrations du schéma
-
-Toute modification d'un modèle de table (`models.py`) s'accompagne d'une révision Alembic dans
-`src/security_review_mcp/storage/migrations/versions/`. Le test
-`test_upgrade_creates_the_schema_of_the_models` (`tests/test_database.py`) échoue tant que les
-migrations ne produisent pas exactement le schéma des modèles. Pour générer un brouillon de
-révision à relire :
-
-```bash
-uv run python - <<'PY'
-from alembic import command
-from security_review_mcp import database
-with database.get_engine().begin() as connection:
-    command.revision(
-        database.alembic_config(connection), "describe the change", autogenerate=True, rev_id="0002"
-    )
-PY
-```
-
-Lancez-le avec `SECREVIEW_DATABASE_URL` pointant sur une base SQLite jetable déjà à jour
-(`security-review-controller db upgrade`). Numérotez les révisions à la suite (`0002`, `0003`…),
-relisez le fichier généré et ne modifiez jamais une révision déjà publiée.
+Les normes génériques de chaque technologie (Python et FastAPI, Angular, tests) sont servies par
+le projet lui-même : prompt `development-standards`, outil `get_development_standards` (voir
+[normes de développement](../usage/standards.md)). Ces pages ne gardent que ce qui est propre à
+ce dépôt ; en cas de conflit, elles prévalent.
 
 ## Documentation
 
@@ -383,7 +298,7 @@ Le workflow `.github/workflows/docker.yml` construit l'image (`linux/amd64`, `li
 variantes par défaut et `-pg`) et vérifie que les deux points d'entrée démarrent. Sur chaque pull
 request (la protection de `master` exige ces vérifications), il construit seulement ; sur un tag de
 version, il pousse les images sur `ghcr.io/cyr-ius/security-review-mcp` et
-`docker.io/cyrius44/security-review-mcp` (voir [images publiées](advanced/docker.md#images-publiees)).
+`docker.io/cyrius44/security-review-mcp` (voir [images publiées](../advanced/docker.md#images-publiees)).
 Une exécution manuelle (**Actions → Docker image → Run workflow**, `push` coché) publie une
 image de branche (`dev`, `dev-pg`).
 
