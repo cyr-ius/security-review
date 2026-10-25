@@ -73,7 +73,7 @@ services:
       SECREVIEW_OSV_ECOSYSTEMS: ${SECREVIEW_OSV_ECOSYSTEMS:-PyPI,npm,Maven}
       SECREVIEW_SWAGGER_ENABLED: ${SECREVIEW_SWAGGER_ENABLED:-false}
     ports:
-      - "127.0.0.1:8080:8000"
+      - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:8080:8000"
 
   mcp:
     <<: *secreview
@@ -85,7 +85,7 @@ services:
     environment:
       <<: *secreview-env
     ports:
-      - "127.0.0.1:8000:8000"
+      - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:8000:8000"
 
 volumes:
   secreview-pg:
