@@ -200,7 +200,10 @@ base :
   sessions ouvertes ;
 - une **suppression** ou un **nouveau mot de passe** (changé par l'utilisateur ou réinitialisé
   par un administrateur) ferme toutes les sessions du compte ; `PUT /api/v1/me/password` remet une
-  nouvelle session à l'onglet qui a changé le mot de passe.
+  nouvelle session à l'onglet qui a changé le mot de passe ;
+- une **déconnexion** (`POST /api/v1/me/logout`) ferme aussi toutes les sessions du compte, dans
+  tous les onglets et navigateurs : un jeton de session volé cesse de fonctionner quand son
+  utilisateur se déconnecte.
 
 Les sessions sont signées avec `SECREVIEW_SECRET_KEY` (32 caractères au moins), partagé par
 toutes les répliques du contrôleur. Sans lui, un secret aléatoire est tiré à chaque démarrage

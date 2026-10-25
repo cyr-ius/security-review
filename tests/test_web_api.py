@@ -2432,14 +2432,19 @@ def test_logins_failures_and_logouts_are_audited(accounts):
     assert login(accounts, "alice", "Wrong password 1!").status_code == 401
     assert login(accounts, "bob smith", "Wrong password 1!").status_code == 401
     headers = session_headers(accounts, "alice")
+    other_tab = session_headers(accounts, "alice")
 
     assert accounts.post("/api/v1/me/logout", headers=headers).status_code == 204
+    # The logout ends every session of the user: a stolen session token stops working too
+    assert accounts.get("/api/v1/me", headers=headers).status_code == 401
+    assert accounts.get("/api/v1/me", headers=other_tab).status_code == 401
 
     events = audit.list_events(project=None)["events"]
     summary = [(e["action"], e["actor"], e["target_id"], e["details"]) for e in events]
     password = {"address": "testclient", "method": "password"}
-    assert summary[:4] == [
+    assert summary[:5] == [
         ("user.logout", "user:alice", "alice", {"address": "testclient"}),
+        ("user.login", "user:alice", "alice", password),
         ("user.login", "user:alice", "alice", password),
         # An invalid username is not written
         ("user.login_failed", "anonymous", None, password),

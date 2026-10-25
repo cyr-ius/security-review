@@ -192,7 +192,9 @@ from the database:
   sessions;
 - a **deletion** or a **new password** (changed by the user or reset by an administrator)
   closes every session of the account; `PUT /api/v1/me/password` hands a new session to the tab
-  that changed the password.
+  that changed the password;
+- a **logout** (`POST /api/v1/me/logout`) also closes every session of the account, in every
+  tab and browser: a stolen session token stops working when its user logs out.
 
 Sessions are signed with `SECREVIEW_SECRET_KEY` (at least 32 characters), shared by every
 replica of the controller. Without it, a random secret is drawn at every start (a warning is
