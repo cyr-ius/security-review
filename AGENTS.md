@@ -302,6 +302,9 @@ une PR, quelle que soit la taille du changement :
    change jamais un statut, c'est une personne qui valide la proposition dans l'interface web.
 5. Résumez la revue (identifiant du rapport, findings et suite donnée) dans votre réponse et dans
    la description de PR.
+6. Quand vous commitez le changement relu, ajoutez le trailer `Security-Review: <identifiant du
+   rapport>` au message de commit : le hook post-commit `agent-review` ne relance pas de revue
+   pour un commit qui le porte. Sans revue faite, n'ajoutez pas ce trailer.
 
 Si le serveur n'est pas connecté ou ne répond pas, dites-le explicitement : ne prétendez pas
 avoir fait la revue. Lancez au minimum le scan en CLI sur le dépôt

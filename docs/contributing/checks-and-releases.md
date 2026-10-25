@@ -8,8 +8,8 @@ What runs before a change is merged, and how a version is published. CI runs eve
 ```bash
 uv run ruff check --fix . && uv run ruff format .           # Python
 npm --prefix web exec --no -- prettier --check <files>      # web/src/, YAML and JSON
-prek install         # optional: same checks before every commit, and the dependency
-                     # scan when SECREVIEW_CONTROLLER_URL is set
+prek install         # same checks before every commit, the dependency scan when
+                     # SECREVIEW_CONTROLLER_URL is set, and the agent-review post-commit hook
 ```
 
 The `prettier` hook formats the YAML and JSON files and the sources of `web/src/` with the
@@ -47,7 +47,9 @@ connected, each change is reviewed before it is declared done or a pull request 
 `get_review_checklist`, then one report saved with `save_security_report` (project
 `security-review-mcp`). The `critical` and `high` findings are fixed, with a test; the others
 are fixed or justified with `propose_finding_status`, which a person approves in the web
-interface. The full procedure is in `AGENTS.md`.
+interface. The agent then adds a `Security-Review: <report id>` trailer to its commit message,
+so that the `agent-review` hook does not review the commit again. The full procedure is in
+`AGENTS.md`.
 
 When `SECREVIEW_CONTROLLER_URL` and a personal `ci` token (`SECREVIEW_TOKEN`) are set, the
 `scan-deps` hook also scans the dependencies when `uv.lock`, `pyproject.toml` or
@@ -55,25 +57,44 @@ When `SECREVIEW_CONTROLLER_URL` and a personal `ci` token (`SECREVIEW_TOKEN`) ar
 
 ### Security review of each commit
 
-The optional `agent-review` hook (`scripts/agent-review.sh`) asks Claude Code to review each of
+The `agent-review` hook (`scripts/agent-review.sh`) asks your coding agent to review each of
 your commits for security, in the background, with the `security-review` MCP server of your
 `.mcp.json`. The review follows the security review procedure of `AGENTS.md` and saves
-one report, which you read in the web interface. Enable it once:
+one report, which you read in the web interface. `prek install` installs it with the pre-commit
+hooks (`default_install_hook_types`), and the devcontainer runs it at creation.
+
+The hook uses the CLI of the agent you already have, signed in with your account:
+
+| Agent | CLI | Installation |
+|---|---|---|
+| Claude Code | `claude` | `npm install -g @anthropic-ai/claude-code` |
+| GitHub Copilot | `copilot` | `npm install -g @github/copilot` |
+| Codex (ChatGPT account or OpenAI key) | `codex` | `npm install -g @openai/codex` |
+
+It takes the first one installed, in this order, or the one named by `AGENT_REVIEW_CLI`
+(`claude`, `copilot` or `codex`). The `security-review` server is read from `.mcp.json`
+(`url` and `Authorization` header, the format of Claude Code and Copilot), whatever the agent.
 
 ```bash
-prek install --hook-type post-commit
+prek install                          # pre-commit and post-commit hooks
+export AGENT_REVIEW_CLI=copilot       # optional: choose the agent
 SKIP=agent-review git commit ...      # skip it for one commit
 ```
 
-- The commit is never blocked: the review runs after it, and its log is in
-  `.git/agent-review/<commit>.log`.
-- The agent receives the commit in its prompt and may only read the repository and call the
-  review tools of the server (`--restricted`, `--permission-mode dontAsk`): it edits no file,
-  runs no command, proposes no finding status and cannot read `.env`, `.mcp.json` or any file
-  outside the repository.
-- The hook does nothing for a commit made by Claude Code (already reviewed in its session),
-  during a rebase or a cherry-pick, or when the `claude` CLI or `.mcp.json` is missing.
-- Each review consumes model usage on your Claude account.
+- The commit is never blocked, even when findings remain open: the review runs after it, on
+  every commit, and its log is in `.git/agent-review/<commit>.log`.
+- The agent receives the commit in its prompt and only gets the `security-review` server,
+  limited to its review tools (`scan_code`, `get_review_checklist`, `save_security_report`...):
+  the other MCP servers of your configuration are not loaded. It edits no file and proposes no
+  finding status.
+- Claude Code is the most confined (`--restricted`, `--permission-mode dontAsk`): no command,
+  and `.env`, `.mcp.json` and the files outside the repository stay unreadable. Copilot runs
+  with the shell and write tools denied; Codex runs in its read-only sandbox, where commands
+  can still read the repository, `.env` included. The reports mask secrets in any case.
+- The hook does nothing for a commit that carries a `Security-Review: <report id>` trailer
+  (already reviewed in the session of its agent), during a rebase or a cherry-pick, or when no agent CLI, no `.mcp.json` or no
+  `security-review` server in it is found.
+- Each review consumes model usage on the account of your agent.
 
 ## Branches
 
