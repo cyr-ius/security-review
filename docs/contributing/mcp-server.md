@@ -7,8 +7,8 @@ host. It shares the database with the controller but never calls it. Its code is
 inputs and calls these modules.
 
 ```bash
-uv run security-review-mcp serve                         # stdio, as a host starts it
-uv run security-review-mcp serve --transport streamable-http --port 8000
+uv run security-review-mcp serve --transport stdio       # stdio, as a host starts it
+uv run security-review-mcp serve --port 8000             # streamable HTTP (default)
 uv run pytest tests/test_server.py                       # end-to-end tests of the MCP layer
 ```
 

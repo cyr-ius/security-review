@@ -56,9 +56,19 @@ def test_the_health_path_is_the_one_served_by_both_processes():
 @pytest.mark.parametrize(
     ("args", "expected"),
     [
-        (["security-review-mcp", "serve"], None),
-        (["/opt/venv/bin/python", "/opt/venv/bin/security-review-mcp", "serve"], None),
+        (["security-review-mcp", "serve"], "http://127.0.0.1:8000/healthz"),
+        (["security-review-mcp", "serve", "--transport", "stdio"], None),
+        (
+            [
+                "/opt/venv/bin/python",
+                "/opt/venv/bin/security-review-mcp",
+                "serve",
+                "--transport=stdio",
+            ],
+            None,
+        ),
         (["security-review-mcp", "enroll", "--url", "https://mcp"], None),
+        (["security-review-controller", "db", "upgrade"], None),
         (
             ["security-review-mcp", "serve", "--transport", "streamable-http", "--port", "9000"],
             "http://127.0.0.1:9000/healthz",
@@ -75,7 +85,7 @@ def test_the_health_path_is_the_one_served_by_both_processes():
             ["python", "-m", "security_review_mcp.controller", "serve"],
             "http://127.0.0.1:8000/healthz",
         ),
-        (["python", "-m", "security_review_mcp", "serve"], None),
+        (["python", "-m", "security_review_mcp", "serve"], "http://127.0.0.1:8000/healthz"),
         (
             ["security-review-controller", "serve", "--host", "0.0.0.0"],
             "http://127.0.0.1:8000/healthz",
@@ -99,7 +109,7 @@ def test_the_url_follows_the_settings_without_options(settings):
 
 
 def test_stdio_is_healthy_without_any_request(settings, requests):
-    assert healthcheck.main(["security-review-mcp", "serve"]) == 0
+    assert healthcheck.main(["security-review-mcp", "serve", "--transport", "stdio"]) == 0
     assert requests[0] == []
 
 

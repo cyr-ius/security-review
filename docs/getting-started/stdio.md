@@ -1,7 +1,7 @@
 # Local mode (stdio)
 
-In **local mode**, the host (VS Code, Claude…) starts `security-review-mcp serve` itself on the
-developer workstation and talks to it through stdin / stdout: no network, no token, no
+In **local mode**, the host (VS Code, Claude…) starts `security-review-mcp serve --transport stdio` itself
+on the developer workstation and talks to it through stdin / stdout: no network, no token, no
 controller.
 
 !!! warning "For specific cases only"
@@ -32,7 +32,7 @@ Without Internet access, or from the sources: see [Installation: other cases](..
 ## Running
 
 ```bash
-security-review-mcp serve   # started by the host, not by hand
+security-review-mcp serve --transport stdio   # started by the host, not by hand
 ```
 
 The local SQLite database (`~/.local/share/security-review-mcp/security_reports.db` by default, the same file whatever
@@ -41,10 +41,16 @@ the repository open in the host, see
 automatically at start-up. It is the only file the server writes: delete it to remove every
 trace. The controller is not needed.
 
+!!! note "`--transport stdio` is required"
+    Without `--transport`, `serve` starts the HTTP server of the shared mode
+    ([`SECREVIEW_TRANSPORT`](../reference/configuration.md#mcp-server), `streamable-http` by
+    default). Up to version 3.0.0, `serve` ran in stdio by default: add `--transport stdio` to
+    the existing host configurations.
+
 ## Host configuration
 
 With the **stdio** transport, the host (VS Code, Claude…) starts the server process itself.
-Give the path of the executable, the `serve` command and, if needed, the `SECREVIEW_*` variables
+Give the path of the executable, the `serve --transport stdio` command and, if needed, the `SECREVIEW_*` variables
 (see [Configuration](../reference/configuration.md#mcp-server)).
 
 VS Code, GitHub Copilot and Claude read the same `.mcp.json` file at the root of the
@@ -56,7 +62,7 @@ repository:
     "security-review": {
       "type": "stdio",
       "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
-      "args": ["serve"],
+      "args": ["serve", "--transport", "stdio"],
       "env": { "SECREVIEW_DATABASE_URL": "sqlite:////var/lib/secreview/security_reports.db" }
     }
   }

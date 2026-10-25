@@ -67,7 +67,7 @@ security-review-controller db upgrade                              # schema (Ale
 security-review-controller user create admin --group administrators   # web interface account
 security-review-controller token create --label alice              # token of the agent
 security-review-controller serve --port 8080                       # /ui interface and REST API
-security-review-mcp serve --transport streamable-http --port 8000  # /mcp endpoint
+security-review-mcp serve --port 8000                              # /mcp endpoint (streamable HTTP)
 
 security-review-ci gate --url http://localhost:8080 --project portal  # block a pipeline (ci token: SECREVIEW_TOKEN)
 ```

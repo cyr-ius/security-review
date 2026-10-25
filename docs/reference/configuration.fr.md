@@ -51,7 +51,7 @@ Lues par `security-review-mcp` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_TRANSPORT` | `stdio` | `stdio` ou `streamable-http` |
+| `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` (mode partagé) ou `stdio` (mode local) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | Tant qu'aucun jeton n'existe, accepte toute requête sur `/mcp` même si le serveur n'écoute pas sur localhost (par défaut il reste alors fermé, voir [Jetons Bearer](../advanced/http.md#jetons-bearer)) ; à réserver aux tests sur un réseau isolé |
 | `SECREVIEW_ENROLLMENT` | `true` | [Enrôlement](../advanced/http.md#enrolement-demander-le-projet) : un client sans jeton peut demander son projet (serveur MCP restreint, `POST /api/v1/enroll`), qu'un utilisateur portant `projects.create` valide sur le contrôleur ; aucun jeton n'est créé, l'utilisateur crée un jeton MCP personnel dans l'interface web |
 | `SECREVIEW_WEB_URL` | — | URL publique de l'interface web (`https://…/ui`), donnée aux clients sans jeton valide (réponse de l'enrôlement, `401` de `/mcp`) pour que l'utilisateur sache où se connecter et créer un jeton MCP personnel ; sans elle, aucun lien n'est donné |

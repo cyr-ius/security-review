@@ -98,7 +98,7 @@ The same image runs each process in its own container, on an existing PostgreSQL
 [Architecture and deployment](architecture.md)):
 
 - the **MCP server** is the default entry point of the image (`security-review-mcp`, default
-  command `serve`, in stdio; add `--transport streamable-http` for HTTP);
+  command `serve`, in streamable HTTP; add `--transport stdio` for the local mode);
 - the **controller** (REST API, web interface, administration) is started with
   `--entrypoint security-review-controller`, with the [built-in authentication and TLS](http.md)
   or behind a reverse proxy that handles them.

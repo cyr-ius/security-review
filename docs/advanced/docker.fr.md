@@ -99,7 +99,7 @@ La même image lance chaque processus dans son propre conteneur, sur une base Po
 existante (voir [Architecture et déploiement](architecture.md)) :
 
 - le **serveur MCP** est le point d'entrée par défaut de l'image (`security-review-mcp`,
-  commande par défaut `serve`, en stdio ; ajoutez `--transport streamable-http` pour HTTP) ;
+  commande par défaut `serve`, en HTTP streamable ; ajoutez `--transport stdio` pour le mode local) ;
 - le **contrôleur** (API REST, interface web, administration) se lance avec
   `--entrypoint security-review-controller`, avec l'[authentification et le TLS intégrés](http.md)
   ou derrière un reverse proxy qui s'en charge.

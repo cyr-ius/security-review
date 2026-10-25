@@ -1,7 +1,7 @@
 """Health check of the Docker image: ``python -m security_review_mcp.healthcheck``.
 
-The image runs the MCP server in stdio by default (``serve``, no port), the HTTP MCP server
-(``serve --transport streamable-http``) or the controller (``security-review-controller serve``).
+The image runs the HTTP MCP server by default (``serve``), the MCP server in stdio
+(``serve --transport stdio``, no port) or the controller (``security-review-controller serve``).
 The check reads the command of the container (process 1) and, for the two HTTP processes only,
 requests ``/healthz`` on the loopback interface; in stdio there is nothing to check and it
 succeeds. Exit code 0: healthy, 1: unhealthy (Docker convention).
@@ -52,8 +52,11 @@ def health_url(args: list[str]) -> str | None:
     settings.
     """
     settings = get_settings()
+    # Only `serve` listens (not `enroll`, `db upgrade`...)
+    if "serve" not in args:
+        return None
     # Both programs have a `serve` command: only the controller's is always HTTP
-    controller = "serve" in args and any(Path(arg).name in CONTROLLER_PROGRAMS for arg in args)
+    controller = any(Path(arg).name in CONTROLLER_PROGRAMS for arg in args)
     transport = _option(args, "--transport") or settings.transport
     if not controller and transport != "streamable-http":
         return None

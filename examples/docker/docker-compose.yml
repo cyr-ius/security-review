@@ -1,4 +1,4 @@
-# security-review-mcp with PostgreSQL, ready to use: download this file in an empty folder,
+# security-review with PostgreSQL, ready to use: download this file in an empty folder,
 # create the .env file next to it, then start everything.
 #
 #   (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' \
@@ -17,7 +17,7 @@
 # The two ports are only open on this machine (127.0.0.1). To open them to the team, enable TLS
 # (see the documentation, page Docker) and replace 127.0.0.1 by the address of the server.
 
-name: security-review-mcp
+name: security-review
 
 services:
   db:
@@ -89,9 +89,8 @@ services:
   mcp:
     image: ghcr.io/cyr-ius/security-review:latest
     restart: unless-stopped
-    # The image runs `security-review-mcp serve`: streamable HTTP instead of stdio
+    # The image runs `security-review-mcp serve`: streamable HTTP on /mcp
     environment:
-      SECREVIEW_TRANSPORT: streamable-http
       SECREVIEW_HOST: "0.0.0.0"
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
       # Only the migrate service changes the tables
