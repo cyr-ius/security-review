@@ -174,20 +174,14 @@ Read by the pipeline client `security-review-ci`, never by the servers.
 
 Bearer tokens are not configured by variable: they are stored in the database and managed with
 `security-review-controller token` (see
-[HTTP server, authentication and TLS](../advanced/http.md)). Neither are internal rules:
+[HTTP server, authentication and TLS](../advanced/http.md#bearer-tokens)). Neither are internal rules:
 they are stored in the database and managed with `security-review-controller rules` (see
-[Rules](../usage/rules.md)).
+[Rules](../usage/rules.md#rules-command)).
 
 ## Database
 
-SQLite by default, in the data directory of the user:
-`$XDG_DATA_HOME/security-review-mcp/security_reports.db`, that is
-`~/.local/share/security-review-mcp/security_reports.db` when `XDG_DATA_HOME` is not set. The
-file is the same whatever the directory the server starts from, and its directory is created
-private (`0700`), since the reports quote the reviewed code. Version 1.0 used
-`./security_reports.db` in the working directory: when that file exists and
-`SECREVIEW_DATABASE_URL` is not set, a warning gives the setting that keeps using it
-(`sqlite:////absolute/path/security_reports.db`).
+An SQLite database is created by default in the user's data folder:
+`~/.local/share/security-review-mcp/security_reports.db` when `XDG_DATA_HOME` is not set.
 
 For PostgreSQL (`postgres` extra):
 
@@ -195,16 +189,19 @@ For PostgreSQL (`postgres` extra):
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview
 ```
 
-The schema is managed by Alembic migrations embedded in the package:
-`security-review-controller db upgrade` creates or migrates the database and seeds the default
-rules, `db status` shows the revision (code `1` if it is not up to date). See
+A PostgreSQL ready to use: [Docker Compose](../advanced/docker.md#docker-compose-with-postgresql) or
+[Kubernetes](../advanced/kubernetes.md#deployment).
+
+The schema is managed by Alembic migrations embedded in the package: **security-review-controller**
+ - `security-review-controller db upgrade` creates or migrates the database and seeds the default
+rules,
+ - `security-review-controller db status` shows the revision (code `1` if it is not up to date). See
 [Schema migrations](../advanced/architecture.md#schema-migrations).
 
 ### Retention of reports without findings
 
-A clean review (report without any finding) only proves that nothing was found at that date.
 The controller deletes these reports once they are older than
-`SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` days (default `90`): at the start of `serve`, then every
+`SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` days (default `90`): at the start, then every
 day. The latest report of each project is always kept, so a project never disappears from the
 list, and a report with findings is never deleted, whatever their status. `0` disables the
 purge.

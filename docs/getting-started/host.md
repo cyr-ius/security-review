@@ -5,7 +5,7 @@ already be running: see [Deploying the server](deploy.md).
 
 ## HTTP transport
 
-For a shared server, started with `serve --transport streamable-http`, the host connects to the
+In shared mode, with the server started with `serve --transport streamable-http`, the host connects to the
 `/mcp` endpoint instead of starting a process. If authentication is enabled, it sends the
 token in the `Authorization: Bearer <token>` header (token generation, TLS and server start:
 see [HTTP server, authentication and TLS](../advanced/http.md)).
@@ -74,7 +74,7 @@ repository, without `headers`:
 
 ## Getting a token
 
-On a shared server that requires a token, you use a **personal MCP token**, created in the web
+In shared mode, when the server requires a token, you use a **personal MCP token**, created in the web
 interface. You do not need to ask an administrator for it before you start: configure the host
 as above, **without a token**, and run your first review. The agent requests the project, then
 tells you where to create your token (see
@@ -143,7 +143,7 @@ token: replace it in the host as in step 4 (see
 
 - **Server certificate signed by an internal CA** (`unable to verify the first certificate`):
   see [HTTPS server with an internal CA](../advanced/http.md#https-server-with-an-internal-ca).
-- **Local mode, without a shared server** (the host starts the process itself): see
-  [Local mode (stdio)](../advanced/stdio.md).
+- **Local mode (stdio)**, without a server (the host starts the process itself): see
+  [Local mode (stdio)](../getting-started/stdio.md).
 
 **Next step:** run your first review with the [prompts and tools](../usage/prompts-tools.md).

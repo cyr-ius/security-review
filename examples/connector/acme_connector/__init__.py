@@ -5,7 +5,7 @@ platform, an internal tracker): change the kind, the fields, the destination and
 
 Install it next to the controller, then allow it::
 
-    pip install ./examples/connector
+    uv pip install ./examples/connector
     SECREVIEW_CONNECTORS_PLUGINS=acme
 
 Its connection is then set on the Connectors screen, or with the variables SECREVIEW_ACME_URL and

@@ -505,7 +505,7 @@ project of its own.
 | Type (`auth_source`) | Login | Creation |
 |---|---|---|
 | **Local** (`local`) | User name and password | By an administrator, or the initial `admin` account |
-| **OIDC** (`oidc`) | [Identity provider](../advanced/sso.md), no password | By an administrator, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
+| **OIDC** (`oidc`) | [Identity provider](../advanced/sso.md#oidc-accounts), no password | By an administrator, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
 An OIDC account also joins, at each login, the groups open to OIDC named by its groups claim (see
 [OIDC accounts](../advanced/sso.md#oidc-accounts)). Accounts are managed in the **Users** screen,
@@ -632,16 +632,16 @@ from the database:
 Sessions are signed with `SECREVIEW_SECRET_KEY` (at least 32 characters), shared by every
 replica of the controller. Without it, a random secret is drawn at every start (a warning is
 logged): sessions end when the controller restarts and are not shared between replicas. Set it
-in production (in Kubernetes, from a `Secret`: see [Kubernetes](../advanced/architecture.md#kubernetes)).
+in production (in Kubernetes, from a `Secret`: see [Kubernetes](../advanced/kubernetes.md#secrets)).
 
 Login failures are limited: after **5 failures in 15 minutes** for a user name from the same
 address, or **20 failures** from an address all user names together, the login is refused
 (`429`, `Retry-After` header), even with the right password. The counters are kept in the
 database: every worker and replica of the controller shares them. Every address is also limited
 on the whole REST API (by default 600 requests a minute, 30 on the login routes, see
-[`SECREVIEW_RATE_LIMIT_*`](../reference/configuration.md)). Behind a reverse proxy, the address seen is the proxy's, and the limit would then
+[`SECREVIEW_RATE_LIMIT_*`](../reference/configuration.md#rate-limiting)). Behind a reverse proxy, the address seen is the proxy's, and the limit would then
 apply to every client of the proxy: list the proxy in
-[`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md) so that the address of the
+[`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md#listening-tls-and-reverse-proxy) so that the address of the
 client is read from `X-Forwarded-For`. Every login and every failure is logged, without the password:
 
 ```
@@ -697,7 +697,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_ENROLLMENT` | `true` | Project requests by the MCP clients without a token (on the MCP server), approved in the **Projects** screen; no token is created |
 | `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | Days a requested project waits for an approval before it is deleted |
 | `SECREVIEW_WEB_URL` | — | Public URL of the web interface, given by the MCP server to the clients without a valid token |
-| `SECREVIEW_OIDC_*` | — | [OIDC login](../advanced/sso.md), see the [reference](../reference/configuration.md) |
+| `SECREVIEW_OIDC_*` | — | [OIDC login](../advanced/sso.md), see the [reference](../reference/configuration.md#oidc-login) |
 
 The published package and the Docker image contain the application already built. If you
 install from source without building it, the controller only serves the REST API and a warning

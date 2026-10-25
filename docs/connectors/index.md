@@ -37,44 +37,16 @@ the audit log (`connector.changed`, `{"enabled": true}`).
 | `true` (default) | The switches of the screen decide; every connector is off until switched on |
 | `false` | Every connector is locked off: nothing is sent, the switches cannot be turned on, **Test the connection** is refused |
 
-The former `SECREVIEW_TICKETING_*` variables are not read any more: the controller refuses to
-start while one of them is set, so that a lock is never lost silently.
-
 ```bash
 SECREVIEW_CONNECTORS_INTERVAL_SECONDS=300   # period of the automatic sending
 SECREVIEW_CONNECTORS_CAFILE=/etc/ssl/corp-ca.pem   # optional: internal certificate authority
 ```
 
-## Connections
-
-Each connector has its connection, set by its variables or in the **Connection** tab of its gear
-in the **Connectors** screen. A variable that is set takes precedence: its field is only shown
-in the screen. Secrets are never shown again (`***`); sending `***` back keeps the stored one.
-**Test the connection** checks the entered values with a read-only request, without saving them,
-before the connector is switched on.
-
-Every field of a connector has its variable, `SECREVIEW_<KIND>_<FIELD>` (`SECREVIEW_JIRA_URL`):
-see the page of each connector. A secret is bound to the host of its URL: setting a URL for
-another host, or a URL where there was none (after deleting it, for instance), requires entering
-the secrets again in the same change. A secret set by a variable only goes to a URL set by a
-variable: the screen refuses the URL (otherwise a stored token could be sent to another host).
-
-## Destinations of the projects
-
-A project needs a **destination** to send its findings through a connector: what the connector
-asks for, such as the **Jira project key** (`SEC`) or the **ServiceNow assignment group**. The
-destinations are set in the **Projects** tab of the gear of the connector, in the
-**Connectors** screen.
-
-Each destination may have an **automatic sending** threshold: every new **open** finding at
-least that severe is then sent by the controller. The threshold only applies to the reports
-saved **after** it was set: the findings already stored are only sent by hand.
-
 ## Sending a finding
 
-A user who may triage the project (`findings.triage` permission) sees a **Send to Jira** /
-**Send to ServiceNow** button (one per connector) on each finding card whose project has a
-destination. Once the record exists, the card shows its key, linked to the record. A failure is
+A user who may triage the project (`findings.triage` permission) sees a **Send to**
+button (one per connector) on each finding card whose project has a destination.
+Once the record exists, the card shows its key, linked to the record. A failure is
 shown on the card with its reason (refused credentials, unknown project key...).
 
 The automatic sending runs every `SECREVIEW_CONNECTORS_INTERVAL_SECONDS` (300 by default), at

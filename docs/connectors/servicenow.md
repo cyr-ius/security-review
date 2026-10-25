@@ -1,8 +1,7 @@
 # ServiceNow
 
 The built-in **ServiceNow** connector (kind `servicenow`) creates a record for each finding sent,
-in the `incident` table by default. Enabling, destinations and sending are common to every
-connector: see [Connectors](index.md).
+in the `incident` table by default.
 
 ## Connection
 

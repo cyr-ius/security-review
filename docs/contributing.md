@@ -3,11 +3,12 @@
 ## Development environment
 
 ```bash
+git clone https://github.com/cyr-ius/security-review-mcp.git
 uv sync --extra dev
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
-pre-commit install          # optional: same checks before every commit, and the dependency
-                            # scan when SECREVIEW_CONTROLLER_URL is set
+prek install         # optional: same checks before every commit, and the dependency
+                     # scan when SECREVIEW_CONTROLLER_URL is set
 ```
 
 The `prettier` hook formats the YAML and JSON files and the sources of `web/src/` with the
@@ -100,6 +101,25 @@ volumes are kept in volumes of the devcontainer: they do not mix with those of t
     container, but stays isolated from the daemon of the host. After adding the feature, rebuild
     the container (*Dev Containers: Rebuild Container*).
 
+## Building the image
+
+```bash
+docker build -t security-review-mcp .
+docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # PostgreSQL driver
+```
+
+The build also compiles the [web interface](usage/web-interface.md) (Node.js stage); the
+controller serves it on `/ui/`.
+
+The image runs as a non-root user (uid `10001`), without sources nor build tools. The SQLite
+database is in the `/var/lib/secreview` volume. Its `HEALTHCHECK`
+(`python -m security_review_mcp.healthcheck`, every 30 seconds) requests `/healthz` of the HTTP
+MCP server or of the controller on the loopback interface, over HTTPS when TLS is enabled
+(trusting only the certificate of the container); in stdio, nothing listens and the container
+stays healthy, and with mutual TLS (`SECREVIEW_TLS_CLIENT_CA`) it is not requested: rely on the
+probes of the orchestrator. The `.env` file is **not** copied into the image: pass the
+configuration with `-e` or `--env-file`.
+
 ## Definition of done
 
 A contribution, human or produced by an AI agent, is only done if the behavior it adds or fixes
@@ -171,7 +191,7 @@ src/security_review_mcp/
 │   └── metrics.py         # Prometheus metrics of the controller (/metrics)
 ├── clients/       # CLI clients that contact the URL given by the operator
 │   ├── commands.py        # `enroll` command of security-review-mcp
-│   └── enrollment.py      # `enroll` client: project enrollment on a shared server
+│   └── enrollment.py      # `enroll` client: project enrollment on a server in shared mode
 ├── connectors/    # findings sent to external systems: api (connector API), registry,
 │                  # connections, transport (HTTP client), core (sending), jira, servicenow
 └── web_api/       # controller: REST API /api/v1 and files of the application (/ui)
@@ -315,12 +335,19 @@ uv run mkdocs build --strict # what the CI does: a broken link fails the build
 - To add a page, create both files in `docs/`, declare the English one in the `nav` section of
   `mkdocs.yml`, and translate its title in `nav_translations` (French language of the `i18n`
   plugin).
+- To show a file of `examples/`, include it rather than copying it:
+  `--8<-- "kubernetes/postgres.yaml"` (`pymdownx.snippets`, paths relative to `examples/`; a
+  missing file fails the build). In a link to a file of the repository, write
+  `\{{ release_tag }}` instead of `master`: the hook `scripts/mkdocs_hooks.py` replaces it with the
+  tag of the version of `pyproject.toml` (`v3.0.0`), so that the copied commands fetch the files
+  of the documented release.
 
 ### Publishing
 
 The `.github/workflows/docs.yml` workflow:
 
-- on a **pull request** that touches `docs/` or `mkdocs.yml`: builds the site in `--strict`
+- on a **pull request** that touches `docs/`, `mkdocs.yml`, `examples/`, `pyproject.toml` (version of
+  the links) or the hook `scripts/mkdocs_hooks.py`: builds the site in `--strict`
   mode (check only);
 - on a **push on `master`**: builds the site and publishes it on GitHub Pages.
 
@@ -345,7 +372,7 @@ A version is a tag pushed on `master`:
    version, publication on PyPI and of the Docker images (`docker.yml`), then creation of the
    GitHub release.
 
-The tag publishes two PyPI distributions at the same version: `security-review-mcp` and
+The tag publishes two PyPI distributions at the same version: `security-review` and
 `security-review-ci`, the pipeline client alone (no dependency), whose project is written by
 `scripts/build_ci_client.py` from `ci_client.py`, with the `requires-python` of the server. The
 **ci-client** job of `tests.yml` builds it and runs the wheel alone, without the server.

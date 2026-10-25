@@ -3,11 +3,12 @@
 ## Environnement de développement
 
 ```bash
+git clone https://github.com/cyr-ius/security-review-mcp.git
 uv sync --extra dev
 uv run pytest
 uv run ruff check . && uv run ruff format --check .
-pre-commit install          # facultatif : mêmes contrôles avant chaque commit, et le scan des
-                            # dépendances si SECREVIEW_CONTROLLER_URL est défini
+prek install          # facultatif : mêmes contrôles avant chaque commit, et le scan des
+                      # dépendances si SECREVIEW_CONTROLLER_URL est défini
 ```
 
 Le hook `prettier` formate les fichiers YAML et JSON et les sources de `web/src/` avec la
@@ -101,6 +102,25 @@ devcontainer : ils ne se mélangent pas avec ceux de l'hôte.
     reste isolé du démon de l'hôte. Après l'ajout de la feature, reconstruisez le conteneur
     (*Dev Containers: Rebuild Container*).
 
+## Construire l'image
+
+```bash
+docker build -t security-review-mcp .
+docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # pilote PostgreSQL
+```
+
+Le build compile aussi l'[interface web](usage/web-interface.md) (étape Node.js) ;
+elle est servie sur `/ui/` par le contrôleur.
+
+L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. Son
+`HEALTHCHECK` (`python -m security_review_mcp.healthcheck`, toutes les 30 secondes) interroge
+`/healthz` du serveur MCP HTTP ou du contrôleur sur l'interface de bouclage, en HTTPS quand le
+TLS est activé (en ne faisant confiance qu'au certificat du conteneur) ; en stdio, rien n'écoute
+et le conteneur reste sain, et avec le TLS mutuel (`SECREVIEW_TLS_CLIENT_CA`) il n'interroge
+rien : appuyez-vous sur les sondes de l'orchestrateur. La
+base SQLite est dans le volume `/var/lib/secreview`. Le fichier `.env` n'est **pas** copié dans l'image :
+passez la configuration avec `-e` ou `--env-file`.
+
 ## Définition de « terminé »
 
 Une contribution, humaine ou produite par un agent IA, n'est terminée que si le comportement
@@ -172,7 +192,7 @@ src/security_review_mcp/
 │   └── metrics.py         # métriques Prometheus du contrôleur (/metrics)
 ├── clients/       # clients CLI qui contactent l'URL donnée par l'opérateur
 │   ├── commands.py        # commande `enroll` de security-review-mcp
-│   └── enrollment.py      # client de `enroll` : enrôlement d'un projet sur un serveur partagé
+│   └── enrollment.py      # client de `enroll` : enrôlement d'un projet sur un serveur en mode partagé
 ├── connectors/    # findings envoyés vers des systèmes externes : api (API des connecteurs),
 │                  # registry, connections, transport (client HTTP), core (envoi), jira, servicenow
 └── web_api/       # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
@@ -316,12 +336,19 @@ uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer 
 - Pour ajouter une page, créez les deux fichiers dans `docs/`, déclarez le fichier anglais dans
   la section `nav` de `mkdocs.yml` et traduisez son titre dans `nav_translations` (langue `fr`
   du plugin `i18n`).
+- Pour montrer un fichier de `examples/`, incluez-le plutôt que de le copier :
+  `--8<-- "kubernetes/postgres.yaml"` (`pymdownx.snippets`, chemins relatifs à `examples/` ; un
+  fichier absent fait échouer le build). Dans un lien vers un fichier du dépôt, écrivez
+  `\{{ release_tag }}` au lieu de `master` : le hook `scripts/mkdocs_hooks.py` le remplace par le
+  tag de la version de `pyproject.toml` (`v3.0.0`), pour que les commandes copiées récupèrent les
+  fichiers de la version documentée.
 
 ### Publication
 
 Le workflow `.github/workflows/docs.yml` :
 
-- sur une **pull request** qui touche `docs/` ou `mkdocs.yml` : construit le site en mode
+- sur une **pull request** qui touche `docs/`, `mkdocs.yml`, `examples/`, `pyproject.toml`
+  (version des liens) ou le hook `scripts/mkdocs_hooks.py` : construit le site en mode
   `--strict` (vérification seulement) ;
 - sur un **push sur `master`** : construit le site et le publie sur GitHub Pages.
 
@@ -347,7 +374,7 @@ Une version correspond à un tag poussé sur `master` :
    la version, publication sur PyPI et des images Docker (`docker.yml`), puis création de la
    release GitHub.
 
-Le tag publie deux distributions PyPI à la même version : `security-review-mcp` et
+Le tag publie deux distributions PyPI à la même version : `security-review` et
 `security-review-ci`, le client de pipeline seul (sans dépendance), dont le projet est écrit par
 `scripts/build_ci_client.py` à partir de `ci_client.py`, avec le `requires-python` du serveur.
 Le job **ci-client** de `tests.yml` le construit et lance le wheel seul, sans le serveur.

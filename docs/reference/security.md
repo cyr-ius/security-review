@@ -46,7 +46,7 @@
   token (see [rejected token](../advanced/http.md#rejected-token-sign-in-again)); it never
   reaches the enrollment server. Each rejection is also logged as a warning by the MCP server
   (`Rejected unauthenticated request` / `Rejected expired token`, with the client address); the
-  `secreview_auth_rejections_total` [metric](../advanced/audit-metrics.md) only counts the
+  `secreview_auth_rejections_total` [metric](../advanced/audit-metrics.md#prometheus-metrics) only counts the
   rejections of the controller. `SECREVIEW_WEB_URL`, given in that description, is a public URL:
   it holds no credentials (refused at start-up).
 - **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
@@ -209,7 +209,7 @@
   bound to the browser by a signed `HttpOnly` / `SameSite=Lax` cookie of 10 minutes, nonce,
   verified ID token (signature by the JWKS keys of the provider, asymmetric algorithms only,
   never `none` nor HMAC; issuer, audience, `azp`, expiry). The permissions come from the
-  [groups](../advanced/access-control.md) of the account: those given by an administrator and the
+  [groups](../advanced/access-control.md#groups) of the account: those given by an administrator and the
   groups open to OIDC whose name is exactly a value of the groups claim (other values are
   ignored, a group not open to OIDC is never joined through the claim); an OIDC session never
   opens `/mcp`. The account is identified by the issuer and the `sub` of its first login (unique

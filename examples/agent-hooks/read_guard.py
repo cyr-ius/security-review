@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.14"
-# dependencies = ["security-review-mcp>=1.1.0"]
+# dependencies = ["security-review>=3.0.0"]
 # ///
 """Claude Code hook: check a file for prompt injection before the assistant reads it.
 

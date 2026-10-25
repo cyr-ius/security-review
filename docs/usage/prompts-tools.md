@@ -30,7 +30,7 @@ the other available checklists, internal domains included, for the agent to fetc
 `report_language` sets the language of the agent's reply and of the written fields of the
 stored report (summary, scope, titles, descriptions, recommendations), for example `French`,
 `fr` or `pt-BR`. Without this argument, the prompt uses
-[`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md) when it is set, else the language
+[`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md#mcp-server) when it is set, else the language
 chosen by an administrator in the [**Report language**](web-interface.md#screens) screen of the
 web interface; if none is set, the agent chooses (usually the language of the conversation).
 

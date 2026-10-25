@@ -173,20 +173,14 @@ Lues par le client de pipeline `security-review-ci`, jamais par les serveurs.
 | `SECREVIEW_CONTROLLER_URL` | — | URL du contrôleur utilisée par [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) (valeur par défaut de `--url`) ; lue dans l'environnement uniquement, jamais dans `.env` |
 
 Les jetons Bearer ne se configurent pas par variable : ils sont stockés en base et gérés avec
-`security-review-controller token` (voir [Serveur HTTP, authentification et TLS](../advanced/http.md)).
+`security-review-controller token` (voir [Serveur HTTP, authentification et TLS](../advanced/http.md#jetons-bearer)).
 Les règles internes non plus : elles sont stockées en base et gérées avec
-`security-review-controller rules` (voir [Règles](../usage/rules.md)).
+`security-review-controller rules` (voir [Règles](../usage/rules.md#commande-rules)).
 
 ## Base de données
 
-SQLite par défaut, dans le dossier de données de l'utilisateur :
-`$XDG_DATA_HOME/security-review-mcp/security_reports.db`, soit
+Une base de donnée SQLite est crée par défaut, dans le dossier de données de l'utilisateur :
 `~/.local/share/security-review-mcp/security_reports.db` quand `XDG_DATA_HOME` n'est pas défini.
-Le fichier est le même quel que soit le dossier de lancement du serveur, et son dossier est créé
-privé (`0700`), car les rapports citent le code relu. La version 1.0 utilisait
-`./security_reports.db` dans le dossier courant : si ce fichier existe et que
-`SECREVIEW_DATABASE_URL` n'est pas défini, un avertissement donne le réglage qui permet de
-continuer à l'utiliser (`sqlite:////chemin/absolu/security_reports.db`).
 
 Pour PostgreSQL (extra `postgres`) :
 
@@ -194,16 +188,18 @@ Pour PostgreSQL (extra `postgres`) :
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview
 ```
 
-Le schéma est géré par des migrations Alembic embarquées dans le paquet :
-`security-review-controller db upgrade` crée ou migre la base et amorce les règles par défaut,
-`db status` affiche la révision (code `1` si elle n'est pas à jour). Voir
+Un PostgreSQL prêt à l'emploi : [Docker Compose](../advanced/docker.md#docker-compose-avec-postgresql) ou
+[Kubernetes](../advanced/kubernetes.md#deploiement).
+
+Le schéma est géré par des migrations Alembic embarquées dans le paquet : **security-review-controller**
+ - `security-review-controller db upgrade` crée ou migre la base et amorce les règles par défaut,
+ - `security-review-controller db status` affiche la révision (code `1` si elle n'est pas à jour). Voir
 [Migrations du schéma](../advanced/architecture.md#migrations-du-schema).
 
 ### Conservation des rapports sans findings
 
-Une revue propre (rapport sans aucun finding) prouve seulement que rien n'a été trouvé à cette
-date. Le contrôleur supprime ces rapports dès qu'ils ont plus de
-`SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` jours (`90` par défaut) : au démarrage de `serve`, puis
+Le contrôleur supprime ces rapports dès qu'ils ont plus de
+`SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` jours (`90` par défaut) : au démarrage, puis
 chaque jour. Le dernier rapport de chaque projet est toujours conservé, si bien qu'un projet ne
 disparaît jamais de la liste, et un rapport avec des findings n'est jamais supprimé, quel que
 soit leur statut. `0` désactive la purge.

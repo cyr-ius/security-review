@@ -30,71 +30,6 @@ Le serveur est livré avec un jeu de règles et de checklists par défaut, décr
   les règles du fichier : le scan ne tourne jamais sans règles.
 - Pour revenir aux règles par défaut, utilisez `rules import --replace` (voir plus bas).
 
-Les scans Python incluent aussi `PY-026`, une analyse Tree-sitter bornée des flux locaux directs depuis
-`input()` ou des champs de requête courants (`request.args`, `request.form` et équivalents) vers
-du SQL construit dynamiquement et transmis à `execute`, `executemany` ou `text`. Cette analyse
-reste volontairement ciblée et ne remplace pas un SAST complet. Elle suit les arguments et les
-valeurs de retour lors d'appels directs à des fonctions locales du même fichier. Les paramètres SQL
-liés ne sont pas signalés.
-
-Les scans TypeScript, JavaScript et Angular incluent aussi `NG-021`, qui suit les flux locaux
-simples des paramètres de requête ou de route vers les affectations à `innerHTML` ou les appels
-Angular `bypassSecurityTrust*`. Elle reconnaît `DomSanitizer.sanitize(SecurityContext.HTML, value)`
-comme barrière d'assainissement et ne signale pas les mises à jour du DOM en texte seul. Cette
-analyse ciblée ne couvre pas les wrappers d'assainissement ni les appels indirects. Elle suit les
-arguments contaminés et les valeurs de retour des fonctions déclarées et fléchées appelées
-directement dans le même fichier.
-
-Ces scans incluent aussi `NG-022` pour les écouteurs d'événements `message` qui lisent
-`event.data` sans vérifier `event.origin`. L'analyse se limite aux callbacks transmis directement
-à `addEventListener` ; elle ne déduit pas une validation déléguée à une autre fonction.
-
-Les scans Java incluent aussi `JV-019`, une analyse Tree-sitter bornée qui traite les accesseurs
-de requête Servlet et les paramètres annotés Spring `@RequestParam`, `@PathVariable`,
-`@RequestBody` et `@RequestHeader` comme des sources non fiables. Elle suit les affectations
-locales, la concaténation, `String.format`, `concat`, `StringBuilder.append` et `toString`, ainsi
-que les arguments et valeurs de retour lors d'appels directs à des méthodes locales. Les méthodes
-d'exécution SQL JDBC/JPA sont les puits. Les valeurs liées séparément avec `PreparedStatement` ou
-JPA `setParameter` ne sont pas signalées. L'analyse ne résout ni les surcharges, ni les champs,
-ni les wrappers de framework, ni les appels entre fichiers ; elle ne déduit pas non plus qu'une
-validation ou un échappement arbitraire assainit la valeur.
-
-Les scans Go, C#, Rust, TypeScript et JavaScript incluent `GO-019`, `CS-021`, `RS-015` et
-`TS-016`, la même analyse Tree-sitter bornée pour chaque langage. Elle suit les données de
-requête à travers les affectations locales (déstructuration comprise), la concaténation, les
-chaînes interpolées (`$"..."`, gabarits littéraux, `format!`), les appels de formatage
-(`fmt.Sprintf`, `string.Format`), les constructeurs de chaînes (`strings.Builder.WriteString`,
-`StringBuilder.Append`, `push_str`) et `+=`, ainsi que les arguments et valeurs de retour lors
-d'appels directs à des fonctions locales. Un finding exige les trois conditions : une donnée de
-requête, un texte construit dynamiquement et un texte qui ressemble à du SQL.
-
-| Langage | Sources | Puits |
-|---|---|---|
-| Go | `r.URL.Query()`, `FormValue`, `PathValue`, `Header.Get`, `mux.Vars`, `c.Query`, `c.Param`... de gin/echo/fiber | `Query`, `QueryRow`, `Exec`, `Prepare`, `Raw`, `Get`, `Select`... de `database/sql`, sqlx et GORM |
-| C# | `Request.Query`, `Form`, `Headers`, `RouteValues`, `Cookies` ; paramètres `[FromQuery]`, `[FromRoute]`, `[FromBody]`, `[FromForm]`, `[FromHeader]` | `ExecuteSqlRaw`, `FromSqlRaw`, `SqlQueryRaw`, `Query*` / `Execute*` de Dapper, `new SqlCommand(...)` (et les autres fournisseurs ADO.NET), `CommandText =` |
-| Rust | extracteurs `Query`, `Path`, `Json`, `Form` d'axum / actix-web (chemins numériques et `Uuid` exclus), `match_info()`, `query_string()` | `query*` de sqlx, `sql_query` de diesel, `execute`, `prepare`, `query_row`... de rusqlite / tokio-postgres |
-| TypeScript, JavaScript | `req.query`, `req.params`, `req.body`, `req.headers`, `req.cookies`, `ctx.query` de Koa ; paramètres NestJS `@Query`, `@Param`, `@Body`, `@Headers` | `query`, `execute`, `raw`, `$queryRawUnsafe` / `$executeRawUnsafe` de Prisma, `literal` de Sequelize, `whereRaw` de Knex... |
-
-Les paramètres liés ne sont pas signalés, pas plus que les API qui lient elles-mêmes les valeurs
-interpolées (`FromSql($"...")` d'EF Core, `` $queryRaw`...` `` balisé de Prisma, macros `query!`
-de sqlx). L'analyse ne résout ni les méthodes d'autres fichiers, ni les champs, ni l'injection de
-dépendances, ni les wrappers de framework, et ne considère pas une validation comme un
-assainissement.
-
-Les analyses Tree-sitter sont bornées : chaque fonction est analysée une fois par état d'entrée
-(une chaîne d'appels reste linéaire), et le code trop imbriqué pour l'analyseur n'est contrôlé
-que par les motifs (un avertissement est journalisé).
-
-D'autres ajouts ciblés comprennent `PY-027` pour la désactivation explicite de la vérification
-de signature JWT, `JV-018` lorsqu'une valeur directe de requête est passée à JNDI `lookup`, et
-`NG-023` pour les affectations qui modifient `__proto__` ou `constructor.prototype`. Ces règles
-examinent les motifs sur une ligne et ne déduisent pas les flux indirects ; vérifiez le code
-environnant avant de conclure qu'un finding est exploitable.
-
-```bash
-security-review-controller rules import examples/rules/company.toml   # importer un pack
-security-review-controller rules list --custom                        # vérifier
-```
 
 ## Commande `rules`
 
@@ -129,6 +64,11 @@ security-review-controller rules list --custom                        # vérifie
 security-review-controller rules disable PY-008            # règle par défaut trop bruyante
 security-review-controller rules export -o rules.toml      # sauvegarde ou revue
 security-review-controller rules import --replace rules.toml
+```
+
+```bash
+security-review-controller rules import examples/rules/company.toml   # importer un pack
+security-review-controller rules list --custom                        # vérifier
 ```
 
 ## Import et export dans l'interface web

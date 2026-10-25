@@ -122,7 +122,7 @@ from another issuer (another identity provider, which could reuse the same `sub`
 An account bound when only the `sub` was recorded gets the issuer of its next login. To give
 the user name to someone else, delete then create the account again.
 
-What an OIDC account may do comes from its [groups](access-control.md): those an administrator
+What an OIDC account may do comes from its [groups](access-control.md#groups): those an administrator
 gave it (**Users** or **Groups** screen) and the groups open to OIDC
 named by its groups claim, recorded at every login (see
 [groups of the identity provider](#groups-of-the-identity-provider)). An account without any

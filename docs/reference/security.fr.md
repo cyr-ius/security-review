@@ -47,7 +47,7 @@
   MCP personnel (voir [jeton refusé](../advanced/http.md#jeton-refuse-se-reconnecter)) ; il
   n'atteint jamais le serveur d'enrôlement. Chaque refus est aussi journalisé en avertissement
   par le serveur MCP (`Rejected unauthenticated request` / `Rejected expired token`, avec
-  l'adresse du client) ; la [métrique](../advanced/audit-metrics.md)
+  l'adresse du client) ; la [métrique](../advanced/audit-metrics.md#metriques-prometheus)
   `secreview_auth_rejections_total` ne compte que les refus du contrôleur. `SECREVIEW_WEB_URL`,
   donnée dans cette description, est une URL publique : elle ne contient aucun identifiant
   (refusé au démarrage).
@@ -226,7 +226,7 @@
   state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
   ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
   uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Les permissions
-  viennent des [groupes](../advanced/access-control.md) du compte : ceux donnés par un
+  viennent des [groupes](../advanced/access-control.md#groupes) du compte : ceux donnés par un
   administrateur et les groupes ouverts au OIDC dont le nom est exactement une valeur du claim des
   groupes (les autres valeurs sont ignorées, un groupe non ouvert au OIDC n'est jamais rejoint par
   le claim) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est identifié par l'émetteur et le `sub` de

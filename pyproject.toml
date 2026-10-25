@@ -4,7 +4,7 @@ requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "security-review-mcp"
+name = "security-review"
 version = "3.0.0"
 description = "MCP server for security code review: prompts, checklists, quick scans and persistent security reports"
 readme = "README.md"
@@ -15,7 +15,7 @@ dependencies = [
     "mcp>=2,<3",
     "sqlmodel>=0.0.22",
     "pydantic-settings>=2.2",
-    "fastapi>=0.135",
+    "fastapi>=0.162",
     "tomlkit>=0.13",
     "alembic>=1.13",
     "pyjwt[crypto]>=2.10",

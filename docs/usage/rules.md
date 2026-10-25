@@ -28,67 +28,6 @@ The server ships with a set of default rules and checklists, described in the
   the file directly: the scan never runs without rules.
 - To go back to the default rules, use `rules import --replace` (see below).
 
-Python scans also include `PY-026`, a bounded Tree-sitter analysis for direct local flows from
-`input()` or common request fields (`request.args`, `request.form`, and similar) into dynamically
-constructed SQL passed to `execute`, `executemany`, or `text`. It is intentionally narrow and
-does not replace a full SAST analysis. It follows arguments and returned values through direct
-calls to local functions in the same file. Bound query parameters are not reported.
-
-TypeScript, JavaScript, and Angular scans also include `NG-021`, which tracks simple local flows
-from URL query/route data into `innerHTML` assignments or Angular `bypassSecurityTrust*` calls.
-It recognizes `DomSanitizer.sanitize(SecurityContext.HTML, value)` as a sanitizer barrier and does
-not report text-only DOM updates. This focused check is not a full browser taint analysis; it does
-not infer sanitizer wrappers or indirect calls. It follows tainted arguments and returned values
-through directly called local function declarations and arrow functions in the same file.
-
-The same scans include `NG-022` for `message` event listeners that read `event.data` without
-checking `event.origin`. The check is limited to inline callbacks passed to `addEventListener`;
-origin validation delegated to another function is not inferred.
-
-Java scans also include `JV-019`, a bounded Tree-sitter check that follows request data through
-Servlet request getters and Spring `@RequestParam`, `@PathVariable`, `@RequestBody`, and
-`@RequestHeader` parameters are treated as untrusted sources. The analysis tracks local
-assignments, string concatenation, `String.format`, `concat`, `StringBuilder.append` and
-`toString`, plus arguments and returned values across direct local method calls. SQL execution
-methods on JDBC/JPA APIs are sinks. It does not report values bound separately with
-`PreparedStatement` or JPA `setParameter`. The analysis does not resolve overloads, fields,
-framework wrappers, or calls across files, and does not infer arbitrary validation or escaping
-as a sanitizer.
-
-Go, C#, Rust, TypeScript and JavaScript scans include `GO-019`, `CS-021`, `RS-015` and `TS-016`,
-the same bounded Tree-sitter analysis for each language. It follows request data through local
-assignments (destructuring included), concatenation, interpolated strings (`$"..."`, template
-literals, `format!`), formatting calls (`fmt.Sprintf`, `string.Format`), string builders
-(`strings.Builder.WriteString`, `StringBuilder.Append`, `push_str`) and `+=`, plus arguments and
-returned values across direct calls to local functions. A finding needs the three conditions:
-request data, a dynamically built text, and a text that looks like SQL.
-
-| Language | Sources | Sinks |
-|---|---|---|
-| Go | `r.URL.Query()`, `FormValue`, `PathValue`, `Header.Get`, `mux.Vars`, gin/echo/fiber `c.Query`, `c.Param`... | `database/sql`, sqlx and GORM `Query`, `QueryRow`, `Exec`, `Prepare`, `Raw`, `Get`, `Select`... |
-| C# | `Request.Query`, `Form`, `Headers`, `RouteValues`, `Cookies`; `[FromQuery]`, `[FromRoute]`, `[FromBody]`, `[FromForm]`, `[FromHeader]` parameters | `ExecuteSqlRaw`, `FromSqlRaw`, `SqlQueryRaw`, Dapper `Query*` / `Execute*`, `new SqlCommand(...)` (and other ADO.NET providers), `CommandText =` |
-| Rust | axum / actix-web `Query`, `Path`, `Json`, `Form` extractors (numeric paths and `Uuid` excluded), `match_info()`, `query_string()` | sqlx `query*`, diesel `sql_query`, rusqlite / tokio-postgres `execute`, `prepare`, `query_row`... |
-| TypeScript, JavaScript | `req.query`, `req.params`, `req.body`, `req.headers`, `req.cookies`, Koa `ctx.query`; NestJS `@Query`, `@Param`, `@Body`, `@Headers` parameters | `query`, `execute`, `raw`, Prisma `$queryRawUnsafe` / `$executeRawUnsafe`, Sequelize `literal`, Knex `whereRaw`... |
-
-Bound parameters are not reported, nor are APIs that bind interpolated values themselves (EF
-Core `FromSql($"...")`, Prisma tagged `` $queryRaw`...` ``, the sqlx `query!` macros). The
-analysis does not resolve methods across files, fields, dependency injection or framework
-wrappers, and does not treat validation as a sanitizer.
-
-The Tree-sitter analyses are bounded: each function is analyzed once per input state (a chain of
-calls stays linear), and code nested too deeply for the parser is only checked by the patterns
-(a warning is logged).
-
-Other focused additions include `PY-027` for explicitly disabled JWT signature verification,
-`JV-018` for a direct request value passed to JNDI `lookup`, and `NG-023` for assignments that
-mutate `__proto__` or `constructor.prototype`. These are line-level patterns and do not infer
-indirect data flows; review the surrounding code before deciding whether a finding is exploitable.
-
-```bash
-security-review-controller rules import examples/rules/company.toml   # import a pack
-security-review-controller rules list --custom                        # check
-```
-
 ## `rules` command
 
 | Command | Role |
@@ -121,6 +60,11 @@ security-review-controller rules list --custom                        # check
 security-review-controller rules disable PY-008            # too noisy default rule
 security-review-controller rules export -o rules.toml      # backup or review
 security-review-controller rules import --replace rules.toml
+```
+
+```bash
+security-review-controller rules import examples/rules/company.toml   # import a pack
+security-review-controller rules list --custom                        # check
 ```
 
 ## Import and export in the web interface

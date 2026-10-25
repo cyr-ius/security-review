@@ -1,9 +1,9 @@
 # Docker
 
-## Published images
+## Published Images
 
-Each version is published for `linux/amd64` and `linux/arm64` on GitHub Container Registry and
-Docker Hub, in two variants: SQLite only, and `-pg` with the PostgreSQL driver.
+Each version is published for `linux/amd64` and `linux/arm64` on the GitHub Container Registry and
+Docker Hub, in two variants: SQLite-only, and a `-pg` version that includes the PostgreSQL driver.
 
 ```bash
 docker pull ghcr.io/cyr-ius/security-review-mcp:latest-pg   # or docker.io/cyrius44/security-review-mcp
@@ -11,51 +11,104 @@ docker pull ghcr.io/cyr-ius/security-review-mcp:latest-pg   # or docker.io/cyriu
 
 | Tag | Content |
 |---|---|
-| `X.Y.Z`, `X.Y`, `X`, `latest` | Version `X.Y.Z` (the last stable version for `latest`) |
-| `X.Y.Z-pg`, `X.Y-pg`, `X-pg`, `latest-pg` | Same, with the PostgreSQL driver |
-| `X.Y.ZrcN` (`a`, `b`, `rc`) | Pre-release: only this tag, never `latest` |
+| `X.Y.Z`, `X.Y`, `X`, `latest` | Version `X.Y.Z` (the latest stable version for `latest`) |
+| `X.Y.Z-pg`, `X.Y-pg`, `X-pg`, `latest-pg` | Same as above, with the PostgreSQL driver |
+| `X.Y.ZrcN` (`a`, `b`, `rc`) | Pre-release: applies only to this specific tag; never used for `latest` |
 
-Pin a version (`1.2.3-pg`) in production. The images carry an SBOM and a provenance
-attestation (`docker buildx imagetools inspect --format '{{ json .Provenance }}' IMAGE`). In
-the examples of this page, replace `security-review-mcp` and `security-review-mcp:pg` with the
-published image, or build it.
+The images include an SBOM and a provenance attestation (accessible via `docker buildx imagetools inspect --format '{{ json .Provenance }}' IMAGE`).
+In the examples on this page, replace `security-review-mcp` and `security-review-mcp:pg` with
+the actual published image name.
 
-## Building the image
+## Docker Compose with PostgreSQL
+
+One file,
+[`examples/docker/docker-compose.yml`](https://github.com/cyr-ius/security-review-mcp/blob/{{ release_tag }}/examples/docker/docker-compose.yml),
+starts everything with the published image: PostgreSQL, the migration of the schema, the
+controller and the MCP server. Copy and paste the block in an empty folder:
 
 ```bash
-docker build -t security-review-mcp .
-docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # PostgreSQL driver
+mkdir security-review-mcp && cd security-review-mcp
+curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/docker/docker-compose.yml
+(umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
+docker compose up -d --wait
+docker compose exec controller security-review-controller user reset-password admin   # initial admin password
+docker compose exec controller security-review-controller token create --label alice   # token of an agent
 ```
 
-The build also compiles the [web interface](../usage/web-interface.md) (Node.js stage); the
-controller serves it on `/ui/`.
+The command `printf` writes the `.env` file, readable by you only: the password of PostgreSQL
+and the secret of the web sessions, generated at random. `docker compose up -d --wait` returns
+once every service is ready. The web interface answers on `http://127.0.0.1:8080/ui/`, the MCP
+endpoint on `http://127.0.0.1:8000/mcp`.
 
-The image runs as a non-root user (uid `10001`), without sources nor build tools. The SQLite
-database is in the `/var/lib/secreview` volume. Its `HEALTHCHECK`
-(`python -m security_review_mcp.healthcheck`, every 30 seconds) requests `/healthz` of the HTTP
-MCP server or of the controller on the loopback interface, over HTTPS when TLS is enabled
-(trusting only the certificate of the container); in stdio, nothing listens and the container
-stays healthy, and with mutual TLS (`SECREVIEW_TLS_CLIENT_CA`) it is not requested: rely on the
-probes of the orchestrator. The `.env` file is **not** copied into the image: pass the
-configuration with `-e` or `--env-file`.
+Content of the files of version `{{ release_tag }}`:
 
-## Shared server (HTTP)
+=== "docker-compose.yml"
 
-A single image, two containers sharing the database (see
+    ```yaml
+    --8<-- "docker/docker-compose.yml"
+    ```
+
+=== ".env"
+
+    ```bash
+    POSTGRES_PASSWORD=<48 hexadecimal characters>
+    SECREVIEW_SECRET_KEY=<64 hexadecimal characters>
+    ```
+
+| Service | Role | Listens on |
+|---|---|---|
+| `db` | PostgreSQL, reachable by the other services only | — |
+| `migrate` | Creates or updates the tables (`security-review-controller db upgrade`), then stops | — |
+| `controller` | Web interface (`/ui/`) and REST API, for people | `127.0.0.1:8080` |
+| `mcp` | MCP server (`/mcp`) and public enrollment, for the agents and the CI | `127.0.0.1:8000` |
+
+Good to know:
+
+- **Order of start-up.** `migrate` waits until PostgreSQL is ready; `controller` and `mcp` wait
+  until `migrate` has succeeded. Only `migrate` changes the tables.
+- **Keep `.env`.** It holds the password of the database and the secret of the sessions; never
+  commit it. The password is inserted as is in the connection URL: keep hexadecimal characters,
+  as generated above.
+- **Open to the team.** The ports are only open on this machine (`127.0.0.1`). Enable the
+  [built-in TLS](http.md#tls) or put a reverse proxy in front, then replace `127.0.0.1` in the
+  `ports` of `controller` and `mcp` by the address of the server. TLS variables
+  (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) go under `environment`, with the
+  certificate files mounted read-only (see [Certificate Authority](http.md#certificate-authority)).
+  The controller exposes no write route without a token: it can stay internal.
+- **Vulnerability advisories.** The OSV database is **empty** at the first start: the dependency
+  analysis answers that no database is loaded. To let the controller download it at start-up,
+  then every 24 hours, uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and `SECREVIEW_OSV_ECOSYSTEMS`) in
+  the `controller` service, then run `docker compose up -d`. Follow the import with
+  `docker compose logs -f controller`. Without Internet access, import an archive with
+  `advisories import` (see [Dependencies](dependencies.md#manual-import)).
+- **Hardening.** The containers of security-review-mcp run with a read-only file system and
+  without any Linux capability.
+- **Data.** The `secreview-pg` volume holds the reports, the accounts and the tokens: back it up
+  (see [Backing up PostgreSQL](#backing-up-postgresql)). It is mounted on `/var/lib/postgresql`,
+  where PostgreSQL 18 keeps its data; a volume created by PostgreSQL 17 does not start with this
+  image (see [Upgrading PostgreSQL](#upgrading-postgresql)).
+
+The administration commands run in the controller container:
+
+```bash
+docker compose exec controller security-review-controller token list
+```
+
+## Without Docker Compose
+
+The same image runs each process in its own container, on an existing PostgreSQL database (see
 [Architecture and deployment](architecture.md)):
 
-- the **MCP server**, default entry point of the image (`security-review-mcp`, default command
-  `serve`: stdio; add `--transport streamable-http` for HTTP);
-- the **controller** (REST API, web interface, administration), started with
-  `--entrypoint security-review-controller`.
-
-With the [built-in authentication and TLS](http.md) (or behind a reverse proxy that handles
-them):
+- the **MCP server** is the default entry point of the image (`security-review-mcp`, default
+  command `serve`, in stdio; add `--transport streamable-http` for HTTP);
+- the **controller** (REST API, web interface, administration) is started with
+  `--entrypoint security-review-controller`, with the [built-in authentication and TLS](http.md)
+  or behind a reverse proxy that handles them.
 
 ```bash
 DB=postgresql+psycopg2://user:pass@db:5432/secreview
 
-# 1. Schema (Alembic): run again after every image upgrade
+# 1. Schema (Alembic): must be run again after every image update
 docker run --rm -e SECREVIEW_DATABASE_URL=$DB \
     --entrypoint security-review-controller security-review-mcp:pg db upgrade
 
@@ -65,150 +118,76 @@ docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
     --entrypoint security-review-controller \
     security-review-mcp:pg serve --host 0.0.0.0 --port 8000
 
-# 3. MCP server: exposed to the agents and to the CI
+# 3. MCP server: exposed to the agents and the CI
 docker run -d --name secreview-mcp -p 8443:8443 \
     -e SECREVIEW_DATABASE_URL=$DB \
     -v ./tls:/etc/secreview/tls:ro \
     -e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
     -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
     security-review-mcp:pg serve --transport streamable-http --host 0.0.0.0 --port 8443
+
+# 4. Password of the admin account, created at the first start of the controller
+docker exec secreview-controller security-review-controller user reset-password admin
 ```
 
-Mounted files must be readable by the container user (uid `10001`). The MCP server refuses to
-start while the schema is not migrated. At the first start of the controller, the `admin`
-account is created with a random password that nobody knows and that is never logged; only its
-digest is kept, in the database. Set it with
-`docker exec secreview-controller security-review-controller user reset-password admin`
-(printed once), log in to the interface (`/ui/`) with the `admin` user name, then choose your
-own password in **My account**. Then create
-one account per person in the **Users** screen (see the
-[user accounts](../usage/web-interface.md#user-accounts)).
+Mounted files must be readable by the user of the container (UID `10001`). The MCP server
+refuses to start while the schema is not migrated (step 1).
 
-The project tokens created from the **Tokens** screen are also stored as digests in the
-database, like every token (see [Bearer tokens](http.md#bearer-tokens)).
+## Backing up PostgreSQL
 
-!!! warning "The CLI is the only way to the initial password"
-    No variable sets it and the logs never show it: run `user reset-password admin` in the
-    container, and handle what it prints as a secret. If you lose it, run the command again (the
-    old one is invalidated at once).
-
-## Docker Compose with PostgreSQL
-
-The `docker-compose.yml` file at the root of the repository starts both processes with a
-PostgreSQL database:
+The `secreview-pg` volume holds the reports, the accounts and the token digests. Export it
+regularly (cron, systemd timer) and keep the files away from the server, readable by you only:
 
 ```bash
-echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env
-docker compose up -d --build
-docker compose exec controller security-review-controller user reset-password admin   # initial admin password
-```
-
-| Service | Role | Listens on |
-|---|---|---|
-| `db` | PostgreSQL, only reachable on the internal `backend` network | — |
-| `migrate` | `security-review-controller db upgrade`, then stops | — |
-| `controller` | REST API and web interface (`/ui/`) | `127.0.0.1:8080` (`DOCKER_PUBLISH_ADDRESS`, `DOCKER_CONTROLLER_PORT`) |
-| `mcp` | MCP server (`/mcp`) and public enrollment | `127.0.0.1:8000` (`DOCKER_PUBLISH_ADDRESS`, `DOCKER_MCP_PORT`) |
-
-- The image is built with the `postgres` extra (`security-review-mcp:pg`). `migrate` waits
-  for the database to be ready (`pg_isready`); `controller` and `mcp` wait for `migrate` to
-  succeed. Only `migrate` changes the schema (`SECREVIEW_DB_AUTO_UPGRADE=false` elsewhere).
-- `POSTGRES_PASSWORD` is required and read from `.env` (never committed). It is inserted as
-  is in `SECREVIEW_DATABASE_URL`: use hexadecimal characters, or encode the special characters
-  (`@`, `:`, `/`...).
-- The ports are only published on `127.0.0.1` by default. To expose them, enable the
-  [built-in TLS](http.md) or put them behind a reverse proxy, then give the host address to use
-  in `.env`: `DOCKER_PUBLISH_ADDRESS=192.168.1.10` (one interface) or `DOCKER_PUBLISH_ADDRESS=0.0.0.0`
-  (every interface), and the host ports in `DOCKER_MCP_PORT` and `DOCKER_CONTROLLER_PORT`.
-  These variables are only used by Compose: inside the containers, both servers listen on 8000.
-  The controller exposes no write route without a token: it can stay internal.
-- The variables of `.env` are only used by Compose: add them under `environment` so that they
-  reach the containers (for example `SECREVIEW_TLS_CERTFILE` and `SECREVIEW_TLS_KEYFILE`, with
-  the certificate files mounted read-only, see [Certificate authority](http.md#certificate-authority)).
-- The vulnerability advisory database is **empty** at first start: the dependency analysis then
-  answers that no database is loaded. To let the controller download it at start-up, then every
-  24 h, add `SECREVIEW_OSV_AUTO_UPDATE=true` to `.env` (and, if needed,
-  `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY` and `NO_PROXY`), which the Compose
-  file passes to the controller only, then `docker compose up -d`. Follow the import with
-  `docker compose logs -f controller` or in the settings of the web interface. Without
-  Internet access, import an archive with `advisories import` (see
-  [Dependencies](dependencies.md)).
-- The containers run with a read-only file system, without any Linux capability. The
-  `secreview-pg` volume holds the reports, the web interface accounts and the tokens: back it
-  up.
-- The `db` service uses PostgreSQL 18, whose image stores the data in a major-version
-  directory: the `secreview-pg` volume is mounted on `/var/lib/postgresql` (not
-  `/var/lib/postgresql/data`). A volume created by PostgreSQL 17 does not start with this image
-  (`Error: in 18+, these Docker images are configured to store database data in a format...`):
-  see [Upgrading PostgreSQL](#upgrading-postgresql).
-
-To add TLS or internal rules, complete `environment` and `volumes` of the service concerned.
-CLI commands run in the controller container:
-
-```bash
-docker compose exec controller security-review-controller token list
+(umask 077 && docker compose exec -T db pg_dump -U secreview -d secreview -Fc > ~/secreview-$(date +%F).dump)
+# Restore an export (the services are stopped during the restore)
+docker compose stop mcp controller
+docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exists --no-owner < ~/secreview-2026-10-25.dump
+docker compose start controller mcp
 ```
 
 ## Upgrading PostgreSQL
 
-A PostgreSQL major version does not read the data files of the previous one. To move a
-`secreview-pg` volume from PostgreSQL 17 to 18, dump the database with the old image, recreate
-the volume and restore the dump:
+A major version of PostgreSQL cannot read data files created by a previous version. To
+upgrade a `secreview-pg` volume from PostgreSQL 17 to 18, export the database using the
+old image, recreate the volume, and then restore the export:
 
 ```bash
-# 1. With the previous Compose file (postgres:17-alpine, mount on /var/lib/postgresql/data)
+# 1. Using the previous Compose file (postgres:17-alpine, mounted at /var/lib/postgresql/data)
 docker compose stop mcp controller
 (umask 077 && docker compose exec -T db pg_dump -U secreview -d secreview -Fc > ~/secreview.dump)
 docker compose down
 
-# 2. Check the dump (it lists the tables), then recreate the volume: the dump is the only copy
-#    of the data from now on
+# 2. Verify the export (it should list the tables), then recreate the volume: the export
+#    is now the only copy of your data
 docker compose run --rm -T --no-deps --entrypoint pg_restore db --list < ~/secreview.dump | grep 'TABLE DATA'
 docker volume rm security-review-mcp_secreview-pg
 
-# 3. With the current Compose file (postgres:18-alpine, mount on /var/lib/postgresql)
+# 3. Using the current Compose file (postgres:18-alpine, mounted at /var/lib/postgresql)
 docker compose up -d db
 docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exists --no-owner < ~/secreview.dump
 docker compose up -d
 ```
 
-The `migrate` service then applies the pending Alembic revisions, if any. The dump holds the
-reports, the password hashes and the token fingerprints: keep it out of the repository (readable
-by you only, `umask 077`) and delete it once the restore is checked.
+The `migrate` service then applies any pending Alembic revisions. The export
+contains reports, password hashes, and tokens; keep it outside the repository
+(ensuring it is readable only by you, using `umask 077`) and delete it once the
+restoration has been verified.
 
-## Developer workstation (stdio)
+## Internal Rules and CLI
 
-The host starts the container. `.mcp.json` at the root of the repository (VS Code, GitHub
-Copilot and Claude):
-
-```json
-{
-  "mcpServers": {
-    "security-review": {
-      "type": "stdio",
-      "command": "docker",
-      "args": ["run", "-i", "--rm", "-v", "secreview-data:/var/lib/secreview", "security-review-mcp"]
-    }
-  }
-}
-```
-
-!!! warning "`-i` but not `-t`"
-    `-i` is essential (the protocol goes through stdin); do not add `-t`.
-
-## Internal rules and CLI
-
-[Rules](../usage/rules.md) are stored in the database: import a folder of TOML packs
-with the controller CLI (the running servers apply them within a few seconds):
+[Rules](../usage/rules.md#rules-command) are stored in the database; you can import a
+directory of TOML packs using the controller CLI (running servers will
+apply them within seconds):
 
 ```bash
 docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
-    --entrypoint security-review-controller security-review-mcp rules import /rules
+--entrypoint security-review-controller security-review-mcp rules import /rules
 ```
 
-The other commands work the same way:
+Other commands can be executed in the same way:
 
 ```bash
 docker run --rm -v secreview-data:/var/lib/secreview \
-    --entrypoint security-review-controller security-review-mcp token list
+--entrypoint security-review-controller security-review-mcp token list
 ```

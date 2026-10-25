@@ -1,7 +1,9 @@
-# security-review-mcp shared server with PostgreSQL: the MCP server and the controller (REST
-# API, web interface on /ui) run in two containers sharing the database.
+# security-review-mcp shared server with PostgreSQL, built from the sources (contributors): the
+# MCP server and the controller (REST API, web interface on /ui) run in two containers sharing
+# the database. To deploy the published image, use examples/docker/docker-compose.yml.
 #
-#   echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env
+#   (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' \
+#       "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
 #   docker compose up -d --build
 #
 # The advisory database is empty at first: add SECREVIEW_OSV_AUTO_UPDATE=true to .env to let the

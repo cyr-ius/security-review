@@ -50,7 +50,7 @@ async def health() -> HealthStatus:
 def project_urls() -> dict[str, str]:
     """Links of the project ([project.urls] of pyproject.toml), by lowercase name."""
     try:
-        entries = metadata("security-review-mcp").get_all("Project-URL") or []
+        entries = metadata("security-review").get_all("Project-URL") or []
     except PackageNotFoundError:
         return {}
     urls = {}

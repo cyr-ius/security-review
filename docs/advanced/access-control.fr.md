@@ -214,4 +214,4 @@ propre.
 Chaque modification est écrite au [journal d'audit](audit-metrics.md#journal-daudit) (`role.*`,
 `group.*`, `user.groups_changed`). En CLI, `security-review-controller user set-groups` change les
 groupes d'un compte, et `security-review-controller group list` / `group roles` liste les groupes et les rôles (voir
-[CLI](../reference/cli.md)).
+[CLI](../reference/cli.md#security-review-controller)).

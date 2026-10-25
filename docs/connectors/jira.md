@@ -1,8 +1,7 @@
 # Jira
 
 The built-in **Jira** connector (kind `jira`) creates an **issue** for each finding sent, in
-Jira Cloud or Jira Data Center. Enabling, destinations and sending are common to every
-connector: see [Connectors](index.md).
+Jira Cloud or Jira Data Center.
 
 ## Connection
 

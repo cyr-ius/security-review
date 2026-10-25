@@ -49,7 +49,7 @@ net, not a gate: the [gate](../usage/gate.md) stays in the pipeline).
     }
     ```
 
-The script declares its dependency (`security-review-mcp`, version 1.1.0 or later) in its
+The script declares its dependency (`security-review`, version 3.0.0 or later) in its
 header: `uv run --script` installs it in a cached environment. Without `uv`, or offline, run it
 with the Python of an environment where the package is installed (`"command": "python3
 .claude/hooks/read_guard.py"`).

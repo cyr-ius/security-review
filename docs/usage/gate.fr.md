@@ -26,7 +26,7 @@ sur PyPI sous le nom `security-review-ci`, à la version du serveur, sans ses d�
 | Machine | Commande |
 |---|---|
 | Poste sans Python (Linux, macOS, Windows) | [uv](https://docs.astral.sh/uv/getting-started/installation/), puis `uv tool install security-review-ci` : uv télécharge un Python quand aucun n'est installé |
-| Agent de build ou poste avec Python ≥ 3.14 | `pip install security-review-ci` (ou `pipx install security-review-ci`) |
+| Agent de build ou poste avec Python ≥ 3.14 | `uv pip install security-review-ci` dans l'environnement virtuel du job (`--system` sans environnement) |
 | Agent sans accès à PyPI | Copiez le seul fichier `security_review_mcp/ci_client.py` (ou le wheel `security_review_ci` joint à la release GitHub) et lancez-le avec `python3 ci_client.py` |
 | Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review-mcp …` |
 
@@ -117,9 +117,9 @@ des rapports, demandent un jeton `ci` ou `admin` (`403` sinon, sessions web comp
     # .gitlab-ci.yml
     security-gate:
       stage: test
-      image: python:3.14-slim
+      image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
       script:
-        - pip install security-review-mcp
+        - uv pip install --system security-review-ci
         - security-review-ci gate --project "$CI_PROJECT_NAME" --fail-on high
       variables:
         SECREVIEW_CONTROLLER_URL: https://secreview.example.com

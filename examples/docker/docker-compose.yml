@@ -1,0 +1,109 @@
+# security-review-mcp with PostgreSQL, ready to use: download this file in an empty folder,
+# create the .env file next to it, then start everything.
+#
+#   (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' \
+#       "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
+#   docker compose up -d --wait
+#   docker compose exec controller security-review-controller user reset-password admin
+#
+# Web interface: http://127.0.0.1:8080/ui/   MCP endpoint: http://127.0.0.1:8000/mcp
+#
+# Four services:
+#   db          PostgreSQL (official image), reachable by the other services only
+#   migrate     creates or updates the tables, then stops
+#   controller  web interface and REST API (for people)
+#   mcp         MCP server (for the AI agents and the CI)
+#
+# The two ports are only open on this machine (127.0.0.1). To open them to the team, enable TLS
+# (see the documentation, page Docker) and replace 127.0.0.1 by the address of the server.
+
+name: security-review-mcp
+
+services:
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: secreview
+      POSTGRES_USER: secreview
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      # Since PostgreSQL 18, the data is kept under /var/lib/postgresql/18/docker
+      - secreview-pg:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secreview -d secreview"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    security_opt:
+      - no-new-privileges:true
+
+  migrate:
+    # Pin a version in production, for example 3.0.0-pg
+    image: ghcr.io/cyr-ius/security-review-mcp:latest-pg
+    restart: "no"
+    entrypoint: ["security-review-controller"]
+    command: ["db", "upgrade"]
+    environment:
+      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
+    depends_on:
+      db:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  controller:
+    image: ghcr.io/cyr-ius/security-review-mcp:latest-pg
+    restart: unless-stopped
+    entrypoint: ["security-review-controller"]
+    command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
+      # Only the migrate service changes the tables
+      SECREVIEW_DB_AUTO_UPGRADE: "false"
+      # Signs the web sessions: keep the same value, or every session ends at restart
+      SECREVIEW_SECRET_KEY: ${SECREVIEW_SECRET_KEY}
+      # Daily download of the OSV vulnerability advisories (needs Internet access)
+      # SECREVIEW_OSV_AUTO_UPDATE: "true"
+      # SECREVIEW_OSV_ECOSYSTEMS: PyPI,npm,Maven
+    ports:
+      - "127.0.0.1:8080:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+  mcp:
+    image: ghcr.io/cyr-ius/security-review-mcp:latest-pg
+    restart: unless-stopped
+    command: ["serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
+      # Only the migrate service changes the tables
+      SECREVIEW_DB_AUTO_UPGRADE: "false"
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+volumes:
+  secreview-pg:

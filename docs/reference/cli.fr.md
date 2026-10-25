@@ -1,6 +1,6 @@
 # Ligne de commande
 
-Le paquet installe deux commandes, une par processus (voir
+Le paquet `security-review` installe deux commandes, une par processus (voir
 [Architecture et déploiement](../advanced/architecture.md)), et un client de pipeline :
 
 - `security-review-mcp` : le **serveur MCP** (stdio ou HTTP), plus `enroll` côté client ;
@@ -9,18 +9,20 @@ Le paquet installe deux commandes, une par processus (voir
 - `security-review-ci` : le **client de pipeline** de l'API REST du contrôleur (jeton `ci`,
   bibliothèque standard de Python uniquement, sans accès à la base) : gate, SARIF, tendance,
   scans du code et des dépendances. Il est aussi publié seul, sans le serveur, dans le paquet
-  `security-review-ci` (Python 3.14, voir
-  [Installation](../usage/gate.md#installation)).
+  `security-review-ci` (Python 3.14, voir [Installation](../usage/gate.md#installation)).
+
+```bash
+uv pip install security-review-ci
+```
 
 ## `security-review-mcp`
 
 | Commande | Rôle | Page |
 |---|---|---|
-| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP (stdio par défaut, `streamable-http` pour un serveur partagé) | [Installation](../getting-started/deploy.md) |
-| `enroll --url URL --project P [--requested-by QUI] [--cafile CA] [--allow-http]` | Demande le projet sur un serveur partagé, validé par un administrateur (inchangé s'il existe ou est en attente ; demandeur : `--requested-by`, par défaut votre nom de connexion) ; aucun jeton n'est créé : la réponse donne l'URL de l'interface web où créer un jeton MCP personnel | [Enrôlement](../advanced/http.md#enrolement-demander-le-projet) |
+| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP (stdio par défaut, `streamable-http` pour le mode partagé) | [Installation manuelle](../advanced/manual-install.md#5-lancer-le-serveur-mcp) |
+| `enroll --url URL --project P [--requested-by QUI] [--cafile CA] [--allow-http]` | Demande le projet sur un serveur en mode partagé, validé par un administrateur (inchangé s'il existe ou est en attente ; demandeur : `--requested-by`, par défaut votre nom de connexion) ; aucun jeton n'est créé : la réponse donne l'URL de l'interface web où créer un jeton MCP personnel | [Enrôlement](../advanced/http.md#enrolement-demander-le-projet) |
 
-Sans commande, `security-review-mcp` affiche son aide sur stderr et sort avec le code `2`
-(`security-review-mcp --help` l'affiche sur stdout) : un hôte MCP doit lancer `security-review-mcp serve`.
+Sans commande, `security-review-mcp` affiche son aide.
 
 En stdio, le serveur migre lui-même sa base au démarrage (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`).
 En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`) tant que
@@ -39,7 +41,7 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | `audit list [--action A] [--project P] [--actor QUI] [--since DATE] [--limit N] [--offset N]` / `audit prune [--days N] [--max-events N]` | Lit le journal d'audit (JSON, du plus récent au plus ancien) ou supprime les événements de plus de `N` jours (par défaut `SECREVIEW_AUDIT_RETENTION_DAYS`), puis les plus anciens au-delà de `--max-events` (par défaut `SECREVIEW_AUDIT_MAX_EVENTS`) | [Journal d'audit](../advanced/audit-metrics.md#journal-daudit) |
 | `user create NOM [--sso] [--group G …] [--password-stdin]` | Crée un [compte de l'interface web](../usage/web-interface.md#comptes-utilisateurs), membre des groupes `G` (seule source de ses permissions) : local (sans `--password-stdin`, le mot de passe est généré et affiché une fois) ou OIDC avec `--sso` (sans mot de passe ; il rejoint aussi ses groupes OIDC à chaque connexion) | [Comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs) |
 | `user list` / `user set-groups NOM [--group G …]` / `user delete NOM` | Liste les comptes (jamais leur empreinte) avec leurs groupes et permissions, remplace les groupes donnés à un compte (ses groupes OIDC sont gardés ; `administrators` est créé avec le rôle `admin` s'il manque, pour restaurer un administrateur) ou le supprime (un compte OIDC supprimé n'est plus recréé par une connexion) ; le dernier détenteur de `users.manage` est conservé | [Comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs) |
-| `group list` / `group roles` | Liste les groupes (rôles, projets, membres) ou les rôles (permissions) ; ils se gèrent dans l'interface web | [Rôles, groupes et permissions](../advanced/access-control.md) |
+| `group list` / `group roles` | Liste les groupes (rôles, projets, membres) ou les rôles (permissions) ; ils se gèrent dans l'interface web | [Rôles, groupes et permissions](../advanced/access-control.md#groupes) |
 | `project list` / `project approve ID` / `project reject ID` | Liste les projets demandés par un enrôlement (demandeur, adresse, expiration), en crée un (son groupe `project:<projet>`, sans aucun membre) ou supprime la demande | [Enrôlement](../advanced/http.md#enrolement-demander-le-projet) |
 | `user reset-password NOM [--password-stdin]` | Remplace le mot de passe d'un compte local (généré par défaut) et ferme ses sessions | [Mot de passe perdu](../usage/web-interface.md#mot-de-passe-perdu) |
 | `rules list` / `rules import PATH…` / `rules export` | Liste, importe (packs TOML) ou exporte les règles stockées en base | [Règles](../usage/rules.md#commande-rules) |
@@ -47,12 +49,8 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | `advisories import PATH` / `advisories status` | Gestion de la base OSV hors ligne | [Dépendances](../advanced/dependencies.md#base-de-vulnerabilites-hors-ligne-format-osv) |
 | `advisories update [--ecosystem E …]` | Télécharge les exports OSV (`SECREVIEW_OSV_*`, proxy facultatif) et les importe ; code `2` si un écosystème échoue | [Mise à jour automatique](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur) |
 
-`serve` et les commandes qui lisent ou écrivent la base migrent d'abord le schéma, sauf avec
-`SECREVIEW_DB_AUTO_UPGRADE=false` : elles vérifient alors seulement qu'il est à jour.
-
-Les commandes de pipeline (gate, export SARIF, rapport de tendance, scans du code et des
-dépendances) ne sont pas des commandes du contrôleur : elles sont exécutées par
-[`security-review-ci`](#security-review-ci), par l'API REST.
+Lors de l'exécution de `serve`, la donnée de donnée est vérifier et la migration du schéma est réalisé si cela est nécessaire.
+La variable `SECREVIEW_DB_AUTO_UPGRADE=false` désactive la migration du schéma.
 
 ## `security-review-ci`
 

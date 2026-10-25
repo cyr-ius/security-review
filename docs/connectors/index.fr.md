@@ -37,48 +37,18 @@ enregistré dans le journal d'audit (`connector.changed`, `{"enabled": true}`).
 | `true` (défaut) | Les interrupteurs de l'écran décident ; chaque connecteur est désactivé tant qu'il n'a pas été activé |
 | `false` | Tous les connecteurs sont verrouillés : rien n'est envoyé, les interrupteurs ne peuvent pas être activés, **Tester la connexion** est refusé |
 
-Les anciennes variables `SECREVIEW_TICKETING_*` ne sont plus lues : le contrôleur refuse de
-démarrer tant que l'une d'elles est définie, pour qu'un verrou ne soit jamais perdu en silence.
-
 ```bash
 SECREVIEW_CONNECTORS_INTERVAL_SECONDS=300   # période de l'envoi automatique
 SECREVIEW_CONNECTORS_CAFILE=/etc/ssl/corp-ca.pem   # facultatif : autorité de certification interne
 ```
 
-## Connexions
-
-Chaque connecteur a sa connexion, définie par ses variables ou dans l'onglet **Connexion** de sa
-roue crantée, dans l'écran **Connecteurs**. Une variable définie est prioritaire : son champ est
-seulement affiché dans l'écran. Les secrets ne sont jamais réaffichés (`***`) ; renvoyer `***`
-conserve celui qui est enregistré. **Tester la connexion** vérifie les valeurs saisies par une
-requête en lecture seule, sans les enregistrer, avant d'activer le connecteur.
-
-Chaque champ d'un connecteur a sa variable, `SECREVIEW_<TYPE>_<CHAMP>` (`SECREVIEW_JIRA_URL`) :
-voir la page de chaque connecteur. Un secret est lié à l'hôte de son URL : définir une URL d'un
-autre hôte, ou une URL là où il n'y en avait pas (après l'avoir supprimée, par exemple), exige de
-ressaisir les secrets dans la même modification. Un secret défini par une variable ne part que
-vers une URL définie par une variable : l'écran refuse l'URL (sinon un jeton enregistré pourrait
-partir vers un autre hôte).
-
-## Destinations des projets
-
-Un projet a besoin d'une **destination** pour envoyer ses findings par un connecteur : ce que le
-connecteur demande, comme la **clé du projet Jira** (`SEC`) ou le **groupe d'affectation
-ServiceNow**. Les destinations se définissent dans l'onglet **Projets** de la roue crantée du
-connecteur, dans l'écran **Connecteurs**.
-
-Chaque destination peut avoir un seuil d'**envoi automatique** : chaque nouveau finding
-**ouvert** au moins aussi sévère est alors envoyé par le contrôleur. Le seuil ne s'applique
-qu'aux rapports enregistrés **après** sa définition : les findings déjà enregistrés ne sont
-envoyés qu'à la main.
-
 ## Envoi d'un finding
 
 Un utilisateur qui peut trier le projet (permission `findings.triage`) voit un bouton
-**Envoyer vers Jira** / **Envoyer vers ServiceNow** (un par connecteur) sur chaque carte de
-finding dont le projet a une destination. Une fois l'enregistrement créé, la carte affiche sa
-clé, avec un lien vers l'enregistrement. Un échec est affiché sur la carte avec sa raison
-(identifiants refusés, clé de projet inconnue...).
+**Envoyer vers** (un par connecteur) sur chaque carte de finding dont le projet a une
+destination. Une fois l'enregistrement créé, la carte affiche sa clé, avec un lien
+vers l'enregistrement. Un échec est affiché sur la carte avec sa raison (identifiants refusés,
+clé de projet inconnue...).
 
 L'envoi automatique a lieu toutes les `SECREVIEW_CONNECTORS_INTERVAL_SECONDS` (300 par défaut),
 20 findings au plus par connecteur et par passage, les plus sévères d'abord. Un finding en échec
