@@ -113,7 +113,7 @@ de deux usages :
 | Usage | Rôle | Atteint | Exige |
 |---|---|---|---|
 | **API REST — Swagger et scripts** | `api` | l'API REST, avec les droits du compte | — |
-| **MCP** | `mcp` | `/mcp` et les routes de pipeline, sur les projets que le compte peut lire | `mcp_tokens.create` |
+| **MCP / CI — agent et security-review-ci** | `mcp` | `/mcp` et les routes de pipeline, sur les projets que le compte peut lire | `mcp_tokens.create` |
 
 Un jeton `ci` personnel (routes de pipeline seulement) n'y est plus proposé : le jeton `mcp` les
 couvre (voir [plus bas](#jetons-mcp-et-ci-personnels)).

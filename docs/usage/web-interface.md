@@ -144,7 +144,7 @@ shown), and the browser remembers the chosen sort for the next visits.
   password there (their other sessions are closed); the one of an OIDC user is managed by the
   identity provider. **Personal tokens** creates and revokes the personal tokens of the account:
   [REST API](tokens.md#api-tokens) tokens (Swagger, scripts), which hold its rights, and
-  [MCP](tokens.md#personal-mcp-and-ci-tokens) tokens for its agent, which reach the projects it may read.
+  [MCP / CI](tokens.md#personal-mcp-and-ci-tokens) tokens for its agent and `security-review-ci`, which reach the projects it may read.
 - **Tokens**: tokens are searchable, sortable and filterable by usage. Administrators create
   and revoke tokens for one or more projects, or for
   **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role),

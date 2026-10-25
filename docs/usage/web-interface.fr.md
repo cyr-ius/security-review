@@ -158,7 +158,7 @@ suivantes.
   autres sessions sont fermées) ; celui d'un utilisateur OIDC est géré par le fournisseur
   d'identité. **Jetons personnels** crée et révoque les jetons personnels du compte : des
   jetons [API REST](tokens.md#jetons-api) (Swagger, scripts), qui portent ses droits, et des jetons
-  [MCP](tokens.md#jetons-mcp-et-ci-personnels) pour son agent, qui atteignent les projets qu'il peut lire.
+  [MCP / CI](tokens.md#jetons-mcp-et-ci-personnels) pour son agent et `security-review-ci`, qui atteignent les projets qu'il peut lire.
 - **Jetons** : les jetons sont recherchables, triables et filtrables par usage. Les administrateurs créent et révoquent des jetons pour un ou plusieurs
   projets, ou pour **Tous les projets** (jamais pour un jeton CI/CD). Le champ **Usage** choisit
   **MCP** (rôle `mcp`), **Pipeline CI/CD** (rôle `ci`, pour

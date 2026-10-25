@@ -70,9 +70,9 @@ export class ApiTokensComponent {
     }
   }
 
-  /** Message key of the usage of a token (REST API, MCP or CI). */
+  /** Message key of the usage of a token: a personal MCP token also serves security-review-ci. */
   roleLabel(role: PersonalTokenRole): MessageKey {
-    return TOKEN_ROLE_LABELS[role];
+    return role === 'mcp' ? 'tokenRole.mcpPersonal' : TOKEN_ROLE_LABELS[role];
   }
 
   /** Projects of a token: those an MCP or CI token reaches now, the rights of the user for the API. */

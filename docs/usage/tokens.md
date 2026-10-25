@@ -107,7 +107,7 @@ usages:
 | Usage | Role | Reaches | Needs |
 |---|---|---|---|
 | **REST API — Swagger and scripts** | `api` | the REST API, with the rights of the account | — |
-| **MCP** | `mcp` | `/mcp` and the pipeline routes, on the projects the account may read | `mcp_tokens.create` |
+| **MCP / CI — agent and security-review-ci** | `mcp` | `/mcp` and the pipeline routes, on the projects the account may read | `mcp_tokens.create` |
 
 A personal `ci` token (pipeline routes only) is no longer offered there: the `mcp` token covers
 them (see [below](#personal-mcp-and-ci-tokens)).
