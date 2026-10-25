@@ -176,6 +176,7 @@ tester :
 | [Serveur MCP](mcp-server.md) | `server.py`, `prompts.py`, `rules/` | Outils, prompts et ressources, règles de scan, invariants de sécurité du processus MCP |
 | [Contrôleur (FastAPI)](controller.md) | `web_api/`, `cli.py`, `storage/` | Routes REST et leurs schémas, permissions, paramètres, CLI, migrations du schéma |
 | [Interface web (Angular)](web-ui.md) | `web/` | Build et serveur de développement, conventions de code, traductions |
+| [Écrire un connecteur](connectors.md) | `connectors/api.py`, `examples/connector/` | Connecteur tiers : classe `Connector`, point d'entrée, garanties du contrôleur |
 | [Documentation](documentation.md) | `docs/`, `mkdocs.yml`, `README.md` | Rédaction et construction de la documentation bilingue, README, publication |
 | [Tests](tests.md) | `tests/`, `tests/conftest.py` | Quoi tester, conventions, fixtures, tests par type de code |
 | [Vérifications, revues et publication](checks-and-releases.md) | `.pre-commit-config.yaml`, `.github/workflows/` | Linters, formateurs, tests, revue de sécurité, branches, versions |

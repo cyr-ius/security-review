@@ -2,7 +2,7 @@
 
 The review prompts work on what the agent gives them, often the diff of a merge request, and
 `scan_code` is limited to `SECREVIEW_MAX_CONTENT_CHARS` per call. To cover the **whole**
-repository, use the [pipeline client](../usage/gate.md#pipeline-client-security-review-ci)
+repository, use the [pipeline client](ci.md)
 `security-review-ci scan-code`: it reads the files of the repository and sends their content
 to the controller, which scans them with the [rules](../usage/rules.md) of its database.
 
@@ -17,8 +17,8 @@ security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 ```
 
 The pipeline needs neither the database nor the package: only Python and the
-[`ci` token](../usage/gate.md#ci-token-and-visible-projects) of the project. On a workstation,
-use a [personal `mcp` or `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens).
+[`ci` token](ci.md#ci-token-and-visible-projects) of the project. On a workstation,
+use a [personal `mcp` or `ci` token](../usage/tokens.md#personal-mcp-and-ci-tokens).
 
 ## File selection
 

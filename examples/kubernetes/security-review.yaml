@@ -14,10 +14,12 @@
 #
 # The published image contains the PostgreSQL driver; pin a version (X.Y.Z) in production.
 #
-# The controller migrates the schema in an init container (Recreate strategy: the old pods stop
-# before the new schema is applied; concurrent migrations wait for each other on a PostgreSQL
-# lock). The MCP pods only check the schema: they restart until the controller has migrated it. Expose the MCP Service to the agents and CI (Ingress with TLS);
-# keep the controller internal (port-forward, VPN or an Ingress restricted to administrators).
+# The controller migrates the schema in an init container (Recreate strategy: the old controller
+# pods stop before the new schema is applied; concurrent migrations wait for each other on a
+# PostgreSQL lock). The MCP pods only check the schema when they start: new ones restart until
+# the controller has migrated it. Expose each Service through its own Ingress with TLS: the MCP
+# server to the agents, the controller to the people (web interface, personal MCP tokens) and
+# to the CI (security-review-ci calls the REST API of the controller).
 #
 # The secreview-controller Secret gives SECREVIEW_SECRET_KEY: without it, the controller draws
 # a random session secret at every start (sessions end at restart and are not shared by the
@@ -43,6 +45,9 @@ data:
   # Address range of the ingress controller pods: their X-Forwarded-For gives the client
   # address (login throttling, enrollment limits, logs). Adapt it to your cluster.
   # SECREVIEW_FORWARDED_ALLOW_IPS: "10.0.0.0/8"
+  # Public URL of the web interface, given by the MCP server to the clients without a valid
+  # token (enrollment, 401) so that the user knows where to create a personal MCP token
+  # SECREVIEW_WEB_URL: https://secreview.example.com/ui
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -106,7 +111,8 @@ spec:
             # Swagger documentation of the REST API on /api/docs (disabled by default)
             # - name: SECREVIEW_SWAGGER_ENABLED
             #   value: "true"
-            # Daily download of the OSV advisories (needs egress to osv.dev or a mirror);
+            # Daily download of the OSV advisories (needs egress to
+            # osv-vulnerabilities.storage.googleapis.com or a mirror);
             # put credentials of the proxy in the secreview-controller Secret rather than here
             # - name: SECREVIEW_OSV_AUTO_UPDATE
             #   value: "true"
@@ -230,8 +236,9 @@ spec:
       port: 80
       targetPort: http
 ---
-# Only the pods of the namespace (and the ingress controller, adjust its label) reach the
-# controller; the MCP server stays reachable for the agents through its own Ingress.
+# Only the pods of the namespace and the ingress controller (adjust its label) reach the
+# controller: people and the CI go through its Ingress. The MCP server stays reachable for the
+# agents through its own Ingress.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

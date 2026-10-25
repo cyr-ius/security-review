@@ -1,7 +1,7 @@
 # Fonctionnement d'une revue
 
-Cette page explique comment le serveur contrôle la sécurité du code. Elle dit à quel moment
-chaque contrôle intervient. Elle montre aussi comment guider l'agent avec un fichier
+Cette page explique comment l'agent effectue sa revue de sécurité sur le code. Elle explique à
+quel moment chaque contrôle intervient. Elle précise comment guider l'agent avec un fichier
 `AGENTS.md`.
 
 ## Les trois briques
@@ -11,9 +11,9 @@ décisions finales.
 
 | Brique | Ce que c'est | Qui l'utilise | Quand |
 |---|---|---|---|
-| **Normes** | Les conventions de code de votre organisation, par technologie | L'agent | **Avant** d'écrire le code |
 | **Règles** | Des motifs qui repèrent les lignes suspectes (scan automatique) | L'outil `scan_code` et le scan du pipeline | **Pendant** la revue et en CI |
 | **Checklists** | Des points à vérifier à la main, un par un | L'agent | **Pendant** la revue |
+| **Normes** | Les conventions de code de votre organisation, par technologie | L'agent | **Avant** d'écrire le code |
 
 Les trois briques sont stockées en base. Les administrateurs les modifient dans l'interface
 web. Un changement s'applique à tous les agents, sans redémarrage.
@@ -33,8 +33,8 @@ Détail des règles : [Règles](rules.md).
 
 ### Les checklists : le regard de l'expert
 
-- Une checklist couvre un **domaine** : `python`, `java`, `angular`, `api`, `config`, `cicd`,
-  `dependencies`.
+- Une checklist couvre un **domaine** : `python`, `java`, `go`, `csharp`, `rust`, `angular`,
+  `node`, `api`, `config`, `cicd`, `dependencies`.
 - Chaque item dit quoi chercher. Exemple : « chaque requête est filtrée par le tenant du
   jeton ».
 - Les checklists couvrent ce qu'un motif ne voit pas : la logique métier, les droits, les flux
@@ -67,20 +67,8 @@ Chaque prompt de revue donne à l'agent la même méthode, en cinq étapes :
 5. **Enregistrer le rapport.** L'agent appelle `save_security_report` **une seule fois**. Il
    déclare aussi ce qu'il a vérifié (la [couverture](prompts-tools.md#couverture-de-la-revue)).
 
-Ensuite, une personne trie les findings dans l'[interface web](web-interface.md#triage-des-findings).
+Ensuite, une personne trie les findings dans l'[interface web](triage.md).
 L'agent peut seulement **proposer** un statut. Il ne ferme jamais un finding.
-
-## Quel contrôle, à quel moment
-
-| Moment | Contrôle | Déclenché par |
-|---|---|---|
-| Avant de coder | Normes (`development-standards`, `get_development_standards`) | Le développeur ou l'agent |
-| Revue d'un changement | Règles (`scan_code`) + checklists du langage + `*` et `company` | Le développeur (prompt) ou l'agent (outils) |
-| Revue d'une API ou d'une configuration | Règles + checklist `api`, ou `config` et `cicd` | Le développeur (prompt) |
-| Revue des dépendances | Base de vulnérabilités OSV (`scan_dependencies`) + checklist `dependencies` | Le développeur (prompt) ou l'agent (outil) |
-| Revue du dépôt complet | Résultats de `security-review-ci scan-code` + toutes les checklists utiles | Le développeur (prompt) |
-| Pipeline CI | Règles sur tout le dépôt (`scan-code`), dépendances (`scan-deps`), [gate](gate.md) | Le pipeline, sans agent |
-| Après la revue | Triage, acceptation d'un risque | Une personne, dans l'interface web |
 
 ## Comment le système choisit les règles
 
@@ -128,35 +116,26 @@ oublié est marqué `not_covered`. Une personne voit ainsi si la revue a sauté 
   correspond.
 - Il signale aussi les technologies qu'aucune norme ne couvre.
 
-## Prompts et outils : qui lance quoi
+## Les prompts
 
-**Un agent ne peut jamais lancer un prompt MCP.** Un prompt est une commande que le
-développeur choisit dans son hôte. Exemples : `/mcp__security-review__security-review` dans
-Claude Code, `/mcp.security-review.security-review` dans VS Code.
+Les prompts sont à la disposition du développeur via l'agent disponible dans son IDE.
 
-L'agent, lui, appelle des **outils**. Le serveur lui indique quels outils utiliser pour une
-revue. Il peut donc refaire une partie du travail des prompts seul.
-
-| Prompt | L'agent peut-il faire l'équivalent seul ? |
+| Prompt | Ce qu'il fait |
 |---|---|
-| `development-standards` | Oui, avec `get_development_standards` |
-| `security-review` | Oui, avec `scan_code`, `get_review_checklist` et `save_security_report` |
-| `api-security-review`, `configuration-review` | Oui, avec les mêmes outils, si `AGENTS.md` cite les checklists `api`, `config` et `cicd` |
-| `dependency-review` | En partie, avec `scan_dependencies`, si `AGENTS.md` le demande |
-| `codebase-review` | **Non**, reste à la main du développeur |
-| `triage-report` | **Non**, reste à la main du développeur |
+| `development-standards` | Donne à l'agent les normes de développement de sa pile, avant d'écrire le code |
+| `security-review` | Revue générale du code (Python, Java, Go, C#, Rust, TypeScript/Node.js, Angular) |
+| `api-security-review`, `configuration-review` | Revue d'une API REST (OWASP API Top 10), ou d'une configuration (Dockerfile, CI/CD, YAML...) |
+| `dependency-review` | Revue des manifestes et lockfiles (chaîne d'approvisionnement) |
+| `codebase-review` | Revue de tout le dépôt, pas seulement d'un diff |
+| `triage-report` | Requalifie les findings d'un rapport enregistré |
 
-Pourquoi ces deux prompts restent manuels :
-
-- `codebase-review` relit tout le dépôt. C'est long. Il part en général des résultats de
-  `security-review-ci scan-code`, lancé par le développeur ou la CI.
-- `triage-report` requalifie un rapport existant. C'est une démarche de décision. Le
-  développeur choisit le rapport et le moment.
-
-Le prompt apporte plus que les outils seuls : les checklists déjà incluses, la méthode
-complète et les règles anti-injection. Pour une revue importante, préférez le prompt.
+Pour une revue importante, préférez le prompt.
 
 ## Le fichier `AGENTS.md`
+
+!!! danger "Remplissez le fichier `AGENTS.md`"
+    C'est la seule façon pour que l'agent fasse les revues de sécurité **automatiquement**, sans
+    que le développeur ait à lancer un prompt avant chaque commit.
 
 ### Pourquoi il est indispensable
 
@@ -167,10 +146,6 @@ complète et les règles anti-injection. Pour une revue importante, préférez l
   tendances et la posture fonctionnent sur ce nom.
 - Sans nom fixé, chaque agent en invente un. Les rapports se dispersent et le gate ne voit pas
   tout.
-
-Le serveur normalise le nom (minuscules, `-` comme séparateur). `Shop API` et `shop_api`
-donnent `shop-api`. Voir [Nom du projet](prompts-tools.md#nom-du-projet). Écrivez quand même le
-nom exact pour éviter toute ambiguïté.
 
 Certains hôtes lisent un autre fichier : `CLAUDE.md` pour Claude Code,
 `.github/copilot-instructions.md` pour GitHub Copilot. Faites-les pointer vers `AGENTS.md`.
@@ -214,42 +189,19 @@ Les consignes du projet sont dans `AGENTS.md`. Suivez-les intégralement.
 @AGENTS.md
 ```
 
-## Les normes stockées dans le serveur
+!!! warning "Normes de développement"
+    Les normes de développement sont stockées dans le serveur : citez-les dans `AGENTS.md` sans les
+    recopier. Voir comment rédiger le fichier `AGENTS.md` dans la section Avancé :
+    [Comment en parler dans `AGENTS.md`](../advanced/stored-standards.md#comment-en-parler-dans-agentsmd).
 
-### Ce que le serveur conserve
+## Quel contrôle, à quel moment
 
-- Les normes sont stockées **en base**, comme les règles. Elles ne sont pas dans votre dépôt.
-- Un administrateur les écrit dans l'écran **Normes** de l'interface web. Il peut aussi les
-  importer depuis un fichier TOML.
-- Chaque norme indique ses technologies et ses motifs de fichiers (`*.py`, `angular.json`).
-- Tous les projets reçoivent les mêmes normes. Une mise à jour s'applique tout de suite à tous
-  les agents.
-
-Avantage : vous écrivez vos conventions **une fois**, pour toute l'organisation. Chaque dépôt
-n'a plus besoin de les recopier.
-
-### Comment en parler dans `AGENTS.md`
-
-- **Ne recopiez pas les normes** dans `AGENTS.md`. Elles divergeraient vite.
-- Dites à l'agent de les demander au serveur avant de coder.
-- Citez les outils et ressources utiles : `get_development_standards`,
-  `list_development_standards`, `standard://{slug}`.
-- Gardez dans `AGENTS.md` ce qui est **propre au dépôt** : commandes de test, structure,
-  exceptions locales.
-- En cas de conflit, dites qui gagne. Par exemple : « `AGENTS.md` prévaut sur les normes du
-  serveur ».
-
-Exemple de section :
-
-```markdown
-## Conventions de code
-Les normes de développement sont fournies par le serveur MCP `security-review`.
-Consultez-les avant d'écrire du code :
-- outil `get_development_standards` (par technologie ou par fichier) ;
-- outil `list_development_standards` pour voir le catalogue ;
-- ressource `standard://python` pour lire une norme précise.
-Ce fichier ne garde que les règles propres à ce dépôt. En cas de conflit, il prévaut.
-```
-
-Une norme ne peut jamais affaiblir la sécurité. Si c'est le cas, l'agent garde le comportement
-sûr et signale le conflit.
+| Moment | Contrôle | Déclenché par |
+|---|---|---|
+| Avant de coder | Normes (`development-standards`, `get_development_standards`) | Le développeur ou l'agent |
+| Revue d'un changement | Règles (`scan_code`) + checklists du langage + `*` et `company` | Le développeur (prompt) ou l'agent (outils) |
+| Revue d'une API ou d'une configuration | Règles + checklist `api`, ou `config` et `cicd` | Le développeur (prompt) |
+| Revue des dépendances | Base de vulnérabilités OSV (`scan_dependencies`) + checklist `dependencies` | Le développeur (prompt) ou l'agent (outil) |
+| Revue du dépôt complet | Résultats de `security-review-ci scan-code` + toutes les checklists utiles | Le développeur (prompt) |
+| Pipeline CI | Règles sur tout le dépôt (`scan-code`), dépendances (`scan-deps`), [gate](gate.md) | Le pipeline, sans agent |
+| Après la revue | Triage, acceptation d'un risque | Une personne, dans l'interface web |

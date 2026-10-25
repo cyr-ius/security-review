@@ -2,7 +2,7 @@
 
 Les prompts de revue travaillent sur ce que l'agent leur donne, souvent le diff d'une MR, et
 `scan_code` est limité à `SECREVIEW_MAX_CONTENT_CHARS` par appel. Pour couvrir **tout** le
-dépôt, utilisez le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci)
+dépôt, utilisez le [client de pipeline](ci.md)
 `security-review-ci scan-code` : il lit les fichiers du dépôt et envoie leur contenu au
 contrôleur, qui les scanne avec les [règles](../usage/rules.md) de sa base.
 
@@ -17,8 +17,8 @@ security-review-ci scan-code . --project portal --save --commit "$CI_COMMIT_SHA"
 ```
 
 Le pipeline n'a besoin ni de la base ni du paquet : seulement de Python et du
-[jeton `ci`](../usage/gate.md#jeton-ci-et-projets-visibles) du projet. Sur un poste de travail,
-utilisez un [jeton `mcp` ou `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels).
+[jeton `ci`](ci.md#jeton-ci-et-projets-visibles) du projet. Sur un poste de travail,
+utilisez un [jeton `mcp` ou `ci` personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels).
 
 ## Sélection des fichiers
 

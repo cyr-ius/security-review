@@ -4,6 +4,15 @@ In **local mode**, the host (VS Code, Claude…) starts `security-review-mcp loc
 developer workstation and talks to it through stdin / stdout: no network, no token, no
 controller.
 
+```mermaid
+flowchart LR
+    dev(["Developer"]) --> agent
+    subgraph ws["Developer workstation"]
+        agent["AI assistant<br/>VS Code, Claude"] -- "stdio" --> mcp["MCP server<br/>security-review-mcp<br/>(process started by the assistant)"]
+        mcp --> sqlite[("Local SQLite<br/>database")]
+    end
+```
+
 !!! warning "For specific cases only"
     The reports are saved in a **local** SQLite database that nobody else sees, there is no web
     interface to triage them, and every workstation keeps its own rules. For a team, use the

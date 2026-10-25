@@ -22,16 +22,8 @@ The images include an SBOM and a provenance attestation (accessible via `docker 
 One file,
 [`examples/docker/docker-compose.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.yml),
 starts everything with the published image: PostgreSQL, the migration of the schema, the
-controller and the MCP server. Copy and paste the block in an empty folder:
-
-```bash
-mkdir security-review-mcp && cd security-review-mcp
-curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.yml
-(umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
-docker compose up -d --wait
-docker compose exec controller security-review-controller user reset-password admin   # initial admin password
-docker compose exec controller security-review-controller token create --label alice   # token of an agent
-```
+controller and the MCP server. The commands that download it and start it are in
+[Deploying the server](../getting-started/deploy.md#with-docker-compose).
 
 The command `printf` writes the `.env` file, readable by you only: the password of PostgreSQL
 and the secret of the web sessions, generated at random. `docker compose up -d --wait` returns
@@ -68,13 +60,13 @@ Good to know:
   commit it. The password is inserted as is in the connection URL: keep hexadecimal characters,
   as generated above.
 - **Open to the team.** The ports are published on every interface of the server, in plain
-  HTTP: enable the [built-in TLS](http.md#tls) or put a reverse proxy in front before the team
+  HTTP: enable the [built-in TLS](tls.md) or put a reverse proxy in front before the team
   connects. To keep a port on the server only (behind a reverse proxy on the same machine, for
   example), prefix it with `127.0.0.1` (`"127.0.0.1:8000:8000"`). Only the `ports` choose the exposure: inside its container, each process
   listens on every interface (`SECREVIEW_HOST=0.0.0.0`, set by the image, not to be changed).
   For the built-in TLS, uncomment in `controller` and `mcp` the TLS variables
   (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) and the `volumes` that mounts the
-  certificate files read-only from `./tls` (see [Certificate Authority](http.md#certificate-authority)).
+  certificate files read-only from `./tls` (see [Certificate Authority](tls.md#certificate-authority)).
   The controller exposes no write route without a token: it can stay internal.
 - **Vulnerability advisories.** The OSV database is **empty** at the first start: the dependency
   analysis answers that no database is loaded. To let the controller download it at start-up,
@@ -98,12 +90,12 @@ docker compose exec controller security-review-controller token list
 ## Without Docker Compose
 
 The same image runs each process in its own container, on an existing PostgreSQL database (see
-[Architecture and deployment](architecture.md)):
+[Architecture](architecture.md)):
 
 - the **MCP server** is the default entry point of the image (`security-review-mcp`, default
   command `serve`, in streamable HTTP; add `--transport stdio` for the local mode);
 - the **controller** (REST API, web interface, administration) is started with
-  `--entrypoint security-review-controller`, with the [built-in authentication and TLS](http.md)
+  `--entrypoint security-review-controller`, with the built-in [tokens](bearer-tokens.md) and [TLS](tls.md)
   or behind a reverse proxy that handles them.
 
 ```bash

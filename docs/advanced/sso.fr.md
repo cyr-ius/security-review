@@ -1,6 +1,6 @@
 # Connexion OIDC (OpenID Connect)
 
-Cette page est facultative : les [comptes locaux](../usage/web-interface.md#comptes-utilisateurs)
+Cette page est facultative : les [comptes locaux](../usage/user-accounts.md)
 suffisent pour démarrer. Elle sert à connecter les personnes à l'interface web avec votre
 fournisseur d'identité.
 
@@ -173,7 +173,7 @@ groupe du même nom pour en utiliser une. Les rôles du groupe, et leurs projets
 | `SECREVIEW_OIDC_DEFAULT_GROUP` | Nom d'un groupe que tout utilisateur OIDC rejoint à chaque connexion, quel que soit son claim (vide par défaut : aucun). Un groupe absent ne donne rien |
 
 Un groupe **non ouvert au OIDC** (par exemple `administrators`) n'est jamais rejoint par le claim, même quand une valeur porte son nom. Une session
-restreinte se comporte comme un [jeton restreint à un projet](http.md#jetons-restreints-a-un-projet) :
+restreinte se comporte comme un [jeton restreint à un projet](bearer-tokens.md#jetons-restreints-a-un-projet) :
 les autres projets, leurs rapports et leurs findings sont traités comme inexistants.
 
 Exemple : avec le claim `["payments-team", "staff"]`, un groupe `payments-team` ouvert au OIDC avec
@@ -184,7 +184,7 @@ l'historique du triage.
 
 ## Lecture du projet
 
-La validation d'un [enrôlement](http.md#enrolement-demander-le-projet) crée le projet avec son
+La validation d'un [enrôlement](mcp-server.md#enrolement-demander-le-projet) crée le projet avec son
 [groupe de projet](access-control.md#groupes-de-projet) `project:<projet>`, sans aucun membre,
 et jamais un jeton ni un compte. Pour qu'un développeur lise le projet (et que son jeton MCP
 personnel l'atteigne), un administrateur ajoute son compte à ce groupe, depuis l'écran
@@ -215,7 +215,7 @@ compte local (son mot de passe peut être défini avec
 ## Sessions
 
 - Le jeton de session est signé (HMAC-SHA256) avec une clé dérivée de `SECREVIEW_SECRET_KEY`
-  (32 caractères au moins), comme celui des [comptes locaux](../usage/web-interface.md#connexion-et-sessions), et désigne
+  (32 caractères au moins), comme celui des [comptes locaux](controller.md#connexion-et-sessions), et désigne
   le compte OIDC, relu à chaque requête : supprimer le compte ou changer ses groupes ou leurs
   rôles s'applique aussitôt. Toutes les répliques du contrôleur doivent partager ce secret ; sans lui,
   un secret aléatoire est tiré à chaque démarrage et les sessions se terminent au redémarrage.

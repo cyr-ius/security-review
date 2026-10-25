@@ -1,8 +1,28 @@
 # Mise en service du serveur
 
 Cette page met en place le **mode partagé (HTTP)** pour une équipe : le contrôleur (interface web,
-administration) et le serveur MCP (utilisé par les agents et la CI), sur la même base. Voir
-[deux services, deux rôles](../index.md#trois-services-trois-roles).
+administration, pipelines) et le serveur MCP (utilisé par les agents), sur la même base. Voir
+[trois services, trois rôles](../index.md#trois-services-trois-roles).
+
+```mermaid
+flowchart LR
+    dev(["Développeur"]) --> agent
+    subgraph ws["Poste du développeur"]
+        agent["Assistant IA<br/>VS Code, Claude"]
+    end
+    analyst(["Analyste cyber<br/>(navigateur)"])
+    ci(["Pipeline CI/CD<br/>security-review-ci"])
+    subgraph srv["Serveur ou cluster (conteneurs)"]
+        mcp["Conteneur serveur MCP<br/>security-review-mcp"]
+        ctl["Conteneur contrôleur<br/>security-review-controller<br/>interface web, API REST"]
+        pg[("Conteneur PostgreSQL<br/>rapports, règles, jetons")]
+    end
+    agent -- "HTTPS /mcp<br/>jeton MCP" --> mcp
+    analyst -- "HTTPS /ui<br/>compte utilisateur" --> ctl
+    ci -- "HTTPS /api/v1/ci<br/>jeton ci" --> ctl
+    mcp --> pg
+    ctl --> pg
+```
 
 À la fin, vous disposez :
 
@@ -82,15 +102,16 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 kubectl -n secreview port-forward svc/secreview-controller 8080:80
 ```
 
-Le contrôleur n'est pas exposé hors du cluster : vous ouvrez l'interface web depuis votre poste
-avec la dernière commande du bloc (`port-forward`), qui reste active tant que le terminal est
-ouvert.
+Les manifestes n'exposent rien hors du cluster : pour un premier essai, vous ouvrez l'interface
+web depuis votre poste avec la dernière commande du bloc (`port-forward`), qui reste active tant
+que le terminal est ouvert.
 
-Pour que les développeurs et la CI atteignent le serveur MCP, exposez le Service
-`secreview-mcp` par un Ingress avec TLS. Renseignez alors `SECREVIEW_FORWARDED_ALLOW_IPS` (en
-commentaire dans la ConfigMap du manifeste) avec la plage d'adresses des pods de l'ingress
-controller : sans ce réglage, tous les clients semblent venir de la même adresse, celle de
-l'Ingress.
+Pour l'équipe, exposez chaque Service par un Ingress avec TLS : `secreview-mcp` pour les agents,
+`secreview-controller` pour les développeurs (interface web, jetons MCP personnels) et pour la
+CI (`security-review-ci` appelle le contrôleur). Renseignez alors, dans la ConfigMap du
+manifeste, `SECREVIEW_WEB_URL` (URL publique de l'interface web) et
+`SECREVIEW_FORWARDED_ALLOW_IPS` (plage d'adresses des pods de l'ingress controller : sans ce
+réglage, tous les clients semblent venir de la même adresse, celle de l'Ingress).
 
 **Pour plus d'informations :** voir [Kubernetes](../advanced/kubernetes.md) dans la section
 **Avancé** (PostgreSQL existant, contenu des manifestes, Secrets, exposition, mise à jour OSV,
@@ -99,4 +120,4 @@ plusieurs réplicas).
 ## Étape suivante
 
 [Connectez l'hôte](host.md) de chaque développeur au serveur MCP. Pour aller plus loin :
-[jetons, enrôlement et TLS](../advanced/http.md), [connexion OIDC](../advanced/sso.md).
+[jetons](../advanced/bearer-tokens.md), [TLS](../advanced/tls.md), [connexion OIDC](../advanced/sso.md).

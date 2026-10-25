@@ -14,7 +14,7 @@ crée dans ce système est l'**enregistrement** du finding.
 Un finding est envoyé à la main, depuis sa carte, ou automatiquement pour les projets dotés d'un
 seuil de sévérité. L'envoi est **à sens unique** : la clé et le lien de l'enregistrement sont
 conservés sur le finding, et son statut n'est jamais modifié depuis l'enregistrement (une personne
-le décide toujours, voir [triage des findings](../usage/web-interface.md#triage-des-findings)).
+le décide toujours, voir [triage des findings](../usage/triage.md)).
 
 Seul le contrôleur se connecte à ces systèmes et charge les connecteurs ; le serveur MCP jamais.
 

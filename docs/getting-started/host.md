@@ -6,9 +6,9 @@ already be running: see [Deploying the server](deploy.md).
 ## HTTP transport
 
 In shared mode, with the server started with `serve --transport streamable-http`, the host connects to the
-`/mcp` endpoint instead of starting a process. If authentication is enabled, it sends the
-token in the `Authorization: Bearer <token>` header (token generation, TLS and server start:
-see [HTTP server, authentication and TLS](../advanced/http.md)).
+`/mcp` endpoint instead of starting a process. It sends the token in the
+`Authorization: Bearer <token>` header (see [Bearer tokens](../advanced/bearer-tokens.md) and
+[TLS](../advanced/tls.md)).
 
 === "VS Code / GitHub Copilot"
 
@@ -106,7 +106,7 @@ In shared mode, when the server requires a token, you use a **personal MCP token
 interface. You do not need to ask an administrator for it before you start: configure the host
 as above, **without a token**, and run your first review. The agent requests the project, then
 tells you where to create your token (see
-[enrollment](../advanced/http.md#enrollment-request-the-project)).
+[enrollment](../advanced/mcp-server.md#enrollment-request-the-project)).
 
 1. **Configure the host without a token.** With the examples of the
    [HTTP transport](#http-transport) section, leave the token input empty (VS Code), do not
@@ -133,7 +133,7 @@ tells you where to create your token (see
 
 3. **Create your personal MCP token**: sign in to the web interface (`web_url`), open **My
    account** > **Personal tokens** and create a token with the **MCP** usage (see
-   [personal MCP tokens](../usage/web-interface.md#personal-mcp-and-ci-tokens); your groups need the
+   [personal MCP tokens](../usage/tokens.md#personal-mcp-and-ci-tokens); your groups need the
    `mcp-user` role). It is shown **only once**.
 4. **Store the token in the host**, then restart the MCP server in the host:
 
@@ -165,7 +165,7 @@ tells you where to create your token (see
 When the server refuses the token (unknown, revoked or expired), the host gets `401` with a
 message that tells you to sign in to the web interface again and create a new personal MCP
 token: replace it in the host as in step 4 (see
-[rejected token](../advanced/http.md#rejected-token-sign-in-again)).
+[rejected token](../advanced/mcp-server.md#rejected-token-sign-in-again)).
 
 !!! note
     If the administrator disabled the enrollment (`SECREVIEW_ENROLLMENT=false`), a host without
@@ -175,7 +175,7 @@ token: replace it in the host as in step 4 (see
 ## Other cases
 
 - **Server certificate signed by an internal CA** (`unable to verify the first certificate`):
-  see [HTTPS server with an internal CA](../advanced/http.md#https-server-with-an-internal-ca).
+  see [HTTPS server with an internal CA](../advanced/tls.md#https-server-with-an-internal-ca).
 - **Local mode (stdio)**, without a server (the host starts the process itself): see
   [Local mode (stdio)](../getting-started/stdio.md).
 

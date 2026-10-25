@@ -1,16 +1,13 @@
 # Roles, groups and permissions
 
-What a [user account](../usage/web-interface.md#user-accounts) may do in the web interface and the
+What a [user account](../usage/user-accounts.md) may do in the web interface and the
 REST API comes only from **roles**, a role being a set of **permissions**, given to its
 **groups**, each on every project or on a list of projects. An account never holds a role or a
 project of its own: to give a person access, add them to a group. Administrators manage them in the **Groups**, **Roles** and **Users** screens (`users.manage`
 permission), or through the `/api/v1/groups`, `/api/v1/roles` and `/api/v1/users` API.
 
-Bearer tokens are for machines and keep their fixed role (`mcp`, `admin`, `ci`, `metrics`, see
-[Roles](../usage/web-interface.md#roles)), except the `api` tokens of the REST API and its
-Swagger, which follow this model (see [API tokens](../usage/web-interface.md#api-tokens)): a
-personal token holds the current rights of its user, a role token the permissions of one role on
-its projects. A person gets read or triage access through the groups of their account.
+Tokens are for machines: they keep a fixed role, except the `api` tokens, which follow this model
+(see [Tokens](../usage/tokens.md)).
 
 ## Permissions
 
@@ -24,13 +21,13 @@ its projects. A person gets read or triage access through the groups of their ac
 | `settings.manage` | Report language, outgoing proxy, advisory database | |
 | `users.manage` | Users, groups, roles and OIDC settings (they decide who joins which group) | |
 | `audit.read` | Audit log | |
-| `projects.create` | Create a new project, which its creator then reads (see [Creating a project](#creating-a-project)), and approve or reject the projects requested by an [enrollment](http.md#enrollment-request-the-project) | |
+| `projects.create` | Create a new project, which its creator then reads (see [Creating a project](#creating-a-project)), and approve or reject the projects requested by an [enrollment](mcp-server.md#enrollment-request-the-project) | |
 | `projects.delete` | Delete a project with its reports, findings and references (see [Deleting a project](#deleting-a-project)) | |
-| `mcp_tokens.create` | Create a [personal MCP or CI token](../usage/web-interface.md#personal-mcp-and-ci-tokens) in **My account** | |
+| `mcp_tokens.create` | Create a [personal MCP or CI token](../usage/tokens.md#personal-mcp-and-ci-tokens) in **My account** | |
 
 `users.manage` lets its holder give itself every other permission: give it only to
 administrators. Accepting a risk or marking a false positive also needs a session of the web
-interface, never a token (see [triage of findings](../usage/web-interface.md#triage-of-findings)).
+interface, never a token (see [triage of findings](../usage/triage.md)).
 
 ## Roles
 
@@ -48,7 +45,7 @@ any other.
 | Ordinary role | Permissions | Gives |
 |---|---|---|
 | `triager` | `reports.read`, `findings.triage` | the triage of the findings |
-| `mcp-user` | `mcp_tokens.create` | the creation of a [personal MCP or CI token](../usage/web-interface.md#personal-mcp-and-ci-tokens); give it with a reading role, since the token reaches the projects its user may read |
+| `mcp-user` | `mcp_tokens.create` | the creation of a [personal MCP or CI token](../usage/tokens.md#personal-mcp-and-ci-tokens); give it with a reading role, since the token reaches the projects its user may read |
 
 Administrators create other roles (100 at most), for example an *Auditor* role with
 `audit.read` and `reports.read`. A change of a role applies at once to the open sessions of the
@@ -74,7 +71,7 @@ group, or closing it to OIDC, removes its OIDC members at once.
 ## Project groups
 
 The **project group** of a project is a group not open to OIDC whose only role is `reader` on
-that project alone. The approval of an [enrollment](http.md#enrollment-request-the-project)
+that project alone. The approval of an [enrollment](mcp-server.md#enrollment-request-the-project)
 creates it **without any member** (so that the project exists, without giving any access), and
 [creating a project](#creating-a-project) creates it with its creator. An existing group of this
 kind is reused (even one made by an administrator, whatever its name); otherwise the group
@@ -89,7 +86,7 @@ A user whose groups hold `projects.create` creates a project with the **New proj
 (left of **Refresh**) of the **Projects** screen, in a modal window (`POST /api/v1/projects`, from a session of the web interface only: a token
 never creates a project). The controller creates the [project group](#project-groups) of the
 project and adds the account to it as a local member: the account reads the project at once,
-and so does its [personal MCP token](../usage/web-interface.md#personal-mcp-and-ci-tokens), which can
+and so does its [personal MCP token](../usage/tokens.md#personal-mcp-and-ci-tokens), which can
 then save the reports of its agent there. The project shows on the **Projects** screen,
 **No report yet**, until its first report.
 
@@ -162,14 +159,6 @@ of its group or the permission of its role is refused (`409` or `422`). An OIDC 
 the last holder from its OIDC group is not blocked: the identity provider remains the authority.
 Preferably keep a local administrator.
 
-## Tokens created from the interface
-
-A token never grants more than its creator holds: creating a token, changing its projects,
-rotating its secret or revoking it needs
-`reports.read` on every project of the token, before and after a change of its projects, and,
-for a role `api` token, each permission of its role on these projects; the
-**Tokens** screen only lists the tokens of the projects the user reads.
-
 ## API
 
 ```bash
@@ -205,7 +194,7 @@ curl -X PUT https://secreview.example.com/api/v1/users/7 \
 A `roles` field in the body of these two routes is refused (`422`): an account has no role of its
 own.
 
-Every change is written to the [audit log](audit-metrics.md#audit-log) (`role.*`, `group.*`,
+Every change is written to the [audit log](audit-metrics.md) (`role.*`, `group.*`,
 `user.groups_changed`). From the CLI, `security-review-controller user set-groups` changes the
 groups of an account, and `security-review-controller group list` / `group roles` lists the groups and the roles (see
 [CLI](../reference/cli.md#security-review-controller)).

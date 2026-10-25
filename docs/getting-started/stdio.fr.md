@@ -4,6 +4,15 @@ En **mode local**, l'hôte (VS Code, Claude…) lance lui-même `security-review
 poste du développeur et dialogue avec lui par stdin / stdout : pas de réseau, pas de jeton, pas de
 contrôleur.
 
+```mermaid
+flowchart LR
+    dev(["Développeur"]) --> agent
+    subgraph ws["Poste du développeur"]
+        agent["Assistant IA<br/>VS Code, Claude"] -- "stdio" --> mcp["Serveur MCP<br/>security-review-mcp<br/>(processus lancé par l'assistant)"]
+        mcp --> sqlite[("Base SQLite<br/>locale")]
+    end
+```
+
 !!! warning "Réservé à des cas précis"
     Les rapports sont enregistrés dans une base SQLite **locale** que personne d'autre ne voit,
     il n'y a pas d'interface web pour les trier, et chaque poste garde ses propres règles. Pour

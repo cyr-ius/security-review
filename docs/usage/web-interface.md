@@ -3,7 +3,7 @@
 The web interface lets the security teams browse the reports saved by the agents and **triage
 the findings** (fixed, accepted risk, false positive) without an MCP client. It is served by the
 **controller**, a process distinct from the MCP server that shares its database (see
-[Architecture and deployment](../advanced/architecture.md)):
+[Architecture](../advanced/architecture.md)):
 
 | Path | Content |
 |---|---|
@@ -64,7 +64,7 @@ shown), and the browser remembers the chosen sort for the next visits.
   window that creates a project you then read (see
   [Creating a project](../advanced/access-control.md#creating-a-project)), and the
   **Pending projects** section lists the projects requested by an
-  [enrollment](../advanced/http.md#enrollment-request-the-project) (requester, address, request
+  [enrollment](../advanced/mcp-server.md#enrollment-request-the-project) (requester, address, request
   and expiry dates): **Approve** creates the project without any member, **Reject** deletes the
   request; a request not approved before its expiry is deleted. With `projects.delete`, the
   trash button of a row deletes the project and everything that refers to it (see
@@ -76,7 +76,7 @@ shown), and the browser remembers the chosen sort for the next visits.
   The **Review open findings** button opens the next screen; **Risk acceptances** lists the
   accepted risks of the project; **Refresh** reloads the trend and the open findings.
 - **Findings to review**: every open finding of the project across all its reports, each issue
-  once ([reported again](#finding-reported-again)), worst
+  once ([reported again](triage.md#finding-reported-again)), worst
   severity first, then newest report first, for a review by a security expert. Each finding
   shows its description, code excerpt and recommendation, and a link to its report (date, review
   type, branch, commit). Filters by status (to re-check accepted risks or false positives), by
@@ -84,13 +84,13 @@ shown), and the browser remembers the chosen sort for the next visits.
   review**...: see [review type](prompts-tools.md#review-type)); **Load more** displays the next
   findings. Users with the `findings.triage` permission change the status of each finding from this
   screen and apply or reject the statuses proposed by the agents (see
-  [triage of findings](#triage-of-findings)); a triaged finding stays displayed until the next
+  [triage of findings](triage.md)); a triaged finding stays displayed until the next
   reload (**Refresh** button).
 - **Risk acceptances**: the accepted risks of the project (or of every project), expired ones
   included, nearest expiry first. Search, sort and filter by state (**Active**, **Expired**) and
   severity; **Refresh** reloads the list. A click on a finding opens its details: its comments
   (the first one is the reason of the acceptance), and for the `findings.triage` permission the
-  forms to add a comment, change the expiry date and remove the acceptance (see [risk acceptances](#risk-acceptances)).
+  forms to add a comment, change the expiry date and remove the acceptance (see [risk acceptances](triage.md#risk-acceptances)).
 - **Reports**: list filtered by project and risk level, searchable across report metadata and
   summary, and sortable by date, project, risk, type, branch, token or summary. The **Token**
   column shows the label of the token that sent the report; hovering it shows the
@@ -103,7 +103,7 @@ shown), and the browser remembers the chosen sort for the next visits.
   no finding marked **dismissed**, see [review coverage](prompts-tools.md#review-coverage)), findings with
   location, CWE, code excerpt and recommendation; Markdown and SARIF download. Users with the
   `findings.triage` permission change the status of a finding directly from this screen, and
-  raise its severity with a justification (see [severity of a finding](#severity-of-a-finding)).
+  raise its severity with a justification (see [severity of a finding](triage.md#severity-of-a-finding)).
 - **Standards**: the [development standards](standards.md) handed to the AI
   assistants by the `development-standards` prompt. Search and sort by title,
   technology or file pattern, and filter by enabled state. Administrators read, create, edit
@@ -120,7 +120,7 @@ shown), and the browser remembers the chosen sort for the next visits.
   deleted. The **Reload** button applies immediately a change made with the
   `security-review-controller rules` CLI. **Export** and **Import** exchange
   [TOML packs](rules.md#import-and-export-in-the-web-interface).
-- **Users**: administrators manage the [accounts](#user-accounts), the only
+- **Users**: administrators manage the [accounts](user-accounts.md), the only
   ones to open the interface. Each account is **Local** (user name and password, entered or
   generated and shown only once) or **OIDC** (login through the identity provider, no password),
   with a badge in the list. The account list is searchable, sortable and filterable by type.
@@ -141,15 +141,15 @@ shown), and the browser remembers the chosen sort for the next visits.
 - **My account**: shows the type of the account and **My permissions**. A local user changes their
   password there (their other sessions are closed); the one of an OIDC user is managed by the
   identity provider. **Personal tokens** creates and revokes the personal tokens of the account:
-  [REST API](#api-tokens) tokens (Swagger, scripts), which hold its rights, and
-  [MCP](#personal-mcp-and-ci-tokens) tokens for its agent, which reach the projects it may read.
+  [REST API](tokens.md#api-tokens) tokens (Swagger, scripts), which hold its rights, and
+  [MCP](tokens.md#personal-mcp-and-ci-tokens) tokens for its agent, which reach the projects it may read.
 - **Tokens**: tokens are searchable, sortable and filterable by usage. Administrators create
   and revoke tokens for one or more projects, or for
   **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role),
   **CI/CD pipeline** (`ci` role, for
-  [`security-review-ci`](gate.md#pipeline-client-security-review-ci)) or **REST API** (`api`
-  role, with the **Role** it holds, see [API tokens](#api-tokens)): tokens are for machines, a
-  person reads and triages with a [user account](#user-accounts). Under **Allowed projects**, **All projects** gives every project, including the
+  [`security-review-ci`](../advanced/ci.md)) or **REST API** (`api`
+  role, with the **Role** it holds, see [API tokens](tokens.md#api-tokens)): tokens are for machines, a
+  person reads and triages with a [user account](user-accounts.md). Under **Allowed projects**, **All projects** gives every project, including the
   projects reviewed later, and **Selected projects** shows the boxes of the projects the token
   sees; **Validity**
   sets its lifetime (30 days to 1 year, or the default of the server, `SECREVIEW_TOKEN_MAX_DAYS`).
@@ -159,14 +159,14 @@ shown), and the browser remembers the chosen sort for the next visits.
   change applies from the next request.
   **Rotate** replaces the secret of a token and shows the new one once; the previous one keeps
   working for the grace period chosen above the list (none, 1 h, 24 h or 7 days, see
-  [expiry and rotation](../advanced/http.md#expiry-and-rotation-of-tokens)).
+  [expiry and rotation](../advanced/bearer-tokens.md#expiry-and-rotation-of-tokens)).
   A token never opens the web interface. The `admin` and `metrics` tokens stay unrestricted and
   are managed from the CLI only. The secret is shown only once; only its digest is stored, in the database. A
   revocation takes effect at the next request. The
-  [enrollment](../advanced/http.md#enrollment-request-the-project) creates no token: a project
+  [enrollment](../advanced/mcp-server.md#enrollment-request-the-project) creates no token: a project
   it requests waits in **Projects**, and once approved an administrator gives a developer
   access to it by adding them to its group `project:<project>` (**Groups** screen).
-- **Audit log**: administrators read the [audit log](../advanced/audit-metrics.md#audit-log): triage
+- **Audit log**: administrators read the [audit log](../advanced/audit-metrics.md): triage
   decisions, agent proposals, tokens and enrollments, newest first, with who made
   them; filter by event and project, search event details, sort by date/action/actor/target/project,
   and use **Load more** for older events. Holders of `settings.manage` also set there the
@@ -211,494 +211,8 @@ a **Delete** button.
   gear for its settings: connection (with **Test the connection**) and destination of each
   project, with its optional automatic sending ([connectors](../connectors/index.md)).
 
-## Triage of findings
-
-The status of a finding is decided by a **person**; an agent only proposes it (MCP tool
-`propose_finding_status`, see [status of a finding](prompts-tools.md#status-of-a-finding)).
-A triager may also send a finding to Jira or ServiceNow (**Send to Jira**), when its project
-has a destination: see [connectors](../connectors/index.md#sending-a-finding).
-
-- **Proposal of an agent**: shown on the finding in a separate box, with its author (label of
-  the token), its date and its reason. The reason may come from the reviewed code: check it.
-  **Apply** saves `fixed` at once, or opens the form below for `accepted` and
-  `false_positive`; **Reject** removes the proposal. Neither changes the status by itself.
-- **Risk accepted**: the status select opens a form that asks for a
-  **Reason** (10 to 1000 characters) and an **Expiry date** (90 days by default, at most
-  `SECREVIEW_MAX_DISMISSAL_DAYS`). The logged-in user is recorded as the approver; the card shows
-  the approver, the reason and the end of validity. From the expiry date, the finding counts as
-  open again (status filter, posture, [gate](gate.md), SARIF, trend) and the card says
-  that the decision has expired. For **Risk accepted**, the **No expiry** box removes the date:
-  the risk stays accepted until someone reopens the finding (disabled with
-  `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false`).
-- **False positive**: the form only asks for an optional **Reason** (10 to 1000 characters
-  when given), with no expiry date: a false positive says the code is not vulnerable, it stays until someone reopens
-  the finding. The logged-in user is recorded as the approver.
-- **Risk accepted** below `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` (`medium` by default, so a
-  `low` or `info` finding): a plain validation, saved at once with no reason and no expiry date.
-  Empty variable: every acceptance goes through the form above.
-- **Open** and **Fixed** are saved at once (optional reason through the API). Any decision
-  removes the pending proposal.
-
-Only a session (local or OIDC account) may accept a risk or mark a false positive: a bearer
-token, even `admin`, gets `403`. Through the REST API:
-
-```bash
-curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
-  https://secreview.example.com/api/v1/findings/42 \
-  -d '{"status": "accepted", "reason": "Internal tool, not exposed to the Internet", "expires_on": "2027-01-31"}'
-# {"id": 42, "status": "accepted", "status_approver": "alice", "status_expires_at": "2027-01-31T00:00:00Z", …}
-curl -X DELETE -H "Authorization: Bearer $SESSION" \
-  https://secreview.example.com/api/v1/findings/42/proposal    # reject the agent proposal
-```
-
-A reason that is missing or too short, an expiry date in the past or too far away, or an expiry
-date for `open` / `fixed` gets `422`. Without `expires_on`, a false positive never expires, nor
-does an acceptance, unless
-`SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED=false` (`422`); `GET /api/v1/me` returns
-`permanent_acceptance` to tell whether the caller may do it. Below
-`SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY`, `reason` and `expires_on` are optional for
-`accepted` (`{"status": "accepted"}` is enough); `GET /api/v1/me` returns this threshold as
-`risk_acceptance_min_severity` (`null`: every acceptance needs them).
-
-### Finding reported again
-
-A later report of the project that raises the same issue again does not add a second
-finding to review: the server recognizes it by its fingerprint (project, rule or CWE, file and
-title, without the line number, as in [SARIF](../advanced/sarif.md)) and the new occurrence
-replaces the previous one.
-
-- An **acceptance** or a **false positive** still valid is carried to the new occurrence, with
-  its reason, approver and expiry date; so is a pending agent proposal of one of them, a
-  severity raised by an analyst and the comments. The gate does not block again.
-- A **fixed** finding that comes back is **open** again.
-- When a rule matches several lines of a file, the occurrences are paired in line order if
-  their number is unchanged (the code moved), else only on the same line: a new occurrence
-  never inherits the decision taken on another one, it is open.
-- The previous occurrence stays in its report, marked **Reported again: see finding #N**; it
-  can no longer be triaged (`422` through the API) nor sent through a connector (`409`).
-- **Findings to review**, the posture, the project [gate](gate.md), SARIF, the counters and
-  the trend count the latest occurrence only; the trend and the time to remediate start at
-  the first occurrence of the issue (`first_seen_at`).
-- A finding that a later report no longer raises is not closed: a review of a diff does not
-  see the whole code.
-
-`save_security_report` and the pipeline scans return `recurring_findings` (findings already
-raised by a previous report) and `carried_decisions` (decisions carried to them).
-
-### Severity of a finding
-
-A security analyst (a person with the `findings.triage` permission) may **raise** the severity
-given by a report, for example when the code is exposed to the Internet or the data is
-sensitive. **Raise the severity**, at the top of the card, opens a form that asks for the
-**New severity** and a **Justification** (10 to 1000 characters). The card then shows the
-severity of the report, the analyst, the date and the justification; the Markdown export and
-`get_security_report` show them too, and the change is written to the audit log
-(`finding.severity_changed`).
-
-The raised severity counts everywhere (filters, posture, [gate](gate.md), SARIF, trend), and
-the risk level of the report goes up with it. A severity never goes below the one of the
-report: an analyst can only go back to it, with a justification, to undo the escalation. To
-close a finding judged less serious, accept the risk. Only a session may do it: a bearer token,
-even `admin`, gets `403`; a lower or unchanged severity, or a missing justification, gets `422`.
-
-```bash
-curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
-  https://secreview.example.com/api/v1/findings/42/severity \
-  -d '{"severity": "critical", "reason": "Endpoint reachable without authentication"}'
-# {"id": 42, "severity": "critical", "original_severity": "medium", "severity_changed_by": "alice", …}
-```
-
-### Risk acceptances
-
-The **Risk acceptances** screen (`/ui/risk-acceptances`, or per project from the **Projects** and
-**Project** screens) lists the accepted risks, expired ones included, so that they can be renewed
-before or after their end of validity. In the details of an acceptance:
-
-- **Comments**: every comment, oldest first, with its author and date. The reason of the
-  acceptance is the first one: accepting a risk, or accepting it again with another reason,
-  adds it to the comments. Anyone who reads the project sees them. A comment **can be neither edited nor deleted**: no route of the API does
-  it. They stay with the finding when its acceptance is removed.
-- **Add a comment** (at most 2000 characters, secrets masked) records the logged-in user as its
-  author, in the audit log too (`finding.commented`).
-- **Change the expiry date** saves the acceptance again with the same reason and the new date
-  (same limits as above, **No expiry** included), without adding a comment: the logged-in user
-  becomes its approver.
-- **Remove the acceptance** reopens the finding, after a confirmation.
-
-Like an acceptance, a comment needs a session with the `findings.triage` permission: a bearer
-token gets `403`. Through the REST API:
-
-```bash
-curl -H "Authorization: Bearer $SESSION" \
-  "https://secreview.example.com/api/v1/risk-acceptances?project=shop-api"
-# {"project": "shop-api", "total": 1, "acceptances": [{"id": 42, "status": "accepted", "expired": false, "comments_total": 1, …}]}
-curl -H "Authorization: Bearer $SESSION" https://secreview.example.com/api/v1/findings/42/comments
-# [{"id": 7, "finding_id": 42, "author": "alice", "body": "Renew it after the audit", "created_at": "…"}]
-curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
-  https://secreview.example.com/api/v1/findings/42/comments -d '{"body": "Renew it after the audit"}'
-curl -X PATCH -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
-  https://secreview.example.com/api/v1/findings/42 -d '{"status": "open"}'    # remove the acceptance
-```
-
-`GET /api/v1/risk-acceptances` takes `limit` (capped by `SECREVIEW_MAX_LIST_LIMIT`) and
-`offset`; without `project`, it lists every project the caller can read.
-
-## Roles
-
-**Tokens** are for machines (MCP agents, CI/CD pipelines, Prometheus, administration scripts);
-**users** (local or OIDC accounts) are the people: they alone open the web interface, and their
-rights come from the roles of their groups. Every token has a role, which decides the reachable
-endpoints:
-
-| Role | Usage (**Tokens** screen) | `/mcp` | REST API (read) | Status change |
-|---|---|---|---|---|
-| `mcp` (default) | MCP | ✅ | — | — |
-| `admin` | CLI only | ✅ | ✅ | `open`, `fixed` ¹ |
-| `api` | REST API — Swagger and scripts ([API tokens](#api-tokens)) | — | ✅ with the permissions of its role or of its user | `open`, `fixed` ¹ with `findings.triage` |
-| `ci` | CI/CD pipeline — gate, SARIF, trend and scans | — | pipeline routes only (`/api/v1/ci/`), including the scans that store reports | — |
-| `metrics` | CLI only | — | `/metrics` only ([Prometheus](../advanced/audit-metrics.md#prometheus-metrics)) | — |
-
-¹ With a token. `accepted` and `false_positive` need a person logged in to the interface
-with the `findings.triage` permission ([triage of findings](#triage-of-findings)). On `/mcp`, no
-role changes a status: the agents only propose one.
-
-An `mcp` token restricted with `--project` only sees the allowed projects; a `ci` token is always restricted to its projects (see
-[`ci` token](gate.md#ci-token-and-visible-projects)); the option can be repeated (see
-[tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
-
-People log in with a [user account](#user-accounts): local (user name and password) or
-[OIDC](../advanced/sso.md). What an account may do comes from the roles of its groups (see
-[Roles, groups and permissions](../advanced/access-control.md)); an account never opens `/mcp`.
-A token created without a role stays `mcp`: it serves the agents, not the web interface. There
-is no read-only or triage token: to give a person read or triage access, add their account to a
-group that has the `reader` or `triager` role (on some projects or on every project). An `admin`
-token calls the whole REST API, for example from an administration script, but **does not open
-the interface** (the login page only offers the accounts):
-
-```bash
-security-review-controller token create --label ops-script --role admin
-# {"id": "…", "label": "ops-script", "role": "admin", "project": null, "created_at": "…", "token": "UJB7…"}
-curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/projects
-```
-
-The REST API lists the findings of a project across all its reports, open by default, worst
-first (`status`, `severity` and `review_type` filter, `limit` is capped by
-`SECREVIEW_MAX_LIST_LIMIT`, `total` gives the number of matching findings for paging). Without
-`project`, it lists the findings of every project the caller reads (`"project": null`):
-
-```bash
-curl -H "Authorization: Bearer $TOKEN" \
-  "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
-# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "project": "shop-api", "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
-```
-
-`GET /api/v1/reports` lists the reports (`project`, `risk_level`, `review_type` and `author`
-filter), each with its `author` and `submitted_by`. The `author` is returned, filtered, searched
-and sorted only for a caller holding `users.manage` or `tokens.manage`: for the others it is
-`null` (in the report and its Markdown export too) and the `author` filter is ignored:
-
-```bash
-curl -H "Authorization: Bearer $TOKEN" \
-  "https://secreview.example.com/api/v1/reports?project=shop-api&author=alice@example.com"
-```
-
-Revoke it with `security-review-controller token revoke ops-script`. Every status change is
-logged with the label of the token or of the account:
-
-```
-INFO security_review_mcp.web: Finding 42 set to fixed by ops-script
-```
-
-and written to the [audit log](../advanced/audit-metrics.md#audit-log) (`GET /api/v1/audit`, `audit.read`
-permission), with the actor `token:ops-script` or `user:<name>`.
-
-!!! warning "Authentication required for the web UI"
-    The API of the interface refuses the requests with status `503` while no user and no token
-    exist; the login form stays displayed and says that authentication must be configured.
-    `security-review-controller serve` creates the [first administrator](#first-administrator)
-    at its first start, so this only happens before it; an account can also be created with
-    `security-review-controller user create`. This restriction concerns the web
-    UI; MCP authentication stays independent (a user account never opens `/mcp`). With the
-    [OIDC login](../advanced/sso.md), the API asks for a login (`401`) even without any
-    user or token in the database.
-
-### API tokens
-
-An `api` token calls the REST API, from a script or from the Swagger documentation (`/api/docs`,
-**Authorize** button), with the rights of the access control, read at each request. It never
-reaches `/mcp`, never opens the interface and, like every token, never accepts a risk nor marks
-a false positive. There are two kinds:
-
-- **Personal token**: a user creates it for themselves in **My account** > **Personal tokens**
-  with **Usage** **REST API — Swagger and scripts** (one at most by default,
-  `SECREVIEW_PERSONAL_TOKENS_PER_USER`: revoke it to create another; label `<user>:<label>`, a `:` that no other token label may hold, validity bounded by `SECREVIEW_TOKEN_MAX_DAYS`). It holds the
-  current rights of the account, which come from its groups: it reaches nothing once the account
-  loses them, and is deleted with the account. Nobody can rotate it nor change its projects; an
-  administrator can revoke it from the **Tokens** screen.
-- **Role token**: an administrator (`tokens.manage`) creates it on the **Tokens** screen with
-  **Usage** **REST API** and a **Role**. It holds the permissions of that role on its projects
-  (every project, or a list when the role only holds permissions per project). Its creator must
-  hold each of these permissions on these projects; a role used by a token cannot be deleted.
-
-```bash
-curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
-  https://secreview.example.com/api/v1/me/tokens -d '{"label": "swagger", "expires_in_days": 30}'
-# {"id": "…", "label": "alice:swagger", "role": "api", "personal": true, "access_role_id": null, …, "token": "Zq3…"}
-curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
-# {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
-```
-
-### Personal MCP and CI tokens
-
-A user connects their own MCP agent with a personal `mcp` token, created in **My account** >
-**Personal tokens** with **Usage** **MCP**, offered only when their groups hold the
-`mcp_tokens.create` permission (role `mcp-user`, see
-[Roles](../advanced/access-control.md#roles); 403 without it). One at most by default
-(`SECREVIEW_PERSONAL_TOKENS_PER_USER`), besides the REST API token. It reaches the projects the
-account may read (`reports.read` of its groups), read at each request: a project given to or
-removed from the account applies at once, every project when one of its groups reads every
-project, no project when it has none. The **Projects** column shows them, and so does the
-**Tokens** screen for the administrators.
-
-A token already created keeps working when the account loses `mcp_tokens.create`: an
-administrator revokes it if needed. Like a personal REST API token, it stops while the account
-must change a password set by an administrator, it is deleted with the account, nobody can
-rotate it nor change its projects, and an administrator can revoke it. For a project it does
-not reach, an administrator gives the account access to the project (a group that reads it), or
-the user creates it from **Projects** if it is new and they hold `projects.create` (see
-[Creating a project](../advanced/access-control.md#creating-a-project)); a project requested by an
-[enrollment](../advanced/http.md#enrollment-request-the-project) waits for an approval.
-When the server refuses the token (unknown, revoked or expired), the agent receives a `401` that
-tells the user to sign in again and create a new one. It never reaches the REST API, but it
-also works as a personal `ci` token (below) on the pipeline routes: one `SECREVIEW_TOKEN` on the
-workstation serves both the MCP agent and `security-review-ci`. A `mcp` token created by an
-administrator on the **Tokens** screen stays an MCP agent token only.
-
-```bash
-curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
-  https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "mcp"}'
-# {"id": "…", "label": "alice:laptop", "role": "mcp", "personal": true, …, "token": "Zq3…"}
-```
-
-A personal `ci` token (**Usage** **CI/CD pipeline**, same `mcp_tokens.create` permission, one at
-most by default) lets [`security-review-ci`](gate.md#pipeline-client-security-review-ci) run
-the code and dependency scans, the gate, the SARIF export and the trend from the workstation of
-the user, on the same projects as a personal `mcp` token and with the same rules (a personal
-`mcp` token does the same, so this one is only needed to keep the two uses apart). It reaches
-only the pipeline routes (`/api/v1/ci/`), never `/mcp` nor the rest of the REST API. A report
-it stores is submitted by the token (`alice:laptop`). See
-[scan from a workstation](../advanced/dependencies.md#scan-from-a-workstation-commit-hook).
-
-```bash
-curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
-  https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "ci"}'
-# {"id": "…", "label": "alice:laptop", "role": "ci", "personal": true, …, "token": "Zq3…"}
-```
-
-## User accounts
-
-An account ties a **user name** (letters, digits and `. _ @ -`, 64 characters at most), a
-**type** and **groups**: the roles of its groups give its
-[permissions](../advanced/access-control.md#what-a-user-may-do). An account has no role or
-project of its own.
-
-| Type (`auth_source`) | Login | Creation |
-|---|---|---|
-| **Local** (`local`) | User name and password | By an administrator, or the initial `admin` account |
-| **OIDC** (`oidc`) | [Identity provider](../advanced/sso.md#oidc-accounts), no password | By an administrator, or at the first login if `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
-
-An OIDC account also joins, at each login, the groups open to OIDC named by its groups claim (see
-[OIDC accounts](../advanced/sso.md#oidc-accounts)). Accounts are managed in the **Users** screen,
-through the `/api/v1/users` REST API (`users.manage` permission) or with the
-[CLI](../reference/cli.md#security-review-controller):
-
-```bash
-security-review-controller user create alice --group shop-triagers
-# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, …, "password": "q3V…"}
-printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
-security-review-controller user create carol@example.com --sso   # OIDC groups only
-security-review-controller user list
-security-review-controller user set-groups alice --group readers --group auditors
-security-review-controller user set-groups alice --group administrators   # created if missing
-security-review-controller user reset-password alice   # local account: new password, sessions closed
-security-review-controller user delete alice
-security-review-controller group list    # groups, their roles and members
-```
-
-Through the API, an OIDC account is created with `"auth_source": "oidc"`, without `password`;
-`group_ids` lists its groups:
-
-```bash
-curl -X POST https://secreview.example.com/api/v1/users \
-  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
-  -d '{"username": "carol@example.com", "auth_source": "oidc", "group_ids": [4]}'
-```
-
-An account without any group has no permission and cannot log in.
-
-For a local account, without `--password-stdin` (or without a password in the interface), a
-random 24-character password is generated and shown **only once**. A chosen password follows
-the **password policy**: 12 to 256 characters, with at least a lowercase letter, an uppercase
-letter, a digit and a character that is neither a letter nor a digit. The screens list these
-rules under the field and tick each one while the password is typed, and **My account** says at
-once whether the confirmation matches. The policy applies to new passwords: a password set
-before keeps working until it is changed. An OIDC account never has a password: the user name and password login, the
-reset and **My account** refuse it.
-
-### First administrator
-
-At its first start, while no account exists, the controller creates the local account
-**`admin`** (`SECREVIEW_ADMIN_USERNAME`), member of the `administrators` group (`admin` role),
-with a random password that nobody knows and that is never written to the logs. The only way to
-a password is the CLI, which sets a new one and prints it once:
-
-```bash
-security-review-controller user reset-password admin
-# {"id": 1, "username": "admin", …, "must_change_password": true, "password": "q3V…"}
-```
-
-```
-WARNING security_review_mcp.controller: Initial Web UI administrator 'admin' created: set its password with `security-review-controller user reset-password admin`
-```
-
-Handle this password as a secret and log in with `admin`. The interface then **requires a new
-password** before anything else: it opens **My account**, and the API refuses every other route
-(`403`) until the password is changed. If it is lost, see [lost password](#lost-password).
-
-The same applies to every password set by someone else: a local account created or reset by an
-administrator (screen or CLI) changes its password at its first login. The **Users** screen shows
-**password to change** until then.
-
-#### Lost password
-
-The password is stored as a scrypt digest: it cannot be read back. Replace it with the CLI of the
-controller, on the same database:
-
-```bash
-security-review-controller user reset-password admin
-```
-
-The command prints the account as JSON, with a generated password in the `password` field
-(`| jq -r .password` to keep only it). The old password is invalidated at once, the open sessions
-of the account end, and the new password must be changed at the next login. To choose it, give it
-on the first line of stdin (it then stays out of the shell history and of the process list, and
-the JSON has no `password` field):
-
-```bash
-printf '%s\n' "$NEW_PASSWORD" | security-review-controller user reset-password admin --password-stdin
-```
-
-Run it where the controller runs:
-
-```bash
-# Docker Compose
-docker compose exec controller security-review-controller user reset-password admin
-# Kubernetes
-kubectl -n secreview exec deploy/secreview-controller -c controller -- \
-    security-review-controller user reset-password admin
-```
-
-An OIDC account has no password (exit code `2`). If no administrator is left, create one with
-`security-review-controller user create NAME --group administrators` (generated password, printed
-the same way): the `admin` account is only created at start-up while no account exists.
-
-### Login and sessions
-
-When the controller no longer accepts the session while you browse (session expired, password
-changed in another tab, account deleted), a **Session expired** dialog opens: **Log in again**
-opens the login page and comes back to the same page afterwards.
-
-The login page offers the user name and password of a local account and, with the
-[OIDC login](../advanced/sso.md), the button of the identity provider; it does not accept
-a token. `POST /api/v1/auth/login` checks the password of a local account and returns a signed
-**session token**, valid `SECREVIEW_SESSION_HOURS` hours (8 by default), that the tab uses like
-a Bearer token:
-
-```bash
-curl -s -X POST https://secreview.example.com/api/v1/auth/login \
-  -H 'Content-Type: application/json' -d '{"username": "alice", "password": "…"}'
-# {"session": "eyJ…", "expires_in": 28800, "username": "alice"}
-```
-
-Every session names an account (local or OIDC); at every request, the controller reads it again
-from the database:
-
-- a change of its **groups**, of their roles or of a role applies immediately to the open
-  sessions;
-- a **deletion** or a **new password** (changed by the user or reset by an administrator)
-  closes every session of the account; `PUT /api/v1/me/password` hands a new session to the tab
-  that changed the password.
-
-Sessions are signed with `SECREVIEW_SECRET_KEY` (at least 32 characters), shared by every
-replica of the controller. Without it, a random secret is drawn at every start (a warning is
-logged): sessions end when the controller restarts and are not shared between replicas. Set it
-in production (in Kubernetes, from a `Secret`: see [Kubernetes](../advanced/kubernetes.md#secrets)).
-
-Login failures are limited: after **5 failures in 15 minutes** for a user name from the same
-address, or **20 failures** from an address all user names together, the login is refused
-(`429`, `Retry-After` header), even with the right password. The counters are kept in the
-database: every worker and replica of the controller shares them. Every address is also limited
-on the whole REST API (by default 600 requests a minute, 30 on the login routes, see
-[`SECREVIEW_RATE_LIMIT_*`](../reference/configuration.md#rate-limiting)). Behind a reverse proxy, the address seen is the proxy's, and the limit would then
-apply to every client of the proxy: list the proxy in
-[`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md#listening-tls-and-reverse-proxy) so that the address of the
-client is read from `X-Forwarded-For`. Every login and every failure is logged, without the password:
-
-```
-INFO security_review_mcp.web: Web login of alice (role triager) from 10.0.0.12
-WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
-```
-
-## Security
-
-- The static files of `/ui/` are public (they hold no data); the `/api/v1/` API requires a
-  session or an `admin` or `api` token. Only the login routes (`/api/v1/auth/…`)
-  are public.
-- Account passwords are never stored: only a salted **scrypt** digest (N=2¹⁴, r=8, p=5) is
-  stored and no API answer returns it. The check takes the same time whether the user name
-  exists or not, and the failure answer is identical. The Swagger documentation (`/api/docs`)
-  and its schema (`/api/openapi.json`) are **disabled by default**
-  (`SECREVIEW_SWAGGER_ENABLED=true` serves them); once enabled, they are public and give access
-  to no data. Their files come with the web interface build: nothing is loaded from the
-  Internet, and Swagger never sends the schema to the online validator. In Swagger, the
-  padlock of a route says that it requires a token: it stays **open** while you have not entered
-  a token with **Authorize**, and does not mean that the route can be reached without a token.
-  Enter an [API token](#api-tokens) there.
-- The controller exposes no write route without a token. The
-  [enrollment](../advanced/http.md#enrollment-request-the-project) is served by the **MCP
-  server** (`POST /api/v1/enroll`, public): it requests a project, never a token; the
-  controller lists and handles the requests (`GET /api/v1/projects/pending`,
-  `POST /api/v1/projects/pending/{id}/approve`, `DELETE /api/v1/projects/pending/{id}`,
-  `projects.create` permission). The controller
-  can therefore stay on an internal network.
-- The token is sent in the `Authorization` header: no cookie, hence no CSRF. Only the
-  [OIDC login](../advanced/sso.md) sets a cookie, `HttpOnly`, `SameSite=Lax`, `Secure`
-  over HTTPS, limited to the return URL and valid 10 minutes: it binds the return from the
-  provider to the browser that started the login (protection against *login CSRF*). The session
-  token is handed in the URL fragment (`#session=...`), never sent to a server, and the
-  interface clears it at once from the address bar and the history.
-- It is kept in the `sessionStorage` of the tab and disappears when the tab closes.
-- Pages are served with a strict CSP (`script-src 'self'`, no external resource),
-  `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`.
-- Serve the interface over HTTPS ([built-in TLS or reverse proxy](../advanced/http.md#tls))
-  as soon as it no longer listens on localhost: the token travels with every request.
-
-## Configuration
-
-| Variable | Default | Role |
-|---|---|---|
-| `SECREVIEW_WEB_UI` | `true` | Serves the interface on `/ui`; when `false`, the controller only serves the REST API |
-| `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the application (default: the one of the package) |
-| `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](#first-administrator), created at the first start of the controller while no account exists; its password is set with `user reset-password` |
-| `SECREVIEW_OIDC_ONLY` | `false` | With OIDC enabled, refuses the password login of the local accounts ([OIDC only](../advanced/sso.md#oidc-only)) |
-| `SECREVIEW_SECRET_KEY` | — | Signing secret of the sessions (at least 32 characters), identical on every replica; unset: random at every start |
-| `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a session (1 to 24 hours), local account or OIDC login |
-| `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the [OIDC account](../advanced/sso.md#oidc-accounts) at the first login; otherwise an administrator creates it |
-| `SECREVIEW_ENROLLMENT` | `true` | Project requests by the MCP clients without a token (on the MCP server), approved in the **Projects** screen; no token is created |
-| `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | Days a requested project waits for an approval before it is deleted |
-| `SECREVIEW_WEB_URL` | — | Public URL of the web interface, given by the MCP server to the clients without a valid token |
-| `SECREVIEW_OIDC_*` | — | [OIDC login](../advanced/sso.md), see the [reference](../reference/configuration.md#oidc-login) |
-
-The published package and the Docker image contain the application already built. If you
-install from source without building it, the controller only serves the REST API and a warning
-is logged. See [Contributing](../contributing/web-ui.md) to build it.
+## See also
+
+- [Triage of findings](triage.md): decisions on the findings, severity, risk acceptances;
+- [Tokens](tokens.md): roles of the tokens, API tokens, personal MCP and CI tokens;
+- [User accounts](user-accounts.md): local and OIDC accounts, password policy.

@@ -319,9 +319,10 @@ langues** :
 
 La doc est organisée en parcours de mise en œuvre : **Démarrage** (`getting-started/` :
 mise en service du serveur en mode partagé, mode local avec l'installation du paquet PyPI,
-connexion de l'hôte), **Utilisation** (`usage/` : prompts et outils, interface web, gate) et
-**Revue de sécurité** (`usage/` : fonctionnement, règles, checklists, normes) ne
-contiennent que l'essentiel pour travailler ; **Connecteurs** (`connectors/`) décrit l'envoi des
+connexion de l'hôte), **Revue de sécurité** (`usage/` : fonctionnement, prompts et outils, règles,
+checklists, normes, gate) et **Application** (`usage/` : interface web, triage, jetons, comptes ;
+`advanced/` : rôles, groupes et permissions, connexion OIDC, journal d'audit) ne
+contiennent que l'essentiel pour travailler ; **Connecteurs** (`connectors/`, sous-menu d'**Application**) décrit l'envoi des
 findings vers d'autres outils, une page par connecteur intégré et une pour les connecteurs tiers ;
 **Avancé** (`advanced/`) regroupe les détails et les fonctions facultatives. Une nouvelle
 explication détaillée va dans `advanced/`, avec au plus une ligne et un lien depuis les pages
@@ -333,15 +334,19 @@ essentielles.
 | Une règle de scan ou une checklist par défaut (`default_rules.toml`) | `docs/usage/rules` ou `docs/usage/checklists` (et `advanced/code-scan` si le scan du dépôt change) |
 | Le format des packs TOML internes | `docs/usage/rules` (et `usage/checklists` pour `[[checklist]]`), `examples/rules/company.toml` |
 | L'analyse de dépendances, les formats de manifeste, l'import OSV | `docs/advanced/dependencies` |
-| Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`usage/gate`, `advanced/code-scan`, `advanced/sarif`...) |
+| Une commande ou option CLI, un code de sortie | `docs/reference/cli` + la page d'usage concernée (`usage/gate`, `advanced/ci`, `advanced/code-scan`, `advanced/sarif`...) |
 | Un paramètre `SECREVIEW_*` | `docs/reference/configuration`, `.env.example` |
-| Transport HTTP, authentification, TLS, enrôlement | `docs/advanced/http`, `docs/reference/security` (+ `getting-started/deploy` et `getting-started/host` si le parcours de base change) |
+| Transport HTTP, authentification, TLS, enrôlement | `docs/advanced/bearer-tokens`, `docs/advanced/tls`, `docs/advanced/mcp-server` (enrôlement), `docs/reference/security` (+ `getting-started/deploy` et `getting-started/host` si le parcours de base change) |
 | Séparation MCP / contrôleur, migrations, Compose, Kubernetes | `docs/advanced/architecture`, `docs/getting-started/deploy`, `docker-compose.yml`, `examples/kubernetes/` |
-| Les normes de développement (prompt, outils, ressources, écran) | `docs/usage/standards` (+ `usage/prompts-tools`) |
-| L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` (connexion OIDC : `docs/advanced/sso`) |
-| Les connecteurs (contrat `connectors/api.py`, Jira, ServiceNow, écran **Connecteurs**, routes) | `docs/connectors/` (`index`, `jira`, `servicenow`, `third-party`), `examples/connector/` |
+| Le serveur MCP (routes, transports, démarrage, réponse selon le jeton, enrôlement, garanties, exposition, réplicas) | `docs/advanced/mcp-server` |
+| Le client de pipeline `security-review-ci` (installation, jeton `ci`, commandes, exemples par plateforme CI/CD, tendance) | `docs/advanced/ci` (+ `usage/gate`) |
+| Le contrôleur (routes, démarrage, tâches de fond, connexions sortantes, exposition, réplicas, premier administrateur, sessions, sécurité de l'interface) | `docs/advanced/controller` |
+| Les normes de développement (prompt, outils, ressources, écran) | `docs/usage/standards` (+ `usage/prompts-tools`, `advanced/stored-standards`) |
+| L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` (écrans), `docs/usage/triage` (triage, criticité, acceptations), `docs/usage/tokens` (jetons), `docs/usage/user-accounts` (comptes) ; connexion OIDC : `docs/advanced/sso` |
+| Les connecteurs (contrat `connectors/api.py`, Jira, ServiceNow, écran **Connecteurs**, routes) | `docs/connectors/` (`index`, `jira`, `servicenow`, `third-party`), `docs/contributing/connectors` (contrat `connectors/api.py`), `examples/connector/` |
 | Installation, image Docker | `docs/getting-started/deploy` (conteneurs), `docs/getting-started/stdio` (paquet PyPI), `docs/advanced/installation`, `docs/advanced/manual-install`, `docs/advanced/docker` |
 | Une garantie ou limite de sécurité | `docs/reference/security` |
+| Le journal d'audit (événements, conservation, syslog) ou les métriques Prometheus | `docs/advanced/audit-metrics`, `docs/reference/metrics` |
 | La structure du code, l'environnement de dev (devcontainer, VS Code), l'image | `docs/contributing/index` |
 | Une convention de développement propre au serveur MCP, au contrôleur ou à l'interface Angular | `docs/contributing/mcp-server`, `docs/contributing/controller` ou `docs/contributing/web-ui` |
 | La méthode ou les conventions de test, les fixtures de `tests/conftest.py` | `docs/contributing/tests` |

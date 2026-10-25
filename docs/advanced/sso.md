@@ -1,6 +1,6 @@
 # OIDC login (OpenID Connect)
 
-This page is optional: the [local accounts](../usage/web-interface.md#user-accounts) are enough
+This page is optional: the [local accounts](../usage/user-accounts.md) are enough
 to start. Use it to let people log in to the web interface with your identity provider.
 
 The controller can delegate the login to the interface to an OpenID Connect identity provider
@@ -166,7 +166,7 @@ name to use one. The roles of the group, and their projects, then apply (see
 | `SECREVIEW_OIDC_DEFAULT_GROUP` | Name of a group every OIDC user joins at each login, whatever its claim (empty by default: none). A missing group gives nothing |
 
 A group **not open to OIDC** (for example `administrators`) is never joined through the claim, even when a value has its name. A restricted session behaves
-like a [token restricted to a project](http.md#tokens-restricted-to-a-project): the other
+like a [token restricted to a project](bearer-tokens.md#tokens-restricted-to-a-project): the other
 projects, their reports and their findings are handled as missing.
 
 Example: with the claim `["payments-team", "staff"]`, a group `payments-team` open to OIDC with the
@@ -177,7 +177,7 @@ in the triage history.
 
 ## Project read access
 
-The approval of an [enrollment](http.md#enrollment-request-the-project) creates the project
+The approval of an [enrollment](mcp-server.md#enrollment-request-the-project) creates the project
 with its [project group](access-control.md#project-groups) `project:<project>`, without any
 member, and never a token nor an account. To let a developer read the project (and their personal MCP token
 reach it), an administrator adds their account to that group, from the **Groups** screen (or
@@ -205,7 +205,7 @@ restart the controller, then log in with a local account (its password can be se
 ## Sessions
 
 - The session token is signed (HMAC-SHA256) with a key derived from `SECREVIEW_SECRET_KEY`
-  (at least 32 characters), like the one of the [local accounts](../usage/web-interface.md#login-and-sessions), and
+  (at least 32 characters), like the one of the [local accounts](controller.md#login-and-sessions), and
   names the OIDC account, read again at every request: deleting the account or changing its
   groups or their roles applies at once. Every replica of the controller must share this secret; without
   it, a random secret is drawn at every start and sessions end at restart.

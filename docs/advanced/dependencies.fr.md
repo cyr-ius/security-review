@@ -143,10 +143,10 @@ gros) : prévoyez l'espace correspondant dans son dossier temporaire (`/tmp`).
 
 ## Scan dans un pipeline (`security-review-ci scan-deps`)
 
-Dans un pipeline, le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci)
+Dans un pipeline, le [client de pipeline](ci.md)
 envoie les fichiers de dépendances au contrôleur, qui les compare à sa base d'avis et, avec
 `--save`, enregistre un rapport `dependency-scan` du projet. Le pipeline n'a besoin ni de la
-base ni du paquet, seulement d'un [jeton `ci`](../usage/gate.md#jeton-ci-et-projets-visibles)
+base ni du paquet, seulement d'un [jeton `ci`](ci.md#jeton-ci-et-projets-visibles)
 (ou `admin`) du projet :
 
 ```bash
@@ -169,10 +169,10 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 ## Scan depuis un poste de travail (hook de commit)
 
 Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
-[jeton `mcp` ou `ci` personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels) créé dans
+[jeton `mcp` ou `ci` personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels) créé dans
 **Mon compte** : il atteint les projets que le développeur peut lire, et les fichiers sont
 envoyés au contrôleur exactement tels qu'ils sont sur le disque. Le poste n'a pas besoin de
-Python : installez le client avec uv (voir [Installation](../usage/gate.md#installation)).
+Python : installez le client avec uv (voir [Installation](ci.md#installation)).
 
 ```bash
 uv tool install security-review-ci

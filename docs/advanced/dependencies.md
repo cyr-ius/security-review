@@ -140,10 +140,10 @@ the matching space in its temporary folder (`/tmp`).
 
 ## Scan in a pipeline (`security-review-ci scan-deps`)
 
-In a pipeline, the [pipeline client](../usage/gate.md#pipeline-client-security-review-ci) sends
+In a pipeline, the [pipeline client](ci.md) sends
 the dependency files to the controller, which checks them against its advisory database and,
 with `--save`, stores a `dependency-scan` report of the project. The pipeline needs neither the
-database nor the package, only a [`ci` token](../usage/gate.md#ci-token-and-visible-projects)
+database nor the package, only a [`ci` token](ci.md#ci-token-and-visible-projects)
 (or `admin`) of the project:
 
 ```bash
@@ -166,10 +166,10 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 ## Scan from a workstation (commit hook)
 
 A developer runs the same `security-review-ci scan-deps` on their workstation, with a
-[personal `mcp` or `ci` token](../usage/web-interface.md#personal-mcp-and-ci-tokens) created in
+[personal `mcp` or `ci` token](../usage/tokens.md#personal-mcp-and-ci-tokens) created in
 **My account**: it reaches the projects the developer may read, and the files are sent to the
 controller exactly as they are on disk. The workstation needs no Python: install the client with
-uv (see [Installation](../usage/gate.md#installation)).
+uv (see [Installation](ci.md#installation)).
 
 ```bash
 uv tool install security-review-ci
