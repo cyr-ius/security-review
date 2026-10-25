@@ -37,17 +37,7 @@ Angular ; `tests.yml` lance pytest sur Python 3.14 et 3.15 avec `uv sync --locke
 
 ## Tests
 
-```bash
-uv run pytest tests/test_scanner.py -k python   # d'abord les tests du module modifié
-uv run pytest                                   # puis toute la suite, une fois
-```
-
-Un test protège un contrat ou un invariant, pas une ligne de code, et il n'y a pas d'objectif de
-couverture. Testez d'abord les invariants de sécurité, les contrats publics (outils et prompts
-MCP, codes de sortie CLI, schéma REST, migrations) et chaque bug corrigé (un test de régression).
-Ne testez pas ce que garantit déjà une bibliothèque, le détail d'implémentation ni le texte exact
-d'un message. Avant d'ajouter un test, étendez celui qui couvre déjà le comportement (assertion
-supplémentaire, ligne de `parametrize`) : un changement ajoute en général un à trois tests.
+La méthode, les conventions et les fixtures sont dans [Tests](tests.md).
 
 ## Revue de sécurité
 

@@ -102,8 +102,8 @@ relus avec lui (le projet se relit lui-même) et le rapport est enregistré. Les
 (conventions, invariants de sécurité, correspondance code → pages de doc) sont dans `AGENTS.md`
 à la racine du dépôt ; `CLAUDE.md` et `.github/copilot-instructions.md` y renvoient.
 
-Les vérifications à lancer, la méthode de test et la procédure de revue sont dans
-[Vérifications, revues et publication](checks-and-releases.md).
+La méthode de test est dans [Tests](tests.md) ; les vérifications à lancer et la procédure de
+revue sont dans [Vérifications, revues et publication](checks-and-releases.md).
 
 ## Structure du code
 
@@ -189,6 +189,7 @@ tester :
 | [Contrôleur (FastAPI)](controller.md) | `web_api/`, `cli.py`, `storage/` | Routes REST et leurs schémas, permissions, paramètres, CLI, migrations du schéma |
 | [Interface web (Angular)](web-ui.md) | `web/` | Build et serveur de développement, conventions de code, traductions |
 | [Documentation](documentation.md) | `docs/`, `mkdocs.yml`, `README.md` | Rédaction et construction de la documentation bilingue, README, publication |
+| [Tests](tests.md) | `tests/`, `tests/conftest.py` | Quoi tester, conventions, fixtures, tests par type de code |
 | [Vérifications, revues et publication](checks-and-releases.md) | `.pre-commit-config.yaml`, `.github/workflows/` | Linters, formateurs, tests, revue de sécurité, branches, versions |
 
 Les normes génériques de chaque technologie (Python et FastAPI, Angular, tests) sont servies par

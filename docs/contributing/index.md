@@ -102,7 +102,7 @@ are too. When the `security-review` MCP server is up, the changes are also revie
 invariants, mapping from code to doc pages) are in `AGENTS.md` at the root of the repository;
 `CLAUDE.md` and `.github/copilot-instructions.md` point to it.
 
-The checks to run, the test method and the review procedure are in
+The test method is in [Tests](tests.md); the checks to run and the review procedure are in
 [Checks, reviews and releases](checks-and-releases.md).
 
 ## Code layout
@@ -189,6 +189,7 @@ test it:
 | [Controller (FastAPI)](controller.md) | `web_api/`, `cli.py`, `storage/` | REST routes and their schemas, permissions, settings, CLI, schema migrations |
 | [Web interface (Angular)](web-ui.md) | `web/` | Build and dev server, code conventions, translations |
 | [Documentation](documentation.md) | `docs/`, `mkdocs.yml`, `README.md` | Writing and building the bilingual documentation, README, publication |
+| [Tests](tests.md) | `tests/`, `tests/conftest.py` | What to test, conventions, fixtures, tests by kind of code |
 | [Checks, reviews and releases](checks-and-releases.md) | `.pre-commit-config.yaml`, `.github/workflows/` | Linters, formatters, tests, security review, branches, releases |
 
 The generic standards of each technology (Python and FastAPI, Angular, tests) are served by the

@@ -344,6 +344,7 @@ essentielles.
 | Une garantie ou limite de sécurité | `docs/reference/security` |
 | La structure du code, l'environnement de dev (devcontainer, VS Code), l'image | `docs/contributing/index` |
 | Une convention de développement propre au serveur MCP, au contrôleur ou à l'interface Angular | `docs/contributing/mcp-server`, `docs/contributing/controller` ou `docs/contributing/web-ui` |
+| La méthode ou les conventions de test, les fixtures de `tests/conftest.py` | `docs/contributing/tests` |
 | Les règles de rédaction ou la construction de la doc, les règles du README | `docs/contributing/documentation` |
 | Les linters, formateurs, hooks `prek`, workflows de CI, la procédure de revue, les branches ou la publication d'une version | `docs/contributing/checks-and-releases` |
 

@@ -36,17 +36,7 @@ after a change of dependencies), and builds the `security-review-ci` client alon
 
 ## Tests
 
-```bash
-uv run pytest tests/test_scanner.py -k python   # target the tests of the changed module first
-uv run pytest                                   # then the whole suite, once
-```
-
-A test protects a contract or an invariant, not a line of code, and there is no coverage
-target. Test first the security invariants, the public contracts (MCP tools and prompts, CLI exit
-codes, REST schema, migrations) and each fixed bug (one regression test). Do not test what a
-library already guarantees, implementation details or the exact text of a message. Before adding
-a test, extend the one that already covers the behavior (extra assertion, `parametrize` row): a
-change usually adds one to three tests.
+The method, the conventions and the fixtures are in [Tests](tests.md).
 
 ## Security review
 

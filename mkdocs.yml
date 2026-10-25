@@ -185,5 +185,6 @@ nav:
       - MCP server: contributing/mcp-server.md
       - "Controller (FastAPI)": contributing/controller.md
       - "Web interface (Angular)": contributing/web-ui.md
+      - Tests: contributing/tests.md
       - Documentation: contributing/documentation.md
       - Checks, reviews and releases: contributing/checks-and-releases.md
