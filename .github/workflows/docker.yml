@@ -8,7 +8,7 @@ name: Docker image
 # with "push" publishes it to GitHub Container Registry and Docker Hub.
 #
 # Docker Hub needs the repository secret DOCKERHUB_TOKEN (access token with read/write scope
-# on the cyrius44/security-review-mcp repository). GHCR uses the workflow token.
+# on the cyrius44/security-review repository). GHCR uses the workflow token.
 
 on:
   pull_request:
@@ -51,16 +51,16 @@ jobs:
           context: .
           platforms: linux/amd64
           load: true
-          tags: security-review-mcp:smoke-test
+          tags: security-review:smoke-test
           cache-from: type=gha,scope=image
           cache-to: type=gha,mode=max,scope=image
 
       - name: Smoke test
         run: |
-          docker run --rm security-review-mcp:smoke-test --help
-          docker run --rm --entrypoint security-review-controller security-review-mcp:smoke-test --help
+          docker run --rm security-review:smoke-test --help
+          docker run --rm --entrypoint security-review-controller security-review:smoke-test --help
           # Runs as the non-root user of the Dockerfile
-          test "$(docker run --rm --entrypoint id security-review-mcp:smoke-test -u)" = "10001"
+          test "$(docker run --rm --entrypoint id security-review:smoke-test -u)" = "10001"
 
   push:
     needs: image
@@ -80,8 +80,8 @@ jobs:
         run: |
           {
             echo "images<<EOF"
-            echo "ghcr.io/${GITHUB_REPOSITORY,,}"
-            echo "docker.io/${DOCKERHUB_NAMESPACE}/security-review-mcp"
+            echo "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/security-review"
+            echo "docker.io/${DOCKERHUB_NAMESPACE}/security-review"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
 
@@ -99,10 +99,10 @@ jobs:
           flavor: |
             latest=auto
           labels: |
-            org.opencontainers.image.title=security-review-mcp
+            org.opencontainers.image.title=security-review
             org.opencontainers.image.description=MCP server for security code review
           annotations: |
-            org.opencontainers.image.title=security-review-mcp
+            org.opencontainers.image.title=security-review
             org.opencontainers.image.description=MCP server for security code review
 
       # Deprecated aliases (X.Y.Z-pg... latest-pg) of the former PostgreSQL variant

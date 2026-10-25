@@ -29,7 +29,7 @@ x-secreview-env: &secreview-env
 x-secreview: &secreview
   build:
     context: .
-  image: security-review-mcp
+  image: security-review
   environment: *secreview-env
   networks:
     - backend

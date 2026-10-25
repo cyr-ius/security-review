@@ -6,7 +6,7 @@ Each version is published for `linux/amd64` and `linux/arm64` on the GitHub Cont
 Docker Hub. The same image works with SQLite and PostgreSQL: it includes the PostgreSQL driver.
 
 ```bash
-docker pull ghcr.io/cyr-ius/security-review-mcp:latest   # or docker.io/cyrius44/security-review-mcp
+docker pull ghcr.io/cyr-ius/security-review:latest   # or docker.io/cyrius44/security-review
 ```
 
 | Tag | Content |

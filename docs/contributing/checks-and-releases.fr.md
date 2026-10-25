@@ -103,8 +103,8 @@ Le job **ci-client** de `tests.yml` le construit et lance le wheel seul, sans le
 Le workflow `.github/workflows/docker.yml` construit l'image (`linux/amd64`, `linux/arm64`,
 avec le pilote PostgreSQL) et vérifie que les deux points d'entrée démarrent. Sur chaque pull
 request (la protection de `master` exige ces vérifications), il construit seulement ; sur un tag de
-version, il pousse les images sur `ghcr.io/cyr-ius/security-review-mcp` et
-`docker.io/cyrius44/security-review-mcp` (voir [images publiées](../advanced/docker.md#images-publiees)).
+version, il pousse les images sur `ghcr.io/cyr-ius/security-review` et
+`docker.io/cyrius44/security-review` (voir [images publiées](../advanced/docker.md#images-publiees)).
 Une exécution manuelle (**Actions → Docker image → Run workflow**, `push` coché) publie une
 image de branche (`dev`). Chaque tag est aussi publié avec le suffixe `-pg` (`X.Y.Z-pg`,
 `latest-pg`, `dev-pg`) : alias déprécié de la même image, conservé pour l'ancienne variante

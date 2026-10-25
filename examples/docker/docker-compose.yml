@@ -40,7 +40,7 @@ services:
 
   migrate:
     # Pin a version in production, for example 3.0.0
-    image: ghcr.io/cyr-ius/security-review-mcp:latest
+    image: ghcr.io/cyr-ius/security-review:latest
     restart: "no"
     entrypoint: ["security-review-controller"]
     command: ["db", "upgrade"]
@@ -58,7 +58,7 @@ services:
       - no-new-privileges:true
 
   controller:
-    image: ghcr.io/cyr-ius/security-review-mcp:latest
+    image: ghcr.io/cyr-ius/security-review:latest
     restart: unless-stopped
     entrypoint: ["security-review-controller"]
     command: ["serve"]
@@ -87,7 +87,7 @@ services:
       - no-new-privileges:true
 
   mcp:
-    image: ghcr.io/cyr-ius/security-review-mcp:latest
+    image: ghcr.io/cyr-ius/security-review:latest
     restart: unless-stopped
     # The image runs `security-review-mcp serve`: streamable HTTP instead of stdio
     environment:

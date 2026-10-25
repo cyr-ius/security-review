@@ -101,7 +101,7 @@ The tag publishes two PyPI distributions at the same version: `security-review` 
 The `.github/workflows/docker.yml` workflow builds the image (`linux/amd64`, `linux/arm64`,
 with the PostgreSQL driver) and checks that both entry points start. On every pull request
 (the protection of `master` requires these checks), it only builds; on a version tag, it pushes the
-images to `ghcr.io/cyr-ius/security-review-mcp` and `docker.io/cyrius44/security-review-mcp`
+images to `ghcr.io/cyr-ius/security-review` and `docker.io/cyrius44/security-review`
 (see [published images](../advanced/docker.md#published-images)). A manual run (**Actions →
 Docker image → Run workflow**, `push` checked) publishes a branch image (`dev`). Every
 tag is also published with the `-pg` suffix (`X.Y.Z-pg`, `latest-pg`, `dev-pg`): a deprecated

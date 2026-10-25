@@ -74,7 +74,7 @@ spec:
       automountServiceAccountToken: false
       initContainers:
         - name: migrate
-          image: ghcr.io/cyr-ius/security-review-mcp:latest
+          image: ghcr.io/cyr-ius/security-review:latest
           command: ["security-review-controller", "db", "upgrade"]
           envFrom: &env
             - configMapRef:
@@ -91,7 +91,7 @@ spec:
               mountPath: /tmp
       containers:
         - name: controller
-          image: ghcr.io/cyr-ius/security-review-mcp:latest
+          image: ghcr.io/cyr-ius/security-review:latest
           command: ["security-review-controller", "serve", "--host", "0.0.0.0", "--port", "8000"]
           envFrom:
             - configMapRef:
@@ -182,7 +182,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: mcp
-          image: ghcr.io/cyr-ius/security-review-mcp:latest
+          image: ghcr.io/cyr-ius/security-review:latest
           args: ["serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
           envFrom:
             - configMapRef:

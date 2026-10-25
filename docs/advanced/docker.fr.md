@@ -6,7 +6,7 @@ Chaque version est publiée pour `linux/amd64` et `linux/arm64` sur GitHub Conta
 Docker Hub. La même image fonctionne avec SQLite et PostgreSQL : elle contient le pilote PostgreSQL.
 
 ```bash
-docker pull ghcr.io/cyr-ius/security-review-mcp:latest   # or docker.io/cyrius44/security-review-mcp
+docker pull ghcr.io/cyr-ius/security-review:latest   # or docker.io/cyrius44/security-review
 ```
 
 | Tag | Contenu |

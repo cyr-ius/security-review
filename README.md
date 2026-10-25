@@ -95,7 +95,7 @@ Step by step: [deploying the server](https://cyr-ius.github.io/security-review-m
 Other cases: [offline installation](https://cyr-ius.github.io/security-review-mcp/advanced/installation/),
 [local mode (stdio)](https://cyr-ius.github.io/security-review-mcp/getting-started/stdio/),
 [HTTP, authentication and TLS](https://cyr-ius.github.io/security-review-mcp/advanced/http/),
-[Docker images](https://cyr-ius.github.io/security-review-mcp/advanced/docker/#published-images) (`ghcr.io/cyr-ius/security-review-mcp`, `docker.io/cyrius44/security-review-mcp`) and [Docker Compose with PostgreSQL](https://cyr-ius.github.io/security-review-mcp/advanced/docker/#docker-compose-with-postgresql),
+[Docker images](https://cyr-ius.github.io/security-review-mcp/advanced/docker/#published-images) (`ghcr.io/cyr-ius/security-review`, `docker.io/cyrius44/security-review`) and [Docker Compose with PostgreSQL](https://cyr-ius.github.io/security-review-mcp/advanced/docker/#docker-compose-with-postgresql),
 [architecture and Kubernetes](https://cyr-ius.github.io/security-review-mcp/advanced/architecture/),
 [`SECREVIEW_*` variables](https://cyr-ius.github.io/security-review-mcp/reference/configuration/).
 
