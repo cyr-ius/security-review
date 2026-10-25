@@ -40,8 +40,9 @@ L'interface web répond sur `http://127.0.0.1:8080/ui/`, l'endpoint MCP sur
 de passe dans **Mon compte**, puis créez un compte par personne dans l'écran **Utilisateurs**
 (voir les [comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs)).
 
-Les deux ports ne sont publiés que sur `127.0.0.1` : pour ouvrir à l'équipe, ajoutez le TLS et
-modifiez leurs `ports` dans `docker-compose.yml` (voir
+Les deux ports sont publiés sur toutes les interfaces du serveur, en HTTP simple : ajoutez le
+TLS avant que l'équipe se connecte, et préfixez un port par `127.0.0.1` dans
+`docker-compose.yml` pour le garder sur le serveur seulement (voir
 [Docker Compose avec PostgreSQL](../advanced/docker.md#docker-compose-avec-postgresql)). Ne
 réglez pas `SECREVIEW_HOST` : l'image la fixe déjà.
 

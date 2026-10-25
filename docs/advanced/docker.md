@@ -57,8 +57,8 @@ Content of the files of version `{{ release_tag }}`:
 |---|---|---|
 | `db` | PostgreSQL, reachable by the other services only | — |
 | `migrate` | Creates or updates the tables (`security-review-controller db upgrade`), then stops | — |
-| `controller` | Web interface (`/ui/`) and REST API, for people | `127.0.0.1:8080` |
-| `mcp` | MCP server (`/mcp`) and public enrollment, for the agents and the CI | `127.0.0.1:8000` |
+| `controller` | Web interface (`/ui/`) and REST API, for people | `8080` |
+| `mcp` | MCP server (`/mcp`) and public enrollment, for the agents and the CI | `8000` |
 
 Good to know:
 
@@ -67,14 +67,14 @@ Good to know:
 - **Keep `.env`.** It holds the password of the database and the secret of the sessions; never
   commit it. The password is inserted as is in the connection URL: keep hexadecimal characters,
   as generated above.
-- **Open to the team.** The ports are only open on this machine (`127.0.0.1`). Enable the
-  [built-in TLS](http.md#tls) or put a reverse proxy in front, then replace
-  `127.0.0.1` in the `ports` of `controller` and `mcp` by the address of the server (`0.0.0.0`:
-  every interface). Only the `ports` choose the exposure: inside its container, each process
+- **Open to the team.** The ports are published on every interface of the server, in plain
+  HTTP: enable the [built-in TLS](http.md#tls) or put a reverse proxy in front before the team
+  connects. To keep a port on the server only (behind a reverse proxy on the same machine, for
+  example), prefix it with `127.0.0.1` (`"127.0.0.1:8000:8000"`). Only the `ports` choose the exposure: inside its container, each process
   listens on every interface (`SECREVIEW_HOST=0.0.0.0`, set by the image, not to be changed).
-  TLS variables
-  (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) go under `environment`, with the
-  certificate files mounted read-only (see [Certificate Authority](http.md#certificate-authority)).
+  For the built-in TLS, uncomment in `controller` and `mcp` the TLS variables
+  (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) and the `volumes` that mounts the
+  certificate files read-only from `./tls` (see [Certificate Authority](http.md#certificate-authority)).
   The controller exposes no write route without a token: it can stay internal.
 - **Vulnerability advisories.** The OSV database is **empty** at the first start: the dependency
   analysis answers that no database is loaded. To let the controller download it at start-up,

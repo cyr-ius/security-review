@@ -39,8 +39,9 @@ The web interface answers on `http://127.0.0.1:8080/ui/`, the MCP endpoint on
 **My account**, then create an account for each person in the **Users** screen (see
 [User accounts](../usage/web-interface.md#user-accounts)).
 
-Both ports are only published on `127.0.0.1`: to open them to the team, add TLS and edit
-their `ports` in `docker-compose.yml` (see
+Both ports are published on every interface of the server, in plain HTTP: add TLS before the
+team connects, and prefix a port with `127.0.0.1` in `docker-compose.yml` to keep it on the
+server only (see
 [Docker Compose with PostgreSQL](../advanced/docker.md#docker-compose-with-postgresql)). Do not
 set `SECREVIEW_HOST`: the image already sets it.
 

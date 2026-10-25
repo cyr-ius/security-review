@@ -14,10 +14,12 @@
 #   controller  web interface and REST API (for people)
 #   mcp         MCP server (for the AI agents and the CI)
 #
-# The two ports are only open on this machine (127.0.0.1). To open them to the team, enable TLS
-# (see the documentation, page Docker) and replace 127.0.0.1 in their ports by the address of
-# the server (0.0.0.0: every interface). Inside their containers, the servers always listen on
-# every interface (set by the image): only the ports choose the exposure.
+# The two ports are published on every interface of the server, for the team: enable TLS (the
+# commented TLS lines of controller and mcp) or put a reverse proxy in front (see the
+# documentation, page Docker), plain HTTP exposes the tokens.
+# To keep a port on this machine only, prefix it with 127.0.0.1 ("127.0.0.1:8000:8000").
+# Inside their containers, the servers always listen on every interface (set by the image):
+# only the ports choose the exposure.
 
 name: security-review
 
@@ -73,8 +75,12 @@ services:
       # Daily download of the OSV vulnerability advisories (needs Internet access)
       # SECREVIEW_OSV_AUTO_UPDATE: "true"
       # SECREVIEW_OSV_ECOSYSTEMS: PyPI,npm,Maven
+      # SECREVIEW_TLS_CERTFILE: /etc/secreview/tls/cert.pem
+      # SECREVIEW_TLS_KEYFILE: /etc/secreview/tls/key.pem
+    # volumes:
+    #   - ./tls:/etc/secreview/tls:ro
     ports:
-      - "127.0.0.1:8080:8000"
+      - "8080:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -94,8 +100,12 @@ services:
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
       # Only the migrate service changes the tables
       SECREVIEW_DB_AUTO_UPGRADE: "false"
+      # SECREVIEW_TLS_CERTFILE: /etc/secreview/tls/cert.pem
+      # SECREVIEW_TLS_KEYFILE: /etc/secreview/tls/key.pem
+    # volumes:
+    #   - ./tls:/etc/secreview/tls:ro
     ports:
-      - "127.0.0.1:8000:8000"
+      - "8000:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully

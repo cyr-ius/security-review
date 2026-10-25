@@ -57,8 +57,8 @@ Contenu des fichiers de la version `{{ release_tag }}` :
 |---|---|---|
 | `db` | PostgreSQL, joignable par les autres services seulement | — |
 | `migrate` | Crée ou met à jour les tables (`security-review-controller db upgrade`), puis s'arrête | — |
-| `controller` | Interface web (`/ui/`) et API REST, pour les personnes | `127.0.0.1:8080` |
-| `mcp` | Serveur MCP (`/mcp`) et enrôlement public, pour les agents et la CI | `127.0.0.1:8000` |
+| `controller` | Interface web (`/ui/`) et API REST, pour les personnes | `8080` |
+| `mcp` | Serveur MCP (`/mcp`) et enrôlement public, pour les agents et la CI | `8000` |
 
 Bon à savoir :
 
@@ -67,14 +67,16 @@ Bon à savoir :
 - **Conservez `.env`.** Il contient le mot de passe de la base et le secret des sessions ; ne le
   commitez jamais. Le mot de passe est inséré tel quel dans l'URL de connexion : gardez des
   caractères hexadécimaux, comme ci-dessus.
-- **Ouvrir à l'équipe.** Les ports ne sont ouverts que sur cette machine (`127.0.0.1`). Activez
-  le [TLS intégré](http.md#tls) ou placez un reverse proxy devant, puis remplacez
-  `127.0.0.1` dans les `ports` de `controller` et `mcp` par l'adresse du serveur (`0.0.0.0` :
-  toutes les interfaces). Seuls les `ports` décident de l'exposition : dans son conteneur, chaque
+- **Ouvrir à l'équipe.** Les ports sont publiés sur toutes les interfaces du serveur, en HTTP
+  simple : activez le [TLS intégré](http.md#tls) ou placez un reverse proxy devant avant que
+  l'équipe se connecte. Pour garder un port sur le serveur seulement (derrière un reverse proxy
+  sur la même machine, par exemple), préfixez-le par `127.0.0.1` (`"127.0.0.1:8000:8000"`).
+  Seuls les `ports` décident de l'exposition : dans son conteneur, chaque
   processus écoute sur toutes les interfaces (`SECREVIEW_HOST=0.0.0.0`, fixée par l'image, à ne
-  pas changer). Les variables TLS
-  (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) vont sous `environment`, avec les fichiers
-  du certificat montés en lecture seule (voir
+  pas changer). Pour le TLS intégré,
+  décommentez dans `controller` et `mcp` les variables TLS (`SECREVIEW_TLS_CERTFILE`,
+  `SECREVIEW_TLS_KEYFILE`) et le `volumes` qui monte en lecture seule les fichiers du certificat
+  depuis `./tls` (voir
   [Autorité de certification](http.md#autorite-de-certification)). Le contrôleur n'expose aucune
   route d'écriture sans jeton : il peut rester interne.
 - **Avis de vulnérabilités.** La base OSV est **vide** au premier démarrage : l'analyse de
