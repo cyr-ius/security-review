@@ -2,7 +2,7 @@
 
 This page sets up the **shared mode (HTTP)** for a team: the controller (web interface,
 administration) and the MCP server (used by the agents and the CI), on the same database. See
-[two services, two roles](../index.md#two-services-two-roles).
+[two services, two roles](../index.md#three-services-three-roles).
 
 At the end, you have:
 

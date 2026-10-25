@@ -2,7 +2,7 @@
 
 Cette page met en place le **mode partagé (HTTP)** pour une équipe : le contrôleur (interface web,
 administration) et le serveur MCP (utilisé par les agents et la CI), sur la même base. Voir
-[deux services, deux rôles](../index.md#deux-services-deux-roles).
+[deux services, deux rôles](../index.md#trois-services-trois-roles).
 
 À la fin, vous disposez :
 
