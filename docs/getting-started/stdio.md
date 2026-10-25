@@ -10,6 +10,25 @@ controller.
     [shared mode (HTTP)](../getting-started/deploy.md) instead. Local mode is useful to try the
     prompts alone, on an offline workstation, or for a personal use.
 
+## Installation
+
+The server is published on PyPI as the `security-review` package (Python 3.14). It installs the
+`security-review-mcp` command started by the host, and `security-review-controller`, which local
+mode does not need. Install it in a dedicated virtual environment:
+
+```bash
+uv venv --python 3.14 /opt/security-review-mcp/venv
+uv pip install --python /opt/security-review-mcp/venv security-review
+```
+
+!!! note "Formerly `security-review-mcp`"
+    Up to version 2.0.0, the package was published on PyPI as `security-review-mcp`. Both
+    packages install the same commands and the same Python module: uninstall the old one first
+    (`uv pip uninstall --python /opt/security-review-mcp/venv security-review-mcp`), then install
+    `security-review`. The commands, the settings and the database stay the same.
+
+Without Internet access, or from the sources: see [Installation: other cases](../advanced/installation.md).
+
 ## Running
 
 ```bash

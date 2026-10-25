@@ -65,7 +65,7 @@ déploiement, export SARIF, analyse des dépendances et rapport de tendance.
 
 ## Deux services, deux rôles
 
-Le produit se compose de **deux programmes**, installés par le même paquet PyPI, `security-review`. Ils ne s'appellent
+Le produit se compose de **deux programmes**, installés par le même paquet PyPI, `security-review`, et livrés dans la même image Docker. Ils ne s'appellent
 jamais : ils partagent la même **base de données**, où sont stockés les rapports, les règles et
 les jetons.
 
@@ -214,12 +214,11 @@ La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Utilisatio
 
 | Étape | Page |
 |---|---|
-| 1. Installer le paquet sur le serveur | [Installation](getting-started/installation.md) |
-| 2. Lancer le contrôleur et le serveur MCP, créer les premiers comptes | [Mise en service du serveur](getting-started/deploy.md) |
-| 3. Connecter VS Code ou Claude, obtenir un jeton | [Connexion de l'hôte](getting-started/host.md) |
-| 4. Lancer une revue | [Fonctionnement d'une revue](usage/how-it-works.md) (règles, checklists, `AGENTS.md`), [Prompts et outils](usage/prompts-tools.md) |
-| 5. Consulter et trier les rapports | [Interface web](usage/web-interface.md) |
-| 6. Bloquer un déploiement sur des findings ouverts | [Gate](usage/gate.md) |
+| 1. Déployer le contrôleur et le serveur MCP (Docker Compose ou Kubernetes), créer les premiers comptes | [Mise en service du serveur](getting-started/deploy.md) |
+| 2. Connecter VS Code ou Claude, obtenir un jeton | [Connexion de l'hôte](getting-started/host.md) |
+| 3. Lancer une revue | [Fonctionnement d'une revue](usage/how-it-works.md) (règles, checklists, `AGENTS.md`), [Prompts et outils](usage/prompts-tools.md) |
+| 4. Consulter et trier les rapports | [Interface web](usage/web-interface.md) |
+| 5. Bloquer un déploiement sur des findings ouverts | [Gate](usage/gate.md) |
 
 | Pour aller plus loin (Avancé) | Page |
 |---|---|

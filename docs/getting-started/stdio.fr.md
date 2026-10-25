@@ -10,6 +10,25 @@ contrôleur.
     une équipe, utilisez plutôt le [mode partagé (HTTP)](../getting-started/deploy.md). Le mode
     local sert à essayer les prompts seul, sur un poste hors ligne, ou pour un usage personnel.
 
+## Installation
+
+Le serveur est publié sur PyPI sous le nom de paquet `security-review` (Python 3.14). Il installe
+la commande `security-review-mcp`, lancée par l'hôte, et `security-review-controller`, dont le mode
+local n'a pas besoin. Installez-le dans un environnement virtuel dédié :
+
+```bash
+uv venv --python 3.14 /opt/security-review-mcp/venv
+uv pip install --python /opt/security-review-mcp/venv security-review
+```
+
+!!! note "Anciennement `security-review-mcp`"
+    Jusqu'à la version 2.0.0, le paquet était publié sur PyPI sous le nom `security-review-mcp`.
+    Les deux paquets installent les mêmes commandes et le même module Python : désinstallez
+    d'abord l'ancien (`uv pip uninstall --python /opt/security-review-mcp/venv security-review-mcp`),
+    puis installez `security-review`. Les commandes, les paramètres et la base restent les mêmes.
+
+Sans accès Internet, ou depuis les sources : voir [Installation : autres cas](../advanced/installation.md).
+
 ## Lancement
 
 ```bash

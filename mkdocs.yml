@@ -137,10 +137,8 @@ validation:
 nav:
   - Home: index.md
   - Getting started:
-      - Installation: getting-started/installation.md
-      - Deployment:
-          - Shared mode (HTTP): getting-started/deploy.md
-          - Local mode (stdio): getting-started/stdio.md
+      - Shared mode (HTTP): getting-started/deploy.md
+      - Local mode (stdio): getting-started/stdio.md
       - Connecting the host: getting-started/host.md
   - Usage:
       - Prompts and tools: usage/prompts-tools.md

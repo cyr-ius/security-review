@@ -1,6 +1,7 @@
 # Installation: other cases
 
-The usual installation is in [Installation](../getting-started/installation.md). This page
+The usual installations are in [Deploying the server](../getting-started/deploy.md) (containers)
+and [Local mode (stdio)](../getting-started/stdio.md#installation) (PyPI package). This page
 covers the installation from the sources and without Internet access.
 
 ## From source

@@ -318,7 +318,8 @@ racine du site) et en français (`page.fr.md`, à côté, servie sous `/fr/`), a
 langues** :
 
 La doc est organisée en parcours de mise en œuvre : **Démarrage** (`getting-started/` :
-installation, mise en service du serveur, connexion de l'hôte), **Utilisation** (`usage/` : prompts et outils, interface web, gate) et
+mise en service du serveur en mode partagé, mode local avec l'installation du paquet PyPI,
+connexion de l'hôte), **Utilisation** (`usage/` : prompts et outils, interface web, gate) et
 **Revue de sécurité** (`usage/` : fonctionnement, règles, checklists, normes) ne
 contiennent que l'essentiel pour travailler ; **Connecteurs** (`connectors/`) décrit l'envoi des
 findings vers d'autres outils, une page par connecteur intégré et une pour les connecteurs tiers ;
@@ -339,7 +340,7 @@ essentielles.
 | Les normes de développement (prompt, outils, ressources, écran) | `docs/usage/standards` (+ `usage/prompts-tools`) |
 | L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` (connexion OIDC : `docs/advanced/sso`) |
 | Les connecteurs (contrat `connectors/api.py`, Jira, ServiceNow, écran **Connecteurs**, routes) | `docs/connectors/` (`index`, `jira`, `servicenow`, `third-party`), `examples/connector/` |
-| Installation, image Docker | `docs/getting-started/installation`, `docs/advanced/installation`, `docs/advanced/docker` |
+| Installation, image Docker | `docs/getting-started/deploy` (conteneurs), `docs/getting-started/stdio` (paquet PyPI), `docs/advanced/installation`, `docs/advanced/manual-install`, `docs/advanced/docker` |
 | Une garantie ou limite de sécurité | `docs/reference/security` |
 | La structure du code, l'outillage de dev | `docs/contributing` |
 

@@ -61,7 +61,7 @@ export, dependency analysis and trend report.
 
 ## Two services, two roles
 
-The product is made of **two programs** installed by the same PyPI package, `security-review`. They never call each
+The product is made of **two programs** installed by the same PyPI package, `security-review`, and shipped in the same Docker image. They never call each
 other: they share the same **database**, where the reports, rules and tokens are stored.
 
 ```text
@@ -206,12 +206,11 @@ hold what you need to work; **Advanced** gathers the details and the optional fe
 
 | Step | Page |
 |---|---|
-| 1. Install the package on the server | [Installation](getting-started/installation.md) |
-| 2. Start the controller and the MCP server, create the first accounts | [Deploying the server](getting-started/deploy.md) |
-| 3. Connect VS Code or Claude, get a token | [Connecting the host](getting-started/host.md) |
-| 4. Run a review | [How a review works](usage/how-it-works.md) (rules, checklists, `AGENTS.md`), [Prompts and tools](usage/prompts-tools.md) |
-| 5. Read and triage the reports | [Web interface](usage/web-interface.md) |
-| 6. Block a deployment on open findings | [Gate](usage/gate.md) |
+| 1. Deploy the controller and the MCP server (Docker Compose or Kubernetes), create the first accounts | [Deploying the server](getting-started/deploy.md) |
+| 2. Connect VS Code or Claude, get a token | [Connecting the host](getting-started/host.md) |
+| 3. Run a review | [How a review works](usage/how-it-works.md) (rules, checklists, `AGENTS.md`), [Prompts and tools](usage/prompts-tools.md) |
+| 4. Read and triage the reports | [Web interface](usage/web-interface.md) |
+| 5. Block a deployment on open findings | [Gate](usage/gate.md) |
 
 | Going further (Advanced) | Page |
 |---|---|

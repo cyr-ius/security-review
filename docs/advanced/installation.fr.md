@@ -1,6 +1,7 @@
 # Installation : autres cas
 
-L'installation courante est décrite dans [Installation](../getting-started/installation.md).
+Les installations courantes sont décrites dans [Mise en service du serveur](../getting-started/deploy.md)
+(conteneurs) et [Mode local (stdio)](../getting-started/stdio.md#installation) (paquet PyPI).
 Cette page couvre l'installation depuis les sources et sans accès Internet.
 
 ## Depuis les sources
