@@ -28,7 +28,7 @@ Read by the MCP server and by the controller.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_HOST` | `127.0.0.1` | Listening address (HTTP) |
+| `SECREVIEW_HOST` | `127.0.0.1` (`0.0.0.0` in the Docker image) | Listening address (HTTP) of the process. With Docker, keep the value of the image and choose the address of the host in the published ports (see [Docker](../advanced/docker.md#docker-compose-with-postgresql)) |
 | `SECREVIEW_PORT` | `8000` | Listening port (HTTP) |
 | `SECREVIEW_TLS_CERTFILE` | — | Certificate: enables TLS |
 | `SECREVIEW_TLS_KEYFILE` | — | Private key |
@@ -51,7 +51,7 @@ Read by `security-review-mcp` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_TRANSPORT` | `stdio` | `stdio` or `streamable-http` |
+| `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` (shared mode) or `stdio` (local mode) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | While no token exists, accepts every request on `/mcp` even when the server does not listen on localhost (by default it then stays closed, see [Bearer tokens](../advanced/http.md#bearer-tokens)); only for tests on an isolated network |
 | `SECREVIEW_ENROLLMENT` | `true` | [Enrollment](../advanced/http.md#enrollment-request-the-project): a client without a token can request its project (restricted MCP server, `POST /api/v1/enroll`), which a user with `projects.create` approves on the controller; no token is created, the user creates a personal MCP token in the web interface |
 | `SECREVIEW_WEB_URL` | — | Public URL of the web interface (`https://…/ui`), given to the clients without a valid token (enrollment answer, `401` of `/mcp`) so that the user knows where to sign in and create a personal MCP token; without it, no link is given |

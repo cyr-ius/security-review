@@ -26,7 +26,7 @@ logger = logging.getLogger("security_review_mcp.controller")
 USAGE = """\
 usage: security-review-controller COMMAND [options]
 
-Controller of security-review-mcp: web interface, REST API, database and administration.
+Controller of security-review-controller: web interface, REST API, database and administration.
 
 commands:
   serve        serve the REST API (/api/v1) and the web interface (/ui)

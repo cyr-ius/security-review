@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "security-review"
-version = "3.0.0"
+version = "4.0.0"
 description = "MCP server for security code review: prompts, checklists, quick scans and persistent security reports"
 readme = "README.md"
 license = "Apache-2.0"
@@ -30,10 +30,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/cyr-ius/security-review-mcp"
-Documentation = "https://cyr-ius.github.io/security-review-mcp/"
-Repository = "https://github.com/cyr-ius/security-review-mcp"
-Issues = "https://github.com/cyr-ius/security-review-mcp/issues"
+Homepage = "https://github.com/cyr-ius/security-review"
+Documentation = "https://cyr-ius.github.io/security-review/"
+Repository = "https://github.com/cyr-ius/security-review"
+Issues = "https://github.com/cyr-ius/security-review/issues"
 
 [project.optional-dependencies]
 postgres = ["psycopg2-binary>=2.9"]

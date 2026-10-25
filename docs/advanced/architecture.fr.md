@@ -33,7 +33,7 @@ contrôleur n'expose ainsi **aucune route d'écriture sans authentification**.
 !!! note "Base partagée"
     Avec SQLite, les deux processus doivent tourner sur la même machine et partager le fichier.
     Dès qu'ils sont dans des pods ou sur des machines différents, utilisez PostgreSQL
-    (extra `postgres`, image construite avec `--build-arg EXTRAS=postgres`), déployé avec
+    (extra `postgres` du paquet PyPI, inclus dans l'image), déployé avec
     [Docker Compose](docker.md#docker-compose-avec-postgresql) ou [Kubernetes](kubernetes.md#deploiement).
 
 En stdio (poste développeur), seul `security-review-mcp` est nécessaire : il crée et migre sa
@@ -55,6 +55,9 @@ security-review-controller db status    # {"current": "0001", "head": "0001", "u
   `run security-review-controller db upgrade first`) tant que la base n'est pas à la révision
   attendue. Sous Kubernetes, le pod redémarre jusqu'à ce que la migration soit faite.
 - Le contrôleur, le serveur MCP stdio et les commandes CLI migrent au démarrage, sauf avec
-  `SECREVIEW_DB_AUTO_UPGRADE=false`. Ils vérifient alors seulement le schéma. Désactivez la
-  migration automatique quand une tâche dédiée s'en charge (service `migrate` de Docker
-  Compose, init container Kubernetes) : une seule migration à la fois.
+  `SECREVIEW_DB_AUTO_UPGRADE=false`. Ils vérifient alors seulement le schéma. Avec Docker
+  Compose, le contrôleur migre à son démarrage ; sous Kubernetes, c'est son init container.
+- Sur PostgreSQL, une migration prend un verrou consultatif (advisory lock) : des instances qui
+  démarrent ensemble (plusieurs réplicas, un `db upgrade` lancé à la main) s'attendent, et la
+  suivante trouve le schéma à jour. Ne désactivez la migration automatique que pour la confier à
+  une tâche dédiée.

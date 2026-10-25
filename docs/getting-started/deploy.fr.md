@@ -28,7 +28,7 @@ puis donne le mot de passe du compte `admin` et un jeton (chacun affiché une fo
 
 ```bash
 mkdir security-review-mcp && cd security-review-mcp
-curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/docker/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.yml
 (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
 docker compose up -d --wait
 docker compose exec controller security-review-controller user reset-password admin   # mot de passe admin initial
@@ -40,9 +40,11 @@ L'interface web répond sur `http://127.0.0.1:8080/ui/`, l'endpoint MCP sur
 de passe dans **Mon compte**, puis créez un compte par personne dans l'écran **Utilisateurs**
 (voir les [comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs)).
 
-Les deux ports ne sont publiés que sur `127.0.0.1` : pour ouvrir à l'équipe, ajoutez le TLS et
-renseignez `DOCKER_PUBLISH_ADDRESS` (voir
-[Docker Compose avec PostgreSQL](../advanced/docker.md#docker-compose-avec-postgresql)).
+Les deux ports sont publiés sur toutes les interfaces du serveur, en HTTP simple : ajoutez le
+TLS avant que l'équipe se connecte, et préfixez un port par `127.0.0.1` dans
+`docker-compose.yml` pour le garder sur le serveur seulement (voir
+[Docker Compose avec PostgreSQL](../advanced/docker.md#docker-compose-avec-postgresql)). Ne
+réglez pas `SECREVIEW_HOST` : l'image la fixe déjà.
 
 !!! warning "La CLI est le seul moyen d'obtenir le mot de passe initial"
     Aucune variable ne le définit et les journaux ne l'affichent jamais : lancez
@@ -69,13 +71,13 @@ kubectl -n secreview create secret generic secreview-postgres \
 kubectl -n secreview create secret generic secreview-db \
     --from-literal=SECREVIEW_DATABASE_URL="postgresql+psycopg2://secreview:${PGPASSWORD}@secreview-postgres:5432/secreview"
 unset PGPASSWORD
-kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/kubernetes/postgres.yaml
+kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/postgres.yaml
 kubectl -n secreview rollout status statefulset/secreview-postgres
 
 # 2. security-review-mcp : secret des sessions, contrôleur et serveur MCP
 kubectl -n secreview create secret generic secreview-controller \
     --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
-kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/kubernetes/security-review.yaml
+kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/security-review.yaml
 kubectl -n secreview rollout status deploy/secreview-controller
 kubectl -n secreview rollout status deploy/secreview-mcp
 

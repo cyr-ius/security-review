@@ -1,10 +1,10 @@
 # Kubernetes
 
 Two manifests deploy everything in the `secreview` namespace:
-[`examples/kubernetes/postgres.yaml`](https://github.com/cyr-ius/security-review-mcp/blob/{{ release_tag }}/examples/kubernetes/postgres.yaml)
+[`examples/kubernetes/postgres.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/postgres.yaml)
 (PostgreSQL, official image) and
-[`examples/kubernetes/security-review.yaml`](https://github.com/cyr-ius/security-review-mcp/blob/{{ release_tag }}/examples/kubernetes/security-review.yaml)
-(controller and MCP server, published image `ghcr.io/cyr-ius/security-review-mcp:latest-pg`).
+[`examples/kubernetes/security-review.yaml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/kubernetes/security-review.yaml)
+(controller and MCP server, published image `ghcr.io/cyr-ius/security-review:latest`).
 
 ## Deployment
 
@@ -23,13 +23,13 @@ Two manifests deploy everything in the `secreview` namespace:
     kubectl -n secreview create secret generic secreview-db \
         --from-literal=SECREVIEW_DATABASE_URL="postgresql+psycopg2://secreview:${PGPASSWORD}@secreview-postgres:5432/secreview"
     unset PGPASSWORD
-    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/kubernetes/postgres.yaml
+    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/postgres.yaml
     kubectl -n secreview rollout status statefulset/secreview-postgres
 
     # 2. security-review-mcp: session secret, controller and MCP server
     kubectl -n secreview create secret generic secreview-controller \
         --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
-    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/kubernetes/security-review.yaml
+    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/security-review.yaml
     kubectl -n secreview rollout status deploy/secreview-controller
     kubectl -n secreview rollout status deploy/secreview-mcp
 
@@ -56,7 +56,7 @@ Two manifests deploy everything in the `secreview` namespace:
         --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
     kubectl -n secreview create secret generic secreview-controller \
         --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
-    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/kubernetes/security-review.yaml
+    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/security-review.yaml
     kubectl -n secreview rollout status deploy/secreview-controller
     kubectl -n secreview rollout status deploy/secreview-mcp
     kubectl -n secreview exec deploy/secreview-controller -c controller -- \
@@ -145,9 +145,8 @@ Changing `SECREVIEW_SECRET_KEY` ends every web session.
 
 ## Image, exposure and administration
 
-The manifest uses the published image `ghcr.io/cyr-ius/security-review-mcp:latest-pg`, which
-contains the PostgreSQL driver: pin a version (`X.Y.Z-pg`) in production, or use your own
-image built with the `postgres` extra. Expose the `secreview-mcp` Service to the agents and to the CI through an
+The manifest uses the published image `ghcr.io/cyr-ius/security-review:latest`, which
+contains the PostgreSQL driver: pin a version (`X.Y.Z`) in production. Expose the `secreview-mcp` Service to the agents and to the CI through an
 Ingress with TLS. Keep the controller internal (`kubectl port-forward`, VPN or Ingress
 restricted to administrators). Behind the Ingress, set `SECREVIEW_FORWARDED_ALLOW_IPS` (commented
 in the ConfigMap) to the address range of the ingress controller pods: otherwise every client
@@ -173,5 +172,5 @@ REST API (`/api/docs`) stays disabled unless you uncomment `SECREVIEW_SWAGGER_EN
     MCP sessions (streamable HTTP transport) are kept in memory by the pod that opened them.
     Before raising `replicas`, configure the Ingress to send every request of a session to the
     same pod (affinity on the `Mcp-Session-Id` header, or failing that cookie or address
-    affinity). The controller can have several replicas, provided the migration is done by a
-    single task (`SECREVIEW_DB_AUTO_UPGRADE=false` on the replicas).
+    affinity). The controller can have several replicas: their migrations wait for each other
+    (PostgreSQL advisory lock), and `SECREVIEW_SECRET_KEY` lets them share the web sessions.

@@ -163,7 +163,7 @@ gives the password of the `admin` account and a token for your agent:
 
 ```bash
 mkdir security-review-mcp && cd security-review-mcp
-curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/docker/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.yml
 (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
 docker compose up -d --wait
 docker compose exec controller security-review-controller user reset-password admin   # password shown once
@@ -196,8 +196,8 @@ the agent reads the code, relies on the checklists and saves its report with
 `save_security_report`. Log in to the web interface with the `admin` account to read and
 triage it.
 
-The ports are only open on `127.0.0.1`. To open the server to a team (TLS, Kubernetes, tokens
-for every developer), follow [Deploying the server](getting-started/deploy.md).
+The ports are open on every interface of the server, in plain HTTP. Before the team uses it
+(TLS, Kubernetes, tokens for every developer), follow [Deploying the server](getting-started/deploy.md).
 
 ## Where to go next
 

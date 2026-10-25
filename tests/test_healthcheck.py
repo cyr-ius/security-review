@@ -56,9 +56,19 @@ def test_the_health_path_is_the_one_served_by_both_processes():
 @pytest.mark.parametrize(
     ("args", "expected"),
     [
-        (["security-review-mcp", "serve"], None),
-        (["/opt/venv/bin/python", "/opt/venv/bin/security-review-mcp", "serve"], None),
+        (["security-review-mcp", "serve"], "http://127.0.0.1:8000/healthz"),
+        (["security-review-mcp", "serve", "--transport", "stdio"], None),
+        (
+            [
+                "/opt/venv/bin/python",
+                "/opt/venv/bin/security-review-mcp",
+                "serve",
+                "--transport=stdio",
+            ],
+            None,
+        ),
         (["security-review-mcp", "enroll", "--url", "https://mcp"], None),
+        (["security-review-controller", "db", "upgrade"], None),
         (
             ["security-review-mcp", "serve", "--transport", "streamable-http", "--port", "9000"],
             "http://127.0.0.1:9000/healthz",
@@ -75,7 +85,7 @@ def test_the_health_path_is_the_one_served_by_both_processes():
             ["python", "-m", "security_review_mcp.controller", "serve"],
             "http://127.0.0.1:8000/healthz",
         ),
-        (["python", "-m", "security_review_mcp", "serve"], None),
+        (["python", "-m", "security_review_mcp", "serve"], "http://127.0.0.1:8000/healthz"),
         (
             ["security-review-controller", "serve", "--host", "0.0.0.0"],
             "http://127.0.0.1:8000/healthz",
@@ -99,7 +109,7 @@ def test_the_url_follows_the_settings_without_options(settings):
 
 
 def test_stdio_is_healthy_without_any_request(settings, requests):
-    assert healthcheck.main(["security-review-mcp", "serve"]) == 0
+    assert healthcheck.main(["security-review-mcp", "serve", "--transport", "stdio"]) == 0
     assert requests[0] == []
 
 
@@ -162,3 +172,22 @@ def test_the_image_declares_the_health_check():
     healthcheck_instruction = re.search(r"^HEALTHCHECK [^\n]*\\\n\s+CMD (.*)$", dockerfile, re.M)
     assert healthcheck_instruction is not None
     assert '"-m", "security_review_mcp.healthcheck"' in healthcheck_instruction.group(1)
+
+
+def test_the_image_listens_on_every_interface_and_compose_chooses_the_exposure():
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert re.search(r"^\s+SECREVIEW_HOST=0\.0\.0\.0$", dockerfile, re.M)
+
+    # The contributors' file stays on loopback; the example publishes the ports for the team
+    for compose, loopback in (
+        ("docker-compose.yml", True),
+        ("examples/docker/docker-compose.yml", False),
+    ):
+        text = (ROOT / compose).read_text(encoding="utf-8")
+        # The exposure is chosen on the host only: the listening address stays the image's
+        assert not re.search(r"^\s+SECREVIEW_HOST:", text, re.M), compose
+        ports = re.findall(r'^\s+- "(.+):8000"$', text, re.M)
+        assert len(ports) == 2, compose
+        # An address given by a variable is judged on its default: "${VAR:-127.0.0.1}:8000"
+        ports = [re.sub(r"^\$\{\w+:-([^}]*)\}", r"\1", port) for port in ports]
+        assert all(port.startswith("127.0.0.1:") == loopback for port in ports), compose

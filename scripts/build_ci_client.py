@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 NAME = "security-review-ci"
 MODULE = "security_review_ci"
 DOCUMENTATION = (
-    "https://cyr-ius.github.io/security-review-mcp/usage/gate/#pipeline-client-security-review-ci"
+    "https://cyr-ius.github.io/security-review/usage/gate/#pipeline-client-security-review-ci"
 )
 DESCRIPTION = (
     "Pipeline and workstation client of the security-review-mcp controller: gate, SARIF, "
@@ -43,8 +43,8 @@ dependencies = []
 
 [project.urls]
 Documentation = "{documentation}"
-Repository = "https://github.com/cyr-ius/security-review-mcp"
-Issues = "https://github.com/cyr-ius/security-review-mcp/issues"
+Repository = "https://github.com/cyr-ius/security-review"
+Issues = "https://github.com/cyr-ius/security-review/issues"
 
 [project.scripts]
 {name} = "{module}:main"
@@ -85,7 +85,7 @@ def write_project(dest: Path, root: Path = ROOT) -> Path:
         "requires_python": server["requires-python"],
         "description": DESCRIPTION,
         "documentation": DOCUMENTATION,
-        "repository": "https://github.com/cyr-ius/security-review-mcp",
+        "repository": "https://github.com/cyr-ius/security-review",
     }
     (dest / "pyproject.toml").write_text(PYPROJECT.format(**values), encoding="utf-8")
     (dest / "README.md").write_text(README.format(**values), encoding="utf-8")

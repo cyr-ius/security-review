@@ -27,7 +27,7 @@ its rights: only install and allow code you trust, like any dependency.
 
 A connector is a subclass of `Connector` (module `security_review_mcp.connectors.api`, version
 `API_VERSION = 2`). The complete example
-[`examples/connector`](https://github.com/cyr-ius/security-review-mcp/tree/master/examples/connector)
+[`examples/connector`](https://github.com/cyr-ius/security-review/tree/master/examples/connector)
 is a package to copy: it turns each finding into a risk of an Acme register.
 
 ```python

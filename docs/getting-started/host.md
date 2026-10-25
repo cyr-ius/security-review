@@ -1,6 +1,6 @@
 # Host configuration
 
-Each developer declares the shared MCP server in their host (VS Code, Claude…). The server must
+Each developer declares the shared MCP server in their host (VS Code, IntelliJ, Claude…). The server must
 already be running: see [Deploying the server](deploy.md).
 
 ## HTTP transport
@@ -53,6 +53,34 @@ see [HTTP server, authentication and TLS](../advanced/http.md)).
     }
     ```
 
+=== "IntelliJ / JetBrains"
+
+    **GitHub Copilot** plugin: in the Copilot chat, in **Agent** mode, click the tools icon
+    (**Configure your MCP server**) then **Add MCP Tools**. The IDE opens its `mcp.json` file,
+    which belongs to your user profile and not to the repository:
+
+    ```json
+    {
+      "servers": {
+        "security-review": {
+          "url": "https://secreview.example.internal:8443/mcp",
+          "requestInit": {
+            "headers": { "Authorization": "Bearer <token>" }
+          }
+        }
+      }
+    }
+    ```
+
+    This file does not substitute variables: the token is written in it, so never copy it into
+    the repository. Leave out `requestInit` as long as you have no token (see
+    [enrollment](#getting-a-token)).
+
+    **JetBrains AI Assistant**: **Settings** > **Tools** > **AI Assistant** > **Model Context
+    Protocol (MCP)** > **Add**, then paste the configuration of a server without
+    authentication (example below). AI Assistant does not document custom
+    headers: with a token, use the GitHub Copilot plugin.
+
 Without authentication (local server on `127.0.0.1`, or authentication handled by a reverse
 proxy), VS Code, GitHub Copilot and Claude share the same `.mcp.json` file at the root of the
 repository, without `headers`:
@@ -81,8 +109,8 @@ tells you where to create your token (see
 [enrollment](../advanced/http.md#enrollment-request-the-project)).
 
 1. **Configure the host without a token.** With the examples of the
-   [HTTP transport](#http-transport) section, leave the token input empty (VS Code) or do not
-   set `SECURITY_REVIEW_TOKEN` (Claude). A missing header or an empty `Bearer` leads to the
+   [HTTP transport](#http-transport) section, leave the token input empty (VS Code), do not
+   set `SECURITY_REVIEW_TOKEN` (Claude) or leave out `requestInit` (IntelliJ). A missing header or an empty `Bearer` leads to the
    enrollment server, which has the same `security-review` name.
 2. **Run a review**, for example the `security-review` prompt. Instead of reading the code, the
    agent calls the `request_enrollment` tool with the project name (usually the repository
@@ -123,6 +151,11 @@ tells you where to create your token (see
         ```bash
         export SECURITY_REVIEW_TOKEN='Zq3…'
         ```
+
+    === "IntelliJ / JetBrains"
+
+        Add the `requestInit` block with the token in the `mcp.json` file of GitHub Copilot,
+        then restart the `security-review` server from the MCP tools of the Copilot chat.
 
 5. **Get access to the project.** The token reaches the projects your account may read: ask an
    administrator to approve the project (**Projects** screen) and to add you to its group

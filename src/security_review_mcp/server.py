@@ -940,7 +940,7 @@ usage: security-review-mcp COMMAND [options]
 Security review MCP server (administration: security-review-controller).
 
 commands:
-  serve        run the MCP server: stdio for a local host, streamable-http for a shared server
+  serve        run the MCP server: streamable-http for a shared server, stdio for a local host
   enroll       request the project of a repository on a shared server (no token is created)
 
 Run `security-review-mcp COMMAND --help` for the options of a command.
@@ -975,18 +975,18 @@ def main(argv: list[str] | None = None) -> None:
 
 
 def serve(argv: list[str]) -> None:
-    """Run ``security-review-mcp serve``: stdio by default, streamable HTTP for a shared server."""
+    """Run ``security-review-mcp serve``: streamable HTTP by default, stdio for a local host."""
     settings = get_settings()
     parser = argparse.ArgumentParser(
         prog="security-review-mcp serve",
-        description="Run the MCP server (stdio for a local host, streamable-http for a shared "
-        "server)",
+        description="Run the MCP server (streamable-http for a shared server, stdio for a local "
+        "host)",
     )
     parser.add_argument(
         "--transport",
         choices=["stdio", "streamable-http"],
         default=settings.transport,
-        help="stdio for a local host, streamable-http for a shared server (overrides "
+        help="streamable-http for a shared server, stdio for a local host (overrides "
         "SECREVIEW_TRANSPORT, default: %(default)s); --host, --port and TLS apply to HTTP only",
     )
     http_server.add_listen_arguments(parser, settings)

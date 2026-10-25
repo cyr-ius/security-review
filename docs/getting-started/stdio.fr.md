@@ -1,7 +1,7 @@
 # Mode local (stdio)
 
-En **mode local**, l'hôte (VS Code, Claude…) lance lui-même `security-review-mcp serve` sur le poste
-du développeur et dialogue avec lui par stdin / stdout : pas de réseau, pas de jeton, pas de
+En **mode local**, l'hôte (VS Code, Claude…) lance lui-même `security-review-mcp serve --transport stdio`
+sur le poste du développeur et dialogue avec lui par stdin / stdout : pas de réseau, pas de jeton, pas de
 contrôleur.
 
 !!! warning "Réservé à des cas précis"
@@ -32,7 +32,7 @@ Sans accès Internet, ou depuis les sources : voir [Installation : autres cas](.
 ## Lancement
 
 ```bash
-security-review-mcp serve   # lancé par l'hôte, pas à la main
+security-review-mcp serve --transport stdio   # lancé par l'hôte, pas à la main
 ```
 
 La base SQLite locale (`~/.local/share/security-review-mcp/security_reports.db` par défaut, le même fichier quel que
@@ -41,10 +41,16 @@ soit le dépôt ouvert dans l'hôte, voir
 automatiquement au démarrage. C'est le seul fichier écrit par le serveur : supprimez-le pour
 effacer toute trace. Le contrôleur n'est pas nécessaire.
 
+!!! note "`--transport stdio` est obligatoire"
+    Sans `--transport`, `serve` lance le serveur HTTP du mode partagé
+    ([`SECREVIEW_TRANSPORT`](../reference/configuration.md#serveur-mcp), `streamable-http` par
+    défaut). Jusqu'à la version 3.0.0, `serve` tournait en stdio par défaut : ajoutez
+    `--transport stdio` aux configurations d'hôte existantes.
+
 ## Configuration de l'hôte
 
 En transport **stdio**, l'hôte (VS Code, Claude…) lance lui-même le processus du serveur.
-Indiquez le chemin de l'exécutable, la commande `serve` et, si besoin, les variables `SECREVIEW_*`
+Indiquez le chemin de l'exécutable, la commande `serve --transport stdio` et, si besoin, les variables `SECREVIEW_*`
 (voir [Configuration](../reference/configuration.md#serveur-mcp)).
 
 VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la racine du dépôt :
@@ -55,7 +61,7 @@ VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la raci
     "security-review": {
       "type": "stdio",
       "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
-      "args": ["serve"],
+      "args": ["serve", "--transport", "stdio"],
       "env": { "SECREVIEW_DATABASE_URL": "sqlite:////var/lib/secreview/security_reports.db" }
     }
   }

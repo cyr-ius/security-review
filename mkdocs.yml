@@ -1,8 +1,8 @@
 site_name: Security Review MCP
 site_description: MCP server for security-oriented code review
-site_url: https://cyr-ius.github.io/security-review-mcp/
-repo_url: https://github.com/cyr-ius/security-review-mcp
-repo_name: cyr-ius/security-review-mcp
+site_url: https://cyr-ius.github.io/security-review/
+repo_url: https://github.com/cyr-ius/security-review
+repo_name: cyr-ius/security-review
 edit_uri: edit/dev/docs/
 copyright: Security Review MCP
 
@@ -100,6 +100,10 @@ plugins:
             Command line: Ligne de commande
             Security and limits: Sécurité et limites
             Contributing: Contribuer
+            MCP server: Serveur MCP
+            Controller (FastAPI): Contrôleur (FastAPI)
+            Web interface (Angular): Interface web (Angular)
+            Checks, reviews and releases: Vérifications, revues et publication
             Shared mode (HTTP): Mode partagé (HTTP)
             Kubernetes: Kubernetes
             Manual installation (without containers): Installation manuelle (sans conteneur)
@@ -176,4 +180,11 @@ nav:
       - Configuration: reference/configuration.md
       - Command line: reference/cli.md
       - Security and limits: reference/security.md
-  - Contributing: contributing.md
+  - Contributing:
+      - Overview: contributing/index.md
+      - MCP server: contributing/mcp-server.md
+      - "Controller (FastAPI)": contributing/controller.md
+      - "Web interface (Angular)": contributing/web-ui.md
+      - Tests: contributing/tests.md
+      - Documentation: contributing/documentation.md
+      - Checks, reviews and releases: contributing/checks-and-releases.md

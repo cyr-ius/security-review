@@ -29,7 +29,7 @@ de confiance, comme toute dépendance.
 
 Un connecteur est une sous-classe de `Connector` (module `security_review_mcp.connectors.api`,
 version `API_VERSION = 2`). L'exemple complet
-[`examples/connector`](https://github.com/cyr-ius/security-review-mcp/tree/master/examples/connector)
+[`examples/connector`](https://github.com/cyr-ius/security-review/tree/master/examples/connector)
 est un paquet à copier : il transforme chaque finding en risque d'un registre Acme.
 
 ```python

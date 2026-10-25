@@ -1,6 +1,6 @@
 # Configuration de l'hôte
 
-Chaque développeur déclare le serveur MCP partagé dans son hôte (VS Code, Claude…). Le serveur
+Chaque développeur déclare le serveur MCP partagé dans son hôte (VS Code, IntelliJ, Claude…). Le serveur
 doit déjà tourner : voir [Mise en service du serveur](deploy.md).
 
 ## Transport HTTP
@@ -19,7 +19,7 @@ démarrage du serveur : voir [Serveur HTTP, authentification et TLS](../advanced
       "servers": {
         "security-review": {
           "type": "http",
-          "url": "https://secreview.example.internal/mcp",
+          "url": "https://secreview.example.internal:8443/mcp",
           "headers": { "Authorization": "Bearer ${input:secreview-token}" }
         }
       },
@@ -45,12 +45,40 @@ démarrage du serveur : voir [Serveur HTTP, authentification et TLS](../advanced
       "mcpServers": {
         "security-review": {
           "type": "http",
-          "url": "https://secreview.example.internal/mcp",
+          "url": "https://secreview.example.internal:8443/mcp",
           "headers": { "Authorization": "Bearer ${SECURITY_REVIEW_TOKEN:-}" }
         }
       }
     }
     ```
+
+=== "IntelliJ / JetBrains"
+
+    Plugin **GitHub Copilot** : dans le chat Copilot, en mode **Agent**, cliquez sur l'icône des
+    outils (**Configure your MCP server**) puis sur **Add MCP Tools**. L'IDE ouvre son fichier
+    `mcp.json`, propre à votre profil utilisateur et extérieur au dépôt :
+
+    ```json
+    {
+      "servers": {
+        "security-review": {
+          "url": "https://secreview.example.internal:8443/mcp",
+          "requestInit": {
+            "headers": { "Authorization": "Bearer <token>" }
+          }
+        }
+      }
+    }
+    ```
+
+    Ce fichier ne substitue pas les variables : le jeton y est écrit, ne le copiez donc jamais
+    dans le dépôt. Omettez `requestInit` tant que vous n'avez pas de jeton (voir
+    [l'enrôlement](#obtenir-un-jeton)).
+
+    **JetBrains AI Assistant** : **Settings** > **Tools** > **AI Assistant** > **Model Context
+    Protocol (MCP)** > **Add**, puis collez la configuration d'un serveur sans authentification
+    (exemple ci-dessous). AI Assistant ne documente pas d'en-têtes
+    personnalisés : avec un jeton, utilisez le plugin GitHub Copilot.
 
 Sans authentification (serveur local sur `127.0.0.1`, ou authentification assurée par un
 reverse proxy), VS Code, GitHub Copilot et Claude partagent le même fichier `.mcp.json` à la
@@ -80,8 +108,8 @@ puis vous indique où créer votre jeton (voir
 [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet)).
 
 1. **Configurez l'hôte sans jeton.** Avec les exemples de la section
-   [Transport HTTP](#transport-http), laissez la saisie du jeton vide (VS Code) ou ne définissez
-   pas `SECURITY_REVIEW_TOKEN` (Claude). Un en-tête absent ou un `Bearer` vide mène au serveur
+   [Transport HTTP](#transport-http), laissez la saisie du jeton vide (VS Code), ne définissez
+   pas `SECURITY_REVIEW_TOKEN` (Claude) ou omettez `requestInit` (IntelliJ). Un en-tête absent ou un `Bearer` vide mène au serveur
    d'enrôlement, qui porte le même nom `security-review`.
 2. **Lancez une revue**, par exemple le prompt `security-review`. Au lieu de relire le code,
    l'agent appelle l'outil `request_enrollment` avec le nom du projet (le nom du dépôt en
@@ -122,6 +150,12 @@ puis vous indique où créer votre jeton (voir
         ```bash
         export SECURITY_REVIEW_TOKEN='Zq3…'
         ```
+
+    === "IntelliJ / JetBrains"
+
+        Ajoutez le bloc `requestInit` avec le jeton dans le fichier `mcp.json` de GitHub
+        Copilot, puis redémarrez le serveur `security-review` depuis les outils MCP du chat
+        Copilot.
 
 5. **Obtenez l'accès au projet.** Le jeton atteint les projets que votre compte peut lire :
    demandez à un administrateur de valider le projet (écran **Projets**) et de vous ajouter à

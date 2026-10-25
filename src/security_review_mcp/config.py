@@ -71,9 +71,10 @@ class Settings(BaseSettings):
     # (Kubernetes): they then only check the schema. The HTTP MCP server never migrates.
     db_auto_upgrade: bool = True
 
-    # MCP server transport: "stdio" (local host such as VS Code) or "streamable-http" (shared
-    # server). host and port are used by the HTTP MCP server and by the controller.
-    transport: str = "stdio"
+    # MCP server transport: "streamable-http" (shared server, the default) or "stdio" (local
+    # host such as VS Code, which starts `serve --transport stdio`). host and port are used by
+    # the HTTP MCP server and by the controller.
+    transport: str = "streamable-http"
     host: str = "127.0.0.1"
     port: int = 8000
 

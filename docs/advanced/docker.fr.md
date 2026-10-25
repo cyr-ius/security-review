@@ -3,32 +3,30 @@
 ## Images publiées
 
 Chaque version est publiée pour `linux/amd64` et `linux/arm64` sur GitHub Container Registry et
-Docker Hub, en deux variantes : SQLite seul, et `-pg` avec le pilote PostgreSQL.
+Docker Hub. La même image fonctionne avec SQLite et PostgreSQL : elle contient le pilote PostgreSQL.
 
 ```bash
-docker pull ghcr.io/cyr-ius/security-review-mcp:latest-pg   # or docker.io/cyrius44/security-review-mcp
+docker pull ghcr.io/cyr-ius/security-review:latest   # or docker.io/cyrius44/security-review
 ```
 
 | Tag | Contenu |
 |---|---|
 | `X.Y.Z`, `X.Y`, `X`, `latest` | Version `X.Y.Z` (la dernière version stable pour `latest`) |
-| `X.Y.Z-pg`, `X.Y-pg`, `X-pg`, `latest-pg` | Idem, avec le pilote PostgreSQL |
+| `X.Y.Z-pg`, `X.Y-pg`, `X-pg`, `latest-pg` | Dépréciés : alias de la même image, conservés jusqu'à la prochaine version majeure (ancienne variante PostgreSQL) |
 | `X.Y.ZrcN` (`a`, `b`, `rc`) | Préversion : ce tag seulement, jamais `latest` |
 
 Les images portent un SBOM et une attestation de provenance (`docker buildx imagetools inspect --format '{{ json .Provenance }}' IMAGE`).
-Dans les exemples de cette page, remplacez `security-review-mcp` et `security-review-mcp:pg` par
-l'image publiée.
 
 ## Docker Compose avec PostgreSQL
 
 Un seul fichier,
-[`examples/docker/docker-compose.yml`](https://github.com/cyr-ius/security-review-mcp/blob/{{ release_tag }}/examples/docker/docker-compose.yml),
+[`examples/docker/docker-compose.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.yml),
 démarre tout avec l'image publiée : PostgreSQL, la migration du schéma, le contrôleur et le
 serveur MCP. Copiez-collez le bloc dans un dossier vide :
 
 ```bash
 mkdir security-review-mcp && cd security-review-mcp
-curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/docker/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.yml
 (umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
 docker compose up -d --wait
 docker compose exec controller security-review-controller user reset-password admin   # mot de passe admin initial
@@ -58,22 +56,28 @@ Contenu des fichiers de la version `{{ release_tag }}` :
 | Service | Rôle | Écoute |
 |---|---|---|
 | `db` | PostgreSQL, joignable par les autres services seulement | — |
-| `migrate` | Crée ou met à jour les tables (`security-review-controller db upgrade`), puis s'arrête | — |
-| `controller` | Interface web (`/ui/`) et API REST, pour les personnes | `127.0.0.1:8080` |
-| `mcp` | Serveur MCP (`/mcp`) et enrôlement public, pour les agents et la CI | `127.0.0.1:8000` |
+| `controller` | Interface web (`/ui/`) et API REST, pour les personnes ; crée ou met à jour les tables au démarrage | `8080` |
+| `mcp` | Serveur MCP (`/mcp`) et enrôlement public, pour les agents et la CI | `8000` |
 
 Bon à savoir :
 
-- **Ordre de démarrage.** `migrate` attend que PostgreSQL soit prêt ; `controller` et `mcp`
-  attendent que `migrate` ait réussi. Seul `migrate` modifie les tables.
+- **Ordre de démarrage.** `controller` attend que PostgreSQL soit prêt, puis crée ou met à jour
+  les tables ; `mcp`, qui les vérifie seulement, attend que `controller` soit en bonne santé.
+  Après une mise à jour de l'image, `docker compose up -d` suffit : le contrôleur applique les
+  nouvelles migrations.
 - **Conservez `.env`.** Il contient le mot de passe de la base et le secret des sessions ; ne le
   commitez jamais. Le mot de passe est inséré tel quel dans l'URL de connexion : gardez des
   caractères hexadécimaux, comme ci-dessus.
-- **Ouvrir à l'équipe.** Les ports ne sont ouverts que sur cette machine (`127.0.0.1`). Activez
-  le [TLS intégré](http.md#tls) ou placez un reverse proxy devant, puis remplacez `127.0.0.1`
-  dans les `ports` de `controller` et `mcp` par l'adresse du serveur. Les variables TLS
-  (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) vont sous `environment`, avec les fichiers
-  du certificat montés en lecture seule (voir
+- **Ouvrir à l'équipe.** Les ports sont publiés sur toutes les interfaces du serveur, en HTTP
+  simple : activez le [TLS intégré](http.md#tls) ou placez un reverse proxy devant avant que
+  l'équipe se connecte. Pour garder un port sur le serveur seulement (derrière un reverse proxy
+  sur la même machine, par exemple), préfixez-le par `127.0.0.1` (`"127.0.0.1:8000:8000"`).
+  Seuls les `ports` décident de l'exposition : dans son conteneur, chaque
+  processus écoute sur toutes les interfaces (`SECREVIEW_HOST=0.0.0.0`, fixée par l'image, à ne
+  pas changer). Pour le TLS intégré,
+  décommentez dans `controller` et `mcp` les variables TLS (`SECREVIEW_TLS_CERTFILE`,
+  `SECREVIEW_TLS_KEYFILE`) et le `volumes` qui monte en lecture seule les fichiers du certificat
+  depuis `./tls` (voir
   [Autorité de certification](http.md#autorite-de-certification)). Le contrôleur n'expose aucune
   route d'écriture sans jeton : il peut rester interne.
 - **Avis de vulnérabilités.** La base OSV est **vide** au premier démarrage : l'analyse de
@@ -101,7 +105,7 @@ La même image lance chaque processus dans son propre conteneur, sur une base Po
 existante (voir [Architecture et déploiement](architecture.md)) :
 
 - le **serveur MCP** est le point d'entrée par défaut de l'image (`security-review-mcp`,
-  commande par défaut `serve`, en stdio ; ajoutez `--transport streamable-http` pour HTTP) ;
+  commande par défaut `serve`, en HTTP streamable ; ajoutez `--transport stdio` pour le mode local) ;
 - le **contrôleur** (API REST, interface web, administration) se lance avec
   `--entrypoint security-review-controller`, avec l'[authentification et le TLS intégrés](http.md)
   ou derrière un reverse proxy qui s'en charge.
@@ -109,29 +113,28 @@ existante (voir [Architecture et déploiement](architecture.md)) :
 ```bash
 DB=postgresql+psycopg2://user:pass@db:5432/secreview
 
-# 1. Schéma (Alembic) : à relancer après chaque mise à jour de l'image
-docker run --rm -e SECREVIEW_DATABASE_URL=$DB \
-    --entrypoint security-review-controller security-review-mcp:pg db upgrade
-
-# 2. Contrôleur : interface web et API, de préférence sur un réseau interne
+# 1. Contrôleur : interface web et API, de préférence sur un réseau interne ; crée ou met
+#    à jour le schéma (Alembic) au démarrage, donc à lancer en premier
 docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
-    -e SECREVIEW_DATABASE_URL=$DB -e SECREVIEW_DB_AUTO_UPGRADE=false \
+    -e SECREVIEW_DATABASE_URL=$DB \
     --entrypoint security-review-controller \
-    security-review-mcp:pg serve --host 0.0.0.0 --port 8000
+    ghcr.io/cyr-ius/security-review serve
 
-# 3. Serveur MCP : exposé aux agents et à la CI
+# 2. Serveur MCP : exposé aux agents et à la CI
 docker run -d --name secreview-mcp -p 8443:8443 \
     -e SECREVIEW_DATABASE_URL=$DB \
     -v ./tls:/etc/secreview/tls:ro \
     -e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
     -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
-    security-review-mcp:pg serve --transport streamable-http --host 0.0.0.0 --port 8443
+    ghcr.io/cyr-ius/security-review serve --port 8443
 
-# 4. Mot de passe du compte admin, créé au premier démarrage du contrôleur
+# 3. Mot de passe du compte admin, créé au premier démarrage du contrôleur
 docker exec secreview-controller security-review-controller user reset-password admin
 ```
 
-Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Le
+Dans l'image, les deux processus écoutent sur toutes les interfaces du conteneur
+(`SECREVIEW_HOST=0.0.0.0`), sur le port `8000` sauf `--port` : l'option `-p` choisit l'adresse et
+le port de l'hôte (`-p 127.0.0.1:8080:8000` : cette machine seulement). Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Le
 serveur MCP refuse de démarrer tant que le schéma n'est pas migré (étape 1).
 
 ## Sauvegarde de PostgreSQL
@@ -171,7 +174,7 @@ docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exis
 docker compose up -d
 ```
 
-Le service `migrate` applique ensuite les révisions Alembic en attente, s'il y en a. L'export
+Le contrôleur applique ensuite au démarrage les révisions Alembic en attente, s'il y en a. L'export
 contient les rapports, les empreintes des mots de passe et des jetons : gardez-le hors du dépôt
 (lisible par vous seul, `umask 077`) et supprimez-le une fois la restauration vérifiée.
 
@@ -183,12 +186,12 @@ appliquent en quelques secondes) :
 
 ```bash
 docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
-    --entrypoint security-review-controller security-review-mcp rules import /rules
+    --entrypoint security-review-controller ghcr.io/cyr-ius/security-review rules import /rules
 ```
 
 Les autres commandes passent de la même façon :
 
 ```bash
 docker run --rm -v secreview-data:/var/lib/secreview \
-    --entrypoint security-review-controller security-review-mcp token list
+    --entrypoint security-review-controller ghcr.io/cyr-ius/security-review token list
 ```

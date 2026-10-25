@@ -1,4 +1,4 @@
-# security-review-mcp shared server with PostgreSQL, built from the sources (contributors): the
+# security-review shared server with PostgreSQL, built from the sources (contributors): the
 # MCP server and the controller (REST API, web interface on /ui) run in two containers sharing
 # the database. To deploy the published image, use examples/docker/docker-compose.yml.
 #
@@ -9,27 +9,25 @@
 # The advisory database is empty at first: add SECREVIEW_OSV_AUTO_UPDATE=true to .env to let the
 # controller download the OSV advisories at start-up, then every 24 h.
 #
-# The migrate service migrates the schema (Alembic) before the two servers start.
+# The controller migrates the schema (Alembic) at start; the MCP server waits until it is healthy.
 # The MCP server listens on 127.0.0.1:8000 and the controller on 127.0.0.1:8080 only. To publish
-# them on another address (DOCKER_PUBLISH_ADDRESS=0.0.0.0 in .env: every interface), enable TLS
-# (SECREVIEW_TLS_*) or put them behind a reverse proxy first. The controller exposes no
-# unauthenticated write endpoint: it can stay on an internal network.
+# them on another address of the host (DOCKER_PUBLISH_ADDRESS in .env), enable TLS
+# (SECREVIEW_TLS_*) or put them behind a reverse proxy first. Inside their containers,
+# the servers always listen on every interface (SECREVIEW_HOST=0.0.0.0, set by the image).
+# The controller exposes no unauthenticated write endpoint: it can stay on an internal network.
 # PostgreSQL is not published on the host.
 
-name: security-review-mcp
+name: security-review
 
 x-secreview-env: &secreview-env
   SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
   SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
-  SECREVIEW_DB_AUTO_UPGRADE: "false"
   SECREVIEW_SECRET_KEY: ${SECREVIEW_SECRET_KEY:?set SECREVIEW_SECRET_KEY in .env}
 
 x-secreview: &secreview
   build:
     context: .
-    args:
-      EXTRAS: postgres
-  image: security-review-mcp:pg
+  image: security-review
   environment: *secreview-env
   networks:
     - backend
@@ -61,40 +59,33 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  migrate:
-    <<: *secreview
-    restart: "no"
-    depends_on:
-      db:
-        condition: service_healthy
-    entrypoint: ["security-review-controller"]
-    command: ["db", "upgrade"]
-
   controller:
     <<: *secreview
     restart: unless-stopped
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      db:
+        condition: service_healthy
     entrypoint: ["security-review-controller"]
-    command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["serve"]
     environment:
       <<: *secreview-env
       SECREVIEW_OSV_AUTO_UPDATE: ${SECREVIEW_OSV_AUTO_UPDATE:-false}
       SECREVIEW_OSV_ECOSYSTEMS: ${SECREVIEW_OSV_ECOSYSTEMS:-PyPI,npm,Maven}
       SECREVIEW_SWAGGER_ENABLED: ${SECREVIEW_SWAGGER_ENABLED:-false}
     ports:
-      - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:${DOCKER_CONTROLLER_PORT:-8080}:8000"
+      - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:8080:8000"
 
   mcp:
     <<: *secreview
     restart: unless-stopped
     depends_on:
-      migrate:
-        condition: service_completed_successfully
-    command: ["serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
+      # The MCP server only checks the schema: it starts once the controller has migrated it
+      controller:
+        condition: service_healthy
+    environment:
+      <<: *secreview-env
     ports:
-      - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:${DOCKER_MCP_PORT:-8000}:8000"
+      - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:8000:8000"
 
 volumes:
   secreview-pg:

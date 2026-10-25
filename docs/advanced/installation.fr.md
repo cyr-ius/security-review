@@ -7,8 +7,8 @@ Cette page couvre l'installation depuis les sources et sans accès Internet.
 ## Depuis les sources
 
 ```bash
-git clone https://github.com/cyr-ius/security-review-mcp.git
-cd security-review-mcp
+git clone https://github.com/cyr-ius/security-review.git
+cd security-review
 uv sync --extra dev               # ajouter --extra postgres pour PostgreSQL
 cp .env.example .env
 uv run pytest && uv run ruff check .

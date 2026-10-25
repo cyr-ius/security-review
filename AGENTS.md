@@ -96,8 +96,8 @@ l'utiliser.
 
 - **git (push, fetch, pull)** : passez par **SSH**. Le remote `origin` est en HTTPS, sans
   identifiants : utilisez l'URL SSH, par ex.
-  `git push git@github.com:cyr-ius/security-review-mcp.git dev`
-  (ou `git remote set-url --push origin git@github.com:cyr-ius/security-review-mcp.git`).
+  `git push git@github.com:cyr-ius/security-review.git dev`
+  (ou `git remote set-url --push origin git@github.com:cyr-ius/security-review.git`).
 - **API GitHub (pull requests, issues, revues, commentaires, releases)** : passez par le
   **connecteur GitHub MCP**.
 - Si SSH est indisponible, le connecteur peut aussi pousser des fichiers (`push_files`). Il crée
@@ -173,7 +173,7 @@ cas de conflit, il prévaut.
   schéma OpenAPI.
 - Angular, en plus du standard `angular` : formulaires de saisie en Signal Forms (obligatoire),
   aucun `.subscribe()` dans les composants (`rxResource` ou `firstValueFrom`), couleurs par
-  variables Bootstrap ou jetons de `styles.css`. Le détail est dans `docs/contributing`.
+  variables Bootstrap ou jetons de `styles.css`. Le détail est dans `docs/contributing/web-ui`.
 
 ### Invariants de sécurité (ne jamais régresser)
 
@@ -342,7 +342,11 @@ essentielles.
 | Les connecteurs (contrat `connectors/api.py`, Jira, ServiceNow, écran **Connecteurs**, routes) | `docs/connectors/` (`index`, `jira`, `servicenow`, `third-party`), `examples/connector/` |
 | Installation, image Docker | `docs/getting-started/deploy` (conteneurs), `docs/getting-started/stdio` (paquet PyPI), `docs/advanced/installation`, `docs/advanced/manual-install`, `docs/advanced/docker` |
 | Une garantie ou limite de sécurité | `docs/reference/security` |
-| La structure du code, l'outillage de dev | `docs/contributing` |
+| La structure du code, l'environnement de dev (devcontainer, VS Code), l'image | `docs/contributing/index` |
+| Une convention de développement propre au serveur MCP, au contrôleur ou à l'interface Angular | `docs/contributing/mcp-server`, `docs/contributing/controller` ou `docs/contributing/web-ui` |
+| La méthode ou les conventions de test, les fixtures de `tests/conftest.py` | `docs/contributing/tests` |
+| Les règles de rédaction ou la construction de la doc, les règles du README | `docs/contributing/documentation` |
+| Les linters, formateurs, hooks `prek`, workflows de CI, la procédure de revue, les branches ou la publication d'une version | `docs/contributing/checks-and-releases` |
 
 - Les deux versions d'une page disent la même chose : pas de section qui n'existe que dans une
   langue. Les exemples (commandes, sorties, JSON) sont identiques ; seuls le texte et les
@@ -350,7 +354,7 @@ essentielles.
 - L'interface web est traduite (anglais, français, espagnol) : chaque version de la doc cite les
   libellés de l'interface dans sa langue, tels qu'ils s'affichent (**Tokens** / **Jetons**).
 - Tout texte affiché par l'interface passe par les catalogues de `web/src/app/core/i18n/messages/`,
-  dans les trois langues (voir `docs/contributing`) : pas de texte en dur dans un template.
+  dans les trois langues (voir `docs/contributing/web-ui`) : pas de texte en dur dans un template.
 - Nouvelle page : créez `page.md` et `page.fr.md` dans `docs/`, déclarez `page.md` dans `nav`
   de `mkdocs.yml` et traduisez son titre dans `nav_translations` (langue `fr` du plugin `i18n`).
 - Liens relatifs entre pages, toujours vers le fichier anglais (`../reference/cli.md`) : le
@@ -382,6 +386,6 @@ Règles :
   ligne** au README avec un lien vers la page de doc ; quand vous en retirez ou renommez une,
   corrigez le README.
 - Modifiez toujours les deux fichiers ensemble.
-- Les liens vers la doc pointent sur le site publié : `https://cyr-ius.github.io/security-review-mcp/...`
-  depuis `README.md`, `https://cyr-ius.github.io/security-review-mcp/fr/...` (ancres
+- Les liens vers la doc pointent sur le site publié : `https://cyr-ius.github.io/security-review/...`
+  depuis `README.md`, `https://cyr-ius.github.io/security-review/fr/...` (ancres
   françaises) depuis `README.fr.md`.
