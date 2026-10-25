@@ -16,8 +16,6 @@ docker pull ghcr.io/cyr-ius/security-review:latest   # or docker.io/cyrius44/sec
 | `X.Y.ZrcN` (`a`, `b`, `rc`) | Préversion : ce tag seulement, jamais `latest` |
 
 Les images portent un SBOM et une attestation de provenance (`docker buildx imagetools inspect --format '{{ json .Provenance }}' IMAGE`).
-Dans les exemples de cette page, remplacez `security-review-mcp` par
-l'image publiée.
 
 ## Docker Compose avec PostgreSQL
 
@@ -111,13 +109,13 @@ DB=postgresql+psycopg2://user:pass@db:5432/secreview
 
 # 1. Schéma (Alembic) : à relancer après chaque mise à jour de l'image
 docker run --rm -e SECREVIEW_DATABASE_URL=$DB \
-    --entrypoint security-review-controller security-review-mcp db upgrade
+    --entrypoint security-review-controller ghcr.io/cyr-ius/security-review db upgrade
 
 # 2. Contrôleur : interface web et API, de préférence sur un réseau interne
 docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
     -e SECREVIEW_DATABASE_URL=$DB -e SECREVIEW_DB_AUTO_UPGRADE=false \
     --entrypoint security-review-controller \
-    security-review-mcp serve --host 0.0.0.0 --port 8000
+    ghcr.io/cyr-ius/security-review serve --host 0.0.0.0 --port 8000
 
 # 3. Serveur MCP : exposé aux agents et à la CI
 docker run -d --name secreview-mcp -p 8443:8443 \
@@ -125,7 +123,7 @@ docker run -d --name secreview-mcp -p 8443:8443 \
     -v ./tls:/etc/secreview/tls:ro \
     -e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
     -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
-    security-review-mcp serve --transport streamable-http --host 0.0.0.0 --port 8443
+    ghcr.io/cyr-ius/security-review serve --transport streamable-http --host 0.0.0.0 --port 8443
 
 # 4. Mot de passe du compte admin, créé au premier démarrage du contrôleur
 docker exec secreview-controller security-review-controller user reset-password admin
@@ -183,12 +181,12 @@ appliquent en quelques secondes) :
 
 ```bash
 docker run --rm -v secreview-data:/var/lib/secreview -v ./rules.d:/rules:ro \
-    --entrypoint security-review-controller security-review-mcp rules import /rules
+    --entrypoint security-review-controller ghcr.io/cyr-ius/security-review rules import /rules
 ```
 
 Les autres commandes passent de la même façon :
 
 ```bash
 docker run --rm -v secreview-data:/var/lib/secreview \
-    --entrypoint security-review-controller security-review-mcp token list
+    --entrypoint security-review-controller ghcr.io/cyr-ius/security-review token list
 ```
