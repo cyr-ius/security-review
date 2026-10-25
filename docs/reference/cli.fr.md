@@ -55,7 +55,7 @@ La variable `SECREVIEW_DB_AUTO_UPGRADE=false` désactive la migration du schéma
 
 ## `security-review-ci`
 
-Options de toutes les sous-commandes : `--project P` (obligatoire), `--url URL` (par défaut
+Options de toutes les sous-commandes sauf `agent-review` : `--project P` (obligatoire), `--url URL` (par défaut
 `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (par défaut : `SECREVIEW_TOKEN`), `--cafile CA`,
 `--allow-http`, `--timeout S`. Sans argument, `security-review-ci` affiche son aide et sort
 avec le code `2`.
@@ -67,6 +67,7 @@ avec le code `2`.
 | `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Rapport de tendance par l'API REST | [Tendances](../advanced/ci.md#rapport-de-tendance) |
 | `scan-code [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FICHIER] [--save]` | Lit les fichiers du dépôt et les fait scanner par le contrôleur avec ses règles ; `--save` enregistre un rapport | [Scan du code complet](../advanced/code-scan.md) |
 | `scan-deps FICHIER… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Envoie des manifestes, lockfiles ou SBOM CycloneDX au contrôleur, qui les compare à sa base d'avis ; `--save` enregistre un rapport | [Dépendances](../advanced/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps) |
+| `agent-review --project P [--agent claude\|copilot\|codex] [--mcp-config FICHIER] [--mcp-server NOM] [--foreground]` | Fait relire le dernier commit par l'agent de code du développeur avec le serveur MCP `security-review` de sa configuration MCP (hook post-commit) ; ne contacte jamais le contrôleur ; sort avec `0` quand la revue démarre ou est sautée, `2` hors d'un dépôt git | [Client de pipeline](../advanced/ci.md#revue-de-chaque-commit-par-un-agent) |
 
 `scan-code` et `scan-deps` acceptent aussi `--repository`, `--branch`, `--commit` et `--author`,
 enregistrés avec le rapport (`--author` est inutile avec un jeton personnel, dont l'utilisateur

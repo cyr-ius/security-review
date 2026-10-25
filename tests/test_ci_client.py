@@ -539,3 +539,96 @@ def test_scans_need_a_ci_or_admin_token(controller, monkeypatch, capsys, tmp_pat
     assert "(403)" in json.loads(capsys.readouterr().err)["error"]
     admin = token_store.create_token("root", Role.ADMIN)["token"]
     assert run(controller, monkeypatch, argv, admin) == 0
+
+
+# ── Agent review (commit hook) ───────────────────────────────────────────────
+
+REVIEW_TOKEN = "test-review-token"
+
+
+def commit_repo(root, message="feat: add login"):
+    """A git work tree with one commit and the .mcp.json of the developer."""
+    git_init(root)
+    (root / "app.py").write_text("subprocess.run(cmd, shell=True)\n", encoding="utf-8")
+    server = {"type": "http", "url": "https://mcp.example.com/mcp"}
+    server["headers"] = {"Authorization": f"Bearer {REVIEW_TOKEN}"}
+    config = {"mcpServers": {"security-review": server, "other": {"command": "other-mcp"}}}
+    (root / ".mcp.json").write_text(json.dumps(config), encoding="utf-8")
+    subprocess.run(["git", "add", "app.py"], cwd=root, check=True)
+    identity = ["-c", "user.name=dev", "-c", "user.email=dev@example.com"]
+    subprocess.run(["git", *identity, "commit", "-q", "-m", message], cwd=root, check=True)
+
+
+@pytest.fixture
+def agents(monkeypatch):
+    """Pretend every agent CLI is installed and record the agent runs instead of running them."""
+    runs = []
+    real_run = subprocess.run
+
+    def run(command, **kwargs):
+        if command[0] == "git":
+            return real_run(command, **kwargs)
+        config = next((arg for arg in command if arg.endswith(".json")), None)
+        if config:
+            # The private configuration only exists while the agent runs
+            config = json.loads(Path(config.removeprefix("@")).read_text(encoding="utf-8"))
+        runs.append({"command": command, "kwargs": kwargs, "config": config})
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(ci_client.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(ci_client.subprocess, "run", run)
+    return runs
+
+
+@pytest.mark.parametrize("agent", ["claude", "copilot", "codex"])
+def test_agent_review_gives_only_the_review_server_and_never_the_token_on_the_command_line(
+    agent, agents, monkeypatch, tmp_path, capsys
+):
+    commit_repo(tmp_path)
+    monkeypatch.chdir(tmp_path)
+    argv = ["agent-review", "--project", "shop-api", "--agent", agent, "--foreground"]
+    assert ci_client.main(argv) == 0
+
+    [run] = agents
+    command, kwargs = run["command"], run["kwargs"]
+    assert not any(REVIEW_TOKEN in arg for arg in command)
+    sha = subprocess.run(
+        ["git", "rev-parse", "HEAD"], cwd=tmp_path, capture_output=True, text=True
+    ).stdout.strip()
+    prompt = kwargs["input"] or command[command.index("-p") + 1]
+    assert f'commit_sha "{sha}"' in prompt and "shell=True" in prompt
+    if agent == "codex":
+        assert "features.shell_tool=false" in command
+        assert kwargs["env"][ci_client.CODEX_TOKEN_VARIABLE] == REVIEW_TOKEN
+    else:
+        # Only the review server, from a private file removed after the review
+        assert list(run["config"]["mcpServers"]) == ["security-review"]
+        config_file = next(arg for arg in command if arg.endswith(".json")).removeprefix("@")
+        assert not Path(config_file).exists()
+        assert not Path(config_file).is_relative_to(tmp_path)
+    if agent == "claude":
+        assert "Read(./.mcp.json)" in command and "--strict-mcp-config" in command
+    if agent == "copilot":
+        assert run["config"]["mcpServers"]["security-review"]["tools"] == list(
+            ci_client.REVIEW_TOOLS
+        )
+    assert "done, log:" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    ("message", "installed", "reason"),
+    [
+        ("feat: x\n\nSecurity-Review: 187", True, "already reviewed"),
+        ("feat: x", False, "no agent CLI found"),
+    ],
+)
+def test_agent_review_is_skipped_without_failing_the_hook(
+    message, installed, reason, agents, monkeypatch, tmp_path, capsys
+):
+    commit_repo(tmp_path, message)
+    monkeypatch.chdir(tmp_path)
+    if not installed:
+        monkeypatch.setattr(ci_client.shutil, "which", lambda name: None)
+    assert ci_client.main(["agent-review", "--project", "shop-api"]) == 0
+    assert agents == []
+    assert reason in capsys.readouterr().err

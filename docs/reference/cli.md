@@ -55,7 +55,7 @@ The variable `SECREVIEW_DB_AUTO_UPGRADE=false` disables schema migration.
 
 ## `security-review-ci`
 
-Options of every sub-command: `--project P` (required), `--url URL` (default
+Options of every sub-command except `agent-review`: `--project P` (required), `--url URL` (default
 `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (default: `SECREVIEW_TOKEN`), `--cafile CA`,
 `--allow-http`, `--timeout S`. Without arguments, `security-review-ci` prints its help and
 exits with code `2`.
@@ -67,6 +67,7 @@ exits with code `2`.
 | `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Trend report through the REST API | [Trends](../advanced/ci.md#trend-report) |
 | `scan-code [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FILE] [--save]` | Reads the files of the repository and has the controller scan them with its rules; `--save` stores a report | [Whole codebase scan](../advanced/code-scan.md) |
 | `scan-deps FILE… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Sends manifests, lockfiles or CycloneDX SBOMs to the controller, which checks them against its advisory database; `--save` stores a report | [Dependencies](../advanced/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps) |
+| `agent-review --project P [--agent claude\|copilot\|codex] [--mcp-config FILE] [--mcp-server NAME] [--foreground]` | Has the coding agent of the developer review the last commit with the `security-review` MCP server of its MCP configuration (post-commit hook); never contacts the controller; exits with `0` when the review starts or is skipped, `2` outside a git repository | [Pipeline client](../advanced/ci.md#agent-review-of-each-commit) |
 
 `scan-code` and `scan-deps` also accept `--repository`, `--branch`, `--commit` and `--author`,
 stored with the report (`--author` is not needed with a personal token, whose user is the

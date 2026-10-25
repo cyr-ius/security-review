@@ -43,7 +43,7 @@ repos:
       # see docs/contributing/checks-and-releases.md
       - id: agent-review
         name: agent security review
-        entry: scripts/agent-review.sh
+        entry: uv run --frozen security-review-ci agent-review --project security-review-mcp
         language: system
         stages: [post-commit]
         always_run: true

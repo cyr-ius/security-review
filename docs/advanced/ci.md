@@ -32,8 +32,9 @@ packages in the same environment. Install the version of your controller
 | `trend --project P [--days N] [--granularity day\|week\|month] [--format markdown\|json]` | Trend report of the project ([Trend report](#trend-report)) |
 | `scan-code [PATH] --project P [--save] …` | Sends the files of the repository to the controller, which scans them with its rules ([Whole codebase scan](code-scan.md)) |
 | `scan-deps FILE… --project P [--save] …` | Sends manifests and lockfiles to the controller, which checks them against its advisories ([Dependencies](dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps)) |
+| `agent-review --project P [--agent A] …` | Has the coding agent of the developer review the last commit with the MCP server, in the background (post-commit hook, [Agent review of each commit](#agent-review-of-each-commit)) |
 
-Common options: `--url` (default `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (reads the token
+Common options (except `agent-review`): `--url` (default `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (reads the token
 on stdin instead of `SECREVIEW_TOKEN`), `--cafile` (CA of the controller certificate),
 `--allow-http`, `--timeout` (seconds, default 60).
 
@@ -43,6 +44,72 @@ on stdin instead of `SECREVIEW_TOKEN`), `--cafile` (CA of the controller certifi
   in the URL; redirects are not followed, so the token is only sent to the given controller.
 - The two variables are read from the environment only (the `.env` file is ignored).
 - The answers are bounded (64 MiB) and the control characters of the text output are removed.
+
+## Agent review of each commit
+
+`agent-review` runs on the workstation of a developer, as a post-commit hook: the coding agent
+of the developer reviews the last commit for security with the `security-review` MCP server,
+in the background, and saves one report, which the developer reads in the web interface. The
+command never contacts the controller and needs no `ci` token: the agent calls the MCP server
+with the token of the MCP configuration.
+
+The developer needs uv, the CLI of their agent, signed in with their account, and the MCP
+configuration they already use with that agent:
+
+| Agent | CLI | Installation |
+|---|---|---|
+| Claude Code | `claude` | `npm install -g @anthropic-ai/claude-code` |
+| GitHub Copilot | `copilot` | `npm install -g @github/copilot` |
+| Codex (ChatGPT account or OpenAI key) | `codex` | `npm install -g @openai/codex` |
+
+The command takes the first one installed, in this order, or the one given by `--agent` or the
+`AGENT_REVIEW_CLI` variable. The server is read from `.mcp.json` (`--mcp-config`) under the name
+`security-review` (`--mcp-server`): `mcpServers` format of Claude Code and Copilot or `servers`
+format of VS Code, HTTP server (`url`, `Authorization` header) or local server (`command`,
+[local mode](../getting-started/stdio.md)).
+
+A project declares the hook in its `.pre-commit-config.yaml` (prek or pre-commit), at the
+version of its controller:
+
+```yaml
+default_install_hook_types: [pre-commit, post-commit]
+repos:
+  - repo: local
+    hooks:
+      - id: agent-review
+        name: agent security review
+        entry: uvx --isolated security-review-ci@X.Y.Z agent-review --project shop-api
+        language: system
+        stages: [post-commit]
+        always_run: true
+        pass_filenames: false
+```
+
+```bash
+prek install                          # pre-commit and post-commit hooks
+SKIP=agent-review git commit ...      # skip the review for one commit
+```
+
+- The commit is never blocked, even when findings remain open: the command exits with `0` when
+  the review starts or is skipped (with a warning on stderr), `2` outside a git repository. The
+  log of the agent is in `.git/agent-review/<commit>.log`. `--foreground` waits for the end of
+  the review, which is always the case on Windows (no `fork`).
+- The agent receives the commit (up to 100 KB) between random tags in its prompt, and only the
+  `security-review` server, limited to its review tools (`scan_code`, `get_review_checklist`,
+  `save_security_report`...): the other MCP servers of the developer are not loaded. Its MCP
+  configuration goes to a private temporary file outside the repository, removed after the
+  review; the token is never on a command line. The agent edits no file and proposes no finding
+  status.
+- Claude Code runs with `--restricted` and `--permission-mode dontAsk`: no command, and `.env`,
+  `.mcp.json` and the files outside the repository stay unreadable. Codex runs without its shell
+  and image tools, in its read-only sandbox: it reads no file and reviews the commit of its
+  prompt only. Copilot runs with the shell and write tools denied: it reads the files of the
+  repository, `.env` and `.mcp.json` included. The reports mask secrets in any case.
+- The review is skipped for a commit that carries a `Security-Review: <report id>` trailer
+  (added by an agent that already reviewed the change in its session), during a rebase or a
+  cherry-pick, or when no agent CLI, no MCP configuration or no `security-review` server in it
+  is found.
+- Each review consumes model usage on the account of the agent.
 
 ## `ci` token and visible projects
 
