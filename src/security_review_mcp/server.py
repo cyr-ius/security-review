@@ -18,7 +18,7 @@ from sqlalchemy.exc import ArgumentError
 from . import __version__, app_settings, http_server, prompts, standards
 from .auth import access_control, enrollment_api, token_store
 from .clients import commands
-from .config import check_report_language, configure_logging, get_settings
+from .config import check_report_language, configure_logging, default_database_url, get_settings
 from .deps import advisories, depscan
 from .observability import audit
 from .reports import sarif, services, trends
@@ -991,8 +991,19 @@ def serve(argv: list[str]) -> None:
         help="streamable-http for a shared server, stdio for a local host (overrides "
         "SECREVIEW_TRANSPORT, default: %(default)s); --host, --port and TLS apply to HTTP only",
     )
+    parser.add_argument(
+        "--ignore-database-url",
+        action="store_true",
+        help="stdio only: use the default SQLite database of the user, whatever "
+        "SECREVIEW_DATABASE_URL says (an environment that points it to a shared database)",
+    )
     http_server.add_listen_arguments(parser, settings)
     args = parser.parse_args(argv)
+    if args.ignore_database_url:
+        if args.transport != "stdio":
+            parser.error("--ignore-database-url applies to --transport stdio only")
+        # The engine reads the cached settings: point them to the default SQLite file
+        settings.database_url = default_database_url()
     settings = http_server.with_tls_arguments(settings, args)
     configure_logging(settings.log_level)
 
@@ -1007,8 +1018,8 @@ def serve(argv: list[str]) -> None:
         if backend != "sqlite":
             parser.error(
                 f"--transport stdio uses a local SQLite database only, but SECREVIEW_DATABASE_URL "
-                f"points to {backend}: unset it, or use the shared mode (streamable-http) to "
-                "work with this database"
+                f"points to {backend}: unset it, pass --ignore-database-url, or use the shared "
+                "mode (streamable-http) to work with this database"
             )
     try:
         if args.transport == "stdio":

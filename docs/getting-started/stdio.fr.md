@@ -42,9 +42,14 @@ C'est le seul fichier écrit par le serveur : supprimez-le pour effacer toute tr
 !!! note "SQLite uniquement"
     En stdio, le serveur refuse de démarrer (code `2`) quand `SECREVIEW_DATABASE_URL` désigne une
     autre base (PostgreSQL...) : le mode local n'a pas de jeton, et une base partagée lui
-    permettrait d'écrire dans tous les projets et de migrer le schéma de l'équipe. Retirez la
-    variable si votre environnement la définit (`env -u SECREVIEW_DATABASE_URL ...`), ou utilisez
-    le [mode partagé (HTTP)](../getting-started/deploy.md).
+    permettrait d'écrire dans tous les projets et de migrer le schéma de l'équipe. Si votre
+    environnement définit la variable (un conteneur de développement, par exemple), ajoutez
+    `--ignore-database-url` à la commande : le serveur utilise alors sa base SQLite par défaut.
+    Sinon, utilisez le [mode partagé (HTTP)](../getting-started/deploy.md).
+
+    ```bash
+    security-review-mcp serve --transport stdio --ignore-database-url
+    ```
 
 !!! note "`--transport stdio` est obligatoire"
     Sans `--transport`, `serve` lance le serveur HTTP du mode partagé

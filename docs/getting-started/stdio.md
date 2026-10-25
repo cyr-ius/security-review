@@ -42,9 +42,14 @@ This is the only file written by the server; delete it to remove all traces.
 !!! note "SQLite only"
     In stdio, the server refuses to start (code `2`) when `SECREVIEW_DATABASE_URL` points to
     another database (PostgreSQL...): local mode has no token, and a shared database would let it
-    write to every project and migrate the schema of the team. Unset the variable if your
-    environment defines it (`env -u SECREVIEW_DATABASE_URL ...`), or use the
+    write to every project and migrate the schema of the team. If your environment defines the
+    variable (a development container, for example), add `--ignore-database-url` to the command:
+    the server then uses its default SQLite database. Otherwise, use the
     [shared mode (HTTP)](../getting-started/deploy.md).
+
+    ```bash
+    security-review-mcp serve --transport stdio --ignore-database-url
+    ```
 
 !!! note "`--transport stdio` is required"
     Without `--transport`, `serve` starts the HTTP server of the shared mode
