@@ -88,7 +88,8 @@ fois.
 
 Une version correspond à un tag poussé sur `master` :
 
-1. Sur `dev`, mettez à jour `version` dans `pyproject.toml` (par ex. `uv version 1.3.0`) et
+1. Sur `dev`, mettez à jour `version` dans `pyproject.toml` (par ex. `uv version 1.3.0`), seul
+   endroit de la version, que le paquet lit dans ses métadonnées installées, et
    commitez.
 2. Fusionnez `dev` dans `master`.
 3. Sur `master`, poussez le tag correspondant : `git tag v1.3.0 && git push origin v1.3.0`.

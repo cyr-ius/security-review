@@ -86,7 +86,8 @@ trailer, already reviewed in the session of its agent, is not reviewed again.
 
 A version is a tag pushed on `master`:
 
-1. On `dev`, update `version` in `pyproject.toml` (e.g. `uv version 1.3.0`) and commit.
+1. On `dev`, update `version` in `pyproject.toml` (e.g. `uv version 1.3.0`) and commit: it is
+   the only place of the version, which the package reads from its installed metadata.
 2. Merge `dev` into `master`.
 3. On `master`, push the matching tag: `git tag v1.3.0 && git push origin v1.3.0`.
 4. The push of the tag triggers `publish.yml`: lint and tests, check that the tag matches the
