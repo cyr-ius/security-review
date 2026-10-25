@@ -37,7 +37,7 @@ repos:
         language: system
         files: ^(uv\.lock|pyproject\.toml|web/package(-lock)?\.json)$
       # Security review of each commit by Claude Code, in the background (opt-in:
-      # `prek install --hook-type post-commit`); see docs/contributing
+      # `prek install --hook-type post-commit`); see docs/contributing/checks-and-releases.md
       - id: agent-review
         name: agent security review
         entry: scripts/agent-review.sh

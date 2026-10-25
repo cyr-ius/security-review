@@ -6,37 +6,10 @@
 git clone https://github.com/cyr-ius/security-review-mcp.git
 uv sync --extra dev
 uv run pytest
-uv run ruff check . && uv run ruff format --check .
-prek install         # optional: same checks before every commit, and the dependency
-                     # scan when SECREVIEW_CONTROLLER_URL is set
 ```
 
-The `prettier` hook formats the YAML and JSON files and the sources of `web/src/` with the
-Prettier version locked by `web/package-lock.json` (the one of CI): run `npm ci` in `web/`
-before the first commit. CI checks the same files (`lint.yml`, **web** job). `.prettierrc` sets
-the width to 100 columns, like ruff; lock files are listed in `.prettierignore`.
-
-### Security review of each commit
-
-The optional `agent-review` hook (`scripts/agent-review.sh`) asks Claude Code to review each of
-your commits for security, in the background, with the `security-review` MCP server of your
-`.mcp.json`. The review follows the security review procedure of `AGENTS.md` and saves
-one report, which you read in the web interface. Enable it once:
-
-```bash
-prek install --hook-type post-commit
-SKIP=agent-review git commit ...      # skip it for one commit
-```
-
-- The commit is never blocked: the review runs after it, and its log is in
-  `.git/agent-review/<commit>.log`.
-- The agent receives the commit in its prompt and may only read the repository and call the
-  review tools of the server (`--restricted`, `--permission-mode dontAsk`): it edits no file,
-  runs no command, proposes no finding status and cannot read `.env`, `.mcp.json` or any file
-  outside the repository.
-- The hook does nothing for a commit made by Claude Code (already reviewed in its session),
-  during a rebase or a cherry-pick, or when the `claude` CLI or `.mcp.json` is missing.
-- Each review consumes model usage on your Claude account.
+Linters, formatters, hooks and security reviews: see
+[Checks, reviews and releases](checks-and-releases.md).
 
 In VS Code (`.vscode/`):
 
@@ -129,12 +102,8 @@ are too. When the `security-review` MCP server is up, the changes are also revie
 invariants, mapping from code to doc pages) are in `AGENTS.md` at the root of the repository;
 `CLAUDE.md` and `.github/copilot-instructions.md` point to it.
 
-A test protects a contract or an invariant, not a line of code, and there is no coverage
-target. Test first the security invariants, the public contracts (MCP tools and prompts, CLI exit
-codes, REST schema, migrations) and each fixed bug (one regression test). Do not test what a
-library already guarantees, implementation details or the exact text of a message. Before adding
-a test, extend the one that already covers the behavior (extra assertion, `parametrize` row): a
-change usually adds one to three tests.
+The checks to run, the test method and the review procedure are in
+[Checks, reviews and releases](checks-and-releases.md).
 
 ## Code layout
 
@@ -220,49 +189,9 @@ test it:
 | [Controller (FastAPI)](controller.md) | `web_api/`, `cli.py`, `storage/` | REST routes and their schemas, permissions, settings, CLI, schema migrations |
 | [Web interface (Angular)](web-ui.md) | `web/` | Build and dev server, code conventions, translations |
 | [Documentation](documentation.md) | `docs/`, `mkdocs.yml`, `README.md` | Writing and building the bilingual documentation, README, publication |
+| [Checks, reviews and releases](checks-and-releases.md) | `.pre-commit-config.yaml`, `.github/workflows/` | Linters, formatters, tests, security review, branches, releases |
 
 The generic standards of each technology (Python and FastAPI, Angular, tests) are served by the
 project itself: prompt `development-standards`, tool `get_development_standards` (see
 [development standards](../usage/standards.md)). These pages only hold what is specific to
 this repository; when they conflict, they prevail.
-
-## Branches
-
-- **`dev`**: development branch, the default place to code.
-- **`feat/<topic>`**: only for a large break (rework, API or schema change), created from `dev`
-  and merged into `dev` by pull request.
-- **`master`**: production branch, only fed by merges of `dev`.
-
-## Releasing a version
-
-A version is a tag pushed on `master`:
-
-1. On `dev`, update `version` in `pyproject.toml` (e.g. `uv version 1.3.0`) and commit.
-2. Merge `dev` into `master`.
-3. On `master`, push the matching tag: `git tag v1.3.0 && git push origin v1.3.0`.
-4. The push of the tag triggers `publish.yml`: lint and tests, check that the tag matches the
-   version, publication on PyPI and of the Docker images (`docker.yml`), then creation of the
-   GitHub release.
-
-The tag publishes two PyPI distributions at the same version: `security-review` and
-`security-review-ci`, the pipeline client alone (no dependency), whose project is written by
-`scripts/build_ci_client.py` from `ci_client.py`, with the `requires-python` of the server. The
-**ci-client** job of `tests.yml` builds it and runs the wheel alone, without the server.
-
-The `.github/workflows/docker.yml` workflow builds the image (`linux/amd64`, `linux/arm64`,
-with the PostgreSQL driver) and checks that both entry points start. On every pull request
-(the protection of `master` requires these checks), it only builds; on a version tag, it pushes the
-images to `ghcr.io/cyr-ius/security-review-mcp` and `docker.io/cyrius44/security-review-mcp`
-(see [published images](../advanced/docker.md#published-images)). A manual run (**Actions →
-Docker image → Run workflow**, `push` checked) publishes a branch image (`dev`). Every
-tag is also published with the `-pg` suffix (`X.Y.Z-pg`, `latest-pg`, `dev-pg`): a deprecated
-alias of the same image, kept for the former PostgreSQL variant until the next major version.
-
-One-time setup: a Docker Hub access token (read and write) in the repository secret
-`DOCKERHUB_TOKEN`; GHCR uses the token of the workflow. After the first publication, make the
-GHCR package public (**Packages → security-review-mcp → Package settings**).
-
-Every action of the workflows is pinned to a full commit SHA, with its version in a comment
-(`uses: actions/checkout@<40-character SHA> # v7.0.1`): a tag can be moved, a commit cannot.
-Dependabot (`.github/dependabot.yml`) updates the SHA and the comment together. Pin any new
-action the same way.

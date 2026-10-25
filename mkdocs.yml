@@ -103,6 +103,7 @@ plugins:
             MCP server: Serveur MCP
             Controller (FastAPI): Contrôleur (FastAPI)
             Web interface (Angular): Interface web (Angular)
+            Checks, reviews and releases: Vérifications, revues et publication
             Shared mode (HTTP): Mode partagé (HTTP)
             Kubernetes: Kubernetes
             Manual installation (without containers): Installation manuelle (sans conteneur)
@@ -185,3 +186,4 @@ nav:
       - "Controller (FastAPI)": contributing/controller.md
       - "Web interface (Angular)": contributing/web-ui.md
       - Documentation: contributing/documentation.md
+      - Checks, reviews and releases: contributing/checks-and-releases.md
