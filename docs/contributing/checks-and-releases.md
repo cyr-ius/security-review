@@ -109,7 +109,7 @@ alias of the same image, kept for the former PostgreSQL variant until the next m
 
 One-time setup: a Docker Hub access token (read and write) in the repository secret
 `DOCKERHUB_TOKEN`; GHCR uses the token of the workflow. After the first publication, make the
-GHCR package public (**Packages → security-review-mcp → Package settings**).
+GHCR package public (**Packages → security-review → Package settings**).
 
 Every action of the workflows is pinned to a full commit SHA, with its version in a comment
 (`uses: actions/checkout@<40-character SHA> # v7.0.1`): a tag can be moved, a commit cannot.

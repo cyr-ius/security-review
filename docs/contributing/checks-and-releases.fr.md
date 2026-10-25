@@ -112,7 +112,7 @@ PostgreSQL jusqu'à la prochaine version majeure.
 
 Mise en place unique : un jeton d'accès Docker Hub (lecture et écriture) dans le secret du dépôt
 `DOCKERHUB_TOKEN` ; GHCR utilise le jeton du workflow. Après la première publication, rendez le
-paquet GHCR public (**Packages → security-review-mcp → Package settings**).
+paquet GHCR public (**Packages → security-review → Package settings**).
 
 Chaque action des workflows est épinglée sur le SHA complet d'un commit, avec sa version en
 commentaire (`uses: actions/checkout@<SHA de 40 caractères> # v7.0.1`) : un tag peut être

@@ -11,8 +11,8 @@
 [ci::github]: https://github.com/cyr-ius/security-review/actions
 [pypi::version]: https://img.shields.io/pypi/v/security-review?color=blue&logo=pypi&logoColor=white
 [pypi::web]: https://pypi.org/project/security-review/
-[docker::pulls]: https://img.shields.io/docker/pulls/cyrius44/security-review-mcp.svg?logo=docker
-[docker::hub]: https://hub.docker.com/r/cyrius44/security-review-mcp
+[docker::pulls]: https://img.shields.io/docker/pulls/cyrius44/security-review.svg?logo=docker
+[docker::hub]: https://hub.docker.com/r/cyrius44/security-review
 [documentation::badge]: https://img.shields.io/badge/Documentation-MkDocs-green?logo=materialformkdocs
 [documentation::web]: https://cyr-ius.github.io/security-review/fr/
 

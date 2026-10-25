@@ -72,8 +72,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ---------------------------------------------------------------------------
 FROM python:3.14-slim
 
-LABEL org.opencontainers.image.title="security-review-mcp" \
-      org.opencontainers.image.description="MCP server for security code review"
+LABEL org.opencontainers.image.title="security-review" \
+      org.opencontainers.image.description="Security code review: MCP server and controller (REST API, web interface, CI/CD gate)"
 
 RUN groupadd --system --gid 10001 secreview \
     && useradd --system --uid 10001 --gid secreview --no-create-home \

@@ -100,10 +100,10 @@ jobs:
             latest=auto
           labels: |
             org.opencontainers.image.title=security-review
-            org.opencontainers.image.description=MCP server for security code review
+            org.opencontainers.image.description=Security code review: MCP server and controller (REST API, web interface, CI/CD gate)
           annotations: |
             org.opencontainers.image.title=security-review
-            org.opencontainers.image.description=MCP server for security code review
+            org.opencontainers.image.description=Security code review: MCP server and controller (REST API, web interface, CI/CD gate)
 
       # Deprecated aliases (X.Y.Z-pg... latest-pg) of the former PostgreSQL variant
       - uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
