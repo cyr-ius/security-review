@@ -2,8 +2,8 @@
 #
 # Image of security-review-mcp: one image, two processes sharing the database.
 #
-#   docker build -t security-review-mcp .
-#   docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # PostgreSQL driver
+#   docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
+#   docker build -t security-review-mcp --build-arg EXTRAS= .   # without the PostgreSQL driver
 #
 # stdio (developer workstation, the MCP host starts the container itself):
 #   docker run -i --rm -v secreview-data:/var/lib/secreview security-review-mcp
@@ -53,8 +53,8 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 
-# Optional extra from pyproject.toml (e.g. "postgres")
-ARG EXTRAS=""
+# Extra from pyproject.toml: the PostgreSQL driver by default, empty for SQLite only
+ARG EXTRAS="postgres"
 
 # Dependencies first: this layer is reused as long as uv.lock does not change
 RUN --mount=type=cache,target=/root/.cache/uv \

@@ -4,7 +4,7 @@ Two manifests deploy everything in the `secreview` namespace:
 [`examples/kubernetes/postgres.yaml`](https://github.com/cyr-ius/security-review-mcp/blob/{{ release_tag }}/examples/kubernetes/postgres.yaml)
 (PostgreSQL, official image) and
 [`examples/kubernetes/security-review.yaml`](https://github.com/cyr-ius/security-review-mcp/blob/{{ release_tag }}/examples/kubernetes/security-review.yaml)
-(controller and MCP server, published image `ghcr.io/cyr-ius/security-review-mcp:latest-pg`).
+(controller and MCP server, published image `ghcr.io/cyr-ius/security-review-mcp:latest`).
 
 ## Deployment
 
@@ -145,9 +145,8 @@ Changing `SECREVIEW_SECRET_KEY` ends every web session.
 
 ## Image, exposure and administration
 
-The manifest uses the published image `ghcr.io/cyr-ius/security-review-mcp:latest-pg`, which
-contains the PostgreSQL driver: pin a version (`X.Y.Z-pg`) in production, or use your own
-image built with the `postgres` extra. Expose the `secreview-mcp` Service to the agents and to the CI through an
+The manifest uses the published image `ghcr.io/cyr-ius/security-review-mcp:latest`, which
+contains the PostgreSQL driver: pin a version (`X.Y.Z`) in production. Expose the `secreview-mcp` Service to the agents and to the CI through an
 Ingress with TLS. Keep the controller internal (`kubectl port-forward`, VPN or Ingress
 restricted to administrators). Behind the Ingress, set `SECREVIEW_FORWARDED_ALLOW_IPS` (commented
 in the ConfigMap) to the address range of the ingress controller pods: otherwise every client

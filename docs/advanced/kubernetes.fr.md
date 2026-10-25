@@ -4,7 +4,7 @@ Deux manifestes déploient tout dans le namespace `secreview` :
 [`examples/kubernetes/postgres.yaml`](https://github.com/cyr-ius/security-review-mcp/blob/{{ release_tag }}/examples/kubernetes/postgres.yaml)
 (PostgreSQL, image officielle) et
 [`examples/kubernetes/security-review.yaml`](https://github.com/cyr-ius/security-review-mcp/blob/{{ release_tag }}/examples/kubernetes/security-review.yaml)
-(contrôleur et serveur MCP, image publiée `ghcr.io/cyr-ius/security-review-mcp:latest-pg`).
+(contrôleur et serveur MCP, image publiée `ghcr.io/cyr-ius/security-review-mcp:latest`).
 
 ## Déploiement
 
@@ -149,9 +149,8 @@ Secrets au démarrage : après un changement, redémarrez-les
 
 ## Image, exposition et administration
 
-Le manifeste utilise l'image publiée `ghcr.io/cyr-ius/security-review-mcp:latest-pg`, qui
-contient le pilote PostgreSQL : épinglez une version (`X.Y.Z-pg`) en production, ou utilisez
-votre propre image construite avec l'extra `postgres`. Exposez le Service `secreview-mcp` aux agents et à la CI par un Ingress avec
+Le manifeste utilise l'image publiée `ghcr.io/cyr-ius/security-review-mcp:latest`, qui
+contient le pilote PostgreSQL : épinglez une version (`X.Y.Z`) en production. Exposez le Service `secreview-mcp` aux agents et à la CI par un Ingress avec
 TLS. Gardez le contrôleur interne (`kubectl port-forward`, VPN ou Ingress restreint aux
 administrateurs). Derrière l'Ingress, réglez `SECREVIEW_FORWARDED_ALLOW_IPS` (en commentaire dans
 la ConfigMap) sur la plage d'adresses des pods de l'ingress controller : sinon tous les clients

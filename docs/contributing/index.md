@@ -84,7 +84,7 @@ The Docker daemon lets you build and run the image of the [Dockerfile](../advanc
 without leaving the container:
 
 ```bash
-docker build -t security-review-mcp .
+docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
 docker run --rm -p 8080:8000 -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
 docker run --rm -p 8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
@@ -104,8 +104,8 @@ volumes are kept in volumes of the devcontainer: they do not mix with those of t
 ## Building the image
 
 ```bash
-docker build -t security-review-mcp .
-docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # PostgreSQL driver
+docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
+docker build -t security-review-mcp --build-arg EXTRAS= .   # without the PostgreSQL driver
 ```
 
 The build also compiles the [web interface](../usage/web-interface.md) (Node.js stage); the
@@ -293,11 +293,13 @@ The tag publishes two PyPI distributions at the same version: `security-review` 
 **ci-client** job of `tests.yml` builds it and runs the wheel alone, without the server.
 
 The `.github/workflows/docker.yml` workflow builds the image (`linux/amd64`, `linux/arm64`,
-default and `-pg` variants) and checks that both entry points start. On every pull request
+with the PostgreSQL driver) and checks that both entry points start. On every pull request
 (the protection of `master` requires these checks), it only builds; on a version tag, it pushes the
 images to `ghcr.io/cyr-ius/security-review-mcp` and `docker.io/cyrius44/security-review-mcp`
 (see [published images](../advanced/docker.md#published-images)). A manual run (**Actions →
-Docker image → Run workflow**, `push` checked) publishes a branch image (`dev`, `dev-pg`).
+Docker image → Run workflow**, `push` checked) publishes a branch image (`dev`). Every
+tag is also published with the `-pg` suffix (`X.Y.Z-pg`, `latest-pg`, `dev-pg`): a deprecated
+alias of the same image, kept for the former PostgreSQL variant until the next major version.
 
 One-time setup: a Docker Hub access token (read and write) in the repository secret
 `DOCKERHUB_TOKEN`; GHCR uses the token of the workflow. After the first publication, make the

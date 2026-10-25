@@ -85,7 +85,7 @@ Le démon Docker permet de construire et de lancer l'image du
 [Dockerfile](../advanced/docker.md) sans quitter le conteneur :
 
 ```bash
-docker build -t security-review-mcp .
+docker build -t security-review-mcp .   # SQLite et PostgreSQL (pilote inclus)
 docker run --rm -p 8080:8000 -v secreview-data:/var/lib/secreview \
     --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
 docker run --rm -p 8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
@@ -105,8 +105,8 @@ devcontainer : ils ne se mélangent pas avec ceux de l'hôte.
 ## Construire l'image
 
 ```bash
-docker build -t security-review-mcp .
-docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # pilote PostgreSQL
+docker build -t security-review-mcp .   # SQLite et PostgreSQL (pilote inclus)
+docker build -t security-review-mcp --build-arg EXTRAS= .   # sans le pilote PostgreSQL
 ```
 
 Le build compile aussi l'[interface web](../usage/web-interface.md) (étape Node.js) ;
@@ -295,12 +295,14 @@ Le tag publie deux distributions PyPI à la même version : `security-review` et
 Le job **ci-client** de `tests.yml` le construit et lance le wheel seul, sans le serveur.
 
 Le workflow `.github/workflows/docker.yml` construit l'image (`linux/amd64`, `linux/arm64`,
-variantes par défaut et `-pg`) et vérifie que les deux points d'entrée démarrent. Sur chaque pull
+avec le pilote PostgreSQL) et vérifie que les deux points d'entrée démarrent. Sur chaque pull
 request (la protection de `master` exige ces vérifications), il construit seulement ; sur un tag de
 version, il pousse les images sur `ghcr.io/cyr-ius/security-review-mcp` et
 `docker.io/cyrius44/security-review-mcp` (voir [images publiées](../advanced/docker.md#images-publiees)).
 Une exécution manuelle (**Actions → Docker image → Run workflow**, `push` coché) publie une
-image de branche (`dev`, `dev-pg`).
+image de branche (`dev`). Chaque tag est aussi publié avec le suffixe `-pg` (`X.Y.Z-pg`,
+`latest-pg`, `dev-pg`) : alias déprécié de la même image, conservé pour l'ancienne variante
+PostgreSQL jusqu'à la prochaine version majeure.
 
 Mise en place unique : un jeton d'accès Docker Hub (lecture et écriture) dans le secret du dépôt
 `DOCKERHUB_TOKEN` ; GHCR utilise le jeton du workflow. Après la première publication, rendez le

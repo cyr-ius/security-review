@@ -39,8 +39,8 @@ services:
       - no-new-privileges:true
 
   migrate:
-    # Pin a version in production, for example 3.0.0-pg
-    image: ghcr.io/cyr-ius/security-review-mcp:latest-pg
+    # Pin a version in production, for example 3.0.0
+    image: ghcr.io/cyr-ius/security-review-mcp:latest
     restart: "no"
     entrypoint: ["security-review-controller"]
     command: ["db", "upgrade"]
@@ -58,7 +58,7 @@ services:
       - no-new-privileges:true
 
   controller:
-    image: ghcr.io/cyr-ius/security-review-mcp:latest-pg
+    image: ghcr.io/cyr-ius/security-review-mcp:latest
     restart: unless-stopped
     entrypoint: ["security-review-controller"]
     command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
@@ -85,7 +85,7 @@ services:
       - no-new-privileges:true
 
   mcp:
-    image: ghcr.io/cyr-ius/security-review-mcp:latest-pg
+    image: ghcr.io/cyr-ius/security-review-mcp:latest
     restart: unless-stopped
     command: ["serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
     environment:

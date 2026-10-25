@@ -3,20 +3,20 @@
 ## Published Images
 
 Each version is published for `linux/amd64` and `linux/arm64` on the GitHub Container Registry and
-Docker Hub, in two variants: SQLite-only, and a `-pg` version that includes the PostgreSQL driver.
+Docker Hub. The same image works with SQLite and PostgreSQL: it includes the PostgreSQL driver.
 
 ```bash
-docker pull ghcr.io/cyr-ius/security-review-mcp:latest-pg   # or docker.io/cyrius44/security-review-mcp
+docker pull ghcr.io/cyr-ius/security-review-mcp:latest   # or docker.io/cyrius44/security-review-mcp
 ```
 
 | Tag | Content |
 |---|---|
 | `X.Y.Z`, `X.Y`, `X`, `latest` | Version `X.Y.Z` (the latest stable version for `latest`) |
-| `X.Y.Z-pg`, `X.Y-pg`, `X-pg`, `latest-pg` | Same as above, with the PostgreSQL driver |
+| `X.Y.Z-pg`, `X.Y-pg`, `X-pg`, `latest-pg` | Deprecated: aliases of the same image, kept until the next major version (former PostgreSQL variant) |
 | `X.Y.ZrcN` (`a`, `b`, `rc`) | Pre-release: applies only to this specific tag; never used for `latest` |
 
 The images include an SBOM and a provenance attestation (accessible via `docker buildx imagetools inspect --format '{{ json .Provenance }}' IMAGE`).
-In the examples on this page, replace `security-review-mcp` and `security-review-mcp:pg` with
+In the examples on this page, replace `security-review-mcp` with
 the actual published image name.
 
 ## Docker Compose with PostgreSQL
@@ -110,13 +110,13 @@ DB=postgresql+psycopg2://user:pass@db:5432/secreview
 
 # 1. Schema (Alembic): must be run again after every image update
 docker run --rm -e SECREVIEW_DATABASE_URL=$DB \
-    --entrypoint security-review-controller security-review-mcp:pg db upgrade
+    --entrypoint security-review-controller security-review-mcp db upgrade
 
 # 2. Controller: web interface and API, preferably on an internal network
 docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
     -e SECREVIEW_DATABASE_URL=$DB -e SECREVIEW_DB_AUTO_UPGRADE=false \
     --entrypoint security-review-controller \
-    security-review-mcp:pg serve --host 0.0.0.0 --port 8000
+    security-review-mcp serve --host 0.0.0.0 --port 8000
 
 # 3. MCP server: exposed to the agents and the CI
 docker run -d --name secreview-mcp -p 8443:8443 \
@@ -124,7 +124,7 @@ docker run -d --name secreview-mcp -p 8443:8443 \
     -v ./tls:/etc/secreview/tls:ro \
     -e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
     -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
-    security-review-mcp:pg serve --transport streamable-http --host 0.0.0.0 --port 8443
+    security-review-mcp serve --transport streamable-http --host 0.0.0.0 --port 8443
 
 # 4. Password of the admin account, created at the first start of the controller
 docker exec secreview-controller security-review-controller user reset-password admin

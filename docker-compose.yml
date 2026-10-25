@@ -27,9 +27,7 @@ x-secreview-env: &secreview-env
 x-secreview: &secreview
   build:
     context: .
-    args:
-      EXTRAS: postgres
-  image: security-review-mcp:pg
+  image: security-review-mcp
   environment: *secreview-env
   networks:
     - backend

@@ -32,8 +32,8 @@ controller thus exposes **no unauthenticated write route**.
 
 !!! note "Shared database"
     With SQLite, both processes must run on the same machine and share the file. As soon as
-    they are in different pods or on different machines, use PostgreSQL (`postgres` extra,
-    image built with `--build-arg EXTRAS=postgres`), deployed with
+    they are in different pods or on different machines, use PostgreSQL (`postgres` extra
+    of the PyPI package, included in the image), deployed with
     [Docker Compose](docker.md#docker-compose-with-postgresql) or [Kubernetes](kubernetes.md#deployment).
 
 With stdio (developer workstation), only `security-review-mcp` is needed: it creates and
