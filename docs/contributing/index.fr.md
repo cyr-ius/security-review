@@ -2,12 +2,20 @@
 
 ## Environnement de développement
 
+Il faut Python 3.14, [uv](https://docs.astral.sh/uv/) et Node.js 24 (le
+[devcontainer](#devcontainer) les fournit et installe les dépendances à sa création) :
+
 ```bash
 git clone https://github.com/cyr-ius/security-review-mcp.git
-uv sync --extra dev
+cd security-review-mcp
+uv sync --extra dev --extra docs
+npm --prefix web ci                                   # Angular, Prettier (Node.js 24)
+npm --prefix web run build                            # interface servie par le contrôleur sur /ui/
+uv run security-review-controller db upgrade
 ```
 
-Linters, formateurs, hooks et revues de sécurité : voir
+Sans la build Angular, le contrôleur ne sert que l'API REST (`/api/v1`). `prek install`
+(facultatif), linters, formateurs et revues de sécurité : voir
 [Vérifications, revues et publication](checks-and-releases.md).
 
 Dans VS Code (`.vscode/`) :
@@ -43,7 +51,7 @@ PostgreSQL. Les tests, eux, utilisent toujours une base SQLite en mémoire et ig
 fichier `.env` et les variables `SECREVIEW_*` du shell.
 
 À sa création, le devcontainer installe le client `psql`, les hooks `prek` et l'environnement
-complet (`uv sync --extra dev --extra docs --extra postgres`), puis migre la base. Il redirige les
+complet (`uv sync --extra dev --extra docs --extra postgres`, `npm --prefix web ci`), puis migre la base. Il redirige les
 ports 8000 (serveur MCP), 8080 (contrôleur), 4200 (serveur de dev Angular), 8001 (doc) et 5432
 (PostgreSQL, identifiants de développement `secreview` / `secreview`).
 

@@ -2,12 +2,20 @@
 
 ## Development environment
 
+Python 3.14, [uv](https://docs.astral.sh/uv/) and Node.js 24 are needed (the
+[devcontainer](#devcontainer) provides them and installs the dependencies at creation):
+
 ```bash
 git clone https://github.com/cyr-ius/security-review-mcp.git
-uv sync --extra dev
+cd security-review-mcp
+uv sync --extra dev --extra docs
+npm --prefix web ci                                   # Angular, Prettier (Node.js 24)
+npm --prefix web run build                            # interface served by the controller on /ui/
+uv run security-review-controller db upgrade
 ```
 
-Linters, formatters, hooks and security reviews: see
+Without the Angular build, the controller only serves the REST API (`/api/v1`). `prek install`
+(optional), linters, formatters and security reviews: see
 [Checks, reviews and releases](checks-and-releases.md).
 
 In VS Code (`.vscode/`):
@@ -43,7 +51,7 @@ PostgreSQL. The tests always use an in-memory SQLite database, and ignore your `
 the `SECREVIEW_*` variables of the shell.
 
 At creation, the devcontainer installs the `psql` client, the `prek` hooks and the full
-environment (`uv sync --extra dev --extra docs --extra postgres`), then migrates the database. It
+environment (`uv sync --extra dev --extra docs --extra postgres`, `npm --prefix web ci`), then migrates the database. It
 forwards ports 8000 (MCP server), 8080 (controller), 4200 (Angular dev server), 8001 (docs) and
 5432 (PostgreSQL, development credentials `secreview` / `secreview`).
 
