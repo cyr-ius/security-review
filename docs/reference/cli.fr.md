@@ -19,7 +19,8 @@ uv pip install security-review-ci
 
 | Commande | Rôle | Page |
 |---|---|---|
-| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--ignore-database-url]` | Lance le serveur MCP (`streamable-http` par défaut, pour le mode partagé ; `--transport stdio` pour le mode local, où `--ignore-database-url` utilise la base SQLite par défaut quelle que soit `SECREVIEW_DATABASE_URL`) | [Installation manuelle](../advanced/manual-install.md#5-lancer-le-serveur-mcp) |
+| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Lance le serveur MCP (`streamable-http` par défaut, pour le mode partagé ; `--transport stdio` n'accepte qu'une base SQLite) | [Installation manuelle](../advanced/manual-install.md#5-lancer-le-serveur-mcp) |
+| `local` | Lance le serveur MCP du mode local (stdio), sur la base SQLite locale : ignore les bases distantes, donc `SECREVIEW_DATABASE_URL` | [Mode local](../getting-started/stdio.md) |
 | `enroll --url URL --project P [--requested-by QUI] [--cafile CA] [--allow-http]` | Demande le projet sur un serveur en mode partagé, validé par un administrateur (inchangé s'il existe ou est en attente ; demandeur : `--requested-by`, par défaut votre nom de connexion) ; aucun jeton n'est créé : la réponse donne l'URL de l'interface web où créer un jeton MCP personnel | [Enrôlement](../advanced/http.md#enrolement-demander-le-projet) |
 
 Sans commande, `security-review-mcp` affiche son aide.

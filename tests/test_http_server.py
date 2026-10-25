@@ -531,14 +531,14 @@ def test_stdio_server_refuses_a_shared_database(monkeypatch, capsys, url, messag
     assert "hunter2" not in err
 
 
-def test_stdio_server_can_ignore_a_shared_database(monkeypatch):
+def test_local_command_ignores_a_shared_database(monkeypatch):
     url = "postgresql+psycopg2://user:hunter2@db:5432/secreview"  # secreview:ignore GEN-007
     settings = make_settings(database_url=url)
     monkeypatch.setattr(server, "get_settings", lambda: settings)
     started = []
     monkeypatch.setattr(server.mcp, "run", lambda transport: started.append(transport))
 
-    server.main(["serve", "--transport", "stdio", "--ignore-database-url"])
+    server.main(["local"])
 
     assert started == ["stdio"]
     assert settings.database_url.get_secret_value() == default_database_url().get_secret_value()
@@ -557,7 +557,7 @@ def test_the_mcp_cli_no_longer_runs_the_controller_commands(capsys):
 @pytest.mark.parametrize(
     ("argv", "expected"),
     [
-        (["--help"], ["serve", *commands.MCP_COMMANDS]),
+        (["--help"], ["serve", "local", *commands.MCP_COMMANDS]),
         (["serve", "--help"], ["--transport", "--host", "--port"]),
     ],
 )

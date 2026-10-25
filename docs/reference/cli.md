@@ -19,7 +19,8 @@ uv pip install security-review-ci
 
 | Command | Role | Page |
 |---|---|---|
-| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …] [--ignore-database-url]` | Starts the MCP server (`streamable-http` by default, for the shared mode; `--transport stdio` for the local mode, where `--ignore-database-url` uses the default SQLite database whatever `SECREVIEW_DATABASE_URL` says) | [Manual installation](../advanced/manual-install.md#5-start-the-mcp-server) |
+| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server (`streamable-http` by default, for the shared mode; `--transport stdio` accepts a SQLite database only) | [Manual installation](../advanced/manual-install.md#5-start-the-mcp-server) |
+| `local` | Starts the MCP server of the local mode (stdio), on the local SQLite database: ignores remote databases, hence `SECREVIEW_DATABASE_URL` | [Local mode](../getting-started/stdio.md) |
 | `enroll --url URL --project P [--requested-by WHO] [--cafile CA] [--allow-http]` | Requests the project on a server in shared mode, for an administrator to approve (unchanged when it exists or is pending; requester: `--requested-by`, by default your login name); no token is created: the answer gives the URL of the web interface where you create a personal MCP token | [Enrollment](../advanced/http.md#enrollment-request-the-project) |
 
 Without a command, `security-review-mcp` prints its usage.

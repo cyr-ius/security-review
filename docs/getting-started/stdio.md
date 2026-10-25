@@ -1,7 +1,7 @@
 # Local mode (stdio)
 
-In **local mode**, the host (VS Code, Claude…) starts `security-review-mcp serve --transport stdio` itself
-on the developer workstation and talks to it through stdin / stdout: no network, no token, no
+In **local mode**, the host (VS Code, Claude…) starts `security-review-mcp local` itself on the
+developer workstation and talks to it through stdin / stdout: no network, no token, no
 controller.
 
 !!! warning "For specific cases only"
@@ -32,35 +32,27 @@ Without Internet access, or from the sources: see [Installation: other cases](..
 ## Running
 
 ```bash
-security-review-mcp serve --transport stdio   # started by the host, not by hand
+security-review-mcp local   # started by the host, not by hand
 ```
 
-A SQLite database is created locally (`~/.local/share/security-review-mcp/security_reports.db`).
-You can change its location via [`SECREVIEW_DATABASE_URL`](../reference/configuration.md#database).
-This is the only file written by the server; delete it to remove all traces.
+A SQLite database is created locally (`~/.local/share/security-review-mcp/security_reports.db`,
+or under `$XDG_DATA_HOME` when it is set).
+This is the only file written by the server; delete it to remove all traces. `local` ignores
+remote databases, hence [`SECREVIEW_DATABASE_URL`](../reference/configuration.md#database): a
+development container that points it to PostgreSQL does not change the database of the local
+mode.
 
-!!! note "SQLite only"
-    In stdio, the server refuses to start (code `2`) when `SECREVIEW_DATABASE_URL` points to
-    another database (PostgreSQL...): local mode has no token, and a shared database would let it
-    write to every project and migrate the schema of the team. If your environment defines the
-    variable (a development container, for example), add `--ignore-database-url` to the command:
-    the server then uses its default SQLite database. Otherwise, use the
-    [shared mode (HTTP)](../getting-started/deploy.md).
-
-    ```bash
-    security-review-mcp serve --transport stdio --ignore-database-url
-    ```
-
-!!! note "`--transport stdio` is required"
-    Without `--transport`, `serve` starts the HTTP server of the shared mode
-    ([`SECREVIEW_TRANSPORT`](../reference/configuration.md#mcp-server), `streamable-http` by
-    default). Up to version 3.0.0, `serve` ran in stdio by default: add `--transport stdio` to
-    the existing host configurations.
+!!! note "`serve --transport stdio`"
+    `security-review-mcp serve --transport stdio` also runs the server in stdio, but it reads
+    `SECREVIEW_DATABASE_URL` and accepts SQLite only: it refuses to start (code `2`) when the
+    variable points to another database (PostgreSQL...). Local mode has no token, and a shared
+    database would let it write to every project and migrate the schema of the team. To work
+    with that database, use the [shared mode (HTTP)](../getting-started/deploy.md).
 
 ## Host configuration
 
 With the **stdio** transport, the host (VS Code, Claude…) starts the server process itself.
-Give the path of the executable, the `serve --transport stdio` command and, if needed, the `SECREVIEW_*` variables
+Give the path of the executable, the `local` command and, if needed, the `SECREVIEW_*` variables
 (see [Configuration](../reference/configuration.md#mcp-server)).
 
 VS Code, GitHub Copilot and Claude read the same `.mcp.json` file at the root of the
@@ -72,7 +64,7 @@ repository:
     "security-review": {
       "type": "stdio",
       "command": "uvx",
-      "args": ["--from","security-review==4.0.0","security-review-mcp","serve","--transport","stdio"]
+      "args": ["--from","security-review==4.0.0","security-review-mcp","local"]
     }
   }
 }
