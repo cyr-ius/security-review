@@ -23,7 +23,7 @@ export const account = defineMessages({
     'account.failed': 'The password change failed.',
     'apiTokens.title': 'Personal tokens',
     'apiTokens.help':
-      'A REST API token calls the REST API (Swagger “Authorize” button, scripts) with your current rights, which come from your groups. An MCP token connects your MCP agent and also lets security-review-ci scan your code and dependencies from your workstation (one SECREVIEW_TOKEN for both); a CI token only does the latter. Both reach the projects you may read, as they are now; creating one needs the “Create a personal MCP or CI token” permission (role mcp-user). These tokens stop working when your account is deleted or loses its rights, and you hold one of each by default: revoke a token to create another. Like every token, they never accept a risk nor mark a false positive.',
+      'A REST API token calls the REST API (Swagger “Authorize” button, scripts) with your current rights, which come from your groups. An MCP token connects your MCP agent and also lets security-review-ci scan your code and dependencies from your workstation (one SECREVIEW_TOKEN for both). It reaches the projects you may read, as they are now; creating one needs the “Create a personal MCP or CI token” permission (role mcp-user). These tokens stop working when your account is deleted or loses its rights, and you hold one of each by default: revoke a token to create another. Like every token, they never accept a risk nor mark a false positive.',
     'apiTokens.create': 'Create a token',
     'apiTokens.empty': 'No personal tokens.',
     'apiTokens.projects': 'Projects',
@@ -52,7 +52,7 @@ export const account = defineMessages({
     'account.failed': 'Le changement de mot de passe a échoué.',
     'apiTokens.title': 'Jetons personnels',
     'apiTokens.help':
-      "Un jeton API REST appelle l'API REST (bouton « Authorize » du Swagger, scripts) avec vos droits actuels, qui viennent de vos groupes. Un jeton MCP connecte votre agent MCP et permet aussi à security-review-ci de scanner votre code et vos dépendances depuis votre poste (un seul SECREVIEW_TOKEN pour les deux) ; un jeton CI ne fait que ce scan. Tous deux atteignent les projets que vous pouvez lire, tels qu'ils sont à l'instant ; pour en créer un, il faut la permission « Créer un jeton MCP ou CI personnel » (rôle mcp-user). Ces jetons cessent de fonctionner quand votre compte est supprimé ou perd ses droits, et vous en avez un de chaque par défaut : révoquez un jeton pour en créer un autre. Comme tout jeton, ils n'acceptent jamais un risque et ne marquent jamais un faux positif.",
+      "Un jeton API REST appelle l'API REST (bouton « Authorize » du Swagger, scripts) avec vos droits actuels, qui viennent de vos groupes. Un jeton MCP connecte votre agent MCP et permet aussi à security-review-ci de scanner votre code et vos dépendances depuis votre poste (un seul SECREVIEW_TOKEN pour les deux). Il atteint les projets que vous pouvez lire, tels qu'ils sont à l'instant ; pour en créer un, il faut la permission « Créer un jeton MCP ou CI personnel » (rôle mcp-user). Ces jetons cessent de fonctionner quand votre compte est supprimé ou perd ses droits, et vous en avez un de chaque par défaut : révoquez un jeton pour en créer un autre. Comme tout jeton, ils n'acceptent jamais un risque et ne marquent jamais un faux positif.",
     'apiTokens.create': 'Créer un jeton',
     'apiTokens.empty': 'Aucun jeton personnel.',
     'apiTokens.projects': 'Projets',
@@ -81,7 +81,7 @@ export const account = defineMessages({
     'account.failed': 'El cambio de contraseña ha fallado.',
     'apiTokens.title': 'Tokens personales',
     'apiTokens.help':
-      'Un token API REST llama a la API REST (botón «Authorize» de Swagger, scripts) con sus permisos actuales, que provienen de sus grupos. Un token MCP conecta su agente MCP y también permite a security-review-ci escanear su código y sus dependencias desde su equipo (un solo SECREVIEW_TOKEN para ambos); un token CI solo hace este escaneo. Ambos alcanzan los proyectos que usted puede leer, tal como son en este momento; para crearlo se necesita el permiso «Crear un token MCP o CI personal» (rol mcp-user). Estos tokens dejan de funcionar cuando su cuenta se elimina o pierde sus permisos, y usted tiene uno de cada por defecto: revoque un token para crear otro. Como todo token, nunca aceptan un riesgo ni marcan un falso positivo.',
+      'Un token API REST llama a la API REST (botón «Authorize» de Swagger, scripts) con sus permisos actuales, que provienen de sus grupos. Un token MCP conecta su agente MCP y también permite a security-review-ci escanear su código y sus dependencias desde su equipo (un solo SECREVIEW_TOKEN para ambos). Alcanza los proyectos que usted puede leer, tal como son en este momento; para crearlo se necesita el permiso «Crear un token MCP o CI personal» (rol mcp-user). Estos tokens dejan de funcionar cuando su cuenta se elimina o pierde sus permisos, y usted tiene uno de cada por defecto: revoque un token para crear otro. Como todo token, nunca aceptan un riesgo ni marcan un falso positivo.',
     'apiTokens.create': 'Crear un token',
     'apiTokens.empty': 'No hay tokens personales.',
     'apiTokens.projects': 'Proyectos',

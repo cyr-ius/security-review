@@ -108,13 +108,15 @@ que l'utilisateur lit.
 ## Jetons personnels
 
 Un utilisateur crée ses propres jetons dans **Mon compte** > **Jetons personnels**, avec l'un
-de trois usages :
+de deux usages :
 
 | Usage | Rôle | Atteint | Exige |
 |---|---|---|---|
 | **API REST — Swagger et scripts** | `api` | l'API REST, avec les droits du compte | — |
 | **MCP** | `mcp` | `/mcp` et les routes de pipeline, sur les projets que le compte peut lire | `mcp_tokens.create` |
-| **Pipeline CI/CD** | `ci` | les routes de pipeline seulement, sur les projets que le compte peut lire | `mcp_tokens.create` |
+
+Un jeton `ci` personnel (routes de pipeline seulement) n'y est plus proposé : le jeton `mcp` les
+couvre (voir [plus bas](#jetons-mcp-et-ci-personnels)).
 
 Tout jeton personnel suit les mêmes règles :
 
@@ -146,8 +148,9 @@ reçoit un `401` qui invite l'utilisateur à se reconnecter pour en créer un no
 
 Un jeton `mcp` personnel vaut aussi jeton `ci` personnel sur les routes de pipeline : un seul
 `SECREVIEW_TOKEN` sur le poste sert à la fois à l'agent MCP et à
-[`security-review-ci`](../advanced/ci.md). Un jeton `ci` personnel ne sert qu'à séparer les deux
-usages ; il n'atteint jamais `/mcp`. Un rapport enregistré par l'un ou l'autre est soumis par le
+[`security-review-ci`](../advanced/ci.md) : **Mon compte** ne propose donc plus de jeton `ci`
+personnel. L'API en crée encore un pour séparer les deux usages (il n'atteint jamais `/mcp`), et
+ceux déjà créés restent listés jusqu'à leur révocation. Un rapport enregistré par l'un ou l'autre est soumis par le
 jeton (`alice:laptop`), et son utilisateur en est l'auteur (voir
 [scan depuis un poste de travail](../advanced/dependencies.md#scan-depuis-un-poste-de-travail-hook-de-commit)).
 Un jeton `mcp` créé par un administrateur sur l'écran **Jetons** reste un jeton d'agent MCP

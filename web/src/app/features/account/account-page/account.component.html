@@ -18,97 +18,107 @@
   }
 </div>
 
-<section class="card card-body mb-4" aria-labelledby="permissions-title">
-  <h2 id="permissions-title" class="h5">{{ 'account.permissionsTitle' | t }}</h2>
-  <ul class="list-unstyled mb-0">
-    @for (permission of permissions(); track permission) {
-      <li><i class="bi bi-check2 text-success" aria-hidden="true"></i> {{ permission }}</li>
-    }
-  </ul>
-</section>
+<div class="row g-4 mb-4">
+  @if (auth.identity()?.local_account) {
+    <div class="col-lg-6">
+      <section class="card card-body" aria-labelledby="password-title">
+        <h2 id="password-title" class="h5">{{ 'account.passwordTitle' | t }}</h2>
 
-@if (auth.identity()?.local_account) {
-  <section class="card card-body col-lg-6" aria-labelledby="password-title">
-    <h2 id="password-title" class="h5">{{ 'account.passwordTitle' | t }}</h2>
-
-    @if (auth.identity()?.must_change_password) {
-      <div class="alert alert-warning d-flex gap-2 py-2" role="alert">
-        <i class="bi bi-key-fill" aria-hidden="true"></i>
-        <span>{{ 'account.mustChange' | t }}</span>
-      </div>
-    }
-
-    @if (error(); as text) {
-      <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
-    }
-    @if (message(); as text) {
-      <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
-    }
-
-    <form (submit)="submit($event)" novalidate>
-      <!-- Lets password managers associate the new password with the account -->
-      <input
-        type="text"
-        class="d-none"
-        autocomplete="username"
-        [value]="auth.identity()?.client ?? ''"
-        readonly
-        aria-hidden="true"
-        tabindex="-1"
-      />
-      <div class="mb-3">
-        <label for="current-password" class="form-label">{{ 'account.current' | t }}</label>
-        <input
-          id="current-password"
-          class="form-control"
-          type="password"
-          autocomplete="current-password"
-          [formField]="passwordForm.current"
-        />
-      </div>
-      <div class="mb-3">
-        <label for="new-password" class="form-label">{{ 'account.new' | t }}</label>
-        <input
-          id="new-password"
-          class="form-control"
-          type="password"
-          autocomplete="new-password"
-          aria-describedby="new-password-policy"
-          [class.is-invalid]="passwordForm.next().touched() && passwordForm.next().invalid()"
-          [formField]="passwordForm.next"
-        />
-        <app-password-policy
-          id="new-password-policy"
-          [password]="passwordModel().next"
-          [confirmation]="passwordModel().confirmation"
-        />
-      </div>
-      <div class="mb-3">
-        <label for="confirm-password" class="form-label">{{ 'account.confirmation' | t }}</label>
-        <input
-          id="confirm-password"
-          class="form-control"
-          type="password"
-          autocomplete="new-password"
-          aria-describedby="new-password-policy"
-          [class.is-invalid]="mismatch()"
-          [formField]="passwordForm.confirmation"
-        />
-      </div>
-      <button type="submit" class="btn btn-primary" [disabled]="!canSubmit()">
-        @if (busy()) {
-          <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+        @if (auth.identity()?.must_change_password) {
+          <div class="alert alert-warning d-flex gap-2 py-2" role="alert">
+            <i class="bi bi-key-fill" aria-hidden="true"></i>
+            <span>{{ 'account.mustChange' | t }}</span>
+          </div>
         }
-        {{ 'account.submit' | t }}
-      </button>
-    </form>
-  </section>
-} @else {
-  <div class="alert alert-info py-2" role="status">
-    <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
-    {{ 'account.ssoInfo' | t }}
+
+        @if (error(); as text) {
+          <div class="alert alert-danger py-2" role="alert">{{ text | t }}</div>
+        }
+        @if (message(); as text) {
+          <div class="alert alert-success py-2" role="status">{{ text | t }}</div>
+        }
+
+        <form (submit)="submit($event)" novalidate>
+          <!-- Lets password managers associate the new password with the account -->
+          <input
+            type="text"
+            class="d-none"
+            autocomplete="username"
+            [value]="auth.identity()?.client ?? ''"
+            readonly
+            aria-hidden="true"
+            tabindex="-1"
+          />
+          <div class="mb-3">
+            <label for="current-password" class="form-label">{{ 'account.current' | t }}</label>
+            <input
+              id="current-password"
+              class="form-control"
+              type="password"
+              autocomplete="current-password"
+              [formField]="passwordForm.current"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="new-password" class="form-label">{{ 'account.new' | t }}</label>
+            <input
+              id="new-password"
+              class="form-control"
+              type="password"
+              autocomplete="new-password"
+              aria-describedby="new-password-policy"
+              [class.is-invalid]="passwordForm.next().touched() && passwordForm.next().invalid()"
+              [formField]="passwordForm.next"
+            />
+            <app-password-policy
+              id="new-password-policy"
+              [password]="passwordModel().next"
+              [confirmation]="passwordModel().confirmation"
+            />
+          </div>
+          <div class="mb-3">
+            <label for="confirm-password" class="form-label">{{
+              'account.confirmation' | t
+            }}</label>
+            <input
+              id="confirm-password"
+              class="form-control"
+              type="password"
+              autocomplete="new-password"
+              aria-describedby="new-password-policy"
+              [class.is-invalid]="mismatch()"
+              [formField]="passwordForm.confirmation"
+            />
+          </div>
+          <button type="submit" class="btn btn-primary" [disabled]="!canSubmit()">
+            @if (busy()) {
+              <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+            }
+            {{ 'account.submit' | t }}
+          </button>
+        </form>
+      </section>
+    </div>
+  } @else {
+    <div class="col-12">
+      <div class="alert alert-info py-2 mb-0" role="status">
+        <i class="bi bi-info-circle me-1" aria-hidden="true"></i>
+        {{ 'account.ssoInfo' | t }}
+      </div>
+    </div>
+  }
+
+  <div class="col-lg-6">
+    <section class="card card-body" aria-labelledby="permissions-title">
+      <h2 id="permissions-title" class="h5">{{ 'account.permissionsTitle' | t }}</h2>
+      <ul class="list-unstyled mb-0">
+        @for (permission of permissions(); track permission) {
+          <li><i class="bi bi-check2 text-success" aria-hidden="true"></i> {{ permission }}</li>
+        }
+      </ul>
+    </section>
   </div>
-}
+</div>
 
 @if (auth.identity()?.auth_source && !auth.identity()?.must_change_password) {
   <app-api-tokens />

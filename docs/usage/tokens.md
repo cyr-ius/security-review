@@ -101,14 +101,16 @@ these projects. The **Tokens** screen only lists the tokens of the projects the 
 
 ## Personal tokens
 
-A user creates their own tokens in **My account** > **Personal tokens**, with one of three
+A user creates their own tokens in **My account** > **Personal tokens**, with one of two
 usages:
 
 | Usage | Role | Reaches | Needs |
 |---|---|---|---|
 | **REST API — Swagger and scripts** | `api` | the REST API, with the rights of the account | — |
 | **MCP** | `mcp` | `/mcp` and the pipeline routes, on the projects the account may read | `mcp_tokens.create` |
-| **CI/CD pipeline** | `ci` | the pipeline routes only, on the projects the account may read | `mcp_tokens.create` |
+
+A personal `ci` token (pipeline routes only) is no longer offered there: the `mcp` token covers
+them (see [below](#personal-mcp-and-ci-tokens)).
 
 Every personal token follows the same rules:
 
@@ -140,8 +142,9 @@ receives a `401` that tells the user to sign in again and create a new one.
 
 A personal `mcp` token also works as a personal `ci` token on the pipeline routes: one
 `SECREVIEW_TOKEN` on the workstation serves both the MCP agent and
-[`security-review-ci`](../advanced/ci.md). A personal `ci` token is only needed to keep the two
-uses apart; it never reaches `/mcp`. A report stored by either is submitted by the token
+[`security-review-ci`](../advanced/ci.md), so **My account** no longer offers a personal `ci`
+token. The API still creates one to keep the two uses apart (it never reaches `/mcp`), and those
+already created stay listed until revoked. A report stored by either is submitted by the token
 (`alice:laptop`), and its user is the author (see
 [scan from a workstation](../advanced/dependencies.md#scan-from-a-workstation-commit-hook)). An
 `mcp` token created by an administrator on the **Tokens** screen stays an MCP agent token only.
