@@ -16,6 +16,7 @@ sur PyPI sous le nom `security-review-ci`, à la version du serveur, sans ses d�
 |---|---|
 | Poste sans Python (Linux, macOS, Windows) | [uv](https://docs.astral.sh/uv/getting-started/installation/), puis `uv tool install security-review-ci` : uv télécharge un Python quand aucun n'est installé |
 | Agent de build ou poste avec Python ≥ 3.14 | `uv pip install security-review-ci` dans l'environnement virtuel du job (`--system` sans environnement) |
+| Poste ou agent sans PyPI, depuis le contrôleur | `uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest …` : le [client du contrôleur](#depuis-le-controleur), à sa version |
 | Agent sans accès à PyPI | Copiez le seul fichier `security_review_mcp/ci_client.py` (ou le wheel `security_review_ci` joint à la release GitHub) et lancez-le avec `python3 ci_client.py` |
 | Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review …` |
 
@@ -23,6 +24,28 @@ Le paquet `security-review` installe aussi `security-review-ci` : n'installez pa
 paquets dans le même environnement. Installez la version de votre contrôleur
 (`uv tool install security-review-ci==X.Y.Z`) ; `uv tool upgrade security-review-ci` le met à
 jour.
+
+### Depuis le contrôleur
+
+Avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=true`, le contrôleur sert son propre client sur
+`/api/ci-client/` : une page de liens pour `uv --find-links` et le wheel
+`security_review_ci-<version>-py3-none-any.whl`, construit depuis son code, à sa version. Les
+développeurs et les agents de build n'ont alors besoin ni de PyPI ni d'une version à tenir à
+jour :
+
+```bash
+uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
+  security-review-ci@latest scan-deps uv.lock --project shop-api
+```
+
+- `--no-index` tient uv à l'écart de PyPI : aucun autre paquet du même nom ne peut être
+  installé ; `@latest` fait relire la page à chaque exécution et suivre la version du
+  contrôleur.
+- uv vérifie le SHA-256 donné par la page. Servez le contrôleur en HTTPS : uv refuse le HTTP en
+  clair sauf vers `localhost`.
+- Les deux routes sont publiques (uv n'envoie aucun jeton) et en lecture seule ; comme la
+  documentation de l'API, elles indiquent la version du contrôleur : le téléchargement est donc
+  désactivé par défaut.
 
 ## Commandes
 
@@ -71,8 +94,9 @@ variable `AGENT_REVIEW_CLI`. Le serveur est lu dans `.mcp.json` (`--mcp-config`)
 `servers` de VS Code, serveur HTTP (`url`, en-tête `Authorization`) ou local (`command`,
 [mode local](../getting-started/stdio.md)).
 
-Un projet déclare le hook dans son `.pre-commit-config.yaml` (prek ou pre-commit), à la version
-de son contrôleur :
+Un projet déclare le hook dans son `.pre-commit-config.yaml` (prek ou pre-commit), avec le client
+[de son contrôleur](#depuis-le-controleur) (ou `uvx security-review-ci@X.Y.Z` depuis PyPI, à la
+version du contrôleur) :
 
 ```yaml
 default_install_hook_types: [pre-commit, post-commit]
@@ -81,7 +105,7 @@ repos:
     hooks:
       - id: agent-review
         name: agent security review
-        entry: uvx --isolated security-review-ci@X.Y.Z agent-review --project shop-api
+        entry: uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest agent-review --project shop-api
         language: system
         stages: [post-commit]
         always_run: true

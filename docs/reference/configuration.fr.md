@@ -73,6 +73,7 @@ Lues par `security-review-controller` uniquement.
 | `SECREVIEW_WEB_UI` | `true` | Sert l'[interface web](../usage/web-interface.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'interface web |
 | `SECREVIEW_SWAGGER_ENABLED` | `false` | Servir la documentation Swagger (`/api/docs`) et le schéma OpenAPI (`/api/openapi.json`), depuis les fichiers de la build de l'interface web |
+| `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED` | `false` | Servir le client de pipeline sur `/api/ci-client/` (public), pour que les développeurs l'installent avec `uv --find-links`, sans PyPI ([depuis le contrôleur](../advanced/ci.md#depuis-le-controleur)) |
 | `SECREVIEW_UPDATE_CHECK_ENABLED` | `false` | La page **À propos** cherche une nouvelle version sur GitHub (HTTPS, par le proxy sortant, mise en cache 6 heures, voir la [sécurité](security.md#securite-du-serveur-lui-meme)) |
 
 ### Limitation des requêtes

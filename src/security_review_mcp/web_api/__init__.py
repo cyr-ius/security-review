@@ -46,6 +46,7 @@ from . import (
     account_routes,
     admin_routes,
     auth_routes,
+    ci_client_routes,
     ci_routes,
     connector_routes,
     report_routes,
@@ -206,6 +207,8 @@ def create_app(
     app.include_router(auth_routes.router)
     app.include_router(api_router)
     app.include_router(ci_routes.router)
+    if settings.ci_client_download_enabled:
+        app.include_router(ci_client_routes.router)
 
     @app.get(HEALTH_PATH, include_in_schema=False)
     async def healthz() -> HealthStatus:

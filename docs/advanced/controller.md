@@ -15,6 +15,7 @@ schema and runs the background tasks. It never calls the MCP server: both share 
 | `/api/v1/ci/` | [`security-review-ci`](ci.md): gate, SARIF, trend, code and dependency scans | `ci` token or personal `mcp` token |
 | `/metrics` | Prometheus ([metrics](../reference/metrics.md)) | `metrics` or `admin` token |
 | `/api/docs` | Swagger, only with `SECREVIEW_SWAGGER_ENABLED=true` | none (the calls need an [API token](../usage/tokens.md#api-tokens)) |
+| `/api/ci-client/` | uv: [download of `security-review-ci`](ci.md#from-the-controller), only with `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=true` | none |
 | `/api/health`, `/api/favicon.svg` | liveness of the API, icon | none |
 | `/healthz` | probes (Docker `HEALTHCHECK`, Kubernetes) | none |
 
@@ -218,7 +219,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 - The static files of `/ui/` are public (they hold no data); the `/api/v1/` API requires a
   session or an `admin` or `api` token (the pipeline routes `/api/v1/ci/` take `ci` tokens, see
   [What it serves](#what-it-serves)). Only the login routes (`/api/v1/auth/…`)
-  are public.
+  are public, and the download of the pipeline client (`/api/ci-client/`) once enabled.
 - Account passwords are never stored: only a salted **scrypt** digest (N=2¹⁴, r=8, p=5) is
   stored and no API answer returns it. The check takes the same time whether the user name
   exists or not, and the failure answer is identical. The Swagger documentation (`/api/docs`)

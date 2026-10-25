@@ -113,6 +113,8 @@ OPENAPI_PATH = "/api/openapi.json"
 # Files of Swagger UI, served by the controller (never from a CDN)
 DOCS_ASSETS_PREFIX = "/api/swagger"
 FAVICON_PATH = "/api/favicon.svg"
+# Public download of the pipeline client by uv --find-links (see ci_client_routes), when enabled
+CI_CLIENT_PREFIX = "/api/ci-client"
 # Public login routes of the controller (OpenID Connect, see oidc)
 AUTH_PREFIX = "/api/v1/auth/"
 # Value of WWW-Authenticate on a 401 / 403 (an error="..." parameter may follow)
@@ -187,10 +189,22 @@ AUTH_REJECTIONS: Counter[str] = Counter()
 
 def is_controller_public_path(path: str) -> bool:
     """Controller paths reachable without a token: the web UI shell, the API documentation,
-    the application icon, the health check and the login routes."""
-    public = ("/", UI_PREFIX, DOCS_PATH, OPENAPI_PATH, FAVICON_PATH, HEALTH_PATH, API_HEALTH_PATH)
+    the application icon, the health check, the login routes and the download of the pipeline
+    client (served only when enabled)."""
+    public = (
+        "/",
+        UI_PREFIX,
+        DOCS_PATH,
+        OPENAPI_PATH,
+        FAVICON_PATH,
+        HEALTH_PATH,
+        API_HEALTH_PATH,
+        CI_CLIENT_PREFIX,
+    )
     return path in public or (
-        path.startswith((UI_PREFIX + "/", AUTH_PREFIX, DOCS_ASSETS_PREFIX + "/"))
+        path.startswith(
+            (UI_PREFIX + "/", AUTH_PREFIX, DOCS_ASSETS_PREFIX + "/", CI_CLIENT_PREFIX + "/")
+        )
     )
 
 

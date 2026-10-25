@@ -176,7 +176,10 @@
   La documentation Swagger et son schéma OpenAPI sont désactivés par défaut
   (`SECREVIEW_SWAGGER_ENABLED`) ; une fois activés, ils sont publics, servis depuis des fichiers
   locaux uniquement avec une CSP stricte, et les routes de données
-  restent protégées. Le contrôle est fait deux fois : par le middleware Bearer, puis par
+  restent protégées. Le téléchargement du client de pipeline (`/api/ci-client/`,
+  `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED`) est lui aussi désactivé par défaut ; une fois activé,
+  il est public et en lecture seule, ne sert que le wheel construit depuis le code du
+  contrôleur, avec son SHA-256, et indique la version du contrôleur. Le contrôle est fait deux fois : par le middleware Bearer, puis par
   chaque route de l'API, qui refuse (`401`) toute requête sans identité authentifiée. Ainsi,
   l'API ne donne jamais de droits par défaut, même si elle est servie sans le middleware.
   Chaque réponse JSON passe par son modèle de réponse déclaré : un champ qu'un service ajouterait
