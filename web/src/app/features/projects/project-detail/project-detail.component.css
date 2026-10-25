@@ -2,7 +2,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Status proposed by an agent, waiting for a triager (stopped under reduced motion, styles.css) */
+/* Status proposed by an agent, waiting for a triager (slower under reduced motion, styles.css) */
 .proposal-pending {
   display: inline-block;
   color: var(--app-accent);
@@ -15,6 +15,12 @@
 .proposal-pending:focus-visible {
   color: var(--app-accent-hover);
   animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proposal-pending {
+    animation-duration: 3s;
+  }
 }
 
 @keyframes proposal-blink {
