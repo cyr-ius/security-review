@@ -61,8 +61,10 @@ services:
     image: ghcr.io/cyr-ius/security-review-mcp:latest
     restart: unless-stopped
     entrypoint: ["security-review-controller"]
-    command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["serve"]
     environment:
+      # Listen on every interface of the container (the published port stays on 127.0.0.1)
+      SECREVIEW_HOST: "0.0.0.0"
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
       # Only the migrate service changes the tables
       SECREVIEW_DB_AUTO_UPGRADE: "false"
@@ -87,8 +89,10 @@ services:
   mcp:
     image: ghcr.io/cyr-ius/security-review-mcp:latest
     restart: unless-stopped
-    command: ["serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
+    # The image runs `security-review-mcp serve`: streamable HTTP instead of stdio
     environment:
+      SECREVIEW_TRANSPORT: streamable-http
+      SECREVIEW_HOST: "0.0.0.0"
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
       # Only the migrate service changes the tables
       SECREVIEW_DB_AUTO_UPGRADE: "false"

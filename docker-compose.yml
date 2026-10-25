@@ -23,6 +23,8 @@ x-secreview-env: &secreview-env
   SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
   SECREVIEW_DB_AUTO_UPGRADE: "false"
   SECREVIEW_SECRET_KEY: ${SECREVIEW_SECRET_KEY:?set SECREVIEW_SECRET_KEY in .env}
+  # Listen on every interface of the container (DOCKER_PUBLISH_ADDRESS sets the host address)
+  SECREVIEW_HOST: "0.0.0.0"
 
 x-secreview: &secreview
   build:
@@ -75,7 +77,7 @@ services:
       migrate:
         condition: service_completed_successfully
     entrypoint: ["security-review-controller"]
-    command: ["serve", "--host", "0.0.0.0", "--port", "8000"]
+    command: ["serve"]
     environment:
       <<: *secreview-env
       SECREVIEW_OSV_AUTO_UPDATE: ${SECREVIEW_OSV_AUTO_UPDATE:-false}
@@ -90,7 +92,10 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-    command: ["serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
+    # The image runs `security-review-mcp serve`: streamable HTTP instead of stdio
+    environment:
+      <<: *secreview-env
+      SECREVIEW_TRANSPORT: streamable-http
     ports:
       - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:${DOCKER_MCP_PORT:-8000}:8000"
 
