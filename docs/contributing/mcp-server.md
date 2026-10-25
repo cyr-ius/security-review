@@ -107,6 +107,7 @@ advice = "Move the secret to a vault or environment variable and rotate it."
     ```python
     pytestmark = pytest.mark.anyio
 
+
     async def test_invalid_input_returns_a_tool_error():
         async with Client(mcp) as client:
             result = await client.call_tool("get_security_report", {"report_id": 424242})

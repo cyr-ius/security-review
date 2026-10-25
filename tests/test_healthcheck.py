@@ -174,14 +174,18 @@ def test_the_image_declares_the_health_check():
     assert '"-m", "security_review_mcp.healthcheck"' in healthcheck_instruction.group(1)
 
 
-def test_the_image_listens_on_every_interface_and_compose_publishes_on_loopback():
+def test_the_image_listens_on_every_interface_and_compose_chooses_the_exposure():
     dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
     assert re.search(r"^\s+SECREVIEW_HOST=0\.0\.0\.0$", dockerfile, re.M)
 
-    for compose in ("docker-compose.yml", "examples/docker/docker-compose.yml"):
+    # The contributors' file stays on loopback; the example publishes the ports for the team
+    for compose, loopback in (
+        ("docker-compose.yml", True),
+        ("examples/docker/docker-compose.yml", False),
+    ):
         text = (ROOT / compose).read_text(encoding="utf-8")
         # The exposure is chosen on the host only: the listening address stays the image's
         assert not re.search(r"^\s+SECREVIEW_HOST:", text, re.M), compose
         ports = re.findall(r'^\s+- "(.+):8000"$', text, re.M)
         assert len(ports) == 2, compose
-        assert all(port.startswith("127.0.0.1:") for port in ports), compose
+        assert all(port.startswith("127.0.0.1:") == loopback for port in ports), compose
