@@ -60,16 +60,6 @@ Content of the files of version `{{ release_tag }}`:
 | `controller` | Web interface (`/ui/`) and REST API, for people | `127.0.0.1:8080` |
 | `mcp` | MCP server (`/mcp`) and public enrollment, for the agents and the CI | `127.0.0.1:8000` |
 
-!!! info "Which address to set: `DOCKER_PUBLISH_ADDRESS`, not `SECREVIEW_HOST`"
-    Two addresses are involved, and with Docker you only set the first one:
-
-    - `DOCKER_PUBLISH_ADDRESS` (`.env`, read by Docker Compose): the address of **the host
-      machine** on which Docker publishes the ports. `127.0.0.1` (default) keeps them on this
-      machine, `0.0.0.0` opens them on every interface.
-    - `SECREVIEW_HOST` (read by the application): the address the process listens on **inside
-      its container**. The image sets it to `0.0.0.0`, the only value that works in a container:
-      do not change it. It only matters without Docker (see [Manual installation](manual-install.md)).
-
 Good to know:
 
 - **Order of start-up.** `migrate` waits until PostgreSQL is ready; `controller` and `mcp` wait
@@ -78,10 +68,11 @@ Good to know:
   commit it. The password is inserted as is in the connection URL: keep hexadecimal characters,
   as generated above.
 - **Open to the team.** The ports are only open on this machine (`127.0.0.1`). Enable the
-  [built-in TLS](http.md#tls) or put a reverse proxy in front, then add
-  `DOCKER_PUBLISH_ADDRESS=0.0.0.0` (every interface) or one address of the server to `.env`,
-  and run `docker compose up -d`. `DOCKER_MCP_PORT` and `DOCKER_CONTROLLER_PORT` change the ports
-  of the server (`8000` and `8080`). TLS variables
+  [built-in TLS](http.md#tls) or put a reverse proxy in front, then replace
+  `127.0.0.1` in the `ports` of `controller` and `mcp` by the address of the server (`0.0.0.0`:
+  every interface). Only the `ports` choose the exposure: inside its container, each process
+  listens on every interface (`SECREVIEW_HOST=0.0.0.0`, set by the image, not to be changed).
+  TLS variables
   (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) go under `environment`, with the
   certificate files mounted read-only (see [Certificate Authority](http.md#certificate-authority)).
   The controller exposes no write route without a token: it can stay internal.

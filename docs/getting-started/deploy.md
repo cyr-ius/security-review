@@ -39,10 +39,10 @@ The web interface answers on `http://127.0.0.1:8080/ui/`, the MCP endpoint on
 **My account**, then create an account for each person in the **Users** screen (see
 [User accounts](../usage/web-interface.md#user-accounts)).
 
-Both ports are only published on `127.0.0.1`: to open them to the team, add TLS and set
-`DOCKER_PUBLISH_ADDRESS` in `.env` (see
-[Docker Compose with PostgreSQL](../advanced/docker.md#docker-compose-with-postgresql)). With
-Docker, this is the only address to set: `SECREVIEW_HOST` is already set by the image.
+Both ports are only published on `127.0.0.1`: to open them to the team, add TLS and edit
+their `ports` in `docker-compose.yml` (see
+[Docker Compose with PostgreSQL](../advanced/docker.md#docker-compose-with-postgresql)). Do not
+set `SECREVIEW_HOST`: the image already sets it.
 
 !!! warning "The CLI is the only way to obtain the initial password"
     It is not defined by any variable, nor does it ever appear in the logs: run

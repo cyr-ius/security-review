@@ -11,8 +11,8 @@
 #
 # The migrate service migrates the schema (Alembic) before the two servers start.
 # The MCP server listens on 127.0.0.1:8000 and the controller on 127.0.0.1:8080 only. To publish
-# them on another address of the host (DOCKER_PUBLISH_ADDRESS=0.0.0.0 in .env: every interface),
-# enable TLS (SECREVIEW_TLS_*) or put them behind a reverse proxy first. Inside their containers,
+# them on another address of the host (edit their ports), enable TLS (SECREVIEW_TLS_*) or put
+# them behind a reverse proxy first. Inside their containers,
 # the servers always listen on every interface (SECREVIEW_HOST=0.0.0.0, set by the image).
 # The controller exposes no unauthenticated write endpoint: it can stay on an internal network.
 # PostgreSQL is not published on the host.
@@ -83,7 +83,7 @@ services:
       SECREVIEW_SWAGGER_ENABLED: ${SECREVIEW_SWAGGER_ENABLED:-false}
       SECREVIEW_DB_AUTO_UPGRADE: "false"
     ports:
-      - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:${DOCKER_CONTROLLER_PORT:-8080}:8000"
+      - "127.0.0.1:8080:8000"
 
   mcp:
     <<: *secreview
@@ -94,7 +94,7 @@ services:
     environment:
       <<: *secreview-env
     ports:
-      - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:${DOCKER_MCP_PORT:-8000}:8000"
+      - "127.0.0.1:8000:8000"
 
 volumes:
   secreview-pg:

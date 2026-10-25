@@ -184,4 +184,4 @@ def test_the_image_listens_on_every_interface_and_compose_publishes_on_loopback(
         assert not re.search(r"^\s+SECREVIEW_HOST:", text, re.M), compose
         ports = re.findall(r'^\s+- "(.+):8000"$', text, re.M)
         assert len(ports) == 2, compose
-        assert all(port.startswith("${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:") for port in ports)
+        assert all(port.startswith("127.0.0.1:") for port in ports), compose

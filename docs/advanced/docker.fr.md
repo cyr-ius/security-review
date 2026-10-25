@@ -60,16 +60,6 @@ Contenu des fichiers de la version `{{ release_tag }}` :
 | `controller` | Interface web (`/ui/`) et API REST, pour les personnes | `127.0.0.1:8080` |
 | `mcp` | Serveur MCP (`/mcp`) et enrôlement public, pour les agents et la CI | `127.0.0.1:8000` |
 
-!!! info "Quelle adresse régler : `DOCKER_PUBLISH_ADDRESS`, pas `SECREVIEW_HOST`"
-    Deux adresses entrent en jeu, et avec Docker vous ne réglez que la première :
-
-    - `DOCKER_PUBLISH_ADDRESS` (`.env`, lue par Docker Compose) : l'adresse de **la machine
-      hôte** sur laquelle Docker publie les ports. `127.0.0.1` (défaut) les garde sur cette
-      machine, `0.0.0.0` les ouvre sur toutes les interfaces.
-    - `SECREVIEW_HOST` (lue par l'application) : l'adresse d'écoute du processus **dans son
-      conteneur**. L'image la fixe à `0.0.0.0`, la seule valeur qui fonctionne dans un conteneur :
-      ne la changez pas. Elle ne sert que sans Docker (voir l'[installation manuelle](manual-install.md)).
-
 Bon à savoir :
 
 - **Ordre de démarrage.** `migrate` attend que PostgreSQL soit prêt ; `controller` et `mcp`
@@ -78,10 +68,11 @@ Bon à savoir :
   commitez jamais. Le mot de passe est inséré tel quel dans l'URL de connexion : gardez des
   caractères hexadécimaux, comme ci-dessus.
 - **Ouvrir à l'équipe.** Les ports ne sont ouverts que sur cette machine (`127.0.0.1`). Activez
-  le [TLS intégré](http.md#tls) ou placez un reverse proxy devant, puis ajoutez
-  `DOCKER_PUBLISH_ADDRESS=0.0.0.0` (toutes les interfaces) ou une adresse du serveur dans `.env`,
-  et lancez `docker compose up -d`. `DOCKER_MCP_PORT` et `DOCKER_CONTROLLER_PORT` changent les
-  ports du serveur (`8000` et `8080`). Les variables TLS
+  le [TLS intégré](http.md#tls) ou placez un reverse proxy devant, puis remplacez
+  `127.0.0.1` dans les `ports` de `controller` et `mcp` par l'adresse du serveur (`0.0.0.0` :
+  toutes les interfaces). Seuls les `ports` décident de l'exposition : dans son conteneur, chaque
+  processus écoute sur toutes les interfaces (`SECREVIEW_HOST=0.0.0.0`, fixée par l'image, à ne
+  pas changer). Les variables TLS
   (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) vont sous `environment`, avec les fichiers
   du certificat montés en lecture seule (voir
   [Autorité de certification](http.md#autorite-de-certification)). Le contrôleur n'expose aucune
