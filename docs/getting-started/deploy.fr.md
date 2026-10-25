@@ -11,20 +11,17 @@ administration) et le serveur MCP (utilisé par les agents et la CI), sur la mê
   développeurs ;
 - d'un compte `admin` pour gérer les utilisateurs, les jetons et les règles.
 
-Deux façons, chacune en un seul bloc à copier-coller :
-
-- [avec Docker Compose](#avec-docker-compose) (recommandé) : un serveur, PostgreSQL inclus ;
-- [avec Kubernetes](#avec-kubernetes) : un cluster, PostgreSQL inclus ou existant.
-
-Sans conteneur, tout-en-un sur un serveur Linux : voir
+Sans conteneur, tout-en-un sur un serveur Linux : voir la section Avancé
 [Installation manuelle (sans conteneur)](../advanced/manual-install.md).
 
 ## Avec Docker Compose
 
-Un seul fichier `docker-compose.yml` démarre tout avec l'image publiée : PostgreSQL, la
-migration du schéma, le contrôleur et le serveur MCP. Copiez-collez le bloc dans un dossier
-vide : il télécharge le fichier, génère les mots de passe dans `.env`, démarre les services,
-puis donne le mot de passe du compte `admin` et un jeton (chacun affiché une fois) :
+Le fichier `docker-compose.yml` démarre une base de donnée PostgreSQL,
+le contrôleur et le serveur MCP.
+
+Copiez-collez ce code dans un dossier vide.
+Cela télécharge le fichier `docker-compose.yml`, génère les secrets dans `.env`et démarre les services.
+et affiche le mot de passe du compte `admin` et crée un jeton à positionner dans le mcp.json de l'IDE d'Alice.
 
 ```bash
 mkdir security-review-mcp && cd security-review-mcp
@@ -35,16 +32,10 @@ docker compose exec controller security-review-controller user reset-password ad
 docker compose exec controller security-review-controller token create --label alice   # jeton d'un agent
 ```
 
-L'interface web répond sur `http://127.0.0.1:8080/ui/`, l'endpoint MCP sur
-`http://127.0.0.1:8000/mcp`. Connectez-vous avec le compte `admin`, choisissez votre propre mot
-de passe dans **Mon compte**, puis créez un compte par personne dans l'écran **Utilisateurs**
-(voir les [comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs)).
+L'interface web répond sur `http://127.0.0.1:8080/ui/`. Connectez-vous avec le compte `admin`,
+et changer le mot de passe à la première connexion.
 
-Les deux ports sont publiés sur toutes les interfaces du serveur, en HTTP simple : ajoutez le
-TLS avant que l'équipe se connecte, et préfixez un port par `127.0.0.1` dans
-`docker-compose.yml` pour le garder sur le serveur seulement (voir
-[Docker Compose avec PostgreSQL](../advanced/docker.md#docker-compose-avec-postgresql)). Ne
-réglez pas `SECREVIEW_HOST` : l'image la fixe déjà.
+Le serveur MCP sur `http://127.0.0.1:8000/mcp`.
 
 !!! warning "La CLI est le seul moyen d'obtenir le mot de passe initial"
     Aucune variable ne le définit et les journaux ne l'affichent jamais : lancez

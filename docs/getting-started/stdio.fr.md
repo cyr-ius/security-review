@@ -35,11 +35,9 @@ Sans accès Internet, ou depuis les sources : voir [Installation : autres cas](.
 security-review-mcp serve --transport stdio   # lancé par l'hôte, pas à la main
 ```
 
-La base SQLite locale (`~/.local/share/security-review-mcp/security_reports.db` par défaut, le même fichier quel que
-soit le dépôt ouvert dans l'hôte, voir
-[`SECREVIEW_DATABASE_URL`](../reference/configuration.md#base-de-donnees)) est créée ou migrée
-automatiquement au démarrage. C'est le seul fichier écrit par le serveur : supprimez-le pour
-effacer toute trace. Le contrôleur n'est pas nécessaire.
+Une base SQLite est créé en locale (`~/.local/share/security-review-mcp/security_reports.db`.
+Vous pouvez changer son emplacement via  [`SECREVIEW_DATABASE_URL`](../reference/configuration.md#base-de-donnees)).
+C'est le seul fichier écrit par le serveur : supprimez-le pour effacer toute trace.
 
 !!! note "`--transport stdio` est obligatoire"
     Sans `--transport`, `serve` lance le serveur HTTP du mode partagé
@@ -50,8 +48,7 @@ effacer toute trace. Le contrôleur n'est pas nécessaire.
 ## Configuration de l'hôte
 
 En transport **stdio**, l'hôte (VS Code, Claude…) lance lui-même le processus du serveur.
-Indiquez le chemin de l'exécutable, la commande `serve --transport stdio` et, si besoin, les variables `SECREVIEW_*`
-(voir [Configuration](../reference/configuration.md#serveur-mcp)).
+Indiquez le chemin de l'exécutable, la commande `serve --transport stdio`.
 
 VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la racine du dépôt :
 
@@ -60,9 +57,8 @@ VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la raci
   "mcpServers": {
     "security-review": {
       "type": "stdio",
-      "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
-      "args": ["serve", "--transport", "stdio"],
-      "env": { "SECREVIEW_DATABASE_URL": "sqlite:////var/lib/secreview/security_reports.db" }
+      "command": "uvx",
+      "args": ["--from","security-review==4.0.0","security-review-mcp","serve","--transport","stdio"]
     }
   }
 }

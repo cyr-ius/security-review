@@ -1,11 +1,11 @@
-# Security Review MCP
+# Security Review
 
-**Security Review MCP fait des assistants IA de vos développeurs des relecteurs sécurité qui
+**Security Review fait des assistants IA de vos développeurs des relecteurs sécurité qui
 appliquent vos règles, et donne à votre équipe sécurité une vue centrale de tout ce qu'ils
 trouvent.**
 
 Vos équipes écrivent déjà du code avec des assistants IA (GitHub Copilot, Claude, Cursor...).
-Security Review MCP se branche sur ces assistants par **MCP** (Model Context Protocol, le standard
+Security Review se branche sur ces assistants par **MCP** (Model Context Protocol, le standard
 ouvert qui permet à un assistant d'utiliser des outils externes). Chaque changement peut alors
 être relu pour détecter les failles et les mauvaises configurations **au moment où le code est
 écrit**, et chaque résultat est enregistré au même endroit, où votre équipe sécurité le lit, le
@@ -60,19 +60,40 @@ configurations). Il fournit à l'hôte (VS Code, Copilot, Claude, agent CI/CD) :
 - une **base de données** (SQLite par défaut, PostgreSQL possible) qui stocke les rapports et
   leurs findings.
 
-Il s'accompagne d'une **ligne de commande** pour les pipelines : scan du dépôt complet, gate de
-déploiement, export SARIF, analyse des dépendances et rapport de tendance.
+via la commande `security-review-mcp`
 
-## Deux services, deux rôles
+Un serveur Controller qui permet l'**administration et la gestion des contrôles** (le Controller est facultatif)
+Il fournit aux administrateurs et analyste en cybersécurité :
 
-Le produit se compose de **deux programmes**, installés par le même paquet PyPI, `security-review`, et livrés dans la même image Docker. Ils ne s'appellent
-jamais : ils partagent la même **base de données**, où sont stockés les rapports, les règles et
+ - la **consultation des rapports** d'analyse de sécurité
+ - la possibilité d'effectuer des **revues de sécurités** et d'**acceptation de risque**
+ - l'ajout, modification et suppressions des **règles et de  checklist**
+ - l'ajout de **standard de développement**
+ - la **gestion** de vos communautés de développeurs
+ - des **connecteurs** tiers pour assurer une suivi (Jira, Service Now, ...)
+
+via la commande `security-review-controller`
+
+Il s'accompagne CLI pour l'injection dans les pipelines (tel que Jenkins, etc.) et permet :
+ - **scan du dépôt** complet
+ - **gate** de déploiement avec blocage si des findings sont ouvertes
+ - export SARIF et **rapport** de tendance
+ - **analyse des dépendances**
+
+via la commande `security-review-ci`
+
+## Trois services, trois rôles
+
+L'ensemble des produits est installés par le même paquet PyPI, `security-review`, et livrés dans la même image Docker.
+Ils ne s'appellent jamais entre eux. Ils partagent la même **base de données**, où sont stockés les rapports, les règles et
 les jetons.
 
 ```text
  agents (VS Code, Claude), CI ─────▶ serveur MCP ──┐
-                                                   ├──▶ base de données (SQLite ou PostgreSQL)
- personnes (navigateur), admins ──▶ contrôleur ────┘
+                                                   |
+ personnes (navigateur), admins ──▶ contrôleur ────┘──▶ base de données (SQLite ou PostgreSQL)
+                                                   |
+ CI / CD ────▶  CLI (security-review-ci)   ────────┘
 ```
 
 | | Serveur MCP | Contrôleur |
@@ -104,7 +125,7 @@ Pour des raisons de sécurité, il est nécessaire de soumettre un jeton d'authe
 échanger avec le serveur. En l'absence de jeton, le serveur MCP indique à votre agent IA la
 démarche à suivre pour en obtenir un ([enrôlement](advanced/http.md#enrolement-demander-le-projet)).
 
-### Contrôleur
+### serveur Contrôleur
 
 Si vous exécutez la commande `security-review-controller`, celle-ci démarre un serveur
 d'application qui vous permet de vous connecter à la base de données via une interface web.

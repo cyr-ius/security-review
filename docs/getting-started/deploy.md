@@ -10,20 +10,17 @@ At the end, you have:
 - an `/mcp` endpoint, protected by tokens, that the hosts of the developers connect to;
 - an `admin` account to manage the users, the tokens and the rules.
 
-Two ways, each in a single block to copy and paste:
-
-- [with Docker Compose](#with-docker-compose) (recommended): one server, PostgreSQL included;
-- [with Kubernetes](#with-kubernetes): a cluster, PostgreSQL included or existing.
-
-Without containers, all-in-one on one Linux server: see
+Without containers, all-in-one on one Linux server: see Advanced section
 [Manual installation (without containers)](../advanced/manual-install.md).
 
 ## With Docker Compose
 
-One `docker-compose.yml` file starts everything with the published image: PostgreSQL, the
-migration of the schema, the controller and the MCP server. Copy and paste the block in an
-empty folder: it downloads the file, generates the passwords in `.env`, starts the services,
-then gives the password of the `admin` account and a token (each shown once):
+The `docker-compose.yml` file starts a PostgreSQL database,
+the controller, and the MCP server.
+
+Copy and paste this code into an empty folder.
+This will download the `docker-compose.yml` file, generate secrets in a `.env` file, start the services,
+display the password for the `admin` account, and create a token to be placed in the `mcp.json` file within Alice's IDE.
 
 ```bash
 mkdir security-review-mcp && cd security-review-mcp
@@ -34,16 +31,10 @@ docker compose exec controller security-review-controller user reset-password ad
 docker compose exec controller security-review-controller token create --label alice   # token of an agent
 ```
 
-The web interface answers on `http://127.0.0.1:8080/ui/`, the MCP endpoint on
-`http://127.0.0.1:8000/mcp`. Sign in with the `admin` account, choose your own password in
-**My account**, then create an account for each person in the **Users** screen (see
-[User accounts](../usage/web-interface.md#user-accounts)).
+The web interface is accessible at `http://127.0.0.1:8080/ui/`. Log in using the `admin` account,
+and change the password upon your first login.
 
-Both ports are published on every interface of the server, in plain HTTP: add TLS before the
-team connects, and prefix a port with `127.0.0.1` in `docker-compose.yml` to keep it on the
-server only (see
-[Docker Compose with PostgreSQL](../advanced/docker.md#docker-compose-with-postgresql)). Do not
-set `SECREVIEW_HOST`: the image already sets it.
+The MCP server is located at `http://127.0.0.1:8000/mcp`.
 
 !!! warning "The CLI is the only way to obtain the initial password"
     It is not defined by any variable, nor does it ever appear in the logs: run

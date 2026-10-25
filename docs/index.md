@@ -48,26 +48,45 @@ recorded in one place, where your security team reads it, triages it and follows
 
 ## What the product contains
 
-An MCP server for **security-oriented code review** (vulnerabilities and misconfigurations).
-It gives the host (VS Code, Copilot, Claude, CI/CD agent):
+An MCP server for **security-focused code review** (identifying vulnerabilities and misconfigurations). It provides the host (VS Code, Copilot, Claude, CI/CD agent, etc.) with:
 
-- structured **prompts** to start a review;
-- **tools**: checklists, quick pattern scan, saving and reading reports;
-- a **database** (SQLite by default, PostgreSQL possible) that stores the reports and their
-  findings.
+- Structured **prompts** to initiate a review;
+- **Tools**, including checklists, pattern-based quick scans, and the ability to save and retrieve reports;
+- A **database** (SQLite by default, with support for PostgreSQL) to store reports and their associated findings.
 
-It comes with a **command line** for pipelines: whole repository scan, deployment gate, SARIF
-export, dependency analysis and trend report.
+Accessed via the `security-review-mcp` command.
 
-## Two services, two roles
+A Controller server for **administration and control management** (the Controller is optional). It provides administrators and cybersecurity analysts with:
 
-The product is made of **two programs** installed by the same PyPI package, `security-review`, and shipped in the same Docker image. They never call each
-other: they share the same **database**, where the reports, rules and tokens are stored.
+- Access to security analysis **reports**;
+- The ability to conduct **security reviews** and manage **risk acceptance**;
+- Options to add, modify, or delete **rules and checklists**;
+- The ability to incorporate **development standards**;
+- **Management** of developer communities;
+- Third-party **connectors** for tracking and integration (Jira, ServiceNow, etc.).
+
+Accessed via the `security-review-controller` command.
+
+It includes a CLI for integration into pipelines (such as Jenkins, etc.), enabling:
+
+- Full **repository scanning**;
+- Deployment **gates** that block releases if open findings exist;
+- SARIF export and **trend reporting**;
+- **Dependency analysis**.
+
+Accessed via the `security-review-ci` command.
+
+## Three services, three roles
+
+All the products are installed via the same PyPI package, `security-review`, and delivered within the same Docker image.
+They never call one another. They share the same **database**, where reports, rules, and tokens are stored.
 
 ```text
- agents (VS Code, Claude), CI ──▶ MCP server ──┐
-                                               ├──▶ database (SQLite or PostgreSQL)
- people (browser), admins ──────▶ controller ──┘
+ agents (VS Code, Claude), CI ─────▶ serveur MCP ──┐
+                                                   |
+ personnes (navigateur), admins ──▶ contrôleur ────┘──▶ base de données (SQLite ou PostgreSQL)
+                                                   |
+ CI / CD ────▶  CLI (security-review-ci)   ────────┘
 ```
 
 | | MCP server | Controller |
@@ -99,7 +118,7 @@ For security reasons, an authentication token must be provided to interact with 
 no token is present, the MCP server informs your AI agent about the steps required to obtain
 one ([enrollment](advanced/http.md#enrollment-request-the-project)).
 
-### Controller
+### Controller server
 
 Running the `security-review-controller` command launches an application server, allowing you
 to access the database via a web interface. With this application, you can:

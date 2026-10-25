@@ -35,11 +35,9 @@ Without Internet access, or from the sources: see [Installation: other cases](..
 security-review-mcp serve --transport stdio   # started by the host, not by hand
 ```
 
-The local SQLite database (`~/.local/share/security-review-mcp/security_reports.db` by default, the same file whatever
-the repository open in the host, see
-[`SECREVIEW_DATABASE_URL`](../reference/configuration.md#database)) is created or migrated
-automatically at start-up. It is the only file the server writes: delete it to remove every
-trace. The controller is not needed.
+A SQLite database is created locally (`~/.local/share/security-review-mcp/security_reports.db`).
+You can change its location via [`SECREVIEW_DATABASE_URL`](../reference/configuration.md#database).
+This is the only file written by the server; delete it to remove all traces.
 
 !!! note "`--transport stdio` is required"
     Without `--transport`, `serve` starts the HTTP server of the shared mode
@@ -61,9 +59,8 @@ repository:
   "mcpServers": {
     "security-review": {
       "type": "stdio",
-      "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
-      "args": ["serve", "--transport", "stdio"],
-      "env": { "SECREVIEW_DATABASE_URL": "sqlite:////var/lib/secreview/security_reports.db" }
+      "command": "uvx",
+      "args": ["--from","security-review==4.0.0","security-review-mcp","serve","--transport","stdio"]
     }
   }
 }
