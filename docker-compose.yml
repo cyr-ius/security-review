@@ -1,4 +1,4 @@
-# security-review-mcp shared server with PostgreSQL, built from the sources (contributors): the
+# security-review shared server with PostgreSQL, built from the sources (contributors): the
 # MCP server and the controller (REST API, web interface on /ui) run in two containers sharing
 # the database. To deploy the published image, use examples/docker/docker-compose.yml.
 #
@@ -16,12 +16,11 @@
 # unauthenticated write endpoint: it can stay on an internal network.
 # PostgreSQL is not published on the host.
 
-name: security-review-mcp
+name: security-review
 
 x-secreview-env: &secreview-env
   SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
   SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
-  SECREVIEW_DB_AUTO_UPGRADE: "false"
   SECREVIEW_SECRET_KEY: ${SECREVIEW_SECRET_KEY:?set SECREVIEW_SECRET_KEY in .env}
   # Listen on every interface of the container (DOCKER_PUBLISH_ADDRESS sets the host address)
   SECREVIEW_HOST: "0.0.0.0"
@@ -83,6 +82,7 @@ services:
       SECREVIEW_OSV_AUTO_UPDATE: ${SECREVIEW_OSV_AUTO_UPDATE:-false}
       SECREVIEW_OSV_ECOSYSTEMS: ${SECREVIEW_OSV_ECOSYSTEMS:-PyPI,npm,Maven}
       SECREVIEW_SWAGGER_ENABLED: ${SECREVIEW_SWAGGER_ENABLED:-false}
+      SECREVIEW_DB_AUTO_UPGRADE: "false"
     ports:
       - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:${DOCKER_CONTROLLER_PORT:-8080}:8000"
 
@@ -92,7 +92,6 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
-    # The image runs `security-review-mcp serve`: streamable HTTP on /mcp
     environment:
       <<: *secreview-env
     ports:
