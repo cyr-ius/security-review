@@ -183,7 +183,7 @@ they are stored in the database and managed with `security-review-controller rul
 An SQLite database is created by default in the user's data folder:
 `~/.local/share/security-review-mcp/security_reports.db` when `XDG_DATA_HOME` is not set.
 
-For PostgreSQL (`postgres` extra):
+For PostgreSQL (`postgres` extra, shared mode only: the stdio server accepts SQLite only):
 
 ```bash
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview

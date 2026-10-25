@@ -272,6 +272,9 @@
   a standard never prevails over security (see
   [Development standards](../usage/standards.md)).
 - **Logs** on stderr (stdout is reserved for the protocol with stdio).
+- **Local mode (stdio) on SQLite only**: it has no token, so it refuses a shared database
+  (PostgreSQL...) where it would bypass the permissions of the projects and migrate the schema
+  of the team (see [Local mode](../getting-started/stdio.md)).
 
 !!! warning "Protect the database"
     The reports hold sensitive information about your vulnerabilities: protect the database

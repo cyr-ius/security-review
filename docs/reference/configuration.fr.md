@@ -182,7 +182,7 @@ Les règles internes non plus : elles sont stockées en base et gérées avec
 Une base de donnée SQLite est crée par défaut, dans le dossier de données de l'utilisateur :
 `~/.local/share/security-review-mcp/security_reports.db` quand `XDG_DATA_HOME` n'est pas défini.
 
-Pour PostgreSQL (extra `postgres`) :
+Pour PostgreSQL (extra `postgres`, mode partagé uniquement : le serveur stdio n'accepte que SQLite) :
 
 ```bash
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview

@@ -292,6 +292,9 @@
   rappelle qu'une norme ne prime jamais sur la sécurité (voir
   [Normes de développement](../usage/standards.md)).
 - **Journaux** sur stderr (stdout est réservé au protocole en stdio).
+- **Mode local (stdio) sur SQLite uniquement** : sans jeton, il refuse une base partagée
+  (PostgreSQL...) où il contournerait les permissions des projets et migrerait le schéma de
+  l'équipe (voir [Mode local](../getting-started/stdio.md)).
 
 !!! warning "Protégez la base"
     Les rapports contiennent des informations sensibles sur vos vulnérabilités : protégez la base

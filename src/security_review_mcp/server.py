@@ -12,6 +12,8 @@ from mcp.server.mcpserver.exceptions import ResourceError, ResourceNotFoundError
 from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, ToolAnnotations
 from pydantic import Field
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 from . import __version__, app_settings, http_server, prompts, standards
 from .auth import access_control, enrollment_api, token_store
@@ -994,6 +996,20 @@ def serve(argv: list[str]) -> None:
     settings = http_server.with_tls_arguments(settings, args)
     configure_logging(settings.log_level)
 
+    if args.transport == "stdio":
+        # Local mode has no token: a shared database would let it write to every project and
+        # migrate the schema of the team. Refuse it rather than fall back to SQLite silently.
+        try:
+            backend = make_url(settings.database_url.get_secret_value()).get_backend_name()
+        except ArgumentError:
+            # The message of SQLAlchemy quotes the URL, password included
+            parser.error("SECREVIEW_DATABASE_URL is not a valid database URL")
+        if backend != "sqlite":
+            parser.error(
+                f"--transport stdio uses a local SQLite database only, but SECREVIEW_DATABASE_URL "
+                f"points to {backend}: unset it, or use the shared mode (streamable-http) to "
+                "work with this database"
+            )
     try:
         if args.transport == "stdio":
             # Local server: it prepares its own database (SECREVIEW_DB_AUTO_UPGRADE)

@@ -507,6 +507,30 @@ def test_stdio_server_migrates_its_own_database(monkeypatch):
     assert database.current_revision() == database.head_revision()
 
 
+@pytest.mark.parametrize(
+    ("url", "message"),
+    [
+        (
+            "postgresql+psycopg2://user:hunter2@db:5432/secreview",  # secreview:ignore GEN-007
+            "SQLite database only",
+        ),
+        ("not a url hunter2", "not a valid database URL"),
+    ],
+)
+def test_stdio_server_refuses_a_shared_database(monkeypatch, capsys, url, message):
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings(database_url=url))
+    started = []
+    monkeypatch.setattr(server.mcp, "run", lambda transport: started.append(transport))
+
+    with pytest.raises(SystemExit) as exc:
+        server.main(["serve", "--transport", "stdio"])
+
+    assert exc.value.code == 2 and not started
+    err = capsys.readouterr().err
+    assert message in err
+    assert "hunter2" not in err
+
+
 def test_the_mcp_cli_no_longer_runs_the_controller_commands(capsys):
     with pytest.raises(SystemExit) as exc:
         server.main(["db", "status"])

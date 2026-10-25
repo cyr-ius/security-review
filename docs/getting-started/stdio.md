@@ -39,6 +39,13 @@ A SQLite database is created locally (`~/.local/share/security-review-mcp/securi
 You can change its location via [`SECREVIEW_DATABASE_URL`](../reference/configuration.md#database).
 This is the only file written by the server; delete it to remove all traces.
 
+!!! note "SQLite only"
+    In stdio, the server refuses to start (code `2`) when `SECREVIEW_DATABASE_URL` points to
+    another database (PostgreSQL...): local mode has no token, and a shared database would let it
+    write to every project and migrate the schema of the team. Unset the variable if your
+    environment defines it (`env -u SECREVIEW_DATABASE_URL ...`), or use the
+    [shared mode (HTTP)](../getting-started/deploy.md).
+
 !!! note "`--transport stdio` is required"
     Without `--transport`, `serve` starts the HTTP server of the shared mode
     ([`SECREVIEW_TRANSPORT`](../reference/configuration.md#mcp-server), `streamable-http` by
