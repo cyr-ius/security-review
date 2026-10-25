@@ -68,6 +68,7 @@ plugins:
             Getting started: Démarrage
             Deploying the server: Mise en service du serveur
             Connecting the host: Connexion de l'hôte
+            Commit hooks: Hooks de commit
             Advanced: Avancé
             Deployment: Déploiement
             Analysis: Analyse
@@ -148,6 +149,7 @@ nav:
       - Shared mode (HTTP): getting-started/deploy.md
       - Local mode (stdio): getting-started/stdio.md
       - Connecting the host: getting-started/host.md
+      - Commit hooks: getting-started/commit-hooks.md
   - Security review:
       - How a review works: usage/how-it-works.md
       - Rules: usage/rules.md

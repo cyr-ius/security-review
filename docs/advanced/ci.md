@@ -26,7 +26,7 @@ packages in the same environment. Install the version of your controller
 
 ### From the controller
 
-With `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=true`, the controller serves its own client on
+Unless `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false`, the controller serves its own client on
 `/api/ci-client/`: a links page for `uv --find-links` and the wheel
 `security_review_ci-<version>-py3-none-any.whl`, built from its code, at its version. The
 developers and the build agents then need neither PyPI nor a version to maintain:
@@ -38,10 +38,12 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 
 - `--no-index` keeps uv away from PyPI, so no other package of the same name can be installed;
   `@latest` makes uv read the page again at each run and follow the version of the controller.
-- uv checks the SHA-256 given by the page. Serve the controller over HTTPS: uv refuses plain
-  HTTP except to `localhost`.
+- uv checks the SHA-256 given by the page. Serve the controller over HTTPS: uv also accepts a
+  plain HTTP URL, but then the page and the wheel can be replaced on the way, SHA-256 included,
+  and the developers would run that code (see
+  [controller in plain HTTP](../getting-started/commit-hooks.md#controller-in-plain-http)).
 - The two routes are public (uv sends no token) and read-only; like the API documentation, they
-  tell the version of the controller, hence the download is disabled by default.
+  tell the version of the controller: `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` hides them.
 
 ## Commands
 
@@ -87,6 +89,8 @@ The command takes the first one installed, in this order, or the one given by `-
 `security-review` (`--mcp-server`): `mcpServers` format of Claude Code and Copilot or `servers`
 format of VS Code, HTTP server (`url`, `Authorization` header) or local server (`command`,
 [local mode](../getting-started/stdio.md)).
+
+Step-by-step setup, with `scan-deps`: [Commit hooks](../getting-started/commit-hooks.md).
 
 A project declares the hook in its `.pre-commit-config.yaml` (prek or pre-commit), with the
 client [of its controller](#from-the-controller) (or `uvx security-review-ci@X.Y.Z` from PyPI,

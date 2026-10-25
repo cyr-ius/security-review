@@ -168,6 +168,8 @@ security-review-ci scan-deps package-lock.json requirements.txt \
 
 ## Scan depuis un poste de travail (hook de commit)
 
+Mise en place pas à pas, avec la revue par un agent : [Hooks de commit](../getting-started/commit-hooks.md).
+
 Un développeur lance le même `security-review-ci scan-deps` sur son poste, avec un
 [jeton `mcp` ou `ci` personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels) créé dans
 **Mon compte** : il atteint les projets que le développeur peut lire, et les fichiers sont

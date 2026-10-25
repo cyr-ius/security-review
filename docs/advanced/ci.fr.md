@@ -27,7 +27,7 @@ jour.
 
 ### Depuis le contrôleur
 
-Avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=true`, le contrôleur sert son propre client sur
+Sauf avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false`, le contrôleur sert son propre client sur
 `/api/ci-client/` : une page de liens pour `uv --find-links` et le wheel
 `security_review_ci-<version>-py3-none-any.whl`, construit depuis son code, à sa version. Les
 développeurs et les agents de build n'ont alors besoin ni de PyPI ni d'une version à tenir à
@@ -41,11 +41,13 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 - `--no-index` tient uv à l'écart de PyPI : aucun autre paquet du même nom ne peut être
   installé ; `@latest` fait relire la page à chaque exécution et suivre la version du
   contrôleur.
-- uv vérifie le SHA-256 donné par la page. Servez le contrôleur en HTTPS : uv refuse le HTTP en
-  clair sauf vers `localhost`.
+- uv vérifie le SHA-256 donné par la page. Servez le contrôleur en HTTPS : uv accepte aussi une
+  URL en HTTP, mais la page et le wheel peuvent alors être remplacés en chemin, SHA-256 compris,
+  et les développeurs exécuteraient ce code (voir
+  [contrôleur en HTTP](../getting-started/commit-hooks.md#controleur-en-http)).
 - Les deux routes sont publiques (uv n'envoie aucun jeton) et en lecture seule ; comme la
-  documentation de l'API, elles indiquent la version du contrôleur : le téléchargement est donc
-  désactivé par défaut.
+  documentation de l'API, elles indiquent la version du contrôleur :
+  `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` les masque.
 
 ## Commandes
 
@@ -93,6 +95,8 @@ variable `AGENT_REVIEW_CLI`. Le serveur est lu dans `.mcp.json` (`--mcp-config`)
 `security-review` (`--mcp-server`) : format `mcpServers` de Claude Code et Copilot ou format
 `servers` de VS Code, serveur HTTP (`url`, en-tête `Authorization`) ou local (`command`,
 [mode local](../getting-started/stdio.md)).
+
+Mise en place pas à pas, avec `scan-deps` : [Hooks de commit](../getting-started/commit-hooks.md).
 
 Un projet déclare le hook dans son `.pre-commit-config.yaml` (prek ou pre-commit), avec le client
 [de son contrôleur](#depuis-le-controleur) (ou `uvx security-review-ci@X.Y.Z` depuis PyPI, à la
