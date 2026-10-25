@@ -22,13 +22,10 @@ In VS Code (`.vscode/`):
 
 | `launch.json` configuration | Role |
 |---|---|
-| **MCP server + controller** | Runs the **Database upgrade** task, then both processes on the same database |
-| **MCP server (HTTP, port 8000)** | MCP server only; the database must already be migrated |
-| **Controller (web UI and API, port 8080)** | Controller only; migrates the database and shows the password of the initial `admin` account at first start |
+| **Controller (debug: FastAPI + Angular)** | Controller on port 8080 and `ng serve` on port 4200 under the debugger, then Chrome on `http://localhost:4200/ui/` with the TypeScript breakpoints; hot reload, migrates the database and shows the password of the initial `admin` account at first start |
+| **MCP server (debug, port 8000)** | Runs the **Database upgrade** task, then the HTTP MCP server under the debugger |
 | **Controller CLI (prompt for arguments)** | A controller command (`db status`, `token list`…) under the debugger |
-| **Controller + web UI (Angular, port 4200)** | Controller and Angular application under the debugger, hot reload |
-| **Web UI + API (Angular dev server, port 4200)** | Runs the **Web UI + API: dev servers** task (controller on 8080 and `ng serve`), waits for them to be ready, then opens Chrome on `http://localhost:4200/ui/` with the TypeScript breakpoints |
-| **Pytest (current file)** | Tests of the open file |
+| **Docs: MkDocs (port 8001)** | `mkdocs serve` with live reload, opens the site in the browser |
 
 | `tasks.json` task | Command |
 |---|---|
@@ -36,8 +33,6 @@ In VS Code (`.vscode/`):
 | **Database upgrade** | `uv run security-review-controller db upgrade` (after **Build**) |
 | **Tests** / **Lint** | `pytest`, then ruff and `mkdocs build --strict` |
 | **Web UI: build** / **Web UI: dev server (port 4200)** | Angular build served by the controller, or `ng serve` with `/api` forwarded to port 8080 |
-| **API: controller (port 8080)** / **Web UI + API: dev servers** | Controller only outside the debugger (`security-review-controller serve`), or controller and `ng serve` in parallel |
-| **Docs: serve (port 8001)** | `mkdocs serve` |
 | **Docker: compose up** / **down** | `docker-compose.yml` stack of the image, with its own PostgreSQL database (same ports 8000 and 8080: stop the debug configurations first) |
 
 ### Devcontainer

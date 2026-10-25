@@ -64,51 +64,6 @@
       }
     },
     {
-      "label": "API: controller (port 8080)",
-      "detail": "security-review-controller serve (migrates the schema, REST API proxied by ng serve)",
-      "type": "process",
-      "command": "uv",
-      "args": [
-        "run",
-        "security-review-controller",
-        "serve",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        "8080"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}",
-        "env": { "SECREVIEW_AUTH_BOOTSTRAP_ADMIN": "true", "SECREVIEW_LOG_LEVEL": "DEBUG" }
-      },
-      "isBackground": true,
-      "problemMatcher": {
-        "owner": "controller",
-        "pattern": { "regexp": "^ERROR:\\s+(.*)$", "message": 1 },
-        "background": {
-          "activeBegin": true,
-          "beginsPattern": "Started server process",
-          "endsPattern": "Uvicorn running on"
-        }
-      }
-    },
-    {
-      "label": "Web UI + API: dev servers",
-      "detail": "Controller on port 8080 and ng serve on port 4200, side by side",
-      "dependsOn": ["API: controller (port 8080)", "Web UI: dev server (port 4200)"],
-      "dependsOrder": "parallel",
-      "problemMatcher": []
-    },
-    {
-      "label": "Docs: serve (port 8001)",
-      "type": "process",
-      "command": "uv",
-      "args": ["run", "mkdocs", "serve", "-a", "127.0.0.1:8001"],
-      "options": { "cwd": "${workspaceFolder}" },
-      "isBackground": true,
-      "problemMatcher": []
-    },
-    {
       "label": "Docker: compose up",
       "detail": "Image test: its own PostgreSQL + migrate + controller (8080) + MCP server (8000); needs POSTGRES_PASSWORD in .env",
       "type": "process",

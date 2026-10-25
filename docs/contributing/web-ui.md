@@ -14,8 +14,7 @@ npm run format                # Prettier
 
 `npm start` forwards `/api` to `http://127.0.0.1:8080` (`web/proxy.conf.json`): start the
 controller in parallel with `security-review-controller serve --port 8080`, or use the VS Code
-configuration **Web UI + API (Angular dev server, port 4200)**, which starts both
-(**Controller + web UI (Angular, port 4200)** if you also want to debug the Python): every save
+configuration **Controller (debug: FastAPI + Angular)**, which starts both under the debugger: every save
 of a file of `web/src/` reloads the page (styles and templates without a full reload), and the
 breakpoints set in the `.ts` files are honored. In the devcontainer, Chrome is opened on the
 local workstation and port 4200 is forwarded automatically.
