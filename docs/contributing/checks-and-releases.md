@@ -8,8 +8,8 @@ What runs before a change is merged, and how a version is published. CI runs eve
 ```bash
 uv run ruff check --fix . && uv run ruff format .           # Python
 npm --prefix web exec --no -- prettier --check <files>      # web/src/, YAML and JSON
-prek install         # optional: same checks before every commit, and the dependency
-                     # scan when SECREVIEW_CONTROLLER_URL is set
+prek install         # same checks before every commit, the dependency scan when
+                     # SECREVIEW_CONTROLLER_URL is set, and the agent-review post-commit hook
 ```
 
 The `prettier` hook formats the YAML and JSON files and the sources of `web/src/` with the
@@ -47,33 +47,35 @@ connected, each change is reviewed before it is declared done or a pull request 
 `get_review_checklist`, then one report saved with `save_security_report` (project
 `security-review-mcp`). The `critical` and `high` findings are fixed, with a test; the others
 are fixed or justified with `propose_finding_status`, which a person approves in the web
-interface. The full procedure is in `AGENTS.md`.
+interface. The agent then adds a `Security-Review: <report id>` trailer to its commit message,
+so that the `agent-review` hook does not review the commit again. The full procedure is in
+`AGENTS.md`.
 
-When `SECREVIEW_CONTROLLER_URL` and a personal `ci` token (`SECREVIEW_TOKEN`) are set, the
-`scan-deps` hook also scans the dependencies when `uv.lock`, `pyproject.toml` or
-`web/package*.json` change.
+The `scan-deps` and `agent-review` hooks run the `security-review-ci` of the controller given by
+`SECREVIEW_CONTROLLER_URL` ([client from the controller](../getting-started/commit-hooks.md)),
+and are skipped while it is not set. With a personal `mcp` or `ci` token in `SECREVIEW_TOKEN`,
+`scan-deps` scans the dependencies when `uv.lock`, `pyproject.toml` or `web/package*.json`
+change.
 
 ### Security review of each commit
 
-The optional `agent-review` hook (`scripts/agent-review.sh`) asks Claude Code to review each of
-your commits for security, in the background, with the `security-review` MCP server of your
-`.mcp.json`. The review follows the security review procedure of `AGENTS.md` and saves
-one report, which you read in the web interface. Enable it once:
+The `agent-review` hook runs
+[`security-review-ci agent-review`](../advanced/ci.md#agent-review-of-each-commit) after each of
+your commits: your coding agent (Claude Code, GitHub Copilot or Codex) reviews it for security
+in the background, with the `security-review` server of your `.mcp.json`, and saves one report,
+which you read in the web interface. `prek install` installs it with the pre-commit hooks
+(`default_install_hook_types`), and the devcontainer runs it at creation: you only install the
+CLI of your agent, sign in and create your `.mcp.json`.
 
 ```bash
-prek install --hook-type post-commit
+prek install                          # pre-commit and post-commit hooks
+export AGENT_REVIEW_CLI=copilot       # optional: choose the agent
 SKIP=agent-review git commit ...      # skip it for one commit
 ```
 
-- The commit is never blocked: the review runs after it, and its log is in
-  `.git/agent-review/<commit>.log`.
-- The agent receives the commit in its prompt and may only read the repository and call the
-  review tools of the server (`--restricted`, `--permission-mode dontAsk`): it edits no file,
-  runs no command, proposes no finding status and cannot read `.env`, `.mcp.json` or any file
-  outside the repository.
-- The hook does nothing for a commit made by Claude Code (already reviewed in its session),
-  during a rebase or a cherry-pick, or when the `claude` CLI or `.mcp.json` is missing.
-- Each review consumes model usage on your Claude account.
+The commit is never blocked, even when findings remain open; the log is in
+`.git/agent-review/<commit>.log`. A commit that carries a `Security-Review: <report id>`
+trailer, already reviewed in the session of its agent, is not reviewed again.
 
 ## Branches
 
@@ -86,7 +88,8 @@ SKIP=agent-review git commit ...      # skip it for one commit
 
 A version is a tag pushed on `master`:
 
-1. On `dev`, update `version` in `pyproject.toml` (e.g. `uv version 1.3.0`) and commit.
+1. On `dev`, update `version` in `pyproject.toml` (e.g. `uv version 1.3.0`) and commit: it is
+   the only place of the version, which the package reads from its installed metadata.
 2. Merge `dev` into `master`.
 3. On `master`, push the matching tag: `git tag v1.3.0 && git push origin v1.3.0`.
 4. The push of the tag triggers `publish.yml`: lint and tests, check that the tag matches the

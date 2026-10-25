@@ -12,11 +12,19 @@ from mcp.server.mcpserver.exceptions import ResourceError, ResourceNotFoundError
 from mcp.shared.exceptions import MCPError
 from mcp.types import INVALID_PARAMS, ToolAnnotations
 from pydantic import Field
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ArgumentError
 
 from . import __version__, app_settings, http_server, prompts, standards
 from .auth import access_control, enrollment_api, token_store
 from .clients import commands
-from .config import check_report_language, configure_logging, get_settings
+from .config import (
+    Settings,
+    check_report_language,
+    configure_logging,
+    default_database_url,
+    get_settings,
+)
 from .deps import advisories, depscan
 from .observability import audit
 from .reports import sarif, services, trends
@@ -941,6 +949,7 @@ Security review MCP server (administration: security-review-controller).
 
 commands:
   serve        run the MCP server: streamable-http for a shared server, stdio for a local host
+  local        run the MCP server for a local host (stdio), ignoring remote databases
   enroll       request the project of a repository on a shared server (no token is created)
 
 Run `security-review-mcp COMMAND --help` for the options of a command.
@@ -949,7 +958,7 @@ Administration (db, token, user, rules, advisories...) is run by security-review
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Run a command of ``security-review-mcp``: ``serve`` or a client command.
+    """Run a command of ``security-review-mcp``: ``serve``, ``local`` or a client command.
 
     Without a command, the usage is written on stderr (never on stdout, which a stdio host
     reads as the MCP protocol). The web interface, the REST API and the administration commands
@@ -960,6 +969,8 @@ def main(argv: list[str] | None = None) -> None:
     command = arguments[0] if arguments else None
     if command == "serve":
         serve(arguments[1:])
+    elif command == "local":
+        local(arguments[1:])
     elif command in commands.MCP_COMMANDS:
         sys.exit(commands.run(arguments))
     elif command in ("-h", "--help"):
@@ -972,6 +983,45 @@ def main(argv: list[str] | None = None) -> None:
         elif command is not None:
             print(f"\nerror: unknown command '{command}'", file=sys.stderr)
         sys.exit(commands.EXIT_ERROR)
+
+
+def local(argv: list[str]) -> None:
+    """Run ``security-review-mcp local``: stdio, on the local SQLite database of the user."""
+    parser = argparse.ArgumentParser(
+        prog="security-review-mcp local",
+        description="Run the MCP server for a local host (stdio): remote databases, hence "
+        "SECREVIEW_DATABASE_URL, are ignored",
+    )
+    parser.parse_args(argv)
+    settings = get_settings()
+    # The engine reads the cached settings: point them to the default SQLite file
+    settings.database_url = default_database_url()
+    configure_logging(settings.log_level)
+    _run_stdio(parser, settings)
+
+
+def _run_stdio(parser: argparse.ArgumentParser, settings: Settings) -> None:
+    """Prepare the local database and serve the MCP protocol on stdin / stdout."""
+    # Local mode has no token: a shared database would let it write to every project and
+    # migrate the schema of the team. Refuse it rather than fall back to SQLite silently.
+    try:
+        backend = make_url(settings.database_url.get_secret_value()).get_backend_name()
+    except ArgumentError:
+        # The message of SQLAlchemy quotes the URL, password included
+        parser.error("SECREVIEW_DATABASE_URL is not a valid database URL")
+    if backend != "sqlite":
+        parser.error(
+            f"stdio uses a local SQLite database only, but SECREVIEW_DATABASE_URL points to "
+            f"{backend}: run `security-review-mcp local`, or use the shared mode "
+            "(streamable-http) to work with this database"
+        )
+    try:
+        # Local server: it prepares its own database (SECREVIEW_DB_AUTO_UPGRADE)
+        init_db()
+    except SchemaError as exc:
+        parser.error(str(exc))
+    registry.reload()
+    mcp.run("stdio")
 
 
 def serve(argv: list[str]) -> None:
@@ -994,20 +1044,16 @@ def serve(argv: list[str]) -> None:
     settings = http_server.with_tls_arguments(settings, args)
     configure_logging(settings.log_level)
 
+    if args.transport == "stdio":
+        _run_stdio(parser, settings)
+        return
     try:
-        if args.transport == "stdio":
-            # Local server: it prepares its own database (SECREVIEW_DB_AUTO_UPGRADE)
-            init_db()
-        else:
-            # Shared server: the controller (or a dedicated job) migrates the schema
-            check_db()
+        # Shared server: the controller (or a dedicated job) migrates the schema
+        check_db()
     except SchemaError as exc:
         parser.error(str(exc))
     registry.reload()
 
-    if args.transport == "stdio":
-        mcp.run("stdio")
-        return
     try:
         # Bearer tokens live in the database (hashes only)
         store = token_store.DatabaseTokenStore()

@@ -8,60 +8,26 @@ Deux manifestes déploient tout dans le namespace `secreview` :
 
 ## Déploiement
 
-=== "Avec PostgreSQL (image officielle)"
+Le bloc qui déploie tout, avec le PostgreSQL de `postgres.yaml`, est dans
+[Mise en service du serveur](../getting-started/deploy.md#avec-kubernetes).
 
-    Copiez-collez tout le bloc : il crée la base, son mot de passe et les Secrets, puis démarre
-    security-review-mcp et donne le mot de passe du premier administrateur.
+Avec un PostgreSQL existant : une base managée (Amazon RDS, Azure Database for PostgreSQL, Google Cloud SQL...) ou un
+opérateur (CloudNativePG...) qui contient une base `secreview` vide, propriété d'un rôle
+`secreview`. Remplacez `<password>` et `<host>` ; ajoutez `?sslmode=verify-full` à l'URL
+quand le serveur propose le TLS.
 
-    ```bash
-    kubectl create namespace secreview
-
-    # 1. PostgreSQL (image officielle) : un mot de passe, dans le Secret de la base et dans l'URL
-    PGPASSWORD="$(openssl rand -hex 24)"
-    kubectl -n secreview create secret generic secreview-postgres \
-        --from-literal=POSTGRES_PASSWORD="$PGPASSWORD"
-    kubectl -n secreview create secret generic secreview-db \
-        --from-literal=SECREVIEW_DATABASE_URL="postgresql+psycopg2://secreview:${PGPASSWORD}@secreview-postgres:5432/secreview"
-    unset PGPASSWORD
-    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/postgres.yaml
-    kubectl -n secreview rollout status statefulset/secreview-postgres
-
-    # 2. security-review-mcp : secret des sessions, contrôleur et serveur MCP
-    kubectl -n secreview create secret generic secreview-controller \
-        --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
-    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/security-review.yaml
-    kubectl -n secreview rollout status deploy/secreview-controller
-    kubectl -n secreview rollout status deploy/secreview-mcp
-
-    # 3. Premier administrateur et jeton d'un agent (chaque secret n'est affiché qu'une fois)
-    kubectl -n secreview exec deploy/secreview-controller -c controller -- \
-        security-review-controller user reset-password admin
-    kubectl -n secreview exec deploy/secreview-controller -c controller -- \
-        security-review-controller token create --label alice
-
-    # 4. Interface web sur http://127.0.0.1:8080/ui/
-    kubectl -n secreview port-forward svc/secreview-controller 8080:80
-    ```
-
-=== "Avec un PostgreSQL existant"
-
-    Une base managée (Amazon RDS, Azure Database for PostgreSQL, Google Cloud SQL...) ou un
-    opérateur (CloudNativePG...) qui contient une base `secreview` vide, propriété d'un rôle
-    `secreview`. Remplacez `<password>` et `<host>` ; ajoutez `?sslmode=verify-full` à l'URL
-    quand le serveur propose le TLS.
-
-    ```bash
-    kubectl create namespace secreview
-    kubectl -n secreview create secret generic secreview-db \
-        --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
-    kubectl -n secreview create secret generic secreview-controller \
-        --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
-    kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/security-review.yaml
-    kubectl -n secreview rollout status deploy/secreview-controller
-    kubectl -n secreview rollout status deploy/secreview-mcp
-    kubectl -n secreview exec deploy/secreview-controller -c controller -- \
-        security-review-controller user reset-password admin
-    ```
+```bash
+kubectl create namespace secreview
+kubectl -n secreview create secret generic secreview-db \
+    --from-literal=SECREVIEW_DATABASE_URL='postgresql+psycopg2://secreview:<password>@<host>:5432/secreview'
+kubectl -n secreview create secret generic secreview-controller \
+    --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
+kubectl -n secreview apply -f https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/kubernetes/security-review.yaml
+kubectl -n secreview rollout status deploy/secreview-controller
+kubectl -n secreview rollout status deploy/secreview-mcp
+kubectl -n secreview exec deploy/secreview-controller -c controller -- \
+    security-review-controller user reset-password admin
+```
 
 ## Contenu des manifestes
 
@@ -75,18 +41,20 @@ opérateur, qui gèrent la réplication, les sauvegardes et les mises à niveau.
 
 - un **Deployment `secreview-controller`** (une réplique, stratégie `Recreate`) dont l'init
   container lance `security-review-controller db upgrade` à chaque déploiement ;
-- un **Deployment `secreview-mcp`**, qui vérifie seulement le schéma ;
-- le **Secret `secreview-controller`**, créé à la main (voir [Secrets](#secrets)), avec
-  `SECREVIEW_SECRET_KEY` : sans lui, le contrôleur tire un secret de session aléatoire à
-  chaque démarrage, les sessions web prendraient donc fin à chaque redémarrage et ne seraient
-  pas partagées entre réplicas (voir
-  [Connexion et sessions](../usage/web-interface.md#connexion-et-sessions)) ;
+- un **Deployment `secreview-mcp`**, qui vérifie seulement le schéma à son démarrage ;
+- une **ConfigMap `secreview-config`** partagée par les deux processus ;
 - un Service par processus, des sondes `readiness` et `liveness` sur `/healthz`, des
   conteneurs non root en système de fichiers en lecture seule, sans capacité Linux ;
 - une **NetworkPolicy** qui limite l'accès au contrôleur aux pods du namespace et à
   l'ingress controller (adaptez son label).
 
-Contenu des manifestes de la version `{{ release_tag }}`, appliqués par les commandes ci-dessus :
+Le contrôleur lit aussi le **Secret `secreview-controller`**, créé à la main (voir
+[Secrets](#secrets)), avec `SECREVIEW_SECRET_KEY` : sans lui, le contrôleur tire un secret de
+session aléatoire à chaque démarrage, les sessions web prendraient donc fin à chaque
+redémarrage et ne seraient pas partagées entre réplicas (voir
+[Connexion et sessions](controller.md#connexion-et-sessions)).
+
+Contenu des manifestes de la version `{{ release_tag }}`, appliqués par ces commandes :
 
 === "postgres.yaml"
 
@@ -150,12 +118,26 @@ Secrets au démarrage : après un changement, redémarrez-les
 ## Image, exposition et administration
 
 Le manifeste utilise l'image publiée `ghcr.io/cyr-ius/security-review:latest`, qui
-contient le pilote PostgreSQL : épinglez une version (`X.Y.Z`) en production. Exposez le Service `secreview-mcp` aux agents et à la CI par un Ingress avec
-TLS. Gardez le contrôleur interne (`kubectl port-forward`, VPN ou Ingress restreint aux
-administrateurs). Derrière l'Ingress, réglez `SECREVIEW_FORWARDED_ALLOW_IPS` (en commentaire dans
-la ConfigMap) sur la plage d'adresses des pods de l'ingress controller : sinon tous les clients
-partagent leur adresse pour la limitation des connexions et les limites d'enrôlement. Les
-commandes d'administration s'exécutent dans son pod :
+contient le pilote PostgreSQL : épinglez une version (`X.Y.Z`) en production. Les manifestes
+ne contiennent pas d'Ingress : exposez chaque Service par son propre Ingress avec TLS.
+
+| Service | Atteint par | Ingress |
+|---|---|---|
+| `secreview-mcp` | les agents (MCP sur `/mcp`, enrôlement) | vers tous les postes des développeurs |
+| `secreview-controller` | les personnes (interface web `/ui`, jetons MCP et CI personnels) et la CI (`security-review-ci` appelle `/api/v1/ci`) | vers les développeurs et les runners de CI ; `kubectl port-forward` suffit pour un premier essai |
+
+Ensuite, dans la ConfigMap :
+
+- réglez `SECREVIEW_WEB_URL` sur l'URL publique de l'interface web (`https://…/ui`) : le
+  serveur MCP la donne aux clients sans jeton valide, pour que l'utilisateur sache où créer un
+  jeton MCP personnel ;
+- réglez `SECREVIEW_FORWARDED_ALLOW_IPS` sur la plage d'adresses des pods de l'ingress
+  controller : sinon tous les clients partagent leur adresse pour la limitation des connexions,
+  la limite de débit et les limites d'enrôlement.
+
+La NetworkPolicy du contrôleur laisse entrer l'ingress controller du namespace `ingress-nginx` :
+adaptez son label au vôtre. Les commandes d'administration s'exécutent dans le pod du
+contrôleur :
 
 ```bash
 kubectl -n secreview exec deploy/secreview-controller -c controller -- \
@@ -167,7 +149,8 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 Pour la [mise à jour quotidienne des avis OSV](dependencies.md#mise-a-jour-automatique-par-le-controleur),
 décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et au besoin `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY`
 et `NO_PROXY`, dans le Secret `secreview-controller` si le proxy contient des identifiants) sur
-le conteneur `controller`, et autorisez sa sortie vers osv.dev ou votre miroir (ou le proxy) si une NetworkPolicy d'egress s'applique. Le serveur MCP
+le conteneur `controller`, et autorisez sa sortie vers `osv-vulnerabilities.storage.googleapis.com` (`SECREVIEW_OSV_URL`),
+votre miroir ou le proxy si une NetworkPolicy d'egress s'applique. Le serveur MCP
 n'a besoin d'aucune sortie. La documentation Swagger de l'API REST (`/api/docs`) reste
 désactivée tant que vous ne décommentez pas `SECREVIEW_SWAGGER_ENABLED`.
 

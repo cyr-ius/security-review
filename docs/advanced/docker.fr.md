@@ -22,16 +22,8 @@ Les images portent un SBOM et une attestation de provenance (`docker buildx imag
 Un seul fichier,
 [`examples/docker/docker-compose.yml`](https://github.com/cyr-ius/security-review/blob/{{ release_tag }}/examples/docker/docker-compose.yml),
 démarre tout avec l'image publiée : PostgreSQL, la migration du schéma, le contrôleur et le
-serveur MCP. Copiez-collez le bloc dans un dossier vide :
-
-```bash
-mkdir security-review-mcp && cd security-review-mcp
-curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review/{{ release_tag }}/examples/docker/docker-compose.yml
-(umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
-docker compose up -d --wait
-docker compose exec controller security-review-controller user reset-password admin   # mot de passe admin initial
-docker compose exec controller security-review-controller token create --label alice   # jeton d'un agent
-```
+serveur MCP. Les commandes qui le téléchargent et le démarrent sont dans
+[Mise en service du serveur](../getting-started/deploy.md#avec-docker-compose).
 
 La commande `printf` écrit le fichier `.env`, lisible par vous seul : le mot de passe de
 PostgreSQL et le secret des sessions web, tirés au hasard. `docker compose up -d --wait` rend la
@@ -69,7 +61,7 @@ Bon à savoir :
   commitez jamais. Le mot de passe est inséré tel quel dans l'URL de connexion : gardez des
   caractères hexadécimaux, comme ci-dessus.
 - **Ouvrir à l'équipe.** Les ports sont publiés sur toutes les interfaces du serveur, en HTTP
-  simple : activez le [TLS intégré](http.md#tls) ou placez un reverse proxy devant avant que
+  simple : activez le [TLS intégré](tls.md) ou placez un reverse proxy devant avant que
   l'équipe se connecte. Pour garder un port sur le serveur seulement (derrière un reverse proxy
   sur la même machine, par exemple), préfixez-le par `127.0.0.1` (`"127.0.0.1:8000:8000"`).
   Seuls les `ports` décident de l'exposition : dans son conteneur, chaque
@@ -78,7 +70,7 @@ Bon à savoir :
   décommentez dans `controller` et `mcp` les variables TLS (`SECREVIEW_TLS_CERTFILE`,
   `SECREVIEW_TLS_KEYFILE`) et le `volumes` qui monte en lecture seule les fichiers du certificat
   depuis `./tls` (voir
-  [Autorité de certification](http.md#autorite-de-certification)). Le contrôleur n'expose aucune
+  [Autorité de certification](tls.md#autorite-de-certification)). Le contrôleur n'expose aucune
   route d'écriture sans jeton : il peut rester interne.
 - **Avis de vulnérabilités.** La base OSV est **vide** au premier démarrage : l'analyse de
   dépendances répond qu'aucune base n'est chargée. Pour que le contrôleur la télécharge au
@@ -102,12 +94,12 @@ docker compose exec controller security-review-controller token list
 ## Sans Docker Compose
 
 La même image lance chaque processus dans son propre conteneur, sur une base PostgreSQL
-existante (voir [Architecture et déploiement](architecture.md)) :
+existante (voir [Architecture](architecture.md)) :
 
 - le **serveur MCP** est le point d'entrée par défaut de l'image (`security-review-mcp`,
   commande par défaut `serve`, en HTTP streamable ; ajoutez `--transport stdio` pour le mode local) ;
 - le **contrôleur** (API REST, interface web, administration) se lance avec
-  `--entrypoint security-review-controller`, avec l'[authentification et le TLS intégrés](http.md)
+  `--entrypoint security-review-controller`, avec les [jetons](bearer-tokens.md) et le [TLS](tls.md) intégrés
   ou derrière un reverse proxy qui s'en charge.
 
 ```bash

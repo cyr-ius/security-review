@@ -7,7 +7,7 @@ l'hôte. Il partage la base avec le contrôleur mais ne l'appelle jamais. Son co
 entrées et appelle ces modules.
 
 ```bash
-uv run security-review-mcp serve --transport stdio       # stdio, comme le lance un hôte
+uv run security-review-mcp local                         # stdio, comme le lance un hôte
 uv run security-review-mcp serve --port 8000             # HTTP streamable (défaut)
 uv run pytest tests/test_server.py                       # tests de bout en bout de la couche MCP
 ```

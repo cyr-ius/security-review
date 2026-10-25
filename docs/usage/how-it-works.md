@@ -1,7 +1,7 @@
 # How a review works
 
-This page explains how the server checks the security of the code. It says when each check
-runs. It also shows how to guide the agent with an `AGENTS.md` file.
+This page explains how the agent reviews the security of the code. It explains when each check
+runs. It specifies how to guide the agent with an `AGENTS.md` file.
 
 ## The three building blocks
 
@@ -10,9 +10,9 @@ decisions.
 
 | Block | What it is | Who uses it | When |
 |---|---|---|---|
-| **Standards** | The coding conventions of your organization, by technology | The agent | **Before** writing the code |
 | **Rules** | Patterns that spot suspicious lines (automatic scan) | The `scan_code` tool and the pipeline scan | **During** the review and in CI |
 | **Checklists** | Points to check by hand, one by one | The agent | **During** the review |
+| **Standards** | The coding conventions of your organization, by technology | The agent | **Before** writing the code |
 
 The three blocks are stored in the database. Administrators edit them in the web interface. A
 change applies to every agent, without a restart.
@@ -30,8 +30,8 @@ Rule details: [Rules](rules.md).
 
 ### Checklists: the expert's eye
 
-- A checklist covers a **domain**: `python`, `java`, `angular`, `api`, `config`, `cicd`,
-  `dependencies`.
+- A checklist covers a **domain**: `python`, `java`, `go`, `csharp`, `rust`, `angular`, `node`,
+  `api`, `config`, `cicd`, `dependencies`.
 - Each item says what to look for. Example: "every query is filtered by the tenant of the
   token".
 - Checklists cover what a pattern cannot see: business logic, access rights, flows across
@@ -64,20 +64,8 @@ Every review prompt gives the agent the same method, in five steps:
 5. **Save the report.** The agent calls `save_security_report` **once**. It also declares what
    it checked (the [coverage](prompts-tools.md#review-coverage)).
 
-Then a person triages the findings in the [web interface](web-interface.md#triage-of-findings).
+Then a person triages the findings in the [web interface](triage.md).
 The agent can only **propose** a status. It never closes a finding.
-
-## Which check, at which moment
-
-| Moment | Check | Started by |
-|---|---|---|
-| Before coding | Standards (`development-standards`, `get_development_standards`) | The developer or the agent |
-| Review of a change | Rules (`scan_code`) + checklists of the language + `*` and `company` | The developer (prompt) or the agent (tools) |
-| Review of an API or a configuration | Rules + `api` checklist, or `config` and `cicd` | The developer (prompt) |
-| Review of the dependencies | OSV vulnerability database (`scan_dependencies`) + `dependencies` checklist | The developer (prompt) or the agent (tool) |
-| Review of the whole repository | Results of `security-review-ci scan-code` + every useful checklist | The developer (prompt) |
-| CI pipeline | Rules on the whole repository (`scan-code`), dependencies (`scan-deps`), [gate](gate.md) | The pipeline, without an agent |
-| After the review | Triage, risk acceptance | A person, in the web interface |
 
 ## How the system picks the rules
 
@@ -125,35 +113,26 @@ skipped points.
 - The server returns every active standard whose technology or file pattern matches.
 - It also lists the technologies that no standard covers.
 
-## Prompts and tools: who starts what
+## The prompts
 
-**An agent can never start an MCP prompt.** A prompt is a command that the developer picks in
-the host. Examples: `/mcp__security-review__security-review` in Claude Code,
-`/mcp.security-review.security-review` in VS Code.
+The prompts are available to the developer through the agent of their IDE.
 
-The agent calls **tools**. The server tells it which tools to use for a review. So it can redo
-part of the work of the prompts on its own.
-
-| Prompt | Can the agent do the same on its own? |
+| Prompt | What it does |
 |---|---|
-| `development-standards` | Yes, with `get_development_standards` |
-| `security-review` | Yes, with `scan_code`, `get_review_checklist` and `save_security_report` |
-| `api-security-review`, `configuration-review` | Yes, with the same tools, if `AGENTS.md` names the `api`, `config` and `cicd` checklists |
-| `dependency-review` | Partly, with `scan_dependencies`, if `AGENTS.md` asks for it |
-| `codebase-review` | **No**, it stays in the developer's hands |
-| `triage-report` | **No**, it stays in the developer's hands |
+| `development-standards` | Gives the agent the development standards of its stack, before it writes code |
+| `security-review` | General review of the code (Python, Java, Go, C#, Rust, TypeScript/Node.js, Angular) |
+| `api-security-review`, `configuration-review` | Review of a REST API (OWASP API Top 10), or of a configuration (Dockerfile, CI/CD, YAML...) |
+| `dependency-review` | Review of the manifests and lockfiles (supply chain) |
+| `codebase-review` | Review of the whole repository, not only a diff |
+| `triage-report` | Re-qualifies the findings of a stored report |
 
-Why these two prompts stay manual:
-
-- `codebase-review` reads the whole repository. It takes long. It usually starts from the
-  results of `security-review-ci scan-code`, run by the developer or the CI.
-- `triage-report` re-qualifies an existing report. It is a decision step. The developer picks
-  the report and the moment.
-
-The prompt brings more than the tools alone: the checklists already included, the full method
-and the rules against prompt injection. For an important review, prefer the prompt.
+For an important review, prefer the prompt.
 
 ## The `AGENTS.md` file
+
+!!! danger "Fill in the `AGENTS.md` file"
+    It is the only way for the agent to run the security reviews **automatically**, without the
+    developer having to start a prompt before each commit.
 
 ### Why you need it
 
@@ -165,10 +144,6 @@ and the rules against prompt injection. For an important review, prefer the prom
   the posture work on this name.
 - Without a set name, each agent makes one up. Reports get scattered and the gate does not see
   them all.
-
-The server normalizes the name (lower case, `-` as separator). `Shop API` and `shop_api`
-both give `shop-api`. See [Project name](prompts-tools.md#project-name). Still write the exact
-name, to avoid any doubt.
 
 Some hosts read another file: `CLAUDE.md` for Claude Code, `.github/copilot-instructions.md`
 for GitHub Copilot. Make them point to `AGENTS.md`. You keep a single source.
@@ -211,42 +186,19 @@ The project instructions are in `AGENTS.md`. Follow them in full.
 @AGENTS.md
 ```
 
-## Standards stored in the server
+!!! warning "Development standards"
+    The development standards are stored in the server: name them in `AGENTS.md` without copying
+    them. See how to write the `AGENTS.md` file in the Advanced section:
+    [How to mention them in `AGENTS.md`](../advanced/stored-standards.md#how-to-mention-them-in-agentsmd).
 
-### What the server keeps
+## Which check, at which moment
 
-- The standards are stored **in the database**, like the rules. They are not in your
-  repository.
-- An administrator writes them in the **Standards** screen of the web interface. They can also
-  be imported from a TOML file.
-- Each standard lists its technologies and its file patterns (`*.py`, `angular.json`).
-- Every project gets the same standards. An update applies at once to every agent.
-
-The benefit: you write your conventions **once**, for the whole organization. No repository
-needs to copy them anymore.
-
-### How to mention them in `AGENTS.md`
-
-- **Do not copy the standards** into `AGENTS.md`. The copies would soon drift apart.
-- Tell the agent to ask the server for them before coding.
-- Name the useful tools and resources: `get_development_standards`,
-  `list_development_standards`, `standard://{slug}`.
-- Keep in `AGENTS.md` what is **specific to the repository**: test commands, structure, local
-  exceptions.
-- Say who wins in case of conflict. For example: "`AGENTS.md` takes precedence over the
-  standards of the server".
-
-Example section:
-
-```markdown
-## Coding conventions
-The development standards are provided by the `security-review` MCP server.
-Read them before writing code:
-- tool `get_development_standards` (by technology or by file);
-- tool `list_development_standards` to see the catalog;
-- resource `standard://python` to read one standard.
-This file only keeps the rules specific to this repository. In case of conflict, it wins.
-```
-
-A standard can never weaken security. If it does, the agent keeps the safe behavior and
-reports the conflict.
+| Moment | Check | Started by |
+|---|---|---|
+| Before coding | Standards (`development-standards`, `get_development_standards`) | The developer or the agent |
+| Review of a change | Rules (`scan_code`) + checklists of the language + `*` and `company` | The developer (prompt) or the agent (tools) |
+| Review of an API or a configuration | Rules + `api` checklist, or `config` and `cicd` | The developer (prompt) |
+| Review of the dependencies | OSV vulnerability database (`scan_dependencies`) + `dependencies` checklist | The developer (prompt) or the agent (tool) |
+| Review of the whole repository | Results of `security-review-ci scan-code` + every useful checklist | The developer (prompt) |
+| CI pipeline | Rules on the whole repository (`scan-code`), dependencies (`scan-deps`), [gate](gate.md) | The pipeline, without an agent |
+| After the review | Triage, risk acceptance | A person, in the web interface |

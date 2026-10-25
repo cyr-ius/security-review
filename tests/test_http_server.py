@@ -16,7 +16,7 @@ from starlette.testclient import TestClient
 from security_review_mcp import cli, http_server, server
 from security_review_mcp.auth import token_store, web_users
 from security_review_mcp.clients import commands
-from security_review_mcp.config import Settings, get_settings
+from security_review_mcp.config import Settings, default_database_url, get_settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
 from security_review_mcp.storage import database
 from security_review_mcp.storage.models import ApiToken
@@ -507,6 +507,43 @@ def test_stdio_server_migrates_its_own_database(monkeypatch):
     assert database.current_revision() == database.head_revision()
 
 
+@pytest.mark.parametrize(
+    ("url", "message"),
+    [
+        (
+            "postgresql+psycopg2://user:hunter2@db:5432/secreview",  # secreview:ignore GEN-007
+            "SQLite database only",
+        ),
+        ("not a url hunter2", "not a valid database URL"),
+    ],
+)
+def test_stdio_server_refuses_a_shared_database(monkeypatch, capsys, url, message):
+    monkeypatch.setattr(server, "get_settings", lambda: make_settings(database_url=url))
+    started = []
+    monkeypatch.setattr(server.mcp, "run", lambda transport: started.append(transport))
+
+    with pytest.raises(SystemExit) as exc:
+        server.main(["serve", "--transport", "stdio"])
+
+    assert exc.value.code == 2 and not started
+    err = capsys.readouterr().err
+    assert message in err
+    assert "hunter2" not in err
+
+
+def test_local_command_ignores_a_shared_database(monkeypatch):
+    url = "postgresql+psycopg2://user:hunter2@db:5432/secreview"  # secreview:ignore GEN-007
+    settings = make_settings(database_url=url)
+    monkeypatch.setattr(server, "get_settings", lambda: settings)
+    started = []
+    monkeypatch.setattr(server.mcp, "run", lambda transport: started.append(transport))
+
+    server.main(["local"])
+
+    assert started == ["stdio"]
+    assert settings.database_url.get_secret_value() == default_database_url().get_secret_value()
+
+
 def test_the_mcp_cli_no_longer_runs_the_controller_commands(capsys):
     with pytest.raises(SystemExit) as exc:
         server.main(["db", "status"])
@@ -520,7 +557,7 @@ def test_the_mcp_cli_no_longer_runs_the_controller_commands(capsys):
 @pytest.mark.parametrize(
     ("argv", "expected"),
     [
-        (["--help"], ["serve", *commands.MCP_COMMANDS]),
+        (["--help"], ["serve", "local", *commands.MCP_COMMANDS]),
         (["serve", "--help"], ["--transport", "--host", "--port"]),
     ],
 )

@@ -2,12 +2,20 @@
 
 import io
 import json
+import tomllib
 import urllib.error
+from pathlib import Path
 
 import pytest
 
 from security_review_mcp import __version__, update_check
 from security_review_mcp.config import Settings
+
+
+def test_current_version_is_the_version_of_pyproject():
+    # The About page, SARIF, metrics and User-Agents announce it: `uv version` must be enough
+    pyproject = Path(__file__).parents[1] / "pyproject.toml"
+    assert __version__ == tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]["version"]
 
 
 def make_settings(**values) -> Settings:

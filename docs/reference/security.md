@@ -4,27 +4,27 @@
 
 - **Two processes**: the MCP server (exposed to the agents) and the controller (REST API, web
   interface, administration) run separately and only share the database (see
-  [Architecture and deployment](../advanced/architecture.md)). The MCP server only accepts
+  [Architecture](../advanced/architecture.md)). The MCP server only accepts
   the `mcp` and `admin` tokens, the controller only web sessions and `admin` and `api` tokens, plus `ci`
   on its pipeline routes (`/api/v1/ci/`: gate, SARIF and trend in read only, scans that store
   reports of its projects) and nowhere else. The
-  controller exposes no write route without a token: it can stay on an internal network, and the
+  controller exposes no write route without a token: and the
   compromise of the exposed MCP server gives no access to the administration interface.
-- **HTTP transport**: MCP authentication by Bearer token and TLS are built in but optional (see
-  [HTTP server, authentication and TLS](../advanced/http.md)). Tokens are stored in the
+- **HTTP transport**: Bearer token authentication and TLS are built in (see
+  [Bearer tokens](../advanced/bearer-tokens.md) and [TLS](../advanced/tls.md)). Tokens are stored in the
   database and only their SHA-256 digests are kept. Every request looks up the digest of the
   presented token, which reveals nothing usable without a preimage, then checks it in constant
   time: a revocation is therefore immediate on every instance. A token created with `--project`
   is limited to that project in the MCP tools and the pipeline routes: any other project, report
   or finding is handled as missing (see
-  [tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
+  [tokens restricted to a project](../advanced/bearer-tokens.md#tokens-restricted-to-a-project)).
   While no token exists, the MCP server stays closed (fail closed: only enrollment is reachable),
   unless it listens on localhost or `SECREVIEW_ALLOW_UNAUTHENTICATED=true`.
   If it does not listen on localhost, a warning is logged when authentication or TLS is missing.
   The server never generates a TLS certificate: HTTPS uses the certificate given by the
-  operator, signed by a [certificate authority](../advanced/http.md#certificate-authority).
+  operator, signed by a [certificate authority](../advanced/tls.md#certificate-authority).
   There is no rate limiting.
-  Every token has a [role](../usage/web-interface.md#roles) (`mcp`, `api`, `admin`, `ci`,
+  Every token has a [role](../usage/tokens.md) (`mcp`, `api`, `admin`, `ci`,
   `metrics`). An `api` token only holds rights of the access control, read at each request: those
   of its user (personal token, deleted with the user, never rotated by someone else, whose new
   secret would carry the rights of the user) or of its role on its projects (role token, whose
@@ -40,32 +40,32 @@
   rotation stores the digest of the new secret only; the previous digest is kept during the grace
   period (at most 168 hours), compared in constant time like the current one, and the previous
   secret of an expired token never comes back (see
-  [expiry and rotation](../advanced/http.md#expiry-and-rotation-of-tokens)).
+  [expiry and rotation](../advanced/bearer-tokens.md#expiry-and-rotation-of-tokens)).
 - **Rejected tokens on `/mcp`**: an unknown, revoked or expired token gets a `401` whose
   description tells the user to sign in to the web interface and create a new personal MCP
-  token (see [rejected token](../advanced/http.md#rejected-token-sign-in-again)); it never
+  token (see [rejected token](../advanced/mcp-server.md#rejected-token-sign-in-again)); it never
   reaches the enrollment server. Each rejection is also logged as a warning by the MCP server
   (`Rejected unauthenticated request` / `Rejected expired token`, with the client address); the
-  `secreview_auth_rejections_total` [metric](../advanced/audit-metrics.md#prometheus-metrics) only counts the
+  `secreview_auth_rejections_total` [metric](metrics.md) only counts the
   rejections of the controller. `SECREVIEW_WEB_URL`, given in that description, is a public URL:
   it holds no credentials (refused at start-up).
 - **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
   tokens and enrollments are written in the same transaction as the change,
   with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,
   and never hold a token or a password; no tool nor route edits an event, only the purge of
-  `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-metrics.md#audit-log)).
+  `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-metrics.md)).
 - **Metrics**: `/metrics` exists on the controller only (the MCP server keeps `/mcp`,
   `/api/v1/enroll` and `/healthz`), behind a `metrics` or `admin` token; a `metrics` token
   reaches nothing else. The answer holds counts and project names, never a finding, a token
   label or a secret, and every label value is escaped (see
-  [Prometheus metrics](../advanced/audit-metrics.md#prometheus-metrics)).
+  [Prometheus metrics](metrics.md)).
 - **Pipeline tokens** (`ci`): always restricted to projects (a `ci` token without a project
   cannot be created, and one found without a project reaches none); a personal `ci` token
   reaches the projects its user may read now, like a personal `mcp` token, which also acts as a
 `ci` token on the pipeline routes (never an administrator's `mcp` token). It only reads the gate, the
   SARIF log and the trend of its projects; the other routes of the controller, `/mcp` and the
   web interface answer `403`, the other projects `404`. The pipeline client
-  ([`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci)) opens no
+  ([`security-review-ci`](../advanced/ci.md)) opens no
   database, reads the token from the environment or stdin only, refuses plain HTTP outside
   localhost, credentials in the URL and redirects, and bounds the answers.
 - **Enrollment** (enabled by default, `SECREVIEW_ENROLLMENT`): a client without a token reaches
@@ -79,7 +79,7 @@
   per hour, `429` beyond), a request nobody approved within
   `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` is deleted, and the free text of the requester is
   masked and truncated: check the requester and the address before approving. Every enrollment is audited. See
-  [enrollment](../advanced/http.md#enrollment-request-the-project).
+  [enrollment](../advanced/mcp-server.md#enrollment-request-the-project).
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
   of the controller that make them (advisory download, OIDC, syslog, connectors, version check):
   a test checks it. The `security-review-mcp enroll` command contacts, at the request of the
@@ -155,7 +155,7 @@
   stores a proposal (reason masked and bounded, author taken from the token) without changing
   the status nor the gate. The reviewed code is untrusted: a prompt injection cannot dismiss a
   finding. A decision carried to the same issue raised by a later report (same project, rule,
-  file and title: [finding reported again](../usage/web-interface.md#finding-reported-again))
+  file and title: [finding reported again](../usage/triage.md#finding-reported-again))
   keeps its approver and its expiry date: a new report never extends it. Pages are served with a strict CSP and the anti-clickjacking headers, and every
   answer of the controller (API, refusals included) carries `X-Content-Type-Options: nosniff`,
   `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, a closed CSP when the route sets
@@ -163,7 +163,10 @@
   `SECREVIEW_FORWARDED_ALLOW_IPS`), `Strict-Transport-Security: max-age=31536000`; the token is
   kept in the `sessionStorage` of the tab. The Swagger documentation and its OpenAPI schema
   are disabled by default (`SECREVIEW_SWAGGER_ENABLED`); once enabled they are public, served
-  from local files only with a strict CSP, and the data routes stay protected. The check is made twice: by the Bearer
+  from local files only with a strict CSP, and the data routes stay protected. The download of
+  the pipeline client (`/api/ci-client/`, `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED`) is enabled
+  by default (`false` disables it): it is public and read-only, serves only the wheel built from the
+  code of the controller, with its SHA-256, and tells the version of the controller. The check is made twice: by the Bearer
   middleware, then by every route of the API, which refuses (`401`) any request without an
   authenticated identity. The API thus never grants rights by default, even if it is served
   without the middleware. Every JSON answer goes through its declared response model: a field
@@ -183,7 +186,7 @@
   agent sends: it cannot filter the files that the host reads with its own tools; the
   [read guard](../advanced/read-guard.md), a host-side hook, checks them before the assistant
   reads them.
-- **User accounts** ([user name and password](../usage/web-interface.md#user-accounts)): only
+- **User accounts** ([user name and password](../usage/user-accounts.md)): only
   a salted **scrypt** digest (N=2¹⁴, r=8, p=5, random 16-byte salt) is stored; a stored digest
   with out-of-bounds parameters is refused instead of exhausting the memory. Passwords of 12 to
   256 characters, with a lowercase letter, an uppercase letter, a digit and a character that is
@@ -272,6 +275,9 @@
   a standard never prevails over security (see
   [Development standards](../usage/standards.md)).
 - **Logs** on stderr (stdout is reserved for the protocol with stdio).
+- **Local mode (stdio) on SQLite only**: it has no token, so it refuses a shared database
+  (PostgreSQL...) where it would bypass the permissions of the projects and migrate the schema
+  of the team (see [Local mode](../getting-started/stdio.md)).
 
 !!! warning "Protect the database"
     The reports hold sensitive information about your vulnerabilities: protect the database

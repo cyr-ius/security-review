@@ -4,27 +4,27 @@
 
 - **Deux processus** : le serveur MCP (exposé aux agents) et le contrôleur (API REST, interface
   web, administration) tournent séparément et ne partagent que la base (voir
-  [Architecture et déploiement](../advanced/architecture.md)). Le serveur MCP n'accepte que les
+  [Architecture](../advanced/architecture.md)). Le serveur MCP n'accepte que les
   jetons `mcp` et `admin`, le contrôleur que les sessions web et les jetons `admin` et `api`, plus `ci` sur ses
   routes de pipeline (`/api/v1/ci/` : gate, SARIF et tendance en lecture seule, scans qui
   enregistrent des rapports de ses projets) et nulle part ailleurs. Le contrôleur
-  n'expose aucune route d'écriture sans jeton : il peut rester sur un réseau interne, et la
+  n'expose aucune route d'écriture sans jeton, et la
   compromission du serveur MCP exposé ne donne pas accès à l'interface d'administration.
-- **Transport HTTP** : authentification MCP par jeton Bearer et TLS intégrés mais facultatifs (voir
-  [Serveur HTTP, authentification et TLS](../advanced/http.md)). Les jetons sont stockés en
+- **Transport HTTP** : authentification par jeton Bearer et TLS intégrés (voir
+  [Jetons Bearer](../advanced/bearer-tokens.md) et [TLS](../advanced/tls.md)). Les jetons sont stockés en
   base et seules leurs empreintes SHA-256 sont conservées. Chaque requête recherche l'empreinte
   du jeton présenté, ce qui ne révèle rien d'exploitable sans préimage, puis la vérifie en temps
   constant : une révocation est donc immédiate sur toutes les instances. Un jeton créé avec
   `--project` est limité à ce projet dans les outils MCP et les routes de pipeline : tout autre projet,
   rapport ou finding est traité comme inexistant (voir
-  [jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)). Tant
+  [jetons restreints à un projet](../advanced/bearer-tokens.md#jetons-restreints-a-un-projet)). Tant
   qu'aucun jeton n'existe, le serveur MCP reste fermé (seul l'enrôlement est accessible), sauf
   s'il écoute sur localhost ou avec `SECREVIEW_ALLOW_UNAUTHENTICATED=true`. Si l'écoute n'est pas sur
   localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Le
   serveur ne génère jamais de certificat TLS : le HTTPS utilise le certificat fourni par
   l'opérateur, signé par une
-  [autorité de certification](../advanced/http.md#autorite-de-certification). Il n'y a
-  pas de limitation de débit. Chaque jeton porte un [rôle](../usage/web-interface.md#roles)
+  [autorité de certification](../advanced/tls.md#autorite-de-certification). Il n'y a
+  pas de limitation de débit. Chaque jeton porte un [rôle](../usage/tokens.md)
   (`mcp`, `api`, `admin`, `ci`, `metrics`). Un jeton `api` ne porte que des droits du contrôle
   d'accès, lus à chaque requête : ceux de son utilisateur (jeton personnel, supprimé avec
   l'utilisateur, jamais renouvelé par un tiers, dont le nouveau secret porterait les droits de
@@ -41,13 +41,13 @@
   fermé. Un renouvellement n'enregistre que l'empreinte du nouveau secret ; l'empreinte
   précédente est conservée pendant le délai de grâce (168 heures au plus), comparée en temps
   constant comme l'actuelle, et l'ancien secret d'un jeton expiré ne revient jamais (voir
-  [expiration et renouvellement](../advanced/http.md#expiration-et-renouvellement-des-jetons)).
+  [expiration et renouvellement](../advanced/bearer-tokens.md#expiration-et-renouvellement-des-jetons)).
 - **Jetons refusés sur `/mcp`** : un jeton inconnu, révoqué ou expiré reçoit un `401` dont la
   description invite l'utilisateur à se connecter à l'interface web pour créer un nouveau jeton
-  MCP personnel (voir [jeton refusé](../advanced/http.md#jeton-refuse-se-reconnecter)) ; il
+  MCP personnel (voir [jeton refusé](../advanced/mcp-server.md#jeton-refuse-se-reconnecter)) ; il
   n'atteint jamais le serveur d'enrôlement. Chaque refus est aussi journalisé en avertissement
   par le serveur MCP (`Rejected unauthenticated request` / `Rejected expired token`, avec
-  l'adresse du client) ; la [métrique](../advanced/audit-metrics.md#metriques-prometheus)
+  l'adresse du client) ; la [métrique](metrics.md)
   `secreview_auth_rejections_total` ne compte que les refus du contrôleur. `SECREVIEW_WEB_URL`,
   donnée dans cette description, est une URL publique : elle ne contient aucun identifiant
   (refusé au démarrage).
@@ -57,12 +57,12 @@
   `anonymous`). Les détails sont bornés et masqués, et ne contiennent jamais de jeton ni de mot
   de passe ; aucun outil ni aucune route ne modifie un événement, seule la purge de
   `SECREVIEW_AUDIT_RETENTION_DAYS` les supprime (voir
-  [journal d'audit](../advanced/audit-metrics.md#journal-daudit)).
+  [journal d'audit](../advanced/audit-metrics.md)).
 - **Métriques** : `/metrics` n'existe que sur le contrôleur (le serveur MCP garde `/mcp`,
   `/api/v1/enroll` et `/healthz`), derrière un jeton `metrics` ou `admin` ; un jeton `metrics`
   n'atteint rien d'autre. La réponse contient des nombres et des noms de projets, jamais un
   finding, un label de jeton ou un secret, et chaque valeur de label est échappée (voir
-  [métriques Prometheus](../advanced/audit-metrics.md#metriques-prometheus)).
+  [métriques Prometheus](metrics.md)).
 - **Jetons de pipeline** (`ci`) : toujours restreints à des projets (un jeton `ci` sans projet
   ne peut pas être créé, et un jeton trouvé sans projet n'en atteint aucun) ; un jeton `ci`
   personnel atteint les projets que son utilisateur peut lire à l'instant, comme un jeton `mcp`
@@ -70,7 +70,7 @@
   un administrateur). Il ne lit que le
   gate, le journal SARIF et la tendance de ses projets ; les autres routes du contrôleur, `/mcp`
   et l'interface web répondent `403`, les autres projets `404`. Le client de pipeline
-  ([`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci)) n'ouvre
+  ([`security-review-ci`](../advanced/ci.md)) n'ouvre
   aucune base, ne lit le jeton que dans l'environnement ou sur stdin, refuse le HTTP en clair
   hors localhost, les identifiants dans l'URL et les redirections, et borne les réponses.
 - **Enrôlement** (actif par défaut, `SECREVIEW_ENROLLMENT`) : un client sans jeton atteint un
@@ -84,7 +84,7 @@
   cliente et par heure, `429` au-delà), une demande que personne n'a validée sous
   `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` est supprimée, et le texte libre du demandeur est
   masqué et tronqué : vérifiez le demandeur et l'adresse avant de valider. Chaque enrôlement est audité. Voir
-  [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
+  [l'enrôlement](../advanced/mcp-server.md#enrolement-demander-le-projet).
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
   modules du contrôleur qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
   de nouvelle version) : un test le vérifie. La commande
@@ -166,7 +166,7 @@
   jeton) sans changer le statut ni la gate. Le code relu est non fiable : une injection de prompt
   ne peut pas neutraliser un finding. Une décision reprise sur le même problème signalé par un
   rapport ultérieur (mêmes projet, règle, fichier et titre : [finding signalé de
-  nouveau](../usage/web-interface.md#finding-signale-de-nouveau)) garde son approbateur et sa
+  nouveau](../usage/triage.md#finding-signale-de-nouveau)) garde son approbateur et sa
   date d'expiration : un nouveau rapport ne la prolonge jamais. Pages servies avec une CSP
   stricte et les en-têtes anti-clickjacking, et chaque réponse du contrôleur (API, refus
   compris) porte `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`,
@@ -176,7 +176,10 @@
   La documentation Swagger et son schéma OpenAPI sont désactivés par défaut
   (`SECREVIEW_SWAGGER_ENABLED`) ; une fois activés, ils sont publics, servis depuis des fichiers
   locaux uniquement avec une CSP stricte, et les routes de données
-  restent protégées. Le contrôle est fait deux fois : par le middleware Bearer, puis par
+  restent protégées. Le téléchargement du client de pipeline (`/api/ci-client/`,
+  `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED`) est activé par défaut (`false` le désactive) :
+  il est public et en lecture seule, ne sert que le wheel construit depuis le code du
+  contrôleur, avec son SHA-256, et indique la version du contrôleur. Le contrôle est fait deux fois : par le middleware Bearer, puis par
   chaque route de l'API, qui refuse (`401`) toute requête sans identité authentifiée. Ainsi,
   l'API ne donne jamais de droits par défaut, même si elle est servie sans le middleware.
   Chaque réponse JSON passe par son modèle de réponse déclaré : un champ qu'un service ajouterait
@@ -197,7 +200,7 @@
   ne voit que ce que l'agent lui envoie : il ne peut pas filtrer les fichiers que l'hôte lit avec
   ses propres outils ; la [garde de lecture](../advanced/read-guard.md), un hook côté hôte, les
   vérifie avant que l'assistant ne les lise.
-- **Comptes utilisateurs** ([identifiant et mot de passe](../usage/web-interface.md#comptes-utilisateurs)) :
+- **Comptes utilisateurs** ([identifiant et mot de passe](../usage/user-accounts.md)) :
   seule une empreinte **scrypt** salée (N=2¹⁴, r=8, p=5, sel aléatoire de 16 octets) est
   stockée ; une empreinte stockée aux paramètres hors bornes est refusée au lieu d'épuiser la
   mémoire. Mots de passe de 12 à 256 caractères, avec une
@@ -292,6 +295,9 @@
   rappelle qu'une norme ne prime jamais sur la sécurité (voir
   [Normes de développement](../usage/standards.md)).
 - **Journaux** sur stderr (stdout est réservé au protocole en stdio).
+- **Mode local (stdio) sur SQLite uniquement** : sans jeton, il refuse une base partagée
+  (PostgreSQL...) où il contournerait les permissions des projets et migrerait le schéma de
+  l'équipe (voir [Mode local](../getting-started/stdio.md)).
 
 !!! warning "Protégez la base"
     Les rapports contiennent des informations sensibles sur vos vulnérabilités : protégez la base

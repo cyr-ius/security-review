@@ -1,6 +1,6 @@
 # Rôles, groupes et permissions
 
-Ce qu'un [compte utilisateur](../usage/web-interface.md#comptes-utilisateurs) peut faire dans
+Ce qu'un [compte utilisateur](../usage/user-accounts.md) peut faire dans
 l'interface web et l'API REST vient uniquement de **rôles**, un rôle étant un ensemble de
 **permissions**, donnés à ses **groupes**, chacun sur tous les projets ou sur une liste de
 projets. Un compte n'a jamais de rôle ni de projet propre : pour donner un accès à une personne,
@@ -8,12 +8,8 @@ ajoutez-la à un groupe. Les administrateurs les gèrent dans les écrans **Grou
 **Rôles** et **Utilisateurs** (permission `users.manage`), ou par l'API `/api/v1/groups`,
 `/api/v1/roles` et `/api/v1/users`.
 
-Les jetons Bearer sont destinés aux machines et gardent leur rôle fixe (`mcp`, `admin`, `ci`,
-`metrics`, voir [Rôles](../usage/web-interface.md#roles)), sauf les jetons `api` de l'API REST et
-de son Swagger, qui suivent ce modèle (voir [jetons API](../usage/web-interface.md#jetons-api)) :
-un jeton personnel porte les droits actuels de son utilisateur, un jeton de rôle les permissions
-d'un rôle sur ses projets. Une personne obtient la lecture ou le triage par les groupes de son
-compte.
+Les jetons sont destinés aux machines : ils gardent un rôle fixe, sauf les jetons `api`, qui
+suivent ce modèle (voir [Jetons](../usage/tokens.md)).
 
 ## Permissions
 
@@ -27,13 +23,13 @@ compte.
 | `settings.manage` | Langue des rapports, proxy sortant, base d'avis | |
 | `users.manage` | Utilisateurs, groupes, rôles et configuration OIDC (elle décide qui rejoint quel groupe) | |
 | `audit.read` | Journal d'audit | |
-| `projects.create` | Créer un nouveau projet, que son créateur lit ensuite (voir [Création d'un projet](#creation-dun-projet)), et valider ou refuser les projets demandés par un [enrôlement](http.md#enrolement-demander-le-projet) | |
+| `projects.create` | Créer un nouveau projet, que son créateur lit ensuite (voir [Création d'un projet](#creation-dun-projet)), et valider ou refuser les projets demandés par un [enrôlement](mcp-server.md#enrolement-demander-le-projet) | |
 | `projects.delete` | Supprimer un projet avec ses rapports, ses findings et ses références (voir [Suppression d'un projet](#suppression-dun-projet)) | |
-| `mcp_tokens.create` | Créer un [jeton MCP ou CI personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels) dans **Mon compte** | |
+| `mcp_tokens.create` | Créer un [jeton MCP ou CI personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels) dans **Mon compte** | |
 
 `users.manage` permet à son détenteur de se donner toutes les autres permissions : ne la donnez
 qu'aux administrateurs. Accepter un risque ou marquer un faux positif demande en plus une session
-de l'interface web, jamais un jeton (voir [triage des findings](../usage/web-interface.md#triage-des-findings)).
+de l'interface web, jamais un jeton (voir [triage des findings](../usage/triage.md)).
 
 ## Rôles
 
@@ -51,7 +47,7 @@ suppriment comme n'importe quel autre.
 | Rôle ordinaire | Permissions | Donne |
 |---|---|---|
 | `triager` | `reports.read`, `findings.triage` | le triage des findings |
-| `mcp-user` | `mcp_tokens.create` | la création d'un [jeton MCP ou CI personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels) ; donnez-le avec un rôle de lecture, car le jeton atteint les projets que son utilisateur peut lire |
+| `mcp-user` | `mcp_tokens.create` | la création d'un [jeton MCP ou CI personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels) ; donnez-le avec un rôle de lecture, car le jeton atteint les projets que son utilisateur peut lire |
 
 Les administrateurs créent d'autres rôles (100 au plus), par exemple un rôle *Auditeur* avec
 `audit.read` et `reports.read`. La modification d'un rôle s'applique aussitôt aux sessions
@@ -79,7 +75,7 @@ Renommer un groupe, ou le fermer au OIDC, retire aussitôt ses membres OIDC.
 ## Groupes de projet
 
 Le **groupe de projet** d'un projet est un groupe non ouvert au OIDC dont le seul rôle est
-`reader` sur ce seul projet. La validation d'un [enrôlement](http.md#enrolement-demander-le-projet) le
+`reader` sur ce seul projet. La validation d'un [enrôlement](mcp-server.md#enrolement-demander-le-projet) le
 crée **sans aucun membre** (pour que le projet existe, sans donner d'accès), et la
 [création d'un projet](#creation-dun-projet) le crée avec son créateur. Un groupe existant de ce
 type est réutilisé (même créé par un administrateur, quel que soit son nom) ; sinon le groupe
@@ -95,7 +91,7 @@ Un utilisateur dont les groupes portent `projects.create` crée un projet avec l
 uniquement : un jeton ne crée jamais de projet). Le contrôleur crée le
 [groupe de projet](#groupes-de-projet) du projet et y ajoute le compte comme membre local : le
 compte lit aussitôt le projet, de même que son
-[jeton MCP personnel](../usage/web-interface.md#jetons-mcp-et-ci-personnels), qui peut alors y
+[jeton MCP personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels), qui peut alors y
 enregistrer les rapports de son agent. Le projet apparaît sur l'écran **Projets**,
 **Aucun rapport**, jusqu'à son premier rapport.
 
@@ -169,13 +165,6 @@ ou la permission de son rôle est refusé (`409` ou `422`). Une connexion OIDC q
 détenteur de son groupe OIDC n'est pas bloquée : le fournisseur d'identité reste l'autorité.
 Gardez de préférence un administrateur local.
 
-## Jetons créés depuis l'interface
-
-Un jeton ne donne jamais plus que ce que détient son créateur : créer un jeton, changer ses
-projets, renouveler son secret ou le révoquer demande `reports.read` sur tous les projets du jeton, avant et après un changement de ses
-projets, et, pour un jeton `api` de rôle, chaque permission de son rôle sur ces projets ; l'écran **Jetons** ne liste que les jetons des projets que l'utilisateur
-lit.
-
 ## API
 
 ```bash
@@ -211,7 +200,7 @@ curl -X PUT https://secreview.example.com/api/v1/users/7 \
 Un champ `roles` dans le corps de ces deux routes est refusé (`422`) : un compte n'a pas de rôle
 propre.
 
-Chaque modification est écrite au [journal d'audit](audit-metrics.md#journal-daudit) (`role.*`,
+Chaque modification est écrite au [journal d'audit](audit-metrics.md) (`role.*`,
 `group.*`, `user.groups_changed`). En CLI, `security-review-controller user set-groups` change les
 groupes d'un compte, et `security-review-controller group list` / `group roles` liste les groupes et les rôles (voir
 [CLI](../reference/cli.md#security-review-controller)).

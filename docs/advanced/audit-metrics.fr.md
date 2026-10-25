@@ -1,10 +1,8 @@
-# Journal d'audit et métriques
+# Journal d'audit
 
-Le contrôleur tient un **journal d'audit** des changements qui touchent à la sécurité et sert
-des **métriques Prometheus** sur `/metrics`. Les deux lisent la base partagée avec le serveur
-MCP : toutes les répliques répondent la même chose.
-
-## Journal d'audit
+Le contrôleur tient un **journal d'audit** des changements qui touchent à la sécurité. Il lit
+la base partagée avec le serveur MCP : toutes les répliques répondent la même chose. Les
+métriques du contrôleur sont dans [Métriques Prometheus](../reference/metrics.md).
 
 Chaque changement ci-dessous écrit un événement dans la même transaction que le changement
 lui-même : un événement existe exactement quand le changement a été validé.
@@ -20,7 +18,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `token.rotated` | Le secret d'un jeton est remplacé (`token rotate`, bouton **Renouveler**), avec le délai de grâce |
 | `token.revoked` | Un jeton est révoqué |
 | `token.projects_changed` | Un administrateur change les projets d'un jeton (bouton **Projets** de l'écran **Jetons**), avec les projets précédents (`null` : tous les projets) |
-| `enrollment.requested` | Un client demande un projet ([enrôlement](http.md#enrolement-demander-le-projet)), avec le demandeur, son adresse et si une nouvelle demande a été déposée (`requested`) |
+| `enrollment.requested` | Un client demande un projet ([enrôlement](mcp-server.md#enrolement-demander-le-projet)), avec le demandeur, son adresse et si une nouvelle demande a été déposée (`requested`) |
 | `enrollment.approved` | Un utilisateur portant `projects.create` valide un projet en attente (son groupe dans le détail) |
 | `enrollment.rejected` | Un utilisateur refuse un projet en attente, ou il expire (acteur `enrollment`, `reason` : `expired`) |
 | `role.created`, `role.updated`, `role.deleted` | Un administrateur crée, modifie (avec les permissions précédentes) ou supprime un [rôle](access-control.md#roles) |
@@ -49,7 +47,7 @@ Les détails ne contiennent jamais de secret : aucun jeton, aucun mot de passe, 
 (motifs, demandeur) est masqué comme dans les rapports. Personne ne modifie un événement : aucun
 outil MCP ni aucune route ne les change.
 
-### Consulter le journal
+## Consulter le journal
 
 Les administrateurs le consultent dans l'écran **Journal d'audit** de l'interface web (filtres
 par événement et par projet), avec `GET /api/v1/audit` (permission `audit.read` ; paramètres `action`,
@@ -66,7 +64,7 @@ security-review-controller audit list --project shop-api --actor user:alice --li
 
 `--limit` (et le paramètre `limit`) est plafonné par `SECREVIEW_MAX_LIST_LIMIT`.
 
-### Conservation
+## Conservation
 
 `serve` supprime les événements de plus de `SECREVIEW_AUDIT_RETENTION_DAYS` jours (`365` par
 défaut), au démarrage puis chaque jour ; `0` conserve tous les événements. Avec
@@ -80,7 +78,7 @@ security-review-controller audit prune --days 730   # une autre durée, pour cet
 security-review-controller audit prune --max-events 100000
 ```
 
-### Envoi vers syslog
+## Envoi vers syslog
 
 Le contrôleur peut aussi envoyer chaque événement à un serveur syslog, pour le conserver hors de
 la base (SIEM, journal central). Désactivé par défaut :
@@ -131,52 +129,3 @@ l'événement en JSON, avec les mêmes champs que `audit list` :
   journalisé comme un envoi en échec (le lot n'est pas renvoyé). Une variable invalide, ou un
   fichier d'autorité introuvable, arrête `serve` au démarrage ; une adresse invalide est refusée
   par l'interface web.
-
-## Métriques Prometheus
-
-`GET /metrics` sur le **contrôleur** répond au format texte de Prometheus (`0.0.4`). Le serveur
-MCP n'a pas d'endpoint de métriques. Il faut un jeton de rôle `metrics`, qui n'atteint rien
-d'autre (ni l'API REST, ni MCP), ou `admin` :
-
-```bash
-security-review-controller token create --label prometheus --role metrics --expires-in-days 365
-curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/metrics
-```
-
-```yaml
-# prometheus.yml
-scrape_configs:
-  - job_name: security-review
-    scheme: https
-    authorization:
-      credentials_file: /etc/prometheus/secreview-token
-    static_configs:
-      - targets: ["secreview.example.com"]
-```
-
-| Métrique | Labels | Valeur |
-|---|---|---|
-| `secreview_build_info` | `version` | `1` |
-| `secreview_projects` | | Projets ayant des rapports |
-| `secreview_reports` | | Rapports stockés |
-| `secreview_findings` | `status` | Findings par statut effectif (une décision expirée compte comme `open`) |
-| `secreview_open_findings` | `severity` | Findings ouverts par sévérité |
-| `secreview_project_open_findings` | `project`, `severity` | Findings ouverts de chaque projet |
-| `secreview_finding_proposals_pending` | | Propositions d'agents en attente d'une personne |
-| `secreview_tokens` | `role`, `state` | Jetons par rôle et état (`active`, `expired`) |
-| `secreview_tokens_expiring_soon` | | Jetons actifs qui expirent dans les 14 jours |
-| `secreview_project_enrollments_pending` | | Projets demandés par un enrôlement, en attente de validation |
-| `secreview_web_users` | `auth_source` | Comptes web (`local`, `oidc`) |
-| `secreview_advisories` | | Avis de la base |
-| `secreview_advisory_last_update_timestamp_seconds` | | Fin du dernier téléchargement OSV réussi (absente avant le premier) |
-| `secreview_auth_rejections_total` | `reason` | Requêtes rejetées par l'authentification du processus qui répond, depuis son démarrage : `invalid_token`, `token_expired`, `insufficient_scope` |
-
-Toutes les valeurs sauf `secreview_auth_rejections_total` viennent de la base. Les métriques
-contiennent des nombres et des noms de projets, jamais un finding, un label de jeton ou un
-secret ; les valeurs des labels sont échappées, si bien qu'un nom de projet ne peut pas ajouter
-de lignes à la réponse. `SECREVIEW_METRICS_ENABLED=false` désactive l'endpoint (`404`).
-
-Exemples d'alertes : `secreview_tokens_expiring_soon > 0`,
-`secreview_open_findings{severity="critical"} > 0`,
-`time() - secreview_advisory_last_update_timestamp_seconds > 2 * 86400`,
-`rate(secreview_auth_rejections_total{reason="invalid_token"}[5m]) > 1`.

@@ -143,6 +143,10 @@ class Settings(BaseSettings):
     # (/api/openapi.json), disabled by default. Its files come with the web interface build:
     # nothing is loaded from the Internet.
     swagger_enabled: bool = False
+    # Controller: public download of the pipeline client (/api/ci-client/), so that developers
+    # install security-review-ci from their controller with uv --find-links, without PyPI;
+    # enabled by default, false hides it (the page tells the version of the controller).
+    ci_client_download_enabled: bool = True
 
     # Controller only: OpenID Connect login to the web interface (authorization code + PKCE),
     # disabled by default. oidc_redirect_uri is the public URL of /api/v1/auth/oidc/callback,

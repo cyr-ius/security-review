@@ -1,26 +1,32 @@
-# Architecture and deployment
+# Architecture
 
 In shared mode, the server is made of **two independent processes** sharing the same database. They can
-run in two containers, two pods or on two machines.
+run in two containers, two pods or on two machines. The pipeline client `security-review-ci`
+is not a third process: it runs in the pipeline and calls the REST API of the controller.
 
-```text
- agents, CI ──▶ ┌──────────────────────┐            ┌──────────────────────────┐ ◀── browser,
-                │ MCP server           │            │ controller               │     admins
-                │ security-review-mcp  │            │ security-review-         │
-                │ /mcp, /api/v1/enroll │            │ controller serve         │
-                │ /healthz             │            │ /api/v1, /ui, /healthz   │
-                └──────────┬───────────┘            └────────────┬─────────────┘
-                           └──────────── PostgreSQL ─────────────┘
+```mermaid
+flowchart LR
+    agents(["AI agents"]) -- "mcp token" --> mcp
+    people(["People (browser)"]) -- "web session" --> ctl
+    ci(["Pipeline<br/>security-review-ci"]) -- "ci token" --> ctl
+    subgraph mcp["MCP server: security-review-mcp serve"]
+        mcpr["/mcp<br/>POST /api/v1/enroll<br/>/healthz"]
+    end
+    subgraph ctl["Controller: security-review-controller serve"]
+        ctlr["/ui, /api/v1<br/>/api/v1/ci, /metrics<br/>/healthz"]
+    end
+    mcp --> db[("PostgreSQL")]
+    ctl --> db
 ```
 
 | | MCP server | Controller |
 |---|---|---|
 | Command | `security-review-mcp serve --transport streamable-http` | `security-review-controller serve` |
 | Serves | `/mcp`, public enrollment `POST /api/v1/enroll`, `/healthz` | REST API `/api/v1`, interface `/ui`, `/healthz` |
-| Accepted credentials | `mcp` and `admin` tokens | web sessions (users), `admin` and `api` tokens; `ci` tokens on the pipeline routes `/api/v1/ci/` only (gate, SARIF, trend, scans) |
-| Routes without a token | enrollment, `/healthz` | `/ui` files, API documentation, `/healthz` (read only) |
+| Accepted credentials | `mcp` tokens (personal or not) and `admin` tokens | web sessions (users), `admin` and `api` tokens; `ci` tokens and personal `mcp` tokens on the pipeline routes `/api/v1/ci/` only (gate, SARIF, trend, scans); `metrics` tokens on `/metrics` only |
+| Routes without a token | enrollment, `/healthz` | `/ui` files, login (`/api/v1/auth/`), `/healthz`, and the API documentation when `SECREVIEW_SWAGGER_ENABLED=true` |
 | Database schema | only checks it | migrates it (unless `SECREVIEW_DB_AUTO_UPGRADE=false`) |
-| Advised exposure | agents and CI, with TLS | internal network or access restricted to administrators |
+| Advised exposure | the agents, with TLS | the people and the pipelines, with TLS |
 
 The two processes never call each other: everything goes through the database. A token created
 or revoked on the controller applies to the next request of the MCP server. A changed rule is
@@ -28,7 +34,10 @@ reloaded within a few seconds. A project requested on the MCP server waits in th
 screen of the controller, for an approval.
 
 The enrollment is served by the MCP server because the client only knows its URL. The
-controller thus exposes **no unauthenticated write route**.
+controller thus exposes **no unauthenticated write route**, apart from the login.
+
+The routes, start-up, schema migrations, background tasks and exposure of each process: see
+[MCP server](mcp-server.md) and [Controller](controller.md).
 
 !!! note "Shared database"
     With SQLite, both processes must run on the same machine and share the file. As soon as
@@ -36,26 +45,5 @@ controller thus exposes **no unauthenticated write route**.
     of the PyPI package, included in the image), deployed with
     [Docker Compose](docker.md#docker-compose-with-postgresql) or [Kubernetes](kubernetes.md#deployment).
 
-With stdio (developer workstation), only `security-review-mcp` is needed: it creates and
-migrates its local database itself.
-
-## Schema migrations
-
-The schema is managed by [Alembic](https://alembic.sqlalchemy.org/) migrations, embedded in the
-package (no `alembic.ini` file to provide):
-
-```bash
-security-review-controller db upgrade   # creates or migrates the schema, then seeds the default rules
-security-review-controller db status    # {"current": "0001", "head": "0001", "up_to_date": true}
-```
-
-- `db status` returns code `1` if the schema is not up to date: handy for a script or a probe.
-- The **HTTP MCP server never migrates**: it refuses to start (code `2`, message
-  `run security-review-controller db upgrade first`) while the database is not at the expected
-  revision. Under Kubernetes, the pod restarts until the migration is done.
-- The controller, the stdio MCP server and the CLI commands migrate at start-up, unless
-  `SECREVIEW_DB_AUTO_UPGRADE=false`. They then only check the schema. With Docker Compose, the
-  controller migrates when it starts; under Kubernetes, its init container does.
-- On PostgreSQL, a migration takes an advisory lock: instances that start together (several
-  replicas, a `db upgrade` run by hand) wait for each other, and the next one finds the schema
-  up to date. Disable the automatic migration only to keep it in a dedicated task.
+In [local mode (stdio)](../getting-started/stdio.md), only `security-review-mcp local` is
+needed: it creates and migrates its local SQLite database itself.

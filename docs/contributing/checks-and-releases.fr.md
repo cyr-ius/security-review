@@ -8,8 +8,8 @@ relance toutes les vérifications (`lint.yml`, `tests.yml`, `docs.yml`, `docker.
 ```bash
 uv run ruff check --fix . && uv run ruff format .           # Python
 npm --prefix web exec --no -- prettier --check <files>      # web/src/, YAML et JSON
-prek install          # facultatif : mêmes contrôles avant chaque commit, et le scan des
-                      # dépendances si SECREVIEW_CONTROLLER_URL est défini
+prek install          # mêmes contrôles avant chaque commit, scan des dépendances si
+                      # SECREVIEW_CONTROLLER_URL est défini, et hook post-commit agent-review
 ```
 
 Le hook `prettier` formate les fichiers YAML et JSON et les sources de `web/src/` avec la
@@ -47,34 +47,37 @@ prompt `security-review` (ou `api-security-review`, `configuration-review`,
 `dependency-review` selon les fichiers), aidé de `scan_code` et `get_review_checklist`, puis un
 rapport enregistré avec `save_security_report` (projet `security-review-mcp`). Les findings
 `critical` et `high` sont corrigés, avec un test ; les autres sont corrigés ou justifiés par
-`propose_finding_status`, qu'une personne valide dans l'interface web. La procédure complète
-est dans `AGENTS.md`.
+`propose_finding_status`, qu'une personne valide dans l'interface web. L'agent ajoute ensuite
+le trailer `Security-Review: <identifiant du rapport>` à son message de commit, pour que le
+hook `agent-review` ne relise pas le commit une seconde fois. La procédure complète est dans
+`AGENTS.md`.
 
-Quand `SECREVIEW_CONTROLLER_URL` et un jeton `ci` personnel (`SECREVIEW_TOKEN`) sont définis, le
-hook `scan-deps` analyse aussi les dépendances quand `uv.lock`, `pyproject.toml` ou
+Les hooks `scan-deps` et `agent-review` lancent le `security-review-ci` du contrôleur désigné par
+`SECREVIEW_CONTROLLER_URL` ([client du contrôleur](../getting-started/commit-hooks.md)), et sont
+sautés tant qu'elle n'est pas définie. Avec un jeton `mcp` ou `ci` personnel dans
+`SECREVIEW_TOKEN`, `scan-deps` analyse les dépendances quand `uv.lock`, `pyproject.toml` ou
 `web/package*.json` changent.
 
 ### Revue de sécurité de chaque commit
 
-Le hook facultatif `agent-review` (`scripts/agent-review.sh`) demande à Claude Code de relire
-chacun de vos commits sous l'angle de la sécurité, en arrière-plan, avec le serveur MCP
-`security-review` de votre `.mcp.json`. La revue suit la procédure de revue de sécurité de
-`AGENTS.md` et enregistre un rapport, que vous lisez dans l'interface web. Activez-le une fois :
+Le hook `agent-review` lance
+[`security-review-ci agent-review`](../advanced/ci.md#revue-de-chaque-commit-par-un-agent) après
+chacun de vos commits : votre agent de code (Claude Code, GitHub Copilot ou Codex) le relit sous
+l'angle de la sécurité en arrière-plan, avec le serveur `security-review` de votre `.mcp.json`,
+et enregistre un rapport, que vous lisez dans l'interface web. `prek install` l'installe avec
+les hooks pre-commit (`default_install_hook_types`), et le devcontainer le lance à sa création :
+il vous reste à installer le CLI de votre agent, à vous connecter et à créer votre `.mcp.json`.
 
 ```bash
-prek install --hook-type post-commit
+prek install                          # hooks pre-commit et post-commit
+export AGENT_REVIEW_CLI=copilot       # facultatif : choisir l'agent
 SKIP=agent-review git commit ...      # la sauter pour un commit
 ```
 
-- Le commit n'est jamais bloqué : la revue s'exécute après lui, et son journal est dans
-  `.git/agent-review/<commit>.log`.
-- L'agent reçoit le commit dans son prompt et peut seulement lire le dépôt et appeler les outils
-  de revue du serveur (`--restricted`, `--permission-mode dontAsk`) : il ne modifie aucun
-  fichier, ne lance aucune commande, ne propose aucun statut de finding et ne peut lire ni
-  `.env`, ni `.mcp.json`, ni aucun fichier hors du dépôt.
-- Le hook ne fait rien pour un commit fait par Claude Code (déjà relu dans sa session), pendant
-  un rebase ou un cherry-pick, ou si le CLI `claude` ou `.mcp.json` manque.
-- Chaque revue consomme de l'usage du modèle sur votre compte Claude.
+Le commit n'est jamais bloqué, même s'il reste des findings ouverts ; le journal est dans
+`.git/agent-review/<commit>.log`. Un commit qui porte le trailer `Security-Review:
+<identifiant du rapport>`, déjà relu dans la session de son agent, n'est pas relu une seconde
+fois.
 
 ## Branches
 
@@ -87,7 +90,8 @@ SKIP=agent-review git commit ...      # la sauter pour un commit
 
 Une version correspond à un tag poussé sur `master` :
 
-1. Sur `dev`, mettez à jour `version` dans `pyproject.toml` (par ex. `uv version 1.3.0`) et
+1. Sur `dev`, mettez à jour `version` dans `pyproject.toml` (par ex. `uv version 1.3.0`), seul
+   endroit de la version, que le paquet lit dans ses métadonnées installées, et
    commitez.
 2. Fusionnez `dev` dans `master`.
 3. Sur `master`, poussez le tag correspondant : `git tag v1.3.0 && git push origin v1.3.0`.

@@ -63,15 +63,15 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `get_trend_report` | Trend of a project: new / fixed, backlog, risk score, MTTR |
 | `scan_dependencies` | Analysis of a manifest, lockfile or CycloneDX SBOM: vulnerable versions + hygiene |
 | `get_advisory_status` | Size and age of the vulnerability database |
-| `request_enrollment` | Requests a project that does not exist yet, for an administrator to approve; no token is created and the current token gains no project: an administrator gives access to it ([enrollment](../advanced/http.md#enrollment-request-the-project)) |
+| `request_enrollment` | Requests a project that does not exist yet, for an administrator to approve; no token is created and the current token gains no project: an administrator gives access to it ([enrollment](../advanced/mcp-server.md#enrollment-request-the-project)) |
 | `list_development_standards` / `get_development_standards` | [Development standards](standards.md): catalog, then the standards to apply for technologies or file names |
 | `list_rules` / `reload_rules` | Active rules ([default and custom](rules.md), stored in the database), loading errors, immediate reload |
 
 On the HTTP transport, a restricted token can only use the report tools on its allowed
 projects; `reload_rules` is refused to it (see
-[tokens restricted to a project](../advanced/http.md#tokens-restricted-to-a-project)).
+[tokens restricted to a project](../advanced/bearer-tokens.md#tokens-restricted-to-a-project)).
 A token tied to several projects can use the report tools on each of them. A
-[personal MCP token](web-interface.md#personal-mcp-and-ci-tokens) reaches the projects of its user: for
+[personal MCP token](tokens.md#personal-mcp-and-ci-tokens) reaches the projects of its user: for
 another project, an administrator gives the user access to it (`request_enrollment` requests
 it first when it is new).
 
@@ -79,14 +79,14 @@ it first when it is new).
 
 On the HTTP transport, a client that connects **without a token** reaches a restricted
 server, with the same name, that only exposes (a token that is unknown, revoked or expired gets
-a `401` instead, see [rejected token](../advanced/http.md#rejected-token-sign-in-again)):
+a `401` instead, see [rejected token](../advanced/mcp-server.md#rejected-token-sign-in-again)):
 
 | Item | Role |
 |---|---|
 | `request_enrollment` | Requests the project (`project`, optional `requested_by`), for an administrator to approve, and returns `web_url` and `next_steps`: the user signs in to the web interface and creates a personal MCP token; never a token |
 | Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Optional `project` argument; explain to the agent how to get a token instead of running the review |
 
-See [enrollment](../advanced/http.md#enrollment-request-the-project).
+See [enrollment](../advanced/mcp-server.md#enrollment-request-the-project).
 
 ## Resources
 
@@ -119,7 +119,7 @@ The **risk level** of the report is computed (highest severity of the findings).
 
 A finding already raised by a previous report of the project replaces it and keeps the
 decision taken on it: the result gives `recurring_findings` and `carried_decisions` (see
-[finding reported again](web-interface.md#finding-reported-again)).
+[finding reported again](triage.md#finding-reported-again)).
 
 ### Project name
 
@@ -220,9 +220,9 @@ what it hands back to the agent and reports injected instructions
 - `propose_finding_status` stores a **proposal** (`fixed`, `accepted` or `false_positive`) with
   the agent's reason (10 to 1000 characters, secrets masked) and the label of its token. The
   status, the posture and the gate do not change. A new proposal replaces the previous one. It
-  is written to the [audit log](../advanced/audit-metrics.md#audit-log), like the decision that follows.
+  is written to the [audit log](../advanced/audit-metrics.md), like the decision that follows.
 - A person with the `triager` or `admin` role applies or rejects it in the
-  [web interface](web-interface.md#triage-of-findings). `accepted` and `false_positive` need a
+  [web interface](triage.md). `accepted` and `false_positive` need a
   reason, an approver (the logged-in user) and an expiry date; from that date the finding counts
   as open again.
 

@@ -1,8 +1,28 @@
 # Mise en service du serveur
 
 Cette page met en place le **mode partagé (HTTP)** pour une équipe : le contrôleur (interface web,
-administration) et le serveur MCP (utilisé par les agents et la CI), sur la même base. Voir
-[deux services, deux rôles](../index.md#deux-services-deux-roles).
+administration, pipelines) et le serveur MCP (utilisé par les agents), sur la même base. Voir
+[trois services, trois rôles](../index.md#trois-services-trois-roles).
+
+```mermaid
+flowchart LR
+    dev(["Développeur"]) --> agent
+    subgraph ws["Poste du développeur"]
+        agent["Assistant IA<br/>VS Code, Claude"]
+    end
+    analyst(["Analyste cyber<br/>(navigateur)"])
+    ci(["Pipeline CI/CD<br/>security-review-ci"])
+    subgraph srv["Serveur ou cluster (conteneurs)"]
+        mcp["Conteneur serveur MCP<br/>security-review-mcp"]
+        ctl["Conteneur contrôleur<br/>security-review-controller<br/>interface web, API REST"]
+        pg[("Conteneur PostgreSQL<br/>rapports, règles, jetons")]
+    end
+    agent -- "HTTPS /mcp<br/>jeton MCP" --> mcp
+    analyst -- "HTTPS /ui<br/>compte utilisateur" --> ctl
+    ci -- "HTTPS /api/v1/ci<br/>jeton ci" --> ctl
+    mcp --> pg
+    ctl --> pg
+```
 
 À la fin, vous disposez :
 
@@ -11,20 +31,17 @@ administration) et le serveur MCP (utilisé par les agents et la CI), sur la mê
   développeurs ;
 - d'un compte `admin` pour gérer les utilisateurs, les jetons et les règles.
 
-Deux façons, chacune en un seul bloc à copier-coller :
-
-- [avec Docker Compose](#avec-docker-compose) (recommandé) : un serveur, PostgreSQL inclus ;
-- [avec Kubernetes](#avec-kubernetes) : un cluster, PostgreSQL inclus ou existant.
-
-Sans conteneur, tout-en-un sur un serveur Linux : voir
+Sans conteneur, tout-en-un sur un serveur Linux : voir la section Avancé
 [Installation manuelle (sans conteneur)](../advanced/manual-install.md).
 
 ## Avec Docker Compose
 
-Un seul fichier `docker-compose.yml` démarre tout avec l'image publiée : PostgreSQL, la
-migration du schéma, le contrôleur et le serveur MCP. Copiez-collez le bloc dans un dossier
-vide : il télécharge le fichier, génère les mots de passe dans `.env`, démarre les services,
-puis donne le mot de passe du compte `admin` et un jeton (chacun affiché une fois) :
+Le fichier `docker-compose.yml` démarre une base de donnée PostgreSQL,
+le contrôleur et le serveur MCP.
+
+Copiez-collez ce code dans un dossier vide.
+Cela télécharge le fichier `docker-compose.yml`, génère les secrets dans `.env`et démarre les services.
+et affiche le mot de passe du compte `admin` et crée un jeton à positionner dans le mcp.json de l'IDE d'Alice.
 
 ```bash
 mkdir security-review-mcp && cd security-review-mcp
@@ -35,16 +52,10 @@ docker compose exec controller security-review-controller user reset-password ad
 docker compose exec controller security-review-controller token create --label alice   # jeton d'un agent
 ```
 
-L'interface web répond sur `http://127.0.0.1:8080/ui/`, l'endpoint MCP sur
-`http://127.0.0.1:8000/mcp`. Connectez-vous avec le compte `admin`, choisissez votre propre mot
-de passe dans **Mon compte**, puis créez un compte par personne dans l'écran **Utilisateurs**
-(voir les [comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs)).
+L'interface web répond sur `http://127.0.0.1:8080/ui/`. Connectez-vous avec le compte `admin`,
+et changer le mot de passe à la première connexion.
 
-Les deux ports sont publiés sur toutes les interfaces du serveur, en HTTP simple : ajoutez le
-TLS avant que l'équipe se connecte, et préfixez un port par `127.0.0.1` dans
-`docker-compose.yml` pour le garder sur le serveur seulement (voir
-[Docker Compose avec PostgreSQL](../advanced/docker.md#docker-compose-avec-postgresql)). Ne
-réglez pas `SECREVIEW_HOST` : l'image la fixe déjà.
+Le serveur MCP sur `http://127.0.0.1:8000/mcp`.
 
 !!! warning "La CLI est le seul moyen d'obtenir le mot de passe initial"
     Aucune variable ne le définit et les journaux ne l'affichent jamais : lancez
@@ -91,15 +102,16 @@ kubectl -n secreview exec deploy/secreview-controller -c controller -- \
 kubectl -n secreview port-forward svc/secreview-controller 8080:80
 ```
 
-Le contrôleur n'est pas exposé hors du cluster : vous ouvrez l'interface web depuis votre poste
-avec la dernière commande du bloc (`port-forward`), qui reste active tant que le terminal est
-ouvert.
+Les manifestes n'exposent rien hors du cluster : pour un premier essai, vous ouvrez l'interface
+web depuis votre poste avec la dernière commande du bloc (`port-forward`), qui reste active tant
+que le terminal est ouvert.
 
-Pour que les développeurs et la CI atteignent le serveur MCP, exposez le Service
-`secreview-mcp` par un Ingress avec TLS. Renseignez alors `SECREVIEW_FORWARDED_ALLOW_IPS` (en
-commentaire dans la ConfigMap du manifeste) avec la plage d'adresses des pods de l'ingress
-controller : sans ce réglage, tous les clients semblent venir de la même adresse, celle de
-l'Ingress.
+Pour l'équipe, exposez chaque Service par un Ingress avec TLS : `secreview-mcp` pour les agents,
+`secreview-controller` pour les développeurs (interface web, jetons MCP personnels) et pour la
+CI (`security-review-ci` appelle le contrôleur). Renseignez alors, dans la ConfigMap du
+manifeste, `SECREVIEW_WEB_URL` (URL publique de l'interface web) et
+`SECREVIEW_FORWARDED_ALLOW_IPS` (plage d'adresses des pods de l'ingress controller : sans ce
+réglage, tous les clients semblent venir de la même adresse, celle de l'Ingress).
 
 **Pour plus d'informations :** voir [Kubernetes](../advanced/kubernetes.md) dans la section
 **Avancé** (PostgreSQL existant, contenu des manifestes, Secrets, exposition, mise à jour OSV,
@@ -108,4 +120,4 @@ plusieurs réplicas).
 ## Étape suivante
 
 [Connectez l'hôte](host.md) de chaque développeur au serveur MCP. Pour aller plus loin :
-[jetons, enrôlement et TLS](../advanced/http.md), [connexion OIDC](../advanced/sso.md).
+[jetons](../advanced/bearer-tokens.md), [TLS](../advanced/tls.md), [connexion OIDC](../advanced/sso.md).

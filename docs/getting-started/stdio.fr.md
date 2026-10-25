@@ -1,8 +1,17 @@
 # Mode local (stdio)
 
-En **mode local**, l'hôte (VS Code, Claude…) lance lui-même `security-review-mcp serve --transport stdio`
-sur le poste du développeur et dialogue avec lui par stdin / stdout : pas de réseau, pas de jeton, pas de
+En **mode local**, l'hôte (VS Code, Claude…) lance lui-même `security-review-mcp local` sur le
+poste du développeur et dialogue avec lui par stdin / stdout : pas de réseau, pas de jeton, pas de
 contrôleur.
+
+```mermaid
+flowchart LR
+    dev(["Développeur"]) --> agent
+    subgraph ws["Poste du développeur"]
+        agent["Assistant IA<br/>VS Code, Claude"] -- "stdio" --> mcp["Serveur MCP<br/>security-review-mcp<br/>(processus lancé par l'assistant)"]
+        mcp --> sqlite[("Base SQLite<br/>locale")]
+    end
+```
 
 !!! warning "Réservé à des cas précis"
     Les rapports sont enregistrés dans une base SQLite **locale** que personne d'autre ne voit,
@@ -32,25 +41,27 @@ Sans accès Internet, ou depuis les sources : voir [Installation : autres cas](.
 ## Lancement
 
 ```bash
-security-review-mcp serve --transport stdio   # lancé par l'hôte, pas à la main
+security-review-mcp local   # lancé par l'hôte, pas à la main
 ```
 
-La base SQLite locale (`~/.local/share/security-review-mcp/security_reports.db` par défaut, le même fichier quel que
-soit le dépôt ouvert dans l'hôte, voir
-[`SECREVIEW_DATABASE_URL`](../reference/configuration.md#base-de-donnees)) est créée ou migrée
-automatiquement au démarrage. C'est le seul fichier écrit par le serveur : supprimez-le pour
-effacer toute trace. Le contrôleur n'est pas nécessaire.
+Une base SQLite est créée localement (`~/.local/share/security-review-mcp/security_reports.db`,
+ou sous `$XDG_DATA_HOME` quand elle est définie).
+C'est le seul fichier écrit par le serveur : supprimez-le pour effacer toute trace. `local` ignore
+les bases distantes, donc [`SECREVIEW_DATABASE_URL`](../reference/configuration.md#base-de-donnees) :
+un conteneur de développement qui la fait pointer vers PostgreSQL ne change pas la base du mode
+local.
 
-!!! note "`--transport stdio` est obligatoire"
-    Sans `--transport`, `serve` lance le serveur HTTP du mode partagé
-    ([`SECREVIEW_TRANSPORT`](../reference/configuration.md#serveur-mcp), `streamable-http` par
-    défaut). Jusqu'à la version 3.0.0, `serve` tournait en stdio par défaut : ajoutez
-    `--transport stdio` aux configurations d'hôte existantes.
+!!! note "`serve --transport stdio`"
+    `security-review-mcp serve --transport stdio` lance aussi le serveur en stdio, mais il lit
+    `SECREVIEW_DATABASE_URL` et n'accepte que SQLite : il refuse de démarrer (code `2`) quand la
+    variable désigne une autre base (PostgreSQL...). Le mode local n'a pas de jeton, et une base
+    partagée lui permettrait d'écrire dans tous les projets et de migrer le schéma de l'équipe.
+    Pour travailler avec cette base, utilisez le [mode partagé (HTTP)](../getting-started/deploy.md).
 
 ## Configuration de l'hôte
 
 En transport **stdio**, l'hôte (VS Code, Claude…) lance lui-même le processus du serveur.
-Indiquez le chemin de l'exécutable, la commande `serve --transport stdio` et, si besoin, les variables `SECREVIEW_*`
+Indiquez le chemin de l'exécutable, la commande `local` et, si besoin, les variables `SECREVIEW_*`
 (voir [Configuration](../reference/configuration.md#serveur-mcp)).
 
 VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la racine du dépôt :
@@ -60,9 +71,8 @@ VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la raci
   "mcpServers": {
     "security-review": {
       "type": "stdio",
-      "command": "/opt/security-review-mcp/venv/bin/security-review-mcp",
-      "args": ["serve", "--transport", "stdio"],
-      "env": { "SECREVIEW_DATABASE_URL": "sqlite:////var/lib/secreview/security_reports.db" }
+      "command": "uvx",
+      "args": ["--from","security-review==4.0.0","security-review-mcp","local"]
     }
   }
 }

@@ -21,7 +21,7 @@ Read by the MCP server and by the controller.
 |---|---|---|
 | `SECREVIEW_DATABASE_URL` | SQLite file of the user (see [Database](#database)) | SQLAlchemy URL of the database, **shared** by both processes |
 | `SECREVIEW_DATABASE_ECHO` | `false` | Logs the SQL queries |
-| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migrates the schema at start-up of the controller, of the stdio MCP server and of the CLI commands; when `false`, they only check that it is up to date (see [migrations](../advanced/architecture.md#schema-migrations)). The HTTP MCP server never migrates |
+| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migrates the schema at start-up of the controller, of the stdio MCP server and of the CLI commands; when `false`, they only check that it is up to date (see [migrations](../advanced/controller.md#schema-migrations)). The HTTP MCP server never migrates |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | Logging level (on stderr) |
 
 ### Listening, TLS and reverse proxy
@@ -52,8 +52,8 @@ Read by `security-review-mcp` only.
 | Variable | Default | Role |
 |---|---|---|
 | `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` (shared mode) or `stdio` (local mode) |
-| `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | While no token exists, accepts every request on `/mcp` even when the server does not listen on localhost (by default it then stays closed, see [Bearer tokens](../advanced/http.md#bearer-tokens)); only for tests on an isolated network |
-| `SECREVIEW_ENROLLMENT` | `true` | [Enrollment](../advanced/http.md#enrollment-request-the-project): a client without a token can request its project (restricted MCP server, `POST /api/v1/enroll`), which a user with `projects.create` approves on the controller; no token is created, the user creates a personal MCP token in the web interface |
+| `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | While no token exists, accepts every request on `/mcp` even when the server does not listen on localhost (by default it then stays closed, see [Bearer tokens](../advanced/bearer-tokens.md)); only for tests on an isolated network |
+| `SECREVIEW_ENROLLMENT` | `true` | [Enrollment](../advanced/mcp-server.md#enrollment-request-the-project): a client without a token can request its project (restricted MCP server, `POST /api/v1/enroll`), which a user with `projects.create` approves on the controller; no token is created, the user creates a personal MCP token in the web interface |
 | `SECREVIEW_WEB_URL` | — | Public URL of the web interface (`https://…/ui`), given to the clients without a valid token (enrollment answer, `401` of `/mcp`) so that the user knows where to sign in and create a personal MCP token; without it, no link is given |
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Report language](../usage/prompts-tools.md#report-language) asked by the review prompts (`French`, `fr`...) when the `report_language` argument is missing; when set (even empty: the agent chooses), takes precedence over the language chosen in the [**Report language**](../usage/web-interface.md#screens) screen |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Maximum size of the content passed to `scan_code`, and of each text of a report (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
@@ -67,12 +67,13 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](../usage/web-interface.md#first-administrator), created at the first start while no account exists (`administrators` group), with a random password never logged: set it with `security-review-controller user reset-password` |
+| `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](../advanced/controller.md#first-administrator), created at the first start while no account exists (`administrators` group), with a random password never logged: set it with `security-review-controller user reset-password` |
 | `SECREVIEW_SECRET_KEY` | — | Signing secret of the web interface sessions (accounts and OIDC), at least 32 characters, identical on every replica; unset: a random secret at every start (sessions end at restart) |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a web interface session (1 to 24 hours) |
 | `SECREVIEW_WEB_UI` | `true` | Serves the [web interface](../usage/web-interface.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the web interface |
 | `SECREVIEW_SWAGGER_ENABLED` | `false` | Serve the Swagger documentation (`/api/docs`) and the OpenAPI schema (`/api/openapi.json`), from the files of the web interface build |
+| `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED` | `true` | Serve the pipeline client on `/api/ci-client/` (public), so that developers install it with `uv --find-links`, without PyPI ([from the controller](../advanced/ci.md#from-the-controller)) |
 | `SECREVIEW_UPDATE_CHECK_ENABLED` | `false` | The **About** page searches GitHub for a newer release (HTTPS, through the outgoing proxy, cached 6 hours, see [security](security.md#security-of-the-server-itself)) |
 
 ### Rate limiting
@@ -126,22 +127,22 @@ Read by `security-review-controller` only.
 | Variable | Default | Role |
 |---|---|---|
 | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` | `90` | Age in days beyond which `serve` deletes the [reports without findings](#retention-of-reports-without-findings); `0` keeps every report |
-| `SECREVIEW_MAX_DISMISSAL_DAYS` | `365` | Longest validity in days of an `accepted` or `false_positive` [decision](../usage/web-interface.md#triage-of-findings): its expiry date may not be later |
-| `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | A person may [accept a risk](../usage/web-interface.md#triage-of-findings) with **No expiry**: the acceptance lasts until someone reopens the finding. `false`: every acceptance needs an expiry date. A false positive never needs one |
-| `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Lowest severity (`critical`, `high`, `medium`, `low`, `info`) whose [risk acceptance](../usage/web-interface.md#triage-of-findings) needs a reason and an expiry date. A less severe finding is accepted by a plain validation, which closes it with no reason and no date. Empty: every acceptance needs them |
-| `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Longest validity in days of a bearer token created or [rotated](../advanced/http.md#expiry-and-rotation-of-tokens) (CLI, web interface), which is also its default validity; `0`: tokens do not expire unless a validity is asked for |
-| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Personal tokens a web user may hold of each role, [REST API](../usage/web-interface.md#api-tokens) and [MCP](../usage/web-interface.md#personal-mcp-and-ci-tokens), from `1` to `10`: revoke one to create another |
+| `SECREVIEW_MAX_DISMISSAL_DAYS` | `365` | Longest validity in days of an `accepted` or `false_positive` [decision](../usage/triage.md): its expiry date may not be later |
+| `SECREVIEW_PERMANENT_ACCEPTANCE_ENABLED` | `true` | A person may [accept a risk](../usage/triage.md) with **No expiry**: the acceptance lasts until someone reopens the finding. `false`: every acceptance needs an expiry date. A false positive never needs one |
+| `SECREVIEW_RISK_ACCEPTANCE_MIN_SEVERITY` | `medium` | Lowest severity (`critical`, `high`, `medium`, `low`, `info`) whose [risk acceptance](../usage/triage.md) needs a reason and an expiry date. A less severe finding is accepted by a plain validation, which closes it with no reason and no date. Empty: every acceptance needs them |
+| `SECREVIEW_TOKEN_MAX_DAYS` | `0` | Longest validity in days of a bearer token created or [rotated](../advanced/bearer-tokens.md#expiry-and-rotation-of-tokens) (CLI, web interface), which is also its default validity; `0`: tokens do not expire unless a validity is asked for |
+| `SECREVIEW_PERSONAL_TOKENS_PER_USER` | `1` | Personal tokens a web user may hold of each role, [REST API](../usage/tokens.md#api-tokens) and [MCP](../usage/tokens.md#personal-mcp-and-ci-tokens), from `1` to `10`: revoke one to create another |
 
 ### Audit and metrics
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_AUDIT_RETENTION_DAYS` | `365` | Age in days beyond which `serve` deletes the events of the [audit log](../advanced/audit-metrics.md#audit-log); `0` keeps every event |
+| `SECREVIEW_AUDIT_RETENTION_DAYS` | `365` | Age in days beyond which `serve` deletes the events of the [audit log](../advanced/audit-metrics.md); `0` keeps every event |
 | `SECREVIEW_AUDIT_MAX_EVENTS` | `0` | Number of [audit events](../advanced/audit-metrics.md#retention) kept at most by the same daily purge (the oldest are deleted); `0`: no limit |
 | `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | [Forwards the audit events to syslog](../advanced/audit-metrics.md#forwarding-to-syslog): `udp://host:port`, `tcp://host:port`, `tls://host:port` (RFC 5425, port 6514 by default) or `unix:///dev/log` (no proxy); disabled when unset; without it, the server set on the **Audit log** page applies. When set (not empty), takes precedence over that page |
 | `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | Syslog facility of these messages (`local0` to `local7`, `auth`, `authpriv`, `daemon`...); when set, takes precedence over the one chosen on the **Audit log** page |
 | `SECREVIEW_AUDIT_SYSLOG_CAFILE` | — | CA bundle that verifies the certificate of a `tls://` syslog server (internal certificate authority); default: the system CA bundle. A variable only |
-| `SECREVIEW_METRICS_ENABLED` | `true` | Serves the [Prometheus metrics](../advanced/audit-metrics.md#prometheus-metrics) on `/metrics` (`metrics` or `admin` token); when `false`, `/metrics` answers 404 |
+| `SECREVIEW_METRICS_ENABLED` | `true` | Serves the [Prometheus metrics](metrics.md) on `/metrics` (`metrics` or `admin` token); when `false`, `/metrics` answers 404 |
 
 ### Connectors
 
@@ -169,12 +170,12 @@ Read by the pipeline client `security-review-ci`, never by the servers.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_TOKEN` | — | Bearer token sent by [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci) to the controller (`ci` token); never used by the servers |
-| `SECREVIEW_CONTROLLER_URL` | — | URL of the controller used by [`security-review-ci`](../usage/gate.md#pipeline-client-security-review-ci) (default of `--url`); read from the environment only, never from `.env` |
+| `SECREVIEW_TOKEN` | — | Bearer token sent by [`security-review-ci`](../advanced/ci.md) to the controller (`ci` token); never used by the servers |
+| `SECREVIEW_CONTROLLER_URL` | — | URL of the controller used by [`security-review-ci`](../advanced/ci.md) (default of `--url`); read from the environment only, never from `.env` |
 
 Bearer tokens are not configured by variable: they are stored in the database and managed with
 `security-review-controller token` (see
-[HTTP server, authentication and TLS](../advanced/http.md#bearer-tokens)). Neither are internal rules:
+[Authentication and TLS](../advanced/bearer-tokens.md)). Neither are internal rules:
 they are stored in the database and managed with `security-review-controller rules` (see
 [Rules](../usage/rules.md#rules-command)).
 
@@ -183,7 +184,7 @@ they are stored in the database and managed with `security-review-controller rul
 An SQLite database is created by default in the user's data folder:
 `~/.local/share/security-review-mcp/security_reports.db` when `XDG_DATA_HOME` is not set.
 
-For PostgreSQL (`postgres` extra):
+For PostgreSQL (`postgres` extra, shared mode only: the stdio server accepts SQLite only):
 
 ```bash
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview
@@ -196,7 +197,7 @@ The schema is managed by Alembic migrations embedded in the package: **security-
  - `security-review-controller db upgrade` creates or migrates the database and seeds the default
 rules,
  - `security-review-controller db status` shows the revision (code `1` if it is not up to date). See
-[Schema migrations](../advanced/architecture.md#schema-migrations).
+[Schema migrations](../advanced/controller.md#schema-migrations).
 
 ### Retention of reports without findings
 

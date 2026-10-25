@@ -53,8 +53,8 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 # web interface: http://127.0.0.1:8080/ui/
 ```
 
-Log in with the `admin` account. The controller is meant for people: keep it on localhost or
-an internal network (see [Architecture and deployment](architecture.md)).
+Log in with the `admin` account. The controller is meant for people and pipelines: expose it
+with TLS (see [Controller](controller.md#exposure)).
 
 ## 5. Start the MCP server
 
@@ -66,7 +66,7 @@ security-review-mcp serve --transport streamable-http --host 127.0.0.1 --port 80
 ```
 
 For the developers and the CI, expose it **with TLS**, with a certificate trusted by their
-workstations (see [TLS](http.md#tls)):
+workstations (see [TLS](tls.md)):
 
 ```bash
 security-review-mcp serve --transport streamable-http --host 0.0.0.0 --port 8443 \
@@ -88,7 +88,7 @@ security-review-controller token create --label alice   # mcp token, shown once
 !!! note "Open server on localhost"
     A server listening on localhost, without any token, accepts every request. Elsewhere, only
     `SECREVIEW_ALLOW_UNAUTHENTICATED=true` opens it (see
-    [Bearer tokens](http.md#bearer-tokens)).
+    [Bearer tokens](bearer-tokens.md)).
 
 Then, two ways to give a token to each developer and pipeline:
 
@@ -109,6 +109,6 @@ curl http://127.0.0.1:8000/healthz   # MCP server: {"status":"ok"}
 
 Sign in to the web interface on `http://127.0.0.1:8080/ui/` with the `admin` account, then
 create an account for each person in the **Users** screen (see
-[User accounts](../usage/web-interface.md#user-accounts)).
+[User accounts](../usage/user-accounts.md)).
 
 **Next step:** [connect the host](../getting-started/host.md) of each developer to the MCP server.

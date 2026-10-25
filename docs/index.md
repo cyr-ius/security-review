@@ -1,10 +1,10 @@
-# security-review-mcp
+# Security Review
 
-**Security Review MCP turns the AI assistants of your developers into security reviewers that
+**Security Review turns the AI assistants of your developers into security reviewers that
 follow your rules, and gives your security team a central view of everything they find.**
 
 Your teams already write code with AI assistants (GitHub Copilot, Claude, Cursor...). Security
-Review MCP plugs into these assistants through **MCP** (Model Context Protocol, the open standard
+Review plugs into these assistants through **MCP** (Model Context Protocol, the open standard
 that lets an assistant use external tools). Every change can then be reviewed for
 vulnerabilities and misconfigurations **while the code is being written**, and every result is
 recorded in one place, where your security team reads it, triages it and follows it up.
@@ -18,11 +18,11 @@ recorded in one place, where your security team reads it, triages it and follows
   every project receives the same ones, without training each developer.
 - **A central and lasting view.** Reports are stored in a database (SQLite or PostgreSQL). The
   [web interface](usage/web-interface.md) shows, for each project, the open findings, the security posture and its trend
-  over time ([trend report](advanced/trends.md)).
+  over time ([trend report](advanced/ci.md#trend-report)).
 - **People decide, not the AI.** An assistant can only *propose* to close a finding. A risk
   acceptance or a false positive is decided by a signed-in person, recorded as the approver; a
   risk acceptance also carries a reason and an expiry date, according to your policy: every decision can be traced for an audit
-  ([triage of findings](usage/web-interface.md#triage-of-findings)).
+  ([triage of findings](usage/triage.md)).
 - **Built into your delivery chain.** A [gate](usage/gate.md) blocks a deployment while serious findings remain
   open; the results are exported in [SARIF](advanced/sarif.md) (GitHub code scanning, Jenkins); the [dependencies](advanced/dependencies.md) are
   checked against an OSV vulnerability database, even without Internet access.
@@ -48,44 +48,66 @@ recorded in one place, where your security team reads it, triages it and follows
 
 ## What the product contains
 
-An MCP server for **security-oriented code review** (vulnerabilities and misconfigurations).
-It gives the host (VS Code, Copilot, Claude, CI/CD agent):
+An MCP server for **security-focused code review** (identifying vulnerabilities and misconfigurations). It provides the host (VS Code, Copilot, Claude, CI/CD agent, etc.) with:
 
-- structured **prompts** to start a review;
-- **tools**: checklists, quick pattern scan, saving and reading reports;
-- a **database** (SQLite by default, PostgreSQL possible) that stores the reports and their
-  findings.
+- Structured **prompts** to initiate a review;
+- **Tools**, including checklists, pattern-based quick scans, and the ability to save and retrieve reports;
+- A **database** (SQLite by default, with support for PostgreSQL) to store reports and their associated findings.
 
-It comes with a **command line** for pipelines: whole repository scan, deployment gate, SARIF
-export, dependency analysis and trend report.
+Accessed via the `security-review-mcp` command.
 
-## Two services, two roles
+A Controller server for **administration and control management** (the Controller is optional). It provides administrators and cybersecurity analysts with:
 
-The product is made of **two programs** installed by the same PyPI package, `security-review`, and shipped in the same Docker image. They never call each
-other: they share the same **database**, where the reports, rules and tokens are stored.
+- Access to security analysis **reports**;
+- The ability to conduct **security reviews** and manage **risk acceptance**;
+- Options to add, modify, or delete **rules and checklists**;
+- The ability to incorporate **development standards**;
+- **Management** of developer communities;
+- Third-party **connectors** for tracking and integration (Jira, ServiceNow, etc.).
 
-```text
- agents (VS Code, Claude), CI ──▶ MCP server ──┐
-                                               ├──▶ database (SQLite or PostgreSQL)
- people (browser), admins ──────▶ controller ──┘
+Accessed via the `security-review-controller` command.
+
+It includes a CLI for integration into pipelines (such as Jenkins, etc.), enabling:
+
+- Full **repository scanning**;
+- Deployment **gates** that block releases if open findings exist;
+- SARIF export and **trend reporting**;
+- **Dependency analysis**.
+
+Accessed via the `security-review-ci` command.
+
+## Three services, three roles
+
+All the products are installed via the same PyPI package, `security-review`, and delivered within the same Docker image.
+The MCP server and the controller never call one another: they share the same **database**,
+where reports, rules, and tokens are stored. The pipeline client `security-review-ci` has no
+access to the database: it calls the REST API of the controller.
+
+```mermaid
+flowchart LR
+    agents(["AI agents<br/>VS Code, Claude, CI agent"]) -- "/mcp<br/>MCP token" --> mcp["MCP server<br/>security-review-mcp"]
+    people(["People (browser)<br/>security team, developers, admins"]) -- "/ui, /api/v1<br/>user account" --> ctl["Controller<br/>security-review-controller"]
+    ci(["CI/CD pipeline<br/>security-review-ci"]) -- "/api/v1/ci<br/>ci token" --> ctl
+    mcp --> db[("Database<br/>SQLite or PostgreSQL")]
+    ctl --> db
 ```
 
-| | MCP server | Controller |
-|---|---|---|
-| Command | `security-review-mcp` | `security-review-controller` |
-| Used by | the AI agents and the CI pipelines | the people: security team, developers, administrators |
-| What it does | gives the agent the review prompts, the checklists, the pattern scan, and saves its reports | shows and triages the reports in the **web interface** (`/ui/`), serves the REST API, creates the schema, manages the tokens and the user accounts |
-| Exposure | to the agents and to the CI (`/mcp` endpoint) | preferably on an internal network |
+| | MCP server | Controller | Pipeline client |
+|---|---|---|---|
+| Command | `security-review-mcp` | `security-review-controller` | `security-review-ci` |
+| Used by | the AI agents (in the editor or in a pipeline) | the people: security team, developers, administrators | the CI/CD pipelines |
+| What it does | gives the agent the review prompts, the checklists, the pattern scan, and saves its reports | shows and triages the reports in the **web interface** (`/ui/`), serves the REST API, creates the schema, manages the tokens and the user accounts | sends the files of the repository to the controller, which scans them; gate, SARIF export, trends |
+| Exposure | to the agents (`/mcp` endpoint) | to the people and to the pipelines (HTTPS) | none: it runs in the pipeline |
 
-In short: **the agent talks to the MCP server, people use the controller.** For a team, you
+In short: **the agent talks to the MCP server, people and pipelines use the controller.** For a team, you
 deploy **both**: without the controller, nobody can read the reports in a browser, decide on a
 finding, nor create the tokens of the agents.
 
 ### MCP server
 
-When the MCP server starts, an SQLite database is created to store the reports. With the
-`postgres` variant, you can specify a PostgreSQL database instead (required as soon as the two
-processes run on different machines).
+In local mode, the MCP server creates its own SQLite database. In shared mode, it uses the
+database of the controller, PostgreSQL as soon as the two processes run on different machines
+(the driver is in the image).
 
 Although you can install the MCP server in **local mode (stdio)** on a developer's workstation
 (see [Local mode (stdio)](getting-started/stdio.md)), we recommend the **shared mode (HTTP)**:
@@ -97,9 +119,11 @@ need to configure your IDE to connect to the MCP server via HTTP. See
 
 For security reasons, an authentication token must be provided to interact with the server. If
 no token is present, the MCP server informs your AI agent about the steps required to obtain
-one ([enrollment](advanced/http.md#enrollment-request-the-project)).
+one ([enrollment](advanced/mcp-server.md#enrollment-request-the-project)).
 
-### Controller
+Its routes, transports, start-up and guarantees: see [MCP server](advanced/mcp-server.md).
+
+### Controller server
 
 Running the `security-review-controller` command launches an application server, allowing you
 to access the database via a web interface. With this application, you can:
@@ -108,7 +132,9 @@ to access the database via a web interface. With this application, you can:
 - propose new [rules](usage/rules.md) and [checklists](usage/checklists.md);
 - share your [development standards](usage/standards.md) with the agents;
 - track the vulnerabilities, conduct security reviews and manage the risk acceptances (see
-  [triage of findings](usage/web-interface.md#triage-of-findings)).
+  [triage of findings](usage/triage.md)).
+
+Its routes, start-up, background tasks and exposure: see [Controller](advanced/controller.md).
 
 ### Design
 
@@ -125,8 +151,8 @@ flowchart LR
 ```
 
 **Shared mode (HTTP)**: the assistants of every workstation call the MCP server deployed in a
-container; the security analyst works in the web interface of the controller. Both
-containers share the same PostgreSQL database.
+container; the security analyst works in the web interface of the controller, which the
+pipelines also call. Both containers share the same PostgreSQL database.
 
 ```mermaid
 flowchart LR
@@ -135,6 +161,7 @@ flowchart LR
         agent["AI assistant<br/>VS Code, Claude"]
     end
     analyst(["Security analyst<br/>(browser)"])
+    ci(["CI/CD pipeline<br/>security-review-ci"])
     subgraph srv["Server or cluster (containers)"]
         mcp["MCP server container<br/>security-review-mcp"]
         ctl["Controller container<br/>security-review-controller<br/>web interface, REST API"]
@@ -142,6 +169,7 @@ flowchart LR
     end
     agent -- "HTTPS /mcp<br/>MCP token" --> mcp
     analyst -- "HTTPS /ui<br/>user account" --> ctl
+    ci -- "HTTPS /api/v1/ci<br/>ci token" --> ctl
     mcp --> pg
     ctl --> pg
 ```
@@ -201,8 +229,8 @@ The ports are open on every interface of the server, in plain HTTP. Before the t
 
 ## Where to go next
 
-The documentation follows the order of a set-up. **Getting started**, **Usage** and **Security review**
-hold what you need to work; **Advanced** gathers the details and the optional features.
+The documentation follows the order of a set-up. **Getting started**, **Security review** and
+**Application** hold what you need to work; **Advanced** gathers the details and the optional features.
 
 | Step | Page |
 |---|---|
@@ -214,11 +242,11 @@ hold what you need to work; **Advanced** gathers the details and the optional fe
 
 | Going further (Advanced) | Page |
 |---|---|
-| Docker, Kubernetes, PostgreSQL, without containers | [Architecture and deployment](advanced/architecture.md), [Docker](advanced/docker.md), [Kubernetes](advanced/kubernetes.md), [Manual installation](advanced/manual-install.md) |
-| Tokens restricted to a project, enrollment, rotation, TLS | [HTTP server, authentication and TLS](advanced/http.md) |
+| Docker, Kubernetes, PostgreSQL, without containers | [Architecture](advanced/architecture.md), [Docker](advanced/docker.md), [Kubernetes](advanced/kubernetes.md), [Manual installation](advanced/manual-install.md) |
+| Tokens restricted to a project, enrollment, rotation, TLS | [Bearer tokens](advanced/bearer-tokens.md), [Enrollment](advanced/mcp-server.md#enrollment-request-the-project), [TLS](advanced/tls.md) |
 | Log in with the company identity provider | [OIDC login](advanced/sso.md) |
 | Scan a whole repository, the dependencies, add my company's rules | [Whole codebase scan](advanced/code-scan.md), [Dependency analysis](advanced/dependencies.md), [Rules](usage/rules.md) |
-| SARIF, trends, audit log, Prometheus | [SARIF export](advanced/sarif.md), [Trend report](advanced/trends.md), [Audit log and metrics](advanced/audit-metrics.md) |
+| SARIF, trends, audit log, Prometheus | [SARIF export](advanced/sarif.md), [Trend report](advanced/ci.md#trend-report), [Audit log](advanced/audit-metrics.md), [Prometheus metrics](reference/metrics.md) |
 
 !!! warning "This is not a SAST"
     The pattern scan produces **leads** and false positives. It replaces neither a SAST, nor a

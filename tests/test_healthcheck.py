@@ -58,6 +58,7 @@ def test_the_health_path_is_the_one_served_by_both_processes():
     [
         (["security-review-mcp", "serve"], "http://127.0.0.1:8000/healthz"),
         (["security-review-mcp", "serve", "--transport", "stdio"], None),
+        (["security-review-mcp", "local"], None),
         (
             [
                 "/opt/venv/bin/python",

@@ -1,6 +1,6 @@
 # Export SARIF
 
-Le [client de pipeline](../usage/gate.md#client-de-pipeline-security-review-ci) télécharge le
+Le [client de pipeline](ci.md) télécharge le
 journal SARIF d'un projet par l'API REST du contrôleur, avec un jeton `ci` et sans accès à la
 base :
 
@@ -16,7 +16,7 @@ schéma officiel).
   (`baselineState: absent` pour les corrigés, `suppressions` pour les acceptés / faux positifs).
   Une acceptation ou un faux positif expiré est exporté comme ouvert.
 - Pour un projet, un finding signalé dans plusieurs rapports n'apparaît qu'une fois (sa
-  dernière occurrence, voir [finding signalé de nouveau](../usage/web-interface.md#finding-signale-de-nouveau)).
+  dernière occurrence, voir [finding signalé de nouveau](../usage/triage.md#finding-signale-de-nouveau)).
 - L'empreinte (`partialFingerprints`) ignore le numéro de ligne : elle reste stable quand le
   code bouge.
 - Sans chemin de fichier, le finding n'a qu'une localisation logique.

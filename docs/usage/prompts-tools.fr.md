@@ -64,15 +64,15 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `request_enrollment` | Demande un projet qui n'existe pas encore, validé par un administrateur ; aucun jeton n'est créé et le jeton courant ne gagne aucun projet : un administrateur en donne l'accès ([enrôlement](../advanced/http.md#enrolement-demander-le-projet)) |
+| `request_enrollment` | Demande un projet qui n'existe pas encore, validé par un administrateur ; aucun jeton n'est créé et le jeton courant ne gagne aucun projet : un administrateur en donne l'accès ([enrôlement](../advanced/mcp-server.md#enrolement-demander-le-projet)) |
 | `list_development_standards` / `get_development_standards` | [Normes de développement](standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
 | `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
 Sur le transport HTTP, un jeton restreint ne peut utiliser les outils de rapports que sur ses
 projets autorisés ; `reload_rules` lui est refusé (voir
-[jetons restreints à un projet](../advanced/http.md#jetons-restreints-a-un-projet)).
+[jetons restreints à un projet](../advanced/bearer-tokens.md#jetons-restreints-a-un-projet)).
 Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux. Un
-[jeton MCP personnel](web-interface.md#jetons-mcp-et-ci-personnels) atteint les projets de son
+[jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) atteint les projets de son
 utilisateur : pour un autre projet, un administrateur lui en donne l'accès (`request_enrollment`
 le demande d'abord s'il est nouveau).
 
@@ -80,14 +80,14 @@ le demande d'abord s'il est nouveau).
 
 Sur le transport HTTP, un client qui se connecte **sans jeton** atteint un serveur restreint, du
 même nom, qui n'expose que (un jeton inconnu, révoqué ou expiré reçoit plutôt un `401`, voir
-[jeton refusé](../advanced/http.md#jeton-refuse-se-reconnecter)) :
+[jeton refusé](../advanced/mcp-server.md#jeton-refuse-se-reconnecter)) :
 
 | Élément | Rôle |
 |---|---|
 | `request_enrollment` | Demande le projet (`project`, `requested_by` facultatif), validé par un administrateur, et renvoie `web_url` et `next_steps` : l'utilisateur se connecte à l'interface web et crée un jeton MCP personnel ; jamais de jeton |
 | Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Argument `project` facultatif ; expliquent à l'agent comment obtenir un jeton au lieu de lancer la revue |
 
-Voir [l'enrôlement](../advanced/http.md#enrolement-demander-le-projet).
+Voir [l'enrôlement](../advanced/mcp-server.md#enrolement-demander-le-projet).
 
 ## Ressources
 
@@ -120,7 +120,7 @@ Le **niveau de risque** du rapport est calculé (sévérité maximale des findin
 
 Un finding déjà signalé par un rapport précédent du projet le remplace et garde la décision
 prise sur lui : le résultat donne `recurring_findings` et `carried_decisions` (voir
-[finding signalé de nouveau](web-interface.md#finding-signale-de-nouveau)).
+[finding signalé de nouveau](triage.md#finding-signale-de-nouveau)).
 
 ### Nom du projet
 
@@ -225,10 +225,10 @@ injectées ([injection de prompt](../reference/security.md#securite-du-serveur-l
 - `propose_finding_status` enregistre une **proposition** (`fixed`, `accepted` ou
   `false_positive`) avec le motif de l'agent (10 à 1000 caractères, secrets masqués) et le label
   de son jeton. Le statut, la posture et la gate ne changent pas. Une nouvelle proposition
-  remplace la précédente. Elle est écrite dans le [journal d'audit](../advanced/audit-metrics.md#journal-daudit),
+  remplace la précédente. Elle est écrite dans le [journal d'audit](../advanced/audit-metrics.md),
   comme la décision qui suit.
 - Une personne qui a le rôle `triager` ou `admin` l'applique ou la rejette dans
-  l'[interface web](web-interface.md#triage-des-findings). `accepted` et `false_positive`
+  l'[interface web](triage.md). `accepted` et `false_positive`
   exigent un motif, un approbateur (l'utilisateur connecté) et une date d'expiration ; à partir
   de cette date, le finding est de nouveau compté comme ouvert.
 

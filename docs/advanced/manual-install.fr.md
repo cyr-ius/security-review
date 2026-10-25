@@ -54,8 +54,8 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 # interface web : http://127.0.0.1:8080/ui/
 ```
 
-Connectez-vous avec le compte `admin`. Le contrôleur est destiné aux personnes : gardez-le sur
-localhost ou sur un réseau interne (voir [Architecture et déploiement](architecture.md)).
+Connectez-vous avec le compte `admin`. Le contrôleur est destiné aux personnes et aux pipelines :
+exposez-le avec TLS (voir [Contrôleur](controller.md#exposition)).
 
 ## 5. Lancer le serveur MCP
 
@@ -67,7 +67,7 @@ security-review-mcp serve --transport streamable-http --host 127.0.0.1 --port 80
 ```
 
 Pour les développeurs et la CI, exposez-le **avec TLS**, avec un certificat reconnu par leurs
-postes (voir [TLS](http.md#tls)) :
+postes (voir [TLS](tls.md)) :
 
 ```bash
 security-review-mcp serve --transport streamable-http --host 0.0.0.0 --port 8443 \
@@ -89,7 +89,7 @@ security-review-controller token create --label alice   # jeton mcp, affiché un
 !!! note "Serveur ouvert sur localhost"
     Un serveur qui écoute sur localhost, sans aucun jeton, accepte toutes les requêtes. Ailleurs,
     seul `SECREVIEW_ALLOW_UNAUTHENTICATED=true` l'ouvre (voir
-    [Jetons Bearer](http.md#jetons-bearer)).
+    [Jetons Bearer](bearer-tokens.md)).
 
 Ensuite, deux façons de donner un jeton à chaque développeur et à chaque pipeline :
 
@@ -111,7 +111,7 @@ curl http://127.0.0.1:8000/healthz   # serveur MCP : {"status":"ok"}
 
 Connectez-vous à l'interface web sur `http://127.0.0.1:8080/ui/` avec le compte `admin`, puis
 créez un compte pour chaque personne dans l'écran **Utilisateurs** (voir les
-[comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs)).
+[comptes utilisateurs](../usage/user-accounts.md)).
 
 **Étape suivante :** [connectez l'hôte](../getting-started/host.md) de chaque développeur au
 serveur MCP.

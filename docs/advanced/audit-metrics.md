@@ -1,10 +1,8 @@
-# Audit log and metrics
+# Audit log
 
-The controller keeps an **audit log** of the security-relevant changes and serves
-**Prometheus metrics** on `/metrics`. Both read the database shared with the MCP server: every
-replica answers the same thing.
-
-## Audit log
+The controller keeps an **audit log** of the security-relevant changes. It reads the database
+shared with the MCP server: every replica answers the same thing. The metrics of the controller
+are in [Prometheus metrics](../reference/metrics.md).
 
 Every change below writes an event in the same transaction as the change itself: an event
 exists exactly when the change was committed.
@@ -20,7 +18,7 @@ exists exactly when the change was committed.
 | `token.rotated` | The secret of a token is replaced (`token rotate`, **Rotate** button), with the grace period |
 | `token.revoked` | A token is revoked |
 | `token.projects_changed` | An administrator changes the projects of a token (**Projects** button of the **Tokens** screen), with the previous projects (`null`: every project) |
-| `enrollment.requested` | A client requests a project ([enrollment](http.md#enrollment-request-the-project)), with the requester, its address and whether a new request was filed (`requested`) |
+| `enrollment.requested` | A client requests a project ([enrollment](mcp-server.md#enrollment-request-the-project)), with the requester, its address and whether a new request was filed (`requested`) |
 | `enrollment.approved` | A user with `projects.create` approves a pending project (its group in the details) |
 | `enrollment.rejected` | A user rejects a pending project, or it expires (actor `enrollment`, `reason`: `expired`) |
 | `role.created`, `role.updated`, `role.deleted` | An administrator creates, changes (with the previous permissions) or deletes a [role](access-control.md#roles) |
@@ -49,7 +47,7 @@ The details never hold a secret: no token, no password, and the free text (reaso
 requester) is masked like the reports. Nobody edits an event: neither MCP tool nor route
 changes them.
 
-### Reading the log
+## Reading the log
 
 Administrators read it in the **Audit log** screen of the web interface (filters by event and
 project), with `GET /api/v1/audit` (`audit.read` permission; `action`, `project`, `actor`, `since`,
@@ -65,7 +63,7 @@ security-review-controller audit list --project shop-api --actor user:alice --li
 
 `--limit` (and the `limit` parameter) is capped by `SECREVIEW_MAX_LIST_LIMIT`.
 
-### Retention
+## Retention
 
 `serve` deletes the events older than `SECREVIEW_AUDIT_RETENTION_DAYS` days (default `365`), at
 start then every day; `0` keeps every event. With `SECREVIEW_AUDIT_MAX_EVENTS` (default `0`, no
@@ -79,7 +77,7 @@ security-review-controller audit prune --days 730   # another retention, for thi
 security-review-controller audit prune --max-events 100000
 ```
 
-### Forwarding to syslog
+## Forwarding to syslog
 
 The controller can also send each event to a syslog server, to keep it outside the database
 (SIEM, central log). Disabled by default:
@@ -128,52 +126,3 @@ as JSON, the same fields as `audit list`:
   local relay, and `tls://` otherwise. No proxy. A certificate that is refused is logged as a
   failed sending (the batch is not sent again). An invalid variable, or a missing CA file, stops
   `serve` at start; an invalid address is refused by the web interface.
-
-## Prometheus metrics
-
-`GET /metrics` on the **controller** answers in the Prometheus text format (`0.0.4`). The MCP
-server has no metrics endpoint. It needs a token of role `metrics`, which reaches nothing else
-(neither the REST API nor MCP), or `admin`:
-
-```bash
-security-review-controller token create --label prometheus --role metrics --expires-in-days 365
-curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/metrics
-```
-
-```yaml
-# prometheus.yml
-scrape_configs:
-  - job_name: security-review
-    scheme: https
-    authorization:
-      credentials_file: /etc/prometheus/secreview-token
-    static_configs:
-      - targets: ["secreview.example.com"]
-```
-
-| Metric | Labels | Value |
-|---|---|---|
-| `secreview_build_info` | `version` | `1` |
-| `secreview_projects` | | Projects with reports |
-| `secreview_reports` | | Stored reports |
-| `secreview_findings` | `status` | Findings by effective status (an expired dismissal counts as `open`) |
-| `secreview_open_findings` | `severity` | Open findings by severity |
-| `secreview_project_open_findings` | `project`, `severity` | Open findings of each project |
-| `secreview_finding_proposals_pending` | | Agent proposals waiting for a person |
-| `secreview_tokens` | `role`, `state` | Tokens by role and state (`active`, `expired`) |
-| `secreview_tokens_expiring_soon` | | Active tokens that expire within 14 days |
-| `secreview_project_enrollments_pending` | | Projects requested by an enrollment, waiting for an approval |
-| `secreview_web_users` | `auth_source` | Web accounts (`local`, `oidc`) |
-| `secreview_advisories` | | Advisories in the database |
-| `secreview_advisory_last_update_timestamp_seconds` | | End of the latest successful OSV download (absent before the first one) |
-| `secreview_auth_rejections_total` | `reason` | Requests rejected by the authentication of the process that answers, since its start: `invalid_token`, `token_expired`, `insufficient_scope` |
-
-Every value except `secreview_auth_rejections_total` comes from the database. The metrics hold
-counts and project names, never a finding, a token label or a secret; label values are
-escaped, so a project name cannot add lines to the answer. `SECREVIEW_METRICS_ENABLED=false`
-turns the endpoint off (`404`).
-
-Examples of alerts: `secreview_tokens_expiring_soon > 0`,
-`secreview_open_findings{severity="critical"} > 0`,
-`time() - secreview_advisory_last_update_timestamp_seconds > 2 * 86400`,
-`rate(secreview_auth_rejections_total{reason="invalid_token"}[5m]) > 1`.

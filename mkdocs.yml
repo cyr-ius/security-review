@@ -11,7 +11,6 @@ theme:
   language: en
   favicon: assets/favicon.svg
   features:
-    - navigation.sections
     - navigation.top
     - navigation.footer
     - navigation.indexes
@@ -69,6 +68,7 @@ plugins:
             Getting started: Démarrage
             Deploying the server: Mise en service du serveur
             Connecting the host: Connexion de l'hôte
+            Commit hooks: Hooks de commit
             Advanced: Avancé
             Deployment: Déploiement
             Analysis: Analyse
@@ -77,9 +77,13 @@ plugins:
             Roles, groups and permissions: Rôles, groupes et permissions
             "Installation: other cases": "Installation : autres cas"
             Local mode (stdio): Mode local (stdio)
-            HTTP server, authentication and TLS: Serveur HTTP, authentification et TLS
-            Architecture and deployment: Architecture et déploiement
-            Usage: Utilisation
+            Bearer tokens: Jetons Bearer
+            Standards stored in the server: Normes stockées dans le serveur
+            Controller: Contrôleur
+            Triage of findings: Triage des findings
+            Tokens: Jetons
+            User accounts: Comptes utilisateurs
+            Pipeline client (CI/CD): Client de pipeline (CI/CD)
             How a review works: Fonctionnement d'une revue
             Prompts and tools: Prompts et outils
             Whole codebase scan: Scan du code complet
@@ -90,19 +94,20 @@ plugins:
             Development standards: Normes de développement
             Read guard for AI assistants: Garde de lecture des assistants IA
             Web interface: Interface web
-            Audit log and metrics: Journal d'audit et métriques
+            Audit log: Journal d'audit
+            Prometheus metrics: Métriques Prometheus
             Connectors: Connecteurs
             Overview: Présentation
             Third-party connectors: Connecteurs tiers
             SARIF export: Export SARIF
-            Trend report: Rapport de tendance
-            Reference: Référence
+            References: Références
             Command line: Ligne de commande
             Security and limits: Sécurité et limites
             Contributing: Contribuer
             MCP server: Serveur MCP
             Controller (FastAPI): Contrôleur (FastAPI)
             Web interface (Angular): Interface web (Angular)
+            Writing a connector: Écrire un connecteur
             Checks, reviews and releases: Vérifications, revues et publication
             Shared mode (HTTP): Mode partagé (HTTP)
             Kubernetes: Kubernetes
@@ -144,29 +149,39 @@ nav:
       - Shared mode (HTTP): getting-started/deploy.md
       - Local mode (stdio): getting-started/stdio.md
       - Connecting the host: getting-started/host.md
-  - Usage:
-      - Prompts and tools: usage/prompts-tools.md
-      - Web interface: usage/web-interface.md
-      - Gate: usage/gate.md
+      - Commit hooks: getting-started/commit-hooks.md
   - Security review:
       - How a review works: usage/how-it-works.md
       - Rules: usage/rules.md
       - Checklists: usage/checklists.md
       - Development standards: usage/standards.md
-  - Connectors:
-      - Overview: connectors/index.md
-      - Jira: connectors/jira.md
-      - ServiceNow: connectors/servicenow.md
-      - Third-party connectors: connectors/third-party.md
+      - Gate: usage/gate.md
+  - Application:
+      - Overview: usage/web-interface.md
+      - Triage of findings: usage/triage.md
+      - Tokens: usage/tokens.md
+      - User accounts: usage/user-accounts.md
+      - Roles, groups and permissions: advanced/access-control.md
+      - OIDC login: advanced/sso.md
+      - Audit log: advanced/audit-metrics.md
+      - Connectors:
+          - Overview: connectors/index.md
+          - Jira: connectors/jira.md
+          - ServiceNow: connectors/servicenow.md
+          - Third-party connectors: connectors/third-party.md
   - Advanced:
+      - Bearer tokens: advanced/bearer-tokens.md
+      - TLS: advanced/tls.md
+      - Standards stored in the server: advanced/stored-standards.md
+      - Architecture:
+          - Overview: advanced/architecture.md
+          - MCP server: advanced/mcp-server.md
+          - Controller: advanced/controller.md
+          - Pipeline client (CI/CD): advanced/ci.md
       - Deployment:
-          - Architecture and deployment: advanced/architecture.md
           - Docker: advanced/docker.md
           - Kubernetes: advanced/kubernetes.md
           - Manual installation (without containers): advanced/manual-install.md
-          - HTTP server, authentication and TLS: advanced/http.md
-          - OIDC login: advanced/sso.md
-          - Roles, groups and permissions: advanced/access-control.md
           - "Installation: other cases": advanced/installation.md
       - Analysis:
           - Whole codebase scan: advanced/code-scan.md
@@ -174,17 +189,17 @@ nav:
           - Read guard for AI assistants: advanced/read-guard.md
       - Reports and monitoring:
           - SARIF export: advanced/sarif.md
-          - Trend report: advanced/trends.md
-          - Audit log and metrics: advanced/audit-metrics.md
-  - Reference:
+  - References:
       - Configuration: reference/configuration.md
       - Command line: reference/cli.md
       - Security and limits: reference/security.md
+      - Prometheus metrics: reference/metrics.md
   - Contributing:
       - Overview: contributing/index.md
       - MCP server: contributing/mcp-server.md
       - "Controller (FastAPI)": contributing/controller.md
       - "Web interface (Angular)": contributing/web-ui.md
+      - Writing a connector: contributing/connectors.md
       - Tests: contributing/tests.md
       - Documentation: contributing/documentation.md
       - Checks, reviews and releases: contributing/checks-and-releases.md

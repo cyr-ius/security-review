@@ -6,9 +6,9 @@ doit déjà tourner : voir [Mise en service du serveur](deploy.md).
 ## Transport HTTP
 
 En mode partagé, avec le serveur lancé par `serve --transport streamable-http`, l'hôte se connecte à
-l'endpoint `/mcp` au lieu de lancer un processus. Si l'authentification est activée, il envoie
-le jeton dans l'en-tête `Authorization: Bearer <jeton>` (génération des jetons, TLS et
-démarrage du serveur : voir [Serveur HTTP, authentification et TLS](../advanced/http.md)).
+l'endpoint `/mcp` au lieu de lancer un processus. Il envoie le jeton dans l'en-tête
+`Authorization: Bearer <jeton>` (voir [Jetons Bearer](../advanced/bearer-tokens.md) et
+[TLS](../advanced/tls.md)).
 
 === "VS Code / GitHub Copilot"
 
@@ -105,7 +105,7 @@ En mode partagé, quand le serveur exige un jeton, vous utilisez un **jeton MCP 
 l'interface web. Inutile d'en réclamer un à un administrateur avant de commencer : configurez
 l'hôte comme ci-dessus, **sans jeton**, et lancez votre première revue. L'agent demande le projet,
 puis vous indique où créer votre jeton (voir
-[l'enrôlement](../advanced/http.md#enrolement-demander-le-projet)).
+[l'enrôlement](../advanced/mcp-server.md#enrolement-demander-le-projet)).
 
 1. **Configurez l'hôte sans jeton.** Avec les exemples de la section
    [Transport HTTP](#transport-http), laissez la saisie du jeton vide (VS Code), ne définissez
@@ -133,7 +133,7 @@ puis vous indique où créer votre jeton (voir
 
 3. **Créez votre jeton MCP personnel** : connectez-vous à l'interface web (`web_url`), ouvrez
    **Mon compte** > **Jetons personnels** et créez un jeton d'usage **MCP** (voir
-   [jetons MCP personnels](../usage/web-interface.md#jetons-mcp-et-ci-personnels) ; vos groupes doivent
+   [jetons MCP personnels](../usage/tokens.md#jetons-mcp-et-ci-personnels) ; vos groupes doivent
    avoir le rôle `mcp-user`). Il n'est affiché **qu'une seule fois**.
 4. **Enregistrez le jeton dans l'hôte**, puis redémarrez le serveur MCP dans l'hôte :
 
@@ -165,7 +165,7 @@ puis vous indique où créer votre jeton (voir
 Quand le serveur refuse le jeton (inconnu, révoqué ou expiré), l'hôte reçoit `401` avec un
 message qui vous invite à vous reconnecter à l'interface web pour créer un nouveau jeton MCP
 personnel : remplacez-le dans l'hôte comme à l'étape 4 (voir
-[jeton refusé](../advanced/http.md#jeton-refuse-se-reconnecter)).
+[jeton refusé](../advanced/mcp-server.md#jeton-refuse-se-reconnecter)).
 
 !!! note
     Si l'administrateur a désactivé l'enrôlement (`SECREVIEW_ENROLLMENT=false`), un hôte sans
@@ -175,7 +175,7 @@ personnel : remplacez-le dans l'hôte comme à l'étape 4 (voir
 ## Autres cas
 
 - **Certificat du serveur signé par une CA interne** (`unable to verify the first certificate`) :
-  voir [Serveur HTTPS avec une CA interne](../advanced/http.md#serveur-https-avec-une-ca-interne).
+  voir [Serveur HTTPS avec une CA interne](../advanced/tls.md#serveur-https-avec-une-ca-interne).
 - **Mode local (stdio)**, sans serveur (l'hôte lance lui-même le processus) : voir
   [Mode local (stdio)](../getting-started/stdio.md).
 

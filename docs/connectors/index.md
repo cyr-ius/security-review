@@ -14,7 +14,7 @@ the **record** of the finding.
 A finding is sent by hand, from its card, or automatically for the projects given a severity
 threshold. Sending is **one way**: the key and the link of the record are kept on the finding,
 and its status is never changed from the record (a person still decides it, see
-[triage of findings](../usage/web-interface.md#triage-of-findings)).
+[triage of findings](../usage/triage.md)).
 
 Only the controller connects to these systems and loads the connectors; the MCP server never
 does.
