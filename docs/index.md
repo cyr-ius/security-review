@@ -61,7 +61,7 @@ export, dependency analysis and trend report.
 
 ## Two services, two roles
 
-The product is made of **two programs** installed by the same package. They never call each
+The product is made of **two programs** installed by the same PyPI package, `security-review`. They never call each
 other: they share the same **database**, where the reports, rules and tokens are stored.
 
 ```text

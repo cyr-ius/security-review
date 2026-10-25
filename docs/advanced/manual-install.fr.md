@@ -21,7 +21,7 @@ Python 3.14 ou plus récent, avec [uv](https://docs.astral.sh/uv/getting-started
 
 ```bash
 uv venv /opt/security-review-mcp && source /opt/security-review-mcp/bin/activate
-uv pip install security-review-mcp
+uv pip install security-review
 ```
 
 ## 2. Choisir la base de données
@@ -34,7 +34,7 @@ même fichier quel que soit le répertoire d'où ils sont lancés.
 ```bash
 sudo install -d -o "$USER" -m 700 /var/lib/secreview
 export SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db
-# ou, avec un PostgreSQL existant (uv pip install "security-review-mcp[postgres]") :
+# ou, avec un PostgreSQL existant (uv pip install "security-review[postgres]") :
 # postgresql+psycopg2://secreview:<password>@db.example.internal:5432/secreview
 ```
 

@@ -1,6 +1,6 @@
 # Installation
 
-The **Security Review MCP** application is a single package, `security-review-mcp` (with a
+The **Security Review MCP** application is a single PyPI package, `security-review` (with a
 `postgres` extra for the PostgreSQL driver). It installs two commands: `security-review-mcp`,
 the MCP server used by the agents, and `security-review-controller`, the controller (web
 interface, REST API, administration). Their roles: see
@@ -13,9 +13,15 @@ PostgreSQL; the [local mode (stdio)](stdio.md) is kept for trials on a single wo
 
 ```bash
 uv venv && source .venv/bin/activate   # uv pip installs into this virtual environment
-uv pip install security-review-mcp
-uv pip install "security-review-mcp[postgres]"   # with the PostgreSQL driver
+uv pip install security-review
+uv pip install "security-review[postgres]"   # with the PostgreSQL driver
 ```
+
+!!! note "Formerly `security-review-mcp`"
+    Up to version 2.0.0, the package was published on PyPI as `security-review-mcp`. Both
+    packages install the same commands and the same Python module: uninstall the old one first
+    (`uv pip uninstall security-review-mcp`), then install `security-review`. The commands,
+    the settings and the database stay the same.
 
 The PostgreSQL server itself is deployed with [Docker Compose](../advanced/docker.md#docker-compose-with-postgresql)
 or [Kubernetes](../advanced/kubernetes.md#deployment).

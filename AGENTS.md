@@ -78,7 +78,7 @@ avec la version en commentaire (`@<sha> # vX.Y.Z`) : faites de même pour toute 
 - Ne commitez jamais directement sur `master`.
 - **Une version = un tag sur `master`.** Pousser un tag `vX.Y.Z` déclenche `publish.yml` :
   lint et tests, vérification que le tag correspond à `version` dans `pyproject.toml`, puis
-  publication sur PyPI (`security-review-mcp` et le client seul `security-review-ci`) et des
+  publication sur PyPI (`security-review` et le client seul `security-review-ci`) et des
   images Docker (GHCR et Docker Hub, `docker.yml`), et création de la release GitHub. Procédure :
   1. sur `dev`, mettre à jour la version (`uv version X.Y.Z`) et commiter ;
   2. fusionner `dev` dans `master` ;

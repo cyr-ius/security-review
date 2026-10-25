@@ -50,7 +50,7 @@ pipeline).
     }
     ```
 
-Le script déclare sa dépendance (`security-review-mcp`, version 1.1.0 ou suivante) dans son
+Le script déclare sa dépendance (`security-review`, version 3.0.0 ou suivante) dans son
 en-tête : `uv run --script` l'installe dans un environnement en cache. Sans `uv`, ou hors ligne,
 lancez-le avec le Python d'un environnement où le paquet est installé (`"command": "python3
 .claude/hooks/read_guard.py"`).

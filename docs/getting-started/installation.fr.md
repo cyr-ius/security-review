@@ -1,6 +1,6 @@
 # Installation
 
-L'application **Security Review MCP** est un seul paquet, `security-review-mcp` (avec un extra
+L'application **Security Review MCP** est un seul paquet PyPI, `security-review` (avec un extra
 `postgres` pour le pilote PostgreSQL). Il installe deux commandes : `security-review-mcp`, le
 serveur MCP utilisé par les agents, et `security-review-controller`, le contrôleur (interface
 web, API REST, administration). Leurs rôles : voir
@@ -13,9 +13,15 @@ avec PostgreSQL ; le [mode local (stdio)](stdio.md) est réservé aux essais sur
 
 ```bash
 uv venv && source .venv/bin/activate   # uv pip installe dans cet environnement virtuel
-uv pip install security-review-mcp
-uv pip install "security-review-mcp[postgres]"   # avec le pilote PostgreSQL
+uv pip install security-review
+uv pip install "security-review[postgres]"   # avec le pilote PostgreSQL
 ```
+
+!!! note "Anciennement `security-review-mcp`"
+    Jusqu'à la version 2.0.0, le paquet était publié sur PyPI sous le nom `security-review-mcp`.
+    Les deux paquets installent les mêmes commandes et le même module Python : désinstallez
+    d'abord l'ancien (`uv pip uninstall security-review-mcp`), puis installez `security-review`.
+    Les commandes, les paramètres et la base restent les mêmes.
 
 Le serveur PostgreSQL lui-même se déploie avec [Docker Compose](../advanced/docker.md#docker-compose-avec-postgresql)
 ou [Kubernetes](../advanced/kubernetes.md#deploiement).

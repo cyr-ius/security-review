@@ -372,7 +372,7 @@ A version is a tag pushed on `master`:
    version, publication on PyPI and of the Docker images (`docker.yml`), then creation of the
    GitHub release.
 
-The tag publishes two PyPI distributions at the same version: `security-review-mcp` and
+The tag publishes two PyPI distributions at the same version: `security-review` and
 `security-review-ci`, the pipeline client alone (no dependency), whose project is written by
 `scripts/build_ci_client.py` from `ci_client.py`, with the `requires-python` of the server. The
 **ci-client** job of `tests.yml` builds it and runs the wheel alone, without the server.

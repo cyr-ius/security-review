@@ -1,6 +1,6 @@
 # Ligne de commande
 
-Le paquet installe deux commandes, une par processus (voir
+Le paquet `security-review` installe deux commandes, une par processus (voir
 [Architecture et déploiement](../advanced/architecture.md)), et un client de pipeline :
 
 - `security-review-mcp` : le **serveur MCP** (stdio ou HTTP), plus `enroll` côté client ;

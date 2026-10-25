@@ -54,7 +54,7 @@ jobs:
         run: npm ci --no-audit --no-fund && npm run build
       - run: uv build
       - name: Check the web interface is in the wheel
-        run: unzip -l dist/security_review_mcp-*.whl | grep -q "security_review_mcp/webui/index.html"
+        run: unzip -l dist/security_review-*.whl | grep -q "security_review_mcp/webui/index.html"
       # Standalone pipeline client (standard library only), same version
       - name: Build security-review-ci
         run: |
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/security-review-mcp
+      url: https://test.pypi.org/p/security-review
     permissions:
       id-token: write
     steps:
@@ -91,7 +91,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/security-review-mcp
+      url: https://pypi.org/p/security-review
     permissions:
       id-token: write
     steps:

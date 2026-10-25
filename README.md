@@ -9,8 +9,8 @@
 [angular]: https://img.shields.io/badge/Angular-22-blue?logo=angular
 [ci::status]: https://img.shields.io/github/actions/workflow/status/cyr-ius/security-review-mcp/tests.yml?branch=dev&label=Tests&color=blue&logo=github
 [ci::github]: https://github.com/cyr-ius/security-review-mcp/actions
-[pypi::version]: https://img.shields.io/pypi/v/security-review-mcp?color=blue&logo=pypi&logoColor=white
-[pypi::web]: https://pypi.org/project/security-review-mcp/
+[pypi::version]: https://img.shields.io/pypi/v/security-review?color=blue&logo=pypi&logoColor=white
+[pypi::web]: https://pypi.org/project/security-review/
 [docker::pulls]: https://img.shields.io/docker/pulls/cyrius44/security-review-mcp.svg?logo=docker
 [docker::hub]: https://hub.docker.com/r/cyrius44/security-review-mcp
 [documentation::badge]: https://img.shields.io/badge/Documentation-MkDocs-green?logo=materialformkdocs
@@ -60,7 +60,7 @@ See [two services, two roles](https://cyr-ius.github.io/security-review-mcp/#two
 
 ```bash
 uv venv && source .venv/bin/activate
-uv pip install security-review-mcp     # Python ≥ 3.14; [postgres] extra for PostgreSQL
+uv pip install security-review         # Python ≥ 3.14; [postgres] extra for PostgreSQL
 
 # from the same directory (shared SQLite file)
 security-review-controller db upgrade                              # schema (Alembic)

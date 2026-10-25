@@ -45,5 +45,5 @@ explicitement Python 3.14 :
 
 ```bash
 uv venv --python 3.14 /opt/security-review-mcp/venv
-uv pip install --python /opt/security-review-mcp/venv --no-index --find-links wheels security-review-mcp
+uv pip install --python /opt/security-review-mcp/venv --no-index --find-links wheels security-review
 ```

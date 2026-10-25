@@ -65,7 +65,7 @@ déploiement, export SARIF, analyse des dépendances et rapport de tendance.
 
 ## Deux services, deux rôles
 
-Le produit se compose de **deux programmes**, installés par le même paquet. Ils ne s'appellent
+Le produit se compose de **deux programmes**, installés par le même paquet PyPI, `security-review`. Ils ne s'appellent
 jamais : ils partagent la même **base de données**, où sont stockés les rapports, les règles et
 les jetons.
 

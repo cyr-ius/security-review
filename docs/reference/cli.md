@@ -1,6 +1,6 @@
 # Command line
 
-The package installs two commands, one per process (see
+The `security-review` package installs two commands, one per process (see
 [Architecture and deployment](../advanced/architecture.md)), and a pipeline client:
 
 - `security-review-mcp`: the **MCP server** (stdio or HTTP), plus `enroll` on the client side;
