@@ -43,7 +43,7 @@ In VS Code (`.vscode/`):
 ### Devcontainer
 
 The repository provides a devcontainer (`.devcontainer/`) with Python, uv, Node.js, a dedicated
-Docker daemon (*docker-in-docker* feature) and a **PostgreSQL 17** database. `compose.yaml`
+Docker daemon (*docker-in-docker* feature) and a **PostgreSQL 18** database. `compose.yaml`
 describes two services: `app`, the development container, and `db`, the database, reachable
 from `app` under the `db` name and kept in the `secreview-dev-pg` volume between two rebuilds.
 `SECREVIEW_DATABASE_URL` points to it by default: the MCP server, the controller and the CLI use
