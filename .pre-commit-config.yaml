@@ -37,14 +37,14 @@ repos:
       # SECREVIEW_TOKEN (environment only); skipped while the URL is not set
       - id: scan-deps
         name: dependency scan
-        entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "scan-deps skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --isolated --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest scan-deps --require-database --allow-http --save --project security-review-mcp "$@"' --
+        entry: uvx --isolated security-review-ci@latest scan-deps --skip-unconfigured --require-database --allow-http --save --project security-review-mcp
         language: system
         files: ^(uv\.lock|pyproject\.toml|web/package(-lock)?\.json)$
       # Security review of each commit by your agent, in the background, never blocking;
       # see docs/contributing/checks-and-releases.md
       - id: agent-review
         name: agent security review
-        entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "agent-review skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --isolated --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest agent-review --project security-review-mcp' --
+        entry: uvx --isolated security-review-ci@latest agent-review --project security-review-mcp
         language: system
         stages: [post-commit]
         always_run: true

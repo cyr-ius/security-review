@@ -23,7 +23,7 @@ from security_review_mcp import (
     update_check,
     web_api,
 )
-from security_review_mcp.auth import access_control, enrollment_api, oidc, token_store, web_users
+from security_review_mcp.auth import access_control, oidc, token_store, web_users
 from security_review_mcp.config import get_settings
 from security_review_mcp.connectors import transport
 from security_review_mcp.deps import advisory_sync
@@ -119,13 +119,9 @@ def web_sessions(secured) -> TestClient:
 
 @pytest.fixture
 def mcp_server(secured) -> TestClient:
-    """The MCP server app (MCP endpoint and public enrollment), sharing the tokens of secured."""
+    """The MCP server app (MCP endpoint and enrollment server), sharing the tokens of secured."""
     app = http_server.build_mcp_app(
-        server.mcp,
-        "127.0.0.1",
-        token_store.DatabaseTokenStore(),
-        server.enrollment_mcp,
-        enrollment_api.create_app(),
+        server.mcp, "127.0.0.1", token_store.DatabaseTokenStore(), server.enrollment_mcp
     )
     return TestClient(app, base_url="http://127.0.0.1")
 
@@ -1585,20 +1581,15 @@ def test_changing_the_projects_of_a_token_errors(secured, web_sessions, reports)
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 
-def test_public_enrollment_waits_for_an_approval_on_the_projects_screen(
-    secured, web_sessions, mcp_server
-):
+def test_a_requested_project_waits_for_an_approval_on_the_projects_screen(secured, web_sessions):
     for project in ("new-service", "spam"):
-        response = mcp_server.post(
-            "/api/v1/enroll", json={"project": project, "requested_by": "alice@example.com"}
-        )
-        assert response.status_code == 202 and "token" not in response.json()
+        access_control.request_project(project, "alice")
     url = "/api/v1/projects/pending"
 
     pending = secured.get(url, headers=auth("admin"))
     assert pending.status_code == 200
     first, second = pending.json()
-    assert (first["project"], first["requested_by"]) == ("new-service", "alice@example.com")
+    assert (first["project"], first["requested_by"]) == ("new-service", "alice")
     assert first["expires_at"] > first["created_at"]
     # Pending: not a project yet, and only projects.create handles the requests
     assert "new-service" not in [
@@ -2076,14 +2067,25 @@ def test_web_user_accepts_a_risk_without_expiry_unless_disabled(accounts, report
 
 
 def test_triager_rejects_an_agent_proposal(secured, web_sessions, reports):
-    finding_id = services.get_report(reports[0]).findings[0].id
+    report = services.get_report(reports[0])
+    finding_id = report.findings[0].id
     services.propose_finding_status(finding_id, FindingStatus.FIXED, "The query is bound", "ci")
     url = f"/api/v1/findings/{finding_id}/proposal"
 
+    def proposals() -> dict[int, str | None]:
+        """Proposals of the open findings of the project, as listed on its page."""
+        page = secured.get(
+            "/api/v1/findings", params={"project": report.project}, headers=auth("reader")
+        ).json()
+        return {item["id"]: item["proposed_status"] for item in page["findings"]}
+
+    # The project page flags the pending proposal
+    assert proposals()[finding_id] == "fixed"
     assert secured.delete(url, headers=auth("reader")).status_code == 403
     response = secured.delete(url, headers=auth("triager"))
     assert response.status_code == 200
     assert (response.json()["status"], response.json()["proposed_status"]) == ("open", None)
+    assert proposals()[finding_id] is None
     assert (
         secured.delete("/api/v1/findings/999/proposal", headers=auth("triager")).status_code == 404
     )
@@ -2432,14 +2434,19 @@ def test_logins_failures_and_logouts_are_audited(accounts):
     assert login(accounts, "alice", "Wrong password 1!").status_code == 401
     assert login(accounts, "bob smith", "Wrong password 1!").status_code == 401
     headers = session_headers(accounts, "alice")
+    other_tab = session_headers(accounts, "alice")
 
     assert accounts.post("/api/v1/me/logout", headers=headers).status_code == 204
+    # The logout ends every session of the user: a stolen session token stops working too
+    assert accounts.get("/api/v1/me", headers=headers).status_code == 401
+    assert accounts.get("/api/v1/me", headers=other_tab).status_code == 401
 
     events = audit.list_events(project=None)["events"]
     summary = [(e["action"], e["actor"], e["target_id"], e["details"]) for e in events]
     password = {"address": "testclient", "method": "password"}
-    assert summary[:4] == [
+    assert summary[:5] == [
         ("user.logout", "user:alice", "alice", {"address": "testclient"}),
+        ("user.login", "user:alice", "alice", password),
         ("user.login", "user:alice", "alice", password),
         # An invalid username is not written
         ("user.login_failed", "anonymous", None, password),

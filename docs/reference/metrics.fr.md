@@ -34,7 +34,7 @@ scrape_configs:
 | `secreview_finding_proposals_pending` | | Propositions d'agents en attente d'une personne |
 | `secreview_tokens` | `role`, `state` | Jetons par rôle et état (`active`, `expired`) |
 | `secreview_tokens_expiring_soon` | | Jetons actifs qui expirent dans les 14 jours |
-| `secreview_project_enrollments_pending` | | Projets demandés par un enrôlement, en attente de validation |
+| `secreview_project_enrollments_pending` | | Projets demandés par les agents MCP des utilisateurs, en attente de validation |
 | `secreview_web_users` | `auth_source` | Comptes web (`local`, `oidc`) |
 | `secreview_advisories` | | Avis de la base |
 | `secreview_advisory_last_update_timestamp_seconds` | | Fin du dernier téléchargement OSV réussi (absente avant le premier) |

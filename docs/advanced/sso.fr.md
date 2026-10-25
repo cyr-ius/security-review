@@ -184,10 +184,12 @@ l'historique du triage.
 
 ## Lecture du projet
 
-La validation d'un [enrôlement](mcp-server.md#enrolement-demander-le-projet) crée le projet avec son
-[groupe de projet](access-control.md#groupes-de-projet) `project:<projet>`, sans aucun membre,
-et jamais un jeton ni un compte. Pour qu'un développeur lise le projet (et que son jeton MCP
-personnel l'atteigne), un administrateur ajoute son compte à ce groupe, depuis l'écran
+La validation d'un projet demandé par un agent
+([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) crée le projet avec
+son [groupe de projet](access-control.md#groupes-de-projet) `project:<projet>`, avec
+l'utilisateur demandeur pour membre, et jamais un jeton ni un compte. Pour qu'un autre
+développeur lise le projet (et que son jeton MCP personnel l'atteigne), un administrateur ajoute
+son compte à ce groupe, depuis l'écran
 **Groupes** (ou **Utilisateurs**). Avec le OIDC, le compte existe une fois que le développeur
 s'est connecté (avec `SECREVIEW_OIDC_AUTO_CREATE_USERS=true`), ou un administrateur le crée
 auparavant dans **Utilisateurs**. L'accès apparaît ensuite dans les groupes du compte, où il se

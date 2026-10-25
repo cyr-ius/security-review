@@ -63,20 +63,20 @@ configurations). Il fournit à l'hôte (VS Code, Copilot, Claude, agent CI/CD) :
 via la commande `security-review-mcp`
 
 Un serveur Controller qui permet l'**administration et la gestion des contrôles** (le Controller est facultatif)
-Il fournit aux administrateurs et analyste en cybersécurité :
+Il fournit aux administrateurs et analystes en cybersécurité :
 
  - la **consultation des rapports** d'analyse de sécurité
- - la possibilité d'effectuer des **revues de sécurités** et d'**acceptation de risque**
- - l'ajout, modification et suppressions des **règles et de  checklist**
- - l'ajout de **standard de développement**
+ - la possibilité d'effectuer des **revues de sécurité** et d'**acceptation de risque**
+ - l'ajout, la modification et la suppression des **règles et des checklists**
+ - l'ajout de **standards de développement**
  - la **gestion** de vos communautés de développeurs
- - des **connecteurs** tiers pour assurer une suivi (Jira, Service Now, ...)
+ - des **connecteurs** tiers pour assurer un suivi (Jira, Service Now, ...)
 
 via la commande `security-review-controller`
 
-Il s'accompagne CLI pour l'injection dans les pipelines (tel que Jenkins, etc.) et permet :
+Il s'accompagne d'une commande CLI pour l'injection dans les pipelines (tels que Jenkins, etc.) et permet :
  - **scan du dépôt** complet
- - **gate** de déploiement avec blocage si des findings sont ouvertes
+ - **gate** de déploiement avec blocage si des findings sont ouverts
  - export SARIF et **rapport** de tendance
  - **analyse des dépendances**
 
@@ -84,7 +84,7 @@ via la commande `security-review-ci`
 
 ## Trois services, trois rôles
 
-L'ensemble des produits est installés par le même paquet PyPI, `security-review`, et livrés dans la même image Docker.
+L'ensemble des produits est installé par le même paquet PyPI, `security-review`, et livré dans la même image Docker.
 Le serveur MCP et le contrôleur ne s'appellent jamais entre eux : ils partagent la même **base
 de données**, où sont stockés les rapports, les règles et les jetons. Le client de pipeline
 `security-review-ci` n'a pas accès à la base : il appelle l'API REST du contrôleur.
@@ -113,20 +113,18 @@ navigateur, décider d'un finding, ni créer les jetons des agents.
 ### Serveur MCP
 
 En mode local, le serveur MCP crée sa propre base SQLite. En mode partagé, il utilise la base
-du contrôleur, PostgreSQL dès que les deux processus tournent sur des machines différentes (le
-pilote est dans l'image).
+du contrôleur.
 
 Bien que vous puissiez installer le serveur MCP en **mode local (stdio)** sur un poste de
 développeur (voir [Mode local (stdio)](getting-started/stdio.md)), nous recommandons le
-**mode partagé (HTTP)** : son déploiement sur un serveur ou dans un conteneur associé à une base
-de données PostgreSQL.
+**mode partagé (HTTP)**.
 
-Vous n'avez ainsi aucune adhérence à la technologie du MCP : il suffit de paramétrer votre IDE
-sur le serveur MCP en HTTP. Voir [Transport HTTP](getting-started/host.md#transport-http).
+Ainsi vous n'avez aucune adhérence sur la technologie employée par le MCP : il suffit de paramétrer votre IDE
+pour utiliser le serveur MCP en mode Streamable-HTTP. Voir [Transport HTTP](getting-started/host.md#transport-http).
 
 Pour des raisons de sécurité, il est nécessaire de soumettre un jeton d'authentification pour
 échanger avec le serveur. En l'absence de jeton, le serveur MCP indique à votre agent IA la
-démarche à suivre pour en obtenir un ([enrôlement](advanced/mcp-server.md#enrolement-demander-le-projet)).
+démarche à suivre pour en obtenir un ([enrôlement](advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)).
 
 Ses routes, ses transports, son démarrage et ses garanties : voir [Serveur MCP](advanced/mcp-server.md).
 
@@ -134,6 +132,7 @@ Ses routes, ses transports, son démarrage et ses garanties : voir [Serveur MCP]
 
 Si vous exécutez la commande `security-review-controller`, celle-ci démarre un serveur
 d'application qui vous permet de vous connecter à la base de données via une interface web.
+
 Grâce à cette application, vous pourrez :
 
 - consulter les rapports émis par les agents de vos développeurs ;
@@ -142,12 +141,23 @@ Grâce à cette application, vous pourrez :
 - suivre les vulnérabilités, faire des revues de sécurité et gérer les acceptations de risque
   (voir le [triage des findings](usage/triage.md)).
 
-Ses routes, son démarrage, ses tâches de fond et son exposition : voir
-[Contrôleur](advanced/controller.md).
+Le serveur Contrôleur est entièrement paramétrable via des variables d'environnement ou via son CLI
+
+Ses routes, son démarrage, ses tâches de fond et son exposition : voir [Contrôleur](advanced/controller.md).
+
+### CI/CD
+
+Vous avez une chaîne CI/CD et souhaitez mettre en œuvre un gate d'acceptation ?
+C'est possible avec le client `security-review-ci` (un seul fichier Python, sans dépendance) :
+voir [CI](advanced/ci.md).
+
+Ce même client peut être utilisé dans vos hooks de pre-commit (ou prek) afin d'effectuer
+vos revues de sécurité ou analyses de dépendances directement depuis votre IDE. Voir [Hooks de pre-commit](getting-started/commit-hooks.md).
+
 
 ### Design
 
-**Mode local (stdio)** : tout se passe sur le poste du développeur. L'assistant lance lui-même
+**Mode local** : tout se passe sur le poste du développeur. L'assistant lance lui-même
 le serveur MCP, et les rapports restent dans une base locale.
 
 ```mermaid
@@ -159,7 +169,7 @@ flowchart LR
     end
 ```
 
-**Mode partagé (HTTP)** : les assistants de tous les postes appellent le serveur MCP déployé
+**Mode partagé** : les assistants de tous les postes appellent le serveur MCP déployé
 dans un conteneur ; l'analyste cyber travaille dans l'interface web du contrôleur, que les
 pipelines appellent aussi. Les deux conteneurs partagent la même base PostgreSQL.
 
@@ -195,8 +205,9 @@ flowchart LR
 
 ## Démarrage rapide (mode partagé)
 
-Sur un serveur avec Docker, un seul bloc démarre tout (PostgreSQL, contrôleur, serveur MCP) et
-donne le mot de passe du compte `admin` et un jeton pour votre agent :
+Le dépôt fournit un fichier `docker-compose.yml` prêt à l'emploi dans `examples/docker/`. Ce
+bloc démarre tout (PostgreSQL, contrôleur, serveur MCP), réinitialise le mot de passe du compte
+`admin` et crée un jeton pour votre agent :
 
 ```bash
 mkdir security-review-mcp && cd security-review-mcp
@@ -207,8 +218,6 @@ docker compose exec controller security-review-controller user reset-password ad
 docker compose exec controller security-review-controller token create --label alice   # jeton mcp, affiché une fois
 # interface web : http://127.0.0.1:8080/ui/   endpoint MCP : http://127.0.0.1:8000/mcp
 ```
-
-Sans Docker, voir [Installation manuelle (sans conteneur)](advanced/manual-install.md).
 
 Déclarez ensuite le serveur MCP dans votre hôte, par exemple dans VS Code avec
 `.vscode/mcp.json` (le seul fichier où VS Code peut demander le jeton), et collez le jeton
@@ -229,14 +238,13 @@ quand VS Code le demande :
 }
 ```
 
-Dans le chat, lancez le prompt `security-review` (ou `codebase-review` pour tout le dépôt) :
-l'agent lit le code, s'appuie sur les checklists et enregistre son rapport avec
-`save_security_report`. Connectez-vous à l'interface web avec le compte `admin` pour le
-consulter et le trier.
+Dans le chat, lancez le prompt `security-review` (ou `codebase-review` pour tout le dépôt).
+L'agent lit le code, s'appuie sur les checklists et enregistre son rapport avec
+`save_security_report`.
+Connectez-vous à l'interface web avec le compte `admin` pour le consulter et le trier.
 
 Les ports sont ouverts sur toutes les interfaces du serveur, en HTTP simple. Avant que l'équipe
-s'en serve (TLS, Kubernetes, jetons pour chaque développeur), suivez
-[Mise en service du serveur](getting-started/deploy.md).
+s'en serve, pensez à mettre en œuvre vos certificats pour activer le HTTPS. Voir [Mise en service du serveur](getting-started/deploy.md).
 
 ## Par où continuer
 
@@ -254,7 +262,7 @@ La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Revue de s
 | Pour aller plus loin (Avancé) | Page |
 |---|---|
 | Docker, Kubernetes, PostgreSQL, sans conteneur | [Architecture](advanced/architecture.md), [Docker](advanced/docker.md), [Kubernetes](advanced/kubernetes.md), [Installation manuelle](advanced/manual-install.md) |
-| Jetons restreints à un projet, enrôlement, renouvellement, TLS | [Jetons Bearer](advanced/bearer-tokens.md), [Enrôlement](advanced/mcp-server.md#enrolement-demander-le-projet), [TLS](advanced/tls.md) |
+| Jetons restreints à un projet, enrôlement, renouvellement, TLS | [Jetons Bearer](advanced/bearer-tokens.md), [Enrôlement](advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet), [TLS](advanced/tls.md) |
 | Se connecter avec le fournisseur d'identité de l'entreprise | [Connexion OIDC](advanced/sso.md) |
 | Scanner tout un dépôt, les dépendances, ajouter les règles de mon entreprise | [Scan du code complet](advanced/code-scan.md), [Analyse des dépendances](advanced/dependencies.md), [Règles](usage/rules.md) |
 | SARIF, tendances, journal d'audit, Prometheus | [Export SARIF](advanced/sarif.md), [Rapport de tendance](advanced/ci.md#rapport-de-tendance), [Journal d'audit](advanced/audit-metrics.md), [Métriques Prometheus](reference/metrics.md) |

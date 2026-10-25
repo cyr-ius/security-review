@@ -76,7 +76,7 @@ export class ProjectListComponent {
   readonly severityMeta = SEVERITY_META;
 
   readonly projects = rxResource({ stream: () => this.api.projects() });
-  /** Projects requested by an enrollment, approved or rejected by the holders of
+  /** Projects requested by the MCP agent of a user, approved or rejected by the holders of
    * projects.create (not loaded for the others). */
   readonly pending = rxResource({
     params: () => (this.canCreate() ? true : undefined),

@@ -107,13 +107,16 @@ async def me(identity: CurrentIdentity) -> Identity:
 
 @router.post("/me/logout", status_code=status.HTTP_204_NO_CONTENT)
 async def logout(request: Request, identity: CurrentIdentity) -> Response:
-    """Record the logout of a web user in the audit log; the interface then drops its session.
+    """End every session of a web user (a stolen session token stops working too) and record
+    the logout in the audit log; the interface then drops its session.
 
     A bearer token has no session to end (403).
     """
     if identity.auth_source is None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Only a web user logged in has a session")
-    await run_in_threadpool(web_users.record_logout, identity.client, client_address(request))
+    await run_in_threadpool(
+        web_users.logout, web_user_id(request), identity.client, client_address(request)
+    )
     logger.info("Web user %s logged out", identity.client)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

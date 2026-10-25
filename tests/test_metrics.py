@@ -36,7 +36,7 @@ def test_metrics_count_findings_tokens_and_users(triage):
     services.save_report("billing", "Clean review", [])
     token_store.create_token("dev", Role.MCP)
     token_store.create_token("soon", Role.MCP, expires_in_days=3)
-    access_control.enroll_project("crm")
+    access_control.request_project("crm")
     make_user("alice", "Correct horse battery 9", "reader")
 
     text = metrics.render()

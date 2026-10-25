@@ -72,8 +72,8 @@ bug bloquant.
 - **Les secrets sont masqués** (`scanner.redact_secrets`) avant stockage et dans les extraits
   renvoyés ; un jeton, un mot de passe ou une URL de base avec identifiants n'est jamais
   journalisé.
-- Le serveur MCP HTTP ne migre jamais le schéma et n'expose que `/mcp`, l'enrôlement public et
-  `/healthz`.
+- Le serveur MCP HTTP ne migre jamais le schéma et n'expose que `/mcp` (le serveur d'enrôlement,
+  sans aucun outil, pour un client sans jeton) et `/healthz` : aucune route n'écrit sans jeton.
 
 ## Règles de scan
 

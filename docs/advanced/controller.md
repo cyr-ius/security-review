@@ -102,7 +102,7 @@ The other commands of `security-review-controller` run where the controller runs
 | `db` | migrate the schema, show its revision, purge reports |
 | `token` | create, list, rotate and revoke the tokens ([Bearer tokens](bearer-tokens.md)) |
 | `user`, `group` | accounts of the web interface and their groups ([User accounts](../usage/user-accounts.md)) |
-| `project` | approve or reject the projects requested by an [enrollment](mcp-server.md#enrollment-request-the-project) |
+| `project` | approve or reject the projects requested by the MCP agents of users ([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)) |
 | `rules` | import and export the internal [rules](../usage/rules.md) and checklists |
 | `advisories` | import or download the [OSV database](dependencies.md#offline-vulnerability-database-osv-format) |
 | `audit` | read or purge the [audit log](audit-metrics.md) |
@@ -192,7 +192,9 @@ from the database:
   sessions;
 - a **deletion** or a **new password** (changed by the user or reset by an administrator)
   closes every session of the account; `PUT /api/v1/me/password` hands a new session to the tab
-  that changed the password.
+  that changed the password;
+- a **logout** (`POST /api/v1/me/logout`) also closes every session of the account, in every
+  tab and browser: a stolen session token stops working when its user logs out.
 
 Sessions are signed with `SECREVIEW_SECRET_KEY` (at least 32 characters), shared by every
 replica of the controller. Without it, a random secret is drawn at every start (a warning is
@@ -230,10 +232,10 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   padlock of a route says that it requires a token: it stays **open** while you have not entered
   a token with **Authorize**, and does not mean that the route can be reached without a token.
   Enter an [API token](../usage/tokens.md#api-tokens) there.
-- The controller exposes no write route without a token. The
-  [enrollment](mcp-server.md#enrollment-request-the-project) is served by the **MCP
-  server** (`POST /api/v1/enroll`, public): it requests a project, never a token; the
-  controller lists and handles the requests (`GET /api/v1/projects/pending`,
+- The controller exposes no write route without a token. A project is requested by an agent
+  with a token, through the `request_project` tool of the **MCP server**
+  ([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)); the controller
+  lists and handles the requests (`GET /api/v1/projects/pending`,
   `POST /api/v1/projects/pending/{id}/approve`, `DELETE /api/v1/projects/pending/{id}`,
   `projects.create` permission).
 - The token is sent in the `Authorization` header: no cookie, hence no CSRF. Only the

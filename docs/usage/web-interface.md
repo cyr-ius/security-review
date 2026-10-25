@@ -63,16 +63,18 @@ shown), and the browser remembers the chosen sort for the next visits.
   With the `projects.create` permission, **New project** (left of **Refresh**) opens a modal
   window that creates a project you then read (see
   [Creating a project](../advanced/access-control.md#creating-a-project)), and the
-  **Pending projects** section lists the projects requested by an
-  [enrollment](../advanced/mcp-server.md#enrollment-request-the-project) (requester, address, request
-  and expiry dates): **Approve** creates the project without any member, **Reject** deletes the
+  **Pending projects** section lists the projects requested by the MCP agents of users
+  ([enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests): requester, address, request
+  and expiry dates): **Approve** creates the project and gives the requester access to it, **Reject** deletes the
   request; a request not approved before its expiry is deleted. With `projects.delete`, the
   trash button of a row deletes the project and everything that refers to it (see
   [Deleting a project](../advanced/access-control.md#deleting-a-project)).
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, the 20 worst open findings
   (number, severity, rule, location, report: the number opens the report at that finding) and
-  SARIF export; **All reports** lists its reports.
+  SARIF export; **All reports** lists its reports. In the **Proposal** column, a blinking
+  robot icon marks a finding whose status an agent proposed: hover it to read the proposed
+  status, click it to open the finding and apply or reject the proposal ([triage](triage.md)).
   The **Review open findings** button opens the next screen; **Risk acceptances** lists the
   accepted risks of the project; **Refresh** reloads the trend and the open findings.
 - **Findings to review**: every open finding of the project across all its reports, each issue
@@ -142,7 +144,7 @@ shown), and the browser remembers the chosen sort for the next visits.
   password there (their other sessions are closed); the one of an OIDC user is managed by the
   identity provider. **Personal tokens** creates and revokes the personal tokens of the account:
   [REST API](tokens.md#api-tokens) tokens (Swagger, scripts), which hold its rights, and
-  [MCP](tokens.md#personal-mcp-and-ci-tokens) tokens for its agent, which reach the projects it may read.
+  [MCP / CI](tokens.md#personal-mcp-and-ci-tokens) tokens for its agent and `security-review-ci`, which reach the projects it may read.
 - **Tokens**: tokens are searchable, sortable and filterable by usage. Administrators create
   and revoke tokens for one or more projects, or for
   **All projects** (never for a CI/CD token). The **Usage** field chooses **MCP** (`mcp` role),
@@ -163,11 +165,12 @@ shown), and the browser remembers the chosen sort for the next visits.
   A token never opens the web interface. The `admin` and `metrics` tokens stay unrestricted and
   are managed from the CLI only. The secret is shown only once; only its digest is stored, in the database. A
   revocation takes effect at the next request. The
-  [enrollment](../advanced/mcp-server.md#enrollment-request-the-project) creates no token: a project
-  it requests waits in **Projects**, and once approved an administrator gives a developer
-  access to it by adding them to its group `project:<project>` (**Groups** screen).
+  [enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests) creates no token: a project
+  requested by an agent waits in **Projects**, and its approval gives the requester access to
+  it; an administrator gives another developer access by adding them to its group
+  `project:<project>` (**Groups** screen).
 - **Audit log**: administrators read the [audit log](../advanced/audit-metrics.md): triage
-  decisions, agent proposals, tokens and enrollments, newest first, with who made
+  decisions, agent proposals, tokens and project requests, newest first, with who made
   them; filter by event and project, search event details, sort by date/action/actor/target/project,
   and use **Load more** for older events. Holders of `settings.manage` also set there the
   [syslog server](../advanced/audit-metrics.md#forwarding-to-syslog) the events are forwarded to

@@ -16,8 +16,9 @@ To understand when the rules, the checklists and the standards apply, and how to
 | `development-standards` | Gives the assistant the [development standards](standards.md) of its stack **before it writes code** | `technologies`, `files`, `task`, `context` |
 
 If `code` is empty, the prompt asks the agent to read the files of its workspace. Every review
-prompt ends with the instruction to call `save_security_report` once; `development-standards`
-saves nothing.
+prompt starts by calling `request_project` (the agent stops when the project is only
+requested) and ends with the instruction to call `save_security_report` once;
+`development-standards` saves nothing.
 
 Each review prompt embeds the checklists of its domain (by language for `security-review` and
 `codebase-review`, aliases such as `py` or `ts` accepted), the `*` (every language) and `company`
@@ -63,7 +64,7 @@ that it cannot carry instructions; otherwise the prompt is refused.
 | `get_trend_report` | Trend of a project: new / fixed, backlog, risk score, MTTR |
 | `scan_dependencies` | Analysis of a manifest, lockfile or CycloneDX SBOM: vulnerable versions + hygiene |
 | `get_advisory_status` | Size and age of the vulnerability database |
-| `request_enrollment` | Requests a project that does not exist yet, for an administrator to approve; no token is created and the current token gains no project: an administrator gives access to it ([enrollment](../advanced/mcp-server.md#enrollment-request-the-project)) |
+| `request_project` | Called before a review with `project`: `accessible` when the token reaches it, `created` for a new project when the user holds `projects.create` (the user becomes its member), else `requested` with `next_steps` (an administrator approves the project, which gives the user access to it); never a token ([enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests)) |
 | `list_development_standards` / `get_development_standards` | [Development standards](standards.md): catalog, then the standards to apply for technologies or file names |
 | `list_rules` / `reload_rules` | Active rules ([default and custom](rules.md), stored in the database), loading errors, immediate reload |
 
@@ -72,21 +73,20 @@ projects; `reload_rules` is refused to it (see
 [tokens restricted to a project](../advanced/bearer-tokens.md#tokens-restricted-to-a-project)).
 A token tied to several projects can use the report tools on each of them. A
 [personal MCP token](tokens.md#personal-mcp-and-ci-tokens) reaches the projects of its user: for
-another project, an administrator gives the user access to it (`request_enrollment` requests
-it first when it is new).
+another project, `request_project` creates it or requests it.
 
 ### Enrollment server
 
 On the HTTP transport, a client that connects **without a token** reaches a restricted
-server, with the same name, that only exposes (a token that is unknown, revoked or expired gets
-a `401` instead, see [rejected token](../advanced/mcp-server.md#rejected-token-sign-in-again)):
+server, with the same name, **without any tool**, that only exposes (a token that is unknown,
+revoked or expired gets a `401` instead, see
+[rejected token](../advanced/mcp-server.md#rejected-token-sign-in-again)):
 
 | Item | Role |
 |---|---|
-| `request_enrollment` | Requests the project (`project`, optional `requested_by`), for an administrator to approve, and returns `web_url` and `next_steps`: the user signs in to the web interface and creates a personal MCP token; never a token |
-| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Optional `project` argument; explain to the agent how to get a token instead of running the review |
+| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | No argument; tell the user to sign in to the web interface (`SECREVIEW_WEB_URL`), to create a personal MCP token and to add it to the host configuration, instead of running the review |
 
-See [enrollment](../advanced/mcp-server.md#enrollment-request-the-project).
+See [enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests).
 
 ## Resources
 
@@ -170,7 +170,7 @@ need to name it. Each report carries two fields:
 
 | Field | Filled by | Value |
 |---|---|---|
-| `author` | the server | Username of the web user who owns the personal token (`mcp` or `ci`) that saved the report, whatever the client passes. Only for a token without a user (enrolled device, token created by an administrator) is it the value declared by the client (`author` of `save_security_report`, `--author` of the CLI scans), if any; the review prompts ask the agent not to pass it. |
+| `author` | the server | Username of the web user who owns the personal token (`mcp` or `ci`) that saved the report, whatever the client passes. Only for a token without a user (token created by an administrator) is it the value declared by the client (`author` of `save_security_report`, `--author` of the CLI scans), if any; the review prompts ask the agent not to pass it. |
 | `submitted_by` | the server | Label of the bearer token that saved the report (empty with stdio and the CLI). The client cannot change it. |
 
 `author` is at most 200 characters: letters, digits, spaces and `. @ _ + - ' ,` only (no

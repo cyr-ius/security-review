@@ -78,8 +78,8 @@ The MCP server refuses to start while the schema is not migrated (step 3).
 
 ## 6. Give access to the agents
 
-The MCP server requires a token, even while none exists in the database (it then only accepts
-enrollments). Create the first one now:
+The MCP server requires a token, even while none exists in the database (it then only serves the
+enrollment server). Create the first one now:
 
 ```bash
 security-review-controller token create --label alice   # mcp token, shown once
@@ -93,9 +93,9 @@ security-review-controller token create --label alice   # mcp token, shown once
 Then, two ways to give a token to each developer and pipeline:
 
 - **Personal token** (with the enrollment, enabled by default): the developer connects their
-  host without a token, the agent requests the project at the first review and sends them to
-  the web interface, where they create a personal MCP token; an administrator approves the
-  project (**Projects** screen) and adds them to its group. Set `SECREVIEW_WEB_URL` so that the agent gives the link: see
+  host without a token, the agent sends them to the web interface at the first review, where
+  they create a personal MCP token; at the next review, the agent requests the project, which an
+  administrator approves (**Projects** screen), giving them access to it. Set `SECREVIEW_WEB_URL` so that the agent gives the link: see
   [Getting a token](../getting-started/host.md#getting-a-token).
 - **Created by the administrator**: `security-review-controller token create --label <name>`,
   for example for a pipeline, then handed to its owner.

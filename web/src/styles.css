@@ -281,10 +281,11 @@ dialog::backdrop {
 
 /*
  * Loading indicators (Bootstrap spinners, turning refresh icon) are left out: they are the only
- * sign that work is running, and they already turn slower under reduced motion.
+ * sign that work is running, and they already turn slower under reduced motion. So is the icon
+ * of a finding with an agent proposal (project page), which blinks slower.
  */
 @media (prefers-reduced-motion: reduce) {
-  :not(.spinner-border, .spinner-grow, .spinning),
+  :not(.spinner-border, .spinner-grow, .spinning, .proposal-pending),
   *::before,
   *::after {
     transition: none !important;

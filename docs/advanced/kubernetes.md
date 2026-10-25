@@ -119,7 +119,7 @@ no Ingress: expose each Service through its own Ingress with TLS.
 
 | Service | Reached by | Ingress |
 |---|---|---|
-| `secreview-mcp` | the agents (MCP on `/mcp`, enrollment) | to every developer workstation |
+| `secreview-mcp` | the agents (MCP on `/mcp`) | to every developer workstation |
 | `secreview-controller` | the people (web interface `/ui`, personal MCP and CI tokens) and the CI (`security-review-ci` calls `/api/v1/ci`) | to the developers and to the CI runners; `kubectl port-forward` is enough for a first test |
 
 Then, in the ConfigMap:
@@ -129,7 +129,7 @@ Then, in the ConfigMap:
   a personal MCP token;
 - set `SECREVIEW_FORWARDED_ALLOW_IPS` to the address range of the ingress controller pods:
   otherwise every client shares their address for the login throttling, the rate limit and the
-  enrollment limits.
+  audit log.
 
 The NetworkPolicy of the controller lets in the ingress controller of the `ingress-nginx`
 namespace: adapt its label to yours. Administration commands run in the pod of the controller:

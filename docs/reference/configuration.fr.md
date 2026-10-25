@@ -34,13 +34,13 @@ Lues par le serveur MCP et par le contrôleur.
 | `SECREVIEW_TLS_KEYFILE` | — | Clé privée |
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | Mot de passe de la clé privée |
 | `SECREVIEW_TLS_CLIENT_CA` | — | CA cliente : active le TLS mutuel |
-| `SECREVIEW_FORWARDED_ALLOW_IPS` | — | Reverse proxies (adresses IP ou plages CIDR séparées par des virgules, `*` pour tous) dont l'en-tête `X-Forwarded-For` donne l'adresse du client, utilisée par la limitation des connexions, les limites d'enrôlement et les journaux ; sans elle, la valeur par défaut d'uvicorn (variable `FORWARDED_ALLOW_IPS`, sinon `127.0.0.1`). À définir derrière un Ingress ou un reverse proxy, sinon tous les clients partagent l'adresse du proxy |
+| `SECREVIEW_FORWARDED_ALLOW_IPS` | — | Reverse proxies (adresses IP ou plages CIDR séparées par des virgules, `*` pour tous) dont l'en-tête `X-Forwarded-For` donne l'adresse du client, utilisée par la limitation des connexions, le journal d'audit et les journaux ; sans elle, la valeur par défaut d'uvicorn (variable `FORWARDED_ALLOW_IPS`, sinon `127.0.0.1`). À définir derrière un Ingress ou un reverse proxy, sinon tous les clients partagent l'adresse du proxy |
 
 ### Limites communes
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | Jours pendant lesquels un projet demandé par un enrôlement attend sa validation (1 à 365) avant d'être supprimé |
+| `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | Jours pendant lesquels un projet demandé par l'agent MCP d'un utilisateur (`request_project`) attend sa validation (1 à 365) avant d'être supprimé |
 | `SECREVIEW_MAX_FINDINGS_PER_REPORT` | `500` | Nombre maximal de findings par rapport |
 | `SECREVIEW_MAX_DEPENDENCY_CHARS` | `1000000` | Taille maximale d'un manifeste passé à `scan_dependencies` ou envoyé par `security-review-ci scan-deps` |
 | `SECREVIEW_MAX_LIST_LIMIT` | `100` | Taille maximale d'une page de résultats |
@@ -53,8 +53,8 @@ Lues par `security-review-mcp` uniquement.
 |---|---|---|
 | `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` (mode partagé) ou `stdio` (mode local) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | Tant qu'aucun jeton n'existe, accepte toute requête sur `/mcp` même si le serveur n'écoute pas sur localhost (par défaut il reste alors fermé, voir [Jetons Bearer](../advanced/bearer-tokens.md)) ; à réserver aux tests sur un réseau isolé |
-| `SECREVIEW_ENROLLMENT` | `true` | [Enrôlement](../advanced/mcp-server.md#enrolement-demander-le-projet) : un client sans jeton peut demander son projet (serveur MCP restreint, `POST /api/v1/enroll`), qu'un utilisateur portant `projects.create` valide sur le contrôleur ; aucun jeton n'est créé, l'utilisateur crée un jeton MCP personnel dans l'interface web |
-| `SECREVIEW_WEB_URL` | — | URL publique de l'interface web (`https://…/ui`), donnée aux clients sans jeton valide (réponse de l'enrôlement, `401` de `/mcp`) pour que l'utilisateur sache où se connecter et créer un jeton MCP personnel ; sans elle, aucun lien n'est donné |
+| `SECREVIEW_ENROLLMENT` | `true` | [Enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) : un client sans jeton atteint un serveur MCP restreint, sans aucun outil, qui invite l'utilisateur à créer un jeton MCP personnel dans l'interface web ; avec un jeton, `request_project` crée un nouveau projet pour un utilisateur portant `projects.create`, sinon le demande pour qu'un utilisateur portant `projects.create` le valide. `false` : `401` sans jeton, et aucune demande de projet |
+| `SECREVIEW_WEB_URL` | — | URL publique de l'interface web (`https://…/ui`), donnée aux clients sans jeton valide (prompts du serveur d'enrôlement, `401` de `/mcp`) pour que l'utilisateur sache où se connecter et créer un jeton MCP personnel ; sans elle, aucun lien n'est donné |
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Langue des rapports](../usage/prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent ; définie (même vide : l'agent choisit), elle est prioritaire sur la langue choisie dans l'écran [**Langue des rapports**](../usage/web-interface.md#ecrans) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Taille maximale du contenu passé à `scan_code`, et de chaque texte d'un rapport (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Taille maximale d'une requête d'un client MCP authentifié sur `/mcp` (`413` au-delà) ; un client sans jeton, dirigé vers le serveur d'enrôlement, est borné à 64 Kio |

@@ -8,8 +8,9 @@ users, who log in with a password, are in web_users.
 A token restricted to projects lists them in ``ApiTokenProject``; a token without project rows
 (and without ``ApiToken.project``) reaches every project.
 
-The enrollment never creates a token: it creates a project (see access_control.enroll_project)
-and the developer creates a personal ``mcp`` token in the web interface.
+No token is ever created for an MCP client: the developer creates a personal ``mcp`` token in
+the web interface, and its agent requests the projects it does not reach yet (see
+access_control.request_project).
 
 A token may expire (``expires_at``, bounded by SECREVIEW_TOKEN_MAX_DAYS): it then authenticates
 nothing but stays listed, so that an administrator rotates or revokes it. A rotation replaces the

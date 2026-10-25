@@ -200,6 +200,7 @@
               <th scope="col">{{ 'project.colLocation' | t }}</th>
               <th scope="col">{{ 'project.colReport' | t }}</th>
               <th scope="col">{{ 'reportTable.date' | t }}</th>
+              <th scope="col" class="text-center">{{ 'project.colProposal' | t }}</th>
             </tr>
           </thead>
           <tbody>
@@ -237,6 +238,20 @@
                   <a [routerLink]="['/reports', finding.report_id]">#{{ finding.report_id }}</a>
                 </td>
                 <td class="text-nowrap">{{ finding.report_created_at | date: 'dd/MM/yyyy' }}</td>
+                <td class="text-center">
+                  @if (finding.proposed_status; as proposed) {
+                    @let hint =
+                      'project.proposalPending' | t: { status: statusMeta[proposed].label | t };
+                    <a
+                      class="proposal-pending"
+                      [routerLink]="['/reports', finding.report_id]"
+                      [fragment]="'finding-' + finding.id"
+                      [attr.aria-label]="hint"
+                      [title]="hint"
+                      ><i class="bi bi-robot" aria-hidden="true"></i
+                    ></a>
+                  }
+                </td>
               </tr>
             }
           </tbody>

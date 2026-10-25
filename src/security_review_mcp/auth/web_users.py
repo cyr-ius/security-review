@@ -22,9 +22,9 @@ groups named by its groups claim at its last login.
 The session token (see oidc.SessionSigner) carries the id of the user. At each request,
 SessionVerifier reads the user again: a deleted user loses its sessions at once, a new role or
 new projects apply at once, and a password change ends the sessions opened before it.
-``WebUser.session_version`` is random (drawn at creation and at each password change) and the
-session must name the same username, so that a session never opens another account that reuses
-the id of a deleted one.
+``WebUser.session_version`` is random (drawn at creation, at each password change and at each
+logout, which ends every session of the user) and the session must name the same username, so
+that a session never opens another account that reuses the id of a deleted one.
 
 The first administrator is the local user ``SECREVIEW_ADMIN_USERNAME`` (``admin``), created on
 the first start of the controller with a random password that only ``user reset-password`` sets,
@@ -594,9 +594,18 @@ def _record_login(session: Session, row: WebUser, method: str, address: str | No
     )
 
 
-def record_logout(label: str, address: str | None) -> None:
-    """Write the logout of a web user (``label``: its session label) to the audit log."""
+def logout(user_id: int, label: str, address: str | None) -> None:
+    """End every session of a web user and write its logout (``label``: its session label) to
+    the audit log.
+
+    A new session version makes the signed session tokens issued before it invalid at once, so
+    that a stolen token stops working when its user logs out.
+    """
     with session_scope() as session:
+        row = session.get(WebUser, user_id)
+        if row is not None:
+            row.session_version = new_session_version()
+            session.add(row)
         audit.record(
             session,
             AuditAction.USER_LOGOUT,

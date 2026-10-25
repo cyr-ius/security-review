@@ -14,8 +14,7 @@ from starlette.routing import Route
 from starlette.testclient import TestClient
 
 from security_review_mcp import cli, http_server, server
-from security_review_mcp.auth import token_store, web_users
-from security_review_mcp.clients import commands
+from security_review_mcp.auth import access_control, token_store, web_users
 from security_review_mcp.config import Settings, default_database_url, get_settings
 from security_review_mcp.http_server import BearerAuthMiddleware, PathDispatcher, Role, hash_token
 from security_review_mcp.storage import database
@@ -63,7 +62,6 @@ def protected_client(
         routes=[
             Route("/mcp", whoami),
             Route("/api/v1/me", whoami),
-            Route("/api/v1/enroll", whoami, methods=["POST"]),
             Route("/api/v1/auth/config", whoami),
             Route("/api/docs", whoami),
             Route("/api/openapi.json", whoami),
@@ -75,7 +73,7 @@ def protected_client(
         ]
     )
     enrollment_app = Starlette(routes=[Route("/mcp", enrollment_echo)]) if enrollment else None
-    public = frozenset({"/api/v1/enroll", "/healthz"})
+    public = frozenset({"/healthz"})
     return TestClient(
         BearerAuthMiddleware(
             app,
@@ -151,8 +149,6 @@ def test_web_ui_files_are_public_but_not_the_api():
     assert client.get("/api/openapi.json").status_code == 200
     assert client.get("/api/swagger/swagger-ui.css").status_code == 200
     assert client.get("/api/favicon.svg").status_code == 200
-    # The controller does not serve the public enrollment endpoint
-    assert client.post("/api/v1/enroll").status_code == 401
     # On the MCP server, only the public paths it declares are open
     mcp_client = protected_client()
     assert mcp_client.get("/ui/").status_code == 401
@@ -160,7 +156,6 @@ def test_web_ui_files_are_public_but_not_the_api():
     assert mcp_client.get("/api/swagger/swagger-ui.css").status_code == 401
     assert mcp_client.get("/api/favicon.svg").status_code == 401
     assert mcp_client.get("/healthz").status_code == 200
-    assert mcp_client.post("/api/v1/enroll").status_code == 200
     # The login routes are public on the controller only
     assert client.get("/api/v1/auth/config").status_code == 200
     assert mcp_client.get("/api/v1/auth/config").status_code == 401
@@ -265,18 +260,12 @@ def test_path_dispatcher_routes_exact_paths():
     ]
 
 
-@pytest.mark.parametrize(("enrollment", "enroll_status"), [(True, 200), (False, 401)])
-def test_mcp_app_serves_health_and_enrollment_but_not_the_web_interface(enrollment, enroll_status):
+def test_mcp_app_serves_health_but_not_the_web_interface():
     token_store.create_token("ops", Role.ADMIN)
-    endpoint = Starlette(routes=[Route("/api/v1/enroll", whoami, methods=["POST"])])
-    app = http_server.build_mcp_app(
-        server.mcp, "127.0.0.1", STORE, enroll_endpoint=endpoint if enrollment else None
-    )
-    client = TestClient(app, base_url="http://127.0.0.1")
+    client = TestClient(http_server.build_mcp_app(server.mcp, "127.0.0.1", STORE))
 
     health = client.get("/healthz")
     assert (health.status_code, health.json()) == (200, {"status": "ok"})
-    assert client.post("/api/v1/enroll").status_code == enroll_status
     assert client.get("/ui/").status_code == 401
     assert client.get("/api/v1/me").status_code == 401
 
@@ -429,13 +418,11 @@ def test_main_serves_the_enrollment_server_when_enabled(monkeypatch, captured_ru
             json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
         )
         enroll = client.post("/api/v1/enroll", json={"project": "shop-api"})
-    if enabled:
-        # The enrollment server answers (its tools are checked in test_server.py)
-        assert response.status_code == 200
-        assert enroll.status_code == 202
-    else:
-        assert response.status_code == 401
-        assert enroll.status_code == 401
+    # The enrollment server answers (its prompts are checked in test_server.py)
+    assert response.status_code == (200 if enabled else 401)
+    # The public enrollment endpoint of older versions is gone: nothing is written anonymously
+    assert enroll.status_code == (404 if enabled else 401)
+    assert access_control.list_enrollments() == []
 
 
 @pytest.mark.parametrize(
@@ -557,7 +544,7 @@ def test_the_mcp_cli_no_longer_runs_the_controller_commands(capsys):
 @pytest.mark.parametrize(
     ("argv", "expected"),
     [
-        (["--help"], ["serve", "local", *commands.MCP_COMMANDS]),
+        (["--help"], ["serve", "local"]),
         (["serve", "--help"], ["--transport", "--host", "--port"]),
     ],
 )
@@ -593,7 +580,7 @@ def test_mcp_without_a_valid_command_serves_nothing(monkeypatch, capsys, argv, m
     assert message in captured.err
 
 
-@pytest.mark.parametrize("argv", [["serve"], *([command] for command in commands.MCP_COMMANDS)])
+@pytest.mark.parametrize("argv", [["serve"]])
 def test_mcp_options_all_have_a_help_text(monkeypatch, argv):
     parsers: list[argparse.ArgumentParser] = []
 

@@ -1,5 +1,5 @@
 """Audit log: who changed a finding status (or commented a finding), a token or an access, who
-enrolled a project, and who logged in to the web interface (or failed to) and out.
+requested a project, and who logged in to the web interface (or failed to) and out.
 
 Events are written by the business modules (services, token_store, access_control) in the same
 transaction as the change they describe, so that an event exists exactly when the change was
@@ -49,9 +49,9 @@ class AuditAction(StrEnum):
     TOKEN_ROTATED = "token.rotated"
     TOKEN_REVOKED = "token.revoked"
     TOKEN_PROJECTS_CHANGED = "token.projects_changed"
-    # A project enrolled by an MCP client (see access_control.enroll_project)
+    # A project requested by the MCP agent of a user (see access_control.request_project)
     ENROLLMENT_REQUESTED = "enrollment.requested"
-    # Decisions on the enrollment requests of older versions: kept for the history
+    # Decisions on the project requests (approval, rejection or expiry)
     ENROLLMENT_APPROVED = "enrollment.approved"
     ENROLLMENT_REJECTED = "enrollment.rejected"
     ROLE_CREATED = "role.created"

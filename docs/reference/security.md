@@ -18,7 +18,8 @@
   is limited to that project in the MCP tools and the pipeline routes: any other project, report
   or finding is handled as missing (see
   [tokens restricted to a project](../advanced/bearer-tokens.md#tokens-restricted-to-a-project)).
-  While no token exists, the MCP server stays closed (fail closed: only enrollment is reachable),
+  While no token exists, the MCP server stays closed (fail closed: only the enrollment server,
+  which has no tool, is reachable),
   unless it listens on localhost or `SECREVIEW_ALLOW_UNAUTHENTICATED=true`.
   If it does not listen on localhost, a warning is logged when authentication or TLS is missing.
   The server never generates a TLS certificate: HTTPS uses the certificate given by the
@@ -50,12 +51,12 @@
   rejections of the controller. `SECREVIEW_WEB_URL`, given in that description, is a public URL:
   it holds no credentials (refused at start-up).
 - **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
-  tokens and enrollments are written in the same transaction as the change,
+  tokens and project requests are written in the same transaction as the change,
   with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,
   and never hold a token or a password; no tool nor route edits an event, only the purge of
   `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-metrics.md)).
-- **Metrics**: `/metrics` exists on the controller only (the MCP server keeps `/mcp`,
-  `/api/v1/enroll` and `/healthz`), behind a `metrics` or `admin` token; a `metrics` token
+- **Metrics**: `/metrics` exists on the controller only (the MCP server keeps `/mcp`
+  and `/healthz`), behind a `metrics` or `admin` token; a `metrics` token
   reaches nothing else. The answer holds counts and project names, never a finding, a token
   label or a secret, and every label value is escaped (see
   [Prometheus metrics](metrics.md)).
@@ -69,23 +70,21 @@
   database, reads the token from the environment or stdin only, refuses plain HTTP outside
   localhost, credentials in the URL and redirects, and bounds the answers.
 - **Enrollment** (enabled by default, `SECREVIEW_ENROLLMENT`): a client without a token reaches
-  a restricted MCP server that only lets it request its project, and `POST /api/v1/enroll` is
-  public on the MCP server (body limited to 4 KiB). The enrollment **never creates a token** and
-  never gives any access: a requested project is **pending** until a user with
-  `projects.create` approves it on the controller, which creates its project group without any
-  member; only an administrator adds a user to it, and the developer creates a personal MCP
-  token in the web interface, after logging in. The answer is the same whether the project
-  existed or not. The enrollments are bounded (20 pending projects, 5 per client address and
-  per hour, `429` beyond), a request nobody approved within
-  `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` is deleted, and the free text of the requester is
-  masked and truncated: check the requester and the address before approving. Every enrollment is audited. See
-  [enrollment](../advanced/mcp-server.md#enrollment-request-the-project).
+  a restricted MCP server **without any tool**, whose prompts tell the user to create a personal
+  MCP token in the web interface, after logging in: nothing is written without a token, and the
+  MCP server serves no other public route than `/healthz`. No token is ever created for a
+  client. With a token, `request_project` creates a new project only for a user holding
+  `projects.create` (never an existing project); otherwise the project is **pending** until a
+  user with `projects.create` approves it on the controller, which creates its project group
+  with the requesting user (authenticated by the token, never declared) as its only member. The
+  answer is the same whether the project existed or not. The requests are bounded (20 pending
+  projects, 5 per user or token and per hour), and a request nobody approved within
+  `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` is deleted: check the requester before approving.
+  Every request is audited. See
+  [enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests).
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
   of the controller that make them (advisory download, OIDC, syslog, connectors, version check):
-  a test checks it. The `security-review-mcp enroll` command contacts, at the request of the
-  operator, the URL it gives; it refuses plain HTTP
-  outside localhost (unless `--allow-http`), credentials in the URL and redirects. The
-  controller only downloads the OSV advisories if an administrator enables it
+  a test checks it. The controller only downloads the OSV advisories if an administrator enables it
   (`SECREVIEW_OSV_AUTO_UPDATE` or `advisories update`): only from `SECREVIEW_OSV_URL` over
   HTTPS with certificate verification, redirects limited to HTTPS, bounded size
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), optional proxy whose credentials are never logged. The
@@ -226,8 +225,8 @@
   account is bound to the issuer and the `sub` of its first login: another `sub` or another
   issuer is refused. A deleted OIDC
   account is revoked, by its name and its issuer and `sub`: the automatic creation does not create it again, until an administrator
-  creates it again or allows it again. Check the requester of an enrollment (free text, not
-  verified) before giving them read access to the project. A session restricted to projects is
+  creates it again or allows it again. The approval of a requested project gives its requester
+  read access to it: check who asked before approving. A session restricted to projects is
   restricted like a `--project` token. The session is a signed token (HMAC-SHA256, key derived
   from `SECREVIEW_SECRET_KEY`) that names the account, read again at every request: the
   deletion of the account cuts it at once. It is accepted by the controller only, never by the
@@ -299,8 +298,8 @@
   rules of the scan leads) is declared by the agent: the server only keeps the ids it knows and
   marks the skipped items `not_covered`, it cannot check that the agent really read the code.
 - The `author` of a report (developer username) is the user of the personal token that saved
-  it, set by the server whatever the client passes. With a token without a user (enrolled
-  device, token created by an administrator), it is declared by the client: anyone holding such
+  it, set by the server whatever the client passes. With a token without a user (token created
+  by an administrator), it is declared by the client: anyone holding such
   a token of the project can name someone else. `submitted_by`, the label of the token that
   saved the report, is always set by the server (see
   [author of a report](../usage/prompts-tools.md#author-of-a-report)). An `author` is often an

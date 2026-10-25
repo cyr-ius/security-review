@@ -1,3 +1,30 @@
 .list-group-item strong {
   font-variant-numeric: tabular-nums;
 }
+
+/* Status proposed by an agent, waiting for a triager (slower under reduced motion, styles.css) */
+.proposal-pending {
+  display: inline-block;
+  color: var(--app-accent);
+  font-size: 1.15rem;
+  text-decoration: none;
+  animation: proposal-blink 1.4s ease-in-out infinite;
+}
+
+.proposal-pending:hover,
+.proposal-pending:focus-visible {
+  color: var(--app-accent-hover);
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .proposal-pending {
+    animation-duration: 3s;
+  }
+}
+
+@keyframes proposal-blink {
+  50% {
+    opacity: 0.15;
+  }
+}

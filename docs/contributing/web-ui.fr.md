@@ -13,8 +13,7 @@ npm run format                # Prettier
 
 `npm start` redirige `/api` vers `http://127.0.0.1:8080` (`web/proxy.conf.json`) : lancez le
 contrôleur en parallèle avec `security-review-controller serve --port 8080`, ou utilisez la
-configuration VS Code **Web UI + API (Angular dev server, port 4200)**, qui démarre les deux
-(**Controller + web UI (Angular, port 4200)** si vous voulez aussi déboguer le Python) : chaque enregistrement d'un
+configuration VS Code **Controller (debug: FastAPI + Angular)**, qui démarre les deux sous le débogueur : chaque enregistrement d'un
 fichier de `web/src/` recharge la page (styles et templates sans rechargement complet), et les
 points d'arrêt posés dans les fichiers `.ts` sont pris en compte. Dans le devcontainer, Chrome
 est ouvert sur le poste local et le port 4200 est redirigé automatiquement.

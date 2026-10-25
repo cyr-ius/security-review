@@ -4,7 +4,7 @@ import { defineMessages } from '../catalog';
 export const audit = defineMessages({
   en: {
     'audit.subtitle':
-      'Triage decisions, agent proposals, tokens and enrollment requests, newest first',
+      'Triage decisions, agent proposals, tokens and project requests, newest first',
     'audit.action': 'Event',
     'audit.allActions': 'All events',
     'audit.allProjects': 'All projects',
@@ -25,9 +25,9 @@ export const audit = defineMessages({
     'audit.action.token.rotated': 'Token rotated',
     'audit.action.token.revoked': 'Token revoked',
     'audit.action.token.projects_changed': 'Token projects changed',
-    'audit.action.enrollment.requested': 'Enrollment requested',
-    'audit.action.enrollment.approved': 'Enrollment approved',
-    'audit.action.enrollment.rejected': 'Enrollment rejected',
+    'audit.action.enrollment.requested': 'Project requested',
+    'audit.action.enrollment.approved': 'Project request approved',
+    'audit.action.enrollment.rejected': 'Project request rejected',
     'audit.action.role.created': 'Role created',
     'audit.action.role.updated': 'Role changed',
     'audit.action.role.deleted': 'Role deleted',
@@ -68,7 +68,7 @@ export const audit = defineMessages({
   },
   fr: {
     'audit.subtitle':
-      'Décisions de triage, propositions des agents, jetons et demandes d’enrôlement, du plus récent au plus ancien',
+      'Décisions de triage, propositions des agents, jetons et demandes de projet, du plus récent au plus ancien',
     'audit.action': 'Événement',
     'audit.allActions': 'Tous les événements',
     'audit.allProjects': 'Tous les projets',
@@ -89,9 +89,9 @@ export const audit = defineMessages({
     'audit.action.token.rotated': 'Jeton renouvelé',
     'audit.action.token.revoked': 'Jeton révoqué',
     'audit.action.token.projects_changed': 'Projets du jeton modifiés',
-    'audit.action.enrollment.requested': 'Enrôlement demandé',
-    'audit.action.enrollment.approved': 'Enrôlement approuvé',
-    'audit.action.enrollment.rejected': 'Enrôlement rejeté',
+    'audit.action.enrollment.requested': 'Projet demandé',
+    'audit.action.enrollment.approved': 'Demande de projet validée',
+    'audit.action.enrollment.rejected': 'Demande de projet refusée',
     'audit.action.role.created': 'Rôle créé',
     'audit.action.role.updated': 'Rôle modifié',
     'audit.action.role.deleted': 'Rôle supprimé',
@@ -132,7 +132,7 @@ export const audit = defineMessages({
   },
   es: {
     'audit.subtitle':
-      'Decisiones de triaje, propuestas de los agentes, tokens y solicitudes de registro, de la más reciente a la más antigua',
+      'Decisiones de triaje, propuestas de los agentes, tokens y solicitudes de proyecto, de la más reciente a la más antigua',
     'audit.action': 'Evento',
     'audit.allActions': 'Todos los eventos',
     'audit.allProjects': 'Todos los proyectos',
@@ -153,9 +153,9 @@ export const audit = defineMessages({
     'audit.action.token.rotated': 'Token renovado',
     'audit.action.token.revoked': 'Token revocado',
     'audit.action.token.projects_changed': 'Proyectos del token cambiados',
-    'audit.action.enrollment.requested': 'Registro solicitado',
-    'audit.action.enrollment.approved': 'Registro aprobado',
-    'audit.action.enrollment.rejected': 'Registro rechazado',
+    'audit.action.enrollment.requested': 'Proyecto solicitado',
+    'audit.action.enrollment.approved': 'Solicitud de proyecto aprobada',
+    'audit.action.enrollment.rejected': 'Solicitud de proyecto rechazada',
     'audit.action.role.created': 'Rol creado',
     'audit.action.role.updated': 'Rol modificado',
     'audit.action.role.deleted': 'Rol eliminado',

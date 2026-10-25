@@ -16,8 +16,9 @@ le fichier `AGENTS.md` d'un projet, voir [Fonctionnement d'une revue](how-it-wor
 | `development-standards` | Donne à l'assistant les [normes de développement](standards.md) de sa pile **avant d'écrire du code** | `technologies`, `files`, `task`, `context` |
 
 Si `code` est vide, le prompt demande à l'agent de relire les fichiers de son espace de travail.
-Chaque prompt de revue se termine par l'instruction d'appeler `save_security_report` une seule
-fois ; `development-standards` n'enregistre rien.
+Chaque prompt de revue commence par appeler `request_project` (l'agent s'arrête quand le projet
+est seulement demandé) et se termine par l'instruction d'appeler `save_security_report` une
+seule fois ; `development-standards` n'enregistre rien.
 
 Chaque prompt de revue intègre les checklists de son domaine (selon les langages pour
 `security-review` et `codebase-review`, alias comme `py` ou `ts` acceptés) et les checklists
@@ -64,7 +65,7 @@ pour qu'elle ne puisse pas transporter d'instructions ; sinon le prompt est refu
 | `get_trend_report` | Tendance d'un projet : nouveaux / corrigés, backlog, score de risque, MTTR |
 | `scan_dependencies` | Analyse d'un manifeste, d'un lockfile ou d'un SBOM CycloneDX : versions vulnérables + hygiène |
 | `get_advisory_status` | Taille et âge de la base de vulnérabilités |
-| `request_enrollment` | Demande un projet qui n'existe pas encore, validé par un administrateur ; aucun jeton n'est créé et le jeton courant ne gagne aucun projet : un administrateur en donne l'accès ([enrôlement](../advanced/mcp-server.md#enrolement-demander-le-projet)) |
+| `request_project` | Appelé avant une revue avec `project` : `accessible` quand le jeton l'atteint, `created` pour un nouveau projet quand l'utilisateur porte `projects.create` (il en devient membre), sinon `requested` avec `next_steps` (un administrateur valide le projet, ce qui en donne l'accès à l'utilisateur) ; jamais de jeton ([enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
 | `list_development_standards` / `get_development_standards` | [Normes de développement](standards.md) : catalogue, puis normes à appliquer pour des technologies ou des noms de fichiers |
 | `list_rules` / `reload_rules` | Règles actives ([par défaut et personnalisées](rules.md), stockées en base), erreurs de chargement, rechargement immédiat |
 
@@ -73,21 +74,19 @@ projets autorisés ; `reload_rules` lui est refusé (voir
 [jetons restreints à un projet](../advanced/bearer-tokens.md#jetons-restreints-a-un-projet)).
 Un jeton associé à plusieurs projets peut utiliser les outils de rapports sur chacun d'eux. Un
 [jeton MCP personnel](tokens.md#jetons-mcp-et-ci-personnels) atteint les projets de son
-utilisateur : pour un autre projet, un administrateur lui en donne l'accès (`request_enrollment`
-le demande d'abord s'il est nouveau).
+utilisateur : pour un autre projet, `request_project` le crée ou le demande.
 
 ### Serveur d'enrôlement
 
 Sur le transport HTTP, un client qui se connecte **sans jeton** atteint un serveur restreint, du
-même nom, qui n'expose que (un jeton inconnu, révoqué ou expiré reçoit plutôt un `401`, voir
-[jeton refusé](../advanced/mcp-server.md#jeton-refuse-se-reconnecter)) :
+même nom, **sans aucun outil**, qui n'expose que (un jeton inconnu, révoqué ou expiré reçoit
+plutôt un `401`, voir [jeton refusé](../advanced/mcp-server.md#jeton-refuse-se-reconnecter)) :
 
 | Élément | Rôle |
 |---|---|
-| `request_enrollment` | Demande le projet (`project`, `requested_by` facultatif), validé par un administrateur, et renvoie `web_url` et `next_steps` : l'utilisateur se connecte à l'interface web et crée un jeton MCP personnel ; jamais de jeton |
-| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Argument `project` facultatif ; expliquent à l'agent comment obtenir un jeton au lieu de lancer la revue |
+| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Sans argument ; invitent l'utilisateur à se connecter à l'interface web (`SECREVIEW_WEB_URL`), à créer un jeton MCP personnel et à l'ajouter à la configuration de l'hôte, au lieu de lancer la revue |
 
-Voir [l'enrôlement](../advanced/mcp-server.md#enrolement-demander-le-projet).
+Voir [l'enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet).
 
 ## Ressources
 
@@ -171,7 +170,7 @@ pas à le préciser. Chaque rapport porte deux champs :
 
 | Champ | Rempli par | Valeur |
 |---|---|---|
-| `author` | le serveur | Nom de l'utilisateur web propriétaire du jeton personnel (`mcp` ou `ci`) qui a enregistré le rapport, quelle que soit la valeur passée par le client. Seulement pour un jeton sans utilisateur (équipement enrôlé, jeton créé par un administrateur), c'est la valeur déclarée par le client (`author` de `save_security_report`, `--author` des scans CLI), s'il y en a une ; les prompts de revue demandent à l'agent de ne pas la passer. |
+| `author` | le serveur | Nom de l'utilisateur web propriétaire du jeton personnel (`mcp` ou `ci`) qui a enregistré le rapport, quelle que soit la valeur passée par le client. Seulement pour un jeton sans utilisateur (jeton créé par un administrateur), c'est la valeur déclarée par le client (`author` de `save_security_report`, `--author` des scans CLI), s'il y en a une ; les prompts de revue demandent à l'agent de ne pas la passer. |
 | `submitted_by` | le serveur | Libellé du jeton Bearer qui a enregistré le rapport (vide en stdio et avec la CLI). Le client ne peut pas le modifier. |
 
 `author` fait au plus 200 caractères : lettres, chiffres, espaces et `. @ _ + - ' ,` uniquement

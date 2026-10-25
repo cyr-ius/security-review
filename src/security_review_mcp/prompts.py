@@ -29,6 +29,13 @@ Pass in `checklist_results` every checklist item you walked through with its out
 `issue`, `not_applicable`, `not_verifiable`), and in `scan_rules` the rule id of every lead \
 returned by `scan_code`, confirmed or dismissed."""
 
+# A report is only saved for a project the token reaches: checked before the review starts
+_PROJECT_CHECK = """\
+## Before you start
+Call `request_project` once with the project name you will pass to `save_security_report` \
+(usually the repository name). If its `status` is `requested`, stop there: the report could \
+not be saved, so give the user its `next_steps` instead of reviewing."""
+
 _BACKTICK_RUN_RE = re.compile(r"`{3,}")
 
 
@@ -198,6 +205,7 @@ def build_security_review_prompt(
         "(OWASP Top 10, CWE).",
         _context_block(context, focus),
         report_language_block(report_language),
+        _PROJECT_CHECK,
         _method("security-review"),
         _checklists([*_language_domains(language), "api"]),
         # Only a known language labels the fence: free text could break out of it
@@ -218,6 +226,7 @@ def build_api_review_prompt(
         "returned.",
         _context_block(context, focus),
         report_language_block(report_language),
+        _PROJECT_CHECK,
         "For each endpoint you can see, determine: who may call it, how identity is "
         "established, how object ownership is verified, which fields are accepted and "
         "returned, and which limits apply (size, rate, pagination).",
@@ -239,6 +248,7 @@ def build_config_review_prompt(
         "network exposure, weak TLS, unpinned dependencies and risky CI/CD steps.",
         _context_block(context, focus),
         report_language_block(report_language),
+        _PROJECT_CHECK,
         _method("configuration-review").replace(
             "`scan_code`", "`scan_code` (use language `config`, `yaml` or `docker`)"
         ),
@@ -278,6 +288,7 @@ def build_dependency_review_prompt(
         "of a project: known vulnerabilities and supply-chain hygiene.",
         _context_block(context, ""),
         report_language_block(report_language),
+        _PROJECT_CHECK,
         f"""\
 ## Method
 1. List the dependency files of the project (manifests and lockfiles). Prefer lockfiles: they \
@@ -377,6 +388,7 @@ def build_codebase_review_prompt(
         "including issues that span several files.",
         _context_block(context, focus),
         report_language_block(report_language),
+        _PROJECT_CHECK,
         _CODEBASE_METHOD,
         checklists,
         f"## Scan results\n{fenced(results, 'json')}" if results else "",
@@ -385,34 +397,27 @@ def build_codebase_review_prompt(
 
 
 _ENROLLMENT = """\
-# Enrollment required
+# Personal token required
 
 This security-review server needs a bearer token and the MCP client is connected without one. \
-The review cannot start before the user has a token. Do this instead:
+The review cannot start before the user has a token. Do not try to review the code with this \
+server: its tools are not available. Tell the user instead to:
 
-1. Call `request_enrollment` once, with the project name used for the reports (usually the \
-repository name, or the one given under "Project" below), and in `requested_by` who is asking \
-(the user's name or team), if you know them. It requests the project when it is new, for an \
-administrator to approve; it never returns a token.
-2. Tell the user to sign in to the web interface (the returned `web_url`, if any), to create a \
-personal MCP token in **My account** (it is shown only once) and to add it to the MCP client \
-configuration as the header `Authorization: Bearer <token>`, then to reconnect.
-3. Explain that the token reaches the projects their account may read: an administrator \
-approves a new project, then gives them access to it (the returned `next_steps` say how). Then \
-they can run the review again.
+1. sign in to the web interface{where};
+2. create a personal MCP token in **My account** (it is shown only once);
+3. add it to the MCP client configuration as the header `Authorization: Bearer <token>`, then \
+reconnect and run the review again.
 
-If the server later refuses the token (unknown, revoked or expired), the user signs in to the \
-web interface again and creates a new personal MCP token.
-
-Do not try to review the code with this server: its other tools are not available.
+The first review requests the project when the token does not reach it yet: a user allowed to \
+create projects gets it at once, otherwise an administrator approves it, which gives the user \
+access to it. If the server later refuses the token (unknown, revoked or expired), the user \
+creates a new personal MCP token the same way.
 """
 
 
-def build_enrollment_prompt(project: str) -> str:
-    """Prompt served instead of a review when the client sends no token."""
-    if not project.strip():
-        return _ENROLLMENT
-    return f"{_ENROLLMENT}\n## Project\n{_UNTRUSTED_RULE}\n{fenced(project.strip())}\n"
+def build_enrollment_prompt(web_url: str | None) -> str:
+    """Prompt served instead of a review when the client sends no token: how to get one."""
+    return _ENROLLMENT.replace("{where}", f" ({web_url})" if web_url else "")
 
 
 _STANDARDS_METHOD = """\

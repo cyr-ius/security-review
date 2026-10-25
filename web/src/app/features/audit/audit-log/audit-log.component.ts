@@ -24,7 +24,7 @@ type AuditSortKey = 'created_at' | 'action' | 'actor' | 'target' | 'project';
 
 /**
  * Administrator page of the audit log: triage decisions, agent proposals, tokens and
- * enrollments, newest first. Read only: nobody edits an audit event. The holders of
+ * project requests, newest first. Read only: nobody edits an audit event. The holders of
  * settings.manage also set there the syslog server the events are forwarded to.
  */
 @Component({

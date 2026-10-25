@@ -9,7 +9,7 @@ checklists, scan par motifs, analyse de dépendances, rapports persistés (SQLMo
 Alembic), CLI pour la CI/CD (gate, SARIF, tendances) et transport HTTP avec jetons Bearer / TLS.
 
 Deux processus partagent la base et ne s'appellent jamais : le **serveur MCP**
-(`security-review-mcp`, endpoint `/mcp` et enrôlement public) et le **contrôleur**
+(`security-review-mcp`, endpoint `/mcp`, avec un serveur d'enrôlement sans outil pour un client sans jeton) et le **contrôleur**
 (`security-review-controller` : API REST, interface web, migrations, administration).
 
 ## Une tâche n'est terminée que si
@@ -115,15 +115,14 @@ l'utiliser.
 | Moteur de scan, masquage des secrets | `rules/scanner.py` |
 | Règles et checklists par défaut (copiées en base au premier lancement) | `rules/default_rules.toml` |
 | Règles en base (amorçage, packs TOML), registre actif | `rules/rules_loader.py`, `rules/rule_store.py`, `rules/registry.py`, `rules/checklists.py` |
-| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `project`, `audit`) et `MCP_COMMANDS` (`enroll`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) ; sa commande `agent-review`, hook post-commit du poste de travail, lance l'agent de code du développeur (`claude`, `copilot` ou `codex`) limité aux outils de revue du serveur MCP, sans shell ni appel au contrôleur | `cli.py` (`CONTROLLER_COMMANDS`), `clients/commands.py` (`MCP_COMMANDS`), `rules/codescan.py`, `clients/enrollment.py` (client de `enroll`), `ci_client.py` ; téléchargement public du client par le contrôleur pour `uv --find-links` (`/api/ci-client/`, activé par défaut) : `clients/ci_wheel.py`, `web_api/ci_client_routes.py` |
+| CLI : `CONTROLLER_COMMANDS` (`db`, `advisories`, `rules`, `token`, `user`, `group`, `project`, `audit`) ; client de pipeline `security-review-ci`, seul à exécuter `gate`, `sarif`, `trend`, `scan-code` et `scan-deps` (jeton `ci`, bibliothèque standard uniquement, aussi publié seul sur PyPI par `scripts/build_ci_client.py` : n'importe rien du paquet, lit ses variables dans l'environnement ; il liste les fichiers, le contrôleur les scanne : `rules/codescan.py`, `deps/depscan.py`, `web_api/ci_routes.py`) ; sa commande `agent-review`, hook post-commit du poste de travail, lance l'agent de code du développeur (`claude`, `copilot` ou `codex`) limité aux outils de revue du serveur MCP, sans shell ni appel au contrôleur | `cli.py` (`CONTROLLER_COMMANDS`), `rules/codescan.py`, `ci_client.py` ; téléchargement public du client par le contrôleur pour `uv --find-links` (`/api/ci-client/`, activé par défaut) : `clients/ci_wheel.py`, `web_api/ci_client_routes.py` |
 | Dépendances et avis OSV (téléchargement facultatif par le contrôleur : `deps/advisory_sync.py`) ; proxy sortant du contrôleur (OSV et OIDC) | `deps/dependencies.py`, `deps/depscan.py`, `deps/advisories.py`, `deps/advisory_sync.py`, `deps/versions.py` ; `proxy.py` |
 | Normalisation des noms de projet (minuscules, nom du dépôt, `-` seul séparateur), appliquée à toute entrée | `storage/project_names.py` |
 | Persistance, schéma (purge des rapports sans findings et de l'audit : `storage/retention.py` ; couverture déclarée d'une revue, contrôlée avec le registre : `reports/coverage.py`) | `storage/models.py`, `reports/services.py`, `reports/coverage.py`, `storage/retention.py`, `storage/database.py`, `storage/migrations/` (Alembic) |
 | Journal d'audit (écrit par `services`, `token_store` et `access_control` dans la transaction du changement ; envoi syslog facultatif par le contrôleur) ; métriques Prometheus du contrôleur (`/metrics`, rôle `metrics`) | `observability/audit.py`, `observability/audit_syslog.py` ; `observability/metrics.py` |
 | Export et tendances | `reports/sarif.py`, `reports/trends.py` |
 | Connecteurs : envoi des findings vers des systèmes externes (tickets, registre de vulnérabilités...), manuel et automatique par le contrôleur : API publique des connecteurs (contrat des connecteurs tiers, versionné), registre (intégrés + plugins autorisés par `SECREVIEW_CONNECTORS_PLUGINS`), connexions, client HTTP imposé, Jira et ServiceNow | paquet `connectors/` (`api.py`, `registry.py`, `connections.py`, `transport.py`, `core.py`, `jira.py`, `servicenow.py`), `web_api/connector_routes.py`, exemple `examples/connector/` |
-| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons et enrôlement en base : `auth/token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `auth/web_users.py` ; protocole OIDC du contrôleur : `auth/oidc.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim) : `auth/access_control.py` |
-| Enrôlement public `POST /api/v1/enroll` (servi par le serveur MCP) | `auth/enrollment_api.py` |
+| HTTP des deux processus, auth (jetons et rôles), TLS, `/healthz` | `http_server.py` ; stockage des jetons en base : `auth/token_store.py` ; comptes web locaux et OIDC, seuls à ouvrir l'interface (mot de passe, création OIDC à la volée, sessions, admin initial) : `auth/web_users.py` ; protocole OIDC du contrôleur : `auth/oidc.py` ; permissions, rôles, groupes et membres (groupes OIDC par le claim), demandes de projet (`request_project`) : `auth/access_control.py` |
 | Contrôleur : API REST `/api/v1` et fichiers de `/ui` | paquet `web_api/` (`__init__.py` : `create_app` ; `schemas.py` : modèles de requête et de réponse ; `deps.py` : identité et permissions ; un `*_routes.py` par domaine) ; application Angular dans `web/` |
 | Normes de développement par technologie (prompt `development-standards`, écran « Normes ») | `standards.py` |
 | Paramètres `SECREVIEW_*` ; réglages modifiables dans l'interface web (langue, proxy sortant, configuration OIDC) | `config.py` ; `app_settings.py` |
@@ -194,16 +193,16 @@ C'est un outil de sécurité : un écart ici est un bug bloquant.
   nouvelle révision dans `migrations/versions/` (jamais de modification d'une révision publiée) ;
   `tests/test_database.py` vérifie que les migrations produisent exactement les modèles. Le
   serveur MCP HTTP ne migre jamais le schéma.
-- **Séparation MCP / contrôleur** : le serveur MCP n'expose que `/mcp`, l'enrôlement public et
-  `/healthz` ; le contrôleur n'expose aucune route d'écriture sans jeton. N'ajoutez pas de route
+- **Séparation MCP / contrôleur** : le serveur MCP n'expose que `/mcp` (serveur d'enrôlement
+  sans outil pour un client sans jeton) et `/healthz` ; aucun des deux processus n'expose de
+  route d'écriture sans jeton. N'ajoutez pas de route
   web au serveur MCP ni d'endpoint MCP au contrôleur.
 - **Le serveur MCP ne charge aucun module du contrôleur** qui sort sur le réseau ou sert ses
   routes (`controller`, `advisory_sync`, `oidc`, `audit_syslog`, `connectors`, `update_check`,
   `web_api`), même indirectement ; `tests/test_server.py` le vérifie. Un module partagé par les
   deux processus (comme `app_settings`) les importe dans la fonction qui s'en sert.
 - **Aucun appel réseau sortant** du serveur MCP : la base de vulnérabilités est importée par la
-  CLI. Exceptions : la commande CLI `enroll` et `security-review-ci`, qui contactent l'URL donnée par
-  l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
+  CLI. Exceptions : `security-review-ci`, qui contacte l'URL donnée par l'opérateur, et le téléchargement OSV du contrôleur (`advisory_sync`), **désactivé par défaut**, en HTTPS
   uniquement, taille bornée, proxy facultatif (`proxy`, partagé avec le OIDC) jamais journalisé
   avec ses identifiants, et la
   connexion OIDC du contrôleur (`oidc`), **désactivée par défaut**, qui ne contacte que le

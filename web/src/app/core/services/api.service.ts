@@ -277,7 +277,7 @@ export class ApiService {
     return this.http.post<ProjectSummary>(`${API_URL}/projects`, { project });
   }
 
-  /** GET /api/v1/projects/pending: projects requested by an enrollment (projects.create). */
+  /** GET /api/v1/projects/pending: projects requested by MCP agents (projects.create). */
   pendingProjects(): Observable<PendingProject[]> {
     return this.http.get<PendingProject[]>(`${API_URL}/projects/pending`);
   }

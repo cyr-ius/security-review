@@ -93,8 +93,8 @@ sont contactés depuis l'infrastructure d'Anthropic, pas depuis le poste : ils e
 serveur joignable depuis Internet avec un certificat reconnu publiquement, ce qui exclut une CA
 interne.
 
-Pour l'enrôlement en CLI, `security-review-mcp enroll` accepte directement `--cafile`, comme
-`security-review-ci` (voir la [CLI](../reference/cli.md)). La configuration MCP de l'hôte
+`security-review-ci` accepte directement `--cafile` (voir la [CLI](../reference/cli.md)). La
+configuration MCP de l'hôte
 elle-même est dans [Configuration de l'hôte](../getting-started/host.md#transport-http).
 
 ## Derrière un reverse proxy
@@ -102,7 +102,7 @@ elle-même est dans [Configuration de l'hôte](../getting-started/host.md#transp
 Un reverse proxy ou un Ingress peut terminer le TLS à la place (laissez les variables
 `SECREVIEW_TLS_*` vides). Réglez alors `SECREVIEW_FORWARDED_ALLOW_IPS` sur son adresse, pour que
 l'adresse du client soit lue dans `X-Forwarded-For` pour la limitation des connexions, la limite
-de débit et les limites d'enrôlement (voir l'exposition du
+de débit et le journal d'audit (voir l'exposition du
 [serveur MCP](mcp-server.md#exposition-et-replicas) et du [contrôleur](controller.md#exposition)).
 
 !!! warning

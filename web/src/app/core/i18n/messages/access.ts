@@ -84,7 +84,7 @@ export const access = defineMessages({
     'permission.auditReadHelp': 'Who changed what, and when.',
     'permission.projectsCreate': 'Create projects',
     'permission.projectsCreateHelp':
-      'A new project, which its creator then reads (never an existing project), and the approval of the projects requested by an enrollment.',
+      'A new project, which its creator then reads (never an existing project), also when its MCP agent requests it, and the approval of the projects requested by other users.',
     'permission.projectsDelete': 'Delete projects',
     'permission.projectsDeleteHelp':
       'A project with its reports, findings, project group, and its place in the roles and tokens.',
@@ -178,7 +178,7 @@ export const access = defineMessages({
     'permission.auditReadHelp': 'Qui a changé quoi, et quand.',
     'permission.projectsCreate': 'Créer des projets',
     'permission.projectsCreateHelp':
-      'Un nouveau projet, que son créateur lit ensuite (jamais un projet existant), et la validation des projets demandés par un enrôlement.',
+      "Un nouveau projet, que son créateur lit ensuite (jamais un projet existant), y compris quand son agent MCP le demande, et la validation des projets demandés par d'autres utilisateurs.",
     'permission.projectsDelete': 'Supprimer des projets',
     'permission.projectsDeleteHelp':
       'Un projet avec ses rapports, ses findings, son groupe de projet et sa place dans les rôles et les jetons.',
@@ -272,7 +272,7 @@ export const access = defineMessages({
     'permission.auditReadHelp': 'Quién cambió qué, y cuándo.',
     'permission.projectsCreate': 'Crear proyectos',
     'permission.projectsCreateHelp':
-      'Un proyecto nuevo, que su creador lee después (nunca un proyecto existente), y la aprobación de los proyectos solicitados por un registro.',
+      'Un proyecto nuevo, que su creador lee después (nunca un proyecto existente), también cuando su agente MCP lo solicita, y la aprobación de los proyectos solicitados por otros usuarios.',
     'permission.projectsDelete': 'Eliminar proyectos',
     'permission.projectsDeleteHelp':
       'Un proyecto con sus informes, hallazgos, grupo de proyecto y su lugar en los roles y tokens.',

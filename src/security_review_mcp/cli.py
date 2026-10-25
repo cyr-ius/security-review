@@ -1,9 +1,8 @@
 """Command line of the administrators (no MCP client or agent needed).
 
 ``security-review-controller`` runs ``db``, ``advisories``, ``rules``, ``token``, ``user``,
-``group``, ``project`` and ``audit`` (CONTROLLER_COMMANDS). The client commands of
-``security-review-mcp`` (``enroll`` and ``scan-deps``) are in clients.commands, which the MCP
-server loads without this module. The code and dependency scans of a pipeline are run by
+``group``, ``project`` and ``audit`` (CONTROLLER_COMMANDS). The code and dependency scans of a
+pipeline are run by
 ``security-review-ci`` (see ci_client), which sends the files to the controller. Exit codes
 follow the same convention everywhere: 0 success, 1 blocked (findings found, schema not up to
 date), 2 usage or data error.
@@ -179,8 +178,8 @@ def token_command(argv: list[str]) -> int:
             if not token_store.DatabaseTokenStore().has_tokens():
                 # Without any token the HTTP MCP server refuses every client (fail closed)
                 warning = (
-                    "No token left: the MCP endpoint refuses every client except enrollments "
-                    "(it is open if it listens on localhost or with "
+                    "No token left: the MCP endpoint refuses every client (it is open if it "
+                    "listens on localhost or with "
                     "SECREVIEW_ALLOW_UNAUTHENTICATED)"
                 )
                 print(json.dumps({"warning": warning}), file=sys.stderr)
