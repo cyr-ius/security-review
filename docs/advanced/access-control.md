@@ -208,4 +208,4 @@ own.
 Every change is written to the [audit log](audit-metrics.md#audit-log) (`role.*`, `group.*`,
 `user.groups_changed`). From the CLI, `security-review-controller user set-groups` changes the
 groups of an account, and `security-review-controller group list` / `group roles` lists the groups and the roles (see
-[CLI](../reference/cli.md)).
+[CLI](../reference/cli.md#security-review-controller)).

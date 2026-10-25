@@ -7,7 +7,7 @@ contrôleur.
 !!! warning "Réservé à des cas précis"
     Les rapports sont enregistrés dans une base SQLite **locale** que personne d'autre ne voit,
     il n'y a pas d'interface web pour les trier, et chaque poste garde ses propres règles. Pour
-    une équipe, déployez plutôt le [serveur partagé](../getting-started/deploy.md). Le mode
+    une équipe, utilisez plutôt le [mode partagé (HTTP)](../getting-started/deploy.md). Le mode
     local sert à essayer les prompts seul, sur un poste hors ligne, ou pour un usage personnel.
 
 ## Lancement
@@ -26,7 +26,7 @@ effacer toute trace. Le contrôleur n'est pas nécessaire.
 
 En transport **stdio**, l'hôte (VS Code, Claude…) lance lui-même le processus du serveur.
 Indiquez le chemin de l'exécutable, la commande `serve` et, si besoin, les variables `SECREVIEW_*`
-(voir [Configuration](../reference/configuration.md)).
+(voir [Configuration](../reference/configuration.md#serveur-mcp)).
 
 VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la racine du dépôt :
 
@@ -43,4 +43,4 @@ VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la raci
 }
 ```
 
-Pour lancer le serveur depuis un conteneur, voir [Docker](docker.md#poste-developpeur-stdio).
+Pour lancer le serveur depuis un conteneur, voir [Docker](../advanced/docker.md).

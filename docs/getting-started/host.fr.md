@@ -5,7 +5,7 @@ doit déjà tourner : voir [Mise en service du serveur](deploy.md).
 
 ## Transport HTTP
 
-Pour un serveur partagé, lancé avec `serve --transport streamable-http`, l'hôte se connecte à
+En mode partagé, avec le serveur lancé par `serve --transport streamable-http`, l'hôte se connecte à
 l'endpoint `/mcp` au lieu de lancer un processus. Si l'authentification est activée, il envoie
 le jeton dans l'en-tête `Authorization: Bearer <jeton>` (génération des jetons, TLS et
 démarrage du serveur : voir [Serveur HTTP, authentification et TLS](../advanced/http.md)).
@@ -73,7 +73,7 @@ racine du dépôt, sans `headers` :
 
 ## Obtenir un jeton
 
-Sur un serveur partagé qui exige un jeton, vous utilisez un **jeton MCP personnel**, créé dans
+En mode partagé, quand le serveur exige un jeton, vous utilisez un **jeton MCP personnel**, créé dans
 l'interface web. Inutile d'en réclamer un à un administrateur avant de commencer : configurez
 l'hôte comme ci-dessus, **sans jeton**, et lancez votre première revue. L'agent demande le projet,
 puis vous indique où créer votre jeton (voir
@@ -142,7 +142,7 @@ personnel : remplacez-le dans l'hôte comme à l'étape 4 (voir
 
 - **Certificat du serveur signé par une CA interne** (`unable to verify the first certificate`) :
   voir [Serveur HTTPS avec une CA interne](../advanced/http.md#serveur-https-avec-une-ca-interne).
-- **Mode local, sans serveur partagé** (l'hôte lance lui-même le processus) : voir
-  [Mode local (stdio)](../advanced/stdio.md).
+- **Mode local (stdio)**, sans serveur (l'hôte lance lui-même le processus) : voir
+  [Mode local (stdio)](../getting-started/stdio.md).
 
 **Étape suivante :** lancez votre première revue avec les [prompts et outils](../usage/prompts-tools.md).

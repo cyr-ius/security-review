@@ -109,7 +109,7 @@ docker build -t security-review-mcp .
 docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # pilote PostgreSQL
 ```
 
-Le build compile aussi l'[interface web](../usage/web-interface.md) (étape Node.js) ;
+Le build compile aussi l'[interface web](usage/web-interface.md) (étape Node.js) ;
 elle est servie sur `/ui/` par le contrôleur.
 
 L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. Son
@@ -192,7 +192,7 @@ src/security_review_mcp/
 │   └── metrics.py         # métriques Prometheus du contrôleur (/metrics)
 ├── clients/       # clients CLI qui contactent l'URL donnée par l'opérateur
 │   ├── commands.py        # commande `enroll` de security-review-mcp
-│   └── enrollment.py      # client de `enroll` : enrôlement d'un projet sur un serveur partagé
+│   └── enrollment.py      # client de `enroll` : enrôlement d'un projet sur un serveur en mode partagé
 ├── connectors/    # findings envoyés vers des systèmes externes : api (API des connecteurs),
 │                  # registry, connections, transport (client HTTP), core (envoi), jira, servicenow
 └── web_api/       # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)
@@ -336,12 +336,19 @@ uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer 
 - Pour ajouter une page, créez les deux fichiers dans `docs/`, déclarez le fichier anglais dans
   la section `nav` de `mkdocs.yml` et traduisez son titre dans `nav_translations` (langue `fr`
   du plugin `i18n`).
+- Pour montrer un fichier de `examples/`, incluez-le plutôt que de le copier :
+  `--8<-- "kubernetes/postgres.yaml"` (`pymdownx.snippets`, chemins relatifs à `examples/` ; un
+  fichier absent fait échouer le build). Dans un lien vers un fichier du dépôt, écrivez
+  `\{{ release_tag }}` au lieu de `master` : le hook `scripts/mkdocs_hooks.py` le remplace par le
+  tag de la version de `pyproject.toml` (`v3.0.0`), pour que les commandes copiées récupèrent les
+  fichiers de la version documentée.
 
 ### Publication
 
 Le workflow `.github/workflows/docs.yml` :
 
-- sur une **pull request** qui touche `docs/` ou `mkdocs.yml` : construit le site en mode
+- sur une **pull request** qui touche `docs/`, `mkdocs.yml`, `examples/`, `pyproject.toml`
+  (version des liens) ou le hook `scripts/mkdocs_hooks.py` : construit le site en mode
   `--strict` (vérification seulement) ;
 - sur un **push sur `master`** : construit le site et le publie sur GitHub Pages.
 

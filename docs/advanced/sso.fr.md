@@ -127,7 +127,7 @@ pourrait réutiliser le même `sub`) est refusée. Un compte lié quand seul le 
 enregistré reçoit l'émetteur de sa connexion suivante. Pour réattribuer l'identifiant, supprimez
 puis recréez le compte.
 
-Ce qu'un compte OIDC peut faire vient de ses [groupes](access-control.md) : ceux qu'un
+Ce qu'un compte OIDC peut faire vient de ses [groupes](access-control.md#groupes) : ceux qu'un
 administrateur lui a donnés (écran **Utilisateurs** ou **Groupes**)
 et les groupes ouverts au OIDC nommés par son claim des groupes, enregistrés à chaque connexion
 (voir [groupes du fournisseur d'identité](#groupes-du-fournisseur-didentite)). Un compte sans

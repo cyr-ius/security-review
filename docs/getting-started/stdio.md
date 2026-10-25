@@ -6,8 +6,8 @@ controller.
 
 !!! warning "For specific cases only"
     The reports are saved in a **local** SQLite database that nobody else sees, there is no web
-    interface to triage them, and every workstation keeps its own rules. For a team, deploy the
-    [shared server](../getting-started/deploy.md) instead. Local mode is useful to try the
+    interface to triage them, and every workstation keeps its own rules. For a team, use the
+    [shared mode (HTTP)](../getting-started/deploy.md) instead. Local mode is useful to try the
     prompts alone, on an offline workstation, or for a personal use.
 
 ## Running
@@ -26,7 +26,7 @@ trace. The controller is not needed.
 
 With the **stdio** transport, the host (VS Code, Claude…) starts the server process itself.
 Give the path of the executable, the `serve` command and, if needed, the `SECREVIEW_*` variables
-(see [Configuration](../reference/configuration.md)).
+(see [Configuration](../reference/configuration.md#mcp-server)).
 
 VS Code, GitHub Copilot and Claude read the same `.mcp.json` file at the root of the
 repository:
@@ -44,4 +44,4 @@ repository:
 }
 ```
 
-To run the server from a container, see [Docker](docker.md#developer-workstation-stdio).
+To run the server from a container, see [Docker](../advanced/docker.md).

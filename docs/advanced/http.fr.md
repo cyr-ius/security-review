@@ -1,6 +1,6 @@
 # Serveur HTTP, authentification et TLS
 
-Un serveur partagé (équipe, CI/CD) se compose de **deux processus** qui partagent la même base
+En mode partagé (équipe, CI/CD), le serveur se compose de **deux processus** qui partagent la même base
 de données (voir [Architecture et déploiement](architecture.md)) :
 
 - le **serveur MCP** (`security-review-mcp serve --transport streamable-http`) : endpoint `/mcp`,
@@ -28,7 +28,7 @@ PostgreSQL dès qu'ils sont sur des machines ou des pods différents.
 
 Les jetons sont stockés dans la base de données (table `apitoken`) : seule leur empreinte
 SHA-256 est conservée, le secret n'est affiché qu'une fois, à la création. Gérez-les avec la
-commande `token` (voir la [CLI](../reference/cli.md)) :
+commande `token` (voir la [CLI](../reference/cli.md#security-review-controller)) :
 
 ```bash
 security-review-controller token create --label ci                      # rôle mcp par défaut
@@ -50,7 +50,7 @@ enrôlé leur projet : voir [l'enrôlement](#enrolement-demander-le-projet).
   les [métriques Prometheus](audit-metrics.md#metriques-prometheus) du contrôleur. Les jetons
   sont destinés aux machines : il n'existe pas de jeton `reader` ou `triager`, une personne lit
   et trie avec un [compte utilisateur](../usage/web-interface.md#comptes-utilisateurs) et ses
-  [groupes](access-control.md). Les jetons `api` de l'API REST et de son Swagger, qui portent
+  [groupes](access-control.md#groupes). Les jetons `api` de l'API REST et de son Swagger, qui portent
   les droits d'un utilisateur ou d'un rôle, se créent dans l'interface web
   ([jetons API](../usage/web-interface.md#jetons-api)).
 - `--expires-in-days` fixe la validité du jeton : voir
@@ -186,13 +186,13 @@ le développeur crée un jeton MCP personnel dans l'interface web. Il est activ�
     personne n'obtient d'accès, pas même le validateur. Une demande que personne n'a validée
     sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 jours par défaut) est supprimée.
 3. **Jeton personnel.** La réponse de l'enrôlement donne l'URL de l'interface web (`web_url`,
-   issue de [`SECREVIEW_WEB_URL`](../reference/configuration.md)) et la marche à suivre :
+   issue de [`SECREVIEW_WEB_URL`](../reference/configuration.md#serveur-mcp)) et la marche à suivre :
    l'utilisateur se connecte, crée un **jeton MCP personnel** dans **Mon compte** (voir
    [jetons MCP personnels](../usage/web-interface.md#jetons-mcp-et-ci-personnels)) et le place dans la
    [configuration de l'hôte](../getting-started/host.md#obtenir-un-jeton). Le jeton atteint les
    projets que l'utilisateur peut lire, relus à chaque requête.
 4. **Accès.** Un administrateur donne à l'utilisateur l'accès au projet en l'ajoutant au groupe
-   `project:<projet>` (écran **Groupes**, voir [contrôle d'accès](access-control.md)) ; le
+   `project:<projet>` (écran **Groupes**, voir [contrôle d'accès](access-control.md#groupes-de-projet)) ; le
    jeton personnel atteint le projet dès la requête suivante, sans reconfiguration.
 
 Un agent qui a déjà un jeton peut aussi appeler `request_enrollment` (par exemple quand
@@ -213,7 +213,7 @@ journalisé en avertissement par le serveur MCP (`Rejected unauthenticated reque
 Garde-fous : quiconque atteint le serveur peut s'enrôler, donc au plus 20 projets sont en
 attente à la fois, une adresse cliente s'enrôle au plus 5 fois par heure (`429` au-delà ;
 derrière un reverse proxy, définissez
-[`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md)), et un projet en attente
+[`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md#ecoute-tls-et-reverse-proxy)), et un projet en attente
 expire après `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Chaque demande, validation, refus et
 expiration est écrit dans le [journal d'audit](audit-metrics.md#journal-daudit)
 (`enrollment.requested`, `enrollment.approved`, `enrollment.rejected`, avec le demandeur et

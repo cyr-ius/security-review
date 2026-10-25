@@ -1,5 +1,6 @@
 # security-review-mcp on Kubernetes: the MCP server and the controller in two Deployments
-# sharing a PostgreSQL database (not included: use your managed or operator-backed instance).
+# sharing a PostgreSQL database (not included: examples/kubernetes/postgres.yaml deploys the
+# official image, or use your managed or operator-backed instance).
 #
 #   kubectl create namespace secreview
 #   kubectl -n secreview create secret generic secreview-db \
@@ -7,10 +8,12 @@
 #   kubectl -n secreview create secret generic secreview-controller \
 #       --from-literal=SECREVIEW_SECRET_KEY="$(openssl rand -hex 32)"
 #   kubectl -n secreview apply -f examples/kubernetes/security-review.yaml
-#   kubectl -n secreview logs deploy/secreview-controller -c controller   # one-time admin password
+#   kubectl -n secreview rollout status deploy/secreview-controller
+#   kubectl -n secreview exec deploy/secreview-controller -c controller -- \
+#       security-review-controller user reset-password admin   # initial admin password
 #
-# The image must be built with the PostgreSQL driver (--build-arg EXTRAS=postgres) and pushed
-# to your registry: replace the image below.
+# The published -pg image contains the PostgreSQL driver; pin a version (X.Y.Z-pg) in production,
+# or use your own image built with --build-arg EXTRAS=postgres.
 #
 # The controller migrates the schema in an init container (one replica, Recreate strategy: a
 # single migration at a time). The MCP pods only check the schema: they restart until the
@@ -72,7 +75,7 @@ spec:
       automountServiceAccountToken: false
       initContainers:
         - name: migrate
-          image: registry.example.com/security-review-mcp:pg
+          image: ghcr.io/cyr-ius/security-review-mcp:latest-pg
           command: ["security-review-controller", "db", "upgrade"]
           envFrom: &env
             - configMapRef:
@@ -89,7 +92,7 @@ spec:
               mountPath: /tmp
       containers:
         - name: controller
-          image: registry.example.com/security-review-mcp:pg
+          image: ghcr.io/cyr-ius/security-review-mcp:latest-pg
           command: ["security-review-controller", "serve", "--host", "0.0.0.0", "--port", "8000"]
           envFrom:
             - configMapRef:
@@ -180,7 +183,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: mcp
-          image: registry.example.com/security-review-mcp:pg
+          image: ghcr.io/cyr-ius/security-review-mcp:latest-pg
           args: ["serve", "--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000"]
           envFrom:
             - configMapRef:

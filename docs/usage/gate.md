@@ -26,7 +26,7 @@ uses the Python standard library (Python 3.14), and is published alone on PyPI a
 | Machine | Command |
 |---|---|
 | Workstation without Python (Linux, macOS, Windows) | [uv](https://docs.astral.sh/uv/getting-started/installation/), then `uv tool install security-review-ci`: uv downloads a Python when none is installed |
-| Build agent or workstation with Python ≥ 3.14 | `pip install security-review-ci` (or `pipx install security-review-ci`) |
+| Build agent or workstation with Python ≥ 3.14 | `uv pip install security-review-ci` in the virtual environment of the job (`--system` without one) |
 | Agent without access to PyPI | Copy the single file `security_review_mcp/ci_client.py` (or the `security_review_ci` wheel attached to the GitHub release) and run it with `python3 ci_client.py` |
 | Docker | `docker run --rm -v "$PWD:/src:ro" -w /src -e SECREVIEW_CONTROLLER_URL -e SECREVIEW_TOKEN --entrypoint security-review-ci ghcr.io/cyr-ius/security-review-mcp …` |
 
@@ -115,9 +115,9 @@ the gate, SARIF and trend routes; `mcp` tokens may not, except a personal one, w
     # .gitlab-ci.yml
     security-gate:
       stage: test
-      image: python:3.14-slim
+      image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
       script:
-        - pip install security-review-mcp
+        - uv pip install --system security-review-ci
         - security-review-ci gate --project "$CI_PROJECT_NAME" --fail-on high
       variables:
         SECREVIEW_CONTROLLER_URL: https://secreview.example.com

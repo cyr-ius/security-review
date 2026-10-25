@@ -37,7 +37,7 @@ en pipeline.
 | **Règles** | Plus de 200 règles et plus de 120 items de checklist : Python, Java, Go, C#, Rust, backend TypeScript / Node.js, Angular, Docker, Kubernetes, configuration, GitLab CI, Jenkins, Spring, FastAPI, [injection de prompt visant les assistants IA](https://cyr-ius.github.io/security-review-mcp/fr/usage/rules/#regles-par-defaut-par-plateforme) (caractères cachés, instructions injectées ; hook de [garde de lecture](https://cyr-ius.github.io/security-review-mcp/fr/advanced/read-guard/) pour Claude Code), copiés en base au premier lancement, plus vos propres [règles](https://cyr-ius.github.io/security-review-mcp/fr/usage/rules/) et [checklists](https://cyr-ius.github.io/security-review-mcp/fr/usage/checklists/) (import/export TOML en CLI ou dans l'interface web) |
 | **Normes de développement** | [conventions par technologie](https://cyr-ius.github.io/security-review-mcp/fr/usage/standards/) gérées dans l'interface web (import/export TOML) et transmises à l'assistant IA avant qu'il code (prompt, outils `get_development_standards` / `list_development_standards`, ressources) |
 | **Vulnérabilités** | manifestes, lockfiles et [SBOM CycloneDX](https://cyr-ius.github.io/security-review-mcp/fr/advanced/dependencies/#sbom-cyclonedx-dependances-transitives) comparés à une base OSV (PyPI, npm, Maven, Go, crates.io, NuGet) importée hors ligne ou [mise à jour chaque jour par le contrôleur](https://cyr-ius.github.io/security-review-mcp/fr/advanced/dependencies/#mise-a-jour-automatique-par-le-controleur), proxy facultatif |
-| **Transport** | HTTP (serveur partagé) ou stdio (mode local), avec jetons Bearer stockés en base (CLI `token`), avec [expiration et renouvellement](https://cyr-ius.github.io/security-review-mcp/fr/advanced/http/#expiration-et-renouvellement-des-jetons), et TLS (éventuellement mutuel) facultatifs |
+| **Transport** | HTTP (mode partagé) ou stdio (mode local), avec jetons Bearer stockés en base (CLI `token`), avec [expiration et renouvellement](https://cyr-ius.github.io/security-review-mcp/fr/advanced/http/#expiration-et-renouvellement-des-jetons), et TLS (éventuellement mutuel) facultatifs |
 | **Audit et métriques** | [journal d'audit](https://cyr-ius.github.io/security-review-mcp/fr/advanced/audit-metrics/#journal-daudit) des décisions de triage, des jetons et des enrôlements, et [métriques Prometheus](https://cyr-ius.github.io/security-review-mcp/fr/advanced/audit-metrics/#metriques-prometheus) sur `/metrics` (jeton `metrics`) |
 | **Connecteurs** | [findings envoyés vers d'autres outils](https://cyr-ius.github.io/security-review-mcp/fr/connectors/) : Jira et ServiceNow intégrés, [connecteurs tiers](https://cyr-ius.github.io/security-review-mcp/fr/connectors/third-party/) pour tout autre système (registre de vulnérabilités, GRC...) ; chaque connecteur activé dans l'interface web, à la main ou automatiquement au-dessus d'un seuil de sévérité, un enregistrement par problème |
 | **Déploiement** | serveur MCP et contrôleur (API REST, interface web) [séparés](https://cyr-ius.github.io/security-review-mcp/fr/advanced/architecture/) sur une base partagée, migrations Alembic, exemples Docker Compose et Kubernetes |
@@ -60,7 +60,8 @@ Le produit repose sur **deux services** qui partagent une base : le **serveur MC
 comptes. Voir [deux services, deux rôles](https://cyr-ius.github.io/security-review-mcp/fr/#deux-services-deux-roles).
 
 ```bash
-pip install security-review-mcp        # Python ≥ 3.14 ; extra [postgres] pour PostgreSQL
+uv venv && source .venv/bin/activate
+uv pip install security-review-mcp     # Python ≥ 3.14 ; extra [postgres] pour PostgreSQL
 
 # depuis le même répertoire (fichier SQLite partagé)
 security-review-controller db upgrade                              # schéma (Alembic)
@@ -93,7 +94,7 @@ Configuration de l'hôte (VS Code avec jeton, `.vscode/mcp.json` ; Claude et `.m
 Pas à pas : [mise en service du serveur](https://cyr-ius.github.io/security-review-mcp/fr/getting-started/deploy/),
 [connexion de l'hôte](https://cyr-ius.github.io/security-review-mcp/fr/getting-started/host/) (VS Code, Claude, enrôlement).
 Autres cas : [installation hors ligne](https://cyr-ius.github.io/security-review-mcp/fr/advanced/installation/),
-[mode local stdio](https://cyr-ius.github.io/security-review-mcp/fr/advanced/stdio/),
+[mode local (stdio)](https://cyr-ius.github.io/security-review-mcp/fr/getting-started/stdio/),
 [HTTP, authentification et TLS](https://cyr-ius.github.io/security-review-mcp/fr/advanced/http/),
 [images Docker](https://cyr-ius.github.io/security-review-mcp/fr/advanced/docker/#images-publiees) (`ghcr.io/cyr-ius/security-review-mcp`, `docker.io/cyrius44/security-review-mcp`) et [Docker Compose avec PostgreSQL](https://cyr-ius.github.io/security-review-mcp/fr/advanced/docker/#docker-compose-avec-postgresql),
 [architecture et Kubernetes](https://cyr-ius.github.io/security-review-mcp/fr/advanced/architecture/),

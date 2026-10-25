@@ -108,7 +108,7 @@ docker build -t security-review-mcp .
 docker build -t security-review-mcp:pg --build-arg EXTRAS=postgres .   # PostgreSQL driver
 ```
 
-The build also compiles the [web interface](../usage/web-interface.md) (Node.js stage); the
+The build also compiles the [web interface](usage/web-interface.md) (Node.js stage); the
 controller serves it on `/ui/`.
 
 The image runs as a non-root user (uid `10001`), without sources nor build tools. The SQLite
@@ -191,7 +191,7 @@ src/security_review_mcp/
 │   └── metrics.py         # Prometheus metrics of the controller (/metrics)
 ├── clients/       # CLI clients that contact the URL given by the operator
 │   ├── commands.py        # `enroll` command of security-review-mcp
-│   └── enrollment.py      # `enroll` client: project enrollment on a shared server
+│   └── enrollment.py      # `enroll` client: project enrollment on a server in shared mode
 ├── connectors/    # findings sent to external systems: api (connector API), registry,
 │                  # connections, transport (HTTP client), core (sending), jira, servicenow
 └── web_api/       # controller: REST API /api/v1 and files of the application (/ui)
@@ -335,12 +335,19 @@ uv run mkdocs build --strict # what the CI does: a broken link fails the build
 - To add a page, create both files in `docs/`, declare the English one in the `nav` section of
   `mkdocs.yml`, and translate its title in `nav_translations` (French language of the `i18n`
   plugin).
+- To show a file of `examples/`, include it rather than copying it:
+  `--8<-- "kubernetes/postgres.yaml"` (`pymdownx.snippets`, paths relative to `examples/`; a
+  missing file fails the build). In a link to a file of the repository, write
+  `\{{ release_tag }}` instead of `master`: the hook `scripts/mkdocs_hooks.py` replaces it with the
+  tag of the version of `pyproject.toml` (`v3.0.0`), so that the copied commands fetch the files
+  of the documented release.
 
 ### Publishing
 
 The `.github/workflows/docs.yml` workflow:
 
-- on a **pull request** that touches `docs/` or `mkdocs.yml`: builds the site in `--strict`
+- on a **pull request** that touches `docs/`, `mkdocs.yml`, `examples/`, `pyproject.toml` (version of
+  the links) or the hook `scripts/mkdocs_hooks.py`: builds the site in `--strict`
   mode (check only);
 - on a **push on `master`**: builds the site and publishes it on GitHub Pages.
 

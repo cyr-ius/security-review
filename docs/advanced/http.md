@@ -1,6 +1,6 @@
 # HTTP server, authentication and TLS
 
-A shared server (team, CI/CD) is made of **two processes** sharing the same database (see
+In shared mode (team, CI/CD), the server is made of **two processes** sharing the same database (see
 [Architecture and deployment](architecture.md)):
 
 - the **MCP server** (`security-review-mcp serve --transport streamable-http`): `/mcp` endpoint,
@@ -27,7 +27,7 @@ as they are on different machines or pods.
 
 Tokens are stored in the database (`apitoken` table): only their SHA-256 digest is kept, the
 secret is shown only once, at creation. Manage them with the `token` command (see the
-[CLI](../reference/cli.md)):
+[CLI](../reference/cli.md#security-review-controller)):
 
 ```bash
 security-review-controller token create --label ci                      # mcp role by default
@@ -49,7 +49,7 @@ project: see [enrollment](#enrollment-request-the-project).
   [Prometheus metrics](audit-metrics.md#prometheus-metrics) of the controller. Tokens are for
   machines: there is no `reader` or `triager` token, a person reads and triages with a
   [user account](../usage/web-interface.md#user-accounts) and its
-  [groups](access-control.md). The `api` tokens of the REST API and its Swagger, which hold the
+  [groups](access-control.md#groups). The `api` tokens of the REST API and its Swagger, which hold the
   rights of a user or of a role, are created in the web interface
   ([API tokens](../usage/web-interface.md#api-tokens)).
 - `--expires-in-days` sets the validity of the token: see
@@ -182,13 +182,13 @@ default (`SECREVIEW_ENROLLMENT=true`), even before the first token is created (e
     member**: nobody gains any access, the approver included. A request nobody approved within
     `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 days by default) is deleted.
 3. **Personal token.** The answer of the enrollment gives the URL of the web interface
-   (`web_url`, from [`SECREVIEW_WEB_URL`](../reference/configuration.md)) and the next steps:
+   (`web_url`, from [`SECREVIEW_WEB_URL`](../reference/configuration.md#mcp-server)) and the next steps:
    the user signs in, creates a **personal MCP token** in **My account** (see
    [personal MCP tokens](../usage/web-interface.md#personal-mcp-and-ci-tokens)) and puts it in the
    [host configuration](../getting-started/host.md#getting-a-token). The token reaches the
    projects the user may read, at each request.
 4. **Access.** An administrator gives the user access to the project by adding them to the
-   group `project:<project>` (**Groups** screen, see [access control](access-control.md)); the
+   group `project:<project>` (**Groups** screen, see [access control](access-control.md#project-groups)); the
    personal token reaches the project from the next request, without reconfiguration.
 
 An agent that already has a token may also call `request_enrollment` (for instance when
@@ -208,7 +208,7 @@ MCP server (`Rejected unauthenticated request` / `Rejected expired token`).
 
 Safeguards: anybody who reaches the server may enroll, so at most 20 projects are pending at a
 time, a client address enrolls at most 5 times per hour (`429` beyond; behind a reverse proxy,
-set [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md)), and a pending project
+set [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md#listening-tls-and-reverse-proxy)), and a pending project
 expires after `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Every request, approval, rejection and
 expiry is written to the [audit log](audit-metrics.md#audit-log) (`enrollment.requested`,
 `enrollment.approved`, `enrollment.rejected`, with the requester and the client address). To disable the enrollment: `SECREVIEW_ENROLLMENT=false`

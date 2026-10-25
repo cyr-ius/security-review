@@ -21,60 +21,131 @@ l'image publiée.
 
 ## Docker Compose avec PostgreSQL
 
-Le fichier `docker-compose.yml` à la racine du dépôt démarre les deux processus avec une base
-PostgreSQL :
+Un seul fichier,
+[`examples/docker/docker-compose.yml`](https://github.com/cyr-ius/security-review-mcp/blob/{{ release_tag }}/examples/docker/docker-compose.yml),
+démarre tout avec l'image publiée : PostgreSQL, la migration du schéma, le contrôleur et le
+serveur MCP. Copiez-collez le bloc dans un dossier vide :
 
 ```bash
-echo "POSTGRES_PASSWORD=$(openssl rand -hex 24)" > .env
-docker compose up -d --build
+mkdir security-review-mcp && cd security-review-mcp
+curl -fsSLO https://raw.githubusercontent.com/cyr-ius/security-review-mcp/{{ release_tag }}/examples/docker/docker-compose.yml
+(umask 077 && printf 'POSTGRES_PASSWORD=%s\nSECREVIEW_SECRET_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -hex 32)" > .env)
+docker compose up -d --wait
 docker compose exec controller security-review-controller user reset-password admin   # mot de passe admin initial
+docker compose exec controller security-review-controller token create --label alice   # jeton d'un agent
 ```
+
+La commande `printf` écrit le fichier `.env`, lisible par vous seul : le mot de passe de
+PostgreSQL et le secret des sessions web, tirés au hasard. `docker compose up -d --wait` rend la
+main une fois tous les services prêts. L'interface web répond sur `http://127.0.0.1:8080/ui/`,
+l'endpoint MCP sur `http://127.0.0.1:8000/mcp`.
+
+Contenu des fichiers de la version `{{ release_tag }}` :
+
+=== "docker-compose.yml"
+
+    ```yaml
+    --8<-- "docker/docker-compose.yml"
+    ```
+
+=== ".env"
+
+    ```bash
+    POSTGRES_PASSWORD=<48 caractères hexadécimaux>
+    SECREVIEW_SECRET_KEY=<64 caractères hexadécimaux>
+    ```
 
 | Service | Rôle | Écoute |
 |---|---|---|
-| `db` | PostgreSQL, joignable seulement sur le réseau interne `backend` | — |
-| `migrate` | `security-review-controller db upgrade`, puis s'arrête | — |
-| `controller` | API REST et interface web (`/ui/`) | `127.0.0.1:8080` (`DOCKER_PUBLISH_ADDRESS`, `DOCKER_CONTROLLER_PORT`) |
-| `mcp` | Serveur MCP (`/mcp`) et enrôlement public | `127.0.0.1:8000` (`DOCKER_PUBLISH_ADDRESS`, `DOCKER_MCP_PORT`) |
+| `db` | PostgreSQL, joignable par les autres services seulement | — |
+| `migrate` | Crée ou met à jour les tables (`security-review-controller db upgrade`), puis s'arrête | — |
+| `controller` | Interface web (`/ui/`) et API REST, pour les personnes | `127.0.0.1:8080` |
+| `mcp` | Serveur MCP (`/mcp`) et enrôlement public, pour les agents et la CI | `127.0.0.1:8000` |
 
-- L'image est construite avec l'extra `postgres` (`security-review-mcp:pg`). `migrate` attend
-  que la base soit prête (`pg_isready`) ; `controller` et `mcp` attendent que `migrate` ait
-  réussi. Seul `migrate` modifie le schéma (`SECREVIEW_DB_AUTO_UPGRADE=false` ailleurs).
-- `POSTGRES_PASSWORD` est obligatoire et lu depuis `.env` (jamais commité). Il est inséré tel
-  quel dans `SECREVIEW_DATABASE_URL` : utilisez des caractères hexadécimaux, ou encodez les
-  caractères spéciaux (`@`, `:`, `/`...).
-- Les ports ne sont publiés que sur `127.0.0.1` par défaut. Pour les exposer, activez le
-  [TLS intégré](http.md) ou placez-les derrière un reverse proxy, puis indiquez l'adresse de
-  l'hôte à utiliser dans `.env` : `DOCKER_PUBLISH_ADDRESS=192.168.1.10` (une interface) ou
-  `DOCKER_PUBLISH_ADDRESS=0.0.0.0` (toutes les interfaces), et les ports de l'hôte dans
-  `DOCKER_MCP_PORT` et `DOCKER_CONTROLLER_PORT`. Ces variables ne servent qu'à Compose : dans les
-  conteneurs, les deux serveurs écoutent sur 8000. Le contrôleur n'expose aucune route
-  d'écriture sans jeton : il peut rester interne.
-- Les variables de `.env` ne servent qu'à Compose : ajoutez-les sous `environment` pour
-  qu'elles atteignent les conteneurs (par exemple `SECREVIEW_TLS_CERTFILE` et
-  `SECREVIEW_TLS_KEYFILE`, avec les fichiers du certificat montés en lecture seule, voir
-  [Autorité de certification](http.md#autorite-de-certification)).
-- La base d'avis de vulnérabilités est **vide** au premier démarrage : l'analyse de dépendances
-  répond alors qu'aucune base n'est chargée. Pour que le contrôleur la télécharge au démarrage
-  puis toutes les 24 h, ajoutez `SECREVIEW_OSV_AUTO_UPDATE=true` dans `.env` (et, si besoin,
-  `SECREVIEW_OSV_ECOSYSTEMS`, `HTTPS_PROXY` et `NO_PROXY`), que le fichier Compose transmet au seul
-  contrôleur, puis `docker compose up -d`. Suivez l'import avec `docker compose logs -f
-  controller` ou dans les paramètres de l'interface web. Sans accès Internet, importez une
-  archive avec `advisories import` (voir [Dépendances](dependencies.md)).
-- Les conteneurs tournent en système de fichiers en lecture seule, sans capacité Linux. Le
-  volume `secreview-pg` contient les rapports, les comptes de l'interface web et les jetons :
-  sauvegardez-le.
-- Le service `db` utilise PostgreSQL 18, dont l'image range les données dans un répertoire par
-  version majeure : le volume `secreview-pg` est monté sur `/var/lib/postgresql` (et non
-  `/var/lib/postgresql/data`). Un volume créé par PostgreSQL 17 ne démarre pas avec cette image
-  (`Error: in 18+, these Docker images are configured to store database data in a format...`) :
-  voir [Mise à niveau de PostgreSQL](#mise-a-niveau-de-postgresql).
+Bon à savoir :
 
-Pour ajouter le TLS ou des règles internes, complétez `environment` et `volumes` du service
-concerné. Les commandes CLI s'exécutent dans le conteneur du contrôleur :
+- **Ordre de démarrage.** `migrate` attend que PostgreSQL soit prêt ; `controller` et `mcp`
+  attendent que `migrate` ait réussi. Seul `migrate` modifie les tables.
+- **Conservez `.env`.** Il contient le mot de passe de la base et le secret des sessions ; ne le
+  commitez jamais. Le mot de passe est inséré tel quel dans l'URL de connexion : gardez des
+  caractères hexadécimaux, comme ci-dessus.
+- **Ouvrir à l'équipe.** Les ports ne sont ouverts que sur cette machine (`127.0.0.1`). Activez
+  le [TLS intégré](http.md#tls) ou placez un reverse proxy devant, puis remplacez `127.0.0.1`
+  dans les `ports` de `controller` et `mcp` par l'adresse du serveur. Les variables TLS
+  (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) vont sous `environment`, avec les fichiers
+  du certificat montés en lecture seule (voir
+  [Autorité de certification](http.md#autorite-de-certification)). Le contrôleur n'expose aucune
+  route d'écriture sans jeton : il peut rester interne.
+- **Avis de vulnérabilités.** La base OSV est **vide** au premier démarrage : l'analyse de
+  dépendances répond qu'aucune base n'est chargée. Pour que le contrôleur la télécharge au
+  démarrage puis toutes les 24 h, décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et
+  `SECREVIEW_OSV_ECOSYSTEMS`) dans le service `controller`, puis lancez `docker compose up -d`.
+  Suivez l'import avec `docker compose logs -f controller`. Sans accès Internet, importez une
+  archive avec `advisories import` (voir [Dépendances](dependencies.md#import-manuel)).
+- **Durcissement.** Les conteneurs de security-review-mcp tournent en système de fichiers en
+  lecture seule, sans capacité Linux.
+- **Données.** Le volume `secreview-pg` contient les rapports, les comptes et les jetons :
+  sauvegardez-le (voir [Sauvegarde de PostgreSQL](#sauvegarde-de-postgresql)). Il est monté sur
+  `/var/lib/postgresql`, où PostgreSQL 18 range ses données ; un volume créé par PostgreSQL 17 ne
+  démarre pas avec cette image (voir [Mise à niveau de PostgreSQL](#mise-a-niveau-de-postgresql)).
+
+Les commandes d'administration s'exécutent dans le conteneur du contrôleur :
 
 ```bash
 docker compose exec controller security-review-controller token list
+```
+
+## Sans Docker Compose
+
+La même image lance chaque processus dans son propre conteneur, sur une base PostgreSQL
+existante (voir [Architecture et déploiement](architecture.md)) :
+
+- le **serveur MCP** est le point d'entrée par défaut de l'image (`security-review-mcp`,
+  commande par défaut `serve`, en stdio ; ajoutez `--transport streamable-http` pour HTTP) ;
+- le **contrôleur** (API REST, interface web, administration) se lance avec
+  `--entrypoint security-review-controller`, avec l'[authentification et le TLS intégrés](http.md)
+  ou derrière un reverse proxy qui s'en charge.
+
+```bash
+DB=postgresql+psycopg2://user:pass@db:5432/secreview
+
+# 1. Schéma (Alembic) : à relancer après chaque mise à jour de l'image
+docker run --rm -e SECREVIEW_DATABASE_URL=$DB \
+    --entrypoint security-review-controller security-review-mcp:pg db upgrade
+
+# 2. Contrôleur : interface web et API, de préférence sur un réseau interne
+docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
+    -e SECREVIEW_DATABASE_URL=$DB -e SECREVIEW_DB_AUTO_UPGRADE=false \
+    --entrypoint security-review-controller \
+    security-review-mcp:pg serve --host 0.0.0.0 --port 8000
+
+# 3. Serveur MCP : exposé aux agents et à la CI
+docker run -d --name secreview-mcp -p 8443:8443 \
+    -e SECREVIEW_DATABASE_URL=$DB \
+    -v ./tls:/etc/secreview/tls:ro \
+    -e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
+    -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
+    security-review-mcp:pg serve --transport streamable-http --host 0.0.0.0 --port 8443
+
+# 4. Mot de passe du compte admin, créé au premier démarrage du contrôleur
+docker exec secreview-controller security-review-controller user reset-password admin
+```
+
+Les fichiers montés doivent être lisibles par l'utilisateur du conteneur (uid `10001`). Le
+serveur MCP refuse de démarrer tant que le schéma n'est pas migré (étape 1).
+
+## Sauvegarde de PostgreSQL
+
+Le volume `secreview-pg` contient les rapports, les comptes et les empreintes des jetons.
+Exportez-le régulièrement (cron, timer systemd) et conservez les fichiers hors du serveur,
+lisibles par vous seul :
+
+```bash
+(umask 077 && docker compose exec -T db pg_dump -U secreview -d secreview -Fc > ~/secreview-$(date +%F).dump)
+# Restaurer un export (les services sont arrêtés pendant la restauration)
+docker compose stop mcp controller
+docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exists --no-owner < ~/secreview-2026-10-25.dump
+docker compose start controller mcp
 ```
 
 ## Mise à niveau de PostgreSQL
@@ -106,7 +177,7 @@ contient les rapports, les empreintes des mots de passe et des jetons : gardez-l
 
 ## Règles internes et CLI
 
-Les [règles](../usage/rules.md) sont stockées dans la base : importez un
+Les [règles](../usage/rules.md#commande-rules) sont stockées dans la base : importez un
 dossier de packs TOML avec la CLI du contrôleur (les serveurs en cours d'exécution les
 appliquent en quelques secondes) :
 

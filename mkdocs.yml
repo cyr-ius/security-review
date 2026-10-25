@@ -100,8 +100,12 @@ plugins:
             Command line: Ligne de commande
             Security and limits: Sécurité et limites
             Contributing: Contribuer
-            MCP and Controller: MCP et contrôleur
-            MCP standalone: MCP autonome
+            Shared mode (HTTP): Mode partagé (HTTP)
+            Kubernetes: Kubernetes
+            Manual installation (without containers): Installation manuelle (sans conteneur)
+
+hooks:
+  - scripts/mkdocs_hooks.py
 
 extra_css:
   - stylesheets/extra.css
@@ -115,7 +119,14 @@ markdown_extensions:
   - pymdownx.details
   - pymdownx.highlight
   - pymdownx.inlinehilite
-  - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path: [examples]
+      check_paths: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
 
@@ -128,8 +139,8 @@ nav:
   - Getting started:
       - Installation: getting-started/installation.md
       - Deployment:
-          - MCP and Controller: getting-started/deploy.md
-          - MCP standalone: getting-started/stdio.md
+          - Shared mode (HTTP): getting-started/deploy.md
+          - Local mode (stdio): getting-started/stdio.md
       - Connecting the host: getting-started/host.md
   - Usage:
       - Prompts and tools: usage/prompts-tools.md
@@ -149,6 +160,8 @@ nav:
       - Deployment:
           - Architecture and deployment: advanced/architecture.md
           - Docker: advanced/docker.md
+          - Kubernetes: advanced/kubernetes.md
+          - Manual installation (without containers): advanced/manual-install.md
           - HTTP server, authentication and TLS: advanced/http.md
           - OIDC login: advanced/sso.md
           - Roles, groups and permissions: advanced/access-control.md

@@ -36,7 +36,7 @@ and a report database (SQLite or PostgreSQL) usable in pipelines.
 | **Rules** | More than 200 rules and more than 120 checklist items: Python, Java, Go, C#, Rust, TypeScript / Node.js backend, Angular, Docker, Kubernetes, configuration, GitLab CI, Jenkins, Spring, FastAPI, [prompt injection aimed at AI assistants](https://cyr-ius.github.io/security-review-mcp/usage/rules/#default-rules-by-platform) (hidden characters, injected instructions; [read guard](https://cyr-ius.github.io/security-review-mcp/advanced/read-guard/) hook for Claude Code), copied into the database at first start, plus your own [rules](https://cyr-ius.github.io/security-review-mcp/usage/rules/) and [checklists](https://cyr-ius.github.io/security-review-mcp/usage/checklists/) (TOML import/export from the CLI or the web interface) |
 | **Development standards** | [conventions by technology](https://cyr-ius.github.io/security-review-mcp/usage/standards/) managed in the web interface (TOML import/export) and handed to the AI assistant before it codes (prompt, `get_development_standards` / `list_development_standards` tools, resources) |
 | **Vulnerabilities** | manifests, lockfiles and [CycloneDX SBOMs](https://cyr-ius.github.io/security-review-mcp/advanced/dependencies/#cyclonedx-sbom-transitive-dependencies) checked against an OSV database (PyPI, npm, Maven, Go, crates.io, NuGet) imported offline or [updated every day by the controller](https://cyr-ius.github.io/security-review-mcp/advanced/dependencies/#automatic-update-by-the-controller), optional proxy |
-| **Transport** | HTTP (shared server) or stdio (local mode), with optional Bearer tokens stored in the database (`token` CLI) with [expiry and rotation](https://cyr-ius.github.io/security-review-mcp/advanced/http/#expiry-and-rotation-of-tokens), and TLS (optionally mutual) |
+| **Transport** | HTTP (shared mode) or stdio (local mode), with optional Bearer tokens stored in the database (`token` CLI) with [expiry and rotation](https://cyr-ius.github.io/security-review-mcp/advanced/http/#expiry-and-rotation-of-tokens), and TLS (optionally mutual) |
 | **Audit and metrics** | [audit log](https://cyr-ius.github.io/security-review-mcp/advanced/audit-metrics/#audit-log) of triage decisions, tokens and enrollments, and [Prometheus metrics](https://cyr-ius.github.io/security-review-mcp/advanced/audit-metrics/#prometheus-metrics) on `/metrics` (`metrics` token) |
 | **Connectors** | [findings sent to other tools](https://cyr-ius.github.io/security-review-mcp/connectors/): Jira and ServiceNow built in, [third-party connectors](https://cyr-ius.github.io/security-review-mcp/connectors/third-party/) for any other system (vulnerability register, GRC...); each connector switched on in the web interface, by hand or automatically above a severity threshold, one record per issue |
 | **Deployment** | MCP server and controller (REST API, web interface) [separated](https://cyr-ius.github.io/security-review-mcp/advanced/architecture/) on a shared database, Alembic migrations, Docker Compose and Kubernetes examples |
@@ -59,7 +59,8 @@ The product runs as **two services** sharing one database: the **MCP server**
 See [two services, two roles](https://cyr-ius.github.io/security-review-mcp/#two-services-two-roles).
 
 ```bash
-pip install security-review-mcp        # Python ≥ 3.14; [postgres] extra for PostgreSQL
+uv venv && source .venv/bin/activate
+uv pip install security-review-mcp     # Python ≥ 3.14; [postgres] extra for PostgreSQL
 
 # from the same directory (shared SQLite file)
 security-review-controller db upgrade                              # schema (Alembic)
@@ -92,7 +93,7 @@ Host configuration (VS Code with a token, `.vscode/mcp.json`; Claude and `.mcp.j
 Step by step: [deploying the server](https://cyr-ius.github.io/security-review-mcp/getting-started/deploy/),
 [connecting the host](https://cyr-ius.github.io/security-review-mcp/getting-started/host/) (VS Code, Claude, enrollment).
 Other cases: [offline installation](https://cyr-ius.github.io/security-review-mcp/advanced/installation/),
-[local stdio mode](https://cyr-ius.github.io/security-review-mcp/advanced/stdio/),
+[local mode (stdio)](https://cyr-ius.github.io/security-review-mcp/getting-started/stdio/),
 [HTTP, authentication and TLS](https://cyr-ius.github.io/security-review-mcp/advanced/http/),
 [Docker images](https://cyr-ius.github.io/security-review-mcp/advanced/docker/#published-images) (`ghcr.io/cyr-ius/security-review-mcp`, `docker.io/cyrius44/security-review-mcp`) and [Docker Compose with PostgreSQL](https://cyr-ius.github.io/security-review-mcp/advanced/docker/#docker-compose-with-postgresql),
 [architecture and Kubernetes](https://cyr-ius.github.io/security-review-mcp/advanced/architecture/),

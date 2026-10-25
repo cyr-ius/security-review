@@ -173,9 +173,9 @@ Lues par le client de pipeline `security-review-ci`, jamais par les serveurs.
 | `SECREVIEW_CONTROLLER_URL` | — | URL du contrôleur utilisée par [`security-review-ci`](../usage/gate.md#client-de-pipeline-security-review-ci) (valeur par défaut de `--url`) ; lue dans l'environnement uniquement, jamais dans `.env` |
 
 Les jetons Bearer ne se configurent pas par variable : ils sont stockés en base et gérés avec
-`security-review-controller token` (voir [Serveur HTTP, authentification et TLS](../advanced/http.md)).
+`security-review-controller token` (voir [Serveur HTTP, authentification et TLS](../advanced/http.md#jetons-bearer)).
 Les règles internes non plus : elles sont stockées en base et gérées avec
-`security-review-controller rules` (voir [Règles](../usage/rules.md)).
+`security-review-controller rules` (voir [Règles](../usage/rules.md#commande-rules)).
 
 ## Base de données
 
@@ -187,6 +187,9 @@ Pour PostgreSQL (extra `postgres`) :
 ```bash
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview
 ```
+
+Un PostgreSQL prêt à l'emploi : [Docker Compose](../advanced/docker.md#docker-compose-avec-postgresql) ou
+[Kubernetes](../advanced/kubernetes.md#deploiement).
 
 Le schéma est géré par des migrations Alembic embarquées dans le paquet : **security-review-controller**
  - `security-review-controller db upgrade` crée ou migre la base et amorce les règles par défaut,

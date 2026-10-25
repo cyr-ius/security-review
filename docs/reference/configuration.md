@@ -174,9 +174,9 @@ Read by the pipeline client `security-review-ci`, never by the servers.
 
 Bearer tokens are not configured by variable: they are stored in the database and managed with
 `security-review-controller token` (see
-[HTTP server, authentication and TLS](../advanced/http.md)). Neither are internal rules:
+[HTTP server, authentication and TLS](../advanced/http.md#bearer-tokens)). Neither are internal rules:
 they are stored in the database and managed with `security-review-controller rules` (see
-[Rules](../usage/rules.md)).
+[Rules](../usage/rules.md#rules-command)).
 
 ## Database
 
@@ -188,6 +188,9 @@ For PostgreSQL (`postgres` extra):
 ```bash
 SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview
 ```
+
+A PostgreSQL ready to use: [Docker Compose](../advanced/docker.md#docker-compose-with-postgresql) or
+[Kubernetes](../advanced/kubernetes.md#deployment).
 
 The schema is managed by Alembic migrations embedded in the package: **security-review-controller**
  - `security-review-controller db upgrade` creates or migrates the database and seeds the default

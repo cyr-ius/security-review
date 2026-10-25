@@ -11,7 +11,7 @@ A connector published by a Python package (entry point of the group
 entry point name: installing a package is not enough.
 
 ```bash
-pip install secreview-acme-connector            # in the image or the environment of the controller
+uv pip install secreview-acme-connector         # in the image or the environment of the controller
 SECREVIEW_CONNECTORS_PLUGINS=acme               # comma separated
 SECREVIEW_ACME_URL=https://risk.acme.example/api
 SECREVIEW_ACME_API_KEY=...

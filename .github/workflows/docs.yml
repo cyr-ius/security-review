@@ -6,11 +6,19 @@ on:
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      # included in the pages (manifests) or used to build them (version of the links)
+      - "examples/**"
+      - "pyproject.toml"
+      - "scripts/mkdocs_hooks.py"
       - ".github/workflows/docs.yml"
   pull_request:
     paths:
       - "docs/**"
       - "mkdocs.yml"
+      # included in the pages (manifests) or used to build them (version of the links)
+      - "examples/**"
+      - "pyproject.toml"
+      - "scripts/mkdocs_hooks.py"
       - ".github/workflows/docs.yml"
   workflow_dispatch:
 

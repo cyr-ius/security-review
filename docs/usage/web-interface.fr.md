@@ -530,7 +530,7 @@ ni projet propre.
 | Type (`auth_source`) | Connexion | Création |
 |---|---|---|
 | **Local** (`local`) | Identifiant et mot de passe | Par un administrateur, ou le compte `admin` initial |
-| **OIDC** (`oidc`) | [Fournisseur d'identité](../advanced/sso.md), sans mot de passe | Par un administrateur, ou à la première connexion si `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
+| **OIDC** (`oidc`) | [Fournisseur d'identité](../advanced/sso.md#comptes-oidc), sans mot de passe | Par un administrateur, ou à la première connexion si `SECREVIEW_OIDC_AUTO_CREATE_USERS=true` |
 
 Un compte OIDC rejoint aussi, à chaque connexion, les groupes ouverts au OIDC nommés par son claim
 des groupes (voir [comptes OIDC](../advanced/sso.md#comptes-oidc)). Les comptes se gèrent dans
@@ -662,16 +662,16 @@ Les sessions sont signées avec `SECREVIEW_SECRET_KEY` (32 caractères au moins)
 toutes les répliques du contrôleur. Sans lui, un secret aléatoire est tiré à chaque démarrage
 (un avertissement est journalisé) : les sessions se terminent au redémarrage du contrôleur et ne
 sont pas partagées entre répliques. Définissez-le en production (en Kubernetes, depuis un
-`Secret` : voir [Kubernetes](../advanced/architecture.md#kubernetes)).
+`Secret` : voir [Kubernetes](../advanced/kubernetes.md#secrets)).
 
 Les échecs de connexion sont limités : après **5 échecs en 15 minutes** pour un identifiant
 depuis une même adresse, ou **20 échecs** depuis une adresse tous identifiants confondus, la
 connexion est refusée (`429`, en-tête `Retry-After`), même avec le bon mot de passe. Les
 compteurs sont tenus en base : tous les workers et réplicas du contrôleur les partagent. Chaque
 adresse est aussi limitée sur toute l'API REST (par défaut 600 requêtes par minute, 30 sur les
-routes de connexion, voir [`SECREVIEW_RATE_LIMIT_*`](../reference/configuration.md)). Derrière un reverse proxy, l'adresse vue est celle du
+routes de connexion, voir [`SECREVIEW_RATE_LIMIT_*`](../reference/configuration.md#limitation-des-requetes)). Derrière un reverse proxy, l'adresse vue est celle du
 proxy, et la limite s'appliquerait alors à tous les clients du proxy : déclarez le proxy dans
-[`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md) pour que l'adresse du client
+[`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md#ecoute-tls-et-reverse-proxy) pour que l'adresse du client
 soit lue dans `X-Forwarded-For`. Chaque connexion et chaque échec
 sont journalisés, sans le mot de passe :
 
@@ -728,7 +728,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 | `SECREVIEW_ENROLLMENT` | `true` | Demandes de projet par les clients MCP sans jeton (sur le serveur MCP), validées dans l'écran **Projets** ; aucun jeton n'est créé |
 | `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | Jours pendant lesquels un projet demandé attend sa validation avant d'être supprimé |
 | `SECREVIEW_WEB_URL` | — | URL publique de l'interface web, donnée par le serveur MCP aux clients sans jeton valide |
-| `SECREVIEW_OIDC_*` | — | [Connexion OIDC](../advanced/sso.md), voir la [référence](../reference/configuration.md) |
+| `SECREVIEW_OIDC_*` | — | [Connexion OIDC](../advanced/sso.md), voir la [référence](../reference/configuration.md#connexion-oidc) |
 
 Le paquet publié et l'image Docker contiennent l'application déjà compilée. Si vous installez
 depuis les sources sans la compiler, le contrôleur ne sert que l'API REST et un avertissement est

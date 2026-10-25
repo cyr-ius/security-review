@@ -1,6 +1,6 @@
 # Architecture and deployment
 
-A shared server is made of **two independent processes** sharing the same database. They can
+In shared mode, the server is made of **two independent processes** sharing the same database. They can
 run in two containers, two pods or on two machines.
 
 ```text
@@ -33,7 +33,8 @@ controller thus exposes **no unauthenticated write route**.
 !!! note "Shared database"
     With SQLite, both processes must run on the same machine and share the file. As soon as
     they are in different pods or on different machines, use PostgreSQL (`postgres` extra,
-    image built with `--build-arg EXTRAS=postgres`).
+    image built with `--build-arg EXTRAS=postgres`), deployed with
+    [Docker Compose](docker.md#docker-compose-with-postgresql) or [Kubernetes](kubernetes.md#deployment).
 
 With stdio (developer workstation), only `security-review-mcp` is needed: it creates and
 migrates its local database itself.

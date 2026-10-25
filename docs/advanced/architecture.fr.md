@@ -1,6 +1,6 @@
 # Architecture et déploiement
 
-Un serveur partagé se compose de **deux processus** indépendants qui partagent la même base de
+En mode partagé, le serveur se compose de **deux processus** indépendants qui partagent la même base de
 données. Ils peuvent tourner dans deux conteneurs, deux pods ou sur deux machines.
 
 ```text
@@ -33,7 +33,8 @@ contrôleur n'expose ainsi **aucune route d'écriture sans authentification**.
 !!! note "Base partagée"
     Avec SQLite, les deux processus doivent tourner sur la même machine et partager le fichier.
     Dès qu'ils sont dans des pods ou sur des machines différents, utilisez PostgreSQL
-    (extra `postgres`, image construite avec `--build-arg EXTRAS=postgres`).
+    (extra `postgres`, image construite avec `--build-arg EXTRAS=postgres`), déployé avec
+    [Docker Compose](docker.md#docker-compose-avec-postgresql) ou [Kubernetes](kubernetes.md#deploiement).
 
 En stdio (poste développeur), seul `security-review-mcp` est nécessaire : il crée et migre sa
 base locale lui-même.

@@ -12,7 +12,7 @@ Un connecteur publié par un paquet Python (point d'entrée du groupe
 de son point d'entrée : installer un paquet ne suffit pas.
 
 ```bash
-pip install secreview-acme-connector            # in the image or the environment of the controller
+uv pip install secreview-acme-connector         # in the image or the environment of the controller
 SECREVIEW_CONNECTORS_PLUGINS=acme               # comma separated
 SECREVIEW_ACME_URL=https://risk.acme.example/api
 SECREVIEW_ACME_API_KEY=...

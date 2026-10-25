@@ -30,7 +30,7 @@ récupère avec `get_review_checklist` quand elles s'appliquent
 `report_language` fixe la langue de la réponse de l'agent et des champs rédigés du rapport
 enregistré (résumé, périmètre, titres, descriptions, recommandations), par exemple `French`,
 `fr` ou `pt-BR`. Sans cet argument, le prompt reprend
-[`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md) quand elle est définie, sinon la
+[`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md#serveur-mcp) quand elle est définie, sinon la
 langue choisie par un administrateur dans l'écran [**Langue des rapports**](web-interface.md#ecrans)
 de l'interface web ; si aucune n'est définie, l'agent choisit (en général la langue de la
 conversation).
