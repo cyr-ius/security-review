@@ -73,7 +73,7 @@ Read by `security-review-controller` only.
 | `SECREVIEW_WEB_UI` | `true` | Serves the [web interface](../usage/web-interface.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the web interface |
 | `SECREVIEW_SWAGGER_ENABLED` | `false` | Serve the Swagger documentation (`/api/docs`) and the OpenAPI schema (`/api/openapi.json`), from the files of the web interface build |
-| `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED` | `false` | Serve the pipeline client on `/api/ci-client/` (public), so that developers install it with `uv --find-links`, without PyPI ([from the controller](../advanced/ci.md#from-the-controller)) |
+| `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED` | `true` | Serve the pipeline client on `/api/ci-client/` (public), so that developers install it with `uv --find-links`, without PyPI ([from the controller](../advanced/ci.md#from-the-controller)) |
 | `SECREVIEW_UPDATE_CHECK_ENABLED` | `false` | The **About** page searches GitHub for a newer release (HTTPS, through the outgoing proxy, cached 6 hours, see [security](security.md#security-of-the-server-itself)) |
 
 ### Rate limiting

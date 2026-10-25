@@ -41,7 +41,8 @@ def test_controller_serves_the_client_wheel_without_token(monkeypatch):
     assert client.get(PAGE + "other-1.0-py3-none-any.whl").status_code == 404
 
 
-def test_client_download_is_disabled_by_default(monkeypatch):
+def test_client_download_is_enabled_by_default_and_can_be_disabled(monkeypatch):
+    assert get_settings().ci_client_download_enabled
     assert controller(monkeypatch, enabled=False).get(PAGE).status_code == 404
 
 

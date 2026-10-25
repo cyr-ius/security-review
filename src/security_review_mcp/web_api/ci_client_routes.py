@@ -1,6 +1,6 @@
 """Public download of the pipeline client (``/api/ci-client/``, see ci_wheel).
 
-Served when SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED is set: ``uv`` reads the links page with
+Served unless SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED is false: ``uv`` reads the links page with
 ``--find-links`` and sends no token, so the two routes are public and read-only. They tell the
 version of the controller, like the API documentation.
 """

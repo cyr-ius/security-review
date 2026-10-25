@@ -15,7 +15,7 @@ base (voir [Architecture](architecture.md)).
 | `/api/v1/ci/` | [`security-review-ci`](ci.md) : gate, SARIF, tendance, scans du code et des dépendances | jeton `ci` ou jeton `mcp` personnel |
 | `/metrics` | Prometheus ([métriques](../reference/metrics.md)) | jeton `metrics` ou `admin` |
 | `/api/docs` | Swagger, seulement avec `SECREVIEW_SWAGGER_ENABLED=true` | aucun (les appels demandent un [jeton API](../usage/tokens.md#jetons-api)) |
-| `/api/ci-client/` | uv : [téléchargement de `security-review-ci`](ci.md#depuis-le-controleur), seulement avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=true` | aucun |
+| `/api/ci-client/` | uv : [téléchargement de `security-review-ci`](ci.md#depuis-le-controleur), sauf avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | aucun |
 | `/api/health`, `/api/favicon.svg` | disponibilité de l'API, icône | aucun |
 | `/healthz` | sondes (`HEALTHCHECK` Docker, Kubernetes) | aucun |
 
@@ -230,7 +230,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   `/api/v1/` exige une session ou un jeton `admin` ou `api` (les routes de pipeline `/api/v1/ci/`
   prennent les jetons `ci`, voir [Ce qu'il sert](#ce-quil-sert)). Seules les routes de
   connexion (`/api/v1/auth/…`) sont publiques, ainsi que le téléchargement du client de
-  pipeline (`/api/ci-client/`) une fois activé.
+  pipeline (`/api/ci-client/`) sauf s'il est désactivé.
 - Les mots de passe des comptes ne sont jamais stockés : seule une empreinte **scrypt** salée
   (N=2¹⁴, r=8, p=5) est enregistrée et aucune réponse de l'API ne la renvoie. La vérification
   prend le même temps que l'identifiant existe ou non, et la réponse d'échec est identique. La documentation Swagger (`/api/docs`)

@@ -164,8 +164,8 @@
   kept in the `sessionStorage` of the tab. The Swagger documentation and its OpenAPI schema
   are disabled by default (`SECREVIEW_SWAGGER_ENABLED`); once enabled they are public, served
   from local files only with a strict CSP, and the data routes stay protected. The download of
-  the pipeline client (`/api/ci-client/`, `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED`) is disabled
-  by default too; once enabled it is public and read-only, serves only the wheel built from the
+  the pipeline client (`/api/ci-client/`, `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED`) is enabled
+  by default (`false` disables it): it is public and read-only, serves only the wheel built from the
   code of the controller, with its SHA-256, and tells the version of the controller. The check is made twice: by the Bearer
   middleware, then by every route of the API, which refuses (`401`) any request without an
   authenticated identity. The API thus never grants rights by default, even if it is served
