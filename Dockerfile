@@ -15,9 +15,10 @@
 #   docker run --rm -v secreview-data:/var/lib/secreview --entrypoint security-review-controller \
 #       security-review-mcp db upgrade
 #   docker run -d -p 127.0.0.1:8080:8000 -v secreview-data:/var/lib/secreview \
-#       --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
-#   docker run -d -p 127.0.0.1:8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
-#       serve --host 0.0.0.0 --port 8000
+#       --entrypoint security-review-controller security-review-mcp serve
+#   docker run -d -p 127.0.0.1:8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp
+# Both processes listen on every interface of the container (SECREVIEW_HOST=0.0.0.0): the address
+# of the host they are reachable on is chosen when publishing the port (-p 127.0.0.1:...).
 # (SQLite in a shared volume is for a single host only: use PostgreSQL otherwise.)
 
 # Base images are written out (no ARG) so that Dependabot can propose their updates
@@ -83,10 +84,13 @@ RUN groupadd --system --gid 10001 secreview \
 # Same path as in the build stage: the venv scripts reference it
 COPY --from=builder /app/.venv /app/.venv
 
+# A process listening on 127.0.0.1 is unreachable from outside its container: listen on every
+# interface, the published port (-p 127.0.0.1:..., ports: in Compose) limits the exposure
 ENV PATH="/app/.venv/bin:${PATH}" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db
+    SECREVIEW_DATABASE_URL=sqlite:////var/lib/secreview/security_reports.db \
+    SECREVIEW_HOST=0.0.0.0
 
 # The admin password hash and the project tokens are stored in the database. At its first start
 # the controller creates the administrator "admin" (SECREVIEW_ADMIN_USERNAME) with a random

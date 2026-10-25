@@ -41,8 +41,9 @@ de passe dans **Mon compte**, puis créez un compte par personne dans l'écran *
 (voir les [comptes utilisateurs](../usage/web-interface.md#comptes-utilisateurs)).
 
 Les deux ports ne sont publiés que sur `127.0.0.1` : pour ouvrir à l'équipe, ajoutez le TLS et
-renseignez `DOCKER_PUBLISH_ADDRESS` (voir
-[Docker Compose avec PostgreSQL](../advanced/docker.md#docker-compose-avec-postgresql)).
+renseignez `DOCKER_PUBLISH_ADDRESS` dans `.env` (voir
+[Docker Compose avec PostgreSQL](../advanced/docker.md#docker-compose-avec-postgresql)). Avec
+Docker, c'est la seule adresse à régler : `SECREVIEW_HOST` est déjà fixée par l'image.
 
 !!! warning "La CLI est le seul moyen d'obtenir le mot de passe initial"
     Aucune variable ne le définit et les journaux ne l'affichent jamais : lancez

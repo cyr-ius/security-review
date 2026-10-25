@@ -28,7 +28,7 @@ Read by the MCP server and by the controller.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_HOST` | `127.0.0.1` | Listening address (HTTP) |
+| `SECREVIEW_HOST` | `127.0.0.1` (`0.0.0.0` in the Docker image) | Listening address (HTTP) of the process. With Docker, keep the value of the image and set the address of the host with `DOCKER_PUBLISH_ADDRESS` (see [Docker](../advanced/docker.md#docker-compose-with-postgresql)) |
 | `SECREVIEW_PORT` | `8000` | Listening port (HTTP) |
 | `SECREVIEW_TLS_CERTFILE` | — | Certificate: enables TLS |
 | `SECREVIEW_TLS_KEYFILE` | — | Private key |

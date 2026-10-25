@@ -172,3 +172,16 @@ def test_the_image_declares_the_health_check():
     healthcheck_instruction = re.search(r"^HEALTHCHECK [^\n]*\\\n\s+CMD (.*)$", dockerfile, re.M)
     assert healthcheck_instruction is not None
     assert '"-m", "security_review_mcp.healthcheck"' in healthcheck_instruction.group(1)
+
+
+def test_the_image_listens_on_every_interface_and_compose_publishes_on_loopback():
+    dockerfile = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+    assert re.search(r"^\s+SECREVIEW_HOST=0\.0\.0\.0$", dockerfile, re.M)
+
+    for compose in ("docker-compose.yml", "examples/docker/docker-compose.yml"):
+        text = (ROOT / compose).read_text(encoding="utf-8")
+        # The exposure is chosen on the host only: the listening address stays the image's
+        assert not re.search(r"^\s+SECREVIEW_HOST:", text, re.M), compose
+        ports = re.findall(r'^\s+- "(.+):8000"$', text, re.M)
+        assert len(ports) == 2, compose
+        assert all(port.startswith("${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:") for port in ports)

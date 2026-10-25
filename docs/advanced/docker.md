@@ -60,6 +60,16 @@ Content of the files of version `{{ release_tag }}`:
 | `controller` | Web interface (`/ui/`) and REST API, for people | `127.0.0.1:8080` |
 | `mcp` | MCP server (`/mcp`) and public enrollment, for the agents and the CI | `127.0.0.1:8000` |
 
+!!! info "Which address to set: `DOCKER_PUBLISH_ADDRESS`, not `SECREVIEW_HOST`"
+    Two addresses are involved, and with Docker you only set the first one:
+
+    - `DOCKER_PUBLISH_ADDRESS` (`.env`, read by Docker Compose): the address of **the host
+      machine** on which Docker publishes the ports. `127.0.0.1` (default) keeps them on this
+      machine, `0.0.0.0` opens them on every interface.
+    - `SECREVIEW_HOST` (read by the application): the address the process listens on **inside
+      its container**. The image sets it to `0.0.0.0`, the only value that works in a container:
+      do not change it. It only matters without Docker (see [Manual installation](manual-install.md)).
+
 Good to know:
 
 - **Order of start-up.** `migrate` waits until PostgreSQL is ready; `controller` and `mcp` wait
@@ -68,8 +78,10 @@ Good to know:
   commit it. The password is inserted as is in the connection URL: keep hexadecimal characters,
   as generated above.
 - **Open to the team.** The ports are only open on this machine (`127.0.0.1`). Enable the
-  [built-in TLS](http.md#tls) or put a reverse proxy in front, then replace `127.0.0.1` in the
-  `ports` of `controller` and `mcp` by the address of the server. TLS variables
+  [built-in TLS](http.md#tls) or put a reverse proxy in front, then add
+  `DOCKER_PUBLISH_ADDRESS=0.0.0.0` (every interface) or one address of the server to `.env`,
+  and run `docker compose up -d`. `DOCKER_MCP_PORT` and `DOCKER_CONTROLLER_PORT` change the ports
+  of the server (`8000` and `8080`). TLS variables
   (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) go under `environment`, with the
   certificate files mounted read-only (see [Certificate Authority](http.md#certificate-authority)).
   The controller exposes no write route without a token: it can stay internal.
@@ -114,7 +126,7 @@ docker run --rm -e SECREVIEW_DATABASE_URL=$DB \
 docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
     -e SECREVIEW_DATABASE_URL=$DB -e SECREVIEW_DB_AUTO_UPGRADE=false \
     --entrypoint security-review-controller \
-    ghcr.io/cyr-ius/security-review serve --host 0.0.0.0 --port 8000
+    ghcr.io/cyr-ius/security-review serve
 
 # 3. MCP server: exposed to the agents and the CI
 docker run -d --name secreview-mcp -p 8443:8443 \
@@ -122,13 +134,16 @@ docker run -d --name secreview-mcp -p 8443:8443 \
     -v ./tls:/etc/secreview/tls:ro \
     -e SECREVIEW_TLS_CERTFILE=/etc/secreview/tls/cert.pem \
     -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
-    ghcr.io/cyr-ius/security-review serve --transport streamable-http --host 0.0.0.0 --port 8443
+    ghcr.io/cyr-ius/security-review serve --port 8443
 
 # 4. Password of the admin account, created at the first start of the controller
 docker exec secreview-controller security-review-controller user reset-password admin
 ```
 
-Mounted files must be readable by the user of the container (UID `10001`). The MCP server
+In the image, both processes listen on every interface of the container (`SECREVIEW_HOST=0.0.0.0`),
+port `8000` unless `--port` is given: the `-p` option chooses the address and the port of the
+host (`-p 127.0.0.1:8080:8000`: this machine only). Mounted files must be readable by the user of
+the container (UID `10001`). The MCP server
 refuses to start while the schema is not migrated (step 1).
 
 ## Backing up PostgreSQL

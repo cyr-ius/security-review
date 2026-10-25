@@ -15,7 +15,10 @@
 #   mcp         MCP server (for the AI agents and the CI)
 #
 # The two ports are only open on this machine (127.0.0.1). To open them to the team, enable TLS
-# (see the documentation, page Docker) and replace 127.0.0.1 by the address of the server.
+# (see the documentation, page Docker), then add to .env the address of this machine on which
+# they are published: DOCKER_PUBLISH_ADDRESS=0.0.0.0 (every interface) or one of its addresses.
+# The ports of this machine: DOCKER_MCP_PORT (8000) and DOCKER_CONTROLLER_PORT (8080).
+# Inside their containers, the servers always listen on every interface (set by the image).
 
 name: security-review
 
@@ -63,8 +66,6 @@ services:
     entrypoint: ["security-review-controller"]
     command: ["serve"]
     environment:
-      # Listen on every interface of the container (the published port stays on 127.0.0.1)
-      SECREVIEW_HOST: "0.0.0.0"
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
       # Only the migrate service changes the tables
       SECREVIEW_DB_AUTO_UPGRADE: "false"
@@ -74,7 +75,7 @@ services:
       # SECREVIEW_OSV_AUTO_UPDATE: "true"
       # SECREVIEW_OSV_ECOSYSTEMS: PyPI,npm,Maven
     ports:
-      - "127.0.0.1:8080:8000"
+      - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:${DOCKER_CONTROLLER_PORT:-8080}:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -91,12 +92,11 @@ services:
     restart: unless-stopped
     # The image runs `security-review-mcp serve`: streamable HTTP on /mcp
     environment:
-      SECREVIEW_HOST: "0.0.0.0"
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
       # Only the migrate service changes the tables
       SECREVIEW_DB_AUTO_UPGRADE: "false"
     ports:
-      - "127.0.0.1:8000:8000"
+      - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:${DOCKER_MCP_PORT:-8000}:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully

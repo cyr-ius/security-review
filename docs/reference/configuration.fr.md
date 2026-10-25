@@ -28,7 +28,7 @@ Lues par le serveur MCP et par le contrôleur.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_HOST` | `127.0.0.1` | Adresse d'écoute (HTTP) |
+| `SECREVIEW_HOST` | `127.0.0.1` (`0.0.0.0` dans l'image Docker) | Adresse d'écoute (HTTP) du processus. Avec Docker, gardez la valeur de l'image et réglez l'adresse de l'hôte avec `DOCKER_PUBLISH_ADDRESS` (voir [Docker](../advanced/docker.md#docker-compose-avec-postgresql)) |
 | `SECREVIEW_PORT` | `8000` | Port d'écoute (HTTP) |
 | `SECREVIEW_TLS_CERTFILE` | — | Certificat : active le TLS |
 | `SECREVIEW_TLS_KEYFILE` | — | Clé privée |
