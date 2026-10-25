@@ -58,7 +58,10 @@ projet dans le contrôleur, et les fichiers de `scan-deps` par ceux de vos techn
 
     Le contrôleur sert son propre client : ni PyPI, ni version à tenir à jour (sauf avec
     `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` sur le contrôleur, voir
-    [depuis le contrôleur](../advanced/ci.md#depuis-le-controleur)).
+    [depuis le contrôleur](../advanced/ci.md#depuis-le-controleur)). L'adresse vient du
+    `SECREVIEW_CONTROLLER_URL` de chaque développeur : le fichier n'en contient aucune, et les
+    deux hooks laissent passer le commit avec un message tant qu'elle n'est pas définie. prek ne
+    remplace pas les variables d'`entry`, d'où `bash -c` (Git Bash sous Windows).
 
     ```yaml
     default_install_hook_types: [pre-commit, post-commit]
@@ -67,12 +70,12 @@ projet dans le contrôleur, et les fichiers de `scan-deps` par ceux de vos techn
         hooks:
           - id: scan-deps
             name: dependency scan
-            entry: uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest scan-deps --skip-unconfigured --require-database --project shop-api
+            entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "scan-deps skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest scan-deps --require-database --project shop-api "$@"' --
             language: system
             files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
           - id: agent-review
             name: agent security review
-            entry: uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest agent-review --project shop-api
+            entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "agent-review skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest agent-review --project shop-api' --
             language: system
             stages: [post-commit]
             always_run: true
@@ -132,14 +135,14 @@ proxy). Sur un réseau fermé (labo, machine locale), le HTTP fonctionne avec ce
 | Où | Changement |
 |---|---|
 | `scan-deps` | Ajoutez `--allow-http` à son `entry` : le client refuse d'envoyer le jeton en HTTP à un autre hôte que `localhost` |
-| Client du contrôleur | Écrivez `http://` dans `--find-links` : uv l'accepte |
+| Client du contrôleur | Rien : `SECREVIEW_CONTROLLER_URL=http://…` fonctionne, uv l'accepte |
 | `.mcp.json` | Écrivez `http://` dans l'`url` du serveur MCP |
 | `agent-review` | Rien : il ne contacte pas le contrôleur |
 
 ```yaml
           - id: scan-deps
             name: dependency scan
-            entry: uvx --no-index --find-links http://secreview.lan:8080/api/ci-client/ security-review-ci@latest scan-deps --allow-http --skip-unconfigured --require-database --project shop-api
+            entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "scan-deps skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest scan-deps --allow-http --require-database --project shop-api "$@"' --
 ```
 
 !!! warning "Ce que le HTTP expose"
@@ -153,7 +156,7 @@ proxy). Sur un réseau fermé (labo, machine locale), le HTTP fonctionne avec ce
 | Cas | Comportement |
 |---|---|
 | Sauter un hook une fois | `SKIP=agent-review git commit …` (ou `SKIP=scan-deps`) |
-| `SECREVIEW_CONTROLLER_URL` non défini | `scan-deps` laisse passer le commit avec un avertissement (`--skip-unconfigured`) |
+| `SECREVIEW_CONTROLLER_URL` non défini | Les deux hooks laissent passer le commit avec un message (client du contrôleur) ; `scan-deps` aussi avec `--skip-unconfigured` (client de PyPI) |
 | Aucun CLI d'agent, aucun `.mcp.json` ou aucun serveur `security-review` dedans | `agent-review` ne fait rien, avec un avertissement |
 | Commit portant le trailer `Security-Review: <identifiant du rapport>` | `agent-review` ne fait rien : un agent l'a déjà relu dans sa session |
 | Plusieurs agents installés | Le premier de `claude`, `copilot`, `codex`, ou celui de `AGENT_REVIEW_CLI` |

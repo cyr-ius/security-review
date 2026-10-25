@@ -51,9 +51,11 @@ interface. The agent then adds a `Security-Review: <report id>` trailer to its c
 so that the `agent-review` hook does not review the commit again. The full procedure is in
 `AGENTS.md`.
 
-When `SECREVIEW_CONTROLLER_URL` and a personal `ci` token (`SECREVIEW_TOKEN`) are set, the
-`scan-deps` hook also scans the dependencies when `uv.lock`, `pyproject.toml` or
-`web/package*.json` change.
+The `scan-deps` and `agent-review` hooks run the `security-review-ci` of the controller given by
+`SECREVIEW_CONTROLLER_URL` ([client from the controller](../getting-started/commit-hooks.md)),
+and are skipped while it is not set. With a personal `mcp` or `ci` token in `SECREVIEW_TOKEN`,
+`scan-deps` scans the dependencies when `uv.lock`, `pyproject.toml` or `web/package*.json`
+change.
 
 ### Security review of each commit
 

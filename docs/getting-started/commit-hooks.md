@@ -59,7 +59,10 @@ too.
 
     The controller serves its own client: no PyPI, no version to maintain (unless
     `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` on the controller, see
-    [from the controller](../advanced/ci.md#from-the-controller)).
+    [from the controller](../advanced/ci.md#from-the-controller)). The address comes from the
+    `SECREVIEW_CONTROLLER_URL` of each developer, so the file holds none, and both hooks let the
+    commit through with a message while it is not set. prek does not expand the variables of
+    `entry`, hence `bash -c` (Git Bash on Windows).
 
     ```yaml
     default_install_hook_types: [pre-commit, post-commit]
@@ -68,12 +71,12 @@ too.
         hooks:
           - id: scan-deps
             name: dependency scan
-            entry: uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest scan-deps --skip-unconfigured --require-database --project shop-api
+            entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "scan-deps skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest scan-deps --require-database --project shop-api "$@"' --
             language: system
             files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
           - id: agent-review
             name: agent security review
-            entry: uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest agent-review --project shop-api
+            entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "agent-review skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest agent-review --project shop-api' --
             language: system
             stages: [post-commit]
             always_run: true
@@ -133,14 +136,14 @@ proxy). On a closed network (lab, local machine), plain HTTP works with these ch
 | Where | Change |
 |---|---|
 | `scan-deps` | Add `--allow-http` to its `entry`: the client refuses to send the token over plain HTTP to another host than `localhost` |
-| Client from the controller | Write `http://` in `--find-links`: uv accepts it |
+| Client from the controller | Nothing: `SECREVIEW_CONTROLLER_URL=http://…` works, uv accepts it |
 | `.mcp.json` | Write `http://` in the `url` of the MCP server |
 | `agent-review` | Nothing: it does not contact the controller |
 
 ```yaml
           - id: scan-deps
             name: dependency scan
-            entry: uvx --no-index --find-links http://secreview.lan:8080/api/ci-client/ security-review-ci@latest scan-deps --allow-http --skip-unconfigured --require-database --project shop-api
+            entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "scan-deps skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest scan-deps --allow-http --require-database --project shop-api "$@"' --
 ```
 
 !!! warning "What plain HTTP exposes"
@@ -154,7 +157,7 @@ proxy). On a closed network (lab, local machine), plain HTTP works with these ch
 | Case | Behaviour |
 |---|---|
 | Skip a hook once | `SKIP=agent-review git commit …` (or `SKIP=scan-deps`) |
-| `SECREVIEW_CONTROLLER_URL` not set | `scan-deps` lets the commit through with a warning (`--skip-unconfigured`) |
+| `SECREVIEW_CONTROLLER_URL` not set | Both hooks let the commit through with a message (client of the controller); `scan-deps` too with `--skip-unconfigured` (client of PyPI) |
 | No agent CLI, no `.mcp.json` or no `security-review` server in it | `agent-review` does nothing, with a warning |
 | Commit with a `Security-Review: <report id>` trailer | `agent-review` does nothing: an agent already reviewed it in its session |
 | Several agents installed | The first of `claude`, `copilot`, `codex`, or the one of `AGENT_REVIEW_CLI` |
