@@ -11,8 +11,8 @@
 #
 # The controller migrates the schema (Alembic) at start; the MCP server waits until it is healthy.
 # The MCP server listens on 127.0.0.1:8000 and the controller on 127.0.0.1:8080 only. To publish
-# them on another address of the host (edit their ports), enable TLS (SECREVIEW_TLS_*) or put
-# them behind a reverse proxy first. Inside their containers,
+# them on another address of the host (DOCKER_PUBLISH_ADDRESS in .env), enable TLS
+# (SECREVIEW_TLS_*) or put them behind a reverse proxy first. Inside their containers,
 # the servers always listen on every interface (SECREVIEW_HOST=0.0.0.0, set by the image).
 # The controller exposes no unauthenticated write endpoint: it can stay on an internal network.
 # PostgreSQL is not published on the host.

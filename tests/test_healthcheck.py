@@ -188,4 +188,6 @@ def test_the_image_listens_on_every_interface_and_compose_chooses_the_exposure()
         assert not re.search(r"^\s+SECREVIEW_HOST:", text, re.M), compose
         ports = re.findall(r'^\s+- "(.+):8000"$', text, re.M)
         assert len(ports) == 2, compose
+        # An address given by a variable is judged on its default: "${VAR:-127.0.0.1}:8000"
+        ports = [re.sub(r"^\$\{\w+:-([^}]*)\}", r"\1", port) for port in ports]
         assert all(port.startswith("127.0.0.1:") == loopback for port in ports), compose
