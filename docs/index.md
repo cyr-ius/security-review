@@ -1,10 +1,10 @@
-# security-review-mcp
+# Security Review
 
-**Security Review MCP turns the AI assistants of your developers into security reviewers that
+**Security Review turns the AI assistants of your developers into security reviewers that
 follow your rules, and gives your security team a central view of everything they find.**
 
 Your teams already write code with AI assistants (GitHub Copilot, Claude, Cursor...). Security
-Review MCP plugs into these assistants through **MCP** (Model Context Protocol, the open standard
+Review plugs into these assistants through **MCP** (Model Context Protocol, the open standard
 that lets an assistant use external tools). Every change can then be reviewed for
 vulnerabilities and misconfigurations **while the code is being written**, and every result is
 recorded in one place, where your security team reads it, triages it and follows it up.
