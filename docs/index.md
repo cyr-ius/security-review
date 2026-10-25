@@ -117,7 +117,7 @@ your IDE to use the MCP server in Streamable HTTP mode. See
 
 For security reasons, an authentication token must be provided to interact with the server. If
 no token is present, the MCP server informs your AI agent about the steps required to obtain
-one ([enrollment](advanced/mcp-server.md#enrollment-request-the-project)).
+one ([enrollment](advanced/mcp-server.md#enrollment-personal-token-and-project-requests)).
 
 Its routes, transports, start-up and guarantees: see [MCP server](advanced/mcp-server.md).
 
@@ -253,7 +253,7 @@ The documentation follows the order of a set-up. **Getting started**, **Security
 | Going further (Advanced) | Page |
 |---|---|
 | Docker, Kubernetes, PostgreSQL, without containers | [Architecture](advanced/architecture.md), [Docker](advanced/docker.md), [Kubernetes](advanced/kubernetes.md), [Manual installation](advanced/manual-install.md) |
-| Tokens restricted to a project, enrollment, rotation, TLS | [Bearer tokens](advanced/bearer-tokens.md), [Enrollment](advanced/mcp-server.md#enrollment-request-the-project), [TLS](advanced/tls.md) |
+| Tokens restricted to a project, enrollment, rotation, TLS | [Bearer tokens](advanced/bearer-tokens.md), [Enrollment](advanced/mcp-server.md#enrollment-personal-token-and-project-requests), [TLS](advanced/tls.md) |
 | Log in with the company identity provider | [OIDC login](advanced/sso.md) |
 | Scan a whole repository, the dependencies, add my company's rules | [Whole codebase scan](advanced/code-scan.md), [Dependency analysis](advanced/dependencies.md), [Rules](usage/rules.md) |
 | SARIF, trends, audit log, Prometheus | [SARIF export](advanced/sarif.md), [Trend report](advanced/ci.md#trend-report), [Audit log](advanced/audit-metrics.md), [Prometheus metrics](reference/metrics.md) |

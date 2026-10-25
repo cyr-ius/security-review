@@ -124,7 +124,7 @@ pour utiliser le serveur MCP en mode Streamable-HTTP. Voir [Transport HTTP](gett
 
 Pour des raisons de sécurité, il est nécessaire de soumettre un jeton d'authentification pour
 échanger avec le serveur. En l'absence de jeton, le serveur MCP indique à votre agent IA la
-démarche à suivre pour en obtenir un ([enrôlement](advanced/mcp-server.md#enrolement-demander-le-projet)).
+démarche à suivre pour en obtenir un ([enrôlement](advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)).
 
 Ses routes, ses transports, son démarrage et ses garanties : voir [Serveur MCP](advanced/mcp-server.md).
 
@@ -262,7 +262,7 @@ La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Revue de s
 | Pour aller plus loin (Avancé) | Page |
 |---|---|
 | Docker, Kubernetes, PostgreSQL, sans conteneur | [Architecture](advanced/architecture.md), [Docker](advanced/docker.md), [Kubernetes](advanced/kubernetes.md), [Installation manuelle](advanced/manual-install.md) |
-| Jetons restreints à un projet, enrôlement, renouvellement, TLS | [Jetons Bearer](advanced/bearer-tokens.md), [Enrôlement](advanced/mcp-server.md#enrolement-demander-le-projet), [TLS](advanced/tls.md) |
+| Jetons restreints à un projet, enrôlement, renouvellement, TLS | [Jetons Bearer](advanced/bearer-tokens.md), [Enrôlement](advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet), [TLS](advanced/tls.md) |
 | Se connecter avec le fournisseur d'identité de l'entreprise | [Connexion OIDC](advanced/sso.md) |
 | Scanner tout un dépôt, les dépendances, ajouter les règles de mon entreprise | [Scan du code complet](advanced/code-scan.md), [Analyse des dépendances](advanced/dependencies.md), [Règles](usage/rules.md) |
 | SARIF, tendances, journal d'audit, Prometheus | [Export SARIF](advanced/sarif.md), [Rapport de tendance](advanced/ci.md#rapport-de-tendance), [Journal d'audit](advanced/audit-metrics.md), [Métriques Prometheus](reference/metrics.md) |

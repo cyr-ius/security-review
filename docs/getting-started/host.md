@@ -104,34 +104,20 @@ repository, without `headers`:
 
 In shared mode, when the server requires a token, you use a **personal MCP token**, created in the web
 interface. You do not need to ask an administrator for it before you start: configure the host
-as above, **without a token**, and run your first review. The agent requests the project, then
-tells you where to create your token (see
-[enrollment](../advanced/mcp-server.md#enrollment-request-the-project)).
+as above, **without a token**, and run your first review. The agent tells you where to create
+your token, then requests the project at the next review (see
+[enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests)).
 
 1. **Configure the host without a token.** With the examples of the
    [HTTP transport](#http-transport) section, leave the token input empty (VS Code), do not
    set `SECURITY_REVIEW_TOKEN` (Claude) or leave out `requestInit` (IntelliJ). A missing header or an empty `Bearer` leads to the
    enrollment server, which has the same `security-review` name.
-2. **Run a review**, for example the `security-review` prompt. Instead of reading the code, the
-   agent calls the `request_enrollment` tool with the project name (usually the repository
-   name): a new project waits for an administrator to approve it, and **no token** is returned:
+2. **Run a review**, for example the `security-review` prompt. Instead of reading the code,
+   the agent tells you to sign in to the web interface (its address is given when the
+   administrator set `SECREVIEW_WEB_URL`) and to create a personal MCP token. The server
+   records nothing at this step.
 
-    ```json
-    {
-      "project": "shop-api",
-      "web_url": "https://secreview.example.internal/ui",
-      "next_steps": "No token is created by the enrollment. Ask the user to sign in to …"
-    }
-    ```
-
-    Without an agent, enroll from the command line:
-
-    ```bash
-    security-review-mcp enroll --url https://secreview.example.internal:8443 \
-        --project shop-api --requested-by "alice (shop team)"
-    ```
-
-3. **Create your personal MCP token**: sign in to the web interface (`web_url`), open **My
+3. **Create your personal MCP token**: sign in to the web interface, open **My
    account** > **Personal tokens** and create a token with the **MCP** usage (see
    [personal MCP tokens](../usage/tokens.md#personal-mcp-and-ci-tokens); your groups need the
    `mcp-user` role). It is shown **only once**.
@@ -157,10 +143,13 @@ tells you where to create your token (see
         Add the `requestInit` block with the token in the `mcp.json` file of GitHub Copilot,
         then restart the `security-review` server from the MCP tools of the Copilot chat.
 
-5. **Get access to the project.** The token reaches the projects your account may read: ask an
-   administrator to approve the project (**Projects** screen) and to add you to its group
-   `project:<project>` (an approved project has no member). Access applies at once: run the review again, without
-   reconfiguring anything.
+5. **Run the review again.** The agent first calls `request_project` with the project name
+   (usually the repository name). If you may create projects, a new project is created with you
+   as its member and the review goes on. Otherwise the agent stops and tells you that the
+   project is requested: an administrator approves it on the **Projects** screen, which gives you
+   access to it (for an existing project, the administrator adds you to its group
+   `project:<project>`). Access applies at once: run the review again, without reconfiguring
+   anything.
 
 When the server refuses the token (unknown, revoked or expired), the host gets `401` with a
 message that tells you to sign in to the web interface again and create a new personal MCP
@@ -169,8 +158,9 @@ token: replace it in the host as in step 4 (see
 
 !!! note
     If the administrator disabled the enrollment (`SECREVIEW_ENROLLMENT=false`), a host without
-    a token gets `401`: create your personal MCP token in the web interface directly, and ask an
-    administrator to create the project if it is new.
+    a token gets `401`, and `request_project` creates or requests no project: create your
+    personal MCP token in the web interface directly, and ask an administrator for access to the
+    project.
 
 ## Other cases
 

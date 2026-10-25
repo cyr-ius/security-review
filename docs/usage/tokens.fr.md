@@ -141,9 +141,10 @@ de même que l'écran **Jetons** pour les administrateurs.
 
 Pour un projet qu'il n'atteint pas, un administrateur donne au compte l'accès au projet (un
 groupe qui le lit), ou l'utilisateur le crée depuis **Projets** s'il est nouveau et qu'il porte
-`projects.create` (voir [Création d'un projet](../advanced/access-control.md#creation-dun-projet)) ;
-un projet demandé par un [enrôlement](../advanced/mcp-server.md#enrolement-demander-le-projet)
-attend sa validation. Quand le serveur refuse le jeton (inconnu, révoqué ou expiré), l'agent
+`projects.create` (voir [Création d'un projet](../advanced/access-control.md#creation-dun-projet)).
+L'agent le demande lui-même avec `request_project` avant une revue : un nouveau projet est créé
+aussitôt quand l'utilisateur porte `projects.create`, sinon il attend une validation, qui en
+donne l'accès à l'utilisateur ([enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)). Quand le serveur refuse le jeton (inconnu, révoqué ou expiré), l'agent
 reçoit un `401` qui invite l'utilisateur à se reconnecter pour en créer un nouveau.
 
 Un jeton `mcp` personnel vaut aussi jeton `ci` personnel sur les routes de pipeline : un seul

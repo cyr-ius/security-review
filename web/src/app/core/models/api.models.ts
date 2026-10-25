@@ -486,7 +486,7 @@ export type DevStandardWrite = Pick<
   'slug' | 'title' | 'description' | 'technologies' | 'file_patterns' | 'content' | 'enabled'
 >;
 
-/** GET /api/v1/projects/pending: a project requested by an enrollment, waiting for an approval. */
+/** GET /api/v1/projects/pending: a project requested by the MCP agent of a user, waiting for an approval. */
 export interface PendingProject {
   id: number;
   project: string;

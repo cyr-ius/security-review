@@ -2,8 +2,7 @@
 
 Served by ``security-review-controller serve``, in its own process, apart from the MCP server
 (see http_server). The bearer middleware authenticates the requests and stores the token label
-and role in the ASGI scope; ``deps`` checks the permissions of each route. The public
-enrollment endpoint is served by the MCP server (see enrollment_api).
+and role in the ASGI scope; ``deps`` checks the permissions of each route.
 
 The routes are split by domain (``*_routes`` modules) and every answer has a response model
 (``schemas``). The services are synchronous (SQLModel sessions), so every call runs in the

@@ -138,8 +138,11 @@ async def test_full_review_flow():
 async def test_review_prompts_give_their_review_type(prompt, review_type):
     async with Client(mcp) as client:
         result = await client.get_prompt(prompt, {})
-    assert f"`review_type` `{review_type}`" in result.messages[0].content.text
+    text = result.messages[0].content.text
+    assert f"`review_type` `{review_type}`" in text
     assert ReviewType(review_type)
+    # The project is checked (created or requested) before the review starts
+    assert "Call `request_project` once" in text
 
 
 async def test_review_prompts_leave_the_author_to_the_token():
@@ -654,42 +657,49 @@ def test_a_personal_token_saves_its_user_as_the_author(http_app):
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 
-async def test_request_enrollment_tool_requests_the_project_and_no_token(monkeypatch):
-    monkeypatch.setattr(get_settings(), "web_url", "https://secreview.example/ui")
-    async with Client(mcp) as client:
-        result = await client.call_tool(
-            "request_enrollment", {"project": "Acme/Shop_API", "requested_by": "alice"}
-        )
-    enrolled = json.loads(text_of(result))
-    assert set(enrolled) == {"project", "web_url", "next_steps"}
-    assert (enrolled["project"], enrolled["web_url"]) == (
-        "shop-api",
-        "https://secreview.example/ui",
-    )
-    assert "personal MCP token" in enrolled["next_steps"]
-    assert token_store.list_tokens() == []
-    assert [item["project"] for item in access_control.list_enrollments()] == ["shop-api"]
+def personal_token(username: str, permissions: list[str] | None = None) -> str:
+    """A personal mcp token of a new web user whose only role holds ``permissions``."""
+    from conftest import make_user
+
+    groups = []
+    if permissions:
+        role = access_control.create_role(f"role-{username}", permissions)
+        group = access_control.create_group(f"group-{username}")
+        access_control.set_group_roles(group["id"], [(role["id"], None)])
+        groups = [group["id"]]
+    user = make_user(username, "Correct horse battery 9", group_ids=groups)
+    return token_store.create_personal_token(user["id"], "agent", role="mcp")["token"]
 
 
-async def test_request_enrollment_errors(monkeypatch):
-    async with Client(mcp) as client:
-        blank = await client.call_tool("request_enrollment", {"project": "  "})
-        monkeypatch.setattr(get_settings(), "enrollment", False)
-        disabled = await client.call_tool("request_enrollment", {"project": "shop-api"})
-    assert blank.is_error and "between 1 and 200" in text_of(blank)
-    assert disabled.is_error and "Enrollment is disabled" in text_of(disabled)
-    assert token_store.list_tokens() == []
+def test_request_project_creates_or_requests_the_project(http_app, monkeypatch):
+    services.save_report("shop-api", "Review", [])
+    review = {"summary": "Review", "findings": []}
 
+    # projects.create: a new project is created and reached by the token at once
+    carol = McpOverHttp(http_app, personal_token("carol", ["projects.create"]))
+    is_error, text = carol.call("request_project", {"project": "Acme/Mobile_App"})
+    assert not is_error, text
+    assert (json.loads(text)["project"], json.loads(text)["status"]) == ("mobile-app", "created")
+    _, text = carol.call("request_project", {"project": "mobile-app"})
+    assert json.loads(text) == {"project": "mobile-app", "status": "accessible"}
+    assert carol.call("save_security_report", {"project": "mobile-app", **review})[0] is False
 
-async def test_save_report_outside_token_project_suggests_enrollment(http_app):
-    token = token_store.create_token("shop-ci", "mcp", "shop-api")["token"]
-    session = McpOverHttp(http_app, token)
+    # Without it: a new project and an existing one get the same answer, and no review is saved
+    alice = McpOverHttp(http_app, personal_token("alice"))
+    new = json.loads(alice.call("request_project", {"project": "billing"})[1])
+    known = json.loads(alice.call("request_project", {"project": "shop-api"})[1])
+    assert new["status"] == known["status"] == "requested"
+    assert new["next_steps"].replace("billing", "P") == known["next_steps"].replace("shop-api", "P")
+    is_error, text = alice.call("save_security_report", {"project": "billing", **review})
+    assert is_error and "request_project" in text
+    (pending,) = access_control.list_enrollments()
+    assert (pending["project"], pending["requested_by"]) == ("billing", "alice")
+    events = audit.list_events(action="enrollment.requested")["events"]
+    assert {event["actor"] for event in events} == {"token:alice:agent"}
 
-    is_error, text = session.call(
-        "save_security_report", {"project": "billing", "summary": "Review", "findings": []}
-    )
-
-    assert is_error and "request_enrollment" in text
+    monkeypatch.setattr(get_settings(), "enrollment", False)
+    is_error, text = alice.call("request_project", {"project": "crm"})
+    assert is_error and "Project requests are disabled" in text
 
 
 async def test_tools_normalize_the_project_name():
@@ -722,46 +732,26 @@ async def test_a_restricted_token_saves_under_a_variant_of_its_project(http_app)
     assert json.loads(text)["project"] == "shop-api"
 
 
-async def test_enrollment_server_only_exposes_enrollment():
+async def test_enrollment_server_only_tells_how_to_get_a_token(monkeypatch):
+    monkeypatch.setattr(get_settings(), "web_url", "https://secreview.example/ui")
     async with Client(enrollment_mcp) as client:
         tools = {t.name for t in (await client.list_tools()).tools}
         prompts = {p.name for p in (await client.list_prompts()).prompts}
-        prompt = await client.get_prompt("security-review", {"project": "shop-api"})
-    assert tools == {"request_enrollment"}
+        prompt = await client.get_prompt("security-review", {})
+    assert tools == set()
     assert {"security-review", "codebase-review", "dependency-review"} <= prompts
     text = prompt.messages[0].content.text
-    assert "request_enrollment" in text and "Authorization: Bearer" in text
-    assert "personal MCP token" in text and "never returns a token" in text
-    assert "```\nshop-api\n```" in text and "untrusted" in text
+    assert "https://secreview.example/ui" in text and "Authorization: Bearer" in text
+    assert "personal MCP token" in text
 
 
-def test_client_without_token_enrolls_over_http(enrolling_app):
+def test_client_without_token_writes_nothing(enrolling_app):
     anonymous = McpOverHttp(enrolling_app, None)
-    is_error, text = anonymous.call("request_enrollment", {"project": "shop-api"})
-    assert not is_error, text
-    assert json.loads(text)["project"] == "shop-api"
-    # The review tools stay out of reach of an anonymous client
-    hidden = anonymous.request("tools/call", {"name": "list_security_reports", "arguments": {}})
-    assert hidden["result"]["isError"] is True
-    (event,) = audit.list_events(action="enrollment.requested")["events"]
-    assert (event["actor"], event["details"]["requested_from"]) == ("anonymous", "testclient")
-    assert [token["label"] for token in token_store.list_tokens()] == ["ops"]
-
-
-def test_request_enrollment_with_a_token_gives_it_no_project(http_app):
-    created = token_store.create_token("shop-ci", "mcp", "shop-api")
-    client = McpOverHttp(http_app, created["token"])
-
-    is_error, text = client.call("request_enrollment", {"project": "billing"})
-
-    assert not is_error, text
-    assert "administrator" in json.loads(text)["next_steps"]
-    is_error, text = client.call(
-        "save_security_report", {"project": "billing", "summary": "Review", "findings": []}
-    )
-    assert is_error and "only save reports for 'shop-api'" in text
-    (event,) = audit.list_events(action="enrollment.requested")["events"]
-    assert (event["actor"], event["project"]) == ("token:shop-ci", "billing")
+    for name in ("request_project", "request_enrollment", "list_security_reports"):
+        hidden = anonymous.request("tools/call", {"name": name, "arguments": {"project": "p"}})
+        assert hidden["result"]["isError"] is True, name
+    assert access_control.list_enrollments() == []
+    assert audit.list_events(action="enrollment.requested")["events"] == []
 
 
 def test_token_with_several_projects_reaches_only_them(http_app, two_projects):

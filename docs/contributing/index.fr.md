@@ -131,19 +131,17 @@ src/security_review_mcp/
 │   ├── advisory_sync.py   # téléchargement OSV par le contrôleur (proxy, mise à jour quotidienne, historique)
 │   └── versions.py        # comparaison de versions
 ├── auth/          # identité et accès
-│   ├── access_control.py  # permissions, rôles, groupes et membres des comptes web, enrôlement des projets
+│   ├── access_control.py  # permissions, rôles, groupes et membres des comptes web, demandes de projet
 │   ├── token_store.py     # jetons Bearer en base : création, expiration, renouvellement, révocation
 │   ├── web_users.py       # comptes de l'interface web, locaux (scrypt) ou OIDC (création à la volée), sessions, admin initial
 │   ├── oidc.py            # connexion OIDC OpenID Connect à l'interface web (contrôleur)
-│   ├── rate_limit.py      # limites de débit de l'API REST et des connexions (fenêtre glissante en base)
-│   └── enrollment_api.py  # endpoint public POST /api/v1/enroll du serveur MCP
+│   └── rate_limit.py      # limites de débit de l'API REST et des connexions (fenêtre glissante en base)
 ├── observability/ # journal d'audit et métriques
-│   ├── audit.py           # journal d'audit : événements des décisions de triage, propositions, jetons et enrôlements
+│   ├── audit.py           # journal d'audit : événements des décisions de triage, propositions, jetons et demandes de projet
 │   ├── audit_syslog.py    # envoi des événements d'audit vers syslog par le contrôleur (facultatif)
 │   └── metrics.py         # métriques Prometheus du contrôleur (/metrics)
-├── clients/       # clients CLI qui contactent l'URL donnée par l'opérateur
-│   ├── commands.py        # commande `enroll` de security-review-mcp
-│   └── enrollment.py      # client de `enroll` : enrôlement d'un projet sur un serveur en mode partagé
+├── clients/       # clients du contrôleur
+│   └── ci_wheel.py        # wheel de security-review-ci construite et servie par le contrôleur (/api/ci-client/)
 ├── connectors/    # findings envoyés vers des systèmes externes : api (API des connecteurs),
 │                  # registry, connections, transport (client HTTP), core (envoi), jira, servicenow
 └── web_api/       # contrôleur : API REST /api/v1 et fichiers de l'application (/ui)

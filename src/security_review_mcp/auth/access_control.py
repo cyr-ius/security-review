@@ -22,12 +22,11 @@
   gives a developer the reading of a project by adding it to the **project group** of the
   project (see ensure_project_group): a group without OIDC whose only role is ``reader`` on
   that project.
-- An MCP client without a token **enrolls** a project (see enroll_project): the project waits
-  (``ProjectEnrollment``) until a user with ``projects.create`` approves it, which creates its
-  project group without any member, or rejects it; a request nobody approved within
-  SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted. Nobody gains any access: the developer
-  signs in to the web interface, creates a personal ``mcp`` token and asks an administrator to
-  join the project group.
+- The MCP agent of a user **requests** a project its token does not reach (see
+  request_project): a new project is created at once for a user with ``projects.create``;
+  otherwise it waits (``ProjectEnrollment``) until a user with ``projects.create`` approves it,
+  which creates its project group with the requesting user as its member, or rejects it; a
+  request nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.
 - A user with ``projects.create`` may create a **new** project (see create_project): the
   controller creates its project group and adds the user to it, so that the user reads the
   project and its personal ``mcp`` token reaches it. A project already known (reports, roles of
@@ -67,7 +66,6 @@ from ..config import Settings, get_settings
 from ..http_server import Role
 from ..observability import audit
 from ..reports.services import NotFoundError
-from ..rules.scanner import redact_secrets
 from ..storage.database import session_scope
 from ..storage.models import (
     AccessRole,
@@ -144,13 +142,13 @@ MAX_DESCRIPTION_CHARS = 500
 # Projects one session may reach (union of several bindings): keeps the grants small
 MAX_SESSION_PROJECTS = 200
 
-# Enrollment (see enroll_project): anybody may call it, so it is bounded. At most
-# MAX_PENDING_PROJECTS projects wait for an approval, the enrollments of one client address are
-# limited per hour, and a request nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS
-# is deleted (audited with the actor ENROLLMENT_ACTOR).
+# Project requests (see request_project): any token may make one, so they are bounded. At most
+# MAX_PENDING_PROJECTS projects wait for an approval, the requests of one user (or of one token
+# without a user) are limited per hour, and a request nobody approved within
+# SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted (audited with the actor ENROLLMENT_ACTOR).
 ENROLLMENT_ACTOR = "enrollment"
 MAX_PENDING_PROJECTS = 20
-MAX_ENROLLMENTS_PER_ADDRESS = 5
+MAX_ENROLLMENTS_PER_REQUESTER = 5
 ENROLLMENT_WINDOW_SECONDS = 3600
 MAX_REQUESTED_BY_CHARS = 200
 MAX_ADDRESS_CHARS = 64
@@ -158,7 +156,7 @@ _enrollment_limit = RateLimit("enrollment", ENROLLMENT_WINDOW_SECONDS)
 
 
 class EnrollmentThrottled(ValueError):
-    """Too many enrollments from one client address (HTTP 429)."""
+    """Too many project requests from one user or token."""
 
 
 # What a user may do: each permission, with its projects (None: every project)
@@ -1041,23 +1039,30 @@ def create_project(user_id: int, project: str, actor: str | None = None) -> dict
             raise NotFoundError(f"Web user {user_id} not found")
         if project_exists(session, cleaned):
             raise ValueError(f"Project '{cleaned}' already exists")
-        group = ensure_project_group(session, cleaned, actor)
-        add_user_to_group(session, user_id, group.id, actor)  # type: ignore[arg-type]
-        # A request for the same project is settled by its creation
-        for pending in session.exec(
-            select(ProjectEnrollment).where(ProjectEnrollment.project == cleaned)
-        ).all():
-            session.delete(pending)
-        audit.record(
-            session,
-            audit.AuditAction.PROJECT_CREATED,
-            actor,
-            "project",
-            cleaned,
-            cleaned,
-            {"group": group.name, "user_id": user_id},
-        )
-        return {"project": cleaned, "group_id": group.id, "group": group.name}
+        return _create_project(session, user_id, cleaned, actor)
+
+
+def _create_project(
+    session: Session, user_id: int, project: str, actor: str | None
+) -> dict[str, Any]:
+    """Create the unknown ``project`` (cleaned) with ``user_id`` as its first member."""
+    group = ensure_project_group(session, project, actor)
+    add_user_to_group(session, user_id, group.id, actor)  # type: ignore[arg-type]
+    # A request for the same project is settled by its creation
+    for pending in session.exec(
+        select(ProjectEnrollment).where(ProjectEnrollment.project == project)
+    ).all():
+        session.delete(pending)
+    audit.record(
+        session,
+        audit.AuditAction.PROJECT_CREATED,
+        actor,
+        "project",
+        project,
+        project,
+        {"group": group.name, "user_id": user_id},
+    )
+    return {"project": project, "group_id": group.id, "group": group.name}
 
 
 def _delete_reports(session: Session, project: str) -> dict[str, int]:
@@ -1242,51 +1247,60 @@ def _purge_expired_enrollments(session: Session) -> None:
     session.flush()
 
 
-def _clean_requester(
-    requested_by: str | None, requested_from: str | None
-) -> tuple[str | None, str | None]:
-    """Bound the requester fields; ``requested_by`` is free text, so secrets are masked."""
-    if requested_by is not None:
-        requested_by = redact_secrets(requested_by.strip())[:MAX_REQUESTED_BY_CHARS] or None
-    if requested_from is not None:
-        requested_from = requested_from[:MAX_ADDRESS_CHARS]
-    return requested_by, requested_from
-
-
-def enroll_project(
+def request_project(
     project: str,
-    requested_by: str | None = None,
+    owner: str | None = None,
     requested_from: str | None = None,
     actor: str | None = None,
 ) -> dict[str, Any]:
-    """Request a project for an MCP client (anybody may call it): no token is created.
+    """Request a project the token of the caller does not reach yet; no token is created.
 
-    An unknown project waits for a user with ``projects.create`` (see approve_enrollment); a
-    project already known, or already pending, is unchanged. The answer is the same in every
-    case, so that it does not tell whether a project exists; it says what the user does next:
-    sign in to the web interface (SECREVIEW_WEB_URL), create a personal MCP token and ask an
-    administrator to approve the project and give access to it. Every request is audited
-    (``actor``: the token of the caller, else ``anonymous``), with ``requested_by`` (free text,
-    redacted) and the client address ``requested_from``.
+    ``owner`` is the username of the web user who owns the token (None: a token without a
+    user). An unknown project is created at once, with that user as its first member, when the
+    user holds ``projects.create``; otherwise it waits for a user with ``projects.create`` (see
+    approve_enrollment), which gives the requesting user access to it. A project already known,
+    or already pending, is unchanged, and the answer is then the same, so that it does not tell
+    whether a project exists. Every request is audited (``actor``: the token of the caller),
+    with the user and the client address ``requested_from``.
+
+    Returns:
+        ``project``, ``status`` (``created`` or ``requested``) and ``next_steps``, what the
+        user does next.
 
     Raises:
-        EnrollmentThrottled: Too many enrollments from this address.
+        EnrollmentThrottled: Too many requests from this user or token.
         ValueError: Invalid project name, or MAX_PENDING_PROJECTS projects already pending.
     """
     cleaned = clean_projects([Permission.REPORTS_READ], [project])[0]
-    requested_by, requested_from = _clean_requester(requested_by, requested_from)
-    if (
-        requested_from is not None
-        and _enrollment_limit.hit(requested_from) > MAX_ENROLLMENTS_PER_ADDRESS
-    ):
-        raise EnrollmentThrottled("Too many enrollments from this address; retry later")
-    actor = actor or audit.ANONYMOUS_ACTOR
+    actor = (actor or ENROLLMENT_ACTOR)[:MAX_REQUESTED_BY_CHARS]
+    if requested_from is not None:
+        requested_from = requested_from[:MAX_ADDRESS_CHARS]
+    if _enrollment_limit.hit(owner or actor) > MAX_ENROLLMENTS_PER_REQUESTER:
+        raise EnrollmentThrottled("Too many project requests; retry later")
     with session_scope() as session:
         _purge_expired_enrollments(session)
+        user = (
+            session.exec(select(WebUser).where(WebUser.username == owner)).first()
+            if owner is not None
+            else None
+        )
+        known = project_exists(session, cleaned)
+        if (
+            user is not None
+            and not known
+            and allows(user_grants(session, user.id), Permission.PROJECTS_CREATE)  # type: ignore[arg-type]
+        ):
+            _create_project(session, user.id, cleaned, actor)  # type: ignore[arg-type]
+            return {
+                "project": cleaned,
+                "status": "created",
+                "next_steps": f"Project '{cleaned}' was created and the user is a member of "
+                "it: the review can go on.",
+            }
         pending = session.exec(
             select(ProjectEnrollment).where(ProjectEnrollment.project == cleaned)
         ).first()
-        requested = pending is None and not project_exists(session, cleaned)
+        requested = pending is None and not known
         if requested:
             count = session.exec(select(func.count()).select_from(ProjectEnrollment)).one()
             if count >= MAX_PENDING_PROJECTS:
@@ -1294,13 +1308,15 @@ def enroll_project(
                     "Too many projects are waiting for an administrator; ask one to create the "
                     "project"
                 )
-            row = ProjectEnrollment(
-                project=cleaned,
-                requested_by=requested_by,
-                requested_from=requested_from,
-                requested_with=actor[:MAX_REQUESTED_BY_CHARS],
+            session.add(
+                ProjectEnrollment(
+                    project=cleaned,
+                    requested_by=owner,
+                    requested_by_user_id=user.id if user is not None else None,
+                    requested_from=requested_from,
+                    requested_with=actor,
+                )
             )
-            session.add(row)
             try:
                 session.flush()
             except IntegrityError:
@@ -1313,30 +1329,24 @@ def enroll_project(
             "project",
             cleaned,
             cleaned,
-            {
-                "requested": requested,
-                "requested_by": requested_by,
-                "requested_from": requested_from,
-            },
+            {"requested": requested, "requested_by": owner, "requested_from": requested_from},
         )
-    web_url = get_settings().web_url
     return {
         "project": cleaned,
-        "web_url": web_url,
-        "next_steps": enrollment_next_steps(cleaned, web_url),
+        "status": "requested",
+        "next_steps": enrollment_next_steps(cleaned, get_settings().web_url),
     }
 
 
 def enrollment_next_steps(project: str, web_url: str | None) -> str:
-    """What the user does after the enrollment of ``project`` (no token is created)."""
-    where = f"the web interface ({web_url})" if web_url else "the web interface"
+    """What the user does after requesting ``project``, which the token does not reach yet."""
+    where = f" ({web_url})" if web_url else ""
     return (
-        f"No token is created by the enrollment. Ask the user to sign in to {where}, to create "
-        "a personal MCP token in My account (shown once) and to put it in the MCP client "
-        "configuration as 'Authorization: Bearer <token>', then to reconnect. A new project "
-        "waits for an administrator to approve it (Projects screen); the token reaches the "
-        f"projects the user may read: an administrator gives access to project '{project}' by "
-        f"adding the user to the group '{PROJECT_GROUP_PREFIX}{project}'."
+        f"The token does not reach project '{project}' yet: do not review the code now. A new "
+        "project waits for an administrator to approve it on the Projects screen of the web "
+        f"interface{where}, which gives the user access to it; for an existing project, an "
+        f"administrator adds the user to the group '{PROJECT_GROUP_PREFIX}{project}'. Then the "
+        "user runs the review again."
     )
 
 
@@ -1370,8 +1380,8 @@ def _pending(session: Session, enrollment_id: int) -> ProjectEnrollment:
 
 
 def approve_enrollment(enrollment_id: int, actor: str | None = None) -> dict[str, Any]:
-    """Approve a pending project: its project group is created without any member, so that the
-    project exists; nobody gains any access (an administrator adds members to the group).
+    """Approve a pending project: its project group is created, with the user who requested it
+    as its only member (none for a token without a user, or a user deleted since).
 
     Raises:
         NotFoundError: Unknown or expired request.
@@ -1381,6 +1391,8 @@ def approve_enrollment(enrollment_id: int, actor: str | None = None) -> dict[str
         row = _pending(session, enrollment_id)
         approved = _enrollment_public(row)
         group = ensure_project_group(session, row.project, actor)
+        if row.requested_by_user_id is not None and session.get(WebUser, row.requested_by_user_id):
+            add_user_to_group(session, row.requested_by_user_id, group.id, actor)  # type: ignore[arg-type]
         session.delete(row)
         _audit_enrollment(
             session, audit.AuditAction.ENROLLMENT_APPROVED, actor, row, group=group.name
@@ -1403,9 +1415,15 @@ def reject_enrollment(enrollment_id: int, actor: str | None = None) -> dict[str,
 
 
 def forget_user(session: Session, user_id: int) -> None:
-    """Delete every membership of a user (before the user itself)."""
+    """Delete every membership of a user and forget it in the pending projects (before the user
+    itself)."""
     for item in session.exec(select(GroupMember).where(GroupMember.user_id == user_id)).all():
         session.delete(item)
+    for row in session.exec(
+        select(ProjectEnrollment).where(ProjectEnrollment.requested_by_user_id == user_id)
+    ).all():
+        row.requested_by_user_id = None
+        session.add(row)
     session.flush()
 
 

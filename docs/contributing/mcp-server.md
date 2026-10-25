@@ -70,8 +70,9 @@ blocking bug.
   function that needs them.
 - **Secrets are masked** (`scanner.redact_secrets`) before storage and in the returned
   excerpts; a token, a password or a database URL with credentials is never logged.
-- The HTTP MCP server never migrates the schema and only exposes `/mcp`, the public enrollment
-  and `/healthz`.
+- The HTTP MCP server never migrates the schema and only exposes `/mcp` (the enrollment server,
+  without any tool, for a client without a token) and `/healthz`: no route writes without a
+  token.
 
 ## Scan rules
 

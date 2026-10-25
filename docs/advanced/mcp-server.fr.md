@@ -10,11 +10,11 @@ partagent la base (voir [Architecture](architecture.md)).
 | Route | Utilisée par | Identifiant |
 |---|---|---|
 | `/mcp` | les agents : [prompts, outils et ressources](../usage/prompts-tools.md) | jeton `mcp` (personnel ou non) ou jeton `admin` |
-| `/mcp` sans jeton | un agent pas encore connecté : [serveur d'enrôlement](../usage/prompts-tools.md#serveur-denrolement) | aucun |
-| `POST /api/v1/enroll` | `security-review-mcp enroll` et les scripts : [enrôlement](#enrolement-demander-le-projet) | aucun |
+| `/mcp` sans jeton | un agent pas encore connecté : [serveur d'enrôlement](../usage/prompts-tools.md#serveur-denrolement), qui explique comment obtenir un jeton | aucun |
 | `/healthz` | sondes (`HEALTHCHECK` Docker, Kubernetes) | aucun |
 
-Il ne sert aucune page web ni aucune autre route de l'API REST.
+Il ne sert aucune page web, aucune autre route de l'API REST, et aucune route qui écrit sans
+jeton.
 
 ## Deux transports
 
@@ -31,7 +31,7 @@ En HTTP, `security-review-mcp serve` :
    l'a pas migré : il ne migre jamais (voir [Migrations du schéma](controller.md#migrations-du-schema)) ;
 2. vérifie les réglages TLS, charge les règles de la base ;
 3. sert `/mcp`. Tant qu'aucun jeton n'existe, il reste **fermé** : un client n'atteint que
-   l'enrôlement, sauf si le serveur écoute sur localhost ou avec
+   le serveur d'enrôlement, sauf si le serveur écoute sur localhost ou avec
    `SECREVIEW_ALLOW_UNAUTHENTICATED=true` (voir [Jetons Bearer](bearer-tokens.md)).
 
 En stdio, `security-review-mcp local` migre lui-même sa base locale.
@@ -40,7 +40,7 @@ En stdio, `security-review-mcp local` migre lui-même sa base locale.
 
 | Client | Réponse |
 |---|---|
-| Sans jeton | le [serveur d'enrôlement](../usage/prompts-tools.md#serveur-denrolement) : `request_enrollment` et des prompts qui expliquent comment obtenir un jeton ; `401` avec `SECREVIEW_ENROLLMENT=false` |
+| Sans jeton | le [serveur d'enrôlement](../usage/prompts-tools.md#serveur-denrolement) : aucun outil, des prompts qui expliquent comment obtenir un jeton ; `401` avec `SECREVIEW_ENROLLMENT=false` |
 | Jeton inconnu, révoqué ou expiré | `401` qui indique à l'utilisateur où créer un nouveau jeton ([jeton refusé](#jeton-refuse-se-reconnecter)) |
 | Jeton `mcp` ou `admin` valide | tous les prompts, outils et ressources, sur les projets du jeton ([jetons restreints à un projet](bearer-tokens.md#jetons-restreints-a-un-projet)) |
 
@@ -66,43 +66,42 @@ Voir [Sécurité et limites](../reference/security.md).
 
 Exposez le serveur MCP avec TLS ([intégré ou reverse proxy](tls.md)) aux postes des
 développeurs. Derrière un reverse proxy ou un Ingress, réglez `SECREVIEW_FORWARDED_ALLOW_IPS`,
-sinon tous les clients partagent l'adresse du proxy pour les limites d'enrôlement.
+sinon tous les clients partagent l'adresse du proxy dans le journal d'audit des demandes de
+projet.
 
 Les sessions MCP (HTTP streamable) vivent dans la mémoire du processus qui les a ouvertes : avant
 de lancer plusieurs réplicas, envoyez toutes les requêtes d'une session au même réplica
 (affinité sur l'en-tête `Mcp-Session-Id`, voir [Kubernetes](kubernetes.md#plusieurs-replicas)).
 
 Les variables du serveur MCP : [Configuration](../reference/configuration.md#serveur-mcp). Ses
-commandes (`serve`, `local`, `enroll`) : [Ligne de commande](../reference/cli.md#security-review-mcp).
+commandes (`serve`, `local`) : [Ligne de commande](../reference/cli.md#security-review-mcp).
 
-## Enrôlement : demander le projet
+## Enrôlement : jeton personnel et demande de projet
 
-L'enrôlement **ne crée jamais de jeton** : il demande le projet, qu'un administrateur valide, et
-le développeur crée un jeton MCP personnel dans l'interface web. Il est activé par défaut
-(`SECREVIEW_ENROLLMENT=true`), même avant la création du premier jeton (sauf sur un
-[serveur ouvert](bearer-tokens.md), qui n'a pas besoin de jeton).
+Le serveur MCP **ne crée jamais de jeton** et n'écrit rien pour un client sans jeton.
+L'enrôlement est activé par défaut (`SECREVIEW_ENROLLMENT=true`), même avant la création du
+premier jeton (sauf sur un [serveur ouvert](bearer-tokens.md), qui n'a pas besoin de jeton).
 
-1. **Demande.** Le client donne le nom de son projet (en général le nom du dépôt). Un nouveau
-   projet est **en attente** : ce n'est pas encore un projet et il ne donne aucun accès. Un
-   projet qui existe déjà, ou déjà en attente, reste inchangé, et la réponse est la même dans
-   tous les cas, pour ne pas révéler quels projets existent. Trois façons de s'enrôler :
-    - **Depuis l'agent, à la première revue.** Un client MCP qui se connecte **sans** en-tête
-      `Authorization` n'est pas rejeté : il atteint un serveur MCP restreint (même nom
-      `security-review`) qui n'expose que l'outil `request_enrollment`, et des prompts nommés
-      comme les revues (`security-review`, `codebase-review`…) qui expliquent la marche à
-      suivre. L'agent appelle `request_enrollment` avec le nom du projet.
-    - **En ligne de commande**, depuis le poste du développeur ou la CI :
-
-        ```bash
-        security-review-mcp enroll --url https://secreview.example.internal:8443 \
-            --project shop-api --requested-by "alice (équipe shop)"
-        # {"project": "shop-api", "web_url": "https://secreview.example.internal/ui", "next_steps": "…"}
-        ```
-
-    - **Par l'API du serveur MCP** : `POST /api/v1/enroll` (sans jeton) avec
-      `{"project": "shop-api"}`, qui répond `202`. Le contrôleur ne sert pas cet endpoint : il
-      n'expose aucune route d'écriture non authentifiée.
-2. **Validation.** Un utilisateur qui porte `projects.create` (entre autres le rôle `admin`)
+1. **Jeton personnel.** Un client MCP qui se connecte **sans** en-tête `Authorization` n'est
+   pas rejeté : il atteint un serveur MCP restreint (même nom `security-review`) **sans aucun
+   outil**, dont les prompts sont nommés comme les revues (`security-review`,
+   `codebase-review`…). Ils invitent l'utilisateur à se connecter à l'interface web (son URL
+   vient de [`SECREVIEW_WEB_URL`](../reference/configuration.md#serveur-mcp)), à créer un
+   **jeton MCP personnel** dans **Mon compte** (voir
+   [jetons MCP personnels](../usage/tokens.md#jetons-mcp-et-ci-personnels)) et à le placer dans
+   la [configuration de l'hôte](../getting-started/host.md#obtenir-un-jeton). Le jeton atteint
+   les projets que l'utilisateur peut lire, relus à chaque requête.
+2. **Projet de la revue.** Chaque prompt de revue commence par l'outil `request_project`, avec
+   le nom du projet (en général le nom du dépôt) :
+    - le jeton atteint déjà le projet : `accessible`, la revue continue ;
+    - le projet est nouveau et l'utilisateur porte `projects.create` : il est **créé**
+      immédiatement, avec l'utilisateur pour membre (groupe `project:<projet>`), et la revue
+      continue ;
+    - sinon la réponse est `requested`, et l'agent s'arrête avant la revue, pour qu'aucune revue
+      ne soit perdue. Un nouveau projet est **en attente** : ce n'est pas encore un projet et il
+      ne donne aucun accès. Un projet qui existe déjà, ou déjà en attente, reste inchangé, et la
+      réponse est la même, pour ne pas révéler quels projets existent.
+3. **Validation.** Un utilisateur qui porte `projects.create` (entre autres le rôle `admin`)
    valide ou refuse la demande dans la section **Projets en attente** de l'écran **Projets**,
    ou en CLI :
 
@@ -112,23 +111,26 @@ le développeur crée un jeton MCP personnel dans l'interface web. Il est activ�
     security-review-controller project reject 4
     ```
 
-    La validation crée le projet, avec son groupe `project:<projet>` **sans aucun membre** :
-    personne n'obtient d'accès, pas même le validateur. Une demande que personne n'a validée
-    sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 jours par défaut) est supprimée.
-3. **Jeton personnel.** La réponse de l'enrôlement donne l'URL de l'interface web (`web_url`,
-   issue de [`SECREVIEW_WEB_URL`](../reference/configuration.md#serveur-mcp)) et la marche à suivre :
-   l'utilisateur se connecte, crée un **jeton MCP personnel** dans **Mon compte** (voir
-   [jetons MCP personnels](../usage/tokens.md#jetons-mcp-et-ci-personnels)) et le place dans la
-   [configuration de l'hôte](../getting-started/host.md#obtenir-un-jeton). Le jeton atteint les
-   projets que l'utilisateur peut lire, relus à chaque requête.
-4. **Accès.** Un administrateur donne à l'utilisateur l'accès au projet en l'ajoutant au groupe
-   `project:<projet>` (écran **Groupes**, voir [contrôle d'accès](access-control.md#groupes-de-projet)) ; le
-   jeton personnel atteint le projet dès la requête suivante, sans reconfiguration.
+    La validation crée le projet, avec son groupe `project:<projet>`, et y ajoute le
+    **demandeur** : son jeton personnel atteint le projet dès la requête suivante, sans
+    reconfiguration. Une demande que personne n'a validée sous
+    `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 jours par défaut) est supprimée. Pour un projet
+    qui existe déjà, un administrateur ajoute l'utilisateur à son groupe (écran **Groupes**,
+    voir [contrôle d'accès](access-control.md#groupes-de-projet)).
 
-Un agent qui a déjà un jeton peut aussi appeler `request_enrollment` (par exemple quand
-`save_security_report` refuse un projet que son jeton n'atteint pas) : le projet est demandé de
-la même façon, et le jeton ne gagne aucun projet. Un utilisateur portant `projects.create` qui
-[crée le projet](access-control.md#creation-dun-projet) lui-même solde sa demande en attente.
+`save_security_report` refuse un projet que le jeton n'atteint pas et renvoie vers
+`request_project`. Quand un utilisateur portant `projects.create`
+[crée le projet](access-control.md#creation-dun-projet) depuis l'écran **Projets**, sa demande
+en attente est soldée.
+
+Garde-fous : au plus 20 projets sont en attente à la fois, un utilisateur (ou un jeton sans
+utilisateur) demande au plus 5 projets par heure, et un projet en attente expire après
+`SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Chaque demande, validation, refus et expiration est
+écrit dans le [journal d'audit](audit-metrics.md) (`enrollment.requested`,
+`enrollment.approved`, `enrollment.rejected`, avec le jeton, l'utilisateur demandeur et
+l'adresse cliente). Pour désactiver l'enrôlement : `SECREVIEW_ENROLLMENT=false` (les clients
+sans jeton reçoivent alors `401`, avec le même conseil, et `request_project` refuse les projets
+que le jeton n'atteint pas).
 
 ## Jeton refusé : se reconnecter
 
@@ -139,15 +141,3 @@ puis à le remplacer dans la [configuration de l'hôte](../getting-started/host.
 Un tel client n'atteint jamais les outils de revue ni le serveur d'enrôlement. Le refus est
 journalisé en avertissement par le serveur MCP (`Rejected unauthenticated request` /
 `Rejected expired token`).
-
-Garde-fous : quiconque atteint le serveur peut s'enrôler, donc au plus 20 projets sont en
-attente à la fois, une adresse cliente s'enrôle au plus 5 fois par heure (`429` au-delà ;
-derrière un reverse proxy, définissez
-[`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md#ecoute-tls-et-reverse-proxy)), et un projet en attente
-expire après `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Chaque demande, validation, refus et
-expiration est écrit dans le [journal d'audit](audit-metrics.md)
-(`enrollment.requested`, `enrollment.approved`, `enrollment.rejected`, avec le demandeur et
-l'adresse cliente). Pour désactiver l'enrôlement :
-`SECREVIEW_ENROLLMENT=false` (les clients sans jeton reçoivent alors `401`, avec le même conseil).
-
-`--url` est l'URL du **serveur MCP** (avec ou sans `/mcp`) : c'est lui qui reçoit les demandes.

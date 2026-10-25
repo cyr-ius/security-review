@@ -38,7 +38,7 @@ of a token is written to the [audit log](audit-metrics.md), with who made it.
 ## Before the first token
 
 While no token exists, the controller API answers `503` and the MCP server **stays closed**: a
-client without a token only reaches the [enrollment](mcp-server.md#enrollment-request-the-project),
+client without a token only reaches the [enrollment server](mcp-server.md#enrollment-personal-token-and-project-requests) (no tool),
 any other request gets `401`, whatever the bearer value (a warning is logged at start-up). `/mcp`
 is only open in that case when the server listens on localhost (`127.0.0.1`, `::1`) or when
 `SECREVIEW_ALLOW_UNAUTHENTICATED=true`, to keep for tests on an isolated network: as soon as a

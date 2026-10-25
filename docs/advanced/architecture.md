@@ -10,7 +10,7 @@ flowchart LR
     people(["People (browser)"]) -- "web session" --> ctl
     ci(["Pipeline<br/>security-review-ci"]) -- "ci token" --> ctl
     subgraph mcp["MCP server: security-review-mcp serve"]
-        mcpr["/mcp<br/>POST /api/v1/enroll<br/>/healthz"]
+        mcpr["/mcp<br/>/healthz"]
     end
     subgraph ctl["Controller: security-review-controller serve"]
         ctlr["/ui, /api/v1<br/>/api/v1/ci, /metrics<br/>/healthz"]
@@ -22,19 +22,20 @@ flowchart LR
 | | MCP server | Controller |
 |---|---|---|
 | Command | `security-review-mcp serve --transport streamable-http` | `security-review-controller serve` |
-| Serves | `/mcp`, public enrollment `POST /api/v1/enroll`, `/healthz` | REST API `/api/v1`, interface `/ui`, `/healthz` |
+| Serves | `/mcp`, `/healthz` | REST API `/api/v1`, interface `/ui`, `/healthz` |
 | Accepted credentials | `mcp` tokens (personal or not) and `admin` tokens | web sessions (users), `admin` and `api` tokens; `ci` tokens and personal `mcp` tokens on the pipeline routes `/api/v1/ci/` only (gate, SARIF, trend, scans); `metrics` tokens on `/metrics` only |
-| Routes without a token | enrollment, `/healthz` | `/ui` files, login (`/api/v1/auth/`), `/healthz`, and the API documentation when `SECREVIEW_SWAGGER_ENABLED=true` |
+| Routes without a token | enrollment server on `/mcp` (no tool), `/healthz` | `/ui` files, login (`/api/v1/auth/`), `/healthz`, and the API documentation when `SECREVIEW_SWAGGER_ENABLED=true` |
 | Database schema | only checks it | migrates it (unless `SECREVIEW_DB_AUTO_UPGRADE=false`) |
 | Advised exposure | the agents, with TLS | the people and the pipelines, with TLS |
 
 The two processes never call each other: everything goes through the database. A token created
 or revoked on the controller applies to the next request of the MCP server. A changed rule is
-reloaded within a few seconds. A project requested on the MCP server waits in the **Projects**
-screen of the controller, for an approval.
+reloaded within a few seconds. A project requested by an agent (`request_project`) waits in the
+**Projects** screen of the controller, for an approval.
 
-The enrollment is served by the MCP server because the client only knows its URL. The
-controller thus exposes **no unauthenticated write route**, apart from the login.
+Neither process exposes an **unauthenticated write route**, apart from the login of the
+controller: a client without a token only reads, on the MCP server, how to create a personal
+token.
 
 The routes, start-up, schema migrations, background tasks and exposure of each process: see
 [MCP server](mcp-server.md) and [Controller](controller.md).

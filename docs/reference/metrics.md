@@ -34,7 +34,7 @@ scrape_configs:
 | `secreview_finding_proposals_pending` | | Agent proposals waiting for a person |
 | `secreview_tokens` | `role`, `state` | Tokens by role and state (`active`, `expired`) |
 | `secreview_tokens_expiring_soon` | | Active tokens that expire within 14 days |
-| `secreview_project_enrollments_pending` | | Projects requested by an enrollment, waiting for an approval |
+| `secreview_project_enrollments_pending` | | Projects requested by the MCP agents of users, waiting for an approval |
 | `secreview_web_users` | `auth_source` | Web accounts (`local`, `oidc`) |
 | `secreview_advisories` | | Advisories in the database |
 | `secreview_advisory_last_update_timestamp_seconds` | | End of the latest successful OSV download (absent before the first one) |

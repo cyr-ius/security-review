@@ -123,7 +123,7 @@ ne contiennent pas d'Ingress : exposez chaque Service par son propre Ingress ave
 
 | Service | Atteint par | Ingress |
 |---|---|---|
-| `secreview-mcp` | les agents (MCP sur `/mcp`, enrôlement) | vers tous les postes des développeurs |
+| `secreview-mcp` | les agents (MCP sur `/mcp`) | vers tous les postes des développeurs |
 | `secreview-controller` | les personnes (interface web `/ui`, jetons MCP et CI personnels) et la CI (`security-review-ci` appelle `/api/v1/ci`) | vers les développeurs et les runners de CI ; `kubectl port-forward` suffit pour un premier essai |
 
 Ensuite, dans la ConfigMap :
@@ -133,7 +133,7 @@ Ensuite, dans la ConfigMap :
   jeton MCP personnel ;
 - réglez `SECREVIEW_FORWARDED_ALLOW_IPS` sur la plage d'adresses des pods de l'ingress
   controller : sinon tous les clients partagent leur adresse pour la limitation des connexions,
-  la limite de débit et les limites d'enrôlement.
+  la limite de débit et le journal d'audit.
 
 La NetworkPolicy du contrôleur laisse entrer l'ingress controller du namespace `ingress-nginx` :
 adaptez son label au vôtre. Les commandes d'administration s'exécutent dans le pod du

@@ -101,11 +101,12 @@ class Settings(BaseSettings):
     session_hours: int = 8
 
     # Enrollment (HTTP MCP server, once a token exists): a client without a token reaches a
-    # restricted MCP server that only lets it request its project, and POST /api/v1/enroll on
-    # the MCP server accepts the same request. The project stays pending until a user holding
-    # projects.create approves it (Projects screen or `project approve`); a request nobody
-    # approved within project_enrollment_ttl_days is deleted. No token is created: the developer
-    # signs in to the web interface and creates a personal MCP token there.
+    # restricted MCP server, without any tool, whose prompts tell the user to create a personal
+    # MCP token in the web interface. With a token, the request_project tool creates a new
+    # project for a user holding projects.create, or requests it: the project stays pending
+    # until a user holding projects.create approves it (Projects screen or `project approve`),
+    # which gives the requesting user access to it; a request nobody approved within
+    # project_enrollment_ttl_days is deleted. false: no welcome server (401) and no request.
     enrollment: bool = True
     project_enrollment_ttl_days: int = Field(default=7, ge=1, le=365)
     # Public URL of the web interface (controller), e.g. https://secreview.example.com/ui. The

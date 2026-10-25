@@ -23,7 +23,7 @@ suivent ce modèle (voir [Jetons](../usage/tokens.md)).
 | `settings.manage` | Langue des rapports, proxy sortant, base d'avis | |
 | `users.manage` | Utilisateurs, groupes, rôles et configuration OIDC (elle décide qui rejoint quel groupe) | |
 | `audit.read` | Journal d'audit | |
-| `projects.create` | Créer un nouveau projet, que son créateur lit ensuite (voir [Création d'un projet](#creation-dun-projet)), et valider ou refuser les projets demandés par un [enrôlement](mcp-server.md#enrolement-demander-le-projet) | |
+| `projects.create` | Créer un nouveau projet, que son créateur lit ensuite (voir [Création d'un projet](#creation-dun-projet)), y compris quand son agent MCP le demande, et valider ou refuser les projets demandés par les agents d'autres utilisateurs ([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) | |
 | `projects.delete` | Supprimer un projet avec ses rapports, ses findings et ses références (voir [Suppression d'un projet](#suppression-dun-projet)) | |
 | `mcp_tokens.create` | Créer un [jeton MCP ou CI personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels) dans **Mon compte** | |
 
@@ -75,9 +75,10 @@ Renommer un groupe, ou le fermer au OIDC, retire aussitôt ses membres OIDC.
 ## Groupes de projet
 
 Le **groupe de projet** d'un projet est un groupe non ouvert au OIDC dont le seul rôle est
-`reader` sur ce seul projet. La validation d'un [enrôlement](mcp-server.md#enrolement-demander-le-projet) le
-crée **sans aucun membre** (pour que le projet existe, sans donner d'accès), et la
-[création d'un projet](#creation-dun-projet) le crée avec son créateur. Un groupe existant de ce
+`reader` sur ce seul projet. La validation d'un projet demandé par un agent
+([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) le crée avec
+l'utilisateur demandeur pour membre, et la [création d'un projet](#creation-dun-projet) le crée
+avec son créateur. Un groupe existant de ce
 type est réutilisé (même créé par un administrateur, quel que soit son nom) ; sinon le groupe
 `project:<projet>` est créé (avec un numéro, par exemple `project:shop (2)`, quand un autre groupe
 porte déjà ce nom). Un administrateur donne à un développeur la lecture du projet en ajoutant son
@@ -88,7 +89,9 @@ d'un projet partagent ainsi un groupe, géré comme les autres.
 
 Un utilisateur dont les groupes portent `projects.create` crée un projet avec le bouton
 **Nouveau projet** (à gauche d'**Actualiser**) de l'écran **Projets**, dans une fenêtre modale (`POST /api/v1/projects`, depuis une session de l'interface web
-uniquement : un jeton ne crée jamais de projet). Le contrôleur crée le
+uniquement). Le seul jeton qui crée un projet est le jeton MCP personnel d'un tel utilisateur,
+par l'outil `request_project` de son agent, qui le crée pour cet utilisateur de la même façon
+([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)). Le contrôleur crée le
 [groupe de projet](#groupes-de-projet) du projet et y ajoute le compte comme membre local : le
 compte lit aussitôt le projet, de même que son
 [jeton MCP personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels), qui peut alors y

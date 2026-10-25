@@ -34,13 +34,13 @@ Read by the MCP server and by the controller.
 | `SECREVIEW_TLS_KEYFILE` | — | Private key |
 | `SECREVIEW_TLS_KEYFILE_PASSWORD` | — | Password of the private key |
 | `SECREVIEW_TLS_CLIENT_CA` | — | Client CA: enables mutual TLS |
-| `SECREVIEW_FORWARDED_ALLOW_IPS` | — | Reverse proxies (IP addresses or CIDR ranges separated by commas, `*` for any) whose `X-Forwarded-For` gives the client address, used by the login throttling, the enrollment limits and the logs; without it, the uvicorn default (`FORWARDED_ALLOW_IPS` variable, else `127.0.0.1`). Set it behind an Ingress or a reverse proxy, or every client shares the address of the proxy |
+| `SECREVIEW_FORWARDED_ALLOW_IPS` | — | Reverse proxies (IP addresses or CIDR ranges separated by commas, `*` for any) whose `X-Forwarded-For` gives the client address, used by the login throttling, the audit log and the logs; without it, the uvicorn default (`FORWARDED_ALLOW_IPS` variable, else `127.0.0.1`). Set it behind an Ingress or a reverse proxy, or every client shares the address of the proxy |
 
 ### Shared limits
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | Days a project requested by an enrollment waits for an approval (1 to 365) before it is deleted |
+| `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` | `7` | Days a project requested by the MCP agent of a user (`request_project`) waits for an approval (1 to 365) before it is deleted |
 | `SECREVIEW_MAX_FINDINGS_PER_REPORT` | `500` | Maximum number of findings per report |
 | `SECREVIEW_MAX_DEPENDENCY_CHARS` | `1000000` | Maximum size of a manifest passed to `scan_dependencies` or sent by `security-review-ci scan-deps` |
 | `SECREVIEW_MAX_LIST_LIMIT` | `100` | Maximum size of a page of results |
@@ -53,8 +53,8 @@ Read by `security-review-mcp` only.
 |---|---|---|
 | `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` (shared mode) or `stdio` (local mode) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | While no token exists, accepts every request on `/mcp` even when the server does not listen on localhost (by default it then stays closed, see [Bearer tokens](../advanced/bearer-tokens.md)); only for tests on an isolated network |
-| `SECREVIEW_ENROLLMENT` | `true` | [Enrollment](../advanced/mcp-server.md#enrollment-request-the-project): a client without a token can request its project (restricted MCP server, `POST /api/v1/enroll`), which a user with `projects.create` approves on the controller; no token is created, the user creates a personal MCP token in the web interface |
-| `SECREVIEW_WEB_URL` | — | Public URL of the web interface (`https://…/ui`), given to the clients without a valid token (enrollment answer, `401` of `/mcp`) so that the user knows where to sign in and create a personal MCP token; without it, no link is given |
+| `SECREVIEW_ENROLLMENT` | `true` | [Enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests): a client without a token reaches a restricted MCP server, without any tool, that tells the user to create a personal MCP token in the web interface; with a token, `request_project` creates a new project for a user holding `projects.create`, else requests it for a user with `projects.create` to approve. `false`: `401` without a token, and no project request |
+| `SECREVIEW_WEB_URL` | — | Public URL of the web interface (`https://…/ui`), given to the clients without a valid token (prompts of the enrollment server, `401` of `/mcp`) so that the user knows where to sign in and create a personal MCP token; without it, no link is given |
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Report language](../usage/prompts-tools.md#report-language) asked by the review prompts (`French`, `fr`...) when the `report_language` argument is missing; when set (even empty: the agent chooses), takes precedence over the language chosen in the [**Report language**](../usage/web-interface.md#screens) screen |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Maximum size of the content passed to `scan_code`, and of each text of a report (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Maximum size of a request of an authenticated MCP client on `/mcp` (`413` beyond); a client without a token, sent to the enrollment server, is bounded to 64 KiB |

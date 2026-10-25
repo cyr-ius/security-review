@@ -23,7 +23,7 @@ from security_review_mcp import (
     update_check,
     web_api,
 )
-from security_review_mcp.auth import access_control, enrollment_api, oidc, token_store, web_users
+from security_review_mcp.auth import access_control, oidc, token_store, web_users
 from security_review_mcp.config import get_settings
 from security_review_mcp.connectors import transport
 from security_review_mcp.deps import advisory_sync
@@ -119,13 +119,9 @@ def web_sessions(secured) -> TestClient:
 
 @pytest.fixture
 def mcp_server(secured) -> TestClient:
-    """The MCP server app (MCP endpoint and public enrollment), sharing the tokens of secured."""
+    """The MCP server app (MCP endpoint and enrollment server), sharing the tokens of secured."""
     app = http_server.build_mcp_app(
-        server.mcp,
-        "127.0.0.1",
-        token_store.DatabaseTokenStore(),
-        server.enrollment_mcp,
-        enrollment_api.create_app(),
+        server.mcp, "127.0.0.1", token_store.DatabaseTokenStore(), server.enrollment_mcp
     )
     return TestClient(app, base_url="http://127.0.0.1")
 
@@ -1585,20 +1581,15 @@ def test_changing_the_projects_of_a_token_errors(secured, web_sessions, reports)
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 
-def test_public_enrollment_waits_for_an_approval_on_the_projects_screen(
-    secured, web_sessions, mcp_server
-):
+def test_a_requested_project_waits_for_an_approval_on_the_projects_screen(secured, web_sessions):
     for project in ("new-service", "spam"):
-        response = mcp_server.post(
-            "/api/v1/enroll", json={"project": project, "requested_by": "alice@example.com"}
-        )
-        assert response.status_code == 202 and "token" not in response.json()
+        access_control.request_project(project, "alice")
     url = "/api/v1/projects/pending"
 
     pending = secured.get(url, headers=auth("admin"))
     assert pending.status_code == 200
     first, second = pending.json()
-    assert (first["project"], first["requested_by"]) == ("new-service", "alice@example.com")
+    assert (first["project"], first["requested_by"]) == ("new-service", "alice")
     assert first["expires_at"] > first["created_at"]
     # Pending: not a project yet, and only projects.create handles the requests
     assert "new-service" not in [

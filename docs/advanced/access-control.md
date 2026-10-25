@@ -21,7 +21,7 @@ Tokens are for machines: they keep a fixed role, except the `api` tokens, which 
 | `settings.manage` | Report language, outgoing proxy, advisory database | |
 | `users.manage` | Users, groups, roles and OIDC settings (they decide who joins which group) | |
 | `audit.read` | Audit log | |
-| `projects.create` | Create a new project, which its creator then reads (see [Creating a project](#creating-a-project)), and approve or reject the projects requested by an [enrollment](mcp-server.md#enrollment-request-the-project) | |
+| `projects.create` | Create a new project, which its creator then reads (see [Creating a project](#creating-a-project)), also when its MCP agent requests it, and approve or reject the projects requested by the agents of other users ([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)) | |
 | `projects.delete` | Delete a project with its reports, findings and references (see [Deleting a project](#deleting-a-project)) | |
 | `mcp_tokens.create` | Create a [personal MCP or CI token](../usage/tokens.md#personal-mcp-and-ci-tokens) in **My account** | |
 
@@ -71,9 +71,10 @@ group, or closing it to OIDC, removes its OIDC members at once.
 ## Project groups
 
 The **project group** of a project is a group not open to OIDC whose only role is `reader` on
-that project alone. The approval of an [enrollment](mcp-server.md#enrollment-request-the-project)
-creates it **without any member** (so that the project exists, without giving any access), and
-[creating a project](#creating-a-project) creates it with its creator. An existing group of this
+that project alone. The approval of a project requested by an agent
+([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)) creates it with the
+requesting user as its member, and [creating a project](#creating-a-project) creates it with its
+creator. An existing group of this
 kind is reused (even one made by an administrator, whatever its name); otherwise the group
 `project:<project>` is created (with a number, such as `project:shop (2)`, when another group
 already has this name). An administrator gives a developer the reading of the project by adding
@@ -83,8 +84,10 @@ developers of a project thus share one group, managed like any other.
 ## Creating a project
 
 A user whose groups hold `projects.create` creates a project with the **New project** button
-(left of **Refresh**) of the **Projects** screen, in a modal window (`POST /api/v1/projects`, from a session of the web interface only: a token
-never creates a project). The controller creates the [project group](#project-groups) of the
+(left of **Refresh**) of the **Projects** screen, in a modal window (`POST /api/v1/projects`, from a session of the web interface only). The
+only token that creates a project is the personal MCP token of such a user, through the
+`request_project` tool of its agent, which creates it for that user the same way
+([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)). The controller creates the [project group](#project-groups) of the
 project and adds the account to it as a local member: the account reads the project at once,
 and so does its [personal MCP token](../usage/tokens.md#personal-mcp-and-ci-tokens), which can
 then save the reports of its agent there. The project shows on the **Projects** screen,

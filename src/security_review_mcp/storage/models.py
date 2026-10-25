@@ -343,7 +343,8 @@ class SecurityReportBase(SQLModel):
     reviewer: str | None = Field(
         default=None, max_length=MAX_REVIEWER_CHARS, description="Agent or person"
     )
-    # Declared by the client (not authenticated): one enrolled device may serve several people
+    # The user of a personal token, else declared by the client (not authenticated): a token
+    # without a user may serve several people
     author: str | None = Field(
         default=None,
         index=True,
@@ -367,7 +368,7 @@ class SecurityReport(SecurityReportBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
     risk_level: Severity = Field(index=True)
     created_at: datetime = Field(default_factory=utcnow, index=True)
-    # Label of the bearer token (enrolled device) that saved the report, set by the server
+    # Label of the bearer token that saved the report, set by the server
     submitted_by: str | None = Field(default=None, max_length=MAX_AUTHOR_CHARS)
     # Review coverage, JSON lists: StoredChecklistResult objects and rule ids of scan leads
     checklist_results: str = Field(default="[]")
@@ -465,20 +466,25 @@ class ApiTokenProject(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utcnow)
 
 
-# ── Enrolled projects (see access_control.enroll_project) ────────────────────
+# ── Requested projects (see access_control.request_project) ──────────────────
 
 
 class ProjectEnrollment(SQLModel, table=True):
-    """A project requested by an MCP client without a token, waiting for an administrator.
+    """A project requested by the MCP agent of a user (request_project), waiting for an
+    administrator.
 
     It gives no access and is not a project yet: an approval creates the project (its project
-    group), a rejection or the expiry (SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS) deletes the row.
+    group) and adds the requesting user to it, a rejection or the expiry
+    (SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS) deletes the row.
     """
 
     id: int | None = Field(default=None, primary_key=True)
     project: str = Field(unique=True, index=True, max_length=200)
-    # Who asked (free text given by the client, redacted), from which address, with which token
+    # Who asked (username of the owner of the token), from which address, with which token
     requested_by: str | None = Field(default=None, max_length=200)
+    # The web user who asked, added to the project group by the approval (None: a token without
+    # a user, or a user deleted since)
+    requested_by_user_id: int | None = Field(default=None, foreign_key="webuser.id", index=True)
     requested_from: str | None = Field(default=None, max_length=64)
     requested_with: str | None = Field(default=None, max_length=200)
     created_at: datetime = Field(default_factory=utcnow, index=True)

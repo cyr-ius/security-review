@@ -106,7 +106,7 @@ Les autres commandes de `security-review-controller` s'exécutent là où tourne
 | `db` | migrer le schéma, afficher sa révision, purger des rapports |
 | `token` | créer, lister, renouveler et révoquer les jetons ([Jetons Bearer](bearer-tokens.md)) |
 | `user`, `group` | comptes de l'interface web et leurs groupes ([Comptes utilisateurs](../usage/user-accounts.md)) |
-| `project` | valider ou refuser les projets demandés par un [enrôlement](mcp-server.md#enrolement-demander-le-projet) |
+| `project` | valider ou refuser les projets demandés par les agents MCP des utilisateurs ([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
 | `rules` | importer et exporter les [règles](../usage/rules.md) internes et les checklists |
 | `advisories` | importer ou télécharger la [base OSV](dependencies.md#base-de-vulnerabilites-hors-ligne-format-osv) |
 | `audit` | lire ou purger le [journal d'audit](audit-metrics.md) |
@@ -244,10 +244,10 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   Dans Swagger, le cadenas d'une route indique qu'elle exige un jeton : il reste **ouvert**
   tant que vous n'avez pas saisi de jeton avec **Authorize**, et ne veut pas dire que la route
   est accessible sans jeton. Saisissez-y un [jeton API](../usage/tokens.md#jetons-api).
-- Le contrôleur n'expose aucune route d'écriture sans jeton.
-  L'[enrôlement](mcp-server.md#enrolement-demander-le-projet) est servi par le **serveur
-  MCP** (`POST /api/v1/enroll`, public) : il demande un projet, jamais un jeton ; le
-  contrôleur liste et traite les demandes (`GET /api/v1/projects/pending`,
+- Le contrôleur n'expose aucune route d'écriture sans jeton. Un projet est demandé par un
+  agent muni d'un jeton, avec l'outil `request_project` du **serveur MCP**
+  ([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) ; le contrôleur
+  liste et traite les demandes (`GET /api/v1/projects/pending`,
   `POST /api/v1/projects/pending/{id}/approve`, `DELETE /api/v1/projects/pending/{id}`,
   permission `projects.create`).
 - Le jeton est envoyé dans l'en-tête `Authorization` : pas de cookie, donc pas de CSRF.

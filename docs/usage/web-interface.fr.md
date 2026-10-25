@@ -65,9 +65,9 @@ suivantes.
   les projets que vous pouvez voir. Avec la permission `projects.create`, **Nouveau projet** (à gauche
   d'**Actualiser**) ouvre une fenêtre modale qui crée un projet que vous lisez ensuite (voir
   [Création d'un projet](../advanced/access-control.md#creation-dun-projet)), et la section
-  **Projets en attente** liste les projets demandés par un
-  [enrôlement](../advanced/mcp-server.md#enrolement-demander-le-projet) (demandeur, adresse, dates de
-  demande et d'expiration) : **Valider** crée le projet sans aucun membre, **Refuser** supprime
+  **Projets en attente** liste les projets demandés par les agents MCP des utilisateurs
+  ([enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) : demandeur, adresse, dates de
+  demande et d'expiration) : **Valider** crée le projet et en donne l'accès au demandeur, **Refuser** supprime
   la demande ; une demande non validée avant son expiration est supprimée. Avec
   `projects.delete`, le bouton corbeille d'une ligne supprime le projet et tout ce qui s'y
   rapporte (voir [Suppression d'un projet](../advanced/access-control.md#suppression-dun-projet)).
@@ -178,11 +178,12 @@ suivantes.
   [expiration et renouvellement](../advanced/bearer-tokens.md#expiration-et-renouvellement-des-jetons)). Un jeton n'ouvre jamais l'interface web. Les jetons `admin` et `metrics` restent non
   restreints et se gèrent uniquement par la CLI. Le secret n'est montré qu'une fois ; seule son empreinte est enregistrée, dans la base de
   données. Une révocation prend effet à la requête suivante.
-  L'[enrôlement](../advanced/mcp-server.md#enrolement-demander-le-projet) ne crée aucun jeton : un
-  projet qu'il demande attend dans **Projets**, et une fois validé un administrateur en donne
-  l'accès à un développeur en l'ajoutant à son groupe `project:<projet>` (écran **Groupes**).
+  L'[enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) ne crée aucun jeton : un
+  projet demandé par un agent attend dans **Projets**, et sa validation en donne l'accès au
+  demandeur ; un administrateur en donne l'accès à un autre développeur en l'ajoutant à son
+  groupe `project:<projet>` (écran **Groupes**).
 - **Journal d'audit** : les administrateurs consultent le [journal d'audit](../advanced/audit-metrics.md) :
-  décisions de triage, propositions des agents, jetons et enrôlements, du plus récent
+  décisions de triage, propositions des agents, jetons et demandes de projet, du plus récent
   au plus ancien, avec leur auteur ; filtres par événement et projet, recherche dans les détails,
   tri par date/action/auteur/cible/projet et **Afficher plus** pour les événements plus anciens.
   Les détenteurs de `settings.manage` y règlent aussi le

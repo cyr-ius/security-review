@@ -91,15 +91,15 @@ contacted from Anthropic's infrastructure, not from the workstation: they requir
 reachable from the Internet with a publicly trusted certificate, which rules out an internal
 CA.
 
-For the enrollment from the CLI, `security-review-mcp enroll` accepts `--cafile` directly, like
-`security-review-ci` (see the [CLI](../reference/cli.md)). The MCP configuration of the host
+`security-review-ci` accepts `--cafile` directly (see the [CLI](../reference/cli.md)). The MCP
+configuration of the host
 itself is in [Host configuration](../getting-started/host.md#http-transport).
 
 ## Behind a reverse proxy
 
 A reverse proxy or an Ingress can terminate TLS instead (leave the `SECREVIEW_TLS_*` variables
 empty). Then set `SECREVIEW_FORWARDED_ALLOW_IPS` to its address, so that the client address is
-read from `X-Forwarded-For` for the login throttling, the rate limit and the enrollment limits
+read from `X-Forwarded-For` for the login throttling, the rate limit and the audit log
 (see the exposure of the [MCP server](mcp-server.md#exposure-and-replicas) and of the
 [controller](controller.md#exposure)).
 

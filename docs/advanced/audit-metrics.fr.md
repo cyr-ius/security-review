@@ -18,13 +18,13 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `token.rotated` | Le secret d'un jeton est remplacé (`token rotate`, bouton **Renouveler**), avec le délai de grâce |
 | `token.revoked` | Un jeton est révoqué |
 | `token.projects_changed` | Un administrateur change les projets d'un jeton (bouton **Projets** de l'écran **Jetons**), avec les projets précédents (`null` : tous les projets) |
-| `enrollment.requested` | Un client demande un projet ([enrôlement](mcp-server.md#enrolement-demander-le-projet)), avec le demandeur, son adresse et si une nouvelle demande a été déposée (`requested`) |
-| `enrollment.approved` | Un utilisateur portant `projects.create` valide un projet en attente (son groupe dans le détail) |
+| `enrollment.requested` | L'agent d'un utilisateur demande un projet avec `request_project` ([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)), avec le jeton pour acteur, l'utilisateur demandeur, son adresse et si une nouvelle demande a été déposée (`requested`) |
+| `enrollment.approved` | Un utilisateur portant `projects.create` valide un projet en attente (son groupe dans le détail) ; le demandeur est ajouté au groupe (`user.groups_changed`) |
 | `enrollment.rejected` | Un utilisateur refuse un projet en attente, ou il expire (acteur `enrollment`, `reason` : `expired`) |
 | `role.created`, `role.updated`, `role.deleted` | Un administrateur crée, modifie (avec les permissions précédentes) ou supprime un [rôle](access-control.md#roles) |
-| `group.created`, `group.updated`, `group.deleted` | Un administrateur crée, renomme ou modifie, ou supprime un [groupe](access-control.md#groupes) ; la validation d'un enrôlement crée un [groupe de projet](access-control.md#groupes-de-projet) manquant (`project` dans le détail) |
+| `group.created`, `group.updated`, `group.deleted` | Un administrateur crée, renomme ou modifie, ou supprime un [groupe](access-control.md#groupes) ; la validation d'une demande de projet crée un [groupe de projet](access-control.md#groupes-de-projet) manquant (`project` dans le détail) |
 | `group.roles_changed`, `group.members_changed` | Un administrateur remplace les rôles (avec leurs projets) ou les membres (identifiants ajoutés et retirés) d'un groupe |
-| `project.created` | Un utilisateur avec `projects.create` [crée un projet](access-control.md#creation-dun-projet) (son groupe de projet et l'identifiant de l'utilisateur dans le détail) |
+| `project.created` | Un utilisateur avec `projects.create` [crée un projet](access-control.md#creation-dun-projet), ou son agent avec `request_project` (acteur : le jeton) (son groupe de projet et l'identifiant de l'utilisateur dans le détail) |
 | `project.deleted` | Un utilisateur avec `projects.delete` [supprime un projet](access-control.md#suppression-dun-projet) (nombre de rapports, de findings et de jetons, groupes supprimés ou modifiés dans le détail) |
 | `user.groups_changed` | Un administrateur remplace les groupes donnés à un compte, par exemple pour l'ajouter à un [groupe de projet](access-control.md#groupes-de-projet) (identifiants de groupes ajoutés et retirés) |
 | `user.roles_changed` | Anciens rôles directs d'un compte (`roles` : `rôle` ou `rôle:projet,projet`) : plus enregistré depuis que les comptes n'ont plus de rôle propre, gardé dans l'historique |
@@ -40,7 +40,7 @@ L'acteur est :
 - `user:<nom>` : une personne connectée à l'interface web (compte local ou OIDC) ;
 - `token:<label>` : un jeton Bearer (agent, client de l'API, jeton administrateur) ;
 - `cli` : une commande `security-review-controller` ;
-- `anonymous` : l'endpoint public d'enrôlement, ou une connexion échouée ;
+- `anonymous` : une connexion échouée ;
 - `stdio` : un agent connecté au serveur MCP en stdio.
 
 Les détails ne contiennent jamais de secret : aucun jeton, aucun mot de passe, et le texte libre

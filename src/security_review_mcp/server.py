@@ -16,8 +16,8 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.exc import ArgumentError
 
 from . import __version__, app_settings, http_server, prompts, standards
-from .auth import access_control, enrollment_api, token_store
-from .clients import commands
+from .auth import access_control, token_store
+from .ci_client import EXIT_ERROR
 from .config import (
     Settings,
     check_report_language,
@@ -64,25 +64,20 @@ stored results.
 - You never change the status of a finding: `propose_finding_status` only records a proposal \
 (fixed, accepted, false_positive) with its reason, which a person approves or rejects in the \
 web interface. The gate keeps blocking until then.
-- If `save_security_report` refuses the project because the token does not reach it, call \
-`request_enrollment` with the project name: it requests the project when it is new, for an \
-administrator to approve (no token is created). A personal token, created by a user in the \
-web interface, reaches the projects of that user: tell the user to ask an administrator for \
-access to the project.
+- Before a review, call `request_project` with the project name: when the token does not \
+reach the project yet, a user allowed to create projects gets it at once, otherwise the \
+project is requested for an administrator to approve (which gives the user access to it). \
+If its `status` is `requested`, do not review: give the user its `next_steps`.
 - Before writing code, use the prompt `development-standards` (or the tool \
 `get_development_standards`) to get the development standards of the technologies you work on.
 """
 
 ENROLLMENT_INSTRUCTIONS = """\
-Security code-review server, enrollment mode: the client sends no bearer token, so the review \
-tools are not available.
-- Call `request_enrollment` once with the project name (usually the repository name): it \
-requests the project, which an administrator approves, and returns no token.
-- Then tell the user to sign in to the web interface (the returned `web_url`), to create a \
-personal MCP token there and to add it to the MCP client configuration as \
-`Authorization: Bearer <token>`, then to reconnect. An administrator approves the project and \
-gives their account access to it.
-- The review prompts (`security-review`...) explain these steps.
+Security code-review server, enrollment mode: the client sends no bearer token, so no tool is \
+available. Tell the user to sign in to the web interface, to create a personal MCP token in \
+My account and to add it to the MCP client configuration as `Authorization: Bearer <token>`, \
+then to reconnect. The review prompts (`security-review`...) give these steps with the address \
+of the web interface.
 """
 
 mcp = MCPServer(
@@ -152,7 +147,7 @@ def _caller_projects(ctx: Context) -> frozenset[str] | None:
 
 
 def _caller_address(ctx: Context) -> str | None:
-    """Client address of the HTTP request (None with stdio), audited with the enrollments."""
+    """Client address of the HTTP request (None with stdio), audited with the project requests."""
     request = ctx.request_context.request
     client = getattr(request, "client", None)
     return client.host if client else None
@@ -553,8 +548,8 @@ def save_security_report(
         Field(
             max_length=MAX_AUTHOR_CHARS,
             description="Not needed: the server records the user of a personal token as the "
-            "author, whatever is passed here. Only kept for a token without a user (enrolled "
-            "device), when the developer's username is known; never guess it",
+            "author, whatever is passed here. Only kept for a token without a user (created by "
+            "an administrator), when the developer's username is known; never guess it",
         ),
     ] = None,
     checklist_results: Annotated[
@@ -591,8 +586,8 @@ def save_security_report(
     if allowed is not None and project not in allowed:
         reachable = ", ".join(f"'{name}'" for name in sorted(allowed)) or "no project yet"
         raise ValueError(
-            f"This token can only save reports for {reachable}; call request_enrollment to "
-            "create the project if it is new, and ask an administrator for access to it"
+            f"This token can only save reports for {reachable}; call request_project to "
+            "create or request the project"
         )
     return services.save_report(
         project=project,
@@ -856,74 +851,50 @@ def standard_resource(slug: str) -> str:
     return standards.render_standard_markdown(standards.get_standard(standards.validate_slug(slug)))
 
 
-# ── Enrollment ───────────────────────────────────────────────────────────────
+# ── Project requests and enrollment ──────────────────────────────────────────
 
 ProjectArg = Annotated[
     ProjectName,
-    Field(description="Project to request (usually the repository name)"),
+    Field(description="Project of the review (usually the repository name)"),
 ]
-RequestedByArg = Annotated[
-    str | None,
-    Field(description="Who asks for the project (name, email or team), shown to the administrator"),
-]
-
-
-def _enroll(ctx: Context, project: str, requested_by: str | None) -> dict:
-    """Enroll a project and explain to the model what the user must do next."""
-    if not get_settings().enrollment:
-        raise ValueError(
-            "Enrollment is disabled on this server; ask an administrator to create the project"
-        )
-    label = _auth_state(ctx).get("auth_client")
-    enrolled = access_control.enroll_project(
-        project,
-        requested_by,
-        _caller_address(ctx),
-        audit.token_actor(label) if label is not None else None,
-    )
-    logger.info("Project %s enrolled from %s", enrolled["project"], _caller_address(ctx) or "stdio")
-    return enrolled
 
 
 @mcp.tool(annotations=WRITE)
 @_tool_errors
-def request_enrollment(
-    ctx: Context, project: ProjectArg, requested_by: RequestedByArg = None
-) -> dict:
-    """Request a project that does not exist yet, for an administrator to approve it.
+def request_project(ctx: Context, project: ProjectArg) -> dict:
+    """Make sure the token reaches the project of a review, before reviewing.
 
-    No token is created and the current token reaches no new project: tell the user to ask an
-    administrator to approve the project and give access to it (a personal token then reaches
-    it at once). The answer is the same whether the project existed or not.
+    Returns ``status``: ``accessible`` (the review can start), ``created`` (the user may create
+    projects: the project was created and the user is a member of it) or ``requested`` (the
+    project waits for an administrator, or the user must be given access to it: do not review,
+    give the user ``next_steps``). No token is created.
     """
-    return _enroll(ctx, project, requested_by)
+    allowed = _caller_projects(ctx)
+    if allowed is None or project in allowed:
+        return {"project": project, "status": "accessible"}
+    if not get_settings().enrollment:
+        raise ValueError(
+            "Project requests are disabled on this server; ask an administrator for access to "
+            f"project '{project}'"
+        )
+    state = _auth_state(ctx)
+    label = state.get("auth_client")
+    requested = access_control.request_project(
+        project,
+        state.get("auth_owner"),
+        _caller_address(ctx),
+        audit.token_actor(label) if label is not None else None,
+    )
+    logger.info("Project %s %s by %s", requested["project"], requested["status"], label)
+    return requested
 
 
-@enrollment_mcp.tool(name="request_enrollment", annotations=WRITE)
-@_tool_errors
-def enrollment_request(
-    ctx: Context, project: ProjectArg, requested_by: RequestedByArg = None
-) -> dict:
-    """Request the project of this repository, for an administrator to approve; no token is
-    created.
-
-    Then tell the user to sign in to the web interface (``web_url``), to create a personal MCP
-    token and to put it in the MCP client configuration, and to ask an administrator to approve
-    the project and give access to it (``next_steps``).
-    """
-    return _enroll(ctx, project, requested_by)
+def _enrollment_prompt() -> str:
+    """Explain how to get a personal MCP token instead of starting a review."""
+    return prompts.build_enrollment_prompt(get_settings().web_url)
 
 
-def _enrollment_prompt(project: str = "") -> str:
-    """Explain the enrollment steps instead of starting a review.
-
-    Args:
-        project: Optional project name (usually the repository name).
-    """
-    return prompts.build_enrollment_prompt(project)
-
-
-# The review prompts keep their names, so that the first review starts the enrollment
+# The review prompts keep their names, so that the first review tells how to get a token
 for _name, _title in (
     ("security-review", "Security code review"),
     ("api-security-review", "REST API security review"),
@@ -933,9 +904,8 @@ for _name, _title in (
 ):
     enrollment_mcp.prompt(
         name=_name,
-        title=f"{_title} (enrollment required)",
-        description="This server needs a token: request the project, then create a personal MCP "
-        "token.",
+        title=f"{_title} (token required)",
+        description="This server needs a personal MCP token: how to create it.",
     )(_enrollment_prompt)
 
 
@@ -950,7 +920,6 @@ Security review MCP server (administration: security-review-controller).
 commands:
   serve        run the MCP server: streamable-http for a shared server, stdio for a local host
   local        run the MCP server for a local host (stdio), ignoring remote databases
-  enroll       request the project of a repository on a shared server (no token is created)
 
 Run `security-review-mcp COMMAND --help` for the options of a command.
 Administration (db, token, user, rules, advisories...) is run by security-review-controller.
@@ -958,7 +927,7 @@ Administration (db, token, user, rules, advisories...) is run by security-review
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Run a command of ``security-review-mcp``: ``serve``, ``local`` or a client command.
+    """Run a command of ``security-review-mcp``: ``serve`` or ``local``.
 
     Without a command, the usage is written on stderr (never on stdout, which a stdio host
     reads as the MCP protocol). The web interface, the REST API and the administration commands
@@ -971,8 +940,6 @@ def main(argv: list[str] | None = None) -> None:
         serve(arguments[1:])
     elif command == "local":
         local(arguments[1:])
-    elif command in commands.MCP_COMMANDS:
-        sys.exit(commands.run(arguments))
     elif command in ("-h", "--help"):
         print(USAGE, end="")
     else:
@@ -982,7 +949,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"\nerror: use `security-review-mcp serve {command} ...`", file=sys.stderr)
         elif command is not None:
             print(f"\nerror: unknown command '{command}'", file=sys.stderr)
-        sys.exit(commands.EXIT_ERROR)
+        sys.exit(EXIT_ERROR)
 
 
 def local(argv: list[str]) -> None:
@@ -1061,7 +1028,7 @@ def serve(argv: list[str]) -> None:
     except ValueError as exc:
         parser.error(str(exc))
     if settings.enrollment:
-        logger.info("Enrollment enabled: clients without a token may request their project")
+        logger.info("Enrollment enabled: clients without a token are told how to get one")
     allow_open = http_server.allows_open_mcp(args.host, settings.allow_unauthenticated)
     if settings.allow_unauthenticated:
         logger.warning(
@@ -1072,7 +1039,6 @@ def serve(argv: list[str]) -> None:
         args.host,
         store,
         enrollment_mcp if settings.enrollment else None,
-        enrollment_api.create_app(args.host, allow_open) if settings.enrollment else None,
         allow_open=allow_open,
         web_url=settings.web_url,
     )

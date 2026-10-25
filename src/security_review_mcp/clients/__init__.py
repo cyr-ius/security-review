@@ -1,1 +1,1 @@
-"""CLI clients that contact the URL given by the operator: enrollment and remote dependency scan."""
+"""Clients of the controller: the pipeline client wheel served by the controller (ci_wheel)."""

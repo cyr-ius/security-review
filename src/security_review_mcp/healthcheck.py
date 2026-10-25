@@ -52,7 +52,7 @@ def health_url(args: list[str]) -> str | None:
     settings.
     """
     settings = get_settings()
-    # Only `serve` listens (not `enroll`, `db upgrade`...)
+    # Only `serve` listens (not `db upgrade`...)
     if "serve" not in args:
         return None
     # Both programs have a `serve` command: only the controller's is always HTTP

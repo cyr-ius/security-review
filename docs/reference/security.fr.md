@@ -18,7 +18,8 @@
   `--project` est limité à ce projet dans les outils MCP et les routes de pipeline : tout autre projet,
   rapport ou finding est traité comme inexistant (voir
   [jetons restreints à un projet](../advanced/bearer-tokens.md#jetons-restreints-a-un-projet)). Tant
-  qu'aucun jeton n'existe, le serveur MCP reste fermé (seul l'enrôlement est accessible), sauf
+  qu'aucun jeton n'existe, le serveur MCP reste fermé (seul le serveur d'enrôlement, sans aucun
+  outil, est accessible), sauf
   s'il écoute sur localhost ou avec `SECREVIEW_ALLOW_UNAUTHENTICATED=true`. Si l'écoute n'est pas sur
   localhost, un avertissement est journalisé quand l'authentification ou le TLS manque. Le
   serveur ne génère jamais de certificat TLS : le HTTPS utilise le certificat fourni par
@@ -52,14 +53,14 @@
   donnée dans cette description, est une URL publique : elle ne contient aucun identifiant
   (refusé au démarrage).
 - **Journal d'audit** : les décisions de triage, les propositions des agents, les créations,
-  renouvellements et révocations de jetons et les enrôlements sont écrits
+  renouvellements et révocations de jetons et les demandes de projet sont écrits
   dans la même transaction que le changement, avec leur acteur (`user:`, `token:`, `cli`,
   `anonymous`). Les détails sont bornés et masqués, et ne contiennent jamais de jeton ni de mot
   de passe ; aucun outil ni aucune route ne modifie un événement, seule la purge de
   `SECREVIEW_AUDIT_RETENTION_DAYS` les supprime (voir
   [journal d'audit](../advanced/audit-metrics.md)).
-- **Métriques** : `/metrics` n'existe que sur le contrôleur (le serveur MCP garde `/mcp`,
-  `/api/v1/enroll` et `/healthz`), derrière un jeton `metrics` ou `admin` ; un jeton `metrics`
+- **Métriques** : `/metrics` n'existe que sur le contrôleur (le serveur MCP garde `/mcp`
+  et `/healthz`), derrière un jeton `metrics` ou `admin` ; un jeton `metrics`
   n'atteint rien d'autre. La réponse contient des nombres et des noms de projets, jamais un
   finding, un label de jeton ou un secret, et chaque valeur de label est échappée (voir
   [métriques Prometheus](metrics.md)).
@@ -74,23 +75,21 @@
   aucune base, ne lit le jeton que dans l'environnement ou sur stdin, refuse le HTTP en clair
   hors localhost, les identifiants dans l'URL et les redirections, et borne les réponses.
 - **Enrôlement** (actif par défaut, `SECREVIEW_ENROLLMENT`) : un client sans jeton atteint un
-  serveur MCP restreint qui ne permet que de demander son projet, et `POST /api/v1/enroll` est
-  public sur le serveur MCP (corps limité à 4 Kio). L'enrôlement **ne crée jamais de jeton** et
-  ne donne aucun accès : un projet demandé reste **en attente** jusqu'à ce qu'un utilisateur
-  portant `projects.create` le valide sur le contrôleur, ce qui crée son groupe de projet sans
-  aucun membre ; seul un administrateur y ajoute un utilisateur, et le développeur crée un jeton
-  MCP personnel dans l'interface web, après s'être connecté. La réponse est la même que le
-  projet existe ou non. Les enrôlements sont bornés (20 projets en attente, 5 par adresse
-  cliente et par heure, `429` au-delà), une demande que personne n'a validée sous
-  `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` est supprimée, et le texte libre du demandeur est
-  masqué et tronqué : vérifiez le demandeur et l'adresse avant de valider. Chaque enrôlement est audité. Voir
-  [l'enrôlement](../advanced/mcp-server.md#enrolement-demander-le-projet).
+  serveur MCP restreint **sans aucun outil**, dont les prompts invitent l'utilisateur à créer un
+  jeton MCP personnel dans l'interface web, après s'être connecté : rien n'est écrit sans jeton,
+  et le serveur MCP ne sert aucune autre route publique que `/healthz`. Aucun jeton n'est jamais
+  créé pour un client. Avec un jeton, `request_project` ne crée un nouveau projet que pour un
+  utilisateur portant `projects.create` (jamais un projet existant) ; sinon le projet reste
+  **en attente** jusqu'à ce qu'un utilisateur portant `projects.create` le valide sur le
+  contrôleur, ce qui crée son groupe de projet avec l'utilisateur demandeur (authentifié par le
+  jeton, jamais déclaré) pour seul membre. La réponse est la même que le projet existe ou non.
+  Les demandes sont bornées (20 projets en attente, 5 par utilisateur ou jeton et par heure), et
+  une demande que personne n'a validée sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` est
+  supprimée : vérifiez le demandeur avant de valider. Chaque demande est auditée. Voir
+  [l'enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet).
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
   modules du contrôleur qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
-  de nouvelle version) : un test le vérifie. La commande
-  `security-review-mcp enroll` contacte, à la demande de l'opérateur, l'URL qu'il indique ; elle
-  refuse HTTP en clair hors localhost (sauf `--allow-http`), les identifiants dans l'URL et les
-  redirections. Le contrôleur ne télécharge les avis OSV que si un administrateur l'active
+  de nouvelle version) : un test le vérifie. Le contrôleur ne télécharge les avis OSV que si un administrateur l'active
   (`SECREVIEW_OSV_AUTO_UPDATE` ou `advisories update`) : uniquement depuis `SECREVIEW_OSV_URL`
   en HTTPS avec vérification du certificat, redirections limitées à HTTPS, taille bornée
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
@@ -243,8 +242,8 @@
   ou un autre émetteur est refusé. Un
   compte OIDC supprimé est révoqué, par son nom et par son émetteur et son `sub` : la création automatique ne le recrée pas, tant qu'un
   administrateur ne l'a pas recréé ou autorisé à nouveau.
-  Vérifiez le demandeur d'un enrôlement (texte libre, non vérifié) avant de lui donner la lecture
-  du projet. Une session restreinte à des projets l'est comme un jeton `--project`. La session est
+  La validation d'un projet demandé en donne la lecture à son demandeur : vérifiez qui l'a
+  demandé avant de valider. Une session restreinte à des projets l'est comme un jeton `--project`. La session est
   un jeton signé (HMAC-SHA256, clé dérivée de `SECREVIEW_SECRET_KEY`) qui désigne le compte,
   relu à chaque requête : la suppression du compte la coupe aussitôt. Elle est acceptée par le
   contrôleur seulement, jamais par le serveur MCP. L'URL de retour après connexion est limitée aux chemins locaux. Codes,
@@ -322,7 +321,7 @@
   que l'agent a réellement lu le code.
 - L'`author` d'un rapport (nom d'utilisateur du développeur) est l'utilisateur du jeton
   personnel qui l'a enregistré, fixé par le serveur quelle que soit la valeur du client. Avec un
-  jeton sans utilisateur (équipement enrôlé, jeton créé par un administrateur), il est déclaré
+  jeton sans utilisateur (jeton créé par un administrateur), il est déclaré
   par le client : quiconque détient un tel jeton du projet peut nommer quelqu'un d'autre.
   `submitted_by`, le libellé du jeton qui a enregistré le rapport, est toujours fixé par le
   serveur (voir

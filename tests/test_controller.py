@@ -10,7 +10,6 @@ from starlette.testclient import TestClient
 from security_review_mcp import app_settings, cli, controller, http_server, web_api
 from security_review_mcp.auth import access_control, token_store, web_users
 from security_review_mcp.auth.rate_limit import RateLimitMiddleware
-from security_review_mcp.clients import commands
 from security_review_mcp.config import Settings
 from security_review_mcp.http_server import BearerAuthMiddleware, SecurityHeadersMiddleware
 from security_review_mcp.observability import audit
@@ -287,7 +286,7 @@ def test_administration_commands_run_from_the_controller(settings, capsys):
 
 def test_project_cli_approves_and_rejects_the_pending_projects(capsys):
     for project in ("shop-api", "spam"):
-        access_control.enroll_project(project, "alice")
+        access_control.request_project(project, "alice")
 
     assert cli.run(["project", "list"]) == cli.EXIT_PASSED
     shop, spam = json.loads(capsys.readouterr().out)
@@ -365,7 +364,6 @@ def test_unknown_commands_print_the_usage(argv, capsys):
 def test_pipeline_commands_belong_to_the_ci_client():
     pipeline = {"gate", "sarif", "trend", "code", "deps", "scan-code", "scan-deps"}
     assert not pipeline & cli.CONTROLLER_COMMANDS.keys()
-    assert not pipeline & commands.MCP_COMMANDS.keys()
 
 
 def test_help(capsys):

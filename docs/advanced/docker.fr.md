@@ -49,7 +49,7 @@ Contenu des fichiers de la version `{{ release_tag }}` :
 |---|---|---|
 | `db` | PostgreSQL, joignable par les autres services seulement | — |
 | `controller` | Interface web (`/ui/`) et API REST, pour les personnes ; crée ou met à jour les tables au démarrage | `8080` |
-| `mcp` | Serveur MCP (`/mcp`) et enrôlement public, pour les agents et la CI | `8000` |
+| `mcp` | Serveur MCP (`/mcp`), pour les agents | `8000` |
 
 Bon à savoir :
 

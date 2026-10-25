@@ -79,8 +79,8 @@ Le serveur MCP refuse de démarrer tant que le schéma n'est pas migré (étape 
 
 ## 6. Donner l'accès aux agents
 
-Le serveur MCP exige un jeton, même tant qu'aucun n'existe en base (il n'accepte alors que les
-enrôlements). Créez le premier maintenant :
+Le serveur MCP exige un jeton, même tant qu'aucun n'existe en base (il ne sert alors que le
+serveur d'enrôlement). Créez le premier maintenant :
 
 ```bash
 security-review-controller token create --label alice   # jeton mcp, affiché une fois
@@ -94,9 +94,9 @@ security-review-controller token create --label alice   # jeton mcp, affiché un
 Ensuite, deux façons de donner un jeton à chaque développeur et à chaque pipeline :
 
 - **Jeton personnel** (avec l'enrôlement, activé par défaut) : le développeur connecte son hôte
-  sans jeton, l'agent demande le projet à la première revue et l'envoie vers l'interface web, où
-  il crée un jeton MCP personnel ; un administrateur valide le projet (écran **Projets**) et
-  l'ajoute à son groupe. Définissez
+  sans jeton, l'agent l'envoie vers l'interface web à la première revue, où il crée un jeton
+  MCP personnel ; à la revue suivante, l'agent demande le projet, qu'un administrateur valide
+  (écran **Projets**), ce qui lui en donne l'accès. Définissez
   `SECREVIEW_WEB_URL` pour que l'agent donne le lien : voir
   [Obtenir un jeton](../getting-started/host.md#obtenir-un-jeton).
 - **Créé par l'administrateur** : `security-review-controller token create --label <nom>`, par

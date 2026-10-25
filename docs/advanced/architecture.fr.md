@@ -11,7 +11,7 @@ flowchart LR
     people(["Personnes (navigateur)"]) -- "session web" --> ctl
     ci(["Pipeline<br/>security-review-ci"]) -- "jeton ci" --> ctl
     subgraph mcp["Serveur MCP : security-review-mcp serve"]
-        mcpr["/mcp<br/>POST /api/v1/enroll<br/>/healthz"]
+        mcpr["/mcp<br/>/healthz"]
     end
     subgraph ctl["Contrôleur : security-review-controller serve"]
         ctlr["/ui, /api/v1<br/>/api/v1/ci, /metrics<br/>/healthz"]
@@ -23,19 +23,20 @@ flowchart LR
 | | Serveur MCP | Contrôleur |
 |---|---|---|
 | Commande | `security-review-mcp serve --transport streamable-http` | `security-review-controller serve` |
-| Sert | `/mcp`, enrôlement public `POST /api/v1/enroll`, `/healthz` | API REST `/api/v1`, interface `/ui`, `/healthz` |
+| Sert | `/mcp`, `/healthz` | API REST `/api/v1`, interface `/ui`, `/healthz` |
 | Identifiants acceptés | jetons `mcp` (personnels ou non) et `admin` | sessions web (utilisateurs), jetons `admin` et `api` ; jetons `ci` et jetons `mcp` personnels sur les seules routes de pipeline `/api/v1/ci/` (gate, SARIF, tendance, scans) ; jetons `metrics` sur `/metrics` seulement |
-| Routes sans jeton | enrôlement, `/healthz` | fichiers de `/ui`, connexion (`/api/v1/auth/`), `/healthz`, et la documentation de l'API quand `SECREVIEW_SWAGGER_ENABLED=true` |
+| Routes sans jeton | serveur d'enrôlement sur `/mcp` (sans outil), `/healthz` | fichiers de `/ui`, connexion (`/api/v1/auth/`), `/healthz`, et la documentation de l'API quand `SECREVIEW_SWAGGER_ENABLED=true` |
 | Schéma de la base | vérifie seulement | migre (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`) |
 | Exposition conseillée | aux agents, avec TLS | aux personnes et aux pipelines, avec TLS |
 
 Les deux processus ne s'appellent jamais : tout passe par la base. Un jeton créé ou révoqué sur
 le contrôleur s'applique à la requête suivante du serveur MCP. Une règle modifiée est rechargée
-en quelques secondes. Un projet demandé sur le serveur MCP attend sa validation dans
-l'écran **Projets** du contrôleur.
+en quelques secondes. Un projet demandé par un agent (`request_project`) attend sa validation
+dans l'écran **Projets** du contrôleur.
 
-L'enrôlement est servi par le serveur MCP parce que le client ne connaît que son URL. Le
-contrôleur n'expose ainsi **aucune route d'écriture sans authentification**, hormis la connexion.
+Aucun des deux processus n'expose de **route d'écriture sans authentification**, hormis la
+connexion du contrôleur : un client sans jeton ne fait que lire, sur le serveur MCP, comment
+créer un jeton personnel.
 
 Routes, démarrage, migrations du schéma, tâches de fond et exposition de chaque processus : voir
 [Serveur MCP](mcp-server.md) et [Contrôleur](controller.md).

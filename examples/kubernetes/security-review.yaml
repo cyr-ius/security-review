@@ -43,7 +43,7 @@ data:
   # Only the init container of the controller migrates the schema
   SECREVIEW_DB_AUTO_UPGRADE: "false"
   # Address range of the ingress controller pods: their X-Forwarded-For gives the client
-  # address (login throttling, enrollment limits, logs). Adapt it to your cluster.
+  # address (login throttling, audit log, logs). Adapt it to your cluster.
   # SECREVIEW_FORWARDED_ALLOW_IPS: "10.0.0.0/8"
   # Public URL of the web interface, given by the MCP server to the clients without a valid
   # token (enrollment, 401) so that the user knows where to create a personal MCP token

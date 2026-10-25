@@ -49,7 +49,7 @@ Content of the files of version `{{ release_tag }}`:
 |---|---|---|
 | `db` | PostgreSQL, reachable by the other services only | — |
 | `controller` | Web interface (`/ui/`) and REST API, for people; creates or updates the tables at start | `8080` |
-| `mcp` | MCP server (`/mcp`) and public enrollment, for the agents and the CI | `8000` |
+| `mcp` | MCP server (`/mcp`), for the agents | `8000` |
 
 Good to know:
 

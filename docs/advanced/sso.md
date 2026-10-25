@@ -177,10 +177,12 @@ in the triage history.
 
 ## Project read access
 
-The approval of an [enrollment](mcp-server.md#enrollment-request-the-project) creates the project
-with its [project group](access-control.md#project-groups) `project:<project>`, without any
-member, and never a token nor an account. To let a developer read the project (and their personal MCP token
-reach it), an administrator adds their account to that group, from the **Groups** screen (or
+The approval of a project requested by an agent
+([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)) creates the project
+with its [project group](access-control.md#project-groups) `project:<project>`, with the
+requesting user as its member, and never a token nor an account. To let another developer read
+the project (and their personal MCP token reach it), an administrator adds their account to that
+group, from the **Groups** screen (or
 **Users**). With OIDC, the account exists once the developer has logged in (with
 `SECREVIEW_OIDC_AUTO_CREATE_USERS=true`), or an administrator creates it beforehand in **Users**.
 The access then shows in the groups of the account, where it is changed like the others.

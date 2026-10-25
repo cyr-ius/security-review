@@ -68,7 +68,6 @@ def test_the_health_path_is_the_one_served_by_both_processes():
             ],
             None,
         ),
-        (["security-review-mcp", "enroll", "--url", "https://mcp"], None),
         (["security-review-controller", "db", "upgrade"], None),
         (
             ["security-review-mcp", "serve", "--transport", "streamable-http", "--port", "9000"],

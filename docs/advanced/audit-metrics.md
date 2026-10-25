@@ -18,13 +18,13 @@ exists exactly when the change was committed.
 | `token.rotated` | The secret of a token is replaced (`token rotate`, **Rotate** button), with the grace period |
 | `token.revoked` | A token is revoked |
 | `token.projects_changed` | An administrator changes the projects of a token (**Projects** button of the **Tokens** screen), with the previous projects (`null`: every project) |
-| `enrollment.requested` | A client requests a project ([enrollment](mcp-server.md#enrollment-request-the-project)), with the requester, its address and whether a new request was filed (`requested`) |
-| `enrollment.approved` | A user with `projects.create` approves a pending project (its group in the details) |
+| `enrollment.requested` | The agent of a user requests a project with `request_project` ([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)), with the token as actor, the requesting user, its address and whether a new request was filed (`requested`) |
+| `enrollment.approved` | A user with `projects.create` approves a pending project (its group in the details); the requester is added to the group (`user.groups_changed`) |
 | `enrollment.rejected` | A user rejects a pending project, or it expires (actor `enrollment`, `reason`: `expired`) |
 | `role.created`, `role.updated`, `role.deleted` | An administrator creates, changes (with the previous permissions) or deletes a [role](access-control.md#roles) |
-| `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](access-control.md#groups); the approval of an enrollment creates a missing [project group](access-control.md#project-groups) (`project` in the details) |
+| `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](access-control.md#groups); the approval of a project request creates a missing [project group](access-control.md#project-groups) (`project` in the details) |
 | `group.roles_changed`, `group.members_changed` | An administrator replaces the roles (with their projects) or the members (added and removed user ids) of a group |
-| `project.created` | A user with `projects.create` [creates a project](access-control.md#creating-a-project) (its project group and the user id in the details) |
+| `project.created` | A user with `projects.create` [creates a project](access-control.md#creating-a-project), or its agent with `request_project` (actor: the token) (its project group and the user id in the details) |
 | `project.deleted` | A user with `projects.delete` [deletes a project](access-control.md#deleting-a-project) (counts of reports, findings and tokens, groups deleted or changed in the details) |
 | `user.groups_changed` | An administrator replaces the groups given to an account, for instance to add it to a [project group](access-control.md#project-groups) (added and removed group ids) |
 | `user.roles_changed` | Former direct roles of an account (`roles`: `role` or `role:project,project`): no longer recorded since accounts have no role of their own, kept in the history |
@@ -40,7 +40,7 @@ is:
 - `user:<name>`: a person logged in to the web interface (local or OIDC account);
 - `token:<label>`: a bearer token (agent, API client, administrator token);
 - `cli`: a `security-review-controller` command;
-- `anonymous`: the public enrollment endpoint, or a failed login;
+- `anonymous`: a failed login;
 - `stdio`: an agent connected to the MCP server in stdio.
 
 The details never hold a secret: no token, no password, and the free text (reasons,

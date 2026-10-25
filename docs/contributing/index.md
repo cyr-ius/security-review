@@ -131,19 +131,17 @@ src/security_review_mcp/
 │   ├── advisory_sync.py   # OSV download by the controller (proxy, daily update, history)
 │   └── versions.py        # version comparison
 ├── auth/          # identity and access
-│   ├── access_control.py  # permissions, roles, groups and members of the web accounts, project enrollment
+│   ├── access_control.py  # permissions, roles, groups and members of the web accounts, project requests
 │   ├── token_store.py     # Bearer tokens in the database: creation, expiry, rotation, revocation
 │   ├── web_users.py       # web interface accounts, local (scrypt) or OIDC (created on the fly), sessions, initial admin
 │   ├── oidc.py            # OpenID Connect OIDC login to the web interface (controller)
-│   ├── rate_limit.py      # rate limits of the REST API and of the logins (sliding window in the database)
-│   └── enrollment_api.py  # public POST /api/v1/enroll endpoint of the MCP server
+│   └── rate_limit.py      # rate limits of the REST API and of the logins (sliding window in the database)
 ├── observability/ # audit log and metrics
-│   ├── audit.py           # audit log: events of triage decisions, proposals, tokens and enrollments
+│   ├── audit.py           # audit log: events of triage decisions, proposals, tokens and project requests
 │   ├── audit_syslog.py    # forwarding of the audit events to syslog by the controller (optional)
 │   └── metrics.py         # Prometheus metrics of the controller (/metrics)
-├── clients/       # CLI clients that contact the URL given by the operator
-│   ├── commands.py        # `enroll` command of security-review-mcp
-│   └── enrollment.py      # `enroll` client: project enrollment on a server in shared mode
+├── clients/       # clients of the controller
+│   └── ci_wheel.py        # wheel of security-review-ci built and served by the controller (/api/ci-client/)
 ├── connectors/    # findings sent to external systems: api (connector API), registry,
 │                  # connections, transport (HTTP client), core (sending), jira, servicenow
 └── web_api/       # controller: REST API /api/v1 and files of the application (/ui)

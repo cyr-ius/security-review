@@ -10,11 +10,11 @@ reports. It never calls the [controller](controller.md): both share the database
 | Route | Used by | Credential |
 |---|---|---|
 | `/mcp` | the agents: [prompts, tools and resources](../usage/prompts-tools.md) | `mcp` token (personal or not) or `admin` token |
-| `/mcp` without a token | an agent not yet connected: [enrollment server](../usage/prompts-tools.md#enrollment-server) | none |
-| `POST /api/v1/enroll` | `security-review-mcp enroll` and scripts: [enrollment](#enrollment-request-the-project) | none |
+| `/mcp` without a token | an agent not yet connected: [enrollment server](../usage/prompts-tools.md#enrollment-server), which tells how to get a token | none |
 | `/healthz` | probes (Docker `HEALTHCHECK`, Kubernetes) | none |
 
-It serves no web page and no other route of the REST API.
+It serves no web page, no other route of the REST API, and no route that writes without a
+token.
 
 ## Two transports
 
@@ -31,8 +31,8 @@ In HTTP, `security-review-mcp serve`:
    not migrated it: it never migrates (see [Schema migrations](controller.md#schema-migrations));
 2. checks the TLS settings, loads the rules of the database;
 3. serves `/mcp`. While no token exists, it stays **closed**: a client only reaches the
-   enrollment, unless the server listens on localhost or `SECREVIEW_ALLOW_UNAUTHENTICATED=true`
-   (see [Bearer tokens](bearer-tokens.md)).
+   enrollment server, unless the server listens on localhost or
+   `SECREVIEW_ALLOW_UNAUTHENTICATED=true` (see [Bearer tokens](bearer-tokens.md)).
 
 In stdio, `security-review-mcp local` migrates its local database itself.
 
@@ -40,7 +40,7 @@ In stdio, `security-review-mcp local` migrates its local database itself.
 
 | Client | Answer |
 |---|---|
-| No token | the [enrollment server](../usage/prompts-tools.md#enrollment-server): `request_enrollment` and prompts that explain how to get a token; `401` when `SECREVIEW_ENROLLMENT=false` |
+| No token | the [enrollment server](../usage/prompts-tools.md#enrollment-server): no tool, prompts that explain how to get a token; `401` when `SECREVIEW_ENROLLMENT=false` |
 | Unknown, revoked or expired token | `401` that tells the user where to create a new token ([rejected token](#rejected-token-sign-in-again)) |
 | Valid `mcp` or `admin` token | every prompt, tool and resource, on the projects of the token ([tokens restricted to a project](bearer-tokens.md#tokens-restricted-to-a-project)) |
 
@@ -66,43 +66,40 @@ See [Security and limits](../reference/security.md).
 
 Expose the MCP server with TLS ([built-in or reverse proxy](tls.md)) to the workstations of
 the developers. Behind a reverse proxy or an Ingress, set `SECREVIEW_FORWARDED_ALLOW_IPS`, otherwise
-every client shares the address of the proxy for the enrollment limits.
+every client shares the address of the proxy in the audit log of the project requests.
 
 The MCP sessions (streamable HTTP) live in the memory of the process that opened them: before
 running several replicas, send every request of a session to the same replica (affinity on the
 `Mcp-Session-Id` header, see [Kubernetes](kubernetes.md#several-replicas)).
 
 The variables of the MCP server: [Configuration](../reference/configuration.md#mcp-server). Its
-commands (`serve`, `local`, `enroll`): [Command line](../reference/cli.md#security-review-mcp).
+commands (`serve`, `local`): [Command line](../reference/cli.md#security-review-mcp).
 
-## Enrollment: request the project
+## Enrollment: personal token and project requests
 
-The enrollment **never creates a token**: it requests the project, which an administrator
-approves, and the developer creates a personal MCP token in the web interface. It is enabled by
-default (`SECREVIEW_ENROLLMENT=true`), even before the first token is created (except on an
-[open server](bearer-tokens.md), which needs no token).
+The MCP server **never creates a token** and writes nothing for a client without a token. It
+is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token is created
+(except on an [open server](bearer-tokens.md), which needs no token).
 
-1. **Request.** The client gives the name of its project (usually the repository name). A new
-   project is **pending**: it is not a project yet and gives no access. A project that already
-   exists, or is already pending, is unchanged, and the answer is the same in every case, so
-   that it does not tell which projects exist. Three ways to enroll:
-    - **From the agent, at the first review.** An MCP client that connects **without** an
-      `Authorization` header is not rejected: it reaches a restricted MCP server (same
-      `security-review` name) that only exposes the `request_enrollment` tool, and prompts named
-      like the reviews (`security-review`, `codebase-review`…) that explain the steps. The agent
-      calls `request_enrollment` with the project name.
-    - **From the command line**, from the developer workstation or the CI:
-
-        ```bash
-        security-review-mcp enroll --url https://secreview.example.internal:8443 \
-            --project shop-api --requested-by "alice (shop team)"
-        # {"project": "shop-api", "web_url": "https://secreview.example.internal/ui", "next_steps": "…"}
-        ```
-
-    - **Through the MCP server API**: `POST /api/v1/enroll` (without a token) with
-      `{"project": "shop-api"}`, answered with `202`. The controller does not serve this
-      endpoint: it exposes no unauthenticated write route.
-2. **Approval.** A user holding `projects.create` (the `admin` role among others) approves or
+1. **Personal token.** An MCP client that connects **without** an `Authorization` header is
+   not rejected: it reaches a restricted MCP server (same `security-review` name) **without any
+   tool**, whose prompts are named like the reviews (`security-review`, `codebase-review`…).
+   They tell the user to sign in to the web interface (its URL comes from
+   [`SECREVIEW_WEB_URL`](../reference/configuration.md#mcp-server)), to create a
+   **personal MCP token** in **My account** (see
+   [personal MCP tokens](../usage/tokens.md#personal-mcp-and-ci-tokens)) and to put it in the
+   [host configuration](../getting-started/host.md#getting-a-token). The token reaches the
+   projects the user may read, at each request.
+2. **Project of the review.** Every review prompt starts with the `request_project` tool, with
+   the project name (usually the repository name):
+    - the token already reaches the project: `accessible`, the review goes on;
+    - the project is new and the user holds `projects.create`: it is **created** at once, with
+      the user as its member (group `project:<project>`), and the review goes on;
+    - otherwise the answer is `requested`, and the agent stops before reviewing, so that no
+      review is lost. A new project is **pending**: it is not a project yet and gives no access.
+      A project that already exists, or is already pending, is unchanged, and the answer is the
+      same, so that it does not tell which projects exist.
+3. **Approval.** A user holding `projects.create` (the `admin` role among others) approves or
    rejects the request in the **Pending projects** section of the **Projects** screen, or from
    the CLI:
 
@@ -112,24 +109,24 @@ default (`SECREVIEW_ENROLLMENT=true`), even before the first token is created (e
     security-review-controller project reject 4
     ```
 
-    The approval creates the project, with its group `project:<project>` **without any
-    member**: nobody gains any access, the approver included. A request nobody approved within
-    `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 days by default) is deleted.
-3. **Personal token.** The answer of the enrollment gives the URL of the web interface
-   (`web_url`, from [`SECREVIEW_WEB_URL`](../reference/configuration.md#mcp-server)) and the next steps:
-   the user signs in, creates a **personal MCP token** in **My account** (see
-   [personal MCP tokens](../usage/tokens.md#personal-mcp-and-ci-tokens)) and puts it in the
-   [host configuration](../getting-started/host.md#getting-a-token). The token reaches the
-   projects the user may read, at each request.
-4. **Access.** An administrator gives the user access to the project by adding them to the
-   group `project:<project>` (**Groups** screen, see [access control](access-control.md#project-groups)); the
-   personal token reaches the project from the next request, without reconfiguration.
+    The approval creates the project, with its group `project:<project>`, and adds the
+    **requester** to it: their personal token reaches the project from the next request, without
+    reconfiguration. A request nobody approved within `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`
+    (7 days by default) is deleted. For a project that already exists, an administrator adds the
+    user to its group (**Groups** screen, see [access control](access-control.md#project-groups)).
 
-An agent that already has a token may also call `request_enrollment` (for instance when
-`save_security_report` refuses a project its token does not reach): the project is requested
-the same way, and the token gains no project. When a user with `projects.create`
-[creates the project](access-control.md#creating-a-project) directly, its pending request is
-settled.
+`save_security_report` refuses a project the token does not reach and points to
+`request_project`. When a user with `projects.create`
+[creates the project](access-control.md#creating-a-project) on the **Projects** screen, its
+pending request is settled.
+
+Safeguards: at most 20 projects are pending at a time, a user (or a token without a user)
+requests at most 5 projects per hour, and a pending project expires after
+`SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Every request, approval, rejection and expiry is
+written to the [audit log](audit-metrics.md) (`enrollment.requested`, `enrollment.approved`,
+`enrollment.rejected`, with the token, the requesting user and the client address). To disable
+the enrollment: `SECREVIEW_ENROLLMENT=false` (clients without a token then get `401`, with the
+same advice, and `request_project` refuses the projects the token does not reach).
 
 ## Rejected token: sign in again
 
@@ -139,13 +136,3 @@ its URL when `SECREVIEW_WEB_URL` is set) and to create a new personal MCP token,
 it in the [host configuration](../getting-started/host.md#getting-a-token). Such a client never
 reaches the review tools nor the enrollment server. The rejection is logged as a warning by the
 MCP server (`Rejected unauthenticated request` / `Rejected expired token`).
-
-Safeguards: anybody who reaches the server may enroll, so at most 20 projects are pending at a
-time, a client address enrolls at most 5 times per hour (`429` beyond; behind a reverse proxy,
-set [`SECREVIEW_FORWARDED_ALLOW_IPS`](../reference/configuration.md#listening-tls-and-reverse-proxy)), and a pending project
-expires after `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Every request, approval, rejection and
-expiry is written to the [audit log](audit-metrics.md) (`enrollment.requested`,
-`enrollment.approved`, `enrollment.rejected`, with the requester and the client address). To disable the enrollment: `SECREVIEW_ENROLLMENT=false`
-(clients without a token then get `401`, with the same advice).
-
-`--url` is the URL of the **MCP server** (with or without `/mcp`): it receives the requests.

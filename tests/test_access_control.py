@@ -426,8 +426,8 @@ def test_a_project_group_created_concurrently_is_refused(monkeypatch):
 
 
 def enrolled(project: str) -> int:
-    """Id of the pending project ``project``, requested by an enrollment."""
-    access_control.enroll_project(project)
+    """Id of the pending project ``project``, requested by a token without a user."""
+    access_control.request_project(project)
     return next(
         item["id"] for item in access_control.list_enrollments() if item["project"] == project
     )
@@ -589,33 +589,38 @@ def test_deleting_a_project_removes_everything_that_refers_to_it():
 # ── Enrollment ───────────────────────────────────────────────────────────────
 
 
-def test_an_enrolled_project_waits_for_an_approval_and_gives_no_access():
-    """Anybody may enroll: the project waits, its approval creates it without any member, and
-    the answer never tells whether the project existed."""
+def test_a_requested_project_waits_for_an_approval_that_gives_its_user_access():
+    """A user without projects.create requests a project: it waits, its approval creates it
+    with that user as its member, and the answer never tells whether the project existed."""
     from security_review_mcp.reports import services
 
+    alice = web_users.create_user("alice", PASSWORD)
     services.save_report("shop", "Review", [])
-    requested = access_control.enroll_project(" Mobile-App ", "alice password=hunter2", "10.0.0.1")
-    known = access_control.enroll_project("shop")
+    requested = access_control.request_project(
+        " Mobile-App ", "alice", "10.0.0.1", "token:alice:agent"
+    )
+    known = access_control.request_project("shop", "alice")
 
-    assert requested["project"] == "mobile-app"
+    assert (requested["project"], requested["status"]) == ("mobile-app", "requested")
     assert {key: str(value).replace("shop", "P") for key, value in known.items()} == {
         key: str(value).replace("mobile-app", "P") for key, value in requested.items()
     }
     (pending,) = access_control.list_enrollments()
-    assert (pending["project"], pending["requested_from"]) == ("mobile-app", "10.0.0.1")
-    assert "hunter2" not in pending["requested_by"]
+    assert (pending["project"], pending["requested_by"], pending["requested_from"]) == (
+        "mobile-app",
+        "alice",
+        "10.0.0.1",
+    )
     with session_scope() as session:
-        # Pending: not a project yet
+        # Pending: not a project yet, and alice reads nothing
         assert not access_control.project_exists(session, "mobile-app")
+    assert grants_of(alice["id"]) == {}
 
     approved = access_control.approve_enrollment(pending["id"], "user:root")
 
     assert approved["group"] == "project:mobile-app"
     assert access_control.list_enrollments() == []
-    group = access_control.get_group(approved["group_id"])
-    assert (group["members"], group["created_by"]) == ([], "user:root")
-    assert grants_of(web_users.create_user("root", PASSWORD)["id"]) == {}
+    assert grants_of(alice["id"])["reports.read"] == frozenset({"mobile-app"})
     events = audit.list_events(project="mobile-app")["events"]
     approved_event = next(e for e in events if e["action"] == "enrollment.approved")
     assert (approved_event["actor"], approved_event["details"]["group"]) == (
@@ -623,12 +628,30 @@ def test_an_enrolled_project_waits_for_an_approval_and_gives_no_access():
         "project:mobile-app",
     )
     requested_event = next(e for e in events if e["action"] == "enrollment.requested")
-    assert (requested_event["actor"], requested_event["details"]["requested"]) == (
-        "anonymous",
-        True,
+    assert (requested_event["actor"], requested_event["details"]["requested_by"]) == (
+        "token:alice:agent",
+        "alice",
     )
     with pytest.raises(NotFoundError):
         access_control.reject_enrollment(pending["id"])
+
+
+def test_a_creator_gets_a_new_requested_project_at_once():
+    """projects.create creates a new project on request, never opens an existing one."""
+    from security_review_mcp.reports import services
+
+    carol = creator()
+    services.save_report("shop", "Review", [])
+
+    created = access_control.request_project("Mobile-App", "carol", actor="token:carol:agent")
+    existing = access_control.request_project("shop", "carol")
+
+    assert (created["project"], created["status"]) == ("mobile-app", "created")
+    assert existing["status"] == "requested"
+    assert grants_of(carol["id"])["reports.read"] == frozenset({"mobile-app"})
+    assert access_control.list_enrollments() == []
+    (event,) = audit.list_events(action="project.created")["events"]
+    assert (event["project"], event["actor"]) == ("mobile-app", "token:carol:agent")
 
 
 def test_enrollments_are_bounded_and_expire(monkeypatch):
@@ -638,18 +661,18 @@ def test_enrollments_are_bounded_and_expire(monkeypatch):
     from security_review_mcp.storage.models import ProjectEnrollment, utcnow
 
     monkeypatch.setattr(access_control, "MAX_PENDING_PROJECTS", 2)
-    monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_ADDRESS", 3)
-    access_control.enroll_project("first", requested_from="10.0.0.1")
-    access_control.enroll_project("second", requested_from="10.0.0.2")
+    monkeypatch.setattr(access_control, "MAX_ENROLLMENTS_PER_REQUESTER", 3)
+    access_control.request_project("first", "u1")
+    access_control.request_project("second", "u2")
 
     with pytest.raises(ValueError, match="Too many projects"):
-        access_control.enroll_project("third")
+        access_control.request_project("third", "u3")
     # A pending project is never refused by the limit, nor requested twice
-    access_control.enroll_project("first")
-    access_control.enroll_project("first", requested_from="10.0.0.1")
-    access_control.enroll_project("first", requested_from="10.0.0.1")
+    access_control.request_project("first", "u3")
+    access_control.request_project("first", "u1")
+    access_control.request_project("first", "u1")
     with pytest.raises(access_control.EnrollmentThrottled, match="retry later"):
-        access_control.enroll_project("first", requested_from="10.0.0.1")
+        access_control.request_project("first", "u1")
     assert [item["project"] for item in access_control.list_enrollments()] == ["first", "second"]
     # Rejected: deleted, no project; "first", nobody approved it in time, is deleted too
     second = access_control.list_enrollments()[1]
@@ -659,7 +682,7 @@ def test_enrollments_are_bounded_and_expire(monkeypatch):
         for row in session.exec(select(ProjectEnrollment)).all():
             row.created_at = utcnow() - timedelta(days=3, minutes=1)
             session.add(row)
-    access_control.enroll_project("third")
+    access_control.request_project("third", "u4")
 
     assert [item["project"] for item in access_control.list_enrollments()] == ["third"]
     with session_scope() as session:
@@ -673,7 +696,7 @@ def test_enrollments_are_bounded_and_expire(monkeypatch):
 
 def test_creating_a_project_settles_its_pending_request():
     carol = creator()
-    access_control.enroll_project("mobile-app")
+    access_control.request_project("mobile-app")
 
     access_control.create_project(carol["id"], "mobile-app", "user:carol")
 

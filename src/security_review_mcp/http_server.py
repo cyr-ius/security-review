@@ -6,9 +6,9 @@ so the apps are wrapped in a small ASGI middleware and served by uvicorn directl
 
 Two apps are built, meant to run in separate processes (containers, pods) sharing the database:
 
-- the MCP server (``build_mcp_app``): the MCP endpoint, the public enrollment endpoint and
-  ``/healthz``. With enrollment, an MCP client that presents no token is sent to a restricted
-  MCP server that only lets it create its project; a token that is unknown, revoked or expired
+- the MCP server (``build_mcp_app``): the MCP endpoint and ``/healthz``. With enrollment, an
+  MCP client that presents no token is sent to a restricted MCP server, without any tool, that
+  tells the user how to create a personal MCP token; a token that is unknown, revoked or expired
   gets a 401 that tells the user to sign in to the web interface and create a new personal MCP
   token (see renew_token_hint). It requires a token even while none is stored (fail closed),
   except on a loopback address or with ``SECREVIEW_ALLOW_UNAUTHENTICATED`` (see
@@ -91,16 +91,13 @@ METRICS_ROLES = frozenset({Role.METRICS, Role.ADMIN})
 # Pipeline routes of the controller, the only ones a ``ci`` token reaches
 CI_PREFIX = "/api/v1/ci/"
 UI_PREFIX = "/ui"
-# Public endpoint of the MCP server where a client without a token requests one
-# (see enrollment_api)
-ENROLL_PATH = "/api/v1/enroll"
 # Title of the MCP server that the clients without a token reach (see
 # server.enrollment_mcp): scan-deps recognizes it to report a missing token
 ENROLLMENT_SERVER_TITLE = "Security Review (enrollment)"
 # Public liveness endpoint of both processes (container and Kubernetes probes)
 HEALTH_PATH = "/healthz"
 # Body of a request of an MCP client without a token, served by the enrollment server (its
-# initialization and a request_enrollment call): a few KiB
+# initialization and a prompt): a few KiB
 MAX_ENROLLMENT_BODY_BYTES = 64 * 1024
 # Public liveness endpoint of the controller API, polled by the web interface at load: it tells
 # whether the controller answers, nothing about its version or configuration
@@ -337,7 +334,7 @@ class BearerAuthMiddleware:
         address = client[0] if client else "unknown"
         authorization = Headers(scope=scope).get("authorization", "")
         if self.enrollment_app is not None and not has_credentials(authorization):
-            # No token yet: the client may create its project on the enrollment server
+            # No token yet: the enrollment server tells the user how to create one
             await self.enrollment_app(scope, receive, send)
             return
         info = await self.identify(authorization)
@@ -594,7 +591,7 @@ def allows_open_mcp(host: str, allow_unauthenticated: bool) -> bool:
 
     Only on a loopback address, or when the operator explicitly sets
     ``SECREVIEW_ALLOW_UNAUTHENTICATED``: an exposed server stays closed (fail closed) and its
-    clients get a token by enrollment or from an administrator.
+    users create a personal token in the web interface.
     """
     return allow_unauthenticated or host in LOOPBACK_HOSTS
 
@@ -623,14 +620,12 @@ def build_mcp_app(
     host: str,
     store: TokenStore,
     enrollment_server: MCPServer | None = None,
-    enroll_endpoint: ASGIApp | None = None,
     allow_open: bool = False,
     web_url: str | None = None,
 ) -> ASGIApp:
     """Build the HTTP app of the MCP server, protected by the bearer tokens of ``store``.
 
-    ``enrollment_server`` answers the MCP clients that have no token yet and
-    ``enroll_endpoint`` (see enrollment_api.create_app) serves the public ``ENROLL_PATH``.
+    ``enrollment_server`` answers the MCP clients that have no token yet.
     ``allow_open`` (see allows_open_mcp) lets every request through while no token is stored.
     ``web_url`` (SECREVIEW_WEB_URL) is given in the 401 answers, where a new token is created.
     """
@@ -641,8 +636,6 @@ def build_mcp_app(
         else None
     )
     routes: dict[str, ASGIApp] = {HEALTH_PATH: health_app}
-    if enroll_endpoint is not None:
-        routes[ENROLL_PATH] = enroll_endpoint
     # The bodies are bounded after authentication: a request without a valid token is refused
     # (or sent to the enrollment server, with its own small bound) before its body is read
     return BearerAuthMiddleware(

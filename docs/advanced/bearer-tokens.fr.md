@@ -38,7 +38,7 @@ son auteur.
 ## Avant le premier jeton
 
 Tant qu'aucun jeton n'existe, l'API du contrôleur répond `503` et le serveur MCP **reste
-fermé** : un client sans jeton n'atteint que l'[enrôlement](mcp-server.md#enrolement-demander-le-projet),
+fermé** : un client sans jeton n'atteint que le [serveur d'enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) (sans outil),
 toute autre requête reçoit `401`, quelle que soit la valeur Bearer (un avertissement est
 journalisé au démarrage). `/mcp` n'est ouvert dans ce cas que si le serveur écoute sur localhost
 (`127.0.0.1`, `::1`) ou avec `SECREVIEW_ALLOW_UNAUTHENTICATED=true`, à réserver aux tests sur un

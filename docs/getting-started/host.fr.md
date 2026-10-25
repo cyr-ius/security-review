@@ -103,35 +103,20 @@ racine du dépôt, sans `headers` :
 
 En mode partagé, quand le serveur exige un jeton, vous utilisez un **jeton MCP personnel**, créé dans
 l'interface web. Inutile d'en réclamer un à un administrateur avant de commencer : configurez
-l'hôte comme ci-dessus, **sans jeton**, et lancez votre première revue. L'agent demande le projet,
-puis vous indique où créer votre jeton (voir
-[l'enrôlement](../advanced/mcp-server.md#enrolement-demander-le-projet)).
+l'hôte comme ci-dessus, **sans jeton**, et lancez votre première revue. L'agent vous indique où
+créer votre jeton, puis demande le projet à la revue suivante (voir
+[l'enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)).
 
 1. **Configurez l'hôte sans jeton.** Avec les exemples de la section
    [Transport HTTP](#transport-http), laissez la saisie du jeton vide (VS Code), ne définissez
    pas `SECURITY_REVIEW_TOKEN` (Claude) ou omettez `requestInit` (IntelliJ). Un en-tête absent ou un `Bearer` vide mène au serveur
    d'enrôlement, qui porte le même nom `security-review`.
 2. **Lancez une revue**, par exemple le prompt `security-review`. Au lieu de relire le code,
-   l'agent appelle l'outil `request_enrollment` avec le nom du projet (le nom du dépôt en
-   général) : un nouveau projet attend la validation d'un administrateur, et **aucun jeton**
-   n'est renvoyé :
+   l'agent vous invite à vous connecter à l'interface web (son adresse est donnée quand
+   l'administrateur a défini `SECREVIEW_WEB_URL`) et à créer un jeton MCP personnel. Le serveur
+   n'enregistre rien à cette étape.
 
-    ```json
-    {
-      "project": "shop-api",
-      "web_url": "https://secreview.example.internal/ui",
-      "next_steps": "No token is created by the enrollment. Ask the user to sign in to …"
-    }
-    ```
-
-    Sans agent, enrôlez le projet en ligne de commande :
-
-    ```bash
-    security-review-mcp enroll --url https://secreview.example.internal:8443 \
-        --project shop-api --requested-by "alice (équipe shop)"
-    ```
-
-3. **Créez votre jeton MCP personnel** : connectez-vous à l'interface web (`web_url`), ouvrez
+3. **Créez votre jeton MCP personnel** : connectez-vous à l'interface web, ouvrez
    **Mon compte** > **Jetons personnels** et créez un jeton d'usage **MCP** (voir
    [jetons MCP personnels](../usage/tokens.md#jetons-mcp-et-ci-personnels) ; vos groupes doivent
    avoir le rôle `mcp-user`). Il n'est affiché **qu'une seule fois**.
@@ -157,9 +142,12 @@ puis vous indique où créer votre jeton (voir
         Copilot, puis redémarrez le serveur `security-review` depuis les outils MCP du chat
         Copilot.
 
-5. **Obtenez l'accès au projet.** Le jeton atteint les projets que votre compte peut lire :
-   demandez à un administrateur de valider le projet (écran **Projets**) et de vous ajouter à
-   son groupe `project:<projet>` (un projet validé n'a aucun membre). L'accès s'applique aussitôt : relancez la revue, sans rien
+5. **Relancez la revue.** L'agent appelle d'abord `request_project` avec le nom du projet (le
+   nom du dépôt en général). Si vous pouvez créer des projets, un nouveau projet est créé avec
+   vous pour membre et la revue continue. Sinon l'agent s'arrête et vous indique que le projet
+   est demandé : un administrateur le valide dans l'écran **Projets**, ce qui vous en donne
+   l'accès (pour un projet existant, l'administrateur vous ajoute à son groupe
+   `project:<projet>`). L'accès s'applique aussitôt : relancez la revue, sans rien
    reconfigurer.
 
 Quand le serveur refuse le jeton (inconnu, révoqué ou expiré), l'hôte reçoit `401` avec un
@@ -169,8 +157,9 @@ personnel : remplacez-le dans l'hôte comme à l'étape 4 (voir
 
 !!! note
     Si l'administrateur a désactivé l'enrôlement (`SECREVIEW_ENROLLMENT=false`), un hôte sans
-    jeton reçoit `401` : créez directement votre jeton MCP personnel dans l'interface web, et
-    demandez à un administrateur de créer le projet s'il est nouveau.
+    jeton reçoit `401`, et `request_project` ne crée ni ne demande aucun projet : créez
+    directement votre jeton MCP personnel dans l'interface web, et demandez à un administrateur
+    l'accès au projet.
 
 ## Autres cas
 
