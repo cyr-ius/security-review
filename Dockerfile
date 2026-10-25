@@ -21,7 +21,7 @@
 # (SQLite in a shared volume is for a single host only: use PostgreSQL otherwise.)
 
 # Base images are written out (no ARG) so that Dependabot can propose their updates
-FROM ghcr.io/astral-sh/uv:0.13.1 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.5 AS uv
 
 # ---------------------------------------------------------------------------
 # Web stage: build the Angular interface (served on /ui by the controller)
