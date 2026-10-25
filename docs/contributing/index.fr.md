@@ -220,55 +220,12 @@ tester :
 | [Serveur MCP](mcp-server.md) | `server.py`, `prompts.py`, `rules/` | Outils, prompts et ressources, règles de scan, invariants de sécurité du processus MCP |
 | [Contrôleur (FastAPI)](controller.md) | `web_api/`, `cli.py`, `storage/` | Routes REST et leurs schémas, permissions, paramètres, CLI, migrations du schéma |
 | [Interface web (Angular)](web-ui.md) | `web/` | Build et serveur de développement, conventions de code, traductions |
+| [Documentation](documentation.md) | `docs/`, `mkdocs.yml`, `README.md` | Rédaction et construction de la documentation bilingue, README, publication |
 
 Les normes génériques de chaque technologie (Python et FastAPI, Angular, tests) sont servies par
 le projet lui-même : prompt `development-standards`, outil `get_development_standards` (voir
 [normes de développement](../usage/standards.md)). Ces pages ne gardent que ce qui est propre à
 ce dépôt ; en cas de conflit, elles prévalent.
-
-## Documentation
-
-La documentation est écrite en Markdown dans `docs/`, en **anglais et en français**, et
-construite avec [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) et le plugin
-[mkdocs-static-i18n](https://ultrabug.github.io/mkdocs-static-i18n/).
-
-```bash
-uv sync --extra docs
-uv run mkdocs serve          # aperçu sur http://127.0.0.1:8000, rechargement à chaud
-uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer le build
-```
-
-- Chaque page existe deux fois, côte à côte : `page.md` en anglais (langue par défaut, servie à
-  la racine du site) et `page.fr.md` en français (servie sous `/fr/`). Modifiez les deux dans le
-  même commit.
-- Les liens entre pages visent le fichier anglais (`../reference/cli.md`) : depuis une page
-  française, le plugin les fait pointer vers la page française. Les ancres suivent les titres de
-  chaque langue (`#report-language` en anglais, `#langue-des-rapports` en français).
-- Les pages suivent l'ordre d'une mise en œuvre : **Démarrage** (`getting-started/`),
-  **Utilisation** et **Revue de sécurité** (toutes deux dans `usage/`) ne contiennent que l'essentiel pour travailler ; **Avancé**
-  (`advanced/`) regroupe les détails et les fonctions facultatives. Placez une explication
-  détaillée dans `advanced/`, avec au plus une ligne et un lien depuis les pages essentielles.
-- Pour ajouter une page, créez les deux fichiers dans `docs/`, déclarez le fichier anglais dans
-  la section `nav` de `mkdocs.yml` et traduisez son titre dans `nav_translations` (langue `fr`
-  du plugin `i18n`).
-- Pour montrer un fichier de `examples/`, incluez-le plutôt que de le copier :
-  `--8<-- "kubernetes/postgres.yaml"` (`pymdownx.snippets`, chemins relatifs à `examples/` ; un
-  fichier absent fait échouer le build). Dans un lien vers un fichier du dépôt, écrivez
-  `\{{ release_tag }}` au lieu de `master` : le hook `scripts/mkdocs_hooks.py` le remplace par le
-  tag de la version de `pyproject.toml` (`v3.0.0`), pour que les commandes copiées récupèrent les
-  fichiers de la version documentée.
-
-### Publication
-
-Le workflow `.github/workflows/docs.yml` :
-
-- sur une **pull request** qui touche `docs/`, `mkdocs.yml`, `examples/`, `pyproject.toml`
-  (version des liens) ou le hook `scripts/mkdocs_hooks.py` : construit le site en mode
-  `--strict` (vérification seulement) ;
-- sur un **push sur `master`** : construit le site et le publie sur GitHub Pages.
-
-Activation unique dans le dépôt GitHub : **Settings → Pages → Build and deployment → Source :
-GitHub Actions**.
 
 ## Branches
 

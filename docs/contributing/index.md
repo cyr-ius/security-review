@@ -219,55 +219,12 @@ test it:
 | [MCP server](mcp-server.md) | `server.py`, `prompts.py`, `rules/` | Tools, prompts and resources, scan rules, security invariants of the MCP process |
 | [Controller (FastAPI)](controller.md) | `web_api/`, `cli.py`, `storage/` | REST routes and their schemas, permissions, settings, CLI, schema migrations |
 | [Web interface (Angular)](web-ui.md) | `web/` | Build and dev server, code conventions, translations |
+| [Documentation](documentation.md) | `docs/`, `mkdocs.yml`, `README.md` | Writing and building the bilingual documentation, README, publication |
 
 The generic standards of each technology (Python and FastAPI, Angular, tests) are served by the
 project itself: prompt `development-standards`, tool `get_development_standards` (see
 [development standards](../usage/standards.md)). These pages only hold what is specific to
 this repository; when they conflict, they prevail.
-
-## Documentation
-
-The documentation is written in Markdown in `docs/`, in **English and French**, and built with
-[MkDocs Material](https://squidfunk.github.io/mkdocs-material/) and the
-[mkdocs-static-i18n](https://ultrabug.github.io/mkdocs-static-i18n/) plugin.
-
-```bash
-uv sync --extra docs
-uv run mkdocs serve          # preview on http://127.0.0.1:8000, hot reload
-uv run mkdocs build --strict # what the CI does: a broken link fails the build
-```
-
-- Every page exists twice, side by side: `page.md` in English (default language, served at the
-  root of the site) and `page.fr.md` in French (served under `/fr/`). Change both in the same
-  commit.
-- Links between pages target the English file (`../reference/cli.md`): the plugin points them
-  to the French page from a French page. Anchors follow the headings of each language
-  (`#report-language` in English, `#langue-des-rapports` in French).
-- The pages follow the order of a set-up: **Getting started** (`getting-started/`),
-  **Usage** and **Security review** (both in `usage/`) only hold what is needed to work; **Advanced** (`advanced/`) gathers the
-  details and the optional features. Put a detailed explanation in `advanced/`, with at most a
-  line and a link from the essential pages.
-- To add a page, create both files in `docs/`, declare the English one in the `nav` section of
-  `mkdocs.yml`, and translate its title in `nav_translations` (French language of the `i18n`
-  plugin).
-- To show a file of `examples/`, include it rather than copying it:
-  `--8<-- "kubernetes/postgres.yaml"` (`pymdownx.snippets`, paths relative to `examples/`; a
-  missing file fails the build). In a link to a file of the repository, write
-  `\{{ release_tag }}` instead of `master`: the hook `scripts/mkdocs_hooks.py` replaces it with the
-  tag of the version of `pyproject.toml` (`v3.0.0`), so that the copied commands fetch the files
-  of the documented release.
-
-### Publishing
-
-The `.github/workflows/docs.yml` workflow:
-
-- on a **pull request** that touches `docs/`, `mkdocs.yml`, `examples/`, `pyproject.toml` (version of
-  the links) or the hook `scripts/mkdocs_hooks.py`: builds the site in `--strict`
-  mode (check only);
-- on a **push on `master`**: builds the site and publishes it on GitHub Pages.
-
-One-time activation in the GitHub repository: **Settings → Pages → Build and deployment →
-Source: GitHub Actions**.
 
 ## Branches
 

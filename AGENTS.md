@@ -344,6 +344,7 @@ essentielles.
 | Une garantie ou limite de sécurité | `docs/reference/security` |
 | La structure du code, l'outillage de dev, les branches et les versions | `docs/contributing/index` |
 | Une convention de développement propre au serveur MCP, au contrôleur ou à l'interface Angular | `docs/contributing/mcp-server`, `docs/contributing/controller` ou `docs/contributing/web-ui` |
+| Les règles de rédaction ou la construction de la doc, les règles du README | `docs/contributing/documentation` |
 
 - Les deux versions d'une page disent la même chose : pas de section qui n'existe que dans une
   langue. Les exemples (commandes, sorties, JSON) sont identiques ; seuls le texte et les
