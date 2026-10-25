@@ -75,7 +75,9 @@ suivantes.
   moyen de correction, plus ancien finding ouvert, CWE les plus fréquentes, les 20 findings ouverts
   les plus graves (numéro, sévérité, règle, emplacement, rapport : le numéro ouvre le rapport sur
   ce finding) et export SARIF ; **Tous les rapports**
-  liste ses rapports. Le bouton **Revoir les findings ouverts** ouvre l'écran suivant ;
+  liste ses rapports. Dans la colonne **Proposition**, une icône de robot clignotante signale un
+  finding dont un agent a proposé le statut : survolez-la pour lire le statut proposé, cliquez
+  dessus pour ouvrir le finding et appliquer ou rejeter la proposition ([triage](triage.md)). Le bouton **Revoir les findings ouverts** ouvre l'écran suivant ;
   **Acceptations de risque** liste les risques acceptés du projet ; **Actualiser** recharge la
   tendance et les findings ouverts.
 - **Findings à revoir** : tous les findings ouverts du projet, sur l'ensemble de ses rapports,

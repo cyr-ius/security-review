@@ -72,7 +72,9 @@ shown), and the browser remembers the chosen sort for the next visits.
 - **Project**: open findings, trend over 30 days to 1 year (chart and table), mean
   time to remediate, oldest open finding, most frequent CWEs, the 20 worst open findings
   (number, severity, rule, location, report: the number opens the report at that finding) and
-  SARIF export; **All reports** lists its reports.
+  SARIF export; **All reports** lists its reports. In the **Proposal** column, a blinking
+  robot icon marks a finding whose status an agent proposed: hover it to read the proposed
+  status, click it to open the finding and apply or reject the proposal ([triage](triage.md)).
   The **Review open findings** button opens the next screen; **Risk acceptances** lists the
   accepted risks of the project; **Refresh** reloads the trend and the open findings.
 - **Findings to review**: every open finding of the project across all its reports, each issue

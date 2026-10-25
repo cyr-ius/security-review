@@ -3,7 +3,7 @@ import { Component, computed, inject, input, signal } from '@angular/core';
 import { rxResource } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
-import { DIRECTION_META, SEVERITY_META } from '../../../core/constants/labels';
+import { DIRECTION_META, SEVERITY_META, STATUS_META } from '../../../core/constants/labels';
 import { MessageKey } from '../../../core/i18n/messages';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
 import { SEVERITIES, Severity, Trend } from '../../../core/models/api.models';
@@ -30,7 +30,10 @@ const WINDOWS: readonly TrendWindow[] = [
 /** Open findings listed on the page (the full list is at /projects/:project/findings). */
 const TOP_OPEN_FINDINGS = 20;
 
-/** One project: open findings, trend and the worst open findings. */
+/**
+ * One project: open findings, trend and the worst open findings. A finding whose status an agent
+ * proposed shows a blinking icon, for the triager to review the proposal.
+ */
 @Component({
   selector: 'app-project-detail',
   imports: [
@@ -52,6 +55,7 @@ export class ProjectDetailComponent {
   /** Route parameter :project */
   readonly project = input.required<string>();
 
+  readonly statusMeta = STATUS_META;
   readonly windows = WINDOWS;
   readonly window = signal<TrendWindow>(WINDOWS[1]);
   readonly exporting = signal(false);

@@ -2076,14 +2076,25 @@ def test_web_user_accepts_a_risk_without_expiry_unless_disabled(accounts, report
 
 
 def test_triager_rejects_an_agent_proposal(secured, web_sessions, reports):
-    finding_id = services.get_report(reports[0]).findings[0].id
+    report = services.get_report(reports[0])
+    finding_id = report.findings[0].id
     services.propose_finding_status(finding_id, FindingStatus.FIXED, "The query is bound", "ci")
     url = f"/api/v1/findings/{finding_id}/proposal"
 
+    def proposals() -> dict[int, str | None]:
+        """Proposals of the open findings of the project, as listed on its page."""
+        page = secured.get(
+            "/api/v1/findings", params={"project": report.project}, headers=auth("reader")
+        ).json()
+        return {item["id"]: item["proposed_status"] for item in page["findings"]}
+
+    # The project page flags the pending proposal
+    assert proposals()[finding_id] == "fixed"
     assert secured.delete(url, headers=auth("reader")).status_code == 403
     response = secured.delete(url, headers=auth("triager"))
     assert response.status_code == 200
     assert (response.json()["status"], response.json()["proposed_status"]) == ("open", None)
+    assert proposals()[finding_id] is None
     assert (
         secured.delete("/api/v1/findings/999/proposal", headers=auth("triager")).status_code == 404
     )
