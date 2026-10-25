@@ -87,10 +87,11 @@ SKIP=agent-review git commit ...      # skip it for one commit
   limited to its review tools (`scan_code`, `get_review_checklist`, `save_security_report`...):
   the other MCP servers of your configuration are not loaded. It edits no file and proposes no
   finding status.
-- Claude Code is the most confined (`--restricted`, `--permission-mode dontAsk`): no command,
-  and `.env`, `.mcp.json` and the files outside the repository stay unreadable. Copilot runs
-  with the shell and write tools denied; Codex runs in its read-only sandbox, where commands
-  can still read the repository, `.env` included. The reports mask secrets in any case.
+- Claude Code runs with `--restricted` and `--permission-mode dontAsk`: no command, and `.env`,
+  `.mcp.json` and the files outside the repository stay unreadable. Codex runs without its shell
+  and image tools, in its read-only sandbox: it reads no file and reviews the commit of its
+  prompt only. Copilot runs with the shell and write tools denied: it reads the files of the
+  repository, `.env` and `.mcp.json` included. The reports mask secrets in any case.
 - The hook does nothing for a commit that carries a `Security-Review: <report id>` trailer
   (already reviewed in the session of its agent), during a rebase or a cherry-pick, or when no agent CLI, no `.mcp.json` or no
   `security-review` server in it is found.

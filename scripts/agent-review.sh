@@ -95,11 +95,18 @@ fi
 # Random fence, like prompts.fenced: the commit cannot close it to inject instructions.
 fence="commit-$(od -An -N8 -tx1 /dev/urandom | tr -d ' \n')"
 
+# Codex runs without any file or shell tool (run_codex): it confirms the leads from the commit.
+if [[ "$agent" == codex ]]; then
+  confirm="confirm each lead from the commit below (you have no file tool)"
+else
+  confirm="confirm each lead by reading the code"
+fi
+
 prompt="Security review of commit $sha (branch $branch), made by the developer.
 
 Follow the \"Revue de sécurité\" section of AGENTS.md with the security-review MCP server:
 use get_review_checklist for the technologies of the changed files and scan_code on their
-content, confirm each lead by reading the code, then call save_security_report exactly once
+content, $confirm, then call save_security_report exactly once
 with project \"security-review-mcp\", branch \"$branch\", commit_sha \"$sha\" and
 reviewer \"$agent (post-commit hook)\" (the server takes the author from the token).
 
@@ -141,11 +148,13 @@ run_codex() {
   local enabled
   enabled=$(printf '"%s",' "${mcp_tools[@]}")
   # --ignore-user-config drops the servers and settings of ~/.codex/config.toml (the login stays);
-  # the read-only sandbox forbids writes and network to the commands; the token goes through the
-  # environment of codex only, never on its command line.
+  # without the shell and image tools, codex reads no file (the read-only sandbox alone would let
+  # its commands read .env or ~/.ssh); the read-only sandbox and the never policy refuse
+  # apply_patch; the token goes through the environment of codex only, never on its command line.
   SECREVIEW_AGENT_REVIEW_TOKEN="$token" codex exec \
     --ephemeral --ignore-user-config --sandbox read-only \
     -c approval_policy='"never"' \
+    -c features.shell_tool=false -c features.unified_exec=false -c features.view_image=false \
     -c "mcp_servers.security-review.url=$url" \
     -c 'mcp_servers.security-review.bearer_token_env_var="SECREVIEW_AGENT_REVIEW_TOKEN"' \
     -c "mcp_servers.security-review.enabled_tools=[${enabled%,}]" \

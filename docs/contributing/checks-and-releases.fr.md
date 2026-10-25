@@ -89,11 +89,12 @@ SKIP=agent-review git commit ...      # la sauter pour un commit
   ses outils de revue (`scan_code`, `get_review_checklist`, `save_security_report`...) : les
   autres serveurs MCP de votre configuration ne sont pas chargés. Il ne modifie aucun fichier
   et ne propose aucun statut de finding.
-- Claude Code est le plus confiné (`--restricted`, `--permission-mode dontAsk`) : aucune
-  commande, et `.env`, `.mcp.json` et les fichiers hors du dépôt restent illisibles. Copilot
-  s'exécute avec les outils shell et d'écriture refusés ; Codex s'exécute dans son bac à sable
-  en lecture seule, où les commandes peuvent encore lire le dépôt, `.env` compris. Les rapports
-  masquent les secrets dans tous les cas.
+- Claude Code s'exécute avec `--restricted` et `--permission-mode dontAsk` : aucune commande, et
+  `.env`, `.mcp.json` et les fichiers hors du dépôt restent illisibles. Codex s'exécute sans ses
+  outils shell et image, dans son bac à sable en lecture seule : il ne lit aucun fichier et ne
+  relit que le commit de son prompt. Copilot s'exécute avec les outils shell et d'écriture
+  refusés : il lit les fichiers du dépôt, `.env` et `.mcp.json` compris. Les rapports masquent
+  les secrets dans tous les cas.
 - Le hook ne fait rien pour un commit qui porte le trailer `Security-Review: <identifiant du
   rapport>` (déjà relu dans la session de son agent), pendant un rebase ou un cherry-pick, ou si aucun CLI d'agent, aucun `.mcp.json` ou aucun serveur
   `security-review` dedans n'est trouvé.
