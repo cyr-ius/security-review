@@ -61,15 +61,7 @@ SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # revenir 
 ```
 
 Le démon Docker permet de construire et de lancer l'image du
-[Dockerfile](../advanced/docker.md) sans quitter le conteneur :
-
-```bash
-docker build -t security-review-mcp .   # SQLite et PostgreSQL (pilote inclus)
-docker run --rm -p 8080:8000 -v secreview-data:/var/lib/secreview \
-    --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
-docker run --rm -p 8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
-    serve --transport streamable-http --host 0.0.0.0 --port 8000
-```
+[Dockerfile](../advanced/docker.md) sans quitter le conteneur.
 
 Les ports sont redirigés vers le poste : l'interface web est sur `http://localhost:8080/ui/`,
 l'API REST sur `/api/v1` et l'endpoint MCP sur `http://localhost:8000/mcp`. Images et volumes sont conservés dans des volumes propres au

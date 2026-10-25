@@ -61,15 +61,7 @@ SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # back to 
 ```
 
 The Docker daemon lets you build and run the image of the [Dockerfile](../advanced/docker.md)
-without leaving the container:
-
-```bash
-docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
-docker run --rm -p 8080:8000 -v secreview-data:/var/lib/secreview \
-    --entrypoint security-review-controller security-review-mcp serve --host 0.0.0.0
-docker run --rm -p 8000:8000 -v secreview-data:/var/lib/secreview security-review-mcp \
-    serve --transport streamable-http --host 0.0.0.0 --port 8000
-```
+without leaving the container.
 
 The ports are forwarded to the workstation: the web interface is on `http://localhost:8080/ui/`,
 the REST API on `/api/v1` and the MCP endpoint on `http://localhost:8000/mcp`. Images and
