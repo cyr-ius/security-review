@@ -44,7 +44,7 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 - uv vérifie le SHA-256 donné par la page. Servez le contrôleur en HTTPS : uv accepte aussi une
   URL en HTTP, mais la page et le wheel peuvent alors être remplacés en chemin, SHA-256 compris,
   et les développeurs exécuteraient ce code (voir
-  [contrôleur en HTTP](../getting-started/commit-hooks.md#controleur-en-http)).
+  [contrôleur en HTTP](../getting-started/commit-hooks.md#controleur-en-http-sans-tls)).
 - Les deux routes sont publiques (uv n'envoie aucun jeton) et en lecture seule ; comme la
   documentation de l'API, elles indiquent la version du contrôleur :
   `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` les masque.

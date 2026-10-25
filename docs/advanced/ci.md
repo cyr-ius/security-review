@@ -41,7 +41,7 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 - uv checks the SHA-256 given by the page. Serve the controller over HTTPS: uv also accepts a
   plain HTTP URL, but then the page and the wheel can be replaced on the way, SHA-256 included,
   and the developers would run that code (see
-  [controller in plain HTTP](../getting-started/commit-hooks.md#controller-in-plain-http)).
+  [controller in plain HTTP](../getting-started/commit-hooks.md#controller-in-http-without-tls)).
 - The two routes are public (uv sends no token) and read-only; like the API documentation, they
   tell the version of the controller: `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` hides them.
 

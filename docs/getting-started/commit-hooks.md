@@ -1,15 +1,13 @@
 # Commit hooks
 
-Two hooks bring the security review to the workstation of each developer, at every commit:
+The security review on the workstation of each developer is done by two hooks, at every commit:
 
 | Hook | When | What it does | Blocks the commit |
 |---|---|---|---|
 | `scan-deps` | before the commit, when a manifest or a lockfile changes | Sends the dependency files to the controller, which checks them against its advisory database ([dependency analysis](../advanced/dependencies.md)) | Yes, when a vulnerable dependency reaches the threshold (`--fail-on`, default `high`) |
 | `agent-review` | after the commit | Has the coding agent of the developer (Claude Code, GitHub Copilot or Codex) review the commit with the MCP server and save a report ([agent review](../advanced/ci.md#agent-review-of-each-commit)) | Never |
 
-Both run `security-review-ci`, the client of the controller, which needs no Python: uv
-downloads it, and a Python when none is installed. The hooks are run by
-[prek](https://prek.j178.dev) (or [pre-commit](https://pre-commit.com)).
+The hooks are run by [prek](https://prek.j178.dev) (or [pre-commit](https://pre-commit.com)).
 
 ## 1. Prepare the workstation (once)
 
@@ -57,12 +55,8 @@ too.
 
 === "Client from the controller"
 
-    The controller serves its own client: no PyPI, no version to maintain (unless
-    `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` on the controller, see
-    [from the controller](../advanced/ci.md#from-the-controller)). The address comes from the
-    `SECREVIEW_CONTROLLER_URL` of each developer, so the file holds none, and both hooks let the
-    commit through with a message while it is not set. prek does not expand the variables of
-    `entry`, hence `bash -c` (Git Bash on Windows).
+    The client is downloaded from the controller. To keep the address of your controller out of
+    the pre-commit file, see the **Client from the controller (variable mode)** tab.
 
     ```yaml
     default_install_hook_types: [pre-commit, post-commit]
@@ -71,12 +65,12 @@ too.
         hooks:
           - id: scan-deps
             name: dependency scan
-            entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "scan-deps skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest scan-deps --require-database --project shop-api "$@"' --
+            entry: uvx --no-index --find-links https://my-security-controller.com:8443/api/ci-client/ security-review-ci@latest scan-deps --require-database --project shop-api
             language: system
             files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
           - id: agent-review
             name: agent security review
-            entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "agent-review skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest agent-review --project shop-api' --
+            entry: uvx --no-index --find-links https://my-security-controller.com:8443/api/ci-client/ security-review-ci@latest agent-review --project shop-api
             language: system
             stages: [post-commit]
             always_run: true
@@ -106,8 +100,31 @@ too.
             pass_filenames: false
     ```
 
-prek passes the changed files to `scan-deps` (`files` selects them); `agent-review` takes no
-file (`pass_filenames: false`) and reads the last commit.
+=== "Client from the controller (variable mode)"
+
+    The address of the controller is read from the `SECREVIEW_CONTROLLER_URL` variable of each
+    developer: the file then holds no reference to your servers.
+
+    ```yaml
+    default_install_hook_types: [pre-commit, post-commit]
+    repos:
+      - repo: local
+        hooks:
+          - id: scan-deps
+            name: dependency scan
+            entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "scan-deps skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest scan-deps --require-database --project shop-api "$@"' --
+            language: system
+            files: (^|/)(uv\.lock|requirements[^/]*\.txt|pyproject\.toml|package(-lock)?\.json)$
+          - id: agent-review
+            name: agent security review
+            entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "agent-review skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest agent-review --project shop-api' --
+            language: system
+            stages: [post-commit]
+            always_run: true
+            pass_filenames: false
+    ```
+
+prek passes the changed files to `scan-deps`. `agent-review` reads the last commit.
 
 ## 3. Install and check
 
@@ -128,22 +145,27 @@ Then at every commit:
   returns at once; the report appears in the web interface after a few minutes, and the log of
   the agent is in `.git/agent-review/<commit>.log`.
 
-## Controller in plain HTTP
+## Controller in HTTP without TLS
 
-Serve the controller and the MCP server over HTTPS ([TLS](../advanced/tls.md), or a reverse
-proxy). On a closed network (lab, local machine), plain HTTP works with these changes:
+Serve the controller and the MCP server over HTTPS ([TLS](../advanced/tls.md)), or behind a
+reverse proxy, when you can. Otherwise, HTTP works with these changes:
 
 | Where | Change |
 |---|---|
-| `scan-deps` | Add `--allow-http` to its `entry`: the client refuses to send the token over plain HTTP to another host than `localhost` |
-| Client from the controller | Nothing: `SECREVIEW_CONTROLLER_URL=http://…` works, uv accepts it |
+| `scan-deps` | Add `--allow-http`, otherwise the client refuses to send the token over HTTP to another host than `localhost` |
 | `.mcp.json` | Write `http://` in the `url` of the MCP server |
-| `agent-review` | Nothing: it does not contact the controller |
 
 ```yaml
           - id: scan-deps
             name: dependency scan
-            entry: bash -c '[ -n "$SECREVIEW_CONTROLLER_URL" ] || { echo "scan-deps skipped (SECREVIEW_CONTROLLER_URL is not set)" >&2; exit 0; }; exec uvx --no-index --find-links "${SECREVIEW_CONTROLLER_URL%/}/api/ci-client/" security-review-ci@latest scan-deps --allow-http --require-database --project shop-api "$@"' --
+            entry: uvx --no-index --find-links http://my-security-controller.com:8080/api/ci-client/ security-review-ci@latest scan-deps --allow-http --require-database --project shop-api
+          - id: agent-review
+            name: agent security review
+            entry: uvx --no-index --find-links http://my-security-controller.com:8080/api/ci-client/ security-review-ci@latest agent-review --project shop-api
+            language: system
+            stages: [post-commit]
+            always_run: true
+            pass_filenames: false
 ```
 
 !!! warning "What plain HTTP exposes"
