@@ -14,9 +14,9 @@
 #
 # The published image contains the PostgreSQL driver; pin a version (X.Y.Z) in production.
 #
-# The controller migrates the schema in an init container (one replica, Recreate strategy: a
-# single migration at a time). The MCP pods only check the schema: they restart until the
-# controller has migrated it. Expose the MCP Service to the agents and CI (Ingress with TLS);
+# The controller migrates the schema in an init container (Recreate strategy: the old pods stop
+# before the new schema is applied; concurrent migrations wait for each other on a PostgreSQL
+# lock). The MCP pods only check the schema: they restart until the controller has migrated it. Expose the MCP Service to the agents and CI (Ingress with TLS);
 # keep the controller internal (port-forward, VPN or an Ingress restricted to administrators).
 #
 # The secreview-controller Secret gives SECREVIEW_SECRET_KEY: without it, the controller draws

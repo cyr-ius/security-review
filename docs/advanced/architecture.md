@@ -54,6 +54,8 @@ security-review-controller db status    # {"current": "0001", "head": "0001", "u
   `run security-review-controller db upgrade first`) while the database is not at the expected
   revision. Under Kubernetes, the pod restarts until the migration is done.
 - The controller, the stdio MCP server and the CLI commands migrate at start-up, unless
-  `SECREVIEW_DB_AUTO_UPGRADE=false`. They then only check the schema. Disable the automatic
-  migration when a dedicated task handles it (`migrate` service of Docker Compose, Kubernetes
-  init container): one migration at a time.
+  `SECREVIEW_DB_AUTO_UPGRADE=false`. They then only check the schema. With Docker Compose, the
+  controller migrates when it starts; under Kubernetes, its init container does.
+- On PostgreSQL, a migration takes an advisory lock: instances that start together (several
+  replicas, a `db upgrade` run by hand) wait for each other, and the next one finds the schema
+  up to date. Disable the automatic migration only to keep it in a dedicated task.

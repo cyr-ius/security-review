@@ -177,6 +177,6 @@ désactivée tant que vous ne décommentez pas `SECREVIEW_SWAGGER_ENABLED`.
     Les sessions MCP (transport streamable HTTP) sont gardées en mémoire par le pod qui les a
     ouvertes. Avant d'augmenter `replicas`, configurez l'Ingress pour envoyer toutes les
     requêtes d'une session au même pod (affinité sur l'en-tête `Mcp-Session-Id`, ou à défaut
-    affinité par cookie ou par adresse). Le contrôleur peut, lui, avoir plusieurs réplicas, à
-    condition que la migration soit faite par une seule tâche (`SECREVIEW_DB_AUTO_UPGRADE=false`
-    sur les réplicas).
+    affinité par cookie ou par adresse). Le contrôleur peut, lui, avoir plusieurs réplicas :
+    leurs migrations s'attendent (verrou consultatif PostgreSQL), et `SECREVIEW_SECRET_KEY` leur
+    permet de partager les sessions web.

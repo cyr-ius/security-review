@@ -172,5 +172,5 @@ REST API (`/api/docs`) stays disabled unless you uncomment `SECREVIEW_SWAGGER_EN
     MCP sessions (streamable HTTP transport) are kept in memory by the pod that opened them.
     Before raising `replicas`, configure the Ingress to send every request of a session to the
     same pod (affinity on the `Mcp-Session-Id` header, or failing that cookie or address
-    affinity). The controller can have several replicas, provided the migration is done by a
-    single task (`SECREVIEW_DB_AUTO_UPGRADE=false` on the replicas).
+    affinity). The controller can have several replicas: their migrations wait for each other
+    (PostgreSQL advisory lock), and `SECREVIEW_SECRET_KEY` lets them share the web sessions.

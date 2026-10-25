@@ -8,11 +8,10 @@
 #
 # Web interface: http://127.0.0.1:8080/ui/   MCP endpoint: http://127.0.0.1:8000/mcp
 #
-# Four services:
+# Three services:
 #   db          PostgreSQL (official image), reachable by the other services only
-#   migrate     creates or updates the tables, then stops
-#   controller  web interface and REST API (for people)
-#   mcp         MCP server (for the AI agents and the CI)
+#   controller  web interface and REST API (for people); creates or updates the tables at start
+#   mcp         MCP server (for the AI agents and the CI), started once the controller is ready
 #
 # The two ports are published on every interface of the server, for the team: enable TLS (the
 # commented TLS lines of controller and mcp) or put a reverse proxy in front (see the
@@ -42,25 +41,6 @@ services:
     security_opt:
       - no-new-privileges:true
 
-  migrate:
-    # Pin a version in production, for example 3.0.0
-    image: ghcr.io/cyr-ius/security-review:latest
-    restart: "no"
-    entrypoint: ["security-review-controller"]
-    command: ["db", "upgrade"]
-    environment:
-      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
-    depends_on:
-      db:
-        condition: service_healthy
-    read_only: true
-    tmpfs:
-      - /tmp
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
-
   controller:
     image: ghcr.io/cyr-ius/security-review:latest
     restart: unless-stopped
@@ -68,8 +48,6 @@ services:
     command: ["serve"]
     environment:
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
-      # Only the migrate service changes the tables
-      SECREVIEW_DB_AUTO_UPGRADE: "false"
       # Signs the web sessions: keep the same value, or every session ends at restart
       SECREVIEW_SECRET_KEY: ${SECREVIEW_SECRET_KEY}
       # Daily download of the OSV vulnerability advisories (needs Internet access)
@@ -82,8 +60,8 @@ services:
     ports:
       - "8080:8000"
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      db:
+        condition: service_healthy
     read_only: true
     tmpfs:
       - /tmp
@@ -98,8 +76,6 @@ services:
     # The image runs `security-review-mcp serve`: streamable HTTP on /mcp
     environment:
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
-      # Only the migrate service changes the tables
-      SECREVIEW_DB_AUTO_UPGRADE: "false"
       # SECREVIEW_TLS_CERTFILE: /etc/secreview/tls/cert.pem
       # SECREVIEW_TLS_KEYFILE: /etc/secreview/tls/key.pem
     # volumes:
@@ -107,8 +83,9 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      migrate:
-        condition: service_completed_successfully
+      # The MCP server only checks the tables: it starts once the controller has migrated them
+      controller:
+        condition: service_healthy
     read_only: true
     tmpfs:
       - /tmp

@@ -9,6 +9,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
+from sqlalchemy import func, select
 from sqlalchemy.engine import Connection, Engine, make_url
 from sqlmodel import Session, create_engine
 
@@ -19,6 +20,8 @@ logger = logging.getLogger("security_review_mcp.database")
 MIGRATIONS_DIR = Path(__file__).parent / "migrations"
 # Default database of version 1.0, relative to the working directory
 LEGACY_DATABASE = Path("security_reports.db")
+# Key of the PostgreSQL advisory lock held by upgrade_db: any constant, shared by every instance
+MIGRATION_LOCK_KEY = 0x5EC_2E71E3
 
 _engine: Engine | None = None
 
@@ -94,6 +97,28 @@ def schema_status() -> dict[str, str | bool | None]:
     return {"current": current, "head": head, "up_to_date": current == head}
 
 
+@contextmanager
+def migration_lock() -> Iterator[None]:
+    """Run one migration at a time on PostgreSQL, even from several containers or replicas.
+
+    The lock is a session-level advisory lock on a dedicated connection, released on exit (and by
+    PostgreSQL if the process dies). SQLite needs none: the database belongs to one process.
+    """
+    engine = get_engine()
+    if engine.dialect.name != "postgresql":
+        yield
+        return
+    with engine.connect() as connection:
+        # Commit at once: the lock outlives the transaction, the connection is not left idle in it
+        connection.execute(select(func.pg_advisory_lock(MIGRATION_LOCK_KEY)))
+        connection.commit()
+        try:
+            yield
+        finally:
+            connection.execute(select(func.pg_advisory_unlock(MIGRATION_LOCK_KEY)))
+            connection.commit()
+
+
 def upgrade_db() -> None:
     """Migrate the schema to the latest revision, then seed the default rules.
 
@@ -101,22 +126,24 @@ def upgrade_db() -> None:
     completed by the baseline revision. On the first run the default rules and checklists
     (``default_rules.toml``) are copied into the database; later runs add the new defaults
     (see ``rule_store.seed_defaults``). The built-in roles are created when missing (see
-    ``access_control.ensure_system_roles``).
+    ``access_control.ensure_system_roles``). Instances that start together wait for each other
+    (see ``migration_lock``): the next one finds the schema up to date.
     """
     # Import here because rule_store and access_control depend on this module
     from ..auth import access_control
     from ..rules import rule_store
 
-    before = current_revision()
-    with get_engine().begin() as connection:
-        command.upgrade(alembic_config(connection), "head")
-    after = current_revision()
-    if after != before:
-        logger.info("Database schema migrated from %s to %s", before or "nothing", after)
-    written = rule_store.seed_defaults()
-    if written:
-        logger.info("Default rules seeded: %d rule(s) or checklist item(s) written", written)
-    access_control.ensure_system_roles()
+    with migration_lock():
+        before = current_revision()
+        with get_engine().begin() as connection:
+            command.upgrade(alembic_config(connection), "head")
+        after = current_revision()
+        if after != before:
+            logger.info("Database schema migrated from %s to %s", before or "nothing", after)
+        written = rule_store.seed_defaults()
+        if written:
+            logger.info("Default rules seeded: %d rule(s) or checklist item(s) written", written)
+        access_control.ensure_system_roles()
 
 
 def check_db() -> None:

@@ -1,5 +1,7 @@
 """Tests of the schema migrations (Alembic) and of the schema checks done at start."""
 
+from types import SimpleNamespace
+
 import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.runtime.migration import MigrationContext
@@ -55,6 +57,45 @@ def test_upgrade_is_idempotent(empty_engine):
 
     assert database.current_revision() == database.head_revision()
     assert rule_store.revision() == revision
+
+
+class _RecordingConnection:
+    """Connection of a fake PostgreSQL engine: records the functions it is asked to run."""
+
+    def __init__(self, calls):
+        self.calls = calls
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, statement):
+        self.calls.append(statement.selected_columns[0].name)
+
+    def commit(self):
+        self.calls.append("commit")
+
+
+def test_the_migration_lock_is_released_when_the_migration_fails(monkeypatch):
+    calls = []
+    engine = SimpleNamespace(
+        dialect=SimpleNamespace(name="postgresql"), connect=lambda: _RecordingConnection(calls)
+    )
+    monkeypatch.setattr(database, "get_engine", lambda: engine)
+
+    with pytest.raises(RuntimeError), database.migration_lock():
+        calls.append("migrate")
+        raise RuntimeError("migration failed")
+
+    assert calls == [
+        "pg_advisory_lock",
+        "commit",
+        "migrate",
+        "pg_advisory_unlock",
+        "commit",
+    ]
 
 
 def test_check_refuses_a_database_that_was_not_migrated(empty_engine):

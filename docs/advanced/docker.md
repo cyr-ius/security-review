@@ -56,14 +56,14 @@ Content of the files of version `{{ release_tag }}`:
 | Service | Role | Listens on |
 |---|---|---|
 | `db` | PostgreSQL, reachable by the other services only | — |
-| `migrate` | Creates or updates the tables (`security-review-controller db upgrade`), then stops | — |
-| `controller` | Web interface (`/ui/`) and REST API, for people | `8080` |
+| `controller` | Web interface (`/ui/`) and REST API, for people; creates or updates the tables at start | `8080` |
 | `mcp` | MCP server (`/mcp`) and public enrollment, for the agents and the CI | `8000` |
 
 Good to know:
 
-- **Order of start-up.** `migrate` waits until PostgreSQL is ready; `controller` and `mcp` wait
-  until `migrate` has succeeded. Only `migrate` changes the tables.
+- **Order of start-up.** `controller` waits until PostgreSQL is ready, then creates or updates
+  the tables; `mcp`, which only checks them, waits until `controller` is healthy. After an image
+  update, `docker compose up -d` is enough: the controller applies the new migrations.
 - **Keep `.env`.** It holds the password of the database and the secret of the sessions; never
   commit it. The password is inserted as is in the connection URL: keep hexadecimal characters,
   as generated above.
@@ -109,17 +109,14 @@ The same image runs each process in its own container, on an existing PostgreSQL
 ```bash
 DB=postgresql+psycopg2://user:pass@db:5432/secreview
 
-# 1. Schema (Alembic): must be run again after every image update
-docker run --rm -e SECREVIEW_DATABASE_URL=$DB \
-    --entrypoint security-review-controller ghcr.io/cyr-ius/security-review db upgrade
-
-# 2. Controller: web interface and API, preferably on an internal network
+# 1. Controller: web interface and API, preferably on an internal network; creates or
+#    updates the schema (Alembic) at start, so start it first
 docker run -d --name secreview-controller -p 127.0.0.1:8080:8000 \
-    -e SECREVIEW_DATABASE_URL=$DB -e SECREVIEW_DB_AUTO_UPGRADE=false \
+    -e SECREVIEW_DATABASE_URL=$DB \
     --entrypoint security-review-controller \
     ghcr.io/cyr-ius/security-review serve
 
-# 3. MCP server: exposed to the agents and the CI
+# 2. MCP server: exposed to the agents and the CI
 docker run -d --name secreview-mcp -p 8443:8443 \
     -e SECREVIEW_DATABASE_URL=$DB \
     -v ./tls:/etc/secreview/tls:ro \
@@ -127,7 +124,7 @@ docker run -d --name secreview-mcp -p 8443:8443 \
     -e SECREVIEW_TLS_KEYFILE=/etc/secreview/tls/key.pem \
     ghcr.io/cyr-ius/security-review serve --port 8443
 
-# 4. Password of the admin account, created at the first start of the controller
+# 3. Password of the admin account, created at the first start of the controller
 docker exec secreview-controller security-review-controller user reset-password admin
 ```
 
@@ -173,7 +170,7 @@ docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exis
 docker compose up -d
 ```
 
-The `migrate` service then applies any pending Alembic revisions. The export
+The controller then applies any pending Alembic revisions at start. The export
 contains reports, password hashes, and tokens; keep it outside the repository
 (ensuring it is readable only by you, using `umask 077`) and delete it once the
 restoration has been verified.
