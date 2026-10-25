@@ -67,7 +67,6 @@ without leaving the container.
 
 ```bash
 docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
-docker build -t security-review-mcp --build-arg EXTRAS= .   # without the PostgreSQL driver
 ```
 
 The build also compiles the [web interface](../usage/web-interface.md) (Node.js stage); the

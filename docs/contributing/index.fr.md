@@ -67,7 +67,6 @@ Le démon Docker permet de construire et de lancer l'image du
 
 ```bash
 docker build -t security-review-mcp .   # SQLite et PostgreSQL (pilote inclus)
-docker build -t security-review-mcp --build-arg EXTRAS= .   # sans le pilote PostgreSQL
 ```
 
 Le build compile aussi l'[interface web](../usage/web-interface.md) (étape Node.js) ;

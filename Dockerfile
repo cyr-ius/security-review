@@ -3,7 +3,6 @@
 # Image of security-review-mcp: one image, two processes sharing the database.
 #
 #   docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
-#   docker build -t security-review-mcp --build-arg EXTRAS= .   # without the PostgreSQL driver
 #
 # stdio (developer workstation, the MCP host starts the container itself):
 #   docker run -i --rm -v secreview-data:/var/lib/secreview security-review-mcp
@@ -53,21 +52,18 @@ ENV UV_COMPILE_BYTECODE=1 \
 
 WORKDIR /app
 
-# Extra from pyproject.toml: the PostgreSQL driver by default, empty for SQLite only
-ARG EXTRAS="postgres"
-
 # Dependencies first: this layer is reused as long as uv.lock does not change
 RUN --mount=type=cache,target=/root/.cache/uv \
     --mount=type=bind,source=uv.lock,target=uv.lock \
     --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project --no-editable ${EXTRAS:+--extra "$EXTRAS"}
+    uv sync --locked --no-install-project --no-editable --extra postgres
 
 # Then the project itself (README.md is required by the setuptools build)
 COPY pyproject.toml uv.lock README.md ./
 COPY src ./src
 COPY --from=web /web/src/security_review_mcp/webui ./src/security_review_mcp/webui
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-editable ${EXTRAS:+--extra "$EXTRAS"}
+    uv sync --locked --no-editable --extra postgres
 
 # ---------------------------------------------------------------------------
 # Runtime stage: no build tools, no sources, non-root user
