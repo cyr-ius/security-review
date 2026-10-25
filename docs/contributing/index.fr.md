@@ -63,16 +63,6 @@ SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # revenir 
 Le démon Docker permet de construire et de lancer l'image du
 [Dockerfile](../advanced/docker.md) sans quitter le conteneur.
 
-Les ports sont redirigés vers le poste : l'interface web est sur `http://localhost:8080/ui/`,
-l'API REST sur `/api/v1` et l'endpoint MCP sur `http://localhost:8000/mcp`. Images et volumes sont conservés dans des volumes propres au
-devcontainer : ils ne se mélangent pas avec ceux de l'hôte.
-
-!!! note "Pourquoi pas le socket Docker de l'hôte ?"
-    Monter `/var/run/docker.sock` donnerait à tout outil du devcontainer, agents IA compris, un
-    accès équivalent à root sur l'hôte. Le démon dédié exige un conteneur `privileged`, mais
-    reste isolé du démon de l'hôte. Après l'ajout de la feature, reconstruisez le conteneur
-    (*Dev Containers: Rebuild Container*).
-
 ## Construire l'image
 
 ```bash

@@ -63,16 +63,6 @@ SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # back to 
 The Docker daemon lets you build and run the image of the [Dockerfile](../advanced/docker.md)
 without leaving the container.
 
-The ports are forwarded to the workstation: the web interface is on `http://localhost:8080/ui/`,
-the REST API on `/api/v1` and the MCP endpoint on `http://localhost:8000/mcp`. Images and
-volumes are kept in volumes of the devcontainer: they do not mix with those of the host.
-
-!!! note "Why not the Docker socket of the host?"
-    Mounting `/var/run/docker.sock` would give every tool of the devcontainer, AI agents
-    included, root-equivalent access to the host. The dedicated daemon requires a `privileged`
-    container, but stays isolated from the daemon of the host. After adding the feature, rebuild
-    the container (*Dev Containers: Rebuild Container*).
-
 ## Building the image
 
 ```bash
