@@ -1,4 +1,4 @@
-# Normes stockées dans le serveur
+# Normes centralisées
 
 Les [normes de développement](../usage/standards.md) vivent dans le serveur, pas dans les dépôts.
 Cette page explique ce que cela change, et comment y renvoyer un agent depuis `AGENTS.md`.
@@ -14,6 +14,25 @@ Cette page explique ce que cela change, et comment y renvoyer un agent depuis `A
 
 Avantage : vous écrivez vos conventions **une fois**, pour toute l'organisation. Chaque dépôt
 n'a plus besoin de les recopier.
+
+## Aucun skill à maintenir
+
+Sans le serveur, partager des conventions avec les agents passe en général par des **skills** ou
+des fichiers d'instructions : un skill Claude Code, des instructions Copilot, des règles
+Cursor... Chaque agent a son propre format, et chaque fichier doit être copié dans chaque dépôt ou
+sur chaque poste, puis tenu à jour partout.
+
+Les normes centralisées évitent cela pour les conventions :
+
+| Skills ou fichiers d'instructions | Normes centralisées |
+|---|---|
+| Un format par agent | Tout agent MCP (Claude Code, GitHub Copilot, Codex, Cursor...) les lit par le serveur `security-review` |
+| Copiés dans chaque dépôt ou sur chaque poste | Écrites une fois, dans l'écran **Normes** |
+| Mis à jour à la main partout | Une mise à jour s'applique tout de suite à tous les agents |
+| Tous chargés, ou choisis par l'agent | Sélectionnées par technologie ou par fichier (`*.py`, `angular.json`) |
+
+Un skill reste utile pour ce qui n'est pas une convention : une procédure, un script, un
+déroulé propre à l'équipe. Les normes ne remplacent que les règles de code.
 
 ## Comment en parler dans `AGENTS.md`
 

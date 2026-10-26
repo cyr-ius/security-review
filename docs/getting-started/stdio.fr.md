@@ -16,7 +16,7 @@ flowchart LR
 !!! warning "Réservé à des cas précis"
     Les rapports sont enregistrés dans une base SQLite **locale** que personne d'autre ne voit,
     il n'y a pas d'interface web pour les trier, et chaque poste garde ses propres règles. Pour
-    une équipe, utilisez plutôt le [mode partagé (HTTP)](../getting-started/deploy.md). Le mode
+    une équipe, utilisez plutôt le [mode partagé (HTTP)](deploy.md). Le mode
     local sert à essayer les prompts seul, sur un poste hors ligne, ou pour un usage personnel.
 
 ## Installation
@@ -56,7 +56,7 @@ local.
     `SECREVIEW_DATABASE_URL` et n'accepte que SQLite : il refuse de démarrer (code `2`) quand la
     variable désigne une autre base (PostgreSQL...). Le mode local n'a pas de jeton, et une base
     partagée lui permettrait d'écrire dans tous les projets et de migrer le schéma de l'équipe.
-    Pour travailler avec cette base, utilisez le [mode partagé (HTTP)](../getting-started/deploy.md).
+    Pour travailler avec cette base, utilisez le [mode partagé (HTTP)](deploy.md).
 
 ## Configuration de l'hôte
 

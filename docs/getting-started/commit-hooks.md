@@ -1,34 +1,37 @@
 # Commit hooks
 
-The security review on the workstation of each developer is done by two hooks, at every commit:
+The security review on the workstation of each developer is done by two hooks, at every commit.
+The hooks are run by [prek](https://prek.j178.dev) (or [pre-commit](https://pre-commit.com)).
 
 | Hook | When | What it does | Blocks the commit |
 |---|---|---|---|
 | `scan-deps` | before the commit, when a manifest or a lockfile changes | Sends the dependency files to the controller, which checks them against its advisory database ([dependency analysis](../advanced/dependencies.md)) | Yes, when a vulnerable dependency reaches the threshold (`--fail-on`, default `high`) |
 | `agent-review` | after the commit | Has the coding agent of the developer (Claude Code, GitHub Copilot or Codex) review the commit with the MCP server and save a report ([agent review](../advanced/ci.md#agent-review-of-each-commit)) | Never |
 
-The hooks are run by [prek](https://prek.j178.dev) (or [pre-commit](https://pre-commit.com)).
-
 ## 1. Prepare the workstation (once)
+
+To set up the hooks, install the `uv` manager. `uv` and `uvx` are the Python equivalent of `npm`
+and `npx`. They need no prerequisite: Python does not have to be installed on the workstation.
+
+PyPI or the controller can distribute the `security-review-ci` package.
 
 | What | How |
 |---|---|
-| uv | [Installation of uv](https://docs.astral.sh/uv/getting-started/installation/) |
+| uv/uvx | [Installation of uv](https://docs.astral.sh/uv/getting-started/installation/) |
 | prek | `uv tool install prek` |
-| A personal `mcp` token | **My account** in the [web interface](../usage/tokens.md#personal-mcp-and-ci-tokens): it reaches the projects you may read, for both hooks |
+| Your personal `mcp` token | **My account** in the [web interface](../usage/tokens.md#personal-mcp-and-ci-tokens): it reaches the projects you may read, for both hooks |
 | The CLI of your agent (for `agent-review`), signed in with your account | `npm install -g @anthropic-ai/claude-code`, `npm install -g @github/copilot` or `npm install -g @openai/codex` |
 
-`scan-deps` reads the controller and the token from the environment (your shell profile, never
-the `.env` file):
+`scan-deps` sends the dependency files to the controller: to do so, set the URL of the server
+and your token in the environment (your shell profile, never the `.env` file).
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
 export SECREVIEW_TOKEN=<personal mcp token>
 ```
 
-`agent-review` gives your agent the `security-review` MCP server of the `.mcp.json` file at the
-root of the repository, the file that Claude Code and the Copilot CLI already read. Keep it out
-of git: it holds your token.
+`agent-review` relies on the declaration of your MCP server in the `.mcp.json` file at the root
+of the repository. Keep it out of git: it holds your token.
 
 ```json
 {
@@ -48,10 +51,9 @@ echo ".mcp.json" >> .gitignore
 
 ## 2. Declare the hooks in the project (once per repository)
 
-`.pre-commit-config.yaml`, committed at the root of the repository. Replace `shop-api` with the
-name of the project in the controller, and the files of `scan-deps` with those of your
-technologies. `default_install_hook_types` makes `prek install` install the post-commit hook
-too.
+Here is an example of a `.pre-commit-config.yaml` file, committed at the root of your repository.
+Replace `shop-api` with the name of the project, and the files of `scan-deps` with those of your
+technologies.
 
 === "Client from the controller"
 
@@ -124,15 +126,13 @@ too.
             pass_filenames: false
     ```
 
-prek passes the changed files to `scan-deps`. `agent-review` reads the last commit.
-
 ## 3. Install and check
 
 Each developer runs, in their clone:
 
 ```bash
-prek install                                   # pre-commit and post-commit hooks
-prek run scan-deps --all-files                 # dependency scan of the whole repository, now
+prek install                                   # installs the pre-commit and post-commit hooks
+prek run scan-deps --all-files                 # dependency scan of the whole repository
 prek run agent-review --hook-stage post-commit # review of the last commit, in the background
 ```
 

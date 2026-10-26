@@ -72,8 +72,14 @@ The MCP sessions (streamable HTTP) live in the memory of the process that opened
 running several replicas, send every request of a session to the same replica (affinity on the
 `Mcp-Session-Id` header, see [Kubernetes](kubernetes.md#several-replicas)).
 
-The variables of the MCP server: [Configuration](../reference/configuration.md#mcp-server). Its
-commands (`serve`, `local`): [Command line](../reference/cli.md#security-review-mcp).
+The variables of the MCP server: [Configuration](../reference/configuration.md#mcp-server).
+
+| Command | Role |
+|---|---|
+| `serve` | Starts the MCP server of the shared mode (streamable HTTP) ([manual installation](manual-install.md#5-start-the-mcp-server)) |
+| `local` | Starts the MCP server of the local mode (stdio) ([local mode](../getting-started/stdio.md)) |
+
+All their options: [Command line](../reference/cli.md#security-review-mcp).
 
 ## Enrollment: personal token and project requests
 
@@ -118,20 +124,20 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
     ```
 
     The approval adds the **requester** to the project group `project:<project>` (see
-    [access control](access-control.md#project-groups)), created for a new project: their
+    [access control](../usage/projects.md#project-groups)), created for a new project: their
     personal token reaches the project from the next request, without reconfiguration. A
     request nobody approved within `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 days by default)
     is deleted.
 
 `save_security_report` refuses a project the token does not reach and points to
 `request_project`. When a user with `projects.create`
-[creates the project](access-control.md#creating-a-project) on the **Projects** screen, its
+[creates the project](../usage/projects.md#creating-a-project) on the **Projects** screen, its
 own pending request is settled; those of other users become access requests.
 
 Safeguards: at most 20 requests are pending at a time, a user (or a token without a user)
 requests at most 5 projects per hour, and a pending request expires after
 `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Every request, approval, rejection and expiry is
-written to the [audit log](audit-metrics.md) (`enrollment.requested`, `enrollment.approved`,
+written to the [audit log](audit-log.md) (`enrollment.requested`, `enrollment.approved`,
 `enrollment.rejected`, with the token, the requesting user and the client address). To disable
 the enrollment: `SECREVIEW_ENROLLMENT=false` (clients without a token then get `401`, with the
 same advice, and `request_project` refuses the projects the token does not reach).

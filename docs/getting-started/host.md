@@ -167,6 +167,6 @@ token: replace it in the host as in step 4 (see
 - **Server certificate signed by an internal CA** (`unable to verify the first certificate`):
   see [HTTPS server with an internal CA](../advanced/tls.md#https-server-with-an-internal-ca).
 - **Local mode (stdio)**, without a server (the host starts the process itself): see
-  [Local mode (stdio)](../getting-started/stdio.md).
+  [Local mode (stdio)](stdio.md).
 
 **Next step:** run your first review with the [prompts and tools](../usage/prompts-tools.md).

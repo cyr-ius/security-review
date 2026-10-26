@@ -26,10 +26,10 @@ recorded in one place, where your security team reads it, triages it and follows
 - **Built into your delivery chain.** A [gate](usage/gate.md) blocks a deployment while serious findings remain
   open; the results are exported in [SARIF](advanced/sarif.md) (GitHub code scanning, Jenkins); the [dependencies](advanced/dependencies.md) are
   checked against an OSV vulnerability database, even without Internet access.
-- **Connected to your company tools.** [Single sign-on (OIDC)](advanced/sso.md) with your identity provider,
-  [groups and roles](advanced/access-control.md), findings sent to
+- **Connected to your company tools.** [Single sign-on (OIDC)](usage/sso.md) with your identity provider,
+  [groups and roles](usage/access-control.md), findings sent to
   [Jira or ServiceNow](connectors/index.md),
-  [audit log forwarded to syslog, Prometheus metrics](advanced/audit-metrics.md).
+  [audit log forwarded to syslog, Prometheus metrics](usage/audit-metrics.md).
 - **Your code stays with you.** The product is self-hosted: the MCP server makes no outgoing
   connection, secrets are masked before being stored, and it installs offline. It is open
   source (Apache 2.0 license). See [Security and limits](reference/security.md).
@@ -254,9 +254,9 @@ The documentation follows the order of a set-up. **Getting started**, **Security
 |---|---|
 | Docker, Kubernetes, PostgreSQL, without containers | [Architecture](advanced/architecture.md), [Docker](advanced/docker.md), [Kubernetes](advanced/kubernetes.md), [Manual installation](advanced/manual-install.md) |
 | Tokens restricted to a project, enrollment, rotation, TLS | [Bearer tokens](advanced/bearer-tokens.md), [Enrollment](advanced/mcp-server.md#enrollment-personal-token-and-project-requests), [TLS](advanced/tls.md) |
-| Log in with the company identity provider | [OIDC login](advanced/sso.md) |
+| Log in with the company identity provider | [OIDC login](usage/sso.md) |
 | Scan a whole repository, the dependencies, add my company's rules | [Whole codebase scan](advanced/code-scan.md), [Dependency analysis](advanced/dependencies.md), [Rules](usage/rules.md) |
-| SARIF, trends, audit log, Prometheus | [SARIF export](advanced/sarif.md), [Trend report](advanced/ci.md#trend-report), [Audit log](advanced/audit-metrics.md), [Prometheus metrics](reference/metrics.md) |
+| SARIF, trends, audit log, Prometheus | [SARIF export](advanced/sarif.md), [Trend report](advanced/ci.md#trend-report), [Audit log](usage/audit-metrics.md), [Prometheus metrics](reference/metrics.md) |
 
 !!! warning "This is not a SAST"
     The pattern scan produces **leads** and false positives. It replaces neither a SAST, nor a

@@ -1,7 +1,7 @@
 # Métriques Prometheus
 
 Les métriques sont lues dans la base partagée avec le serveur MCP : toutes les répliques du
-contrôleur répondent la même chose (voir aussi le [journal d'audit](../advanced/audit-metrics.md)).
+contrôleur répondent la même chose (voir aussi le [journal d'audit](../advanced/audit-log.md)).
 
 `GET /metrics` sur le **contrôleur** répond au format texte de Prometheus (`0.0.4`). Le serveur
 MCP n'a pas d'endpoint de métriques. Il faut un jeton de rôle `metrics`, qui n'atteint rien

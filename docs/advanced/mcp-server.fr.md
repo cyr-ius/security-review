@@ -73,8 +73,14 @@ Les sessions MCP (HTTP streamable) vivent dans la mémoire du processus qui les 
 de lancer plusieurs réplicas, envoyez toutes les requêtes d'une session au même réplica
 (affinité sur l'en-tête `Mcp-Session-Id`, voir [Kubernetes](kubernetes.md#plusieurs-replicas)).
 
-Les variables du serveur MCP : [Configuration](../reference/configuration.md#serveur-mcp). Ses
-commandes (`serve`, `local`) : [Ligne de commande](../reference/cli.md#security-review-mcp).
+Les variables du serveur MCP : [Configuration](../reference/configuration.md#serveur-mcp).
+
+| Commande | Rôle |
+|---|---|
+| `serve` | Lance le serveur MCP du mode partagé (HTTP streamable) ([installation manuelle](manual-install.md#5-lancer-le-serveur-mcp)) |
+| `local` | Lance le serveur MCP du mode local (stdio) ([mode local](../getting-started/stdio.md)) |
+
+Toutes leurs options : [Ligne de commande](../reference/cli.md#security-review-mcp).
 
 ## Enrôlement : jeton personnel et demande de projet
 
@@ -121,20 +127,20 @@ premier jeton (sauf sur un [serveur ouvert](bearer-tokens.md), qui n'a pas besoi
     ```
 
     La validation ajoute le **demandeur** au groupe de projet `project:<projet>` (voir
-    [contrôle d'accès](access-control.md#groupes-de-projet)), créé pour un nouveau projet : son
+    [contrôle d'accès](../usage/projects.md#groupes-de-projet)), créé pour un nouveau projet : son
     jeton personnel atteint le projet dès la requête suivante, sans reconfiguration. Une demande
     que personne n'a validée sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` (7 jours par défaut)
     est supprimée.
 
 `save_security_report` refuse un projet que le jeton n'atteint pas et renvoie vers
 `request_project`. Quand un utilisateur portant `projects.create`
-[crée le projet](access-control.md#creation-dun-projet) depuis l'écran **Projets**, sa propre
+[crée le projet](../usage/projects.md#creation-dun-projet) depuis l'écran **Projets**, sa propre
 demande en attente est soldée ; celles des autres utilisateurs deviennent des demandes d'accès.
 
 Garde-fous : au plus 20 demandes sont en attente à la fois, un utilisateur (ou un jeton sans
 utilisateur) demande au plus 5 projets par heure, et une demande en attente expire après
 `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS`. Chaque demande, validation, refus et expiration est
-écrit dans le [journal d'audit](audit-metrics.md) (`enrollment.requested`,
+écrit dans le [journal d'audit](audit-log.md) (`enrollment.requested`,
 `enrollment.approved`, `enrollment.rejected`, avec le jeton, l'utilisateur demandeur et
 l'adresse cliente). Pour désactiver l'enrôlement : `SECREVIEW_ENROLLMENT=false` (les clients
 sans jeton reçoivent alors `401`, avec le même conseil, et `request_project` refuse les projets

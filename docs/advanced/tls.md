@@ -1,4 +1,4 @@
-# TLS
+# TLS and certificates
 
 The [MCP server](mcp-server.md) and the [controller](controller.md) serve HTTPS themselves, or
 behind a reverse proxy that terminates TLS.

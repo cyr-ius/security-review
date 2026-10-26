@@ -10,13 +10,14 @@ base (voir [Architecture](architecture.md)).
 | Route | Utilisée par | Identifiant |
 |---|---|---|
 | `/ui/` | les personnes (navigateur) : [interface web](../usage/web-interface.md) | aucun pour les fichiers statiques ; les données viennent de l'API |
-| `/api/v1/auth/` | la page de connexion : mot de passe et connexion [OIDC](sso.md) | aucun |
+| `/api/v1/auth/` | la page de connexion : mot de passe et connexion [OIDC](oidc.md) | aucun |
 | `/api/v1/` | l'interface web, les scripts, Swagger | session web, jeton `admin` ou `api` |
 | `/api/v1/ci/` | [`security-review-ci`](ci.md) : gate, SARIF, tendance, scans du code et des dépendances | jeton `ci` ou jeton `mcp` personnel |
 | `/metrics` | Prometheus ([métriques](../reference/metrics.md)) | jeton `metrics` ou `admin` |
-| `/api/docs` | Swagger, seulement avec `SECREVIEW_SWAGGER_ENABLED=true` | aucun (les appels demandent un [jeton API](../usage/tokens.md#jetons-api)) |
+| `/api/docs` | Swagger : documentation OpenAPI de l'API REST, sans données, seulement avec `SECREVIEW_SWAGGER_ENABLED=true` | aucun (les appels demandent un [jeton API](../usage/tokens.md#jetons-api)) |
 | `/api/ci-client/` | uv : [téléchargement de `security-review-ci`](ci.md#depuis-le-controleur), sauf avec `SECREVIEW_CI_CLIENT_DOWNLOAD_ENABLED=false` | aucun |
-| `/api/health`, `/api/favicon.svg` | disponibilité de l'API, icône | aucun |
+| `/api/health` | l'interface web, qui vérifie la disponibilité de l'API au chargement (ne révèle ni la version ni les réglages) | aucun |
+| `/api/favicon.svg` | icône de l'interface web et de Swagger | aucun |
 | `/healthz` | sondes (`HEALTHCHECK` Docker, Kubernetes) | aucun |
 
 Les rôles des jetons sont décrits dans [Rôles](../usage/tokens.md), leur gestion
@@ -61,8 +62,8 @@ security-review-controller db status    # {"current": "0032", "head": "0032", "u
 | Tâche | Activée par | Détails |
 |---|---|---|
 | Mise à jour quotidienne des avis OSV | `SECREVIEW_OSV_AUTO_UPDATE=true` (désactivée par défaut) | [Mise à jour automatique par le contrôleur](dependencies.md#mise-a-jour-automatique-par-le-controleur) |
-| Purge des rapports sans finding et du journal d'audit | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` (90), `SECREVIEW_AUDIT_RETENTION_DAYS` (365), `SECREVIEW_AUDIT_MAX_EVENTS` | [Conservation](../reference/configuration.md#conservation-des-rapports-sans-findings), [conservation de l'audit](audit-metrics.md#conservation) |
-| Envoi du journal d'audit vers syslog | un serveur syslog défini dans l'environnement ou dans l'interface | [Envoi vers syslog](audit-metrics.md#envoi-vers-syslog) |
+| Purge des rapports sans finding et du journal d'audit | `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` (90), `SECREVIEW_AUDIT_RETENTION_DAYS` (365), `SECREVIEW_AUDIT_MAX_EVENTS` | [Conservation](../reference/configuration.md#conservation-des-rapports-sans-findings), [conservation de l'audit](audit-log.md#conservation) |
+| Envoi du journal d'audit vers syslog | un serveur syslog défini dans l'environnement ou dans l'interface | [Envoi vers syslog](audit-log.md#envoi-vers-syslog) |
 | Envoi automatique des findings par les connecteurs | un connecteur activé, un seuil de sévérité sur le projet ; `SECREVIEW_CONNECTORS_ENABLED=false` verrouille tout | [Connecteurs](../connectors/index.md) |
 
 Le serveur MCP n'en exécute aucune.
@@ -70,7 +71,7 @@ Le serveur MCP n'en exécute aucune.
 ## Connexions sortantes
 
 Le contrôleur est le seul processus qui peut se connecter à l'extérieur, et chaque connexion est
-**désactivée par défaut** : le téléchargement OSV, le fournisseur [OIDC](sso.md), la recherche
+**désactivée par défaut** : le téléchargement OSV, le fournisseur [OIDC](oidc.md), la recherche
 d'une nouvelle version sur la page **À propos** (`SECREVIEW_UPDATE_CHECK_ENABLED`), le serveur
 syslog et les connecteurs. Elles passent en HTTPS (syslog : UDP, TCP ou TLS), par le proxy
 sortant (`HTTPS_PROXY`, `NO_PROXY`, ou l'écran **Paramètres**). Voir
@@ -107,14 +108,68 @@ Les autres commandes de `security-review-controller` s'exécutent là où tourne
 |---|---|
 | `db` | migrer le schéma, afficher sa révision, purger des rapports |
 | `token` | créer, lister, renouveler et révoquer les jetons ([Jetons Bearer](bearer-tokens.md)) |
-| `user`, `group` | comptes de l'interface web et leurs groupes ([Comptes utilisateurs](../usage/user-accounts.md)) |
+| `user`, `group` | comptes de l'interface web et leurs groupes ([Gérer les comptes](#gerer-les-comptes)) |
 | `project` | valider ou refuser les projets demandés par les agents MCP des utilisateurs ([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) |
 | `rules` | importer et exporter les [règles](../usage/rules.md) internes et les checklists |
 | `advisories` | importer ou télécharger la [base OSV](dependencies.md#base-de-vulnerabilites-hors-ligne-format-osv) |
-| `audit` | lire ou purger le [journal d'audit](audit-metrics.md) |
+| `audit` | lire ou purger le [journal d'audit](audit-log.md) |
 
 Toutes leurs options : [Ligne de commande](../reference/cli.md#security-review-controller). Les
 variables du contrôleur : [Configuration](../reference/configuration.md#controleur).
+
+## Gérer les comptes
+
+Les [comptes utilisateurs](../usage/user-accounts.md) se gèrent dans l'écran **Utilisateurs**,
+par l'API REST `/api/v1/users` (permission `users.manage`) ou par la
+[CLI](../reference/cli.md#security-review-controller). Un identifiant contient des lettres, des
+chiffres et `. _ @ -`, 64 caractères au plus ; le type d'un compte est son `auth_source`
+(`local` ou `oidc`).
+
+```bash
+security-review-controller user create alice --group shop-triagers
+# {"id": 2, "username": "alice", "auth_source": "local", "groups": [{"group_id": 3, "name": "shop-triagers", "source": "local"}], "permissions": {…}, …, "password": "q3V…"}
+printf '%s\n' "$PASSWORD" | security-review-controller user create bob --password-stdin
+security-review-controller user create carol@example.com --sso   # groupes OIDC uniquement
+security-review-controller user list
+security-review-controller user set-groups alice --group readers --group auditors
+security-review-controller user set-groups alice --group administrators   # créé s'il manque
+security-review-controller user reset-password alice   # compte local : nouveau mot de passe, sessions fermées
+security-review-controller user delete alice
+security-review-controller group list    # groupes, leurs rôles et leurs membres
+```
+
+Par l'API, un compte OIDC se crée avec `"auth_source": "oidc"`, sans `password` ; `group_ids`
+liste ses groupes :
+
+```bash
+curl -X POST https://secreview.example.com/api/v1/users \
+  -H "Authorization: Bearer $ADMIN_TOKEN" -H "Content-Type: application/json" \
+  -d '{"username": "carol@example.com", "auth_source": "oidc", "group_ids": [4]}'
+```
+
+Un compte OIDC est aussi créé à sa première connexion avec
+`SECREVIEW_OIDC_AUTO_CREATE_USERS=true` ([comptes OIDC](oidc.md#comptes-oidc)).
+
+Pour un compte local, sans `--password-stdin` (ou sans mot de passe dans l'interface), un mot de
+passe aléatoire de 24 caractères est généré et affiché **une seule fois**. Un mot de passe choisi
+respecte la **politique de mot de passe** : 12 à 256 caractères, avec au moins une minuscule, une
+majuscule, un chiffre et un caractère qui n'est ni une lettre ni un chiffre. La politique
+s'applique aux nouveaux mots de passe : un mot de passe défini avant reste valable jusqu'à son
+changement. Un compte OIDC n'a jamais de mot de passe : la connexion par identifiant et mot de
+passe, la réinitialisation et **Mon compte** le refusent.
+
+!!! warning "Authentification requise pour la Web UI"
+    L'API de l'interface refuse les requêtes avec le statut `503` tant qu'aucun utilisateur ni
+    jeton n'existe ; la mire de connexion reste affichée et indique que l'authentification doit
+    être configurée. `security-review-controller serve` crée le
+    [premier administrateur](#premier-administrateur) à son premier démarrage : cela n'arrive
+    donc qu'avant ; un compte peut aussi être créé avec `security-review-controller user create`.
+    Cette restriction concerne la Web UI ; l'authentification MCP reste indépendante (un compte
+    utilisateur n'ouvre jamais `/mcp`). Avec la [connexion OIDC](oidc.md), l'API demande une
+    connexion (`401`) même sans utilisateur ni jeton en base.
+
+Les variables de l'interface sont dans la
+[Configuration](../reference/configuration.md#interface-web-et-sessions).
 
 ## Premier administrateur
 
@@ -184,7 +239,7 @@ changé dans un autre onglet, compte supprimé), une fenêtre **Session expirée
 **Se reconnecter** ouvre la page de connexion puis revient à la même page.
 
 La page de connexion propose l'identifiant et le mot de passe d'un compte local et, avec la
-[connexion OIDC](sso.md), le bouton du fournisseur d'identité ; elle
+[connexion OIDC](oidc.md), le bouton du fournisseur d'identité ; elle
 n'accepte pas de jeton. `POST /api/v1/auth/login` vérifie le mot de passe d'un compte local et
 renvoie un **jeton de session** signé, valable `SECREVIEW_SESSION_HOURS` heures (8 par défaut),
 que l'onglet utilise comme un jeton Bearer :
@@ -229,6 +284,30 @@ INFO security_review_mcp.web: Web login of alice (role triager) from 10.0.0.12
 WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 ```
 
+## Réglages enregistrés en base
+
+Les écrans **Général**, **Proxy sortant** et **OIDC** de l'[interface web](../usage/web-interface.md)
+enregistrent des réglages en base, partagés par le serveur MCP et le contrôleur (permission
+`settings.manage` ; les anciennes adresses `/ui/settings` et `/ui/settings/language` ouvrent
+**Général**). **Une variable d'environnement définie (environnement ou fichier `.env`, non vide)
+est toujours prioritaire** : son champ est alors verrouillé et affiche la variable, et une valeur
+enregistrée avant que la variable soit définie est signalée comme ignorée, avec un bouton
+**Supprimer**. Un changement s'applique sans redémarrage : le serveur MCP lit l'adresse du
+contrôleur en moins d'une minute (le changement est enregistré dans le journal d'audit,
+`controller_url.changed`), et le proxy s'applique au prochain téléchargement OSV et à la
+prochaine connexion OIDC. **Utiliser l'adresse actuelle** remplit l'adresse de ce contrôleur.
+
+| Route | Effet |
+|---|---|
+| `GET /api/v1/settings` | Pour chaque réglage : la valeur enregistrée `value`, la variable `env`, `env_set` (la variable est définie et prioritaire) et la valeur effective |
+| `PUT /api/v1/settings/controller-url` | `value` (`null` la supprime) |
+| `PUT /api/v1/settings/proxy` | `url` et `no_proxy` : `null` supprime la valeur enregistrée, `"url": ""` force la connexion directe, un champ absent est inchangé. Les mots de passe ne sont jamais réaffichés (`***`) : renvoyer `***` conserve celui enregistré |
+
+Une valeur dont la variable est définie est refusée avec `422`. Les réglages OIDC ont leurs
+propres routes ([configuration OIDC](oidc.md#configurer-le-oidc-dans-linterface)). Le thème choisi
+par un utilisateur connecté est conservé dans son compte (`GET` et `PUT /api/v1/me/preferences`),
+pour tous les navigateurs qu'il utilise.
+
 ## Sécurité de l'interface web
 
 - Les fichiers statiques de `/ui/` sont publics (ils ne contiennent aucune donnée) ; l'API
@@ -253,7 +332,7 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
   `POST /api/v1/projects/pending/{id}/approve`, `DELETE /api/v1/projects/pending/{id}`,
   permission `projects.create`).
 - Le jeton est envoyé dans l'en-tête `Authorization` : pas de cookie, donc pas de CSRF.
-  Seule la [connexion OIDC](sso.md) pose un cookie, `HttpOnly`,
+  Seule la [connexion OIDC](oidc.md) pose un cookie, `HttpOnly`,
   `SameSite=Lax`, `Secure` en HTTPS, limité à l'URL de retour et valable 10 minutes : il lie le
   retour du fournisseur au navigateur qui a lancé la connexion (protection contre le *login
   CSRF*). Le jeton de session est remis dans le fragment d'URL (`#session=...`), jamais envoyé à

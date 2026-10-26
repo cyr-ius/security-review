@@ -117,4 +117,4 @@ address, the one of the Ingress).
 ## Next step
 
 [Connect the host](host.md) of each developer to the MCP server. To go further:
-[tokens](../advanced/bearer-tokens.md), [TLS](../advanced/tls.md), [OIDC login](../advanced/sso.md).
+[tokens](../advanced/bearer-tokens.md), [TLS](../advanced/tls.md), [OIDC login](../usage/sso.md).

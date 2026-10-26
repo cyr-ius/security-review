@@ -89,20 +89,20 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_OIDC_ENABLED` | `false` | Active la [connexion OIDC OpenID Connect](../advanced/sso.md) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` et `SECREVIEW_OIDC_ONLY` se définissent aussi dans l'écran **OIDC**, dont les valeurs enregistrées s'appliquent quand la variable n'est pas définie ([configurer le OIDC dans l'interface](../advanced/sso.md#configurer-le-oidc-dans-linterface)) |
+| `SECREVIEW_OIDC_ENABLED` | `false` | Active la [connexion OIDC OpenID Connect](../advanced/oidc.md) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` et `SECREVIEW_OIDC_ONLY` se définissent aussi dans l'écran **OIDC**, dont les valeurs enregistrées s'appliquent quand la variable n'est pas définie ([configurer le OIDC dans l'interface](../advanced/oidc.md#configurer-le-oidc-dans-linterface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | URL de l'émetteur (HTTPS ; HTTP seulement sur localhost), dont `/.well-known/openid-configuration` est lu |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Identifiant du client déclaré chez le fournisseur |
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Secret du client ; vide pour un client public (PKCE seul) |
 | `SECREVIEW_OIDC_REDIRECT_URI` | — | URL publique de `/api/v1/auth/oidc/callback`, déclarée chez le fournisseur |
 | `SECREVIEW_OIDC_SCOPE` | `openid profile email` | Scopes demandés (doit contenir `openid`) |
-| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Claim des groupes ou rôles, chemin pointé accepté (`realm_access.roles`) ; ses valeurs sont comparées aux noms des [groupes ouverts au OIDC](../advanced/sso.md#groupes-du-fournisseur-didentite) |
+| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Claim des groupes ou rôles, chemin pointé accepté (`realm_access.roles`) ; ses valeurs sont comparées aux noms des [groupes ouverts au OIDC](../advanced/oidc.md#groupes-du-fournisseur-didentite) |
 | `SECREVIEW_OIDC_ADMIN_GROUPS` | — | Groupes OIDC, séparés par des virgules, créés ouverts au OIDC avec le rôle `admin` à la première connexion de l'un de leurs membres (premier administrateur) |
 | `SECREVIEW_OIDC_DEFAULT_GROUP` | — | Groupe que tout utilisateur OIDC rejoint à chaque connexion, quel que soit son claim (vide : aucun) |
-| `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Claim qui nomme le [compte OIDC](../advanced/sso.md#comptes-oidc) (comparaison exacte, sans repli) ; label de session `oidc:<valeur>` |
+| `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Claim qui nomme le [compte OIDC](../advanced/oidc.md#comptes-oidc) (comparaison exacte, sans repli) ; label de session `oidc:<valeur>` |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Crée le compte OIDC à sa première connexion si ses groupes lui donnent un rôle ; à `false`, un administrateur crée chaque compte OIDC dans **Utilisateurs** |
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `OIDC` | Nom affiché sur le bouton de connexion (40 caractères au plus) |
 | `SECREVIEW_OIDC_CAFILE` | — | Bundle de CA pour joindre le fournisseur (CA interne) ; le proxy est celui de `HTTPS_PROXY` |
-| `SECREVIEW_OIDC_ONLY` | `false` | Avec le OIDC activé, refuse la connexion par mot de passe des comptes locaux ([OIDC seul](../advanced/sso.md#oidc-seul)) ; une variable uniquement, jamais modifiée dans l'interface |
+| `SECREVIEW_OIDC_ONLY` | `false` | Avec le OIDC activé, refuse la connexion par mot de passe des comptes locaux ([OIDC seul](../advanced/oidc.md#oidc-seul)) ; une variable uniquement, jamais modifiée dans l'interface |
 
 ### Proxy sortant
 
@@ -137,9 +137,9 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_AUDIT_RETENTION_DAYS` | `365` | Âge en jours au-delà duquel `serve` supprime les événements du [journal d'audit](../advanced/audit-metrics.md) ; `0` conserve tous les événements |
-| `SECREVIEW_AUDIT_MAX_EVENTS` | `0` | Nombre d'[événements d'audit](../advanced/audit-metrics.md#conservation) conservés au plus par la même purge quotidienne (les plus anciens sont supprimés) ; `0` : sans limite |
-| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | [Envoie les événements d'audit à syslog](../advanced/audit-metrics.md#envoi-vers-syslog) : `udp://hôte:port`, `tcp://hôte:port`, `tls://hôte:port` (RFC 5425, port 6514 par défaut) ou `unix:///dev/log` (pas de proxy) ; désactivé si absent ; sans elle, le serveur défini sur la page **Journal d'audit** s'applique. Définie (non vide), elle est prioritaire sur cette page |
+| `SECREVIEW_AUDIT_RETENTION_DAYS` | `365` | Âge en jours au-delà duquel `serve` supprime les événements du [journal d'audit](../advanced/audit-log.md) ; `0` conserve tous les événements |
+| `SECREVIEW_AUDIT_MAX_EVENTS` | `0` | Nombre d'[événements d'audit](../advanced/audit-log.md#conservation) conservés au plus par la même purge quotidienne (les plus anciens sont supprimés) ; `0` : sans limite |
+| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | [Envoie les événements d'audit à syslog](../advanced/audit-log.md#envoi-vers-syslog) : `udp://hôte:port`, `tcp://hôte:port`, `tls://hôte:port` (RFC 5425, port 6514 par défaut) ou `unix:///dev/log` (pas de proxy) ; désactivé si absent ; sans elle, le serveur défini sur la page **Journal d'audit** s'applique. Définie (non vide), elle est prioritaire sur cette page |
 | `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | *Facility* syslog de ces messages (`local0` à `local7`, `auth`, `authpriv`, `daemon`...) ; définie, elle est prioritaire sur celle choisie sur la page **Journal d'audit** |
 | `SECREVIEW_AUDIT_SYSLOG_CAFILE` | — | Autorités de certification qui vérifient le certificat d'un serveur syslog `tls://` (autorité interne) ; par défaut, celles du système. Variable uniquement |
 | `SECREVIEW_METRICS_ENABLED` | `true` | Sert les [métriques Prometheus](metrics.md) sur `/metrics` (jeton `metrics` ou `admin`) ; à `false`, `/metrics` répond 404 |
@@ -148,12 +148,12 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_CONNECTORS_ENABLED` | `true` | Verrou des [connecteurs](../connectors/index.md#activation) (Jira, ServiceNow, tiers ; connexions sortantes du contrôleur) : `true`, chacun s'active dans l'écran **Connecteurs** (tous désactivés par défaut) ; `false`, tous verrouillés |
+| `SECREVIEW_CONNECTORS_ENABLED` | `true` | Verrou des [connecteurs](../advanced/connectors.md#activation) (Jira, ServiceNow, tiers ; connexions sortantes du contrôleur) : `true`, chacun s'active dans l'écran **Connecteurs** (tous désactivés par défaut) ; `false`, tous verrouillés |
 | `SECREVIEW_CONNECTORS_INTERVAL_SECONDS` | `300` | Période de l'[envoi automatique](../connectors/index.md#envoi-dun-finding) (30 à 86400) |
 | `SECREVIEW_CONNECTORS_CAFILE` | — | Bundle de CA utilisé à la place de celui du système (autorité interne) |
 | `SECREVIEW_CONNECTORS_PLUGINS` | — | [Connecteurs tiers](../connectors/third-party.md) autorisés, par nom de point d'entrée, séparés par des virgules ; un connecteur installé mais non listé n'est jamais chargé |
-| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Connexion Jira](../connectors/jira.md#connexion) ; définies, elles sont prioritaires sur l'écran **Connecteurs** |
-| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [Connexion ServiceNow](../connectors/servicenow.md#connexion) ; définies, elles sont prioritaires sur l'écran **Connecteurs** |
+| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Connexion Jira](../advanced/connectors.md#jira) ; définies, elles sont prioritaires sur l'écran **Connecteurs** |
+| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [Connexion ServiceNow](../advanced/connectors.md#servicenow) ; définies, elles sont prioritaires sur l'écran **Connecteurs** |
 | `SECREVIEW_<TYPE>_<CHAMP>` | — | Champ de la connexion d'un [connecteur tiers](../connectors/third-party.md) (`SECREVIEW_ACME_API_KEY`) |
 
 ### Limites des scans de pipeline

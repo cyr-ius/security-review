@@ -8,14 +8,13 @@ Les hooks sont exécutés par [prek](https://prek.j178.dev) (ou [pre-commit](htt
 | `scan-deps` | avant le commit, quand un manifeste ou un lockfile change | Envoie les fichiers de dépendances au contrôleur, qui les compare à sa base d'avis ([analyse des dépendances](../advanced/dependencies.md)) | Oui, quand une dépendance vulnérable atteint le seuil (`--fail-on`, `high` par défaut) |
 | `agent-review` | après le commit | Fait relire le commit par l'agent de code du développeur (Claude Code, GitHub Copilot ou Codex) avec le serveur MCP, qui enregistre un rapport ([revue par un agent](../advanced/ci.md#revue-de-chaque-commit-par-un-agent)) | Jamais |
 
-
 ## 1. Préparer le poste (une fois)
 
-Pour assurer la mise en place des hooks, nous installons le gestionnaire `uv`.
-`uv` et `uvx` sont l équivalent de `npm` et `npx` dans le monde Python. Ils n'ont besoin d'aucun pré-requis.
-Il n'est pas nécessaire d'avoir python sur son poste. 
+Pour mettre en place les hooks, installez le gestionnaire `uv`. `uv` et `uvx` sont l'équivalent
+de `npm` et `npx` dans le monde Python. Ils n'ont besoin d'aucun prérequis : il n'est pas
+nécessaire d'avoir Python sur le poste.
 
-Pypi.org ou le server Controller sont en capacité de distribuer le module `security-review-ci`
+PyPI ou le contrôleur peuvent distribuer le paquet `security-review-ci`.
 
 | Quoi | Comment |
 |---|---|
@@ -24,16 +23,16 @@ Pypi.org ou le server Controller sont en capacité de distribuer le module `secu
 | Votre jeton `mcp` personnel | **Mon compte** dans l'[interface web](../usage/tokens.md#jetons-mcp-et-ci-personnels) : il atteint les projets que vous pouvez lire, pour les deux hooks |
 | Le CLI de votre agent (pour `agent-review`), connecté avec votre compte | `npm install -g @anthropic-ai/claude-code`, `npm install -g @github/copilot` ou `npm install -g @openai/codex` |
 
-`scan-deps` envoye les fichiers de dépendance au controller, pour se faire il est nécessaire d'inscrire
-l'url du server et votre jeton dans l'environnement (le profil de votre shell, jamais le fichier `.env`).
+`scan-deps` envoie les fichiers de dépendances au contrôleur : pour ce faire, inscrivez l'URL du
+serveur et votre jeton dans l'environnement (le profil de votre shell, jamais le fichier `.env`).
 
 ```bash
 export SECREVIEW_CONTROLLER_URL=https://secreview.example.com
 export SECREVIEW_TOKEN=<jeton mcp personnel>
 ```
 
-`agent-review` s'appuie sur ma déclaration de votre serveur MCP via le fichier `.mcp.json` à la
-racine du dépôt.
+`agent-review` s'appuie sur la déclaration de votre serveur MCP dans le fichier `.mcp.json` à la
+racine du dépôt. Gardez-le hors de git : il contient votre jeton.
 
 ```json
 {
@@ -133,7 +132,7 @@ Remplacez `shop-api` par le nom du projet, et les fichiers de `scan-deps` par ce
 Chaque développeur lance, dans son clone :
 
 ```bash
-prek install                                   # install les hooks pre-commit et post-commit
+prek install                                   # installe les hooks pre-commit et post-commit
 prek run scan-deps --all-files                 # scan des dépendances de tout le dépôt
 prek run agent-review --hook-stage post-commit # revue du dernier commit, en arrière-plan
 ```

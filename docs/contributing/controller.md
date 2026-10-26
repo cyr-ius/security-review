@@ -105,4 +105,4 @@ configured URL, proxy, no redirect, bounded response). See
 
 Check the status code and the body, and at least one refusal (`401`, `403` or `404` outside
 the scope) for a new route. See also the [web interface](../usage/web-interface.md) and the
-[roles and permissions](../advanced/access-control.md) as users see them.
+[roles and permissions](../usage/access-control.md) as users see them.

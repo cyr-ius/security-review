@@ -87,7 +87,7 @@ HTTPS_PROXY=http://utilisateur:motdepasse@proxy.example.com:3128
   variables standard `HTTPS_PROXY` (sinon `HTTP_PROXY` ; noms en minuscules acceptés ;
   `http://[utilisateur:mot de passe@]hôte:port`, `hôte:port` valant `http://hôte:port`, tunnel
   `CONNECT` vers le site HTTPS), sauf vers les hôtes de `NO_PROXY`. Le même proxy sert à la
-  [connexion OIDC](sso.md). Sans ces variables, la connexion est directe. Si le proxy inspecte
+  [connexion OIDC](oidc.md). Sans ces variables, la connexion est directe. Si le proxy inspecte
   le TLS, donnez sa CA avec `SECREVIEW_OSV_CAFILE` (elle remplace alors les CA du système).
 - **Miroir** : `SECREVIEW_OSV_URL` remplace la source (Nexus, Artifactory, bucket interne…)
   tant qu'il sert `<URL>/<écosystème>/all.zip` en HTTPS. HTTP en clair, identifiants dans l'URL

@@ -49,12 +49,14 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 
 | Sub-command | Role |
 |---|---|
-| `gate --project P [--fail-on S] [--report-id N]` | [Gate](../usage/gate.md) of the project |
-| `sarif --project P [--include-resolved] [-o FILE]` | SARIF 2.1.0 log of the project ([SARIF export](sarif.md)) |
-| `trend --project P [--days N] [--granularity day\|week\|month] [--format markdown\|json]` | Trend report of the project ([Trend report](#trend-report)) |
-| `scan-code [PATH] --project P [--save] …` | Sends the files of the repository to the controller, which scans them with its rules ([Whole codebase scan](code-scan.md)) |
-| `scan-deps FILE… --project P [--save] …` | Sends manifests and lockfiles to the controller, which checks them against its advisories ([Dependencies](dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps)) |
-| `agent-review --project P [--agent A] …` | Has the coding agent of the developer review the last commit with the MCP server, in the background (post-commit hook, [Agent review of each commit](#agent-review-of-each-commit)) |
+| `gate` | [Gate](../usage/gate.md) of the project |
+| `sarif` | SARIF 2.1.0 log of the project ([SARIF export](sarif.md)) |
+| `trend` | Trend report of the project ([Trend report](#trend-report)) |
+| `scan-code` | Sends the files of the repository to the controller, which scans them with its rules ([Whole codebase scan](code-scan.md)) |
+| `scan-deps` | Sends manifests and lockfiles to the controller, which checks them against its advisories ([Dependencies](dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps)) |
+| `agent-review` | Has the coding agent of the developer review the last commit with the MCP server, in the background (post-commit hook, [Agent review of each commit](#agent-review-of-each-commit)) |
+
+All their options: [Command line](../reference/cli.md#security-review-ci).
 
 Common options (except `agent-review`): `--url` (default `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (reads the token
 on stdin instead of `SECREVIEW_TOKEN`), `--cafile` (CA of the controller certificate),

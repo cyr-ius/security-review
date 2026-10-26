@@ -1,30 +1,29 @@
 # ServiceNow
 
-Le connecteur intégré **ServiceNow** (type `servicenow`) crée un enregistrement pour chaque
-finding envoyé, dans la table `incident` par défaut.
+Le connecteur **ServiceNow** crée un enregistrement pour chaque finding envoyé, un **incident** par
+défaut. Les variables sont dans [Connecteurs en détail](../advanced/connectors.md#servicenow).
 
 ## Connexion
 
-| Variable | Défaut | Rôle |
-|---|---|---|
-| `SECREVIEW_SERVICENOW_URL` | — | Adresse de l'instance, `https://` uniquement |
-| `SECREVIEW_SERVICENOW_USERNAME` | — | Compte (authentification basique) |
-| `SECREVIEW_SERVICENOW_PASSWORD` | — | Son mot de passe |
-| `SECREVIEW_SERVICENOW_TABLE` | `incident` | Table des enregistrements |
+| Champ | Valeur |
+|---|---|
+| URL | L'adresse de l'instance, en HTTPS |
+| **Compte** | Le compte qui crée les enregistrements |
+| **Mot de passe** | Son mot de passe |
+| **Table** | La table des enregistrements (`incident` par défaut) |
 
-Le compte n'a besoin que du droit de créer des enregistrements dans la table (le rôle `itil`
-pour `incident`).
+Le compte n'a besoin que de créer des enregistrements dans la table (le rôle `itil` pour
+`incident`).
 
 ## Destination
 
-La destination d'un projet est le **groupe d'affectation** (facultatif, son nom).
+La destination d'un projet est son **Groupe d'affectation** (facultatif, son nom).
 
 ## Contenu d'un enregistrement
 
-| Champ | Valeur |
-|---|---|
-| `short_description` | `[HIGH] shop-api: SQL injection` |
-| `description` | projet, sévérité, emplacement, règle, CWE, OWASP, branche, commit, lien vers le rapport, puis description, preuve et recommandation, en texte brut |
-| `urgency`, `impact` | selon la sévérité : `critical` 1 / 1, `high` 1 / 2, `medium` 2 / 2, `low` et `info` 3 / 3 |
-| `assignment_group` | la destination du projet |
-| `correlation_id` | l'empreinte du problème |
+- **Description courte** : `[HIGH] shop-api: SQL injection` ;
+- **Description** : le projet, la sévérité, l'emplacement, la règle, la CWE, la branche, le commit
+  et un lien vers le rapport, puis la description, la preuve et la recommandation du finding ;
+- **Urgence** et **Impact** : selon la sévérité (`critical` donne 1 / 1, `low` et `info`
+  3 / 3) ;
+- **Groupe d'affectation** : la destination du projet.

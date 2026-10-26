@@ -56,7 +56,7 @@
   tokens and project requests are written in the same transaction as the change,
   with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,
   and never hold a token or a password; no tool nor route edits an event, only the purge of
-  `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-metrics.md)).
+  `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-log.md)).
 - **Metrics**: `/metrics` exists on the controller only (the MCP server keeps `/mcp`
   and `/healthz`), behind a `metrics` or `admin` token; a `metrics` token
   reaches nothing else. The answer holds counts and project names, never a finding, a token
@@ -100,11 +100,11 @@
   the history are scrubbed of them, but prefer `HTTPS_PROXY` (Kubernetes secret) if the
   database is not protected like a secret. See the
   [automatic update](../advanced/dependencies.md#automatic-update-by-the-controller). With the
-  [OIDC login](../advanced/sso.md) (`SECREVIEW_OIDC_ENABLED`,
+  [OIDC login](../advanced/oidc.md) (`SECREVIEW_OIDC_ENABLED`,
   disabled by default), the controller also contacts the configured identity provider: HTTPS
   only (HTTP only on localhost), redirects limited to HTTPS, answers bounded to 1 MiB, 10 second
   timeout. This configuration can also be
-  [changed in the interface](../advanced/sso.md#configuring-oidc-in-the-interface) by an
+  [changed in the interface](../advanced/oidc.md#configuring-oidc-in-the-interface) by an
   administrator, with the same checks (an invalid configuration is refused); the **Test the
   connection** button contacts the entered issuer, under the same conditions. The **client
   secret** entered in the interface is stored in the database **in clear**: the API never
@@ -123,11 +123,11 @@
   never read as wiki markup; the secrets entered in the **Connectors** screen are stored in clear
   and never returned (`***`) and stay bound to the host of their URL; a third-party connector
   is only loaded when `SECREVIEW_CONNECTORS_PLUGINS` names it and only reaches its configured
-  URL through the client of the controller, see [connectors](../connectors/index.md#security). With
+  URL through the client of the controller, see [connectors](../advanced/connectors.md#security). With
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` or a server set on the **Audit log** page (disabled by
   default; `settings.manage` permission, `udp://`, `tcp://` or `tls://` only, the change
   audited), the controller sends the
-  [audit events](../advanced/audit-metrics.md#forwarding-to-syslog) to that syslog server (UDP
+  [audit events](../advanced/audit-log.md#forwarding-to-syslog) to that syslog server (UDP
   or TCP in clear, TLS with the certificate and host name of the server verified, or Unix
   socket; no proxy); the events hold no secret (masked details), and the MCP server still
   connects nowhere.
@@ -215,7 +215,7 @@
   bound to the browser by a signed `HttpOnly` / `SameSite=Lax` cookie of 10 minutes, nonce,
   verified ID token (signature by the JWKS keys of the provider, asymmetric algorithms only,
   never `none` nor HMAC; issuer, audience, `azp`, expiry). The permissions come from the
-  [groups](../advanced/access-control.md#groups) of the account: those given by an administrator and the
+  [groups](../usage/access-control.md#groups) of the account: those given by an administrator and the
   groups open to OIDC whose name is exactly a value of the groups claim (other values are
   ignored, a group not open to OIDC is never joined through the claim); an OIDC session never
   opens `/mcp`. The account is identified by the issuer and the `sub` of its first login (unique

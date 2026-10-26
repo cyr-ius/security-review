@@ -321,9 +321,9 @@ langues** :
 
 La doc est organisée en parcours de mise en œuvre : **Démarrage** (`getting-started/` :
 mise en service du serveur en mode partagé, mode local avec l'installation du paquet PyPI,
-connexion de l'hôte), **Revue de sécurité** (`usage/` : fonctionnement, prompts et outils, règles,
-checklists, normes, gate) et **Application** (`usage/` : interface web, triage, jetons, comptes ;
-`advanced/` : rôles, groupes et permissions, connexion OIDC, journal d'audit) ne
+connexion de l'hôte, normes centralisées, hooks de commit), **Revue de sécurité** (`usage/` : fonctionnement, prompts et outils, règles,
+checklists, normes, gate) et **Application** (`usage/` : interface web, triage, jetons, comptes,
+projets, rôles, groupes et permissions, connexion OIDC, journal d'audit) ne
 contiennent que l'essentiel pour travailler ; **Connecteurs** (`connectors/`, sous-menu d'**Application**) décrit l'envoi des
 findings vers d'autres outils, une page par connecteur intégré et une pour les connecteurs tiers ;
 **Avancé** (`advanced/`) regroupe les détails et les fonctions facultatives. Une nouvelle
@@ -343,12 +343,12 @@ essentielles.
 | Le serveur MCP (routes, transports, démarrage, réponse selon le jeton, enrôlement, garanties, exposition, réplicas) | `docs/advanced/mcp-server` |
 | Le client de pipeline `security-review-ci` (installation, jeton `ci`, commandes, exemples par plateforme CI/CD, tendance) | `docs/advanced/ci` (+ `usage/gate`) |
 | Le contrôleur (routes, démarrage, tâches de fond, connexions sortantes, exposition, réplicas, premier administrateur, sessions, sécurité de l'interface) | `docs/advanced/controller` |
-| Les normes de développement (prompt, outils, ressources, écran) | `docs/usage/standards` (+ `usage/prompts-tools`, `advanced/stored-standards`) |
-| L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` (écrans), `docs/usage/triage` (triage, criticité, acceptations), `docs/usage/tokens` (jetons), `docs/usage/user-accounts` (comptes) ; connexion OIDC : `docs/advanced/sso` |
-| Les connecteurs (contrat `connectors/api.py`, Jira, ServiceNow, écran **Connecteurs**, routes) | `docs/connectors/` (`index`, `jira`, `servicenow`, `third-party`), `docs/contributing/connectors` (contrat `connectors/api.py`), `examples/connector/` |
+| Les normes de développement (prompt, outils, ressources, écran) | `docs/usage/standards` (+ `usage/prompts-tools`, `getting-started/stored-standards`) |
+| L'interface web, l'API REST ou les rôles | `docs/usage/web-interface` (écrans), `docs/usage/triage` (triage, criticité, acceptations), `docs/usage/tokens` (jetons), `docs/usage/user-accounts` (comptes), `docs/usage/access-control` (rôles, groupes, permissions), `docs/usage/projects` (projets) ; connexion OIDC : `docs/usage/sso` ; détails et API : `docs/advanced/triage-api`, `docs/advanced/access-control-api`, `docs/advanced/oidc` |
+| Les connecteurs (contrat `connectors/api.py`, Jira, ServiceNow, écran **Connecteurs**, routes) | `docs/connectors/` (`index`, `jira`, `servicenow`, `third-party`), `docs/advanced/connectors`, `docs/contributing/connectors` (contrat `connectors/api.py`), `examples/connector/` |
 | Installation, image Docker | `docs/getting-started/deploy` (conteneurs), `docs/getting-started/stdio` (paquet PyPI), `docs/advanced/installation`, `docs/advanced/manual-install`, `docs/advanced/docker` |
 | Une garantie ou limite de sécurité | `docs/reference/security` |
-| Le journal d'audit (événements, conservation, syslog) ou les métriques Prometheus | `docs/advanced/audit-metrics`, `docs/reference/metrics` |
+| Le journal d'audit (événements, conservation, syslog) ou les métriques Prometheus | `docs/usage/audit-metrics`, `docs/advanced/audit-log`, `docs/reference/metrics` |
 | La structure du code, l'environnement de dev (devcontainer, VS Code), l'image | `docs/contributing/index` |
 | Une convention de développement propre au serveur MCP, au contrôleur ou à l'interface Angular | `docs/contributing/mcp-server`, `docs/contributing/controller` ou `docs/contributing/web-ui` |
 | La méthode ou les conventions de test, les fixtures de `tests/conftest.py` | `docs/contributing/tests` |

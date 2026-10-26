@@ -120,4 +120,4 @@ plusieurs réplicas).
 ## Étape suivante
 
 [Connectez l'hôte](host.md) de chaque développeur au serveur MCP. Pour aller plus loin :
-[jetons](../advanced/bearer-tokens.md), [TLS](../advanced/tls.md), [connexion OIDC](../advanced/sso.md).
+[jetons](../advanced/bearer-tokens.md), [TLS](../advanced/tls.md), [connexion OIDC](../usage/sso.md).

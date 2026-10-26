@@ -16,7 +16,7 @@ flowchart LR
 !!! warning "For specific cases only"
     The reports are saved in a **local** SQLite database that nobody else sees, there is no web
     interface to triage them, and every workstation keeps its own rules. For a team, use the
-    [shared mode (HTTP)](../getting-started/deploy.md) instead. Local mode is useful to try the
+    [shared mode (HTTP)](deploy.md) instead. Local mode is useful to try the
     prompts alone, on an offline workstation, or for a personal use.
 
 ## Installation
@@ -56,7 +56,7 @@ mode.
     `SECREVIEW_DATABASE_URL` and accepts SQLite only: it refuses to start (code `2`) when the
     variable points to another database (PostgreSQL...). Local mode has no token, and a shared
     database would let it write to every project and migrate the schema of the team. To work
-    with that database, use the [shared mode (HTTP)](../getting-started/deploy.md).
+    with that database, use the [shared mode (HTTP)](deploy.md).
 
 ## Host configuration
 

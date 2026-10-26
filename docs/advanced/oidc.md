@@ -1,7 +1,7 @@
-# OIDC login (OpenID Connect)
+# OIDC login in detail
 
-This page is optional: the [local accounts](../usage/user-accounts.md) are enough
-to start. Use it to let people log in to the web interface with your identity provider.
+The [OIDC login](../usage/sso.md) page describes the setup in the web interface. This page
+gives the flow, the variables, the API and the detailed rules.
 
 The controller can delegate the login to the interface to an OpenID Connect identity provider
 (Keycloak, Microsoft Entra ID, Okta, Authentik, Dex...). The login page then shows a
@@ -122,7 +122,7 @@ from another issuer (another identity provider, which could reuse the same `sub`
 An account bound when only the `sub` was recorded gets the issuer of its next login. To give
 the user name to someone else, delete then create the account again.
 
-What an OIDC account may do comes from its [groups](access-control.md#groups): those an administrator
+What an OIDC account may do comes from its [groups](../usage/access-control.md#groups): those an administrator
 gave it (**Users** or **Groups** screen) and the groups open to OIDC
 named by its groups claim, recorded at every login (see
 [groups of the identity provider](#groups-of-the-identity-provider)). An account without any
@@ -139,7 +139,7 @@ access back, an administrator creates the account again, or lifts the revocation
 login. `GET /api/v1/users/revoked` lists the revoked accounts, with the author and the date of
 the deletion.
 
-The [last holder](access-control.md#the-last-administrator) of the `users.manage` permission
+The [last holder](../usage/access-control.md#the-last-administrator) of the `users.manage` permission
 can be neither deleted nor lose it. Preferably keep a local administrator: if the identity
 provider becomes unreachable, it remains the only access, besides the CLI.
 
@@ -158,7 +158,7 @@ compared with the **names of the groups** of the **Groups** screen: at each logi
 every group **open to OIDC** whose name is **exactly** one of these values (case included), and
 leaves the OIDC groups it no longer has. The other values are ignored: create a group of the same
 name to use one. The roles of the group, and their projects, then apply (see
-[Roles, groups and permissions](access-control.md)).
+[Roles, groups and permissions](../usage/access-control.md)).
 
 | Setting | Effect |
 |---|---|
@@ -174,18 +174,6 @@ Example: with the claim `["payments-team", "staff"]`, a group `payments-team` op
 
 The label of an OIDC session is `oidc:<username>`: it is the one that appears in the logs and
 in the triage history.
-
-## Project read access
-
-The approval of a project requested by an agent
-([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)) creates the project
-with its [project group](access-control.md#project-groups) `project:<project>`, with the
-requesting user as its member, and never a token nor an account. To let another developer read
-the project (and their personal MCP token reach it), an administrator adds their account to that
-group, from the **Groups** screen (or
-**Users**), or approves the access request filed by their agent on the **Projects** screen. With OIDC, the account exists once the developer has logged in (with
-`SECREVIEW_OIDC_AUTO_CREATE_USERS=true`), or an administrator creates it beforehand in **Users**.
-The access then shows in the groups of the account, where it is changed like the others.
 
 ## OIDC only
 

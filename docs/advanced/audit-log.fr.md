@@ -1,4 +1,7 @@
-# Journal d'audit
+# Journal d'audit en détail
+
+La page [journal d'audit](../usage/audit-metrics.md) décrit le journal dans l'interface web.
+Cette page donne chaque événement, l'API, la ligne de commande et les variables.
 
 Le contrôleur tient un **journal d'audit** des changements qui touchent à la sécurité. Il lit
 la base partagée avec le serveur MCP : toutes les répliques répondent la même chose. Les
@@ -21,12 +24,12 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `enrollment.requested` | L'agent d'un utilisateur demande un projet avec `request_project` ([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)), avec le jeton pour acteur, l'utilisateur demandeur, son adresse, si une nouvelle demande a été déposée (`requested`) et si le projet existait déjà (`existing` : une demande d'accès) |
 | `enrollment.approved` | Un utilisateur portant `projects.create` valide un projet en attente (son groupe dans le détail) ; le demandeur est ajouté au groupe (`user.groups_changed`) |
 | `enrollment.rejected` | Un utilisateur refuse un projet en attente, ou il expire (acteur `enrollment`, `reason` : `expired`) |
-| `role.created`, `role.updated`, `role.deleted` | Un administrateur crée, modifie (avec les permissions précédentes) ou supprime un [rôle](access-control.md#roles) |
-| `group.created`, `group.updated`, `group.deleted` | Un administrateur crée, renomme ou modifie, ou supprime un [groupe](access-control.md#groupes) ; la validation d'une demande de projet crée un [groupe de projet](access-control.md#groupes-de-projet) manquant (`project` dans le détail) |
+| `role.created`, `role.updated`, `role.deleted` | Un administrateur crée, modifie (avec les permissions précédentes) ou supprime un [rôle](../usage/access-control.md#roles) |
+| `group.created`, `group.updated`, `group.deleted` | Un administrateur crée, renomme ou modifie, ou supprime un [groupe](../usage/access-control.md#groupes) ; la validation d'une demande de projet crée un [groupe de projet](../usage/projects.md#groupes-de-projet) manquant (`project` dans le détail) |
 | `group.roles_changed`, `group.members_changed` | Un administrateur remplace les rôles (avec leurs projets) ou les membres (identifiants ajoutés et retirés) d'un groupe |
-| `project.created` | Un utilisateur avec `projects.create` [crée un projet](access-control.md#creation-dun-projet), ou son agent avec `request_project` (acteur : le jeton) (son groupe de projet et l'identifiant de l'utilisateur dans le détail) |
-| `project.deleted` | Un utilisateur avec `projects.delete` [supprime un projet](access-control.md#suppression-dun-projet) (nombre de rapports, de findings et de jetons, groupes supprimés ou modifiés dans le détail) |
-| `user.groups_changed` | Un administrateur remplace les groupes donnés à un compte, par exemple pour l'ajouter à un [groupe de projet](access-control.md#groupes-de-projet) (identifiants de groupes ajoutés et retirés) |
+| `project.created` | Un utilisateur avec `projects.create` [crée un projet](../usage/projects.md#creation-dun-projet), ou son agent avec `request_project` (acteur : le jeton) (son groupe de projet et l'identifiant de l'utilisateur dans le détail) |
+| `project.deleted` | Un utilisateur avec `projects.delete` [supprime un projet](../usage/projects.md#suppression-dun-projet) (nombre de rapports, de findings et de jetons, groupes supprimés ou modifiés dans le détail) |
+| `user.groups_changed` | Un administrateur remplace les groupes donnés à un compte, par exemple pour l'ajouter à un [groupe de projet](../usage/projects.md#groupes-de-projet) (identifiants de groupes ajoutés et retirés) |
 | `user.roles_changed` | Anciens rôles directs d'un compte (`roles` : `rôle` ou `rôle:projet,projet`) : plus enregistré depuis que les comptes n'ont plus de rôle propre, gardé dans l'historique |
 | `user.login` | Un utilisateur web se connecte (méthode `password` ou `oidc`, adresse) |
 | `user.login_failed` | Une connexion échoue : mot de passe incorrect, connexion OIDC refusée (méthode, adresse, et l'identifiant seulement s'il est valide) |

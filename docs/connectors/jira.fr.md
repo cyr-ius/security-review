@@ -1,31 +1,29 @@
 # Jira
 
-Le connecteur intégré **Jira** (type `jira`) crée un **ticket** pour chaque finding envoyé, dans
-Jira Cloud ou Jira Data Center.
+Le connecteur **Jira** crée un **ticket** pour chaque finding envoyé, dans Jira Cloud ou Jira Data
+Center. Les variables sont dans [Connecteurs en détail](../advanced/connectors.md#jira).
 
 ## Connexion
 
-| Variable | Défaut | Rôle |
-|---|---|---|
-| `SECREVIEW_JIRA_URL` | — | Adresse de Jira, `https://` uniquement (`https://acme.atlassian.net`, ou l'URL de base d'un Data Center) |
-| `SECREVIEW_JIRA_USERNAME` | — | Jira Cloud : adresse e-mail du compte, utilisée avec un jeton d'API. Vide : le jeton est un jeton d'accès personnel Data Center, envoyé comme jeton Bearer |
-| `SECREVIEW_JIRA_API_TOKEN` | — | Jeton d'API (Cloud) ou jeton d'accès personnel (Data Center) |
-| `SECREVIEW_JIRA_ISSUE_TYPE` | `Bug` | Type des tickets créés |
+| Champ | Valeur |
+|---|---|
+| URL | L'adresse de Jira, en HTTPS (`https://acme.atlassian.net`, ou l'adresse d'un Data Center) |
+| **Compte** | Jira Cloud : l'adresse e-mail du compte. Vide pour Data Center |
+| **Jeton d'API** | Un jeton d'API (Cloud) ou un jeton d'accès personnel (Data Center) |
+| **Type de ticket** | Le type des tickets créés (`Bug` par défaut) |
 
-Le compte n'a besoin que de créer des tickets : les permissions *Parcourir les projets* et
-*Créer des tickets* sur les projets utilisés.
+Le compte n'a besoin que de parcourir les projets Jira utilisés et d'y créer des tickets.
 
 ## Destination
 
-La destination d'un projet est la **clé du projet Jira** (`SEC`).
+La destination d'un projet est sa **clé du projet Jira** (`SEC`).
 
 ## Contenu d'un ticket
 
-| Champ | Valeur |
-|---|---|
-| `summary` | `[HIGH] shop-api: SQL injection` |
-| `description` | projet, sévérité, emplacement, règle, CWE, OWASP, branche, commit, lien vers le rapport, puis description, preuve et recommandation |
-| `labels` | `security-review` et `severity-<sévérité>` |
+- **Résumé** : `[HIGH] shop-api: SQL injection` ;
+- **Description** : le projet, la sévérité, l'emplacement, la règle, la CWE, la branche, le commit
+  et un lien vers le rapport, puis la description, la preuve et la recommandation du finding ;
+- **Étiquettes** : `security-review` et `severity-<sévérité>`, pour les filtrer dans Jira.
 
-Les textes du rapport sont placés dans des blocs `{noformat}` : écrits par un agent, ils ne sont
-jamais interprétés comme du balisage wiki (liens, images chargées depuis un autre site).
+Les textes écrits par les agents sont affichés tels quels : jamais comme de la mise en forme Jira
+(liens, images).

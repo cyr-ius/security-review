@@ -89,20 +89,20 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_OIDC_ENABLED` | `false` | Enables the [OpenID Connect OIDC login](../advanced/sso.md) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` and `SECREVIEW_OIDC_ONLY` can also be set in the **OIDC** screen, whose stored values apply when the variable is not set ([configuring OIDC in the interface](../advanced/sso.md#configuring-oidc-in-the-interface)) |
+| `SECREVIEW_OIDC_ENABLED` | `false` | Enables the [OpenID Connect OIDC login](../advanced/oidc.md) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` and `SECREVIEW_OIDC_ONLY` can also be set in the **OIDC** screen, whose stored values apply when the variable is not set ([configuring OIDC in the interface](../advanced/oidc.md#configuring-oidc-in-the-interface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | URL of the issuer (HTTPS; HTTP only on localhost), whose `/.well-known/openid-configuration` is read |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Identifier of the client declared at the provider |
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Secret of the client; empty for a public client (PKCE only) |
 | `SECREVIEW_OIDC_REDIRECT_URI` | — | Public URL of `/api/v1/auth/oidc/callback`, declared at the provider |
 | `SECREVIEW_OIDC_SCOPE` | `openid profile email` | Requested scopes (must contain `openid`) |
-| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Claim of the groups or roles, dotted path accepted (`realm_access.roles`); its values are matched against the names of the [groups open to OIDC](../advanced/sso.md#groups-of-the-identity-provider) |
+| `SECREVIEW_OIDC_ROLES_CLAIM` | `groups` | Claim of the groups or roles, dotted path accepted (`realm_access.roles`); its values are matched against the names of the [groups open to OIDC](../advanced/oidc.md#groups-of-the-identity-provider) |
 | `SECREVIEW_OIDC_ADMIN_GROUPS` | — | OIDC groups, comma separated, created open to OIDC with the `admin` role at the first login of one of their members (first administrator) |
 | `SECREVIEW_OIDC_DEFAULT_GROUP` | — | Group every OIDC user joins at each login, whatever its claim (empty: none) |
-| `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Claim that names the [OIDC account](../advanced/sso.md#oidc-accounts) (exact comparison, no fallback); session label `oidc:<value>` |
+| `SECREVIEW_OIDC_USERNAME_CLAIM` | `preferred_username` | Claim that names the [OIDC account](../advanced/oidc.md#oidc-accounts) (exact comparison, no fallback); session label `oidc:<value>` |
 | `SECREVIEW_OIDC_AUTO_CREATE_USERS` | `false` | Creates the OIDC account at its first login if its groups give it a role; when `false`, an administrator creates every OIDC account in **Users** |
 | `SECREVIEW_OIDC_DISPLAY_NAME` | `OIDC` | Name shown on the login button (40 characters at most) |
 | `SECREVIEW_OIDC_CAFILE` | — | CA bundle to reach the provider (internal CA); the proxy is the one of `HTTPS_PROXY` |
-| `SECREVIEW_OIDC_ONLY` | `false` | With OIDC enabled, refuses the password login of the local accounts ([OIDC only](../advanced/sso.md#oidc-only)); a variable only, never changed in the interface |
+| `SECREVIEW_OIDC_ONLY` | `false` | With OIDC enabled, refuses the password login of the local accounts ([OIDC only](../advanced/oidc.md#oidc-only)); a variable only, never changed in the interface |
 
 ### Outgoing proxy
 
@@ -137,9 +137,9 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_AUDIT_RETENTION_DAYS` | `365` | Age in days beyond which `serve` deletes the events of the [audit log](../advanced/audit-metrics.md); `0` keeps every event |
-| `SECREVIEW_AUDIT_MAX_EVENTS` | `0` | Number of [audit events](../advanced/audit-metrics.md#retention) kept at most by the same daily purge (the oldest are deleted); `0`: no limit |
-| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | [Forwards the audit events to syslog](../advanced/audit-metrics.md#forwarding-to-syslog): `udp://host:port`, `tcp://host:port`, `tls://host:port` (RFC 5425, port 6514 by default) or `unix:///dev/log` (no proxy); disabled when unset; without it, the server set on the **Audit log** page applies. When set (not empty), takes precedence over that page |
+| `SECREVIEW_AUDIT_RETENTION_DAYS` | `365` | Age in days beyond which `serve` deletes the events of the [audit log](../advanced/audit-log.md); `0` keeps every event |
+| `SECREVIEW_AUDIT_MAX_EVENTS` | `0` | Number of [audit events](../advanced/audit-log.md#retention) kept at most by the same daily purge (the oldest are deleted); `0`: no limit |
+| `SECREVIEW_AUDIT_SYSLOG_ADDRESS` | — | [Forwards the audit events to syslog](../advanced/audit-log.md#forwarding-to-syslog): `udp://host:port`, `tcp://host:port`, `tls://host:port` (RFC 5425, port 6514 by default) or `unix:///dev/log` (no proxy); disabled when unset; without it, the server set on the **Audit log** page applies. When set (not empty), takes precedence over that page |
 | `SECREVIEW_AUDIT_SYSLOG_FACILITY` | `local0` | Syslog facility of these messages (`local0` to `local7`, `auth`, `authpriv`, `daemon`...); when set, takes precedence over the one chosen on the **Audit log** page |
 | `SECREVIEW_AUDIT_SYSLOG_CAFILE` | — | CA bundle that verifies the certificate of a `tls://` syslog server (internal certificate authority); default: the system CA bundle. A variable only |
 | `SECREVIEW_METRICS_ENABLED` | `true` | Serves the [Prometheus metrics](metrics.md) on `/metrics` (`metrics` or `admin` token); when `false`, `/metrics` answers 404 |
@@ -148,12 +148,12 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_CONNECTORS_ENABLED` | `true` | Lock of the [connectors](../connectors/index.md#enabling) (Jira, ServiceNow, third-party; outgoing connections of the controller): `true`, each one is switched on in the **Connectors** screen (all off by default); `false`, all locked off |
+| `SECREVIEW_CONNECTORS_ENABLED` | `true` | Lock of the [connectors](../advanced/connectors.md#enabling) (Jira, ServiceNow, third-party; outgoing connections of the controller): `true`, each one is switched on in the **Connectors** screen (all off by default); `false`, all locked off |
 | `SECREVIEW_CONNECTORS_INTERVAL_SECONDS` | `300` | Period of the [automatic sending](../connectors/index.md#sending-a-finding) (30 to 86400) |
 | `SECREVIEW_CONNECTORS_CAFILE` | — | CA bundle used instead of the system one (internal authority) |
 | `SECREVIEW_CONNECTORS_PLUGINS` | — | [Third-party connectors](../connectors/third-party.md) allowed, by entry point name, comma separated; one installed but not listed is never loaded |
-| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Jira connection](../connectors/jira.md#connection); when set, takes precedence over the **Connectors** screen |
-| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [ServiceNow connection](../connectors/servicenow.md#connection); when set, takes precedence over the **Connectors** screen |
+| `SECREVIEW_JIRA_URL`, `SECREVIEW_JIRA_USERNAME`, `SECREVIEW_JIRA_API_TOKEN`, `SECREVIEW_JIRA_ISSUE_TYPE` (`Bug`) | — | [Jira connection](../advanced/connectors.md#jira); when set, takes precedence over the **Connectors** screen |
+| `SECREVIEW_SERVICENOW_URL`, `SECREVIEW_SERVICENOW_USERNAME`, `SECREVIEW_SERVICENOW_PASSWORD`, `SECREVIEW_SERVICENOW_TABLE` (`incident`) | — | [ServiceNow connection](../advanced/connectors.md#servicenow); when set, takes precedence over the **Connectors** screen |
 | `SECREVIEW_<KIND>_<FIELD>` | — | Field of the connection of a [third-party connector](../connectors/third-party.md) (`SECREVIEW_ACME_API_KEY`) |
 
 ### Pipeline scan limits

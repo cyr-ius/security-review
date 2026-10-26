@@ -192,7 +192,7 @@ Les consignes du projet sont dans `AGENTS.md`. Suivez-les intégralement.
 !!! warning "Normes de développement"
     Les normes de développement sont stockées dans le serveur : citez-les dans `AGENTS.md` sans les
     recopier. Voir comment rédiger le fichier `AGENTS.md` dans la section Avancé :
-    [Comment en parler dans `AGENTS.md`](../advanced/stored-standards.md#comment-en-parler-dans-agentsmd).
+    [Comment en parler dans `AGENTS.md`](../getting-started/stored-standards.md#comment-en-parler-dans-agentsmd).
 
 ## Quel contrôle, à quel moment
 

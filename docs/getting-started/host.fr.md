@@ -166,6 +166,6 @@ personnel : remplacez-le dans l'hôte comme à l'étape 4 (voir
 - **Certificat du serveur signé par une CA interne** (`unable to verify the first certificate`) :
   voir [Serveur HTTPS avec une CA interne](../advanced/tls.md#serveur-https-avec-une-ca-interne).
 - **Mode local (stdio)**, sans serveur (l'hôte lance lui-même le processus) : voir
-  [Mode local (stdio)](../getting-started/stdio.md).
+  [Mode local (stdio)](stdio.md).
 
 **Étape suivante :** lancez votre première revue avec les [prompts et outils](../usage/prompts-tools.md).

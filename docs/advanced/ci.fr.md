@@ -53,12 +53,14 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 
 | Sous-commande | Rôle |
 |---|---|
-| `gate --project P [--fail-on S] [--report-id N]` | Gate du projet (voir ci-dessus) |
-| `sarif --project P [--include-resolved] [-o FICHIER]` | Journal SARIF 2.1.0 du projet ([Export SARIF](sarif.md)) |
-| `trend --project P [--days N] [--granularity day\|week\|month] [--format markdown\|json]` | Rapport de tendance du projet ([Rapport de tendance](#rapport-de-tendance)) |
-| `scan-code [PATH] --project P [--save] …` | Envoie les fichiers du dépôt au contrôleur, qui les scanne avec ses règles ([Scan du code complet](code-scan.md)) |
-| `scan-deps FICHIER… --project P [--save] …` | Envoie manifestes et lockfiles au contrôleur, qui les compare à ses avis ([Dépendances](dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps)) |
-| `agent-review --project P [--agent A] …` | Fait relire le dernier commit par l'agent de code du développeur avec le serveur MCP, en arrière-plan (hook post-commit, [Revue de chaque commit par un agent](#revue-de-chaque-commit-par-un-agent)) |
+| `gate` | [Gate](../usage/gate.md) du projet |
+| `sarif` | Journal SARIF 2.1.0 du projet ([Export SARIF](sarif.md)) |
+| `trend` | Rapport de tendance du projet ([Rapport de tendance](#rapport-de-tendance)) |
+| `scan-code` | Envoie les fichiers du dépôt au contrôleur, qui les scanne avec ses règles ([Scan du code complet](code-scan.md)) |
+| `scan-deps` | Envoie manifestes et lockfiles au contrôleur, qui les compare à ses avis ([Dépendances](dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps)) |
+| `agent-review` | Fait relire le dernier commit par l'agent de code du développeur avec le serveur MCP, en arrière-plan (hook post-commit, [Revue de chaque commit par un agent](#revue-de-chaque-commit-par-un-agent)) |
+
+Toutes leurs options : [Ligne de commande](../reference/cli.md#security-review-ci).
 
 Options communes (sauf `agent-review`) : `--url` (par défaut `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (lit le
 jeton sur l'entrée standard au lieu de `SECREVIEW_TOKEN`), `--cafile` (CA du certificat du

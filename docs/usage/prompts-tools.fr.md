@@ -229,7 +229,7 @@ injectées ([injection de prompt](../reference/security.md#securite-du-serveur-l
 - `propose_finding_status` enregistre une **proposition** (`fixed`, `accepted` ou
   `false_positive`) avec le motif de l'agent (10 à 1000 caractères, secrets masqués) et le label
   de son jeton. Le statut, la posture et la gate ne changent pas. Une nouvelle proposition
-  remplace la précédente. Elle est écrite dans le [journal d'audit](../advanced/audit-metrics.md),
+  remplace la précédente. Elle est écrite dans le [journal d'audit](audit-metrics.md),
   comme la décision qui suit.
 - Une personne qui a le rôle `triager` ou `admin` l'applique ou la rejette dans
   l'[interface web](triage.md). `accepted` et `false_positive`

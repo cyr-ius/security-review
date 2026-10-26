@@ -1,8 +1,7 @@
-# Connexion OIDC (OpenID Connect)
+# Connexion OIDC en détail
 
-Cette page est facultative : les [comptes locaux](../usage/user-accounts.md)
-suffisent pour démarrer. Elle sert à connecter les personnes à l'interface web avec votre
-fournisseur d'identité.
+La page [connexion OIDC](../usage/sso.md) décrit la mise en place dans l'interface web. Cette
+page donne le flux, les variables, l'API et les règles détaillées.
 
 Le contrôleur peut déléguer la connexion à l'interface à un fournisseur d'identité OpenID
 Connect (Keycloak, Microsoft Entra ID, Okta, Authentik, Dex...). La page de connexion affiche
@@ -127,7 +126,7 @@ pourrait réutiliser le même `sub`) est refusée. Un compte lié quand seul le 
 enregistré reçoit l'émetteur de sa connexion suivante. Pour réattribuer l'identifiant, supprimez
 puis recréez le compte.
 
-Ce qu'un compte OIDC peut faire vient de ses [groupes](access-control.md#groupes) : ceux qu'un
+Ce qu'un compte OIDC peut faire vient de ses [groupes](../usage/access-control.md#groupes) : ceux qu'un
 administrateur lui a donnés (écran **Utilisateurs** ou **Groupes**)
 et les groupes ouverts au OIDC nommés par son claim des groupes, enregistrés à chaque connexion
 (voir [groupes du fournisseur d'identité](#groupes-du-fournisseur-didentite)). Un compte sans
@@ -145,7 +144,7 @@ ou lève la révocation (**Autoriser à nouveau**, `DELETE /api/v1/users/revoked
 le compte est alors recréé à sa prochaine connexion. `GET /api/v1/users/revoked` liste les
 comptes révoqués, avec l'auteur et la date de la suppression.
 
-Le [dernier détenteur](access-control.md#le-dernier-administrateur) de la permission
+Le [dernier détenteur](../usage/access-control.md#le-dernier-administrateur) de la permission
 `users.manage` ne peut être ni supprimé ni la perdre. Gardez de préférence un administrateur
 local : si le fournisseur d'identité devient injoignable, il reste le seul accès, en plus de la
 CLI.
@@ -165,7 +164,7 @@ comparées aux **noms des groupes** de l'écran **Groupes** : à chaque connexio
 rejoint chaque groupe **ouvert au OIDC** dont le nom est **exactement** l'une de ces valeurs (casse
 comprise), et quitte les groupes OIDC qu'il n'a plus. Les autres valeurs sont ignorées : créez un
 groupe du même nom pour en utiliser une. Les rôles du groupe, et leurs projets, s'appliquent alors
-(voir [Rôles, groupes et permissions](access-control.md)).
+(voir [Rôles, groupes et permissions](../usage/access-control.md)).
 
 | Réglage | Effet |
 |---|---|
@@ -181,20 +180,6 @@ le rôle `triager` sur `billing`, et aucun groupe `staff`, l'utilisateur ne trie
 
 Le label d'une session OIDC est `oidc:<identifiant>` : c'est lui qui apparaît dans les journaux et
 l'historique du triage.
-
-## Lecture du projet
-
-La validation d'un projet demandé par un agent
-([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) crée le projet avec
-son [groupe de projet](access-control.md#groupes-de-projet) `project:<projet>`, avec
-l'utilisateur demandeur pour membre, et jamais un jeton ni un compte. Pour qu'un autre
-développeur lise le projet (et que son jeton MCP personnel l'atteigne), un administrateur ajoute
-son compte à ce groupe, depuis l'écran
-**Groupes** (ou **Utilisateurs**), ou valide la demande d'accès déposée par son agent dans
-l'écran **Projets**. Avec le OIDC, le compte existe une fois que le développeur
-s'est connecté (avec `SECREVIEW_OIDC_AUTO_CREATE_USERS=true`), ou un administrateur le crée
-auparavant dans **Utilisateurs**. L'accès apparaît ensuite dans les groupes du compte, où il se
-modifie comme les autres.
 
 ## OIDC seul
 

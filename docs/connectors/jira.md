@@ -1,31 +1,28 @@
 # Jira
 
-The built-in **Jira** connector (kind `jira`) creates an **issue** for each finding sent, in
-Jira Cloud or Jira Data Center.
+The **Jira** connector creates an **issue** for each finding sent, in Jira Cloud or Jira Data
+Center. The variables are in [Connectors in detail](../advanced/connectors.md#jira).
 
 ## Connection
 
-| Variable | Default | Role |
-|---|---|---|
-| `SECREVIEW_JIRA_URL` | — | Jira address, `https://` only (`https://acme.atlassian.net`, or the base URL of a Data Center) |
-| `SECREVIEW_JIRA_USERNAME` | — | Jira Cloud: e-mail address of the account, used with an API token. Empty: the token is a Data Center personal access token, sent as a bearer token |
-| `SECREVIEW_JIRA_API_TOKEN` | — | API token (Cloud) or personal access token (Data Center) |
-| `SECREVIEW_JIRA_ISSUE_TYPE` | `Bug` | Issue type of the issues created |
+| Field | Value |
+|---|---|
+| URL | The address of Jira, in HTTPS (`https://acme.atlassian.net`, or the address of a Data Center) |
+| **Account** | Jira Cloud: the e-mail address of the account. Empty for Data Center |
+| **API token** | An API token (Cloud) or a personal access token (Data Center) |
+| **Issue type** | The type of the issues created (`Bug` by default) |
 
-The account only needs to create issues: the *Browse projects* and *Create issues* permissions
-on the projects used.
+The account only needs to browse and create issues in the Jira projects used.
 
 ## Destination
 
-The destination of a project is the **Jira project key** (`SEC`).
+The destination of a project is its **Jira project key** (`SEC`).
 
 ## Content of an issue
 
-| Field | Value |
-|---|---|
-| `summary` | `[HIGH] shop-api: SQL injection` |
-| `description` | project, severity, location, rule, CWE, OWASP, branch, commit, link to the report, then description, evidence and recommendation |
-| `labels` | `security-review` and `severity-<severity>` |
+- **Summary**: `[HIGH] shop-api: SQL injection`;
+- **Description**: the project, severity, location, rule, CWE, branch, commit and a link to the
+  report, then the description, evidence and recommendation of the finding;
+- **Labels**: `security-review` and `severity-<severity>`, to filter them in Jira.
 
-The texts of the report are put in `{noformat}` blocks: written by an agent, they are never read
-as wiki markup (links, images loaded from another site).
+The texts written by the agents are shown as is: never as Jira formatting (links, images).

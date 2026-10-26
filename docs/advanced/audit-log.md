@@ -1,4 +1,7 @@
-# Audit log
+# Audit log in detail
+
+The [audit log](../usage/audit-metrics.md) page describes the log in the web interface. This
+page gives every event, the API, the command line and the variables.
 
 The controller keeps an **audit log** of the security-relevant changes. It reads the database
 shared with the MCP server: every replica answers the same thing. The metrics of the controller
@@ -21,12 +24,12 @@ exists exactly when the change was committed.
 | `enrollment.requested` | The agent of a user requests a project with `request_project` ([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)), with the token as actor, the requesting user, its address, whether a new request was filed (`requested`) and whether the project already existed (`existing`: an access request) |
 | `enrollment.approved` | A user with `projects.create` approves a pending project (its group in the details); the requester is added to the group (`user.groups_changed`) |
 | `enrollment.rejected` | A user rejects a pending project, or it expires (actor `enrollment`, `reason`: `expired`) |
-| `role.created`, `role.updated`, `role.deleted` | An administrator creates, changes (with the previous permissions) or deletes a [role](access-control.md#roles) |
-| `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](access-control.md#groups); the approval of a project request creates a missing [project group](access-control.md#project-groups) (`project` in the details) |
+| `role.created`, `role.updated`, `role.deleted` | An administrator creates, changes (with the previous permissions) or deletes a [role](../usage/access-control.md#roles) |
+| `group.created`, `group.updated`, `group.deleted` | An administrator creates, renames or changes, or deletes a [group](../usage/access-control.md#groups); the approval of a project request creates a missing [project group](../usage/projects.md#project-groups) (`project` in the details) |
 | `group.roles_changed`, `group.members_changed` | An administrator replaces the roles (with their projects) or the members (added and removed user ids) of a group |
-| `project.created` | A user with `projects.create` [creates a project](access-control.md#creating-a-project), or its agent with `request_project` (actor: the token) (its project group and the user id in the details) |
-| `project.deleted` | A user with `projects.delete` [deletes a project](access-control.md#deleting-a-project) (counts of reports, findings and tokens, groups deleted or changed in the details) |
-| `user.groups_changed` | An administrator replaces the groups given to an account, for instance to add it to a [project group](access-control.md#project-groups) (added and removed group ids) |
+| `project.created` | A user with `projects.create` [creates a project](../usage/projects.md#creating-a-project), or its agent with `request_project` (actor: the token) (its project group and the user id in the details) |
+| `project.deleted` | A user with `projects.delete` [deletes a project](../usage/projects.md#deleting-a-project) (counts of reports, findings and tokens, groups deleted or changed in the details) |
+| `user.groups_changed` | An administrator replaces the groups given to an account, for instance to add it to a [project group](../usage/projects.md#project-groups) (added and removed group ids) |
 | `user.roles_changed` | Former direct roles of an account (`roles`: `role` or `role:project,project`): no longer recorded since accounts have no role of their own, kept in the history |
 | `user.login` | A web user logs in (method `password` or `oidc`, address) |
 | `user.login_failed` | A login fails: wrong password, refused OIDC login (method, address, and the user name only when it is valid) |

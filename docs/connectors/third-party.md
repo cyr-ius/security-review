@@ -1,24 +1,19 @@
 # Third-party connectors
 
-A Python package can add a connector for any other system: a vulnerability register, a GRC
-platform, an internal tracker... It gets the same switch, connection, destinations and
-guarantees as the built-in connectors (see [Connectors](index.md)).
+A connector can be added for any other tool: a vulnerability register, a GRC platform, an
+internal tracker... It works like the built-in connectors: same switch, connection, destinations
+and guarantees (see [Connectors](index.md)).
 
 ## Installing a connector
 
-A connector published by a Python package (entry point of the group
-`security_review_mcp.connectors`) is installed next to the controller, then **allowed** by its
-entry point name: installing a package is not enough.
+A third-party connector is a Python package that the operator installs next to the controller,
+then **allows** explicitly: installing it is not enough. The commands are in
+[Connectors in detail](../advanced/connectors.md#third-party-connectors); writing one is
+described in [Writing a connector](../contributing/connectors.md).
 
-```bash
-uv pip install secreview-acme-connector         # in the image or the environment of the controller
-SECREVIEW_CONNECTORS_PLUGINS=acme               # comma separated
-SECREVIEW_ACME_URL=https://risk.acme.example/api
-SECREVIEW_ACME_API_KEY=...
-```
+Once allowed, it shows on the **Connectors** screen as a card marked **Third-party**, off until
+an administrator enables it.
 
-The controller loads the allowed connectors at start and refuses to start if one is missing,
-written for another version of the API, or declares a variable of the server itself
-(`SECREVIEW_<KIND>_<FIELD>` must not be an existing setting). The **Connectors** screen shows it
-as a card marked **Third-party**, off until switched on. A connector runs in the controller with
-its rights: only install and allow code you trust, like any dependency.
+!!! warning
+    A connector runs inside the controller, with its rights: install and allow only code you
+    trust, like any dependency.

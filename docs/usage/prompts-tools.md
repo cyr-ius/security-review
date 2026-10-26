@@ -225,7 +225,7 @@ what it hands back to the agent and reports injected instructions
 - `propose_finding_status` stores a **proposal** (`fixed`, `accepted` or `false_positive`) with
   the agent's reason (10 to 1000 characters, secrets masked) and the label of its token. The
   status, the posture and the gate do not change. A new proposal replaces the previous one. It
-  is written to the [audit log](../advanced/audit-metrics.md), like the decision that follows.
+  is written to the [audit log](audit-metrics.md), like the decision that follows.
 - A person with the `triager` or `admin` role applies or rejects it in the
   [web interface](triage.md). `accepted` and `false_positive` need a
   reason, an approver (the logged-in user) and an expiry date; from that date the finding counts

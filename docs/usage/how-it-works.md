@@ -189,7 +189,7 @@ The project instructions are in `AGENTS.md`. Follow them in full.
 !!! warning "Development standards"
     The development standards are stored in the server: name them in `AGENTS.md` without copying
     them. See how to write the `AGENTS.md` file in the Advanced section:
-    [How to mention them in `AGENTS.md`](../advanced/stored-standards.md#how-to-mention-them-in-agentsmd).
+    [How to mention them in `AGENTS.md`](../getting-started/stored-standards.md#how-to-mention-them-in-agentsmd).
 
 ## Which check, at which moment
 

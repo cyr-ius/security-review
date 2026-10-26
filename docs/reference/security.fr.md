@@ -59,7 +59,7 @@
   `anonymous`). Les détails sont bornés et masqués, et ne contiennent jamais de jeton ni de mot
   de passe ; aucun outil ni aucune route ne modifie un événement, seule la purge de
   `SECREVIEW_AUDIT_RETENTION_DAYS` les supprime (voir
-  [journal d'audit](../advanced/audit-metrics.md)).
+  [journal d'audit](../advanced/audit-log.md)).
 - **Métriques** : `/metrics` n'existe que sur le contrôleur (le serveur MCP garde `/mcp`
   et `/healthz`), derrière un jeton `metrics` ou `admin` ; un jeton `metrics`
   n'atteint rien d'autre. La réponse contient des nombres et des noms de projets, jamais un
@@ -106,11 +106,11 @@
   préférez `HTTPS_PROXY` (secret Kubernetes) si la base n'est pas protégée comme un
   secret. Voir la
   [mise à jour automatique](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur).
-  Avec la [connexion OIDC](../advanced/sso.md)
+  Avec la [connexion OIDC](../advanced/oidc.md)
   (`SECREVIEW_OIDC_ENABLED`, désactivée par défaut), le contrôleur contacte aussi le fournisseur
   d'identité configuré : HTTPS uniquement (HTTP seulement sur localhost), redirections limitées
   à HTTPS, réponses bornées à 1 Mio, délai de 10 secondes. Cette configuration peut aussi être
-  [modifiée dans l'interface](../advanced/sso.md#configurer-le-oidc-dans-linterface)
+  [modifiée dans l'interface](../advanced/oidc.md#configurer-le-oidc-dans-linterface)
   par un administrateur, avec les mêmes contrôles (refus d'une configuration invalide) ; le
   bouton **Tester la connexion** contacte l'émetteur saisi, sous les mêmes conditions. Le
   **secret client** saisi dans l'interface est enregistré en base **en clair** : l'API ne le
@@ -130,11 +130,11 @@
   dans l'écran **Connecteurs** sont stockés en clair, jamais renvoyés (`***`) et liés à l'hôte de
   leur URL ; un connecteur tiers n'est chargé que si `SECREVIEW_CONNECTORS_PLUGINS` le nomme et
   ne joint que son URL configurée par le client du contrôleur, voir
-  [connecteurs](../connectors/index.md#securite). Avec
+  [connecteurs](../advanced/connectors.md#securite). Avec
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` ou un serveur défini sur la page **Journal d'audit**
   (désactivé par défaut ; permission `settings.manage`, `udp://`, `tcp://` ou `tls://`
   uniquement, modification inscrite au journal d'audit), le contrôleur envoie les
-  [événements d'audit](../advanced/audit-metrics.md#envoi-vers-syslog) à ce serveur syslog (UDP
+  [événements d'audit](../advanced/audit-log.md#envoi-vers-syslog) à ce serveur syslog (UDP
   ou TCP en clair, TLS avec vérification du certificat et du nom d'hôte du serveur, ou socket
   Unix ; pas de proxy) ; les événements ne contiennent aucun secret (détails masqués), et le
   serveur MCP ne se connecte toujours nulle part.
@@ -232,7 +232,7 @@
   state lié au navigateur par un cookie signé `HttpOnly` / `SameSite=Lax` de 10 minutes, nonce,
   ID token vérifié (signature par les clés JWKS du fournisseur, algorithmes asymétriques
   uniquement, jamais `none` ni HMAC ; émetteur, audience, `azp`, expiration). Les permissions
-  viennent des [groupes](../advanced/access-control.md#groupes) du compte : ceux donnés par un
+  viennent des [groupes](../usage/access-control.md#groupes) du compte : ceux donnés par un
   administrateur et les groupes ouverts au OIDC dont le nom est exactement une valeur du claim des
   groupes (les autres valeurs sont ignorées, un groupe non ouvert au OIDC n'est jamais rejoint par
   le claim) ; une session OIDC n'ouvre jamais `/mcp`. Le compte est identifié par l'émetteur et le `sub` de

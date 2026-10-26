@@ -30,10 +30,10 @@ trie et en assure le suivi.
 - **Intégré à votre chaîne de livraison.** Une [gate](usage/gate.md) bloque un déploiement tant que des findings
   graves restent ouverts ; les résultats s'exportent en [SARIF](advanced/sarif.md) (GitHub code scanning, Jenkins) ;
   les [dépendances](advanced/dependencies.md) sont vérifiées avec une base de vulnérabilités OSV, même sans accès Internet.
-- **Relié aux outils de l'entreprise.** [Authentification unique (OIDC)](advanced/sso.md) avec votre fournisseur
-  d'identité, [groupes et rôles](advanced/access-control.md), envoi des findings vers
+- **Relié aux outils de l'entreprise.** [Authentification unique (OIDC)](usage/sso.md) avec votre fournisseur
+  d'identité, [groupes et rôles](usage/access-control.md), envoi des findings vers
   [Jira ou ServiceNow](connectors/index.md),
-  [journal d'audit transmis à syslog, métriques Prometheus](advanced/audit-metrics.md).
+  [journal d'audit transmis à syslog, métriques Prometheus](usage/audit-metrics.md).
 - **Votre code reste chez vous.** Le produit est auto-hébergé : le serveur MCP n'établit aucune
   connexion sortante, les secrets sont masqués avant stockage, et il s'installe hors ligne. Il
   est open source (licence Apache 2.0). Voir [Sécurité et limites](reference/security.md).
@@ -263,9 +263,9 @@ La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Revue de s
 |---|---|
 | Docker, Kubernetes, PostgreSQL, sans conteneur | [Architecture](advanced/architecture.md), [Docker](advanced/docker.md), [Kubernetes](advanced/kubernetes.md), [Installation manuelle](advanced/manual-install.md) |
 | Jetons restreints à un projet, enrôlement, renouvellement, TLS | [Jetons Bearer](advanced/bearer-tokens.md), [Enrôlement](advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet), [TLS](advanced/tls.md) |
-| Se connecter avec le fournisseur d'identité de l'entreprise | [Connexion OIDC](advanced/sso.md) |
+| Se connecter avec le fournisseur d'identité de l'entreprise | [Connexion OIDC](usage/sso.md) |
 | Scanner tout un dépôt, les dépendances, ajouter les règles de mon entreprise | [Scan du code complet](advanced/code-scan.md), [Analyse des dépendances](advanced/dependencies.md), [Règles](usage/rules.md) |
-| SARIF, tendances, journal d'audit, Prometheus | [Export SARIF](advanced/sarif.md), [Rapport de tendance](advanced/ci.md#rapport-de-tendance), [Journal d'audit](advanced/audit-metrics.md), [Métriques Prometheus](reference/metrics.md) |
+| SARIF, tendances, journal d'audit, Prometheus | [Export SARIF](advanced/sarif.md), [Rapport de tendance](advanced/ci.md#rapport-de-tendance), [Journal d'audit](usage/audit-metrics.md), [Métriques Prometheus](reference/metrics.md) |
 
 !!! warning "Ce n'est pas un SAST"
     Le scan par motifs produit des **pistes** et des faux positifs. Il ne remplace ni un SAST,

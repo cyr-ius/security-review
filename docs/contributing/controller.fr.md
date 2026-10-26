@@ -107,4 +107,4 @@ proxy, sans redirection, réponse bornée). Voir les
 
 Vérifiez le code de statut et le corps, et au moins un refus (`401`, `403` ou `404` hors du
 périmètre) pour une nouvelle route. Voir aussi l'[interface web](../usage/web-interface.md) et
-les [rôles et permissions](../advanced/access-control.md) tels que les utilisateurs les voient.
+les [rôles et permissions](../usage/access-control.md) tels que les utilisateurs les voient.

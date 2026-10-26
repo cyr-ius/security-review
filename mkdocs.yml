@@ -64,54 +64,61 @@ plugins:
                   icon: material/weather-sunny
                   name: Thème clair
           nav_translations:
-            Home: Accueil
-            Getting started: Démarrage
-            Deploying the server: Mise en service du serveur
-            Connecting the host: Connexion de l'hôte
-            Commit hooks: Hooks de commit
-            Advanced: Avancé
-            Deployment: Déploiement
-            Analysis: Analyse
-            Reports and monitoring: Rapports et suivi
-            OIDC login: Connexion OIDC
-            Roles, groups and permissions: Rôles, groupes et permissions
             "Installation: other cases": "Installation : autres cas"
-            Local mode (stdio): Mode local (stdio)
-            Bearer tokens: Jetons Bearer
-            Standards stored in the server: Normes stockées dans le serveur
-            Controller: Contrôleur
-            Triage of findings: Triage des findings
-            Tokens: Jetons
-            User accounts: Comptes utilisateurs
-            Pipeline client (CI/CD): Client de pipeline (CI/CD)
-            How a review works: Fonctionnement d'une revue
-            Prompts and tools: Prompts et outils
-            Whole codebase scan: Scan du code complet
-            Dependency analysis: Analyse des dépendances
-            Security review: Revue de sécurité
-            Rules: Règles
-            Checklists: Checklists
-            Development standards: Normes de développement
-            Read guard for AI assistants: Garde de lecture des assistants IA
-            Web interface: Interface web
+            Access control through the REST API: Contrôle d'accès par l'API REST
+            Advanced: Avancé
+            Analysis: Analyse
+            Audit log in detail: Journal d'audit en détail
             Audit log: Journal d'audit
-            Prometheus metrics: Métriques Prometheus
-            Connectors: Connecteurs
-            Overview: Présentation
-            Third-party connectors: Connecteurs tiers
-            SARIF export: Export SARIF
-            References: Références
-            Command line: Ligne de commande
-            Security and limits: Sécurité et limites
-            Contributing: Contribuer
-            MCP server: Serveur MCP
-            Controller (FastAPI): Contrôleur (FastAPI)
-            Web interface (Angular): Interface web (Angular)
-            Writing a connector: Écrire un connecteur
+            Bearer tokens: Jetons Bearer
+            Checklists: Checklists
             Checks, reviews and releases: Vérifications, revues et publication
-            Shared mode (HTTP): Mode partagé (HTTP)
+            Command line: Ligne de commande
+            Commit hooks: Hooks de commit
+            Connecting the host: Connexion de l'hôte
+            Connectors in detail: Connecteurs en détail
+            Connectors: Connecteurs
+            Contributing: Contribuer
+            Controller (FastAPI): Contrôleur (FastAPI)
+            Controller: Contrôleur
+            Dependency analysis: Analyse des dépendances
+            Deploying the server: Mise en service du serveur
+            Deployment: Déploiement
+            Development standards: Normes de développement
+            Getting started: Démarrage
+            Home: Accueil
+            How a review works: Fonctionnement d'une revue
             Kubernetes: Kubernetes
+            Local mode (stdio): Mode local (stdio)
             Manual installation (without containers): Installation manuelle (sans conteneur)
+            MCP server: Serveur MCP
+            OIDC login in detail: Connexion OIDC en détail
+            OIDC login: Connexion OIDC
+            Overview: Présentation
+            Pipeline client (CI/CD): Client de pipeline (CI/CD)
+            Projects: Projets
+            Prometheus metrics: Métriques Prometheus
+            Prompts and tools: Prompts et outils
+            Read guard for AI assistants: Garde de lecture des assistants IA
+            References: Références
+            Reports and monitoring: Rapports et suivi
+            Roles, groups and permissions: Rôles, groupes et permissions
+            Rules: Règles
+            SARIF export: Export SARIF
+            Security and limits: Sécurité et limites
+            Security review: Revue de sécurité
+            Shared mode (HTTP): Mode partagé (HTTP)
+            Centralized standards: Normes centralisées
+            Third-party connectors: Connecteurs tiers
+            TLS and certificates: TLS et certificats
+            Tokens: Jetons
+            Triage of findings: Triage des findings
+            Triage through the REST API: Triage par l'API REST
+            User accounts: Comptes utilisateurs
+            Web interface (Angular): Interface web (Angular)
+            Web interface: Interface web
+            Whole codebase scan: Scan du code complet
+            Writing a connector: Écrire un connecteur
 
 hooks:
   - scripts/mkdocs_hooks.py
@@ -150,20 +157,26 @@ nav:
       - Local mode (stdio): getting-started/stdio.md
       - Connecting the host: getting-started/host.md
       - Commit hooks: getting-started/commit-hooks.md
+      - Centralized standards: getting-started/stored-standards.md
   - Security review:
       - How a review works: usage/how-it-works.md
       - Rules: usage/rules.md
       - Checklists: usage/checklists.md
       - Development standards: usage/standards.md
       - Gate: usage/gate.md
+      - Analysis:
+          - Whole codebase scan: advanced/code-scan.md
+          - Dependency analysis: advanced/dependencies.md
+          - Read guard for AI assistants: advanced/read-guard.md
   - Application:
       - Overview: usage/web-interface.md
       - Triage of findings: usage/triage.md
       - Tokens: usage/tokens.md
       - User accounts: usage/user-accounts.md
-      - Roles, groups and permissions: advanced/access-control.md
-      - OIDC login: advanced/sso.md
-      - Audit log: advanced/audit-metrics.md
+      - Projects: usage/projects.md
+      - Roles, groups and permissions: usage/access-control.md
+      - OIDC login: usage/sso.md
+      - Audit log: usage/audit-metrics.md
       - Connectors:
           - Overview: connectors/index.md
           - Jira: connectors/jira.md
@@ -171,8 +184,11 @@ nav:
           - Third-party connectors: connectors/third-party.md
   - Advanced:
       - Bearer tokens: advanced/bearer-tokens.md
-      - TLS: advanced/tls.md
-      - Standards stored in the server: advanced/stored-standards.md
+      - Access control through the REST API: advanced/access-control-api.md
+      - OIDC login in detail: advanced/oidc.md
+      - Audit log in detail: advanced/audit-log.md
+      - Connectors in detail: advanced/connectors.md
+      - TLS and certificates: advanced/tls.md
       - Architecture:
           - Overview: advanced/architecture.md
           - MCP server: advanced/mcp-server.md
@@ -183,12 +199,9 @@ nav:
           - Kubernetes: advanced/kubernetes.md
           - Manual installation (without containers): advanced/manual-install.md
           - "Installation: other cases": advanced/installation.md
-      - Analysis:
-          - Whole codebase scan: advanced/code-scan.md
-          - Dependency analysis: advanced/dependencies.md
-          - Read guard for AI assistants: advanced/read-guard.md
       - Reports and monitoring:
           - SARIF export: advanced/sarif.md
+          - Triage through the REST API: advanced/triage-api.md
   - References:
       - Configuration: reference/configuration.md
       - Command line: reference/cli.md

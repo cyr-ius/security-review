@@ -1,4 +1,4 @@
-# Standards stored in the server
+# Centralized standards
 
 The [development standards](../usage/standards.md) live in the server, not in the repositories.
 This page explains what that changes, and how to point an agent to them from `AGENTS.md`.
@@ -14,6 +14,25 @@ This page explains what that changes, and how to point an agent to them from `AG
 
 The benefit: you write your conventions **once**, for the whole organization. No repository
 needs to copy them anymore.
+
+## No skill to maintain
+
+Without the server, sharing conventions with the agents usually means writing **skills** or
+instruction files: a Claude Code skill, Copilot instructions, Cursor rules... Each agent has its
+own format, and each file has to be copied into every repository or workstation, then kept up to
+date everywhere.
+
+The centralized standards avoid this for the conventions:
+
+| Skills or instruction files | Centralized standards |
+|---|---|
+| One format per agent | Any MCP agent (Claude Code, GitHub Copilot, Codex, Cursor...) reads them through the `security-review` server |
+| Copied into each repository or workstation | Written once, in the **Standards** screen |
+| Updated by hand everywhere | An update applies at once to every agent |
+| All loaded, or chosen by the agent | Selected by technology or by file (`*.py`, `angular.json`) |
+
+A skill is still useful for what is not a convention: a procedure, a script, a workflow of the
+team. The standards only replace the coding rules.
 
 ## How to mention them in `AGENTS.md`
 
