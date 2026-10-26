@@ -340,6 +340,18 @@ ADDITIONAL_RULES = [
         "PY-028",
     ),
     (
+        "python",
+        "stored = hashlib.sha256(get_salt() + password.encode()).hexdigest()",
+        'stored = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 600_000)',
+        "PY-028",
+    ),
+    (
+        "python",
+        'stored = hashlib.new("sha512", passwd.encode()).hexdigest()',
+        'stored = hashlib.new("sha256", token.encode()).digest()',
+        "PY-028",
+    ),
+    (
         "java",
         'ctx.search("ou=users", "(uid=" + user + ")", ctls);',
         'ctx.search("ou=users", "(uid={0})", new Object[]{user}, ctls);',
