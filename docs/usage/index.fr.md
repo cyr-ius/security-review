@@ -59,14 +59,13 @@ qui les enregistre ou les annule.
 
 | Écran | À quoi il sert |
 |---|---|
+| **Général** | Langue des rapports, adresse du contrôleur et proxy sortant (téléchargement OSV et connexion OIDC) |
 | **Utilisateurs**, **Groupes**, **Rôles** | Les comptes et ce qu'ils peuvent faire ([rôles, groupes et permissions](access-control.md)) |
 | **Jetons** | Les jetons des agents et des pipelines ([jetons](tokens.md)) |
-| **Journal d'audit** | Qui a fait quoi : décisions de triage, jetons, demandes de projet ([journal d'audit](audit-metrics.md)) |
-| **OIDC** | La connexion d'entreprise ([connexion OIDC](sso.md)) |
-| **Général** | Langue des rapports et adresse du contrôleur |
-| **Proxy sortant** | Proxy du téléchargement OSV et de la connexion OIDC |
+| **Connexions** | La connexion d'entreprise ([connexion OIDC](sso.md)) |
 | **Base OSV** | État et mise à jour de la base de vulnérabilités ([dépendances](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-controleur)) |
 | **Connecteurs** | Envoi des findings vers Jira, ServiceNow... ([connecteurs](connectors/index.md)) |
+| **Journal d'audit** | Qui a fait quoi : décisions de triage, jetons, demandes de projet ([journal d'audit](audit-metrics.md)) |
 
 ## Points d'attention
 

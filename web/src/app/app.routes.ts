@@ -186,15 +186,8 @@ export const routes: Routes = [
       },
       // Former address of the report language, now on the General page
       { path: 'settings/language', pathMatch: 'full', redirectTo: 'settings/general' },
-      {
-        path: 'settings/proxy',
-        title: 'settings.proxyTitle',
-        canActivate: [permissionGuard('settings.manage')],
-        loadComponent: () =>
-          import('./features/settings/proxy-settings/proxy-settings.component').then(
-            (m) => m.ProxySettingsComponent,
-          ),
-      },
+      // Former address of the outgoing proxy, now on the General page
+      { path: 'settings/proxy', pathMatch: 'full', redirectTo: 'settings/general' },
       {
         path: 'settings/connectors',
         title: 'connectors.title',

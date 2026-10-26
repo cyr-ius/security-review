@@ -257,10 +257,10 @@ WARNING security_review_mcp.web: Failed web login of alice from 10.0.0.12
 
 ## Settings stored in the database
 
-The **General**, **Outgoing proxy** and **OIDC** screens of the
+The **General** (report language, controller address, outgoing proxy) and **Sign-in** (OIDC) screens of the
 [web interface](../../usage/index.md) store settings in the database, shared by the MCP
-server and the controller (`settings.manage` permission; the former `/ui/settings` and
-`/ui/settings/language` addresses open **General**). **An environment variable that is set
+server and the controller (`settings.manage` permission; the former `/ui/settings`,
+`/ui/settings/language` and `/ui/settings/proxy` addresses open **General**). **An environment variable that is set
 (environment or `.env` file, not empty) always takes precedence**: its field is then locked and
 shows the variable, and a value stored before the variable was set is marked as ignored, with a
 **Delete** button. A change applies without restart: the MCP server reads the controller

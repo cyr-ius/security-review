@@ -89,7 +89,7 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `SECREVIEW_OIDC_ENABLED` | `false` | Active la [connexion OIDC OpenID Connect](../advanced/oidc.md) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` et `SECREVIEW_OIDC_ONLY` se définissent aussi dans l'écran **OIDC**, dont les valeurs enregistrées s'appliquent quand la variable n'est pas définie ([configurer le OIDC dans l'interface](../advanced/oidc.md#configurer-le-oidc-dans-linterface)) |
+| `SECREVIEW_OIDC_ENABLED` | `false` | Active la [connexion OIDC OpenID Connect](../advanced/oidc.md) à l'interface web. Toutes les variables `SECREVIEW_OIDC_*` sauf `SECREVIEW_OIDC_CAFILE` et `SECREVIEW_OIDC_ONLY` se définissent aussi dans l'écran **Connexions**, dont les valeurs enregistrées s'appliquent quand la variable n'est pas définie ([configurer le OIDC dans l'interface](../advanced/oidc.md#configurer-le-oidc-dans-linterface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | URL de l'émetteur (HTTPS ; HTTP seulement sur localhost), dont `/.well-known/openid-configuration` est lu |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Identifiant du client déclaré chez le fournisseur |
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Secret du client ; vide pour un client public (PKCE seul) |
@@ -108,8 +108,8 @@ Lues par `security-review-controller` uniquement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `HTTPS_PROXY` (sinon `HTTP_PROXY`) | — | Variable standard, sans le préfixe `SECREVIEW_` (nom en minuscules accepté) : proxy HTTP des connexions sortantes du contrôleur, téléchargement OSV et fournisseur OIDC (`http://[utilisateur:mot de passe@]hôte:port`, `hôte:port` valant `http://hôte:port`) ; sans elle, la connexion est directe, ou passe par le proxy choisi dans l'écran [**Proxy sortant**](../usage/index.md#ecrans). Définie (non vide), elle est prioritaire sur cet écran |
-| `NO_PROXY` | — | Variable standard : [hôtes joints sans le proxy](../review/analysis/dependencies.md#hotes-sans-proxy), séparés par des virgules : domaines (sous-domaines compris), adresses IP, `*` (pas de plages CIDR) ; la boucle locale est toujours directe. Définie (non vide), elle est prioritaire sur la liste de l'écran **Proxy sortant** |
+| `HTTPS_PROXY` (sinon `HTTP_PROXY`) | — | Variable standard, sans le préfixe `SECREVIEW_` (nom en minuscules accepté) : proxy HTTP des connexions sortantes du contrôleur, téléchargement OSV et fournisseur OIDC (`http://[utilisateur:mot de passe@]hôte:port`, `hôte:port` valant `http://hôte:port`) ; sans elle, la connexion est directe, ou passe par le proxy choisi dans l'écran [**Général**](../usage/index.md#ecrans). Définie (non vide), elle est prioritaire sur cet écran |
+| `NO_PROXY` | — | Variable standard : [hôtes joints sans le proxy](../review/analysis/dependencies.md#hotes-sans-proxy), séparés par des virgules : domaines (sous-domaines compris), adresses IP, `*` (pas de plages CIDR) ; la boucle locale est toujours directe. Définie (non vide), elle est prioritaire sur la liste de l'écran **Général** |
 
 ### Base OSV
 

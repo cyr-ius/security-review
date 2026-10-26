@@ -82,24 +82,17 @@ export class LayoutComponent {
   ];
 
   private readonly adminItems: readonly NavItem[] = [
-    { path: '/users', label: 'layout.users', icon: 'bi-people', permission: 'users.manage' },
-    { path: '/groups', label: 'layout.groups', icon: 'bi-diagram-3', permission: 'users.manage' },
-    { path: '/roles', label: 'layout.roles', icon: 'bi-shield-check', permission: 'users.manage' },
-    { path: '/tokens', label: 'layout.tokens', icon: 'bi-key', permission: 'tokens.manage' },
-    { path: '/audit', label: 'layout.audit', icon: 'bi-journal-text', permission: 'audit.read' },
-    { path: '/sso', label: 'layout.sso', icon: 'bi-person-badge', permission: 'users.manage' },
     {
       path: '/settings/general',
       label: 'layout.general',
       icon: 'bi-sliders',
       permission: 'settings.manage',
     },
-    {
-      path: '/settings/proxy',
-      label: 'layout.proxy',
-      icon: 'bi-hdd-network',
-      permission: 'settings.manage',
-    },
+    { path: '/users', label: 'layout.users', icon: 'bi-people', permission: 'users.manage' },
+    { path: '/groups', label: 'layout.groups', icon: 'bi-diagram-3', permission: 'users.manage' },
+    { path: '/roles', label: 'layout.roles', icon: 'bi-shield-check', permission: 'users.manage' },
+    { path: '/tokens', label: 'layout.tokens', icon: 'bi-key', permission: 'tokens.manage' },
+    { path: '/sso', label: 'layout.sso', icon: 'bi-person-badge', permission: 'users.manage' },
     {
       path: '/settings/advisories',
       label: 'layout.advisories',
@@ -112,6 +105,7 @@ export class LayoutComponent {
       icon: 'bi-plug',
       permission: 'settings.manage',
     },
+    { path: '/audit', label: 'layout.audit', icon: 'bi-journal-text', permission: 'audit.read' },
   ];
 
   /** Sidebar opened in full over the page (small screens, or after the expand button). */

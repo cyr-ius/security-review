@@ -45,13 +45,13 @@ SECREVIEW_OIDC_DISPLAY_NAME=Keycloak
 L'émetteur doit être en HTTPS (HTTP n'est accepté que sur `localhost`, pour le développement) ;
 son document `/.well-known/openid-configuration` doit annoncer le même `issuer`. Si le
 fournisseur utilise une CA interne, indiquez-la avec `SECREVIEW_OIDC_CAFILE`. Le contrôleur joint
-le fournisseur par son proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou l'écran **Proxy sortant**).
+le fournisseur par son proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou l'écran **Général**).
 
 ## Configurer le OIDC dans l'interface
 
-Les mêmes réglages se modifient dans l'écran **OIDC** (permission `users.manage` : la
+Les mêmes réglages se modifient dans l'écran **Connexions** (permission `users.manage` : la
 configuration OIDC décide qui rejoint quel groupe), sans redémarrer le contrôleur. Comme pour
-l'écran **Proxy sortant**, **une variable `SECREVIEW_OIDC_*` définie est toujours
+le proxy de l'écran **Général**, **une variable `SECREVIEW_OIDC_*` définie est toujours
 prioritaire**, champ par champ ; une valeur enregistrée en base ne s'applique qu'aux champs dont
 la variable n'est pas définie :
 

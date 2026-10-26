@@ -21,7 +21,7 @@ Le fournisseur doit être joignable en HTTPS par le contrôleur, par le proxy so
 
 ## Configurer le OIDC dans l'interface
 
-Un administrateur remplit l'écran **OIDC**, sans redémarrer le contrôleur :
+Un administrateur remplit l'écran **Connexions**, sans redémarrer le contrôleur :
 
 1. **Émetteur (issuer)**, **Identifiant client**, **Secret client** (vide pour un client public)
    et **URL de retour** ;

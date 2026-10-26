@@ -99,7 +99,7 @@
   (`SECREVIEW_OSV_MAX_DOWNLOAD_MB`), proxy facultatif dont les identifiants ne sont jamais
   journalisés. Le bouton **Mettre à jour maintenant** de l'interface web (permission `settings.manage`) n'est
   accepté que si `SECREVIEW_OSV_AUTO_UPDATE=true`. Le proxy sortant (`HTTPS_PROXY` / `NO_PROXY`, ou
-  l'écran **Proxy sortant**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
+  l'écran **Général**) sert au téléchargement OSV et au fournisseur OIDC ; seul le nom des
   réglages modifiés est journalisé. Un proxy défini dans l'interface web est
   enregistré en base **avec ses identifiants, en clair** : l'API ne les renvoie jamais (mot de
   passe remplacé par `***`) et les messages d'erreur de l'historique en sont expurgés, mais

@@ -5,7 +5,7 @@ import { I18nService, Message, msg } from '../../core/i18n/i18n.service';
 import { ApiService } from '../../core/services/api.service';
 
 /**
- * Common part of the administrator settings pages (general, outgoing proxy, OSV database):
+ * Common part of the administrator settings pages (general, OSV database):
  * stored settings, outcome messages and the run helper.
  */
 export abstract class SettingsPage {

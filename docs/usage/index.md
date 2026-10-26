@@ -57,14 +57,13 @@ together. The changes go to the form, which still saves or cancels them.
 
 | Screen | What for |
 |---|---|
+| **General** | Report language, controller address and outgoing proxy (OSV download and OIDC login) |
 | **Users**, **Groups**, **Roles** | The accounts and what they may do ([roles, groups and permissions](access-control.md)) |
 | **Tokens** | The tokens of the agents and the pipelines ([tokens](tokens.md)) |
-| **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)) |
-| **OIDC** | The company login ([OIDC login](sso.md)) |
-| **General** | Report language and controller address |
-| **Outgoing proxy** | Proxy of the OSV download and of the OIDC login |
+| **Sign-in** | The company login ([OIDC login](sso.md)) |
 | **OSV database** | State and update of the vulnerability database ([dependencies](../review/analysis/dependencies.md#automatic-update-by-the-controller)) |
 | **Connectors** | Sending the findings to Jira, ServiceNow... ([connectors](connectors/index.md)) |
+| **Audit log** | Who did what: triage decisions, tokens, project requests ([audit log](audit-metrics.md)) |
 
 ## Points to watch
 

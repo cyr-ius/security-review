@@ -20,7 +20,7 @@ The provider must be reachable in HTTPS by the controller, through the outgoing 
 
 ## Configuring OIDC in the interface
 
-An administrator fills in the **OIDC** screen, without restarting the controller:
+An administrator fills in the **Sign-in** screen, without restarting the controller:
 
 1. **Issuer**, **Client ID**, **Client secret** (empty for a public client) and **Callback URL**;
 2. the **Groups claim**, and the **Administration groups** whose members become administrators;

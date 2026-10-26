@@ -4,8 +4,8 @@ import { defineMessages } from '../catalog';
 export const settings = defineMessages({
   en: {
     'settings.generalTitle': 'General settings',
-    'settings.generalSubtitle': 'Language of the reports and address of the controller',
-    'settings.proxySubtitle': 'Proxy of the OSV download and of the OIDC login',
+    'settings.generalSubtitle':
+      'Language of the reports, address of the controller and outgoing proxy',
     'settings.osvSubtitle': 'Advisories used by the dependency analysis and their updates',
     'settings.loadError': 'Could not load the settings.',
     'settings.languageTitle': 'Report language',
@@ -110,8 +110,7 @@ export const settings = defineMessages({
   },
   fr: {
     'settings.generalTitle': 'Paramètres généraux',
-    'settings.generalSubtitle': 'Langue des rapports et adresse du contrôleur',
-    'settings.proxySubtitle': 'Proxy du téléchargement OSV et de la connexion OIDC',
+    'settings.generalSubtitle': 'Langue des rapports, adresse du contrôleur et proxy sortant',
     'settings.osvSubtitle': "Avis utilisés par l'analyse de dépendances et leurs mises à jour",
     'settings.loadError': 'Impossible de charger les paramètres.',
     'settings.languageTitle': 'Langue des rapports',
@@ -223,8 +222,8 @@ export const settings = defineMessages({
   },
   es: {
     'settings.generalTitle': 'Ajustes generales',
-    'settings.generalSubtitle': 'Idioma de los informes y dirección del controlador',
-    'settings.proxySubtitle': 'Proxy de la descarga OSV y del inicio de sesión OIDC',
+    'settings.generalSubtitle':
+      'Idioma de los informes, dirección del controlador y proxy saliente',
     'settings.osvSubtitle': 'Avisos usados por el análisis de dependencias y sus actualizaciones',
     'settings.loadError': 'No se pudieron cargar los ajustes.',
     'settings.languageTitle': 'Idioma de los informes',

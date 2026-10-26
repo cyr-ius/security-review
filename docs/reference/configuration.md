@@ -89,7 +89,7 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `SECREVIEW_OIDC_ENABLED` | `false` | Enables the [OpenID Connect OIDC login](../advanced/oidc.md) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` and `SECREVIEW_OIDC_ONLY` can also be set in the **OIDC** screen, whose stored values apply when the variable is not set ([configuring OIDC in the interface](../advanced/oidc.md#configuring-oidc-in-the-interface)) |
+| `SECREVIEW_OIDC_ENABLED` | `false` | Enables the [OpenID Connect OIDC login](../advanced/oidc.md) to the web interface. Every `SECREVIEW_OIDC_*` variable except `SECREVIEW_OIDC_CAFILE` and `SECREVIEW_OIDC_ONLY` can also be set in the **Sign-in** screen, whose stored values apply when the variable is not set ([configuring OIDC in the interface](../advanced/oidc.md#configuring-oidc-in-the-interface)) |
 | `SECREVIEW_OIDC_ISSUER` | — | URL of the issuer (HTTPS; HTTP only on localhost), whose `/.well-known/openid-configuration` is read |
 | `SECREVIEW_OIDC_CLIENT_ID` | — | Identifier of the client declared at the provider |
 | `SECREVIEW_OIDC_CLIENT_SECRET` | — | Secret of the client; empty for a public client (PKCE only) |
@@ -108,8 +108,8 @@ Read by `security-review-controller` only.
 
 | Variable | Default | Role |
 |---|---|---|
-| `HTTPS_PROXY` (else `HTTP_PROXY`) | — | Standard variable, without the `SECREVIEW_` prefix (lowercase name accepted): HTTP proxy of the outgoing connections of the controller, OSV download and OIDC provider (`http://[user:password@]host:port`, `host:port` meaning `http://host:port`); without it, the connection is direct, or uses the proxy chosen in the [**Outgoing proxy**](../usage/index.md#screens) screen. When set (not empty), takes precedence over that screen |
-| `NO_PROXY` | — | Standard variable: [hosts reached without the proxy](../review/analysis/dependencies.md#hosts-without-proxy), comma separated: domains (subdomains included), IP addresses, `*` (no CIDR ranges); the loopback is always direct. When set (not empty), takes precedence over the list of the **Outgoing proxy** screen |
+| `HTTPS_PROXY` (else `HTTP_PROXY`) | — | Standard variable, without the `SECREVIEW_` prefix (lowercase name accepted): HTTP proxy of the outgoing connections of the controller, OSV download and OIDC provider (`http://[user:password@]host:port`, `host:port` meaning `http://host:port`); without it, the connection is direct, or uses the proxy chosen in the [**General**](../usage/index.md#screens) screen. When set (not empty), takes precedence over that screen |
+| `NO_PROXY` | — | Standard variable: [hosts reached without the proxy](../review/analysis/dependencies.md#hosts-without-proxy), comma separated: domains (subdomains included), IP addresses, `*` (no CIDR ranges); the loopback is always direct. When set (not empty), takes precedence over the list of the **General** screen |
 
 ### OSV database
 
