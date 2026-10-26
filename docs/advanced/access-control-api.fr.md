@@ -84,7 +84,7 @@ retire de son groupe OIDC n'est pas bloquée.
 
 Le **groupe de projet** d'un projet est un groupe non ouvert au OIDC dont le seul rôle est
 `reader` sur ce seul projet. La validation d'un projet demandé par un agent
-([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) y ajoute
+([enrôlement](architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)) y ajoute
 l'utilisateur demandeur (en le créant pour un nouveau projet ; pour un projet existant, la
 demande est une demande d'accès, que seul un utilisateur portant `users.manage` valide), et la
 création d'un projet le crée avec son créateur. Un groupe existant de ce type est réutilisé (même

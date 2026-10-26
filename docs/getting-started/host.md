@@ -106,7 +106,7 @@ In shared mode, when the server requires a token, you use a **personal MCP token
 interface. You do not need to ask an administrator for it before you start: configure the host
 as above, **without a token**, and run your first review. The agent tells you where to create
 your token, then requests the project at the next review (see
-[enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests)).
+[enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)).
 
 1. **Configure the host without a token.** With the examples of the
    [HTTP transport](#http-transport) section, leave the token input empty (VS Code), do not
@@ -154,7 +154,7 @@ your token, then requests the project at the next review (see
 When the server refuses the token (unknown, revoked or expired), the host gets `401` with a
 message that tells you to sign in to the web interface again and create a new personal MCP
 token: replace it in the host as in step 4 (see
-[rejected token](../advanced/mcp-server.md#rejected-token-sign-in-again)).
+[rejected token](../advanced/architecture/mcp-server.md#rejected-token-sign-in-again)).
 
 !!! note
     If the administrator disabled the enrollment (`SECREVIEW_ENROLLMENT=false`), a host without
@@ -169,4 +169,4 @@ token: replace it in the host as in step 4 (see
 - **Local mode (stdio)**, without a server (the host starts the process itself): see
   [Local mode (stdio)](stdio.md).
 
-**Next step:** run your first review with the [prompts and tools](../usage/prompts-tools.md).
+**Next step:** run your first review with the [prompts and tools](../review/prompts-tools.md).

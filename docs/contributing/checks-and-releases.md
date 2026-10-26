@@ -60,7 +60,7 @@ change.
 ### Security review of each commit
 
 The `agent-review` hook runs
-[`security-review-ci agent-review`](../advanced/ci.md#agent-review-of-each-commit) after each of
+[`security-review-ci agent-review`](../advanced/architecture/ci.md#agent-review-of-each-commit) after each of
 your commits: your coding agent (Claude Code, GitHub Copilot or Codex) reviews it for security
 in the background, with the `security-review` server of your `.mcp.json`, and saves one report,
 which you read in the web interface. `prek install` installs it with the pre-commit hooks
@@ -105,7 +105,7 @@ The `.github/workflows/docker.yml` workflow builds the image (`linux/amd64`, `li
 with the PostgreSQL driver) and checks that both entry points start. On every pull request
 (the protection of `master` requires these checks), it only builds; on a version tag, it pushes the
 images to `ghcr.io/cyr-ius/security-review` and `docker.io/cyrius44/security-review`
-(see [published images](../advanced/docker.md#published-images)). A manual run (**Actions →
+(see [published images](../advanced/deployment/docker.md#published-images)). A manual run (**Actions →
 Docker image → Run workflow**, `push` checked) publishes a branch image (`dev`). Every
 tag is also published with the `-pg` suffix (`X.Y.Z-pg`, `latest-pg`, `dev-pg`): a deprecated
 alias of the same image, kept for the former PostgreSQL variant until the next major version.

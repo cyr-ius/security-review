@@ -55,7 +55,7 @@ psql -h db -U secreview secreview                     # password: secreview
 SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # back to SQLite for once
 ```
 
-The Docker daemon lets you build and run the image of the [Dockerfile](../advanced/docker.md)
+The Docker daemon lets you build and run the image of the [Dockerfile](../advanced/deployment/docker.md)
 without leaving the container.
 
 ## Building the image
@@ -64,7 +64,7 @@ without leaving the container.
 docker build -t security-review-mcp .   # SQLite and PostgreSQL (driver included)
 ```
 
-The build also compiles the [web interface](../usage/web-interface.md) (Node.js stage); the
+The build also compiles the [web interface](../usage/index.md) (Node.js stage); the
 controller serves it on `/ui/`.
 
 The image runs as a non-root user (uid `10001`), without sources nor build tools. The SQLite
@@ -176,5 +176,5 @@ test it:
 
 The generic standards of each technology (Python and FastAPI, Angular, tests) are served by the
 project itself: prompt `development-standards`, tool `get_development_standards` (see
-[development standards](../usage/standards.md)). These pages only hold what is specific to
+[development standards](../review/standards.md)). These pages only hold what is specific to
 this repository; when they conflict, they prevail.

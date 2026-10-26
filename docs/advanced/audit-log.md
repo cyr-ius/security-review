@@ -21,7 +21,7 @@ exists exactly when the change was committed.
 | `token.rotated` | The secret of a token is replaced (`token rotate`, **Rotate** button), with the grace period |
 | `token.revoked` | A token is revoked |
 | `token.projects_changed` | An administrator changes the projects of a token (**Projects** button of the **Tokens** screen), with the previous projects (`null`: every project) |
-| `enrollment.requested` | The agent of a user requests a project with `request_project` ([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)), with the token as actor, the requesting user, its address, whether a new request was filed (`requested`) and whether the project already existed (`existing`: an access request) |
+| `enrollment.requested` | The agent of a user requests a project with `request_project` ([enrollment](architecture/mcp-server.md#enrollment-personal-token-and-project-requests)), with the token as actor, the requesting user, its address, whether a new request was filed (`requested`) and whether the project already existed (`existing`: an access request) |
 | `enrollment.approved` | A user with `projects.create` approves a pending project (its group in the details); the requester is added to the group (`user.groups_changed`) |
 | `enrollment.rejected` | A user rejects a pending project, or it expires (actor `enrollment`, `reason`: `expired`) |
 | `role.created`, `role.updated`, `role.deleted` | An administrator creates, changes (with the previous permissions) or deletes a [role](../usage/access-control.md#roles) |

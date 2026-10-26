@@ -203,7 +203,7 @@ compte local (son mot de passe peut être défini avec
 ## Sessions
 
 - Le jeton de session est signé (HMAC-SHA256) avec une clé dérivée de `SECREVIEW_SECRET_KEY`
-  (32 caractères au moins), comme celui des [comptes locaux](controller.md#connexion-et-sessions), et désigne
+  (32 caractères au moins), comme celui des [comptes locaux](architecture/controller.md#connexion-et-sessions), et désigne
   le compte OIDC, relu à chaque requête : supprimer le compte ou changer ses groupes ou leurs
   rôles s'applique aussitôt. Toutes les répliques du contrôleur doivent partager ce secret ; sans lui,
   un secret aléatoire est tiré à chaque démarrage et les sessions se terminent au redémarrage.

@@ -103,7 +103,7 @@ def main(argv: list[str] | None = None) -> int:
     url = health_url(args)
     if url is None or client_certificate_required():
         # stdio: nothing listens; mutual TLS: no client certificate to present (rely on the
-        # orchestrator probes, see docs/advanced/docker)
+        # orchestrator probes, see docs/advanced/deployment/docker)
         return 0
     healthy = check(url, server_certificate(args))
     if not healthy:

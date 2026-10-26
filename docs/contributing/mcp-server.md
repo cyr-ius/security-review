@@ -97,7 +97,7 @@ advice = "Move the secret to a vault or environment variable and rotate it."
   there is one.
 - Avoid catastrophic backtracking: no nested quantifiers (`rules_loader` validates the internal
   rules).
-- Document the rule in `docs/usage/rules` (or `usage/checklists` for a checklist), in both
+- Document the rule in `docs/review/rules` (or `review/checklists` for a checklist), in both
   languages.
 
 ## Tests
@@ -124,5 +124,5 @@ advice = "Move the secret to a vault or environment variable and rotate it."
 - `tests/conftest.py` gives each test an in-memory SQLite database and an empty rule
   registry; the `import_pack` fixture loads internal rules.
 
-See also the [prompts and tools](../usage/prompts-tools.md) as users see them, and the
-[rules](../usage/rules.md).
+See also the [prompts and tools](../review/prompts-tools.md) as users see them, and the
+[rules](../review/rules.md).

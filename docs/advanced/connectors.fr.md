@@ -1,6 +1,6 @@
 # Connecteurs en détail
 
-La page [connecteurs](../connectors/index.md) décrit les connecteurs dans l'interface web.
+La page [connecteurs](../usage/connectors/index.md) décrit les connecteurs dans l'interface web.
 Cette page donne les variables, l'envoi automatique, le contenu envoyé, les garanties et l'API
 REST.
 
@@ -43,7 +43,7 @@ est réessayé 5 fois au plus, 15 minutes après le premier échec, puis avec un
 ### Un enregistrement par problème
 
 Un finding retrouvé par un rapport ultérieur (même projet, règle, fichier et titre :
-l'[empreinte SARIF](sarif.md)) réutilise l'enregistrement de la première occurrence :
+l'[empreinte SARIF](reports/sarif.md)) réutilise l'enregistrement de la première occurrence :
 aucun nouvel enregistrement n'est créé. Envoyer un finding qui a déjà son enregistrement le
 renvoie.
 

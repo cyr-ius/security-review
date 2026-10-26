@@ -1,10 +1,10 @@
 # Bearer tokens
 
-The tokens of the [MCP server](mcp-server.md) and of the [controller](controller.md) are
+The tokens of the [MCP server](architecture/mcp-server.md) and of the [controller](architecture/controller.md) are
 managed from the CLI of the controller. What each token may reach is in
 [Tokens](../usage/tokens.md); the routes each process serves are in
-[What it serves](mcp-server.md#what-it-serves) (MCP server) and
-[What it serves](controller.md#what-it-serves) (controller).
+[What it serves](architecture/mcp-server.md#what-it-serves) (MCP server) and
+[What it serves](architecture/controller.md#what-it-serves) (controller).
 
 Tokens are stored in the database (`apitoken` table): only their SHA-256 digest is kept, the
 secret is shown only once, at creation. Manage them with the `token` command (see the
@@ -38,7 +38,7 @@ of a token is written to the [audit log](audit-log.md), with who made it.
 ## Before the first token
 
 While no token exists, the controller API answers `503` and the MCP server **stays closed**: a
-client without a token only reaches the [enrollment server](mcp-server.md#enrollment-personal-token-and-project-requests) (no tool),
+client without a token only reaches the [enrollment server](architecture/mcp-server.md#enrollment-personal-token-and-project-requests) (no tool),
 any other request gets `401`, whatever the bearer value (a warning is logged at start-up). `/mcp`
 is only open in that case when the server listens on localhost (`127.0.0.1`, `::1`) or when
 `SECREVIEW_ALLOW_UNAUTHENTICATED=true`, to keep for tests on an isolated network: as soon as a
@@ -49,7 +49,7 @@ last token.
 
 A token may expire: after its expiry date it authenticates nothing (`401`, `error="invalid_token"`,
 description `The bearer token has expired`, followed on `/mcp` by how to
-[get a new one](mcp-server.md#rejected-token-sign-in-again)), but it stays listed so that an administrator
+[get a new one](architecture/mcp-server.md#rejected-token-sign-in-again)), but it stays listed so that an administrator
 rotates or revokes it. `SECREVIEW_TOKEN_MAX_DAYS` (default `0`) sets the longest validity of a
 token created or rotated, and its default validity; with `0`, tokens do not expire unless a
 validity is asked for.
@@ -82,7 +82,7 @@ security-review-controller token create --label shop-gate --role ci --project sh
 ```
 
 A token without `--project` reaches every project. In the web interface, the
-[**Tokens**](../usage/web-interface.md#screens) screen creates a token for some projects
+[**Tokens**](../usage/index.md#screens) screen creates a token for some projects
 or for **All projects**, and changes the projects of an existing token (except `admin` and
 `metrics`; a `ci` token always keeps at least one project). A restricted token:
 
@@ -115,7 +115,7 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/proj
 
 Its status changes are limited to `open` and `fixed`, like those of an `api` token with
 `findings.triage`: `accepted` and `false_positive` need a session
-([triage through the REST API](triage-api.md)).
+([triage through the REST API](reports/triage-api.md)).
 
 The REST API lists the findings of a project across all its reports, open by default, worst
 first (`status`, `severity` and `review_type` filter, `limit` is capped by
@@ -190,7 +190,7 @@ A personal `mcp` token also works as a personal `ci` token on the pipeline route
 **My account** no longer offers a personal `ci` token. The API still creates one to keep the two
 uses apart (it never reaches `/mcp`), and those already created stay listed until revoked. A
 report stored by either is submitted by the token (`alice:laptop`), and its user is the author
-(see [scan from a workstation](dependencies.md#scan-from-a-workstation-commit-hook)). An `mcp`
+(see [scan from a workstation](../review/analysis/dependencies.md#scan-from-a-workstation-commit-hook)). An `mcp`
 token created by an administrator on the **Tokens** screen stays an MCP agent token only.
 
 ```bash

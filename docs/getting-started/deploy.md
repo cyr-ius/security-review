@@ -2,7 +2,7 @@
 
 This page sets up the **shared mode (HTTP)** for a team: the controller (web interface,
 administration, pipelines) and the MCP server (used by the agents), on the same database. See
-[three services, three roles](../index.md#three-services-three-roles).
+[three services, three roles](../services.md).
 
 ```mermaid
 flowchart LR
@@ -31,7 +31,7 @@ At the end, you have:
 - an `admin` account to manage the users, the tokens and the rules.
 
 Without containers, all-in-one on one Linux server: see Advanced section
-[Manual installation (without containers)](../advanced/manual-install.md).
+[Manual installation (without containers)](../advanced/deployment/manual-install.md).
 
 ## With Docker Compose
 
@@ -61,7 +61,7 @@ The MCP server is located at `http://127.0.0.1:8000/mcp`.
     `user reset-password admin` inside the container, and treat the output as a secret.
     If you lose it, simply run the command again (the previous password will be invalidated immediately).
 
-**More information:** see [Docker](../advanced/docker.md) in the **Advanced** section (opening to
+**More information:** see [Docker](../advanced/deployment/docker.md) in the **Advanced** section (opening to
 the team, TLS, OSV update, backups, PostgreSQL upgrade, without Docker Compose).
 
 ## With Kubernetes
@@ -111,7 +111,7 @@ For the team, expose each Service through an Ingress with TLS: `secreview-mcp` f
 range of the ingress controller pods: without it, every client seems to come from the same
 address, the one of the Ingress).
 
-**More information:** see [Kubernetes](../advanced/kubernetes.md) in the **Advanced** section
+**More information:** see [Kubernetes](../advanced/deployment/kubernetes.md) in the **Advanced** section
 (existing PostgreSQL, content of the manifests, Secrets, exposure, OSV update, several replicas).
 
 ## Next step

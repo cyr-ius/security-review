@@ -195,7 +195,7 @@ restart the controller, then log in with a local account (its password can be se
 ## Sessions
 
 - The session token is signed (HMAC-SHA256) with a key derived from `SECREVIEW_SECRET_KEY`
-  (at least 32 characters), like the one of the [local accounts](controller.md#login-and-sessions), and
+  (at least 32 characters), like the one of the [local accounts](architecture/controller.md#login-and-sessions), and
   names the OIDC account, read again at every request: deleting the account or changing its
   groups or their roles applies at once. Every replica of the controller must share this secret; without
   it, a random secret is drawn at every start and sessions end at restart.

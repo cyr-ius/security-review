@@ -17,8 +17,8 @@ uv run mkdocs build --strict # ce que fait la CI : un lien cassé fait échouer 
   française, le plugin les fait pointer vers la page française. Les ancres suivent les titres de
   chaque langue (`#report-language` en anglais, `#langue-des-rapports` en français).
 - Les pages suivent l'ordre d'une mise en œuvre : **Démarrage** (`getting-started/`),
-  **Revue de sécurité** (fonctionnement, prompts et outils, règles, checklists, normes, gate) et **Application** (interface web, triage, jetons, comptes, rôles, groupes et permissions, connexion OIDC, journal d'audit) (toutes deux dans `usage/`) ne contiennent que l'essentiel pour travailler ; **Connecteurs**
-  (`connectors/`, sous-menu d'**Application**) a une page par connecteur intégré ; **Avancé** (`advanced/`) regroupe les
+  **Revue de sécurité** (fonctionnement, prompts et outils, règles, checklists, normes, gate, dans `review/`) et **Application** (interface web, triage, jetons, comptes, projets, rôles, groupes et permissions, connexion OIDC, journal d'audit, dans `usage/`) ne contiennent que l'essentiel pour travailler ; **Connecteurs**
+  (`usage/connectors/`, sous-menu d'**Application**) a une page par connecteur intégré ; **Avancé** (`advanced/`) regroupe les
   détails et les fonctions facultatives. Placez une explication
   détaillée dans `advanced/`, avec au plus une ligne et un lien depuis les pages essentielles.
 - Pour ajouter une page, créez les deux fichiers dans `docs/`, déclarez le fichier anglais dans

@@ -36,7 +36,7 @@ uv pip install --python /opt/security-review-mcp/venv security-review
     d'abord l'ancien (`uv pip uninstall --python /opt/security-review-mcp/venv security-review-mcp`),
     puis installez `security-review`. Les commandes, les paramètres et la base restent les mêmes.
 
-Sans accès Internet, ou depuis les sources : voir [Installation : autres cas](../advanced/installation.md).
+Sans accès Internet, ou depuis les sources : voir [Installation : autres cas](../advanced/deployment/installation.md).
 
 ## Lancement
 
@@ -78,4 +78,4 @@ VS Code, GitHub Copilot et Claude lisent le même fichier `.mcp.json` à la raci
 }
 ```
 
-Pour lancer le serveur depuis un conteneur, voir [Docker](../advanced/docker.md).
+Pour lancer le serveur depuis un conteneur, voir [Docker](../advanced/deployment/docker.md).

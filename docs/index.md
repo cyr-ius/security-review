@@ -14,21 +14,21 @@ recorded in one place, where your security team reads it, triages it and follows
 - **Security from the first line of code.** Flaws are found in the editor, by the developer,
   when fixing them costs the least, not weeks later during an audit or in production.
 - **Your requirements, applied by every assistant.** The security team manages the [scan
-  rules](usage/rules.md), the [review checklists](usage/checklists.md) and the [development standards](usage/standards.md) in one place; every assistant of
+  rules](review/rules.md), the [review checklists](review/checklists.md) and the [development standards](review/standards.md) in one place; every assistant of
   every project receives the same ones, without training each developer.
 - **A central and lasting view.** Reports are stored in a database (SQLite or PostgreSQL). The
-  [web interface](usage/web-interface.md) shows, for each project, the open findings, the security posture and its trend
-  over time ([trend report](advanced/ci.md#trend-report)).
+  [web interface](usage/index.md) shows, for each project, the open findings, the security posture and its trend
+  over time ([trend report](advanced/architecture/ci.md#trend-report)).
 - **People decide, not the AI.** An assistant can only *propose* to close a finding. A risk
   acceptance or a false positive is decided by a signed-in person, recorded as the approver; a
   risk acceptance also carries a reason and an expiry date, according to your policy: every decision can be traced for an audit
   ([triage of findings](usage/triage.md)).
-- **Built into your delivery chain.** A [gate](usage/gate.md) blocks a deployment while serious findings remain
-  open; the results are exported in [SARIF](advanced/sarif.md) (GitHub code scanning, Jenkins); the [dependencies](advanced/dependencies.md) are
+- **Built into your delivery chain.** A [gate](review/gate.md) blocks a deployment while serious findings remain
+  open; the results are exported in [SARIF](advanced/reports/sarif.md) (GitHub code scanning, Jenkins); the [dependencies](review/analysis/dependencies.md) are
   checked against an OSV vulnerability database, even without Internet access.
 - **Connected to your company tools.** [Single sign-on (OIDC)](usage/sso.md) with your identity provider,
   [groups and roles](usage/access-control.md), findings sent to
-  [Jira or ServiceNow](connectors/index.md),
+  [Jira or ServiceNow](usage/connectors/index.md),
   [audit log forwarded to syslog, Prometheus metrics](usage/audit-metrics.md).
 - **Your code stays with you.** The product is self-hosted: the MCP server makes no outgoing
   connection, secrets are masked before being stored, and it installs offline. It is open
@@ -75,125 +75,6 @@ It includes a CLI for integration into pipelines (such as Jenkins, etc.), enabli
 - **Dependency analysis**.
 
 Accessed via the `security-review-ci` command.
-
-## Three services, three roles
-
-All the products are installed via the same PyPI package, `security-review`, and delivered within the same Docker image.
-The MCP server and the controller never call one another: they share the same **database**,
-where reports, rules, and tokens are stored. The pipeline client `security-review-ci` has no
-access to the database: it calls the REST API of the controller.
-
-```mermaid
-flowchart LR
-    agents(["AI agents<br/>VS Code, Claude, CI agent"]) -- "/mcp<br/>MCP token" --> mcp["MCP server<br/>security-review-mcp"]
-    people(["People (browser)<br/>security team, developers, admins"]) -- "/ui, /api/v1<br/>user account" --> ctl["Controller<br/>security-review-controller"]
-    ci(["CI/CD pipeline<br/>security-review-ci"]) -- "/api/v1/ci<br/>ci token" --> ctl
-    mcp --> db[("Database<br/>SQLite or PostgreSQL")]
-    ctl --> db
-```
-
-| | MCP server | Controller | Pipeline client |
-|---|---|---|---|
-| Command | `security-review-mcp` | `security-review-controller` | `security-review-ci` |
-| Used by | the AI agents (in the editor or in a pipeline) | the people: security team, developers, administrators | the CI/CD pipelines |
-| What it does | gives the agent the review prompts, the checklists, the pattern scan, and saves its reports | shows and triages the reports in the **web interface** (`/ui/`), serves the REST API, creates the schema, manages the tokens and the user accounts | sends the files of the repository to the controller, which scans them; gate, SARIF export, trends |
-| Exposure | to the agents (`/mcp` endpoint) | to the people and to the pipelines (HTTPS) | none: it runs in the pipeline |
-
-In short: **the agent talks to the MCP server, people and pipelines use the controller.** For a team, you
-deploy **both**: without the controller, nobody can read the reports in a browser, decide on a
-finding, nor create the tokens of the agents.
-
-### MCP server
-
-In local mode, the MCP server creates its own SQLite database. In shared mode, it uses the
-database of the controller.
-
-Although you can install the MCP server in **local mode (stdio)** on a developer's workstation
-(see [Local mode (stdio)](getting-started/stdio.md)), we recommend the **shared mode (HTTP)**.
-
-This way, you have no dependency on the technology used by the MCP server: you simply configure
-your IDE to use the MCP server in Streamable HTTP mode. See
-[HTTP transport](getting-started/host.md#http-transport).
-
-For security reasons, an authentication token must be provided to interact with the server. If
-no token is present, the MCP server informs your AI agent about the steps required to obtain
-one ([enrollment](advanced/mcp-server.md#enrollment-personal-token-and-project-requests)).
-
-Its routes, transports, start-up and guarantees: see [MCP server](advanced/mcp-server.md).
-
-### Controller server
-
-Running the `security-review-controller` command launches an application server, allowing you
-to access the database via a web interface.
-
-With this application, you can:
-
-- view the reports generated by the agents of your developers;
-- propose new [rules](usage/rules.md) and [checklists](usage/checklists.md);
-- share your [development standards](usage/standards.md) with the agents;
-- track the vulnerabilities, conduct security reviews and manage the risk acceptances (see
-  [triage of findings](usage/triage.md)).
-
-The controller server is fully configurable through environment variables or through its CLI.
-
-Its routes, start-up, background tasks and exposure: see [Controller](advanced/controller.md).
-
-### CI/CD
-
-You have a CI/CD chain and want to set up an acceptance gate?
-This is possible with the `security-review-ci` client (a single Python file, without
-dependency): see [CI](advanced/ci.md).
-
-The same client can be used in your pre-commit (or prek) hooks to run your security reviews
-or dependency analysis directly from your IDE. See [Pre-commit hooks](getting-started/commit-hooks.md).
-
-### Design
-
-**Local mode**: everything runs on the workstation of the developer. The assistant
-starts the MCP server itself, and the reports stay in a local database.
-
-```mermaid
-flowchart LR
-    dev(["Developer"]) --> agent
-    subgraph ws["Developer workstation"]
-        agent["AI assistant<br/>VS Code, Claude"] -- "stdio" --> mcp["MCP server<br/>security-review-mcp<br/>(process started by the assistant)"]
-        mcp --> sqlite[("Local SQLite<br/>database")]
-    end
-```
-
-**Shared mode**: the assistants of every workstation call the MCP server deployed in a
-container; the security analyst works in the web interface of the controller, which the
-pipelines also call. Both containers share the same PostgreSQL database.
-
-```mermaid
-flowchart LR
-    dev(["Developer"]) --> agent
-    subgraph ws["Developer workstation"]
-        agent["AI assistant<br/>VS Code, Claude"]
-    end
-    analyst(["Security analyst<br/>(browser)"])
-    ci(["CI/CD pipeline<br/>security-review-ci"])
-    subgraph srv["Server or cluster (containers)"]
-        mcp["MCP server container<br/>security-review-mcp"]
-        ctl["Controller container<br/>security-review-controller<br/>web interface, REST API"]
-        pg[("PostgreSQL container<br/>reports, rules, tokens")]
-    end
-    agent -- "HTTPS /mcp<br/>MCP token" --> mcp
-    analyst -- "HTTPS /ui<br/>user account" --> ctl
-    ci -- "HTTPS /api/v1/ci<br/>ci token" --> ctl
-    mcp --> pg
-    ctl --> pg
-```
-
-!!! tip "Which mode to choose?"
-    - **Shared mode (HTTP)**, the recommended case: the MCP server and the controller run on
-      a machine or in containers, every developer and every pipeline connects to it with a
-      token, and the reports are centralized. Start here.
-    - **Local mode (stdio)**, for specific cases only: the host (VS Code, Claude) starts
-      `security-review-mcp` itself on the developer workstation, without a network, a token,
-      nor a controller. Handy to try the prompts alone or offline, but the reports stay in a
-      local database that nobody else sees. See
-      [Local mode (stdio)](getting-started/stdio.md).
 
 ## Quick start (shared mode)
 
@@ -246,17 +127,17 @@ The documentation follows the order of a set-up. **Getting started**, **Security
 |---|---|
 | 1. Deploy the controller and the MCP server (Docker Compose or Kubernetes), create the first accounts | [Deploying the server](getting-started/deploy.md) |
 | 2. Connect VS Code or Claude, get a token | [Connecting the host](getting-started/host.md) |
-| 3. Run a review | [How a review works](usage/how-it-works.md) (rules, checklists, `AGENTS.md`), [Prompts and tools](usage/prompts-tools.md) |
-| 4. Read and triage the reports | [Web interface](usage/web-interface.md) |
-| 5. Block a deployment on open findings | [Gate](usage/gate.md) |
+| 3. Run a review | [How a review works](review/index.md) (rules, checklists, `AGENTS.md`), [Prompts and tools](review/prompts-tools.md) |
+| 4. Read and triage the reports | [Web interface](usage/index.md) |
+| 5. Block a deployment on open findings | [Gate](review/gate.md) |
 
 | Going further (Advanced) | Page |
 |---|---|
-| Docker, Kubernetes, PostgreSQL, without containers | [Architecture](advanced/architecture.md), [Docker](advanced/docker.md), [Kubernetes](advanced/kubernetes.md), [Manual installation](advanced/manual-install.md) |
-| Tokens restricted to a project, enrollment, rotation, TLS | [Bearer tokens](advanced/bearer-tokens.md), [Enrollment](advanced/mcp-server.md#enrollment-personal-token-and-project-requests), [TLS](advanced/tls.md) |
+| Docker, Kubernetes, PostgreSQL, without containers | [Architecture](advanced/architecture/index.md), [Docker](advanced/deployment/docker.md), [Kubernetes](advanced/deployment/kubernetes.md), [Manual installation](advanced/deployment/manual-install.md) |
+| Tokens restricted to a project, enrollment, rotation, TLS | [Bearer tokens](advanced/bearer-tokens.md), [Enrollment](advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests), [TLS](advanced/tls.md) |
 | Log in with the company identity provider | [OIDC login](usage/sso.md) |
-| Scan a whole repository, the dependencies, add my company's rules | [Whole codebase scan](advanced/code-scan.md), [Dependency analysis](advanced/dependencies.md), [Rules](usage/rules.md) |
-| SARIF, trends, audit log, Prometheus | [SARIF export](advanced/sarif.md), [Trend report](advanced/ci.md#trend-report), [Audit log](usage/audit-metrics.md), [Prometheus metrics](reference/metrics.md) |
+| Scan a whole repository, the dependencies, add my company's rules | [Whole codebase scan](review/analysis/code-scan.md), [Dependency analysis](review/analysis/dependencies.md), [Rules](review/rules.md) |
+| SARIF, trends, audit log, Prometheus | [SARIF export](advanced/reports/sarif.md), [Trend report](advanced/architecture/ci.md#trend-report), [Audit log](usage/audit-metrics.md), [Prometheus metrics](reference/metrics.md) |
 
 !!! warning "This is not a SAST"
     The pattern scan produces **leads** and false positives. It replaces neither a SAST, nor a

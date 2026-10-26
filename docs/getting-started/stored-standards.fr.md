@@ -1,6 +1,6 @@
 # Normes centralisées
 
-Les [normes de développement](../usage/standards.md) vivent dans le serveur, pas dans les dépôts.
+Les [normes de développement](../review/standards.md) vivent dans le serveur, pas dans les dépôts.
 Cette page explique ce que cela change, et comment y renvoyer un agent depuis `AGENTS.md`.
 
 ## Ce que le serveur conserve

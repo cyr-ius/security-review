@@ -5,7 +5,7 @@ A user account lets a **person** open the web interface. What it may do comes on
 The machines use [tokens](tokens.md) instead.
 
 The command line, the REST API and the settings are in
-[Managing the accounts](../advanced/controller.md#managing-the-accounts).
+[Managing the accounts](../advanced/architecture/controller.md#managing-the-accounts).
 
 | Type | Login | Created |
 |---|---|---|
@@ -37,7 +37,7 @@ An OIDC account has no password: it is managed by the identity provider.
 ## Points to watch
 
 - **A lost password** is replaced by an administrator; the very first administrator is created
-  at the first start of the controller ([first administrator](../advanced/controller.md#first-administrator)).
+  at the first start of the controller ([first administrator](../advanced/architecture/controller.md#first-administrator)).
 - **A deleted OIDC account is not created again** at its next login, until an administrator
   clicks **Allow again** in **Users**.
 - **The last administrator** (holder of `users.manage`) can be neither deleted nor lose that

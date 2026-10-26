@@ -15,7 +15,7 @@ Chaque jeton porte un rôle fixe, qui détermine ce qu'il atteint.
 | Rôle | Pour | Créé |
 |---|---|---|
 | `mcp` | Un agent MCP (Claude Code, Copilot, Codex...) | Écran **Jetons**, ou jeton personnel |
-| `ci` | Le client de pipeline [`security-review-ci`](../advanced/ci.md) : gate, SARIF, tendance, scans | Écran **Jetons**, toujours pour certains projets |
+| `ci` | Le client de pipeline [`security-review-ci`](../advanced/architecture/ci.md) : gate, SARIF, tendance, scans | Écran **Jetons**, toujours pour certains projets |
 | `api` | Les scripts et la documentation Swagger ([jetons API](#jetons-api)) | Écran **Jetons**, ou jeton personnel |
 | `admin` | Les scripts d'administration : toute l'API REST | Ligne de commande uniquement |
 | `metrics` | [Prometheus](../reference/metrics.md) | Ligne de commande uniquement |
@@ -72,11 +72,11 @@ projets que votre compte peut lire, affichés dans la colonne **Projets**.
 Pour un projet qu'il n'atteint pas encore : un administrateur vous en donne l'accès, vous le
 créez depuis **Projets** s'il est nouveau et que vous le pouvez, ou votre agent le demande
 lui-même avant une revue ; la demande attend alors une validation
-([enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)).
+([enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)).
 Quand le jeton est refusé (révoqué ou expiré), l'agent vous invite à vous reconnecter pour en
 créer un nouveau.
 
-Le même jeton sert à [`security-review-ci`](../advanced/ci.md) sur votre poste, par exemple dans
+Le même jeton sert à [`security-review-ci`](../advanced/architecture/ci.md) sur votre poste, par exemple dans
 les [hooks de commit](../getting-started/commit-hooks.md) : un seul jeton pour les deux. Un
 rapport qu'il enregistre vous désigne comme auteur.
 

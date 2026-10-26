@@ -12,14 +12,14 @@ The REST API and the detailed rules are in
 The name is **normalized**: lowercase, the last segment of a repository URL, and a single `-`
 between words. `Mobile App`, `mobile_app` and `git@github.com:acme/mobile-app.git` all give the
 project `mobile-app`, so that the members of a team reach the same project whatever they type
-(see [project name](prompts-tools.md#project-name)).
+(see [project name](../review/prompts-tools.md#project-name)).
 
 ## How a project appears
 
 | Way | Who | Result |
 |---|---|---|
 | **New project** button of the **Projects** screen | A person with `projects.create` | Created at once ([creating a project](#creating-a-project)) |
-| The agent of a developer asks for it before a review | A developer with a [personal MCP token](tokens.md#personal-mcp-and-ci-tokens) | Created at once if the developer may create projects; otherwise listed in **Pending projects**, to approve ([enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests)) |
+| The agent of a developer asks for it before a review | A developer with a [personal MCP token](tokens.md#personal-mcp-and-ci-tokens) | Created at once if the developer may create projects; otherwise listed in **Pending projects**, to approve ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) |
 | First report saved for it | A token that reaches it (pipeline, token for **All projects**) | The project shows with its first report |
 
 A project created without a report shows **No report yet** until its first review.

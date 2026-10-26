@@ -21,7 +21,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `token.rotated` | Le secret d'un jeton est remplacé (`token rotate`, bouton **Renouveler**), avec le délai de grâce |
 | `token.revoked` | Un jeton est révoqué |
 | `token.projects_changed` | Un administrateur change les projets d'un jeton (bouton **Projets** de l'écran **Jetons**), avec les projets précédents (`null` : tous les projets) |
-| `enrollment.requested` | L'agent d'un utilisateur demande un projet avec `request_project` ([enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)), avec le jeton pour acteur, l'utilisateur demandeur, son adresse, si une nouvelle demande a été déposée (`requested`) et si le projet existait déjà (`existing` : une demande d'accès) |
+| `enrollment.requested` | L'agent d'un utilisateur demande un projet avec `request_project` ([enrôlement](architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)), avec le jeton pour acteur, l'utilisateur demandeur, son adresse, si une nouvelle demande a été déposée (`requested`) et si le projet existait déjà (`existing` : une demande d'accès) |
 | `enrollment.approved` | Un utilisateur portant `projects.create` valide un projet en attente (son groupe dans le détail) ; le demandeur est ajouté au groupe (`user.groups_changed`) |
 | `enrollment.rejected` | Un utilisateur refuse un projet en attente, ou il expire (acteur `enrollment`, `reason` : `expired`) |
 | `role.created`, `role.updated`, `role.deleted` | Un administrateur crée, modifie (avec les permissions précédentes) ou supprime un [rôle](../usage/access-control.md#roles) |

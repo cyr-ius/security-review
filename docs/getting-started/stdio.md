@@ -36,7 +36,7 @@ uv pip install --python /opt/security-review-mcp/venv security-review
     (`uv pip uninstall --python /opt/security-review-mcp/venv security-review-mcp`), then install
     `security-review`. The commands, the settings and the database stay the same.
 
-Without Internet access, or from the sources: see [Installation: other cases](../advanced/installation.md).
+Without Internet access, or from the sources: see [Installation: other cases](../advanced/deployment/installation.md).
 
 ## Running
 
@@ -79,4 +79,4 @@ repository:
 }
 ```
 
-To run the server from a container, see [Docker](../advanced/docker.md).
+To run the server from a container, see [Docker](../advanced/deployment/docker.md).

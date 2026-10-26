@@ -5,8 +5,8 @@ The hooks are run by [prek](https://prek.j178.dev) (or [pre-commit](https://pre-
 
 | Hook | When | What it does | Blocks the commit |
 |---|---|---|---|
-| `scan-deps` | before the commit, when a manifest or a lockfile changes | Sends the dependency files to the controller, which checks them against its advisory database ([dependency analysis](../advanced/dependencies.md)) | Yes, when a vulnerable dependency reaches the threshold (`--fail-on`, default `high`) |
-| `agent-review` | after the commit | Has the coding agent of the developer (Claude Code, GitHub Copilot or Codex) review the commit with the MCP server and save a report ([agent review](../advanced/ci.md#agent-review-of-each-commit)) | Never |
+| `scan-deps` | before the commit, when a manifest or a lockfile changes | Sends the dependency files to the controller, which checks them against its advisory database ([dependency analysis](../review/analysis/dependencies.md)) | Yes, when a vulnerable dependency reaches the threshold (`--fail-on`, default `high`) |
+| `agent-review` | after the commit | Has the coding agent of the developer (Claude Code, GitHub Copilot or Codex) review the commit with the MCP server and save a report ([agent review](../advanced/architecture/ci.md#agent-review-of-each-commit)) | Never |
 
 ## 1. Prepare the workstation (once)
 

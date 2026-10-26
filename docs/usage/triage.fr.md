@@ -3,7 +3,7 @@
 Trier un finding, c'est décider de son sort. La décision est toujours prise par une
 **personne** connectée à l'interface web : un agent peut seulement proposer un statut, jamais
 l'appliquer. Le détail de l'API REST, des limites et des réglages est dans
-[Triage par l'API REST](../advanced/triage-api.md).
+[Triage par l'API REST](../advanced/reports/triage-api.md).
 
 | Statut | Signification | Ce qui est demandé | Expire |
 |---|---|---|---|
@@ -21,12 +21,12 @@ l'appliquer. Le détail de l'API REST, des limites et des réglages est dans
 - **Les findings peu graves** (`low` et `info` par défaut) s'acceptent par une simple
   validation, sans motif ni date.
 - **Une acceptation expirée compte de nouveau comme ouverte** partout : listes, posture,
-  [gate](gate.md), SARIF, tendance. La carte indique que la décision a expiré.
+  [gate](../review/gate.md), SARIF, tendance. La carte indique que la décision a expiré.
 - La personne qui décide est enregistrée comme **approbateur**, et chaque décision est inscrite
   au [journal d'audit](audit-metrics.md). Toute décision supprime la proposition en
   attente.
 - Un trieur peut aussi envoyer un finding vers Jira ou ServiceNow quand son projet a une
-  destination ([connecteurs](../connectors/index.md#envoi-dun-finding)).
+  destination ([connecteurs](connectors/index.md#envoi-dun-finding)).
 
 ## Finding signalé de nouveau
 

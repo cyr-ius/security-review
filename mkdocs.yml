@@ -87,6 +87,7 @@ plugins:
             Development standards: Normes de développement
             Getting started: Démarrage
             Home: Accueil
+            Three services, three roles: Trois services, trois rôles
             How a review works: Fonctionnement d'une revue
             Kubernetes: Kubernetes
             Local mode (stdio): Mode local (stdio)
@@ -152,6 +153,7 @@ validation:
 
 nav:
   - Home: index.md
+  - Three services, three roles: services.md
   - Getting started:
       - Shared mode (HTTP): getting-started/deploy.md
       - Local mode (stdio): getting-started/stdio.md
@@ -159,54 +161,54 @@ nav:
       - Commit hooks: getting-started/commit-hooks.md
       - Centralized standards: getting-started/stored-standards.md
   - Security review:
-      - How a review works: usage/how-it-works.md
-      - Rules: usage/rules.md
-      - Checklists: usage/checklists.md
-      - Development standards: usage/standards.md
-      - Gate: usage/gate.md
+      - How a review works: review/index.md
+      - Rules: review/rules.md
+      - Checklists: review/checklists.md
+      - Development standards: review/standards.md
+      - Gate: review/gate.md
       - Analysis:
-          - Whole codebase scan: advanced/code-scan.md
-          - Dependency analysis: advanced/dependencies.md
-          - Read guard for AI assistants: advanced/read-guard.md
+          - Whole codebase scan: review/analysis/code-scan.md
+          - Dependency analysis: review/analysis/dependencies.md
+          - Read guard for AI assistants: review/analysis/read-guard.md
   - Application:
-      - Overview: usage/web-interface.md
-      - Triage of findings: usage/triage.md
-      - Tokens: usage/tokens.md
-      - User accounts: usage/user-accounts.md
+      - Overview: usage/index.md
       - Projects: usage/projects.md
+      - Triage of findings: usage/triage.md
+      - User accounts: usage/user-accounts.md
       - Roles, groups and permissions: usage/access-control.md
+      - Tokens: usage/tokens.md
       - OIDC login: usage/sso.md
       - Audit log: usage/audit-metrics.md
       - Connectors:
-          - Overview: connectors/index.md
-          - Jira: connectors/jira.md
-          - ServiceNow: connectors/servicenow.md
-          - Third-party connectors: connectors/third-party.md
+          - Overview: usage/connectors/index.md
+          - Jira: usage/connectors/jira.md
+          - ServiceNow: usage/connectors/servicenow.md
+          - Third-party connectors: usage/connectors/third-party.md
   - Advanced:
-      - Bearer tokens: advanced/bearer-tokens.md
-      - Access control through the REST API: advanced/access-control-api.md
-      - OIDC login in detail: advanced/oidc.md
-      - Audit log in detail: advanced/audit-log.md
-      - Connectors in detail: advanced/connectors.md
-      - TLS and certificates: advanced/tls.md
       - Architecture:
-          - Overview: advanced/architecture.md
-          - MCP server: advanced/mcp-server.md
-          - Controller: advanced/controller.md
-          - Pipeline client (CI/CD): advanced/ci.md
+          - Overview: advanced/architecture/index.md
+          - MCP server: advanced/architecture/mcp-server.md
+          - Controller: advanced/architecture/controller.md
+          - Pipeline client (CI/CD): advanced/architecture/ci.md
+      - Access control through the REST API: advanced/access-control-api.md
+      - Audit log in detail: advanced/audit-log.md
+      - Bearer tokens: advanced/bearer-tokens.md
+      - Connectors in detail: advanced/connectors.md
       - Deployment:
-          - Docker: advanced/docker.md
-          - Kubernetes: advanced/kubernetes.md
-          - Manual installation (without containers): advanced/manual-install.md
-          - "Installation: other cases": advanced/installation.md
+          - Docker: advanced/deployment/docker.md
+          - Kubernetes: advanced/deployment/kubernetes.md
+          - Manual installation (without containers): advanced/deployment/manual-install.md
+          - "Installation: other cases": advanced/deployment/installation.md
+      - OIDC login in detail: advanced/oidc.md
       - Reports and monitoring:
-          - SARIF export: advanced/sarif.md
-          - Triage through the REST API: advanced/triage-api.md
+          - SARIF export: advanced/reports/sarif.md
+          - Triage through the REST API: advanced/reports/triage-api.md
+      - TLS and certificates: advanced/tls.md
   - References:
-      - Configuration: reference/configuration.md
       - Command line: reference/cli.md
-      - Security and limits: reference/security.md
+      - Configuration: reference/configuration.md
       - Prometheus metrics: reference/metrics.md
+      - Security and limits: reference/security.md
   - Contributing:
       - Overview: contributing/index.md
       - MCP server: contributing/mcp-server.md

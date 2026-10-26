@@ -1,7 +1,7 @@
 # Command line
 
 The `security-review` package installs two commands, one per process (see
-[Architecture](../advanced/architecture.md)), and a pipeline client:
+[Architecture](../advanced/architecture/index.md)), and a pipeline client:
 
 - `security-review-mcp`: the **MCP server** (stdio or HTTP);
 - `security-review-controller`: the **controller** (REST API and web interface), the database
@@ -9,7 +9,7 @@ The `security-review` package installs two commands, one per process (see
 - `security-review-ci`: the **pipeline client** of the controller REST API (`ci` token, Python
   standard library only, no database access): gate, SARIF, trend, code and dependency scans.
   It is also published alone, without the server, as the `security-review-ci` package
-  (Python 3.14, see [Installation](../advanced/ci.md#installation)).
+  (Python 3.14, see [Installation](../advanced/architecture/ci.md#installation)).
 
 ```bash
 uv pip install security-review-ci
@@ -19,7 +19,7 @@ uv pip install security-review-ci
 
 | Command | Role | Page |
 |---|---|---|
-| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server (`streamable-http` by default, for the shared mode; `--transport stdio` accepts a SQLite database only) | [Manual installation](../advanced/manual-install.md#5-start-the-mcp-server) |
+| `serve [--transport …] [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Starts the MCP server (`streamable-http` by default, for the shared mode; `--transport stdio` accepts a SQLite database only) | [Manual installation](../advanced/deployment/manual-install.md#5-start-the-mcp-server) |
 | `local` | Starts the MCP server of the local mode (stdio), on the local SQLite database: ignores remote databases, hence `SECREVIEW_DATABASE_URL` | [Local mode](../getting-started/stdio.md) |
 
 Without a command, `security-review-mcp` prints its usage.
@@ -32,8 +32,8 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 
 | Command | Role | Page |
 |---|---|---|
-| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Serves the REST API (`/api/v1`) and the web interface (`/ui`) | [Controller](../advanced/controller.md), [TLS](../advanced/tls.md) |
-| `db upgrade` / `db status` | Migrates the schema (Alembic) and seeds the default rules, or shows the revision | [Schema migrations](../advanced/controller.md#schema-migrations) |
+| `serve [--host …] [--port …] [--tls-certfile …] [--tls-keyfile …]` | Serves the REST API (`/api/v1`) and the web interface (`/ui`) | [Controller](../advanced/architecture/controller.md), [TLS](../advanced/tls.md) |
+| `db upgrade` / `db status` | Migrates the schema (Alembic) and seeds the default rules, or shows the revision | [Schema migrations](../advanced/architecture/controller.md#schema-migrations) |
 | `db prune [--days N]` | Deletes the reports without findings older than `N` days (default `SECREVIEW_EMPTY_REPORT_RETENTION_DAYS`), except the latest of each project | [Retention](configuration.md#retention-of-reports-without-findings) |
 | `token create --label NAME [--role ROLE] [--project P …] [--expires-in-days N]` | Creates a Bearer token, possibly limited to several projects and with a validity, and shows its secret once | [Bearer tokens](../advanced/bearer-tokens.md), [roles](../usage/tokens.md) |
 | `token list [--project P]` / `token revoke ID\|LABEL` | Lists or revokes the tokens | [Bearer tokens](../advanced/bearer-tokens.md) |
@@ -42,12 +42,12 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 | `user create NAME [--sso] [--group G …] [--password-stdin]` | Creates a [web interface account](../usage/user-accounts.md), member of the groups `G` (the only source of its permissions): local (without `--password-stdin`, the password is generated and shown once) or OIDC with `--sso` (no password; it also joins its OIDC groups at each login) | [User accounts](../usage/user-accounts.md) |
 | `user list` / `user set-groups NAME [--group G …]` / `user delete NAME` | Lists the accounts (never their digest) with their groups and permissions, replaces the groups given to an account (its OIDC groups are kept; `administrators` is created with the `admin` role when missing, to restore an administrator) or deletes it (a deleted OIDC account is no longer created again by a login); the last holder of `users.manage` is kept | [User accounts](../usage/user-accounts.md) |
 | `group list` / `group roles` | Lists the groups (roles, projects, members) or the roles (permissions); they are managed in the web interface | [Roles, groups and permissions](../usage/access-control.md#groups) |
-| `project list` / `project approve ID` / `project reject ID` | Lists the projects requested by the MCP agents of users (requester, address, expiry; `existing`: access request to an existing project), adds the requester to the group `project:<project>` (created for a new project) or deletes the request | [Enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests) |
-| `user reset-password NAME [--password-stdin]` | Replaces the password of a local account (generated by default) and closes its sessions | [Lost password](../advanced/controller.md#lost-password) |
-| `rules list` / `rules import PATH…` / `rules export` | Lists, imports (TOML packs) or exports the rules stored in the database | [Rules](../usage/rules.md#rules-command) |
-| `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Enables, disables (default or custom rules) or deletes custom rules | [Rules](../usage/rules.md#rules-command) |
-| `advisories import PATH` / `advisories status` | Management of the offline OSV database | [Dependencies](../advanced/dependencies.md#offline-vulnerability-database-osv-format) |
-| `advisories update [--ecosystem E …]` | Downloads the OSV exports (`SECREVIEW_OSV_*`, optional proxy) and imports them; code `2` if an ecosystem fails | [Automatic update](../advanced/dependencies.md#automatic-update-by-the-controller) |
+| `project list` / `project approve ID` / `project reject ID` | Lists the projects requested by the MCP agents of users (requester, address, expiry; `existing`: access request to an existing project), adds the requester to the group `project:<project>` (created for a new project) or deletes the request | [Enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests) |
+| `user reset-password NAME [--password-stdin]` | Replaces the password of a local account (generated by default) and closes its sessions | [Lost password](../advanced/architecture/controller.md#lost-password) |
+| `rules list` / `rules import PATH…` / `rules export` | Lists, imports (TOML packs) or exports the rules stored in the database | [Rules](../review/rules.md#rules-command) |
+| `rules enable ID…` / `rules disable ID…` / `rules delete ID…` | Enables, disables (default or custom rules) or deletes custom rules | [Rules](../review/rules.md#rules-command) |
+| `advisories import PATH` / `advisories status` | Management of the offline OSV database | [Dependencies](../review/analysis/dependencies.md#offline-vulnerability-database-osv-format) |
+| `advisories update [--ecosystem E …]` | Downloads the OSV exports (`SECREVIEW_OSV_*`, optional proxy) and imports them; code `2` if an ecosystem fails | [Automatic update](../review/analysis/dependencies.md#automatic-update-by-the-controller) |
 
 When running `serve`, the data is verified, and a schema migration is performed if necessary.
 The variable `SECREVIEW_DB_AUTO_UPGRADE=false` disables schema migration.
@@ -61,12 +61,12 @@ exits with code `2`.
 
 | Command | Role | Page |
 |---|---|---|
-| `gate --project P [--fail-on SEV] [--report-id N]` | Deployment gate through the REST API | [Pipeline client](../advanced/ci.md) |
-| `sarif --project P [--include-resolved] [-o FILE]` | SARIF 2.1.0 export through the REST API | [SARIF](../advanced/sarif.md) |
-| `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Trend report through the REST API | [Trends](../advanced/ci.md#trend-report) |
-| `scan-code [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FILE] [--save]` | Reads the files of the repository and has the controller scan them with its rules; `--save` stores a report | [Whole codebase scan](../advanced/code-scan.md) |
-| `scan-deps FILE… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Sends manifests, lockfiles or CycloneDX SBOMs to the controller, which checks them against its advisory database; `--save` stores a report | [Dependencies](../advanced/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps) |
-| `agent-review --project P [--agent claude\|copilot\|codex] [--mcp-config FILE] [--mcp-server NAME] [--foreground]` | Has the coding agent of the developer review the last commit with the `security-review` MCP server of its MCP configuration (post-commit hook); never contacts the controller; exits with `0` when the review starts or is skipped, `2` outside a git repository | [Pipeline client](../advanced/ci.md#agent-review-of-each-commit) |
+| `gate --project P [--fail-on SEV] [--report-id N]` | Deployment gate through the REST API | [Pipeline client](../advanced/architecture/ci.md) |
+| `sarif --project P [--include-resolved] [-o FILE]` | SARIF 2.1.0 export through the REST API | [SARIF](../advanced/reports/sarif.md) |
+| `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Trend report through the REST API | [Trends](../advanced/architecture/ci.md#trend-report) |
+| `scan-code [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FILE] [--save]` | Reads the files of the repository and has the controller scan them with its rules; `--save` stores a report | [Whole codebase scan](../review/analysis/code-scan.md) |
+| `scan-deps FILE… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Sends manifests, lockfiles or CycloneDX SBOMs to the controller, which checks them against its advisory database; `--save` stores a report | [Dependencies](../review/analysis/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps) |
+| `agent-review --project P [--agent claude\|copilot\|codex] [--mcp-config FILE] [--mcp-server NAME] [--foreground]` | Has the coding agent of the developer review the last commit with the `security-review` MCP server of its MCP configuration (post-commit hook); never contacts the controller; exits with `0` when the review starts or is skipped, `2` outside a git repository | [Pipeline client](../advanced/architecture/ci.md#agent-review-of-each-commit) |
 
 `scan-code` and `scan-deps` also accept `--repository`, `--branch`, `--commit` and `--author`,
 stored with the report (`--author` is not needed with a personal token, whose user is the

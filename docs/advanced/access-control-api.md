@@ -84,7 +84,7 @@ OIDC group is not blocked.
 
 The **project group** of a project is a group not open to OIDC whose only role is `reader` on
 that project alone. The approval of a project requested by an agent
-([enrollment](mcp-server.md#enrollment-personal-token-and-project-requests)) adds the requesting
+([enrollment](architecture/mcp-server.md#enrollment-personal-token-and-project-requests)) adds the requesting
 user to it (creating it for a new project; for an existing project, the request is an access
 request, which only a user holding `users.manage` approves), and creating a project creates it
 with its creator. An existing group of this kind is reused (even one made by an administrator,

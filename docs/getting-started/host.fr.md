@@ -105,7 +105,7 @@ En mode partagé, quand le serveur exige un jeton, vous utilisez un **jeton MCP 
 l'interface web. Inutile d'en réclamer un à un administrateur avant de commencer : configurez
 l'hôte comme ci-dessus, **sans jeton**, et lancez votre première revue. L'agent vous indique où
 créer votre jeton, puis demande le projet à la revue suivante (voir
-[l'enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)).
+[l'enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)).
 
 1. **Configurez l'hôte sans jeton.** Avec les exemples de la section
    [Transport HTTP](#transport-http), laissez la saisie du jeton vide (VS Code), ne définissez
@@ -153,7 +153,7 @@ créer votre jeton, puis demande le projet à la revue suivante (voir
 Quand le serveur refuse le jeton (inconnu, révoqué ou expiré), l'hôte reçoit `401` avec un
 message qui vous invite à vous reconnecter à l'interface web pour créer un nouveau jeton MCP
 personnel : remplacez-le dans l'hôte comme à l'étape 4 (voir
-[jeton refusé](../advanced/mcp-server.md#jeton-refuse-se-reconnecter)).
+[jeton refusé](../advanced/architecture/mcp-server.md#jeton-refuse-se-reconnecter)).
 
 !!! note
     Si l'administrateur a désactivé l'enrôlement (`SECREVIEW_ENROLLMENT=false`), un hôte sans
@@ -168,4 +168,4 @@ personnel : remplacez-le dans l'hôte comme à l'étape 4 (voir
 - **Mode local (stdio)**, sans serveur (l'hôte lance lui-même le processus) : voir
   [Mode local (stdio)](stdio.md).
 
-**Étape suivante :** lancez votre première revue avec les [prompts et outils](../usage/prompts-tools.md).
+**Étape suivante :** lancez votre première revue avec les [prompts et outils](../review/prompts-tools.md).

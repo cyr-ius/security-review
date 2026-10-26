@@ -6,7 +6,7 @@ vient uniquement de ses **groupes** : leurs rôles donnent ses
 utilisent des [jetons](tokens.md).
 
 La ligne de commande, l'API REST et les réglages sont dans
-[Gérer les comptes](../advanced/controller.md#gerer-les-comptes).
+[Gérer les comptes](../advanced/architecture/controller.md#gerer-les-comptes).
 
 | Type | Connexion | Création |
 |---|---|---|
@@ -40,7 +40,7 @@ Un compte OIDC n'a pas de mot de passe : il est géré par le fournisseur d'iden
 
 - **Un mot de passe perdu** est remplacé par un administrateur ; le tout premier administrateur
   est créé au premier démarrage du contrôleur
-  ([premier administrateur](../advanced/controller.md#premier-administrateur)).
+  ([premier administrateur](../advanced/architecture/controller.md#premier-administrateur)).
 - **Un compte OIDC supprimé n'est pas recréé** à sa prochaine connexion, tant qu'un
   administrateur n'a pas cliqué sur **Autoriser à nouveau** dans **Utilisateurs**.
 - **Le dernier administrateur** (détenteur de `users.manage`) ne peut être ni supprimé ni perdre

@@ -1,6 +1,6 @@
 # Connectors in detail
 
-The [connectors](../connectors/index.md) page describes the connectors in the web interface.
+The [connectors](../usage/connectors/index.md) page describes the connectors in the web interface.
 This page gives the variables, the automatic sending, the content sent, the guarantees and the
 REST API.
 
@@ -41,7 +41,7 @@ most 5 times, 15 minutes after the first failure, then with a doubled delay.
 ### One record per issue
 
 A finding found again by a later report (same project, rule, file and title: the
-[SARIF fingerprint](sarif.md)) reuses the record of the first occurrence: no new
+[SARIF fingerprint](reports/sarif.md)) reuses the record of the first occurrence: no new
 record is created. Sending a finding that already has its record returns it.
 
 ### Content sent

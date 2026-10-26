@@ -91,7 +91,7 @@ SQL goes through the ORM only (SQLModel, bound parameters), never through a stri
 `connectors/api.py` is the contract of the third-party connectors: do not break it without
 incrementing `API_VERSION`. A connector only goes out through `connectors.transport` (HTTPS,
 configured URL, proxy, no redirect, bounded response). See
-[third-party connectors](../connectors/third-party.md).
+[third-party connectors](../usage/connectors/third-party.md).
 
 ## Tests
 
@@ -104,5 +104,5 @@ configured URL, proxy, no redirect, bounded response). See
 | `web_sessions` | `secured` with logged-in web users (`reader`, `triager`), for the routes reserved to sessions |
 
 Check the status code and the body, and at least one refusal (`401`, `403` or `404` outside
-the scope) for a new route. See also the [web interface](../usage/web-interface.md) and the
+the scope) for a new route. See also the [web interface](../usage/index.md) and the
 [roles and permissions](../usage/access-control.md) as users see them.

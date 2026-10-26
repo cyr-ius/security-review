@@ -5,8 +5,8 @@ Les hooks sont exécutés par [prek](https://prek.j178.dev) (ou [pre-commit](htt
 
 | Hook | Quand | Ce qu'il fait | Bloque le commit |
 |---|---|---|---|
-| `scan-deps` | avant le commit, quand un manifeste ou un lockfile change | Envoie les fichiers de dépendances au contrôleur, qui les compare à sa base d'avis ([analyse des dépendances](../advanced/dependencies.md)) | Oui, quand une dépendance vulnérable atteint le seuil (`--fail-on`, `high` par défaut) |
-| `agent-review` | après le commit | Fait relire le commit par l'agent de code du développeur (Claude Code, GitHub Copilot ou Codex) avec le serveur MCP, qui enregistre un rapport ([revue par un agent](../advanced/ci.md#revue-de-chaque-commit-par-un-agent)) | Jamais |
+| `scan-deps` | avant le commit, quand un manifeste ou un lockfile change | Envoie les fichiers de dépendances au contrôleur, qui les compare à sa base d'avis ([analyse des dépendances](../review/analysis/dependencies.md)) | Oui, quand une dépendance vulnérable atteint le seuil (`--fail-on`, `high` par défaut) |
+| `agent-review` | après le commit | Fait relire le commit par l'agent de code du développeur (Claude Code, GitHub Copilot ou Codex) avec le serveur MCP, qui enregistre un rapport ([revue par un agent](../advanced/architecture/ci.md#revue-de-chaque-commit-par-un-agent)) | Jamais |
 
 ## 1. Préparer le poste (une fois)
 

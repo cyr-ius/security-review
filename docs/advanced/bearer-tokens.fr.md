@@ -1,9 +1,9 @@
 # Jetons Bearer
 
-Les jetons du [serveur MCP](mcp-server.md) et du [contrôleur](controller.md) se gèrent avec la
+Les jetons du [serveur MCP](architecture/mcp-server.md) et du [contrôleur](architecture/controller.md) se gèrent avec la
 CLI du contrôleur. Ce que chaque jeton peut atteindre est dans [Jetons](../usage/tokens.md) ;
-les routes servies par chaque processus sont dans [Ce qu'il sert](mcp-server.md#ce-quil-sert)
-(serveur MCP) et [Ce qu'il sert](controller.md#ce-quil-sert) (contrôleur).
+les routes servies par chaque processus sont dans [Ce qu'il sert](architecture/mcp-server.md#ce-quil-sert)
+(serveur MCP) et [Ce qu'il sert](architecture/controller.md#ce-quil-sert) (contrôleur).
 
 Les jetons sont stockés dans la base de données (table `apitoken`) : seule leur empreinte
 SHA-256 est conservée, le secret n'est affiché qu'une fois, à la création. Gérez-les avec la
@@ -38,7 +38,7 @@ son auteur.
 ## Avant le premier jeton
 
 Tant qu'aucun jeton n'existe, l'API du contrôleur répond `503` et le serveur MCP **reste
-fermé** : un client sans jeton n'atteint que le [serveur d'enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) (sans outil),
+fermé** : un client sans jeton n'atteint que le [serveur d'enrôlement](architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) (sans outil),
 toute autre requête reçoit `401`, quelle que soit la valeur Bearer (un avertissement est
 journalisé au démarrage). `/mcp` n'est ouvert dans ce cas que si le serveur écoute sur localhost
 (`127.0.0.1`, `::1`) ou avec `SECREVIEW_ALLOW_UNAUTHENTICATED=true`, à réserver aux tests sur un
@@ -49,7 +49,7 @@ stderr quand il supprime le dernier jeton.
 
 Un jeton peut expirer : après sa date d'expiration il n'authentifie plus rien (`401`,
 `error="invalid_token"`, description `The bearer token has expired`, suivie sur `/mcp` de la
-façon d'[en obtenir un nouveau](mcp-server.md#jeton-refuse-se-reconnecter)), mais il reste listé pour
+façon d'[en obtenir un nouveau](architecture/mcp-server.md#jeton-refuse-se-reconnecter)), mais il reste listé pour
 qu'un administrateur le renouvelle ou le révoque. `SECREVIEW_TOKEN_MAX_DAYS` (`0` par défaut)
 fixe la validité maximale d'un jeton créé ou renouvelé, et sa validité par défaut ; à `0`, les
 jetons n'expirent pas, sauf validité demandée.
@@ -84,7 +84,7 @@ security-review-controller token create --label shop-gate --role ci --project sh
 ```
 
 Un jeton sans `--project` accède à tous les projets. Dans l'interface web, l'écran
-[**Jetons**](../usage/web-interface.md#ecrans) crée un jeton pour certains projets ou pour
+[**Jetons**](../usage/index.md#ecrans) crée un jeton pour certains projets ou pour
 **Tous les projets**, et change les projets d'un jeton existant (sauf `admin` et `metrics` ; un
 jeton `ci` garde toujours au moins un projet). Un jeton restreint :
 
@@ -117,7 +117,7 @@ curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/proj
 
 Ses changements de statut se limitent à `open` et `fixed`, comme ceux d'un jeton `api` avec
 `findings.triage` : `accepted` et `false_positive` exigent une session
-([triage par l'API REST](triage-api.md)).
+([triage par l'API REST](reports/triage-api.md)).
 
 L'API REST liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
 du plus grave au moins grave (filtres `status`, `severity` et `review_type`, `limit` plafonné par
@@ -195,7 +195,7 @@ compte** ne propose donc plus de jeton `ci` personnel. L'API en crée encore un 
 deux usages (il n'atteint jamais `/mcp`), et ceux déjà créés restent listés jusqu'à leur
 révocation. Un rapport enregistré par l'un ou l'autre est soumis par le jeton (`alice:laptop`),
 et son utilisateur en est l'auteur (voir
-[scan depuis un poste de travail](dependencies.md#scan-depuis-un-poste-de-travail-hook-de-commit)).
+[scan depuis un poste de travail](../review/analysis/dependencies.md#scan-depuis-un-poste-de-travail-hook-de-commit)).
 Un jeton `mcp` créé par un administrateur sur l'écran **Jetons** reste un jeton d'agent MCP
 seulement.
 

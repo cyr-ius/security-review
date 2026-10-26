@@ -56,7 +56,7 @@ SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # revenir 
 ```
 
 Le démon Docker permet de construire et de lancer l'image du
-[Dockerfile](../advanced/docker.md) sans quitter le conteneur.
+[Dockerfile](../advanced/deployment/docker.md) sans quitter le conteneur.
 
 ## Construire l'image
 
@@ -64,7 +64,7 @@ Le démon Docker permet de construire et de lancer l'image du
 docker build -t security-review-mcp .   # SQLite et PostgreSQL (pilote inclus)
 ```
 
-Le build compile aussi l'[interface web](../usage/web-interface.md) (étape Node.js) ;
+Le build compile aussi l'[interface web](../usage/index.md) (étape Node.js) ;
 elle est servie sur `/ui/` par le contrôleur.
 
 L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. Son
@@ -176,5 +176,5 @@ tester :
 
 Les normes génériques de chaque technologie (Python et FastAPI, Angular, tests) sont servies par
 le projet lui-même : prompt `development-standards`, outil `get_development_standards` (voir
-[normes de développement](../usage/standards.md)). Ces pages ne gardent que ce qui est propre à
+[normes de développement](../review/standards.md)). Ces pages ne gardent que ce qui est propre à
 ce dépôt ; en cas de conflit, elles prévalent.

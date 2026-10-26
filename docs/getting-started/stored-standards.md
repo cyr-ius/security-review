@@ -1,6 +1,6 @@
 # Centralized standards
 
-The [development standards](../usage/standards.md) live in the server, not in the repositories.
+The [development standards](../review/standards.md) live in the server, not in the repositories.
 This page explains what that changes, and how to point an agent to them from `AGENTS.md`.
 
 ## What the server keeps

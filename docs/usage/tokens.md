@@ -15,7 +15,7 @@ Every token has a fixed role, which decides what it reaches.
 | Role | For | Created |
 |---|---|---|
 | `mcp` | An MCP agent (Claude Code, Copilot, Codex...) | **Tokens** screen, or personal token |
-| `ci` | The pipeline client [`security-review-ci`](../advanced/ci.md): gate, SARIF, trend, scans | **Tokens** screen, always for some projects |
+| `ci` | The pipeline client [`security-review-ci`](../advanced/architecture/ci.md): gate, SARIF, trend, scans | **Tokens** screen, always for some projects |
 | `api` | Scripts and the Swagger documentation ([API tokens](#api-tokens)) | **Tokens** screen, or personal token |
 | `admin` | Administration scripts: the whole REST API | Command line only |
 | `metrics` | [Prometheus](../reference/metrics.md) | Command line only |
@@ -69,11 +69,11 @@ projects your account may read, shown in the **Projects** column.
 
 For a project it does not reach yet: an administrator gives you access to it, you create it
 from **Projects** if it is new and you may, or your agent asks for it itself before a review;
-the request then waits for an approval ([enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests)).
+the request then waits for an approval ([enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)).
 When the token is refused (revoked or expired), the agent tells you to sign in again and create
 a new one.
 
-The same token serves [`security-review-ci`](../advanced/ci.md) on your workstation, for
+The same token serves [`security-review-ci`](../advanced/architecture/ci.md) on your workstation, for
 example in the [commit hooks](../getting-started/commit-hooks.md): one token for both. A report
 it saves shows you as its author.
 

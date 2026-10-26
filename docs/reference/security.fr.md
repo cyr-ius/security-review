@@ -4,7 +4,7 @@
 
 - **Deux processus** : le serveur MCP (exposé aux agents) et le contrôleur (API REST, interface
   web, administration) tournent séparément et ne partagent que la base (voir
-  [Architecture](../advanced/architecture.md)). Le serveur MCP n'accepte que les
+  [Architecture](../advanced/architecture/index.md)). Le serveur MCP n'accepte que les
   jetons `mcp` et `admin`, le contrôleur que les sessions web et les jetons `admin` et `api`, plus `ci` sur ses
   routes de pipeline (`/api/v1/ci/` : gate, SARIF et tendance en lecture seule, scans qui
   enregistrent des rapports de ses projets) et nulle part ailleurs. Le contrôleur
@@ -45,7 +45,7 @@
   [expiration et renouvellement](../advanced/bearer-tokens.md#expiration-et-renouvellement-des-jetons)).
 - **Jetons refusés sur `/mcp`** : un jeton inconnu, révoqué ou expiré reçoit un `401` dont la
   description invite l'utilisateur à se connecter à l'interface web pour créer un nouveau jeton
-  MCP personnel (voir [jeton refusé](../advanced/mcp-server.md#jeton-refuse-se-reconnecter)) ; il
+  MCP personnel (voir [jeton refusé](../advanced/architecture/mcp-server.md#jeton-refuse-se-reconnecter)) ; il
   n'atteint jamais le serveur d'enrôlement. Chaque refus est aussi journalisé en avertissement
   par le serveur MCP (`Rejected unauthenticated request` / `Rejected expired token`, avec
   l'adresse du client) ; la [métrique](metrics.md)
@@ -72,7 +72,7 @@
   un administrateur). Il ne lit que le
   gate, le journal SARIF et la tendance de ses projets ; les autres routes du contrôleur, `/mcp`
   et l'interface web répondent `403`, les autres projets `404`. Le client de pipeline
-  ([`security-review-ci`](../advanced/ci.md)) n'ouvre
+  ([`security-review-ci`](../advanced/architecture/ci.md)) n'ouvre
   aucune base, ne lit le jeton que dans l'environnement ou sur stdin, refuse le HTTP en clair
   hors localhost, les identifiants dans l'URL et les redirections, et borne les réponses.
 - **Enrôlement** (actif par défaut, `SECREVIEW_ENROLLMENT`) : un client sans jeton atteint un
@@ -90,7 +90,7 @@
   par utilisateur ou jeton et par heure), et
   une demande que personne n'a validée sous `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` est
   supprimée : vérifiez le demandeur avant de valider. Chaque demande est auditée. Voir
-  [l'enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet).
+  [l'enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet).
 - **Appels réseau sortants** : le serveur MCP n'en fait aucun, et ne charge même pas les
   modules du contrôleur qui en font (téléchargement des avis, OIDC, syslog, connecteurs, recherche
   de nouvelle version) : un test le vérifie. Le contrôleur ne télécharge les avis OSV que si un administrateur l'active
@@ -105,7 +105,7 @@
   passe remplacé par `***`) et les messages d'erreur de l'historique en sont expurgés, mais
   préférez `HTTPS_PROXY` (secret Kubernetes) si la base n'est pas protégée comme un
   secret. Voir la
-  [mise à jour automatique](../advanced/dependencies.md#mise-a-jour-automatique-par-le-controleur).
+  [mise à jour automatique](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-controleur).
   Avec la [connexion OIDC](../advanced/oidc.md)
   (`SECREVIEW_OIDC_ENABLED`, désactivée par défaut), le contrôleur contacte aussi le fournisseur
   d'identité configuré : HTTPS uniquement (HTTP seulement sur localhost), redirections limitées
@@ -198,10 +198,10 @@
   résumé, la description, la preuve et la recommandation enregistrés dans un rapport (puis coupés
   de nouveau à `SECREVIEW_MAX_CONTENT_CHARS`) : rien n'est supprimé, le texte caché devient
   lisible. Les
-  [règles `AI-*`](../usage/rules.md#regles-par-defaut-par-plateforme) signalent les caractères
+  [règles `AI-*`](../review/rules.md#regles-par-defaut-par-plateforme) signalent les caractères
   cachés et le texte adressé à un assistant IA, pour que la gate puisse les bloquer. Le serveur
   ne voit que ce que l'agent lui envoie : il ne peut pas filtrer les fichiers que l'hôte lit avec
-  ses propres outils ; la [garde de lecture](../advanced/read-guard.md), un hook côté hôte, les
+  ses propres outils ; la [garde de lecture](../review/analysis/read-guard.md), un hook côté hôte, les
   vérifie avant que l'assistant ne les lise.
 - **Comptes utilisateurs** ([identifiant et mot de passe](../usage/user-accounts.md)) :
   seule une empreinte **scrypt** salée (N=2¹⁴, r=8, p=5, sel aléatoire de 16 octets) est
@@ -281,7 +281,7 @@
   jeton refusé reçoit son `401` avant que son corps soit lu.
 - **Base de données** : les requêtes SQL passent par l'ORM (paramètres liés) ; les tailles
   d'entrée, le nombre de findings et la pagination sont bornés. Chaque nom de projet est
-  [normalisé](../usage/prompts-tools.md#nom-du-projet) avant usage : seuls des lettres, des
+  [normalisé](../review/prompts-tools.md#nom-du-projet) avant usage : seuls des lettres, des
   chiffres et des tirets simples atteignent la base, les journaux, les libellés des métriques et
   les noms de fichiers. Le schéma est migré par
   Alembic ; le serveur MCP HTTP ne le modifie jamais et refuse de servir une base qui n'est pas
@@ -290,13 +290,13 @@
   premier lancement. Si la base est inaccessible ou n'a jamais été initialisée, le serveur
   applique directement ce fichier : le scan ne tourne jamais sans règles. Une règle par défaut
   peut être modifiée ou désactivée par un administrateur, mais pas supprimée
-  (voir [Règles](../usage/rules.md#regles-par-defaut)).
+  (voir [Règles](../review/rules.md#regles-par-defaut)).
 - **Normes de développement** : leur contenu est transmis tel quel à l'assistant IA comme
   consignes ; seuls les administrateurs du contrôleur les écrivent (champs validés et bornés,
   200 normes de 50 000 caractères au plus). Le serveur MCP les lit seulement, et la tâche
   fournie au prompt `development-standards` est encadrée pour ne pas pouvoir en sortir. Le prompt
   rappelle qu'une norme ne prime jamais sur la sécurité (voir
-  [Normes de développement](../usage/standards.md)).
+  [Normes de développement](../review/standards.md)).
 - **Journaux** sur stderr (stdout est réservé au protocole en stdio).
 - **Mode local (stdio) sur SQLite uniquement** : sans jeton, il refuse une base partagée
   (PostgreSQL...) où il contournerait les permissions des projets et migrerait le schéma de
@@ -314,12 +314,12 @@
 - Les règles sont des motifs ligne par ligne : elles ne voient ni le flux de données ni les
   contrôles absents (autorisation manquante, par exemple). Ce travail reste celui de l'agent
   guidé par les checklists, et de vos outils SAST/SCA.
-- Les quelques [analyses Tree-sitter](../usage/rules.md#regles-par-defaut) (`PY-026`, `JV-019`,
+- Les quelques [analyses Tree-sitter](../review/rules.md#regles-par-defaut) (`PY-026`, `JV-019`,
   `NG-021`, `GO-019`, `CS-021`, `RS-015`, `TS-016`) ne suivent que des flux simples dans un seul
   fichier. Elles sont bornées pour qu'un fichier piégé ne puisse pas bloquer un scan : chaque
   fonction est analysée une fois par état d'entrée, et le code trop imbriqué n'est contrôlé que
   par les motifs.
-- La [couverture d'une revue](../usage/prompts-tools.md#couverture-de-la-revue) (résultats de
+- La [couverture d'une revue](../review/prompts-tools.md#couverture-de-la-revue) (résultats de
   checklist, règles des pistes du scan) est déclarée par l'agent : le serveur ne garde que les
   identifiants qu'il connaît et marque `not_covered` les points sautés, il ne peut pas vérifier
   que l'agent a réellement lu le code.
@@ -329,7 +329,7 @@
   par le client : quiconque détient un tel jeton du projet peut nommer quelqu'un d'autre.
   `submitted_by`, le libellé du jeton qui a enregistré le rapport, est toujours fixé par le
   serveur (voir
-  [auteur d'un rapport](../usage/prompts-tools.md#auteur-dun-rapport)). Un `author` est souvent
+  [auteur d'un rapport](../review/prompts-tools.md#auteur-dun-rapport)). Un `author` est souvent
   une adresse e-mail, donc une donnée personnelle, conservée aussi longtemps que le rapport :
   dans l'interface web et l'API REST, seul qui détient `users.manage` ou `tokens.manage` la voit
   (les autres ne peuvent pas non plus la retrouver par le filtre, la recherche ou le tri) ; les

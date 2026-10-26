@@ -2,7 +2,7 @@
 
 A third-party connector is a Python package that the controller loads to send the findings to
 another system. This page is for its developers; to install and allow a connector, see
-[Third-party connectors](../connectors/third-party.md).
+[Third-party connectors](../usage/connectors/third-party.md).
 
 A connector is a subclass of `Connector` (module `security_review_mcp.connectors.api`, version
 `API_VERSION = 2`). The complete example

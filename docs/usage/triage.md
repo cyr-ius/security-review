@@ -3,7 +3,7 @@
 Triaging a finding means deciding what to do with it. The decision is always taken by a
 **person** signed in to the web interface: an agent can only propose a status, never apply it.
 The details of the REST API, the limits and the settings are in
-[Triage through the REST API](../advanced/triage-api.md).
+[Triage through the REST API](../advanced/reports/triage-api.md).
 
 | Status | Meaning | What is asked | Expires |
 |---|---|---|---|
@@ -20,12 +20,12 @@ Worth knowing:
   applying it.
 - **Low-severity findings** (`low` and `info` by default) are accepted by a plain validation,
   with no reason and no date.
-- **An expired acceptance counts as open again** everywhere: lists, posture, [gate](gate.md),
+- **An expired acceptance counts as open again** everywhere: lists, posture, [gate](../review/gate.md),
   SARIF, trend. The card says that the decision has expired.
 - The person who decides is recorded as the **approver**, and every decision is written to the
   [audit log](audit-metrics.md). Any decision removes the pending proposal.
 - A triager may also send a finding to Jira or ServiceNow when its project has a destination
-  ([connectors](../connectors/index.md#sending-a-finding)).
+  ([connectors](connectors/index.md#sending-a-finding)).
 
 ## Finding reported again
 

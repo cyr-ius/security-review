@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parent.parent
 NAME = "security-review-ci"
 MODULE = "security_review_ci"
 DOCUMENTATION = (
-    "https://cyr-ius.github.io/security-review/usage/gate/#pipeline-client-security-review-ci"
+    "https://cyr-ius.github.io/security-review/review/gate/#pipeline-client-security-review-ci"
 )
 DESCRIPTION = (
     "Pipeline and workstation client of the security-review-mcp controller: gate, SARIF, "

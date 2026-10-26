@@ -2,7 +2,7 @@
 
 Cette page met en place le **mode partagé (HTTP)** pour une équipe : le contrôleur (interface web,
 administration, pipelines) et le serveur MCP (utilisé par les agents), sur la même base. Voir
-[trois services, trois rôles](../index.md#trois-services-trois-roles).
+[trois services, trois rôles](../services.md).
 
 ```mermaid
 flowchart LR
@@ -32,7 +32,7 @@ flowchart LR
 - d'un compte `admin` pour gérer les utilisateurs, les jetons et les règles.
 
 Sans conteneur, tout-en-un sur un serveur Linux : voir la section Avancé
-[Installation manuelle (sans conteneur)](../advanced/manual-install.md).
+[Installation manuelle (sans conteneur)](../advanced/deployment/manual-install.md).
 
 ## Avec Docker Compose
 
@@ -62,7 +62,7 @@ Le serveur MCP sur `http://127.0.0.1:8000/mcp`.
     `user reset-password admin` dans le conteneur, et traitez ce qu'elle affiche comme un secret.
     Si vous le perdez, relancez la commande (l'ancien est aussitôt invalidé).
 
-**Pour plus d'informations :** voir [Docker](../advanced/docker.md) dans la section **Avancé**
+**Pour plus d'informations :** voir [Docker](../advanced/deployment/docker.md) dans la section **Avancé**
 (ouverture à l'équipe, TLS, mise à jour OSV, sauvegardes, mise à niveau de PostgreSQL, sans Docker
 Compose).
 
@@ -113,7 +113,7 @@ manifeste, `SECREVIEW_CONTROLLER_URL` (URL publique racine du contrôleur) et
 `SECREVIEW_FORWARDED_ALLOW_IPS` (plage d'adresses des pods de l'ingress controller : sans ce
 réglage, tous les clients semblent venir de la même adresse, celle de l'Ingress).
 
-**Pour plus d'informations :** voir [Kubernetes](../advanced/kubernetes.md) dans la section
+**Pour plus d'informations :** voir [Kubernetes](../advanced/deployment/kubernetes.md) dans la section
 **Avancé** (PostgreSQL existant, contenu des manifestes, Secrets, exposition, mise à jour OSV,
 plusieurs réplicas).
 
