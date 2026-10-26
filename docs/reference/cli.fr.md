@@ -8,11 +8,18 @@ Le paquet `security-review` installe deux commandes, une par processus (voir
   données et l'administration ;
 - `security-review-ci` : le **client de pipeline** de l'API REST du contrôleur (jeton `ci`,
   bibliothèque standard de Python uniquement, sans accès à la base) : gate, SARIF, tendance,
-  scans du code et des dépendances. Il est aussi publié seul, sans le serveur, dans le paquet
-  `security-review-ci` (Python 3.14, voir [Installation](../advanced/architecture/ci.md#installation)).
+  scans du code et des dépendances. Il est publié seul, sans le serveur, sur le dépôt PyPI
+  dans le paquet `security-review-ci` (Python 3.14, voir [Installation](../advanced/architecture/ci.md#installation)),
+  ou installable [depuis le contrôleur](../advanced/architecture/ci.md#depuis-le-controleur).
 
 ```bash
+# Depuis PyPI
 uv pip install security-review-ci
+```
+
+```bash
+# Depuis le contrôleur, sans PyPI
+uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest --help
 ```
 
 ## `security-review-mcp`
@@ -49,15 +56,18 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | `advisories import PATH` / `advisories status` | Gestion de la base OSV hors ligne | [Dépendances](../review/analysis/dependencies.md#base-de-vulnerabilites-hors-ligne-format-osv) |
 | `advisories update [--ecosystem E …]` | Télécharge les exports OSV (`SECREVIEW_OSV_*`, proxy facultatif) et les importe ; code `2` si un écosystème échoue | [Mise à jour automatique](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-controleur) |
 
-Lors de l'exécution de `serve`, la donnée de donnée est vérifier et la migration du schéma est réalisé si cela est nécessaire.
-La variable `SECREVIEW_DB_AUTO_UPGRADE=false` désactive la migration du schéma.
+`serve` et les autres commandes migrent le schéma au démarrage si nécessaire : `db upgrade` n'est
+à lancer à la main qu'avec `SECREVIEW_DB_AUTO_UPGRADE=false`, où elles le vérifient seulement
+(voir [Migrations du schéma](../advanced/architecture/controller.md#migrations-du-schema)).
 
 ## `security-review-ci`
 
-Options de toutes les sous-commandes sauf `agent-review` : `--project P` (obligatoire), `--url URL` (par défaut
-`SECREVIEW_CONTROLLER_URL`), `--token-stdin` (par défaut : `SECREVIEW_TOKEN`), `--cafile CA`,
-`--allow-http`, `--timeout S`. Sans argument, `security-review-ci` affiche son aide et sort
-avec le code `2`.
+Options acceptées par toutes les sous-commandes, sauf `agent-review` :
+
+`--project P` (obligatoire), `--url URL` (par défaut `SECREVIEW_CONTROLLER_URL`), `--token-stdin`
+(par défaut : `SECREVIEW_TOKEN`), `--cafile CA`, `--allow-http`, `--timeout S`.
+
+Sans argument, `security-review-ci` affiche son aide et sort avec le code `2`.
 
 | Commande | Rôle | Page |
 |---|---|---|
@@ -65,15 +75,15 @@ avec le code `2`.
 | `sarif --project P [--include-resolved] [-o FICHIER]` | Export SARIF 2.1.0 par l'API REST | [SARIF](../advanced/reports/sarif.md) |
 | `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Rapport de tendance par l'API REST | [Tendances](../advanced/architecture/ci.md#rapport-de-tendance) |
 | `scan-code [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FICHIER] [--save]` | Lit les fichiers du dépôt et les fait scanner par le contrôleur avec ses règles ; `--save` enregistre un rapport | [Scan du code complet](../review/analysis/code-scan.md) |
-| `scan-deps FICHIER… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Envoie des manifestes, lockfiles ou SBOM CycloneDX au contrôleur, qui les compare à sa base d'avis ; `--save` enregistre un rapport | [Dépendances](../review/analysis/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps) |
+| `scan-deps FICHIER… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Envoie des manifestes, lockfiles ou SBOM CycloneDX au contrôleur, qui les compare à sa base d'avis ; `--save` enregistre un rapport | [Dépendances](../review/analysis/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps) ; `--skip-unconfigured` sort ave succès même si le controleur est injoignable |
 | `agent-review --project P [--agent claude\|copilot\|codex] [--mcp-config FICHIER] [--mcp-server NOM] [--foreground]` | Fait relire le dernier commit par l'agent de code du développeur avec le serveur MCP `security-review` de sa configuration MCP (hook post-commit) ; ne contacte jamais le contrôleur ; sort avec `0` quand la revue démarre ou est sautée, `2` hors d'un dépôt git | [Client de pipeline](../advanced/architecture/ci.md#revue-de-chaque-commit-par-un-agent) |
 
-`scan-code` et `scan-deps` acceptent aussi `--repository`, `--branch`, `--commit` et `--author`,
-enregistrés avec le rapport (`--author` est inutile avec un jeton personnel, dont l'utilisateur
-est l'auteur). Ils demandent un jeton `ci` ou `admin` (sur un poste de travail, un
-[jeton `mcp` ou `ci` personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels)).
-`--skip-unconfigured` sort avec `0` et un avertissement quand aucune URL de contrôleur n'est
-définie (hook de commit).
+`scan-code` et `scan-deps` acceptent aussi `--repository`, `--branch`, `--commit` et `--author`, enregistrés avec le rapport (`--author` est inutile avec un jeton personnel, dont l'utilisateur est l'auteur).
+
+Ils demandent un jeton `ci` ou `admin` (sur un poste de travail, un [jeton `mcp` ou `ci` personnel](../usage/tokens.md#jetons-mcp-et-ci-personnels)).
+
+`--skip-unconfigured` sort avec `0` et un avertissement quand aucune URL de contrôleur n'est définie (hook de commit).
+
 ## Codes de sortie
 
 Les commandes de contrôle (`security-review-ci gate`, `scan-code` et `scan-deps`, `db status`) partagent la même

@@ -8,11 +8,18 @@ The `security-review` package installs two commands, one per process (see
   and the administration;
 - `security-review-ci`: the **pipeline client** of the controller REST API (`ci` token, Python
   standard library only, no database access): gate, SARIF, trend, code and dependency scans.
-  It is also published alone, without the server, as the `security-review-ci` package
-  (Python 3.14, see [Installation](../advanced/architecture/ci.md#installation)).
+  It is published alone, without the server, on PyPI as the `security-review-ci` package
+  (Python 3.14, see [Installation](../advanced/architecture/ci.md#installation)), or can be
+  installed [from the controller](../advanced/architecture/ci.md#from-the-controller).
 
 ```bash
+# From PyPI
 uv pip install security-review-ci
+```
+
+```bash
+# From the controller, without PyPI
+uvx --no-index --find-links https://secreview.example.com/api/ci-client/ security-review-ci@latest --help
 ```
 
 ## `security-review-mcp`
@@ -49,15 +56,18 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 | `advisories import PATH` / `advisories status` | Management of the offline OSV database | [Dependencies](../review/analysis/dependencies.md#offline-vulnerability-database-osv-format) |
 | `advisories update [--ecosystem E …]` | Downloads the OSV exports (`SECREVIEW_OSV_*`, optional proxy) and imports them; code `2` if an ecosystem fails | [Automatic update](../review/analysis/dependencies.md#automatic-update-by-the-controller) |
 
-When running `serve`, the data is verified, and a schema migration is performed if necessary.
-The variable `SECREVIEW_DB_AUTO_UPGRADE=false` disables schema migration.
+`serve` and the other commands migrate the schema at start-up when needed: run `db upgrade`
+by hand only with `SECREVIEW_DB_AUTO_UPGRADE=false`, where they only check it
+(see [Schema migrations](../advanced/architecture/controller.md#schema-migrations)).
 
 ## `security-review-ci`
 
-Options of every sub-command except `agent-review`: `--project P` (required), `--url URL` (default
-`SECREVIEW_CONTROLLER_URL`), `--token-stdin` (default: `SECREVIEW_TOKEN`), `--cafile CA`,
-`--allow-http`, `--timeout S`. Without arguments, `security-review-ci` prints its help and
-exits with code `2`.
+Options accepted by every sub-command, except `agent-review`:
+
+`--project P` (required), `--url URL` (default `SECREVIEW_CONTROLLER_URL`), `--token-stdin`
+(default: `SECREVIEW_TOKEN`), `--cafile CA`, `--allow-http`, `--timeout S`.
+
+Without arguments, `security-review-ci` prints its help and exits with code `2`.
 
 | Command | Role | Page |
 |---|---|---|
@@ -65,14 +75,17 @@ exits with code `2`.
 | `sarif --project P [--include-resolved] [-o FILE]` | SARIF 2.1.0 export through the REST API | [SARIF](../advanced/reports/sarif.md) |
 | `trend --project P [--days N] [--granularity G] [--format markdown\|json]` | Trend report through the REST API | [Trends](../advanced/architecture/ci.md#trend-report) |
 | `scan-code [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FILE] [--save]` | Reads the files of the repository and has the controller scan them with its rules; `--save` stores a report | [Whole codebase scan](../review/analysis/code-scan.md) |
-| `scan-deps FILE… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Sends manifests, lockfiles or CycloneDX SBOMs to the controller, which checks them against its advisory database; `--save` stores a report | [Dependencies](../review/analysis/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps) |
+| `scan-deps FILE… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Sends manifests, lockfiles or CycloneDX SBOMs to the controller, which checks them against its advisory database; `--save` stores a report; `--skip-unconfigured` exits successfully even if the controller is unreachable | [Dependencies](../review/analysis/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps) |
 | `agent-review --project P [--agent claude\|copilot\|codex] [--mcp-config FILE] [--mcp-server NAME] [--foreground]` | Has the coding agent of the developer review the last commit with the `security-review` MCP server of its MCP configuration (post-commit hook); never contacts the controller; exits with `0` when the review starts or is skipped, `2` outside a git repository | [Pipeline client](../advanced/architecture/ci.md#agent-review-of-each-commit) |
 
 `scan-code` and `scan-deps` also accept `--repository`, `--branch`, `--commit` and `--author`,
 stored with the report (`--author` is not needed with a personal token, whose user is the
-author). They need a `ci` or `admin` token (on a workstation, a
-[personal `mcp` or `ci` token](../usage/tokens.md#personal-mcp-and-ci-tokens)).
+author).
+
+They need a `ci` or `admin` token (on a workstation, a [personal `mcp` or `ci` token](../usage/tokens.md#personal-mcp-and-ci-tokens)).
+
 `--skip-unconfigured` exits with `0` and a warning when no controller URL is set (commit hook).
+
 ## Exit codes
 
 The check commands (`security-review-ci gate`, `scan-code` and `scan-deps`, `db status`) share the same convention:
