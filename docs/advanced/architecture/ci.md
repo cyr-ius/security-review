@@ -55,10 +55,11 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 | `scan-code` | Sends the files of the repository to the controller, which scans them with its rules ([Whole codebase scan](../../review/analysis/code-scan.md)) |
 | `scan-deps` | Sends manifests and lockfiles to the controller, which checks them against its advisories ([Dependencies](../../review/analysis/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps)) |
 | `agent-review` | Has the coding agent of the developer review the last commit with the MCP server, in the background (post-commit hook, [Agent review of each commit](#agent-review-of-each-commit)) |
+| `guard` | Checks the files that the coding agent is about to read for hidden text and text addressed to an assistant, offline (hook of the agent, [Read guard](../../review/analysis/read-guard.md)) |
 
 All their options: [Command line](../../reference/cli.md#security-review-ci).
 
-Common options (except `agent-review`): `--url` (default `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (reads the token
+Common options (except `agent-review` and `guard`): `--url` (default `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (reads the token
 on stdin instead of `SECREVIEW_TOKEN`), `--cafile` (CA of the controller certificate),
 `--allow-http`, `--timeout` (seconds, default 60).
 

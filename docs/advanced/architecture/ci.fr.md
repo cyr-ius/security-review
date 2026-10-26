@@ -59,10 +59,11 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ \
 | `scan-code` | Envoie les fichiers du dépôt au contrôleur, qui les scanne avec ses règles ([Scan du code complet](../../review/analysis/code-scan.md)) |
 | `scan-deps` | Envoie manifestes et lockfiles au contrôleur, qui les compare à ses avis ([Dépendances](../../review/analysis/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps)) |
 | `agent-review` | Fait relire le dernier commit par l'agent de code du développeur avec le serveur MCP, en arrière-plan (hook post-commit, [Revue de chaque commit par un agent](#revue-de-chaque-commit-par-un-agent)) |
+| `guard` | Vérifie, hors ligne, que les fichiers que l'agent de code va lire ne cachent pas de texte et ne s'adressent pas à un assistant (hook de l'agent, [Garde de lecture](../../review/analysis/read-guard.md)) |
 
 Toutes leurs options : [Ligne de commande](../../reference/cli.md#security-review-ci).
 
-Options communes (sauf `agent-review`) : `--url` (par défaut `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (lit le
+Options communes (sauf `agent-review` et `guard`) : `--url` (par défaut `SECREVIEW_CONTROLLER_URL`), `--token-stdin` (lit le
 jeton sur l'entrée standard au lieu de `SECREVIEW_TOKEN`), `--cafile` (CA du certificat du
 contrôleur), `--allow-http`, `--timeout` (secondes, 60 par défaut).
 

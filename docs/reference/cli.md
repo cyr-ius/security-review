@@ -60,7 +60,7 @@ only useful to a [dedicated migration job](../advanced/database.md#dedicated-mig
 
 ## `security-review-ci`
 
-Options accepted by every sub-command, except `agent-review`:
+Options accepted by every sub-command, except `agent-review` and `guard`:
 
 `--project P` (required), `--url URL` (default `SECREVIEW_CONTROLLER_URL`), `--token-stdin`
 (default: `SECREVIEW_TOKEN`), `--cafile CA`, `--allow-http`, `--timeout S`.
@@ -75,6 +75,7 @@ Without arguments, `security-review-ci` prints its help and exits with code `2`.
 | `scan-code [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FILE] [--save]` | Reads the files of the repository and has the controller scan them with its rules; `--save` stores a report | [Whole codebase scan](../review/analysis/code-scan.md) |
 | `scan-deps FILE… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Sends manifests, lockfiles or CycloneDX SBOMs to the controller, which checks them against its advisory database; `--save` stores a report; `--skip-unconfigured` exits successfully even if the controller is unreachable | [Dependencies](../review/analysis/dependencies.md#scan-in-a-pipeline-security-review-ci-scan-deps) |
 | `agent-review --project P [--agent claude\|copilot\|codex] [--mcp-config FILE] [--mcp-server NAME] [--foreground]` | Has the coding agent of the developer review the last commit with the `security-review` MCP server of its MCP configuration (post-commit hook); never contacts the controller; exits with `0` when the review starts or is skipped, `2` outside a git repository | [Pipeline client](../advanced/architecture/ci.md#agent-review-of-each-commit) |
+| `guard [--agent claude\|copilot\|codex]` | Hook of the coding agent before a tool call: reads the event on stdin, scans the files read by the call with the `AI-*` rules, offline, and writes the decision (refuse hidden text, ask about text addressed to an assistant); never contacts the controller; always exits with `0` | [Read guard](../review/analysis/read-guard.md) |
 
 `scan-code` and `scan-deps` also accept `--repository`, `--branch`, `--commit` and `--author`,
 stored with the report (`--author` is not needed with a personal token, whose user is the

@@ -61,7 +61,7 @@ sert qu'à une [tâche de migration dédiée](../advanced/database.md#tache-de-m
 
 ## `security-review-ci`
 
-Options acceptées par toutes les sous-commandes, sauf `agent-review` :
+Options acceptées par toutes les sous-commandes, sauf `agent-review` et `guard` :
 
 `--project P` (obligatoire), `--url URL` (par défaut `SECREVIEW_CONTROLLER_URL`), `--token-stdin`
 (par défaut : `SECREVIEW_TOKEN`), `--cafile CA`, `--allow-http`, `--timeout S`.
@@ -76,6 +76,7 @@ Sans argument, `security-review-ci` affiche son aide et sort avec le code `2`.
 | `scan-code [PATH] --project P [--exclude GLOB …] [--max-file-bytes N] [--no-git] [--fail-on SEV] [--format text\|json\|sarif] [-o FICHIER] [--save]` | Lit les fichiers du dépôt et les fait scanner par le contrôleur avec ses règles ; `--save` enregistre un rapport | [Scan du code complet](../review/analysis/code-scan.md) |
 | `scan-deps FICHIER… --project P [--fail-on SEV] [--format text\|json] [--require-database] [--skip-unconfigured] [--save]` | Envoie des manifestes, lockfiles ou SBOM CycloneDX au contrôleur, qui les compare à sa base d'avis ; `--save` enregistre un rapport | [Dépendances](../review/analysis/dependencies.md#scan-dans-un-pipeline-security-review-ci-scan-deps) ; `--skip-unconfigured` sort ave succès même si le controleur est injoignable |
 | `agent-review --project P [--agent claude\|copilot\|codex] [--mcp-config FICHIER] [--mcp-server NOM] [--foreground]` | Fait relire le dernier commit par l'agent de code du développeur avec le serveur MCP `security-review` de sa configuration MCP (hook post-commit) ; ne contacte jamais le contrôleur ; sort avec `0` quand la revue démarre ou est sautée, `2` hors d'un dépôt git | [Client de pipeline](../advanced/architecture/ci.md#revue-de-chaque-commit-par-un-agent) |
+| `guard [--agent claude\|copilot\|codex]` | Hook de l'agent de code avant un appel d'outil : lit l'événement sur l'entrée standard, analyse les fichiers lus par l'appel avec les règles `AI-*`, hors ligne, et écrit la décision (refuser un texte caché, consulter la personne pour un texte adressé à un assistant) ; ne contacte jamais le contrôleur ; sort toujours avec `0` | [Garde de lecture](../review/analysis/read-guard.md) |
 
 `scan-code` et `scan-deps` acceptent aussi `--repository`, `--branch`, `--commit` et `--author`, enregistrés avec le rapport (`--author` est inutile avec un jeton personnel, dont l'utilisateur est l'auteur).
 
