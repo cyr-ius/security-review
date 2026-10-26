@@ -54,7 +54,6 @@ Lues par `security-review-mcp` uniquement.
 | `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` (mode partagé) ou `stdio` (mode local) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | Tant qu'aucun jeton n'existe, accepte toute requête sur `/mcp` même si le serveur n'écoute pas sur localhost (par défaut il reste alors fermé, voir [Jetons Bearer](../advanced/bearer-tokens.md)) ; à réserver aux tests sur un réseau isolé |
 | `SECREVIEW_ENROLLMENT` | `true` | [Enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) : un client sans jeton atteint un serveur MCP restreint, sans aucun outil, qui invite l'utilisateur à créer un jeton MCP personnel dans l'interface web ; avec un jeton, `request_project` crée un nouveau projet pour un utilisateur portant `projects.create`, sinon le demande pour qu'un utilisateur portant `projects.create` le valide. `false` : `401` sans jeton, et aucune demande de projet |
-| `SECREVIEW_WEB_URL` | — | URL publique de l'interface web (`https://…/ui`), donnée aux clients sans jeton valide (prompts du serveur d'enrôlement, `401` de `/mcp`) pour que l'utilisateur sache où se connecter et créer un jeton MCP personnel ; sans elle, aucun lien n'est donné |
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Langue des rapports](../usage/prompts-tools.md#langue-des-rapports) demandée par les prompts de revue (`French`, `fr`...) quand l'argument `report_language` est absent ; définie (même vide : l'agent choisit), elle est prioritaire sur la langue choisie dans l'écran [**Langue des rapports**](../usage/web-interface.md#ecrans) |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Taille maximale du contenu passé à `scan_code`, et de chaque texte d'un rapport (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Taille maximale d'une requête d'un client MCP authentifié sur `/mcp` (`413` au-delà) ; un client sans jeton, dirigé vers le serveur d'enrôlement, est borné à 64 Kio |
@@ -69,6 +68,7 @@ Lues par `security-review-controller` uniquement.
 |---|---|---|
 | `SECREVIEW_ADMIN_USERNAME` | `admin` | Nom du [premier administrateur](../advanced/controller.md#premier-administrateur), créé au premier démarrage tant qu'aucun compte n'existe (groupe `administrators`), avec un mot de passe aléatoire jamais journalisé : définissez-le avec `security-review-controller user reset-password` |
 | `SECREVIEW_SECRET_KEY` | — | Secret de signature des sessions de l'interface web (comptes et OIDC), 32 caractères au moins, identique sur toutes les répliques ; non défini : un secret aléatoire à chaque démarrage (les sessions se terminent au redémarrage) |
+| `SECREVIEW_CONTROLLER_URL` | — | URL publique racine du contrôleur (`https://…`, sans `/ui`), la même que pour [`security-review-ci`](#clients). Recopiée en base à chaque démarrage ; le serveur MCP l'y lit (il ignore sa propre variable) et donne l'adresse de l'interface web (`/ui`) aux clients sans jeton valide (instructions et prompts du serveur d'enrôlement, `401` de `/mcp`), pour que l'utilisateur sache où se connecter et créer un jeton MCP personnel ; les connecteurs l'utilisent pour leurs liens. Non définie, elle se règle dans l'écran [**Général**](../usage/web-interface.md#ecrans) ; sans aucune des deux, aucun lien n'est donné |
 | `SECREVIEW_SESSION_HOURS` | `8` | Durée d'une session de l'interface web (1 à 24 heures) |
 | `SECREVIEW_WEB_UI` | `true` | Sert l'[interface web](../usage/web-interface.md) sur `/ui` ; à `false`, seulement l'API REST |
 | `SECREVIEW_WEB_UI_DIR` | — | Dossier d'une autre build de l'interface web |
@@ -166,12 +166,12 @@ Lues par `security-review-controller` uniquement.
 
 ## Clients
 
-Lues par le client de pipeline `security-review-ci`, jamais par les serveurs.
+Lues par le client de pipeline `security-review-ci` (`SECREVIEW_TOKEN` jamais par les serveurs).
 
 | Variable | Défaut | Rôle |
 |---|---|---|
 | `SECREVIEW_TOKEN` | — | Jeton Bearer envoyé par [`security-review-ci`](../advanced/ci.md) au contrôleur (jeton `ci`) ; jamais utilisé par les serveurs |
-| `SECREVIEW_CONTROLLER_URL` | — | URL du contrôleur utilisée par [`security-review-ci`](../advanced/ci.md) (valeur par défaut de `--url`) ; lue dans l'environnement uniquement, jamais dans `.env` |
+| `SECREVIEW_CONTROLLER_URL` | — | URL du contrôleur utilisée par [`security-review-ci`](../advanced/ci.md) (valeur par défaut de `--url`) ; lue dans l'environnement uniquement, jamais dans `.env`. Le contrôleur lit la même variable pour [son URL publique](#interface-web-et-sessions) |
 
 Les jetons Bearer ne se configurent pas par variable : ils sont stockés en base et gérés avec
 `security-review-controller token` (voir [Authentification et TLS](../advanced/bearer-tokens.md)).

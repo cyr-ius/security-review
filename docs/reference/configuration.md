@@ -54,7 +54,6 @@ Read by `security-review-mcp` only.
 | `SECREVIEW_TRANSPORT` | `streamable-http` | `streamable-http` (shared mode) or `stdio` (local mode) |
 | `SECREVIEW_ALLOW_UNAUTHENTICATED` | `false` | While no token exists, accepts every request on `/mcp` even when the server does not listen on localhost (by default it then stays closed, see [Bearer tokens](../advanced/bearer-tokens.md)); only for tests on an isolated network |
 | `SECREVIEW_ENROLLMENT` | `true` | [Enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests): a client without a token reaches a restricted MCP server, without any tool, that tells the user to create a personal MCP token in the web interface; with a token, `request_project` creates a new project for a user holding `projects.create`, else requests it for a user with `projects.create` to approve. `false`: `401` without a token, and no project request |
-| `SECREVIEW_WEB_URL` | — | Public URL of the web interface (`https://…/ui`), given to the clients without a valid token (prompts of the enrollment server, `401` of `/mcp`) so that the user knows where to sign in and create a personal MCP token; without it, no link is given |
 | `SECREVIEW_REPORT_LANGUAGE` | — | [Report language](../usage/prompts-tools.md#report-language) asked by the review prompts (`French`, `fr`...) when the `report_language` argument is missing; when set (even empty: the agent chooses), takes precedence over the language chosen in the [**Report language**](../usage/web-interface.md#screens) screen |
 | `SECREVIEW_MAX_CONTENT_CHARS` | `200000` | Maximum size of the content passed to `scan_code`, and of each text of a report (`summary`, `scope`, `description`, `evidence`, `recommendation`) |
 | `SECREVIEW_MAX_MCP_REQUEST_MB` | `16` | Maximum size of a request of an authenticated MCP client on `/mcp` (`413` beyond); a client without a token, sent to the enrollment server, is bounded to 64 KiB |
@@ -69,6 +68,7 @@ Read by `security-review-controller` only.
 |---|---|---|
 | `SECREVIEW_ADMIN_USERNAME` | `admin` | Name of the [first administrator](../advanced/controller.md#first-administrator), created at the first start while no account exists (`administrators` group), with a random password never logged: set it with `security-review-controller user reset-password` |
 | `SECREVIEW_SECRET_KEY` | — | Signing secret of the web interface sessions (accounts and OIDC), at least 32 characters, identical on every replica; unset: a random secret at every start (sessions end at restart) |
+| `SECREVIEW_CONTROLLER_URL` | — | Public root URL of the controller (`https://…`, without `/ui`), the same as for [`security-review-ci`](#clients). Copied to the database at each start; the MCP server reads it there (it ignores its own variable) and gives the address of the web interface (`/ui`) to the clients without a valid token (instructions and prompts of the enrollment server, `401` of `/mcp`), so that the user knows where to sign in and create a personal MCP token; the connectors use it for their links. Unset, it is set in the [**General**](../usage/web-interface.md#screens) screen; without any, no link is given |
 | `SECREVIEW_SESSION_HOURS` | `8` | Lifetime of a web interface session (1 to 24 hours) |
 | `SECREVIEW_WEB_UI` | `true` | Serves the [web interface](../usage/web-interface.md) on `/ui`; when `false`, only the REST API |
 | `SECREVIEW_WEB_UI_DIR` | — | Folder of another build of the web interface |
@@ -166,12 +166,12 @@ Read by `security-review-controller` only.
 
 ## Clients
 
-Read by the pipeline client `security-review-ci`, never by the servers.
+Read by the pipeline client `security-review-ci` (`SECREVIEW_TOKEN` never by the servers).
 
 | Variable | Default | Role |
 |---|---|---|
 | `SECREVIEW_TOKEN` | — | Bearer token sent by [`security-review-ci`](../advanced/ci.md) to the controller (`ci` token); never used by the servers |
-| `SECREVIEW_CONTROLLER_URL` | — | URL of the controller used by [`security-review-ci`](../advanced/ci.md) (default of `--url`); read from the environment only, never from `.env` |
+| `SECREVIEW_CONTROLLER_URL` | — | URL of the controller used by [`security-review-ci`](../advanced/ci.md) (default of `--url`); read from the environment only, never from `.env`. The controller reads the same variable for [its public URL](#web-interface-and-sessions) |
 
 Bearer tokens are not configured by variable: they are stored in the database and managed with
 `security-review-controller token` (see

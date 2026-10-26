@@ -32,12 +32,12 @@ the other available checklists, internal domains included, for the agent to fetc
 stored report (summary, scope, titles, descriptions, recommendations), for example `French`,
 `fr` or `pt-BR`. Without this argument, the prompt uses
 [`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md#mcp-server) when it is set, else the language
-chosen by an administrator in the [**Report language**](web-interface.md#screens) screen of the
+chosen by an administrator in the [**General**](web-interface.md#screens) screen of the
 web interface; if none is set, the agent chooses (usually the language of the conversation).
 
 An agent that reviews **without a prompt**, with the tools only (a common case: an MCP prompt is
 a command started by the user, the agent cannot call it itself), gets the same configured
-language (variable, else **Report language** screen) in the results of `get_review_checklist`
+language (variable, else **General** screen) in the results of `get_review_checklist`
 ("Report language" section) and of `scan_code` (`report_language` field, `null` if the agent
 chooses).
 
@@ -84,7 +84,12 @@ revoked or expired gets a `401` instead, see
 
 | Item | Role |
 |---|---|
-| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | No argument; tell the user to sign in to the web interface (`SECREVIEW_WEB_URL`), to create a personal MCP token and to add it to the host configuration, instead of running the review |
+| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | No argument; tell the user to sign in to the web interface (`SECREVIEW_CONTROLLER_URL` + `/ui`), to create a personal MCP token and to add it to the host configuration, instead of running the review |
+
+The instructions it sends at connection, shown by the host, give the same steps and the
+address of the web interface, from the URL stored by the controller (its
+`SECREVIEW_CONTROLLER_URL`, or the
+[General](web-interface.md#screens) screen); without it, no link is given.
 
 See [enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests).
 

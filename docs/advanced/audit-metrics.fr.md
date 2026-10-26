@@ -32,6 +32,7 @@ lui-même : un événement existe exactement quand le changement a été validé
 | `user.login_failed` | Une connexion échoue : mot de passe incorrect, connexion OIDC refusée (méthode, adresse, et l'identifiant seulement s'il est valide) |
 | `user.logout` | Un utilisateur web se déconnecte avec **Déconnexion** (adresse) |
 | `audit_syslog.changed` | Le [serveur syslog](#envoi-vers-syslog) est modifié sur la page **Journal d'audit** (adresse et *facility* définies, `null` : valeur enregistrée supprimée) |
+| `controller_url.changed` | L'URL publique du contrôleur, dont l'interface web est donnée aux agents sans jeton, est modifiée dans l'écran **Général**, ou recopiée depuis `SECREVIEW_CONTROLLER_URL` par le contrôleur au démarrage (acteur `environment`) ; `null` : valeur enregistrée supprimée |
 
 Chaque événement porte sa date, son **acteur**, sa cible (`finding` et son id, `token` et son
 id, `project` et son nom), le projet quand il y en a un, et des détails en JSON.

@@ -32,13 +32,13 @@ récupère avec `get_review_checklist` quand elles s'appliquent
 enregistré (résumé, périmètre, titres, descriptions, recommandations), par exemple `French`,
 `fr` ou `pt-BR`. Sans cet argument, le prompt reprend
 [`SECREVIEW_REPORT_LANGUAGE`](../reference/configuration.md#serveur-mcp) quand elle est définie, sinon la
-langue choisie par un administrateur dans l'écran [**Langue des rapports**](web-interface.md#ecrans)
+langue choisie par un administrateur dans l'écran [**Général**](web-interface.md#ecrans)
 de l'interface web ; si aucune n'est définie, l'agent choisit (en général la langue de la
 conversation).
 
 Un agent qui fait la revue **sans prompt**, avec les seuls outils (cas courant : un prompt MCP
 est une commande lancée par l'utilisateur, l'agent ne peut pas l'appeler lui-même), reçoit la
-même langue configurée (variable, sinon écran **Langue des rapports**) dans les résultats de
+même langue configurée (variable, sinon écran **Général**) dans les résultats de
 `get_review_checklist` (section « Report language ») et de `scan_code` (champ
 `report_language`, `null` si l'agent choisit).
 
@@ -84,7 +84,12 @@ plutôt un `401`, voir [jeton refusé](../advanced/mcp-server.md#jeton-refuse-se
 
 | Élément | Rôle |
 |---|---|
-| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Sans argument ; invitent l'utilisateur à se connecter à l'interface web (`SECREVIEW_WEB_URL`), à créer un jeton MCP personnel et à l'ajouter à la configuration de l'hôte, au lieu de lancer la revue |
+| Prompts `security-review`, `api-security-review`, `configuration-review`, `codebase-review`, `dependency-review` | Sans argument ; invitent l'utilisateur à se connecter à l'interface web (`SECREVIEW_CONTROLLER_URL` + `/ui`), à créer un jeton MCP personnel et à l'ajouter à la configuration de l'hôte, au lieu de lancer la revue |
+
+Les instructions qu'il envoie à la connexion, affichées par l'hôte, donnent les mêmes étapes et
+l'adresse de l'interface web, tirée de l'URL enregistrée par le contrôleur (sa
+`SECREVIEW_CONTROLLER_URL`, ou l'écran
+[Général](web-interface.md#ecrans)) ; sans elle, aucun lien n'est donné.
 
 Voir [l'enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet).
 

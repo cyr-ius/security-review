@@ -1,9 +1,10 @@
 import { defineMessages } from '../catalog';
 
-/** Settings screens: report language, outgoing proxy and OSV database. */
+/** Settings screens: general (report language, controller address), outgoing proxy and OSV database. */
 export const settings = defineMessages({
   en: {
-    'settings.languageSubtitle': "Language of the agent's answers and of the stored reports",
+    'settings.generalTitle': 'General settings',
+    'settings.generalSubtitle': 'Language of the reports and address of the controller',
     'settings.proxySubtitle': 'Proxy of the OSV download and of the OIDC login',
     'settings.osvSubtitle': 'Advisories used by the dependency analysis and their updates',
     'settings.loadError': 'Could not load the settings.',
@@ -21,6 +22,16 @@ export const settings = defineMessages({
     'settings.storedIgnored': 'Value set here, ignored: {value}.',
     'settings.variableLocked':
       'Set by {variable} ({value}), which takes precedence over this screen: change the variable to change it.',
+    'settings.controllerUrlTitle': 'Controller address',
+    'settings.controllerUrlHelp':
+      'Root URL of the controller as the users reach it. The MCP server gives the address of its web interface (/ui) to the agents connected without a valid token, so that the user knows where to sign in and create a personal MCP token; the connectors link their records to the reports with it. SECREVIEW_CONTROLLER_URL, when set on the controller (the same variable as for security-review-ci), takes precedence and is copied here at start. A change reaches the MCP server within a minute, without restart.',
+    'settings.controllerUrlApplied': 'Web interface given:',
+    'settings.controllerUrlLabel': 'Public URL of the controller',
+    'settings.controllerUrlPattern':
+      'The root http(s) URL of the controller, without /ui, user name, password, query nor fragment.',
+    'settings.controllerUrlUseCurrent': 'Use the current address',
+    'settings.controllerUrlCurrent': 'Address of this controller:',
+    'settings.controllerUrlSaved': 'Address saved: the MCP server gives it within a minute.',
     'settings.proxyTitle': 'Outgoing proxy of the controller',
     'settings.proxyHelp':
       'Used for OSV downloads and for authentication with the identity provider. The variables HTTPS_PROXY (else HTTP_PROXY) and NO_PROXY, when set, take precedence over this screen. A change takes effect at the next download or authentication, without restart.',
@@ -98,7 +109,8 @@ export const settings = defineMessages({
     'settings.refusedDetail': 'Value refused: {detail}',
   },
   fr: {
-    'settings.languageSubtitle': "Langue des réponses de l'agent et des rapports enregistrés",
+    'settings.generalTitle': 'Paramètres généraux',
+    'settings.generalSubtitle': 'Langue des rapports et adresse du contrôleur',
     'settings.proxySubtitle': 'Proxy du téléchargement OSV et de la connexion OIDC',
     'settings.osvSubtitle': "Avis utilisés par l'analyse de dépendances et leurs mises à jour",
     'settings.loadError': 'Impossible de charger les paramètres.',
@@ -116,6 +128,17 @@ export const settings = defineMessages({
     'settings.storedIgnored': 'Valeur définie ici, ignorée : {value}.',
     'settings.variableLocked':
       'Défini par {variable} ({value}), prioritaire sur cet écran : modifiez la variable pour le changer.',
+    'settings.controllerUrlTitle': 'Adresse du contrôleur',
+    'settings.controllerUrlHelp':
+      "URL racine du contrôleur telle que les utilisateurs l'atteignent. Le serveur MCP donne l'adresse de son interface web (/ui) aux agents connectés sans jeton valide, pour que l'utilisateur sache où se connecter et créer un jeton MCP personnel ; les connecteurs relient leurs fiches aux rapports avec elle. SECREVIEW_CONTROLLER_URL, lorsqu'elle est définie sur le contrôleur (la même variable que pour security-review-ci), est prioritaire et recopiée ici au démarrage. Une modification atteint le serveur MCP en moins d'une minute, sans redémarrage.",
+    'settings.controllerUrlApplied': 'Interface web donnée :',
+    'settings.controllerUrlLabel': 'URL publique du contrôleur',
+    'settings.controllerUrlPattern':
+      "L'URL http(s) racine du contrôleur, sans /ui, nom d'utilisateur, mot de passe, requête ni fragment.",
+    'settings.controllerUrlUseCurrent': "Utiliser l'adresse actuelle",
+    'settings.controllerUrlCurrent': 'Adresse de ce contrôleur :',
+    'settings.controllerUrlSaved':
+      "Adresse enregistrée : le serveur MCP la donne en moins d'une minute.",
     'settings.proxyTitle': 'Proxy sortant du contrôleur',
     'settings.proxyHelp':
       "Utilisé pour les téléchargements OSV et l'authentification auprès du fournisseur d'identité. Les variables HTTPS_PROXY (sinon HTTP_PROXY) et NO_PROXY, lorsqu'elles sont définies, sont prioritaires sur cet écran. Une modification s'applique au prochain téléchargement ou à la prochaine authentification, sans redémarrage.",
@@ -199,7 +222,8 @@ export const settings = defineMessages({
     'settings.refusedDetail': 'Valeur refusée : {detail}',
   },
   es: {
-    'settings.languageSubtitle': 'Idioma de las respuestas del agente y de los informes guardados',
+    'settings.generalTitle': 'Ajustes generales',
+    'settings.generalSubtitle': 'Idioma de los informes y dirección del controlador',
     'settings.proxySubtitle': 'Proxy de la descarga OSV y del inicio de sesión OIDC',
     'settings.osvSubtitle': 'Avisos usados por el análisis de dependencias y sus actualizaciones',
     'settings.loadError': 'No se pudieron cargar los ajustes.',
@@ -218,6 +242,17 @@ export const settings = defineMessages({
     'settings.storedIgnored': 'Valor definido aquí, ignorado: {value}.',
     'settings.variableLocked':
       'Definido por {variable} ({value}), que tiene prioridad sobre esta pantalla: cambie la variable para modificarlo.',
+    'settings.controllerUrlTitle': 'Dirección del controlador',
+    'settings.controllerUrlHelp':
+      'URL raíz del controlador tal como la alcanzan los usuarios. El servidor MCP da la dirección de su interfaz web (/ui) a los agentes conectados sin token válido, para que el usuario sepa dónde iniciar sesión y crear un token MCP personal; los conectores enlazan sus registros con los informes mediante ella. SECREVIEW_CONTROLLER_URL, cuando está definida en el controlador (la misma variable que para security-review-ci), tiene prioridad y se copia aquí al iniciar. Un cambio llega al servidor MCP en menos de un minuto, sin reinicio.',
+    'settings.controllerUrlApplied': 'Interfaz web dada:',
+    'settings.controllerUrlLabel': 'URL pública del controlador',
+    'settings.controllerUrlPattern':
+      'La URL http(s) raíz del controlador, sin /ui, nombre de usuario, contraseña, consulta ni fragmento.',
+    'settings.controllerUrlUseCurrent': 'Usar la dirección actual',
+    'settings.controllerUrlCurrent': 'Dirección de este controlador:',
+    'settings.controllerUrlSaved':
+      'Dirección guardada: el servidor MCP la da en menos de un minuto.',
     'settings.proxyTitle': 'Proxy saliente del controlador',
     'settings.proxyHelp':
       'Se usa para las descargas OSV y para la autenticación con el proveedor de identidad. Las variables HTTPS_PROXY (si no, HTTP_PROXY) y NO_PROXY, cuando están definidas, tienen prioridad sobre esta pantalla. Un cambio se aplica en la próxima descarga o autenticación, sin reiniciar.',

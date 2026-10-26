@@ -156,7 +156,7 @@ export const routes: Routes = [
           ),
       },
       // Former single settings page, split into the three pages below
-      { path: 'settings', pathMatch: 'full', redirectTo: 'settings/language' },
+      { path: 'settings', pathMatch: 'full', redirectTo: 'settings/general' },
       {
         path: 'roles',
         title: 'layout.roles',
@@ -176,14 +176,16 @@ export const routes: Routes = [
       // Former address of the OIDC page
       { path: 'role-mappings', pathMatch: 'full', redirectTo: 'sso' },
       {
-        path: 'settings/language',
-        title: 'settings.languageTitle',
+        path: 'settings/general',
+        title: 'settings.generalTitle',
         canActivate: [permissionGuard('settings.manage')],
         loadComponent: () =>
-          import('./features/settings/language-settings/language-settings.component').then(
-            (m) => m.LanguageSettingsComponent,
+          import('./features/settings/general-settings/general-settings.component').then(
+            (m) => m.GeneralSettingsComponent,
           ),
       },
+      // Former address of the report language, now on the General page
+      { path: 'settings/language', pathMatch: 'full', redirectTo: 'settings/general' },
       {
         path: 'settings/proxy',
         title: 'settings.proxyTitle',

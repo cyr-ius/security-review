@@ -65,7 +65,7 @@ renvoie.
 
 Chaque connecteur reçoit le même contenu : un titre (`[HIGH] shop-api: SQL injection`), le
 projet, la sévérité, l'emplacement, la règle, la CWE, l'OWASP, la branche, le commit, le lien vers
-le rapport (avec `SECREVIEW_WEB_URL`), puis la description, la preuve et la recommandation, et
+le rapport (avec `SECREVIEW_CONTROLLER_URL`), puis la description, la preuve et la recommandation, et
 l'empreinte du problème. Les textes du rapport sont de nouveau masqués (secrets) avant de partir.
 La page de chaque connecteur décrit où chaque champ arrive dans le système.
 

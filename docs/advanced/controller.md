@@ -80,8 +80,9 @@ interface, personal tokens) and to the pipeline runners. Behind a reverse proxy 
 
 - set `SECREVIEW_FORWARDED_ALLOW_IPS` to the address of the proxy, otherwise every client shares
   its address for the login throttling and the rate limit;
-- set `SECREVIEW_WEB_URL` (read by the MCP server) to the public URL of the interface, so that
-  an agent without a valid token knows where to create one.
+- set `SECREVIEW_CONTROLLER_URL` to the public root URL of the controller, without `/ui` (or
+  fill in the **General** screen): the controller copies it to the database at start and the MCP server
+  reads it there, so that an agent without a valid token knows where to create one.
 
 ## Several replicas
 

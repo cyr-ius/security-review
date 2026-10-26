@@ -128,8 +128,9 @@ ne contiennent pas d'Ingress : exposez chaque Service par son propre Ingress ave
 
 Ensuite, dans la ConfigMap :
 
-- réglez `SECREVIEW_WEB_URL` sur l'URL publique de l'interface web (`https://…/ui`) : le
-  serveur MCP la donne aux clients sans jeton valide, pour que l'utilisateur sache où créer un
+- réglez `SECREVIEW_CONTROLLER_URL` sur l'URL publique racine du contrôleur (`https://…`), ou
+  renseignez l'écran **Général** : le serveur MCP donne son interface web (`/ui`) aux clients
+  sans jeton valide, pour que l'utilisateur sache où créer un
   jeton MCP personnel ;
 - réglez `SECREVIEW_FORWARDED_ALLOW_IPS` sur la plage d'adresses des pods de l'ingress
   controller : sinon tous les clients partagent leur adresse pour la limitation des connexions,

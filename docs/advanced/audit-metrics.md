@@ -32,6 +32,7 @@ exists exactly when the change was committed.
 | `user.login_failed` | A login fails: wrong password, refused OIDC login (method, address, and the user name only when it is valid) |
 | `user.logout` | A web user logs out with **Log out** (address) |
 | `audit_syslog.changed` | The [syslog server](#forwarding-to-syslog) is changed on the **Audit log** page (address and facility set, `null`: stored value deleted) |
+| `controller_url.changed` | The public URL of the controller, whose web interface is given to the agents without a token, is changed on the **General** screen, or copied from `SECREVIEW_CONTROLLER_URL` by the controller at start (actor `environment`); `null`: stored value deleted |
 
 Each event holds its date, its **actor**, its target (`finding` and its id, `token` and its id,
 `project` and its name), the project when there is one, and details as JSON. The actor

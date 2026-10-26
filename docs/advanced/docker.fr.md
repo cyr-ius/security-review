@@ -72,6 +72,10 @@ Bon à savoir :
   depuis `./tls` (voir
   [Autorité de certification](tls.md#autorite-de-certification)). Le contrôleur n'expose aucune
   route d'écriture sans jeton : il peut rester interne.
+  Ajoutez à `.env` l'URL publique racine du contrôleur (`SECREVIEW_CONTROLLER_URL=https://…`) :
+  le contrôleur la recopie en base au démarrage, pour que le serveur MCP donne le lien de
+  l'interface web (`/ui`) à un agent sans jeton et que les connecteurs relient leurs tickets aux rapports. Sans elle, renseignez
+  l'écran **Général**.
 - **Avis de vulnérabilités.** La base OSV est **vide** au premier démarrage : l'analyse de
   dépendances répond qu'aucune base n'est chargée. Pour que le contrôleur la télécharge au
   démarrage puis toutes les 24 h, décommentez `SECREVIEW_OSV_AUTO_UPDATE` (et

@@ -48,8 +48,10 @@
   reaches the enrollment server. Each rejection is also logged as a warning by the MCP server
   (`Rejected unauthenticated request` / `Rejected expired token`, with the client address); the
   `secreview_auth_rejections_total` [metric](metrics.md) only counts the
-  rejections of the controller. `SECREVIEW_WEB_URL`, given in that description, is a public URL:
-  it holds no credentials (refused at start-up).
+  rejections of the controller. The address of the web interface given in that description
+  (`SECREVIEW_CONTROLLER_URL` + `/ui`) is a public URL:
+  it holds no credentials (refused at start-up and in the web interface, where each change is
+  audited).
 - **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
   tokens and project requests are written in the same transaction as the change,
   with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,

@@ -63,6 +63,7 @@ from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, func, or_, select
 
+from .. import app_settings
 from ..config import Settings, get_settings
 from ..http_server import Role
 from ..observability import audit
@@ -1369,7 +1370,7 @@ def request_project(
     return {
         "project": cleaned,
         "status": "requested",
-        "next_steps": enrollment_next_steps(cleaned, get_settings().web_url),
+        "next_steps": enrollment_next_steps(cleaned, app_settings.web_url()),
     }
 
 

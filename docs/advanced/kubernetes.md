@@ -124,8 +124,9 @@ no Ingress: expose each Service through its own Ingress with TLS.
 
 Then, in the ConfigMap:
 
-- set `SECREVIEW_WEB_URL` to the public URL of the web interface (`https://…/ui`): the MCP
-  server gives it to the clients without a valid token, so that the user knows where to create
+- set `SECREVIEW_CONTROLLER_URL` to the public root URL of the controller (`https://…`), or
+  fill in the **General** screen: the MCP server gives its web interface (`/ui`) to the clients
+  without a valid token, so that the user knows where to create
   a personal MCP token;
 - set `SECREVIEW_FORWARDED_ALLOW_IPS` to the address range of the ingress controller pods:
   otherwise every client shares their address for the login throttling, the rate limit and the

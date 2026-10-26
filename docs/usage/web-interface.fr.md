@@ -23,7 +23,7 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 
 Les écrans sont accessibles depuis la barre latérale : **Supervision** (projets, rapports) pour
 tous les comptes, puis **Référentiel** (règles, checklists, normes) et **Administration**
-(utilisateurs, groupes, rôles, jetons, journal d'audit, OIDC, langue des rapports, proxy sortant,
+(utilisateurs, groupes, rôles, jetons, journal d'audit, OIDC, paramètres généraux, proxy sortant,
 base OSV, connecteurs), chaque écran n'étant affiché qu'aux comptes qui ont sa
 [permission](../advanced/access-control.md#permissions). Le bas de la barre affiche le client connecté (ses permissions au survol) et la
 version (un lien vers **À propos**), avec les boutons **Mon compte** et de déconnexion.
@@ -40,7 +40,7 @@ L'interface est proposée en **anglais**, **français** et **espagnol**. La lang
 le sélecteur en haut à droite, y compris sur la page de connexion. Le changement est immédiat et
 reste mémorisé dans le navigateur ; à la première visite, l'interface suit la langue du
 navigateur, ou l'anglais si elle n'en propose aucune. Ce choix ne concerne que l'interface : la
-langue des rapports de revue se règle dans **Langue des rapports**, et les messages d'erreur détaillés
+langue des rapports de revue se règle dans **Général**, et les messages d'erreur détaillés
 renvoyés par l'API restent en anglais.
 
 La page **À propos** donne la version du contrôleur, si une **Nouvelle version** est disponible
@@ -196,16 +196,27 @@ suivantes.
   nommés par leur claim des groupes (voir
   [groupes du fournisseur d'identité](../advanced/sso.md#groupes-du-fournisseur-didentite)).
 Les trois écrans suivants portent des réglages enregistrés en base et partagés par le serveur
-MCP et le contrôleur (permission `settings.manage` ; l'ancienne adresse `/ui/settings` ouvre
-**Langue des rapports**). **Une variable d'environnement définie (environnement ou fichier
+MCP et le contrôleur (permission `settings.manage` ; les anciennes adresses `/ui/settings` et
+`/ui/settings/language` ouvrent **Général**). **Une variable d'environnement définie (environnement ou fichier
 `.env`) est toujours prioritaire** sur la valeur saisie dans l'interface : son champ est alors
 verrouillé et affiche la variable, et une valeur enregistrée avant que la variable soit définie
 est signalée comme ignorée, avec un bouton **Supprimer**.
 
-- **Langue des rapports** : choix laissé à l'agent ou langue définie ici (`French`, `fr`,
-  `pt-BR`…), quand `SECREVIEW_REPORT_LANGUAGE` n'est pas définie. Elle s'applique aux
-  prochains prompts de revue ; l'argument `report_language` d'un prompt reste prioritaire
-  ([langue des rapports](prompts-tools.md#langue-des-rapports)).
+- **Général**, avec deux cartes :
+  - **Langue des rapports** : choix laissé à l'agent ou langue définie ici (`French`, `fr`,
+    `pt-BR`…), quand `SECREVIEW_REPORT_LANGUAGE` n'est pas définie. Elle s'applique aux
+    prochains prompts de revue ; l'argument `report_language` d'un prompt reste prioritaire
+    ([langue des rapports](prompts-tools.md#langue-des-rapports)).
+  - **Adresse du contrôleur** : URL publique racine du contrôleur (`https://…`, sans `/ui`), dont
+    le serveur MCP donne l'interface web (`/ui`) aux agents connectés sans jeton valide
+    (enrôlement, `401`) et vers laquelle les connecteurs pointent dans leurs fiches.
+    `SECREVIEW_CONTROLLER_URL` définie sur le contrôleur (la variable que lit aussi
+    `security-review-ci`) est recopiée en base à chaque démarrage et verrouille le champ : le
+    serveur MCP l'y lit, sans variable à lui. **Utiliser l'adresse actuelle** remplit l'adresse
+    de ce contrôleur. Une modification atteint le
+    serveur MCP en moins d'une minute, sans redémarrage, et est enregistrée dans le journal
+    d'audit (`controller_url.changed`). Par l'API : `PUT /api/v1/settings/controller-url` avec `value` (`null`
+    la supprime).
 - **Proxy sortant** : proxy des connexions sortantes du contrôleur, utilisé par le
   téléchargement OSV **et** par la
   [connexion OIDC](../advanced/sso.md). Quand `HTTPS_PROXY` (sinon `HTTP_PROXY`) n'est pas

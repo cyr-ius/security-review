@@ -97,7 +97,8 @@ Ensuite, deux façons de donner un jeton à chaque développeur et à chaque pip
   sans jeton, l'agent l'envoie vers l'interface web à la première revue, où il crée un jeton
   MCP personnel ; à la revue suivante, l'agent demande le projet, qu'un administrateur valide
   (écran **Projets**), ce qui lui en donne l'accès. Définissez
-  `SECREVIEW_WEB_URL` pour que l'agent donne le lien : voir
+  `SECREVIEW_CONTROLLER_URL` sur le contrôleur (ou l'écran **Général**) pour que
+  l'agent donne le lien : voir
   [Obtenir un jeton](../getting-started/host.md#obtenir-un-jeton).
 - **Créé par l'administrateur** : `security-review-controller token create --label <nom>`, par
   exemple pour un pipeline, puis remis à son propriétaire.

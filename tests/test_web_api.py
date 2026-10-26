@@ -1720,6 +1720,7 @@ def test_project_triager_only_changes_findings_of_its_project(secured, reports):
     [
         ("get", "/api/v1/settings"),
         ("put", "/api/v1/settings/report-language"),
+        ("put", "/api/v1/settings/controller-url"),
         ("put", "/api/v1/settings/proxy"),
         ("get", "/api/v1/settings/audit-syslog"),
         ("put", "/api/v1/settings/audit-syslog"),
@@ -1751,6 +1752,17 @@ def test_admin_sets_the_report_language(client):
     assert app_settings.report_language() == "French"
     reset = client.put("/api/v1/settings/report-language", json={"value": None}).json()
     assert reset["report_language"]["value"] is None
+
+
+def test_admin_sets_the_controller_url(client):
+    url = "/api/v1/settings/controller-url"
+    response = client.put(url, json={"value": "https://sr.example"})
+
+    assert response.status_code == 200
+    assert response.json()["controller_url"]["effective"] == "https://sr.example"
+    assert client.put(url, json={"value": "ftp://sr.example"}).status_code == 422
+    reset = client.put(url, json={"value": None}).json()
+    assert reset["controller_url"]["effective"] is None
 
 
 def test_settings_whose_variable_is_set_are_refused(client, monkeypatch):

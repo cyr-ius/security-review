@@ -85,7 +85,10 @@ is enabled by default (`SECREVIEW_ENROLLMENT=true`), even before the first token
    not rejected: it reaches a restricted MCP server (same `security-review` name) **without any
    tool**, whose prompts are named like the reviews (`security-review`, `codebase-review`…).
    They tell the user to sign in to the web interface (its URL comes from
-   [`SECREVIEW_WEB_URL`](../reference/configuration.md#mcp-server)), to create a
+   the database, where the controller copies its
+   [`SECREVIEW_CONTROLLER_URL`](../reference/configuration.md#web-interface-and-sessions), followed by `/ui`, or the
+   **General** screen stores it; read again at most every 30 seconds; none: no
+   link), to create a
    **personal MCP token** in **My account** (see
    [personal MCP tokens](../usage/tokens.md#personal-mcp-and-ci-tokens)) and to put it in the
    [host configuration](../getting-started/host.md#getting-a-token). The token reaches the
@@ -137,7 +140,7 @@ same advice, and `request_project` refuses the projects the token does not reach
 
 A client whose token is **unknown, revoked or expired** gets `401` on `/mcp`
 (`error="invalid_token"`): the description tells the user to sign in to the web interface (with
-its URL when `SECREVIEW_WEB_URL` is set) and to create a new personal MCP token, then to replace
+its URL when it is known, as above) and to create a new personal MCP token, then to replace
 it in the [host configuration](../getting-started/host.md#getting-a-token). Such a client never
 reaches the review tools nor the enrollment server. The rejection is logged as a warning by the
 MCP server (`Rejected unauthenticated request` / `Rejected expired token`).

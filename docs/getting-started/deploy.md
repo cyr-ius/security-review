@@ -107,7 +107,7 @@ as long as the terminal is open.
 For the team, expose each Service through an Ingress with TLS: `secreview-mcp` for the agents,
 `secreview-controller` for the developers (web interface, personal MCP tokens) and for the CI
 (`security-review-ci` calls the controller). Then set, in the ConfigMap of the manifest,
-`SECREVIEW_WEB_URL` (public URL of the web interface) and `SECREVIEW_FORWARDED_ALLOW_IPS` (address
+`SECREVIEW_CONTROLLER_URL` (public root URL of the controller) and `SECREVIEW_FORWARDED_ALLOW_IPS` (address
 range of the ingress controller pods: without it, every client seems to come from the same
 address, the one of the Ingress).
 

@@ -23,7 +23,7 @@ security-review-controller serve --host 127.0.0.1 --port 8080
 
 The screens are reached from the sidebar: **Supervision** (projects, reports) for every account,
 then **Reference** (rules, checklists, standards) and **Administration** (users, groups, roles,
-tokens, audit log, OIDC, report language, outgoing proxy, OSV database, connectors), each shown only to the
+tokens, audit log, OIDC, general settings, outgoing proxy, OSV database, connectors), each shown only to the
 accounts that hold its [permission](../advanced/access-control.md#permissions). The bottom
 of the sidebar shows the connected client (its permissions when hovered) and the version (a link to **About**), with the **My account** and logout buttons.
 On a small screen, the sidebar is reduced to its icons (each one names its screen when hovered)
@@ -39,7 +39,7 @@ The interface is available in **English**, **French** and **Spanish**. The langu
 the picker at the top right, including on the login page. The change is immediate and is
 remembered by the browser; on the first visit, the interface follows the language of the
 browser, or English if it offers none of them. This choice only concerns the interface: the
-language of the review reports is set in **Report language**, and the detailed error messages sent
+language of the review reports is set in **General**, and the detailed error messages sent
 back by the API stay in English.
 
 The **About** page gives the version of the controller, whether a **New version** is available
@@ -182,16 +182,27 @@ shown), and the browser remembers the chosen sort for the next visits.
   comes from the groups open to OIDC named by their groups claim (see
   [groups of the identity provider](../advanced/sso.md#groups-of-the-identity-provider)).
 The next three screens hold settings stored in the database and shared by the MCP server and
-the controller (`settings.manage` permission; the former `/ui/settings` address opens
-**Report language**). **An environment variable that is set (environment or `.env` file)
+the controller (`settings.manage` permission; the former `/ui/settings` and
+`/ui/settings/language` addresses open **General**). **An environment variable that is set (environment or `.env` file)
 always takes precedence** over the value set in the interface: its field is then locked and
 shows the variable, and a value stored before the variable was set is marked as ignored, with
 a **Delete** button.
 
-- **Report language**: choice left to the agent or language set here (`French`, `fr`,
-  `pt-BR`…), when `SECREVIEW_REPORT_LANGUAGE` is not set. It applies to the next review
-  prompts; the `report_language` argument of a prompt still takes precedence
-  ([report language](prompts-tools.md#report-language)).
+- **General**, with two cards:
+  - **Report language**: choice left to the agent or language set here (`French`, `fr`,
+    `pt-BR`…), when `SECREVIEW_REPORT_LANGUAGE` is not set. It applies to the next review
+    prompts; the `report_language` argument of a prompt still takes precedence
+    ([report language](prompts-tools.md#report-language)).
+  - **Controller address**: public root URL of the controller (`https://…`, without `/ui`),
+    whose web interface (`/ui`) the MCP server gives to the agents connected without a valid
+    token (enrollment, `401`) and the connectors link to in their records.
+    `SECREVIEW_CONTROLLER_URL` set on the controller (the variable also read by
+    `security-review-ci`) is copied to the database at each start and locks the field: the MCP
+    server reads it there, without its own variable. **Use the current address** fills in the
+    address of this controller. A change reaches the
+    MCP server within a minute, without restart, and is recorded in the audit log
+    (`controller_url.changed`). Through the API: `PUT /api/v1/settings/controller-url` with `value` (`null`
+    deletes it).
 - **Outgoing proxy**: proxy of the outgoing connections of the controller, used by the OSV
   download **and** by the [OIDC login](../advanced/sso.md). When `HTTPS_PROXY` (else
   `HTTP_PROXY`) is not set, the proxy is set here (or **No proxy (direct connection)**); when

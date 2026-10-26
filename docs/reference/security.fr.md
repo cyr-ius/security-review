@@ -49,9 +49,10 @@
   n'atteint jamais le serveur d'enrôlement. Chaque refus est aussi journalisé en avertissement
   par le serveur MCP (`Rejected unauthenticated request` / `Rejected expired token`, avec
   l'adresse du client) ; la [métrique](metrics.md)
-  `secreview_auth_rejections_total` ne compte que les refus du contrôleur. `SECREVIEW_WEB_URL`,
-  donnée dans cette description, est une URL publique : elle ne contient aucun identifiant
-  (refusé au démarrage).
+  `secreview_auth_rejections_total` ne compte que les refus du contrôleur. L'adresse
+  de l'interface web donnée dans cette description (`SECREVIEW_CONTROLLER_URL` + `/ui`) est une
+  URL publique : elle ne contient aucun identifiant
+  (refusé au démarrage et dans l'interface web, où chaque modification est auditée).
 - **Journal d'audit** : les décisions de triage, les propositions des agents, les créations,
   renouvellements et révocations de jetons et les demandes de projet sont écrits
   dans la même transaction que le changement, avec leur acteur (`user:`, `token:`, `cli`,

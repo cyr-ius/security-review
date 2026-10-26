@@ -68,6 +68,10 @@ Good to know:
   (`SECREVIEW_TLS_CERTFILE`, `SECREVIEW_TLS_KEYFILE`) and the `volumes` that mounts the
   certificate files read-only from `./tls` (see [Certificate Authority](tls.md#certificate-authority)).
   The controller exposes no write route without a token: it can stay internal.
+  Add to `.env` the public root URL of the controller (`SECREVIEW_CONTROLLER_URL=https://…`):
+  the controller copies it to the database at start, so that the MCP server gives the link of
+  the web interface (`/ui`) to an agent without a token, and the connectors link their tickets to the reports. Without it, set
+  it in the **General** screen.
 - **Vulnerability advisories.** The OSV database is **empty** at the first start: the dependency
   analysis answers that no database is loaded. To let the controller download it at start-up,
   then every 24 hours, uncomment `SECREVIEW_OSV_AUTO_UPDATE` (and `SECREVIEW_OSV_ECOSYSTEMS`) in

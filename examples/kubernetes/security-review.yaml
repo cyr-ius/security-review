@@ -43,9 +43,11 @@ data:
   # Address range of the ingress controller pods: their X-Forwarded-For gives the client
   # address (login throttling, audit log, logs). Adapt it to your cluster.
   # SECREVIEW_FORWARDED_ALLOW_IPS: "10.0.0.0/8"
-  # Public URL of the web interface, given by the MCP server to the clients without a valid
-  # token (enrollment, 401) so that the user knows where to create a personal MCP token
-  # SECREVIEW_WEB_URL: https://secreview.example.com/ui
+  # Public root URL of the controller, copied to the database by the controller at start: the
+  # MCP server gives its web interface (/ui) to the clients without a valid token (enrollment,
+  # 401) so that the user knows where to create a personal MCP token. Unset: set it in the web
+  # interface (General).
+  # SECREVIEW_CONTROLLER_URL: https://secreview.example.com
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -86,7 +86,10 @@ premier jeton (sauf sur un [serveur ouvert](bearer-tokens.md), qui n'a pas besoi
    pas rejeté : il atteint un serveur MCP restreint (même nom `security-review`) **sans aucun
    outil**, dont les prompts sont nommés comme les revues (`security-review`,
    `codebase-review`…). Ils invitent l'utilisateur à se connecter à l'interface web (son URL
-   vient de [`SECREVIEW_WEB_URL`](../reference/configuration.md#serveur-mcp)), à créer un
+   vient de la base, où le contrôleur recopie sa
+   [`SECREVIEW_CONTROLLER_URL`](../reference/configuration.md#interface-web-et-sessions), suivie de `/ui`, ou l'écran
+   **Général** l'enregistre ; relue au plus toutes les 30 secondes ; aucune :
+   pas de lien), à créer un
    **jeton MCP personnel** dans **Mon compte** (voir
    [jetons MCP personnels](../usage/tokens.md#jetons-mcp-et-ci-personnels)) et à le placer dans
    la [configuration de l'hôte](../getting-started/host.md#obtenir-un-jeton). Le jeton atteint
@@ -141,7 +144,7 @@ que le jeton n'atteint pas).
 
 Un client dont le jeton est **inconnu, révoqué ou expiré** reçoit `401` sur `/mcp`
 (`error="invalid_token"`) : la description invite l'utilisateur à se connecter à l'interface web
-(avec son URL quand `SECREVIEW_WEB_URL` est défini) et à créer un nouveau jeton MCP personnel,
+(avec son URL quand elle est connue, comme ci-dessus) et à créer un nouveau jeton MCP personnel,
 puis à le remplacer dans la [configuration de l'hôte](../getting-started/host.md#obtenir-un-jeton).
 Un tel client n'atteint jamais les outils de revue ni le serveur d'enrôlement. Le refus est
 journalisé en avertissement par le serveur MCP (`Rejected unauthenticated request` /

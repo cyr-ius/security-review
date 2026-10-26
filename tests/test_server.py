@@ -9,13 +9,18 @@ from mcp.client import Client
 from mcp.shared.exceptions import MCPError
 from pydantic import ValidationError
 
-from security_review_mcp import app_settings
+from security_review_mcp import app_settings, server
 from security_review_mcp.auth import access_control, token_store
 from security_review_mcp.config import Settings, get_settings
 from security_review_mcp.observability import audit
 from security_review_mcp.prompts import fenced
 from security_review_mcp.reports import services
-from security_review_mcp.server import enrollment_mcp, mcp
+from security_review_mcp.server import (
+    EnrollmentWebUrl,
+    enrollment_mcp,
+    mcp,
+    set_enrollment_web_url,
+)
 from security_review_mcp.storage.models import FindingCreate, ReviewType, Severity
 
 pytestmark = pytest.mark.anyio
@@ -736,11 +741,20 @@ async def test_a_restricted_token_saves_under_a_variant_of_its_project(http_app)
 
 
 async def test_enrollment_server_only_tells_how_to_get_a_token(monkeypatch):
-    monkeypatch.setattr(get_settings(), "web_url", "https://secreview.example/ui")
-    async with Client(enrollment_mcp) as client:
-        tools = {t.name for t in (await client.list_tools()).tools}
-        prompts = {p.name for p in (await client.list_prompts()).prompts}
-        prompt = await client.get_prompt("security-review", {})
+    # No SECREVIEW_CONTROLLER_URL on the MCP server: the URL stored by the controller is given
+    app_settings.set_controller_url("https://secreview.example", "user:admin")
+    monkeypatch.setattr(server, "enrollment_web_url", EnrollmentWebUrl(ttl=0))
+    try:
+        server.enrollment_web_url()
+        async with Client(enrollment_mcp) as client:
+            instructions = client.instructions
+            tools = {t.name for t in (await client.list_tools()).tools}
+            prompts = {p.name for p in (await client.list_prompts()).prompts}
+            prompt = await client.get_prompt("security-review", {})
+    finally:
+        set_enrollment_web_url(None)
+    # The host shows the instructions at connection: they give the address too
+    assert "https://secreview.example/ui" in (instructions or "")
     assert tools == set()
     assert {"security-review", "codebase-review", "dependency-review"} <= prompts
     text = prompt.messages[0].content.text

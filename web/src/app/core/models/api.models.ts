@@ -283,6 +283,7 @@ export type AuditAction =
   | 'user.login_failed'
   | 'user.logout'
   | 'audit_syslog.changed'
+  | 'controller_url.changed'
   | 'finding.exported'
   | 'connector.target_changed'
   | 'connector.changed';
@@ -316,6 +317,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.login_failed',
   'user.logout',
   'audit_syslog.changed',
+  'controller_url.changed',
   'finding.exported',
   'connector.target_changed',
   'connector.changed',
@@ -874,6 +876,15 @@ export interface AppSettings {
     /** SECREVIEW_REPORT_LANGUAGE is set: it takes precedence over the stored value. */
     env_set: boolean;
     effective: string;
+  };
+  /** Public root URL of the controller; its web interface is given to the agents without a token. */
+  controller_url: {
+    /** Stored: set here, or copied from SECREVIEW_CONTROLLER_URL by the controller at start. */
+    value: string | null;
+    env: string | null;
+    /** SECREVIEW_CONTROLLER_URL is set on the controller: it takes precedence over this screen. */
+    env_set: boolean;
+    effective: string | null;
   };
   /** Proxy of the outgoing connections of the controller (OSV download, OIDC provider). */
   proxy: {

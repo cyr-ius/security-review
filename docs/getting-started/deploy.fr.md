@@ -109,7 +109,7 @@ que le terminal est ouvert.
 Pour l'équipe, exposez chaque Service par un Ingress avec TLS : `secreview-mcp` pour les agents,
 `secreview-controller` pour les développeurs (interface web, jetons MCP personnels) et pour la
 CI (`security-review-ci` appelle le contrôleur). Renseignez alors, dans la ConfigMap du
-manifeste, `SECREVIEW_WEB_URL` (URL publique de l'interface web) et
+manifeste, `SECREVIEW_CONTROLLER_URL` (URL publique racine du contrôleur) et
 `SECREVIEW_FORWARDED_ALLOW_IPS` (plage d'adresses des pods de l'ingress controller : sans ce
 réglage, tous les clients semblent venir de la même adresse, celle de l'Ingress).
 

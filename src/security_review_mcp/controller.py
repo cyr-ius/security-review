@@ -83,6 +83,8 @@ def serve(argv: list[str]) -> None:
         audit_syslog.validate_settings(settings)
         connectors.validate_settings(settings)
         bootstrap_created = web_users.ensure_bootstrap_admin(settings.admin_username)
+        # The MCP server reads the URL of the controller in the database
+        app_settings.sync_controller_url(settings)
     except (ValueError, SchemaError) as exc:
         parser.error(str(exc))
     registry.reload()

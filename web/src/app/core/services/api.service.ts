@@ -501,6 +501,11 @@ export class ApiService {
     return this.http.put<AppSettings>(`${API_URL}/settings/report-language`, { value });
   }
 
+  /** null (or '') removes the stored URL of the controller. */
+  setControllerUrl(value: string | null): Observable<AppSettings> {
+    return this.http.put<AppSettings>(`${API_URL}/settings/controller-url`, { value });
+  }
+
   /** A field left out is unchanged; null restores the variable, url '' connects directly. */
   setProxy(values: ProxyUpdate): Observable<AppSettings> {
     return this.http.put<AppSettings>(`${API_URL}/settings/proxy`, values);

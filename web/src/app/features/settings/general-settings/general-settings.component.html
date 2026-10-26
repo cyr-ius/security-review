@@ -1,7 +1,7 @@
 <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
   <div>
-    <h1 class="h3 mb-0">{{ 'settings.languageTitle' | t }}</h1>
-    <p class="text-body-secondary mb-0">{{ 'settings.languageSubtitle' | t }}</p>
+    <h1 class="h3 mb-0">{{ 'settings.generalTitle' | t }}</h1>
+    <p class="text-body-secondary mb-0">{{ 'settings.generalSubtitle' | t }}</p>
   </div>
   <app-refresh-button [loading]="settings.isLoading()" (refresh)="reload()" />
 </div>
@@ -21,8 +21,9 @@
     <span class="visually-hidden">{{ 'common.loading' | t }}</span>
   </div>
 } @else if (settings.value(); as current) {
-  <section class="card setting-card mb-4" aria-labelledby="language-help">
+  <section class="card setting-card mb-4" aria-labelledby="language-title">
     <div class="card-body">
+      <h2 id="language-title" class="h5">{{ 'settings.languageTitle' | t }}</h2>
       <p id="language-help" class="text-body-secondary small">
         {{ 'settings.languageHelpBefore' | t }} <code>report_language</code
         >{{ 'settings.languageHelpAfter' | t }}
@@ -52,7 +53,7 @@
               type="button"
               class="btn btn-link btn-sm p-0 align-baseline"
               [disabled]="busy()"
-              (click)="deleteStored()"
+              (click)="deleteStoredLanguage()"
             >
               {{ 'common.delete' | t }}
             </button>
@@ -96,6 +97,73 @@
               {{ 'common.save' | t }}
             </button>
           </div>
+        </form>
+      }
+    </div>
+  </section>
+  <section class="card setting-card mb-4" aria-labelledby="controller-url-title">
+    <div class="card-body">
+      <h2 id="controller-url-title" class="h5">{{ 'settings.controllerUrlTitle' | t }}</h2>
+      <p id="controller-url-help" class="text-body-secondary small">
+        {{ 'settings.controllerUrlHelp' | t }}
+      </p>
+      <p class="mb-3">
+        {{ 'settings.controllerUrlApplied' | t }}
+        <strong class="font-monospace">{{
+          current.controller_url.effective
+            ? current.controller_url.effective + '/ui'
+            : ('settings.none' | t)
+        }}</strong>
+      </p>
+      @if (current.controller_url.env_set) {
+        <div class="alert alert-info py-2 mb-0" role="status">
+          <i class="bi bi-lock" aria-hidden="true"></i>
+          {{
+            'settings.variableLocked'
+              | t: { variable: 'SECREVIEW_CONTROLLER_URL', value: current.controller_url.env ?? '' }
+          }}
+        </div>
+      } @else {
+        <form class="row g-2 align-items-end" (submit)="saveControllerUrl($event)" novalidate>
+          <div class="col-md-7">
+            <label for="controller-url" class="form-label">{{
+              'settings.controllerUrlLabel' | t
+            }}</label>
+            <input
+              id="controller-url"
+              type="url"
+              class="form-control font-monospace"
+              autocomplete="off"
+              placeholder="https://secreview.example.com"
+              aria-describedby="controller-url-error"
+              [class.is-invalid]="!controllerUrlValid()"
+              [formField]="controllerUrlForm.url"
+            />
+            <div id="controller-url-error" class="invalid-feedback">
+              {{ 'settings.controllerUrlPattern' | t }}
+            </div>
+          </div>
+          <div class="col-md-5 d-flex flex-wrap gap-2">
+            <button
+              type="submit"
+              class="btn btn-primary"
+              [disabled]="busy() || !controllerUrlValid()"
+            >
+              <i class="bi bi-check-lg" aria-hidden="true"></i>
+              {{ 'common.save' | t }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-secondary"
+              [disabled]="busy()"
+              (click)="useCurrent()"
+            >
+              {{ 'settings.controllerUrlUseCurrent' | t }}
+            </button>
+          </div>
+          <p class="form-text mb-0">
+            {{ 'settings.controllerUrlCurrent' | t }} <code>{{ currentUrl }}</code>
+          </p>
         </form>
       }
     </div>

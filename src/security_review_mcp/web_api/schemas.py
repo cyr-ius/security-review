@@ -13,7 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from .. import app_settings, proxy, standards
 from ..auth import access_control, token_store, web_users
-from ..config import MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS
+from ..config import CONTROLLER_URL_MAX_CHARS, MAX_RETENTION_DAYS, REPORT_LANGUAGE_MAX_CHARS
 from ..connectors import api as connectors_api
 from ..http_server import Role
 from ..observability import audit_syslog
@@ -1039,6 +1039,15 @@ class ReportLanguageUpdate(BaseModel):
     value: str | None = Field(default=None, max_length=REPORT_LANGUAGE_MAX_CHARS)
 
 
+class ControllerUrlUpdate(BaseModel):
+    """Body of PUT /settings/controller-url: public root URL of the controller, whose web
+    interface (/ui) the MCP server gives to the clients without a valid token; null or ""
+    removes the stored value. Refused (422) when SECREVIEW_CONTROLLER_URL is set on the
+    controller: the variable takes precedence."""
+
+    value: str | None = Field(default=None, max_length=CONTROLLER_URL_MAX_CHARS)
+
+
 class ProxyUpdate(BaseModel):
     """Body of PUT /settings/proxy: proxy of the outgoing connections of the controller.
 
@@ -1062,6 +1071,17 @@ class ReportLanguageSetting(BaseModel):
     env: str
     env_set: bool
     effective: str
+
+
+class ControllerUrlSetting(BaseModel):
+    """Public root URL of the controller: stored value (set here or copied from the variable of the
+    controller at start), variable, whether it is set (it then takes precedence), effective
+    value."""
+
+    value: str | None
+    env: str | None
+    env_set: bool
+    effective: str | None
 
 
 class ProxyValue(BaseModel):
@@ -1147,6 +1167,7 @@ class AppSettings(BaseModel):
     """Settings of the web interface, their variables and their effective values."""
 
     report_language: ReportLanguageSetting
+    controller_url: ControllerUrlSetting
     proxy: ProxySettings
     osv: OsvSettings
 
