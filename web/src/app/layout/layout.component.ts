@@ -89,9 +89,9 @@ export class LayoutComponent {
     { path: '/audit', label: 'layout.audit', icon: 'bi-journal-text', permission: 'audit.read' },
     { path: '/sso', label: 'layout.sso', icon: 'bi-person-badge', permission: 'users.manage' },
     {
-      path: '/settings/language',
-      label: 'layout.reportLanguage',
-      icon: 'bi-translate',
+      path: '/settings/general',
+      label: 'layout.general',
+      icon: 'bi-sliders',
       permission: 'settings.manage',
     },
     {

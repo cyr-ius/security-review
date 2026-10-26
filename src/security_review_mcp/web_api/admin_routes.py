@@ -20,6 +20,7 @@ from .schemas import (
     AuditPage,
     AuditSyslogSettings,
     AuditSyslogUpdate,
+    ControllerUrlUpdate,
     ProxyUpdate,
     ReportLanguageUpdate,
 )
@@ -103,6 +104,18 @@ async def set_report_language(body: ReportLanguageUpdate, identity: SettingsMana
     except ValueError as exc:
         raise unprocessable(exc) from exc
     logger.info("Report language set to %r by %s", body.value, identity.client)
+    return await run_in_threadpool(app_settings.describe)
+
+
+@router.put("/settings/controller-url")
+async def set_controller_url(body: ControllerUrlUpdate, identity: SettingsManager) -> AppSettings:
+    """Set the public root URL of the controller (its web interface is given by the MCP server to
+    the clients without a valid token, read again within a minute; recorded in the audit log)."""
+    try:
+        await run_in_threadpool(app_settings.set_controller_url, body.value, actor_of(identity))
+    except ValueError as exc:
+        raise unprocessable(exc) from exc
+    logger.info("Controller URL set to %r by %s", body.value, identity.client)
     return await run_in_threadpool(app_settings.describe)
 
 

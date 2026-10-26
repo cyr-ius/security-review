@@ -38,6 +38,7 @@ import {
   ProjectFindingPage,
   ProjectFindingQuery,
   PendingProject,
+  PendingProjectApproved,
   ProjectSummary,
   ProjectToken,
   ProjectTokenCreated,
@@ -282,9 +283,12 @@ export class ApiService {
     return this.http.get<PendingProject[]>(`${API_URL}/projects/pending`);
   }
 
-  /** Approve a requested project: it is created without any member. */
-  approvePendingProject(id: number): Observable<PendingProject> {
-    return this.http.post<PendingProject>(`${API_URL}/projects/pending/${id}/approve`, null);
+  /** Approve a requested project: the requester joins its project group, created when missing. */
+  approvePendingProject(id: number): Observable<PendingProjectApproved> {
+    return this.http.post<PendingProjectApproved>(
+      `${API_URL}/projects/pending/${id}/approve`,
+      null,
+    );
   }
 
   /** Reject a requested project: the request is deleted. */
@@ -495,6 +499,11 @@ export class ApiService {
   /** '' lets the agent choose, null restores SECREVIEW_REPORT_LANGUAGE. */
   setReportLanguage(value: string | null): Observable<AppSettings> {
     return this.http.put<AppSettings>(`${API_URL}/settings/report-language`, { value });
+  }
+
+  /** null (or '') removes the stored URL of the controller. */
+  setControllerUrl(value: string | null): Observable<AppSettings> {
+    return this.http.put<AppSettings>(`${API_URL}/settings/controller-url`, { value });
   }
 
   /** A field left out is unchanged; null restores the variable, url '' connects directly. */

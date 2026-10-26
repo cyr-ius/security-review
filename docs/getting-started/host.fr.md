@@ -105,7 +105,7 @@ En mode partagé, quand le serveur exige un jeton, vous utilisez un **jeton MCP 
 l'interface web. Inutile d'en réclamer un à un administrateur avant de commencer : configurez
 l'hôte comme ci-dessus, **sans jeton**, et lancez votre première revue. L'agent vous indique où
 créer votre jeton, puis demande le projet à la revue suivante (voir
-[l'enrôlement](../advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)).
+[l'enrôlement](../advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)).
 
 1. **Configurez l'hôte sans jeton.** Avec les exemples de la section
    [Transport HTTP](#transport-http), laissez la saisie du jeton vide (VS Code), ne définissez
@@ -113,7 +113,7 @@ créer votre jeton, puis demande le projet à la revue suivante (voir
    d'enrôlement, qui porte le même nom `security-review`.
 2. **Lancez une revue**, par exemple le prompt `security-review`. Au lieu de relire le code,
    l'agent vous invite à vous connecter à l'interface web (son adresse est donnée quand
-   l'administrateur a défini `SECREVIEW_WEB_URL`) et à créer un jeton MCP personnel. Le serveur
+   l'administrateur l'a définie : `SECREVIEW_CONTROLLER_URL` ou écran **Général**) et à créer un jeton MCP personnel. Le serveur
    n'enregistre rien à cette étape.
 
 3. **Créez votre jeton MCP personnel** : connectez-vous à l'interface web, ouvrez
@@ -146,14 +146,14 @@ créer votre jeton, puis demande le projet à la revue suivante (voir
    nom du dépôt en général). Si vous pouvez créer des projets, un nouveau projet est créé avec
    vous pour membre et la revue continue. Sinon l'agent s'arrête et vous indique que le projet
    est demandé : un administrateur le valide dans l'écran **Projets**, ce qui vous en donne
-   l'accès (pour un projet existant, l'administrateur vous ajoute à son groupe
-   `project:<projet>`). L'accès s'applique aussitôt : relancez la revue, sans rien
+   l'accès. Pour un projet qui existe déjà, la demande est une demande d'accès, validée de la
+   même façon. L'accès s'applique aussitôt : relancez la revue, sans rien
    reconfigurer.
 
 Quand le serveur refuse le jeton (inconnu, révoqué ou expiré), l'hôte reçoit `401` avec un
 message qui vous invite à vous reconnecter à l'interface web pour créer un nouveau jeton MCP
 personnel : remplacez-le dans l'hôte comme à l'étape 4 (voir
-[jeton refusé](../advanced/mcp-server.md#jeton-refuse-se-reconnecter)).
+[jeton refusé](../advanced/architecture/mcp-server.md#jeton-refuse-se-reconnecter)).
 
 !!! note
     Si l'administrateur a désactivé l'enrôlement (`SECREVIEW_ENROLLMENT=false`), un hôte sans
@@ -166,6 +166,6 @@ personnel : remplacez-le dans l'hôte comme à l'étape 4 (voir
 - **Certificat du serveur signé par une CA interne** (`unable to verify the first certificate`) :
   voir [Serveur HTTPS avec une CA interne](../advanced/tls.md#serveur-https-avec-une-ca-interne).
 - **Mode local (stdio)**, sans serveur (l'hôte lance lui-même le processus) : voir
-  [Mode local (stdio)](../getting-started/stdio.md).
+  [Mode local (stdio)](stdio.md).
 
-**Étape suivante :** lancez votre première revue avec les [prompts et outils](../usage/prompts-tools.md).
+**Étape suivante :** lancez votre première revue avec les [prompts et outils](../review/prompts-tools.md).

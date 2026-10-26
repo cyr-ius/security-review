@@ -61,7 +61,7 @@ sautés tant qu'elle n'est pas définie. Avec un jeton `mcp` ou `ci` personnel d
 ### Revue de sécurité de chaque commit
 
 Le hook `agent-review` lance
-[`security-review-ci agent-review`](../advanced/ci.md#revue-de-chaque-commit-par-un-agent) après
+[`security-review-ci agent-review`](../advanced/architecture/ci.md#revue-de-chaque-commit-par-un-agent) après
 chacun de vos commits : votre agent de code (Claude Code, GitHub Copilot ou Codex) le relit sous
 l'angle de la sécurité en arrière-plan, avec le serveur `security-review` de votre `.mcp.json`,
 et enregistre un rapport, que vous lisez dans l'interface web. `prek install` l'installe avec
@@ -108,7 +108,7 @@ Le workflow `.github/workflows/docker.yml` construit l'image (`linux/amd64`, `li
 avec le pilote PostgreSQL) et vérifie que les deux points d'entrée démarrent. Sur chaque pull
 request (la protection de `master` exige ces vérifications), il construit seulement ; sur un tag de
 version, il pousse les images sur `ghcr.io/cyr-ius/security-review` et
-`docker.io/cyrius44/security-review` (voir [images publiées](../advanced/docker.md#images-publiees)).
+`docker.io/cyrius44/security-review` (voir [images publiées](../advanced/deployment/docker.md#images-publiees)).
 Une exécution manuelle (**Actions → Docker image → Run workflow**, `push` coché) publie une
 image de branche (`dev`). Chaque tag est aussi publié avec le suffixe `-pg` (`X.Y.Z-pg`,
 `latest-pg`, `dev-pg`) : alias déprécié de la même image, conservé pour l'ancienne variante

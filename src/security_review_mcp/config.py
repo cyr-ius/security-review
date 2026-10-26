@@ -34,6 +34,48 @@ def check_report_language(value: str) -> str:
     return language
 
 
+# Bound of the public URL of the controller (SECREVIEW_CONTROLLER_URL or web interface)
+CONTROLLER_URL_MAX_CHARS = 500
+# Path of the web interface under the controller URL (http_server.UI_PREFIX)
+WEB_UI_PATH = "/ui"
+
+
+def check_controller_url(value: str | None) -> str | None:
+    """Return the public root URL of the controller without trailing slash; None when empty.
+
+    The address of its web interface (``/ui``) is shown to unauthenticated clients: an http(s)
+    URL, without credentials, query nor fragment.
+
+    Raises:
+        ValueError: If the value is not such a URL, or ends with the path of the interface.
+    """
+    value = (value or "").strip()
+    if not value:
+        return None
+    if len(value) > CONTROLLER_URL_MAX_CHARS or not value.isprintable():
+        raise ValueError(
+            f"SECREVIEW_CONTROLLER_URL must be a URL of at most {CONTROLLER_URL_MAX_CHARS} chars"
+        )
+    parts = urlsplit(value)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise ValueError("SECREVIEW_CONTROLLER_URL must be an http(s) URL")
+    if parts.username or parts.password:
+        raise ValueError("SECREVIEW_CONTROLLER_URL must not contain credentials")
+    if parts.query or parts.fragment:
+        raise ValueError("SECREVIEW_CONTROLLER_URL must not contain a query or a fragment")
+    value = value.rstrip("/")
+    if value.endswith(WEB_UI_PATH):
+        raise ValueError(
+            f"SECREVIEW_CONTROLLER_URL is the root URL of the controller, without {WEB_UI_PATH}"
+        )
+    return value
+
+
+def web_ui_url(controller_url: str | None) -> str | None:
+    """Address of the web interface of the controller at ``controller_url``, None if unknown."""
+    return f"{controller_url}{WEB_UI_PATH}" if controller_url else None
+
+
 def default_database_url() -> SecretStr:
     """SQLite file of the user: ``$XDG_DATA_HOME/security-review-mcp/security_reports.db``.
 
@@ -109,10 +151,14 @@ class Settings(BaseSettings):
     # project_enrollment_ttl_days is deleted. false: no welcome server (401) and no request.
     enrollment: bool = True
     project_enrollment_ttl_days: int = Field(default=7, ge=1, le=365)
-    # Public URL of the web interface (controller), e.g. https://secreview.example.com/ui. The
-    # MCP server gives it to the clients without a valid token (enrollment, 401), so that the
-    # user knows where to sign in and create a personal MCP token. Unset: no link is given.
-    web_url: str | None = None
+    # Public root URL of the controller, e.g. https://secreview.example.com (the same variable
+    # gives the controller to security-review-ci). The MCP server gives the address of its web
+    # interface (/ui) to the clients without a valid token (enrollment, 401), so that the user
+    # knows where to sign in and create a personal MCP token; the connectors link their records
+    # to the reports with it. Read by the controller only, which stores it in the database at
+    # start, where the MCP server reads it (the MCP server ignores this variable); unset, an
+    # administrator may set it in the web interface. Unset and not stored: no link.
+    controller_url: str | None = None
 
     # Optional TLS served by uvicorn (HTTP MCP server and controller), enabled by tls_certfile.
     # tls_client_ca additionally requires client certificates signed by this CA (mutual TLS).
@@ -304,7 +350,7 @@ class Settings(BaseSettings):
         "no_proxy",
         "audit_syslog_address",
         "audit_syslog_cafile",
-        "web_url",
+        "controller_url",
         "connectors_cafile",
     )
     @classmethod
@@ -336,18 +382,13 @@ class Settings(BaseSettings):
             return f"http://{value}"
         return value
 
-    @field_validator("web_url")
+    @field_validator("controller_url")
     @classmethod
-    def _check_web_url(cls, value: str | None) -> str | None:
-        """Accept an http(s) URL without credentials: it is shown to unauthenticated clients."""
-        if value is None:
-            return None
-        parts = urlsplit(value)
-        if parts.scheme not in ("http", "https") or not parts.hostname:
-            raise ValueError("SECREVIEW_WEB_URL must be an http(s) URL")
-        if parts.username or parts.password:
-            raise ValueError("SECREVIEW_WEB_URL must not contain credentials")
-        return value.rstrip("/")
+    def _check_controller_url(cls, value: str | None) -> str | None:
+        """Accept an http(s) URL without credentials: it is shown to unauthenticated clients.
+        Empty counts as unset (Compose passes ${SECREVIEW_CONTROLLER_URL:-} when .env lacks
+        it)."""
+        return check_controller_url(value)
 
     @field_validator("forwarded_allow_ips")
     @classmethod

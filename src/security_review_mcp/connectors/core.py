@@ -22,7 +22,7 @@ from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, col, select
 
-from ..config import Settings
+from ..config import Settings, web_ui_url
 from ..observability import audit
 from ..reports.sarif import SarifItem, fingerprint
 from ..reports.services import NotFoundError, _status_is
@@ -184,7 +184,8 @@ def build_content(item: SarifItem, settings: Settings) -> FindingContent:
     location = finding.file_path or "-"
     if finding.file_path and finding.line_start:
         location += f":{finding.line_start}"
-    report_url = f"{settings.web_url}/reports/{item.report_id}" if settings.web_url else None
+    web = web_ui_url(settings.controller_url)
+    report_url = f"{web}/reports/{item.report_id}" if web else None
     facts = [
         ("Project", item.project),
         ("Severity", finding.severity.value),

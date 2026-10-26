@@ -93,7 +93,7 @@ passe uniquement par l'ORM (SQLModel, paramètres liés), jamais par une chaîne
 `connectors/api.py` est le contrat des connecteurs tiers : ne le cassez pas sans incrémenter
 `API_VERSION`. Un connecteur ne sort que par `connectors.transport` (HTTPS, URL configurée,
 proxy, sans redirection, réponse bornée). Voir les
-[connecteurs tiers](../connectors/third-party.md).
+[connecteurs tiers](../usage/connectors/third-party.md).
 
 ## Tests
 
@@ -106,5 +106,5 @@ proxy, sans redirection, réponse bornée). Voir les
 | `web_sessions` | `secured` avec des utilisateurs web connectés (`reader`, `triager`), pour les routes réservées aux sessions |
 
 Vérifiez le code de statut et le corps, et au moins un refus (`401`, `403` ou `404` hors du
-périmètre) pour une nouvelle route. Voir aussi l'[interface web](../usage/web-interface.md) et
-les [rôles et permissions](../advanced/access-control.md) tels que les utilisateurs les voient.
+périmètre) pour une nouvelle route. Voir aussi l'[interface web](../usage/index.md) et
+les [rôles et permissions](../usage/access-control.md) tels que les utilisateurs les voient.

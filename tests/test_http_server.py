@@ -82,7 +82,7 @@ def protected_client(
             enrollment_app=enrollment_app,
             public_paths=public,
             allow_open=allow_open,
-            web_url=web_url,
+            web_url=lambda: web_url,
         )
     )
 

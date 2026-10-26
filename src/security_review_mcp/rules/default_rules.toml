@@ -153,6 +153,16 @@ pattern = '''['"]?verify_signature['"]?\s*[:=]\s*False|verify\s*=\s*False|algori
 advice = "Verify JWT signatures with a fixed algorithm allow-list; never accept unsigned tokens."
 
 [[rules]]
+id = "PY-028"
+title = "Password hashed with a fast hash function"
+severity = "medium"
+cwe = "CWE-916"
+languages = ["python"]
+# Passwords only: a random high-entropy token is rightly stored as a SHA-256 digest.
+pattern = '\bhashlib\.(sha224|sha256|sha384|sha512|sha3_\d+|blake2[bs])\s*\([^)\n]*pass(word|wd|phrase)'
+advice = "Hash passwords with a slow, salted KDF: argon2, scrypt, bcrypt or hashlib.pbkdf2_hmac."
+
+[[rules]]
 id = "JV-001"
 title = "Java deserialization"
 severity = "high"

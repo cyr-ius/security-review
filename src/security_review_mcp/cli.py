@@ -389,13 +389,14 @@ def project_command(argv: list[str]) -> int:
     """Run ``security-review-controller project``: handle the projects requested by enrollment."""
     parser = argparse.ArgumentParser(
         prog="security-review-controller project",
-        description="List, approve or reject the projects requested by an enrollment. An "
-        "approval creates the project (its group project:<project>, without any member); a "
-        "request nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.",
+        description="List, approve or reject the projects requested by an enrollment: a new "
+        "project, or the access to an existing one (existing: true). An approval adds the "
+        "requesting user to the group project:<project>, created for a new project; a request "
+        "nobody approved within SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS is deleted.",
     )
     actions = parser.add_subparsers(dest="action", required=True)
     actions.add_parser("list", help="list the pending projects (requester, address, expiry)")
-    approver = actions.add_parser("approve", help="create a pending project")
+    approver = actions.add_parser("approve", help="create a pending project or grant its access")
     approver.add_argument("id", type=int, help="id of the pending project (see list)")
     rejecter = actions.add_parser("reject", help="delete a pending project request")
     rejecter.add_argument("id", type=int, help="id of the pending project (see list)")
@@ -405,7 +406,9 @@ def project_command(argv: list[str]) -> int:
         if args.action == "list":
             result: object = access_control.list_enrollments()
         elif args.action == "approve":
-            result = access_control.approve_enrollment(args.id, audit.CLI_ACTOR)
+            result = access_control.approve_enrollment(
+                args.id, audit.CLI_ACTOR, may_grant_access=True
+            )
         else:
             result = access_control.reject_enrollment(args.id, audit.CLI_ACTOR)
     except (ValueError, NotFoundError) as exc:

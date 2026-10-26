@@ -4,7 +4,7 @@
 
 - **Two processes**: the MCP server (exposed to the agents) and the controller (REST API, web
   interface, administration) run separately and only share the database (see
-  [Architecture](../advanced/architecture.md)). The MCP server only accepts
+  [Architecture](../advanced/architecture/index.md)). The MCP server only accepts
   the `mcp` and `admin` tokens, the controller only web sessions and `admin` and `api` tokens, plus `ci`
   on its pipeline routes (`/api/v1/ci/`: gate, SARIF and trend in read only, scans that store
   reports of its projects) and nowhere else. The
@@ -44,17 +44,19 @@
   [expiry and rotation](../advanced/bearer-tokens.md#expiry-and-rotation-of-tokens)).
 - **Rejected tokens on `/mcp`**: an unknown, revoked or expired token gets a `401` whose
   description tells the user to sign in to the web interface and create a new personal MCP
-  token (see [rejected token](../advanced/mcp-server.md#rejected-token-sign-in-again)); it never
+  token (see [rejected token](../advanced/architecture/mcp-server.md#rejected-token-sign-in-again)); it never
   reaches the enrollment server. Each rejection is also logged as a warning by the MCP server
   (`Rejected unauthenticated request` / `Rejected expired token`, with the client address); the
   `secreview_auth_rejections_total` [metric](metrics.md) only counts the
-  rejections of the controller. `SECREVIEW_WEB_URL`, given in that description, is a public URL:
-  it holds no credentials (refused at start-up).
+  rejections of the controller. The address of the web interface given in that description
+  (`SECREVIEW_CONTROLLER_URL` + `/ui`) is a public URL:
+  it holds no credentials (refused at start-up and in the web interface, where each change is
+  audited).
 - **Audit log**: triage decisions, agent proposals, creations, rotations and revocations of
   tokens and project requests are written in the same transaction as the change,
   with their actor (`user:`, `token:`, `cli`, `anonymous`). The details are bounded and masked,
   and never hold a token or a password; no tool nor route edits an event, only the purge of
-  `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-metrics.md)).
+  `SECREVIEW_AUDIT_RETENTION_DAYS` deletes them (see [audit log](../advanced/audit-log.md)).
 - **Metrics**: `/metrics` exists on the controller only (the MCP server keeps `/mcp`
   and `/healthz`), behind a `metrics` or `admin` token; a `metrics` token
   reaches nothing else. The answer holds counts and project names, never a finding, a token
@@ -66,7 +68,7 @@
 `ci` token on the pipeline routes (never an administrator's `mcp` token). It only reads the gate, the
   SARIF log and the trend of its projects; the other routes of the controller, `/mcp` and the
   web interface answer `403`, the other projects `404`. The pipeline client
-  ([`security-review-ci`](../advanced/ci.md)) opens no
+  ([`security-review-ci`](../advanced/architecture/ci.md)) opens no
   database, reads the token from the environment or stdin only, refuses plain HTTP outside
   localhost, credentials in the URL and redirects, and bounds the answers.
 - **Enrollment** (enabled by default, `SECREVIEW_ENROLLMENT`): a client without a token reaches
@@ -74,14 +76,16 @@
   MCP token in the web interface, after logging in: nothing is written without a token, and the
   MCP server serves no other public route than `/healthz`. No token is ever created for a
   client. With a token, `request_project` creates a new project only for a user holding
-  `projects.create` (never an existing project); otherwise the project is **pending** until a
-  user with `projects.create` approves it on the controller, which creates its project group
-  with the requesting user (authenticated by the token, never declared) as its only member. The
+  `projects.create` (never an existing project); otherwise the request is **pending** until a
+  user with `projects.create` approves it on the controller, which adds the requesting user
+  (authenticated by the token, never declared) to the project group, created for a new project.
+  For an existing project, the request is an access request, never granted at once, and only
+  approved by a user who also holds `users.manage`. The
   answer is the same whether the project existed or not. The requests are bounded (20 pending
-  projects, 5 per user or token and per hour), and a request nobody approved within
+  requests, one per user and project, 5 per user or token and per hour), and a request nobody approved within
   `SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS` is deleted: check the requester before approving.
   Every request is audited. See
-  [enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests).
+  [enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests).
 - **Outgoing network calls**: the MCP server makes none, and does not even load the modules
   of the controller that make them (advisory download, OIDC, syslog, connectors, version check):
   a test checks it. The controller only downloads the OSV advisories if an administrator enables it
@@ -95,12 +99,12 @@
   in clear**: the API never returns them (password replaced by `***`) and the error messages of
   the history are scrubbed of them, but prefer `HTTPS_PROXY` (Kubernetes secret) if the
   database is not protected like a secret. See the
-  [automatic update](../advanced/dependencies.md#automatic-update-by-the-controller). With the
-  [OIDC login](../advanced/sso.md) (`SECREVIEW_OIDC_ENABLED`,
+  [automatic update](../review/analysis/dependencies.md#automatic-update-by-the-controller). With the
+  [OIDC login](../advanced/oidc.md) (`SECREVIEW_OIDC_ENABLED`,
   disabled by default), the controller also contacts the configured identity provider: HTTPS
   only (HTTP only on localhost), redirects limited to HTTPS, answers bounded to 1 MiB, 10 second
   timeout. This configuration can also be
-  [changed in the interface](../advanced/sso.md#configuring-oidc-in-the-interface) by an
+  [changed in the interface](../advanced/oidc.md#configuring-oidc-in-the-interface) by an
   administrator, with the same checks (an invalid configuration is refused); the **Test the
   connection** button contacts the entered issuer, under the same conditions. The **client
   secret** entered in the interface is stored in the database **in clear**: the API never
@@ -119,11 +123,11 @@
   never read as wiki markup; the secrets entered in the **Connectors** screen are stored in clear
   and never returned (`***`) and stay bound to the host of their URL; a third-party connector
   is only loaded when `SECREVIEW_CONNECTORS_PLUGINS` names it and only reaches its configured
-  URL through the client of the controller, see [connectors](../connectors/index.md#security). With
+  URL through the client of the controller, see [connectors](../advanced/connectors.md#security). With
   `SECREVIEW_AUDIT_SYSLOG_ADDRESS` or a server set on the **Audit log** page (disabled by
   default; `settings.manage` permission, `udp://`, `tcp://` or `tls://` only, the change
   audited), the controller sends the
-  [audit events](../advanced/audit-metrics.md#forwarding-to-syslog) to that syslog server (UDP
+  [audit events](../advanced/audit-log.md#forwarding-to-syslog) to that syslog server (UDP
   or TCP in clear, TLS with the certificate and host name of the server verified, or Unix
   socket; no proxy); the events hold no secret (masked details), and the MCP server still
   connects nowhere.
@@ -180,10 +184,10 @@
   excerpts of `scan_code` and in the summary, description, evidence and recommendation stored
   in a report (then cut again at `SECREVIEW_MAX_CONTENT_CHARS`): nothing is removed, the hidden
   text becomes readable. The
-  [`AI-*` rules](../usage/rules.md#default-rules-by-platform) report hidden characters and
+  [`AI-*` rules](../review/rules.md#default-rules-by-platform) report hidden characters and
   text addressed to an AI assistant, so the gate can block them. The server only sees what the
   agent sends: it cannot filter the files that the host reads with its own tools; the
-  [read guard](../advanced/read-guard.md), a host-side hook, checks them before the assistant
+  [read guard](../review/analysis/read-guard.md), a host-side hook, checks them before the assistant
   reads them.
 - **User accounts** ([user name and password](../usage/user-accounts.md)): only
   a salted **scrypt** digest (N=2¹⁴, r=8, p=5, random 16-byte salt) is stored; a stored digest
@@ -211,7 +215,7 @@
   bound to the browser by a signed `HttpOnly` / `SameSite=Lax` cookie of 10 minutes, nonce,
   verified ID token (signature by the JWKS keys of the provider, asymmetric algorithms only,
   never `none` nor HMAC; issuer, audience, `azp`, expiry). The permissions come from the
-  [groups](../advanced/access-control.md#groups) of the account: those given by an administrator and the
+  [groups](../usage/access-control.md#groups) of the account: those given by an administrator and the
   groups open to OIDC whose name is exactly a value of the groups claim (other values are
   ignored, a group not open to OIDC is never joined through the claim); an OIDC session never
   opens `/mcp`. The account is identified by the issuer and the `sub` of its first login (unique
@@ -259,20 +263,20 @@
   its `401` before its body is read.
 - **Database**: SQL queries go through the ORM (bound parameters); input sizes, the number of
   findings and the pagination are bounded. Every project name is
-  [normalized](../usage/prompts-tools.md#project-name) before use: only letters, digits and
+  [normalized](../review/prompts-tools.md#project-name) before use: only letters, digits and
   single dashes reach the database, the logs, the metric labels and the file names. The schema is migrated by Alembic; the HTTP MCP
   server never changes it and refuses to serve a database that is not at the expected
   revision.
 - **Scan rules**: the default rules (`default_rules.toml`) are copied into the database at first
   start. If the database cannot be reached or was never initialized, the server applies this
   file directly: the scan never runs without rules. A default rule can be edited or disabled by
-  an administrator, but not deleted (see [Rules](../usage/rules.md#default-rules)).
+  an administrator, but not deleted (see [Rules](../review/rules.md#default-rules)).
 - **Development standards**: their content is handed as is to the AI assistant as instructions;
   only the administrators of the controller write them (validated and bounded fields, 200
   standards of 50,000 characters at most). The MCP server only reads them, and the task given to
   the `development-standards` prompt is fenced so that it cannot escape. The prompt reminds that
   a standard never prevails over security (see
-  [Development standards](../usage/standards.md)).
+  [Development standards](../review/standards.md)).
 - **Logs** on stderr (stdout is reserved for the protocol with stdio).
 - **Local mode (stdio) on SQLite only**: it has no token, so it refuses a shared database
   (PostgreSQL...) where it would bypass the permissions of the projects and migrate the schema
@@ -290,11 +294,11 @@
 - Rules are line-by-line patterns: they see neither the data flow nor the missing checks
   (missing authorization, for example). This work remains the agent's, guided by the
   checklists, and your SAST/SCA tools'.
-- The few [Tree-sitter analyses](../usage/rules.md#default-rules) (`PY-026`, `JV-019`,
+- The few [Tree-sitter analyses](../review/rules.md#default-rules) (`PY-026`, `JV-019`,
   `NG-021`, `GO-019`, `CS-021`, `RS-015`, `TS-016`) only follow simple flows inside one file.
   They are bounded so that a crafted file cannot block a scan: each function is analyzed once
   per input state, and code nested too deeply is only checked by the patterns.
-- The [coverage of a review](../usage/prompts-tools.md#review-coverage) (checklist results,
+- The [coverage of a review](../review/prompts-tools.md#review-coverage) (checklist results,
   rules of the scan leads) is declared by the agent: the server only keeps the ids it knows and
   marks the skipped items `not_covered`, it cannot check that the agent really read the code.
 - The `author` of a report (developer username) is the user of the personal token that saved
@@ -302,7 +306,7 @@
   by an administrator), it is declared by the client: anyone holding such
   a token of the project can name someone else. `submitted_by`, the label of the token that
   saved the report, is always set by the server (see
-  [author of a report](../usage/prompts-tools.md#author-of-a-report)). An `author` is often an
+  [author of a report](../review/prompts-tools.md#author-of-a-report)). An `author` is often an
   email address, that is personal data, kept as long as the report: in the web interface and
   the REST API, only a holder of `users.manage` or `tokens.manage` sees it (nor can the others
   find it by the filter, the search or the sort); the MCP tools, resources and prompts never

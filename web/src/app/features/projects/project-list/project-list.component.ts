@@ -65,6 +65,8 @@ export class ProjectListComponent {
   });
   /** A user with projects.delete may delete a project and everything that refers to it. */
   readonly canDelete = computed(() => this.auth.can('projects.delete'));
+  /** Giving access to an existing project also takes users.manage, as a group membership does. */
+  readonly canGrantAccess = computed(() => this.auth.can('users.manage'));
   readonly creating = signal(false);
   /** Project being deleted (its row button shows a spinner). */
   readonly deleting = signal<string | null>(null);
@@ -207,14 +209,17 @@ export class ProjectListComponent {
   }
 
   async approve(request: PendingProject): Promise<void> {
-    const { id, project } = request;
-    if (!window.confirm(this.i18n.translate('projects.confirmApprove', { project }))) {
+    const { id, project, existing } = request;
+    const confirm = existing ? 'projects.confirmApproveAccess' : 'projects.confirmApprove';
+    if (!window.confirm(this.i18n.translate(confirm, { project }))) {
       return;
     }
-    await this.decide(
-      () => firstValueFrom(this.api.approvePendingProject(id)),
-      msg('projects.approved', { project }),
-    );
+    await this.decide(async () => {
+      const { group } = await firstValueFrom(this.api.approvePendingProject(id));
+      return existing
+        ? msg('projects.approvedAccess', { project, group })
+        : msg('projects.approved', { project });
+    });
   }
 
   async reject(request: PendingProject): Promise<void> {
@@ -222,14 +227,14 @@ export class ProjectListComponent {
     if (!window.confirm(this.i18n.translate('projects.confirmReject', { project }))) {
       return;
     }
-    await this.decide(
-      () => firstValueFrom(this.api.rejectPendingProject(id)),
-      msg('projects.rejected', { project }),
-    );
+    await this.decide(async () => {
+      await firstValueFrom(this.api.rejectPendingProject(id));
+      return msg('projects.rejected', { project });
+    });
   }
 
-  /** Apply a decision on a pending project and refresh both lists. */
-  private async decide(action: () => Promise<unknown>, success: Message): Promise<void> {
+  /** Apply a decision on a pending project, show its outcome and refresh both lists. */
+  private async decide(action: () => Promise<Message>): Promise<void> {
     if (this.deciding()) {
       return;
     }
@@ -237,8 +242,7 @@ export class ProjectListComponent {
     this.pendingError.set(null);
     this.notice.set(null);
     try {
-      await action();
-      this.notice.set(success);
+      this.notice.set(await action());
     } catch (error: unknown) {
       this.pendingError.set(
         error instanceof HttpErrorResponse && error.status === 404

@@ -1153,6 +1153,19 @@ def test_a_web_user_with_projects_create_creates_a_project(accounts, reports):
     assert response.status_code == 409
     response = accounts.post("/api/v1/projects", json={"project": ""}, headers=headers)
     assert response.status_code == 422
+    # Nor through an access request it approves itself: that takes users.manage
+    access_control.request_project("shop-api", "carol")
+    (pending,) = accounts.get("/api/v1/projects/pending", headers=headers).json()
+    assert pending["existing"] is True
+    url = f"/api/v1/projects/pending/{pending['id']}/approve"
+    assert accounts.post(url, headers=headers).status_code == 403
+    assert "shop-api" not in [
+        item["project"] for item in accounts.get("/api/v1/projects", headers=headers).json()
+    ]
+    assert accounts.post(url, headers=admin).status_code == 200
+    assert "shop-api" in [
+        item["project"] for item in accounts.get("/api/v1/projects", headers=headers).json()
+    ]
 
 
 def test_creating_a_project_needs_the_permission_and_a_web_session(accounts, secured):
@@ -1707,6 +1720,7 @@ def test_project_triager_only_changes_findings_of_its_project(secured, reports):
     [
         ("get", "/api/v1/settings"),
         ("put", "/api/v1/settings/report-language"),
+        ("put", "/api/v1/settings/controller-url"),
         ("put", "/api/v1/settings/proxy"),
         ("get", "/api/v1/settings/audit-syslog"),
         ("put", "/api/v1/settings/audit-syslog"),
@@ -1738,6 +1752,17 @@ def test_admin_sets_the_report_language(client):
     assert app_settings.report_language() == "French"
     reset = client.put("/api/v1/settings/report-language", json={"value": None}).json()
     assert reset["report_language"]["value"] is None
+
+
+def test_admin_sets_the_controller_url(client):
+    url = "/api/v1/settings/controller-url"
+    response = client.put(url, json={"value": "https://sr.example"})
+
+    assert response.status_code == 200
+    assert response.json()["controller_url"]["effective"] == "https://sr.example"
+    assert client.put(url, json={"value": "ftp://sr.example"}).status_code == 422
+    reset = client.put(url, json={"value": None}).json()
+    assert reset["controller_url"]["effective"] is None
 
 
 def test_settings_whose_variable_is_set_are_refused(client, monkeypatch):

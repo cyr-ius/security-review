@@ -207,7 +207,8 @@ def is_controller_public_path(path: str) -> bool:
 
 def renew_token_hint(web_url: str | None) -> str:
     """What a user does when the MCP server refuses its token (or receives none): sign in to the
-    web interface (``web_url``, SECREVIEW_WEB_URL, when known) and create a personal MCP token."""
+    web interface (``web_url``, from SECREVIEW_CONTROLLER_URL, when known) and create a personal
+    MCP token."""
     where = f"the web interface ({web_url})" if web_url else "the web interface"
     return (
         f"sign in to {where} and create a new personal MCP token, then put it in the MCP "
@@ -242,7 +243,10 @@ class BearerAuthMiddleware:
     ``enrollment_app`` receives the MCP requests sent without an ``Authorization`` header (or
     with an empty bearer value): the client may create its project there. A token that is
     unknown, revoked or expired always gets a 401; on the MCP server, its description tells the
-    user to sign in to the web interface (``web_url``) and create a new personal MCP token.
+    user to sign in to the web interface and create a new personal MCP token. ``web_url``
+    returns the address of that interface (stored by the controller); it is called in a
+    thread before each request sent to the enrollment server, which it keeps up to date, and for
+    each 401.
 
     ``sessions`` (controller only) also accepts the session tokens issued after a login.
     ``require_auth`` (controller with OIDC) asks for credentials even while the store holds no
@@ -259,7 +263,7 @@ class BearerAuthMiddleware:
         sessions: SessionVerifier | None = None,
         require_auth: bool = False,
         allow_open: bool = False,
-        web_url: str | None = None,
+        web_url: Callable[[], str | None] | None = None,
     ) -> None:
         self.app = app
         self.store = store
@@ -335,6 +339,8 @@ class BearerAuthMiddleware:
         authorization = Headers(scope=scope).get("authorization", "")
         if self.enrollment_app is not None and not has_credentials(authorization):
             # No token yet: the enrollment server tells the user how to create one
+            if self.web_url is not None:
+                await anyio.to_thread.run_sync(self.web_url)
             await self.enrollment_app(scope, receive, send)
             return
         info = await self.identify(authorization)
@@ -342,7 +348,7 @@ class BearerAuthMiddleware:
             AUTH_REJECTIONS["invalid_token"] += 1
             logger.warning("Rejected unauthenticated request from %s to %s", address, path)
             await _send_error(
-                send, 401, "invalid_token", self.refusal("Missing or invalid bearer token")
+                send, 401, "invalid_token", await self.refusal("Missing or invalid bearer token")
             )
             return
         if info.expired:
@@ -350,7 +356,7 @@ class BearerAuthMiddleware:
             logger.warning("Rejected expired token %s from %s to %s", info.label, address, path)
             # RFC 6750: an expired token is an invalid_token
             await _send_error(
-                send, 401, "invalid_token", self.refusal("The bearer token has expired")
+                send, 401, "invalid_token", await self.refusal("The bearer token has expired")
             )
             return
         if info.pipeline and self.web and path.startswith(CI_PREFIX):
@@ -377,10 +383,13 @@ class BearerAuthMiddleware:
         state["auth_must_change_password"] = info.must_change_password
         await self.app(scope, receive, send)
 
-    def refusal(self, reason: str) -> str:
+    async def refusal(self, reason: str) -> str:
         """Description of a 401: on the MCP server, ``reason`` followed by how the user gets a
         new token (see renew_token_hint)."""
-        return reason if self.web else f"{reason}: {renew_token_hint(self.web_url)}"
+        if self.web:
+            return reason
+        url = await anyio.to_thread.run_sync(self.web_url) if self.web_url is not None else None
+        return f"{reason}: {renew_token_hint(url)}"
 
 
 async def _send_error(send: Send, status: int, error: str, description: str) -> None:
@@ -621,13 +630,14 @@ def build_mcp_app(
     store: TokenStore,
     enrollment_server: MCPServer | None = None,
     allow_open: bool = False,
-    web_url: str | None = None,
+    web_url: Callable[[], str | None] | None = None,
 ) -> ASGIApp:
     """Build the HTTP app of the MCP server, protected by the bearer tokens of ``store``.
 
     ``enrollment_server`` answers the MCP clients that have no token yet.
     ``allow_open`` (see allows_open_mcp) lets every request through while no token is stored.
-    ``web_url`` (SECREVIEW_WEB_URL) is given in the 401 answers, where a new token is created.
+    ``web_url`` returns the address of the web interface, given in the 401 answers, where a new
+    token is created (see BearerAuthMiddleware).
     """
     main = server.streamable_http_app(host=host)
     enrollment_app = (

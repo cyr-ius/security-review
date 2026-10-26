@@ -16,7 +16,7 @@ flowchart LR
 !!! warning "For specific cases only"
     The reports are saved in a **local** SQLite database that nobody else sees, there is no web
     interface to triage them, and every workstation keeps its own rules. For a team, use the
-    [shared mode (HTTP)](../getting-started/deploy.md) instead. Local mode is useful to try the
+    [shared mode (HTTP)](deploy.md) instead. Local mode is useful to try the
     prompts alone, on an offline workstation, or for a personal use.
 
 ## Installation
@@ -36,7 +36,7 @@ uv pip install --python /opt/security-review-mcp/venv security-review
     (`uv pip uninstall --python /opt/security-review-mcp/venv security-review-mcp`), then install
     `security-review`. The commands, the settings and the database stay the same.
 
-Without Internet access, or from the sources: see [Installation: other cases](../advanced/installation.md).
+Without Internet access, or from the sources: see [Installation: other cases](../advanced/deployment/installation.md).
 
 ## Running
 
@@ -47,7 +47,7 @@ security-review-mcp local   # started by the host, not by hand
 A SQLite database is created locally (`~/.local/share/security-review-mcp/security_reports.db`,
 or under `$XDG_DATA_HOME` when it is set).
 This is the only file written by the server; delete it to remove all traces. `local` ignores
-remote databases, hence [`SECREVIEW_DATABASE_URL`](../reference/configuration.md#database): a
+remote databases, hence [`SECREVIEW_DATABASE_URL`](../advanced/database.md#sqlite-or-postgresql): a
 development container that points it to PostgreSQL does not change the database of the local
 mode.
 
@@ -56,7 +56,7 @@ mode.
     `SECREVIEW_DATABASE_URL` and accepts SQLite only: it refuses to start (code `2`) when the
     variable points to another database (PostgreSQL...). Local mode has no token, and a shared
     database would let it write to every project and migrate the schema of the team. To work
-    with that database, use the [shared mode (HTTP)](../getting-started/deploy.md).
+    with that database, use the [shared mode (HTTP)](deploy.md).
 
 ## Host configuration
 
@@ -79,4 +79,4 @@ repository:
 }
 ```
 
-To run the server from a container, see [Docker](../advanced/docker.md).
+To run the server from a container, see [Docker](../advanced/deployment/docker.md).

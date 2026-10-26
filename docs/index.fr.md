@@ -17,23 +17,23 @@ trie et en assure le suivi.
   le développeur, quand leur correction coûte le moins cher, et non des semaines plus tard lors
   d'un audit ou en production.
 - **Vos exigences, appliquées par chaque assistant.** L'équipe sécurité gère au même endroit les
-  [règles de scan](usage/rules.md), les [checklists de revue](usage/checklists.md) et les [normes de développement](usage/standards.md) ; chaque assistant de
+  [règles de scan](review/rules.md), les [checklists de revue](review/checklists.md) et les [normes de développement](review/standards.md) ; chaque assistant de
   chaque projet reçoit les mêmes, sans former chaque développeur.
 - **Une vue centrale et durable.** Les rapports sont conservés dans une base de données (SQLite
-  ou PostgreSQL). L'[interface web](usage/web-interface.md) montre, pour chaque projet, les findings ouverts, la posture
-  de sécurité et son évolution dans le temps ([rapport de tendance](advanced/ci.md#rapport-de-tendance)).
+  ou PostgreSQL). L'[interface web](usage/index.md) montre, pour chaque projet, les findings ouverts, la posture
+  de sécurité et son évolution dans le temps ([rapport de tendance](advanced/architecture/ci.md#rapport-de-tendance)).
 - **Les personnes décident, pas l'IA.** Un assistant peut seulement *proposer* de clore un
   finding. Une acceptation de risque ou un faux positif est décidé par une personne connectée,
   enregistrée comme approbateur ; une acceptation de risque porte aussi un motif et une date
   d'expiration, selon votre politique : chaque décision est traçable pour un
   audit ([triage des findings](usage/triage.md)).
-- **Intégré à votre chaîne de livraison.** Une [gate](usage/gate.md) bloque un déploiement tant que des findings
-  graves restent ouverts ; les résultats s'exportent en [SARIF](advanced/sarif.md) (GitHub code scanning, Jenkins) ;
-  les [dépendances](advanced/dependencies.md) sont vérifiées avec une base de vulnérabilités OSV, même sans accès Internet.
-- **Relié aux outils de l'entreprise.** [Authentification unique (OIDC)](advanced/sso.md) avec votre fournisseur
-  d'identité, [groupes et rôles](advanced/access-control.md), envoi des findings vers
-  [Jira ou ServiceNow](connectors/index.md),
-  [journal d'audit transmis à syslog, métriques Prometheus](advanced/audit-metrics.md).
+- **Intégré à votre chaîne de livraison.** Une [gate](review/gate.md) bloque un déploiement tant que des findings
+  graves restent ouverts ; les résultats s'exportent en [SARIF](advanced/reports/sarif.md) (GitHub code scanning, Jenkins) ;
+  les [dépendances](review/analysis/dependencies.md) sont vérifiées avec une base de vulnérabilités OSV, même sans accès Internet.
+- **Relié aux outils de l'entreprise.** [Authentification unique (OIDC)](usage/sso.md) avec votre fournisseur
+  d'identité, [groupes et rôles](usage/access-control.md), envoi des findings vers
+  [Jira ou ServiceNow](usage/connectors/index.md),
+  [journal d'audit transmis à syslog, métriques Prometheus](usage/audit-metrics.md).
 - **Votre code reste chez vous.** Le produit est auto-hébergé : le serveur MCP n'établit aucune
   connexion sortante, les secrets sont masqués avant stockage, et il s'installe hors ligne. Il
   est open source (licence Apache 2.0). Voir [Sécurité et limites](reference/security.md).
@@ -52,7 +52,7 @@ trie et en assure le suivi.
 
 ## Ce que contient le produit
 
-Un serveur MCP pour la **revue de code orientée sécurité** (failles et mauvaises
+Un **serveur MCP** pour la **revue de code orientée sécurité** (failles et mauvaises
 configurations). Il fournit à l'hôte (VS Code, Copilot, Claude, agent CI/CD) :
 
 - des **prompts** structurés pour lancer une revue ;
@@ -62,7 +62,7 @@ configurations). Il fournit à l'hôte (VS Code, Copilot, Claude, agent CI/CD) :
 
 via la commande `security-review-mcp`
 
-Un serveur Controller qui permet l'**administration et la gestion des contrôles** (le Controller est facultatif)
+Un **serveur Controller* qui permet l'**administration et la gestion des contrôles** (le Controller est facultatif)
 Il fournit aux administrateurs et analystes en cybersécurité :
 
  - la **consultation des rapports** d'analyse de sécurité
@@ -74,134 +74,13 @@ Il fournit aux administrateurs et analystes en cybersécurité :
 
 via la commande `security-review-controller`
 
-Il s'accompagne d'une commande CLI pour l'injection dans les pipelines (tels que Jenkins, etc.) et permet :
+Une **commande CI** pour l'injection dans les pipelines (tels que Jenkins, etc.) et permet :
  - **scan du dépôt** complet
  - **gate** de déploiement avec blocage si des findings sont ouverts
  - export SARIF et **rapport** de tendance
  - **analyse des dépendances**
 
 via la commande `security-review-ci`
-
-## Trois services, trois rôles
-
-L'ensemble des produits est installé par le même paquet PyPI, `security-review`, et livré dans la même image Docker.
-Le serveur MCP et le contrôleur ne s'appellent jamais entre eux : ils partagent la même **base
-de données**, où sont stockés les rapports, les règles et les jetons. Le client de pipeline
-`security-review-ci` n'a pas accès à la base : il appelle l'API REST du contrôleur.
-
-```mermaid
-flowchart LR
-    agents(["Agents IA<br/>VS Code, Claude, agent de CI"]) -- "/mcp<br/>jeton MCP" --> mcp["Serveur MCP<br/>security-review-mcp"]
-    people(["Personnes (navigateur)<br/>équipe sécurité, développeurs, admins"]) -- "/ui, /api/v1<br/>compte utilisateur" --> ctl["Contrôleur<br/>security-review-controller"]
-    ci(["Pipeline CI/CD<br/>security-review-ci"]) -- "/api/v1/ci<br/>jeton ci" --> ctl
-    mcp --> db[("Base de données<br/>SQLite ou PostgreSQL")]
-    ctl --> db
-```
-
-| | Serveur MCP | Contrôleur | Client de pipeline |
-|---|---|---|---|
-| Commande | `security-review-mcp` | `security-review-controller` | `security-review-ci` |
-| Utilisé par | les agents IA (dans l'éditeur ou dans un pipeline) | les personnes : équipe sécurité, développeurs, administrateurs | les pipelines CI/CD |
-| Ce qu'il fait | fournit à l'agent les prompts de revue, les checklists, le scan par motifs, et enregistre ses rapports | affiche et trie les rapports dans l'**interface web** (`/ui/`), sert l'API REST, crée le schéma, gère les jetons et les comptes utilisateurs | envoie les fichiers du dépôt au contrôleur, qui les scanne ; gate, export SARIF, tendances |
-| Exposition | aux agents (endpoint `/mcp`) | aux personnes et aux pipelines (HTTPS) | aucune : il tourne dans le pipeline |
-
-En résumé : **l'agent parle au serveur MCP, les personnes et les pipelines utilisent le
-contrôleur.** Pour une
-équipe, on déploie **les deux** : sans contrôleur, personne ne peut lire les rapports dans un
-navigateur, décider d'un finding, ni créer les jetons des agents.
-
-### Serveur MCP
-
-En mode local, le serveur MCP crée sa propre base SQLite. En mode partagé, il utilise la base
-du contrôleur.
-
-Bien que vous puissiez installer le serveur MCP en **mode local (stdio)** sur un poste de
-développeur (voir [Mode local (stdio)](getting-started/stdio.md)), nous recommandons le
-**mode partagé (HTTP)**.
-
-Ainsi vous n'avez aucune adhérence sur la technologie employée par le MCP : il suffit de paramétrer votre IDE
-pour utiliser le serveur MCP en mode Streamable-HTTP. Voir [Transport HTTP](getting-started/host.md#transport-http).
-
-Pour des raisons de sécurité, il est nécessaire de soumettre un jeton d'authentification pour
-échanger avec le serveur. En l'absence de jeton, le serveur MCP indique à votre agent IA la
-démarche à suivre pour en obtenir un ([enrôlement](advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet)).
-
-Ses routes, ses transports, son démarrage et ses garanties : voir [Serveur MCP](advanced/mcp-server.md).
-
-### Serveur Contrôleur
-
-Si vous exécutez la commande `security-review-controller`, celle-ci démarre un serveur
-d'application qui vous permet de vous connecter à la base de données via une interface web.
-
-Grâce à cette application, vous pourrez :
-
-- consulter les rapports émis par les agents de vos développeurs ;
-- proposer de nouvelles [règles](usage/rules.md) et [checklists](usage/checklists.md) ;
-- partager vos [normes de développement](usage/standards.md) avec les agents ;
-- suivre les vulnérabilités, faire des revues de sécurité et gérer les acceptations de risque
-  (voir le [triage des findings](usage/triage.md)).
-
-Le serveur Contrôleur est entièrement paramétrable via des variables d'environnement ou via son CLI
-
-Ses routes, son démarrage, ses tâches de fond et son exposition : voir [Contrôleur](advanced/controller.md).
-
-### CI/CD
-
-Vous avez une chaîne CI/CD et souhaitez mettre en œuvre un gate d'acceptation ?
-C'est possible avec le client `security-review-ci` (un seul fichier Python, sans dépendance) :
-voir [CI](advanced/ci.md).
-
-Ce même client peut être utilisé dans vos hooks de pre-commit (ou prek) afin d'effectuer
-vos revues de sécurité ou analyses de dépendances directement depuis votre IDE. Voir [Hooks de pre-commit](getting-started/commit-hooks.md).
-
-
-### Design
-
-**Mode local** : tout se passe sur le poste du développeur. L'assistant lance lui-même
-le serveur MCP, et les rapports restent dans une base locale.
-
-```mermaid
-flowchart LR
-    dev(["Développeur"]) --> agent
-    subgraph ws["Poste du développeur"]
-        agent["Assistant IA<br/>VS Code, Claude"] -- "stdio" --> mcp["Serveur MCP<br/>security-review-mcp<br/>(processus lancé par l'assistant)"]
-        mcp --> sqlite[("Base SQLite<br/>locale")]
-    end
-```
-
-**Mode partagé** : les assistants de tous les postes appellent le serveur MCP déployé
-dans un conteneur ; l'analyste cyber travaille dans l'interface web du contrôleur, que les
-pipelines appellent aussi. Les deux conteneurs partagent la même base PostgreSQL.
-
-```mermaid
-flowchart LR
-    dev(["Développeur"]) --> agent
-    subgraph ws["Poste du développeur"]
-        agent["Assistant IA<br/>VS Code, Claude"]
-    end
-    analyst(["Analyste cyber<br/>(navigateur)"])
-    ci(["Pipeline CI/CD<br/>security-review-ci"])
-    subgraph srv["Serveur ou cluster (conteneurs)"]
-        mcp["Conteneur serveur MCP<br/>security-review-mcp"]
-        ctl["Conteneur contrôleur<br/>security-review-controller<br/>interface web, API REST"]
-        pg[("Conteneur PostgreSQL<br/>rapports, règles, jetons")]
-    end
-    agent -- "HTTPS /mcp<br/>jeton MCP" --> mcp
-    analyst -- "HTTPS /ui<br/>compte utilisateur" --> ctl
-    ci -- "HTTPS /api/v1/ci<br/>jeton ci" --> ctl
-    mcp --> pg
-    ctl --> pg
-```
-
-!!! tip "Quel mode choisir ?"
-    - **Mode partagé (HTTP)**, le cas recommandé : le serveur MCP et le contrôleur tournent
-      sur une machine ou dans des conteneurs, chaque développeur et chaque pipeline s'y
-      connecte avec un jeton, et les rapports sont centralisés. Commencez par là.
-    - **Mode local (stdio)**, réservé à des cas précis : l'hôte (VS Code, Claude) lance
-      lui-même `security-review-mcp` sur le poste du développeur, sans réseau, sans jeton ni
-      contrôleur. Pratique pour essayer les prompts seul ou hors ligne, mais les rapports
-      restent dans une base locale que personne d'autre ne voit. Voir
-      [Mode local (stdio)](getting-started/stdio.md).
 
 ## Démarrage rapide (mode partagé)
 
@@ -255,17 +134,17 @@ La documentation suit l'ordre d'une mise en œuvre. **Démarrage**, **Revue de s
 |---|---|
 | 1. Déployer le contrôleur et le serveur MCP (Docker Compose ou Kubernetes), créer les premiers comptes | [Mise en service du serveur](getting-started/deploy.md) |
 | 2. Connecter VS Code ou Claude, obtenir un jeton | [Connexion de l'hôte](getting-started/host.md) |
-| 3. Lancer une revue | [Fonctionnement d'une revue](usage/how-it-works.md) (règles, checklists, `AGENTS.md`), [Prompts et outils](usage/prompts-tools.md) |
-| 4. Consulter et trier les rapports | [Interface web](usage/web-interface.md) |
-| 5. Bloquer un déploiement sur des findings ouverts | [Gate](usage/gate.md) |
+| 3. Lancer une revue | [Fonctionnement d'une revue](review/index.md) (règles, checklists, `AGENTS.md`), [Prompts et outils](review/prompts-tools.md) |
+| 4. Consulter et trier les rapports | [Interface web](usage/index.md) |
+| 5. Bloquer un déploiement sur des findings ouverts | [Gate](review/gate.md) |
 
 | Pour aller plus loin (Avancé) | Page |
 |---|---|
-| Docker, Kubernetes, PostgreSQL, sans conteneur | [Architecture](advanced/architecture.md), [Docker](advanced/docker.md), [Kubernetes](advanced/kubernetes.md), [Installation manuelle](advanced/manual-install.md) |
-| Jetons restreints à un projet, enrôlement, renouvellement, TLS | [Jetons Bearer](advanced/bearer-tokens.md), [Enrôlement](advanced/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet), [TLS](advanced/tls.md) |
-| Se connecter avec le fournisseur d'identité de l'entreprise | [Connexion OIDC](advanced/sso.md) |
-| Scanner tout un dépôt, les dépendances, ajouter les règles de mon entreprise | [Scan du code complet](advanced/code-scan.md), [Analyse des dépendances](advanced/dependencies.md), [Règles](usage/rules.md) |
-| SARIF, tendances, journal d'audit, Prometheus | [Export SARIF](advanced/sarif.md), [Rapport de tendance](advanced/ci.md#rapport-de-tendance), [Journal d'audit](advanced/audit-metrics.md), [Métriques Prometheus](reference/metrics.md) |
+| Docker, Kubernetes, PostgreSQL, sans conteneur | [Architecture](advanced/architecture/index.md), [Docker](advanced/deployment/docker.md), [Kubernetes](advanced/deployment/kubernetes.md), [Installation manuelle](advanced/deployment/manual-install.md) |
+| Jetons restreints à un projet, enrôlement, renouvellement, TLS | [Jetons Bearer](advanced/bearer-tokens.md), [Enrôlement](advanced/architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet), [TLS](advanced/tls.md) |
+| Se connecter avec le fournisseur d'identité de l'entreprise | [Connexion OIDC](usage/sso.md) |
+| Scanner tout un dépôt, les dépendances, ajouter les règles de mon entreprise | [Scan du code complet](review/analysis/code-scan.md), [Analyse des dépendances](review/analysis/dependencies.md), [Règles](review/rules.md) |
+| SARIF, tendances, journal d'audit, Prometheus | [Export SARIF](advanced/reports/sarif.md), [Rapport de tendance](advanced/architecture/ci.md#rapport-de-tendance), [Journal d'audit](usage/audit-metrics.md), [Métriques Prometheus](reference/metrics.md) |
 
 !!! warning "Ce n'est pas un SAST"
     Le scan par motifs produit des **pistes** et des faux positifs. Il ne remplace ni un SAST,

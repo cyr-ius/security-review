@@ -17,7 +17,7 @@ uv run mkdocs build --strict # what the CI does: a broken link fails the build
   to the French page from a French page. Anchors follow the headings of each language
   (`#report-language` in English, `#langue-des-rapports` in French).
 - The pages follow the order of a set-up: **Getting started** (`getting-started/`),
-  **Security review** (how it works, prompts and tools, rules, checklists, standards, gate) and **Application** (web interface, triage, tokens, accounts, plus `advanced/access-control`, `advanced/sso` and `advanced/audit-metrics`) (both in `usage/`) only hold what is needed to work; **Connectors** (`connectors/`, a sub-menu of **Application**) has one page per
+  **Security review** (how it works, prompts and tools, rules, checklists, standards, gate, in `review/`) and **Application** (web interface, triage, tokens, accounts, projects, roles, groups and permissions, OIDC login, audit log, in `usage/`) only hold what is needed to work; **Connectors** (`usage/connectors/`, a sub-menu of **Application**) has one page per
   built-in connector; **Advanced** (`advanced/`) gathers the details and the optional features. Put a detailed explanation in `advanced/`, with at most a
   line and a link from the essential pages.
 - To add a page, create both files in `docs/`, declare the English one in the `nav` section of

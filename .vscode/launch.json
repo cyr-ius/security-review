@@ -11,17 +11,17 @@
   ],
   "configurations": [
     {
-      // Migrates the schema at start; prints the bootstrap admin password on the first start
+      // dev_reload restarts the controller on each save of src/ (debugged as a subprocess)
       "name": "Controller: FastAPI (port 8080)",
       "type": "debugpy",
       "request": "launch",
-      "module": "security_review_mcp.controller",
-      "args": ["serve", "--host", "127.0.0.1", "--port", "8080"],
+      "program": "${workspaceFolder}/scripts/dev_reload.py",
+      "args": ["security-review-controller", "serve", "--host", "127.0.0.1", "--port", "8080"],
+      "subProcess": true,
       "cwd": "${workspaceFolder}",
       "python": "${workspaceFolder}/.venv/bin/python",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
-        "SECREVIEW_AUTH_BOOTSTRAP_ADMIN": "true",
         "SECREVIEW_LOG_LEVEL": "DEBUG"
       },
       "console": "integratedTerminal",
@@ -35,11 +35,11 @@
       "url": "http://localhost:4200/ui/",
       "webRoot": "${workspaceFolder}/web",
       "preLaunchTask": "Web UI: dev server (port 4200)",
+      "postDebugTask": "Web UI: stop dev server",
       "sourceMaps": true,
       "presentation": { "hidden": true }
     },
     {
-      // The HTTP MCP server never migrates: the "Database upgrade" task does it first
       "name": "MCP server (debug, port 8000)",
       "type": "debugpy",
       "request": "launch",
@@ -57,6 +57,7 @@
     },
     {
       // Any controller command, e.g. db status, token list, rules list, user list
+      // Reset the first admin : security-review-controller user reset-password admin
       "name": "Controller CLI (prompt for arguments)",
       "type": "debugpy",
       "request": "launch",
@@ -69,7 +70,6 @@
       "justMyCode": false
     },
     {
-      // Live reload on save; opens the site in the browser once it is served
       "name": "Docs: MkDocs (port 8001)",
       "type": "debugpy",
       "request": "launch",

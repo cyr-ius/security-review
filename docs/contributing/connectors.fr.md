@@ -2,7 +2,7 @@
 
 Un connecteur tiers est un paquet Python que le contrôleur charge pour envoyer les findings
 vers un autre système. Cette page s'adresse à ses développeurs ; pour installer et autoriser un
-connecteur, voir [Connecteurs tiers](../connectors/third-party.md).
+connecteur, voir [Connecteurs tiers](../usage/connectors/third-party.md).
 
 Un connecteur est une sous-classe de `Connector` (module `security_review_mcp.connectors.api`,
 version `API_VERSION = 2`). L'exemple complet

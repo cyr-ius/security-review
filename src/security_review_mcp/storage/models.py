@@ -471,15 +471,17 @@ class ApiTokenProject(SQLModel, table=True):
 
 class ProjectEnrollment(SQLModel, table=True):
     """A project requested by the MCP agent of a user (request_project), waiting for an
-    administrator.
+    administrator: a new project, or the access to a project that already exists.
 
-    It gives no access and is not a project yet: an approval creates the project (its project
-    group) and adds the requesting user to it, a rejection or the expiry
-    (SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS) deletes the row.
+    It gives no access: an approval creates the project group when missing and adds the
+    requesting user to it, a rejection or the expiry (SECREVIEW_PROJECT_ENROLLMENT_TTL_DAYS)
+    deletes the row. A user has at most one request per project.
     """
 
+    __table_args__ = (UniqueConstraint("project", "requested_by_user_id"),)
+
     id: int | None = Field(default=None, primary_key=True)
-    project: str = Field(unique=True, index=True, max_length=200)
+    project: str = Field(index=True, max_length=200)
     # Who asked (username of the owner of the token), from which address, with which token
     requested_by: str | None = Field(default=None, max_length=200)
     # The web user who asked, added to the project group by the approval (None: a token without

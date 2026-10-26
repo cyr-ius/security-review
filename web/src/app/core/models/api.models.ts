@@ -283,6 +283,7 @@ export type AuditAction =
   | 'user.login_failed'
   | 'user.logout'
   | 'audit_syslog.changed'
+  | 'controller_url.changed'
   | 'finding.exported'
   | 'connector.target_changed'
   | 'connector.changed';
@@ -316,6 +317,7 @@ export const AUDIT_ACTIONS: readonly AuditAction[] = [
   'user.login_failed',
   'user.logout',
   'audit_syslog.changed',
+  'controller_url.changed',
   'finding.exported',
   'connector.target_changed',
   'connector.changed',
@@ -490,6 +492,8 @@ export type DevStandardWrite = Pick<
 export interface PendingProject {
   id: number;
   project: string;
+  /** The project already exists: the request asks for an access to it. */
+  existing: boolean;
   /** Free text given by the client (not verified), its address and its token (or anonymous). */
   requested_by: string | null;
   requested_from: string | null;
@@ -497,6 +501,12 @@ export interface PendingProject {
   created_at: string;
   /** The request is deleted at this date unless it is approved. */
   expires_at: string;
+}
+
+/** POST /api/v1/projects/pending/{id}/approve: the project group the requester joined. */
+export interface PendingProjectApproved extends PendingProject {
+  group_id: number;
+  group: string;
 }
 
 /** GET /api/v1/projects */
@@ -866,6 +876,15 @@ export interface AppSettings {
     /** SECREVIEW_REPORT_LANGUAGE is set: it takes precedence over the stored value. */
     env_set: boolean;
     effective: string;
+  };
+  /** Public root URL of the controller; its web interface is given to the agents without a token. */
+  controller_url: {
+    /** Stored: set here, or copied from SECREVIEW_CONTROLLER_URL by the controller at start. */
+    value: string | null;
+    env: string | null;
+    /** SECREVIEW_CONTROLLER_URL is set on the controller: it takes precedence over this screen. */
+    env_set: boolean;
+    effective: string | null;
   };
   /** Proxy of the outgoing connections of the controller (OSV download, OIDC provider). */
   proxy: {

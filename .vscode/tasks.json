@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build security_review_mcp",
+      "label": "Build security_review",
       "detail": "uv sync --extra dev --extra docs --extra postgres",
       "type": "process",
       "command": "uv",
@@ -17,7 +17,7 @@
       "command": "uv",
       "args": ["run", "security-review-controller", "db", "upgrade"],
       "options": { "cwd": "${workspaceFolder}" },
-      "dependsOn": "Build security_review_mcp",
+      "dependsOn": "Build security_review",
       "problemMatcher": []
     },
     {
@@ -48,20 +48,41 @@
     {
       "label": "Web UI: dev server (port 4200)",
       "detail": "ng serve, /api proxied to the controller on port 8080",
-      "type": "npm",
-      "script": "start",
-      "path": "web",
+      // A shell task, not "npm": VS Code merges an npm task with the detected one and can lose
+      // its problemMatcher, then refuses to wait for it
+      "type": "shell",
+      "command": "npm start",
+      "options": { "cwd": "${workspaceFolder}/web" },
       "isBackground": true,
       // Lets a launch configuration wait for the first build (and each rebuild) to finish
       "problemMatcher": {
         "owner": "angular",
-        "pattern": { "regexp": "^\\s*(?:✘\\s*)?\\[ERROR\\]\\s+(.*)$", "message": 1 },
+        "fileLocation": ["relative", "${workspaceFolder}/web"],
+        // VS Code drops a pattern without "file" (then the task has no matcher): match the
+        // "    src/app/x.ts:12:5:" location line esbuild prints under each error
+        "pattern": {
+          "regexp": "^\\s+((?:src|public)/\\S+?):(\\d+):(\\d+):$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "message": 1
+        },
         "background": {
           "activeBegin": true,
-          "beginsPattern": "Changes detected",
+          // The debugger gives up after 5 s without a begin or end event: match the first
+          // "Building..." line too, not only the rebuilds
+          "beginsPattern": "Building\\.\\.\\.|Changes detected",
           "endsPattern": "Application bundle generation (complete|failed)"
         }
       }
+    },
+    {
+      // postDebugTask of the Angular launch: the Stop button never ends a preLaunchTask
+      "label": "Web UI: stop dev server",
+      "type": "shell",
+      "command": "echo ${input:terminateDevServer}",
+      "presentation": { "reveal": "never", "close": true },
+      "problemMatcher": []
     },
     {
       "label": "Docker: compose up",
@@ -79,6 +100,14 @@
       "args": ["compose", "down"],
       "options": { "cwd": "${workspaceFolder}" },
       "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "terminateDevServer",
+      "type": "command",
+      "command": "workbench.action.tasks.terminate",
+      "args": "Web UI: dev server (port 4200)"
     }
   ]
 }

@@ -1,6 +1,6 @@
-# TLS
+# TLS and certificates
 
-The [MCP server](mcp-server.md) and the [controller](controller.md) serve HTTPS themselves, or
+The [MCP server](architecture/mcp-server.md) and the [controller](architecture/controller.md) serve HTTPS themselves, or
 behind a reverse proxy that terminates TLS.
 
 Uvicorn serves HTTPS directly when a certificate is given, for the MCP server as for the
@@ -100,8 +100,8 @@ itself is in [Host configuration](../getting-started/host.md#http-transport).
 A reverse proxy or an Ingress can terminate TLS instead (leave the `SECREVIEW_TLS_*` variables
 empty). Then set `SECREVIEW_FORWARDED_ALLOW_IPS` to its address, so that the client address is
 read from `X-Forwarded-For` for the login throttling, the rate limit and the audit log
-(see the exposure of the [MCP server](mcp-server.md#exposure-and-replicas) and of the
-[controller](controller.md#exposure)).
+(see the exposure of the [MCP server](architecture/mcp-server.md#exposure-and-replicas) and of the
+[controller](architecture/controller.md#exposure)).
 
 !!! warning
     If a process listens elsewhere than on localhost without TLS, a warning is logged: the

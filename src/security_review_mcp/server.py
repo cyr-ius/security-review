@@ -4,6 +4,8 @@ import argparse
 import functools
 import logging
 import sys
+import threading
+import time
 from collections.abc import Callable
 from typing import Annotated, Any, Literal
 
@@ -74,11 +76,17 @@ If its `status` is `requested`, do not review: give the user its `next_steps`.
 
 ENROLLMENT_INSTRUCTIONS = """\
 Security code-review server, enrollment mode: the client sends no bearer token, so no tool is \
-available. Tell the user to sign in to the web interface, to create a personal MCP token in \
-My account and to add it to the MCP client configuration as `Authorization: Bearer <token>`, \
-then to reconnect. The review prompts (`security-review`...) give these steps with the address \
-of the web interface.
+available. Tell the user to sign in to the web interface{where}, to create a personal MCP token \
+in My account and to add it to the MCP client configuration as \
+`Authorization: Bearer <token>`, then to reconnect. The review prompts (`security-review`...) \
+give the same steps.
 """
+
+
+def enrollment_instructions(web_url: str | None) -> str:
+    """Instructions of the enrollment server, with the address of the web interface if known."""
+    return ENROLLMENT_INSTRUCTIONS.replace("{where}", f" ({web_url})" if web_url else "")
+
 
 mcp = MCPServer(
     "security-review",
@@ -91,9 +99,52 @@ mcp = MCPServer(
 enrollment_mcp = MCPServer(
     "security-review",
     title=http_server.ENROLLMENT_SERVER_TITLE,
-    instructions=ENROLLMENT_INSTRUCTIONS,
+    instructions=enrollment_instructions(None),
     version=__version__,
 )
+
+
+def set_enrollment_web_url(web_url: str | None) -> None:
+    """Give the address of the web interface in the instructions of the enrollment server.
+
+    The address is read after the server is built (see EnrollmentWebUrl); the host shows these
+    instructions at connection, before any prompt. MCPServer exposes them read-only, hence the
+    low-level server.
+    """
+    enrollment_mcp._lowlevel_server.instructions = enrollment_instructions(web_url)
+
+
+# How long the address of the web interface read for the clients without a valid token is kept
+WEB_URL_CACHE_SECONDS = 30.0
+
+
+class EnrollmentWebUrl:
+    """Address of the web interface for the clients without a valid token (enrollment server,
+    401): derived from the URL stored by the controller (app_settings.web_url), None if none.
+
+    Read again at most every ``ttl`` seconds, so that an anonymous client cannot make the server
+    query the database at each request; each reading updates the instructions of the
+    enrollment server. Called from the threads of the HTTP transport.
+    """
+
+    def __init__(self, ttl: float = WEB_URL_CACHE_SECONDS) -> None:
+        self.ttl = ttl
+        self._lock = threading.Lock()
+        self._value: str | None = None
+        self._read_at: float | None = None
+
+    def __call__(self) -> str | None:
+        with self._lock:
+            now = time.monotonic()
+            if self._read_at is None or now - self._read_at >= self.ttl:
+                self._value = app_settings.web_url()
+                self._read_at = now
+                set_enrollment_web_url(self._value)
+            return self._value
+
+
+enrollment_web_url = EnrollmentWebUrl()
+
 
 READ_ONLY = ToolAnnotations(read_only_hint=True, open_world_hint=False)
 WRITE = ToolAnnotations(read_only_hint=False, destructive_hint=False, open_world_hint=False)
@@ -891,7 +942,7 @@ def request_project(ctx: Context, project: ProjectArg) -> dict:
 
 def _enrollment_prompt() -> str:
     """Explain how to get a personal MCP token instead of starting a review."""
-    return prompts.build_enrollment_prompt(get_settings().web_url)
+    return prompts.build_enrollment_prompt(enrollment_web_url())
 
 
 # The review prompts keep their names, so that the first review tells how to get a token
@@ -1029,6 +1080,11 @@ def serve(argv: list[str]) -> None:
         parser.error(str(exc))
     if settings.enrollment:
         logger.info("Enrollment enabled: clients without a token are told how to get one")
+    if settings.controller_url:
+        # Often shared with the controller (ConfigMap, .env): only the controller copies it
+        logger.info(
+            "SECREVIEW_CONTROLLER_URL is not read here: the controller stores it in the database"
+        )
     allow_open = http_server.allows_open_mcp(args.host, settings.allow_unauthenticated)
     if settings.allow_unauthenticated:
         logger.warning(
@@ -1040,7 +1096,7 @@ def serve(argv: list[str]) -> None:
         store,
         enrollment_mcp if settings.enrollment else None,
         allow_open=allow_open,
-        web_url=settings.web_url,
+        web_url=enrollment_web_url,
     )
     http_server.serve(
         app,

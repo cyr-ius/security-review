@@ -1,0 +1,125 @@
+# Database
+
+The controller and the MCP server share one database: reports and findings, rules, accounts,
+token digests, settings and audit log. This page gathers what concerns it: choosing the engine,
+schema migrations, retention, backup and upgrade. The variables are listed in
+[Configuration](../reference/configuration.md#database-and-logs).
+
+## SQLite or PostgreSQL
+
+An SQLite database is created by default in the user's data folder:
+`~/.local/share/security-review-mcp/security_reports.db` when `XDG_DATA_HOME` is not set.
+
+For PostgreSQL (`postgres` extra of the PyPI package, included in the image; shared mode only:
+the stdio server accepts SQLite only):
+
+```bash
+SECREVIEW_DATABASE_URL=postgresql+psycopg2://user:pass@host:5432/secreview
+```
+
+!!! note "Shared database"
+    With SQLite, both processes must run on the same machine and share the file. As soon as
+    they are in different pods or on different machines, use PostgreSQL, deployed with
+    [Docker Compose](deployment/docker.md#docker-compose-with-postgresql) or
+    [Kubernetes](deployment/kubernetes.md#deployment).
+
+In [local mode (stdio)](../getting-started/stdio.md), `security-review-mcp local` creates and
+migrates its local SQLite database itself, and ignores `SECREVIEW_DATABASE_URL`.
+
+## Schema migrations
+
+The schema is managed by [Alembic](https://alembic.sqlalchemy.org/) migrations, embedded in the
+package (no `alembic.ini` file to provide):
+
+```bash
+security-review-controller db upgrade   # creates or migrates the schema, then seeds the default rules
+security-review-controller db status    # {"current": "0032", "head": "0032", "up_to_date": true}
+```
+
+- `db status` returns code `1` if the schema is not up to date: handy for a script or a probe.
+- The **HTTP MCP server never migrates**: it refuses to start (code `2`, message
+  `run security-review-controller db upgrade first`) while the database is not at the expected
+  revision. Under Kubernetes, the pod restarts until the migration is done.
+- The controller, the stdio MCP server and the CLI commands migrate at start-up: with Docker
+  Compose and Kubernetes, the controller migrates when it starts, there is nothing to do.
+- On PostgreSQL, a migration takes an advisory lock: instances that start together (several
+  replicas, a `db upgrade` run by hand) wait for each other, and the next one finds the schema
+  up to date.
+
+### Dedicated migration job
+
+By default, nothing has to be configured. `SECREVIEW_DB_AUTO_UPGRADE=false` is only for an
+operator who keeps migrations out of the application, for instance when:
+
+- the database account of the application has no right to change the schema (no DDL): a job
+  runs `security-review-controller db upgrade` with a privileged account;
+- a new image must not change the schema by itself: the migration is run after a backup, or
+  during a maintenance window.
+
+The controller, the stdio MCP server and the CLI commands then only check the schema: like the
+HTTP MCP server, they refuse to start (code `2`) until `db upgrade` has been run.
+
+## Retention of reports without findings
+
+The controller deletes these reports once they are older than
+`SECREVIEW_EMPTY_REPORT_RETENTION_DAYS` days (default `90`): at the start, then every
+day. The latest report of each project is always kept, so a project never disappears from the
+list, and a report with findings is never deleted, whatever their status. `0` disables the
+purge.
+
+The same purge can be run on demand, for example from a scheduled job when the controller is
+not running:
+
+```bash
+security-review-controller db prune              # retention of SECREVIEW_EMPTY_REPORT_RETENTION_DAYS
+security-review-controller db prune --days 30    # another retention, for this run only
+# {"retention_days": 30, "deleted": 4}
+```
+
+The events of the audit log have their own retention: see [Audit log](audit-log.md#retention).
+
+## Backing up PostgreSQL
+
+With [Docker Compose](deployment/docker.md#docker-compose-with-postgresql), the `secreview-pg`
+volume holds the reports, the accounts and the token digests. Export it regularly (cron,
+systemd timer) and keep the files away from the server, readable by you only:
+
+```bash
+(umask 077 && docker compose exec -T db pg_dump -U secreview -d secreview -Fc > ~/secreview-$(date +%F).dump)
+# Restore an export (the services are stopped during the restore)
+docker compose stop mcp controller
+docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exists --no-owner < ~/secreview-2026-10-25.dump
+docker compose start controller mcp
+```
+
+## Upgrading PostgreSQL
+
+A major version of PostgreSQL cannot read data files created by a previous version. To
+upgrade a `secreview-pg` volume from PostgreSQL 17 to 18, export the database using the
+old image, recreate the volume, and then restore the export:
+
+```bash
+# 1. Using the previous Compose file (postgres:17-alpine, mounted at /var/lib/postgresql/data)
+docker compose stop mcp controller
+(umask 077 && docker compose exec -T db pg_dump -U secreview -d secreview -Fc > ~/secreview.dump)
+docker compose down
+
+# 2. Verify the export (it should list the tables), then recreate the volume: the export
+#    is now the only copy of your data
+docker compose run --rm -T --no-deps --entrypoint pg_restore db --list < ~/secreview.dump | grep 'TABLE DATA'
+docker volume rm security-review-mcp_secreview-pg
+
+# 3. Using the current Compose file (postgres:18-alpine, mounted at /var/lib/postgresql)
+docker compose up -d db
+docker compose exec -T db pg_restore -U secreview -d secreview --clean --if-exists --no-owner < ~/secreview.dump
+docker compose up -d
+```
+
+The controller then applies any pending Alembic revisions at start. The export
+contains reports, password hashes, and tokens; keep it outside the repository
+(ensuring it is readable only by you, using `umask 077`) and delete it once the
+restoration has been verified.
+
+On Kubernetes, the `postgres.yaml` StatefulSet is a starting point: for production, prefer a
+managed database or an operator, which handle replication, backups and upgrades (see
+[Kubernetes](deployment/kubernetes.md)).

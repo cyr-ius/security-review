@@ -1,9 +1,9 @@
 # Jetons Bearer
 
-Les jetons du [serveur MCP](mcp-server.md) et du [contrôleur](controller.md) se gèrent avec la
+Les jetons du [serveur MCP](architecture/mcp-server.md) et du [contrôleur](architecture/controller.md) se gèrent avec la
 CLI du contrôleur. Ce que chaque jeton peut atteindre est dans [Jetons](../usage/tokens.md) ;
-les routes servies par chaque processus sont dans [Ce qu'il sert](mcp-server.md#ce-quil-sert)
-(serveur MCP) et [Ce qu'il sert](controller.md#ce-quil-sert) (contrôleur).
+les routes servies par chaque processus sont dans [Ce qu'il sert](architecture/mcp-server.md#ce-quil-sert)
+(serveur MCP) et [Ce qu'il sert](architecture/controller.md#ce-quil-sert) (contrôleur).
 
 Les jetons sont stockés dans la base de données (table `apitoken`) : seule leur empreinte
 SHA-256 est conservée, le secret n'est affiché qu'une fois, à la création. Gérez-les avec la
@@ -32,13 +32,13 @@ security-review-controller token revoke ci                              # par la
 
 Les développeurs créent leurs propres jetons personnels dans l'interface web
 ([jetons personnels](../usage/tokens.md#jetons-personnels)). Chaque création, renouvellement et
-révocation de jeton est écrit dans le [journal d'audit](audit-metrics.md), avec
+révocation de jeton est écrit dans le [journal d'audit](audit-log.md), avec
 son auteur.
 
 ## Avant le premier jeton
 
 Tant qu'aucun jeton n'existe, l'API du contrôleur répond `503` et le serveur MCP **reste
-fermé** : un client sans jeton n'atteint que le [serveur d'enrôlement](mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) (sans outil),
+fermé** : un client sans jeton n'atteint que le [serveur d'enrôlement](architecture/mcp-server.md#enrolement-jeton-personnel-et-demande-de-projet) (sans outil),
 toute autre requête reçoit `401`, quelle que soit la valeur Bearer (un avertissement est
 journalisé au démarrage). `/mcp` n'est ouvert dans ce cas que si le serveur écoute sur localhost
 (`127.0.0.1`, `::1`) ou avec `SECREVIEW_ALLOW_UNAUTHENTICATED=true`, à réserver aux tests sur un
@@ -49,7 +49,7 @@ stderr quand il supprime le dernier jeton.
 
 Un jeton peut expirer : après sa date d'expiration il n'authentifie plus rien (`401`,
 `error="invalid_token"`, description `The bearer token has expired`, suivie sur `/mcp` de la
-façon d'[en obtenir un nouveau](mcp-server.md#jeton-refuse-se-reconnecter)), mais il reste listé pour
+façon d'[en obtenir un nouveau](architecture/mcp-server.md#jeton-refuse-se-reconnecter)), mais il reste listé pour
 qu'un administrateur le renouvelle ou le révoque. `SECREVIEW_TOKEN_MAX_DAYS` (`0` par défaut)
 fixe la validité maximale d'un jeton créé ou renouvelé, et sa validité par défaut ; à `0`, les
 jetons n'expirent pas, sauf validité demandée.
@@ -84,7 +84,7 @@ security-review-controller token create --label shop-gate --role ci --project sh
 ```
 
 Un jeton sans `--project` accède à tous les projets. Dans l'interface web, l'écran
-[**Jetons**](../usage/web-interface.md#ecrans) crée un jeton pour certains projets ou pour
+[**Jetons**](../usage/index.md#ecrans) crée un jeton pour certains projets ou pour
 **Tous les projets**, et change les projets d'un jeton existant (sauf `admin` et `metrics` ; un
 jeton `ci` garde toujours au moins un projet). Un jeton restreint :
 
@@ -103,3 +103,107 @@ stdio, il n'y a pas de jeton, donc pas de restriction.
     Les commandes `token` s'exécutent côté contrôleur (ou dans son conteneur), avec la même
     `SECREVIEW_DATABASE_URL` que lui. Les jetons ne passent jamais en argument de ligne de
     commande.
+
+## Appeler l'API REST avec un jeton
+
+Un jeton `admin` appelle toute l'API REST, par exemple depuis un script d'administration, mais
+**n'ouvre pas l'interface** (la page de connexion ne propose que les comptes) :
+
+```bash
+security-review-controller token create --label ops-script --role admin
+# {"id": "…", "label": "ops-script", "role": "admin", "project": null, "created_at": "…", "token": "UJB7…"}
+curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/projects
+```
+
+Ses changements de statut se limitent à `open` et `fixed`, comme ceux d'un jeton `api` avec
+`findings.triage` : `accepted` et `false_positive` exigent une session
+([triage par l'API REST](reports/triage-api.md)).
+
+L'API REST liste les findings d'un projet sur l'ensemble de ses rapports, ouverts par défaut,
+du plus grave au moins grave (filtres `status`, `severity` et `review_type`, `limit` plafonné par
+`SECREVIEW_MAX_LIST_LIMIT`, `total` donne le nombre de findings correspondants pour paginer).
+Sans `project`, elle liste les findings de tous les projets que lit l'appelant
+(`"project": null`) :
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://secreview.example.com/api/v1/findings?project=shop-api&status=open&limit=50"
+# {"project": "shop-api", "total": 12, "findings": [{"id": 42, "severity": "critical", "report_id": 7, "project": "shop-api", "branch": "main", "commit_sha": "abc123", "review_type": "codebase-review", "report_created_at": "…", …}, …]}
+```
+
+`GET /api/v1/reports` liste les rapports (filtres `project`, `risk_level`, `review_type` et
+`author`), chacun avec son `author` et son `submitted_by`. L'`author` n'est renvoyé, filtré,
+recherché et trié que pour un appelant qui détient `users.manage` ou `tokens.manage` : pour les
+autres, il vaut `null` (dans le rapport et son export Markdown aussi) et le filtre `author` est
+ignoré :
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  "https://secreview.example.com/api/v1/reports?project=shop-api&author=alice@example.com"
+```
+
+Chaque changement de statut est journalisé avec le label du jeton ou du compte :
+
+```
+INFO security_review_mcp.web: Finding 42 set to fixed by ops-script
+```
+
+et écrit dans le [journal d'audit](audit-log.md) (`GET /api/v1/audit`, permission
+`audit.read`), avec l'acteur `token:ops-script` ou `user:<nom>`.
+
+Un jeton `api` lit le contrôle d'accès à chaque requête : un jeton personnel porte les droits de
+son utilisateur, un jeton de rôle les permissions de son **Rôle** sur ses projets (tous les
+projets, ou une liste quand le rôle ne détient que des permissions par projet).
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "swagger", "expires_in_days": 30}'
+# {"id": "…", "label": "alice:swagger", "role": "api", "personal": true, "access_role_id": null, …, "token": "Zq3…"}
+curl -H "Authorization: Bearer $TOKEN" https://secreview.example.com/api/v1/me
+# {"client": "alice:swagger", "role": "api", "permissions": {"reports.read": ["shop-api"]}, …}
+```
+
+## Jetons créés depuis l'interface
+
+Un jeton ne donne jamais plus que ce que détient son créateur : créer un jeton, changer ses
+projets, renouveler son secret ou le révoquer demande `reports.read` sur tous les projets du
+jeton, avant et après un changement de ses projets, et, pour un jeton `api` de rôle, chaque
+permission de son rôle sur ces projets. L'écran **Jetons** ne liste que les jetons des projets
+que l'utilisateur lit. Sa **Validité** va de 30 jours à 1 an, ou le défaut du serveur
+(`SECREVIEW_TOKEN_MAX_DAYS`).
+
+## Jetons personnels
+
+Tout jeton personnel ([jetons personnels](../usage/tokens.md#jetons-personnels)) suit les mêmes
+règles :
+
+- un au plus par usage par défaut (`SECREVIEW_PERSONAL_TOKENS_PER_USER`) ;
+- label `<utilisateur>:<label>`, avec un `:` qu'aucun autre label de jeton ne peut contenir, et
+  validité bornée par `SECREVIEW_TOKEN_MAX_DAYS` ;
+- personne ne peut le renouveler ni changer ses projets ; un administrateur peut le révoquer
+  depuis l'écran **Jetons**.
+
+Un jeton `mcp` personnel exige `mcp_tokens.create` dans les groupes du compte (`403` sans elle) ;
+un jeton déjà créé continue de fonctionner quand le compte la perd, et un administrateur le
+révoque au besoin. Il atteint les projets de `reports.read` des groupes du compte : tous les
+projets quand l'un de ses groupes lit tous les projets, aucun quand il n'en a pas. Quand le
+serveur le refuse (inconnu, révoqué ou expiré), l'agent reçoit un `401` qui invite
+l'utilisateur à se reconnecter pour en créer un nouveau.
+
+Un jeton `mcp` personnel vaut aussi jeton `ci` personnel sur les routes de pipeline : **Mon
+compte** ne propose donc plus de jeton `ci` personnel. L'API en crée encore un pour séparer les
+deux usages (il n'atteint jamais `/mcp`), et ceux déjà créés restent listés jusqu'à leur
+révocation. Un rapport enregistré par l'un ou l'autre est soumis par le jeton (`alice:laptop`),
+et son utilisateur en est l'auteur (voir
+[scan depuis un poste de travail](../review/analysis/dependencies.md#scan-depuis-un-poste-de-travail-hook-de-commit)).
+Un jeton `mcp` créé par un administrateur sur l'écran **Jetons** reste un jeton d'agent MCP
+seulement.
+
+```bash
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "mcp"}'
+# {"id": "…", "label": "alice:laptop", "role": "mcp", "personal": true, …, "token": "Zq3…"}
+curl -X POST -H "Authorization: Bearer $SESSION" -H "Content-Type: application/json" \
+  https://secreview.example.com/api/v1/me/tokens -d '{"label": "laptop", "role": "ci"}'
+# {"id": "…", "label": "alice:laptop", "role": "ci", "personal": true, …, "token": "Zq3…"}
+```

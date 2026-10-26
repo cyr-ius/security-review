@@ -22,7 +22,7 @@ Dans VS Code (`.vscode/`) :
 
 | Configuration de `launch.json` | Rôle |
 |---|---|
-| **Controller (debug: FastAPI + Angular)** | Contrôleur sur le port 8080 et `ng serve` sur le port 4200 sous le débogueur, puis Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript ; rechargement à chaud, migre la base et affiche le mot de passe du compte `admin` initial au premier démarrage |
+| **Controller (debug: FastAPI + Angular)** | Contrôleur sur le port 8080 et `ng serve` sur le port 4200 sous le débogueur, puis Chrome sur `http://localhost:4200/ui/` avec les points d'arrêt TypeScript ; rechargement à chaud de la page, redémarrage du contrôleur à chaque enregistrement dans `src/` (`scripts/dev_reload.py`), migre la base et affiche le mot de passe du compte `admin` initial au premier démarrage |
 | **MCP server (debug, port 8000)** | Lance la tâche **Database upgrade**, puis le serveur MCP HTTP sous le débogueur |
 | **Controller CLI (prompt for arguments)** | Une commande du contrôleur (`db status`, `token list`…) sous le débogueur |
 | **Docs: MkDocs (port 8001)** | `mkdocs serve` avec rechargement à chaud, ouvre le site dans le navigateur |
@@ -32,7 +32,7 @@ Dans VS Code (`.vscode/`) :
 | **Build security_review_mcp** | `uv sync --extra dev --extra docs --extra postgres` |
 | **Database upgrade** | `uv run security-review-controller db upgrade` (après **Build**) |
 | **Tests** / **Lint** | `pytest`, puis ruff et `mkdocs build --strict` |
-| **Web UI: build** / **Web UI: dev server (port 4200)** | Build Angular servie par le contrôleur, ou `ng serve` avec `/api` redirigé vers le port 8080 |
+| **Web UI: build** / **Web UI: dev server (port 4200)** | Build Angular servie par le contrôleur, ou `ng serve` avec `/api` redirigé vers le port 8080 (arrêté avec le débogueur par **Web UI: stop dev server**) |
 | **Docker: compose up** / **down** | Pile `docker-compose.yml` de l'image, avec sa propre base PostgreSQL (mêmes ports 8000 et 8080 : arrêtez les configurations de debug avant) |
 
 ### Devcontainer
@@ -56,7 +56,7 @@ SECREVIEW_DATABASE_URL=sqlite:///./dev.db security-review-mcp serve   # revenir 
 ```
 
 Le démon Docker permet de construire et de lancer l'image du
-[Dockerfile](../advanced/docker.md) sans quitter le conteneur.
+[Dockerfile](../advanced/deployment/docker.md) sans quitter le conteneur.
 
 ## Construire l'image
 
@@ -64,7 +64,7 @@ Le démon Docker permet de construire et de lancer l'image du
 docker build -t security-review-mcp .   # SQLite et PostgreSQL (pilote inclus)
 ```
 
-Le build compile aussi l'[interface web](../usage/web-interface.md) (étape Node.js) ;
+Le build compile aussi l'[interface web](../usage/index.md) (étape Node.js) ;
 elle est servie sur `/ui/` par le contrôleur.
 
 L'image tourne sous un utilisateur non root (uid `10001`), sans sources ni outils de build. Son
@@ -176,5 +176,5 @@ tester :
 
 Les normes génériques de chaque technologie (Python et FastAPI, Angular, tests) sont servies par
 le projet lui-même : prompt `development-standards`, outil `get_development_standards` (voir
-[normes de développement](../usage/standards.md)). Ces pages ne gardent que ce qui est propre à
+[normes de développement](../review/standards.md)). Ces pages ne gardent que ce qui est propre à
 ce dépôt ; en cas de conflit, elles prévalent.

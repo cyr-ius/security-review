@@ -2,17 +2,20 @@
 
 A stored value applies when its variable is not set, for both processes since they share the
 database: the language of the review reports (read by the MCP server when it builds a review
-prompt), the proxy of the outgoing connections, the single sign-on settings and the syslog server
-of the audit log (read by the controller, see effective_settings). A variable that is set
-(environment or ``.env`` file) always wins: the web interface cannot change it, and a value stored
-before is ignored (see env_set).
+prompt), the public URL of the controller (read by the MCP server for the clients without a
+token, and by the connectors; SECREVIEW_CONTROLLER_URL set on the controller is copied here at
+start, see sync_controller_url; the MCP server reads it there only), the proxy of the outgoing
+connections, the single sign-on settings and the syslog server of the audit log (read by the
+controller, see effective_settings). A variable that is set (environment or ``.env`` file)
+always wins: the web interface cannot change it, and a value stored before is ignored (see
+env_set).
 
 The proxy URL and the OIDC client secret are secrets: they are stored as given, but never
 returned by the API nor logged (``masked_url``, PASSWORD_MASK).
 
-The MCP server imports this module for the report language: the OIDC and syslog modules of the
-controller are imported in the functions that use them, never at the top (tests/test_server.py
-checks that the MCP server does not load them).
+The MCP server imports this module for the report language and the controller URL: the OIDC and
+syslog modules of the controller are imported in the functions that use them, never at the top
+(tests/test_server.py checks that the MCP server does not load them).
 """
 
 from typing import Any
@@ -21,13 +24,24 @@ from urllib.parse import urlsplit
 from pydantic import SecretStr
 from sqlmodel import Session, select
 
-from .config import Settings, check_report_language, get_settings
+from .config import (
+    Settings,
+    check_controller_url,
+    check_report_language,
+    get_settings,
+    web_ui_url,
+)
 from .observability import audit
 from .proxy import PASSWORD_MASK, check_no_proxy, check_proxy_url, describe_proxy, masked_url
 from .storage.database import session_scope
 from .storage.models import AppSetting, utcnow
 
 REPORT_LANGUAGE = "report_language"
+# Key of the public URL of the controller, also the name of its Settings field
+CONTROLLER_URL = "controller_url"
+# Author of the URL copied from SECREVIEW_CONTROLLER_URL by the controller (see
+# sync_controller_url)
+ENV_ACTOR = "environment"
 # Keys of the proxy settings, also the names of their Settings fields. A stored proxy "" means a
 # direct connection (when HTTPS_PROXY and HTTP_PROXY are not set).
 PROXY = "proxy"
@@ -40,8 +54,8 @@ SYSLOG_FACILITY = "audit_syslog_facility"
 def env_set(settings: Settings, field: str) -> bool:
     """True when the variable of a Settings field is set (environment or ``.env`` file): it then
     wins over the value stored in the web interface. An empty proxy or syslog address variable
-    counts as unset."""
-    if field in (PROXY, NO_PROXY, SYSLOG_ADDRESS):
+    counts as unset, as an empty SECREVIEW_CONTROLLER_URL."""
+    if field in (PROXY, NO_PROXY, SYSLOG_ADDRESS, CONTROLLER_URL):
         return getattr(settings, field) is not None
     return field in settings.model_fields_set
 
@@ -110,6 +124,62 @@ def set_report_language(
         _check_not_env(settings or get_settings(), REPORT_LANGUAGE, "SECREVIEW_REPORT_LANGUAGE")
         value = check_report_language(value)
     _write({REPORT_LANGUAGE: value}, updated_by)
+
+
+# ── Public URL of the controller ─────────────────────────────────────────────
+
+
+def controller_url() -> str | None:
+    """Public root URL of the controller as stored: copied from SECREVIEW_CONTROLLER_URL by the
+    controller at start, or set in the web interface; None when unknown.
+
+    The MCP server reads it here only: its own SECREVIEW_CONTROLLER_URL is ignored.
+    """
+    with session_scope() as session:
+        row = session.get(AppSetting, CONTROLLER_URL)
+        return row.value if row is not None else None
+
+
+def web_url() -> str | None:
+    """Address of the web interface (stored controller URL + /ui); None: no link is given."""
+    return web_ui_url(controller_url())
+
+
+def _store_controller_url(value: str | None, actor: str) -> None:
+    """Store the URL (None removes it) and record the change in the audit log, in the same
+    transaction: the URL is shown to the clients without a token, every change leaves a trace."""
+    with session_scope() as session:
+        row = session.get(AppSetting, CONTROLLER_URL)
+        if (row.value if row is not None else None) == value:
+            return
+        _apply(session, {CONTROLLER_URL: value}, actor)
+        audit.record(
+            session,
+            audit.AuditAction.CONTROLLER_URL_CHANGED,
+            actor,
+            "setting",
+            CONTROLLER_URL,
+            details={"url": value},
+        )
+
+
+def set_controller_url(value: str | None, actor: str, settings: Settings | None = None) -> None:
+    """Store the public root URL of the controller; None or "" removes the stored value.
+
+    Raises:
+        ValueError: If the value is not an http(s) root URL without credentials, or if
+            SECREVIEW_CONTROLLER_URL is set on the controller (it is copied at start).
+    """
+    _check_not_env(settings or get_settings(), CONTROLLER_URL, "SECREVIEW_CONTROLLER_URL")
+    _store_controller_url(check_controller_url(value), actor)
+
+
+def sync_controller_url(settings: Settings | None = None) -> None:
+    """Copy SECREVIEW_CONTROLLER_URL, when set, to the database (controller start): the MCP
+    server then reads it there and needs no variable. Unset: the stored value is kept."""
+    settings = settings or get_settings()
+    if env_set(settings, CONTROLLER_URL):
+        _store_controller_url(settings.controller_url, ENV_ACTOR)
 
 
 # ── Proxy of the outgoing connections ────────────────────────────────────────
@@ -197,15 +267,17 @@ def _describe_proxy(settings: Settings, stored: dict[str, str], effective: Setti
 
 
 def _overrides(stored: dict[str, str], settings: Settings) -> dict[str, Any]:
-    """Every stored value (proxy, OIDC and syslog) whose variable is not set."""
+    """Every stored value (controller URL, proxy, OIDC and syslog) whose variable is not set."""
     overrides = _proxy_overrides(stored) | _oidc_overrides(stored) | _syslog_overrides(stored)
+    if CONTROLLER_URL in stored:
+        overrides[CONTROLLER_URL] = stored[CONTROLLER_URL]
     return {key: value for key, value in overrides.items() if not env_set(settings, key)}
 
 
 def effective_settings(settings: Settings | None = None) -> Settings:
-    """Return ``settings`` with the proxy, OIDC and syslog values stored in the web interface
-    applied where their variable is not set (read by the controller at each OSV download, login,
-    batch of audit events and export; the connections of the connectors are read by
+    """Return ``settings`` with the controller URL, proxy, OIDC and syslog values stored in the web
+    interface applied where their variable is not set (read by the controller at each OSV
+    download, login, batch of audit events and export; the connections of the connectors are read by
     connectors.connections)."""
     settings = settings or get_settings()
     overrides = _overrides(_stored(), settings)
@@ -470,6 +542,12 @@ def describe(settings: Settings | None = None) -> dict:
             "env": settings.report_language,
             "env_set": env_set(settings, REPORT_LANGUAGE),
             "effective": report_language(settings),
+        },
+        "controller_url": {
+            "value": stored.get(CONTROLLER_URL),
+            "env": settings.controller_url,
+            "env_set": env_set(settings, CONTROLLER_URL),
+            "effective": effective.controller_url,
         },
         "proxy": _describe_proxy(settings, stored, effective),
         "osv": {

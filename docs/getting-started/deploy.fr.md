@@ -2,7 +2,7 @@
 
 Cette page met en place le **mode partagé (HTTP)** pour une équipe : le contrôleur (interface web,
 administration, pipelines) et le serveur MCP (utilisé par les agents), sur la même base. Voir
-[trois services, trois rôles](../index.md#trois-services-trois-roles).
+[trois services, trois rôles](../services.md).
 
 ```mermaid
 flowchart LR
@@ -32,7 +32,7 @@ flowchart LR
 - d'un compte `admin` pour gérer les utilisateurs, les jetons et les règles.
 
 Sans conteneur, tout-en-un sur un serveur Linux : voir la section Avancé
-[Installation manuelle (sans conteneur)](../advanced/manual-install.md).
+[Installation manuelle (sans conteneur)](../advanced/deployment/manual-install.md).
 
 ## Avec Docker Compose
 
@@ -62,15 +62,15 @@ Le serveur MCP sur `http://127.0.0.1:8000/mcp`.
     `user reset-password admin` dans le conteneur, et traitez ce qu'elle affiche comme un secret.
     Si vous le perdez, relancez la commande (l'ancien est aussitôt invalidé).
 
-**Pour plus d'informations :** voir [Docker](../advanced/docker.md) dans la section **Avancé**
-(ouverture à l'équipe, TLS, mise à jour OSV, sauvegardes, mise à niveau de PostgreSQL, sans Docker
-Compose).
+**Pour plus d'informations :** voir [Docker](../advanced/deployment/docker.md) dans la section **Avancé**
+(ouverture à l'équipe, TLS, mise à jour OSV, sans Docker Compose), et [Base de données](../advanced/database.md)
+pour les sauvegardes et la mise à niveau de PostgreSQL.
 
 ## Avec Kubernetes
 
 Copiez-collez tout le bloc : il déploie PostgreSQL (image officielle), le contrôleur et le
 serveur MCP (image publiée) dans le namespace `secreview`, puis donne le mot de passe du premier
-administrateur et un jeton. Un init container migre le schéma.
+administrateur et un jeton. Le contrôleur migre le schéma à son démarrage.
 
 ```bash
 kubectl create namespace secreview
@@ -109,15 +109,15 @@ que le terminal est ouvert.
 Pour l'équipe, exposez chaque Service par un Ingress avec TLS : `secreview-mcp` pour les agents,
 `secreview-controller` pour les développeurs (interface web, jetons MCP personnels) et pour la
 CI (`security-review-ci` appelle le contrôleur). Renseignez alors, dans la ConfigMap du
-manifeste, `SECREVIEW_WEB_URL` (URL publique de l'interface web) et
+manifeste, `SECREVIEW_CONTROLLER_URL` (URL publique racine du contrôleur) et
 `SECREVIEW_FORWARDED_ALLOW_IPS` (plage d'adresses des pods de l'ingress controller : sans ce
 réglage, tous les clients semblent venir de la même adresse, celle de l'Ingress).
 
-**Pour plus d'informations :** voir [Kubernetes](../advanced/kubernetes.md) dans la section
+**Pour plus d'informations :** voir [Kubernetes](../advanced/deployment/kubernetes.md) dans la section
 **Avancé** (PostgreSQL existant, contenu des manifestes, Secrets, exposition, mise à jour OSV,
 plusieurs réplicas).
 
 ## Étape suivante
 
 [Connectez l'hôte](host.md) de chaque développeur au serveur MCP. Pour aller plus loin :
-[jetons](../advanced/bearer-tokens.md), [TLS](../advanced/tls.md), [connexion OIDC](../advanced/sso.md).
+[jetons](../advanced/bearer-tokens.md), [TLS](../advanced/tls.md), [connexion OIDC](../usage/sso.md).

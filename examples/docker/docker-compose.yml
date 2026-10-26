@@ -50,6 +50,10 @@ services:
       SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD}@db:5432/secreview
       # Signs the web sessions: keep the same value, or every session ends at restart
       SECREVIEW_SECRET_KEY: ${SECREVIEW_SECRET_KEY}
+      # Public root URL of the controller (SECREVIEW_CONTROLLER_URL=https://… in .env), copied
+      # to the database at start: the mcp service gives its web interface (/ui) to the agents
+      # without a token. Empty, it can be set in the web interface (General).
+      SECREVIEW_CONTROLLER_URL: ${SECREVIEW_CONTROLLER_URL:-}
       # Daily download of the OSV vulnerability advisories (needs Internet access)
       # SECREVIEW_OSV_AUTO_UPDATE: "true"
       # SECREVIEW_OSV_ECOSYSTEMS: PyPI,npm,Maven

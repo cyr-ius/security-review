@@ -71,6 +71,8 @@ class AuditAction(StrEnum):
     USER_LOGIN_FAILED = "user.login_failed"
     USER_LOGOUT = "user.logout"
     AUDIT_SYSLOG_CHANGED = "audit_syslog.changed"
+    # Public URL of the controller, given to the clients without a token (see app_settings)
+    CONTROLLER_URL_CHANGED = "controller_url.changed"
     # Connectors (see connectors): a finding exported (record created or reused), the
     # destination of a project, the connection of a system
     FINDING_EXPORTED = "finding.exported"

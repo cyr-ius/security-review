@@ -1,4 +1,4 @@
-"""Security review MCP server."""
+"""Security review server."""
 
 from importlib.metadata import PackageNotFoundError, version
 

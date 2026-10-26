@@ -19,16 +19,10 @@
 
 name: security-review
 
-x-secreview-env: &secreview-env
-  SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
-  SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
-  SECREVIEW_SECRET_KEY: ${SECREVIEW_SECRET_KEY:?set SECREVIEW_SECRET_KEY in .env}
-
 x-secreview: &secreview
   build:
     context: .
   image: security-review
-  environment: *secreview-env
   networks:
     - backend
   read_only: true
@@ -67,11 +61,12 @@ services:
         condition: service_healthy
     entrypoint: ["security-review-controller"]
     command: ["serve"]
+    env_file:
+      - path: .env
+        required: false
     environment:
-      <<: *secreview-env
-      SECREVIEW_OSV_AUTO_UPDATE: ${SECREVIEW_OSV_AUTO_UPDATE:-false}
-      SECREVIEW_OSV_ECOSYSTEMS: ${SECREVIEW_OSV_ECOSYSTEMS:-PyPI,npm,Maven}
-      SECREVIEW_SWAGGER_ENABLED: ${SECREVIEW_SWAGGER_ENABLED:-false}
+      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
+      SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
     ports:
       - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:8080:8000"
 
@@ -79,11 +74,11 @@ services:
     <<: *secreview
     restart: unless-stopped
     depends_on:
-      # The MCP server only checks the schema: it starts once the controller has migrated it
       controller:
         condition: service_healthy
     environment:
-      <<: *secreview-env
+      SECREVIEW_DATABASE_URL: postgresql+psycopg2://secreview:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/secreview
+      SECREVIEW_LOG_LEVEL: ${SECREVIEW_LOG_LEVEL:-INFO}
     ports:
       - "${DOCKER_PUBLISH_ADDRESS:-127.0.0.1}:8000:8000"
 

@@ -106,7 +106,7 @@ In shared mode, when the server requires a token, you use a **personal MCP token
 interface. You do not need to ask an administrator for it before you start: configure the host
 as above, **without a token**, and run your first review. The agent tells you where to create
 your token, then requests the project at the next review (see
-[enrollment](../advanced/mcp-server.md#enrollment-personal-token-and-project-requests)).
+[enrollment](../advanced/architecture/mcp-server.md#enrollment-personal-token-and-project-requests)).
 
 1. **Configure the host without a token.** With the examples of the
    [HTTP transport](#http-transport) section, leave the token input empty (VS Code), do not
@@ -114,7 +114,7 @@ your token, then requests the project at the next review (see
    enrollment server, which has the same `security-review` name.
 2. **Run a review**, for example the `security-review` prompt. Instead of reading the code,
    the agent tells you to sign in to the web interface (its address is given when the
-   administrator set `SECREVIEW_WEB_URL`) and to create a personal MCP token. The server
+   administrator set it: `SECREVIEW_CONTROLLER_URL` or **General** screen) and to create a personal MCP token. The server
    records nothing at this step.
 
 3. **Create your personal MCP token**: sign in to the web interface, open **My
@@ -147,14 +147,14 @@ your token, then requests the project at the next review (see
    (usually the repository name). If you may create projects, a new project is created with you
    as its member and the review goes on. Otherwise the agent stops and tells you that the
    project is requested: an administrator approves it on the **Projects** screen, which gives you
-   access to it (for an existing project, the administrator adds you to its group
-   `project:<project>`). Access applies at once: run the review again, without reconfiguring
+   access to it. For a project that already exists, the request is an access request, approved
+   the same way. Access applies at once: run the review again, without reconfiguring
    anything.
 
 When the server refuses the token (unknown, revoked or expired), the host gets `401` with a
 message that tells you to sign in to the web interface again and create a new personal MCP
 token: replace it in the host as in step 4 (see
-[rejected token](../advanced/mcp-server.md#rejected-token-sign-in-again)).
+[rejected token](../advanced/architecture/mcp-server.md#rejected-token-sign-in-again)).
 
 !!! note
     If the administrator disabled the enrollment (`SECREVIEW_ENROLLMENT=false`), a host without
@@ -167,6 +167,6 @@ token: replace it in the host as in step 4 (see
 - **Server certificate signed by an internal CA** (`unable to verify the first certificate`):
   see [HTTPS server with an internal CA](../advanced/tls.md#https-server-with-an-internal-ca).
 - **Local mode (stdio)**, without a server (the host starts the process itself): see
-  [Local mode (stdio)](../getting-started/stdio.md).
+  [Local mode (stdio)](stdio.md).
 
-**Next step:** run your first review with the [prompts and tools](../usage/prompts-tools.md).
+**Next step:** run your first review with the [prompts and tools](../review/prompts-tools.md).
