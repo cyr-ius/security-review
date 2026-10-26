@@ -334,6 +334,12 @@ ADDITIONAL_RULES = [
     ("python", "if token == provided:", "if hmac.compare_digest(token, provided):", "PY-025"),
     ("python", "if signature != expected:", "if digest(a) != digest(b):", "PY-025"),
     (
+        "python",
+        "stored = hashlib.sha256(salt + password.encode()).hexdigest()",
+        'stored = hashlib.sha256(token.encode("utf-8")).digest()',
+        "PY-028",
+    ),
+    (
         "java",
         'ctx.search("ou=users", "(uid=" + user + ")", ctls);',
         'ctx.search("ou=users", "(uid={0})", new Object[]{user}, ctls);',
