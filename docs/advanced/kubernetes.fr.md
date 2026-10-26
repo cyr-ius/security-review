@@ -39,8 +39,8 @@ opérateur, qui gèrent la réplication, les sauvegardes et les mises à niveau.
 
 `security-review.yaml` contient :
 
-- un **Deployment `secreview-controller`** (une réplique, stratégie `Recreate`) dont l'init
-  container lance `security-review-controller db upgrade` à chaque déploiement ;
+- un **Deployment `secreview-controller`** (une réplique, stratégie `Recreate`), qui migre le
+  schéma à son démarrage (une sonde `startup` lui laisse jusqu'à 10 minutes) ;
 - un **Deployment `secreview-mcp`**, qui vérifie seulement le schéma à son démarrage ;
 - une **ConfigMap `secreview-config`** partagée par les deux processus ;
 - un Service par processus, des sondes `readiness` et `liveness` sur `/healthz`, des

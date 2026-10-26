@@ -14,8 +14,8 @@
 #
 # The published image contains the PostgreSQL driver; pin a version (X.Y.Z) in production.
 #
-# The controller migrates the schema in an init container (Recreate strategy: the old controller
-# pods stop before the new schema is applied; concurrent migrations wait for each other on a
+# The controller migrates the schema when it starts (Recreate strategy: the old controller pods
+# stop before the new schema is applied; concurrent migrations wait for each other on a
 # PostgreSQL lock). The MCP pods only check the schema when they start: new ones restart until
 # the controller has migrated it. Expose each Service through its own Ingress with TLS: the MCP
 # server to the agents, the controller to the people (web interface, personal MCP tokens) and
@@ -40,8 +40,6 @@ metadata:
   name: secreview-config
 data:
   SECREVIEW_LOG_LEVEL: INFO
-  # Only the init container of the controller migrates the schema
-  SECREVIEW_DB_AUTO_UPGRADE: "false"
   # Address range of the ingress controller pods: their X-Forwarded-For gives the client
   # address (login throttling, audit log, logs). Adapt it to your cluster.
   # SECREVIEW_FORWARDED_ALLOW_IPS: "10.0.0.0/8"
@@ -77,23 +75,6 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       automountServiceAccountToken: false
-      initContainers:
-        - name: migrate
-          image: ghcr.io/cyr-ius/security-review:latest
-          command: ["security-review-controller", "db", "upgrade"]
-          envFrom: &env
-            - configMapRef:
-                name: secreview-config
-            - secretRef:
-                name: secreview-db
-          securityContext: &container-security
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities:
-              drop: ["ALL"]
-          volumeMounts: &mounts
-            - name: tmp
-              mountPath: /tmp
       containers:
         - name: controller
           image: ghcr.io/cyr-ius/security-review:latest
@@ -134,14 +115,28 @@ spec:
               port: http
             periodSeconds: 10
           livenessProbe: *probe
+          # The controller migrates the schema before it listens: up to 10 minutes before the
+          # liveness probe may restart it
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            failureThreshold: 60
           resources:
             requests:
               cpu: 50m
               memory: 128Mi
             limits:
               memory: 512Mi
-          securityContext: *container-security
-          volumeMounts: *mounts
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
       volumes:
         - name: tmp
           emptyDir: {}

@@ -68,7 +68,7 @@ the team, TLS, OSV update, backups, PostgreSQL upgrade, without Docker Compose).
 
 Copy and paste the whole block: it deploys PostgreSQL (official image), the controller and the
 MCP server (published image) in the `secreview` namespace, then gives the first administrator
-password and a token. An init container migrates the schema.
+password and a token. The controller migrates the schema when it starts.
 
 ```bash
 kubectl create namespace secreview

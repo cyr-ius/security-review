@@ -70,7 +70,7 @@ Compose).
 
 Copiez-collez tout le bloc : il déploie PostgreSQL (image officielle), le contrôleur et le
 serveur MCP (image publiée) dans le namespace `secreview`, puis donne le mot de passe du premier
-administrateur et un jeton. Un init container migre le schéma.
+administrateur et un jeton. Le contrôleur migre le schéma à son démarrage.
 
 ```bash
 kubectl create namespace secreview

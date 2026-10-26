@@ -39,8 +39,8 @@ replication, backups and upgrades.
 
 `security-review.yaml` contains:
 
-- a **`secreview-controller` Deployment** (one replica, `Recreate` strategy) whose init
-  container runs `security-review-controller db upgrade` at every deployment;
+- a **`secreview-controller` Deployment** (one replica, `Recreate` strategy), which migrates
+  the schema when it starts (a `startup` probe gives it up to 10 minutes);
 - a **`secreview-mcp` Deployment**, which only checks the schema when it starts;
 - a **`secreview-config` ConfigMap** shared by both processes;
 - one Service per process, `readiness` and `liveness` probes on `/healthz`, non-root
