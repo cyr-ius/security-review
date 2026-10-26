@@ -27,8 +27,7 @@ management in [Bearer tokens](../bearer-tokens.md).
 
 `security-review-controller serve` (port `8000` in the image, `--host` and `--port` otherwise):
 
-1. migrates the schema, or only checks it with `SECREVIEW_DB_AUTO_UPGRADE=false` (see
-   [Schema migrations](#schema-migrations));
+1. migrates the schema (see [Schema migrations](#schema-migrations));
 2. checks the settings (TLS, OIDC, OSV, syslog, connectors): an invalid value stops it with
    code `2`;
 3. creates the [first administrator](#first-administrator) while no account exists;
@@ -48,12 +47,24 @@ security-review-controller db status    # {"current": "0032", "head": "0032", "u
 - The **HTTP MCP server never migrates**: it refuses to start (code `2`, message
   `run security-review-controller db upgrade first`) while the database is not at the expected
   revision. Under Kubernetes, the pod restarts until the migration is done.
-- The controller, the stdio MCP server and the CLI commands migrate at start-up, unless
-  `SECREVIEW_DB_AUTO_UPGRADE=false`. They then only check the schema. With Docker Compose and
-  Kubernetes, the controller migrates when it starts.
+- The controller, the stdio MCP server and the CLI commands migrate at start-up: with Docker
+  Compose and Kubernetes, the controller migrates when it starts, there is nothing to do.
 - On PostgreSQL, a migration takes an advisory lock: instances that start together (several
   replicas, a `db upgrade` run by hand) wait for each other, and the next one finds the schema
-  up to date. Disable the automatic migration only to keep it in a dedicated task.
+  up to date.
+
+### Dedicated migration job
+
+By default, nothing has to be configured. `SECREVIEW_DB_AUTO_UPGRADE=false` is only for an
+operator who keeps migrations out of the application, for instance when:
+
+- the database account of the application has no right to change the schema (no DDL): a job
+  runs `security-review-controller db upgrade` with a privileged account;
+- a new image must not change the schema by itself: the migration is run after a backup, or
+  during a maintenance window.
+
+The controller, the stdio MCP server and the CLI commands then only check the schema: like the
+HTTP MCP server, they refuse to start (code `2`) until `db upgrade` has been run.
 
 ## Background tasks
 

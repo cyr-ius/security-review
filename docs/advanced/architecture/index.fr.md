@@ -26,7 +26,7 @@ flowchart LR
 | Sert | `/mcp`, `/healthz` | API REST `/api/v1`, interface `/ui`, `/healthz` |
 | Identifiants acceptés | jetons `mcp` (personnels ou non) et `admin` | sessions web (utilisateurs), jetons `admin` et `api` ; jetons `ci` et jetons `mcp` personnels sur les seules routes de pipeline `/api/v1/ci/` (gate, SARIF, tendance, scans) ; jetons `metrics` sur `/metrics` seulement |
 | Routes sans jeton | serveur d'enrôlement sur `/mcp` (sans outil), `/healthz` | fichiers de `/ui`, connexion (`/api/v1/auth/`), `/healthz`, et la documentation de l'API quand `SECREVIEW_SWAGGER_ENABLED=true` |
-| Schéma de la base | vérifie seulement | migre (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`) |
+| Schéma de la base | vérifie seulement | migre |
 | Exposition conseillée | aux agents, avec TLS | aux personnes et aux pipelines, avec TLS |
 
 Les deux processus ne s'appellent jamais : tout passe par la base. Un jeton créé ou révoqué sur

@@ -21,7 +21,7 @@ Read by the MCP server and by the controller.
 |---|---|---|
 | `SECREVIEW_DATABASE_URL` | SQLite file of the user (see [Database](#database)) | SQLAlchemy URL of the database, **shared** by both processes |
 | `SECREVIEW_DATABASE_ECHO` | `false` | Logs the SQL queries |
-| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migrates the schema at start-up of the controller, of the stdio MCP server and of the CLI commands; when `false`, they only check that it is up to date (see [migrations](../advanced/architecture/controller.md#schema-migrations)). The HTTP MCP server never migrates |
+| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migrates the schema at start-up of the controller, of the stdio MCP server and of the CLI commands; leave it as is unless migrations are run by a [dedicated job](../advanced/architecture/controller.md#dedicated-migration-job), where `false` makes them only check the schema. The HTTP MCP server never migrates |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | Logging level (on stderr) |
 
 ### Listening, TLS and reverse proxy

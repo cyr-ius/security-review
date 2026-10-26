@@ -21,7 +21,7 @@ Lues par le serveur MCP et par le contrôleur.
 |---|---|---|
 | `SECREVIEW_DATABASE_URL` | Fichier SQLite de l'utilisateur (voir [Base de données](#base-de-donnees)) | URL SQLAlchemy de la base, **partagée** par les deux processus |
 | `SECREVIEW_DATABASE_ECHO` | `false` | Journalise les requêtes SQL |
-| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migre le schéma au démarrage du contrôleur, du serveur MCP stdio et des commandes CLI ; à `false`, ils vérifient seulement qu'il est à jour (voir [migrations](../advanced/architecture/controller.md#migrations-du-schema)). Le serveur MCP HTTP ne migre jamais |
+| `SECREVIEW_DB_AUTO_UPGRADE` | `true` | Migre le schéma au démarrage du contrôleur, du serveur MCP stdio et des commandes CLI ; à laisser tel quel, sauf si les migrations sont confiées à une [tâche dédiée](../advanced/architecture/controller.md#tache-de-migration-dediee), où `false` leur fait seulement vérifier le schéma. Le serveur MCP HTTP ne migre jamais |
 | `SECREVIEW_LOG_LEVEL` | `INFO` | Niveau de journalisation (sur stderr) |
 
 ### Écoute, TLS et reverse proxy

@@ -31,7 +31,7 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ securit
 
 Sans commande, `security-review-mcp` affiche son aide.
 
-En stdio, le serveur migre lui-même sa base au démarrage (sauf `SECREVIEW_DB_AUTO_UPGRADE=false`).
+En stdio, le serveur migre lui-même sa base au démarrage.
 En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`) tant que
 `security-review-controller db upgrade` n'a pas été lancé.
 
@@ -56,9 +56,8 @@ En HTTP, il **vérifie seulement** le schéma : il refuse de démarrer (code `2`
 | `advisories import PATH` / `advisories status` | Gestion de la base OSV hors ligne | [Dépendances](../review/analysis/dependencies.md#base-de-vulnerabilites-hors-ligne-format-osv) |
 | `advisories update [--ecosystem E …]` | Télécharge les exports OSV (`SECREVIEW_OSV_*`, proxy facultatif) et les importe ; code `2` si un écosystème échoue | [Mise à jour automatique](../review/analysis/dependencies.md#mise-a-jour-automatique-par-le-controleur) |
 
-`serve` et les autres commandes migrent le schéma au démarrage si nécessaire : `db upgrade` n'est
-à lancer à la main qu'avec `SECREVIEW_DB_AUTO_UPGRADE=false`, où elles le vérifient seulement
-(voir [Migrations du schéma](../advanced/architecture/controller.md#migrations-du-schema)).
+`serve` et les autres commandes migrent le schéma au démarrage si nécessaire : `db upgrade` ne
+sert qu'à une [tâche de migration dédiée](../advanced/architecture/controller.md#tache-de-migration-dediee).
 
 ## `security-review-ci`
 

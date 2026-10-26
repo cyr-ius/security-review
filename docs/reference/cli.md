@@ -31,8 +31,7 @@ uvx --no-index --find-links https://secreview.example.com/api/ci-client/ securit
 
 Without a command, `security-review-mcp` prints its usage.
 
-With stdio, the server migrates its database itself at start-up (unless
-`SECREVIEW_DB_AUTO_UPGRADE=false`). With HTTP, it **only checks** the schema: it refuses to
+With stdio, the server migrates its database itself at start-up. With HTTP, it **only checks** the schema: it refuses to
 start (code `2`) while `security-review-controller db upgrade` has not been run.
 
 ## `security-review-controller`
@@ -56,9 +55,8 @@ start (code `2`) while `security-review-controller db upgrade` has not been run.
 | `advisories import PATH` / `advisories status` | Management of the offline OSV database | [Dependencies](../review/analysis/dependencies.md#offline-vulnerability-database-osv-format) |
 | `advisories update [--ecosystem E …]` | Downloads the OSV exports (`SECREVIEW_OSV_*`, optional proxy) and imports them; code `2` if an ecosystem fails | [Automatic update](../review/analysis/dependencies.md#automatic-update-by-the-controller) |
 
-`serve` and the other commands migrate the schema at start-up when needed: run `db upgrade`
-by hand only with `SECREVIEW_DB_AUTO_UPGRADE=false`, where they only check it
-(see [Schema migrations](../advanced/architecture/controller.md#schema-migrations)).
+`serve` and the other commands migrate the schema at start-up when needed: `db upgrade` is
+only useful to a [dedicated migration job](../advanced/architecture/controller.md#dedicated-migration-job).
 
 ## `security-review-ci`
 

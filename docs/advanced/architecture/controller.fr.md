@@ -27,8 +27,7 @@ dans [Jetons Bearer](../bearer-tokens.md).
 
 `security-review-controller serve` (port `8000` dans l'image, `--host` et `--port` sinon) :
 
-1. migre le schéma, ou le vérifie seulement avec `SECREVIEW_DB_AUTO_UPGRADE=false` (voir
-   [Migrations du schéma](#migrations-du-schema)) ;
+1. migre le schéma (voir [Migrations du schéma](#migrations-du-schema)) ;
 2. vérifie les réglages (TLS, OIDC, OSV, syslog, connecteurs) : une valeur invalide l'arrête
    avec le code `2` ;
 3. crée le [premier administrateur](#premier-administrateur) tant qu'aucun compte n'existe ;
@@ -49,13 +48,25 @@ security-review-controller db status    # {"current": "0032", "head": "0032", "u
 - Le **serveur MCP HTTP ne migre jamais** : il refuse de démarrer (code `2`, message
   `run security-review-controller db upgrade first`) tant que la base n'est pas à la révision
   attendue. Sous Kubernetes, le pod redémarre jusqu'à ce que la migration soit faite.
-- Le contrôleur, le serveur MCP stdio et les commandes CLI migrent au démarrage, sauf avec
-  `SECREVIEW_DB_AUTO_UPGRADE=false`. Ils vérifient alors seulement le schéma. Avec Docker
-  Compose et Kubernetes, le contrôleur migre à son démarrage.
+- Le contrôleur, le serveur MCP stdio et les commandes CLI migrent au démarrage : avec Docker
+  Compose et Kubernetes, le contrôleur migre à son démarrage, il n'y a rien à faire.
 - Sur PostgreSQL, une migration prend un verrou consultatif (advisory lock) : des instances qui
   démarrent ensemble (plusieurs réplicas, un `db upgrade` lancé à la main) s'attendent, et la
-  suivante trouve le schéma à jour. Ne désactivez la migration automatique que pour la confier à
-  une tâche dédiée.
+  suivante trouve le schéma à jour.
+
+### Tâche de migration dédiée
+
+Par défaut, rien n'est à configurer. `SECREVIEW_DB_AUTO_UPGRADE=false` ne sert qu'à un
+exploitant qui sort les migrations de l'application, par exemple quand :
+
+- le compte de base de données de l'application n'a pas le droit de modifier le schéma (pas de
+  DDL) : une tâche lance `security-review-controller db upgrade` avec un compte privilégié ;
+- une nouvelle image ne doit pas modifier le schéma d'elle-même : la migration est lancée après
+  une sauvegarde, ou pendant une fenêtre de maintenance.
+
+Le contrôleur, le serveur MCP stdio et les commandes CLI vérifient alors seulement le schéma :
+comme le serveur MCP HTTP, ils refusent de démarrer (code `2`) tant que `db upgrade` n'a pas été
+lancé.
 
 ## Tâches de fond
 
