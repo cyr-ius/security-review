@@ -5,6 +5,7 @@ import { FormField, form, maxLength, required } from '@angular/forms/signals';
 import { firstValueFrom } from 'rxjs';
 import { I18nService, Message, msg, serverDetail } from '../../../core/i18n/i18n.service';
 import { TranslatePipe } from '../../../core/i18n/translate.pipe';
+import { MarkdownFieldComponent } from '../../../shared/components/markdown-field/markdown-field.component';
 import { ChecklistItem, ChecklistItemWrite } from '../../../core/models/api.models';
 import { ApiService, saveBlob } from '../../../core/services/api.service';
 import {
@@ -43,6 +44,7 @@ type ChecklistSortKey = 'domain' | 'title';
 @Component({
   selector: 'app-checklist-list',
   imports: [
+    MarkdownFieldComponent,
     PackTransferComponent,
     FormField,
     SortHeaderComponent,

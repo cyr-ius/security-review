@@ -58,10 +58,11 @@ projet : tout client autorisé sur `/mcp` les lit.
 ## Gestion (interface web et API REST)
 
 L'écran **Normes** de l'interface web liste les normes avec leurs technologies et motifs de
-fichiers, et permet de rechercher et de lire chacune. Comme les règles et les checklists, il est
-réservé aux administrateurs, qui les créent, les modifient, les désactivent ou les suppriment.
-Les assistants IA, eux, reçoivent les normes actives par le serveur MCP (prompt et outils
-ci-dessus), quel que soit le rôle web de l'utilisateur.
+fichiers, et permet de rechercher et de lire chacune, avec son rendu Markdown. Comme les règles
+et les checklists, il est réservé aux administrateurs, qui les créent, les modifient, les
+désactivent ou les suppriment. Le champ du contenu s'ouvre en plein écran, à côté de son aperçu
+Markdown. Les assistants IA, eux, reçoivent les normes actives par le serveur MCP (prompt et
+outils ci-dessus), quel que soit le rôle web de l'utilisateur.
 
 | Méthode | Route | Rôle requis |
 |---|---|---|

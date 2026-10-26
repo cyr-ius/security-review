@@ -49,6 +49,11 @@ Un écran manque ? Vous n'avez pas sa permission : demandez-la à un administrat
 | **Checklists** | Les points de contrôle suivis par les agents ([checklists](../review/checklists.md)) |
 | **Normes** | Les normes de développement données aux assistants IA ([normes](../review/standards.md)) |
 
+Dans le formulaire d'édition, les champs de texte long (contenu d'une norme, conseil d'une
+règle, point de contrôle d'une checklist) ont un bouton plein écran : le texte s'ouvre dans un
+grand éditeur, à côté de son aperçu Markdown (**Édition**, **Côte à côte** ou **Aperçu**). Les
+modifications sont reportées dans le formulaire, qui les enregistre ou les annule.
+
 **Administration**
 
 | Écran | À quoi il sert |

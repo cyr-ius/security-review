@@ -161,7 +161,9 @@
         @if (standard.description) {
           <p class="text-body-secondary">{{ standard.description }}</p>
         }
-        <pre class="standard-content border rounded p-3 mb-2">{{ standard.content }}</pre>
+        <div class="standard-content border rounded p-3 mb-2">
+          <app-markdown-view [text]="standard.content" />
+        </div>
         <p class="small text-body-secondary mb-0">
           @if (standard.updated_by) {
             {{
@@ -273,13 +275,15 @@
           </div>
           <div class="col-12">
             <label class="form-label" for="standard-content">{{ 'standards.content' | t }}</label>
-            <textarea
-              id="standard-content"
-              class="form-control font-monospace"
-              rows="14"
+            <app-markdown-field
+              inputId="standard-content"
+              describedBy="standard-content-help"
+              monospace
+              [rows]="14"
+              [label]="'standards.content' | t"
               [formField]="standardForm.content"
-            ></textarea>
-            <div class="form-text">
+            />
+            <div id="standard-content-help" class="form-text">
               {{ 'standards.contentHelp' | t: { length: formModel().content.length } }}
             </div>
           </div>
