@@ -22,7 +22,7 @@ In VS Code (`.vscode/`):
 
 | `launch.json` configuration | Role |
 |---|---|
-| **Controller (debug: FastAPI + Angular)** | Controller on port 8080 and `ng serve` on port 4200 under the debugger, then Chrome on `http://localhost:4200/ui/` with the TypeScript breakpoints; hot reload, migrates the database and shows the password of the initial `admin` account at first start |
+| **Controller (debug: FastAPI + Angular)** | Controller on port 8080 and `ng serve` on port 4200 under the debugger, then Chrome on `http://localhost:4200/ui/` with the TypeScript breakpoints; hot reload of the page, restart of the controller on each save of `src/` (`scripts/dev_reload.py`), migrates the database and shows the password of the initial `admin` account at first start |
 | **MCP server (debug, port 8000)** | Runs the **Database upgrade** task, then the HTTP MCP server under the debugger |
 | **Controller CLI (prompt for arguments)** | A controller command (`db status`, `token list`…) under the debugger |
 | **Docs: MkDocs (port 8001)** | `mkdocs serve` with live reload, opens the site in the browser |
@@ -32,7 +32,7 @@ In VS Code (`.vscode/`):
 | **Build security_review_mcp** | `uv sync --extra dev --extra docs --extra postgres` |
 | **Database upgrade** | `uv run security-review-controller db upgrade` (after **Build**) |
 | **Tests** / **Lint** | `pytest`, then ruff and `mkdocs build --strict` |
-| **Web UI: build** / **Web UI: dev server (port 4200)** | Angular build served by the controller, or `ng serve` with `/api` forwarded to port 8080 |
+| **Web UI: build** / **Web UI: dev server (port 4200)** | Angular build served by the controller, or `ng serve` with `/api` forwarded to port 8080 (stopped with the debugger by **Web UI: stop dev server**) |
 | **Docker: compose up** / **down** | `docker-compose.yml` stack of the image, with its own PostgreSQL database (same ports 8000 and 8080: stop the debug configurations first) |
 
 ### Devcontainer
