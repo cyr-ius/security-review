@@ -20,7 +20,34 @@ const renderer = new Marked({
   },
 });
 
-/** Render Markdown text as HTML for a preview. */
-export function renderMarkdown(text: string): string {
-  return renderer.parse(text, { async: false });
+/** HTML of a Markdown text, and where each of its top level blocks starts in the text. */
+export interface RenderedMarkdown {
+  /** One <div> per top level block (heading, paragraph, list, code, table...). */
+  html: string;
+  /** Character offset in the text of the block rendered by each <div>, in order. */
+  offsets: number[];
+}
+
+/**
+ * Render Markdown text as HTML for a preview. Each top level block gets its own <div>, so that
+ * a side by side editor can match the blocks of the text with those of the preview.
+ */
+export function renderMarkdown(text: string): RenderedMarkdown {
+  const tokens = renderer.lexer(text);
+  const parts: string[] = [];
+  const offsets: number[] = [];
+  let offset = 0;
+  for (const token of tokens) {
+    // Reference links are defined anywhere in the text: each block keeps the whole list.
+    const html =
+      token.type === 'space'
+        ? ''
+        : renderer.parser(Object.assign([token], { links: tokens.links }));
+    if (html.trim()) {
+      parts.push(`<div>${html}</div>`);
+      offsets.push(offset);
+    }
+    offset += token.raw.length;
+  }
+  return { html: parts.join(''), offsets };
 }

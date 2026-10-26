@@ -64,6 +64,7 @@
     <div class="card-body markdown-field-panes" [attr.data-mode]="mode()">
       @if (mode() !== 'preview') {
         <textarea
+          #textPane
           class="form-control markdown-field-wide"
           autofocus
           [class.font-monospace]="monospace()"
@@ -71,13 +72,16 @@
           [value]="value()"
           [disabled]="disabled()"
           (input)="onInput($event)"
+          (scroll)="onPaneScroll('text')"
         ></textarea>
       }
       @if (mode() !== 'edit') {
         <div
+          #previewPane
           class="markdown-preview border rounded p-3"
           [attr.aria-label]="'markdown.preview' | t"
           role="region"
+          (scroll)="onPaneScroll('preview')"
         >
           @if (expanded() && value().trim()) {
             <app-markdown-view [text]="value()" />

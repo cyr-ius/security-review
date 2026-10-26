@@ -58,6 +58,8 @@
 }
 
 .markdown-preview {
+  /* Reference of the offsetTop of the blocks, for the scroll synchronization. */
+  position: relative;
   min-block-size: 0;
   overflow: auto;
   overflow-wrap: anywhere;

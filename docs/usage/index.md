@@ -50,8 +50,8 @@ A screen is missing? You do not hold its permission: ask an administrator (see
 
 In the edit form, the long text fields (content of a standard, advice of a rule, checkpoint of a
 checklist item) have a full screen button: the text opens in a large editor, next to its
-Markdown preview (**Edit**, **Side by side** or **Preview**). The changes go to the form, which
-still saves or cancels them.
+Markdown preview (**Edit**, **Side by side** or **Preview**); side by side, both panes scroll
+together. The changes go to the form, which still saves or cancels them.
 
 **Administration**
 

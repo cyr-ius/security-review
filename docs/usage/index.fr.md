@@ -51,8 +51,9 @@ Un écran manque ? Vous n'avez pas sa permission : demandez-la à un administrat
 
 Dans le formulaire d'édition, les champs de texte long (contenu d'une norme, conseil d'une
 règle, point de contrôle d'une checklist) ont un bouton plein écran : le texte s'ouvre dans un
-grand éditeur, à côté de son aperçu Markdown (**Édition**, **Côte à côte** ou **Aperçu**). Les
-modifications sont reportées dans le formulaire, qui les enregistre ou les annule.
+grand éditeur, à côté de son aperçu Markdown (**Édition**, **Côte à côte** ou **Aperçu**) ; côte
+à côte, les deux volets défilent ensemble. Les modifications sont reportées dans le formulaire,
+qui les enregistre ou les annule.
 
 **Administration**
 
