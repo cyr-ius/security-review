@@ -40,7 +40,6 @@
       "presentation": { "hidden": true }
     },
     {
-      // The HTTP MCP server never migrates: the "Database upgrade" task does it first
       "name": "MCP server (debug, port 8000)",
       "type": "debugpy",
       "request": "launch",
@@ -58,6 +57,7 @@
     },
     {
       // Any controller command, e.g. db status, token list, rules list, user list
+      // Reset the first admin : security-review-controller user reset-password admin
       "name": "Controller CLI (prompt for arguments)",
       "type": "debugpy",
       "request": "launch",
@@ -70,7 +70,6 @@
       "justMyCode": false
     },
     {
-      // Live reload on save; opens the site in the browser once it is served
       "name": "Docs: MkDocs (port 8001)",
       "type": "debugpy",
       "request": "launch",
