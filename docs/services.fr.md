@@ -8,8 +8,8 @@ Le client de pipeline `security-review-ci` n'a pas accès à la base : il appell
 
 Deux installations possibles :
 
- - Une installation all-in-one dans le poste du dévellopeur. Voir [Mode local](../getting-started/stdio.md)
- - Une installation modulaire sur des serveurs ou dans des containers; Voir [Mode partagé](../getting-started/deploy.md)
+ - Une installation all-in-one dans le poste du développeur. Voir [Mode local](getting-started/stdio.md)
+ - Une installation modulaire sur des serveurs ou dans des containers; Voir [Mode partagé](getting-started/deploy.md)
 
 ## Les composants d'infrastructure
 

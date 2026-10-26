@@ -7,8 +7,8 @@ The `security-review-ci` pipeline client does not have direct access to the data
 
 There are two possible deployment options:
 
-- An all-in-one installation on a developer's machine. See [Local mode](../getting-started/stdio.md)
-- A modular installation on servers or within containers. See [Shared mode](../getting-started/deploy.md)
+- An all-in-one installation on a developer's machine. See [Local mode](getting-started/stdio.md)
+- A modular installation on servers or within containers. See [Shared mode](getting-started/deploy.md)
 
 ```mermaid
 flowchart LR
