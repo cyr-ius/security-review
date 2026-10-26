@@ -11,7 +11,6 @@
   ],
   "configurations": [
     {
-      // Migrates the schema at start; prints the bootstrap admin password on the first start.
       // dev_reload restarts the controller on each save of src/ (debugged as a subprocess)
       "name": "Controller: FastAPI (port 8080)",
       "type": "debugpy",
@@ -23,7 +22,6 @@
       "python": "${workspaceFolder}/.venv/bin/python",
       "env": {
         "PYTHONPATH": "${workspaceFolder}/src",
-        "SECREVIEW_AUTH_BOOTSTRAP_ADMIN": "true",
         "SECREVIEW_LOG_LEVEL": "DEBUG"
       },
       "console": "integratedTerminal",
