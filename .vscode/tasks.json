@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Build security_review_mcp",
+      "label": "Build security_review",
       "detail": "uv sync --extra dev --extra docs --extra postgres",
       "type": "process",
       "command": "uv",
@@ -17,7 +17,7 @@
       "command": "uv",
       "args": ["run", "security-review-controller", "db", "upgrade"],
       "options": { "cwd": "${workspaceFolder}" },
-      "dependsOn": "Build security_review_mcp",
+      "dependsOn": "Build security_review",
       "problemMatcher": []
     },
     {
