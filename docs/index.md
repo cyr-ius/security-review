@@ -48,7 +48,7 @@ recorded in one place, where your security team reads it, triages it and follows
 
 ## What the product contains
 
-An MCP server for **security-focused code review** (identifying vulnerabilities and misconfigurations). It provides the host (VS Code, Copilot, Claude, CI/CD agent, etc.) with:
+An **MCP server** for **security-focused code review** (identifying vulnerabilities and misconfigurations). It provides the host (VS Code, Copilot, Claude, CI/CD agent, etc.) with:
 
 - Structured **prompts** to initiate a review;
 - **Tools**, including checklists, pattern-based quick scans, and the ability to save and retrieve reports;
@@ -56,7 +56,7 @@ An MCP server for **security-focused code review** (identifying vulnerabilities 
 
 Accessed via the `security-review-mcp` command.
 
-A Controller server for **administration and control management** (the Controller is optional). It provides administrators and cybersecurity analysts with:
+A **Controller server** for **administration and control management** (the Controller is optional). It provides administrators and cybersecurity analysts with:
 
 - Access to security analysis **reports**;
 - The ability to conduct **security reviews** and manage **risk acceptance**;
@@ -67,7 +67,7 @@ A Controller server for **administration and control management** (the Controlle
 
 Accessed via the `security-review-controller` command.
 
-It includes a CLI for integration into pipelines (such as Jenkins, etc.), enabling:
+A **CI command** for injection into pipelines (such as Jenkins, etc.) that enables:
 
 - Full **repository scanning**;
 - Deployment **gates** that block releases if open findings exist;

@@ -52,7 +52,7 @@ trie et en assure le suivi.
 
 ## Ce que contient le produit
 
-Un serveur MCP pour la **revue de code orientée sécurité** (failles et mauvaises
+Un **serveur MCP** pour la **revue de code orientée sécurité** (failles et mauvaises
 configurations). Il fournit à l'hôte (VS Code, Copilot, Claude, agent CI/CD) :
 
 - des **prompts** structurés pour lancer une revue ;
@@ -62,7 +62,7 @@ configurations). Il fournit à l'hôte (VS Code, Copilot, Claude, agent CI/CD) :
 
 via la commande `security-review-mcp`
 
-Un serveur Controller qui permet l'**administration et la gestion des contrôles** (le Controller est facultatif)
+Un **serveur Controller* qui permet l'**administration et la gestion des contrôles** (le Controller est facultatif)
 Il fournit aux administrateurs et analystes en cybersécurité :
 
  - la **consultation des rapports** d'analyse de sécurité
@@ -74,7 +74,7 @@ Il fournit aux administrateurs et analystes en cybersécurité :
 
 via la commande `security-review-controller`
 
-Il s'accompagne d'une commande CLI pour l'injection dans les pipelines (tels que Jenkins, etc.) et permet :
+Une **commande CI** pour l'injection dans les pipelines (tels que Jenkins, etc.) et permet :
  - **scan du dépôt** complet
  - **gate** de déploiement avec blocage si des findings sont ouverts
  - export SARIF et **rapport** de tendance
