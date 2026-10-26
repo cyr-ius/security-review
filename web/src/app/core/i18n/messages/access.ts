@@ -88,7 +88,7 @@ export const access = defineMessages({
     'permission.projectsDelete': 'Delete projects',
     'permission.projectsDeleteHelp':
       'A project with its reports, findings, project group, and its place in the roles and tokens.',
-    'permission.mcpTokensCreate': 'Create a personal MCP or CI token',
+    'permission.mcpTokensCreate': 'Create a personal token (PAT)',
     'permission.mcpTokensCreateHelp':
       'My account: a token for the MCP agent of the user, or for security-review-ci on its workstation, which reaches the projects the user may read.',
     'permission.onProjects': '{permission} ({projects})',
@@ -182,7 +182,7 @@ export const access = defineMessages({
     'permission.projectsDelete': 'Supprimer des projets',
     'permission.projectsDeleteHelp':
       'Un projet avec ses rapports, ses findings, son groupe de projet et sa place dans les rôles et les jetons.',
-    'permission.mcpTokensCreate': 'Créer un jeton MCP ou CI personnel',
+    'permission.mcpTokensCreate': 'Créer un jeton personnel (PAT)',
     'permission.mcpTokensCreateHelp':
       "Mon compte : un jeton pour l'agent MCP de l'utilisateur, ou pour security-review-ci sur son poste, qui atteint les projets qu'il peut lire.",
     'permission.onProjects': '{permission} ({projects})',
@@ -276,7 +276,7 @@ export const access = defineMessages({
     'permission.projectsDelete': 'Eliminar proyectos',
     'permission.projectsDeleteHelp':
       'Un proyecto con sus informes, hallazgos, grupo de proyecto y su lugar en los roles y tokens.',
-    'permission.mcpTokensCreate': 'Crear un token MCP o CI personal',
+    'permission.mcpTokensCreate': 'Crear un token personal (PAT)',
     'permission.mcpTokensCreateHelp':
       'Mi cuenta: un token para el agente MCP del usuario, o para security-review-ci en su equipo, que alcanza los proyectos que puede leer.',
     'permission.onProjects': '{permission} ({projects})',
